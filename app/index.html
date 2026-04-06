@@ -505,6 +505,26 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .light-theme .guide-tool .gt-name{color:#1a1a2e}
 .light-theme .guide-tool .gt-desc{color:#6b7fa0}
 
+/* ── Devil Icon Animation ──────────────────── */
+@keyframes flameFlicker{0%,100%{transform:scaleY(1) scaleX(1);opacity:.9}25%{transform:scaleY(1.1) scaleX(.95);opacity:1}50%{transform:scaleY(.95) scaleX(1.05);opacity:.85}75%{transform:scaleY(1.05) scaleX(.98);opacity:.95}}
+@keyframes flameGlow{0%,100%{filter:blur(2px) brightness(1)}50%{filter:blur(3px) brightness(1.2)}}
+@keyframes tridentFloat{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-4px) rotate(.5deg)}}
+@keyframes emberRise{0%{transform:translateY(0) scale(1);opacity:.8}100%{transform:translateY(-20px) scale(0);opacity:0}}
+.devil-icon{position:relative;width:80px;height:90px;margin:0 auto 8px;animation:tridentFloat 6s ease-in-out infinite}
+.devil-icon svg{width:100%;height:100%;filter:drop-shadow(0 0 12px #ef444440)}
+.devil-flame{transform-origin:bottom center;animation:flameFlicker 1.5s ease-in-out infinite}
+.devil-flame-outer{transform-origin:bottom center;animation:flameFlicker 2s ease-in-out infinite .3s}
+.devil-glow{animation:flameGlow 3s ease-in-out infinite}
+.devil-ember{position:absolute;width:3px;height:3px;background:#ef4444;border-radius:50%;animation:emberRise 2s ease-out infinite}
+.devil-ember:nth-child(2){left:35%;animation-delay:.4s;animation-duration:1.8s}
+.devil-ember:nth-child(3){left:55%;animation-delay:.8s;animation-duration:2.2s}
+.devil-ember:nth-child(4){left:45%;animation-delay:1.2s;animation-duration:1.6s}
+@keyframes devilDotPulse{0%,100%{transform:translateY(0);opacity:.7}50%{transform:translateY(-4px);opacity:1}}
+.devil-dot-1{animation:devilDotPulse 1.8s ease-in-out infinite}
+.devil-dot-2{animation:devilDotPulse 1.8s ease-in-out infinite .3s}
+.devil-dot-3{animation:devilDotPulse 1.8s ease-in-out infinite .6s}
+.light-theme .devil-icon svg{filter:drop-shadow(0 0 12px #ef444460)}
+
 /* ── Generative Ambient Effects ──────────────── */
 @keyframes subtleFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @keyframes gentlePulse{0%,100%{opacity:.7}50%{opacity:1}}
@@ -1792,6 +1812,27 @@ function createT(strings) {
     }
     return typeof val === 'string' ? val : (fallback || key);
   };
+}
+
+function DevilIcon() {
+  const el = React.createElement;
+  // Minimal flame — a single elegant flame that sits between "Devil's" and "Advocate"
+  return el('div',{className:'devil-icon',style:{width:48,height:56,margin:'0 auto 4px'}},
+    el('svg',{viewBox:'0 0 48 56',xmlns:'http://www.w3.org/2000/svg'},
+      // Outer glow
+      el('ellipse',{className:'devil-glow',cx:24,cy:40,rx:14,ry:8,fill:'#ef4444',opacity:.1}),
+      // Outer flame — amber sway
+      el('path',{className:'devil-flame-outer',d:'M24 52 Q12 38 14 24 Q16 14 20 6 Q24 14 24 10 Q24 14 28 6 Q32 14 34 24 Q36 38 24 52Z',fill:'#f59e0b',opacity:.25}),
+      // Main flame body
+      el('path',{className:'devil-flame',d:'M24 50 Q14 38 16 26 Q18 18 21 10 Q24 16 24 12 Q24 16 27 10 Q30 18 32 26 Q34 38 24 50Z',fill:'#ef4444',opacity:.85}),
+      // Inner bright core
+      el('path',{className:'devil-flame',d:'M24 48 Q18 40 20 32 Q22 26 23 20 Q24 24 25 20 Q26 26 28 32 Q30 40 24 48Z',fill:'#f87171',opacity:.7,style:{animationDelay:'.2s'}}),
+      // Hot center
+      el('path',{d:'M24 46 Q21 42 22 36 Q23 32 24 28 Q25 32 26 36 Q27 42 24 46Z',fill:'#fbbf24',opacity:.5}),
+      // Bright tip
+      el('ellipse',{cx:24,cy:30,rx:2,ry:3,fill:'#fff',opacity:.2}),
+    ),
+  );
 }
 
 function PolyBackground() {
