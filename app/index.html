@@ -525,6 +525,15 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .devil-dot-3{animation:devilDotPulse 1.8s ease-in-out infinite .6s}
 .light-theme .devil-icon svg{filter:drop-shadow(0 0 12px #ef444460)}
 
+/* ── Loading Skeletons ─────────────────────── */
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.skeleton{background:linear-gradient(90deg,#ffffff06 25%,#ffffff10 50%,#ffffff06 75%);background-size:200% 100%;animation:shimmer 1.5s ease-in-out infinite;border-radius:8px}
+.skeleton-line{height:14px;margin-bottom:10px;border-radius:4px}
+.skeleton-line.short{width:60%}
+.skeleton-line.medium{width:80%}
+.skeleton-card{height:80px;margin-bottom:12px}
+.light-theme .skeleton{background:linear-gradient(90deg,#00000006 25%,#00000010 50%,#00000006 75%);background-size:200% 100%}
+
 /* ── Generative Ambient Effects ──────────────── */
 @keyframes subtleFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @keyframes gentlePulse{0%,100%{opacity:.7}50%{opacity:1}}
@@ -736,11 +745,14 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
   .nav{flex-wrap:wrap}
   .panel{width:96%;padding:28px 24px}
 }
+@media(max-width:768px){
+  .nav{gap:3px;padding:3px;max-width:100%;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;-webkit-overflow-scrolling:touch;scrollbar-width:none;mask-image:linear-gradient(to right,transparent 0,#000 8px,#000 calc(100% - 20px),transparent 100%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 8px,#000 calc(100% - 20px),transparent 100%)}
+  .nav::-webkit-scrollbar{display:none}
+  .nav-btn{flex-shrink:0}
+}
 @media(max-width:640px){
   .panel{margin:16px 10px 30px;padding:20px 16px}
   .panel.panel-expanded{padding:20px 16px}
-  .nav{gap:3px;padding:3px;max-width:100%;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-  .nav::-webkit-scrollbar{display:none}
   .nav-btn{padding:10px 16px;font-size:.72rem;min-height:44px;flex-shrink:0}
   .nav-divider{display:none}
   .logo{font-size:2rem;flex-wrap:wrap;justify-content:center;text-align:center}
@@ -2056,6 +2068,28 @@ function loadSavedCases() {
 
 function persistCases(cases) {
   try { localStorage.setItem('debateos_cases', JSON.stringify(cases)); } catch {}
+  // Also sync to Firestore for authenticated users
+  if (firebaseDb && __getAuthToken) {
+    __getAuthToken().then(token => {
+      if (!token) return;
+      const uid = firebaseAuth?.currentUser?.uid;
+      if (!uid) return;
+      firebaseDb.collection('user_cases').doc(uid).set({
+        cases: cases.slice(0, 50), // Cap at 50 to stay within Firestore limits
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true }).catch(() => {});
+    }).catch(() => {});
+  }
+}
+
+// Load cases from Firestore (called once on auth)
+async function loadCasesFromFirestore(uid) {
+  if (!firebaseDb || !uid) return null;
+  try {
+    const doc = await firebaseDb.collection('user_cases').doc(uid).get();
+    if (doc.exists && doc.data().cases) return doc.data().cases;
+  } catch {}
+  return null;
 }
 
 function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExport, activeId }) {
@@ -2141,7 +2175,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   const _isAnon = !__getAuthToken;
   if (_isAnon) {
     if (getAnonUsage() >= ANON_LIMIT) {
-      throw new Error('You\'ve used your ' + ANON_LIMIT + ' free generations. Sign up for a free account to get 10 requests/month, or upgrade for more.');
+      throw new Error('You\'ve used your ' + ANON_LIMIT + ' free generations. Sign up for a free account to get 5 requests/month, or upgrade for more.');
     }
   }
 
@@ -2366,6 +2400,17 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   if (onProgress) onProgress({ phase: 'done', percent: 100 });
   // Count anonymous usage only on success
   if (_isAnon) incAnonUsage();
+  // For BYOK users with accounts: log usage server-side so analytics work
+  if (byokKey && __getAuthToken) {
+    try {
+      const token = await __getAuthToken();
+      if (token) fetch('/api/teams/log-usage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ feature }),
+      }).catch(() => {});
+    } catch {}
+  }
   // Refresh team usage data in background
   if (__refreshTeam) setTimeout(() => __refreshTeam(), 1000);
   return fullText;
@@ -7634,6 +7679,7 @@ function WelcomeGuide({ onClose, onNavigate }) {
         el('div',{className:'guide-step-content'},
           el('h3',null,'Generate a case'),
           el('p',null,'Head to Case Generator, type in any motion (or pick one from Motions), choose your side and depth, and hit generate. You will get a full structured case in under a minute.'),
+          onNavigate && el('button',{onClick:()=>{onNavigate('case');onClose()},style:{marginTop:8,padding:'6px 14px',background:'#ef444420',border:'1px solid #ef444440',borderRadius:6,color:'#f87171',fontSize:'.78rem',fontWeight:600,cursor:'pointer'}},'Try it \u2192'),
         ),
       ),
       el('div',{className:'guide-step'},
@@ -7641,6 +7687,7 @@ function WelcomeGuide({ onClose, onNavigate }) {
         el('div',{className:'guide-step-content'},
           el('h3',null,'Get feedback'),
           el('p',null,'Paste any case into Case Feedback for detailed judge-level analysis. It highlights weak warrants, missing impacts, and gives specific suggestions.'),
+          onNavigate && el('button',{onClick:()=>{onNavigate('feedback');onClose()},style:{marginTop:8,padding:'6px 14px',background:'#ef444420',border:'1px solid #ef444440',borderRadius:6,color:'#f87171',fontSize:'.78rem',fontWeight:600,cursor:'pointer'}},'Try it \u2192'),
         ),
       ),
       el('div',{className:'guide-step'},
@@ -7648,6 +7695,7 @@ function WelcomeGuide({ onClose, onNavigate }) {
         el('div',{className:'guide-step-content'},
           el('h3',null,'Practice and drill'),
           el('p',null,'Use Round Simulator to practice against AI, or hit Practice for timed speaking drills. The more reps you get, the sharper you will be in round.'),
+          onNavigate && el('button',{onClick:()=>{onNavigate('simulator');onClose()},style:{marginTop:8,padding:'6px 14px',background:'#ef444420',border:'1px solid #ef444440',borderRadius:6,color:'#f87171',fontSize:'.78rem',fontWeight:600,cursor:'pointer'}},'Try it \u2192'),
         ),
       ),
       el('div',{className:'guide-step'},
@@ -7655,6 +7703,7 @@ function WelcomeGuide({ onClose, onNavigate }) {
         el('div',{className:'guide-step-content'},
           el('h3',null,'Visualize and refine'),
           el('p',null,'After a simulated round, check Round Vision to see how arguments clashed. Use this to find gaps in your case and strengthen your weakest points.'),
+          onNavigate && el('button',{onClick:()=>{onNavigate('vision');onClose()},style:{marginTop:8,padding:'6px 14px',background:'#ef444420',border:'1px solid #ef444440',borderRadius:6,color:'#f87171',fontSize:'.78rem',fontWeight:600,cursor:'pointer'}},'Try it \u2192'),
         ),
       ),
       el('h3',{style:{color:'#e4e8f0',fontSize:'1rem',fontWeight:700,marginBottom:'12px',marginTop:'8px'}},'Your toolkit'),
@@ -7839,7 +7888,12 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
     } catch (err) { setMsg(errMsg(err)); setActionLoading(false); }
   };
 
-  if (teamLoading) return el('div', {className:'panel', style:{textAlign:'center',padding:60}}, t('team.loading','Loading...'));
+  if (teamLoading) return el('div', {className:'panel', style:{padding:32}},
+    el('div',{className:'skeleton skeleton-line',style:{width:'40%',height:20,marginBottom:16}}),
+    el('div',{className:'skeleton skeleton-line medium'}),
+    el('div',{className:'skeleton skeleton-line short'}),
+    el('div',{className:'skeleton skeleton-card',style:{marginTop:20}}),
+  );
 
   if (!user) return el('div', {className:'panel'},
     el('h2', {style:{fontSize:'1.6rem',fontWeight:800,color:'#e4e8f0',marginBottom:4,textAlign:'center'}}, 'Choose Your Plan'),
@@ -7848,7 +7902,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
     ),
     el('div', {style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:24}},
       ...[
-        {name:'Free',price:'$0',requests:'10/mo',members:'3 members',highlight:false,desc:'Get started',trial:false},
+        {name:'Free',price:'$0',requests:'5/mo',members:'3 members',highlight:false,desc:'Get started',trial:false},
         {name:'Individual',price:'$5/mo',requests:'300/mo',members:'1 member',highlight:true,desc:'For serious competitors',trial:true},
         {name:'Team',price:'$30/mo',requests:'2,000/mo',members:'50 members',highlight:false,desc:'For clubs and programs',trial:true},
       ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':'#ffffff10'),borderRadius:12,textAlign:'center',position:'relative'}},
@@ -7869,14 +7923,14 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
 
   if (!team) return el('div', {className:'panel'},
     el('h2', {style:{fontSize:'1.4rem',fontWeight:800,color:'#e4e8f0',marginBottom:8}}, t('team.getStarted','Get Started')),
-    el('p', {style:{color:'#94a3b8',fontSize:'.92rem',marginBottom:24}}, t('team.createDesc','Create a team to start using Devil\'s Advocate. Free plan includes 10 requests/month.')),
+    el('p', {style:{color:'#94a3b8',fontSize:'.92rem',marginBottom:24}}, t('team.createDesc','Create a team to start using Devil\'s Advocate. Free plan includes 5 requests/month.')),
     el('div', {style:{display:'flex',gap:8,marginBottom:16}},
       el('input', {value:teamName, onChange:e=>setTeamName(e.target.value), placeholder:t('team.teamNamePlaceholder','Team name (e.g. Springfield Debate)'), style:{flex:1,padding:'10px 14px',background:'#151d2b',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.9rem',outline:'none'}}),
       el('button', {onClick:createTeam, disabled:actionLoading||!teamName.trim(), style:{padding:'10px 20px',background:'#ef4444',border:'none',borderRadius:8,color:'#fff',fontWeight:600,cursor:'pointer',opacity:actionLoading?.5:1}}, actionLoading?t('team.creating','Creating...'):t('team.createTeam','Create Team')),
     ),
     el('div', {style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginTop:24}},
       ...[
-        {name:'Free',price:'$0',requests:'10/mo',members:'3 members',highlight:false},
+        {name:'Free',price:'$0',requests:'5/mo',members:'3 members',highlight:false},
         {name:'Individual',price:'$5/mo',requests:'300/mo',members:'1 member',highlight:true},
         {name:'Team',price:'$30/mo',requests:'2,000/mo',members:'50 members',highlight:false},
       ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':'#ffffff10'),borderRadius:12,textAlign:'center'}},
@@ -8496,6 +8550,20 @@ function App() {
   const [toast, setToast] = useState('');
   const { user, loading: authLoading, signIn, signOut } = useAuth();
   useEffect(() => { __getAuthToken = user ? () => user.getIdToken() : null; }, [user]);
+  // Merge Firestore cases with localStorage on sign-in
+  useEffect(() => {
+    if (!user) return;
+    loadCasesFromFirestore(user.uid).then(firestoreCases => {
+      if (!firestoreCases || firestoreCases.length === 0) return;
+      setSavedCases(prev => {
+        const ids = new Set(prev.map(c => c.id));
+        const merged = [...prev, ...firestoreCases.filter(c => !ids.has(c.id))];
+        merged.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+        persistCases(merged);
+        return merged;
+      });
+    });
+  }, [user]);
   const refreshTeam = useCallback(async () => {
     if (!user) return;
     try {
@@ -8517,7 +8585,29 @@ function App() {
         const token = await user.getIdToken();
         const res = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + token } });
         if (res.ok) { setTeam(await res.json()); }
-        else { setTeam(null); }
+        else {
+          setTeam(null);
+          // Auto-join team if ?ref= is in URL and user has no team
+          const params = new URLSearchParams(window.location.search);
+          const refTeamId = params.get('ref');
+          if (refTeamId) {
+            try {
+              const joinRes = await fetch('/api/teams/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                body: JSON.stringify({ teamId: refTeamId }),
+              });
+              if (joinRes.ok) {
+                // Re-fetch team data after joining
+                const usageRes = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + token } });
+                if (usageRes.ok) setTeam(await usageRes.json());
+                setToast('Joined team!');
+                // Clean up URL
+                window.history.replaceState({}, '', window.location.pathname);
+              }
+            } catch {}
+          }
+        }
       } catch { setTeam(null); }
       setTeamLoading(false);
     })();

@@ -1,6 +1,5 @@
-import Stripe from 'stripe';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
-import { getUserTeam } from './lib/firestore.mjs';
+import { getUserTeam, logUsage } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 export default async (request) => {
@@ -20,26 +19,20 @@ export default async (request) => {
   const result = await getUserTeam(decoded.sub);
   if (!result) return errorResponse('No team found', 404);
 
-  const { team, membership } = result;
-  if (membership.role !== 'owner') {
-    return errorResponse('Only the team owner can manage billing', 403);
+  const { team } = result;
+  const userId = decoded.sub;
+
+  try {
+    const body = await request.json();
+    const feature = body.feature || 'unknown';
+    await logUsage(team.id, userId, feature);
+    return jsonResponse({ ok: true });
+  } catch (err) {
+    console.error('log-usage error:', err);
+    return errorResponse('Server error: ' + err.message, 500);
   }
-
-  if (!team.stripeCustomerId) {
-    return errorResponse('No billing account found', 400);
-  }
-
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const siteUrl = process.env.SITE_URL || 'https://debateos1.netlify.app';
-
-  const session = await stripe.billingPortal.sessions.create({
-    customer: team.stripeCustomerId,
-    return_url: siteUrl,
-  });
-
-  return jsonResponse({ url: session.url });
 };
 
 export const config = {
-  path: '/api/billing/portal',
+  path: '/api/teams/log-usage',
 };
