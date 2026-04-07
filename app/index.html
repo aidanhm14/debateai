@@ -5735,6 +5735,8 @@ function Philosophy({ onSave }) {
   const [streaming, setStreaming] = useState(false);
   const [pProgress, setPProgress] = useState({phase:'idle',percent:0});
   const [exploreMode, setExploreMode] = useState('deep-dive');
+  const [vennData, setVennData] = useState(null); // {shared:[], left:[], right:[]}
+  const [vennLoading, setVennLoading] = useState(false);
   const outputRef = useRef(null);
 
   // size: 3=core debate thinkers, 2=commonly cited, 1=niche/specialized
@@ -5964,39 +5966,77 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         )
       )
     ),
-    // Venn Diagram for head-to-head (Pro feature)
+    // Venn Diagram for head-to-head — generate button or results
     output && !loading && !streaming && exploreMode === 'head-to-head' && React.createElement('div',{
       style:{marginTop:20,padding:24,background:'var(--card-bg,#0e1822)',border:'1px solid var(--card-border,#ffffff0a)',borderRadius:14,textAlign:'center',position:'relative',overflow:'hidden'}
     },
-      React.createElement('h3',{style:{color:'#a78bfa',fontSize:'1rem',fontWeight:700,marginBottom:16}},'\u{1F504} Philosophical Venn Diagram'),
-      // SVG Venn diagram
-      React.createElement('svg',{viewBox:'0 0 400 250',style:{width:'100%',maxWidth:500,margin:'0 auto',display:'block'}},
-        // Left circle
-        React.createElement('circle',{cx:150,cy:125,r:100,fill:isPro(null,null)?'#ef444415':'#ef444408',stroke:'#ef4444',strokeWidth:2,opacity:isPro(null,null)?1:0.4}),
-        React.createElement('text',{x:100,y:50,fill:'#ef4444',fontSize:14,fontWeight:700,textAnchor:'middle'},selectedPhils[0]||'Philosopher 1'),
-        // Right circle
-        React.createElement('circle',{cx:250,cy:125,r:100,fill:isPro(null,null)?'#3b82f615':'#3b82f608',stroke:'#3b82f6',strokeWidth:2,opacity:isPro(null,null)?1:0.4}),
-        React.createElement('text',{x:300,y:50,fill:'#3b82f6',fontSize:14,fontWeight:700,textAnchor:'middle'},selectedPhils[1]||'Philosopher 2'),
-        // Center label
-        React.createElement('text',{x:200,y:120,fill:'#fbbf24',fontSize:12,fontWeight:600,textAnchor:'middle'},'Shared'),
-        React.createElement('text',{x:200,y:138,fill:'#fbbf24',fontSize:12,fontWeight:600,textAnchor:'middle'},'Ground'),
-        // Left unique
-        isPro(null,null) && React.createElement('text',{x:85,y:125,fill:'#ef4444',fontSize:10,textAnchor:'middle',opacity:0.8},'Unique to'),
-        isPro(null,null) && React.createElement('text',{x:85,y:140,fill:'#ef4444',fontSize:10,textAnchor:'middle',opacity:0.8},selectedPhils[0]||'P1'),
-        // Right unique
-        isPro(null,null) && React.createElement('text',{x:315,y:125,fill:'#3b82f6',fontSize:10,textAnchor:'middle',opacity:0.8},'Unique to'),
-        isPro(null,null) && React.createElement('text',{x:315,y:140,fill:'#3b82f6',fontSize:10,textAnchor:'middle',opacity:0.8},selectedPhils[1]||'P2'),
+      !vennData && !vennLoading && React.createElement('div',null,
+        React.createElement('button',{
+          className:'btn btn-purple',
+          style:{padding:'12px 28px',fontSize:'.95rem'},
+          onClick:async ()=>{
+            if (!isPro(null,null)) { alert('Venn Diagram is a Pro feature. Toggle PRO ON to try it.'); return; }
+            setVennLoading(true);
+            try {
+              let result = '';
+              await callClaude(
+                'You compare two philosophers for a debate Venn diagram. Respond ONLY with valid JSON: {"shared":["point1","point2","point3"],"left":["unique to philosopher 1","point2","point3"],"right":["unique to philosopher 2","point2","point3"]}. Keep each point to 5-8 words max. Exactly 3 points per section.',
+                'Philosopher 1: '+(selectedPhils[0]||'Kant')+'. Philosopher 2: '+(selectedPhils[1]||'Mill')+'. Generate Venn diagram data.',
+                (t)=>{result=t;},{thinkBudget:2000,maxTokens:500}
+              );
+              const cleaned = result.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+              setVennData(JSON.parse(cleaned));
+            } catch(e){ setVennData({shared:['Error parsing'],left:['Try again'],right:['Try again']}); }
+            setVennLoading(false);
+          }
+        },'\u{1F504} Generate Venn Diagram'),
+        !isPro(null,null) && React.createElement('div',{style:{marginTop:8,fontSize:'.72rem',color:'#94a3b8'}},'Pro feature — toggle PRO ON to use'),
       ),
-      // Blur overlay for free users
-      !isPro(null,null) && React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(10,14,24,0.7)',backdropFilter:'blur(4px)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',borderRadius:14}},
-        React.createElement('div',{style:{fontSize:'1.5rem',marginBottom:8}},'\uD83D\uDD12'),
-        React.createElement('div',{style:{color:'#a78bfa',fontWeight:700,fontSize:'.9rem',marginBottom:4}},'Venn Diagram — Pro Feature'),
-        React.createElement('div',{style:{color:'#94a3b8',fontSize:'.78rem',maxWidth:280,lineHeight:1.5}},'Upgrade to Pro to see an interactive Venn diagram mapping shared ground and unique positions between philosophers.'),
+      vennLoading && React.createElement('div',{style:{padding:20}},React.createElement('span',{className:'spinner'}),' Generating...'),
+      // Rendered Venn with AI data
+      vennData && React.createElement('div',null,
+        React.createElement('h3',{style:{color:'#a78bfa',fontSize:'1rem',fontWeight:700,marginBottom:16}},
+          (selectedPhils[0]||'P1')+' vs '+(selectedPhils[1]||'P2')+' — Venn Diagram'
+        ),
+        React.createElement('svg',{viewBox:'0 0 500 300',style:{width:'100%',maxWidth:560,margin:'0 auto',display:'block'}},
+          React.createElement('circle',{cx:175,cy:150,r:120,fill:'#ef444412',stroke:'#ef4444',strokeWidth:2}),
+          React.createElement('circle',{cx:325,cy:150,r:120,fill:'#3b82f612',stroke:'#3b82f6',strokeWidth:2}),
+          // Left name
+          React.createElement('text',{x:110,y:30,fill:'#ef4444',fontSize:14,fontWeight:700,textAnchor:'middle'},selectedPhils[0]||'P1'),
+          // Right name
+          React.createElement('text',{x:390,y:30,fill:'#3b82f6',fontSize:14,fontWeight:700,textAnchor:'middle'},selectedPhils[1]||'P2'),
+          // Left unique points
+          (vennData.left||[]).map((p,i)=>React.createElement('text',{key:'l'+i,x:100,y:110+i*22,fill:'#ef4444',fontSize:9,textAnchor:'middle',opacity:0.9},p)),
+          // Right unique points
+          (vennData.right||[]).map((p,i)=>React.createElement('text',{key:'r'+i,x:400,y:110+i*22,fill:'#3b82f6',fontSize:9,textAnchor:'middle',opacity:0.9},p)),
+          // Shared points (center)
+          (vennData.shared||[]).map((p,i)=>React.createElement('text',{key:'s'+i,x:250,y:120+i*22,fill:'#fbbf24',fontSize:10,fontWeight:600,textAnchor:'middle'},p)),
+          // "Shared Ground" label
+          React.createElement('text',{x:250,y:95,fill:'#fbbf24',fontSize:11,fontWeight:700,textAnchor:'middle'},'SHARED GROUND'),
+        ),
+        React.createElement('button',{className:'btn btn-secondary',style:{marginTop:12,fontSize:'.78rem'},onClick:()=>setVennData(null)},'Regenerate'),
       ),
-      isPro(null,null) && React.createElement('p',{style:{color:'#94a3b8',fontSize:'.78rem',marginTop:12}},'The overlapping region shows where both philosophers agree. The outer regions show their unique contributions.'),
     ),
 
-    output && React.createElement('div',{ref:outputRef,className:'phil-output'},
+    output && React.createElement('div',{ref:outputRef,className:'phil-output',style:{position:'relative'}},
+      // Philosopher portrait — Wikipedia REST API thumbnail
+      selectedPhils[0] && React.createElement('div',{
+        style:{position:'absolute',top:16,right:16,width:90,height:90,borderRadius:'50%',overflow:'hidden',border:'2px solid #ef444440',zIndex:1,background:'#1a2538'},
+        ref:(el) => {
+          if (!el || el.dataset.loaded) return;
+          el.dataset.loaded = 'true';
+          fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(selectedPhils[0].replace(/ /g,'_')))
+            .then(r=>r.json())
+            .then(data=>{
+              if(data.thumbnail&&data.thumbnail.source){
+                el.innerHTML='<img src="'+data.thumbnail.source+'" style="width:100%;height:100%;object-fit:cover;opacity:.85" />';
+              } else {
+                el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#ef4444;font-weight:800">'+selectedPhils[0].charAt(0)+'</div>';
+              }
+            })
+            .catch(()=>{el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#ef4444;font-weight:800">'+selectedPhils[0].charAt(0)+'</div>';});
+        }
+      }),
       React.createElement('div',{className:'output'+(streaming?' streaming-active':'')},
         React.createElement('div',{dangerouslySetInnerHTML:{__html:cleanOutput(output, true)}})
       ),
@@ -8714,7 +8754,10 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
                 el('button',{className:'btn btn-primary',style:{padding:'4px 12px',fontSize:'.78rem'},onClick:async()=>{
                   try {
                     const token = await (window.__getAuthToken ? window.__getAuthToken() : null);
-                    if (token) await fetch('/api/teams/update',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({name:editName.trim(),context:editContext.trim()})});
+                    if (token) {
+                      await fetch('/api/teams/update',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({name:editName.trim(),context:editContext.trim()})});
+                      if (window.__refreshTeam) setTimeout(() => window.__refreshTeam(), 500);
+                    }
                   } catch{}
                   setEditingTeam(false);
                 }},'Save'),
