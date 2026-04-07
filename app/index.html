@@ -2024,28 +2024,39 @@ function cleanOutput(text, asHtml) {
 // Throttled streaming: batches rapid onChunk calls into one React update per frame
 function createStreamThrottle(onChunk, outputRef) {
   let latestText = '';
-  let intervalId = null;
-  const COMMIT_INTERVAL = 120; // smooth 8fps React state updates
+  let displayedLen = 0;
+  let rafId = null;
+  let lastFrame = 0;
+  const CHARS_PER_FRAME = 8; // characters revealed per animation frame (~480 chars/sec at 60fps)
+  const MIN_FRAME_MS = 16; // ~60fps cap
 
-  function startInterval() {
-    if (intervalId) return;
-    intervalId = setInterval(() => {
-      onChunk(latestText);
-      // Let user control scroll — no forced auto-scroll
-    }, COMMIT_INTERVAL);
+  function tick(now) {
+    if (now - lastFrame < MIN_FRAME_MS) { rafId = requestAnimationFrame(tick); return; }
+    lastFrame = now;
+    if (displayedLen < latestText.length) {
+      // Reveal more characters, accelerating when far behind
+      const behind = latestText.length - displayedLen;
+      const step = behind > 200 ? Math.ceil(behind / 4) : behind > 50 ? CHARS_PER_FRAME * 3 : CHARS_PER_FRAME;
+      displayedLen = Math.min(latestText.length, displayedLen + step);
+      onChunk(latestText.slice(0, displayedLen));
+    }
+    if (displayedLen < latestText.length) {
+      rafId = requestAnimationFrame(tick);
+    }
   }
 
   return {
     update(text) {
       latestText = text;
-      startInterval();
+      if (!rafId) rafId = requestAnimationFrame(tick);
     },
     finish() {
-      if (intervalId) { clearInterval(intervalId); intervalId = null; }
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      displayedLen = latestText.length;
       onChunk(latestText);
     },
     cancel() {
-      if (intervalId) { clearInterval(intervalId); intervalId = null; }
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     }
   };
 }
@@ -8958,9 +8969,19 @@ function App() {
     loadLocale(locale).then(data => { if (data) setLocaleStrings(data); });
   }, [locale]);
   const t = useMemo(() => createT(localeStrings), [localeStrings]);
-  const [tab, setTab] = useState('case');
+  const validTabs = useMemo(() => TABS.filter(t=>!t.divider).map(t=>t.id), []);
+  const getTabFromHash = () => { const h = window.location.hash.replace('#',''); return validTabs.includes(h) ? h : 'case'; };
+  const [tab, setTab] = useState(getTabFromHash);
   const [tabHistory, setTabHistory] = useState([]);
   const [tabTransition, setTabTransition] = useState('');
+  // Sync hash to tab
+  useEffect(() => { window.location.hash = tab; }, [tab]);
+  // Listen for back/forward browser navigation
+  useEffect(() => {
+    const onHash = () => { const t = getTabFromHash(); if (t !== tab) { setTab(t); setTabTransition('tab-enter'); setTimeout(()=>setTabTransition(''),350); } };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [tab]);
   const navigateTab = useCallback((newTab) => {
     if (newTab === tab) return;
     setTabTransition('tab-exit');
@@ -9269,10 +9290,11 @@ function App() {
                 rel:'noopener noreferrer',
                 style:{textDecoration:'none'},
               }, t(tb.i18n, tb.label) + ' \u2197')
-            : React.createElement('button',{
+            : React.createElement('a',{
                 key:tb.id,
+                href:'#'+tb.id,
                 className:'nav-btn'+(tab===tb.id?' active':''),
-                onClick:()=>navigateTab(tb.id)
+                onClick:(e)=>{e.preventDefault();navigateTab(tb.id);}
               }, t(tb.i18n, tb.label))
         )
       ),
