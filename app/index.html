@@ -895,6 +895,37 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 }
 
 
+/* ── Live Debates ────────────────────────── */
+.live-layout{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-top:16px}
+.live-calendar{background:#303038;border:1.5px solid #ffffff22;border-radius:14px;padding:16px;position:sticky;top:80px;align-self:start}
+.live-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:8px}
+.live-cal-header{font-size:.6rem;font-weight:700;color:#666;text-transform:uppercase;text-align:center;padding:4px 0}
+.live-cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.72rem;color:#a8b8c8;border-radius:8px;cursor:pointer;transition:.15s;position:relative}
+.live-cal-day:hover{background:#ffffff0c}
+.live-cal-day.today{color:#ef4444;font-weight:700;background:#ef444412}
+.live-cal-day.has-event::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:#ef4444}
+.live-cal-day.selected{background:#ef444420;color:#f87171;font-weight:700}
+.live-cal-day.other-month{opacity:.3}
+.live-card{background:#303038;border:1.5px solid #ffffff18;border-radius:14px;padding:18px;margin-bottom:12px;transition:.25s;cursor:pointer}
+.live-card:hover{border-color:#ffffff30;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.live-card-motion{font-size:.92rem;color:#e4e8f0;font-weight:600;line-height:1.4;margin-bottom:10px}
+.live-card-meta{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:.72rem;color:#a8b8c8}
+.live-card-meta span{display:flex;align-items:center;gap:4px}
+.live-badge{font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.5px}
+.live-badge.upcoming{background:#3b82f618;color:#60a5fa;border:1px solid #3b82f630}
+.live-badge.live-now{background:#22c55e18;color:#22c55e;border:1px solid #22c55e30;animation:livePulse 2s ease-in-out infinite}
+.live-badge.completed{background:#ffffff08;color:#666;border:1px solid #ffffff15}
+.live-badge.format{background:#f59e0b12;color:#f59e0b;border:1px solid #f59e0b30}
+@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.6}}
+.live-participants{display:flex;gap:-6px;margin-top:10px}
+.live-avatar{width:28px;height:28px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800;color:#fff;border:2px solid #303038;margin-left:-6px}
+.live-avatar:first-child{margin-left:0}
+.live-empty{text-align:center;padding:40px 20px;color:#666;font-size:.88rem}
+.live-create-form{background:#303038;border:1.5px solid #ffffff22;border-radius:14px;padding:24px;margin-bottom:16px}
+.live-detail{background:#303038;border:1.5px solid #ffffff22;border-radius:14px;padding:24px}
+.live-detail-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+@media(max-width:900px){.live-layout{grid-template-columns:1fr}.live-calendar{position:static}}
+.light-theme .live-card,.light-theme .live-calendar,.light-theme .live-create-form,.light-theme .live-detail{background:#fff!important;border-color:#e2e8f0!important}
 /* ── Argument Market ──────────────────────── */
 .market-layout{display:grid;grid-template-columns:320px 1fr 1fr;gap:16px;margin-top:16px}
 .market-claim-panel{background:#303038;border:1.5px solid #ffffff22;border-radius:14px;padding:20px;position:sticky;top:80px;align-self:start}
@@ -10706,6 +10737,376 @@ function BattleArena({ onNavigateTab }) {
 }
 
 /* ═══════════════════════════════════════════════════
+   LIVE DEBATES — Forum, Calendar, Video
+   ═══════════════════════════════════════════════════ */
+
+function LiveCalendar({ debates, selectedDate, onSelectDate }) {
+  const el = React.createElement;
+  const [viewDate, setViewDate] = useState(() => new Date());
+  const year = viewDate.getFullYear(), month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrev = new Date(year, month, 0).getDate();
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const selStr = selectedDate ? selectedDate.toISOString().slice(0, 10) : '';
+
+  // Build debate date set
+  const debateDates = new Set((debates || []).map(d => d.date ? d.date.slice(0, 10) : ''));
+
+  const cells = [];
+  // Previous month padding
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = daysInPrev - i;
+    cells.push({ day: d, current: false, date: new Date(year, month - 1, d) });
+  }
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, current: true, date: new Date(year, month, d) });
+  }
+  // Next month padding
+  const remaining = 42 - cells.length;
+  for (let d = 1; d <= remaining; d++) {
+    cells.push({ day: d, current: false, date: new Date(year, month + 1, d) });
+  }
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  return el('div', { className: 'live-calendar' },
+    el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+      el('button', { onClick: () => setViewDate(new Date(year, month - 1, 1)), style: { background: 'none', border: 'none', color: '#a8b8c8', cursor: 'pointer', fontSize: '1rem' } }, '\u2039'),
+      el('span', { style: { fontSize: '.82rem', fontWeight: 700, color: '#e4e8f0' } }, monthNames[month] + ' ' + year),
+      el('button', { onClick: () => setViewDate(new Date(year, month + 1, 1)), style: { background: 'none', border: 'none', color: '#a8b8c8', cursor: 'pointer', fontSize: '1rem' } }, '\u203A'),
+    ),
+    el('div', { className: 'live-cal-grid' },
+      ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => el('div', { key: d, className: 'live-cal-header' }, d)),
+      cells.map((c, i) => {
+        const dateStr = c.date.toISOString().slice(0, 10);
+        const isToday = dateStr === todayStr;
+        const hasEvent = debateDates.has(dateStr);
+        const isSelected = dateStr === selStr;
+        return el('div', {
+          key: i,
+          className: 'live-cal-day' + (!c.current ? ' other-month' : '') + (isToday ? ' today' : '') + (hasEvent ? ' has-event' : '') + (isSelected ? ' selected' : ''),
+          onClick: () => onSelectDate(c.date),
+        }, c.day);
+      })
+    ),
+    el('div', { style: { marginTop: 12, fontSize: '.72rem', color: '#666' } },
+      (debates || []).filter(d => d.date && d.date.slice(0, 10) === selStr).length > 0
+        ? (debates || []).filter(d => d.date && d.date.slice(0, 10) === selStr).length + ' debate(s) on this day'
+        : selectedDate ? 'No debates scheduled' : 'Select a date'
+    ),
+  );
+}
+
+function LiveDebateCard({ debate, user, onJoin, onView }) {
+  const el = React.createElement;
+  const now = new Date();
+  const debateDate = debate.date ? new Date(debate.date) : null;
+  const isPast = debateDate && debateDate < now;
+  const isToday = debateDate && debateDate.toDateString() === now.toDateString();
+  const isSoon = debateDate && (debateDate - now) < 3600000 && (debateDate - now) > 0;
+  const status = isPast ? 'completed' : (isToday || isSoon) ? 'live-now' : 'upcoming';
+  const participants = debate.participants || [];
+  const isJoined = user && participants.some(p => p.uid === user.uid);
+  const isFull = debate.maxParticipants && participants.length >= debate.maxParticipants;
+
+  return el('div', { className: 'live-card', onClick: () => onView(debate) },
+    el('div', { style: { display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' } },
+      el('span', { className: 'live-badge ' + status }, status === 'live-now' ? 'Live' : status === 'completed' ? 'Done' : 'Upcoming'),
+      debate.format && el('span', { className: 'live-badge format' }, debate.format),
+    ),
+    el('div', { className: 'live-card-motion' }, debate.motion),
+    el('div', { className: 'live-card-meta' },
+      debateDate && el('span', null, '\uD83D\uDCC5 ', debateDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })),
+      debateDate && el('span', null, '\u23F0 ', debateDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })),
+      el('span', null, '\uD83D\uDC65 ', participants.length + (debate.maxParticipants ? '/' + debate.maxParticipants : '')),
+      debate.hostName && el('span', null, 'Host: ', debate.hostName),
+    ),
+    participants.length > 0 && el('div', { className: 'live-participants', style: { marginTop: 10 } },
+      participants.slice(0, 6).map((p, i) => el('div', { key: i, className: 'live-avatar', title: p.name || 'Debater' }, (p.name || '?')[0].toUpperCase())),
+      participants.length > 6 && el('div', { className: 'live-avatar', style: { background: '#666' } }, '+' + (participants.length - 6)),
+    ),
+    el('div', { style: { marginTop: 12, display: 'flex', gap: 8 } },
+      status !== 'completed' && !isJoined && !isFull && el('button', {
+        className: 'btn btn-primary',
+        style: { fontSize: '.72rem', padding: '6px 14px' },
+        onClick: (e) => { e.stopPropagation(); onJoin(debate); },
+      }, 'Join'),
+      isJoined && el('span', { style: { fontSize: '.72rem', color: '#22c55e', fontWeight: 600 } }, '\u2713 Joined'),
+      isFull && !isJoined && el('span', { style: { fontSize: '.72rem', color: '#f59e0b', fontWeight: 600 } }, 'Full'),
+      debate.videoLink && status !== 'completed' && el('a', {
+        href: debate.videoLink, target: '_blank', rel: 'noopener',
+        className: 'btn btn-secondary',
+        style: { fontSize: '.72rem', padding: '6px 14px', textDecoration: 'none' },
+        onClick: (e) => e.stopPropagation(),
+      }, '\uD83C\uDFA5 Join Video'),
+    ),
+  );
+}
+
+function LiveDebates({ user }) {
+  const el = React.createElement;
+  const [debates, setDebates] = useState([]);
+  const [view, setView] = useState('list'); // list | create | detail | video
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDebate, setSelectedDebate] = useState(null);
+  const [loading, setLoading] = useState(true);
+  // Create form state
+  const [motion, setMotion] = useState('');
+  const [format, setFormat] = useState('APDA');
+  const [debateDate, setDebateDate] = useState('');
+  const [debateTime, setDebateTime] = useState('');
+  const [maxParticipants, setMaxParticipants] = useState(4);
+  const [videoType, setVideoType] = useState('jitsi'); // jitsi | zoom | custom
+  const [customLink, setCustomLink] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState('upcoming'); // upcoming | all | mine
+
+  // Load debates from Firestore
+  useEffect(() => {
+    if (!firebaseDb) { setLoading(false); return; }
+    const unsub = firebaseDb.collection('live_debates').orderBy('date', 'asc').onSnapshot(snap => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setDebates(data);
+      setLoading(false);
+    }, () => setLoading(false));
+    return () => unsub();
+  }, []);
+
+  function generateJitsiRoom(motion) {
+    const slug = motion.replace(/[^a-zA-Z0-9]/g, '').slice(0, 30);
+    return 'DebateOS-' + slug + '-' + Date.now().toString(36);
+  }
+
+  async function createDebate() {
+    if (!user) { alert('Please sign in to create a debate.'); return; }
+    if (!motion.trim() || !debateDate || !debateTime) return;
+    setCreating(true);
+    try {
+      const dateTime = new Date(debateDate + 'T' + debateTime);
+      let videoLink = '';
+      let jitsiRoom = '';
+      if (videoType === 'jitsi') {
+        jitsiRoom = generateJitsiRoom(motion);
+        videoLink = 'https://meet.jit.si/' + jitsiRoom;
+      } else if (videoType === 'zoom' || videoType === 'custom') {
+        videoLink = customLink;
+      }
+      await firebaseDb.collection('live_debates').add({
+        motion: motion.trim(),
+        format: format,
+        date: dateTime.toISOString(),
+        maxParticipants: Number(maxParticipants) || 4,
+        hostId: user.uid,
+        hostName: user.displayName || user.email || 'Anonymous',
+        participants: [{ uid: user.uid, name: user.displayName || user.email || 'Anonymous', joinedAt: new Date().toISOString() }],
+        videoLink: videoLink,
+        jitsiRoom: jitsiRoom,
+        videoType: videoType,
+        status: 'upcoming',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      setMotion(''); setDebateDate(''); setDebateTime(''); setCustomLink('');
+      setView('list');
+    } catch (e) {
+      alert('Error creating debate: ' + e.message);
+    }
+    setCreating(false);
+  }
+
+  async function joinDebate(debate) {
+    if (!user) { alert('Please sign in to join.'); return; }
+    if (!firebaseDb) return;
+    const existing = (debate.participants || []);
+    if (existing.some(p => p.uid === user.uid)) return;
+    await firebaseDb.collection('live_debates').doc(debate.id).update({
+      participants: [...existing, { uid: user.uid, name: user.displayName || user.email || 'Anonymous', joinedAt: new Date().toISOString() }],
+    });
+  }
+
+  async function pickRandomMotion() {
+    const allMotions = Object.values(RESOLUTIONS_DB).flat();
+    setMotion(allMotions[Math.floor(Math.random() * allMotions.length)]);
+  }
+
+  // Filter debates
+  const now = new Date();
+  const filtered = debates.filter(d => {
+    if (filter === 'upcoming') return d.date && new Date(d.date) >= now;
+    if (filter === 'mine') return user && (d.participants || []).some(p => p.uid === user.uid);
+    return true;
+  });
+  const dateFiltered = selectedDate
+    ? filtered.filter(d => d.date && d.date.slice(0, 10) === selectedDate.toISOString().slice(0, 10))
+    : filtered;
+
+  // Detail / Video view
+  if (view === 'detail' && selectedDebate) {
+    const debate = debates.find(d => d.id === selectedDebate.id) || selectedDebate;
+    const debateDate = debate.date ? new Date(debate.date) : null;
+    const isHost = user && debate.hostId === user.uid;
+    return el('div', { className: 'panel', style: { padding: '16px 20px' } },
+      el('button', { className: 'nav-btn nav-back', onClick: () => { setView('list'); setSelectedDebate(null); }, style: { marginBottom: 12 } }, '\u2190 Back'),
+      el('div', { className: 'live-detail' },
+        el('div', { className: 'live-detail-header' },
+          el('div', null,
+            el('h2', { style: { fontSize: '1.3rem', fontWeight: 800, marginBottom: 8, lineHeight: 1.3 } }, debate.motion),
+            el('div', { className: 'live-card-meta' },
+              debateDate && el('span', null, '\uD83D\uDCC5 ', debateDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })),
+              debateDate && el('span', null, '\u23F0 ', debateDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })),
+            ),
+          ),
+          debate.format && el('span', { className: 'live-badge format', style: { fontSize: '.72rem' } }, debate.format),
+        ),
+        el('div', { style: { margin: '16px 0', padding: '14px', background: '#ffffff06', borderRadius: 10, border: '1px solid #ffffff12' } },
+          el('div', { style: { fontSize: '.72rem', fontWeight: 700, color: '#a8b8c8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 } }, 'Participants (' + (debate.participants || []).length + (debate.maxParticipants ? '/' + debate.maxParticipants : '') + ')'),
+          (debate.participants || []).map((p, i) => el('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' } },
+            el('div', { className: 'live-avatar', style: { marginLeft: 0 } }, (p.name || '?')[0].toUpperCase()),
+            el('span', { style: { fontSize: '.85rem', color: '#d0d4dc' } }, p.name || 'Anonymous'),
+            i === 0 && el('span', { style: { fontSize: '.6rem', color: '#f59e0b', fontWeight: 700 } }, 'HOST'),
+          )),
+        ),
+        debate.videoLink && el('div', { style: { marginTop: 16 } },
+          el('a', {
+            href: debate.videoLink, target: '_blank', rel: 'noopener',
+            className: 'btn btn-primary',
+            style: { display: 'block', textAlign: 'center', textDecoration: 'none', padding: '12px', fontSize: '.92rem' },
+          }, '\uD83C\uDFA5 Join Video Call'),
+          debate.jitsiRoom && el('div', { style: { marginTop: 12 } },
+            el('button', {
+              className: 'btn btn-secondary',
+              style: { width: '100%', padding: '10px', fontSize: '.85rem' },
+              onClick: () => setView('video'),
+            }, '\uD83D\uDCBB Open Video In-App'),
+          ),
+        ),
+        !debate.videoLink && isHost && el('div', { style: { marginTop: 16, textAlign: 'center', color: '#666', fontSize: '.82rem' } }, 'No video link set'),
+      ),
+    );
+  }
+
+  // Embedded Jitsi video view
+  if (view === 'video' && selectedDebate && selectedDebate.jitsiRoom) {
+    return el('div', { className: 'panel', style: { padding: '16px 20px' } },
+      el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
+        el('button', { className: 'nav-btn nav-back', onClick: () => setView('detail') }, '\u2190 Back to Details'),
+        el('span', { style: { fontSize: '.82rem', color: '#a8b8c8' } }, selectedDebate.motion.slice(0, 60) + (selectedDebate.motion.length > 60 ? '...' : '')),
+      ),
+      el('div', { style: { borderRadius: 14, overflow: 'hidden', border: '1.5px solid #ffffff22', height: 'calc(100vh - 200px)', minHeight: 400 } },
+        el('iframe', {
+          src: 'https://meet.jit.si/' + selectedDebate.jitsiRoom + '#config.prejoinPageEnabled=false&config.startWithAudioMuted=true',
+          style: { width: '100%', height: '100%', border: 'none' },
+          allow: 'camera;microphone;fullscreen;display-capture',
+        }),
+      ),
+    );
+  }
+
+  // Create debate form
+  if (view === 'create') {
+    return el('div', { className: 'panel', style: { padding: '16px 20px' } },
+      el('button', { className: 'nav-btn nav-back', onClick: () => setView('list'), style: { marginBottom: 12 } }, '\u2190 Back'),
+      el('div', { className: 'live-create-form' },
+        el('h2', { style: { fontSize: '1.3rem', fontWeight: 800, marginBottom: 16 } }, 'Schedule a Debate'),
+        el('label', { className: 'field-label' }, 'Motion / Resolution'),
+        el('div', { style: { display: 'flex', gap: 8, marginBottom: 4 } },
+          el('textarea', { value: motion, onChange: e => setMotion(e.target.value), placeholder: 'This house would...', style: { minHeight: 80, flex: 1 } }),
+        ),
+        el('button', { onClick: pickRandomMotion, style: { background: 'none', border: '1px solid #ffffff18', borderRadius: 8, color: '#a8b8c8', fontSize: '.72rem', padding: '4px 12px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16 } }, '\uD83C\uDFB2 Random Motion'),
+        el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 } },
+          el('div', null,
+            el('label', { className: 'field-label' }, 'Date'),
+            el('input', { type: 'date', value: debateDate, onChange: e => setDebateDate(e.target.value), style: { width: '100%', padding: '10px 14px', background: '#3a3a40', color: '#e4e8f0', border: '1.5px solid #ffffff28', borderRadius: 10, fontFamily: 'inherit', fontSize: '.88rem' } }),
+          ),
+          el('div', null,
+            el('label', { className: 'field-label' }, 'Time'),
+            el('input', { type: 'time', value: debateTime, onChange: e => setDebateTime(e.target.value), style: { width: '100%', padding: '10px 14px', background: '#3a3a40', color: '#e4e8f0', border: '1.5px solid #ffffff28', borderRadius: 10, fontFamily: 'inherit', fontSize: '.88rem' } }),
+          ),
+        ),
+        el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 } },
+          el('div', null,
+            el('label', { className: 'field-label' }, 'Format'),
+            el('select', { value: format, onChange: e => setFormat(e.target.value) },
+              ['APDA', 'BP', 'WSDC', '1v1', 'Open'].map(f => el('option', { key: f, value: f }, f))
+            ),
+          ),
+          el('div', null,
+            el('label', { className: 'field-label' }, 'Max Participants'),
+            el('input', { type: 'number', value: maxParticipants, onChange: e => setMaxParticipants(e.target.value), min: 2, max: 20, style: { width: '100%', padding: '10px 14px', background: '#3a3a40', color: '#e4e8f0', border: '1.5px solid #ffffff28', borderRadius: 10, fontFamily: 'inherit', fontSize: '.88rem' } }),
+          ),
+        ),
+        el('label', { className: 'field-label' }, 'Video Call'),
+        el('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+          ['jitsi', 'zoom', 'custom'].map(t => el('button', {
+            key: t,
+            onClick: () => setVideoType(t),
+            style: {
+              flex: 1, padding: '8px', borderRadius: 8, border: videoType === t ? '1.5px solid #ef444450' : '1.5px solid #ffffff18',
+              background: videoType === t ? '#ef444412' : 'transparent', color: videoType === t ? '#f87171' : '#a8b8c8',
+              cursor: 'pointer', fontSize: '.78rem', fontWeight: 600, fontFamily: 'inherit',
+            },
+          }, t === 'jitsi' ? 'Auto (Jitsi)' : t === 'zoom' ? 'Zoom Link' : 'Custom Link')),
+        ),
+        videoType === 'jitsi' && el('p', { style: { fontSize: '.75rem', color: '#666', marginBottom: 12 } }, 'A free video room will be created automatically. No account needed.'),
+        (videoType === 'zoom' || videoType === 'custom') && el('input', {
+          type: 'text', value: customLink, onChange: e => setCustomLink(e.target.value),
+          placeholder: videoType === 'zoom' ? 'Paste Zoom link...' : 'Paste video call link...',
+          style: { width: '100%', padding: '10px 14px', background: '#3a3a40', color: '#e4e8f0', border: '1.5px solid #ffffff28', borderRadius: 10, fontFamily: 'inherit', fontSize: '.88rem', marginBottom: 12 },
+        }),
+        el('button', {
+          className: 'btn btn-primary',
+          disabled: !motion.trim() || !debateDate || !debateTime || creating,
+          onClick: createDebate,
+          style: { width: '100%', padding: '12px', fontSize: '.92rem', marginTop: 8 },
+        }, creating ? 'Creating...' : 'Schedule Debate'),
+      ),
+    );
+  }
+
+  // Main list view
+  return el('div', { className: 'panel', style: { padding: '16px 20px' } },
+    el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
+      el('h2', { style: { fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-.3px', margin: 0 } }, 'Live Debates'),
+      el('button', {
+        className: 'btn btn-primary',
+        onClick: () => setView('create'),
+        style: { fontSize: '.78rem', padding: '6px 16px' },
+      }, '+ Schedule Debate'),
+    ),
+    el('div', { style: { display: 'flex', gap: 6, marginBottom: 16 } },
+      ['upcoming', 'all', 'mine'].map(f => el('button', {
+        key: f,
+        onClick: () => setFilter(f),
+        style: {
+          padding: '6px 14px', borderRadius: 8, border: filter === f ? '1.5px solid #ef444450' : '1.5px solid #ffffff18',
+          background: filter === f ? '#ef444412' : 'transparent', color: filter === f ? '#f87171' : '#a8b8c8',
+          cursor: 'pointer', fontSize: '.72rem', fontWeight: 600, fontFamily: 'inherit', textTransform: 'capitalize',
+        },
+      }, f === 'mine' ? 'My Debates' : f)),
+    ),
+    el('div', { className: 'live-layout' },
+      // Left: Debate cards
+      el('div', null,
+        loading && el('div', { className: 'live-empty' }, 'Loading debates...'),
+        !loading && dateFiltered.length === 0 && el('div', { className: 'live-empty' },
+          el('div', { style: { fontSize: '2rem', marginBottom: 8 } }, '\uD83C\uDFA4'),
+          'No debates found. Be the first to schedule one!',
+        ),
+        dateFiltered.map(d => el(LiveDebateCard, {
+          key: d.id, debate: d, user: user,
+          onJoin: joinDebate,
+          onView: (debate) => { setSelectedDebate(debate); setView('detail'); },
+        })),
+      ),
+      // Right: Calendar
+      el(LiveCalendar, { debates: debates, selectedDate: selectedDate, onSelectDate: (d) => setSelectedDate(selectedDate && d.toISOString().slice(0,10) === selectedDate.toISOString().slice(0,10) ? null : d) }),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
    ADVERSARIAL ARGUMENT MARKET
    ═══════════════════════════════════════════════════ */
 
@@ -10996,6 +11397,7 @@ const TABS = [
   {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
   {id:'market',label:'Market',i18n:'nav.market'},
+  {id:'live',label:'Live',i18n:'nav.live'},
   {id:'divider3',divider:true},
   {id:'shared',label:'Cases',i18n:'nav.cases'},
   {id:'team',label:'Team',i18n:'nav.team'},
@@ -11421,6 +11823,7 @@ function App() {
       tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
       tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
       tabPane('market', React.createElement(ArgumentMarket)),
+      tabPane('live', React.createElement(LiveDebates, { user: user })),
       toast && React.createElement('div', {style:{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',padding:'10px 24px',background:'#22c55e',color:'#fff',borderRadius:8,fontWeight:600,fontSize:'.88rem',zIndex:99999,boxShadow:'0 4px 12px rgba(0,0,0,.3)',animation:'fadeIn .2s ease',pointerEvents:'none'}}, toast),
     )
   ));
