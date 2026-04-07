@@ -1013,6 +1013,31 @@ function canUseProFeature(team, user, feature) {
   return { allowed: used < 3, remaining: Math.max(0, 3 - used) };
 }
 
+// Referral bonus system — share app, get 3 extra requests when referred user generates
+function getReferralBonus() {
+  try { return parseInt(localStorage.getItem('debateos_referral_bonus') || '0', 10); } catch { return 0; }
+}
+function addReferralBonus(amount) {
+  try {
+    const current = getReferralBonus();
+    localStorage.setItem('debateos_referral_bonus', String(current + amount));
+    return current + amount;
+  } catch { return 0; }
+}
+function markReferredGeneration() {
+  // Called when a referred user generates their first case
+  try {
+    if (localStorage.getItem('debateos_referred_generated')) return; // already credited
+    const params = new URLSearchParams(window.location.search);
+    const refId = params.get('ref');
+    if (!refId) return;
+    localStorage.setItem('debateos_referred_generated', 'true');
+    // Credit will happen server-side via Firestore when the referrer checks
+    // For now, store the referrer ID so we can credit them later
+    localStorage.setItem('debateos_referred_by', refId);
+  } catch {}
+}
+
 /* ═══════════════════════════════════════════════════
    DATA — Resolutions, Formats, Speech Configs
    ═══════════════════════════════════════════════════ */
@@ -3167,6 +3192,51 @@ COUNTERCASES: Opp can propose a plan that better solves the same problem, but it
 TIGHT AND SNUG CASES: A tight case is extremely difficult to oppose and cannot be run on APDA. Snug cases are borderline. The test: if most mainstream college students would find the proposition obviously correct, it's APDA-tight. Cases like "decriminalize marijuana" or "legalize gay marriage" are APDA-tight. Tight calls are the nuclear option. When writing cases, always ensure Opp has real, substantive ground. If you can't think of 3 strong Opp arguments, the case is probably too tight.
 
 SPEAKER ROLE STEREOTYPES: PM/MO = big picture, rhetorical, narrative-oriented. LO/MG = analytical, detail-oriented, flow-following. Design cases that play to these strengths. The PM speech should set up the strategic vision. The MG speech should be the analytical hammer that extends warrants and does impact calculus.
+
+PATTERNS FROM REAL COMPETITIVE ROUNDS (derived from actual tournament transcripts):
+
+PATTERN 21: CONTRA-POSITIVE FRAMING
+The strongest cases define themselves against the alternative, not just for themselves. In a motion about adopting a philosophy, the winning Gov spent most of their time proving the contra-positive (the opposing philosophy) leads to unhappiness, irreversibility, and contradiction. Build your case so the judge understands what the world looks like WITHOUT your plan, not just with it. The contra-positive is often more persuasive than the positive case.
+
+PATTERN 22: THE SELLOUT ARGUMENT
+When arguing about idealistic systems, the strongest Opp response is often: "Even if your system is theoretically better, in practice people will exploit it." This shows up as: rich people co-opting the narrative, collective action problems preventing coordination, or individuals rationally defecting from the ideal. Build pre-empts for the sellout argument into every case where the mechanism depends on broad buy-in.
+
+PATTERN 23: FATALISM AS A TURN
+In rounds about improving the world, Gov often argues that people should strive for betterment. The devastating Opp turn: "For the overwhelming majority of people who will try and fail, your philosophy offers nothing. On our side, at least they have contentment." Build cases that have an answer for what happens when the mechanism fails for the median person, not just the exceptional one.
+
+PATTERN 24: CAPACITY CONSTRAINTS AS EXTENSION
+In BP closing benches, the strongest extensions introduce real-world capacity constraints that opening teams ignored. "The UN peacekeeping budget dropped 25% this year. Every dollar here is a dollar not in the DRC." or "This requires troops that don't exist, funded by money that isn't there." These structural feasibility arguments are devastating because they reframe the debate from "should we" to "can we" and force opening teams to defend implementation they never warranted.
+
+PATTERN 25: THE TRIP WIRE AND DETERRENCE MECHANISM
+In intervention and protection debates, establish deterrence through presence, not through force. "You don't want to be the person who killed a UN peacekeeper, because all the hellfire of the country that sent that peacekeeper will rain down upon you." This mechanism applies broadly: any actor whose harm to a protected entity triggers disproportionate consequences creates deterrence. The key warrant: poorly trained local actors fear well-equipped international forces not because they'll lose a fight, but because they know the consequences of starting one.
+
+PATTERN 26: PHILOSOPHICAL MOTION STRUCTURE
+When the motion is philosophical (THBT, THS a philosophy), the winning structure is: (1) prove the opposing philosophy is INTERNALLY contradictory (it can't deliver what it promises), (2) prove it is EXTERNALLY harmful (it makes people worse off in practice), (3) prove your side captures their best benefits without the costs. In a feline philosophy debate, the winning Gov argued: you can still find happiness in small moments AND strive for improvement. You don't have to choose. This synthesis argument often wins philosophical rounds because it refuses the false binary.
+
+PATTERN 27: REDEFINE THE MEDIAN CASE
+When your opponent says "look at the median person," respond by redefining who the median person actually is. "The median person on Earth is not a UChicago student who can afford pottery classes. The median person cannot access the hobbies you're describing." This forces your opponent to defend their mechanism for the actual global population, not the privileged subset they had in mind.
+
+PATTERN 28: DEBT AND ECONOMIC MECHANISM ANALYSIS
+In economics motions, the winning arguments identify the specific incentive structure that drives behavior. Don't argue "debt is bad." Argue "when you have a creditor committee, every small investor knows they'll get paid last, which means they sell to vulture funds, which means the vulture funds have leverage to impose austerity, which means the people on the ground lose welfare spending." Walk through the full causal chain of economic incentives. Name the specific actors (hedge funds, sovereign wealth funds, vulture funds) and their distinct motivations.
+
+PATTERN 29: THE NORMATIVE VS PROCEDURAL CLASH
+In many rounds, the real clash is between teams arguing about what SHOULD happen (normative) and teams arguing about what WOULD happen (procedural/practical). The strongest debaters explicitly name this clash: "Their entire case operates on the normative level. Ours operates on the practical level. Even if their principles are right, the implementation story they tell you is fiction." Name the clash level explicitly so the judge knows how to weigh.
+
+TIGHT CASE ANALYSIS AND PREVENTION:
+
+When writing cases, actively check for tightness. A case is tight when Opposition genuinely cannot construct a competitive argument. The key tests:
+
+1. THE REASONABLE PERSON TEST: If a well-informed, reasonable person would almost certainly agree with the motion, it is tight. "THW allow jurors to take notes" is tight because no reasonable person opposes it.
+
+2. THE APDA-TIGHT TEST: Some motions are factually balanced but APDA-tight because the debating population overwhelmingly agrees. "THW legalize marijuana" or "THW support same-sex marriage" are APDA-tight because the median college debater finds them obviously correct.
+
+3. THE THREE ARGUMENTS TEST: Can you think of 3 genuinely strong Opposition arguments that a competent debater could spend 8 minutes on? If you can only think of 1 weak one, the case is tight. If you can think of 2 moderate ones, it's snug. If you can think of 3 strong ones, it's fair.
+
+4. THE FRAMING ESCAPE TEST: Can Opposition construct a framework under which they win? If every reasonable evaluative lens favors Government, the case is structurally tight regardless of individual arguments.
+
+5. THE SELF-OPPOSITION TEST: Before running any case, spend 5 minutes trying to oppose it yourself. If you genuinely struggle, the case is tight. The best debaters can oppose their own cases effectively. If you can't, neither can your opponent, and the round will be bad.
+
+When the tightness evaluator flags a case as tight or snug, RESTRUCTURE it. Options: narrow the scope (add caveats), change the actor (make it a specific person with constraints), make it opp-choice (let opp pick a side), or find the genuine tension that makes both sides competitive.
 
 SPECIFICITY REQUIREMENTS (NON-NEGOTIABLE):
 
@@ -7585,7 +7655,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
   if (!roundStarted) {
     return el('div',{className:'panel'},
       el('p',{style:{color:'#7a8da4',marginBottom:20,lineHeight:1.7}},
-        t('roundSim.desc','Simulate a full APDA round against an AI opponent. You deliver your speeches (type or speak into mic), the AI plays the other team. After all 6 speeches, get detailed judge feedback and speaker scores.')
+        t('roundSim.desc','Simulate a full round against an AI opponent. Choose your format (APDA, BP, 1-on-1, etc.), pick your side, and trade speeches. The AI plays the other team. After all speeches, get detailed judge feedback and speaker scores.')
       ),
       el('label',{className:'field-label'},t('caseGen.motion','Motion')),
       el('textarea',{
@@ -7612,7 +7682,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         el('div',null,
           el('label',{className:'field-label green'},'Format'),
           el('select',{value:simFormat,onChange:e=>setSimFormat(e.target.value),style:{marginTop:8,width:'100%'}},
-            ['APDA','BP','WSDC','AP','CP','KP'].map(f=>el('option',{key:f,value:f},f))
+            [['APDA','APDA'],['BP','BP'],['WSDC','WSDC'],['AP','AP'],['KP','KP'],['1v1','1-on-1 (Casual)']].map(([v,l])=>el('option',{key:v,value:v},l))
           ),
         ),
       ),
