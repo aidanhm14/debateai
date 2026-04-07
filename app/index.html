@@ -2022,60 +2022,33 @@ function cleanOutput(text, asHtml) {
   return t;
 }
 
-// Throttled streaming: batches rapid onChunk calls into one React update per frame
+// Throttled streaming: commits latest text to React state every 50ms for smooth reveal
 function createStreamThrottle(onChunk, outputRef) {
   let latestText = '';
-  let displayedWords = 0;
-  let rafId = null;
-  let lastFrame = 0;
-  const WORDS_PER_FRAME = 2; // ~120 words/sec at 60fps, feels like fast typing
-  const MIN_FRAME_MS = 16;
+  let committed = '';
+  let intervalId = null;
 
-  function getWordBoundary(text, wordCount) {
-    let pos = 0;
-    let words = 0;
-    while (pos < text.length && words < wordCount) {
-      // Skip whitespace
-      while (pos < text.length && /\s/.test(text[pos])) pos++;
-      // Skip word
-      while (pos < text.length && !/\s/.test(text[pos])) pos++;
-      words++;
-    }
-    return pos;
-  }
-
-  function countWords(text) {
-    return text.trim().split(/\s+/).filter(Boolean).length;
-  }
-
-  function tick(now) {
-    if (now - lastFrame < MIN_FRAME_MS) { rafId = requestAnimationFrame(tick); return; }
-    lastFrame = now;
-    const totalWords = countWords(latestText);
-    if (displayedWords < totalWords) {
-      const behind = totalWords - displayedWords;
-      const step = behind > 80 ? Math.ceil(behind / 3) : behind > 30 ? WORDS_PER_FRAME * 4 : WORDS_PER_FRAME;
-      displayedWords = Math.min(totalWords, displayedWords + step);
-      const cutPos = getWordBoundary(latestText, displayedWords);
-      onChunk(latestText.slice(0, cutPos));
-    }
-    if (displayedWords < countWords(latestText)) {
-      rafId = requestAnimationFrame(tick);
-    }
+  function startInterval() {
+    if (intervalId) return;
+    intervalId = setInterval(() => {
+      if (latestText !== committed) {
+        committed = latestText;
+        onChunk(latestText);
+      }
+    }, 50); // 20fps — fast enough to look smooth, light enough for React
   }
 
   return {
     update(text) {
       latestText = text;
-      if (!rafId) rafId = requestAnimationFrame(tick);
+      startInterval();
     },
     finish() {
-      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-      displayedWords = countWords(latestText);
+      if (intervalId) { clearInterval(intervalId); intervalId = null; }
       onChunk(latestText);
     },
     cancel() {
-      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      if (intervalId) { clearInterval(intervalId); intervalId = null; }
     }
   };
 }
@@ -5424,6 +5397,7 @@ function buildRoundVision(motion, side) {
 
 function Casual() {
   const { t } = React.useContext(I18nContext);
+  const [casualFormat, setCasualFormat] = useState('APDA');
   const [topic, setTopic] = useState('');
   const [messages, setMessages] = useState([
     {role:'assistant',text:"What did they argue? Drop their argument in here and I'll generate a strategic response — whether to acknowledge, concede and weigh, dispute at link level, or turn it entirely. Think of me as your in-round thinking on steroids."}
@@ -5445,7 +5419,7 @@ function Casual() {
     setLoading(true);
 
     try {
-      const sysPrompt = `You are a debate partner sitting next to the user mid-round, passing notes. You are a veteran APDA debater who has broken at multiple tournaments and you think fast.
+      const sysPrompt = `You are a debate partner sitting next to the user mid-round, passing notes. You are a veteran ${casualFormat} debater who has broken at multiple tournaments and you think fast.
 
 YOUR VOICE: Short, punchy, opinionated. You are whispering strategy to your partner during prep time or passing a note during a speech. No essays. No hedging. You have strong opinions and you say them.
 
@@ -5483,15 +5457,21 @@ RULES:
   };
 
   return React.createElement('div',{className:'panel'},
+    React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:12}},
+      React.createElement('span',{style:{fontSize:'.8rem',fontWeight:600,color:'#94a3b8',letterSpacing:'.5px',textTransform:'uppercase'}},'Format:'),
+      React.createElement('select',{value:casualFormat,onChange:e=>setCasualFormat(e.target.value)},
+        ['APDA','BP','WSDC','AP','KP'].map(f=>React.createElement('option',{key:f,value:f},f))
+      ),
+    ),
     React.createElement('div',{style:{
       maxHeight:400,overflowY:'auto',marginBottom:16,
       display:'flex',flexDirection:'column',gap:12
     }},
       messages.map((m,i) =>
-        React.createElement('div',{key:i,style:{
+        React.createElement('div',{key:i,className:m.role==='user'?'rc-user':'rc-ai',style:{
           alignSelf: m.role==='user' ? 'flex-end' : 'flex-start',
-          background: m.role==='user' ? '#ef444422' : '#ffffff08',
-          border: `1px solid ${m.role==='user' ? '#ef444433' : '#ffffff12'}`,
+          background: m.role==='user' ? '#ef444422' : 'var(--card-bg,#ffffff08)',
+          border: '1px solid ' + (m.role==='user' ? '#ef444433' : 'var(--card-border,#ffffff12)'),
           borderRadius: 12, padding:'12px 16px',
           maxWidth:'80%', fontSize:'.92rem', lineHeight:1.45, whiteSpace:'pre-line'
         }, dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}})
