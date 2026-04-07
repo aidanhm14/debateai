@@ -895,6 +895,20 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 }
 
 
+/* ── Judge Pool ───────────────────────────── */
+.judge-pool-card{background:#303038;border:1.5px solid #ffffff18;border-radius:14px;padding:18px;margin-bottom:12px;display:flex;gap:16px;align-items:flex-start;transition:.25s}
+.judge-pool-card:hover{border-color:#ffffff28;transform:translateY(-1px)}
+.judge-pool-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:800;color:#fff;flex-shrink:0}
+.judge-pool-info{flex:1;min-width:0}
+.judge-pool-name{font-size:1rem;font-weight:700;color:#e4e8f0;margin-bottom:4px}
+.judge-pool-meta{font-size:.75rem;color:#a8b8c8;margin-bottom:8px}
+.judge-pool-tags{display:flex;gap:6px;flex-wrap:wrap}
+.judge-pool-tag{font-size:.62rem;padding:3px 10px;border-radius:10px;font-weight:600;letter-spacing:.3px}
+.judge-pool-tag.style{background:#3b82f615;color:#60a5fa;border:1px solid #3b82f625}
+.judge-pool-tag.format{background:#f59e0b12;color:#f59e0b;border:1px solid #f59e0b25}
+.judge-pool-tag.available{background:#22c55e12;color:#22c55e;border:1px solid #22c55e25}
+.judge-pool-tag.unavailable{background:#ffffff08;color:#666;border:1px solid #ffffff15}
+.light-theme .judge-pool-card{background:#fff!important;border-color:#e2e8f0!important}
 /* ── Live Debates ────────────────────────── */
 .live-layout{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-top:16px}
 .live-calendar{background:#303038;border:1.5px solid #ffffff22;border-radius:14px;padding:16px;position:sticky;top:80px;align-self:start}
@@ -7212,8 +7226,9 @@ Rules:
    TAB 6: JUDGE
    ═══════════════════════════════════════════════════ */
 
-function Judge() {
+function Judge({ user }) {
   const { t } = React.useContext(I18nContext);
+  const [judgeMode, setJudgeMode] = useState('flow'); // flow | pool
   const [format, setFormat] = useState('APDA');
   const [notes, setNotes] = useState({});
   const [tags, setTags] = useState({});
@@ -7395,14 +7410,23 @@ Think through the strategic implications. Be specific, reference debate theory, 
   };
 
   return React.createElement('div',{className:'panel'},
-    // Format selector
-    React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
-      React.createElement('label',{style:{fontSize:'.8rem',fontWeight:600,color:'#94a3b8',letterSpacing:'.5px',textTransform:'uppercase'}},'Format:'),
+    // Mode toggle: Flow Notes vs Judge Pool
+    React.createElement('div',{style:{display:'flex',gap:8,marginBottom:16}},
+      ['flow','pool'].map(m => React.createElement('button',{
+        key:m, onClick:()=>setJudgeMode(m),
+        style:{padding:'8px 20px',borderRadius:8,border:judgeMode===m?'1.5px solid #ef444450':'1.5px solid #ffffff18',background:judgeMode===m?'#ef444412':'transparent',color:judgeMode===m?'#f87171':'#a8b8c8',cursor:'pointer',fontSize:'.78rem',fontWeight:600,fontFamily:'inherit'}
+      }, m === 'flow' ? 'Flow Notes' : 'Judge Pool')),
+    ),
+    // Judge Pool mode
+    judgeMode === 'pool' && React.createElement(JudgePool, { user }),
+    // Flow Notes mode
+    judgeMode === 'flow' && React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
+      React.createElement('label',{style:{fontSize:'.8rem',fontWeight:600,color:'#a8b8c8',letterSpacing:'.5px',textTransform:'uppercase'}},'Format:'),
       React.createElement('select',{value:format,onChange:e=>{setFormat(e.target.value);setNotes({});setTags({});setFeedback({});}},
         Object.entries(FORMATS).map(([k,v])=>React.createElement('option',{key:k,value:k},v.label))
       ),
     ),
-    speeches.map(speech =>
+    judgeMode === 'flow' && speeches.map(speech =>
       React.createElement('div',{key:speech.code,className:'speech-card'},
         React.createElement('div',{className:'speech-header'},
           React.createElement('div',{style:{display:'flex',alignItems:'center'}},
@@ -7443,7 +7467,7 @@ Think through the strategic implications. Be specific, reference debate theory, 
         ,dangerouslySetInnerHTML:{__html:cleanOutput(feedback[speech.code], true)}})
       )
     ),
-    React.createElement('div',{style:{marginTop:32,paddingTop:24,borderTop:'1px solid #ffffff18'}},
+    judgeMode === 'flow' && React.createElement('div',{style:{marginTop:32,paddingTop:24,borderTop:'1px solid #ffffff18'}},
       React.createElement('button',{
         className:'btn btn-primary',
         style:{width:'100%',padding:'14px 24px',fontSize:'1rem',fontWeight:700,opacity:allFilled?1:0.4,cursor:allFilled?'pointer':'not-allowed'},
@@ -7476,6 +7500,136 @@ Think through the strategic implications. Be specific, reference debate theory, 
         dangerouslySetInnerHTML:{__html:cleanOutput(roundEval, true)}
       })
     )
+  );
+}
+
+function JudgePool({ user }) {
+  const el = React.createElement;
+  const [judges, setJudges] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+  // Form state
+  const [name, setName] = useState('');
+  const [experience, setExperience] = useState('intermediate'); // novice, intermediate, experienced, expert
+  const [style, setStyle] = useState('tabula_rasa'); // technical, tabula_rasa, lay, parent
+  const [formats, setFormats] = useState(['APDA']);
+  const [availability, setAvailability] = useState('weekends'); // weekdays, weekends, both, flexible
+  const [bio, setBio] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!firebaseDb) { setLoading(false); return; }
+    const unsub = firebaseDb.collection('judge_pool').orderBy('createdAt', 'desc').onSnapshot(snap => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setJudges(data);
+      if (user) setIsRegistered(data.some(j => j.uid === user.uid));
+      setLoading(false);
+    }, () => setLoading(false));
+    return () => unsub();
+  }, [user]);
+
+  async function registerJudge() {
+    if (!user) { alert('Please sign in to register as a judge.'); return; }
+    if (!name.trim()) return;
+    setSubmitting(true);
+    try {
+      await firebaseDb.collection('judge_pool').add({
+        uid: user.uid,
+        name: name.trim(),
+        email: user.email || '',
+        experience,
+        style,
+        formats,
+        availability,
+        bio: bio.trim(),
+        available: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      setShowForm(false);
+      setName(''); setBio('');
+    } catch(e) { alert('Error: ' + e.message); }
+    setSubmitting(false);
+  }
+
+  const toggleFormat = (f) => setFormats(prev => prev.includes(f) ? prev.filter(x=>x!==f) : [...prev, f]);
+
+  const EXPERIENCE_LABELS = { novice:'Novice (0-1 yrs)', intermediate:'Intermediate (1-3 yrs)', experienced:'Experienced (3-5 yrs)', expert:'Expert (5+ yrs)' };
+  const STYLE_LABELS = { technical:'Technical', tabula_rasa:'Tabula Rasa', lay:'Lay', parent:'Parent Judge' };
+  const AVAIL_LABELS = { weekdays:'Weekdays', weekends:'Weekends', both:'Both', flexible:'Flexible' };
+
+  if (showForm) {
+    return el('div', null,
+      el('button', { className:'nav-btn nav-back', onClick:()=>setShowForm(false), style:{marginBottom:12} }, '\u2190 Back'),
+      el('div', { style:{background:'#303038',border:'1.5px solid #ffffff22',borderRadius:14,padding:24} },
+        el('h3', { style:{fontSize:'1.2rem',fontWeight:800,marginBottom:16} }, 'Register as a Judge'),
+        el('label', { className:'field-label' }, 'Your Name'),
+        el('input', { type:'text', value:name, onChange:e=>setName(e.target.value), placeholder:'Full name', style:{marginBottom:16,width:'100%',padding:'10px 14px',background:'#3a3a40',color:'#e4e8f0',border:'1.5px solid #ffffff28',borderRadius:10,fontFamily:'inherit',fontSize:'.88rem'} }),
+        el('div', { style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16} },
+          el('div', null,
+            el('label', { className:'field-label' }, 'Experience Level'),
+            el('select', { value:experience, onChange:e=>setExperience(e.target.value) },
+              Object.entries(EXPERIENCE_LABELS).map(([k,v]) => el('option',{key:k,value:k},v))
+            ),
+          ),
+          el('div', null,
+            el('label', { className:'field-label' }, 'Judging Style'),
+            el('select', { value:style, onChange:e=>setStyle(e.target.value) },
+              Object.entries(STYLE_LABELS).map(([k,v]) => el('option',{key:k,value:k},v))
+            ),
+          ),
+        ),
+        el('label', { className:'field-label' }, 'Formats You Judge'),
+        el('div', { style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:16} },
+          ['APDA','BP','WSDC','1v1','Open'].map(f => el('button', {
+            key:f, onClick:()=>toggleFormat(f),
+            style:{padding:'6px 14px',borderRadius:8,border:formats.includes(f)?'1.5px solid #ef444450':'1.5px solid #ffffff18',background:formats.includes(f)?'#ef444412':'transparent',color:formats.includes(f)?'#f87171':'#a8b8c8',cursor:'pointer',fontSize:'.75rem',fontWeight:600,fontFamily:'inherit'},
+          }, f)),
+        ),
+        el('label', { className:'field-label' }, 'Availability'),
+        el('div', { style:{display:'flex',gap:6,marginBottom:16} },
+          Object.entries(AVAIL_LABELS).map(([k,v]) => el('button', {
+            key:k, onClick:()=>setAvailability(k),
+            style:{padding:'6px 14px',borderRadius:8,border:availability===k?'1.5px solid #ef444450':'1.5px solid #ffffff18',background:availability===k?'#ef444412':'transparent',color:availability===k?'#f87171':'#a8b8c8',cursor:'pointer',fontSize:'.75rem',fontWeight:600,fontFamily:'inherit'},
+          }, v)),
+        ),
+        el('label', { className:'field-label' }, 'Short Bio (optional)'),
+        el('textarea', { value:bio, onChange:e=>setBio(e.target.value), placeholder:'Judging philosophy, notable tournaments judged, etc.', style:{minHeight:80,marginBottom:16} }),
+        el('button', { className:'btn btn-primary', disabled:!name.trim()||submitting, onClick:registerJudge, style:{width:'100%',padding:'12px',fontSize:'.92rem'} }, submitting ? 'Registering...' : 'Register as Judge'),
+      ),
+    );
+  }
+
+  return el('div', null,
+    el('div', { style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16} },
+      el('div', null,
+        el('h3', { style:{fontSize:'1.1rem',fontWeight:800,margin:0} }, 'Judge Pool'),
+        el('p', { style:{color:'#a8b8c8',fontSize:'.78rem',margin:'4px 0 0'} }, judges.length + ' registered judge' + (judges.length !== 1 ? 's' : '') + ' available for live debates'),
+      ),
+      !isRegistered && el('button', { className:'btn btn-primary', onClick:()=>setShowForm(true), style:{fontSize:'.78rem',padding:'6px 16px'} }, 'Sign Up to Judge'),
+      isRegistered && el('span', { style:{fontSize:'.78rem',color:'#22c55e',fontWeight:600} }, '\u2713 You\'re registered'),
+    ),
+    loading && el('div', { style:{textAlign:'center',padding:'30px 0',color:'#666'} }, 'Loading judges...'),
+    !loading && judges.length === 0 && el('div', { style:{textAlign:'center',padding:'40px 20px',color:'#666',fontSize:'.88rem'} },
+      el('div', { style:{fontSize:'2rem',marginBottom:8} }, '\u2696\uFE0F'),
+      'No judges registered yet. Be the first!',
+    ),
+    judges.map(j => el('div', { key:j.id, className:'judge-pool-card' },
+      el('div', { className:'judge-pool-avatar' }, (j.name || '?')[0].toUpperCase()),
+      el('div', { className:'judge-pool-info' },
+        el('div', { className:'judge-pool-name' }, j.name),
+        el('div', { className:'judge-pool-meta' },
+          EXPERIENCE_LABELS[j.experience] || j.experience,
+          j.bio ? ' \u00B7 ' + j.bio.slice(0, 100) + (j.bio.length > 100 ? '...' : '') : '',
+        ),
+        el('div', { className:'judge-pool-tags' },
+          el('span', { className:'judge-pool-tag style' }, STYLE_LABELS[j.style] || j.style),
+          (j.formats || []).map(f => el('span', { key:f, className:'judge-pool-tag format' }, f)),
+          el('span', { className:'judge-pool-tag ' + (j.available !== false ? 'available' : 'unavailable') }, j.available !== false ? 'Available' : 'Unavailable'),
+          el('span', { className:'judge-pool-tag style' }, AVAIL_LABELS[j.availability] || j.availability),
+        ),
+      ),
+    )),
   );
 }
 
@@ -11817,7 +11971,7 @@ function App() {
       tabPane('casual', React.createElement(Casual)),
       tabPane('phil', React.createElement(Philosophy, { onSave: saveCase })),
       tabPane('practice', React.createElement(Practice)),
-      tabPane('judge', React.createElement(Judge)),
+      tabPane('judge', React.createElement(Judge, { user: user })),
       tabPane('newbies', React.createElement(Newbies)),
       tabPane('shared', React.createElement(SharedCases, { user: user, team: team })),
       tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
