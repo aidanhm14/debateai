@@ -120,7 +120,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .nav-back:disabled{cursor:default;pointer-events:none}
 
 /* ── Hamburger Menu ──────────────────────── */
-.hamburger-wrap{display:none;justify-content:center;margin:4px 0 2px;width:100%}
+.hamburger-wrap{display:none;justify-content:center;margin:12px 0 2px;width:100%}
 .hamburger-btn{display:flex;background:none;border:1.5px solid #ffffff18;border-radius:8px;padding:6px 10px;cursor:pointer;color:#b0c0d4;font-size:.8rem;font-weight:600;font-family:inherit;transition:.25s;gap:6px;align-items:center;white-space:nowrap}
 .hamburger-btn:hover{background:#ffffff08;color:#e4e8f0;border-color:#ffffff28}
 .hamburger-btn .bar-icon{display:flex;flex-direction:column;gap:3px;width:16px}
@@ -960,6 +960,17 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .market-rebuttal{margin-top:10px;padding:10px 12px;background:#ffffff06;border:1px solid #ffffff10;border-radius:8px;font-size:.8rem;color:#a8b8c8;line-height:1.45;border-left:2px solid #f59e0b40}
 .market-rebuttal-label{font-size:.65rem;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
 .market-converge{text-align:center;font-size:.75rem;color:#22c55e;margin-top:8px;font-weight:500}
+.market-guide-panel{background:#2a2a32;border:1px solid #ffffff14;border-radius:14px;padding:24px 28px;margin:12px 0 16px;line-height:1.7}
+.market-guide-title{font-size:1.05rem;font-weight:700;margin-bottom:12px;color:#e8ecf2}
+.market-guide-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:16px}
+.market-guide-card{background:#22222a;border-radius:10px;padding:14px 16px;border:1px solid #ffffff0a}
+.market-guide-card-title{font-weight:700;font-size:.82rem;margin-bottom:6px;color:#e8ecf2}
+.market-guide-card-text{font-size:.82rem;color:#94a3b8;margin:0}
+.light-theme .market-guide-panel{background:#f8f9fc;border-color:#e2e8f0}
+.light-theme .market-guide-title{color:#1a1a2e}
+.light-theme .market-guide-card{background:#fff;border-color:#e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.light-theme .market-guide-card-title{color:#1a1a2e}
+.light-theme .market-guide-card-text{color:#4b5563}
 @media(max-width:900px){.market-layout{grid-template-columns:1fr}.market-claim-panel{position:static}}
 @media(max-width:640px){.market-layout{gap:10px}.market-price-display{font-size:2.2rem}}
 .light-theme .market-claim-panel,.light-theme .market-arg-card{background:#fff!important;border-color:#e2e8f0!important}
@@ -984,7 +995,7 @@ html{background:#2b2b30}html:has(body.light-theme){background:#f0f4fc!important}
 .light-theme .geo-diamond{border-color:#da775614!important}
 .light-theme .geo-hex{border-color:#a8b8c810!important}
 .light-theme .geo-ring{border-color:#da775610!important}
-.light-theme .logo span:first-child{color:#dc2626!important}
+.light-theme .logo span:not(.white){color:#dc2626!important}
 .light-theme .logo .white{color:#1a1a2e!important;text-shadow:none!important;font-weight:500!important;letter-spacing:1px!important}
 /* ── Light Theme — Devil's Red Accent System ─── */
 .light-theme .subtitle{color:#92754a!important}
@@ -11336,6 +11347,7 @@ function ArgumentMarket() {
   const [phase, setPhase] = useState('idle'); // idle | generating | evaluating | rebutting | done
   const [error, setError] = useState(null);
   const [currentPrice, setCurrentPrice] = useState(0.5);
+  const [showGuide, setShowGuide] = useState(false);
 
   // Restore from localStorage on mount
   useEffect(() => {
@@ -11490,7 +11502,50 @@ function ArgumentMarket() {
   return el('div',{className:'panel',style:{padding:'16px 20px'}},
     el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}},
       el('h2',{style:{fontSize:'1.2rem',fontWeight:800,letterSpacing:'-.3px',margin:0}}, 'Argument Market'),
-      el('button',{onClick:resetMarket,style:{background:'none',border:'1px solid #ffffff18',borderRadius:8,color:'#a8b8c8',fontSize:'.72rem',padding:'4px 12px',cursor:'pointer',fontFamily:'inherit'}}, 'New Claim'),
+      el('div',{style:{display:'flex',gap:6,alignItems:'center'}},
+        el('button',{onClick:()=>setShowGuide(!showGuide),style:{background:showGuide?'#ef444420':'none',border:'1px solid '+(showGuide?'#ef444440':'#ffffff18'),borderRadius:8,color:showGuide?'#f87171':'#a8b8c8',fontSize:'.72rem',padding:'4px 12px',cursor:'pointer',fontFamily:'inherit',transition:'.2s'}}, showGuide ? 'Close Guide' : 'How It Works'),
+        el('button',{onClick:resetMarket,style:{background:'none',border:'1px solid #ffffff18',borderRadius:8,color:'#a8b8c8',fontSize:'.72rem',padding:'4px 12px',cursor:'pointer',fontFamily:'inherit'}}, 'New Claim'),
+      ),
+    ),
+    // Guide panel
+    showGuide && el('div',{className:'market-guide-panel'},
+      el('h3',{className:'market-guide-title'},'How the Argument Market Works'),
+      el('div',{className:'market-guide-grid'},
+        el('div',{className:'market-guide-card'},
+          el('div',{className:'market-guide-card-title',style:{color:'#f59e0b'}},'1. Submit a Claim'),
+          el('p',{className:'market-guide-card-text'},'Enter any falsifiable claim \u2014 political, scientific, philosophical. The more specific and testable, the better the market works.'),
+        ),
+        el('div',{className:'market-guide-card'},
+          el('div',{className:'market-guide-card-title',style:{color:'#22c55e'}},'2. Arguments Are Generated'),
+          el('p',{className:'market-guide-card-text'},'The engine generates the strongest possible arguments FOR and AGAINST. Each starts with an equal weight of 0.5.'),
+        ),
+        el('div',{className:'market-guide-card'},
+          el('div',{className:'market-guide-card-title',style:{color:'#3b82f6'}},'3. Four-Dimension Scoring'),
+          el('p',{className:'market-guide-card-text'},'Each argument is scored 0\u201310 on four dimensions: Evidence (real sources?), Logic (reasoning valid?), Rebuttal Resistance (survives counters?), and Specificity (falsifiable?).'),
+        ),
+        el('div',{className:'market-guide-card'},
+          el('div',{className:'market-guide-card-title',style:{color:'#ef4444'}},'4. Weights Update'),
+          el('p',{className:'market-guide-card-text'},'Scores feed back into weights: new_weight = old_weight \u00D7 0.7 + (avg_score/10) \u00D7 0.3. Bad arguments shrink. Strong ones grow. This is the feedback loop.'),
+        ),
+        el('div',{className:'market-guide-card'},
+          el('div',{className:'market-guide-card-title',style:{color:'#a78bfa'}},'5. Rebuttals & New Arguments'),
+          el('p',{className:'market-guide-card-text'},'Each cycle targets the top arguments with devastating rebuttals, and introduces new arguments. Rebuttal resistance scores drop for successfully rebutted arguments.'),
+        ),
+        el('div',{className:'market-guide-card'},
+          el('div',{className:'market-guide-card-title',style:{color:'#f59e0b'}},'6. Market Price Converges'),
+          el('p',{className:'market-guide-card-text'},'The price = total FOR weight / (FOR + AGAINST). It moves between 0 (false) and 100 (true). Run more cycles and watch it converge as weak arguments are eliminated.'),
+        ),
+      ),
+      el('div',{className:'market-guide-card'},
+        el('div',{className:'market-guide-card-title'},'Reading the Market'),
+        el('div',{style:{display:'flex',gap:16,flexWrap:'wrap',fontSize:'.82rem'}},
+          el('span',null,el('span',{style:{color:'#22c55e',fontWeight:700}},'>60'),' = Leaning TRUE'),
+          el('span',null,el('span',{style:{color:'#ef4444',fontWeight:700}},'<40'),' = Leaning FALSE'),
+          el('span',null,el('span',{style:{color:'#f59e0b',fontWeight:700}},'40\u201360'),' = Contested'),
+          el('span',null,el('span',{style:{fontWeight:700}},'Converging'),' = price stable across cycles'),
+        ),
+        el('p',{style:{fontSize:'.8rem',margin:'8px 0 0',fontStyle:'italic',opacity:.7}},'Tip: Run 3\u20135 cycles for meaningful convergence. The market is designed to track truth, not persuasion \u2014 arguments win on evidence and logic, not rhetoric.'),
+      ),
     ),
     el('div',{className:'market-layout'},
       // LEFT: Claim + Price + Chart
