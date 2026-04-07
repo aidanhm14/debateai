@@ -2022,33 +2022,62 @@ function cleanOutput(text, asHtml) {
   return t;
 }
 
-// Throttled streaming: commits latest text to React state every 50ms for smooth reveal
+// Smooth streaming: buffers API text and reveals at constant 60fps rate
 function createStreamThrottle(onChunk, outputRef) {
-  let latestText = '';
-  let committed = '';
-  let intervalId = null;
+  let targetText = '';   // full text received from API so far
+  let shownLen = 0;      // how many chars we've revealed to the user
+  let rafId = null;
+  let lastTime = 0;
+  const CHARS_MS = 1.2;  // chars per millisecond (~72 chars/sec = ~15 words/sec, natural reading speed)
 
-  function startInterval() {
-    if (intervalId) return;
-    intervalId = setInterval(() => {
-      if (latestText !== committed) {
-        committed = latestText;
-        onChunk(latestText);
+  function tick(now) {
+    if (!lastTime) lastTime = now;
+    const dt = now - lastTime;
+    lastTime = now;
+
+    if (shownLen < targetText.length) {
+      // Calculate how many chars to reveal this frame
+      let step = Math.max(1, Math.round(CHARS_MS * dt));
+      // If we're very far behind (>500 chars), catch up faster
+      const behind = targetText.length - shownLen;
+      if (behind > 500) step = Math.max(step, Math.ceil(behind * 0.15));
+      else if (behind > 200) step = Math.max(step, Math.ceil(behind * 0.08));
+
+      shownLen = Math.min(targetText.length, shownLen + step);
+
+      // Snap to word boundary to avoid broken markdown
+      let cutAt = shownLen;
+      if (cutAt < targetText.length) {
+        // Find the last space before cutAt to avoid mid-word/mid-markdown cuts
+        const lastSpace = targetText.lastIndexOf(' ', cutAt);
+        if (lastSpace > cutAt - 40 && lastSpace > 0) cutAt = lastSpace;
       }
-    }, 50); // 20fps — fast enough to look smooth, light enough for React
+
+      onChunk(targetText.slice(0, cutAt));
+    }
+
+    if (shownLen < targetText.length) {
+      rafId = requestAnimationFrame(tick);
+    } else {
+      rafId = null;
+    }
   }
 
   return {
     update(text) {
-      latestText = text;
-      startInterval();
+      targetText = text;
+      if (!rafId) {
+        lastTime = 0;
+        rafId = requestAnimationFrame(tick);
+      }
     },
     finish() {
-      if (intervalId) { clearInterval(intervalId); intervalId = null; }
-      onChunk(latestText);
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      shownLen = targetText.length;
+      onChunk(targetText);
     },
     cancel() {
-      if (intervalId) { clearInterval(intervalId); intervalId = null; }
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     }
   };
 }
