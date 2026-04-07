@@ -11385,7 +11385,7 @@ function MarketArgCard({ arg, side }) {
   );
 }
 
-function ArgumentMarket() {
+function ArgumentMarket({ user }) {
   const el = React.createElement;
   const { t } = React.useContext(I18nContext);
   const [claim, setClaim] = useState('');
@@ -11398,6 +11398,11 @@ function ArgumentMarket() {
   const [error, setError] = useState(null);
   const [currentPrice, setCurrentPrice] = useState(0.5);
   const [showGuide, setShowGuide] = useState(() => { try { return !localStorage.getItem('debateos-market-guided') } catch(e) { return true } });
+  // Community voting state
+  const [communityVotes, setCommunityVotes] = useState({ true: 0, false: 0 });
+  const [userVote, setUserVote] = useState(null);
+  const [communityMarkets, setCommunityMarkets] = useState([]);
+  const [showCommunity, setShowCommunity] = useState(true);
 
   // Restore from localStorage on mount
   useEffect(() => {
@@ -11420,6 +11425,75 @@ function ArgumentMarket() {
     if (!submitted) return;
     try { localStorage.setItem('debateos-market', JSON.stringify({ claim, forArgs, againstArgs, priceHistory, cycle, currentPrice })); } catch(e) {}
   }, [forArgs, againstArgs, priceHistory, cycle, currentPrice, submitted]);
+
+  // Load community markets from Firestore
+  useEffect(() => {
+    if (!firebaseDb) return;
+    const unsub = firebaseDb.collection('market_claims').orderBy('createdAt', 'desc').limit(20).onSnapshot(snap => {
+      setCommunityMarkets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, () => {});
+    return () => unsub();
+  }, []);
+
+  // Load votes for current claim
+  useEffect(() => {
+    if (!firebaseDb || !submitted || !claim) return;
+    const claimId = btoa(claim.trim().toLowerCase().slice(0, 200)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 40);
+    const unsub = firebaseDb.collection('market_claims').doc(claimId).onSnapshot(doc => {
+      if (doc.exists) {
+        const d = doc.data();
+        setCommunityVotes({ true: d.votesTrue || 0, false: d.votesFalse || 0 });
+      }
+    }, () => {});
+    // Check user's existing vote
+    if (user) {
+      firebaseDb.collection('market_claims').doc(claimId).collection('voters').doc(user.uid).get().then(doc => {
+        if (doc.exists) setUserVote(doc.data().vote);
+      }).catch(() => {});
+    }
+    return () => unsub();
+  }, [submitted, claim, user]);
+
+  async function castVote(vote) {
+    if (!firebaseDb || !user || !claim) return;
+    const claimId = btoa(claim.trim().toLowerCase().slice(0, 200)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 40);
+    const claimRef = firebaseDb.collection('market_claims').doc(claimId);
+    const voterRef = claimRef.collection('voters').doc(user.uid);
+
+    try {
+      const voterDoc = await voterRef.get();
+      const oldVote = voterDoc.exists ? voterDoc.data().vote : null;
+
+      if (oldVote === vote) return; // Already voted same way
+
+      const batch = firebaseDb.batch();
+
+      // Update vote counts
+      const inc = firebase.firestore.FieldValue.increment;
+      const updates = {};
+      if (oldVote === 'true') updates.votesTrue = inc(-1);
+      if (oldVote === 'false') updates.votesFalse = inc(-1);
+      if (vote === 'true') updates.votesTrue = inc(1);
+      if (vote === 'false') updates.votesFalse = inc(1);
+
+      if (!voterDoc.exists) {
+        // First time — also set claim metadata
+        updates.claim = claim;
+        updates.aiPrice = currentPrice;
+        updates.createdAt = updates.createdAt || firebase.firestore.FieldValue.serverTimestamp();
+      }
+      updates.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      updates.totalVotes = inc(oldVote ? 0 : 1);
+
+      batch.set(claimRef, updates, { merge: true });
+      batch.set(voterRef, { vote, votedAt: firebase.firestore.FieldValue.serverTimestamp(), name: user.displayName || user.email || 'Anonymous' });
+
+      await batch.commit();
+      setUserVote(vote);
+    } catch (e) {
+      console.error('Vote failed:', e);
+    }
+  }
 
   function computePrice(fArgs, aArgs) {
     const forSum = fArgs.reduce((s,a) => s + a.weight, 0);
@@ -11520,8 +11594,21 @@ function ArgumentMarket() {
     }
   }
 
+  // Save claim to Firestore community feed when market launches
+  useEffect(() => {
+    if (!firebaseDb || !submitted || !claim || cycle !== 1) return;
+    const claimId = btoa(claim.trim().toLowerCase().slice(0, 200)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 40);
+    firebaseDb.collection('market_claims').doc(claimId).set({
+      claim: claim,
+      aiPrice: currentPrice,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: user ? (user.displayName || user.email || 'Anonymous') : 'Anonymous',
+    }, { merge: true }).catch(() => {});
+  }, [cycle]);
+
   function resetMarket() {
-    setClaim(''); setSubmitted(false); setForArgs([]); setAgainstArgs([]); setPriceHistory([]); setCycle(0); setPhase('idle'); setError(null); setCurrentPrice(0.5);
+    setClaim(''); setSubmitted(false); setForArgs([]); setAgainstArgs([]); setPriceHistory([]); setCycle(0); setPhase('idle'); setError(null); setCurrentPrice(0.5); setUserVote(null); setCommunityVotes({true:0,false:0});
     try { localStorage.removeItem('debateos-market'); } catch(e) {}
   }
 
@@ -11549,6 +11636,25 @@ function ArgumentMarket() {
           onClick:()=>{ setSubmitted(true); setTimeout(runCycle, 100); },
           style:{fontSize:'1rem',padding:'12px 32px'}
         }, 'Launch Market'),
+      ),
+      // Community Claims feed
+      communityMarkets.length > 0 && el('div',{style:{maxWidth:620,margin:'32px auto 0',borderTop:'1px solid #ffffff12',paddingTop:24}},
+        el('h3',{style:{fontSize:'1rem',fontWeight:700,marginBottom:14,color:'#a8b8c8',textAlign:'center'}}, 'Community Claims \u2014 Vote on What\u2019s True'),
+        communityMarkets.map(m => {
+          const total = (m.votesTrue || 0) + (m.votesFalse || 0);
+          const truePct = total > 0 ? Math.round((m.votesTrue || 0) / total * 100) : 50;
+          return el('div',{key:m.id,style:{padding:'14px 16px',background:'var(--card-bg,#ffffff06)',border:'1px solid var(--border,#ffffff12)',borderRadius:10,marginBottom:8,cursor:'pointer'},onClick:()=>{setClaim(m.claim);setSubmitted(true);setTimeout(runCycle,100);}},
+            el('div',{style:{fontSize:'.88rem',color:'var(--text-primary,#e4e8f0)',fontWeight:600,marginBottom:8,lineHeight:1.4}}, '"' + m.claim + '"'),
+            el('div',{style:{display:'flex',alignItems:'center',gap:12}},
+              el('div',{style:{flex:1,height:5,borderRadius:3,overflow:'hidden',background:'#ffffff08',display:'flex'}},
+                el('div',{style:{width:truePct+'%',background:'#22c55e',transition:'width .3s'}}),
+                el('div',{style:{flex:1,background:'#ef4444'}}),
+              ),
+              el('span',{style:{fontSize:'.7rem',color:'#22c55e',fontWeight:600,minWidth:36}}, truePct + '%'),
+              el('span',{style:{fontSize:'.68rem',color:'#64748b'}}, total + ' votes'),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -11613,6 +11719,25 @@ function ArgumentMarket() {
           currentPrice > 0.6 ? 'Leaning TRUE' : currentPrice < 0.4 ? 'Leaning FALSE' : 'Contested'
         ),
         el(MarketPriceChart, { priceHistory }),
+        // Community Vote Section
+        submitted && el('div',{style:{margin:'16px 0',padding:'14px',background:'var(--card-bg,#ffffff06)',border:'1px solid var(--border,#ffffff12)',borderRadius:10}},
+          el('div',{style:{fontSize:'.68rem',fontWeight:700,color:'#a8b8c8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:10,textAlign:'center'}}, 'Community Vote'),
+          user ? el('div',{style:{display:'flex',gap:8,marginBottom:10}},
+            el('button',{onClick:()=>castVote('true'),style:{flex:1,padding:'10px',borderRadius:8,border:userVote==='true'?'2px solid #22c55e':'1.5px solid #ffffff18',background:userVote==='true'?'#22c55e15':'transparent',color:userVote==='true'?'#22c55e':'#a8b8c8',fontWeight:700,fontSize:'.85rem',cursor:'pointer',transition:'.2s',fontFamily:'inherit'}}, '\u2705 True'),
+            el('button',{onClick:()=>castVote('false'),style:{flex:1,padding:'10px',borderRadius:8,border:userVote==='false'?'2px solid #ef4444':'1.5px solid #ffffff18',background:userVote==='false'?'#ef444415':'transparent',color:userVote==='false'?'#ef4444':'#a8b8c8',fontWeight:700,fontSize:'.85rem',cursor:'pointer',transition:'.2s',fontFamily:'inherit'}}, '\u274C False'),
+          ) : el('div',{style:{fontSize:'.78rem',color:'#64748b',textAlign:'center',padding:'8px 0'}}, 'Sign in to vote'),
+          (communityVotes.true + communityVotes.false > 0) && el('div',null,
+            el('div',{style:{display:'flex',height:6,borderRadius:3,overflow:'hidden',background:'#ffffff08',marginBottom:6}},
+              el('div',{style:{width:Math.round(communityVotes.true / (communityVotes.true + communityVotes.false) * 100) + '%',background:'#22c55e',transition:'width .3s ease'}}),
+              el('div',{style:{flex:1,background:'#ef4444'}}),
+            ),
+            el('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'.72rem'}},
+              el('span',{style:{color:'#22c55e',fontWeight:600}}, communityVotes.true + ' True (' + Math.round(communityVotes.true / (communityVotes.true + communityVotes.false) * 100) + '%)'),
+              el('span',{style:{color:'#ef4444',fontWeight:600}}, communityVotes.false + ' False (' + Math.round(communityVotes.false / (communityVotes.true + communityVotes.false) * 100) + '%)'),
+            ),
+            el('div',{style:{fontSize:'.68rem',color:'#64748b',textAlign:'center',marginTop:4}}, (communityVotes.true + communityVotes.false) + ' total votes'),
+          ),
+        ),
         el('div',{style:{marginTop:16,textAlign:'center'}},
           el('button',{
             className:'btn btn-primary',
@@ -12086,7 +12211,7 @@ function App() {
       tabPane('shared', React.createElement(SharedCases, { user: user, team: team })),
       tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
       tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
-      tabPane('market', React.createElement(ArgumentMarket)),
+      tabPane('market', React.createElement(ArgumentMarket, { user: user })),
       tabPane('live', React.createElement(LiveDebates, { user: user, team: team, onNavigateTab: navigateTab })),
       toast && React.createElement('div', {style:{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',padding:'10px 24px',background:'#22c55e',color:'#fff',borderRadius:8,fontWeight:600,fontSize:'.88rem',zIndex:99999,boxShadow:'0 4px 12px rgba(0,0,0,.3)',animation:'fadeIn .2s ease',pointerEvents:'none'}}, toast),
       // Welcome modal after successful payment
