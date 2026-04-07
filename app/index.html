@@ -2382,27 +2382,35 @@ function cleanOutput(text, asHtml) {
 function createStreamThrottle(onChunk, outputRef) {
   let latestText = '';
   let committed = '';
-  let rafId = null;
-
-  function tick() {
-    if (latestText !== committed) {
-      committed = latestText;
-      onChunk(latestText);
-    }
-    rafId = requestAnimationFrame(tick);
-  }
+  let timerId = null;
+  const INTERVAL = 120; // ms between React re-renders — prevents flicker
 
   return {
     update(text) {
       latestText = text;
-      if (!rafId) rafId = requestAnimationFrame(tick);
+      if (!timerId) {
+        timerId = setTimeout(function flush() {
+          if (latestText !== committed) {
+            committed = latestText;
+            onChunk(latestText);
+          }
+          if (latestText !== committed) {
+            timerId = setTimeout(flush, INTERVAL);
+          } else {
+            timerId = null;
+          }
+        }, INTERVAL);
+      }
     },
     finish() {
-      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      if (timerId) { clearTimeout(timerId); timerId = null; }
+      if (latestText !== committed) {
+        committed = latestText;
+      }
       onChunk(latestText);
     },
     cancel() {
-      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      if (timerId) { clearTimeout(timerId); timerId = null; }
     }
   };
 }
@@ -5095,7 +5103,9 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
     }
 
     try {
-      await callClaude(sysPrompt, userPrompt, (text) => setMotionOutput(text), { thinkBudget: 10000, maxTokens: 8000, expectedWords: 1200, onProgress: (p) => setMProgress(p), feature: 'resolution' });
+      const throttle = createStreamThrottle((text) => setMotionOutput(text), null);
+      await callClaude(sysPrompt, userPrompt, (text) => throttle.update(text), { thinkBudget: 10000, maxTokens: 8000, expectedWords: 1200, onProgress: (p) => setMProgress(p), feature: 'resolution' });
+      throttle.finish();
     } catch(e) {
       setMotionOutput('Error: ' + e.message);
     }
@@ -5120,7 +5130,9 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
 Keep it to 80-150 words. Be specific, use real facts and policies. Do NOT use specific statistics or numbers unless the user provided them — all facts must be common knowledge. Write in the style of a competitive APDA case background section. Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points. Do not use em dashes, en dashes, or hyphens as separators.`;
       const selectedMotion = Array.isArray(result) ? result[result._selected || 0] : result;
       const userPrompt = `Motion: ${selectedMotion}\n\nWrite the background section.`;
-      await callClaude(sysPrompt, userPrompt, (text) => setBgText(text), { thinkBudget: 6000, maxTokens: 4000 });
+      const thr = createStreamThrottle((text) => setBgText(text), null);
+      await callClaude(sysPrompt, userPrompt, (text) => thr.update(text), { thinkBudget: 6000, maxTokens: 4000 });
+      thr.finish();
     } catch(e) {
       setBgText('Error: ' + e.message);
     }
@@ -5177,7 +5189,9 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
 
       const userPrompt = `Here are current events to draw from:\n\n${newsData.text}\n\n${picked ? 'Focus on ' + picked + ' angles.' : 'Pick the most debatable story.'}\n\nTurn this into one original APDA debate motion. The motion should be genuinely hard — the kind that splits a room.`;
 
-      await callClaude(sysPrompt, userPrompt, (text) => setMotionOutput(text), { thinkBudget: 10000, maxTokens: 8000 });
+      const thr2 = createStreamThrottle((text) => setMotionOutput(text), null);
+      await callClaude(sysPrompt, userPrompt, (text) => thr2.update(text), { thinkBudget: 10000, maxTokens: 8000 });
+      thr2.finish();
     } catch(e) {
       setMotionOutput('Error: ' + e.message);
       setFetchingNews(false);
@@ -5982,7 +5996,9 @@ In one paragraph, what is the story that wins this round? "At the end of the rou
 
 Write in a direct, confident, opinionated voice. You are the coach. You've seen this before. Tell them what to do. Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points. Do not use em dashes, en dashes, or hyphens as separators.`;
       const userPrompt = `Motion: ${motion}\nMy side: ${side}\n\nGive me the full round vision.`;
-      await callClaude(sysPrompt, userPrompt, (text) => setOutput(text), { thinkBudget: 10000, maxTokens: 8000, expectedWords: 2000, onProgress: (p) => setVProgress(p), feature: 'vision' });
+      const throttle = createStreamThrottle((text) => setOutput(text), null);
+      await callClaude(sysPrompt, userPrompt, (text) => throttle.update(text), { thinkBudget: 10000, maxTokens: 8000, expectedWords: 2000, onProgress: (p) => setVProgress(p), feature: 'vision' });
+      throttle.finish();
     } catch(e) {
       setOutput('Error: ' + e.message);
     }
@@ -7398,7 +7414,9 @@ Be direct, specific, and reference actual content from the notes. Write like a r
         allNotes += note + '\n\n';
       }
       const userPrompt = 'Format: ' + format + '\n\nHere are my flow notes for the entire round:\n\n' + allNotes + '\nDeliver your RFD.';
-      await callClaude(sysPrompt, userPrompt, (text) => setRoundEval(text), { thinkBudget: 12000, maxTokens: 10000, expectedWords: 1500, onProgress: (p) => setReProgress(p), feature: 'judge' });
+      const thr = createStreamThrottle((text) => setRoundEval(text), null);
+      await callClaude(sysPrompt, userPrompt, (text) => thr.update(text), { thinkBudget: 12000, maxTokens: 10000, expectedWords: 1500, onProgress: (p) => setReProgress(p), feature: 'judge' });
+      thr.finish();
     } catch(e) {
       setRoundEval('Error: ' + e.message);
     }
@@ -7807,7 +7825,9 @@ Write like a coach who genuinely wants this debater to get better. Be tough but 
     const userPrompt = `Motion: ${motion || '(no motion provided)'}\nSpeech type: ${selectedSpeech.code} (${selectedSpeech.title})\n\nHere is the speech:\n\n${userSpeech}`;
 
     try {
-      await callClaude(sysPrompt, userPrompt, (text) => setFeedback(text), { thinkBudget: 8000, maxTokens: 6000, expectedWords: 1000, onProgress: (p) => setSpProgress(p), feature: 'practice' });
+      const thr = createStreamThrottle((text) => setFeedback(text), null);
+      await callClaude(sysPrompt, userPrompt, (text) => thr.update(text), { thinkBudget: 8000, maxTokens: 6000, expectedWords: 1000, onProgress: (p) => setSpProgress(p), feature: 'practice' });
+      thr.finish();
     } catch(e) {
       setFeedback('Error: ' + e.message);
     }
@@ -9317,7 +9337,9 @@ Be direct. No sugarcoating. Use **bold** for key terms and argument names.`;
       '\n\nGive your coaching feedback:';
 
     try {
-      await callClaude(sysPrompt, userPrompt, (text) => setFeedback(text), { thinkBudget: 6000, maxTokens: 6000 });
+      const thr = createStreamThrottle((text) => setFeedback(text), null);
+      await callClaude(sysPrompt, userPrompt, (text) => thr.update(text), { thinkBudget: 6000, maxTokens: 6000 });
+      thr.finish();
       // Log insight for recursive learning
       logInsight('argument_pattern', {
         motion: motion.substring(0,200), side, format: botFormat,
