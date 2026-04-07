@@ -4,401 +4,346 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Devil's Advocate — AI Debate Prep Engine</title>
-<meta name="description" content="Devil's Advocate is the AI-powered debate engine built for competitive parliamentary debaters. Generate cases, simulate rounds, stress-test arguments, and walk into every round prepared." />
+<meta name="description" content="Devil's Advocate is the AI-powered debate engine for competitive parliamentary debaters. Generate cases, simulate rounds, stress-test arguments." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: #060a14;
-  color: #c8cdd8;
-  font-size: 16px;
-  line-height: 1.6;
-  overflow-x: hidden;
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background:#faf8f5;
+  color:#1a1a1a;
+  font-size:16px;line-height:1.6;overflow-x:hidden;
 }
-a { color: inherit; text-decoration: none; }
-button { font-family: inherit; cursor: pointer; }
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
 
 /* Reveal */
-.rv { opacity: 0; transform: translateY(18px); transition: opacity 0.7s cubic-bezier(0.22,1,0.36,1), transform 0.7s cubic-bezier(0.22,1,0.36,1); }
-.rv.vis { opacity: 1; transform: none; }
+.rv{opacity:0;transform:translateY(16px);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1)}
+.rv.vis{opacity:1;transform:none}
 .rv-d1{transition-delay:.06s}.rv-d2{transition-delay:.12s}.rv-d3{transition-delay:.18s}
-.rv-d4{transition-delay:.24s}.rv-d5{transition-delay:.30s}.rv-d6{transition-delay:.36s}
+.rv-d4{transition-delay:.24s}.rv-d5{transition-delay:.3s}.rv-d6{transition-delay:.36s}
 
-/* ── Navbar ─────────────────────────────── */
-.nav-wrap {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  padding: 18px 40px;
-  display: flex; align-items: center; justify-content: space-between;
-  transition: background 0.4s, border-color 0.4s;
-  border-bottom: 1px solid transparent;
+/* ── Nav ─────────────────────────────────── */
+.nav-wrap{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:16px 36px;
+  display:flex;align-items:center;justify-content:space-between;
+  transition:background .3s,box-shadow .3s;
 }
-.nav-wrap.scrolled {
-  background: rgba(6,10,20,0.88);
-  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border-bottom-color: rgba(255,255,255,0.05);
+.nav-wrap.scrolled{
+  background:rgba(250,248,245,.92);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:0 1px 0 rgba(0,0,0,.06);
 }
-.nav-logo {
-  font-family: 'DM Serif Display', serif;
-  font-size: 1.35rem; color: #fff;
-  letter-spacing: -0.01em;
+.nav-logo{
+  font-family:'DM Serif Display',serif;
+  font-size:1.3rem;color:#1a1a1a;letter-spacing:-.01em;
 }
-.nav-logo .dim { opacity: 0.45; font-style: italic; }
-.nav-mid {
-  display: flex; gap: 0;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 100px; padding: 3px;
+.nav-logo .accent{color:#dc2626}
+.nav-mid{
+  display:flex;gap:0;
+  background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.06);
+  border-radius:100px;padding:3px;
 }
-.nav-mid a {
-  padding: 7px 20px; font-size: 0.78rem; font-weight: 500;
-  color: rgba(255,255,255,0.4); border-radius: 100px;
-  transition: color 0.2s, background 0.2s;
-  letter-spacing: 0.01em;
+.nav-mid a{
+  padding:7px 20px;font-size:.78rem;font-weight:500;
+  color:rgba(0,0,0,.4);border-radius:100px;
+  transition:color .2s,background .2s;
 }
-.nav-mid a:hover { color: #fff; background: rgba(255,255,255,0.06); }
-.nav-cta-wrap {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 9px 22px;
-  border-radius: 100px;
-  border: 1px solid rgba(255,255,255,0.12);
-  font-size: 0.78rem; font-weight: 500;
-  color: rgba(255,255,255,0.7);
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
+.nav-mid a:hover{color:#1a1a1a;background:rgba(0,0,0,.04)}
+.nav-cta{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:9px 22px;border-radius:100px;
+  background:#dc2626;color:#fff;
+  font-size:.78rem;font-weight:600;border:none;
+  transition:transform .2s,box-shadow .2s;
 }
-.nav-cta-wrap:hover { border-color: rgba(255,255,255,0.3); color: #fff; background: rgba(255,255,255,0.04); }
-.nav-cta-wrap svg { width: 13px; height: 13px; opacity: 0.5; }
+.nav-cta:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(220,38,38,.25)}
+.nav-cta svg{width:13px;height:13px}
 
-/* ── Hero ────────────────────────────────── */
-.hero {
-  position: relative;
-  min-height: 100vh; min-height: 100dvh;
-  display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
-  text-align: center;
-  padding: 120px 24px 100px;
-  overflow: hidden;
+/* ── Hero ─────────────────────────────────── */
+.hero{
+  position:relative;
+  min-height:100vh;min-height:100dvh;
+  display:flex;flex-direction:column;
+  justify-content:center;align-items:center;
+  text-align:center;
+  padding:120px 24px 100px;
+  overflow:hidden;
+  background:#faf8f5;
 }
+#hero-canvas{position:absolute;inset:0;z-index:0;width:100%;height:100%}
+.hero-fade-b{
+  position:absolute;bottom:0;left:0;right:0;height:25vh;z-index:1;
+  pointer-events:none;
+  background:linear-gradient(to top,#faf8f5,transparent);
+}
+.hero-content{position:relative;z-index:2;max-width:820px}
 
-/* Canvas grid background */
-#hero-canvas {
-  position: absolute; inset: 0; z-index: 0;
-  width: 100%; height: 100%;
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:7px 18px 7px 12px;border-radius:100px;
+  font-size:.7rem;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:#dc2626;
+  background:rgba(220,38,38,.06);
+  border:1px solid rgba(220,38,38,.12);
+  margin-bottom:28px;
 }
+.hero-badge .dot{
+  width:7px;height:7px;border-radius:50%;
+  background:#dc2626;
+  animation:blink 2s ease-in-out infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* Gradient overlays on top of canvas */
-.hero-glow {
-  position: absolute; inset: 0; z-index: 1; pointer-events: none;
-  background:
-    radial-gradient(ellipse 50% 60% at 50% 40%, rgba(100,40,40,0.10) 0%, transparent 100%),
-    radial-gradient(ellipse 40% 50% at 30% 70%, rgba(30,40,100,0.06) 0%, transparent 100%);
+.hero h1{
+  font-family:'DM Serif Display',serif;
+  font-size:clamp(2.6rem,6vw,4.8rem);
+  font-weight:400;letter-spacing:-.025em;
+  line-height:1.06;color:#1a1a1a;
+  margin-bottom:24px;
 }
-.hero-fade {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 30vh; z-index: 2;
-  pointer-events: none;
-  background: linear-gradient(to top, #060a14 0%, transparent 100%);
+.hero h1 em{font-style:italic;color:#dc2626}
+.hero-sub{
+  font-size:1.05rem;color:#71717a;
+  max-width:460px;margin:0 auto 36px;line-height:1.7;
 }
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-red{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:15px 34px;
+  background:linear-gradient(135deg,#dc2626,#b91c1c);
+  color:#fff;border-radius:100px;
+  font-size:.9rem;font-weight:600;border:none;
+  transition:transform .2s,box-shadow .2s;
+  box-shadow:0 2px 12px rgba(220,38,38,.2);
+}
+.btn-red:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(220,38,38,.28)}
+.btn-red svg{width:16px;height:16px}
+.btn-light{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:15px 34px;
+  background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.08);
+  color:#52525b;border-radius:100px;
+  font-size:.9rem;font-weight:500;
+  transition:all .2s;
+}
+.btn-light:hover{border-color:rgba(0,0,0,.15);color:#1a1a1a;background:rgba(0,0,0,.05)}
 
-.hero-content { position: relative; z-index: 3; max-width: 860px; }
-
-.hero-badge {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 7px 18px 7px 10px;
-  border-radius: 100px;
-  font-size: 0.72rem; font-weight: 600;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  color: rgba(255,255,255,0.5);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
-  margin-bottom: 32px;
-}
-.hero-badge .pulse {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 8px rgba(52,211,153,0.4);
-  animation: blink 2s ease-in-out infinite;
-}
-@keyframes blink { 0%,100%{opacity:1}50%{opacity:.35} }
-
-.hero h1 {
-  font-family: 'DM Serif Display', serif;
-  font-size: clamp(2.8rem, 6.5vw, 5.2rem);
-  font-weight: 400;
-  letter-spacing: -0.025em;
-  line-height: 1.06;
-  color: #fff;
-  margin-bottom: 24px;
-}
-.hero h1 em { font-style: italic; color: rgba(255,255,255,0.5); }
-
-.hero-sub {
-  font-size: 1.05rem;
-  color: rgba(255,255,255,0.3);
-  max-width: 480px;
-  margin: 0 auto 40px;
-  line-height: 1.7;
-}
-
-.hero-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-
-.btn-solid {
-  display: inline-flex; align-items: center; gap: 10px;
-  padding: 15px 34px;
-  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-  color: #fff; border-radius: 100px;
-  font-size: 0.9rem; font-weight: 600;
-  border: none;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 16px rgba(239,68,68,0.2);
-}
-.btn-solid:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(239,68,68,0.3);
-}
-.btn-solid svg { width: 16px; height: 16px; }
-
-.btn-outline {
-  display: inline-flex; align-items: center; gap: 10px;
-  padding: 15px 34px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.55);
-  border-radius: 100px;
-  font-size: 0.9rem; font-weight: 500;
-  transition: all 0.2s;
-}
-.btn-outline:hover { border-color: rgba(255,255,255,0.22); color: #fff; background: rgba(255,255,255,0.05); }
-
-/* Hero bottom anchors */
-.hero-scroll {
-  position: absolute; bottom: 32px; left: 40px; z-index: 3;
-  font-size: 0.68rem; color: rgba(255,255,255,0.18);
-  letter-spacing: 0.06em;
-  writing-mode: vertical-rl;
-}
-.hero-aside {
-  position: absolute; bottom: 36px; right: 40px; z-index: 3;
-  max-width: 300px; text-align: right;
-  font-size: 0.82rem; color: rgba(255,255,255,0.22);
-  line-height: 1.6;
+.hero-scroll{
+  position:absolute;bottom:32px;left:36px;z-index:2;
+  font-size:.68rem;color:rgba(0,0,0,.15);
+  letter-spacing:.06em;writing-mode:vertical-rl;
 }
 
-/* ── Sections ────────────────────────────── */
-.sec { padding: 110px 0; position: relative; z-index: 1; }
-.container { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
-.container-sm { max-width: 700px; margin: 0 auto; padding: 0 40px; }
-.divider { height: 1px; background: rgba(255,255,255,0.04); }
+/* ── Sections ─────────────────────────────── */
+.sec{padding:100px 0;position:relative;z-index:1}
+.container{max-width:1100px;margin:0 auto;padding:0 36px}
+.container-sm{max-width:680px;margin:0 auto;padding:0 36px}
+.divider{height:1px;background:rgba(0,0,0,.06)}
 
-.sec-label {
-  font-size: 0.66rem; font-weight: 600;
-  letter-spacing: 0.14em; text-transform: uppercase;
-  color: rgba(255,255,255,0.18); margin-bottom: 18px;
+.sec-label{
+  font-size:.66rem;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;
+  color:#dc2626;opacity:.7;margin-bottom:16px;
 }
-.sec-title {
-  font-family: 'DM Serif Display', serif;
-  font-size: clamp(1.9rem, 4vw, 3rem);
-  font-weight: 400; color: #fff;
-  letter-spacing: -0.02em; line-height: 1.12;
-  margin-bottom: 18px;
+.sec-title{
+  font-family:'DM Serif Display',serif;
+  font-size:clamp(1.8rem,3.8vw,2.8rem);
+  font-weight:400;color:#1a1a1a;
+  letter-spacing:-.02em;line-height:1.12;margin-bottom:16px;
 }
-.sec-title em { font-style: italic; color: rgba(255,255,255,0.4); }
-.sec-desc { font-size: 0.92rem; color: rgba(255,255,255,0.28); max-width: 460px; line-height: 1.7; }
-.sec-center { text-align: center; margin-bottom: 64px; }
-.sec-center .sec-desc { margin: 0 auto; }
+.sec-title em{font-style:italic;color:#dc2626}
+.sec-desc{font-size:.92rem;color:#71717a;max-width:440px;line-height:1.7}
+.sec-center{text-align:center;margin-bottom:60px}
+.sec-center .sec-desc{margin:0 auto}
 
-/* ── Problem ─────────────────────────────── */
-.problem-split {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 80px; align-items: start;
+/* ── Tools ─────────────────────────────────── */
+.tools-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:16px;
 }
-.problem-list { list-style: none; display: flex; flex-direction: column; gap: 28px; }
-.problem-item { display: flex; gap: 16px; }
-.problem-num {
-  flex-shrink: 0; width: 30px; height: 30px;
-  border-radius: 50%; border: 1px solid rgba(255,255,255,0.06);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.68rem; font-weight: 600;
-  color: rgba(255,255,255,0.18); margin-top: 2px;
+.tool-card{
+  background:#fff;
+  border:1px solid rgba(0,0,0,.06);
+  border-radius:16px;padding:32px 28px;
+  transition:border-color .3s,box-shadow .3s,transform .3s;
 }
-.problem-item h4 { font-size: 0.9rem; font-weight: 600; color: rgba(255,255,255,0.75); margin-bottom: 4px; }
-.problem-item p { font-size: 0.82rem; color: rgba(255,255,255,0.25); line-height: 1.6; }
-
-/* ── Tools ────────────────────────────────── */
-.tools-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 1px; background: rgba(255,255,255,0.03);
-  border-radius: 20px; overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.04);
+.tool-card:hover{
+  border-color:rgba(220,38,38,.15);
+  box-shadow:0 8px 32px rgba(220,38,38,.06);
+  transform:translateY(-3px);
 }
-.tool-cell {
-  background: #060a14;
-  padding: 40px 32px;
-  transition: background 0.35s;
+.tool-icon{
+  width:40px;height:40px;border-radius:10px;
+  background:linear-gradient(135deg,rgba(220,38,38,.08),rgba(234,88,12,.06));
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:20px;
 }
-.tool-cell:hover { background: #0c1220; }
-.tool-idx {
-  font-size: 0.62rem; font-weight: 600;
-  color: rgba(255,255,255,0.08);
-  letter-spacing: 0.08em; margin-bottom: 24px;
-  font-variant-numeric: tabular-nums;
+.tool-icon svg{width:18px;height:18px;color:#dc2626}
+.tool-card h3{
+  font-size:1rem;font-weight:700;color:#1a1a1a;
+  margin-bottom:8px;letter-spacing:-.01em;
 }
-.tool-cell h3 {
-  font-family: 'DM Serif Display', serif;
-  font-size: 1.25rem; font-weight: 400; color: #fff;
-  margin-bottom: 10px;
-}
-.tool-cell p { font-size: 0.82rem; color: rgba(255,255,255,0.25); line-height: 1.65; }
-
-/* ── How ──────────────────────────────────── */
-.how-row {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px;
-}
-.how-card { position: relative; }
-.how-card::before {
-  content: ''; display: block;
-  width: 100%; height: 1px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.01));
-  margin-bottom: 32px;
-}
-.how-num {
-  font-family: 'DM Serif Display', serif;
-  font-size: 2.2rem; color: rgba(255,255,255,0.04);
-  margin-bottom: 14px;
-}
-.how-card h3 { font-size: 0.92rem; font-weight: 600; color: rgba(255,255,255,0.75); margin-bottom: 8px; }
-.how-card p { font-size: 0.82rem; color: rgba(255,255,255,0.25); line-height: 1.6; }
-
-/* ── Skills ───────────────────────────────── */
-.skills-sec {
-  background: linear-gradient(180deg, rgba(255,255,255,0.01) 0%, transparent 100%);
-  border-top: 1px solid rgba(255,255,255,0.03);
-  border-bottom: 1px solid rgba(255,255,255,0.03);
-}
-.skills-split { display: grid; grid-template-columns: 1fr 1fr; gap: 72px; align-items: start; }
-.skills-text p { font-size: 0.9rem; color: rgba(255,255,255,0.28); line-height: 1.8; margin-bottom: 18px; }
-.skills-text strong { color: rgba(255,255,255,0.65); font-weight: 600; }
-.skill-rows { list-style: none; }
-.skill-row {
-  display: flex; align-items: center; gap: 14px;
-  padding: 18px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
-}
-.skill-row:first-child { border-top: 1px solid rgba(255,255,255,0.03); }
-.skill-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(239,68,68,0.4); flex-shrink: 0; }
-.skill-row span { font-size: 0.86rem; color: rgba(255,255,255,0.4); }
-
-/* ── Audience ─────────────────────────────── */
-.aud-row {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 1px; background: rgba(255,255,255,0.03);
-  border-radius: 16px; overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.04);
-}
-.aud-card { background: #060a14; padding: 40px 28px; }
-.aud-tag {
-  display: inline-block; padding: 4px 12px;
-  border-radius: 100px; font-size: 0.62rem;
-  font-weight: 600; letter-spacing: 0.06em;
-  text-transform: uppercase; margin-bottom: 20px;
-  background: rgba(255,255,255,0.03);
-  color: rgba(255,255,255,0.25);
-  border: 1px solid rgba(255,255,255,0.05);
-}
-.aud-card h3 {
-  font-family: 'DM Serif Display', serif;
-  font-size: 1.15rem; font-weight: 400; color: #fff; margin-bottom: 10px;
-}
-.aud-card p { font-size: 0.82rem; color: rgba(255,255,255,0.25); line-height: 1.65; }
-
-/* ── FAQ ──────────────────────────────────── */
-.faq-list { display: flex; flex-direction: column; }
-.faq-item { border-bottom: 1px solid rgba(255,255,255,0.04); }
-.faq-q {
-  width: 100%; display: flex; justify-content: space-between; align-items: center;
-  padding: 26px 0; background: none; border: none;
-  color: rgba(255,255,255,0.55); font-size: 0.92rem; font-weight: 500;
-  text-align: left; font-family: inherit; transition: color 0.2s;
-}
-.faq-q:hover { color: #fff; }
-.faq-chev { width: 16px; height: 16px; flex-shrink: 0; color: rgba(255,255,255,0.12); transition: transform 0.3s; }
-.faq-item.open .faq-chev { transform: rotate(180deg); }
-.faq-a { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.22,1,0.36,1), padding 0.4s; }
-.faq-item.open .faq-a { max-height: 200px; padding-bottom: 26px; }
-.faq-a p { font-size: 0.84rem; color: rgba(255,255,255,0.25); line-height: 1.7; max-width: 580px; }
-
-/* ── CTA ──────────────────────────────────── */
-.cta-sec {
-  text-align: center; padding: 130px 24px;
-  position: relative;
-}
-.cta-sec::before {
-  content: ''; position: absolute;
-  bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 500px; height: 300px;
-  background: radial-gradient(ellipse, rgba(239,68,68,0.04) 0%, transparent 70%);
-  pointer-events: none;
-}
-.cta-sec h2 {
-  font-family: 'DM Serif Display', serif;
-  font-size: clamp(2rem, 4.5vw, 3.4rem);
-  font-weight: 400; color: #fff;
-  margin-bottom: 16px; letter-spacing: -0.02em; line-height: 1.1;
-}
-.cta-sec p {
-  font-size: 0.9rem; color: rgba(255,255,255,0.25);
-  margin: 0 auto 36px; max-width: 360px; line-height: 1.6;
+.tool-card p{font-size:.84rem;color:#71717a;line-height:1.6}
+.tool-card .what{
+  margin-top:12px;font-size:.78rem;color:#a1a1aa;line-height:1.5;
+  padding-top:12px;border-top:1px solid rgba(0,0,0,.04);
 }
 
-/* ── Footer ───────────────────────────────── */
-.footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 40px 0; }
-.footer-inner { display: flex; justify-content: space-between; align-items: center; }
-.footer-brand { font-family: 'DM Serif Display', serif; font-size: 1.05rem; color: rgba(255,255,255,0.35); }
-.footer-links { display: flex; gap: 24px; }
-.footer-links a { font-size: 0.76rem; color: rgba(255,255,255,0.15); transition: color 0.2s; }
-.footer-links a:hover { color: rgba(255,255,255,0.4); }
-.footer-copy {
-  text-align: center; margin-top: 32px; padding-top: 20px;
-  border-top: 1px solid rgba(255,255,255,0.02);
-  font-size: 0.68rem; color: rgba(255,255,255,0.08);
+/* ── How ───────────────────────────────────── */
+.how-row{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+.how-card{
+  background:#fff;border:1px solid rgba(0,0,0,.06);
+  border-radius:16px;padding:32px 28px;
+  text-align:center;
+  transition:border-color .3s;
+}
+.how-card:hover{border-color:rgba(220,38,38,.12)}
+.how-num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;border-radius:50%;
+  background:linear-gradient(135deg,rgba(220,38,38,.08),rgba(234,88,12,.05));
+  font-size:.9rem;font-weight:800;color:#dc2626;
+  margin-bottom:20px;
+}
+.how-card h3{font-size:.95rem;font-weight:700;color:#1a1a1a;margin-bottom:8px}
+.how-card p{font-size:.84rem;color:#71717a;line-height:1.6}
+
+/* ── Tokens / Pricing ─────────────────────── */
+.tokens-split{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:64px;align-items:center;
+}
+.tokens-text h3{font-size:1rem;font-weight:700;color:#1a1a1a;margin-bottom:8px}
+.tokens-text p{font-size:.88rem;color:#71717a;line-height:1.7;margin-bottom:16px}
+.tokens-text p strong{color:#1a1a1a;font-weight:600}
+.token-card{
+  background:#fff;border:1px solid rgba(0,0,0,.06);
+  border-radius:20px;padding:40px 36px;
+  text-align:center;
+  position:relative;overflow:hidden;
+}
+.token-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#dc2626,#ea580c,#dc2626);
+}
+.token-card .price-tag{
+  font-family:'DM Serif Display',serif;
+  font-size:2.4rem;color:#1a1a1a;margin-bottom:4px;
+}
+.token-card .price-sub{font-size:.82rem;color:#a1a1aa;margin-bottom:24px}
+.token-features{list-style:none;text-align:left;margin-bottom:28px}
+.token-features li{
+  padding:10px 0;font-size:.86rem;color:#52525b;
+  display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid rgba(0,0,0,.04);
+}
+.token-features li::before{
+  content:'';width:5px;height:5px;border-radius:50%;
+  background:#dc2626;flex-shrink:0;
+}
+.token-btn{
+  display:block;width:100%;padding:14px;
+  background:linear-gradient(135deg,#dc2626,#b91c1c);
+  color:#fff;border:none;border-radius:12px;
+  font-size:.88rem;font-weight:600;
+  transition:transform .2s,box-shadow .2s;
+}
+.token-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(220,38,38,.25)}
+.beta-note{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-top:16px;padding:6px 14px;
+  background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.12);
+  border-radius:100px;
+  font-size:.72rem;font-weight:600;color:#16a34a;
+  letter-spacing:.03em;
+}
+
+/* ── FAQ ───────────────────────────────────── */
+.faq-list{display:flex;flex-direction:column}
+.faq-item{border-bottom:1px solid rgba(0,0,0,.06)}
+.faq-q{
+  width:100%;display:flex;justify-content:space-between;align-items:center;
+  padding:24px 0;background:none;border:none;
+  color:#1a1a1a;font-size:.92rem;font-weight:500;
+  text-align:left;font-family:inherit;transition:color .2s;
+}
+.faq-q:hover{color:#dc2626}
+.faq-chev{width:16px;height:16px;flex-shrink:0;color:#d4d4d8;transition:transform .3s}
+.faq-item.open .faq-chev{transform:rotate(180deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.22,1,.36,1),padding .4s}
+.faq-item.open .faq-a{max-height:250px;padding-bottom:24px}
+.faq-a p{font-size:.84rem;color:#71717a;line-height:1.7;max-width:560px}
+
+/* ── CTA ───────────────────────────────────── */
+.cta-sec{
+  text-align:center;padding:100px 24px;
+  background:linear-gradient(180deg,#faf8f5 0%,#fef2f2 100%);
+  position:relative;
+}
+.cta-sec h2{
+  font-family:'DM Serif Display',serif;
+  font-size:clamp(2rem,4.5vw,3.2rem);
+  font-weight:400;color:#1a1a1a;
+  margin-bottom:16px;letter-spacing:-.02em;line-height:1.1;
+}
+.cta-sec p{
+  font-size:.9rem;color:#71717a;
+  margin:0 auto 32px;max-width:360px;line-height:1.6;
+}
+
+/* ── Footer ────────────────────────────────── */
+.footer{border-top:1px solid rgba(0,0,0,.06);padding:40px 0;background:#faf8f5}
+.footer-inner{display:flex;justify-content:space-between;align-items:center}
+.footer-brand{font-family:'DM Serif Display',serif;font-size:1rem;color:#a1a1aa}
+.footer-brand .accent{color:#dc2626}
+.footer-links{display:flex;gap:24px}
+.footer-links a{font-size:.76rem;color:#a1a1aa;transition:color .2s}
+.footer-links a:hover{color:#1a1a1a}
+.footer-copy{
+  text-align:center;margin-top:28px;padding-top:20px;
+  border-top:1px solid rgba(0,0,0,.03);
+  font-size:.68rem;color:#d4d4d8;
 }
 
 /* ── Responsive ───────────────────────────── */
-@media (max-width: 900px) {
-  .nav-wrap { padding: 14px 20px; }
-  .nav-mid { display: none; }
-  .problem-split, .skills-split { grid-template-columns: 1fr; gap: 48px; }
-  .tools-grid, .aud-row { grid-template-columns: 1fr; }
-  .how-row { grid-template-columns: 1fr; gap: 32px; }
-  .hero-aside, .hero-scroll { display: none; }
-  .container, .container-sm { padding: 0 20px; }
+@media(max-width:900px){
+  .nav-wrap{padding:14px 20px}
+  .nav-mid{display:none}
+  .tools-grid,.how-row{grid-template-columns:1fr 1fr}
+  .tokens-split{grid-template-columns:1fr;gap:40px}
+  .hero-scroll{display:none}
+  .container,.container-sm{padding:0 20px}
 }
-@media (max-width: 640px) {
-  .hero { padding: 120px 20px 80px; min-height: auto; min-height: 100vh; }
-  .hero h1 { font-size: 2.4rem; }
-  .sec { padding: 72px 0; }
-  .footer-inner { flex-direction: column; gap: 14px; text-align: center; }
-  .hero-btns { flex-direction: column; align-items: center; }
+@media(max-width:640px){
+  .hero{padding:120px 20px 80px}
+  .hero h1{font-size:2.2rem}
+  .tools-grid,.how-row{grid-template-columns:1fr}
+  .sec{padding:72px 0}
+  .footer-inner{flex-direction:column;gap:14px;text-align:center}
+  .hero-btns{flex-direction:column;align-items:center}
 }
 </style>
 </head>
 <body>
 
-<!-- Navbar -->
+<!-- Nav -->
 <nav class="nav-wrap" id="nav">
-  <a href="landing.html" class="nav-logo">Devil's <span class="dim">Advocate.</span></a>
+  <a href="landing.html" class="nav-logo"><span class="accent">Devil's</span> Advocate</a>
   <div class="nav-mid">
     <a href="#tools">Tools</a>
     <a href="#how">How It Works</a>
-    <a href="#who">Who It's For</a>
+    <a href="#pricing">Pricing</a>
     <a href="#faq">FAQ</a>
   </div>
-  <a href="/?beta=true#case" class="nav-cta-wrap">
-    Get started
+  <a href="/?beta=true#case" class="nav-cta">
+    Open App
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
   </a>
 </nav>
@@ -406,64 +351,69 @@ button { font-family: inherit; cursor: pointer; }
 <!-- Hero -->
 <section class="hero">
   <canvas id="hero-canvas"></canvas>
-  <div class="hero-glow"></div>
-  <div class="hero-fade"></div>
-
+  <div class="hero-fade-b"></div>
   <div class="hero-content">
-    <div class="hero-badge rv"><span class="pulse"></span> Free beta &mdash; every tool unlocked</div>
-    <h1 class="rv rv-d1">Outprepping <em>every team</em><br>you'll ever debate.</h1>
-    <p class="hero-sub rv rv-d2">An AI engine that generates cases, simulates rounds, stress-tests arguments, and teaches philosophy. Built by a competitive APDA debater.</p>
+    <div class="hero-badge rv"><span class="dot"></span> Beta &mdash; All Tools Free</div>
+    <h1 class="rv rv-d1">Your AI <em>debate prep</em> engine.</h1>
+    <p class="hero-sub rv rv-d2">Generate cases, simulate rounds, stress-test arguments, and study philosophy &mdash; all in one app built for competitive parliamentary debaters.</p>
     <div class="hero-btns rv rv-d3">
-      <a href="/?beta=true#case" class="btn-solid">
-        Open the Engine
+      <a href="/?beta=true#case" class="btn-red">
+        Try it free
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </a>
-      <a href="#tools" class="btn-outline">Explore features</a>
+      <a href="#tools" class="btn-light">See the tools</a>
     </div>
   </div>
-
   <div class="hero-scroll">Scroll down</div>
-  <div class="hero-aside">Built for parliamentary debate &mdash; APDA, BP, Worlds, and beyond.</div>
 </section>
 
 <div class="divider"></div>
 
-<!-- Problem -->
-<section class="sec">
-  <div class="container">
-    <div class="problem-split">
-      <div>
-        <div class="sec-label rv">The Problem</div>
-        <h2 class="sec-title rv rv-d1">Debate prep<br><em>hasn't changed</em><br>in 20 years.</h2>
-        <p class="sec-desc rv rv-d2">Google for 45 minutes. Write a mediocre case on the bus. Hope you don't get a motion you've never thought about. There's a better way.</p>
-      </div>
-      <ul class="problem-list">
-        <li class="problem-item rv rv-d1"><div class="problem-num">01</div><div><h4>Feedback is rare</h4><p>Judge feedback 4 times a semester isn't a feedback loop. It's a feedback trickle.</p></div></li>
-        <li class="problem-item rv rv-d2"><div class="problem-num">02</div><div><h4>Practice partners are scarce</h4><p>Your partner is busy. The team meeting is Thursday. The tournament is Saturday.</p></div></li>
-        <li class="problem-item rv rv-d3"><div class="problem-num">03</div><div><h4>Philosophy stays shallow</h4><p>Everyone cites Rawls. Almost nobody knows early vs. late, or when each one helps your case.</p></div></li>
-        <li class="problem-item rv rv-d4"><div class="problem-num">04</div><div><h4>No way to drill weak spots</h4><p>You know your MG extensions are weak. There's no tool to practice just that speech.</p></div></li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- Tools -->
+<!-- Tools — concrete descriptions -->
 <section id="tools" class="sec">
   <div class="container">
     <div class="sec-center">
-      <div class="sec-label rv">The Engine</div>
-      <h2 class="sec-title rv rv-d1">Six tools. <em>One system.</em></h2>
-      <p class="sec-desc rv rv-d2">Each one targets a specific bottleneck in debate prep. They work independently or together.</p>
+      <div class="sec-label rv">What You Get</div>
+      <h2 class="sec-title rv rv-d1">Six tools inside <em>one engine.</em></h2>
+      <p class="sec-desc rv rv-d2">Each one does a specific thing. No filler features.</p>
     </div>
-    <div class="tools-grid rv rv-d3">
-      <div class="tool-cell"><div class="tool-idx">01</div><h3>Case Generator</h3><p>Enter any motion. Get a structured case with framework, interlocking arguments, warrant chains, compound impact, and pre-built A2 blocks for the five most likely opposition responses.</p></div>
-      <div class="tool-cell"><div class="tool-idx">02</div><h3>Round Simulator</h3><p>Practice every speech type against an AI opponent that responds to your actual arguments &mdash; contextual counterarguments that force you to think on your feet.</p></div>
-      <div class="tool-cell"><div class="tool-idx">03</div><h3>Philosophy Engine</h3><p>50+ philosophers with period-accurate depth. Know when to cite early vs. late Rawls, which Kant formulation applies, and what opponents will say to attack each framework.</p></div>
-      <div class="tool-cell"><div class="tool-idx">04</div><h3>Judge Feedback</h3><p>Paste any speech. Get paragraph-level feedback on structure, warrant quality, time allocation, and strategic gaps &mdash; every practice session, not just tournament weekends.</p></div>
-      <div class="tool-cell"><div class="tool-idx">05</div><h3>Strategic Mapper</h3><p>See how arguments interact, where the clash lives, and which points the judge will weigh. Think in systems instead of bullets &mdash; the jump from novice to varsity-level strategy.</p></div>
-      <div class="tool-cell"><div class="tool-idx">06</div><h3>Argument Market</h3><p>Submit a claim. The engine generates competing arguments, scores them on evidence and logic, then runs adversarial cycles. Weak arguments lose weight. Strong ones rise.</p></div>
+    <div class="tools-grid">
+      <div class="tool-card rv rv-d1">
+        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <h3>Case Generator</h3>
+        <p>Enter a motion and side. Get a full case: framework, 3 arguments with warrant chains, compound impact, and A2 blocks for the top 5 opp responses. Quick mode for 15-min prep, deep mode for practice.</p>
+        <div class="what">Input: motion + side. Output: structured case document.</div>
+      </div>
+      <div class="tool-card rv rv-d2">
+        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <h3>Round Simulator</h3>
+        <p>Practice any speech (PM, LO, MG, MO, LOR, PMR) against an AI opponent. It reads your arguments and responds with real counterarguments, not generic lines. Timed like a real round.</p>
+        <div class="what">Input: your speech. Output: opponent's response + judge notes.</div>
+      </div>
+      <div class="tool-card rv rv-d3">
+        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></div>
+        <h3>Philosophy Engine</h3>
+        <p>50+ thinkers with period-accurate detail. Rawls: early vs. late, two principles, lexical ordering. Kant: all three formulations. Foucault: archaeology vs. genealogy. Not Wikipedia summaries &mdash; debate-ready depth.</p>
+        <div class="what">Input: thinker or concept. Output: debate-applicable breakdown.</div>
+      </div>
+      <div class="tool-card rv rv-d4">
+        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+        <h3>Judge Feedback</h3>
+        <p>Paste a speech you've written. Get line-by-line feedback: where your warrants are thin, where your time allocation is off, where you dropped a key argument, and what a judge would actually write on a ballot.</p>
+        <div class="what">Input: your speech text. Output: paragraph-level critique.</div>
+      </div>
+      <div class="tool-card rv rv-d5">
+        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
+        <h3>Strategic Mapper</h3>
+        <p>Paste a motion and the mapper shows you the full strategic landscape: which arguments interact, where the real clash is, what opp will likely collapse on, and which points the judge weighs heaviest.</p>
+        <div class="what">Input: motion + context. Output: argument interaction map.</div>
+      </div>
+      <div class="tool-card rv rv-d6">
+        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <h3>Argument Market</h3>
+        <p>Submit any claim. The engine generates 3 arguments for and 3 against, scores each on evidence and logic, then runs adversarial cycles where arguments attack each other. After 3&ndash;5 cycles, weak arguments die and strong ones survive.</p>
+        <div class="what">Input: a claim. Output: ranked, stress-tested arguments.</div>
+      </div>
     </div>
   </div>
 </section>
@@ -474,57 +424,64 @@ button { font-family: inherit; cursor: pointer; }
 <section id="how" class="sec">
   <div class="container">
     <div class="sec-center">
-      <div class="sec-label rv">How It Works</div>
-      <h2 class="sec-title rv rv-d1">Zero to prepping <em>in 30 seconds.</em></h2>
-      <p class="sec-desc rv rv-d2">No setup. No API keys. No credit card. Open the app and start.</p>
+      <div class="sec-label rv">How to Use It</div>
+      <h2 class="sec-title rv rv-d1">Open it. <em>Use it.</em> That's it.</h2>
+      <p class="sec-desc rv rv-d2">No account required to start. No setup. Works on desktop and mobile.</p>
     </div>
     <div class="how-row">
-      <div class="how-card rv rv-d1"><div class="how-num">01</div><h3>Enter a motion</h3><p>Paste any resolution or let the engine surface trending topics. Pick your side, depth, and format.</p></div>
-      <div class="how-card rv rv-d2"><div class="how-num">02</div><h3>Generate and iterate</h3><p>Get a structured case in seconds. Stress-test it against opposition, explore the philosophy, or practice speeches.</p></div>
-      <div class="how-card rv rv-d3"><div class="how-num">03</div><h3>Walk in prepared</h3><p>You've already seen the strongest counterarguments and practiced your extensions. Now go win the round.</p></div>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- Skills -->
-<section class="skills-sec sec">
-  <div class="container">
-    <div class="skills-split">
-      <div class="skills-text">
-        <div class="sec-label rv">Beyond the round</div>
-        <h2 class="sec-title rv rv-d1">Debate makes you<br><em>dangerous</em> everywhere.</h2>
-        <p class="rv rv-d2">This tool makes you a better debater. But debate itself makes you a better <em>everything</em>.</p>
-        <p class="rv rv-d3">The skills you build &mdash; constructing arguments under pressure, anticipating objections, distilling complex ideas into persuasive language &mdash; are the same skills that make people effective in law, business, policy, and every field where you convince smart people of hard things.</p>
-        <p class="rv rv-d4"><strong>That's what Devil's Advocate accelerates.</strong> Not just tournament wins &mdash; the cognitive skills that make debaters disproportionately successful after graduation.</p>
+      <div class="how-card rv rv-d1">
+        <div class="how-num">1</div>
+        <h3>Pick a tool</h3>
+        <p>Open the app and tap any of the six tabs. Case Gen, Round Sim, Philosophy, Judge, Mapper, or Market. Each one works independently.</p>
       </div>
-      <ul class="skill-rows">
-        <li class="skill-row rv rv-d1"><span class="skill-dot"></span><span>Critical thinking under time pressure</span></li>
-        <li class="skill-row rv rv-d2"><span class="skill-dot"></span><span>Persuasive communication to skeptical audiences</span></li>
-        <li class="skill-row rv rv-d3"><span class="skill-dot"></span><span>Rapid research synthesis across domains</span></li>
-        <li class="skill-row rv rv-d4"><span class="skill-dot"></span><span>Adversarial anticipation</span></li>
-        <li class="skill-row rv rv-d5"><span class="skill-dot"></span><span>Working fluency in philosophy, economics, and policy</span></li>
-        <li class="skill-row rv rv-d6"><span class="skill-dot"></span><span>Structured reasoning under competitive pressure</span></li>
-      </ul>
+      <div class="how-card rv rv-d2">
+        <div class="how-num">2</div>
+        <h3>Give it input</h3>
+        <p>Enter a motion, paste a speech, type a claim, or pick a philosopher. Each tool tells you exactly what it needs. Most results come back in under 30 seconds.</p>
+      </div>
+      <div class="how-card rv rv-d3">
+        <div class="how-num">3</div>
+        <h3>Iterate or export</h3>
+        <p>Revise the output, ask follow-up questions, copy to clipboard, or jump to another tool with the same motion. Your session saves automatically.</p>
+      </div>
     </div>
   </div>
 </section>
 
 <div class="divider"></div>
 
-<!-- Audience -->
-<section id="who" class="sec">
+<!-- Pricing / Tokens -->
+<section id="pricing" class="sec">
   <div class="container">
-    <div class="sec-center">
-      <div class="sec-label rv">Who It's For</div>
-      <h2 class="sec-title rv rv-d1">Built for <em>every level</em> of competitor.</h2>
-      <p class="sec-desc rv rv-d2">Whether you just joined the team or you're prepping for nationals, the engine adapts.</p>
-    </div>
-    <div class="aud-row rv rv-d3">
-      <div class="aud-card"><div class="aud-tag">Novice</div><h3>First-year debaters</h3><p>Learn case structure, philosophy basics, and speech types through guided generation. See what a good case looks like before building one from scratch.</p></div>
-      <div class="aud-card"><div class="aud-tag">Varsity</div><h3>Experienced competitors</h3><p>Stress-test cases against realistic opposition. Drill weak speech types. Build cases with compound impacts and pre-loaded A2 blocks.</p></div>
-      <div class="aud-card"><div class="aud-tag">Programs</div><h3>Teams and coaches</h3><p>Give every member access to a prep engine that works at 2am when practice is over. Use it for drills, brainstorming, or teaching argument architecture.</p></div>
+    <div class="tokens-split">
+      <div class="tokens-text">
+        <div class="sec-label rv">Pricing</div>
+        <h2 class="sec-title rv rv-d1">Why there's a <em>token system.</em></h2>
+        <p class="rv rv-d2">Every time you generate a case, simulate a round, or run any tool, it costs us real money. The AI models that power this aren't free &mdash; each request uses compute from Anthropic's Claude API.</p>
+        <p class="rv rv-d3"><strong>The token system keeps the app sustainable.</strong> Instead of a flat monthly fee where light users subsidize heavy users, you pay for what you use. Generate 5 cases a month? Pay for 5. Generate 50? Pay for 50.</p>
+        <p class="rv rv-d4">This means we can keep improving the engine without cutting corners on model quality. You get the best AI available, not a cheaper model to protect margins.</p>
+        <h3 class="rv rv-d5" style="margin-top:8px">During beta, it's all free.</h3>
+        <p class="rv rv-d6">Every tool, unlimited usage, no credit card. We're testing with competitive debaters to make the product better before paid plans launch.</p>
+      </div>
+      <div class="token-card rv rv-d3">
+        <div style="font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#dc2626;margin-bottom:16px">Beta Access</div>
+        <div class="price-tag">$0</div>
+        <div class="price-sub">Free during beta &mdash; no credit card required</div>
+        <ul class="token-features">
+          <li>All 6 tools unlocked</li>
+          <li>Unlimited generations</li>
+          <li>All case depths (quick + deep)</li>
+          <li>Round simulator (all speech types)</li>
+          <li>Full philosophy library</li>
+          <li>Works on desktop + mobile</li>
+          <li>No account required to start</li>
+        </ul>
+        <a href="/?beta=true#case" class="token-btn">Start using it free</a>
+        <div class="beta-note">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Token pricing launches after beta ends
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -536,26 +493,25 @@ button { font-family: inherit; cursor: pointer; }
   <div class="container-sm">
     <div class="sec-center">
       <div class="sec-label rv">FAQ</div>
-      <h2 class="sec-title rv rv-d1">Common questions.</h2>
+      <h2 class="sec-title rv rv-d1">Quick answers.</h2>
     </div>
     <div class="faq-list">
-      <div class="faq-item rv"><button class="faq-q">Is this actually useful for competitive parli?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>Built by an APDA competitor. The prompts encode warrant chains, compound impacts, tight-call analysis, MG extensions, and A2 blocks. It compresses prep time dramatically.</p></div></div>
-      <div class="faq-item rv rv-d1"><button class="faq-q">What formats does it support?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>APDA, British Parliamentary, World Schools, and general parliamentary. The generator and simulator adapt to each format's speech structure.</p></div></div>
-      <div class="faq-item rv rv-d2"><button class="faq-q">Will opponents have the same cases?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>Every case is generated fresh from your specific motion, side, and depth settings. No recycled library. Even identical motions produce different cases.</p></div></div>
-      <div class="faq-item rv rv-d3"><button class="faq-q">How much does it cost?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>During beta, everything is free. All tools, no limits, no credit card. We're testing with competitive debaters before paid plans launch.</p></div></div>
-      <div class="faq-item rv rv-d4"><button class="faq-q">Can I use this on my phone?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>Yes. It's a PWA &mdash; install to your home screen on iOS or Android. Built for the bus to the tournament.</p></div></div>
-      <div class="faq-item rv rv-d5"><button class="faq-q">Is using this cheating?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No. It's a prep tool, not an in-round tool. You use it before the tournament to build skills and practice speeches. In the round, it's still you.</p></div></div>
+      <div class="faq-item rv"><button class="faq-q">What formats does it support?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>APDA, British Parliamentary, World Schools, and general parliamentary. The case generator and round simulator both adapt to each format's speech structure and conventions.</p></div></div>
+      <div class="faq-item rv rv-d1"><button class="faq-q">Will my opponents get the same cases?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No. Every case is generated fresh from your specific inputs. No case library. Even identical motions produce different cases each time.</p></div></div>
+      <div class="faq-item rv rv-d2"><button class="faq-q">Does this work on my phone?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>Yes. It's a progressive web app &mdash; install to your home screen on iOS or Android. Built for prep on the bus to a tournament.</p></div></div>
+      <div class="faq-item rv rv-d3"><button class="faq-q">Is using AI for debate prep cheating?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No. It's a prep tool, not an in-round tool. You use it before the tournament to build skills, explore arguments, and practice speeches. In the round, it's still you and your partner.</p></div></div>
+      <div class="faq-item rv rv-d4"><button class="faq-q">How long until beta ends?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No fixed date. We're gathering feedback from competitive debaters. When we launch paid plans, beta users will get priority access and early pricing.</p></div></div>
+      <div class="faq-item rv rv-d5"><button class="faq-q">Who built this?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>A collegiate debater in the APDA circuit who got tired of the same prep problems everyone complains about. The prompts are built on real competitive experience, not generic AI templates.</p></div></div>
     </div>
   </div>
 </section>
 
 <!-- CTA -->
-<div class="divider"></div>
 <section class="cta-sec">
   <div class="rv">
-    <h2>Start prepping smarter.</h2>
-    <p>Every feature is free during beta. No signup &mdash; just open the engine.</p>
-    <a href="/?beta=true#case" class="btn-solid">
+    <h2>Start prepping <em>smarter.</em></h2>
+    <p>Free during beta. No account needed. Just open the app.</p>
+    <a href="/?beta=true#case" class="btn-red">
       Open Devil's Advocate
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:16px;height:16px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
     </a>
@@ -566,184 +522,142 @@ button { font-family: inherit; cursor: pointer; }
 <footer class="footer">
   <div class="container">
     <div class="footer-inner">
-      <div class="footer-brand">Devil's Advocate</div>
+      <div class="footer-brand"><span class="accent">Devil's</span> Advocate</div>
       <div class="footer-links">
         <a href="/?beta=true#case">App</a>
         <a href="#tools">Tools</a>
+        <a href="#pricing">Pricing</a>
         <a href="#faq">FAQ</a>
         <a href="mailto:feedback@debateos.com">Contact</a>
       </div>
     </div>
-    <p class="footer-copy">Built by a collegiate debater in the APDA circuit. &copy; 2026</p>
+    <p class="footer-copy">Built by a collegiate debater. &copy; 2026</p>
   </div>
 </footer>
 
 <script>
-/* ── Animated Dot Grid (Canvas) ───────────── */
+/* ── Animated dot grid — red/orange on light bg ──── */
 (function(){
-  var c = document.getElementById('hero-canvas');
-  if (!c) return;
-  var ctx = c.getContext('2d');
-  var dpr = window.devicePixelRatio || 1;
-  var w, h, cols, rows, dots = [];
-  var spacing = 48;
-  var mouse = { x: -1000, y: -1000 };
+  var c=document.getElementById('hero-canvas');
+  if(!c)return;
+  var ctx=c.getContext('2d');
+  var dpr=window.devicePixelRatio||1;
+  var w,h,cols,rows,dots=[];
+  var sp=52;
+  var mouse={x:-1e3,y:-1e3};
   var raf;
 
-  function resize() {
-    var rect = c.parentElement.getBoundingClientRect();
-    w = rect.width; h = rect.height;
-    c.width = w * dpr; c.height = h * dpr;
-    c.style.width = w + 'px'; c.style.height = h + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    cols = Math.ceil(w / spacing) + 2;
-    rows = Math.ceil(h / spacing) + 2;
-    dots = [];
-    for (var r = 0; r < rows; r++) {
-      for (var cl = 0; cl < cols; cl++) {
-        dots.push({
-          x: cl * spacing,
-          y: r * spacing,
-          ox: cl * spacing,
-          oy: r * spacing,
-          phase: Math.random() * Math.PI * 2
-        });
-      }
+  function resize(){
+    var r=c.parentElement.getBoundingClientRect();
+    w=r.width;h=r.height;
+    c.width=w*dpr;c.height=h*dpr;
+    c.style.width=w+'px';c.style.height=h+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    cols=Math.ceil(w/sp)+2;rows=Math.ceil(h/sp)+2;
+    dots=[];
+    for(var r=0;r<rows;r++)for(var cl=0;cl<cols;cl++){
+      dots.push({x:cl*sp,y:r*sp,ox:cl*sp,oy:r*sp,ph:Math.random()*Math.PI*2});
     }
   }
 
-  function draw(t) {
-    ctx.clearRect(0, 0, w, h);
-    var time = t * 0.001;
-
-    // Update dot positions with subtle float
-    for (var i = 0; i < dots.length; i++) {
-      var d = dots[i];
-      d.x = d.ox + Math.sin(time * 0.3 + d.phase) * 2;
-      d.y = d.oy + Math.cos(time * 0.25 + d.phase * 1.3) * 2;
+  function draw(t){
+    ctx.clearRect(0,0,w,h);
+    var tm=t*.001;
+    for(var i=0;i<dots.length;i++){
+      var d=dots[i];
+      d.x=d.ox+Math.sin(tm*.25+d.ph)*2.5;
+      d.y=d.oy+Math.cos(tm*.2+d.ph*1.3)*2.5;
     }
-
-    // Draw connections
-    for (var i = 0; i < dots.length; i++) {
-      var d = dots[i];
-      var col = i % cols;
-      var row = Math.floor(i / cols);
-
-      // Right neighbor
-      if (col < cols - 1) {
-        var r = dots[i + 1];
-        drawLine(d, r, 0.025);
-      }
-      // Bottom neighbor
-      if (row < rows - 1) {
-        var b = dots[i + cols];
-        drawLine(d, b, 0.025);
-      }
+    // Grid lines
+    for(var i=0;i<dots.length;i++){
+      var d=dots[i],col=i%cols,row=Math.floor(i/cols);
+      if(col<cols-1){var r=dots[i+1];ln(d,r,'rgba(0,0,0,0.03)')}
+      if(row<rows-1){var b=dots[i+cols];ln(d,b,'rgba(0,0,0,0.03)')}
     }
-
-    // Draw dots
-    for (var i = 0; i < dots.length; i++) {
-      var d = dots[i];
-      var dx = d.x - mouse.x;
-      var dy = d.y - mouse.y;
-      var dist = Math.sqrt(dx * dx + dy * dy);
-      var prox = Math.max(0, 1 - dist / 180);
-      var alpha = 0.08 + prox * 0.5;
-      var radius = 1 + prox * 2;
-
-      ctx.beginPath();
-      ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
-      ctx.fill();
-
-      // Extra glow connections near mouse
-      if (prox > 0.1) {
-        for (var j = i + 1; j < dots.length; j++) {
-          var d2 = dots[j];
-          var dx2 = d2.x - mouse.x;
-          var dy2 = d2.y - mouse.y;
-          var dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-          var prox2 = Math.max(0, 1 - dist2 / 180);
-          if (prox2 > 0.1) {
-            var dd = Math.sqrt((d.x - d2.x) ** 2 + (d.y - d2.y) ** 2);
-            if (dd < spacing * 2) {
-              ctx.beginPath();
-              ctx.moveTo(d.x, d.y);
-              ctx.lineTo(d2.x, d2.y);
-              ctx.strokeStyle = 'rgba(239,68,68,' + (prox * prox2 * 0.15) + ')';
-              ctx.lineWidth = 0.5;
-              ctx.stroke();
+    // Dots + mouse interaction
+    for(var i=0;i<dots.length;i++){
+      var d=dots[i];
+      var dx=d.x-mouse.x,dy=d.y-mouse.y;
+      var dist=Math.sqrt(dx*dx+dy*dy);
+      var prox=Math.max(0,1-dist/160);
+      var alpha=.06+prox*.55;
+      var radius=1.2+prox*2.5;
+      // Color: blend from grey to red based on proximity
+      if(prox>.01){
+        var r=Math.round(180+75*prox);
+        var g=Math.round(180*(1-prox)+38*prox);
+        var b=Math.round(180*(1-prox)+38*prox);
+        ctx.fillStyle='rgba('+r+','+g+','+b+','+alpha+')';
+      } else {
+        ctx.fillStyle='rgba(0,0,0,'+alpha+')';
+      }
+      ctx.beginPath();ctx.arc(d.x,d.y,radius,0,Math.PI*2);ctx.fill();
+      // Proximity connections
+      if(prox>.15){
+        for(var j=i+1;j<dots.length;j++){
+          var d2=dots[j];
+          var dx2=d2.x-mouse.x,dy2=d2.y-mouse.y;
+          var dist2=Math.sqrt(dx2*dx2+dy2*dy2);
+          var prox2=Math.max(0,1-dist2/160);
+          if(prox2>.15){
+            var dd=Math.sqrt((d.x-d2.x)**2+(d.y-d2.y)**2);
+            if(dd<sp*2){
+              var a=prox*prox2*.2;
+              ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(d2.x,d2.y);
+              ctx.strokeStyle='rgba(220,38,38,'+a+')';ctx.lineWidth=.6;ctx.stroke();
             }
           }
         }
       }
     }
-
-    raf = requestAnimationFrame(draw);
+    raf=requestAnimationFrame(draw);
   }
+  function ln(a,b,c){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle=c;ctx.lineWidth=.5;ctx.stroke()}
 
-  function drawLine(a, b, alpha) {
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.strokeStyle = 'rgba(255,255,255,' + alpha + ')';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-  }
-
-  c.parentElement.addEventListener('mousemove', function(e) {
-    var rect = c.getBoundingClientRect();
-    mouse.x = e.clientX - rect.left;
-    mouse.y = e.clientY - rect.top;
+  c.parentElement.addEventListener('mousemove',function(e){
+    var r=c.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;
   });
-  c.parentElement.addEventListener('mouseleave', function() {
-    mouse.x = -1000; mouse.y = -1000;
-  });
+  c.parentElement.addEventListener('mouseleave',function(){mouse.x=-1e3;mouse.y=-1e3});
 
   resize();
-  window.addEventListener('resize', resize);
-  raf = requestAnimationFrame(draw);
+  window.addEventListener('resize',resize);
+  raf=requestAnimationFrame(draw);
 
-  // Pause when not in view
-  var obs = new IntersectionObserver(function(entries) {
-    if (entries[0].isIntersecting) {
-      if (!raf) raf = requestAnimationFrame(draw);
-    } else {
-      if (raf) { cancelAnimationFrame(raf); raf = null; }
-    }
+  var obs=new IntersectionObserver(function(entries){
+    if(entries[0].isIntersecting){if(!raf)raf=requestAnimationFrame(draw)}
+    else{if(raf){cancelAnimationFrame(raf);raf=null}}
   });
   obs.observe(c.parentElement);
 })();
 
-/* ── Scroll Reveal ────────────────────────── */
+/* Reveal */
 (function(){
-  var els = document.querySelectorAll('.rv');
-  if (!('IntersectionObserver' in window)) { els.forEach(function(e){ e.classList.add('vis'); }); return; }
-  var obs = new IntersectionObserver(function(entries){
-    entries.forEach(function(en){ if (en.isIntersecting) { en.target.classList.add('vis'); obs.unobserve(en.target); } });
-  }, { threshold: 0.08, rootMargin: '0px 0px -24px 0px' });
-  els.forEach(function(el){ obs.observe(el); });
+  var els=document.querySelectorAll('.rv');
+  if(!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('vis')});return}
+  var obs=new IntersectionObserver(function(en){
+    en.forEach(function(e){if(e.isIntersecting){e.target.classList.add('vis');obs.unobserve(e.target)}});
+  },{threshold:.08,rootMargin:'0px 0px -24px 0px'});
+  els.forEach(function(el){obs.observe(el)});
 })();
 
-/* ── FAQ Accordion ────────────────────────── */
+/* FAQ */
 document.querySelectorAll('.faq-q').forEach(function(btn){
-  btn.addEventListener('click', function(){
-    var item = btn.closest('.faq-item');
-    var open = item.classList.contains('open');
-    document.querySelectorAll('.faq-item.open').forEach(function(i){ i.classList.remove('open'); });
-    if (!open) item.classList.add('open');
+  btn.addEventListener('click',function(){
+    var item=btn.closest('.faq-item');
+    var open=item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(function(i){i.classList.remove('open')});
+    if(!open)item.classList.add('open');
   });
 });
 
-/* ── Nav Scroll ───────────────────────────── */
+/* Nav scroll */
 (function(){
-  var nav = document.getElementById('nav');
-  var t = false;
-  window.addEventListener('scroll', function(){
-    if (!t) { requestAnimationFrame(function(){
-      if (window.scrollY > 40) nav.classList.add('scrolled'); else nav.classList.remove('scrolled');
-      t = false;
-    }); t = true; }
+  var nav=document.getElementById('nav');var t=false;
+  window.addEventListener('scroll',function(){
+    if(!t){requestAnimationFrame(function(){
+      if(window.scrollY>40)nav.classList.add('scrolled');else nav.classList.remove('scrolled');
+      t=false;
+    });t=true}
   });
 })();
 </script>
