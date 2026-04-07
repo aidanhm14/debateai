@@ -5839,6 +5839,7 @@ ${concept ? `<h4>Applied to: "${escHtml(concept)}"</h4>
 function CaseFeedback() {
   const el = React.createElement;
   const { t } = React.useContext(I18nContext);
+  const [fbFormat, setFbFormat] = useState('APDA');
   const [caseText, setCaseText] = useState('');
   const [analyzed, setAnalyzed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -5860,7 +5861,7 @@ function CaseFeedback() {
     setSegments([]);
     setActiveComment(null);
 
-    const sysPrompt = `You are the most brutally honest APDA debate coach alive. You have coached Nationals champions. You do not sugarcoat. You have seen thousands of cases and you can smell a weak warrant from across the room. Your job is to review this case the way a real coach would in a prep session: sit down with the debater, read through the case, and tell them exactly what is wrong, what is good, and how a top opp team would tear them apart.
+    const sysPrompt = `You are the most brutally honest ${fbFormat} debate coach alive. You have coached Nationals champions. You do not sugarcoat. You have seen thousands of cases and you can smell a weak warrant from across the room. Your job is to review this ${fbFormat} case the way a real coach would in a prep session: sit down with the debater, read through the case, and tell them exactly what is wrong, what is good, and how a top opp team would tear them apart. Be blunt about their weaknesses. Tell them specifically where they are weak as a debater and what they need to work on. Don't coddle them. Give them the honest feedback that makes them actually improve.
 
 YOUR COACHING VOICE:
 You sound like a real coach, not a feedback tool. Here's the difference:
@@ -6046,7 +6047,12 @@ Rules:
   // Input view
   if (!analyzed) {
     return el('div', {className:'panel panel-expanded'},
-      el('label', {className:'field-label', style:{fontSize:'1.05rem',marginBottom:12}}, t('feedback.pasteCase','Paste Your Case')),
+      el('div', {style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},
+        el('label', {className:'field-label', style:{fontSize:'1.05rem',margin:0}}, t('feedback.pasteCase','Paste Your Case')),
+        el('select', {value:fbFormat,onChange:e=>setFbFormat(e.target.value),style:{marginLeft:'auto',minWidth:100}},
+          ['APDA','BP','WSDC','AP','KP'].map(f=>el('option',{key:f,value:f},f))
+        ),
+      ),
       el('textarea', {
         value: caseText,
         onChange: e => setCaseText(e.target.value),
@@ -8570,8 +8576,25 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
         ),
       ),
       // Case samples
-      el('label', {style:{color:'#e4e8f0',fontSize:'.82rem',fontWeight:600,display:'block',marginBottom:6}}, 'Case Samples (paste excerpts from your best cases)'),
-      el('p', {style:{color:'#64748b',fontSize:'.75rem',marginBottom:8}}, 'The AI will learn your writing patterns from these samples.'),
+      el('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}},
+        el('label', {style:{color:'#e4e8f0',fontSize:'.82rem',fontWeight:600}}, 'Case Samples (paste or upload your best cases)'),
+        el('label', {style:{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 12px',background:'#ef444415',border:'1px solid #ef444430',borderRadius:6,color:'#ef4444',fontSize:'.72rem',fontWeight:600,cursor:'pointer'}},
+          '\uD83D\uDCC1 Upload File',
+          el('input', {type:'file', accept:'.txt,.md,.doc,.docx,.pdf', multiple:true, style:{display:'none'}, onChange: async (e) => {
+            const files = Array.from(e.target.files);
+            const newSamples = [...caseSamples];
+            for (const file of files) {
+              const text = await file.text();
+              const emptyIdx = newSamples.findIndex(s => !s.trim());
+              if (emptyIdx !== -1) newSamples[emptyIdx] = text.slice(0, 5000);
+              else newSamples.push(text.slice(0, 5000));
+            }
+            setCaseSamples(newSamples.slice(0, 5));
+            e.target.value = '';
+          }})
+        ),
+      ),
+      el('p', {style:{color:'#64748b',fontSize:'.75rem',marginBottom:8}}, 'The AI will learn your writing patterns from these samples. Upload .txt or .md files, or paste directly.'),
       caseSamples.map((sample, i) =>
         el('textarea', {key:i, value:sample, onChange:e=>{const s=[...caseSamples]; s[i]=e.target.value; setCaseSamples(s);}, placeholder:'Paste case excerpt ' + (i+1) + '...', style:{width:'100%',minHeight:60,padding:'8px 12px',background:'#151d2b',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.8rem',outline:'none',resize:'vertical',fontFamily:'inherit',lineHeight:1.5,marginBottom:8}})
       ),
