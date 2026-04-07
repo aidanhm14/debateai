@@ -5188,6 +5188,7 @@ function RoundVision() {
   const el = React.createElement;
   const { t } = React.useContext(I18nContext);
   const [motion, setMotion] = useState('');
+  const [visionFormat, setVisionFormat] = useState('APDA');
   const [side, setSide] = useState('Government');
   const [output, setOutput] = useState(null);
   const [mapData, setMapData] = useState(null);
@@ -5205,7 +5206,7 @@ function RoundVision() {
 
     try {
       // Generate text analysis
-      const sysPrompt = `You are an elite APDA debate strategist sitting in the prep room with a team 15 minutes before their round. You've seen this motion type before. You know what opp is going to run, you know where the traps are, and you're going to walk your team through the full strategic landscape so they go in with a plan, not just arguments.
+      const sysPrompt = `You are an elite ${visionFormat} debate strategist sitting in the prep room with a team 15 minutes before their round. You've seen this motion type before. You know what opp is going to run, you know where the traps are, and you're going to walk your team through the full strategic landscape so they go in with a plan, not just arguments.
 
 YOUR ANALYSIS STRUCTURE:
 
@@ -5315,11 +5316,19 @@ Be specific to the motion. Arguments should be real strategic angles a competiti
       placeholder:t('vision.motionPlaceholder','Enter the motion to analyze...'),
       value:motion, onChange:e=>setMotion(e.target.value), rows:3
     }),
-    el('div',{style:{marginTop:16}},
-      el('label',{className:'field-label green'},t('vision.yourSide','Your Side')),
-      el('select',{value:side,onChange:e=>setSide(e.target.value)},
-        [{v:'Government',k:'caseGen.government'},{v:'Opposition',k:'caseGen.opposition'}].map(s=>el('option',{key:s.v,value:s.v},t(s.k,s.v)))
-      )
+    el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:16}},
+      el('div',null,
+        el('label',{className:'field-label green'},t('vision.yourSide','Your Side')),
+        el('select',{value:side,onChange:e=>setSide(e.target.value)},
+          [{v:'Government',k:'caseGen.government'},{v:'Opposition',k:'caseGen.opposition'}].map(s=>el('option',{key:s.v,value:s.v},t(s.k,s.v)))
+        )
+      ),
+      el('div',null,
+        el('label',{className:'field-label green'},'Format'),
+        el('select',{value:visionFormat,onChange:e=>setVisionFormat(e.target.value)},
+          ['APDA','BP','WSDC','AP','KP'].map(f=>el('option',{key:f,value:f},f))
+        )
+      ),
     ),
     el('div',{style:{marginTop:20}},
       el('button',{className:'btn btn-primary',onClick:analyze,disabled:loading||mapLoading},
@@ -5693,7 +5702,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
 
       setStreaming(true);
       const throttle = createStreamThrottle((text) => setOutput(text), outputRef);
-      await callClaude(sysPrompt, userPrompt, (text) => throttle.update(text), { thinkBudget: 12000, maxTokens: 10000, expectedWords: 1500, onProgress: (p) => setPProgress(p), feature: 'philosophy' });
+      await callClaude(sysPrompt, userPrompt, (text) => throttle.update(text), { thinkBudget: 8000, maxTokens: 6000, expectedWords: 800, onProgress: (p) => setPProgress(p), feature: 'philosophy' });
       throttle.finish();
     } catch(e) {
       setOutput('Error: ' + e.message);
@@ -6740,6 +6749,9 @@ function Newbies() {
       el('p',{key:2},"All speeches have a 30-second grace period. During constructive speeches (not LOR or PMR), the other team can offer Points of Information (POIs), which are brief questions or comments that support their side. You offer one by raising your hand, and the speaker can accept or decline. General rule: if someone offers you a POI, almost never take it."),
       el('div',{key:3,className:'newbie-callout'}, el('span',null, el('strong',null,'No new arguments in rebuttals. '), "LOR and PMR can introduce new weighing and new examples, but no new substantive arguments or responses. If you think the other team brought something new in rebuttal, you can call a Point of Order by interrupting and saying so. The judge rules on whether it's new.")),
     ]},
+    { key:'formats', icon:'\uD83C\uDF10', title:'Debate Formats Around the World', render: () => {
+      return [React.createElement(FormatDiagrams, {key:'fd'})];
+    }},
     { key:'govguide', icon:'\u{1F451}', title:'Playing Government', render: () => [
       el('p',{key:0},"As Government, you wrote the case and you control the framing. Here's how each speech works:"),
       el('p',{key:1},"During POCs, answer questions about your case. You don't have to commit to everything. You can say \"that's up for debate.\" But be careful: everything Gov says in POCs is considered true for the round. Don't accidentally caveat yourself into a corner, and don't give Opp material you weren't planning to defend."),
@@ -6889,9 +6901,6 @@ function Newbies() {
       el('p',{key:5},"Time yourself. New debaters always run out of time. Practice a 7-minute speech at home until you feel the pacing."),
       el('p',{key:6},"Watch rounds on YouTube. See how top speakers structure rebuttals, handle POIs, and weigh. APDA and Worlds recordings are both useful."),
     ]},
-    { key:'formats', icon:'\uD83C\uDF10', title:'Debate Formats Around the World', render: () => {
-      return [React.createElement(FormatDiagrams, {key:'fd'})];
-    }},
   ];
 
   const speechFlow = [
