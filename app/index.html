@@ -3436,8 +3436,17 @@ function CaseGenerator({ onSave, loadedCase, onClearLoaded, team, user, onNaviga
   const checkContext = async (genMode) => {
     if (!motion.trim()) return;
     setContextHint(null);
-    setCheckingContext(true);
     setError(null);
+
+    // Fast path: if bgNeed already evaluated as essential/recommended and no background provided
+    const bgEmpty = !(background || '').trim() || ['n/a','na','none'].includes((background||'').trim().toLowerCase());
+    if (bgNeed && bgEmpty && (bgNeed.level === 'essential' || bgNeed.level === 'recommended')) {
+      setContextHint(bgNeed.reason + (bgNeed.level === 'essential' ? ' Adding background will significantly improve the case.' : ' Consider adding context for a stronger case.'));
+      setMode(genMode);
+      return;
+    }
+
+    setCheckingContext(true);
 
     const checkSys = `You are an APDA debate case evaluator. Your job is to decide if a motion and optional background provide enough specificity to generate a unique, competitive debate case. Respond ONLY with valid JSON — no markdown, no fences, no extra text.`;
     const bgCheck = (background || '').trim().toLowerCase();
@@ -4119,16 +4128,16 @@ Return ONLY the replacement text. Nothing else. Use markdown formatting for read
   return React.createElement('div',{className:'output-wrapper'},
     React.createElement('div',{className:'output-main'},
       React.createElement('div',{className:'output-stream',ref:containerRef},
-        streaming && React.createElement('div',{className:'stream-indicator'},
-          React.createElement('span',{className:'stream-dot'}),
-          'Streaming'
-        ),
         React.createElement('div',{
           className:'output output-selectable' + (streaming ? ' streaming-active' : ''),
           ref:outputRef,
           onMouseUp: streaming ? undefined : handleMouseUp,
           style:{whiteSpace:'pre-line'}
         , dangerouslySetInnerHTML:{__html:cleanOutput(output, true)}}),
+        streaming && React.createElement('div',{className:'stream-indicator',style:{marginTop:8}},
+          React.createElement('span',{className:'stream-dot'}),
+          'Streaming'
+        ),
         // Highlight popup
         popup && React.createElement('div',{
           className:'highlight-popup',
@@ -7766,6 +7775,7 @@ function DebateTheBot() {
   const { t } = React.useContext(I18nContext);
   const [motion, setMotion] = useState('');
   const [side, setSide] = useState('gov');
+  const [botFormat, setBotFormat] = useState('APDA');
   const [started, setStarted] = useState(false);
   const [exchanges, setExchanges] = useState([]); // [{role:'player'|'bot', text:'...'}]
   const [inputText, setInputText] = useState('');
@@ -7820,7 +7830,7 @@ NEVER use: "Furthermore," "Additionally," "It is important to note," "Moreover."
   };
 
   const buildContext = (exs) => {
-    let ctx = `MOTION: ${motion}\nYou are playing: ${side === 'gov' ? 'Opposition' : 'Government'}\nYour opponent (the human) is playing: ${side === 'gov' ? 'Government' : 'Opposition'}\n\nDEBATE SO FAR:\n`;
+    let ctx = `MOTION: ${motion}\nFORMAT: ${botFormat}\nYou are playing: ${side === 'gov' ? 'Opposition' : 'Government'}\nYour opponent (the human) is playing: ${side === 'gov' ? 'Government' : 'Opposition'}\n\nDEBATE SO FAR:\n`;
     exs.forEach((ex, i) => {
       ctx += `\n--- ${ex.role === 'player' ? 'OPPONENT (Human)' : 'THE MACHINE (You)'} [Speech ${i+1}] ---\n${ex.text}\n`;
     });
@@ -7972,17 +7982,25 @@ Be direct. No sugarcoating. Use **bold** for key terms.`;
         value: motion, onChange: e => setMotion(e.target.value),
         rows: 3,
       }),
-      el('div', { style: { marginTop: 20 } },
-        el('label', { className: 'field-label green' }, t('vision.yourSide', 'Your Side')),
-        el('div', { style: { display: 'flex', gap: 10, marginTop: 8 } },
-          el('button', {
-            className: 'btn ' + (side === 'gov' ? 'btn-primary' : 'btn-secondary'),
-            onClick: () => setSide('gov'), style: { flex: 1 },
-          }, t('caseGen.government', 'Government')),
-          el('button', {
-            className: 'btn ' + (side === 'opp' ? 'btn-primary' : 'btn-secondary'),
-            onClick: () => setSide('opp'), style: { flex: 1 },
-          }, t('caseGen.opposition', 'Opposition')),
+      el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 20 } },
+        el('div', null,
+          el('label', { className: 'field-label green' }, t('vision.yourSide', 'Your Side')),
+          el('div', { style: { display: 'flex', gap: 10, marginTop: 8 } },
+            el('button', {
+              className: 'btn ' + (side === 'gov' ? 'btn-primary' : 'btn-secondary'),
+              onClick: () => setSide('gov'), style: { flex: 1 },
+            }, t('caseGen.government', 'Government')),
+            el('button', {
+              className: 'btn ' + (side === 'opp' ? 'btn-primary' : 'btn-secondary'),
+              onClick: () => setSide('opp'), style: { flex: 1 },
+            }, t('caseGen.opposition', 'Opposition')),
+          ),
+        ),
+        el('div', null,
+          el('label', { className: 'field-label green' }, 'Format'),
+          el('select', { value: botFormat, onChange: e => setBotFormat(e.target.value), style: { marginTop: 8, width: '100%' } },
+            ['APDA', 'BP', 'WSDC', 'AP', 'KP'].map(f => el('option', { key: f, value: f }, f))
+          ),
         ),
       ),
       el('div', { style: { marginTop: 24 } },
