@@ -407,6 +407,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
   will-change:contents;contain:layout style;
 }
 .output.streaming-active{overflow-anchor:auto}
+.output.streaming-active::after{content:'';display:inline-block;width:2px;height:1.1em;background:#ef4444;margin-left:2px;vertical-align:text-bottom;animation:cursorBlink .8s step-end infinite}
+@keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
 .output *{margin:0;padding:0}
 .output strong{color:#fbbf24;font-weight:700}
 .output em{color:#94a3b8;font-style:italic}
@@ -2023,23 +2025,41 @@ function cleanOutput(text, asHtml) {
 // Throttled streaming: batches rapid onChunk calls into one React update per frame
 function createStreamThrottle(onChunk, outputRef) {
   let latestText = '';
-  let displayedLen = 0;
+  let displayedWords = 0;
   let rafId = null;
   let lastFrame = 0;
-  const CHARS_PER_FRAME = 8; // characters revealed per animation frame (~480 chars/sec at 60fps)
-  const MIN_FRAME_MS = 16; // ~60fps cap
+  const WORDS_PER_FRAME = 2; // ~120 words/sec at 60fps, feels like fast typing
+  const MIN_FRAME_MS = 16;
+
+  function getWordBoundary(text, wordCount) {
+    let pos = 0;
+    let words = 0;
+    while (pos < text.length && words < wordCount) {
+      // Skip whitespace
+      while (pos < text.length && /\s/.test(text[pos])) pos++;
+      // Skip word
+      while (pos < text.length && !/\s/.test(text[pos])) pos++;
+      words++;
+    }
+    return pos;
+  }
+
+  function countWords(text) {
+    return text.trim().split(/\s+/).filter(Boolean).length;
+  }
 
   function tick(now) {
     if (now - lastFrame < MIN_FRAME_MS) { rafId = requestAnimationFrame(tick); return; }
     lastFrame = now;
-    if (displayedLen < latestText.length) {
-      // Reveal more characters, accelerating when far behind
-      const behind = latestText.length - displayedLen;
-      const step = behind > 200 ? Math.ceil(behind / 4) : behind > 50 ? CHARS_PER_FRAME * 3 : CHARS_PER_FRAME;
-      displayedLen = Math.min(latestText.length, displayedLen + step);
-      onChunk(latestText.slice(0, displayedLen));
+    const totalWords = countWords(latestText);
+    if (displayedWords < totalWords) {
+      const behind = totalWords - displayedWords;
+      const step = behind > 80 ? Math.ceil(behind / 3) : behind > 30 ? WORDS_PER_FRAME * 4 : WORDS_PER_FRAME;
+      displayedWords = Math.min(totalWords, displayedWords + step);
+      const cutPos = getWordBoundary(latestText, displayedWords);
+      onChunk(latestText.slice(0, cutPos));
     }
-    if (displayedLen < latestText.length) {
+    if (displayedWords < countWords(latestText)) {
       rafId = requestAnimationFrame(tick);
     }
   }
@@ -2051,7 +2071,7 @@ function createStreamThrottle(onChunk, outputRef) {
     },
     finish() {
       if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-      displayedLen = latestText.length;
+      displayedWords = countWords(latestText);
       onChunk(latestText);
     },
     cancel() {
@@ -5511,7 +5531,7 @@ function generateCasualReply(msg, history) {
    TAB 5: PHILOSOPHY
    ═══════════════════════════════════════════════════ */
 
-function Philosophy() {
+function Philosophy({ onSave }) {
   const { t } = React.useContext(I18nContext);
   const [selectedPhils, setSelectedPhils] = useState([]);
   const [concept, setConcept] = useState('');
@@ -5544,10 +5564,10 @@ function Philosophy() {
   ];
 
   const modes = {
-    'deep-dive': { label:'Deep Dive', desc:'Full philosopher breakdown with debate application' },
-    'apply-motion': { label:'Apply to Motion', desc:'Show how this framework applies to a specific motion' },
-    'head-to-head': { label:'Head to Head', desc:'Compare two frameworks on the same question' },
-    'build-framework': { label:'Build Framework', desc:'Generate actual framing language you can use in round' },
+    'deep-dive': { label:'Deep Dive', desc:'Learn what this thinker actually believed and how to use it in debate' },
+    'apply-motion': { label:'Apply to Motion', desc:'See exactly how to run this philosophy on a specific debate topic' },
+    'head-to-head': { label:'Head to Head', desc:'Put two thinkers against each other and see who wins' },
+    'build-framework': { label:'Build Framework', desc:'Get ready-to-use framing language you can read in your PM speech' },
   };
 
   const explore = async () => {
@@ -5558,15 +5578,17 @@ function Philosophy() {
       let sysPrompt, userPrompt;
 
       if (exploreMode === 'deep-dive') {
-          sysPrompt = `You are a philosophy professor who teaches competitive parliamentary debaters (APDA). You explain philosophy with genuine depth and intellectual rigor, not surface-level summaries. Your explanations should make a debater actually understand the thinker's project, not just memorize buzzwords.
+          sysPrompt = `You are a brilliant philosophy teacher who makes complex ideas click for people who have never studied philosophy before. You speak like a smart friend explaining something fascinating over coffee, not like a textbook. Your tone is conversational, direct, and enthusiastic. Use "you" and "we" constantly. Use vivid real-world analogies and examples from everyday life.
+
+CRITICAL VOICE RULE: Start every section with a simple, punchy explanation that a 15-year-old would understand. THEN go deeper with the technical framework and debate applications. The pattern is: simple hook first, structured analysis second. If your opening sentence of any section sounds like a philosophy textbook, rewrite it.
 
 For each philosopher, provide a comprehensive treatment:
 
-1. THE PROJECT (What were they actually trying to do?)
-   Explain the intellectual context they were responding to. What problem were they solving? What earlier thinkers were they building on or rejecting? Give the historical moment — what was happening in the world that made this philosophy urgent. This should read like intellectual biography, not a textbook entry.
+1. THE PROJECT (What were they actually trying to do? Start with WHY anyone should care.)
+   Open with something like "Imagine you lived in a world where..." or "Here's the problem [philosopher] was obsessed with..." Make the reader feel why this mattered. THEN give the intellectual context: what problem were they solving, what earlier thinkers were they building on or rejecting, what was happening in the world that made this philosophy urgent.
 
-2. CORE FRAMEWORK (The actual ideas, explained properly)
-   Walk through their key concepts in the order they build on each other. Don't just list terms — show how each concept follows from the last. Use concrete examples throughout. If there are thought experiments (trolley problem, veil of ignorance, etc.), walk through them in detail and explain what they actually prove. Explain the logical structure: what are the premises, what follows from them, and where are the load-bearing assumptions?
+2. CORE FRAMEWORK (The actual ideas, explained so they stick)
+   For each key concept, start with an analogy or example from real life BEFORE using the technical term. "You know how when you make a promise, you feel like you HAVE to keep it even when breaking it would make everyone happier? That feeling is basically what Kant built his entire philosophy around." Walk through their key concepts in the order they build on each other. Use concrete examples throughout. If there are thought experiments, walk through them in detail.
 
 3. KEY DISTINCTIONS (The nuances debaters usually miss)
    What are the important internal distinctions in this philosophy that most debaters collapse? For Kant, the difference between hypothetical and categorical imperatives. For Mill, higher vs lower pleasures. For Rawls, the difference principle vs equal liberty principle. These distinctions are where good debaters separate from great ones.
@@ -5758,7 +5780,19 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         React.createElement('span',{className:'spinner'}),
         'Streaming...'
       ),
-      !loading && !streaming && React.createElement(SaveToDocsButton,{text:output,filename:'Philosophy ' + philosopher})
+      !loading && !streaming && React.createElement('div',{style:{display:'flex',gap:8,marginTop:12,flexWrap:'wrap'}},
+        onSave && React.createElement('button',{
+          className:'btn btn-primary',
+          onClick:() => {
+            onSave({ motion: philosopher + ' — ' + exploreMode, background: concept, side: 'Philosophy', depth: exploreMode, format: 'Philosophy', output, mode: 'philosophy' });
+          }
+        }, '\uD83D\uDCBE Save to Library'),
+        React.createElement('button',{
+          className:'btn btn-secondary',
+          onClick:() => { if (navigator.clipboard && output) navigator.clipboard.writeText(output); }
+        }, '\uD83D\uDCCB Copy Text'),
+        React.createElement(SaveToDocsButton,{text:output,filename:'Philosophy ' + philosopher}),
+      )
     )
   );
 }
@@ -9322,7 +9356,7 @@ function App() {
       tabPane('res', React.createElement(Resolutions)),
       tabPane('vision', React.createElement(RoundVision)),
       tabPane('casual', React.createElement(Casual)),
-      tabPane('phil', React.createElement(Philosophy)),
+      tabPane('phil', React.createElement(Philosophy, { onSave: saveCase })),
       tabPane('practice', React.createElement(Practice)),
       tabPane('judge', React.createElement(Judge)),
       tabPane('newbies', React.createElement(Newbies)),
