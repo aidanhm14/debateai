@@ -3454,6 +3454,9 @@ function CaseGenerator({ onSave, loadedCase, onClearLoaded, team, user, onNaviga
   const [formCollapsed, setFormCollapsed] = useState(false);
   const [sneakyOutput, setSneakyOutput] = useState(null);
   const [sneakyLoading, setSneakyLoading] = useState(false);
+  const [oppAttack, setOppAttack] = useState(null);
+  const [oppAttackLoading, setOppAttackLoading] = useState(false);
+  const [caseVersions, setCaseVersions] = useState([]);
   const [sneakyStreaming, setSneakyStreaming] = useState(false);
   const [bgNeed, setBgNeed] = useState(null); // {level:'none'|'optional'|'recommended'|'essential', reason:'...'}
   const [bgNeedLoading, setBgNeedLoading] = useState(false);
@@ -3631,6 +3634,38 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
     setSneakyLoading(false);
     setSneakyStreaming(false);
   };
+
+  // Opp Attack Mode — AI attacks the case from opposition perspective
+  const runOppAttack = async () => {
+    if (!output || oppAttackLoading) return;
+    setOppAttackLoading(true);
+    setOppAttack('');
+    try {
+      const sysPrompt = `You are an elite Opposition debater at Nationals. You just heard this Government case for the first time. Your job: tear it apart. For each argument in the case, provide:
+
+1. VULNERABILITY RATING (1-5): How easy is this to beat? 1=bulletproof, 5=fatal flaw
+2. THE ATTACK: Your best 2-3 sentence response as if you're delivering it in the LOC
+3. WHY IT WORKS: One sentence explaining why this attack is devastating
+4. SUGGESTED PRE-EMPT: What Gov should have said to block this attack
+
+After analyzing each argument, provide:
+- OVERALL CASE VULNERABILITY: Average score and one-sentence assessment
+- OPP STRATEGY: The 3-sentence game plan you'd give an Opp team walking into this round
+- THE KILL SHOT: The single most devastating thing Opp can say about this case
+
+Be brutal. Be specific. Name the exact warrants you'd attack.`;
+      const throttle = createStreamThrottle((text) => setOppAttack(text), null);
+      await callClaude(sysPrompt, 'Here is the Government case to attack:\n\n' + output, (text) => throttle.update(text), { thinkBudget: 8000, maxTokens: 8000, expectedWords: 1000, feature: 'case' });
+      throttle.finish();
+    } catch(err) { setOppAttack('Error: ' + err.message); }
+    setOppAttackLoading(false);
+  };
+
+  // Version history — save each revision
+  const saveVersion = useCallback(() => {
+    if (!output) return;
+    setCaseVersions(prev => [...prev, { text: output, savedAt: new Date().toISOString(), label: 'v' + (prev.length + 1) }]);
+  }, [output]);
 
   // Run tightness check whenever output finishes generating
   useEffect(() => {
@@ -3928,6 +3963,17 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
       );
     })(),
 
+    // Opp Attack button — next to Sneaky Strategies
+    output && !streaming && !loading && !oppAttack && !oppAttackLoading && React.createElement('div',{
+      style:{display:'flex',justifyContent:'center',marginTop:4}
+    },
+      React.createElement('button',{
+        className:'btn btn-orange',
+        onClick:runOppAttack,
+        disabled:oppAttackLoading,
+      }, '\u2694\uFE0F Attack as Opposition'),
+    ),
+
     // Sneaky Strategies output
     sneakyLoading && !sneakyOutput && React.createElement(ThinkingAnimation, {mode:'sneaky', progress:{phase:'thinking',percent:0}}),
     sneakyOutput && React.createElement('div',{
@@ -3940,6 +3986,15 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
         motion: motion,
         depth: depth,
       })
+    ),
+
+    // Opp Attack output
+    oppAttackLoading && !oppAttack && React.createElement(ThinkingAnimation, {mode:'case', progress:{phase:'thinking',percent:0}}),
+    oppAttack && React.createElement('div',{
+      style:{marginTop:20,padding:'20px 24px',background:'#ef444408',border:'1px solid #ef444425',borderRadius:12}
+    },
+      React.createElement('h3',{style:{color:'#f87171',fontSize:'1.1rem',fontWeight:800,marginBottom:12}}, '\u2694\uFE0F Opposition Attack Analysis'),
+      React.createElement('div',{className:'output streaming-active',dangerouslySetInnerHTML:{__html:cleanOutput(oppAttack, true)}}),
     ),
 
     // Save Case bar — appears after generation
@@ -3975,6 +4030,12 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
         filename: (motion ? motion.substring(0, 60) : 'DebateOS Case') + ' (' + side + ')',
         caseId: motion ? 'case_' + motion.substring(0, 40).replace(/\s+/g, '_') + '_' + side : null,
       }),
+      React.createElement('button',{
+        className:'btn btn-secondary',
+        onClick:saveVersion,
+        style:{minWidth:100},
+        title:'Save current version to history'
+      }, '\uD83D\uDCCC v' + (caseVersions.length + 1)),
       // Thumbs up/down for feedback loop
       React.createElement('div',{style:{display:'flex',gap:6,marginLeft:8}},
         React.createElement('button',{
@@ -3998,6 +4059,22 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
           title:'This case needs work',
         },'\uD83D\uDC4E'),
       ),
+    ),
+
+    // Version history
+    caseVersions.length > 0 && React.createElement('div',{
+      style:{display:'flex',gap:6,alignItems:'center',justifyContent:'center',marginTop:8,flexWrap:'wrap'}
+    },
+      React.createElement('span',{style:{fontSize:'.72rem',color:'#94a3b8',fontWeight:600,letterSpacing:'.5px',textTransform:'uppercase'}},'Versions:'),
+      caseVersions.map((v,i) =>
+        React.createElement('button',{
+          key:i,
+          className:'btn btn-secondary',
+          style:{padding:'4px 10px',fontSize:'.72rem',minWidth:0},
+          onClick:() => { setOutput(v.text); setSaved(false); },
+          title:'Restore ' + v.label + ' (' + new Date(v.savedAt).toLocaleTimeString() + ')'
+        }, v.label)
+      )
     ),
 
     // Upgrade modal for pro features
@@ -6160,8 +6237,8 @@ Rules:
         value: caseText,
         onChange: e => setCaseText(e.target.value),
         placeholder: t('feedback.pastePlaceholder','Paste your full debate case here. Background, framework, arguments, everything. The AI will analyze it and give you targeted, section-by-section feedback...'),
-        rows: 28,
-        style: {fontSize:'1rem', minHeight:'500px', lineHeight:'1.7', padding:'20px 24px'}
+        rows: 16,
+        style: {fontSize:'1rem', minHeight:'300px', lineHeight:'1.7', padding:'20px 24px'}
       }),
       el('div', {style:{display:'flex',gap:12,marginTop:16,alignItems:'center'}},
         el('button', {
@@ -6996,9 +7073,16 @@ function Newbies() {
   return el('div',{className:'panel'},
     el('div',{className:'newbie-hero'},
       el('h2',null,'The Novice Guide'),
-      el('div',{className:'hero-subtitle'},'Everything you need to start debating on APDA'),
+      el('div',{className:'hero-subtitle'},'Everything you need to start debating'),
       el('div',{className:'honest'},
         "Competitive debate has a reputation, and not all of it is undeserved. It can feel elitist, jargon-heavy, and intimidating. The learning curve is steep enough to push people out before they ever get good. We're not going to pretend otherwise. But the core of debate (learning to construct and deconstruct arguments, to see issues from multiple sides, to think under pressure) is one of the most valuable intellectual skills you can develop. This guide is the substance without the gatekeeping."
+      ),
+      el('div',{style:{marginTop:12,padding:'12px 16px',background:'#ef444408',border:'1px solid #ef444420',borderRadius:10,fontSize:'.85rem',lineHeight:1.6,color:'#b0bec5'}},
+        el('strong',{style:{color:'#ef4444'}},'Why APDA is the default: '),
+        "Devil's Advocate was built by APDA debaters at UChicago. We default to APDA parliamentary format because its 2v2 structure, impromptu case writing, and no-evidence rules make it the ideal format for AI-assisted prep. But every tool works across formats — select BP, World Schools, Asian Parliamentary, Karl Popper, or 1-on-1 in the format selector.",
+        el('br'),el('br'),
+        el('strong',{style:{color:'#f59e0b'}},'A note on prep time: '),
+        "APDA cases rounds give Government unlimited prep time (they wrote the case beforehand), while Opposition gets only the POC period (~5-15 min). Motions rounds give both sides 15 minutes. We believe AI tools should enhance your thinking, not replace it. Use this app to learn argument structure and strategy, then apply those skills in round with your own brain. The best debaters use tools to get smarter, not to skip the work."
       ),
     ),
     // Video guide placeholder
