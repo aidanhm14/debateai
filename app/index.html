@@ -11130,6 +11130,24 @@ function LiveDebates({ user, team, onNavigateTab }) {
     });
   }
 
+  async function cancelDebate(debateId) {
+    if (!user || !firebaseDb) return;
+    if (!confirm('Cancel this debate? This cannot be undone.')) return;
+    try {
+      await firebaseDb.collection('live_debates').doc(debateId).delete();
+      setView('list');
+      setSelectedDebate(null);
+    } catch (e) {
+      alert('Error canceling debate: ' + e.message);
+    }
+  }
+
+  async function leaveDebate(debate) {
+    if (!user || !firebaseDb) return;
+    const updated = (debate.participants || []).filter(p => p.uid !== user.uid);
+    await firebaseDb.collection('live_debates').doc(debate.id).update({ participants: updated });
+  }
+
   async function pickRandomMotion() {
     const allMotions = Object.values(RESOLUTIONS_DB).flat();
     setMotion(allMotions[Math.floor(Math.random() * allMotions.length)]);
@@ -11180,6 +11198,17 @@ function LiveDebates({ user, team, onNavigateTab }) {
           }, '\uD83C\uDFA5 Join Video Call'),
         ),
         !debate.videoLink && isHost && el('div', { style: { marginTop: 16, textAlign: 'center', color: '#666', fontSize: '.82rem' } }, 'No video link set'),
+        // Host: cancel debate / Non-host: leave debate
+        el('div', { style: { marginTop: 20, paddingTop: 16, borderTop: '1px solid #ffffff0a', display: 'flex', gap: 8, justifyContent: 'center' } },
+          isHost && el('button', {
+            onClick: () => cancelDebate(debate.id),
+            style: { padding: '10px 20px', background: '#ef444415', border: '1px solid #ef444440', borderRadius: 8, color: '#f87171', fontWeight: 600, fontSize: '.82rem', cursor: 'pointer', fontFamily: 'inherit' },
+          }, '\uD83D\uDDD1 Cancel Debate'),
+          !isHost && user && (debate.participants || []).some(p => p.uid === user.uid) && el('button', {
+            onClick: () => { leaveDebate(debate); setView('list'); setSelectedDebate(null); },
+            style: { padding: '10px 20px', background: '#f59e0b15', border: '1px solid #f59e0b40', borderRadius: 8, color: '#fbbf24', fontWeight: 600, fontSize: '.82rem', cursor: 'pointer', fontFamily: 'inherit' },
+          }, 'Leave Debate'),
+        ),
       ),
     );
   }
