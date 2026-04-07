@@ -949,6 +949,9 @@ html{background:#0a0e18}body.light-theme,body.light-theme~*{background:#f0f4fc!i
 .light-theme .output-wrapper{background:#fff!important;border-color:#e7d6d0!important;box-shadow:0 2px 12px rgba(0,0,0,.06)!important}
 .light-theme .phil-output{background:#fff!important;border-color:#e7d6d0!important}
 .light-theme [style*="linear-gradient(145deg"]{background:#fff!important}
+.light-theme [style*="151d2b"]{background:#f5f3f1!important;color:#1a1a2e!important;border-color:#d4c5be!important}
+.light-theme [style*="ffffff15"]{border-color:#d4c5be!important}
+.light-theme [style*="ffffff08"]{background:#f5f3f1!important}
 .light-theme .panel>div,.light-theme .panel-expanded>div{background:transparent!important}
 .light-theme .panel input,.light-theme .panel textarea,.light-theme .panel select{background:#fff!important;color:#1e293b!important;border-color:#cbd5e1!important}
 .light-theme .newbie-table td{color:#475569!important;border-bottom-color:#f1f5f9!important}
@@ -4110,6 +4113,17 @@ function HighlightableOutput({output, outputRef, streaming, onRevise, motion, de
     setTimeout(() => commentInputRef.current?.focus(), 100);
   };
 
+  const quickRevise = (action) => {
+    if (!popup || streaming || revising) return;
+    const highlighted = popup.text;
+    setPopup(null);
+    window.getSelection()?.removeAllRanges();
+    // Directly trigger revision with the action as the comment
+    setPendingHighlight(highlighted);
+    setComment(action);
+    setTimeout(() => submitRevision(), 50);
+  };
+
   const submitRevision = async () => {
     if (!comment.trim() || streaming || revising) return;
     const userComment = comment.trim();
@@ -4218,9 +4232,15 @@ Return ONLY the replacement text. Nothing else. Use markdown formatting for read
         // Highlight popup
         popup && React.createElement('div',{
           className:'highlight-popup',
-          style:{left:popup.x,top:popup.y,transform:'translateX(-50%)'}
+          style:{left:popup.x,top:popup.y,transform:'translateX(-50%)',display:'flex',flexWrap:'wrap',gap:4,maxWidth:320}
         },
-          React.createElement('button',{onClick:addHighlightComment},'Comment')
+          React.createElement('button',{onClick:addHighlightComment},'Comment'),
+          React.createElement('button',{onClick:()=>{setPendingHighlight(popup.text);setPopup(null);setComment('Make this warrant stronger and more specific');submitRevision();}},'\u{1F4AA} Strengthen'),
+          React.createElement('button',{onClick:()=>{setPendingHighlight(popup.text);setPopup(null);setComment('Add a specific real-world example to support this claim');submitRevision();}},'\u{1F4CC} Add Example'),
+          React.createElement('button',{onClick:()=>{setPendingHighlight(popup.text);setPopup(null);setComment('This is too generic. Make it more specific and unique to this motion');submitRevision();}},'\u{1F3AF} More Specific'),
+          React.createElement('button',{onClick:()=>{setPendingHighlight(popup.text);setPopup(null);setComment('Simplify this language while keeping the substance');submitRevision();}},'\u270D Simplify'),
+          React.createElement('button',{onClick:()=>{setPendingHighlight(popup.text);setPopup(null);setComment('Make this more aggressive and confident. Sound like a debater who means it.');submitRevision();}},'\u{1F525} More Aggressive'),
+          React.createElement('button',{onClick:()=>{setPendingHighlight(popup.text);setPopup(null);setComment('Add an even-if clause that makes this argument survive partial concession');submitRevision();}},'\u{1F6E1} Even-if'),
         )
       )
     ),
