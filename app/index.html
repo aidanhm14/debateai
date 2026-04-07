@@ -5889,13 +5889,19 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
       selectedPhils.length > 0 && React.createElement('span',{style:{fontSize:'.75rem',color:'#94a3b8',marginLeft:8}},selectedPhils.join(' + ')),
     ),
     React.createElement('div',{className:'chips'},
-      philosophers.map(p =>
-        React.createElement('button',{
+      philosophers.map(p => {
+        const colors = {'Kant':'#ef4444','Mill':'#3b82f6','Rawls':'#8b5cf6','Foucault':'#f59e0b','Aristotle':'#22c55e','Nietzsche':'#ef4444','Marx':'#dc2626','Hobbes':'#6366f1','Locke':'#14b8a6','Plato':'#a78bfa'};
+        const c = colors[p.name] || '#' + ((p.name.charCodeAt(0)*7+p.name.charCodeAt(1||0)*13)%0xffffff).toString(16).padStart(6,'0').slice(0,6);
+        return React.createElement('button',{
           key:p.name,
           className:'chip chip-size-'+p.size+(selectedPhils.includes(p.name)?' active':''),
-          onClick:()=>togglePhil(p.name)
-        },p.name)
-      )
+          onClick:()=>togglePhil(p.name),
+          style:{display:'inline-flex',alignItems:'center',gap:4}
+        },
+          React.createElement('span',{style:{width:16,height:16,borderRadius:'50%',background:c+'30',border:'1.5px solid '+c+'60',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:800,color:c,flexShrink:0}},p.name.charAt(0)),
+          p.name
+        );
+      })
     ),
     React.createElement('div',{style:{marginTop:16}},
       React.createElement('label',{className:'field-label green'},
@@ -5952,6 +5958,38 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         )
       )
     ),
+    // Venn Diagram for head-to-head (Pro feature)
+    output && !loading && !streaming && exploreMode === 'head-to-head' && React.createElement('div',{
+      style:{marginTop:20,padding:24,background:'var(--card-bg,#0e1822)',border:'1px solid var(--card-border,#ffffff0a)',borderRadius:14,textAlign:'center',position:'relative',overflow:'hidden'}
+    },
+      React.createElement('h3',{style:{color:'#a78bfa',fontSize:'1rem',fontWeight:700,marginBottom:16}},'\u{1F504} Philosophical Venn Diagram'),
+      // SVG Venn diagram
+      React.createElement('svg',{viewBox:'0 0 400 250',style:{width:'100%',maxWidth:500,margin:'0 auto',display:'block'}},
+        // Left circle
+        React.createElement('circle',{cx:150,cy:125,r:100,fill:isPro(null,null)?'#ef444415':'#ef444408',stroke:'#ef4444',strokeWidth:2,opacity:isPro(null,null)?1:0.4}),
+        React.createElement('text',{x:100,y:50,fill:'#ef4444',fontSize:14,fontWeight:700,textAnchor:'middle'},selectedPhils[0]||'Philosopher 1'),
+        // Right circle
+        React.createElement('circle',{cx:250,cy:125,r:100,fill:isPro(null,null)?'#3b82f615':'#3b82f608',stroke:'#3b82f6',strokeWidth:2,opacity:isPro(null,null)?1:0.4}),
+        React.createElement('text',{x:300,y:50,fill:'#3b82f6',fontSize:14,fontWeight:700,textAnchor:'middle'},selectedPhils[1]||'Philosopher 2'),
+        // Center label
+        React.createElement('text',{x:200,y:120,fill:'#fbbf24',fontSize:12,fontWeight:600,textAnchor:'middle'},'Shared'),
+        React.createElement('text',{x:200,y:138,fill:'#fbbf24',fontSize:12,fontWeight:600,textAnchor:'middle'},'Ground'),
+        // Left unique
+        isPro(null,null) && React.createElement('text',{x:85,y:125,fill:'#ef4444',fontSize:10,textAnchor:'middle',opacity:0.8},'Unique to'),
+        isPro(null,null) && React.createElement('text',{x:85,y:140,fill:'#ef4444',fontSize:10,textAnchor:'middle',opacity:0.8},selectedPhils[0]||'P1'),
+        // Right unique
+        isPro(null,null) && React.createElement('text',{x:315,y:125,fill:'#3b82f6',fontSize:10,textAnchor:'middle',opacity:0.8},'Unique to'),
+        isPro(null,null) && React.createElement('text',{x:315,y:140,fill:'#3b82f6',fontSize:10,textAnchor:'middle',opacity:0.8},selectedPhils[1]||'P2'),
+      ),
+      // Blur overlay for free users
+      !isPro(null,null) && React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(10,14,24,0.7)',backdropFilter:'blur(4px)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',borderRadius:14}},
+        React.createElement('div',{style:{fontSize:'1.5rem',marginBottom:8}},'\uD83D\uDD12'),
+        React.createElement('div',{style:{color:'#a78bfa',fontWeight:700,fontSize:'.9rem',marginBottom:4}},'Venn Diagram — Pro Feature'),
+        React.createElement('div',{style:{color:'#94a3b8',fontSize:'.78rem',maxWidth:280,lineHeight:1.5}},'Upgrade to Pro to see an interactive Venn diagram mapping shared ground and unique positions between philosophers.'),
+      ),
+      isPro(null,null) && React.createElement('p',{style:{color:'#94a3b8',fontSize:'.78rem',marginTop:12}},'The overlapping region shows where both philosophers agree. The outer regions show their unique contributions.'),
+    ),
+
     output && React.createElement('div',{ref:outputRef,className:'phil-output'},
       React.createElement('div',{className:'output'+(streaming?' streaming-active':'')},
         React.createElement('div',{dangerouslySetInnerHTML:{__html:cleanOutput(output, true)}})
