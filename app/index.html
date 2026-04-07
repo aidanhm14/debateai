@@ -835,7 +835,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
   .nav-btn{flex-shrink:0}
 }
 @media(max-width:640px){
-  .panel{margin:16px 10px 30px;padding:20px 16px}
+  .panel{margin:16px 10px 30px;padding:20px 16px;overflow-x:hidden;word-break:break-word}
   .panel.panel-expanded{padding:16px 12px;max-width:100%;width:100%}
   .nav-btn{padding:7px 14px;font-size:.72rem;min-height:36px;flex-shrink:0}
   .nav-divider{display:none}
@@ -972,7 +972,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .light-theme .market-guide-card-title{color:#1a1a2e}
 .light-theme .market-guide-card-text{color:#4b5563}
 @media(max-width:900px){.market-layout{grid-template-columns:1fr}.market-claim-panel{position:static}}
-@media(max-width:640px){.market-layout{gap:10px}.market-price-display{font-size:2.2rem}}
+@media(max-width:640px){.market-layout{gap:10px}.market-price-display{font-size:2.2rem}.market-guide-grid{grid-template-columns:1fr}}
 .light-theme .market-claim-panel,.light-theme .market-arg-card{background:#fff!important;border-color:#e2e8f0!important}
 .light-theme .market-arg-text{color:#334155!important}
 /* ===== LIGHT / DAY THEME ===== */
@@ -2783,7 +2783,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   const _isAnon = !__getAuthToken;
   if (_isAnon) {
     if (getAnonUsage() >= ANON_LIMIT) {
-      throw new Error('You\'ve used your ' + ANON_LIMIT + ' free generations. Sign up for a free account to get 5 requests/month, or upgrade for more.');
+      throw new Error('You\'ve used your ' + ANON_LIMIT + ' free generations. Sign in with Google to get a free trial with 5 requests/month, or upgrade for more.');
     }
   }
 
@@ -2852,7 +2852,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   if (!response.ok) {
     const err = await response.text();
     if (response.status === 429) {
-      try { const errData = JSON.parse(err); if (errData.code === 'USAGE_LIMIT_REACHED') throw new Error('You\'ve reached your monthly request limit. Upgrade your plan in the Team tab for more requests, or use your own Anthropic API key for unlimited free access.'); } catch(parseErr) { if (parseErr.message.includes('monthly')) throw parseErr; }
+      try { const errData = JSON.parse(err); if (errData.code === 'USAGE_LIMIT_REACHED') throw new Error('You\'ve reached your monthly request limit. Upgrade your plan in the Team tab for more requests.'); } catch(parseErr) { if (parseErr.message.includes('monthly')) throw parseErr; }
       throw new Error('Rate limited — too many requests. Wait a moment and try again.');
     }
     if (response.status === 401 || response.status === 403) throw new Error('Authentication error — the API key may be invalid or expired. Contact the site admin.');
@@ -10413,12 +10413,30 @@ function UsageBanner({ team }) {
   return el('div', {style:{marginTop:8}}, ...parts);
 }
 
-function AdBanner({ team, onNavigate }) {
+function AdBanner({ team, user, onNavigate }) {
   const el = React.createElement;
   // Hide for paid users
   if (team && team.plan !== 'trial') return null;
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
+
+  // Show trial counter for anonymous users
+  if (!user && !team) {
+    const used = getAnonUsage();
+    const remaining = ANON_LIMIT - used;
+    if (remaining <= 0) {
+      return el('div', {style:{maxWidth:900,width:'94%',margin:'8px auto 0',padding:'10px 18px',background:'linear-gradient(135deg,#ef444418,#ef44440a)',border:'1px solid #ef444440',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,boxShadow:'0 2px 16px #ef444415'}},
+        el('span', {style:{color:'#fca5a5',fontSize:'.82rem',flex:1,fontWeight:500}}, 'Free trial ended \u2014 sign in to continue with 5 requests/month or upgrade.'),
+        el('button', {onClick:()=>{ if(onNavigate) onNavigate('team'); }, style:{padding:'6px 18px',background:'linear-gradient(135deg,#ef4444,#ef4444cc)',border:'none',borderRadius:8,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:'.78rem',whiteSpace:'nowrap',fontFamily:'inherit'}}, 'Sign In'),
+      );
+    }
+    if (remaining <= 3) {
+      return el('div', {style:{maxWidth:900,width:'94%',margin:'8px auto 0',padding:'10px 18px',background:'linear-gradient(135deg,#f59e0b18,#f59e0b0a)',border:'1px solid #f59e0b40',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}},
+        el('span', {style:{color:'#fcd34d',fontSize:'.82rem',flex:1,fontWeight:500}}, remaining + ' free generation' + (remaining !== 1 ? 's' : '') + ' remaining \u2014 sign in for more.'),
+        el('button', {onClick:()=>setDismissed(true), style:{background:'none',border:'none',color:'#8890a0',cursor:'pointer',fontSize:'.85rem',padding:'2px 6px'}}, '\u2715'),
+      );
+    }
+  }
 
   const ads = [
     { text: 'Upgrade to Individual \u2014 250 requests/month + 14 days free', cta: 'Upgrade', color: '#3b82f6', action: 'upgrade' },
@@ -11366,7 +11384,7 @@ function ArgumentMarket() {
   const [phase, setPhase] = useState('idle'); // idle | generating | evaluating | rebutting | done
   const [error, setError] = useState(null);
   const [currentPrice, setCurrentPrice] = useState(0.5);
-  const [showGuide, setShowGuide] = useState(false);
+  const [showGuide, setShowGuide] = useState(() => { try { return !localStorage.getItem('debateos-market-guided') } catch(e) { return true } });
 
   // Restore from localStorage on mount
   useEffect(() => {
@@ -11378,6 +11396,11 @@ function ArgumentMarket() {
       }
     } catch(e) {}
   }, []);
+
+  // Mark guide as seen
+  useEffect(() => {
+    if (!showGuide) { try { localStorage.setItem('debateos-market-guided', '1') } catch(e) {} }
+  }, [showGuide]);
 
   // Save to localStorage on changes
   useEffect(() => {
@@ -12017,7 +12040,7 @@ function App() {
         )
       ),
       React.createElement(UsageBanner, { team: team }),
-      React.createElement(AdBanner, { team: team, onNavigate: navigateTab }),
+      React.createElement(AdBanner, { team: team, user: user, onNavigate: navigateTab }),
       // All tabs rendered but only active one visible — preserves state across switches
       tabPane('case', React.createElement(CaseGenerator, { onSave: saveCase, loadedCase: loadedCase, onClearLoaded: () => setLoadedCase(null), team, user, onNavigateTab: navigateTab })),
       tabPane('battle', React.createElement(BattleArena, { onNavigateTab: navigateTab })),
