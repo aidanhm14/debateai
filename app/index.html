@@ -4375,7 +4375,7 @@ function Resolutions() {
     setMotionStreaming(true);
     setMotionOutput('');
 
-    const picked = motionCategory === 'any' ? null : motionCategory;
+    const picked = active.length > 0 ? active.join(', ').toLowerCase() : (motionCategory === 'any' ? null : motionCategory);
     const guide = categoryGuides[motionCategory] || categoryGuides['any'];
 
     let sysPrompt, userPrompt;
@@ -4551,33 +4551,39 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
 
   return el('div',{className:'panel'+(motionOutput?' panel-expanded':'')},
     // Mode tabs at top
-    el('div',{style:{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap',justifyContent:'center'}},
-      modeTab(null, t('motions.randomRoller','Random Roller')),
-      modeTab('motion', t('motions.generateMotion','Generate Motion')),
+    el('div',{style:{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',justifyContent:'center'}},
+      modeTab(null, t('motions.generateMotion','Generate Motion')),
       modeTab('agent', t('motions.generateWithBg','Generate with Background')),
       modeTab('current', t('motions.currentEvents','Current Events')),
+    ),
+    // Category chips — visible on all modes
+    el('div',{className:'chips',style:{justifyContent:'center',marginBottom:16}},
+      CATEGORIES.map(cat =>
+        el('button',{
+          key:cat, className:'chip'+(active.includes(cat)?' active':''),
+          onClick:()=>toggle(cat)
+        }, cat)
+      )
     ),
 
     // === RANDOM ROLLER MODE ===
     genMode === null && el('div',{style:{textAlign:'center'}},
       el('p',{style:{color:'#888',fontSize:'.92rem',marginBottom:16}},
-        t('motions.rollDesc','Roll a random motion from the database. Filter by category.')
+        t('motions.rollDesc','Roll from the database or generate an original motion with AI. Filter by category above.')
       ),
-      el('div',{className:'chips',style:{justifyContent:'center'}},
-        CATEGORIES.map(cat =>
-          el('button',{
-            key:cat, className:'chip'+(active.includes(cat)?' active':''),
-            onClick:()=>toggle(cat)
-          }, cat)
-        )
-      ),
-      el('div',{style:{marginTop:24}},
+      el('div',{style:{display:'flex',gap:12,justifyContent:'center',marginTop:20,flexWrap:'wrap'}},
         el('button',{
           className:'btn btn-purple',
           onClick:roll,
-          disabled:spinning,
-          style:{padding:'18px 48px',fontSize:'1.1rem',borderRadius:16}
-        }, spinning ? t('motions.rolling','Rolling...') : t('motions.roll','Roll'))
+          disabled:spinning || mLoading,
+          style:{padding:'16px 36px',fontSize:'1.05rem',borderRadius:14}
+        }, spinning ? t('motions.rolling','Rolling...') : '\uD83C\uDFB2 Roll from Database'),
+        el('button',{
+          className:'btn btn-orange',
+          onClick:generateMotion,
+          disabled:spinning || mLoading,
+          style:{padding:'16px 36px',fontSize:'1.05rem',borderRadius:14}
+        }, mLoading ? 'Generating...' : '\u2728 Generate with AI'),
       ),
       result && Array.isArray(result) && el('div',{className:'res-expanded'},
         result.map((m, i) =>
@@ -4608,42 +4614,19 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
       )
     ),
 
-    // === GENERATE MOTION MODE (standard, agent, or current events) ===
+    // === GENERATE WITH BACKGROUND / CURRENT EVENTS MODE ===
     genMode !== null && el('div',null,
       el('p',{style:{color:'#888',fontSize:'.92rem',marginBottom:16,textAlign:'center'}},
         genMode === 'agent'
-          ? t('motions.agentDesc','Generate an agent case: a character in a specific situation with a vivid, cinematic background.')
-          : genMode === 'current'
-          ? t('motions.currentDesc','Pull this week\'s news and turn the most debatable story into an APDA motion.')
-          : t('motions.standardDesc','Generate an original debate motion with AI. Pick a category for deeper, more specific results.')
-      ),
-
-      // Category picker
-      el('label',{className:'field-label',style:{color:'#c084fc'}},t('motions.topicCategory','Topic Category')),
-      el('select',{
-        value:motionCategory,
-        onChange:e=>setMotionCategory(e.target.value),
-        style:{width:'100%',marginBottom:16}
-      },
-        el('option',{value:'any'},t('motions.anySurprise','Any (surprise me)')),
-        el('option',{value:'philosophy'},t('motions.catPhilosophy','Philosophy / Ethics')),
-        el('option',{value:'policy'},t('motions.catPolicy','Policy / Governance')),
-        el('option',{value:'technology'},t('motions.catTechnology','Technology / AI / Science')),
-        el('option',{value:'social norms'},t('motions.catSocial','Social Norms / Culture')),
-        el('option',{value:'economics'},t('motions.catEconomics','Economics / Labor')),
-        el('option',{value:'education'},t('motions.catEducation','Education')),
-        el('option',{value:'international'},t('motions.catInternational','International Relations')),
-        el('option',{value:'law'},t('motions.catLaw','Law / Justice')),
-        el('option',{value:'science'},t('motions.catScience','Science / Environment')),
-        el('option',{value:'art'},t('motions.catArt','Art / Media / Pop Culture')),
-        el('option',{value:'identity'},t('motions.catIdentity','Relationships / Identity')),
+          ? t('motions.agentDesc','Generate an actor case: a character in a specific situation with a vivid, cinematic background. Use the category chips above to focus the topic.')
+          : t('motions.currentDesc','Pull this week\'s news and turn the most debatable story into a motion. Use the category chips above to filter by topic.')
       ),
 
       // Generate button
       el('div',{style:{textAlign:'center',marginTop:8}},
         el('button',{
           className: genMode === 'current' ? 'btn btn-green' : 'btn btn-purple',
-          onClick:()=> genMode === 'current' ? generateFromNews() : generateMotion(genMode === 'agent'),
+          onClick:()=> genMode === 'current' ? generateFromNews() : generateMotion(true),
           disabled:motionLoading,
           style:{padding:'16px 40px',fontSize:'1rem',borderRadius:14}
         }, motionLoading
