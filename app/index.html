@@ -1263,9 +1263,7 @@ function setDevPro(v) {
 }
 
 function isPro(team, user) {
-  if (isDevPro()) return true;
-  if (!team) return false;
-  return team.plan === 'individual' || team.plan === 'team' || team.plan === 'lifetime';
+  return true; // BETA: all features free for testing
 }
 
 // Pro trial tracking — 3 free tries per feature
@@ -1280,9 +1278,7 @@ function useProTrial(feature) {
   } catch { return 99; }
 }
 function canUseProFeature(team, user, feature) {
-  if (isPro(team, user)) return { allowed: true, remaining: Infinity };
-  const used = getProTrials(feature);
-  return { allowed: used < 3, remaining: Math.max(0, 3 - used) };
+  return { allowed: true, remaining: Infinity }; // BETA: all features free
 }
 
 // Referral bonus system — share app, get 3 extra requests when referred user generates
@@ -2782,13 +2778,8 @@ function getAnonUsage() { try { return parseInt(localStorage.getItem('debateos-a
 function incAnonUsage() { try { localStorage.setItem('debateos-anon-usage', String(getAnonUsage() + 1)); } catch {} }
 
 async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
-  // Enforce 5-case limit for anonymous users (no account)
+  // BETA: no usage limits
   const _isAnon = !__getAuthToken;
-  if (_isAnon) {
-    if (getAnonUsage() >= ANON_LIMIT) {
-      throw new Error('You\'ve used your ' + ANON_LIMIT + ' free generations. Sign in with Google to get a free trial with 5 requests/month, or upgrade for more.');
-    }
-  }
 
   const thinkBudget = opts.thinkBudget || 10000;
   const maxTokens = opts.maxTokens || 16000;
@@ -6585,7 +6576,7 @@ RULES:
             setVennLoading(false);
           }
         },'\u{1F504} Generate Venn Diagram'),
-        !isPro(null,null) && React.createElement('div',{style:{marginTop:8,fontSize:'.72rem',color:'#94a3b8'}},'Pro feature — toggle PRO ON to use'),
+        false && React.createElement('div',{style:{marginTop:8,fontSize:'.72rem',color:'#94a3b8'}},'Pro feature — toggle PRO ON to use'),
       ),
       vennLoading && React.createElement('div',{style:{padding:20}},React.createElement('span',{className:'spinner'}),' Generating...'),
       // Rendered Venn with AI data — clean card layout
@@ -10405,6 +10396,7 @@ function WhyAPDA() {
 }
 
 function UsageBanner({ team }) {
+  return null; // BETA: no usage warnings
   const el = React.createElement;
   if (!team) return null;
   const parts = [];
@@ -10436,6 +10428,7 @@ function UsageBanner({ team }) {
 }
 
 function AdBanner({ team, user, onNavigate }) {
+  return null; // BETA: no ads
   const el = React.createElement;
   // Hide for paid users
   if (team && team.plan !== 'trial') return null;
@@ -12087,27 +12080,18 @@ function App() {
             t('auth.signInGoogle','Sign in with Google')
           ),
         ),
-        // Plan comparison
+        // Beta notice
         React.createElement('div',{style:{display:'flex',gap:12,justifyContent:'center',marginTop:20,paddingTop:16,borderTop:'1px solid #ffffff08'}},
-          ...[
-            {name:'Free',desc:'5 req/mo',icon:'\u23F3',color:'#f59e0b'},
-            {name:'Individual',desc:'$5/mo \u2022 250 req',icon:'\u26A1',color:'#3b82f6'},
-            {name:'Lifetime',desc:'$14.99 forever',icon:'\u2B50',color:'#22c55e'},
-            {name:'Team',desc:'$30/mo \u2022 1.5K req',icon:'\uD83D\uDE80',color:'#8b5cf6'},
-          ].map(p =>
-            React.createElement('div',{key:p.name,style:{fontSize:'.72rem',color:'#64748b',textAlign:'center',flex:1}},
-              React.createElement('div',{style:{fontSize:'1.1rem',marginBottom:4}},p.icon),
-              React.createElement('div',{style:{fontWeight:700,color:p.color,marginBottom:2,fontSize:'.7rem'}},p.name),
-              React.createElement('div',{style:{fontSize:'.68rem'}},p.desc),
-            )
+          React.createElement('div',{style:{fontSize:'.82rem',color:'#22c55e',textAlign:'center',fontWeight:600}},
+            '\u2728 Beta \u2014 All features free during testing'
           )
         ),
-        // Try free button — lets users skip auth and use 5 free generations
+        // Try free button
         React.createElement('div',{style:{marginTop:20,paddingTop:16,borderTop:'1px solid #ffffff08',textAlign:'center'}},
           React.createElement('button',{onClick:()=>{try{localStorage.setItem('debateos-anon-trial','true')}catch(e){}setAnonTrial(true)},style:{display:'block',width:'100%',padding:'14px 20px',background:'transparent',border:'1.5px solid #ffffff20',borderRadius:10,color:'#94a3b8',fontSize:'.88rem',fontWeight:600,cursor:'pointer',transition:'.2s',fontFamily:'inherit'}},
-            'Try Free \u2014 5 generations, no sign-up'
+            'Try Free \u2014 no sign-up needed'
           ),
-          React.createElement('p',{style:{color:'#4b5563',fontSize:'.72rem',marginTop:8}}, 'Explore the full app. Sign up later if you want more.'),
+          React.createElement('p',{style:{color:'#4b5563',fontSize:'.72rem',marginTop:8}}, 'All features unlocked. Sign in to save cases across devices.'),
         ),
       )
     ),
