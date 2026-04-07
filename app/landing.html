@@ -7,1133 +7,558 @@
 <meta name="description" content="Devil's Advocate is the AI-powered debate engine built for competitive parliamentary debaters. Generate cases, simulate rounds, stress-test arguments, and walk into every round prepared." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* ── Reset & Base ─────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+html { scroll-behavior: smooth; }
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #09090b;
-  color: #e4e4e7;
+  background: #060a14;
+  color: #c8cdd8;
   font-size: 16px;
   line-height: 1.6;
   overflow-x: hidden;
 }
 a { color: inherit; text-decoration: none; }
-img { max-width: 100%; display: block; }
 button { font-family: inherit; cursor: pointer; }
 
-/* ── Utilities ────────────────────────────────── */
-.container { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
-.container-sm { max-width: 720px; margin: 0 auto; padding: 0 24px; }
-.text-muted { color: #71717a; }
-.text-accent { color: #ef4444; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+/* Reveal */
+.rv { opacity: 0; transform: translateY(18px); transition: opacity 0.7s cubic-bezier(0.22,1,0.36,1), transform 0.7s cubic-bezier(0.22,1,0.36,1); }
+.rv.vis { opacity: 1; transform: none; }
+.rv-d1{transition-delay:.06s}.rv-d2{transition-delay:.12s}.rv-d3{transition-delay:.18s}
+.rv-d4{transition-delay:.24s}.rv-d5{transition-delay:.30s}.rv-d6{transition-delay:.36s}
 
-/* ── Scroll Reveal ────────────────────────────── */
-.reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+/* ── Navbar ─────────────────────────────── */
+.nav-wrap {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 18px 40px;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background 0.4s, border-color 0.4s;
+  border-bottom: 1px solid transparent;
 }
-.reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-.reveal-d1 { transition-delay: 0.08s; }
-.reveal-d2 { transition-delay: 0.16s; }
-.reveal-d3 { transition-delay: 0.24s; }
-.reveal-d4 { transition-delay: 0.32s; }
-.reveal-d5 { transition-delay: 0.40s; }
-.reveal-d6 { transition-delay: 0.48s; }
-
-/* ── Noise Texture ────────────────────────────── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* ── Navbar ────────────────────────────────────── */
-.navbar-wrap {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: rgba(9, 9, 11, 0.8);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  transition: background 0.3s;
-}
-.navbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 64px;
-}
-.nav-left {
-  display: flex;
-  align-items: center;
-  gap: 48px;
+.nav-wrap.scrolled {
+  background: rgba(6,10,20,0.88);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border-bottom-color: rgba(255,255,255,0.05);
 }
 .nav-logo {
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  white-space: nowrap;
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.35rem; color: #fff;
+  letter-spacing: -0.01em;
 }
-.nav-logo .mark { color: #ef4444; }
-.nav-links {
-  display: flex;
-  gap: 32px;
-  list-style: none;
+.nav-logo .dim { opacity: 0.45; font-style: italic; }
+.nav-mid {
+  display: flex; gap: 0;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 100px; padding: 3px;
 }
-.nav-links a {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: #a1a1aa;
-  transition: color 0.2s;
+.nav-mid a {
+  padding: 7px 20px; font-size: 0.78rem; font-weight: 500;
+  color: rgba(255,255,255,0.4); border-radius: 100px;
+  transition: color 0.2s, background 0.2s;
   letter-spacing: 0.01em;
 }
-.nav-links a:hover { color: #fff; }
-.nav-cta {
-  padding: 8px 20px;
-  background: #ef4444;
-  color: #fff;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  border: none;
-  transition: all 0.2s;
-  white-space: nowrap;
+.nav-mid a:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.nav-cta-wrap {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 22px;
+  border-radius: 100px;
+  border: 1px solid rgba(255,255,255,0.12);
+  font-size: 0.78rem; font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
-.nav-cta:hover {
-  background: #dc2626;
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
-}
-.nav-mobile-toggle {
-  display: none;
-  background: none;
-  border: none;
-  color: #e4e4e7;
-  padding: 8px;
+.nav-cta-wrap:hover { border-color: rgba(255,255,255,0.3); color: #fff; background: rgba(255,255,255,0.04); }
+.nav-cta-wrap svg { width: 13px; height: 13px; opacity: 0.5; }
+
+/* ── Hero ────────────────────────────────── */
+.hero {
+  position: relative;
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  text-align: center;
+  padding: 120px 24px 100px;
+  overflow: hidden;
 }
 
-/* ── Hero ──────────────────────────────────────── */
-.hero {
-  padding: 160px 24px 100px;
-  text-align: center;
-  position: relative;
-  z-index: 1;
+/* Canvas grid background */
+#hero-canvas {
+  position: absolute; inset: 0; z-index: 0;
+  width: 100%; height: 100%;
 }
-.hero::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 800px;
-  height: 600px;
-  background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.06) 0%, transparent 70%);
+
+/* Gradient overlays on top of canvas */
+.hero-glow {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(ellipse 50% 60% at 50% 40%, rgba(100,40,40,0.10) 0%, transparent 100%),
+    radial-gradient(ellipse 40% 50% at 30% 70%, rgba(30,40,100,0.06) 0%, transparent 100%);
+}
+.hero-fade {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 30vh; z-index: 2;
   pointer-events: none;
-  z-index: -1;
+  background: linear-gradient(to top, #060a14 0%, transparent 100%);
 }
-.hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px 6px 8px;
+
+.hero-content { position: relative; z-index: 3; max-width: 860px; }
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 18px 7px 10px;
   border-radius: 100px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: #a1a1aa;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 28px;
+  font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  margin-bottom: 32px;
 }
-.hero-eyebrow .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #22c55e;
-  animation: pulse-dot 2s ease-in-out infinite;
+.hero-badge .pulse {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52,211,153,0.4);
+  animation: blink 2s ease-in-out infinite;
 }
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:.35} }
+
 .hero h1 {
-  font-size: clamp(2.5rem, 6vw, 4.2rem);
-  font-weight: 900;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(2.8rem, 6.5vw, 5.2rem);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.06;
+  color: #fff;
   margin-bottom: 24px;
-  color: #fafafa;
 }
-.hero h1 .accent {
-  color: #ef4444;
-}
+.hero h1 em { font-style: italic; color: rgba(255,255,255,0.5); }
+
 .hero-sub {
-  font-size: 1.12rem;
-  color: #71717a;
-  max-width: 520px;
+  font-size: 1.05rem;
+  color: rgba(255,255,255,0.3);
+  max-width: 480px;
   margin: 0 auto 40px;
   line-height: 1.7;
-  font-weight: 400;
 }
-.hero-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-bottom: 64px;
-}
-.btn-primary {
-  padding: 14px 32px;
-  background: #ef4444;
-  color: #fff;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
+
+.hero-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+.btn-solid {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 15px 34px;
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  color: #fff; border-radius: 100px;
+  font-size: 0.9rem; font-weight: 600;
   border: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 16px rgba(239,68,68,0.2);
+}
+.btn-solid:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(239,68,68,0.3);
+}
+.btn-solid svg { width: 16px; height: 16px; }
+
+.btn-outline {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 15px 34px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.55);
+  border-radius: 100px;
+  font-size: 0.9rem; font-weight: 500;
   transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
-.btn-primary:hover {
-  background: #dc2626;
-  box-shadow: 0 8px 28px rgba(239, 68, 68, 0.35);
-  transform: translateY(-1px);
-}
-.btn-ghost {
-  padding: 14px 32px;
-  background: transparent;
-  color: #a1a1aa;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.btn-ghost:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  background: rgba(255, 255, 255, 0.03);
-}
+.btn-outline:hover { border-color: rgba(255,255,255,0.22); color: #fff; background: rgba(255,255,255,0.05); }
 
-/* ── Hero Metrics ─────────────────────────────── */
-.hero-metrics {
-  display: flex;
-  justify-content: center;
-  gap: 1px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 16px;
-  overflow: hidden;
-  max-width: 540px;
-  margin: 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+/* Hero bottom anchors */
+.hero-scroll {
+  position: absolute; bottom: 32px; left: 40px; z-index: 3;
+  font-size: 0.68rem; color: rgba(255,255,255,0.18);
+  letter-spacing: 0.06em;
+  writing-mode: vertical-rl;
 }
-.hero-metric {
-  flex: 1;
-  padding: 24px 16px;
-  text-align: center;
-  background: rgba(9, 9, 11, 0.6);
-}
-.hero-metric:not(:last-child) {
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-}
-.hero-metric-num {
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: #fafafa;
-  letter-spacing: -0.02em;
-}
-.hero-metric-label {
-  font-size: 0.7rem;
-  color: #52525b;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 600;
-  margin-top: 4px;
-}
-
-/* ── Section Shared ───────────────────────────── */
-section {
-  position: relative;
-  z-index: 1;
-}
-.section-pad { padding: 100px 0; }
-.section-pad-lg { padding: 120px 0; }
-.section-eyebrow {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #ef4444;
-  margin-bottom: 16px;
-}
-.section-title {
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.12;
-  color: #fafafa;
-  margin-bottom: 16px;
-}
-.section-desc {
-  font-size: 1rem;
-  color: #71717a;
-  max-width: 500px;
-  line-height: 1.7;
-  font-weight: 400;
-}
-.section-header-center {
-  text-align: center;
-  margin-bottom: 64px;
-}
-.section-header-center .section-desc {
-  margin: 0 auto;
-}
-.divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06) 20%, rgba(255,255,255,0.06) 80%, transparent);
-}
-
-/* ── Problem Section ──────────────────────────── */
-.problem-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 64px;
-  align-items: center;
-}
-.problem-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-.problem-item {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-.problem-icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: rgba(239, 68, 68, 0.06);
-  border: 1px solid rgba(239, 68, 68, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ef4444;
-  font-size: 1.1rem;
-  margin-top: 2px;
-}
-.problem-item h4 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #e4e4e7;
-  margin-bottom: 4px;
-}
-.problem-item p {
-  font-size: 0.88rem;
-  color: #71717a;
+.hero-aside {
+  position: absolute; bottom: 36px; right: 40px; z-index: 3;
+  max-width: 300px; text-align: right;
+  font-size: 0.82rem; color: rgba(255,255,255,0.22);
   line-height: 1.6;
 }
 
-/* ── Features Bento ───────────────────────────── */
-.bento-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: auto auto;
-  gap: 16px;
-}
-.bento-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  padding: 32px 28px;
-  transition: border-color 0.3s, box-shadow 0.3s;
-  position: relative;
-  overflow: hidden;
-}
-.bento-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-.bento-card.span-2 {
-  grid-column: span 2;
-}
-.bento-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(239, 68, 68, 0.06);
-  border: 1px solid rgba(239, 68, 68, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-.bento-card h3 {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #fafafa;
-  margin-bottom: 8px;
-  letter-spacing: -0.01em;
-}
-.bento-card p {
-  font-size: 0.88rem;
-  color: #71717a;
-  line-height: 1.65;
-}
-.bento-card .why {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  font-size: 0.82rem;
-  color: #52525b;
-  line-height: 1.6;
-}
-.bento-card .why strong {
-  color: #a1a1aa;
-  font-weight: 600;
-}
+/* ── Sections ────────────────────────────── */
+.sec { padding: 110px 0; position: relative; z-index: 1; }
+.container { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
+.container-sm { max-width: 700px; margin: 0 auto; padding: 0 40px; }
+.divider { height: 1px; background: rgba(255,255,255,0.04); }
 
-/* ── How It Works ─────────────────────────────── */
-.steps-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  position: relative;
+.sec-label {
+  font-size: 0.66rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255,255,255,0.18); margin-bottom: 18px;
 }
-.steps-row::before {
-  content: '';
-  position: absolute;
-  top: 36px;
-  left: 16%;
-  right: 16%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.2), transparent);
+.sec-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  font-weight: 400; color: #fff;
+  letter-spacing: -0.02em; line-height: 1.12;
+  margin-bottom: 18px;
 }
-.step-card {
-  text-align: center;
-  position: relative;
-}
-.step-num {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #09090b;
-  border: 1.5px solid rgba(239, 68, 68, 0.3);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: #ef4444;
-  margin-bottom: 24px;
-  position: relative;
-  z-index: 1;
-  transition: all 0.3s;
-}
-.step-card:hover .step-num {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: #ef4444;
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
-}
-.step-card h3 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #fafafa;
-  margin-bottom: 8px;
-  letter-spacing: -0.01em;
-}
-.step-card p {
-  font-size: 0.88rem;
-  color: #71717a;
-  line-height: 1.6;
-  max-width: 280px;
-  margin: 0 auto;
-}
+.sec-title em { font-style: italic; color: rgba(255,255,255,0.4); }
+.sec-desc { font-size: 0.92rem; color: rgba(255,255,255,0.28); max-width: 460px; line-height: 1.7; }
+.sec-center { text-align: center; margin-bottom: 64px; }
+.sec-center .sec-desc { margin: 0 auto; }
 
-/* ── Transferable Skills ──────────────────────── */
-.skills-section {
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.02) 0%, transparent 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+/* ── Problem ─────────────────────────────── */
+.problem-split {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 80px; align-items: start;
 }
-.skills-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 48px;
-  align-items: start;
+.problem-list { list-style: none; display: flex; flex-direction: column; gap: 28px; }
+.problem-item { display: flex; gap: 16px; }
+.problem-num {
+  flex-shrink: 0; width: 30px; height: 30px;
+  border-radius: 50%; border: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.68rem; font-weight: 600;
+  color: rgba(255,255,255,0.18); margin-top: 2px;
 }
-.skills-text {
-  padding-right: 24px;
-}
-.skills-text p {
-  font-size: 0.95rem;
-  color: #71717a;
-  line-height: 1.75;
-  margin-bottom: 20px;
-}
-.skills-text p strong {
-  color: #e4e4e7;
-  font-weight: 600;
-}
-.skills-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.skill-pill {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  transition: border-color 0.2s;
-}
-.skill-pill:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-}
-.skill-pill-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: rgba(239, 68, 68, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.skill-pill h4 {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #e4e4e7;
-  margin-bottom: 2px;
-}
-.skill-pill p {
-  font-size: 0.78rem;
-  color: #52525b;
-  line-height: 1.4;
-}
+.problem-item h4 { font-size: 0.9rem; font-weight: 600; color: rgba(255,255,255,0.75); margin-bottom: 4px; }
+.problem-item p { font-size: 0.82rem; color: rgba(255,255,255,0.25); line-height: 1.6; }
 
-/* ── Who It's For ─────────────────────────────── */
-.audience-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+/* ── Tools ────────────────────────────────── */
+.tools-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: rgba(255,255,255,0.03);
+  border-radius: 20px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.04);
 }
-.audience-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  padding: 32px 24px;
-  transition: border-color 0.3s;
+.tool-cell {
+  background: #060a14;
+  padding: 40px 32px;
+  transition: background 0.35s;
 }
-.audience-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+.tool-cell:hover { background: #0c1220; }
+.tool-idx {
+  font-size: 0.62rem; font-weight: 600;
+  color: rgba(255,255,255,0.08);
+  letter-spacing: 0.08em; margin-bottom: 24px;
+  font-variant-numeric: tabular-nums;
 }
-.audience-card h3 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #fafafa;
-  margin-bottom: 8px;
+.tool-cell h3 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.25rem; font-weight: 400; color: #fff;
+  margin-bottom: 10px;
 }
-.audience-card p {
-  font-size: 0.88rem;
-  color: #71717a;
-  line-height: 1.6;
-}
-.audience-tag {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
-}
-.audience-tag.novice { background: rgba(34, 197, 94, 0.08); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.15); }
-.audience-tag.varsity { background: rgba(59, 130, 246, 0.08); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.15); }
-.audience-tag.coach { background: rgba(168, 85, 247, 0.08); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.15); }
+.tool-cell p { font-size: 0.82rem; color: rgba(255,255,255,0.25); line-height: 1.65; }
 
-/* ── FAQ ──────────────────────────────────────── */
-.faq-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+/* ── How ──────────────────────────────────── */
+.how-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px;
 }
-.faq-item {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+.how-card { position: relative; }
+.how-card::before {
+  content: ''; display: block;
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.01));
+  margin-bottom: 32px;
 }
+.how-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 2.2rem; color: rgba(255,255,255,0.04);
+  margin-bottom: 14px;
+}
+.how-card h3 { font-size: 0.92rem; font-weight: 600; color: rgba(255,255,255,0.75); margin-bottom: 8px; }
+.how-card p { font-size: 0.82rem; color: rgba(255,255,255,0.25); line-height: 1.6; }
+
+/* ── Skills ───────────────────────────────── */
+.skills-sec {
+  background: linear-gradient(180deg, rgba(255,255,255,0.01) 0%, transparent 100%);
+  border-top: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.skills-split { display: grid; grid-template-columns: 1fr 1fr; gap: 72px; align-items: start; }
+.skills-text p { font-size: 0.9rem; color: rgba(255,255,255,0.28); line-height: 1.8; margin-bottom: 18px; }
+.skills-text strong { color: rgba(255,255,255,0.65); font-weight: 600; }
+.skill-rows { list-style: none; }
+.skill-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.skill-row:first-child { border-top: 1px solid rgba(255,255,255,0.03); }
+.skill-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(239,68,68,0.4); flex-shrink: 0; }
+.skill-row span { font-size: 0.86rem; color: rgba(255,255,255,0.4); }
+
+/* ── Audience ─────────────────────────────── */
+.aud-row {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: rgba(255,255,255,0.03);
+  border-radius: 16px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+.aud-card { background: #060a14; padding: 40px 28px; }
+.aud-tag {
+  display: inline-block; padding: 4px 12px;
+  border-radius: 100px; font-size: 0.62rem;
+  font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; margin-bottom: 20px;
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.aud-card h3 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.15rem; font-weight: 400; color: #fff; margin-bottom: 10px;
+}
+.aud-card p { font-size: 0.82rem; color: rgba(255,255,255,0.25); line-height: 1.65; }
+
+/* ── FAQ ──────────────────────────────────── */
+.faq-list { display: flex; flex-direction: column; }
+.faq-item { border-bottom: 1px solid rgba(255,255,255,0.04); }
 .faq-q {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 0;
-  background: none;
-  border: none;
-  color: #e4e4e7;
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  transition: color 0.2s;
-  font-family: inherit;
-  letter-spacing: -0.01em;
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  padding: 26px 0; background: none; border: none;
+  color: rgba(255,255,255,0.55); font-size: 0.92rem; font-weight: 500;
+  text-align: left; font-family: inherit; transition: color 0.2s;
 }
 .faq-q:hover { color: #fff; }
-.faq-chevron {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  transition: transform 0.3s;
-  color: #52525b;
-}
-.faq-item.open .faq-chevron {
-  transform: rotate(180deg);
-}
-.faq-a {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), padding 0.35s;
-  padding: 0 0 0 0;
-}
-.faq-item.open .faq-a {
-  max-height: 200px;
-  padding: 0 0 24px 0;
-}
-.faq-a p {
-  font-size: 0.88rem;
-  color: #71717a;
-  line-height: 1.7;
-  max-width: 600px;
-}
+.faq-chev { width: 16px; height: 16px; flex-shrink: 0; color: rgba(255,255,255,0.12); transition: transform 0.3s; }
+.faq-item.open .faq-chev { transform: rotate(180deg); }
+.faq-a { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.22,1,0.36,1), padding 0.4s; }
+.faq-item.open .faq-a { max-height: 200px; padding-bottom: 26px; }
+.faq-a p { font-size: 0.84rem; color: rgba(255,255,255,0.25); line-height: 1.7; max-width: 580px; }
 
-/* ── CTA Banner ───────────────────────────────── */
-.cta-banner {
-  text-align: center;
-  padding: 100px 24px;
+/* ── CTA ──────────────────────────────────── */
+.cta-sec {
+  text-align: center; padding: 130px 24px;
   position: relative;
 }
-.cta-banner::before {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 600px;
-  height: 400px;
-  background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.05) 0%, transparent 70%);
+.cta-sec::before {
+  content: ''; position: absolute;
+  bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 500px; height: 300px;
+  background: radial-gradient(ellipse, rgba(239,68,68,0.04) 0%, transparent 70%);
   pointer-events: none;
 }
-.cta-banner h2 {
-  font-size: clamp(2rem, 4.5vw, 3rem);
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  color: #fafafa;
-  margin-bottom: 16px;
-  line-height: 1.1;
+.cta-sec h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(2rem, 4.5vw, 3.4rem);
+  font-weight: 400; color: #fff;
+  margin-bottom: 16px; letter-spacing: -0.02em; line-height: 1.1;
 }
-.cta-banner p {
-  font-size: 1rem;
-  color: #71717a;
-  margin-bottom: 36px;
-  max-width: 420px;
-  margin-left: auto;
-  margin-right: auto;
-  line-height: 1.6;
+.cta-sec p {
+  font-size: 0.9rem; color: rgba(255,255,255,0.25);
+  margin: 0 auto 36px; max-width: 360px; line-height: 1.6;
 }
 
-/* ── Footer ───────────────────────────────────── */
-.footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 48px 0;
-}
-.footer-inner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.footer-brand {
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
-.footer-brand .mark { color: #ef4444; }
-.footer-note {
-  font-size: 0.78rem;
-  color: #3f3f46;
-  margin-top: 6px;
-}
-.footer-links {
-  display: flex;
-  gap: 24px;
-}
-.footer-links a {
-  font-size: 0.82rem;
-  color: #52525b;
-  transition: color 0.2s;
-}
-.footer-links a:hover { color: #a1a1aa; }
+/* ── Footer ───────────────────────────────── */
+.footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 40px 0; }
+.footer-inner { display: flex; justify-content: space-between; align-items: center; }
+.footer-brand { font-family: 'DM Serif Display', serif; font-size: 1.05rem; color: rgba(255,255,255,0.35); }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-size: 0.76rem; color: rgba(255,255,255,0.15); transition: color 0.2s; }
+.footer-links a:hover { color: rgba(255,255,255,0.4); }
 .footer-copy {
-  text-align: center;
-  margin-top: 36px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  font-size: 0.72rem;
-  color: #27272a;
+  text-align: center; margin-top: 32px; padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.02);
+  font-size: 0.68rem; color: rgba(255,255,255,0.08);
 }
 
-/* ── Responsive ───────────────────────────────── */
+/* ── Responsive ───────────────────────────── */
 @media (max-width: 900px) {
-  .bento-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .bento-card.span-2 { grid-column: span 2; }
-  .problem-grid, .skills-grid {
-    grid-template-columns: 1fr;
-    gap: 40px;
-  }
-  .skills-text { padding-right: 0; }
-  .audience-grid {
-    grid-template-columns: 1fr;
-    max-width: 440px;
-    margin: 0 auto;
-  }
+  .nav-wrap { padding: 14px 20px; }
+  .nav-mid { display: none; }
+  .problem-split, .skills-split { grid-template-columns: 1fr; gap: 48px; }
+  .tools-grid, .aud-row { grid-template-columns: 1fr; }
+  .how-row { grid-template-columns: 1fr; gap: 32px; }
+  .hero-aside, .hero-scroll { display: none; }
+  .container, .container-sm { padding: 0 20px; }
 }
 @media (max-width: 640px) {
-  .hero { padding: 130px 20px 80px; }
-  .hero h1 { font-size: 2.2rem; letter-spacing: -0.025em; }
-  .hero-sub { font-size: 1rem; }
-  .bento-grid {
-    grid-template-columns: 1fr;
-  }
-  .bento-card.span-2 { grid-column: span 1; }
-  .steps-row {
-    grid-template-columns: 1fr;
-    gap: 36px;
-  }
-  .steps-row::before {
-    display: none;
-  }
-  .hero-metrics {
-    flex-direction: column;
-  }
-  .hero-metric:not(:last-child) {
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-  .nav-links { display: none; }
-  .nav-mobile-toggle { display: block; }
-  .footer-inner { flex-direction: column; gap: 20px; text-align: center; }
-  .section-pad { padding: 72px 0; }
-  .section-pad-lg { padding: 80px 0; }
+  .hero { padding: 120px 20px 80px; min-height: auto; min-height: 100vh; }
+  .hero h1 { font-size: 2.4rem; }
+  .sec { padding: 72px 0; }
+  .footer-inner { flex-direction: column; gap: 14px; text-align: center; }
+  .hero-btns { flex-direction: column; align-items: center; }
 }
 </style>
 </head>
 <body>
 
 <!-- Navbar -->
-<div class="navbar-wrap">
-  <nav class="navbar container">
-    <div class="nav-left">
-      <a href="landing.html" class="nav-logo">
-        <span class="mark">Devil's</span>&nbsp;Advocate
-      </a>
-      <ul class="nav-links">
-        <li><a href="#features">Features</a></li>
-        <li><a href="#how-it-works">How It Works</a></li>
-        <li><a href="#who-its-for">Who It's For</a></li>
-        <li><a href="#faq">FAQ</a></li>
-      </ul>
-    </div>
-    <a href="/?beta=true#case" class="nav-cta">Open App</a>
-  </nav>
-</div>
+<nav class="nav-wrap" id="nav">
+  <a href="landing.html" class="nav-logo">Devil's <span class="dim">Advocate.</span></a>
+  <div class="nav-mid">
+    <a href="#tools">Tools</a>
+    <a href="#how">How It Works</a>
+    <a href="#who">Who It's For</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <a href="/?beta=true#case" class="nav-cta-wrap">
+    Get started
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+  </a>
+</nav>
 
 <!-- Hero -->
 <section class="hero">
-  <div class="container">
-    <div class="reveal">
-      <span class="hero-eyebrow"><span class="dot"></span> Free beta &mdash; all features unlocked</span>
-    </div>
-    <h1 class="reveal reveal-d1">
-      The debaters who prep the most<br><span class="accent">win the most</span>
-    </h1>
-    <p class="hero-sub reveal reveal-d2">
-      Devil's Advocate is an AI engine that generates cases, stress-tests arguments, and simulates rounds&mdash;so you walk into every tournament prepared for whatever gets called.
-    </p>
-    <div class="hero-actions reveal reveal-d3">
-      <a href="/?beta=true#case" class="btn-primary">Generate a case &rarr;</a>
-      <a href="#features" class="btn-ghost">See what it does</a>
-    </div>
-    <div class="hero-metrics reveal reveal-d4">
-      <div class="hero-metric">
-        <div class="hero-metric-num">30s</div>
-        <div class="hero-metric-label">To generate a case</div>
-      </div>
-      <div class="hero-metric">
-        <div class="hero-metric-num">50+</div>
-        <div class="hero-metric-label">Philosophers indexed</div>
-      </div>
-      <div class="hero-metric">
-        <div class="hero-metric-num">8</div>
-        <div class="hero-metric-label">AI-powered tools</div>
-      </div>
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-glow"></div>
+  <div class="hero-fade"></div>
+
+  <div class="hero-content">
+    <div class="hero-badge rv"><span class="pulse"></span> Free beta &mdash; every tool unlocked</div>
+    <h1 class="rv rv-d1">Outprepping <em>every team</em><br>you'll ever debate.</h1>
+    <p class="hero-sub rv rv-d2">An AI engine that generates cases, simulates rounds, stress-tests arguments, and teaches philosophy. Built by a competitive APDA debater.</p>
+    <div class="hero-btns rv rv-d3">
+      <a href="/?beta=true#case" class="btn-solid">
+        Open the Engine
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <a href="#tools" class="btn-outline">Explore features</a>
     </div>
   </div>
+
+  <div class="hero-scroll">Scroll down</div>
+  <div class="hero-aside">Built for parliamentary debate &mdash; APDA, BP, Worlds, and beyond.</div>
 </section>
 
-<!-- Divider -->
 <div class="divider"></div>
 
-<!-- Problem Statement -->
-<section class="section-pad">
+<!-- Problem -->
+<section class="sec">
   <div class="container">
-    <div class="problem-grid">
+    <div class="problem-split">
       <div>
-        <div class="section-eyebrow reveal">The Problem</div>
-        <h2 class="section-title reveal reveal-d1">Debate prep hasn't changed in 20 years</h2>
-        <p class="section-desc reveal reveal-d2">Most debaters still prep the same way: Google around for 45 minutes, write a mediocre case on the bus to the tournament, and hope they don't get a motion they've never thought about. There's a better way.</p>
+        <div class="sec-label rv">The Problem</div>
+        <h2 class="sec-title rv rv-d1">Debate prep<br><em>hasn't changed</em><br>in 20 years.</h2>
+        <p class="sec-desc rv rv-d2">Google for 45 minutes. Write a mediocre case on the bus. Hope you don't get a motion you've never thought about. There's a better way.</p>
       </div>
       <ul class="problem-list">
-        <li class="problem-item reveal reveal-d1">
-          <div class="problem-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          </div>
-          <div>
-            <h4>Feedback is rare</h4>
-            <p>You get judge feedback maybe 4 times a semester. That's not a feedback loop &mdash; that's a feedback trickle.</p>
-          </div>
-        </li>
-        <li class="problem-item reveal reveal-d2">
-          <div class="problem-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          </div>
-          <div>
-            <h4>Practice partners are hard to find</h4>
-            <p>Your partner is busy. The team meeting is Thursday. The tournament is Saturday. Good luck.</p>
-          </div>
-        </li>
-        <li class="problem-item reveal reveal-d3">
-          <div class="problem-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          </div>
-          <div>
-            <h4>Philosophy stays surface-level</h4>
-            <p>Everyone cites Rawls. Almost nobody knows the difference between early and late Rawls, or when each one actually helps your case.</p>
-          </div>
-        </li>
-        <li class="problem-item reveal reveal-d4">
-          <div class="problem-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          </div>
-          <div>
-            <h4>No way to drill weak spots</h4>
-            <p>You know your MG extensions are weak, but there's no tool to practice just that speech against realistic opposition.</p>
-          </div>
-        </li>
+        <li class="problem-item rv rv-d1"><div class="problem-num">01</div><div><h4>Feedback is rare</h4><p>Judge feedback 4 times a semester isn't a feedback loop. It's a feedback trickle.</p></div></li>
+        <li class="problem-item rv rv-d2"><div class="problem-num">02</div><div><h4>Practice partners are scarce</h4><p>Your partner is busy. The team meeting is Thursday. The tournament is Saturday.</p></div></li>
+        <li class="problem-item rv rv-d3"><div class="problem-num">03</div><div><h4>Philosophy stays shallow</h4><p>Everyone cites Rawls. Almost nobody knows early vs. late, or when each one helps your case.</p></div></li>
+        <li class="problem-item rv rv-d4"><div class="problem-num">04</div><div><h4>No way to drill weak spots</h4><p>You know your MG extensions are weak. There's no tool to practice just that speech.</p></div></li>
       </ul>
     </div>
   </div>
 </section>
 
-<!-- Divider -->
 <div class="divider"></div>
 
-<!-- Features -->
-<section id="features" class="section-pad-lg">
+<!-- Tools -->
+<section id="tools" class="sec">
   <div class="container">
-    <div class="section-header-center">
-      <div class="section-eyebrow reveal">Features</div>
-      <h2 class="section-title reveal reveal-d1">Six tools, one engine</h2>
-      <p class="section-desc reveal reveal-d2">Every tool is designed around a specific bottleneck in debate prep. None of them exist to look impressive on a features page. They exist because competitive debaters need them.</p>
+    <div class="sec-center">
+      <div class="sec-label rv">The Engine</div>
+      <h2 class="sec-title rv rv-d1">Six tools. <em>One system.</em></h2>
+      <p class="sec-desc rv rv-d2">Each one targets a specific bottleneck in debate prep. They work independently or together.</p>
     </div>
-    <div class="bento-grid">
-      <div class="bento-card span-2 reveal reveal-d1">
-        <div class="bento-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        </div>
-        <h3>Case Generator</h3>
-        <p>Enter any motion. Get a structured case with a framework, three interlocking arguments, warrant chains, a compound impact, and pre-built A2 blocks for the five most likely opposition responses. Choose between quick prep (tournament speed) or deep prep (practice depth).</p>
-        <div class="why"><strong>Why it works:</strong> You learn case architecture by seeing hundreds of well-built cases. After generating 20, you start pattern-matching instinctively &mdash; the same skill top debaters build over years of tournaments.</div>
-      </div>
-      <div class="bento-card reveal reveal-d2">
-        <div class="bento-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        </div>
-        <h3>Round Simulator</h3>
-        <p>Practice every speech type against an AI opponent that responds to your actual arguments &mdash; not canned lines.</p>
-        <div class="why"><strong>Why it works:</strong> You can't learn to box by hitting a bag. You need a sparring partner who hits back.</div>
-      </div>
-      <div class="bento-card reveal reveal-d3">
-        <div class="bento-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
-        </div>
-        <h3>Philosophy Engine</h3>
-        <p>50+ philosophers with period-accurate depth. Know when to cite early vs. late Rawls, or which formulation of Kant actually applies.</p>
-        <div class="why"><strong>Why it works:</strong> Judges vote for the team that understands the framework, not the team that name-drops it.</div>
-      </div>
-      <div class="bento-card reveal reveal-d1">
-        <div class="bento-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        </div>
-        <h3>Judge Feedback</h3>
-        <p>Paste any speech. Get paragraph-level feedback on structure, warrant quality, time allocation, and strategic gaps.</p>
-        <div class="why"><strong>Why it works:</strong> The fastest way to improve is tight feedback loops. Go from feedback 4x a year to feedback every single practice session.</div>
-      </div>
-      <div class="bento-card reveal reveal-d2">
-        <div class="bento-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-        </div>
-        <h3>Strategic Mapper</h3>
-        <p>See how arguments interact, where the real clash lives, and which points the judge will weigh. Think in systems, not bullets.</p>
-        <div class="why"><strong>Why it works:</strong> The jump from novice to varsity is seeing the strategic landscape, not just having good individual arguments.</div>
-      </div>
-      <div class="bento-card reveal reveal-d3">
-        <div class="bento-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        </div>
-        <h3>Argument Market</h3>
-        <p>Submit a claim. The engine generates competing arguments, scores them on evidence and logic, then runs adversarial cycles. Bad arguments lose weight. Good ones rise.</p>
-        <div class="why"><strong>Why it works:</strong> A prediction market for ideas. Run 3&ndash;5 cycles and watch it converge on which side actually holds up.</div>
-      </div>
+    <div class="tools-grid rv rv-d3">
+      <div class="tool-cell"><div class="tool-idx">01</div><h3>Case Generator</h3><p>Enter any motion. Get a structured case with framework, interlocking arguments, warrant chains, compound impact, and pre-built A2 blocks for the five most likely opposition responses.</p></div>
+      <div class="tool-cell"><div class="tool-idx">02</div><h3>Round Simulator</h3><p>Practice every speech type against an AI opponent that responds to your actual arguments &mdash; contextual counterarguments that force you to think on your feet.</p></div>
+      <div class="tool-cell"><div class="tool-idx">03</div><h3>Philosophy Engine</h3><p>50+ philosophers with period-accurate depth. Know when to cite early vs. late Rawls, which Kant formulation applies, and what opponents will say to attack each framework.</p></div>
+      <div class="tool-cell"><div class="tool-idx">04</div><h3>Judge Feedback</h3><p>Paste any speech. Get paragraph-level feedback on structure, warrant quality, time allocation, and strategic gaps &mdash; every practice session, not just tournament weekends.</p></div>
+      <div class="tool-cell"><div class="tool-idx">05</div><h3>Strategic Mapper</h3><p>See how arguments interact, where the clash lives, and which points the judge will weigh. Think in systems instead of bullets &mdash; the jump from novice to varsity-level strategy.</p></div>
+      <div class="tool-cell"><div class="tool-idx">06</div><h3>Argument Market</h3><p>Submit a claim. The engine generates competing arguments, scores them on evidence and logic, then runs adversarial cycles. Weak arguments lose weight. Strong ones rise.</p></div>
     </div>
   </div>
 </section>
 
-<!-- Divider -->
 <div class="divider"></div>
 
 <!-- How It Works -->
-<section id="how-it-works" class="section-pad">
+<section id="how" class="sec">
   <div class="container">
-    <div class="section-header-center">
-      <div class="section-eyebrow reveal">How It Works</div>
-      <h2 class="section-title reveal reveal-d1">Zero to prepping in 30 seconds</h2>
-      <p class="section-desc reveal reveal-d2">No setup. No API keys. No credit card. Open the app and start.</p>
+    <div class="sec-center">
+      <div class="sec-label rv">How It Works</div>
+      <h2 class="sec-title rv rv-d1">Zero to prepping <em>in 30 seconds.</em></h2>
+      <p class="sec-desc rv rv-d2">No setup. No API keys. No credit card. Open the app and start.</p>
     </div>
-    <div class="steps-row">
-      <div class="step-card reveal reveal-d1">
-        <div class="step-num">1</div>
-        <h3>Enter a motion</h3>
-        <p>Paste any resolution or let the engine suggest trending topics. Pick your side and format.</p>
-      </div>
-      <div class="step-card reveal reveal-d2">
-        <div class="step-num">2</div>
-        <h3>Generate &amp; iterate</h3>
-        <p>Get a structured case in seconds. Stress-test it, explore the philosophy, or practice your speeches against it.</p>
-      </div>
-      <div class="step-card reveal reveal-d3">
-        <div class="step-num">3</div>
-        <h3>Walk in prepared</h3>
-        <p>You've already seen the strongest counterarguments and practiced your extensions. Now go win the round.</p>
-      </div>
+    <div class="how-row">
+      <div class="how-card rv rv-d1"><div class="how-num">01</div><h3>Enter a motion</h3><p>Paste any resolution or let the engine surface trending topics. Pick your side, depth, and format.</p></div>
+      <div class="how-card rv rv-d2"><div class="how-num">02</div><h3>Generate and iterate</h3><p>Get a structured case in seconds. Stress-test it against opposition, explore the philosophy, or practice speeches.</p></div>
+      <div class="how-card rv rv-d3"><div class="how-num">03</div><h3>Walk in prepared</h3><p>You've already seen the strongest counterarguments and practiced your extensions. Now go win the round.</p></div>
     </div>
   </div>
 </section>
 
-<!-- Divider -->
 <div class="divider"></div>
 
-<!-- Transferable Skills -->
-<section class="skills-section section-pad-lg">
+<!-- Skills -->
+<section class="skills-sec sec">
   <div class="container">
-    <div class="skills-grid">
+    <div class="skills-split">
       <div class="skills-text">
-        <div class="section-eyebrow reveal">Beyond the round</div>
-        <h2 class="section-title reveal reveal-d1">Debate makes you dangerous everywhere</h2>
-        <p class="reveal reveal-d2">This tool makes you a better debater. But debate itself makes you a better <em>everything</em>.</p>
-        <p class="reveal reveal-d3">The skills you build in parliamentary debate &mdash; constructing arguments under pressure, anticipating objections, distilling complex ideas into persuasive language &mdash; are the same skills that make people effective in law, business, policy, and every field where you need to convince smart people of hard things.</p>
-        <p class="reveal reveal-d4">Every round forces you to research a new topic deeply enough to argue it convincingly in 15 minutes. Over a season, you build working knowledge across economics, philosophy, international relations, technology, and ethics.</p>
-        <p class="reveal reveal-d5"><strong>That's what Devil's Advocate accelerates.</strong> Not just tournament wins &mdash; the underlying cognitive skills that make debaters disproportionately successful after graduation.</p>
+        <div class="sec-label rv">Beyond the round</div>
+        <h2 class="sec-title rv rv-d1">Debate makes you<br><em>dangerous</em> everywhere.</h2>
+        <p class="rv rv-d2">This tool makes you a better debater. But debate itself makes you a better <em>everything</em>.</p>
+        <p class="rv rv-d3">The skills you build &mdash; constructing arguments under pressure, anticipating objections, distilling complex ideas into persuasive language &mdash; are the same skills that make people effective in law, business, policy, and every field where you convince smart people of hard things.</p>
+        <p class="rv rv-d4"><strong>That's what Devil's Advocate accelerates.</strong> Not just tournament wins &mdash; the cognitive skills that make debaters disproportionately successful after graduation.</p>
       </div>
-      <div class="skills-cards">
-        <div class="skill-pill reveal reveal-d1">
-          <div class="skill-pill-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          </div>
-          <div>
-            <h4>Critical thinking under pressure</h4>
-            <p>Synthesize information and identify logical gaps in real time</p>
-          </div>
-        </div>
-        <div class="skill-pill reveal reveal-d2">
-          <div class="skill-pill-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          </div>
-          <div>
-            <h4>Persuasive communication</h4>
-            <p>Frame ideas so they land with skeptical, intelligent audiences</p>
-          </div>
-        </div>
-        <div class="skill-pill reveal reveal-d3">
-          <div class="skill-pill-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          </div>
-          <div>
-            <h4>Rapid research synthesis</h4>
-            <p>Learn any topic well enough to argue it convincingly in minutes</p>
-          </div>
-        </div>
-        <div class="skill-pill reveal reveal-d4">
-          <div class="skill-pill-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          </div>
-          <div>
-            <h4>Adversarial anticipation</h4>
-            <p>See the strongest objections before they're raised</p>
-          </div>
-        </div>
-        <div class="skill-pill reveal reveal-d5">
-          <div class="skill-pill-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          </div>
-          <div>
-            <h4>Cross-domain knowledge</h4>
-            <p>Working fluency in philosophy, economics, policy, and ethics</p>
-          </div>
-        </div>
-      </div>
+      <ul class="skill-rows">
+        <li class="skill-row rv rv-d1"><span class="skill-dot"></span><span>Critical thinking under time pressure</span></li>
+        <li class="skill-row rv rv-d2"><span class="skill-dot"></span><span>Persuasive communication to skeptical audiences</span></li>
+        <li class="skill-row rv rv-d3"><span class="skill-dot"></span><span>Rapid research synthesis across domains</span></li>
+        <li class="skill-row rv rv-d4"><span class="skill-dot"></span><span>Adversarial anticipation</span></li>
+        <li class="skill-row rv rv-d5"><span class="skill-dot"></span><span>Working fluency in philosophy, economics, and policy</span></li>
+        <li class="skill-row rv rv-d6"><span class="skill-dot"></span><span>Structured reasoning under competitive pressure</span></li>
+      </ul>
     </div>
   </div>
 </section>
 
-<!-- Divider -->
 <div class="divider"></div>
 
-<!-- Who It's For -->
-<section id="who-its-for" class="section-pad">
+<!-- Audience -->
+<section id="who" class="sec">
   <div class="container">
-    <div class="section-header-center">
-      <div class="section-eyebrow reveal">Who It's For</div>
-      <h2 class="section-title reveal reveal-d1">Built for every level of competitor</h2>
-      <p class="section-desc reveal reveal-d2">Whether you just joined the team or you're prepping for nationals, the engine adapts to where you are.</p>
+    <div class="sec-center">
+      <div class="sec-label rv">Who It's For</div>
+      <h2 class="sec-title rv rv-d1">Built for <em>every level</em> of competitor.</h2>
+      <p class="sec-desc rv rv-d2">Whether you just joined the team or you're prepping for nationals, the engine adapts.</p>
     </div>
-    <div class="audience-grid">
-      <div class="audience-card reveal reveal-d1">
-        <div class="audience-tag novice">Novice</div>
-        <h3>First-year debaters</h3>
-        <p>Learn case structure, philosophy basics, and speech types through guided generation. See what a good case looks like before you try to build one from scratch. The Newbie Guide breaks down every concept you need.</p>
-      </div>
-      <div class="audience-card reveal reveal-d2">
-        <div class="audience-tag varsity">Varsity</div>
-        <h3>Experienced competitors</h3>
-        <p>Stress-test your cases against realistic opposition. Drill weak speech types. Explore deep philosophy for frameworks that go beyond the basics. Build cases with compound impacts and pre-loaded A2 blocks.</p>
-      </div>
-      <div class="audience-card reveal reveal-d3">
-        <div class="audience-tag coach">Teams &amp; Coaches</div>
-        <h3>Debate programs</h3>
-        <p>Give every team member access to a prep engine that works at 2am when practice is over. Use it for drill sessions, case brainstorming, or teaching novices how argument architecture works.</p>
-      </div>
+    <div class="aud-row rv rv-d3">
+      <div class="aud-card"><div class="aud-tag">Novice</div><h3>First-year debaters</h3><p>Learn case structure, philosophy basics, and speech types through guided generation. See what a good case looks like before building one from scratch.</p></div>
+      <div class="aud-card"><div class="aud-tag">Varsity</div><h3>Experienced competitors</h3><p>Stress-test cases against realistic opposition. Drill weak speech types. Build cases with compound impacts and pre-loaded A2 blocks.</p></div>
+      <div class="aud-card"><div class="aud-tag">Programs</div><h3>Teams and coaches</h3><p>Give every member access to a prep engine that works at 2am when practice is over. Use it for drills, brainstorming, or teaching argument architecture.</p></div>
     </div>
   </div>
 </section>
 
-<!-- Divider -->
 <div class="divider"></div>
 
 <!-- FAQ -->
-<section id="faq" class="section-pad">
+<section id="faq" class="sec">
   <div class="container-sm">
-    <div class="section-header-center">
-      <div class="section-eyebrow reveal">FAQ</div>
-      <h2 class="section-title reveal reveal-d1">Questions</h2>
+    <div class="sec-center">
+      <div class="sec-label rv">FAQ</div>
+      <h2 class="sec-title rv rv-d1">Common questions.</h2>
     </div>
     <div class="faq-list">
-      <div class="faq-item reveal">
-        <button class="faq-q">
-          Is this actually useful for competitive parli, or is it a toy?
-          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="faq-a">
-          <p>It's built by an APDA competitor, trained on APDA-style case architecture, and the prompts encode real competitive knowledge: warrant chains, compound impacts, tight-call analysis, MG extensions, A2 blocks. It won't replace tournament reps, but it compresses prep time dramatically.</p>
-        </div>
-      </div>
-      <div class="faq-item reveal reveal-d1">
-        <button class="faq-q">
-          What debate formats does it support?
-          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="faq-a">
-          <p>APDA (American Parliamentary), British Parliamentary, World Schools, and general parliamentary formats. The case generator and round simulator both adapt to the speech structure and conventions of each format.</p>
-        </div>
-      </div>
-      <div class="faq-item reveal reveal-d2">
-        <button class="faq-q">
-          Will my opponents have the same cases?
-          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="faq-a">
-          <p>Every case is generated fresh based on your specific motion, side, and depth settings. There's no case library being recycled. Even if someone enters the same motion, the cases will differ based on context, framework choices, and random variation.</p>
-        </div>
-      </div>
-      <div class="faq-item reveal reveal-d3">
-        <button class="faq-q">
-          How much does it cost?
-          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="faq-a">
-          <p>During the beta, everything is free. All tools, all depths, no usage limits, no credit card. We're testing with competitive debaters to make the product better before launching paid plans.</p>
-        </div>
-      </div>
-      <div class="faq-item reveal reveal-d4">
-        <button class="faq-q">
-          Can I use this on my phone?
-          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="faq-a">
-          <p>Yes. It's a progressive web app &mdash; install it to your home screen on iOS or Android and it works like a native app. Designed to be usable on the bus to a tournament.</p>
-        </div>
-      </div>
-      <div class="faq-item reveal reveal-d5">
-        <button class="faq-q">
-          Is this cheating?
-          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="faq-a">
-          <p>No. This is a prep tool, not an in-round tool. You use it before the tournament to build skills, explore arguments, and practice speeches. In the round, it's still you. The debaters who prep more win more &mdash; this just makes prep more efficient.</p>
-        </div>
-      </div>
+      <div class="faq-item rv"><button class="faq-q">Is this actually useful for competitive parli?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>Built by an APDA competitor. The prompts encode warrant chains, compound impacts, tight-call analysis, MG extensions, and A2 blocks. It compresses prep time dramatically.</p></div></div>
+      <div class="faq-item rv rv-d1"><button class="faq-q">What formats does it support?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>APDA, British Parliamentary, World Schools, and general parliamentary. The generator and simulator adapt to each format's speech structure.</p></div></div>
+      <div class="faq-item rv rv-d2"><button class="faq-q">Will opponents have the same cases?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>Every case is generated fresh from your specific motion, side, and depth settings. No recycled library. Even identical motions produce different cases.</p></div></div>
+      <div class="faq-item rv rv-d3"><button class="faq-q">How much does it cost?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>During beta, everything is free. All tools, no limits, no credit card. We're testing with competitive debaters before paid plans launch.</p></div></div>
+      <div class="faq-item rv rv-d4"><button class="faq-q">Can I use this on my phone?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>Yes. It's a PWA &mdash; install to your home screen on iOS or Android. Built for the bus to the tournament.</p></div></div>
+      <div class="faq-item rv rv-d5"><button class="faq-q">Is using this cheating?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No. It's a prep tool, not an in-round tool. You use it before the tournament to build skills and practice speeches. In the round, it's still you.</p></div></div>
     </div>
   </div>
 </section>
 
-<!-- CTA Banner -->
-<section class="cta-banner">
-  <div class="container">
-    <div class="reveal">
-      <h2>Start prepping smarter</h2>
-      <p>Every feature is free during the beta. No signup required &mdash; just open the app and generate your first case.</p>
-      <a href="/?beta=true#case" class="btn-primary">Open Devil's Advocate &rarr;</a>
-    </div>
+<!-- CTA -->
+<div class="divider"></div>
+<section class="cta-sec">
+  <div class="rv">
+    <h2>Start prepping smarter.</h2>
+    <p>Every feature is free during beta. No signup &mdash; just open the engine.</p>
+    <a href="/?beta=true#case" class="btn-solid">
+      Open Devil's Advocate
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:16px;height:16px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
   </div>
 </section>
 
@@ -1141,66 +566,184 @@ section {
 <footer class="footer">
   <div class="container">
     <div class="footer-inner">
-      <div>
-        <div class="footer-brand"><span class="mark">Devil's</span> Advocate</div>
-        <p class="footer-note">Built by a collegiate debater in the APDA circuit.</p>
-      </div>
+      <div class="footer-brand">Devil's Advocate</div>
       <div class="footer-links">
         <a href="/?beta=true#case">App</a>
-        <a href="#features">Features</a>
+        <a href="#tools">Tools</a>
         <a href="#faq">FAQ</a>
         <a href="mailto:feedback@debateos.com">Contact</a>
       </div>
     </div>
-    <p class="footer-copy">&copy; 2026 DebateOS. All rights reserved.</p>
+    <p class="footer-copy">Built by a collegiate debater in the APDA circuit. &copy; 2026</p>
   </div>
 </footer>
 
 <script>
-// Scroll-reveal with IntersectionObserver
-(function() {
-  const els = document.querySelectorAll('.reveal');
-  if (!('IntersectionObserver' in window)) {
-    els.forEach(el => el.classList.add('visible'));
-    return;
-  }
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-        observer.unobserve(entry.target);
+/* ── Animated Dot Grid (Canvas) ───────────── */
+(function(){
+  var c = document.getElementById('hero-canvas');
+  if (!c) return;
+  var ctx = c.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var w, h, cols, rows, dots = [];
+  var spacing = 48;
+  var mouse = { x: -1000, y: -1000 };
+  var raf;
+
+  function resize() {
+    var rect = c.parentElement.getBoundingClientRect();
+    w = rect.width; h = rect.height;
+    c.width = w * dpr; c.height = h * dpr;
+    c.style.width = w + 'px'; c.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cols = Math.ceil(w / spacing) + 2;
+    rows = Math.ceil(h / spacing) + 2;
+    dots = [];
+    for (var r = 0; r < rows; r++) {
+      for (var cl = 0; cl < cols; cl++) {
+        dots.push({
+          x: cl * spacing,
+          y: r * spacing,
+          ox: cl * spacing,
+          oy: r * spacing,
+          phase: Math.random() * Math.PI * 2
+        });
       }
-    });
-  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-  els.forEach(el => observer.observe(el));
+    }
+  }
+
+  function draw(t) {
+    ctx.clearRect(0, 0, w, h);
+    var time = t * 0.001;
+
+    // Update dot positions with subtle float
+    for (var i = 0; i < dots.length; i++) {
+      var d = dots[i];
+      d.x = d.ox + Math.sin(time * 0.3 + d.phase) * 2;
+      d.y = d.oy + Math.cos(time * 0.25 + d.phase * 1.3) * 2;
+    }
+
+    // Draw connections
+    for (var i = 0; i < dots.length; i++) {
+      var d = dots[i];
+      var col = i % cols;
+      var row = Math.floor(i / cols);
+
+      // Right neighbor
+      if (col < cols - 1) {
+        var r = dots[i + 1];
+        drawLine(d, r, 0.025);
+      }
+      // Bottom neighbor
+      if (row < rows - 1) {
+        var b = dots[i + cols];
+        drawLine(d, b, 0.025);
+      }
+    }
+
+    // Draw dots
+    for (var i = 0; i < dots.length; i++) {
+      var d = dots[i];
+      var dx = d.x - mouse.x;
+      var dy = d.y - mouse.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      var prox = Math.max(0, 1 - dist / 180);
+      var alpha = 0.08 + prox * 0.5;
+      var radius = 1 + prox * 2;
+
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+      ctx.fill();
+
+      // Extra glow connections near mouse
+      if (prox > 0.1) {
+        for (var j = i + 1; j < dots.length; j++) {
+          var d2 = dots[j];
+          var dx2 = d2.x - mouse.x;
+          var dy2 = d2.y - mouse.y;
+          var dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+          var prox2 = Math.max(0, 1 - dist2 / 180);
+          if (prox2 > 0.1) {
+            var dd = Math.sqrt((d.x - d2.x) ** 2 + (d.y - d2.y) ** 2);
+            if (dd < spacing * 2) {
+              ctx.beginPath();
+              ctx.moveTo(d.x, d.y);
+              ctx.lineTo(d2.x, d2.y);
+              ctx.strokeStyle = 'rgba(239,68,68,' + (prox * prox2 * 0.15) + ')';
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
+          }
+        }
+      }
+    }
+
+    raf = requestAnimationFrame(draw);
+  }
+
+  function drawLine(a, b, alpha) {
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = 'rgba(255,255,255,' + alpha + ')';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  c.parentElement.addEventListener('mousemove', function(e) {
+    var rect = c.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  });
+  c.parentElement.addEventListener('mouseleave', function() {
+    mouse.x = -1000; mouse.y = -1000;
+  });
+
+  resize();
+  window.addEventListener('resize', resize);
+  raf = requestAnimationFrame(draw);
+
+  // Pause when not in view
+  var obs = new IntersectionObserver(function(entries) {
+    if (entries[0].isIntersecting) {
+      if (!raf) raf = requestAnimationFrame(draw);
+    } else {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    }
+  });
+  obs.observe(c.parentElement);
 })();
 
-// FAQ accordion
-document.querySelectorAll('.faq-q').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const item = btn.closest('.faq-item');
-    const wasOpen = item.classList.contains('open');
-    // Close all
-    document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
-    // Toggle current
-    if (!wasOpen) item.classList.add('open');
+/* ── Scroll Reveal ────────────────────────── */
+(function(){
+  var els = document.querySelectorAll('.rv');
+  if (!('IntersectionObserver' in window)) { els.forEach(function(e){ e.classList.add('vis'); }); return; }
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if (en.isIntersecting) { en.target.classList.add('vis'); obs.unobserve(en.target); } });
+  }, { threshold: 0.08, rootMargin: '0px 0px -24px 0px' });
+  els.forEach(function(el){ obs.observe(el); });
+})();
+
+/* ── FAQ Accordion ────────────────────────── */
+document.querySelectorAll('.faq-q').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var item = btn.closest('.faq-item');
+    var open = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(function(i){ i.classList.remove('open'); });
+    if (!open) item.classList.add('open');
   });
 });
 
-// Navbar background on scroll
-(function() {
-  const wrap = document.querySelector('.navbar-wrap');
-  let ticking = false;
-  window.addEventListener('scroll', () => {
-    if (!ticking) {
-      requestAnimationFrame(() => {
-        wrap.style.background = window.scrollY > 40
-          ? 'rgba(9, 9, 11, 0.95)'
-          : 'rgba(9, 9, 11, 0.8)';
-        ticking = false;
-      });
-      ticking = true;
-    }
+/* ── Nav Scroll ───────────────────────────── */
+(function(){
+  var nav = document.getElementById('nav');
+  var t = false;
+  window.addEventListener('scroll', function(){
+    if (!t) { requestAnimationFrame(function(){
+      if (window.scrollY > 40) nav.classList.add('scrolled'); else nav.classList.remove('scrolled');
+      t = false;
+    }); t = true; }
   });
 })();
 </script>
