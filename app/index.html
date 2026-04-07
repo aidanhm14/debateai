@@ -134,7 +134,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .hamburger-item{padding:10px 12px;background:#363638;border:1px solid #ffffff18;border-radius:10px;color:#b0c0d4;font-size:.82rem;font-weight:600;cursor:pointer;transition:.2s;text-align:left;font-family:inherit;letter-spacing:.3px}
 .hamburger-item:hover{background:#1e2d44;border-color:#ffffff18;color:#e4e8f0}
 .hamburger-item.active{background:#ef444415;border-color:#ef444435;color:#ef4444}
-@media(max-width:640px){.hamburger-wrap{display:flex}}
+@media(max-width:640px){.hamburger-wrap{display:flex}.nav{display:none}}
 .light-theme .hamburger-btn{color:#64748b;border-color:#e2e8f0;background:#ffffff80}
 .light-theme .hamburger-btn:hover{color:#1a1a2e;background:#f1f5f9}
 .light-theme .hamburger-panel{background:#fff;border-color:#e2e8f0;box-shadow:0 24px 80px rgba(0,0,0,.15)}
@@ -582,6 +582,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .guide-close:hover{transform:translateY(-2px);box-shadow:0 8px 28px #ef444440}
 .guide-trigger{position:fixed;bottom:24px;right:24px;z-index:50;width:44px;height:44px;border-radius:50%;background:#363638cc;border:1px solid #ffffff18;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;backdrop-filter:blur(8px);transition:.2s}
 .guide-trigger:hover{background:#ffffff22;transform:scale(1.05)}
+.feedback-trigger{position:fixed;bottom:76px;right:24px;z-index:50;height:32px;padding:0 14px;border-radius:16px;background:#3b82f6cc;border:1px solid #3b82f640;display:flex;align-items:center;justify-content:center;gap:6px;font-size:.68rem;font-weight:600;color:#fff;cursor:pointer;backdrop-filter:blur(8px);transition:.2s;font-family:inherit;letter-spacing:.3px}
+.feedback-trigger:hover{background:#3b82f6;transform:scale(1.03)}
+.light-theme .feedback-trigger{background:#3b82f6dd}
 .light-theme .guide-modal{background:#ffffffee;border-color:#3b82f608}
 .light-theme .guide-modal h2{color:#1a1a2e}
 .light-theme .guide-step-content h3{color:#1a1a2e}
@@ -1251,6 +1254,18 @@ async function logInsight(type, data) {
       body: JSON.stringify({ type, data }),
     }).catch(() => {});
   } catch {}
+}
+
+// ── Beta Analytics ──────────────────────────────
+// Lightweight client-side event logging for beta testing
+function logBetaEvent(event, data) {
+  try {
+    const log = JSON.parse(localStorage.getItem('debateos-beta-log') || '[]');
+    log.push({ event, data, ts: Date.now() });
+    // Keep last 500 events
+    if (log.length > 500) log.splice(0, log.length - 500);
+    localStorage.setItem('debateos-beta-log', JSON.stringify(log));
+  } catch(e) {}
 }
 
 // ── Pro Feature System ──────────────────────────
@@ -2780,6 +2795,7 @@ function incAnonUsage() { try { localStorage.setItem('debateos-anon-usage', Stri
 async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   // BETA: no usage limits
   const _isAnon = !__getAuthToken;
+  logBetaEvent('generate', { feature: opts.feature || 'unknown' });
 
   const thinkBudget = opts.thinkBudget || 10000;
   const maxTokens = opts.maxTokens || 16000;
@@ -8398,7 +8414,7 @@ function UpgradeModal({ feature, remaining, onClose, onUpgrade }) {
   const exhausted = remaining <= 0;
   return el('div',{className:'auth-overlay',onClick:e=>{if(e.target===e.currentTarget)onClose()}},
     el('div',{style:{background:'var(--modal-bg,#303038)',border:'1px solid var(--modal-border,#ffffff22)',borderRadius:16,padding:'32px 36px',maxWidth:440,width:'90%',textAlign:'center'}},
-      el('div',{style:{fontSize:'2.2rem',marginBottom:12}}, exhausted ? '\uD83D\uDD12' : '\u2666\uFE0F'),
+      el('div',{style:{marginBottom:12},dangerouslySetInnerHTML:{__html: exhausted ? '<svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="22" width="28" height="20" rx="4" stroke="#ef4444" stroke-width="1.5" fill="#ef444408"/><path d="M16 22V16a8 8 0 0116 0v6" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" fill="none"/><circle cx="24" cy="32" r="3" fill="#ef444440"/></svg>' : '<svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M24 6l4 8 9 1.3-6.5 6.3 1.5 9L24 26l-8 4.6 1.5-9L11 15.3l9-1.3z" stroke="#ef4444" stroke-width="1.5" fill="#ef444410" stroke-linejoin="round"/></svg>'}}),
       el('h2',{style:{fontSize:'1.3rem',fontWeight:800,marginBottom:8,color:'var(--text-primary,#f1f5f9)'}},
         exhausted ? fname + ' — Pro Feature' : fname + ' — Free Trial'
       ),
@@ -9798,7 +9814,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
     el('div', {style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(4,1fr)',gap:isMobile?10:16,marginBottom:24}},
       ...[
         {name:'Free',price:'$0',requests:'5/mo',members:'3 members',highlight:false,desc:'Get started'},
-        {name:'Individual',price:'$5/mo',requests:'250/mo',members:'1 member',highlight:true,desc:'For serious competitors'},
+        {name:'Individual',price:'$5/mo',requests:'250/mo',members:'10 members',highlight:true,desc:'For serious competitors'},
         {name:'Lifetime',price:'$14.99',requests:'250/mo',members:'3 members',highlight:false,desc:'Pay once, use forever',badge:'Best Value',badgeColor:'#22c55e'},
         {name:'Team',price:'$30/mo',requests:'1,500/mo',members:'50 members',highlight:false,desc:'For clubs and programs'},
       ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':p.badgeColor?p.badgeColor+'12':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':p.badgeColor?p.badgeColor+'40':'#ffffff20'),borderRadius:12,textAlign:'center',position:'relative'}},
@@ -9827,7 +9843,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
     el('div', {style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(4,1fr)',gap:isMobile?10:16,marginTop:24}},
       ...[
         {name:'Free',price:'$0',requests:'5/mo',members:'3 members',highlight:false},
-        {name:'Individual',price:'$5/mo',requests:'250/mo',members:'1 member',highlight:true},
+        {name:'Individual',price:'$5/mo',requests:'250/mo',members:'10 members',highlight:true},
         {name:'Lifetime',price:'$14.99',requests:'250/mo',members:'3 members',highlight:false,badgeColor:'#22c55e',badge:'Best Value'},
         {name:'Team',price:'$30/mo',requests:'1,500/mo',members:'50 members',highlight:false},
       ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':p.badgeColor?p.badgeColor+'12':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':p.badgeColor?p.badgeColor+'40':'#ffffff20'),borderRadius:12,textAlign:'center',position:'relative'}},
@@ -9913,7 +9929,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
       ),
     ),
     el('div', {style:{marginBottom:20}},
-      el('h3', {style:{color:'#e4e8f0',fontSize:'1rem',fontWeight:700,marginBottom:12}}, 'Members (' + (members.length || team.memberCount || 1) + '/' + (team.maxMembers||3) + ')'),
+      el('h3', {style:{color:'#e4e8f0',fontSize:'1rem',fontWeight:700,marginBottom:12}}, 'Members (' + (members.length || team.memberCount || 1) + '/' + (team.maxMembers||10) + ')'),
       members.map(m => el('div', {key:m.id, style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',background:'#ffffff04',borderRadius:8,marginBottom:4}},
         el('div', {style:{display:'flex',alignItems:'center',gap:10}},
           el('div', {style:{width:28,height:28,borderRadius:'50%',background:'#ef444420',color:'#f87171',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.75rem',fontWeight:700}}, (m.displayName||m.email||'?').charAt(0).toUpperCase()),
@@ -10184,7 +10200,7 @@ function Analytics({ user, team }) {
       ...[
         {label:'Requests Used',value:(team.usageThisPeriod||0)+' / '+(team.usageLimit||0),color:usagePct>80?'#ef4444':'#22c55e'},
         {label:'Plan',value:(team.plan||'trial').charAt(0).toUpperCase()+(team.plan||'trial').slice(1),color:'#3b82f6'},
-        {label:'Members',value:(team.memberCount||1)+' / '+(team.maxMembers||3),color:'#8b5cf6'},
+        {label:'Members',value:(team.memberCount||1)+' / '+(team.maxMembers||10),color:'#8b5cf6'},
         {label:'Total Logged',value:logs.length+' requests',color:'#f59e0b'},
       ].map(s => el('div',{key:s.label,style:{padding:16,background:'#ffffff06',border:'1px solid #ffffff08',borderRadius:10,textAlign:'center'}},
         el('div',{style:{fontSize:'1.3rem',fontWeight:800,color:s.color}},s.value),
@@ -11300,7 +11316,7 @@ function LiveDebates({ user, team, onNavigateTab }) {
     // Pro gate overlay
     !isPro(team, user) && el('div', {style:{position:'absolute',inset:0,background:'var(--pro-blur-bg,#2b2b30e6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,backdropFilter:'blur(6px)',borderRadius:14}},
       el('div', {style:{textAlign:'center',padding:'40px 30px',maxWidth:400}},
-        el('div', {style:{fontSize:'2.5rem',marginBottom:12}}, '\uD83C\uDFA4'),
+        el('div', {style:{marginBottom:12}, dangerouslySetInnerHTML:{__html:'<svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="30" stroke="#ffffff12" stroke-width="1.5"/><rect x="26" y="14" width="12" height="24" rx="6" stroke="#ef4444" stroke-width="1.5" fill="#ef444410"/><line x1="32" y1="38" x2="32" y2="46" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><path d="M22 30c0 5.5 4.5 10 10 10s10-4.5 10-10" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".5"/><line x1="26" y1="46" x2="38" y2="46" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/></svg>'}}),
         el('div', {style:{fontWeight:800,fontSize:'1.3rem',color:'var(--text-primary,#f1f5f9)',marginBottom:8}}, 'Live Debates'),
         el('div', {style:{color:'var(--text-muted,#94a3b8)',fontSize:'.9rem',lineHeight:1.6,marginBottom:20}}, 'Schedule debates, join video calls, and compete live with debaters around the world. Available on Individual and Team plans.'),
         el('div', {style:{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}},
@@ -11333,7 +11349,7 @@ function LiveDebates({ user, team, onNavigateTab }) {
       el('div', null,
         loading && el('div', { className: 'live-empty' }, 'Loading debates...'),
         !loading && dateFiltered.length === 0 && el('div', { className: 'live-empty' },
-          el('div', { style: { fontSize: '2.5rem', marginBottom: 12 } }, '\uD83C\uDFA4'),
+          el('div', { style: { marginBottom: 16 }, dangerouslySetInnerHTML: { __html: '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="30" stroke="#ffffff12" stroke-width="1.5"/><rect x="26" y="14" width="12" height="24" rx="6" stroke="#ef4444" stroke-width="1.5" fill="#ef444410"/><line x1="32" y1="38" x2="32" y2="46" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><path d="M22 30c0 5.5 4.5 10 10 10s10-4.5 10-10" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".5"/><line x1="26" y1="46" x2="38" y2="46" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><circle cx="32" cy="26" r="2" fill="#ef444440"/></svg>' } }),
           el('div', { style: { fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary,#e8ecf2)', marginBottom: 6 } }, 'No Debates Scheduled Yet'),
           el('p', { style: { maxWidth: 380, margin: '0 auto 16px', color: 'var(--text-muted,#94a3b8)', fontSize: '.85rem', lineHeight: 1.6 } }, 'Schedule a debate to practice with other debaters via live video. Pick a resolution, set a time, and invite opponents.'),
           el('button', { className: 'btn btn-primary', onClick: () => setView('create'), style: { fontSize: '.85rem', padding: '10px 24px' } }, 'Schedule Your First Debate'),
@@ -11788,13 +11804,19 @@ function ArgumentMarket({ user }) {
       // MIDDLE: FOR arguments
       el('div',null,
         el('div',{className:'market-col-header for'}, 'For \u2014 ' + sortedFor.length + ' arguments'),
-        sortedFor.length === 0 && el('div',{style:{color:'#666',fontSize:'.82rem',padding:'20px 0',textAlign:'center'}}, 'Run a cycle to generate arguments'),
+        sortedFor.length === 0 && el('div',{style:{color:'#666',fontSize:'.82rem',padding:'24px 0',textAlign:'center'}},
+          el('div',{style:{marginBottom:8},dangerouslySetInnerHTML:{__html:'<svg width="40" height="40" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="24" y1="8" x2="24" y2="40" stroke="#ffffff14" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="16" x2="38" y2="16" stroke="#ffffff14" stroke-width="1.5" stroke-linecap="round"/><path d="M10 16l-4 12h12l-4-12" stroke="#22c55e" stroke-width="1.2" fill="#22c55e08" stroke-linejoin="round"/><path d="M38 16l-4 12h12l-4-12" stroke="#22c55e" stroke-width="1.2" fill="#22c55e08" stroke-linejoin="round"/><circle cx="24" cy="8" r="3" stroke="#ffffff14" stroke-width="1.5" fill="none"/></svg>'}}),
+          'Run a cycle to generate arguments'
+        ),
         sortedFor.map(a => el(MarketArgCard, { key: a.id, arg: a, side: 'for' })),
       ),
       // RIGHT: AGAINST arguments
       el('div',null,
         el('div',{className:'market-col-header against'}, 'Against \u2014 ' + sortedAgainst.length + ' arguments'),
-        sortedAgainst.length === 0 && el('div',{style:{color:'#666',fontSize:'.82rem',padding:'20px 0',textAlign:'center'}}, 'Run a cycle to generate arguments'),
+        sortedAgainst.length === 0 && el('div',{style:{color:'#666',fontSize:'.82rem',padding:'24px 0',textAlign:'center'}},
+          el('div',{style:{marginBottom:8},dangerouslySetInnerHTML:{__html:'<svg width="40" height="40" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="24" y1="8" x2="24" y2="40" stroke="#ffffff14" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="16" x2="38" y2="16" stroke="#ffffff14" stroke-width="1.5" stroke-linecap="round"/><path d="M10 16l-4 12h12l-4-12" stroke="#ef4444" stroke-width="1.2" fill="#ef444408" stroke-linejoin="round"/><path d="M38 16l-4 12h12l-4-12" stroke="#ef4444" stroke-width="1.2" fill="#ef444408" stroke-linejoin="round"/><circle cx="24" cy="8" r="3" stroke="#ffffff14" stroke-width="1.5" fill="none"/></svg>'}}),
+          'Run a cycle to generate arguments'
+        ),
         sortedAgainst.map(a => el(MarketArgCard, { key: a.id, arg: a, side: 'against' })),
       ),
     ),
@@ -11807,7 +11829,7 @@ const TABS = [
   {id:'divider1',divider:true},
   {id:'battle',label:'Battle',i18n:'nav.battle'},
   {id:'feedback',label:'Feedback',i18n:'nav.feedback'},
-  {id:'vision',label:'Vision',i18n:'nav.vision'},
+  {id:'vision',label:'Mapper',i18n:'nav.vision'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
   {id:'divider2',divider:true},
   {id:'res',label:'Motions',i18n:'nav.motions'},
@@ -11859,6 +11881,7 @@ function App() {
   }, [tab]);
   const navigateTab = useCallback((newTab) => {
     if (newTab === tab) return;
+    logBetaEvent('tab', { tab: newTab });
     setTabTransition('tab-exit');
     setTimeout(() => {
       setTabHistory(prev => [...prev, tab]);
@@ -11954,6 +11977,17 @@ function App() {
       setTeamLoading(false);
     })();
   }, [user]);
+
+  // Handle ?beta=true — auto-skip auth and show welcome toast
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('beta') === 'true') {
+      try { localStorage.setItem('debateos-anon-trial','true'); } catch(e) {}
+      setAnonTrial(true);
+      setToast('Welcome to the beta! All features are unlocked.');
+      window.history.replaceState({}, '', window.location.pathname + (window.location.hash || '#case'));
+    }
+  }, []);
 
   // Handle Stripe billing redirect — refresh team data after payment
   useEffect(() => {
@@ -12097,6 +12131,10 @@ function App() {
     ),
     showGuide && React.createElement(WelcomeGuide, { onClose: closeGuide, onNavigate: navigateTab }),
     !showGuide && React.createElement('button',{className:'guide-trigger',onClick:()=>setShowGuide(true),title:'How to use DebateOS'},'?'),
+    React.createElement('a',{className:'feedback-trigger',href:'mailto:debateOSsupport@gmail.com?subject=Beta%20Feedback&body=Feature%20or%20bug%3A%20',target:'_blank',rel:'noopener noreferrer',title:'Send beta feedback'},
+      React.createElement('span',{dangerouslySetInnerHTML:{__html:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>'}}),
+      'Feedback'
+    ),
     showAuth && React.createElement(AuthModal, { onSignIn: handleSignIn, onSkip: () => setShowAuth(false) }),
     React.createElement(SavedCasesSidebar, {
       isOpen: sidebarOpen,
@@ -12134,8 +12172,8 @@ function App() {
         ),
         React.createElement('p',{style:{color:'#92754a',fontSize:'.68rem',letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,margin:'2px 0 0',textAlign:'center'}},'powered by DebateOS'),
         React.createElement('div',{style:{display:'flex',gap:4,alignItems:'center',justifyContent:'center',background:'var(--badge-row-bg,#ffffff08)',borderRadius:20,padding:'3px 4px',border:'1px solid var(--badge-row-border,#ffffff1a)',width:'fit-content',margin:'8px auto 0'}},
-          team && team.plan !== 'trial' && React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:'#22c55e15',color:'#22c55e',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>navigateTab('team')},team.plan.toUpperCase()),
-          (!user || (user.email && user.email.includes('aidan'))) && React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:devPro?'#ef444420':'#ffffff08',color:devPro?'#ef4444':'#94a3b8',cursor:'pointer',letterSpacing:'.5px',transition:'.2s',border:devPro?'1px solid #ef444440':'1px solid transparent'},onClick:toggleDevPro},devPro?'\u2666 PRO ON':'\u2666 PRO OFF'),
+          React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:'#22c55e15',color:'#22c55e',letterSpacing:'.5px'}},'BETA'),
+          // BETA: PRO toggle hidden — all features unlocked
           React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:theme==='light'?'#3b82f612':'#f59e0b12',color:theme==='light'?'#3b82f6':'#f59e0b',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>setTheme(theme==='dark'?'light':'dark')},theme==='dark'?'\u2600 Light':'\u263E Dark'),
           // Language selector — matching pill
           React.createElement('span',{style:{position:'relative',display:'inline-flex',alignItems:'center'}},
