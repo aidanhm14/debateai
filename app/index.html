@@ -91,7 +91,7 @@ body{font-family:'Lexend','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-
   background:transparent;border:1.5px solid transparent;color:#b0c0d4;
   padding:8px 16px;border-radius:8px;font-size:.76rem;font-weight:600;
   letter-spacing:.8px;text-transform:uppercase;cursor:pointer;transition:.25s;
-  font-family:inherit;white-space:nowrap;
+  font-family:inherit;white-space:nowrap;text-decoration:none;
 }
 .nav-btn:hover{color:#e4e8f0;background:#ffffff08}
 .nav-btn.active,.nav-btn.active-orange{color:#ef4444;border-color:#ef444430;background:linear-gradient(135deg,#ef444412,#f59e0b08);box-shadow:0 2px 12px #ef444415}
@@ -820,7 +820,6 @@ html{background:#0a0e18}body.light-theme,body.light-theme~*{background:#f0f4fc!i
 .light-theme .panel{background:#fff!important;border-color:#e7d6d0!important;box-shadow:0 2px 12px rgba(220,38,38,0.04)!important}
 .light-theme .panel-inner{background:#faf8f6!important;border-color:#e7d6d0!important}
 .light-theme h2,.light-theme h3{color:#1a1a2e!important}
-.light-theme h2{border-bottom:2px solid #ef444420!important;padding-bottom:4px!important;display:inline-block!important}
 .light-theme p,.light-theme span,.light-theme label,.light-theme li{color:#3f3f46!important}
 .light-theme textarea,.light-theme input[type=text],.light-theme input[type=password],.light-theme input:not([type]),.light-theme select{background:#fdfcfb!important;color:#1a1a2e!important;border-color:#d4c5be!important}
 .light-theme textarea:focus,.light-theme input:focus,.light-theme select:focus{border-color:#ef4444!important;box-shadow:0 0 0 2px #ef444415!important}
@@ -5514,9 +5513,12 @@ function generateCasualReply(msg, history) {
 
 function Philosophy() {
   const { t } = React.useContext(I18nContext);
-  const [philosopher, setPhilosopher] = useState('');
+  const [selectedPhils, setSelectedPhils] = useState([]);
   const [concept, setConcept] = useState('');
+  const [instructions, setInstructions] = useState('');
   const [output, setOutput] = useState(null);
+  const togglePhil = (name) => setSelectedPhils(prev => prev.includes(name) ? prev.filter(n=>n!==name) : prev.length < 3 ? [...prev, name] : prev);
+  const philosopher = selectedPhils.join(' vs ');
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [pProgress, setPProgress] = useState({phase:'idle',percent:0});
@@ -5584,7 +5586,8 @@ For each philosopher, provide a comprehensive treatment:
 Write with genuine intellectual depth. You're talking to smart people who want to actually understand the philosophy, not just parrot it. Use concrete examples, real-world applications, and debate-specific context throughout. Be conversational but rigorous.
 
 Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points. Write in flowing prose with clear section breaks.`;
-          userPrompt = `Philosopher/School: ${philosopher}${concept ? `\nSpecific focus: ${concept}` : ''}\n\nGive me the full deep dive. I want to actually understand this thinker, not just know their name.`;
+          userPrompt = `Philosopher/School: ${philosopher}${concept ? `\nSpecific focus: ${concept}` : ''}${instructions ? `\nInstructions: ${instructions}` : ''}\n\nGive me the full deep dive. I want to actually understand ${selectedPhils.length > 1 ? 'these thinkers' : 'this thinker'}, not just know their name${selectedPhils.length > 1 ? 's. Show how they relate to each other.' : '.'}`;
+
 
         } else if (exploreMode === 'apply-motion') {
           sysPrompt = `You are an APDA debate coach showing how to apply a philosophical framework to a specific debate motion. Your job is to show the complete pathway from abstract philosophy to concrete round strategy.
@@ -5604,7 +5607,7 @@ For the given philosopher and motion, provide:
    How does this framework tell the judge to compare impacts? What matters more: scope, probability, reversibility, or something else? Give specific weighing language.
 
 Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points.`;
-          userPrompt = `Philosopher: ${philosopher}\nMotion: ${concept || 'THBT the benefits of AI outweigh the risks'}\n\nShow me exactly how to run ${philosopher} on this motion, with actual speech language I can use.`;
+          userPrompt = `Philosopher: ${philosopher}\nMotion: ${concept || 'THBT the benefits of AI outweigh the risks'}${instructions ? `\nInstructions: ${instructions}` : ''}\n\nShow me exactly how to run ${philosopher} on this motion, with actual speech language I can use.`;
 
         } else if (exploreMode === 'head-to-head') {
           sysPrompt = `You are an APDA debate philosophy expert. Compare two philosophical frameworks head-to-head on the same question. Show where they agree, where they diverge, and what happens when they clash in a debate round.
@@ -5617,9 +5620,9 @@ Provide:
 5. THE SYNTHESIS — Can you combine insights from both? When is hybridization possible vs. when must you commit?
 
 Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points.`;
-          const parts = concept ? concept.split(/\s+vs\.?\s+|\s+and\s+|\s+versus\s+/i) : [];
-          const second = parts.length > 1 ? parts[1].trim() : 'Mill';
-          userPrompt = `Philosopher 1: ${philosopher}\nPhilosopher 2: ${second}\n${concept ? `Context: ${concept}` : ''}\n\nCompare these two head-to-head. Show me the real philosophical clash, not a surface-level comparison.`;
+          const phil1 = selectedPhils[0] || 'Kant';
+          const phil2 = selectedPhils[1] || (concept ? concept.split(/\s+vs\.?\s+|\s+and\s+/i)[0]?.trim() : 'Mill');
+          userPrompt = `Philosopher 1: ${phil1}\nPhilosopher 2: ${phil2}\n${concept ? `Question/Context: ${concept}` : ''}${instructions ? `\nInstructions: ${instructions}` : ''}\n\nCompare these two head-to-head. Show me the real philosophical clash, not a surface-level comparison.`;
 
         } else if (exploreMode === 'build-framework') {
           sysPrompt = `You are an APDA case writer specializing in philosophical framing. Your job is to produce ready-to-use framework language that a debater can drop directly into a PM constructive.
@@ -5645,7 +5648,7 @@ Generate:
 Write everything as actual speech language, not meta-commentary about speech language. The debater should be able to copy this and practice reading it.
 
 Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points.`;
-          userPrompt = `Philosopher: ${philosopher}${concept ? `\nApplied to: ${concept}` : ''}\n\nBuild me a complete, ready-to-use framework I can deploy in a PM speech.`;
+          userPrompt = `Philosopher: ${philosopher}${concept ? `\nApplied to: ${concept}` : ''}${instructions ? `\nInstructions: ${instructions}` : ''}\n\nBuild me a complete, ready-to-use framework I can deploy in a PM speech.`;
         }
 
       setStreaming(true);
@@ -5680,38 +5683,49 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
     ),
 
     React.createElement('div',{style:{marginTop:20}},
-      React.createElement('label',{className:'field-label'},'Philosopher or School'),
+      React.createElement('label',{className:'field-label'},'Philosopher(s) — select up to ' + (exploreMode==='head-to-head'?'2':'3')),
+      selectedPhils.length > 0 && React.createElement('span',{style:{fontSize:'.75rem',color:'#94a3b8',marginLeft:8}},selectedPhils.join(' + ')),
     ),
     React.createElement('div',{className:'chips'},
       philosophers.map(p =>
         React.createElement('button',{
           key:p.name,
-          className:'chip chip-size-'+p.size+(philosopher===p.name?' active':''),
-          onClick:()=>setPhilosopher(p.name)
+          className:'chip chip-size-'+p.size+(selectedPhils.includes(p.name)?' active':''),
+          onClick:()=>togglePhil(p.name)
         },p.name)
       )
     ),
     React.createElement('div',{style:{marginTop:16}},
       React.createElement('label',{className:'field-label green'},
         exploreMode === 'apply-motion' ? 'Motion to Apply To' :
-        exploreMode === 'head-to-head' ? 'Second Philosopher (e.g. "Kant vs Mill")' :
+        exploreMode === 'head-to-head' ? 'Question to Compare On' :
         exploreMode === 'build-framework' ? 'Motion or Topic (optional)' :
         'Concept or Question (optional)'
       ),
       React.createElement('input',{
         type:'text',
         placeholder: exploreMode === 'apply-motion' ? 'e.g., "THBT we should abolish the carceral system"' :
-          exploreMode === 'head-to-head' ? 'e.g., "Rawls vs Nozick" or type second name' :
+          exploreMode === 'head-to-head' ? 'e.g., "Is individual freedom more important than collective welfare?"' :
           exploreMode === 'build-framework' ? 'e.g., "THW ban private education" or leave blank for general' :
           'e.g., "categorical imperative", "veil of ignorance", "dialectical materialism"',
         value:concept, onChange:e=>setConcept(e.target.value)
+      })
+    ),
+    // Instructions for analysis
+    React.createElement('div',{style:{marginTop:16}},
+      React.createElement('label',{className:'field-label'},'Instructions for Analysis (optional)'),
+      React.createElement('textarea',{
+        placeholder:'E.g., "Focus on how this applies to developing nations" or "Compare their views on individual rights vs collective good" or "Explain as if I have no philosophy background"',
+        value:instructions, onChange:e=>setInstructions(e.target.value),
+        rows:2,
+        style:{fontSize:'.9rem'}
       })
     ),
     React.createElement('div',{style:{marginTop:20}},
       React.createElement('button',{
         className:'btn btn-orange',
         onClick:explore,
-        disabled:loading || !philosopher
+        disabled:loading || selectedPhils.length === 0
       }, loading ? React.createElement('span',null,React.createElement('span',{className:'spinner'}),'Exploring...') :
         exploreMode === 'deep-dive' ? 'Deep Dive' :
         exploreMode === 'apply-motion' ? 'Apply Framework' :
