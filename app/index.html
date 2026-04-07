@@ -756,8 +756,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 }
 @media(max-width:640px){
   .panel{margin:16px 10px 30px;padding:20px 16px}
-  .panel.panel-expanded{padding:20px 16px}
-  .nav-btn{padding:10px 16px;font-size:.72rem;min-height:44px;flex-shrink:0}
+  .panel.panel-expanded{padding:16px 12px;max-width:100%;width:100%}
+  .nav-btn{padding:7px 14px;font-size:.72rem;min-height:36px;flex-shrink:0}
   .nav-divider{display:none}
   .logo{font-size:2.6rem;flex-wrap:wrap;justify-content:center;text-align:center}
   .header{padding:48px 16px 0;text-align:center}
@@ -773,8 +773,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
   .btn-row .btn{width:100%}
   .depth-selector{flex-direction:column}
   .depth-card{min-width:unset;padding:14px 16px}
-  textarea{min-height:150px}
-  .output{font-size:.92rem}
+  textarea{min-height:120px}
+  .output{font-size:.88rem}
   .revision-sidebar{font-size:.85rem;width:85vw}
   .cases-sidebar{width:85vw}
   .apda-body-inner{padding:16px}
@@ -785,6 +785,25 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
   .newbie-toc{grid-template-columns:1fr}
   select{min-height:44px;font-size:.92rem}
   .argmap-container{min-height:400px}
+  /* Mobile: Debate Bot progress dots */
+  .mobile-progress-dots{gap:4px!important}
+  .mobile-progress-dots>div{width:30px!important;height:30px!important;border-radius:8px!important;font-size:.58rem!important}
+  /* Mobile: exchange history taller */
+  .mobile-exchanges{max-height:55vh!important}
+  /* Mobile: grid columns stack */
+  .mobile-grid-stack{grid-template-columns:1fr!important}
+  /* Mobile: summary bar wraps */
+  .mobile-summary-bar{flex-wrap:wrap;gap:8px!important}
+  .mobile-summary-bar .mobile-hide{display:none!important}
+  /* Mobile: practice textarea shorter */
+  .practice-textarea{min-height:140px!important}
+  /* Mobile: touch targets */
+  .btn-sm{min-height:44px;min-width:44px}
+  /* Mobile: timer */
+  .timer-display{font-size:4rem!important}
+  .timer-controls .btn{min-width:80px}
+  /* Mobile: prep room sections stack */
+  .prep-room-grid{grid-template-columns:1fr!important}
 }
 @media(max-width:380px){
   .logo{font-size:2rem}
@@ -980,9 +999,35 @@ if ('serviceWorker' in navigator) {
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
+// ── Mobile Detection Hook ──────────────────────
+function useIsMobile(bp = 640) {
+  const [m, setM] = useState(window.innerWidth <= bp);
+  useEffect(() => {
+    const h = () => setM(window.innerWidth <= bp);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, [bp]);
+  return m;
+}
+
 let __byokKey = null;
 let __getAuthToken = null;
 let __refreshTeam = null;
+
+// ── Recursive Learning System ──────────────────
+// Logs anonymized insights to make the system smarter over time
+async function logInsight(type, data) {
+  try {
+    if (!__getAuthToken) return;
+    const token = await __getAuthToken();
+    if (!token) return;
+    fetch('/api/insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ type, data }),
+    }).catch(() => {});
+  } catch {}
+}
 
 // ── Pro Feature System ──────────────────────────
 // Dev pro mode — toggle via UI button, stored in localStorage
@@ -2094,6 +2139,48 @@ function createStreamThrottle(onChunk, outputRef) {
   };
 }
 
+// Contextual background media — fetches relevant images/quotes alongside AI output
+function ContextualMedia({ topic, type }) {
+  const [media, setMedia] = useState(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!topic) return;
+    // Fetch a relevant Wikipedia image for the topic
+    const wikiTitle = topic.replace(/ /g, '_');
+    fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(wikiTitle))
+      .then(r => r.json())
+      .then(data => {
+        if (data.originalimage && data.originalimage.source) {
+          setMedia({ image: data.originalimage.source, caption: data.description || topic, extract: data.extract_html || '' });
+        } else if (data.thumbnail && data.thumbnail.source) {
+          setMedia({ image: data.thumbnail.source, caption: data.description || topic, extract: data.extract_html || '' });
+        }
+      })
+      .catch(() => {});
+  }, [topic]);
+
+  if (!media) return null;
+
+  return React.createElement('div', {
+    ref: containerRef,
+    style: {
+      margin: '16px 0', padding: 16, background: 'linear-gradient(135deg, #ffffff04, #ffffff08)',
+      border: '1px solid #ffffff0a', borderRadius: 12, display: 'flex', gap: 16, alignItems: 'flex-start',
+    }
+  },
+    React.createElement('img', {
+      src: media.image, alt: topic,
+      style: { width: 120, height: 80, objectFit: 'cover', borderRadius: 8, flexShrink: 0, opacity: 0.85 },
+      onError: (e) => { e.target.style.display = 'none'; }
+    }),
+    React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+      React.createElement('div', { style: { fontSize: '.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 } }, type === 'map' ? 'Geographic Context' : 'Background'),
+      React.createElement('div', { style: { fontSize: '.82rem', color: '#cbd5e1', lineHeight: 1.5 } }, media.caption),
+    ),
+  );
+}
+
 // Google Drive integration
 const GDRIVE_CLIENT_ID = '157975635848-d5lq4m9d4l4kipl90nrrj95tc6f1vvk6.apps.googleusercontent.com';
 const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
@@ -2264,65 +2351,139 @@ async function loadCasesFromFirestore(uid) {
   return null;
 }
 
-function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExport, activeId }) {
+const CASE_TAG_SUGGESTIONS = ['tournament','practice','gov','opp','politics','philosophy','economics','social','international','strong','needs-work'];
+
+function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExport, activeId, onUpdateCase }) {
   const { t } = React.useContext(I18nContext);
   const [search, setSearch] = useState('');
-  const filtered = search.trim()
-    ? cases.filter(c => c.motion.toLowerCase().includes(search.toLowerCase()) || (c.side||'').toLowerCase().includes(search.toLowerCase()))
-    : cases;
-  return React.createElement(React.Fragment, null,
-    React.createElement('div', {
-      className: 'cases-overlay' + (isOpen ? ' open' : ''),
-      onClick: onClose,
-    }),
-    React.createElement('div', { className: 'cases-sidebar' + (isOpen ? ' open' : '') },
-      React.createElement('div', { className: 'cases-sidebar-header' },
-        React.createElement('h3', null, t('savedCases.title','Saved')),
-        React.createElement('button', { className: 'cases-sidebar-close', onClick: onClose }, '\u2715')
+  const [activeTag, setActiveTag] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [editingTags, setEditingTags] = useState(null); // caseId being edited
+  const [tagInput, setTagInput] = useState('');
+  const [editingNotes, setEditingNotes] = useState(null);
+  const [notesInput, setNotesInput] = useState('');
+
+  // Collect all unique tags from cases
+  const allTags = useMemo(() => {
+    const tagSet = new Set();
+    cases.forEach(c => (c.tags || []).forEach(tag => tagSet.add(tag)));
+    return Array.from(tagSet).sort();
+  }, [cases]);
+
+  const filtered = useMemo(() => {
+    let result = cases;
+    if (activeTag) result = result.filter(c => (c.tags || []).includes(activeTag));
+    if (search.trim()) result = result.filter(c => c.motion.toLowerCase().includes(search.toLowerCase()) || (c.side||'').toLowerCase().includes(search.toLowerCase()) || (c.tags||[]).some(t => t.toLowerCase().includes(search.toLowerCase())));
+    return result;
+  }, [cases, search, activeTag]);
+
+  const addTag = (caseId, tag) => {
+    if (!tag.trim() || !onUpdateCase) return;
+    const c = cases.find(x => x.id === caseId);
+    if (!c) return;
+    const tags = [...new Set([...(c.tags || []), tag.trim().toLowerCase()])];
+    onUpdateCase(caseId, { tags });
+    setTagInput('');
+  };
+  const removeTag = (caseId, tag) => {
+    if (!onUpdateCase) return;
+    const c = cases.find(x => x.id === caseId);
+    if (!c) return;
+    onUpdateCase(caseId, { tags: (c.tags || []).filter(t => t !== tag) });
+  };
+  const saveNotes = (caseId) => {
+    if (!onUpdateCase) return;
+    onUpdateCase(caseId, { notes: notesInput });
+    setEditingNotes(null);
+  };
+
+  const el = React.createElement;
+  return el(React.Fragment, null,
+    el('div', { className: 'cases-overlay' + (isOpen ? ' open' : ''), onClick: onClose }),
+    el('div', { className: 'cases-sidebar' + (isOpen ? ' open' : '') },
+      el('div', { className: 'cases-sidebar-header' },
+        el('h3', null, t('savedCases.title','Saved') + ' (' + cases.length + ')'),
+        el('button', { className: 'cases-sidebar-close', onClick: onClose }, '\u2715')
       ),
-      React.createElement('div', { className: 'cases-search' },
-        React.createElement('input', {
-          type: 'text', placeholder: t('savedCases.searchPlaceholder','Search cases...'),
-          value: search, onChange: e => setSearch(e.target.value),
-        })
+      el('div', { className: 'cases-search' },
+        el('input', { type:'text', placeholder:t('savedCases.searchPlaceholder','Search cases...'), value:search, onChange:e=>setSearch(e.target.value) })
       ),
-      React.createElement('div', { className: 'cases-list' },
+      // Tag filter row
+      allTags.length > 0 && el('div', {style:{padding:'0 14px 10px',display:'flex',gap:4,flexWrap:'wrap'}},
+        el('button', {onClick:()=>setActiveTag(null), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeTag===null?'#ef4444':'#ffffff15'),background:activeTag===null?'#ef444420':'transparent',color:activeTag===null?'#f87171':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, 'All'),
+        allTags.map(tag => el('button', {key:tag, onClick:()=>setActiveTag(activeTag===tag?null:tag), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeTag===tag?'#3b82f6':'#ffffff15'),background:activeTag===tag?'#3b82f620':'transparent',color:activeTag===tag?'#60a5fa':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, tag)),
+      ),
+      el('div', { className: 'cases-list' },
         filtered.length === 0
-          ? React.createElement('div', { className: 'cases-empty' },
-              search ? t('savedCases.noMatch','No cases match your search.') : t('savedCases.noCases','No saved cases yet.'),
-              !search && React.createElement('br'),
-              !search && React.createElement('br'),
-              !search && t('savedCases.saveTip','Generate a case and click "Save Case" to store it here.')
+          ? el('div', { className: 'cases-empty' },
+              search || activeTag ? t('savedCases.noMatch','No cases match your search.') : t('savedCases.noCases','No saved cases yet.'),
+              !search && !activeTag && el('br'), !search && !activeTag && el('br'),
+              !search && !activeTag && t('savedCases.saveTip','Generate a case and click "Save Case" to store it here.')
             )
-          : filtered.map(c =>
-              React.createElement('div', {
-                key: c.id,
-                className: 'case-item' + (c.id === activeId ? ' active' : ''),
-                onClick: () => { onSelect(c); onClose(); },
-              },
-                React.createElement('div', { className: 'case-item-title' },
-                  React.createElement('span',{style:{color:'#ef4444',fontWeight:700,fontSize:'.75rem',marginRight:4}},
-                    c.mode === 'philosophy' ? 'Phil:' : c.mode === 'tightblock' ? 'Block:' : c.side === 'Philosophy' ? 'Phil:' : 'Case:'
-                  ),
-                  ' ' + c.motion
+          : filtered.map(c => el('div', { key:c.id, className:'case-item'+(c.id===activeId?' active':'') },
+              el('div', {onClick:()=>setExpandedId(expandedId===c.id?null:c.id), style:{cursor:'pointer'}},
+                el('div', { className:'case-item-title' },
+                  el('span',{style:{color:'#ef4444',fontWeight:700,fontSize:'.75rem',marginRight:4}},
+                    c.mode==='philosophy'?'Phil:':c.mode==='tightblock'?'Block:':c.side==='Philosophy'?'Phil:':'Case:'),
+                  ' '+c.motion
                 ),
-                React.createElement('div', { className: 'case-item-meta' },
-                  React.createElement('span', null, c.side + ' \u00B7 ' + new Date(c.savedAt).toLocaleDateString()),
-                  React.createElement('div', {style:{display:'flex',gap:6,alignItems:'center'}},
-                    React.createElement('span', { className: 'case-item-depth' }, c.depth),
-                    onExport && React.createElement('button', {
-                      className: 'btn-export', title: 'Export',
-                      onClick: (e) => { e.stopPropagation(); onExport(c); },
-                    }, '\u2B07'),
+                el('div', { className:'case-item-meta' },
+                  el('span', null, (c.side||'') + ' \u00B7 ' + (c.format||'') + ' \u00B7 ' + new Date(c.savedAt).toLocaleDateString()),
+                  el('div', {style:{display:'flex',gap:6,alignItems:'center'}},
+                    el('span', { className:'case-item-depth' }, c.depth),
+                    c.notes && el('span', {style:{fontSize:'.65rem',color:'#f59e0b'}}, '\uD83D\uDCDD'),
                   )
                 ),
-                React.createElement('button', {
-                  className: 'case-item-delete',
-                  onClick: (e) => { e.stopPropagation(); onDelete(c.id); },
-                  title: 'Delete case',
-                }, '\uD83D\uDDD1')
-              )
-            )
+                // Tag chips
+                (c.tags||[]).length > 0 && el('div', {style:{display:'flex',gap:3,flexWrap:'wrap',marginTop:4}},
+                  (c.tags||[]).map(tag => el('span', {key:tag, style:{padding:'1px 6px',borderRadius:8,fontSize:'.6rem',fontWeight:600,background:'#3b82f615',color:'#60a5fa',border:'1px solid #3b82f625'}}, tag))
+                ),
+              ),
+              // Expanded detail panel
+              expandedId === c.id && el('div', {style:{padding:'12px 0 4px',borderTop:'1px solid #ffffff08',marginTop:8}, onClick:e=>e.stopPropagation()},
+                // Tag editor
+                el('div', {style:{marginBottom:8}},
+                  el('div', {style:{fontSize:'.7rem',color:'#94a3b8',fontWeight:600,marginBottom:4}}, 'Tags'),
+                  el('div', {style:{display:'flex',gap:3,flexWrap:'wrap',marginBottom:4}},
+                    (c.tags||[]).map(tag => el('span', {key:tag, style:{padding:'2px 6px',borderRadius:8,fontSize:'.65rem',fontWeight:600,background:'#3b82f615',color:'#60a5fa',border:'1px solid #3b82f625',cursor:'pointer',display:'flex',alignItems:'center',gap:3}},
+                      tag,
+                      el('span', {onClick:()=>removeTag(c.id,tag), style:{color:'#ef4444',fontWeight:800,fontSize:'.7rem',cursor:'pointer'}}, '\u00D7'),
+                    )),
+                    editingTags === c.id
+                      ? el('div', {style:{display:'flex',gap:3}},
+                          el('input', {value:tagInput, onChange:e=>setTagInput(e.target.value), onKeyDown:e=>{if(e.key==='Enter'&&tagInput.trim()){addTag(c.id,tagInput);e.preventDefault();}}, placeholder:'Add tag...', style:{width:80,padding:'2px 6px',fontSize:'.65rem',background:'#0c1422',border:'1px solid #ffffff15',borderRadius:6,color:'#e4e8f0',outline:'none'}, autoFocus:true}),
+                          el('button', {onClick:()=>{if(tagInput.trim())addTag(c.id,tagInput);setEditingTags(null);}, style:{background:'none',border:'none',color:'#4ade80',cursor:'pointer',fontSize:'.7rem',fontWeight:700}}, '\u2713'),
+                        )
+                      : el('button', {onClick:()=>{setEditingTags(c.id);setTagInput('');}, style:{padding:'2px 6px',borderRadius:8,fontSize:'.6rem',background:'#ffffff08',border:'1px dashed #ffffff20',color:'#566478',cursor:'pointer'}}, '+ tag'),
+                  ),
+                  // Tag suggestions
+                  editingTags === c.id && el('div', {style:{display:'flex',gap:3,flexWrap:'wrap',marginTop:2}},
+                    CASE_TAG_SUGGESTIONS.filter(s => !(c.tags||[]).includes(s)).slice(0,6).map(s => el('button', {key:s, onClick:()=>addTag(c.id,s), style:{padding:'1px 5px',borderRadius:6,fontSize:'.58rem',background:'#ffffff06',border:'1px solid #ffffff10',color:'#64748b',cursor:'pointer',fontFamily:'inherit'}}, s)),
+                  ),
+                ),
+                // Notes
+                el('div', {style:{marginBottom:8}},
+                  el('div', {style:{fontSize:'.7rem',color:'#94a3b8',fontWeight:600,marginBottom:4}}, 'Notes'),
+                  editingNotes === c.id
+                    ? el('div', null,
+                        el('textarea', {value:notesInput, onChange:e=>setNotesInput(e.target.value), rows:3, style:{fontSize:'.78rem',minHeight:'auto',marginBottom:4}}),
+                        el('div', {style:{display:'flex',gap:6}},
+                          el('button', {onClick:()=>saveNotes(c.id), style:{fontSize:'.68rem',padding:'2px 8px',background:'#22c55e20',border:'1px solid #22c55e40',borderRadius:6,color:'#4ade80',cursor:'pointer',fontFamily:'inherit',fontWeight:600}}, 'Save'),
+                          el('button', {onClick:()=>setEditingNotes(null), style:{fontSize:'.68rem',padding:'2px 8px',background:'none',border:'1px solid #ffffff15',borderRadius:6,color:'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, 'Cancel'),
+                        ),
+                      )
+                    : el('div', {onClick:()=>{setEditingNotes(c.id);setNotesInput(c.notes||'');}, style:{padding:'6px 10px',background:'#0c1422',border:'1px solid #ffffff0a',borderRadius:8,fontSize:'.78rem',color:c.notes?'#cbd5e1':'#566478',cursor:'pointer',minHeight:32}},
+                        c.notes || 'Click to add notes...'
+                      ),
+                ),
+                // Actions
+                el('div', {style:{display:'flex',gap:6,flexWrap:'wrap'}},
+                  el('button', {onClick:()=>{onSelect(c);onClose();}, style:{fontSize:'.7rem',padding:'4px 10px',background:'#3b82f620',border:'1px solid #3b82f640',borderRadius:6,color:'#60a5fa',cursor:'pointer',fontFamily:'inherit',fontWeight:600}}, 'Load in Case Gen'),
+                  onExport && el('button', {onClick:()=>onExport(c), style:{fontSize:'.7rem',padding:'4px 10px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:6,color:'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, 'Export'),
+                  el('button', {onClick:()=>onDelete(c.id), style:{fontSize:'.7rem',padding:'4px 10px',background:'#ef444410',border:'1px solid #ef444430',borderRadius:6,color:'#f87171',cursor:'pointer',fontFamily:'inherit'}}, 'Delete'),
+                ),
+              ),
+            ))
       )
     )
   );
@@ -3326,7 +3487,14 @@ WHIP SPEECH ARCHITECTURE: Whips must crystallize, not introduce new arguments. T
 
 BP ORATION PATTERNS: BP speeches are more conversational and confrontational than APDA. Speakers interrupt each other with POIs, respond in real-time, and use direct address. Use phrases like: "They say X. I say that's wrong for three reasons." and "The problem for [team name] is..." and "I want to note how little analysis is done to explain..." and "This is deeply unpersuasive for two reasons." BP rewards confidence, clarity, and the ability to structure complex analysis into numbered, signposted points.
 
-TRIP WIRE MECHANISM (common BP warrant pattern): In intervention debates, the "trip wire" is a warrant about deterrence through presence. "You don't want to be the person who killed a UN peacekeeper, because all the hellfire of the country that sent that peacekeeper will rain down upon you." This pattern applies broadly: any actor whose harm to a protected entity triggers disproportionate consequences creates deterrence. Use this mechanism in cases about protection, enforcement, or international relations.`,
+TRIP WIRE MECHANISM (common BP warrant pattern): In intervention debates, the "trip wire" is a warrant about deterrence through presence. "You don't want to be the person who killed a UN peacekeeper, because all the hellfire of the country that sent that peacekeeper will rain down upon you." This pattern applies broadly: any actor whose harm to a protected entity triggers disproportionate consequences creates deterrence. Use this mechanism in cases about protection, enforcement, or international relations.
+
+KEY BP STRATEGIC CONCEPTS (from competitive BP coaching):
+- BURDENS OF PROOF: PM must clearly state what Gov needs to prove. If the CS doesn't tell Opp what to defend, Opp can argue about scope of their burden. Good PMs narrow the burden: "We don't need to prove every instance is good, just that on balance this world is better."
+- BEING COMPARATIVE: The single most important BP skill. Don't just say your side is good — say WHY it's better than the other side. "Even if X has costs, these costs are lower than Y because..." Everything must be relative, not absolute.
+- FRAMING MATTERS MORE IN BP: Because 4 teams compete, the team that frames the debate (defines what the key question is) controls who wins. The PM's framing in the first minute often determines the entire round.
+- SPEC KNOWLEDGE MOTIONS: When you don't know the topic, focus on first principles (who is affected, what are their interests, what mechanism would change things). You don't need to know every detail to construct a principled argument about why something matters.
+- MATTER PREP: The best BP debaters have a "matter file" of recurring argument patterns organized by topic area (economics, IR, social justice, etc.). Build arguments around reusable mechanisms: collective action problems, information asymmetries, regulatory capture, moral hazard, perverse incentives, tragedy of the commons.`,
 
     WSDC: `
 
@@ -3675,7 +3843,15 @@ Be brutal. Be specific. Name the exact warrants you'd attack.`;
     let cancelled = false;
     const checkTightness = async () => {
       try {
-        const tSys = `You are an APDA debate fairness evaluator. You have judged hundreds of rounds. Your job is to evaluate whether a case gives Government an unfair advantage (i.e. is "tight" in APDA terms). A tight case is one where Opposition genuinely cannot win no matter how good they are because the case is structurally rigged.
+        const tSys = `You are an APDA debate fairness evaluator. You have judged hundreds of rounds. Your job is to evaluate whether a case gives Government an unfair advantage (i.e. is "tight" in APDA terms).
+
+APDA TIGHTNESS STANDARDS:
+- A "tight" case is one that is extremely difficult to oppose successfully and therefore cannot be run on APDA. Classic examples: "jurors should be allowed to take notes" (ostensible reasons exist but can't persuade a judge).
+- Some cases are "APDA-tight" because most college students find the proposition obviously correct, even if controversial in larger society.
+- A "snug" case is very difficult but not extremely difficult to oppose. Example: "Repeal the natural born citizen requirement for President." Snug cases are technically legal but judges universally dislike them.
+- The standard most judges use is "winnable-weighable": Can Opp both construct a viable position AND weigh it competitively against Gov?
+- Tight calls in APDA work under one of two policies: (1) tightness is the only voting issue (Opp calls tight, both sides argue tightness), or (2) Opp makes a tight call alongside their substantive case.
+- Opp does NOT owe Gov a warning that they will tight-call. Do not penalize Opp for not warning Gov.
 
 Evaluate the case and motion below. Respond with ONLY valid JSON, no other text:
 {"level": "fair" | "a bit tight" | "very tight" | "likely tight", "explanation": "1-2 sentence explanation of why"}
@@ -3803,7 +3979,7 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
       ),
 
       // Format + Side row
-      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:20}},
+      React.createElement('div',{className:'mobile-grid-stack',style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:20}},
         React.createElement('div',null,
           React.createElement('label',{className:'field-label green'},t('caseGen.side','Side')),
           React.createElement('select',{value:side,onChange:e=>setSide(e.target.value)},
@@ -4733,7 +4909,10 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
       ),
 
       // Output
-      motionOutput && el('div',{className:'output',style:{marginTop:20,textAlign:'left'},dangerouslySetInnerHTML:{__html:cleanOutput(motionOutput, true)}}),
+      motionOutput && el('div',{style:{marginTop:20}},
+        genMode === 'current' && newsContext && el(ContextualMedia, { topic: motionCategory !== 'any' ? motionCategory : 'current events debate', type: 'context' }),
+        el('div',{className:'output',style:{textAlign:'left'},dangerouslySetInnerHTML:{__html:cleanOutput(motionOutput, true)}}),
+      ),
 
       // Action bar after generation
       motionOutput && !motionStreaming && !motionLoading && el('div',{
@@ -4757,6 +4936,11 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
           style:{minWidth:120},
         }, t('common.copy','Copy')),
         el(SaveToDocsButton,{text:motionOutput,filename:'DebateOS Motion'}),
+        // Quick feedback for recursive learning
+        el('div',{style:{display:'flex',gap:4,marginLeft:'auto'}},
+          el('button',{onClick:()=>logInsight('motion_feedback',{motion:motionOutput.substring(0,200),category:motionCategory,mode:genMode,rating:'good'}),style:{background:'none',border:'1px solid #22c55e30',borderRadius:8,padding:'4px 10px',color:'#4ade80',cursor:'pointer',fontSize:'.78rem',fontFamily:'inherit'}},'\uD83D\uDC4D'),
+          el('button',{onClick:()=>logInsight('motion_feedback',{motion:motionOutput.substring(0,200),category:motionCategory,mode:genMode,rating:'bad'}),style:{background:'none',border:'1px solid #ef444430',borderRadius:8,padding:'4px 10px',color:'#f87171',cursor:'pointer',fontSize:'.78rem',fontFamily:'inherit'}},'\uD83D\uDC4E'),
+        ),
       ),
     ),
   );
@@ -5679,14 +5863,16 @@ RULES:
       maxHeight:400,overflowY:'auto',marginBottom:16,
       display:'flex',flexDirection:'column',gap:12
     }},
-      messages.map((m,i) =>
-        React.createElement('div',{key:i,className:m.role==='user'?'rc-user':'rc-ai',style:{
+      messages.map((m,i) => {
+        const isStreamingMsg = loading && m.role==='assistant' && i===messages.length-1;
+        return React.createElement('div',{key:i,className:(m.role==='user'?'rc-user':'rc-ai') + (isStreamingMsg?' output streaming-active':''),style:{
           alignSelf: m.role==='user' ? 'flex-end' : 'flex-start',
           background: m.role==='user' ? '#ef444422' : 'var(--card-bg,#ffffff08)',
           border: '1px solid ' + (m.role==='user' ? '#ef444433' : 'var(--card-border,#ffffff12)'),
           borderRadius: 12, padding:'12px 16px',
           maxWidth:'80%', fontSize:'.92rem', lineHeight:1.45, whiteSpace:'pre-line'
-        }, dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}})
+        }, dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}});
+      }
       ),
       loading && React.createElement('div',{style:{alignSelf:'flex-start',color:'#888',fontSize:'.85rem'}},
         React.createElement('span',{className:'spinner'}),'Thinking...'
@@ -5874,7 +6060,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
 
       setStreaming(true);
       const throttle = createStreamThrottle((text) => setOutput(text), outputRef);
-      await callClaude(sysPrompt + '\n\nIMPORTANT: Keep this CONCISE. Aim for 400-600 words. Hit the key points clearly and briefly. The user can request more depth later.', userPrompt, (text) => throttle.update(text), { thinkBudget: 6000, maxTokens: 3000, expectedWords: 500, onProgress: (p) => setPProgress(p), feature: 'philosophy' });
+      await callClaude(sysPrompt + '\n\nIMPORTANT: Give a focused OVERVIEW first. Aim for 500-800 words. Cover the essential ideas, key debate applications, and one strong example. Keep it punchy and practical — the user can request a much deeper treatment after reading this summary.', userPrompt, (text) => throttle.update(text), { thinkBudget: 6000, maxTokens: 4000, expectedWords: 600, onProgress: (p) => setPProgress(p), feature: 'philosophy' });
       throttle.finish();
     } catch(e) {
       setOutput('Error: ' + e.message);
@@ -5985,13 +6171,31 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
             try {
               let result = '';
               await callClaude(
-                'You compare two philosophers for a debate Venn diagram. Respond ONLY with valid JSON: {"shared":["point1","point2","point3"],"left":["unique to philosopher 1","point2","point3"],"right":["unique to philosopher 2","point2","point3"]}. Keep each point to 5-8 words max. Exactly 3 points per section.',
-                'Philosopher 1: '+(selectedPhils[0]||'Kant')+'. Philosopher 2: '+(selectedPhils[1]||'Mill')+'. Generate Venn diagram data.',
-                (t)=>{result=t;},{thinkBudget:2000,maxTokens:500}
+                `You are an expert comparative philosopher specializing in debate applications. Generate a deeply analytical Venn diagram comparing two philosophers. This should reveal NON-OBVIOUS connections and distinctions that would actually help a debater deploy these frameworks.
+
+Respond ONLY with valid JSON matching this exact schema:
+{
+  "shared": ["point1","point2","point3","point4"],
+  "left": ["unique1","unique2","unique3","unique4"],
+  "right": ["unique1","unique2","unique3","unique4"],
+  "clashPoint": "The single most important philosophical disagreement between them, in one sentence",
+  "govUse": "When to run left philosopher on Gov (one sentence)",
+  "oppUse": "When to run right philosopher on Opp (one sentence)",
+  "synergy": "How they can be combined in a single case (one sentence)"
+}
+
+RULES:
+- Each point should be 6-12 words, specific and substantive (not generic like "cares about justice")
+- Shared points should be SURPRISING — things debaters wouldn't expect these thinkers to agree on
+- Unique points should highlight what makes each thinker STRATEGICALLY distinct in a debate round
+- Focus on debate-relevant distinctions: how they evaluate harm, what counts as evidence, how they weigh competing interests
+- 4 points per section minimum`,
+                'Philosopher 1: '+(selectedPhils[0]||'Kant')+'\nPhilosopher 2: '+(selectedPhils[1]||'Mill')+'\n\nGenerate a debate-focused comparative Venn diagram. Make it genuinely insightful — the kind of analysis that would make a philosophy professor nod.',
+                (t)=>{result=t;},{thinkBudget:4000,maxTokens:1500}
               );
               const cleaned = result.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
               setVennData(JSON.parse(cleaned));
-            } catch(e){ setVennData({shared:['Error parsing'],left:['Try again'],right:['Try again']}); }
+            } catch(e){ setVennData({shared:['Error parsing — try again'],left:['Regenerate'],right:['Regenerate']}); }
             setVennLoading(false);
           }
         },'\u{1F504} Generate Venn Diagram'),
@@ -6011,6 +6215,11 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
           React.createElement('text',{x:215,y:54,fill:'#3b82f6',fontSize:11,fontWeight:700,textAnchor:'middle'},selectedPhils[1]||'P2'),
           React.createElement('text',{x:150,y:50,fill:'#fbbf24',fontSize:8,fontWeight:600,textAnchor:'middle'},'\u2229'),
         ),
+        // Clash point banner
+        vennData.clashPoint && React.createElement('div',{style:{padding:'12px 16px',background:'#a78bfa08',border:'1px solid #a78bfa30',borderRadius:10,marginBottom:14,textAlign:'center'}},
+          React.createElement('div',{style:{fontSize:'.68rem',fontWeight:700,color:'#a78bfa',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4}},'\u2694\uFE0F Core Clash'),
+          React.createElement('div',{style:{fontSize:'.88rem',color:'#e2e8f0',lineHeight:1.5,fontStyle:'italic'}},vennData.clashPoint),
+        ),
         // Three cards: Left | Shared | Right
         React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}},
           // Left unique
@@ -6028,6 +6237,21 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
             React.createElement('div',{style:{fontSize:'.72rem',fontWeight:700,color:'#3b82f6',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:8}},'Unique to '+(selectedPhils[1]||'P2')),
             (vennData.right||[]).map((p,i)=>React.createElement('div',{key:'r'+i,style:{fontSize:'.82rem',color:'#e2e8f0',marginBottom:6,paddingLeft:8,borderLeft:'2px solid #3b82f640',lineHeight:1.4}},p)),
           ),
+        ),
+        // Strategic insights row
+        (vennData.govUse || vennData.oppUse || vennData.synergy) && React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:12}},
+          vennData.govUse && React.createElement('div',{style:{padding:'10px 12px',background:'#22c55e08',border:'1px solid #22c55e25',borderRadius:8}},
+            React.createElement('div',{style:{fontSize:'.68rem',fontWeight:700,color:'#22c55e',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4}},'Gov Strategy'),
+            React.createElement('div',{style:{fontSize:'.8rem',color:'#cbd5e1',lineHeight:1.4}},vennData.govUse),
+          ),
+          vennData.oppUse && React.createElement('div',{style:{padding:'10px 12px',background:'#f59e0b08',border:'1px solid #f59e0b25',borderRadius:8}},
+            React.createElement('div',{style:{fontSize:'.68rem',fontWeight:700,color:'#f59e0b',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4}},'Opp Strategy'),
+            React.createElement('div',{style:{fontSize:'.8rem',color:'#cbd5e1',lineHeight:1.4}},vennData.oppUse),
+          ),
+        ),
+        vennData.synergy && React.createElement('div',{style:{padding:'10px 12px',background:'#06b6d408',border:'1px solid #06b6d425',borderRadius:8,marginTop:10}},
+          React.createElement('div',{style:{fontSize:'.68rem',fontWeight:700,color:'#06b6d4',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4}},'\u{1F91D} Synthesis'),
+          React.createElement('div',{style:{fontSize:'.8rem',color:'#cbd5e1',lineHeight:1.4}},vennData.synergy),
         ),
         React.createElement('button',{className:'btn btn-secondary',style:{marginTop:16,fontSize:'.78rem'},onClick:()=>setVennData(null)},'\u{1F504} Regenerate'),
       ),
@@ -6072,6 +6296,25 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
           className:'btn btn-secondary',
           onClick:() => { if (navigator.clipboard && output) navigator.clipboard.writeText(output); }
         }, '\uD83D\uDCCB Copy Text'),
+        React.createElement('button',{
+          className:'btn btn-purple',
+          disabled:loading||streaming,
+          onClick:async () => {
+            setLoading(true); setStreaming(true);
+            try {
+              const deepPrompt = 'You previously wrote a summary about ' + philosopher + '. Now produce the DEFINITIVE deep dive. This should be comprehensive enough that a debater could read only this and deploy the philosophy confidently in a round.\n\nEXPAND ON EVERY SECTION with:\n- More specific real-world examples and thought experiments\n- Concrete debate applications with actual speech language\n- The 3-4 strongest attacks on this framework with full philosophical pedigree\n- Pre-emption language for each attack\n- How this thinker relates to and clashes with other major philosophers\n- Common debater mistakes and misconceptions\n- Exact framing language a PM could use in a speech\n- Nuances and distinctions most debaters miss\n\nTarget 2000-3000 words. Be exhaustive. This is the resource they come back to.\n\nPrevious summary to expand:\n\n' + output;
+              const throttle = createStreamThrottle((text) => setOutput(text), outputRef);
+              await callClaude(
+                'You are producing the definitive philosophical deep dive for competitive debaters. This should be the most thorough, specific, and practically useful analysis they have ever read on this thinker. Every paragraph should contain either a concrete example, a piece of debate-ready language, or a specific strategic insight. No filler. No generic observations. Pure depth.',
+                deepPrompt + (instructions ? '\n\nAdditional instructions: ' + instructions : ''),
+                (text) => throttle.update(text),
+                { thinkBudget: 10000, maxTokens: 16000, expectedWords: 2500, onProgress: (p) => setPProgress(p), feature: 'philosophy' }
+              );
+              throttle.finish();
+            } catch(e) { setOutput(output + '\n\nError expanding: ' + e.message); }
+            setStreaming(false); setLoading(false);
+          }
+        }, '\uD83D\uDD2C Go Deeper'),
         React.createElement(SaveToDocsButton,{text:output,filename:'Philosophy ' + philosopher}),
       )
     )
@@ -6547,15 +6790,61 @@ function Judge() {
     setRoundEval('');
     setReProgress({phase:'thinking',percent:0});
     try {
-      const sysPrompt = `You are a senior APDA judge delivering a comprehensive Round Evaluation (RFD). You have observed all 6 speeches in this round. Provide:
+      const sysPrompt = `You are a senior APDA judge delivering a comprehensive Round Evaluation (RFD). You have observed all speeches in this round.
 
-1. DECISION: Who wins and why (Gov or Opp). Be decisive.
-2. KEY CLASH POINTS: Identify the 2-3 issues where the round was actually decided. For each, explain who won it and why.
-3. SPEECH-BY-SPEECH ASSESSMENT: Brief evaluation of each speech's strategic contribution. What did each speaker do well? What did they miss? How did their speech affect the round trajectory?
-4. SPEAKER POINTS: Suggest speaker point ranges (25-30 scale) for each speaker with brief justification.
-5. ADVICE: One key improvement for each speaker that would have changed the round.
+APDA SPEAKER SCALE (use this for speaker points):
+- 15-17: Exceptionally poor. Speaker does not fulfill their role.
+- 18-20: Very poor. Speaker barely fulfills their role.
+- 21-23: Fairly poor. Speaker partially fulfills role with many significant flaws.
+- 24-26: Below average. Speaker fulfills role but has some significant flaws (incomplete responses, assertive weighing).
+- 27-29: Average. Speaker fulfills role with some flaws (solid rebuttal but may miss a key argument, or lack comparative weighing).
+- 30-32: Above average. Speaker fulfills role with some minor flaws. Arguments frequently have strong explanations demanding strong responses.
+- 33-35: Excellent. Role fulfillment is complete with rare and minor flaws.
+- 36-38: Exceptional. Nearly flawless. Complete and decisive responses to very strong arguments.
 
-Be direct, specific, and reference actual content from the notes. Write like a real judge giving an RFD, not a textbook. Use markdown formatting for readability.`;
+SPEECH EVALUATION CRITERIA (assess each):
+1. WARRANT QUALITY: Are claims backed by specific reasoning that passes the "could this only be in THIS case?" test?
+2. IMPACT QUALITY: Are impacts weighed comparatively (magnitude, probability, timeframe)?
+3. WEIGHING QUALITY: Does the speaker do comparative analysis, not just assertion?
+4. REBUTTAL QUALITY: Does the speaker engage the strongest opposing arguments, not just the weakest?
+5. ROLE FULFILLMENT: Did the speech do what its position demands?
+   - PMC: Case statement, clear framework, 2-3 independent arguments with warrants, strong signposting
+   - LOC: Opposition philosophy (under 1 min), 2-3 independent off-case arguments, then move caseside for point-by-point responses. Better to have 2 strong off-case arguments and many smart caseside responses than 5 off-case repeated as responses
+   - MG: First 4 min on Opp arguments (aggressive, not purely defensive), back 4 on case. Brief overview OK but don't frontload everything there. No case shifts
+   - MO: Can restructure the flow. Last constructive, so focus on strongest material. Can add 1-2 new arguments woven into existing structure. Don't knife the LO
+   - LOR: 3 points of crystallization or return to LOC structure. No new arguments. Must address issues the other side claims to be winning
+   - PMR: Summarize, weigh, pull through drops. Only respond to new MO arguments. Don't repeat PMC
+
+DECISION TREE METHODOLOGY (use this to structure your thinking):
+1. What is THE question that needs to be answered in this round?
+2. What is each team's best case scenario? Which is better?
+3. What is each team's worst case scenario? Which is worse?
+4. How likely are each scenario to happen?
+5. For each argument: Does it tell me why one side is GOOD, why the other side is BAD, or why their side is BETTER? (Comparative arguments are the strongest.)
+6. Do I have to buy another argument first before this one is true? (Path dependencies)
+
+WEIGHING METRICS (evaluate which team weighs better):
+- Probability: How likely are these scenarios?
+- Time-Scale: How quickly do impacts materialize? Urgent > speculative future
+- Magnitude: How severe is the impact per person?
+- Scope: How many people affected?
+- Reversibility: Can the harm be undone?
+
+KEY JUDGING PRINCIPLES:
+- Offense vs Defense: Offense = reason to vote FOR a side. Defense = reason to vote AGAINST the other side. Impact turns = accepting the other side's framing but showing it favors YOUR side. Impact turns are the strongest form of argument.
+- Framing/Characterization: If a characterization is uncontested, it's assumed true for the round. If competing characterizations exist, evaluate which is more plausible.
+- Dropped arguments should NOT compose the vast majority of the ballot. A team should lose because a dropped argument was IMPORTANT, not because of the NUMBER of drops.
+- Judge intervention should be minimal. If neither team weighs, look for implicit weighing first (who cited scope, magnitude, etc.), then do comparative weighing yourself as last resort.
+- No low-point wins. The team that won, by definition, did more to win the round.
+
+Provide:
+1. DECISION: Who wins and why (Gov or Opp). Be decisive. Use the decision tree: what was THE question of the round?
+2. KEY CLASH POINTS: 2-3 issues where the round was decided. For each: who won it, what was the comparative weighing, and were there path dependencies?
+3. SPEECH-BY-SPEECH ASSESSMENT: Evaluate warrant quality, impact quality, rebuttal quality, role fulfillment. What did each speaker do well? What was their biggest miss?
+4. SPEAKER POINTS: Assign points on the 15-38 scale with brief justification referencing the rubric above.
+5. ADVICE: One key improvement for each speaker.
+
+Be direct, specific, and reference actual content from the notes. Write like a real judge giving an RFD. Use markdown formatting.`;
       let allNotes = '';
       for (const speech of speeches) {
         const note = notes[speech.code] || '';
@@ -6581,7 +6870,21 @@ Be direct, specific, and reference actual content from the notes. Write like a r
     if (!note.trim()) return;
     setLoadingFeedback(prev => ({...prev, [code]:true}));
     try {
-      const sysPrompt = `You are an experienced APDA judge providing deeply considered feedback on a debate speech. Think through the strategic implications of what the debater did and did not do. Analyze the speech's structure, warranting quality, strategic positioning, and how it interacts with likely opposition arguments. Be specific, reference debate theory (impact calculus, link chains, framework interaction, burden fulfillment, crystallization), and give actionable advice that would genuinely improve the debater's next round. Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points.`;
+      const sysPrompt = `You are an experienced APDA judge providing deeply considered feedback on a debate speech.
+
+ROLE FULFILLMENT STANDARDS:
+- PMC: Must present case statement, explain necessary facts, offer 2-3 arguments supporting the case with clear signposting. Start with strongest argument. An organizing structure ("we think X because A and B; if we prove either, we win") elevates a PMC from a list of arguments to a persuasive case. Watch time closely — leaving out arguments at the end is a serious error since new constructive arguments aren't accepted in MG.
+- LOC: Most difficult speech. Three parts: (1) Opposition philosophy — broad statement of why case should be rejected, under 1 minute. (2) 2-3 independent off-case arguments (NOT mere responses to Gov). Ask: Why don't we have this in the status quo? How would people react? Is there a better way? (3) Move caseside for point-by-point responses. Better to have 2 strong off-case arguments with many smart responses than 5 off-case repeated as caseside responses.
+- MG: First 4 min on Opp's arguments, back 4 on case. Must NOT come off as purely defensive — go after Opposition aggressively, attack their position rather than just reformulating Gov's. If LOC only dealt with fringe cases, point out they haven't challenged basic assumptions. No case shifts.
+- MO: Last constructive, more flexibility. Can restructure the flow. Can add 1-2 new arguments woven in naturally. Focus on strongest material. Don't knife the LO.
+- LOR: 3 points of crystallization or return to LOC structure. No new arguments. MUST address issues the other side claims to be winning — ignoring them makes it easy for the judge to use the other side's summary as the RFD. Try: "the only way they can win is if X" — then address X.
+- PMR: Summarize, weigh, pull through drops. Only respond to genuinely new MO arguments. Don't repeat PMC. Don't try to respond to everything MO said.
+
+EVALUATION CRITERIA: warrant quality, impact quality (comparative weighing on magnitude/probability/timeframe), rebuttal quality (engage strongest opposing arguments, not weakest), strategic positioning, signposting clarity.
+
+SPEAKER SCALE: 27-29 = average (fulfills role with some flaws), 30-32 = above average (minor flaws, strong explanations), 33-35 = excellent (rare flaws), 36+ = exceptional (nearly flawless).
+
+Think through the strategic implications. Be specific, reference debate theory, and give actionable advice. Use markdown formatting: **bold** for key terms, ## for section headers, ### for sub-sections.`;
       const tagStr = speechTags.length > 0 ? `\nTagged moments: ${speechTags.join(', ')}` : '';
       const userPrompt = `Speech: ${speech.title} (${speech.code}, ${speech.time})\nFormat: ${format}${tagStr}\n\nMy flow notes:\n${note}\n\nGive me specific, strategic feedback on this speech.`;
       await callClaude(sysPrompt, userPrompt, (text) => {
@@ -7157,6 +7460,48 @@ function Newbies() {
       el('div',{key:12,className:'newbie-term'}, el('span',{className:'term-word'},'Nats'), el('span',{className:'term-def'},'APDA National Championship. You qualify by earning points through outrounds during the season.')),
       el('div',{key:13,className:'newbie-term'}, el('span',{className:'term-word'},'TOTY / SOTY / COTY'), el('span',{className:'term-def'},'Team / Speaker / College of the Year. Season-long awards based on accumulated outround results and speaker scores.')),
     ]},
+    { key:'theory', icon:'\u{1F4A1}', title:'Debate Theory: How to Think About Arguments', render: () => [
+      el('p',{key:'intro'},"Every debate round is secretly a clash between different ways of thinking about what matters. Understanding these frameworks lets you recognize what your opponent is doing and choose the strongest lens for your case."),
+      el('p',{key:0,style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"Utilitarianism vs Deontology (the big one)"),
+      el('p',{key:1},"This is the clash that shows up in 80% of debate rounds. Utilitarianism says: the right action is whatever produces the most good for the most people. Count up the pleasure, subtract the pain, pick the bigger number. Deontology (Kant) says: some actions are right or wrong regardless of consequences. You don't torture one person to save five, because torture is inherently wrong."),
+      el('p',{key:2},"In round: If your case has strong quantitative impacts (saves lives, grows economy), frame utilitarian. If your case is about rights, dignity, or principles, frame deontological. The LO will usually try to flip your framework."),
+      el('div',{key:'util-v-deon',className:'newbie-callout',style:{borderLeft:'3px solid #ef4444'}}, el('span',null,
+        el('strong',null,'The classic debate: '), "Gov runs 'THW ban cigarettes.' Gov goes utilitarian: millions of lives saved, healthcare costs reduced, net pleasure maximized. Opp goes deontological: people have an inherent right to bodily autonomy, the state cannot decide what you put in your body regardless of outcomes. This is the fundamental tension. Learn to recognize which side of it you're on.",
+      )),
+      el('p',{key:'p-v-p-title',style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"Pleasure vs Pain: Understanding Utility"),
+      el('p',{key:'p-v-p-1'},"Mill's utilitarianism is more sophisticated than 'more happiness = good.' He distinguishes between higher pleasures (intellectual growth, creative expression, meaningful relationships) and lower pleasures (physical comfort, entertainment, immediate gratification). This matters enormously in debate."),
+      el('p',{key:'p-v-p-2'},"When someone argues that a policy 'makes people happy,' ask: what KIND of happiness? A policy that gives everyone Netflix but eliminates universities produces more immediate pleasure but destroys higher pleasures. Mill would oppose it. This distinction lets you argue that some goods are qualitatively better, not just quantitatively more."),
+      el('p',{key:'p-v-p-3'},"Bentham, Mill's predecessor, was more straightforward: pleasure is pleasure, pain is pain, just add it up. His 'felicific calculus' weighs intensity, duration, certainty, nearness, fecundity (does it lead to more pleasure?), purity (is it mixed with pain?), and extent (how many people?). In round, this gives you seven specific dimensions to weigh impacts on."),
+      el('p',{key:'ve-title',style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"Virtue Ethics: Character Over Rules"),
+      el('p',{key:'ve-1'},"Aristotle asks: what kind of person does this action make you? A virtuous action is one that a person of good character would do. This is powerful in actor cases ('TH as X would...') because you can argue from the actor's identity and what it means to be excellent at their role."),
+      el('p',{key:'ve-2'},"The key concepts: eudaimonia (human flourishing, not just happiness), the golden mean (virtue is between two extremes: courage is between cowardice and recklessness), and practical wisdom (phronesis: knowing the right thing to do in specific situations, not just following rules)."),
+      el('p',{key:'ve-3'},"In round: 'A good university would prioritize its students' intellectual growth over its rankings. By cutting liberal arts to fund STEM, this institution acts from a vice of short-sightedness.' Virtue ethics lets you critique not just what was done, but what it says about the actor."),
+      el('p',{key:'sc-title',style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"Social Contract Theory"),
+      el('p',{key:'sc-1'},"Three giants, three different contracts. Hobbes says we give up freedom for security because without government, life is 'nasty, brutish, and short.' The state's job is to prevent chaos, and a strong state is justified because the alternative is worse. Use Hobbes for security arguments and why order matters."),
+      el('p',{key:'sc-2'},"Locke says government exists to protect natural rights: life, liberty, and property. When it fails to do this, people have the right to revolt. Use Locke for liberty arguments and limiting government overreach. If a policy violates natural rights, the social contract is broken."),
+      el('p',{key:'sc-3'},"Rawls says: design society from behind a 'veil of ignorance' where you don't know if you'll be rich or poor, healthy or sick, majority or minority. Whatever system you'd choose from behind that veil is the just system. His 'difference principle' says inequalities are only okay if they benefit the worst-off. This is devastating in inequality debates."),
+      el('p',{key:'cr-title',style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"Critical Theory: Power and Structures"),
+      el('p',{key:'cr-1'},"Marx argues that economics determines everything else. Cultural norms, legal systems, even what we think of as 'common sense' are shaped by whoever controls the economy. Use Marx when arguing that surface-level reforms fail because they don't address underlying power structures."),
+      el('p',{key:'cr-2'},"Foucault says power isn't just top-down (government over people). It operates through discourse, norms, and institutions. What counts as 'normal,' 'healthy,' or 'criminal' reflects power relations. Use Foucault to argue that seemingly neutral institutions (prisons, schools, hospitals) are actually mechanisms of social control."),
+      el('p',{key:'cr-3'},"Feminist theory (de Beauvoir, Butler, hooks) examines how gender shapes power. De Beauvoir's 'one is not born, but rather becomes, a woman' argues that gender roles are constructed, not natural. Butler extends this to all identity categories. Use these frameworks when a motion touches on identity, social norms, or who gets to define 'normal.'"),
+      el('p',{key:'ex-title',style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"Existentialism: Freedom and Responsibility"),
+      el('p',{key:'ex-1'},"Sartre says we are 'condemned to be free.' There is no predetermined human nature; we create ourselves through choices. Bad faith is pretending we have no choice ('I had to do it'). Use this in actor cases to argue that an agent always has a choice and must own the consequences."),
+      el('p',{key:'ex-2'},"Camus and absurdism: life has no inherent meaning, but we must live as if it does. The absurd hero acknowledges meaninglessness but revolts against it through action. Powerful in existential/philosophical motions about purpose, happiness, and what makes life worth living."),
+      el('p',{key:'fw-title',style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"How to Win Framework Debates"),
+      el('div',{key:'fw-tips',className:'newbie-callout',style:{borderLeft:'3px solid #ef4444'}}, el('span',null,
+        el('strong',null,'When to go utilitarian: '), 'Your impacts are large, measurable, and affect many people. You have a clear causal mechanism. Works best for policy debates with concrete outcomes.',
+        el('br'),el('br'),
+        el('strong',null,'When to go deontological: '), "Your case involves rights violations, dignity, or moral obligations. The other side's numbers don't matter if the action is inherently wrong. Works best for liberty and autonomy debates.",
+        el('br'),el('br'),
+        el('strong',null,'When to go virtue ethics: '), "Actor cases where you need to argue from the character's perspective. What kind of person/institution would do this? Works best for 'TH as X would...' motions.",
+        el('br'),el('br'),
+        el('strong',null,'When to go critical: '), "The motion involves systemic power, structural inequality, or challenging 'common sense.' Works best when the status quo appears neutral but actually benefits certain groups.",
+        el('br'),el('br'),
+        el('strong',null,'When to go Rawlsian: '), "Any debate about fairness, distribution, or inequality. Ask: 'Would you design this system if you didn't know your place in it?' Devastating against policies that benefit the already-privileged.",
+        el('br'),el('br'),
+        el('strong',null,'The meta-move: '), "Don't just pick a framework. Explain WHY your framework is the right one for THIS debate. 'We should evaluate through a rights lens because when we're talking about bodily autonomy, counting up aggregate welfare misses the point.' The team that wins the framework debate usually wins the round.",
+      )),
+    ]},
     { key:'tips', icon:'\u{1F680}', title:'Tips for Getting Started', render: () => [
       el('p',{key:0},"Read the news every day. Not just headlines. Understand WHY things are happening. Debate rewards people who can connect current events to structural arguments."),
       el('p',{key:1},"Learn 3 or 4 philosophical frameworks well. Utilitarianism, Rawlsian justice, Kantian ethics, and one critical theory framework (Marx, Foucault, or feminist theory) covers about 80% of what you'll encounter."),
@@ -7187,7 +7532,16 @@ function Newbies() {
         "Competitive debate has a reputation, and not all of it is undeserved. It can feel elitist, jargon-heavy, and intimidating. The learning curve is steep enough to push people out before they ever get good. We're not going to pretend otherwise. But the core of debate (learning to construct and deconstruct arguments, to see issues from multiple sides, to think under pressure) is one of the most valuable intellectual skills you can develop. This guide is the substance without the gatekeeping."
       ),
     ),
-    // Visual round structure diagram — FIRST after intro
+    // Video guide placeholder
+    el('div',{style:{margin:'16px 0',padding:'14px 18px',background:'linear-gradient(135deg,#ef444408,#f59e0b08)',border:'1px solid #ef444425',borderRadius:12,display:'flex',alignItems:'center',gap:12,cursor:'pointer'},onClick:()=>window.open('https://youtube.com','_blank')},
+      el('span',{style:{fontSize:'1.3rem'}},'\uD83C\uDFA5'),
+      el('div',null,
+        el('div',{style:{fontWeight:700,fontSize:'.9rem',color:'var(--text-primary,#e4e8f0)'}},'Video Guide to Using Devil\'s Advocate'),
+        el('div',{style:{fontSize:'.78rem',color:'#94a3b8',marginTop:2}},'Watch a walkthrough of every feature (coming soon)'),
+      ),
+      el('span',{style:{marginLeft:'auto',color:'#ef4444',fontSize:'.8rem',fontWeight:600}},'\u25B6 Watch'),
+    ),
+    // Visual round structure diagram
     el('div',{style:{margin:'24px 0 28px',padding:'24px',background:'#ffffff04',border:'1px solid #ffffff0a',borderRadius:14}},
       el('h3',{style:{color:'#e4e8f0',fontSize:'1.1rem',fontWeight:800,marginBottom:4,textAlign:'center'}},'Structure of a Round'),
       el('p',{style:{color:'#64748b',fontSize:'.78rem',textAlign:'center',marginBottom:20}},'How a standard APDA cases round flows from start to finish'),
@@ -7238,15 +7592,6 @@ function Newbies() {
           el('span',{style:{fontSize:'.72rem',color:'#94a3b8',fontWeight:600}},'Both'),
         ),
       ),
-    ),
-    // Video guide placeholder
-    el('div',{style:{margin:'16px 0',padding:'14px 18px',background:'linear-gradient(135deg,#ef444408,#f59e0b08)',border:'1px solid #ef444425',borderRadius:12,display:'flex',alignItems:'center',gap:12,cursor:'pointer'},onClick:()=>window.open('https://youtube.com','_blank')},
-      el('span',{style:{fontSize:'1.3rem'}},'\uD83C\uDFA5'),
-      el('div',null,
-        el('div',{style:{fontWeight:700,fontSize:'.9rem',color:'var(--text-primary,#e4e8f0)'}},'Video Guide to Using Devil\'s Advocate'),
-        el('div',{style:{fontSize:'.78rem',color:'#94a3b8',marginTop:2}},'Watch a walkthrough of every feature (coming soon)'),
-      ),
-      el('span',{style:{marginLeft:'auto',color:'#ef4444',fontSize:'.8rem',fontWeight:600}},'\u25B6 Watch'),
     ),
     // APDA explanation + prep time note
     el('div',{style:{margin:'12px 0 20px',padding:'12px 16px',background:'#ef444408',border:'1px solid #ef444420',borderRadius:10,fontSize:'.85rem',lineHeight:1.6,color:'#b0bec5'}},
@@ -7830,8 +8175,8 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
 
   if (!roundStarted) {
     return el('div',{className:'panel'},
-      el('p',{style:{color:'#7a8da4',marginBottom:20,lineHeight:1.7}},
-        t('roundSim.desc','Simulate a full round against an AI opponent. Choose your format (APDA, BP, 1-on-1, etc.), pick your side, and trade speeches. The AI plays the other team. After all speeches, get detailed judge feedback and speaker scores.')
+      el('p',{style:{color:'#7a8da4',marginBottom:16,lineHeight:1.6,fontSize:'.88rem'}},
+        t('roundSim.desc','Simulate a full round against an AI opponent. Choose your format, pick your side, and trade speeches. The AI plays the other team. Get detailed judge feedback and speaker scores after.')
       ),
       el('label',{className:'field-label'},t('caseGen.motion','Motion')),
       el('textarea',{
@@ -7973,6 +8318,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         el('span',{style:{color:'#60a5fa',fontSize:'.92rem'}},'AI is preparing their ' + currentSpeechData.code + '...'),
         aiStreaming && speeches[currentSpeech] && el('div',{
           ref:streamRef,
+          className:'output streaming-active',
           style:{
             marginTop:16,textAlign:'left',fontSize:'.85rem',color:'#a0aec0',lineHeight:1.6,
             maxHeight:300,overflowY:'auto',padding:'14px 18px',
@@ -8215,16 +8561,65 @@ NEVER use: "Furthermore," "Additionally," "It is important to note," "Moreover."
 
   const generateFeedback = async (allExchanges) => {
     setFeedbackLoading(true);
-    const sysPrompt = `You are an expert debate coach reviewing a practice debate between a human debater and an AI opponent called "The Machine." Give honest, specific feedback.
+    const sysPrompt = `You are an expert APDA debate coach who has judged hundreds of competitive rounds. You are reviewing a practice debate between a human debater and an AI opponent called "The Machine." Give honest, specific feedback grounded in how real competitive debates are evaluated.
+
+APDA SPEAKER SCALE REFERENCE:
+- 27-29: Average speech. Fulfills role with some flaws. Solid rebuttal but may miss a key argument, or lack comparative weighing.
+- 30-32: Above average. Minor flaws only. Arguments frequently have strong explanations demanding strong responses.
+- 33-35: Excellent. Role fulfillment complete with rare, minor flaws.
+- 36+: Exceptional. Nearly flawless. Complete and decisive responses to very strong arguments.
+
+SPEECH-BY-SPEECH EVALUATION STANDARDS:
+
+For GOV CONSTRUCTIVE (PMC, speech 1):
+- Did they present an organizing structure ("we think X because A and B; if we prove either, we win")?
+- Did they start with their STRONGEST argument (since new constructive arguments aren't allowed in MG)?
+- Were warrants specific, not generic? Did they pass the "could this only be in THIS case?" test?
+- Did they watch time? Leaving out arguments at the end is a serious PMC error.
+- Did they provide a framework that does strategic work (exclusion, burden shifting, or metric control)?
+- Clear signposting? The judge should always know where on the flow the speech is.
+
+For OPP CONSTRUCTIVE (LOC, speech 2):
+- This is the hardest speech. Three parts: (1) Opp philosophy under 1 min, (2) 2-3 independent off-case arguments, (3) move caseside for point-by-point responses.
+- For independent arguments, did they ask: Why don't we have this in the status quo? How would people react? Is there a better way?
+- Quality over quantity: better to have 2 strong off-case arguments with many smart caseside responses than 5 off-case repeated as responses.
+- Did they frame the debate early? (Win via framing in LOC to control later debate)
+- Did they anticipate MG arguments and pre-empt or frame them out?
+- Did they identify the winning impact and commit to it?
+- Outweighing: magnitude, probability, timeframe. Remind judge of most rational argument.
+
+For EXTENSION speeches (MG/MO, speeches 3-4):
+- MG: First 4 min on Opp's arguments, back 4 on case. Must NOT be purely defensive. Attack Opp's position aggressively. If LOC only dealt with fringe cases, point out they haven't challenged basic assumptions. No case shifts.
+- MO: Strategic positioning. Call out what MG dropped and weigh as most important. Have hidden offense that MG will drop or respond to badly. TURNS as offense (backlash DAs, perverse incentives). Why are Opp's links better than Gov's? Make it messy with confidence so PMR is overwhelmed.
+- Did they extend their arguments with NEW warrants, not just restate?
+
+For REBUTTAL speeches (LOR/PMR, speeches 5-6):
+- THIS IS THE MOST IMPORTANT SPEECH TO EVALUATE. Rebuttals win or lose rounds.
+- Did they crystallize? 3 points of crystallization or return to the constructive's original structure.
+- Did they weigh COMPARATIVELY? Not just "our impact is big" but "our impact outweighs because it's irreversible, affects more people, and is more probable."
+- Did they do "even if" analysis? "Even if you buy their argument about X, we still win because..."
+- Did they address issues the OTHER side claims to be winning? Ignoring them makes it easy for the judge to use the other side's summary as the RFD.
+- Try this test: "The only way they can win is if X" — did they address X?
+- LOR: No new arguments. PMR: Only respond to genuinely new MO arguments, don't try to respond to everything.
+- Did they give the judge a clear ballot story?
 
 Structure your feedback as:
-1. WHO WON and why (2-3 sentences)
-2. YOUR BEST MOMENT — quote a specific line from the human's speeches that worked well and explain why
-3. YOUR BIGGEST WEAKNESS — the single most damaging gap in the human's argumentation
-4. WHAT THE MACHINE DID WELL — what the human should learn from how the AI argued
-5. ONE DRILL — a specific practice exercise to improve the skill that was weakest
+## Who Won
+2-3 sentences on who won and the single most important reason why.
 
-Be direct. No sugarcoating. Use **bold** for key terms.`;
+## Speech-by-Speech Breakdown
+For EACH speech the human gave, evaluate it against the standards above. Quote specific lines that worked or failed. Be brutally specific.
+
+## Rebuttal Quality
+Dedicated analysis of how the human handled (or should have handled) the closing speeches. Did they crystallize? Did they weigh? Did they give the judge a ballot story? If they didn't give a rebuttal, explain exactly what a winning rebuttal would have looked like.
+
+## The Machine's Best Move
+What did the AI do that the human should learn from? Quote the specific argument or technique.
+
+## One Drill
+A specific practice exercise targeting the weakest skill shown in this debate.
+
+Be direct. No sugarcoating. Use **bold** for key terms and argument names.`;
 
     const userPrompt = `MOTION: ${motion}\nHuman played: ${side === 'gov' ? 'Government' : 'Opposition'}\n\n` +
       allExchanges.map((ex, i) => `--- ${ex.role === 'player' ? 'HUMAN' : 'THE MACHINE'} [Speech ${i+1}] ---\n${ex.text}`).join('\n\n') +
@@ -8232,6 +8627,12 @@ Be direct. No sugarcoating. Use **bold** for key terms.`;
 
     try {
       await callClaude(sysPrompt, userPrompt, (text) => setFeedback(text), { thinkBudget: 6000, maxTokens: 6000 });
+      // Log insight for recursive learning
+      logInsight('argument_pattern', {
+        motion: motion.substring(0,200), side, format: botFormat,
+        playerSpeeches: allExchanges.filter(e=>e.role==='player').length,
+        totalExchanges: allExchanges.length,
+      });
     } catch(e) {
       setFeedback('Error: ' + e.message);
     }
@@ -8255,8 +8656,8 @@ Be direct. No sugarcoating. Use **bold** for key terms.`;
         el('span', { style: { fontSize: '1.6rem' } }, '\uD83E\uDD16'),
         el('h3', { style: { margin: 0, fontSize: '1.2rem', fontWeight: 800 } }, t('debateBot.title', 'Debate the Bot')),
       ),
-      el('p', { style: { color: '#7a8da4', marginBottom: 20, lineHeight: 1.7 } },
-        t('debateBot.desc', 'Go head-to-head with The Machine \u2014 an AI opponent with a sharp tongue and sharper arguments. Pick a motion, choose your side, and trade speeches. After 3 exchanges each, get coaching feedback.')
+      el('p', { style: { color: '#7a8da4', marginBottom: 16, lineHeight: 1.6, fontSize: '.88rem' } },
+        t('debateBot.desc', 'Go head-to-head with The Machine \u2014 an AI opponent with sharp arguments. Pick a motion, choose your side, and trade speeches. After 3 exchanges each, get coaching feedback.')
       ),
       el('label', { className: 'field-label' }, t('caseGen.motion', 'Motion')),
       el('textarea', {
@@ -8264,21 +8665,21 @@ Be direct. No sugarcoating. Use **bold** for key terms.`;
         value: motion, onChange: e => setMotion(e.target.value),
         rows: 3,
       }),
-      el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 20 } },
-        el('div', null,
+      el('div', { className: 'mobile-grid-stack', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 20, minWidth: 0 } },
+        el('div', {style:{minWidth:0}},
           el('label', { className: 'field-label green' }, t('vision.yourSide', 'Your Side')),
-          el('div', { style: { display: 'flex', gap: 10, marginTop: 8 } },
+          el('div', { style: { display: 'flex', gap: 8, marginTop: 8 } },
             el('button', {
               className: 'btn ' + (side === 'gov' ? 'btn-primary' : 'btn-secondary'),
-              onClick: () => setSide('gov'), style: { flex: 1 },
-            }, t('caseGen.government', 'Government')),
+              onClick: () => setSide('gov'), style: { flex: 1, padding: '10px 8px', fontSize: '.88rem', minWidth: 0 },
+            }, 'Gov'),
             el('button', {
               className: 'btn ' + (side === 'opp' ? 'btn-primary' : 'btn-secondary'),
-              onClick: () => setSide('opp'), style: { flex: 1 },
-            }, t('caseGen.opposition', 'Opposition')),
+              onClick: () => setSide('opp'), style: { flex: 1, padding: '10px 8px', fontSize: '.88rem', minWidth: 0 },
+            }, 'Opp'),
           ),
         ),
-        el('div', null,
+        el('div', {style:{minWidth:0}},
           el('label', { className: 'field-label green' }, 'Format'),
           el('select', { value: botFormat, onChange: e => setBotFormat(e.target.value), style: { marginTop: 8, width: '100%' } },
             ['APDA', 'BP', 'WSDC', 'AP', 'KP'].map(f => el('option', { key: f, value: f }, f))
@@ -8320,7 +8721,7 @@ Be direct. No sugarcoating. Use **bold** for key terms.`;
     ),
 
     // Progress dots
-    el('div', { style: { display: 'flex', gap: 6, marginBottom: 24, justifyContent: 'center' } },
+    el('div', { className: 'mobile-progress-dots', style: { display: 'flex', gap: 6, marginBottom: 24, justifyContent: 'center' } },
       Array.from({ length: MAX_EXCHANGES }, (_, i) => {
         const done = i < exchanges.length;
         const current = i === exchanges.length;
@@ -8344,6 +8745,7 @@ Be direct. No sugarcoating. Use **bold** for key terms.`;
     // Exchange history
     exchanges.length > 0 && el('div', {
       ref: scrollRef,
+      className: 'mobile-exchanges',
       style: { maxHeight: 400, overflowY: 'auto', marginBottom: 20, borderRadius: 12, border: '1px solid #ffffff0a' },
     },
       exchanges.map((ex, i) => {
@@ -8363,7 +8765,7 @@ Be direct. No sugarcoating. Use **bold** for key terms.`;
             } }, isBot ? t('debateBot.machine', 'The Machine') : t('debateBot.you', 'You')),
             el('span', { style: { fontSize: '.68rem', color: '#566478', marginLeft: 'auto' } }, 'Speech ' + (i + 1)),
           ),
-          el('div', { style: {
+          el('div', { className: ex.streaming ? 'output streaming-active' : '', style: {
             fontSize: '.88rem', color: '#c8d5e3', lineHeight: 1.7, whiteSpace: 'pre-wrap',
           } }, ex.text),
         );
@@ -8444,7 +8846,7 @@ Be direct. No sugarcoating. Use **bold** for key terms.`;
         el('span', { style: { color: '#fbbf24' } }, t('debateBot.judging', 'Analyzing your performance...')),
       ),
 
-      feedback && el('div', { style: {
+      feedback && el('div', { className: feedbackLoading ? 'output streaming-active' : '', style: {
         padding: '24px 28px', background: 'linear-gradient(145deg,#0e1620,#121c2c)',
         border: '1px solid #fbbf2430', borderRadius: 16, lineHeight: 1.7,
         color: '#c8d5e3', fontSize: '.92rem', whiteSpace: 'pre-wrap',
@@ -8510,7 +8912,7 @@ function WelcomeGuide({ onClose, onNavigate }) {
         el('div',{className:'guide-step-content'},
           el('h3',null,'Practice and drill'),
           el('p',null,'Use Round Simulator to practice against AI, or hit Practice for timed speaking drills. The more reps you get, the sharper you will be in round.'),
-          onNavigate && el('button',{onClick:()=>{onNavigate('simulator');onClose()},style:{marginTop:8,padding:'6px 14px',background:'#ef444420',border:'1px solid #ef444440',borderRadius:6,color:'#f87171',fontSize:'.78rem',fontWeight:600,cursor:'pointer'}},'Try it \u2192'),
+          onNavigate && el('button',{onClick:()=>{onNavigate('battle');onClose()},style:{marginTop:8,padding:'6px 14px',background:'#ef444420',border:'1px solid #ef444440',borderRadius:6,color:'#f87171',fontSize:'.78rem',fontWeight:600,cursor:'pointer'}},'Try it \u2192'),
         ),
       ),
       el('div',{className:'guide-step'},
@@ -8778,12 +9180,13 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
               el('div',{style:{display:'flex',gap:6}},
                 el('button',{className:'btn btn-primary',style:{padding:'4px 12px',fontSize:'.78rem'},onClick:async()=>{
                   try {
-                    const token = await (window.__getAuthToken ? window.__getAuthToken() : null);
-                    if (token) {
-                      await fetch('/api/teams/update',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({name:editName.trim(),context:editContext.trim()})});
-                      if (window.__refreshTeam) setTimeout(() => window.__refreshTeam(), 500);
-                    }
-                  } catch{}
+                    const token = await getToken();
+                    if (!token) { setMsg('Error: Not authenticated. Try signing out and back in.'); return; }
+                    const res = await fetch('/api/teams/update',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({name:editName.trim(),context:editContext.trim()})});
+                    if (!res.ok) { const d = await res.json().catch(()=>({})); setMsg('Error: ' + (d.error || 'Failed to save')); return; }
+                    setMsg('Team updated!');
+                    if (window.__refreshTeam) await new Promise(r => { window.__refreshTeam(); setTimeout(r, 800); });
+                  } catch(e) { setMsg('Error: ' + (e.message || 'Failed to save')); return; }
                   setEditingTeam(false);
                 }},'Save'),
                 el('button',{className:'btn btn-secondary',style:{padding:'4px 12px',fontSize:'.78rem'},onClick:()=>setEditingTeam(false)},'Cancel'),
@@ -9086,7 +9489,7 @@ function Analytics({ user, team }) {
   const dailyEntries = Object.entries(dailyCounts).slice(0,14).reverse();
   const maxDaily = Math.max(...dailyEntries.map(e=>e[1]), 1);
   const usagePct = team.usageLimit ? Math.round((team.usageThisPeriod / team.usageLimit) * 100) : 0;
-  const featureColors = {case:'#ef4444',simulator:'#3b82f6',feedback:'#22c55e',vision:'#f59e0b',casual:'#8b5cf6',philosophy:'#ec4899',practice:'#14b8a6',judge:'#f97316'};
+  const featureColors = {case:'#ef4444',simulator:'#3b82f6',bot:'#3b82f6',battle:'#3b82f6',feedback:'#22c55e',vision:'#f59e0b',casual:'#8b5cf6',philosophy:'#ec4899',practice:'#14b8a6',judge:'#f97316'};
 
   return el('div', {className:'panel'},
     el('div', {style:{marginBottom:24}},
@@ -9179,11 +9582,39 @@ Based on these usage patterns, analyze how this person thinks as a debater. What
       let result = '';
       await callClaude(sysPrompt, userPrompt, (text) => { result = text; setAnalysis(text); }, { thinkBudget: 4000, maxTokens: 4000 });
       setAnalysis(result);
+      // Save to Firestore via server function
+      if (__getAuthToken) {
+        try {
+          const token = await __getAuthToken();
+          if (token) {
+            // Extract strengths/weaknesses from text
+            const strengthMatch = result.match(/## Thinking Strengths\n([\s\S]*?)(?=\n## )/);
+            const weakMatch = result.match(/## Blind Spots\n([\s\S]*?)(?=\n## )/);
+            const strengths = strengthMatch ? strengthMatch[1].split('\n').filter(l=>l.trim().startsWith('-')).map(l=>l.replace(/^-\s*/,'').trim()) : [];
+            const weaknesses = weakMatch ? weakMatch[1].split('\n').filter(l=>l.trim().startsWith('-')).map(l=>l.replace(/^-\s*/,'').trim()) : [];
+            fetch('/api/save-profile', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+              body: JSON.stringify({ type: 'debater_profile', analysis: result, strengths, weaknesses }),
+            }).catch(() => {});
+          }
+        } catch(e) {}
+      }
     } catch(e) {
       setAnalysis('Error generating analysis: ' + e.message);
     }
     setLoading(false);
   };
+
+  // Load saved profile on mount
+  useEffect(() => {
+    if (!firebaseDb || !window.__currentUser) return;
+    firebaseDb.collection('user_profiles').doc(window.__currentUser.uid).get().then(doc => {
+      if (doc.exists && doc.data().debaterProfile && doc.data().debaterProfile.analysis) {
+        setAnalysis(doc.data().debaterProfile.analysis);
+      }
+    }).catch(() => {});
+  }, []);
 
   return el('div', {style:{marginTop:28,padding:24,background:'linear-gradient(145deg,#0e1620,#121c2c)',border:'1px solid #ffffff10',borderRadius:14}},
     el('h3', {style:{color:'#c084fc',fontSize:'1rem',fontWeight:700,marginBottom:8}}, 'Debater Thinking Profile'),
@@ -9200,7 +9631,10 @@ Based on these usage patterns, analyze how this person thinks as a debater. What
     analysis && el('div', {className:'output', style:{marginTop:16,padding:20,maxHeight:'none',minHeight:0,fontSize:'.88rem'}},
       el('div', {dangerouslySetInnerHTML:{__html:cleanOutput(analysis, true)}}),
     ),
-    analysis && el('button', {className:'btn btn-secondary', style:{marginTop:12}, onClick:() => { setAnalysis(null); }}, 'Reset'),
+    analysis && el('div', {style:{display:'flex',gap:8,marginTop:12}},
+      el('button', {className:'btn btn-secondary', onClick:() => { setAnalysis(null); }}, 'Regenerate'),
+      el('button', {className:'btn btn-purple', onClick:analyze, disabled:loading}, loading ? 'Refreshing...' : 'Refresh Analysis'),
+    ),
   );
 }
 
@@ -9337,12 +9771,474 @@ function AdBanner({ team, onNavigate }) {
   );
 }
 
+// ── Global FORMAT_SPEECHES (shared by Practice, Timer, Prep Room) ──
+const GLOBAL_FORMAT_SPEECHES = {
+  APDA: [
+    {code:'PMC',title:'Prime Minister Constructive',time:'7:30',side:'gov',desc:'Present your case: framework, background, and 2-3 arguments with warrants.'},
+    {code:'LOC',title:'Leader of Opposition Constructive',time:'8:30',side:'opp',desc:'Present Off-Case arguments then rebut Government\'s case On-Case.'},
+    {code:'MG',title:'Member of Government',time:'8:30',side:'gov',desc:'Respond to LOC attacks. Off-Case first, then On-Case defense.'},
+    {code:'MO',title:'Member of Opposition',time:'8:30',side:'opp',desc:'Respond to MG, extend Off-Case, address anything LO missed from PMC.'},
+    {code:'LOR',title:'Leader of Opposition Rebuttal',time:'4 min',side:'opp',desc:'Summarize Opp case, give ballots, weigh aggressively. No new arguments.'},
+    {code:'PMR',title:'Prime Minister Rebuttal',time:'5 min',side:'gov',desc:'Final word. Summarize, weigh, pull through drops. No new arguments.'},
+  ],
+  BP: [
+    {code:'PM',title:'Prime Minister',time:'7 min',side:'gov'},{code:'LO',title:'Leader of Opposition',time:'7 min',side:'opp'},
+    {code:'DPM',title:'Deputy Prime Minister',time:'7 min',side:'gov'},{code:'DLO',title:'Deputy Leader of Opposition',time:'7 min',side:'opp'},
+    {code:'MG',title:'Member of Government (CG)',time:'7 min',side:'gov'},{code:'MO',title:'Member of Opposition (CO)',time:'7 min',side:'opp'},
+    {code:'GW',title:'Government Whip',time:'7 min',side:'gov'},{code:'OW',title:'Opposition Whip',time:'7 min',side:'opp'},
+  ],
+  WSDC: [
+    {code:'P1',title:'First Proposition',time:'8 min',side:'gov'},{code:'O1',title:'First Opposition',time:'8 min',side:'opp'},
+    {code:'P2',title:'Second Proposition',time:'8 min',side:'gov'},{code:'O2',title:'Second Opposition',time:'8 min',side:'opp'},
+    {code:'P3',title:'Third Proposition',time:'8 min',side:'gov'},{code:'O3',title:'Third Opposition',time:'8 min',side:'opp'},
+    {code:'OR',title:'Opposition Reply',time:'4 min',side:'opp'},{code:'PR',title:'Proposition Reply',time:'4 min',side:'gov'},
+  ],
+  '1v1': [
+    {code:'PRO1',title:'Pro Opening',time:'5 min',side:'gov'},{code:'CON1',title:'Con Response',time:'5 min',side:'opp'},
+    {code:'PRO2',title:'Pro Rebuttal',time:'3 min',side:'gov'},{code:'CON2',title:'Con Rebuttal',time:'3 min',side:'opp'},
+    {code:'PRO3',title:'Pro Closing',time:'2 min',side:'gov'},{code:'CON3',title:'Con Closing',time:'2 min',side:'opp'},
+  ],
+};
+
+function parseTime(t) {
+  if (t.includes(':')) { const [m,s] = t.split(':').map(Number); return m*60+s; }
+  return parseInt(t)*60;
+}
+
+// ── Round Timer Component ───────────────────────
+function RoundTimer() {
+  const el = React.createElement;
+  const isMobile = useIsMobile();
+  const [format, setFormat] = useState('APDA');
+  const [speechIdx, setSpeechIdx] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [started, setStarted] = useState(false);
+  const intervalRef = useRef(null);
+  const audioCtx = useRef(null);
+
+  // Flow sheet state
+  const [showFlow, setShowFlow] = useState(false);
+  const [flowData, setFlowData] = useState({});
+  const flowKey = useRef('debateos_flow_' + Date.now());
+
+  const speeches = GLOBAL_FORMAT_SPEECHES[format] || GLOBAL_FORMAT_SPEECHES.APDA;
+  const currentSpeech = speeches[speechIdx];
+  const totalTime = currentSpeech ? parseTime(currentSpeech.time) : 0;
+
+  const beep = (freq = 800, dur = 200) => {
+    try {
+      if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.current.createOscillator();
+      const gain = audioCtx.current.createGain();
+      osc.connect(gain); gain.connect(audioCtx.current.destination);
+      osc.frequency.value = freq; gain.gain.value = 0.3;
+      osc.start(); osc.stop(audioCtx.current.currentTime + dur/1000);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (running && !paused) {
+      intervalRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) { clearInterval(intervalRef.current); setRunning(false); setPaused(false); beep(1000, 500); return 0; }
+          if (prev === 31) beep(600, 150);
+          if (prev === 16) beep(700, 150);
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [running, paused]);
+
+  const startTimer = () => {
+    setTimeLeft(totalTime);
+    setRunning(true); setPaused(false); setStarted(true);
+  };
+  const togglePause = () => { if (running) { setPaused(!paused); if (!paused) clearInterval(intervalRef.current); } };
+  const resetTimer = () => { clearInterval(intervalRef.current); setRunning(false); setPaused(false); setTimeLeft(totalTime); };
+  const nextSpeech = () => { if (speechIdx < speeches.length - 1) { clearInterval(intervalRef.current); setRunning(false); setPaused(false); setSpeechIdx(speechIdx + 1); setTimeLeft(parseTime(speeches[speechIdx + 1].time)); } };
+  const prevSpeech = () => { if (speechIdx > 0) { clearInterval(intervalRef.current); setRunning(false); setPaused(false); setSpeechIdx(speechIdx - 1); setTimeLeft(parseTime(speeches[speechIdx - 1].time)); } };
+
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  const pct = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
+  const timerColor = timeLeft <= 15 ? '#ef4444' : timeLeft <= 30 ? '#f59e0b' : '#22c55e';
+
+  const updateFlow = (idx, val) => setFlowData(prev => ({...prev, [idx]: val}));
+
+  // Save flow to localStorage
+  useEffect(() => {
+    if (Object.keys(flowData).length > 0) {
+      try { localStorage.setItem(flowKey.current, JSON.stringify(flowData)); } catch {}
+    }
+  }, [flowData]);
+
+  return el('div', {className:'panel'},
+    // Format selector
+    !started ? el('div', null,
+      el('div', {style:{textAlign:'center',marginBottom:32}},
+        el('div', {style:{fontSize:'1.5rem',fontWeight:900,color:'#e4e8f0',marginBottom:8}}, '\u23F1\uFE0F Round Timer'),
+        el('div', {style:{fontSize:'.88rem',color:'#94a3b8'}}, 'Time your speeches with format-specific timers and audio alerts'),
+      ),
+      el('label', {className:'field-label'}, 'Format'),
+      el('select', {value:format, onChange:e=>{setFormat(e.target.value);setSpeechIdx(0);}, style:{marginBottom:24,width:'100%'}},
+        Object.keys(GLOBAL_FORMAT_SPEECHES).map(f => el('option',{key:f,value:f},f))
+      ),
+      el('div', {style:{marginBottom:24}},
+        el('div', {style:{fontSize:'.82rem',color:'#94a3b8',marginBottom:12,fontWeight:600}}, 'Speech Order'),
+        speeches.map((s,i) => el('div', {key:i, style:{
+          display:'flex',alignItems:'center',gap:12,padding:'10px 16px',
+          background:i%2===0?'#ffffff04':'transparent',borderRadius:8,
+        }},
+          el('div', {style:{width:28,height:28,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.7rem',fontWeight:700,background:s.side==='gov'?'#3b82f615':'#ef444415',color:s.side==='gov'?'#60a5fa':'#f87171',border:'1px solid '+(s.side==='gov'?'#3b82f630':'#ef444430')}}, i+1),
+          el('div', {style:{flex:1}},
+            el('div', {style:{fontSize:'.88rem',fontWeight:700,color:'#e4e8f0'}}, s.code + ' \u2014 ' + s.title),
+          ),
+          el('div', {style:{fontSize:'.82rem',color:'#94a3b8',fontWeight:600}}, s.time),
+        ))
+      ),
+      el('button', {className:'btn btn-orange', onClick:()=>{setStarted(true);setTimeLeft(parseTime(speeches[0].time));}, style:{width:'100%',padding:'16px',fontSize:'1.1rem'}}, 'Start Round'),
+    )
+
+    // Active timer
+    : el('div', null,
+      // Speech progress bar
+      el('div', {style:{display:'flex',gap:4,marginBottom:20,flexWrap:'wrap',justifyContent:'center'}},
+        speeches.map((s,i) => el('div', {key:i, onClick:()=>{
+          clearInterval(intervalRef.current); setRunning(false); setPaused(false);
+          setSpeechIdx(i); setTimeLeft(parseTime(s.time));
+        }, style:{
+          padding:isMobile?'4px 8px':'6px 12px',borderRadius:8,cursor:'pointer',fontSize:isMobile?'.6rem':'.7rem',fontWeight:700,
+          background:i===speechIdx?(s.side==='gov'?'#3b82f620':'#ef444420'):i<speechIdx?'#22c55e10':'#ffffff06',
+          border:'1.5px solid '+(i===speechIdx?(s.side==='gov'?'#3b82f6':'#ef4444'):i<speechIdx?'#22c55e30':'#ffffff10'),
+          color:i===speechIdx?(s.side==='gov'?'#60a5fa':'#f87171'):i<speechIdx?'#4ade80':'#566478',
+        }}, s.code))
+      ),
+
+      // Current speech info
+      el('div', {style:{textAlign:'center',marginBottom:16}},
+        el('div', {style:{fontSize:'.78rem',color:currentSpeech.side==='gov'?'#60a5fa':'#f87171',fontWeight:700,textTransform:'uppercase',letterSpacing:'1px'}}, currentSpeech.side === 'gov' ? 'Government' : 'Opposition'),
+        el('div', {style:{fontSize:'1.2rem',fontWeight:800,color:'#e4e8f0',marginTop:4}}, currentSpeech.code + ' \u2014 ' + currentSpeech.title),
+        currentSpeech.desc && el('div', {style:{fontSize:'.82rem',color:'#94a3b8',marginTop:4,maxWidth:500,margin:'4px auto 0'}}, currentSpeech.desc),
+      ),
+
+      // Big timer display
+      el('div', {style:{textAlign:'center',margin:'24px 0'}},
+        el('div', {className:'timer-display', style:{fontSize:isMobile?'4rem':'6rem',fontWeight:900,fontFamily:"'IBM Plex Mono',monospace",color:timerColor,lineHeight:1,textShadow:'0 0 40px '+timerColor+'30'}},
+          String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0')
+        ),
+        // Progress bar
+        el('div', {style:{height:6,background:'#ffffff08',borderRadius:3,margin:'16px auto 0',maxWidth:400,overflow:'hidden'}},
+          el('div', {style:{height:'100%',width:pct+'%',background:timerColor,borderRadius:3,transition:'width 1s linear'}}),
+        ),
+      ),
+
+      // Controls
+      el('div', {className:'timer-controls', style:{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap',marginBottom:24}},
+        el('button', {className:'btn btn-secondary', onClick:prevSpeech, disabled:speechIdx===0, style:{padding:'10px 20px'}}, '\u25C0 Prev'),
+        !running
+          ? el('button', {className:'btn btn-orange', onClick:startTimer, style:{padding:'10px 32px',fontSize:'1.05rem'}}, '\u25B6 Start')
+          : paused
+            ? el('button', {className:'btn btn-orange', onClick:togglePause, style:{padding:'10px 32px'}}, '\u25B6 Resume')
+            : el('button', {className:'btn btn-secondary', onClick:togglePause, style:{padding:'10px 32px'}}, '\u23F8 Pause'),
+        el('button', {className:'btn btn-secondary', onClick:resetTimer, style:{padding:'10px 20px'}}, '\u21BB Reset'),
+        el('button', {className:'btn btn-secondary', onClick:nextSpeech, disabled:speechIdx>=speeches.length-1, style:{padding:'10px 20px'}}, 'Next \u25B6'),
+      ),
+
+      // Flow sheet toggle
+      el('div', {style:{borderTop:'1px solid #ffffff10',paddingTop:20}},
+        el('button', {className:'btn btn-secondary', onClick:()=>setShowFlow(!showFlow), style:{width:'100%',marginBottom:16}},
+          (showFlow ? '\u25BC Hide' : '\u25B6 Show') + ' Flow Sheet'
+        ),
+        showFlow && el('div', {style:{overflowX:'auto',paddingBottom:8}},
+          el('div', {style:{display:'grid',gridTemplateColumns:'repeat('+speeches.length+',minmax('+(isMobile?'140px':'180px')+',1fr))',gap:8,minWidth:speeches.length*150}},
+            // Headers
+            speeches.map((s,i) => el('div', {key:'h'+i, style:{
+              padding:'8px 10px',borderRadius:8,textAlign:'center',fontSize:'.72rem',fontWeight:700,
+              background:s.side==='gov'?'#3b82f610':'#ef444410',
+              border:'1px solid '+(s.side==='gov'?'#3b82f625':'#ef444425'),
+              color:s.side==='gov'?'#60a5fa':'#f87171',
+            }}, s.code)),
+            // Cells
+            speeches.map((s,i) => el('textarea', {key:'c'+i,
+              value:flowData[i]||'',onChange:e=>updateFlow(i,e.target.value),
+              placeholder:'Notes...',rows:6,
+              style:{padding:8,background:'#0c1422',border:'1px solid #ffffff0a',borderRadius:8,color:'#cbd5e1',fontSize:'.78rem',resize:'vertical',fontFamily:'inherit',minHeight:120},
+            })),
+          ),
+        ),
+      ),
+
+      // Back to setup
+      el('button', {className:'btn btn-secondary', onClick:()=>{setStarted(false);clearInterval(intervalRef.current);setRunning(false);setPaused(false);setSpeechIdx(0);}, style:{width:'100%',marginTop:8,fontSize:'.82rem'}}, '\u2190 Back to Setup'),
+    ),
+  );
+}
+
+// ── Prep Room / Tournament Mode ─────────────────
+function PrepRoom({ onNavigateTab }) {
+  const el = React.createElement;
+  const isMobile = useIsMobile();
+  const [phase, setPhase] = useState('setup'); // setup | active | done
+  const [motion, setMotion] = useState('');
+  const [side, setSide] = useState('gov');
+  const [format, setFormat] = useState('APDA');
+  const [countdown, setCountdown] = useState(900); // 15 minutes
+  const [running, setRunning] = useState(false);
+  const [research, setResearch] = useState('');
+  const [researchLoading, setResearchLoading] = useState(false);
+  const [caseNotes, setCaseNotes] = useState('');
+  const [args, setArgs] = useState([{title:'',warrant:'',impact:''}]);
+  const [argGenLoading, setArgGenLoading] = useState(false);
+  const intervalRef = useRef(null);
+  const audioCtx = useRef(null);
+
+  const beep = (freq = 800, dur = 200) => {
+    try {
+      if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.current.createOscillator();
+      const gain = audioCtx.current.createGain();
+      osc.connect(gain); gain.connect(audioCtx.current.destination);
+      osc.frequency.value = freq; gain.gain.value = 0.3;
+      osc.start(); osc.stop(audioCtx.current.currentTime + dur/1000);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (phase === 'active' && running) {
+      intervalRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) { clearInterval(intervalRef.current); setRunning(false); setPhase('done'); beep(1000, 800); return 0; }
+          if (prev === 601) beep(600, 150); // 10 min mark
+          if (prev === 301) beep(700, 200); // 5 min mark
+          if (prev === 121) beep(800, 200); // 2 min mark
+          if (prev === 31) beep(900, 300); // 30 sec
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [phase, running]);
+
+  const startPrep = () => {
+    if (!motion.trim()) return;
+    setPhase('active'); setRunning(true); setCountdown(900);
+  };
+
+  const doResearch = async () => {
+    setResearchLoading(true);
+    try {
+      const token = __getAuthToken ? await __getAuthToken() : null;
+      const headers = {'Content-Type':'application/json'};
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      const res = await fetch('/api/perplexity', {
+        method:'POST', headers,
+        body: JSON.stringify({query: 'Recent news and key facts relevant to this debate motion: "' + motion + '". Include specific statistics, events, and expert opinions that could be used as evidence.'}),
+      });
+      if (res.ok) { const d = await res.json(); setResearch(d.text || 'No results found.'); }
+      else setResearch('Research unavailable. Try again or research manually.');
+    } catch(e) { setResearch('Error: ' + (e.message || 'Could not fetch research')); }
+    setResearchLoading(false);
+  };
+
+  const generateArg = async () => {
+    setArgGenLoading(true);
+    try {
+      let result = '';
+      await callClaude(
+        'You generate debate arguments. Given a motion and side, produce ONE strong argument with a clear title (5-8 words), warrant (2-3 sentences explaining WHY this is true), and impact (1-2 sentences on WHY this matters). Format as JSON: {"title":"...","warrant":"...","impact":"..."}. No markdown.',
+        'Motion: ' + motion + '\nSide: ' + (side === 'gov' ? 'Government/Proposition' : 'Opposition') + '\nFormat: ' + format + '\nExisting arguments: ' + args.filter(a=>a.title).map(a=>a.title).join(', '),
+        (t) => { result = t; },
+        { thinkBudget: 2000, maxTokens: 500 }
+      );
+      const cleaned = result.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      const parsed = JSON.parse(cleaned);
+      setArgs(prev => [...prev, {title:parsed.title||'',warrant:parsed.warrant||'',impact:parsed.impact||''}]);
+    } catch(e) { /* silent */ }
+    setArgGenLoading(false);
+  };
+
+  const updateArg = (idx, field, val) => setArgs(prev => prev.map((a,i) => i===idx ? {...a,[field]:val} : a));
+  const removeArg = (idx) => setArgs(prev => prev.filter((_,i) => i!==idx));
+  const moveArg = (idx, dir) => {
+    const newArgs = [...args];
+    const swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= newArgs.length) return;
+    [newArgs[idx], newArgs[swapIdx]] = [newArgs[swapIdx], newArgs[idx]];
+    setArgs(newArgs);
+  };
+
+  const mins = Math.floor(countdown / 60);
+  const secs = countdown % 60;
+  const timerColor = countdown <= 120 ? '#ef4444' : countdown <= 300 ? '#f59e0b' : '#22c55e';
+
+  const getTemplate = () => {
+    const speeches = GLOBAL_FORMAT_SPEECHES[format] || GLOBAL_FORMAT_SPEECHES.APDA;
+    const firstGov = speeches.find(s => s.side === 'gov');
+    if (side === 'gov') return 'FRAMEWORK:\n\n\nARGUMENT 1:\nClaim: \nWarrant: \nImpact: \n\nARGUMENT 2:\nClaim: \nWarrant: \nImpact: \n\nPRE-EMPTS:\n- \n- ';
+    return 'OFF-CASE:\nArgument 1: \nArgument 2: \n\nON-CASE RESPONSES:\n- Gov Arg 1: \n- Gov Arg 2: \n\nWEIGHING:\n';
+  };
+
+  // Setup phase
+  if (phase === 'setup') return el('div', {className:'panel'},
+    el('div', {style:{textAlign:'center',marginBottom:32}},
+      el('div', {style:{fontSize:'1.5rem',fontWeight:900,color:'#e4e8f0',marginBottom:8}}, '\uD83C\uDFAF Prep Room'),
+      el('div', {style:{fontSize:'.88rem',color:'#94a3b8',maxWidth:500,margin:'0 auto'}}, '15-minute tournament-style prep with integrated research, argument building, and case structuring'),
+    ),
+    el('label', {className:'field-label'}, 'Motion'),
+    el('textarea', {value:motion, onChange:e=>setMotion(e.target.value), placeholder:'Enter the motion to prep...', rows:3}),
+    el('div', {className:'mobile-grid-stack', style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:20}},
+      el('div', null,
+        el('label', {className:'field-label green'}, 'Your Side'),
+        el('div', {style:{display:'flex',gap:10,marginTop:8}},
+          el('button', {className:'btn '+(side==='gov'?'btn-primary':'btn-secondary'), onClick:()=>setSide('gov'), style:{flex:1}}, 'Gov'),
+          el('button', {className:'btn '+(side==='opp'?'btn-primary':'btn-secondary'), onClick:()=>setSide('opp'), style:{flex:1}}, 'Opp'),
+        ),
+      ),
+      el('div', null,
+        el('label', {className:'field-label green'}, 'Format'),
+        el('select', {value:format, onChange:e=>setFormat(e.target.value), style:{marginTop:8,width:'100%'}},
+          Object.keys(GLOBAL_FORMAT_SPEECHES).map(f => el('option',{key:f,value:f},f))
+        ),
+      ),
+    ),
+    el('button', {className:'btn btn-orange', onClick:startPrep, disabled:!motion.trim(), style:{width:'100%',marginTop:24,padding:'16px',fontSize:'1.1rem'}}, '\u23F1 Start 15-Minute Prep'),
+  );
+
+  // Active prep / Done phase
+  return el('div', {className:'panel panel-expanded'},
+    // Timer bar
+    el('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 18px',background:timerColor+'10',border:'1px solid '+timerColor+'30',borderRadius:12,marginBottom:20}},
+      el('div', {style:{display:'flex',alignItems:'center',gap:12}},
+        el('div', {style:{fontSize:'1.8rem',fontWeight:900,fontFamily:"'IBM Plex Mono',monospace",color:timerColor}},
+          String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0')
+        ),
+        phase === 'done' && el('span', {style:{fontSize:'.88rem',fontWeight:700,color:'#ef4444'}}, 'TIME\'S UP'),
+      ),
+      el('div', {style:{display:'flex',gap:8}},
+        phase === 'active' && el('button', {className:'btn btn-secondary btn-sm', onClick:()=>setRunning(!running)}, running ? '\u23F8 Pause' : '\u25B6 Resume'),
+        el('button', {className:'btn btn-secondary btn-sm', onClick:()=>{clearInterval(intervalRef.current);setPhase('setup');setRunning(false);setCountdown(900);}}, '\u2190 Exit'),
+      ),
+    ),
+    // Motion display
+    el('div', {style:{padding:'10px 16px',background:'#ffffff06',borderRadius:10,marginBottom:20,fontSize:'.92rem',color:'#e4e8f0'}},
+      el('span', {style:{color:'#94a3b8',fontSize:'.75rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px'}}, (side==='gov'?'GOV':'OPP') + ' \u2014 '),
+      motion,
+    ),
+
+    // Main content grid
+    el('div', {className:'prep-room-grid', style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:20}},
+      // Left column: Research + Arguments
+      el('div', null,
+        // Research section
+        el('div', {style:{marginBottom:20}},
+          el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}},
+            el('div', {style:{fontSize:'.82rem',fontWeight:700,color:'#60a5fa',textTransform:'uppercase',letterSpacing:'.5px'}}, '\uD83D\uDD0D Research'),
+            el('button', {className:'btn btn-secondary btn-sm', onClick:doResearch, disabled:researchLoading, style:{fontSize:'.75rem'}},
+              researchLoading ? 'Searching...' : 'Quick Research'
+            ),
+          ),
+          research && el('div', {style:{padding:14,background:'#0c1422',border:'1px solid #ffffff0a',borderRadius:10,fontSize:'.82rem',color:'#cbd5e1',lineHeight:1.7,maxHeight:250,overflowY:'auto',whiteSpace:'pre-wrap'}}, research),
+        ),
+        // Arguments
+        el('div', null,
+          el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}},
+            el('div', {style:{fontSize:'.82rem',fontWeight:700,color:'#f59e0b',textTransform:'uppercase',letterSpacing:'.5px'}}, '\u2694\uFE0F Arguments'),
+            el('div', {style:{display:'flex',gap:6}},
+              el('button', {className:'btn btn-secondary btn-sm', onClick:()=>setArgs(prev=>[...prev,{title:'',warrant:'',impact:''}]), style:{fontSize:'.72rem'}}, '+ Add'),
+              el('button', {className:'btn btn-secondary btn-sm', onClick:generateArg, disabled:argGenLoading, style:{fontSize:'.72rem'}}, argGenLoading ? 'Generating...' : '\u2728 AI Generate'),
+            ),
+          ),
+          args.map((arg,i) => el('div', {key:i, style:{padding:12,background:'#ffffff04',border:'1px solid #ffffff0a',borderRadius:10,marginBottom:10}},
+            el('div', {style:{display:'flex',gap:6,marginBottom:8,alignItems:'center'}},
+              el('input', {value:arg.title, onChange:e=>updateArg(i,'title',e.target.value), placeholder:'Argument title', style:{flex:1,padding:'6px 10px',background:'#0c1422',border:'1px solid #ffffff0a',borderRadius:6,color:'#e4e8f0',fontSize:'.85rem',fontWeight:700,outline:'none'}}),
+              el('button', {onClick:()=>moveArg(i,-1), disabled:i===0, style:{background:'none',border:'none',color:'#566478',cursor:'pointer',fontSize:'.8rem'}}, '\u25B2'),
+              el('button', {onClick:()=>moveArg(i,1), disabled:i===args.length-1, style:{background:'none',border:'none',color:'#566478',cursor:'pointer',fontSize:'.8rem'}}, '\u25BC'),
+              el('button', {onClick:()=>removeArg(i), style:{background:'none',border:'none',color:'#ef4444',cursor:'pointer',fontSize:'.8rem'}}, '\u2715'),
+            ),
+            el('textarea', {value:arg.warrant, onChange:e=>updateArg(i,'warrant',e.target.value), placeholder:'Warrant \u2014 WHY is this true?', rows:2, style:{marginBottom:6,fontSize:'.82rem',minHeight:'auto'}}),
+            el('textarea', {value:arg.impact, onChange:e=>updateArg(i,'impact',e.target.value), placeholder:'Impact \u2014 WHY does this matter?', rows:1, style:{fontSize:'.82rem',minHeight:'auto'}}),
+          )),
+        ),
+      ),
+
+      // Right column: Case notes
+      el('div', null,
+        el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}},
+          el('div', {style:{fontSize:'.82rem',fontWeight:700,color:'#4ade80',textTransform:'uppercase',letterSpacing:'.5px'}}, '\uD83D\uDCDD Case Notes'),
+          !caseNotes && el('button', {className:'btn btn-secondary btn-sm', onClick:()=>setCaseNotes(getTemplate()), style:{fontSize:'.72rem'}}, 'Load Template'),
+        ),
+        el('textarea', {value:caseNotes, onChange:e=>setCaseNotes(e.target.value), placeholder:'Write your case here...', style:{minHeight:isMobile?300:500,fontSize:'.85rem',lineHeight:1.7}}),
+      ),
+    ),
+
+    // Done phase summary
+    phase === 'done' && el('div', {style:{marginTop:24,padding:20,background:'linear-gradient(145deg,#0e1620,#121c2c)',border:'1px solid #22c55e30',borderRadius:16,textAlign:'center'}},
+      el('div', {style:{fontSize:'1.2rem',fontWeight:800,color:'#4ade80',marginBottom:8}}, 'Prep Complete'),
+      el('div', {style:{fontSize:'.88rem',color:'#94a3b8',marginBottom:16}}, 'You built ' + args.filter(a=>a.title).length + ' arguments in 15 minutes'),
+      el('div', {style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
+        onNavigateTab && el('button', {className:'btn btn-primary', onClick:()=>onNavigateTab('case')}, 'Open in Case Gen'),
+        el('button', {className:'btn btn-secondary', onClick:()=>{setPhase('setup');setCountdown(900);}}, 'New Prep Session'),
+      ),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   BATTLE ARENA — Unified Round Sim + Debate Bot + Timer + Prep
+   ═══════════════════════════════════════════════════ */
+function BattleArena({ onNavigateTab }) {
+  const el = React.createElement;
+  const [mode, setMode] = useState('sim'); // sim | bot | timer | prep
+  const isMobile = useIsMobile();
+
+  const modes = [
+    { id: 'sim', label: 'Round Sim', icon: '\u2694\uFE0F', desc: 'Full structured round vs AI' },
+    { id: 'bot', label: 'Debate Bot', icon: '\uD83E\uDD16', desc: 'Casual back-and-forth' },
+    { id: 'prep', label: 'Prep Room', icon: '\uD83C\uDFAF', desc: 'Timed tournament prep' },
+    { id: 'timer', label: 'Timer', icon: '\u23F1\uFE0F', desc: 'Speech timer + flow sheet' },
+  ];
+
+  return el('div', null,
+    // Mode selector tabs
+    el('div', { style: {
+      display: 'flex', gap: isMobile ? 4 : 8, marginBottom: 24, padding: 4,
+      background: '#ffffff06', borderRadius: 14, border: '1px solid #ffffff0a',
+    }},
+      modes.map(m => el('button', {
+        key: m.id,
+        onClick: () => setMode(m.id),
+        style: {
+          flex: 1, padding: isMobile ? '10px 6px' : '12px 16px', borderRadius: 10,
+          background: mode === m.id ? '#ef444418' : 'transparent',
+          border: mode === m.id ? '1.5px solid #ef444450' : '1.5px solid transparent',
+          color: mode === m.id ? '#f87171' : '#7a8da4',
+          fontWeight: 700, fontSize: isMobile ? '.7rem' : '.85rem',
+          cursor: 'pointer', transition: 'all .2s ease',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+        },
+      },
+        el('span', { style: { fontSize: isMobile ? '1rem' : '1.2rem' } }, m.icon),
+        el('span', null, m.label),
+        !isMobile && el('span', { style: { fontSize: '.7rem', fontWeight: 400, opacity: .6 } }, m.desc),
+      ))
+    ),
+
+    // Render active mode
+    mode === 'sim' && el(RoundSimulator),
+    mode === 'bot' && el(DebateTheBot),
+    mode === 'prep' && el(PrepRoom, { onNavigateTab: onNavigateTab }),
+    mode === 'timer' && el(RoundTimer),
+  );
+}
+
 const TABS = [
   {id:'case',label:'Case Gen',i18n:'nav.caseGen'},
   {id:'newbies',label:'Guide',i18n:'nav.guide'},
   {id:'divider1',divider:true},
-  {id:'simulator',label:'Round Sim',i18n:'nav.roundSim'},
-  {id:'debatebot',label:'Debate Bot',i18n:'nav.debateBot'},
+  {id:'battle',label:'Battle',i18n:'nav.battle'},
   {id:'feedback',label:'Feedback',i18n:'nav.feedback'},
   {id:'vision',label:'Vision',i18n:'nav.vision'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
@@ -9509,6 +10405,16 @@ function App() {
     });
     setToast('Case saved!');
     setTimeout(() => setToast(''), 2500);
+    // Log insight for recursive learning
+    logInsight('case_feedback', { motion: (caseData.motion||'').substring(0,200), side: caseData.side, depth: caseData.depth, format: caseData.format, mode: caseData.mode, action: 'saved' });
+  }, []);
+
+  const updateCase = useCallback((id, updates) => {
+    setSavedCases(prev => {
+      const updated = prev.map(c => c.id === id ? {...c, ...updates} : c);
+      persistCases(updated);
+      return updated;
+    });
   }, []);
 
   const deleteCase = useCallback((id) => {
@@ -9634,6 +10540,7 @@ function App() {
       onDelete: deleteCase,
       onExport: exportCase,
       activeId: loadedCase ? loadedCase.id : null,
+      onUpdateCase: updateCase,
     }),
     React.createElement('div',{className:'app'},
       // Cases toggle - fixed top left
@@ -9707,8 +10614,7 @@ function App() {
       React.createElement(AdBanner, { team: team, onNavigate: navigateTab }),
       // All tabs rendered but only active one visible — preserves state across switches
       tabPane('case', React.createElement(CaseGenerator, { onSave: saveCase, loadedCase: loadedCase, onClearLoaded: () => setLoadedCase(null), team, user, onNavigateTab: navigateTab })),
-      tabPane('simulator', React.createElement(RoundSimulator)),
-      tabPane('debatebot', React.createElement(DebateTheBot)),
+      tabPane('battle', React.createElement(BattleArena, { onNavigateTab: navigateTab })),
       tabPane('feedback', React.createElement(CaseFeedback)),
       tabPane('res', React.createElement(Resolutions)),
       tabPane('vision', React.createElement(RoundVision)),
