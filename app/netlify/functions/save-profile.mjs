@@ -3,12 +3,12 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 export default async (request) => {
-  if (request.method === 'OPTIONS') return corsResponse();
-  if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
+  if (request.method === 'OPTIONS') return corsResponse(request);
+  if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
 
   try {
     const token = extractBearerToken(request);
-    if (!token) return errorResponse('Authorization required', 401);
+    if (!token) return errorResponse('Authorization required', 401, request);
     const decoded = await verifyIdToken(token);
     const uid = decoded.sub;
     const body = await request.json();
@@ -24,7 +24,7 @@ export default async (request) => {
           updatedAt: FieldValue.serverTimestamp(),
         }
       }, { merge: true });
-      return jsonResponse({ ok: true, type: 'debater_profile' });
+      return jsonResponse({ ok: true, type: 'debater_profile' }, 200, request);
     }
 
     // Writing style profile
@@ -32,13 +32,13 @@ export default async (request) => {
       await db.collection('user_profiles').doc(uid).set({
         styleProfile: body.profile || {},
       }, { merge: true });
-      return jsonResponse({ ok: true, type: 'style_profile' });
+      return jsonResponse({ ok: true, type: 'style_profile' }, 200, request);
     }
 
     // Referral tracking
     if (body.type === 'referral_credit') {
       const referrerUid = body.referrerUid;
-      if (!referrerUid) return errorResponse('Missing referrer UID', 400);
+      if (!referrerUid) return errorResponse('Missing referrer UID', 400, request);
 
       // Check if already credited
       const existing = await db.collection('referral_credits')
@@ -47,7 +47,7 @@ export default async (request) => {
         .limit(1)
         .get();
 
-      if (!existing.empty) return jsonResponse({ ok: true, alreadyCredited: true });
+      if (!existing.empty) return jsonResponse({ ok: true, alreadyCredited: true }, 200, request);
 
       // Credit the referrer with 3 bonus requests
       await db.collection('referral_credits').add({
@@ -66,12 +66,12 @@ export default async (request) => {
         });
       }
 
-      return jsonResponse({ ok: true, credited: true, bonusRequests: 3 });
+      return jsonResponse({ ok: true, credited: true, bonusRequests: 3 }, 200, request);
     }
 
-    return errorResponse('Unknown profile type', 400);
+    return errorResponse('Unknown profile type', 400, request);
   } catch (e) {
-    return errorResponse('Server error', 500);
+    return errorResponse('Server error', 500, request);
   }
 };
 

@@ -3,22 +3,22 @@ import { getUserTeam } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 export default async (request) => {
-  if (request.method === 'OPTIONS') return corsResponse();
-  if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
+  if (request.method === 'OPTIONS') return corsResponse(request);
+  if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
 
   const token = extractBearerToken(request);
-  if (!token) return errorResponse('Authorization required', 401);
+  if (!token) return errorResponse('Authorization required', 401, request);
 
   let decoded;
   try {
     decoded = await verifyIdToken(token);
   } catch (err) {
     console.error('team-analytics auth error:', err.message);
-    return errorResponse('Authentication failed. Please sign in again.', 401);
+    return errorResponse('Authentication failed. Please sign in again.', 401, request);
   }
 
   const result = await getUserTeam(decoded.sub);
-  if (!result) return errorResponse('No team found', 404);
+  if (!result) return errorResponse('No team found', 404, request);
 
   const { team } = result;
 
@@ -54,10 +54,10 @@ export default async (request) => {
       };
     });
 
-    return jsonResponse({ logs });
+    return jsonResponse({ logs }, 200, request);
   } catch (err) {
     console.error('team-analytics error:', err);
-    return errorResponse('Something went wrong. Please try again.', 500);
+    return errorResponse('Something went wrong. Please try again.', 500, request);
   }
 };
 

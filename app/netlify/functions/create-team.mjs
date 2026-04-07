@@ -4,20 +4,20 @@ import { getDb, getUserTeam, PLANS, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 export default async (request) => {
-  if (request.method === 'OPTIONS') return corsResponse();
-  if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
+  if (request.method === 'OPTIONS') return corsResponse(request);
+  if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
 
   try {
     // Authenticate
     const token = extractBearerToken(request);
-    if (!token) return errorResponse('Authorization required', 401);
+    if (!token) return errorResponse('Authorization required', 401, request);
 
     let decoded;
     try {
       decoded = await verifyIdToken(token);
     } catch (err) {
       console.error('create-team auth error:', err.message);
-      return errorResponse('Authentication failed. Please sign in again.', 401);
+      return errorResponse('Authentication failed. Please sign in again.', 401, request);
     }
 
     const uid = decoded.sub;
@@ -26,11 +26,11 @@ export default async (request) => {
 
     // Check user isn't already on a team
     const existing = await getUserTeam(uid);
-    if (existing) return errorResponse('You already belong to a team', 409);
+    if (existing) return errorResponse('You already belong to a team', 409, request);
 
     const body = await request.json();
-    const teamName = (body.name || '').trim();
-    if (!teamName) return errorResponse('Team name is required');
+    const teamName = (body.name || '').trim().slice(0, 100);
+    if (!teamName) return errorResponse('Team name is required', 400, request);
 
     // Create Stripe customer
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -97,10 +97,10 @@ export default async (request) => {
       stripeSubscriptionId: null,
       currentPeriodEnd: periodEnd.toISOString(),
       trialEndsAt: null,
-    }, 201);
+    }, 201, request);
   } catch (err) {
     console.error('create-team error:', err);
-    return errorResponse('Something went wrong. Please try again.', 500);
+    return errorResponse('Something went wrong. Please try again.', 500, request);
   }
 };
 

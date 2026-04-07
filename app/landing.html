@@ -4,422 +4,325 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Devil's Advocate — AI Debate Prep Engine</title>
-<meta name="description" content="Devil's Advocate is the AI-powered debate engine for competitive parliamentary debaters. Generate cases, simulate rounds, stress-test arguments." />
+<meta name="description" content="Generate cases, simulate rounds, stress-test arguments, and study philosophy. Built for competitive parliamentary debaters." />
 <meta property="og:title" content="Devil's Advocate — AI Debate Prep Engine" />
-<meta property="og:description" content="Generate cases, simulate rounds, stress-test arguments, and study philosophy. Built by a competitive APDA debater." />
+<meta property="og:description" content="Generate cases, simulate rounds, stress-test arguments. Free during beta." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://debateos1.netlify.app/landing.html" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Devil's Advocate — AI Debate Prep Engine" />
-<meta name="twitter:description" content="Generate cases, simulate rounds, stress-test arguments. Free during beta." />
+<meta name="twitter:description" content="AI debate prep engine. Free during beta." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{
   font-family:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
-  background:#faf8f5;
-  color:#1a1a1a;
+  background:#2b2b30;
+  color:#e8ecf4;
   font-size:16px;line-height:1.6;overflow-x:hidden;
 }
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer}
 
 /* Reveal */
-.rv{opacity:0;transform:translateY(16px);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1)}
+.rv{opacity:0;transform:translateY(14px);transition:opacity .6s cubic-bezier(.22,1,.36,1),transform .6s cubic-bezier(.22,1,.36,1)}
 .rv.vis{opacity:1;transform:none}
-.rv-d1{transition-delay:.06s}.rv-d2{transition-delay:.12s}.rv-d3{transition-delay:.18s}
-.rv-d4{transition-delay:.24s}.rv-d5{transition-delay:.3s}.rv-d6{transition-delay:.36s}
+.rv-d1{transition-delay:.05s}.rv-d2{transition-delay:.1s}.rv-d3{transition-delay:.15s}
+.rv-d4{transition-delay:.2s}.rv-d5{transition-delay:.25s}.rv-d6{transition-delay:.3s}
 
-/* ── Nav ─────────────────────────────────── */
-.nav-wrap{
+/* ── Nav ───────────────────────────── */
+.nav{
   position:fixed;top:0;left:0;right:0;z-index:100;
-  padding:16px 36px;
+  padding:12px 24px;
   display:flex;align-items:center;justify-content:space-between;
-  transition:background .3s,box-shadow .3s;
-}
-.nav-wrap.scrolled{
-  background:rgba(250,248,245,.92);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  box-shadow:0 1px 0 rgba(0,0,0,.06);
+  max-width:900px;margin:0 auto;
+  background:rgba(43,43,48,.96);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,.1);border-top:none;
+  border-radius:0 0 12px 12px;
 }
 .nav-logo{
-  font-family:'DM Serif Display',serif;
-  font-size:1.3rem;color:#1a1a1a;letter-spacing:-.01em;
+  font-size:.95rem;font-weight:700;color:#fff;
+  display:flex;align-items:center;gap:4px;
 }
-.nav-logo .accent{color:#dc2626}
-.nav-mid{
-  display:flex;gap:0;
-  background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.06);
-  border-radius:100px;padding:3px;
-}
-.nav-mid a{
-  padding:7px 20px;font-size:.78rem;font-weight:500;
-  color:rgba(0,0,0,.4);border-radius:100px;
-  transition:color .2s,background .2s;
-}
-.nav-mid a:hover{color:#1a1a1a;background:rgba(0,0,0,.04)}
-.nav-cta{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:9px 22px;border-radius:100px;
-  background:#dc2626;color:#fff;
-  font-size:.78rem;font-weight:600;border:none;
-  transition:transform .2s,box-shadow .2s;
-}
-.nav-cta:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(220,38,38,.25)}
-.nav-cta svg{width:13px;height:13px}
-
-/* ── Hero ─────────────────────────────────── */
-.hero{
-  position:relative;
-  min-height:100vh;min-height:100dvh;
-  display:flex;flex-direction:column;
-  justify-content:center;align-items:center;
-  text-align:center;
-  padding:120px 24px 100px;
-  overflow:hidden;
-  background:#faf8f5;
-}
-#hero-canvas{position:absolute;inset:0;z-index:0;width:100%;height:100%}
-.hero-fade-b{
-  position:absolute;bottom:0;left:0;right:0;height:25vh;z-index:1;
-  pointer-events:none;
-  background:linear-gradient(to top,#faf8f5,transparent);
-}
-.hero-content{position:relative;z-index:2;max-width:820px}
-
-.hero-badge{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:7px 18px 7px 12px;border-radius:100px;
-  font-size:.7rem;font-weight:700;
-  letter-spacing:.08em;text-transform:uppercase;
-  color:#dc2626;
-  background:rgba(220,38,38,.06);
-  border:1px solid rgba(220,38,38,.12);
-  margin-bottom:28px;
-}
-.hero-badge .dot{
-  width:7px;height:7px;border-radius:50%;
-  background:#dc2626;
-  animation:blink 2s ease-in-out infinite;
-}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-
-.hero h1{
-  font-family:'DM Serif Display',serif;
-  font-size:clamp(2.6rem,6vw,4.8rem);
-  font-weight:400;letter-spacing:-.025em;
-  line-height:1.06;color:#1a1a1a;
-  margin-bottom:24px;
-}
-.hero h1 em{font-style:italic;color:#dc2626}
-.hero-sub{
-  font-size:1.05rem;color:#71717a;
-  max-width:460px;margin:0 auto 36px;line-height:1.7;
-}
-.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-.btn-red{
-  display:inline-flex;align-items:center;gap:10px;
-  padding:15px 34px;
-  background:linear-gradient(135deg,#dc2626,#b91c1c);
-  color:#fff;border-radius:100px;
-  font-size:.9rem;font-weight:600;border:none;
-  transition:transform .2s,box-shadow .2s;
-  box-shadow:0 2px 12px rgba(220,38,38,.2);
-}
-.btn-red:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(220,38,38,.28)}
-.btn-red svg{width:16px;height:16px}
-.btn-light{
-  display:inline-flex;align-items:center;gap:10px;
-  padding:15px 34px;
-  background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.08);
-  color:#52525b;border-radius:100px;
-  font-size:.9rem;font-weight:500;
+.nav-logo .red{color:#ef4444;font-style:italic}
+.nav-links{display:flex;gap:4px}
+.nav-links a{
+  padding:6px 14px;font-size:.75rem;font-weight:500;
+  color:#c8cdd6;border-radius:8px;border:1.5px solid transparent;
   transition:all .2s;
 }
-.btn-light:hover{border-color:rgba(0,0,0,.15);color:#1a1a1a;background:rgba(0,0,0,.05)}
-
-.hero-scroll{
-  position:absolute;bottom:32px;left:36px;z-index:2;
-  font-size:.68rem;color:rgba(0,0,0,.15);
-  letter-spacing:.06em;writing-mode:vertical-rl;
+.nav-links a:hover{color:#e4e8f0;background:rgba(255,255,255,.04)}
+.nav-cta{
+  padding:6px 16px;border-radius:8px;
+  background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(245,158,11,.06));
+  border:1.5px solid rgba(239,68,68,.3);
+  color:#ef4444;font-size:.75rem;font-weight:600;
+  transition:all .2s;
 }
+.nav-cta:hover{border-color:rgba(239,68,68,.5);box-shadow:0 2px 12px rgba(239,68,68,.15)}
 
-/* ── Sections ─────────────────────────────── */
-.sec{padding:100px 0;position:relative;z-index:1}
-.container{max-width:1100px;margin:0 auto;padding:0 36px}
-.container-sm{max-width:680px;margin:0 auto;padding:0 36px}
-.divider{height:1px;background:rgba(0,0,0,.06)}
+/* ── Hero ───────────────────────────── */
+.hero{
+  text-align:center;
+  padding:120px 20px 80px;
+  max-width:660px;margin:0 auto;
+}
+.hero-badge{
+  display:inline-block;
+  padding:5px 14px;border-radius:20px;
+  font-size:.72rem;font-weight:600;
+  letter-spacing:.5px;text-transform:uppercase;
+  border:1px solid rgba(239,68,68,.2);
+  color:#f87171;background:rgba(239,68,68,.06);
+  margin-bottom:24px;
+}
+.hero h1{
+  font-size:clamp(2rem,5vw,3rem);
+  font-weight:800;letter-spacing:-.03em;
+  line-height:1.1;color:#fff;
+  margin-bottom:16px;
+}
+.hero h1 .red{color:#ef4444}
+.hero-sub{
+  font-size:.95rem;color:#8890a0;
+  max-width:440px;margin:0 auto 28px;line-height:1.65;
+}
+.hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn-main{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 24px;border-radius:10px;
+  background:#ef4444;color:#fff;
+  font-size:.88rem;font-weight:600;border:none;
+  transition:all .2s;
+  box-shadow:0 2px 12px rgba(239,68,68,.2);
+}
+.btn-main:hover{background:#dc2626;box-shadow:0 6px 20px rgba(239,68,68,.3);transform:translateY(-1px)}
+.btn-main svg{width:14px;height:14px}
+.btn-sec{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 24px;border-radius:10px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);
+  color:#c8cdd6;font-size:.88rem;font-weight:500;
+  transition:all .2s;
+}
+.btn-sec:hover{border-color:rgba(255,255,255,.2);color:#fff}
+
+/* ── Sections ───────────────────────── */
+.sec{padding:72px 0}
+.wrap{max-width:900px;margin:0 auto;padding:0 20px}
+.wrap-sm{max-width:640px;margin:0 auto;padding:0 20px}
+.divider{height:1px;max-width:900px;margin:0 auto;background:rgba(255,255,255,.06)}
 
 .sec-label{
-  font-size:.66rem;font-weight:700;
-  letter-spacing:.14em;text-transform:uppercase;
-  color:#dc2626;opacity:.7;margin-bottom:16px;
+  font-size:.68rem;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;
+  color:#ef4444;opacity:.7;margin-bottom:12px;
 }
 .sec-title{
-  font-family:'DM Serif Display',serif;
-  font-size:clamp(1.8rem,3.8vw,2.8rem);
-  font-weight:400;color:#1a1a1a;
-  letter-spacing:-.02em;line-height:1.12;margin-bottom:16px;
+  font-size:clamp(1.4rem,3vw,1.9rem);
+  font-weight:800;color:#fff;
+  letter-spacing:-.02em;line-height:1.15;margin-bottom:12px;
 }
-.sec-title em{font-style:italic;color:#dc2626}
-.sec-desc{font-size:.92rem;color:#71717a;max-width:440px;line-height:1.7}
-.sec-center{text-align:center;margin-bottom:60px}
+.sec-desc{font-size:.88rem;color:#71717a;max-width:420px;line-height:1.65}
+.sec-center{text-align:center;margin-bottom:40px}
 .sec-center .sec-desc{margin:0 auto}
 
-/* ── Tools ─────────────────────────────────── */
+/* ── Tool Cards — match app style ───── */
 .tools-grid{
-  display:grid;grid-template-columns:repeat(3,1fr);
-  gap:16px;
+  display:grid;grid-template-columns:repeat(2,1fr);
+  gap:12px;
 }
 .tool-card{
-  background:#fff;
-  border:1px solid rgba(0,0,0,.06);
-  border-radius:16px;padding:32px 28px;
-  transition:border-color .3s,box-shadow .3s,transform .3s;
+  background:#363638;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;padding:24px 20px;
+  transition:border-color .25s;
 }
-.tool-card:hover{
-  border-color:rgba(220,38,38,.15);
-  box-shadow:0 8px 32px rgba(220,38,38,.06);
-  transform:translateY(-3px);
-}
-.tool-icon{
-  width:40px;height:40px;border-radius:10px;
-  background:linear-gradient(135deg,rgba(220,38,38,.08),rgba(234,88,12,.06));
-  display:flex;align-items:center;justify-content:center;
-  margin-bottom:20px;
-}
-.tool-icon svg{width:18px;height:18px;color:#dc2626}
+.tool-card:hover{border-color:rgba(239,68,68,.2)}
 .tool-card h3{
-  font-size:1rem;font-weight:700;color:#1a1a1a;
-  margin-bottom:8px;letter-spacing:-.01em;
+  font-size:.9rem;font-weight:700;color:#fff;
+  margin-bottom:6px;display:flex;align-items:center;gap:8px;
 }
-.tool-card p{font-size:.84rem;color:#71717a;line-height:1.6}
-.tool-card .what{
-  margin-top:12px;font-size:.78rem;color:#a1a1aa;line-height:1.5;
-  padding-top:12px;border-top:1px solid rgba(0,0,0,.04);
+.tool-card h3 .num{
+  font-size:.65rem;font-weight:600;color:rgba(255,255,255,.15);
+  font-variant-numeric:tabular-nums;
+}
+.tool-card p{font-size:.8rem;color:#8890a0;line-height:1.55}
+.tool-card .io{
+  margin-top:8px;font-size:.72rem;color:rgba(255,255,255,.2);
+  border-top:1px solid rgba(255,255,255,.04);padding-top:8px;
 }
 
-/* ── How ───────────────────────────────────── */
-.how-row{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+/* ── How ─────────────────────────────── */
+.how-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .how-card{
-  background:#fff;border:1px solid rgba(0,0,0,.06);
-  border-radius:16px;padding:32px 28px;
-  text-align:center;
-  transition:border-color .3s;
+  background:#363638;border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;padding:24px 20px;text-align:center;
 }
-.how-card:hover{border-color:rgba(220,38,38,.12)}
 .how-num{
   display:inline-flex;align-items:center;justify-content:center;
-  width:44px;height:44px;border-radius:50%;
-  background:linear-gradient(135deg,rgba(220,38,38,.08),rgba(234,88,12,.05));
-  font-size:.9rem;font-weight:800;color:#dc2626;
-  margin-bottom:20px;
+  width:36px;height:36px;border-radius:50%;
+  border:1.5px solid rgba(239,68,68,.25);
+  color:#ef4444;font-size:.82rem;font-weight:700;
+  margin-bottom:14px;
 }
-.how-card h3{font-size:.95rem;font-weight:700;color:#1a1a1a;margin-bottom:8px}
-.how-card p{font-size:.84rem;color:#71717a;line-height:1.6}
+.how-card h3{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:6px}
+.how-card p{font-size:.8rem;color:#8890a0;line-height:1.55}
 
-/* ── Tokens / Pricing ─────────────────────── */
-.tokens-split{
-  display:grid;grid-template-columns:1fr 1fr;
-  gap:64px;align-items:center;
-}
-.tokens-text h3{font-size:1rem;font-weight:700;color:#1a1a1a;margin-bottom:8px}
-.tokens-text p{font-size:.88rem;color:#71717a;line-height:1.7;margin-bottom:16px}
-.tokens-text p strong{color:#1a1a1a;font-weight:600}
-.token-card{
-  background:#fff;border:1px solid rgba(0,0,0,.06);
-  border-radius:20px;padding:40px 36px;
-  text-align:center;
+/* ── Pricing ─────────────────────────── */
+.price-split{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
+.price-text p{font-size:.86rem;color:#8890a0;line-height:1.7;margin-bottom:14px}
+.price-text strong{color:#e8ecf4;font-weight:600}
+.price-card{
+  background:#363638;border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;padding:28px 24px;text-align:center;
   position:relative;overflow:hidden;
 }
-.token-card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg,#dc2626,#ea580c,#dc2626);
+.price-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,#ef4444,#f59e0b,#ef4444);
 }
-.token-card .price-tag{
-  font-family:'DM Serif Display',serif;
-  font-size:2.4rem;color:#1a1a1a;margin-bottom:4px;
+.price-amt{font-size:2rem;font-weight:800;color:#fff;margin-bottom:2px}
+.price-note{font-size:.76rem;color:#71717a;margin-bottom:20px}
+.price-list{list-style:none;text-align:left;margin-bottom:20px}
+.price-list li{
+  padding:8px 0;font-size:.8rem;color:#a1a1aa;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid rgba(255,255,255,.04);
 }
-.token-card .price-sub{font-size:.82rem;color:#a1a1aa;margin-bottom:24px}
-.token-features{list-style:none;text-align:left;margin-bottom:28px}
-.token-features li{
-  padding:10px 0;font-size:.86rem;color:#52525b;
-  display:flex;align-items:center;gap:10px;
-  border-bottom:1px solid rgba(0,0,0,.04);
+.price-list li::before{
+  content:'';width:4px;height:4px;border-radius:50%;
+  background:#ef4444;flex-shrink:0;
 }
-.token-features li::before{
-  content:'';width:5px;height:5px;border-radius:50%;
-  background:#dc2626;flex-shrink:0;
+.price-btn{
+  display:block;width:100%;padding:11px;
+  background:#ef4444;color:#fff;border:none;border-radius:10px;
+  font-size:.84rem;font-weight:600;
+  transition:all .2s;
 }
-.token-btn{
-  display:block;width:100%;padding:14px;
-  background:linear-gradient(135deg,#dc2626,#b91c1c);
-  color:#fff;border:none;border-radius:12px;
-  font-size:.88rem;font-weight:600;
-  transition:transform .2s,box-shadow .2s;
-}
-.token-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(220,38,38,.25)}
-.beta-note{
-  display:inline-flex;align-items:center;gap:6px;
-  margin-top:16px;padding:6px 14px;
+.price-btn:hover{background:#dc2626;box-shadow:0 4px 16px rgba(239,68,68,.25)}
+.beta-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  margin-top:12px;padding:4px 12px;
   background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.12);
-  border-radius:100px;
-  font-size:.72rem;font-weight:600;color:#16a34a;
-  letter-spacing:.03em;
+  border-radius:100px;font-size:.68rem;font-weight:600;color:#22c55e;
 }
 
-/* ── FAQ ───────────────────────────────────── */
-.faq-list{display:flex;flex-direction:column}
-.faq-item{border-bottom:1px solid rgba(0,0,0,.06)}
+/* ── FAQ ──────────────────────────────── */
+.faq-item{border-bottom:1px solid rgba(255,255,255,.06)}
 .faq-q{
   width:100%;display:flex;justify-content:space-between;align-items:center;
-  padding:24px 0;background:none;border:none;
-  color:#1a1a1a;font-size:.92rem;font-weight:500;
+  padding:20px 0;background:none;border:none;
+  color:#c8cdd6;font-size:.88rem;font-weight:500;
   text-align:left;font-family:inherit;transition:color .2s;
 }
-.faq-q:hover{color:#dc2626}
-.faq-chev{width:16px;height:16px;flex-shrink:0;color:#d4d4d8;transition:transform .3s}
+.faq-q:hover{color:#fff}
+.faq-chev{width:14px;height:14px;flex-shrink:0;color:rgba(255,255,255,.15);transition:transform .3s}
 .faq-item.open .faq-chev{transform:rotate(180deg)}
-.faq-a{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.22,1,.36,1),padding .4s}
-.faq-item.open .faq-a{max-height:250px;padding-bottom:24px}
-.faq-a p{font-size:.84rem;color:#71717a;line-height:1.7;max-width:560px}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.22,1,.36,1),padding .35s}
+.faq-item.open .faq-a{max-height:200px;padding-bottom:20px}
+.faq-a p{font-size:.82rem;color:#71717a;line-height:1.65;max-width:520px}
 
-/* ── CTA ───────────────────────────────────── */
-.cta-sec{
-  text-align:center;padding:100px 24px;
-  background:linear-gradient(180deg,#faf8f5 0%,#fef2f2 100%);
-  position:relative;
-}
-.cta-sec h2{
-  font-family:'DM Serif Display',serif;
-  font-size:clamp(2rem,4.5vw,3.2rem);
-  font-weight:400;color:#1a1a1a;
-  margin-bottom:16px;letter-spacing:-.02em;line-height:1.1;
-}
-.cta-sec p{
-  font-size:.9rem;color:#71717a;
-  margin:0 auto 32px;max-width:360px;line-height:1.6;
-}
+/* ── CTA ──────────────────────────────── */
+.cta{text-align:center;padding:80px 20px}
+.cta h2{font-size:clamp(1.5rem,3.5vw,2.2rem);font-weight:800;color:#fff;margin-bottom:12px;letter-spacing:-.02em}
+.cta p{font-size:.88rem;color:#71717a;margin:0 auto 28px;max-width:340px}
 
-/* ── Footer ────────────────────────────────── */
-.footer{border-top:1px solid rgba(0,0,0,.06);padding:40px 0;background:#faf8f5}
-.footer-inner{display:flex;justify-content:space-between;align-items:center}
-.footer-brand{font-family:'DM Serif Display',serif;font-size:1rem;color:#a1a1aa}
-.footer-brand .accent{color:#dc2626}
-.footer-links{display:flex;gap:24px}
-.footer-links a{font-size:.76rem;color:#a1a1aa;transition:color .2s}
-.footer-links a:hover{color:#1a1a1a}
-.footer-copy{
-  text-align:center;margin-top:28px;padding-top:20px;
-  border-top:1px solid rgba(0,0,0,.03);
-  font-size:.68rem;color:#d4d4d8;
-}
+/* ── Footer ───────────────────────────── */
+.footer{border-top:1px solid rgba(255,255,255,.06);padding:32px 20px;max-width:900px;margin:0 auto}
+.footer-row{display:flex;justify-content:space-between;align-items:center}
+.footer-brand{font-size:.88rem;font-weight:700;color:rgba(255,255,255,.3)}
+.footer-brand .red{color:#ef4444}
+.footer-links{display:flex;gap:20px}
+.footer-links a{font-size:.72rem;color:rgba(255,255,255,.15);transition:color .2s}
+.footer-links a:hover{color:rgba(255,255,255,.4)}
+.footer-copy{text-align:center;margin-top:20px;font-size:.65rem;color:rgba(255,255,255,.08)}
 
-/* ── Responsive ───────────────────────────── */
-@media(max-width:900px){
-  .nav-wrap{padding:14px 20px}
-  .nav-mid{display:none}
-  .tools-grid,.how-row{grid-template-columns:1fr 1fr}
-  .tokens-split{grid-template-columns:1fr;gap:40px}
-  .hero-scroll{display:none}
-  .container,.container-sm{padding:0 20px}
+/* ── Responsive ───────────────────────── */
+@media(max-width:700px){
+  .tools-grid{grid-template-columns:1fr}
+  .how-row{grid-template-columns:1fr}
+  .price-split{grid-template-columns:1fr;gap:24px}
+  .nav-links{display:none}
 }
-@media(max-width:640px){
-  .hero{padding:120px 20px 80px}
-  .hero h1{font-size:2.2rem}
-  .tools-grid,.how-row{grid-template-columns:1fr}
-  .sec{padding:72px 0}
-  .footer-inner{flex-direction:column;gap:14px;text-align:center}
-  .hero-btns{flex-direction:column;align-items:center}
+@media(max-width:480px){
+  .hero h1{font-size:1.8rem}
+  .hero{padding:100px 16px 60px}
+  .footer-row{flex-direction:column;gap:12px;text-align:center}
 }
 </style>
 </head>
 <body>
 
-<!-- Nav -->
-<nav class="nav-wrap" id="nav">
-  <a href="/landing.html" class="nav-logo"><span class="accent">Devil's</span> Advocate</a>
-  <div class="nav-mid">
+<!-- Nav — matches app nav style -->
+<nav class="nav">
+  <a href="/landing.html" class="nav-logo"><span class="red">Devil's</span> Advocate</a>
+  <div class="nav-links">
     <a href="#tools">Tools</a>
-    <a href="#how">How It Works</a>
     <a href="#pricing">Pricing</a>
     <a href="#faq">FAQ</a>
   </div>
-  <a href="/?beta=true#case" class="nav-cta">
-    Open App
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-  </a>
+  <a href="/?beta=true#case" class="nav-cta">Open App</a>
 </nav>
 
 <!-- Hero -->
 <section class="hero">
-  <canvas id="hero-canvas"></canvas>
-  <div class="hero-fade-b"></div>
-  <div class="hero-content">
-    <div class="hero-badge rv"><span class="dot"></span> Beta &mdash; All Tools Free</div>
-    <h1 class="rv rv-d1">Your AI <em>debate prep</em> engine.</h1>
-    <p class="hero-sub rv rv-d2">Generate cases, simulate rounds, stress-test arguments, and study philosophy &mdash; all in one app built for competitive parliamentary debaters.</p>
-    <div class="hero-btns rv rv-d3">
-      <a href="/?beta=true#case" class="btn-red">
-        Try it free
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-      </a>
-      <a href="#tools" class="btn-light">See the tools</a>
-    </div>
+  <div class="hero-badge rv">Beta — All Tools Free</div>
+  <h1 class="rv rv-d1">AI debate prep<br>for <span class="red">competitive debaters.</span></h1>
+  <p class="hero-sub rv rv-d2">Generate cases, simulate rounds, get judge feedback, and study philosophy. One app, six tools, built for parliamentary debate.</p>
+  <div class="hero-btns rv rv-d3">
+    <a href="/?beta=true#case" class="btn-main">
+      Open the app
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+    <a href="#tools" class="btn-sec">What's inside</a>
   </div>
-  <div class="hero-scroll">Scroll down</div>
 </section>
 
 <div class="divider"></div>
 
-<!-- Tools — concrete descriptions -->
+<!-- Tools -->
 <section id="tools" class="sec">
-  <div class="container">
+  <div class="wrap">
     <div class="sec-center">
-      <div class="sec-label rv">What You Get</div>
-      <h2 class="sec-title rv rv-d1">Six tools inside <em>one engine.</em></h2>
-      <p class="sec-desc rv rv-d2">Each one does a specific thing. No filler features.</p>
+      <div class="sec-label rv">Tools</div>
+      <h2 class="sec-title rv rv-d1">What you get</h2>
     </div>
     <div class="tools-grid">
       <div class="tool-card rv rv-d1">
-        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-        <h3>Case Generator</h3>
-        <p>Enter a motion and side. Get a full case: framework, 3 arguments with warrant chains, compound impact, and A2 blocks for the top 5 opp responses. Quick mode for 15-min prep, deep mode for practice.</p>
-        <div class="what">Input: motion + side. Output: structured case document.</div>
+        <h3><span class="num">01</span> Case Generator</h3>
+        <p>Enter a motion and side. Get a full case: framework, 3 arguments with warrant chains, compound impact, and A2 blocks for the top 5 opp responses.</p>
+        <div class="io">Input: motion + side &rarr; Output: structured case</div>
       </div>
       <div class="tool-card rv rv-d2">
-        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
-        <h3>Round Simulator</h3>
-        <p>Practice any speech (PM, LO, MG, MO, LOR, PMR) against an AI opponent. It reads your arguments and responds with real counterarguments, not generic lines. Timed like a real round.</p>
-        <div class="what">Input: your speech. Output: opponent's response + judge notes.</div>
+        <h3><span class="num">02</span> Round Simulator</h3>
+        <p>Practice any speech type (PM, LO, MG, MO, LOR, PMR) against an AI that reads your arguments and responds with real counterarguments.</p>
+        <div class="io">Input: your speech &rarr; Output: opponent response + judge notes</div>
       </div>
       <div class="tool-card rv rv-d3">
-        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></div>
-        <h3>Philosophy Engine</h3>
-        <p>50+ thinkers with period-accurate detail. Rawls: early vs. late, two principles, lexical ordering. Kant: all three formulations. Foucault: archaeology vs. genealogy. Not Wikipedia summaries &mdash; debate-ready depth.</p>
-        <div class="what">Input: thinker or concept. Output: debate-applicable breakdown.</div>
+        <h3><span class="num">03</span> Philosophy Engine</h3>
+        <p>50+ thinkers with debate-ready depth. Rawls (early vs. late), Kant (all 3 formulations), Foucault (archaeology vs. genealogy). Not Wikipedia summaries.</p>
+        <div class="io">Input: thinker or concept &rarr; Output: debate-applicable breakdown</div>
       </div>
       <div class="tool-card rv rv-d4">
-        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-        <h3>Judge Feedback</h3>
-        <p>Paste a speech you've written. Get line-by-line feedback: where your warrants are thin, where your time allocation is off, where you dropped a key argument, and what a judge would actually write on a ballot.</p>
-        <div class="what">Input: your speech text. Output: paragraph-level critique.</div>
+        <h3><span class="num">04</span> Judge Feedback</h3>
+        <p>Paste a speech. Get line-by-line feedback on where warrants are thin, time allocation is off, or you dropped a key argument.</p>
+        <div class="io">Input: speech text &rarr; Output: ballot-style critique</div>
       </div>
       <div class="tool-card rv rv-d5">
-        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
-        <h3>Strategic Mapper</h3>
-        <p>Paste a motion and the mapper shows you the full strategic landscape: which arguments interact, where the real clash is, what opp will likely collapse on, and which points the judge weighs heaviest.</p>
-        <div class="what">Input: motion + context. Output: argument interaction map.</div>
+        <h3><span class="num">05</span> Strategic Mapper</h3>
+        <p>See which arguments interact, where the real clash is, what opp will collapse on, and which points the judge weighs heaviest.</p>
+        <div class="io">Input: motion &rarr; Output: argument interaction map</div>
       </div>
       <div class="tool-card rv rv-d6">
-        <div class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
-        <h3>Argument Market</h3>
-        <p>Submit any claim. The engine generates 3 arguments for and 3 against, scores each on evidence and logic, then runs adversarial cycles where arguments attack each other. After 3&ndash;5 cycles, weak arguments die and strong ones survive.</p>
-        <div class="what">Input: a claim. Output: ranked, stress-tested arguments.</div>
+        <h3><span class="num">06</span> Argument Market</h3>
+        <p>Submit a claim. Engine generates arguments for and against, scores them, then runs adversarial cycles. Weak arguments die, strong ones survive.</p>
+        <div class="io">Input: a claim &rarr; Output: ranked, stress-tested arguments</div>
       </div>
     </div>
   </div>
@@ -428,28 +331,27 @@ button{font-family:inherit;cursor:pointer}
 <div class="divider"></div>
 
 <!-- How It Works -->
-<section id="how" class="sec">
-  <div class="container">
+<section class="sec">
+  <div class="wrap">
     <div class="sec-center">
-      <div class="sec-label rv">How to Use It</div>
-      <h2 class="sec-title rv rv-d1">Open it. <em>Use it.</em> That's it.</h2>
-      <p class="sec-desc rv rv-d2">No account required to start. No setup. Works on desktop and mobile.</p>
+      <div class="sec-label rv">How to use it</div>
+      <h2 class="sec-title rv rv-d1">Three steps</h2>
     </div>
     <div class="how-row">
       <div class="how-card rv rv-d1">
         <div class="how-num">1</div>
         <h3>Pick a tool</h3>
-        <p>Open the app and tap any of the six tabs. Case Gen, Round Sim, Philosophy, Judge, Mapper, or Market. Each one works independently.</p>
+        <p>Open the app. Tap any of the six tabs. Each one works independently.</p>
       </div>
       <div class="how-card rv rv-d2">
         <div class="how-num">2</div>
         <h3>Give it input</h3>
-        <p>Enter a motion, paste a speech, type a claim, or pick a philosopher. Each tool tells you exactly what it needs. Most results come back in under 30 seconds.</p>
+        <p>Enter a motion, paste a speech, type a claim. Most results come back in under 30 seconds.</p>
       </div>
       <div class="how-card rv rv-d3">
         <div class="how-num">3</div>
-        <h3>Iterate or export</h3>
-        <p>Revise the output, ask follow-up questions, copy to clipboard, or jump to another tool with the same motion. Your session saves automatically.</p>
+        <h3>Iterate</h3>
+        <p>Revise, ask follow-ups, copy to clipboard, or jump to another tool with the same motion.</p>
       </div>
     </div>
   </div>
@@ -457,36 +359,32 @@ button{font-family:inherit;cursor:pointer}
 
 <div class="divider"></div>
 
-<!-- Pricing / Tokens -->
+<!-- Pricing -->
 <section id="pricing" class="sec">
-  <div class="container">
-    <div class="tokens-split">
-      <div class="tokens-text">
+  <div class="wrap">
+    <div class="price-split">
+      <div class="price-text">
         <div class="sec-label rv">Pricing</div>
-        <h2 class="sec-title rv rv-d1">Why there's a <em>token system.</em></h2>
-        <p class="rv rv-d2">Every time you generate a case, simulate a round, or run any tool, it costs us real money. The AI models that power this aren't free &mdash; each request uses compute from Anthropic's Claude API.</p>
-        <p class="rv rv-d3"><strong>The token system keeps the app sustainable.</strong> Instead of a flat monthly fee where light users subsidize heavy users, you pay for what you use. Generate 5 cases a month? Pay for 5. Generate 50? Pay for 50.</p>
-        <p class="rv rv-d4">This means we can keep improving the engine without cutting corners on model quality. You get the best AI available, not a cheaper model to protect margins.</p>
-        <h3 class="rv rv-d5" style="margin-top:8px">During beta, it's all free.</h3>
-        <p class="rv rv-d6">Every tool, unlimited usage, no credit card. We're testing with competitive debaters to make the product better before paid plans launch.</p>
+        <h2 class="sec-title rv rv-d1">Why there's a token system</h2>
+        <p class="rv rv-d2">Every generation costs real money. The AI models that power this (Claude by Anthropic) charge per request. Instead of a flat monthly fee, you pay for what you use.</p>
+        <p class="rv rv-d3"><strong>5 cases a month? Pay for 5. 50 cases? Pay for 50.</strong> This keeps the app sustainable and means we never have to downgrade to a cheaper, worse model.</p>
+        <p class="rv rv-d4"><strong>During beta, everything is free.</strong> Every tool, unlimited usage, no credit card. We're testing with competitive debaters before launching paid plans.</p>
       </div>
-      <div class="token-card rv rv-d3">
-        <div style="font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#dc2626;margin-bottom:16px">Beta Access</div>
-        <div class="price-tag">$0</div>
-        <div class="price-sub">Free during beta &mdash; no credit card required</div>
-        <ul class="token-features">
+      <div class="price-card rv rv-d3">
+        <div style="font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ef4444;margin-bottom:12px">Beta Access</div>
+        <div class="price-amt">$0</div>
+        <div class="price-note">Free during beta</div>
+        <ul class="price-list">
           <li>All 6 tools unlocked</li>
           <li>Unlimited generations</li>
-          <li>All case depths (quick + deep)</li>
-          <li>Round simulator (all speech types)</li>
-          <li>Full philosophy library</li>
+          <li>All case depths</li>
           <li>Works on desktop + mobile</li>
           <li>No account required to start</li>
         </ul>
-        <a href="/?beta=true#case" class="token-btn">Start using it free</a>
-        <div class="beta-note">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Token pricing launches after beta ends
+        <a href="/?beta=true#case" class="price-btn">Start free</a>
+        <div class="beta-pill">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Token pricing after beta
         </div>
       </div>
     </div>
@@ -497,176 +395,64 @@ button{font-family:inherit;cursor:pointer}
 
 <!-- FAQ -->
 <section id="faq" class="sec">
-  <div class="container-sm">
+  <div class="wrap-sm">
     <div class="sec-center">
       <div class="sec-label rv">FAQ</div>
-      <h2 class="sec-title rv rv-d1">Quick answers.</h2>
+      <h2 class="sec-title rv rv-d1">Quick answers</h2>
     </div>
-    <div class="faq-list">
-      <div class="faq-item rv"><button class="faq-q">What formats does it support?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>APDA, British Parliamentary, World Schools, and general parliamentary. The case generator and round simulator both adapt to each format's speech structure and conventions.</p></div></div>
-      <div class="faq-item rv rv-d1"><button class="faq-q">Will my opponents get the same cases?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No. Every case is generated fresh from your specific inputs. No case library. Even identical motions produce different cases each time.</p></div></div>
-      <div class="faq-item rv rv-d2"><button class="faq-q">Does this work on my phone?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>Yes. It's a progressive web app &mdash; install to your home screen on iOS or Android. Built for prep on the bus to a tournament.</p></div></div>
-      <div class="faq-item rv rv-d3"><button class="faq-q">Is using AI for debate prep cheating?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No. It's a prep tool, not an in-round tool. You use it before the tournament to build skills, explore arguments, and practice speeches. In the round, it's still you and your partner.</p></div></div>
-      <div class="faq-item rv rv-d4"><button class="faq-q">How long until beta ends?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No fixed date. We're gathering feedback from competitive debaters. When we launch paid plans, beta users will get priority access and early pricing.</p></div></div>
-      <div class="faq-item rv rv-d5"><button class="faq-q">Who built this?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>A collegiate debater in the APDA circuit who got tired of the same prep problems everyone complains about. The prompts are built on real competitive experience, not generic AI templates.</p></div></div>
+    <div>
+      <div class="faq-item rv"><button class="faq-q">What formats does it support?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>APDA, British Parliamentary, World Schools, and general parliamentary. The generator and simulator adapt to each format.</p></div></div>
+      <div class="faq-item rv rv-d1"><button class="faq-q">Will opponents get the same cases?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No. Every case is generated fresh from your specific inputs. No recycled library.</p></div></div>
+      <div class="faq-item rv rv-d2"><button class="faq-q">Works on my phone?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>Yes. It's a PWA — install to your home screen on iOS or Android.</p></div></div>
+      <div class="faq-item rv rv-d3"><button class="faq-q">Is this cheating?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>No. Prep tool, not in-round tool. You use it before the tournament. In the round, it's still you.</p></div></div>
+      <div class="faq-item rv rv-d4"><button class="faq-q">Who built this?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a"><p>A collegiate debater in the APDA circuit. The prompts are built on real competitive experience.</p></div></div>
     </div>
   </div>
 </section>
 
 <!-- CTA -->
-<section class="cta-sec">
-  <div class="rv">
-    <h2>Start prepping <em>smarter.</em></h2>
-    <p>Free during beta. No account needed. Just open the app.</p>
-    <a href="/?beta=true#case" class="btn-red">
-      Open Devil's Advocate
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:16px;height:16px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-    </a>
-  </div>
+<div class="divider"></div>
+<section class="cta">
+  <h2 class="rv">Try it free.</h2>
+  <p class="rv rv-d1">No account needed. Just open the app.</p>
+  <a href="/?beta=true#case" class="btn-main rv rv-d2">
+    Open Devil's Advocate
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:14px;height:14px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+  </a>
 </section>
 
 <!-- Footer -->
 <footer class="footer">
-  <div class="container">
-    <div class="footer-inner">
-      <div class="footer-brand"><span class="accent">Devil's</span> Advocate</div>
-      <div class="footer-links">
-        <a href="/?beta=true#case">App</a>
-        <a href="#tools">Tools</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#faq">FAQ</a>
-        <a href="mailto:feedback@debateos.com">Contact</a>
-      </div>
+  <div class="footer-row">
+    <div class="footer-brand"><span class="red">Devil's</span> Advocate</div>
+    <div class="footer-links">
+      <a href="/?beta=true#case">App</a>
+      <a href="#tools">Tools</a>
+      <a href="#faq">FAQ</a>
+      <a href="mailto:feedback@debateos.com">Contact</a>
     </div>
-    <p class="footer-copy">Built by a collegiate debater. &copy; 2026</p>
   </div>
+  <p class="footer-copy">Built by a collegiate debater. &copy; 2026</p>
 </footer>
 
 <script>
-/* ── Animated dot grid — red/orange on light bg ──── */
-(function(){
-  var c=document.getElementById('hero-canvas');
-  if(!c)return;
-  var ctx=c.getContext('2d');
-  var dpr=window.devicePixelRatio||1;
-  var w,h,cols,rows,dots=[];
-  var sp=52;
-  var mouse={x:-1e3,y:-1e3};
-  var raf;
-
-  function resize(){
-    var r=c.parentElement.getBoundingClientRect();
-    w=r.width;h=r.height;
-    c.width=w*dpr;c.height=h*dpr;
-    c.style.width=w+'px';c.style.height=h+'px';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    cols=Math.ceil(w/sp)+2;rows=Math.ceil(h/sp)+2;
-    dots=[];
-    for(var r=0;r<rows;r++)for(var cl=0;cl<cols;cl++){
-      dots.push({x:cl*sp,y:r*sp,ox:cl*sp,oy:r*sp,ph:Math.random()*Math.PI*2});
-    }
-  }
-
-  function draw(t){
-    ctx.clearRect(0,0,w,h);
-    var tm=t*.001;
-    for(var i=0;i<dots.length;i++){
-      var d=dots[i];
-      d.x=d.ox+Math.sin(tm*.25+d.ph)*2.5;
-      d.y=d.oy+Math.cos(tm*.2+d.ph*1.3)*2.5;
-    }
-    // Grid lines
-    for(var i=0;i<dots.length;i++){
-      var d=dots[i],col=i%cols,row=Math.floor(i/cols);
-      if(col<cols-1){var r=dots[i+1];ln(d,r,'rgba(0,0,0,0.03)')}
-      if(row<rows-1){var b=dots[i+cols];ln(d,b,'rgba(0,0,0,0.03)')}
-    }
-    // Dots + mouse interaction
-    for(var i=0;i<dots.length;i++){
-      var d=dots[i];
-      var dx=d.x-mouse.x,dy=d.y-mouse.y;
-      var dist=Math.sqrt(dx*dx+dy*dy);
-      var prox=Math.max(0,1-dist/160);
-      var alpha=.06+prox*.55;
-      var radius=1.2+prox*2.5;
-      // Color: blend from grey to red based on proximity
-      if(prox>.01){
-        var r=Math.round(180+75*prox);
-        var g=Math.round(180*(1-prox)+38*prox);
-        var b=Math.round(180*(1-prox)+38*prox);
-        ctx.fillStyle='rgba('+r+','+g+','+b+','+alpha+')';
-      } else {
-        ctx.fillStyle='rgba(0,0,0,'+alpha+')';
-      }
-      ctx.beginPath();ctx.arc(d.x,d.y,radius,0,Math.PI*2);ctx.fill();
-      // Proximity connections
-      if(prox>.15){
-        for(var j=i+1;j<dots.length;j++){
-          var d2=dots[j];
-          var dx2=d2.x-mouse.x,dy2=d2.y-mouse.y;
-          var dist2=Math.sqrt(dx2*dx2+dy2*dy2);
-          var prox2=Math.max(0,1-dist2/160);
-          if(prox2>.15){
-            var dd=Math.sqrt((d.x-d2.x)**2+(d.y-d2.y)**2);
-            if(dd<sp*2){
-              var a=prox*prox2*.2;
-              ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(d2.x,d2.y);
-              ctx.strokeStyle='rgba(220,38,38,'+a+')';ctx.lineWidth=.6;ctx.stroke();
-            }
-          }
-        }
-      }
-    }
-    raf=requestAnimationFrame(draw);
-  }
-  function ln(a,b,c){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle=c;ctx.lineWidth=.5;ctx.stroke()}
-
-  c.parentElement.addEventListener('mousemove',function(e){
-    var r=c.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;
-  });
-  c.parentElement.addEventListener('mouseleave',function(){mouse.x=-1e3;mouse.y=-1e3});
-
-  resize();
-  window.addEventListener('resize',resize);
-  raf=requestAnimationFrame(draw);
-
-  var obs=new IntersectionObserver(function(entries){
-    if(entries[0].isIntersecting){if(!raf)raf=requestAnimationFrame(draw)}
-    else{if(raf){cancelAnimationFrame(raf);raf=null}}
-  });
-  obs.observe(c.parentElement);
-})();
-
-/* Reveal */
+// Reveal
 (function(){
   var els=document.querySelectorAll('.rv');
   if(!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('vis')});return}
   var obs=new IntersectionObserver(function(en){
     en.forEach(function(e){if(e.isIntersecting){e.target.classList.add('vis');obs.unobserve(e.target)}});
-  },{threshold:.08,rootMargin:'0px 0px -24px 0px'});
+  },{threshold:.1,rootMargin:'0px 0px -20px 0px'});
   els.forEach(function(el){obs.observe(el)});
 })();
-
-/* FAQ */
-document.querySelectorAll('.faq-q').forEach(function(btn){
-  btn.addEventListener('click',function(){
-    var item=btn.closest('.faq-item');
-    var open=item.classList.contains('open');
-    document.querySelectorAll('.faq-item.open').forEach(function(i){i.classList.remove('open')});
-    if(!open)item.classList.add('open');
+// FAQ
+document.querySelectorAll('.faq-q').forEach(function(b){
+  b.addEventListener('click',function(){
+    var i=b.closest('.faq-item'),o=i.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(function(x){x.classList.remove('open')});
+    if(!o)i.classList.add('open');
   });
 });
-
-/* Nav scroll */
-(function(){
-  var nav=document.getElementById('nav');var t=false;
-  window.addEventListener('scroll',function(){
-    if(!t){requestAnimationFrame(function(){
-      if(window.scrollY>40)nav.classList.add('scrolled');else nav.classList.remove('scrolled');
-      t=false;
-    });t=true}
-  });
-})();
 </script>
 
 </body>

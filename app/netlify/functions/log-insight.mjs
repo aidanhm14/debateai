@@ -7,12 +7,12 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
  * from user interactions to improve the system over time.
  */
 export default async (request) => {
-  if (request.method === 'OPTIONS') return corsResponse();
-  if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
+  if (request.method === 'OPTIONS') return corsResponse(request);
+  if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
 
   try {
     const token = extractBearerToken(request);
-    if (!token) return errorResponse('Authorization required', 401);
+    if (!token) return errorResponse('Authorization required', 401, request);
     const decoded = await verifyIdToken(token);
     const uid = decoded.sub;
 
@@ -20,10 +20,10 @@ export default async (request) => {
     const db = getDb();
 
     const { type, data } = body;
-    if (!type || !data) return errorResponse('Missing type or data', 400);
+    if (!type || !data) return errorResponse('Missing type or data', 400, request);
 
     const allowed = ['motion_feedback', 'case_feedback', 'argument_pattern', 'judge_pattern', 'opp_strategy'];
-    if (!allowed.includes(type)) return errorResponse('Invalid insight type', 400);
+    if (!allowed.includes(type)) return errorResponse('Invalid insight type', 400, request);
 
     // Store the insight — anonymized (only uid hash, not full uid)
     const uidHash = uid.substring(0, 8);
@@ -41,9 +41,9 @@ export default async (request) => {
       lastUpdated: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    return jsonResponse({ ok: true });
+    return jsonResponse({ ok: true }, 200, request);
   } catch (e) {
-    return errorResponse('Server error', 500);
+    return errorResponse('Server error', 500, request);
   }
 };
 
@@ -62,4 +62,4 @@ function sanitize(data) {
   return clean;
 }
 
-export const config = { path: '/api/log-insight' };
+export const config = { path: '/api/insights' };

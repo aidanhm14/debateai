@@ -1,20 +1,20 @@
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 export default async (request) => {
-  if (request.method === 'OPTIONS') return corsResponse();
-  if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
+  if (request.method === 'OPTIONS') return corsResponse(request);
+  if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
 
   const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey) return errorResponse('API not configured', 500);
+  if (!apiKey) return errorResponse('API not configured', 500, request);
 
   try {
     const body = await request.json();
     const query = (body.query || '').trim();
 
     // Input validation
-    if (!query) return errorResponse('Missing query', 400);
-    if (query.length > 500) return errorResponse('Query too long (max 500 characters)', 400);
-    if (query.length < 3) return errorResponse('Query too short', 400);
+    if (!query) return errorResponse('Missing query', 400, request);
+    if (query.length > 500) return errorResponse('Query too long (max 500 characters)', 400, request);
+    if (query.length < 3) return errorResponse('Query too short', 400, request);
 
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -39,15 +39,15 @@ export default async (request) => {
     });
 
     if (!response.ok) {
-      return errorResponse('News search temporarily unavailable. Please try again.', response.status);
+      return errorResponse('News search temporarily unavailable. Please try again.', response.status, request);
     }
 
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content || '';
 
-    return jsonResponse({ text });
+    return jsonResponse({ text }, 200, request);
   } catch (e) {
-    return errorResponse('Something went wrong. Please try again.', 500);
+    return errorResponse('Something went wrong. Please try again.', 500, request);
   }
 };
 
