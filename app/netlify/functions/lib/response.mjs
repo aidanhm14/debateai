@@ -1,20 +1,38 @@
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const ALLOWED_ORIGINS = [
+  'https://debateos1.netlify.app',
+  'https://debateos.com',
+  'http://localhost:8888',
+  'http://localhost:3000',
+];
 
-export function corsResponse() {
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
+// Default origin for preflight / when request is not available
+const DEFAULT_ORIGIN = ALLOWED_ORIGINS[0];
+
+function getOrigin(request) {
+  if (!request) return DEFAULT_ORIGIN;
+  const origin = request?.headers?.get?.('origin') || '';
+  return ALLOWED_ORIGINS.includes(origin) ? origin : DEFAULT_ORIGIN;
 }
 
-export function jsonResponse(data, status = 200) {
+function corsHeaders(request) {
+  return {
+    'Access-Control-Allow-Origin': getOrigin(request),
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+export function corsResponse(request) {
+  return new Response(null, { status: 204, headers: corsHeaders(request) });
+}
+
+export function jsonResponse(data, status = 200, request) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(request) },
   });
 }
 
-export function errorResponse(message, status = 400) {
-  return jsonResponse({ error: message }, status);
+export function errorResponse(message, status = 400, request) {
+  return jsonResponse({ error: message }, status, request);
 }

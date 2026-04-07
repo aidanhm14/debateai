@@ -1,8 +1,9 @@
-const CACHE_NAME = 'debateos-v4';
+const CACHE_NAME = 'debateos-v5';
 
 const APP_SHELL = [
   '/',
   '/index.html',
+  '/offline.html',
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js',
@@ -43,7 +44,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           return response;
         })
-        .catch(() => caches.match(request).then((r) => r || caches.match('/')))
+        .catch(() => caches.match(request).then((r) => r || caches.match('/offline.html')))
     );
     return;
   }

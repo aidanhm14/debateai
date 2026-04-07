@@ -1,15 +1,17 @@
-import { getDb } from './lib/firestore.mjs';
-import { verifyToken } from './lib/auth.mjs';
-import { cors, json, error } from './lib/response.mjs';
-import { FieldValue } from './lib/firestore.mjs';
+import { getDb, FieldValue } from './lib/firestore.mjs';
+import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
-export async function handler(event) {
-  if (event.httpMethod === 'OPTIONS') return cors();
-  if (event.httpMethod !== 'POST') return error('Method not allowed', 405);
+export default async (request) => {
+  if (request.method === 'OPTIONS') return corsResponse();
+  if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
 
   try {
-    const uid = await verifyToken(event);
-    const body = JSON.parse(event.body || '{}');
+    const token = extractBearerToken(request);
+    if (!token) return errorResponse('Authorization required', 401);
+    const decoded = await verifyIdToken(token);
+    const uid = decoded.sub;
+    const body = await request.json();
     const db = getDb();
 
     // Debater thinking profile
@@ -22,7 +24,7 @@ export async function handler(event) {
           updatedAt: FieldValue.serverTimestamp(),
         }
       }, { merge: true });
-      return json({ ok: true, type: 'debater_profile' });
+      return jsonResponse({ ok: true, type: 'debater_profile' });
     }
 
     // Writing style profile
@@ -30,13 +32,13 @@ export async function handler(event) {
       await db.collection('user_profiles').doc(uid).set({
         styleProfile: body.profile || {},
       }, { merge: true });
-      return json({ ok: true, type: 'style_profile' });
+      return jsonResponse({ ok: true, type: 'style_profile' });
     }
 
     // Referral tracking
     if (body.type === 'referral_credit') {
       const referrerUid = body.referrerUid;
-      if (!referrerUid) return error('Missing referrer UID', 400);
+      if (!referrerUid) return errorResponse('Missing referrer UID', 400);
 
       // Check if already credited
       const existing = await db.collection('referral_credits')
@@ -45,7 +47,7 @@ export async function handler(event) {
         .limit(1)
         .get();
 
-      if (!existing.empty) return json({ ok: true, alreadyCredited: true });
+      if (!existing.empty) return jsonResponse({ ok: true, alreadyCredited: true });
 
       // Credit the referrer with 3 bonus requests
       await db.collection('referral_credits').add({
@@ -64,11 +66,13 @@ export async function handler(event) {
         });
       }
 
-      return json({ ok: true, credited: true, bonusRequests: 3 });
+      return jsonResponse({ ok: true, credited: true, bonusRequests: 3 });
     }
 
-    return error('Unknown profile type', 400);
+    return errorResponse('Unknown profile type', 400);
   } catch (e) {
-    return error(e.message || 'Server error', 500);
+    return errorResponse('Server error', 500);
   }
-}
+};
+
+export const config = { path: '/api/save-profile' };

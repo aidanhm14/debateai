@@ -13,7 +13,8 @@ export default async (request) => {
   try {
     decoded = await verifyIdToken(token);
   } catch (err) {
-    return errorResponse('Invalid token: ' + err.message, 401);
+    console.error('team-usage auth error:', err.message);
+    return errorResponse('Authentication failed. Please sign in again.', 401);
   }
 
   const result = await getUserTeam(decoded.sub);

@@ -18,7 +18,7 @@ export default async (request) => {
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    return new Response('Webhook verification failed', { status: 400 });
   }
 
   const db = getDb();

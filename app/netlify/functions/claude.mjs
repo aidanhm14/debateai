@@ -2,22 +2,53 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const ALLOWED_ORIGINS = [
+  'https://debateos1.netlify.app',
+  'https://debateos.com',
+  'http://localhost:8888',
+  'http://localhost:3000',
+];
+
+function getCorsHeaders(request) {
+  const origin = request?.headers?.get?.('origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+// Simple in-memory rate limiter (resets per function cold start)
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 15; // max requests per minute per user
+
+function checkRateLimit(userId) {
+  const now = Date.now();
+  const key = userId || 'anon';
+  const entry = rateLimitMap.get(key);
+  if (!entry || now - entry.start > RATE_LIMIT_WINDOW) {
+    rateLimitMap.set(key, { start: now, count: 1 });
+    return true;
+  }
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX) return false;
+  return true;
+}
 
 export default async (request, context) => {
+  const CORS = getCorsHeaders(request);
+
   // Handle CORS preflight
   if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response(null, { status: 204, headers: CORS });
   }
 
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      headers: { 'Content-Type': 'application/json', ...CORS },
     });
   }
 
@@ -25,7 +56,7 @@ export default async (request, context) => {
   if (!apiKey) {
     return new Response(
       JSON.stringify({ error: 'API key not configured on server' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } }
     );
   }
 
@@ -39,11 +70,19 @@ export default async (request, context) => {
       const decoded = await verifyIdToken(bearerToken);
       userId = decoded.sub;
 
+      // Rate limit per user
+      if (!checkRateLimit(userId)) {
+        return new Response(
+          JSON.stringify({ error: 'Too many requests. Please wait a moment and try again.' }),
+          { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
+        );
+      }
+
       const result = await getUserTeam(userId);
       if (!result) {
         return new Response(
           JSON.stringify({ error: 'No team found. Create or join a team first.' }),
-          { status: 403, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+          { status: 403, headers: { 'Content-Type': 'application/json', ...CORS } }
         );
       }
 
@@ -54,7 +93,7 @@ export default async (request, context) => {
       if (!['active', 'trialing'].includes(team.status)) {
         return new Response(
           JSON.stringify({ error: 'Subscription inactive. Please update your billing.', code: 'SUBSCRIPTION_INACTIVE' }),
-          { status: 402, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+          { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } }
         );
       }
 
@@ -68,22 +107,36 @@ export default async (request, context) => {
             usage: team.usageThisPeriod,
             limit: planLimits.requests,
           }),
-          { status: 429, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+          { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
         );
       }
     } catch (err) {
       return new Response(
-        JSON.stringify({ error: 'Authentication failed: ' + err.message }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        JSON.stringify({ error: 'Authentication failed. Please sign in again.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
   } else {
-    // No auth token — BYOK fallback (legacy, will be removed in Phase 5)
-    // Allow unauthenticated requests during transition period
+    // No auth — rate limit anonymous users more aggressively
+    if (!checkRateLimit('anon_' + (request.headers.get('x-forwarded-for') || 'unknown'))) {
+      return new Response(
+        JSON.stringify({ error: 'Too many requests. Please sign in for higher limits.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
   }
 
   try {
     const body = await request.json();
+
+    // Input validation — reject suspiciously large payloads
+    const bodyStr = JSON.stringify(body);
+    if (bodyStr.length > 200_000) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large.' }),
+        { status: 413, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
 
     // Extract and strip _feature before forwarding to Anthropic
     const feature = body._feature || 'unknown';
@@ -110,13 +163,13 @@ export default async (request, context) => {
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
         'Cache-Control': 'no-cache',
-        ...CORS_HEADERS,
+        ...CORS,
       },
     });
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: 'Proxy error: ' + err.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      JSON.stringify({ error: 'Something went wrong. Please try again.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } }
     );
   }
 };

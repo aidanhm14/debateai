@@ -13,7 +13,8 @@ export default async (request) => {
   try {
     decoded = await verifyIdToken(token);
   } catch (err) {
-    return errorResponse('Invalid token: ' + err.message, 401);
+    console.error('team-analytics auth error:', err.message);
+    return errorResponse('Authentication failed. Please sign in again.', 401);
   }
 
   const result = await getUserTeam(decoded.sub);
@@ -56,7 +57,7 @@ export default async (request) => {
     return jsonResponse({ logs });
   } catch (err) {
     console.error('team-analytics error:', err);
-    return errorResponse('Server error: ' + err.message, 500);
+    return errorResponse('Something went wrong. Please try again.', 500);
   }
 };
 

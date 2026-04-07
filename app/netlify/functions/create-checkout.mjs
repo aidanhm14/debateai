@@ -14,7 +14,8 @@ export default async (request) => {
   try {
     decoded = await verifyIdToken(token);
   } catch (err) {
-    return errorResponse('Invalid token: ' + err.message, 401);
+    console.error('create-checkout auth error:', err.message);
+    return errorResponse('Authentication failed. Please sign in again.', 401);
   }
 
   const result = await getUserTeam(decoded.sub);
@@ -60,7 +61,7 @@ export default async (request) => {
     return jsonResponse({ url: session.url });
   } catch (err) {
     console.error('Stripe checkout error:', err);
-    return errorResponse('Stripe error: ' + err.message, 500);
+    return errorResponse('Billing error. Please try again.', 500);
   }
 };
 
