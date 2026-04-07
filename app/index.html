@@ -9876,7 +9876,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
               el('h2', {style:{fontSize:'1.4rem',fontWeight:800,color:'#e4e8f0',margin:0}}, team.teamName || 'Your Team'),
               isOwner && el('button',{onClick:()=>{setEditName(team.teamName||'');setEditContext(team.context||'');setEditingTeam(true);},style:{background:'none',border:'none',color:'#94a3b8',cursor:'pointer',fontSize:'.8rem',padding:'2px 6px'}},'\u270F\uFE0F'),
             ),
-        el('span', {style:{fontSize:'.75rem',padding:'3px 10px',borderRadius:20,fontWeight:700,background:planColor+'20',color:planColor,textTransform:'uppercase',letterSpacing:'.5px',marginTop:4,display:'inline-block'}}, (team.plan === 'trial' ? 'free' : team.plan) + ' plan'),
+        team.plan !== 'trial' && el('span', {style:{fontSize:'.75rem',padding:'3px 10px',borderRadius:20,fontWeight:700,background:planColor+'20',color:planColor,textTransform:'uppercase',letterSpacing:'.5px',marginTop:4,display:'inline-block'}}, team.plan + ' plan'),
         team.context && !editingTeam && el('p',{style:{fontSize:'.78rem',color:'#94a3b8',marginTop:4,maxWidth:400}},team.context),
       ),
       isOwner && el('button', {onClick:team.stripeSubscriptionId?openPortal:()=>openCheckout('team'), style:{padding:'8px 16px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}, team.stripeSubscriptionId?t('team.manageBilling','Manage Billing'):t('team.upgradePlan','Upgrade Plan')),
@@ -11734,6 +11734,7 @@ function App() {
     try { return !localStorage.getItem('debateos-welcomed'); } catch(e) { return true; }
   });
   const [toast, setToast] = useState('');
+  const [billingSuccess, setBillingSuccess] = useState(false);
   const { user, loading: authLoading, signIn, signOut } = useAuth();
   useEffect(() => { __getAuthToken = user ? () => user.getIdToken() : null; }, [user]);
   // Merge Firestore cases with localStorage on sign-in
@@ -11803,9 +11804,8 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('billing') === 'success') {
-      // Clean URL
       window.history.replaceState({}, '', window.location.pathname + window.location.hash);
-      // Poll for team update (webhook may take a moment)
+      setBillingSuccess(true);
       let attempts = 0;
       const poll = setInterval(async () => {
         attempts++;
@@ -11988,7 +11988,7 @@ function App() {
         ),
         React.createElement('p',{style:{color:'#92754a',fontSize:'.68rem',letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,margin:'2px 0 0',textAlign:'center'}},'powered by DebateOS'),
         React.createElement('div',{style:{display:'flex',gap:4,alignItems:'center',justifyContent:'center',background:'var(--badge-row-bg,#ffffff08)',borderRadius:20,padding:'3px 4px',border:'1px solid var(--badge-row-border,#ffffff1a)',width:'fit-content',margin:'8px auto 0'}},
-          team && React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:team.status==='active'||team.status==='trialing'?'#22c55e15':'#f59e0b15',color:team.status==='active'||team.status==='trialing'?'#22c55e':'#f59e0b',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>navigateTab('team')},(team.plan === 'trial' ? 'FREE' : team.plan.toUpperCase())),
+          team && team.plan !== 'trial' && React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:'#22c55e15',color:'#22c55e',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>navigateTab('team')},team.plan.toUpperCase()),
           (!user || (user.email && user.email.includes('aidan'))) && React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:devPro?'#ef444420':'#ffffff08',color:devPro?'#ef4444':'#94a3b8',cursor:'pointer',letterSpacing:'.5px',transition:'.2s',border:devPro?'1px solid #ef444440':'1px solid transparent'},onClick:toggleDevPro},devPro?'\u2666 PRO ON':'\u2666 PRO OFF'),
           React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:theme==='light'?'#3b82f612':'#f59e0b12',color:theme==='light'?'#3b82f6':'#f59e0b',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>setTheme(theme==='dark'?'light':'dark')},theme==='dark'?'\u2600 Light':'\u263E Dark'),
           // Language selector — matching pill
@@ -12089,6 +12089,20 @@ function App() {
       tabPane('market', React.createElement(ArgumentMarket)),
       tabPane('live', React.createElement(LiveDebates, { user: user, team: team, onNavigateTab: navigateTab })),
       toast && React.createElement('div', {style:{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',padding:'10px 24px',background:'#22c55e',color:'#fff',borderRadius:8,fontWeight:600,fontSize:'.88rem',zIndex:99999,boxShadow:'0 4px 12px rgba(0,0,0,.3)',animation:'fadeIn .2s ease',pointerEvents:'none'}}, toast),
+      // Welcome modal after successful payment
+      billingSuccess && React.createElement('div', {className:'auth-overlay', onClick:e=>{if(e.target===e.currentTarget)setBillingSuccess(false)}},
+        React.createElement('div', {style:{background:'var(--modal-bg,#303038)',border:'1px solid var(--modal-border,#ffffff22)',borderRadius:20,padding:'40px 44px',maxWidth:480,width:'90%',textAlign:'center',animation:'slideUp .4s ease'}},
+          React.createElement('div', {style:{fontSize:'3rem',marginBottom:16}}, '\uD83C\uDF89'),
+          React.createElement('h2', {style:{fontSize:'1.6rem',fontWeight:800,color:'var(--text-primary,#f1f5f9)',marginBottom:8,letterSpacing:'-.3px'}}, 'Welcome to Pro!'),
+          React.createElement('p', {style:{color:'var(--text-secondary,#94a3b8)',fontSize:'.95rem',lineHeight:1.7,marginBottom:24}},
+            'Your upgrade is active. You now have access to all features — unlimited revisions, style customization, live debates, and more. Go win some rounds.'
+          ),
+          React.createElement('div', {style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
+            React.createElement('button', {className:'btn btn-primary', onClick:()=>{setBillingSuccess(false);navigateTab('case');}, style:{padding:'12px 28px',fontSize:'.92rem'}}, 'Start Building Cases'),
+            React.createElement('button', {className:'btn', onClick:()=>setBillingSuccess(false), style:{padding:'12px 20px',fontSize:'.88rem',color:'var(--text-muted,#94a3b8)'}}, 'Explore'),
+          ),
+        ),
+      ),
     )
   ));
 }
