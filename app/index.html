@@ -895,6 +895,30 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 }
 
 
+/* ── Argument Market ──────────────────────── */
+.market-layout{display:grid;grid-template-columns:320px 1fr 1fr;gap:16px;margin-top:16px}
+.market-claim-panel{background:#303038;border:1.5px solid #ffffff22;border-radius:14px;padding:20px;position:sticky;top:80px;align-self:start}
+.market-price-display{font-size:3rem;font-weight:800;text-align:center;margin:16px 0 8px;font-family:'Clash Display','Sora',monospace;letter-spacing:-1px}
+.market-price-label{text-align:center;font-size:.72rem;color:#a8b8c8;text-transform:uppercase;letter-spacing:1.5px;font-weight:600}
+.market-phase{text-align:center;font-size:.78rem;color:#f59e0b;margin:12px 0;min-height:20px;font-weight:500}
+.market-col-header{font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #ffffff18}
+.market-col-header.for{color:#22c55e}.market-col-header.against{color:#ef4444}
+.market-arg-card{background:#303038;border:1.5px solid #ffffff18;border-radius:12px;padding:16px;margin-bottom:12px;transition:.25s}
+.market-arg-card:hover{border-color:#ffffff30;transform:translateY(-1px)}
+.market-arg-card.for{border-left:3px solid #22c55e40}
+.market-arg-card.against{border-left:3px solid #ef444440}
+.market-arg-text{font-size:.88rem;color:#d0d4dc;line-height:1.55;margin-bottom:12px}
+.market-weight-bar{height:6px;border-radius:3px;background:#ffffff0c;overflow:hidden;margin-bottom:8px}
+.market-weight-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.market-score-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.market-score-pill{font-size:.65rem;padding:2px 8px;border-radius:10px;background:#ffffff0c;color:#a8b8c8;font-weight:600;font-family:monospace}
+.market-rebuttal{margin-top:10px;padding:10px 12px;background:#ffffff06;border:1px solid #ffffff10;border-radius:8px;font-size:.8rem;color:#a8b8c8;line-height:1.45;border-left:2px solid #f59e0b40}
+.market-rebuttal-label{font-size:.65rem;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.market-converge{text-align:center;font-size:.75rem;color:#22c55e;margin-top:8px;font-weight:500}
+@media(max-width:900px){.market-layout{grid-template-columns:1fr}.market-claim-panel{position:static}}
+@media(max-width:640px){.market-layout{gap:10px}.market-price-display{font-size:2.2rem}}
+.light-theme .market-claim-panel,.light-theme .market-arg-card{background:#fff!important;border-color:#e2e8f0!important}
+.light-theme .market-arg-text{color:#334155!important}
 /* ===== LIGHT / DAY THEME ===== */
 html{background:#2b2b30}html:has(body.light-theme){background:#f0f4fc!important}body.light-theme,body.light-theme~*{background:#f0f4fc!important}body.light-theme{background:#f0f4fc!important;color:#1a1a2e!important}
 .light-theme .app{background:#f0f4fc!important;min-width:100vw}
@@ -10681,6 +10705,283 @@ function BattleArena({ onNavigateTab }) {
   );
 }
 
+/* ═══════════════════════════════════════════════════
+   ADVERSARIAL ARGUMENT MARKET
+   ═══════════════════════════════════════════════════ */
+
+function MarketPriceChart({ priceHistory }) {
+  const svgRef = useRef(null);
+  const el = React.createElement;
+  useEffect(() => {
+    if (!svgRef.current || priceHistory.length < 1) return;
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
+    const w = svgRef.current.clientWidth || 280, h = 140;
+    const m = {t:12,r:12,b:24,l:36};
+    const x = d3.scaleLinear().domain([0, Math.max(priceHistory.length - 1, 1)]).range([m.l, w - m.r]);
+    const y = d3.scaleLinear().domain([0, 1]).range([h - m.b, m.t]);
+    // Grid
+    svg.append('line').attr('x1',m.l).attr('x2',w-m.r).attr('y1',y(0.5)).attr('y2',y(0.5)).attr('stroke','#ffffff18').attr('stroke-dasharray','4,4');
+    [0,0.25,0.5,0.75,1].forEach(v => {
+      svg.append('text').attr('x',m.l-4).attr('y',y(v)+3).attr('text-anchor','end').attr('fill','#666').attr('font-size','9px').text(Math.round(v*100));
+    });
+    // Line
+    const line = d3.line().x((d,i) => x(i)).y(d => y(d.price)).curve(d3.curveMonotoneX);
+    svg.append('path').datum(priceHistory).attr('d',line).attr('fill','none').attr('stroke',priceHistory[priceHistory.length-1].price > 0.5 ? '#22c55e' : '#ef4444').attr('stroke-width',2.5).attr('stroke-linecap','round');
+    // Dots
+    priceHistory.forEach((d,i) => {
+      svg.append('circle').attr('cx',x(i)).attr('cy',y(d.price)).attr('r',3.5).attr('fill',d.price > 0.6 ? '#22c55e' : d.price < 0.4 ? '#ef4444' : '#f59e0b').attr('stroke','#2b2b30').attr('stroke-width',1.5);
+    });
+    // X labels
+    priceHistory.forEach((d,i) => {
+      svg.append('text').attr('x',x(i)).attr('y',h-4).attr('text-anchor','middle').attr('fill','#666').attr('font-size','9px').text(i+1);
+    });
+  }, [priceHistory]);
+  if (priceHistory.length < 1) return el('div',{style:{color:'#666',fontSize:'.78rem',textAlign:'center',padding:'20px 0'}},'Run a cycle to see price history');
+  return el('svg',{ref:svgRef,width:'100%',height:140,style:{display:'block'}});
+}
+
+function MarketArgCard({ arg, side }) {
+  const el = React.createElement;
+  const [expanded, setExpanded] = useState(false);
+  const weightPct = Math.round(arg.weight * 100);
+  const barColor = side === 'for' ? '#22c55e' : '#ef4444';
+  return el('div',{className:'market-arg-card ' + side},
+    el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
+      el('span',{style:{fontSize:'.68rem',fontWeight:700,color:barColor,textTransform:'uppercase',letterSpacing:'1px'}}, side === 'for' ? 'FOR' : 'AGAINST'),
+      el('span',{style:{fontSize:'.72rem',fontWeight:700,color:'#e4e8f0',fontFamily:'monospace'}}, weightPct + '%'),
+    ),
+    el('div',{className:'market-weight-bar'},
+      el('div',{className:'market-weight-fill',style:{width:weightPct+'%',background:barColor}})
+    ),
+    el('div',{className:'market-arg-text'}, arg.text.length > 300 && !expanded ? arg.text.slice(0,300) + '...' : arg.text),
+    arg.text.length > 300 && el('button',{onClick:()=>setExpanded(!expanded),style:{background:'none',border:'none',color:'#a8b8c8',fontSize:'.72rem',cursor:'pointer',padding:0,fontFamily:'inherit'}}, expanded ? 'Show less' : 'Read more'),
+    arg.scores && el('div',{className:'market-score-row'},
+      el('span',{className:'market-score-pill'},'Evidence: ' + arg.scores.evidence),
+      el('span',{className:'market-score-pill'},'Logic: ' + arg.scores.logic),
+      el('span',{className:'market-score-pill'},'Rebuttal: ' + arg.scores.rebuttal_resistance),
+      el('span',{className:'market-score-pill'},'Specificity: ' + arg.scores.specificity),
+    ),
+    arg.rebuttal && el('div',{className:'market-rebuttal'},
+      el('div',{className:'market-rebuttal-label'},'Rebuttal'),
+      arg.rebuttal
+    ),
+  );
+}
+
+function ArgumentMarket() {
+  const el = React.createElement;
+  const { t } = React.useContext(I18nContext);
+  const [claim, setClaim] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [forArgs, setForArgs] = useState([]);
+  const [againstArgs, setAgainstArgs] = useState([]);
+  const [priceHistory, setPriceHistory] = useState([]);
+  const [cycle, setCycle] = useState(0);
+  const [phase, setPhase] = useState('idle'); // idle | generating | evaluating | rebutting | done
+  const [error, setError] = useState(null);
+  const [currentPrice, setCurrentPrice] = useState(0.5);
+
+  // Restore from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('debateos-market');
+      if (saved) {
+        const d = JSON.parse(saved);
+        if (d.claim) { setClaim(d.claim); setSubmitted(true); setForArgs(d.forArgs||[]); setAgainstArgs(d.againstArgs||[]); setPriceHistory(d.priceHistory||[]); setCycle(d.cycle||0); setCurrentPrice(d.currentPrice||0.5); }
+      }
+    } catch(e) {}
+  }, []);
+
+  // Save to localStorage on changes
+  useEffect(() => {
+    if (!submitted) return;
+    try { localStorage.setItem('debateos-market', JSON.stringify({ claim, forArgs, againstArgs, priceHistory, cycle, currentPrice })); } catch(e) {}
+  }, [forArgs, againstArgs, priceHistory, cycle, currentPrice, submitted]);
+
+  function computePrice(fArgs, aArgs) {
+    const forSum = fArgs.reduce((s,a) => s + a.weight, 0);
+    const againstSum = aArgs.reduce((s,a) => s + a.weight, 0);
+    const total = forSum + againstSum;
+    return total === 0 ? 0.5 : forSum / total;
+  }
+
+  function updateWeights(args, scores) {
+    return args.map(a => {
+      const s = scores.find(sc => sc.id === a.id);
+      if (!s) return a;
+      const avg = (s.evidence + s.logic + s.rebuttal_resistance + s.specificity) / 4;
+      return { ...a, weight: a.weight * 0.7 + (avg / 10) * 0.3, scores: s };
+    });
+  }
+
+  async function callClaudeJSON(sys, usr) {
+    let result = '';
+    await callClaude(sys, usr, function(t) { result = t; }, { thinkBudget: 4000, maxTokens: 8000, expectedWords: 800, feature: 'market' });
+    const cleaned = result.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    // Find JSON object/array
+    const start = cleaned.indexOf('{') !== -1 ? cleaned.indexOf('{') : cleaned.indexOf('[');
+    const end = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'));
+    if (start === -1 || end === -1) throw new Error('No JSON found in response');
+    return JSON.parse(cleaned.slice(start, end + 1));
+  }
+
+  async function runCycle() {
+    setError(null);
+    try {
+      if (cycle === 0) {
+        // Step 1: Generate arguments
+        setPhase('generating');
+        const genResult = await callClaudeJSON(
+          'You generate the strongest possible arguments for and against a claim. For each argument: be specific, cite real evidence or concrete examples, make logically valid inferences, and anticipate counterarguments. Return ONLY valid JSON with no markdown.',
+          'Generate exactly 3 arguments FOR and 3 arguments AGAINST this claim:\n\n"' + claim + '"\n\nReturn JSON format:\n{"for":[{"id":"f1","text":"..."},{"id":"f2","text":"..."},{"id":"f3","text":"..."}],"against":[{"id":"a1","text":"..."},{"id":"a2","text":"..."},{"id":"a3","text":"..."}]}'
+        );
+        const newFor = (genResult.for || []).map(a => ({ ...a, weight: 0.5, scores: null, rebuttal: null }));
+        const newAgainst = (genResult.against || []).map(a => ({ ...a, weight: 0.5, scores: null, rebuttal: null }));
+
+        // Step 2: Evaluate
+        setPhase('evaluating');
+        const allArgs = [...newFor, ...newAgainst];
+        const evalResult = await callClaudeJSON(
+          'You are an epistemically rigorous judge. Score each argument 0-10 on 4 dimensions. Be harsh — inflated scores break the system. Return ONLY valid JSON.',
+          'Claim: "' + claim + '"\n\nArguments to evaluate:\n' + allArgs.map(a => a.id + ': ' + a.text).join('\n\n') + '\n\nScore each on: evidence (real sources/examples?), logic (reasoning follows?), rebuttal_resistance (survives strongest counter?), specificity (falsifiable predictions?).\n\nReturn: {"scores":[{"id":"f1","evidence":N,"logic":N,"rebuttal_resistance":N,"specificity":N},...]}'
+        );
+        const scores = evalResult.scores || [];
+        const scoredFor = updateWeights(newFor, scores);
+        const scoredAgainst = updateWeights(newAgainst, scores);
+        const price = computePrice(scoredFor, scoredAgainst);
+
+        setForArgs(scoredFor);
+        setAgainstArgs(scoredAgainst);
+        setCurrentPrice(price);
+        setPriceHistory([{ cycle: 1, price }]);
+        setCycle(1);
+      } else {
+        // Subsequent cycles: rebut top arguments, then re-evaluate all
+        setPhase('rebutting');
+        const topFor = [...forArgs].sort((a,b) => b.weight - a.weight)[0];
+        const topAgainst = [...againstArgs].sort((a,b) => b.weight - a.weight)[0];
+        const rebutResult = await callClaudeJSON(
+          'You generate devastating, specific rebuttals. Target the weakest point in each argument. Return ONLY valid JSON.',
+          'Claim: "' + claim + '"\n\nStrongest FOR argument (id: ' + topFor.id + '):\n' + topFor.text + '\n\nStrongest AGAINST argument (id: ' + topAgainst.id + '):\n' + topAgainst.text + '\n\nGenerate the single most effective rebuttal for each. Also generate 1 new argument for each side that hasn\'t been made yet.\n\nReturn: {"rebuttals":[{"targetId":"' + topFor.id + '","text":"..."},{"targetId":"' + topAgainst.id + '","text":"..."}],"newFor":{"id":"f' + (forArgs.length+1) + '","text":"..."},"newAgainst":{"id":"a' + (againstArgs.length+1) + '","text":"..."}}'
+        );
+        // Apply rebuttals
+        let updatedFor = forArgs.map(a => a.id === topFor.id && rebutResult.rebuttals ? { ...a, rebuttal: (rebutResult.rebuttals.find(r=>r.targetId===a.id)||{}).text || a.rebuttal } : a);
+        let updatedAgainst = againstArgs.map(a => a.id === topAgainst.id && rebutResult.rebuttals ? { ...a, rebuttal: (rebutResult.rebuttals.find(r=>r.targetId===a.id)||{}).text || a.rebuttal } : a);
+        // Add new arguments
+        if (rebutResult.newFor) updatedFor = [...updatedFor, { ...rebutResult.newFor, weight: 0.5, scores: null, rebuttal: null }];
+        if (rebutResult.newAgainst) updatedAgainst = [...updatedAgainst, { ...rebutResult.newAgainst, weight: 0.5, scores: null, rebuttal: null }];
+
+        // Re-evaluate all
+        setPhase('evaluating');
+        const allArgs = [...updatedFor, ...updatedAgainst];
+        const evalResult = await callClaudeJSON(
+          'You are an epistemically rigorous judge. Score each argument 0-10 on 4 dimensions. If an argument has been rebutted, factor that into rebuttal_resistance. Be harsh. Return ONLY valid JSON.',
+          'Claim: "' + claim + '"\n\nArguments:\n' + allArgs.map(a => a.id + ' [' + (updatedFor.includes(a)?'FOR':'AGAINST') + ']: ' + a.text + (a.rebuttal ? '\n  REBUTTAL: ' + a.rebuttal : '')).join('\n\n') + '\n\nReturn: {"scores":[{"id":"...","evidence":N,"logic":N,"rebuttal_resistance":N,"specificity":N},...]}'
+        );
+        const scores = evalResult.scores || [];
+        const scoredFor = updateWeights(updatedFor, scores);
+        const scoredAgainst = updateWeights(updatedAgainst, scores);
+        const price = computePrice(scoredFor, scoredAgainst);
+        const newCycle = cycle + 1;
+
+        setForArgs(scoredFor);
+        setAgainstArgs(scoredAgainst);
+        setCurrentPrice(price);
+        setPriceHistory(prev => [...prev, { cycle: newCycle, price }]);
+        setCycle(newCycle);
+      }
+      setPhase('done');
+    } catch(e) {
+      setError(e.message || 'Cycle failed');
+      setPhase('idle');
+    }
+  }
+
+  function resetMarket() {
+    setClaim(''); setSubmitted(false); setForArgs([]); setAgainstArgs([]); setPriceHistory([]); setCycle(0); setPhase('idle'); setError(null); setCurrentPrice(0.5);
+    try { localStorage.removeItem('debateos-market'); } catch(e) {}
+  }
+
+  const priceColor = currentPrice > 0.6 ? '#22c55e' : currentPrice < 0.4 ? '#ef4444' : '#f59e0b';
+  const priceConverging = priceHistory.length >= 2 && Math.abs(priceHistory[priceHistory.length-1].price - priceHistory[priceHistory.length-2].price) < 0.02;
+  const isRunning = phase !== 'idle' && phase !== 'done';
+  const sortedFor = [...forArgs].sort((a,b) => b.weight - a.weight);
+  const sortedAgainst = [...againstArgs].sort((a,b) => b.weight - a.weight);
+
+  // Pre-submit: claim input
+  if (!submitted) {
+    return el('div',{className:'panel'},
+      el('div',{style:{maxWidth:620,margin:'0 auto',textAlign:'center',padding:'40px 0'}},
+        el('h2',{style:{fontSize:'1.8rem',fontWeight:800,marginBottom:8,letterSpacing:'-.5px'}}, 'Argument Market'),
+        el('p',{style:{color:'#a8b8c8',fontSize:'.92rem',lineHeight:1.6,marginBottom:24}},
+          'Submit a claim. The engine generates competing arguments, scores them on evidence, logic, and specificity, then feeds scores back into argument weights \u2014 like a prediction market for ideas. Bad arguments lose weight. Good ones rise.'),
+        el('textarea',{
+          value:claim,onChange:e=>setClaim(e.target.value),
+          placeholder:'Enter a falsifiable claim, e.g. "School closures during COVID caused more harm than they prevented"',
+          style:{minHeight:100,marginBottom:16}
+        }),
+        el('button',{
+          className:'btn btn-primary',
+          disabled:!claim.trim(),
+          onClick:()=>{ setSubmitted(true); setTimeout(runCycle, 100); },
+          style:{fontSize:'1rem',padding:'12px 32px'}
+        }, 'Launch Market'),
+      ),
+    );
+  }
+
+  // Main market view
+  return el('div',{className:'panel',style:{padding:'16px 20px'}},
+    el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}},
+      el('h2',{style:{fontSize:'1.2rem',fontWeight:800,letterSpacing:'-.3px',margin:0}}, 'Argument Market'),
+      el('button',{onClick:resetMarket,style:{background:'none',border:'1px solid #ffffff18',borderRadius:8,color:'#a8b8c8',fontSize:'.72rem',padding:'4px 12px',cursor:'pointer',fontFamily:'inherit'}}, 'New Claim'),
+    ),
+    el('div',{className:'market-layout'},
+      // LEFT: Claim + Price + Chart
+      el('div',{className:'market-claim-panel'},
+        el('div',{style:{fontSize:'.68rem',fontWeight:700,color:'#a8b8c8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:6}}, 'CLAIM'),
+        el('p',{style:{fontSize:'.88rem',color:'#d0d4dc',lineHeight:1.5,marginBottom:16}}, '"' + claim + '"'),
+        el('div',{className:'market-price-label'}, 'Market Price'),
+        el('div',{className:'market-price-display',style:{color:priceColor}}, Math.round(currentPrice * 100)),
+        el('div',{style:{textAlign:'center',fontSize:'.72rem',color:'#666',marginBottom:16}},
+          currentPrice > 0.6 ? 'Leaning TRUE' : currentPrice < 0.4 ? 'Leaning FALSE' : 'Contested'
+        ),
+        el(MarketPriceChart, { priceHistory }),
+        el('div',{style:{marginTop:16,textAlign:'center'}},
+          el('button',{
+            className:'btn btn-primary',
+            disabled:isRunning,
+            onClick:runCycle,
+            style:{width:'100%',padding:'10px',fontSize:'.88rem'}
+          }, isRunning ? 'Running...' : cycle === 0 ? 'Run First Cycle' : 'Run Cycle ' + (cycle + 1)),
+        ),
+        el('div',{className:'market-phase'},
+          phase === 'generating' ? 'Generating arguments...' :
+          phase === 'evaluating' ? 'Evaluating on 4 dimensions...' :
+          phase === 'rebutting' ? 'Generating targeted rebuttals...' :
+          phase === 'done' && cycle > 0 ? 'Cycle ' + cycle + ' complete' : ''
+        ),
+        priceConverging && el('div',{className:'market-converge'}, 'Market converging'),
+        error && el('div',{style:{color:'#ef4444',fontSize:'.78rem',textAlign:'center',marginTop:8}}, error),
+        el('div',{style:{textAlign:'center',fontSize:'.68rem',color:'#666',marginTop:8}}, 'Cycle: ' + cycle + ' \u00B7 ' + forArgs.length + ' FOR \u00B7 ' + againstArgs.length + ' AGAINST'),
+      ),
+      // MIDDLE: FOR arguments
+      el('div',null,
+        el('div',{className:'market-col-header for'}, 'For \u2014 ' + sortedFor.length + ' arguments'),
+        sortedFor.length === 0 && el('div',{style:{color:'#666',fontSize:'.82rem',padding:'20px 0',textAlign:'center'}}, 'Run a cycle to generate arguments'),
+        sortedFor.map(a => el(MarketArgCard, { key: a.id, arg: a, side: 'for' })),
+      ),
+      // RIGHT: AGAINST arguments
+      el('div',null,
+        el('div',{className:'market-col-header against'}, 'Against \u2014 ' + sortedAgainst.length + ' arguments'),
+        sortedAgainst.length === 0 && el('div',{style:{color:'#666',fontSize:'.82rem',padding:'20px 0',textAlign:'center'}}, 'Run a cycle to generate arguments'),
+        sortedAgainst.map(a => el(MarketArgCard, { key: a.id, arg: a, side: 'against' })),
+      ),
+    ),
+  );
+}
+
 const TABS = [
   {id:'case',label:'Case Gen',i18n:'nav.caseGen'},
   {id:'newbies',label:'Guide',i18n:'nav.guide'},
@@ -10694,6 +10995,7 @@ const TABS = [
   {id:'casual',label:'Casual',i18n:'nav.casual'},
   {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
+  {id:'market',label:'Market',i18n:'nav.market'},
   {id:'divider3',divider:true},
   {id:'shared',label:'Cases',i18n:'nav.cases'},
   {id:'team',label:'Team',i18n:'nav.team'},
@@ -11118,6 +11420,7 @@ function App() {
       tabPane('shared', React.createElement(SharedCases, { user: user, team: team })),
       tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
       tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
+      tabPane('market', React.createElement(ArgumentMarket)),
       toast && React.createElement('div', {style:{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',padding:'10px 24px',background:'#22c55e',color:'#fff',borderRadius:8,fontWeight:600,fontSize:'.88rem',zIndex:99999,boxShadow:'0 4px 12px rgba(0,0,0,.3)',animation:'fadeIn .2s ease',pointerEvents:'none'}}, toast),
     )
   ));
