@@ -32,24 +32,28 @@ export default async (request) => {
   const priceMap = {
     individual: process.env.STRIPE_PRICE_INDIVIDUAL,
     team: process.env.STRIPE_PRICE_TEAM,
+    lifetime: process.env.STRIPE_PRICE_LIFETIME,
   };
 
   const priceId = priceMap[planId];
-  if (!priceId) return errorResponse('Invalid plan. Choose "individual" or "team".', 400);
+  if (!priceId) return errorResponse('Invalid plan. Choose "individual", "team", or "lifetime".', 400);
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const siteUrl = process.env.SITE_URL || 'https://debateos1.netlify.app';
 
+  const isLifetime = planId === 'lifetime';
+
   try {
     const sessionParams = {
       customer: team.stripeCustomerId,
-      mode: 'subscription',
+      mode: isLifetime ? 'payment' : 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${siteUrl}?billing=success`,
       cancel_url: `${siteUrl}?billing=canceled`,
-      subscription_data: {
-        metadata: { teamId: team.id },
-      },
+      ...(isLifetime
+        ? { payment_intent_data: { metadata: { teamId: team.id, plan: 'lifetime' } } }
+        : { subscription_data: { metadata: { teamId: team.id } } }
+      ),
     };
 
     const session = await stripe.checkout.sessions.create(sessionParams);

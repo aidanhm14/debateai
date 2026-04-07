@@ -27,6 +27,28 @@ export default async (request) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
+
+        // Handle lifetime one-time payment
+        if (session.mode === 'payment') {
+          const paymentIntentId = session.payment_intent;
+          const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+          const teamId = paymentIntent.metadata?.teamId;
+          const plan = paymentIntent.metadata?.plan;
+
+          if (teamId && plan === 'lifetime') {
+            await db.collection('teams').doc(teamId).update({
+              plan: 'lifetime',
+              status: 'active',
+              usageLimit: 250,
+              maxMembers: 3,
+              lifetimePurchasedAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            console.log(`Team ${teamId} purchased lifetime plan`);
+          }
+          break;
+        }
+
         if (session.mode !== 'subscription') break;
 
         const subscriptionId = session.subscription;

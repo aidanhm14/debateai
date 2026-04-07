@@ -564,6 +564,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .guide-modal{background:linear-gradient(145deg,#34343a,#3a3a4260,#313135);border:1px solid #ffffff14;border-radius:20px;padding:40px 44px;max-width:680px;width:92%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:slideUp .3s ease}
 @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pricePulse{0%{transform:scale(1)}50%{transform:scale(.96)}100%{transform:scale(1)}}
+@keyframes priceLoading{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.price-card-loading{animation:pricePulse .4s ease,priceLoading 1.5s ease infinite!important;background-size:200% 100%!important;pointer-events:none;opacity:.8}
 .guide-modal h2{font-size:1.8rem;font-weight:800;margin-bottom:6px;letter-spacing:-.5px}
 .guide-modal h2 .accent{color:#ef4444}
 .guide-modal .guide-sub{color:#8899b0;font-size:1rem;margin-bottom:28px;line-height:1.5}
@@ -1262,7 +1265,7 @@ function setDevPro(v) {
 function isPro(team, user) {
   if (isDevPro()) return true;
   if (!team) return false;
-  return team.plan === 'individual' || team.plan === 'team';
+  return team.plan === 'individual' || team.plan === 'team' || team.plan === 'lifetime';
 }
 
 // Pro trial tracking — 3 free tries per feature
@@ -8410,14 +8413,20 @@ function UpgradeModal({ feature, remaining, onClose, onUpgrade }) {
             el('span',{style:{color:'#f59e0b',fontWeight:700}}, remaining + ' free ' + (remaining === 1 ? 'try' : 'tries')),
             ' remaining. After that, you\'ll need a Pro plan.'
           ),
-      el('div',{style:{display:'flex',gap:10,justifyContent:'center',marginBottom:16}},
-        el('div',{style:{flex:1,padding:'12px',background:'var(--card-bg,#303038)',border:'1px solid var(--card-border,#ffffff20)',borderRadius:10,textAlign:'center'}},
+      el('div',{style:{display:'flex',gap:10,justifyContent:'center',marginBottom:16,flexWrap:'wrap'}},
+        el('div',{style:{flex:1,minWidth:90,padding:'12px',background:'var(--card-bg,#303038)',border:'1px solid var(--card-border,#ffffff20)',borderRadius:10,textAlign:'center'}},
           el('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.5px',color:'#94a3b8',textTransform:'uppercase',marginBottom:4}},'Individual'),
           el('div',{style:{fontSize:'1.4rem',fontWeight:800,color:'var(--text-primary,#f1f5f9)'}},'$5'),
           el('div',{style:{fontSize:'.75rem',color:'#94a3b8'}},'/month'),
           el('div',{style:{fontSize:'.72rem',color:'#64748b',marginTop:4}},'250 requests'),
         ),
-        el('div',{style:{flex:1,padding:'12px',background:'#ef444410',border:'1px solid #ef444430',borderRadius:10,textAlign:'center'}},
+        el('div',{style:{flex:1,minWidth:90,padding:'12px',background:'#22c55e10',border:'1px solid #22c55e30',borderRadius:10,textAlign:'center'}},
+          el('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.5px',color:'#22c55e',textTransform:'uppercase',marginBottom:4}},'Lifetime'),
+          el('div',{style:{fontSize:'1.4rem',fontWeight:800,color:'var(--text-primary,#f1f5f9)'}},'$14.99'),
+          el('div',{style:{fontSize:'.75rem',color:'#94a3b8'}},'one-time'),
+          el('div',{style:{fontSize:'.72rem',color:'#64748b',marginTop:4}},'250 requests/mo'),
+        ),
+        el('div',{style:{flex:1,minWidth:90,padding:'12px',background:'#ef444410',border:'1px solid #ef444430',borderRadius:10,textAlign:'center'}},
           el('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.5px',color:'#ef4444',textTransform:'uppercase',marginBottom:4}},'Team'),
           el('div',{style:{fontSize:'1.4rem',fontWeight:800,color:'var(--text-primary,#f1f5f9)'}},'$30'),
           el('div',{style:{fontSize:'.75rem',color:'#94a3b8'}},'/month'),
@@ -9617,6 +9626,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
   const [inviteEmail, setInviteEmail] = useState('');
   const [msg, setMsg] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState(null);
   const [copied, setCopied] = useState(false);
   const [friendEmail, setFriendEmail] = useState('');
   const [editingTeam, setEditingTeam] = useState(false);
@@ -9751,6 +9761,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
 
   const openCheckout = async (plan) => {
     setActionLoading(true);
+    setCheckoutPlan(plan);
     try {
       const token = await getToken();
       const res = await fetch('/api/billing/checkout', {
@@ -9761,7 +9772,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       window.location.href = data.url;
-    } catch (err) { setMsg(errMsg(err)); setActionLoading(false); }
+    } catch (err) { setMsg(errMsg(err)); setActionLoading(false); setCheckoutPlan(null); }
   };
 
   const openPortal = async () => {
@@ -9789,13 +9800,15 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
     el('div', {style:{textAlign:'center',marginBottom:20}},
       el('span', {style:{display:'inline-block',padding:'6px 16px',background:'#22c55e15',border:'1px solid #22c55e30',borderRadius:20,color:'#4ade80',fontSize:'.82rem',fontWeight:700}}, 'All paid plans include 14 days free'),
     ),
-    el('div', {style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(3,1fr)',gap:isMobile?10:16,marginBottom:24}},
+    el('div', {style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(4,1fr)',gap:isMobile?10:16,marginBottom:24}},
       ...[
         {name:'Free',price:'$0',requests:'5/mo',members:'3 members',highlight:false,desc:'Get started',trial:false},
         {name:'Individual',price:'$5/mo',requests:'250/mo',members:'1 member',highlight:true,desc:'For serious competitors',trial:true},
+        {name:'Lifetime',price:'$14.99',requests:'250/mo',members:'3 members',highlight:false,desc:'Pay once, use forever',trial:false,badge:'Best Value',badgeColor:'#22c55e'},
         {name:'Team',price:'$30/mo',requests:'1,500/mo',members:'50 members',highlight:false,desc:'For clubs and programs',trial:true},
-      ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':'#ffffff20'),borderRadius:12,textAlign:'center',position:'relative'}},
+      ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':p.badgeColor?p.badgeColor+'12':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':p.badgeColor?p.badgeColor+'40':'#ffffff20'),borderRadius:12,textAlign:'center',position:'relative'}},
         p.trial && el('div',{style:{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',padding:'3px 12px',background:'#22c55e',color:'#fff',fontSize:'.65rem',fontWeight:700,borderRadius:10,letterSpacing:'.5px',whiteSpace:'nowrap'}},'14 DAYS FREE'),
+        p.badge && el('div',{style:{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',padding:'3px 12px',background:p.badgeColor||'#22c55e',color:'#fff',fontSize:'.65rem',fontWeight:700,borderRadius:10,letterSpacing:'.5px',whiteSpace:'nowrap'}},p.badge.toUpperCase()),
         p.highlight && el('div',{style:{fontSize:'.7rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:1,marginBottom:8,marginTop:p.trial?8:0}},'Most Popular'),
         el('h3',{style:{color:'#e4e8f0',fontSize:'1.1rem',fontWeight:700,marginBottom:4,marginTop:p.trial&&!p.highlight?8:0}},p.name),
         el('div',{style:{fontSize:'1.5rem',fontWeight:800,color:'#fff',marginBottom:4}},p.price),
@@ -9817,12 +9830,14 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
       el('input', {value:teamName, onChange:e=>setTeamName(e.target.value), placeholder:t('team.teamNamePlaceholder','Team name (e.g. Springfield Debate)'), style:{flex:1,padding:'10px 14px',background:'#38383e',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.9rem',outline:'none'}}),
       el('button', {onClick:createTeam, disabled:actionLoading||!teamName.trim(), style:{padding:'10px 20px',background:'#ef4444',border:'none',borderRadius:8,color:'#fff',fontWeight:600,cursor:'pointer',opacity:actionLoading?.5:1}}, actionLoading?t('team.creating','Creating...'):t('team.createTeam','Create Team')),
     ),
-    el('div', {style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(3,1fr)',gap:isMobile?10:16,marginTop:24}},
+    el('div', {style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(4,1fr)',gap:isMobile?10:16,marginTop:24}},
       ...[
         {name:'Free',price:'$0',requests:'5/mo',members:'3 members',highlight:false},
         {name:'Individual',price:'$5/mo',requests:'250/mo',members:'1 member',highlight:true},
+        {name:'Lifetime',price:'$14.99',requests:'250/mo',members:'3 members',highlight:false,badgeColor:'#22c55e',badge:'Best Value'},
         {name:'Team',price:'$30/mo',requests:'1,500/mo',members:'50 members',highlight:false},
-      ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':'#ffffff20'),borderRadius:12,textAlign:'center'}},
+      ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':p.badgeColor?p.badgeColor+'12':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':p.badgeColor?p.badgeColor+'40':'#ffffff20'),borderRadius:12,textAlign:'center',position:'relative'}},
+        p.badge && el('div',{style:{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',padding:'3px 12px',background:p.badgeColor||'#22c55e',color:'#fff',fontSize:'.65rem',fontWeight:700,borderRadius:10,letterSpacing:'.5px',whiteSpace:'nowrap'}},p.badge.toUpperCase()),
         p.highlight && el('div',{style:{fontSize:'.7rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:1,marginBottom:8}},t('team.mostPopular','Most Popular')),
         el('h3',{style:{color:'#e4e8f0',fontSize:'1.1rem',fontWeight:700,marginBottom:4}},p.name),
         el('div',{style:{fontSize:'1.5rem',fontWeight:800,color:'#fff',marginBottom:8}},p.price),
@@ -9836,7 +9851,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
 
   const usagePct = team.usageLimit ? Math.min(100, Math.round((team.usageThisPeriod / team.usageLimit) * 100)) : 0;
   const isOwner = team.role === 'owner';
-  const planColors = {trial:'#f59e0b',individual:'#3b82f6',team:'#8b5cf6'};
+  const planColors = {trial:'#f59e0b',individual:'#3b82f6',team:'#8b5cf6',lifetime:'#22c55e'};
   const planColor = planColors[team.plan] || '#94a3b8';
 
   return el('div', {className:'panel'},
@@ -9887,15 +9902,20 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
       ),
       el('p', {style:{color:'#94a3b8',fontSize:'.85rem',lineHeight:1.6,marginBottom:8}}, 'You\'re on the free plan with ' + (team.usageLimit||10) + ' requests/month. Upgrade for more power and team collaboration.'),
       el('div', {style:{display:'inline-block',padding:'5px 14px',background:'#22c55e15',border:'1px solid #22c55e30',borderRadius:20,color:'#4ade80',fontSize:'.78rem',fontWeight:700,marginBottom:14}}, 'Try any plan free for 14 days. Cancel anytime.'),
-      el('div', {style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
-        el('button', {onClick:()=>openCheckout('individual'),disabled:actionLoading,style:{padding:'14px 16px',background:'#3b82f615',border:'1px solid #3b82f640',borderRadius:10,color:'#60a5fa',fontWeight:700,cursor:'pointer',fontSize:'.85rem',transition:'.2s'}},
+      el('div', {style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}},
+        el('button', {onClick:()=>openCheckout('individual'),disabled:actionLoading,className:checkoutPlan==='individual'?'price-card-loading':'',style:{padding:'14px 16px',background:checkoutPlan==='individual'?'linear-gradient(90deg,#3b82f615,#3b82f630,#3b82f615)':'#3b82f615',border:'1px solid #3b82f640',borderRadius:10,color:'#60a5fa',fontWeight:700,cursor:'pointer',fontSize:'.85rem',transition:'.2s'}},
           el('div', {style:{fontSize:'1.2rem',fontWeight:800,color:'#3b82f6',marginBottom:2}}, '$5/mo'),
-          el('div', {style:{fontSize:'.72rem',color:'#94a3b8',fontWeight:400}}, 'Individual \u2022 250 requests \u2022 14 days free'),
+          el('div', {style:{fontSize:'.72rem',color:'#94a3b8',fontWeight:400}}, 'Individual \u2022 250/mo'),
         ),
-        el('button', {onClick:()=>openCheckout('team'),disabled:actionLoading,style:{padding:'14px 16px',background:'#8b5cf615',border:'1px solid #8b5cf640',borderRadius:10,color:'#a78bfa',fontWeight:700,cursor:'pointer',fontSize:'.85rem',transition:'.2s',position:'relative'}},
+        el('button', {onClick:()=>openCheckout('team'),disabled:actionLoading,className:checkoutPlan==='team'?'price-card-loading':'',style:{padding:'14px 16px',background:checkoutPlan==='team'?'linear-gradient(90deg,#8b5cf615,#8b5cf630,#8b5cf615)':'#8b5cf615',border:'1px solid #8b5cf640',borderRadius:10,color:'#a78bfa',fontWeight:700,cursor:'pointer',fontSize:'.85rem',transition:'.2s',position:'relative'}},
           el('div', {style:{position:'absolute',top:-8,right:12,fontSize:'.6rem',fontWeight:700,color:'#fff',background:'#8b5cf6',padding:'2px 8px',borderRadius:10,letterSpacing:'.5px',textTransform:'uppercase'}}, 'Popular'),
           el('div', {style:{fontSize:'1.2rem',fontWeight:800,color:'#8b5cf6',marginBottom:2}}, '$30/mo'),
-          el('div', {style:{fontSize:'.72rem',color:'#94a3b8',fontWeight:400}}, 'Team \u2022 1,500 requests \u2022 14 days free'),
+          el('div', {style:{fontSize:'.72rem',color:'#94a3b8',fontWeight:400}}, 'Team \u2022 1,500/mo'),
+        ),
+        el('button', {onClick:()=>openCheckout('lifetime'),disabled:actionLoading,className:checkoutPlan==='lifetime'?'price-card-loading':'',style:{padding:'14px 16px',background:checkoutPlan==='lifetime'?'linear-gradient(90deg,#22c55e15,#22c55e30,#22c55e15)':'#22c55e15',border:'1px solid #22c55e40',borderRadius:10,color:'#4ade80',fontWeight:700,cursor:'pointer',fontSize:'.85rem',transition:'.2s',position:'relative'}},
+          el('div', {style:{position:'absolute',top:-8,right:12,fontSize:'.6rem',fontWeight:700,color:'#fff',background:'#22c55e',padding:'2px 8px',borderRadius:10,letterSpacing:'.5px',textTransform:'uppercase'}}, 'Best Value'),
+          el('div', {style:{fontSize:'1.2rem',fontWeight:800,color:'#22c55e',marginBottom:2}}, '$14.99'),
+          el('div', {style:{fontSize:'.72rem',color:'#94a3b8',fontWeight:400}}, 'Forever \u2022 250/mo'),
         ),
       ),
     ),
@@ -11034,7 +11054,7 @@ function LiveDebateCard({ debate, user, onJoin, onView }) {
   );
 }
 
-function LiveDebates({ user, team }) {
+function LiveDebates({ user, team, onNavigateTab }) {
   const el = React.createElement;
   const [debates, setDebates] = useState([]);
   const [view, setView] = useState('list'); // list | create | detail | video
@@ -11046,6 +11066,7 @@ function LiveDebates({ user, team }) {
   const [format, setFormat] = useState('APDA');
   const [debateDate, setDebateDate] = useState('');
   const [debateTime, setDebateTime] = useState('');
+  const [debateTimezone, setDebateTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York');
   const [maxParticipants, setMaxParticipants] = useState(4);
   const [videoType, setVideoType] = useState('jitsi'); // jitsi | zoom | custom
   const [customLink, setCustomLink] = useState('');
@@ -11162,13 +11183,6 @@ function LiveDebates({ user, team }) {
             className: 'btn btn-primary',
             style: { display: 'block', textAlign: 'center', textDecoration: 'none', padding: '12px', fontSize: '.92rem' },
           }, '\uD83C\uDFA5 Join Video Call'),
-          debate.jitsiRoom && el('div', { style: { marginTop: 12 } },
-            el('button', {
-              className: 'btn btn-secondary',
-              style: { width: '100%', padding: '10px', fontSize: '.85rem' },
-              onClick: () => setView('video'),
-            }, '\uD83D\uDCBB Open Video In-App'),
-          ),
         ),
         !debate.videoLink && isHost && el('div', { style: { marginTop: 16, textAlign: 'center', color: '#666', fontSize: '.82rem' } }, 'No video link set'),
       ),
@@ -11211,6 +11225,10 @@ function LiveDebates({ user, team }) {
           el('div', null,
             el('label', { className: 'field-label' }, 'Time'),
             el('input', { type: 'time', value: debateTime, onChange: e => setDebateTime(e.target.value), style: { width: '100%', padding: '10px 14px', background: '#3a3a40', color: '#e4e8f0', border: '1.5px solid #ffffff28', borderRadius: 10, fontFamily: 'inherit', fontSize: '.88rem' } }),
+            el('label', { className: 'field-label', style: { marginTop: 8 } }, 'Timezone'),
+            el('select', { value: debateTimezone, onChange: e => setDebateTimezone(e.target.value), style: { width: '100%', padding: '10px 14px', background: '#3a3a40', color: '#e4e8f0', border: '1.5px solid #ffffff28', borderRadius: 10, fontFamily: 'inherit', fontSize: '.82rem' } },
+              ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Anchorage','Pacific/Honolulu','Europe/London','Europe/Paris','Europe/Berlin','Asia/Tokyo','Asia/Shanghai','Asia/Kolkata','Asia/Dubai','Australia/Sydney','Pacific/Auckland'].map(tz => el('option', { key: tz, value: tz }, tz.replace(/_/g,' ').replace('America/','').replace('Europe/','').replace('Asia/','').replace('Pacific/','').replace('Australia/','') + ' (' + tz.split('/')[0] + ')'))
+            ),
           ),
         ),
         el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 } },
@@ -11262,7 +11280,7 @@ function LiveDebates({ user, team }) {
         el('div', {style:{fontWeight:800,fontSize:'1.3rem',color:'var(--text-primary,#f1f5f9)',marginBottom:8}}, 'Live Debates'),
         el('div', {style:{color:'var(--text-muted,#94a3b8)',fontSize:'.9rem',lineHeight:1.6,marginBottom:20}}, 'Schedule debates, join video calls, and compete live with debaters around the world. Available on Individual and Team plans.'),
         el('div', {style:{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}},
-          el('button', {className:'btn btn-primary', onClick:()=>{/* navigate to team tab */}, style:{padding:'10px 24px',fontSize:'.88rem'}}, 'Upgrade to Unlock'),
+          el('button', {className:'btn btn-primary', onClick:()=>{ if(onNavigateTab) onNavigateTab('team'); }, style:{padding:'10px 24px',fontSize:'.88rem'}}, 'Upgrade to Unlock'),
           el('div', {style:{color:'var(--text-muted,#64748b)',fontSize:'.78rem',alignSelf:'center'}}, 'Starting at $5/mo'),
         ),
       ),
@@ -11786,6 +11804,23 @@ function App() {
     })();
   }, [user]);
 
+  // Handle Stripe billing redirect — refresh team data after payment
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('billing') === 'success') {
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+      // Poll for team update (webhook may take a moment)
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        if (attempts > 10) { clearInterval(poll); return; }
+        if (__refreshTeam) await __refreshTeam();
+      }, 2000);
+      setTimeout(() => clearInterval(poll), 22000);
+    }
+  }, []);
+
   // Writing style profile — loaded from Firestore for paid users
   const [styleProfile, setStyleProfile] = useState(null);
   useEffect(() => {
@@ -12056,13 +12091,101 @@ function App() {
       tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
       tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
       tabPane('market', React.createElement(ArgumentMarket)),
-      tabPane('live', React.createElement(LiveDebates, { user: user, team: team })),
+      tabPane('live', React.createElement(LiveDebates, { user: user, team: team, onNavigateTab: navigateTab })),
       toast && React.createElement('div', {style:{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',padding:'10px 24px',background:'#22c55e',color:'#fff',borderRadius:8,fontWeight:600,fontSize:'.88rem',zIndex:99999,boxShadow:'0 4px 12px rgba(0,0,0,.3)',animation:'fadeIn .2s ease',pointerEvents:'none'}}, toast),
     )
   ));
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+// ═══════════════════════════════════════════════════
+// ERROR BOUNDARY — catches React render crashes
+// ═══════════════════════════════════════════════════
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    this.setState({ errorInfo });
+    console.error('ErrorBoundary caught:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      const e = this.state.error;
+      const info = this.state.errorInfo;
+      return React.createElement('div', {style:{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#1a1a22',padding:20}},
+        React.createElement('div', {style:{maxWidth:560,width:'100%',background:'#2a2a32',border:'1px solid #ef444440',borderRadius:16,padding:'36px 40px',textAlign:'center',boxShadow:'0 8px 40px rgba(0,0,0,.5)'}},
+          React.createElement('div', {style:{fontSize:'3rem',marginBottom:16}}, '\u26A0\uFE0F'),
+          React.createElement('h1', {style:{fontSize:'1.5rem',fontWeight:800,color:'#f1f5f9',marginBottom:8}}, 'Something Went Wrong'),
+          React.createElement('p', {style:{color:'#94a3b8',fontSize:'.92rem',lineHeight:1.6,marginBottom:20}},
+            'Devil\'s Advocate hit an unexpected error. This is usually caused by a temporary glitch, a browser extension interfering, or a network issue.'
+          ),
+          React.createElement('div', {style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap',marginBottom:20}},
+            React.createElement('button', {onClick:()=>window.location.reload(), style:{padding:'12px 28px',background:'#ef4444',border:'none',borderRadius:10,color:'#fff',fontSize:'.92rem',fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}, 'Reload App'),
+            React.createElement('button', {onClick:()=>{try{localStorage.clear()}catch(x){}window.location.reload()}, style:{padding:'12px 28px',background:'transparent',border:'1.5px solid #ffffff20',borderRadius:10,color:'#94a3b8',fontSize:'.88rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}, 'Clear Cache & Reload'),
+          ),
+          React.createElement('details', {style:{textAlign:'left',marginTop:16,background:'#22222a',borderRadius:10,padding:'12px 16px',border:'1px solid #ffffff0a'}},
+            React.createElement('summary', {style:{cursor:'pointer',color:'#64748b',fontSize:'.78rem',fontWeight:600,letterSpacing:'.5px',textTransform:'uppercase'}}, 'Error Details (for debugging)'),
+            React.createElement('pre', {style:{color:'#ef4444',fontSize:'.75rem',marginTop:10,whiteSpace:'pre-wrap',wordBreak:'break-word',lineHeight:1.5,maxHeight:200,overflow:'auto'}},
+              (e ? e.toString() : 'Unknown error') + '\n\n' + (info && info.componentStack ? info.componentStack : '')
+            ),
+          ),
+          React.createElement('p', {style:{color:'#4b5563',fontSize:'.75rem',marginTop:16,lineHeight:1.5}},
+            'If this keeps happening, try: (1) refreshing the page, (2) clearing your browser cache, (3) disabling browser extensions, or (4) using a different browser. You can also report this at github.com/aidanhm14/DebateOS/issues.'
+          ),
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// GLOBAL ERROR HANDLERS — catches uncaught JS errors
+// ═══════════════════════════════════════════════════
+(function() {
+  var errorShown = false;
+  function showCrashScreen(msg, source, stack) {
+    if (errorShown) return;
+    errorShown = true;
+    var root = document.getElementById('root');
+    if (!root || (root.innerHTML && root.innerHTML.length > 100)) return; // Don't override a working app
+    root.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#1a1a22;padding:20px;font-family:Inter,system-ui,sans-serif">'
+      + '<div style="max-width:560px;width:100%;background:#2a2a32;border:1px solid #ef444440;border-radius:16px;padding:36px 40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">'
+      + '<div style="font-size:3rem;margin-bottom:16px">\u26A0\uFE0F</div>'
+      + '<h1 style="font-size:1.5rem;font-weight:800;color:#f1f5f9;margin-bottom:8px">App Failed to Load</h1>'
+      + '<p style="color:#94a3b8;font-size:.92rem;line-height:1.6;margin-bottom:20px">'
+      + 'Devil\'s Advocate couldn\'t start. This usually means a script failed to load, your browser blocked something, or there\'s a network issue.</p>'
+      + '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px">'
+      + '<button onclick="window.location.reload()" style="padding:12px 28px;background:#ef4444;border:none;border-radius:10px;color:#fff;font-size:.92rem;font-weight:700;cursor:pointer;font-family:inherit">Reload App</button>'
+      + '<button onclick="try{localStorage.clear()}catch(x){}window.location.reload()" style="padding:12px 28px;background:transparent;border:1.5px solid #ffffff20;border-radius:10px;color:#94a3b8;font-size:.88rem;font-weight:600;cursor:pointer;font-family:inherit">Clear Cache & Reload</button>'
+      + '</div>'
+      + '<details style="text-align:left;margin-top:16px;background:#22222a;border-radius:10px;padding:12px 16px;border:1px solid #ffffff0a">'
+      + '<summary style="cursor:pointer;color:#64748b;font-size:.78rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Error Details</summary>'
+      + '<pre style="color:#ef4444;font-size:.75rem;margin-top:10px;white-space:pre-wrap;word-break:break-word;line-height:1.5;max-height:200px;overflow:auto">'
+      + (msg || 'Unknown error') + (source ? '\n\nSource: ' + source : '') + (stack ? '\n\n' + stack : '')
+      + '</pre></details>'
+      + '<p style="color:#4b5563;font-size:.75rem;margin-top:16px;line-height:1.5">'
+      + 'Try: (1) refreshing, (2) clearing browser cache, (3) disabling extensions, (4) a different browser.</p>'
+      + '</div></div>';
+  }
+  window.onerror = function(msg, source, line, col, error) {
+    showCrashScreen(msg, source + ':' + line + ':' + col, error && error.stack ? error.stack : '');
+  };
+  window.addEventListener('unhandledrejection', function(event) {
+    var reason = event.reason;
+    showCrashScreen(
+      reason ? (reason.message || String(reason)) : 'Unhandled promise rejection',
+      '',
+      reason && reason.stack ? reason.stack : ''
+    );
+  });
+})();
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary, null, React.createElement(App)));
 </script>
 </body>
 </html>
