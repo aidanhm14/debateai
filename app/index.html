@@ -4272,6 +4272,7 @@ Return ONLY the replacement text. Nothing else. Use markdown formatting for read
         const sysPrompt = `You are a debate case editor. The user wants a general revision applied to their entire debate case. Apply their feedback while maintaining the APDA case format structure (numbered arguments, lettered sub-points, roman numeral warrants). Return ONLY the revised full case text, no meta-commentary. Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points. Do not use em dashes, en dashes, or hyphens as separators.`;
         const userPrompt = `Here is the current case:\n\n${output}\n\nUser's revision request: ${userComment}\n\nApply this revision and return the complete updated case.`;
 
+        const beforeText = output; // Save before version for diff
         let revisedFull = '';
         await callClaude(sysPrompt, userPrompt, (text) => {
           revisedFull = text;
@@ -4284,6 +4285,7 @@ Return ONLY the replacement text. Nothing else. Use markdown formatting for read
         setComments(prev => [...prev, {
           type:'ai',
           text: 'Full case revised. ' + (userComment.length < 40 ? '' : 'Changes applied based on your feedback.'),
+          diff: { before: beforeText, after: revisedFull },
           time:new Date().toLocaleTimeString()
         }]);
       }
@@ -4337,6 +4339,14 @@ Return ONLY the replacement text. Nothing else. Use markdown formatting for read
               c.type==='user' ? 'You' : 'DebateOS'
             ),
             React.createElement('div',{className:'rc-text'},c.text),
+            c.diff && React.createElement('button',{
+              style:{fontSize:'.7rem',padding:'2px 8px',background:'#22c55e15',border:'1px solid #22c55e30',borderRadius:4,color:'#22c55e',cursor:'pointer',marginTop:4,fontFamily:'inherit'},
+              onClick:()=>{
+                // Show simple diff: restore before version
+                const restore = confirm('Restore to the version BEFORE this revision?');
+                if (restore && c.diff.before) onRevise(c.diff.before);
+              }
+            },'\u21A9 Undo this revision'),
             React.createElement('div',{className:'rc-time'},c.time),
           )
         ),
@@ -8476,6 +8486,9 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [friendEmail, setFriendEmail] = useState('');
+  const [editingTeam, setEditingTeam] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editContext, setEditContext] = useState('');
   // Writing style profile
   const [styleInstructions, setStyleInstructions] = useState('');
   const [styleTone, setStyleTone] = useState('balanced');
@@ -8696,8 +8709,27 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
   return el('div', {className:'panel'},
     el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24,flexWrap:'wrap',gap:12}},
       el('div', null,
-        el('h2', {style:{fontSize:'1.4rem',fontWeight:800,color:'#e4e8f0',marginBottom:4}}, team.teamName || 'Your Team'),
-        el('span', {style:{fontSize:'.75rem',padding:'3px 10px',borderRadius:20,fontWeight:700,background:planColor+'20',color:planColor,textTransform:'uppercase',letterSpacing:'.5px'}}, (team.plan === 'trial' ? 'free' : team.plan) + ' plan'),
+        editingTeam
+          ? el('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+              el('input',{value:editName,onChange:e=>setEditName(e.target.value),placeholder:'Team name',style:{padding:'6px 12px',background:'#151d2b',border:'1px solid #ffffff15',borderRadius:6,color:'#e2e8f0',fontSize:'1.1rem',fontWeight:700,outline:'none'}}),
+              el('textarea',{value:editContext,onChange:e=>setEditContext(e.target.value),placeholder:'Team context (e.g. "UChicago APDA team, focused on policy and philosophy cases, strong at framework debate")',rows:2,style:{padding:'6px 12px',background:'#151d2b',border:'1px solid #ffffff15',borderRadius:6,color:'#cbd5e1',fontSize:'.82rem',outline:'none',resize:'vertical'}}),
+              el('div',{style:{display:'flex',gap:6}},
+                el('button',{className:'btn btn-primary',style:{padding:'4px 12px',fontSize:'.78rem'},onClick:async()=>{
+                  try {
+                    const token = await (window.__getAuthToken ? window.__getAuthToken() : null);
+                    if (token) await fetch('/api/teams/update',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({name:editName.trim(),context:editContext.trim()})});
+                  } catch{}
+                  setEditingTeam(false);
+                }},'Save'),
+                el('button',{className:'btn btn-secondary',style:{padding:'4px 12px',fontSize:'.78rem'},onClick:()=>setEditingTeam(false)},'Cancel'),
+              ),
+            )
+          : el('div',{style:{display:'flex',alignItems:'center',gap:8}},
+              el('h2', {style:{fontSize:'1.4rem',fontWeight:800,color:'#e4e8f0',margin:0}}, team.teamName || 'Your Team'),
+              isOwner && el('button',{onClick:()=>{setEditName(team.teamName||'');setEditContext(team.context||'');setEditingTeam(true);},style:{background:'none',border:'none',color:'#94a3b8',cursor:'pointer',fontSize:'.8rem',padding:'2px 6px'}},'\u270F\uFE0F'),
+            ),
+        el('span', {style:{fontSize:'.75rem',padding:'3px 10px',borderRadius:20,fontWeight:700,background:planColor+'20',color:planColor,textTransform:'uppercase',letterSpacing:'.5px',marginTop:4,display:'inline-block'}}, (team.plan === 'trial' ? 'free' : team.plan) + ' plan'),
+        team.context && !editingTeam && el('p',{style:{fontSize:'.78rem',color:'#94a3b8',marginTop:4,maxWidth:400}},team.context),
       ),
       isOwner && el('button', {onClick:team.stripeSubscriptionId?openPortal:()=>openCheckout('team'), style:{padding:'8px 16px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}, team.stripeSubscriptionId?t('team.manageBilling','Manage Billing'):t('team.upgradePlan','Upgrade Plan')),
     ),
