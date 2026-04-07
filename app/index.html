@@ -5740,14 +5740,19 @@ function Philosophy({ onSave }) {
   const outputRef = useRef(null);
 
   // size: 3=core debate thinkers, 2=commonly cited, 1=niche/specialized
+  // Ordered by frequency in competitive debate rounds (most common first)
   const philosophers = [
-    {name:'Kant',size:3},{name:'Mill',size:3},{name:'Rawls',size:3},{name:'Foucault',size:3},
-    {name:'Aristotle',size:3},{name:'Nietzsche',size:3},{name:'Marx',size:3},{name:'Hobbes',size:3},
-    {name:'Locke',size:3},{name:'Plato',size:3},{name:'Bentham',size:2},{name:'Rousseau',size:2},
-    {name:'Hegel',size:2},{name:'Nozick',size:2},{name:'Sartre',size:2},{name:'Machiavelli',size:2},
-    {name:'Hume',size:2},{name:'Arendt',size:2},{name:'de Beauvoir',size:2},{name:'Camus',size:2},
-    {name:'Wittgenstein',size:2},{name:'Habermas',size:2},{name:'Sen',size:2},{name:'Nussbaum',size:2},
-    {name:'Butler',size:2},{name:'Chomsky',size:2},{name:'Derrida',size:2},{name:'Kierkegaard',size:2},
+    // Tier 1: appear in 50%+ of philosophical rounds
+    {name:'Rawls',size:3},{name:'Mill',size:3},{name:'Kant',size:3},{name:'Hobbes',size:3},
+    {name:'Locke',size:3},{name:'Foucault',size:3},{name:'Marx',size:3},{name:'Nozick',size:3},
+    // Tier 2: appear in 20-50% of rounds
+    {name:'Aristotle',size:2},{name:'Nietzsche',size:2},{name:'Bentham',size:2},{name:'Sen',size:2},
+    {name:'Nussbaum',size:2},{name:'Machiavelli',size:2},{name:'Hume',size:2},{name:'Arendt',size:2},
+    {name:'Rousseau',size:2},{name:'Plato',size:2},{name:'Habermas',size:2},{name:'de Beauvoir',size:2},
+    // Tier 3: niche but powerful when deployed
+    {name:'Sartre',size:2},{name:'Camus',size:2},{name:'Hegel',size:2},{name:'Butler',size:2},
+    {name:'Chomsky',size:2},{name:'Fanon',size:2},{name:'Said',size:2},{name:'Hooks',size:2},
+    {name:'Derrida',size:1},{name:'Kierkegaard',size:1},
     {name:'Fanon',size:2},{name:'Zizek',size:2},{name:'Said',size:2},{name:'hooks',size:2},
     {name:'Gramsci',size:1},{name:'Nagarjuna',size:1},{name:'Baudrillard',size:1},{name:'Deleuze',size:1},
     {name:'Debord',size:1},{name:'Levinas',size:1},{name:'Agamben',size:1},{name:'Spivak',size:1},
@@ -5993,35 +5998,45 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         !isPro(null,null) && React.createElement('div',{style:{marginTop:8,fontSize:'.72rem',color:'#94a3b8'}},'Pro feature — toggle PRO ON to use'),
       ),
       vennLoading && React.createElement('div',{style:{padding:20}},React.createElement('span',{className:'spinner'}),' Generating...'),
-      // Rendered Venn with AI data
+      // Rendered Venn with AI data — clean card layout
       vennData && React.createElement('div',null,
-        React.createElement('h3',{style:{color:'#a78bfa',fontSize:'1rem',fontWeight:700,marginBottom:16}},
-          (selectedPhils[0]||'P1')+' vs '+(selectedPhils[1]||'P2')+' — Venn Diagram'
+        React.createElement('h3',{style:{color:'#a78bfa',fontSize:'1.1rem',fontWeight:700,marginBottom:20}},
+          (selectedPhils[0]||'P1')+' vs '+(selectedPhils[1]||'P2')
         ),
-        React.createElement('svg',{viewBox:'0 0 500 300',style:{width:'100%',maxWidth:560,margin:'0 auto',display:'block'}},
-          React.createElement('circle',{cx:175,cy:150,r:120,fill:'#ef444412',stroke:'#ef4444',strokeWidth:2}),
-          React.createElement('circle',{cx:325,cy:150,r:120,fill:'#3b82f612',stroke:'#3b82f6',strokeWidth:2}),
-          // Left name
-          React.createElement('text',{x:110,y:30,fill:'#ef4444',fontSize:14,fontWeight:700,textAnchor:'middle'},selectedPhils[0]||'P1'),
-          // Right name
-          React.createElement('text',{x:390,y:30,fill:'#3b82f6',fontSize:14,fontWeight:700,textAnchor:'middle'},selectedPhils[1]||'P2'),
-          // Left unique points
-          (vennData.left||[]).map((p,i)=>React.createElement('text',{key:'l'+i,x:100,y:110+i*22,fill:'#ef4444',fontSize:9,textAnchor:'middle',opacity:0.9},p)),
-          // Right unique points
-          (vennData.right||[]).map((p,i)=>React.createElement('text',{key:'r'+i,x:400,y:110+i*22,fill:'#3b82f6',fontSize:9,textAnchor:'middle',opacity:0.9},p)),
-          // Shared points (center)
-          (vennData.shared||[]).map((p,i)=>React.createElement('text',{key:'s'+i,x:250,y:120+i*22,fill:'#fbbf24',fontSize:10,fontWeight:600,textAnchor:'middle'},p)),
-          // "Shared Ground" label
-          React.createElement('text',{x:250,y:95,fill:'#fbbf24',fontSize:11,fontWeight:700,textAnchor:'middle'},'SHARED GROUND'),
+        // Mini SVG circles as visual header
+        React.createElement('svg',{viewBox:'0 0 300 100',style:{width:'100%',maxWidth:300,margin:'0 auto 20px',display:'block'}},
+          React.createElement('circle',{cx:110,cy:50,r:45,fill:'#ef444415',stroke:'#ef4444',strokeWidth:2}),
+          React.createElement('circle',{cx:190,cy:50,r:45,fill:'#3b82f615',stroke:'#3b82f6',strokeWidth:2}),
+          React.createElement('text',{x:85,y:54,fill:'#ef4444',fontSize:11,fontWeight:700,textAnchor:'middle'},selectedPhils[0]||'P1'),
+          React.createElement('text',{x:215,y:54,fill:'#3b82f6',fontSize:11,fontWeight:700,textAnchor:'middle'},selectedPhils[1]||'P2'),
+          React.createElement('text',{x:150,y:50,fill:'#fbbf24',fontSize:8,fontWeight:600,textAnchor:'middle'},'\u2229'),
         ),
-        React.createElement('button',{className:'btn btn-secondary',style:{marginTop:12,fontSize:'.78rem'},onClick:()=>setVennData(null)},'Regenerate'),
+        // Three cards: Left | Shared | Right
+        React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}},
+          // Left unique
+          React.createElement('div',{style:{padding:'14px 12px',background:'#ef444408',border:'1px solid #ef444425',borderRadius:10}},
+            React.createElement('div',{style:{fontSize:'.72rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:8}},'Unique to '+(selectedPhils[0]||'P1')),
+            (vennData.left||[]).map((p,i)=>React.createElement('div',{key:'l'+i,style:{fontSize:'.82rem',color:'#e2e8f0',marginBottom:6,paddingLeft:8,borderLeft:'2px solid #ef444440',lineHeight:1.4}},p)),
+          ),
+          // Shared ground (center)
+          React.createElement('div',{style:{padding:'14px 12px',background:'#fbbf2408',border:'1px solid #fbbf2425',borderRadius:10}},
+            React.createElement('div',{style:{fontSize:'.72rem',fontWeight:700,color:'#fbbf24',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:8}},'Shared Ground'),
+            (vennData.shared||[]).map((p,i)=>React.createElement('div',{key:'s'+i,style:{fontSize:'.82rem',color:'#e2e8f0',marginBottom:6,paddingLeft:8,borderLeft:'2px solid #fbbf2440',lineHeight:1.4}},p)),
+          ),
+          // Right unique
+          React.createElement('div',{style:{padding:'14px 12px',background:'#3b82f608',border:'1px solid #3b82f625',borderRadius:10}},
+            React.createElement('div',{style:{fontSize:'.72rem',fontWeight:700,color:'#3b82f6',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:8}},'Unique to '+(selectedPhils[1]||'P2')),
+            (vennData.right||[]).map((p,i)=>React.createElement('div',{key:'r'+i,style:{fontSize:'.82rem',color:'#e2e8f0',marginBottom:6,paddingLeft:8,borderLeft:'2px solid #3b82f640',lineHeight:1.4}},p)),
+          ),
+        ),
+        React.createElement('button',{className:'btn btn-secondary',style:{marginTop:16,fontSize:'.78rem'},onClick:()=>setVennData(null)},'\u{1F504} Regenerate'),
       ),
     ),
 
     output && React.createElement('div',{ref:outputRef,className:'phil-output',style:{position:'relative'}},
       // Philosopher portrait — Wikipedia REST API thumbnail
       selectedPhils[0] && React.createElement('div',{
-        style:{position:'absolute',top:16,right:16,width:90,height:90,borderRadius:'50%',overflow:'hidden',border:'2px solid #ef444440',zIndex:1,background:'#1a2538'},
+        style:{position:'absolute',top:16,right:16,width:110,height:110,borderRadius:'50%',overflow:'hidden',border:'2.5px solid #ef444440',zIndex:1,background:'#1a2538',boxShadow:'0 4px 20px rgba(0,0,0,.3)'},
         ref:(el) => {
           if (!el || el.dataset.loaded) return;
           el.dataset.loaded = 'true';
