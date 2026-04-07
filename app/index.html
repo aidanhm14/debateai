@@ -5507,7 +5507,10 @@ function Philosophy() {
   const [concept, setConcept] = useState('');
   const [output, setOutput] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const [pProgress, setPProgress] = useState({phase:'idle',percent:0});
   const [exploreMode, setExploreMode] = useState('deep-dive');
+  const outputRef = useRef(null);
 
   // size: 3=core debate thinkers, 2=commonly cited, 1=niche/specialized
   const philosophers = [
@@ -5634,10 +5637,14 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
           userPrompt = `Philosopher: ${philosopher}${concept ? `\nApplied to: ${concept}` : ''}\n\nBuild me a complete, ready-to-use framework I can deploy in a PM speech.`;
         }
 
-      await callClaude(sysPrompt, userPrompt, (text) => setOutput(text), { thinkBudget: 12000, maxTokens: 10000, expectedWords: 1500, onProgress: (p) => setPProgress(p), feature: 'philosophy' });
+      setStreaming(true);
+      const throttle = createStreamThrottle((text) => setOutput(text), outputRef);
+      await callClaude(sysPrompt, userPrompt, (text) => throttle.update(text), { thinkBudget: 12000, maxTokens: 10000, expectedWords: 1500, onProgress: (p) => setPProgress(p), feature: 'philosophy' });
+      throttle.finish();
     } catch(e) {
       setOutput('Error: ' + e.message);
     }
+    setStreaming(false);
     setLoading(false);
   };
 
@@ -5718,11 +5725,15 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         )
       )
     ),
-    output && React.createElement('div',{className:'phil-output'},
-      React.createElement('div',{className:'output'},
+    output && React.createElement('div',{ref:outputRef,className:'phil-output'},
+      React.createElement('div',{className:'output'+(streaming?' streaming-active':'')},
         React.createElement('div',{dangerouslySetInnerHTML:{__html:cleanOutput(output, true)}})
       ),
-      !loading && React.createElement(SaveToDocsButton,{text:output,filename:'Philosophy ' + philosopher})
+      streaming && React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginTop:8,color:'#ef4444',fontSize:'.8rem'}},
+        React.createElement('span',{className:'spinner'}),
+        'Streaming...'
+      ),
+      !loading && !streaming && React.createElement(SaveToDocsButton,{text:output,filename:'Philosophy ' + philosopher})
     )
   );
 }
@@ -6818,6 +6829,15 @@ function Newbies() {
       el('div',{className:'honest'},
         "Competitive debate has a reputation, and not all of it is undeserved. It can feel elitist, jargon-heavy, and intimidating. The learning curve is steep enough to push people out before they ever get good. We're not going to pretend otherwise. But the core of debate (learning to construct and deconstruct arguments, to see issues from multiple sides, to think under pressure) is one of the most valuable intellectual skills you can develop. This guide is the substance without the gatekeeping."
       ),
+    ),
+    // Video guide placeholder
+    el('div',{style:{margin:'16px 0',padding:'14px 18px',background:'linear-gradient(135deg,#ef444408,#f59e0b08)',border:'1px solid #ef444425',borderRadius:12,display:'flex',alignItems:'center',gap:12,cursor:'pointer'},onClick:()=>window.open('https://youtube.com','_blank')},
+      el('span',{style:{fontSize:'1.3rem'}},'\uD83C\uDFA5'),
+      el('div',null,
+        el('div',{style:{fontWeight:700,fontSize:'.9rem',color:'var(--text-primary,#e4e8f0)'}},'Video Guide to Using Devil\'s Advocate'),
+        el('div',{style:{fontSize:'.78rem',color:'#94a3b8',marginTop:2}},'Watch a walkthrough of every feature (coming soon)'),
+      ),
+      el('span',{style:{marginLeft:'auto',color:'#ef4444',fontSize:'.8rem',fontWeight:600}},'\u25B6 Watch'),
     ),
     // Visual round structure diagram — always visible
     el('div',{style:{margin:'24px 0 28px',padding:'24px',background:'#ffffff04',border:'1px solid #ffffff0a',borderRadius:14}},
@@ -8445,7 +8465,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
     ),
     // Writing Style Profile — paid feature
     el('div', {style:{marginTop:24,padding:20,background:'linear-gradient(135deg,#ef444408,#f59e0b08)',border:'1px solid #ef444420',borderRadius:12,position:'relative',overflow:'hidden'}},
-      team.plan === 'trial' && el('div', {style:{position:'absolute',inset:0,background:'#0a0e18cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2,backdropFilter:'blur(3px)',borderRadius:12}},
+      !isPro(team, user) && el('div', {style:{position:'absolute',inset:0,background:'#0a0e18cc',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2,backdropFilter:'blur(3px)',borderRadius:12}},
         el('div', {style:{textAlign:'center',padding:20}},
           el('div', {style:{fontSize:'1.5rem',marginBottom:8}}, '\uD83D\uDD12'),
           el('div', {style:{color:'#f59e0b',fontWeight:700,fontSize:'.9rem',marginBottom:4}}, 'Upgrade to Customize'),
@@ -9215,7 +9235,7 @@ function App() {
         React.createElement('p',{style:{color:'#92754a',fontSize:'.68rem',letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,margin:'2px 0 0',textAlign:'center'}},'powered by DebateOS'),
         React.createElement('div',{style:{display:'flex',gap:4,alignItems:'center',justifyContent:'center',background:'var(--badge-row-bg,#ffffff08)',borderRadius:20,padding:'3px 4px',border:'1px solid var(--badge-row-border,#ffffff0c)',width:'fit-content',margin:'8px auto 0'}},
           team && React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:team.status==='active'||team.status==='trialing'?'#22c55e15':'#f59e0b15',color:team.status==='active'||team.status==='trialing'?'#22c55e':'#f59e0b',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>navigateTab('team')},(team.plan === 'trial' ? 'FREE' : team.plan.toUpperCase())),
-          React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:devPro?'#ef444420':'#ffffff08',color:devPro?'#ef4444':'#94a3b8',cursor:'pointer',letterSpacing:'.5px',transition:'.2s',border:devPro?'1px solid #ef444440':'1px solid transparent'},onClick:toggleDevPro},devPro?'\u2666 PRO ON':'\u2666 PRO OFF'),
+          (!user || (user.email && user.email.includes('aidan'))) && React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:devPro?'#ef444420':'#ffffff08',color:devPro?'#ef4444':'#94a3b8',cursor:'pointer',letterSpacing:'.5px',transition:'.2s',border:devPro?'1px solid #ef444440':'1px solid transparent'},onClick:toggleDevPro},devPro?'\u2666 PRO ON':'\u2666 PRO OFF'),
           React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:theme==='light'?'#3b82f612':'#f59e0b12',color:theme==='light'?'#3b82f6':'#f59e0b',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>setTheme(theme==='dark'?'light':'dark')},theme==='dark'?'\u2600 Light':'\u263E Dark'),
           // Language selector — matching pill
           React.createElement('span',{style:{position:'relative',display:'inline-flex',alignItems:'center'}},
