@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@1,700;1,900&family=Sora:wght@300;400;600;700;800&display=swap" rel="stylesheet"><link href="https://api.fontshare.com/v2/css?f[]=clash-display@200,300,400,500,600,700&display=swap" rel="stylesheet"><style>
 /* ── Reset & Base ─────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{height:100%;width:100%;overflow-x:hidden}body{min-height:100%;width:100%;overflow-x:hidden;margin:0}#root{min-height:100%;width:100%;position:relative;z-index:1}
+html{height:100%;width:100%;overflow-x:hidden}body{min-height:100%;height:100%;width:100%;overflow-x:hidden;margin:0}#root{min-height:100%;width:100%;position:relative;z-index:1}
 body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeSpeed;background:#2b2b30;color:#e8ecf4;font-size:18px}
 
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -1296,7 +1296,7 @@ body.crimson-theme{background:#120808!important;color:#f5f0f0!important}
 .crimson-theme ::-webkit-scrollbar-thumb{background:#551818!important;border-radius:4px}
 .crimson-theme ::-webkit-scrollbar-thumb:hover{background:#662020!important}
 /* Neural constellation canvas — dark mode only */
-.neural-bg-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none;opacity:0;transition:opacity 1s ease}
+.neural-bg-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1;pointer-events:none;opacity:0;transition:opacity 1s ease}
 .crimson-theme .neural-bg-canvas{opacity:.8}
 .light-theme .neural-bg-canvas{opacity:.7}
 /* ===== END DARK THEME ===== */
@@ -5352,20 +5352,71 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
     setMotionStreaming(false);
   };
 
+  // --- TRENDING / PREDICTION STATE ---
+  const [trendingTopics, setTrendingTopics] = useState(null);
+  const [trendingLoading, setTrendingLoading] = useState(false);
+  const [showTrending, setShowTrending] = useState(false);
+
+  const fetchTrending = async () => {
+    if (trendingLoading) return;
+    setTrendingLoading(true);
+    setShowTrending(true);
+    try {
+      // Step 1: Fetch current news from Perplexity
+      const newsResp = await fetch('/api/perplexity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (await (__getAuthToken ? __getAuthToken() : Promise.resolve(''))) },
+        body: JSON.stringify({ query: 'What are the most controversial, debatable news stories and policy developments from the past 2 weeks? Focus on stories that would make good debate motions: contested policy changes, ethical dilemmas, Supreme Court cases, international conflicts, technology regulation, social movements, economic shifts. List 12-15 specific stories with brief context.' })
+      });
+      const newsData = await newsResp.json();
+      const newsText = newsData.choices?.[0]?.message?.content || newsData.text || '';
+
+      // Step 2: Have Claude analyze for debate relevance and predict tournament motions
+      let result = '';
+      await callClaude(
+        `You are an elite debate coach who has been writing motions for APDA, BP, and WSDC tournaments for 15 years. You have an uncanny ability to predict what motions will appear at upcoming tournaments because you understand what motion writers care about: timeliness, debatability, novelty, and educational value.
+
+Given the current news landscape, predict the 8 most likely debate topics for upcoming tournaments. For each topic:
+
+Return ONLY valid JSON array. Each item:
+{"topic":"short topic name","heat":1-10,"category":"one of: Politics/Technology/Ethics/Philosophy/Law/International/Economics/Science/Culture/Environment","prediction":"1-2 sentence prediction of how this becomes a motion","sampleMotion":"a specific debate motion","debatability":"1 sentence on why both sides are strong","timeframe":"this week/this month/this season"}
+
+Heat score: 10 = every tournament will run this, 1 = niche. Be honest with scores. Most should be 5-7.`,
+        'Current news landscape:\n' + newsText + '\n\nPredict the 8 most likely upcoming tournament motions based on this news. Return JSON array only.',
+        function(t) { result = t; },
+        { thinkBudget: 4000, maxTokens: 6000, feature: 'trending' }
+      );
+      const cleaned = result.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+      const start = cleaned.indexOf('[');
+      const end = cleaned.lastIndexOf(']');
+      if (start !== -1 && end !== -1) {
+        setTrendingTopics(JSON.parse(cleaned.slice(start, end + 1)));
+      }
+    } catch(e) {
+      console.error('Trending fetch error:', e);
+    }
+    setTrendingLoading(false);
+  };
+
   // Mode selector tabs
   const modeTab = (id, label) => el('button', {
     key:id,
     className: 'chip' + (genMode === id ? ' active' : ''),
-    onClick: () => { setGenMode(genMode === id ? null : id); setMotionOutput(null); },
+    onClick: () => { setGenMode(genMode === id ? null : id); setMotionOutput(null); setShowTrending(false); },
     style: { padding: '10px 20px', fontSize: '.92rem' }
   }, label);
 
-  return el('div',{className:'panel'+(motionOutput?' panel-expanded':'')},
+  return el('div',{className:'panel'+(motionOutput||showTrending?' panel-expanded':'')},
     // Mode tabs at top
     el('div',{style:{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',justifyContent:'center'}},
       modeTab(null, t('motions.generateMotion','Generate Motion')),
       modeTab('agent', t('motions.generateWithBg','Generate with Background')),
       modeTab('current', t('motions.currentEvents','Current Events')),
+      el('button', {
+        className: 'chip' + (showTrending ? ' active' : ''),
+        onClick: () => { if (!showTrending) { fetchTrending(); } else { setShowTrending(false); } setGenMode(null); setMotionOutput(null); },
+        style: { padding: '10px 20px', fontSize: '.92rem' }
+      }, '\uD83D\uDD25 Trending & Predictions'),
     ),
     // Divider between mode tabs and category chips
     el('div',{style:{height:2,background:'#ef444425',margin:'8px 40px 14px',borderRadius:1}}),
@@ -5379,8 +5430,55 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
       )
     ),
 
+    // === TRENDING & PREDICTIONS ===
+    showTrending && el('div',{style:{marginBottom:20}},
+      trendingLoading && el('div',{style:{textAlign:'center',padding:'40px 0'}},
+        el('div',{className:'spinner',style:{display:'inline-block',marginRight:10}}),
+        el('span',{style:{color:'#f59e0b',fontSize:'.92rem'}},'Scanning news and predicting tournament motions...')
+      ),
+      trendingTopics && el('div',null,
+        el('div',{style:{textAlign:'center',marginBottom:16}},
+          el('h3',{style:{fontSize:'1.1rem',fontWeight:800,color:'#e4e8f0',marginBottom:4}},'Motion Forecast'),
+          el('p',{style:{color:'#64748b',fontSize:'.82rem'}},'Predicted debate topics based on this week\'s news cycle'),
+        ),
+        el('table',{className:'market-board',style:{marginBottom:16}},
+          el('thead',null,
+            el('tr',null,
+              el('th',{style:{width:60,textAlign:'center'}},'Heat'),
+              el('th',null,'Topic'),
+              el('th',{style:{width:100}},'Category'),
+              el('th',null,'Predicted Motion'),
+              el('th',{style:{width:90}},'When'),
+            ),
+          ),
+          el('tbody',null,
+            trendingTopics.sort((a,b) => (b.heat||0) - (a.heat||0)).map((t,i) => {
+              const heatColor = t.heat >= 8 ? '#ef4444' : t.heat >= 6 ? '#f59e0b' : t.heat >= 4 ? '#3b82f6' : '#64748b';
+              return el('tr',{key:i,style:{cursor:'pointer'},onClick:()=>{setClaim && setClaim(t.sampleMotion); setMotion && setMotion(t.sampleMotion); setMotionOutput(null); setShowTrending(false); setGenMode(null);}},
+                el('td',{style:{textAlign:'center',fontFamily:'monospace',fontWeight:800,fontSize:'.95rem',color:heatColor}},
+                  t.heat + '/10',
+                ),
+                el('td',{style:{fontWeight:600,color:'#e4e8f0'}},
+                  el('div',null,t.topic),
+                  el('div',{style:{fontSize:'.75rem',color:'#64748b',marginTop:2,fontWeight:400}},t.debatability || ''),
+                ),
+                el('td',null,
+                  el('span',{style:{fontSize:'.7rem',padding:'2px 8px',borderRadius:4,background:'#ffffff08',color:'#94a3b8',fontWeight:600}},t.category),
+                ),
+                el('td',{style:{fontSize:'.82rem',color:'#a8b8c8',lineHeight:1.4}},t.sampleMotion),
+                el('td',{style:{fontSize:'.72rem',color:'#64748b',fontWeight:500}},t.timeframe || ''),
+              );
+            }),
+          ),
+        ),
+        el('div',{style:{textAlign:'center'}},
+          el('button',{className:'btn btn-secondary btn-sm',onClick:fetchTrending,disabled:trendingLoading},'Refresh Predictions'),
+        ),
+      ),
+    ),
+
     // === RANDOM ROLLER MODE ===
-    genMode === null && el('div',{style:{textAlign:'center'}},
+    genMode === null && !showTrending && el('div',{style:{textAlign:'center'}},
       el('p',{style:{color:'#888',fontSize:'.92rem',marginBottom:16}},
         t('motions.rollDesc','Roll from the database or generate an original motion with AI. Filter by category above.')
       ),
@@ -5428,7 +5526,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
     ),
 
     // === GENERATE WITH BACKGROUND / CURRENT EVENTS MODE ===
-    genMode !== null && el('div',null,
+    genMode !== null && !showTrending && el('div',null,
       el('p',{style:{color:'#888',fontSize:'.92rem',marginBottom:16,textAlign:'center'}},
         genMode === 'agent'
           ? t('motions.agentDesc','Generate an actor case: a character in a specific situation with a vivid, cinematic background. Use the category chips above to focus the topic.')
@@ -8819,6 +8917,8 @@ function RoundSimulator() {
   const [mediaRec, setMediaRec] = useState(null);
   const [roundComplete, setRoundComplete] = useState(false);
   const [error, setError] = useState(null);
+  const [adaptiveProfile, setAdaptiveProfile] = useState(null); // Tracks player weaknesses mid-round
+  const [adaptiveMode, setAdaptiveMode] = useState(true); // Toggle adaptive sparring
   const inputRef = useRef(null);
   const streamRef = useRef(null);
 
@@ -8883,6 +8983,7 @@ function RoundSimulator() {
     setFeedback(null);
     setRoundComplete(false);
     setInputText('');
+    setAdaptiveProfile(null);
 
     // If player is Opp, AI goes first with PM
     if (side === 'opp') {
@@ -8958,6 +9059,16 @@ ADVANCED TECHNIQUES TO USE IN YOUR SPEECH:
 4. INTUITION PUMPS: Use vivid images the judge will remember. "Cats always look out the window even though they know they're never going to be let outside." "Persuading a rice farmer he can become an airplane manufacturer is very difficult."
 5. "EVEN IF" CASCADING: Stack concessions to show your argument survives anything. "Even if you give them X, even if you buy Y, even if Z is true, our argument still wins because..."
 
+${adaptiveProfile ? `ADAPTIVE SCOUTING REPORT ON YOUR OPPONENT:
+You have been watching this debater and identified their weaknesses. EXPLOIT THEM:
+- Their weakest argument: ${adaptiveProfile.weakestArgument || 'unknown'}
+- Points they dropped: ${(adaptiveProfile.droppedPoints || []).join(', ') || 'none yet'}
+- Pattern weakness: ${adaptiveProfile.patternWeakness || 'unknown'}
+- Your strategy: ${adaptiveProfile.exploitStrategy || 'attack their weakest point'}
+- Threat level: ${adaptiveProfile.overallThreat || '?'}/10
+
+IMPORTANT: Specifically target their weakest argument with your strongest rebuttal. If they dropped points, HAMMER those drops. If they have a pattern weakness (e.g. weak on framework), lean into that. A great debater doesn't just argue well — they read their opponent and attack where it hurts most. Make them feel like you've figured them out.` : ''}
+
 Speech length: ${isRebuttal ? '400-600' : '700-1100'} words, matching a ${speech.time} speech.`;
 
     const userPrompt = buildRoundContext(speechesSoFar) + `\n\nNow deliver the ${speech.code} speech (${speech.title}, ${speech.time}). Write it as a full speech:`;
@@ -8990,7 +9101,30 @@ Speech length: ${isRebuttal ? '400-600' : '700-1100'} words, matching a ${speech
     }
   };
 
-  const submitSpeech = () => {
+  // Analyze player speech for weaknesses (runs in background before AI responds)
+  const analyzePlayerWeaknesses = async (playerText, speechCode, allSpeechesSoFar) => {
+    if (!adaptiveMode) return null;
+    try {
+      let result = '';
+      await callClaude(
+        'You are a debate coach scouting an opponent mid-round. Analyze this speech and identify weaknesses to exploit. Return ONLY valid JSON.',
+        `Motion: "${motion}"\nSpeech: ${speechCode}\n\nPlayer's speech:\n${playerText}\n\nPrevious weakness profile: ${adaptiveProfile ? JSON.stringify(adaptiveProfile) : 'none yet'}\n\nIdentify:\n1. weakestArgument: which argument has the weakest warrant or biggest logical gap?\n2. droppedPoints: what did they fail to address from previous speeches?\n3. patternWeakness: recurring habits (e.g. "never does impact calc", "weak on framework", "doesn't preempt")\n4. exploitStrategy: 1-2 sentence strategy for the next AI speech to target these weaknesses\n5. overallThreat: 1-10 how strong is this debater?\n\nReturn: {"weakestArgument":"...","droppedPoints":["..."],"patternWeakness":"...","exploitStrategy":"...","overallThreat":N}`,
+        function(t) { result = t; },
+        { thinkBudget: 2000, maxTokens: 2000, feature: 'adaptive' }
+      );
+      const cleaned = result.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+      const start = cleaned.indexOf('{');
+      const end = cleaned.lastIndexOf('}');
+      if (start !== -1 && end !== -1) {
+        const profile = JSON.parse(cleaned.slice(start, end + 1));
+        setAdaptiveProfile(prev => prev ? { ...prev, ...profile, history: [...(prev.history || []), { speech: speechCode, ...profile }] } : { ...profile, history: [{ speech: speechCode, ...profile }] });
+        return profile;
+      }
+    } catch(e) { console.warn('Adaptive analysis failed:', e); }
+    return null;
+  };
+
+  const submitSpeech = async () => {
     if (!inputText.trim() || aiLoading) return;
     if (recording) stopRecording();
 
@@ -9011,8 +9145,12 @@ Speech length: ${isRebuttal ? '400-600' : '700-1100'} words, matching a ${speech
     setCurrentSpeech(nextIdx);
     setInputText('');
 
-    // If next speech is AI's, generate it
+    // If next speech is AI's, analyze player weakness then generate adaptive response
     if (!isPlayerSpeech(nextIdx)) {
+      // Run weakness analysis in parallel with starting the AI speech generation
+      if (adaptiveMode) {
+        analyzePlayerWeaknesses(inputText.trim(), ROUND_SPEECHES[currentSpeech].code, newSpeeches);
+      }
       generateAISpeech(nextIdx, newSpeeches);
     }
   };
@@ -9116,7 +9254,17 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
           ),
         ),
       ),
-      el('div',{style:{marginTop:24}},
+      // Adaptive sparring toggle
+      el('div',{style:{marginTop:20,display:'flex',alignItems:'center',gap:12,padding:'14px 18px',background:adaptiveMode?'#ef444410':'#ffffff04',border:'1px solid '+(adaptiveMode?'#ef444430':'#ffffff12'),borderRadius:12,cursor:'pointer'},onClick:()=>setAdaptiveMode(!adaptiveMode)},
+        el('div',{style:{width:40,height:22,borderRadius:11,background:adaptiveMode?'#ef4444':'#444',position:'relative',transition:'.2s'}},
+          el('div',{style:{width:18,height:18,borderRadius:9,background:'#fff',position:'absolute',top:2,left:adaptiveMode?20:2,transition:'.2s'}}),
+        ),
+        el('div',null,
+          el('div',{style:{fontWeight:700,fontSize:'.88rem',color:adaptiveMode?'#f87171':'#94a3b8'}},'Adaptive Sparring'),
+          el('div',{style:{fontSize:'.75rem',color:'#64748b',marginTop:2}},adaptiveMode ? 'AI opponent scouts your weaknesses mid-round and targets them' : 'Standard AI opponent — no adaptation'),
+        ),
+      ),
+      el('div',{style:{marginTop:20}},
         el('button',{
           className:'btn btn-orange',
           onClick:startRound,
@@ -9287,6 +9435,47 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
       }},
         el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'#fbbf24',letterSpacing:'1px',textTransform:'uppercase',marginBottom:12}},t('roundSim.judgeFeedback','Judge Feedback')),
         feedback
+      ),
+
+      // Adaptive scouting report
+      adaptiveProfile && adaptiveMode && el('div',{style:{
+        padding:'20px 24px',marginTop:16,
+        background:'linear-gradient(145deg,#1a0a1a,#140614)',
+        border:'1px solid #a78bfa30',borderRadius:16,
+      }},
+        el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'#a78bfa',letterSpacing:'1px',textTransform:'uppercase',marginBottom:12}},'\uD83C\uDFAF Opponent Scouting Report'),
+        el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,fontSize:'.85rem'}},
+          el('div',null,
+            el('div',{style:{color:'#64748b',fontSize:'.72rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4}},'Weakest Argument'),
+            el('div',{style:{color:'#fca5a5'}},adaptiveProfile.weakestArgument || 'N/A'),
+          ),
+          el('div',null,
+            el('div',{style:{color:'#64748b',fontSize:'.72rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4}},'Pattern Weakness'),
+            el('div',{style:{color:'#fbbf24'}},adaptiveProfile.patternWeakness || 'N/A'),
+          ),
+          el('div',null,
+            el('div',{style:{color:'#64748b',fontSize:'.72rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4}},'Dropped Points'),
+            el('div',{style:{color:'#94a3b8'}},(adaptiveProfile.droppedPoints || []).join(', ') || 'None detected'),
+          ),
+          el('div',null,
+            el('div',{style:{color:'#64748b',fontSize:'.72rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4}},'Threat Level'),
+            el('div',{style:{fontFamily:'monospace',fontSize:'1.1rem',fontWeight:800,color:adaptiveProfile.overallThreat >= 7 ? '#22c55e' : adaptiveProfile.overallThreat >= 4 ? '#f59e0b' : '#ef4444'}},
+              (adaptiveProfile.overallThreat || '?') + '/10'
+            ),
+          ),
+        ),
+        adaptiveProfile.history && adaptiveProfile.history.length > 1 && el('div',{style:{marginTop:12,paddingTop:12,borderTop:'1px solid #ffffff10'}},
+          el('div',{style:{color:'#64748b',fontSize:'.72rem',fontWeight:700,marginBottom:6}},'ADAPTATION TIMELINE'),
+          el('div',{style:{display:'flex',gap:8}},
+            adaptiveProfile.history.map((h,i) =>
+              el('div',{key:i,style:{flex:1,padding:'8px 10px',background:'#ffffff06',borderRadius:8,fontSize:'.75rem'}},
+                el('div',{style:{fontWeight:700,color:'#a78bfa',marginBottom:2}},h.speech),
+                el('div',{style:{color:'#94a3b8'}},h.exploitStrategy || ''),
+              )
+            ),
+          ),
+        ),
+        el('p',{style:{fontSize:'.78rem',color:'#64748b',marginTop:12,fontStyle:'italic'}},'This is what a real opponent would notice about your debating. Work on these weaknesses before your next tournament.'),
       ),
 
       el('div',{style:{display:'flex',gap:12,marginTop:20,justifyContent:'center'}},
@@ -12260,7 +12449,7 @@ function App() {
   const [locale, setLocale] = useState(() => { try { return localStorage.getItem('debateos-locale') || 'en' } catch(e) { return 'en' } });
   const [localeStrings, setLocaleStrings] = useState(null);
   useEffect(() => { try { sessionStorage.setItem('debateos-byok', userApiKey) } catch(e) {} }, [userApiKey]);
-  useEffect(() => { try { localStorage.setItem('debateos-theme', theme) } catch(e) {} document.body.classList.remove('light-theme','crimson-theme'); if(theme==='light') document.body.classList.add('light-theme'); if(theme==='dark') document.body.classList.add('crimson-theme'); document.documentElement.style.background = theme==='light'?'#f0f4fc':theme==='dark'?'#000':'#2b2b30'; }, [theme]);
+  useEffect(() => { try { localStorage.setItem('debateos-theme', theme) } catch(e) {} document.body.classList.remove('light-theme','crimson-theme'); if(theme==='light') document.body.classList.add('light-theme'); if(theme==='dark') document.body.classList.add('crimson-theme'); document.documentElement.style.background = theme==='light'?'#f0f4fc':theme==='dark'?'#120808':'#2b2b30'; }, [theme]);
   useEffect(() => { __byokKey = userApiKey || null; }, [userApiKey]);
   // Load locale strings
   useEffect(() => {
