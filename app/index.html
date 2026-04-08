@@ -805,6 +805,13 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .practice-feedback .output{padding:0;min-height:0;max-height:none;line-height:1.7;font-size:1.02rem}
 .practice-feedback-actions{display:flex;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid #ffffff18}
 
+/* ── Theme Toggle & Streak ───────────────────── */
+.theme-toggle-btn:hover{background:#ffffff18!important;transform:scale(1.1)}
+.streak-badge{animation:gentlePulse 4s ease-in-out infinite}
+.light-theme .theme-toggle-btn{background:#fff!important;border-color:#d4d4d8!important;color:#1a1a2e!important}
+.light-theme .streak-badge{background:#fef2f2!important;border-color:#fca5a5!important}
+.crimson-theme .theme-toggle-btn{background:#1a0808!important;border-color:#ffffff12!important}
+
 /* ── Profile Badge ───────────────────────────── */
 .profile-badge{
   position:fixed;top:16px;right:16px;z-index:30;
@@ -7541,10 +7548,20 @@ Rules:
    TAB 6: JUDGE
    ═══════════════════════════════════════════════════ */
 
+const JUDGE_EVAL_TYPES = {
+  tabula_rasa: { label: 'Tabula Rasa', desc: 'Blank slate — evaluates only what is said in round, no outside knowledge, minimal intervention', prompt: 'You are a strict tabula rasa judge. You evaluate ONLY what was explicitly said in round. You do not import outside knowledge. If neither team weighs an argument, you do minimal work to resolve it. Dropped arguments carry their face-value weight. You intervene as little as possible.' },
+  technical: { label: 'Technical / Flow', desc: 'Tracks every argument on the flow — rewards clean extensions, punishes drops hard', prompt: 'You are a highly technical flow judge. You track every argument meticulously. Dropped arguments are devastating. Extensions must be clean — just saying "extend our case" is not enough. You reward precise line-by-line engagement and punish teams that go for breadth over depth. Signposting matters enormously to you.' },
+  truth_testing: { label: 'Truth-Testing', desc: 'Evaluates whether arguments are actually TRUE, not just technically won on the flow', prompt: 'You are a truth-testing judge. While you respect the flow, you also evaluate whether arguments are actually true and well-warranted. A technically "won" argument that is clearly false or absurd carries less weight. You reward intellectual honesty and penalize teams that win cheap drops on implausible claims. Real-world plausibility matters to you.' },
+  policy: { label: 'Policy / Util', desc: 'Weighs impacts by magnitude, probability, timeframe — biggest impact wins', prompt: 'You are a utilitarian/policy-focused judge. You evaluate rounds primarily through impact calculus: magnitude, probability, timeframe, scope, and reversibility. The team with the biggest, most probable impact wins. Framework debates matter only insofar as they affect impact evaluation. You want to hear numbers, mechanisms, and comparative weighing.' },
+  kritikal: { label: 'Critical / K', desc: 'Receptive to framework challenges, identity arguments, and structural critiques', prompt: 'You are a judge receptive to critical arguments. You take seriously challenges to the framing of the debate itself — arguments about what the debate should be about, who it excludes, what assumptions it makes. Identity arguments, structural critiques, and epistemological challenges are legitimate to you. However, they still need warrants and impacts. Being critical does not mean being unrigorous.' },
+  parent: { label: 'Parent / Lay', desc: 'Persuasion-first — rewards clarity, stories, and accessibility over jargon', prompt: 'You are a lay/parent judge with no debate experience. You evaluate based on persuasiveness, clarity, and common sense. Debate jargon confuses you. The team that tells a clearer, more compelling story wins. You reward accessible language, concrete examples, and emotional resonance. Speed and technicality actively hurt with you.' },
+};
+
 function Judge({ user }) {
   const { t } = React.useContext(I18nContext);
   const [judgeMode, setJudgeMode] = useState('flow'); // flow | pool
   const [format, setFormat] = useState('APDA');
+  const [judgeType, setJudgeType] = useState('tabula_rasa');
   const [notes, setNotes] = useState({});
   const [tags, setTags] = useState({});
   const [feedback, setFeedback] = useState({});
@@ -7618,7 +7635,11 @@ function Judge({ user }) {
     setRoundEval('');
     setReProgress({phase:'thinking',percent:0});
     try {
+      const judgeProfile = JUDGE_EVAL_TYPES[judgeType] || JUDGE_EVAL_TYPES.tabula_rasa;
       const sysPrompt = `You are a senior APDA judge delivering a comprehensive Round Evaluation (RFD). You have observed all speeches in this round.
+
+JUDGE PARADIGM: ${judgeProfile.label}
+${judgeProfile.prompt}
 
 APDA SPEAKER SCALE (use this for speaker points):
 - 15-17: Exceptionally poor. Speaker does not fulfill their role.
@@ -7700,7 +7721,11 @@ Be direct, specific, and reference actual content from the notes. Write like a r
     if (!note.trim()) return;
     setLoadingFeedback(prev => ({...prev, [code]:true}));
     try {
+      const jProfile = JUDGE_EVAL_TYPES[judgeType] || JUDGE_EVAL_TYPES.tabula_rasa;
       const sysPrompt = `You are an experienced APDA judge providing deeply considered feedback on a debate speech.
+
+JUDGE PARADIGM: ${jProfile.label}
+${jProfile.prompt}
 
 ROLE FULFILLMENT STANDARDS:
 - PMC: Must present case statement, explain necessary facts, offer 2-3 arguments supporting the case with clear signposting. Start with strongest argument. An organizing structure ("we think X because A and B; if we prove either, we win") elevates a PMC from a list of arguments to a persuasive case. Watch time closely — leaving out arguments at the end is a serious error since new constructive arguments aren't accepted in MG.
@@ -7737,11 +7762,19 @@ Think through the strategic implications. Be specific, reference debate theory, 
     // Judge Pool mode
     judgeMode === 'pool' && React.createElement(JudgePool, { user }),
     // Flow Notes mode
-    judgeMode === 'flow' && React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
+    judgeMode === 'flow' && React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:12,flexWrap:'wrap'}},
       React.createElement('label',{style:{fontSize:'.8rem',fontWeight:600,color:'#a8b8c8',letterSpacing:'.5px',textTransform:'uppercase'}},'Format:'),
       React.createElement('select',{value:format,onChange:e=>{setFormat(e.target.value);setNotes({});setTags({});setFeedback({});}},
         Object.entries(FORMATS).map(([k,v])=>React.createElement('option',{key:k,value:k},v.label))
       ),
+      React.createElement('label',{style:{fontSize:'.8rem',fontWeight:600,color:'#a8b8c8',letterSpacing:'.5px',textTransform:'uppercase',marginLeft:8}},'Judge Type:'),
+      React.createElement('select',{value:judgeType,onChange:e=>setJudgeType(e.target.value)},
+        Object.entries(JUDGE_EVAL_TYPES).map(([k,v])=>React.createElement('option',{key:k,value:k},v.label))
+      ),
+    ),
+    judgeMode === 'flow' && React.createElement('div',{style:{marginBottom:16,padding:'10px 14px',background:'var(--card-bg,#363638)',border:'1px solid var(--card-border,#ffffff10)',borderRadius:10,fontSize:'.82rem',color:'#94a3b8',lineHeight:1.5}},
+      React.createElement('strong',{style:{color:'var(--text-primary,#e4e8f0)'}}, JUDGE_EVAL_TYPES[judgeType].label + ': '),
+      JUDGE_EVAL_TYPES[judgeType].desc,
     ),
     judgeMode === 'flow' && speeches.map(speech =>
       React.createElement('div',{key:speech.code,className:'speech-card'},
@@ -12487,6 +12520,45 @@ function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, [tab]);
+
+  // ── Keyboard shortcuts ───────────────────────────
+  useEffect(() => {
+    const SHORTCUT_TABS = ['case','battle','practice','res','feedback','vision','casual','phil','judge'];
+    const handler = (e) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (!meta) return;
+      // Cmd+1-9 → switch tabs
+      if (e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key) - 1;
+        if (idx < SHORTCUT_TABS.length) { e.preventDefault(); navigateTab(SHORTCUT_TABS[idx]); }
+        return;
+      }
+      // Cmd+B → toggle saved cases sidebar
+      if (e.key === 'b') { e.preventDefault(); setSidebarOpen(prev => !prev); return; }
+      // Cmd+K → focus search in cases sidebar (if open)
+      if (e.key === 'k') {
+        e.preventDefault();
+        setSidebarOpen(true);
+        setTimeout(() => { const el = document.querySelector('.cases-search'); if (el) el.focus(); }, 100);
+        return;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [navigateTab]);
+
+  // ── Prep streak tracker ──────────────────────────
+  const [streak, setStreak] = useState(() => {
+    try {
+      const data = JSON.parse(localStorage.getItem('debateos-streak') || '{}');
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      if (data.lastDate === today) return data;
+      if (data.lastDate === yesterday) return { ...data, count: (data.count || 0) + 1, lastDate: today, totalSessions: (data.totalSessions || 0) + 1 };
+      return { count: 1, lastDate: today, totalSessions: (data.totalSessions || 0) + 1 };
+    } catch(e) { return { count: 1, lastDate: new Date().toISOString().slice(0, 10), totalSessions: 1 }; }
+  });
+  useEffect(() => { try { localStorage.setItem('debateos-streak', JSON.stringify(streak)); } catch(e) {} }, [streak]);
   const navigateTab = useCallback((newTab) => {
     if (newTab === tab) return;
     logBetaEvent('tab', { tab: newTab });
@@ -12761,8 +12833,24 @@ function App() {
       React.createElement('button',{
         className:'cases-toggle',
         onClick:()=>setSidebarOpen(true),
-        title:'Saved cases',
+        title:'Saved cases (⌘B)',
       }, '\uD83D\uDCCB'),
+      // Theme toggle — fixed top left, below cases
+      React.createElement('button',{
+        className:'theme-toggle-btn',
+        onClick:()=>setTheme(theme==='grey'?'light':theme==='light'?'dark':'grey'),
+        title:'Switch theme',
+        style:{position:'fixed',top:52,left:12,zIndex:1001,background:'var(--badge-bg,#ffffff0a)',border:'1px solid var(--badge-border,#ffffff12)',borderRadius:10,padding:'5px 8px',cursor:'pointer',fontSize:'.85rem',lineHeight:1,transition:'all .2s',color:'var(--text-primary,#e4e8f0)'}
+      }, theme==='grey'?'\u25C9':theme==='light'?'\u2600\uFE0F':'\uD83C\uDF19'),
+      // Streak badge — fixed top left, below theme
+      streak.count > 0 && React.createElement('div',{
+        className:'streak-badge',
+        title:streak.totalSessions + ' total sessions',
+        style:{position:'fixed',top:90,left:12,zIndex:1001,background:streak.count>=7?'#22c55e15':streak.count>=3?'#f59e0b15':'#ef444412',border:'1px solid '+(streak.count>=7?'#22c55e30':streak.count>=3?'#f59e0b30':'#ef444425'),borderRadius:10,padding:'4px 8px',fontSize:'.62rem',fontWeight:700,color:streak.count>=7?'#4ade80':streak.count>=3?'#fbbf24':'#f87171',letterSpacing:'.3px',textAlign:'center',lineHeight:1.4}
+      },
+        React.createElement('div',{style:{fontSize:'.9rem'}}, '\uD83D\uDD25'),
+        React.createElement('div',null, streak.count + 'd'),
+      ),
       // Profile badge
       user
         ? React.createElement('div',{className:'profile-badge'},
