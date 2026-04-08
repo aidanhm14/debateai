@@ -586,6 +586,32 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .feedback-trigger{position:fixed;bottom:76px;right:24px;z-index:50;height:32px;padding:0 14px;border-radius:16px;background:#363638cc;border:1px solid #ffffff18;display:flex;align-items:center;justify-content:center;gap:6px;font-size:.68rem;font-weight:600;color:#94a3b8;cursor:pointer;backdrop-filter:blur(8px);transition:.2s;font-family:inherit;letter-spacing:.3px;text-decoration:none}
 .feedback-trigger:hover{background:#ffffff22;transform:scale(1.03);color:#e4e8f0;text-decoration:none}
 .light-theme .feedback-trigger{background:#f1f5f9dd;color:#64748b;border-color:#d4d4d8}
+.feedback-modal-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.feedback-modal{background:#1e1e24;border:1px solid #ffffff20;border-radius:16px;padding:28px 32px;width:90%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.feedback-modal h3{color:#e4e8f0;font-size:1.15rem;font-weight:700;margin:0 0 16px;font-family:'Inter',system-ui,sans-serif}
+.feedback-cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.feedback-cat{padding:8px 16px;border-radius:20px;border:1.5px solid #ffffff18;background:transparent;color:#94a3b8;font-size:.8rem;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit}
+.feedback-cat:hover{border-color:#ffffff30;color:#e4e8f0}
+.feedback-cat.active{border-color:#ef4444;color:#ef4444;background:#ef444410}
+.feedback-modal textarea{width:100%;min-height:100px;padding:12px;border-radius:10px;border:1px solid #ffffff18;background:#2a2a32;color:#e4e8f0;font-size:.88rem;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box}
+.feedback-modal textarea:focus{border-color:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.15)}
+.feedback-modal textarea::placeholder{color:#64748b}
+.feedback-screenshots{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.feedback-screenshot-thumb{width:80px;height:60px;border-radius:8px;border:1px solid #ffffff18;object-fit:cover;cursor:pointer;transition:.2s}
+.feedback-screenshot-thumb:hover{border-color:#ef4444}
+.feedback-upload-zone{width:80px;height:60px;border-radius:8px;border:2px dashed #ffffff18;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;font-size:1.2rem;transition:.2s}
+.feedback-upload-zone:hover{border-color:#ef4444;color:#ef4444}
+.feedback-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.feedback-context{font-size:.72rem;color:#64748b;margin-bottom:12px;padding:8px 12px;background:#ffffff06;border-radius:8px;border:1px solid #ffffff08}
+.light-theme .feedback-modal{background:#fff;border-color:#e2e8f0}
+.light-theme .feedback-modal h3{color:#1a1a2e}
+.light-theme .feedback-modal textarea{background:#f8fafc;color:#1a1a2e;border-color:#e2e8f0}
+.light-theme .feedback-cat{border-color:#e2e8f0;color:#64748b}
+.light-theme .feedback-cat.active{border-color:#dc2626;color:#dc2626;background:#fef2f2}
+.crimson-theme .feedback-modal{background:#1a0a0a;border-color:#3a1515}
+.crimson-theme .feedback-modal textarea{background:#180808;border-color:#502020;color:#fff}
+.crimson-theme .feedback-cat{border-color:rgba(239,68,68,.2);color:#e8b4b4}
+.crimson-theme .feedback-cat.active{border-color:#ef4444;color:#ef4444;background:#ef444410}
 .light-theme .guide-modal{background:#ffffffee;border-color:#3b82f608}
 .light-theme .guide-modal h2{color:#1a1a2e}
 .light-theme .guide-step-content h3{color:#1a1a2e}
@@ -9690,6 +9716,140 @@ Be direct. No sugarcoating. Use **bold** for key terms and argument names.`;
    WELCOME GUIDE
    ═══════════════════════════════════════════════════ */
 
+function FeedbackModal({ onClose, currentTab }) {
+  const el = React.createElement;
+  const [category, setCategory] = useState('bug');
+  const [description, setDescription] = useState('');
+  const [screenshots, setScreenshots] = useState([]);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const fileRef = useRef(null);
+
+  // Capture any selected text on the page when modal opens
+  useEffect(() => {
+    try { const sel = window.getSelection().toString().trim(); if (sel) setSelectedText(sel); } catch(e) {}
+  }, []);
+
+  const categories = [
+    { id: 'bug', label: '\uD83D\uDC1B Bug Report' },
+    { id: 'ui', label: '\uD83C\uDFA8 UI Issue' },
+    { id: 'feature', label: '\u2728 Feature Request' },
+    { id: 'content', label: '\uD83D\uDCDD Content Issue' },
+    { id: 'other', label: '\uD83D\uDCAC Other' },
+  ];
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = () => setScreenshots(prev => [...prev.slice(0, 4), reader.result]);
+        reader.readAsDataURL(blob);
+      }
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) return;
+      const reader = new FileReader();
+      reader.onload = () => setScreenshots(prev => [...prev.slice(0, 4), reader.result]);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeScreenshot = (idx) => setScreenshots(prev => prev.filter((_, i) => i !== idx));
+
+  const submit = async () => {
+    if (!description.trim() && screenshots.length === 0) return;
+    setSending(true);
+    try {
+      // Store feedback to Firestore
+      if (window.firebaseDb) {
+        await window.firebaseDb.collection('feedback').add({
+          category,
+          description: description.trim(),
+          selectedText: selectedText || null,
+          screenshotCount: screenshots.length,
+          screenshots: screenshots.slice(0, 2), // store up to 2 screenshots (base64)
+          currentTab: currentTab || 'unknown',
+          userAgent: navigator.userAgent,
+          screenSize: window.innerWidth + 'x' + window.innerHeight,
+          uid: window.__currentUser?.uid || 'anonymous',
+          email: window.__currentUser?.email || null,
+          createdAt: window.firebase?.firestore?.FieldValue?.serverTimestamp() || new Date(),
+          url: window.location.href,
+        });
+      }
+      // Also send email as backup
+      const body = `Category: ${category}\nTab: ${currentTab}\n${selectedText ? 'Selected text: ' + selectedText + '\n' : ''}\n${description}\n\n[${screenshots.length} screenshot(s) attached in Firestore]`;
+      window.open('mailto:debateOSsupport@gmail.com?subject=Feedback: ' + encodeURIComponent(category) + '&body=' + encodeURIComponent(body));
+      setSent(true);
+    } catch(e) {
+      alert('Error sending feedback. Please try again.');
+    }
+    setSending(false);
+  };
+
+  if (sent) return el('div', { className: 'feedback-modal-overlay', onClick: onClose },
+    el('div', { className: 'feedback-modal', onClick: e => e.stopPropagation(), style: { textAlign: 'center', padding: '48px 32px' } },
+      el('div', { style: { fontSize: '2.5rem', marginBottom: 12 } }, '\u2705'),
+      el('h3', null, 'Thanks for the feedback!'),
+      el('p', { style: { color: '#94a3b8', fontSize: '.9rem' } }, 'Your feedback helps make Devil\'s Advocate better.'),
+      el('button', { className: 'btn btn-secondary', onClick: onClose, style: { marginTop: 16 } }, 'Close'),
+    )
+  );
+
+  return el('div', { className: 'feedback-modal-overlay', onClick: onClose },
+    el('div', { className: 'feedback-modal', onClick: e => e.stopPropagation(), onPaste: handlePaste },
+      el('h3', null, '\uD83D\uDCE8 Send Feedback'),
+      // Context info
+      el('div', { className: 'feedback-context' },
+        'Current tab: ', el('strong', null, currentTab || 'unknown'),
+        selectedText && [' \u2022 ', el('span', { key: 'sel' }, 'Selected: "', el('em', null, selectedText.slice(0, 80) + (selectedText.length > 80 ? '...' : '')), '"')],
+      ),
+      // Category selector
+      el('div', { className: 'feedback-cats' },
+        categories.map(c => el('button', {
+          key: c.id, className: 'feedback-cat' + (category === c.id ? ' active' : ''),
+          onClick: () => setCategory(c.id),
+        }, c.label))
+      ),
+      // Description
+      el('textarea', {
+        value: description, onChange: e => setDescription(e.target.value),
+        placeholder: category === 'bug' ? 'Describe the bug: what happened, what you expected, steps to reproduce...'
+          : category === 'ui' ? 'What looks off? Describe the visual issue...'
+          : category === 'feature' ? 'What feature would you like to see? How would it work?'
+          : 'Describe your feedback...',
+      }),
+      // Screenshot area
+      el('div', { style: { marginTop: 12 } },
+        el('div', { style: { fontSize: '.75rem', color: '#64748b', marginBottom: 8 } }, 'Screenshots (paste from clipboard or upload, max 5):'),
+        el('div', { className: 'feedback-screenshots' },
+          screenshots.map((src, i) => el('div', { key: i, style: { position: 'relative' } },
+            el('img', { src, className: 'feedback-screenshot-thumb', onClick: () => removeScreenshot(i), title: 'Click to remove' }),
+          )),
+          screenshots.length < 5 && el('div', { className: 'feedback-upload-zone', onClick: () => fileRef.current?.click() }, '+'),
+        ),
+        el('input', { ref: fileRef, type: 'file', accept: 'image/*', multiple: true, style: { display: 'none' }, onChange: handleFileUpload }),
+      ),
+      // Actions
+      el('div', { className: 'feedback-actions' },
+        el('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
+        el('button', { className: 'btn btn-primary', onClick: submit, disabled: sending || (!description.trim() && screenshots.length === 0) },
+          sending ? 'Sending...' : 'Send Feedback'
+        ),
+      ),
+    )
+  );
+}
+
 function WelcomeGuide({ onClose, onNavigate }) {
   const el = React.createElement;
   const tools = [
@@ -12062,6 +12222,7 @@ function App() {
     try { return !localStorage.getItem('debateos-welcomed'); } catch(e) { return true; }
   });
   const [toast, setToast] = useState('');
+  const [showFeedback, setShowFeedback] = useState(false);
   const [billingSuccess, setBillingSuccess] = useState(false);
   const [legalPage, setLegalPage] = useState(null); // null | 'terms' | 'privacy'
   const { user, loading: authLoading, signIn, signOut } = useAuth();
@@ -12282,10 +12443,11 @@ function App() {
     ),
     showGuide && React.createElement(WelcomeGuide, { onClose: closeGuide, onNavigate: navigateTab }),
     !showGuide && React.createElement('button',{className:'guide-trigger',onClick:()=>setShowGuide(true),title:'How to use DebateOS','aria-label':'Help guide'},'?'),
-    React.createElement('a',{className:'feedback-trigger',href:'mailto:debateOSsupport@gmail.com?subject=Beta%20Feedback&body=Feature%20or%20bug%3A%20',target:'_blank',rel:'noopener noreferrer',title:'Send beta feedback','aria-label':'Send feedback'},
+    React.createElement('button',{className:'feedback-trigger',onClick:()=>setShowFeedback(true),title:'Send feedback','aria-label':'Send feedback'},
       React.createElement('span',{dangerouslySetInnerHTML:{__html:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>'}}),
       'Feedback'
     ),
+    showFeedback && React.createElement(FeedbackModal, { onClose: () => setShowFeedback(false), currentTab: tab }),
     showAuth && React.createElement(AuthModal, { onSignIn: handleSignIn, onSkip: () => setShowAuth(false) }),
     React.createElement(SavedCasesSidebar, {
       isOpen: sidebarOpen,
