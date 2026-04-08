@@ -8,8 +8,8 @@ const ALLOWED_MODELS = [
   'claude-haiku-4-20250514',
 ];
 
-// Hard cap on max_tokens to prevent abuse
-const MAX_TOKENS_CAP = 8192;
+// Hard cap on max_tokens — competition cases need up to 32k
+const MAX_TOKENS_CAP = 32000;
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
