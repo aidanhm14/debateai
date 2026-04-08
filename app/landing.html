@@ -140,20 +140,6 @@ button{font-family:inherit;cursor:pointer}
 }
 .neural-canvas canvas{width:100%;height:100%}
 
-/* Fading debater silhouettes */
-.debater-ghost{
-  position:absolute;z-index:1;pointer-events:none;
-  width:180px;height:360px;
-  opacity:0;transition:opacity 2.5s ease;
-}
-.debater-ghost.visible{opacity:1}
-.debater-ghost.left{left:3%;top:52%;transform:translateY(-50%)}
-.debater-ghost.right{right:3%;top:52%;transform:translateY(-50%)}
-.debater-ghost svg{width:100%;height:100%;filter:drop-shadow(0 0 20px rgba(0,0,0,.3))}
-@media(max-width:1200px){.debater-ghost{width:140px;height:280px}}
-@media(max-width:900px){.debater-ghost{width:100px;height:200px;opacity:0!important}}
-@media(max-width:768px){.debater-ghost{display:none}}
-
 .hero-eyebrow{
   font-size:.72rem;font-weight:700;
   letter-spacing:.14em;text-transform:uppercase;
@@ -331,8 +317,6 @@ button{font-family:inherit;cursor:pointer}
   <div class="hero-bg"></div>
   <div class="hero-grain"></div>
   <div class="neural-canvas"><canvas id="neuralNet"></canvas></div>
-  <div class="debater-ghost left" id="ghostLeft"></div>
-  <div class="debater-ghost right" id="ghostRight"></div>
   <div class="hero-content">
     <div class="hero-eyebrow">AI-Powered Debate Prep</div>
     <h1>
@@ -391,6 +375,24 @@ button{font-family:inherit;cursor:pointer}
   </div>
 </section>
 
+<!-- Story -->
+<div class="divider"></div>
+<section class="story" id="story">
+  <div class="sec-label">Why This Exists</div>
+  <p class="story-text">
+    Devil's Advocate was born out of frustration. After countless late nights scrawling cases on legal pads, scrambling to prep arguments 20 minutes before a round, and wishing there was <strong>any tool</strong> that actually understood how competitive debate works &mdash; we decided to build one ourselves.
+  </p>
+  <p class="story-text" style="margin-top:16px">
+    This isn't a product from a tech company. It was built <strong>by debaters, for debaters</strong> &mdash; every feature designed around real problems from real rounds. The case generator understands frameworks, burdens, and weighing. The battle mode actually fights back. The feedback engine catches the arguments you missed, not just grammar.
+  </p>
+  <p class="story-text" style="margin-top:16px">
+    But more than winning rounds, debate teaches you how to <strong>think</strong>. How to deconstruct any argument. How to see both sides of issues most people only see one side of. How to stay calm under pressure, speak with clarity, and find the truth hiding inside complexity. Those skills transfer everywhere &mdash; law, business, policy, life. Devil's Advocate exists to make those skills accessible to anyone willing to put in the work.
+  </p>
+  <p class="story-text" style="margin-top:16px">
+    Hundreds of hours went into every prompt, every UI detail, every interaction. If you have ideas on how to make it better, <a href="mailto:feedback@debateos.com">we'd love to hear from you</a>.
+  </p>
+</section>
+
 <!-- CTA -->
 <div class="divider"></div>
 <section class="cta">
@@ -432,65 +434,6 @@ try{
     });
   }
 }catch(e){}
-
-// Debater silhouette rotation — proper filled silhouettes that fade in/out
-(function(){
-  // Each pose is a FILLED silhouette — single continuous outline paths traced around the full human body
-  var poses=[
-    // 1 — Standing speaker, one arm gesturing outward
-    '<circle cx="80" cy="22" r="16"/><path d="M66 40 C56 42 50 50 48 60 L48 68 L32 56 C28 53 22 54 20 58 C18 62 19 67 23 70 L48 88 L48 100 C47 104 48 108 50 110 L50 130 L46 180 C45 186 48 190 54 190 L62 190 C66 190 69 186 68 180 L66 140 L80 140 L94 140 L92 180 C91 186 94 190 98 190 L106 190 C112 190 115 186 114 180 L110 130 L110 110 C112 108 113 104 112 100 L112 88 L112 68 L112 60 C110 50 104 42 94 40 Z"/>',
-    // 2 — Confident stance, hands on hips
-    '<circle cx="80" cy="22" r="16"/><path d="M66 40 C56 42 50 50 48 60 L46 78 L34 90 C30 94 30 100 34 103 L46 100 L48 110 L48 130 L44 180 C43 186 46 190 52 190 L60 190 C64 190 67 186 66 180 L64 140 L80 140 L96 140 L94 180 C93 186 96 190 100 190 L108 190 C114 190 117 186 116 180 L112 130 L112 110 L114 100 L126 103 C130 100 130 94 126 90 L114 78 L112 60 C110 50 104 42 94 40 Z"/>',
-    // 3 — Arms wide open, persuading passionately
-    '<circle cx="80" cy="22" r="16"/><path d="M66 40 C56 42 50 50 48 60 L46 80 L14 62 C9 59 3 61 1 66 C-1 71 1 77 6 80 L46 102 L46 130 L42 180 C41 186 44 190 50 190 L58 190 C62 190 65 186 64 180 L62 140 L80 140 L98 140 L96 180 C95 186 98 190 102 190 L110 190 C116 190 119 186 118 180 L114 130 L114 102 L154 80 C159 77 161 71 159 66 C157 61 151 59 146 62 L114 80 L112 60 C110 50 104 42 94 40 Z"/>',
-    // 4 — Hand raised high, making key point
-    '<circle cx="80" cy="22" r="16"/><path d="M66 40 C56 42 50 50 48 60 L46 80 L30 68 L22 30 C21 24 16 20 10 21 C4 22 1 28 2 34 L12 78 L18 90 L46 108 L46 130 L42 180 C41 186 44 190 50 190 L58 190 C62 190 65 186 64 180 L62 140 L80 140 L98 140 L96 180 C95 186 98 190 102 190 L110 190 C116 190 119 186 118 180 L114 130 L114 100 L118 90 C122 86 122 80 118 76 L112 72 L112 60 C110 50 104 42 94 40 Z"/>',
-    // 5 — Leaning forward, finger pointing
-    '<circle cx="85" cy="22" r="16"/><path d="M71 40 C61 42 55 50 53 60 L51 80 L51 100 L49 130 L45 180 C44 186 47 190 53 190 L61 190 C65 190 68 186 67 180 L65 140 L83 140 L101 140 L99 180 C98 186 101 190 105 190 L113 190 C119 190 122 186 121 180 L117 130 L117 100 L130 86 L150 78 C156 76 158 70 156 64 C154 58 148 56 142 58 L117 72 L117 60 C115 50 109 42 99 40 Z"/>',
-    // 6 — At podium with lectern
-    '<circle cx="80" cy="18" r="16"/><path d="M66 36 C56 38 50 46 48 56 L46 76 L40 76 C34 76 30 80 30 86 L30 96 C30 102 34 106 40 106 L46 106 L46 126 L42 176 C41 182 44 186 50 186 L58 186 C62 186 65 182 64 176 L62 136 L80 136 L98 136 L96 176 C95 182 98 186 102 186 L110 186 C116 186 119 182 118 176 L114 126 L114 106 L120 106 C126 106 130 102 130 96 L130 86 C130 80 126 76 120 76 L114 76 L112 56 C110 46 104 38 94 36 Z M26 110 L134 110 C138 110 140 114 140 118 L140 124 C140 128 138 130 134 130 L26 130 C22 130 20 128 20 124 L20 118 C20 114 22 110 26 110 Z"/>',
-    // 7 — Contemplating, hand near chin
-    '<circle cx="82" cy="22" r="16"/><path d="M68 40 C58 42 52 50 50 60 L48 80 L38 72 L32 56 L28 40 C27 34 22 30 16 31 C10 32 8 38 9 44 L16 68 L24 88 L36 96 L38 40 Z M94 40 C104 42 110 50 112 60 L114 80 L120 80 C126 80 130 76 130 70 L128 60 C126 50 120 42 110 40 Z M48 100 L48 130 L44 180 C43 186 46 190 52 190 L60 190 C64 190 67 186 66 180 L64 140 L80 140 L96 140 L94 180 C93 186 96 190 100 190 L108 190 C114 190 117 186 116 180 L112 130 L112 100 Z"/>',
-    // 8 — Both arms gesturing downward-out
-    '<circle cx="80" cy="22" r="16"/><path d="M66 40 C56 42 50 50 48 60 L46 80 L24 100 L10 118 C6 123 7 130 12 133 C17 136 23 134 26 130 L46 106 L46 130 L42 180 C41 186 44 190 50 190 L58 190 C62 190 65 186 64 180 L62 140 L80 140 L98 140 L96 180 C95 186 98 190 102 190 L110 190 C116 190 119 186 118 180 L114 130 L114 106 L134 130 C137 134 143 136 148 133 C153 130 154 123 150 118 L136 100 L114 80 L112 60 C110 50 104 42 94 40 Z"/>',
-    // 9 — Victory pose, both arms up
-    '<circle cx="80" cy="22" r="16"/><path d="M66 40 C56 42 50 50 48 60 L46 78 L30 54 L18 28 C15 22 8 20 3 23 C-2 26 -3 33 0 38 L20 76 L38 100 L46 130 L42 180 C41 186 44 190 50 190 L58 190 C62 190 65 186 64 180 L62 140 L80 140 L98 140 L96 180 C95 186 98 190 102 190 L110 190 C116 190 119 186 118 180 L114 130 L122 100 L140 76 L160 38 C163 33 162 26 157 23 C152 20 145 22 142 28 L130 54 L114 78 L112 60 C110 50 104 42 94 40 Z"/>',
-    // 10 — Walking mid-stride
-    '<circle cx="80" cy="22" r="16"/><path d="M66 40 C56 42 50 50 48 60 L46 80 L28 68 C23 65 16 66 14 71 C12 76 14 82 19 84 L46 100 L46 130 L34 178 C32 184 36 190 42 190 L50 190 C55 190 59 186 60 180 L70 142 L80 130 L90 142 L100 180 C101 186 105 190 110 190 L118 190 C124 190 128 184 126 178 L114 130 L114 100 L114 80 L112 60 C110 50 104 42 94 40 Z"/>',
-  ];
-
-  function makeSVG(pathStr,flip){
-    return '<svg viewBox="-5 0 170 200" xmlns="http://www.w3.org/2000/svg">'
-      +'<g fill="var(--sketch-stroke,rgba(255,255,255,.08))" opacity="0.12"'
-      +(flip?' transform="translate(160,0) scale(-1,1)"':'')
-      +'>'+pathStr+'</g></svg>';
-  }
-
-  var leftEl=document.getElementById('ghostLeft');
-  var rightEl=document.getElementById('ghostRight');
-  if(!leftEl||!rightEl)return;
-
-  var leftIdx=0,rightIdx=5;
-
-  function cycle(){
-    leftEl.classList.remove('visible');
-    rightEl.classList.remove('visible');
-
-    setTimeout(function(){
-      leftEl.innerHTML=makeSVG(poses[leftIdx],false);
-      rightEl.innerHTML=makeSVG(poses[rightIdx],true);
-
-      leftEl.classList.add('visible');
-      rightEl.classList.add('visible');
-
-      leftIdx=(leftIdx+1)%poses.length;
-      rightIdx=(rightIdx+1)%poses.length;
-    },2000);
-  }
-
-  cycle();
-  setInterval(cycle,8000);
-})();
 
 // Neural constellation animation
 (function(){
