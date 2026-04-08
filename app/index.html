@@ -1325,6 +1325,7 @@ body.crimson-theme{background:#151518!important;color:#f5f0f0!important}
 .crimson-theme textarea::placeholder,.crimson-theme input::placeholder{color:rgba(255,200,200,.35)!important}
 .crimson-theme textarea:focus,.crimson-theme input[type="text"]:focus{border-color:#ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.2)!important}
 .crimson-theme button{color:#fff!important}
+.crimson-theme .auth-google-btn{color:#333!important}
 .crimson-theme .modal-overlay{background:rgba(15,15,18,.92)!important}
 .crimson-theme .modal-content,.crimson-theme [class*="modal"]{background:#1a1a20!important;border-color:#352020!important;color:#fff!important}
 .crimson-theme h1,.crimson-theme h2,.crimson-theme h3,.crimson-theme h4,.crimson-theme h5,.crimson-theme h6{color:#fff!important}
@@ -10105,7 +10106,7 @@ function WelcomeGuide({ onClose, onNavigate }) {
    TEAM DASHBOARD — team management, billing, usage
    ═══════════════════════════════════════════════════ */
 
-function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
+function TeamDashboard({ user, team, teamLoading, onTeamCreated, anonTrial }) {
   const { t } = React.useContext(I18nContext);
   const el = React.createElement;
   const isMobile = useIsMobile();
@@ -10207,11 +10208,11 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ name: teamName.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to create team');
       setMsg('Team created!');
       onTeamCreated(data);
-    } catch (err) { setMsg(errMsg(err)); }
+    } catch (err) { setMsg(safeError(err)); }
     setActionLoading(false);
   };
 
@@ -10282,6 +10283,28 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
     el('div',{className:'skeleton skeleton-line medium'}),
     el('div',{className:'skeleton skeleton-line short'}),
     el('div',{className:'skeleton skeleton-card',style:{marginTop:20}}),
+  );
+
+  if (!user && anonTrial) return el('div', {className:'panel', style:{textAlign:'center',padding:'48px 32px'}},
+    el('div',{style:{fontSize:'2.5rem',marginBottom:16}},'🎉'),
+    el('h2', {style:{fontSize:'1.4rem',fontWeight:800,color:'#e4e8f0',marginBottom:12}}, 'Beta Mode Active'),
+    el('p', {style:{color:'#94a3b8',fontSize:'.92rem',lineHeight:1.6,maxWidth:420,margin:'0 auto 24px'}}, 'All features are unlocked. Sign in with Google to create a team, save your work, and manage billing.'),
+    el('div',{style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(4,1fr)',gap:isMobile?10:16,marginBottom:24,textAlign:'center'}},
+      ...[
+        {name:'Free',price:'$0',requests:'5/mo',members:'10 members'},
+        {name:'Individual',price:'$5/mo',requests:'250/mo',members:'10 members',highlight:true},
+        {name:'Lifetime',price:'$14.99',requests:'250/mo',members:'10 members',badge:'Best Value',badgeColor:'#22c55e'},
+        {name:'Team',price:'$30/mo',requests:'1,500/mo',members:'50 members'},
+      ].map(p => el('div',{key:p.name,style:{padding:20,background:'var(--card-bg,#303038)',border:'1.5px solid '+(p.highlight?'#3b82f660':p.badgeColor?p.badgeColor+'40':'#ffffff15'),borderRadius:14,position:'relative'}},
+        p.badge && el('div',{style:{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',padding:'3px 12px',background:p.badgeColor||'#22c55e',color:'#fff',fontSize:'.65rem',fontWeight:700,borderRadius:10,letterSpacing:'.5px',whiteSpace:'nowrap'}},p.badge.toUpperCase()),
+        p.highlight && el('div',{style:{fontSize:'.7rem',fontWeight:700,color:'#3b82f6',textTransform:'uppercase',letterSpacing:1,marginBottom:8}},'Most Popular'),
+        el('h3',{style:{color:'var(--text-primary,#e4e8f0)',fontSize:'1rem',fontWeight:700,marginBottom:4}},p.name),
+        el('div',{style:{fontSize:'1.3rem',fontWeight:800,color:'var(--text-primary,#fff)',marginBottom:6}},p.price),
+        el('div',{style:{color:'#94a3b8',fontSize:'.78rem',lineHeight:1.8}},p.requests+' requests'),
+        el('div',{style:{color:'#94a3b8',fontSize:'.78rem',lineHeight:1.8}},p.members),
+      ))
+    ),
+    el('p', {style:{color:'#64748b',fontSize:'.78rem'}}, 'Sign in to create a team and start your subscription.'),
   );
 
   if (!user) return el('div', {className:'panel'},
@@ -12863,7 +12886,7 @@ function App() {
       tabPane('judge', React.createElement(Judge, { user: user })),
       tabPane('newbies', React.createElement(Newbies)),
       tabPane('shared', React.createElement(SharedCases, { user: user, team: team })),
-      tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
+      tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam, anonTrial: anonTrial })),
       tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
       tabPane('market', React.createElement(ArgumentMarket, { user: user })),
       tabPane('live', React.createElement(LiveDebates, { user: user, team: team, onNavigateTab: navigateTab })),
