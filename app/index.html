@@ -298,9 +298,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 /* ── Streaming output ─────────────────────────── */
 .output-wrapper{display:flex;gap:0;margin-top:24px;border-radius:16px;overflow:hidden;border:1px solid #ffffff14;background:linear-gradient(145deg,#303038,#38383e);margin-left:-24px;margin-right:-24px;box-shadow:0 4px 24px rgba(0,0,0,.3);animation:wrapperFadeIn 1.2s ease-out 1s both}
 @keyframes wrapperFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.output-reveal{animation:outputReveal 1s ease-out 1.2s both}
+.output-reveal{animation:outputReveal .8s ease-out both}
 @keyframes outputReveal{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-.output-reveal.streaming-mask{animation:none;-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 var(--reveal-pct,0%),rgba(0,0,0,.3) calc(var(--reveal-pct,0%) + 15%),transparent calc(var(--reveal-pct,0%) + 30%));mask-image:linear-gradient(to bottom,#000 0%,#000 var(--reveal-pct,0%),rgba(0,0,0,.3) calc(var(--reveal-pct,0%) + 15%),transparent calc(var(--reveal-pct,0%) + 30%));transition:-webkit-mask-image 1.2s ease-out,mask-image 1.2s ease-out}
+@keyframes caseRevealIn{from{opacity:0;transform:translateY(20px) scale(.98);filter:blur(4px)}to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}}
 .output-main{flex:1;min-width:0}
 .output-stream{position:relative}
 .output-stream .stream-indicator{
@@ -4584,39 +4584,36 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
     // Stream area anchor for auto-scroll
     React.createElement('div',{ref:streamAreaRef}),
 
-    // Thinking animation (before output starts)
-    loading && !output && React.createElement(ThinkingAnimation, {mode:mode, progress:progress}),
-
-    // Progress bar during streaming
-    streaming && output && React.createElement('div',{style:{marginTop:16,marginBottom:4}},
-      React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
-        React.createElement('span',{style:{fontSize:'.78rem',color:'#94a3b8',letterSpacing:'.5px',textTransform:'uppercase',fontWeight:600}},
-          progress.phase === 'writing' ? t('caseGen.writingCase','Writing case...') : t('caseGen.generating','Generating...')
+    // Progress bar while generating (no streaming text shown)
+    (loading || streaming) && React.createElement('div',{style:{marginTop:24,marginBottom:8,padding:'24px 20px',background:'var(--card-bg,#363638)',border:'1px solid var(--card-border,#ffffff10)',borderRadius:14}},
+      React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}},
+        React.createElement('span',{style:{fontSize:'.82rem',color:'#94a3b8',fontWeight:600}},
+          progress.phase === 'thinking' ? t('caseGen.analyzing','Analyzing motion...') :
+          progress.phase === 'writing' ? t('caseGen.writingCase','Building case...') :
+          t('caseGen.generating','Generating...')
         ),
-        React.createElement('span',{style:{fontSize:'.82rem',color:'#ef4444',fontWeight:700,fontVariantNumeric:'tabular-nums'}},
+        React.createElement('span',{style:{fontSize:'1rem',color:'#ef4444',fontWeight:800,fontVariantNumeric:'tabular-nums'}},
           progress.percent + '%'
         )
       ),
-      React.createElement('div',{style:{height:3,background:'#ffffff18',borderRadius:2,overflow:'hidden'}},
+      React.createElement('div',{style:{height:4,background:'#ffffff12',borderRadius:3,overflow:'hidden'}},
         React.createElement('div',{style:{
-          height:'100%',width:progress.percent+'%',
-          background:'linear-gradient(90deg,#ef4444,#06b6d4)',
-          borderRadius:2,transition:'width .3s ease'
+          height:'100%',width:Math.max(2, progress.percent)+'%',
+          background:'linear-gradient(90deg,#ef4444,#f59e0b,#06b6d4)',
+          borderRadius:3,transition:'width .4s ease'
         }})
-      )
+      ),
     ),
 
-    // Output with progressive reveal during streaming, full after done
-    output && React.createElement('div',{
-      className:'output-reveal' + (streaming ? ' streaming-mask' : ''),
-      style: streaming ? {
-        '--reveal-pct': smoothReveal + '%',
-      } : {}
+    // Output — only shown after generation is complete, with reveal animation
+    output && !streaming && !loading && React.createElement('div',{
+      className:'output-reveal',
+      style:{animation:'caseRevealIn .6s ease-out both'}
     },
       React.createElement(HighlightableOutput, {
         output:output,
         outputRef:outputRef,
-        streaming:streaming,
+        streaming:false,
         onRevise:(revisedText) => { setOutput(revisedText); setSaved(false); },
         motion:motion,
         depth:depth,
