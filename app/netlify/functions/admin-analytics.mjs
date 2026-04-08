@@ -92,42 +92,59 @@ export default async (request) => {
       console.warn('Could not count recent signups:', err.message);
     }
 
-    // Monthly breakdown — build stats for each month
-    // We'll aggregate events by month for the last 12 months
-    const monthlyData = [];
+    // === TIME-SERIES DATA ===
+    // Three granularities so charts look good at any zoom level:
+    // 1. Daily: last 30 days (recent trends, fine grain)
+    // 2. Weekly: last 26 weeks / 6 months (medium-term, clean graph)
+    // 3. Monthly: last 24 months (long-term growth, compact)
+
     const now = new Date();
-    for (let m = 0; m < 12; m++) {
+    const countQ = (col, start, end) =>
+      db.collection(col)
+        .where('createdAt', '>=', start)
+        .where('createdAt', '<', end)
+        .count().get()
+        .then(s => s.data().count)
+        .catch(() => 0);
+
+    // 1. DAILY — last 30 days
+    const dailyPromises = [];
+    for (let d = 0; d < 30; d++) {
+      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - d);
+      const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - d + 1);
+      const label = dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      dailyPromises.push(
+        Promise.all([countQ('events', dayStart, dayEnd), countQ('user_profiles', dayStart, dayEnd)])
+          .then(([events, newUsers]) => ({ date: label, dateISO: dayStart.toISOString().slice(0, 10), events, newUsers }))
+      );
+    }
+    const daily = await Promise.all(dailyPromises);
+
+    // 2. WEEKLY — last 26 weeks
+    const weeklyPromises = [];
+    for (let w = 0; w < 26; w++) {
+      const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (w + 1) * 7);
+      const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - w * 7);
+      const label = 'W' + (26 - w) + ' ' + weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      weeklyPromises.push(
+        Promise.all([countQ('events', weekStart, weekEnd), countQ('user_profiles', weekStart, weekEnd), countQ('teams', weekStart, weekEnd)])
+          .then(([events, newUsers, newTeams]) => ({ week: label, weekStart: weekStart.toISOString().slice(0, 10), events, newUsers, newTeams }))
+      );
+    }
+    const weekly = await Promise.all(weeklyPromises);
+
+    // 3. MONTHLY — last 24 months
+    const monthlyPromises = [];
+    for (let m = 0; m < 24; m++) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - m, 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - m + 1, 1);
       const label = monthStart.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-
-      // Run monthly queries in parallel
-      const [monthEvents, monthUsers, monthTeams] = await Promise.all([
-        db.collection('events')
-          .where('createdAt', '>=', monthStart)
-          .where('createdAt', '<', monthEnd)
-          .count().get()
-          .catch(() => ({ data: () => ({ count: 0 }) })),
-        db.collection('user_profiles')
-          .where('createdAt', '>=', monthStart)
-          .where('createdAt', '<', monthEnd)
-          .count().get()
-          .catch(() => ({ data: () => ({ count: 0 }) })),
-        db.collection('teams')
-          .where('createdAt', '>=', monthStart)
-          .where('createdAt', '<', monthEnd)
-          .count().get()
-          .catch(() => ({ data: () => ({ count: 0 }) })),
-      ]);
-
-      monthlyData.push({
-        month: label,
-        monthStart: monthStart.toISOString(),
-        events: monthEvents.data().count,
-        newUsers: monthUsers.data().count,
-        newTeams: monthTeams.data().count,
-      });
+      monthlyPromises.push(
+        Promise.all([countQ('events', monthStart, monthEnd), countQ('user_profiles', monthStart, monthEnd), countQ('teams', monthStart, monthEnd)])
+          .then(([events, newUsers, newTeams]) => ({ month: label, monthStart: monthStart.toISOString().slice(0, 10), events, newUsers, newTeams }))
+      );
     }
+    const monthly = await Promise.all(monthlyPromises);
 
     // Event breakdown by type (last 30 days)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -203,8 +220,10 @@ export default async (request) => {
       totalFeedback,
       recentSignups,
 
-      // Monthly breakdown (last 12 months, newest first)
-      monthly: monthlyData,
+      // Time-series (newest first)
+      daily: daily.reverse(),
+      weekly: weekly.reverse(),
+      monthly: monthly.reverse(),
 
       // Event breakdown (last 30 days)
       eventBreakdown,
