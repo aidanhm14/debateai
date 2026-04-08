@@ -1254,7 +1254,7 @@ body.crimson-theme{background:#120808!important;color:#f5f0f0!important}
 /* Neural constellation canvas — dark mode only */
 .neural-bg-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:10;pointer-events:none;opacity:0;transition:opacity 1s ease}
 .crimson-theme .neural-bg-canvas{opacity:.8}
-.light-theme .neural-bg-canvas{opacity:.35}
+.light-theme .neural-bg-canvas{opacity:.7}
 /* ===== END DARK THEME ===== */
 </style>
 <script data-goatcounter="https://aidanhm31.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
@@ -12846,18 +12846,21 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
     }
 
     // Draw edges
+    var edgeAlphaBase=isLight?.5:.3;
+    var nodeGlowBase=isLight?.6:.4;
+    var lineW=isLight?.8:.5;
     var edges=[];
     for(var i=0;i<nodes.length;i++){
       for(var j=i+1;j<nodes.length;j++){
         var dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y;
         var d=Math.sqrt(dx*dx+dy*dy);
         if(d<CONNECT_DIST){
-          var alpha=(1-d/CONNECT_DIST)*.3;
+          var alpha=(1-d/CONNECT_DIST)*edgeAlphaBase;
           ctx.beginPath();
           ctx.moveTo(nodes[i].x,nodes[i].y);
           ctx.lineTo(nodes[j].x,nodes[j].y);
           ctx.strokeStyle='rgba('+R+','+G+','+B+','+alpha+')';
-          ctx.lineWidth=.5;
+          ctx.lineWidth=lineW;
           ctx.stroke();
           edges.push([i,j]);
         }
@@ -12867,9 +12870,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
     // Draw nodes
     for(var i=0;i<nodes.length;i++){
       var n=nodes[i];
-      var glow=.4+Math.sin(n.pulse)*.15;
+      var glow=nodeGlowBase+Math.sin(n.pulse)*.15;
       ctx.beginPath();
-      ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+      ctx.arc(n.x,n.y,isLight?n.r*1.3:n.r,0,Math.PI*2);
       ctx.fillStyle='rgba('+R+','+G+','+B+','+glow+')';
       ctx.fill();
     }
@@ -12881,9 +12884,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
       if(p.t>=1){pulses.splice(i,1);continue}
       var a=nodes[p.from],b=nodes[p.to];
       var px=a.x+(b.x-a.x)*p.t,py=a.y+(b.y-a.y)*p.t;
-      var pa=.3*(1-Math.abs(p.t-.5)*2);
+      var pa=(isLight?.5:.3)*(1-Math.abs(p.t-.5)*2);
       ctx.beginPath();
-      ctx.arc(px,py,2,0,Math.PI*2);
+      ctx.arc(px,py,isLight?2.5:2,0,Math.PI*2);
       ctx.fillStyle='rgba('+R+','+G+','+B+','+pa+')';
       ctx.fill();
     }
