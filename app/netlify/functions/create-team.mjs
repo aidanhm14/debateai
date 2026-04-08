@@ -39,6 +39,7 @@ export default async (request) => {
     }
 
     const uid = decoded.sub;
+    console.log('create-team: uid =', uid);
 
     if (!checkRateLimit(uid)) {
       return errorResponse('Too many requests. Please wait a moment and try again.', 429, request);
@@ -47,7 +48,14 @@ export default async (request) => {
     const name = decoded.name || '';
 
     // Check user isn't already on a team
-    const existing = await getUserTeam(uid);
+    let existing;
+    try {
+      existing = await getUserTeam(uid);
+      console.log('create-team: existing team =', existing ? existing.team.id : 'none');
+    } catch (err) {
+      console.error('create-team: getUserTeam failed:', err.message, err.stack);
+      return errorResponse('Database error checking existing team. Please try again.', 500, request);
+    }
     if (existing) return errorResponse('You already belong to a team', 409, request);
 
     const body = await request.json();
@@ -55,12 +63,20 @@ export default async (request) => {
     if (!teamName) return errorResponse('Team name is required', 400, request);
 
     // Create Stripe customer
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const customer = await stripe.customers.create({
-      email,
-      name: teamName,
-      metadata: { firebaseUid: uid },
-    });
+    console.log('create-team: creating Stripe customer for', email);
+    let stripe, customer;
+    try {
+      stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      customer = await stripe.customers.create({
+        email,
+        name: teamName,
+        metadata: { firebaseUid: uid },
+      });
+      console.log('create-team: Stripe customer created', customer.id);
+    } catch (err) {
+      console.error('create-team: Stripe error:', err.message);
+      return errorResponse('Billing setup failed. Please try again.', 500, request);
+    }
 
     const db = getDb();
     const now = new Date();
