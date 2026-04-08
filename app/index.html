@@ -805,13 +805,6 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .practice-feedback .output{padding:0;min-height:0;max-height:none;line-height:1.7;font-size:1.02rem}
 .practice-feedback-actions{display:flex;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid #ffffff18}
 
-/* ── Theme Toggle & Streak ───────────────────── */
-.theme-toggle-btn:hover{background:#ffffff18!important;transform:scale(1.1)}
-.streak-badge{animation:gentlePulse 4s ease-in-out infinite}
-.light-theme .theme-toggle-btn{background:#fff!important;border-color:#d4d4d8!important;color:#1a1a2e!important}
-.light-theme .streak-badge{background:#fef2f2!important;border-color:#fca5a5!important}
-.crimson-theme .theme-toggle-btn{background:#1a0808!important;border-color:#ffffff12!important}
-
 /* ── Profile Badge ───────────────────────────── */
 .profile-badge{
   position:fixed;top:16px;right:16px;z-index:30;
@@ -12547,18 +12540,6 @@ function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [navigateTab]);
 
-  // ── Prep streak tracker ──────────────────────────
-  const [streak, setStreak] = useState(() => {
-    try {
-      const data = JSON.parse(localStorage.getItem('debateos-streak') || '{}');
-      const today = new Date().toISOString().slice(0, 10);
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      if (data.lastDate === today) return data;
-      if (data.lastDate === yesterday) return { ...data, count: (data.count || 0) + 1, lastDate: today, totalSessions: (data.totalSessions || 0) + 1 };
-      return { count: 1, lastDate: today, totalSessions: (data.totalSessions || 0) + 1 };
-    } catch(e) { return { count: 1, lastDate: new Date().toISOString().slice(0, 10), totalSessions: 1 }; }
-  });
-  useEffect(() => { try { localStorage.setItem('debateos-streak', JSON.stringify(streak)); } catch(e) {} }, [streak]);
   const navigateTab = useCallback((newTab) => {
     if (newTab === tab) return;
     logBetaEvent('tab', { tab: newTab });
@@ -12835,22 +12816,6 @@ function App() {
         onClick:()=>setSidebarOpen(true),
         title:'Saved cases (⌘B)',
       }, '\uD83D\uDCCB'),
-      // Theme toggle — fixed top left, below cases
-      React.createElement('button',{
-        className:'theme-toggle-btn',
-        onClick:()=>setTheme(theme==='grey'?'light':theme==='light'?'dark':'grey'),
-        title:'Switch theme',
-        style:{position:'fixed',top:52,left:12,zIndex:1001,background:'var(--badge-bg,#ffffff0a)',border:'1px solid var(--badge-border,#ffffff12)',borderRadius:10,padding:'5px 8px',cursor:'pointer',fontSize:'.85rem',lineHeight:1,transition:'all .2s',color:'var(--text-primary,#e4e8f0)'}
-      }, theme==='grey'?'\u25C9':theme==='light'?'\u2600\uFE0F':'\uD83C\uDF19'),
-      // Streak badge — fixed top left, below theme
-      streak.count > 0 && React.createElement('div',{
-        className:'streak-badge',
-        title:streak.totalSessions + ' total sessions',
-        style:{position:'fixed',top:90,left:12,zIndex:1001,background:streak.count>=7?'#22c55e15':streak.count>=3?'#f59e0b15':'#ef444412',border:'1px solid '+(streak.count>=7?'#22c55e30':streak.count>=3?'#f59e0b30':'#ef444425'),borderRadius:10,padding:'4px 8px',fontSize:'.62rem',fontWeight:700,color:streak.count>=7?'#4ade80':streak.count>=3?'#fbbf24':'#f87171',letterSpacing:'.3px',textAlign:'center',lineHeight:1.4}
-      },
-        React.createElement('div',{style:{fontSize:'.9rem'}}, '\uD83D\uDD25'),
-        React.createElement('div',null, streak.count + 'd'),
-      ),
       // Profile badge
       user
         ? React.createElement('div',{className:'profile-badge'},
