@@ -11943,13 +11943,13 @@ const TABS = [
 function App() {
   const [userApiKey, setUserApiKey] = useState(() => { try { return sessionStorage.getItem('debateos-byok') || '' } catch(e) { return '' } });
   const [anonTrial, setAnonTrial] = useState(() => { try { return localStorage.getItem('debateos-anon-trial') === 'true' } catch(e) { return false } });
-  const [theme, setTheme] = useState(() => { try { return localStorage.getItem('debateos-theme') || 'dark' } catch(e) { return 'dark' } });
+  const [theme, setTheme] = useState(() => { try { var t=localStorage.getItem('debateos-theme'); if(t==='crimson')t='dark'; return t||'grey' } catch(e) { return 'grey' } });
   const [devPro, setDevProState] = useState(isDevPro);
   const toggleDevPro = () => { const next = !devPro; setDevPro(next); setDevProState(next); };
   const [locale, setLocale] = useState(() => { try { return localStorage.getItem('debateos-locale') || 'en' } catch(e) { return 'en' } });
   const [localeStrings, setLocaleStrings] = useState(null);
   useEffect(() => { try { sessionStorage.setItem('debateos-byok', userApiKey) } catch(e) {} }, [userApiKey]);
-  useEffect(() => { try { localStorage.setItem('debateos-theme', theme) } catch(e) {} document.body.classList.remove('light-theme','crimson-theme'); if(theme==='light') document.body.classList.add('light-theme'); if(theme==='crimson') document.body.classList.add('crimson-theme'); document.documentElement.style.background = theme==='light'?'#f0f4fc':theme==='crimson'?'#000':'#2b2b30'; }, [theme]);
+  useEffect(() => { try { localStorage.setItem('debateos-theme', theme) } catch(e) {} document.body.classList.remove('light-theme','crimson-theme'); if(theme==='light') document.body.classList.add('light-theme'); if(theme==='dark') document.body.classList.add('crimson-theme'); document.documentElement.style.background = theme==='light'?'#f0f4fc':theme==='dark'?'#000':'#2b2b30'; }, [theme]);
   useEffect(() => { __byokKey = userApiKey || null; }, [userApiKey]);
   // Load locale strings
   useEffect(() => {
@@ -12270,7 +12270,7 @@ function App() {
         React.createElement('div',{style:{display:'flex',gap:4,alignItems:'center',justifyContent:'center',background:'var(--badge-row-bg,#ffffff08)',borderRadius:20,padding:'3px 4px',border:'1px solid var(--badge-row-border,#ffffff1a)',width:'fit-content',margin:'8px auto 0'}},
           React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:'#22c55e15',color:'#22c55e',letterSpacing:'.5px'}},'BETA'),
           // BETA: PRO toggle hidden — all features unlocked
-          React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:theme==='light'?'#3b82f612':theme==='crimson'?'#ef444412':'#f59e0b12',color:theme==='light'?'#3b82f6':theme==='crimson'?'#ef4444':'#f59e0b',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>setTheme(theme==='dark'?'light':theme==='light'?'crimson':'dark')},theme==='dark'?'\u2600 Light':theme==='light'?'\uD83D\uDD25 Crimson':'\u263E Dark'),
+          React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:theme==='light'?'#3b82f612':theme==='dark'?'#ef444412':'#f59e0b12',color:theme==='light'?'#3b82f6':theme==='dark'?'#ef4444':'#f59e0b',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>setTheme(theme==='grey'?'light':theme==='light'?'dark':'grey')},theme==='grey'?'\u2600 Light':theme==='light'?'\u263E Dark':'\u25C9 Grey'),
           // Language selector — matching pill
           React.createElement('span',{style:{position:'relative',display:'inline-flex',alignItems:'center'}},
             React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:'#8b5cf612',color:'#a78bfa',cursor:'pointer',letterSpacing:'.3px',display:'inline-block',pointerEvents:'none',transition:'.2s'}},
