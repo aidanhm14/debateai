@@ -1,0 +1,18 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NETLIFY_SKIP_SECRETS_CHECK = "true"
+
+[functions]
+  external_node_modules = ["@google-cloud/firestore", "stripe"]
+  node_bundler = "esbuild"
+
+# Alias: /api/billing/webhook → stripe-webhook function
+# (kept because stripe-webhook.mjs config.path is /api/stripe-webhook, not this path)
+[[redirects]]
+  from = "/api/billing/webhook"
+  to = "/.netlify/functions/stripe-webhook"
+  status = 200

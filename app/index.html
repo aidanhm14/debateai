@@ -550,6 +550,17 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .spinner{display:inline-block;width:20px;height:20px;border:2.5px solid #ffffff33;border-top-color:#ef4444;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* ── Universal Loading Bar ───────────────────── */
+.loading-bar{margin:20px 0;padding:20px;background:var(--card-bg,#363638);border:1px solid var(--card-border,#ffffff10);border-radius:14}
+.loading-bar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.loading-bar-label{font-size:.82rem;color:#94a3b8;font-weight:600}
+.loading-bar-pct{font-size:1rem;color:#ef4444;font-weight:800;font-variant-numeric:tabular-nums}
+.loading-bar-track{height:4px;background:#ffffff12;border-radius:3px;overflow:hidden}
+.loading-bar-fill{height:100%;background:linear-gradient(90deg,#ef4444,#f59e0b,#06b6d4);border-radius:3px;transition:width .4s ease}
+.light-theme .loading-bar{background:#fff!important;border-color:#e2e8f0!important}
+.light-theme .loading-bar-label{color:#64748b!important}
+.crimson-theme .loading-bar{background:#1a0808!important;border-color:#502020!important}
+
 /* ── Resolution Card ──────────────────────────── */
 .res-card{
   text-align:center;padding:36px;background:linear-gradient(145deg,#303038,#3a3a42);
@@ -916,6 +927,26 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
   .timer-controls .btn{min-width:80px}
   /* Mobile: prep room sections stack */
   .prep-room-grid{grid-template-columns:1fr!important}
+  /* Mobile: calendar grid readable */
+  .live-cal-grid{grid-template-columns:repeat(7,1fr)}
+  .live-cal-header{font-size:.65rem!important}
+  /* Mobile: fixed buttons reposition */
+  .guide-trigger{bottom:16px!important;right:16px!important;width:36px!important;height:36px!important;font-size:.8rem!important}
+  .feedback-trigger{bottom:60px!important;right:16px!important;font-size:.65rem!important;padding:6px 10px!important}
+  /* Mobile: modals fit screen */
+  .guide-modal{padding:24px 18px!important;max-height:85vh!important}
+  .feedback-modal{padding:20px 16px!important}
+  /* Mobile: sidebar narrower */
+  .fb-sidebar{min-width:100%!important;width:100%!important}
+  .live-layout{grid-template-columns:1fr!important}
+}
+@media(max-width:480px){
+  .panel{margin:12px 8px 24px;padding:18px 14px}
+  .guide-modal{padding:24px 16px!important;width:95%!important}
+  .feedback-modal{padding:20px 16px!important;width:95%!important}
+  .loading-bar{padding:16px 14px}
+  .market-board td,.market-board th{padding:6px 8px!important;font-size:.72rem!important}
+  .market-board .arg-text{font-size:.78rem!important}
 }
 @media(max-width:380px){
   .logo{font-size:2rem}
@@ -4809,6 +4840,21 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
 
 /* ── Thinking Animation Component ─────────────── */
 
+// Universal loading bar — use across all tabs for consistent UX
+function LoadingBar({ label, percent, phase }) {
+  const pct = Math.max(2, percent || 0);
+  const displayLabel = label || (phase === 'thinking' ? 'Analyzing...' : phase === 'writing' ? 'Writing...' : 'Generating...');
+  return React.createElement('div',{className:'loading-bar'},
+    React.createElement('div',{className:'loading-bar-header'},
+      React.createElement('span',{className:'loading-bar-label'}, displayLabel),
+      React.createElement('span',{className:'loading-bar-pct'}, Math.round(pct) + '%'),
+    ),
+    React.createElement('div',{className:'loading-bar-track'},
+      React.createElement('div',{className:'loading-bar-fill',style:{width:pct+'%'}}),
+    ),
+  );
+}
+
 function ThinkingAnimation({mode, progress}) {
   const { t } = React.useContext(I18nContext);
   const [statusIdx, setStatusIdx] = useState(0);
@@ -5551,8 +5597,11 @@ Heat score: 10 = every tournament will run this, 1 = niche. Be honest with score
         )
       ),
 
-      // Output
-      motionOutput && el('div',{style:{marginTop:20}},
+      // Loading bar during motion generation
+      motionLoading && mProgress && el(LoadingBar, { label: fetchingNews ? 'Scanning news...' : genMode === 'agent' ? 'Crafting scenario...' : 'Generating motion...', percent: mProgress.percent, phase: mProgress.phase }),
+
+      // Output — only shown when done
+      motionOutput && !motionLoading && !motionStreaming && el('div',{style:{marginTop:20,animation:'caseRevealIn .6s ease-out both'}},
         genMode === 'current' && newsContext && el(ContextualMedia, { topic: motionCategory !== 'any' ? motionCategory : 'current events debate', type: 'context' }),
         el('div',{className:'output',style:{textAlign:'left'},dangerouslySetInnerHTML:{__html:cleanOutput(motionOutput, true)}}),
       ),
@@ -6338,23 +6387,7 @@ Be specific to the motion. Arguments should be real strategic angles a competiti
       el('button',{className:'btn btn-primary',onClick:analyze,disabled:loading||mapLoading},
         loading ? el('span',null,el('span',{className:'spinner'}),t('vision.analyzing','Analyzing...')) : t('vision.analyzeRound','Analyze Round')
       ),
-      loading && vProgress && vProgress.percent > 0 && el('div',{style:{marginTop:12}},
-        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
-          el('span',{style:{fontSize:'.78rem',color:'#94a3b8',letterSpacing:'.5px',textTransform:'uppercase',fontWeight:600}},
-            vProgress.phase === 'thinking' ? 'Analyzing round' : 'Writing analysis'
-          ),
-          el('span',{style:{fontSize:'.82rem',color:'#ef4444',fontWeight:700,fontVariantNumeric:'tabular-nums'}},
-            vProgress.percent + '%'
-          )
-        ),
-        el('div',{style:{height:3,background:'#ffffff18',borderRadius:2,overflow:'hidden'}},
-          el('div',{style:{
-            height:'100%',width:vProgress.percent+'%',
-            background:'linear-gradient(90deg,#ef4444,#06b6d4)',
-            borderRadius:2,transition:'width .3s ease'
-          }})
-        )
-      )
+      loading && vProgress && el(LoadingBar, { label: vProgress.phase === 'thinking' ? 'Analyzing round...' : 'Writing analysis...', percent: vProgress.percent, phase: vProgress.phase })
     ),
 
     // View toggle
@@ -6364,19 +6397,8 @@ Be specific to the motion. Arguments should be real strategic angles a competiti
     ),
 
     // Map loading state
-    view === 'map' && mapLoading && el('div',{style:{textAlign:'center',padding:40,color:'#ef4444',fontSize:'.9rem'}},
-      el('span',{className:'spinner'}), ' Building argument map...',
-      mapProgress && mapProgress.percent > 0 && el('div',{style:{marginTop:16,maxWidth:280,margin:'16px auto 0'}},
-        el('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:4}},
-          el('span',{style:{fontSize:'.75rem',color:'#64748b'}},
-            mapProgress.phase === 'thinking' ? 'Thinking' : 'Building'
-          ),
-          el('span',{style:{fontSize:'.82rem',color:'#ef4444',fontWeight:700}}, mapProgress.percent+'%')
-        ),
-        el('div',{style:{height:3,background:'#ffffff18',borderRadius:2,overflow:'hidden'}},
-          el('div',{style:{height:'100%',width:mapProgress.percent+'%',background:'linear-gradient(90deg,#ef4444,#06b6d4)',borderRadius:2,transition:'width .3s ease'}})
-        )
-      )
+    view === 'map' && mapLoading && el('div',{style:{padding:'20px 0'}},
+      el(LoadingBar, { label: mapProgress && mapProgress.phase === 'thinking' ? 'Analyzing arguments...' : 'Building argument map...', percent: mapProgress ? mapProgress.percent : 5, phase: mapProgress ? mapProgress.phase : 'thinking' }),
     ),
 
     // Argument Map
@@ -6797,23 +6819,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         exploreMode === 'head-to-head' ? 'Compare Frameworks' :
         'Build Framework'
       ),
-      loading && pProgress && pProgress.percent > 0 && React.createElement('div',{style:{marginTop:12}},
-        React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
-          React.createElement('span',{style:{fontSize:'.78rem',color:'#94a3b8',letterSpacing:'.5px',textTransform:'uppercase',fontWeight:600}},
-            pProgress.phase === 'thinking' ? 'Thinking' : 'Exploring'
-          ),
-          React.createElement('span',{style:{fontSize:'.82rem',color:'#ef4444',fontWeight:700,fontVariantNumeric:'tabular-nums'}},
-            pProgress.percent + '%'
-          )
-        ),
-        React.createElement('div',{style:{height:3,background:'#ffffff18',borderRadius:2,overflow:'hidden'}},
-          React.createElement('div',{style:{
-            height:'100%',width:pProgress.percent+'%',
-            background:'linear-gradient(90deg,#ef4444,#06b6d4)',
-            borderRadius:2,transition:'width .3s ease'
-          }})
-        )
-      )
+      loading && pProgress && React.createElement(LoadingBar, { label: pProgress.phase === 'thinking' ? 'Thinking...' : 'Exploring...', percent: pProgress.percent, phase: pProgress.phase })
     ),
     // Venn Diagram for head-to-head — generate button or results
     output && !loading && !streaming && exploreMode === 'head-to-head' && React.createElement('div',{
@@ -7321,18 +7327,8 @@ Rules:
         caseText.trim() && !loading && el('span', {style:{color:'#94a3b8',fontSize:'.82rem'}},
           caseText.split(/\s+/).length + ' words'
         ),
-        loading && jProgress && jProgress.percent > 0 && el('div',{style:{flex:'1 1 100%',marginTop:8}},
-          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
-            el('span',{style:{fontSize:'.78rem',color:'#94a3b8',letterSpacing:'.5px',textTransform:'uppercase',fontWeight:600}},
-              jProgress.phase === 'thinking' ? t('feedback.readingCase','Reading your case') : jProgress.phase === 'done' ? t('feedback.complete','Complete') : t('feedback.writingFeedback','Writing feedback')
-            ),
-            el('span',{style:{fontSize:'.82rem',color:'#ef4444',fontWeight:700,fontVariantNumeric:'tabular-nums'}},
-              jProgress.percent + '%'
-            )
-          ),
-          el('div',{style:{height:3,background:'#ffffff18',borderRadius:2,overflow:'hidden'}},
-            el('div',{style:{height:'100%',width:jProgress.percent+'%',background:'linear-gradient(90deg,#ef4444,#06b6d4)',borderRadius:2,transition:'width .3s ease'}})
-          )
+        loading && jProgress && el('div',{style:{flex:'1 1 100%',marginTop:8}},
+          el(LoadingBar, { label: jProgress.phase === 'thinking' ? 'Reading your case...' : 'Writing feedback...', percent: jProgress.percent, phase: jProgress.phase })
         )
       ),
       el(ErrorToast, {message: error, onDismiss: () => setError(null)})
@@ -7821,19 +7817,7 @@ Think through the strategic implications. Be specific, reference debate theory, 
       !allFilled && React.createElement('p',{style:{color:'#64748b',fontSize:'.82rem',textAlign:'center',marginTop:8}},
         t('judge.fillNotes','Fill in notes for all 6 speeches to unlock round evaluation')
       ),
-      roundEvalLoading && reProgress && reProgress.percent > 0 && React.createElement('div',{style:{marginTop:12}},
-        React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
-          React.createElement('span',{style:{fontSize:'.78rem',color:'#94a3b8',letterSpacing:'.5px',textTransform:'uppercase',fontWeight:600}},
-            reProgress.phase === 'thinking' ? t('judge.analyzingRound','Analyzing round') : t('judge.writingRFD','Writing RFD')
-          ),
-          React.createElement('span',{style:{fontSize:'.82rem',color:'#ef4444',fontWeight:700,fontVariantNumeric:'tabular-nums'}},
-            reProgress.percent + '%'
-          )
-        ),
-        React.createElement('div',{style:{height:3,background:'#ffffff18',borderRadius:2,overflow:'hidden'}},
-          React.createElement('div',{style:{height:'100%',width:reProgress.percent+'%',background:'linear-gradient(90deg,#ef4444,#06b6d4)',borderRadius:2,transition:'width .3s ease'}})
-        )
-      ),
+      roundEvalLoading && reProgress && React.createElement(LoadingBar, { label: reProgress.phase === 'thinking' ? 'Analyzing round...' : 'Writing RFD...', percent: reProgress.percent, phase: reProgress.phase }),
       roundEval && React.createElement('div',{
         className:'output',
         style:{marginTop:16,padding:18,background:'#363638',borderRadius:10,border:'1px solid #ffffff08',fontSize:'.9rem',lineHeight:1.5},
