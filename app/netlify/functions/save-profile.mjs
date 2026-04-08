@@ -40,6 +40,9 @@ export default async (request) => {
       const referrerUid = body.referrerUid;
       if (!referrerUid) return errorResponse('Missing referrer UID', 400, request);
 
+      // Block self-referral
+      if (referrerUid === uid) return errorResponse('Cannot refer yourself', 400, request);
+
       // Check if already credited
       const existing = await db.collection('referral_credits')
         .where('referredUid', '==', uid)

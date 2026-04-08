@@ -1,8 +1,19 @@
+import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
+
+  // Require Firebase authentication
+  const token = extractBearerToken(request);
+  if (!token) return errorResponse('Authentication required', 401, request);
+
+  try {
+    await verifyIdToken(token);
+  } catch (err) {
+    return errorResponse('Authentication failed. Please sign in again.', 401, request);
+  }
 
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) return errorResponse('API not configured', 500, request);

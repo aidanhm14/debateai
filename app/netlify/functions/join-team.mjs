@@ -43,6 +43,17 @@ export default async (request) => {
       return errorResponse('Team is full. Ask the owner to upgrade the plan.', 403, request);
     }
 
+    // Verify invite or open join
+    let inviteDoc = null;
+    if (!team.openJoin) {
+      const inviteSnap = await db.collection('teams').doc(teamId)
+        .collection('pendingInvites').where('email', '==', email).limit(1).get();
+      if (inviteSnap.empty) {
+        return errorResponse('Invitation required to join this team', 403, request);
+      }
+      inviteDoc = inviteSnap.docs[0];
+    }
+
     // Add member
     await db.collection('team_members').add({
       teamId,
@@ -66,6 +77,11 @@ export default async (request) => {
       displayName: name,
       createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
+
+    // Delete pending invite after successful join
+    if (inviteDoc) {
+      await inviteDoc.ref.delete();
+    }
 
     return jsonResponse({ ok: true, teamName: team.name }, 200, request);
   } catch (err) {

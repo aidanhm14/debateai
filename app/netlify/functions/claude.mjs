@@ -117,13 +117,11 @@ export default async (request, context) => {
       );
     }
   } else {
-    // No auth — rate limit anonymous users more aggressively
-    if (!checkRateLimit('anon_' + (request.headers.get('x-forwarded-for') || 'unknown'))) {
-      return new Response(
-        JSON.stringify({ error: 'Too many requests. Please sign in for higher limits.' }),
-        { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
-      );
-    }
+    // No auth — require authentication for all requests
+    return new Response(
+      JSON.stringify({ error: 'Authentication required' }),
+      { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
+    );
   }
 
   try {

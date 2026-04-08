@@ -1276,12 +1276,8 @@ function logBetaEvent(event, data) {
 
 // ── Pro Feature System ──────────────────────────
 // Dev pro mode — toggle via UI button, stored in localStorage
-function isDevPro() {
-  try { return localStorage.getItem('debateos_dev_pro') === 'true'; } catch { return false; }
-}
-function setDevPro(v) {
-  try { localStorage.setItem('debateos_dev_pro', v ? 'true' : 'false'); } catch {}
-}
+function isDevPro() { return false; }
+function setDevPro() {}
 
 function isPro(team, user) {
   return true; // BETA: all features free for testing
@@ -2363,6 +2359,18 @@ function PolyBackground() {
    ═══════════════════════════════════════════════════ */
 
 /* API key is stored server-side in Netlify environment variables */
+
+/* ── Copy with visual feedback ────── */
+function copyWithFeedback(text, btnEl) {
+  if (!navigator.clipboard || !text) return;
+  navigator.clipboard.writeText(text).then(function() {
+    if (btnEl) {
+      var orig = btnEl.textContent;
+      btnEl.textContent = 'Copied!';
+      setTimeout(function() { btnEl.textContent = orig; }, 1500);
+    }
+  });
+}
 
 /* ── Clean markdown artifacts from AI output ────── */
 function cleanOutput(text, asHtml) {
@@ -4250,7 +4258,7 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
       React.createElement('textarea',{
         placeholder:t('caseGen.motionPlaceholder','This house would ban private education...'),
         value:motion, onChange:e=>setMotion(e.target.value),
-        rows:3
+        rows:3, maxLength:3000
       }),
       React.createElement('div',{style:{marginTop:20}}),
 
@@ -4259,7 +4267,7 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
       React.createElement('textarea',{
         placeholder:t('caseGen.backgroundPlaceholder','Give instructions for the AI to develop background, or write your own. E.g. country context, actor details, constraints, time period. Leave blank to skip, or type brief notes and the AI will expand them.'),
         value:background, onChange:e=>setBackground(e.target.value),
-        rows:2
+        rows:2, maxLength:2000
       }),
       // Background need indicator
       (bgNeed || bgNeedLoading) && React.createElement('div',{style:{
@@ -4576,7 +4584,7 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
           },
         }, saved ? '\u2713 Saved' : t('caseGen.saveCase','Save Case')),
         React.createElement('button',{
-          onClick:() => { if (navigator.clipboard && output) navigator.clipboard.writeText(output); },
+          onClick:(e) => { copyWithFeedback(output, e.currentTarget); },
           style:{padding:'9px 18px',borderRadius:8,fontWeight:600,fontSize:'.82rem',cursor:'pointer',fontFamily:'inherit',transition:'.25s',background:'#ffffff08',border:'1px solid #ffffff15',color:'#c8d5e2'},
         }, t('caseGen.copyText','Copy Text')),
         React.createElement(SaveToDocsButton, {
@@ -5330,8 +5338,8 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         }, t('motions.newMotion','New Motion')),
         el('button',{
           className:'btn btn-secondary',
-          onClick:()=>{
-            if (navigator.clipboard && motionOutput) navigator.clipboard.writeText(motionOutput);
+          onClick:(e)=>{
+            copyWithFeedback(motionOutput, e.currentTarget);
           },
           style:{minWidth:120},
         }, t('common.copy','Copy')),
@@ -6709,7 +6717,7 @@ RULES:
         }, '\uD83D\uDCBE Save to Library'),
         React.createElement('button',{
           className:'btn btn-secondary',
-          onClick:() => { if (navigator.clipboard && output) navigator.clipboard.writeText(output); }
+          onClick:(e) => { copyWithFeedback(output, e.currentTarget); }
         }, '\uD83D\uDCCB ' + t('caseGen.copyText','Copy Text')),
         React.createElement('button',{
           className:'btn btn-purple',
@@ -7094,8 +7102,8 @@ Rules:
         el('span', {style:{color:'#64748b',fontSize:'.78rem'}}, comments.length + ' comments')
       ),
       el('div', {style:{display:'flex',gap:10}},
-        el('button', {className:'btn btn-ghost', onClick:function() {
-          navigator.clipboard && navigator.clipboard.writeText(caseText);
+        el('button', {className:'btn btn-ghost', onClick:function(e) {
+          copyWithFeedback(caseText, e.currentTarget);
         }}, 'Copy Case'),
         el('button', {className:'btn btn-ghost', onClick:function() {
           setAnalyzed(false);
@@ -11904,14 +11912,14 @@ const TABS = [
 ];
 
 function App() {
-  const [userApiKey, setUserApiKey] = useState(() => { try { return localStorage.getItem('debateos-byok') || '' } catch(e) { return '' } });
+  const [userApiKey, setUserApiKey] = useState(() => { try { return sessionStorage.getItem('debateos-byok') || '' } catch(e) { return '' } });
   const [anonTrial, setAnonTrial] = useState(() => { try { return localStorage.getItem('debateos-anon-trial') === 'true' } catch(e) { return false } });
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem('debateos-theme') || 'dark' } catch(e) { return 'dark' } });
   const [devPro, setDevProState] = useState(isDevPro);
   const toggleDevPro = () => { const next = !devPro; setDevPro(next); setDevProState(next); };
   const [locale, setLocale] = useState(() => { try { return localStorage.getItem('debateos-locale') || 'en' } catch(e) { return 'en' } });
   const [localeStrings, setLocaleStrings] = useState(null);
-  useEffect(() => { try { localStorage.setItem('debateos-byok', userApiKey) } catch(e) {} }, [userApiKey]);
+  useEffect(() => { try { sessionStorage.setItem('debateos-byok', userApiKey) } catch(e) {} }, [userApiKey]);
   useEffect(() => { try { localStorage.setItem('debateos-theme', theme) } catch(e) {} document.body.classList.toggle('light-theme', theme === 'light'); document.documentElement.style.background = theme === 'light' ? '#f0f4fc' : '#2b2b30'; }, [theme]);
   useEffect(() => { __byokKey = userApiKey || null; }, [userApiKey]);
   // Load locale strings
@@ -12146,11 +12154,11 @@ function App() {
 
   // Wrap a tab component so it stays mounted but hidden when inactive
   const tabPane = (id, component) =>
-    tab === id ? React.createElement('div', {
+    React.createElement('div', {
       key: id,
-      className: 'tab-pane active ' + tabTransition,
-      style: { width: '100%' }
-    }, component) : null;
+      className: 'tab-pane active ' + (tab === id ? tabTransition : ''),
+      style: { width: '100%', display: tab === id ? 'block' : 'none' }
+    }, component);
 
   return React.createElement(I18nContext.Provider, {value: {t, locale, setLocale}},
   React.createElement(React.Fragment,null,
