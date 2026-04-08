@@ -40,7 +40,7 @@ export default async (request) => {
   if (!priceId) return errorResponse('Invalid plan. Choose "individual", "team", or "lifetime".', 400, request);
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const siteUrl = process.env.SITE_URL || 'https://debateos1.netlify.app';
+  const siteUrl = process.env.SITE_URL || 'https://debateos.com';
 
   const isLifetime = planId === 'lifetime';
 

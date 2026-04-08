@@ -10,6 +10,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Devil's Advocate — debate prep, built by a debater</title>
 <meta name="description" content="I spent hundreds of hours building the debate tool I wished I had as a novice. Case generation, AI sparring, philosophy, live debates, argument markets — built for competitive parliamentary debaters by a UChicago debater who gets it.">
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
+<!-- Open Graph / Social -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateos.com">
+<meta property="og:title" content="Devil's Advocate — debate prep, built by a debater">
+<meta property="og:description" content="Case generation, AI sparring, philosophy deep dives, live debates, argument markets. Everything I wished existed when I started competing.">
+<meta property="og:image" content="https://debateos.com/og-image.png">
+<meta property="og:site_name" content="Devil's Advocate by DebateOS">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Devil's Advocate — debate prep, built by a debater">
+<meta name="twitter:description" content="Case generation, AI sparring, philosophy deep dives, live debates, argument markets. Built by a UChicago debater.">
+<meta name="twitter:image" content="https://debateos.com/og-image.png">
+<!-- Canonical -->
+<link rel="canonical" href="https://debateos.com">
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-XXXXXXXXXX');</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -1421,6 +1441,18 @@ async function logInsight(type, data) {
 
 // ── Beta Analytics ──────────────────────────────
 // Lightweight client-side event logging for beta testing
+// Sanitize error messages — never show raw API errors to users
+function safeError(err) {
+  const msg = (err && err.message) ? err.message : String(err || '');
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('net::')) return 'Network error. Check your connection and try again.';
+  if (msg.includes('401') || msg.includes('auth') || msg.includes('token')) return 'Session expired. Please sign in again.';
+  if (msg.includes('429') || msg.includes('rate') || msg.includes('limit')) return 'Too many requests. Please wait a moment.';
+  if (msg.includes('500') || msg.includes('server')) return 'Something went wrong on our end. Please try again.';
+  if (msg.includes('timeout') || msg.includes('Timeout')) return 'Request timed out. Try again with a shorter input.';
+  if (msg.length > 120) return 'Something went wrong. Please try again.';
+  return msg;
+}
+
 function logBetaEvent(event, data) {
   try {
     const log = JSON.parse(localStorage.getItem('debateos-beta-log') || '[]');
@@ -4340,7 +4372,7 @@ Be brutal. Be specific. Name the exact warrants you'd attack.`;
       const throttle = createStreamThrottle((text) => setOppAttack(text), null);
       await callClaude(sysPrompt, 'Here is the Government case to attack:\n\n' + output, (text) => throttle.update(text), { thinkBudget: 8000, maxTokens: 8000, expectedWords: 1000, feature: 'case' });
       throttle.finish();
-    } catch(err) { setOppAttack('Error: ' + err.message); }
+    } catch(err) { setOppAttack('Error: ' + safeError(err)); }
     setOppAttackLoading(false);
   };
 
@@ -5052,7 +5084,7 @@ Return ONLY the replacement text. Nothing else. Use markdown formatting for read
         }]);
       }
     } catch(err) {
-      setComments(prev => [...prev, {type:'ai', text:'Error: ' + err.message, time:new Date().toLocaleTimeString()}]);
+      setComments(prev => [...prev, {type:'ai', text:'Error: ' + safeError(err), time:new Date().toLocaleTimeString()}]);
     }
     setRevising(false);
   };
@@ -5304,7 +5336,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
       await callClaude(sysPrompt, userPrompt, (text) => throttle.update(text), { thinkBudget: 10000, maxTokens: 8000, expectedWords: 1200, onProgress: (p) => setMProgress(p), feature: 'resolution' });
       throttle.finish();
     } catch(e) {
-      setMotionOutput('Error: ' + e.message);
+      setMotionOutput('Error: ' + safeError(e));
     }
     setMProgress(null);
     setMotionLoading(false);
@@ -5331,7 +5363,7 @@ Keep it to 80-150 words. Be specific, use real facts and policies. Do NOT use sp
       await callClaude(sysPrompt, userPrompt, (text) => thr.update(text), { thinkBudget: 6000, maxTokens: 4000 });
       thr.finish();
     } catch(e) {
-      setBgText('Error: ' + e.message);
+      setBgText('Error: ' + safeError(e));
     }
     setLoadingBg(false);
   };
@@ -5390,7 +5422,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
       await callClaude(sysPrompt, userPrompt, (text) => thr2.update(text), { thinkBudget: 10000, maxTokens: 8000 });
       thr2.finish();
     } catch(e) {
-      setMotionOutput('Error: ' + e.message);
+      setMotionOutput('Error: ' + safeError(e));
       setFetchingNews(false);
     }
     setMotionLoading(false);
@@ -6298,7 +6330,7 @@ Write in a direct, confident, opinionated voice. You are the coach. You've seen 
       await callClaude(sysPrompt, userPrompt, (text) => throttle.update(text), { thinkBudget: 10000, maxTokens: 8000, expectedWords: 2000, onProgress: (p) => setVProgress(p), feature: 'vision' });
       throttle.finish();
     } catch(e) {
-      setOutput('Error: ' + e.message);
+      setOutput('Error: ' + safeError(e));
     }
     setLoading(false);
     setVProgress(null);
@@ -6742,7 +6774,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
       await callClaude(sysPrompt + '\n\nIMPORTANT: Give a focused but rigorous overview. Aim for 800-1200 words. Cover the essential ideas with their important internal distinctions, key debate applications, intellectual evolution if relevant, and one strong example. Be accessible but never sacrifice accuracy for simplicity — if a concept has important nuances, include them. The user can request an even deeper treatment after reading this.', userPrompt, (text) => throttle.update(text), { thinkBudget: 8000, maxTokens: 6000, expectedWords: 1000, onProgress: (p) => setPProgress(p), feature: 'philosophy' });
       throttle.finish();
     } catch(e) {
-      setOutput('Error: ' + e.message);
+      setOutput('Error: ' + safeError(e));
     }
     if (window.__triggerLogoGen) window.__triggerLogoGen(false); if (window.__triggerDebaterAnim) window.__triggerDebaterAnim(false);
     setStreaming(false);
@@ -7292,7 +7324,7 @@ Rules:
 
     } catch(e) {
       setComments(prev => prev.map(c => c.id === commentId
-        ? {...c, replies: [...c.replies, {role:'ai', text:'Error: ' + e.message}]}
+        ? {...c, replies: [...c.replies, {role:'ai', text:'Error: ' + safeError(e)}]}
         : c
       ));
     }
@@ -7693,7 +7725,7 @@ Be direct, specific, and reference actual content from the notes. Write like a r
       await callClaude(sysPrompt, userPrompt, (text) => thr.update(text), { thinkBudget: 12000, maxTokens: 10000, expectedWords: 1500, onProgress: (p) => setReProgress(p), feature: 'judge' });
       thr.finish();
     } catch(e) {
-      setRoundEval('Error: ' + e.message);
+      setRoundEval('Error: ' + safeError(e));
     }
     setReProgress(null);
     setRoundEvalLoading(false);
@@ -7872,7 +7904,7 @@ function JudgePool({ user }) {
       });
       setShowForm(false);
       setName(''); setBio('');
-    } catch(e) { alert('Error: ' + e.message); }
+    } catch(e) { alert('Error: ' + safeError(e)); }
     setSubmitting(false);
   }
 
@@ -8104,7 +8136,7 @@ Write like a coach who genuinely wants this debater to get better. Be tough but 
       await callClaude(sysPrompt, userPrompt, (text) => thr.update(text), { thinkBudget: 8000, maxTokens: 6000, expectedWords: 1000, onProgress: (p) => setSpProgress(p), feature: 'practice' });
       thr.finish();
     } catch(e) {
-      setFeedback('Error: ' + e.message);
+      setFeedback('Error: ' + safeError(e));
     }
     setSpProgress(null);
     setLoading(false);
@@ -9743,7 +9775,7 @@ Be direct. No sugarcoating. Use **bold** for key terms and argument names.`;
         totalExchanges: allExchanges.length,
       });
     } catch(e) {
-      setFeedback('Error: ' + e.message);
+      setFeedback('Error: ' + safeError(e));
     }
     setFeedbackLoading(false);
   };
@@ -10369,11 +10401,11 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
         {name:'Individual',price:'$5/mo',requests:'250/mo',members:'10 members',highlight:true,desc:'For serious competitors'},
         {name:'Lifetime',price:'$14.99',requests:'250/mo',members:'10 members',highlight:false,desc:'Pay once, use forever',badge:'Best Value',badgeColor:'#22c55e'},
         {name:'Team',price:'$30/mo',requests:'1,500/mo',members:'50 members',highlight:false,desc:'For clubs and programs'},
-      ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':p.badgeColor?p.badgeColor+'12':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':p.badgeColor?p.badgeColor+'40':'#ffffff20'),borderRadius:12,textAlign:'center',position:'relative'}},
+      ].map(p => el('div',{key:p.name,style:{padding:24,background:'var(--card-bg,#303038)',border:'1.5px solid '+(p.highlight?'#3b82f660':p.badgeColor?p.badgeColor+'40':'#ffffff15'),borderRadius:14,textAlign:'center',position:'relative',transition:'border-color .2s'}},
         p.badge && el('div',{style:{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',padding:'3px 12px',background:p.badgeColor||'#22c55e',color:'#fff',fontSize:'.65rem',fontWeight:700,borderRadius:10,letterSpacing:'.5px',whiteSpace:'nowrap'}},p.badge.toUpperCase()),
-        p.highlight && el('div',{style:{fontSize:'.7rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:1,marginBottom:8}},'Most Popular'),
-        el('h3',{style:{color:'#e4e8f0',fontSize:'1.1rem',fontWeight:700,marginBottom:4,marginTop:p.trial&&!p.highlight?8:0}},p.name),
-        el('div',{style:{fontSize:'1.5rem',fontWeight:800,color:'#fff',marginBottom:4}},p.price),
+        p.highlight && el('div',{style:{fontSize:'.7rem',fontWeight:700,color:'#3b82f6',textTransform:'uppercase',letterSpacing:1,marginBottom:8}},'Most Popular'),
+        el('h3',{style:{color:'var(--text-primary,#e4e8f0)',fontSize:'1.1rem',fontWeight:700,marginBottom:4,marginTop:p.trial&&!p.highlight?8:0}},p.name),
+        el('div',{style:{fontSize:'1.5rem',fontWeight:800,color:'var(--text-primary,#fff)',marginBottom:4}},p.price),
         el('div',{style:{color:'#64748b',fontSize:'.78rem',marginBottom:8}},p.desc),
         el('div',{style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.8}},p.requests+' requests'),
         el('div',{style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.8}},p.members),
@@ -10398,11 +10430,11 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
         {name:'Individual',price:'$5/mo',requests:'250/mo',members:'10 members',highlight:true},
         {name:'Lifetime',price:'$14.99',requests:'250/mo',members:'10 members',highlight:false,badgeColor:'#22c55e',badge:'Best Value'},
         {name:'Team',price:'$30/mo',requests:'1,500/mo',members:'50 members',highlight:false},
-      ].map(p => el('div',{key:p.name,style:{padding:24,background:p.highlight?'#ef444412':p.badgeColor?p.badgeColor+'12':'#ffffff06',border:'1px solid '+(p.highlight?'#ef444440':p.badgeColor?p.badgeColor+'40':'#ffffff20'),borderRadius:12,textAlign:'center',position:'relative'}},
+      ].map(p => el('div',{key:p.name,style:{padding:24,background:'var(--card-bg,#303038)',border:'1.5px solid '+(p.highlight?'#3b82f660':p.badgeColor?p.badgeColor+'40':'#ffffff15'),borderRadius:14,textAlign:'center',position:'relative',transition:'border-color .2s'}},
         p.badge && el('div',{style:{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',padding:'3px 12px',background:p.badgeColor||'#22c55e',color:'#fff',fontSize:'.65rem',fontWeight:700,borderRadius:10,letterSpacing:'.5px',whiteSpace:'nowrap'}},p.badge.toUpperCase()),
-        p.highlight && el('div',{style:{fontSize:'.7rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:1,marginBottom:8}},'Most Popular'),
-        el('h3',{style:{color:'#e4e8f0',fontSize:'1.1rem',fontWeight:700,marginBottom:4}},p.name),
-        el('div',{style:{fontSize:'1.5rem',fontWeight:800,color:'#fff',marginBottom:8}},p.price),
+        p.highlight && el('div',{style:{fontSize:'.7rem',fontWeight:700,color:'#3b82f6',textTransform:'uppercase',letterSpacing:1,marginBottom:8}},'Most Popular'),
+        el('h3',{style:{color:'var(--text-primary,#e4e8f0)',fontSize:'1.1rem',fontWeight:700,marginBottom:4}},p.name),
+        el('div',{style:{fontSize:'1.5rem',fontWeight:800,color:'var(--text-primary,#fff)',marginBottom:8}},p.price),
         el('div',{style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.8}},p.requests+' requests'),
         el('div',{style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.8}},p.members),
         el('div',{style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.8}},t('team.allToolsIncluded','All tools included')),
@@ -12224,7 +12256,7 @@ function ArgumentMarket({ user }) {
       }
       setPhase('done');
     } catch(e) {
-      setError(e.message || 'Cycle failed');
+      setError(safeError(e));
       setPhase('idle');
     }
   }
@@ -12836,6 +12868,51 @@ function App() {
       React.createElement('p',{style:{textAlign:'center',color:'#94a3b8',fontSize:'.88rem',lineHeight:1.5,margin:'8px auto 10px',maxWidth:520,padding:'0 20px'}},
         t('hero.tagline', 'I built this because I needed it. Case prep, AI sparring, philosophy deep dives, live debates, argument markets - everything I wished existed when I started competing.')
       ),
+
+      // Feature showcase — 6 cards
+      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,maxWidth:740,margin:'16px auto 0',padding:'0 12px'}},
+        [
+          {icon:'\u2694\uFE0F',title:'AI Sparring',desc:'Full rounds against a trained opponent that adapts to your weaknesses'},
+          {icon:'\uD83D\uDCDD',title:'Case Gen',desc:'Competition-ready cases with deep warrants, frameworks, and tight-blocks'},
+          {icon:'\uD83E\uDDE0',title:'Philosophy',desc:'Explore thinkers from Aristotle to Žižek with debate-ready frameworks'},
+          {icon:'\u2696\uFE0F',title:'Judge Sim',desc:'Get RFDs from 6 judge types — flow, truth-testing, lay, and more'},
+          {icon:'\uD83D\uDCC8',title:'Arg Market',desc:'Score arguments on evidence, logic, and specificity. Watch prices converge.'},
+          {icon:'\uD83C\uDFA5',title:'Live Debates',desc:'Schedule rounds, join video calls, compete with debaters worldwide'},
+        ].map(f => React.createElement('div',{key:f.title,style:{padding:'14px 16px',background:'var(--card-bg,#303038)',border:'1px solid var(--card-border,#ffffff10)',borderRadius:12,textAlign:'center'}},
+          React.createElement('div',{style:{fontSize:'1.4rem',marginBottom:6}},f.icon),
+          React.createElement('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--text-primary,#e4e8f0)',marginBottom:4}},f.title),
+          React.createElement('div',{style:{fontSize:'.72rem',color:'#94a3b8',lineHeight:1.4}},f.desc),
+        ))
+      ),
+
+      // Social proof
+      React.createElement('div',{style:{textAlign:'center',margin:'16px auto 0',maxWidth:500,padding:'0 20px'}},
+        React.createElement('p',{style:{color:'#64748b',fontSize:'.75rem',lineHeight:1.5,fontStyle:'italic'}},
+          '"Built by a national parliamentary debate champion at UChicago. Used by debaters across APDA, BP, and WSDC formats."'
+        ),
+      ),
+
+      // Email capture for non-signed-in users
+      !user && React.createElement('div',{style:{maxWidth:420,margin:'14px auto 0',padding:'0 16px'}},
+        React.createElement('form',{
+          onSubmit:(e)=>{
+            e.preventDefault();
+            const email = e.target.elements.email.value;
+            if (email && firebaseDb) {
+              firebaseDb.collection('email_signups').add({ email, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(()=>{});
+            }
+            e.target.elements.email.value = '';
+            e.target.querySelector('button').textContent = 'Subscribed!';
+            setTimeout(()=>{ try { e.target.querySelector('button').textContent = 'Get Updates' } catch(ex){} }, 2000);
+          },
+          style:{display:'flex',gap:6}
+        },
+          React.createElement('input',{name:'email',type:'email',required:true,placeholder:'your@email.com',style:{flex:1,padding:'8px 14px',background:'var(--card-bg,#38383e)',border:'1px solid #ffffff15',borderRadius:10,color:'var(--text-primary,#e2e8f0)',fontSize:'.82rem',outline:'none',fontFamily:'inherit'}}),
+          React.createElement('button',{type:'submit',style:{padding:'8px 18px',background:'#ef4444',border:'none',borderRadius:10,color:'#fff',fontWeight:700,fontSize:'.78rem',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}},'Get Updates'),
+        ),
+        React.createElement('p',{style:{color:'#4a5568',fontSize:'.65rem',textAlign:'center',marginTop:4}},'No spam. Just launch updates and debate tips.'),
+      ),
+
       // Why APDA? explainer card
       React.createElement(WhyAPDA),
       // Hamburger button — centered, mobile only

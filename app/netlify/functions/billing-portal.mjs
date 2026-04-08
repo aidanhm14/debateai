@@ -31,7 +31,7 @@ export default async (request) => {
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const siteUrl = process.env.SITE_URL || 'https://debateos1.netlify.app';
+  const siteUrl = process.env.SITE_URL || 'https://debateos.com';
 
   try {
     const session = await stripe.billingPortal.sessions.create({
