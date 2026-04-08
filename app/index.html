@@ -5429,71 +5429,21 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
     setMotionStreaming(false);
   };
 
-  // --- TRENDING / PREDICTION STATE ---
-  const [trendingTopics, setTrendingTopics] = useState(null);
-  const [trendingLoading, setTrendingLoading] = useState(false);
-  const [showTrending, setShowTrending] = useState(false);
-
-  const fetchTrending = async () => {
-    if (trendingLoading) return;
-    setTrendingLoading(true);
-    setShowTrending(true);
-    try {
-      // Step 1: Fetch current news from Perplexity
-      const newsResp = await fetch('/api/perplexity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (await (__getAuthToken ? __getAuthToken() : Promise.resolve(''))) },
-        body: JSON.stringify({ query: 'What are the most controversial, debatable news stories and policy developments from the past 2 weeks? Focus on stories that would make good debate motions: contested policy changes, ethical dilemmas, Supreme Court cases, international conflicts, technology regulation, social movements, economic shifts. List 12-15 specific stories with brief context.' })
-      });
-      const newsData = await newsResp.json();
-      const newsText = newsData.choices?.[0]?.message?.content || newsData.text || '';
-
-      // Step 2: Have Claude analyze for debate relevance and predict tournament motions
-      let result = '';
-      await callClaude(
-        `You are an elite debate coach who has been writing motions for APDA, BP, and WSDC tournaments for 15 years. You have an uncanny ability to predict what motions will appear at upcoming tournaments because you understand what motion writers care about: timeliness, debatability, novelty, and educational value.
-
-Given the current news landscape, predict the 8 most likely debate topics for upcoming tournaments. For each topic:
-
-Return ONLY valid JSON array. Each item:
-{"topic":"short topic name","heat":1-10,"category":"one of: Politics/Technology/Ethics/Philosophy/Law/International/Economics/Science/Culture/Environment","prediction":"1-2 sentence prediction of how this becomes a motion","sampleMotion":"a specific debate motion","debatability":"1 sentence on why both sides are strong","timeframe":"this week/this month/this season"}
-
-Heat score: 10 = every tournament will run this, 1 = niche. Be honest with scores. Most should be 5-7.`,
-        'Current news landscape:\n' + newsText + '\n\nPredict the 8 most likely upcoming tournament motions based on this news. Return JSON array only.',
-        function(t) { result = t; },
-        { thinkBudget: 4000, maxTokens: 6000, feature: 'trending' }
-      );
-      const cleaned = result.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
-      const start = cleaned.indexOf('[');
-      const end = cleaned.lastIndexOf(']');
-      if (start !== -1 && end !== -1) {
-        setTrendingTopics(JSON.parse(cleaned.slice(start, end + 1)));
-      }
-    } catch(e) {
-      console.error('Trending fetch error:', e);
-    }
-    setTrendingLoading(false);
-  };
 
   // Mode selector tabs
   const modeTab = (id, label) => el('button', {
     key:id,
     className: 'chip' + (genMode === id ? ' active' : ''),
-    onClick: () => { setGenMode(genMode === id ? null : id); setMotionOutput(null); setShowTrending(false); },
+    onClick: () => { setGenMode(genMode === id ? null : id); setMotionOutput(null); },
     style: { padding: '10px 20px', fontSize: '.92rem' }
   }, label);
 
-  return el('div',{className:'panel'+(motionOutput||showTrending?' panel-expanded':'')},
+  return el('div',{className:'panel'+(motionOutput?' panel-expanded':'')},
     // Mode tabs at top
     el('div',{style:{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',justifyContent:'center'}},
       modeTab(null, t('motions.generateMotion','Generate Motion')),
       modeTab('agent', t('motions.generateWithBg','Generate with Background')),
       modeTab('current', t('motions.currentEvents','Current Events')),
-      el('button', {
-        className: 'chip' + (showTrending ? ' active' : ''),
-        onClick: () => { if (!showTrending) { fetchTrending(); } else { setShowTrending(false); } setGenMode(null); setMotionOutput(null); },
-        style: { padding: '10px 20px', fontSize: '.92rem' }
-      }, '\uD83D\uDD25 Trending & Predictions'),
     ),
     // Divider between mode tabs and category chips
     el('div',{style:{height:2,background:'#ef444425',margin:'8px 40px 14px',borderRadius:1}}),
@@ -5507,55 +5457,8 @@ Heat score: 10 = every tournament will run this, 1 = niche. Be honest with score
       )
     ),
 
-    // === TRENDING & PREDICTIONS ===
-    showTrending && el('div',{style:{marginBottom:20}},
-      trendingLoading && el('div',{style:{textAlign:'center',padding:'40px 0'}},
-        el('div',{className:'spinner',style:{display:'inline-block',marginRight:10}}),
-        el('span',{style:{color:'#f59e0b',fontSize:'.92rem'}},'Scanning news and predicting tournament motions...')
-      ),
-      trendingTopics && el('div',null,
-        el('div',{style:{textAlign:'center',marginBottom:16}},
-          el('h3',{style:{fontSize:'1.1rem',fontWeight:800,color:'#e4e8f0',marginBottom:4}},'Motion Forecast'),
-          el('p',{style:{color:'#64748b',fontSize:'.82rem'}},'Predicted debate topics based on this week\'s news cycle'),
-        ),
-        el('table',{className:'market-board',style:{marginBottom:16}},
-          el('thead',null,
-            el('tr',null,
-              el('th',{style:{width:60,textAlign:'center'}},'Heat'),
-              el('th',null,'Topic'),
-              el('th',{style:{width:100}},'Category'),
-              el('th',null,'Predicted Motion'),
-              el('th',{style:{width:90}},'When'),
-            ),
-          ),
-          el('tbody',null,
-            trendingTopics.sort((a,b) => (b.heat||0) - (a.heat||0)).map((t,i) => {
-              const heatColor = t.heat >= 8 ? '#ef4444' : t.heat >= 6 ? '#f59e0b' : t.heat >= 4 ? '#3b82f6' : '#64748b';
-              return el('tr',{key:i,style:{cursor:'pointer'},onClick:()=>{setClaim && setClaim(t.sampleMotion); setMotion && setMotion(t.sampleMotion); setMotionOutput(null); setShowTrending(false); setGenMode(null);}},
-                el('td',{style:{textAlign:'center',fontFamily:'monospace',fontWeight:800,fontSize:'.95rem',color:heatColor}},
-                  t.heat + '/10',
-                ),
-                el('td',{style:{fontWeight:600,color:'#e4e8f0'}},
-                  el('div',null,t.topic),
-                  el('div',{style:{fontSize:'.75rem',color:'#64748b',marginTop:2,fontWeight:400}},t.debatability || ''),
-                ),
-                el('td',null,
-                  el('span',{style:{fontSize:'.7rem',padding:'2px 8px',borderRadius:4,background:'#ffffff08',color:'#94a3b8',fontWeight:600}},t.category),
-                ),
-                el('td',{style:{fontSize:'.82rem',color:'#a8b8c8',lineHeight:1.4}},t.sampleMotion),
-                el('td',{style:{fontSize:'.72rem',color:'#64748b',fontWeight:500}},t.timeframe || ''),
-              );
-            }),
-          ),
-        ),
-        el('div',{style:{textAlign:'center'}},
-          el('button',{className:'btn btn-secondary btn-sm',onClick:fetchTrending,disabled:trendingLoading},'Refresh Predictions'),
-        ),
-      ),
-    ),
-
     // === RANDOM ROLLER MODE ===
-    genMode === null && !showTrending && el('div',{style:{textAlign:'center'}},
+    genMode === null && el('div',{style:{textAlign:'center'}},
       el('p',{style:{color:'#888',fontSize:'.92rem',marginBottom:16}},
         t('motions.rollDesc','Roll from the database or generate an original motion with AI. Filter by category above.')
       ),
@@ -5603,7 +5506,7 @@ Heat score: 10 = every tournament will run this, 1 = niche. Be honest with score
     ),
 
     // === GENERATE WITH BACKGROUND / CURRENT EVENTS MODE ===
-    genMode !== null && !showTrending && el('div',null,
+    genMode !== null && el('div',null,
       el('p',{style:{color:'#888',fontSize:'.92rem',marginBottom:16,textAlign:'center'}},
         genMode === 'agent'
           ? t('motions.agentDesc','Generate an actor case: a character in a specific situation with a vivid, cinematic background. Use the category chips above to focus the topic.')
@@ -6577,9 +6480,7 @@ RULES:
         }, dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}});
       }
       ),
-      loading && React.createElement('div',{style:{alignSelf:'flex-start',color:'#888',fontSize:'.85rem'}},
-        React.createElement('span',{className:'spinner'}),'Thinking...'
-      ),
+      loading && React.createElement(LoadingBar, { label: 'Thinking...' }),
       React.createElement('div',{ref:bottomRef})
     ),
     React.createElement('div',{style:{display:'flex',gap:10}},
@@ -6897,7 +6798,7 @@ RULES:
         },'\u{1F504} Generate Venn Diagram'),
         false && React.createElement('div',{style:{marginTop:8,fontSize:'.72rem',color:'#94a3b8'}},'Pro feature — toggle PRO ON to use'),
       ),
-      vennLoading && React.createElement('div',{style:{padding:20}},React.createElement('span',{className:'spinner'}),' Generating...'),
+      vennLoading && React.createElement(LoadingBar, { label: 'Generating Venn diagram...' }),
       // Rendered Venn with AI data — clean card layout
       vennData && React.createElement('div',null,
         React.createElement('h3',{style:{color:'#a78bfa',fontSize:'1.1rem',fontWeight:700,marginBottom:20}},
@@ -8744,8 +8645,8 @@ function ErrorToast({ message, onDismiss }) {
   else if (message.includes('temporarily down')) { title = 'Service unavailable'; }
   else if (message.includes('offline')) { title = 'No connection'; }
   else if (message.includes('Failed to fetch')) { title = 'Connection failed'; detail = 'Could not reach the AI service. Check your internet connection and try again.'; }
-  return React.createElement('div', {className:'error-toast'},
-    React.createElement('span', {className:'error-toast-icon'}, '\u26A0\uFE0F'),
+  return React.createElement('div', {className:'error-toast', role:'alert', 'aria-live':'assertive'},
+    React.createElement('span', {className:'error-toast-icon', 'aria-hidden':'true'}, '\u26A0\uFE0F'),
     React.createElement('div', {className:'error-toast-body'},
       React.createElement('div', {className:'error-toast-title'}, title),
       React.createElement('div', {className:'error-toast-detail'}, detail),
@@ -9411,9 +9312,8 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
       ),
 
       // AI generating indicator
-      aiLoading && el('div',{style:{padding:20,textAlign:'center'}},
-        el('div',{className:'spinner',style:{display:'inline-block',marginRight:10}}),
-        el('span',{style:{color:'#60a5fa',fontSize:'.92rem'}},t('roundSim.aiPreparing','AI is preparing their') + ' ' + currentSpeechData.code + '...'),
+      aiLoading && el('div',null,
+        el(LoadingBar, { label: t('roundSim.aiPreparing','AI is preparing their') + ' ' + currentSpeechData.code + '...' }),
         aiStreaming && speeches[currentSpeech] && el('div',{
           ref:streamRef,
           className:'output streaming-active',
@@ -9464,10 +9364,7 @@ Use markdown formatting for readability: **bold** for key terms and argument nam
         el('div',{style:{fontSize:'.88rem',color:'#94a3b8',marginTop:6}},t('roundSim.allDelivered','All 6 speeches delivered. Judge feedback below.')),
       ),
 
-      feedbackLoading && el('div',{style:{textAlign:'center',padding:30}},
-        el('div',{className:'spinner',style:{display:'inline-block',marginRight:10}}),
-        el('span',{style:{color:'#fbbf24'}},t('roundSim.judgeDeliberating','Judge is deliberating...'))
-      ),
+      feedbackLoading && el(LoadingBar, { label: t('roundSim.judgeDeliberating','Judge is deliberating...') }),
 
       feedback && el('div',{style:{
         padding:'24px 28px',background:'linear-gradient(145deg,#303038,#38383e)',
@@ -9914,10 +9811,7 @@ Be direct. No sugarcoating. Use **bold** for key terms and argument names.`;
     ),
 
     // Bot loading
-    botLoading && el('div', { style: { padding: 24, textAlign: 'center' } },
-      el('div', { className: 'spinner', style: { display: 'inline-block', marginRight: 10 } }),
-      el('span', { style: { color: '#60a5fa', fontSize: '.92rem' } }, t('debateBot.thinking', 'The Machine is thinking...')),
-    ),
+    botLoading && el(LoadingBar, { label: t('debateBot.thinking', 'The Machine is thinking...') }),
 
     // Player input
     isPlayerTurn && el('div', { style: { marginBottom: 20 } },
@@ -9982,10 +9876,7 @@ Be direct. No sugarcoating. Use **bold** for key terms and argument names.`;
         el('div', { style: { fontSize: '.88rem', color: '#94a3b8', marginTop: 6 } }, t('debateBot.completeDesc', 'All speeches delivered. Coaching feedback below.')),
       ),
 
-      feedbackLoading && el('div', { style: { textAlign: 'center', padding: 30 } },
-        el('div', { className: 'spinner', style: { display: 'inline-block', marginRight: 10 } }),
-        el('span', { style: { color: '#fbbf24' } }, t('debateBot.judging', 'Analyzing your performance...')),
-      ),
+      feedbackLoading && el(LoadingBar, { label: t('debateBot.judging', 'Analyzing your performance...') }),
 
       feedback && el('div', { className: feedbackLoading ? 'output streaming-active' : '', style: {
         padding: '24px 28px', background: 'linear-gradient(145deg,#303038,#38383e)',
@@ -12869,50 +12760,6 @@ function App() {
         t('hero.tagline', 'I built this because I needed it. Case prep, AI sparring, philosophy deep dives, live debates, argument markets - everything I wished existed when I started competing.')
       ),
 
-      // Feature showcase — 6 cards
-      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,maxWidth:740,margin:'16px auto 0',padding:'0 12px'}},
-        [
-          {icon:'\u2694\uFE0F',title:'AI Sparring',desc:'Full rounds against a trained opponent that adapts to your weaknesses'},
-          {icon:'\uD83D\uDCDD',title:'Case Gen',desc:'Competition-ready cases with deep warrants, frameworks, and tight-blocks'},
-          {icon:'\uD83E\uDDE0',title:'Philosophy',desc:'Explore thinkers from Aristotle to Žižek with debate-ready frameworks'},
-          {icon:'\u2696\uFE0F',title:'Judge Sim',desc:'Get RFDs from 6 judge types — flow, truth-testing, lay, and more'},
-          {icon:'\uD83D\uDCC8',title:'Arg Market',desc:'Score arguments on evidence, logic, and specificity. Watch prices converge.'},
-          {icon:'\uD83C\uDFA5',title:'Live Debates',desc:'Schedule rounds, join video calls, compete with debaters worldwide'},
-        ].map(f => React.createElement('div',{key:f.title,style:{padding:'14px 16px',background:'var(--card-bg,#303038)',border:'1px solid var(--card-border,#ffffff10)',borderRadius:12,textAlign:'center'}},
-          React.createElement('div',{style:{fontSize:'1.4rem',marginBottom:6}},f.icon),
-          React.createElement('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--text-primary,#e4e8f0)',marginBottom:4}},f.title),
-          React.createElement('div',{style:{fontSize:'.72rem',color:'#94a3b8',lineHeight:1.4}},f.desc),
-        ))
-      ),
-
-      // Social proof
-      React.createElement('div',{style:{textAlign:'center',margin:'16px auto 0',maxWidth:500,padding:'0 20px'}},
-        React.createElement('p',{style:{color:'#64748b',fontSize:'.75rem',lineHeight:1.5,fontStyle:'italic'}},
-          '"Built by a national parliamentary debate champion at UChicago. Used by debaters across APDA, BP, and WSDC formats."'
-        ),
-      ),
-
-      // Email capture for non-signed-in users
-      !user && React.createElement('div',{style:{maxWidth:420,margin:'14px auto 0',padding:'0 16px'}},
-        React.createElement('form',{
-          onSubmit:(e)=>{
-            e.preventDefault();
-            const email = e.target.elements.email.value;
-            if (email && firebaseDb) {
-              firebaseDb.collection('email_signups').add({ email, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(()=>{});
-            }
-            e.target.elements.email.value = '';
-            e.target.querySelector('button').textContent = 'Subscribed!';
-            setTimeout(()=>{ try { e.target.querySelector('button').textContent = 'Get Updates' } catch(ex){} }, 2000);
-          },
-          style:{display:'flex',gap:6}
-        },
-          React.createElement('input',{name:'email',type:'email',required:true,placeholder:'your@email.com',style:{flex:1,padding:'8px 14px',background:'var(--card-bg,#38383e)',border:'1px solid #ffffff15',borderRadius:10,color:'var(--text-primary,#e2e8f0)',fontSize:'.82rem',outline:'none',fontFamily:'inherit'}}),
-          React.createElement('button',{type:'submit',style:{padding:'8px 18px',background:'#ef4444',border:'none',borderRadius:10,color:'#fff',fontWeight:700,fontSize:'.78rem',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}},'Get Updates'),
-        ),
-        React.createElement('p',{style:{color:'#4a5568',fontSize:'.65rem',textAlign:'center',marginTop:4}},'No spam. Just launch updates and debate tips.'),
-      ),
-
       // Why APDA? explainer card
       React.createElement(WhyAPDA),
       // Hamburger button — centered, mobile only
@@ -13037,6 +12884,27 @@ function App() {
       ),
       // PWA Install Banner
       React.createElement(InstallBanner),
+      // Email capture for non-signed-in users — bottom of page
+      !user && React.createElement('div',{style:{maxWidth:420,margin:'30px auto 0',padding:'0 16px'}},
+        React.createElement('p',{style:{color:'var(--text-muted,#94a3b8)',fontSize:'.82rem',textAlign:'center',marginBottom:8,fontWeight:600}},'Stay in the loop'),
+        React.createElement('form',{
+          onSubmit:(e)=>{
+            e.preventDefault();
+            const email = e.target.elements.email.value;
+            if (email && firebaseDb) {
+              firebaseDb.collection('email_signups').add({ email, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(()=>{});
+            }
+            e.target.elements.email.value = '';
+            e.target.querySelector('button').textContent = 'Subscribed!';
+            setTimeout(()=>{ try { e.target.querySelector('button').textContent = 'Get Updates' } catch(ex){} }, 2000);
+          },
+          style:{display:'flex',gap:6}
+        },
+          React.createElement('input',{name:'email',type:'email',required:true,placeholder:'your@email.com',style:{flex:1,padding:'8px 14px',background:'var(--card-bg,#38383e)',border:'1px solid #ffffff15',borderRadius:10,color:'var(--text-primary,#e2e8f0)',fontSize:'.82rem',outline:'none',fontFamily:'inherit'}}),
+          React.createElement('button',{type:'submit',style:{padding:'8px 18px',background:'#ef4444',border:'none',borderRadius:10,color:'#fff',fontWeight:700,fontSize:'.78rem',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}},'Get Updates'),
+        ),
+        React.createElement('p',{style:{color:'#4a5568',fontSize:'.65rem',textAlign:'center',marginTop:4}},'No spam. Just launch updates and debate tips.'),
+      ),
       // Footer
       React.createElement('footer',{style:{marginTop:40,padding:'20px 0',borderTop:'1px solid var(--border,#ffffff0a)',textAlign:'center'}},
         React.createElement('div',{style:{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap',marginBottom:8}},
@@ -13045,7 +12913,8 @@ function App() {
           React.createElement('a',{href:'mailto:debateOSsupport@gmail.com',style:{color:'var(--text-muted,#64748b)',fontSize:'.72rem',textDecoration:'none'}},'Contact'),
           React.createElement('a',{href:'/landing',style:{color:'var(--text-muted,#64748b)',fontSize:'.72rem',textDecoration:'none'}},'About'),
         ),
-        React.createElement('div',{style:{color:'var(--text-muted,#4a5568)',fontSize:'.65rem'}},'\u00A9 ' + new Date().getFullYear() + ' DebateOS. Built by a collegiate debater in the APDA league. All rights reserved.'),
+        React.createElement('div',{style:{color:'#94a3b8',fontSize:'.75rem',fontStyle:'italic',marginBottom:6}},'Built by a national parliamentary debate champion. Used by debaters across APDA, BP, and WSDC formats.'),
+        React.createElement('div',{style:{color:'var(--text-muted,#4a5568)',fontSize:'.65rem'}},'\u00A9 ' + new Date().getFullYear() + ' DebateOS. All rights reserved.'),
         React.createElement('div',{style:{color:'var(--text-muted,#4a5568)',fontSize:'.65rem',marginTop:4}},'For training and preparation only \u2014 not for use during live rounds or tournaments.'),
         React.createElement('div',{style:{color:'var(--text-muted,#4a5568)',fontSize:'.62rem',marginTop:2}},'Case knowledge sourced from the creator and contributed with explicit consent of original authors.'),
       ),
