@@ -3248,13 +3248,13 @@ PHASE 2 — WARRANT TRIAGE: Rank the 8-10 warrants on three axes (score 1-5 each
 - DEPTH: How many steps in the causal chain? Single-step ("X causes Y") is weak. Multi-step ("X changes incentive for actor A, who shifts behavior B, producing outcome Y through channel C") is strong.
 - EXCLUSIVITY: Does this warrant give Gov something Opp can't access? A warrant available to both sides is worthless. The best warrants rely on mechanisms that ONLY operate under the plan.
 - RESILIENCE: How many premises must Opp contest to neutralize it? If one denial kills it, it's fragile. If they need to deny three independent premises, it's resilient.
-Select the top 3 warrants. These become the foundation of Arguments 1, 2, and 3.
+Select the top warrants. Use as many or as few as the motion demands: some arguments need 1-2 deep warrants, others need 4-5 shorter ones. Do NOT default to exactly 3 for everything. Let the substance dictate the structure.
 
 PHASE 3 — ARGUMENT CONSTRUCTION: Build each argument around its selected warrant. The warrant is the load-bearing structure. The claim and impact are packaging. The warrant section of each argument must be at least 3x longer than the claim. Every warrant must name at least one specific actor, institution, or empirical precedent. "This will improve outcomes" is not a warrant. "This restructures the incentive for [specific actor] to [specific behavior] because [specific mechanism], as demonstrated by [specific precedent]" is a warrant.
 
 FORCED COUNTERFACTUAL — EVERY ARGUMENT MUST HAVE THIS (build into the argument, not as a separate section):
 
-For EACH of the three arguments, you must construct a counterfactual analysis woven into the warrant. This is not optional decoration. It is the structural foundation that makes the argument compelling. For each argument, your warrant must address ALL THREE:
+For EACH argument, you must construct a counterfactual analysis woven into the warrant. This is not optional decoration. It is the structural foundation that makes the argument compelling. For each argument, your warrant must address ALL THREE:
 
 1. STATUS QUO FAILURE: What is currently happening (or failing to happen) that creates the harm? Be specific. Name the institutional failure, market failure, coordination problem, or information asymmetry. Do not say "the current system is flawed." Say "the current system allocates X through mechanism Y, which fails because Z, resulting in [specific harm]."
 
@@ -3272,7 +3272,7 @@ The throughline must be airtight: [Current harm exists] > [because of structural
 
 ADVERSARIAL VALIDATION — OPP RED TEAM (do this in your thinking after constructing the case, before presenting it):
 
-Switch perspectives entirely. You are a skilled Opposition team. Your goal is to destroy this case. For each of the three arguments, execute these attacks:
+Switch perspectives entirely. You are a skilled Opposition team. Your goal is to destroy this case. For each argument, execute these attacks:
 
 ATTACK 1 — WARRANT DENIAL: Identify the single most contestable empirical claim in the warrant. Construct a 2-sentence denial with a counter-example or counter-mechanism. Rate how devastating this denial is if Opp lands it cleanly (1-5).
 
@@ -3293,22 +3293,17 @@ Caveat(s): Scope limitations. What Gov does NOT have to defend. What Opp IS comm
 
 Case (word count):
 1. Framework/Framing — The strategic weapon (Exclusion, Burden Shift, or Metric Control). Label which function you chose.
-   a. Named principle — explanation with warrants:
-      i. Warrant 1 — 2-4 sentences of real reasoning
-      ii. Warrant 2 — 2-4 sentences
-   b. Second framing point with warrants (should structurally disadvantage Opp's strongest argument category)
-   c. Third framing point with warrants (should include explicit weighing criteria that favor your impacts)
+   a. Named principle — explanation with warrants (as many warrants as needed, could be 1-4)
+   b-c. Additional framing points ONLY if genuinely needed. Some frameworks need 1 strong point, others need 3. Do NOT pad to 3 if 1-2 suffices.
 
 2. First independent argument — Named descriptively:
-   a. Sub-claim — explanation with warrants:
-      i. Specific warrant — use REAL examples, name real policies, reference real mechanisms
-      ii. Another warrant — explain the causal chain in detail
-      iii. Another warrant — connect to impact
-   b. Second sub-claim with warrants
-   c. Third sub-claim with warrants (if needed)
+   Sub-claims with warrants. Use as many sub-claims as the argument genuinely needs (1-4). Each sub-claim gets as many warrants as necessary (1-4). Do NOT default to exactly 3 sub-claims with exactly 3 warrants each. A single devastating sub-claim with 2 deep warrants is better than 3 shallow ones. Let the substance dictate the structure.
+      - Use REAL examples, name real policies, reference real mechanisms
+      - Explain causal chains in detail
+      - Connect to impact
 
-3. Second independent argument — Same depth
-4. Third independent argument (competition depth) — Same depth
+3. Second independent argument — Same flexible depth
+4. Third independent argument (competition depth, if warranted) — Same flexible depth
 
 A2 [likely opp argument] (word count):
 1. Link-level response — "This knifes their case because..." with specific warrants
@@ -4052,6 +4047,7 @@ function CaseGenerator({ onSave, loadedCase, onClearLoaded, team, user, onNaviga
   const [oppAttack, setOppAttack] = useState(null);
   const [oppAttackLoading, setOppAttackLoading] = useState(false);
   const [caseVersions, setCaseVersions] = useState([]);
+  const lastGeneratedMotion = useRef('');
   const [sneakyStreaming, setSneakyStreaming] = useState(false);
   const [bgNeed, setBgNeed] = useState(null); // {level:'none'|'optional'|'recommended'|'essential', reason:'...'}
   const [bgNeedLoading, setBgNeedLoading] = useState(false);
@@ -4151,6 +4147,15 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
   const generateCase = async (genMode) => {
     if (!motion.trim()) return;
+    // Auto-version: if regenerating same motion, save previous output as a version
+    const motionKey = motion.trim().toLowerCase() + '|' + side;
+    if (output && lastGeneratedMotion.current === motionKey) {
+      setCaseVersions(prev => [...prev, { text: output, savedAt: new Date().toISOString(), label: 'v' + (prev.length + 1) }]);
+    } else if (lastGeneratedMotion.current !== motionKey) {
+      // New motion — clear version history
+      setCaseVersions([]);
+    }
+    lastGeneratedMotion.current = motionKey;
     setMode(genMode);
     setContextHint(null);
     setError(null);
