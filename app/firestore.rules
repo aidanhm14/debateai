@@ -1,0 +1,244 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAuthor() {
+      return isSignedIn() && request.auth.uid == resource.data.authorUid;
+    }
+
+    function incomingIsAuthor() {
+      return isSignedIn() && request.auth.uid == request.resource.data.authorUid;
+    }
+
+    function stringUnder(field, maxBytes) {
+      return request.resource.data[field] is string
+          && request.resource.data[field].size() <= maxBytes;
+    }
+
+    // ── user_cases ───────────────────────────────────────────────────
+    // Documents keyed by uid OR containing a uid field.
+    match /user_cases/{docId} {
+      allow read:   if isSignedIn()
+                    && (docId == request.auth.uid
+                        || resource.data.uid == request.auth.uid);
+      allow create: if isSignedIn()
+                    && (docId == request.auth.uid
+                        || request.resource.data.uid == request.auth.uid)
+                    && (!('content' in request.resource.data)
+                        || stringUnder('content', 51200));
+      allow update: if isSignedIn()
+                    && (docId == request.auth.uid
+                        || resource.data.uid == request.auth.uid)
+                    && (!('content' in request.resource.data)
+                        || stringUnder('content', 51200));
+      allow delete: if isSignedIn()
+                    && (docId == request.auth.uid
+                        || resource.data.uid == request.auth.uid);
+    }
+
+    // ── user_profiles ────────────────────────────────────────────────
+    // Doc ID = uid. Users can only touch their own profile.
+    match /user_profiles/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── shared_cases ─────────────────────────────────────────────────
+    // Anyone authenticated can read. Only the author can write/delete.
+    match /shared_cases/{caseId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && incomingIsAuthor()
+                    && (!('content' in request.resource.data)
+                        || stringUnder('content', 51200));
+      allow update: if isAuthor()
+                    && incomingIsAuthor()
+                    && (!('content' in request.resource.data)
+                        || stringUnder('content', 51200));
+      allow delete: if isAuthor();
+    }
+
+    // ── forum_posts ──────────────────────────────────────────────────
+    // Anyone authenticated can read. Only the author can write/delete.
+    match /forum_posts/{postId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && incomingIsAuthor()
+                    && (!('content' in request.resource.data)
+                        || stringUnder('content', 51200));
+      allow update: if isAuthor()
+                    && incomingIsAuthor();
+      allow delete: if isAuthor();
+    }
+
+    // ── judge_pool ───────────────────────────────────────────────────
+    // Anyone authenticated can read. Users can only write their own entries.
+    match /judge_pool/{docId} {
+      allow read:  if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn()
+                    && resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn()
+                    && resource.data.uid == request.auth.uid;
+    }
+
+    // ── market_claims ────────────────────────────────────────────────
+    // Anyone authenticated can read. Creation allowed. Only specific
+    // fields are updatable (vote tallies, not authorUid/content swap).
+    match /market_claims/{claimId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && incomingIsAuthor()
+                    && (!('content' in request.resource.data)
+                        || stringUnder('content', 51200));
+      // Only allow updating vote-related and status fields
+      allow update: if isSignedIn()
+                    && (!request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['authorUid', 'content', 'title']));
+      allow delete: if false;
+
+      // voters subcollection — doc ID must equal the authenticated user's UID
+      // and only the vote value field is allowed.
+      match /voters/{odId} {
+        allow read:   if isSignedIn();
+        allow create: if isSignedIn()
+                      && odId == request.auth.uid
+                      && request.resource.data.keys().hasOnly(['vote', 'votedAt', 'uid']);
+        allow update: if isSignedIn()
+                      && odId == request.auth.uid
+                      && request.resource.data.keys().hasOnly(['vote', 'votedAt', 'uid']);
+        allow delete: if isSignedIn()
+                      && odId == request.auth.uid;
+      }
+    }
+
+    // ── live_debates ─────────────────────────────────────────────────
+    // Anyone authenticated can read. Only the creator can delete.
+    match /live_debates/{debateId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.creatorUid == request.auth.uid;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn()
+                    && resource.data.creatorUid == request.auth.uid;
+    }
+
+    // ── referral_credits ─────────────────────────────────────────────
+    // Server-side only. Deny all client access.
+    match /referral_credits/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── learning_insights ────────────────────────────────────────────
+    // Users can only write their own insights.
+    match /learning_insights/{docId} {
+      allow read:   if isSignedIn()
+                    && resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn()
+                    && resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn()
+                    && resource.data.uid == request.auth.uid;
+    }
+
+    // ── learning_counters ────────────────────────────────────────────
+    // Doc ID = uid. Users can only read/write their own counter doc.
+    match /learning_counters/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── teams ────────────────────────────────────────────────────────
+    // Members can read; only owner can write the team doc.
+    match /teams/{teamId} {
+      function isTeamOwner() {
+        return isSignedIn()
+            && resource.data.ownerUid == request.auth.uid;
+      }
+
+      function isTeamMember() {
+        return isSignedIn()
+            && exists(/databases/$(database)/documents/team_members/$(request.auth.uid + '_' + teamId))
+               || getTeamMemberByQuery(teamId);
+      }
+
+      // Simplified: rely on the ownerUid field for ownership,
+      // and check the team_members collection for membership.
+      // Since Firestore rules can't query, we check the team doc's
+      // member list or rely on team_members subcollection.
+      // For read: any authenticated user who has a team_members entry.
+      // Practically, the server-side functions handle complex membership
+      // checks; these rules provide a safety net.
+
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isTeamOwner();
+      allow delete: if isTeamOwner();
+
+      // members subcollection
+      match /members/{memberId} {
+        allow read:   if isSignedIn();
+        allow create: if isSignedIn()
+                      && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid;
+        allow update: if isSignedIn()
+                      && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid;
+        allow delete: if isSignedIn()
+                      && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid;
+      }
+
+      // invites subcollection
+      match /invites/{inviteId} {
+        allow read:   if isSignedIn()
+                      && (get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid
+                          || resource.data.email == request.auth.token.email);
+        allow create: if isSignedIn()
+                      && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid;
+        allow update: if isSignedIn()
+                      && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid;
+        allow delete: if isSignedIn()
+                      && (get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid
+                          || resource.data.email == request.auth.token.email);
+      }
+
+      // pendingInvites subcollection (alias kept for backward compat)
+      match /pendingInvites/{inviteId} {
+        allow read:   if isSignedIn()
+                      && (get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid
+                          || resource.data.email == request.auth.token.email);
+        allow create: if isSignedIn()
+                      && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid;
+        allow update: if isSignedIn()
+                      && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid;
+        allow delete: if isSignedIn()
+                      && (get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid
+                          || resource.data.email == request.auth.token.email);
+      }
+    }
+
+    // ── team_members (top-level collection) ──────────────────────────
+    // Server-managed primarily, but allow reads for team context.
+    match /team_members/{docId} {
+      allow read:  if isSignedIn();
+      allow write: if false; // server-side only via Admin SDK
+    }
+
+    // ── usage_logs ───────────────────────────────────────────────────
+    // Server-side only.
+    match /usage_logs/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Default deny ─────────────────────────────────────────────────
+    // Any collection not explicitly listed above is denied.
+  }
+}

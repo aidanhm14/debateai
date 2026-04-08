@@ -2,6 +2,24 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
+// In-memory rate limiter (resets on cold start — a persistent store would be better)
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 20; // max requests per minute per user
+
+function checkRateLimit(userId) {
+  const now = Date.now();
+  const key = userId || 'anon';
+  const entry = rateLimitMap.get(key);
+  if (!entry || now - entry.start > RATE_LIMIT_WINDOW) {
+    rateLimitMap.set(key, { start: now, count: 1 });
+    return true;
+  }
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX) return false;
+  return true;
+}
+
 /**
  * Recursive Learning System — collects anonymized debate insights
  * from user interactions to improve the system over time.
@@ -15,6 +33,10 @@ export default async (request) => {
     if (!token) return errorResponse('Authorization required', 401, request);
     const decoded = await verifyIdToken(token);
     const uid = decoded.sub;
+
+    if (!checkRateLimit(uid)) {
+      return errorResponse('Too many requests. Please wait a moment and try again.', 429, request);
+    }
 
     const body = await request.json();
     const db = getDb();

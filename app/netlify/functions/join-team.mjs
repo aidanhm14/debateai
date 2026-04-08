@@ -47,7 +47,7 @@ export default async (request) => {
     let inviteDoc = null;
     if (!team.openJoin) {
       const inviteSnap = await db.collection('teams').doc(teamId)
-        .collection('pendingInvites').where('email', '==', email).limit(1).get();
+        .collection('invites').where('email', '==', email).limit(1).get();
       if (inviteSnap.empty) {
         return errorResponse('Invitation required to join this team', 403, request);
       }

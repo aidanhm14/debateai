@@ -2,12 +2,30 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 
-const ALLOWED_ORIGINS = [
+// Allowed models — only permit specific, cost-controlled models
+const ALLOWED_MODELS = [
+  'claude-sonnet-4-20250514',
+  'claude-haiku-4-20250514',
+];
+
+// Hard cap on max_tokens to prevent abuse
+const MAX_TOKENS_CAP = 8192;
+
+const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
+];
+
+const DEV_ORIGINS = [
   'http://localhost:8888',
   'http://localhost:3000',
 ];
+
+// Only allow localhost origins outside production
+const isProduction = process.env.CONTEXT === 'production';
+const ALLOWED_ORIGINS = isProduction
+  ? PRODUCTION_ORIGINS
+  : [...PRODUCTION_ORIGINS, ...DEV_ORIGINS];
 
 function getCorsHeaders(request) {
   const origin = request?.headers?.get?.('origin') || '';
@@ -139,6 +157,23 @@ export default async (request, context) => {
     // Extract and strip _feature before forwarding to Anthropic
     const feature = body._feature || 'unknown';
     delete body._feature;
+
+    // Validate model — only whitelisted models allowed
+    if (!body.model || !ALLOWED_MODELS.includes(body.model)) {
+      return new Response(
+        JSON.stringify({ error: `Model not allowed. Use one of: ${ALLOWED_MODELS.join(', ')}` }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
+
+    // Cap max_tokens to prevent excessive usage
+    if (body.max_tokens && body.max_tokens > MAX_TOKENS_CAP) {
+      body.max_tokens = MAX_TOKENS_CAP;
+    }
+
+    // Strip tools field — clients should not be able to define tool use
+    delete body.tools;
+    delete body.tool_choice;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

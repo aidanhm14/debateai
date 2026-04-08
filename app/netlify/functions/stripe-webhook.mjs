@@ -188,8 +188,12 @@ export default async (request) => {
     }
   } catch (err) {
     console.error(`Error processing ${event.type}:`, err);
-    // Return 200 anyway to prevent Stripe retries on processing errors
-    // (we logged the error, can investigate manually)
+    console.error(`Failed event ID: ${event.id}, type: ${event.type}, data: ${JSON.stringify(event.data?.object?.id || 'unknown')}`);
+    // Return 500 so Stripe retries the webhook — failed billing updates must not be silently dropped
+    return new Response(JSON.stringify({ error: 'Processing failed', eventType: event.type }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   return new Response(JSON.stringify({ received: true }), {

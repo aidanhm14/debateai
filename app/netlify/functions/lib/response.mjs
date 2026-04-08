@@ -1,9 +1,18 @@
-const ALLOWED_ORIGINS = [
+const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
+];
+
+const DEV_ORIGINS = [
   'http://localhost:8888',
   'http://localhost:3000',
 ];
+
+// Only allow localhost origins outside production
+const isProduction = process.env.CONTEXT === 'production';
+const ALLOWED_ORIGINS = isProduction
+  ? PRODUCTION_ORIGINS
+  : [...PRODUCTION_ORIGINS, ...DEV_ORIGINS];
 
 // Default origin for preflight / when request is not available
 const DEFAULT_ORIGIN = ALLOWED_ORIGINS[0];

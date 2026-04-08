@@ -1190,12 +1190,23 @@ body.crimson-theme{background:#120808!important;color:#f5f0f0!important}
 .crimson-theme .sidebar{background:#180808!important;border-color:#441818!important}
 .crimson-theme .content-panel{background:linear-gradient(145deg,#180808,#140606)!important;border-color:#441818!important}
 .crimson-theme .panel{background:linear-gradient(145deg,#1e0a0a,#180808)!important;border-color:#3a1515!important;box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px rgba(255,50,50,.04)!important}
+.crimson-theme .depth-card{background:#1e0a0a!important;border-color:#3a1515!important}
+.crimson-theme .depth-card:hover{background:#2a0e0e!important;border-color:#4a1c1c!important}
+.crimson-theme .depth-card.active{background:#ef44440c!important;border-color:#ef4444!important}
+.crimson-theme .btn-purple{background:rgba(139,92,246,.15)!important;color:#c4b5fd!important;border:1.5px solid rgba(139,92,246,.35)!important}
+.crimson-theme .btn-purple:hover{background:rgba(139,92,246,.25)!important}
+.crimson-theme .btn-orange{background:rgba(239,68,68,.15)!important;color:#fca5a5!important;border:1.5px solid rgba(239,68,68,.35)!important}
+.crimson-theme .btn-orange:hover{background:rgba(239,68,68,.25)!important}
+.crimson-theme .speech-card{background:linear-gradient(145deg,#1e0a0a,#180808)!important;border-color:#3a1515!important;border-left:3px solid #ef4444!important}
+.crimson-theme .tag{background:rgba(239,68,68,.08)!important;border-color:rgba(239,68,68,.25)!important;color:#e8b4b4!important}
+.crimson-theme .tag:hover{background:rgba(239,68,68,.15)!important;color:#fca5a5!important}
+.crimson-theme .tag.active{background:#f59e0b22!important;border-color:#f59e0b!important;color:#f59e0b!important}
 .crimson-theme .nav{border-bottom-color:#ffffff08!important}
 .crimson-theme .nav-btn{color:rgba(255,190,190,.6)!important}
 .crimson-theme .nav-btn:hover{color:#ff9999!important}
 .crimson-theme .nav-btn.active{color:#ff4444!important;border-bottom-color:#ff4444!important}
 .crimson-theme textarea,.crimson-theme input[type="text"],.crimson-theme select{background:#180808!important;color:#fff!important;border-color:#502020!important}
-.crimson-theme textarea::placeholder,.crimson-theme input::placeholder{color:rgba(255,200,200,.35)!important}
+.crimson-theme textarea::placeholder,.crimson-theme input::placeholder{color:rgba(255,200,200,.5)!important}
 .crimson-theme textarea:focus,.crimson-theme input[type="text"]:focus{border-color:#ff4444!important;box-shadow:0 0 0 2px rgba(255,68,68,.25)!important}
 .crimson-theme button{color:#fff!important}
 .crimson-theme .modal-overlay{background:rgba(18,8,8,.92)!important}
@@ -1310,9 +1321,17 @@ function logBetaEvent(event, data) {
   try {
     const log = JSON.parse(localStorage.getItem('debateos-beta-log') || '[]');
     log.push({ event, data, ts: Date.now() });
-    // Keep last 500 events
     if (log.length > 500) log.splice(0, log.length - 500);
     localStorage.setItem('debateos-beta-log', JSON.stringify(log));
+  } catch(e) {}
+  // Server-side event tracking (fire-and-forget)
+  try {
+    const eventMap = { generate:'case_generated', tab:'page_view', battle:'battle_started', feedback:'feedback_requested', philosophy:'philosophy_explored', vote:'market_vote', forum:'forum_post', motion:'motion_rolled', practice:'speech_practiced', map:'round_mapped' };
+    const mapped = eventMap[event] || 'page_view';
+    const token = typeof __getAuthToken === 'function' && __getAuthToken();
+    if (token) {
+      fetch('/api/log-event', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ event:mapped, metadata:data||{} }) }).catch(()=>{});
+    }
   } catch(e) {}
 }
 
@@ -2484,9 +2503,9 @@ function ContextualMedia({ topic, type }) {
       .then(r => r.json())
       .then(data => {
         if (data.originalimage && data.originalimage.source) {
-          setMedia({ image: data.originalimage.source, caption: data.description || topic, extract: data.extract_html || '' });
+          setMedia({ image: data.originalimage.source, caption: data.description || topic, extract: data.extract || '' });
         } else if (data.thumbnail && data.thumbnail.source) {
-          setMedia({ image: data.thumbnail.source, caption: data.description || topic, extract: data.extract_html || '' });
+          setMedia({ image: data.thumbnail.source, caption: data.description || topic, extract: data.extract || '' });
         }
       })
       .catch(() => {});
@@ -5053,6 +5072,7 @@ function Resolutions() {
   };
 
   const roll = () => {
+    logBetaEvent('motion', { action: 'roll' });
     setSpinning(true);
     setBgText(null);
     const pool = active.length > 0 ? active : CATEGORIES;
@@ -6396,7 +6416,7 @@ function Philosophy({ onSave }) {
     {name:'Chomsky',size:2},{name:'Fanon',size:2},{name:'Said',size:2},{name:'hooks',size:2},
     {name:'Derrida',size:1},{name:'Kierkegaard',size:1},
     {name:'Zizek',size:2},
-    {name:'Gramsci',size:1},{name:'Nagarjuna',size:1},{name:'Baudrillard',size:1},{name:'Deleuze',size:1},
+    {name:'Gramsci',size:2},{name:'Nagarjuna',size:1},{name:'Baudrillard',size:1},{name:'Deleuze',size:1},
     {name:'Debord',size:1},{name:'Levinas',size:1},{name:'Agamben',size:1},{name:'Spivak',size:1},
     {name:'Mbembe',size:1},{name:'Badiou',size:1},{name:'Popper',size:2},{name:'Kuhn',size:1},
     {name:'Rorty',size:1},{name:'Dewey',size:1},{name:'James',size:1},{name:'Peirce',size:1},
@@ -6734,13 +6754,29 @@ RULES:
           fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(wikiTitle))
             .then(r=>r.json())
             .then(data=>{
+              el.textContent='';
               if(data.thumbnail&&data.thumbnail.source){
-                el.innerHTML='<img src="'+data.thumbnail.source+'" style="width:100%;height:100%;object-fit:cover;opacity:.85" />';
+                var imgUrl=String(data.thumbnail.source);
+                if(/^https:\/\/upload\.wikimedia\.org\//.test(imgUrl)){
+                  var img=document.createElement('img');
+                  img.src=imgUrl;
+                  img.style.cssText='width:100%;height:100%;object-fit:cover;opacity:.85';
+                  img.alt=selectedPhils[0]+' portrait';
+                  el.appendChild(img);
+                } else {
+                  var fb=document.createElement('div');
+                  fb.style.cssText='width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#ef4444;font-weight:800';
+                  fb.textContent=selectedPhils[0].charAt(0);
+                  el.appendChild(fb);
+                }
               } else {
-                el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#ef4444;font-weight:800">'+selectedPhils[0].charAt(0)+'</div>';
+                var fb=document.createElement('div');
+                fb.style.cssText='width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#ef4444;font-weight:800';
+                fb.textContent=selectedPhils[0].charAt(0);
+                el.appendChild(fb);
               }
             })
-            .catch(()=>{el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#ef4444;font-weight:800">'+selectedPhils[0].charAt(0)+'</div>';});
+            .catch(()=>{el.textContent='';var fb=document.createElement('div');fb.style.cssText='width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#ef4444;font-weight:800';fb.textContent=selectedPhils[0].charAt(0);el.appendChild(fb);});
         }
       }),
       React.createElement('div',{className:'output'+(streaming?' streaming-active':'')},
@@ -8245,6 +8281,13 @@ function Newbies() {
       el('p',{key:'cr-1'},"Marx argues that economics determines everything else. Cultural norms, legal systems, even what we think of as 'common sense' are shaped by whoever controls the economy. Use Marx when arguing that surface-level reforms fail because they don't address underlying power structures."),
       el('p',{key:'cr-2'},"Foucault says power isn't just top-down (government over people). It operates through discourse, norms, and institutions. What counts as 'normal,' 'healthy,' or 'criminal' reflects power relations. Use Foucault to argue that seemingly neutral institutions (prisons, schools, hospitals) are actually mechanisms of social control."),
       el('p',{key:'cr-3'},"Feminist theory (de Beauvoir, Butler, hooks) examines how gender shapes power. De Beauvoir's 'one is not born, but rather becomes, a woman' argues that gender roles are constructed, not natural. Butler extends this to all identity categories. Use these frameworks when a motion touches on identity, social norms, or who gets to define 'normal.'"),
+      el('p',{key:'gr-title',style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"Gramsci: Cultural Hegemony and Education"),
+      el('p',{key:'gr-1'},"Antonio Gramsci argued that the ruling class maintains power not just through force, but through cultural hegemony: controlling what people think of as normal, natural, and inevitable. Education is central to this. Schools don't just teach facts. They teach you which facts matter, whose history counts, and what 'success' looks like. That's hegemony operating through curriculum."),
+      el('p',{key:'gr-2'},"His key concepts for debate: hegemony (dominance through consent, not coercion), the organic intellectual (thinkers who emerge from and serve their community, versus traditional intellectuals who serve existing power), and the war of position (the slow cultural fight to change what society considers common sense, as opposed to a sudden seizure of power)."),
+      el('p',{key:'gr-3'},"In round: Gramsci is devastating on education motions. 'THW abolish standardized testing' becomes not just about test accuracy but about who designed the tests, whose knowledge they validate, and how they reproduce class hierarchies while appearing meritocratic. 'THW make university free' becomes about whether education is a tool of liberation or a pipeline that sorts people into roles the economy already decided for them. Any time a motion involves education, media, or cultural institutions, ask: who benefits from the way things are currently taught?"),
+      el('div',{key:'gr-4',className:'newbie-callout',style:{borderLeft:'3px solid #ef4444'}}, el('span',null,
+        el('strong',null,'Gramsci in practice: '), "When Gov runs a case about education reform, Opp can use Gramsci to argue the reform doesn't go deep enough: you're changing the curriculum but not challenging who writes it. When Opp faces a case defending the status quo in education, Gramsci gives you the language to explain why 'neutral' institutions aren't neutral. Pair him with Freire (Pedagogy of the Oppressed) for an even stronger critical education framework.",
+      )),
       el('p',{key:'ex-title',style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"Existentialism: Freedom and Responsibility"),
       el('p',{key:'ex-1'},"Sartre says we are 'condemned to be free.' There is no predetermined human nature; we create ourselves through choices. Bad faith is pretending we have no choice ('I had to do it'). Use this in actor cases to argue that an agent always has a choice and must own the consequences."),
       el('p',{key:'ex-2'},"Camus and absurdism: life has no inherent meaning, but we must live as if it does. The absurd hero acknowledges meaninglessness but revolts against it through action. Powerful in existential/philosophical motions about purpose, happiness, and what makes life worth living."),
@@ -8735,6 +8778,7 @@ function RoundSimulator() {
 
   const startRound = () => {
     if (!motion.trim()) return;
+    logBetaEvent('battle', { format: simFormat, side });
     setRoundStarted(true);
     setCurrentSpeech(0);
     setSpeeches([]);
@@ -11612,6 +11656,7 @@ function ArgumentMarket({ user }) {
 
   async function castVote(vote) {
     if (!firebaseDb || !user || !claim) return;
+    logBetaEvent('vote', { vote });
     const claimId = btoa(claim.trim().toLowerCase().slice(0, 200)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 40);
     const claimRef = firebaseDb.collection('market_claims').doc(claimId);
     const voterRef = claimRef.collection('voters').doc(user.uid);
