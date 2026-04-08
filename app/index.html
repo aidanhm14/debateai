@@ -10166,7 +10166,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, anonTrial }) {
   };
 
   const getToken = async () => user ? await user.getIdToken() : null;
-  const errMsg = (err) => 'Error: ' + (err?.message || err?.error || 'Something went wrong');
+  const errMsg = (err) => safeError(err);
 
   const referralLink = team ? (window.location.origin + '/?ref=' + (team.teamId || '')) : '';
 
@@ -10226,8 +10226,8 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, anonTrial }) {
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ email: inviteEmail.trim().toLowerCase() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Request failed');
       setMsg(data.message); setInviteEmail('');
       const res2 = await fetch('/api/teams/members', { headers: { Authorization: 'Bearer ' + token } });
       if (res2.ok) { const d = await res2.json(); setMembers(d.members || []); }
@@ -10242,8 +10242,8 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, anonTrial }) {
       const res = await fetch('/api/teams/members?memberId=' + memberId, {
         method: 'DELETE', headers: { Authorization: 'Bearer ' + token },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Request failed');
       setMembers(prev => prev.filter(m => m.id !== memberId));
       setMsg('Member removed.');
     } catch (err) { setMsg(errMsg(err)); }
@@ -10259,8 +10259,8 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, anonTrial }) {
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ plan }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Request failed');
       window.location.href = data.url;
     } catch (err) { setMsg(errMsg(err)); setActionLoading(false); setCheckoutPlan(null); }
   };
@@ -10272,8 +10272,8 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, anonTrial }) {
       const res = await fetch('/api/billing/portal', {
         method: 'POST', headers: { Authorization: 'Bearer ' + token },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Request failed');
       window.location.href = data.url;
     } catch (err) { setMsg(errMsg(err)); setActionLoading(false); }
   };

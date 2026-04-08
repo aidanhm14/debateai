@@ -1,6 +1,7 @@
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
+  'https://www.debateos.com',
 ];
 
 const DEV_ORIGINS = [
