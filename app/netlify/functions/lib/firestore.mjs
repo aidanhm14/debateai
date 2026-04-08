@@ -8,7 +8,19 @@ export function getDb() {
   const serviceAccount = process.env.GOOGLE_SERVICE_ACCOUNT;
   if (!serviceAccount) throw new Error('GOOGLE_SERVICE_ACCOUNT not configured');
 
-  const creds = JSON.parse(serviceAccount);
+  let creds;
+  try {
+    creds = JSON.parse(serviceAccount);
+  } catch (e) {
+    console.error('GOOGLE_SERVICE_ACCOUNT JSON parse failed. First 50 chars:', serviceAccount.slice(0, 50), '... Last 50 chars:', serviceAccount.slice(-50));
+    throw new Error('GOOGLE_SERVICE_ACCOUNT is not valid JSON. Re-paste the service account key.');
+  }
+
+  if (!creds.project_id || !creds.client_email || !creds.private_key) {
+    console.error('GOOGLE_SERVICE_ACCOUNT missing fields. Keys found:', Object.keys(creds).join(', '));
+    throw new Error('GOOGLE_SERVICE_ACCOUNT is missing required fields (project_id, client_email, or private_key).');
+  }
+
   db = new Firestore({
     projectId: creds.project_id,
     credentials: {
