@@ -547,7 +547,18 @@ function PolyBackground() {
 
 const API_STORE = { key: '' };
 
+// Usage tracking — shares localStorage key with main app
+const HS_LIMIT = 5;
+function getHsUsage() { try { return parseInt(localStorage.getItem('debateos-anon-usage') || '0', 10); } catch { return 0; } }
+function incHsUsage() { try { localStorage.setItem('debateos-anon-usage', String(getHsUsage() + 1)); } catch {} }
+function getHsRemaining() { return Math.max(0, HS_LIMIT - getHsUsage()); }
+
 async function callClaude(systemPrompt, userPrompt, onChunk) {
+  // Enforce usage limit
+  const used = getHsUsage();
+  if (used >= HS_LIMIT) {
+    throw new Error('LIMIT_REACHED');
+  }
   // Try Netlify function first (same as main app)
   try {
     const response = await fetch('/.netlify/functions/claude', {
@@ -642,10 +653,19 @@ async function callClaude(systemPrompt, userPrompt, onChunk) {
       }
     }
   }
+  // Count usage on success
+  incHsUsage();
+  // Trigger re-render of usage banner if it exists
+  if (window.__refreshHsUsage) window.__refreshHsUsage();
   return fullText;
 }
 
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function formatError(err) {
+  if (err.message === 'LIMIT_REACHED') return 'You\'ve used all 5 free requests. Sign up at debateos.com to get more.';
+  if (err.message === 'NO_KEY') return 'Unable to connect. Try refreshing the page.';
+  return err.message || 'Something went wrong. Try again.';
+}
 
 /* ═══════════════════════════════════════════════════
    CASE GENERATION — High School Formats
@@ -800,11 +820,7 @@ function CaseGenerator() {
         if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
       });
     } catch (err) {
-      if (err.message === 'NO_KEY') {
-        setError('Unable to connect. Try refreshing the page.');
-      } else {
-        setError(err.message);
-      }
+      setError(formatError(err));
     }
     setLoading(false);
     setStreaming(false);
@@ -938,7 +954,7 @@ function TopicExplorer() {
 Keep it to 200 words max. Be specific and practical.`;
       await callClaude(sysPrompt, `Resolution: ${result}\n\nGive me the breakdown.`, (text) => setBgText(text));
     } catch(e) {
-      setBgText('Error: ' + e.message);
+      setBgText(formatError(e));
     }
     setLoadingBg(false);
   };
@@ -1038,7 +1054,7 @@ RULES:
         });
       });
     } catch(e) {
-      setMessages(prev => [...prev, {role:'assistant', text:'Error: '+e.message}]);
+      setMessages(prev => [...prev, {role:'assistant', text: formatError(e)}]);
     }
     setLoading(false);
   };
@@ -1119,7 +1135,7 @@ Generate 6-8 evidence suggestions. Mix quantitative (stats, data) and qualitativ
 Be honest: note which evidence you're confident exists vs. which you're suggesting as likely findable. Always tell them to verify before using in a round.`;
       await callClaude(sysPrompt, `Topic: ${topic}\nSide: ${side}\n\nFind me evidence.`, (text) => setOutput(text));
     } catch(e) {
-      setOutput('Error: ' + e.message);
+      setOutput(formatError(e));
     }
     setLoading(false);
   };
@@ -1245,7 +1261,7 @@ Include:
 Keep it to ~400 words. Be specific and tactical. No filler.`;
       await callClaude(sysPrompt, `Resolution: ${topic.resolution}\nFormat: ${topic.label}\nSide: ${side}\n\nGive me the quick prep sheet.`, (text) => setPrepOutput(text));
     } catch(e) {
-      setPrepOutput('Error: ' + e.message);
+      setPrepOutput(formatError(e));
     }
     setPrepLoading(false);
   };
@@ -1503,7 +1519,7 @@ RULES:
         setMessages([{role:'assistant', text}]);
       });
     } catch(e) {
-      setMessages([{role:'assistant', text:'Error starting: ' + e.message}]);
+      setMessages([{role:'assistant', text: formatError(e)}]);
     }
     setLoading(false);
   };
@@ -1557,7 +1573,7 @@ IMPORTANT: Be a TOUGH but FAIR opponent. Don't let weak arguments slide. Call ou
         });
       });
     } catch(e) {
-      setMessages(prev => [...prev, {role:'assistant', text:'Error: ' + e.message}]);
+      setMessages(prev => [...prev, {role:'assistant', text:formatError(e)}]);
     }
     setLoading(false);
   };
@@ -1593,7 +1609,7 @@ No markdown. Natural speech, like a judge talking to debaters after a round.`;
         });
       });
     } catch(e) {
-      setMessages(prev => [...prev, {role:'assistant', text:'Error: ' + e.message}]);
+      setMessages(prev => [...prev, {role:'assistant', text:formatError(e)}]);
     }
     setLoading(false);
   };
@@ -1759,7 +1775,7 @@ function CongressLab() {
 Be specific to THIS bill. Reference real-world parallels, costs, stakeholders. Keep it under 500 words. No markdown.`;
       await callClaude(sysPrompt, `Analyze this legislation:\n\n${billText}`, (text) => setAnalysisOutput(text));
     } catch(e) {
-      setAnalysisOutput('Error: ' + e.message);
+      setAnalysisOutput(formatError(e));
     }
     setAnalysisLoading(false);
   };
@@ -1790,7 +1806,7 @@ No markdown formatting. Natural speech.`;
 
       await callClaude(sysPrompt, `Bill: ${bill.title}\n\nFull text:\n${bill.text}\n\nWrite a ${speakerLabel} speech (${speechSide} side).`, (text) => setSpeechOutput(text));
     } catch(e) {
-      setSpeechOutput('Error: ' + e.message);
+      setSpeechOutput(formatError(e));
     }
     setLoading(false);
   };
@@ -1915,7 +1931,7 @@ Be specific and actionable. Reference the judge's own words. Keep it under 400 w
 
       await callClaude(sysPrompt, `Judge paradigm:\n\n${paradigmText}\n\nFormat: ${HS_FORMATS[format].label}\n\nAnalyze this judge.`, (text) => setOutput(text));
     } catch(e) {
-      setOutput('Error: ' + e.message);
+      setOutput(formatError(e));
     }
     setLoading(false);
   };
@@ -2098,6 +2114,29 @@ const TABS = [
   {id:'learn',label:'Learn'},
 ];
 
+function HsUsageBanner() {
+  const el = React.createElement;
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    window.__refreshHsUsage = () => forceUpdate(n => n + 1);
+    return () => { delete window.__refreshHsUsage; };
+  }, []);
+  const remaining = getHsRemaining();
+  if (remaining <= 0) {
+    return el('div',{style:{maxWidth:1100,width:'94%',margin:'12px auto 0',padding:'14px 20px',background:'linear-gradient(135deg,#ef444418,#ef44440a)',border:'1px solid #ef444440',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}},
+      el('span',{style:{color:'#fca5a5',fontSize:'.85rem',fontWeight:500,flex:1}},'Free requests used up. Sign in at the College Edition or subscribe to keep generating.'),
+      el('a',{href:'/',style:{padding:'8px 20px',background:'linear-gradient(135deg,#ef4444,#ef4444cc)',border:'none',borderRadius:8,color:'#fff',fontWeight:700,fontSize:'.8rem',textDecoration:'none',whiteSpace:'nowrap'}},'Subscribe'),
+    );
+  }
+  if (remaining <= 3) {
+    return el('div',{style:{maxWidth:1100,width:'94%',margin:'12px auto 0',padding:'10px 18px',background:'linear-gradient(135deg,#f59e0b14,#f59e0b08)',border:'1px solid #f59e0b30',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}},
+      el('span',{style:{color:'#fcd34d',fontSize:'.82rem',fontWeight:500}}, remaining + ' free generation' + (remaining !== 1 ? 's' : '') + ' left. Subscribe for unlimited access.'),
+      el('a',{href:'/',style:{color:'#f59e0b',fontSize:'.78rem',fontWeight:600,textDecoration:'none'}},'Upgrade \u2192'),
+    );
+  }
+  return null;
+}
+
 function App() {
   const [tab, setTab] = useState('case');
   const [theme, setTheme] = useState('dark');
@@ -2152,6 +2191,7 @@ function App() {
           },t.label)
         )
       ),
+      React.createElement(HsUsageBanner),
       renderTab()
     )
   );

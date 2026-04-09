@@ -1362,6 +1362,7 @@ function useSmoothProgress(target, speed = 0.03) {
 let __byokKey = null;
 let __getAuthToken = null;
 let __refreshTeam = null;
+let __currentTeam = null;
 
 // ── Recursive Learning System ──────────────────
 // Logs anonymized insights to make the system smarter over time
@@ -2957,14 +2958,22 @@ function getAnonUsage() { try { return parseInt(localStorage.getItem('debateos-a
 function incAnonUsage() { try { localStorage.setItem('debateos-anon-usage', String(getAnonUsage() + 1)); } catch {} }
 
 async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
-  // Enforce usage limits for anonymous / free-tier users
+  // Enforce usage limits
   const _isAnon = !__getAuthToken;
   if (_isAnon) {
+    // Anonymous users: 5 total requests (localStorage)
     const used = getAnonUsage();
     if (used >= ANON_LIMIT) {
-      throw new Error('FREE_LIMIT_REACHED');
+      throw new Error('You\'ve used all 5 free requests. Sign in and subscribe to keep generating.');
     }
-    incAnonUsage();
+    // Don't increment here — increment after successful response below
+  } else if (__currentTeam) {
+    // Signed-in users: check team usage against plan limit
+    const teamUsed = __currentTeam.usageThisPeriod || 0;
+    const teamLimit = __currentTeam.usageLimit || 5;
+    if (teamUsed >= teamLimit) {
+      throw new Error('You\'ve hit your plan limit (' + teamLimit + ' requests/month). Upgrade your plan for more.');
+    }
   }
   logBetaEvent('generate', { feature: opts.feature || 'unknown' });
 
@@ -3187,8 +3196,15 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   }
 
   if (onProgress) onProgress({ phase: 'done', percent: 100 });
-  // Count anonymous usage only on success
-  if (_isAnon) incAnonUsage();
+  // Count usage on success
+  if (_isAnon) {
+    incAnonUsage();
+  } else if (__currentTeam) {
+    // Optimistic client-side increment so UI updates immediately
+    __currentTeam.usageThisPeriod = (__currentTeam.usageThisPeriod || 0) + 1;
+    // Refresh team data from server in background to stay accurate
+    if (__refreshTeam) setTimeout(() => __refreshTeam(), 2000);
+  }
   // For BYOK users with accounts: log usage server-side so analytics work
   if (byokKey && __getAuthToken) {
     try {
@@ -10926,7 +10942,6 @@ function InstallBanner() {
 }
 
 function AdBanner({ team, user, onNavigate }) {
-  return null; // BETA: no ads
   const el = React.createElement;
   // Hide for paid users
   if (team && team.plan !== 'trial') return null;
@@ -11991,7 +12006,8 @@ function App() {
   useEffect(() => { __refreshTeam = refreshTeam; }, [refreshTeam]);
 
   // Team state — fetched when user signs in
-  const [team, setTeam] = useState(null);
+  const [team, _setTeam] = useState(null);
+  const setTeam = (t) => { __currentTeam = t; _setTeam(t); };
   const [teamLoading, setTeamLoading] = useState(false);
   useEffect(() => {
     if (!user) { setTeam(null); setTeamLoading(false); return; }
