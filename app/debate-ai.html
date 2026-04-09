@@ -615,13 +615,18 @@ function useTTS(){
     const speed=Math.max(0.75,Math.min(2.0,wpm/150));
     const browserRate=Math.max(0.5,Math.min(2.5,wpm/150));
 
+    console.log('%c[TTS v2] Starting — text length: '+text.length+', speed: '+speed,'color:cyan;font-weight:bold');
+
     (async()=>{
       try{
         modeRef.current='openai';
+        console.log('%c[TTS v2] Fetching OpenAI audio...','color:cyan');
         await speakOpenAI(text,speed);
+        console.log('%c[TTS v2] OpenAI audio finished playing','color:lime');
       }catch(e){
-        console.warn('OpenAI TTS failed, using browser voice:',e.message);
+        console.warn('%c[TTS v2] OpenAI FAILED: '+e.message,'color:orange;font-weight:bold');
         if(!cancelledRef.current){
+          console.log('%c[TTS v2] Falling back to browser voice','color:orange');
           modeRef.current='browser';
           await speakBrowser(text,browserRate);
         }
