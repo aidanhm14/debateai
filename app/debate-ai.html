@@ -544,33 +544,67 @@ function useTTS(){
   const modeRef=useRef('none'); // 'openai' or 'browser'
 
   // ── OpenAI TTS: fetch audio from our /api/tts proxy ──
-  const speakOpenAI=async(text,speed)=>{
-    // Truncate to 4000 chars (OpenAI limit is 4096)
-    const input=text.slice(0,4000);
-    const r=await fetch('/api/tts',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:input,voice:'onyx',speed}),
-    });
-    if(!r.ok){
-      const errBody=await r.text().catch(()=>'');
-      console.error('OpenAI TTS response:',r.status,errBody);
-      throw new Error('TTS API '+r.status+': '+errBody);
-    }
-    const contentType=r.headers.get('content-type')||'';
-    if(!contentType.includes('audio')){
-      console.error('TTS returned non-audio:',contentType);
-      throw new Error('Not audio: '+contentType);
-    }
-    const blob=await r.blob();
-    if(cancelledRef.current) return;
-    const url=URL.createObjectURL(blob);
-    return new Promise((resolve,reject)=>{
-      const audio=new Audio(url);
-      audioRef.current=audio;
-      audio.onended=()=>{URL.revokeObjectURL(url);resolve()};
-      audio.onerror=(e)=>{URL.revokeObjectURL(url);reject(e)};
-      audio.play().catch(reject);
+  const speakOpenAI=(text,speed)=>{
+    return new Promise(async(resolve,reject)=>{
+      try{
+        const input=text.slice(0,4000);
+        console.log('%c[TTS] Fetching from /api/tts...','color:cyan');
+        const r=await fetch('/api/tts',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({text:input,voice:'onyx',speed}),
+        });
+        console.log('%c[TTS] Response: '+r.status+' '+r.headers.get('content-type'),'color:cyan');
+        if(!r.ok){
+          const errBody=await r.text().catch(()=>'');
+          console.error('[TTS] Error body:',errBody);
+          return reject(new Error('TTS API '+r.status+': '+errBody));
+        }
+        const blob=await r.blob();
+        console.log('%c[TTS] Got audio blob: '+blob.size+' bytes, type: '+blob.type,'color:cyan');
+        if(cancelledRef.current) return resolve();
+        if(blob.size<1000){
+          return reject(new Error('Audio blob too small: '+blob.size+' bytes'));
+        }
+        const url=URL.createObjectURL(blob);
+        const audio=new Audio();
+        audioRef.current=audio;
+
+        // Timeout: if audio doesn't start within 5s, reject
+        const timeout=setTimeout(()=>{
+          console.warn('[TTS] Audio play timeout — 5s elapsed');
+          URL.revokeObjectURL(url);
+          reject(new Error('Audio play timeout'));
+        },5000);
+
+        audio.oncanplaythrough=()=>{
+          console.log('%c[TTS] Audio ready, playing...','color:lime');
+          clearTimeout(timeout);
+          audio.play().then(()=>{
+            console.log('%c[TTS] Audio.play() succeeded','color:lime');
+          }).catch(e=>{
+            console.error('[TTS] Audio.play() rejected:',e);
+            clearTimeout(timeout);
+            URL.revokeObjectURL(url);
+            reject(e);
+          });
+        };
+        audio.onended=()=>{
+          console.log('%c[TTS] Audio playback complete','color:lime');
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        audio.onerror=(e)=>{
+          console.error('[TTS] Audio element error:',e);
+          clearTimeout(timeout);
+          URL.revokeObjectURL(url);
+          reject(new Error('Audio element error'));
+        };
+        audio.src=url;
+        audio.load();
+      }catch(e){
+        reject(e);
+      }
     });
   };
 
