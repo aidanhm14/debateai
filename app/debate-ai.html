@@ -266,9 +266,11 @@ async function callClaude(sys, user, onChunk){
   });
   if(!r.ok){
     const txt=await r.text().catch(()=>'');
-    if(r.status===401) throw new Error('AUTH_REQUIRED');
-    if(r.status===429) throw new Error('RATE_LIMITED');
-    throw new Error('API_ERROR');
+    let errMsg='';
+    try{const j=JSON.parse(txt);errMsg=j.error||j.message||txt}catch{errMsg=txt}
+    if(r.status===401) throw new Error('Sign in required: '+errMsg);
+    if(r.status===429) throw new Error('Rate limited — wait a moment and try again.');
+    throw new Error('Error ('+r.status+'): '+(errMsg||'Unknown error'));
   }
   const reader=r.body.getReader(),dec=new TextDecoder();
   let full='',buf='';
