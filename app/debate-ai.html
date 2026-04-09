@@ -14,6 +14,9 @@
 <meta property="og:image" content="https://debateos.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -262,6 +265,53 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 const el = React.createElement;
+
+/* ═══════════════════════════════════════════════════
+   FIREBASE AUTH
+   ═══════════════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+let firebaseApp, firebaseAuth, firebaseDb;
+try {
+  if (typeof firebase !== 'undefined') {
+    firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+    firebaseAuth = firebase.auth();
+    firebaseDb = firebase.firestore();
+  }
+} catch(e) { console.warn('Firebase init skipped:', e.message); }
+
+function useAuth() {
+  const [user, setUser] = useState(null);
+  const [team, setTeam] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!firebaseAuth) { setLoading(false); return; }
+    return firebaseAuth.onAuthStateChanged(async u => {
+      setUser(u);
+      if (u) {
+        try {
+          const token = await u.getIdToken();
+          const res = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + token } });
+          if (res.ok) setTeam(await res.json());
+        } catch {}
+      } else { setTeam(null); }
+      setLoading(false);
+    });
+  }, []);
+  const signIn = async () => {
+    if (!firebaseAuth) return alert('Auth not available.');
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await firebaseAuth.signInWithPopup(provider);
+  };
+  const signOut = async () => { if (firebaseAuth) await firebaseAuth.signOut(); };
+  return { user, team, loading, signIn, signOut };
+}
 
 /* ═══════════════════════════════════════════════════
    SOUND EFFECTS
@@ -573,13 +623,21 @@ function getUsage(){ try{return parseInt(localStorage.getItem('debateos-anon-usa
 function incUsage(){ try{localStorage.setItem('debateos-anon-usage',String(getUsage()+1))}catch{} }
 function remaining(){ return Math.max(0,LIMIT-getUsage()) }
 
-// Check if user has pro access (Firebase auth token in localStorage)
-function isPro(){
-  try{
-    const token=localStorage.getItem('debateos-auth-token');
-    return !!token;
-  }catch{return false}
-}
+// Check if user has pro access — set by App from team data
+let __proStatus = false;
+function isPro(){ return __proStatus; }
+
+// Per-opponent voice mapping — each debater sounds distinct
+const OPPONENT_VOICES = {
+  marcus: 'onyx',    // deep, authoritative — fits technical debater
+  priya:  'nova',    // warm, energetic — fits charismatic orator
+  jake:   'echo',    // aggressive, direct — fits pressure machine
+  elena:  'shimmer', // articulate, polished — fits philosopher
+  devon:  'echo',    // warm, conversational — fits real-world debater
+  sarah:  'alloy',   // balanced, neutral — fits all-rounder
+  kai:    'fable',   // refined, strategic — fits tactician
+  amara:  'nova',    // energetic, impactful — fits impact debater
+};
 
 // Unified AI call — supports Claude, OpenAI, and xAI streaming formats
 async function callAI(sys, user, onChunk, brainKey){
@@ -1031,7 +1089,7 @@ function useTimer(){
    BUILD PROMPT
    ═══════════════════════════════════════════════════ */
 
-function buildPrompt(speech,userSide,motion,history,notes,format,opponent){
+function buildPrompt(speech,userSide,motion,history,notes,format,opponent,difficultyNote){
   const fmt=FORMATS[format]||FORMATS.apda;
   const opp=OPPONENTS[opponent]||OPPONENTS.balanced;
   const userLabel=fmt.sideLabels[userSide]||userSide;
@@ -1059,6 +1117,7 @@ ${opp.prompt}
 ${rule}
 ${steelmanInstruction}
 ${unconventionalNote}
+${difficultyNote||''}
 
 ${history?'Previous speeches:\n'+history:'First speech of the round.'}
 ${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+notes:''}
@@ -1125,6 +1184,14 @@ Be direct, spoken-word style. No markdown. No meta-narration. Keep it SHORT.`;
    ═══════════════════════════════════════════════════ */
 
 function App(){
+  const auth = useAuth();
+  const { user, team, loading: authLoading, signIn, signOut } = auth;
+
+  // Set global pro status from team data
+  useEffect(() => {
+    __proStatus = !!(team && (team.plan === 'individual' || team.plan === 'team' || team.plan === 'lifetime'));
+  }, [team]);
+
   const[phase,setPhase]=useState('setup');   // setup|prep|speech|feedback
   const[vis,setVis]=useState(true);          // fade transition
   const[motion,setMotion]=useState('');
@@ -1211,7 +1278,7 @@ function App(){
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
 
         // Phase 1: Generate argument text
-        const txt=await callAI(buildPrompt(s,side,motion,hist,notes,format,opponent),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
+        const txt=await callAI(buildPrompt(s,side,motion,hist,notes,format,opponent,getDifficultyNote()),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           setAiText(chunk);
           const words=chunk.split(/\s+/).length;
           setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
@@ -1304,17 +1371,58 @@ function App(){
     }
   };
 
-  // Judge feedback
-  const genFeedback=async(allLog)=>{
-    setFbLoading(true);
-    const tx=allLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
-    const sys=`You are an experienced ${fmt.name} debate judge. Motion: "${motion}". User debated ${fmt.sideLabels[side]||side}.
+  // Adaptive difficulty — check user's win rate against this opponent
+  const getWinRate=()=>{
+    const oppRounds=historyRounds.filter(r=>r.opponent===opponent);
+    if(oppRounds.length===0) return { wins:0, losses:0, total:0, rate:0.5 };
+    const wins=oppRounds.filter(r=>r.userWon===true).length;
+    const losses=oppRounds.filter(r=>r.userWon===false).length;
+    return { wins, losses, total:oppRounds.length, rate: oppRounds.length>0 ? wins/oppRounds.length : 0.5 };
+  };
+  const getDifficultyNote=()=>{
+    const wr=getWinRate();
+    if(wr.total<2) return '';
+    if(wr.rate>=0.7) return 'The user has been BEATING this opponent consistently ('+wr.wins+'/'+wr.total+' wins). Debate at a SIGNIFICANTLY higher level — exploit YOUR strengths more aggressively, give fewer openings, use more sophisticated arguments, and steelmann their arguments better before crushing them. Make them EARN the win.';
+    if(wr.rate<=0.3) return 'The user has been STRUGGLING against this opponent ('+wr.wins+'/'+wr.total+' wins). Debate well but leave slightly more exploitable openings in your weaker areas. Still argue to win, but give the user more chances to find your weaknesses.';
+    return '';
+  };
 
-Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (25-30 scale), 3) Key clash point and who won it, 4) Per-speech feedback (2 strengths, 2 improvements each), 5) One concrete thing to practice. Be honest, reference specific arguments.`;
+  // Judge feedback — structured ballot
+  const[ballot,setBallot]=useState(null); // parsed structured ballot
+  const genFeedback=async(allLog)=>{
+    setFbLoading(true);setBallot(null);
+    const tx=allLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
+    const sys=`You are an experienced ${fmt.name} debate judge. Motion: "${motion}". User debated ${fmt.sideLabels[side]||side}. Opponent: ${(OPPONENTS[opponent]||{}).name||'AI'}.
+
+Return your ballot as valid JSON with this exact structure:
+{
+  "winner": "user" or "ai",
+  "decision": "2-3 sentences explaining why the winner won",
+  "speakerPoints": { "user": 27.5, "ai": 27.0 },
+  "keyClash": "The central clash point and who won it",
+  "speeches": [
+    { "code": "PM", "who": "You/AI", "score": 28, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"] }
+  ],
+  "practiceAdvice": "One specific, actionable thing to practice next",
+  "overallStrengths": ["what user did well across the round"],
+  "overallWeaknesses": ["patterns to fix"]
+}
+
+Be honest and specific. Reference actual arguments from the transcript. Speaker points 25-30 scale (27 = average, 28 = good, 29 = excellent, 30 = near perfect). Return ONLY valid JSON, no markdown.`;
     try{
-      const fb=await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>setFeedback(chunk),brain);
+      let raw='';
+      const fb=await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;setFeedback(chunk)},brain);
       setFeedback(fb);
-      saveRound(allLog,fb);
+      // Parse structured ballot
+      try{
+        const cleaned=fb.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+        const parsed=JSON.parse(cleaned);
+        setBallot(parsed);
+        saveRound(allLog,fb,parsed.winner==='user');
+      }catch{
+        // Fallback: save as unstructured
+        saveRound(allLog,fb,null);
+      }
     }catch(e){setFeedback('Could not generate feedback: '+e.message)}
     setFbLoading(false);
   };
@@ -1420,20 +1528,27 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
   };
 
   // Save round to history
-  const saveRound=(allLog,fb)=>{
+  const saveRound=(allLog,fb,userWon)=>{
     const round={
       id:Date.now(),
       date:new Date().toISOString(),
-      motion,format,opponent,side,voice,
+      motion,format,opponent,side,voice,brain,
       formatName:(FORMATS[format]||FORMATS.apda).name,
       opponentName:(OPPONENTS[opponent]||OPPONENTS.sarah).name,
       sideLabel:(FORMATS[format]||FORMATS.apda).sideLabels[side]||side,
       log:allLog,
       feedback:fb||'',
+      userWon: userWon, // true/false/null
     };
-    const updated=[round,...historyRounds].slice(0,50); // keep last 50
+    const updated=[round,...historyRounds].slice(0,50);
     setHistoryRounds(updated);
     try{localStorage.setItem('debateos-round-history',JSON.stringify(updated))}catch{}
+    // Also save to Firestore if signed in
+    if(user&&firebaseDb){
+      user.getIdToken().then(token=>{
+        firebaseDb.collection('debate_rounds').doc(user.uid+'_'+round.id).set(round).catch(()=>{});
+      }).catch(()=>{});
+    }
   };
 
   const deleteRound=(id)=>{
@@ -1459,7 +1574,12 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
     el('div',{className:'bar-links'},
       el('a',{href:'/#case'},'College'),
       el('a',{href:'/high-school'},'High School'),
-      el('a',{href:'/learn'},'Learn'),
+      user ? el('div',{style:{display:'flex',alignItems:'center',gap:10}},
+        user.photoURL && el('img',{src:user.photoURL,style:{width:24,height:24,borderRadius:'50%',border:'1px solid rgba(255,255,255,.15)'}}),
+        el('span',{style:{fontSize:'.72rem',color:'rgba(255,255,255,.5)'}},user.displayName?.split(' ')[0]),
+        isPro() && el('span',{style:{fontSize:'.6rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}},'PRO'),
+        el('button',{onClick:signOut,style:{fontSize:'.65rem',color:'rgba(255,255,255,.3)',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}},'Sign Out'),
+      ) : el('button',{onClick:signIn,style:{fontSize:'.72rem',color:'#ef4444',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',borderRadius:999,padding:'5px 14px',cursor:'pointer',fontWeight:600,fontFamily:'inherit'}},'Sign In'),
     )
   );
 
@@ -1470,6 +1590,11 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
     const f=FORMATS[format];
     if(f&&!f.sides.includes(side)) setSide(f.sides[0]);
   },[format]);
+
+  // Auto-set voice to match opponent personality
+  useEffect(()=>{
+    if(OPPONENT_VOICES[opponent]) setVoice(OPPONENT_VOICES[opponent]);
+  },[opponent]);
 
   // ── SETUP ──
   if(phase==='setup') return el('div',{className:'page'},
@@ -1699,26 +1824,101 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
   }
 
   // ── FEEDBACK ──
-  if(phase==='feedback') return el('div',{className:'page'},
-    el('div',{className:'ambient'}),bar,
-    el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:120}},
-      el('div',{className:'t-label'},'Round Complete'),
-      el('h2',{className:'t-hero',style:{fontSize:'clamp(2rem,5vw,3.2rem)',marginBottom:8}},'Judge Ballot'),
-      el('p',{className:'t-dim',style:{marginBottom:8}},'"'+motion+'" — '+(fmt.sideLabels[side]||side)),
+  if(phase==='feedback') {
+    const b=ballot; // structured ballot or null
+    const wr=getWinRate();
+    return el('div',{className:'page'},
+      el('div',{className:'ambient'}),bar,
+      el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:120,maxWidth:700,textAlign:'left'}},
+        el('div',{className:'t-label',style:{textAlign:'center'}},'Round Complete'),
+        el('h2',{className:'t-hero',style:{fontSize:'clamp(2rem,5vw,3.2rem)',marginBottom:8,textAlign:'center'}},'Judge Ballot'),
+        el('p',{className:'t-dim',style:{marginBottom:24,textAlign:'center'}},'"'+motion+'" — '+(fmt.sideLabels[side]||side)+' vs '+(OPPONENTS[opponent]||{}).name),
 
-      fbLoading&&!feedback&&el('p',{className:'t-dim',style:{fontStyle:'italic',marginTop:40}},'Deliberating...'),
+        fbLoading&&!ballot&&el('div',{style:{textAlign:'center',marginTop:40}},
+          el('p',{className:'t-dim',style:{fontStyle:'italic'}},'Deliberating...'),
+        ),
 
-      feedback&&el('div',{className:'fb-card'},el('div',{className:'feedback-text'},feedback)),
+        // Structured ballot
+        b && el('div',{style:{width:'100%'}},
+          // Decision banner
+          el('div',{style:{padding:'20px 24px',background:b.winner==='user'?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)',border:'1px solid '+(b.winner==='user'?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'),borderRadius:16,marginBottom:20,textAlign:'center'}},
+            el('div',{style:{fontSize:'1.6rem',fontWeight:900,color:b.winner==='user'?'#22c55e':'#ef4444',marginBottom:6}},
+              b.winner==='user'?'🏆 You Win':'Opponent Wins'
+            ),
+            el('p',{style:{fontSize:'.88rem',color:'rgba(255,255,255,.6)',lineHeight:1.5}},b.decision),
+          ),
 
-      el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
-      showTx&&el('div',{className:'transcript-box',style:{maxHeight:360}},log.map(l=>'['+l.code+' — '+l.who+']\n'+l.text).join('\n\n---\n\n')),
+          // Speaker Points
+          el('div',{style:{display:'flex',gap:12,marginBottom:20}},
+            el('div',{style:{flex:1,padding:'16px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',borderRadius:14,textAlign:'center'}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'rgba(255,255,255,.3)',marginBottom:6}},'Your Points'),
+              el('div',{style:{fontSize:'2rem',fontWeight:900,color:'#f5f5f7'}},b.speakerPoints?.user||'—'),
+            ),
+            el('div',{style:{flex:1,padding:'16px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',borderRadius:14,textAlign:'center'}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'rgba(255,255,255,.3)',marginBottom:6}},'AI Points'),
+              el('div',{style:{fontSize:'2rem',fontWeight:900,color:'rgba(255,255,255,.4)'}},b.speakerPoints?.ai||'—'),
+            ),
+            wr.total>=2&&el('div',{style:{flex:1,padding:'16px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',borderRadius:14,textAlign:'center'}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'rgba(255,255,255,.3)',marginBottom:6}},'Win Rate vs '+(OPPONENTS[opponent]||{}).name),
+              el('div',{style:{fontSize:'2rem',fontWeight:900,color:wr.rate>=0.5?'#22c55e':'#f59e0b'}},Math.round(wr.rate*100)+'%'),
+            ),
+          ),
 
-      el('div',{className:'row-c',style:{marginTop:28}},
-        el('button',{className:'cta-ghost',onClick:copyAll},'Copy Transcript'),
-        el('button',{className:'cta',style:{marginTop:0}},el('span',{onClick:newRound},'New Round')),
-      ),
-    )
-  );
+          // Key clash
+          b.keyClash&&el('div',{style:{padding:'16px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',borderRadius:14,marginBottom:20}},
+            el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'#f59e0b',marginBottom:6}},'Key Clash'),
+            el('p',{style:{fontSize:'.88rem',color:'rgba(255,255,255,.6)',lineHeight:1.5}},b.keyClash),
+          ),
+
+          // Per-speech breakdown
+          b.speeches&&b.speeches.length>0&&el('div',{style:{marginBottom:20}},
+            el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'rgba(255,255,255,.3)',marginBottom:12}},'Speech Breakdown'),
+            b.speeches.map((sp,i)=>el('div',{key:i,style:{padding:'14px 18px',background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.04)',borderRadius:12,marginBottom:8}},
+              el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
+                el('span',{style:{fontWeight:700,fontSize:'.85rem',color:'rgba(255,255,255,.7)'}},sp.code+' — '+sp.who),
+                el('span',{style:{fontSize:'1.1rem',fontWeight:900,color:sp.score>=28?'#22c55e':sp.score>=27?'#f5f5f7':'#f59e0b'}},sp.score),
+              ),
+              sp.strengths&&el('div',{style:{marginBottom:4}},sp.strengths.map((s,j)=>
+                el('div',{key:'s'+j,style:{fontSize:'.78rem',color:'rgba(100,220,100,.6)',paddingLeft:12}},'✦ '+s)
+              )),
+              sp.improvements&&sp.improvements.map((s,j)=>
+                el('div',{key:'i'+j,style:{fontSize:'.78rem',color:'rgba(239,68,68,.6)',paddingLeft:12}},'✧ '+s)
+              ),
+            )),
+          ),
+
+          // Overall strengths/weaknesses
+          (b.overallStrengths||b.overallWeaknesses)&&el('div',{style:{display:'flex',gap:12,marginBottom:20}},
+            b.overallStrengths&&el('div',{style:{flex:1,padding:'14px 18px',background:'rgba(34,197,94,.04)',border:'1px solid rgba(34,197,94,.1)',borderRadius:14}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'#22c55e',marginBottom:8}},'Strengths'),
+              b.overallStrengths.map((s,i)=>el('div',{key:i,style:{fontSize:'.8rem',color:'rgba(255,255,255,.5)',marginBottom:4}},'• '+s)),
+            ),
+            b.overallWeaknesses&&el('div',{style:{flex:1,padding:'14px 18px',background:'rgba(239,68,68,.04)',border:'1px solid rgba(239,68,68,.1)',borderRadius:14}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'#ef4444',marginBottom:8}},'To Improve'),
+              b.overallWeaknesses.map((s,i)=>el('div',{key:i,style:{fontSize:'.8rem',color:'rgba(255,255,255,.5)',marginBottom:4}},'• '+s)),
+            ),
+          ),
+
+          // Practice advice
+          b.practiceAdvice&&el('div',{style:{padding:'16px 20px',background:'rgba(59,130,246,.06)',border:'1px solid rgba(59,130,246,.15)',borderRadius:14,marginBottom:20}},
+            el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'#3b82f6',marginBottom:6}},'Practice This Next'),
+            el('p',{style:{fontSize:'.88rem',color:'rgba(255,255,255,.6)',lineHeight:1.5}},b.practiceAdvice),
+          ),
+        ),
+
+        // Fallback: raw text if JSON parse failed
+        !b&&feedback&&el('div',{className:'fb-card'},el('div',{className:'feedback-text'},feedback)),
+
+        el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
+        showTx&&el('div',{className:'transcript-box',style:{maxHeight:360}},log.map(l=>'['+l.code+' — '+l.who+']\n'+l.text).join('\n\n---\n\n')),
+
+        el('div',{className:'row-c',style:{marginTop:28}},
+          el('button',{className:'cta-ghost',onClick:copyAll},'Copy Transcript'),
+          el('button',{className:'cta',style:{marginTop:0}},el('span',{onClick:newRound},'New Round')),
+        ),
+      )
+    );
+  }
 
   return null;
 }
