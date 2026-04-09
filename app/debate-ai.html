@@ -1120,7 +1120,7 @@ function useTimer(){
    BUILD PROMPT
    ═══════════════════════════════════════════════════ */
 
-function buildPrompt(speech,userSide,motion,history,notes,format,opponent,difficultyNote){
+function buildPrompt(speech,userSide,motion,history,notes,format,opponent,difficultyNote,background){
   const fmt=FORMATS[format]||FORMATS.apda;
   const opp=OPPONENTS[opponent]||OPPONENTS.balanced;
   const userLabel=fmt.sideLabels[userSide]||userSide;
@@ -1150,6 +1150,7 @@ ${steelmanInstruction}
 ${unconventionalNote}
 ${difficultyNote||''}
 
+${background?'BACKGROUND/CONTEXT for this motion:\n'+background:''}
 ${history?'Previous speeches:\n'+history:'First speech of the round.'}
 ${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+notes:''}
 
@@ -1226,6 +1227,7 @@ function App(){
   const[phase,setPhase]=useState('setup');   // setup|prep|speech|feedback
   const[vis,setVis]=useState(true);          // fade transition
   const[motion,setMotion]=useState('');
+  const[background,setBackground]=useState('');  // optional context for the motion
   const[format,setFormat]=useState('apda');
   const[opponent,setOpponent]=useState('sarah');
   const[brain,setBrain]=useState('claude');
@@ -1310,7 +1312,7 @@ function App(){
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
 
         // Phase 1: Generate argument text
-        const txt=await callAI(buildPrompt(s,side,motion,hist,notes,format,opponent,getDifficultyNote()),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
+        const txt=await callAI(buildPrompt(s,side,motion,hist,notes,format,opponent,getDifficultyNote(),background),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           setAiText(chunk);
           const words=chunk.split(/\s+/).length;
           setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
@@ -1328,7 +1330,7 @@ function App(){
         // Countdown timer
         const etaInterval=setInterval(()=>setVoiceEta(v=>Math.max(0,v-1)),1000);
 
-        const speed=Math.max(0.75,Math.min(2.0,wpm/150));
+        const baseSpeed=Math.max(0.75,Math.min(2.0,wpm/150));
         const pro=isPro();
         let audioReady=null;
         try{
@@ -1341,12 +1343,22 @@ function App(){
           }
           if(cur.trim())chunks.push(cur.trim());
 
-          console.log('[TTS] Pre-fetching '+chunks.length+' HD audio chunks...');
-          const blobs=await Promise.all(chunks.map(c=>
+          // Speed variance: vary ±10% around base speed per chunk
+          // Earlier chunks (opening) slightly slower, middle faster, closing slower
+          const chunkSpeeds=chunks.map((_,i)=>{
+            const pos=chunks.length>1?i/(chunks.length-1):0.5; // 0=start, 1=end
+            // Bell curve: faster in middle, slower at start/end
+            const variance=0.1*(1-4*Math.pow(pos-0.5,2)); // peaks at 0.1 in middle
+            const jitter=(Math.random()-0.5)*0.04; // tiny random ±2%
+            return Math.max(0.75,Math.min(2.0,baseSpeed*(1+variance+jitter)));
+          });
+
+          console.log('[TTS] Pre-fetching '+chunks.length+' HD audio chunks with speed variance...');
+          const blobs=await Promise.all(chunks.map((c,ci)=>
             fetch('/api/tts',{
               method:'POST',
               headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({text:c,voice:voice,speed,hd:true}),
+              body:JSON.stringify({text:c,voice:voice,speed:chunkSpeeds[ci],hd:true}),
             }).then(r=>{
               if(!r.ok) throw new Error('TTS '+r.status);
               return r.blob();
@@ -1597,7 +1609,7 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
   };
 
   // Reset
-  const newRound=()=>transition('setup',()=>{setMotion('');setIdx(0);setLog([]);setFeedback('');setNotes('');setAiText('');setShowTx(false);setFormat('apda');setOpponent('sarah')});
+  const newRound=()=>transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setFormat('apda');setOpponent('sarah')});
 
   /* ─── RENDER ─────────────────────── */
 
@@ -1701,9 +1713,16 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
       ),
 
       // Motion
-      el('div',{style:{marginTop:28}}),
+      el('div',{className:'t-label',style:{marginTop:28}},'Motion'),
       el('textarea',{className:'float-input',rows:2,placeholder:'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
       el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
+
+      // Background (optional)
+      el('div',{className:'t-label',style:{marginTop:20,display:'flex',alignItems:'center',gap:8}},
+        'Background',
+        el('span',{style:{fontSize:'.55rem',fontWeight:500,color:'rgba(255,255,255,.2)',textTransform:'none',letterSpacing:'0'}},'optional')
+      ),
+      el('textarea',{className:'float-input',rows:2,placeholder:'Country context, actor details, constraints, time period... Leave blank to skip.',value:background,onChange:e=>setBackground(e.target.value),style:{minHeight:60,fontSize:'.9rem'}}),
 
       // Side
       el('div',{className:'t-label',style:{marginTop:24}},'Your Side'),
