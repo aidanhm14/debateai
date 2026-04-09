@@ -45,7 +45,6 @@ export default async (request) => {
       sharedCasesSnap,
       forumPostsSnap,
       debatesSnap,
-      marketClaimsSnap,
       teamsSnap,
       referralsSnap,
       eventsSnap,
@@ -56,7 +55,6 @@ export default async (request) => {
       db.collection('shared_cases').count().get(),
       db.collection('forum_posts').count().get(),
       db.collection('live_debates').count().get(),
-      db.collection('market_claims').count().get(),
       db.collection('teams').get(),
       db.collection('referral_credits').count().get(),
       db.collection('events').count().get(),
@@ -68,7 +66,6 @@ export default async (request) => {
     const totalSharedCases = sharedCasesSnap.data().count;
     const totalForumPosts = forumPostsSnap.data().count;
     const totalDebates = debatesSnap.data().count;
-    const totalMarketClaims = marketClaimsSnap.data().count;
     const totalReferrals = referralsSnap.data().count;
     const totalEvents = eventsSnap.data().count;
     const totalFeedback = feedbackSnap.data().count;
@@ -211,7 +208,6 @@ export default async (request) => {
       totalSharedCases,
       totalForumPosts,
       totalDebates,
-      totalMarketClaims,
       totalTeams,
       activeTeams,
       paidTeams,

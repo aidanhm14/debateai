@@ -91,36 +91,6 @@ service cloud.firestore {
                     && resource.data.uid == request.auth.uid;
     }
 
-    // ── market_claims ────────────────────────────────────────────────
-    // Anyone authenticated can read. Creation allowed. Only specific
-    // fields are updatable (vote tallies, not authorUid/content swap).
-    match /market_claims/{claimId} {
-      allow read:   if isSignedIn();
-      allow create: if isSignedIn()
-                    && incomingIsAuthor()
-                    && (!('content' in request.resource.data)
-                        || stringUnder('content', 51200));
-      // Only allow updating vote-related and status fields
-      allow update: if isSignedIn()
-                    && (!request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['authorUid', 'content', 'title']));
-      allow delete: if false;
-
-      // voters subcollection — doc ID must equal the authenticated user's UID
-      // and only the vote value field is allowed.
-      match /voters/{odId} {
-        allow read:   if isSignedIn();
-        allow create: if isSignedIn()
-                      && odId == request.auth.uid
-                      && request.resource.data.keys().hasOnly(['vote', 'votedAt', 'uid']);
-        allow update: if isSignedIn()
-                      && odId == request.auth.uid
-                      && request.resource.data.keys().hasOnly(['vote', 'votedAt', 'uid']);
-        allow delete: if isSignedIn()
-                      && odId == request.auth.uid;
-      }
-    }
-
     // ── live_debates ─────────────────────────────────────────────────
     // Anyone authenticated can read. Only the creator can delete.
     match /live_debates/{debateId} {

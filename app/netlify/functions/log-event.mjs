@@ -7,7 +7,6 @@ const VALID_EVENTS = new Set([
   'battle_started',
   'feedback_requested',
   'philosophy_explored',
-  'market_vote',
   'forum_post',
   'motion_rolled',
   'speech_practiced',
