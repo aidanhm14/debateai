@@ -582,17 +582,20 @@ async function callClaude(systemPrompt, userPrompt, onChunk) {
   if (used >= HS_LIMIT) {
     throw new Error('LIMIT_REACHED');
   }
-  // Try Netlify function first (same as main app)
+  // Try Netlify function first
+  const body = {
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 8000,
+    stream: true,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
+    _feature: 'high-school',
+  };
   try {
     const response = await fetch('/.netlify/functions/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system: systemPrompt,
-        prompt: userPrompt,
-        stream: true,
-        feature: 'high-school',
-      }),
+      body: JSON.stringify(body),
     });
 
     if (response.ok) {

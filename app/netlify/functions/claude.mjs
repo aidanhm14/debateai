@@ -135,11 +135,15 @@ export default async (request, context) => {
       );
     }
   } else {
-    // No auth — require authentication for all requests
-    return new Response(
-      JSON.stringify({ error: 'Authentication required' }),
-      { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
-    );
+    // Anonymous path — allow limited unauthenticated access for HS/debate-ai/learn pages
+    // Rate limit anonymous users by IP
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
+    if (!checkRateLimit('anon_' + ip)) {
+      return new Response(
+        JSON.stringify({ error: 'Too many requests. Please wait a moment.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
   }
 
   try {
