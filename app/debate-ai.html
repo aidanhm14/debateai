@@ -179,6 +179,10 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   border-radius:14px;padding:18px;text-align:left;
   font-size:.82rem;line-height:1.65;color:rgba(255,255,255,.35);white-space:pre-wrap;
 }
+.lyrics-box{
+  white-space:normal;font-size:.9rem;line-height:1.8;max-height:280px;
+  scroll-behavior:smooth;
+}
 
 /* ── Feedback Card ─────────────────── */
 .fb-card{
@@ -975,6 +979,10 @@ function useTTS(){
     })();
   };
 
+  // Audio progress tracking for lyrics sync
+  const progressRef=useRef({elapsed:0,total:0});
+  const getProgress=()=>progressRef.current;
+
   // Play pre-fetched audio blobs sequentially
   const playBlobs=(blobs,onEnd)=>{
     cancelledRef.current=false;
@@ -982,6 +990,10 @@ function useTTS(){
     setSpeaking(true);
     modeRef.current='openai';
     onEndRef.current=onEnd;
+    // Calculate total duration from all blobs once first plays
+    let cumulativeTime=0;
+    const durations=new Array(blobs.length).fill(0);
+    progressRef.current={elapsed:0,total:0};
     let i=0;
     const next=()=>{
       if(cancelledRef.current||i>=blobs.length){
@@ -992,9 +1004,28 @@ function useTTS(){
       const url=URL.createObjectURL(blobs[i]);
       const audio=new Audio();
       audioRef.current=audio;
-      audio.onended=()=>{URL.revokeObjectURL(url);i++;next()};
+      const chunkIdx=i;
+      audio.onloadedmetadata=()=>{
+        durations[chunkIdx]=audio.duration||0;
+        if(chunkIdx===0) progressRef.current.total=durations.reduce((a,b)=>a+b,0)||1;
+      };
+      // Update progress during playback
+      audio.ontimeupdate=()=>{
+        const priorTime=durations.slice(0,chunkIdx).reduce((a,b)=>a+b,0);
+        progressRef.current.elapsed=priorTime+(audio.currentTime||0);
+        // Recalculate total if we learn more durations
+        const knownTotal=durations.reduce((a,b)=>a+b,0);
+        if(knownTotal>progressRef.current.total) progressRef.current.total=knownTotal;
+      };
+      audio.onended=()=>{
+        cumulativeTime+=durations[chunkIdx]||0;
+        URL.revokeObjectURL(url);i++;next();
+      };
       audio.onerror=()=>{URL.revokeObjectURL(url);i++;next()};
       audio.oncanplaythrough=()=>{
+        // Update total estimate once we know this chunk's duration
+        const knownTotal=durations.reduce((a,b)=>a+b,0);
+        if(knownTotal>progressRef.current.total) progressRef.current.total=knownTotal;
         audio.play().catch(()=>{URL.revokeObjectURL(url);i++;next()});
       };
       audio.src=url;
@@ -1021,7 +1052,7 @@ function useTTS(){
     modeRef.current='none';
   };
 
-  return{speak,playBlobs,stop,speaking,paused,togglePause};
+  return{speak,playBlobs,stop,speaking,paused,togglePause,getProgress};
 }
 
 function useRecognition(){
@@ -1211,6 +1242,7 @@ function App(){
   const[aiPct,setAiPct]=useState(0);       // generation progress %
   const[voiceEta,setVoiceEta]=useState(0); // estimated seconds for TTS fetch
   const[showTx,setShowTx]=useState(false);
+  const[revealIdx,setRevealIdx]=useState(-1); // lyrics sync: words revealed so far (-1 = all visible)
 
   // POI (Point of Information) state
   const[poiActive,setPoiActive]=useState(false);    // user is raising a POI
@@ -1329,13 +1361,13 @@ function App(){
         stopPreparing();
         setVoiceEta(0);
 
-        // Phase 3: GO — start timer + play audio
+        // Phase 3: GO — start timer + play audio with lyrics sync
         setAiLoading(false);
+        setRevealIdx(0); // start lyrics reveal at 0
         timer.go(s.time);
 
         if(audioReady){
-          // Play OpenAI audio chunks sequentially
-          tts.playBlobs(audioReady,()=>orb.setMode('idle'));
+          tts.playBlobs(audioReady,()=>{orb.setMode('idle');setRevealIdx(-1)});
         } else {
           // Browser fallback
           tts.speak(txt,wpm,()=>orb.setMode('idle'));
@@ -1591,6 +1623,29 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
     if(f&&!f.sides.includes(side)) setSide(f.sides[0]);
   },[format]);
 
+  // Lyrics sync: reveal words in sync with audio playback
+  useEffect(()=>{
+    if(!tts.speaking||!aiText||aiLoading) { return; }
+    const words=aiText.split(/\s+/);
+    const totalWords=words.length;
+    const tick=()=>{
+      const p=tts.getProgress();
+      if(p.total<=0){setRevealIdx(prev=>Math.min(prev+1,totalWords));return;}
+      const pct=Math.min(1,p.elapsed/p.total);
+      // Reveal slightly ahead of audio so words appear just before spoken
+      const idx=Math.min(totalWords,Math.floor(pct*totalWords*1.05)+1);
+      setRevealIdx(idx);
+    };
+    const iv=setInterval(tick,80);
+    return()=>clearInterval(iv);
+  },[tts.speaking,aiText,aiLoading]);
+
+  // Reset reveal when speech ends or new speech starts
+  useEffect(()=>{
+    if(!tts.speaking) setRevealIdx(-1);
+    else setShowTx(true); // auto-open transcript when AI starts speaking
+  },[tts.speaking]);
+
   // Auto-set voice to match opponent personality
   useEffect(()=>{
     if(OPPONENT_VOICES[opponent]) setVoice(OPPONENT_VOICES[opponent]);
@@ -1793,10 +1848,21 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
         // Timer
         el('div',{className:'t-time'+(tc?' '+tc:'')},timer.fmt(timer.left)),
 
-        // Transcript toggle
+        // Transcript toggle — lyrics-style synced reveal for AI speech
         (rec.transcript||aiText)&&el(React.Fragment,null,
           el('button',{className:'transcript-btn',onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide transcript':'▶ Show transcript'),
-          showTx&&el('div',{className:'transcript-box'},isUser?rec.transcript:aiText),
+          showTx&&el('div',{className:'transcript-box lyrics-box'},
+            isUser ? rec.transcript :
+            (()=>{
+              const words=aiText.split(/\s+/);
+              const active=revealIdx>=0;
+              return words.map((w,i)=>el('span',{key:i,style:{
+                color: !active||i<revealIdx ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.12)',
+                transition: 'color .3s ease',
+                fontWeight: active && i>=Math.max(0,revealIdx-3) && i<revealIdx ? 700 : 400,
+              }},w+' '));
+            })()
+          ),
         ),
 
         // Controls
