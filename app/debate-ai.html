@@ -264,6 +264,68 @@ const { useState, useEffect, useRef, useCallback } = React;
 const el = React.createElement;
 
 /* ═══════════════════════════════════════════════════
+   SOUND EFFECTS
+   ═══════════════════════════════════════════════════ */
+
+const SFX = {
+  _ctx: null,
+  _getCtx() { if(!this._ctx) this._ctx=new (window.AudioContext||window.webkitAudioContext)(); return this._ctx; },
+
+  // UI click — subtle, satisfying
+  click() {
+    try{const c=this._getCtx();const o=c.createOscillator();const g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.frequency.value=1200;o.type='sine';
+    g.gain.setValueAtTime(0.08,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.06);
+    o.start(c.currentTime);o.stop(c.currentTime+0.06);}catch{}
+  },
+
+  // Start round — ascending chime
+  startRound() {
+    try{const c=this._getCtx();
+    [440,554,659].forEach((f,i)=>{
+      const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);
+      o.frequency.value=f;o.type='sine';
+      g.gain.setValueAtTime(0,c.currentTime+i*0.12);
+      g.gain.linearRampToValueAtTime(0.1,c.currentTime+i*0.12+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+i*0.12+0.25);
+      o.start(c.currentTime+i*0.12);o.stop(c.currentTime+i*0.12+0.25);
+    });}catch{}
+  },
+
+  // AI thinking — low ambient pulse (plays on loop, returns stop fn)
+  thinking() {
+    try{const c=this._getCtx();
+    const o=c.createOscillator();const g=c.createGain();const lfo=c.createOscillator();const lfoG=c.createGain();
+    o.connect(g);g.connect(c.destination);o.frequency.value=80;o.type='sine';
+    lfo.connect(lfoG);lfoG.connect(g.gain);lfo.frequency.value=2;lfo.type='sine';
+    lfoG.gain.value=0.03;g.gain.value=0.04;
+    o.start();lfo.start();
+    return()=>{try{g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.3);o.stop(c.currentTime+0.4);lfo.stop(c.currentTime+0.4)}catch{}};
+    }catch{return()=>{}}
+  },
+
+  // Speech ready — bright ping
+  ready() {
+    try{const c=this._getCtx();const o=c.createOscillator();const g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.frequency.value=880;o.type='sine';
+    g.gain.setValueAtTime(0.12,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.3);
+    o.start(c.currentTime);o.stop(c.currentTime+0.3);}catch{}
+  },
+
+  // POI raised — attention grab
+  poi() {
+    try{const c=this._getCtx();
+    [660,880].forEach((f,i)=>{
+      const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);
+      o.frequency.value=f;o.type='triangle';
+      g.gain.setValueAtTime(0.1,c.currentTime+i*0.1);
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+i*0.1+0.15);
+      o.start(c.currentTime+i*0.1);o.stop(c.currentTime+i*0.1+0.15);
+    });}catch{}
+  },
+};
+
+/* ═══════════════════════════════════════════════════
    CONSTANTS
    ═══════════════════════════════════════════════════ */
 
@@ -1037,8 +1099,8 @@ You were just giving a speech. Here is what you said so far:
 
 Your opponent raised a Point of Information: "${poiText}"
 
-You ACCEPT the POI. Respond BRIEFLY (2-4 sentences max). Address their point directly — acknowledge the strongest version of it, then explain why it doesn't change your position. Then continue your speech naturally.
-Be direct, spoken-word style. No markdown. No meta-narration.`;
+You ACCEPT the POI. Respond in EXACTLY 2-3 sentences. No more. Address their point, dismiss it, move on. Example length: "Fair point, but even granting that, the mechanism doesn't change because X. And that's actually why our side still wins on timeframe." That's it. Done. Back to your speech.
+Be direct, spoken-word style. No markdown. No meta-narration. Keep it SHORT.`;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1097,10 +1159,10 @@ function App(){
   const transition=(next,cb)=>{setVis(false);setTimeout(()=>{if(cb)cb();setPhase(next);setTimeout(()=>setVis(true),50)},350)};
 
   // Start debate
-  const startDebate=()=>{if(!motion.trim())return;warmUpTTS();transition('prep',()=>prepTimer.go(fmt.prep))};
+  const startDebate=()=>{if(!motion.trim())return;SFX.startRound();warmUpTTS();transition('prep',()=>prepTimer.go(fmt.prep))};
 
   // Skip prep → first speech
-  const goToSpeeches=()=>{
+  const goToSpeeches=()=>{SFX.click();
     warmUpTTS();
     prepTimer.reset();
     transition('speech',()=>{setIdx(0);setLog([]);setTimeout(()=>runSpeech(0,[]),400)});
@@ -1125,6 +1187,7 @@ function App(){
     } else {
       // AI turn — two phases: generate text, then prep audio, then play
       orb.setMode('ai');setAiLoading(true);setAiText('');setAiPct(0);
+      const stopThinking=SFX.thinking();
       try{
         const targetWords=Math.floor(s.time/60)*170;
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
@@ -1136,6 +1199,7 @@ function App(){
           setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
         },brain);
         setAiText(txt);setAiPct(100);
+        stopThinking();SFX.ready();
 
         // Phase 2: Pre-fetch TTS audio (show "Preparing voice...")
         setAiLoading('voice');
@@ -1180,6 +1244,7 @@ function App(){
           tts.speak(txt,wpm,()=>orb.setMode('idle'));
         }
       }catch(e){
+        stopThinking();
         setAiLoading(false);
         const msg='Something went wrong: '+e.message;
         setAiText('['+msg+']');
@@ -1227,6 +1292,7 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
   // POI: Raise a Point of Information during AI speech
   const raisePOI=()=>{
     if(poiActive||isUser||!tts.speaking) return;
+    SFX.poi();
     setPoiActive(true);setPoiText('');setPoiResponse('');
     poiSavedTimeRef.current=timer.left; // save timer state
     tts.togglePause(); // pause AI speech
@@ -1266,30 +1332,48 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
         brain
       );
       setPoiResponse(resp);
-      // Play POI response audio, then resume main speech
+      SFX.ready();
+      // Play POI response audio out loud, then auto-dismiss and resume
+      const closePOI=()=>{
+        setPoiLoading(false);setPoiActive(false);setPoiText('');setPoiResponse('');
+        timer.go(poiSavedTimeRef.current);
+      };
       try{
         const speed=Math.max(0.75,Math.min(2.0,wpm/150));
-        const r=await fetch('/api/tts',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({text:resp,voice:voice,speed}),
-        });
-        if(r.ok){
-          const blob=await r.blob();
-          // Stop current paused audio, play POI response, then resume
-          tts.stop();
-          tts.playBlobs([blob],()=>{
-            setPoiLoading(false);setPoiActive(false);setPoiText('');setPoiResponse('');
-            // Resume timer — speech continues (audio was mid-stream, just resume timer)
-            timer.go(poiSavedTimeRef.current);
-          });
-          return;
+        // Chunk POI response if long
+        const poiChunks=[];let cur='';
+        const sentences=resp.match(/[^.!?]+[.!?]+[\s]*/g)||[resp];
+        for(const s of sentences){
+          if((cur+s).length>3800&&cur){poiChunks.push(cur.trim());cur=s}
+          else cur+=s;
         }
-      }catch{}
-      // If TTS fails, just resume after showing text
-      setTimeout(()=>{
-        setPoiLoading(false);setPoiActive(false);
-        timer.go(poiSavedTimeRef.current);
-      },3000);
+        if(cur.trim())poiChunks.push(cur.trim());
+
+        console.log('[POI TTS] Fetching '+poiChunks.length+' audio chunks...');
+        const blobs=await Promise.all(poiChunks.map(c=>
+          fetch('/api/tts',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({text:c,voice:voice,speed}),
+          }).then(r=>{
+            if(!r.ok) throw new Error('TTS '+r.status);
+            return r.blob();
+          })
+        ));
+        // Stop paused main speech audio, play POI response
+        tts.stop();
+        tts.playBlobs(blobs,closePOI);
+        return;
+      }catch(e){
+        console.warn('[POI TTS] Failed:',e.message,'— using browser voice');
+        // Browser TTS fallback for POI
+        try{
+          tts.stop();
+          tts.speak(resp,wpm,closePOI);
+          return;
+        }catch{}
+      }
+      // Last resort: auto-close after 4s
+      setTimeout(closePOI,4000);
     }catch(e){
       setPoiResponse('Could not respond: '+e.message);
       setTimeout(()=>{setPoiLoading(false);setPoiActive(false);timer.go(poiSavedTimeRef.current)},2000);
