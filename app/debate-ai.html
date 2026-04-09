@@ -401,6 +401,31 @@ const OPPONENTS = {
   },
 };
 
+/* ── AI BRAINS (LLM backends) ────────── */
+const BRAINS = {
+  claude: {
+    name: 'Claude',
+    desc: 'Structured, analytical — Anthropic',
+    endpoint: '/api/claude',
+    format: 'claude',
+    model: 'claude-sonnet-4-20250514',
+  },
+  gpt: {
+    name: 'GPT',
+    desc: 'Conversational, creative — OpenAI',
+    endpoint: '/api/openai-chat',
+    format: 'openai',
+    model: 'gpt-4o-mini',
+  },
+  grok: {
+    name: 'Grok',
+    desc: 'Unfiltered, witty — xAI',
+    endpoint: '/api/grok',
+    format: 'openai',
+    model: 'grok-3-mini',
+  },
+};
+
 const MOTIONS = [
   'This house would ban billionaires.',
   'This house believes social media has done more harm than good.',
@@ -423,16 +448,19 @@ function getUsage(){ try{return parseInt(localStorage.getItem('debateos-anon-usa
 function incUsage(){ try{localStorage.setItem('debateos-anon-usage',String(getUsage()+1))}catch{} }
 function remaining(){ return Math.max(0,LIMIT-getUsage()) }
 
-async function callClaude(sys, user, onChunk){
+// Unified AI call — supports Claude, OpenAI, and xAI streaming formats
+async function callAI(sys, user, onChunk, brainKey){
+  const brain = BRAINS[brainKey] || BRAINS.claude;
+
   const body={
-    model:'claude-sonnet-4-20250514',
+    model: brain.model,
     max_tokens:8000,
     stream:true,
     system:sys,
     messages:[{role:'user',content:user}],
     _feature:'debate-ai',
   };
-  const r=await fetch('/api/claude',{
+  const r=await fetch(brain.endpoint,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body),
@@ -455,12 +483,25 @@ async function callClaude(sys, user, onChunk){
     for(const l of lines){
       if(l.startsWith('data: ')){
         const d=l.slice(6);if(d==='[DONE]')break;
-        try{const p=JSON.parse(d);if(p.type==='content_block_delta'&&p.delta?.text){full+=p.delta.text;if(onChunk)onChunk(full)}}catch{}
+        try{
+          const p=JSON.parse(d);
+          // Claude format
+          if(p.type==='content_block_delta'&&p.delta?.text){
+            full+=p.delta.text;if(onChunk)onChunk(full);
+          }
+          // OpenAI / xAI format
+          if(p.choices&&p.choices[0]?.delta?.content){
+            full+=p.choices[0].delta.content;if(onChunk)onChunk(full);
+          }
+        }catch{}
       }
     }
   }
   incUsage();return full;
 }
+
+// Backwards-compatible wrapper
+function callClaude(sys, user, onChunk){ return callAI(sys, user, onChunk, 'claude'); }
 
 /* ═══════════════════════════════════════════════════
    AUDIO HOOKS
@@ -884,6 +925,18 @@ CRITICAL STYLE RULES:
 function buildPOIResponse(motion,aiSpeechSoFar,poiText,format,opponent){
   const fmt=FORMATS[format]||FORMATS.apda;
   const opp=OPPONENTS[opponent]||OPPONENTS.balanced;
+  // Randomly decide to accept or reject (70% accept, 30% reject — like real debate)
+  const acceptPOI = Math.random() < 0.7;
+  if(!acceptPOI){
+    return `You are mid-speech in a ${fmt.name} debate. Motion: "${motion}".
+${opp.prompt}
+
+Your opponent tried to raise a Point of Information but you DECLINE it. Give a brief, natural rejection (1 sentence max). Examples of natural rejections: "No thank you.", "Not at this time.", "I'll take your point later." Then immediately continue your argument flow from where you left off.
+
+You were saying: "${aiSpeechSoFar.slice(-800)}"
+
+Continue your speech naturally for 2-3 more sentences from where you left off. No markdown.`;
+  }
   return `You are mid-speech in a ${fmt.name} debate. Motion: "${motion}".
 ${opp.prompt}
 
@@ -892,8 +945,8 @@ You were just giving a speech. Here is what you said so far:
 
 Your opponent raised a Point of Information: "${poiText}"
 
-Respond BRIEFLY (2-4 sentences max). Address their point directly — steelman it first ("That's a fair point, and even taking it at its strongest…"), then explain why it doesn't change your position. Then signal you're continuing your speech ("But returning to my argument…").
-Be natural, spoken-word style. No markdown.`;
+You ACCEPT the POI. Respond BRIEFLY (2-4 sentences max). Address their point directly — acknowledge the strongest version of it, then explain why it doesn't change your position. Then continue your speech naturally.
+Be direct, spoken-word style. No markdown. No meta-narration.`;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -906,6 +959,7 @@ function App(){
   const[motion,setMotion]=useState('');
   const[format,setFormat]=useState('apda');
   const[opponent,setOpponent]=useState('balanced');
+  const[brain,setBrain]=useState('claude');
   const[voice,setVoice]=useState('onyx');
   const[side,setSide]=useState('gov');
   const[wpm,setWpm]=useState(180);
@@ -984,11 +1038,11 @@ function App(){
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
 
         // Phase 1: Generate argument text
-        const txt=await callClaude(buildPrompt(s,side,motion,hist,notes,format,opponent),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
+        const txt=await callAI(buildPrompt(s,side,motion,hist,notes,format,opponent),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           setAiText(chunk);
           const words=chunk.split(/\s+/).length;
           setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
-        });
+        },brain);
         setAiText(txt);setAiPct(100);
 
         // Phase 2: Pre-fetch TTS audio (show "Preparing voice...")
@@ -1071,7 +1125,7 @@ function App(){
 
 Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (25-30 scale), 3) Key clash point and who won it, 4) Per-speech feedback (2 strengths, 2 improvements each), 5) One concrete thing to practice. Be honest, reference specific arguments.`;
     try{
-      const fb=await callClaude(sys,'Full round transcript:\n\n'+tx,chunk=>setFeedback(chunk));
+      const fb=await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>setFeedback(chunk),brain);
       setFeedback(fb);
       saveRound(allLog,fb);
     }catch(e){setFeedback('Could not generate feedback: '+e.message)}
@@ -1113,10 +1167,11 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
     if(!pt){cancelPOI();return}
     setPoiLoading(true);
     try{
-      const resp=await callClaude(
+      const resp=await callAI(
         buildPOIResponse(motion,aiText,pt,format,opponent),
         'Respond to this Point of Information.',
-        chunk=>setPoiResponse(chunk)
+        chunk=>setPoiResponse(chunk),
+        brain
       );
       setPoiResponse(resp);
       // Play POI response audio, then resume main speech
@@ -1225,6 +1280,14 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
         )
       ),
 
+      // AI Brain
+      el('div',{className:'t-label',style:{marginTop:24}},'AI Brain'),
+      el('div',{className:'pills'},
+        Object.entries(BRAINS).map(([k,v])=>
+          el('button',{key:k,className:'pill'+(brain===k?' on':''),onClick:()=>setBrain(k),title:v.desc},v.name)
+        )
+      ),
+
       // Opponent Style
       el('div',{className:'t-label',style:{marginTop:24}},'Opponent Style'),
       el('div',{className:'pills'},
@@ -1265,7 +1328,7 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
 
       // Summary line
       el('div',{className:'t-dim',style:{marginTop:16}},
-        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+VOICES[voice].name+' · '+OPPONENTS[opponent].name+' opponent'
+        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' · '+OPPONENTS[opponent].name+' opponent'
       ),
 
       el('button',{className:'cta',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
