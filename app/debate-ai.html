@@ -395,82 +395,130 @@ function useOrb(){
 
 function useTTS(){
   const[speaking,setSpeaking]=useState(false);
+  const[paused,setPaused]=useState(false);
   const audioRef=useRef(null);
   const cancelledRef=useRef(false);
+  const blobQueueRef=useRef([]);   // fetched audio blobs waiting to play
+  const playingRef=useRef(false);  // is the sequential player active
+  const doneRef=useRef(false);     // all chunks fetched
+  const onEndRef=useRef(null);
 
-  // OpenAI TTS — returns audio blob from our proxy function
-  const speakOpenAI=async(text,speed,onEnd)=>{
-    try{
-      const r=await fetch('/api/tts',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({text:text.slice(0,5000),voice:'onyx',speed}),
-      });
-      if(!r.ok) throw new Error('TTS '+r.status);
-      const blob=await r.blob();
-      if(cancelledRef.current) return;
+  // Split text at sentence boundaries, max ~3500 chars per chunk
+  const chunkText=(text)=>{
+    const sentences=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
+    const chunks=[];let cur='';
+    for(const s of sentences){
+      if((cur+s).length>3500&&cur){chunks.push(cur.trim());cur=s}
+      else cur+=s;
+    }
+    if(cur.trim())chunks.push(cur.trim());
+    return chunks;
+  };
+
+  // Fetch one TTS audio chunk
+  const fetchAudio=async(text,speed)=>{
+    const r=await fetch('/api/tts',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text,voice:'onyx',speed}),
+    });
+    if(!r.ok) throw new Error('TTS '+r.status);
+    return await r.blob();
+  };
+
+  // Sequential player — plays blobs as they arrive in the queue
+  const startPlayer=()=>{
+    if(playingRef.current) return; // already running
+    playingRef.current=true;
+    const next=()=>{
+      if(cancelledRef.current){playingRef.current=false;setSpeaking(false);return}
+      if(blobQueueRef.current.length===0){
+        // Queue empty — if all chunks fetched, we're done
+        if(doneRef.current){
+          playingRef.current=false;
+          setSpeaking(false);
+          if(onEndRef.current)onEndRef.current();
+          return;
+        }
+        // Otherwise wait for more chunks
+        setTimeout(next,150);
+        return;
+      }
+      const blob=blobQueueRef.current.shift();
       const url=URL.createObjectURL(blob);
       const audio=new Audio(url);
       audioRef.current=audio;
-      audio.onended=()=>{
-        URL.revokeObjectURL(url);
-        setSpeaking(false);
-        if(onEnd)onEnd();
-      };
-      audio.onerror=()=>{
-        URL.revokeObjectURL(url);
-        setSpeaking(false);
-        if(onEnd)onEnd();
-      };
-      audio.play();
-    }catch(e){
-      console.warn('OpenAI TTS failed, falling back to browser:',e);
-      speakBrowser(text,speed,onEnd);
-    }
-  };
-
-  // Browser fallback TTS (robotic but works without API key)
-  const speakBrowser=(text,speed,onEnd)=>{
-    if(!window.speechSynthesis){setSpeaking(false);if(onEnd)onEnd();return}
-    window.speechSynthesis.cancel();
-    // Split into sentence chunks to avoid Chrome 15s cutoff
-    const chunks=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
-    const groups=[];let cur='';
-    for(const c of chunks){
-      if((cur+c).split(/\s+/).length>80&&cur){groups.push(cur.trim());cur=c}
-      else cur+=c;
-    }
-    if(cur.trim())groups.push(cur.trim());
-
-    const voices=window.speechSynthesis.getVoices();
-    const pref=voices.find(x=>/Daniel|Google US English|Samantha|Aaron/.test(x.name))||voices.find(x=>x.lang.startsWith('en'))||null;
-    let i=0;
-    const next=()=>{
-      if(cancelledRef.current||i>=groups.length){setSpeaking(false);if(onEnd)onEnd();return}
-      const u=new SpeechSynthesisUtterance(groups[i]);
-      u.rate=speed;if(pref)u.voice=pref;
-      u.onend=()=>{i++;next()};u.onerror=()=>{i++;next()};
-      window.speechSynthesis.speak(u);
+      audio.onended=()=>{URL.revokeObjectURL(url);next()};
+      audio.onerror=()=>{URL.revokeObjectURL(url);next()};
+      audio.play().catch(e=>{
+        console.warn('Audio.play() rejected:',e);
+        URL.revokeObjectURL(url);next();
+      });
     };
     next();
   };
 
+  // Main speak — chunk, fetch in parallel, start playing as soon as first chunk ready
   const speak=(text,wpm=180,onEnd)=>{
     cancelledRef.current=false;
+    setPaused(false);
     setSpeaking(true);
-    // Map WPM to speed multiplier: 150wpm=1.0x, 200wpm≈1.33x, 260wpm≈1.73x
+    doneRef.current=false;
+    blobQueueRef.current=[];
+    onEndRef.current=onEnd;
     const speed=Math.max(0.75,Math.min(2.0,wpm/150));
-    speakOpenAI(text,speed,onEnd);
+
+    const chunks=chunkText(text);
+    console.log('TTS: '+chunks.length+' chunks, '+text.length+' chars');
+
+    // Fetch each chunk and push to queue as it arrives
+    let fetched=0;
+    chunks.forEach((c,i)=>{
+      fetchAudio(c,speed).then(blob=>{
+        if(cancelledRef.current) return;
+        // Insert in order (chunks may finish out of order)
+        // Use a simple approach: store by index then compact
+        blobQueueRef.current._pending=blobQueueRef.current._pending||{};
+        blobQueueRef.current._pending[i]=blob;
+        // Push all consecutive ready blobs
+        while(blobQueueRef.current._pending[fetched]){
+          blobQueueRef.current.push(blobQueueRef.current._pending[fetched]);
+          delete blobQueueRef.current._pending[fetched];
+          fetched++;
+        }
+        if(fetched===chunks.length) doneRef.current=true;
+        startPlayer(); // kick player if not running
+      }).catch(e=>{
+        console.warn('TTS fetch error chunk '+i+':',e);
+        fetched++;
+        if(fetched===chunks.length) doneRef.current=true;
+      });
+    });
   };
+
+  const pause=()=>{
+    if(audioRef.current&&!paused){
+      audioRef.current.pause();
+      setPaused(true);
+    }
+  };
+  const resume=()=>{
+    if(audioRef.current&&paused){
+      audioRef.current.play();
+      setPaused(false);
+    }
+  };
+  const togglePause=()=>paused?resume():pause();
 
   const stop=()=>{
     cancelledRef.current=true;
+    doneRef.current=true;
+    blobQueueRef.current=[];
     if(audioRef.current){audioRef.current.pause();audioRef.current=null}
-    if(window.speechSynthesis)window.speechSynthesis.cancel();
-    setSpeaking(false);
+    setSpeaking(false);setPaused(false);
   };
 
-  return{speak,stop,speaking};
+  return{speak,stop,speaking,paused,togglePause};
 }
 
 function useRecognition(){
@@ -623,6 +671,7 @@ function App(){
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
         const txt=await callClaude(buildPrompt(s,side,motion,hist,notes),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>setAiText(chunk));
         setAiText(txt);setAiLoading(false);
+        // Start TTS immediately with completed text
         tts.speak(txt,wpm,()=>orb.setMode('idle'));
       }catch(e){
         setAiLoading(false);
@@ -757,7 +806,7 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
         el('div',{className:'t-phase'},cur.code+' — '+cur.name),
         el('div',{className:'t-dim',style:{marginBottom:24}},
           isUser?'Speak now — your voice is being transcribed':
-          aiLoading?'AI is preparing...':'AI is speaking at '+wpm+' wpm'
+          aiLoading?'AI is preparing...':tts.paused?'Paused':'AI is speaking at '+wpm+' wpm'
         ),
 
         // The orb
@@ -776,8 +825,9 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
           showTx&&el('div',{className:'transcript-box'},isUser?rec.transcript:aiText),
         ),
 
-        // End button
+        // Controls
         el('div',{className:'row-c'},
+          !isUser&&tts.speaking&&el('button',{className:'cta-ghost',onClick:tts.togglePause},tts.paused?'▶ Resume':'⏸ Pause'),
           el('button',{className:'cta-ghost',onClick:endSpeech},isUser?'End Speech →':'Skip →'),
         ),
       )

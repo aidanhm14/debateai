@@ -103,8 +103,9 @@ export default async (request, context) => {
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
+      console.error('OpenAI TTS error:', response.status, errText);
       return new Response(
-        JSON.stringify({ error: 'TTS API error: ' + (response.status) }),
+        JSON.stringify({ error: 'TTS API error ' + response.status + ': ' + errText }),
         { status: response.status, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
