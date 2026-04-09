@@ -26,7 +26,7 @@ function getCorsHeaders(request) {
 // Simple rate limiter
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60_000;
-const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_MAX = 60;
 
 function checkRateLimit(key) {
   const now = Date.now();
@@ -68,7 +68,7 @@ export default async (request, context) => {
   const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
   if (!checkRateLimit('tts_' + ip)) {
     return new Response(
-      JSON.stringify({ error: 'Too many TTS requests. Wait a moment.' }),
+      JSON.stringify({ error: 'RATE_LIMIT: Too many TTS requests from this IP. Wait a moment.' }),
       { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
     );
   }
@@ -105,8 +105,8 @@ export default async (request, context) => {
       const errText = await response.text().catch(() => '');
       console.error('OpenAI TTS error:', response.status, errText);
       return new Response(
-        JSON.stringify({ error: 'TTS API error ' + response.status + ': ' + errText }),
-        { status: response.status, headers: { 'Content-Type': 'application/json', ...CORS } }
+        JSON.stringify({ error: 'OPENAI_ERROR ' + response.status + ': ' + errText }),
+        { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
 
