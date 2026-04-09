@@ -971,7 +971,7 @@ function useTTS(){
           reject(new Error('Audio play timeout'));
         },5000);
 
-        audio.oncanplaythrough=()=>{
+        audio.oncanplay=()=>{
           console.log('%c[TTS] Audio ready, playing...','color:lime');
           clearTimeout(timeout);
           audio.play().then(()=>{
@@ -1109,8 +1109,7 @@ function useTTS(){
         URL.revokeObjectURL(url);i++;next();
       };
       audio.onerror=()=>{URL.revokeObjectURL(url);i++;next()};
-      audio.oncanplaythrough=()=>{
-        // Update total estimate once we know this chunk's duration
+      audio.oncanplay=()=>{
         const knownTotal=durations.reduce((a,b)=>a+b,0);
         if(knownTotal>progressRef.current.total) progressRef.current.total=knownTotal;
         audio.play().catch(()=>{URL.revokeObjectURL(url);i++;next()});
@@ -1140,7 +1139,7 @@ function useTTS(){
   };
 
   // Stream playback: accepts array of blob Promises, plays each as it resolves
-  const playBlobStream=(blobPromises,onEnd)=>{
+  const playBlobStream=(blobPromises,onEnd,fallbackText)=>{
     cancelledRef.current=false;
     setPaused(false);
     setSpeaking(true);
@@ -1149,8 +1148,20 @@ function useTTS(){
     progressRef.current={elapsed:0,total:0};
     const durations=new Array(blobPromises.length).fill(0);
     let i=0;
+    let anyPlayed=false;
     const playNext=async()=>{
       if(cancelledRef.current||i>=blobPromises.length){
+        // If no chunks played at all, fall back to browser TTS
+        if(!anyPlayed&&fallbackText){
+          console.warn('[TTS Stream] No chunks played — falling back to browser TTS');
+          modeRef.current='browser';
+          const u=new SpeechSynthesisUtterance(fallbackText);
+          u.rate=1;u.pitch=1;
+          u.onend=()=>{setSpeaking(false);if(onEndRef.current)onEndRef.current()};
+          u.onerror=()=>{setSpeaking(false);if(onEndRef.current)onEndRef.current()};
+          window.speechSynthesis.speak(u);
+          return;
+        }
         setSpeaking(false);
         if(onEndRef.current) onEndRef.current();
         return;
@@ -1158,7 +1169,7 @@ function useTTS(){
       try{
         const blob=await blobPromises[i];
         if(cancelledRef.current) return;
-        if(blob.size<500){console.warn('[TTS Stream] Chunk '+i+' too small, skip');i++;playNext();return;}
+        if(blob.size<500){console.warn('[TTS Stream] Chunk '+i+' too small ('+blob.size+'b), skip');i++;playNext();return;}
         const url=URL.createObjectURL(blob);
         const audio=new Audio();
         audioRef.current=audio;
@@ -1174,12 +1185,34 @@ function useTTS(){
           if(kt>progressRef.current.total) progressRef.current.total=kt;
         };
         audio.onended=()=>{URL.revokeObjectURL(url);i++;playNext()};
-        audio.onerror=(e)=>{console.warn('[TTS Stream] Chunk '+ci+' error:',e);URL.revokeObjectURL(url);i++;playNext()};
+        audio.onerror=(e)=>{console.warn('[TTS Stream] Chunk '+ci+' audio error:',e);URL.revokeObjectURL(url);i++;playNext()};
         audio.src=url;
-        audio.play().then(()=>{console.log('[TTS Stream] Chunk '+ci+' playing')}).catch(e=>{
-          console.warn('[TTS Stream] play() failed for chunk '+ci+':',e.message);
-          URL.revokeObjectURL(url);i++;playNext();
-        });
+        // Try play() directly — if browser needs more data, wait for canplay
+        const tryPlay=()=>{
+          audio.play().then(()=>{
+            anyPlayed=true;
+            console.log('[TTS Stream] Chunk '+ci+' playing ('+blob.size+'b)');
+          }).catch(e=>{
+            if(e.name==='NotAllowedError'){
+              console.warn('[TTS Stream] Autoplay blocked for chunk '+ci);
+              URL.revokeObjectURL(url);i++;playNext();
+            } else {
+              // Not enough data yet — wait for canplay
+              console.log('[TTS Stream] Chunk '+ci+' waiting for data...');
+              audio.oncanplay=()=>{
+                audio.play().then(()=>{
+                  anyPlayed=true;
+                  console.log('[TTS Stream] Chunk '+ci+' playing after canplay');
+                }).catch(e2=>{
+                  console.warn('[TTS Stream] play() still failed for chunk '+ci+':',e2.message);
+                  URL.revokeObjectURL(url);i++;playNext();
+                });
+              };
+              audio.load();
+            }
+          });
+        };
+        tryPlay();
       }catch(e){
         console.warn('[TTS Stream] Chunk '+i+' failed:',e.message);
         i++;playNext();
@@ -1468,11 +1501,18 @@ function App(){
         // Phase 2+3: Streaming TTS — fetch chunk 1, start playing immediately,
         // fetch remaining chunks in background while audio plays
         setAiLoading('voice');
-        const wordCount=txt.split(/\s+/).length;
-        const estSeconds=Math.max(2,Math.ceil(wordCount/120));
+        const charCount=txt.length;
+        // Estimate based on historical fetch speed or fallback (~800 chars/sec for HD TTS)
+        const histRate=window.__ttsCharsPerSec||800;
+        const estSeconds=Math.max(2,Math.ceil(charCount/histRate));
         setVoiceEta(estSeconds);
         const stopPreparing=SFX.preparing();
-        const etaInterval=setInterval(()=>setVoiceEta(v=>Math.max(0,v-1)),1000);
+        const voiceFetchStart=Date.now();
+        const etaInterval=setInterval(()=>{
+          const elapsed=(Date.now()-voiceFetchStart)/1000;
+          const remaining=Math.max(0,Math.ceil(estSeconds-elapsed));
+          setVoiceEta(remaining);
+        },1000);
 
         const baseSpeed=Math.max(0.75,Math.min(2.0,wpm/150));
         try{
@@ -1500,7 +1540,12 @@ function App(){
             method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({text:chunks[0],voice:voice,speed:chunkSpeeds[0],hd:true}),
           }).then(async r=>{
-            if(!r.ok){const t=await r.text().catch(()=>'');console.error('[TTS] First chunk error:',r.status,t);throw new Error('TTS '+r.status+': '+t);}
+            const ct=r.headers.get('content-type')||'';
+            if(!r.ok||!ct.includes('audio')){
+              const t=await r.text().catch(()=>'');
+              console.error('[TTS] First chunk error:',r.status,ct,t);
+              throw new Error('TTS '+r.status+': '+t);
+            }
             const b=await r.blob();
             console.log('[TTS] First chunk blob:',b.size,'bytes, type:',b.type);
             return b;
@@ -1520,12 +1565,16 @@ function App(){
               fetch('/api/tts',{
                 method:'POST',headers:{'Content-Type':'application/json'},
                 body:JSON.stringify({text:c,voice:voice,speed:chunkSpeeds[ci+1],hd:true}),
-              }).then(r=>{if(!r.ok)throw new Error('TTS '+r.status);return r.blob()})
+              }).then(r=>{
+                const ct=r.headers.get('content-type')||'';
+                if(!r.ok||!ct.includes('audio'))throw new Error('TTS '+r.status+' ('+ct+')');
+                return r.blob();
+              })
             );
           });
 
-          // Stream playback: play each blob as soon as it's ready
-          tts.playBlobStream(blobPromises,()=>{orb.setMode('idle');setRevealIdx(-1)});
+          // Stream playback: play each blob as soon as it's ready (with browser TTS fallback)
+          tts.playBlobStream(blobPromises,()=>{orb.setMode('idle');setRevealIdx(-1)},txt);
 
         }catch(e){
           console.warn('[TTS] Streaming failed:',e.message,'— browser fallback');
