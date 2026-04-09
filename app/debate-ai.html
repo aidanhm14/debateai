@@ -516,18 +516,28 @@ async function callAI(sys, user, onChunk, brainKey){
     messages:[{role:'user',content:user}],
     _feature:'debate-ai',
   };
-  const r=await fetch(brain.endpoint,{
+  let r=await fetch(brain.endpoint,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body),
   });
+  // If non-Claude brain returns 404 (function not deployed), fall back to Claude
+  if(r.status===404 && brain.endpoint!=='/api/claude'){
+    console.warn('[AI] '+brain.endpoint+' returned 404, falling back to /api/claude');
+    body.model=BRAINS.claude.model;
+    r=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body),
+    });
+  }
   if(!r.ok){
     const txt=await r.text().catch(()=>'');
     let errMsg='';
-    try{const j=JSON.parse(txt);errMsg=j.error||j.message||txt}catch{errMsg=txt}
+    try{const j=JSON.parse(txt);errMsg=typeof j.error==='string'?j.error:typeof j.message==='string'?j.message:JSON.stringify(j)}catch{errMsg=txt||'No response body'}
     if(r.status===401) throw new Error('Sign in required: '+errMsg);
     if(r.status===429) throw new Error('Rate limited — wait a moment and try again.');
-    throw new Error('Error ('+r.status+'): '+(errMsg||'Unknown error'));
+    throw new Error('Error ('+r.status+') from '+brain.endpoint+': '+(errMsg||'Unknown error'));
   }
   const reader=r.body.getReader(),dec=new TextDecoder();
   let full='',buf='';
