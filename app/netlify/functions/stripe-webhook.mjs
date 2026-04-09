@@ -206,9 +206,11 @@ export default async (request) => {
  * Map a Stripe price ID to our plan name.
  */
 function getPlanFromPrice(priceId) {
+  const byokPrice = process.env.STRIPE_PRICE_BYOK;
   const individualPrice = process.env.STRIPE_PRICE_INDIVIDUAL;
   const teamPrice = process.env.STRIPE_PRICE_TEAM;
 
+  if (priceId === byokPrice) return 'byok';
   if (priceId === individualPrice) return 'individual';
   if (priceId === teamPrice) return 'team';
   console.warn('Unknown price ID:', priceId, '— defaulting to individual');

@@ -31,13 +31,14 @@ export default async (request) => {
   const planId = body.plan; // "individual" or "team"
 
   const priceMap = {
+    byok: process.env.STRIPE_PRICE_BYOK,
     individual: process.env.STRIPE_PRICE_INDIVIDUAL,
     team: process.env.STRIPE_PRICE_TEAM,
     lifetime: process.env.STRIPE_PRICE_LIFETIME,
   };
 
   const priceId = priceMap[planId];
-  if (!priceId) return errorResponse('Invalid plan. Choose "individual", "team", or "lifetime".', 400, request);
+  if (!priceId) return errorResponse('Invalid plan. Choose "byok", "individual", "team", or "lifetime".', 400, request);
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const siteUrl = process.env.SITE_URL || 'https://debateos.com';
