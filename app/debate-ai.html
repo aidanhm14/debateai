@@ -203,6 +203,55 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   .progress-bar{gap:4px}
   .pip-bar{width:28px}
 }
+/* ── POI Overlay ──────────────────── */
+.poi-overlay{
+  position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;animation:fadeIn .2s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.poi-card{
+  background:rgba(255,255,255,.04);border:1.5px solid rgba(239,68,68,.3);
+  border-radius:20px;padding:32px;max-width:480px;width:100%;text-align:center;
+}
+.poi-card h3{font-size:1.2rem;font-weight:800;color:#ef4444;margin-bottom:8px;letter-spacing:-.02em}
+.poi-transcript{
+  min-height:60px;padding:16px;margin:16px 0;background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.08);border-radius:12px;
+  color:rgba(255,255,255,.6);font-size:.9rem;line-height:1.5;
+  font-style:italic;
+}
+.poi-response{
+  padding:16px;margin:12px 0;background:rgba(239,68,68,.05);
+  border:1px solid rgba(239,68,68,.15);border-radius:12px;
+  color:rgba(255,255,255,.7);font-size:.9rem;line-height:1.5;text-align:left;
+}
+
+/* ── Round History ────────────────── */
+.history-panel{
+  position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.92);
+  overflow-y:auto;padding:80px 24px 40px;animation:fadeIn .25s ease;
+}
+.history-grid{max-width:640px;margin:0 auto}
+.history-card{
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  border-radius:16px;padding:20px 24px;margin-bottom:12px;cursor:pointer;
+  transition:all .2s;
+}
+.history-card:hover{border-color:rgba(239,68,68,.3);background:rgba(255,255,255,.05)}
+.history-card .hc-motion{font-weight:600;color:rgba(255,255,255,.7);font-size:.95rem;margin-bottom:6px}
+.history-card .hc-meta{font-size:.72rem;color:rgba(255,255,255,.25);display:flex;gap:12px;flex-wrap:wrap}
+.history-card .hc-meta span{display:flex;align-items:center;gap:4px}
+.history-detail{max-width:640px;margin:0 auto}
+.history-detail .hd-speech{
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);
+  border-radius:12px;padding:16px;margin-bottom:10px;
+}
+.history-detail .hd-who{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.history-detail .hd-who.you{color:#ef4444}
+.history-detail .hd-who.ai{color:rgba(255,255,255,.3)}
+.history-detail .hd-text{font-size:.85rem;line-height:1.7;color:rgba(255,255,255,.45);white-space:pre-wrap}
+
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
 }
@@ -803,16 +852,48 @@ function buildPrompt(speech,userSide,motion,history,notes,format,opponent){
   const aiSides=fmt.sides.filter(s=>s!==userSide);
   const aiLabel=fmt.sideLabels[aiSides[0]]||aiSides[0];
   const rule=fmt.rules[speech.code]||'Deliver your speech.';
+  const isRebuttal=speech.code.includes('R')||speech.code==='LOR'||speech.code==='PMR'||speech.code==='Reply';
+  const steelmanInstruction=history?`
+CRITICAL — STEELMANNING REQUIREMENT:
+When engaging with your opponent's arguments, you MUST:
+1. First, take their argument at its BEST possible interpretation — state the strongest version of what they're claiming ("Even if we grant the strongest version of their point…" or "Taking their argument at its best case…")
+2. Then defeat that strongest version through weighing and outweighing ("But this is outweighed because…", "Even granting all of that, X matters more because…")
+3. Use comparative weighing: magnitude (how many people affected), probability (how likely), timeframe (how soon), reversibility (can we undo the harm?)
+4. Never strawman. Never attack the weakest version. Always engage the steel-manned version and still win.
+This makes you a formidable opponent — the kind that makes your opponent genuinely improve.`:'';
   return `You are a skilled ${aiLabel} debater in a ${fmt.name} debate. Motion/Resolution: "${motion}".
 
 ${opp.prompt}
 
 ${rule}
+${steelmanInstruction}
 
 ${history?'Previous speeches:\n'+history:'First speech of the round.'}
 ${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+notes:''}
 
-Write the speech as spoken aloud. Natural flowing language, no bullet points, no markdown headers. Be substantive — use examples, analogies, reasoning. ~${Math.floor(speech.time/60)*170} words (~${Math.floor(speech.time/60)} min). Sound like a competitive debater, not a textbook.`;
+Write the speech as spoken aloud. Natural flowing language, no bullet points, no markdown headers. Be substantive — use examples, analogies, reasoning. ~${Math.floor(speech.time/60)*170} words (~${Math.floor(speech.time/60)} min).
+
+CRITICAL STYLE RULES:
+- NEVER narrate or announce what you're about to do. Don't say "Before I engage their arguments, let me establish..." or "I need to first set up a framework" or "Let me now turn to...". Just DO it. Make the argument directly.
+- NEVER refer to yourself in the third person or be meta about your own speech structure. No "My opponent will find that..." — just say the thing.
+- Sound like a sharp, confident college debater in an actual round — not a textbook, not a lecture, not an essay. Be direct, punchy, and conversational.
+- Cut the filler. Every sentence should advance an argument, not describe what argument you're about to make.`;
+}
+
+/* ── POI (Point of Information) handler ── */
+function buildPOIResponse(motion,aiSpeechSoFar,poiText,format,opponent){
+  const fmt=FORMATS[format]||FORMATS.apda;
+  const opp=OPPONENTS[opponent]||OPPONENTS.balanced;
+  return `You are mid-speech in a ${fmt.name} debate. Motion: "${motion}".
+${opp.prompt}
+
+You were just giving a speech. Here is what you said so far:
+"${aiSpeechSoFar.slice(-2000)}"
+
+Your opponent raised a Point of Information: "${poiText}"
+
+Respond BRIEFLY (2-4 sentences max). Address their point directly — steelman it first ("That's a fair point, and even taking it at its strongest…"), then explain why it doesn't change your position. Then signal you're continuing your speech ("But returning to my argument…").
+Be natural, spoken-word style. No markdown.`;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -837,6 +918,20 @@ function App(){
   const[aiText,setAiText]=useState('');
   const[aiPct,setAiPct]=useState(0);       // generation progress %
   const[showTx,setShowTx]=useState(false);
+
+  // POI (Point of Information) state
+  const[poiActive,setPoiActive]=useState(false);    // user is raising a POI
+  const[poiText,setPoiText]=useState('');            // what user said during POI
+  const[poiResponse,setPoiResponse]=useState('');    // AI response to POI
+  const[poiLoading,setPoiLoading]=useState(false);
+  const poiRecRef=useRef(null);
+
+  // Round history
+  const[showHistory,setShowHistory]=useState(false);
+  const[historyRounds,setHistoryRounds]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem('debateos-round-history')||'[]')}catch{return[]}
+  });
+  const[viewingRound,setViewingRound]=useState(null);
 
   const orb=useOrb();
   const rec=useRecognition();
@@ -978,8 +1073,113 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
     try{
       const fb=await callClaude(sys,'Full round transcript:\n\n'+tx,chunk=>setFeedback(chunk));
       setFeedback(fb);
+      saveRound(allLog,fb);
     }catch(e){setFeedback('Could not generate feedback: '+e.message)}
     setFbLoading(false);
+  };
+
+  // POI: Raise a Point of Information during AI speech
+  const raisePOI=()=>{
+    if(poiActive||isUser||!tts.speaking) return;
+    setPoiActive(true);setPoiText('');setPoiResponse('');
+    poiSavedTimeRef.current=timer.left; // save timer state
+    tts.togglePause(); // pause AI speech
+    timer.halt();      // pause timer during POI
+
+    // Start recording user's POI
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(SR){
+      const r=new SR();r.continuous=false;r.interimResults=true;r.lang='en-US';
+      r.onresult=e=>{
+        let f='';
+        for(let i=0;i<e.results.length;i++){
+          f+=e.results[i][0].transcript+' ';
+        }
+        setPoiText(f.trim());
+      };
+      r.onerror=()=>{};
+      poiRecRef.current=r;
+      try{r.start()}catch{}
+    }
+  };
+
+  // Track paused audio state for POI resume
+  const poiSavedTimeRef=useRef(0);
+
+  // POI: Submit the point and get AI response
+  const submitPOI=async()=>{
+    if(poiRecRef.current)try{poiRecRef.current.stop()}catch{}
+    const pt=poiText.trim();
+    if(!pt){cancelPOI();return}
+    setPoiLoading(true);
+    try{
+      const resp=await callClaude(
+        buildPOIResponse(motion,aiText,pt,format,opponent),
+        'Respond to this Point of Information.',
+        chunk=>setPoiResponse(chunk)
+      );
+      setPoiResponse(resp);
+      // Play POI response audio, then resume main speech
+      try{
+        const speed=Math.max(0.75,Math.min(2.0,wpm/150));
+        const r=await fetch('/api/tts',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({text:resp,voice:voice,speed}),
+        });
+        if(r.ok){
+          const blob=await r.blob();
+          // Stop current paused audio, play POI response, then resume
+          tts.stop();
+          tts.playBlobs([blob],()=>{
+            setPoiLoading(false);setPoiActive(false);setPoiText('');setPoiResponse('');
+            // Resume timer — speech continues (audio was mid-stream, just resume timer)
+            timer.go(poiSavedTimeRef.current);
+          });
+          return;
+        }
+      }catch{}
+      // If TTS fails, just resume after showing text
+      setTimeout(()=>{
+        setPoiLoading(false);setPoiActive(false);
+        timer.go(poiSavedTimeRef.current);
+      },3000);
+    }catch(e){
+      setPoiResponse('Could not respond: '+e.message);
+      setTimeout(()=>{setPoiLoading(false);setPoiActive(false);timer.go(poiSavedTimeRef.current)},2000);
+    }
+  };
+
+  // POI: Cancel and resume
+  const cancelPOI=()=>{
+    if(poiRecRef.current)try{poiRecRef.current.stop()}catch{}
+    setPoiActive(false);setPoiText('');setPoiResponse('');
+    // Resume — unpause the audio and restart timer
+    tts.togglePause();
+    timer.go(poiSavedTimeRef.current);
+  };
+
+  // Save round to history
+  const saveRound=(allLog,fb)=>{
+    const round={
+      id:Date.now(),
+      date:new Date().toISOString(),
+      motion,format,opponent,side,voice,
+      formatName:(FORMATS[format]||FORMATS.apda).name,
+      opponentName:(OPPONENTS[opponent]||OPPONENTS.balanced).name,
+      sideLabel:(FORMATS[format]||FORMATS.apda).sideLabels[side]||side,
+      log:allLog,
+      feedback:fb||'',
+    };
+    const updated=[round,...historyRounds].slice(0,50); // keep last 50
+    setHistoryRounds(updated);
+    try{localStorage.setItem('debateos-round-history',JSON.stringify(updated))}catch{}
+  };
+
+  const deleteRound=(id)=>{
+    const updated=historyRounds.filter(r=>r.id!==id);
+    setHistoryRounds(updated);
+    try{localStorage.setItem('debateos-round-history',JSON.stringify(updated))}catch{}
+    if(viewingRound&&viewingRound.id===id)setViewingRound(null);
   };
 
   // Copy transcript
@@ -1065,11 +1265,68 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
 
       // Summary line
       el('div',{className:'t-dim',style:{marginTop:16}},
-        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+VOICES[voice].name+' voice · '+OPPONENTS[opponent].name+' opponent'
+        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+VOICES[voice].name+' · '+OPPONENTS[opponent].name+' opponent'
       ),
 
       el('button',{className:'cta',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
-    )
+
+      // Past Rounds button
+      historyRounds.length>0&&el('button',{className:'cta-ghost',style:{marginTop:16},onClick:()=>setShowHistory(true)},
+        '📋 Past Rounds ('+historyRounds.length+')'
+      ),
+    ),
+
+    // History panel overlay
+    showHistory&&el('div',{className:'history-panel'},
+      el('div',{className:'history-grid'},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}},
+          el('h2',{style:{fontSize:'1.4rem',fontWeight:800,letterSpacing:'-.03em'}},
+            viewingRound?'Round Detail':'Past Rounds'
+          ),
+          el('button',{className:'cta-ghost',style:{marginTop:0},onClick:()=>{setShowHistory(false);setViewingRound(null)}},'✕ Close'),
+        ),
+
+        viewingRound?el('div',{className:'history-detail'},
+          el('button',{className:'cta-ghost',style:{marginTop:0,marginBottom:16},onClick:()=>setViewingRound(null)},'← Back'),
+          el('div',{style:{marginBottom:20}},
+            el('div',{style:{fontSize:'1.1rem',fontWeight:700,color:'rgba(255,255,255,.7)',marginBottom:6}},'"'+viewingRound.motion+'"'),
+            el('div',{className:'hc-meta'},
+              el('span',null,viewingRound.formatName),
+              el('span',null,viewingRound.sideLabel),
+              el('span',null,viewingRound.opponentName+' opponent'),
+              el('span',null,new Date(viewingRound.date).toLocaleDateString()),
+            ),
+          ),
+          el('div',{className:'t-label',style:{marginTop:16}},'Speeches'),
+          viewingRound.log.map((l,i)=>el('div',{key:i,className:'hd-speech'},
+            el('div',{className:'hd-who '+(l.who==='You'?'you':'ai')},l.code+' — '+l.who),
+            el('div',{className:'hd-text'},l.text),
+          )),
+          viewingRound.feedback&&el(React.Fragment,null,
+            el('div',{className:'t-label',style:{marginTop:24}},'Judge Feedback'),
+            el('div',{className:'fb-card',style:{marginTop:8}},el('div',{className:'feedback-text'},viewingRound.feedback)),
+          ),
+          el('div',{className:'row-c',style:{marginTop:20}},
+            el('button',{className:'cta-ghost',onClick:()=>{
+              const t=viewingRound.log.map(l=>`[${l.code} — ${l.who}]\n${l.text}`).join('\n\n---\n\n')+'\n\n---\nJUDGE:\n'+viewingRound.feedback;
+              navigator.clipboard.writeText(t).catch(()=>{});
+            }},'Copy Transcript'),
+            el('button',{className:'cta-ghost',style:{color:'#ef4444',borderColor:'rgba(239,68,68,.3)'},onClick:()=>deleteRound(viewingRound.id)},'Delete Round'),
+          ),
+        ):el(React.Fragment,null,
+          historyRounds.map(r=>el('div',{key:r.id,className:'history-card',onClick:()=>setViewingRound(r)},
+            el('div',{className:'hc-motion'},'"'+r.motion+'"'),
+            el('div',{className:'hc-meta'},
+              el('span',null,r.formatName),
+              el('span',null,r.sideLabel),
+              el('span',null,r.opponentName),
+              el('span',null,new Date(r.date).toLocaleDateString()),
+              el('span',null,r.log.length+' speeches'),
+            ),
+          )),
+        ),
+      ),
+    ),
   );
 
   // ── PREP ──
@@ -1132,8 +1389,23 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
 
         // Controls
         el('div',{className:'row-c'},
-          !isUser&&tts.speaking&&el('button',{className:'cta-ghost',onClick:tts.togglePause},tts.paused?'▶ Resume':'⏸ Pause'),
+          !isUser&&tts.speaking&&!poiActive&&el('button',{className:'cta',style:{marginTop:0,padding:'12px 28px',fontSize:'.8rem',background:'transparent',border:'1.5px solid #ef4444',color:'#ef4444'},onClick:raisePOI},'🖐 Point of Information'),
+          !isUser&&tts.speaking&&!poiActive&&el('button',{className:'cta-ghost',onClick:tts.togglePause},tts.paused?'▶ Resume':'⏸ Pause'),
           el('button',{className:'cta-ghost',onClick:endSpeech},isUser?'End Speech →':'Skip →'),
+        ),
+
+        // POI Overlay
+        poiActive&&el('div',{className:'poi-overlay'},
+          el('div',{className:'poi-card'},
+            el('h3',null,'🖐 Point of Information'),
+            el('p',{className:'t-dim',style:{marginBottom:12}},poiLoading?'AI is responding...':'Speak your point — the AI is listening'),
+            el('div',{className:'poi-transcript'},poiText||'(listening...)'),
+            poiResponse&&el('div',{className:'poi-response'},poiResponse),
+            el('div',{className:'row-c',style:{marginTop:16}},
+              !poiLoading&&!poiResponse&&el('button',{className:'cta',style:{marginTop:0,padding:'12px 28px',fontSize:'.82rem'}},el('span',{onClick:submitPOI},'Submit Point')),
+              !poiLoading&&el('button',{className:'cta-ghost',style:{marginTop:0},onClick:cancelPOI},'Cancel'),
+            ),
+          ),
         ),
       )
     );
