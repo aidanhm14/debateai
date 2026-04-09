@@ -259,7 +259,7 @@ async function callClaude(sys, user, onChunk){
     messages:[{role:'user',content:user}],
     _feature:'debate-ai',
   };
-  const r=await fetch('/.netlify/functions/claude',{
+  const r=await fetch('/api/claude',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body),
@@ -392,65 +392,82 @@ function useOrb(){
   return {ref,init,kill,setMode,startMic,stopMic};
 }
 
-// Preload voices (Chrome loads them async)
-let _voices=[];
-function loadVoices(){_voices=window.speechSynthesis?window.speechSynthesis.getVoices():[];return _voices}
-if(window.speechSynthesis){loadVoices();window.speechSynthesis.onvoiceschanged=loadVoices}
+/* ── TTS via OpenAI API (human-sounding) with browser fallback ── */
 
 function useTTS(){
   const[speaking,setSpeaking]=useState(false);
+  const audioRef=useRef(null);
   const cancelledRef=useRef(false);
-  const queueRef=useRef([]);
 
-  // Split text into sentences to avoid Chrome's ~15s cutoff bug
-  const splitSentences=(text)=>{
+  // OpenAI TTS — returns audio blob from our proxy function
+  const speakOpenAI=async(text,speed,onEnd)=>{
+    try{
+      const r=await fetch('/api/tts',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({text:text.slice(0,5000),voice:'onyx',speed}),
+      });
+      if(!r.ok) throw new Error('TTS '+r.status);
+      const blob=await r.blob();
+      if(cancelledRef.current) return;
+      const url=URL.createObjectURL(blob);
+      const audio=new Audio(url);
+      audioRef.current=audio;
+      audio.onended=()=>{
+        URL.revokeObjectURL(url);
+        setSpeaking(false);
+        if(onEnd)onEnd();
+      };
+      audio.onerror=()=>{
+        URL.revokeObjectURL(url);
+        setSpeaking(false);
+        if(onEnd)onEnd();
+      };
+      audio.play();
+    }catch(e){
+      console.warn('OpenAI TTS failed, falling back to browser:',e);
+      speakBrowser(text,speed,onEnd);
+    }
+  };
+
+  // Browser fallback TTS (robotic but works without API key)
+  const speakBrowser=(text,speed,onEnd)=>{
+    if(!window.speechSynthesis){setSpeaking(false);if(onEnd)onEnd();return}
+    window.speechSynthesis.cancel();
+    // Split into sentence chunks to avoid Chrome 15s cutoff
     const chunks=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
-    // Group into ~80-word chunks for natural pacing
     const groups=[];let cur='';
     for(const c of chunks){
       if((cur+c).split(/\s+/).length>80&&cur){groups.push(cur.trim());cur=c}
       else cur+=c;
     }
     if(cur.trim())groups.push(cur.trim());
-    return groups;
-  };
 
-  const speakChunk=(text,rate,voice,onDone)=>{
-    const u=new SpeechSynthesisUtterance(text);
-    u.rate=rate;
-    if(voice)u.voice=voice;
-    u.onend=onDone;
-    u.onerror=onDone;
-    window.speechSynthesis.speak(u);
-  };
-
-  const speak=(text,wpm=180,onEnd)=>{
-    window.speechSynthesis.cancel();
-    cancelledRef.current=false;
-    setSpeaking(true);
-
-    const rate=Math.max(.5,Math.min(3,wpm/150));
-    const v=_voices.length?_voices:loadVoices();
-    const pref=v.find(x=>/Daniel|Google US English|Samantha|Aaron/.test(x.name))||v.find(x=>x.lang.startsWith('en'))||null;
-
-    const chunks=splitSentences(text);
-    queueRef.current=chunks;
+    const voices=window.speechSynthesis.getVoices();
+    const pref=voices.find(x=>/Daniel|Google US English|Samantha|Aaron/.test(x.name))||voices.find(x=>x.lang.startsWith('en'))||null;
     let i=0;
-
     const next=()=>{
-      if(cancelledRef.current||i>=chunks.length){
-        setSpeaking(false);
-        if(onEnd)onEnd();
-        return;
-      }
-      speakChunk(chunks[i],rate,pref,()=>{i++;next()});
+      if(cancelledRef.current||i>=groups.length){setSpeaking(false);if(onEnd)onEnd();return}
+      const u=new SpeechSynthesisUtterance(groups[i]);
+      u.rate=speed;if(pref)u.voice=pref;
+      u.onend=()=>{i++;next()};u.onerror=()=>{i++;next()};
+      window.speechSynthesis.speak(u);
     };
     next();
   };
 
+  const speak=(text,wpm=180,onEnd)=>{
+    cancelledRef.current=false;
+    setSpeaking(true);
+    // Map WPM to speed multiplier: 150wpm=1.0x, 200wpm≈1.33x, 260wpm≈1.73x
+    const speed=Math.max(0.75,Math.min(2.0,wpm/150));
+    speakOpenAI(text,speed,onEnd);
+  };
+
   const stop=()=>{
     cancelledRef.current=true;
-    window.speechSynthesis.cancel();
+    if(audioRef.current){audioRef.current.pause();audioRef.current=null}
+    if(window.speechSynthesis)window.speechSynthesis.cancel();
     setSpeaking(false);
   };
 
