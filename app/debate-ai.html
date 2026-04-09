@@ -914,9 +914,16 @@ function warmUpTTS(){
     u.volume=0;u.rate=10;
     window.speechSynthesis.speak(u);
   }
-  // Unlock Audio element playback (for OpenAI TTS mp3)
-  const ctx=new(window.AudioContext||window.webkitAudioContext)();
-  ctx.resume().then(()=>ctx.close());
+  // Unlock AudioContext (Web Audio API)
+  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();ctx.resume().then(()=>ctx.close());}catch{}
+  // Unlock HTMLAudioElement.play() — required on mobile/Safari
+  // Play a tiny silent WAV so subsequent programmatic play() calls are allowed
+  try{
+    const silentWav='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+    const a=new Audio(silentWav);
+    a.volume=0;
+    a.play().then(()=>{a.pause();a.remove&&a.remove();console.log('[TTS] Audio element unlocked')}).catch(()=>{});
+  }catch{}
   _audioUnlocked=true;
 }
 
@@ -1151,6 +1158,7 @@ function useTTS(){
       try{
         const blob=await blobPromises[i];
         if(cancelledRef.current) return;
+        if(blob.size<500){console.warn('[TTS Stream] Chunk '+i+' too small, skip');i++;playNext();return;}
         const url=URL.createObjectURL(blob);
         const audio=new Audio();
         audioRef.current=audio;
@@ -1166,11 +1174,12 @@ function useTTS(){
           if(kt>progressRef.current.total) progressRef.current.total=kt;
         };
         audio.onended=()=>{URL.revokeObjectURL(url);i++;playNext()};
-        audio.onerror=()=>{URL.revokeObjectURL(url);i++;playNext()};
-        audio.oncanplaythrough=()=>{
-          audio.play().catch(()=>{URL.revokeObjectURL(url);i++;playNext()});
-        };
-        audio.src=url;audio.load();
+        audio.onerror=(e)=>{console.warn('[TTS Stream] Chunk '+ci+' error:',e);URL.revokeObjectURL(url);i++;playNext()};
+        audio.src=url;
+        audio.play().then(()=>{console.log('[TTS Stream] Chunk '+ci+' playing')}).catch(e=>{
+          console.warn('[TTS Stream] play() failed for chunk '+ci+':',e.message);
+          URL.revokeObjectURL(url);i++;playNext();
+        });
       }catch(e){
         console.warn('[TTS Stream] Chunk '+i+' failed:',e.message);
         i++;playNext();
@@ -1490,7 +1499,12 @@ function App(){
           const firstBlob=await fetch('/api/tts',{
             method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({text:chunks[0],voice:voice,speed:chunkSpeeds[0],hd:true}),
-          }).then(r=>{if(!r.ok)throw new Error('TTS '+r.status);return r.blob()});
+          }).then(async r=>{
+            if(!r.ok){const t=await r.text().catch(()=>'');console.error('[TTS] First chunk error:',r.status,t);throw new Error('TTS '+r.status+': '+t);}
+            const b=await r.blob();
+            console.log('[TTS] First chunk blob:',b.size,'bytes, type:',b.type);
+            return b;
+          });
 
           // START PLAYING immediately — don't wait for rest
           clearInterval(etaInterval);stopPreparing();setVoiceEta(0);
