@@ -4,7 +4,17 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Devil's Advocate — High School Edition</title>
-<meta name="description" content="AI debate prep built for high school debaters. PF, LD, Policy, Congress." />
+<meta name="description" content="AI debate prep built for high school debaters. PF, LD, Policy, Congress, and Parliamentary." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateos.com/high-school">
+<meta property="og:title" content="Devil's Advocate — High School Edition">
+<meta property="og:description" content="AI debate prep for PF, LD, Policy, Congress, and Parli. Free to try.">
+<meta property="og:image" content="https://debateos.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Devil's Advocate — High School Edition">
+<meta name="twitter:description" content="AI debate prep for PF, LD, Policy, Congress, and Parli. Free to try.">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -611,6 +621,9 @@ async function callClaude(systemPrompt, userPrompt, onChunk) {
           }
         }
       }
+      // Count usage on success
+      incHsUsage();
+      if (window.__refreshHsUsage) window.__refreshHsUsage();
       return fullText;
     }
   } catch(e) {}
@@ -1383,14 +1396,9 @@ function SpeedDrill() {
 
   const startDrill = () => {
     setMode('reading');
-    setStartTime(Date.now());
-    setElapsed(0);
-    const interval = setInterval(() => {
-      setElapsed(Date.now() - Date.now() + 0); // force re-render
-    }, 100);
-    setTimerInterval(interval);
-    // Actually track elapsed properly
     const start = Date.now();
+    setStartTime(start);
+    setElapsed(0);
     const int = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 100);
     setTimerInterval(int);
   };
@@ -2146,14 +2154,14 @@ function HsUsageBanner() {
   const remaining = getHsRemaining();
   if (remaining <= 0) {
     return el('div',{style:{maxWidth:1100,width:'94%',margin:'12px auto 0',padding:'14px 20px',background:'linear-gradient(135deg,#ef444418,#ef44440a)',border:'1px solid #ef444440',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}},
-      el('span',{style:{color:'#fca5a5',fontSize:'.85rem',fontWeight:500,flex:1}},'Free requests used up. Sign in at the College Edition or subscribe to keep generating.'),
-      el('a',{href:'/',style:{padding:'8px 20px',background:'linear-gradient(135deg,#ef4444,#ef4444cc)',border:'none',borderRadius:8,color:'#fff',fontWeight:700,fontSize:'.8rem',textDecoration:'none',whiteSpace:'nowrap'}},'Subscribe'),
+      el('span',{style:{color:'#fca5a5',fontSize:'.85rem',fontWeight:500,flex:1}},'You\'ve used all 5 free requests. Subscribe to unlock unlimited AI debate prep.'),
+      el('a',{href:'/#team',style:{padding:'8px 20px',background:'linear-gradient(135deg,#ef4444,#ef4444cc)',border:'none',borderRadius:8,color:'#fff',fontWeight:700,fontSize:'.8rem',textDecoration:'none',whiteSpace:'nowrap'}},'Subscribe — $5/mo'),
     );
   }
   if (remaining <= 3) {
     return el('div',{style:{maxWidth:1100,width:'94%',margin:'12px auto 0',padding:'10px 18px',background:'linear-gradient(135deg,#f59e0b14,#f59e0b08)',border:'1px solid #f59e0b30',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}},
       el('span',{style:{color:'#fcd34d',fontSize:'.82rem',fontWeight:500}}, remaining + ' free generation' + (remaining !== 1 ? 's' : '') + ' left. Subscribe for unlimited access.'),
-      el('a',{href:'/',style:{color:'#f59e0b',fontSize:'.78rem',fontWeight:600,textDecoration:'none'}},'Upgrade \u2192'),
+      el('a',{href:'/#team',style:{color:'#f59e0b',fontSize:'.78rem',fontWeight:600,textDecoration:'none'}},'Upgrade — $5/mo \u2192'),
     );
   }
   return null;

@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Devil's Advocate — Debate AI</title>
+<meta name="description" content="Go head-to-head against an AI in a full timed parliamentary debate. Prep, speeches, POIs, judge feedback." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateos.com/debate-ai">
+<meta property="og:title" content="Devil's Advocate — Debate AI">
+<meta property="og:description" content="Full timed debate rounds against an AI opponent.">
+<meta property="og:image" content="https://debateos.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:#000;color:#f5f5f7;
+  -webkit-font-smoothing:antialiased;
+}
+#root{min-height:100vh}
+
+/* ── Ambient ───────────────────────── */
+.ambient{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 50% at 50% 45%,rgba(239,68,68,.06),transparent 70%);
+}
+.ambient::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle 400px at 30% 70%,rgba(239,68,68,.03),transparent);
+}
+
+/* ── Page ──────────────────────────── */
+.page{
+  position:relative;z-index:1;min-height:100vh;
+  display:flex;flex-direction:column;
+}
+
+/* ── Top Bar ───────────────────────── */
+.bar{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  padding:20px 32px;display:flex;align-items:center;justify-content:space-between;
+}
+.bar-logo{font-size:.9rem;font-weight:700;color:#f5f5f7;text-decoration:none;letter-spacing:-.01em;opacity:.7;transition:opacity .2s}
+.bar-logo:hover{opacity:1}
+.bar-logo em{color:#ef4444;font-style:normal}
+.bar-links{display:flex;gap:20px;align-items:center}
+.bar-links a{font-size:.72rem;font-weight:500;color:rgba(255,255,255,.35);text-decoration:none;text-transform:uppercase;letter-spacing:.08em;transition:color .2s}
+.bar-links a:hover{color:rgba(255,255,255,.7)}
+
+/* ── Center Stage ──────────────────── */
+.center{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:100px 24px 60px;text-align:center;
+  transition:opacity .4s ease,transform .4s ease;
+}
+.center.entering{opacity:0;transform:scale(.97) translateY(12px)}
+.center.visible{opacity:1;transform:scale(1) translateY(0)}
+
+/* ── Typography ────────────────────── */
+.t-hero{
+  font-size:clamp(3rem,8vw,6rem);font-weight:900;letter-spacing:-.05em;
+  line-height:.9;margin-bottom:16px;
+}
+.t-hero em{font-style:normal;color:#ef4444}
+.t-sub{
+  font-size:clamp(.9rem,2vw,1.1rem);font-weight:300;color:rgba(255,255,255,.4);
+  max-width:400px;line-height:1.5;margin:0 auto 48px;
+}
+.t-label{
+  font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.16em;
+  color:#ef4444;margin-bottom:12px;
+}
+.t-phase{
+  font-size:clamp(1.4rem,3.5vw,2rem);font-weight:800;letter-spacing:-.03em;
+  margin-bottom:4px;
+}
+.t-dim{color:rgba(255,255,255,.35);font-size:.85rem;font-weight:400}
+.t-time{
+  font-size:clamp(3.2rem,8vw,5rem);font-weight:200;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;line-height:1;
+}
+.t-time.warn{color:#f59e0b}
+.t-time.danger{color:#ef4444}
+
+/* ── Input (floating, minimal) ─────── */
+.float-input{
+  width:100%;max-width:480px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);border-radius:16px;
+  padding:20px 22px;color:#f5f5f7;font-size:1rem;font-family:inherit;
+  outline:none;resize:none;transition:border-color .2s;line-height:1.5;
+}
+.float-input:focus{border-color:rgba(239,68,68,.4)}
+.float-input::placeholder{color:rgba(255,255,255,.2)}
+
+/* ── Pills ─────────────────────────── */
+.pills{display:flex;gap:8px;justify-content:center;margin:20px 0}
+.pill{
+  padding:12px 32px;border-radius:100px;border:1.5px solid rgba(255,255,255,.1);
+  background:transparent;color:rgba(255,255,255,.4);font-size:.85rem;font-weight:600;
+  cursor:pointer;transition:all .25s;font-family:inherit;letter-spacing:.02em;
+}
+.pill:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
+.pill.on{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.06)}
+
+/* ── WPM Slider ────────────────────── */
+.wpm{display:flex;align-items:center;gap:16px;margin:20px auto;max-width:320px;width:100%}
+.wpm input[type=range]{flex:1;accent-color:#ef4444;height:2px;opacity:.6}
+.wpm span{font-size:.75rem;color:rgba(255,255,255,.3);font-weight:500}
+.wpm strong{font-size:.8rem;color:rgba(255,255,255,.6);font-weight:700;min-width:65px;text-align:right}
+
+/* ── CTA Button ────────────────────── */
+.cta{
+  padding:16px 48px;border:none;border-radius:100px;
+  background:#ef4444;color:#fff;font-size:.9rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;cursor:pointer;
+  transition:transform .2s,box-shadow .2s,opacity .2s;font-family:inherit;
+  margin-top:32px;
+}
+.cta:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(239,68,68,.25)}
+.cta:disabled{opacity:.25;cursor:not-allowed;transform:none;box-shadow:none}
+.cta-ghost{
+  padding:12px 32px;border:1px solid rgba(255,255,255,.1);border-radius:100px;
+  background:transparent;color:rgba(255,255,255,.4);font-size:.82rem;font-weight:600;
+  cursor:pointer;transition:all .2s;font-family:inherit;margin-top:12px;
+}
+.cta-ghost:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
+
+/* ── The Orb (waveform) ────────────── */
+.orb-wrap{
+  position:relative;width:280px;height:280px;margin:0 auto 32px;
+  display:flex;align-items:center;justify-content:center;
+}
+.orb-glow{
+  position:absolute;inset:-40px;border-radius:50%;
+  background:radial-gradient(circle,rgba(239,68,68,.08),transparent 70%);
+  transition:opacity .5s;opacity:0;
+}
+.orb-glow.on{opacity:1}
+.orb-ring{
+  position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(255,255,255,.06);transition:all .5s;
+}
+.orb-ring.active{border-color:rgba(239,68,68,.3);box-shadow:0 0 60px rgba(239,68,68,.1)}
+.orb-ring.pulse{animation:orbPulse 2s ease-in-out infinite}
+@keyframes orbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.7}}
+canvas.orb{width:220px;height:220px;border-radius:50%}
+
+/* ── Speech Progress ───────────────── */
+.progress-bar{display:flex;gap:8px;justify-content:center;margin-bottom:40px}
+.pip{display:flex;flex-direction:column;align-items:center;gap:6px}
+.pip-bar{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.06);transition:.3s}
+.pip-bar.done{background:#ef4444}
+.pip-bar.now{background:#ef4444;box-shadow:0 0 12px rgba(239,68,68,.4)}
+.pip-code{font-size:.6rem;font-weight:600;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:.06em}
+.pip.done .pip-code{color:rgba(239,68,68,.5)}
+.pip.now .pip-code{color:#ef4444}
+
+/* ── Transcript ────────────────────── */
+.transcript-btn{
+  background:none;border:none;color:rgba(255,255,255,.2);font-size:.72rem;
+  font-weight:600;cursor:pointer;font-family:inherit;text-transform:uppercase;
+  letter-spacing:.08em;margin-top:24px;transition:color .2s;
+}
+.transcript-btn:hover{color:rgba(255,255,255,.5)}
+.transcript-box{
+  width:100%;max-width:560px;max-height:220px;overflow-y:auto;margin:12px auto 0;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
+  border-radius:14px;padding:18px;text-align:left;
+  font-size:.82rem;line-height:1.65;color:rgba(255,255,255,.35);white-space:pre-wrap;
+}
+
+/* ── Feedback Card ─────────────────── */
+.fb-card{
+  width:100%;max-width:600px;text-align:left;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
+  border-radius:18px;padding:32px;margin:24px auto 0;
+}
+.fb-card .feedback-text{color:rgba(255,255,255,.5);font-size:.88rem;line-height:1.75;white-space:pre-wrap}
+
+/* ── Controls Row ──────────────────── */
+.row-c{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+
+/* ── Limit Warning ─────────────────── */
+.limit-warn{font-size:.78rem;color:#ef4444;margin-top:16px;opacity:.7}
+.limit-warn a{color:#ef4444;text-decoration:underline}
+
+/* ── Responsive ────────────────────── */
+@media(max-width:640px){
+  .bar{padding:14px 16px}
+  .center{padding:80px 16px 32px}
+  .orb-wrap{width:200px;height:200px}
+  canvas.orb{width:160px;height:160px}
+  .float-input{padding:16px}
+  .cta{padding:14px 36px;font-size:.82rem}
+  .progress-bar{gap:4px}
+  .pip-bar{width:28px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+const el = React.createElement;
+
+/* ═══════════════════════════════════════════════════
+   CONSTANTS
+   ═══════════════════════════════════════════════════ */
+
+const SPEECHES = [
+  { code:'PM',  name:'Prime Minister',     side:'gov', time:420 },
+  { code:'LO',  name:'Leader of Opp',      side:'opp', time:480 },
+  { code:'MG',  name:'Member of Gov',      side:'gov', time:480 },
+  { code:'MO',  name:'Member of Opp',      side:'opp', time:480 },
+  { code:'LOR', name:'LO Rebuttal',        side:'opp', time:240 },
+  { code:'PMR', name:'PM Rebuttal',        side:'gov', time:300 },
+];
+
+const MOTIONS = [
+  'This house would ban billionaires.',
+  'This house believes social media has done more harm than good.',
+  'This house would abolish the electoral college.',
+  'This house supports universal basic income.',
+  'This house would make voting compulsory.',
+  'This house believes AI development should be paused.',
+  'This house would ban private education.',
+  'This house regrets the rise of nationalism.',
+  'This house would legalize all drugs.',
+  'This house believes the right to privacy is obsolete.',
+];
+
+/* ═══════════════════════════════════════════════════
+   API
+   ═══════════════════════════════════════════════════ */
+
+const LIMIT = 5;
+function getUsage(){ try{return parseInt(localStorage.getItem('debateos-anon-usage')||'0',10)}catch{return 0} }
+function incUsage(){ try{localStorage.setItem('debateos-anon-usage',String(getUsage()+1))}catch{} }
+function remaining(){ return Math.max(0,LIMIT-getUsage()) }
+
+async function callClaude(sys, user, onChunk){
+  if(getUsage()>=LIMIT) throw new Error('LIMIT_REACHED');
+  try{
+    const r=await fetch('/.netlify/functions/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:sys,prompt:user,stream:true,feature:'debate-ai'})});
+    if(r.ok){
+      const reader=r.body.getReader(),dec=new TextDecoder();
+      let full='',buf='';
+      while(true){
+        const{done,value}=await reader.read();
+        if(done)break;
+        buf+=dec.decode(value,{stream:true});
+        const lines=buf.split('\n');buf=lines.pop()||'';
+        for(const l of lines){
+          if(l.startsWith('data: ')){
+            const d=l.slice(6);if(d==='[DONE]')break;
+            try{const p=JSON.parse(d);if(p.type==='content_block_delta'&&p.delta?.text){full+=p.delta.text;if(onChunk)onChunk(full)}}catch{}
+          }
+        }
+      }
+      incUsage();return full;
+    }
+  }catch{}
+  throw new Error('NO_KEY');
+}
+
+/* ═══════════════════════════════════════════════════
+   AUDIO HOOKS
+   ═══════════════════════════════════════════════════ */
+
+function useOrb(){
+  const ref=useRef(null);
+  const ctxRef=useRef(null);
+  const analyserRef=useRef(null);
+  const streamRef=useRef(null);
+  const animRef=useRef(null);
+  const modeRef=useRef('idle');
+  const runRef=useRef(false);
+
+  const draw=useCallback(()=>{
+    const c=ref.current;if(!c)return;
+    const ctx=c.getContext('2d');
+    const W=c.width/2,H=c.height/2; // logical half (already scaled)
+    const dpr=window.devicePixelRatio||1;
+    const cx=c.width/(2*dpr),cy=c.height/(2*dpr),baseR=cx*0.7;
+    ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,c.width/dpr,c.height/dpr);
+
+    let pts=120,ampData=null,globalAmp=0;
+
+    if(modeRef.current==='mic'&&analyserRef.current){
+      const data=new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(data);
+      ampData=data;globalAmp=data.reduce((a,b)=>a+b,0)/data.length/255;
+    } else if(modeRef.current==='ai'){
+      const t=Date.now()/1000;
+      globalAmp=0.25+Math.sin(t*3)*.12+Math.sin(t*7.3)*.06;
+      ampData=new Uint8Array(64);
+      for(let i=0;i<64;i++) ampData[i]=128+Math.sin(t*4+i*.4)*55+Math.sin(t*8.5+i*.9)*25;
+    } else {
+      globalAmp=0.015+Math.sin(Date.now()/2500*Math.PI)*.008;
+    }
+
+    // Draw organic blob
+    ctx.beginPath();
+    for(let i=0;i<=pts;i++){
+      const a=(i/pts)*Math.PI*2;
+      let r=baseR;
+      if(ampData){
+        const idx=Math.floor((i/pts)*ampData.length);
+        r+=((ampData[idx]||128)/255)*baseR*0.35;
+      } else {
+        r+=Math.sin(a*5+Date.now()/500)*baseR*globalAmp;
+        r+=Math.sin(a*3-Date.now()/700)*baseR*globalAmp*0.5;
+      }
+      const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+
+    // Gradient fill
+    const grad=ctx.createRadialGradient(cx,cy,0,cx,cy,baseR*1.3);
+    if(modeRef.current==='idle'){
+      grad.addColorStop(0,'rgba(255,255,255,.02)');
+      grad.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.strokeStyle='rgba(255,255,255,.06)';
+    } else {
+      grad.addColorStop(0,'rgba(239,68,68,.08)');
+      grad.addColorStop(1,'rgba(239,68,68,0)');
+      ctx.strokeStyle='rgba(239,68,68,.35)';
+      ctx.shadowBlur=30;ctx.shadowColor='rgba(239,68,68,.15)';
+    }
+    ctx.fillStyle=grad;ctx.fill();
+    ctx.lineWidth=1.5;ctx.stroke();
+    ctx.shadowBlur=0;
+
+    ctx.restore();
+    if(runRef.current) animRef.current=requestAnimationFrame(draw);
+  },[]);
+
+  const init=()=>{
+    const c=ref.current;if(!c)return;
+    const dpr=window.devicePixelRatio||1;
+    const rect=c.getBoundingClientRect();
+    c.width=rect.width*dpr;c.height=rect.height*dpr;
+    runRef.current=true;draw();
+  };
+  const kill=()=>{runRef.current=false;if(animRef.current)cancelAnimationFrame(animRef.current);stopMic()};
+  const setMode=(m)=>{modeRef.current=m};
+
+  const startMic=async()=>{
+    try{
+      const s=await navigator.mediaDevices.getUserMedia({audio:true});
+      streamRef.current=s;
+      ctxRef.current=new(window.AudioContext||window.webkitAudioContext)();
+      analyserRef.current=ctxRef.current.createAnalyser();
+      analyserRef.current.fftSize=256;
+      ctxRef.current.createMediaStreamSource(s).connect(analyserRef.current);
+      modeRef.current='mic';
+    }catch{}
+  };
+  const stopMic=()=>{
+    if(streamRef.current){streamRef.current.getTracks().forEach(t=>t.stop());streamRef.current=null}
+    modeRef.current='idle';
+  };
+
+  return {ref,init,kill,setMode,startMic,stopMic};
+}
+
+// Preload voices (Chrome loads them async)
+let _voices=[];
+function loadVoices(){_voices=window.speechSynthesis?window.speechSynthesis.getVoices():[];return _voices}
+if(window.speechSynthesis){loadVoices();window.speechSynthesis.onvoiceschanged=loadVoices}
+
+function useTTS(){
+  const[speaking,setSpeaking]=useState(false);
+  const cancelledRef=useRef(false);
+  const queueRef=useRef([]);
+
+  // Split text into sentences to avoid Chrome's ~15s cutoff bug
+  const splitSentences=(text)=>{
+    const chunks=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
+    // Group into ~80-word chunks for natural pacing
+    const groups=[];let cur='';
+    for(const c of chunks){
+      if((cur+c).split(/\s+/).length>80&&cur){groups.push(cur.trim());cur=c}
+      else cur+=c;
+    }
+    if(cur.trim())groups.push(cur.trim());
+    return groups;
+  };
+
+  const speakChunk=(text,rate,voice,onDone)=>{
+    const u=new SpeechSynthesisUtterance(text);
+    u.rate=rate;
+    if(voice)u.voice=voice;
+    u.onend=onDone;
+    u.onerror=onDone;
+    window.speechSynthesis.speak(u);
+  };
+
+  const speak=(text,wpm=180,onEnd)=>{
+    window.speechSynthesis.cancel();
+    cancelledRef.current=false;
+    setSpeaking(true);
+
+    const rate=Math.max(.5,Math.min(3,wpm/150));
+    const v=_voices.length?_voices:loadVoices();
+    const pref=v.find(x=>/Daniel|Google US English|Samantha|Aaron/.test(x.name))||v.find(x=>x.lang.startsWith('en'))||null;
+
+    const chunks=splitSentences(text);
+    queueRef.current=chunks;
+    let i=0;
+
+    const next=()=>{
+      if(cancelledRef.current||i>=chunks.length){
+        setSpeaking(false);
+        if(onEnd)onEnd();
+        return;
+      }
+      speakChunk(chunks[i],rate,pref,()=>{i++;next()});
+    };
+    next();
+  };
+
+  const stop=()=>{
+    cancelledRef.current=true;
+    window.speechSynthesis.cancel();
+    setSpeaking(false);
+  };
+
+  return{speak,stop,speaking};
+}
+
+function useRecognition(){
+  const recRef=useRef(null);
+  const txtRef=useRef('');
+  const[transcript,setTranscript]=useState('');
+  const aliveRef=useRef(false);
+
+  const start=()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR)return;
+    const r=new SR();r.continuous=true;r.interimResults=true;r.lang='en-US';
+    r.onresult=e=>{
+      let f='',int='';
+      for(let i=0;i<e.results.length;i++){
+        if(e.results[i].isFinal)f+=e.results[i][0].transcript+' ';
+        else int+=e.results[i][0].transcript;
+      }
+      txtRef.current=f;setTranscript(f+int);
+    };
+    r.onend=()=>{if(aliveRef.current)try{r.start()}catch{}};
+    r.onerror=()=>{};
+    recRef.current=r;aliveRef.current=true;
+    txtRef.current='';setTranscript('');
+    try{r.start()}catch{};
+  };
+  const stop=()=>{aliveRef.current=false;if(recRef.current)try{recRef.current.stop()}catch{};return txtRef.current};
+  return{transcript,start,stop,getText:()=>txtRef.current};
+}
+
+/* ═══════════════════════════════════════════════════
+   TIMER
+   ═══════════════════════════════════════════════════ */
+
+function useTimer(){
+  const[left,setLeft]=useState(0);
+  const[on,setOn]=useState(false);
+  const iRef=useRef(null);
+  const cbRef=useRef(null);
+
+  const beep=(f,d)=>{try{const a=new(window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.value=.12;o.start();o.stop(a.currentTime+d/1000)}catch{}};
+
+  const go=(secs,onDone)=>{cbRef.current=onDone;setLeft(secs);setOn(true)};
+  const halt=()=>{setOn(false)};
+  const reset=()=>{setOn(false);setLeft(0)};
+
+  useEffect(()=>{
+    if(!on){if(iRef.current)clearInterval(iRef.current);return}
+    iRef.current=setInterval(()=>{
+      setLeft(p=>{
+        if(p<=1){clearInterval(iRef.current);setOn(false);beep(880,400);if(cbRef.current)setTimeout(cbRef.current,300);return 0}
+        if(p===31)beep(660,150);
+        if(p===16)beep(880,150);
+        return p-1;
+      });
+    },1000);
+    return()=>clearInterval(iRef.current);
+  },[on]);
+
+  const fmt=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  return{left,on,go,halt,reset,fmt};
+}
+
+/* ═══════════════════════════════════════════════════
+   BUILD PROMPT
+   ═══════════════════════════════════════════════════ */
+
+function buildPrompt(speech,userSide,motion,history,notes){
+  const aiSide=userSide==='gov'?'Opposition':'Government';
+  const rules={
+    PM:'You are PM (Government). Define the round, present a framework, 2-3 strong arguments with warrants and impacts.',
+    LO:'You are LO (Opposition). Engage the PM\'s framework directly, present counter-framework and 2-3 opposition arguments.',
+    MG:'You are MG (Government). Rebuild government arguments, extend the case, directly refute opposition points.',
+    MO:'You are MO (Opposition). Extend opposition, attack rebuilds, introduce final opposition analysis.',
+    LOR:'You are LOR (Opposition Rebuttal). Crystallize the round from opp\'s perspective. 2-3 key issues, why opp wins each. NO new arguments.',
+    PMR:'You are PMR (Government Rebuttal). Crystallize from gov\'s perspective. Address opp\'s strongest points, why gov wins. NO new arguments.',
+  };
+  return `You are a skilled ${aiSide} debater in APDA parliamentary debate. Motion: "${motion}".
+
+${rules[speech.code]}
+
+${history?'Previous speeches:\n'+history:'First speech of the round.'}
+${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+notes:''}
+
+Write the speech as spoken aloud. Natural flowing language, no bullet points, no markdown headers. Be substantive — use examples, analogies, reasoning. ~${Math.floor(speech.time/60)*170} words (~${Math.floor(speech.time/60)} min). Sound like a competitive debater, not a textbook.`;
+}
+
+/* ═══════════════════════════════════════════════════
+   APP
+   ═══════════════════════════════════════════════════ */
+
+function App(){
+  const[phase,setPhase]=useState('setup');   // setup|prep|speech|feedback
+  const[vis,setVis]=useState(true);          // fade transition
+  const[motion,setMotion]=useState('');
+  const[side,setSide]=useState('gov');
+  const[wpm,setWpm]=useState(180);
+  const[idx,setIdx]=useState(0);
+  const[log,setLog]=useState([]);            // {code,who,text}
+  const[feedback,setFeedback]=useState('');
+  const[fbLoading,setFbLoading]=useState(false);
+  const[notes,setNotes]=useState('');
+  const[aiLoading,setAiLoading]=useState(false);
+  const[aiText,setAiText]=useState('');
+  const[showTx,setShowTx]=useState(false);
+
+  const orb=useOrb();
+  const rec=useRecognition();
+  const tts=useTTS();
+  const timer=useTimer();
+  const prepTimer=useTimer();
+  const rem=remaining();
+
+  const cur=SPEECHES[idx]||SPEECHES[0];
+  const isUser=cur.side===side;
+
+  // Init orb in speech phase
+  useEffect(()=>{if(phase==='speech'){orb.init()}return()=>orb.kill()},[phase]);
+
+  // Phase transition helper
+  const transition=(next,cb)=>{setVis(false);setTimeout(()=>{if(cb)cb();setPhase(next);setTimeout(()=>setVis(true),50)},350)};
+
+  // Start debate
+  const startDebate=()=>{if(!motion.trim())return;transition('prep',()=>prepTimer.go(900))};
+
+  // Skip prep → first speech
+  const goToSpeeches=()=>{
+    prepTimer.reset();
+    transition('speech',()=>{setIdx(0);setLog([]);setTimeout(()=>runSpeech(0,[]),400)});
+  };
+
+  // Auto-advance when prep timer ends
+  useEffect(()=>{
+    if(phase==='prep'&&prepTimer.left===0&&!prepTimer.on&&log.length===0){
+      // Only auto-advance if timer actually ran (not on initial mount)
+    }
+  },[prepTimer.left]);
+
+  // Run a speech
+  const runSpeech=async(i,currentLog)=>{
+    const s=SPEECHES[i];
+    const userTurn=s.side===side;
+    timer.go(s.time);
+
+    if(userTurn){
+      orb.setMode('mic');await orb.startMic();rec.start();
+    } else {
+      orb.setMode('ai');setAiLoading(true);setAiText('');
+      try{
+        const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
+        const txt=await callClaude(buildPrompt(s,side,motion,hist,notes),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>setAiText(chunk));
+        setAiText(txt);setAiLoading(false);
+        tts.speak(txt,wpm,()=>orb.setMode('idle'));
+      }catch(e){
+        setAiLoading(false);
+        setAiText(e.message==='LIMIT_REACHED'?'[Free request limit reached]':'[Could not generate: '+e.message+']');
+        orb.setMode('idle');
+      }
+    }
+  };
+
+  // End speech + advance
+  const endSpeech=()=>{
+    timer.reset();
+    const userTurn=cur.side===side;
+    let text='';
+    if(userTurn){text=rec.stop();orb.stopMic();orb.setMode('idle')}
+    else{tts.stop();text=aiText;orb.setMode('idle')}
+
+    const entry={code:cur.code,who:userTurn?'You':'AI',text:text||'(no transcript)'};
+    const newLog=[...log,entry];
+    setLog(newLog);setAiText('');
+
+    const next=idx+1;
+    if(next>=SPEECHES.length){
+      transition('feedback',()=>genFeedback(newLog));
+    } else {
+      setIdx(next);
+      setTimeout(()=>runSpeech(next,newLog),600);
+    }
+  };
+
+  // Judge feedback
+  const genFeedback=async(allLog)=>{
+    setFbLoading(true);
+    const tx=allLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
+    const sys=`You are an experienced APDA parliamentary debate judge. Motion: "${motion}". User debated ${side==='gov'?'Government':'Opposition'}.
+
+Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (25-30 scale), 3) Key clash point and who won it, 4) Per-speech feedback (2 strengths, 2 improvements each), 5) One concrete thing to practice. Be honest, reference specific arguments.`;
+    try{
+      const fb=await callClaude(sys,'Full round transcript:\n\n'+tx,chunk=>setFeedback(chunk));
+      setFeedback(fb);
+    }catch(e){setFeedback('Could not generate feedback: '+e.message)}
+    setFbLoading(false);
+  };
+
+  // Copy transcript
+  const copyAll=()=>{
+    const t=log.map(l=>`[${l.code} — ${l.who}]\n${l.text}`).join('\n\n---\n\n')+'\n\n---\nJUDGE:\n'+feedback;
+    navigator.clipboard.writeText(t).catch(()=>{});
+  };
+
+  // Reset
+  const newRound=()=>transition('setup',()=>{setMotion('');setIdx(0);setLog([]);setFeedback('');setNotes('');setAiText('');setShowTx(false)});
+
+  /* ─── RENDER ─────────────────────── */
+
+  const bar=el('div',{className:'bar'},
+    el('a',{href:'/landing',className:'bar-logo'},el('em',null,"Devil's"),' Advocate'),
+    el('div',{className:'bar-links'},
+      el('a',{href:'/#case'},'College'),
+      el('a',{href:'/high-school'},'High School'),
+      el('a',{href:'/learn'},'Learn'),
+    )
+  );
+
+  const stageClass='center '+(vis?'visible':'entering');
+
+  // ── SETUP ──
+  if(phase==='setup') return el('div',{className:'page'},
+    el('div',{className:'ambient'}),bar,
+    el('div',{className:stageClass},
+      el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
+      el('p',{className:'t-sub'},'A full parliamentary round against an AI opponent. Prep time, six speeches, and a judge ballot.'),
+
+      el('textarea',{className:'float-input',rows:3,placeholder:'Enter a motion...',value:motion,onChange:e=>setMotion(e.target.value)}),
+      el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:10,marginBottom:4}},'Random Motion'),
+
+      el('div',{style:{marginTop:32}}),
+      el('div',{className:'t-label'},'Your Side'),
+      el('div',{className:'pills'},
+        el('button',{className:'pill'+(side==='gov'?' on':''),onClick:()=>setSide('gov')},'Government'),
+        el('button',{className:'pill'+(side==='opp'?' on':''),onClick:()=>setSide('opp')},'Opposition'),
+      ),
+
+      el('div',{className:'t-label',style:{marginTop:24}},'AI Speed'),
+      el('div',{className:'wpm'},
+        el('span',null,'Slow'),
+        el('input',{type:'range',min:120,max:260,value:wpm,onChange:e=>setWpm(+e.target.value)}),
+        el('span',null,'Fast'),
+        el('strong',null,wpm+' wpm'),
+      ),
+
+      el('button',{className:'cta',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
+
+      rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+    )
+  );
+
+  // ── PREP ──
+  if(phase==='prep') return el('div',{className:'page'},
+    el('div',{className:'ambient'}),bar,
+    el('div',{className:stageClass},
+      el('div',{className:'t-label'},'Prep Time'),
+      el('div',{className:'t-time'+(prepTimer.left<=60?' danger':'')},prepTimer.fmt(prepTimer.left)),
+      el('div',{style:{margin:'16px auto 24px',padding:'14px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',borderRadius:14,maxWidth:480}},
+        el('span',{style:{color:'#ef4444',fontWeight:700}},side==='gov'?'GOV':'OPP'),
+        el('span',{style:{color:'rgba(255,255,255,.35)',margin:'0 8px'}},'—'),
+        el('span',{style:{color:'rgba(255,255,255,.5)'}},motion),
+      ),
+      el('textarea',{className:'float-input',rows:8,placeholder:'Brainstorm your arguments...',value:notes,onChange:e=>setNotes(e.target.value),autoFocus:true,style:{maxWidth:480}}),
+      el('button',{className:'cta',onClick:goToSpeeches,style:{marginTop:32,maxWidth:300}},'Start Round →'),
+    )
+  );
+
+  // ── SPEECH ──
+  if(phase==='speech'){
+    const tc=timer.left<=15?'danger':timer.left<=30?'warn':'';
+    return el('div',{className:'page'},
+      el('div',{className:'ambient'}),bar,
+      el('div',{className:stageClass,key:'s'+idx},
+
+        // Progress pips
+        el('div',{className:'progress-bar'},
+          SPEECHES.map((s,i)=>el('div',{key:s.code,className:'pip'+(i<idx?' done':i===idx?' now':'')},
+            el('div',{className:'pip-bar'+(i<idx?' done':i===idx?' now':'')}),
+            el('div',{className:'pip-code'},s.code),
+          ))
+        ),
+
+        // Speech info
+        el('div',{className:'t-label'},isUser?'Your Turn':'AI Speaking'),
+        el('div',{className:'t-phase'},cur.code+' — '+cur.name),
+        el('div',{className:'t-dim',style:{marginBottom:24}},
+          isUser?'Speak now — your voice is being transcribed':
+          aiLoading?'AI is preparing...':'AI is speaking at '+wpm+' wpm'
+        ),
+
+        // The orb
+        el('div',{className:'orb-wrap'},
+          el('div',{className:'orb-glow'+(!isUser||tts.speaking?' on':'')}),
+          el('div',{className:'orb-ring'+(isUser?' active':tts.speaking||aiLoading?' active pulse':'')}),
+          el('canvas',{className:'orb',ref:orb.ref}),
+        ),
+
+        // Timer
+        el('div',{className:'t-time'+(tc?' '+tc:'')},timer.fmt(timer.left)),
+
+        // Transcript toggle
+        (rec.transcript||aiText)&&el(React.Fragment,null,
+          el('button',{className:'transcript-btn',onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide transcript':'▶ Show transcript'),
+          showTx&&el('div',{className:'transcript-box'},isUser?rec.transcript:aiText),
+        ),
+
+        // End button
+        el('div',{className:'row-c'},
+          el('button',{className:'cta-ghost',onClick:endSpeech},isUser?'End Speech →':'Skip →'),
+        ),
+      )
+    );
+  }
+
+  // ── FEEDBACK ──
+  if(phase==='feedback') return el('div',{className:'page'},
+    el('div',{className:'ambient'}),bar,
+    el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:120}},
+      el('div',{className:'t-label'},'Round Complete'),
+      el('h2',{className:'t-hero',style:{fontSize:'clamp(2rem,5vw,3.2rem)',marginBottom:8}},'Judge Ballot'),
+      el('p',{className:'t-dim',style:{marginBottom:8}},'"'+motion+'" — '+( side==='gov'?'Government':'Opposition')),
+
+      fbLoading&&!feedback&&el('p',{className:'t-dim',style:{fontStyle:'italic',marginTop:40}},'Deliberating...'),
+
+      feedback&&el('div',{className:'fb-card'},el('div',{className:'feedback-text'},feedback)),
+
+      el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
+      showTx&&el('div',{className:'transcript-box',style:{maxHeight:360}},log.map(l=>'['+l.code+' — '+l.who+']\n'+l.text).join('\n\n---\n\n')),
+
+      el('div',{className:'row-c',style:{marginTop:28}},
+        el('button',{className:'cta-ghost',onClick:copyAll},'Copy Transcript'),
+        el('button',{className:'cta',style:{marginTop:0}},el('span',{onClick:newRound},'New Round')),
+      ),
+    )
+  );
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(el(App));
+</script>
+</body>
+</html>

@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Devil's Advocate — Learn to Debate</title>
+<meta name="description" content="Learn to argue, persuade, and think clearly. No debate experience needed." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateos.com/learn">
+<meta property="og:title" content="Devil's Advocate — Learn to Debate">
+<meta property="og:description" content="Learn to argue, persuade, and think clearly. No debate experience needed.">
+<meta property="og:image" content="https://debateos.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:#000;color:#f5f5f7;
+  -webkit-font-smoothing:antialiased;
+}
+#root{min-height:100vh}
+
+/* ── Ambient ───────────────────────── */
+.ambient{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 50% at 50% 45%,rgba(239,68,68,.06),transparent 70%);
+}
+.ambient::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle 400px at 30% 70%,rgba(239,68,68,.03),transparent);
+}
+
+/* ── Page ──────────────────────────── */
+.page{
+  position:relative;z-index:1;min-height:100vh;
+  display:flex;flex-direction:column;
+}
+
+/* ── Top Bar ───────────────────────── */
+.bar{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  padding:20px 32px;display:flex;align-items:center;justify-content:space-between;
+}
+.bar-logo{font-size:.9rem;font-weight:700;color:#f5f5f7;text-decoration:none;letter-spacing:-.01em;opacity:.7;transition:opacity .2s}
+.bar-logo:hover{opacity:1}
+.bar-logo em{color:#ef4444;font-style:normal}
+.bar-links{display:flex;gap:20px;align-items:center}
+.bar-links a{font-size:.72rem;font-weight:500;color:rgba(255,255,255,.35);text-decoration:none;text-transform:uppercase;letter-spacing:.08em;transition:color .2s}
+.bar-links a:hover{color:rgba(255,255,255,.7)}
+
+/* ── Center Stage ──────────────────── */
+.center{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:100px 24px 60px;text-align:center;
+  transition:opacity .4s ease,transform .4s ease;
+}
+.center.entering{opacity:0;transform:scale(.97) translateY(12px)}
+.center.visible{opacity:1;transform:scale(1) translateY(0)}
+
+/* ── Typography ────────────────────── */
+.t-hero{
+  font-size:clamp(2.4rem,6vw,4.5rem);font-weight:900;letter-spacing:-.05em;
+  line-height:.9;margin-bottom:16px;
+}
+.t-hero em{font-style:normal;color:#ef4444}
+.t-sub{
+  font-size:clamp(.9rem,2vw,1.1rem);font-weight:300;color:rgba(255,255,255,.4);
+  max-width:460px;line-height:1.5;margin:0 auto 36px;
+}
+.t-label{
+  font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.16em;
+  color:#ef4444;margin-bottom:12px;
+}
+.t-dim{color:rgba(255,255,255,.35);font-size:.85rem;font-weight:400}
+
+/* ── Pills (mode tabs) ────────────── */
+.pills{display:flex;gap:8px;justify-content:center;margin:0 0 32px;flex-wrap:wrap}
+.pill{
+  padding:10px 22px;border-radius:100px;border:1.5px solid rgba(255,255,255,.1);
+  background:transparent;color:rgba(255,255,255,.4);font-size:.78rem;font-weight:600;
+  cursor:pointer;transition:all .25s;font-family:inherit;letter-spacing:.02em;
+}
+.pill:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
+.pill.on{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.06)}
+
+/* ── CTA Button ────────────────────── */
+.cta{
+  padding:14px 40px;border:none;border-radius:100px;
+  background:#ef4444;color:#fff;font-size:.85rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;cursor:pointer;
+  transition:transform .2s,box-shadow .2s,opacity .2s;font-family:inherit;
+  margin-top:20px;
+}
+.cta:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(239,68,68,.25)}
+.cta:disabled{opacity:.25;cursor:not-allowed;transform:none;box-shadow:none}
+.cta-ghost{
+  padding:10px 24px;border:1px solid rgba(255,255,255,.1);border-radius:100px;
+  background:transparent;color:rgba(255,255,255,.4);font-size:.78rem;font-weight:600;
+  cursor:pointer;transition:all .2s;font-family:inherit;margin-top:10px;
+}
+.cta-ghost:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
+
+/* ── Chat ──────────────────────────── */
+.chat-area{
+  width:100%;max-width:600px;margin:0 auto;
+  display:flex;flex-direction:column;gap:12px;
+  max-height:50vh;overflow-y:auto;padding:4px 0;
+  text-align:left;
+}
+.chat-msg{
+  padding:14px 18px;border-radius:16px;font-size:.88rem;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word;
+}
+.chat-msg.user{
+  background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);
+  align-self:flex-end;max-width:85%;color:rgba(255,255,255,.8);
+}
+.chat-msg.ai{
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  align-self:flex-start;max-width:85%;color:rgba(255,255,255,.6);
+}
+.chat-msg .sender{
+  font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  color:#ef4444;margin-bottom:4px;display:block;
+}
+
+/* ── Input Row ─────────────────────── */
+.input-row{
+  display:flex;gap:10px;width:100%;max-width:600px;margin:16px auto 0;
+}
+.input-row textarea{
+  flex:1;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);border-radius:14px;
+  padding:14px 16px;color:#f5f5f7;font-size:.9rem;font-family:inherit;
+  outline:none;resize:none;transition:border-color .2s;line-height:1.4;
+}
+.input-row textarea:focus{border-color:rgba(239,68,68,.4)}
+.input-row textarea::placeholder{color:rgba(255,255,255,.2)}
+.input-row button{
+  padding:0 20px;border:none;border-radius:14px;
+  background:#ef4444;color:#fff;font-size:.8rem;font-weight:700;
+  cursor:pointer;font-family:inherit;transition:transform .15s,opacity .2s;
+  white-space:nowrap;
+}
+.input-row button:hover{transform:translateY(-1px)}
+.input-row button:disabled{opacity:.3;cursor:not-allowed;transform:none}
+
+/* ── Cards ─────────────────────────── */
+.card{
+  width:100%;max-width:600px;text-align:left;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
+  border-radius:18px;padding:28px;margin:16px auto 0;
+}
+.card h3{font-size:.9rem;font-weight:700;color:#ef4444;margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em}
+.card p,.card li{font-size:.85rem;color:rgba(255,255,255,.5);line-height:1.7}
+.card ul{list-style:none;padding:0}
+.card li{padding:4px 0}
+.card li::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;margin-right:10px;vertical-align:middle;opacity:.5}
+
+/* ── MCQ ───────────────────────────── */
+.mcq{display:flex;flex-direction:column;gap:8px;margin:16px 0;width:100%;max-width:600px}
+.mcq-opt{
+  padding:14px 18px;border:1px solid rgba(255,255,255,.08);border-radius:14px;
+  background:rgba(255,255,255,.02);color:rgba(255,255,255,.6);font-size:.85rem;
+  cursor:pointer;transition:all .2s;font-family:inherit;text-align:left;
+}
+.mcq-opt:hover{border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8)}
+.mcq-opt.correct{border-color:#22c55e;background:rgba(34,197,94,.08);color:#22c55e}
+.mcq-opt.wrong{border-color:#ef4444;background:rgba(239,68,68,.08);color:#ef4444}
+.mcq-opt.dimmed{opacity:.4;cursor:default}
+
+/* ── Score ──────────────────────────── */
+.score-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 16px;border-radius:100px;
+  border:1px solid rgba(255,255,255,.08);
+  font-size:.75rem;font-weight:600;color:rgba(255,255,255,.4);
+  margin-bottom:16px;
+}
+.score-badge strong{color:#ef4444}
+
+/* ── Topic grid ────────────────────── */
+.topic-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;
+  width:100%;max-width:600px;margin:0 auto;
+}
+.topic-card{
+  padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;
+  background:rgba(255,255,255,.02);color:rgba(255,255,255,.5);font-size:.82rem;
+  cursor:pointer;transition:all .2s;text-align:left;line-height:1.4;
+}
+.topic-card:hover{border-color:rgba(239,68,68,.3);color:rgba(255,255,255,.7);background:rgba(239,68,68,.03)}
+
+/* ── Scenario cards ────────────────── */
+.scenario-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;
+  width:100%;max-width:600px;margin:0 auto;
+}
+.scenario-card{
+  padding:20px 16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;
+  background:rgba(255,255,255,.02);cursor:pointer;transition:all .2s;text-align:center;
+}
+.scenario-card:hover{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.03)}
+.scenario-card .icon{font-size:1.6rem;margin-bottom:8px}
+.scenario-card .label{font-size:.78rem;font-weight:600;color:rgba(255,255,255,.5)}
+
+/* ── Argument Structure ────────────── */
+.arg-step{
+  width:100%;max-width:600px;text-align:left;
+  padding:20px 24px;margin:8px auto;
+  border-left:2px solid rgba(239,68,68,.2);
+}
+.arg-step.active{border-left-color:#ef4444}
+.arg-step.done{border-left-color:rgba(34,197,94,.5)}
+.arg-step-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.3);margin-bottom:4px}
+.arg-step.active .arg-step-label{color:#ef4444}
+.arg-step.done .arg-step-label{color:#22c55e}
+.arg-step-content{font-size:.88rem;color:rgba(255,255,255,.5);line-height:1.6}
+.arg-step.done .arg-step-content{color:rgba(255,255,255,.6)}
+
+/* ── Limit Warning ─────────────────── */
+.limit-warn{font-size:.78rem;color:#ef4444;margin-top:16px;opacity:.7}
+.limit-warn a{color:#ef4444;text-decoration:underline}
+
+/* ── Responsive ────────────────────── */
+@media(max-width:640px){
+  .bar{padding:14px 16px}
+  .center{padding:80px 16px 32px}
+  .pills{gap:6px}
+  .pill{padding:8px 14px;font-size:.7rem}
+  .input-row{flex-direction:column}
+  .input-row button{padding:12px 20px}
+  .topic-grid{grid-template-columns:1fr 1fr}
+  .scenario-grid{grid-template-columns:1fr 1fr}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+const el = React.createElement;
+
+/* ═══════════════════════════════════════════════════
+   API + USAGE (shared with debate-ai)
+   ═══════════════════════════════════════════════════ */
+
+const LIMIT = 5;
+function getUsage(){ try{return parseInt(localStorage.getItem('debateos-anon-usage')||'0',10)}catch{return 0} }
+function incUsage(){ try{localStorage.setItem('debateos-anon-usage',String(getUsage()+1))}catch{} }
+function remaining(){ return Math.max(0,LIMIT-getUsage()) }
+
+async function callClaude(sys, user, onChunk){
+  if(getUsage()>=LIMIT) throw new Error('LIMIT_REACHED');
+  try{
+    const r=await fetch('/.netlify/functions/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:sys,prompt:user,stream:true,feature:'learn'})});
+    if(r.ok){
+      const reader=r.body.getReader(),dec=new TextDecoder();
+      let full='',buf='';
+      while(true){
+        const{done,value}=await reader.read();
+        if(done)break;
+        buf+=dec.decode(value,{stream:true});
+        const lines=buf.split('\n');buf=lines.pop()||'';
+        for(const l of lines){
+          if(l.startsWith('data: ')){
+            const d=l.slice(6);if(d==='[DONE]')break;
+            try{const p=JSON.parse(d);if(p.type==='content_block_delta'&&p.delta?.text){full+=p.delta.text;if(onChunk)onChunk(full)}}catch{}
+          }
+        }
+      }
+      incUsage();return full;
+    }
+  }catch{}
+  throw new Error('NO_KEY');
+}
+
+/* ═══════════════════════════════════════════════════
+   CONSTANTS
+   ═══════════════════════════════════════════════════ */
+
+const MODES = [
+  { id:'debate',   label:'Quick Debate' },
+  { id:'builder',  label:'Arg Builder' },
+  { id:'fallacy',  label:'Fallacy Trainer' },
+  { id:'devil',    label:"Devil's Advocate" },
+  { id:'persuade', label:'Persuasion Lab' },
+];
+
+const DEBATE_TOPICS = [
+  'Is remote work better than office work?',
+  'Should kids have smartphones?',
+  'Is college worth it?',
+  'Should tipping be abolished?',
+  'Is social media making us lonelier?',
+  'Should the voting age be lowered to 16?',
+  'Are electric cars actually better for the environment?',
+  'Should we ban homework?',
+  'Is it ethical to eat meat?',
+  'Should AI art be considered real art?',
+  'Is cancel culture a good thing?',
+  'Should billionaires exist?',
+  'Is meritocracy a myth?',
+  'Should college athletes be paid?',
+  'Is privacy dead in the digital age?',
+];
+
+const PERSUASION_SCENARIOS = [
+  { id:'job',    icon:'\u{1F4BC}', label:'Job Interview',           desc:'Convince a hiring manager you\'re the right fit' },
+  { id:'nego',   icon:'\u{1F91D}', label:'Salary Negotiation',      desc:'Ask for a raise or better compensation' },
+  { id:'pitch',  icon:'\u{1F680}', label:'Startup Pitch',           desc:'Convince an investor your idea is worth funding' },
+  { id:'friend', icon:'\u{1F4AC}', label:'Disagree with a Friend',  desc:'Navigate a real disagreement respectfully' },
+  { id:'parent', icon:'\u{1F3E0}', label:'Convince a Parent',       desc:'Make a case for something you want' },
+  { id:'team',   icon:'\u{1F465}', label:'Lead a Team Decision',    desc:'Get a group to adopt your proposal' },
+];
+
+const FALLACIES = [
+  { name:'Ad Hominem', desc:'Attacking the person rather than the argument.' },
+  { name:'Straw Man', desc:'Misrepresenting someone\'s argument to make it easier to attack.' },
+  { name:'Appeal to Authority', desc:'Claiming something is true because an authority figure said so, without evidence.' },
+  { name:'False Dichotomy', desc:'Presenting only two options when more exist.' },
+  { name:'Slippery Slope', desc:'Claiming one event will inevitably lead to extreme consequences without justification.' },
+  { name:'Red Herring', desc:'Introducing an irrelevant point to distract from the real issue.' },
+  { name:'Circular Reasoning', desc:'Using the conclusion as a premise in the argument.' },
+  { name:'Appeal to Emotion', desc:'Using emotional manipulation instead of logical evidence.' },
+  { name:'Hasty Generalization', desc:'Drawing a broad conclusion from limited examples.' },
+  { name:'Tu Quoque', desc:'Deflecting criticism by pointing to the other person\'s similar behavior.' },
+  { name:'Bandwagon', desc:'Arguing something is true because many people believe it.' },
+  { name:'False Cause', desc:'Assuming one event caused another just because it came first.' },
+];
+
+/* ═══════════════════════════════════════════════════
+   CHAT COMPONENT
+   ═══════════════════════════════════════════════════ */
+
+function ChatView({ messages, input, setInput, onSend, loading, placeholder, children }){
+  const chatRef = useRef(null);
+  useEffect(()=>{
+    if(chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  },[messages,loading]);
+
+  return el(React.Fragment,null,
+    messages.length>0 && el('div',{className:'chat-area',ref:chatRef},
+      messages.map((m,i)=>el('div',{key:i,className:'chat-msg '+(m.role==='user'?'user':'ai')},
+        el('span',{className:'sender'},m.role==='user'?'You':'AI'),
+        m.text
+      )),
+      loading && el('div',{className:'chat-msg ai',style:{fontStyle:'italic'}},
+        el('span',{className:'sender'},'AI'),
+        'Thinking...'
+      ),
+    ),
+    children,
+    el('div',{className:'input-row'},
+      el('textarea',{rows:2,placeholder:placeholder||'Type your response...',value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSend()}},disabled:loading}),
+      el('button',{onClick:onSend,disabled:loading||!input.trim()},'Send'),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   QUICK DEBATE MODE
+   ═══════════════════════════════════════════════════ */
+
+function QuickDebate(){
+  const[stage,setStage]=useState('pick'); // pick | chat | feedback
+  const[topic,setTopic]=useState('');
+  const[msgs,setMsgs]=useState([]);
+  const[input,setInput]=useState('');
+  const[loading,setLoading]=useState(false);
+  const[feedback,setFeedback]=useState('');
+  const[turn,setTurn]=useState(0); // user turns taken
+  const rem=remaining();
+
+  const startDebate=async(t)=>{
+    setTopic(t);setStage('chat');setMsgs([]);setTurn(0);setFeedback('');
+    setLoading(true);
+    try{
+      const sys=`You are having a casual but structured argument with someone on the topic: "${t}". You take the OPPOSITE side of whatever they argue. Keep responses to 2-3 short paragraphs. Be respectful but push back firmly. Don't use bullet points or headers. Speak naturally like you're having a real conversation. This is exchange 1 of 3.`;
+      const aiMsg=await callClaude(sys,`The topic is: "${t}". Start by briefly stating your position (the opposite of the common/popular view). Keep it conversational and short.`);
+      setMsgs([{role:'ai',text:aiMsg}]);
+    }catch(e){
+      setMsgs([{role:'ai',text:e.message==='LIMIT_REACHED'?'Free request limit reached. Subscribe to continue.':'Could not start debate.'}]);
+    }
+    setLoading(false);
+  };
+
+  const send=async()=>{
+    if(!input.trim()||loading)return;
+    const userMsg=input.trim();
+    setInput('');
+    const newMsgs=[...msgs,{role:'user',text:userMsg}];
+    setMsgs(newMsgs);
+    const newTurn=turn+1;
+    setTurn(newTurn);
+    setLoading(true);
+
+    if(newTurn>=3){
+      // Final: get feedback
+      try{
+        const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
+        const sys=`You just had a 3-exchange casual debate about "${topic}". Review the user's argumentation. Give: 1) What they did well (be specific), 2) What could improve, 3) A score out of 10 for persuasiveness. Be encouraging but honest. Keep it concise, 2-3 short paragraphs. No markdown headers, just natural text.`;
+        const fb=await callClaude(sys,'Here is the full exchange:\n\n'+hist);
+        setFeedback(fb);setStage('feedback');
+      }catch(e){setFeedback('Could not generate feedback.')}
+    } else {
+      try{
+        const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
+        const sys=`You are having a casual but structured argument about "${topic}". You take the opposite side. This is exchange ${newTurn+1} of 3. Respond directly to their latest point. Push back on weak reasoning, acknowledge strong points briefly, then make your counter-argument. 2-3 short paragraphs, conversational tone. No bullet points or headers.`;
+        const aiMsg=await callClaude(sys,hist);
+        setMsgs(prev=>[...prev,{role:'ai',text:aiMsg}]);
+      }catch(e){
+        setMsgs(prev=>[...prev,{role:'ai',text:'Could not respond.'}]);
+      }
+    }
+    setLoading(false);
+  };
+
+  if(stage==='pick') return el(React.Fragment,null,
+    el('p',{className:'t-sub',style:{marginBottom:24}},'Pick a topic and go back-and-forth for 3 exchanges. Then get feedback on your argumentation.'),
+    el('div',{className:'topic-grid'},
+      DEBATE_TOPICS.map(t=>el('div',{key:t,className:'topic-card',onClick:()=>rem>0&&startDebate(t)},t))
+    ),
+    el('div',{style:{marginTop:20,textAlign:'center'}},
+      el('div',{className:'input-row'},
+        el('textarea',{rows:1,placeholder:'Or type your own topic...',value:topic,onChange:e=>setTopic(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey&&topic.trim()){e.preventDefault();startDebate(topic.trim())}}}),
+        el('button',{onClick:()=>topic.trim()&&startDebate(topic.trim()),disabled:!topic.trim()||rem<=0},'Go'),
+      ),
+    ),
+    rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+  );
+
+  if(stage==='feedback') return el(React.Fragment,null,
+    el('div',{className:'t-label'},'Debate Complete'),
+    el('p',{style:{color:'rgba(255,255,255,.4)',fontSize:'.85rem',marginBottom:16}},'"'+topic+'"'),
+    el('div',{className:'card'},el('p',null,feedback)),
+    el('div',{className:'chat-area',style:{maxHeight:'30vh',marginTop:16}},
+      msgs.map((m,i)=>el('div',{key:i,className:'chat-msg '+(m.role==='user'?'user':'ai')},
+        el('span',{className:'sender'},m.role==='user'?'You':'AI'),m.text
+      ))
+    ),
+    el('button',{className:'cta',onClick:()=>{setStage('pick');setTopic('');setMsgs([]);setFeedback('')}},'New Debate'),
+  );
+
+  // chat stage
+  const remaining_turns=3-turn;
+  return el(React.Fragment,null,
+    el('div',{className:'t-label'},'"'+topic+'"'),
+    el('p',{className:'t-dim',style:{marginBottom:12}},remaining_turns+' exchange'+(remaining_turns!==1?'s':'')+' left'),
+    el(ChatView,{messages:msgs,input,setInput,onSend:send,loading,placeholder:'Make your argument...'}),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   ARGUMENT BUILDER MODE
+   ═══════════════════════════════════════════════════ */
+
+function ArgBuilder(){
+  const STEPS=['claim','reason','evidence','impact'];
+  const STEP_LABELS={claim:'Your Claim',reason:'Your Reason',evidence:'Your Evidence',impact:'Your Impact'};
+  const STEP_PROMPTS={
+    claim:'What do you believe? State it in one clear sentence.',
+    reason:'Why do you believe this? Give your main reason.',
+    evidence:'What evidence supports your reason? A fact, example, or data point.',
+    impact:'Why does this matter? What are the consequences?',
+  };
+
+  const[stage,setStage]=useState('start'); // start | building | done
+  const[claim,setClaim]=useState('');
+  const[stepIdx,setStepIdx]=useState(0);
+  const[answers,setAnswers]=useState({});
+  const[input,setInput]=useState('');
+  const[aiHint,setAiHint]=useState('');
+  const[loading,setLoading]=useState(false);
+  const[summary,setSummary]=useState('');
+  const rem=remaining();
+
+  const begin=async()=>{
+    if(!claim.trim())return;
+    setStage('building');setStepIdx(0);setAnswers({claim:claim.trim()});setAiHint('');
+    setLoading(true);
+    try{
+      const sys='You are a friendly argumentation coach helping someone build a structured argument. They made the claim: "'+claim.trim()+'". Now ask them WHY they believe this. One short question, conversational, encouraging. No bullet points. 1-2 sentences max.';
+      const hint=await callClaude(sys,'Help me figure out the reason behind my claim.');
+      setAiHint(hint);
+    }catch{setAiHint('Great claim! Now tell me: why do you believe this? What\'s your main reason?')}
+    setLoading(false);
+  };
+
+  const submitStep=async()=>{
+    if(!input.trim()||loading)return;
+    const curStep=STEPS[stepIdx+1]; // +1 because claim is already done
+    const newAnswers={...answers,[curStep]:input.trim()};
+    setAnswers(newAnswers);setInput('');
+
+    const nextIdx=stepIdx+1;
+    if(nextIdx>=3){ // done (0=reason,1=evidence,2=impact)
+      setLoading(true);
+      try{
+        const sys='You are an argumentation coach. The user built this argument:\nClaim: '+newAnswers.claim+'\nReason: '+newAnswers.reason+'\nEvidence: '+newAnswers.evidence+'\nImpact: '+newAnswers.impact+'\n\nGive brief feedback: rate the argument structure (strong/decent/needs work), highlight what\'s good, suggest one improvement. Then show the complete argument as one cohesive paragraph. Keep it encouraging and conversational. No markdown headers.';
+        const fb=await callClaude(sys,'Review my complete argument.');
+        setSummary(fb);setStage('done');
+      }catch{setSummary('Great job building that argument!')}
+      setLoading(false);
+    } else {
+      setStepIdx(nextIdx);setLoading(true);
+      const nextStep=STEPS[nextIdx+1];
+      const prompts={
+        evidence:`They said their reason is: "${input.trim()}". Now ask them for evidence that supports this reason. One short, encouraging question.`,
+        impact:`Their evidence is: "${input.trim()}". Now ask them why this matters. What's the real-world consequence? One short question.`,
+      };
+      try{
+        const sys='You are a friendly argumentation coach helping build a structured argument. Claim: "'+newAnswers.claim+'".';
+        const hint=await callClaude(sys,prompts[nextStep]||'Ask about the next step.');
+        setAiHint(hint);
+      }catch{
+        const fallbacks={evidence:'What evidence supports this?',impact:'Why does this matter in the real world?'};
+        setAiHint(fallbacks[nextStep]||'Tell me more.');
+      }
+      setLoading(false);
+    }
+  };
+
+  if(stage==='start') return el(React.Fragment,null,
+    el('p',{className:'t-sub',style:{marginBottom:24}},'Enter any claim and we\'ll walk you through building a complete argument: claim, reason, evidence, and impact.'),
+    el('div',{className:'input-row'},
+      el('textarea',{rows:2,placeholder:'e.g. "Pineapple belongs on pizza" or "Remote work is more productive"',value:claim,onChange:e=>setClaim(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();begin()}}}),
+      el('button',{onClick:begin,disabled:!claim.trim()||rem<=0},'Build'),
+    ),
+    rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+  );
+
+  if(stage==='done') return el(React.Fragment,null,
+    el('div',{className:'t-label'},'Argument Complete'),
+    STEPS.map(s=>el('div',{key:s,className:'arg-step done'},
+      el('div',{className:'arg-step-label'},s.toUpperCase()),
+      el('div',{className:'arg-step-content'},answers[s]||''),
+    )),
+    el('div',{className:'card',style:{marginTop:20}},
+      el('h3',null,'Coach Feedback'),
+      el('p',null,summary),
+    ),
+    el('button',{className:'cta',onClick:()=>{setStage('start');setClaim('');setStepIdx(0);setAnswers({});setSummary('');setAiHint('')}},'Build Another'),
+  );
+
+  // building stage
+  const currentBuildStep=STEPS[stepIdx+1]; // reason, evidence, or impact
+  return el(React.Fragment,null,
+    STEPS.map((s,i)=>{
+      const isDone=answers[s]!==undefined;
+      const isActive=s===currentBuildStep;
+      return el('div',{key:s,className:'arg-step'+(isDone?' done':'')+(isActive?' active':'')},
+        el('div',{className:'arg-step-label'},s.toUpperCase()),
+        el('div',{className:'arg-step-content'},isDone?answers[s]:(isActive?STEP_PROMPTS[s]:'')),
+      );
+    }),
+    aiHint&&el('div',{className:'chat-msg ai',style:{maxWidth:600,margin:'16px auto',alignSelf:'center'}},
+      el('span',{className:'sender'},'Coach'),aiHint
+    ),
+    el('div',{className:'input-row'},
+      el('textarea',{rows:2,placeholder:STEP_PROMPTS[currentBuildStep],value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submitStep()}},disabled:loading}),
+      el('button',{onClick:submitStep,disabled:loading||!input.trim()},loading?'...':'Next'),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   FALLACY TRAINER MODE
+   ═══════════════════════════════════════════════════ */
+
+function FallacyTrainer(){
+  const[stage,setStage]=useState('idle'); // idle | question | reveal
+  const[argument,setArgument]=useState('');
+  const[correctFallacy,setCorrectFallacy]=useState('');
+  const[options,setOptions]=useState([]);
+  const[chosen,setChosen]=useState(null);
+  const[explanation,setExplanation]=useState('');
+  const[loading,setLoading]=useState(false);
+  const[score,setScore]=useState(()=>{try{return JSON.parse(localStorage.getItem('learn-fallacy-score')||'{"correct":0,"total":0}')}catch{return{correct:0,total:0}}});
+  const rem=remaining();
+
+  const saveScore=(s)=>{setScore(s);try{localStorage.setItem('learn-fallacy-score',JSON.stringify(s))}catch{}};
+
+  const generate=async()=>{
+    setLoading(true);setChosen(null);setExplanation('');setStage('question');
+    try{
+      const fallacy=FALLACIES[Math.floor(Math.random()*FALLACIES.length)];
+      // Pick 3 wrong options
+      const wrong=FALLACIES.filter(f=>f.name!==fallacy.name).sort(()=>Math.random()-.5).slice(0,3);
+      const allOpts=[fallacy,...wrong].sort(()=>Math.random()-.5);
+      setCorrectFallacy(fallacy.name);
+      setOptions(allOpts.map(f=>f.name));
+
+      const sys=`Generate a short argument (2-3 sentences) that contains the logical fallacy: ${fallacy.name}. The argument should sound plausible at first but contain a clear example of this fallacy. Make it about an everyday topic (politics, health, technology, culture). Don't mention the fallacy name. Just write the argument, nothing else.`;
+      const arg=await callClaude(sys,'Generate the fallacious argument.');
+      setArgument(arg);
+    }catch(e){
+      setArgument(e.message==='LIMIT_REACHED'?'Free request limit reached.':'Could not generate. Try again.');
+      setStage('idle');
+    }
+    setLoading(false);
+  };
+
+  const choose=(opt)=>{
+    if(chosen!==null)return;
+    setChosen(opt);
+    const isCorrect=opt===correctFallacy;
+    const newScore={correct:score.correct+(isCorrect?1:0),total:score.total+1};
+    saveScore(newScore);
+
+    const f=FALLACIES.find(x=>x.name===correctFallacy);
+    setExplanation(isCorrect
+      ? `Correct! This is ${correctFallacy}. ${f?.desc||''}`
+      : `Not quite. The answer is ${correctFallacy}. ${f?.desc||''} You picked "${opt}" which is a different type of reasoning error.`
+    );
+    setStage('reveal');
+  };
+
+  return el(React.Fragment,null,
+    el('div',{className:'score-badge'},
+      'Score: ',el('strong',null,score.correct+'/'+score.total),
+      score.total>0&&el('span',null,' ('+Math.round(score.correct/score.total*100)+'%)'),
+    ),
+
+    stage==='idle'&&el(React.Fragment,null,
+      el('p',{className:'t-sub',style:{marginBottom:24}},'Spot the logical fallacy in AI-generated arguments. Test your critical thinking.'),
+      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Generate Challenge'),
+      rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+    ),
+
+    stage==='question'&&el(React.Fragment,null,
+      loading?el('p',{className:'t-dim',style:{fontStyle:'italic'}},'Generating argument...')
+      :el(React.Fragment,null,
+        el('div',{className:'card',style:{marginBottom:20}},
+          el('h3',null,'What fallacy is this?'),
+          el('p',null,argument),
+        ),
+        el('div',{className:'mcq'},
+          options.map(opt=>el('button',{key:opt,className:'mcq-opt',onClick:()=>choose(opt)},opt)),
+        ),
+      ),
+    ),
+
+    stage==='reveal'&&el(React.Fragment,null,
+      el('div',{className:'card',style:{marginBottom:16}},
+        el('h3',null,'The Argument'),
+        el('p',null,argument),
+      ),
+      el('div',{className:'mcq'},
+        options.map(opt=>{
+          let cls='mcq-opt';
+          if(opt===correctFallacy)cls+=' correct';
+          else if(opt===chosen&&opt!==correctFallacy)cls+=' wrong';
+          else cls+=' dimmed';
+          return el('button',{key:opt,className:cls},opt);
+        }),
+      ),
+      el('div',{className:'card',style:{marginTop:16}},
+        el('p',null,explanation),
+      ),
+      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Next Challenge'),
+      el('button',{className:'cta-ghost',onClick:()=>{saveScore({correct:0,total:0});setStage('idle')}},'Reset Score'),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   DEVIL'S ADVOCATE MODE
+   ═══════════════════════════════════════════════════ */
+
+function DevilsAdvocate(){
+  const[started,setStarted]=useState(false);
+  const[msgs,setMsgs]=useState([]);
+  const[input,setInput]=useState('');
+  const[loading,setLoading]=useState(false);
+  const[opinion,setOpinion]=useState('');
+  const rem=remaining();
+
+  const begin=async()=>{
+    if(!opinion.trim())return;
+    setStarted(true);setMsgs([]);setLoading(true);
+    try{
+      const sys=`You are a Socratic challenger. The user stated their belief: "${opinion.trim()}". Your job is to stress-test this belief by asking probing questions and presenting counterarguments. Use the Socratic method: ask questions that expose assumptions, push for deeper reasoning, present alternative perspectives. Be respectful but relentless. Don't agree easily. Start with one probing question that challenges the foundation of their belief. Keep responses to 1-2 short paragraphs. No bullet points.`;
+      const ai=await callClaude(sys,'Challenge my belief: "'+opinion.trim()+'"');
+      setMsgs([{role:'ai',text:ai}]);
+    }catch(e){
+      setMsgs([{role:'ai',text:e.message==='LIMIT_REACHED'?'Free request limit reached.':'Could not start. Try again.'}]);
+    }
+    setLoading(false);
+  };
+
+  const send=async()=>{
+    if(!input.trim()||loading)return;
+    const userMsg=input.trim();setInput('');
+    const newMsgs=[...msgs,{role:'user',text:userMsg}];
+    setMsgs(newMsgs);setLoading(true);
+    try{
+      const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
+      const sys=`You are a Socratic challenger stress-testing the user's belief: "${opinion}". Continue challenging their reasoning. Find weaknesses, present counterexamples, ask questions that force deeper thinking. Be respectful but don't let weak arguments slide. If they make a strong point, acknowledge it briefly then push from a different angle. 1-2 short paragraphs. No bullet points.`;
+      const ai=await callClaude(sys,hist);
+      setMsgs(prev=>[...prev,{role:'ai',text:ai}]);
+    }catch{
+      setMsgs(prev=>[...prev,{role:'ai',text:'Could not respond.'}]);
+    }
+    setLoading(false);
+  };
+
+  if(!started) return el(React.Fragment,null,
+    el('p',{className:'t-sub',style:{marginBottom:24}},'State any opinion and the AI will systematically challenge it from every angle. Strengthen your thinking by stress-testing your beliefs.'),
+    el('div',{className:'input-row'},
+      el('textarea',{rows:2,placeholder:'e.g. "I think everyone should go to college" or "Social media is bad for society"',value:opinion,onChange:e=>setOpinion(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();begin()}}}),
+      el('button',{onClick:begin,disabled:!opinion.trim()||rem<=0},'Challenge Me'),
+    ),
+    rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+  );
+
+  return el(React.Fragment,null,
+    el('div',{className:'t-label'},'"'+opinion+'"'),
+    el(ChatView,{messages:msgs,input,setInput,onSend:send,loading,placeholder:'Defend your position...'}),
+    el('button',{className:'cta-ghost',style:{marginTop:12},onClick:()=>{setStarted(false);setOpinion('');setMsgs([])}},'New Topic'),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   PERSUASION LAB MODE
+   ═══════════════════════════════════════════════════ */
+
+function PersuasionLab(){
+  const[stage,setStage]=useState('pick'); // pick | chat | feedback
+  const[scenario,setScenario]=useState(null);
+  const[msgs,setMsgs]=useState([]);
+  const[input,setInput]=useState('');
+  const[loading,setLoading]=useState(false);
+  const[feedback,setFeedback]=useState('');
+  const[turn,setTurn]=useState(0);
+  const rem=remaining();
+
+  const startScenario=async(sc)=>{
+    setScenario(sc);setStage('chat');setMsgs([]);setTurn(0);setFeedback('');setLoading(true);
+    const personas={
+      job:'You are a skeptical but fair hiring manager at a competitive company. The candidate is interviewing for a role they want. Be professional, ask follow-up questions, express mild doubts they need to overcome. You are NOT easily impressed.',
+      nego:'You are a reasonable but budget-conscious manager. The employee is asking for a raise. You like them but need to be convinced the raise is justified. Push back on weak arguments, acknowledge strong ones.',
+      pitch:'You are a seasoned VC investor who has heard thousands of pitches. Be interested but skeptical. Ask tough questions about market size, competition, revenue model. You have a short attention span.',
+      friend:'You are a friend who disagrees with the user about something. Be genuine, not combative. You have your own perspective and you are not easily swayed, but you are open to good arguments.',
+      parent:'You are a caring but cautious parent. You want what is best for your child but tend to be risk-averse. You need solid reasoning, not just enthusiasm.',
+      team:'You are a team member who prefers the current approach. You are not hostile but you need real reasons to change. You raise practical concerns.',
+    };
+    try{
+      const sys=personas[sc.id]+' Start the conversation. Set the scene briefly, then let the user make their case. Keep your opening to 2-3 sentences. Be natural.';
+      const ai=await callClaude(sys,'Begin the scenario: '+sc.desc);
+      setMsgs([{role:'ai',text:ai}]);
+    }catch(e){
+      setMsgs([{role:'ai',text:e.message==='LIMIT_REACHED'?'Free request limit reached.':'Could not start scenario.'}]);
+    }
+    setLoading(false);
+  };
+
+  const send=async()=>{
+    if(!input.trim()||loading)return;
+    const userMsg=input.trim();setInput('');
+    const newMsgs=[...msgs,{role:'user',text:userMsg}];
+    setMsgs(newMsgs);
+    const newTurn=turn+1;setTurn(newTurn);setLoading(true);
+
+    if(newTurn>=4){
+      // Give feedback
+      try{
+        const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
+        const sys=`Analyze this persuasion attempt in a "${scenario.label}" scenario. Evaluate the user's persuasion techniques:
+- Ethos (credibility/character)
+- Pathos (emotional appeal)
+- Logos (logic/evidence)
+- Framing (how they presented information)
+- Rapport (relationship building)
+Rate their overall persuasiveness 1-10 and give specific, actionable feedback. What techniques did they use well? What did they miss? One concrete tip for next time. Keep it conversational, 2-3 paragraphs. No markdown headers.`;
+        const fb=await callClaude(sys,'Full conversation:\n\n'+hist);
+        setFeedback(fb);setStage('feedback');
+      }catch{setFeedback('Could not generate feedback.')}
+    } else {
+      try{
+        const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
+        const personas={
+          job:'Continue as the hiring manager. Respond to what they said. Raise a concern or ask a follow-up.',
+          nego:'Continue as the manager. Respond to their argument. Push back where it is weak.',
+          pitch:'Continue as the investor. React to their pitch. Ask a tough follow-up question.',
+          friend:'Continue as the friend. Respond genuinely. Share your perspective.',
+          parent:'Continue as the parent. Respond with care but maintain your concerns.',
+          team:'Continue as the team member. Respond to their proposal. Raise a practical concern.',
+        };
+        const sys=personas[scenario.id]+' Keep responses to 2-3 sentences. Be natural. Exchange '+(newTurn+1)+' of 4.';
+        const ai=await callClaude(sys,hist);
+        setMsgs(prev=>[...prev,{role:'ai',text:ai}]);
+      }catch{
+        setMsgs(prev=>[...prev,{role:'ai',text:'Could not respond.'}]);
+      }
+    }
+    setLoading(false);
+  };
+
+  if(stage==='pick') return el(React.Fragment,null,
+    el('p',{className:'t-sub',style:{marginBottom:24}},'Pick a real-world scenario and practice persuading someone. Get feedback on your technique.'),
+    el('div',{className:'scenario-grid'},
+      PERSUASION_SCENARIOS.map(sc=>el('div',{key:sc.id,className:'scenario-card',onClick:()=>rem>0&&startScenario(sc)},
+        el('div',{className:'icon'},sc.icon),
+        el('div',{className:'label'},sc.label),
+      ))
+    ),
+    rem<=0&&el('p',{className:'limit-warn',style:{marginTop:16}},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+  );
+
+  if(stage==='feedback') return el(React.Fragment,null,
+    el('div',{className:'t-label'},'Feedback: '+scenario.label),
+    el('div',{className:'card'},
+      el('h3',null,'Persuasion Analysis'),
+      el('p',null,feedback),
+    ),
+    el('div',{className:'chat-area',style:{maxHeight:'30vh',marginTop:16}},
+      msgs.map((m,i)=>el('div',{key:i,className:'chat-msg '+(m.role==='user'?'user':'ai')},
+        el('span',{className:'sender'},m.role==='user'?'You':scenario.label),m.text
+      ))
+    ),
+    el('button',{className:'cta',onClick:()=>{setStage('pick');setScenario(null);setMsgs([]);setFeedback('')}},'Try Another'),
+  );
+
+  // chat stage
+  const remaining_turns=4-turn;
+  return el(React.Fragment,null,
+    el('div',{className:'t-label'},scenario.label),
+    el('p',{className:'t-dim',style:{marginBottom:12}},remaining_turns+' exchange'+(remaining_turns!==1?'s':'')+' left'),
+    el(ChatView,{messages:msgs,input,setInput,onSend:send,loading,placeholder:'Make your case...'}),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   MAIN APP
+   ═══════════════════════════════════════════════════ */
+
+function App(){
+  const[mode,setMode]=useState('debate');
+  const[vis,setVis]=useState(true);
+
+  const switchMode=(m)=>{
+    if(m===mode)return;
+    setVis(false);
+    setTimeout(()=>{setMode(m);setTimeout(()=>setVis(true),50)},250);
+  };
+
+  const bar=el('div',{className:'bar'},
+    el('a',{href:'/landing',className:'bar-logo'},el('em',null,"Devil's"),' Advocate'),
+    el('div',{className:'bar-links'},
+      el('a',{href:'/#case'},'College'),
+      el('a',{href:'/high-school'},'High School'),
+      el('a',{href:'/debate-ai'},'Debate AI'),
+    )
+  );
+
+  const modeContent={
+    debate:el(QuickDebate,{key:'debate'}),
+    builder:el(ArgBuilder,{key:'builder'}),
+    fallacy:el(FallacyTrainer,{key:'fallacy'}),
+    devil:el(DevilsAdvocate,{key:'devil'}),
+    persuade:el(PersuasionLab,{key:'persuade'}),
+  };
+
+  const modeDesc={
+    debate:'Go back-and-forth on any topic. 3 exchanges, then feedback.',
+    builder:'Build a structured argument step by step.',
+    fallacy:'Spot logical fallacies in AI-generated arguments.',
+    devil:'Have your beliefs challenged from every angle.',
+    persuade:'Practice persuading someone in a real scenario.',
+  };
+
+  return el('div',{className:'page'},
+    el('div',{className:'ambient'}),
+    bar,
+    el('div',{className:'center '+(vis?'visible':'entering')},
+      el('h1',{className:'t-hero'},el('em',null,'Learn'),' to Argue'),
+      el('p',{className:'t-sub',style:{marginBottom:24}},'You don\'t need to be a debater. You just need to think clearly.'),
+
+      el('div',{className:'pills'},
+        MODES.map(m=>el('button',{key:m.id,className:'pill'+(mode===m.id?' on':''),onClick:()=>switchMode(m.id)},m.label))
+      ),
+
+      modeContent[mode],
+    ),
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(el(App));
+</script>
+</body>
+</html>
