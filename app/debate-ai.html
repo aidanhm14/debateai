@@ -552,9 +552,16 @@ function useTTS(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({text:input,voice:'onyx',speed}),
     });
-    if(!r.ok) throw new Error('TTS API '+r.status);
+    if(!r.ok){
+      const errBody=await r.text().catch(()=>'');
+      console.error('OpenAI TTS response:',r.status,errBody);
+      throw new Error('TTS API '+r.status+': '+errBody);
+    }
     const contentType=r.headers.get('content-type')||'';
-    if(!contentType.includes('audio')) throw new Error('Not audio: '+contentType);
+    if(!contentType.includes('audio')){
+      console.error('TTS returned non-audio:',contentType);
+      throw new Error('Not audio: '+contentType);
+    }
     const blob=await r.blob();
     if(cancelledRef.current) return;
     const url=URL.createObjectURL(blob);
