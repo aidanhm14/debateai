@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Devil's Advocate — Debate AI</title>
-<meta name="description" content="Go head-to-head against an AI in a full timed parliamentary debate. Prep, speeches, POIs, judge feedback." />
+<meta name="description" content="Go head-to-head against an AI in a full timed parliamentary debate. Prep, speeches, judge feedback." />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
 <meta property="og:type" content="website">
@@ -210,30 +210,6 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   .progress-bar{gap:4px}
   .pip-bar{width:28px}
 }
-/* ── POI Overlay ──────────────────── */
-.poi-overlay{
-  position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:24px;animation:fadeIn .2s ease;
-}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.poi-card{
-  background:rgba(255,255,255,.04);border:1.5px solid rgba(239,68,68,.3);
-  border-radius:20px;padding:32px;max-width:480px;width:100%;text-align:center;
-}
-.poi-card h3{font-size:1.2rem;font-weight:800;color:#ef4444;margin-bottom:8px;letter-spacing:-.02em}
-.poi-transcript{
-  min-height:60px;padding:16px;margin:16px 0;background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.08);border-radius:12px;
-  color:rgba(255,255,255,.6);font-size:.9rem;line-height:1.5;
-  font-style:italic;
-}
-.poi-response{
-  padding:16px;margin:12px 0;background:rgba(239,68,68,.05);
-  border:1px solid rgba(239,68,68,.15);border-radius:12px;
-  color:rgba(255,255,255,.7);font-size:.9rem;line-height:1.5;text-align:left;
-}
-
 /* ── Round History ────────────────── */
 .history-panel{
   position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.92);
@@ -383,17 +359,6 @@ const SFX = {
     }catch{return()=>{}}
   },
 
-  // POI raised — attention grab
-  poi() {
-    try{const c=this._getCtx();
-    [660,880].forEach((f,i)=>{
-      const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);
-      o.frequency.value=f;o.type='triangle';
-      g.gain.setValueAtTime(0.1,c.currentTime+i*0.1);
-      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+i*0.1+0.15);
-      o.start(c.currentTime+i*0.1);o.stop(c.currentTime+i*0.1+0.15);
-    });}catch{}
-  },
 };
 
 /* ═══════════════════════════════════════════════════
@@ -1067,7 +1032,10 @@ function useTTS(){
   };
 
   // Audio progress tracking for lyrics sync
-  const progressRef=useRef({elapsed:0,total:0});
+  // totalEstimate = word-count-based estimate set before playback starts
+  // total = sum of known chunk durations (grows as chunks load)
+  // elapsed = cumulative playback time across all chunks
+  const progressRef=useRef({elapsed:0,total:0,totalEstimate:0,chunkCount:0,chunksLoaded:0});
   const getProgress=()=>progressRef.current;
 
   // Play pre-fetched audio blobs sequentially
@@ -1145,7 +1113,7 @@ function useTTS(){
     setSpeaking(true);
     modeRef.current='openai';
     onEndRef.current=onEnd;
-    progressRef.current={elapsed:0,total:0};
+    progressRef.current={elapsed:0,total:0,totalEstimate:progressRef.current.totalEstimate||0,chunkCount:blobPromises.length,chunksLoaded:0};
     const durations=new Array(blobPromises.length).fill(0);
     let i=0;
     let anyPlayed=false;
@@ -1176,13 +1144,18 @@ function useTTS(){
         const ci=i;
         audio.onloadedmetadata=()=>{
           durations[ci]=audio.duration||0;
-          progressRef.current.total=durations.reduce((a,b)=>a+b,0)||1;
+          progressRef.current.chunksLoaded++;
+          // Extrapolate total: known durations + estimate for remaining chunks
+          const knownSum=durations.reduce((a,b)=>a+b,0);
+          const loaded=progressRef.current.chunksLoaded;
+          const total=blobPromises.length;
+          const avgPerChunk=loaded>0?knownSum/loaded:0;
+          const remaining=total-loaded;
+          progressRef.current.total=knownSum+(avgPerChunk*remaining);
         };
         audio.ontimeupdate=()=>{
           const prior=durations.slice(0,ci).reduce((a,b)=>a+b,0);
           progressRef.current.elapsed=prior+(audio.currentTime||0);
-          const kt=durations.reduce((a,b)=>a+b,0);
-          if(kt>progressRef.current.total) progressRef.current.total=kt;
         };
         audio.onended=()=>{URL.revokeObjectURL(url);i++;playNext()};
         audio.onerror=(e)=>{console.warn('[TTS Stream] Chunk '+ci+' audio error:',e);URL.revokeObjectURL(url);i++;playNext()};
@@ -1361,34 +1334,6 @@ VOICE & DELIVERY:
 - Sound like the debater who wins on flow, not on vibes.`;
 }
 
-/* ── POI (Point of Information) handler ── */
-function buildPOIResponse(motion,aiSpeechSoFar,poiText,format,opponent){
-  const fmt=FORMATS[format]||FORMATS.apda;
-  const opp=OPPONENTS[opponent]||OPPONENTS.balanced;
-  // Randomly decide to accept or reject (70% accept, 30% reject — like real debate)
-  const acceptPOI = Math.random() < 0.7;
-  if(!acceptPOI){
-    return `You are mid-speech in a ${fmt.name} debate. Motion: "${motion}".
-${opp.prompt}
-
-Your opponent tried to raise a Point of Information but you DECLINE it. Give a brief, natural rejection (1 sentence max). Examples of natural rejections: "No thank you.", "Not at this time.", "I'll take your point later." Then immediately continue your argument flow from where you left off.
-
-You were saying: "${aiSpeechSoFar.slice(-800)}"
-
-Continue your speech naturally for 2-3 more sentences from where you left off. No markdown.`;
-  }
-  return `You are mid-speech in a ${fmt.name} debate. Motion: "${motion}".
-${opp.prompt}
-
-You were just giving a speech. Here is what you said so far:
-"${aiSpeechSoFar.slice(-2000)}"
-
-Your opponent raised a Point of Information: "${poiText}"
-
-You ACCEPT the POI. Respond in EXACTLY 2-3 sentences. No more. Address their point, dismiss it, move on. Example length: "Fair point, but even granting that, the mechanism doesn't change because X. And that's actually why our side still wins on timeframe." That's it. Done. Back to your speech.
-Be direct, spoken-word style. No markdown. No meta-narration. Keep it SHORT.`;
-}
-
 /* ═══════════════════════════════════════════════════
    APP
    ═══════════════════════════════════════════════════ */
@@ -1423,13 +1368,6 @@ function App(){
   const[voiceEta,setVoiceEta]=useState(0); // estimated seconds for TTS fetch
   const[showTx,setShowTx]=useState(false);
   const[revealIdx,setRevealIdx]=useState(-1); // lyrics sync: words revealed so far (-1 = all visible)
-
-  // POI (Point of Information) state
-  const[poiActive,setPoiActive]=useState(false);    // user is raising a POI
-  const[poiText,setPoiText]=useState('');            // what user said during POI
-  const[poiResponse,setPoiResponse]=useState('');    // AI response to POI
-  const[poiLoading,setPoiLoading]=useState(false);
-  const poiRecRef=useRef(null);
 
   // Round history
   const[showHistory,setShowHistory]=useState(false);
@@ -1573,6 +1511,11 @@ function App(){
             );
           });
 
+          // Estimate total audio duration from word count (~150 words/min at 1x speed)
+          const estTotalSec=(wordCount/(150*baseSpeed))*60;
+          tts.getProgress().totalEstimate=estTotalSec;
+          tts.getProgress().total=estTotalSec; // use estimate until real durations load
+
           // Stream playback: play each blob as soon as it's ready (with browser TTS fallback)
           tts.playBlobStream(blobPromises,()=>{orb.setMode('idle');setRevealIdx(-1)},txt);
 
@@ -1670,106 +1613,6 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
     setFbLoading(false);
   };
 
-  // POI: Raise a Point of Information during AI speech
-  const raisePOI=()=>{
-    if(poiActive||isUser||!tts.speaking) return;
-    SFX.poi();
-    setPoiActive(true);setPoiText('');setPoiResponse('');
-    poiSavedTimeRef.current=timer.left; // save timer state
-    tts.togglePause(); // pause AI speech
-    timer.halt();      // pause timer during POI
-
-    // Start recording user's POI
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(SR){
-      const r=new SR();r.continuous=false;r.interimResults=true;r.lang='en-US';
-      r.onresult=e=>{
-        let f='';
-        for(let i=0;i<e.results.length;i++){
-          f+=e.results[i][0].transcript+' ';
-        }
-        setPoiText(f.trim());
-      };
-      r.onerror=()=>{};
-      poiRecRef.current=r;
-      try{r.start()}catch{}
-    }
-  };
-
-  // Track paused audio state for POI resume
-  const poiSavedTimeRef=useRef(0);
-
-  // POI: Submit the point and get AI response
-  const submitPOI=async()=>{
-    if(poiRecRef.current)try{poiRecRef.current.stop()}catch{}
-    const pt=poiText.trim();
-    if(!pt){cancelPOI();return}
-    setPoiLoading(true);
-    try{
-      const resp=await callAI(
-        buildPOIResponse(motion,aiText,pt,format,opponent),
-        'Respond to this Point of Information.',
-        chunk=>setPoiResponse(chunk),
-        brain
-      );
-      setPoiResponse(resp);
-      SFX.ready();
-      // Play POI response audio out loud, then auto-dismiss and resume
-      const closePOI=()=>{
-        setPoiLoading(false);setPoiActive(false);setPoiText('');setPoiResponse('');
-        timer.go(poiSavedTimeRef.current);
-      };
-      try{
-        const speed=Math.max(0.75,Math.min(2.0,wpm/150));
-        // Chunk POI response if long
-        const poiChunks=[];let cur='';
-        const sentences=resp.match(/[^.!?]+[.!?]+[\s]*/g)||[resp];
-        for(const s of sentences){
-          if((cur+s).length>3800&&cur){poiChunks.push(cur.trim());cur=s}
-          else cur+=s;
-        }
-        if(cur.trim())poiChunks.push(cur.trim());
-
-        console.log('[POI TTS] Fetching '+poiChunks.length+' HD audio chunks...');
-        const blobs=await Promise.all(poiChunks.map(c=>
-          fetch('/api/tts',{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({text:c,voice:voice,speed,hd:true}),
-          }).then(r=>{
-            if(!r.ok) throw new Error('TTS '+r.status);
-            return r.blob();
-          })
-        ));
-        // Stop paused main speech audio, play POI response
-        tts.stop();
-        tts.playBlobs(blobs,closePOI);
-        return;
-      }catch(e){
-        console.warn('[POI TTS] Failed:',e.message,'— using browser voice');
-        // Browser TTS fallback for POI
-        try{
-          tts.stop();
-          tts.speak(resp,wpm,closePOI);
-          return;
-        }catch{}
-      }
-      // Last resort: auto-close after 4s
-      setTimeout(closePOI,4000);
-    }catch(e){
-      setPoiResponse('Could not respond: '+e.message);
-      setTimeout(()=>{setPoiLoading(false);setPoiActive(false);timer.go(poiSavedTimeRef.current)},2000);
-    }
-  };
-
-  // POI: Cancel and resume
-  const cancelPOI=()=>{
-    if(poiRecRef.current)try{poiRecRef.current.stop()}catch{}
-    setPoiActive(false);setPoiText('');setPoiResponse('');
-    // Resume — unpause the audio and restart timer
-    tts.togglePause();
-    timer.go(poiSavedTimeRef.current);
-  };
-
   // Save round to history
   const saveRound=(allLog,fb,userWon)=>{
     const round={
@@ -1841,10 +1684,16 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
     const totalWords=words.length;
     const tick=()=>{
       const p=tts.getProgress();
-      if(p.total<=0){setRevealIdx(prev=>Math.min(prev+1,totalWords));return;}
-      const pct=Math.min(1,p.elapsed/p.total);
+      // Use the best available total: real chunk durations if loaded, otherwise estimate
+      const bestTotal=p.total>0?p.total:(p.totalEstimate>0?p.totalEstimate:0);
+      if(bestTotal<=0){
+        // No duration info at all — reveal 2 words per tick as fallback
+        setRevealIdx(prev=>Math.min((prev<0?0:prev)+2,totalWords));
+        return;
+      }
+      const pct=Math.min(1,p.elapsed/bestTotal);
       // Reveal slightly ahead of audio so words appear just before spoken
-      const idx=Math.min(totalWords,Math.floor(pct*totalWords*1.05)+1);
+      const idx=Math.min(totalWords,Math.floor(pct*totalWords*1.08)+1);
       setRevealIdx(idx);
     };
     const iv=setInterval(tick,80);
@@ -2085,23 +1934,8 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
 
         // Controls
         el('div',{className:'row-c'},
-          !isUser&&tts.speaking&&!poiActive&&el('button',{className:'cta',style:{marginTop:0,padding:'12px 28px',fontSize:'.8rem',background:'transparent',border:'1.5px solid #ef4444',color:'#ef4444'},onClick:raisePOI},'🖐 Point of Information'),
-          !isUser&&tts.speaking&&!poiActive&&el('button',{className:'cta-ghost',onClick:tts.togglePause},tts.paused?'▶ Resume':'⏸ Pause'),
+          !isUser&&tts.speaking&&el('button',{className:'cta-ghost',onClick:tts.togglePause},tts.paused?'▶ Resume':'⏸ Pause'),
           el('button',{className:'cta-ghost',onClick:endSpeech},isUser?'End Speech →':'Skip →'),
-        ),
-
-        // POI Overlay
-        poiActive&&el('div',{className:'poi-overlay'},
-          el('div',{className:'poi-card'},
-            el('h3',null,'🖐 Point of Information'),
-            el('p',{className:'t-dim',style:{marginBottom:12}},poiLoading?'AI is responding...':'Speak your point — the AI is listening'),
-            el('div',{className:'poi-transcript'},poiText||'(listening...)'),
-            poiResponse&&el('div',{className:'poi-response'},poiResponse),
-            el('div',{className:'row-c',style:{marginTop:16}},
-              !poiLoading&&!poiResponse&&el('button',{className:'cta',style:{marginTop:0,padding:'12px 28px',fontSize:'.82rem'}},el('span',{onClick:submitPOI},'Submit Point')),
-              !poiLoading&&el('button',{className:'cta-ghost',style:{marginTop:0},onClick:cancelPOI},'Cancel'),
-            ),
-          ),
         ),
       )
     );
