@@ -104,11 +104,11 @@ body{
 .float-input::placeholder{color:rgba(255,255,255,.2)}
 
 /* ── Pills ─────────────────────────── */
-.pills{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap;max-width:600px;margin-left:auto;margin-right:auto}
+.pills{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap;max-width:780px;margin-left:auto;margin-right:auto}
 .pill{
-  padding:10px 20px;border-radius:100px;border:1.5px solid rgba(255,255,255,.1);
-  background:transparent;color:rgba(255,255,255,.4);font-size:.78rem;font-weight:600;
-  cursor:pointer;transition:all .25s;font-family:inherit;letter-spacing:.02em;
+  padding:10px 16px;border-radius:100px;border:1.5px solid rgba(255,255,255,.1);
+  background:transparent;color:rgba(255,255,255,.4);font-size:.76rem;font-weight:600;
+  cursor:pointer;transition:all .25s;font-family:inherit;letter-spacing:.02em;white-space:nowrap;
 }
 .pill:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
 .pill.on{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.06)}
@@ -606,16 +606,96 @@ const BRAINS = {
 };
 
 const MOTIONS = [
+  // Classic political philosophy
   'This house would ban billionaires.',
-  'This house believes social media has done more harm than good.',
   'This house would abolish the electoral college.',
-  'This house supports universal basic income.',
   'This house would make voting compulsory.',
-  'This house believes AI development should be paused.',
-  'This house would ban private education.',
-  'This house regrets the rise of nationalism.',
-  'This house would legalize all drugs.',
   'This house believes the right to privacy is obsolete.',
+  'This house would abolish the Senate.',
+  'This house believes benevolent dictatorship is preferable to dysfunctional democracy.',
+  'This house would grant constitutional rights to future generations.',
+  'This house would allow citizens to sell their vote.',
+  // Economics & policy
+  'This house supports universal basic income.',
+  'This house would replace income tax with a wealth tax.',
+  'This house would nationalize the pharmaceutical industry.',
+  'This house would ban unpaid internships.',
+  'This house would impose a global carbon tax.',
+  'This house would abolish intellectual property for medicines.',
+  'This house would mandate employee ownership stakes in large corporations.',
+  'This house would ban algorithmic pricing.',
+  // Technology & AI
+  'This house believes AI development should be paused.',
+  'This house would grant legal personhood to advanced AI systems.',
+  'This house would ban facial recognition technology.',
+  'This house believes open-source AI is a net negative for humanity.',
+  'This house would create a public option for social media.',
+  'This house would hold social media companies liable for user radicalization.',
+  'This house would ban brain-computer interfaces for non-medical use.',
+  'This house regrets the invention of the smartphone.',
+  // Education & culture
+  'This house would ban private education.',
+  'This house would abolish legacy admissions.',
+  'This house would eliminate standardized testing.',
+  'This house believes universities should prioritize vocational training over liberal arts.',
+  'This house would ban homework for K-12 students.',
+  'This house would require a gap year before college.',
+  'This house would pay students to attend school in low-income areas.',
+  // Social issues
+  'This house believes social media has done more harm than good.',
+  'This house would legalize all drugs.',
+  'This house regrets the rise of nationalism.',
+  'This house would abolish the nuclear family as a social ideal.',
+  'This house would ban religious organizations from receiving tax exemptions.',
+  'This house believes cancel culture has done more harm than good.',
+  'This house would ban cosmetic surgery for minors.',
+  'This house would decriminalize sex work.',
+  'This house would abolish prisons.',
+  // International relations
+  'This house would dissolve NATO.',
+  'This house supports open borders.',
+  'This house would create a world government.',
+  'This house believes economic sanctions do more harm than good.',
+  'This house would condition foreign aid on democratic governance.',
+  'This house regrets the existence of the United Nations Security Council veto.',
+  'This house would allow secession by popular referendum.',
+  // Philosophy & ethics
+  'This house believes free will is an illusion.',
+  'This house would choose to live in a simulation that maximizes happiness.',
+  'This house believes moral progress is real.',
+  'This house would bring back extinct species.',
+  'This house believes it is immoral to have children in the current era.',
+  'This house would mandate organ donation upon death.',
+  'This house believes the ends justify the means.',
+  // Criminal justice
+  'This house would abolish the death penalty worldwide.',
+  'This house would allow prisoners to choose permanent exile over incarceration.',
+  'This house would eliminate cash bail.',
+  'This house would lower the voting age to 16.',
+  'This house would try all juveniles as juveniles regardless of offense.',
+  // Environment & science
+  'This house would ban factory farming.',
+  'This house would implement degrowth policies.',
+  'This house believes space colonization is a moral imperative.',
+  'This house would grant legal standing to ecosystems.',
+  'This house would ban single-use plastics globally.',
+  // Behavioral economics & game theory
+  'This house would ban advertising to children under 16.',
+  'This house would implement mandatory cooling-off periods for all major financial decisions.',
+  'This house believes nudge policies are paternalistic overreach.',
+  'This house would ban surge pricing.',
+  'This house would make corporate lobbying illegal.',
+  // Niche & unconventional
+  'This house would abolish the concept of intellectual property.',
+  'This house would require elected officials to undergo psychological evaluation.',
+  'This house would ban political dynasties.',
+  'This house prefers a world where humans cannot lie.',
+  'This house would allow performance-enhancing drugs in professional sports.',
+  'This house would replace juries with AI judges.',
+  'This house regrets the cultural dominance of English as a global language.',
+  'This house would ban inheritance above $5 million.',
+  'This house believes whistleblowers should receive absolute legal immunity.',
+  'This house would impose term limits on Supreme Court justices.',
 ];
 
 /* ═══════════════════════════════════════════════════
@@ -1052,7 +1132,54 @@ function useTTS(){
     modeRef.current='none';
   };
 
-  return{speak,playBlobs,stop,speaking,paused,togglePause,getProgress};
+  // Stream playback: accepts array of blob Promises, plays each as it resolves
+  const playBlobStream=(blobPromises,onEnd)=>{
+    cancelledRef.current=false;
+    setPaused(false);
+    setSpeaking(true);
+    modeRef.current='openai';
+    onEndRef.current=onEnd;
+    progressRef.current={elapsed:0,total:0};
+    const durations=new Array(blobPromises.length).fill(0);
+    let i=0;
+    const playNext=async()=>{
+      if(cancelledRef.current||i>=blobPromises.length){
+        setSpeaking(false);
+        if(onEndRef.current) onEndRef.current();
+        return;
+      }
+      try{
+        const blob=await blobPromises[i];
+        if(cancelledRef.current) return;
+        const url=URL.createObjectURL(blob);
+        const audio=new Audio();
+        audioRef.current=audio;
+        const ci=i;
+        audio.onloadedmetadata=()=>{
+          durations[ci]=audio.duration||0;
+          progressRef.current.total=durations.reduce((a,b)=>a+b,0)||1;
+        };
+        audio.ontimeupdate=()=>{
+          const prior=durations.slice(0,ci).reduce((a,b)=>a+b,0);
+          progressRef.current.elapsed=prior+(audio.currentTime||0);
+          const kt=durations.reduce((a,b)=>a+b,0);
+          if(kt>progressRef.current.total) progressRef.current.total=kt;
+        };
+        audio.onended=()=>{URL.revokeObjectURL(url);i++;playNext()};
+        audio.onerror=()=>{URL.revokeObjectURL(url);i++;playNext()};
+        audio.oncanplaythrough=()=>{
+          audio.play().catch(()=>{URL.revokeObjectURL(url);i++;playNext()});
+        };
+        audio.src=url;audio.load();
+      }catch(e){
+        console.warn('[TTS Stream] Chunk '+i+' failed:',e.message);
+        i++;playNext();
+      }
+    };
+    playNext();
+  };
+
+  return{speak,playBlobs,playBlobStream,stop,speaking,paused,togglePause,getProgress};
 }
 
 function useRecognition(){
@@ -1156,30 +1283,39 @@ ${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+note
 
 Write ~${Math.floor(speech.time/60)*170} words (~${Math.floor(speech.time/60)} min) as a speech delivered aloud.
 
-VOICE & PERSONALITY — TECHNICAL DEBATE STYLE:
-- You are a sharp, technical college debater. Lead with STRUCTURE and CLASH, not rhetoric.
-- Open arguments by identifying the structural problem: "A structural problem with gov's case is..." or "The core tension in opp's framework is..." or "There's a missing link in their causal chain between X and Y."
-- Name the clash explicitly: "The clash on this argument is whether X actually leads to Y, and here's why it doesn't."
-- Use "in our world" vs "in their world" to frame competing visions.
-- Reference the judge directly but casually: "Judge, the delta in this round comes down to..." — never stiff parliamentary language.
-- Be MECHANISM-HEAVY: explain HOW things happen, not just THAT they happen. "The mechanism here is: when you remove X, actors Y respond by doing Z, which causes..."
-- Identify necessary but insufficient conditions: "Even if they prove X, that's necessary but nowhere near sufficient. They still need to show Y and Z, and they haven't."
-- Call out logical gaps by name but naturally: "That's a correlation-causation problem" or "There's no uniqueness on their argument — this happens in the status quo too."
-- When you DO use analogies or humor, keep them short and in service of the technical point. One sentence max, then back to mechanism.
-- Use natural debate language: "pull through," "cross-apply," "this argument is non-unique," "the link story is broken," "extend our argument that..."
+ARGUMENTATION ARCHITECTURE — STRUCTURED TECHNICAL DEBATE:
+You must use CLAIM + WARRANT + IMPACT structure for every argument. This is non-negotiable.
+- CLAIM: What you are asserting (one clear sentence).
+- WARRANT: WHY it is true. Not just "X leads to Y" but the full causal mechanism. Name the warrant. Good warrants have names like "The Substitution Effect" or "The Coordination Problem" or "Moral Hazard." Walk through the complete causal chain: when X happens, actors respond by doing Y through mechanism Z, which produces outcome W.
+- IMPACT: WHY it matters. Quantify when possible. Connect to real human consequences.
+
+ARGUMENT STRUCTURE:
+- Structure arguments with clear sub-points. Your first argument should have sub-points (a, b, c) each with its own named warrant.
+- Example flow: "The structural problem with gov's case is [CLAIM]. Here's why. First, [sub-point a with named warrant and mechanism]. Second, [sub-point b with named warrant]. And this matters because [IMPACT with magnitude]."
+- Each warrant must be SPECIFIC to this motion. If your warrant could apply to any debate topic, it is too generic. "This harms the economy" is not a warrant. "This creates a moral hazard because actors insulated from risk take larger bets, which we saw with AIG in 2008" IS a warrant.
+- Use counterfactual analysis: compare "in our world" vs "in their world" with specific mechanism differences. What happens in the status quo (and why it fails), what structural lock-in prevents change, and how your side's mechanism specifically breaks that lock-in.
+
+MECHANISM-FIRST APPROACH:
+- Always explain HOW something works before stating WHY it matters. Walk through the full causal chain from action to outcome. Don't skip steps.
+- Be mechanism-heavy: "The mechanism here is: when you remove X, actors Y respond by doing Z, which causes..."
+- Identify necessary but insufficient conditions: "Even if they prove X, that's necessary but nowhere near sufficient. They still need to show Y and Z."
+- Call out logical gaps by name: "That's a correlation-causation problem" or "There's no uniqueness on their argument, this happens in the status quo too."
 
 STRATEGIC DEPTH:
-- Comparative weighing is mandatory: magnitude, probability, timeframe, reversibility. Be explicit: "Our impact outweighs on magnitude — we're talking millions of people versus their thousands — and on probability, because our mechanism is direct while theirs requires three contingent steps."
+- Comparative weighing is mandatory. Be explicit: "Our impact outweighs on magnitude, we're talking millions versus their thousands, and on probability, because our mechanism is direct while theirs requires three contingent steps."
 - Punish drops hard: "They completely dropped our second contention, so extend that across the flow."
 - Strategic concessions: "Grant them that X is true. It still doesn't get them to their impact because..."
-- Preempt the strongest version of their argument before dismantling it.
+- Preempt the strongest version of their argument before dismantling it. Steelman, then defeat the steelman.
+- Cross-reference between arguments: "Cross-apply the warrant from our first argument here."
 
-STYLE RULES:
-- Lead with the ARGUMENT, not a wind-up. First sentence should identify the clash or structural problem. Never "Alright judge let's dive in" — just START with the substance.
-- NEVER narrate what you're about to do. Don't say "Let me now turn to..." or "Before I engage..." — just DO it.
-- NEVER be meta about speech structure. No roadmaps, no "My first point is..."
-- No bullet points, no markdown, no headers. Spoken word, but TECHNICAL spoken word.
+VOICE & DELIVERY:
+- Lead with the ARGUMENT, not a wind-up. First sentence identifies the clash or structural problem. Never "Alright judge let's dive in." Just START with substance.
+- NEVER narrate what you're about to do. No "Let me now turn to..." No roadmaps, no "My first point is..."
+- Reference the judge casually: "Judge, the delta in this round comes down to..." Never stiff parliamentary language.
+- Use natural APDA transitions: "pull through," "cross-apply," "extend our argument that," "this argument is non-unique," "the link story is broken."
+- Sound like someone explaining something passionately to a smart friend. "Here's the thing about X, it doesn't just affect Y, it fundamentally restructures Z, because..."
 - Short punchy sentences for key claims. Longer ones for mechanism explanation. Cut filler ruthlessly.
+- No bullet points, no markdown, no headers. Spoken word, but TECHNICAL spoken word.
 - Sound like the debater who wins on flow, not on vibes.`;
 }
 
@@ -1320,68 +1456,68 @@ function App(){
         setAiText(txt);setAiPct(100);
         stopThinking();SFX.ready();
 
-        // Phase 2: Pre-fetch TTS audio with ambient sound + ETA
+        // Phase 2+3: Streaming TTS — fetch chunk 1, start playing immediately,
+        // fetch remaining chunks in background while audio plays
         setAiLoading('voice');
         const wordCount=txt.split(/\s+/).length;
-        // HD TTS: ~80 words/sec processing, standard ~150 w/s; estimate per chunk
-        const estSeconds=Math.max(3,Math.ceil(wordCount/80));
+        const estSeconds=Math.max(2,Math.ceil(wordCount/120));
         setVoiceEta(estSeconds);
         const stopPreparing=SFX.preparing();
-        // Countdown timer
         const etaInterval=setInterval(()=>setVoiceEta(v=>Math.max(0,v-1)),1000);
 
         const baseSpeed=Math.max(0.75,Math.min(2.0,wpm/150));
-        const pro=isPro();
-        let audioReady=null;
         try{
-          // Chunk text into <=4000 char segments for OpenAI
+          // Chunk text into smaller ~2000 char segments for faster first-chunk
           const chunks=[];let cur='';
           const sentences=txt.match(/[^.!?]+[.!?]+[\s]*/g)||[txt];
           for(const s of sentences){
-            if((cur+s).length>3800&&cur){chunks.push(cur.trim());cur=s}
+            if((cur+s).length>2000&&cur){chunks.push(cur.trim());cur=s}
             else cur+=s;
           }
           if(cur.trim())chunks.push(cur.trim());
 
-          // Speed variance: vary ±10% around base speed per chunk
-          // Earlier chunks (opening) slightly slower, middle faster, closing slower
+          // Speed variance per chunk
           const chunkSpeeds=chunks.map((_,i)=>{
-            const pos=chunks.length>1?i/(chunks.length-1):0.5; // 0=start, 1=end
-            // Bell curve: faster in middle, slower at start/end
-            const variance=0.1*(1-4*Math.pow(pos-0.5,2)); // peaks at 0.1 in middle
-            const jitter=(Math.random()-0.5)*0.04; // tiny random ±2%
+            const pos=chunks.length>1?i/(chunks.length-1):0.5;
+            const variance=0.1*(1-4*Math.pow(pos-0.5,2));
+            const jitter=(Math.random()-0.5)*0.04;
             return Math.max(0.75,Math.min(2.0,baseSpeed*(1+variance+jitter)));
           });
 
-          console.log('[TTS] Pre-fetching '+chunks.length+' HD audio chunks with speed variance...');
-          const blobs=await Promise.all(chunks.map((c,ci)=>
-            fetch('/api/tts',{
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({text:c,voice:voice,speed:chunkSpeeds[ci],hd:true}),
-            }).then(r=>{
-              if(!r.ok) throw new Error('TTS '+r.status);
-              return r.blob();
-            })
-          ));
-          audioReady=blobs;
-          console.log('[TTS] All '+blobs.length+' HD chunks ready ('+blobs.reduce((a,b)=>a+b.size,0)+' bytes)');
+          console.log('[TTS] Streaming '+chunks.length+' HD chunks — fetching first...');
+
+          // Fetch first chunk immediately
+          const firstBlob=await fetch('/api/tts',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({text:chunks[0],voice:voice,speed:chunkSpeeds[0],hd:true}),
+          }).then(r=>{if(!r.ok)throw new Error('TTS '+r.status);return r.blob()});
+
+          // START PLAYING immediately — don't wait for rest
+          clearInterval(etaInterval);stopPreparing();setVoiceEta(0);
+          setAiLoading(false);
+          setRevealIdx(0);
+          timer.go(s.time);
+          console.log('[TTS] First chunk ready, starting playback + fetching rest...');
+
+          // Fetch remaining chunks in parallel while first plays
+          const blobPromises=[Promise.resolve(firstBlob)];
+          chunks.slice(1).forEach((c,ci)=>{
+            blobPromises.push(
+              fetch('/api/tts',{
+                method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({text:c,voice:voice,speed:chunkSpeeds[ci+1],hd:true}),
+              }).then(r=>{if(!r.ok)throw new Error('TTS '+r.status);return r.blob()})
+            );
+          });
+
+          // Stream playback: play each blob as soon as it's ready
+          tts.playBlobStream(blobPromises,()=>{orb.setMode('idle');setRevealIdx(-1)});
+
         }catch(e){
-          console.warn('[TTS] Pre-fetch failed:',e.message,'— will use browser voice');
-        }
-        clearInterval(etaInterval);
-        stopPreparing();
-        setVoiceEta(0);
-
-        // Phase 3: GO — start timer + play audio with lyrics sync
-        setAiLoading(false);
-        setRevealIdx(0); // start lyrics reveal at 0
-        timer.go(s.time);
-
-        if(audioReady){
-          tts.playBlobs(audioReady,()=>{orb.setMode('idle');setRevealIdx(-1)});
-        } else {
-          // Browser fallback
+          console.warn('[TTS] Streaming failed:',e.message,'— browser fallback');
+          clearInterval(etaInterval);stopPreparing();setVoiceEta(0);
+          setAiLoading(false);
+          timer.go(s.time);
           tts.speak(txt,wpm,()=>orb.setMode('idle'));
         }
       }catch(e){
