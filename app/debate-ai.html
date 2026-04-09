@@ -22,7 +22,7 @@
 html,body{height:100%;overflow-x:hidden}
 body{
   font-family:'Inter',system-ui,sans-serif;
-  background:#000;color:#f5f5f7;
+  background:#111;color:#f5f5f7;
   -webkit-font-smoothing:antialiased;
 }
 #root{min-height:100vh}
@@ -101,10 +101,10 @@ body{
 .float-input::placeholder{color:rgba(255,255,255,.2)}
 
 /* ── Pills ─────────────────────────── */
-.pills{display:flex;gap:8px;justify-content:center;margin:20px 0}
+.pills{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap;max-width:600px;margin-left:auto;margin-right:auto}
 .pill{
-  padding:12px 32px;border-radius:100px;border:1.5px solid rgba(255,255,255,.1);
-  background:transparent;color:rgba(255,255,255,.4);font-size:.85rem;font-weight:600;
+  padding:10px 20px;border-radius:100px;border:1.5px solid rgba(255,255,255,.1);
+  background:transparent;color:rgba(255,255,255,.4);font-size:.78rem;font-weight:600;
   cursor:pointer;transition:all .25s;font-family:inherit;letter-spacing:.02em;
 }
 .pill:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
@@ -508,13 +508,26 @@ function useOrb(){
 
 /* ── Preload browser voices (Chrome loads async) ── */
 let _voices=[];
+let _ttsWarmedUp=false;
 function _loadVoices(){
   if(!window.speechSynthesis) return;
   _voices=window.speechSynthesis.getVoices();
+  console.log('Voices loaded:',_voices.length);
 }
 if(window.speechSynthesis){
   _loadVoices();
   window.speechSynthesis.onvoiceschanged=_loadVoices;
+}
+// Chrome blocks speechSynthesis.speak() unless first call is in a user gesture.
+// Call this on any button click to unlock it.
+function warmUpTTS(){
+  if(_ttsWarmedUp||!window.speechSynthesis) return;
+  const u=new SpeechSynthesisUtterance(' ');
+  u.volume=0;
+  u.rate=10;
+  window.speechSynthesis.speak(u);
+  _ttsWarmedUp=true;
+  console.log('TTS warmed up');
 }
 
 /* ── TTS — browser speechSynthesis (reliable) ── */
@@ -538,7 +551,11 @@ function useTTS(){
   };
 
   const speak=(text,wpm=180,onEnd)=>{
-    if(!window.speechSynthesis){console.warn('No speechSynthesis');return}
+    if(!window.speechSynthesis){
+      console.warn('No speechSynthesis API available');
+      if(onEnd) onEnd();
+      return;
+    }
     window.speechSynthesis.cancel();
     cancelledRef.current=false;
     setPaused(false);
@@ -548,15 +565,19 @@ function useTTS(){
     const rate=Math.max(0.5,Math.min(2.5,wpm/150));
     // Pick a good English voice
     if(!_voices.length) _loadVoices();
+    console.log('TTS speak: '+text.length+' chars, rate='+rate+', voices='+_voices.length);
     const voice=_voices.find(v=>/Samantha|Daniel|Karen|Google US English|Aaron|Nicky/.test(v.name))
       ||_voices.find(v=>v.lang&&v.lang.startsWith('en'))
       ||null;
+    console.log('TTS voice:',voice?voice.name:'(default)');
 
     const chunks=splitChunks(text);
+    console.log('TTS chunks:',chunks.length);
     let i=0;
 
     const speakNext=()=>{
       if(cancelledRef.current||i>=chunks.length){
+        console.log('TTS done, cancelled='+cancelledRef.current+', i='+i+'/'+chunks.length);
         setSpeaking(false);
         if(onEndRef.current) onEndRef.current();
         return;
@@ -566,11 +587,14 @@ function useTTS(){
       u.pitch=1.0;
       u.volume=1.0;
       if(voice) u.voice=voice;
-      u.onend=()=>{i++;speakNext()};
-      u.onerror=(e)=>{console.warn('TTS utterance error:',e);i++;speakNext()};
+      u.onend=()=>{console.log('TTS chunk '+i+' ended');i++;speakNext()};
+      u.onerror=(e)=>{console.warn('TTS chunk '+i+' error:',e);i++;speakNext()};
+      console.log('TTS speaking chunk '+i+' ('+chunks[i].substring(0,40)+'...)');
       window.speechSynthesis.speak(u);
     };
-    speakNext();
+
+    // Small delay to let Chrome process the queue
+    setTimeout(speakNext,100);
   };
 
   const togglePause=()=>{
@@ -717,10 +741,11 @@ function App(){
   const transition=(next,cb)=>{setVis(false);setTimeout(()=>{if(cb)cb();setPhase(next);setTimeout(()=>setVis(true),50)},350)};
 
   // Start debate
-  const startDebate=()=>{if(!motion.trim())return;transition('prep',()=>prepTimer.go(fmt.prep))};
+  const startDebate=()=>{if(!motion.trim())return;warmUpTTS();transition('prep',()=>prepTimer.go(fmt.prep))};
 
   // Skip prep → first speech
   const goToSpeeches=()=>{
+    warmUpTTS();
     prepTimer.reset();
     transition('speech',()=>{setIdx(0);setLog([]);setTimeout(()=>runSpeech(0,[]),400)});
   };
@@ -945,7 +970,7 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
     el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:120}},
       el('div',{className:'t-label'},'Round Complete'),
       el('h2',{className:'t-hero',style:{fontSize:'clamp(2rem,5vw,3.2rem)',marginBottom:8}},'Judge Ballot'),
-      el('p',{className:'t-dim',style:{marginBottom:8}},'"'+motion+'" — '+( side==='gov'?'Government':'Opposition')),
+      el('p',{className:'t-dim',style:{marginBottom:8}},'"'+motion+'" — '+(fmt.sideLabels[side]||side)),
 
       fbLoading&&!feedback&&el('p',{className:'t-dim',style:{fontStyle:'italic',marginTop:40}},'Deliberating...'),
 
