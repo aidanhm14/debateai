@@ -218,14 +218,129 @@ const el = React.createElement;
    CONSTANTS
    ═══════════════════════════════════════════════════ */
 
-const SPEECHES = [
-  { code:'PM',  name:'Prime Minister',     side:'gov', time:420 },
-  { code:'LO',  name:'Leader of Opp',      side:'opp', time:480 },
-  { code:'MG',  name:'Member of Gov',      side:'gov', time:480 },
-  { code:'MO',  name:'Member of Opp',      side:'opp', time:480 },
-  { code:'LOR', name:'LO Rebuttal',        side:'opp', time:240 },
-  { code:'PMR', name:'PM Rebuttal',        side:'gov', time:300 },
-];
+/* ── DEBATE FORMATS ──────────────────── */
+const FORMATS = {
+  apda: {
+    name: 'APDA Parliamentary',
+    desc: 'Full 6-speech collegiate parli round',
+    sides: ['gov','opp'],
+    sideLabels: { gov:'Government', opp:'Opposition' },
+    speeches: [
+      { code:'PM',  name:'Prime Minister',     side:'gov', time:420 },
+      { code:'LO',  name:'Leader of Opp',      side:'opp', time:480 },
+      { code:'MG',  name:'Member of Gov',      side:'gov', time:480 },
+      { code:'MO',  name:'Member of Opp',      side:'opp', time:480 },
+      { code:'LOR', name:'LO Rebuttal',        side:'opp', time:240 },
+      { code:'PMR', name:'PM Rebuttal',        side:'gov', time:300 },
+    ],
+    rules: {
+      PM:'You are PM (Government). Define the round, present a framework, 2-3 strong arguments with warrants and impacts.',
+      LO:'You are LO (Opposition). Engage the PM\'s framework directly, present counter-framework and 2-3 opposition arguments.',
+      MG:'You are MG (Government). Rebuild government arguments, extend the case, directly refute opposition points.',
+      MO:'You are MO (Opposition). Extend opposition, attack rebuilds, introduce final opposition analysis.',
+      LOR:'You are LOR (Opposition Rebuttal). Crystallize the round from opp\'s perspective. 2-3 key issues, why opp wins each. NO new arguments.',
+      PMR:'You are PMR (Government Rebuttal). Crystallize from gov\'s perspective. Address opp\'s strongest points, why gov wins. NO new arguments.',
+    },
+    prep: 900,
+  },
+  bp: {
+    name: 'British Parliamentary',
+    desc: '4 teams, 2-person — you play Opening Gov or Opp',
+    sides: ['og','oo'],
+    sideLabels: { og:'Opening Government', oo:'Opening Opposition' },
+    speeches: [
+      { code:'PM',  name:'Prime Minister',     side:'og', time:420 },
+      { code:'LO',  name:'Leader of Opp',      side:'oo', time:420 },
+      { code:'DPM', name:'Deputy PM',          side:'og', time:420 },
+      { code:'DLO', name:'Deputy Leader Opp',  side:'oo', time:420 },
+    ],
+    rules: {
+      PM:'You are PM (Opening Government). Define the motion, present the model if needed, and give 2-3 strong arguments.',
+      LO:'You are LO (Opening Opposition). Directly engage PM\'s model, present counter-arguments, establish opp\'s line.',
+      DPM:'You are Deputy PM. Rebuild PM\'s case, extend with new examples, refute LO\'s points.',
+      DLO:'You are Deputy LO. Extend opposition\'s case, attack government rebuilds, set up closing half.',
+    },
+    prep: 900,
+  },
+  ld: {
+    name: 'Lincoln-Douglas',
+    desc: '1v1 value debate with cross-examination',
+    sides: ['aff','neg'],
+    sideLabels: { aff:'Affirmative', neg:'Negative' },
+    speeches: [
+      { code:'AC',  name:'Affirmative Constructive', side:'aff', time:360 },
+      { code:'CX1', name:'Cross-Exam (Neg asks)',    side:'neg', time:180 },
+      { code:'NC',  name:'Negative Constructive',    side:'neg', time:420 },
+      { code:'CX2', name:'Cross-Exam (Aff asks)',    side:'aff', time:180 },
+      { code:'1AR', name:'Aff Rebuttal',             side:'aff', time:240 },
+      { code:'NR',  name:'Neg Rebuttal',             side:'neg', time:360 },
+      { code:'2AR', name:'Aff Rebuttal',             side:'aff', time:180 },
+    ],
+    rules: {
+      AC:'You are Affirmative. Present your value, criterion, and 2-3 contentions supporting the resolution.',
+      CX1:'You are Negative doing cross-examination. Ask probing questions to expose weaknesses in the Aff case. Write as a series of questions with brief follow-ups.',
+      NC:'You are Negative. Present your value, criterion, and contentions. Also directly refute the Affirmative case.',
+      CX2:'You are Affirmative doing cross-examination. Ask strategic questions to set up your rebuttals. Write as a series of questions.',
+      '1AR':'You are Aff giving first rebuttal. Rebuild your case, answer Neg attacks, show why your framework wins.',
+      NR:'You are Negative rebuttal. Extend your best arguments, crystallize voting issues, explain why Neg wins.',
+      '2AR':'You are Aff giving final rebuttal. Last speech — crystallize the round, final voting issues. NO new arguments.',
+    },
+    prep: 240,
+  },
+  quick: {
+    name: 'Quick Clash',
+    desc: '2 speeches each — fast and casual',
+    sides: ['pro','con'],
+    sideLabels: { pro:'Pro', con:'Con' },
+    speeches: [
+      { code:'P1', name:'Pro Opening',  side:'pro', time:180 },
+      { code:'C1', name:'Con Opening',  side:'con', time:180 },
+      { code:'P2', name:'Pro Rebuttal', side:'pro', time:120 },
+      { code:'C2', name:'Con Rebuttal', side:'con', time:120 },
+    ],
+    rules: {
+      P1:'You are Pro. Make your best 2-3 arguments for the topic. Be direct and conversational.',
+      C1:'You are Con. Directly push back on Pro\'s points and make your own 2-3 counter-arguments.',
+      P2:'You are Pro rebuttal. Respond to Con\'s attacks and explain why Pro still wins.',
+      C2:'You are Con rebuttal. Final word — why Con wins this debate. NO new arguments.',
+    },
+    prep: 120,
+  },
+};
+
+/* ── OPPONENT STYLES ─────────────────── */
+const OPPONENTS = {
+  balanced: {
+    name: 'Balanced',
+    desc: 'Well-rounded debater',
+    prompt: 'You have a balanced debate style — clear logic, good examples, measured tone. You\'re competent but not flashy.',
+  },
+  technical: {
+    name: 'Technical',
+    desc: 'Stats, studies, precision',
+    prompt: 'You are an extremely technical debater. You cite specific studies, statistics, and data. You attack logical fallacies by name. Your tone is precise and academic. You love framework-level analysis and weighing mechanisms.',
+  },
+  orator: {
+    name: 'Orator',
+    desc: 'Eloquent, persuasive, rhetorical',
+    prompt: 'You are a charismatic orator. You use vivid analogies, rhetorical questions, emotional appeals, and soaring language. You paint pictures with words and build to powerful conclusions. Think Obama meets MLK.',
+  },
+  aggressive: {
+    name: 'Aggressive',
+    desc: 'Hard-hitting, relentless pressure',
+    prompt: 'You are an aggressive debater. You go hard on opponent\'s weaknesses, use sharp cross-applications, and maintain relentless pressure. You\'re confrontational but substantive — you don\'t just attack, you demolish.',
+  },
+  philosopher: {
+    name: 'Philosopher',
+    desc: 'Deep principles, thought experiments',
+    prompt: 'You are a philosophical debater. You ground arguments in moral frameworks (Kant, Mill, Rawls, etc.), use thought experiments, and care deeply about first principles. You ask "why does this matter at a fundamental level?"',
+  },
+  streetwise: {
+    name: 'Real-World',
+    desc: 'Practical, common sense, examples',
+    prompt: 'You are a practical, real-world debater. You use everyday examples, common sense reasoning, and concrete scenarios over abstract theory. You speak plainly and make complex issues feel relatable and urgent.',
+  },
+};
 
 const MOTIONS = [
   'This house would ban billionaires.',
@@ -391,131 +506,89 @@ function useOrb(){
   return {ref,init,kill,setMode,startMic,stopMic};
 }
 
-/* ── TTS via OpenAI API (human-sounding) with browser fallback ── */
+/* ── Preload browser voices (Chrome loads async) ── */
+let _voices=[];
+function _loadVoices(){
+  if(!window.speechSynthesis) return;
+  _voices=window.speechSynthesis.getVoices();
+}
+if(window.speechSynthesis){
+  _loadVoices();
+  window.speechSynthesis.onvoiceschanged=_loadVoices;
+}
+
+/* ── TTS — browser speechSynthesis (reliable) ── */
 
 function useTTS(){
   const[speaking,setSpeaking]=useState(false);
   const[paused,setPaused]=useState(false);
-  const audioRef=useRef(null);
   const cancelledRef=useRef(false);
-  const blobQueueRef=useRef([]);   // fetched audio blobs waiting to play
-  const playingRef=useRef(false);  // is the sequential player active
-  const doneRef=useRef(false);     // all chunks fetched
   const onEndRef=useRef(null);
 
-  // Split text at sentence boundaries, max ~3500 chars per chunk
-  const chunkText=(text)=>{
+  // Split into ~60-word sentence groups to avoid Chrome's 15s cutoff
+  const splitChunks=(text)=>{
     const sentences=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
-    const chunks=[];let cur='';
+    const groups=[];let cur='';
     for(const s of sentences){
-      if((cur+s).length>3500&&cur){chunks.push(cur.trim());cur=s}
+      if((cur+s).split(/\s+/).length>60&&cur){groups.push(cur.trim());cur=s}
       else cur+=s;
     }
-    if(cur.trim())chunks.push(cur.trim());
-    return chunks;
+    if(cur.trim())groups.push(cur.trim());
+    return groups;
   };
 
-  // Fetch one TTS audio chunk
-  const fetchAudio=async(text,speed)=>{
-    const r=await fetch('/api/tts',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text,voice:'onyx',speed}),
-    });
-    if(!r.ok) throw new Error('TTS '+r.status);
-    return await r.blob();
-  };
-
-  // Sequential player — plays blobs as they arrive in the queue
-  const startPlayer=()=>{
-    if(playingRef.current) return; // already running
-    playingRef.current=true;
-    const next=()=>{
-      if(cancelledRef.current){playingRef.current=false;setSpeaking(false);return}
-      if(blobQueueRef.current.length===0){
-        // Queue empty — if all chunks fetched, we're done
-        if(doneRef.current){
-          playingRef.current=false;
-          setSpeaking(false);
-          if(onEndRef.current)onEndRef.current();
-          return;
-        }
-        // Otherwise wait for more chunks
-        setTimeout(next,150);
-        return;
-      }
-      const blob=blobQueueRef.current.shift();
-      const url=URL.createObjectURL(blob);
-      const audio=new Audio(url);
-      audioRef.current=audio;
-      audio.onended=()=>{URL.revokeObjectURL(url);next()};
-      audio.onerror=()=>{URL.revokeObjectURL(url);next()};
-      audio.play().catch(e=>{
-        console.warn('Audio.play() rejected:',e);
-        URL.revokeObjectURL(url);next();
-      });
-    };
-    next();
-  };
-
-  // Main speak — chunk, fetch in parallel, start playing as soon as first chunk ready
   const speak=(text,wpm=180,onEnd)=>{
+    if(!window.speechSynthesis){console.warn('No speechSynthesis');return}
+    window.speechSynthesis.cancel();
     cancelledRef.current=false;
     setPaused(false);
     setSpeaking(true);
-    doneRef.current=false;
-    blobQueueRef.current=[];
     onEndRef.current=onEnd;
-    const speed=Math.max(0.75,Math.min(2.0,wpm/150));
 
-    const chunks=chunkText(text);
-    console.log('TTS: '+chunks.length+' chunks, '+text.length+' chars');
+    const rate=Math.max(0.5,Math.min(2.5,wpm/150));
+    // Pick a good English voice
+    if(!_voices.length) _loadVoices();
+    const voice=_voices.find(v=>/Samantha|Daniel|Karen|Google US English|Aaron|Nicky/.test(v.name))
+      ||_voices.find(v=>v.lang&&v.lang.startsWith('en'))
+      ||null;
 
-    // Fetch each chunk and push to queue as it arrives
-    let fetched=0;
-    chunks.forEach((c,i)=>{
-      fetchAudio(c,speed).then(blob=>{
-        if(cancelledRef.current) return;
-        // Insert in order (chunks may finish out of order)
-        // Use a simple approach: store by index then compact
-        blobQueueRef.current._pending=blobQueueRef.current._pending||{};
-        blobQueueRef.current._pending[i]=blob;
-        // Push all consecutive ready blobs
-        while(blobQueueRef.current._pending[fetched]){
-          blobQueueRef.current.push(blobQueueRef.current._pending[fetched]);
-          delete blobQueueRef.current._pending[fetched];
-          fetched++;
-        }
-        if(fetched===chunks.length) doneRef.current=true;
-        startPlayer(); // kick player if not running
-      }).catch(e=>{
-        console.warn('TTS fetch error chunk '+i+':',e);
-        fetched++;
-        if(fetched===chunks.length) doneRef.current=true;
-      });
-    });
+    const chunks=splitChunks(text);
+    let i=0;
+
+    const speakNext=()=>{
+      if(cancelledRef.current||i>=chunks.length){
+        setSpeaking(false);
+        if(onEndRef.current) onEndRef.current();
+        return;
+      }
+      const u=new SpeechSynthesisUtterance(chunks[i]);
+      u.rate=rate;
+      u.pitch=1.0;
+      u.volume=1.0;
+      if(voice) u.voice=voice;
+      u.onend=()=>{i++;speakNext()};
+      u.onerror=(e)=>{console.warn('TTS utterance error:',e);i++;speakNext()};
+      window.speechSynthesis.speak(u);
+    };
+    speakNext();
   };
 
-  const pause=()=>{
-    if(audioRef.current&&!paused){
-      audioRef.current.pause();
+  const togglePause=()=>{
+    if(!window.speechSynthesis) return;
+    if(paused){
+      window.speechSynthesis.resume();
+      setPaused(false);
+    } else {
+      window.speechSynthesis.pause();
       setPaused(true);
     }
   };
-  const resume=()=>{
-    if(audioRef.current&&paused){
-      audioRef.current.play();
-      setPaused(false);
-    }
-  };
-  const togglePause=()=>paused?resume():pause();
 
   const stop=()=>{
     cancelledRef.current=true;
-    doneRef.current=true;
-    blobQueueRef.current=[];
-    if(audioRef.current){audioRef.current.pause();audioRef.current=null}
-    setSpeaking(false);setPaused(false);
+    if(window.speechSynthesis) window.speechSynthesis.cancel();
+    setSpeaking(false);
+    setPaused(false);
   };
 
   return{speak,stop,speaking,paused,togglePause};
@@ -586,19 +659,18 @@ function useTimer(){
    BUILD PROMPT
    ═══════════════════════════════════════════════════ */
 
-function buildPrompt(speech,userSide,motion,history,notes){
-  const aiSide=userSide==='gov'?'Opposition':'Government';
-  const rules={
-    PM:'You are PM (Government). Define the round, present a framework, 2-3 strong arguments with warrants and impacts.',
-    LO:'You are LO (Opposition). Engage the PM\'s framework directly, present counter-framework and 2-3 opposition arguments.',
-    MG:'You are MG (Government). Rebuild government arguments, extend the case, directly refute opposition points.',
-    MO:'You are MO (Opposition). Extend opposition, attack rebuilds, introduce final opposition analysis.',
-    LOR:'You are LOR (Opposition Rebuttal). Crystallize the round from opp\'s perspective. 2-3 key issues, why opp wins each. NO new arguments.',
-    PMR:'You are PMR (Government Rebuttal). Crystallize from gov\'s perspective. Address opp\'s strongest points, why gov wins. NO new arguments.',
-  };
-  return `You are a skilled ${aiSide} debater in APDA parliamentary debate. Motion: "${motion}".
+function buildPrompt(speech,userSide,motion,history,notes,format,opponent){
+  const fmt=FORMATS[format]||FORMATS.apda;
+  const opp=OPPONENTS[opponent]||OPPONENTS.balanced;
+  const userLabel=fmt.sideLabels[userSide]||userSide;
+  const aiSides=fmt.sides.filter(s=>s!==userSide);
+  const aiLabel=fmt.sideLabels[aiSides[0]]||aiSides[0];
+  const rule=fmt.rules[speech.code]||'Deliver your speech.';
+  return `You are a skilled ${aiLabel} debater in a ${fmt.name} debate. Motion/Resolution: "${motion}".
 
-${rules[speech.code]}
+${opp.prompt}
+
+${rule}
 
 ${history?'Previous speeches:\n'+history:'First speech of the round.'}
 ${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+notes:''}
@@ -614,6 +686,8 @@ function App(){
   const[phase,setPhase]=useState('setup');   // setup|prep|speech|feedback
   const[vis,setVis]=useState(true);          // fade transition
   const[motion,setMotion]=useState('');
+  const[format,setFormat]=useState('apda');
+  const[opponent,setOpponent]=useState('balanced');
   const[side,setSide]=useState('gov');
   const[wpm,setWpm]=useState(180);
   const[idx,setIdx]=useState(0);
@@ -630,8 +704,9 @@ function App(){
   const tts=useTTS();
   const timer=useTimer();
   const prepTimer=useTimer();
-  const rem=remaining();
 
+  const fmt=FORMATS[format]||FORMATS.apda;
+  const SPEECHES=fmt.speeches;
   const cur=SPEECHES[idx]||SPEECHES[0];
   const isUser=cur.side===side;
 
@@ -642,7 +717,7 @@ function App(){
   const transition=(next,cb)=>{setVis(false);setTimeout(()=>{if(cb)cb();setPhase(next);setTimeout(()=>setVis(true),50)},350)};
 
   // Start debate
-  const startDebate=()=>{if(!motion.trim())return;transition('prep',()=>prepTimer.go(900))};
+  const startDebate=()=>{if(!motion.trim())return;transition('prep',()=>prepTimer.go(fmt.prep))};
 
   // Skip prep → first speech
   const goToSpeeches=()=>{
@@ -669,7 +744,7 @@ function App(){
       orb.setMode('ai');setAiLoading(true);setAiText('');
       try{
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
-        const txt=await callClaude(buildPrompt(s,side,motion,hist,notes),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>setAiText(chunk));
+        const txt=await callClaude(buildPrompt(s,side,motion,hist,notes,format,opponent),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>setAiText(chunk));
         setAiText(txt);setAiLoading(false);
         // Start TTS immediately with completed text
         tts.speak(txt,wpm,()=>orb.setMode('idle'));
@@ -707,7 +782,7 @@ function App(){
   const genFeedback=async(allLog)=>{
     setFbLoading(true);
     const tx=allLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
-    const sys=`You are an experienced APDA parliamentary debate judge. Motion: "${motion}". User debated ${side==='gov'?'Government':'Opposition'}.
+    const sys=`You are an experienced ${fmt.name} debate judge. Motion: "${motion}". User debated ${fmt.sideLabels[side]||side}.
 
 Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (25-30 scale), 3) Key clash point and who won it, 4) Per-speech feedback (2 strengths, 2 improvements each), 5) One concrete thing to practice. Be honest, reference specific arguments.`;
     try{
@@ -724,7 +799,7 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
   };
 
   // Reset
-  const newRound=()=>transition('setup',()=>{setMotion('');setIdx(0);setLog([]);setFeedback('');setNotes('');setAiText('');setShowTx(false)});
+  const newRound=()=>transition('setup',()=>{setMotion('');setIdx(0);setLog([]);setFeedback('');setNotes('');setAiText('');setShowTx(false);setFormat('apda');setOpponent('balanced')});
 
   /* ─── RENDER ─────────────────────── */
 
@@ -739,23 +814,49 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
 
   const stageClass='center '+(vis?'visible':'entering');
 
+  // Auto-set side to first available when format changes
+  useEffect(()=>{
+    const f=FORMATS[format];
+    if(f&&!f.sides.includes(side)) setSide(f.sides[0]);
+  },[format]);
+
   // ── SETUP ──
   if(phase==='setup') return el('div',{className:'page'},
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
       el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
-      el('p',{className:'t-sub'},'A full parliamentary round against an AI opponent. Prep time, six speeches, and a judge ballot.'),
+      el('p',{className:'t-sub'},'Choose your format, opponent, and go.'),
 
-      el('textarea',{className:'float-input',rows:3,placeholder:'Enter a motion...',value:motion,onChange:e=>setMotion(e.target.value)}),
-      el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:10,marginBottom:4}},'Random Motion'),
-
-      el('div',{style:{marginTop:32}}),
-      el('div',{className:'t-label'},'Your Side'),
+      // Format
+      el('div',{className:'t-label',style:{marginTop:8}},'Format'),
       el('div',{className:'pills'},
-        el('button',{className:'pill'+(side==='gov'?' on':''),onClick:()=>setSide('gov')},'Government'),
-        el('button',{className:'pill'+(side==='opp'?' on':''),onClick:()=>setSide('opp')},'Opposition'),
+        Object.entries(FORMATS).map(([k,v])=>
+          el('button',{key:k,className:'pill'+(format===k?' on':''),onClick:()=>setFormat(k),title:v.desc},v.name)
+        )
       ),
 
+      // Opponent Style
+      el('div',{className:'t-label',style:{marginTop:24}},'Opponent Style'),
+      el('div',{className:'pills'},
+        Object.entries(OPPONENTS).map(([k,v])=>
+          el('button',{key:k,className:'pill'+(opponent===k?' on':''),onClick:()=>setOpponent(k),title:v.desc},v.name)
+        )
+      ),
+
+      // Motion
+      el('div',{style:{marginTop:28}}),
+      el('textarea',{className:'float-input',rows:2,placeholder:'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
+      el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
+
+      // Side
+      el('div',{className:'t-label',style:{marginTop:24}},'Your Side'),
+      el('div',{className:'pills'},
+        fmt.sides.map(s=>
+          el('button',{key:s,className:'pill'+(side===s?' on':''),onClick:()=>setSide(s)},fmt.sideLabels[s])
+        )
+      ),
+
+      // AI Speed
       el('div',{className:'t-label',style:{marginTop:24}},'AI Speed'),
       el('div',{className:'wpm'},
         el('span',null,'Slow'),
@@ -764,9 +865,12 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
         el('strong',null,wpm+' wpm'),
       ),
 
-      el('button',{className:'cta',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
+      // Summary line
+      el('div',{className:'t-dim',style:{marginTop:16}},
+        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+OPPONENTS[opponent].name+' opponent'
+      ),
 
-      rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+      el('button',{className:'cta',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
     )
   );
 
@@ -777,9 +881,10 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
       el('div',{className:'t-label'},'Prep Time'),
       el('div',{className:'t-time'+(prepTimer.left<=60?' danger':'')},prepTimer.fmt(prepTimer.left)),
       el('div',{style:{margin:'16px auto 24px',padding:'14px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',borderRadius:14,maxWidth:480}},
-        el('span',{style:{color:'#ef4444',fontWeight:700}},side==='gov'?'GOV':'OPP'),
-        el('span',{style:{color:'rgba(255,255,255,.35)',margin:'0 8px'}},'—'),
-        el('span',{style:{color:'rgba(255,255,255,.5)'}},motion),
+        el('span',{style:{color:'#ef4444',fontWeight:700}},fmt.sideLabels[side]||side),
+        el('span',{style:{color:'rgba(255,255,255,.35)',margin:'0 8px'}},'·'),
+        el('span',{style:{color:'rgba(255,255,255,.25)',fontSize:'.8rem'}},fmt.name),
+        el('div',{style:{color:'rgba(255,255,255,.5)',marginTop:6}},motion),
       ),
       el('textarea',{className:'float-input',rows:8,placeholder:'Brainstorm your arguments...',value:notes,onChange:e=>setNotes(e.target.value),autoFocus:true,style:{maxWidth:480}}),
       el('button',{className:'cta',onClick:goToSpeeches,style:{marginTop:32,maxWidth:300}},'Start Round →'),
