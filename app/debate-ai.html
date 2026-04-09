@@ -308,6 +308,16 @@ const FORMATS = {
   },
 };
 
+/* ── AI VOICES (OpenAI TTS) ──────────── */
+const VOICES = {
+  onyx:    { name:'Onyx',    desc:'Deep male — authoritative' },
+  echo:    { name:'Echo',    desc:'Male — warm, conversational' },
+  fable:   { name:'Fable',   desc:'Male — British, narrative' },
+  alloy:   { name:'Alloy',   desc:'Neutral — balanced' },
+  nova:    { name:'Nova',    desc:'Female — warm, friendly' },
+  shimmer: { name:'Shimmer', desc:'Female — clear, expressive' },
+};
+
 /* ── OPPONENT STYLES ─────────────────── */
 const OPPONENTS = {
   balanced: {
@@ -672,6 +682,34 @@ function useTTS(){
     })();
   };
 
+  // Play pre-fetched audio blobs sequentially
+  const playBlobs=(blobs,onEnd)=>{
+    cancelledRef.current=false;
+    setPaused(false);
+    setSpeaking(true);
+    modeRef.current='openai';
+    onEndRef.current=onEnd;
+    let i=0;
+    const next=()=>{
+      if(cancelledRef.current||i>=blobs.length){
+        setSpeaking(false);
+        if(onEndRef.current) onEndRef.current();
+        return;
+      }
+      const url=URL.createObjectURL(blobs[i]);
+      const audio=new Audio();
+      audioRef.current=audio;
+      audio.onended=()=>{URL.revokeObjectURL(url);i++;next()};
+      audio.onerror=()=>{URL.revokeObjectURL(url);i++;next()};
+      audio.oncanplaythrough=()=>{
+        audio.play().catch(()=>{URL.revokeObjectURL(url);i++;next()});
+      };
+      audio.src=url;
+      audio.load();
+    };
+    next();
+  };
+
   const togglePause=()=>{
     if(modeRef.current==='openai'&&audioRef.current){
       if(paused){audioRef.current.play();setPaused(false)}
@@ -690,7 +728,7 @@ function useTTS(){
     modeRef.current='none';
   };
 
-  return{speak,stop,speaking,paused,togglePause};
+  return{speak,playBlobs,stop,speaking,paused,togglePause};
 }
 
 function useRecognition(){
@@ -787,6 +825,7 @@ function App(){
   const[motion,setMotion]=useState('');
   const[format,setFormat]=useState('apda');
   const[opponent,setOpponent]=useState('balanced');
+  const[voice,setVoice]=useState('onyx');
   const[side,setSide]=useState('gov');
   const[wpm,setWpm]=useState(180);
   const[idx,setIdx]=useState(0);
@@ -843,24 +882,65 @@ function App(){
       timer.go(s.time);
       orb.setMode('mic');await orb.startMic();rec.start();
     } else {
-      // AI turn — generate text first, THEN start timer + audio
+      // AI turn — two phases: generate text, then prep audio, then play
       orb.setMode('ai');setAiLoading(true);setAiText('');setAiPct(0);
       try{
         const targetWords=Math.floor(s.time/60)*170;
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
+
+        // Phase 1: Generate argument text
         const txt=await callClaude(buildPrompt(s,side,motion,hist,notes,format,opponent),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           setAiText(chunk);
           const words=chunk.split(/\s+/).length;
           setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
         });
-        setAiText(txt);setAiPct(100);setAiLoading(false);
-        // NOW start the timer (text is ready)
+        setAiText(txt);setAiPct(100);
+
+        // Phase 2: Pre-fetch TTS audio (show "Preparing voice...")
+        setAiLoading('voice');
+        const speed=Math.max(0.75,Math.min(2.0,wpm/150));
+        let audioReady=null;
+        try{
+          // Chunk text into <=4000 char segments for OpenAI
+          const chunks=[];let cur='';
+          const sentences=txt.match(/[^.!?]+[.!?]+[\s]*/g)||[txt];
+          for(const s of sentences){
+            if((cur+s).length>3800&&cur){chunks.push(cur.trim());cur=s}
+            else cur+=s;
+          }
+          if(cur.trim())chunks.push(cur.trim());
+
+          console.log('[TTS] Pre-fetching '+chunks.length+' audio chunks...');
+          const blobs=await Promise.all(chunks.map(c=>
+            fetch('/api/tts',{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({text:c,voice:voice,speed}),
+            }).then(r=>{
+              if(!r.ok) throw new Error('TTS '+r.status);
+              return r.blob();
+            })
+          ));
+          audioReady=blobs;
+          console.log('[TTS] All '+blobs.length+' chunks ready ('+blobs.reduce((a,b)=>a+b.size,0)+' bytes)');
+        }catch(e){
+          console.warn('[TTS] Pre-fetch failed:',e.message,'— will use browser voice');
+        }
+
+        // Phase 3: GO — start timer + play audio
+        setAiLoading(false);
         timer.go(s.time);
-        // Start audio playback
-        tts.speak(txt,wpm,()=>orb.setMode('idle'));
+
+        if(audioReady){
+          // Play OpenAI audio chunks sequentially
+          tts.playBlobs(audioReady,()=>orb.setMode('idle'));
+        } else {
+          // Browser fallback
+          tts.speak(txt,wpm,()=>orb.setMode('idle'));
+        }
       }catch(e){
         setAiLoading(false);
-        const msg=e.message==='NO_KEY'?'Could not connect to AI. Make sure you\'re on debateos.com (not localhost).':'Something went wrong: '+e.message;
+        const msg='Something went wrong: '+e.message;
         setAiText('['+msg+']');
         orb.setMode('idle');
       }
@@ -966,6 +1046,14 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
         )
       ),
 
+      // AI Voice
+      el('div',{className:'t-label',style:{marginTop:24}},'AI Voice'),
+      el('div',{className:'pills'},
+        Object.entries(VOICES).map(([k,v])=>
+          el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>setVoice(k),title:v.desc},v.name)
+        )
+      ),
+
       // AI Speed
       el('div',{className:'t-label',style:{marginTop:24}},'AI Speed'),
       el('div',{className:'wpm'},
@@ -977,7 +1065,7 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
 
       // Summary line
       el('div',{className:'t-dim',style:{marginTop:16}},
-        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+OPPONENTS[opponent].name+' opponent'
+        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+VOICES[voice].name+' voice · '+OPPONENTS[opponent].name+' opponent'
       ),
 
       el('button',{className:'cta',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
@@ -1021,7 +1109,9 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
         el('div',{className:'t-phase'},cur.code+' — '+cur.name),
         el('div',{className:'t-dim',style:{marginBottom:24}},
           isUser?'Speak now — your voice is being transcribed':
-          aiLoading?'Generating argument... '+aiPct+'%':tts.paused?'Paused':'AI is speaking'
+          aiLoading==='voice'?'Preparing voice... (timer starts when ready)':
+          aiLoading?'Writing argument... '+aiPct+'%':
+          tts.paused?'Paused':'🔴 LIVE — Timer running'
         ),
 
         // The orb
