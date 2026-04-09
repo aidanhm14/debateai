@@ -93,7 +93,7 @@ export default async (request, context) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'tts-1',
+        model: body.hd ? 'tts-1-hd' : 'tts-1',
         input: text,
         voice: voice,
         speed: speed,

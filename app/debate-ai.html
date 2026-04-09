@@ -312,6 +312,23 @@ const SFX = {
     o.start(c.currentTime);o.stop(c.currentTime+0.3);}catch{}
   },
 
+  // Preparing voice — warm shimmer (plays on loop, returns stop fn)
+  preparing() {
+    try{const c=this._getCtx();
+    // Warm mid-tone shimmer — distinct from the low thinking pulse
+    const o=c.createOscillator();const o2=c.createOscillator();const g=c.createGain();
+    const lfo=c.createOscillator();const lfoG=c.createGain();
+    o.connect(g);o2.connect(g);g.connect(c.destination);
+    o.frequency.value=220;o.type='sine';
+    o2.frequency.value=330;o2.type='sine';
+    lfo.connect(lfoG);lfoG.connect(g.gain);
+    lfo.frequency.value=0.8;lfo.type='sine';lfoG.gain.value=0.015;
+    g.gain.value=0.03;
+    o.start();o2.start();lfo.start();
+    return()=>{try{g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.3);o.stop(c.currentTime+0.4);o2.stop(c.currentTime+0.4);lfo.stop(c.currentTime+0.4)}catch{}};
+    }catch{return()=>{}}
+  },
+
   // POI raised — attention grab
   poi() {
     try{const c=this._getCtx();
@@ -1125,6 +1142,7 @@ function App(){
   const[aiLoading,setAiLoading]=useState(false);
   const[aiText,setAiText]=useState('');
   const[aiPct,setAiPct]=useState(0);       // generation progress %
+  const[voiceEta,setVoiceEta]=useState(0); // estimated seconds for TTS fetch
   const[showTx,setShowTx]=useState(false);
 
   // POI (Point of Information) state
@@ -1201,9 +1219,18 @@ function App(){
         setAiText(txt);setAiPct(100);
         stopThinking();SFX.ready();
 
-        // Phase 2: Pre-fetch TTS audio (show "Preparing voice...")
+        // Phase 2: Pre-fetch TTS audio with ambient sound + ETA
         setAiLoading('voice');
+        const wordCount=txt.split(/\s+/).length;
+        // HD TTS: ~80 words/sec processing, standard ~150 w/s; estimate per chunk
+        const estSeconds=Math.max(3,Math.ceil(wordCount/80));
+        setVoiceEta(estSeconds);
+        const stopPreparing=SFX.preparing();
+        // Countdown timer
+        const etaInterval=setInterval(()=>setVoiceEta(v=>Math.max(0,v-1)),1000);
+
         const speed=Math.max(0.75,Math.min(2.0,wpm/150));
+        const pro=isPro();
         let audioReady=null;
         try{
           // Chunk text into <=4000 char segments for OpenAI
@@ -1215,22 +1242,25 @@ function App(){
           }
           if(cur.trim())chunks.push(cur.trim());
 
-          console.log('[TTS] Pre-fetching '+chunks.length+' audio chunks...');
+          console.log('[TTS] Pre-fetching '+chunks.length+' HD audio chunks...');
           const blobs=await Promise.all(chunks.map(c=>
             fetch('/api/tts',{
               method:'POST',
               headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({text:c,voice:voice,speed}),
+              body:JSON.stringify({text:c,voice:voice,speed,hd:true}),
             }).then(r=>{
               if(!r.ok) throw new Error('TTS '+r.status);
               return r.blob();
             })
           ));
           audioReady=blobs;
-          console.log('[TTS] All '+blobs.length+' chunks ready ('+blobs.reduce((a,b)=>a+b.size,0)+' bytes)');
+          console.log('[TTS] All '+blobs.length+' HD chunks ready ('+blobs.reduce((a,b)=>a+b.size,0)+' bytes)');
         }catch(e){
           console.warn('[TTS] Pre-fetch failed:',e.message,'— will use browser voice');
         }
+        clearInterval(etaInterval);
+        stopPreparing();
+        setVoiceEta(0);
 
         // Phase 3: GO — start timer + play audio
         setAiLoading(false);
@@ -1349,11 +1379,11 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
         }
         if(cur.trim())poiChunks.push(cur.trim());
 
-        console.log('[POI TTS] Fetching '+poiChunks.length+' audio chunks...');
+        console.log('[POI TTS] Fetching '+poiChunks.length+' HD audio chunks...');
         const blobs=await Promise.all(poiChunks.map(c=>
           fetch('/api/tts',{
             method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({text:c,voice:voice,speed}),
+            body:JSON.stringify({text:c,voice:voice,speed,hd:true}),
           }).then(r=>{
             if(!r.ok) throw new Error('TTS '+r.status);
             return r.blob();
@@ -1623,7 +1653,7 @@ Give: 1) Decision (who wins, 2-3 sentences why), 2) Speaker points per speech (2
         el('div',{className:'t-phase'},cur.code+' — '+cur.name),
         el('div',{className:'t-dim',style:{marginBottom:24}},
           isUser?'Speak now — your voice is being transcribed':
-          aiLoading==='voice'?'Preparing voice... (timer starts when ready)':
+          aiLoading==='voice'?('Preparing HD voice...'+(voiceEta>0?' ~'+voiceEta+'s remaining':' almost ready')):
           aiLoading?'Writing argument... '+aiPct+'%':
           tts.paused?'Paused':'🔴 LIVE — Timer running'
         ),
