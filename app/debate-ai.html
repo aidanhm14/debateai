@@ -1526,6 +1526,51 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
     navigator.clipboard.writeText(t).catch(()=>{});
   };
 
+  // Format round as downloadable text
+  const formatRoundText=(roundMotion,roundFormat,roundSide,roundLog,roundFeedback,roundBallot)=>{
+    const fmtName=(FORMATS[roundFormat]||FORMATS.apda).name;
+    const sideLabel=(FORMATS[roundFormat]||FORMATS.apda).sideLabels[roundSide]||roundSide;
+    let txt=`DEBATE ROUND — ${fmtName}\n`;
+    txt+=`${'═'.repeat(50)}\n\n`;
+    txt+=`Motion: "${roundMotion}"\n`;
+    txt+=`Side: ${sideLabel}\n`;
+    txt+=`Date: ${new Date().toLocaleDateString()}\n\n`;
+    txt+=`${'─'.repeat(50)}\n\n`;
+    roundLog.forEach(l=>{
+      txt+=`[${l.code} — ${l.who}]\n${l.text}\n\n${'─'.repeat(50)}\n\n`;
+    });
+    if(roundBallot){
+      txt+=`JUDGE BALLOT\n${'═'.repeat(50)}\n\n`;
+      txt+=`Winner: ${roundBallot.winner==='user'?'You':'AI'}\n`;
+      txt+=`Decision: ${roundBallot.decision||''}\n\n`;
+      if(roundBallot.speakerPoints) txt+=`Speaker Points — You: ${roundBallot.speakerPoints.user} | AI: ${roundBallot.speakerPoints.ai}\n\n`;
+      if(roundBallot.keyClash) txt+=`Key Clash: ${roundBallot.keyClash}\n\n`;
+      if(roundBallot.speeches) roundBallot.speeches.forEach(sp=>{
+        txt+=`${sp.code} (${sp.who}) — ${sp.score}\n`;
+        if(sp.strengths) sp.strengths.forEach(s=>{ txt+=`  ✦ ${s}\n`; });
+        if(sp.improvements) sp.improvements.forEach(s=>{ txt+=`  ✧ ${s}\n`; });
+        txt+='\n';
+      });
+      if(roundBallot.practiceAdvice) txt+=`Practice Advice: ${roundBallot.practiceAdvice}\n`;
+    } else if(roundFeedback){
+      txt+=`JUDGE FEEDBACK\n${'═'.repeat(50)}\n\n${roundFeedback}\n`;
+    }
+    return txt;
+  };
+
+  // Download round as .txt file
+  const downloadRound=(roundMotion,roundFormat,roundSide,roundLog,roundFeedback,roundBallot)=>{
+    const txt=formatRoundText(roundMotion,roundFormat,roundSide,roundLog,roundFeedback,roundBallot);
+    const blob=new Blob([txt],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    const slug=roundMotion.slice(0,40).replace(/[^a-zA-Z0-9]+/g,'-').replace(/-$/,'');
+    a.download=`debate-${slug}-${new Date().toISOString().slice(0,10)}.txt`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // Reset
   const newRound=()=>transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setFormat('apda');setOppStrengths([]);setOppWeaknesses([])});
 
@@ -1741,11 +1786,16 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
             el('div',{className:'t-label',style:{marginTop:24}},'Judge Feedback'),
             el('div',{className:'fb-card',style:{marginTop:8}},el('div',{className:'feedback-text'},viewingRound.feedback)),
           ),
-          el('div',{className:'row-c',style:{marginTop:20}},
+          el('div',{className:'row-c',style:{marginTop:20,flexWrap:'wrap'}},
             el('button',{className:'cta-ghost',onClick:()=>{
               const t=viewingRound.log.map(l=>`[${l.code} — ${l.who}]\n${l.text}`).join('\n\n---\n\n')+'\n\n---\nJUDGE:\n'+viewingRound.feedback;
               navigator.clipboard.writeText(t).catch(()=>{});
-            }},'Copy Transcript'),
+            }},'📋 Copy'),
+            el('button',{className:'cta-ghost',onClick:()=>{
+              // Parse ballot from feedback JSON if possible
+              let b=null;try{b=JSON.parse(viewingRound.feedback.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim())}catch{}
+              downloadRound(viewingRound.motion,viewingRound.format,viewingRound.side,viewingRound.log,viewingRound.feedback,b);
+            }},'⬇ Download .txt'),
             el('button',{className:'cta-ghost',style:{color:'#ef4444',borderColor:'rgba(239,68,68,.3)'},onClick:()=>deleteRound(viewingRound.id)},'Delete Round'),
           ),
         ):el(React.Fragment,null,
@@ -1824,7 +1874,10 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
 
         // Transcript toggle — lyrics-style synced reveal for AI speech
         (rec.transcript||aiText)&&el(React.Fragment,null,
-          el('button',{className:'transcript-btn',onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide transcript':'▶ Show transcript'),
+          el('div',{style:{display:'flex',alignItems:'center',gap:12,justifyContent:'center'}},
+            el('button',{className:'transcript-btn',onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide transcript':'▶ Show transcript'),
+            showTx&&aiText&&!isUser&&el('button',{className:'transcript-btn',onClick:()=>{navigator.clipboard.writeText(aiText).catch(()=>{})},style:{fontSize:'.65rem'}},'📋 Copy'),
+          ),
           showTx&&el('div',{className:'transcript-box lyrics-box'},
             isUser ? rec.transcript :
             (()=>{
@@ -1937,9 +1990,10 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
         el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
         showTx&&el('div',{className:'transcript-box',style:{maxHeight:360}},log.map(l=>'['+l.code+' — '+l.who+']\n'+l.text).join('\n\n---\n\n')),
 
-        el('div',{className:'row-c',style:{marginTop:28}},
-          el('button',{className:'cta-ghost',onClick:copyAll},'Copy Transcript'),
-          el('button',{className:'cta',style:{marginTop:0}},el('span',{onClick:newRound},'New Round')),
+        el('div',{className:'row-c',style:{marginTop:28,flexWrap:'wrap'}},
+          el('button',{className:'cta-ghost',onClick:copyAll},'📋 Copy'),
+          el('button',{className:'cta-ghost',onClick:()=>downloadRound(motion,format,side,log,feedback,ballot)},'⬇ Download .txt'),
+          el('button',{className:'cta',style:{marginTop:0},onClick:newRound},'New Round'),
         ),
       )
     );
