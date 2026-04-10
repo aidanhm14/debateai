@@ -946,319 +946,154 @@ function warmUpTTS(){
   _audioUnlocked=true;
 }
 
-/* ── TTS — OpenAI (human voice) with browser fallback ── */
+/* ── TTS — simple, reliable audio playback ── */
 
 function useTTS(){
   const[speaking,setSpeaking]=useState(false);
   const[paused,setPaused]=useState(false);
-  const[streamStatus,setStreamStatus]=useState(''); // 'Playing 2/5...' for UI
+  const[streamStatus,setStreamStatus]=useState('');
   const audioRef=useRef(null);
   const cancelledRef=useRef(false);
   const onEndRef=useRef(null);
   const modeRef=useRef('none');
-  const onStartRef=useRef(null);
-  const gainNodeRef=useRef(null); // Web Audio gain for ducking
+  const rateRef=useRef(1.0);
+  const progressRef=useRef({elapsed:0,total:0});
 
-  // Shared AudioContext for Web Audio routing
-  const getAudioCtx=()=>{
-    if(!useTTS._actx) useTTS._actx=new(window.AudioContext||window.webkitAudioContext)();
-    return useTTS._actx;
+  // Play a single audio blob — returns promise that resolves when done
+  const playBlob=(blob)=>{
+    return new Promise((resolve,reject)=>{
+      if(cancelledRef.current) return resolve();
+      const url=URL.createObjectURL(blob);
+      const audio=new Audio(url);
+      audioRef.current=audio;
+      audio.playbackRate=rateRef.current;
+      audio.onended=()=>{URL.revokeObjectURL(url);resolve()};
+      audio.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Audio error'))};
+      audio.play().catch(e=>{URL.revokeObjectURL(url);reject(e)});
+    });
   };
 
-  // Route an Audio element through Web Audio gain node (for ducking + normalization)
-  const routeThroughGain=(audio)=>{
-    try{
-      const ctx=getAudioCtx();
-      if(ctx.state==='suspended') ctx.resume();
-      const src=ctx.createMediaElementSource(audio);
-      const gain=ctx.createGain();
-      gain.gain.value=1.0;
-      src.connect(gain);
-      gain.connect(ctx.destination);
-      gainNodeRef.current=gain;
-      return gain;
-    }catch(e){
-      // Fallback — just play directly
-      console.warn('[TTS] Web Audio routing failed:',e.message);
-      return null;
-    }
-  };
-
-  // Duck speech volume (for timer beeps)
-  const duck=(duration=400)=>{
-    const g=gainNodeRef.current;
-    if(!g) return;
-    const ctx=getAudioCtx();
-    g.gain.setValueAtTime(g.gain.value,ctx.currentTime);
-    g.gain.linearRampToValueAtTime(0.2,ctx.currentTime+0.05);
-    g.gain.linearRampToValueAtTime(1.0,ctx.currentTime+duration/1000);
-  };
-
-  // ── Fetch TTS blob from API ──
-  const fetchBlob=(text,speed,voiceName='onyx')=>{
-    const input=text.slice(0,4000);
+  // Fetch TTS from API
+  const fetchTTS=(text,speed,voiceName)=>{
     return fetch('/api/tts',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:input,voice:voiceName,speed,premium:isPro(),intensity:Math.min(1,Math.max(0,(speed-1.0)/1.0))}),
-    }).then(async r=>{
+      body:JSON.stringify({text:text.slice(0,4000),voice:voiceName||'onyx',speed,premium:isPro(),intensity:Math.min(1,Math.max(0,(speed-1.0)/1.0))}),
+    }).then(r=>{
       if(!r.ok) throw new Error('TTS '+r.status);
-      const ct=r.headers.get('content-type')||'';
-      if(!ct.includes('audio')) throw new Error('Non-audio: '+ct);
-      const blob=await r.blob();
-      if(blob.size<500) throw new Error('Blob too small: '+blob.size);
-      return blob;
+      return r.blob();
     });
   };
 
-  // ── Browser fallback TTS ──
-  const speakBrowser=(text,rate)=>{
-    return new Promise((resolve)=>{
-      if(!window.speechSynthesis){resolve();return}
-      window.speechSynthesis.cancel();
-      const sentences=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
-      const groups=[];let cur='';
-      for(const s of sentences){
-        if((cur+s).split(/\s+/).length>60&&cur){groups.push(cur.trim());cur=s}
-        else cur+=s;
-      }
-      if(cur.trim())groups.push(cur.trim());
-      if(!_voices.length) _loadVoices();
-      const voice=_voices.find(v=>/Samantha|Daniel|Karen|Google US English|Aaron/.test(v.name))
-        ||_voices.find(v=>v.lang&&v.lang.startsWith('en'))||null;
-      let i=0;
-      const next=()=>{
-        if(cancelledRef.current||i>=groups.length){resolve();return}
-        const u=new SpeechSynthesisUtterance(groups[i]);
-        u.rate=rate;u.pitch=1;u.volume=1;
-        if(voice)u.voice=voice;
-        u.onend=()=>{i++;next()};
-        u.onerror=()=>{i++;next()};
-        window.speechSynthesis.speak(u);
-      };
-      setTimeout(next,50);
-    });
-  };
+  // Browser fallback
+  const speakBrowser=(text,rate)=>new Promise(resolve=>{
+    if(!window.speechSynthesis){resolve();return}
+    window.speechSynthesis.cancel();
+    const chunks=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
+    const groups=[];let cur='';
+    for(const s of chunks){
+      if((cur+s).split(/\s+/).length>60&&cur){groups.push(cur.trim());cur=s}
+      else cur+=s;
+    }
+    if(cur.trim())groups.push(cur.trim());
+    if(!_voices.length) _loadVoices();
+    const v=_voices.find(v=>/Samantha|Google US English|Aaron/.test(v.name))||_voices.find(v=>v.lang?.startsWith('en'))||null;
+    let i=0;
+    const next=()=>{
+      if(cancelledRef.current||i>=groups.length){resolve();return}
+      const u=new SpeechSynthesisUtterance(groups[i]);
+      u.rate=rate;u.pitch=1;u.volume=1;if(v)u.voice=v;
+      u.onend=()=>{i++;next()};u.onerror=()=>{i++;next()};
+      window.speechSynthesis.speak(u);
+    };
+    setTimeout(next,50);
+  });
 
-  // Audio progress tracking
-  const progressRef=useRef({elapsed:0,total:0,totalEstimate:0});
-  const getProgress=()=>progressRef.current;
-
-  // ── Play a single blob with Web Audio routing ──
-  const playOneBlob=(blob,onPlay)=>{
-    return new Promise((resolve,reject)=>{
-      const url=URL.createObjectURL(blob);
-      const audio=new Audio();
-      audio.crossOrigin='anonymous';
-      audioRef.current=audio;
-
-      const timeout=setTimeout(()=>{
-        URL.revokeObjectURL(url);reject(new Error('Timeout'));
-      },10000);
-
-      audio.oncanplay=()=>{
-        clearTimeout(timeout);
-        routeThroughGain(audio);
-        audio.playbackRate=rateRef.current;
-        audio.play().then(()=>{if(onPlay)onPlay(audio)}).catch(e=>{
-          URL.revokeObjectURL(url);reject(e);
-        });
-      };
-      audio.onended=()=>{URL.revokeObjectURL(url);resolve()};
-      audio.onerror=()=>{clearTimeout(timeout);URL.revokeObjectURL(url);reject(new Error('Audio error'))};
-      audio.src=url;
-      audio.load();
-    });
-  };
-
-  // ── Main speak: single-shot TTS with browser fallback ──
+  // ── Main speak: single-shot, simple ──
   const speak=(text,wpm=180,onEnd,voiceName='onyx',onStart)=>{
-    cancelledRef.current=false;
-    setPaused(false);
-    setSpeaking(true);
-    setStreamStatus('');
+    cancelledRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
     onEndRef.current=onEnd;
-    progressRef.current={elapsed:0,total:0,totalEstimate:0};
+    progressRef.current={elapsed:0,total:0};
     const speed=Math.max(0.75,Math.min(2.0,wpm/140));
-    const browserRate=Math.max(0.5,Math.min(2.5,wpm/140));
-    let startFired=false;
-    const fireStart=()=>{if(!startFired){startFired=true;if(onStart)onStart()}};
-
     (async()=>{
       try{
         modeRef.current='openai';
-        const blob=await fetchBlob(text,speed,voiceName);
+        const blob=await fetchTTS(text,speed,voiceName);
         if(cancelledRef.current) return;
-        await playOneBlob(blob,(audio)=>{
-          fireStart();
-          audio.ontimeupdate=()=>{
-            progressRef.current.elapsed=audio.currentTime||0;
-            progressRef.current.total=audio.duration||0;
-          };
+        if(onStart) onStart();
+        const audio=new Audio(URL.createObjectURL(blob));
+        audioRef.current=audio;
+        audio.playbackRate=rateRef.current;
+        audio.ontimeupdate=()=>{
+          progressRef.current.elapsed=audio.currentTime||0;
+          progressRef.current.total=audio.duration||0;
+        };
+        await new Promise((res,rej)=>{
+          audio.onended=res;audio.onerror=rej;
+          audio.play().catch(rej);
         });
       }catch(e){
-        console.warn('[TTS] API failed:',e.message,'— browser fallback');
+        console.warn('[TTS] Failed:',e.message,'— browser fallback');
         if(!cancelledRef.current){
           modeRef.current='browser';
-          fireStart();
-          await speakBrowser(text,browserRate);
+          if(onStart) onStart();
+          await speakBrowser(text,Math.max(0.5,Math.min(2.5,wpm/140)));
         }
       }
-      if(!cancelledRef.current){
-        setSpeaking(false);setStreamStatus('');
-        if(onEndRef.current) onEndRef.current();
-      }
+      if(!cancelledRef.current){setSpeaking(false);setStreamStatus('');if(onEndRef.current)onEndRef.current()}
     })();
   };
 
-  // ── playBlobs: sequential blob playback with crossfade ──
-  const playBlobs=(blobs,onEnd,onStart)=>{
-    cancelledRef.current=false;
-    setPaused(false);
-    setSpeaking(true);
-    modeRef.current='openai';
-    onEndRef.current=onEnd;
-    progressRef.current={elapsed:0,total:0,totalEstimate:0};
-    const durations=new Array(blobs.length).fill(0);
-    let i=0;
-    const CROSSFADE_MS=60;
+  // ── playChunks: play an array of blob promises sequentially, starting ASAP ──
+  const playChunks=(blobPromises,onEnd,onStart)=>{
+    cancelledRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
+    modeRef.current='openai';onEndRef.current=onEnd;
+    progressRef.current={elapsed:0,total:0};
+    const durations=[];
+    let i=0;let started=false;
 
-    const next=()=>{
-      if(cancelledRef.current||i>=blobs.length){
-        setSpeaking(false);setStreamStatus('');
-        if(onEndRef.current) onEndRef.current();
+    const next=async()=>{
+      // Check if done — array may still be growing, so check a "done" flag
+      while(i<blobPromises.length){
+        if(cancelledRef.current) break;
+        setStreamStatus(`Playing ${i+1}/${blobPromises.length}`);
+        try{
+          const blob=await blobPromises[i];
+          if(cancelledRef.current) break;
+          if(!blob||blob.size<500){durations[i]=0;i++;continue}
+          const url=URL.createObjectURL(blob);
+          const audio=new Audio(url);
+          audioRef.current=audio;
+          audio.playbackRate=rateRef.current;
+          const ci=i;
+          audio.onloadedmetadata=()=>{
+            durations[ci]=audio.duration||0;
+            progressRef.current.total=durations.reduce((a,b)=>a+(b||0),0);
+          };
+          audio.ontimeupdate=()=>{
+            const prior=durations.slice(0,ci).reduce((a,b)=>a+(b||0),0);
+            progressRef.current.elapsed=prior+(audio.currentTime||0);
+          };
+          if(!started){started=true;if(onStart)onStart()}
+          await new Promise((res,rej)=>{
+            audio.onended=()=>{URL.revokeObjectURL(url);res()};
+            audio.onerror=()=>{URL.revokeObjectURL(url);res()};
+            audio.play().catch(()=>{URL.revokeObjectURL(url);res()});
+          });
+        }catch{durations[i]=0}
+        i++;
+      }
+      // Wait briefly in case more chunks arrive
+      if(!cancelledRef.current&&!blobPromises._done){
+        setTimeout(()=>{
+          if(blobPromises.length>i) next();
+          else{setSpeaking(false);setStreamStatus('');if(onEndRef.current)onEndRef.current()}
+        },500);
         return;
       }
-      setStreamStatus(`Playing ${i+1}/${blobs.length}`);
-      const url=URL.createObjectURL(blobs[i]);
-      const audio=new Audio();
-      audio.crossOrigin='anonymous';
-      audioRef.current=audio;
-      const ci=i;
-
-      audio.onloadedmetadata=()=>{
-        durations[ci]=audio.duration||0;
-        progressRef.current.total=durations.reduce((a,b)=>a+b,0);
-      };
-      audio.ontimeupdate=()=>{
-        const prior=durations.slice(0,ci).reduce((a,b)=>a+b,0);
-        progressRef.current.elapsed=prior+(audio.currentTime||0);
-        const known=durations.reduce((a,b)=>a+b,0);
-        if(known>progressRef.current.total) progressRef.current.total=known;
-
-        // Crossfade: start fading out near the end of this chunk
-        const g=gainNodeRef.current;
-        if(g&&audio.duration&&audio.currentTime>audio.duration-CROSSFADE_MS/1000){
-          const ctx=getAudioCtx();
-          g.gain.setValueAtTime(g.gain.value,ctx.currentTime);
-          g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+CROSSFADE_MS/1000);
-        }
-      };
-      audio.onended=()=>{URL.revokeObjectURL(url);i++;next()};
-      audio.onerror=()=>{URL.revokeObjectURL(url);i++;next()};
-      audio.oncanplay=()=>{
-        routeThroughGain(audio);
-        // Fade in from crossfade overlap
-        const g=gainNodeRef.current;
-        if(g&&ci>0){
-          const ctx=getAudioCtx();
-          g.gain.setValueAtTime(0.3,ctx.currentTime);
-          g.gain.linearRampToValueAtTime(1.0,ctx.currentTime+CROSSFADE_MS/1000);
-        }
-        audio.playbackRate=rateRef.current;
-        audio.play().then(()=>{
-          if(ci===0&&onStart) onStart();
-        }).catch(()=>{URL.revokeObjectURL(url);i++;next()});
-      };
-      audio.src=url;
-      audio.load();
+      if(!cancelledRef.current){setSpeaking(false);setStreamStatus('');if(onEndRef.current)onEndRef.current()}
     };
     next();
-  };
-
-  // ── playStream: accepts blob Promises — plays first ASAP, crossfades between ──
-  const playStream=(blobPromises,onEnd,onStart)=>{
-    cancelledRef.current=false;
-    setPaused(false);
-    setSpeaking(true);
-    modeRef.current='openai';
-    onEndRef.current=onEnd;
-    progressRef.current={elapsed:0,total:0,totalEstimate:0};
-    const resolved=[];
-    const durations=[];
-    let i=0;
-    let started=false;
-    const CROSSFADE_MS=60;
-    const total=blobPromises.length;
-
-    const playNext=()=>{
-      if(cancelledRef.current){
-        setSpeaking(false);setStreamStatus('');
-        if(onEndRef.current) onEndRef.current();
-        return;
-      }
-      if(i>=total){
-        setSpeaking(false);setStreamStatus('');
-        if(onEndRef.current) onEndRef.current();
-        return;
-      }
-      setStreamStatus(`Playing ${i+1}/${total}`);
-
-      const doPlay=()=>{
-        if(cancelledRef.current||!resolved[i]){durations[i]=0;i++;playNext();return}
-        const url=URL.createObjectURL(resolved[i]);
-        const audio=new Audio();
-        audio.crossOrigin='anonymous';
-        audioRef.current=audio;
-        const ci=i;
-
-        audio.onloadedmetadata=()=>{
-          durations[ci]=audio.duration||0;
-          progressRef.current.total=durations.reduce((a,b)=>a+(b||0),0);
-        };
-        audio.ontimeupdate=()=>{
-          const prior=durations.slice(0,ci).reduce((a,b)=>a+(b||0),0);
-          progressRef.current.elapsed=prior+(audio.currentTime||0);
-          const known=durations.reduce((a,b)=>a+(b||0),0);
-          if(known>progressRef.current.total) progressRef.current.total=known;
-          // Crossfade out near end
-          const g=gainNodeRef.current;
-          if(g&&audio.duration&&ci<total-1&&audio.currentTime>audio.duration-CROSSFADE_MS/1000){
-            const ctx=getAudioCtx();
-            g.gain.setValueAtTime(g.gain.value,ctx.currentTime);
-            g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+CROSSFADE_MS/1000);
-          }
-        };
-        audio.onended=()=>{URL.revokeObjectURL(url);i++;playNext()};
-        audio.onerror=()=>{URL.revokeObjectURL(url);i++;playNext()};
-        audio.oncanplay=()=>{
-          routeThroughGain(audio);
-          // Fade in from crossfade
-          const g=gainNodeRef.current;
-          if(g&&ci>0){
-            const ctx=getAudioCtx();
-            g.gain.setValueAtTime(0.3,ctx.currentTime);
-            g.gain.linearRampToValueAtTime(1.0,ctx.currentTime+CROSSFADE_MS/1000);
-          }
-          audio.playbackRate=rateRef.current;
-          audio.play().then(()=>{
-            if(!started){started=true;if(onStart)onStart()}
-          }).catch(()=>{URL.revokeObjectURL(url);i++;playNext()});
-        };
-        audio.src=url;
-        audio.load();
-      };
-
-      if(resolved[i]!==undefined){
-        doPlay();
-      } else {
-        blobPromises[i].then(blob=>{
-          if(blob&&blob.size>500){resolved[i]=blob;durations[i]=0;doPlay()}
-          else{resolved[i]=null;durations[i]=0;i++;playNext()}
-        }).catch(()=>{resolved[i]=null;durations[i]=0;i++;playNext()});
-      }
-    };
-    playNext();
   };
 
   const togglePause=()=>{
@@ -1275,26 +1110,21 @@ function useTTS(){
     cancelledRef.current=true;
     if(audioRef.current){audioRef.current.pause();audioRef.current=null}
     if(window.speechSynthesis)window.speechSynthesis.cancel();
-    setSpeaking(false);setPaused(false);setStreamStatus('');
-    modeRef.current='none';
-    gainNodeRef.current=null;
+    setSpeaking(false);setPaused(false);setStreamStatus('');modeRef.current='none';
   };
 
-  const rateRef=useRef(1.0);
-  const setRate=(rate)=>{
-    rateRef.current=rate;
-    if(audioRef.current) audioRef.current.playbackRate=rate;
-  };
+  const setRate=(rate)=>{rateRef.current=rate;if(audioRef.current)audioRef.current.playbackRate=rate};
 
   const getAudioTime=()=>{
     if(!audioRef.current) return{currentTime:0,duration:0,rate:1};
-    const a=audioRef.current;
-    const elapsed=progressRef.current.elapsed>0?progressRef.current.elapsed:(a.currentTime||0);
-    const total=progressRef.current.total>0?progressRef.current.total:(a.duration||0);
-    return{currentTime:elapsed,duration:total,rate:a.playbackRate||1};
+    const e=progressRef.current.elapsed>0?progressRef.current.elapsed:(audioRef.current.currentTime||0);
+    const t=progressRef.current.total>0?progressRef.current.total:(audioRef.current.duration||0);
+    return{currentTime:e,duration:t,rate:audioRef.current.playbackRate||1};
   };
 
-  return{speak,playBlobs,playStream,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime,duck,streamStatus};
+  const getProgress=()=>progressRef.current;
+
+  return{speak,playChunks,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime,streamStatus};
 }
 
 function useRecognition(){
@@ -1329,13 +1159,13 @@ function useRecognition(){
    TIMER
    ═══════════════════════════════════════════════════ */
 
-function useTimer(duckFn){
+function useTimer(){
   const[left,setLeft]=useState(0);
   const[on,setOn]=useState(false);
   const iRef=useRef(null);
   const cbRef=useRef(null);
 
-  const beep=(f,d,duckFn)=>{try{const a=new(window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.value=.12;o.start();o.stop(a.currentTime+d/1000);if(duckFn)duckFn(d+200)}catch{}};
+  const beep=(f,d)=>{try{const a=new(window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.value=.12;o.start();o.stop(a.currentTime+d/1000)}catch{}};
 
   const go=(secs,onDone)=>{cbRef.current=onDone;setLeft(secs);setOn(true)};
   const halt=()=>{setOn(false)};
@@ -1345,10 +1175,10 @@ function useTimer(duckFn){
     if(!on){if(iRef.current)clearInterval(iRef.current);return}
     iRef.current=setInterval(()=>{
       setLeft(p=>{
-        if(p<=1){clearInterval(iRef.current);setOn(false);beep(880,400,duckFn);if(cbRef.current)setTimeout(cbRef.current,300);return 0}
-        if(p===61)beep(440,200,duckFn);  // 1 minute warning
-        if(p===31)beep(660,150,duckFn);  // 30 second warning
-        if(p===16)beep(880,150,duckFn);  // 15 second warning
+        if(p<=1){clearInterval(iRef.current);setOn(false);beep(880,400);if(cbRef.current)setTimeout(cbRef.current,300);return 0}
+        if(p===61)beep(440,200);  // 1 minute warning
+        if(p===31)beep(660,150);  // 30 second warning
+        if(p===16)beep(880,150);  // 15 second warning
         return p-1;
       });
     },1000);
@@ -1619,7 +1449,7 @@ function App(){
   const orb=useOrb();
   const rec=useRecognition();
   const tts=useTTS();
-  const timer=useTimer(tts.duck);
+  const timer=useTimer();
   const prepTimer=useTimer();
 
   // POI: user sends a POI during AI speech
@@ -1745,40 +1575,55 @@ function App(){
         // Strip <plan>/<thinking> tags from AI output — including incomplete open tags during streaming
         const stripPlan=(text)=>text.replace(/<plan>[\s\S]*?<\/plan>/gi,'').replace(/<plan>[\s\S]*$/gi,'').replace(/<\/?plan>/gi,'').replace(/<thinking>[\s\S]*?<\/thinking>/gi,'').replace(/<thinking>[\s\S]*$/gi,'').replace(/<\/?thinking>/gi,'').trim();
 
-        // Track chunks: fire TTS for each paragraph as AI streams in
-        const chunkQueue=[]; // {text, blobP}
-        let lastChunkEnd=0;  // char index where last chunk ended
-        const MIN_CHUNK_WORDS=25; // ~10s of audio — fast first playback
+        // ── Live-streaming TTS pipeline ──
+        // Audio starts playing as soon as first ~25 words have TTS ready,
+        // while AI is still generating the rest of the speech.
+        const blobPromises=[];  // grows as AI streams — playStream consumes them live
+        let lastChunkEnd=0;
+        const MIN_CHUNK_WORDS=25;
         const MAX_CHUNK_WORDS=200;
+        let playbackStarted=false;
+
+        const onAudioStart=()=>{
+          stopThinking();
+          setAiLoading(false);
+          setRevealIdx(0);
+          timer.go(s.time);
+        };
 
         const tryChunk=(clean,force)=>{
           const unchunked=clean.slice(lastChunkEnd).trim();
           const words=unchunked.split(/\s+/).filter(Boolean);
           if(words.length<MIN_CHUNK_WORDS&&!force) return;
-          // Find a sentence boundary to split on
           let splitText=unchunked;
           if(!force&&words.length>MAX_CHUNK_WORDS){
-            // Split at a sentence boundary around MAX_CHUNK_WORDS
             const approxChar=unchunked.split(/\s+/).slice(0,MAX_CHUNK_WORDS).join(' ').length;
             const sentEnd=unchunked.indexOf('.',approxChar);
             if(sentEnd>0) splitText=unchunked.slice(0,sentEnd+1).trim();
           } else if(!force){
-            // Find sentence boundary for clean split
             const lastPeriod=unchunked.lastIndexOf('.');
             const lastExcl=unchunked.lastIndexOf('!');
             const lastQ=unchunked.lastIndexOf('?');
             const boundary=Math.max(lastPeriod,lastExcl,lastQ);
             if(boundary>unchunked.length*0.5) splitText=unchunked.slice(0,boundary+1).trim();
-            else return; // wait for a sentence boundary
+            else return;
           }
           if(splitText.length<20) return;
           lastChunkEnd+=clean.slice(lastChunkEnd).indexOf(splitText)+splitText.length;
           const blobP=fetchTTSBlob(splitText).catch(e=>{console.warn('[TTS] Chunk failed:',e);return null});
-          chunkQueue.push({text:splitText,blobP});
-          console.log(`%c[TTS] Chunk ${chunkQueue.length} queued (${splitText.split(/\s+/).length} words) while AI generating`,'color:cyan');
+          blobPromises.push(blobP);
+          console.log(`%c[TTS] Chunk ${blobPromises.length} queued (${splitText.split(/\s+/).length} words)`,'color:cyan');
+
+          // Start playback on the FIRST chunk — don't wait for AI to finish
+          if(!playbackStarted){
+            playbackStarted=true;
+            setAiLoading('voice');
+            console.log('%c[TTS] Starting live playback while AI still generating','color:lime;font-weight:bold');
+            tts.playChunks(blobPromises,()=>{orb.setMode('idle');setRevealIdx(-1)},onAudioStart);
+          }
         };
 
-        // Phase 1: Generate argument text — fire TTS chunks mid-stream
+        // Generate argument text — chunks fire TTS and start playing mid-stream
         const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           const clean=stripPlan(chunk);
           setAiText(clean);
@@ -1788,24 +1633,15 @@ function App(){
         },brain);
         const txt=stripPlan(rawTxt);
         setAiText(txt);setAiPct(100);
-        // Final chunk: anything remaining after last chunk boundary
+        // Final chunk: anything remaining
         tryChunk(txt,true);
-        stopThinking();SFX.ready();
+        blobPromises._done=true; // signal playChunks that no more chunks coming
+        if(!playbackStarted) stopThinking();
 
-        // Phase 2: Stream-play — start first chunk ASAP, queue rest as they resolve
-        setAiLoading('voice');
-        const onAudioStart=()=>{
-          setAiLoading(false);
-          setRevealIdx(0);
-          timer.go(s.time);
-        };
-
-        if(chunkQueue.length>0){
-          const blobPromises=chunkQueue.map(c=>c.blobP);
-          console.log(`%c[TTS] Streaming ${blobPromises.length} chunks — first plays as soon as ready`,'color:lime;font-weight:bold');
-          tts.playStream(blobPromises,()=>{orb.setMode('idle');setRevealIdx(-1)},onAudioStart);
-        } else {
-          // Fallback: single-shot TTS if no chunks were created
+        // If no chunks were created at all, fallback to single-shot
+        if(!playbackStarted){
+          SFX.ready();
+          setAiLoading('voice');
           tts.speak(txt,wpm,()=>{orb.setMode('idle');setRevealIdx(-1)},voice,onAudioStart);
         }
       }catch(e){
