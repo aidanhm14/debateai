@@ -540,12 +540,16 @@ const FORMATS = {
 /* ── AI VOICES ──────────────────────── */
 // Free users: OpenAI TTS voices. Pro users: ElevenLabs premium voices (same selector, upgraded quality).
 const VOICES = {
-  onyx:    { name:'Commanding',     desc:'Deep, dominant male — commands the room' },
-  echo:    { name:'Persuasive',     desc:'Confident, mature female — wins you over' },
-  fable:   { name:'Analytical',     desc:'Smooth, trustworthy male — surgical precision' },
-  alloy:   { name:'Technical',      desc:'Deep, resonant male — framework-first delivery' },
-  nova:    { name:'Passionate',     desc:'Energetic, young male — speaks like it matters' },
-  shimmer: { name:'Eloquent',       desc:'Professional, polished female — quotable lines' },
+  onyx:    { name:'The Professor',   gender:'Male',   desc:'Deep & authoritative — owns the room like a tenured lecturer' },
+  echo:    { name:'The Closer',      gender:'Female', desc:'Confident & persuasive — sounds like she\'s won this round before' },
+  fable:   { name:'The Surgeon',     gender:'Male',   desc:'Calm & precise — dissects arguments with surgical accuracy' },
+  alloy:   { name:'The Veteran',     gender:'Male',   desc:'Rich baritone — 500 rounds deep, nothing surprises him' },
+  nova:    { name:'The Firebrand',   gender:'Male',   desc:'High-energy & relentless — every word drips with conviction' },
+  shimmer: { name:'The Diplomat',    gender:'Female', desc:'Polished & composed — makes devastating attacks sound reasonable' },
+  coral:   { name:'The Debater',     gender:'Female', desc:'Quick-witted & sharp — pure college circuit energy' },
+  sage:    { name:'The Philosopher', gender:'Male',   desc:'Thoughtful & measured — the Socratic method in human form' },
+  ash:     { name:'The Prosecutor',  gender:'Male',   desc:'Intense & relentless — cross-examines every claim to death' },
+  ballad:  { name:'The Storyteller', gender:'Female', desc:'Warm & compelling — turns policy arguments into narratives' },
 };
 
 /* ── AI OPPONENT TRAITS ─────────────── */
@@ -606,6 +610,14 @@ const BRAINS = {
     format: 'openai',
     model: 'grok-3-mini',                  // free tier
     proModel: 'grok-3',                    // pro tier
+  },
+  gemini: {
+    name: 'Gemini',
+    desc: 'Fast, well-rounded — Google',
+    endpoint: '/api/gemini',
+    format: 'gemini',
+    model: 'gemini-2.0-flash',             // free tier — fast
+    proModel: 'gemini-2.5-pro-preview-05-06', // pro tier
   },
 };
 
@@ -781,6 +793,12 @@ async function callAI(sys, user, onChunk, brainKey){
           if(p.choices&&p.choices[0]?.delta?.content){
             full+=p.choices[0].delta.content;if(onChunk)onChunk(full);
           }
+          // Gemini format
+          if(p.candidates&&p.candidates[0]?.content?.parts){
+            for(const part of p.candidates[0].content.parts){
+              if(part.text){full+=part.text;if(onChunk)onChunk(full)}
+            }
+          }
         }catch{}
       }
     }
@@ -933,78 +951,63 @@ function warmUpTTS(){
 function useTTS(){
   const[speaking,setSpeaking]=useState(false);
   const[paused,setPaused]=useState(false);
+  const[streamStatus,setStreamStatus]=useState(''); // 'Playing 2/5...' for UI
   const audioRef=useRef(null);
   const cancelledRef=useRef(false);
   const onEndRef=useRef(null);
-  const modeRef=useRef('none'); // 'openai' or 'browser'
-
-  // ── OpenAI TTS: fetch audio from our /api/tts proxy ──
+  const modeRef=useRef('none');
   const onStartRef=useRef(null);
-  const speakOpenAI=(text,speed,voiceName='onyx')=>{
-    return new Promise(async(resolve,reject)=>{
-      try{
-        const input=text.slice(0,4000);
-        console.log('%c[TTS] Fetching from /api/tts... voice='+voiceName+' speed='+speed,'color:cyan');
-        const r=await fetch('/api/tts',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({text:input,voice:voiceName,speed,premium:isPro(),intensity:Math.min(1,Math.max(0,(speed-1.0)/1.0))}),
-        });
-        console.log('%c[TTS] Response: '+r.status+' '+r.headers.get('content-type'),'color:cyan');
-        if(!r.ok){
-          const errBody=await r.text().catch(()=>'');
-          console.error('[TTS] Error body:',errBody);
-          return reject(new Error('TTS API '+r.status+': '+errBody));
-        }
-        const ct=r.headers.get('content-type')||'';
-        if(!ct.includes('audio')){
-          const errBody=await r.text().catch(()=>'');
-          return reject(new Error('TTS returned non-audio: '+ct+' '+errBody));
-        }
-        const blob=await r.blob();
-        console.log('%c[TTS] Got audio blob: '+blob.size+' bytes, type: '+blob.type,'color:cyan');
-        if(cancelledRef.current) return resolve();
-        if(blob.size<1000){
-          return reject(new Error('Audio blob too small: '+blob.size+' bytes'));
-        }
-        const url=URL.createObjectURL(blob);
-        const audio=new Audio();
-        audioRef.current=audio;
+  const gainNodeRef=useRef(null); // Web Audio gain for ducking
 
-        // Timeout: if audio doesn't start within 8s, reject
-        const timeout=setTimeout(()=>{
-          console.warn('[TTS] Audio play timeout — 8s elapsed');
-          URL.revokeObjectURL(url);
-          reject(new Error('Audio play timeout'));
-        },8000);
+  // Shared AudioContext for Web Audio routing
+  const getAudioCtx=()=>{
+    if(!useTTS._actx) useTTS._actx=new(window.AudioContext||window.webkitAudioContext)();
+    return useTTS._actx;
+  };
 
-        audio.oncanplay=()=>{
-          clearTimeout(timeout);
-          audio.play().then(()=>{
-            console.log('%c[TTS] Audio playing','color:lime');
-            // Fire onStart callback — timer should start NOW
-            if(onStartRef.current){onStartRef.current();onStartRef.current=null}
-          }).catch(e=>{
-            console.error('[TTS] Audio.play() rejected:',e);
-            URL.revokeObjectURL(url);
-            reject(e);
-          });
-        };
-        audio.onended=()=>{
-          URL.revokeObjectURL(url);
-          resolve();
-        };
-        audio.onerror=(e)=>{
-          console.error('[TTS] Audio element error:',e);
-          clearTimeout(timeout);
-          URL.revokeObjectURL(url);
-          reject(new Error('Audio element error'));
-        };
-        audio.src=url;
-        audio.load();
-      }catch(e){
-        reject(e);
-      }
+  // Route an Audio element through Web Audio gain node (for ducking + normalization)
+  const routeThroughGain=(audio)=>{
+    try{
+      const ctx=getAudioCtx();
+      if(ctx.state==='suspended') ctx.resume();
+      const src=ctx.createMediaElementSource(audio);
+      const gain=ctx.createGain();
+      gain.gain.value=1.0;
+      src.connect(gain);
+      gain.connect(ctx.destination);
+      gainNodeRef.current=gain;
+      return gain;
+    }catch(e){
+      // Fallback — just play directly
+      console.warn('[TTS] Web Audio routing failed:',e.message);
+      return null;
+    }
+  };
+
+  // Duck speech volume (for timer beeps)
+  const duck=(duration=400)=>{
+    const g=gainNodeRef.current;
+    if(!g) return;
+    const ctx=getAudioCtx();
+    g.gain.setValueAtTime(g.gain.value,ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.2,ctx.currentTime+0.05);
+    g.gain.linearRampToValueAtTime(1.0,ctx.currentTime+duration/1000);
+  };
+
+  // ── Fetch TTS blob from API ──
+  const fetchBlob=(text,speed,voiceName='onyx')=>{
+    const input=text.slice(0,4000);
+    return fetch('/api/tts',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:input,voice:voiceName,speed,premium:isPro(),intensity:Math.min(1,Math.max(0,(speed-1.0)/1.0))}),
+    }).then(async r=>{
+      if(!r.ok) throw new Error('TTS '+r.status);
+      const ct=r.headers.get('content-type')||'';
+      if(!ct.includes('audio')) throw new Error('Non-audio: '+ct);
+      const blob=await r.blob();
+      if(blob.size<500) throw new Error('Blob too small: '+blob.size);
+      return blob;
     });
   };
 
@@ -1013,7 +1016,6 @@ function useTTS(){
     return new Promise((resolve)=>{
       if(!window.speechSynthesis){resolve();return}
       window.speechSynthesis.cancel();
-      // Chunk to avoid Chrome 15s cutoff
       const sentences=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
       const groups=[];let cur='';
       for(const s of sentences){
@@ -1021,11 +1023,9 @@ function useTTS(){
         else cur+=s;
       }
       if(cur.trim())groups.push(cur.trim());
-
       if(!_voices.length) _loadVoices();
       const voice=_voices.find(v=>/Samantha|Daniel|Karen|Google US English|Aaron/.test(v.name))
         ||_voices.find(v=>v.lang&&v.lang.startsWith('en'))||null;
-
       let i=0;
       const next=()=>{
         if(cancelledRef.current||i>=groups.length){resolve();return}
@@ -1040,104 +1040,225 @@ function useTTS(){
     });
   };
 
-  // ── Main speak: try OpenAI, fall back to browser ──
-  // onStart fires when audio actually begins playing (use to start timer)
+  // Audio progress tracking
+  const progressRef=useRef({elapsed:0,total:0,totalEstimate:0});
+  const getProgress=()=>progressRef.current;
+
+  // ── Play a single blob with Web Audio routing ──
+  const playOneBlob=(blob,onPlay)=>{
+    return new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(blob);
+      const audio=new Audio();
+      audio.crossOrigin='anonymous';
+      audioRef.current=audio;
+
+      const timeout=setTimeout(()=>{
+        URL.revokeObjectURL(url);reject(new Error('Timeout'));
+      },10000);
+
+      audio.oncanplay=()=>{
+        clearTimeout(timeout);
+        routeThroughGain(audio);
+        audio.playbackRate=rateRef.current;
+        audio.play().then(()=>{if(onPlay)onPlay(audio)}).catch(e=>{
+          URL.revokeObjectURL(url);reject(e);
+        });
+      };
+      audio.onended=()=>{URL.revokeObjectURL(url);resolve()};
+      audio.onerror=()=>{clearTimeout(timeout);URL.revokeObjectURL(url);reject(new Error('Audio error'))};
+      audio.src=url;
+      audio.load();
+    });
+  };
+
+  // ── Main speak: single-shot TTS with browser fallback ──
   const speak=(text,wpm=180,onEnd,voiceName='onyx',onStart)=>{
     cancelledRef.current=false;
     setPaused(false);
     setSpeaking(true);
+    setStreamStatus('');
     onEndRef.current=onEnd;
-    progressRef.current={elapsed:0,total:0}; // reset for fresh sync
-    // Speed: map WPM to TTS speed (180 wpm → ~1.2x for snappier delivery)
+    progressRef.current={elapsed:0,total:0,totalEstimate:0};
     const speed=Math.max(0.75,Math.min(2.0,wpm/140));
     const browserRate=Math.max(0.5,Math.min(2.5,wpm/140));
-
-    console.log('%c[TTS] Starting — text: '+text.length+' chars, speed: '+speed.toFixed(2)+', voice: '+voiceName,'color:cyan;font-weight:bold');
-
-    // Hook into audio element to fire onStart when playback actually begins
     let startFired=false;
-    const fireStart=()=>{if(!startFired){startFired=true;if(onStart)onStart();console.log('%c[TTS] Audio playback started','color:lime')}};
+    const fireStart=()=>{if(!startFired){startFired=true;if(onStart)onStart()}};
 
     (async()=>{
       try{
         modeRef.current='openai';
-        onStartRef.current=fireStart;
-        await speakOpenAI(text,speed,voiceName);
-        fireStart(); // ensure it fires even if oncanplay didn't trigger it
-        console.log('%c[TTS] OpenAI playback complete','color:lime');
+        const blob=await fetchBlob(text,speed,voiceName);
+        if(cancelledRef.current) return;
+        await playOneBlob(blob,(audio)=>{
+          fireStart();
+          audio.ontimeupdate=()=>{
+            progressRef.current.elapsed=audio.currentTime||0;
+            progressRef.current.total=audio.duration||0;
+          };
+        });
       }catch(e){
-        console.warn('%c[TTS] OpenAI failed: '+e.message+' — falling back to browser','color:orange;font-weight:bold');
+        console.warn('[TTS] API failed:',e.message,'— browser fallback');
         if(!cancelledRef.current){
           modeRef.current='browser';
-          fireStart(); // browser TTS starts immediately
+          fireStart();
           await speakBrowser(text,browserRate);
         }
       }
       if(!cancelledRef.current){
-        setSpeaking(false);
+        setSpeaking(false);setStreamStatus('');
         if(onEndRef.current) onEndRef.current();
       }
     })();
   };
 
-  // Audio progress tracking for lyrics sync
-  // totalEstimate = word-count-based estimate set before playback starts
-  // total = sum of known chunk durations (grows as chunks load)
-  // elapsed = cumulative playback time across all chunks
-  const progressRef=useRef({elapsed:0,total:0,totalEstimate:0,chunkCount:0,chunksLoaded:0});
-  const getProgress=()=>progressRef.current;
-
-  // Play pre-fetched audio blobs sequentially
+  // ── playBlobs: sequential blob playback with crossfade ──
   const playBlobs=(blobs,onEnd,onStart)=>{
     cancelledRef.current=false;
     setPaused(false);
     setSpeaking(true);
     modeRef.current='openai';
     onEndRef.current=onEnd;
-    // Calculate total duration from all blobs once first plays
-    let cumulativeTime=0;
+    progressRef.current={elapsed:0,total:0,totalEstimate:0};
     const durations=new Array(blobs.length).fill(0);
-    progressRef.current={elapsed:0,total:0};
     let i=0;
+    const CROSSFADE_MS=60;
+
     const next=()=>{
       if(cancelledRef.current||i>=blobs.length){
-        setSpeaking(false);
+        setSpeaking(false);setStreamStatus('');
         if(onEndRef.current) onEndRef.current();
         return;
       }
+      setStreamStatus(`Playing ${i+1}/${blobs.length}`);
       const url=URL.createObjectURL(blobs[i]);
       const audio=new Audio();
+      audio.crossOrigin='anonymous';
       audioRef.current=audio;
-      const chunkIdx=i;
+      const ci=i;
+
       audio.onloadedmetadata=()=>{
-        durations[chunkIdx]=audio.duration||0;
-        if(chunkIdx===0) progressRef.current.total=durations.reduce((a,b)=>a+b,0)||1;
+        durations[ci]=audio.duration||0;
+        progressRef.current.total=durations.reduce((a,b)=>a+b,0);
       };
-      // Update progress during playback
       audio.ontimeupdate=()=>{
-        const priorTime=durations.slice(0,chunkIdx).reduce((a,b)=>a+b,0);
-        progressRef.current.elapsed=priorTime+(audio.currentTime||0);
-        // Recalculate total if we learn more durations
-        const knownTotal=durations.reduce((a,b)=>a+b,0);
-        if(knownTotal>progressRef.current.total) progressRef.current.total=knownTotal;
+        const prior=durations.slice(0,ci).reduce((a,b)=>a+b,0);
+        progressRef.current.elapsed=prior+(audio.currentTime||0);
+        const known=durations.reduce((a,b)=>a+b,0);
+        if(known>progressRef.current.total) progressRef.current.total=known;
+
+        // Crossfade: start fading out near the end of this chunk
+        const g=gainNodeRef.current;
+        if(g&&audio.duration&&audio.currentTime>audio.duration-CROSSFADE_MS/1000){
+          const ctx=getAudioCtx();
+          g.gain.setValueAtTime(g.gain.value,ctx.currentTime);
+          g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+CROSSFADE_MS/1000);
+        }
       };
-      audio.onended=()=>{
-        cumulativeTime+=durations[chunkIdx]||0;
-        URL.revokeObjectURL(url);i++;next();
-      };
+      audio.onended=()=>{URL.revokeObjectURL(url);i++;next()};
       audio.onerror=()=>{URL.revokeObjectURL(url);i++;next()};
       audio.oncanplay=()=>{
-        const knownTotal=durations.reduce((a,b)=>a+b,0);
-        if(knownTotal>progressRef.current.total) progressRef.current.total=knownTotal;
+        routeThroughGain(audio);
+        // Fade in from crossfade overlap
+        const g=gainNodeRef.current;
+        if(g&&ci>0){
+          const ctx=getAudioCtx();
+          g.gain.setValueAtTime(0.3,ctx.currentTime);
+          g.gain.linearRampToValueAtTime(1.0,ctx.currentTime+CROSSFADE_MS/1000);
+        }
+        audio.playbackRate=rateRef.current;
         audio.play().then(()=>{
-          // Fire onStart when first chunk starts playing
-          if(chunkIdx===0&&onStart){onStart()}
+          if(ci===0&&onStart) onStart();
         }).catch(()=>{URL.revokeObjectURL(url);i++;next()});
       };
       audio.src=url;
       audio.load();
     };
     next();
+  };
+
+  // ── playStream: accepts blob Promises — plays first ASAP, crossfades between ──
+  const playStream=(blobPromises,onEnd,onStart)=>{
+    cancelledRef.current=false;
+    setPaused(false);
+    setSpeaking(true);
+    modeRef.current='openai';
+    onEndRef.current=onEnd;
+    progressRef.current={elapsed:0,total:0,totalEstimate:0};
+    const resolved=[];
+    const durations=[];
+    let i=0;
+    let started=false;
+    const CROSSFADE_MS=60;
+    const total=blobPromises.length;
+
+    const playNext=()=>{
+      if(cancelledRef.current){
+        setSpeaking(false);setStreamStatus('');
+        if(onEndRef.current) onEndRef.current();
+        return;
+      }
+      if(i>=total){
+        setSpeaking(false);setStreamStatus('');
+        if(onEndRef.current) onEndRef.current();
+        return;
+      }
+      setStreamStatus(`Playing ${i+1}/${total}`);
+
+      const doPlay=()=>{
+        if(cancelledRef.current||!resolved[i]){durations[i]=0;i++;playNext();return}
+        const url=URL.createObjectURL(resolved[i]);
+        const audio=new Audio();
+        audio.crossOrigin='anonymous';
+        audioRef.current=audio;
+        const ci=i;
+
+        audio.onloadedmetadata=()=>{
+          durations[ci]=audio.duration||0;
+          progressRef.current.total=durations.reduce((a,b)=>a+(b||0),0);
+        };
+        audio.ontimeupdate=()=>{
+          const prior=durations.slice(0,ci).reduce((a,b)=>a+(b||0),0);
+          progressRef.current.elapsed=prior+(audio.currentTime||0);
+          const known=durations.reduce((a,b)=>a+(b||0),0);
+          if(known>progressRef.current.total) progressRef.current.total=known;
+          // Crossfade out near end
+          const g=gainNodeRef.current;
+          if(g&&audio.duration&&ci<total-1&&audio.currentTime>audio.duration-CROSSFADE_MS/1000){
+            const ctx=getAudioCtx();
+            g.gain.setValueAtTime(g.gain.value,ctx.currentTime);
+            g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+CROSSFADE_MS/1000);
+          }
+        };
+        audio.onended=()=>{URL.revokeObjectURL(url);i++;playNext()};
+        audio.onerror=()=>{URL.revokeObjectURL(url);i++;playNext()};
+        audio.oncanplay=()=>{
+          routeThroughGain(audio);
+          // Fade in from crossfade
+          const g=gainNodeRef.current;
+          if(g&&ci>0){
+            const ctx=getAudioCtx();
+            g.gain.setValueAtTime(0.3,ctx.currentTime);
+            g.gain.linearRampToValueAtTime(1.0,ctx.currentTime+CROSSFADE_MS/1000);
+          }
+          audio.playbackRate=rateRef.current;
+          audio.play().then(()=>{
+            if(!started){started=true;if(onStart)onStart()}
+          }).catch(()=>{URL.revokeObjectURL(url);i++;playNext()});
+        };
+        audio.src=url;
+        audio.load();
+      };
+
+      if(resolved[i]!==undefined){
+        doPlay();
+      } else {
+        blobPromises[i].then(blob=>{
+          if(blob&&blob.size>500){resolved[i]=blob;durations[i]=0;doPlay()}
+          else{resolved[i]=null;durations[i]=0;i++;playNext()}
+        }).catch(()=>{resolved[i]=null;durations[i]=0;i++;playNext()});
+      }
+    };
+    playNext();
   };
 
   const togglePause=()=>{
@@ -1154,16 +1275,17 @@ function useTTS(){
     cancelledRef.current=true;
     if(audioRef.current){audioRef.current.pause();audioRef.current=null}
     if(window.speechSynthesis)window.speechSynthesis.cancel();
-    setSpeaking(false);setPaused(false);
+    setSpeaking(false);setPaused(false);setStreamStatus('');
     modeRef.current='none';
+    gainNodeRef.current=null;
   };
 
-  // Live playback rate — change speed during speech
+  const rateRef=useRef(1.0);
   const setRate=(rate)=>{
+    rateRef.current=rate;
     if(audioRef.current) audioRef.current.playbackRate=rate;
   };
 
-  // Expose audio timing for lyrics sync — prefer progressRef for multi-blob, audio element for single
   const getAudioTime=()=>{
     if(!audioRef.current) return{currentTime:0,duration:0,rate:1};
     const a=audioRef.current;
@@ -1172,7 +1294,7 @@ function useTTS(){
     return{currentTime:elapsed,duration:total,rate:a.playbackRate||1};
   };
 
-  return{speak,playBlobs,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime};
+  return{speak,playBlobs,playStream,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime,duck,streamStatus};
 }
 
 function useRecognition(){
@@ -1207,13 +1329,13 @@ function useRecognition(){
    TIMER
    ═══════════════════════════════════════════════════ */
 
-function useTimer(){
+function useTimer(duckFn){
   const[left,setLeft]=useState(0);
   const[on,setOn]=useState(false);
   const iRef=useRef(null);
   const cbRef=useRef(null);
 
-  const beep=(f,d)=>{try{const a=new(window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.value=.12;o.start();o.stop(a.currentTime+d/1000)}catch{}};
+  const beep=(f,d,duckFn)=>{try{const a=new(window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.value=.12;o.start();o.stop(a.currentTime+d/1000);if(duckFn)duckFn(d+200)}catch{}};
 
   const go=(secs,onDone)=>{cbRef.current=onDone;setLeft(secs);setOn(true)};
   const halt=()=>{setOn(false)};
@@ -1223,10 +1345,10 @@ function useTimer(){
     if(!on){if(iRef.current)clearInterval(iRef.current);return}
     iRef.current=setInterval(()=>{
       setLeft(p=>{
-        if(p<=1){clearInterval(iRef.current);setOn(false);beep(880,400);if(cbRef.current)setTimeout(cbRef.current,300);return 0}
-        if(p===61)beep(440,200);  // 1 minute warning
-        if(p===31)beep(660,150);  // 30 second warning
-        if(p===16)beep(880,150);  // 15 second warning
+        if(p<=1){clearInterval(iRef.current);setOn(false);beep(880,400,duckFn);if(cbRef.current)setTimeout(cbRef.current,300);return 0}
+        if(p===61)beep(440,200,duckFn);  // 1 minute warning
+        if(p===31)beep(660,150,duckFn);  // 30 second warning
+        if(p===16)beep(880,150,duckFn);  // 15 second warning
         return p-1;
       });
     },1000);
@@ -1405,10 +1527,11 @@ Signposting is NON-NEGOTIABLE. The judge is writing down your arguments in real 
 - NUMBER every argument: "My first argument is [NAME]." "My second argument is [NAME]." Never leave the judge guessing which argument you're on.
 - LABEL every sub-point with letters: "a." "b." "c." Say them out loud and clearly.
 - NAME your arguments distinctively: Not "my point about economics" but "The Moral Hazard Argument" or "The Coordination Failure." Judges flow by name.
-- SIGNPOST transitions explicitly: "That was my framework. Now, two substantive arguments." / "Turning to the opposition's case." / "On their first argument about X..."
-- In REBUTTALS, signpost by opponent's structure: "On their first argument, they said X. Three problems." / "They dropped our second argument entirely — extend it." / "Pull through our Coordination Failure argument — it's untouched."
-- ROADMAP at the start of rebuttals: "I'll do three things: first, address their framework; second, rebuild our case; third, weigh the round."
-- Use INTERNAL SUMMARIES: "So that's two reasons why their link story fails." / "Those three warrants together give you the full mechanism."
+- SIGNPOST transitions explicitly: "Turning to the opposition's case." / "On their first argument about X..."
+- In REBUTTALS, signpost by opponent's structure: "On their first argument, they said X. Three problems." / "They dropped our second argument entirely — extend it."
+- Do NOT give a roadmap mid-speech ("I'll do three things..."). Just DO the things. Roadmaps waste time and sound robotic.
+- NEVER forecast your own arguments ("I'm about to make my impact stand out by..."). Just make the argument. The judge doesn't need a preview — they need the content.
+- NEVER narrate your own rhetorical moves ("Let me now use a powerful example to show..." / "To make this more concrete..." / "Here's why this matters..."). Just SAY the example. Just SAY why it matters. Forecasting kills momentum.
 
 VOICE & DELIVERY:
 - HOOK — Your opening line is everything. Start with a punchy, memorable hook that grabs the judge. Examples:
@@ -1496,7 +1619,7 @@ function App(){
   const orb=useOrb();
   const rec=useRecognition();
   const tts=useTTS();
-  const timer=useTimer();
+  const timer=useTimer(tts.duck);
   const prepTimer=useTimer();
 
   // POI: user sends a POI during AI speech
@@ -1598,9 +1721,10 @@ function App(){
       orb.setMode('ai');setAiLoading(true);setAiText('');setAiPct(0);
       const stopThinking=SFX.thinking();
       try{
-        // Scale word count with WPM — at 180 wpm generate ~170 w/min, at 380 wpm generate ~340 w/min
-        const wordsPerMin=Math.round(wpm*0.9);
-        const targetWords=Math.floor(s.time/60)*wordsPerMin;
+        // Word count = what TTS will deliver in the speech time
+        // TTS base rate ~150 wpm × playback speed (wpm/140) = actual words per minute
+        const actualWPM=Math.round(150*(wpm/140));
+        const targetWords=Math.round((s.time/60)*actualWPM);
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
         const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
 
@@ -1618,13 +1742,13 @@ function App(){
           });
         };
 
-        // Strip <plan>/<thinking> tags from AI output
-        const stripPlan=(text)=>text.replace(/<plan>[\s\S]*?<\/plan>/gi,'').replace(/<\/?plan>/gi,'').replace(/<thinking>[\s\S]*?<\/thinking>/gi,'').replace(/<\/?thinking>/gi,'').trim();
+        // Strip <plan>/<thinking> tags from AI output — including incomplete open tags during streaming
+        const stripPlan=(text)=>text.replace(/<plan>[\s\S]*?<\/plan>/gi,'').replace(/<plan>[\s\S]*$/gi,'').replace(/<\/?plan>/gi,'').replace(/<thinking>[\s\S]*?<\/thinking>/gi,'').replace(/<thinking>[\s\S]*$/gi,'').replace(/<\/?thinking>/gi,'').trim();
 
         // Track chunks: fire TTS for each paragraph as AI streams in
         const chunkQueue=[]; // {text, blobP}
         let lastChunkEnd=0;  // char index where last chunk ended
-        const MIN_CHUNK_WORDS=40; // ~15s of audio — small enough for fast first chunk
+        const MIN_CHUNK_WORDS=25; // ~10s of audio — fast first playback
         const MAX_CHUNK_WORDS=200;
 
         const tryChunk=(clean,force)=>{
@@ -1668,25 +1792,20 @@ function App(){
         tryChunk(txt,true);
         stopThinking();SFX.ready();
 
-        // Phase 2: Play audio — resolve all chunk blobs and play sequentially
+        // Phase 2: Stream-play — start first chunk ASAP, queue rest as they resolve
         setAiLoading('voice');
-        const blobs=[];
-        for(const c of chunkQueue){
-          const b=await c.blobP;
-          if(b&&b.size>500) blobs.push(b);
-        }
-
         const onAudioStart=()=>{
           setAiLoading(false);
           setRevealIdx(0);
           timer.go(s.time);
         };
 
-        if(blobs.length>0){
-          console.log(`%c[TTS] Playing ${blobs.length} audio chunks`,'color:lime;font-weight:bold');
-          tts.playBlobs(blobs,()=>{orb.setMode('idle');setRevealIdx(-1)},onAudioStart);
+        if(chunkQueue.length>0){
+          const blobPromises=chunkQueue.map(c=>c.blobP);
+          console.log(`%c[TTS] Streaming ${blobPromises.length} chunks — first plays as soon as ready`,'color:lime;font-weight:bold');
+          tts.playStream(blobPromises,()=>{orb.setMode('idle');setRevealIdx(-1)},onAudioStart);
         } else {
-          // Fallback: single-shot TTS if chunking failed
+          // Fallback: single-shot TTS if no chunks were created
           tts.speak(txt,wpm,()=>{orb.setMode('idle');setRevealIdx(-1)},voice,onAudioStart);
         }
       }catch(e){
@@ -1979,10 +2098,17 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
 
       // AI Voice
       el('div',{className:'t-label',style:{marginTop:24}},'AI Voice',isPro()&&el('span',{style:{marginLeft:8,fontSize:'.55rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4,verticalAlign:'middle'}},'HD VOICE')),
-      el('div',{className:'pills'},
+      el('div',{className:'pills',style:{flexWrap:'wrap',justifyContent:'center'}},
         Object.entries(VOICES).map(([k,v])=>
-          el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>setVoice(k),title:v.desc},v.name)
+          el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>setVoice(k),style:{minWidth:voice===k?'auto':undefined}},
+            v.name,
+            voice===k&&el('span',{style:{marginLeft:6,fontSize:'.6rem',opacity:.6,fontWeight:400}},v.gender)
+          )
         )
+      ),
+      // Selected voice description
+      VOICES[voice]&&el('div',{style:{textAlign:'center',marginTop:8,fontSize:'.72rem',color:'rgba(255,255,255,.4)',lineHeight:1.4,maxWidth:360,margin:'8px auto 0'}},
+        VOICES[voice].desc
       ),
 
       // AI Speed
@@ -2232,7 +2358,7 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
         el('div',{className:'t-phase'},cur.code+' — '+cur.name),
         el('div',{className:'t-dim',style:{marginBottom:24}},
           isUser?'Speak now — your voice is being transcribed':
-          aiLoading==='voice'?('Preparing HD voice...'+(voiceEta>0?' ~'+voiceEta+'s remaining':' almost ready')):
+          aiLoading==='voice'?(tts.streamStatus||'Preparing HD voice...'):
           aiLoading?'Writing argument via '+(BRAINS[brain]||BRAINS.claude).name+(isPro()?' ⚡ Pro':'')+' ... '+aiPct+'%':
           tts.paused?'Paused':'🔴 LIVE — Timer running'
         ),
@@ -2277,7 +2403,9 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
               return words.map((w,i)=>{
                 const spoken=!active||i<revealIdx;
                 const current=active&&i>=Math.max(0,revealIdx-2)&&i<revealIdx;
-                return el('span',{key:i,style:{
+                // Auto-scroll: ref on the current highlighted word
+                const isCursor=active&&i===Math.max(0,revealIdx-1);
+                return el('span',{key:i,ref:isCursor?(node)=>{if(node)node.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'})}:null,style:{
                   color: spoken ? 'rgba(255,255,255,.88)' : 'rgba(255,255,255,.1)',
                   transition: 'color .15s ease, font-weight .15s ease',
                   fontWeight: current ? 700 : 400,

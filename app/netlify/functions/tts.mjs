@@ -43,22 +43,30 @@ const MAX_TEXT_LENGTH = 5000;
 
 // ElevenLabs voice ID mapping — all American accent
 const ELEVENLABS_VOICES = {
-  commanding: 'pNInz6obpgDQGcFmaJgB',  // Adam — dominant, firm, American male
-  persuasive: 'EXAVITQu4vr4xnSDxMaL',  // Sarah — mature, confident, American female
-  analytical: 'cjVigY5qzO86Huf0OWal',   // Eric — smooth, trustworthy, American male
-  technical:  'nPczCjzI2devNBz1zQrb',   // Brian — deep, resonant, American male
-  passionate: 'TX3LPaxmHKxFdv7VOQHJ',  // Liam — energetic, young, American male
-  eloquent:   'XrExE9yKIg1WjnnlVkGX',   // Matilda — knowledgable, professional, American female
+  professor:   'pNInz6obpgDQGcFmaJgB',  // Adam — dominant, firm, American male
+  closer:      'EXAVITQu4vr4xnSDxMaL',  // Sarah — mature, confident, American female
+  surgeon:     'cjVigY5qzO86Huf0OWal',   // Eric — smooth, trustworthy, American male
+  veteran:     'nPczCjzI2devNBz1zQrb',   // Brian — deep, resonant, American male
+  firebrand:   'TX3LPaxmHKxFdv7VOQHJ',  // Liam — energetic, young, American male
+  diplomat:    'XrExE9yKIg1WjnnlVkGX',   // Matilda — professional, American female
+  debater:     'jsCqWAovK2LkecY7zXl4',   // Freya — quick, sharp, American female
+  philosopher: 'IKne3meq5aSn9XLyUdCD',   // Charlie — thoughtful, calm, American male
+  prosecutor:  'bIHbv24MWmeRgasZH58o',   // Will — intense, direct, American male
+  storyteller: 'FGY2WhTYpPnrIDTdsKH5',   // Laura — warm, narrative, American female
 };
 
 // Map OpenAI voice keys to ElevenLabs personality keys
 const OPENAI_TO_ELEVEN = {
-  onyx: 'commanding',
-  echo: 'persuasive',
-  fable: 'analytical',
-  alloy: 'technical',
-  nova: 'passionate',
-  shimmer: 'eloquent',
+  onyx: 'professor',
+  echo: 'closer',
+  fable: 'surgeon',
+  alloy: 'veteran',
+  nova: 'firebrand',
+  shimmer: 'diplomat',
+  coral: 'debater',
+  sage: 'philosopher',
+  ash: 'prosecutor',
+  ballad: 'storyteller',
 };
 
 // ElevenLabs TTS with streaming for faster first-byte
