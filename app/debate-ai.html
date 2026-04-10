@@ -1047,6 +1047,7 @@ function useTTS(){
     setPaused(false);
     setSpeaking(true);
     onEndRef.current=onEnd;
+    progressRef.current={elapsed:0,total:0}; // reset for fresh sync
     // Speed: map WPM to TTS speed (180 wpm → ~1.2x for snappier delivery)
     const speed=Math.max(0.75,Math.min(2.0,wpm/140));
     const browserRate=Math.max(0.5,Math.min(2.5,wpm/140));
@@ -1162,7 +1163,16 @@ function useTTS(){
     if(audioRef.current) audioRef.current.playbackRate=rate;
   };
 
-  return{speak,playBlobs,stop,speaking,paused,togglePause,getProgress,setRate};
+  // Expose audio timing for lyrics sync — prefer progressRef for multi-blob, audio element for single
+  const getAudioTime=()=>{
+    if(!audioRef.current) return{currentTime:0,duration:0,rate:1};
+    const a=audioRef.current;
+    const elapsed=progressRef.current.elapsed>0?progressRef.current.elapsed:(a.currentTime||0);
+    const total=progressRef.current.total>0?progressRef.current.total:(a.duration||0);
+    return{currentTime:elapsed,duration:total,rate:a.playbackRate||1};
+  };
+
+  return{speak,playBlobs,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime};
 }
 
 function useRecognition(){
@@ -1613,7 +1623,7 @@ function App(){
         };
 
         // Strip <plan> tags from AI output (silent thinking — judge never sees it)
-        const stripPlan=(text)=>text.replace(/<plan>[\s\S]*?<\/plan>/gi,'').replace(/<\/?plan>/gi,'').trim();
+        const stripPlan=(text)=>text.replace(/<plan>[\s\S]*?<\/plan>/gi,'').replace(/<\/?plan>/gi,'').replace(/<thinking>[\s\S]*?<\/thinking>/gi,'').replace(/<\/?thinking>/gi,'').trim();
 
         // Phase 1: Generate argument text — prefetch audio mid-stream
         const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
@@ -1887,30 +1897,27 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
     if(f&&!f.sides.includes(side)) setSide(f.sides[0]);
   },[format]);
 
-  // Lyrics sync: reveal words at a constant rate based on WPM
-  const lyricsStartRef=useRef(0);
+  // Lyrics sync: reveal words based on actual audio position (not timer estimate)
   useEffect(()=>{
-    if(!tts.speaking||!aiText||aiLoading) { return; }
-    if(!lyricsStartRef.current) lyricsStartRef.current=Date.now();
+    if(!tts.speaking||!aiText||aiLoading) return;
     const words=aiText.split(/\s+/);
     const totalWords=words.length;
-    // Words per second based on TTS speed setting
-    const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
-    const wordsPerSec=(150*ttsSpeed)/60; // ~150 wpm at 1x speed
     const tick=()=>{
-      const elapsed=(Date.now()-lyricsStartRef.current)/1000;
-      // Reveal slightly ahead so words appear just before spoken
-      const idx=Math.min(totalWords,Math.floor(elapsed*wordsPerSec*1.05)+1);
+      const{currentTime,duration}=tts.getAudioTime();
+      if(duration<=0){setRevealIdx(1);return}
+      // Map audio progress → word index — slight lead so words appear just before spoken
+      const progress=Math.min(1,currentTime/duration);
+      const idx=Math.min(totalWords,Math.floor(progress*totalWords*1.03)+1);
       setRevealIdx(idx);
     };
-    const iv=setInterval(tick,80);
+    const iv=setInterval(tick,60); // 60ms for smooth reveal
     return()=>clearInterval(iv);
   },[tts.speaking,aiText,aiLoading]);
 
   // Reset reveal when speech ends or new speech starts
   useEffect(()=>{
-    if(!tts.speaking){setRevealIdx(-1);lyricsStartRef.current=0}
-    else{setShowTx(true);lyricsStartRef.current=Date.now()} // auto-open transcript when AI starts speaking
+    if(!tts.speaking) setRevealIdx(-1);
+    else setShowTx(true); // auto-open transcript when AI starts speaking
   },[tts.speaking]);
 
   // Apply trait preset
@@ -2256,11 +2263,18 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
             (()=>{
               const words=aiText.split(/\s+/);
               const active=revealIdx>=0;
-              return words.map((w,i)=>el('span',{key:i,style:{
-                color: !active||i<revealIdx ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.12)',
-                transition: 'color .3s ease',
-                fontWeight: active && i>=Math.max(0,revealIdx-3) && i<revealIdx ? 700 : 400,
-              }},w+' '));
+              return words.map((w,i)=>{
+                const spoken=!active||i<revealIdx;
+                const current=active&&i>=Math.max(0,revealIdx-2)&&i<revealIdx;
+                return el('span',{key:i,style:{
+                  color: spoken ? 'rgba(255,255,255,.88)' : 'rgba(255,255,255,.1)',
+                  transition: 'color .15s ease, font-weight .15s ease',
+                  fontWeight: current ? 700 : 400,
+                  background: current ? 'rgba(239,68,68,.08)' : 'none',
+                  borderRadius: current ? 3 : 0,
+                  padding: current ? '1px 2px' : 0,
+                }},w+' ');
+              });
             })()
           ),
         ),
