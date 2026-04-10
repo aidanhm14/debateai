@@ -588,7 +588,7 @@ const BRAINS = {
     desc: 'Structured, analytical — Anthropic',
     endpoint: '/api/claude',
     format: 'claude',
-    model: 'claude-3-5-haiku-20241022',     // free tier — fast
+    model: 'claude-haiku-4-20250414',        // free tier — fast
     proModel: 'claude-sonnet-4-20250514',   // pro tier — smarter
   },
   gpt: {
@@ -1469,6 +1469,7 @@ function App(){
 
   // Round history
   const[showHistory,setShowHistory]=useState(false);
+  const[showAdvanced,setShowAdvanced]=useState(false);
   const[historyRounds,setHistoryRounds]=useState(()=>{
     try{return JSON.parse(localStorage.getItem('debateos-round-history')||'[]')}catch{return[]}
   });
@@ -1933,67 +1934,10 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
         )
       ),
 
-      // AI Brain
-      el('div',{className:'t-label',style:{marginTop:24}},'AI Brain'),
-      el('div',{className:'pills'},
-        Object.entries(BRAINS).map(([k,v])=>
-          el('button',{key:k,className:'pill'+(brain===k?' on':''),onClick:()=>setBrain(k),title:v.desc},v.name)
-        )
-      ),
-      isPro()&&el('div',{style:{fontSize:'.72rem',color:'rgba(239,68,68,.6)',fontWeight:600,marginTop:4}},'⚡ Pro — using faster, smarter models'),
-      !isPro()&&el('div',{style:{fontSize:'.72rem',color:'rgba(255,255,255,.2)',marginTop:4}},'Free tier · ',el('a',{href:'/#pricing',style:{color:'rgba(239,68,68,.5)',textDecoration:'underline'}},'Upgrade for ⚡ faster generation')),
-
-      // Opponent Traits — mix & match strengths/weaknesses
-      el('div',{className:'t-label',style:{marginTop:24}},'Opponent Style'),
-      el('div',{className:'pills',style:{marginBottom:8}},
-        Object.entries(TRAIT_PRESETS).map(([k,v])=>
-          el('button',{key:k,className:'cta-ghost',onClick:()=>applyPreset(k),style:{padding:'6px 14px',fontSize:'.75rem'}},
-            k==='random'?'🎲 '+v.label:v.label
-          )
-        )
-      ),
-
-      el('div',{className:'t-label',style:{marginTop:12,fontSize:'.6rem'}},'Strengths'),
-      el('div',{className:'pills',style:{maxWidth:700}},
-        Object.entries(STRENGTHS).map(([k,v])=>{
-          const on=oppStrengths.includes(k);
-          return el('button',{key:k,className:'pill'+(on?' on':''),title:v.desc,onClick:()=>{
-            setOppStrengths(on?oppStrengths.filter(s=>s!==k):[...oppStrengths,k]);
-          }},v.emoji+' '+v.label);
-        })
-      ),
-
-      el('div',{className:'t-label',style:{marginTop:12,fontSize:'.6rem'}},'Weaknesses'),
-      el('div',{className:'pills',style:{maxWidth:700}},
-        Object.entries(WEAKNESSES).map(([k,v])=>{
-          const on=oppWeaknesses.includes(k);
-          return el('button',{key:k,className:'pill'+(on?' on':''),title:v.desc,onClick:()=>{
-            setOppWeaknesses(on?oppWeaknesses.filter(w=>w!==k):[...oppWeaknesses,k]);
-          }},v.emoji+' '+v.label);
-        })
-      ),
-
-      // Trait summary
-      (oppStrengths.length>0||oppWeaknesses.length>0)&&el('div',{style:{marginTop:12,padding:'12px 16px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',borderRadius:14,maxWidth:500,textAlign:'left',fontSize:'.78rem'}},
-        oppStrengths.length>0&&el('div',{style:{color:'rgba(100,220,100,.6)',marginBottom:oppWeaknesses.length?4:0}},
-          '✦ '+oppStrengths.map(k=>STRENGTHS[k].label).join(' · ')
-        ),
-        oppWeaknesses.length>0&&el('div',{style:{color:'rgba(239,68,68,.6)'}},
-          '✧ '+oppWeaknesses.map(k=>WEAKNESSES[k].label).join(' · ')
-        ),
-      ),
-
       // Motion
-      el('div',{className:'t-label',style:{marginTop:28}},'Motion'),
+      el('div',{className:'t-label',style:{marginTop:24}},'Motion'),
       el('textarea',{className:'float-input',rows:2,placeholder:'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
       el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
-
-      // Background (optional)
-      el('div',{className:'t-label',style:{marginTop:20,display:'flex',alignItems:'center',gap:8}},
-        'Background',
-        el('span',{style:{fontSize:'.55rem',fontWeight:500,color:'rgba(255,255,255,.2)',textTransform:'none',letterSpacing:'0'}},'optional')
-      ),
-      el('textarea',{className:'float-input',rows:2,placeholder:'Country context, actor details, constraints, time period... Leave blank to skip.',value:background,onChange:e=>setBackground(e.target.value),style:{minHeight:60,fontSize:'.9rem'}}),
 
       // Side
       el('div',{className:'t-label',style:{marginTop:24}},'Your Side'),
@@ -2019,6 +1963,74 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
         el('input',{type:'range',min:120,max:260,value:wpm,onChange:e=>setWpm(+e.target.value)}),
         el('span',null,'Fast'),
         el('strong',null,wpm+' wpm'),
+      ),
+
+      // ── Advanced Settings Toggle ──
+      el('button',{onClick:()=>setShowAdvanced(!showAdvanced),style:{marginTop:24,background:'none',border:'1px solid rgba(255,255,255,.08)',borderRadius:10,padding:'10px 20px',color:'rgba(255,255,255,.4)',fontSize:'.78rem',cursor:'pointer',display:'flex',alignItems:'center',gap:8,margin:'24px auto 0',transition:'all .2s'}},
+        el('span',{style:{transform:showAdvanced?'rotate(90deg)':'rotate(0deg)',transition:'transform .2s',display:'inline-block'}},'▸'),
+        'Advanced Settings',
+        (oppStrengths.length>0||oppWeaknesses.length>0||brain!=='claude'||background)&&el('span',{style:{width:6,height:6,borderRadius:'50%',background:'#ef4444',display:'inline-block',marginLeft:4}}),
+      ),
+
+      // ── Advanced Section (collapsible) ──
+      showAdvanced&&el('div',{style:{marginTop:16,padding:'20px 0',borderTop:'1px solid rgba(255,255,255,.06)',animation:'fadeIn .3s ease'}},
+
+        // AI Brain
+        el('div',{className:'t-label'},'AI Brain'),
+        el('div',{className:'pills'},
+          Object.entries(BRAINS).map(([k,v])=>
+            el('button',{key:k,className:'pill'+(brain===k?' on':''),onClick:()=>setBrain(k),title:v.desc},v.name)
+          )
+        ),
+        isPro()&&el('div',{style:{fontSize:'.72rem',color:'rgba(239,68,68,.6)',fontWeight:600,marginTop:4}},'⚡ Pro — using faster, smarter models'),
+        !isPro()&&el('div',{style:{fontSize:'.72rem',color:'rgba(255,255,255,.2)',marginTop:4}},'Free tier · ',el('a',{href:'/#pricing',style:{color:'rgba(239,68,68,.5)',textDecoration:'underline'}},'Upgrade for ⚡ faster generation')),
+
+        // Opponent Traits
+        el('div',{className:'t-label',style:{marginTop:24}},'Opponent Style'),
+        el('div',{className:'pills',style:{marginBottom:8}},
+          Object.entries(TRAIT_PRESETS).map(([k,v])=>
+            el('button',{key:k,className:'cta-ghost',onClick:()=>applyPreset(k),style:{padding:'6px 14px',fontSize:'.75rem'}},
+              k==='random'?'🎲 '+v.label:v.label
+            )
+          )
+        ),
+
+        el('div',{className:'t-label',style:{marginTop:12,fontSize:'.6rem'}},'Strengths'),
+        el('div',{className:'pills',style:{maxWidth:700}},
+          Object.entries(STRENGTHS).map(([k,v])=>{
+            const on=oppStrengths.includes(k);
+            return el('button',{key:k,className:'pill'+(on?' on':''),title:v.desc,onClick:()=>{
+              setOppStrengths(on?oppStrengths.filter(s=>s!==k):[...oppStrengths,k]);
+            }},v.emoji+' '+v.label);
+          })
+        ),
+
+        el('div',{className:'t-label',style:{marginTop:12,fontSize:'.6rem'}},'Weaknesses'),
+        el('div',{className:'pills',style:{maxWidth:700}},
+          Object.entries(WEAKNESSES).map(([k,v])=>{
+            const on=oppWeaknesses.includes(k);
+            return el('button',{key:k,className:'pill'+(on?' on':''),title:v.desc,onClick:()=>{
+              setOppWeaknesses(on?oppWeaknesses.filter(w=>w!==k):[...oppWeaknesses,k]);
+            }},v.emoji+' '+v.label);
+          })
+        ),
+
+        // Trait summary
+        (oppStrengths.length>0||oppWeaknesses.length>0)&&el('div',{style:{marginTop:12,padding:'12px 16px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',borderRadius:14,maxWidth:500,textAlign:'left',fontSize:'.78rem'}},
+          oppStrengths.length>0&&el('div',{style:{color:'rgba(100,220,100,.6)',marginBottom:oppWeaknesses.length?4:0}},
+            '✦ '+oppStrengths.map(k=>STRENGTHS[k].label).join(' · ')
+          ),
+          oppWeaknesses.length>0&&el('div',{style:{color:'rgba(239,68,68,.6)'}},
+            '✧ '+oppWeaknesses.map(k=>WEAKNESSES[k].label).join(' · ')
+          ),
+        ),
+
+        // Background (optional)
+        el('div',{className:'t-label',style:{marginTop:24,display:'flex',alignItems:'center',gap:8}},
+          'Background',
+          el('span',{style:{fontSize:'.55rem',fontWeight:500,color:'rgba(255,255,255,.2)',textTransform:'none',letterSpacing:'0'}},'optional')
+        ),
+        el('textarea',{className:'float-input',rows:2,placeholder:'Country context, actor details, constraints, time period... Leave blank to skip.',value:background,onChange:e=>setBackground(e.target.value),style:{minHeight:60,fontSize:'.9rem'}}),
       ),
 
       // Summary line

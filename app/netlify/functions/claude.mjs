@@ -5,7 +5,7 @@ import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
   'claude-sonnet-4-20250514',
-  'claude-3-5-haiku-20241022',
+  'claude-haiku-4-20250414',
 ];
 
 // Hard cap on max_tokens — competition cases need up to 32k
