@@ -1604,57 +1604,77 @@ function App(){
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
         const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
 
-        // Prefetch: fire TTS for first half of text while AI is still generating
-        let prefetchBlob=null;
-        let prefetchText='';
-        let prefetchFired=false;
-        const halfTarget=Math.floor(targetWords*0.5);
-
+        // ── Chunked TTS pipeline: fire audio for each paragraph as soon as it's ready ──
+        const ttsIntensity=Math.min(1,Math.max(0,(ttsSpeed-1.0)/1.0));
         const fetchTTSBlob=(text)=>{
           const input=text.slice(0,4000);
           return fetch('/api/tts',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro(),intensity:Math.min(1,Math.max(0,(ttsSpeed-1.0)/1.0))}),
+            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro(),intensity:ttsIntensity}),
           }).then(r=>{
             if(!r.ok) throw new Error('TTS '+r.status);
             return r.blob();
           });
         };
 
-        // Strip <plan> tags from AI output (silent thinking — judge never sees it)
+        // Strip <plan>/<thinking> tags from AI output
         const stripPlan=(text)=>text.replace(/<plan>[\s\S]*?<\/plan>/gi,'').replace(/<\/?plan>/gi,'').replace(/<thinking>[\s\S]*?<\/thinking>/gi,'').replace(/<\/?thinking>/gi,'').trim();
 
-        // Phase 1: Generate argument text — prefetch audio mid-stream
+        // Track chunks: fire TTS for each paragraph as AI streams in
+        const chunkQueue=[]; // {text, blobP}
+        let lastChunkEnd=0;  // char index where last chunk ended
+        const MIN_CHUNK_WORDS=40; // ~15s of audio — small enough for fast first chunk
+        const MAX_CHUNK_WORDS=200;
+
+        const tryChunk=(clean,force)=>{
+          const unchunked=clean.slice(lastChunkEnd).trim();
+          const words=unchunked.split(/\s+/).filter(Boolean);
+          if(words.length<MIN_CHUNK_WORDS&&!force) return;
+          // Find a sentence boundary to split on
+          let splitText=unchunked;
+          if(!force&&words.length>MAX_CHUNK_WORDS){
+            // Split at a sentence boundary around MAX_CHUNK_WORDS
+            const approxChar=unchunked.split(/\s+/).slice(0,MAX_CHUNK_WORDS).join(' ').length;
+            const sentEnd=unchunked.indexOf('.',approxChar);
+            if(sentEnd>0) splitText=unchunked.slice(0,sentEnd+1).trim();
+          } else if(!force){
+            // Find sentence boundary for clean split
+            const lastPeriod=unchunked.lastIndexOf('.');
+            const lastExcl=unchunked.lastIndexOf('!');
+            const lastQ=unchunked.lastIndexOf('?');
+            const boundary=Math.max(lastPeriod,lastExcl,lastQ);
+            if(boundary>unchunked.length*0.5) splitText=unchunked.slice(0,boundary+1).trim();
+            else return; // wait for a sentence boundary
+          }
+          if(splitText.length<20) return;
+          lastChunkEnd+=clean.slice(lastChunkEnd).indexOf(splitText)+splitText.length;
+          const blobP=fetchTTSBlob(splitText).catch(e=>{console.warn('[TTS] Chunk failed:',e);return null});
+          chunkQueue.push({text:splitText,blobP});
+          console.log(`%c[TTS] Chunk ${chunkQueue.length} queued (${splitText.split(/\s+/).length} words) while AI generating`,'color:cyan');
+        };
+
+        // Phase 1: Generate argument text — fire TTS chunks mid-stream
         const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           const clean=stripPlan(chunk);
           setAiText(clean);
           const words=clean.split(/\s+/).length;
           setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
-          // Once we hit ~50% of target, fire TTS for the first half
-          if(!prefetchFired&&words>=halfTarget){
-            prefetchFired=true;
-            // Find a sentence boundary near the middle
-            const mid=clean.length>>1;
-            const sentenceEnd=clean.indexOf('.',mid);
-            const splitAt=sentenceEnd>0?sentenceEnd+1:mid;
-            prefetchText=clean.slice(0,splitAt).trim();
-            if(prefetchText.length>50){
-              console.log('%c[TTS] Prefetching first half ('+prefetchText.split(/\s+/).length+' words) while AI still generating','color:cyan;font-weight:bold');
-              prefetchBlob=fetchTTSBlob(prefetchText).catch(e=>{console.warn('[TTS] Prefetch failed:',e);return null});
-            }
-          }
+          tryChunk(clean,false);
         },brain);
         const txt=stripPlan(rawTxt);
         setAiText(txt);setAiPct(100);
+        // Final chunk: anything remaining after last chunk boundary
+        tryChunk(txt,true);
         stopThinking();SFX.ready();
 
-        // Phase 2: Play speech audio
+        // Phase 2: Play audio — resolve all chunk blobs and play sequentially
         setAiLoading('voice');
-        const wordCount=txt.split(/\s+/).length;
-        const estTotalSec=(wordCount/(150*ttsSpeed))*60;
-        tts.getProgress().totalEstimate=estTotalSec;
-        tts.getProgress().total=estTotalSec;
+        const blobs=[];
+        for(const c of chunkQueue){
+          const b=await c.blobP;
+          if(b&&b.size>500) blobs.push(b);
+        }
 
         const onAudioStart=()=>{
           setAiLoading(false);
@@ -1662,20 +1682,11 @@ function App(){
           timer.go(s.time);
         };
 
-        // If we prefetched the first half, play it immediately + queue the rest
-        const resolvedPrefetch=prefetchBlob?await prefetchBlob:null;
-        if(resolvedPrefetch&&resolvedPrefetch.size>1000&&prefetchText){
-          console.log('%c[TTS] Using prefetched first half — fetching remainder','color:lime;font-weight:bold');
-          const remainder=txt.slice(prefetchText.length).trim();
-          // Start fetching remainder audio immediately
-          const remainderBlobP=remainder.length>30?fetchTTSBlob(remainder).catch(()=>null):Promise.resolve(null);
-          // Play first half now — fires onStart when audio begins
-          const blobs=[resolvedPrefetch];
-          const remainderBlob=await remainderBlobP;
-          if(remainderBlob&&remainderBlob.size>1000) blobs.push(remainderBlob);
+        if(blobs.length>0){
+          console.log(`%c[TTS] Playing ${blobs.length} audio chunks`,'color:lime;font-weight:bold');
           tts.playBlobs(blobs,()=>{orb.setMode('idle');setRevealIdx(-1)},onAudioStart);
         } else {
-          // Fallback: normal single-shot TTS
+          // Fallback: single-shot TTS if chunking failed
           tts.speak(txt,wpm,()=>{orb.setMode('idle');setRevealIdx(-1)},voice,onAudioStart);
         }
       }catch(e){
