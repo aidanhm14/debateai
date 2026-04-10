@@ -239,6 +239,74 @@ body{
 .limit-warn{font-size:.78rem;color:#ef4444;margin-top:16px;opacity:.8}
 .limit-warn a{color:#ef4444;text-decoration:underline}
 
+/* ── Usage Banner + BYOK ──────────── */
+.usage-banner{
+  width:100%;max-width:620px;margin:0 auto 24px;
+  padding:20px 24px;border-radius:16px;
+  background:#fafafa;border:1px solid rgba(0,0,0,.06);
+  text-align:left;
+}
+.usage-banner-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:8px;
+}
+.usage-banner-header .remaining{font-size:.82rem;font-weight:600;color:rgba(0,0,0,.5)}
+.usage-banner-header .remaining strong{color:#ef4444}
+.byok-toggle{
+  font-size:.72rem;font-weight:600;color:rgba(0,0,0,.35);cursor:pointer;
+  background:none;border:none;font-family:inherit;transition:color .2s;
+}
+.byok-toggle:hover{color:rgba(0,0,0,.6)}
+.byok-row{
+  display:flex;gap:8px;align-items:center;margin-top:10px;
+}
+.byok-input{
+  flex:1;padding:10px 14px;border-radius:10px;
+  border:1px solid rgba(0,0,0,.1);background:#fff;
+  font-size:.82rem;font-family:inherit;color:#1d1d1f;
+  outline:none;transition:border-color .2s;
+}
+.byok-input:focus{border-color:rgba(239,68,68,.4)}
+.byok-input::placeholder{color:rgba(0,0,0,.25)}
+.byok-status{
+  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  display:flex;align-items:center;gap:4px;white-space:nowrap;
+}
+.byok-status .dot{
+  width:7px;height:7px;border-radius:50%;display:inline-block;
+}
+.byok-status.connected{color:#22c55e}
+.byok-status.connected .dot{background:#22c55e}
+.byok-status.disconnected{color:rgba(0,0,0,.25)}
+.byok-status.disconnected .dot{background:rgba(0,0,0,.2)}
+
+/* ── Pricing Grid ─────────────────── */
+.pricing-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;
+  margin:16px 0 12px;
+}
+.pricing-card{
+  padding:14px 12px;border-radius:12px;
+  border:1px solid rgba(0,0,0,.07);background:#fff;
+  text-align:center;transition:border-color .2s;
+}
+.pricing-card:hover{border-color:rgba(0,0,0,.15)}
+.pricing-card .tier-name{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:rgba(0,0,0,.4);margin-bottom:4px}
+.pricing-card .tier-price{font-size:1.1rem;font-weight:800;color:#1d1d1f;margin-bottom:2px}
+.pricing-card .tier-limit{font-size:.7rem;color:rgba(0,0,0,.35)}
+.pricing-card .tier-badge{
+  display:inline-block;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 8px;border-radius:100px;margin-top:6px;
+}
+.tier-badge.amber{background:rgba(245,158,11,.1);color:#d97706}
+.tier-badge.blue{background:rgba(59,130,246,.1);color:#3b82f6}
+.tier-badge.green{background:rgba(34,197,94,.1);color:#16a34a}
+.pricing-cta{
+  display:inline-block;margin-top:10px;font-size:.75rem;font-weight:600;
+  color:#ef4444;text-decoration:none;transition:opacity .2s;
+}
+.pricing-cta:hover{opacity:.7}
+
 /* ── Responsive ────────────────────── */
 @media(max-width:640px){
   .bar{padding:14px 16px}
@@ -261,6 +329,8 @@ body{
 const { useState, useEffect, useRef, useCallback } = React;
 const el = React.createElement;
 
+let __learnByokKey = (function(){ try{ return sessionStorage.getItem('debateos-learn-byok')||null }catch{ return null } })();
+
 /* ═══════════════════════════════════════════════════
    API + USAGE (shared with debate-ai)
    ═══════════════════════════════════════════════════ */
@@ -269,26 +339,68 @@ const LIMIT = 5;
 function getUsage(){ try{return parseInt(localStorage.getItem('debateos-anon-usage')||'0',10)}catch{return 0} }
 function incUsage(){ try{localStorage.setItem('debateos-anon-usage',String(getUsage()+1))}catch{} }
 function remaining(){ return Math.max(0,LIMIT-getUsage()) }
+function canUse(){ return remaining()>0 || !!__learnByokKey }
 
 async function callClaude(sys, user, onChunk){
-  const body={
-    model:'claude-sonnet-4-20250514',
-    max_tokens:4000,
-    stream:true,
-    system:sys,
-    messages:[{role:'user',content:user}],
-    _feature:'learn',
-  };
-  const r=await fetch('/api/claude',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body),
-  });
-  if(!r.ok){
-    const txt=await r.text().catch(()=>'');
-    if(r.status===429) throw new Error('RATE_LIMITED');
-    throw new Error('API_ERROR');
+  const byok = __learnByokKey;
+  const useProxy = !byok && remaining() > 0;
+  const useDirect = !!byok;
+
+  if (!useProxy && !useDirect) throw new Error('LIMIT_REACHED');
+
+  let r;
+  let proxyFailed = false;
+
+  // Try proxy first if applicable
+  if (useProxy) {
+    try {
+      const body={
+        model:'claude-sonnet-4-20250514',
+        max_tokens:4000,
+        stream:true,
+        system:sys,
+        messages:[{role:'user',content:user}],
+        _feature:'learn',
+      };
+      r=await fetch('/api/claude',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
+      });
+      if(!r.ok){
+        if(r.status===429) throw new Error('RATE_LIMITED');
+        throw new Error('API_ERROR');
+      }
+    } catch(e) {
+      if (!byok) throw e;
+      proxyFailed = true;
+    }
   }
+
+  // Direct Anthropic API with BYOK
+  if (useDirect || proxyFailed) {
+    r = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': byok,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:4000,
+        stream:true,
+        system:sys,
+        messages:[{role:'user',content:user}],
+      }),
+    });
+    if(!r.ok){
+      const err = await r.text().catch(()=>'');
+      throw new Error('API '+r.status+': '+err);
+    }
+  }
+
   const reader=r.body.getReader(),dec=new TextDecoder();
   let full='',buf='';
   while(true){
@@ -303,7 +415,8 @@ async function callClaude(sys, user, onChunk){
       }
     }
   }
-  incUsage();return full;
+  if(useProxy && !proxyFailed) incUsage();
+  return full;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -484,15 +597,15 @@ function QuickDebate(){
   if(stage==='pick') return el(React.Fragment,null,
     el('p',{className:'t-sub',style:{marginBottom:24}},'Pick a topic and go back-and-forth for 3 exchanges. Then get feedback on your argumentation.'),
     el('div',{className:'topic-grid'},
-      DEBATE_TOPICS.map(t=>el('div',{key:t,className:'topic-card',onClick:()=>rem>0&&startDebate(t)},t))
+      DEBATE_TOPICS.map(t=>el('div',{key:t,className:'topic-card',onClick:()=>canUse()&&startDebate(t)},t))
     ),
     el('div',{style:{marginTop:20,textAlign:'center'}},
       el('div',{className:'input-row'},
         el('textarea',{rows:1,placeholder:'Or type your own topic...',value:topic,onChange:e=>setTopic(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey&&topic.trim()){e.preventDefault();startDebate(topic.trim())}}}),
-        el('button',{onClick:()=>topic.trim()&&startDebate(topic.trim()),disabled:!topic.trim()||rem<=0},'Go'),
+        el('button',{onClick:()=>topic.trim()&&startDebate(topic.trim()),disabled:!topic.trim()||!canUse()},'Go'),
       ),
     ),
-    rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+    !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
   );
 
   if(stage==='feedback') return el(React.Fragment,null,
@@ -590,9 +703,9 @@ function ArgBuilder(){
     el('p',{className:'t-sub',style:{marginBottom:24}},'Enter any claim and we\'ll walk you through building a complete argument: claim, reason, evidence, and impact.'),
     el('div',{className:'input-row'},
       el('textarea',{rows:2,placeholder:'e.g. "Pineapple belongs on pizza" or "Remote work is more productive"',value:claim,onChange:e=>setClaim(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();begin()}}}),
-      el('button',{onClick:begin,disabled:!claim.trim()||rem<=0},'Build'),
+      el('button',{onClick:begin,disabled:!claim.trim()||!canUse()},'Build'),
     ),
-    rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+    !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
   );
 
   if(stage==='done') return el(React.Fragment,null,
@@ -689,8 +802,8 @@ function FallacyTrainer(){
 
     stage==='idle'&&el(React.Fragment,null,
       el('p',{className:'t-sub',style:{marginBottom:24}},'Spot the logical fallacy in AI-generated arguments. Test your critical thinking.'),
-      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Generate Challenge'),
-      rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Generate Challenge'),
+      !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
     ),
 
     stage==='question'&&el(React.Fragment,null,
@@ -723,7 +836,7 @@ function FallacyTrainer(){
       el('div',{className:'card',style:{marginTop:16}},
         el('p',null,explanation),
       ),
-      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Next Challenge'),
+      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Next Challenge'),
       el('button',{className:'cta-ghost',onClick:()=>{saveScore({correct:0,total:0});setStage('idle')}},'Reset Score'),
     ),
   );
@@ -774,9 +887,9 @@ function DevilsAdvocate(){
     el('p',{className:'t-sub',style:{marginBottom:24}},'State any opinion and the AI will systematically challenge it from every angle. Strengthen your thinking by stress-testing your beliefs.'),
     el('div',{className:'input-row'},
       el('textarea',{rows:2,placeholder:'e.g. "I think everyone should go to college" or "Social media is bad for society"',value:opinion,onChange:e=>setOpinion(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();begin()}}}),
-      el('button',{onClick:begin,disabled:!opinion.trim()||rem<=0},'Challenge Me'),
+      el('button',{onClick:begin,disabled:!opinion.trim()||!canUse()},'Challenge Me'),
     ),
-    rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+    !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
   );
 
   return el(React.Fragment,null,
@@ -871,7 +984,7 @@ Rate their overall persuasiveness 1-10 and give specific, actionable feedback. W
   if(stage==='pick') return el(React.Fragment,null,
     el('p',{className:'t-sub',style:{marginBottom:24}},'Pick a real-world scenario and practice persuading someone. Get feedback on your technique.'),
     el('div',{className:'scenario-grid'},
-      PERSUASION_SCENARIOS.map(sc=>el('div',{key:sc.id,className:'scenario-card',onClick:()=>rem>0&&startScenario(sc)},
+      PERSUASION_SCENARIOS.map(sc=>el('div',{key:sc.id,className:'scenario-card',onClick:()=>canUse()&&startScenario(sc)},
         el('div',{className:'icon'},sc.icon),
         el('div',{className:'label'},sc.label),
       ))
@@ -967,8 +1080,8 @@ Give a score out of 10, explain what worked, what didn't, and show what an ideal
 
     stage==='idle'&&el(React.Fragment,null,
       el('p',{className:'t-sub',style:{marginBottom:24}},'The AI presents an argument. Your job: tear it apart. Get scored on your rebuttal quality.'),
-      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Generate Argument'),
-      rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Generate Argument'),
+      !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
     ),
 
     stage==='argument'&&el(React.Fragment,null,
@@ -1002,7 +1115,7 @@ Give a score out of 10, explain what worked, what didn't, and show what an ideal
         el('h3',null,'Coach Feedback'),
         loading?el('p',{style:{fontStyle:'italic'}},'Evaluating...'):el('p',null,feedback),
       ),
-      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Next Drill'),
+      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Next Drill'),
       el('button',{className:'cta-ghost',style:{marginTop:8},onClick:()=>{setStage('idle');setScore({total:0,avg:0});try{localStorage.removeItem('learn-rebuttal-score')}catch{}}},'Reset Score'),
     ),
   );
@@ -1073,8 +1186,8 @@ Did they compare the two impacts directly (not just describe each one)? Did they
   return el(React.Fragment,null,
     stage==='idle'&&el(React.Fragment,null,
       el('p',{className:'t-sub',style:{marginBottom:24}},'Two competing impacts. Which matters more and why? Practice the skill that wins close rounds.'),
-      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Generate Scenario'),
-      rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Generate Scenario'),
+      !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
     ),
 
     stage==='scenario'&&el(React.Fragment,null,
@@ -1108,7 +1221,108 @@ Did they compare the two impacts directly (not just describe each one)? Did they
         el('h3',null,'Coach Feedback'),
         loading?el('p',{style:{fontStyle:'italic'}},'Evaluating...'):el('p',null,feedback),
       ),
-      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Next Scenario'),
+      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Next Scenario'),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   USAGE BANNER + BYOK
+   ═══════════════════════════════════════════════════ */
+
+function UsageBanner(){
+  const[showKey,setShowKey]=useState(()=>!!__learnByokKey);
+  const[key,setKey]=useState(()=>__learnByokKey||'');
+  const[,forceUpdate]=useState(0);
+
+  const connected = !!key && key.startsWith('sk-ant-');
+  const rem = remaining();
+  const limitReached = rem <= 0 && !connected;
+
+  const handleKey=(v)=>{
+    setKey(v);
+    const trimmed=v.trim();
+    __learnByokKey=trimmed||null;
+    try{
+      if(trimmed) sessionStorage.setItem('debateos-learn-byok',trimmed);
+      else sessionStorage.removeItem('debateos-learn-byok');
+    }catch{}
+    forceUpdate(n=>n+1);
+  };
+
+  // Compact banner when limit not reached
+  if(!limitReached){
+    return el('div',{className:'usage-banner'},
+      el('div',{className:'usage-banner-header'},
+        el('span',{className:'remaining'},el('strong',null,rem),' of ',LIMIT,' free requests remaining'),
+        el('button',{className:'byok-toggle',onClick:()=>setShowKey(!showKey)},showKey?'Hide API key':'or use your own API key'),
+      ),
+      showKey && el('div',{className:'byok-row'},
+        el('input',{
+          type:'text',className:'byok-input',
+          placeholder:'sk-ant-...',
+          value:key,
+          onChange:e=>handleKey(e.target.value),
+        }),
+        el('span',{className:'byok-status '+(connected?'connected':'disconnected')},
+          el('span',{className:'dot'}),
+          connected?'Connected':'Not connected',
+        ),
+      ),
+    );
+  }
+
+  // Full banner when limit reached
+  return el('div',{className:'usage-banner',style:{background:'#fff',border:'1px solid rgba(239,68,68,.15)'}},
+    el('div',{style:{textAlign:'center',marginBottom:12}},
+      el('p',{style:{fontSize:'.88rem',fontWeight:600,color:'#1d1d1f',marginBottom:4}},'Free requests used up'),
+      el('p',{style:{fontSize:'.78rem',color:'rgba(0,0,0,.4)'}},'Choose a plan or bring your own API key to keep going'),
+    ),
+
+    el('div',{className:'pricing-grid'},
+      el('div',{className:'pricing-card'},
+        el('div',{className:'tier-name'},'Free'),
+        el('div',{className:'tier-price'},'$0'),
+        el('div',{className:'tier-limit'},'5 / mo'),
+      ),
+      el('div',{className:'pricing-card'},
+        el('div',{className:'tier-name'},'BYOK'),
+        el('div',{className:'tier-price'},'$1'),
+        el('div',{className:'tier-limit'},'Unlimited* (Your API keys)'),
+        el('span',{className:'tier-badge amber'},'Cheapest'),
+      ),
+      el('div',{className:'pricing-card'},
+        el('div',{className:'tier-name'},'Individual'),
+        el('div',{className:'tier-price'},'$5'),
+        el('div',{className:'tier-limit'},'250 / mo'),
+        el('span',{className:'tier-badge blue'},'Most Popular'),
+      ),
+      el('div',{className:'pricing-card'},
+        el('div',{className:'tier-name'},'Lifetime'),
+        el('div',{className:'tier-price'},'$14.99'),
+        el('div',{className:'tier-limit'},'250 / mo'),
+        el('span',{className:'tier-badge green'},'Best Value'),
+      ),
+    ),
+
+    el('div',{style:{textAlign:'center'}},
+      el('a',{href:'/#team',className:'pricing-cta'},'View plans & subscribe'),
+    ),
+
+    el('div',{style:{marginTop:14,paddingTop:14,borderTop:'1px solid rgba(0,0,0,.06)'}},
+      el('p',{style:{fontSize:'.75rem',fontWeight:600,color:'rgba(0,0,0,.45)',marginBottom:8}},'Or enter your Anthropic API key:'),
+      el('div',{className:'byok-row'},
+        el('input',{
+          type:'text',className:'byok-input',
+          placeholder:'sk-ant-...',
+          value:key,
+          onChange:e=>handleKey(e.target.value),
+        }),
+        el('span',{className:'byok-status '+(connected?'connected':'disconnected')},
+          el('span',{className:'dot'}),
+          connected?'Connected':'Not connected',
+        ),
+      ),
     ),
   );
 }
@@ -1167,6 +1381,8 @@ function App(){
       el('div',{className:'pills'},
         MODES.map(m=>el('button',{key:m.id,className:'pill'+(mode===m.id?' on':''),onClick:()=>switchMode(m.id)},m.label))
       ),
+
+      el(UsageBanner,null),
 
       modeContent[mode],
     ),

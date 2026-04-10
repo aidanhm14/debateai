@@ -148,8 +148,28 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 }
 .api-bar input{flex:1;background:transparent;border:none;color:#e0e0e8;font-size:.85rem;outline:none;font-family:monospace}
 .api-bar .api-status{font-size:.72rem;font-weight:600;letter-spacing:.5px}
-.api-bar .api-status.connected{color:#ef4444}
+.api-bar .api-status.connected{color:#22c55e}
 .api-bar .api-status.missing{color:#fbbf24}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;width:100%}
+.pricing-card{background:#ffffff08;border:1px solid #ffffff12;border-radius:10px;padding:14px 12px;text-align:center;position:relative;transition:.2s}
+.pricing-card:hover{border-color:#ffffff25;background:#ffffff0c}
+.pricing-badge{position:absolute;top:-8px;right:8px;font-size:.58rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:10px}
+.pricing-badge.amber{background:#f59e0b;color:#000}
+.pricing-badge.blue{background:#3b82f6;color:#fff}
+.pricing-badge.green{background:#22c55e;color:#000}
+.pricing-tier{font-size:.78rem;font-weight:700;color:#e0e0e8;margin-bottom:4px}
+.pricing-price{font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:2px}
+.pricing-limit{font-size:.68rem;color:#8888a0}
+.pricing-card a{display:inline-block;margin-top:8px;font-size:.7rem;font-weight:600;color:#ef4444;text-decoration:none}
+.pricing-card a:hover{text-decoration:underline}
+.byok-toggle{background:none;border:none;color:#f59e0b;font-size:.72rem;cursor:pointer;font-weight:600;text-decoration:underline;margin-left:8px}
+.light-theme .pricing-card{background:#00000006;border-color:#00000012}
+.light-theme .pricing-card:hover{border-color:#00000025;background:#0000000a}
+.light-theme .pricing-tier{color:#1a1a2e}
+.light-theme .pricing-price{color:#1a1a2e}
+.light-theme .pricing-limit{color:#666}
+.light-theme .api-bar{background:#00000006;border-color:#00000012}
+.light-theme .api-bar input{color:#1a1a2e}
 
 /* ── Thinking Logo ─────────────────────────────── */
 .thinking-container{
@@ -572,6 +592,7 @@ function PolyBackground() {
    ═══════════════════════════════════════════════════ */
 
 const API_STORE = { key: '' };
+try { API_STORE.key = sessionStorage.getItem('debateos-hs-byok') || ''; } catch {}
 
 // Usage tracking — shares localStorage key with main app
 const HS_LIMIT = 5;
@@ -580,9 +601,10 @@ function incHsUsage() { try { localStorage.setItem('debateos-anon-usage', String
 function getHsRemaining() { return Math.max(0, HS_LIMIT - getHsUsage()); }
 
 async function callClaude(systemPrompt, userPrompt, onChunk) {
-  // Enforce usage limit
+  // Enforce usage limit (bypass if BYOK key is set)
   const used = getHsUsage();
-  if (used >= HS_LIMIT) {
+  const hasByok = !!(API_STORE.key);
+  if (used >= HS_LIMIT && !hasByok) {
     throw new Error('LIMIT_REACHED');
   }
   // Try Netlify function first
@@ -2150,24 +2172,108 @@ const TABS = [
   {id:'learn',label:'Learn'},
 ];
 
+function ByokInput({ compact }) {
+  const el = React.createElement;
+  const [key, setKey] = useState(API_STORE.key);
+  const hasKey = key.trim().length > 0;
+
+  function handleChange(e) {
+    const v = e.target.value;
+    setKey(v);
+    API_STORE.key = v;
+    try { sessionStorage.setItem('debateos-hs-byok', v); } catch {}
+    if (window.__refreshHsUsage) window.__refreshHsUsage();
+  }
+
+  return el('div', { className: 'api-bar', style: compact ? { margin: 0, padding: '8px 12px' } : {} },
+    el('input', {
+      type: 'text',
+      placeholder: 'sk-ant-...',
+      value: key,
+      onChange: handleChange,
+      style: { minWidth: 0 },
+    }),
+    el('span', { className: 'api-status ' + (hasKey ? 'connected' : 'missing') },
+      hasKey ? '\u25CF Connected' : '\u25CF No key'
+    )
+  );
+}
+
 function HsUsageBanner() {
   const el = React.createElement;
   const [, forceUpdate] = useState(0);
+  const [showByok, setShowByok] = useState(false);
   useEffect(() => {
     window.__refreshHsUsage = () => forceUpdate(n => n + 1);
     return () => { delete window.__refreshHsUsage; };
   }, []);
   const remaining = getHsRemaining();
-  if (remaining <= 0) {
-    return el('div',{style:{maxWidth:1100,width:'94%',margin:'12px auto 0',padding:'14px 20px',background:'linear-gradient(135deg,#ef444418,#ef44440a)',border:'1px solid #ef444440',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}},
-      el('span',{style:{color:'#fca5a5',fontSize:'.85rem',fontWeight:500,flex:1}},'You\'ve used all 5 free requests. Subscribe to unlock unlimited AI debate prep.'),
-      el('a',{href:'/#team',style:{padding:'8px 20px',background:'linear-gradient(135deg,#ef4444,#ef4444cc)',border:'none',borderRadius:8,color:'#fff',fontWeight:700,fontSize:'.8rem',textDecoration:'none',whiteSpace:'nowrap'}},'Subscribe — $5/mo'),
+  const hasByok = !!(API_STORE.key);
+
+  // If BYOK key is set and limit reached, show a slim connected banner
+  if (remaining <= 0 && hasByok) {
+    return el('div',{style:{maxWidth:1100,width:'94%',margin:'12px auto 0',padding:'14px 20px',background:'linear-gradient(135deg,#22c55e12,#22c55e06)',border:'1px solid #22c55e30',borderRadius:12}},
+      el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:10}},
+        el('span',{style:{color:'#86efac',fontSize:'.85rem',fontWeight:500}},'\u25CF Using your API key \u2014 unlimited generations'),
+        el('span',{style:{color:'#8888a0',fontSize:'.72rem'}},'Usage billed directly by Anthropic'),
+      ),
+      el(ByokInput,{compact:true}),
     );
   }
+
+  if (remaining <= 0) {
+    return el('div',{style:{maxWidth:1100,width:'94%',margin:'12px auto 0',padding:'18px 20px',background:'linear-gradient(135deg,#ef444418,#ef44440a)',border:'1px solid #ef444440',borderRadius:12}},
+      el('p',{style:{color:'#fca5a5',fontSize:'.88rem',fontWeight:600,marginBottom:14,textAlign:'center'}},'You\'ve used all 5 free requests. Choose a plan to keep going:'),
+      el('div',{className:'pricing-grid'},
+        // Free tier
+        el('div',{className:'pricing-card'},
+          el('div',{className:'pricing-tier'},'Free'),
+          el('div',{className:'pricing-price'},'$0'),
+          el('div',{className:'pricing-limit'},'5 / month'),
+          el('div',{style:{color:'#8888a0',fontSize:'.65rem',marginTop:6}},'Current plan'),
+        ),
+        // BYOK tier
+        el('div',{className:'pricing-card',style:{borderColor:'#f59e0b40'}},
+          el('span',{className:'pricing-badge amber'},'Cheapest'),
+          el('div',{className:'pricing-tier'},'BYOK'),
+          el('div',{className:'pricing-price'},'~$1/mo'),
+          el('div',{className:'pricing-limit'},'Unlimited*'),
+          el('div',{style:{color:'#8888a0',fontSize:'.6rem',marginTop:4}},'*You pay Anthropic directly'),
+        ),
+        // Individual tier
+        el('div',{className:'pricing-card',style:{borderColor:'#3b82f640'}},
+          el('span',{className:'pricing-badge blue'},'Most Popular'),
+          el('div',{className:'pricing-tier'},'Individual'),
+          el('div',{className:'pricing-price'},'$5/mo'),
+          el('div',{className:'pricing-limit'},'250 / month'),
+          el('a',{href:'/#team'},'Subscribe \u2192'),
+        ),
+        // Lifetime tier
+        el('div',{className:'pricing-card',style:{borderColor:'#22c55e40'}},
+          el('span',{className:'pricing-badge green'},'Best Value'),
+          el('div',{className:'pricing-tier'},'Lifetime'),
+          el('div',{className:'pricing-price'},'$14.99'),
+          el('div',{className:'pricing-limit'},'250 / month'),
+          el('a',{href:'/#team'},'Buy Once \u2192'),
+        ),
+      ),
+      el('div',{style:{marginTop:4}},
+        el('p',{style:{color:'#fcd34d',fontSize:'.78rem',fontWeight:600,marginBottom:8}},'Or paste your Anthropic API key to use BYOK:'),
+        el(ByokInput,{compact:false}),
+      ),
+    );
+  }
+
   if (remaining <= 3) {
-    return el('div',{style:{maxWidth:1100,width:'94%',margin:'12px auto 0',padding:'10px 18px',background:'linear-gradient(135deg,#f59e0b14,#f59e0b08)',border:'1px solid #f59e0b30',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}},
-      el('span',{style:{color:'#fcd34d',fontSize:'.82rem',fontWeight:500}}, remaining + ' free generation' + (remaining !== 1 ? 's' : '') + ' left. Subscribe for unlimited access.'),
-      el('a',{href:'/#team',style:{color:'#f59e0b',fontSize:'.78rem',fontWeight:600,textDecoration:'none'}},'Upgrade — $5/mo \u2192'),
+    return el('div',{style:{maxWidth:1100,width:'94%',margin:'12px auto 0',padding:'10px 18px',background:'linear-gradient(135deg,#f59e0b14,#f59e0b08)',border:'1px solid #f59e0b30',borderRadius:12}},
+      el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}},
+        el('span',{style:{color:'#fcd34d',fontSize:'.82rem',fontWeight:500}}, remaining + ' free generation' + (remaining !== 1 ? 's' : '') + ' left.'),
+        el('span',{style:{display:'flex',alignItems:'center',gap:6}},
+          el('a',{href:'/#team',style:{color:'#f59e0b',fontSize:'.78rem',fontWeight:600,textDecoration:'none'}},'Upgrade \u2192'),
+          el('button',{className:'byok-toggle',onClick:()=>setShowByok(s=>!s)}, showByok ? 'hide' : 'or paste your API key'),
+        ),
+      ),
+      showByok ? el('div',{style:{marginTop:10}}, el(ByokInput,{compact:true})) : null,
     );
   }
   return null;

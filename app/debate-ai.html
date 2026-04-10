@@ -1218,19 +1218,15 @@ function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,di
   const aiLabel=fmt.sideLabels[aiSides[0]]||aiSides[0];
   const rule=fmt.rules[speech.code]||'Deliver your speech.';
   const isRebuttal=speech.code.includes('R')||speech.code==='LOR'||speech.code==='PMR'||speech.code==='Reply';
+  const isFirst=speech.code==='PM'||speech.code==='LO';
+  const isConstructive=!isRebuttal;
 
   // Build flow analysis and opponent model
   const flowAnalysis=buildFlowAnalysis(history,format,userSide);
   const opponentModel=buildOpponentModel(currentLog||[],historyRounds||[],userSide);
 
   const steelmanInstruction=history?`
-CRITICAL — STEELMANNING REQUIREMENT:
-When engaging with your opponent's arguments, you MUST:
-1. First, take their argument at its BEST possible interpretation — state the strongest version of what they're claiming ("Even if we grant the strongest version of their point…" or "Taking their argument at its best case…")
-2. Then defeat that strongest version through weighing and outweighing ("But this is outweighed because…", "Even granting all of that, X matters more because…")
-3. Use comparative weighing: magnitude (how many people affected), probability (how likely), timeframe (how soon), reversibility (can we undo the harm?)
-4. Never strawman. Never attack the weakest version. Always engage the steel-manned version and still win.
-This makes you a formidable opponent — the kind that makes your opponent genuinely improve.`:'';
+STEELMANNING: Always engage your opponent's STRONGEST interpretation. State their best case, then defeat it through comparative weighing (magnitude, probability, timeframe, reversibility). Never strawman.`:'';
   // Occasionally make the AI pick an unconventional angle instead of the "average" argument
   const unconventional = Math.random() < 0.3;
   const unconventionalNote = unconventional ? `
@@ -1252,16 +1248,14 @@ ${history?'Previous speeches:\n'+history:'First speech of the round.'}
 ${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+notes:''}
 
 SILENT PLANNING — THINK BEFORE YOU SPEAK:
-Before writing your speech, you MUST silently plan your argument structure inside <plan> tags. This plan will be stripped before the speech is spoken — the audience will NEVER see it. Use it to think strategically.
+Before writing your speech, silently plan inside <plan> tags (stripped before delivery — audience never sees it).
 
 <plan>
-1. What is my overall strategy for this speech?
-2. What are the 2-3 strongest moves I can make?
-3. ${history ? 'What did my opponent argue? What can I attack? What did they drop?' : 'What framework should I set? What arguments are hardest to rebut?'}
-4. How do I want the judge to see the round after this speech?
+1. What are my 2-3 strongest moves? ${history ? 'What can I attack or extend? What did they drop?' : 'What framework and arguments are hardest to rebut?'}
+2. How should the judge see the round after this speech?
 </plan>
 
-After your plan, write ONLY the speech text (no plan tags, no markdown). The speech starts immediately — no preamble.
+After your plan, write ONLY the speech text (no plan tags, no markdown). Speech starts immediately — no preamble.
 
 Write ~${Math.floor(speech.time/60)*170} words (~${Math.floor(speech.time/60)} min) as a speech delivered aloud.
 
@@ -1278,35 +1272,30 @@ ${isRebuttal ? `REBUTTAL STRUCTURE:
 
 `FOR CONSTRUCTIVE SPEECHES — mirror this exact structure spoken aloud:
 
-STEP 1 — FRAMEWORK (name it): Open with "Our framework is [Descriptive Name]." Then explain the standard in 2-3 sentences. Example: "Our framework is Democratic Process Integrity. The standard for this debate is whatever best preserves democratic legitimacy through informed deliberation."
+STEP 1 — FRAMEWORK (name it): Open with "Our framework is [Descriptive Name]." Then explain the standard in 2-3 sentences.${isFirst ? ' Example: "Our framework is Democratic Process Integrity. The standard for this debate is whatever best preserves democratic legitimacy through informed deliberation."' : ''}
 
-STEP 2 — FRAMING POINTS under the framework (a, b, c): Give 2-3 lettered framing points that establish WHY this framework controls the round. Say the letters out loud:
-"a. [Named Framing Point]. [1-2 sentences explaining it]."
-"b. [Named Framing Point]. [1-2 sentences explaining it]."
+STEP 2 — FRAMING POINTS under the framework (a, b, c): Give 2-3 lettered framing points that establish WHY this framework controls the round. Say the letters out loud.
 
 STEP 3 — ARGUMENTS (2-3 independent arguments): Each argument MUST have:
 - A clear claim with a descriptive name: "Argument one: [Descriptive Name Like 'The Coordination Failure']."
 - Lettered sub-points (a, b, c) under each argument, each with a NAMED warrant:
   "a. [Warrant Name like 'The Substitution Effect']. [Full causal mechanism in 2-3 sentences]."
-  "b. [Warrant Name]. [Mechanism]."
-  "c. [Warrant Name]. [Mechanism]."
 - An impact: "The impact here is [specific, quantified when possible]."
 
 STEP 4 — EVEN-IF / PREEMPTION: For at least one argument, include: "Even if they argue [strongest opp response], our argument still holds because [mechanism]."
-
+${isFirst ? `
 Example of how this sounds spoken aloud:
-"Our framework is Institutional Trust Preservation. The standard is whatever mechanism best maintains public confidence in democratic institutions. Two framing points. a. Legitimacy Requires Perceived Fairness. Citizens comply with laws they disagree with only when they believe the process was fair. When that perception breaks, you get non-compliance spirals. b. Trust Is Asymmetric. It takes decades to build and moments to destroy. That asymmetry means we should be risk-averse about institutional credibility.
+"Our framework is Institutional Trust Preservation. The standard is whatever mechanism best maintains public confidence in democratic institutions. Two framing points. a. Legitimacy Requires Perceived Fairness. Citizens comply with laws they disagree with only when they believe the process was fair. b. Trust Is Asymmetric. It takes decades to build and moments to destroy.
 
-Argument one: The Chilling Effect on Qualified Candidates. a. The Talent Drain warrant. When public office becomes synonymous with character assassination, qualified professionals in medicine, engineering, and law choose private sector careers. We saw this after 2016 when applications to the Senior Executive Service dropped 28 percent. b. The Selection Bias warrant. The only people willing to endure that environment are either ideologues who don't care about reputation, or wealthy individuals who can absorb the cost. That's a worse candidate pool by any measure. The impact is structural democratic decay: not a single bad election, but a generation of declining governance quality."
+Argument one: The Chilling Effect on Qualified Candidates. a. The Talent Drain warrant. When public office becomes synonymous with character assassination, qualified professionals choose private sector careers. b. The Selection Bias warrant. The only people willing to endure that environment are ideologues or the wealthy. The impact is structural democratic decay."
 
-That is the level of structure, specificity, and named warrants you must hit.`}
+That is the level of structure, specificity, and named warrants you must hit.` : `Hit the same level of structure and named warrants as a first constructive.`}`}
 
-WARRANT QUALITY RULES:
-- Each warrant must be SPECIFIC to this motion. If it could apply to any topic, it's too generic.
-- "This harms the economy" is NOT a warrant. "This creates a moral hazard because actors insulated from risk take larger bets, as we saw with AIG in 2008" IS a warrant.
-- NAME every warrant. Not "my first point" but "The Substitution Effect" or "The Coordination Problem."
-- Walk through the full causal chain: when X happens, actors respond by doing Y through mechanism Z, which produces outcome W.
-- Use counterfactual analysis: compare "in our world" vs "in their world" with specific mechanism differences.
+${isConstructive ? `WARRANT QUALITY RULES:
+- Each warrant must be SPECIFIC to this motion. Generic warrants are insufficient.
+- NAME every warrant ("The Substitution Effect", not "my first point").
+- Walk through the full causal chain: X happens, actors do Y through mechanism Z, producing outcome W.
+- Use counterfactual analysis: compare "in our world" vs "in their world."` : ''}
 
 STRATEGIC DEPTH:
 - Comparative weighing is mandatory. Be explicit: "Our impact outweighs on magnitude, we're talking millions versus their thousands, and on probability, because our mechanism is direct while theirs requires three contingent steps."
@@ -1331,21 +1320,17 @@ VOICE & DELIVERY:
 - Short punchy sentences for claims. Longer ones for mechanism. Cut filler ruthlessly.
 - No bullet points, no markdown, no headers. Spoken word only. But STRUCTURED spoken word — the judge should be able to flow it.
 
-ELEVATED VOCABULARY — IMPRESS THE JUDGE:
-- Deploy precise, high-register vocabulary that demonstrates intellectual command. Not SAT words for their own sake — words that are the EXACT right tool for the idea.
-- Replace generic verbs with surgical ones: "undermines" → "vitiates," "shows" → "evinces," "weakens" → "attenuates," "combines" → "concatenates," "removes" → "abrogates."
-- Use academic/philosophical terminology when apt: "epistemic," "ontological," "teleological," "deontological," "consequentialist," "fungible," "incommensurable," "counterfactual," "endogenous," "exogenous," "prima facie," "ceteris paribus."
-- Name specific concepts: "tragedy of the commons," "Pareto efficiency," "moral hazard," "regulatory capture," "Rawlsian veil of ignorance," "Coasian bargaining," "rent-seeking behavior," "collective action problem," "perverse incentive structure."
-- Vary sentence architecture: use periodic sentences (delay the main point for emphasis), tricolons (groups of three for rhetorical power), and antithesis (contrasting parallel structures). Example: "What they call pragmatism, we call capitulation; what they frame as compromise, we recognize as the systematic erosion of the very principle at stake."
-- Drop in Latin/legal phrases sparingly but effectively: "ab initio," "ipso facto," "sui generis," "de facto," "reductio ad absurdum," "non sequitur," "mutatis mutandis."
-- Sound erudite but NEVER pretentious. The best debaters use big words because they're the right words, not because they're showing off. If a simpler word is more precise, use that instead.
+${isFirst ? `ELEVATED VOCABULARY — IMPRESS THE JUDGE:
+- Deploy precise, high-register vocabulary — the EXACT right word for the idea, not SAT words for show.
+- Replace generic verbs with surgical ones: "undermines" → "vitiates," "shows" → "evinces," "weakens" → "attenuates," "removes" → "abrogates."
+- Use academic terminology when apt: "epistemic," "teleological," "deontological," "fungible," "incommensurable," "counterfactual," "endogenous," "prima facie," "ceteris paribus."
+- Name specific concepts: "tragedy of the commons," "moral hazard," "regulatory capture," "Rawlsian veil of ignorance," "collective action problem."
+- Vary sentence architecture: periodic sentences, tricolons, and antithesis. Sound erudite but NEVER pretentious.
 
 DEBATE BRO ENERGY — COLLOQUIAL FLAIR:
-- Mix high-register vocabulary with punchy debate slang. The best debaters code-switch between philosophical precision and real-talk.
-- Use expressions like: "they don't have the sauce on this argument," "this point has no aura whatsoever," "their framework is mid at best," "this is where their case gets cooked," "we're not buying what they're selling."
-- Dismissive confidence when appropriate: "That argument is dead on arrival," "This is a nothing burger with extra nothing," "Their entire link chain is built on vibes, not warrants."
-- Energetic emphasis: "This is THE ballot issue," "If you buy nothing else from our side, buy this," "This argument is doing all the heavy lifting in the round."
-- Balance is key: 80% precise and intellectual, 20% punchy and real. Never sound like a textbook. Sound like the smartest person at the party who also happens to be winning.`;
+- Code-switch between philosophical precision and real-talk: "they don't have the sauce," "this point has no aura," "their framework is mid at best," "this is where their case gets cooked."
+- Dismissive confidence when apt: "That argument is dead on arrival," "Their link chain is built on vibes, not warrants."
+- Balance: 80% precise and intellectual, 20% punchy and real. Sound like the smartest person at the party who also happens to be winning.` : ''}`;
 }
 
 /* ═══════════════════════════════════════════════════
