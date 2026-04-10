@@ -41,14 +41,14 @@ function checkRateLimit(key) {
 
 const MAX_TEXT_LENGTH = 5000;
 
-// ElevenLabs voice ID mapping
+// ElevenLabs voice ID mapping — all American accent
 const ELEVENLABS_VOICES = {
-  commanding: 'onwK4e9ZLuTAKqWW03F9',  // Daniel — deep, authoritative male
-  persuasive: 'EXAVITQu4vr4xnSDxMaL',  // Bella — warm, engaging female
-  analytical: 'TxGEqnHWrfWFTfGW9XjX',  // Josh — calm, measured male
-  technical:  'VR6AewLTigWG4xSOukaG',   // Arnold — clear, neutral male
-  passionate: 'jBpfAFnaylXS5aRNkGBq',  // Gigi — energetic, expressive female
-  eloquent:   'pFZP5JQG7iQjIQuC4Bku',   // Lily — polished, articulate female
+  commanding: 'pNInz6obpgDQGcFmaJgB',  // Adam — dominant, firm, American male
+  persuasive: 'EXAVITQu4vr4xnSDxMaL',  // Sarah — mature, confident, American female
+  analytical: 'cjVigY5qzO86Huf0OWal',   // Eric — smooth, trustworthy, American male
+  technical:  'nPczCjzI2devNBz1zQrb',   // Brian — deep, resonant, American male
+  passionate: 'TX3LPaxmHKxFdv7VOQHJ',  // Liam — energetic, young, American male
+  eloquent:   'XrExE9yKIg1WjnnlVkGX',   // Matilda — knowledgable, professional, American female
 };
 
 // Map old OpenAI voice keys to ElevenLabs personality keys
