@@ -1142,7 +1142,71 @@ function useTimer(){
    BUILD PROMPT
    ═══════════════════════════════════════════════════ */
 
-function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,difficultyNote,background){
+/* ── Flow Tracker: analyze what's been dropped/extended/conceded ── */
+function buildFlowAnalysis(history,format,userSide){
+  if(!history) return '';
+  const fmt=FORMATS[format]||FORMATS.apda;
+  const speeches=history.split('\n\n').filter(s=>s.startsWith('['));
+  if(speeches.length<2) return '';
+
+  return `
+FLOW ANALYSIS — READ THIS CAREFULLY BEFORE SPEAKING:
+You must track the "flow" of the round — every argument that has been made, and what happened to it.
+
+Here is the round history for you to analyze:
+${history}
+
+Before writing your speech, mentally track:
+1. THEIR ARGUMENTS: List every distinct argument/warrant the opponent has made. For each one, note: have you (your side) responded to it? If not, it is a DROP and you are losing on that argument. You MUST address drops.
+2. YOUR ARGUMENTS: List every argument your side has made. Has the opponent responded? If they dropped it, EXTEND it explicitly: "They completely dropped our [argument name] — pull this through, Judge."
+3. CONCESSIONS: Has either side conceded any point? If they conceded something, use it: "They granted our point about X. That's huge because it means Y."
+4. CLASH POINTS: Where are both sides directly engaging? These are the key voting issues. Weigh them explicitly.
+
+STRATEGIC RULES based on the flow:
+- NEVER re-argue a point your side already made well. Instead, EXTEND it with new application or weighing.
+- ALWAYS address the opponent's STRONGEST argument first, not their weakest. Judges notice when you dodge the hard clash.
+- If the opponent dropped something, don't just note it — explain WHY the drop matters: "Because they dropped X, they have no answer to [impact]. That argument flows cleanly to our side."
+- Track the NUMBER of arguments won vs lost. If you're winning 3 clashes and losing 1, crystallize around the 3 wins.`;
+}
+
+/* ── Adaptive Opponent Modeling: detect user's argument patterns ── */
+function buildOpponentModel(currentLog, historyRounds, userSide){
+  // Analyze current round
+  const userSpeeches=currentLog.filter(l=>l.who==='You');
+  if(userSpeeches.length===0) return '';
+
+  const userText=userSpeeches.map(l=>l.text).join(' ');
+  const patterns=[];
+
+  // Detect argument style tendencies
+  if(userText.match(/framework|standard|criterion/gi)?.length>2) patterns.push('relies heavily on framework-level debate');
+  if(userText.match(/example|instance|case study|real.?world/gi)?.length>2) patterns.push('uses lots of real-world examples');
+  if(userText.match(/emotion|feel|suffer|pain|human cost/gi)?.length>2) patterns.push('leans on emotional/pathos appeals');
+  if(userText.match(/study|data|percent|statistic|research/gi)?.length>2) patterns.push('evidence-heavy, cites data');
+  if(userText.match(/rights?|freedom|autonomy|liberty|dignity/gi)?.length>2) patterns.push('frames arguments through rights/deontological lens');
+  if(userText.match(/consequen|utilitar|outcome|result|effect/gi)?.length>2) patterns.push('consequentialist/utilitarian framing');
+
+  // Detect structural tendencies
+  if(!userText.match(/weigh|outweigh|magnitude|probability|timeframe/gi)) patterns.push('DOES NOT WEIGH — exploit this by doing extensive comparative weighing');
+  if(!userText.match(/even if|grant|concede/gi)) patterns.push('does not use strategic concessions or preemption');
+  if(!userText.match(/drop|extend|pull through|cross.?apply/gi)) patterns.push('does not track the flow or call out drops');
+
+  // Check history for broader patterns
+  if(historyRounds && historyRounds.length >= 3){
+    const recentWins=historyRounds.slice(0,5).filter(r=>r.userWon===true).length;
+    const recentTotal=Math.min(5,historyRounds.length);
+    if(recentWins/recentTotal>=0.7) patterns.push('has been winning frequently — bring your A-game, exploit any gap in their technique');
+    if(recentWins/recentTotal<=0.3) patterns.push('has been struggling — still debate well but the user needs practice identifying drops and weighing');
+  }
+
+  if(patterns.length===0) return '';
+  return `
+OPPONENT SCOUTING REPORT (based on analysis of their speeches this round):
+Your opponent's tendencies: ${patterns.join('; ')}.
+Use this intelligence. If they don't weigh, you weigh extensively. If they rely on examples, attack with framework. If they're framework-heavy, overwhelm with concrete impacts. Exploit their blind spots while respecting their strengths.`;
+}
+
+function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,difficultyNote,background,currentLog,historyRounds){
   const fmt=FORMATS[format]||FORMATS.apda;
   const traitPrompt=buildTraitPrompt(oppStr||[],oppWk||[]);
   const userLabel=fmt.sideLabels[userSide]||userSide;
@@ -1150,6 +1214,11 @@ function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,di
   const aiLabel=fmt.sideLabels[aiSides[0]]||aiSides[0];
   const rule=fmt.rules[speech.code]||'Deliver your speech.';
   const isRebuttal=speech.code.includes('R')||speech.code==='LOR'||speech.code==='PMR'||speech.code==='Reply';
+
+  // Build flow analysis and opponent model
+  const flowAnalysis=buildFlowAnalysis(history,format,userSide);
+  const opponentModel=buildOpponentModel(currentLog||[],historyRounds||[],userSide);
+
   const steelmanInstruction=history?`
 CRITICAL — STEELMANNING REQUIREMENT:
 When engaging with your opponent's arguments, you MUST:
@@ -1171,10 +1240,24 @@ ${rule}
 ${steelmanInstruction}
 ${unconventionalNote}
 ${difficultyNote||''}
+${flowAnalysis}
+${opponentModel}
 
 ${background?'BACKGROUND/CONTEXT for this motion:\n'+background:''}
 ${history?'Previous speeches:\n'+history:'First speech of the round.'}
 ${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+notes:''}
+
+SILENT PLANNING — THINK BEFORE YOU SPEAK:
+Before writing your speech, you MUST silently plan your argument structure inside <plan> tags. This plan will be stripped before the speech is spoken — the audience will NEVER see it. Use it to think strategically.
+
+<plan>
+1. What is my overall strategy for this speech?
+2. What are the 2-3 strongest moves I can make?
+3. ${history ? 'What did my opponent argue? What can I attack? What did they drop?' : 'What framework should I set? What arguments are hardest to rebut?'}
+4. How do I want the judge to see the round after this speech?
+</plan>
+
+After your plan, write ONLY the speech text (no plan tags, no markdown). The speech starts immediately — no preamble.
 
 Write ~${Math.floor(speech.time/60)*170} words (~${Math.floor(speech.time/60)} min) as a speech delivered aloud.
 
@@ -1228,7 +1311,14 @@ STRATEGIC DEPTH:
 - Cross-reference: "Cross-apply the warrant from our first argument here."
 
 VOICE & DELIVERY:
-- Lead with substance. First sentence identifies the framework or clash. Never "Alright judge let's dive in." Just START.
+- HOOK — Your opening line is everything. Start with a punchy, memorable hook that grabs the judge. Examples:
+  * A provocative question: "Judge, when was the last time a government program actually made people more free?"
+  * A vivid image: "Picture a world where the algorithm decides what you eat for breakfast. That's not dystopia — that's Tuesday."
+  * A bold claim: "The opposition's entire case rests on a single assumption, and it's wrong."
+  * A concession flip: "Grant everything they just said. We still win. Here's why."
+  * A historical parallel: "In 1933, the Reichstag chose security over liberty. We all know how that ended."
+  NEVER open with: "Thank you," "Good morning," "Alright," "So," "Let me start by..." — these are dead air. Your first word should HIT.
+- TRANSITIONS between arguments should be smooth and confident, not mechanical. Instead of "Moving to my second argument," use: "But it gets worse for them," or "That's the individual harm — zoom out to the systemic level," or "Now, they might think that's their strongest ground. It's not. Because..."
 - Say "a," "b," "c" and argument numbers out loud to signal structure. The judge needs to hear the organization.
 - NEVER narrate what you're about to do. No "Let me now turn to..." Just DO it.
 - Reference the judge casually: "Judge, the delta in this round comes down to..."
@@ -1367,25 +1457,30 @@ function App(){
           });
         };
 
+        // Strip <plan> tags from AI output (silent thinking — judge never sees it)
+        const stripPlan=(text)=>text.replace(/<plan>[\s\S]*?<\/plan>/gi,'').replace(/<\/?plan>/gi,'').trim();
+
         // Phase 1: Generate argument text — prefetch audio mid-stream
-        const txt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
-          setAiText(chunk);
-          const words=chunk.split(/\s+/).length;
+        const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
+          const clean=stripPlan(chunk);
+          setAiText(clean);
+          const words=clean.split(/\s+/).length;
           setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
           // Once we hit ~50% of target, fire TTS for the first half
           if(!prefetchFired&&words>=halfTarget){
             prefetchFired=true;
             // Find a sentence boundary near the middle
-            const mid=chunk.length>>1;
-            const sentenceEnd=chunk.indexOf('.',mid);
+            const mid=clean.length>>1;
+            const sentenceEnd=clean.indexOf('.',mid);
             const splitAt=sentenceEnd>0?sentenceEnd+1:mid;
-            prefetchText=chunk.slice(0,splitAt).trim();
+            prefetchText=clean.slice(0,splitAt).trim();
             if(prefetchText.length>50){
               console.log('%c[TTS] Prefetching first half ('+prefetchText.split(/\s+/).length+' words) while AI still generating','color:cyan;font-weight:bold');
               prefetchBlob=fetchTTSBlob(prefetchText).catch(e=>{console.warn('[TTS] Prefetch failed:',e);return null});
             }
           }
         },brain);
+        const txt=stripPlan(rawTxt);
         setAiText(txt);setAiPct(100);
         stopThinking();SFX.ready();
 
@@ -1877,6 +1972,22 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
           aiLoading?'Writing argument via '+(BRAINS[brain]||BRAINS.claude).name+(isPro()?' ⚡ Pro':'')+' ... '+aiPct+'%':
           tts.paused?'Paused':'🔴 LIVE — Timer running'
         ),
+
+        // Adaptive scouting report — show user what the AI detected
+        !isUser&&aiLoading&&aiLoading!=='voice'&&log.filter(l=>l.who==='You').length>0&&(()=>{
+          const userText=log.filter(l=>l.who==='You').map(l=>l.text).join(' ');
+          const detections=[];
+          if(!userText.match(/weigh|outweigh|magnitude|probability/gi)) detections.push('No weighing detected');
+          if(!userText.match(/even if|grant|concede/gi)) detections.push('No preemption');
+          if(!userText.match(/drop|extend|pull through/gi)) detections.push('Not tracking flow');
+          if(userText.match(/framework|standard|criterion/gi)?.length>2) detections.push('Framework-heavy');
+          if(userText.match(/example|real.?world|instance/gi)?.length>2) detections.push('Example-heavy');
+          if(detections.length===0) return null;
+          return el('div',{style:{marginTop:8,padding:'8px 14px',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.12)',borderRadius:10,maxWidth:400,margin:'8px auto'}},
+            el('div',{style:{fontSize:'.55rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.12em',color:'rgba(239,68,68,.5)',marginBottom:4}},'🎯 AI Scouting Your Style'),
+            detections.map((d,i)=>el('div',{key:i,style:{fontSize:'.72rem',color:'rgba(255,255,255,.4)'}},d))
+          );
+        })(),
 
         // The orb
         el('div',{className:'orb-wrap'},
