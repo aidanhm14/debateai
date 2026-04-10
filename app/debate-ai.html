@@ -182,10 +182,6 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   border-radius:14px;padding:18px;text-align:left;
   font-size:.82rem;line-height:1.65;color:rgba(255,255,255,.35);white-space:pre-wrap;
 }
-.lyrics-box{
-  white-space:normal;font-size:.9rem;line-height:1.8;max-height:280px;
-  scroll-behavior:smooth;
-}
 
 /* ── Feedback Card ─────────────────── */
 .fb-card{
@@ -1331,6 +1327,13 @@ STEP 3 — ARGUMENTS (2-3 independent arguments): Each argument MUST have:
   "a. [Warrant Name like 'The Substitution Effect']. [Full causal mechanism in 2-3 sentences]."
 - An impact: "The impact here is [specific, quantified when possible]."
 
+VARY ARGUMENT DEPTH — NOT EVERY ARGUMENT IS EQUAL:
+- Your strongest argument should get 40-50% of your argument time. Go deep — multiple warrants, examples, preemption.
+- Your second argument gets 30-35%. Solid but more concise.
+- A third argument (if you have one) can be quick — 15-20%. A sharp point that gives the judge another path to vote for you.
+- Real debaters don't split time evenly. They invest in their best stuff and skim the rest. Do the same.
+- Some warrants deserve 3 sentences. Others need 1. Match depth to importance.
+
 STEP 4 — EVEN-IF / PREEMPTION: For at least one argument, include: "Even if they argue [strongest opp response], our argument still holds because [mechanism]."
 ${isFirst ? `
 Example of how this sounds spoken aloud:
@@ -1429,7 +1432,7 @@ function App(){
   const[showTx,setShowTx]=useState(false);
   const[prepHint,setPrepHint]=useState('');
   const[prepHintLoading,setPrepHintLoading]=useState(false);
-  const[revealIdx,setRevealIdx]=useState(-1); // lyrics sync: words revealed so far (-1 = all visible)
+  // revealIdx removed — transcript is plain text now
 
   // POI (Points of Information) state
   const[poiActive,setPoiActive]=useState(false);
@@ -1587,7 +1590,6 @@ function App(){
         const onAudioStart=()=>{
           stopThinking();
           setAiLoading(false);
-          setRevealIdx(0);
           timer.go(s.time);
         };
 
@@ -1619,7 +1621,7 @@ function App(){
             playbackStarted=true;
             setAiLoading('voice');
             console.log('%c[TTS] Starting live playback while AI still generating','color:lime;font-weight:bold');
-            tts.playChunks(blobPromises,()=>{orb.setMode('idle');setRevealIdx(-1)},onAudioStart);
+            tts.playChunks(blobPromises,()=>{orb.setMode('idle')},onAudioStart);
           }
         };
 
@@ -1642,7 +1644,7 @@ function App(){
         if(!playbackStarted){
           SFX.ready();
           setAiLoading('voice');
-          tts.speak(txt,wpm,()=>{orb.setMode('idle');setRevealIdx(-1)},voice,onAudioStart);
+          tts.speak(txt,wpm,()=>{orb.setMode('idle')},voice,onAudioStart);
         }
       }catch(e){
         stopThinking();
@@ -1863,27 +1865,9 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
     if(f&&!f.sides.includes(side)) setSide(f.sides[0]);
   },[format]);
 
-  // Lyrics sync: reveal words based on actual audio position (not timer estimate)
+  // Auto-open transcript when AI starts speaking
   useEffect(()=>{
-    if(!tts.speaking||!aiText||aiLoading) return;
-    const words=aiText.split(/\s+/);
-    const totalWords=words.length;
-    const tick=()=>{
-      const{currentTime,duration}=tts.getAudioTime();
-      if(duration<=0){setRevealIdx(1);return}
-      // Map audio progress → word index — slight lead so words appear just before spoken
-      const progress=Math.min(1,currentTime/duration);
-      const idx=Math.min(totalWords,Math.floor(progress*totalWords*1.03)+1);
-      setRevealIdx(idx);
-    };
-    const iv=setInterval(tick,60); // 60ms for smooth reveal
-    return()=>clearInterval(iv);
-  },[tts.speaking,aiText,aiLoading]);
-
-  // Reset reveal when speech ends or new speech starts
-  useEffect(()=>{
-    if(!tts.speaking) setRevealIdx(-1);
-    else setShowTx(true); // auto-open transcript when AI starts speaking
+    if(tts.speaking) setShowTx(true);
   },[tts.speaking]);
 
   // Apply trait preset
@@ -2225,32 +2209,14 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
         // Timer
         el('div',{className:'t-time'+(tc?' '+tc:'')},timer.fmt(timer.left)),
 
-        // Transcript toggle — lyrics-style synced reveal for AI speech
+        // Transcript toggle — plain text, no animation
         (rec.transcript||aiText)&&el(React.Fragment,null,
           el('div',{style:{display:'flex',alignItems:'center',gap:12,justifyContent:'center'}},
             el('button',{className:'transcript-btn',onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide transcript':'▶ Show transcript'),
             showTx&&aiText&&!isUser&&el('button',{className:'transcript-btn',onClick:()=>{navigator.clipboard.writeText(aiText).catch(()=>{})},style:{fontSize:'.65rem'}},'📋 Copy'),
           ),
-          showTx&&el('div',{className:'transcript-box lyrics-box'},
-            isUser ? rec.transcript :
-            (()=>{
-              const words=aiText.split(/\s+/);
-              const active=revealIdx>=0;
-              return words.map((w,i)=>{
-                const spoken=!active||i<revealIdx;
-                const current=active&&i>=Math.max(0,revealIdx-2)&&i<revealIdx;
-                // Auto-scroll: ref on the current highlighted word
-                const isCursor=active&&i===Math.max(0,revealIdx-1);
-                return el('span',{key:i,ref:isCursor?(node)=>{if(node)node.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'})}:null,style:{
-                  color: spoken ? 'rgba(255,255,255,.88)' : 'rgba(255,255,255,.1)',
-                  transition: 'color .15s ease, font-weight .15s ease',
-                  fontWeight: current ? 700 : 400,
-                  background: current ? 'rgba(239,68,68,.08)' : 'none',
-                  borderRadius: current ? 3 : 0,
-                  padding: current ? '1px 2px' : 0,
-                }},w+' ');
-              });
-            })()
+          showTx&&el('div',{className:'transcript-box'},
+            isUser ? rec.transcript : aiText
           ),
         ),
 
