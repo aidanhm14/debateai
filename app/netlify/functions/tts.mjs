@@ -1,4 +1,4 @@
-// Text-to-Speech proxy — ElevenLabs primary, OpenAI fallback
+// Text-to-Speech proxy — ElevenLabs for premium users, OpenAI for free
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -51,7 +51,7 @@ const ELEVENLABS_VOICES = {
   eloquent:   'XrExE9yKIg1WjnnlVkGX',   // Matilda — knowledgable, professional, American female
 };
 
-// Map old OpenAI voice keys to ElevenLabs personality keys
+// Map OpenAI voice keys to ElevenLabs personality keys
 const OPENAI_TO_ELEVEN = {
   onyx: 'commanding',
   echo: 'persuasive',
@@ -61,16 +61,15 @@ const OPENAI_TO_ELEVEN = {
   shimmer: 'eloquent',
 };
 
+// ElevenLabs TTS with streaming for faster first-byte
 async function elevenLabsTTS(text, voice, speed, apiKey) {
   const personality = OPENAI_TO_ELEVEN[voice] || voice;
   const voiceId = ELEVENLABS_VOICES[personality] || ELEVENLABS_VOICES.commanding;
 
-  // Map speed (0.75-2.0 range from OpenAI) to ElevenLabs stability/speed
-  // Lower stability = more expressive, higher = more consistent
   const stability = Math.max(0.3, Math.min(0.8, 1.0 - (speed - 1.0) * 0.3));
-  const similarity = 0.75;
 
-  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+  // Use /stream endpoint for faster first-byte delivery
+  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
     method: 'POST',
     headers: {
       'xi-api-key': apiKey,
@@ -79,20 +78,22 @@ async function elevenLabsTTS(text, voice, speed, apiKey) {
     },
     body: JSON.stringify({
       text: text,
-      model_id: 'eleven_multilingual_v2',
+      model_id: 'eleven_turbo_v2_5',  // Turbo model — fastest latency
       voice_settings: {
         stability: stability,
-        similarity_boost: similarity,
-        style: 0.4, // Some expressiveness for debate delivery
+        similarity_boost: 0.75,
+        style: 0.35,
         use_speaker_boost: true,
       },
+      optimize_streaming_latency: 3, // Max latency optimization (0-4, higher = faster but slightly lower quality)
     }),
   });
 
   return response;
 }
 
-async function openAITTS(text, voice, speed, hd, apiKey) {
+// OpenAI TTS for free users — fast, good enough quality
+async function openAITTS(text, voice, speed, apiKey) {
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {
@@ -100,7 +101,7 @@ async function openAITTS(text, voice, speed, hd, apiKey) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: hd ? 'tts-1-hd' : 'tts-1',
+      model: 'tts-1',  // Standard model — faster than tts-1-hd
       input: text,
       voice: voice,
       speed: speed,
@@ -129,7 +130,7 @@ export default async (request, context) => {
 
   if (!elevenKey && !openaiKey) {
     return new Response(
-      JSON.stringify({ error: 'TTS not configured. Add ELEVENLABS_API_KEY or OPENAI_API_KEY to environment.' }),
+      JSON.stringify({ error: 'TTS not configured.' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } }
     );
   }
@@ -148,6 +149,7 @@ export default async (request, context) => {
     const text = (body.text || '').slice(0, MAX_TEXT_LENGTH);
     const voice = body.voice || 'onyx';
     const speed = Math.max(0.75, Math.min(2.0, body.speed || 1.0));
+    const premium = !!body.premium; // Premium users get ElevenLabs
 
     if (!text.trim()) {
       return new Response(
@@ -158,25 +160,25 @@ export default async (request, context) => {
 
     let response;
 
-    // Try ElevenLabs first, fall back to OpenAI
-    if (elevenKey) {
+    if (premium && elevenKey) {
+      // Premium users → ElevenLabs streaming (turbo model, lowest latency)
       try {
         response = await elevenLabsTTS(text, voice, speed, elevenKey);
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           console.error('ElevenLabs TTS error:', response.status, errText);
-          // Fall through to OpenAI
-          response = null;
+          response = null; // Fall through to OpenAI
         }
       } catch (e) {
-        console.error('ElevenLabs TTS exception:', e.message);
+        console.error('ElevenLabs exception:', e.message);
         response = null;
       }
     }
 
-    // Fallback to OpenAI if ElevenLabs failed or not configured
+    // Free users → OpenAI tts-1 (fast standard model)
+    // Also fallback if ElevenLabs failed for premium
     if (!response && openaiKey) {
-      response = await openAITTS(text, voice, speed, body.hd, openaiKey);
+      response = await openAITTS(text, voice, speed, openaiKey);
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
         console.error('OpenAI TTS error:', response.status, errText);
@@ -194,12 +196,13 @@ export default async (request, context) => {
       );
     }
 
-    // Stream audio back to client
+    // Stream audio back — chunked transfer for faster playback start
     return new Response(response.body, {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
         'Cache-Control': 'no-cache',
+        'Transfer-Encoding': 'chunked',
         ...CORS,
       },
     });

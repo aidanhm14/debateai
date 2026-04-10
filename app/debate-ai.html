@@ -537,14 +537,15 @@ const FORMATS = {
   },
 };
 
-/* ── AI VOICES (ElevenLabs TTS) ─────── */
+/* ── AI VOICES ──────────────────────── */
+// Free users: OpenAI TTS voices. Pro users: ElevenLabs premium voices (same selector, upgraded quality).
 const VOICES = {
-  onyx:    { name:'Commanding',     desc:'Adam — dominant, firm male. Commands the room.' },
-  echo:    { name:'Persuasive',     desc:'Sarah — confident, mature female. Wins you over.' },
-  fable:   { name:'Analytical',     desc:'Eric — smooth, trustworthy male. Surgical precision.' },
-  alloy:   { name:'Technical',      desc:'Brian — deep, resonant male. Framework-first delivery.' },
-  nova:    { name:'Passionate',     desc:'Liam — energetic, young male. Speaks like it matters.' },
-  shimmer: { name:'Eloquent',       desc:'Matilda — professional, polished female. Quotable lines.' },
+  onyx:    { name:'Commanding',     desc:'Deep, dominant male — commands the room' },
+  echo:    { name:'Persuasive',     desc:'Confident, mature female — wins you over' },
+  fable:   { name:'Analytical',     desc:'Smooth, trustworthy male — surgical precision' },
+  alloy:   { name:'Technical',      desc:'Deep, resonant male — framework-first delivery' },
+  nova:    { name:'Passionate',     desc:'Energetic, young male — speaks like it matters' },
+  shimmer: { name:'Eloquent',       desc:'Professional, polished female — quotable lines' },
 };
 
 /* ── AI OPPONENT TRAITS ─────────────── */
@@ -947,7 +948,7 @@ function useTTS(){
         const r=await fetch('/api/tts',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({text:input,voice:voiceName,speed,hd:true}),
+          body:JSON.stringify({text:input,voice:voiceName,speed,premium:isPro()}),
         });
         console.log('%c[TTS] Response: '+r.status+' '+r.headers.get('content-type'),'color:cyan');
         if(!r.ok){
@@ -1592,7 +1593,7 @@ function App(){
           return fetch('/api/tts',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({text:input,voice,speed:ttsSpeed,hd:true}),
+            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro()}),
           }).then(r=>{
             if(!r.ok) throw new Error('TTS '+r.status);
             return r.blob();
@@ -2004,7 +2005,7 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
       ),
 
       // AI Voice
-      el('div',{className:'t-label',style:{marginTop:24}},'AI Voice'),
+      el('div',{className:'t-label',style:{marginTop:24}},'AI Voice',isPro()&&el('span',{style:{marginLeft:8,fontSize:'.55rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4,verticalAlign:'middle'}},'HD VOICE')),
       el('div',{className:'pills'},
         Object.entries(VOICES).map(([k,v])=>
           el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>setVoice(k),title:v.desc},v.name)
