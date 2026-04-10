@@ -948,7 +948,7 @@ function useTTS(){
         const r=await fetch('/api/tts',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({text:input,voice:voiceName,speed,premium:isPro()}),
+          body:JSON.stringify({text:input,voice:voiceName,speed,premium:isPro(),intensity:Math.min(1,Math.max(0,(speed-1.0)/1.0))}),
         });
         console.log('%c[TTS] Response: '+r.status+' '+r.headers.get('content-type'),'color:cyan');
         if(!r.ok){
@@ -1157,7 +1157,12 @@ function useTTS(){
     modeRef.current='none';
   };
 
-  return{speak,playBlobs,stop,speaking,paused,togglePause,getProgress};
+  // Live playback rate — change speed during speech
+  const setRate=(rate)=>{
+    if(audioRef.current) audioRef.current.playbackRate=rate;
+  };
+
+  return{speak,playBlobs,stop,speaking,paused,togglePause,getProgress,setRate};
 }
 
 function useRecognition(){
@@ -1290,7 +1295,7 @@ Your opponent's tendencies: ${patterns.join('; ')}.
 Use this intelligence. If they don't weigh, you weigh extensively. If they rely on examples, attack with framework. If they're framework-heavy, overwhelm with concrete impacts. Exploit their blind spots while respecting their strengths.`;
 }
 
-function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,difficultyNote,background,currentLog,historyRounds){
+function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,difficultyNote,background,currentLog,historyRounds,targetWordCount){
   const fmt=FORMATS[format]||FORMATS.apda;
   const traitPrompt=buildTraitPrompt(oppStr||[],oppWk||[]);
   const userLabel=fmt.sideLabels[userSide]||userSide;
@@ -1327,6 +1332,8 @@ ${background?'BACKGROUND/CONTEXT for this motion:\n'+background:''}
 ${history?'Previous speeches:\n'+history:'First speech of the round.'}
 ${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+notes:''}
 
+EMPTY OPPONENT SPEECH: If the previous opponent speech was blank, extremely short (under 30 words), or essentially silent, call it out confidently. Say something like: "The ${userLabel} gave us virtually nothing to respond to — no framework, no arguments, no warrants. So let me tell you why our case stands entirely unchallenged." Then build your constructive normally. Do NOT just ignore a blank speech — it's a massive strategic advantage. Point it out to the judge.
+
 SILENT PLANNING — THINK BEFORE YOU SPEAK:
 Before writing your speech, silently plan inside <plan> tags (stripped before delivery — audience never sees it).
 
@@ -1337,7 +1344,7 @@ Before writing your speech, silently plan inside <plan> tags (stripped before de
 
 After your plan, write ONLY the speech text (no plan tags, no markdown). Speech starts immediately — no preamble.
 
-Write ~${Math.floor(speech.time/60)*170} words (~${Math.floor(speech.time/60)} min) as a speech delivered aloud.
+Write ~${targetWordCount||Math.floor(speech.time/60)*170} words (~${Math.floor(speech.time/60)} min${targetWordCount>Math.floor(speech.time/60)*200?' at HIGH SPEED — pack in more arguments, more warrants, denser analysis':''}) as a speech delivered aloud.
 
 CASE STRUCTURE — YOU MUST FOLLOW THIS EXACT ARCHITECTURE (spoken aloud, no markdown):
 
@@ -1446,6 +1453,7 @@ function App(){
   const[voice,setVoice]=useState('onyx');
   const[side,setSide]=useState('gov');
   const[wpm,setWpm]=useState(180);
+  const[liveRate,setLiveRate]=useState(1.0);
   const[idx,setIdx]=useState(0);
   const[log,setLog]=useState([]);            // {code,who,text}
   const[feedback,setFeedback]=useState('');
@@ -1552,6 +1560,7 @@ function App(){
   const runSpeech=async(i,currentLog)=>{
     const s=SPEECHES[i];
     const userTurn=s.side===side;
+    setLiveRate(1.0); // reset live speed each speech
 
     if(userTurn){
       // User turn — start timer + mic immediately
@@ -1579,7 +1588,9 @@ function App(){
       orb.setMode('ai');setAiLoading(true);setAiText('');setAiPct(0);
       const stopThinking=SFX.thinking();
       try{
-        const targetWords=Math.floor(s.time/60)*170;
+        // Scale word count with WPM — at 180 wpm generate ~170 w/min, at 380 wpm generate ~340 w/min
+        const wordsPerMin=Math.round(wpm*0.9);
+        const targetWords=Math.floor(s.time/60)*wordsPerMin;
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
         const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
 
@@ -1594,7 +1605,7 @@ function App(){
           return fetch('/api/tts',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro()}),
+            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro(),intensity:Math.min(1,Math.max(0,(ttsSpeed-1.0)/1.0))}),
           }).then(r=>{
             if(!r.ok) throw new Error('TTS '+r.status);
             return r.blob();
@@ -1605,7 +1616,7 @@ function App(){
         const stripPlan=(text)=>text.replace(/<plan>[\s\S]*?<\/plan>/gi,'').replace(/<\/?plan>/gi,'').trim();
 
         // Phase 1: Generate argument text — prefetch audio mid-stream
-        const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
+        const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           const clean=stripPlan(chunk);
           setAiText(clean);
           const words=clean.split(/\s+/).length;
@@ -1960,10 +1971,11 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
       el('div',{className:'t-label',style:{marginTop:24}},'AI Speed'),
       el('div',{className:'wpm'},
         el('span',null,'Slow'),
-        el('input',{type:'range',min:120,max:260,value:wpm,onChange:e=>setWpm(+e.target.value)}),
-        el('span',null,'Fast'),
+        el('input',{type:'range',min:120,max:380,step:10,value:wpm,onChange:e=>setWpm(+e.target.value)}),
+        el('span',null,'Sprint'),
         el('strong',null,wpm+' wpm'),
       ),
+      wpm>=280&&el('div',{style:{fontSize:'.68rem',color:'rgba(239,68,68,.6)',textAlign:'center',marginTop:4}},wpm>=340?'🔥 Tournament sprint — breathless delivery':'⚡ Fast spread — intense delivery'),
 
       // ── Advanced Settings Toggle ──
       el('button',{onClick:()=>setShowAdvanced(!showAdvanced),style:{marginTop:24,background:'none',border:'1px solid rgba(255,255,255,.08)',borderRadius:10,padding:'10px 20px',color:'rgba(255,255,255,.4)',fontSize:'.78rem',cursor:'pointer',display:'flex',alignItems:'center',gap:8,margin:'24px auto 0',transition:'all .2s'}},
@@ -2268,6 +2280,14 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
           el('span',{style:{fontSize:'.85rem',color:'rgba(255,255,255,.8)'}},'🖐 AI offers a Point of Information'),
           el('button',{className:'cta-ghost',onClick:()=>{setPoiOffer(false);acceptAIPOI()},style:{padding:'8px 16px',fontSize:'.78rem',marginTop:0}},'Accept'),
           el('button',{className:'cta-ghost',onClick:()=>{setPoiOffer(false);setLog(prev=>[...prev,{code:'POI',who:'POI',text:'AI offered POI — declined'}])},style:{padding:'8px 16px',fontSize:'.78rem',opacity:.5,marginTop:0}},'Decline'),
+        ),
+
+        // Live speed control during AI speech
+        !isUser&&tts.speaking&&el('div',{className:'row-c',style:{gap:6,marginBottom:8}},
+          el('span',{style:{fontSize:'.65rem',color:'rgba(255,255,255,.3)',marginRight:4}},'Speed:'),
+          [0.75,1,1.25,1.5,1.75,2].map(r=>
+            el('button',{key:r,onClick:()=>{setLiveRate(r);tts.setRate(r)},style:{padding:'4px 10px',fontSize:'.68rem',borderRadius:8,border:liveRate===r?'1px solid rgba(239,68,68,.5)':'1px solid rgba(255,255,255,.08)',background:liveRate===r?'rgba(239,68,68,.15)':'rgba(255,255,255,.04)',color:liveRate===r?'#ef4444':'rgba(255,255,255,.4)',cursor:'pointer',fontWeight:liveRate===r?700:500}},r+'×')
+          )
         ),
 
         // Controls

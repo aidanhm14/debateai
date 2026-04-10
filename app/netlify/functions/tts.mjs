@@ -62,11 +62,15 @@ const OPENAI_TO_ELEVEN = {
 };
 
 // ElevenLabs TTS with streaming for faster first-byte
-async function elevenLabsTTS(text, voice, speed, apiKey) {
+// intensity: 0 = calm deliberate delivery, 1 = breathless sprint (tournament speed)
+async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0) {
   const personality = OPENAI_TO_ELEVEN[voice] || voice;
   const voiceId = ELEVENLABS_VOICES[personality] || ELEVENLABS_VOICES.commanding;
 
-  const stability = Math.max(0.3, Math.min(0.8, 1.0 - (speed - 1.0) * 0.3));
+  // At high intensity: lower stability → more variation/breathlessness, higher style → more expressive
+  const stability = Math.max(0.15, Math.min(0.8, 0.7 - intensity * 0.55));
+  const style = Math.min(1.0, 0.3 + intensity * 0.5);            // 0.3 calm → 0.8 intense
+  const similarityBoost = Math.max(0.55, 0.75 - intensity * 0.2); // slightly looser at high speed
 
   // Use /stream endpoint for faster first-byte delivery
   const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
@@ -80,9 +84,9 @@ async function elevenLabsTTS(text, voice, speed, apiKey) {
       text: text,
       model_id: 'eleven_turbo_v2_5',  // Turbo model — fastest latency
       voice_settings: {
-        stability: stability,
-        similarity_boost: 0.75,
-        style: 0.35,
+        stability,
+        similarity_boost: similarityBoost,
+        style,
         use_speaker_boost: true,
       },
       optimize_streaming_latency: 3, // Max latency optimization (0-4, higher = faster but slightly lower quality)
@@ -149,6 +153,7 @@ export default async (request, context) => {
     const text = (body.text || '').slice(0, MAX_TEXT_LENGTH);
     const voice = body.voice || 'onyx';
     const speed = Math.max(0.75, Math.min(2.0, body.speed || 1.0));
+    const intensity = Math.max(0, Math.min(1, body.intensity || 0)); // 0=calm, 1=breathless
     const premium = !!body.premium; // Premium users get ElevenLabs
 
     if (!text.trim()) {
@@ -163,7 +168,7 @@ export default async (request, context) => {
     if (premium && elevenKey) {
       // Premium users → ElevenLabs streaming (turbo model, lowest latency)
       try {
-        response = await elevenLabsTTS(text, voice, speed, elevenKey);
+        response = await elevenLabsTTS(text, voice, speed, elevenKey, intensity);
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           console.error('ElevenLabs TTS error:', response.status, errText);
