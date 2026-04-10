@@ -1553,23 +1553,20 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
     if(f&&!f.sides.includes(side)) setSide(f.sides[0]);
   },[format]);
 
-  // Lyrics sync: reveal words in sync with audio playback
+  // Lyrics sync: reveal words at a constant rate based on WPM
+  const lyricsStartRef=useRef(0);
   useEffect(()=>{
     if(!tts.speaking||!aiText||aiLoading) { return; }
+    if(!lyricsStartRef.current) lyricsStartRef.current=Date.now();
     const words=aiText.split(/\s+/);
     const totalWords=words.length;
+    // Words per second based on TTS speed setting
+    const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
+    const wordsPerSec=(150*ttsSpeed)/60; // ~150 wpm at 1x speed
     const tick=()=>{
-      const p=tts.getProgress();
-      // Use the best available total: real chunk durations if loaded, otherwise estimate
-      const bestTotal=p.total>0?p.total:(p.totalEstimate>0?p.totalEstimate:0);
-      if(bestTotal<=0){
-        // No duration info at all — reveal 2 words per tick as fallback
-        setRevealIdx(prev=>Math.min((prev<0?0:prev)+2,totalWords));
-        return;
-      }
-      const pct=Math.min(1,p.elapsed/bestTotal);
-      // Reveal slightly ahead of audio so words appear just before spoken
-      const idx=Math.min(totalWords,Math.floor(pct*totalWords*1.08)+1);
+      const elapsed=(Date.now()-lyricsStartRef.current)/1000;
+      // Reveal slightly ahead so words appear just before spoken
+      const idx=Math.min(totalWords,Math.floor(elapsed*wordsPerSec*1.05)+1);
       setRevealIdx(idx);
     };
     const iv=setInterval(tick,80);
@@ -1578,8 +1575,8 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
 
   // Reset reveal when speech ends or new speech starts
   useEffect(()=>{
-    if(!tts.speaking) setRevealIdx(-1);
-    else setShowTx(true); // auto-open transcript when AI starts speaking
+    if(!tts.speaking){setRevealIdx(-1);lyricsStartRef.current=0}
+    else{setShowTx(true);lyricsStartRef.current=Date.now()} // auto-open transcript when AI starts speaking
   },[tts.speaking]);
 
   // Apply trait preset
