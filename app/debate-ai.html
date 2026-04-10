@@ -903,21 +903,27 @@ function useTTS(){
   const modeRef=useRef('none'); // 'openai' or 'browser'
 
   // ── OpenAI TTS: fetch audio from our /api/tts proxy ──
-  const speakOpenAI=(text,speed)=>{
+  const onStartRef=useRef(null);
+  const speakOpenAI=(text,speed,voiceName='onyx')=>{
     return new Promise(async(resolve,reject)=>{
       try{
         const input=text.slice(0,4000);
-        console.log('%c[TTS] Fetching from /api/tts...','color:cyan');
+        console.log('%c[TTS] Fetching from /api/tts... voice='+voiceName+' speed='+speed,'color:cyan');
         const r=await fetch('/api/tts',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({text:input,voice:'onyx',speed}),
+          body:JSON.stringify({text:input,voice:voiceName,speed,hd:true}),
         });
         console.log('%c[TTS] Response: '+r.status+' '+r.headers.get('content-type'),'color:cyan');
         if(!r.ok){
           const errBody=await r.text().catch(()=>'');
           console.error('[TTS] Error body:',errBody);
           return reject(new Error('TTS API '+r.status+': '+errBody));
+        }
+        const ct=r.headers.get('content-type')||'';
+        if(!ct.includes('audio')){
+          const errBody=await r.text().catch(()=>'');
+          return reject(new Error('TTS returned non-audio: '+ct+' '+errBody));
         }
         const blob=await r.blob();
         console.log('%c[TTS] Got audio blob: '+blob.size+' bytes, type: '+blob.type,'color:cyan');
@@ -929,27 +935,26 @@ function useTTS(){
         const audio=new Audio();
         audioRef.current=audio;
 
-        // Timeout: if audio doesn't start within 5s, reject
+        // Timeout: if audio doesn't start within 8s, reject
         const timeout=setTimeout(()=>{
-          console.warn('[TTS] Audio play timeout — 5s elapsed');
+          console.warn('[TTS] Audio play timeout — 8s elapsed');
           URL.revokeObjectURL(url);
           reject(new Error('Audio play timeout'));
-        },5000);
+        },8000);
 
         audio.oncanplay=()=>{
-          console.log('%c[TTS] Audio ready, playing...','color:lime');
           clearTimeout(timeout);
           audio.play().then(()=>{
-            console.log('%c[TTS] Audio.play() succeeded','color:lime');
+            console.log('%c[TTS] Audio playing','color:lime');
+            // Fire onStart callback — timer should start NOW
+            if(onStartRef.current){onStartRef.current();onStartRef.current=null}
           }).catch(e=>{
             console.error('[TTS] Audio.play() rejected:',e);
-            clearTimeout(timeout);
             URL.revokeObjectURL(url);
             reject(e);
           });
         };
         audio.onended=()=>{
-          console.log('%c[TTS] Audio playback complete','color:lime');
           URL.revokeObjectURL(url);
           resolve();
         };
@@ -1000,27 +1005,34 @@ function useTTS(){
   };
 
   // ── Main speak: try OpenAI, fall back to browser ──
-  const speak=(text,wpm=180,onEnd)=>{
+  // onStart fires when audio actually begins playing (use to start timer)
+  const speak=(text,wpm=180,onEnd,voiceName='onyx',onStart)=>{
     cancelledRef.current=false;
     setPaused(false);
     setSpeaking(true);
     onEndRef.current=onEnd;
-    const speed=Math.max(0.75,Math.min(2.0,wpm/150));
-    const browserRate=Math.max(0.5,Math.min(2.5,wpm/150));
+    // Speed: map WPM to TTS speed (180 wpm → ~1.2x for snappier delivery)
+    const speed=Math.max(0.75,Math.min(2.0,wpm/140));
+    const browserRate=Math.max(0.5,Math.min(2.5,wpm/140));
 
-    console.log('%c[TTS v2] Starting — text length: '+text.length+', speed: '+speed,'color:cyan;font-weight:bold');
+    console.log('%c[TTS] Starting — text: '+text.length+' chars, speed: '+speed.toFixed(2)+', voice: '+voiceName,'color:cyan;font-weight:bold');
+
+    // Hook into audio element to fire onStart when playback actually begins
+    let startFired=false;
+    const fireStart=()=>{if(!startFired){startFired=true;if(onStart)onStart();console.log('%c[TTS] Audio playback started','color:lime')}};
 
     (async()=>{
       try{
         modeRef.current='openai';
-        console.log('%c[TTS v2] Fetching OpenAI audio...','color:cyan');
-        await speakOpenAI(text,speed);
-        console.log('%c[TTS v2] OpenAI audio finished playing','color:lime');
+        onStartRef.current=fireStart;
+        await speakOpenAI(text,speed,voiceName);
+        fireStart(); // ensure it fires even if oncanplay didn't trigger it
+        console.log('%c[TTS] OpenAI playback complete','color:lime');
       }catch(e){
-        console.warn('%c[TTS v2] OpenAI FAILED: '+e.message,'color:orange;font-weight:bold');
+        console.warn('%c[TTS] OpenAI failed: '+e.message+' — falling back to browser','color:orange;font-weight:bold');
         if(!cancelledRef.current){
-          console.log('%c[TTS v2] Falling back to browser voice','color:orange');
           modeRef.current='browser';
+          fireStart(); // browser TTS starts immediately
           await speakBrowser(text,browserRate);
         }
       }
@@ -1460,96 +1472,23 @@ function App(){
         setAiText(txt);setAiPct(100);
         stopThinking();SFX.ready();
 
-        // Phase 2+3: Streaming TTS — fetch chunk 1, start playing immediately,
-        // fetch remaining chunks in background while audio plays
+        // Phase 2: Play speech audio — uses OpenAI TTS with automatic browser fallback
         setAiLoading('voice');
-        const charCount=txt.length;
-        // Estimate based on historical fetch speed or fallback (~800 chars/sec for HD TTS)
-        const histRate=window.__ttsCharsPerSec||800;
-        const estSeconds=Math.max(2,Math.ceil(charCount/histRate));
-        setVoiceEta(estSeconds);
-        const stopPreparing=SFX.preparing();
-        const voiceFetchStart=Date.now();
-        const etaInterval=setInterval(()=>{
-          const elapsed=(Date.now()-voiceFetchStart)/1000;
-          const remaining=Math.max(0,Math.ceil(estSeconds-elapsed));
-          setVoiceEta(remaining);
-        },1000);
 
-        const baseSpeed=Math.max(0.75,Math.min(2.0,wpm/150));
-        try{
-          // Chunk text into smaller ~2000 char segments for faster first-chunk
-          const chunks=[];let cur='';
-          const sentences=txt.match(/[^.!?]+[.!?]+[\s]*/g)||[txt];
-          for(const s of sentences){
-            if((cur+s).length>2000&&cur){chunks.push(cur.trim());cur=s}
-            else cur+=s;
-          }
-          if(cur.trim())chunks.push(cur.trim());
+        // Estimate total duration for lyrics sync
+        const baseSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
+        const estTotalSec=(wordCount/(150*baseSpeed))*60;
+        tts.getProgress().totalEstimate=estTotalSec;
+        tts.getProgress().total=estTotalSec;
 
-          // Speed variance per chunk
-          const chunkSpeeds=chunks.map((_,i)=>{
-            const pos=chunks.length>1?i/(chunks.length-1):0.5;
-            const variance=0.1*(1-4*Math.pow(pos-0.5,2));
-            const jitter=(Math.random()-0.5)*0.04;
-            return Math.max(0.75,Math.min(2.0,baseSpeed*(1+variance+jitter)));
-          });
-
-          console.log('[TTS] Streaming '+chunks.length+' HD chunks — fetching first...');
-
-          // Fetch first chunk immediately
-          const firstBlob=await fetch('/api/tts',{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({text:chunks[0],voice:voice,speed:chunkSpeeds[0],hd:true}),
-          }).then(async r=>{
-            const ct=r.headers.get('content-type')||'';
-            if(!r.ok||!ct.includes('audio')){
-              const t=await r.text().catch(()=>'');
-              console.error('[TTS] First chunk error:',r.status,ct,t);
-              throw new Error('TTS '+r.status+': '+t);
-            }
-            const b=await r.blob();
-            console.log('[TTS] First chunk blob:',b.size,'bytes, type:',b.type);
-            return b;
-          });
-
-          // START PLAYING immediately — don't wait for rest
-          clearInterval(etaInterval);stopPreparing();setVoiceEta(0);
-          setAiLoading(false);
+        // onStart: fires when audio actually begins playing — THEN start timer
+        const onAudioStart=()=>{
+          setAiLoading(false);setVoiceEta(0);
           setRevealIdx(0);
           timer.go(s.time);
-          console.log('[TTS] First chunk ready, starting playback + fetching rest...');
+        };
 
-          // Fetch remaining chunks in parallel while first plays
-          const blobPromises=[Promise.resolve(firstBlob)];
-          chunks.slice(1).forEach((c,ci)=>{
-            blobPromises.push(
-              fetch('/api/tts',{
-                method:'POST',headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({text:c,voice:voice,speed:chunkSpeeds[ci+1],hd:true}),
-              }).then(r=>{
-                const ct=r.headers.get('content-type')||'';
-                if(!r.ok||!ct.includes('audio'))throw new Error('TTS '+r.status+' ('+ct+')');
-                return r.blob();
-              })
-            );
-          });
-
-          // Estimate total audio duration from word count (~150 words/min at 1x speed)
-          const estTotalSec=(wordCount/(150*baseSpeed))*60;
-          tts.getProgress().totalEstimate=estTotalSec;
-          tts.getProgress().total=estTotalSec; // use estimate until real durations load
-
-          // Stream playback: play each blob as soon as it's ready (with browser TTS fallback)
-          tts.playBlobStream(blobPromises,()=>{orb.setMode('idle');setRevealIdx(-1)},txt);
-
-        }catch(e){
-          console.warn('[TTS] Streaming failed:',e.message,'— browser fallback');
-          clearInterval(etaInterval);stopPreparing();setVoiceEta(0);
-          setAiLoading(false);
-          timer.go(s.time);
-          tts.speak(txt,wpm,()=>orb.setMode('idle'));
-        }
+        tts.speak(txt,wpm,()=>{orb.setMode('idle');setRevealIdx(-1)},voice,onAudioStart);
       }catch(e){
         stopThinking();
         setAiLoading(false);
