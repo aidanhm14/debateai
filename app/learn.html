@@ -313,33 +313,61 @@ const MODES = [
   { id:'fallacy',  label:'Fallacy Trainer' },
   { id:'devil',    label:"Devil's Advocate" },
   { id:'persuade', label:'Persuasion Lab' },
+  { id:'rebuttal', label:'Rebuttal Drill' },
+  { id:'weighing', label:'Weighing Practice' },
 ];
 
 const DEBATE_TOPICS = [
+  // Everyday life
   'Is remote work better than office work?',
   'Should kids have smartphones?',
   'Is college worth it?',
   'Should tipping be abolished?',
-  'Is social media making us lonelier?',
-  'Should the voting age be lowered to 16?',
-  'Are electric cars actually better for the environment?',
   'Should we ban homework?',
-  'Is it ethical to eat meat?',
+  'Is it better to rent or buy a home?',
+  'Should the work week be 4 days?',
+  // Technology & AI
+  'Is social media making us lonelier?',
   'Should AI art be considered real art?',
+  'Is privacy dead in the digital age?',
+  'Should social media have age verification?',
+  'Will AI replace more jobs than it creates?',
+  'Should algorithms be regulated like media?',
+  // Politics & society
+  'Should the voting age be lowered to 16?',
   'Is cancel culture a good thing?',
   'Should billionaires exist?',
   'Is meritocracy a myth?',
   'Should college athletes be paid?',
-  'Is privacy dead in the digital age?',
+  'Should the US have universal healthcare?',
+  'Is democracy the best system of government?',
+  'Should there be limits on free speech?',
+  // Ethics & philosophy
+  'Is it ethical to eat meat?',
+  'Are electric cars actually better for the environment?',
+  'Is it wrong to have children given climate change?',
+  'Should we colonize Mars?',
+  'Is it ethical to use animals in medical research?',
+  'Do people have a moral obligation to donate to charity?',
+  // Culture & identity
+  'Is cultural appropriation a real problem?',
+  'Should art be separated from the artist?',
+  'Is nostalgia making us worse at appreciating the present?',
+  'Should everyone learn to code?',
+  'Is competitive sports good for kids?',
+  'Should grades be abolished in schools?',
 ];
 
 const PERSUASION_SCENARIOS = [
-  { id:'job',    icon:'\u{1F4BC}', label:'Job Interview',           desc:'Convince a hiring manager you\'re the right fit' },
-  { id:'nego',   icon:'\u{1F91D}', label:'Salary Negotiation',      desc:'Ask for a raise or better compensation' },
-  { id:'pitch',  icon:'\u{1F680}', label:'Startup Pitch',           desc:'Convince an investor your idea is worth funding' },
-  { id:'friend', icon:'\u{1F4AC}', label:'Disagree with a Friend',  desc:'Navigate a real disagreement respectfully' },
-  { id:'parent', icon:'\u{1F3E0}', label:'Convince a Parent',       desc:'Make a case for something you want' },
-  { id:'team',   icon:'\u{1F465}', label:'Lead a Team Decision',    desc:'Get a group to adopt your proposal' },
+  { id:'job',      icon:'\u{1F4BC}', label:'Job Interview',           desc:'Convince a hiring manager you\'re the right fit' },
+  { id:'nego',     icon:'\u{1F91D}', label:'Salary Negotiation',      desc:'Ask for a raise or better compensation' },
+  { id:'pitch',    icon:'\u{1F680}', label:'Startup Pitch',           desc:'Convince an investor your idea is worth funding' },
+  { id:'friend',   icon:'\u{1F4AC}', label:'Disagree with a Friend',  desc:'Navigate a real disagreement respectfully' },
+  { id:'parent',   icon:'\u{1F3E0}', label:'Convince a Parent',       desc:'Make a case for something you want' },
+  { id:'team',     icon:'\u{1F465}', label:'Lead a Team Decision',    desc:'Get a group to adopt your proposal' },
+  { id:'prof',     icon:'\u{1F393}', label:'Grade Appeal',            desc:'Convince a professor to reconsider your grade' },
+  { id:'landlord', icon:'\u{1F3E2}', label:'Negotiate Rent',          desc:'Talk your landlord into a better deal' },
+  { id:'customer', icon:'\u{1F6D2}', label:'Customer Complaint',      desc:'Get a company to resolve your issue' },
 ];
 
 const FALLACIES = [
@@ -355,6 +383,12 @@ const FALLACIES = [
   { name:'Tu Quoque', desc:'Deflecting criticism by pointing to the other person\'s similar behavior.' },
   { name:'Bandwagon', desc:'Arguing something is true because many people believe it.' },
   { name:'False Cause', desc:'Assuming one event caused another just because it came first.' },
+  { name:'Moving the Goalposts', desc:'Changing the criteria for proof after the original criteria have been met.' },
+  { name:'No True Scotsman', desc:'Redefining a group to exclude counterexamples rather than accepting them.' },
+  { name:'Equivocation', desc:'Using a word with multiple meanings in different parts of the argument.' },
+  { name:'Appeal to Nature', desc:'Arguing something is good because it\'s "natural" or bad because it\'s "unnatural."' },
+  { name:'Sunk Cost Fallacy', desc:'Continuing something because of past investment rather than future value.' },
+  { name:'Whataboutism', desc:'Responding to criticism by pointing to a different issue entirely.' },
 ];
 
 /* ═══════════════════════════════════════════════════
@@ -772,6 +806,9 @@ function PersuasionLab(){
       friend:'You are a friend who disagrees with the user about something. Be genuine, not combative. You have your own perspective and you are not easily swayed, but you are open to good arguments.',
       parent:'You are a caring but cautious parent. You want what is best for your child but tend to be risk-averse. You need solid reasoning, not just enthusiasm.',
       team:'You are a team member who prefers the current approach. You are not hostile but you need real reasons to change. You raise practical concerns.',
+      prof:'You are a university professor who gave the student a grade they disagree with. You are fair but have high standards. You need specific evidence about why the grade should change, not just complaints.',
+      landlord:'You are a landlord who set the rent at what you believe is fair market rate. You are not unreasonable but you need a compelling business case to lower rent. You mention market conditions.',
+      customer:'You are a customer service representative. You follow company policy but have some discretion. You are polite but need the customer to make a clear, reasonable case.',
     };
     try{
       const sys=personas[sc.id]+' Start the conversation. Set the scene briefly, then let the user make their case. Keep your opening to 2-3 sentences. Be natural.';
@@ -814,6 +851,9 @@ Rate their overall persuasiveness 1-10 and give specific, actionable feedback. W
           friend:'Continue as the friend. Respond genuinely. Share your perspective.',
           parent:'Continue as the parent. Respond with care but maintain your concerns.',
           team:'Continue as the team member. Respond to their proposal. Raise a practical concern.',
+          prof:'Continue as the professor. Respond to their argument about the grade. Be fair but rigorous.',
+          landlord:'Continue as the landlord. Respond to their negotiation. Consider their points but protect your interests.',
+          customer:'Continue as customer service. Respond to their complaint. Follow policy but use judgment.',
         };
         const sys=personas[scenario.id]+' Keep responses to 2-3 sentences. Be natural. Exchange '+(newTurn+1)+' of 4.';
         const ai=await callClaude(sys,hist);
@@ -860,6 +900,217 @@ Rate their overall persuasiveness 1-10 and give specific, actionable feedback. W
 }
 
 /* ═══════════════════════════════════════════════════
+   REBUTTAL DRILL MODE
+   ═══════════════════════════════════════════════════ */
+
+function RebuttalDrill(){
+  const[stage,setStage]=useState('idle'); // idle | argument | rebutting | feedback
+  const[topic,setTopic]=useState('');
+  const[argument,setArgument]=useState('');
+  const[rebuttal,setRebuttal]=useState('');
+  const[feedback,setFeedback]=useState('');
+  const[loading,setLoading]=useState(false);
+  const[score,setScore]=useState(()=>{try{return JSON.parse(localStorage.getItem('learn-rebuttal-score')||'{"total":0,"avg":0}')}catch{return{total:0,avg:0}}});
+  const rem=remaining();
+
+  const generate=async()=>{
+    setLoading(true);setArgument('');setRebuttal('');setFeedback('');setStage('argument');
+    const t=DEBATE_TOPICS[Math.floor(Math.random()*DEBATE_TOPICS.length)];
+    setTopic(t);
+    try{
+      const sys='You are a skilled debater. Present a strong, well-structured argument (3-4 sentences) on ONE side of this topic: "'+t+'". Include a clear claim, a mechanism/warrant, and an impact. Make it genuinely persuasive — this is meant to be hard to rebut. No headers or bullets, just a spoken-style paragraph.';
+      const arg=await callClaude(sys,'Present your argument on: "'+t+'"');
+      setArgument(arg);setStage('rebutting');
+    }catch{setArgument('Could not generate. Try again.');setStage('idle')}
+    setLoading(false);
+  };
+
+  const submit=async()=>{
+    if(!rebuttal.trim()||loading)return;
+    setLoading(true);setStage('feedback');
+    try{
+      const sys=`You are a debate coach evaluating a rebuttal. The topic was: "${topic}".
+
+The original argument was:
+"${argument}"
+
+The student's rebuttal was:
+"${rebuttal}"
+
+Evaluate their rebuttal on:
+1. Did they engage the actual argument (not a strawman)?
+2. Did they attack the strongest part or just the weakest link?
+3. Did they provide a counter-mechanism or just deny?
+4. Did they weigh — explain why their response matters more?
+
+Give a score out of 10, explain what worked, what didn't, and show what an ideal rebuttal would look like (2-3 sentences). Keep it conversational, encouraging but honest. No markdown headers.`;
+      const fb=await callClaude(sys,'Evaluate this rebuttal.');
+      setFeedback(fb);
+      // Extract score
+      const match=fb.match(/(\d+)\s*(?:out of|\/)\s*10/);
+      if(match){
+        const s=parseInt(match[1]);
+        const newTotal=score.total+1;
+        const newAvg=((score.avg*(score.total))+s)/newTotal;
+        const ns={total:newTotal,avg:Math.round(newAvg*10)/10};
+        setScore(ns);try{localStorage.setItem('learn-rebuttal-score',JSON.stringify(ns))}catch{}
+      }
+    }catch{setFeedback('Could not generate feedback.')}
+    setLoading(false);
+  };
+
+  return el(React.Fragment,null,
+    score.total>0&&el('div',{className:'score-badge'},'Avg Score: ',el('strong',null,score.avg+'/10'),' (',score.total,' drill'+(score.total!==1?'s':''),')'),
+
+    stage==='idle'&&el(React.Fragment,null,
+      el('p',{className:'t-sub',style:{marginBottom:24}},'The AI presents an argument. Your job: tear it apart. Get scored on your rebuttal quality.'),
+      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Generate Argument'),
+      rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+    ),
+
+    stage==='argument'&&el(React.Fragment,null,
+      el('p',{className:'t-dim',style:{fontStyle:'italic'}},'Generating argument...'),
+    ),
+
+    stage==='rebutting'&&el(React.Fragment,null,
+      el('div',{className:'t-label'},'"'+topic+'"'),
+      el('div',{className:'card',style:{marginBottom:20}},
+        el('h3',null,'Their Argument'),
+        el('p',null,argument),
+      ),
+      el('p',{className:'t-dim',style:{marginBottom:8}},'Now tear it apart. Attack the logic, the evidence, the mechanism — whatever is weakest.'),
+      el('div',{className:'input-row'},
+        el('textarea',{rows:4,placeholder:'Write your rebuttal...',value:rebuttal,onChange:e=>setRebuttal(e.target.value)}),
+        el('button',{onClick:submit,disabled:loading||!rebuttal.trim()},'Submit Rebuttal'),
+      ),
+    ),
+
+    stage==='feedback'&&el(React.Fragment,null,
+      el('div',{className:'t-label'},'"'+topic+'"'),
+      el('div',{className:'card',style:{marginBottom:12}},
+        el('h3',null,'Their Argument'),
+        el('p',null,argument),
+      ),
+      el('div',{className:'card',style:{marginBottom:12,borderLeft:'2px solid #ef4444'}},
+        el('h3',null,'Your Rebuttal'),
+        el('p',null,rebuttal),
+      ),
+      el('div',{className:'card',style:{marginBottom:16}},
+        el('h3',null,'Coach Feedback'),
+        loading?el('p',{style:{fontStyle:'italic'}},'Evaluating...'):el('p',null,feedback),
+      ),
+      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Next Drill'),
+      el('button',{className:'cta-ghost',style:{marginTop:8},onClick:()=>{setStage('idle');setScore({total:0,avg:0});try{localStorage.removeItem('learn-rebuttal-score')}catch{}}},'Reset Score'),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   WEIGHING PRACTICE MODE
+   ═══════════════════════════════════════════════════ */
+
+function WeighingPractice(){
+  const[stage,setStage]=useState('idle'); // idle | scenario | feedback
+  const[scenario,setScenario]=useState('');
+  const[sideA,setSideA]=useState('');
+  const[sideB,setSideB]=useState('');
+  const[answer,setAnswer]=useState('');
+  const[feedback,setFeedback]=useState('');
+  const[loading,setLoading]=useState(false);
+  const rem=remaining();
+
+  const generate=async()=>{
+    setLoading(true);setScenario('');setSideA('');setSideB('');setAnswer('');setFeedback('');setStage('scenario');
+    try{
+      const sys=`Generate a debate weighing exercise. Create a motion/topic, then present two competing impacts — one from each side. Each impact should be 2-3 sentences with a clear mechanism and consequence. Make them genuinely difficult to weigh against each other (comparable magnitude, different dimensions like lives vs. rights, short-term vs. long-term, etc.).
+
+Format your response EXACTLY like this (including the labels):
+MOTION: [the motion]
+SIDE A: [first impact with mechanism]
+SIDE B: [second impact with mechanism]
+
+Make it about a real policy debate topic. Both sides should be compelling.`;
+      const raw=await callClaude(sys,'Generate a weighing exercise.');
+      // Parse the response
+      const motionMatch=raw.match(/MOTION:\s*(.+?)(?=\nSIDE)/s);
+      const sideAMatch=raw.match(/SIDE A:\s*(.+?)(?=\nSIDE B)/s);
+      const sideBMatch=raw.match(/SIDE B:\s*(.+?)$/s);
+      setScenario(motionMatch?motionMatch[1].trim():'Policy debate');
+      setSideA(sideAMatch?sideAMatch[1].trim():'Impact A');
+      setSideB(sideBMatch?sideBMatch[1].trim():'Impact B');
+    }catch{setScenario('Could not generate.');setStage('idle')}
+    setLoading(false);
+  };
+
+  const submit=async()=>{
+    if(!answer.trim()||loading)return;
+    setLoading(true);setStage('feedback');
+    try{
+      const sys=`You are a debate coach evaluating a student's weighing analysis.
+
+Motion: "${scenario}"
+Impact A: "${sideA}"
+Impact B: "${sideB}"
+Student's weighing: "${answer}"
+
+Evaluate whether they used proper weighing criteria:
+- MAGNITUDE: How many people affected?
+- PROBABILITY: How likely is each impact?
+- TIMEFRAME: How soon does the harm occur?
+- REVERSIBILITY: Can the harm be undone?
+- SCOPE: Who specifically is affected?
+
+Did they compare the two impacts directly (not just describe each one)? Did they make a clear judgment call and justify it? Give a score out of 10 and brief feedback (2-3 paragraphs). Show what excellent weighing would look like. Be encouraging but rigorous. No markdown headers.`;
+      const fb=await callClaude(sys,'Evaluate this weighing analysis.');
+      setFeedback(fb);
+    }catch{setFeedback('Could not generate feedback.')}
+    setLoading(false);
+  };
+
+  return el(React.Fragment,null,
+    stage==='idle'&&el(React.Fragment,null,
+      el('p',{className:'t-sub',style:{marginBottom:24}},'Two competing impacts. Which matters more and why? Practice the skill that wins close rounds.'),
+      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Generate Scenario'),
+      rem<=0&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+    ),
+
+    stage==='scenario'&&el(React.Fragment,null,
+      loading?el('p',{className:'t-dim',style:{fontStyle:'italic'}},'Generating weighing scenario...'):el(React.Fragment,null,
+        el('div',{className:'t-label'},scenario),
+        el('div',{style:{display:'flex',gap:12,flexWrap:'wrap',width:'100%',maxWidth:620,margin:'0 auto 20px'}},
+          el('div',{className:'card',style:{flex:1,minWidth:260,borderLeft:'3px solid #ef4444'}},
+            el('h3',{style:{color:'#ef4444',fontSize:'.75rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:6}},'Side A'),
+            el('p',null,sideA),
+          ),
+          el('div',{className:'card',style:{flex:1,minWidth:260,borderLeft:'3px solid #3b82f6'}},
+            el('h3',{style:{color:'#3b82f6',fontSize:'.75rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:6}},'Side B'),
+            el('p',null,sideB),
+          ),
+        ),
+        el('p',{className:'t-dim',style:{marginBottom:8}},'Which impact outweighs? Use magnitude, probability, timeframe, reversibility, and scope to justify your answer.'),
+        el('div',{className:'input-row'},
+          el('textarea',{rows:4,placeholder:'Side A outweighs because... OR Side B outweighs because...',value:answer,onChange:e=>setAnswer(e.target.value)}),
+          el('button',{onClick:submit,disabled:loading||!answer.trim()},'Submit'),
+        ),
+      ),
+    ),
+
+    stage==='feedback'&&el(React.Fragment,null,
+      el('div',{className:'t-label'},scenario),
+      el('div',{className:'card',style:{marginBottom:12,borderLeft:'2px solid #ef4444'}},
+        el('h3',null,'Your Weighing'),
+        el('p',null,answer),
+      ),
+      el('div',{className:'card',style:{marginBottom:16}},
+        el('h3',null,'Coach Feedback'),
+        loading?el('p',{style:{fontStyle:'italic'}},'Evaluating...'):el('p',null,feedback),
+      ),
+      el('button',{className:'cta',onClick:generate,disabled:rem<=0},'Next Scenario'),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════ */
 
@@ -888,6 +1139,8 @@ function App(){
     fallacy:el(FallacyTrainer,{key:'fallacy'}),
     devil:el(DevilsAdvocate,{key:'devil'}),
     persuade:el(PersuasionLab,{key:'persuade'}),
+    rebuttal:el(RebuttalDrill,{key:'rebuttal'}),
+    weighing:el(WeighingPractice,{key:'weighing'}),
   };
 
   const modeDesc={
@@ -896,6 +1149,8 @@ function App(){
     fallacy:'Spot logical fallacies in AI-generated arguments.',
     devil:'Have your beliefs challenged from every angle.',
     persuade:'Practice persuading someone in a real scenario.',
+    rebuttal:'AI argues, you tear it apart. Get scored on your rebuttal.',
+    weighing:'Two competing impacts. Which matters more and why?',
   };
 
   return el('div',{className:'page'},
