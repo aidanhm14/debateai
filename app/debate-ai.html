@@ -1004,7 +1004,7 @@ function useTTS(){
   const getProgress=()=>progressRef.current;
 
   // Play pre-fetched audio blobs sequentially
-  const playBlobs=(blobs,onEnd)=>{
+  const playBlobs=(blobs,onEnd,onStart)=>{
     cancelledRef.current=false;
     setPaused(false);
     setSpeaking(true);
@@ -1045,7 +1045,10 @@ function useTTS(){
       audio.oncanplay=()=>{
         const knownTotal=durations.reduce((a,b)=>a+b,0);
         if(knownTotal>progressRef.current.total) progressRef.current.total=knownTotal;
-        audio.play().catch(()=>{URL.revokeObjectURL(url);i++;next()});
+        audio.play().then(()=>{
+          // Fire onStart when first chunk starts playing
+          if(chunkIdx===0&&onStart){onStart()}
+        }).catch(()=>{URL.revokeObjectURL(url);i++;next()});
       };
       audio.src=url;
       audio.load();
@@ -1322,40 +1325,83 @@ function App(){
       timer.go(s.time);
       orb.setMode('mic');await orb.startMic();rec.start();
     } else {
-      // AI turn — two phases: generate text, then prep audio, then play
+      // AI turn — overlapped: start fetching audio for first half while still generating text
       orb.setMode('ai');setAiLoading(true);setAiText('');setAiPct(0);
       const stopThinking=SFX.thinking();
       try{
         const targetWords=Math.floor(s.time/60)*170;
         const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
+        const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
 
-        // Phase 1: Generate argument text
+        // Prefetch: fire TTS for first half of text while AI is still generating
+        let prefetchBlob=null;
+        let prefetchText='';
+        let prefetchFired=false;
+        const halfTarget=Math.floor(targetWords*0.5);
+
+        const fetchTTSBlob=(text)=>{
+          const input=text.slice(0,4000);
+          return fetch('/api/tts',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({text:input,voice,speed:ttsSpeed,hd:true}),
+          }).then(r=>{
+            if(!r.ok) throw new Error('TTS '+r.status);
+            return r.blob();
+          });
+        };
+
+        // Phase 1: Generate argument text — prefetch audio mid-stream
         const txt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           setAiText(chunk);
           const words=chunk.split(/\s+/).length;
           setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
+          // Once we hit ~50% of target, fire TTS for the first half
+          if(!prefetchFired&&words>=halfTarget){
+            prefetchFired=true;
+            // Find a sentence boundary near the middle
+            const mid=chunk.length>>1;
+            const sentenceEnd=chunk.indexOf('.',mid);
+            const splitAt=sentenceEnd>0?sentenceEnd+1:mid;
+            prefetchText=chunk.slice(0,splitAt).trim();
+            if(prefetchText.length>50){
+              console.log('%c[TTS] Prefetching first half ('+prefetchText.split(/\s+/).length+' words) while AI still generating','color:cyan;font-weight:bold');
+              prefetchBlob=fetchTTSBlob(prefetchText).catch(e=>{console.warn('[TTS] Prefetch failed:',e);return null});
+            }
+          }
         },brain);
         setAiText(txt);setAiPct(100);
         stopThinking();SFX.ready();
 
-        // Phase 2: Play speech audio — uses OpenAI TTS with automatic browser fallback
+        // Phase 2: Play speech audio
         setAiLoading('voice');
-
-        // Estimate total duration for lyrics sync
         const wordCount=txt.split(/\s+/).length;
-        const baseSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
-        const estTotalSec=(wordCount/(150*baseSpeed))*60;
+        const estTotalSec=(wordCount/(150*ttsSpeed))*60;
         tts.getProgress().totalEstimate=estTotalSec;
         tts.getProgress().total=estTotalSec;
 
-        // onStart: fires when audio actually begins playing — THEN start timer
         const onAudioStart=()=>{
           setAiLoading(false);
           setRevealIdx(0);
           timer.go(s.time);
         };
 
-        tts.speak(txt,wpm,()=>{orb.setMode('idle');setRevealIdx(-1)},voice,onAudioStart);
+        // If we prefetched the first half, play it immediately + queue the rest
+        const resolvedPrefetch=prefetchBlob?await prefetchBlob:null;
+        if(resolvedPrefetch&&resolvedPrefetch.size>1000&&prefetchText){
+          console.log('%c[TTS] Using prefetched first half — fetching remainder','color:lime;font-weight:bold');
+          const remainder=txt.slice(prefetchText.length).trim();
+          // Start fetching remainder audio immediately
+          const remainderBlobP=remainder.length>30?fetchTTSBlob(remainder).catch(()=>null):Promise.resolve(null);
+          // Play first half now — fires onStart when audio begins
+          const blobs=[resolvedPrefetch];
+          const remainderBlob=await remainderBlobP;
+          if(remainderBlob&&remainderBlob.size>1000) blobs.push(remainderBlob);
+          tts.playBlobs(blobs,()=>{orb.setMode('idle');setRevealIdx(-1)},onAudioStart);
+        } else {
+          // Fallback: normal single-shot TTS
+          tts.speak(txt,wpm,()=>{orb.setMode('idle');setRevealIdx(-1)},voice,onAudioStart);
+        }
       }catch(e){
         stopThinking();
         setAiLoading(false);
@@ -1749,15 +1795,13 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
         el('div',{className:'progress-bar'},
           SPEECHES.map((s,i)=>el('div',{key:s.code,className:'pip'+(i<idx?' done':i===idx?' now':'')},
             el('div',{className:'pip-bar'+(i<idx?' done':i===idx?' now':'')}),
-            el('div',{className:'pip-code'},s.code),
+            el('div',{className:'pip-code',style:{color:i%2===0?'#ef4444':'rgba(255,255,255,.85)'}},s.code),
           ))
         ),
 
-        // Resolution display — red/white alternating words
+        // Resolution display
         el('div',{style:{maxWidth:600,margin:'0 auto 16px',textAlign:'center'}},
-          el('div',{style:{fontSize:'.92rem',fontWeight:700,lineHeight:1.4,fontStyle:'italic'}},
-            '"',motion.split(/\s+/).map((w,i)=>el('span',{key:i,style:{color:i%2===0?'#ef4444':'rgba(255,255,255,.85)'}},w+(i<motion.split(/\s+/).length-1?' ':''))),'"'
-          ),
+          el('div',{style:{fontSize:'.92rem',fontWeight:600,color:'rgba(255,255,255,.55)',lineHeight:1.4,fontStyle:'italic'}},'"'+motion+'"'),
           background&&el('div',{style:{fontSize:'.72rem',color:'rgba(255,255,255,.25)',marginTop:4,lineHeight:1.3}},background),
         ),
 
