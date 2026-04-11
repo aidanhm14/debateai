@@ -1210,10 +1210,14 @@ Before writing your speech, mentally track:
 4. CLASH POINTS: Where are both sides directly engaging? These are the key voting issues. Weigh them explicitly.
 
 STRATEGIC RULES based on the flow:
-- NEVER re-argue a point your side already made well. Instead, EXTEND it with new application or weighing.
-- ALWAYS address the opponent's STRONGEST argument first, not their weakest. Judges notice when you dodge the hard clash.
-- If the opponent dropped something, don't just note it — explain WHY the drop matters: "Because they dropped X, they have no answer to [impact]. That argument flows cleanly to our side."
-- Track the NUMBER of arguments won vs lost. If you're winning 3 clashes and losing 1, crystallize around the 3 wins.`;
+- NEVER re-argue a point your side already made well. Instead, EXTEND it with new warrants, new applications, or weighing. Repetition is a waste of speech time.
+- ALWAYS address the opponent's STRONGEST argument first, not their weakest. Judges notice when you dodge the hard clash — it makes you look scared.
+- If the opponent dropped something, don't just note it — explain WHY the drop is fatal: "Because they dropped [Argument Name], they have no answer to [specific impact]. That argument flows uncontested to our side and it's sufficient to win the round on its own."
+- Track the NUMBER of arguments won vs lost. If you're winning 3 clashes and losing 1, crystallize around the 3 wins and minimize the 1 loss.
+- ADAPT YOUR STRATEGY to the round state:
+  * If you're WINNING: protect your leads, don't overreach, force the opponent to answer YOUR framing
+  * If you're LOSING: be aggressive, challenge their framework, find turns, create new voting issues
+  * If it's CLOSE: weighing is everything — the side that does better comparative analysis wins tight rounds`;
 }
 
 /* ── Adaptive Opponent Modeling: detect user's argument patterns ── */
@@ -1261,7 +1265,12 @@ function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,di
   const aiLabel=fmt.sideLabels[aiSides[0]]||aiSides[0];
   const rule=fmt.rules[speech.code]||'Deliver your speech.';
   const isRebuttal=speech.code.includes('R')||speech.code==='LOR'||speech.code==='PMR'||speech.code==='GW'||speech.code==='OW'||speech.code.startsWith('Reply');
-  const isFirst=speech.code==='PM'||speech.code==='LO';
+  const isWhip=speech.code==='GW'||speech.code==='OW';
+  const isReply=speech.code.startsWith('Reply');
+  const isFirst=speech.code==='PM'||speech.code==='LO'||speech.code==='AC'||speech.code==='NC'||speech.code==='P1'||speech.code==='C1';
+  const isLaterConstructive=!isRebuttal&&!isFirst&&(speech.code==='DPM'||speech.code==='DLO'||speech.code==='MG'||speech.code==='MO');
+  const isExtension=speech.code==='MG'||speech.code==='MO';
+  const isCX=speech.code==='CX1'||speech.code==='CX2';
   const isConstructive=!isRebuttal;
 
   // Build flow analysis and opponent model
@@ -1270,10 +1279,20 @@ function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,di
 
   const steelmanInstruction=history?`
 STEELMANNING: Always engage your opponent's STRONGEST interpretation. State their best case, then defeat it through comparative weighing (magnitude, probability, timeframe, reversibility). Never strawman.`:'';
-  // Occasionally make the AI pick an unconventional angle instead of the "average" argument
-  const unconventional = Math.random() < 0.3;
-  const unconventionalNote = unconventional ? `
-UNCONVENTIONAL ANGLE: For at least one argument in this speech, deliberately avoid the most obvious/expected position. Pick a logically sound but surprising angle — something the opponent wouldn't have prepped for. The best debaters are unpredictable.` : '';
+  // Push for creative, non-obvious arguments — vary how aggressively
+  const creativityRoll = Math.random();
+  const unconventionalNote = creativityRoll < 0.4 ? `
+ARGUMENT CREATIVITY — BE CLEVER:
+- Your arguments should NOT be the first thing anyone would think of. The obvious argument is the one your opponent prepped for.
+- For at least one argument, find a COUNTERINTUITIVE angle — where the naive expectation is wrong. The best debate arguments make the judge think "I never considered that."
+- Use MECHANISM over ASSERTION. Don't just say "this causes harm." Show the specific, surprising causal pathway: perverse incentives, second-order effects, moral hazard, adverse selection, regulatory arbitrage, coordination failures, race-to-the-bottom dynamics.
+- Think about who the NON-OBVIOUS actors are. Everyone argues about governments and citizens. What about: black markets that emerge, bureaucrats with misaligned incentives, neighboring countries that react, industries that adapt, or norms that shift over decades?` : creativityRoll < 0.7 ? `
+ARGUMENT CREATIVITY:
+- Avoid the most obvious arguments on this topic — your opponent has prepped for those.
+- Find at least one argument with a SURPRISING mechanism or non-obvious actor. Think second-order effects: what happens AFTER the policy is implemented and people adapt to it?
+- The best arguments reveal a hidden tension or trade-off the other side can't resolve.` : `
+ARGUMENT ORIGINALITY:
+- At least one argument should come from an unexpected angle. Ask: what would a smart opponent NOT see coming?`;
 
   return `You are a skilled ${aiLabel} debater in a ${fmt.name} debate. Motion/Resolution: "${motion}".
 
@@ -1292,34 +1311,71 @@ ${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+note
 
 EMPTY OPPONENT SPEECH: If the previous opponent speech was blank, extremely short (under 30 words), or essentially silent, call it out confidently. Say something like: "The ${userLabel} gave us virtually nothing to respond to — no framework, no arguments, no warrants. So let me tell you why our case stands entirely unchallenged." Then build your constructive normally. Do NOT just ignore a blank speech — it's a massive strategic advantage. Point it out to the judge.
 
-SILENT PLANNING — THINK BEFORE YOU SPEAK:
-Before writing your speech, silently plan inside <plan> tags (stripped before delivery — audience never sees it).
+PLAN BEFORE YOU SPEAK — this is mandatory. Write your plan inside <plan> tags. The audience NEVER sees this — it is stripped before delivery. Use it to think through your strategy so your speech is coherent from the first word.
 
 <plan>
-1. What are my 2-3 strongest moves? ${history ? 'What can I attack or extend? What did they drop?' : 'What framework and arguments are hardest to rebut?'}
-2. How should the judge see the round after this speech?
+${isFirst ? `1. What is the strongest framework for ${aiLabel} on this motion? What decision rule locks in my side?
+2. What are my 2-3 best arguments? Rank them. Which one is hardest for ${userLabel} to answer?
+3. What's the most CREATIVE angle I can take? What would a top debater run that a mediocre one wouldn't?
+4. What will ${userLabel} probably argue? How do I preempt their best shot?
+5. What's my hook — first line that grabs the judge?` :
+isRebuttal ? `1. What are the 2-3 most important clashes in the round right now?
+2. Which of their arguments is ACTUALLY dangerous vs. which sounds good but has no warrant?
+3. What did they DROP? Which drops are most lethal?
+4. Can I TURN any of their arguments to help my side?
+5. What's the ballot story — why does the judge vote for me when the dust settles?` :
+`1. What did the previous speakers establish? What's under attack?
+2. What's the strongest thing the opponent just said? How do I beat it?
+3. What can I EXTEND from my side's case with new analysis?
+4. What's the round state — am I winning, losing, or close? How does that change my strategy?
+5. What's the one thing the judge needs to hear from me that they haven't heard yet?`}
 </plan>
 
-After your plan, write ONLY the speech text (no plan tags, no markdown). Speech starts immediately — no preamble.
+After your plan, write ONLY the speech text. No plan tags, no markdown, no stage directions, no "Here's my speech:". Your first word after </plan> must be the first word of the speech as delivered to the judge.
 
-Write ~${targetWordCount||Math.floor(speech.time/60)*170} words (~${Math.floor(speech.time/60)} min${targetWordCount>Math.floor(speech.time/60)*200?' at HIGH SPEED — pack in more arguments, more warrants, denser analysis':''}) as a speech delivered aloud.
+CRITICAL — WORD COUNT IS MANDATORY: This speech MUST be approximately ${targetWordCount||Math.floor(speech.time/60)*170} words. This is a ${Math.floor(speech.time/60)}-minute speech at the user's chosen speed.${targetWordCount>Math.floor(speech.time/60)*200?` The user chose HIGH SPEED (${targetWordCount} words in ${Math.floor(speech.time/60)} min). You MUST write significantly more content than a normal-speed speech. Pack in more arguments, more warrants, denser analysis. Every sentence must earn its place.`:targetWordCount<Math.floor(speech.time/60)*150?` The user chose SLOW SPEED (${targetWordCount} words in ${Math.floor(speech.time/60)} min). Write fewer, more deliberate arguments. Go deeper on each point rather than covering more ground.`:''} Count your words. If you are far under ${targetWordCount} words, you are speaking too slowly for the time. If far over, you are going too long. Aim for ±10% of ${targetWordCount} words.
 
 CASE STRUCTURE — YOU MUST FOLLOW THIS EXACT ARCHITECTURE (spoken aloud, no markdown):
 
 ${isRebuttal ? `REBUTTAL STRUCTURE:
-1. Identify the 2-3 most important clashes in the round. For each:
-   - Name the clash: "The first clash is whether X actually leads to Y."
-   - Steelman their best version, then defeat it with mechanism and weighing.
-   - Cross-apply warrants from your constructive: "Pull through our warrant about [name] from our first argument."
-2. Extend your dropped or underweighed arguments.
-3. Do comparative weighing on magnitude, probability, timeframe, reversibility.
-4. Crystallize: "Judge, the round comes down to [1-2 key questions], and here's why we win both."` :
+
+OPENING — Start with the single most devastating observation about the round state. Not a roadmap. A punch: "Judge, their entire case collapses on one question they can't answer..." or "They've conceded the only thing that matters in this round..."
+
+CLASH-BY-CLASH (2-3 key voting issues):
+For each clash:
+- Name it as a QUESTION the judge must decide: "The first voting issue is: does X actually cause Y, or does it cause Z?"
+- Give their BEST version (steelman), then show why it still loses. Don't strawman — beat them at full strength.
+- Use TURNS when possible — show their argument actually HELPS your side: "Their own evidence about X actually proves our point, because..."
+- Cross-apply named warrants from your constructive: "Pull through our [Warrant Name] from argument one — it answers this directly."
+- LINK BACK TO FRAMEWORK: "Under our standard of [framework], this clash resolves in our favor because..."
+
+DROPS & EXTENSIONS:
+- If they dropped an argument, don't just note it — weaponize it: "They had no answer to [Argument Name]. Zero. That argument flows clean to our side, and here's why it matters: [explain the impact they can't contest]."
+- Extend with NEW analysis, not repetition. Add a new warrant, a new application, or new weighing.
+
+CRYSTALLIZATION (this is how you WIN):
+- "Judge, this round comes down to [1-2 questions]."
+- For each question, explain why you win it AND why it matters more than the clash you might be losing.
+- End with a clear ballot story: "Vote [your side] because even on their best day, they can't get past [your strongest argument], and that alone is sufficient under [framework]."
+${isWhip ? `
+WHIP-SPECIFIC: You are the WHIP. NO new arguments — the judge will penalize you. Your ENTIRE job is to tell the judge how to evaluate the round. Organize by ISSUES not by speech order. "The first issue in this round is [X]. Here's what both sides said, and here's why we win it." You are writing the judge's decision for them.` : ''}
+${isReply ? `
+REPLY-SPECIFIC: You are giving a REPLY speech. This is a BIASED SUMMARY — you are not being fair, you are advocating. Identify the 3-4 key issues, explain who won each (spoiler: your side), and paint the overall narrative of WHY your side wins. Be strategic about which clashes you emphasize — focus on the ones you won, minimize the ones you didn't.` : ''}` :
 
 `FOR CONSTRUCTIVE SPEECHES — mirror this exact structure spoken aloud:
 
-STEP 1 — FRAMEWORK (name it): Open with "Our framework is [Descriptive Name]." Then explain the standard in 2-3 sentences.${isFirst ? ' Example: "Our framework is Democratic Process Integrity. The standard for this debate is whatever best preserves democratic legitimacy through informed deliberation."' : ''}
+STEP 1 — FRAMEWORK (this is the most important part of your case):
+A framework is NOT a question ("what do these actors care about?"). A framework is NOT vague framing ("let's think about who's affected"). A framework is a NAMED EVALUATIVE LENS with a DECISION RULE that tells the judge exactly how to vote.
 
-STEP 2 — FRAMING POINTS under the framework (a, b, c): Give 2-3 lettered framing points that establish WHY this framework controls the round. Say the letters out loud.
+Structure it like this:
+"Our framework is [Specific Named Framework]. The standard for this debate is [concrete decision rule — a single sentence the judge can apply to determine who wins]."
+
+The decision rule must be ACTIONABLE — the judge should be able to say "whichever side better demonstrates X wins the round." If your framework doesn't give the judge a clear voting mechanism, it's not a framework.
+
+Good frameworks: "Institutional Accountability — the standard is whichever side better preserves mechanisms that hold power accountable to citizens." / "Net Welfare Maximization — vote for whichever world produces the greatest aggregate well-being." / "Rights-First Analysis — when policy conflicts with fundamental rights, the rights violation is a sufficient reason to reject."
+Bad frameworks: "What do the actors care about?" / "Let's frame this around fairness." / "We should think about who benefits." These are QUESTIONS, not frameworks. Never do this.${isFirst ? '' : ''}
+
+STEP 2 — FRAMING POINTS under the framework (a, b, c): Give 2-3 lettered framing points that PROVE why YOUR framework is the right lens for THIS debate. Each framing point should be a substantive argument for why the judge should evaluate the round through your standard and not the opponent's. Say the letters out loud.
 
 STEP 3 — ARGUMENTS (2-3 independent arguments): Each argument MUST have:
 - A clear claim with a descriptive name: "Argument one: [Descriptive Name Like 'The Coordination Failure']."
@@ -1335,25 +1391,37 @@ VARY ARGUMENT DEPTH — NOT EVERY ARGUMENT IS EQUAL:
 - Some warrants deserve 3 sentences. Others need 1. Match depth to importance.
 
 STEP 4 — EVEN-IF / PREEMPTION: For at least one argument, include: "Even if they argue [strongest opp response], our argument still holds because [mechanism]."
+${isLaterConstructive ? `
+LATER CONSTRUCTIVE RULES — YOU ARE NOT THE FIRST SPEAKER:
+- You've heard the opening speeches. Your job is 50% REBUILDING your side's case under attack and 50% ADVANCING new analysis.
+- REBUILD FIRST: Take their strongest attack on your side's opening speech and dismantle it. Show why the original arguments survive.
+- Then EXTEND: Bring new warrants, new examples, or new applications of existing arguments. Don't just repeat what your partner said — deepen it.
+- RESPOND DIRECTLY to what the previous speaker said. Name their arguments and answer them specifically.${isExtension ? `
+- EXTENSION IS MANDATORY: You are a closing team. You MUST bring a genuinely new argument or angle that opening half did not cover. This cannot be a repackaging of their points — it must be something the judge hasn't heard yet. This is how you win as a closing team.` : ''}` : ''}
 ${isFirst ? `
 Example of how this sounds spoken aloud:
-"Our framework is Institutional Trust Preservation. The standard is whatever mechanism best maintains public confidence in democratic institutions. Two framing points. a. Legitimacy Requires Perceived Fairness. Citizens comply with laws they disagree with only when they believe the process was fair. b. Trust Is Asymmetric. It takes decades to build and moments to destroy.
+"Our framework is Institutional Trust Preservation. The standard is whichever side better maintains public confidence in democratic institutions — that's your voting mechanism, judge. Two framing points. a. Legitimacy Requires Perceived Fairness. Citizens comply with laws they disagree with only when they believe the process was fair — if people think the game is rigged, compliance collapses. b. Trust Is Asymmetric. It takes decades of consistent governance to build institutional trust and a single scandal to destroy it — so the threshold for risking trust should be extremely high.
 
-Argument one: The Chilling Effect on Qualified Candidates. a. The Talent Drain warrant. When public office becomes synonymous with character assassination, qualified professionals choose private sector careers. b. The Selection Bias warrant. The only people willing to endure that environment are ideologues or the wealthy. The impact is structural democratic decay."
+Argument one: The Chilling Effect on Qualified Candidates. a. The Talent Drain warrant. When public office becomes synonymous with character assassination, qualified professionals choose private sector careers — they have better options. b. The Selection Bias warrant. The only people willing to endure that environment are ideologues immune to shame or the independently wealthy who don't need the job. The impact is structural democratic decay — the talent pool for governance shrinks every cycle."
 
-That is the level of structure, specificity, and named warrants you must hit.` : `Hit the same level of structure and named warrants as a first constructive.`}`}
+That is the level of structure, specificity, and named warrants you must hit. Notice the framework gives the judge a clear decision rule, framing points ARGUE for why that lens matters, and arguments have full causal chains.` : `Hit the same level of structure and named warrants as a first constructive.`}`}
 
 ${isConstructive ? `WARRANT QUALITY RULES:
-- Each warrant must be SPECIFIC to this motion. Generic warrants are insufficient.
-- NAME every warrant ("The Substitution Effect", not "my first point").
-- Walk through the full causal chain: X happens, actors do Y through mechanism Z, producing outcome W.
-- Use counterfactual analysis: compare "in our world" vs "in their world."` : ''}
+- Each warrant must be SPECIFIC to this motion. Ask yourself: "Could this warrant appear in a debate on a completely different topic?" If yes, it's too generic. Rewrite it with actors, mechanisms, and details unique to "${motion}".
+- NAME every warrant distinctively ("The Substitution Effect", "The Regulatory Ratchet", "The Chilling Effect on X") — not "my first point" or "the key warrant."
+- Walk through the FULL causal chain: Actor A does X, which causes mechanism Y through [specific pathway], producing outcome Z. The judge should be able to see each link in the chain.
+- Use counterfactual analysis: "In our world [specific description]. In their world [specific description]. The delta is [why ours is better]."
+- AVOID GENERIC CLAIMS: "This hurts the economy" is not a warrant. "This creates a moral hazard where banks take on excess risk because they know they'll be bailed out" IS a warrant. Always answer WHY and HOW, never just WHAT.
+- Use REAL-WORLD analogues when possible: name specific countries, policies, historical events, or studies that illustrate your mechanism. Even in parliamentary debate, concrete examples make abstract warrants credible.` : ''}
 
 STRATEGIC DEPTH:
-- Comparative weighing is mandatory. Be explicit: "Our impact outweighs on magnitude, we're talking millions versus their thousands, and on probability, because our mechanism is direct while theirs requires three contingent steps."
-- Punish drops: "They completely dropped our second argument, so extend that across the flow."
-- Strategic concessions: "Grant them X. It still doesn't get them to their impact because..."
-- Cross-reference: "Cross-apply the warrant from our first argument here."
+- COMPARATIVE WEIGHING is mandatory. Name the metric and be explicit: "Our impact outweighs on magnitude — we're talking systemic institutional collapse versus their marginal efficiency loss — and on probability, because our mechanism is direct while theirs requires three contingent steps all going right."
+- TURNS: The most powerful debate move. Show their argument actually helps YOUR side: "Their own point about [X] is actually a reason to vote for us, because [mechanism]." A turn doesn't just neutralize — it flips.
+- NO-LINK ATTACKS: Challenge whether their causal chain holds: "Even if [their premise] is true, they haven't shown HOW it leads to [their impact]. The link story is broken at step two."
+- PUNISH DROPS: "They completely dropped our [Argument Name] — extend that. Since it's uncontested, you're voting on it, Judge."
+- STRATEGIC CONCESSIONS: "Grant them [their weakest good point]. It STILL doesn't get them to their impact because [gap in their chain]." This makes you look confident and intellectually honest.
+- CROSS-APPLY: "Cross-apply The [Warrant Name] from our first argument — it directly answers their second point without me needing to re-explain it."
+- CLOSE STRONG: Your last 2-3 sentences matter as much as your first. End with either a sharp crystallization ("The ballot question is simple: [one sentence]") or a memorable line that sticks with the judge. Never trail off or end with filler.
 
 SIGNPOSTING — THE JUDGE MUST BE ABLE TO FLOW YOU:
 Signposting is NON-NEGOTIABLE. The judge is writing down your arguments in real time. If they can't follow your structure, you lose.
@@ -1367,32 +1435,36 @@ Signposting is NON-NEGOTIABLE. The judge is writing down your arguments in real 
 - NEVER narrate your own rhetorical moves ("Let me now use a powerful example to show..." / "To make this more concrete..." / "Here's why this matters..."). Just SAY the example. Just SAY why it matters. Forecasting kills momentum.
 
 VOICE & DELIVERY:
-- HOOK — Your opening line is everything. Start with a punchy, memorable hook that grabs the judge. Examples:
+- HOOK — Your opening line is everything. NEVER open with: "Thank you," "Good morning," "Alright," "So," "Let me start by..." — these are dead air. Your first word should HIT.
+${isFirst ? `  First constructive hooks:
   * A provocative question: "Judge, when was the last time a government program actually made people more free?"
   * A vivid image: "Picture a world where the algorithm decides what you eat for breakfast. That's not dystopia — that's Tuesday."
-  * A bold claim: "The opposition's entire case rests on a single assumption, and it's wrong."
-  * A concession flip: "Grant everything they just said. We still win. Here's why."
-  * A historical parallel: "In 1933, the Reichstag chose security over liberty. We all know how that ended."
-  NEVER open with: "Thank you," "Good morning," "Alright," "So," "Let me start by..." — these are dead air. Your first word should HIT.
+  * A bold claim: "Everything you're about to hear from the other side rests on one assumption, and it's wrong."
+  * A historical parallel: "In 1933, the Reichstag chose security over liberty. We all know how that ended."` :
+isRebuttal ? `  Rebuttal hooks — open by exposing the round's key tension:
+  * Expose the fatal flaw: "Judge, their entire case hangs on one link — and it just snapped."
+  * Concession flip: "Grant them everything they said. Every word. They still lose, and here's why."
+  * Round crystallization: "This round comes down to a single question, and they're on the wrong side of it."
+  * Drop callout: "They left our strongest argument completely untouched. That tells you everything."` :
+`  Later constructive hooks — respond to what happened:
+  * Attack their framework: "The ${userLabel}'s framework sounds nice until you ask one question: [question that breaks it]."
+  * Flip their strength: "They spent a lot of time on [their best point]. Ironically, it's actually a reason to vote for us."
+  * Status check: "Two speeches in, and they still haven't answered the most basic question about their case."`}
 - TRANSITIONS between arguments should be smooth and confident, not mechanical. Instead of "Moving to my second argument," use: "But it gets worse for them," or "That's the individual harm — zoom out to the systemic level," or "Now, they might think that's their strongest ground. It's not. Because..."
-- NEVER narrate what you're about to do. No "Let me now turn to..." Just DO it.
-- Reference the judge casually: "Judge, the delta in this round comes down to..."
-- Use APDA language naturally: "pull through," "cross-apply," "extend," "non-unique," "the link story is broken."
-- Sound like someone explaining passionately to a smart friend. Conversational but precise.
-- Short punchy sentences for claims. Longer ones for mechanism. Cut filler ruthlessly.
-- No bullet points, no markdown, no headers. Spoken word only. But STRUCTURED spoken word — the judge should be able to flow it.
+- NEVER narrate what you're about to do. No "Let me now turn to..." Just DO it. No "I'm going to explain why..." Just explain.
+- Reference the judge directly: "Judge, the delta in this round comes down to..." / "Here's your voting issue, Judge."
+- Use debate language naturally: "pull through," "cross-apply," "extend," "non-unique," "the link story is broken," "that argument is terminal for their case," "this is a clean win on the flow."
+- Sound like someone explaining passionately to a smart friend. Conversational but precise. Authoritative but not pompous.
+- Short punchy sentences for claims. Longer flowing sentences for mechanism. Cut filler ruthlessly — every word earns its place.
+- No bullet points, no markdown, no headers, no asterisks. Spoken word only. STRUCTURED spoken word — the judge should be able to flow it.
 
-${isFirst ? `ELEVATED VOCABULARY — IMPRESS THE JUDGE:
-- Deploy precise, high-register vocabulary — the EXACT right word for the idea, not SAT words for show.
-- Replace generic verbs with surgical ones: "undermines" → "vitiates," "shows" → "evinces," "weakens" → "attenuates," "removes" → "abrogates."
-- Use academic terminology when apt: "epistemic," "teleological," "deontological," "fungible," "incommensurable," "counterfactual," "endogenous," "prima facie," "ceteris paribus."
-- Name specific concepts: "tragedy of the commons," "moral hazard," "regulatory capture," "Rawlsian veil of ignorance," "collective action problem."
-- Vary sentence architecture: periodic sentences, tricolons, and antithesis. Sound erudite but NEVER pretentious.
-
-DEBATE BRO ENERGY — COLLOQUIAL FLAIR:
-- Code-switch between philosophical precision and real-talk: "they don't have the sauce," "this point has no aura," "their framework is mid at best," "this is where their case gets cooked."
-- Dismissive confidence when apt: "That argument is dead on arrival," "Their link chain is built on vibes, not warrants."
-- Balance: 80% precise and intellectual, 20% punchy and real. Sound like the smartest person at the party who also happens to be winning.` : ''}`;
+${isFirst ? `VOCABULARY & TONE:
+- Use precise, high-register vocabulary when it's the RIGHT word — not for show. "Vitiates" is better than "undermines" when you mean something was made legally void. "Attenuates" is better than "weakens" when you mean gradual dilution. Use elevated language to be precise, not to sound smart.
+- Name specific concepts when relevant: "tragedy of the commons," "moral hazard," "regulatory capture," "Rawlsian veil of ignorance," "collective action problem," "principal-agent problem." These show the judge you understand the underlying theory.
+- CONFIDENT, not arrogant. The best debaters sound like they're explaining something obvious to a friend, not performing for an audience. Controlled intensity — you believe what you're saying because the logic demands it.
+- Dismissive when earned: "That argument is dead on arrival" or "Their link chain doesn't survive first contact with the real world." But only when you've actually shown why — confidence without warrant is bluster.
+- Vary your energy. Not every sentence is a haymaker. Build quietly, then punch. Some of the most devastating debate moments are said calmly: "And that's the point they can't get around."
+- COLLOQUIAL FLAIR (use sparingly, ~10-15% of the speech): Code-switch between philosophical precision and real-talk. "That argument is cooked," "their framework is mid at best," "this is where their case falls apart and they know it." Dismissive confidence when you've EARNED it — after you've shown the warrant is broken, you can twist the knife. But don't lead with slang — lead with substance, punctuate with personality.` : ''}`;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1462,7 +1534,7 @@ function App(){
     tts.stop();
     try{
       const poiResponse=await callAI(
-        'You are in a parliamentary debate. The opponent just raised a Point of Information during your speech. Respond briefly (1-2 sentences max) addressing their point, then signal you are continuing your speech. Be dismissive if the POI is weak, concede gracefully if it is strong.',
+        `You are mid-speech in a ${fmt.name} debate on "${motion}". The opponent just raised a Point of Information. Respond in 1-2 sentences MAX, then get back to your speech. If the POI is weak: dismiss it sharply ("That's exactly my point — thank you for conceding it."). If it's strong: pivot without fully conceding ("Interesting, but that actually helps us because..."). NEVER say "good question" or "thank you for that." This is a debate, not a seminar.`,
         'POI: "'+poiText+'"',
         null,
         brain
@@ -1735,7 +1807,22 @@ Return your ballot as valid JSON with this exact structure:
   "overallWeaknesses": ["patterns to fix"]
 }
 
-Be honest and specific. Reference actual arguments from the transcript. Speaker points 25-30 scale (27 = average, 28 = good, 29 = excellent, 30 = near perfect). Return ONLY valid JSON, no markdown.`;
+Be BRUTALLY honest. Judge like an experienced circuit judge, not a kind teacher.
+
+JUDGING CRITERIA:
+- Did they have a clear, named framework with a decision rule? Or was it vague?
+- Were warrants specific to the motion or generic filler?
+- Did they do comparative weighing (magnitude, probability, timeframe)?
+- Did they track the flow — call out drops, extend arguments, cross-apply?
+- Did they engage with the opponent's STRONGEST arguments or dodge them?
+- Was signposting clear enough to flow?
+- Were arguments creative/clever or predictable?
+
+Reference SPECIFIC arguments from the transcript by name. Don't say "good argumentation" — say "your Coordination Failure argument was strong because [X], but your second argument about [Y] lacked a causal mechanism."
+
+Speaker points 25-30 scale (27 = average, 28 = good, 29 = excellent, 30 = near perfect). "practiceAdvice" should be a SPECIFIC drill, not generic advice — e.g. "Practice extending arguments with new warrants instead of repeating the same point" not "work on rebuttals."
+
+Return ONLY valid JSON, no markdown.`;
     try{
       let raw='';
       const fb=await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;setFeedback(chunk)},brain);
@@ -2135,7 +2222,19 @@ Be honest and specific. Reference actual arguments from the transcript. Speaker 
           setPrepHintLoading(true);setPrepHint('');if(typeof gtag==='function')gtag('event','ai_prep_coach',{format:fmt.name,side});
           try{
             const sideLabel=fmt.sideLabels[side]||side;
-            const sys=`You are a debate prep coach. The debater is ${sideLabel} on the motion: "${motion}". ${background?'Background: '+background:''} Format: ${fmt.name}. Give them 3-4 bullet-pointed argument ideas they could run. For each: a catchy argument name, one sentence on the mechanism, and the key impact. Keep it punchy — they have limited prep time. Also suggest one "gotcha" argument the opponent might use and how to preempt it. No markdown headers. Use • for bullets.`;
+            const sys=`You are an elite ${fmt.name} debate prep coach. The debater is ${sideLabel} on: "${motion}". ${background?'Background: '+background:''}
+
+Give them 3-4 argument ideas ranked by strength. For each:
+• A catchy, distinctive argument name (not generic — something flowable like "The Regulatory Ratchet" or "The Talent Drain")
+• The specific mechanism in 1-2 sentences — WHO does WHAT through WHICH pathway to cause WHAT outcome
+• The key impact and WHY it outweighs
+
+Then:
+• Suggest a FRAMEWORK with a clear decision rule that makes their arguments win
+• Warn about the 1-2 strongest opponent arguments they'll face and give a one-line preempt for each
+• If there's a clever/counterintuitive angle most debaters would miss, flag it as "💡 Sleeper arg:"
+
+Keep it punchy — they have limited prep time. No markdown headers. Use • for bullets.`;
             const hint=await callAI(sys,'Help me prep for this round.',chunk=>setPrepHint(chunk),brain);
             setPrepHint(hint);
           }catch{setPrepHint('Could not generate suggestions.')}
