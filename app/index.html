@@ -2966,6 +2966,100 @@ const ANON_LIMIT = 5;
 function getAnonUsage() { try { return parseInt(localStorage.getItem('debateos-anon-usage') || '0', 10); } catch { return 0; } }
 function incAnonUsage() { try { localStorage.setItem('debateos-anon-usage', String(getAnonUsage() + 1)); } catch {} }
 
+/* ═══════════════════════════════════════════════════
+   AI ENGINE CONFIG — same 4 brains as Debate AI
+   ═══════════════════════════════════════════════════ */
+const CASE_BRAINS = {
+  claude: { name:'Claude', desc:'Structured, analytical', endpoint:'/api/claude', model:'claude-haiku-4-5-20251001', proModel:'claude-sonnet-4-6', color:'#D97757', supportsThinking:true },
+  gpt:    { name:'GPT',    desc:'Creative, conversational', endpoint:'/api/openai-chat', model:'gpt-4o-mini', proModel:'gpt-4o', color:'#10a37f', supportsThinking:false },
+  gemini: { name:'Gemini', desc:'Fast, well-rounded', endpoint:'/api/gemini', model:'gemini-2.0-flash', proModel:'gemini-2.5-pro-preview-05-06', color:'#4285F4', supportsThinking:false },
+  grok:   { name:'Grok',   desc:'Unfiltered, witty', endpoint:'/api/grok', model:'grok-3-mini', proModel:'grok-3', color:'#fff', supportsThinking:false },
+};
+
+/* Call any AI engine — for non-Claude engines, uses simple SSE streaming */
+async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {}) {
+  // Claude has its own advanced function with thinking + continuation
+  if (!brainKey || brainKey === 'claude') return callClaude(systemPrompt, userPrompt, onChunk, opts);
+
+  const brain = CASE_BRAINS[brainKey];
+  if (!brain) return callClaude(systemPrompt, userPrompt, onChunk, opts);
+
+  // Enforce usage limits (same as callClaude)
+  const _isAnon = !__getAuthToken;
+  if (_isAnon) {
+    const used = getAnonUsage();
+    if (used >= ANON_LIMIT) throw new Error('You\'ve used all 5 free requests. Sign in and subscribe to keep generating.');
+  } else if (__currentTeam) {
+    const teamUsed = __currentTeam.usageThisPeriod || 0;
+    const teamLimit = __currentTeam.usageLimit || 5;
+    if (teamUsed >= teamLimit) throw new Error('You\'ve hit your plan limit (' + teamLimit + ' requests/month). Upgrade your plan for more.');
+  }
+  logBetaEvent('generate', { feature: opts.feature || 'case', brain: brainKey });
+
+  const isPro = __currentTeam && (__currentTeam.plan === 'individual' || __currentTeam.plan === 'team' || __currentTeam.plan === 'lifetime');
+  const model = isPro && brain.proModel ? brain.proModel : brain.model;
+  const maxTokens = opts.maxTokens || 16000;
+
+  const fullSystemPrompt = systemPrompt + buildStyleBlock();
+  const body = { model, max_tokens: maxTokens, stream: true, system: fullSystemPrompt, messages: [{ role:'user', content: userPrompt }], _feature: opts.feature || 'case' };
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (__getAuthToken) { try { const token = await __getAuthToken(); if (token) headers['Authorization'] = 'Bearer ' + token; } catch {} }
+
+  if (opts.onProgress) opts.onProgress({ phase:'thinking', percent:5 });
+
+  let response;
+  try {
+    response = await fetch(brain.endpoint, { method:'POST', headers, body:JSON.stringify(body) });
+    // Fallback to Claude if endpoint not found
+    if (response.status === 404) {
+      console.warn('[AI] ' + brain.endpoint + ' returned 404, falling back to Claude');
+      return callClaude(systemPrompt, userPrompt, onChunk, opts);
+    }
+  } catch(e) { throw new Error('Could not connect to ' + brain.name + '. Trying Claude...'); }
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    if (response.status === 429) throw new Error('Rate limited. Wait a moment and try again.');
+    throw new Error(brain.name + ' error (' + response.status + '): ' + (err || '').substring(0, 120));
+  }
+
+  const reader = response.body.getReader(), dec = new TextDecoder();
+  let fullText = '', buf = '';
+  const expectedWords = opts.expectedWords || 1200;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop() || '';
+    for (const l of lines) {
+      if (l.startsWith('data: ')) {
+        const d = l.slice(6); if (d === '[DONE]') break;
+        try {
+          const p = JSON.parse(d);
+          // OpenAI / xAI format
+          if (p.choices && p.choices[0]?.delta?.content) { fullText += p.choices[0].delta.content; if (onChunk) onChunk(fullText); }
+          // Gemini format
+          if (p.candidates && p.candidates[0]?.content?.parts) { for (const part of p.candidates[0].content.parts) { if (part.text) { fullText += part.text; if (onChunk) onChunk(fullText); } } }
+          // Claude format (in case fallback routes here)
+          if (p.type === 'content_block_delta' && p.delta?.text) { fullText += p.delta.text; if (onChunk) onChunk(fullText); }
+        } catch {}
+      }
+    }
+    if (opts.onProgress) {
+      const wordCount = fullText.split(/\s+/).length;
+      const pct = Math.min(95, Math.round(10 + (wordCount / expectedWords) * 85));
+      opts.onProgress({ phase:'writing', percent: pct });
+    }
+  }
+
+  if (opts.onProgress) opts.onProgress({ phase:'done', percent:100 });
+  // Count usage
+  if (_isAnon) { incAnonUsage(); }
+  else if (__currentTeam) { __currentTeam.usageThisPeriod = (__currentTeam.usageThisPeriod || 0) + 1; if (__refreshTeam) setTimeout(() => __refreshTeam(), 2000); }
+  return fullText;
+}
+
 async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   // Enforce usage limits
   const _isAnon = !__getAuthToken;
@@ -4135,6 +4229,7 @@ function CaseGenerator({ onSave, loadedCase, onClearLoaded, team, user, onNaviga
   const [ratingHover, setRatingHover] = useState(0);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [caseTone, setCaseTone] = useState('default');
+  const [caseBrain, setCaseBrain] = useState('claude');
   const outputRef = useRef(null);
   const streamAreaRef = useRef(null);
   const smoothReveal = useSmoothProgress(
@@ -4268,9 +4363,9 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
     try {
       const depthMaxTokens = depth === 'competition' ? 32000 : depth === 'standard' ? 16000 : 8000;
       const depthThinkBudget = depth === 'competition' ? 8000 : depth === 'standard' ? 4000 : 1024;
-      await callClaude(sysPrompt, userPrompt, (text) => {
+      await callAnyAI(sysPrompt, userPrompt, (text) => {
         throttle.update(text);
-      }, { thinkBudget: depthThinkBudget, maxTokens: depthMaxTokens, expectedWords, onProgress: (p) => setProgress(p), feature: 'case' });
+      }, caseBrain, { thinkBudget: depthThinkBudget, maxTokens: depthMaxTokens, expectedWords, onProgress: (p) => setProgress(p), feature: 'case' });
     } catch (err) {
       setError(err.message);
     }
@@ -4554,6 +4649,35 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
         ),
       ),
 
+      // AI Brain selector
+      React.createElement('div',{style:{marginTop:16}},
+        React.createElement('label',{className:'field-label',style:{display:'flex',alignItems:'center',gap:8}},
+          'AI Brain',
+          caseBrain !== 'claude' && React.createElement('span',{style:{fontSize:'.6rem',color:CASE_BRAINS[caseBrain]?.color||'#fff',opacity:.7}},CASE_BRAINS[caseBrain]?.desc),
+        ),
+        React.createElement('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+          Object.entries(CASE_BRAINS).map(function(entry) {
+            var key = entry[0], brain = entry[1];
+            var isActive = caseBrain === key;
+            return React.createElement('button',{
+              key:key,
+              onClick:function() { setCaseBrain(key); },
+              style:{
+                padding:'8px 16px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',
+                transition:'.2s',fontSize:'.82rem',fontWeight:isActive?700:500,
+                background:isActive?brain.color+'18':'#ffffff06',
+                border:'1px solid '+(isActive?brain.color+'55':'#ffffff22'),
+                color:isActive?brain.color:'#94a3b8',
+                display:'flex',alignItems:'center',gap:6,
+              },
+            },
+              React.createElement('span',{style:{width:8,height:8,borderRadius:'50%',background:brain.color,display:'inline-block',opacity:isActive?1:.4}}),
+              brain.name,
+            );
+          })
+        ),
+      ),
+
       // Generate buttons
       React.createElement('div',{className:'btn-row'},
         React.createElement('button',{
@@ -4563,7 +4687,7 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
         }, checkingContext ?
           React.createElement('span',null,React.createElement('span',{className:'spinner'}),t('caseGen.checkingContext','Checking context...')) :
           loading && mode==='case' ?
-          React.createElement('span',null,React.createElement('span',{className:'spinner'}),t('caseGen.generatingCase','Generating Case...')) :
+          React.createElement('span',null,React.createElement('span',{className:'spinner'}),t('caseGen.generatingCase','Generating via '+(CASE_BRAINS[caseBrain]?.name||'Claude')+'...')) :
           t('caseGen.generateCase','Generate Case')
         ),
         React.createElement('button',{
@@ -4571,7 +4695,7 @@ Think about: Does Opp have ground? Can they run a counter-case? Are the caveats 
           onClick:()=>{ checkContext('tightblock'); setSaved(false); },
           disabled:loading || checkingContext
         }, loading && mode==='tightblock' ?
-          React.createElement('span',null,React.createElement('span',{className:'spinner'}),t('caseGen.generatingOpposition','Generating Opposition...')) :
+          React.createElement('span',null,React.createElement('span',{className:'spinner'}),t('caseGen.generatingOpposition','Generating via '+(CASE_BRAINS[caseBrain]?.name||'Claude')+'...')) :
           t('caseGen.generateOpposition','Generate Opposition')
         ),
       ),
