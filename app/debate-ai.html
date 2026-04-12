@@ -198,6 +198,27 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 .limit-warn{font-size:.78rem;color:#ef4444;margin-top:16px;opacity:.7}
 .limit-warn a{color:#ef4444;text-decoration:underline}
 
+/* ── Scroll affordance for transcript boxes ── */
+.transcript-box{
+  position:relative;
+}
+.transcript-box::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:32px;
+  background:linear-gradient(transparent,rgba(0,0,0,.6));pointer-events:none;
+  border-radius:0 0 12px 12px;
+}
+.transcript-box::-webkit-scrollbar{width:4px}
+.transcript-box::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+
+/* ── Speech phase buttons — bigger touch targets ── */
+.speech-btn{min-height:48px;min-width:120px;font-size:.88rem !important;padding:14px 28px !important}
+
+/* ── Session recovery banner ── */
+.recovery-banner{
+  padding:16px 20px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);
+  border-radius:14px;max-width:480px;margin:0 auto 20px;text-align:center;
+}
+
 /* ── Responsive ────────────────────── */
 @media(max-width:640px){
   .bar{padding:14px 16px}
@@ -207,14 +228,19 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   .orb-wrap{width:200px;height:200px}
   canvas.orb{width:160px;height:160px}
   .float-input{padding:16px}
-  .cta{padding:14px 36px;font-size:.82rem}
+  .cta{padding:16px 36px;font-size:.88rem;min-height:48px}
   .pill{padding:12px 18px;font-size:.8rem;min-height:44px}
-  .cta-ghost{padding:14px 28px;min-height:44px}
+  .cta-ghost{padding:14px 28px;min-height:48px}
+  .speech-btn{min-height:56px;min-width:140px;font-size:.95rem !important;padding:16px 32px !important}
   .t-label{font-size:.72rem}
   .pip-code{font-size:.72rem}
   .progress-bar{gap:4px}
   .pip-bar{width:28px}
   .kb-hint{display:none}
+  .mobile-hint{display:block}
+}
+@media(min-width:641px){
+  .mobile-hint{display:none}
 }
 @media(max-width:480px){
   .bar{padding:10px 12px}
@@ -222,6 +248,7 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   .bar-links a{font-size:.65rem}
   .orb-wrap{width:160px;height:160px}
   .center{padding-top:70px}
+  .speech-btn{min-height:56px;min-width:100%;font-size:1rem !important;padding:18px 32px !important}
 }
 /* ── Round History ────────────────── */
 .history-panel{
@@ -1005,40 +1032,7 @@ function useTTS(){
     setTimeout(next,50);
   });
 
-  // ── Main speak: single-shot, simple ──
-  const speak=(text,wpm=180,onEnd,voiceName='onyx',onStart)=>{
-    cancelledRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
-    onEndRef.current=onEnd;
-    progressRef.current={elapsed:0,total:0};
-    const speed=Math.max(0.75,Math.min(2.0,wpm/140));
-    (async()=>{
-      try{
-        modeRef.current='openai';
-        const blob=await fetchTTS(text,speed,voiceName);
-        if(cancelledRef.current) return;
-        if(onStart) onStart();
-        const audio=new Audio(URL.createObjectURL(blob));
-        audioRef.current=audio;
-        audio.playbackRate=rateRef.current;
-        audio.ontimeupdate=()=>{
-          progressRef.current.elapsed=audio.currentTime||0;
-          progressRef.current.total=audio.duration||0;
-        };
-        await new Promise((res,rej)=>{
-          audio.onended=res;audio.onerror=rej;
-          audio.play().catch(rej);
-        });
-      }catch(e){
-        console.warn('[TTS] Failed:',e.message,'— browser fallback');
-        if(!cancelledRef.current){
-          modeRef.current='browser';
-          if(onStart) onStart();
-          await speakBrowser(text,Math.max(0.5,Math.min(2.5,wpm/140)));
-        }
-      }
-      if(!cancelledRef.current){setSpeaking(false);setStreamStatus('');if(onEndRef.current)onEndRef.current()}
-    })();
-  };
+  // speak is now defined below as speakWithError (with error surfacing)
 
   // ── playChunks: play an array of blob promises sequentially, starting ASAP ──
   const playChunks=(blobPromises,onEnd,onStart)=>{
@@ -1120,7 +1114,46 @@ function useTTS(){
 
   const getProgress=()=>progressRef.current;
 
-  return{speak,playChunks,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime,streamStatus};
+  const[ttsError,setTtsError]=useState('');
+
+  // Wrap speak to surface errors
+  const speakWithError=(text,wpm=180,onEnd,voiceName='onyx',onStart)=>{
+    setTtsError('');
+    cancelledRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
+    onEndRef.current=onEnd;
+    progressRef.current={elapsed:0,total:0};
+    const speed=Math.max(0.75,Math.min(2.0,wpm/140));
+    (async()=>{
+      try{
+        modeRef.current='openai';
+        const blob=await fetchTTS(text,speed,voiceName);
+        if(cancelledRef.current) return;
+        if(onStart) onStart();
+        const audio=new Audio(URL.createObjectURL(blob));
+        audioRef.current=audio;
+        audio.playbackRate=rateRef.current;
+        audio.ontimeupdate=()=>{
+          progressRef.current.elapsed=audio.currentTime||0;
+          progressRef.current.total=audio.duration||0;
+        };
+        await new Promise((res,rej)=>{
+          audio.onended=res;audio.onerror=rej;
+          audio.play().catch(rej);
+        });
+      }catch(e){
+        console.warn('[TTS] Failed:',e.message,'— browser fallback');
+        setTtsError('HD voice failed ('+e.message+') — using browser voice');
+        if(!cancelledRef.current){
+          modeRef.current='browser';
+          if(onStart) onStart();
+          await speakBrowser(text,Math.max(0.5,Math.min(2.5,wpm/140)));
+        }
+      }
+      if(!cancelledRef.current){setSpeaking(false);setStreamStatus('');setTtsError('');if(onEndRef.current)onEndRef.current()}
+    })();
+  };
+
+  return{speak:speakWithError,playChunks,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime,streamStatus,ttsError};
 }
 
 function useRecognition(){
@@ -1128,10 +1161,12 @@ function useRecognition(){
   const txtRef=useRef('');
   const[transcript,setTranscript]=useState('');
   const aliveRef=useRef(false);
+  const[micAvailable,setMicAvailable]=useState(true);
+  const[micError,setMicError]=useState('');
 
   const start=()=>{
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR)return;
+    if(!SR){setMicAvailable(false);setMicError('Speech recognition not supported in this browser. Type your argument below.');return}
     const r=new SR();r.continuous=true;r.interimResults=true;r.lang='en-US';
     r.onresult=e=>{
       let f='',int='';
@@ -1142,13 +1177,18 @@ function useRecognition(){
       txtRef.current=f;setTranscript(f+int);
     };
     r.onend=()=>{if(aliveRef.current)try{r.start()}catch{}};
-    r.onerror=()=>{};
+    r.onerror=(e)=>{
+      if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+        setMicAvailable(false);setMicError('Mic permission denied. Type your argument below.');
+      }
+    };
     recRef.current=r;aliveRef.current=true;
-    txtRef.current='';setTranscript('');
-    try{r.start()}catch{};
+    txtRef.current='';setTranscript('');setMicError('');
+    try{r.start()}catch(e){setMicAvailable(false);setMicError('Could not start mic. Type your argument below.')};
   };
   const stop=()=>{aliveRef.current=false;if(recRef.current)try{recRef.current.stop()}catch{};return txtRef.current};
-  return{transcript,start,stop,getText:()=>txtRef.current};
+  const setManualText=(text)=>{txtRef.current=text;setTranscript(text)};
+  return{transcript,start,stop,getText:()=>txtRef.current,micAvailable,micError,setManualText};
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1165,6 +1205,8 @@ function useTimer(){
 
   const go=(secs,onDone)=>{cbRef.current=onDone;setLeft(secs);setOn(true)};
   const halt=()=>{setOn(false)};
+  const pause=()=>{setOn(false)};
+  const resume=()=>{if(left>0)setOn(true)};
   const reset=()=>{setOn(false);setLeft(0)};
 
   useEffect(()=>{
@@ -1182,7 +1224,7 @@ function useTimer(){
   },[on]);
 
   const fmt=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
-  return{left,on,go,halt,reset,fmt};
+  return{left,on,go,halt,pause,resume,reset,fmt};
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1546,6 +1588,7 @@ function App(){
   const[showTx,setShowTx]=useState(false);
   const[prepHint,setPrepHint]=useState('');
   const[prepHintLoading,setPrepHintLoading]=useState(false);
+  const[notesSaved,setNotesSaved]=useState(false);
   // revealIdx removed — transcript is plain text now
 
   // POI (Points of Information) state
@@ -1563,11 +1606,112 @@ function App(){
   });
   const[viewingRound,setViewingRound]=useState(null);
 
+  // Saved cases library
+  const[savedCases,setSavedCases]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem('debateos-saved-cases')||'[]')}catch{return[]}
+  });
+  const[showCases,setShowCases]=useState(false);
+  const[viewingCase,setViewingCase]=useState(null);
+  const[caseSaved,setCaseSaved]=useState(false); // flash "Saved!" in feedback phase
+
+  const saveCase=(customTitle)=>{
+    // Extract AI constructive speeches from the log
+    const aiSpeeches=log.filter(l=>l.who==='AI');
+    if(aiSpeeches.length===0) return;
+    const fmt=FORMATS[format]||FORMATS.apda;
+    const sideLabel=fmt.sideLabels[side]||side;
+    const aiSide=fmt.sides.find(s=>s!==side)||'opp';
+    const aiSideLabel=fmt.sideLabels[aiSide]||aiSide;
+    const c={
+      id:Date.now(),
+      date:new Date().toISOString(),
+      motion,format,
+      formatName:fmt.name,
+      side:aiSide,
+      sideLabel:aiSideLabel,
+      title:customTitle||motion.slice(0,80),
+      brain,
+      speeches:aiSpeeches.map(s=>({code:s.code,text:s.text})),
+      fullText:aiSpeeches.map(s=>s.text).join('\n\n'),
+    };
+    const updated=[c,...savedCases].slice(0,100);
+    setSavedCases(updated);
+    try{localStorage.setItem('debateos-saved-cases',JSON.stringify(updated))}catch{}
+    setCaseSaved(true);
+    setTimeout(()=>setCaseSaved(false),2000);
+    if(typeof gtag==='function')gtag('event','save_case',{format:fmt.name,side:aiSide});
+  };
+
+  const deleteCase=(id)=>{
+    const updated=savedCases.filter(c=>c.id!==id);
+    setSavedCases(updated);
+    try{localStorage.setItem('debateos-saved-cases',JSON.stringify(updated))}catch{}
+    if(viewingCase&&viewingCase.id===id)setViewingCase(null);
+  };
+
+  const copyCase=(c)=>{
+    const txt=`CASE: ${c.title}\nFormat: ${c.formatName} | Side: ${c.sideLabel}\nDate: ${new Date(c.date).toLocaleDateString()}\n${'─'.repeat(40)}\n\n${c.fullText}`;
+    navigator.clipboard.writeText(txt).catch(()=>{});
+  };
+
   const orb=useOrb();
   const rec=useRecognition();
   const tts=useTTS();
   const timer=useTimer();
   const prepTimer=useTimer();
+
+  // ── Session recovery state ──
+  const[recoveryData,setRecoveryData]=useState(()=>{
+    try{const d=localStorage.getItem('debateos-session');return d?JSON.parse(d):null}catch{return null}
+  });
+
+  // Auto-save round state every 30s during speech phase
+  useEffect(()=>{
+    if(phase!=='speech'&&phase!=='prep') return;
+    const save=()=>{
+      try{
+        localStorage.setItem('debateos-session',JSON.stringify({
+          phase,motion,format,side,brain,voice,wpm,idx,log,notes,
+          oppStrengths,oppWeaknesses,background,
+          timestamp:Date.now()
+        }));
+      }catch{}
+    };
+    save(); // save immediately on phase enter
+    const iv=setInterval(save,30000);
+    return()=>clearInterval(iv);
+  },[phase,idx,log.length]);
+
+  // Clear session on round complete or new round
+  const clearSession=()=>{try{localStorage.removeItem('debateos-session')}catch{}};
+
+  // Resume from saved session
+  const resumeSession=()=>{
+    if(!recoveryData) return;
+    setMotion(recoveryData.motion||'');
+    setFormat(recoveryData.format||'apda');
+    setSide(recoveryData.side||'gov');
+    setBrain(recoveryData.brain||'claude');
+    setVoice(recoveryData.voice||'onyx');
+    setWpm(recoveryData.wpm||180);
+    setOppStrengths(recoveryData.oppStrengths||[]);
+    setOppWeaknesses(recoveryData.oppWeaknesses||[]);
+    setBackground(recoveryData.background||'');
+    setNotes(recoveryData.notes||'');
+    if(recoveryData.phase==='speech'&&recoveryData.log?.length>0){
+      setLog(recoveryData.log);
+      setIdx(recoveryData.idx||0);
+      transition('speech',()=>{
+        const nextIdx=recoveryData.idx||0;
+        setIdx(nextIdx);
+        setTimeout(()=>runSpeech(nextIdx,recoveryData.log),400);
+      });
+    } else {
+      transition('prep',()=>prepTimer.go((FORMATS[recoveryData.format]||FORMATS.apda).prep));
+    }
+    setRecoveryData(null);
+  };
+  const dismissRecovery=()=>{setRecoveryData(null);clearSession()};
 
   // POI: user sends a POI during AI speech
   const sendPOI=async()=>{
@@ -1788,6 +1932,7 @@ function App(){
 
     const next=idx+1;
     if(next>=SPEECHES.length){
+      clearSession();
       if(typeof gtag==='function')gtag('event','round_complete',{format:fmt.name,side,speeches:SPEECHES.length});
       transition('feedback',()=>genFeedback(newLog));
     } else {
@@ -1802,7 +1947,7 @@ function App(){
       // Don't intercept when typing in a textarea/input
       if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
       if(phase==='speech'){
-        if(e.code==='Space'){e.preventDefault();if(tts.speaking)tts.togglePause()}
+        if(e.code==='Space'){e.preventDefault();if(tts.speaking){const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}}
         if(e.code==='Escape'||e.code==='ArrowRight'){e.preventDefault();endSpeech()}
       }
       if(phase==='prep'){
@@ -1968,7 +2113,7 @@ Return ONLY valid JSON, no markdown.`;
   };
 
   // Reset
-  const newRound=()=>transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setFormat('apda');setOppStrengths([]);setOppWeaknesses([])});
+  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false)})};
 
   /* ─── RENDER ─────────────────────── */
 
@@ -2022,6 +2167,18 @@ Return ONLY valid JSON, no markdown.`;
     el('div',{className:stageClass},
       el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
       el('p',{className:'t-sub'},'Choose your format, opponent, and go.'),
+
+      // Session recovery banner
+      recoveryData&&(Date.now()-recoveryData.timestamp<3600000)&&el('div',{className:'recovery-banner'},
+        el('div',{style:{fontSize:'.85rem',fontWeight:700,color:'rgba(255,255,255,.7)',marginBottom:6}},'Resume unfinished round?'),
+        el('div',{style:{fontSize:'.75rem',color:'rgba(255,255,255,.4)',marginBottom:12}},
+          '"'+(recoveryData.motion||'').slice(0,60)+'" — '+(FORMATS[recoveryData.format]||FORMATS.apda).name+' — Speech '+(recoveryData.idx+1)
+        ),
+        el('div',{style:{display:'flex',gap:8,justifyContent:'center'}},
+          el('button',{className:'cta-ghost',style:{marginTop:0,padding:'8px 20px',background:'rgba(59,130,246,.15)',borderColor:'rgba(59,130,246,.3)',color:'#3b82f6'},onClick:resumeSession},'Resume'),
+          el('button',{className:'cta-ghost',style:{marginTop:0,padding:'8px 20px',opacity:.5},onClick:dismissRecovery},'Dismiss'),
+        ),
+      ),
 
       // Format
       el('div',{className:'t-label',style:{marginTop:8}},'Format'),
@@ -2146,9 +2303,14 @@ Return ONLY valid JSON, no markdown.`;
 
       el('button',{className:'cta',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
 
-      // Past Rounds button
-      historyRounds.length>0&&el('button',{className:'cta-ghost',style:{marginTop:16},onClick:()=>setShowHistory(true)},
-        '📋 Past Rounds ('+historyRounds.length+')'
+      // Past Rounds & Saved Cases buttons
+      el('div',{className:'row-c',style:{marginTop:16,flexWrap:'wrap'}},
+        historyRounds.length>0&&el('button',{className:'cta-ghost',onClick:()=>setShowHistory(true)},
+          '📋 Past Rounds ('+historyRounds.length+')'
+        ),
+        savedCases.length>0&&el('button',{className:'cta-ghost',onClick:()=>setShowCases(true)},
+          '💾 Saved Cases ('+savedCases.length+')'
+        ),
       ),
     ),
 
@@ -2242,6 +2404,65 @@ Return ONLY valid JSON, no markdown.`;
         ),
       ),
     ),
+
+    // Saved Cases panel overlay
+    showCases&&el('div',{className:'history-panel'},
+      el('div',{className:'history-grid'},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}},
+          el('h2',{style:{fontSize:'1.4rem',fontWeight:800,letterSpacing:'-.03em'}},
+            viewingCase?'Case Detail':'Saved Cases'
+          ),
+          el('button',{className:'cta-ghost',style:{fontSize:'.75rem',padding:'6px 14px'},onClick:()=>{setShowCases(false);setViewingCase(null)}},'✕ Close'),
+        ),
+
+        viewingCase?el('div',{className:'history-detail'},
+          el('button',{className:'cta-ghost',style:{marginTop:0,marginBottom:16},onClick:()=>setViewingCase(null)},'← Back'),
+          el('div',{style:{marginBottom:20}},
+            el('div',{style:{fontSize:'1.1rem',fontWeight:700,color:'rgba(255,255,255,.7)',marginBottom:6}},'"'+viewingCase.motion+'"'),
+            el('div',{className:'hc-meta'},
+              el('span',null,viewingCase.formatName),
+              el('span',null,viewingCase.sideLabel),
+              el('span',null,BRAINS[viewingCase.brain]?.name||viewingCase.brain),
+              el('span',null,new Date(viewingCase.date).toLocaleDateString()),
+            ),
+          ),
+          viewingCase.speeches.map((s,i)=>el('div',{key:i,className:'hd-speech'},
+            el('div',{className:'hd-who ai'},s.code),
+            el('div',{className:'hd-text'},s.text),
+          )),
+          el('div',{className:'row-c',style:{marginTop:20,flexWrap:'wrap'}},
+            el('button',{className:'cta-ghost',onClick:()=>{
+              setNotes(viewingCase.fullText);
+              try{localStorage.setItem('debateos-prep-notes',viewingCase.fullText)}catch{};
+              setMotion(viewingCase.motion);
+              setShowCases(false);setViewingCase(null);
+            }},'📝 Load as Prep'),
+            el('button',{className:'cta-ghost',onClick:()=>copyCase(viewingCase)},'📋 Copy Case'),
+            el('button',{className:'cta-ghost',onClick:()=>{
+              const txt=`CASE: ${viewingCase.title}\nFormat: ${viewingCase.formatName} | Side: ${viewingCase.sideLabel}\nDate: ${new Date(viewingCase.date).toLocaleDateString()}\n${'─'.repeat(40)}\n\n${viewingCase.fullText}`;
+              const blob=new Blob([txt],{type:'text/plain'});
+              const url=URL.createObjectURL(blob);
+              const a=document.createElement('a');a.href=url;
+              a.download=`case-${viewingCase.motion.slice(0,30).replace(/[^a-zA-Z0-9]+/g,'-')}.txt`;
+              document.body.appendChild(a);a.click();document.body.removeChild(a);
+            }},'⬇ Download'),
+            el('button',{className:'cta-ghost',style:{color:'#ef4444',borderColor:'rgba(239,68,68,.3)'},onClick:()=>deleteCase(viewingCase.id)},'Delete'),
+          ),
+        ):el(React.Fragment,null,
+          savedCases.length===0?el('div',{style:{textAlign:'center',color:'rgba(255,255,255,.3)',padding:'40px 0'}},'No saved cases yet. After a round, click "Save Case" to store it here.'):
+          savedCases.map(c=>el('div',{key:c.id,className:'history-card',onClick:()=>setViewingCase(c)},
+            el('div',{className:'hc-motion'},'"'+c.motion+'"'),
+            el('div',{className:'hc-meta'},
+              el('span',null,c.formatName),
+              el('span',null,c.sideLabel),
+              el('span',null,BRAINS[c.brain]?.name||c.brain),
+              el('span',null,new Date(c.date).toLocaleDateString()),
+              el('span',null,c.speeches.length+' speech'+(c.speeches.length>1?'es':'')),
+            ),
+          )),
+        ),
+      ),
+    ),
   );
 
   // ── PREP ──
@@ -2256,7 +2477,10 @@ Return ONLY valid JSON, no markdown.`;
         el('span',{style:{color:'rgba(255,255,255,.25)',fontSize:'.8rem'}},fmt.name),
         el('div',{style:{color:'rgba(255,255,255,.5)',marginTop:6}},motion),
       ),
-      el('textarea',{className:'float-input',rows:8,placeholder:'Brainstorm your arguments...',value:notes,onChange:e=>{setNotes(e.target.value);try{localStorage.setItem('debateos-prep-notes',e.target.value)}catch{}},autoFocus:true,style:{maxWidth:480}}),
+      el('div',{style:{position:'relative',maxWidth:480,margin:'0 auto'}},
+        el('textarea',{className:'float-input',rows:8,placeholder:'Brainstorm your arguments...',value:notes,onChange:e=>{setNotes(e.target.value);try{localStorage.setItem('debateos-prep-notes',e.target.value)}catch{};setNotesSaved(true);setTimeout(()=>setNotesSaved(false),1200)},autoFocus:true,style:{width:'100%'}}),
+        notesSaved&&el('div',{style:{position:'absolute',top:8,right:12,fontSize:'.65rem',color:'#22c55e',fontWeight:700,opacity:1,transition:'opacity .3s',pointerEvents:'none'}},'Saved!'),
+      ),
 
       // AI Prep Coach
       el('div',{style:{display:'flex',gap:8,justifyContent:'center',marginTop:12}},
@@ -2317,11 +2541,31 @@ Keep it punchy — they have limited prep time. No markdown headers. Use • for
         // Speech info
         el('div',{className:'t-label'},isUser?'Your Turn':'AI Speaking'),
         el('div',{className:'t-phase'},cur.code+' — '+cur.name),
-        el('div',{className:'t-dim',style:{marginBottom:24}},
-          isUser?'Speak now — your voice is being transcribed':
+        el('div',{className:'t-dim',style:{marginBottom:12}},
+          isUser?(rec.micAvailable?'Speak now — your voice is being transcribed':rec.micError):
           aiLoading==='voice'?(tts.streamStatus||'Preparing HD voice...'):
           aiLoading?'Writing argument via '+(BRAINS[brain]||BRAINS.claude).name+(isPro()?' ⚡ Pro':'')+' ... '+aiPct+'%':
           tts.paused?'Paused':'🔴 LIVE — Timer running'
+        ),
+
+        // TTS error banner
+        !isUser&&tts.ttsError&&el('div',{style:{padding:'8px 14px',background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.2)',borderRadius:10,maxWidth:400,margin:'0 auto 12px',fontSize:'.75rem',color:'#f59e0b',textAlign:'center'}},tts.ttsError),
+
+        // Mic fallback: text input when mic unavailable
+        isUser&&!rec.micAvailable&&el('textarea',{
+          className:'float-input',rows:4,
+          placeholder:'Type your argument here...',
+          value:rec.transcript,
+          onChange:e=>rec.setManualText(e.target.value),
+          style:{maxWidth:480,margin:'0 auto 16px',display:'block',fontSize:'.9rem'},
+          autoFocus:true,
+        }),
+
+        // POI availability indicator during user speech
+        isUser&&fmt.poi&&el('div',{style:{fontSize:'.65rem',color:'rgba(255,255,255,.25)',textAlign:'center',marginBottom:8}},
+          timer.left>(cur.time-60)?'POIs available in '+Math.max(0,timer.left-(cur.time-60))+'s':
+          timer.left<60?'POI window closed':
+          '🖐 POIs are active — opponent may rise'
         ),
 
         // Adaptive scouting report — show user what the AI detected
@@ -2388,8 +2632,12 @@ Keep it punchy — they have limited prep time. No markdown headers. Use • for
 
         // Controls
         el('div',{className:'row-c'},
-          !isUser&&tts.speaking&&el('button',{className:'cta-ghost',onClick:tts.togglePause},tts.paused?'▶ Resume':'⏸ Pause'),
-          el('button',{className:'cta-ghost',onClick:endSpeech},isUser?'End Speech →':'Skip →'),
+          !isUser&&tts.speaking&&el('button',{className:'cta-ghost speech-btn',onClick:()=>{const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}},tts.paused?'▶ Resume':'⏸ Pause'),
+          el('button',{className:'cta-ghost speech-btn',onClick:endSpeech},isUser?'End Speech →':'Skip →'),
+        ),
+        // Mobile-friendly hint (replaces keyboard-only hints)
+        el('div',{className:'mobile-hint',style:{fontSize:'.6rem',color:'rgba(255,255,255,.15)',marginTop:8,textAlign:'center'}},
+          !isUser&&tts.speaking?'Tap Pause or press Space':'Tap End Speech or press Escape'
         ),
       )
     );
@@ -2478,8 +2726,11 @@ Keep it punchy — they have limited prep time. No markdown headers. Use • for
           ),
         ),
 
-        // Fallback: raw text if JSON parse failed
-        !b&&feedback&&el('div',{className:'fb-card'},el('div',{className:'feedback-text'},feedback)),
+        // Fallback: raw text if JSON parse failed + retry button
+        !b&&feedback&&el('div',null,
+          el('div',{className:'fb-card'},el('div',{className:'feedback-text'},feedback)),
+          el('button',{className:'cta-ghost',style:{marginTop:12,display:'block',margin:'12px auto'},onClick:()=>genFeedback(log)},'🔄 Retry Judge Feedback'),
+        ),
 
         el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
         showTx&&el('div',{className:'transcript-box',style:{maxHeight:360}},log.map(l=>'['+l.code+' — '+l.who+']\n'+l.text).join('\n\n---\n\n')),
@@ -2487,6 +2738,7 @@ Keep it punchy — they have limited prep time. No markdown headers. Use • for
         el('div',{className:'row-c',style:{marginTop:28,flexWrap:'wrap'}},
           el('button',{className:'cta-ghost',onClick:copyAll},'📋 Copy'),
           el('button',{className:'cta-ghost',onClick:()=>downloadRound(motion,format,side,log,feedback,ballot)},'⬇ Download .txt'),
+          el('button',{className:'cta-ghost',onClick:()=>saveCase(),style:caseSaved?{background:'rgba(34,197,94,.15)',borderColor:'#22c55e',color:'#22c55e'}:{}},caseSaved?'✓ Case Saved':'💾 Save Case'),
           el('button',{className:'cta',style:{marginTop:0},onClick:newRound},'New Round'),
         ),
       )
