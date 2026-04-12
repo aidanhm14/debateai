@@ -503,9 +503,9 @@ const FORMATS = {
     ],
     rules: {
       AC:'You are Affirmative. Present your value, criterion, and 2-3 contentions supporting the resolution.',
-      CX1:'You are Negative doing cross-examination. Ask probing questions to expose weaknesses in the Aff case. Write as a series of questions with brief follow-ups.',
+      CX1:'You are Negative doing cross-examination. Your goal is to TRAP the Affirmative — get them to concede something you can weaponize in your NC. Ask a sequence of 5-8 questions. Start with innocent setup questions they MUST say yes to, then tighten the noose until they either contradict themselves or concede your point. Each question should build on the previous answer. Include brief parenthetical notes on what you are setting up, e.g. "(setting up the link turn for NC arg 1)". Classic CX traps: force a dichotomy, expose a missing link in their chain, get them to admit their impact is reversible, or reveal their framework excludes a critical consideration.',
       NC:'You are Negative. Present your value, criterion, and contentions. Also directly refute the Affirmative case.',
-      CX2:'You are Affirmative doing cross-examination. Ask strategic questions to set up your rebuttals. Write as a series of questions.',
+      CX2:'You are Affirmative doing cross-examination of the Negative. Your goal is to set up your 1AR — get concessions you can reference later. Ask 5-8 questions. Use the funnel technique: broad philosophical questions first, then narrow to the specific contradiction. Try to: get them to admit their framework is compatible with yours (then you win on framework), expose that their counterplan/alternative doesn\'t solve their own impacts, or force them to choose between two of their arguments that conflict. Include brief parenthetical setup notes.',
       '1AR':'You are Aff giving first rebuttal. Rebuild your case, answer Neg attacks, show why your framework wins.',
       NR:'You are Negative rebuttal. Extend your best arguments, crystallize voting issues, explain why Neg wins.',
       '2AR':'You are Aff giving final rebuttal. Last speech — crystallize the round, final voting issues. NO new arguments.',
@@ -1230,17 +1230,22 @@ function buildOpponentModel(currentLog, historyRounds, userSide){
   const patterns=[];
 
   // Detect argument style tendencies
-  if(userText.match(/framework|standard|criterion/gi)?.length>2) patterns.push('relies heavily on framework-level debate');
-  if(userText.match(/example|instance|case study|real.?world/gi)?.length>2) patterns.push('uses lots of real-world examples');
-  if(userText.match(/emotion|feel|suffer|pain|human cost/gi)?.length>2) patterns.push('leans on emotional/pathos appeals');
-  if(userText.match(/study|data|percent|statistic|research/gi)?.length>2) patterns.push('evidence-heavy, cites data');
-  if(userText.match(/rights?|freedom|autonomy|liberty|dignity/gi)?.length>2) patterns.push('frames arguments through rights/deontological lens');
-  if(userText.match(/consequen|utilitar|outcome|result|effect/gi)?.length>2) patterns.push('consequentialist/utilitarian framing');
+  if(userText.match(/framework|standard|criterion/gi)?.length>2) patterns.push('relies heavily on framework-level debate — challenge their framework directly or show yours subsumes it');
+  if(userText.match(/example|instance|case study|real.?world/gi)?.length>2) patterns.push('uses lots of real-world examples — attack the examples as disanalogous or cherry-picked');
+  if(userText.match(/emotion|feel|suffer|pain|human cost/gi)?.length>2) patterns.push('leans on emotional/pathos appeals — counter with structural analysis and mechanism');
+  if(userText.match(/study|data|percent|statistic|research/gi)?.length>2) patterns.push('evidence-heavy — question the methodology or show the data cuts both ways');
+  if(userText.match(/rights?|freedom|autonomy|liberty|dignity/gi)?.length>2) patterns.push('frames through rights/deontological lens — argue rights conflict or that consequences override in this context');
+  if(userText.match(/consequen|utilitar|outcome|result|effect/gi)?.length>2) patterns.push('consequentialist framing — introduce a rights-based or principled objection they cannot weigh against');
+  if(userText.match(/moral hazard|incentiv|rational|actor/gi)?.length>1) patterns.push('uses economic/rational actor reasoning — show where human behavior deviates from rational models');
+  if(userText.match(/slippery slope|inevitable|always leads|will become/gi)?.length>1) patterns.push('prone to slippery slope reasoning — challenge the mechanism at each step');
 
   // Detect structural tendencies
-  if(!userText.match(/weigh|outweigh|magnitude|probability|timeframe/gi)) patterns.push('DOES NOT WEIGH — exploit this by doing extensive comparative weighing');
-  if(!userText.match(/even if|grant|concede/gi)) patterns.push('does not use strategic concessions or preemption');
-  if(!userText.match(/drop|extend|pull through|cross.?apply/gi)) patterns.push('does not track the flow or call out drops');
+  if(!userText.match(/weigh|outweigh|magnitude|probability|timeframe/gi)) patterns.push('DOES NOT WEIGH — exploit this by doing extensive comparative weighing on every clash');
+  if(!userText.match(/even if|grant|concede/gi)) patterns.push('does not use strategic concessions or preemption — use even-if arguments to show your case is resilient');
+  if(!userText.match(/drop|extend|pull through|cross.?apply/gi)) patterns.push('does not track the flow — call out their drops loudly and extend your untouched arguments');
+  if(!userText.match(/framework|standard|criterion|lens/gi)) patterns.push('DID NOT SET A FRAMEWORK — set one aggressively and make all arguments flow through your standard');
+  if(!userText.match(/impact|harm|benefit|consequence|affect/gi)) patterns.push('WEAK ON IMPACTS — their arguments lack terminal impacts, punish this by showing your impacts are concrete and theirs are vague');
+  if(userText.split(/\s+/).length < 100 && userSpeeches.length > 0) patterns.push('VERY SHORT SPEECHES — they are underutilizing their time, point this out to the judge as lack of substantive engagement');
 
   // Check history for broader patterns
   if(historyRounds && historyRounds.length >= 3){
@@ -1278,7 +1283,13 @@ function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,di
   const opponentModel=buildOpponentModel(currentLog||[],historyRounds||[],userSide);
 
   const steelmanInstruction=history?`
-STEELMANNING: Always engage your opponent's STRONGEST interpretation. State their best case, then defeat it through comparative weighing (magnitude, probability, timeframe, reversibility). Never strawman.`:'';
+STEELMANNING — NON-NEGOTIABLE:
+Never strawman. Before attacking any opponent argument, state it at its STRONGEST — better than they said it. Then beat THAT version. This does three things:
+1. Shows the judge you understand the debate at a deep level
+2. Makes your refutation bulletproof — if you beat their best version, their actual version is dead
+3. Prevents the opponent from saying "that's not what I argued"
+Format: "The strongest version of their argument is [steelman]. Even granting all of that, it still fails because [your response]."
+If their argument IS genuinely strong, don't pretend it's weak. Concede the premise, then show why it doesn't reach their conclusion or why your impact still outweighs.`:'';
   // Push for creative, non-obvious arguments — vary how aggressively
   const creativityRoll = Math.random();
   const unconventionalNote = creativityRoll < 0.4 ? `
@@ -1377,11 +1388,18 @@ Bad frameworks: "What do the actors care about?" / "Let's frame this around fair
 
 STEP 2 — FRAMING POINTS under the framework (a, b, c): Give 2-3 lettered framing points that PROVE why YOUR framework is the right lens for THIS debate. Each framing point should be a substantive argument for why the judge should evaluate the round through your standard and not the opponent's. Say the letters out loud.
 
+TIME ALLOCATION (${Math.floor(speech.time/60)} min speech):
+- Hook + Framework + Framing points: ~${Math.round(speech.time/60*0.25*100)/100 < 1 ? '30 sec' : Math.round(speech.time/60*0.25)+' min'} (${Math.round(25)}%)
+- Arguments (all of them): ~${Math.round(speech.time/60*0.60)+' min'} (60%)
+- Preemption + Closing: ~${Math.round(speech.time/60*0.15*100)/100 < 1 ? '30 sec' : Math.round(speech.time/60*0.15)+' min'} (15%)
+Don't rush framework to get to arguments. Don't spend so long on arguments that you have no time to preempt or close. Budget your time.
+
 STEP 3 — ARGUMENTS (2-3 independent arguments): Each argument MUST have:
 - A clear claim with a descriptive name: "Argument one: [Descriptive Name Like 'The Coordination Failure']."
 - Lettered sub-points (a, b, c) under each argument, each with a NAMED warrant:
   "a. [Warrant Name like 'The Substitution Effect']. [Full causal mechanism in 2-3 sentences]."
-- An impact: "The impact here is [specific, quantified when possible]."
+- An impact with SPECIFICITY: "The impact here is [specific, quantified when possible]." Don't say "this hurts people" — say "this strips healthcare coverage from 20 million Americans" or "this collapses the regulatory framework that prevents another 2008."
+- A LINK to your framework: Show WHY this argument matters under YOUR standard. "Under our framework of [X], this argument is decisive because [connection]."
 
 VARY ARGUMENT DEPTH — NOT EVERY ARGUMENT IS EQUAL:
 - Your strongest argument should get 40-50% of your argument time. Go deep — multiple warrants, examples, preemption.
@@ -1422,6 +1440,30 @@ STRATEGIC DEPTH:
 - STRATEGIC CONCESSIONS: "Grant them [their weakest good point]. It STILL doesn't get them to their impact because [gap in their chain]." This makes you look confident and intellectually honest.
 - CROSS-APPLY: "Cross-apply The [Warrant Name] from our first argument — it directly answers their second point without me needing to re-explain it."
 - CLOSE STRONG: Your last 2-3 sentences matter as much as your first. End with either a sharp crystallization ("The ballot question is simple: [one sentence]") or a memorable line that sticks with the judge. Never trail off or end with filler.
+
+IMPACT CALCULUS — THIS IS HOW ROUNDS ARE DECIDED:
+Every argument ultimately needs an IMPACT — what happens in the real world if your side is right? Impacts must be WEIGHED against the other side's impacts. The four dimensions of impact calculus:
+1. MAGNITUDE: How many people are affected? How severely? "Our impact affects the entire healthcare system. Theirs affects a niche regulatory outcome."
+2. PROBABILITY: How likely is your impact to actually happen? "Our causal chain has two direct links. Theirs requires five contingent steps, each unlikely."
+3. TIMEFRAME: When does the impact occur? "Our harm is immediate — people lose coverage tomorrow. Their benefit is speculative and ten years out."
+4. REVERSIBILITY: Can the damage be undone? "If we're wrong, you adjust the policy. If they're wrong, people are dead. Irreversible harms demand precaution."
+You MUST do at least one explicit impact comparison per speech: "Even if their impact is real, ours outweighs on [dimension] because [reason]."
+Don't just LIST your impacts — COMPARE them directly to theirs. The side that frames the comparison wins.
+
+EXAMPLES ARE MANDATORY:
+- Every speech must include at least ONE concrete real-world example — a specific country, policy, historical event, company, or case study that illustrates your mechanism.
+- Examples are not decoration. They're PROOF that your causal chain works in reality. "This isn't hypothetical — we saw exactly this mechanism play out when [specific real example]."
+- Bad example: "History shows this doesn't work." Good example: "When Sweden tried this exact approach in 2015, the result was a 30% increase in [specific outcome] because [mechanism]."
+- If you cite an example, connect it back to your warrant: "This proves our [Warrant Name] — the same dynamic applies here because [parallel]."
+
+${isFirst && !isCX ? `MODEL/MECHANISM — FOR POLICY MOTIONS:
+If the motion proposes a policy change, you MUST establish the MODEL in your first constructive:
+- WHO implements this? (government, international body, private sector)
+- WHAT exactly changes? (specific policy details, not vague)
+- HOW is it enforced? (regulatory body, legal penalties, incentives)
+- WHERE does it apply? (scope and jurisdiction)
+- WHEN does it take effect? (timeline)
+You don't need to spend long on this — 2-3 sentences max — but the judge needs to know what world they're voting for. Vague motions get defined by whoever sets up the model first. That should be you.` : ''}
 
 SIGNPOSTING — THE JUDGE MUST BE ABLE TO FLOW YOU:
 Signposting is NON-NEGOTIABLE. The judge is writing down your arguments in real time. If they can't follow your structure, you lose.
