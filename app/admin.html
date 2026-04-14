@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin · Devil's Advocate</title>
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  :root {
+    --bg:#0b0f17; --fg:#e8eef7; --muted:#94a3b8; --dim:#64748b;
+    --accent:#ef4444; --good:#22c55e; --warn:#f59e0b; --info:#3b82f6;
+    --card:#121826; --line:#1f2937; --line-soft:#1e293b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  button{font:inherit}
+  .wrap{max-width:1280px;margin:0 auto;padding:32px 24px 96px}
+  header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:24px;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--line);padding-bottom:16px}
+  h1{font:700 26px/1.1 "SF Pro Display",system-ui,sans-serif;margin:0;letter-spacing:-0.02em}
+  .sub{color:var(--muted);font-size:13px}
+  .back{color:var(--muted);font-size:13px}
+  .ts{color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+
+  /* gate */
+  .gate{max-width:380px;margin:120px auto;text-align:center;padding:32px;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+  .gate h2{margin:0 0 8px;font:600 22px/1.2 "SF Pro Display",system-ui,sans-serif}
+  .gate p{color:var(--muted);margin:0 0 20px;font-size:13px;line-height:1.5}
+  .gate button{width:100%;padding:11px 16px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-size:14px}
+  .gate .err{color:var(--accent);margin-top:12px;font-size:12px}
+  .gate .signed{color:var(--muted);margin-top:14px;font-size:11px;font-variant-numeric:tabular-nums;word-break:break-all}
+
+  /* kpis */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:28px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .kpi .lbl{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;font-weight:600}
+  .kpi .val{font:700 28px/1.1 "SF Pro Display",system-ui,sans-serif;margin-top:6px;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+  .kpi .delta{font-size:11px;color:var(--muted);margin-top:4px}
+  .kpi .delta.up{color:var(--good)}
+  .kpi .delta.warn{color:var(--warn)}
+
+  /* sections */
+  .section{margin-top:28px}
+  .section h2{font:600 14px/1 system-ui;margin:0 0 12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:880px){.grid-2{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .card .title{font:600 13px system-ui;color:var(--fg);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+  .card .title .meta{color:var(--dim);font-weight:400;font-size:11px;font-variant-numeric:tabular-nums}
+
+  /* chart */
+  canvas{display:block;width:100%;height:160px}
+
+  /* tabs */
+  .tabs{display:flex;gap:4px;margin-bottom:8px}
+  .tab{padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase}
+  .tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 4px;border-bottom:1px solid var(--line-soft);text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.06em}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--fg)}
+  .bar{display:inline-block;height:6px;background:var(--accent);border-radius:3px;vertical-align:middle;margin-right:6px}
+
+  .feedback-row{padding:12px 0;border-bottom:1px solid var(--line-soft)}
+  .feedback-row:last-child{border-bottom:none}
+  .feedback-row .cat{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;font-weight:600}
+  .feedback-row .body{color:var(--fg);margin:4px 0;font-size:13px;line-height:1.4}
+  .feedback-row .meta{color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+
+  .err-box{background:#ef444415;border:1px solid #ef444444;color:#fca5a5;padding:14px 16px;border-radius:10px;margin:20px 0;font-size:13px}
+  .empty{color:var(--dim);text-align:center;padding:24px 0;font-size:12px;font-style:italic}
+  .loading{color:var(--muted);text-align:center;padding:80px 0}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
+<!-- Firebase compat SDKs (same as index.html) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="gate" class="gate" hidden>
+  <h2>Admin only</h2>
+  <p>Sign in with the founder Google account to view dashboard data.</p>
+  <button id="signin-btn">Sign in with Google</button>
+  <div id="gate-err" class="err"></div>
+  <div id="gate-signed" class="signed"></div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading"><span class="spin"></span>Loading dashboard…</div>
+
+<!-- Dashboard -->
+<div id="app" class="wrap" hidden>
+  <header>
+    <div>
+      <h1>Devil's Advocate · Admin</h1>
+      <div class="sub">Live usage from Firestore. Cached server-side; refresh to re-pull.</div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <span id="last-updated" class="ts"></span>
+      <button id="refresh" style="padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-size:12px">↻ Refresh</button>
+      <button id="signout" style="padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-size:12px">Sign out</button>
+      <a class="back" href="/landing">← landing</a>
+    </div>
+  </header>
+
+  <div id="err"></div>
+
+  <!-- KPIs -->
+  <div class="kpis" id="kpis"></div>
+
+  <!-- Charts -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="title">
+        <span>Activity</span>
+        <div class="tabs" id="range-tabs">
+          <button class="tab" data-range="daily" aria-pressed="true">30d</button>
+          <button class="tab" data-range="weekly" aria-pressed="false">26w</button>
+          <button class="tab" data-range="monthly" aria-pressed="false">24m</button>
+        </div>
+      </div>
+      <canvas id="chart-events"></canvas>
+      <div class="ts" id="chart-events-meta" style="margin-top:8px;text-align:right"></div>
+    </div>
+
+    <div class="card">
+      <div class="title">
+        <span>New users</span>
+        <span class="meta" id="users-meta"></span>
+      </div>
+      <canvas id="chart-users"></canvas>
+    </div>
+  </div>
+
+  <!-- Event breakdown + top features -->
+  <div class="grid-2 section">
+    <div class="card">
+      <div class="title"><span>Event breakdown</span><span class="meta">last 30 days</span></div>
+      <table id="events-table"><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <div class="title"><span>Top features</span><span class="meta">all-time</span></div>
+      <table id="features-table"><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- Recent feedback -->
+  <div class="section">
+    <div class="card">
+      <div class="title"><span>Recent feedback</span><span class="meta">last 5</span></div>
+      <div id="feedback-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─────────────────────────────────────────────────────────
+  // Firebase init — same config as index.html
+  // ─────────────────────────────────────────────────────────
+  const FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+    measurementId: "G-0V4R5MY3BT"
+  };
+
+  const app = firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth();
+
+  const $ = id => document.getElementById(id);
+  const gate = $('gate');
+  const loading = $('loading');
+  const appEl = $('app');
+  const errBox = $('err');
+
+  let cachedData = null;
+  let currentRange = 'daily';
+
+  // ─────────────────────────────────────────────────────────
+  // Auth flow
+  // ─────────────────────────────────────────────────────────
+  auth.onAuthStateChanged(async user => {
+    if (!user) {
+      loading.hidden = true;
+      gate.hidden = false;
+      appEl.hidden = true;
+      return;
+    }
+    gate.hidden = true;
+    $('gate-signed').textContent = 'Signed in: ' + user.email;
+    await loadDashboard();
+  });
+
+  $('signin-btn').addEventListener('click', async () => {
+    $('gate-err').textContent = '';
+    try {
+      await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    } catch (e) {
+      $('gate-err').textContent = e.message || 'Sign-in failed';
+    }
+  });
+
+  $('signout').addEventListener('click', () => auth.signOut());
+  $('refresh').addEventListener('click', () => loadDashboard());
+
+  // ─────────────────────────────────────────────────────────
+  // Data fetch
+  // ─────────────────────────────────────────────────────────
+  async function loadDashboard() {
+    loading.hidden = false;
+    appEl.hidden = true;
+    errBox.innerHTML = '';
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch('/api/admin/analytics', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (r.status === 403) {
+        loading.hidden = true;
+        gate.hidden = false;
+        $('gate-err').innerHTML =
+          'Your account isn\'t marked as admin. Set the <code>ADMIN_UID</code> env var in Netlify to your Firebase UID, ' +
+          'or set <code>isAdmin: true</code> on your <code>user_profiles</code> doc.<br><br>' +
+          'Your UID: <code>' + (auth.currentUser?.uid || '?') + '</code>';
+        return;
+      }
+      if (!r.ok) throw new Error('API ' + r.status);
+      cachedData = await r.json();
+      render(cachedData);
+      loading.hidden = true;
+      appEl.hidden = false;
+    } catch (e) {
+      loading.hidden = true;
+      appEl.hidden = false;
+      errBox.innerHTML = '<div class="err-box">Failed to load: ' + (e.message || e) + '</div>';
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────
+  function fmt(n) {
+    if (n == null) return '—';
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+    if (n >= 10_000) return (n / 1000).toFixed(0) + 'k';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return n.toLocaleString();
+  }
+
+  function render(d) {
+    // KPIs
+    const kpis = [
+      { lbl: 'Total users', val: d.totalUsers, delta: d.recentSignups != null ? '+' + d.recentSignups + ' last 7d' : null, deltaCls: d.recentSignups > 0 ? 'up' : '' },
+      { lbl: 'Cases generated', val: d.totalCases },
+      { lbl: 'Live debates', val: d.totalDebates },
+      { lbl: 'Forum posts', val: d.totalForumPosts },
+      { lbl: 'Total events', val: d.totalEvents },
+      { lbl: 'Teams', val: d.totalTeams, delta: d.activeTeams + ' active · ' + d.paidTeams + ' paid' },
+      { lbl: 'Shared cases', val: d.totalSharedCases },
+      { lbl: 'Feedback', val: d.totalFeedback, delta: d.totalFeedback === 0 ? 'no entries yet' : null, deltaCls: d.totalFeedback === 0 ? 'warn' : '' },
+    ];
+    $('kpis').innerHTML = kpis.map(k => `
+      <div class="kpi">
+        <div class="lbl">${k.lbl}</div>
+        <div class="val">${fmt(k.val)}</div>
+        ${k.delta ? `<div class="delta ${k.deltaCls || ''}">${k.delta}</div>` : ''}
+      </div>
+    `).join('');
+
+    // Charts
+    drawActivityChart(currentRange);
+    drawUsersChart();
+
+    // Event breakdown
+    const events = Object.entries(d.eventBreakdown || {}).sort((a, b) => b[1] - a[1]);
+    const evMax = events.length ? events[0][1] : 1;
+    $('events-table').querySelector('tbody').innerHTML = events.length
+      ? events.map(([ev, n]) => `
+          <tr>
+            <td>${ev}</td>
+            <td class="num"><span class="bar" style="width:${Math.max(2, (n / evMax) * 80)}px"></span>${fmt(n)}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="2" class="empty">No events logged yet. Wire <code>/api/log-event</code> calls into the app.</td></tr>';
+
+    // Top features
+    const feats = d.topFeatures || [];
+    const fMax = feats.length ? feats[0].count : 1;
+    $('features-table').querySelector('tbody').innerHTML = feats.length
+      ? feats.map(f => `
+          <tr>
+            <td>${f.feature}</td>
+            <td class="num"><span class="bar" style="width:${Math.max(2, (f.count / fMax) * 80)}px;background:var(--info)"></span>${fmt(f.count)}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="2" class="empty">No learning_counters data yet.</td></tr>';
+
+    // Recent feedback
+    const fb = d.recentFeedback || [];
+    $('feedback-list').innerHTML = fb.length
+      ? fb.map(f => `
+          <div class="feedback-row">
+            <div class="cat">${f.category || 'general'}${f.currentTab ? ' · ' + f.currentTab : ''}</div>
+            <div class="body">${escapeHtml(f.description || '(no body)')}</div>
+            <div class="meta">${f.email || 'anon'}${f.createdAt ? ' · ' + new Date(f.createdAt).toLocaleString() : ''}</div>
+          </div>`).join('')
+      : '<div class="empty">No feedback yet.</div>';
+
+    $('last-updated').textContent = 'updated ' + new Date(d.timestamp).toLocaleTimeString();
+  }
+
+  // Range tabs
+  document.querySelectorAll('#range-tabs .tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('#range-tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
+      currentRange = t.dataset.range;
+      if (cachedData) drawActivityChart(currentRange);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // Tiny canvas line chart (no chart lib)
+  // ─────────────────────────────────────────────────────────
+  function drawActivityChart(range) {
+    if (!cachedData) return;
+    const series = cachedData[range] || [];
+    const values = series.map(p => p.events || 0);
+    const labels = series.map(p => p.date || p.week || p.month || '');
+    const total = values.reduce((a, b) => a + b, 0);
+    $('chart-events-meta').textContent = total + ' events across ' + series.length + ' ' + (range === 'daily' ? 'days' : range === 'weekly' ? 'weeks' : 'months');
+    drawLine($('chart-events'), values, labels, '#ef4444');
+  }
+
+  function drawUsersChart() {
+    if (!cachedData) return;
+    const series = cachedData.daily || [];
+    const values = series.map(p => p.newUsers || 0);
+    const labels = series.map(p => p.date);
+    const total = values.reduce((a, b) => a + b, 0);
+    $('users-meta').textContent = total + ' new in 30d';
+    drawLine($('chart-users'), values, labels, '#22c55e');
+  }
+
+  function drawLine(canvas, values, labels, color) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    if (!values.length) {
+      ctx.fillStyle = '#475569';
+      ctx.font = '12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('no data', w / 2, h / 2);
+      return;
+    }
+
+    const padX = 8, padY = 16;
+    const max = Math.max(1, ...values);
+    const min = 0;
+    const stepX = (w - padX * 2) / Math.max(1, values.length - 1);
+
+    // grid baseline
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padX, h - padY);
+    ctx.lineTo(w - padX, h - padY);
+    ctx.stroke();
+
+    // area fill
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const x = padX + i * stepX;
+      const y = padY + (1 - (v - min) / (max - min)) * (h - padY * 2);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.lineTo(padX + (values.length - 1) * stepX, h - padY);
+    ctx.lineTo(padX, h - padY);
+    ctx.closePath();
+    ctx.fillStyle = color + '22';
+    ctx.fill();
+
+    // line
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const x = padX + i * stepX;
+      const y = padY + (1 - (v - min) / (max - min)) * (h - padY * 2);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // dots on first/last/peak
+    const peakIdx = values.indexOf(max);
+    [0, values.length - 1, peakIdx].filter((v, i, a) => a.indexOf(v) === i).forEach(i => {
+      const x = padX + i * stepX;
+      const y = padY + (1 - (values[i] - min) / (max - min)) * (h - padY * 2);
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+
+    // axis label: max value
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText(max.toString(), w - 4, padY);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Redraw on resize
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (cachedData) {
+        drawActivityChart(currentRange);
+        drawUsersChart();
+      }
+    }, 150);
+  });
+</script>
+</body>
+</html>
