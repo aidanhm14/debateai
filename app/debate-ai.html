@@ -1146,10 +1146,21 @@ function useTTS(){
   const[streamStatus,setStreamStatus]=useState('');
   const audioRef=useRef(null);
   const cancelledRef=useRef(false);
+  const pausedRef=useRef(false);
   const onEndRef=useRef(null);
   const modeRef=useRef('none');
   const rateRef=useRef(1.0);
   const progressRef=useRef({elapsed:0,total:0});
+
+  // Gate that resolves when not paused — used to hold chunk loops between chunks
+  const waitIfPaused=()=>new Promise(resolve=>{
+    if(!pausedRef.current||cancelledRef.current) return resolve();
+    const check=()=>{
+      if(!pausedRef.current||cancelledRef.current) resolve();
+      else setTimeout(check,100);
+    };
+    check();
+  });
 
   // Play a single audio blob — returns promise that resolves when done
   const playBlob=(blob)=>{
@@ -1205,7 +1216,7 @@ function useTTS(){
 
   // ── playChunks: play an array of blob promises sequentially, starting ASAP ──
   const playChunks=(blobPromises,onEnd,onStart)=>{
-    cancelledRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
+    cancelledRef.current=false;pausedRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
     modeRef.current='openai';onEndRef.current=onEnd;
     progressRef.current={elapsed:0,total:0};
     const durations=[];
@@ -1215,9 +1226,13 @@ function useTTS(){
       // Check if done — array may still be growing, so check a "done" flag
       while(i<blobPromises.length){
         if(cancelledRef.current) break;
+        await waitIfPaused();
+        if(cancelledRef.current) break;
         setStreamStatus(`Playing ${i+1}/${blobPromises.length}`);
         try{
           const blob=await blobPromises[i];
+          if(cancelledRef.current) break;
+          await waitIfPaused();
           if(cancelledRef.current) break;
           if(!blob||blob.size<500){durations[i]=0;i++;continue}
           const url=URL.createObjectURL(blob);
@@ -1256,18 +1271,24 @@ function useTTS(){
   };
 
   const togglePause=()=>{
-    if(modeRef.current==='openai'&&audioRef.current){
-      if(paused){audioRef.current.play();setPaused(false)}
-      else{audioRef.current.pause();setPaused(true)}
+    const willPause=!pausedRef.current;
+    pausedRef.current=willPause;
+    setPaused(willPause);
+    if(modeRef.current==='openai'){
+      if(audioRef.current){
+        if(willPause){try{audioRef.current.pause()}catch(e){}}
+        else{try{audioRef.current.play()}catch(e){}}
+      }
     } else if(modeRef.current==='browser'&&window.speechSynthesis){
-      if(paused){window.speechSynthesis.resume();setPaused(false)}
-      else{window.speechSynthesis.pause();setPaused(true)}
+      if(willPause)window.speechSynthesis.pause();
+      else window.speechSynthesis.resume();
     }
   };
 
   const stop=()=>{
     cancelledRef.current=true;
-    if(audioRef.current){audioRef.current.pause();audioRef.current=null}
+    pausedRef.current=false;
+    if(audioRef.current){try{audioRef.current.pause()}catch(e){}audioRef.current=null}
     if(window.speechSynthesis)window.speechSynthesis.cancel();
     setSpeaking(false);setPaused(false);setStreamStatus('');modeRef.current='none';
   };
@@ -1288,7 +1309,7 @@ function useTTS(){
   // Wrap speak to surface errors
   const speakWithError=(text,wpm=180,onEnd,voiceName='onyx',onStart)=>{
     setTtsError('');
-    cancelledRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
+    cancelledRef.current=false;pausedRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
     onEndRef.current=onEnd;
     progressRef.current={elapsed:0,total:0};
     const speed=Math.max(0.75,Math.min(2.0,wpm/140));
