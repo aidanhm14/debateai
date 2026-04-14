@@ -1826,7 +1826,16 @@ function App(){
 
   const[phase,setPhase]=useState('setup');   // setup|prep|speech|feedback
   const[vis,setVis]=useState(true);          // fade transition
-  const[motion,setMotion]=useState('');
+  // Motion can be deep-linked via ?motion=... (e.g. from the landing-page
+  // Polymarket cards). Read it once on mount so users land already loaded.
+  const[motion,setMotion]=useState(()=>{
+    try{
+      var u=new URL(window.location.href);
+      var m=u.searchParams.get('motion');
+      if(m&&m.length>2&&m.length<400)return m;
+    }catch(e){}
+    return '';
+  });
   const[background,setBackground]=useState('');  // optional context for the motion
   const[format,setFormat]=useState('apda');
   const[oppStrengths,setOppStrengths]=useState([]);
