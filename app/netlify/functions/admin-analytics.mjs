@@ -201,6 +201,25 @@ export default async (request) => {
       console.warn('Could not fetch recent feedback:', err.message);
     }
 
+    // Email signups (all entries, newest first)
+    let emailSignups = [];
+    try {
+      const signupsSnap = await db.collection('email_signups')
+        .orderBy('createdAt', 'desc')
+        .limit(500)
+        .get();
+      emailSignups = signupsSnap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          email: data.email,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+        };
+      });
+    } catch (err) {
+      console.warn('Could not fetch email signups:', err.message);
+    }
+
     return jsonResponse({
       // Totals
       totalUsers,
@@ -229,6 +248,10 @@ export default async (request) => {
 
       // Recent feedback
       recentFeedback,
+
+      // Email signups
+      emailSignups,
+      totalEmailSignups: emailSignups.length,
 
       timestamp: new Date().toISOString(),
     }, 200, request);

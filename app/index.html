@@ -10861,6 +10861,8 @@ function Analytics({ user, team }) {
     !loading && logs.length === 0 && el('div',{style:{textAlign:'center',color:'#64748b',padding:40,background:'#ffffff04',borderRadius:12}},'No usage data yet. Start using tools to see analytics here.'),
     // Debater thinking analysis
     el(DebaterProfile, { logs, topFeatures, team }),
+    // Admin email signups list
+    el(AdminEmailSignups, { user }),
   );
 }
 
@@ -10958,6 +10960,65 @@ Based on these usage patterns, analyze how this person thinks as a debater. What
     analysis && el('div', {style:{display:'flex',gap:8,marginTop:12}},
       el('button', {className:'btn btn-secondary', onClick:() => { setAnalysis(null); }}, 'Regenerate'),
       el('button', {className:'btn btn-purple', onClick:analyze, disabled:loading}, loading ? 'Refreshing...' : 'Refresh Analysis'),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   ADMIN EMAIL SIGNUPS — visible only to admins
+   ═══════════════════════════════════════════════════ */
+
+function AdminEmailSignups({ user }) {
+  const el = React.createElement;
+  const [signups, setSignups] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchSignups = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/analytics', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.status === 403) { setSignups(null); setLoading(false); return; }
+      if (!res.ok) throw new Error('Failed to fetch');
+      const data = await res.json();
+      setSignups(data.emailSignups || []);
+    } catch (err) {
+      setError(err.message);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchSignups(); }, [user]);
+
+  if (!user || signups === null) return null;
+
+  return el('div', {style:{marginTop:28,padding:24,background:'linear-gradient(145deg,#303038,#38383e)',border:'1px solid #ffffff20',borderRadius:14}},
+    el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}},
+      el('h3', {style:{color:'#22c55e',fontSize:'1rem',fontWeight:700,margin:0}}, 'Email Signups (' + signups.length + ')'),
+      el('button', {className:'btn btn-secondary', onClick:fetchSignups, disabled:loading, style:{fontSize:'.78rem',padding:'6px 14px'}}, loading ? 'Refreshing...' : 'Refresh'),
+    ),
+    error && el('p', {style:{color:'#ef4444',fontSize:'.85rem'}}, 'Error: ' + error),
+    signups.length === 0 && el('p', {style:{color:'#64748b',fontSize:'.85rem',textAlign:'center',padding:20}}, 'No email signups yet.'),
+    signups.length > 0 && el('div', {style:{maxHeight:400,overflowY:'auto',borderRadius:8}},
+      el('table', {style:{width:'100%',borderCollapse:'collapse',fontSize:'.85rem'}},
+        el('thead', null,
+          el('tr', {style:{borderBottom:'1px solid #ffffff15'}},
+            el('th', {style:{textAlign:'left',padding:'8px 12px',color:'#94a3b8',fontWeight:600,fontSize:'.75rem',textTransform:'uppercase',letterSpacing:'.5px'}}, '#'),
+            el('th', {style:{textAlign:'left',padding:'8px 12px',color:'#94a3b8',fontWeight:600,fontSize:'.75rem',textTransform:'uppercase',letterSpacing:'.5px'}}, 'Email'),
+            el('th', {style:{textAlign:'left',padding:'8px 12px',color:'#94a3b8',fontWeight:600,fontSize:'.75rem',textTransform:'uppercase',letterSpacing:'.5px'}}, 'Signed Up'),
+          ),
+        ),
+        el('tbody', null,
+          signups.map((s, i) => el('tr', {key:s.id, style:{borderBottom:'1px solid #ffffff08'}},
+            el('td', {style:{padding:'8px 12px',color:'#64748b'}}, i + 1),
+            el('td', {style:{padding:'8px 12px',color:'#e2e8f0',fontWeight:500}}, s.email),
+            el('td', {style:{padding:'8px 12px',color:'#94a3b8'}}, s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}) : 'Unknown'),
+          )),
+        ),
+      ),
     ),
   );
 }
