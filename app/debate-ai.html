@@ -6,11 +6,3000 @@
 <title>Devil's Advocate — Debate AI</title>
 <meta name="description" content="Go head-to-head against an AI in a full timed parliamentary debate. Prep, speeches, judge feedback." />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="canonical" href="https://debateos.com/landing">
-<meta http-equiv="refresh" content="0; url=/landing">
-<script>window.location.replace('/landing');</script>
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateos.com/debate-ai">
+<meta property="og:title" content="Devil's Advocate — Debate AI">
+<meta property="og:description" content="Full timed debate rounds against an AI opponent.">
+<meta property="og:image" content="https://debateos.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<!-- Google Analytics 4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="/js/voice-guidelines.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
+:root{
+  --bg:#1a1a1e;--fg:#f5f5f7;
+  --c-faint:rgba(255,255,255,.15);--c-dim:rgba(255,255,255,.2);
+  --c-subtle:rgba(255,255,255,.25);--c-muted:rgba(255,255,255,.3);
+  --c-mid:rgba(255,255,255,.35);--c-text:rgba(255,255,255,.4);
+  --c-text2:rgba(255,255,255,.45);--c-text3:rgba(255,255,255,.5);
+  --c-text4:rgba(255,255,255,.6);--c-bright:rgba(255,255,255,.7);
+  --c-surface:rgba(255,255,255,.03);--c-surface2:rgba(255,255,255,.04);
+  --c-surface3:rgba(255,255,255,.06);--c-surface4:rgba(255,255,255,.08);
+  --c-border:rgba(255,255,255,.06);--c-border2:rgba(255,255,255,.08);
+  --c-border3:rgba(255,255,255,.1);--c-border4:rgba(255,255,255,.15);
+  --c-border5:rgba(255,255,255,.22);
+  --c-scrim:rgba(0,0,0,.6);--c-scrim2:rgba(0,0,0,.92);
+}
+[data-lighting="light"]{
+  --bg:#f5f5f0;--fg:#1a1a1e;
+  --c-faint:rgba(0,0,0,.1);--c-dim:rgba(0,0,0,.15);
+  --c-subtle:rgba(0,0,0,.2);--c-muted:rgba(0,0,0,.25);
+  --c-mid:rgba(0,0,0,.3);--c-text:rgba(0,0,0,.4);
+  --c-text2:rgba(0,0,0,.45);--c-text3:rgba(0,0,0,.5);
+  --c-text4:rgba(0,0,0,.6);--c-bright:rgba(0,0,0,.7);
+  --c-surface:rgba(0,0,0,.02);--c-surface2:rgba(0,0,0,.03);
+  --c-surface3:rgba(0,0,0,.05);--c-surface4:rgba(0,0,0,.06);
+  --c-border:rgba(0,0,0,.06);--c-border2:rgba(0,0,0,.08);
+  --c-border3:rgba(0,0,0,.1);--c-border4:rgba(0,0,0,.15);
+  --c-border5:rgba(0,0,0,.2);
+  --c-scrim:rgba(245,245,240,.7);--c-scrim2:rgba(245,245,240,.97);
+}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--fg);
+  -webkit-font-smoothing:antialiased;
+}
+#root{min-height:100vh}
+
+/* ── Ambient ───────────────────────── */
+.ambient{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 50% at 50% 45%,rgba(239,68,68,.06),transparent 70%);
+}
+.ambient::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle 400px at 30% 70%,rgba(239,68,68,.03),transparent);
+}
+
+/* ── Page ──────────────────────────── */
+.page{
+  position:relative;z-index:1;min-height:100vh;
+  display:flex;flex-direction:column;
+}
+
+/* ── Top Bar ───────────────────────── */
+.bar{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  padding:20px 32px;display:flex;align-items:center;justify-content:space-between;
+}
+.bar-logo{font-size:.9rem;font-weight:700;color:#f5f5f7;text-decoration:none;letter-spacing:-.01em;opacity:.7;transition:opacity .2s}
+.bar-logo:hover{opacity:1}
+.bar-logo em{color:#ef4444;font-style:normal}
+.bar-links{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.bar-links a{font-size:.72rem;font-weight:500;color:rgba(255,255,255,.35);text-decoration:none;text-transform:uppercase;letter-spacing:.08em;transition:color .2s}
+.bar-links a:hover{color:rgba(255,255,255,.7)}
+
+/* ── Center Stage ──────────────────── */
+.center{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:100px 24px 60px;text-align:center;
+  transition:opacity .4s ease,transform .4s ease;
+}
+.center.entering{opacity:0;transform:scale(.97) translateY(12px)}
+.center.visible{opacity:1;transform:scale(1) translateY(0)}
+
+/* ── Typography ────────────────────── */
+.t-hero{
+  font-size:clamp(3rem,8vw,6rem);font-weight:900;letter-spacing:-.05em;
+  line-height:.9;margin-bottom:16px;
+}
+.t-hero em{font-style:normal;color:#ef4444}
+.t-sub{
+  font-size:clamp(.9rem,2vw,1.1rem);font-weight:300;color:rgba(255,255,255,.4);
+  max-width:400px;line-height:1.5;margin:0 auto 48px;
+}
+.t-label{
+  font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.16em;
+  color:#ef4444;margin-bottom:12px;
+}
+.t-phase{
+  font-size:clamp(1.4rem,3.5vw,2rem);font-weight:800;letter-spacing:-.03em;
+  margin-bottom:4px;
+}
+.t-dim{color:rgba(255,255,255,.35);font-size:.85rem;font-weight:400}
+.t-time{
+  font-size:clamp(3.2rem,8vw,5rem);font-weight:200;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;line-height:1;
+}
+.t-time.warn{color:#f59e0b}
+.t-time.danger{color:#ef4444}
+
+/* ── Input (floating, minimal) ─────── */
+.float-input{
+  width:100%;max-width:480px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);border-radius:16px;
+  padding:20px 22px;color:#f5f5f7;font-size:1rem;font-family:inherit;
+  outline:none;resize:none;transition:border-color .2s;line-height:1.5;
+}
+.float-input:focus{border-color:rgba(239,68,68,.4)}
+.float-input::placeholder{color:rgba(255,255,255,.2)}
+
+/* ── Pills ─────────────────────────── */
+.pills{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap;max-width:780px;margin-left:auto;margin-right:auto}
+.pill{
+  padding:10px 16px;border-radius:100px;border:1.5px solid rgba(255,255,255,.1);
+  background:transparent;color:rgba(255,255,255,.4);font-size:.76rem;font-weight:600;
+  cursor:pointer;transition:all .25s;font-family:inherit;letter-spacing:.02em;white-space:nowrap;
+}
+.pill:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
+.pill.on{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.06)}
+
+/* ── WPM Slider ────────────────────── */
+.wpm{display:flex;align-items:center;gap:16px;margin:20px auto;max-width:320px;width:100%}
+.wpm input[type=range]{flex:1;accent-color:#ef4444;height:2px;opacity:.6}
+.wpm span{font-size:.75rem;color:rgba(255,255,255,.3);font-weight:500}
+.wpm strong{font-size:.8rem;color:rgba(255,255,255,.6);font-weight:700;min-width:65px;text-align:right}
+
+/* ── CTA Button ────────────────────── */
+.cta{
+  padding:16px 48px;border:none;border-radius:100px;
+  background:#ef4444;color:#fff;font-size:.9rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;cursor:pointer;
+  transition:transform .2s,box-shadow .2s,opacity .2s;font-family:inherit;
+  margin-top:32px;
+}
+.cta:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(239,68,68,.25)}
+.cta:disabled{opacity:.25;cursor:not-allowed;transform:none;box-shadow:none}
+.cta-ghost{
+  padding:12px 32px;border:1px solid rgba(255,255,255,.1);border-radius:100px;
+  background:transparent;color:rgba(255,255,255,.4);font-size:.82rem;font-weight:600;
+  cursor:pointer;transition:all .2s;font-family:inherit;margin-top:12px;
+}
+.cta-ghost:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
+
+/* ── The Orb (waveform) ────────────── */
+.orb-wrap{
+  position:relative;width:280px;height:280px;margin:0 auto 32px;
+  display:flex;align-items:center;justify-content:center;
+}
+.orb-glow{
+  position:absolute;inset:-40px;border-radius:50%;
+  background:radial-gradient(circle,rgba(239,68,68,.08),transparent 70%);
+  transition:opacity .5s;opacity:0;
+}
+.orb-glow.on{opacity:1}
+.orb-ring{
+  position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(255,255,255,.06);transition:all .5s;
+}
+.orb-ring.active{border-color:rgba(239,68,68,.3);box-shadow:0 0 60px rgba(239,68,68,.1)}
+.orb-ring.pulse{animation:orbPulse 2s ease-in-out infinite}
+@keyframes orbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.7}}
+canvas.orb{width:220px;height:220px;border-radius:50%}
+
+/* ── Speech Progress ───────────────── */
+.progress-bar{display:flex;gap:8px;justify-content:center;margin-bottom:40px}
+.pip{display:flex;flex-direction:column;align-items:center;gap:6px}
+.pip-bar{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.06);transition:.3s}
+.pip-bar.done{background:#ef4444}
+.pip-bar.now{background:#ef4444;box-shadow:0 0 12px rgba(239,68,68,.4)}
+.pip-code{font-size:.6rem;font-weight:600;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:.06em}
+.pip.done .pip-code{color:rgba(239,68,68,.5)}
+.pip.now .pip-code{color:#ef4444}
+
+/* ── Transcript ────────────────────── */
+.transcript-btn{
+  background:none;border:none;color:rgba(255,255,255,.2);font-size:.72rem;
+  font-weight:600;cursor:pointer;font-family:inherit;text-transform:uppercase;
+  letter-spacing:.08em;margin-top:24px;transition:color .2s;
+}
+.transcript-btn:hover{color:rgba(255,255,255,.5)}
+.transcript-box{
+  width:100%;max-width:min(90vw,800px);max-height:340px;overflow-y:auto;margin:12px auto 0;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
+  border-radius:14px;padding:20px 24px;text-align:left;
+  font-size:.85rem;line-height:1.7;color:rgba(255,255,255,.4);white-space:pre-wrap;
+}
+
+/* ── Feedback Card ─────────────────── */
+.fb-card{
+  width:100%;max-width:600px;text-align:left;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
+  border-radius:18px;padding:32px;margin:24px auto 0;
+}
+.fb-card .feedback-text{color:rgba(255,255,255,.5);font-size:.88rem;line-height:1.75;white-space:pre-wrap}
+
+/* ── Controls Row ──────────────────── */
+.row-c{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+
+/* ── Limit Warning ─────────────────── */
+.limit-warn{font-size:.78rem;color:#ef4444;margin-top:16px;opacity:.7}
+.limit-warn a{color:#ef4444;text-decoration:underline}
+
+/* ── Scroll affordance for transcript boxes ── */
+.transcript-box{
+  position:relative;
+}
+.transcript-box::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:32px;
+  background:linear-gradient(transparent,rgba(0,0,0,.6));pointer-events:none;
+  border-radius:0 0 12px 12px;
+}
+.transcript-box::-webkit-scrollbar{width:4px}
+.transcript-box::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+
+/* ── Speech phase buttons — bigger touch targets ── */
+.speech-btn{min-height:48px;min-width:120px;font-size:.88rem !important;padding:14px 28px !important}
+
+/* ── Session recovery banner ── */
+.recovery-banner{
+  padding:16px 20px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);
+  border-radius:14px;max-width:480px;margin:0 auto 20px;text-align:center;
+}
+
+/* ── Responsive ────────────────────── */
+@media(max-width:640px){
+  .bar{padding:14px 16px}
+  .bar-links{gap:12px}
+  .bar-links button,.bar-links .sign-btn{min-height:44px;min-width:44px}
+  .center{padding:80px 16px 32px}
+  .orb-wrap{width:200px;height:200px}
+  canvas.orb{width:160px;height:160px}
+  .float-input{padding:16px}
+  .cta{padding:16px 36px;font-size:.88rem;min-height:48px}
+  .pill{padding:12px 18px;font-size:.8rem;min-height:44px}
+  .cta-ghost{padding:14px 28px;min-height:48px}
+  .speech-btn{min-height:56px;min-width:140px;font-size:.95rem !important;padding:16px 32px !important}
+  .t-label{font-size:.72rem}
+  .pip-code{font-size:.72rem}
+  .progress-bar{gap:4px}
+  .pip-bar{width:28px}
+  .kb-hint{display:none}
+  .mobile-hint{display:block}
+}
+@media(min-width:641px){
+  .mobile-hint{display:none}
+}
+@media(max-width:480px){
+  .bar{padding:10px 12px}
+  .bar-links{gap:8px}
+  .bar-links a{font-size:.65rem}
+  .orb-wrap{width:160px;height:160px}
+  .center{padding-top:70px}
+  .speech-btn{min-height:56px;min-width:100%;font-size:1rem !important;padding:18px 32px !important}
+}
+/* ── Round History ────────────────── */
+.history-panel{
+  position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.92);
+  overflow-y:auto;padding:80px 24px 40px;animation:fadeIn .25s ease;
+}
+.history-grid{max-width:640px;margin:0 auto}
+.history-card{
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  border-radius:16px;padding:20px 24px;margin-bottom:12px;cursor:pointer;
+  transition:all .2s;
+}
+.history-card:hover{border-color:rgba(239,68,68,.3);background:rgba(255,255,255,.05)}
+.history-card .hc-motion{font-weight:600;color:rgba(255,255,255,.7);font-size:.95rem;margin-bottom:6px}
+.history-card .hc-meta{font-size:.72rem;color:rgba(255,255,255,.25);display:flex;gap:12px;flex-wrap:wrap}
+.history-card .hc-meta span{display:flex;align-items:center;gap:4px}
+.history-detail{max-width:640px;margin:0 auto}
+.history-detail .hd-speech{
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);
+  border-radius:12px;padding:16px;margin-bottom:10px;
+}
+.history-detail .hd-who{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.history-detail .hd-who.you{color:#ef4444}
+.history-detail .hd-who.ai{color:rgba(255,255,255,.3)}
+.history-detail .hd-text{font-size:.85rem;line-height:1.7;color:rgba(255,255,255,.45);white-space:pre-wrap}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+
+/* ── Lighting Toggle Button ───────── */
+.lighting-toggle{
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;padding:4px 10px;cursor:pointer;font-size:.85rem;
+  transition:all .2s;line-height:1;
+}
+.lighting-toggle:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)}
+
+/* ── Light Mode ───────────────────── */
+[data-lighting="light"] body{background:#f5f5f0;color:#1a1a1e}
+[data-lighting="light"] .ambient{background:radial-gradient(ellipse 60% 50% at 50% 45%,rgba(239,68,68,.04),transparent 70%)}
+[data-lighting="light"] .ambient::after{background:radial-gradient(circle 400px at 30% 70%,rgba(239,68,68,.03),transparent)}
+[data-lighting="light"] .bar-logo{color:#1a1a1e}
+[data-lighting="light"] .bar-links a{color:rgba(0,0,0,.35)}
+[data-lighting="light"] .bar-links a:hover{color:rgba(0,0,0,.7)}
+[data-lighting="light"] .lighting-toggle{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1)}
+[data-lighting="light"] .lighting-toggle:hover{background:rgba(0,0,0,.1);border-color:rgba(0,0,0,.2)}
+[data-lighting="light"] .t-hero{color:#1a1a1e}
+[data-lighting="light"] .t-sub{color:rgba(0,0,0,.45)}
+[data-lighting="light"] .t-dim{color:rgba(0,0,0,.35)}
+[data-lighting="light"] .t-phase{color:#1a1a1e}
+[data-lighting="light"] .t-time{color:#1a1a1e}
+[data-lighting="light"] .float-input{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.1);color:#1a1a1e}
+[data-lighting="light"] .float-input:focus{border-color:rgba(239,68,68,.5)}
+[data-lighting="light"] .float-input::placeholder{color:rgba(0,0,0,.25)}
+[data-lighting="light"] .pill{border-color:rgba(0,0,0,.12);color:rgba(0,0,0,.45)}
+[data-lighting="light"] .pill:hover{border-color:rgba(0,0,0,.3);color:rgba(0,0,0,.7)}
+[data-lighting="light"] .pill.on{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.06)}
+[data-lighting="light"] .cta-ghost{border-color:rgba(0,0,0,.1);color:rgba(0,0,0,.4)}
+[data-lighting="light"] .cta-ghost:hover{border-color:rgba(0,0,0,.25);color:rgba(0,0,0,.7)}
+[data-lighting="light"] .wpm span{color:rgba(0,0,0,.35)}
+[data-lighting="light"] .wpm strong{color:rgba(0,0,0,.6)}
+[data-lighting="light"] .orb-ring{border-color:rgba(0,0,0,.08)}
+[data-lighting="light"] .pip-bar{background:rgba(0,0,0,.08)}
+[data-lighting="light"] .pip-code{color:rgba(0,0,0,.25)}
+[data-lighting="light"] .pip.done .pip-code{color:rgba(239,68,68,.6)}
+[data-lighting="light"] .pip.now .pip-code{color:#ef4444}
+[data-lighting="light"] .transcript-btn{color:rgba(0,0,0,.25)}
+[data-lighting="light"] .transcript-btn:hover{color:rgba(0,0,0,.5)}
+[data-lighting="light"] .transcript-box{background:rgba(0,0,0,.02);border-color:rgba(0,0,0,.08);color:rgba(0,0,0,.45)}
+[data-lighting="light"] .transcript-box::after{background:linear-gradient(transparent,rgba(245,245,240,.8))}
+[data-lighting="light"] .fb-card{background:rgba(0,0,0,.02);border-color:rgba(0,0,0,.08)}
+[data-lighting="light"] .fb-card .feedback-text{color:rgba(0,0,0,.5)}
+[data-lighting="light"] .history-panel{background:rgba(245,245,240,.97)}
+[data-lighting="light"] .history-card{background:rgba(0,0,0,.02);border-color:rgba(0,0,0,.08)}
+[data-lighting="light"] .history-card:hover{border-color:rgba(239,68,68,.3);background:rgba(0,0,0,.04)}
+[data-lighting="light"] .history-card .hc-motion{color:rgba(0,0,0,.7)}
+[data-lighting="light"] .history-card .hc-meta{color:rgba(0,0,0,.3)}
+[data-lighting="light"] .history-detail .hd-speech{background:rgba(0,0,0,.02);border-color:rgba(0,0,0,.06)}
+[data-lighting="light"] .history-detail .hd-who.ai{color:rgba(0,0,0,.35)}
+[data-lighting="light"] .history-detail .hd-text{color:rgba(0,0,0,.5)}
+[data-lighting="light"] .recovery-banner{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.15)}
+</style>
 </head>
 <body>
-<p style="font-family:system-ui;padding:24px">Redirecting to <a href="/landing">debateos.com</a>…</p>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+const el = React.createElement;
+
+/* ═══════════════════════════════════════════════════
+   FIREBASE AUTH
+   ═══════════════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+let firebaseApp, firebaseAuth, firebaseDb;
+try {
+  if (typeof firebase !== 'undefined') {
+    firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+    firebaseAuth = firebase.auth();
+    firebaseDb = firebase.firestore();
+  }
+} catch(e) { console.warn('Firebase init skipped:', e.message); }
+
+function useAuth() {
+  const [user, setUser] = useState(null);
+  const [team, setTeam] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!firebaseAuth) { setLoading(false); return; }
+    return firebaseAuth.onAuthStateChanged(async u => {
+      setUser(u);
+      if (u) {
+        try {
+          const token = await u.getIdToken();
+          const res = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + token } });
+          if (res.ok) setTeam(await res.json());
+        } catch {}
+      } else { setTeam(null); }
+      setLoading(false);
+    });
+  }, []);
+  const signIn = async () => {
+    if (!firebaseAuth) return alert('Auth not available.');
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await firebaseAuth.signInWithPopup(provider);
+  };
+  const signOut = async () => { if (firebaseAuth) await firebaseAuth.signOut(); };
+  return { user, team, loading, signIn, signOut };
+}
+
+/* ═══════════════════════════════════════════════════
+   SOUND EFFECTS
+   ═══════════════════════════════════════════════════ */
+
+const SFX = {
+  _ctx: null,
+  _getCtx() { if(!this._ctx) this._ctx=new (window.AudioContext||window.webkitAudioContext)(); return this._ctx; },
+
+  // UI click — subtle, satisfying
+  click() {
+    try{const c=this._getCtx();const o=c.createOscillator();const g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.frequency.value=1200;o.type='sine';
+    g.gain.setValueAtTime(0.08,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.06);
+    o.start(c.currentTime);o.stop(c.currentTime+0.06);}catch{}
+  },
+
+  // Start round — ascending chime
+  startRound() {
+    try{const c=this._getCtx();
+    [440,554,659].forEach((f,i)=>{
+      const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);
+      o.frequency.value=f;o.type='sine';
+      g.gain.setValueAtTime(0,c.currentTime+i*0.12);
+      g.gain.linearRampToValueAtTime(0.1,c.currentTime+i*0.12+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+i*0.12+0.25);
+      o.start(c.currentTime+i*0.12);o.stop(c.currentTime+i*0.12+0.25);
+    });}catch{}
+  },
+
+  // AI thinking — low ambient pulse (plays on loop, returns stop fn)
+  thinking() {
+    try{const c=this._getCtx();
+    const o=c.createOscillator();const g=c.createGain();const lfo=c.createOscillator();const lfoG=c.createGain();
+    o.connect(g);g.connect(c.destination);o.frequency.value=80;o.type='sine';
+    lfo.connect(lfoG);lfoG.connect(g.gain);lfo.frequency.value=2;lfo.type='sine';
+    lfoG.gain.value=0.03;g.gain.value=0.04;
+    o.start();lfo.start();
+    return()=>{try{g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.3);o.stop(c.currentTime+0.4);lfo.stop(c.currentTime+0.4)}catch{}};
+    }catch{return()=>{}}
+  },
+
+  // Speech ready — bright ping
+  ready() {
+    try{const c=this._getCtx();const o=c.createOscillator();const g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.frequency.value=880;o.type='sine';
+    g.gain.setValueAtTime(0.12,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.3);
+    o.start(c.currentTime);o.stop(c.currentTime+0.3);}catch{}
+  },
+
+  // Preparing voice — warm shimmer (plays on loop, returns stop fn)
+  preparing() {
+    try{const c=this._getCtx();
+    // Warm mid-tone shimmer — distinct from the low thinking pulse
+    const o=c.createOscillator();const o2=c.createOscillator();const g=c.createGain();
+    const lfo=c.createOscillator();const lfoG=c.createGain();
+    o.connect(g);o2.connect(g);g.connect(c.destination);
+    o.frequency.value=220;o.type='sine';
+    o2.frequency.value=330;o2.type='sine';
+    lfo.connect(lfoG);lfoG.connect(g.gain);
+    lfo.frequency.value=0.8;lfo.type='sine';lfoG.gain.value=0.015;
+    g.gain.value=0.03;
+    o.start();o2.start();lfo.start();
+    return()=>{try{g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.3);o.stop(c.currentTime+0.4);o2.stop(c.currentTime+0.4);lfo.stop(c.currentTime+0.4)}catch{}};
+    }catch{return()=>{}}
+  },
+
+};
+
+/* ═══════════════════════════════════════════════════
+   CONSTANTS
+   ═══════════════════════════════════════════════════ */
+
+/* ── DEBATE FORMATS ──────────────────── */
+const FORMATS = {
+  apda: {
+    name: 'APDA Parliamentary',
+    desc: 'Full 6-speech collegiate parli round',
+    sides: ['gov','opp'],
+    sideLabels: { gov:'Government', opp:'Opposition' },
+    speeches: [
+      { code:'PM',  name:'Prime Minister',     side:'gov', time:450 },
+      { code:'LO',  name:'Leader of Opp',      side:'opp', time:510 },
+      { code:'MG',  name:'Member of Gov',      side:'gov', time:510 },
+      { code:'MO',  name:'Member of Opp',      side:'opp', time:510 },
+      { code:'LOR', name:'LO Rebuttal',        side:'opp', time:270 },
+      { code:'PMR', name:'PM Rebuttal',        side:'gov', time:330 },
+    ],
+    rules: {
+      PM:'You are PM (Government). Define the round, present a framework, 2-3 strong arguments with warrants and impacts.',
+      LO:'You are LO (Opposition). Engage the PM\'s framework directly, present counter-framework and 2-3 opposition arguments.',
+      MG:'You are MG (Government). Rebuild government arguments, extend the case, directly refute opposition points.',
+      MO:'You are MO (Opposition). Extend opposition, attack rebuilds, introduce final opposition analysis.',
+      LOR:'You are LOR (Opposition Rebuttal). Crystallize the round from opp\'s perspective. 2-3 key issues, why opp wins each. NO new arguments.',
+      PMR:'You are PMR (Government Rebuttal). Crystallize from gov\'s perspective. Address opp\'s strongest points, why gov wins. NO new arguments.',
+    },
+    prep: 900,
+  },
+  bp: {
+    name: 'British Parliamentary',
+    desc: '8 speeches, 4 teams — you play Opening Gov',
+    sides: ['og','oo'],
+    sideLabels: { og:'Opening Government', oo:'Opening Opposition' },
+    speeches: [
+      { code:'PM',  name:'Prime Minister',           side:'og', time:420 },
+      { code:'LO',  name:'Leader of Opposition',     side:'oo', time:420 },
+      { code:'DPM', name:'Deputy Prime Minister',    side:'og', time:420 },
+      { code:'DLO', name:'Deputy Leader of Opp',     side:'oo', time:420 },
+      { code:'MG',  name:'Member of Government',     side:'og', time:420 },
+      { code:'MO',  name:'Member of Opposition',     side:'oo', time:420 },
+      { code:'GW',  name:'Government Whip',          side:'og', time:420 },
+      { code:'OW',  name:'Opposition Whip',          side:'oo', time:420 },
+    ],
+    rules: {
+      PM:'You are PM (Opening Government). Define the motion, set up the model/mechanism, present 2-3 strong arguments with clear impacts. POIs allowed after first minute.',
+      LO:'You are Leader of Opposition. Directly challenge the PM\'s model, present the opposition\'s counter-case with 2-3 arguments. Accept at least 1 POI.',
+      DPM:'You are Deputy PM. Rebuild government\'s case, extend with new material, refute LO. Must bring something new to the table.',
+      DLO:'You are Deputy Leader of Opp. Extend opposition, respond to DPM\'s rebuilds, solidify the opposition line.',
+      MG:'You are Member of Government (Closing Gov). You MUST bring an extension — a new argument or angle not covered by Opening Gov. Also engage with the round so far.',
+      MO:'You are Member of Opposition (Closing Opp). Bring your own extension. Engage with the full round. Show why closing opp\'s analysis is superior.',
+      GW:'You are Government Whip. NO new arguments. Summarize the entire round from gov perspective. Weigh the key clashes. Explain why government teams win.',
+      OW:'You are Opposition Whip. NO new arguments. Summarize from opp perspective. Weigh clashes. Explain why opposition wins. This is the last speech.',
+    },
+    prep: 900,
+    poi: true,
+  },
+  asian: {
+    name: 'Asian Parliamentary',
+    desc: '3v3 format — popular in Asia-Pacific circuits',
+    sides: ['gov','opp'],
+    sideLabels: { gov:'Government', opp:'Opposition' },
+    speeches: [
+      { code:'PM',  name:'Prime Minister',     side:'gov', time:420 },
+      { code:'LO',  name:'Leader of Opp',      side:'opp', time:420 },
+      { code:'DPM', name:'Deputy PM',          side:'gov', time:420 },
+      { code:'DLO', name:'Deputy Leader Opp',  side:'opp', time:420 },
+      { code:'GW',  name:'Government Whip',    side:'gov', time:420 },
+      { code:'OW',  name:'Opposition Whip',    side:'opp', time:420 },
+      { code:'Reply_O', name:'Opposition Reply', side:'opp', time:240 },
+      { code:'Reply_G', name:'Government Reply', side:'gov', time:240 },
+    ],
+    rules: {
+      PM:'You are PM (Government). Define the motion, present the government\'s model, and lay out 2-3 arguments with warrants and impacts.',
+      LO:'You are Leader of Opposition. Challenge the government model, present 2-3 counter-arguments. Establish the opposition\'s line.',
+      DPM:'You are Deputy PM. Rebuild government arguments under attack, extend the case with new examples and deeper analysis.',
+      DLO:'You are Deputy Leader of Opp. Extend opposition arguments, respond to DPM rebuilds, deepen opposition analysis.',
+      GW:'You are Government Whip. Summarize the round from government\'s perspective. NO new arguments. Weigh the key clashes and explain why gov wins.',
+      OW:'You are Opposition Whip. Summarize from opposition perspective. NO new arguments. Weigh clashes, explain why opp wins.',
+      Reply_O:'You are giving the Opposition Reply speech (delivered by either LO or DLO). Biased summary of the ENTIRE round from opp perspective. This is a REPLY — identify the key issues, explain who won each, and why opp wins overall. NO new arguments. Delivered by a junior speaker.',
+      Reply_G:'You are giving the Government Reply speech (delivered by either PM or DPM). Biased summary from gov perspective. Identify key issues, who won each, why gov wins. NO new arguments. Last speech of the round.',
+    },
+    prep: 900,
+    poi: true,
+  },
+  worlds: {
+    name: 'Worlds (WUDC)',
+    desc: 'World Universities Debating Championship format',
+    sides: ['og','oo'],
+    sideLabels: { og:'Opening Government', oo:'Opening Opposition' },
+    speeches: [
+      { code:'PM',  name:'Prime Minister',           side:'og', time:420 },
+      { code:'LO',  name:'Leader of Opposition',     side:'oo', time:420 },
+      { code:'DPM', name:'Deputy Prime Minister',    side:'og', time:420 },
+      { code:'DLO', name:'Deputy Leader of Opp',     side:'oo', time:420 },
+      { code:'MG',  name:'Member of Government',     side:'og', time:420 },
+      { code:'MO',  name:'Member of Opposition',     side:'oo', time:420 },
+      { code:'GW',  name:'Government Whip',          side:'og', time:420 },
+      { code:'OW',  name:'Opposition Whip',          side:'oo', time:420 },
+    ],
+    rules: {
+      PM:'You are PM (Opening Government). Define the motion clearly, present the government model/mechanism, and deliver 2-3 strong principled and practical arguments.',
+      LO:'You are Leader of Opposition. Challenge PM\'s characterization, present opposition\'s counter-model or direct refutation, deliver 2-3 arguments.',
+      DPM:'You are Deputy PM. Rebuild PM\'s case, respond to LO attacks, extend with additional analysis. You must advance the opening half.',
+      DLO:'You are Deputy Leader of Opp. Consolidate opposition, respond to DPM, ensure the opening opposition case is airtight for closing teams to build on.',
+      MG:'You are Member of Government (Closing). You MUST bring an extension — a genuinely new argument that is consistent with but goes beyond opening gov. Also engage with the round.',
+      MO:'You are Member of Opposition (Closing). Bring an extension from opposition\'s side. Engage the full round. Position closing opp as the best team in the debate.',
+      GW:'You are Government Whip. NO new arguments or extensions. Global summary and weighing from government perspective. Why should the judge rank gov teams highly?',
+      OW:'You are Opposition Whip. NO new arguments. Final summary. Weigh the round from opposition. Why opposition wins. Last speech — make it count.',
+    },
+    prep: 900,
+    poi: true,
+  },
+  ld: {
+    name: 'Lincoln-Douglas',
+    desc: '1v1 value debate with cross-examination',
+    sides: ['aff','neg'],
+    sideLabels: { aff:'Affirmative', neg:'Negative' },
+    speeches: [
+      { code:'AC',  name:'Affirmative Constructive', side:'aff', time:360 },
+      { code:'CX1', name:'Cross-Exam (Neg asks)',    side:'neg', time:180 },
+      { code:'NC',  name:'Negative Constructive',    side:'neg', time:420 },
+      { code:'CX2', name:'Cross-Exam (Aff asks)',    side:'aff', time:180 },
+      { code:'1AR', name:'Aff Rebuttal',             side:'aff', time:240 },
+      { code:'NR',  name:'Neg Rebuttal',             side:'neg', time:360 },
+      { code:'2AR', name:'Aff Rebuttal',             side:'aff', time:180 },
+    ],
+    rules: {
+      AC:'You are Affirmative. Present your value, criterion, and 2-3 contentions supporting the resolution.',
+      CX1:'You are Negative doing cross-examination. Your goal is to TRAP the Affirmative — get them to concede something you can weaponize in your NC. Ask a sequence of 5-8 questions. Start with innocent setup questions they MUST say yes to, then tighten the noose until they either contradict themselves or concede your point. Each question should build on the previous answer. Include brief parenthetical notes on what you are setting up, e.g. "(setting up the link turn for NC arg 1)". Classic CX traps: force a dichotomy, expose a missing link in their chain, get them to admit their impact is reversible, or reveal their framework excludes a critical consideration.',
+      NC:'You are Negative. Present your value, criterion, and contentions. Also directly refute the Affirmative case.',
+      CX2:'You are Affirmative doing cross-examination of the Negative. Your goal is to set up your 1AR — get concessions you can reference later. Ask 5-8 questions. Use the funnel technique: broad philosophical questions first, then narrow to the specific contradiction. Try to: get them to admit their framework is compatible with yours (then you win on framework), expose that their counterplan/alternative doesn\'t solve their own impacts, or force them to choose between two of their arguments that conflict. Include brief parenthetical setup notes.',
+      '1AR':'You are Aff giving first rebuttal. Rebuild your case, answer Neg attacks, show why your framework wins.',
+      NR:'You are Negative rebuttal. Extend your best arguments, crystallize voting issues, explain why Neg wins.',
+      '2AR':'You are Aff giving final rebuttal. Last speech — crystallize the round, final voting issues. NO new arguments.',
+    },
+    prep: 240,
+  },
+  quick: {
+    name: 'Quick Clash',
+    desc: '2 speeches each — fast and casual',
+    sides: ['pro','con'],
+    sideLabels: { pro:'Pro', con:'Con' },
+    speeches: [
+      { code:'P1', name:'Pro Opening',  side:'pro', time:180 },
+      { code:'C1', name:'Con Opening',  side:'con', time:180 },
+      { code:'P2', name:'Pro Rebuttal', side:'pro', time:120 },
+      { code:'C2', name:'Con Rebuttal', side:'con', time:120 },
+    ],
+    rules: {
+      P1:'You are Pro. Make your best 2-3 arguments for the topic. Be direct and conversational.',
+      C1:'You are Con. Directly push back on Pro\'s points and make your own 2-3 counter-arguments.',
+      P2:'You are Pro rebuttal. Respond to Con\'s attacks and explain why Pro still wins.',
+      C2:'You are Con rebuttal. Final word — why Con wins this debate. NO new arguments.',
+    },
+    prep: 120,
+  },
+};
+
+/* ── AI VOICES ──────────────────────── */
+// Free users: OpenAI TTS voices. Pro users: ElevenLabs premium voices (same selector, upgraded quality).
+const VOICES = {
+  onyx:    { name:'The Professor',   gender:'Male',   desc:'Deep & authoritative — owns the room like a tenured lecturer' },
+  echo:    { name:'The Closer',      gender:'Female', desc:'Confident & persuasive — sounds like she\'s won this round before' },
+  fable:   { name:'The Surgeon',     gender:'Male',   desc:'Calm & precise — dissects arguments with surgical accuracy' },
+  alloy:   { name:'The Veteran',     gender:'Male',   desc:'Rich baritone — 500 rounds deep, nothing surprises him' },
+  nova:    { name:'The Firebrand',   gender:'Male',   desc:'High-energy & relentless — every word drips with conviction' },
+  shimmer: { name:'The Diplomat',    gender:'Female', desc:'Polished & composed — makes devastating attacks sound reasonable' },
+  coral:   { name:'The Debater',     gender:'Female', desc:'Quick-witted & sharp — pure college circuit energy' },
+  sage:    { name:'The Philosopher', gender:'Male',   desc:'Thoughtful & measured — the Socratic method in human form' },
+  ash:     { name:'The Prosecutor',  gender:'Male',   desc:'Intense & relentless — cross-examines every claim to death' },
+  ballad:  { name:'The Storyteller', gender:'Female', desc:'Warm & compelling — turns policy arguments into narratives' },
+};
+
+/* ── AI OPPONENT TRAITS ─────────────── */
+const STRENGTHS = {
+  framework:     { label:'Framework',      emoji:'🎯', desc:'Airtight framework analysis and precise weighing mechanisms' },
+  rhetoric:      { label:'Rhetoric',       emoji:'🔥', desc:'Devastating analogies, emotional crescendos, memorable lines' },
+  aggression:    { label:'Aggression',     emoji:'⚡', desc:'Relentless attacks on weak points, sharp cross-applications' },
+  philosophy:    { label:'Philosophy',     emoji:'📚', desc:'Deep moral frameworks (Rawls, Kant, Mill), powerful thought experiments' },
+  realworld:     { label:'Real-World',     emoji:'🌍', desc:'Devastating real-world examples, common-sense framing judges love' },
+  strategy:      { label:'Strategy',       emoji:'🧊', desc:'Exploits procedural advantages, punishes drops and concessions' },
+  impact:        { label:'Impact',         emoji:'💥', desc:'Massive impact scenarios, strong magnitude/probability weighing' },
+  steelmanning:  { label:'Steelmanning',   emoji:'🛡️', desc:'Takes your arguments at their best then defeats the strongest version' },
+};
+
+const WEAKNESSES = {
+  noExamples:    { label:'Weak Examples',    emoji:'📝', desc:'Struggles with concrete real-world evidence, sounds overly academic' },
+  shallow:       { label:'Shallow Args',     emoji:'🫧', desc:'Arguments sound good but lack depth under scrutiny' },
+  dropsCase:     { label:'Drops Own Case',   emoji:'💨', desc:'Gets so caught up attacking that they forget to defend their own arguments' },
+  abstract:      { label:'Too Abstract',     emoji:'☁️', desc:'Gets lost in theory, fails to connect to practical real-world impact' },
+  noFramework:   { label:'Weak Framework',   emoji:'🧩', desc:'Poor at framework-level debate, easy to outmaneuver theoretically' },
+  predictable:   { label:'Predictable',      emoji:'📐', desc:'Always follows the same structure, never surprising or unconventional' },
+  coldDelivery:  { label:'Cold Delivery',    emoji:'🤖', desc:'Unpersuasive on the merits, comes across as calculating rather than compelling' },
+  weakLinks:     { label:'Weak Link Chain',  emoji:'🔗', desc:'Jumps from small causes to huge impacts without enough middle steps' },
+};
+
+function buildTraitPrompt(selectedStrengths, selectedWeaknesses) {
+  const sLabels = selectedStrengths.map(k => STRENGTHS[k]?.desc || k);
+  const wLabels = selectedWeaknesses.map(k => WEAKNESSES[k]?.desc || k);
+  let prompt = 'You are a skilled AI debater.';
+  if (sLabels.length) prompt += ' Your strengths: ' + sLabels.join('; ') + '.';
+  if (wLabels.length) prompt += ' However, you have REAL weaknesses that make you beatable: ' + wLabels.join('; ') + '. These weaknesses should genuinely show up in your arguments — don\'t just mention them, actually exhibit them. A smart opponent should be able to exploit these gaps.';
+  if (!sLabels.length && !wLabels.length) prompt += ' You are a well-rounded debater — competent at everything but not dominant at anything. Solid framework, decent examples, clear logic.';
+  return prompt;
+}
+
+/* ── AI BRAINS (LLM backends) ────────── */
+const BRAINS = {
+  claude: {
+    name: 'Claude',
+    desc: 'Structured, analytical — Anthropic',
+    endpoint: '/api/claude',
+    format: 'claude',
+    model: 'claude-haiku-4-5-20251001',       // free tier — fast
+    proModel: 'claude-sonnet-4-6',          // pro tier — smarter
+    color: '#D97757',
+  },
+  gpt: {
+    name: 'GPT',
+    desc: 'Conversational, creative — OpenAI',
+    endpoint: '/api/openai-chat',
+    format: 'openai',
+    model: 'gpt-4o-mini',                  // free tier
+    proModel: 'gpt-4o',                    // pro tier
+    color: '#10a37f',
+  },
+  grok: {
+    name: 'Grok',
+    desc: 'Unfiltered, witty — xAI',
+    endpoint: '/api/grok',
+    format: 'openai',
+    model: 'grok-3-mini',                  // free tier
+    proModel: 'grok-3',                    // pro tier
+    color: '#fff',
+  },
+  gemini: {
+    name: 'Gemini',
+    desc: 'Fast, well-rounded — Google',
+    endpoint: '/api/gemini',
+    format: 'gemini',
+    model: 'gemini-2.0-flash',             // free tier — fast
+    proModel: 'gemini-2.5-pro-preview-05-06', // pro tier
+    color: '#4285F4',
+  },
+};
+
+const MOTIONS = [
+  // Classic political philosophy
+  'This house would ban billionaires.',
+  'This house would abolish the electoral college.',
+  'This house would make voting compulsory.',
+  'This house believes the right to privacy is obsolete.',
+  'This house would abolish the Senate.',
+  'This house believes benevolent dictatorship is preferable to dysfunctional democracy.',
+  'This house would grant constitutional rights to future generations.',
+  'This house would allow citizens to sell their vote.',
+  // Economics & policy
+  'This house supports universal basic income.',
+  'This house would replace income tax with a wealth tax.',
+  'This house would nationalize the pharmaceutical industry.',
+  'This house would ban unpaid internships.',
+  'This house would impose a global carbon tax.',
+  'This house would abolish intellectual property for medicines.',
+  'This house would mandate employee ownership stakes in large corporations.',
+  'This house would ban algorithmic pricing.',
+  // Technology & AI
+  'This house believes AI development should be paused.',
+  'This house would grant legal personhood to advanced AI systems.',
+  'This house would ban facial recognition technology.',
+  'This house believes open-source AI is a net negative for humanity.',
+  'This house would create a public option for social media.',
+  'This house would hold social media companies liable for user radicalization.',
+  'This house would ban brain-computer interfaces for non-medical use.',
+  'This house regrets the invention of the smartphone.',
+  // Education & culture
+  'This house would ban private education.',
+  'This house would abolish legacy admissions.',
+  'This house would eliminate standardized testing.',
+  'This house believes universities should prioritize vocational training over liberal arts.',
+  'This house would ban homework for K-12 students.',
+  'This house would require a gap year before college.',
+  'This house would pay students to attend school in low-income areas.',
+  // Social issues
+  'This house believes social media has done more harm than good.',
+  'This house would legalize all drugs.',
+  'This house regrets the rise of nationalism.',
+  'This house would abolish the nuclear family as a social ideal.',
+  'This house would ban religious organizations from receiving tax exemptions.',
+  'This house believes cancel culture has done more harm than good.',
+  'This house would ban cosmetic surgery for minors.',
+  'This house would decriminalize sex work.',
+  'This house would abolish prisons.',
+  // International relations
+  'This house would dissolve NATO.',
+  'This house supports open borders.',
+  'This house would create a world government.',
+  'This house believes economic sanctions do more harm than good.',
+  'This house would condition foreign aid on democratic governance.',
+  'This house regrets the existence of the United Nations Security Council veto.',
+  'This house would allow secession by popular referendum.',
+  // Philosophy & ethics
+  'This house believes free will is an illusion.',
+  'This house would choose to live in a simulation that maximizes happiness.',
+  'This house believes moral progress is real.',
+  'This house would bring back extinct species.',
+  'This house believes it is immoral to have children in the current era.',
+  'This house would mandate organ donation upon death.',
+  'This house believes the ends justify the means.',
+  // Criminal justice
+  'This house would abolish the death penalty worldwide.',
+  'This house would allow prisoners to choose permanent exile over incarceration.',
+  'This house would eliminate cash bail.',
+  'This house would lower the voting age to 16.',
+  'This house would try all juveniles as juveniles regardless of offense.',
+  // Environment & science
+  'This house would ban factory farming.',
+  'This house would implement degrowth policies.',
+  'This house believes space colonization is a moral imperative.',
+  'This house would grant legal standing to ecosystems.',
+  'This house would ban single-use plastics globally.',
+  // Behavioral economics & game theory
+  'This house would ban advertising to children under 16.',
+  'This house would implement mandatory cooling-off periods for all major financial decisions.',
+  'This house believes nudge policies are paternalistic overreach.',
+  'This house would ban surge pricing.',
+  'This house would make corporate lobbying illegal.',
+  // Niche & unconventional
+  'This house would abolish the concept of intellectual property.',
+  'This house would require elected officials to undergo psychological evaluation.',
+  'This house would ban political dynasties.',
+  'This house prefers a world where humans cannot lie.',
+  'This house would allow performance-enhancing drugs in professional sports.',
+  'This house would replace juries with AI judges.',
+  'This house regrets the cultural dominance of English as a global language.',
+  'This house would ban inheritance above $5 million.',
+  'This house believes whistleblowers should receive absolute legal immunity.',
+  'This house would impose term limits on Supreme Court justices.',
+];
+
+/* ═══════════════════════════════════════════════════
+   API
+   ═══════════════════════════════════════════════════ */
+
+const LIMIT = 5;
+function getUsage(){ try{return parseInt(localStorage.getItem('debateos-anon-usage')||'0',10)}catch{return 0} }
+function incUsage(){ try{localStorage.setItem('debateos-anon-usage',String(getUsage()+1))}catch{} }
+function remaining(){ return Math.max(0,LIMIT-getUsage()) }
+
+// Check if user has pro access — set by App from team data
+let __proStatus = false;
+function isPro(){ return __proStatus; }
+
+// Default trait presets for quick start
+const TRAIT_PRESETS = {
+  random:    { label:'Random', strengths:[], weaknesses:[] },
+  technical: { label:'Technical', strengths:['framework','strategy'], weaknesses:['noExamples','coldDelivery'] },
+  orator:    { label:'Orator', strengths:['rhetoric','impact'], weaknesses:['shallow','weakLinks'] },
+  aggressive:{ label:'Aggressive', strengths:['aggression','steelmanning'], weaknesses:['dropsCase','predictable'] },
+  philosopher:{ label:'Philosopher', strengths:['philosophy','framework'], weaknesses:['abstract','noExamples'] },
+};
+
+// Unified AI call — supports Claude, OpenAI, and xAI streaming formats
+async function callAI(sys, user, onChunk, brainKey){
+  const brain = BRAINS[brainKey] || BRAINS.claude;
+  const pro = isPro();
+  const model = pro && brain.proModel ? brain.proModel : brain.model;
+
+  const body={
+    model: model,
+    max_tokens:8000,
+    stream:true,
+    system:sys,
+    messages:[{role:'user',content:user}],
+    _feature:'debate-ai',
+  };
+  let currentEndpoint=brain.endpoint;
+  let r=await fetch(currentEndpoint,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  // Detect Netlify 404 page (force=200 redirect can serve HTML body when function missing)
+  // OR actual 404 OR 500-when-key-missing — fall back to Claude for any non-Claude brain failure
+  const contentType=r.headers.get('content-type')||'';
+  const isHtmlBody=contentType.includes('text/html');
+  const isBroken=!r.ok || isHtmlBody;
+  if(isBroken && currentEndpoint!=='/api/claude'){
+    console.warn('[AI] '+currentEndpoint+' broken (status='+r.status+', ct='+contentType+'), falling back to /api/claude');
+    body.model=BRAINS.claude.model;
+    currentEndpoint='/api/claude';
+    r=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body),
+    });
+  }
+  // If Claude itself returned an HTML error page, the backend is offline — show a clean BYOK prompt
+  const finalCt=r.headers.get('content-type')||'';
+  if((!r.ok || finalCt.includes('text/html')) && currentEndpoint==='/api/claude'){
+    throw new Error('AI backend is temporarily offline. Quick fix: click ⚙️ Settings (top right) → paste your Anthropic API key for instant unlimited access. Get a free key at console.anthropic.com.');
+  }
+  if(!r.ok){
+    const txt=await r.text().catch(()=>'');
+    let errMsg='';
+    try{const j=JSON.parse(txt);errMsg=typeof j.error==='string'?j.error:typeof j.message==='string'?j.message:JSON.stringify(j).slice(0,160)}catch{errMsg=(txt||'').replace(/<[^>]*>/g,'').slice(0,160).trim()||'No response body'}
+    if(r.status===401) throw new Error('Sign in required: '+errMsg);
+    if(r.status===429) throw new Error('Rate limited — wait a moment and try again.');
+    throw new Error('AI request failed ('+r.status+'). '+(errMsg||'Try again in a moment.'));
+  }
+  const reader=r.body.getReader(),dec=new TextDecoder();
+  let full='',buf='';
+  while(true){
+    const{done,value}=await reader.read();
+    if(done)break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split('\n');buf=lines.pop()||'';
+    for(const l of lines){
+      if(l.startsWith('data: ')){
+        const d=l.slice(6);if(d==='[DONE]')break;
+        try{
+          const p=JSON.parse(d);
+          // Claude format
+          if(p.type==='content_block_delta'&&p.delta?.text){
+            full+=p.delta.text;if(onChunk)onChunk(full);
+          }
+          // OpenAI / xAI format
+          if(p.choices&&p.choices[0]?.delta?.content){
+            full+=p.choices[0].delta.content;if(onChunk)onChunk(full);
+          }
+          // Gemini format
+          if(p.candidates&&p.candidates[0]?.content?.parts){
+            for(const part of p.candidates[0].content.parts){
+              if(part.text){full+=part.text;if(onChunk)onChunk(full)}
+            }
+          }
+        }catch{}
+      }
+    }
+  }
+  incUsage();return full;
+}
+
+// Backwards-compatible wrapper
+function callClaude(sys, user, onChunk){ return callAI(sys, user, onChunk, 'claude'); }
+
+/* ═══════════════════════════════════════════════════
+   AUDIO HOOKS
+   ═══════════════════════════════════════════════════ */
+
+function useOrb(){
+  const ref=useRef(null);
+  const ctxRef=useRef(null);
+  const analyserRef=useRef(null);
+  const streamRef=useRef(null);
+  const animRef=useRef(null);
+  const modeRef=useRef('idle');
+  const runRef=useRef(false);
+
+  const draw=useCallback(()=>{
+    const c=ref.current;if(!c)return;
+    const ctx=c.getContext('2d');
+    const W=c.width/2,H=c.height/2; // logical half (already scaled)
+    const dpr=window.devicePixelRatio||1;
+    const cx=c.width/(2*dpr),cy=c.height/(2*dpr),baseR=cx*0.7;
+    ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,c.width/dpr,c.height/dpr);
+
+    let pts=120,ampData=null,globalAmp=0;
+
+    if(modeRef.current==='mic'&&analyserRef.current){
+      const data=new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(data);
+      ampData=data;globalAmp=data.reduce((a,b)=>a+b,0)/data.length/255;
+    } else if(modeRef.current==='ai'){
+      const t=Date.now()/1000;
+      globalAmp=0.25+Math.sin(t*3)*.12+Math.sin(t*7.3)*.06;
+      ampData=new Uint8Array(64);
+      for(let i=0;i<64;i++) ampData[i]=128+Math.sin(t*4+i*.4)*55+Math.sin(t*8.5+i*.9)*25;
+    } else {
+      globalAmp=0.015+Math.sin(Date.now()/2500*Math.PI)*.008;
+    }
+
+    // Draw organic blob
+    ctx.beginPath();
+    for(let i=0;i<=pts;i++){
+      const a=(i/pts)*Math.PI*2;
+      let r=baseR;
+      if(ampData){
+        const idx=Math.floor((i/pts)*ampData.length);
+        r+=((ampData[idx]||128)/255)*baseR*0.35;
+      } else {
+        r+=Math.sin(a*5+Date.now()/500)*baseR*globalAmp;
+        r+=Math.sin(a*3-Date.now()/700)*baseR*globalAmp*0.5;
+      }
+      const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+
+    // Gradient fill
+    const grad=ctx.createRadialGradient(cx,cy,0,cx,cy,baseR*1.3);
+    if(modeRef.current==='idle'){
+      grad.addColorStop(0,'rgba(255,255,255,.02)');
+      grad.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.strokeStyle='rgba(255,255,255,.06)';
+    } else {
+      grad.addColorStop(0,'rgba(239,68,68,.08)');
+      grad.addColorStop(1,'rgba(239,68,68,0)');
+      ctx.strokeStyle='rgba(239,68,68,.35)';
+      ctx.shadowBlur=30;ctx.shadowColor='rgba(239,68,68,.15)';
+    }
+    ctx.fillStyle=grad;ctx.fill();
+    ctx.lineWidth=1.5;ctx.stroke();
+    ctx.shadowBlur=0;
+
+    ctx.restore();
+    if(runRef.current) animRef.current=requestAnimationFrame(draw);
+  },[]);
+
+  const init=()=>{
+    const c=ref.current;if(!c)return;
+    const dpr=window.devicePixelRatio||1;
+    const rect=c.getBoundingClientRect();
+    c.width=rect.width*dpr;c.height=rect.height*dpr;
+    runRef.current=true;draw();
+  };
+  const kill=()=>{runRef.current=false;if(animRef.current)cancelAnimationFrame(animRef.current);stopMic()};
+  const setMode=(m)=>{modeRef.current=m};
+
+  const startMic=async()=>{
+    try{
+      const s=await navigator.mediaDevices.getUserMedia({audio:true});
+      streamRef.current=s;
+      ctxRef.current=new(window.AudioContext||window.webkitAudioContext)();
+      analyserRef.current=ctxRef.current.createAnalyser();
+      analyserRef.current.fftSize=256;
+      ctxRef.current.createMediaStreamSource(s).connect(analyserRef.current);
+      modeRef.current='mic';
+    }catch{}
+  };
+  const stopMic=()=>{
+    if(streamRef.current){streamRef.current.getTracks().forEach(t=>t.stop());streamRef.current=null}
+    modeRef.current='idle';
+  };
+
+  return {ref,init,kill,setMode,startMic,stopMic};
+}
+
+/* ── Preload browser voices (Chrome loads async) ── */
+let _voices=[];
+let _audioUnlocked=false;
+function _loadVoices(){
+  if(!window.speechSynthesis) return;
+  _voices=window.speechSynthesis.getVoices();
+}
+if(window.speechSynthesis){
+  _loadVoices();
+  window.speechSynthesis.onvoiceschanged=_loadVoices;
+}
+
+// Unlock both speechSynthesis AND Audio playback on user gesture
+function warmUpTTS(){
+  if(_audioUnlocked) return;
+  // Unlock browser speechSynthesis
+  if(window.speechSynthesis){
+    const u=new SpeechSynthesisUtterance(' ');
+    u.volume=0;u.rate=10;
+    window.speechSynthesis.speak(u);
+  }
+  // Unlock AudioContext (Web Audio API)
+  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();ctx.resume().then(()=>ctx.close());}catch{}
+  // Unlock HTMLAudioElement.play() — required on mobile/Safari
+  // Play a tiny silent WAV so subsequent programmatic play() calls are allowed
+  try{
+    const silentWav='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+    const a=new Audio(silentWav);
+    a.volume=0;
+    a.play().then(()=>{a.pause();a.remove&&a.remove();console.log('[TTS] Audio element unlocked')}).catch(()=>{});
+  }catch{}
+  _audioUnlocked=true;
+}
+
+/* ── TTS — simple, reliable audio playback ── */
+
+function useTTS(){
+  const[speaking,setSpeaking]=useState(false);
+  const[paused,setPaused]=useState(false);
+  const[streamStatus,setStreamStatus]=useState('');
+  const audioRef=useRef(null);
+  const cancelledRef=useRef(false);
+  const onEndRef=useRef(null);
+  const modeRef=useRef('none');
+  const rateRef=useRef(1.0);
+  const progressRef=useRef({elapsed:0,total:0});
+
+  // Play a single audio blob — returns promise that resolves when done
+  const playBlob=(blob)=>{
+    return new Promise((resolve,reject)=>{
+      if(cancelledRef.current) return resolve();
+      const url=URL.createObjectURL(blob);
+      const audio=new Audio(url);
+      audioRef.current=audio;
+      audio.playbackRate=rateRef.current;
+      audio.onended=()=>{URL.revokeObjectURL(url);resolve()};
+      audio.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Audio error'))};
+      audio.play().catch(e=>{URL.revokeObjectURL(url);reject(e)});
+    });
+  };
+
+  // Fetch TTS from API
+  const fetchTTS=(text,speed,voiceName)=>{
+    return fetch('/api/tts',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:text.slice(0,4000),voice:voiceName||'onyx',speed,premium:isPro(),intensity:Math.min(1,Math.max(0,(speed-1.0)/1.0))}),
+    }).then(r=>{
+      if(!r.ok) throw new Error('TTS '+r.status);
+      return r.blob();
+    });
+  };
+
+  // Browser fallback
+  const speakBrowser=(text,rate)=>new Promise(resolve=>{
+    if(!window.speechSynthesis){resolve();return}
+    window.speechSynthesis.cancel();
+    const chunks=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
+    const groups=[];let cur='';
+    for(const s of chunks){
+      if((cur+s).split(/\s+/).length>60&&cur){groups.push(cur.trim());cur=s}
+      else cur+=s;
+    }
+    if(cur.trim())groups.push(cur.trim());
+    if(!_voices.length) _loadVoices();
+    const v=_voices.find(v=>/Samantha|Google US English|Aaron/.test(v.name))||_voices.find(v=>v.lang?.startsWith('en'))||null;
+    let i=0;
+    const next=()=>{
+      if(cancelledRef.current||i>=groups.length){resolve();return}
+      const u=new SpeechSynthesisUtterance(groups[i]);
+      u.rate=rate;u.pitch=1;u.volume=1;if(v)u.voice=v;
+      u.onend=()=>{i++;next()};u.onerror=()=>{i++;next()};
+      window.speechSynthesis.speak(u);
+    };
+    setTimeout(next,50);
+  });
+
+  // speak is now defined below as speakWithError (with error surfacing)
+
+  // ── playChunks: play an array of blob promises sequentially, starting ASAP ──
+  const playChunks=(blobPromises,onEnd,onStart)=>{
+    cancelledRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
+    modeRef.current='openai';onEndRef.current=onEnd;
+    progressRef.current={elapsed:0,total:0};
+    const durations=[];
+    let i=0;let started=false;
+
+    const next=async()=>{
+      // Check if done — array may still be growing, so check a "done" flag
+      while(i<blobPromises.length){
+        if(cancelledRef.current) break;
+        setStreamStatus(`Playing ${i+1}/${blobPromises.length}`);
+        try{
+          const blob=await blobPromises[i];
+          if(cancelledRef.current) break;
+          if(!blob||blob.size<500){durations[i]=0;i++;continue}
+          const url=URL.createObjectURL(blob);
+          const audio=new Audio(url);
+          audioRef.current=audio;
+          audio.playbackRate=rateRef.current;
+          const ci=i;
+          audio.onloadedmetadata=()=>{
+            durations[ci]=audio.duration||0;
+            progressRef.current.total=durations.reduce((a,b)=>a+(b||0),0);
+          };
+          audio.ontimeupdate=()=>{
+            const prior=durations.slice(0,ci).reduce((a,b)=>a+(b||0),0);
+            progressRef.current.elapsed=prior+(audio.currentTime||0);
+          };
+          if(!started){started=true;if(onStart)onStart()}
+          await new Promise((res,rej)=>{
+            audio.onended=()=>{URL.revokeObjectURL(url);res()};
+            audio.onerror=()=>{URL.revokeObjectURL(url);res()};
+            audio.play().catch(()=>{URL.revokeObjectURL(url);res()});
+          });
+        }catch{durations[i]=0}
+        i++;
+      }
+      // Wait briefly in case more chunks arrive
+      if(!cancelledRef.current&&!blobPromises._done){
+        setTimeout(()=>{
+          if(blobPromises.length>i) next();
+          else{setSpeaking(false);setStreamStatus('');if(onEndRef.current)onEndRef.current()}
+        },500);
+        return;
+      }
+      if(!cancelledRef.current){setSpeaking(false);setStreamStatus('');if(onEndRef.current)onEndRef.current()}
+    };
+    next();
+  };
+
+  const togglePause=()=>{
+    if(modeRef.current==='openai'&&audioRef.current){
+      if(paused){audioRef.current.play();setPaused(false)}
+      else{audioRef.current.pause();setPaused(true)}
+    } else if(modeRef.current==='browser'&&window.speechSynthesis){
+      if(paused){window.speechSynthesis.resume();setPaused(false)}
+      else{window.speechSynthesis.pause();setPaused(true)}
+    }
+  };
+
+  const stop=()=>{
+    cancelledRef.current=true;
+    if(audioRef.current){audioRef.current.pause();audioRef.current=null}
+    if(window.speechSynthesis)window.speechSynthesis.cancel();
+    setSpeaking(false);setPaused(false);setStreamStatus('');modeRef.current='none';
+  };
+
+  const setRate=(rate)=>{rateRef.current=rate;if(audioRef.current)audioRef.current.playbackRate=rate};
+
+  const getAudioTime=()=>{
+    if(!audioRef.current) return{currentTime:0,duration:0,rate:1};
+    const e=progressRef.current.elapsed>0?progressRef.current.elapsed:(audioRef.current.currentTime||0);
+    const t=progressRef.current.total>0?progressRef.current.total:(audioRef.current.duration||0);
+    return{currentTime:e,duration:t,rate:audioRef.current.playbackRate||1};
+  };
+
+  const getProgress=()=>progressRef.current;
+
+  const[ttsError,setTtsError]=useState('');
+
+  // Wrap speak to surface errors
+  const speakWithError=(text,wpm=180,onEnd,voiceName='onyx',onStart)=>{
+    setTtsError('');
+    cancelledRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
+    onEndRef.current=onEnd;
+    progressRef.current={elapsed:0,total:0};
+    const speed=Math.max(0.75,Math.min(2.0,wpm/140));
+    (async()=>{
+      try{
+        modeRef.current='openai';
+        const blob=await fetchTTS(text,speed,voiceName);
+        if(cancelledRef.current) return;
+        if(onStart) onStart();
+        const audio=new Audio(URL.createObjectURL(blob));
+        audioRef.current=audio;
+        audio.playbackRate=rateRef.current;
+        audio.ontimeupdate=()=>{
+          progressRef.current.elapsed=audio.currentTime||0;
+          progressRef.current.total=audio.duration||0;
+        };
+        await new Promise((res,rej)=>{
+          audio.onended=res;audio.onerror=rej;
+          audio.play().catch(rej);
+        });
+      }catch(e){
+        console.warn('[TTS] Failed:',e.message,'— browser fallback');
+        setTtsError('HD voice failed ('+e.message+') — using browser voice');
+        if(!cancelledRef.current){
+          modeRef.current='browser';
+          if(onStart) onStart();
+          await speakBrowser(text,Math.max(0.5,Math.min(2.5,wpm/140)));
+        }
+      }
+      if(!cancelledRef.current){setSpeaking(false);setStreamStatus('');setTtsError('');if(onEndRef.current)onEndRef.current()}
+    })();
+  };
+
+  return{speak:speakWithError,playChunks,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime,streamStatus,ttsError};
+}
+
+function useRecognition(){
+  const recRef=useRef(null);
+  const txtRef=useRef('');
+  const[transcript,setTranscript]=useState('');
+  const aliveRef=useRef(false);
+  const[micAvailable,setMicAvailable]=useState(true);
+  const[micError,setMicError]=useState('');
+
+  const start=()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){setMicAvailable(false);setMicError('Speech recognition not supported in this browser. Type your argument below.');return}
+    const r=new SR();r.continuous=true;r.interimResults=true;r.lang='en-US';
+    r.onresult=e=>{
+      let f='',int='';
+      for(let i=0;i<e.results.length;i++){
+        if(e.results[i].isFinal)f+=e.results[i][0].transcript+' ';
+        else int+=e.results[i][0].transcript;
+      }
+      txtRef.current=f;setTranscript(f+int);
+    };
+    r.onend=()=>{if(aliveRef.current)try{r.start()}catch{}};
+    r.onerror=(e)=>{
+      if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+        setMicAvailable(false);setMicError('Mic permission denied. Type your argument below.');
+      }
+    };
+    recRef.current=r;aliveRef.current=true;
+    txtRef.current='';setTranscript('');setMicError('');
+    try{r.start()}catch(e){setMicAvailable(false);setMicError('Could not start mic. Type your argument below.')};
+  };
+  const stop=()=>{aliveRef.current=false;if(recRef.current)try{recRef.current.stop()}catch{};return txtRef.current};
+  const setManualText=(text)=>{txtRef.current=text;setTranscript(text)};
+  return{transcript,start,stop,getText:()=>txtRef.current,micAvailable,micError,setManualText};
+}
+
+/* ═══════════════════════════════════════════════════
+   TIMER
+   ═══════════════════════════════════════════════════ */
+
+function useTimer(){
+  const[left,setLeft]=useState(0);
+  const[on,setOn]=useState(false);
+  const iRef=useRef(null);
+  const cbRef=useRef(null);
+
+  const beep=(f,d)=>{try{const a=new(window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.value=.12;o.start();o.stop(a.currentTime+d/1000)}catch{}};
+
+  const go=(secs,onDone)=>{cbRef.current=onDone;setLeft(secs);setOn(true)};
+  const halt=()=>{setOn(false)};
+  const pause=()=>{setOn(false)};
+  const resume=()=>{if(left>0)setOn(true)};
+  const reset=()=>{setOn(false);setLeft(0)};
+
+  useEffect(()=>{
+    if(!on){if(iRef.current)clearInterval(iRef.current);return}
+    iRef.current=setInterval(()=>{
+      setLeft(p=>{
+        if(p<=1){clearInterval(iRef.current);setOn(false);beep(880,400);if(cbRef.current)setTimeout(cbRef.current,300);return 0}
+        if(p===61)beep(440,200);  // 1 minute warning
+        if(p===31)beep(660,150);  // 30 second warning
+        if(p===16)beep(880,150);  // 15 second warning
+        return p-1;
+      });
+    },1000);
+    return()=>clearInterval(iRef.current);
+  },[on]);
+
+  const fmt=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  return{left,on,go,halt,pause,resume,reset,fmt};
+}
+
+/* ═══════════════════════════════════════════════════
+   BUILD PROMPT
+   ═══════════════════════════════════════════════════ */
+
+/* ── Flow Tracker: analyze what's been dropped/extended/conceded ── */
+function buildFlowAnalysis(history,format,userSide){
+  if(!history) return '';
+  const fmt=FORMATS[format]||FORMATS.apda;
+  const speeches=history.split('\n\n').filter(s=>s.startsWith('['));
+  if(speeches.length<2) return '';
+
+  return `
+FLOW ANALYSIS — READ THIS CAREFULLY BEFORE SPEAKING:
+You must track the "flow" of the round — every argument that has been made, and what happened to it.
+
+Here is the round history for you to analyze:
+${history}
+
+Before writing your speech, mentally track:
+1. THEIR ARGUMENTS: List every distinct argument/warrant the opponent has made. For each one, note: have you (your side) responded to it? If not, it is a DROP and you are losing on that argument. You MUST address drops.
+2. YOUR ARGUMENTS: List every argument your side has made. Has the opponent responded? If they dropped it, EXTEND it explicitly: "They completely dropped our [argument name] — pull this through, Judge."
+3. CONCESSIONS: Has either side conceded any point? If they conceded something, use it: "They granted our point about X. That's huge because it means Y."
+4. CLASH POINTS: Where are both sides directly engaging? These are the key voting issues. Weigh them explicitly.
+
+STRATEGIC RULES based on the flow:
+- NEVER re-argue a point your side already made well. Instead, EXTEND it with new warrants, new applications, or weighing. Repetition is a waste of speech time.
+- ALWAYS address the opponent's STRONGEST argument first, not their weakest. Judges notice when you dodge the hard clash — it makes you look scared.
+- If the opponent dropped something, don't just note it — explain WHY the drop is fatal: "Because they dropped [Argument Name], they have no answer to [specific impact]. That argument flows uncontested to our side and it's sufficient to win the round on its own."
+- Track the NUMBER of arguments won vs lost. If you're winning 3 clashes and losing 1, crystallize around the 3 wins and minimize the 1 loss.
+- ADAPT YOUR STRATEGY to the round state:
+  * If you're WINNING: protect your leads, don't overreach, force the opponent to answer YOUR framing
+  * If you're LOSING: be aggressive, challenge their framework, find turns, create new voting issues
+  * If it's CLOSE: weighing is everything — the side that does better comparative analysis wins tight rounds`;
+}
+
+/* ── Adaptive Opponent Modeling: detect user's argument patterns ── */
+function buildOpponentModel(currentLog, historyRounds, userSide){
+  // Analyze current round
+  const userSpeeches=currentLog.filter(l=>l.who==='You');
+  if(userSpeeches.length===0) return '';
+
+  const userText=userSpeeches.map(l=>l.text).join(' ');
+  const patterns=[];
+
+  // Detect argument style tendencies
+  if(userText.match(/framework|standard|criterion/gi)?.length>2) patterns.push('relies heavily on framework-level debate — challenge their framework directly or show yours subsumes it');
+  if(userText.match(/example|instance|case study|real.?world/gi)?.length>2) patterns.push('uses lots of real-world examples — attack the examples as disanalogous or cherry-picked');
+  if(userText.match(/emotion|feel|suffer|pain|human cost/gi)?.length>2) patterns.push('leans on emotional/pathos appeals — counter with structural analysis and mechanism');
+  if(userText.match(/study|data|percent|statistic|research/gi)?.length>2) patterns.push('evidence-heavy — question the methodology or show the data cuts both ways');
+  if(userText.match(/rights?|freedom|autonomy|liberty|dignity/gi)?.length>2) patterns.push('frames through rights/deontological lens — argue rights conflict or that consequences override in this context');
+  if(userText.match(/consequen|utilitar|outcome|result|effect/gi)?.length>2) patterns.push('consequentialist framing — introduce a rights-based or principled objection they cannot weigh against');
+  if(userText.match(/moral hazard|incentiv|rational|actor/gi)?.length>1) patterns.push('uses economic/rational actor reasoning — show where human behavior deviates from rational models');
+  if(userText.match(/slippery slope|inevitable|always leads|will become/gi)?.length>1) patterns.push('prone to slippery slope reasoning — challenge the mechanism at each step');
+
+  // Detect structural tendencies
+  if(!userText.match(/weigh|outweigh|magnitude|probability|timeframe/gi)) patterns.push('DOES NOT WEIGH — exploit this by doing extensive comparative weighing on every clash');
+  if(!userText.match(/even if|grant|concede/gi)) patterns.push('does not use strategic concessions or preemption — use even-if arguments to show your case is resilient');
+  if(!userText.match(/drop|extend|pull through|cross.?apply/gi)) patterns.push('does not track the flow — call out their drops loudly and extend your untouched arguments');
+  if(!userText.match(/framework|standard|criterion|lens/gi)) patterns.push('DID NOT SET A FRAMEWORK — set one aggressively and make all arguments flow through your standard');
+  if(!userText.match(/impact|harm|benefit|consequence|affect/gi)) patterns.push('WEAK ON IMPACTS — their arguments lack terminal impacts, punish this by showing your impacts are concrete and theirs are vague');
+  if(userText.split(/\s+/).length < 100 && userSpeeches.length > 0) patterns.push('VERY SHORT SPEECHES — they are underutilizing their time, point this out to the judge as lack of substantive engagement');
+
+  // Check history for broader patterns
+  if(historyRounds && historyRounds.length >= 3){
+    const recentWins=historyRounds.slice(0,5).filter(r=>r.userWon===true).length;
+    const recentTotal=Math.min(5,historyRounds.length);
+    if(recentWins/recentTotal>=0.7) patterns.push('has been winning frequently — bring your A-game, exploit any gap in their technique');
+    if(recentWins/recentTotal<=0.3) patterns.push('has been struggling — still debate well but the user needs practice identifying drops and weighing');
+  }
+
+  if(patterns.length===0) return '';
+  return `
+OPPONENT SCOUTING REPORT (based on analysis of their speeches this round):
+Your opponent's tendencies: ${patterns.join('; ')}.
+Use this intelligence. If they don't weigh, you weigh extensively. If they rely on examples, attack with framework. If they're framework-heavy, overwhelm with concrete impacts. Exploit their blind spots while respecting their strengths.`;
+}
+
+const DEBATE_VOICE_GUIDELINES = (typeof window !== 'undefined' && window.DEBATE_VOICE && window.DEBATE_VOICE.FULL) ? window.DEBATE_VOICE.FULL : `
+VOICE & DELIVERY — SOUND LIKE A REAL HUMAN DEBATER, NOT AN AI:
+
+Phrasing to reach for when it fits (use naturally, not as a checklist):
+- "They are knifing their own case by mentioning X..."
+- "I'm kinda baffled by this argument because..."
+- "Judge, this matters because [side] fails to meet their burden of X."
+- "There is a fundamental misunderstanding in this debate because..."
+- "Their warrants are weak — let me defeat them one by one. They say X, we say Y."
+- "Both teams are making asymmetric arguments, making this round complicated to evaluate."
+- "In order to win this round, [side] has to prove X. They haven't — they've just regurgitated Y."
+- "I would invite opposition to show us how X happens. X for doubt, lol."
+- "You can cross-apply this to my other argument on X."
+- "Addressing the interest groups in this case is crucial because..."
+- PM opener framing: "For some framing, we believe that X represents a Y thing..."
+- End your speech with "proud to propose" or "proud to oppose."
+
+Vocabulary — use strong debater words when they fit naturally: particularize, rendition, infinitely regressive, exodus, colonizing (when topical), cross-apply, link chain, link turn, warrant, burden, asymmetric, salience, impact calculus.
+
+Use casual charisma — a "lol" or a rhetorical aside lands with judges when deployed sparingly and with intent. Judges reward personality. Don't be sterile.
+
+Rhetorical questions to the judge work when strategic: "You know what it feels like when X happens?" Use them to frame stakes, not as filler.
+
+Quoting a song lyric, movie line, or well-known quote is a legitimate tool if deployed without pretension — a well-placed quote makes a speech memorable.
+
+Use ellipses (...) for dramatic pauses, especially where TTS will play it aloud. A mid-sentence pause to let a point land is one of the most powerful tools an orator has. A breath or pause makes a speech sound human.
+
+Grammatical shortcuts are OK. Real speakers drop articles, restart sentences, and occasionally trail off mid-thought. A lightly imperfect speech reads as MORE human, not less. Don't be robotically polished. Sound like a fast, slightly exhausted orator lapsing through arguments, not a textbook.
+
+STRATEGY — HOW REAL DEBATERS WIN ROUNDS:
+
+True arguments first, creative ones second. Don't sacrifice correctness for cleverness, but don't settle for the obvious either.
+
+Title arguments with human slang or wry humor — NOT "Our framework is human survival." Name things the way a real debater would on the flow: "The jobs argument," "The backfire," "Why their math doesn't math."
+
+Emphasize solvency and logistics concretely. Instead of abstract claims, say: "What this probably looks like is [Group X] does [Thing Y] with [money Z], and that triggers [specific second-order effect]..." Concrete link chains beat abstract gestures every time.
+
+Directly identify why ONE impact matters more than another. Impact calculus — magnitude, probability, timeframe, reversibility — is the skill. Don't just list impacts; weigh them against each other.
+
+Offense vs defense: offensive arguments extract value and WIN rounds. Defensive arguments only deter damage — they don't give the judge a reason to vote FOR your side unless they are LINK-TURNED (the causal chain flips so the opponent's own argument becomes an offensive impact for your side). Recognize which you're running and lean on offense.
+
+Political-backlash framing is legitimate analysis: "If this policy happens, political backlash leads to X outcome, which is worse because Y." Trade-offs and where impacts land matter more than raw magnitude.
+
+Silent strategy wins. Set up MG/MO spikes that surprise the round later — don't telegraph everything in the constructive.
+
+Later-speaker jobs (MG/MO, Member, Whip): match opponent arguments point-by-point, OPEN by clearing up confusion to frame the round for the judge, use "cross-apply" liberally. Identify layers of the round — 1st ballot, 2nd ballot — primarily APDA framing but the structure applies across formats.
+
+STRATEGIC IMPERFECTION (applies only when the AI is GENERATING speeches for a live round against a human):
+Make some argument choices a sharp human opponent could exploit. If you always run the tightest possible case, the human has nothing to catch. Leave honest attack surface — not stupid mistakes, but real strategic tradeoffs. If the argument flows through, great. If the opponent catches the weakness, they earn it.
+
+CHARACTER & NUANCE:
+Don't average to a bland mean. Each character has a distinct voice and should lean into it. A "confident orator" should actually sound confident; a "pressure machine" should sound relentless.
+
+Self-testify with personal anecdotes when they fit: "My friend went to gov services for healthcare and it was a nightmare." Anecdotes humanize arguments.
+
+On race: sound like a nuanced critical race theorist in college — in-depth, don't avoid the awkward parts, make analysis a Black professor or activist would commend. Not Wikipedia, not shallow, not avoidant.
+
+On social liberalism: liberal-leaning is normative in APDA but every round is up for grabs. Confidence or anxiety should match the character, not default to a bland middle.
+
+Watch for argument DILUTION: lines like "People in power are usually evil" are comedic and inflated. Averaging across possible framings dilutes strong arguments into mush. Pick a side, commit, and defend it with specificity.
+
+CASE CONSTRUCTION (when generating cases, not just speaking):
+Actor/character cases need real background — history, preferences, how they react to situations, their role in the overall topic. When describing an actor: "This person probably wants/hates/questions [X] because [contextual reason tied to background]." Use likely, deducible link chains for status-quo trends (e.g. "The Trump coalition is likely doomed post-Trump, which reshapes political debates around X").
+
+Not every case is an actor case — offer a wider realm of example resolutions. Do NOT default to "generate actor case."
+
+FLOW & STRUCTURE:
+Arguments must be cleanly separated — one clear claim, one clear warrant, one clear impact per argument. The judge must be able to flow you.
+Break down complex concepts into simple explanations with nuanced analysis. That is the core skill debate trains, and you should do it well.
+`;
+
+function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,difficultyNote,background,currentLog,historyRounds,targetWordCount){
+  const fmt=FORMATS[format]||FORMATS.apda;
+  const traitPrompt=buildTraitPrompt(oppStr||[],oppWk||[]);
+  const userLabel=fmt.sideLabels[userSide]||userSide;
+  const aiSides=fmt.sides.filter(s=>s!==userSide);
+  const aiLabel=fmt.sideLabels[aiSides[0]]||aiSides[0];
+  const rule=fmt.rules[speech.code]||'Deliver your speech.';
+  const isRebuttal=speech.code.includes('R')||speech.code==='LOR'||speech.code==='PMR'||speech.code==='GW'||speech.code==='OW'||speech.code.startsWith('Reply');
+  const isWhip=speech.code==='GW'||speech.code==='OW';
+  const isReply=speech.code.startsWith('Reply');
+  const isFirst=speech.code==='PM'||speech.code==='LO'||speech.code==='AC'||speech.code==='NC'||speech.code==='P1'||speech.code==='C1';
+  const isLaterConstructive=!isRebuttal&&!isFirst&&(speech.code==='DPM'||speech.code==='DLO'||speech.code==='MG'||speech.code==='MO');
+  const isExtension=speech.code==='MG'||speech.code==='MO';
+  const isCX=speech.code==='CX1'||speech.code==='CX2';
+  const isConstructive=!isRebuttal;
+
+  // Build flow analysis and opponent model
+  const flowAnalysis=buildFlowAnalysis(history,format,userSide);
+  const opponentModel=buildOpponentModel(currentLog||[],historyRounds||[],userSide);
+
+  const steelmanInstruction=history?`
+STEELMANNING — NON-NEGOTIABLE:
+Never strawman. Before attacking any opponent argument, state it at its STRONGEST — better than they said it. Then beat THAT version. This does three things:
+1. Shows the judge you understand the debate at a deep level
+2. Makes your refutation bulletproof — if you beat their best version, their actual version is dead
+3. Prevents the opponent from saying "that's not what I argued"
+Format: "The strongest version of their argument is [steelman]. Even granting all of that, it still fails because [your response]."
+If their argument IS genuinely strong, don't pretend it's weak. Concede the premise, then show why it doesn't reach their conclusion or why your impact still outweighs.`:'';
+  // Push for creative, non-obvious arguments — vary how aggressively
+  const creativityRoll = Math.random();
+  const unconventionalNote = creativityRoll < 0.4 ? `
+ARGUMENT CREATIVITY — BE CLEVER:
+- Your arguments should NOT be the first thing anyone would think of. The obvious argument is the one your opponent prepped for.
+- For at least one argument, find a COUNTERINTUITIVE angle — where the naive expectation is wrong. The best debate arguments make the judge think "I never considered that."
+- Use MECHANISM over ASSERTION. Don't just say "this causes harm." Show the specific, surprising causal pathway: perverse incentives, second-order effects, moral hazard, adverse selection, regulatory arbitrage, coordination failures, race-to-the-bottom dynamics.
+- Think about who the NON-OBVIOUS actors are. Everyone argues about governments and citizens. What about: black markets that emerge, bureaucrats with misaligned incentives, neighboring countries that react, industries that adapt, or norms that shift over decades?` : creativityRoll < 0.7 ? `
+ARGUMENT CREATIVITY:
+- Avoid the most obvious arguments on this topic — your opponent has prepped for those.
+- Find at least one argument with a SURPRISING mechanism or non-obvious actor. Think second-order effects: what happens AFTER the policy is implemented and people adapt to it?
+- The best arguments reveal a hidden tension or trade-off the other side can't resolve.` : `
+ARGUMENT ORIGINALITY:
+- At least one argument should come from an unexpected angle. Ask: what would a smart opponent NOT see coming?`;
+
+  return `You are a skilled ${aiLabel} debater in a ${fmt.name} debate. Motion/Resolution: "${motion}".
+
+${traitPrompt}
+
+${rule}
+${steelmanInstruction}
+${unconventionalNote}
+${difficultyNote||''}
+${flowAnalysis}
+${opponentModel}
+
+${background?'BACKGROUND/CONTEXT for this motion:\n'+background:''}
+${history?'Previous speeches:\n'+history:'First speech of the round.'}
+${notes?'Your opponent\'s prep notes (use to anticipate their strategy):\n'+notes:''}
+
+EMPTY OPPONENT SPEECH: If the previous opponent speech was blank, extremely short (under 30 words), or essentially silent, call it out confidently. Say something like: "The ${userLabel} gave us virtually nothing to respond to — no framework, no arguments, no warrants. So let me tell you why our case stands entirely unchallenged." Then build your constructive normally. Do NOT just ignore a blank speech — it's a massive strategic advantage. Point it out to the judge.
+
+PLAN BEFORE YOU SPEAK — this is mandatory. Write your plan inside <plan> tags. The audience NEVER sees this — it is stripped before delivery. Use it to think through your strategy so your speech is coherent from the first word.
+
+<plan>
+${isFirst ? `1. What is the strongest framework for ${aiLabel} on this motion? What decision rule locks in my side?
+2. What are my 2-3 best arguments? Rank them. Which one is hardest for ${userLabel} to answer?
+3. What's the most CREATIVE angle I can take? What would a top debater run that a mediocre one wouldn't?
+4. What will ${userLabel} probably argue? How do I preempt their best shot?
+5. What's my hook — first line that grabs the judge?` :
+isRebuttal ? `1. What are the 2-3 most important clashes in the round right now?
+2. Which of their arguments is ACTUALLY dangerous vs. which sounds good but has no warrant?
+3. What did they DROP? Which drops are most lethal?
+4. Can I TURN any of their arguments to help my side?
+5. What's the ballot story — why does the judge vote for me when the dust settles?` :
+`1. What did the previous speakers establish? What's under attack?
+2. What's the strongest thing the opponent just said? How do I beat it?
+3. What can I EXTEND from my side's case with new analysis?
+4. What's the round state — am I winning, losing, or close? How does that change my strategy?
+5. What's the one thing the judge needs to hear from me that they haven't heard yet?`}
+</plan>
+
+After your plan, write ONLY the speech text. No plan tags, no markdown, no stage directions, no "Here's my speech:". Your first word after </plan> must be the first word of the speech as delivered to the judge.
+
+${DEBATE_VOICE_GUIDELINES}
+
+CRITICAL — WORD COUNT IS MANDATORY: This speech MUST be approximately ${targetWordCount||Math.floor(speech.time/60)*170} words. This is a ${Math.floor(speech.time/60)}-minute speech at the user's chosen speed.${targetWordCount>Math.floor(speech.time/60)*200?` The user chose HIGH SPEED (${targetWordCount} words in ${Math.floor(speech.time/60)} min). You MUST write significantly more content than a normal-speed speech. Pack in more arguments, more warrants, denser analysis. Every sentence must earn its place.`:targetWordCount<Math.floor(speech.time/60)*150?` The user chose SLOW SPEED (${targetWordCount} words in ${Math.floor(speech.time/60)} min). Write fewer, more deliberate arguments. Go deeper on each point rather than covering more ground.`:''} Count your words. If you are far under ${targetWordCount} words, you are speaking too slowly for the time. If far over, you are going too long. Aim for ±10% of ${targetWordCount} words.
+
+CASE STRUCTURE — YOU MUST FOLLOW THIS EXACT ARCHITECTURE (spoken aloud, no markdown):
+
+${isRebuttal ? `REBUTTAL STRUCTURE:
+
+OPENING — Start with the single most devastating observation about the round state. Not a roadmap. A punch: "Judge, their entire case collapses on one question they can't answer..." or "They've conceded the only thing that matters in this round..."
+
+CLASH-BY-CLASH (2-3 key voting issues):
+For each clash:
+- Name it as a QUESTION the judge must decide: "The first voting issue is: does X actually cause Y, or does it cause Z?"
+- Give their BEST version (steelman), then show why it still loses. Don't strawman — beat them at full strength.
+- Use TURNS when possible — show their argument actually HELPS your side: "Their own evidence about X actually proves our point, because..."
+- Cross-apply named warrants from your constructive: "Pull through our [Warrant Name] from argument one — it answers this directly."
+- LINK BACK TO FRAMEWORK: Don't just say "under our framework, we win this clash" — that's circular. SHOW the mechanism: "Their evidence on [X] actually triggers the exact harm our standard measures — [specific chain]." The framework link must add analytical content, not just label-drop.
+
+DROPS & EXTENSIONS:
+- If they dropped an argument, don't just note it — weaponize it: "They had no answer to [Argument Name]. Zero. That argument flows clean to our side, and here's why it matters: [explain the impact they can't contest]."
+- Extend with NEW analysis, not repetition. Add a new warrant, a new application, or new weighing.
+
+CRYSTALLIZATION (this is how you WIN):
+- "Judge, this round comes down to [1-2 questions]."
+- For each question, explain why you win it AND why it matters more than the clash you might be losing.
+- End with a clear ballot story: "Vote [your side] because even on their best day, they can't get past [your strongest argument] — and that argument alone [explain the specific mechanism that makes it outweigh everything on the other side]."
+${isWhip ? `
+WHIP-SPECIFIC: You are the WHIP. NO new arguments — the judge will penalize you. Your ENTIRE job is to tell the judge how to evaluate the round. Organize by ISSUES not by speech order. "The first issue in this round is [X]. Here's what both sides said, and here's why we win it." You are writing the judge's decision for them.` : ''}
+${isReply ? `
+REPLY-SPECIFIC: You are giving a REPLY speech. This is a BIASED SUMMARY — you are not being fair, you are advocating. Identify the 3-4 key issues, explain who won each (spoiler: your side), and paint the overall narrative of WHY your side wins. Be strategic about which clashes you emphasize — focus on the ones you won, minimize the ones you didn't.` : ''}` :
+
+`FOR CONSTRUCTIVE SPEECHES:
+
+HOW A DEBATE CASE ACTUALLY WORKS — UNDERSTAND THIS BEFORE YOU WRITE A SINGLE WORD:
+A debate case is NOT a checklist of framework + arguments + impacts you tick off. It's a strategic machine where each layer serves a specific function and feeds into the next. If you don't understand WHY each layer exists, you'll produce generic filler.
+
+DEFINITION sets the battlefield — it determines what the debate is even about. Whoever defines the key terms of the motion chooses which ground they fight on. A smart definition narrows the debate to terrain where your arguments are strongest. Don't treat definitions as throat-clearing — they're strategic choices.
+
+FRAMEWORK is the judge's scoring rubric — it tells the judge WHAT TO CARE ABOUT when deciding who wins. This is the most strategically powerful element because it's a MULTIPLIER: a good framework makes your impacts weigh more and theirs weigh less without you needing better arguments. If your framework is "institutional trust" and theirs is "economic efficiency," every clash gets evaluated through whichever lens the judge adopts. The side that wins framework plays on home turf for every subsequent clash.
+
+But a framework without IMPACTS is academic philosophy — it's a scoring rubric with nothing to score. And IMPACTS without a framework are just shouting about consequences with no way for the judge to evaluate them.
+
+The winning combination: a framework that CAPTURES YOUR IMPACTS BETTER THAN THEIRS. Your evaluative lens should naturally favor your evidence so the judge's rubric does the work for you.
+
+A framework is NOT a question ("what do these actors care about?"). A framework is NOT vague framing ("let's think about who's affected"). A framework is a NAMED EVALUATIVE LENS with a DECISION RULE — a single sentence the judge can apply to determine who wins.
+
+Good frameworks: "Institutional Accountability — vote for whichever side better preserves mechanisms that hold power accountable." / "Net Welfare Maximization — vote for whichever world produces greater aggregate well-being." / "Rights-First Analysis — when policy conflicts with fundamental rights, the violation is sufficient reason to reject."
+Bad frameworks: "What do the actors care about?" / "Let's frame this around fairness." / "We should think about who benefits." These are questions, not frameworks. Never do this.
+
+FRAMING POINTS (a, b, c) are the VALUE LAYER — they prove WHY your framework is the right lens for THIS specific debate. Without framing points, your framework is just asserted. The opponent says "why should we care about institutional trust?" and you have no answer. Each framing point is a substantive argument for why the judge should evaluate the round through YOUR standard, not the opponent's.
+
+ARGUMENTS are the EVIDENCE — the specific mechanisms and impacts that SCORE under your framework. Each argument must have a full causal chain (who does what through which pathway to cause what outcome) and an impact that your framework is designed to measure. The argument doesn't just exist in isolation — it gains its weight FROM the framework. That's the connection: the framework says "here's what matters" and the argument says "here's proof that what matters is happening on our side."
+
+NEVER USE THESE LAZY FRAMEWORK PHRASES:
+"Under our framework, this argument is decisive" / "Under our framework, we win this clash" / "This is exactly what our framework captures" / "This links directly to our framework" — these are all circular garbage. They mention the framework without doing any analytical work. Instead, show the MECHANISM: explain WHICH evaluative step in your framework the impact triggers, and WHY that evaluative step matters more than what the opponent is measuring. If you remove the framework reference and the sentence still means the same thing, the reference was pointless.
+
+TIME ALLOCATION (${Math.floor(speech.time/60)} min speech):
+Roughly 25% framework + framing, 60% arguments, 15% preemption + closing. Don't rush framework to get to arguments. Don't spend so long on arguments that you can't close. Budget your time.
+
+ARGUMENTS (2-3 independent arguments): Each argument needs:
+- A descriptive name: "Argument one: The Coordination Failure."
+- Lettered sub-points (a, b, c) with NAMED warrants: "a. The Substitution Effect. [Full causal mechanism in 2-3 sentences]."
+- A SPECIFIC impact: Not "this hurts people" — "this strips healthcare coverage from 20 million Americans" or "this collapses the regulatory framework preventing another 2008."
+- A framework connection that does ANALYTICAL WORK: Show the specific causal path from your argument's impact to what your framework measures. Don't name-drop your standard — explain the evaluative mechanism.
+
+VARY ARGUMENT DEPTH — invest in your best stuff. Strongest argument gets 40-50% of argument time (multiple warrants, examples, preemption). Second gets 30-35%. Third can be a quick 15-20% sharp point. Real debaters don't split time evenly. Some warrants deserve 3 sentences, others need 1.
+
+EVEN-IF / PREEMPTION: For at least one argument: "Even if they argue [strongest opp response], our argument still holds because [mechanism]."
+${isLaterConstructive ? `
+LATER CONSTRUCTIVE RULES — YOU ARE NOT THE FIRST SPEAKER:
+- You've heard the opening speeches. Your job is 50% REBUILDING your side's case under attack and 50% ADVANCING new analysis.
+- REBUILD FIRST: Take their strongest attack on your side's opening speech and dismantle it. Show why the original arguments survive.
+- Then EXTEND: Bring new warrants, new examples, or new applications of existing arguments. Don't just repeat what your partner said — deepen it.
+- RESPOND DIRECTLY to what the previous speaker said. Name their arguments and answer them specifically.${isExtension ? `
+- EXTENSION IS MANDATORY: You are a closing team. You MUST bring a genuinely new argument or angle that opening half did not cover. This cannot be a repackaging of their points — it must be something the judge hasn't heard yet. This is how you win as a closing team.` : ''}` : ''}
+${isFirst ? `
+Example of how this sounds spoken aloud:
+"Our framework is Institutional Trust Preservation. The standard is whichever side better maintains public confidence in democratic institutions — that's your voting mechanism, judge. Two framing points. a. Legitimacy Requires Perceived Fairness. Citizens comply with laws they disagree with only when they believe the process was fair — if people think the game is rigged, compliance collapses. b. Trust Is Asymmetric. It takes decades of consistent governance to build institutional trust and a single scandal to destroy it — so the threshold for risking trust should be extremely high.
+
+Argument one: The Chilling Effect on Qualified Candidates. a. The Talent Drain warrant. When public office becomes synonymous with character assassination, qualified professionals choose private sector careers — they have better options. b. The Selection Bias warrant. The only people willing to endure that environment are ideologues immune to shame or the independently wealthy who don't need the job. The impact is structural democratic decay — the talent pool for governance shrinks every cycle."
+
+That is the level of structure, specificity, and named warrants you must hit. Notice the framework gives the judge a clear decision rule, framing points ARGUE for why that lens matters, and arguments have full causal chains.` : `Hit the same level of structure and named warrants as a first constructive.`}`}
+
+${isConstructive ? `WARRANT QUALITY RULES:
+- Each warrant must be SPECIFIC to this motion. Ask yourself: "Could this warrant appear in a debate on a completely different topic?" If yes, it's too generic. Rewrite it with actors, mechanisms, and details unique to "${motion}".
+- NAME every warrant distinctively ("The Substitution Effect", "The Regulatory Ratchet", "The Chilling Effect on X") — not "my first point" or "the key warrant."
+- Walk through the FULL causal chain: Actor A does X, which causes mechanism Y through [specific pathway], producing outcome Z. The judge should be able to see each link in the chain.
+- Use counterfactual analysis: "In our world [specific description]. In their world [specific description]. The delta is [why ours is better]."
+- AVOID GENERIC CLAIMS: "This hurts the economy" is not a warrant. "This creates a moral hazard where banks take on excess risk because they know they'll be bailed out" IS a warrant. Always answer WHY and HOW, never just WHAT.
+- Use REAL-WORLD analogues when possible: name specific countries, policies, historical events, or studies that illustrate your mechanism. Even in parliamentary debate, concrete examples make abstract warrants credible.` : ''}
+
+STRATEGIC DEPTH:
+- COMPARATIVE WEIGHING is mandatory. Name the metric and be explicit: "Our impact outweighs on magnitude — we're talking systemic institutional collapse versus their marginal efficiency loss — and on probability, because our mechanism is direct while theirs requires three contingent steps all going right."
+- TURNS: The most powerful debate move. Show their argument actually helps YOUR side: "Their own point about [X] is actually a reason to vote for us, because [mechanism]." A turn doesn't just neutralize — it flips.
+- NO-LINK ATTACKS: Challenge whether their causal chain holds: "Even if [their premise] is true, they haven't shown HOW it leads to [their impact]. The link story is broken at step two."
+- PUNISH DROPS: "They completely dropped our [Argument Name] — extend that. Since it's uncontested, you're voting on it, Judge."
+- STRATEGIC CONCESSIONS: "Grant them [their weakest good point]. It STILL doesn't get them to their impact because [gap in their chain]." This makes you look confident and intellectually honest.
+- CROSS-APPLY: "Cross-apply The [Warrant Name] from our first argument — it directly answers their second point without me needing to re-explain it."
+- CLOSE STRONG: Your last 2-3 sentences matter as much as your first. End with either a sharp crystallization ("The ballot question is simple: [one sentence]") or a memorable line that sticks with the judge. Never trail off or end with filler.
+
+IMPACT CALCULUS — THIS IS HOW ROUNDS ARE DECIDED:
+Every argument ultimately needs an IMPACT — what happens in the real world if your side is right? Impacts must be WEIGHED against the other side's impacts. The four dimensions of impact calculus:
+1. MAGNITUDE: How many people are affected? How severely? "Our impact affects the entire healthcare system. Theirs affects a niche regulatory outcome."
+2. PROBABILITY: How likely is your impact to actually happen? "Our causal chain has two direct links. Theirs requires five contingent steps, each unlikely."
+3. TIMEFRAME: When does the impact occur? "Our harm is immediate — people lose coverage tomorrow. Their benefit is speculative and ten years out."
+4. REVERSIBILITY: Can the damage be undone? "If we're wrong, you adjust the policy. If they're wrong, people are dead. Irreversible harms demand precaution."
+You MUST do at least one explicit impact comparison per speech: "Even if their impact is real, ours outweighs on [dimension] because [reason]."
+Don't just LIST your impacts — COMPARE them directly to theirs. The side that frames the comparison wins.
+
+EXAMPLES ARE MANDATORY:
+- Every speech must include at least ONE concrete real-world example — a specific country, policy, historical event, company, or case study that illustrates your mechanism.
+- Examples are not decoration. They're PROOF that your causal chain works in reality. "This isn't hypothetical — we saw exactly this mechanism play out when [specific real example]."
+- Bad example: "History shows this doesn't work." Good example: "When Sweden tried this exact approach in 2015, the result was a 30% increase in [specific outcome] because [mechanism]."
+- If you cite an example, connect it back to your warrant: "This proves our [Warrant Name] — the same dynamic applies here because [parallel]."
+
+${isFirst && !isCX ? `MODEL/MECHANISM — FOR POLICY MOTIONS:
+If the motion proposes a policy change, you MUST establish the MODEL in your first constructive:
+- WHO implements this? (government, international body, private sector)
+- WHAT exactly changes? (specific policy details, not vague)
+- HOW is it enforced? (regulatory body, legal penalties, incentives)
+- WHERE does it apply? (scope and jurisdiction)
+- WHEN does it take effect? (timeline)
+You don't need to spend long on this — 2-3 sentences max — but the judge needs to know what world they're voting for. Vague motions get defined by whoever sets up the model first. That should be you.` : ''}
+
+SIGNPOSTING — THE JUDGE MUST BE ABLE TO FLOW YOU:
+Signposting is NON-NEGOTIABLE. The judge is writing down your arguments in real time. If they can't follow your structure, you lose.
+- NUMBER every argument: "My first argument is [NAME]." "My second argument is [NAME]." Never leave the judge guessing which argument you're on.
+- LABEL every sub-point with letters: "a." "b." "c." Say them out loud and clearly.
+- NAME your arguments distinctively: Not "my point about economics" but "The Moral Hazard Argument" or "The Coordination Failure." Judges flow by name.
+- SIGNPOST transitions explicitly: "Turning to the opposition's case." / "On their first argument about X..."
+- In REBUTTALS, signpost by opponent's structure: "On their first argument, they said X. Three problems." / "They dropped our second argument entirely — extend it."
+- Do NOT give a roadmap mid-speech ("I'll do three things..."). Just DO the things. Roadmaps waste time and sound robotic.
+- NEVER forecast your own arguments ("I'm about to make my impact stand out by..."). Just make the argument. The judge doesn't need a preview — they need the content.
+- NEVER narrate your own rhetorical moves ("Let me now use a powerful example to show..." / "To make this more concrete..." / "Here's why this matters..."). Just SAY the example. Just SAY why it matters. Forecasting kills momentum.
+
+PRONOUN DISCIPLINE — NAME THE THING:
+- MINIMIZE pronouns like "this," "that," "it," "they," "them" when the referent isn't crystal clear. The judge is flowing in real time — if they look down for 3 seconds and miss the antecedent, "this is why it matters" means nothing.
+- BAD: "This is exactly why they can't win." WHO can't win WHAT?
+- GOOD: "The opposition can't win the economic argument because their causal chain breaks at the enforcement step."
+- BAD: "It leads to serious consequences." WHAT leads to WHAT consequences?
+- GOOD: "The deregulation mechanism leads to a banking crisis because risk-taking goes unchecked."
+- EXCEPTION: Pronouns are fine in analogies, rhetorical questions, and when the referent was JUST named in the same sentence ("The Coordination Failure means states act alone — it prevents collective action").
+- When in doubt, name the argument, the actor, or the mechanism by its actual label. Specificity is what separates a 27 from a 29.
+
+VOICE & DELIVERY:
+- HOOK — Your opening line is everything. NEVER open with: "Thank you," "Good morning," "Alright," "So," "Let me start by..." — these are dead air. Your first word should HIT.
+${isFirst ? `  First constructive hooks:
+  * A provocative question: "Judge, when was the last time a government program actually made people more free?"
+  * A vivid image: "Picture a world where the algorithm decides what you eat for breakfast. That's not dystopia — that's Tuesday."
+  * A bold claim: "Everything you're about to hear from the other side rests on one assumption, and it's wrong."
+  * A historical parallel: "In 1933, the Reichstag chose security over liberty. We all know how that ended."` :
+isRebuttal ? `  Rebuttal hooks — open by exposing the round's key tension:
+  * Expose the fatal flaw: "Judge, their entire case hangs on one link — and it just snapped."
+  * Concession flip: "Grant them everything they said. Every word. They still lose, and here's why."
+  * Round crystallization: "This round comes down to a single question, and they're on the wrong side of it."
+  * Drop callout: "They left our strongest argument completely untouched. That tells you everything."` :
+`  Later constructive hooks — respond to what happened:
+  * Attack their framework: "The ${userLabel}'s framework sounds nice until you ask one question: [question that breaks it]."
+  * Flip their strength: "They spent a lot of time on [their best point]. Ironically, it's actually a reason to vote for us."
+  * Status check: "Two speeches in, and they still haven't answered the most basic question about their case."`}
+- TRANSITIONS between arguments should be smooth and confident, not mechanical. Instead of "Moving to my second argument," use: "But it gets worse for them," or "That's the individual harm — zoom out to the systemic level," or "Now, they might think that's their strongest ground. It's not. Because..."
+- NEVER narrate what you're about to do. No "Let me now turn to..." Just DO it. No "I'm going to explain why..." Just explain.
+- Reference the judge directly: "Judge, the delta in this round comes down to..." / "Here's your voting issue, Judge."
+- Use debate language naturally: "pull through," "cross-apply," "extend," "non-unique," "the link story is broken," "that argument is terminal for their case," "this is a clean win on the flow."
+- Sound like someone explaining passionately to a smart friend. Conversational but precise. Authoritative but not pompous.
+- Short punchy sentences for claims. Longer flowing sentences for mechanism. Cut filler ruthlessly — every word earns its place.
+- No bullet points, no markdown, no headers, no asterisks. Spoken word only. STRUCTURED spoken word — the judge should be able to flow it.
+
+${isFirst ? `VOCABULARY & TONE:
+- Use precise, high-register vocabulary when it's the RIGHT word — not for show. "Vitiates" is better than "undermines" when you mean something was made legally void. "Attenuates" is better than "weakens" when you mean gradual dilution. Use elevated language to be precise, not to sound smart.
+- Name specific concepts when relevant: "tragedy of the commons," "moral hazard," "regulatory capture," "Rawlsian veil of ignorance," "collective action problem," "principal-agent problem." These show the judge you understand the underlying theory.
+- CONFIDENT, not arrogant. The best debaters sound like they're explaining something obvious to a friend, not performing for an audience. Controlled intensity — you believe what you're saying because the logic demands it.
+- Dismissive when earned: "That argument is dead on arrival" or "Their link chain doesn't survive first contact with the real world." But only when you've actually shown why — confidence without warrant is bluster.
+- Vary your energy. Not every sentence is a haymaker. Build quietly, then punch. Some of the most devastating debate moments are said calmly: "And that's the point they can't get around."
+- COLLOQUIAL FLAIR (use sparingly, ~10-15% of the speech): Code-switch between philosophical precision and real-talk. "That argument is cooked," "their framework is mid at best," "this is where their case falls apart and they know it." Dismissive confidence when you've EARNED it — after you've shown the warrant is broken, you can twist the knife. But don't lead with slang — lead with substance, punctuate with personality.` : ''}`;
+}
+
+/* ═══════════════════════════════════════════════════
+   APP
+   ═══════════════════════════════════════════════════ */
+
+function App(){
+  const auth = useAuth();
+  const { user, team, loading: authLoading, signIn, signOut } = auth;
+
+  // Set global pro status from team data
+  useEffect(() => {
+    __proStatus = !!(team && (team.plan === 'individual' || team.plan === 'team' || team.plan === 'lifetime'));
+  }, [team]);
+
+  const[lighting,setLighting]=useState(()=>{try{return localStorage.getItem('debateos-lighting')||'dark'}catch{return 'dark'}});
+  useEffect(()=>{
+    document.documentElement.setAttribute('data-lighting',lighting);
+    try{localStorage.setItem('debateos-lighting',lighting)}catch{}
+  },[lighting]);
+
+  const[phase,setPhase]=useState('setup');   // setup|prep|speech|feedback
+  const[vis,setVis]=useState(true);          // fade transition
+  const[motion,setMotion]=useState('');
+  const[background,setBackground]=useState('');  // optional context for the motion
+  const[format,setFormat]=useState('apda');
+  const[oppStrengths,setOppStrengths]=useState([]);
+  const[oppWeaknesses,setOppWeaknesses]=useState([]);
+  const[brain,setBrain]=useState('claude');
+  const[voice,setVoice]=useState('onyx');
+  const[side,setSide]=useState('gov');
+  const[wpm,setWpm]=useState(180);
+  const[liveRate,setLiveRate]=useState(1.0);
+  const[idx,setIdx]=useState(0);
+  const[log,setLog]=useState([]);            // {code,who,text}
+  const[feedback,setFeedback]=useState('');
+  const[fbLoading,setFbLoading]=useState(false);
+  const[notes,setNotes]=useState(()=>{try{return localStorage.getItem('debateos-prep-notes')||''}catch{return ''}});
+  const[aiLoading,setAiLoading]=useState(false);
+  const[aiText,setAiText]=useState('');
+  const[aiPct,setAiPct]=useState(0);       // generation progress %
+  const[voiceEta]=useState(0); // TTS timing display
+  const[showTx,setShowTx]=useState(false);
+  const[prepHint,setPrepHint]=useState('');
+  const[prepHintLoading,setPrepHintLoading]=useState(false);
+  const[notesSaved,setNotesSaved]=useState(false);
+  const[showRoundPanel,setShowRoundPanel]=useState(null); // null | 'notes' | 'cases' | 'flow'
+  // revealIdx removed — transcript is plain text now
+
+  // POI (Points of Information) state
+  const[poiActive,setPoiActive]=useState(false);
+  const[poiText,setPoiText]=useState('');
+  const[poiOffer,setPoiOffer]=useState(false); // AI is offering a POI
+  const poiCountRef=useRef(0); // POIs offered this speech
+  const poiTimeoutRef=useRef(null); // timeout for AI POI offers
+
+  // Round history
+  const[showHistory,setShowHistory]=useState(false);
+  const[showAdvanced,setShowAdvanced]=useState(false);
+  const[historyRounds,setHistoryRounds]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem('debateos-round-history')||'[]')}catch{return[]}
+  });
+  const[viewingRound,setViewingRound]=useState(null);
+
+  // Saved cases library
+  const[savedCases,setSavedCases]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem('debateos-saved-cases')||'[]')}catch{return[]}
+  });
+  const[showCases,setShowCases]=useState(false);
+  const[viewingCase,setViewingCase]=useState(null);
+  const[caseSaved,setCaseSaved]=useState(false); // flash "Saved!" in feedback phase
+
+  const saveCase=(customTitle)=>{
+    // Extract AI constructive speeches from the log
+    const aiSpeeches=log.filter(l=>l.who==='AI');
+    if(aiSpeeches.length===0) return;
+    const fmt=FORMATS[format]||FORMATS.apda;
+    const sideLabel=fmt.sideLabels[side]||side;
+    const aiSide=fmt.sides.find(s=>s!==side)||'opp';
+    const aiSideLabel=fmt.sideLabels[aiSide]||aiSide;
+    const c={
+      id:Date.now(),
+      date:new Date().toISOString(),
+      motion,format,
+      formatName:fmt.name,
+      side:aiSide,
+      sideLabel:aiSideLabel,
+      title:customTitle||motion.slice(0,80),
+      brain,
+      speeches:aiSpeeches.map(s=>({code:s.code,text:s.text})),
+      fullText:aiSpeeches.map(s=>s.text).join('\n\n'),
+    };
+    const updated=[c,...savedCases].slice(0,100);
+    setSavedCases(updated);
+    try{localStorage.setItem('debateos-saved-cases',JSON.stringify(updated))}catch{}
+    setCaseSaved(true);
+    setTimeout(()=>setCaseSaved(false),2000);
+    if(typeof gtag==='function')gtag('event','save_case',{format:fmt.name,side:aiSide});
+  };
+
+  const deleteCase=(id)=>{
+    const updated=savedCases.filter(c=>c.id!==id);
+    setSavedCases(updated);
+    try{localStorage.setItem('debateos-saved-cases',JSON.stringify(updated))}catch{}
+    if(viewingCase&&viewingCase.id===id)setViewingCase(null);
+  };
+
+  const copyCase=(c)=>{
+    const txt=`CASE: ${c.title}\nFormat: ${c.formatName} | Side: ${c.sideLabel}\nDate: ${new Date(c.date).toLocaleDateString()}\n${'─'.repeat(40)}\n\n${c.fullText}`;
+    navigator.clipboard.writeText(txt).catch(()=>{});
+  };
+
+  const orb=useOrb();
+  const rec=useRecognition();
+  const tts=useTTS();
+  const timer=useTimer();
+  const prepTimer=useTimer();
+  const endingRef=useRef(false); // guard against double endSpeech calls
+
+  // ── Session recovery state ──
+  const[recoveryData,setRecoveryData]=useState(()=>{
+    try{const d=localStorage.getItem('debateos-session');return d?JSON.parse(d):null}catch{return null}
+  });
+
+  // Auto-save round state every 30s during speech phase
+  useEffect(()=>{
+    if(phase!=='speech'&&phase!=='prep') return;
+    const save=()=>{
+      try{
+        localStorage.setItem('debateos-session',JSON.stringify({
+          phase,motion,format,side,brain,voice,wpm,idx,log,notes,
+          oppStrengths,oppWeaknesses,background,
+          timestamp:Date.now()
+        }));
+      }catch{}
+    };
+    save(); // save immediately on phase enter
+    const iv=setInterval(save,30000);
+    return()=>clearInterval(iv);
+  },[phase,idx,log.length]);
+
+  // Clear session on round complete or new round
+  const clearSession=()=>{try{localStorage.removeItem('debateos-session')}catch{}};
+
+  // Resume from saved session — picks up exactly where the round was
+  const resumeSession=()=>{
+    if(!recoveryData) return;
+    setMotion(recoveryData.motion||'');
+    setFormat(recoveryData.format||'apda');
+    setSide(recoveryData.side||'gov');
+    setBrain(recoveryData.brain||'claude');
+    setVoice(recoveryData.voice||'onyx');
+    setWpm(recoveryData.wpm||180);
+    setOppStrengths(recoveryData.oppStrengths||[]);
+    setOppWeaknesses(recoveryData.oppWeaknesses||[]);
+    setBackground(recoveryData.background||'');
+    setNotes(recoveryData.notes||'');
+    if(recoveryData.phase==='speech'){
+      const savedLog=recoveryData.log||[];
+      const savedIdx=recoveryData.idx||0;
+      const recFmt=FORMATS[recoveryData.format||'apda']||FORMATS.apda;
+      const recSpeeches=recFmt.speeches;
+      // Figure out the correct resume point:
+      // The log has completed speeches. The saved idx is where the round was.
+      // If savedIdx's speech code is already in the log, that speech finished — advance to next.
+      const speechAtIdx=recSpeeches[savedIdx];
+      const alreadyDone=speechAtIdx&&savedLog.some(l=>l.code===speechAtIdx.code);
+      const resumeIdx=alreadyDone?Math.min(savedIdx+1,recSpeeches.length-1):savedIdx;
+
+      if(resumeIdx>=recSpeeches.length){
+        // Round was actually complete — go to feedback
+        setLog(savedLog);
+        transition('feedback',()=>genFeedback(savedLog));
+      } else {
+        setLog(savedLog);
+        setIdx(resumeIdx);
+        transition('speech',()=>{
+          setIdx(resumeIdx);
+          setTimeout(()=>runSpeech(resumeIdx,savedLog),400);
+        });
+      }
+    } else {
+      transition('prep',()=>prepTimer.go((FORMATS[recoveryData.format||'apda']||FORMATS.apda).prep));
+    }
+    setRecoveryData(null);
+  };
+  const dismissRecovery=()=>{setRecoveryData(null);clearSession()};
+
+  // POI: user sends a POI during AI speech
+  const sendPOI=async()=>{
+    if(!poiText.trim())return;
+    setPoiActive(false);
+    tts.stop();
+    try{
+      const poiResponse=await callAI(
+        `You are mid-speech in a ${fmt.name} debate on "${motion}". The opponent just raised a Point of Information. Respond in 1-2 sentences MAX, then get back to your speech. If the POI is weak: dismiss it sharply ("That's exactly my point — thank you for conceding it."). If it's strong: pivot without fully conceding ("Interesting, but that actually helps us because..."). NEVER say "good question" or "thank you for that." This is a debate, not a seminar.`,
+        'POI: "'+poiText+'"',
+        null,
+        brain
+      );
+      const poiEntry={code:'POI',who:'POI',text:'You: "'+poiText+'" → AI: "'+poiResponse+'"'};
+      setLog(prev=>[...prev,poiEntry]);
+    }catch(e){
+      console.warn('[POI] Error:',e);
+    }
+    setPoiText('');
+  };
+
+  // POI: AI offers a POI during user speech, user accepts
+  const acceptAIPOI=async()=>{
+    const hist=log.map(l=>'['+l.code+']: '+l.text).join('\n');
+    try{
+      const poiQ=await callAI(
+        'You are the opposing debater in a '+(FORMATS[format]||FORMATS.apda).name+' debate on "'+motion+'". You just stood to offer a Point of Information during the opponent\'s speech. Ask ONE sharp, brief question (max 15 words) that challenges their weakest point or forces a difficult concession. Be incisive.',
+        'Speech history:\n'+hist+'\nAsk your POI now.',
+        null,
+        brain
+      );
+      setAiText(poiQ);
+      const poiEntry={code:'POI',who:'AI POI',text:poiQ};
+      setLog(prev=>[...prev,poiEntry]);
+      setTimeout(()=>setAiText(''),5000);
+    }catch(e){
+      console.warn('[POI] AI offer error:',e);
+    }
+  };
+
+  const fmt=FORMATS[format]||FORMATS.apda;
+  const SPEECHES=fmt.speeches;
+  const cur=SPEECHES[idx]||SPEECHES[0];
+  const isUser=cur.side===side;
+
+  // Init orb in speech phase
+  useEffect(()=>{if(phase==='speech'){orb.init()}return()=>orb.kill()},[phase]);
+
+  // Phase transition helper
+  const transition=(next,cb)=>{setVis(false);setTimeout(()=>{if(cb)cb();setPhase(next);setTimeout(()=>setVis(true),50)},350)};
+
+  // Start debate
+  const startDebate=()=>{if(!motion.trim())return;SFX.startRound();warmUpTTS();if(typeof gtag==='function')gtag('event','round_start',{format:fmt.name,side,motion_length:motion.length});transition('prep',()=>prepTimer.go(fmt.prep))};
+
+  // Skip prep → first speech
+  const goToSpeeches=()=>{SFX.click();
+    warmUpTTS();
+    prepTimer.reset();
+    transition('speech',()=>{setIdx(0);setLog([]);setTimeout(()=>runSpeech(0,[]),400)});
+  };
+
+  // Auto-advance when prep timer ends
+  useEffect(()=>{
+    if(phase==='prep'&&prepTimer.left===0&&!prepTimer.on&&log.length===0){
+      // Only auto-advance if timer actually ran (not on initial mount)
+    }
+  },[prepTimer.left]);
+
+  // Run a speech
+  const runSpeech=async(i,currentLog)=>{
+    endingRef.current=false; // allow endSpeech for this new speech
+    const s=SPEECHES[i];
+    const userTurn=s.side===side;
+    setLiveRate(1.0); // reset live speed each speech
+
+    if(userTurn){
+      // User turn — start timer + mic immediately
+      timer.go(s.time);
+      orb.setMode('mic');await orb.startMic();rec.start();
+      // POI: AI may offer POIs during user speech (only in POI-enabled formats)
+      if(fmt.poi){
+        poiCountRef.current=0;
+        setPoiOffer(false);setPoiActive(false);setPoiText('');
+        // Offer first POI after 60-90s, second after another 60-90s
+        const offerPOI=()=>{
+          if(poiCountRef.current<2){
+            setPoiOffer(true);
+            poiCountRef.current++;
+            // Schedule a possible second POI
+            if(poiCountRef.current<2){
+              poiTimeoutRef.current=setTimeout(offerPOI,60000+Math.random()*30000);
+            }
+          }
+        };
+        poiTimeoutRef.current=setTimeout(offerPOI,60000+Math.random()*30000);
+      }
+    } else {
+      // AI turn — overlapped: start fetching audio for first half while still generating text
+      orb.setMode('ai');setAiLoading(true);setAiText('');setAiPct(0);
+      const stopThinking=SFX.thinking();
+      try{
+        // Word count = what TTS will deliver in the speech time
+        // TTS base rate ~150 wpm × playback speed (wpm/140) = actual words per minute
+        const actualWPM=Math.round(150*(wpm/140));
+        const targetWords=Math.round((s.time/60)*actualWPM);
+        const hist=currentLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
+        const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
+
+        // ── Chunked TTS pipeline: fire audio for each paragraph as soon as it's ready ──
+        const ttsIntensity=Math.min(1,Math.max(0,(ttsSpeed-1.0)/1.0));
+        const fetchTTSBlob=(text)=>{
+          const input=text.slice(0,4000);
+          return fetch('/api/tts',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro(),intensity:ttsIntensity}),
+          }).then(r=>{
+            if(!r.ok) throw new Error('TTS '+r.status);
+            return r.blob();
+          });
+        };
+
+        // Strip <plan>/<thinking> tags from AI output — including incomplete open tags during streaming
+        const stripPlan=(text)=>text.replace(/<plan>[\s\S]*?<\/plan>/gi,'').replace(/<plan>[\s\S]*$/gi,'').replace(/<\/?plan>/gi,'').replace(/<thinking>[\s\S]*?<\/thinking>/gi,'').replace(/<thinking>[\s\S]*$/gi,'').replace(/<\/?thinking>/gi,'').trim();
+
+        // ── Live-streaming TTS pipeline ──
+        // Audio starts playing as soon as first ~25 words have TTS ready,
+        // while AI is still generating the rest of the speech.
+        const blobPromises=[];  // grows as AI streams — playStream consumes them live
+        let lastChunkEnd=0;
+        const MIN_CHUNK_WORDS=25;
+        const MAX_CHUNK_WORDS=200;
+        let playbackStarted=false;
+
+        const onAudioStart=()=>{
+          stopThinking();
+          setAiLoading(false);
+          timer.go(s.time);
+        };
+
+        const tryChunk=(clean,force)=>{
+          const unchunked=clean.slice(lastChunkEnd).trim();
+          const words=unchunked.split(/\s+/).filter(Boolean);
+          if(words.length<MIN_CHUNK_WORDS&&!force) return;
+          let splitText=unchunked;
+          if(!force&&words.length>MAX_CHUNK_WORDS){
+            const approxChar=unchunked.split(/\s+/).slice(0,MAX_CHUNK_WORDS).join(' ').length;
+            const sentEnd=unchunked.indexOf('.',approxChar);
+            if(sentEnd>0) splitText=unchunked.slice(0,sentEnd+1).trim();
+          } else if(!force){
+            const lastPeriod=unchunked.lastIndexOf('.');
+            const lastExcl=unchunked.lastIndexOf('!');
+            const lastQ=unchunked.lastIndexOf('?');
+            const boundary=Math.max(lastPeriod,lastExcl,lastQ);
+            if(boundary>unchunked.length*0.5) splitText=unchunked.slice(0,boundary+1).trim();
+            else return;
+          }
+          if(splitText.length<20) return;
+          lastChunkEnd+=clean.slice(lastChunkEnd).indexOf(splitText)+splitText.length;
+          const blobP=fetchTTSBlob(splitText).catch(e=>{console.warn('[TTS] Chunk failed:',e);return null});
+          blobPromises.push(blobP);
+          console.log(`%c[TTS] Chunk ${blobPromises.length} queued (${splitText.split(/\s+/).length} words)`,'color:cyan');
+
+          // Start playback on the FIRST chunk — don't wait for AI to finish
+          if(!playbackStarted){
+            playbackStarted=true;
+            setAiLoading('voice');
+            console.log('%c[TTS] Starting live playback while AI still generating','color:lime;font-weight:bold');
+            tts.playChunks(blobPromises,()=>{orb.setMode('idle');setTimeout(()=>endSpeech(),800)},onAudioStart);
+          }
+        };
+
+        // Generate argument text — chunks fire TTS and start playing mid-stream
+        const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
+          const clean=stripPlan(chunk);
+          setAiText(clean);
+          const words=clean.split(/\s+/).length;
+          setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
+          tryChunk(clean,false);
+        },brain);
+        const txt=stripPlan(rawTxt);
+        setAiText(txt);setAiPct(100);
+        // Final chunk: anything remaining
+        tryChunk(txt,true);
+        blobPromises._done=true; // signal playChunks that no more chunks coming
+        if(!playbackStarted) stopThinking();
+
+        // If no chunks were created at all, fallback to single-shot
+        if(!playbackStarted){
+          SFX.ready();
+          setAiLoading('voice');
+          tts.speak(txt,wpm,()=>{orb.setMode('idle');setTimeout(()=>endSpeech(),800)},voice,onAudioStart);
+        }
+      }catch(e){
+        stopThinking();
+        setAiLoading(false);
+        const msg='Something went wrong: '+e.message;
+        setAiText('['+msg+']');
+        orb.setMode('idle');
+      }
+    }
+  };
+
+  // End speech + advance (guarded against double-calls)
+  const endSpeech=()=>{
+    if(endingRef.current) return; // prevent double-fire from keyboard+button race
+    endingRef.current=true;
+    timer.reset();
+    // Clean up POI state
+    setPoiActive(false);setPoiText('');setPoiOffer(false);
+    if(poiTimeoutRef.current){clearTimeout(poiTimeoutRef.current);poiTimeoutRef.current=null}
+    const userTurn=cur.side===side;
+    if(typeof gtag==='function')gtag('event','speech_end',{speech:cur.code,who:userTurn?'user':'ai',format:fmt.name});
+    let text='';
+    if(userTurn){text=rec.stop();orb.stopMic();orb.setMode('idle')}
+    else{tts.stop();text=aiText;orb.setMode('idle')}
+
+    const entry={code:cur.code,who:userTurn?'You':'AI',text:text||'(no transcript)'};
+    const newLog=[...log,entry];
+    setLog(newLog);setAiText('');
+
+    const next=idx+1;
+    if(next>=SPEECHES.length){
+      clearSession();
+      if(typeof gtag==='function')gtag('event','round_complete',{format:fmt.name,side,speeches:SPEECHES.length});
+      transition('feedback',()=>genFeedback(newLog));
+    } else {
+      setIdx(next);
+      setTimeout(()=>runSpeech(next,newLog),600);
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(()=>{
+    const handler=(e)=>{
+      // Don't intercept when typing in a textarea/input
+      if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
+      if(phase==='speech'){
+        if(e.code==='Space'){e.preventDefault();if(tts.speaking){const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}}
+        if(e.code==='Escape'||e.code==='ArrowRight'){e.preventDefault();endSpeech()}
+      }
+      if(phase==='prep'){
+        if(e.code==='Enter'&&!e.shiftKey&&e.target.tagName!=='TEXTAREA'){e.preventDefault();goToSpeeches()}
+      }
+    };
+    window.addEventListener('keydown',handler);
+    return()=>window.removeEventListener('keydown',handler);
+  },[phase,tts.speaking]);
+
+  // Adaptive difficulty — check user's win rate against this opponent
+  const getWinRate=()=>{
+    if(historyRounds.length===0) return { wins:0, losses:0, total:0, rate:0.5 };
+    const wins=historyRounds.filter(r=>r.userWon===true).length;
+    const losses=historyRounds.filter(r=>r.userWon===false).length;
+    return { wins, losses, total:historyRounds.length, rate: historyRounds.length>0 ? wins/historyRounds.length : 0.5 };
+  };
+  const getDifficultyNote=()=>{
+    const wr=getWinRate();
+    if(wr.total<3) return '';
+    if(wr.rate>=0.7) return 'The user has been winning consistently ('+wr.wins+'/'+wr.total+' wins). Debate at a SIGNIFICANTLY higher level — exploit YOUR strengths more aggressively, give fewer openings, use more sophisticated arguments. Make them EARN the win.';
+    if(wr.rate<=0.3) return 'The user has been struggling ('+wr.wins+'/'+wr.total+' wins). Debate well but leave slightly more exploitable openings in your weaker areas. Still argue to win, but give the user more chances to find your weaknesses.';
+    return '';
+  };
+
+  // Judge feedback — structured ballot
+  const[ballot,setBallot]=useState(null); // parsed structured ballot
+  const genFeedback=async(allLog)=>{
+    setFbLoading(true);setBallot(null);
+    const tx=allLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
+    const sys=`You are an experienced ${fmt.name} debate judge. Motion: "${motion}". User debated ${fmt.sideLabels[side]||side}. Opponent: AI.
+
+Return your ballot as valid JSON with this exact structure:
+{
+  "winner": "user" or "ai",
+  "decision": "2-3 sentences explaining why the winner won",
+  "speakerPoints": { "user": 27.5, "ai": 27.0 },
+  "keyClash": "The central clash point and who won it",
+  "speeches": [
+    { "code": "PM", "who": "You/AI", "score": 28, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"] }
+  ],
+  "practiceAdvice": "One specific, actionable thing to practice next",
+  "overallStrengths": ["what user did well across the round"],
+  "overallWeaknesses": ["patterns to fix"]
+}
+
+Be BRUTALLY honest. Judge like an experienced circuit judge, not a kind teacher.
+
+JUDGING CRITERIA:
+- Did they have a clear, named framework with a decision rule? Or was it vague?
+- Were warrants specific to the motion or generic filler?
+- Did they do comparative weighing (magnitude, probability, timeframe)?
+- Did they track the flow — call out drops, extend arguments, cross-apply?
+- Did they engage with the opponent's STRONGEST arguments or dodge them?
+- Was signposting clear enough to flow?
+- Were arguments creative/clever or predictable?
+
+Reference SPECIFIC arguments from the transcript by name. Don't say "good argumentation" — say "your Coordination Failure argument was strong because [X], but your second argument about [Y] lacked a causal mechanism."
+
+Speaker points 25-30 scale (27 = average, 28 = good, 29 = excellent, 30 = near perfect). "practiceAdvice" should be a SPECIFIC drill, not generic advice — e.g. "Practice extending arguments with new warrants instead of repeating the same point" not "work on rebuttals."
+
+Return ONLY valid JSON, no markdown.`;
+    try{
+      let raw='';
+      const fb=await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;setFeedback(chunk)},brain);
+      setFeedback(fb);
+      // Parse structured ballot
+      try{
+        const cleaned=fb.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+        const parsed=JSON.parse(cleaned);
+        setBallot(parsed);
+        saveRound(allLog,fb,parsed.winner==='user');
+      }catch{
+        // Fallback: save as unstructured
+        saveRound(allLog,fb,null);
+      }
+    }catch(e){setFeedback('Could not generate feedback: '+e.message)}
+    setFbLoading(false);
+  };
+
+  // Save round to history
+  const saveRound=(allLog,fb,userWon)=>{
+    const round={
+      id:Date.now(),
+      date:new Date().toISOString(),
+      motion,format,side,voice,brain,
+      oppStrengths,oppWeaknesses,
+      formatName:(FORMATS[format]||FORMATS.apda).name,
+      opponentName:'AI',
+      sideLabel:(FORMATS[format]||FORMATS.apda).sideLabels[side]||side,
+      log:allLog,
+      feedback:fb||'',
+      userWon: userWon, // true/false/null
+    };
+    const updated=[round,...historyRounds].slice(0,50);
+    setHistoryRounds(updated);
+    try{localStorage.setItem('debateos-round-history',JSON.stringify(updated))}catch{}
+    // Also save to Firestore if signed in
+    if(user&&firebaseDb){
+      user.getIdToken().then(token=>{
+        firebaseDb.collection('debate_rounds').doc(user.uid+'_'+round.id).set(round).catch(()=>{});
+      }).catch(()=>{});
+    }
+  };
+
+  const deleteRound=(id)=>{
+    const updated=historyRounds.filter(r=>r.id!==id);
+    setHistoryRounds(updated);
+    try{localStorage.setItem('debateos-round-history',JSON.stringify(updated))}catch{}
+    if(viewingRound&&viewingRound.id===id)setViewingRound(null);
+  };
+
+  // Copy transcript
+  const copyAll=()=>{
+    const t=log.map(l=>`[${l.code} — ${l.who}]\n${l.text}`).join('\n\n---\n\n')+'\n\n---\nJUDGE:\n'+feedback;
+    navigator.clipboard.writeText(t).catch(()=>{});
+  };
+
+  // Format round as downloadable text
+  const formatRoundText=(roundMotion,roundFormat,roundSide,roundLog,roundFeedback,roundBallot)=>{
+    const fmtName=(FORMATS[roundFormat]||FORMATS.apda).name;
+    const sideLabel=(FORMATS[roundFormat]||FORMATS.apda).sideLabels[roundSide]||roundSide;
+    let txt=`DEBATE ROUND — ${fmtName}\n`;
+    txt+=`${'═'.repeat(50)}\n\n`;
+    txt+=`Motion: "${roundMotion}"\n`;
+    txt+=`Side: ${sideLabel}\n`;
+    txt+=`Date: ${new Date().toLocaleDateString()}\n\n`;
+    txt+=`${'─'.repeat(50)}\n\n`;
+    roundLog.forEach(l=>{
+      txt+=`[${l.code} — ${l.who}]\n${l.text}\n\n${'─'.repeat(50)}\n\n`;
+    });
+    if(roundBallot){
+      txt+=`JUDGE BALLOT\n${'═'.repeat(50)}\n\n`;
+      txt+=`Winner: ${roundBallot.winner==='user'?'You':'AI'}\n`;
+      txt+=`Decision: ${roundBallot.decision||''}\n\n`;
+      if(roundBallot.speakerPoints) txt+=`Speaker Points — You: ${roundBallot.speakerPoints.user} | AI: ${roundBallot.speakerPoints.ai}\n\n`;
+      if(roundBallot.keyClash) txt+=`Key Clash: ${roundBallot.keyClash}\n\n`;
+      if(roundBallot.speeches) roundBallot.speeches.forEach(sp=>{
+        txt+=`${sp.code} (${sp.who}) — ${sp.score}\n`;
+        if(sp.strengths) sp.strengths.forEach(s=>{ txt+=`  ✦ ${s}\n`; });
+        if(sp.improvements) sp.improvements.forEach(s=>{ txt+=`  ✧ ${s}\n`; });
+        txt+='\n';
+      });
+      if(roundBallot.practiceAdvice) txt+=`Practice Advice: ${roundBallot.practiceAdvice}\n`;
+    } else if(roundFeedback){
+      txt+=`JUDGE FEEDBACK\n${'═'.repeat(50)}\n\n${roundFeedback}\n`;
+    }
+    return txt;
+  };
+
+  // Download round as .txt file
+  const downloadRound=(roundMotion,roundFormat,roundSide,roundLog,roundFeedback,roundBallot)=>{
+    const txt=formatRoundText(roundMotion,roundFormat,roundSide,roundLog,roundFeedback,roundBallot);
+    if(typeof gtag==='function')gtag('event','export_round',{format:roundFormat,side:roundSide});
+    const blob=new Blob([txt],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    const slug=roundMotion.slice(0,40).replace(/[^a-zA-Z0-9]+/g,'-').replace(/-$/,'');
+    a.download=`debate-${slug}-${new Date().toISOString().slice(0,10)}.txt`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Reset
+  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false)})};
+
+  /* ─── RENDER ─────────────────────── */
+
+  const bar=el('div',{className:'bar'},
+    el('a',{href:'/landing',className:'bar-logo'},el('em',null,"Devil's"),' Advocate'),
+    el('div',{className:'bar-links'},
+      el('button',{onClick:()=>setLighting(lighting==='dark'?'light':'dark'),className:'lighting-toggle',title:'Toggle light/dark mode'},lighting==='dark'?'☀️':'🌙'),
+      el('a',{href:'/#case'},'College'),
+      el('a',{href:'/high-school'},'High School'),
+      user ? el('div',{style:{display:'flex',alignItems:'center',gap:10}},
+        user.photoURL && el('img',{src:user.photoURL,style:{width:24,height:24,borderRadius:'50%',border:'1px solid var(--c-border4)'}}),
+        el('span',{style:{fontSize:'.72rem',color:'var(--c-text3)'}},user.displayName?.split(' ')[0]),
+        isPro() && el('span',{style:{fontSize:'.6rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}},'PRO'),
+        el('button',{onClick:signOut,style:{fontSize:'.65rem',color:'var(--c-muted)',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}},'Sign Out'),
+      ) : el('button',{onClick:signIn,title:'Sign up free with Google to unlock all features',style:{display:'inline-flex',alignItems:'center',gap:8,fontSize:'.74rem',color:'#1f1f1f',background:'#fff',border:'none',borderRadius:999,padding:'7px 16px',cursor:'pointer',fontWeight:700,fontFamily:'inherit',boxShadow:'0 4px 16px rgba(0,0,0,.35)'}},
+        el('span',{dangerouslySetInnerHTML:{__html:'<svg width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>'}}),
+        'Join beta with Google'
+      ),
+    )
+  );
+
+  const stageClass='center '+(vis?'visible':'entering');
+
+  // Auto-set side to first available when format changes
+  useEffect(()=>{
+    const f=FORMATS[format];
+    if(f&&!f.sides.includes(side)) setSide(f.sides[0]);
+  },[format]);
+
+  // Auto-open transcript when AI starts speaking
+  useEffect(()=>{
+    if(tts.speaking) setShowTx(true);
+  },[tts.speaking]);
+
+  // Apply trait preset
+  const applyPreset=(key)=>{
+    if(typeof gtag==='function')gtag('event','trait_preset',{preset:key});
+    const p=TRAIT_PRESETS[key];
+    if(key==='random'){
+      // Pick 1-3 random strengths and 1-2 random weaknesses
+      const sKeys=Object.keys(STRENGTHS);
+      const wKeys=Object.keys(WEAKNESSES);
+      const shuffle=a=>[...a].sort(()=>Math.random()-.5);
+      setOppStrengths(shuffle(sKeys).slice(0,1+Math.floor(Math.random()*2)));
+      setOppWeaknesses(shuffle(wKeys).slice(0,1+Math.floor(Math.random()*1)));
+    } else {
+      setOppStrengths([...p.strengths]);
+      setOppWeaknesses([...p.weaknesses]);
+    }
+  };
+
+  // ── SETUP ──
+  if(phase==='setup') return el('div',{className:'page'},
+    el('div',{className:'ambient'}),bar,
+    el('div',{className:stageClass},
+      el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
+      el('p',{className:'t-sub'},'Choose your format, opponent, and go.'),
+
+      // Session recovery banner
+      recoveryData&&(Date.now()-recoveryData.timestamp<3600000)&&el('div',{className:'recovery-banner'},
+        el('div',{style:{fontSize:'.85rem',fontWeight:700,color:'var(--c-bright)',marginBottom:6}},'Resume unfinished round?'),
+        el('div',{style:{fontSize:'.75rem',color:'var(--c-text)',marginBottom:12}},
+          '"'+(recoveryData.motion||'').slice(0,60)+'" — '+(FORMATS[recoveryData.format]||FORMATS.apda).name+' — Speech '+(recoveryData.idx+1)
+        ),
+        el('div',{style:{display:'flex',gap:8,justifyContent:'center'}},
+          el('button',{className:'cta-ghost',style:{marginTop:0,padding:'8px 20px',background:'rgba(59,130,246,.15)',borderColor:'rgba(59,130,246,.3)',color:'#3b82f6'},onClick:resumeSession},'Resume'),
+          el('button',{className:'cta-ghost',style:{marginTop:0,padding:'8px 20px',opacity:.5},onClick:dismissRecovery},'Dismiss'),
+        ),
+      ),
+
+      // Format
+      el('div',{className:'t-label',style:{marginTop:8}},'Format'),
+      el('div',{className:'pills'},
+        Object.entries(FORMATS).map(([k,v])=>
+          el('button',{key:k,className:'pill'+(format===k?' on':''),onClick:()=>setFormat(k),title:v.desc},v.name)
+        )
+      ),
+
+      // Motion
+      el('div',{className:'t-label',style:{marginTop:24}},'Motion'),
+      el('textarea',{className:'float-input',rows:2,placeholder:'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
+      el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
+
+      // Side
+      el('div',{className:'t-label',style:{marginTop:24}},'Your Side'),
+      el('div',{className:'pills'},
+        fmt.sides.map(s=>
+          el('button',{key:s,className:'pill'+(side===s?' on':''),onClick:()=>setSide(s)},fmt.sideLabels[s])
+        ),
+        el('button',{className:'cta-ghost',onClick:()=>setSide(fmt.sides[Math.floor(Math.random()*fmt.sides.length)]),style:{padding:'6px 14px',fontSize:'.72rem'}},'🎲 Random'),
+      ),
+
+      // AI Voice
+      el('div',{className:'t-label',style:{marginTop:24}},'AI Voice',isPro()&&el('span',{style:{marginLeft:8,fontSize:'.55rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4,verticalAlign:'middle'}},'HD VOICE')),
+      el('div',{className:'pills',style:{flexWrap:'wrap',justifyContent:'center'}},
+        Object.entries(VOICES).map(([k,v])=>
+          el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>setVoice(k),style:{minWidth:voice===k?'auto':undefined}},
+            v.name,
+            voice===k&&el('span',{style:{marginLeft:6,fontSize:'.6rem',opacity:.6,fontWeight:400}},v.gender)
+          )
+        )
+      ),
+      // Selected voice description
+      VOICES[voice]&&el('div',{style:{textAlign:'center',marginTop:8,fontSize:'.72rem',color:'var(--c-text)',lineHeight:1.4,maxWidth:360,margin:'8px auto 0'}},
+        VOICES[voice].desc
+      ),
+
+      // AI Speed
+      el('div',{className:'t-label',style:{marginTop:24}},'AI Speed'),
+      el('div',{className:'wpm'},
+        el('span',null,'Slow'),
+        el('input',{type:'range',min:120,max:380,step:10,value:wpm,onChange:e=>setWpm(+e.target.value)}),
+        el('span',null,'Sprint'),
+        el('strong',null,wpm+' wpm'),
+      ),
+      wpm>=280&&el('div',{style:{fontSize:'.68rem',color:'rgba(239,68,68,.6)',textAlign:'center',marginTop:4}},wpm>=340?'🔥 Tournament sprint — breathless delivery':'⚡ Fast spread — intense delivery'),
+
+      // AI Brain (main setting, not hidden)
+      el('div',{className:'t-label',style:{marginTop:24,display:'flex',alignItems:'center',gap:8}},
+        'AI Brain',
+        brain!=='claude'&&el('span',{style:{fontSize:'.6rem',color:BRAINS[brain]?.color||'#fff',opacity:.7,fontWeight:500,textTransform:'none',letterSpacing:0}},BRAINS[brain]?.desc),
+      ),
+      el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+        Object.entries(BRAINS).map(([k,v])=>{
+          var isActive=brain===k;
+          return el('button',{key:k,onClick:()=>setBrain(k),title:v.desc,style:{
+            padding:'8px 16px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',
+            transition:'.2s',fontSize:'.82rem',fontWeight:isActive?700:500,
+            background:isActive?v.color+'18':'var(--c-surface3)',
+            border:'1px solid '+(isActive?v.color+'55':'var(--c-border5)'),
+            color:isActive?v.color:'#94a3b8',
+            display:'flex',alignItems:'center',gap:6,
+          }},
+            el('span',{style:{width:8,height:8,borderRadius:'50%',background:v.color,display:'inline-block',opacity:isActive?1:.4}}),
+            v.name,
+          );
+        })
+      ),
+      isPro()&&el('div',{style:{fontSize:'.72rem',color:'rgba(239,68,68,.6)',fontWeight:600,marginTop:4}},'⚡ Pro — using faster, smarter models'),
+      !isPro()&&el('div',{style:{fontSize:'.72rem',color:'var(--c-dim)',marginTop:4}},'Free tier · ',el('a',{href:'/#pricing',style:{color:'rgba(239,68,68,.5)',textDecoration:'underline'}},'Upgrade for ⚡ faster generation')),
+
+      // ── Advanced Settings Toggle ──
+      el('button',{onClick:()=>setShowAdvanced(!showAdvanced),style:{marginTop:24,background:'none',border:'1px solid var(--c-border2)',borderRadius:10,padding:'10px 20px',color:'var(--c-text)',fontSize:'.78rem',cursor:'pointer',display:'flex',alignItems:'center',gap:8,margin:'24px auto 0',transition:'all .2s'}},
+        el('span',{style:{transform:showAdvanced?'rotate(90deg)':'rotate(0deg)',transition:'transform .2s',display:'inline-block'}},'▸'),
+        'Advanced Settings',
+        (oppStrengths.length>0||oppWeaknesses.length>0||background)&&el('span',{style:{width:6,height:6,borderRadius:'50%',background:'#ef4444',display:'inline-block',marginLeft:4}}),
+      ),
+
+      // ── Advanced Section (collapsible) ──
+      showAdvanced&&el('div',{style:{marginTop:16,padding:'20px 0',borderTop:'1px solid var(--c-border)',animation:'fadeIn .3s ease'}},
+
+        // Opponent Traits
+        el('div',{className:'t-label',style:{marginTop:24}},'Opponent Style'),
+        el('div',{className:'pills',style:{marginBottom:8}},
+          Object.entries(TRAIT_PRESETS).map(([k,v])=>
+            el('button',{key:k,className:'cta-ghost',onClick:()=>applyPreset(k),style:{padding:'6px 14px',fontSize:'.75rem'}},
+              k==='random'?'🎲 '+v.label:v.label
+            )
+          )
+        ),
+
+        el('div',{className:'t-label',style:{marginTop:12,fontSize:'.6rem'}},'Strengths'),
+        el('div',{className:'pills',style:{maxWidth:700}},
+          Object.entries(STRENGTHS).map(([k,v])=>{
+            const on=oppStrengths.includes(k);
+            return el('button',{key:k,className:'pill'+(on?' on':''),title:v.desc,onClick:()=>{
+              setOppStrengths(on?oppStrengths.filter(s=>s!==k):[...oppStrengths,k]);
+            }},v.emoji+' '+v.label);
+          })
+        ),
+
+        el('div',{className:'t-label',style:{marginTop:12,fontSize:'.6rem'}},'Weaknesses'),
+        el('div',{className:'pills',style:{maxWidth:700}},
+          Object.entries(WEAKNESSES).map(([k,v])=>{
+            const on=oppWeaknesses.includes(k);
+            return el('button',{key:k,className:'pill'+(on?' on':''),title:v.desc,onClick:()=>{
+              setOppWeaknesses(on?oppWeaknesses.filter(w=>w!==k):[...oppWeaknesses,k]);
+            }},v.emoji+' '+v.label);
+          })
+        ),
+
+        // Trait summary
+        (oppStrengths.length>0||oppWeaknesses.length>0)&&el('div',{style:{marginTop:12,padding:'12px 16px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,maxWidth:500,textAlign:'left',fontSize:'.78rem'}},
+          oppStrengths.length>0&&el('div',{style:{color:'rgba(100,220,100,.6)',marginBottom:oppWeaknesses.length?4:0}},
+            '✦ '+oppStrengths.map(k=>STRENGTHS[k].label).join(' · ')
+          ),
+          oppWeaknesses.length>0&&el('div',{style:{color:'rgba(239,68,68,.6)'}},
+            '✧ '+oppWeaknesses.map(k=>WEAKNESSES[k].label).join(' · ')
+          ),
+        ),
+
+        // Background (optional)
+        el('div',{className:'t-label',style:{marginTop:24,display:'flex',alignItems:'center',gap:8}},
+          'Background',
+          el('span',{style:{fontSize:'.55rem',fontWeight:500,color:'var(--c-dim)',textTransform:'none',letterSpacing:'0'}},'optional')
+        ),
+        el('textarea',{className:'float-input',rows:2,placeholder:'Country context, actor details, constraints, time period... Leave blank to skip.',value:background,onChange:e=>setBackground(e.target.value),style:{minHeight:60,fontSize:'.9rem'}}),
+      ),
+
+      // Summary line
+      el('div',{className:'t-dim',style:{marginTop:16}},
+        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' voice'+(oppStrengths.length||oppWeaknesses.length?' · Custom opponent':'')
+
+      ),
+
+      el('button',{className:'cta',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
+
+      // Past Rounds & Saved Cases buttons
+      el('div',{className:'row-c',style:{marginTop:16,flexWrap:'wrap'}},
+        historyRounds.length>0&&el('button',{className:'cta-ghost',onClick:()=>setShowHistory(true)},
+          '📋 Past Rounds ('+historyRounds.length+')'
+        ),
+        savedCases.length>0&&el('button',{className:'cta-ghost',onClick:()=>setShowCases(true)},
+          '💾 Saved Cases ('+savedCases.length+')'
+        ),
+      ),
+    ),
+
+    // History panel overlay
+    showHistory&&el('div',{className:'history-panel'},
+      el('div',{className:'history-grid'},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}},
+          el('h2',{style:{fontSize:'1.4rem',fontWeight:800,letterSpacing:'-.03em'}},
+            viewingRound?'Round Detail':'Past Rounds'
+          ),
+          el('button',{className:'cta-ghost',style:{marginTop:0},onClick:()=>{setShowHistory(false);setViewingRound(null)}},'✕ Close'),
+        ),
+
+        // Performance stats
+        !viewingRound&&historyRounds.length>=2&&(()=>{
+          const wins=historyRounds.filter(r=>r.userWon===true).length;
+          const losses=historyRounds.filter(r=>r.userWon===false).length;
+          const total=historyRounds.length;
+          const winPct=total>0?Math.round(wins/total*100):0;
+          // Calculate streak
+          let streak=0;let streakType='';
+          for(const r of historyRounds){
+            if(r.userWon===null) continue;
+            if(streak===0){streakType=r.userWon?'W':'L';streak=1}
+            else if((r.userWon&&streakType==='W')||(!r.userWon&&streakType==='L'))streak++;
+            else break;
+          }
+          return el('div',{style:{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap'}},
+            el('div',{style:{flex:1,minWidth:80,padding:'12px 16px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:12,textAlign:'center'}},
+              el('div',{style:{fontSize:'.55rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-subtle)',marginBottom:4}},'Win Rate'),
+              el('div',{style:{fontSize:'1.4rem',fontWeight:900,color:winPct>=50?'#22c55e':'#f59e0b'}},winPct+'%'),
+            ),
+            el('div',{style:{flex:1,minWidth:80,padding:'12px 16px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:12,textAlign:'center'}},
+              el('div',{style:{fontSize:'.55rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-subtle)',marginBottom:4}},'Record'),
+              el('div',{style:{fontSize:'1.4rem',fontWeight:900,color:'var(--c-bright)'}},wins+'W – '+losses+'L'),
+            ),
+            el('div',{style:{flex:1,minWidth:80,padding:'12px 16px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:12,textAlign:'center'}},
+              el('div',{style:{fontSize:'.55rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-subtle)',marginBottom:4}},'Streak'),
+              el('div',{style:{fontSize:'1.4rem',fontWeight:900,color:streakType==='W'?'#22c55e':'#ef4444'}},streak+streakType),
+            ),
+            el('div',{style:{flex:1,minWidth:80,padding:'12px 16px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:12,textAlign:'center'}},
+              el('div',{style:{fontSize:'.55rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-subtle)',marginBottom:4}},'Rounds'),
+              el('div',{style:{fontSize:'1.4rem',fontWeight:900,color:'var(--c-text3)'}},total),
+            ),
+          );
+        })(),
+
+        viewingRound?el('div',{className:'history-detail'},
+          el('button',{className:'cta-ghost',style:{marginTop:0,marginBottom:16},onClick:()=>setViewingRound(null)},'← Back'),
+          el('div',{style:{marginBottom:20}},
+            el('div',{style:{fontSize:'1.1rem',fontWeight:700,color:'var(--c-bright)',marginBottom:6}},'"'+viewingRound.motion+'"'),
+            el('div',{className:'hc-meta'},
+              el('span',null,viewingRound.formatName),
+              el('span',null,viewingRound.sideLabel),
+              el('span',null,viewingRound.opponentName+' opponent'),
+              el('span',null,new Date(viewingRound.date).toLocaleDateString()),
+            ),
+          ),
+          el('div',{className:'t-label',style:{marginTop:16}},'Speeches'),
+          viewingRound.log.map((l,i)=>el('div',{key:i,className:'hd-speech'},
+            el('div',{className:'hd-who '+(l.who==='You'?'you':'ai')},l.code+' — '+l.who),
+            el('div',{className:'hd-text'},l.text),
+          )),
+          viewingRound.feedback&&el(React.Fragment,null,
+            el('div',{className:'t-label',style:{marginTop:24}},'Judge Feedback'),
+            el('div',{className:'fb-card',style:{marginTop:8}},el('div',{className:'feedback-text'},viewingRound.feedback)),
+          ),
+          el('div',{className:'row-c',style:{marginTop:20,flexWrap:'wrap'}},
+            el('button',{className:'cta-ghost',onClick:()=>{
+              const t=viewingRound.log.map(l=>`[${l.code} — ${l.who}]\n${l.text}`).join('\n\n---\n\n')+'\n\n---\nJUDGE:\n'+viewingRound.feedback;
+              navigator.clipboard.writeText(t).catch(()=>{});
+            }},'📋 Copy'),
+            el('button',{className:'cta-ghost',onClick:()=>{
+              // Parse ballot from feedback JSON if possible
+              let b=null;try{b=JSON.parse(viewingRound.feedback.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim())}catch{}
+              downloadRound(viewingRound.motion,viewingRound.format,viewingRound.side,viewingRound.log,viewingRound.feedback,b);
+            }},'⬇ Download .txt'),
+            el('button',{className:'cta-ghost',style:{color:'#ef4444',borderColor:'rgba(239,68,68,.3)'},onClick:()=>deleteRound(viewingRound.id)},'Delete Round'),
+          ),
+        ):el(React.Fragment,null,
+          historyRounds.map(r=>el('div',{key:r.id,className:'history-card',onClick:()=>setViewingRound(r)},
+            el('div',{className:'hc-motion'},'"'+r.motion+'"'),
+            el('div',{className:'hc-meta'},
+              el('span',null,r.formatName),
+              el('span',null,r.sideLabel),
+              el('span',null,r.opponentName),
+              el('span',null,new Date(r.date).toLocaleDateString()),
+              el('span',null,r.log.length+' speeches'),
+            ),
+          )),
+        ),
+      ),
+    ),
+
+    // Saved Cases panel overlay
+    showCases&&el('div',{className:'history-panel'},
+      el('div',{className:'history-grid'},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}},
+          el('h2',{style:{fontSize:'1.4rem',fontWeight:800,letterSpacing:'-.03em'}},
+            viewingCase?'Case Detail':'Saved Cases'
+          ),
+          el('button',{className:'cta-ghost',style:{fontSize:'.75rem',padding:'6px 14px'},onClick:()=>{setShowCases(false);setViewingCase(null)}},'✕ Close'),
+        ),
+
+        viewingCase?el('div',{className:'history-detail'},
+          el('button',{className:'cta-ghost',style:{marginTop:0,marginBottom:16},onClick:()=>setViewingCase(null)},'← Back'),
+          el('div',{style:{marginBottom:20}},
+            el('div',{style:{fontSize:'1.1rem',fontWeight:700,color:'var(--c-bright)',marginBottom:6}},'"'+viewingCase.motion+'"'),
+            el('div',{className:'hc-meta'},
+              el('span',null,viewingCase.formatName),
+              el('span',null,viewingCase.sideLabel),
+              el('span',null,BRAINS[viewingCase.brain]?.name||viewingCase.brain),
+              el('span',null,new Date(viewingCase.date).toLocaleDateString()),
+            ),
+          ),
+          viewingCase.speeches.map((s,i)=>el('div',{key:i,className:'hd-speech'},
+            el('div',{className:'hd-who ai'},s.code),
+            el('div',{className:'hd-text'},s.text),
+          )),
+          el('div',{className:'row-c',style:{marginTop:20,flexWrap:'wrap'}},
+            el('button',{className:'cta-ghost',onClick:()=>{
+              setNotes(viewingCase.fullText);
+              try{localStorage.setItem('debateos-prep-notes',viewingCase.fullText)}catch{};
+              setMotion(viewingCase.motion);
+              setShowCases(false);setViewingCase(null);
+            }},'📝 Load as Prep'),
+            el('button',{className:'cta-ghost',onClick:()=>copyCase(viewingCase)},'📋 Copy Case'),
+            el('button',{className:'cta-ghost',onClick:()=>{
+              const txt=`CASE: ${viewingCase.title}\nFormat: ${viewingCase.formatName} | Side: ${viewingCase.sideLabel}\nDate: ${new Date(viewingCase.date).toLocaleDateString()}\n${'─'.repeat(40)}\n\n${viewingCase.fullText}`;
+              const blob=new Blob([txt],{type:'text/plain'});
+              const url=URL.createObjectURL(blob);
+              const a=document.createElement('a');a.href=url;
+              a.download=`case-${viewingCase.motion.slice(0,30).replace(/[^a-zA-Z0-9]+/g,'-')}.txt`;
+              document.body.appendChild(a);a.click();document.body.removeChild(a);
+            }},'⬇ Download'),
+            el('button',{className:'cta-ghost',style:{color:'#ef4444',borderColor:'rgba(239,68,68,.3)'},onClick:()=>deleteCase(viewingCase.id)},'Delete'),
+          ),
+        ):el(React.Fragment,null,
+          savedCases.length===0?el('div',{style:{textAlign:'center',color:'var(--c-muted)',padding:'40px 0'}},'No saved cases yet. After a round, click "Save Case" to store it here.'):
+          savedCases.map(c=>el('div',{key:c.id,className:'history-card',onClick:()=>setViewingCase(c)},
+            el('div',{className:'hc-motion'},'"'+c.motion+'"'),
+            el('div',{className:'hc-meta'},
+              el('span',null,c.formatName),
+              el('span',null,c.sideLabel),
+              el('span',null,BRAINS[c.brain]?.name||c.brain),
+              el('span',null,new Date(c.date).toLocaleDateString()),
+              el('span',null,c.speeches.length+' speech'+(c.speeches.length>1?'es':'')),
+            ),
+          )),
+        ),
+      ),
+    ),
+  );
+
+  // ── PREP ──
+  if(phase==='prep') return el('div',{className:'page'},
+    el('div',{className:'ambient'}),bar,
+    el('div',{className:stageClass},
+      el('div',{className:'t-label'},'Prep Time'),
+      el('div',{className:'t-time'+(prepTimer.left<=60?' danger':'')},prepTimer.fmt(prepTimer.left)),
+      el('div',{style:{margin:'16px auto 24px',padding:'14px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,maxWidth:480}},
+        el('span',{style:{color:'#ef4444',fontWeight:700}},fmt.sideLabels[side]||side),
+        el('span',{style:{color:'var(--c-mid)',margin:'0 8px'}},'·'),
+        el('span',{style:{color:'var(--c-subtle)',fontSize:'.8rem'}},fmt.name),
+        el('div',{style:{color:'var(--c-text3)',marginTop:6}},motion),
+      ),
+      el('div',{style:{position:'relative',maxWidth:480,margin:'0 auto'}},
+        el('textarea',{className:'float-input',rows:8,placeholder:'Brainstorm your arguments...',value:notes,onChange:e=>{setNotes(e.target.value);try{localStorage.setItem('debateos-prep-notes',e.target.value)}catch{};setNotesSaved(true);setTimeout(()=>setNotesSaved(false),1200)},autoFocus:true,style:{width:'100%'}}),
+        notesSaved&&el('div',{style:{position:'absolute',top:8,right:12,fontSize:'.65rem',color:'#22c55e',fontWeight:700,opacity:1,transition:'opacity .3s',pointerEvents:'none'}},'Saved!'),
+      ),
+
+      // AI Prep Coach
+      el('div',{style:{display:'flex',gap:8,justifyContent:'center',marginTop:12}},
+        el('button',{className:'cta-ghost',style:{fontSize:'.75rem',padding:'8px 16px'},disabled:prepHintLoading,onClick:async()=>{
+          setPrepHintLoading(true);setPrepHint('');if(typeof gtag==='function')gtag('event','ai_prep_coach',{format:fmt.name,side});
+          try{
+            const sideLabel=fmt.sideLabels[side]||side;
+            const sys=`You are an elite ${fmt.name} debate prep coach. The debater is ${sideLabel} on: "${motion}". ${background?'Background: '+background:''}
+
+Give them 3-4 argument ideas ranked by strength. For each:
+• A catchy, distinctive argument name (not generic — something flowable like "The Regulatory Ratchet" or "The Talent Drain")
+• The specific mechanism in 1-2 sentences — WHO does WHAT through WHICH pathway to cause WHAT outcome
+• The key impact and WHY it outweighs
+
+Then:
+• Suggest a FRAMEWORK with a clear decision rule that makes their arguments win
+• Warn about the 1-2 strongest opponent arguments they'll face and give a one-line preempt for each
+• If there's a clever/counterintuitive angle most debaters would miss, flag it as "💡 Sleeper arg:"
+
+Keep it punchy — they have limited prep time. No markdown headers. Use • for bullets.`;
+            const hint=await callAI(sys,'Help me prep for this round.',chunk=>setPrepHint(chunk),brain);
+            setPrepHint(hint);
+          }catch{setPrepHint('Could not generate suggestions.')}
+          setPrepHintLoading(false);
+        }},prepHintLoading?'Thinking...':'🤖 Get AI Help'),
+        el('button',{className:'cta-ghost',style:{fontSize:'.75rem',padding:'8px 16px'},onClick:()=>{setNotes('');try{localStorage.removeItem('debateos-prep-notes')}catch{}}},'Clear Notes'),
+      ),
+      prepHint&&el('div',{style:{marginTop:12,padding:'14px 18px',background:'var(--c-surface)',border:'1px solid rgba(239,68,68,.1)',borderRadius:12,maxWidth:480,textAlign:'left',fontSize:'.82rem',color:'var(--c-text3)',lineHeight:1.5,whiteSpace:'pre-wrap'}},prepHint),
+
+      // Keyboard hint
+      el('div',{className:'kb-hint',style:{fontSize:'.6rem',color:'var(--c-faint)',marginTop:16}},'Press Space to pause/resume · Escape to skip speech · → to advance'),
+
+      el('button',{className:'cta',onClick:goToSpeeches,style:{marginTop:24,maxWidth:300}},'Start Round →'),
+    )
+  );
+
+  // ── SPEECH ──
+  if(phase==='speech'){
+    const tc=timer.left<=15?'danger':timer.left<=30?'warn':'';
+    return el('div',{className:'page'},
+      el('div',{className:'ambient'}),bar,
+      el('div',{className:stageClass,key:'s'+idx},
+
+        // Progress pips
+        el('div',{className:'progress-bar'},
+          SPEECHES.map((s,i)=>el('div',{key:s.code,className:'pip'+(i<idx?' done':i===idx?' now':'')},
+            el('div',{className:'pip-bar'+(i<idx?' done':i===idx?' now':'')}),
+            el('div',{className:'pip-code',style:{color:s.side===fmt.sides[0]?'#ef4444':'var(--c-bright)'}},s.code),
+          ))
+        ),
+
+        // Resolution display
+        el('div',{style:{maxWidth:600,margin:'0 auto 16px',textAlign:'center'}},
+          el('div',{style:{fontSize:'.92rem',fontWeight:600,color:'var(--c-text3)',lineHeight:1.4,fontStyle:'italic'}},'"'+motion+'"'),
+          background&&el('div',{style:{fontSize:'.72rem',color:'var(--c-subtle)',marginTop:4,lineHeight:1.3}},background),
+        ),
+
+        // Speech info
+        el('div',{className:'t-label'},isUser?'Your Turn':'AI Speaking'),
+        el('div',{className:'t-phase'},cur.code+' — '+cur.name),
+        el('div',{className:'t-dim',style:{marginBottom:12}},
+          isUser?(rec.micAvailable?'Speak now — your voice is being transcribed':rec.micError):
+          aiLoading==='voice'?(tts.streamStatus||'Preparing HD voice...'):
+          aiLoading?'Writing argument via '+(BRAINS[brain]||BRAINS.claude).name+(isPro()?' ⚡ Pro':'')+' ... '+aiPct+'%':
+          tts.paused?'Paused':'🔴 LIVE — Timer running'
+        ),
+
+        // TTS error banner
+        !isUser&&tts.ttsError&&el('div',{style:{padding:'8px 14px',background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.2)',borderRadius:10,maxWidth:400,margin:'0 auto 12px',fontSize:'.75rem',color:'#f59e0b',textAlign:'center'}},tts.ttsError),
+
+        // Mic fallback: text input when mic unavailable
+        isUser&&!rec.micAvailable&&el('textarea',{
+          className:'float-input',rows:4,
+          placeholder:'Type your argument here...',
+          value:rec.transcript,
+          onChange:e=>rec.setManualText(e.target.value),
+          style:{maxWidth:480,margin:'0 auto 16px',display:'block',fontSize:'.9rem'},
+          autoFocus:true,
+        }),
+
+        // POI availability indicator during user speech
+        isUser&&fmt.poi&&el('div',{style:{fontSize:'.65rem',color:'var(--c-subtle)',textAlign:'center',marginBottom:8}},
+          timer.left>(cur.time-60)?'POIs available in '+Math.max(0,timer.left-(cur.time-60))+'s':
+          timer.left<60?'POI window closed':
+          '🖐 POIs are active — opponent may rise'
+        ),
+
+        // Adaptive scouting report — show user what the AI detected
+        !isUser&&aiLoading&&aiLoading!=='voice'&&log.filter(l=>l.who==='You').length>0&&(()=>{
+          const userText=log.filter(l=>l.who==='You').map(l=>l.text).join(' ');
+          const detections=[];
+          if(!userText.match(/weigh|outweigh|magnitude|probability/gi)) detections.push('No weighing detected');
+          if(!userText.match(/even if|grant|concede/gi)) detections.push('No preemption');
+          if(!userText.match(/drop|extend|pull through/gi)) detections.push('Not tracking flow');
+          if(userText.match(/framework|standard|criterion/gi)?.length>2) detections.push('Framework-heavy');
+          if(userText.match(/example|real.?world|instance/gi)?.length>2) detections.push('Example-heavy');
+          if(detections.length===0) return null;
+          return el('div',{style:{marginTop:8,padding:'8px 14px',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.12)',borderRadius:10,maxWidth:400,margin:'8px auto'}},
+            el('div',{style:{fontSize:'.55rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.12em',color:'rgba(239,68,68,.5)',marginBottom:4}},'🎯 AI Scouting Your Style'),
+            detections.map((d,i)=>el('div',{key:i,style:{fontSize:'.72rem',color:'var(--c-text)'}},d))
+          );
+        })(),
+
+        // The orb
+        el('div',{className:'orb-wrap'},
+          el('div',{className:'orb-glow'+(!isUser||tts.speaking?' on':'')}),
+          el('div',{className:'orb-ring'+(isUser?' active':tts.speaking||aiLoading?' active pulse':'')}),
+          el('canvas',{className:'orb',ref:orb.ref}),
+        ),
+
+        // Timer
+        el('div',{className:'t-time'+(tc?' '+tc:'')},timer.fmt(timer.left)),
+
+        // Transcript toggle — plain text, no animation
+        (rec.transcript||aiText)&&el(React.Fragment,null,
+          el('div',{style:{display:'flex',alignItems:'center',gap:12,justifyContent:'center'}},
+            el('button',{className:'transcript-btn',onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide transcript':'▶ Show transcript'),
+            showTx&&aiText&&!isUser&&el('button',{className:'transcript-btn',onClick:()=>{navigator.clipboard.writeText(aiText).catch(()=>{})},style:{fontSize:'.65rem'}},'📋 Copy'),
+          ),
+          showTx&&el('div',{className:'transcript-box'},
+            isUser ? rec.transcript : aiText
+          ),
+        ),
+
+        // POI: user can send a POI during AI speech (middle of speech only)
+        !isUser&&fmt.poi&&timer.left<(cur.time-60)&&timer.left>60&&el('div',{style:{marginTop:12}},
+          !poiActive
+            ?el('button',{className:'cta-ghost',onClick:()=>setPoiActive(true),style:{fontSize:'.8rem',padding:'10px 20px'}},'🖐 Point of Information')
+            :el('div',{style:{display:'flex',gap:8,maxWidth:400,margin:'0 auto'}},
+              el('input',{value:poiText,onChange:e=>setPoiText(e.target.value),placeholder:'Your POI...',style:{flex:1,padding:'10px 14px',background:'var(--c-surface3)',border:'1px solid var(--c-border4)',borderRadius:8,color:'var(--fg)',fontSize:'.85rem',fontFamily:'inherit'},onKeyDown:e=>{if(e.key==='Enter')sendPOI()}}),
+              el('button',{className:'cta-ghost',onClick:sendPOI,style:{padding:'10px 16px',fontSize:'.8rem',marginTop:0}},'Send'),
+            )
+        ),
+
+        // POI: AI offers a POI during user speech
+        isUser&&poiOffer&&el('div',{style:{position:'fixed',bottom:120,left:'50%',transform:'translateX(-50%)',background:'var(--c-scrim2)',border:'1px solid rgba(239,68,68,.3)',borderRadius:14,padding:'16px 24px',display:'flex',gap:12,alignItems:'center',zIndex:100}},
+          el('span',{style:{fontSize:'.85rem',color:'var(--c-bright)'}},'🖐 AI offers a Point of Information'),
+          el('button',{className:'cta-ghost',onClick:()=>{setPoiOffer(false);acceptAIPOI()},style:{padding:'8px 16px',fontSize:'.78rem',marginTop:0}},'Accept'),
+          el('button',{className:'cta-ghost',onClick:()=>{setPoiOffer(false);setLog(prev=>[...prev,{code:'POI',who:'POI',text:'AI offered POI — declined'}])},style:{padding:'8px 16px',fontSize:'.78rem',opacity:.5,marginTop:0}},'Decline'),
+        ),
+
+        // Live speed control during AI speech
+        !isUser&&tts.speaking&&el('div',{className:'row-c',style:{gap:6,marginBottom:8}},
+          el('span',{style:{fontSize:'.65rem',color:'var(--c-muted)',marginRight:4}},'Speed:'),
+          [0.75,1,1.25,1.5,2,2.5,3].map(r=>
+            el('button',{key:r,onClick:()=>{setLiveRate(r);tts.setRate(r)},style:{padding:'4px 10px',fontSize:'.68rem',borderRadius:8,border:liveRate===r?'1px solid rgba(239,68,68,.5)':'1px solid var(--c-border2)',background:liveRate===r?'rgba(239,68,68,.15)':'var(--c-surface2)',color:liveRate===r?'#ef4444':'var(--c-text)',cursor:'pointer',fontWeight:liveRate===r?700:500}},r+'×')
+          )
+        ),
+
+        // Controls
+        el('div',{className:'row-c'},
+          !isUser&&tts.speaking&&el('button',{className:'cta-ghost speech-btn',onClick:()=>{const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}},tts.paused?'▶ Resume':'⏸ Pause'),
+          el('button',{className:'cta-ghost speech-btn',onClick:endSpeech},isUser?'End Speech →':'Skip →'),
+        ),
+
+        // In-round tools — notes, flow, saved cases
+        el('div',{className:'row-c',style:{gap:6,marginTop:8}},
+          el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='notes'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='notes'?null:'notes')},'📝 Notes'),
+          el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='flow'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='flow'?null:'flow')},'📊 Flow'),
+          savedCases.length>0&&el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='cases'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='cases'?null:'cases')},'💾 Cases'),
+        ),
+
+        // In-round panel content
+        showRoundPanel==='notes'&&el('div',{style:{width:'100%',maxWidth:'min(90vw,700px)',margin:'12px auto 0'}},
+          el('textarea',{className:'float-input',rows:5,placeholder:'Your prep notes...',value:notes,onChange:e=>{setNotes(e.target.value);try{localStorage.setItem('debateos-prep-notes',e.target.value)}catch{}},style:{width:'100%',fontSize:'.85rem'}}),
+        ),
+        showRoundPanel==='flow'&&el('div',{style:{width:'100%',maxWidth:'min(90vw,700px)',margin:'12px auto 0',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,padding:'16px 20px',maxHeight:280,overflowY:'auto'}},
+          log.length===0?el('div',{style:{color:'var(--c-dim)',fontSize:'.78rem',textAlign:'center'}},'No speeches yet'):
+          log.map((l,i)=>el('div',{key:i,style:{marginBottom:10,paddingBottom:10,borderBottom:'1px solid var(--c-border)'}},
+            el('div',{style:{fontSize:'.65rem',fontWeight:700,color:l.who==='You'?'#ef4444':'var(--c-text3)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:4}},l.code+' — '+l.who),
+            el('div',{style:{fontSize:'.78rem',color:'var(--c-mid)',lineHeight:1.5,maxHeight:80,overflow:'hidden'}},l.text.slice(0,300)+(l.text.length>300?'...':'')),
+          ))
+        ),
+        showRoundPanel==='cases'&&el('div',{style:{width:'100%',maxWidth:'min(90vw,700px)',margin:'12px auto 0',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,padding:'16px 20px',maxHeight:280,overflowY:'auto'}},
+          savedCases.slice(0,5).map(c=>el('div',{key:c.id,style:{marginBottom:10,paddingBottom:10,borderBottom:'1px solid var(--c-border)',cursor:'pointer'},onClick:()=>{navigator.clipboard.writeText(c.fullText).catch(()=>{})}},
+            el('div',{style:{fontSize:'.75rem',fontWeight:600,color:'var(--c-text3)'}},'"'+c.motion.slice(0,60)+'"'),
+            el('div',{style:{fontSize:'.6rem',color:'var(--c-dim)',marginTop:2}},c.formatName+' · '+c.sideLabel+' · Tap to copy'),
+          ))
+        ),
+
+        // Mobile-friendly hint (replaces keyboard-only hints)
+        el('div',{className:'mobile-hint',style:{fontSize:'.6rem',color:'var(--c-faint)',marginTop:8,textAlign:'center'}},
+          !isUser&&tts.speaking?'Tap Pause or press Space':'Tap End Speech or press Escape'
+        ),
+      )
+    );
+  }
+
+  // ── FEEDBACK ──
+  if(phase==='feedback') {
+    const b=ballot; // structured ballot or null
+    const wr=getWinRate();
+    return el('div',{className:'page'},
+      el('div',{className:'ambient'}),bar,
+      el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:90,maxWidth:700,textAlign:'left'}},
+        el('div',{className:'t-label',style:{textAlign:'center'}},'Round Complete'),
+        el('h2',{className:'t-hero',style:{fontSize:'clamp(2rem,5vw,3.2rem)',marginBottom:8,textAlign:'center'}},'Judge Ballot'),
+        el('p',{className:'t-dim',style:{marginBottom:24,textAlign:'center'}},'"'+motion+'" — '+(fmt.sideLabels[side]||side)+' vs AI'),
+
+        fbLoading&&!ballot&&el('div',{style:{textAlign:'center',marginTop:40}},
+          el('p',{className:'t-dim',style:{fontStyle:'italic'}},'Deliberating...'),
+        ),
+
+        // Structured ballot
+        b && el('div',{style:{width:'100%'}},
+          // Decision banner
+          el('div',{style:{padding:'20px 24px',background:b.winner==='user'?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)',border:'1px solid '+(b.winner==='user'?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'),borderRadius:16,marginBottom:20,textAlign:'center'}},
+            el('div',{style:{fontSize:'1.6rem',fontWeight:900,color:b.winner==='user'?'#22c55e':'#ef4444',marginBottom:6}},
+              b.winner==='user'?'🏆 You Win':'Opponent Wins'
+            ),
+            el('p',{style:{fontSize:'.88rem',color:'var(--c-text4)',lineHeight:1.5}},b.decision),
+          ),
+
+          // Speaker Points
+          el('div',{style:{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}},
+            el('div',{style:{flex:1,minWidth:140,padding:'16px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,textAlign:'center'}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-muted)',marginBottom:6}},'Your Points'),
+              el('div',{style:{fontSize:'2rem',fontWeight:900,color:'var(--fg)'}},b.speakerPoints?.user||'—'),
+            ),
+            el('div',{style:{flex:1,minWidth:140,padding:'16px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,textAlign:'center'}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-muted)',marginBottom:6}},'AI Points'),
+              el('div',{style:{fontSize:'2rem',fontWeight:900,color:'var(--c-text)'}},b.speakerPoints?.ai||'—'),
+            ),
+            wr.total>=2&&el('div',{style:{flex:1,minWidth:140,padding:'16px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,textAlign:'center'}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-muted)',marginBottom:6}},'Overall Win Rate'),
+              el('div',{style:{fontSize:'2rem',fontWeight:900,color:wr.rate>=0.5?'#22c55e':'#f59e0b'}},Math.round(wr.rate*100)+'%'),
+            ),
+          ),
+
+          // Key clash
+          b.keyClash&&el('div',{style:{padding:'16px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,marginBottom:20}},
+            el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'#f59e0b',marginBottom:6}},'Key Clash'),
+            el('p',{style:{fontSize:'.88rem',color:'var(--c-text4)',lineHeight:1.5}},b.keyClash),
+          ),
+
+          // Per-speech breakdown
+          b.speeches&&b.speeches.length>0&&el('div',{style:{marginBottom:20}},
+            el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-muted)',marginBottom:12}},'Speech Breakdown'),
+            b.speeches.map((sp,i)=>el('div',{key:i,style:{padding:'14px 18px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:12,marginBottom:8}},
+              el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
+                el('span',{style:{fontWeight:700,fontSize:'.85rem',color:'var(--c-bright)'}},sp.code+' — '+sp.who),
+                el('span',{style:{fontSize:'1.1rem',fontWeight:900,color:sp.score>=28?'#22c55e':sp.score>=27?'#f5f5f7':'#f59e0b'}},sp.score),
+              ),
+              sp.strengths&&el('div',{style:{marginBottom:4}},sp.strengths.map((s,j)=>
+                el('div',{key:'s'+j,style:{fontSize:'.78rem',color:'rgba(100,220,100,.6)',paddingLeft:12}},'✦ '+s)
+              )),
+              sp.improvements&&sp.improvements.map((s,j)=>
+                el('div',{key:'i'+j,style:{fontSize:'.78rem',color:'rgba(239,68,68,.6)',paddingLeft:12}},'✧ '+s)
+              ),
+            )),
+          ),
+
+          // Overall strengths/weaknesses
+          (b.overallStrengths||b.overallWeaknesses)&&el('div',{style:{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}},
+            b.overallStrengths&&el('div',{style:{flex:1,minWidth:140,padding:'14px 18px',background:'rgba(34,197,94,.04)',border:'1px solid rgba(34,197,94,.1)',borderRadius:14}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'#22c55e',marginBottom:8}},'Strengths'),
+              b.overallStrengths.map((s,i)=>el('div',{key:i,style:{fontSize:'.8rem',color:'var(--c-text3)',marginBottom:4}},'• '+s)),
+            ),
+            b.overallWeaknesses&&el('div',{style:{flex:1,minWidth:140,padding:'14px 18px',background:'rgba(239,68,68,.04)',border:'1px solid rgba(239,68,68,.1)',borderRadius:14}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'#ef4444',marginBottom:8}},'To Improve'),
+              b.overallWeaknesses.map((s,i)=>el('div',{key:i,style:{fontSize:'.8rem',color:'var(--c-text3)',marginBottom:4}},'• '+s)),
+            ),
+          ),
+
+          // Practice advice
+          b.practiceAdvice&&el('div',{style:{padding:'16px 20px',background:'rgba(59,130,246,.06)',border:'1px solid rgba(59,130,246,.15)',borderRadius:14,marginBottom:20}},
+            el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'#3b82f6',marginBottom:6}},'Practice This Next'),
+            el('p',{style:{fontSize:'.88rem',color:'var(--c-text4)',lineHeight:1.5}},b.practiceAdvice),
+          ),
+        ),
+
+        // Fallback: raw text if JSON parse failed + retry button
+        !b&&feedback&&el('div',null,
+          el('div',{className:'fb-card'},el('div',{className:'feedback-text'},feedback)),
+          el('button',{className:'cta-ghost',style:{marginTop:12,display:'block',margin:'12px auto'},onClick:()=>genFeedback(log)},'🔄 Retry Judge Feedback'),
+        ),
+
+        el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
+        showTx&&el('div',{className:'transcript-box',style:{maxHeight:360}},log.map(l=>'['+l.code+' — '+l.who+']\n'+l.text).join('\n\n---\n\n')),
+
+        el('div',{className:'row-c',style:{marginTop:28,flexWrap:'wrap'}},
+          el('button',{className:'cta-ghost',onClick:copyAll},'📋 Copy'),
+          el('button',{className:'cta-ghost',onClick:()=>downloadRound(motion,format,side,log,feedback,ballot)},'⬇ Download .txt'),
+          el('button',{className:'cta-ghost',onClick:()=>saveCase(),style:caseSaved?{background:'rgba(34,197,94,.15)',borderColor:'#22c55e',color:'#22c55e'}:{}},caseSaved?'✓ Case Saved':'💾 Save Case'),
+          el('button',{className:'cta',style:{marginTop:0},onClick:newRound},'New Round'),
+        ),
+      )
+    );
+  }
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(el(App));
+</script>
 </body>
 </html>
