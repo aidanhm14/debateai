@@ -1317,8 +1317,12 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 </head>
+<script src="/js/voice-guidelines.js"></script>
 <body>
-<div id="root"></div>
+<div id="beta-strip" style="position:fixed;top:0;left:0;right:0;z-index:10000;background:linear-gradient(90deg,#ef4444ee,#f59e0bee);padding:7px 16px;text-align:center;font-size:.74rem;color:#fff;font-weight:600;letter-spacing:.02em;border-bottom:1px solid #00000030;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Inter',system-ui,sans-serif">
+  🧪 <strong>Beta tester situation</strong> — free access · <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;font-weight:800">share feedback to unlock unlimited</a>
+</div>
+<div id="root" style="padding-top:34px"></div>
 <canvas id="neuralBgCanvas" class="neural-bg-canvas"></canvas>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
@@ -2962,9 +2966,22 @@ function buildStyleBlock() {
   return parts.length ? '\n\nUSER WRITING STYLE PROFILE:\n' + parts.join('\n') : '';
 }
 
-const ANON_LIMIT = 5;
+const ANON_BASE_LIMIT = 5;
+const ANON_FEEDBACK_BONUS = 10; // giving feedback unlocks +10
+function hasGivenFeedback() { try { return localStorage.getItem('debateos-feedback-given') === '1'; } catch { return false; } }
+function markFeedbackGiven() { try { localStorage.setItem('debateos-feedback-given', '1'); } catch {} }
+function getAnonLimit() { return ANON_BASE_LIMIT + (hasGivenFeedback() ? ANON_FEEDBACK_BONUS : 0); }
+// Back-compat alias — existing code references ANON_LIMIT
+Object.defineProperty(window, 'ANON_LIMIT', { get: getAnonLimit });
+const ANON_LIMIT = getAnonLimit(); // legacy const for early reads; runtime uses getAnonLimit()
 function getAnonUsage() { try { return parseInt(localStorage.getItem('debateos-anon-usage') || '0', 10); } catch { return 0; } }
 function incAnonUsage() { try { localStorage.setItem('debateos-anon-usage', String(getAnonUsage() + 1)); } catch {} }
+// Feedback gate: called before each anon request. Returns true if user should be blocked + shown feedback modal.
+function shouldGateForFeedback() {
+  if (hasGivenFeedback()) return false;
+  const used = getAnonUsage();
+  return used >= ANON_BASE_LIMIT; // hit base limit, hasn't given feedback yet
+}
 
 /* ═══════════════════════════════════════════════════
    AI ENGINE CONFIG — same 4 brains as Debate AI
@@ -2988,7 +3005,13 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   const _isAnon = !__getAuthToken;
   if (_isAnon) {
     const used = getAnonUsage();
-    if (used >= ANON_LIMIT) throw new Error('You\'ve used all 5 free requests. Sign in and subscribe to keep generating.');
+    if (used >= getAnonLimit()) {
+      if (shouldGateForFeedback()) {
+        try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); markFeedbackGiven(); } catch(e) {}
+        throw new Error('You\'ve used your 5 free requests. We just opened our quick feedback form — fill it out and you\'ll get +10 more requests (refresh after).');
+      }
+      throw new Error('You\'ve used all your free requests. Add your own API key (BYOK) for unlimited, or sign in for a plan.');
+    }
   } else if (__currentTeam) {
     const teamUsed = __currentTeam.usageThisPeriod || 0;
     const teamLimit = __currentTeam.usageLimit || 5;
@@ -3000,7 +3023,8 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   const model = isPro && brain.proModel ? brain.proModel : brain.model;
   const maxTokens = opts.maxTokens || 16000;
 
-  const fullSystemPrompt = systemPrompt + buildStyleBlock();
+  const voiceBlock = (window.DEBATE_VOICE && window.DEBATE_VOICE.forFeature(opts.feature)) || '';
+  const fullSystemPrompt = systemPrompt + buildStyleBlock() + voiceBlock;
   const body = { model, max_tokens: maxTokens, stream: true, system: fullSystemPrompt, messages: [{ role:'user', content: userPrompt }], _feature: opts.feature || 'case' };
 
   const headers = { 'Content-Type': 'application/json' };
@@ -3066,8 +3090,12 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   if (_isAnon) {
     // Anonymous users: 5 total requests (localStorage)
     const used = getAnonUsage();
-    if (used >= ANON_LIMIT) {
-      throw new Error('You\'ve used all 5 free requests. Sign in and subscribe to keep generating.');
+    if (used >= getAnonLimit()) {
+      if (shouldGateForFeedback()) {
+        try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); markFeedbackGiven(); } catch(e) {}
+        throw new Error('You\'ve used your 5 free requests. We just opened our quick feedback form — fill it out and you\'ll get +10 more requests (refresh after).');
+      }
+      throw new Error('You\'ve used all your free requests. Add your own API key (BYOK) for unlimited, or sign in for a plan.');
     }
     // Don't increment here — increment after successful response below
   } else if (__currentTeam) {
@@ -3086,8 +3114,11 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   const onProgress = opts.onProgress || null;
   const expectedWords = opts.expectedWords || 1200;
 
-  // Inject user style profile into system prompt
-  const fullSystemPrompt = systemPrompt + buildStyleBlock();
+  // Inject user style profile + shared voice guidelines into system prompt.
+  // Voice guidelines are per-feature (see /js/voice-guidelines.js) so judge /
+  // feedback prompts don't get debater voice mixed in.
+  const voiceBlock = (window.DEBATE_VOICE && window.DEBATE_VOICE.forFeature(opts.feature)) || '';
+  const fullSystemPrompt = systemPrompt + buildStyleBlock() + voiceBlock;
 
   // Ensure budget_tokens < max_tokens and >= 1024 (API requirements)
   const safeBudget = Math.max(1024, Math.min(thinkBudget, maxTokens - 1024));
@@ -11110,7 +11141,7 @@ function AdBanner({ team, user, onNavigate }) {
   // Show trial counter for anonymous users
   if (!user && !team) {
     const used = getAnonUsage();
-    const remaining = ANON_LIMIT - used;
+    const remaining = getAnonLimit() - used;
     if (remaining <= 0) {
       return el('div', {style:{maxWidth:900,width:'94%',margin:'8px auto 0',padding:'10px 18px',background:'linear-gradient(135deg,#ef444418,#ef44440a)',border:'1px solid #ef444440',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,boxShadow:'0 2px 16px #ef444415'}},
         el('span', {style:{color:'#fca5a5',fontSize:'.82rem',flex:1,fontWeight:500}}, 'Free generations used up \u2014 sign in to continue with 5 requests/month or upgrade.'),
@@ -12379,7 +12410,7 @@ function App() {
     ),
     showGuide && React.createElement(WelcomeGuide, { onClose: closeGuide, onNavigate: navigateTab }),
     !showGuide && React.createElement('button',{className:'guide-trigger',onClick:()=>setShowGuide(true),title:'How to use DebateOS','aria-label':'Help guide'},'?'),
-    React.createElement('button',{className:'feedback-trigger',onClick:()=>setShowFeedback(true),title:'Send feedback','aria-label':'Send feedback'},
+    React.createElement('a',{className:'feedback-trigger',href:'https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform',target:'_blank',rel:'noopener noreferrer',title:'Send feedback (beta)','aria-label':'Send feedback'},
       React.createElement('span',{dangerouslySetInnerHTML:{__html:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>'}}),
       'Feedback'
     ),

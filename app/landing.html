@@ -17,6 +17,9 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<!-- Firebase compat SDK for Google signup on landing -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 
@@ -58,8 +61,12 @@ a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer}
 
 /* ── Nav ──────────────────────────── */
+.beta-strip{position:fixed;top:0;left:0;right:0;z-index:101;background:linear-gradient(90deg,#ef4444ee,#f59e0bee);padding:7px 16px;text-align:center;font-size:.74rem;color:#fff;font-weight:600;letter-spacing:.02em;border-bottom:1px solid #00000030;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.beta-strip a{color:#fff;text-decoration:underline;font-weight:800}
+.beta-strip a:hover{color:#fff8dc}
+@media(max-width:640px){.beta-strip{font-size:.68rem;padding:6px 10px}}
 .nav{
-  position:fixed;top:0;left:0;right:0;z-index:100;
+  position:fixed;top:34px;left:0;right:0;z-index:100;
   padding:20px 40px;
   display:flex;align-items:center;justify-content:space-between;
 }
@@ -184,9 +191,18 @@ button{font-family:inherit;cursor:pointer}
   margin-top:28px;
 }
 .hero-cta:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(255,255,255,.1)}
+.hero-side{position:absolute;top:18%;max-width:180px;text-align:left;z-index:3;pointer-events:none}
+.hero-side-left{left:20px}
+.hero-side-right{right:20px;text-align:right}
+.hero-side-body{font-size:.78rem !important}
+@media(min-width:1600px){.hero-side{max-width:210px;top:20%}.hero-side-left{left:48px}.hero-side-right{right:48px}}
+.hero-side-label{font-size:.66rem;font-weight:800;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+.hero-side-body{font-size:.85rem;line-height:1.55;color:var(--text-dim)}
+.hero-side-body em{color:var(--text);font-style:italic;font-weight:600}
+@media(max-width:1400px){.hero-side{display:none}}
 .hero-cta-primary{
-  font-size:.95rem !important;
-  padding:18px 44px !important;
+  font-size:1.15rem !important;
+  padding:22px 56px !important;
   background:var(--accent) !important;
   color:#fff !important;
   box-shadow:0 8px 30px rgba(220,38,38,.42), 0 0 0 0 rgba(220,38,38,.55);
@@ -336,6 +352,11 @@ button{font-family:inherit;cursor:pointer}
 </head>
 <body>
 
+<!-- Beta strip: kill subscription pressure, make feedback + BYOK the asks -->
+<div class="beta-strip">
+  🧪 <strong>Beta tester situation</strong> — free access · <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener">share feedback to unlock unlimited</a>
+</div>
+
 <!-- Nav -->
 <nav class="nav">
   <a href="/landing" class="nav-logo"><span>Devil's</span> Advocate.</a>
@@ -351,8 +372,9 @@ button{font-family:inherit;cursor:pointer}
       <div class="theme-dot" data-t="crimson" title="Dark"></div>
     </div>
     <a href="/debate-ai" class="nav-contact" style="border-color:var(--accent);color:var(--accent);background:var(--accent);color:#fff">Debate AI</a>
-    <a href="/high-school" class="nav-contact" style="border-color:var(--accent);color:var(--accent)">High School</a>
+    <span style="font-size:.68rem;color:var(--text-dim);font-weight:600;letter-spacing:.04em;margin:0 8px 0 4px;white-space:nowrap">For competitive or curious debaters →</span>
     <a href="/#case" class="nav-contact" style="border-color:var(--accent);color:var(--accent)">College</a>
+    <a href="/high-school" class="nav-contact" style="border-color:var(--accent);color:var(--accent)">High School</a>
     <a href="/learn" class="nav-contact" style="border-color:var(--accent);color:var(--accent)">Adults</a>
   </div>
 </nav>
@@ -365,15 +387,17 @@ button{font-family:inherit;cursor:pointer}
   <div class="hero-content">
     <div class="hero-eyebrow">Free · 10 minutes · Think sharper in a week</div>
     <h1>
-      Argue with an AI.<br>Become a sharper thinker.<br><span class="line3">The 10-minute brain workout for people who think for a living.</span>
+      Argue with an AI.<br>Become a sharper thinker.
     </h1>
-    <p style="color:var(--text-dim);font-size:.95rem;line-height:1.6;max-width:560px;margin:16px auto 0">Pick any topic — politics, ethics, a decision at work. An AI takes the other side out loud, finds the holes in your reasoning, and makes you defend yourself. You'll hear yourself think more clearly within a week. No debate background needed.</p>
     <div style="display:flex;gap:12px;justify-content:center;margin-top:28px;flex-wrap:wrap;align-items:center">
       <a href="/debate-ai" class="hero-cta hero-cta-primary">🧠 Spar with an AI →</a>
       <a href="/#case" class="hero-cta hero-cta-secondary">Generate Arguments</a>
     </div>
-    <div style="margin-top:14px;font-size:.72rem;color:var(--text-dim);letter-spacing:.04em">
-      Takes 10 min · No credit card · No signup · No jargon
+    <div style="margin-top:18px;display:flex;justify-content:center">
+      <button id="googleSignupBtn" type="button" style="display:inline-flex;align-items:center;gap:10px;padding:12px 22px;background:#fff;color:#1f1f1f;border:none;border-radius:999px;font-weight:700;font-size:.88rem;font-family:inherit;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.35);transition:transform .15s,box-shadow .15s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 10px 30px rgba(0,0,0,.45)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 6px 24px rgba(0,0,0,.35)'">
+        <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+        <span id="googleSignupBtnText">Join the beta with Google → unlimited access for feedback</span>
+      </button>
     </div>
 
     <!-- 3-step how-it-works: shows the loop before users bounce -->
@@ -739,6 +763,59 @@ try{
     MOUSE.x=e.clientX-r.left;MOUSE.y=e.clientY-r.top;
   });
   c.parentElement.addEventListener('mouseleave',function(){MOUSE.x=-999;MOUSE.y=-999});
+})();
+</script>
+
+<!-- Firebase Google signup: inline init + click handler -->
+<script>
+(function(){
+  var CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+    measurementId: "G-0V4R5MY3BT"
+  };
+  try {
+    if (typeof firebase === 'undefined') { console.warn('[landing] Firebase SDK failed to load'); return; }
+    if (!firebase.apps.length) firebase.initializeApp(CONFIG);
+  } catch(e) { console.warn('[landing] Firebase init error:', e.message); return; }
+
+  var auth = firebase.auth();
+  var btn = document.getElementById('googleSignupBtn');
+  var btnText = document.getElementById('googleSignupBtnText');
+  if (!btn) return;
+
+  // If already signed in, swap the button to "Continue to app"
+  auth.onAuthStateChanged(function(user){
+    if (user) {
+      btnText.textContent = 'Continue as ' + (user.displayName || user.email) + ' →';
+      btn.onclick = function(){ window.location.href = '/'; };
+    }
+  });
+
+  btn.addEventListener('click', function(){
+    if (auth.currentUser) { window.location.href = '/'; return; }
+    var provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    btnText.textContent = 'Opening Google…';
+    auth.signInWithPopup(provider).then(function(result){
+      try { if (window.gtag) gtag('event', 'sign_up', { method: 'Google' }); } catch(e){}
+      // Beta tester incentive: open the feedback form in a new tab (required
+      // to unlock unlimited use) and redirect main tab to the app.
+      try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); } catch(e){}
+      try { localStorage.setItem('debateos-feedback-given', '1'); } catch(e){}
+      window.location.href = '/';
+    }).catch(function(err){
+      console.warn('[landing] Google signin error:', err.code, err.message);
+      btnText.textContent = 'Sign up free with Google — unlock all features';
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        alert('Sign-in failed: ' + (err.message || err.code));
+      }
+    });
+  });
 })();
 </script>
 
