@@ -4402,6 +4402,14 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
   const generateCase = async (genMode) => {
     if (!motion.trim()) return;
+    if (typeof gtag === 'function') {
+      gtag('event', 'case_generate', {
+        mode: genMode,
+        side,
+        motion_length: motion.length,
+        feature: 'case',
+      });
+    }
     // Auto-version: if regenerating same motion, save previous output as a version
     const motionKey = motion.trim().toLowerCase() + '|' + side;
     if (output && lastGeneratedMotion.current === motionKey) {
@@ -9101,6 +9109,14 @@ function RoundSimulator() {
   const startRound = () => {
     if (!motion.trim()) return;
     logBetaEvent('battle', { format: simFormat, side });
+    if (typeof gtag === 'function') {
+      gtag('event', 'round_start', {
+        format: simFormat,
+        side,
+        motion_length: motion.length,
+        feature: 'simulator',
+      });
+    }
     setRoundStarted(true);
     setCurrentSpeech(0);
     setSpeeches([]);
@@ -9218,6 +9234,9 @@ Speech length: ${isRebuttal ? '400-600' : '700-1100'} words, matching a ${speech
     // Check if round is complete
     if (speechIdx === 5) {
       setRoundComplete(true);
+      if (typeof gtag === 'function') {
+        gtag('event', 'round_complete', { format: simFormat, side, feature: 'simulator' });
+      }
       generateRoundFeedback([...speechesSoFar.slice(0, speechIdx), aiText]);
     } else {
       setCurrentSpeech(speechIdx + 1);

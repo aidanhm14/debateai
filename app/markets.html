@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live Prediction Markets — Debate Them | Devil's Advocate</title>
+<meta name="description" content="Live Polymarket and Manifold prediction markets, plus a one-click button to debate an AI on whichever side you disagree with. Calibrate your confidence in real time.">
+<link rel="canonical" href="https://debateos1.netlify.app/markets">
+<meta property="og:title" content="Debate live prediction markets">
+<meta property="og:description" content="Polymarket + Manifold markets, one click to debate the AI on the opposite side.">
+<meta property="og:url" content="https://debateos1.netlify.app/markets">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="preconnect" href="https://gamma-api.polymarket.com">
+<link rel="preconnect" href="https://api.manifold.markets">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Live Prediction Markets — Debate Them",
+  "description": "Live Polymarket and Manifold markets with a one-click button to debate an AI on the opposite side.",
+  "url": "https://debateos1.netlify.app/markets"
+}
+</script>
+<style>
+  :root { --bg:#0b0f17; --fg:#e8eef7; --muted:#94a3b8; --accent:#ef4444; --card:#121826; --line:#1f2937; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 24px 96px}
+  header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+  h1{font:700 38px/1.1 "SF Pro Display",system-ui,sans-serif;margin:0;letter-spacing:-0.02em}
+  .lede{color:#cbd5e1;max-width:680px;margin:8px 0 24px;font-size:17px}
+  .back{color:var(--muted);font-size:14px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .tab{padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font:600 13px system-ui;cursor:pointer;letter-spacing:0.02em}
+  .tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s,transform .15s}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .q{font:600 15px/1.35 system-ui;color:var(--fg)}
+  .row{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}
+  .pct{font:700 22px system-ui;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+  .src{text-transform:uppercase;font-size:10px;letter-spacing:0.08em;padding:2px 6px;border:1px solid var(--line);border-radius:4px}
+  .btn{display:inline-block;text-align:center;padding:8px 12px;border-radius:8px;background:var(--accent);color:#fff;font:600 13px system-ui;border:none;cursor:pointer}
+  .btn.alt{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .meter{height:6px;background:#1f2937;border-radius:3px;overflow:hidden}
+  .meter > div{height:100%;background:linear-gradient(90deg,#22c55e,#84cc16);transition:width .3s}
+  .empty{padding:40px 0;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Debate the markets</h1>
+      <div class="lede">Live Polymarket and Manifold prediction markets. Pick one, click <em>Debate it</em>, and an AI will argue the side you disagree with — out loud, in real time. Then log your posterior and see how much you actually moved.</div>
+    </div>
+    <a class="back" href="/landing">← landing</a>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" data-src="polymarket" aria-pressed="true">Polymarket</button>
+    <button class="tab" data-src="manifold" aria-pressed="false">Manifold</button>
+  </div>
+
+  <div id="grid" class="grid"><div class="empty">Loading live markets…</div></div>
+</div>
+
+<script>
+  const grid = document.getElementById('grid');
+  const tabs = document.querySelectorAll('.tab');
+  let current = 'polymarket';
+  const cache = {};
+
+  async function load(src) {
+    if (cache[src]) { render(cache[src]); return; }
+    grid.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const r = await fetch('/api/' + src);
+      const j = await r.json();
+      cache[src] = j.markets || [];
+      render(cache[src]);
+    } catch (e) {
+      grid.innerHTML = '<div class="empty">Couldn\'t reach the API. Try again in a sec.</div>';
+    }
+  }
+
+  function render(markets) {
+    if (!markets.length) { grid.innerHTML = '<div class="empty">No live markets right now.</div>'; return; }
+    grid.innerHTML = markets.map(m => {
+      const pct = Math.round((m.yesPct ?? m.yesPrice * 100));
+      const url = '/debate-ai?motion=' + encodeURIComponent(m.question)
+                + '&marketPct=' + pct + '&source=' + current;
+      return `<div class="card">
+        <div class="row"><span class="src">${current}</span><span>${m.volume24hr ? '$' + Math.round(m.volume24hr).toLocaleString() + ' / 24h' : ''}</span></div>
+        <div class="q">${escapeHtml(m.question)}</div>
+        <div class="pct">${pct}% YES</div>
+        <div class="meter"><div style="width:${pct}%"></div></div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <a class="btn" href="${url}">Debate it</a>
+          <a class="btn alt" href="${m.url}" target="_blank" rel="noopener">View →</a>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
+    current = t.dataset.src;
+    load(current);
+  }));
+
+  load(current);
+</script>
+</body>
+</html>
