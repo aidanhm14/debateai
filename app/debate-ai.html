@@ -845,6 +845,33 @@ const TRAIT_PRESETS = {
   philosopher:{ label:'Philosopher', strengths:['philosophy','framework'], weaknesses:['abstract','noExamples'] },
 };
 
+// BYOK helpers — direct Anthropic calls when the proxy is down
+function getStoredKey(){ try{return localStorage.getItem('debateos-anthropic-key')||''}catch{return ''} }
+function setStoredKey(k){ try{localStorage.setItem('debateos-anthropic-key',k)}catch{} }
+function clearStoredKey(){ try{localStorage.removeItem('debateos-anthropic-key')}catch{} }
+async function promptForKey(){
+  const existing=getStoredKey();
+  const msg='AI backend is temporarily down. Paste your Anthropic API key for instant unlimited access (saved in your browser only — get a free key at console.anthropic.com):';
+  const k=window.prompt(msg, existing);
+  if(k && k.trim().startsWith('sk-ant-')){ setStoredKey(k.trim()); return k.trim(); }
+  if(k!==null) alert('That doesn\'t look like an Anthropic key (should start with sk-ant-). Try again.');
+  return '';
+}
+async function callAnthropicDirect(body){
+  const key=getStoredKey();
+  if(!key) return null;
+  return await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true',
+    },
+    body:JSON.stringify(body),
+  });
+}
+
 // Unified AI call — supports Claude, OpenAI, and xAI streaming formats
 async function callAI(sys, user, onChunk, brainKey){
   const brain = BRAINS[brainKey] || BRAINS.claude;
@@ -880,10 +907,22 @@ async function callAI(sys, user, onChunk, brainKey){
       body:JSON.stringify(body),
     });
   }
-  // If Claude itself returned an HTML error page, the backend is offline — show a clean BYOK prompt
+  // If Claude proxy itself returned an HTML error page, the backend is offline.
+  // Try BYOK direct-to-Anthropic as a last resort. Prompt for key if not stored.
   const finalCt=r.headers.get('content-type')||'';
   if((!r.ok || finalCt.includes('text/html')) && currentEndpoint==='/api/claude'){
-    throw new Error('AI backend is temporarily offline. Quick fix: click ⚙️ Settings (top right) → paste your Anthropic API key for instant unlimited access. Get a free key at console.anthropic.com.');
+    body.model=BRAINS.claude.model;
+    let direct=await callAnthropicDirect(body);
+    if(!direct || !direct.ok){
+      const key=await promptForKey();
+      if(!key) throw new Error('AI backend is offline and no API key provided. Try again later or get a free key at console.anthropic.com to unlock unlimited access right now.');
+      direct=await callAnthropicDirect(body);
+      if(!direct || !direct.ok){
+        clearStoredKey();
+        throw new Error('That key didn\'t work. Double-check it on console.anthropic.com and try again.');
+      }
+    }
+    r=direct;
   }
   if(!r.ok){
     const txt=await r.text().catch(()=>'');
