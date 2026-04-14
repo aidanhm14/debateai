@@ -1806,6 +1806,182 @@ ${isFirst ? `VOCABULARY & TONE:
 }
 
 /* ═══════════════════════════════════════════════════
+   SHARE CARD — confidence delta as a 1200×630 PNG
+   ───────────────────────────────────────────────────
+   Renders a Twitter/OG-sized canvas with the Before/After/Market
+   numbers and the motion. Returns a Blob for download or share.
+   The viral loop hinges on this: every debate becomes a tiny ad.
+   ═══════════════════════════════════════════════════ */
+
+function generateConfidenceShareCard({ motion, prior, posterior, market, source }) {
+  const W = 1200, H = 630;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Background: dark gradient
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#0b0f17');
+  bg.addColorStop(1, '#1a0a0f');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle red glow top-right
+  const glow = ctx.createRadialGradient(W - 100, 60, 0, W - 100, 60, 500);
+  glow.addColorStop(0, 'rgba(239,68,68,0.18)');
+  glow.addColorStop(1, 'rgba(239,68,68,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Brand strip
+  ctx.fillStyle = '#ef4444';
+  ctx.font = '700 28px -apple-system, "SF Pro Display", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText("Devil's", 60, 80);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(' Advocate.', 60 + ctx.measureText("Devil's").width, 80);
+
+  // "I argued the other side" tag
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '600 14px system-ui';
+  ctx.fillText('I ARGUED THE OTHER SIDE — HERE\'S WHAT IT DID TO MY PRIOR', 60, 108);
+
+  // Motion (wraps to ~2 lines)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 38px -apple-system, "SF Pro Display", system-ui, sans-serif';
+  const motionText = (motion || '(custom debate)').trim();
+  wrapText(ctx, motionText, 60, 170, W - 120, 48, 2);
+
+  // Three columns: Before / After / Market
+  const colY = 320;
+  const colH = 200;
+  const colW = (W - 120 - 40) / 3;
+  const cols = [
+    { label: 'BEFORE', value: prior + '%', accent: 'rgba(255,255,255,0.7)', bgFill: 'rgba(255,255,255,0.04)' },
+    { label: 'AFTER',  value: posterior + '%', accent: '#ef4444',           bgFill: 'rgba(239,68,68,0.12)' },
+    { label: 'MARKET', value: market + '%', accent: 'rgba(255,255,255,0.7)', bgFill: 'rgba(255,255,255,0.04)' },
+  ];
+  cols.forEach((c, i) => {
+    const x = 60 + i * (colW + 20);
+    // card bg
+    roundRect(ctx, x, colY, colW, colH, 16);
+    ctx.fillStyle = c.bgFill;
+    ctx.fill();
+    ctx.strokeStyle = i === 1 ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // label
+    ctx.fillStyle = c.accent;
+    ctx.font = '700 16px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(c.label, x + colW / 2, colY + 44);
+    // value
+    ctx.fillStyle = i === 1 ? '#ffffff' : 'rgba(255,255,255,0.85)';
+    ctx.font = '900 78px -apple-system, "SF Pro Display", system-ui, sans-serif';
+    ctx.fillText(c.value, x + colW / 2, colY + 138);
+  });
+
+  // Delta line (centered below cards)
+  const delta = posterior - prior;
+  let deltaText;
+  if (Math.abs(delta) < 5) deltaText = 'I barely moved. Strong calibration — or strong stubbornness.';
+  else if (delta > 0) deltaText = 'I moved ' + Math.abs(delta) + ' points UP after arguing the other side.';
+  else deltaText = 'I moved ' + Math.abs(delta) + ' points DOWN after arguing the other side.';
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = '600 22px system-ui';
+  ctx.fillText(deltaText, W / 2, 575);
+
+  // URL
+  ctx.fillStyle = '#ef4444';
+  ctx.font = '700 16px system-ui';
+  ctx.textAlign = 'right';
+  ctx.fillText('debateos1.netlify.app/debate-ai', W - 60, 80);
+  // Source tag
+  if (source) {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '600 13px system-ui';
+    ctx.fillText('via ' + source.toUpperCase(), W - 60, 108);
+  }
+
+  return new Promise(resolve => canvas.toBlob(b => resolve({ blob: b, dataUrl: canvas.toDataURL('image/png') }), 'image/png'));
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+  const words = text.split(' ');
+  let line = '';
+  let lines = 0;
+  for (let i = 0; i < words.length; i++) {
+    const test = line + words[i] + ' ';
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line.trim(), x, y);
+      line = words[i] + ' ';
+      y += lineHeight;
+      lines++;
+      if (lines >= maxLines - 1) {
+        // Last allowed line — fit remainder with ellipsis if too long
+        let rest = words.slice(i).join(' ');
+        while (ctx.measureText(rest + '…').width > maxWidth && rest.length > 0) {
+          rest = rest.slice(0, -1);
+        }
+        ctx.fillText(rest + (rest.length < words.slice(i).join(' ').length ? '…' : ''), x, y);
+        return;
+      }
+    } else {
+      line = test;
+    }
+  }
+  ctx.fillText(line.trim(), x, y);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+async function downloadConfidenceCard(args) {
+  const { blob } = await generateConfidenceShareCard(args);
+  if (!blob) return;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'devils-advocate-confidence.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function shareConfidenceCard(args) {
+  const { blob } = await generateConfidenceShareCard(args);
+  if (!blob) return downloadConfidenceCard(args);
+  // Web Share API (mobile) — supports image attachment
+  if (navigator.canShare && navigator.canShare({ files: [new File([blob], 'card.png', { type: 'image/png' })] })) {
+    try {
+      await navigator.share({
+        files: [new File([blob], 'devils-advocate.png', { type: 'image/png' })],
+        text: 'I argued the other side and my prior moved ' + Math.abs(args.posterior - args.prior) + ' points. ' + 'debateos1.netlify.app/debate-ai',
+      });
+      return;
+    } catch (e) { /* user canceled or failed — fall through */ }
+  }
+  // Desktop: download + open Twitter compose
+  await downloadConfidenceCard(args);
+  const tweetText = encodeURIComponent(
+    'I argued the other side on "' + (args.motion || 'a prediction market').slice(0, 80) +
+    '" and my prior moved ' + Math.abs(args.posterior - args.prior) + ' points.\n\n' +
+    'Try it: debateos1.netlify.app/debate-ai'
+  );
+  window.open('https://twitter.com/intent/tweet?text=' + tweetText, '_blank', 'noopener');
+}
+
+/* ═══════════════════════════════════════════════════
    APP
    ═══════════════════════════════════════════════════ */
 
@@ -3172,6 +3348,21 @@ Keep it punchy — they have limited prep time. No markdown headers. Use • for
                       const v=sl?parseInt(sl.value,10):priorPct;
                       setPosteriorPct(v);
                       try{if(window.gtag)gtag('event','confidence_delta',{prior:priorPct,posterior:v,market:marketPct,delta:v-priorPct})}catch(e){}
+                      // Persist to localStorage so /me can render the user's debate history.
+                      // Survives reloads, no auth required, capped at 50 entries.
+                      try {
+                        const KEY = 'da-debates-v1';
+                        const log = JSON.parse(localStorage.getItem(KEY) || '[]');
+                        log.unshift({
+                          motion: (motion || '').slice(0, 200),
+                          prior: priorPct,
+                          posterior: v,
+                          market: marketPct,
+                          source: marketSource,
+                          ts: Date.now(),
+                        });
+                        localStorage.setItem(KEY, JSON.stringify(log.slice(0, 50)));
+                      } catch(e) {}
                     }
                   },'Lock in answer →'),
                   el('script',{dangerouslySetInnerHTML:{__html:"(function(){var s=document.getElementById('posterior-slider');var n=document.getElementById('posterior-num');if(s&&n)s.addEventListener('input',function(){n.textContent=s.value+'%'});})();"}})
@@ -3203,6 +3394,23 @@ Keep it punchy — they have limited prep time. No markdown headers. Use • for
                     'You\'re now ',
                     el('strong',{style:{color:'#fff'}},Math.abs(posteriorPct-marketPct)+' points'),
                     ' '+(posteriorPct>marketPct?'above':'below')+' the market.'
+                  ),
+                  // Share card buttons — viral loop. Every debate becomes a tiny ad.
+                  el('div',{style:{marginTop:18,display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
+                    el('button',{
+                      style:{padding:'10px 18px',borderRadius:10,border:'none',background:'#ef4444',color:'#fff',fontWeight:700,fontSize:'.85rem',cursor:'pointer',letterSpacing:'.02em'},
+                      onClick:()=>{
+                        try{if(window.gtag)gtag('event','share_card_click',{action:'share',prior:priorPct,posterior:posteriorPct,market:marketPct})}catch(e){}
+                        shareConfidenceCard({motion,prior:priorPct,posterior:posteriorPct,market:marketPct,source:marketSource});
+                      }
+                    },'Share this delta'),
+                    el('button',{
+                      style:{padding:'10px 18px',borderRadius:10,border:'1px solid rgba(255,255,255,.2)',background:'transparent',color:'rgba(255,255,255,.85)',fontWeight:600,fontSize:'.85rem',cursor:'pointer'},
+                      onClick:()=>{
+                        try{if(window.gtag)gtag('event','share_card_click',{action:'download',prior:priorPct,posterior:posteriorPct,market:marketPct})}catch(e){}
+                        downloadConfidenceCard({motion,prior:priorPct,posterior:posteriorPct,market:marketPct,source:marketSource});
+                      }
+                    },'Download PNG')
                   )
                 )
           ),

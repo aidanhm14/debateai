@@ -1311,10 +1311,23 @@ try{
     });
   }
 
-  // ── Fetch both sources in parallel ───────
+  // ── Fetch both sources in parallel, with 4s timeout ───────
+  // If Gamma/Manifold are slow or 502'ing, we don't want the page to hang
+  // showing "Loading…" forever. 4s is generous enough for healthy APIs and
+  // short enough that users see a graceful empty state if things are broken.
+  function fetchWithTimeout(url, ms){
+    return new Promise(function(resolve){
+      var done=false;
+      var t=setTimeout(function(){if(!done){done=true;resolve(null)}},ms);
+      fetch(url,{headers:{accept:'application/json'}}).then(function(r){
+        if(done)return;done=true;clearTimeout(t);
+        resolve(r.ok?r.json():null);
+      }).catch(function(){if(done)return;done=true;clearTimeout(t);resolve(null)});
+    });
+  }
   function fetchAll(){
-    var p1=fetch('/api/polymarket',{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
-    var p2=fetch('/api/manifold',{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
+    var p1=fetchWithTimeout('/api/polymarket',4000).catch(function(){return null});
+    var p2=fetchWithTimeout('/api/manifold',4000).catch(function(){return null});
     Promise.all([p1,p2]).then(function(res){
       var pm=(res[0]&&res[0].markets)||[];
       var mf=(res[1]&&res[1].markets)||[];
@@ -1324,7 +1337,19 @@ try{
       if(mf.length)data.manifold=mf;
       data.polymarket.forEach(function(m){m.source='polymarket'});
       data.manifold.forEach(function(m){m.source='manifold'});
-      if(!data.polymarket.length&&!data.manifold.length){sec.style.display='none';return}
+      if(!data.polymarket.length&&!data.manifold.length){
+        // Both APIs failed AND no cache — show a friendly empty state
+        // instead of hiding the whole section (which makes the page look
+        // broken and kills the prediction-markets pitch above the fold).
+        sec.style.display='';
+        var grid=sec.querySelector('.markets-grid');
+        if(grid){
+          grid.innerHTML='<div style="grid-column:1/-1;padding:48px 24px;text-align:center;color:#94a3b8;background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.1);border-radius:12px"><div style="font-size:32px;margin-bottom:8px">🌬️</div><div style="font-weight:600;color:#e8eef7;margin-bottom:4px">The markets are catching their breath.</div><div style="font-size:13px">Polymarket and Manifold both timed out. We\'ll try again on next visit.</div><button id="markets-retry" style="margin-top:14px;padding:8px 16px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-weight:600;cursor:pointer;font-size:12px">Retry now</button></div>';
+          var rb=document.getElementById('markets-retry');
+          if(rb)rb.addEventListener('click',function(){grid.innerHTML='<div style="grid-column:1/-1;padding:48px;text-align:center;color:#94a3b8">Loading…</div>';fetchAll();});
+        }
+        return;
+      }
       sec.style.display='';
       lastFetchedAt=Date.now();
       saveCache();
