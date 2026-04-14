@@ -845,6 +845,37 @@ const TRAIT_PRESETS = {
   philosopher:{ label:'Philosopher', strengths:['philosophy','framework'], weaknesses:['abstract','noExamples'] },
 };
 
+// 3-judge panel — simulated deliberation after the round.
+// Each judge has a distinct APDA-style paradigm. They argue, cross-apply,
+// and reach a 3-0 or 2-1 vote. Real panels do this; students never get to
+// hear it. This is the feature that lets them hear it.
+const PANEL_JUDGES = {
+  maya: {
+    name: 'Maya',
+    role: 'Tab/Flow Judge',
+    color: '#60a5fa',
+    initial: 'M',
+    paradigm: 'Tab/flow judge. Evaluates strictly on the flow — what was said, what was dropped, what was extended, what was cross-applied. Believes judge intervention is the original sin. Quotes specific arguments by name. Penalizes dropped arguments ruthlessly and rewards clean extensions. Speaker points reward technical precision. Paradigm quote: "I weigh the round on the flow. If you didn\'t say it, it didn\'t happen."',
+    voice: 'Precise, measured, slightly tired circuit-vet energy. Uses "on the flow" constantly. Says things like "extended through," "dropped the link," "clean extension," "that\'s a turn."',
+  },
+  marcus: {
+    name: 'Marcus',
+    role: 'Comm Judge',
+    color: '#f59e0b',
+    initial: 'R',
+    paradigm: 'Comm/lay-leaning judge. Values persuasion, rhetorical skill, credibility, clarity. Skeptical of "debate jargon." Votes for whoever sounded more convincing in plain English. Rewards speakers with strong delivery and common-sense framing. Will call out debaters who hide behind technical language. Paradigm quote: "I vote for whoever I\'d trust to make this argument to a room full of non-debaters."',
+    voice: 'Warm but no-nonsense. Cites specific moments from the round. Says things like "when they said X, that landed," "I wasn\'t sold on the delivery there," "that argument needed a story," "I didn\'t buy it."',
+  },
+  chen: {
+    name: 'Dr. Chen',
+    role: 'Philosophy Judge',
+    color: '#a855f7',
+    initial: 'C',
+    paradigm: 'Framework-first judge. Cares about the normative lens — whose framework more coherently captures the impacts in this round. Does rigorous impact calculus (magnitude × probability × timeframe × reversibility). Often reframes the debate through a lens neither team explicitly adopted. Paradigm quote: "Before I know who won, I need to know what we\'re evaluating and why."',
+    voice: 'Reflective, analytical, slightly academic. Uses philosophical terms appropriately. Says things like "the deeper question is," "let\'s steel-man that," "the normative warrant here," "on a consequentialist reading," "but the framework layer..."',
+  },
+};
+
 // BYOK helpers — direct Anthropic calls when the proxy is down
 function getStoredKey(){ try{return localStorage.getItem('debateos-anthropic-key')||''}catch{return ''} }
 function setStoredKey(k){ try{localStorage.setItem('debateos-anthropic-key',k)}catch{} }
@@ -2221,6 +2252,106 @@ function App(){
 
   // Judge feedback — structured ballot
   const[ballot,setBallot]=useState(null); // parsed structured ballot
+  const[panelText,setPanelText]=useState(''); // streaming 3-judge deliberation
+  const[panelResult,setPanelResult]=useState(null); // parsed vote tally
+  const[panelLoading,setPanelLoading]=useState(false);
+
+  // Parse [Judge]: turn format into array of {judge, text} for bubble rendering
+  const parsePanelTurns=(raw)=>{
+    const beforeVote = raw.split(/\[VOTE\]/i)[0] || raw;
+    const lines = beforeVote.split(/\n(?=\[(?:Maya|Marcus|Dr\.? Chen|Chen)\]:)/i);
+    return lines.map(block=>{
+      const m = block.match(/^\[(Maya|Marcus|Dr\.? Chen|Chen)\]:\s*([\s\S]*)/i);
+      if(!m) return null;
+      const nameRaw = m[1].toLowerCase();
+      const key = nameRaw.includes('maya') ? 'maya' : nameRaw.includes('marcus') ? 'marcus' : 'chen';
+      return { judge: key, text: m[2].trim() };
+    }).filter(Boolean);
+  };
+
+  // Parse the [VOTE]...[/VOTE] block at end of deliberation
+  const parsePanelVote=(raw)=>{
+    const m = raw.match(/\[VOTE\]([\s\S]*?)\[\/VOTE\]/i) || raw.match(/\[VOTE\]([\s\S]*)$/i);
+    if(!m) return null;
+    const block = m[1];
+    const pick = (re)=> (block.match(re)||[])[1];
+    const mayaVote = (pick(/Maya:\s*(user|ai)/i)||'').toLowerCase();
+    const marcusVote = (pick(/Marcus:\s*(user|ai)/i)||'').toLowerCase();
+    const chenVote = (pick(/(?:Dr\.?\s*)?Chen:\s*(user|ai)/i)||'').toLowerCase();
+    const winner = (pick(/Winner:\s*(user|ai)/i)||'').toLowerCase();
+    const spUser = parseFloat(pick(/user\s*=\s*([\d.]+)/i)||'0');
+    const spAi = parseFloat(pick(/ai\s*=\s*([\d.]+)/i)||'0');
+    const practice = (pick(/Practice this:\s*([^\n]+)/i)||'').trim();
+    const votes = [mayaVote, marcusVote, chenVote].filter(v=>v==='user'||v==='ai');
+    const tally = votes.filter(v=>v==='user').length + '-' + votes.filter(v=>v==='ai').length;
+    return { maya: mayaVote, marcus: marcusVote, chen: chenVote, winner, tally, speakerPoints: { user: spUser, ai: spAi }, practice };
+  };
+
+  const genPanelFeedback=async(allLog)=>{
+    setPanelLoading(true);
+    setPanelText('');
+    setPanelResult(null);
+    const tx=allLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
+    const sys=`You are simulating a 3-judge panel deliberating after a ${fmt.name} debate round.
+
+MOTION: "${motion}"
+USER DEBATED: ${fmt.sideLabels[side]||side}
+OPPONENT: AI
+
+THE THREE JUDGES (each must sound distinct):
+1. Maya — ${PANEL_JUDGES.maya.paradigm}
+   VOICE: ${PANEL_JUDGES.maya.voice}
+2. Marcus — ${PANEL_JUDGES.marcus.paradigm}
+   VOICE: ${PANEL_JUDGES.marcus.voice}
+3. Dr. Chen — ${PANEL_JUDGES.chen.paradigm}
+   VOICE: ${PANEL_JUDGES.chen.voice}
+
+${DEBATE_VOICE_GUIDELINES}
+
+Generate a realistic back-and-forth deliberation where these three judges talk through the round. They should:
+- Disagree openly based on their paradigms — DO NOT default to consensus
+- Reference SPECIFIC arguments from the transcript by name, with direct short quotes where possible
+- Push back on each other ("Maya, I hear you, but..." / "Chen, that's generous to them...")
+- Do genuine critical thinking — ONE judge should shift their initial lean based on something another judge says
+- Cross-apply each other's readings ("Marcus, that's exactly why Maya's drop matters")
+- Weigh impacts against each other explicitly
+- Reach a final vote. Could be 3-0 or 2-1 either direction. If the round was close, make it 2-1. If one side dominated, 3-0.
+
+CRITICAL FORMAT — each turn starts on its own line with the judge's name in brackets, like:
+[Maya]: ...
+[Marcus]: ...
+[Dr. Chen]: ...
+
+10-16 total turns. Each turn is 2-5 sentences, conversational, not a monologue. They interrupt, question, and push back.
+
+After the deliberation, output this EXACT block verbatim:
+
+[VOTE]
+Maya: user
+Marcus: ai
+Dr. Chen: user
+Winner: user
+Speaker points: user=28.5, ai=28.0
+Practice this: <one specific actionable drill for the user to work on>
+[/VOTE]
+
+(Replace the user/ai votes and numbers with your actual decisions. Keep the exact labels.)
+
+Be BRUTAL but fair. If the user debated poorly, say so specifically and still find something real to credit. If they debated well, acknowledge it while finding real room for growth. NEVER reference things that didn't happen in the transcript.`;
+    try{
+      let raw='';
+      await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>{
+        raw=chunk;
+        setPanelText(chunk);
+      },brain);
+      const parsed=parsePanelVote(raw);
+      if(parsed) setPanelResult(parsed);
+    }catch(e){
+      setPanelText('Could not generate panel deliberation: '+e.message);
+    }
+    setPanelLoading(false);
+  };
+
   const genFeedback=async(allLog)=>{
     setFbLoading(true);setBallot(null);
     const tx=allLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
@@ -2359,7 +2490,7 @@ Return ONLY valid JSON, no markdown.`;
   };
 
   // Reset
-  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false)})};
+  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null)})};
 
   /* ─── RENDER ─────────────────────── */
 
@@ -3020,6 +3151,76 @@ Keep it punchy — they have limited prep time. No markdown headers. Use • for
         !b&&feedback&&el('div',null,
           el('div',{className:'fb-card'},el('div',{className:'feedback-text'},feedback)),
           el('button',{className:'cta-ghost',style:{marginTop:12,display:'block',margin:'12px auto'},onClick:()=>genFeedback(log)},'🔄 Retry Judge Feedback'),
+        ),
+
+        // ── 3-Judge Panel Deliberation ──────────────────────────────
+        el('div',{style:{marginTop:32,padding:'24px 20px 20px',background:'linear-gradient(180deg,rgba(168,85,247,.04),rgba(96,165,250,.04))',border:'1px solid rgba(168,85,247,.15)',borderRadius:18}},
+          el('div',{style:{textAlign:'center',marginBottom:16}},
+            el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.12em',color:'#a855f7',marginBottom:6}},'🎭 Judge Panel Deliberation'),
+            el('div',{style:{fontSize:'.85rem',color:'var(--c-text3)',maxWidth:480,margin:'0 auto',lineHeight:1.5}},'Hear three judges with different paradigms argue through your round — just like a real APDA panel.'),
+          ),
+          // Judge portraits
+          el('div',{style:{display:'flex',justifyContent:'center',gap:14,marginBottom:16,flexWrap:'wrap'}},
+            Object.entries(PANEL_JUDGES).map(([k,j])=>
+              el('div',{key:k,style:{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',background:j.color+'12',border:'1px solid '+j.color+'30',borderRadius:999}},
+                el('div',{style:{width:26,height:26,borderRadius:'50%',background:j.color,color:'#0a0a0a',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:'.78rem'}},j.initial),
+                el('div',{style:{textAlign:'left'}},
+                  el('div',{style:{fontSize:'.75rem',fontWeight:700,color:j.color,lineHeight:1.1}},j.name),
+                  el('div',{style:{fontSize:'.6rem',color:'var(--c-muted)',lineHeight:1.1}},j.role),
+                ),
+              )
+            ),
+          ),
+          // Trigger button (only when no deliberation yet)
+          !panelText&&!panelLoading&&el('div',{style:{textAlign:'center'}},
+            el('button',{className:'cta',style:{marginTop:0,background:'linear-gradient(135deg,#a855f7,#60a5fa)'},onClick:()=>genPanelFeedback(log)},'🎭 Hear the judges deliberate'),
+          ),
+          panelLoading&&!panelText&&el('div',{style:{textAlign:'center',padding:'16px 0',fontSize:'.82rem',color:'var(--c-muted)'}},'Judges huddling...'),
+          // Streaming deliberation — render as chat bubbles
+          (panelText||panelLoading)&&el('div',{style:{marginTop:16,display:'flex',flexDirection:'column',gap:12,maxHeight:480,overflowY:'auto',padding:'8px 4px'}},
+            parsePanelTurns(panelText).map((turn,i)=>{
+              const j = PANEL_JUDGES[turn.judge];
+              if(!j) return null;
+              return el('div',{key:i,style:{display:'flex',gap:10,alignItems:'flex-start'}},
+                el('div',{style:{width:32,height:32,borderRadius:'50%',background:j.color,color:'#0a0a0a',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:'.82rem',flexShrink:0}},j.initial),
+                el('div',{style:{flex:1,padding:'10px 14px',background:j.color+'0c',border:'1px solid '+j.color+'22',borderRadius:14}},
+                  el('div',{style:{fontSize:'.68rem',fontWeight:700,color:j.color,marginBottom:4,letterSpacing:'.04em'}},j.name.toUpperCase()+' · '+j.role.toUpperCase()),
+                  el('div',{style:{fontSize:'.86rem',color:'var(--c-text4)',lineHeight:1.55,whiteSpace:'pre-wrap'}},turn.text),
+                ),
+              );
+            }),
+          ),
+          // Vote tally
+          panelResult&&el('div',{style:{marginTop:20,padding:'18px 20px',background:panelResult.winner==='user'?'rgba(34,197,94,.06)':'rgba(239,68,68,.06)',border:'1px solid '+(panelResult.winner==='user'?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'),borderRadius:14}},
+            el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:10}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.12em',color:'var(--c-muted)'}},'Panel Decision'),
+              el('div',{style:{fontSize:'1.15rem',fontWeight:900,color:panelResult.winner==='user'?'#22c55e':'#ef4444'}},
+                panelResult.winner==='user'?'You win '+panelResult.tally:'AI wins '+panelResult.tally,
+              ),
+            ),
+            el('div',{style:{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}},
+              ['maya','marcus','chen'].map(k=>{
+                const j = PANEL_JUDGES[k];
+                const vote = panelResult[k];
+                const userVoted = vote==='user';
+                return el('div',{key:k,style:{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',background:j.color+'10',border:'1px solid '+j.color+'28',borderRadius:999,fontSize:'.72rem'}},
+                  el('div',{style:{width:18,height:18,borderRadius:'50%',background:j.color,color:'#0a0a0a',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:'.62rem'}},j.initial),
+                  el('span',{style:{color:j.color,fontWeight:700}},j.name),
+                  el('span',{style:{color:'var(--c-muted)'}},'→'),
+                  el('span',{style:{color:userVoted?'#22c55e':'#ef4444',fontWeight:700}},userVoted?'You':'AI'),
+                );
+              }),
+            ),
+            panelResult.speakerPoints&&(panelResult.speakerPoints.user||panelResult.speakerPoints.ai)&&el('div',{style:{fontSize:'.76rem',color:'var(--c-text3)',marginBottom:8}},'Speaker points — You: ',el('strong',null,panelResult.speakerPoints.user.toFixed(1)),' · AI: ',el('strong',null,panelResult.speakerPoints.ai.toFixed(1))),
+            panelResult.practice&&el('div',{style:{marginTop:8,padding:'10px 14px',background:'rgba(59,130,246,.08)',border:'1px solid rgba(59,130,246,.18)',borderRadius:10,fontSize:'.82rem',color:'var(--c-text4)'}},
+              el('span',{style:{fontWeight:700,color:'#3b82f6'}},'Practice this next: '),
+              panelResult.practice,
+            ),
+          ),
+          // Replay button
+          panelText&&!panelLoading&&el('div',{style:{textAlign:'center',marginTop:14}},
+            el('button',{className:'cta-ghost',style:{fontSize:'.76rem'},onClick:()=>genPanelFeedback(log)},'🔄 New deliberation'),
+          ),
         ),
 
         el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
