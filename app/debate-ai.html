@@ -1826,16 +1826,28 @@ function App(){
 
   const[phase,setPhase]=useState('setup');   // setup|prep|speech|feedback
   const[vis,setVis]=useState(true);          // fade transition
-  // Motion can be deep-linked via ?motion=... (e.g. from the landing-page
-  // Polymarket cards). Read it once on mount so users land already loaded.
-  const[motion,setMotion]=useState(()=>{
-    try{
-      var u=new URL(window.location.href);
-      var m=u.searchParams.get('motion');
-      if(m&&m.length>2&&m.length<400)return m;
-    }catch(e){}
-    return '';
-  });
+  // Deep-link state from landing-page market cards:
+  //   ?motion=<question>&marketPct=<0-100>&source=<polymarket|manifold>
+  // motionPrefill becomes the initial motion. marketPct + source power the
+  // confidence-delta widget that asks the user their prior, shows them
+  // the market price, and after the round asks how much they actually moved.
+  const _deepLink = (() => {
+    try {
+      const u = new URL(window.location.href);
+      const m = u.searchParams.get('motion');
+      const mp = parseInt(u.searchParams.get('marketPct') || '', 10);
+      return {
+        motion: (m && m.length > 2 && m.length < 400) ? m : '',
+        marketPct: (isFinite(mp) && mp >= 0 && mp <= 100) ? mp : null,
+        source: u.searchParams.get('source') || null,
+      };
+    } catch { return { motion:'', marketPct:null, source:null }; }
+  })();
+  const[motion,setMotion]=useState(_deepLink.motion);
+  const[marketPct]=useState(_deepLink.marketPct);
+  const[marketSource]=useState(_deepLink.source);
+  const[priorPct,setPriorPct]=useState(50);    // user's confidence BEFORE the round
+  const[posteriorPct,setPosteriorPct]=useState(null); // confidence AFTER
   const[background,setBackground]=useState('');  // optional context for the motion
   const[format,setFormat]=useState('apda');
   const[oppStrengths,setOppStrengths]=useState([]);
@@ -2587,6 +2599,35 @@ Return ONLY valid JSON, no markdown.`;
       el('textarea',{className:'float-input',rows:2,placeholder:'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
       el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
 
+      // Confidence-delta widget (only shows when deep-linked from a market card)
+      marketPct!=null && el('div',{
+        style:{marginTop:18,padding:'16px 18px',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.25)',borderRadius:14}
+      },
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
+          el('div',{style:{fontSize:'.66rem',fontWeight:800,color:'#ef4444',letterSpacing:'.12em',textTransform:'uppercase'}},'Calibration check'),
+          el('div',{style:{fontSize:'.7rem',color:'rgba(255,255,255,.55)'}},(marketSource==='manifold'?'Manifold':'Polymarket')+' market: ',el('strong',{style:{color:'#fff',marginLeft:4}},marketPct+'% Yes'))
+        ),
+        el('div',{style:{fontSize:'.78rem',color:'rgba(255,255,255,.75)',marginBottom:10,lineHeight:1.5}},
+          'Before you argue: ',el('strong',{style:{color:'#fff'}},'how confident are you that this resolves YES?')
+        ),
+        el('div',{style:{display:'flex',alignItems:'center',gap:14}},
+          el('input',{
+            type:'range',min:0,max:100,value:priorPct,
+            onChange:e=>setPriorPct(parseInt(e.target.value,10)),
+            style:{flex:1,accentColor:'#ef4444'}
+          }),
+          el('div',{style:{minWidth:54,textAlign:'right',fontSize:'1.1rem',fontWeight:800,color:'#fff',fontVariantNumeric:'tabular-nums'}},priorPct+'%')
+        ),
+        // Delta vs market — instant feedback
+        el('div',{style:{marginTop:8,fontSize:'.7rem',color:'rgba(255,255,255,.5)'}},
+          (priorPct===marketPct
+            ? 'You agree with the market.'
+            : (priorPct>marketPct
+              ? 'You\'re '+(priorPct-marketPct)+' points more confident than the market.'
+              : 'You\'re '+(marketPct-priorPct)+' points less confident than the market.'))
+        )
+      ),
+
       // Side
       el('div',{className:'t-label',style:{marginTop:24}},'Your Side'),
       el('div',{className:'pills'},
@@ -3100,6 +3141,70 @@ Keep it punchy — they have limited prep time. No markdown headers. Use • for
               b.winner==='user'?'🏆 You Win':'Opponent Wins'
             ),
             el('p',{style:{fontSize:'.88rem',color:'var(--c-text4)',lineHeight:1.5}},b.decision),
+          ),
+
+          // ── Calibration / Confidence-delta panel ──────────────────
+          // Only shows when the user came from a market card and stated a prior.
+          // Asks for posterior, then displays the swing alongside the market price.
+          marketPct!=null && el('div',{style:{padding:'20px 22px',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.25)',borderRadius:16,marginBottom:20}},
+            el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}},
+              el('div',{style:{fontSize:'.66rem',fontWeight:800,color:'#ef4444',letterSpacing:'.12em',textTransform:'uppercase'}},'Calibration check'),
+              el('div',{style:{fontSize:'.7rem',color:'rgba(255,255,255,.55)'}},(marketSource==='manifold'?'Manifold':'Polymarket')+': ',el('strong',{style:{color:'#fff',marginLeft:4}},marketPct+'%'))
+            ),
+            posteriorPct==null
+              ? el('div',null,
+                  el('div',{style:{fontSize:'.85rem',color:'rgba(255,255,255,.85)',marginBottom:12,lineHeight:1.5}},
+                    'You started at ',el('strong',{style:{color:'#fff'}},priorPct+'%'),'. After arguing both sides — ',el('strong',{style:{color:'#fff'}},'how confident are you NOW?')
+                  ),
+                  el('div',{style:{display:'flex',alignItems:'center',gap:14,marginBottom:10}},
+                    el('input',{
+                      type:'range',min:0,max:100,defaultValue:priorPct,
+                      id:'posterior-slider',
+                      style:{flex:1,accentColor:'#ef4444'}
+                    }),
+                    el('div',{style:{minWidth:54,textAlign:'right',fontSize:'1.15rem',fontWeight:800,color:'#fff',fontVariantNumeric:'tabular-nums'},id:'posterior-num'},priorPct+'%')
+                  ),
+                  el('button',{
+                    className:'cta-ghost',
+                    style:{marginTop:6,fontSize:'.78rem'},
+                    onClick:()=>{
+                      const sl=document.getElementById('posterior-slider');
+                      const v=sl?parseInt(sl.value,10):priorPct;
+                      setPosteriorPct(v);
+                      try{if(window.gtag)gtag('event','confidence_delta',{prior:priorPct,posterior:v,market:marketPct,delta:v-priorPct})}catch(e){}
+                    }
+                  },'Lock in answer →'),
+                  el('script',{dangerouslySetInnerHTML:{__html:"(function(){var s=document.getElementById('posterior-slider');var n=document.getElementById('posterior-num');if(s&&n)s.addEventListener('input',function(){n.textContent=s.value+'%'});})();"}})
+                )
+              : el('div',null,
+                  // Three-row delta display: prior → posterior → market
+                  el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}},
+                    el('div',{style:{padding:'14px 12px',background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,textAlign:'center'}},
+                      el('div',{style:{fontSize:'.6rem',color:'rgba(255,255,255,.5)',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:4}},'Before'),
+                      el('div',{style:{fontSize:'1.4rem',fontWeight:800,color:'rgba(255,255,255,.8)'}},priorPct+'%')
+                    ),
+                    el('div',{style:{padding:'14px 12px',background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:12,textAlign:'center'}},
+                      el('div',{style:{fontSize:'.6rem',color:'#ef4444',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:4}},'After'),
+                      el('div',{style:{fontSize:'1.4rem',fontWeight:800,color:'#fff'}},posteriorPct+'%')
+                    ),
+                    el('div',{style:{padding:'14px 12px',background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,textAlign:'center'}},
+                      el('div',{style:{fontSize:'.6rem',color:'rgba(255,255,255,.5)',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:4}},'Market'),
+                      el('div',{style:{fontSize:'1.4rem',fontWeight:800,color:'rgba(255,255,255,.8)'}},marketPct+'%')
+                    )
+                  ),
+                  el('div',{style:{fontSize:'.85rem',color:'rgba(255,255,255,.85)',lineHeight:1.5,textAlign:'center'}},
+                    Math.abs(posteriorPct-priorPct)<5
+                      ? 'You barely moved. The arguments didn\'t shake your prior — that\'s either strong calibration or strong stubbornness.'
+                      : (posteriorPct>priorPct
+                        ? 'You moved '+(posteriorPct-priorPct)+' points UP. Arguing the case made it more credible to you.'
+                        : 'You moved '+(priorPct-posteriorPct)+' points DOWN. Stress-testing your priors paid off.')
+                  ),
+                  el('div',{style:{marginTop:8,fontSize:'.72rem',color:'rgba(255,255,255,.5)',textAlign:'center'}},
+                    'You\'re now ',
+                    el('strong',{style:{color:'#fff'}},Math.abs(posteriorPct-marketPct)+' points'),
+                    ' '+(posteriorPct>marketPct?'above':'below')+' the market.'
+                  )
+                )
           ),
 
           // Speaker Points
