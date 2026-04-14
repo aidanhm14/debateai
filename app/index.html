@@ -1415,15 +1415,24 @@ function logBetaEvent(event, data) {
     if (log.length > 500) log.splice(0, log.length - 500);
     localStorage.setItem('debateos-beta-log', JSON.stringify(log));
   } catch(e) {}
-  // Server-side event tracking (fire-and-forget)
-  try {
-    const eventMap = { generate:'case_generated', tab:'page_view', battle:'battle_started', feedback:'feedback_requested', philosophy:'philosophy_explored', forum:'forum_post', motion:'motion_rolled', practice:'speech_practiced', map:'round_mapped' };
-    const mapped = eventMap[event] || 'page_view';
-    const token = typeof __getAuthToken === 'function' && __getAuthToken();
-    if (token) {
-      fetch('/api/log-event', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ event:mapped, metadata:data||{} }) }).catch(()=>{});
-    }
-  } catch(e) {}
+  // Server-side event tracking (fire-and-forget). Goes to /api/log-event,
+  // which writes to Firestore and powers the /admin dashboard.
+  // BUG FIX: __getAuthToken() returns a Promise — must await it, or we
+  // end up sending "Bearer [object Promise]" and the function 401s.
+  (async () => {
+    try {
+      const eventMap = { generate:'case_generated', tab:'page_view', battle:'battle_started', feedback:'feedback_requested', philosophy:'philosophy_explored', forum:'forum_post', motion:'motion_rolled', practice:'speech_practiced', map:'round_mapped' };
+      const mapped = eventMap[event] || 'page_view';
+      if (typeof __getAuthToken !== 'function') return;
+      const token = await __getAuthToken();
+      if (!token) return;
+      fetch('/api/log-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ event: mapped, metadata: data || {} }),
+      }).catch(() => {});
+    } catch(e) {}
+  })();
 }
 
 // ── Pro Feature System ──────────────────────────
@@ -9300,6 +9309,7 @@ Speech length: ${isRebuttal ? '400-600' : '700-1100'} words, matching a ${speech
 
   const generateRoundFeedback = async (allSpeeches) => {
     setFeedbackLoading(true);
+    logBetaEvent('feedback', { source: 'simulator', speeches: allSpeeches.length });
     const sysPrompt = `You are an expert APDA debate judge and coach. You just watched a full practice round. You have judged at Nationals, you have coached breaking teams, and you give feedback the way a real judge does: specific, honest, and grounded in what actually happened in the round.
 
 DECISION AND RFD (Reason for Decision):
@@ -9798,6 +9808,7 @@ NEVER use: "Furthermore," "Additionally," "It is important to note," "Moreover."
 
   const generateFeedback = async (allExchanges) => {
     setFeedbackLoading(true);
+    logBetaEvent('feedback', { source: 'battle', exchanges: allExchanges.length });
     const sysPrompt = `You are an expert APDA debate coach who has judged hundreds of competitive rounds. You are reviewing a practice debate between a human debater and an AI opponent called "The Machine." Give honest, specific feedback grounded in how real competitive debates are evaluated.
 
 APDA SPEAKER SCALE REFERENCE:
