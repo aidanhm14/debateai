@@ -164,10 +164,13 @@ export default async (request) => {
     try {
       const countersSnap = await db.collection('learning_counters').limit(100).get();
       const featureTotals = {};
+      // Skip metadata-ish numeric fields that aren't actual feature names.
+      // Without this filter the dashboard surfaces a literal "count: 5" row.
+      const SKIP_KEYS = new Set(['count','createdAt','updatedAt','uid','timestamp','lastUpdated','version','ts','id']);
       countersSnap.docs.forEach(doc => {
         const data = doc.data();
         for (const [key, val] of Object.entries(data)) {
-          if (typeof val === 'number' && key !== 'updatedAt') {
+          if (typeof val === 'number' && !SKIP_KEYS.has(key)) {
             featureTotals[key] = (featureTotals[key] || 0) + val;
           }
         }
@@ -180,25 +183,37 @@ export default async (request) => {
       console.warn('Could not aggregate learning_counters:', err.message);
     }
 
-    // Recent feedback (last 5 entries)
+    // Recent feedback (last 5 entries).
+    // Older feedback docs predate the createdAt field — orderBy silently
+    // drops them, so the dashboard showed FEEDBACK 7 but "No feedback yet."
+    // Strategy: try ordered query first, fall back to plain limit if empty.
     let recentFeedback = [];
+    const mapFb = d => {
+      const data = d.data();
+      return {
+        category: data.category,
+        description: (data.description || '').slice(0, 200),
+        currentTab: data.currentTab,
+        email: data.email,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+      };
+    };
     try {
       const fbSnap = await db.collection('feedback')
         .orderBy('createdAt', 'desc')
         .limit(5)
         .get();
-      recentFeedback = fbSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          category: data.category,
-          description: (data.description || '').slice(0, 200),
-          currentTab: data.currentTab,
-          email: data.email,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
-        };
-      });
+      recentFeedback = fbSnap.docs.map(mapFb);
     } catch (err) {
-      console.warn('Could not fetch recent feedback:', err.message);
+      console.warn('Could not fetch ordered feedback:', err.message);
+    }
+    if (recentFeedback.length === 0) {
+      try {
+        const fbSnap = await db.collection('feedback').limit(10).get();
+        recentFeedback = fbSnap.docs.map(mapFb);
+      } catch (err) {
+        console.warn('Could not fetch fallback feedback:', err.message);
+      }
     }
 
     return jsonResponse({
