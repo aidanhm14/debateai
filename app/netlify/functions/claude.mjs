@@ -42,10 +42,50 @@ function getCorsHeaders(request) {
   };
 }
 
-// Simple in-memory rate limiter (resets per function cold start)
-// TODO 2026-04-15: replace with Upstash KV for persistence across cold starts.
-// Until then: layered windows (minute/hour/day) so cold starts don't erase
-// longer-horizon protection at the same rate as short-horizon protection.
+// Rate limiter: prefers Upstash Redis (persistent across cold starts) with
+// in-memory fallback if Upstash env vars aren't set.
+//
+// Upstash setup:
+//   1. Create a Redis DB at https://console.upstash.com (free tier is plenty)
+//   2. Set these Netlify env vars from the REST API tab:
+//        UPSTASH_REDIS_REST_URL
+//        UPSTASH_REDIS_REST_TOKEN
+//   3. Redeploy — the function picks them up automatically.
+//
+// If env vars are absent, falls back to in-memory Maps (same behavior as
+// before; counters reset on cold start but layered limits still apply).
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const HAS_UPSTASH = !!(UPSTASH_URL && UPSTASH_TOKEN);
+
+async function upstashPipeline(commands) {
+  // Upstash REST pipeline: POST [[cmd, ...args], ...] → [{result}, ...]
+  const res = await fetch(`${UPSTASH_URL}/pipeline`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${UPSTASH_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(commands),
+  });
+  if (!res.ok) throw new Error(`Upstash HTTP ${res.status}`);
+  return res.json();
+}
+
+// Fixed-window counter in Upstash. Returns the post-increment count.
+async function upstashIncr(key, windowSeconds) {
+  try {
+    const results = await upstashPipeline([
+      ['INCR', key],
+      ['EXPIRE', key, windowSeconds, 'NX'], // set TTL only if key is new
+    ]);
+    return Number(results?.[0]?.result ?? 0);
+  } catch (err) {
+    console.warn('[rate-limit] Upstash error, falling back to in-memory:', err.message);
+    return null; // signal to fall back
+  }
+}
+
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 15; // authenticated users
@@ -61,7 +101,12 @@ const ANON_LAYERS = [
 ];
 const anonHistory = new Map(); // ip → array of request timestamps
 
-function checkRateLimit(userId, max = RATE_LIMIT_MAX) {
+async function checkRateLimit(userId, max = RATE_LIMIT_MAX) {
+  if (HAS_UPSTASH) {
+    const count = await upstashIncr(`rl:user:${userId || 'anon'}`, 60);
+    if (count !== null) return count <= max;
+    // fall through on Upstash error
+  }
   const now = Date.now();
   const key = userId || 'anon';
   const entry = rateLimitMap.get(key);
@@ -74,9 +119,35 @@ function checkRateLimit(userId, max = RATE_LIMIT_MAX) {
   return true;
 }
 
-// Layered check for anonymous IPs. Returns {ok, layer} — on failure, `layer`
-// names the window that was exceeded so we can tell the user what happened.
-function checkAnonLayers(ip) {
+// Layered check for anonymous IPs. Returns {ok, layer}. Uses Upstash if
+// configured (persistent across cold starts), falls back to in-memory.
+async function checkAnonLayers(ip) {
+  if (HAS_UPSTASH) {
+    // Try each layer's counter. Increment them all in one pipeline so a
+    // request that trips the minute cap still counts toward hour+day.
+    try {
+      const commands = [];
+      for (const layer of ANON_LAYERS) {
+        const key = `rl:anon:${layer.label}:${ip}`;
+        commands.push(['INCR', key]);
+        commands.push(['EXPIRE', key, Math.ceil(layer.window / 1000), 'NX']);
+      }
+      const results = await upstashPipeline(commands);
+      // results[0], [2], [4] are the INCR results for each layer
+      for (let i = 0; i < ANON_LAYERS.length; i++) {
+        const count = Number(results?.[i * 2]?.result ?? 0);
+        if (count > ANON_LAYERS[i].max) {
+          return { ok: false, layer: ANON_LAYERS[i].label };
+        }
+      }
+      return { ok: true };
+    } catch (err) {
+      console.warn('[rate-limit] Upstash pipeline failed, falling back:', err.message);
+      // fall through to in-memory
+    }
+  }
+
+  // In-memory fallback
   const now = Date.now();
   const maxWindow = Math.max(...ANON_LAYERS.map(l => l.window));
   const history = (anonHistory.get(ip) || []).filter(t => now - t < maxWindow);
@@ -86,7 +157,6 @@ function checkAnonLayers(ip) {
   }
   history.push(now);
   anonHistory.set(ip, history);
-  // Opportunistic cleanup: if the map has gotten huge, drop the oldest half.
   if (anonHistory.size > 5000) {
     const entries = Array.from(anonHistory.entries());
     anonHistory.clear();
@@ -129,7 +199,7 @@ export default async (request, context) => {
       userId = decoded.sub;
 
       // Rate limit per user
-      if (!checkRateLimit(userId)) {
+      if (!(await checkRateLimit(userId))) {
         return new Response(
           JSON.stringify({ error: 'Too many requests. Please wait a moment and try again.' }),
           { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
@@ -178,7 +248,7 @@ export default async (request, context) => {
     // Anonymous path — allow limited unauthenticated access for HS/debate-ai/learn pages.
     // Layered rate limits (minute/hour/day) per client IP.
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
-    const check = checkAnonLayers(ip);
+    const check = await checkAnonLayers(ip);
     if (!check.ok) {
       const msg = check.layer === 'minute'
         ? 'Too many requests — please wait a moment.'
