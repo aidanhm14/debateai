@@ -2966,6 +2966,28 @@ function buildStyleBlock() {
   return parts.length ? '\n\nUSER WRITING STYLE PROFILE:\n' + parts.join('\n') : '';
 }
 
+// Post-generation support nudge. Non-intrusive floating toast that appears
+// ~1/8 successful generations, catches users at the moment of value. Dismissed
+// or clicked = no more nudges for 24h. Clicking opens the donation page.
+function maybeShowSupportNudge() {
+  try {
+    const now = Date.now();
+    const snooze = parseInt(localStorage.getItem('debateos-support-snooze') || '0', 10);
+    if (snooze > now) return;
+    if (Math.random() > 0.125) return; // ~1 in 8 generations
+    if (document.getElementById('support-nudge')) return;
+    const n = document.createElement('div');
+    n.id = 'support-nudge';
+    n.style.cssText = 'position:fixed;bottom:24px;left:24px;z-index:9998;max-width:320px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;padding:14px 18px;border-radius:14px;box-shadow:0 14px 48px rgba(0,0,0,.45);font-family:Inter,system-ui,sans-serif;font-size:.82rem;line-height:1.45;display:flex;align-items:center;gap:12px;animation:slideUpFade .35s ease-out';
+    n.innerHTML = '<div style="flex:1"><div style="font-weight:800;margin-bottom:2px">Love the tool? ❤️</div><div style="opacity:.95">Support the beta — every dollar goes to API costs.</div></div><a href="https://buymeacoffee.com/8idanhm" target="_blank" rel="noopener" style="background:#fff;color:#ef4444;padding:7px 12px;border-radius:999px;font-weight:800;text-decoration:none;font-size:.75rem;white-space:nowrap">Support</a><button aria-label="Dismiss" style="background:none;border:none;color:#fff;cursor:pointer;font-size:1.1rem;padding:0 4px;opacity:.8">×</button>';
+    const [, , supportLink, dismissBtn] = n.querySelectorAll('a, button');
+    const close = () => { try { localStorage.setItem('debateos-support-snooze', String(now + 24*60*60*1000)); } catch(e){} n.remove(); };
+    n.querySelector('button').addEventListener('click', close);
+    n.querySelector('a').addEventListener('click', close);
+    document.body.appendChild(n);
+    setTimeout(() => { if (n.parentNode) n.remove(); }, 15000);
+  } catch(e) {}
+}
 const ANON_BASE_LIMIT = 5;
 const ANON_FEEDBACK_BONUS = 10; // giving feedback unlocks +10
 function hasGivenFeedback() { try { return localStorage.getItem('debateos-feedback-given') === '1'; } catch { return false; } }
@@ -3081,6 +3103,7 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   // Count usage
   if (_isAnon) { incAnonUsage(); }
   else if (__currentTeam) { __currentTeam.usageThisPeriod = (__currentTeam.usageThisPeriod || 0) + 1; if (__refreshTeam) setTimeout(() => __refreshTeam(), 2000); }
+  maybeShowSupportNudge();
   return fullText;
 }
 
@@ -3352,6 +3375,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   }
   // Refresh team usage data in background
   if (__refreshTeam) setTimeout(() => __refreshTeam(), 1000);
+  maybeShowSupportNudge();
   return fullText;
 }
 
@@ -12069,6 +12093,7 @@ const TABS_ROW2 = [
   {id:'newbies',label:'Guide',i18n:'nav.guide'},
   {id:'team',label:'Team',i18n:'nav.team'},
   {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
+  {id:'donate',label:'❤️ Support',i18n:'nav.donate',href:'https://buymeacoffee.com/8idanhm'},
 ];
 const TABS = [...TABS_ROW1, ...TABS_ROW2];
 
