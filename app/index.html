@@ -3167,7 +3167,9 @@ const ANON_BASE_LIMIT = 5;
 // Giving feedback unlocks UNLIMITED — matches the "unlock unlimited" copy in the beta strip
 function hasGivenFeedback() { try { return localStorage.getItem('debateos-feedback-given') === '1'; } catch { return false; } }
 function markFeedbackGiven() { try { localStorage.setItem('debateos-feedback-given', '1'); } catch {} }
-function getAnonLimit() { return hasGivenFeedback() ? Number.POSITIVE_INFINITY : ANON_BASE_LIMIT; }
+// FREE TRIAL: unlimited for everyone. We still track usage + feedback for
+// the funnel, but during growth we're not gating requests behind a cap.
+function getAnonLimit() { return Number.POSITIVE_INFINITY; }
 // Back-compat alias — existing code references ANON_LIMIT.
 // Must be `configurable: true` because Babel re-evaluates this script and
 // would otherwise throw "Cannot redefine property" on the second pass,
@@ -3180,9 +3182,9 @@ function getAnonUsage() { try { return parseInt(localStorage.getItem('debateos-a
 function incAnonUsage() { try { localStorage.setItem('debateos-anon-usage', String(getAnonUsage() + 1)); } catch {} }
 // Feedback gate: called before each anon request. Returns true if user should be blocked + shown feedback modal.
 function shouldGateForFeedback() {
-  if (hasGivenFeedback()) return false;
-  const used = getAnonUsage();
-  return used >= ANON_BASE_LIMIT; // hit base limit, hasn't given feedback yet
+  // FREE TRIAL: never gate. Feedback ask is handled by the beta strip
+  // and welcome card instead of a hard block.
+  return false;
 }
 
 /* ═══════════════════════════════════════════════════
