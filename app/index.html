@@ -29,7 +29,38 @@
 <link rel="canonical" href="https://debateos.com">
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');
+(function(){
+  var PAGE='app';
+  function once(key){try{if(sessionStorage.getItem(key))return false;sessionStorage.setItem(key,'1');return true}catch(e){return true}}
+  window.dosTrack=function(ev,params){try{if(window.gtag)gtag('event',ev,Object.assign({page:PAGE},params||{}))}catch(e){}};
+  window.dosTrackOnce=function(ev,params){if(once('dos-'+ev))window.dosTrack(ev,params)};
+  /* Track the critical day-1 return: fire once per calendar day */
+  try{
+    var last=localStorage.getItem('dos-last-visit-day');
+    var today=new Date().toISOString().slice(0,10);
+    if(last&&last!==today){window.dosTrack('return_visit',{last:last})}
+    if(last){
+      var d1=new Date(last),d2=new Date(today);
+      var days=Math.round((d2-d1)/86400000);
+      if(days===1)window.dosTrack('return_d1');
+      else if(days===7)window.dosTrack('return_d7');
+    }
+    localStorage.setItem('dos-last-visit-day',today);
+  }catch(e){}
+  setTimeout(function(){window.dosTrackOnce('app_engaged',{dwell:5})},5000);
+  document.addEventListener('click',function(e){
+    var t=e.target.closest('a,button');if(!t)return;
+    var cls=(t.className||'')+'';
+    var label=(t.textContent||'').trim().slice(0,60);
+    var kind='other';
+    if(/nav-btn|hamburger/.test(cls))kind='nav';
+    else if(/btn-orange|btn-record/.test(cls))kind='primary';
+    else if(/upgrade|pricing/i.test(label))kind='pricing';
+    else if(/btn/.test(cls))kind='btn';
+    window.dosTrack('cta_click',{kind:kind,label:label});
+  },true);
+})();</script>
 <!-- Microsoft Clarity — session replay + heatmaps. Configure ID in /js/clarity.js -->
 <script defer src="/js/clarity.js"></script>
 <!-- Analytics via GoatCounter (configured below) -->
@@ -7368,6 +7399,7 @@ Be direct, specific, and reference actual content from the notes. Write like a r
     const speechTags = tags[code] || [];
 
     if (!note.trim()) return;
+    try { window.dosTrack && window.dosTrack('feedback_request',{code:code,words:note.trim().split(/\s+/).length}); window.dosTrackOnce && window.dosTrackOnce('first_feedback_request',{code:code}) } catch(e){}
     setLoadingFeedback(prev => ({...prev, [code]:true}));
     try {
       const jProfile = JUDGE_EVAL_TYPES[judgeType] || JUDGE_EVAL_TYPES.tabula_rasa;
@@ -7394,7 +7426,9 @@ Think through the strategic implications. Be specific, reference debate theory, 
       await callClaude(sysPrompt, userPrompt, (text) => {
         setFeedback(prev => ({...prev, [code]:text}));
       }, { thinkBudget: 6000, maxTokens: 6000 });
+      try { window.dosTrack && window.dosTrack('feedback_complete',{code:code}); window.dosTrackOnce && window.dosTrackOnce('first_feedback_complete',{code:code}) } catch(e){}
     } catch(e) {
+      try { window.dosTrack && window.dosTrack('feedback_error',{code:code,err:(e.message||'').slice(0,80)}) } catch(_){}
       setFeedback(prev => ({...prev, [code]:'Error: '+e.message}));
     }
     setLoadingFeedback(prev => ({...prev, [code]:false}));

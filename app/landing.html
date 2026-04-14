@@ -52,7 +52,39 @@
 <link rel="dns-prefetch" href="https://api.manifold.markets" />
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');
+/* ── DebateOS funnel instrumentation ──────────────────────────
+   Fires gtag events on primary CTAs + scroll depth + engagement.
+   One-shot events use sessionStorage so we don't double-count. */
+(function(){
+  var PAGE='landing';
+  function once(key){try{if(sessionStorage.getItem(key))return false;sessionStorage.setItem(key,'1');return true}catch(e){return true}}
+  window.dosTrack=function(ev,params){try{if(window.gtag)gtag('event',ev,Object.assign({page:PAGE},params||{}))}catch(e){}};
+  window.dosTrackOnce=function(ev,params){if(once('dos-'+ev))window.dosTrack(ev,params)};
+  /* Engagement: fired after 5s dwell — filters bouncers */
+  setTimeout(function(){window.dosTrackOnce('landing_engaged',{dwell:5})},5000);
+  /* Scroll depth */
+  var depths=[25,50,75,100],hit={};
+  window.addEventListener('scroll',function(){
+    var h=document.documentElement,sc=(h.scrollTop+window.innerHeight)/h.scrollHeight*100;
+    depths.forEach(function(d){if(sc>=d&&!hit[d]){hit[d]=1;window.dosTrack('scroll_depth',{depth:d})}});
+  },{passive:true});
+  /* Delegated click tracking for anchors and buttons */
+  document.addEventListener('click',function(e){
+    var t=e.target.closest('a,button');if(!t)return;
+    var cls=(t.className||'')+'';
+    var label=(t.textContent||'').trim().slice(0,60);
+    var href=t.getAttribute('href')||'';
+    var kind='other';
+    if(/hero-cta/.test(cls))kind='hero_cta';
+    else if(/nav-|nav_/.test(cls))kind='nav';
+    else if(/pricing|plan/.test(cls))kind='pricing';
+    else if(/google|sign.?in/i.test(cls)||/google|sign.?in/i.test(label))kind='signin';
+    else if(/btn/.test(cls))kind='btn';
+    window.dosTrack('cta_click',{kind:kind,label:label,href:href});
+    if(kind==='hero_cta')window.dosTrackOnce('first_hero_cta',{label:label,href:href});
+  },true);
+})();</script>
 <!-- Microsoft Clarity — session replay + heatmaps. Configure ID in /js/clarity.js -->
 <script defer src="/js/clarity.js"></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -1691,12 +1723,14 @@ window.addEventListener('load', function(){
   });
 
   btn.addEventListener('click', function(){
+    try { window.dosTrack && window.dosTrack('sign_in_start',{source:'landing_hero'}) } catch(e){}
     if (auth.currentUser) { window.location.href = '/'; return; }
     var provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     btnText.textContent = 'Opening Google…';
     auth.signInWithPopup(provider).then(function(result){
       try { if (window.gtag) gtag('event', 'sign_up', { method: 'Google' }); } catch(e){}
+      try { window.dosTrack && window.dosTrack('sign_in_complete',{source:'landing_hero'}) } catch(e){}
       // Beta tester incentive: open the feedback form in a new tab (required
       // to unlock unlimited use) and redirect main tab to the app.
       try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); } catch(e){}

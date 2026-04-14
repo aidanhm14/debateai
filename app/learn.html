@@ -15,7 +15,21 @@
 <meta name="twitter:card" content="summary_large_image">
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');
+(function(){
+  var PAGE='learn';
+  function once(key){try{if(sessionStorage.getItem(key))return false;sessionStorage.setItem(key,'1');return true}catch(e){return true}}
+  window.dosTrack=function(ev,params){try{if(window.gtag)gtag('event',ev,Object.assign({page:PAGE},params||{}))}catch(e){}};
+  window.dosTrackOnce=function(ev,params){if(once('dos-'+ev))window.dosTrack(ev,params)};
+  setTimeout(function(){window.dosTrackOnce('learn_engaged',{dwell:5})},5000);
+  document.addEventListener('click',function(e){
+    var t=e.target.closest('a,button');if(!t)return;
+    var label=(t.textContent||'').trim().slice(0,60);
+    var href=t.getAttribute('href')||'';
+    var kind=/google|sign.?in/i.test(label)?'signin':/pricing|plan|upgrade/i.test(label)?'pricing':'other';
+    window.dosTrack('cta_click',{kind:kind,label:label,href:href});
+  },true);
+})();</script>
 <!-- Microsoft Clarity — session replay + heatmaps. Configure ID in /js/clarity.js -->
 <script defer src="/js/clarity.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -462,12 +476,14 @@ window.addEventListener('load', function(){
   } catch(e) { console.warn('[learn] firebase init failed:', e.message); }
 });
 window.__learnSignIn = function(){
+  try { window.dosTrack && window.dosTrack('sign_in_start',{source:'learn'}) } catch(e){}
   if (typeof firebase === 'undefined') { alert('Sign-in is loading — try again in a moment.'); return; }
   var provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   firebase.auth().signInWithPopup(provider).then(function(){
     markSignedIn();
     try { if (window.gtag) gtag('event','sign_up',{method:'Google',source:'learn'}); } catch(e){}
+    try { window.dosTrack && window.dosTrack('sign_in_complete',{source:'learn'}) } catch(e){}
     location.reload();
   }).catch(function(err){
     if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
@@ -505,7 +521,8 @@ async function callClaude(sys, user, onChunk){
   const useProxy = !byok && remaining() > 0;
   const useDirect = !!byok;
 
-  if (!useProxy && !useDirect) throw new Error('LIMIT_REACHED');
+  if (!useProxy && !useDirect) { try { window.dosTrack && window.dosTrack('limit_reached',{usage:getUsage()}) } catch(e){} throw new Error('LIMIT_REACHED'); }
+  try { window.dosTrackOnce && window.dosTrackOnce('first_ai_request',{source:byok?'byok':'proxy'}) } catch(e){}
 
   let r;
   let proxyFailed = false;
