@@ -71,149 +71,19 @@
   status = 200
 
 # ──────────────────────────────────────────────────────────────────
-# API routing — explicit redirects to /.netlify/functions/*
+# API routing — DO NOT add /api/* redirects here.
 #
-# Each function declares `export const config = { path: '/api/...' }`
-# which Netlify honors, BUT during cold starts and deploy propagation
-# this routing has been observed to intermittently 404 (confirmed via
-# Netlify Analytics: /api/claude 404'd 16 times, /api/gemini 9 times,
-# /api/teams/* multiple times over 30 days).
+# Every function uses Netlify Functions v2 and self-declares its
+# route via `export const config = { path: '/api/...' }`. Adding
+# [[redirects]] from /api/* to /.netlify/functions/* with force=true
+# OVERRIDES the function's own routing and rewrites to a path that
+# doesn't exist for v2 functions, which serves Netlify's 404 HTML
+# page. This is what broke every AI call for hours. Don't repeat.
 #
-# Explicit [[redirects]] to /.netlify/functions/* use the edge-layer
-# rewrite engine which doesn't depend on function warmth and is
-# idempotent with the config.path declaration. Belt + suspenders.
-#
-# ORDER MATTERS: more-specific paths must come before less-specific
-# ones (e.g. /api/teams/join before /api/teams).
+# Legacy alias /api/billing/webhook → /api/stripe-webhook still
+# needed because old Stripe configs may point there.
 # ──────────────────────────────────────────────────────────────────
-
-# AI model proxies
-[[redirects]]
-  from = "/api/claude"
-  to = "/.netlify/functions/claude"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/gemini"
-  to = "/.netlify/functions/gemini"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/grok"
-  to = "/.netlify/functions/grok"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/openai-chat"
-  to = "/.netlify/functions/openai-chat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/perplexity"
-  to = "/.netlify/functions/perplexity"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/tts"
-  to = "/.netlify/functions/tts"
-  status = 200
-  force = true
-
-# Team endpoints — specific paths first
-[[redirects]]
-  from = "/api/teams/log-usage"
-  to = "/.netlify/functions/log-usage"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/teams/usage"
-  to = "/.netlify/functions/team-usage"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/teams/analytics"
-  to = "/.netlify/functions/team-analytics"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/teams/join"
-  to = "/.netlify/functions/join-team"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/teams/update"
-  to = "/.netlify/functions/update-team"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/teams/members"
-  to = "/.netlify/functions/team-members"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/teams"
-  to = "/.netlify/functions/create-team"
-  status = 200
-  force = true
-
-# Billing
-[[redirects]]
-  from = "/api/billing/portal"
-  to = "/.netlify/functions/billing-portal"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/billing/checkout"
-  to = "/.netlify/functions/create-checkout"
-  status = 200
-  force = true
-
-# Legacy alias: /api/billing/webhook → stripe-webhook
 [[redirects]]
   from = "/api/billing/webhook"
-  to = "/.netlify/functions/stripe-webhook"
+  to = "/api/stripe-webhook"
   status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/stripe-webhook"
-  to = "/.netlify/functions/stripe-webhook"
-  status = 200
-  force = true
-
-# Misc
-[[redirects]]
-  from = "/api/save-profile"
-  to = "/.netlify/functions/save-profile"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/log-event"
-  to = "/.netlify/functions/log-event"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/insights"
-  to = "/.netlify/functions/log-insight"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/admin/analytics"
-  to = "/.netlify/functions/admin-analytics"
-  status = 200
-  force = true
