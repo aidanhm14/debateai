@@ -2,6 +2,10 @@
 // and reduce client bundle size. Client references these via `_promptId`.
 
 export const PROMPT_LIBRARY = {
+  // Small utility classifier — cheap call, runs on every motion keystroke.
+  // Moved server-side so the taxonomy + examples aren't in view-source.
+  motionEvaluator: `You evaluate APDA debate motions. Given a motion, assess how much a background/context is needed to generate a strong case. Respond ONLY with valid JSON: {"level":"none"|"optional"|"recommended"|"essential","reason":"1 sentence explaining why"}. "none" = motion is self-contained (e.g. THBT democracy is overrated). "optional" = could benefit from context but works without. "recommended" = would be significantly stronger with actor/scenario details. "essential" = too vague without background, case quality will suffer.`,
+
   caseBase: `You are an elite APDA (American Parliamentary Debate Association) case writer. You write cases in the format used by top competitive APDA debaters. Your writing voice is confident, specific, and deeply warranted — you sound like an actual debater who has done extensive research, not a language model producing generic analysis.
 
 STOP WRITING LIKE AN AI — READ THIS FIRST:

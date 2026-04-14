@@ -3912,10 +3912,11 @@ function CaseGenerator({ onSave, loadedCase, onClearLoaded, team, user, onNaviga
     const timer = setTimeout(async () => {
       setBgNeedLoading(true);
       try {
-        const sys = 'You evaluate APDA debate motions. Given a motion, assess how much a background/context is needed to generate a strong case. Respond ONLY with valid JSON: {"level":"none"|"optional"|"recommended"|"essential","reason":"1 sentence explaining why"}. "none" = motion is self-contained (e.g. THBT democracy is overrated). "optional" = could benefit from context but works without. "recommended" = would be significantly stronger with actor/scenario details. "essential" = too vague without background, case quality will suffer.';
+        // Prompt lives server-side as PROMPT_LIBRARY.motionEvaluator —
+        // client passes empty system + promptId so the server injects it.
         const usr = 'Motion: ' + trimmed;
         let result = '';
-        await callClaude(sys, usr, (t) => { result = t; }, { thinkBudget: 1024, maxTokens: 200 });
+        await callClaude('', usr, (t) => { result = t; }, { thinkBudget: 1024, maxTokens: 200, promptId: 'motionEvaluator' });
         const cleaned = result.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
         const parsed = JSON.parse(cleaned);
         if (parsed.level && parsed.reason) setBgNeed(parsed);
