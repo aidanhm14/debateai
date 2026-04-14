@@ -25,7 +25,8 @@ function getCorsHeaders(request) {
 
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60_000;
-const RATE_LIMIT_MAX = 15;
+const RATE_LIMIT_MAX = 5; // anon IP-rate limit — tightened from 15 since
+                          // this proxy has no auth gate at all.
 
 function checkRateLimit(key) {
   const now = Date.now();

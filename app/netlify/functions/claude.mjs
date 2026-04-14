@@ -41,9 +41,12 @@ function getCorsHeaders(request) {
 // Simple in-memory rate limiter (resets per function cold start)
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 15; // max requests per minute per user
+const RATE_LIMIT_MAX = 15; // authenticated users
+const RATE_LIMIT_MAX_ANON = 5; // unauthenticated callers — tighter, since
+                                // an anonymous client can submit arbitrary
+                                // prompts and we can't bill them.
 
-function checkRateLimit(userId) {
+function checkRateLimit(userId, max = RATE_LIMIT_MAX) {
   const now = Date.now();
   const key = userId || 'anon';
   const entry = rateLimitMap.get(key);
@@ -52,7 +55,7 @@ function checkRateLimit(userId) {
     return true;
   }
   entry.count++;
-  if (entry.count > RATE_LIMIT_MAX) return false;
+  if (entry.count > max) return false;
   return true;
 }
 
@@ -139,7 +142,7 @@ export default async (request, context) => {
     // Anonymous path — allow limited unauthenticated access for HS/debate-ai/learn pages
     // Rate limit anonymous users by IP
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
-    if (!checkRateLimit('anon_' + ip)) {
+    if (!checkRateLimit('anon_' + ip, RATE_LIMIT_MAX_ANON)) {
       return new Response(
         JSON.stringify({ error: 'Too many requests. Please wait a moment.' }),
         { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
