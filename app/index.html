@@ -68,8 +68,30 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .stream-section-0{animation-delay:0s}.stream-section-1{animation-delay:.08s}.stream-section-2{animation-delay:.16s}.stream-section-3{animation-delay:.24s}.stream-section-4{animation-delay:.32s}.stream-section-5{animation-delay:.4s}.stream-section-6{animation-delay:.48s}.stream-section-7{animation-delay:.56s}.stream-section-8{animation-delay:.64s}.stream-section-9{animation-delay:.72s}.case-output ol,.output-box ol,.round-sim-output ol,.philosophy-output ol,.feedback-output ol,.judge-output ol,.casual-output ol{list-style-type:decimal;padding-left:1.5em;margin:0.3em 0}.case-output ol ol,.output-box ol ol,.round-sim-output ol ol,.philosophy-output ol ol,.feedback-output ol ol,.judge-output ol ol,.casual-output ol ol{list-style-type:lower-alpha}.case-output ol ol ol,.output-box ol ol ol,.round-sim-output ol ol ol{list-style-type:lower-roman}.case-output ol ol ol ol,.output-box ol ol ol ol,.round-sim-output ol ol ol ol{list-style-type:decimal}.case-output,.output-box,.round-sim-output,.philosophy-output,.feedback-output,.judge-output,.casual-output{line-height:1.75;letter-spacing:0.01em;word-spacing:0.04em} /* ── Background ──────────────────────────────── */
 /* Matches landing.html hero gradient mesh — same diagonal layered #1a1a1a/#111
    so the app shell reads as the same product. */
-.bg-canvas{position:fixed;inset:0;z-index:0;background:#111;background:linear-gradient(135deg,#1a1a1a 0%,#111 25%,#181818 50%,#111 75%,#1a1a1a 100%)}
-.bg-canvas::after{content:'';position:absolute;inset:0;background:radial-gradient(circle 800px at 20% 15%,rgba(239,68,68,.04) 0%,transparent 100%),radial-gradient(circle 600px at 80% 85%,rgba(255,255,255,.015) 0%,transparent 100%);pointer-events:none}
+/* Background lifted directly from landing.html .hero-bg — same gradient,
+   same two drifting radial-blur blobs, same fractal-noise grain overlay.
+   This is what makes the in-app feel like the same product as the
+   marketing site instead of a separate dashboard. */
+.bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;background:linear-gradient(135deg,#1a1a1a 0%,#111 25%,#181818 50%,#111 75%,#1a1a1a 100%)}
+.bg-canvas::before{
+  content:'';position:absolute;
+  top:-20%;right:-10%;width:80%;height:120%;
+  background:radial-gradient(ellipse at center,rgba(200,30,30,.35) 0%,transparent 70%);
+  filter:blur(80px);
+  animation:bgDrift 10s ease-in-out infinite alternate;
+  pointer-events:none;
+}
+.bg-canvas::after{
+  content:'';position:absolute;
+  bottom:-10%;left:-10%;width:60%;height:80%;
+  background:radial-gradient(ellipse at center,rgba(80,20,20,.25) 0%,transparent 70%);
+  filter:blur(60px);
+  animation:bgDrift2 12s ease-in-out infinite alternate;
+  pointer-events:none;
+}
+@keyframes bgDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-40px,30px) scale(1.05)}}
+@keyframes bgDrift2{0%{transform:translate(0,0) scale(1)}100%{transform:translate(30px,-20px) scale(1.08)}}
+.bg-grain{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 /* Hidden by default — dated decorative geometric shapes that weren't on landing.
    Light theme rules below still set their colors so re-enabling is one line. */
 .bg-debate-side{display:none;position:fixed;top:0;bottom:0;width:200px;z-index:0;pointer-events:none;overflow:hidden}
@@ -108,12 +130,16 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 /* ── Hero Section (first visit / no output) ───── */
 /* Typography matches landing.html hero: clamp-based scales so the in-app
    feels like the same product, not a stripped-down dashboard. */
-.hero{text-align:center;padding:72px 20px 48px;max-width:780px;margin:0 auto}
-.hero-eyebrow{display:inline-block;font-size:.72rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#ef4444;margin-bottom:14px;padding:5px 12px;border:1px solid rgba(239,68,68,.28);border-radius:999px;background:rgba(239,68,68,.06)}
-.hero-title{font-size:clamp(2.2rem,5vw,3.8rem);font-weight:900;letter-spacing:-.025em;line-height:1.05;margin-bottom:16px;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+.hero{text-align:center;padding:96px 20px 64px;max-width:780px;margin:0 auto;position:relative;z-index:2}
+.hero-eyebrow{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#ef4444;margin-bottom:28px}
+/* Hero headline matches landing.html .hero h1 exactly:
+   uppercase, line-height .95, letter-spacing -.03em, clamp scale. */
+.hero-title{font-size:clamp(2.2rem,5vw,3.8rem);font-weight:900;text-transform:uppercase;letter-spacing:-.03em;line-height:.95;color:#fff;margin-bottom:16px}
 .hero-title .accent{color:#ef4444}
-.hero-tagline{font-size:clamp(1rem,1.5vw,1.2rem);color:#b0bec5;line-height:1.6;margin-bottom:28px;font-weight:300;max-width:620px;margin-left:auto;margin-right:auto}
-@media(max-width:640px){.hero{padding:48px 18px 32px}.hero-title{font-size:clamp(2rem,9vw,3rem)}}
+.hero-tagline{font-size:clamp(.95rem,1.4vw,1.15rem);color:rgba(255,255,255,.5);line-height:1.6;margin:18px auto 28px;font-weight:400;max-width:560px}
+.hero-cta{display:inline-block;padding:16px 44px;background:#fff;color:#111;border-radius:100px;font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border:none;cursor:pointer;transition:transform .2s,box-shadow .2s;font-family:inherit}
+.hero-cta:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(255,255,255,.1)}
+@media(max-width:640px){.hero{padding:64px 18px 36px}.hero-title{font-size:clamp(2rem,9vw,3rem)}}
 .hero-badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
 .hero-badge{padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;border:1px solid #ffffff28;color:#c8d0dc;background:#ffffff0a}
 .hero-badge.accent{border-color:#ef444430;color:#f87171;background:#ef444410}
@@ -235,17 +261,19 @@ textarea{min-height:200px}
 select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238888a0' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center}
 
 /* ── Buttons ──────────────────────────────────── */
+/* Pill CTAs matching landing.html .hero-cta — 100px radius, uppercase,
+   6%-letter-spaced. Replaces the old slab-with-12px-radius look. */
 .btn{
-  padding:14px 28px;border-radius:12px;font-size:1.05rem;font-weight:600;
-  cursor:pointer;border:none;font-family:inherit;transition:.25s;
-  letter-spacing:.3px;
+  padding:14px 32px;border-radius:100px;font-size:.85rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;
+  cursor:pointer;border:none;font-family:inherit;transition:transform .2s,box-shadow .2s,background .2s;
 }
 .btn:active{transform:scale(.97)}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;pointer-events:none}
-.btn-primary{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 28px #ef444440}
-.btn-orange{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
-.btn-orange:hover{transform:translateY(-2px);box-shadow:0 8px 28px #ef444440}
+.btn-primary{background:#fff;color:#111}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(255,255,255,.12)}
+.btn-orange{background:#ef4444;color:#fff}
+.btn-orange:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(239,68,68,.35)}
 .btn-secondary{background:#ffffff18;color:#c8d0dc;border:1px solid #ffffff18}
 .btn-secondary:hover{background:#ffffff14;border-color:#ffffff28;color:#fff}
 .btn-purple{background:linear-gradient(135deg,#c084fc,#8b5cf6);color:#2b2b30}
@@ -2500,6 +2528,9 @@ function PolyBackground() {
   }, []);
   return el(React.Fragment,null,
     el('div',{className:'bg-canvas'}),
+    // Fractal-noise grain overlay matching landing.html .hero-grain.
+    // Subtle texture on top of the gradient + drifting blobs.
+    el('div',{className:'bg-grain'}),
     el('div',{className:'bg-debate-side bg-debate-left'},
       el('div',{className:'geo-shape geo-diamond'}),
       el('div',{className:'geo-shape geo-hex'}),
@@ -12558,6 +12589,9 @@ function App() {
         React.createElement('p',{style:{color:'#92754a',fontSize:'.68rem',letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,margin:'2px 0 0',textAlign:'center'}},'powered by DebateOS'),
         React.createElement('div',{style:{display:'flex',gap:4,alignItems:'center',justifyContent:'center',background:'var(--badge-row-bg,#ffffff08)',borderRadius:20,padding:'3px 4px',border:'1px solid var(--badge-row-border,#ffffff1a)',width:'fit-content',margin:'4px auto 0'}},
           React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:team&&team.plan!=='trial'?'#22c55e15':'#f59e0b15',color:team&&team.plan!=='trial'?'#22c55e':'#f59e0b',letterSpacing:'.5px',cursor:'pointer'},onClick:()=>navigateTab('team')},team&&team.plan!=='trial'?(team.plan==='lifetime'?'∞ LIFETIME':team.plan==='team'?'★ TEAM':'★ PRO'):'FREE'),
+          // Landing pill — explicit way back to the marketing page so users
+          // who jumped straight into the app know where the homepage lives.
+          React.createElement('a',{href:'/landing',style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:'#ffffff10',color:'#fff',letterSpacing:'.3px',textDecoration:'none',transition:'.2s'},title:'Back to homepage'},'← Landing'),
           React.createElement('a',{href:'/high-school',style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:'#ef444412',color:'#f87171',letterSpacing:'.3px',textDecoration:'none',transition:'.2s'}},'HS Edition'),
           // Theme toggle pill
           React.createElement('span',{style:{fontSize:'.6rem',padding:'3px 10px',borderRadius:16,fontWeight:600,lineHeight:'18px',background:theme==='grey'?'#f59e0b12':theme==='light'?'#3b82f612':'#ef444412',color:theme==='grey'?'#f59e0b':theme==='light'?'#3b82f6':'#ef4444',cursor:'pointer',letterSpacing:'.5px',transition:'.2s'},onClick:()=>setTheme(theme==='grey'?'light':theme==='light'?'dark':'grey')},theme==='grey'?'\u25C9 Grey':theme==='light'?'\u2600 Light':'\u263E Dark'),
