@@ -3,14 +3,53 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Devil's Advocate</title>
-<meta name="description" content="AI debate prep for competitive parliamentary debaters." />
-<meta property="og:title" content="Devil's Advocate" />
-<meta property="og:description" content="AI debate prep for competitive debaters. High school & college editions." />
+<title>Devil's Advocate — Argue with an AI. Become a sharper thinker.</title>
+<meta name="description" content="A calibration gym for your own ideas. Debate live prediction-market questions with an AI out loud, then track how much you actually moved. Free during beta." />
+<meta name="keywords" content="AI debate, prediction markets, polymarket, manifold, calibration, forecasting, debate prep, parliamentary debate, APDA, BP, devil's advocate" />
+<meta name="author" content="Aidan HM" />
+<link rel="canonical" href="https://debateos1.netlify.app/landing" />
+
+<!-- Open Graph -->
+<meta property="og:title" content="Devil's Advocate — Argue with an AI" />
+<meta property="og:description" content="A calibration gym for your own ideas. Debate live prediction-market questions with an AI out loud." />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://debateos1.netlify.app/landing" />
+<meta property="og:image" content="https://debateos1.netlify.app/og-image.svg" />
+<meta property="og:site_name" content="Devil's Advocate" />
+
+<!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="https://debateos.com/og-image.png" />
-<meta property="og:image" content="https://debateos.com/og-image.png" />
+<meta name="twitter:title" content="Devil's Advocate — Argue with an AI" />
+<meta name="twitter:description" content="A calibration gym for your own ideas. Debate live prediction-market questions with an AI out loud." />
+<meta name="twitter:image" content="https://debateos1.netlify.app/og-image.svg" />
+
+<!-- Structured data: WebSite + SoftwareApplication for rich-result eligibility -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "name": "Devil's Advocate",
+      "url": "https://debateos1.netlify.app/",
+      "description": "A calibration gym for your own ideas. AI debate practice for serious thinkers."
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "Devil's Advocate",
+      "applicationCategory": "EducationApplication",
+      "operatingSystem": "Web",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+  ]
+}
+</script>
+
+<!-- Preconnect to API origins to shave ~150ms off the markets fetch -->
+<link rel="preconnect" href="https://gamma-api.polymarket.com" crossorigin />
+<link rel="preconnect" href="https://api.manifold.markets" crossorigin />
+<link rel="dns-prefetch" href="https://gamma-api.polymarket.com" />
+<link rel="dns-prefetch" href="https://api.manifold.markets" />
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
@@ -19,9 +58,11 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<!-- Firebase compat SDK for Google signup on landing -->
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<!-- Firebase compat SDK for Google signup on landing.
+     Deferred — saves ~200KB blocking on first paint, only matters when
+     the user clicks the Google signup button (which runs after defer). -->
+<script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 
@@ -590,8 +631,19 @@ button{font-family:inherit;cursor:pointer}
 .markets-foot a{color:var(--accent);font-weight:600;text-decoration:none}
 .markets-foot a:hover{text-decoration:underline}
 @media(max-width:640px){
-  .markets-sec{padding:60px 18px 50px}
-  .markets-grid{grid-template-columns:1fr}
+  .markets-sec{padding:54px 16px 44px}
+  .markets-head{margin-bottom:28px}
+  .markets-title{font-size:1.55rem;line-height:1.18}
+  .markets-subtitle{font-size:.85rem}
+  .markets-tabs{margin-bottom:14px}
+  .markets-tab{padding:8px 16px;font-size:.74rem}
+  .markets-chips{margin-bottom:20px}
+  .markets-chip{padding:5px 11px;font-size:.66rem}
+  .markets-grid{grid-template-columns:1fr;gap:14px}
+  .market-card{padding:18px 18px 16px;min-height:auto}
+  .market-q{font-size:.9rem;-webkit-line-clamp:2}
+  .market-prob-num{font-size:1.5rem}
+  .markets-foot{font-size:.7rem;margin-top:24px}
 }
 [data-theme="day"] .market-card{background:rgba(0,0,0,.02)}
 [data-theme="day"] .market-card:hover{background:rgba(0,0,0,.04);box-shadow:0 14px 40px rgba(0,0,0,.12),0 0 0 1px rgba(37,99,235,.2)}
@@ -869,17 +921,17 @@ button{font-family:inherit;cursor:pointer}
       <h2 class="markets-title">Argue the questions <em>everyone's betting on</em></h2>
       <p class="markets-subtitle">Real markets, real prices, live every minute. Click any card and you're in a voice debate with an AI on the same question — five seconds later. Then see how much you actually moved.</p>
     </div>
-    <div class="markets-tabs" id="marketsTabs">
-      <button type="button" class="markets-tab active" data-src="polymarket"><span class="markets-tab-dot"></span>Polymarket</button>
-      <button type="button" class="markets-tab" data-src="manifold"><span class="markets-tab-dot" style="background:#10a37f;box-shadow:0 0 8px rgba(16,163,127,.8)"></span>Manifold</button>
+    <div class="markets-tabs" id="marketsTabs" role="tablist" aria-label="Prediction market source">
+      <button type="button" role="tab" aria-pressed="true" class="markets-tab active" data-src="polymarket"><span class="markets-tab-dot"></span>Polymarket</button>
+      <button type="button" role="tab" aria-pressed="false" class="markets-tab" data-src="manifold"><span class="markets-tab-dot" style="background:#10a37f;box-shadow:0 0 8px rgba(16,163,127,.8)"></span>Manifold</button>
     </div>
-    <div class="markets-chips" id="marketsChips">
-      <button type="button" class="markets-chip active" data-cat="all">All</button>
-      <button type="button" class="markets-chip" data-cat="politics">Politics</button>
-      <button type="button" class="markets-chip" data-cat="crypto">Crypto</button>
-      <button type="button" class="markets-chip" data-cat="sports">Sports</button>
-      <button type="button" class="markets-chip" data-cat="tech">Tech / AI</button>
-      <button type="button" class="markets-chip" data-cat="culture">Culture</button>
+    <div class="markets-chips" id="marketsChips" role="group" aria-label="Filter markets by category">
+      <button type="button" aria-pressed="true" class="markets-chip active" data-cat="all">All</button>
+      <button type="button" aria-pressed="false" class="markets-chip" data-cat="politics">Politics</button>
+      <button type="button" aria-pressed="false" class="markets-chip" data-cat="crypto">Crypto</button>
+      <button type="button" aria-pressed="false" class="markets-chip" data-cat="sports">Sports</button>
+      <button type="button" aria-pressed="false" class="markets-chip" data-cat="tech">Tech / AI</button>
+      <button type="button" aria-pressed="false" class="markets-chip" data-cat="culture">Culture</button>
     </div>
     <div class="markets-grid" id="marketsGrid">
       <div class="market-card skeleton"></div>
@@ -890,7 +942,8 @@ button{font-family:inherit;cursor:pointer}
       <div class="market-card skeleton"></div>
     </div>
     <div class="markets-foot">
-      Powered by <a href="https://polymarket.com" target="_blank" rel="noopener">Polymarket</a> &amp; <a href="https://manifold.markets" target="_blank" rel="noopener">Manifold</a> · Refreshes every 60 seconds
+      <button type="button" id="marketsRandom" style="display:inline-block;margin-bottom:10px;padding:9px 22px;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:999px;font-size:.78rem;font-weight:700;letter-spacing:.04em;cursor:pointer;font-family:inherit;transition:all .18s">🎲 Surprise me — debate a random one</button><br>
+      Powered by <a href="https://polymarket.com" target="_blank" rel="noopener">Polymarket</a> &amp; <a href="https://manifold.markets" target="_blank" rel="noopener">Manifold</a> · <span id="marketsUpdated">refreshing…</span>
     </div>
   </div>
 </section>
@@ -1128,6 +1181,43 @@ try{
   var data={polymarket:[],manifold:[]};
   var activeSrc='polymarket';
   var activeCat='all';
+  var lastFetchedAt=0;
+  var updatedEl=document.getElementById('marketsUpdated');
+  var CACHE_KEY='da-markets-cache-v1';
+
+  // ── localStorage cache ───────────────────
+  // Show the previous session's markets instantly on revisit, then refresh
+  // in the background. Massively improves perceived perf on repeat visits
+  // and keeps the section visible even if the API is briefly slow.
+  function loadCache(){
+    try{
+      var raw=localStorage.getItem(CACHE_KEY);
+      if(!raw)return null;
+      var p=JSON.parse(raw);
+      // Stale after 6 hours — better than nothing for revisits, fresher than nothing
+      if(!p||!p.ts||(Date.now()-p.ts)>6*60*60*1000)return null;
+      return p;
+    }catch(e){return null}
+  }
+  function saveCache(){
+    try{
+      localStorage.setItem(CACHE_KEY,JSON.stringify({
+        ts:Date.now(),
+        polymarket:data.polymarket,
+        manifold:data.manifold,
+      }));
+    }catch(e){}
+  }
+  function updateTimestamp(){
+    if(!updatedEl||!lastFetchedAt)return;
+    var s=Math.floor((Date.now()-lastFetchedAt)/1000);
+    var label;
+    if(s<5)label='just now';
+    else if(s<60)label=s+'s ago';
+    else if(s<3600)label=Math.floor(s/60)+'m ago';
+    else label=Math.floor(s/3600)+'h ago';
+    updatedEl.textContent='updated '+label;
+  }
 
   // ── Helpers ──────────────────────────────
   function fmtVol(n){
@@ -1225,16 +1315,37 @@ try{
     var p1=fetch('/api/polymarket',{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
     var p2=fetch('/api/manifold',{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
     Promise.all([p1,p2]).then(function(res){
-      data.polymarket=(res[0]&&res[0].markets)||[];
-      data.manifold=(res[1]&&res[1].markets)||[];
-      // Tag source on each so renderCards can show the right badge
+      var pm=(res[0]&&res[0].markets)||[];
+      var mf=(res[1]&&res[1].markets)||[];
+      // Only overwrite if we actually got data — protects cached state
+      // from a transient API failure
+      if(pm.length)data.polymarket=pm;
+      if(mf.length)data.manifold=mf;
       data.polymarket.forEach(function(m){m.source='polymarket'});
       data.manifold.forEach(function(m){m.source='manifold'});
-      // Hide section only if BOTH sources failed
       if(!data.polymarket.length&&!data.manifold.length){sec.style.display='none';return}
       sec.style.display='';
+      lastFetchedAt=Date.now();
+      saveCache();
       renderCards();
+      updateTimestamp();
     });
+  }
+
+  // ── Hydrate from cache immediately ───────
+  // If we have markets cached from a prior visit, render them right now so
+  // first paint isn't an empty grid. The fetchAll() call below will replace
+  // them with fresh data once the API responds.
+  var cached=loadCache();
+  if(cached&&((cached.polymarket||[]).length||(cached.manifold||[]).length)){
+    data.polymarket=cached.polymarket||[];
+    data.manifold=cached.manifold||[];
+    data.polymarket.forEach(function(m){m.source='polymarket'});
+    data.manifold.forEach(function(m){m.source='manifold'});
+    sec.style.display='';
+    lastFetchedAt=cached.ts;
+    renderCards();
+    updateTimestamp();
   }
 
   // ── Wire tabs + chips ────────────────────
@@ -1242,7 +1353,11 @@ try{
     tabs.querySelectorAll('.markets-tab').forEach(function(b){
       b.addEventListener('click',function(){
         activeSrc=b.getAttribute('data-src');
-        tabs.querySelectorAll('.markets-tab').forEach(function(x){x.classList.toggle('active',x===b)});
+        tabs.querySelectorAll('.markets-tab').forEach(function(x){
+          var on=x===b;
+          x.classList.toggle('active',on);
+          x.setAttribute('aria-pressed',on?'true':'false');
+        });
         renderCards();
         try{if(window.gtag)gtag('event','market_tab_switch',{source:activeSrc})}catch(e){}
       });
@@ -1252,15 +1367,36 @@ try{
     chips.querySelectorAll('.markets-chip').forEach(function(c){
       c.addEventListener('click',function(){
         activeCat=c.getAttribute('data-cat');
-        chips.querySelectorAll('.markets-chip').forEach(function(x){x.classList.toggle('active',x===c)});
+        chips.querySelectorAll('.markets-chip').forEach(function(x){
+          var on=x===c;
+          x.classList.toggle('active',on);
+          x.setAttribute('aria-pressed',on?'true':'false');
+        });
         renderCards();
         try{if(window.gtag)gtag('event','market_filter',{category:activeCat})}catch(e){}
       });
     });
   }
 
+  // Surprise-me button: pick a random market across both sources and
+  // jump straight into a debate on it. Lower friction than scanning the grid.
+  var randBtn=document.getElementById('marketsRandom');
+  if(randBtn){
+    randBtn.addEventListener('mouseover',function(){randBtn.style.borderColor='var(--accent)';randBtn.style.background='rgba(239,68,68,.08)'});
+    randBtn.addEventListener('mouseout',function(){randBtn.style.borderColor='var(--border)';randBtn.style.background='transparent'});
+    randBtn.addEventListener('click',function(){
+      var pool=[].concat(data.polymarket||[],data.manifold||[]);
+      if(!pool.length)return;
+      var pick=pool[Math.floor(Math.random()*pool.length)];
+      try{if(window.gtag)gtag('event','market_random_pick',{question:pick.question,source:pick.source})}catch(e){}
+      window.location.href=debateUrl(pick);
+    });
+  }
+
   fetchAll();
   setInterval(fetchAll,60000);
+  // Tick the "updated Xs ago" label every 10s so it stays accurate
+  setInterval(updateTimestamp,10000);
 })();
 
 // Hero topic ticker — fades through debate motions to advertise breadth.

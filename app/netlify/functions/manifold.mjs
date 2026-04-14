@@ -29,6 +29,11 @@ function normalize(raw) {
     // Manifold returns probability as a 0..1 float
     const p = typeof m.probability === 'number' ? m.probability : null;
     if (p == null || !isFinite(p)) continue;
+    // Drop effectively-resolved markets — boring to debate
+    if (p <= 0.01 || p >= 0.99) continue;
+    // Drop dead markets with zero recent action
+    const v24 = Number(m.volume24Hours || 0);
+    if (v24 < 5) continue;
 
     out.push({
       id: String(m.id || ''),

@@ -36,10 +36,23 @@ function normalize(raw) {
 
     const yesPrice = parseFloat(prices[0]);
     if (!isFinite(yesPrice)) continue;
+    // Skip markets that have effectively resolved (price at 0/100) — they're
+    // not interesting to debate and they crowd out live action.
+    if (yesPrice <= 0.005 || yesPrice >= 0.995) continue;
 
     // outcomes ship the same way
     let outcomes = m.outcomes;
     if (typeof outcomes === 'string') outcomes = safeJson(outcomes);
+
+    // Filter to BINARY only (Yes/No). Polymarket has multi-outcome markets
+    // we'd render incorrectly with a single Yes %.
+    const isBinary = !Array.isArray(outcomes) || outcomes.length === 2;
+    if (!isBinary) continue;
+
+    const vol24 = Number(m.volume24hr || 0);
+    // Require some real action so we don't ship dead markets to the landing
+    // page. $100/24h is a low bar; Polymarket's top markets clear $100K+.
+    if (vol24 < 100) continue;
 
     out.push({
       id: String(m.id || m.conditionId || ''),
@@ -51,12 +64,14 @@ function normalize(raw) {
       yesPrice,                                   // 0..1
       yesPct: Math.round(yesPrice * 100),
       outcomes: Array.isArray(outcomes) ? outcomes : ['Yes', 'No'],
-      volume24hr: Number(m.volume24hr || 0),
+      volume24hr: vol24,
       volume: Number(m.volume || 0),
       endDate: m.endDate || null,
       image: m.image || m.icon || null,
     });
   }
+  // Sort by 24h volume descending in case the upstream order drifts
+  out.sort((a, b) => b.volume24hr - a.volume24hr);
   return out;
 }
 
