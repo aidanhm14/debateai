@@ -880,13 +880,18 @@ async function callAI(sys, user, onChunk, brainKey){
       body:JSON.stringify(body),
     });
   }
+  // If Claude itself returned an HTML error page, the backend is offline — show a clean BYOK prompt
+  const finalCt=r.headers.get('content-type')||'';
+  if((!r.ok || finalCt.includes('text/html')) && currentEndpoint==='/api/claude'){
+    throw new Error('AI backend is temporarily offline. Quick fix: click ⚙️ Settings (top right) → paste your Anthropic API key for instant unlimited access. Get a free key at console.anthropic.com.');
+  }
   if(!r.ok){
     const txt=await r.text().catch(()=>'');
     let errMsg='';
-    try{const j=JSON.parse(txt);errMsg=typeof j.error==='string'?j.error:typeof j.message==='string'?j.message:JSON.stringify(j)}catch{errMsg=(txt||'').slice(0,200)||'No response body'}
+    try{const j=JSON.parse(txt);errMsg=typeof j.error==='string'?j.error:typeof j.message==='string'?j.message:JSON.stringify(j).slice(0,160)}catch{errMsg=(txt||'').replace(/<[^>]*>/g,'').slice(0,160).trim()||'No response body'}
     if(r.status===401) throw new Error('Sign in required: '+errMsg);
     if(r.status===429) throw new Error('Rate limited — wait a moment and try again.');
-    throw new Error('Error ('+r.status+') from '+currentEndpoint+': '+(errMsg||'Unknown error'));
+    throw new Error('AI request failed ('+r.status+'). '+(errMsg||'Try again in a moment.'));
   }
   const reader=r.body.getReader(),dec=new TextDecoder();
   let full='',buf='';

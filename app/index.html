@@ -3070,10 +3070,15 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
     console.warn('[AI] ' + brain.endpoint + ' broken (status=' + response.status + ', ct=' + ct + '), falling back to Claude');
     return callClaude(systemPrompt, userPrompt, onChunk, opts);
   }
+  // Claude itself returned HTML/error — backend is offline, show clean BYOK prompt instead of dumping HTML
+  if (isBroken && brainKey === 'claude') {
+    throw new Error('AI backend is temporarily offline. Quick fix: paste your Anthropic API key in Settings for instant unlimited access. Get a free key at console.anthropic.com.');
+  }
   if (!response.ok) {
     const err = await response.text().catch(() => '');
+    const clean = (err || '').replace(/<[^>]*>/g, '').slice(0, 120).trim();
     if (response.status === 429) throw new Error('Rate limited. Wait a moment and try again.');
-    throw new Error(brain.name + ' error (' + response.status + '): ' + (err || '').substring(0, 120));
+    throw new Error(brain.name + ' error (' + response.status + '): ' + (clean || 'Try again in a moment.'));
   }
 
   const reader = response.body.getReader(), dec = new TextDecoder();
@@ -3203,15 +3208,22 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
     throw new Error('Could not connect to the AI service. Check your internet connection and try again.');
   }
 
+  // Detect Netlify 404 HTML page served as 200 (force=true redirect with missing function)
+  const claudeCt = response.headers.get('content-type') || '';
+  if (claudeCt.includes('text/html')) {
+    throw new Error('AI backend is temporarily offline. Quick fix: paste your Anthropic API key in Settings for instant unlimited access. Get a free key at console.anthropic.com.');
+  }
   if (!response.ok) {
     const err = await response.text();
+    const clean = (err || '').replace(/<[^>]*>/g, '').slice(0, 120).trim();
     if (response.status === 429) {
       try { const errData = JSON.parse(err); if (errData.code === 'USAGE_LIMIT_REACHED') throw new Error('You\'ve reached your monthly request limit. Upgrade your plan in the Team tab for more requests.'); } catch(parseErr) { if (parseErr.message.includes('monthly')) throw parseErr; }
       throw new Error('Rate limited — too many requests. Wait a moment and try again.');
     }
     if (response.status === 401 || response.status === 403) throw new Error('Authentication error — the API key may be invalid or expired. Contact the site admin.');
+    if (response.status === 404) throw new Error('AI backend is temporarily offline. Quick fix: paste your Anthropic API key in Settings for instant unlimited access.');
     if (response.status >= 500) throw new Error('The AI service is temporarily down. Try again in a minute.');
-    throw new Error(`Something went wrong (${response.status}). ${err ? err.substring(0, 120) : 'Please try again.'}`);
+    throw new Error(`AI request failed (${response.status}). ${clean || 'Please try again.'}`);
   }
 
   const reader = response.body.getReader();
