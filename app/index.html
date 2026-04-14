@@ -2993,9 +2993,14 @@ const ANON_BASE_LIMIT = 5;
 function hasGivenFeedback() { try { return localStorage.getItem('debateos-feedback-given') === '1'; } catch { return false; } }
 function markFeedbackGiven() { try { localStorage.setItem('debateos-feedback-given', '1'); } catch {} }
 function getAnonLimit() { return hasGivenFeedback() ? Number.POSITIVE_INFINITY : ANON_BASE_LIMIT; }
-// Back-compat alias — existing code references ANON_LIMIT
-Object.defineProperty(window, 'ANON_LIMIT', { get: getAnonLimit });
-const ANON_LIMIT = getAnonLimit(); // legacy const for early reads; runtime uses getAnonLimit()
+// Back-compat alias — existing code references ANON_LIMIT.
+// Must be `configurable: true` because Babel re-evaluates this script and
+// would otherwise throw "Cannot redefine property" on the second pass,
+// crashing the entire React mount.
+try {
+  Object.defineProperty(window, 'ANON_LIMIT', { get: getAnonLimit, configurable: true });
+} catch (e) { /* property may already exist from a prior pass — safe to ignore */ }
+var ANON_LIMIT = getAnonLimit(); // legacy var (not const) so re-eval doesn't throw
 function getAnonUsage() { try { return parseInt(localStorage.getItem('debateos-anon-usage') || '0', 10); } catch { return 0; } }
 function incAnonUsage() { try { localStorage.setItem('debateos-anon-usage', String(getAnonUsage() + 1)); } catch {} }
 // Feedback gate: called before each anon request. Returns true if user should be blocked + shown feedback modal.
