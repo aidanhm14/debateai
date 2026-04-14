@@ -14,12 +14,13 @@ const VALID_EVENTS = new Set([
   'page_view',
 ]);
 
-// In-memory rate limiting: uid -> { count, windowStart }
+// In-memory rate limiting: uid (or anon_<ip>) -> { count, windowStart }
 const rateLimits = new Map();
 const RATE_LIMIT = 30;
+const RATE_LIMIT_ANON = 10; // anon page_view beacons — tighter
 const RATE_WINDOW_MS = 60 * 1000; // 1 minute
 
-function isRateLimited(uid) {
+function isRateLimited(uid, max = RATE_LIMIT) {
   const now = Date.now();
   const entry = rateLimits.get(uid);
 
@@ -29,7 +30,7 @@ function isRateLimited(uid) {
   }
 
   entry.count += 1;
-  if (entry.count > RATE_LIMIT) return true;
+  if (entry.count > max) return true;
   return false;
 }
 
@@ -106,12 +107,19 @@ export default async (request) => {
       uid,
       event,
       metadata: sanitizedMetadata,
+      // createdAt is the canonical name across every collection in this
+      // project — admin-analytics.mjs filters time-series by createdAt, so
+      // writing `timestamp` instead silently zeroed out every chart on the
+      // dashboard. Keep `timestamp` as a back-compat alias so any older
+      // tooling that reads it still works.
+      createdAt: FieldValue.serverTimestamp(),
       timestamp: FieldValue.serverTimestamp(),
     });
 
+    console.log('[log-event] wrote', event, 'for', uid);
     return jsonResponse({ ok: true }, 200, request);
   } catch (err) {
-    console.error('log-event error:', err);
+    console.error('log-event Firestore write failed:', err.message, err.code || '');
     return errorResponse('Failed to log event', 500, request);
   }
 };

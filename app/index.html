@@ -1533,15 +1533,18 @@ function logBetaEvent(event, data) {
     try {
       const eventMap = { generate:'case_generated', tab:'page_view', battle:'battle_started', feedback:'feedback_requested', philosophy:'philosophy_explored', forum:'forum_post', motion:'motion_rolled', practice:'speech_practiced', map:'round_mapped' };
       const mapped = eventMap[event] || 'page_view';
-      if (typeof __getAuthToken !== 'function') return;
+      if (typeof __getAuthToken !== 'function') { console.warn('[logBetaEvent] no __getAuthToken'); return; }
       const token = await __getAuthToken();
-      if (!token) return;
-      fetch('/api/log-event', {
+      if (!token) { console.warn('[logBetaEvent] no auth token — user not signed in?'); return; }
+      const res = await fetch('/api/log-event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ event: mapped, metadata: data || {} }),
-      }).catch(() => {});
-    } catch(e) {}
+      });
+      if (!res.ok) {
+        console.warn('[logBetaEvent]', mapped, 'failed:', res.status, await res.text().catch(()=>'?'));
+      }
+    } catch(e) { console.warn('[logBetaEvent] error:', e.message); }
   })();
 }
 
