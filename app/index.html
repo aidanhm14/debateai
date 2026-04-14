@@ -2989,10 +2989,10 @@ function maybeShowSupportNudge() {
   } catch(e) {}
 }
 const ANON_BASE_LIMIT = 5;
-const ANON_FEEDBACK_BONUS = 10; // giving feedback unlocks +10
+// Giving feedback unlocks UNLIMITED — matches the "unlock unlimited" copy in the beta strip
 function hasGivenFeedback() { try { return localStorage.getItem('debateos-feedback-given') === '1'; } catch { return false; } }
 function markFeedbackGiven() { try { localStorage.setItem('debateos-feedback-given', '1'); } catch {} }
-function getAnonLimit() { return ANON_BASE_LIMIT + (hasGivenFeedback() ? ANON_FEEDBACK_BONUS : 0); }
+function getAnonLimit() { return hasGivenFeedback() ? Number.POSITIVE_INFINITY : ANON_BASE_LIMIT; }
 // Back-compat alias — existing code references ANON_LIMIT
 Object.defineProperty(window, 'ANON_LIMIT', { get: getAnonLimit });
 const ANON_LIMIT = getAnonLimit(); // legacy const for early reads; runtime uses getAnonLimit()
@@ -3030,7 +3030,7 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
     if (used >= getAnonLimit()) {
       if (shouldGateForFeedback()) {
         try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); markFeedbackGiven(); } catch(e) {}
-        throw new Error('You\'ve used your 5 free requests. We just opened our quick feedback form — fill it out and you\'ll get +10 more requests (refresh after).');
+        throw new Error('You\'ve used your 5 free requests. We just opened our quick feedback form — fill it out and you\'ll unlock UNLIMITED requests (refresh after).');
       }
       throw new Error('You\'ve used all your free requests. Add your own API key (BYOK) for unlimited, or sign in for a plan.');
     }
@@ -3057,12 +3057,19 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   let response;
   try {
     response = await fetch(brain.endpoint, { method:'POST', headers, body:JSON.stringify(body) });
-    // Fallback to Claude if endpoint not found
-    if (response.status === 404) {
-      console.warn('[AI] ' + brain.endpoint + ' returned 404, falling back to Claude');
-      return callClaude(systemPrompt, userPrompt, onChunk, opts);
-    }
-  } catch(e) { throw new Error('Could not connect to ' + brain.name + '. Trying Claude...'); }
+  } catch(e) {
+    console.warn('[AI] network error calling ' + brain.endpoint + ', falling back to Claude:', e.message);
+    if (brainKey !== 'claude') return callClaude(systemPrompt, userPrompt, onChunk, opts);
+    throw new Error('Network error. Check your connection and try again.');
+  }
+  // Detect broken proxy: real 4xx/5xx OR Netlify 404 page served with 200 (force=true redirect)
+  const ct = response.headers.get('content-type') || '';
+  const isHtmlBody = ct.includes('text/html');
+  const isBroken = !response.ok || isHtmlBody;
+  if (isBroken && brainKey !== 'claude') {
+    console.warn('[AI] ' + brain.endpoint + ' broken (status=' + response.status + ', ct=' + ct + '), falling back to Claude');
+    return callClaude(systemPrompt, userPrompt, onChunk, opts);
+  }
   if (!response.ok) {
     const err = await response.text().catch(() => '');
     if (response.status === 429) throw new Error('Rate limited. Wait a moment and try again.');
@@ -3116,7 +3123,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
     if (used >= getAnonLimit()) {
       if (shouldGateForFeedback()) {
         try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); markFeedbackGiven(); } catch(e) {}
-        throw new Error('You\'ve used your 5 free requests. We just opened our quick feedback form — fill it out and you\'ll get +10 more requests (refresh after).');
+        throw new Error('You\'ve used your 5 free requests. We just opened our quick feedback form — fill it out and you\'ll unlock UNLIMITED requests (refresh after).');
       }
       throw new Error('You\'ve used all your free requests. Add your own API key (BYOK) for unlimited, or sign in for a plan.');
     }

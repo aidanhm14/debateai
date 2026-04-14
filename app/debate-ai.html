@@ -859,15 +859,21 @@ async function callAI(sys, user, onChunk, brainKey){
     messages:[{role:'user',content:user}],
     _feature:'debate-ai',
   };
-  let r=await fetch(brain.endpoint,{
+  let currentEndpoint=brain.endpoint;
+  let r=await fetch(currentEndpoint,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body),
   });
-  // If non-Claude brain returns 404 (function not deployed), fall back to Claude
-  if(r.status===404 && brain.endpoint!=='/api/claude'){
-    console.warn('[AI] '+brain.endpoint+' returned 404, falling back to /api/claude');
+  // Detect Netlify 404 page (force=200 redirect can serve HTML body when function missing)
+  // OR actual 404 OR 500-when-key-missing — fall back to Claude for any non-Claude brain failure
+  const contentType=r.headers.get('content-type')||'';
+  const isHtmlBody=contentType.includes('text/html');
+  const isBroken=!r.ok || isHtmlBody;
+  if(isBroken && currentEndpoint!=='/api/claude'){
+    console.warn('[AI] '+currentEndpoint+' broken (status='+r.status+', ct='+contentType+'), falling back to /api/claude');
     body.model=BRAINS.claude.model;
+    currentEndpoint='/api/claude';
     r=await fetch('/api/claude',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -877,10 +883,10 @@ async function callAI(sys, user, onChunk, brainKey){
   if(!r.ok){
     const txt=await r.text().catch(()=>'');
     let errMsg='';
-    try{const j=JSON.parse(txt);errMsg=typeof j.error==='string'?j.error:typeof j.message==='string'?j.message:JSON.stringify(j)}catch{errMsg=txt||'No response body'}
+    try{const j=JSON.parse(txt);errMsg=typeof j.error==='string'?j.error:typeof j.message==='string'?j.message:JSON.stringify(j)}catch{errMsg=(txt||'').slice(0,200)||'No response body'}
     if(r.status===401) throw new Error('Sign in required: '+errMsg);
     if(r.status===429) throw new Error('Rate limited — wait a moment and try again.');
-    throw new Error('Error ('+r.status+') from '+brain.endpoint+': '+(errMsg||'Unknown error'));
+    throw new Error('Error ('+r.status+') from '+currentEndpoint+': '+(errMsg||'Unknown error'));
   }
   const reader=r.body.getReader(),dec=new TextDecoder();
   let full='',buf='';
