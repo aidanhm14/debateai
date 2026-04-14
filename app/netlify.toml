@@ -9,6 +9,59 @@
   external_node_modules = ["@google-cloud/firestore", "stripe"]
   node_bundler = "esbuild"
 
+# ──────────────────────────────────────────────────────────────────
+# Icon 404 patches — browsers and PWAs request canonical icon paths
+# that don't physically exist. Serve them from /icons/ via rewrite.
+# (Netlify analytics: /favicon.ico 138, apple-touch-icon variants 114.)
+# ──────────────────────────────────────────────────────────────────
+[[redirects]]
+  from = "/favicon.ico"
+  to = "/icons/icon-192.png"
+  status = 200
+
+[[redirects]]
+  from = "/apple-touch-icon.png"
+  to = "/icons/icon-192.png"
+  status = 200
+
+[[redirects]]
+  from = "/apple-touch-icon-precomposed.png"
+  to = "/icons/icon-192.png"
+  status = 200
+
+# Optional: iOS touch icons at alternate sizes all point to the 512
+[[redirects]]
+  from = "/apple-touch-icon-*.png"
+  to = "/icons/icon-512.png"
+  status = 200
+
+# ──────────────────────────────────────────────────────────────────
+# URL canonicalization — kill duplicate URLs that split analytics.
+#
+# Before: /, /index.html, /landing, /landing.html were serving two
+# real pages under FOUR URLs, splitting pageview counts and returning
+# visitor attribution (confirmed in Netlify analytics: /landing 3391,
+# / 1475, /index.html 554, /landing.html 10 — all for 2 real pages).
+#
+# After: / and /landing are canonical. .html variants 301 to them.
+# ──────────────────────────────────────────────────────────────────
+[[redirects]]
+  from = "/index.html"
+  to = "/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/landing.html"
+  to = "/landing"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/landing"
+  to = "/landing.html"
+  status = 200
+
 # High School edition page
 [[redirects]]
   from = "/high-school"
@@ -27,9 +80,150 @@
   to = "/learn.html"
   status = 200
 
-# Alias: /api/billing/webhook → stripe-webhook function
-# (kept because stripe-webhook.mjs config.path is /api/stripe-webhook, not this path)
+# ──────────────────────────────────────────────────────────────────
+# API routing — explicit redirects to /.netlify/functions/*
+#
+# Each function declares `export const config = { path: '/api/...' }`
+# which Netlify honors, BUT during cold starts and deploy propagation
+# this routing has been observed to intermittently 404 (confirmed via
+# Netlify Analytics: /api/claude 404'd 16 times, /api/gemini 9 times,
+# /api/teams/* multiple times over 30 days).
+#
+# Explicit [[redirects]] to /.netlify/functions/* use the edge-layer
+# rewrite engine which doesn't depend on function warmth and is
+# idempotent with the config.path declaration. Belt + suspenders.
+#
+# ORDER MATTERS: more-specific paths must come before less-specific
+# ones (e.g. /api/teams/join before /api/teams).
+# ──────────────────────────────────────────────────────────────────
+
+# AI model proxies
+[[redirects]]
+  from = "/api/claude"
+  to = "/.netlify/functions/claude"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/gemini"
+  to = "/.netlify/functions/gemini"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/grok"
+  to = "/.netlify/functions/grok"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/openai-chat"
+  to = "/.netlify/functions/openai-chat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/perplexity"
+  to = "/.netlify/functions/perplexity"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/tts"
+  to = "/.netlify/functions/tts"
+  status = 200
+  force = true
+
+# Team endpoints — specific paths first
+[[redirects]]
+  from = "/api/teams/log-usage"
+  to = "/.netlify/functions/log-usage"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/teams/usage"
+  to = "/.netlify/functions/team-usage"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/teams/analytics"
+  to = "/.netlify/functions/team-analytics"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/teams/join"
+  to = "/.netlify/functions/join-team"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/teams/update"
+  to = "/.netlify/functions/update-team"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/teams/members"
+  to = "/.netlify/functions/team-members"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/teams"
+  to = "/.netlify/functions/create-team"
+  status = 200
+  force = true
+
+# Billing
+[[redirects]]
+  from = "/api/billing/portal"
+  to = "/.netlify/functions/billing-portal"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/billing/checkout"
+  to = "/.netlify/functions/create-checkout"
+  status = 200
+  force = true
+
+# Legacy alias: /api/billing/webhook → stripe-webhook
 [[redirects]]
   from = "/api/billing/webhook"
   to = "/.netlify/functions/stripe-webhook"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/stripe-webhook"
+  to = "/.netlify/functions/stripe-webhook"
+  status = 200
+  force = true
+
+# Misc
+[[redirects]]
+  from = "/api/save-profile"
+  to = "/.netlify/functions/save-profile"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/log-event"
+  to = "/.netlify/functions/log-event"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/insights"
+  to = "/.netlify/functions/log-insight"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/admin/analytics"
+  to = "/.netlify/functions/admin-analytics"
+  status = 200
+  force = true
