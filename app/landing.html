@@ -225,8 +225,8 @@ button{font-family:inherit;cursor:pointer}
   font-size:.58rem;font-weight:600;
   color:rgba(255,255,255,.38);
   letter-spacing:.28em;text-transform:uppercase;
-  margin-bottom:10px;
-  display:flex;align-items:center;gap:6px;
+  margin-bottom:16px;
+  display:flex;align-items:center;gap:7px;
 }
 .hero-timer-label::before{
   content:'';width:5px;height:5px;border-radius:50%;
@@ -293,7 +293,7 @@ button{font-family:inherit;cursor:pointer}
   50%{height:var(--max,50%)}
 }
 .hero-timer-readout{
-  margin-top:14px;
+  margin-top:22px;
   font-family:'Inter',system-ui,sans-serif;
   font-size:clamp(1.4rem,2vw,1.8rem);
   font-weight:300;
@@ -304,7 +304,7 @@ button{font-family:inherit;cursor:pointer}
   line-height:1;
 }
 .hero-timer-caption{
-  margin-top:8px;
+  margin-top:12px;
   font-size:.62rem;
   font-weight:500;
   color:rgba(255,255,255,.45);
@@ -316,6 +316,39 @@ button{font-family:inherit;cursor:pointer}
   color:rgba(255,255,255,.75);
   font-weight:600;
 }
+/* Rotating topic ticker — cycles through debate motions to advertise breadth */
+.hero-timer-topics{
+  margin-top:20px;
+  width:100%;
+  height:42px;
+  position:relative;
+  overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 70%,transparent 100%);
+          mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 70%,transparent 100%);
+}
+.hero-timer-topic{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.68rem;font-weight:500;
+  color:rgba(255,255,255,.55);
+  text-align:center;
+  line-height:1.35;
+  padding:0 6px;
+  opacity:0;
+  transform:translateY(8px);
+  transition:opacity .55s ease,transform .55s ease;
+  font-style:italic;
+}
+.hero-timer-topic.active{opacity:1;transform:translateY(0)}
+.hero-timer-topic::before{
+  content:'"';margin-right:2px;color:rgba(239,68,68,.7);font-style:normal;
+}
+.hero-timer-topic::after{
+  content:'"';margin-left:2px;color:rgba(239,68,68,.7);font-style:normal;
+}
+[data-theme="day"] .hero-timer-topic{color:rgba(0,0,0,.55)}
+[data-theme="day"] .hero-timer-topic::before,
+[data-theme="day"] .hero-timer-topic::after{color:rgba(37,99,235,.7)}
 @keyframes timer-breathe{
   0%,100%{box-shadow:inset 0 0 50px rgba(0,0,0,.85),inset 0 0 100px rgba(180,20,20,.2),0 0 60px rgba(239,68,68,.16),0 0 120px rgba(180,20,20,.12)}
   50%{box-shadow:inset 0 0 50px rgba(0,0,0,.85),inset 0 0 120px rgba(200,30,30,.3),0 0 85px rgba(239,68,68,.28),0 0 150px rgba(200,30,30,.2)}
@@ -540,6 +573,20 @@ button{font-family:inherit;cursor:pointer}
     </div>
     <div class="hero-timer-readout" id="heroTimerReadout">7:11</div>
     <div class="hero-timer-caption">Debate an AI — <strong>out loud</strong></div>
+    <div class="hero-timer-topics" id="heroTimerTopics">
+      <div class="hero-timer-topic active">Should AI write the news?</div>
+      <div class="hero-timer-topic">Open borders, yes or no?</div>
+      <div class="hero-timer-topic">Ban legacy admissions</div>
+      <div class="hero-timer-topic">Tax billionaires out of existence</div>
+      <div class="hero-timer-topic">Mandatory voting</div>
+      <div class="hero-timer-topic">Decriminalize all drugs</div>
+      <div class="hero-timer-topic">Abolish the SAT</div>
+      <div class="hero-timer-topic">Four-day work week</div>
+      <div class="hero-timer-topic">Ban political donations</div>
+      <div class="hero-timer-topic">Free college for all</div>
+      <div class="hero-timer-topic">Ban gas cars by 2035</div>
+      <div class="hero-timer-topic">Reparations now</div>
+    </div>
   </div>
 
   <div class="hero-content">
@@ -800,6 +847,20 @@ try{
     });
   }
 }catch(e){}
+
+// Hero topic ticker — fades through debate motions to advertise breadth.
+(function(){
+  var box=document.getElementById('heroTimerTopics');
+  if(!box)return;
+  var topics=box.querySelectorAll('.hero-timer-topic');
+  if(!topics.length)return;
+  var i=0;
+  setInterval(function(){
+    topics[i].classList.remove('active');
+    i=(i+1)%topics.length;
+    topics[i].classList.add('active');
+  },2800);
+})();
 
 // Hero audio-timer live countdown — loops 7:11 → 0:00 → resets. Pure theatre.
 (function(){
