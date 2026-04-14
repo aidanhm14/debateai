@@ -113,7 +113,32 @@ button{font-family:inherit;cursor:pointer}
   padding:20px 40px;
   display:flex;align-items:center;justify-content:space-between;
 }
-.nav-logo{font-size:1.6rem;font-weight:900;color:var(--text);letter-spacing:-.02em;white-space:nowrap;line-height:1;display:inline-flex;align-items:center}
+.nav-left{display:flex;align-items:center;gap:10px;flex-shrink:0;min-width:0}
+/* Vertical side-nav: secondary links live on the far-left rail so the logo stays clean. */
+.side-nav{
+  position:fixed;left:24px;top:50%;transform:translateY(-50%);
+  z-index:50;
+  display:flex;flex-direction:column;align-items:flex-start;gap:18px;
+  padding:22px 16px;
+  background:rgba(15,15,18,.55);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:18px;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.side-nav a{
+  font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(255,255,255,.62);text-decoration:none;transition:color .2s;
+}
+.side-nav a:hover{color:#fff}
+.side-nav-version{
+  align-self:stretch;text-align:center;
+  padding:4px 10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;
+  font-size:.6rem!important;color:rgba(255,255,255,.55)!important;
+}
+.side-theme-dots{display:flex;gap:8px;margin-top:4px}
+@media(max-width:1100px){.side-nav{display:none}}
+.nav-logo{font-size:1.6rem;font-weight:900;color:var(--text);letter-spacing:-.02em;white-space:nowrap;line-height:1;display:inline-block;flex-shrink:0}
 .nav-logo span{color:var(--accent)}
 /* Tiny version pill next to the logo (Linear/Vercel pattern). Clicks
    through to /changelog. Replaces the old nav "Changelog" link. */
@@ -149,21 +174,22 @@ button{font-family:inherit;cursor:pointer}
 .theme-dot[data-t="crimson"]{background:#ef4444}
 
 /* ── Hero ─────────────────────────── */
-/* Asymmetric layout: content sits ~38% from the left so the audio-timer
-   on the right has actual breathing room instead of sitting on top of
-   the headline. Falls back to centered on tablets/phones where the
-   timer is hidden anyway. */
+/* Two-column layout above 1100px: content on the left, audio-timer on
+   the right, both vertically centered and visually related to each
+   other instead of one being absolute and floating off in a corner.
+   Below 1100px the timer hides and content centers. */
 .hero{
   position:relative;
   min-height:100vh;min-height:100dvh;
-  display:flex;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) clamp(280px,28vw,420px);
   align-items:center;
-  justify-content:flex-start;
-  padding:120px 40px 80px 14vw;
+  gap:48px;
+  padding:140px clamp(60px,8vw,120px) 80px clamp(140px,12vw,200px);
   overflow:hidden;
 }
 @media(max-width:1100px){
-  .hero{justify-content:center;padding:120px 40px 80px}
+  .hero{display:flex;justify-content:center;padding:120px 40px 80px}
 }
 .hero-bg{
   position:absolute;inset:0;z-index:0;
@@ -200,15 +226,15 @@ button{font-family:inherit;cursor:pointer}
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Hero content — left-biased above 1100px so the timer animation on the
-   right has room. Below 1100px the timer hides and content re-centers. */
+/* Hero content — first grid column. Left-aligned so it pairs naturally
+   with the timer in the right column. */
 .hero-content{
   position:relative;z-index:2;
-  text-align:left;max-width:680px;
-  margin-right:auto;
+  text-align:left;max-width:780px;
+  justify-self:start;
 }
 @media(max-width:1100px){
-  .hero-content{text-align:center;margin:0 auto}
+  .hero-content{text-align:center;max-width:700px;margin:0 auto}
 }
 
 /* Neural constellation canvas */
@@ -268,13 +294,14 @@ button{font-family:inherit;cursor:pointer}
    Advertises the voice debate feature. Animated waveform inside a
    glowing red ring, small timer + caption below. Pure eye candy. */
 .hero-timer{
-  position:absolute;
-  right:10vw;
-  top:42%;
-  transform:translateY(-50%);
+  position:relative;
   z-index:3;
-  width:clamp(280px,22vw,360px);
-  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  width:100%;
+  max-width:380px;
+  justify-self:center;
+  align-self:end;
+  margin-bottom:40px;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
   pointer-events:none;
   user-select:none;
 }
@@ -834,19 +861,10 @@ button{font-family:inherit;cursor:pointer}
 
 <!-- Nav -->
 <nav class="nav">
-  <a href="/landing" class="nav-logo"><span>Devil's</span> Advocate.</a>
-  <a href="/changelog" class="nav-version" title="What's new in v1.3">v1.3</a>
+  <div class="nav-left">
+    <a href="/landing" class="nav-logo"><span>Devil's</span> Advocate.</a>
+  </div>
   <div class="nav-right">
-    <div class="nav-links">
-      <a href="#tools">Tools</a>
-      <a href="#how">How It Works</a>
-      <a href="#faq">FAQ</a>
-    </div>
-    <div class="theme-dots">
-      <div class="theme-dot active" data-t="grey" title="Grey"></div>
-      <div class="theme-dot" data-t="day" title="Light"></div>
-      <div class="theme-dot" data-t="crimson" title="Dark"></div>
-    </div>
     <a href="/debate-ai" class="nav-contact" style="border-color:var(--accent);background:var(--accent);color:#fff">Debate AI</a>
     <span class="nav-for-debaters">For debaters →</span>
     <a href="/app#case" class="nav-contact" style="border-color:var(--accent);color:var(--accent)">College</a>
@@ -857,6 +875,18 @@ button{font-family:inherit;cursor:pointer}
     <a href="https://buymeacoffee.com/8idanhm" target="_blank" rel="noopener" class="nav-contact" style="border-color:#f59e0b;color:#f59e0b" title="Support the beta">❤️</a>
   </div>
 </nav>
+
+<!-- Vertical side-nav: secondary links pulled out of the top bar so the logo can breathe. -->
+<aside class="side-nav" aria-label="Secondary navigation">
+  <a href="/changelog" class="side-nav-version" title="What's new in v1.3">v1.3</a>
+  <a href="#tools">Tools</a>
+  <a href="#how">How It Works</a>
+  <a href="#faq">FAQ</a>
+  <div class="side-theme-dots">
+    <div class="theme-dot active" data-t="grey" title="Grey"></div>
+    <div class="theme-dot" data-t="crimson" title="Dark"></div>
+  </div>
+</aside>
 
 <!-- Hero -->
 <section class="hero">
@@ -901,7 +931,7 @@ button{font-family:inherit;cursor:pointer}
       <a href="/app#case" class="hero-cta hero-cta-secondary">Generate Arguments</a>
     </div>
     <div style="margin-top:18px;display:flex;justify-content:center">
-      <button id="googleSignupBtn" type="button" style="display:inline-flex;align-items:center;gap:10px;padding:12px 22px;background:#fff;color:#1f1f1f;border:none;border-radius:999px;font-weight:700;font-size:.88rem;font-family:inherit;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.35);transition:transform .15s,box-shadow .15s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 10px 30px rgba(0,0,0,.45)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 6px 24px rgba(0,0,0,.35)'">
+      <button id="googleSignupBtn" type="button" style="display:inline-flex;align-items:center;gap:10px;padding:12px 22px;background:#2a2a30;color:#e5e7eb;border:1px solid #ffffff14;border-radius:999px;font-weight:700;font-size:.88rem;font-family:inherit;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.35);transition:transform .15s,box-shadow .15s,background .15s" onmouseover="this.style.transform='translateY(-1px)';this.style.background='#33333a';this.style.boxShadow='0 10px 30px rgba(0,0,0,.45)'" onmouseout="this.style.transform='translateY(0)';this.style.background='#2a2a30';this.style.boxShadow='0 6px 24px rgba(0,0,0,.35)'">
         <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
         <span id="googleSignupBtnText">Join the beta with Google → unlimited access for feedback</span>
       </button>
@@ -1619,6 +1649,7 @@ try{
 </script>
 
 <!-- Firebase Google signup: inline init + click handler -->
+<!-- TODO: enable Firebase App Check (reCAPTCHA Enterprise) to gate API key — see Firebase console. -->
 <script>
 (function(){
   var CONFIG = {
