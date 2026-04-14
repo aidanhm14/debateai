@@ -10,8 +10,11 @@ const ALLOWED_MODELS = [
   'claude-haiku-4-5-20251001',
 ];
 
-// Hard cap on max_tokens — competition cases need up to 32k
+// Hard cap on max_tokens — competition cases need up to 32k (authenticated users)
 const MAX_TOKENS_CAP = 32000;
+// Tighter cap for anonymous requests: enough for most learn/debate-ai flows
+// but small enough that abuse can't drain the account in a handful of calls.
+const MAX_TOKENS_CAP_ANON = 8000;
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -41,12 +44,22 @@ function getCorsHeaders(request) {
 
 // Simple in-memory rate limiter (resets per function cold start)
 // TODO 2026-04-15: replace with Upstash KV for persistence across cold starts.
+// Until then: layered windows (minute/hour/day) so cold starts don't erase
+// longer-horizon protection at the same rate as short-horizon protection.
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 15; // authenticated users
-const RATE_LIMIT_MAX_ANON = 5; // unauthenticated callers — tighter, since
-                                // an anonymous client can submit arbitrary
-                                // prompts and we can't bill them.
+const RATE_LIMIT_MAX_ANON = 5; // unauthenticated callers (per minute)
+
+// Layered anon caps. One attacker rotating through requests on a single IP
+// can't hit more than these in each window. Authed users skip these (their
+// usage is metered + billed through Stripe).
+const ANON_LAYERS = [
+  { window: 60_000,    max: 5,   label: 'minute' },
+  { window: 3_600_000, max: 40,  label: 'hour'   },
+  { window: 86_400_000,max: 150, label: 'day'    },
+];
+const anonHistory = new Map(); // ip → array of request timestamps
 
 function checkRateLimit(userId, max = RATE_LIMIT_MAX) {
   const now = Date.now();
@@ -59,6 +72,27 @@ function checkRateLimit(userId, max = RATE_LIMIT_MAX) {
   entry.count++;
   if (entry.count > max) return false;
   return true;
+}
+
+// Layered check for anonymous IPs. Returns {ok, layer} — on failure, `layer`
+// names the window that was exceeded so we can tell the user what happened.
+function checkAnonLayers(ip) {
+  const now = Date.now();
+  const maxWindow = Math.max(...ANON_LAYERS.map(l => l.window));
+  const history = (anonHistory.get(ip) || []).filter(t => now - t < maxWindow);
+  for (const layer of ANON_LAYERS) {
+    const count = history.filter(t => now - t < layer.window).length;
+    if (count >= layer.max) return { ok: false, layer: layer.label };
+  }
+  history.push(now);
+  anonHistory.set(ip, history);
+  // Opportunistic cleanup: if the map has gotten huge, drop the oldest half.
+  if (anonHistory.size > 5000) {
+    const entries = Array.from(anonHistory.entries());
+    anonHistory.clear();
+    entries.slice(-2500).forEach(([k, v]) => anonHistory.set(k, v));
+  }
+  return { ok: true };
 }
 
 export default async (request, context) => {
@@ -141,12 +175,18 @@ export default async (request, context) => {
       );
     }
   } else {
-    // Anonymous path — allow limited unauthenticated access for HS/debate-ai/learn pages
-    // Rate limit anonymous users by IP
+    // Anonymous path — allow limited unauthenticated access for HS/debate-ai/learn pages.
+    // Layered rate limits (minute/hour/day) per client IP.
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
-    if (!checkRateLimit('anon_' + ip, RATE_LIMIT_MAX_ANON)) {
+    const check = checkAnonLayers(ip);
+    if (!check.ok) {
+      const msg = check.layer === 'minute'
+        ? 'Too many requests — please wait a moment.'
+        : check.layer === 'hour'
+          ? 'Hourly free-trial cap reached. Come back in a bit or sign in for higher limits.'
+          : 'Daily free-trial cap reached. Sign in or come back tomorrow.';
       return new Response(
-        JSON.stringify({ error: 'Too many requests. Please wait a moment.' }),
+        JSON.stringify({ error: msg, code: 'ANON_LIMIT_' + check.layer.toUpperCase() }),
         { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
@@ -191,9 +231,12 @@ export default async (request, context) => {
       );
     }
 
-    // Cap max_tokens to prevent excessive usage
-    if (body.max_tokens && body.max_tokens > MAX_TOKENS_CAP) {
-      body.max_tokens = MAX_TOKENS_CAP;
+    // Cap max_tokens to prevent excessive usage. Anon callers get a tighter
+    // cap than authenticated users (cost per request is bounded, so even if
+    // the layered rate limits are somehow bypassed, damage stays small).
+    const tokensCap = userId ? MAX_TOKENS_CAP : MAX_TOKENS_CAP_ANON;
+    if (!body.max_tokens || body.max_tokens > tokensCap) {
+      body.max_tokens = tokensCap;
     }
 
     // Strip tools field — clients should not be able to define tool use
