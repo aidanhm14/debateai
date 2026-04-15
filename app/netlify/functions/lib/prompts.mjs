@@ -1,5 +1,41 @@
 // Auto-extracted static system prompts. Moved server-side to protect IP
-// and reduce client bundle size. Client references these via `_promptId`.
+// and reduce client bundle size. Client references these via `_promptId`
+// with optional `_promptVars` for {{var}} substitution.
+//
+// Resolver helper (shared by claude.mjs, gemini.mjs, grok.mjs). Returns
+// the resolved library text, or null if the id isn't known.
+export function resolvePrompt(promptId, promptVars) {
+  if (!promptId || !PROMPT_LIBRARY[promptId]) return null;
+  let libText = PROMPT_LIBRARY[promptId];
+  if (promptVars && typeof promptVars === 'object') {
+    for (const [k, v] of Object.entries(promptVars)) {
+      if (!/^[A-Za-z0-9_]+$/.test(k)) continue;
+      const needle = `{{${k}}}`;
+      const val = String(v == null ? '' : v);
+      libText = libText.split(needle).join(val);
+    }
+  }
+  return libText;
+}
+
+// Mutates `body` in place: strips _promptId/_promptVars and prepends the
+// resolved library text to body.system. Used by each brain endpoint.
+export function applyPromptLibrary(body) {
+  const promptId = body._promptId;
+  const promptVars = body._promptVars;
+  delete body._promptId;
+  delete body._promptVars;
+  const libText = resolvePrompt(promptId, promptVars);
+  if (!libText) return;
+  if (typeof body.system === 'string') {
+    body.system = libText + (body.system ? '\n\n' + body.system : '');
+  } else if (Array.isArray(body.system)) {
+    body.system = [{ type: 'text', text: libText }, ...body.system];
+  } else {
+    body.system = libText;
+  }
+}
+
 
 export const PROMPT_LIBRARY = {
   // Small utility classifier — cheap call, runs on every motion keystroke.
@@ -66,6 +102,40 @@ Guidelines:
 - "very tight": Opp essentially cannot win. The motion, framing, or caveats have closed off all reasonable opposition ground.
 
 Think about: Does Opp have ground? Can they run a counter-case? Are the caveats fair? Does the framework pre-empt all opposition impacts? Is there a viable straight opp? Would you call this tight if you were judging?`,
+
+  // Single-judge ballot for debate-ai.html. Vars: fmtName, motion, sideLabel
+  singleJudgeBallot: `You are an experienced {{fmtName}} debate judge. Motion: "{{motion}}". User debated {{sideLabel}}. Opponent: AI.
+
+Return your ballot as valid JSON with this exact structure:
+{
+  "winner": "user" or "ai",
+  "decision": "2-3 sentences explaining why the winner won",
+  "speakerPoints": { "user": 27.5, "ai": 27.0 },
+  "keyClash": "The central clash point and who won it",
+  "speeches": [
+    { "code": "PM", "who": "You/AI", "score": 28, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"] }
+  ],
+  "practiceAdvice": "One specific, actionable thing to practice next",
+  "overallStrengths": ["what user did well across the round"],
+  "overallWeaknesses": ["patterns to fix"]
+}
+
+Be BRUTALLY honest. Judge like an experienced circuit judge, not a kind teacher.
+
+JUDGING CRITERIA:
+- Did they have a clear, named framework with a decision rule? Or was it vague?
+- Were warrants specific to the motion or generic filler?
+- Did they do comparative weighing (magnitude, probability, timeframe)?
+- Did they track the flow, call out drops, extend arguments, cross-apply?
+- Did they engage with the opponent's STRONGEST arguments or dodge them?
+- Was signposting clear enough to flow?
+- Were arguments creative/clever or predictable?
+
+Reference SPECIFIC arguments from the transcript by name. Don't say "good argumentation", say "your Coordination Failure argument was strong because [X], but your second argument about [Y] lacked a causal mechanism."
+
+Speaker points 25-30 scale (27 = average, 28 = good, 29 = excellent, 30 = near perfect). "practiceAdvice" should be a SPECIFIC drill, not generic advice. e.g. "Practice extending arguments with new warrants instead of repeating the same point" not "work on rebuttals."
+
+Return ONLY valid JSON, no markdown.`,
 
   // Motion designer from current-events context
   motionDesigner: `You are an elite APDA debate motion designer. You have been given a summary of current events. Your job is to turn one of these into a brilliant, well-scoped debate motion.

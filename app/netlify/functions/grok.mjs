@@ -1,4 +1,5 @@
 // Grok (xAI) proxy — OpenAI-compatible API
+import { applyPromptLibrary } from './lib/prompts.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -80,6 +81,10 @@ export default async (request, context) => {
         { status: 413, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
+
+    // Resolve server-side prompt library references before building the
+    // OpenAI-compatible request. After this, body.system holds the full text.
+    applyPromptLibrary(body);
 
     const model = ALLOWED_MODELS.includes(body.model) ? body.model : 'grok-3-mini';
     const maxTokens = Math.min(body.max_tokens || 4000, MAX_TOKENS_CAP);

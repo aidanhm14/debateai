@@ -913,7 +913,7 @@ async function callAnthropicDirect(body){
 }
 
 // Unified AI call — supports Claude, OpenAI, and xAI streaming formats
-async function callAI(sys, user, onChunk, brainKey){
+async function callAI(sys, user, onChunk, brainKey, opts){
   const brain = BRAINS[brainKey] || BRAINS.claude;
   const pro = isPro();
   const model = pro && brain.proModel ? brain.proModel : brain.model;
@@ -926,6 +926,11 @@ async function callAI(sys, user, onChunk, brainKey){
     messages:[{role:'user',content:user}],
     _feature:'debate-ai',
   };
+  // Server-side prompt library: opts.promptId references PROMPT_LIBRARY[key]
+  // in netlify/functions/lib/prompts.mjs; opts.promptVars supplies {{var}}
+  // substitutions so the static prompt lives server-side.
+  if (opts && opts.promptId) body._promptId = opts.promptId;
+  if (opts && opts.promptVars) body._promptVars = opts.promptVars;
   let currentEndpoint=brain.endpoint;
   let r=await fetch(currentEndpoint,{
     method:'POST',
@@ -2584,41 +2589,13 @@ Be BRUTAL but fair. If the user debated poorly, say so specifically and still fi
   const genFeedback=async(allLog)=>{
     setFbLoading(true);setBallot(null);
     const tx=allLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
-    const sys=`You are an experienced ${fmt.name} debate judge. Motion: "${motion}". User debated ${fmt.sideLabels[side]||side}. Opponent: AI.
-
-Return your ballot as valid JSON with this exact structure:
-{
-  "winner": "user" or "ai",
-  "decision": "2-3 sentences explaining why the winner won",
-  "speakerPoints": { "user": 27.5, "ai": 27.0 },
-  "keyClash": "The central clash point and who won it",
-  "speeches": [
-    { "code": "PM", "who": "You/AI", "score": 28, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"] }
-  ],
-  "practiceAdvice": "One specific, actionable thing to practice next",
-  "overallStrengths": ["what user did well across the round"],
-  "overallWeaknesses": ["patterns to fix"]
-}
-
-Be BRUTALLY honest. Judge like an experienced circuit judge, not a kind teacher.
-
-JUDGING CRITERIA:
-- Did they have a clear, named framework with a decision rule? Or was it vague?
-- Were warrants specific to the motion or generic filler?
-- Did they do comparative weighing (magnitude, probability, timeframe)?
-- Did they track the flow — call out drops, extend arguments, cross-apply?
-- Did they engage with the opponent's STRONGEST arguments or dodge them?
-- Was signposting clear enough to flow?
-- Were arguments creative/clever or predictable?
-
-Reference SPECIFIC arguments from the transcript by name. Don't say "good argumentation" — say "your Coordination Failure argument was strong because [X], but your second argument about [Y] lacked a causal mechanism."
-
-Speaker points 25-30 scale (27 = average, 28 = good, 29 = excellent, 30 = near perfect). "practiceAdvice" should be a SPECIFIC drill, not generic advice — e.g. "Practice extending arguments with new warrants instead of repeating the same point" not "work on rebuttals."
-
-Return ONLY valid JSON, no markdown.`;
+    // Prompt lives server-side as PROMPT_LIBRARY.singleJudgeBallot
     try{
       let raw='';
-      const fb=await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;setFeedback(chunk)},brain);
+      const fb=await callAI('','Full round transcript:\n\n'+tx,chunk=>{raw=chunk;setFeedback(chunk)},brain,{
+        promptId:'singleJudgeBallot',
+        promptVars:{ fmtName:fmt.name, motion:motion, sideLabel:fmt.sideLabels[side]||side },
+      });
       setFeedback(fb);
       // Parse structured ballot
       try{

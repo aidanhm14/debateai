@@ -1,7 +1,7 @@
 // Claude API proxy — strips _feature before forwarding to Anthropic
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
-import { PROMPT_LIBRARY } from './lib/prompts.mjs';
+import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -278,20 +278,10 @@ export default async (request, context) => {
     const feature = body._feature || 'unknown';
     delete body._feature;
 
-    // Prompt library: client may request server-side prompt injection via _promptId.
-    // Unknown ids are ignored (graceful degradation).
-    const promptId = body._promptId;
-    delete body._promptId;
-    if (promptId && PROMPT_LIBRARY[promptId]) {
-      const libText = PROMPT_LIBRARY[promptId];
-      if (typeof body.system === 'string') {
-        body.system = libText + '\n\n' + body.system;
-      } else if (Array.isArray(body.system)) {
-        body.system = [{ type: 'text', text: libText }, ...body.system];
-      } else {
-        body.system = libText;
-      }
-    }
+    // Prompt library: client may request server-side prompt injection via
+    // _promptId (+ optional _promptVars for {{var}} substitution). Shared
+    // helper so gemini.mjs and grok.mjs resolve the same way.
+    applyPromptLibrary(body);
 
     // Validate model — only whitelisted models allowed
     if (!body.model || !ALLOWED_MODELS.includes(body.model)) {
