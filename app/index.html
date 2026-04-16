@@ -73,13 +73,33 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@1,700;1,900&family=Sora:wght@300;400;600;700;800&display=swap" rel="stylesheet"><link href="https://api.fontshare.com/v2/css?f[]=clash-display@200,300,400,500,600,700&display=swap" rel="stylesheet"><style>
+/* ── Theme Variables (matches landing.html exactly) ─────────────── */
+:root,[data-theme="grey"]{
+  --bg:#111;--bg-card:rgba(255,255,255,.03);--border:rgba(255,255,255,.08);
+  --text:#fff;--text-dim:rgba(255,255,255,.5);--text-ghost:rgba(255,255,255,.15);
+  --accent:#ef4444;--accent-glow:rgba(200,30,30,.35);--accent-glow2:rgba(80,20,20,.25);
+  --hero-grad:linear-gradient(135deg,#1a1a1a 0%,#111 25%,#181818 50%,#111 75%,#1a1a1a 100%);
+}
+[data-theme="day"]{
+  --bg:#f5f5f7;--bg-card:rgba(0,0,0,.03);--border:rgba(0,0,0,.1);
+  --text:#111;--text-dim:rgba(0,0,0,.55);--text-ghost:rgba(0,0,0,.12);
+  --accent:#2563eb;--accent-glow:rgba(37,99,235,.08);--accent-glow2:rgba(37,99,235,.04);
+  --hero-grad:linear-gradient(135deg,#eef2f7 0%,#f5f5f7 25%,#e8edf4 50%,#f5f5f7 75%,#eef2f7 100%);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-card:rgba(255,40,40,.03);--border:rgba(239,68,68,.12);
+  --text:#fff;--text-dim:rgba(255,255,255,.55);--text-ghost:rgba(239,68,68,.15);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);--accent-glow2:rgba(239,68,68,.2);
+  --hero-grad:linear-gradient(135deg,#0a0000 0%,#000 25%,#0d0204 50%,#000 75%,#0a0003 100%);
+}
+
 /* ── Reset & Base ─────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{height:100%;width:100%;overflow-x:hidden}body{min-height:100%;height:100%;width:100%;overflow-x:hidden;margin:0}#root{min-height:100%;width:100%;position:relative;z-index:1}
 /* App bg matches landing.html (#111 instead of the old #2b2b30 washed-out grey).
    This + the bg-canvas gradient below + the hidden decorative shapes are what
    make the app read as the same product as the marketing site. */
-body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeSpeed;background:#111;color:#e8ecf4;font-size:18px}
+body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeSpeed;background:var(--bg,#111);color:var(--text,#e8ecf4);font-size:18px;transition:background .4s,color .4s}
 
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes letterEntrance{0%{opacity:0;transform:translateY(-8px)}60%{opacity:1;transform:translateY(1px)}100%{transform:translateY(0)}}
@@ -103,11 +123,11 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
    same two drifting radial-blur blobs, same fractal-noise grain overlay.
    This is what makes the in-app feel like the same product as the
    marketing site instead of a separate dashboard. */
-.bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;background:#111}
+.bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;background:var(--bg,#111)}
 .bg-canvas::before{
   content:'';position:absolute;
   top:-20%;right:-10%;width:80%;height:120%;
-  background:radial-gradient(ellipse at center,rgba(239,68,68,.12) 0%,transparent 70%);
+  background:radial-gradient(ellipse at center,var(--accent-glow,rgba(239,68,68,.12)) 0%,transparent 70%);
   filter:blur(100px);
   pointer-events:none;
   animation:bgDrift 12s ease-in-out infinite alternate;
@@ -115,7 +135,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .bg-canvas::after{
   content:'';position:absolute;
   bottom:-10%;left:-10%;width:60%;height:80%;
-  background:radial-gradient(ellipse at center,rgba(239,68,68,.07) 0%,transparent 70%);
+  background:radial-gradient(ellipse at center,var(--accent-glow2,rgba(239,68,68,.07)) 0%,transparent 70%);
   filter:blur(80px);
   pointer-events:none;
   animation:bgDrift2 14s ease-in-out infinite alternate;
@@ -163,27 +183,28 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
   padding:0 32px;height:52px;
   display:flex;align-items:center;justify-content:space-between;
   background:rgba(17,17,17,.88);
-  border-bottom:1px solid rgba(255,255,255,.07);
+  background:color-mix(in srgb, var(--bg,#111) 88%, transparent);
+  border-bottom:1px solid var(--border,rgba(255,255,255,.07));
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  transition:top .2s ease;
+  transition:top .2s ease, background .4s, border-color .4s;
 }
 .app-topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0}
 .app-topbar-logo{
   font-size:1.15rem;font-weight:900;letter-spacing:-.02em;
-  color:#fff;cursor:pointer;white-space:nowrap;line-height:1;
+  color:var(--text,#fff);cursor:pointer;white-space:nowrap;line-height:1;
   text-decoration:none;display:inline-block;
 }
-.app-topbar-logo span{color:#ef4444}
+.app-topbar-logo span{color:var(--accent,#ef4444)}
 .app-topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
 /* Pill links in top bar (Landing, HS Edition, theme toggle) */
 .topbar-pill{
   font-size:.72rem;padding:0;border-radius:0;font-weight:500;
   line-height:18px;border:none;
-  background:transparent;color:rgba(255,255,255,.5);
+  background:transparent;color:var(--text-dim,rgba(255,255,255,.5));
   cursor:pointer;transition:.2s;text-decoration:none;letter-spacing:.04em;
   display:inline-block;white-space:nowrap;font-family:inherit;
 }
-.topbar-pill:hover{color:#fff}
+.topbar-pill:hover{color:var(--text,#fff)}
 .topbar-pill.accent{border-color:rgba(239,68,68,.25);color:#f87171;background:rgba(239,68,68,.08)}
 .topbar-pill.accent:hover{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.15)}
 .topbar-pill.plan-badge{cursor:pointer}
@@ -244,17 +265,17 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 
 /* ── Nav Tabs ─────────────────────────────────── */
 /* Floating tab islands */
-.nav{display:flex;gap:10px;margin:0 auto;padding:20px 32px 24px;flex-wrap:nowrap;justify-content:center;align-items:center;background:rgba(17,17,17,.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:none;max-width:100%;width:100%;position:sticky;top:84px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.nav{display:flex;gap:10px;margin:0 auto;padding:20px 32px 24px;flex-wrap:nowrap;justify-content:center;align-items:center;background:rgba(17,17,17,.95);background:color-mix(in srgb, var(--bg,#111) 95%, transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:none;max-width:100%;width:100%;position:sticky;top:84px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none;transition:background .4s}
 .nav::-webkit-scrollbar{display:none}
 @media(max-width:640px){.nav{top:80px;padding:12px 14px 10px;gap:8px;justify-content:flex-start}}
 .nav-btn{
-  background:rgba(255,255,255,.05);border:none;color:rgba(255,255,255,.6);
+  background:var(--bg-card,rgba(255,255,255,.05));border:none;color:var(--text-dim,rgba(255,255,255,.6));
   padding:11px 24px;border-radius:12px;font-size:.82rem;font-weight:600;
   letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:all .2s ease;
   font-family:'Inter',system-ui,sans-serif;white-space:nowrap;text-decoration:none;flex-shrink:0;
 }
-.nav-btn:hover{color:#fff;background:rgba(255,255,255,.1)}
-.nav-btn.active,.nav-btn.active-orange{color:#fff;background:#ef4444;box-shadow:0 4px 20px rgba(239,68,68,.35)}
+.nav-btn:hover{color:var(--text,#fff);background:var(--bg-card,rgba(255,255,255,.1));filter:brightness(1.15)}
+.nav-btn.active,.nav-btn.active-orange{color:#fff;background:var(--accent,#ef4444);box-shadow:0 4px 20px var(--accent-glow,rgba(239,68,68,.35))}
 .nav-back{transition:opacity .2s,transform .15s}.nav-back:hover:not(:disabled){transform:translateX(-2px)}
 .nav-back:disabled{cursor:default;pointer-events:none}
 
@@ -317,22 +338,22 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 }
 .panel:hover{border:none;box-shadow:none}
 .panel textarea,.panel input[type="text"]{width:100%;box-sizing:border-box}
-.panel h2,.panel-h2{font-size:clamp(1.6rem,3.2vw,2.4rem);font-weight:800;letter-spacing:-.02em;line-height:1.15;margin:0 0 14px;color:#fff}
-.panel h3,.panel-h3{font-size:clamp(1.15rem,2vw,1.45rem);font-weight:700;letter-spacing:-.01em;line-height:1.25;margin:0 0 10px;color:#f1f5f9}
-.panel-eyebrow{display:inline-block;font-size:.72rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444;margin-bottom:12px}
+.panel h2,.panel-h2{font-size:clamp(1.6rem,3.2vw,2.4rem);font-weight:800;letter-spacing:-.02em;line-height:1.15;margin:0 0 14px;color:var(--text,#fff)}
+.panel h3,.panel-h3{font-size:clamp(1.15rem,2vw,1.45rem);font-weight:700;letter-spacing:-.01em;line-height:1.25;margin:0 0 10px;color:var(--text,#f1f5f9)}
+.panel-eyebrow{display:inline-block;font-size:.72rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:12px}
 .panel-inner{
-  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  background:var(--bg-card,rgba(255,255,255,.03));border:1px solid var(--border,rgba(255,255,255,.06));
   border-radius:14px;padding:20px 22px;margin-top:14px;
 }
 
 /* ── Form Elements ────────────────────────────── */
-label.field-label{display:block;font-size:.85rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#ef4444;margin-bottom:10px}
+label.field-label{display:block;font-size:.85rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:10px}
 label.field-label.green{color:#ef4444}
 /* Flat translucent inputs matching landing — dropped the inset shadow
    and reduced background opacity for a cleaner, more modern feel. */
 textarea,select,input[type="text"]{
-  width:100%;background:rgba(255,255,255,.04);color:#fff;
-  border:1px solid rgba(255,255,255,.1);border-radius:14px;
+  width:100%;background:var(--bg-card,rgba(255,255,255,.04));color:var(--text,#fff);
+  border:1px solid var(--border,rgba(255,255,255,.1));border-radius:14px;
   padding:16px 20px;font-size:1rem;font-family:inherit;
   resize:vertical;outline:none;transition:.25s;
 }
@@ -469,18 +490,18 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .depth-selector{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
 .depth-card{
   flex:1;min-width:140px;padding:18px 20px;border-radius:14px;
-  border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);cursor:pointer;
+  border:1.5px solid var(--border,rgba(255,255,255,.1));background:var(--bg-card,rgba(255,255,255,.03));cursor:pointer;
   transition:.25s;text-align:center;position:relative;overflow:hidden;
 }
-.depth-card::before{content:'';position:absolute;inset:0;border-radius:14px;opacity:0;transition:.25s;background:linear-gradient(135deg,rgba(239,68,68,.06),transparent)}
-.depth-card:hover{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.06);transform:translateY(-1px)}
+.depth-card::before{content:'';position:absolute;inset:0;border-radius:14px;opacity:0;transition:.25s;background:linear-gradient(135deg,var(--accent-glow2,rgba(239,68,68,.06)),transparent)}
+.depth-card:hover{border-color:var(--text-ghost,rgba(255,255,255,.2));background:var(--bg-card,rgba(255,255,255,.06));filter:brightness(1.1);transform:translateY(-1px)}
 .depth-card:hover::before{opacity:1}
-.depth-card.active{border-color:#ef4444;background:rgba(239,68,68,.06)}
-.depth-card.active::before{opacity:1;background:linear-gradient(135deg,rgba(239,68,68,.1),rgba(239,68,68,.02))}
-.depth-card .depth-title{font-size:1.05rem;font-weight:700;color:#fff;margin-bottom:6px}
-.depth-card .depth-desc{font-size:.82rem;color:rgba(255,255,255,.55);line-height:1.4}
-.depth-card.active .depth-title{color:#ef4444}
-.depth-card .depth-words{font-size:.78rem;color:rgba(255,255,255,.4);margin-top:8px;font-style:italic}
+.depth-card.active{border-color:var(--accent,#ef4444);background:var(--accent-glow2,rgba(239,68,68,.06))}
+.depth-card.active::before{opacity:1;background:linear-gradient(135deg,var(--accent-glow,rgba(239,68,68,.1)),transparent)}
+.depth-card .depth-title{font-size:1.05rem;font-weight:700;color:var(--text,#fff);margin-bottom:6px}
+.depth-card .depth-desc{font-size:.82rem;color:var(--text-dim,rgba(255,255,255,.55));line-height:1.4}
+.depth-card.active .depth-title{color:var(--accent,#ef4444)}
+.depth-card .depth-words{font-size:.78rem;color:var(--text-ghost,rgba(255,255,255,.4));margin-top:8px;font-style:italic}
 
 /* ── Thinking Logo ─────────────────────────────── */
 .thinking-container{
@@ -1213,9 +1234,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
    like landing day mode. */
 html{background:#111}html:has(body.light-theme){background:#f5f5f7!important}body.light-theme,body.light-theme~*{background:#f5f5f7!important}body.light-theme{background:#f5f5f7!important;color:#111!important}
 .light-theme .app{background:transparent!important;--text-primary:#111;--text-muted:rgba(0,0,0,.55);--card-bg:#fff;--card-border:rgba(0,0,0,.1);--adaptive-on-bg:#eef4ff;--adaptive-on-border:#bfdbfe;--adaptive-off-bg:#f5f5f7;--adaptive-off-border:rgba(0,0,0,.1)}
-.light-theme .bg-canvas{background:linear-gradient(135deg,#eef2f7 0%,#f5f5f7 25%,#e8edf4 50%,#f5f5f7 75%,#eef2f7 100%)!important}
-.light-theme .bg-canvas::before{background:radial-gradient(ellipse at center,rgba(37,99,235,.08) 0%,transparent 70%)!important}
-.light-theme .bg-canvas::after{background:radial-gradient(ellipse at center,rgba(37,99,235,.04) 0%,transparent 70%)!important}
+.light-theme .bg-canvas{background:var(--hero-grad,linear-gradient(135deg,#eef2f7 0%,#f5f5f7 25%,#e8edf4 50%,#f5f5f7 75%,#eef2f7 100%))!important}
+.light-theme .bg-canvas::before{background:radial-gradient(ellipse at center,var(--accent-glow,rgba(37,99,235,.08)) 0%,transparent 70%)!important}
+.light-theme .bg-canvas::after{background:radial-gradient(ellipse at center,var(--accent-glow2,rgba(37,99,235,.04)) 0%,transparent 70%)!important}
 .light-theme .bg-grain{opacity:.02!important;filter:invert(1)}
 .light-theme .bg-canvas canvas{display:none!important}
 .light-theme .bg-debate-side::before,.light-theme .bg-debate-side::after{border-color:#00000008!important}
@@ -1231,8 +1252,8 @@ html{background:#111}html:has(body.light-theme){background:#f5f5f7!important}bod
 .light-theme .logo .white{color:#111!important;text-shadow:none!important;font-weight:500!important;letter-spacing:1px!important}
 /* ── Light Theme — Day palette (matches landing day mode) ─── */
 .light-theme .subtitle{color:rgba(0,0,0,.55)!important}
-.light-theme .nav-btn{background:rgba(0,0,0,.03)!important;color:rgba(0,0,0,.55)!important;border-color:rgba(0,0,0,.1)!important}
-.light-theme .nav-btn:hover{background:rgba(37,99,235,.08)!important;color:#2563eb!important;border-color:rgba(37,99,235,.3)!important}
+.light-theme .nav-btn{background:var(--bg-card)!important;color:var(--text-dim)!important;border-color:var(--border)!important}
+.light-theme .nav-btn:hover{background:rgba(37,99,235,.08)!important;color:var(--accent)!important;border-color:rgba(37,99,235,.3)!important}
 .light-theme .nav-btn.active{background:#111!important;color:#fff!important;border-color:#111!important;box-shadow:0 2px 12px rgba(0,0,0,.15)!important}
 .light-theme .nav{background:transparent!important;border:none!important;box-shadow:none!important}
 .light-theme .hero-eyebrow{color:#2563eb!important;background:rgba(37,99,235,.06)!important;border-color:rgba(37,99,235,.28)!important}
@@ -11677,7 +11698,7 @@ function App() {
   const [locale, setLocale] = useState(() => { try { return localStorage.getItem('debateos-locale') || 'en' } catch(e) { return 'en' } });
   const [localeStrings, setLocaleStrings] = useState(null);
   useEffect(() => { try { sessionStorage.setItem('debateos-byok', userApiKey) } catch(e) {} }, [userApiKey]);
-  useEffect(() => { try { localStorage.setItem('debateos-theme', theme) } catch(e) {} document.body.classList.remove('light-theme','crimson-theme'); if(theme==='light') document.body.classList.add('light-theme'); if(theme==='dark') document.body.classList.add('crimson-theme'); document.documentElement.style.background = theme==='light'?'#f0f4fc':theme==='dark'?'#120808':'#111'; }, [theme]);
+  useEffect(() => { try { localStorage.setItem('debateos-theme', theme) } catch(e) {} document.body.classList.remove('light-theme','crimson-theme'); if(theme==='light') document.body.classList.add('light-theme'); if(theme==='dark') document.body.classList.add('crimson-theme'); document.documentElement.style.background = theme==='light'?'#f5f5f7':theme==='dark'?'#000':'#111'; var dataTheme = theme==='light'?'day':theme==='dark'?'crimson':'grey'; document.documentElement.setAttribute('data-theme', dataTheme); }, [theme]);
   useEffect(() => { __byokKey = userApiKey || null; }, [userApiKey]);
   // Load locale strings
   useEffect(() => {
