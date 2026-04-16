@@ -244,7 +244,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 
 /* ── Nav Tabs ─────────────────────────────────── */
 /* Floating tab islands — no background bar */
-.nav{display:flex;gap:10px;margin:0 auto;padding:16px 32px 14px;flex-wrap:nowrap;justify-content:center;align-items:center;background:transparent;border:none;max-width:100%;width:100%;position:sticky;top:84px;z-index:999;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.nav{display:flex;gap:10px;margin:0 auto;padding:16px 32px 14px;flex-wrap:nowrap;justify-content:center;align-items:center;background:transparent;border:none;max-width:100%;width:100%;position:sticky;top:84px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
 @media(max-width:640px){.nav{top:80px;padding:12px 14px 10px;gap:8px;justify-content:flex-start}}
 .nav-btn{
@@ -261,7 +261,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 /* "Other" dropdown */
 .nav-other-wrap{position:relative;flex-shrink:0}
 .nav-other-trigger{cursor:pointer}
-.nav-other-dropdown{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:180px;background:rgba(24,24,28,.97);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:8px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 20px 60px rgba(0,0,0,.6);z-index:1000}
+.nav-other-dropdown{display:none;position:fixed;top:auto;right:auto;min-width:200px;background:rgba(24,24,28,.98);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:8px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 20px 60px rgba(0,0,0,.7);z-index:10000}
 .nav-other-wrap.open .nav-other-dropdown{display:flex;flex-direction:column;gap:2px;animation:dropIn .15s ease-out}
 @keyframes dropIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 .nav-other-item{background:transparent;border:none;color:rgba(255,255,255,.55);padding:9px 14px;border-radius:8px;font-size:.78rem;font-weight:500;cursor:pointer;text-align:left;font-family:'Inter',system-ui,sans-serif;transition:all .15s;text-decoration:none;display:block;width:100%}
@@ -12109,7 +12109,21 @@ function App() {
         React.createElement('div',{className:'nav-other-wrap'},
           React.createElement('button',{
             className:'nav-btn nav-other-trigger'+(TABS_OTHER.some(tb=>tab===tb.id)?' active':''),
-            onClick:(e)=>{e.currentTarget.parentElement.classList.toggle('open');}
+            onClick:(e)=>{
+              const wrap=e.currentTarget.parentElement;
+              const dd=wrap.querySelector('.nav-other-dropdown');
+              const isOpen=wrap.classList.contains('open');
+              if(!isOpen&&dd){
+                const r=e.currentTarget.getBoundingClientRect();
+                dd.style.top=(r.bottom+6)+'px';
+                dd.style.right=(window.innerWidth-r.right)+'px';
+              }
+              wrap.classList.toggle('open');
+              if(!isOpen){
+                const close=(ev)=>{if(!wrap.contains(ev.target)){wrap.classList.remove('open');document.removeEventListener('click',close);}};
+                setTimeout(()=>document.addEventListener('click',close),0);
+              }
+            }
           }, TABS_OTHER.find(tb=>tab===tb.id) ? t(TABS_OTHER.find(tb=>tab===tb.id).i18n, TABS_OTHER.find(tb=>tab===tb.id).label) : 'Other \u25BE'),
           React.createElement('div',{className:'nav-other-dropdown'},
             TABS_OTHER.map(tb =>
