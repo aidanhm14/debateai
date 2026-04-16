@@ -3155,6 +3155,7 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
                 el('div', { className:'case-item-meta' },
                   el('span', null, (c.side||'') + ' \u00B7 ' + (c.format||'') + ' \u00B7 ' + new Date(c.savedAt).toLocaleDateString()),
                   el('div', {style:{display:'flex',gap:6,alignItems:'center'}},
+                    (c.versions && c.versions.length > 1) && el('span', {title:c.versions.length+' versions', style:{fontSize:'.62rem',fontWeight:700,padding:'1px 6px',borderRadius:6,background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.3)'}}, 'v'+c.versions.length),
                     el('span', { className:'case-item-depth' }, c.depth),
                     c.notes && el('span', {style:{fontSize:'.65rem',color:'#f59e0b'}}, '\uD83D\uDCDD'),
                   )
@@ -3201,9 +3202,29 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
                         c.notes || t('savedCases.clickToAddNotes','Click to add notes...')
                       ),
                 ),
+                // Version history
+                (c.versions && c.versions.length > 1) && el('div', {style:{marginBottom:8,padding:'6px 10px',background:'rgba(59,130,246,.05)',border:'1px solid rgba(59,130,246,.15)',borderRadius:8}},
+                  el('div', {style:{fontSize:'.65rem',color:'#60a5fa',fontWeight:700,marginBottom:4,textTransform:'uppercase',letterSpacing:'1px'}}, 'Version History ('+c.versions.length+')'),
+                  c.versions.slice().reverse().map((v,i)=>
+                    el('div', {key:i, style:{fontSize:'.7rem',color:'#94a3b8',padding:'2px 0',display:'flex',justifyContent:'space-between'}},
+                      el('span', null, 'v'+(c.versions.length-i)),
+                      el('span', {style:{color:'#64748b'}}, new Date(v.savedAt).toLocaleString()),
+                    )
+                  )
+                ),
                 // Actions
                 el('div', {style:{display:'flex',gap:6,flexWrap:'wrap'}},
                   el('button', {onClick:()=>{onSelect(c);onClose();}, style:{fontSize:'.7rem',padding:'4px 10px',background:'#3b82f620',border:'1px solid #3b82f640',borderRadius:6,color:'#60a5fa',cursor:'pointer',fontFamily:'inherit',fontWeight:600}}, t('savedCases.loadInCaseGen','Load in Case Gen')),
+                  el('button', {onClick:async ()=>{
+                    try {
+                      const payload = { motion:c.motion, side:c.side, format:c.format, depth:c.depth, output:c.output||c.text||'', savedAt:c.savedAt };
+                      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+                      const url = location.origin + location.pathname + '?share=' + b64;
+                      if (url.length > 6000) { alert('Case too large to share via URL. Export instead.'); return; }
+                      await navigator.clipboard.writeText(url);
+                      alert('Share link copied to clipboard!\n\n' + url);
+                    } catch(e){ alert('Copy failed: '+e.message); }
+                  }, style:{fontSize:'.7rem',padding:'4px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'#4ade80',cursor:'pointer',fontFamily:'inherit',fontWeight:600}}, '🔗 Share Link'),
                   onExport && el('button', {onClick:()=>onExport(c), style:{fontSize:'.7rem',padding:'4px 10px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:6,color:'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, t('savedCases.export','Export')),
                   el('button', {onClick:()=>onDelete(c.id), style:{fontSize:'.7rem',padding:'4px 10px',background:'#ef444410',border:'1px solid #ef444430',borderRadius:6,color:'#f87171',cursor:'pointer',fontFamily:'inherit'}}, t('savedCases.delete','Delete')),
                 ),
@@ -12094,6 +12115,15 @@ function App() {
     try { localStorage.setItem('debateos-welcomed','1'); } catch(e) {}
   }, []);
 
+  // Shared-case viewer (from ?share=<base64>)
+  const [sharedCase, setSharedCase] = useState(() => {
+    try {
+      const p = new URLSearchParams(location.search).get('share');
+      if (!p) return null;
+      return JSON.parse(decodeURIComponent(escape(atob(p))));
+    } catch(e) { return null; }
+  });
+
   // Streak + usage meter for topbar
   const [streakCount, setStreakCount] = useState(() => getStreak());
   const [anonUsed, setAnonUsed] = useState(() => getAnonUsage());
@@ -12461,6 +12491,23 @@ function App() {
           React.createElement('div', {style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
             React.createElement('button', {className:'btn btn-primary', onClick:()=>{setBillingSuccess(false);navigateTab('case');}, style:{padding:'12px 28px',fontSize:'.92rem'}}, 'Start Building Cases'),
             React.createElement('button', {className:'btn', onClick:()=>setBillingSuccess(false), style:{padding:'12px 20px',fontSize:'.88rem',color:'var(--text-muted,#94a3b8)'}}, 'Explore'),
+          ),
+        ),
+      ),
+      // Shared case viewer (from ?share= URL)
+      sharedCase && React.createElement('div',{className:'auth-overlay',onClick:e=>{if(e.target===e.currentTarget){setSharedCase(null);history.replaceState({},'',location.pathname);}}},
+        React.createElement('div',{style:{background:'#1a1a1e',border:'1px solid rgba(255,255,255,.1)',borderRadius:16,padding:'28px 32px',maxWidth:800,width:'92%',maxHeight:'85vh',overflow:'auto',color:'#e2e8f0'}},
+          React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16,gap:16}},
+            React.createElement('div',null,
+              React.createElement('div',{style:{fontSize:'.65rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:6}},'Shared Case · '+(sharedCase.side||'')+' · '+(sharedCase.format||'')),
+              React.createElement('h2',{style:{margin:0,fontSize:'1.4rem',fontWeight:800,lineHeight:1.3}}, sharedCase.motion),
+            ),
+            React.createElement('button',{onClick:()=>{setSharedCase(null);history.replaceState({},'',location.pathname);},style:{background:'none',border:'none',color:'#64748b',cursor:'pointer',fontSize:'1.4rem',padding:'4px 8px'}},'✕'),
+          ),
+          React.createElement('div',{style:{marginTop:16,padding:'20px 24px',background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.06)',borderRadius:12,whiteSpace:'pre-wrap',fontSize:'.9rem',lineHeight:1.7}}, sharedCase.output || '(no content)'),
+          React.createElement('div',{style:{marginTop:16,display:'flex',gap:10,flexWrap:'wrap'}},
+            React.createElement('button',{className:'btn btn-orange',onClick:()=>{setLoadedCase({...sharedCase,id:'shared-'+Date.now()});navigateTab('case');setSharedCase(null);history.replaceState({},'',location.pathname);},style:{fontSize:'.85rem',padding:'10px 18px'}}, 'Open in Case Gen'),
+            React.createElement('button',{className:'btn',onClick:()=>{navigator.clipboard.writeText(sharedCase.output||'');},style:{fontSize:'.85rem',padding:'10px 18px',background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',color:'#e2e8f0'}}, 'Copy Text'),
           ),
         ),
       ),
