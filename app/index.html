@@ -265,7 +265,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 
 /* ── Nav Tabs ─────────────────────────────────── */
 /* Floating tab islands */
-.nav{display:flex;gap:16px;margin:0 auto 24px;padding:4px 32px;flex-wrap:nowrap;justify-content:center;align-items:center;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:none!important;box-shadow:none!important;max-width:100%;width:100%;position:sticky;top:56px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.nav{display:flex;gap:16px;margin:0 auto 48px;padding:4px 32px;flex-wrap:nowrap;justify-content:center;align-items:center;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:none!important;box-shadow:none!important;max-width:100%;width:100%;position:sticky;top:56px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
 @media(max-width:640px){.nav{top:80px;padding:12px 14px 10px;gap:8px;justify-content:flex-start}}
 .nav-btn{
@@ -1629,6 +1629,45 @@ function safeError(err) {
   if (msg.includes('timeout') || msg.includes('Timeout')) return 'Request timed out. Try again with a shorter input.';
   if (msg.length > 120) return 'Something went wrong. Please try again.';
   return msg;
+}
+
+/* ═══════════════════════════════════════════════════
+   STREAKS — daily activity tracker (localStorage)
+   ═══════════════════════════════════════════════════ */
+function _todayKey() { const d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function getStreak() {
+  try {
+    const s = JSON.parse(localStorage.getItem('debateos-streak') || '{}');
+    const today = _todayKey();
+    if (!s.lastActive) return 0;
+    if (s.lastActive === today) return s.count || 1;
+    // yesterday check
+    const y = new Date(); y.setDate(y.getDate()-1);
+    const ykey = y.getFullYear()+'-'+(y.getMonth()+1)+'-'+y.getDate();
+    if (s.lastActive === ykey) return s.count || 1;
+    return 0; // streak broken
+  } catch(e) { return 0; }
+}
+function touchStreak() {
+  try {
+    const s = JSON.parse(localStorage.getItem('debateos-streak') || '{}');
+    const today = _todayKey();
+    if (s.lastActive === today) return s.count || 1;
+    const y = new Date(); y.setDate(y.getDate()-1);
+    const ykey = y.getFullYear()+'-'+(y.getMonth()+1)+'-'+y.getDate();
+    const newCount = (s.lastActive === ykey) ? (s.count||0)+1 : 1;
+    localStorage.setItem('debateos-streak', JSON.stringify({ lastActive: today, count: newCount }));
+    return newCount;
+  } catch(e) { return 0; }
+}
+/* Funnel analytics — landing → first case → second case → saved */
+function funnelEvent(stage, meta) {
+  try {
+    const key = 'debateos-funnel';
+    const f = JSON.parse(localStorage.getItem(key) || '{}');
+    if (!f[stage]) { f[stage] = Date.now(); localStorage.setItem(key, JSON.stringify(f)); }
+    logBetaEvent('tab', { funnel_stage: stage, ...(meta||{}) });
+  } catch(e) {}
 }
 
 function logBetaEvent(event, data) {
@@ -11898,15 +11937,45 @@ function App() {
     try { localStorage.setItem('debateos-welcomed','1'); } catch(e) {}
   }, []);
 
+  // Streak + usage meter for topbar
+  const [streakCount, setStreakCount] = useState(() => getStreak());
+  const [anonUsed, setAnonUsed] = useState(() => getAnonUsage());
+  useEffect(() => {
+    funnelEvent('landing_arrive', { referrer: document.referrer || 'direct' });
+    const h = () => { setAnonUsed(getAnonUsage()); setStreakCount(getStreak()); };
+    window.addEventListener('storage', h);
+    const iv = setInterval(h, 3000);
+    return () => { window.removeEventListener('storage', h); clearInterval(iv); };
+  }, []);
+
   const saveCase = useCallback((caseData) => {
-    const newCase = { ...caseData, id: Date.now().toString(), savedAt: new Date().toISOString() };
+    // Case version history: if we have a loadedCase and motion+side match, push a new version onto existing case.
     setSavedCases(prev => {
-      const updated = [newCase, ...prev];
+      const existing = prev.find(c =>
+        c.motion === caseData.motion &&
+        c.side === caseData.side &&
+        c.format === caseData.format &&
+        (Date.now() - new Date(c.savedAt).getTime() < 1000*60*60*24*30) // within 30 days
+      );
+      let updated;
+      if (existing) {
+        // Push a new version onto the existing case
+        const newVersion = { ...caseData, savedAt: new Date().toISOString() };
+        const versions = [...(existing.versions || [{ ...existing }]), newVersion];
+        const merged = { ...existing, ...caseData, versions, savedAt: new Date().toISOString(), id: existing.id };
+        updated = [merged, ...prev.filter(c => c.id !== existing.id)];
+      } else {
+        const newCase = { ...caseData, id: Date.now().toString(), savedAt: new Date().toISOString(), versions: [{ ...caseData, savedAt: new Date().toISOString() }] };
+        updated = [newCase, ...prev];
+      }
       persistCases(updated);
       return updated;
     });
     setToast('Case saved!');
     setTimeout(() => setToast(''), 2500);
+    touchStreak();
+    setStreakCount(getStreak());
+    funnelEvent('case_saved');
     // Log insight for recursive learning
     logInsight('case_feedback', { motion: (caseData.motion||'').substring(0,200), side: caseData.side, depth: caseData.depth, format: caseData.format, mode: caseData.mode, action: 'saved' });
   }, []);
@@ -12058,8 +12127,19 @@ function App() {
             '\u00A0Advocate.'
           ),
         ),
-        // Right: saved-cases toggle + clean nav links + user
+        // Right: streak + usage + saved-cases toggle + clean nav links + user
         React.createElement('div',{className:'app-topbar-right'},
+          streakCount > 0 && React.createElement('span',{
+            className:'topbar-pill',
+            title:streakCount+'-day prep streak',
+            style:{background:'rgba(239,68,68,.12)',borderColor:'rgba(239,68,68,.3)',color:'#fca5a5',fontWeight:700,padding:'4px 10px'},
+          }, '🔥 '+streakCount),
+          !user && anonUsed >= 0 && React.createElement('span',{
+            className:'topbar-pill',
+            title:'Free requests used',
+            style:{background:anonUsed>=getAnonLimit()?'rgba(239,68,68,.18)':'rgba(255,255,255,.04)',borderColor:anonUsed>=getAnonLimit()?'rgba(239,68,68,.4)':'rgba(255,255,255,.1)',color:anonUsed>=getAnonLimit()?'#fca5a5':'rgba(255,255,255,.6)',fontWeight:600,padding:'4px 10px'},
+            onClick:()=>setShowAuth(true),
+          }, anonUsed+'/'+getAnonLimit()+' free'),
           React.createElement('button',{
             className:'cases-toggle topbar-pill',
             onClick:()=>setSidebarOpen(true),
