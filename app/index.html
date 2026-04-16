@@ -11707,15 +11707,17 @@ function LiveDebates({ user, team, onNavigateTab }) {
 
 
 const TABS_PRIMARY = [
+  {id:'topics',label:'Topics',i18n:'nav.topics'},
   {id:'case',label:'Case Gen',i18n:'nav.caseGen'},
   {id:'battle',label:'Debate AI',i18n:'nav.battle',href:'/debate-ai'},
+  {id:'rebuttal',label:'Rebuttal',i18n:'nav.rebuttal'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
-  {id:'casual',label:'Casual',i18n:'nav.casual'},
   {id:'vision',label:'Mapper',i18n:'nav.vision'},
 ];
 const TABS_OTHER = [
   {id:'res',label:'Motions',i18n:'nav.motions'},
+  {id:'casual',label:'Casual',i18n:'nav.casual'},
   {id:'feedback',label:'Feedback',i18n:'nav.feedback'},
   {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
   {id:'live',label:'Live Debates',i18n:'nav.live'},
@@ -11728,6 +11730,161 @@ const TABS_OTHER = [
 const TABS_ROW1 = TABS_PRIMARY;
 const TABS_ROW2 = TABS_OTHER;
 const TABS = [...TABS_PRIMARY, ...TABS_OTHER];
+
+/* ═══════════════════════════════════════════════════
+   TOPIC HUB — current week's topics across formats
+   ═══════════════════════════════════════════════════ */
+const CURRENT_TOPICS = {
+  APDA: {
+    label: 'APDA',
+    desc: 'American Parliamentary Debate',
+    updated: 'Weekly (tournament topics vary)',
+    motions: [
+      'THW ban private education',
+      'THBT the US should dissolve NATO',
+      'THW impose a wealth tax above $10M',
+      'THBT social media platforms should verify all users',
+      'THW abolish the electoral college',
+    ],
+  },
+  PF: {
+    label: 'Public Forum',
+    desc: 'NSDA Public Forum — April 2026',
+    updated: 'Apr 2026',
+    motions: [
+      'Resolved: The United States federal government should substantially increase its investment in domestic semiconductor manufacturing.',
+    ],
+  },
+  LD: {
+    label: 'Lincoln-Douglas',
+    desc: 'NSDA LD — March/April 2026',
+    updated: 'Mar/Apr 2026',
+    motions: [
+      'Resolved: A just society ought to presume the innocence of the accused.',
+    ],
+  },
+  Policy: {
+    label: 'Policy / CX',
+    desc: '2025–26 season topic',
+    updated: '2025–26',
+    motions: [
+      'Resolved: The United States federal government should substantially increase its protection of water resources in the United States.',
+    ],
+  },
+  Congress: {
+    label: 'Student Congress',
+    desc: 'Current docket bills',
+    updated: 'Rolling',
+    motions: [
+      'A Bill to Reform the Federal Prison System',
+      'A Resolution to Condemn AI-Generated Disinformation',
+      'A Bill to Mandate Climate Disclosures for Public Companies',
+      'A Resolution to Recognize Taiwan',
+    ],
+  },
+};
+
+function TopicHub({ onNavigateTab, onPrefillCase }) {
+  const el = React.createElement;
+  const [format, setFormat] = useState('APDA');
+  const topic = CURRENT_TOPICS[format];
+  return el('div',{className:'panel',style:{maxWidth:960,margin:'0 auto',padding:'28px 32px'}},
+    el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-end',flexWrap:'wrap',gap:16,marginBottom:20}},
+      el('div',null,
+        el('h2',{style:{margin:0,fontSize:'1.6rem',fontWeight:800,letterSpacing:'-.3px'}}, 'This Week\'s Topics'),
+        el('p',{style:{color:'#94a3b8',fontSize:'.88rem',marginTop:6,margin:0}}, 'Pre-loaded motions across every format. One-click into Case Gen.'),
+      ),
+      el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+        Object.entries(CURRENT_TOPICS).map(([k,v])=>
+          el('button',{
+            key:k, onClick:()=>setFormat(k),
+            style:{
+              padding:'8px 16px',borderRadius:999,fontSize:'.82rem',fontWeight:600,cursor:'pointer',
+              background:format===k?'#ef4444':'rgba(255,255,255,.04)',
+              color:format===k?'#fff':'#94a3b8',
+              border:'1px solid '+(format===k?'#ef4444':'rgba(255,255,255,.1)'),
+              fontFamily:'inherit',transition:'.15s',
+            },
+          }, v.label)
+        )
+      ),
+    ),
+    el('div',{style:{padding:'16px 20px',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.2)',borderRadius:12,marginBottom:20}},
+      el('div',{style:{fontSize:'.7rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:6}}, topic.label+' · '+topic.updated),
+      el('div',{style:{fontSize:'.95rem',color:'#e2e8f0',lineHeight:1.5}}, topic.desc),
+    ),
+    el('div',{style:{display:'grid',gap:12}},
+      topic.motions.map((m,i)=>
+        el('div',{key:i,style:{padding:'18px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,flexWrap:'wrap'}},
+          el('div',{style:{flex:1,minWidth:260,fontSize:'.95rem',color:'#e2e8f0',lineHeight:1.5}}, m),
+          el('div',{style:{display:'flex',gap:8}},
+            el('button',{
+              onClick:()=>{ onPrefillCase && onPrefillCase({motion:m, format, side:'Government'}); onNavigateTab && onNavigateTab('case'); },
+              className:'btn btn-orange',style:{padding:'8px 16px',fontSize:'.82rem'},
+            }, 'Generate Gov →'),
+            el('button',{
+              onClick:()=>{ onPrefillCase && onPrefillCase({motion:m, format, side:'Opposition'}); onNavigateTab && onNavigateTab('case'); },
+              className:'btn',style:{padding:'8px 16px',fontSize:'.82rem',background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',color:'#e2e8f0'},
+            }, 'Generate Opp →'),
+          ),
+        )
+      )
+    ),
+    el('p',{style:{color:'#64748b',fontSize:'.75rem',marginTop:20,lineHeight:1.5}},
+      'Topics update manually for now. Tabroom API integration coming — this page will auto-refresh every Monday.'
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   FLOW → REBUTTAL — paste opp's arguments, get rebuttals
+   ═══════════════════════════════════════════════════ */
+function FlowRebuttal() {
+  const el = React.createElement;
+  const [flow, setFlow] = useState('');
+  const [side, setSide] = useState('MG');
+  const [brain, setBrain] = useState('claude');
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const run = async () => {
+    if (!flow.trim()) return;
+    setLoading(true); setErr(''); setOutput('');
+    try {
+      const sys = 'You are an elite APDA debater writing targeted rebuttals. Given opposing arguments (flow notes), produce 3-5 numbered, direct responses for the ' + side + ' speech. Each response: label the argument you are attacking, give your turn/takeout in 1-2 sentences, then the warrant. Be sharp, specific, and strategic — not generic. No preamble.';
+      const user = 'Here is my flow of what they said:\n\n' + flow + '\n\nWrite ' + side + ' rebuttals now.';
+      await callAnyAI(sys, user, (chunk) => setOutput(o => o + chunk), brain, { feature: 'rebuttal', maxTokens: 3000 });
+      touchStreak();
+      logBetaEvent('generate', { feature: 'rebuttal', brain });
+    } catch (e) { setErr(e.message || 'Failed'); }
+    finally { setLoading(false); }
+  };
+
+  return el('div',{className:'panel',style:{maxWidth:960,margin:'0 auto',padding:'28px 32px'}},
+    el('h2',{style:{margin:0,fontSize:'1.5rem',fontWeight:800,letterSpacing:'-.3px'}}, 'Flow → Rebuttal'),
+    el('p',{style:{color:'#94a3b8',fontSize:'.88rem',marginTop:6,marginBottom:20}}, 'Paste your flow of their case. Get targeted rebuttals for your next speech.'),
+    el('label',{className:'field-label',style:{marginTop:8}},'Your Flow (bullet their args)'),
+    el('textarea',{
+      value:flow,onChange:e=>setFlow(e.target.value),
+      placeholder:'1. Claim: private schools reduce inequality\n   - Warrant: scholarships for low-income\n   - Impact: social mobility\n\n2. Claim: parents have a right to choose...',
+      style:{width:'100%',minHeight:200,padding:14,borderRadius:12,background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.1)',color:'#e2e8f0',fontSize:'.92rem',fontFamily:'inherit',lineHeight:1.6,resize:'vertical'},
+    }),
+    el('div',{style:{display:'flex',gap:16,marginTop:16,flexWrap:'wrap',alignItems:'flex-end'}},
+      el('div',null,
+        el('div',{className:'field-label'},'Speech'),
+        el('div',{style:{display:'flex',gap:6}},
+          ['PM','LO','MG','MO','MG Summary','PMR'].map(s=>
+            el('button',{key:s,onClick:()=>setSide(s),style:{padding:'8px 14px',borderRadius:999,fontSize:'.8rem',fontWeight:600,cursor:'pointer',background:side===s?'#ef4444':'rgba(255,255,255,.04)',color:side===s?'#fff':'#94a3b8',border:'1px solid '+(side===s?'#ef4444':'rgba(255,255,255,.1)'),fontFamily:'inherit'}},s)
+          )
+        )
+      ),
+      el('button',{onClick:run,disabled:loading||!flow.trim(),className:'btn btn-orange',style:{padding:'12px 24px',fontSize:'.9rem',marginLeft:'auto'}}, loading?'Generating…':'Generate Rebuttals →'),
+    ),
+    err && el('div',{style:{marginTop:16,padding:12,background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,color:'#fca5a5',fontSize:'.85rem'}}, err),
+    output && el('div',{style:{marginTop:20,padding:'20px 24px',background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:14,whiteSpace:'pre-wrap',color:'#e2e8f0',fontSize:'.92rem',lineHeight:1.7}}, output),
+  );
+}
 
 function App() {
   const [userApiKey, setUserApiKey] = useState(() => { try { return sessionStorage.getItem('debateos-byok') || '' } catch(e) { return '' } });
@@ -12141,10 +12298,10 @@ function App() {
             onClick:()=>setShowAuth(true),
           }, anonUsed+'/'+getAnonLimit()+' free'),
           React.createElement('button',{
-            className:'cases-toggle topbar-pill',
+            className:'topbar-pill',
             onClick:()=>setSidebarOpen(true),
             title:'Saved cases',
-            style:{cursor:'pointer'},
+            style:{cursor:'pointer',background:'none',border:'none'},
           }, 'Cases'),
           React.createElement('a',{className:'topbar-pill',href:'/landing'},'Home'),
           React.createElement('a',{className:'topbar-pill',href:'/high-school'},'High School'),
@@ -12276,6 +12433,8 @@ function App() {
       React.createElement(UsageBanner, { team: team }),
       React.createElement(AdBanner, { team: team, user: user, onNavigate: navigateTab }),
       // All tabs rendered but only active one visible — preserves state across switches
+      tabPane('topics', React.createElement(TopicHub, { onNavigateTab: navigateTab, onPrefillCase: (c)=>setLoadedCase({...c, id:'prefill-'+Date.now(), savedAt: new Date().toISOString()}) })),
+      tabPane('rebuttal', React.createElement(FlowRebuttal)),
       tabPane('case', React.createElement(CaseGenerator, { onSave: saveCase, loadedCase: loadedCase, onClearLoaded: () => setLoadedCase(null), team, user, onNavigateTab: navigateTab })),
       tabPane('battle', React.createElement(BattleArena, { onNavigateTab: navigateTab })),
       tabPane('feedback', React.createElement(CaseFeedback)),
