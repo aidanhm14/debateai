@@ -107,16 +107,18 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .bg-canvas::before{
   content:'';position:absolute;
   top:-20%;right:-10%;width:80%;height:120%;
-  background:radial-gradient(ellipse at center,rgba(239,68,68,.06) 0%,transparent 70%);
-  filter:blur(80px);
+  background:radial-gradient(ellipse at center,rgba(239,68,68,.12) 0%,transparent 70%);
+  filter:blur(100px);
   pointer-events:none;
+  animation:bgDrift 12s ease-in-out infinite alternate;
 }
 .bg-canvas::after{
   content:'';position:absolute;
   bottom:-10%;left:-10%;width:60%;height:80%;
-  background:radial-gradient(ellipse at center,rgba(239,68,68,.03) 0%,transparent 70%);
-  filter:blur(60px);
+  background:radial-gradient(ellipse at center,rgba(239,68,68,.07) 0%,transparent 70%);
+  filter:blur(80px);
   pointer-events:none;
+  animation:bgDrift2 14s ease-in-out infinite alternate;
 }
 @keyframes bgDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-40px,30px) scale(1.05)}}
 @keyframes bgDrift2{0%{transform:translate(0,0) scale(1)}100%{transform:translate(30px,-20px) scale(1.08)}}
@@ -242,17 +244,17 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 
 /* ── Nav Tabs ─────────────────────────────────── */
 /* Single scrollable feature-tab row, sits just below the fixed .app-topbar */
-.nav{display:flex;gap:6px;margin:0 auto;padding:12px 24px 10px;flex-wrap:nowrap;justify-content:center;align-items:center;background:rgba(17,17,17,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.06);max-width:100%;width:100%;position:sticky;top:84px;z-index:999;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.nav{display:flex;gap:8px;margin:0 auto;padding:14px 32px 12px;flex-wrap:nowrap;justify-content:center;align-items:center;background:rgba(17,17,17,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08);max-width:100%;width:100%;position:sticky;top:84px;z-index:999;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
-@media(max-width:640px){.nav{top:80px;padding:8px 12px 6px;gap:4px;justify-content:flex-start}}
+@media(max-width:640px){.nav{top:80px;padding:10px 14px 8px;gap:6px;justify-content:flex-start}}
 .nav-btn{
-  background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);
-  padding:8px 18px;border-radius:999px;font-size:.75rem;font-weight:600;
+  background:transparent;border:1.5px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);
+  padding:10px 22px;border-radius:999px;font-size:.82rem;font-weight:600;
   letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:all .2s ease;
   font-family:'Inter',system-ui,sans-serif;white-space:nowrap;text-decoration:none;flex-shrink:0;
 }
-.nav-btn:hover{color:#fff;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.2)}
-.nav-btn.active,.nav-btn.active-orange{color:#fff;background:#ef4444;border-color:#ef4444;box-shadow:0 2px 12px rgba(239,68,68,.3)}
+.nav-btn:hover{color:#fff;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.3)}
+.nav-btn.active,.nav-btn.active-orange{color:#fff;background:#ef4444;border-color:#ef4444;box-shadow:0 2px 16px rgba(239,68,68,.4)}
 .nav-back{transition:opacity .2s,transform .15s}.nav-back:hover:not(:disabled){transform:translateX(-2px)}
 .nav-back:disabled{cursor:default;pointer-events:none}
 
@@ -330,8 +332,8 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 }
 
 /* ── Form Elements ────────────────────────────── */
-label.field-label{display:block;font-size:.82rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#c8d0dc;margin-bottom:8px}
-label.field-label.green{color:#c8d0dc}
+label.field-label{display:block;font-size:.85rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#ef4444;margin-bottom:10px}
+label.field-label.green{color:#ef4444}
 /* Flat translucent inputs matching landing — dropped the inset shadow
    and reduced background opacity for a cleaner, more modern feel. */
 textarea,select,input[type="text"]{
@@ -12036,8 +12038,9 @@ function App() {
           React.createElement('button',{
             className:'cases-toggle',
             onClick:()=>setSidebarOpen(true),
-            title:'Saved cases (⌘B)',
-          }, '\uD83D\uDCCB'),
+            title:'Saved cases',
+            style:{fontSize:'.75rem',color:'rgba(255,255,255,.5)',cursor:'pointer',marginRight:8},
+          }, 'Cases'),
           React.createElement('span',{
             className:'app-topbar-logo',
             onClick:()=>navigateTab('case'),
@@ -12047,45 +12050,18 @@ function App() {
             '\u00A0Advocate.'
           ),
         ),
-        // Right: utility pills + user
+        // Right: clean nav links + user
         React.createElement('div',{className:'app-topbar-right'},
-          // Plan badge
-          React.createElement('span',{
-            className:'topbar-pill plan-badge',
-            onClick:()=>navigateTab('team'),
-            style:{
-              background:team&&team.plan!=='trial'?'rgba(34,197,94,.1)':'rgba(245,158,11,.1)',
-              color:team&&team.plan!=='trial'?'#22c55e':'#f59e0b',
-              borderColor:team&&team.plan!=='trial'?'rgba(34,197,94,.2)':'rgba(245,158,11,.2)',
-            },
-          }, team&&team.plan!=='trial'
-              ? (team.plan==='lifetime'?'\u221e LIFETIME':team.plan==='team'?'\u2605 TEAM':'\u2605 PRO')
-              : 'FREE'),
-          // Back to landing
-          React.createElement('a',{className:'topbar-pill',href:'/landing',title:'Homepage'},'\u2190 Home'),
-          // HS Edition
-          React.createElement('a',{className:'topbar-pill accent',href:'/high-school'},'HS Edition'),
+          React.createElement('a',{className:'topbar-pill',href:'/landing'},'Home'),
+          React.createElement('a',{className:'topbar-pill',href:'/high-school'},'High School'),
+          React.createElement('a',{className:'topbar-pill',href:'/debate-ai'},'Debate AI'),
+          React.createElement('a',{className:'topbar-pill',href:'/learn'},'Learn'),
           // Theme toggle
           React.createElement('span',{
             className:'topbar-pill',
             onClick:()=>setTheme(theme==='grey'?'light':theme==='light'?'dark':'grey'),
-            style:{
-              background:theme==='grey'?'rgba(245,158,11,.08)':theme==='light'?'rgba(59,130,246,.08)':'rgba(239,68,68,.08)',
-              color:theme==='grey'?'#f59e0b':theme==='light'?'#3b82f6':'#ef4444',
-              borderColor:theme==='grey'?'rgba(245,158,11,.2)':theme==='light'?'rgba(59,130,246,.2)':'rgba(239,68,68,.2)',
-            },
-          }, theme==='grey'?'\u25C9 Grey':theme==='light'?'\u2600 Light':'\u263E Dark'),
-          // Language selector
-          React.createElement('span',{style:{position:'relative',display:'inline-flex',alignItems:'center'}},
-            React.createElement('span',{className:'topbar-pill',style:{background:'rgba(139,92,246,.08)',color:'#a78bfa',borderColor:'rgba(139,92,246,.2)',pointerEvents:'none'}},
-              (SUPPORTED_LOCALES.find(l=>l.code===locale)||SUPPORTED_LOCALES[0]).flag + ' ' + (SUPPORTED_LOCALES.find(l=>l.code===locale)||SUPPORTED_LOCALES[0]).code.toUpperCase()
-            ),
-            React.createElement('select',{
-              value:locale,
-              onChange:e=>setLocale(e.target.value),
-              style:{position:'absolute',inset:0,opacity:0,cursor:'pointer',fontSize:'.6rem',width:'100%',height:'100%'}
-            }, SUPPORTED_LOCALES.map(l => React.createElement('option',{key:l.code,value:l.code}, l.flag + ' ' + l.name))),
-          ),
+            style:{cursor:'pointer'},
+          }, theme==='grey'?'Dark':theme==='light'?'Light':'Red'),
           // User / sign-in
           user
             ? React.createElement('div',{className:'topbar-user'},
