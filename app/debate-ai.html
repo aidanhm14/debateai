@@ -2526,58 +2526,27 @@ function App(){
     setPanelText('');
     setPanelResult(null);
     const tx=allLog.map(l=>`[${l.code} — ${l.who}]: ${l.text}`).join('\n\n');
-    const sys=`You are simulating a 3-judge panel deliberating after a ${fmt.name} debate round.
-
-MOTION: "${motion}"
-USER DEBATED: ${fmt.sideLabels[side]||side}
-OPPONENT: AI
-
-THE THREE JUDGES (each must sound distinct):
-1. Maya — ${PANEL_JUDGES.maya.paradigm}
-   VOICE: ${PANEL_JUDGES.maya.voice}
-2. Marcus — ${PANEL_JUDGES.marcus.paradigm}
-   VOICE: ${PANEL_JUDGES.marcus.voice}
-3. Dr. Chen — ${PANEL_JUDGES.chen.paradigm}
-   VOICE: ${PANEL_JUDGES.chen.voice}
-
-${DEBATE_VOICE_GUIDELINES}
-
-Generate a realistic back-and-forth deliberation where these three judges talk through the round. They should:
-- Disagree openly based on their paradigms — DO NOT default to consensus
-- Reference SPECIFIC arguments from the transcript by name, with direct short quotes where possible
-- Push back on each other ("Maya, I hear you, but..." / "Chen, that's generous to them...")
-- Do genuine critical thinking — ONE judge should shift their initial lean based on something another judge says
-- Cross-apply each other's readings ("Marcus, that's exactly why Maya's drop matters")
-- Weigh impacts against each other explicitly
-- Reach a final vote. Could be 3-0 or 2-1 either direction. If the round was close, make it 2-1. If one side dominated, 3-0.
-
-CRITICAL FORMAT — each turn starts on its own line with the judge's name in brackets, like:
-[Maya]: ...
-[Marcus]: ...
-[Dr. Chen]: ...
-
-10-16 total turns. Each turn is 2-5 sentences, conversational, not a monologue. They interrupt, question, and push back.
-
-After the deliberation, output this EXACT block verbatim:
-
-[VOTE]
-Maya: user
-Marcus: ai
-Dr. Chen: user
-Winner: user
-Speaker points: user=28.5, ai=28.0
-Practice this: <one specific actionable drill for the user to work on>
-[/VOTE]
-
-(Replace the user/ai votes and numbers with your actual decisions. Keep the exact labels.)
-
-Be BRUTAL but fair. If the user debated poorly, say so specifically and still find something real to credit. If they debated well, acknowledge it while finding real room for growth. NEVER reference things that didn't happen in the transcript.`;
+    // Prompt lives server-side as PROMPT_LIBRARY.judgePanelDeliberation
     try{
       let raw='';
-      await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>{
+      await callAI('','Full round transcript:\n\n'+tx,chunk=>{
         raw=chunk;
         setPanelText(chunk);
-      },brain);
+      },brain,{
+        promptId:'judgePanelDeliberation',
+        promptVars:{
+          fmtName:fmt.name,
+          motion:motion,
+          sideLabel:fmt.sideLabels[side]||side,
+          mayaParadigm:PANEL_JUDGES.maya.paradigm,
+          mayaVoice:PANEL_JUDGES.maya.voice,
+          marcusParadigm:PANEL_JUDGES.marcus.paradigm,
+          marcusVoice:PANEL_JUDGES.marcus.voice,
+          chenParadigm:PANEL_JUDGES.chen.paradigm,
+          chenVoice:PANEL_JUDGES.chen.voice,
+          voiceGuidelines:DEBATE_VOICE_GUIDELINES,
+        },
+      });
       const parsed=parsePanelVote(raw);
       if(parsed) setPanelResult(parsed);
     }catch(e){
@@ -3118,20 +3087,16 @@ Be BRUTAL but fair. If the user debated poorly, say so specifically and still fi
           setPrepHintLoading(true);setPrepHint('');if(typeof gtag==='function')gtag('event','ai_prep_coach',{format:fmt.name,side});
           try{
             const sideLabel=fmt.sideLabels[side]||side;
-            const sys=`You are an elite ${fmt.name} debate prep coach. The debater is ${sideLabel} on: "${motion}". ${background?'Background: '+background:''}
-
-Give them 3-4 argument ideas ranked by strength. For each:
-• A catchy, distinctive argument name (not generic — something flowable like "The Regulatory Ratchet" or "The Talent Drain")
-• The specific mechanism in 1-2 sentences — WHO does WHAT through WHICH pathway to cause WHAT outcome
-• The key impact and WHY it outweighs
-
-Then:
-• Suggest a FRAMEWORK with a clear decision rule that makes their arguments win
-• Warn about the 1-2 strongest opponent arguments they'll face and give a one-line preempt for each
-• If there's a clever/counterintuitive angle most debaters would miss, flag it as "💡 Sleeper arg:"
-
-Keep it punchy — they have limited prep time. No markdown headers. Use • for bullets.`;
-            const hint=await callAI(sys,'Help me prep for this round.',chunk=>setPrepHint(chunk),brain);
+            // Prompt lives server-side as PROMPT_LIBRARY.prepCoach
+            const hint=await callAI('','Help me prep for this round.',chunk=>setPrepHint(chunk),brain,{
+              promptId:'prepCoach',
+              promptVars:{
+                fmtName:fmt.name,
+                sideLabel:sideLabel,
+                motion:motion,
+                backgroundLine:background?'Background: '+background:'',
+              },
+            });
             setPrepHint(hint);
           }catch{setPrepHint('Could not generate suggestions.')}
           setPrepHintLoading(false);
