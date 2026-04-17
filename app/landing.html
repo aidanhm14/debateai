@@ -90,6 +90,9 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<!-- Shared UI primitives — source of truth for universal look-and-feel.
+     Loaded after fonts so tokens + primitives are available to inline styles below. -->
+<link rel="stylesheet" href="/css/ui.css">
 <!-- Firebase compat SDK for Google signup on landing.
      Deferred — saves ~200KB blocking on first paint, only matters when
      the user clicks the Google signup button (which runs after defer). -->
@@ -904,25 +907,26 @@ button{font-family:inherit;cursor:pointer}
 <script>try{if(!localStorage.getItem('debateos-welcome-seen')){setTimeout(function(){var w=document.getElementById('welcome-card');if(w)w.style.display='block'},1200);}}catch(e){}</script>
 <style>@keyframes welcomeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}@media(max-width:640px){#welcome-card{left:12px;right:12px;max-width:none}}</style>
 
-<!-- Beta strip: kill subscription pressure, make feedback + BYOK the asks -->
-<div class="beta-strip">
-  🧪 <strong>Beta tester situation</strong> — free access · <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener">share feedback to unlock unlimited</a>
+<!-- Beta strip: matches app/index.html exactly so product feels unified -->
+<div class="ui-beta-strip" id="ui-beta-strip">
+  <strong>Beta</strong> — free access · <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener">share feedback to unlock unlimited</a>
 </div>
+<script>try{document.body.classList.add('has-beta-strip');if(sessionStorage.getItem('debateos-beta-strip-dismissed')==='1'){var __bs=document.getElementById('ui-beta-strip');if(__bs)__bs.style.display='none';document.body.classList.remove('has-beta-strip')}}catch(e){}</script>
 
-<!-- Nav -->
-<nav class="nav">
-  <div class="nav-left">
-    <a href="/landing" class="nav-logo"><span>Devil's</span> Advocate.</a>
+<!-- Shared neural-constellation background (dark/crimson themes only) -->
+<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
+<script defer src="/js/ui-neural.js"></script>
+
+<!-- Nav — shared topbar pattern. One primary CTA (Debate AI), the rest are quiet links. -->
+<nav class="ui-topbar">
+  <div class="ui-topbar-left">
+    <a href="/landing" class="ui-topbar-logo"><span>Devil's</span> Advocate.</a>
   </div>
-  <div class="nav-right">
-    <a href="/debate-ai" class="nav-contact" style="border-color:var(--accent);background:var(--accent);color:#fff">Debate AI</a>
-    <span class="nav-for-debaters">For debaters →</span>
-    <a href="https://debateos1.netlify.app/#case" class="nav-contact" style="border-color:var(--accent);color:var(--accent)">College</a>
-    <a href="/high-school" class="nav-contact" style="border-color:var(--accent);color:var(--accent)">High School</a>
-    <a href="/learn" class="nav-contact" style="border-color:var(--accent);color:var(--accent)">Adults</a>
-    <!-- Community link removed until a real home (Reddit/Discord/Discussions) is chosen. -->
-    <!-- Changelog moved to the small "v1.3" pill next to the logo. -->
-    <a href="https://buymeacoffee.com/8idanhm" target="_blank" rel="noopener" class="nav-contact" style="border-color:#f59e0b;color:#f59e0b" title="Support the beta">❤️</a>
+  <div class="ui-topbar-right">
+    <a href="https://debateos1.netlify.app/#case" class="ui-topbar-link">College</a>
+    <a href="/high-school" class="ui-topbar-link">High School</a>
+    <a href="/learn" class="ui-topbar-link">Adults</a>
+    <a href="/debate-ai" class="ui-btn ui-btn-primary ui-btn-sm" style="padding:8px 18px">Debate AI</a>
   </div>
 </nav>
 
@@ -1063,132 +1067,105 @@ button{font-family:inherit;cursor:pointer}
   </div>
 </section>
 
-<!-- Pricing / Free-during-beta — promoted right under the hero so it's impossible to miss -->
+<!-- Pricing / Free-during-beta — clean version, matches main-app aesthetic -->
 <style>
-  .beta-hero{position:relative;padding:56px 24px 72px;text-align:center;overflow:hidden}
-  .beta-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(239,68,68,.18),transparent 60%);pointer-events:none;z-index:0}
-  .beta-hero > *{position:relative;z-index:1}
-  .beta-badge{position:relative;display:inline-block;margin-bottom:28px;padding:18px 44px;border-radius:999px;background:linear-gradient(135deg,rgba(239,68,68,.14),rgba(239,68,68,.04));border:2px dashed rgba(239,68,68,.55);box-shadow:0 0 0 0 rgba(239,68,68,.6);animation:beta-pulse 2.4s ease-in-out infinite,beta-dash 18s linear infinite;font-family:Inter,system-ui,sans-serif}
-  .beta-badge-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444;box-shadow:0 0 14px #ef4444,0 0 4px #ef4444;margin-right:12px;vertical-align:middle;animation:beta-dot 1.2s ease-in-out infinite}
-  .beta-badge-title{display:inline-block;vertical-align:middle;font-size:clamp(1.2rem,3.4vw,1.75rem);font-weight:900;letter-spacing:.02em;color:var(--text);text-shadow:0 0 22px rgba(239,68,68,.45)}
-  .beta-badge-sub{margin-top:10px;font-size:.82rem;color:var(--text-dim);letter-spacing:.04em}
-  @keyframes beta-pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.55),0 0 30px rgba(239,68,68,.18)}50%{box-shadow:0 0 0 14px rgba(239,68,68,0),0 0 60px rgba(239,68,68,.35)}}
-  @keyframes beta-dash{to{border-color:rgba(239,68,68,.9)}50%{border-color:rgba(239,68,68,.35)}}
-  @keyframes beta-dot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.35);opacity:.7}}
-  .beta-title{font-size:clamp(2rem,5.5vw,3.4rem);font-weight:900;line-height:1.05;letter-spacing:-.02em;margin-bottom:16px;background:linear-gradient(180deg,var(--text) 0%,var(--text-dim) 140%);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .beta-sub{color:var(--text-dim);font-size:1.02rem;line-height:1.6;max-width:580px;margin:0 auto 32px}
-  .beta-chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:36px;max-width:720px;margin-left:auto;margin-right:auto}
-  .beta-chip{padding:11px 22px;background:var(--bg-card);border:1px solid var(--border);border-radius:999px;font-size:.85rem;font-weight:600;color:var(--text);position:relative;overflow:hidden;transition:transform .25s,border-color .25s}
-  .beta-chip::before{content:'';position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(239,68,68,.18) 50%,transparent 70%);transform:translateX(-100%);transition:transform .6s}
-  .beta-chip:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.55)}
-  .beta-chip:hover::before{transform:translateX(100%)}
-  .beta-chip-check{color:#22c55e;margin-right:8px;font-weight:900}
-  .beta-cta{display:inline-block;padding:18px 42px;background:var(--accent);color:#fff;border-radius:999px;font-size:1rem;font-weight:800;letter-spacing:.02em;text-decoration:none;box-shadow:0 8px 32px rgba(239,68,68,.4);animation:beta-cta-glow 2.4s ease-in-out infinite;transition:transform .2s}
-  .beta-cta:hover{transform:translateY(-2px) scale(1.02)}
-  @keyframes beta-cta-glow{0%,100%{box-shadow:0 8px 32px rgba(239,68,68,.35)}50%{box-shadow:0 12px 44px rgba(239,68,68,.6)}}
-  /* Live debate typing demo */
-  .beta-chat{max-width:640px;margin:0 auto 36px;padding:20px;background:rgba(15,15,18,.7);border:1px solid var(--border);border-radius:18px;backdrop-filter:blur(10px);box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:left}
-  .beta-chat-head{display:flex;align-items:center;gap:8px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim)}
-  .beta-chat-head-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e;animation:beta-dot 1.6s ease-in-out infinite}
-  .beta-msg{display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;opacity:0;transform:translateY(6px);animation:beta-msg-in .35s forwards}
+  /* Scoped-only styles: chat demo. Everything else uses shared ui.css primitives. */
+  .beta-chat{max-width:640px;margin:0 auto 36px;padding:20px;background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);text-align:left}
+  .beta-chat-head{display:flex;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim)}
+  .beta-chat-head-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
+  .beta-chat-motion{margin-left:auto;color:var(--text);font-weight:600;letter-spacing:0;text-transform:none;font-size:.74rem}
+  .beta-msg{display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}
   .beta-msg:last-of-type{margin-bottom:0}
-  .beta-msg-avatar{flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;letter-spacing:.02em}
-  .beta-msg-you .beta-msg-avatar{background:rgba(239,68,68,.18);color:#ef4444;border:1px solid rgba(239,68,68,.4)}
-  .beta-msg-ai .beta-msg-avatar{background:rgba(100,116,139,.18);color:#94a3b8;border:1px solid rgba(100,116,139,.4)}
-  .beta-msg-body{flex:1;font-size:.88rem;line-height:1.55;color:var(--text);min-height:1.55em}
-  .beta-msg-label{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px}
-  .beta-msg-you .beta-msg-label{color:#ef4444}
-  .beta-msg-ai .beta-msg-label{color:#94a3b8}
+  .beta-msg-avatar{flex-shrink:0;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;letter-spacing:.02em;border:1px solid var(--border)}
+  .beta-msg-you .beta-msg-avatar{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft)}
+  .beta-msg-ai .beta-msg-avatar{color:var(--text-dim);background:var(--bg-card)}
+  .beta-msg-body{flex:1;font-size:.9rem;line-height:1.6;color:var(--text);min-height:1.55em}
+  .beta-msg-label{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px}
+  .beta-msg-you .beta-msg-label{color:var(--accent)}
   .beta-msg-typing::after{content:'▋';display:inline-block;margin-left:2px;color:var(--accent);animation:beta-blink 1s step-end infinite}
   @keyframes beta-blink{0%,100%{opacity:1}50%{opacity:0}}
-  @keyframes beta-msg-in{to{opacity:1;transform:translateY(0)}}
-  @media (prefers-reduced-motion:reduce){.beta-badge,.beta-badge-dot,.beta-cta,.beta-chat-head-dot,.beta-msg{animation:none;opacity:1;transform:none}}
 </style>
-<section id="pricing" class="beta-hero">
-  <div class="beta-badge">
-    <span class="beta-badge-dot" aria-hidden="true"></span>
-    <span class="beta-badge-title">FREE DURING BETA</span>
-    <div class="beta-badge-sub">Every tool. Every AI brain. No limits. No credit card.</div>
-  </div>
-  <h2 class="beta-title">Use everything.<br>Pay nothing.</h2>
-  <p class="beta-sub">We need real debaters using the platform so we can make the AI better. All features are unlocked. No sign-up required. Just go.</p>
+<section id="pricing" class="ui-section" style="text-align:center">
+  <div class="ui-container-sm">
+    <span class="ui-eyebrow">Free during beta</span>
+    <h2 class="ui-h1">Use everything.<br><span class="accent">Pay nothing.</span></h2>
+    <p class="ui-lede">We need real debaters using the platform so we can make the AI better. All features are unlocked. No sign-up required.</p>
 
-  <!-- Live typing demo: looped you↔AI debate exchange, pure JS, no backend -->
-  <div class="beta-chat" aria-hidden="true">
-    <div class="beta-chat-head">
-      <span class="beta-chat-head-dot"></span>
-      <span>Live · debating an AI right now</span>
-      <span id="betaChatMotion" style="margin-left:auto;color:var(--text);font-weight:600;letter-spacing:0;text-transform:none;font-size:.72rem"></span>
-    </div>
-    <div class="beta-msg beta-msg-you">
-      <div class="beta-msg-avatar">YOU</div>
-      <div style="flex:1">
-        <div class="beta-msg-label">Your argument</div>
-        <div class="beta-msg-body" id="betaChatYou"></div>
+    <div class="beta-chat" aria-hidden="true">
+      <div class="beta-chat-head">
+        <span class="beta-chat-head-dot"></span>
+        <span>Live · debating an AI</span>
+        <span class="beta-chat-motion" id="betaChatMotion"></span>
+      </div>
+      <div class="beta-msg beta-msg-you">
+        <div class="beta-msg-avatar">YOU</div>
+        <div style="flex:1">
+          <div class="beta-msg-label">Your argument</div>
+          <div class="beta-msg-body" id="betaChatYou"></div>
+        </div>
+      </div>
+      <div class="beta-msg beta-msg-ai">
+        <div class="beta-msg-avatar">AI</div>
+        <div style="flex:1">
+          <div class="beta-msg-label">AI rebuttal</div>
+          <div class="beta-msg-body" id="betaChatAi"></div>
+        </div>
       </div>
     </div>
-    <div class="beta-msg beta-msg-ai" style="animation-delay:.3s">
-      <div class="beta-msg-avatar">AI</div>
-      <div style="flex:1">
-        <div class="beta-msg-label">AI rebuttal</div>
-        <div class="beta-msg-body" id="betaChatAi"></div>
-      </div>
-    </div>
-  </div>
-  <script>
-  (function(){
-    var motions=[
-      {m:'This House would ban private schools.',you:'Private schooling entrenches class hierarchy — per-pupil funding collapses when capital opts out.',ai:'Extend that and you nationalize education access. The wealthy will just credential-launder through tutoring and abroad. You lose the constituency, not the hierarchy.'},
-      {m:'AI should write the news.',you:'Human editors are bottlenecks. AI can cover 10x more stories with equal factual accuracy.',ai:'Accuracy is not coverage. Journalism needs accountability — a byline that can be sued, fired, or shamed. Remove that and you get volume, not truth.'},
-      {m:'Open borders, yes or no?',you:'Free movement of labor grows GDP and self-corrects through price signals.',ai:'GDP isn\'t distributed by price signals. You get aggregate growth and collapsing wage floors in the bottom quintile — which is exactly who votes against open borders next cycle.'},
-      {m:'Tax billionaires out of existence.',you:'Concentrated wealth buys political outcomes — democracy requires a wealth ceiling.',ai:'A ceiling without a floor just exports the billionaires. You lose the tax base and keep the political capture, because lobbying scales with reputation, not net worth.'},
-      {m:'Mandatory voting.',you:'Compulsory turnout eliminates the turnout-suppression attack surface entirely.',ai:'It also eliminates the signal that low turnout sends about legitimacy. You\'ll push uninformed ballots that track whatever was on TV last week — that\'s noise, not democracy.'}
-    ];
-    var youEl=document.getElementById('betaChatYou');
-    var aiEl=document.getElementById('betaChatAi');
-    var motionEl=document.getElementById('betaChatMotion');
-    if(!youEl||!aiEl) return;
-    var idx=Math.floor(Math.random()*motions.length);
-    function type(el,text,speed){
-      return new Promise(function(res){
-        el.textContent='';el.classList.add('beta-msg-typing');
-        var i=0;(function step(){
-          if(i<=text.length){el.textContent=text.slice(0,i);i++;setTimeout(step,speed)}
-          else{el.classList.remove('beta-msg-typing');res()}
-        })();
-      });
-    }
-    function pause(ms){return new Promise(function(r){setTimeout(r,ms)})}
-    async function loop(){
-      while(true){
-        var cur=motions[idx%motions.length];
-        motionEl.textContent=cur.m;
-        youEl.textContent='';aiEl.textContent='';
-        await pause(400);
-        await type(youEl,cur.you,22);
-        await pause(700);
-        await type(aiEl,cur.ai,18);
-        await pause(3200);
-        idx++;
+    <script>
+    (function(){
+      var motions=[
+        {m:'This House would ban private schools.',you:'Private schooling entrenches class hierarchy — per-pupil funding collapses when capital opts out.',ai:'Extend that and you nationalize education access. The wealthy will just credential-launder through tutoring and abroad. You lose the constituency, not the hierarchy.'},
+        {m:'AI should write the news.',you:'Human editors are bottlenecks. AI can cover 10x more stories with equal factual accuracy.',ai:'Accuracy is not coverage. Journalism needs accountability — a byline that can be sued, fired, or shamed. Remove that and you get volume, not truth.'},
+        {m:'Open borders, yes or no?',you:'Free movement of labor grows GDP and self-corrects through price signals.',ai:'GDP isn\'t distributed by price signals. You get aggregate growth and collapsing wage floors in the bottom quintile — which is exactly who votes against open borders next cycle.'},
+        {m:'Tax billionaires out of existence.',you:'Concentrated wealth buys political outcomes — democracy requires a wealth ceiling.',ai:'A ceiling without a floor just exports the billionaires. You lose the tax base and keep the political capture, because lobbying scales with reputation, not net worth.'},
+        {m:'Mandatory voting.',you:'Compulsory turnout eliminates the turnout-suppression attack surface entirely.',ai:'It also eliminates the signal that low turnout sends about legitimacy. You\'ll push uninformed ballots that track whatever was on TV last week — that\'s noise, not democracy.'}
+      ];
+      var youEl=document.getElementById('betaChatYou');
+      var aiEl=document.getElementById('betaChatAi');
+      var motionEl=document.getElementById('betaChatMotion');
+      if(!youEl||!aiEl) return;
+      var idx=Math.floor(Math.random()*motions.length);
+      function type(el,text,speed){
+        return new Promise(function(res){
+          el.textContent='';el.classList.add('beta-msg-typing');
+          var i=0;(function step(){
+            if(i<=text.length){el.textContent=text.slice(0,i);i++;setTimeout(step,speed)}
+            else{el.classList.remove('beta-msg-typing');res()}
+          })();
+        });
       }
-    }
-    /* Only run when section scrolls into view — saves CPU if user never gets here */
-    var started=false;
-    var io=new IntersectionObserver(function(entries){
-      entries.forEach(function(e){if(e.isIntersecting&&!started){started=true;loop();io.disconnect()}});
-    },{threshold:.15});
-    io.observe(document.querySelector('.beta-chat'));
-  })();
-  </script>
+      function pause(ms){return new Promise(function(r){setTimeout(r,ms)})}
+      async function loop(){
+        while(true){
+          var cur=motions[idx%motions.length];
+          motionEl.textContent=cur.m;
+          youEl.textContent='';aiEl.textContent='';
+          await pause(400);
+          await type(youEl,cur.you,22);
+          await pause(700);
+          await type(aiEl,cur.ai,18);
+          await pause(3200);
+          idx++;
+        }
+      }
+      var started=false;
+      var io=new IntersectionObserver(function(entries){
+        entries.forEach(function(e){if(e.isIntersecting&&!started){started=true;loop();io.disconnect()}});
+      },{threshold:.15});
+      io.observe(document.querySelector('.beta-chat'));
+    })();
+    </script>
 
-  <div class="beta-chips">
-    <div class="beta-chip"><span class="beta-chip-check">✓</span>4 AI brains</div>
-    <div class="beta-chip"><span class="beta-chip-check">✓</span>HD voice debates</div>
-    <div class="beta-chip"><span class="beta-chip-check">✓</span>Case gen + judge finder</div>
-    <div class="beta-chip"><span class="beta-chip-check">✓</span>10 debate formats</div>
-    <div class="beta-chip"><span class="beta-chip-check">✓</span>Unlimited requests</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:32px">
+      <span class="ui-chip">4 AI brains</span>
+      <span class="ui-chip">HD voice debates</span>
+      <span class="ui-chip">Case gen + judge finder</span>
+      <span class="ui-chip">10 debate formats</span>
+      <span class="ui-chip">Unlimited requests</span>
+    </div>
+    <a href="https://debateos1.netlify.app/#case" class="ui-btn ui-btn-primary">Start Debating</a>
   </div>
-  <a href="https://debateos1.netlify.app/#case" class="beta-cta">Start Debating — Free</a>
 </section>
 
 <div class="divider"></div>

@@ -11853,6 +11853,7 @@ const TABS_PRIMARY = [
   {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
   {id:'vision',label:'Mapper',i18n:'nav.vision'},
+  {id:'newbies',label:'Guide',i18n:'nav.guide'},
 ];
 const TABS_OTHER = [
   {id:'practice',label:'Practice',i18n:'nav.practice'},
@@ -11860,7 +11861,6 @@ const TABS_OTHER = [
   {id:'feedback',label:'Feedback',i18n:'nav.feedback'},
   {id:'live',label:'Live Debates',i18n:'nav.live'},
   {id:'shared',label:'Saved Cases',i18n:'nav.cases'},
-  {id:'newbies',label:'Guide',i18n:'nav.guide'},
   {id:'team',label:'Team',i18n:'nav.team'},
   {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
   {id:'donate',label:'Donate ↗',i18n:'nav.donate',href:'https://buymeacoffee.com/8idanhm'},
@@ -12112,6 +12112,16 @@ function App() {
   const [savedCases, setSavedCases] = useState(() => loadSavedCases());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false);
+  const [otherPos, setOtherPos] = useState({top:0,right:0});
+  useEffect(()=>{
+    if(!otherOpen) return;
+    const close=(ev)=>{if(!ev.target.closest('.nav-other-wrap')) setOtherOpen(false);};
+    const esc=(ev)=>{if(ev.key==='Escape') setOtherOpen(false);};
+    document.addEventListener('click',close);
+    document.addEventListener('keydown',esc);
+    return ()=>{document.removeEventListener('click',close);document.removeEventListener('keydown',esc);};
+  },[otherOpen]);
   const [loadedCase, setLoadedCase] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showGuide, setShowGuide] = useState(() => {
@@ -12503,43 +12513,49 @@ function App() {
                 onClick:(e)=>{e.preventDefault();navigateTab(tb.id);}
               }, t(tb.i18n, tb.label))
         ),
-        // "Other" dropdown for secondary tabs
-        React.createElement('div',{className:'nav-other-wrap'},
+        // "Other" dropdown for secondary tabs — React-state driven so re-renders don't close it
+        React.createElement('div',{className:'nav-other-wrap'+(otherOpen?' open':'')},
           React.createElement('button',{
+            type:'button',
             className:'nav-btn nav-other-trigger'+(TABS_OTHER.some(tb=>tab===tb.id)?' active':''),
+            'aria-haspopup':'menu',
+            'aria-expanded':otherOpen,
             onClick:(e)=>{
-              const wrap=e.currentTarget.parentElement;
-              const dd=wrap.querySelector('.nav-other-dropdown');
-              const isOpen=wrap.classList.contains('open');
-              if(!isOpen&&dd){
+              e.stopPropagation();
+              if(!otherOpen){
                 const r=e.currentTarget.getBoundingClientRect();
-                dd.style.top=(r.bottom+6)+'px';
-                dd.style.right=(window.innerWidth-r.right)+'px';
+                setOtherPos({top:r.bottom+6,right:window.innerWidth-r.right});
               }
-              wrap.classList.toggle('open');
-              if(!isOpen){
-                const close=(ev)=>{if(!wrap.contains(ev.target)){wrap.classList.remove('open');document.removeEventListener('click',close);}};
-                setTimeout(()=>document.addEventListener('click',close),0);
-              }
+              setOtherOpen(o=>!o);
             }
           }, TABS_OTHER.find(tb=>tab===tb.id) ? t(TABS_OTHER.find(tb=>tab===tb.id).i18n, TABS_OTHER.find(tb=>tab===tb.id).label) : 'Other \u25BE'),
-          React.createElement('div',{className:'nav-other-dropdown'},
-            TABS_OTHER.map(tb =>
-              tb.href
-                ? React.createElement('a',{
-                    key:tb.id,
-                    className:'nav-other-item',
-                    href:tb.href,
-                    target:'_blank',
-                    rel:'noopener noreferrer',
-                    style:{textDecoration:'none'},
-                  }, t(tb.i18n, tb.label))
-                : React.createElement('button',{
-                    key:tb.id,
-                    className:'nav-other-item'+(tab===tb.id?' active':''),
-                    onClick:()=>{navigateTab(tb.id);document.querySelector('.nav-other-wrap').classList.remove('open');}
-                  }, t(tb.i18n, tb.label))
-            )
+          otherOpen && ReactDOM.createPortal(
+            React.createElement('div',{
+              className:'nav-other-dropdown open',
+              role:'menu',
+              style:{position:'fixed',top:otherPos.top+'px',right:otherPos.right+'px',display:'flex',flexDirection:'column',gap:2},
+              onClick:(e)=>e.stopPropagation(),
+            },
+              TABS_OTHER.map(tb =>
+                tb.href
+                  ? React.createElement('a',{
+                      key:tb.id,
+                      className:'nav-other-item',
+                      href:tb.href,
+                      target:'_blank',
+                      rel:'noopener noreferrer',
+                      style:{textDecoration:'none'},
+                      onClick:()=>setOtherOpen(false),
+                    }, t(tb.i18n, tb.label))
+                  : React.createElement('button',{
+                      key:tb.id,
+                      type:'button',
+                      className:'nav-other-item'+(tab===tb.id?' active':''),
+                      onClick:()=>{navigateTab(tb.id);setOtherOpen(false);}
+                    }, t(tb.i18n, tb.label))
+              )
+            ),
+            document.body
           )
         )
       ),
