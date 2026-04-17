@@ -6203,6 +6203,519 @@ function buildRoundVision(motion, side) {
    TAB 4: CASUAL
    ═══════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════
+   TAB: CONGRESS — Congressional Debate prep module
+   Bill + role + speech-number → full prep package via the congressPrep prompt.
+   Bills save to localStorage so a user can keep a running list.
+   ═══════════════════════════════════════════════════ */
+
+function Congress() {
+  const el = React.createElement;
+  const BILLS_KEY = 'debateos-congress-bills-v1';
+  const [bills, setBills] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(BILLS_KEY) || '[]'); } catch(e) { return []; }
+  });
+  const [activeId, setActiveId] = useState(null);
+  const [billTitle, setBillTitle] = useState('');
+  const [billText, setBillText] = useState('');
+  const [role, setRole] = useState('sponsor');
+  const [speechNumber, setSpeechNumber] = useState('1st aff');
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const outputRef = useRef(null);
+
+  const persist = (arr) => { setBills(arr); try { localStorage.setItem(BILLS_KEY, JSON.stringify(arr)); } catch(e){} };
+  const saveBill = () => {
+    if (!billTitle.trim()) return;
+    const row = { id: 'b_' + Date.now(), title: billTitle.trim(), text: billText.trim(), savedAt: Date.now() };
+    persist([row, ...bills].slice(0, 30));
+    setActiveId(row.id);
+  };
+  const loadBill = (b) => { setActiveId(b.id); setBillTitle(b.title); setBillText(b.text); setOutput(''); };
+  const deleteBill = (id) => { if(!confirm('Delete this bill?'))return; persist(bills.filter(b=>b.id!==id)); if(activeId===id){setActiveId(null);setBillTitle('');setBillText('');} };
+
+  const generate = async () => {
+    if (!billTitle.trim() || loading) return;
+    setOutput('');
+    setLoading(true);
+    const throttle = createStreamThrottle((text) => setOutput(text));
+    try {
+      await callClaude('', 'Prepare my floor speech.', (text) => throttle.update(text), {
+        feature:'congress', promptId:'congressPrep',
+        promptVars:{ billTitle: billTitle.trim(), billText: billText.trim() || '(full bill text not provided — reason from the title)', role: role, speechNumber: speechNumber },
+        thinkBudget: 5000, maxTokens: 3000,
+      });
+      throttle.finish();
+    } catch(e) {
+      setOutput('Error: ' + e.message);
+    }
+    setLoading(false);
+  };
+
+  const ROLES = [
+    {id:'author', label:'Author', desc:'You wrote / introduced the bill. First speech.'},
+    {id:'sponsor', label:'Sponsor', desc:'First speaker, often with prep time.'},
+    {id:'aff', label:'Affirmative', desc:'Builds and extends the pro case.'},
+    {id:'neg', label:'Negative', desc:'Attacks the bill and defends the status quo.'},
+    {id:'crystallization', label:'Crystallization', desc:'Late speaker — weighs and collapses clashes.'},
+  ];
+  const SPEECH_NUMS = ['Author/Sponsor','1st aff','1st neg','2nd aff','2nd neg','Late aff','Late neg','Crystallization'];
+
+  const BORDER = 'rgba(255,255,255,.14)';
+  const FIELD_BG = 'rgba(0,0,0,.35)';
+  const label = (txt) => el('div',{style:{fontSize:'.68rem',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:6,marginTop:14}}, txt);
+  const pill = (active, onClick, children, extraStyle) => el('button',{type:'button',onClick,style:Object.assign({padding:'8px 14px',borderRadius:999,border:'1px solid '+(active?'var(--accent,#ef4444)':BORDER),background:active?'rgba(239,68,68,.14)':'transparent',color:active?'#fff':'var(--text-dim,#94a3b8)',fontSize:'.78rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'.15s'}, extraStyle||{})},children);
+
+  return el('div',{className:'panel',style:{maxWidth:760,margin:'0 auto',paddingTop:40,paddingBottom:40}},
+    el('h2',{style:{fontSize:'1.5rem',fontWeight:800,letterSpacing:'-.01em',marginBottom:8}},'Congressional Debate prep.'),
+    el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.95rem',lineHeight:1.6,marginBottom:28,maxWidth:620}},
+      'Paste a bill or resolution, pick your role and speech slot, and I\'ll generate a full 3-minute-speech prep package: arguments, weighing, the opener you can memorize, questioning strategy, and one specific fact to cite.'
+    ),
+
+    // Saved bills row
+    bills.length > 0 && el('div',{style:{marginBottom:24}},
+      label('Your saved bills'),
+      el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+        bills.map(b => el('div',{key:b.id,style:{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 4px 4px 10px',borderRadius:999,border:'1px solid '+(activeId===b.id?'var(--accent,#ef4444)':BORDER),background:activeId===b.id?'rgba(239,68,68,.1)':'transparent',fontSize:'.76rem'}},
+          el('button',{type:'button',onClick:()=>loadBill(b),style:{background:'transparent',border:'none',color:activeId===b.id?'#fff':'var(--text-dim,#94a3b8)',cursor:'pointer',fontFamily:'inherit',fontSize:'.76rem',fontWeight:600}}, b.title.length>36?b.title.slice(0,36)+'…':b.title),
+          el('button',{type:'button',onClick:()=>deleteBill(b.id),title:'Delete',style:{background:'transparent',border:'none',color:'var(--text-dim,#94a3b8)',cursor:'pointer',fontFamily:'inherit',fontSize:'.8rem',padding:'0 6px',opacity:.6}},'×'),
+        ))
+      )
+    ),
+
+    // Inputs
+    label('Bill / resolution title'),
+    el('input',{value:billTitle,onChange:e=>setBillTitle(e.target.value),placeholder:'e.g. A Bill to Restore Net Neutrality',style:{width:'100%',padding:'12px 14px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.94rem',fontFamily:'inherit',outline:'none'}}),
+
+    label('Full bill text (paste here)'),
+    el('textarea',{value:billText,onChange:e=>setBillText(e.target.value),rows:6,placeholder:'Paste the full text of the bill or resolution. More context = better prep.',style:{width:'100%',padding:'12px 14px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.9rem',fontFamily:'inherit',resize:'vertical',outline:'none',lineHeight:1.5}}),
+
+    label('Your role'),
+    el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+      ROLES.map(r => pill(role===r.id, ()=>setRole(r.id), r.label))
+    ),
+    ROLES.find(r=>r.id===role) && el('p',{style:{marginTop:8,fontSize:'.78rem',color:'var(--text-dim,#94a3b8)'}}, ROLES.find(r=>r.id===role).desc),
+
+    label('Speech slot'),
+    el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+      SPEECH_NUMS.map(s => pill(speechNumber===s, ()=>setSpeechNumber(s), s))
+    ),
+
+    el('div',{style:{display:'flex',gap:10,marginTop:28}},
+      el('button',{type:'button',onClick:generate,disabled:loading||!billTitle.trim(),style:{flex:1,padding:'14px 22px',borderRadius:999,border:'none',fontFamily:'inherit',fontWeight:700,fontSize:'.82rem',letterSpacing:'.06em',textTransform:'uppercase',cursor:loading||!billTitle.trim()?'not-allowed':'pointer',background:loading||!billTitle.trim()?'rgba(239,68,68,.25)':'var(--accent,#ef4444)',color:loading||!billTitle.trim()?'rgba(255,255,255,.55)':'#fff',boxShadow:loading||!billTitle.trim()?'none':'0 6px 24px rgba(239,68,68,.32)',transition:'.15s'}}, loading?'Generating prep...':'Generate floor-speech prep'),
+      billTitle.trim() && !bills.find(b=>b.title===billTitle.trim()) && el('button',{type:'button',onClick:saveBill,style:{padding:'14px 22px',borderRadius:999,background:'transparent',border:'1px solid '+BORDER,color:'var(--text-dim,#94a3b8)',fontWeight:600,fontSize:'.78rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}},'Save bill'),
+    ),
+
+    output && el('div',{ref:outputRef,style:{marginTop:28,padding:'20px 24px',background:'rgba(0,0,0,.3)',border:'1px solid rgba(255,255,255,.08)',borderRadius:14}},
+      el('div',{className:'output'+(loading?' streaming-active':''),dangerouslySetInnerHTML:{__html:cleanOutput(output,true)}})
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB: TOURNAMENTS — calendar scaffold (full backend + Tabroom API
+   integration pending). Users can manually enter upcoming tournaments,
+   we track them locally with date-based sorting + "countdown" readout.
+   Connect-Tabroom button is a placeholder for the real integration.
+   ═══════════════════════════════════════════════════ */
+
+function Tournaments() {
+  const el = React.createElement;
+  const KEY = 'debateos-tournaments-v1';
+  const [list, setList] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e) { return []; }
+  });
+  const [form, setForm] = useState({ name:'', date:'', format:'APDA', location:'', notes:'' });
+  const [showForm, setShowForm] = useState(false);
+
+  const save = (arr) => { setList(arr); try{localStorage.setItem(KEY,JSON.stringify(arr));}catch(e){} };
+  const add = () => {
+    if (!form.name.trim() || !form.date) return;
+    const row = { id:'t_'+Date.now(), ...form };
+    save([row, ...list].sort((a,b)=>new Date(a.date)-new Date(b.date)));
+    setForm({ name:'', date:'', format:'APDA', location:'', notes:'' });
+    setShowForm(false);
+  };
+  const del = (id) => { if(!confirm('Remove this tournament?'))return; save(list.filter(t=>t.id!==id)); };
+
+  const daysUntil = (d) => {
+    const diff = new Date(d) - new Date();
+    const days = Math.ceil(diff / 86400000);
+    if (days < 0) return 'past';
+    if (days === 0) return 'today';
+    if (days === 1) return 'tomorrow';
+    return days + ' days';
+  };
+
+  const BORDER = 'rgba(255,255,255,.14)';
+  const FIELD_BG = 'rgba(0,0,0,.35)';
+  const lab = (txt) => el('div',{style:{fontSize:'.66rem',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:6,marginTop:12}}, txt);
+  const inp = (k, ph, type) => el('input',{type:type||'text',value:form[k],onChange:e=>setForm(f=>({...f,[k]:e.target.value})),placeholder:ph,style:{width:'100%',padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.9rem',fontFamily:'inherit',outline:'none'}});
+
+  return el('div',{className:'panel',style:{maxWidth:760,margin:'0 auto',paddingTop:40,paddingBottom:40}},
+    el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:16,marginBottom:20}},
+      el('div',null,
+        el('h2',{style:{fontSize:'1.5rem',fontWeight:800,letterSpacing:'-.01em',marginBottom:8}},'Tournaments.'),
+        el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.95rem',lineHeight:1.6,maxWidth:560,margin:0}},
+          "Track upcoming tournaments with date, format, and prep notes. Tabroom integration is coming — for now, add events manually and we'll sort them and count down."
+        ),
+      ),
+      el('button',{type:'button',onClick:()=>setShowForm(s=>!s),style:{padding:'10px 18px',borderRadius:999,background:showForm?'transparent':'var(--accent,#ef4444)',border:showForm?'1px solid '+BORDER:'none',color:showForm?'var(--text-dim,#94a3b8)':'#fff',fontWeight:700,fontSize:'.74rem',letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap'}}, showForm?'Cancel':'Add tournament'),
+    ),
+
+    // Planned: Tabroom-API connector. Scaffolded here so it's visible to users.
+    el('div',{style:{padding:'14px 18px',background:'rgba(255,255,255,.03)',border:'1px dashed rgba(255,255,255,.14)',borderRadius:12,marginBottom:24,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}},
+      el('div',null,
+        el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:4}},'Coming soon'),
+        el('div',{style:{fontSize:'.86rem',color:'var(--text,#fff)',fontWeight:600}},'Sync your schedule and live brackets from Tabroom.'),
+      ),
+      el('button',{type:'button',disabled:true,style:{padding:'8px 14px',borderRadius:8,background:'transparent',border:'1px solid '+BORDER,color:'var(--text-dim,#94a3b8)',fontSize:'.7rem',fontWeight:600,letterSpacing:'.04em',cursor:'not-allowed',fontFamily:'inherit',opacity:.55}},'Connect Tabroom →'),
+    ),
+
+    showForm && el('div',{style:{padding:'18px 20px',background:'rgba(0,0,0,.3)',border:'1px solid '+BORDER,borderRadius:12,marginBottom:24}},
+      lab('Tournament name'),
+      inp('name','e.g. Yale IV, Apr 12–14'),
+      lab('Date'),
+      inp('date','','date'),
+      lab('Format'),
+      el('select',{value:form.format,onChange:e=>setForm(f=>({...f,format:e.target.value})),style:{width:'100%',padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.9rem',fontFamily:'inherit',outline:'none'}},
+        ['APDA','BP','WSDC','PF','LD','Policy','Congress','Quick Clash','Other'].map(f=>el('option',{key:f,value:f},f))
+      ),
+      lab('Location'),
+      inp('location','e.g. New Haven, CT'),
+      lab('Notes'),
+      el('textarea',{value:form.notes,onChange:e=>setForm(f=>({...f,notes:e.target.value})),rows:3,placeholder:'Topic areas you need to prep, judges on your panel, teammates attending…',style:{width:'100%',padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.9rem',fontFamily:'inherit',outline:'none',resize:'vertical'}}),
+      el('button',{type:'button',onClick:add,disabled:!form.name.trim()||!form.date,style:{marginTop:14,width:'100%',padding:'12px 20px',borderRadius:999,background:!form.name.trim()||!form.date?'rgba(239,68,68,.25)':'var(--accent,#ef4444)',color:'#fff',border:'none',fontWeight:700,fontSize:'.8rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:!form.name.trim()||!form.date?'not-allowed':'pointer',fontFamily:'inherit'}},'Save tournament'),
+    ),
+
+    list.length === 0
+      ? el('div',{style:{padding:'36px 24px',background:'rgba(255,255,255,.02)',border:'1px dashed '+BORDER,borderRadius:12,textAlign:'center'}},
+          el('p',{style:{fontSize:'.9rem',color:'var(--text-dim,#94a3b8)',margin:0}}, 'No tournaments yet. Click "Add tournament" to get started.')
+        )
+      : el('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+          list.map(t => el('div',{key:t.id,style:{padding:'14px 16px',background:'rgba(255,255,255,.03)',border:'1px solid '+BORDER,borderRadius:12}},
+            el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:6}},
+              el('div',{style:{flex:1,minWidth:0}},
+                el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:daysUntil(t.date)==='past'?'var(--text-dim,#94a3b8)':'var(--accent,#ef4444)',marginBottom:4}}, daysUntil(t.date)+' · '+t.format),
+                el('div',{style:{fontSize:'.98rem',fontWeight:700,color:'var(--text,#fff)',lineHeight:1.3}}, t.name),
+                el('div',{style:{marginTop:4,fontSize:'.78rem',color:'var(--text-dim,#94a3b8)'}}, new Date(t.date).toLocaleDateString() + (t.location?' · '+t.location:'')),
+              ),
+              el('button',{type:'button',onClick:()=>del(t.id),style:{background:'transparent',border:'none',color:'var(--text-dim,#94a3b8)',cursor:'pointer',fontFamily:'inherit',fontSize:'1rem',padding:'4px 8px',opacity:.6}},'×'),
+            ),
+            t.notes && el('p',{style:{margin:'8px 0 0',fontSize:'.84rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5}}, t.notes),
+          ))
+        ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB: MATTER FILES
+   Per-user and per-team research docs. localStorage is the primary store;
+   signed-in users with a team get a "Sync to team" placeholder that will
+   hook into Firestore in a follow-up commit.
+   ═══════════════════════════════════════════════════ */
+
+function MatterFiles({ user, team }) {
+  const el = React.createElement;
+  const KEY = 'debateos-matter-files-v1';
+  const [files, setFiles] = useState(() => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e){ return []; } });
+  const [activeId, setActiveId] = useState(null);
+  const [draft, setDraft] = useState({ title:'', body:'', tags:'' });
+  const [syncFlash, setSyncFlash] = useState(false);
+  const persist = (arr) => { setFiles(arr); try { localStorage.setItem(KEY, JSON.stringify(arr)); } catch(e){} };
+  const active = files.find(f => f.id === activeId);
+
+  useEffect(() => {
+    if (active) setDraft({ title: active.title, body: active.body, tags: (active.tags||[]).join(', ') });
+  }, [activeId]);
+
+  const newFile = () => {
+    const row = { id:'m_'+Date.now(), title:'Untitled matter file', body:'', tags:[], savedAt:Date.now() };
+    persist([row, ...files]);
+    setActiveId(row.id);
+    setDraft({ title: row.title, body: '', tags: '' });
+  };
+  const save = () => {
+    if (!active) return;
+    const updated = files.map(f => f.id === activeId ? { ...f, title: draft.title.trim() || 'Untitled', body: draft.body, tags: draft.tags.split(',').map(s=>s.trim()).filter(Boolean), savedAt: Date.now() } : f);
+    persist(updated);
+  };
+  const del = (id) => { if(!confirm('Delete this matter file?'))return; persist(files.filter(f=>f.id!==id)); if(activeId===id){setActiveId(null); setDraft({title:'',body:'',tags:''});} };
+  const syncToTeam = () => {
+    // Placeholder for real Firestore sync. The write itself is trivial; the
+    // part we want to test carefully in a follow-up is access control.
+    if (!user || !team) return;
+    try { window.logBetaEvent && window.logBetaEvent('matter_sync_attempt', { matter_id: activeId }); } catch(e){}
+    setSyncFlash(true);
+    setTimeout(()=>setSyncFlash(false), 1600);
+  };
+
+  const BORDER = 'rgba(255,255,255,.14)';
+  const FIELD_BG = 'rgba(0,0,0,.35)';
+
+  return el('div',{className:'panel',style:{maxWidth:980,margin:'0 auto',paddingTop:40,paddingBottom:40}},
+    el('div',{style:{marginBottom:24}},
+      el('h2',{style:{fontSize:'1.5rem',fontWeight:800,letterSpacing:'-.01em',marginBottom:8}},'Matter files.'),
+      el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.95rem',lineHeight:1.6,maxWidth:620,margin:0}},
+        'Your running research — arguments, stats, named cases, framework drafts — organized in a way that carries across rounds. Save topic notes here so you can pull them up during prep, and sync them to your team when you want everyone on the same page.'
+      ),
+    ),
+    el('div',{style:{display:'grid',gridTemplateColumns:'260px 1fr',gap:20,alignItems:'flex-start'}},
+      // ── Sidebar: file list
+      el('div',{style:{background:'rgba(0,0,0,.25)',border:'1px solid '+BORDER,borderRadius:12,overflow:'hidden'}},
+        el('div',{style:{padding:'12px 14px',borderBottom:'1px solid '+BORDER,display:'flex',justifyContent:'space-between',alignItems:'center'}},
+          el('span',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)'}}, 'Files · '+files.length),
+          el('button',{type:'button',onClick:newFile,style:{background:'transparent',border:'1px solid '+BORDER,borderRadius:6,color:'var(--text-dim,#94a3b8)',padding:'3px 10px',fontSize:'.66rem',fontWeight:700,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit'}},'+ New')
+        ),
+        files.length === 0
+          ? el('div',{style:{padding:'20px 16px',fontSize:'.82rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.55}}, 'No files yet. Hit + New to start a matter file.')
+          : files.map(f => el('button',{key:f.id,type:'button',onClick:()=>setActiveId(f.id),style:{display:'block',width:'100%',textAlign:'left',padding:'12px 14px',background:activeId===f.id?'rgba(239,68,68,.12)':'transparent',border:'none',borderBottom:'1px solid '+BORDER,color:activeId===f.id?'#fff':'var(--text-dim,#94a3b8)',fontFamily:'inherit',cursor:'pointer',transition:'.15s'}},
+            el('div',{style:{fontSize:'.86rem',fontWeight:600,marginBottom:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, f.title),
+            el('div',{style:{fontSize:'.68rem',color:'var(--text-dim,#94a3b8)',opacity:.8}}, new Date(f.savedAt).toLocaleDateString() + (f.tags && f.tags.length?' · '+f.tags.slice(0,2).join(' · '):''))
+          ))
+      ),
+      // ── Editor
+      active
+        ? el('div',{style:{background:'rgba(0,0,0,.25)',border:'1px solid '+BORDER,borderRadius:12,padding:20}},
+            el('input',{value:draft.title,onChange:e=>setDraft(d=>({...d,title:e.target.value})),placeholder:'Matter file title',style:{width:'100%',padding:'10px 0',background:'transparent',border:'none',borderBottom:'1px solid '+BORDER,color:'var(--text,#fff)',fontSize:'1.1rem',fontWeight:700,fontFamily:'inherit',outline:'none',marginBottom:12}}),
+            el('input',{value:draft.tags,onChange:e=>setDraft(d=>({...d,tags:e.target.value})),placeholder:'Tags — comma-separated (e.g. Climate, Economics, Framework)',style:{width:'100%',padding:'8px 10px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:8,color:'var(--text-dim,#94a3b8)',fontSize:'.78rem',fontFamily:'inherit',outline:'none',marginBottom:12}}),
+            el('textarea',{value:draft.body,onChange:e=>setDraft(d=>({...d,body:e.target.value})),rows:18,placeholder:'Your research — arguments, named cases, stats with years, framework drafts, anything you want to remember.\n\nMarkdown works here. Use ## for section headers, - for bullets.',style:{width:'100%',padding:'14px 16px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.9rem',fontFamily:'inherit',outline:'none',resize:'vertical',lineHeight:1.6}}),
+            el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:14,gap:10,flexWrap:'wrap'}},
+              el('div',{style:{display:'flex',gap:8}},
+                el('button',{type:'button',onClick:save,style:{padding:'10px 18px',borderRadius:999,background:'var(--accent,#ef4444)',color:'#fff',border:'none',fontWeight:700,fontSize:'.76rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}},'Save'),
+                el('button',{type:'button',onClick:()=>del(activeId),style:{padding:'10px 14px',borderRadius:999,background:'transparent',color:'var(--text-dim,#94a3b8)',border:'1px solid '+BORDER,fontWeight:600,fontSize:'.72rem',cursor:'pointer',fontFamily:'inherit'}},'Delete'),
+              ),
+              user && team
+                ? el('button',{type:'button',onClick:syncToTeam,style:{padding:'10px 14px',borderRadius:999,background:syncFlash?'rgba(34,197,94,.16)':'transparent',color:syncFlash?'#86efac':'var(--text-dim,#94a3b8)',border:'1px solid '+(syncFlash?'rgba(34,197,94,.4)':BORDER),fontWeight:600,fontSize:'.7rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}}, syncFlash?'Queued ✓':'Sync to team')
+                : el('span',{style:{fontSize:'.7rem',color:'var(--text-dim,#94a3b8)',opacity:.7}}, user?'Create or join a team to sync':'Sign in + join a team to sync'),
+            ),
+          )
+        : el('div',{style:{background:'rgba(0,0,0,.25)',border:'1px dashed '+BORDER,borderRadius:12,padding:'60px 24px',textAlign:'center',color:'var(--text-dim,#94a3b8)'}},
+            el('p',{style:{fontSize:'.95rem',margin:'0 0 14px'}}, 'Pick a file on the left, or create a new one.'),
+            el('button',{type:'button',onClick:newFile,style:{padding:'10px 20px',borderRadius:999,background:'var(--accent,#ef4444)',color:'#fff',border:'none',fontWeight:700,fontSize:'.78rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}}, '+ New matter file')
+          ),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB: WEBHOOKS — scaffold for third-party integrations.
+   Shows a working events UI + a docs reference panel. The actual POST
+   endpoint lives at /api/webhooks (stub will be added server-side).
+   ═══════════════════════════════════════════════════ */
+
+function Webhooks({ user }) {
+  const el = React.createElement;
+  const KEY = 'debateos-webhooks-v1';
+  const [hooks, setHooks] = useState(() => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e){ return []; } });
+  const [form, setForm] = useState({ name:'', url:'', events:['round_completed'] });
+  const persist = (arr) => { setHooks(arr); try { localStorage.setItem(KEY, JSON.stringify(arr)); } catch(e){} };
+  const add = () => { if (!form.url.trim()) return; persist([{ id:'h_'+Date.now(), ...form, secret: 'whsec_'+Math.random().toString(36).slice(2,16) }, ...hooks]); setForm({ name:'', url:'', events:['round_completed'] }); };
+  const del = (id) => { if(!confirm('Remove this webhook?'))return; persist(hooks.filter(h=>h.id!==id)); };
+  const toggleEvent = (ev) => setForm(f => ({ ...f, events: f.events.includes(ev) ? f.events.filter(e=>e!==ev) : [...f.events, ev] }));
+
+  const EVENTS = [
+    { id:'round_completed', desc:'Fires when a Debate AI or Debate Chat round ends (includes ballot JSON).' },
+    { id:'ballot_generated', desc:'Fires when the AI judge delivers a verdict.' },
+    { id:'case_saved', desc:'Fires when a case is saved to My Cases.' },
+    { id:'speech_scored', desc:'Fires when Judge Feedback produces per-speech scoring.' },
+    { id:'tournament_added', desc:'Fires when a tournament is added to your calendar.' },
+  ];
+  const BORDER = 'rgba(255,255,255,.14)';
+  const FIELD_BG = 'rgba(0,0,0,.35)';
+
+  return el('div',{className:'panel',style:{maxWidth:860,margin:'0 auto',paddingTop:40,paddingBottom:40}},
+    el('h2',{style:{fontSize:'1.5rem',fontWeight:800,letterSpacing:'-.01em',marginBottom:8}},'Integrations.'),
+    el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.95rem',lineHeight:1.6,marginBottom:28,maxWidth:620}},
+      'Connect Devil\'s Advocate to the tools your team already uses — Slack, Discord, Notion, a custom coaching CRM. Webhooks fire structured JSON payloads when events happen on your account.'
+    ),
+
+    // Coming-soon gate — this is scaffolding and we're honest about it.
+    !user && el('div',{style:{padding:'14px 18px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.25)',borderRadius:12,marginBottom:24,fontSize:'.88rem',color:'var(--text,#fff)'}},
+      el('strong',{style:{color:'#fca5a5'}},'Sign in required.'),
+      ' Webhooks are tied to your account so we can auth the signing secret. Sign in with Google to configure endpoints.'
+    ),
+
+    // Add form
+    user && el('div',{style:{padding:'20px 22px',background:'rgba(0,0,0,.25)',border:'1px solid '+BORDER,borderRadius:12,marginBottom:24}},
+      el('div',{style:{fontSize:'.66rem',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:10}},'Add endpoint'),
+      el('input',{value:form.name,onChange:e=>setForm(f=>({...f,name:e.target.value})),placeholder:'Name — e.g. "Team Slack channel"',style:{width:'100%',padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.9rem',fontFamily:'inherit',outline:'none',marginBottom:10}}),
+      el('input',{value:form.url,onChange:e=>setForm(f=>({...f,url:e.target.value})),placeholder:'URL — https://your-service.example/webhook',style:{width:'100%',padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.9rem',fontFamily:'inherit',outline:'none',marginBottom:10}}),
+      el('div',{style:{fontSize:'.68rem',color:'var(--text-dim,#94a3b8)',marginBottom:6,textTransform:'uppercase',letterSpacing:'.08em',fontWeight:700}},'Events to receive'),
+      el('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12}},
+        EVENTS.map(ev => el('button',{key:ev.id,type:'button',onClick:()=>toggleEvent(ev.id),title:ev.desc,style:{padding:'6px 12px',borderRadius:999,border:'1px solid '+(form.events.includes(ev.id)?'var(--accent,#ef4444)':BORDER),background:form.events.includes(ev.id)?'rgba(239,68,68,.14)':'transparent',color:form.events.includes(ev.id)?'#fff':'var(--text-dim,#94a3b8)',fontSize:'.72rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}, ev.id))
+      ),
+      el('button',{type:'button',onClick:add,disabled:!form.url.trim(),style:{padding:'10px 18px',borderRadius:999,background:!form.url.trim()?'rgba(239,68,68,.25)':'var(--accent,#ef4444)',color:'#fff',border:'none',fontWeight:700,fontSize:'.76rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:!form.url.trim()?'not-allowed':'pointer',fontFamily:'inherit'}}, 'Add webhook'),
+    ),
+
+    // List
+    user && hooks.length > 0 && el('div',{style:{marginBottom:24}},
+      el('div',{style:{fontSize:'.66rem',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:10}},'Your endpoints'),
+      el('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+        hooks.map(h => el('div',{key:h.id,style:{padding:'14px 16px',background:'rgba(255,255,255,.03)',border:'1px solid '+BORDER,borderRadius:12}},
+          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,marginBottom:6}},
+            el('div',{style:{flex:1,minWidth:0}},
+              el('div',{style:{fontSize:'.9rem',fontWeight:700,color:'var(--text,#fff)'}}, h.name || h.url),
+              el('div',{style:{fontSize:'.76rem',color:'var(--text-dim,#94a3b8)',marginTop:3,wordBreak:'break-all'}}, h.url),
+            ),
+            el('button',{type:'button',onClick:()=>del(h.id),style:{background:'transparent',border:'none',color:'var(--text-dim,#94a3b8)',fontSize:'1rem',cursor:'pointer',fontFamily:'inherit',padding:'0 4px',opacity:.6}},'×'),
+          ),
+          el('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginTop:6}},
+            (h.events||[]).map(ev => el('span',{key:ev,style:{padding:'3px 10px',borderRadius:999,background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.2)',fontSize:'.68rem',fontWeight:600,color:'#fca5a5'}}, ev))
+          ),
+          el('div',{style:{marginTop:10,fontSize:'.7rem',color:'var(--text-dim,#94a3b8)'}}, 'Signing secret: ', el('code',{style:{fontFamily:'ui-monospace,Menlo,monospace',background:'rgba(0,0,0,.4)',padding:'2px 6px',borderRadius:4,fontSize:'.68rem',color:'var(--text,#fff)'}}, h.secret)),
+        ))
+      )
+    ),
+
+    // Docs block — shown to everyone as a reference.
+    el('div',{style:{padding:'18px 20px',background:'rgba(0,0,0,.2)',border:'1px solid '+BORDER,borderRadius:12,marginTop:16}},
+      el('div',{style:{fontSize:'.66rem',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:12}},'Payload reference'),
+      el('div',{style:{fontSize:'.82rem',color:'var(--text,#fff)',lineHeight:1.6,marginBottom:10}},'Every webhook POST includes an ', el('code',{style:{fontFamily:'ui-monospace,Menlo,monospace',background:'rgba(0,0,0,.35)',padding:'1px 6px',borderRadius:4,fontSize:'.76rem'}},'X-DebateOS-Signature'),' header with an HMAC-SHA256 of the body using your signing secret.'),
+      el('pre',{style:{background:'rgba(0,0,0,.35)',border:'1px solid '+BORDER,borderRadius:10,padding:'14px 16px',fontSize:'.78rem',color:'var(--text,#fff)',overflowX:'auto',fontFamily:'ui-monospace,Menlo,monospace',lineHeight:1.5}},
+        el('code',null,
+`{
+  "event": "round_completed",
+  "id": "evt_7f3b…",
+  "created": "2026-04-18T21:14:03Z",
+  "user": { "id": "…", "email": "user@example.com" },
+  "data": {
+    "motion": "THW ban private education",
+    "format": "apda",
+    "side": "pro",
+    "ballot": { "winner": "you", "decision": "…", "speakerPoints": { "you": 28.5, "ai": 27.0 } }
+  }
+}`)
+      ),
+      el('p',{style:{marginTop:12,fontSize:'.76rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.55}},
+        'Endpoints get retried up to 3 times on non-2xx responses (2s, 8s, 30s). Full integration guide with signature-verification code samples for Node, Python, and Go will ship with the public beta of this feature.'
+      ),
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB: FORUM HUB — community-first social layer.
+   Two surfaces: "Arguments" (share a motion + your case for feedback)
+   and "Open mics" (live debate rooms people can join). Both localStorage
+   for the beta; real-time will hook into the team Firestore instance.
+   ═══════════════════════════════════════════════════ */
+
+function ForumHub({ user, onSignIn }) {
+  const el = React.createElement;
+  const [mode, setMode] = useState('arguments'); // 'arguments' | 'openmics'
+  const ARG_KEY = 'debateos-hub-arguments-v1';
+  const MIC_KEY = 'debateos-hub-openmics-v1';
+  const [args, setArgs] = useState(() => { try { return JSON.parse(localStorage.getItem(ARG_KEY) || '[]'); } catch(e){ return []; } });
+  const [mics, setMics] = useState(() => { try { return JSON.parse(localStorage.getItem(MIC_KEY) || '[]'); } catch(e){ return []; } });
+  const [argForm, setArgForm] = useState({ motion:'', side:'pro', body:'' });
+  const [micForm, setMicForm] = useState({ motion:'', format:'Quick Clash', scheduledAt:'', capacity:4 });
+  const persistArgs = (arr) => { setArgs(arr); try { localStorage.setItem(ARG_KEY, JSON.stringify(arr)); } catch(e){} };
+  const persistMics = (arr) => { setMics(arr); try { localStorage.setItem(MIC_KEY, JSON.stringify(arr)); } catch(e){} };
+
+  const submitArg = () => {
+    if (!user) { onSignIn && onSignIn(); return; }
+    if (!argForm.motion.trim() || !argForm.body.trim()) return;
+    const row = { id:'a_'+Date.now(), motion: argForm.motion.trim(), side: argForm.side, body: argForm.body.trim(), author: user.displayName || user.email, votes: 0, createdAt: Date.now() };
+    persistArgs([row, ...args]);
+    setArgForm({ motion:'', side:'pro', body:'' });
+  };
+  const vote = (id, delta) => persistArgs(args.map(a => a.id === id ? { ...a, votes: (a.votes||0) + delta } : a));
+  const hostMic = () => {
+    if (!user) { onSignIn && onSignIn(); return; }
+    if (!micForm.motion.trim()) return;
+    const row = { id:'m_'+Date.now(), motion: micForm.motion.trim(), format: micForm.format, scheduledAt: micForm.scheduledAt, capacity: +micForm.capacity || 4, host: user.displayName || user.email, attendees: [user.email], createdAt: Date.now() };
+    persistMics([row, ...mics]);
+    setMicForm({ motion:'', format:'Quick Clash', scheduledAt:'', capacity:4 });
+  };
+  const joinMic = (id) => {
+    if (!user) { onSignIn && onSignIn(); return; }
+    persistMics(mics.map(m => m.id === id && !(m.attendees||[]).includes(user.email) ? { ...m, attendees: [...(m.attendees||[]), user.email] } : m));
+  };
+
+  const BORDER = 'rgba(255,255,255,.14)';
+  const FIELD_BG = 'rgba(0,0,0,.35)';
+  const tab = (id, lbl) => el('button',{type:'button',onClick:()=>setMode(id),style:{padding:'10px 20px',borderRadius:999,background:mode===id?'var(--accent,#ef4444)':'transparent',color:mode===id?'#fff':'var(--text-dim,#94a3b8)',border:'1px solid '+(mode===id?'var(--accent,#ef4444)':BORDER),fontWeight:700,fontSize:'.78rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}}, lbl);
+
+  return el('div',{className:'panel',style:{maxWidth:820,margin:'0 auto',paddingTop:40,paddingBottom:40}},
+    el('h2',{style:{fontSize:'1.5rem',fontWeight:800,letterSpacing:'-.01em',marginBottom:8}},'Community hub.'),
+    el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.95rem',lineHeight:1.6,marginBottom:24,maxWidth:620}},
+      'Share an argument you\'re working on and get feedback from real debaters. Or host an open-mic room where anyone can drop in to debate a motion. Built for the long nights before a tournament — and the normal-people Tuesday where you just want someone smart to push back.'
+    ),
+
+    el('div',{style:{display:'flex',gap:8,marginBottom:24}},
+      tab('arguments','Shared arguments'),
+      tab('openmics','Open mics'),
+    ),
+
+    mode === 'arguments'
+      ? el(React.Fragment,null,
+          // Post form
+          el('div',{style:{padding:'18px 20px',background:'rgba(0,0,0,.25)',border:'1px solid '+BORDER,borderRadius:12,marginBottom:20}},
+            el('div',{style:{fontSize:'.66rem',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:10}},'Share an argument'),
+            el('input',{value:argForm.motion,onChange:e=>setArgForm(f=>({...f,motion:e.target.value})),placeholder:'Motion — e.g. "THW tax billionaires out of existence"',style:{width:'100%',padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.9rem',fontFamily:'inherit',outline:'none',marginBottom:10}}),
+            el('div',{style:{display:'flex',gap:8,marginBottom:10}},
+              ['pro','con'].map(s => el('button',{key:s,type:'button',onClick:()=>setArgForm(f=>({...f,side:s})),style:{flex:1,padding:'8px 12px',borderRadius:999,border:'1px solid '+(argForm.side===s?'var(--accent,#ef4444)':BORDER),background:argForm.side===s?'rgba(239,68,68,.14)':'transparent',color:argForm.side===s?'#fff':'var(--text-dim,#94a3b8)',fontSize:'.76rem',fontWeight:700,cursor:'pointer',fontFamily:'inherit',textTransform:'uppercase',letterSpacing:'.04em'}}, s))
+            ),
+            el('textarea',{value:argForm.body,onChange:e=>setArgForm(f=>({...f,body:e.target.value})),rows:5,placeholder:'Your argument. The sharper the better — other debaters will flip it in the comments.',style:{width:'100%',padding:'12px 14px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.88rem',fontFamily:'inherit',resize:'vertical',outline:'none',lineHeight:1.6}}),
+            el('button',{type:'button',onClick:submitArg,disabled:!argForm.motion.trim()||!argForm.body.trim(),style:{marginTop:12,padding:'10px 20px',borderRadius:999,background:(!argForm.motion.trim()||!argForm.body.trim())?'rgba(239,68,68,.25)':'var(--accent,#ef4444)',color:'#fff',border:'none',fontWeight:700,fontSize:'.76rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:(!argForm.motion.trim()||!argForm.body.trim())?'not-allowed':'pointer',fontFamily:'inherit'}}, user ? 'Post argument' : 'Sign in to post'),
+          ),
+          // List
+          args.length === 0
+            ? el('div',{style:{padding:'40px 24px',background:'rgba(255,255,255,.02)',border:'1px dashed '+BORDER,borderRadius:12,textAlign:'center'}},
+                el('p',{style:{fontSize:'.9rem',color:'var(--text-dim,#94a3b8)',margin:0}}, 'No shared arguments yet. Be the first to post.')
+              )
+            : el('div',{style:{display:'flex',flexDirection:'column',gap:12}},
+                args.map(a => el('div',{key:a.id,style:{padding:'16px 18px',background:'rgba(255,255,255,.03)',border:'1px solid '+BORDER,borderRadius:12}},
+                  el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:8}},
+                    el('div',null,
+                      el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:3}}, a.side.toUpperCase()+' · '+a.author),
+                      el('div',{style:{fontSize:'.95rem',fontWeight:700,color:'var(--text,#fff)',lineHeight:1.4}}, a.motion),
+                    ),
+                    el('div',{style:{display:'flex',alignItems:'center',gap:6,flexShrink:0}},
+                      el('button',{type:'button',onClick:()=>vote(a.id,1),title:'Upvote',style:{background:'transparent',border:'1px solid '+BORDER,borderRadius:6,color:'var(--text-dim,#94a3b8)',padding:'4px 8px',cursor:'pointer',fontFamily:'inherit',fontSize:'.72rem'}}, '↑'),
+                      el('span',{style:{fontSize:'.82rem',fontWeight:700,color:'var(--text,#fff)',minWidth:18,textAlign:'center'}}, a.votes||0),
+                      el('button',{type:'button',onClick:()=>vote(a.id,-1),title:'Downvote',style:{background:'transparent',border:'1px solid '+BORDER,borderRadius:6,color:'var(--text-dim,#94a3b8)',padding:'4px 8px',cursor:'pointer',fontFamily:'inherit',fontSize:'.72rem'}}, '↓'),
+                    ),
+                  ),
+                  el('p',{style:{margin:'8px 0 0',fontSize:'.88rem',color:'var(--text,#fff)',lineHeight:1.6,whiteSpace:'pre-line'}}, a.body),
+                ))
+              )
+        )
+      : el(React.Fragment,null,
+          // Host form
+          el('div',{style:{padding:'18px 20px',background:'rgba(0,0,0,.25)',border:'1px solid '+BORDER,borderRadius:12,marginBottom:20}},
+            el('div',{style:{fontSize:'.66rem',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:10}},'Host an open mic'),
+            el('input',{value:micForm.motion,onChange:e=>setMicForm(f=>({...f,motion:e.target.value})),placeholder:'Motion',style:{width:'100%',padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.9rem',fontFamily:'inherit',outline:'none',marginBottom:10}}),
+            el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}},
+              el('select',{value:micForm.format,onChange:e=>setMicForm(f=>({...f,format:e.target.value})),style:{padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.86rem',fontFamily:'inherit',outline:'none'}},
+                ['Quick Clash','APDA','BP','WSDC','PF','LD','Policy','Congress'].map(f=>el('option',{key:f,value:f},f))
+              ),
+              el('input',{type:'datetime-local',value:micForm.scheduledAt,onChange:e=>setMicForm(f=>({...f,scheduledAt:e.target.value})),style:{padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.86rem',fontFamily:'inherit',outline:'none'}}),
+              el('input',{type:'number',min:2,max:16,value:micForm.capacity,onChange:e=>setMicForm(f=>({...f,capacity:e.target.value})),placeholder:'Cap',style:{padding:'10px 12px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.86rem',fontFamily:'inherit',outline:'none'}}),
+            ),
+            el('button',{type:'button',onClick:hostMic,disabled:!micForm.motion.trim(),style:{padding:'10px 20px',borderRadius:999,background:!micForm.motion.trim()?'rgba(239,68,68,.25)':'var(--accent,#ef4444)',color:'#fff',border:'none',fontWeight:700,fontSize:'.76rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:!micForm.motion.trim()?'not-allowed':'pointer',fontFamily:'inherit'}}, user ? 'Host open mic' : 'Sign in to host'),
+          ),
+          mics.length === 0
+            ? el('div',{style:{padding:'40px 24px',background:'rgba(255,255,255,.02)',border:'1px dashed '+BORDER,borderRadius:12,textAlign:'center'}},
+                el('p',{style:{fontSize:'.9rem',color:'var(--text-dim,#94a3b8)',margin:0}}, 'No open mics scheduled. Host the first.')
+              )
+            : el('div',{style:{display:'flex',flexDirection:'column',gap:12}},
+                mics.map(m => el('div',{key:m.id,style:{padding:'16px 18px',background:'rgba(255,255,255,.03)',border:'1px solid '+BORDER,borderRadius:12}},
+                  el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}},
+                    el('div',{style:{flex:1,minWidth:0}},
+                      el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:3}}, m.format+' · hosted by '+m.host),
+                      el('div',{style:{fontSize:'.95rem',fontWeight:700,color:'var(--text,#fff)',lineHeight:1.4}}, m.motion),
+                      el('div',{style:{marginTop:6,fontSize:'.76rem',color:'var(--text-dim,#94a3b8)'}}, (m.scheduledAt? new Date(m.scheduledAt).toLocaleString():'Open now') +' · '+(m.attendees||[]).length+' / '+m.capacity+' joined'),
+                    ),
+                    el('button',{type:'button',onClick:()=>joinMic(m.id),disabled:(m.attendees||[]).length>=m.capacity,style:{padding:'8px 16px',borderRadius:999,background:'var(--accent,#ef4444)',color:'#fff',border:'none',fontWeight:700,fontSize:'.72rem',letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',flexShrink:0}}, user ? 'Join' : 'Sign in'),
+                  )
+                ))
+              )
+        ),
+  );
+}
+
 function Casual() {
   const { t } = React.useContext(I18nContext);
   const [casualFormat, setCasualFormat] = useState('APDA');
@@ -6247,36 +6760,79 @@ function Casual() {
     setLoading(false);
   };
 
-  return React.createElement('div',{className:'panel'},
+  // Intent-shortcut chips — seed the input with a natural prompt so users who
+  // don't know what to type have a clear on-ramp.
+  const CASUAL_STARTERS = [
+    { label:'Help me win this argument',  seed:'They just said: "' },
+    { label:'Find the flaw in their logic', seed:'Tell me what\'s wrong with this argument: ' },
+    { label:'How should I respond?',       seed:'Someone told me: ' },
+    { label:'Is this worth engaging?',     seed:"Here's what they said — tell me if it's worth a response: " },
+  ];
+  const chipStyle = {background:'transparent',border:'1px solid rgba(255,255,255,.14)',color:'var(--text-dim,#94a3b8)',padding:'7px 14px',borderRadius:999,fontSize:'.78rem',fontWeight:500,cursor:'pointer',fontFamily:'inherit',transition:'.15s',whiteSpace:'nowrap'};
+
+  const isFirstTurn = messages.length <= 1 && !loading;
+
+  return React.createElement('div',{className:'panel',style:{maxWidth:720,margin:'0 auto',paddingTop:40,paddingBottom:40}},
+    // Hero header — gives the tab a clear identity like Debate Chat does.
+    React.createElement('h2',{style:{fontSize:'1.5rem',fontWeight:800,letterSpacing:'-.01em',marginBottom:8}},'Argue on your behalf.'),
+    React.createElement('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.95rem',lineHeight:1.6,marginBottom:28,maxWidth:560}},
+      'Paste something someone said — in a group chat, at work, at the dinner table — and I\'ll tell you what to say back. Short, punchy, tactical. Not an essay.'
+    ),
+
+    // Starter chips only on the first turn — on-ramp for blank-input anxiety.
+    isFirstTurn && React.createElement('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:24}},
+      CASUAL_STARTERS.map(s =>
+        React.createElement('button',{key:s.label,type:'button',onClick:()=>setInput(s.seed),style:chipStyle,
+          onMouseOver:e=>{e.currentTarget.style.color='var(--text,#fff)';e.currentTarget.style.borderColor='rgba(255,255,255,.28)';},
+          onMouseOut:e=>{e.currentTarget.style.color='var(--text-dim,#94a3b8)';e.currentTarget.style.borderColor='rgba(255,255,255,.14)';},
+        }, s.label)
+      )
+    ),
+
+    // Chat transcript
     React.createElement('div',{style:{
-      maxHeight:400,overflowY:'auto',marginBottom:16,
-      display:'flex',flexDirection:'column',gap:12
+      maxHeight:500,minHeight:isFirstTurn?0:260,overflowY:'auto',marginBottom:24,
+      display:'flex',flexDirection:'column',gap:16,paddingRight:4,
     }},
       messages.map((m,i) => {
         const isStreamingMsg = loading && m.role==='assistant' && i===messages.length-1;
-        return React.createElement('div',{key:i,className:(m.role==='user'?'rc-user':'rc-ai') + (isStreamingMsg?' output streaming-active':''),style:{
-          alignSelf: m.role==='user' ? 'flex-end' : 'flex-start',
-          background: m.role==='user' ? '#ef444422' : 'var(--card-bg,#ffffff08)',
-          border: '1px solid ' + (m.role==='user' ? '#ef444433' : 'var(--card-border,#ffffff22)'),
-          borderRadius: 12, padding:'12px 16px',
-          maxWidth:'80%', fontSize:'.92rem', lineHeight:1.45, whiteSpace:'pre-line'
-        }, dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}});
-      }
-      ),
+        const isYou = m.role === 'user';
+        const label = isYou ? 'You' : 'Coach';
+        return React.createElement('div',{key:i,style:{alignSelf:isYou?'flex-end':'flex-start',maxWidth:'88%',display:'flex',flexDirection:'column',gap:5}},
+          React.createElement('div',{style:{fontSize:'.6rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:isYou?'var(--accent,#ef4444)':'var(--text-dim,#94a3b8)',paddingLeft:isYou?0:4,paddingRight:isYou?4:0,textAlign:isYou?'right':'left'}}, label),
+          React.createElement('div',{
+            className:(isYou?'':'output')+(isStreamingMsg?' streaming-active':''),
+            style:{background:isYou?'rgba(239,68,68,.14)':'rgba(0,0,0,.3)',border:'1px solid '+(isYou?'rgba(239,68,68,.3)':'rgba(255,255,255,.1)'),borderRadius:14,padding:'14px 18px',fontSize:'.94rem',lineHeight:1.6,whiteSpace:'pre-line'},
+            dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}
+          })
+        );
+      }),
       loading && React.createElement(LoadingBar, { label: 'Thinking...' }),
       React.createElement('div',{ref:bottomRef})
     ),
-    React.createElement('div',{style:{display:'flex',gap:10}},
-      React.createElement('input',{
-        type:'text',
-        placeholder:'What did they say? Drop their argument here...',
+
+    // Input row — sticky-ish at the bottom of the panel, with a visible Send button.
+    React.createElement('div',{style:{display:'flex',gap:10,alignItems:'flex-end'}},
+      React.createElement('textarea',{
+        placeholder:isFirstTurn ? 'What did they say? Paste or type it here…' : 'Your reply or next question…',
         value:input,
         onChange:e=>setInput(e.target.value),
-        onKeyDown:e=>{if(e.key==='Enter')send()},
-        style:{flex:1}
+        onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}},
+        rows:2,
+        style:{flex:1,padding:'12px 14px',background:'rgba(0,0,0,.35)',border:'1px solid rgba(255,255,255,.14)',borderRadius:12,color:'var(--text,#fff)',fontSize:'.94rem',fontFamily:'inherit',resize:'none',outline:'none'},
       }),
-      React.createElement('button',{className:'btn btn-primary',onClick:send,disabled:loading},'Send')
-    )
+      React.createElement('button',{
+        onClick:send,
+        disabled:loading||!input.trim(),
+        style:{padding:'0 26px',minHeight:52,borderRadius:12,border:'none',cursor:loading||!input.trim()?'not-allowed':'pointer',fontFamily:'inherit',fontWeight:700,fontSize:'.82rem',letterSpacing:'.06em',textTransform:'uppercase',transition:'.15s',
+          background:loading||!input.trim()?'rgba(239,68,68,.25)':'var(--accent,#ef4444)',
+          color:loading||!input.trim()?'rgba(255,255,255,.55)':'#fff',
+          boxShadow:loading||!input.trim()?'none':'0 6px 20px rgba(239,68,68,.32)'},
+      }, loading?'Sending…':'Send')
+    ),
+    React.createElement('p',{style:{marginTop:12,fontSize:'.72rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5}},
+      'Enter to send. Shift + Enter for a new line.'
+    ),
   );
 }
 
@@ -6296,6 +6852,7 @@ function DebateChat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ballot, setBallot] = useState(null); // Parsed JSON ballot from "end" command
   const bottomRef = useRef(null);
   // Library state: saved rounds persisted in localStorage + whether the library
   // panel is currently shown over the setup screen.
@@ -6383,26 +6940,71 @@ function DebateChat() {
     setStarted(false);
     setMessages([]);
     setInput('');
+    setBallot(null);
   };
+
+  // Detect "end round" verbs so a single word from the user flips the AI
+  // from opponent mode → judge mode and triggers a structured ballot render.
+  const isEndCommand = (txt) => /^\s*(end|ballot|judge me|judge|verdict)\s*[.!?]?\s*$/i.test(txt || '');
 
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input.trim();
     setInput('');
+    const endRequested = isEndCommand(userMsg);
     const newMsgs = [...messages, {role:'user', text:userMsg}];
     setMessages(newMsgs);
     setLoading(true);
 
     try {
-      // Build context header so the AI knows the motion + which side is whose
       // Silent profile capture — every message teaches the style model a little more.
       try { window.DebateStyle && window.DebateStyle.captureMessage(userMsg, { motion: motion }); } catch(e){}
-      // Build the userStyle directive block if we've seen enough of the user.
+
+      // ── Ballot path ────────────────────────────────────
+      // User asked for a verdict. Call the structured-JSON ballot prompt and
+      // render the parsed result as a ballot card instead of a chat message.
+      if (endRequested) {
+        const apiMessages = newMsgs.filter(m=>m.role!=='system').slice(-24).map(m => ({
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.text
+        }));
+        let raw = '';
+        await callClaude('', userMsg, (text) => { raw = text; }, {
+          messages: apiMessages,
+          thinkBudget: 4000,
+          maxTokens: 1500,
+          feature: 'debateChatBallot',
+          promptId: 'debateChatBallot',
+          promptVars: {
+            motion: motion.trim(),
+            sideLabel: sideLabel(mySide),
+            aiSide: sideLabel(aiSide),
+          },
+        });
+        // Try to parse JSON. Strip any code fencing the AI might add anyway.
+        let parsed = null;
+        try {
+          const cleaned = raw.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/,'').trim();
+          parsed = JSON.parse(cleaned);
+        } catch(e) {
+          // Attempt to locate a JSON block inside surrounding text.
+          const match = raw.match(/\{[\s\S]*\}/);
+          if (match) { try { parsed = JSON.parse(match[0]); } catch(_){} }
+        }
+        if (parsed && typeof parsed === 'object' && parsed.decision) {
+          setBallot(parsed);
+        } else {
+          // Fallback — render whatever we got as a plain assistant message.
+          setMessages(prev => [...prev, {role:'assistant', text: raw || "Couldn't generate a ballot. Try one more exchange and ask again."}]);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // ── Normal debate path ─────────────────────────────
       const userStyleBlock = (() => {
         try { return (window.DebateStyle && window.DebateStyle.buildUserStyleBlock()) || ''; } catch(e) { return ''; }
       })();
-      // Speech-role heuristic: treat the first 1-2 turns as "opening," then rebuttal,
-      // then whip/pmr if the user explicitly asks for closing. Prompt interprets these.
       const speechRole = newMsgs.filter(m=>m.role==='user').length <= 1 ? 'opening'
                         : newMsgs.filter(m=>m.role==='user').length <= 3 ? 'rebuttal'
                         : 'whip';
@@ -6430,7 +7032,7 @@ function DebateChat() {
   // ── LIBRARY PANEL ─────────────────────────────────────
   // Shown in place of the setup screen when the user clicks "My rounds".
   if (!started && showLibrary) {
-    return React.createElement('div',{className:'panel',style:{maxWidth:720,margin:'0 auto'}},
+    return React.createElement('div',{className:'panel',style:{maxWidth:720,margin:'0 auto',paddingTop:40}},
       React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}},
         React.createElement('div',null,
           React.createElement('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:4}},'My rounds'),
@@ -6478,11 +7080,13 @@ function DebateChat() {
     const fieldStyle = {width:'100%',padding:'12px 14px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.94rem',fontFamily:'inherit',resize:'vertical',marginBottom:18,outline:'none',transition:'border-color .15s'};
     const onFocus = e => { e.target.style.borderColor = 'rgba(239,68,68,.55)'; };
     const onBlur = e => { e.target.style.borderColor = BORDER; };
-    return React.createElement('div',{className:'panel',style:{maxWidth:640,margin:'0 auto'}},
+    // Extra top padding so the h2 has breathing room below the sticky nav
+    // — without it the nav pills sit directly above the heading with no gap.
+    return React.createElement('div',{className:'panel',style:{maxWidth:640,margin:'0 auto',paddingTop:40}},
       // Eyebrow label removed — the nav tab already says "Debate Chat" in the primary
       // row, so repeating it here was visual duplication. Keep the "My rounds" pill
       // floated to the right; it still anchors the header row.
-      savedRounds.length > 0 && React.createElement('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:4}},
+      savedRounds.length > 0 && React.createElement('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:10}},
         React.createElement('button',{
           type:'button',
           onClick:()=>setShowLibrary(true),
@@ -6504,7 +7108,7 @@ function DebateChat() {
           style:{background:'transparent',border:'1px solid '+BORDER,color:'var(--text-dim,#94a3b8)',padding:'4px 10px',borderRadius:999,fontSize:'.62rem',fontWeight:700,letterSpacing:'.08em',cursor:'pointer',fontFamily:'inherit',textTransform:'uppercase',transition:'.15s'},
           onMouseOver:e=>{e.currentTarget.style.color='var(--text,#fff)';e.currentTarget.style.borderColor=BORDER_STRONG;},
           onMouseOut:e=>{e.currentTarget.style.color='var(--text-dim,#94a3b8)';e.currentTarget.style.borderColor=BORDER;},
-        },'🎲  Random motion + background')
+        },'Random motion + background')
       ),
       React.createElement('textarea',{
         value:motion,
@@ -6597,13 +7201,67 @@ function DebateChat() {
       loading && React.createElement(LoadingBar, { label:'AI is responding...' }),
       React.createElement('div',{ref:bottomRef})
     ),
+    // Ballot card — shown when the user typed "end" and the AI returned a
+    // structured verdict. Lives above the input so the last thing on screen is
+    // the verdict plus the "start over / keep going" choice.
+    ballot && (function(){
+      const b = ballot;
+      const userWon = b.winner === 'you';
+      const winnerLabel = userWon ? 'You win.' : 'You lose.';
+      const marginBadge = b.margin ? b.margin.toUpperCase() : 'CLOSE';
+      const card = (title, children, extraStyle) => React.createElement('div',{style:Object.assign({background:'rgba(0,0,0,.3)',border:'1px solid rgba(255,255,255,.1)',borderRadius:12,padding:'14px 16px'}, extraStyle||{})},
+        React.createElement('div',{style:{fontSize:'.6rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:8}},title),
+        children
+      );
+      const list = (items) => React.createElement('ul',{style:{listStyle:'none',padding:0,margin:0}},
+        (items||[]).map((txt,i) => React.createElement('li',{key:i,style:{display:'flex',gap:10,alignItems:'flex-start',marginBottom:8,fontSize:'.88rem',lineHeight:1.55,color:'var(--text,#fff)'}},
+          React.createElement('span',{style:{color:'var(--accent,#ef4444)',fontWeight:800,flexShrink:0,marginTop:1}},'→'),
+          React.createElement('span',null, txt)
+        ))
+      );
+      return React.createElement('div',{style:{marginBottom:18,padding:'20px 22px',border:'1px solid '+(userWon?'rgba(34,197,94,.35)':'rgba(239,68,68,.35)'),borderRadius:16,background:'linear-gradient(180deg, '+(userWon?'rgba(34,197,94,.08)':'rgba(239,68,68,.06)')+', rgba(0,0,0,.3))',boxShadow:'0 8px 30px rgba(0,0,0,.35)'}},
+        React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
+          React.createElement('div',null,
+            React.createElement('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:userWon?'#86efac':'#fca5a5',marginBottom:4}},'Verdict'),
+            React.createElement('h3',{style:{fontSize:'1.4rem',fontWeight:900,letterSpacing:'-.02em',color:'var(--text,#fff)',margin:0}}, winnerLabel)
+          ),
+          React.createElement('span',{style:{padding:'4px 12px',borderRadius:999,fontSize:'.62rem',fontWeight:700,letterSpacing:'.12em',background:'rgba(255,255,255,.08)',color:'var(--text-dim,#94a3b8)',border:'1px solid rgba(255,255,255,.1)'}}, marginBadge),
+        ),
+        React.createElement('p',{style:{fontSize:'.92rem',lineHeight:1.6,color:'var(--text,#fff)',margin:'0 0 16px'}}, b.decision || ''),
+        b.keyClash && React.createElement('div',{style:{padding:'10px 14px',background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.08)',borderRadius:10,marginBottom:16}},
+          React.createElement('span',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginRight:8}},'Key clash'),
+          React.createElement('span',{style:{fontSize:'.88rem',color:'var(--text,#fff)',fontWeight:600}}, b.keyClash)
+        ),
+        b.speakerPoints && React.createElement('div',{style:{display:'flex',gap:10,marginBottom:16}},
+          card('You', React.createElement('div',{style:{fontSize:'1.4rem',fontWeight:900,color:'var(--text,#fff)'}}, (b.speakerPoints.you||0).toFixed(1)), {flex:1,textAlign:'center'}),
+          card('AI', React.createElement('div',{style:{fontSize:'1.4rem',fontWeight:900,color:'var(--text,#fff)'}}, (b.speakerPoints.ai||0).toFixed(1)), {flex:1,textAlign:'center'}),
+        ),
+        b.strengths && b.strengths.length > 0 && React.createElement('div',{style:{marginBottom:14}},
+          React.createElement('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'#86efac',marginBottom:8}},'Strengths'),
+          list(b.strengths)
+        ),
+        b.improvements && b.improvements.length > 0 && React.createElement('div',{style:{marginBottom:14}},
+          React.createElement('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'#fca5a5',marginBottom:8}},'Improvements'),
+          list(b.improvements)
+        ),
+        b.drill && React.createElement('div',{style:{padding:'12px 14px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.25)',borderRadius:10,marginBottom:14}},
+          React.createElement('span',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginRight:8}},'Drill'),
+          React.createElement('span',{style:{fontSize:'.88rem',color:'var(--text,#fff)'}}, b.drill)
+        ),
+        React.createElement('div',{style:{display:'flex',gap:8,marginTop:8}},
+          React.createElement('button',{type:'button',onClick:()=>{setBallot(null);},style:{flex:1,background:'transparent',border:'1px solid rgba(255,255,255,.15)',color:'var(--text-dim,#94a3b8)',padding:'10px 14px',borderRadius:10,fontSize:'.76rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit'}},'Keep debating'),
+          React.createElement('button',{type:'button',onClick:()=>{saveCurrentRound();},style:{flex:1,background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.15)',color:'var(--text,#fff)',padding:'10px 14px',borderRadius:10,fontSize:'.76rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit'}},savedFlash?'Saved ✓':'Save round'),
+          React.createElement('button',{type:'button',onClick:reset,style:{flex:1,background:'var(--accent,#ef4444)',border:'none',color:'#fff',padding:'10px 14px',borderRadius:10,fontSize:'.76rem',fontWeight:700,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit',textTransform:'uppercase'}},'New round'),
+        ),
+      );
+    })(),
     // Input
     React.createElement('div',{style:{display:'flex',gap:10,alignItems:'flex-end'}},
       React.createElement('textarea',{
         value:input,
         onChange:e=>setInput(e.target.value),
         onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}},
-        placeholder:'Make your argument. Enter to send, Shift+Enter for a new line.',
+        placeholder:ballot ? 'Type your next argument or hit "New round"…' : 'Make your argument. Enter to send, Shift+Enter = new line. Type "end" for a judge verdict.',
         rows:2,
         style:{flex:1,padding:'10px 14px',background:'var(--bg-card,#ffffff06)',border:'1px solid var(--border,rgba(255,255,255,.12))',borderRadius:10,color:'var(--text,#fff)',fontSize:'.92rem',fontFamily:'inherit',resize:'none'},
       }),
@@ -9016,7 +9674,10 @@ function SignUpNudgeModal({ onSignIn, onDismiss }) {
 
 function StyleProfileModal({ onClose }) {
   const el = React.createElement;
-  const existing = (window.DebateStyle && window.DebateStyle.getProfile().questionnaire) || {};
+  const fullProfile = (window.DebateStyle && window.DebateStyle.getProfile()) || {};
+  const existing = fullProfile.questionnaire || {};
+  const silent = fullProfile.silent || {};
+  const [view, setView] = useState(existing.experienceLevel ? 'summary' : 'edit'); // 'summary' shows what AI knows; 'edit' shows the questionnaire
   const [answers, setAnswers] = useState({
     experienceLevel: existing.experienceLevel || '',
     formats: existing.formats || [],
@@ -9027,6 +9688,25 @@ function StyleProfileModal({ onClose }) {
     goals: existing.goals || '',
     avoid: existing.avoid || '',
   });
+  const [resetFlash, setResetFlash] = useState(false);
+  // Derived silent-signal summary — same bands buildUserStyleBlock uses.
+  const silentSummary = (function(){
+    const n = silent.msgCount || 0;
+    if (n < 3) return null;
+    const avgMsgLen = silent.totalChars / n;
+    const avgSentLen = silent.totalSentences > 0 ? silent.totalChars / silent.totalSentences : 0;
+    return {
+      n: n,
+      length: avgMsgLen < 220 ? 'short' : avgMsgLen < 500 ? 'medium' : 'long',
+      sentences: avgSentLen < 80 ? 'punchy' : avgSentLen < 140 ? 'standard' : 'flowing',
+      jargon: silent.jargonHits / n > 1.2 ? 'high' : silent.jargonHits / n > 0.35 ? 'moderate' : 'low',
+      concessions: silent.concessionHits / n > 0.3 ? 'frequent' : silent.concessionHits / n > 0.1 ? 'occasional' : 'rare',
+      anchors: silent.properNounHits / n > 2.5 ? 'high' : silent.properNounHits / n > 0.8 ? 'moderate' : 'low',
+      yearCitations: silent.yearHits / n > 0.25 ? 'often' : 'rare',
+      emphasis: silent.allcapsHits / n > 0.25 ? 'heavy' : 'restrained',
+    };
+  })();
+  const hasQ = existing.experienceLevel || (existing.formats && existing.formats.length);
   const update = (k, v) => setAnswers(a => ({...a, [k]: v}));
   const toggleFormat = (fmt) => setAnswers(a => ({
     ...a,
@@ -9064,9 +9744,83 @@ function StyleProfileModal({ onClose }) {
     style:{width:'100%',padding:'10px 12px',background:'rgba(255,255,255,.03)',border:'1px solid var(--border,rgba(255,255,255,.12))',borderRadius:10,color:'var(--text,#fff)',fontSize:'.88rem',fontFamily:'inherit',resize:'vertical'},
   });
 
+  // Little visualization helper for the summary view — a row with label + value + meter bar.
+  const bandBar = (lbl, value, band /* 'low'|'moderate'|'high' or custom */) => {
+    const pct = band === 'high' || band === 'frequent' || band === 'often' || band === 'heavy' || band === 'long' || band === 'flowing' ? 85
+      : band === 'moderate' || band === 'occasional' || band === 'medium' || band === 'standard' ? 55
+      : band === 'low' || band === 'rare' || band === 'short' || band === 'punchy' || band === 'restrained' ? 25
+      : 50;
+    return el('div',{style:{marginBottom:14}},
+      el('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'.72rem',marginBottom:5}},
+        el('span',{style:{color:'var(--text-dim,#94a3b8)',letterSpacing:'.02em'}}, lbl),
+        el('span',{style:{color:'var(--text,#fff)',fontWeight:700,textTransform:'capitalize'}}, value||band)
+      ),
+      el('div',{style:{height:5,borderRadius:999,background:'rgba(255,255,255,.06)',overflow:'hidden'}},
+        el('div',{style:{height:'100%',width:pct+'%',background:'linear-gradient(90deg,#ef4444,#f59e0b)',borderRadius:999,transition:'width .3s'}})
+      )
+    );
+  };
+
+  // ── SUMMARY VIEW — shows what the AI currently knows about the user ───
+  if (view === 'summary') {
+    const qRows = [
+      existing.experienceLevel && ['Experience', existing.experienceLevel],
+      existing.formats && existing.formats.length && ['Formats', existing.formats.join(', ')],
+      existing.role && ['Context', existing.role],
+      existing.argumentStyle && ['Argument style', existing.argumentStyle],
+      typeof existing.wantsJargon === 'boolean' && ['Jargon', existing.wantsJargon ? 'comfortable with it' : 'plain English only'],
+      existing.influences && ['Influences', existing.influences],
+      existing.goals && ['Goals', existing.goals],
+      existing.avoid && ['Avoid', existing.avoid],
+    ].filter(Boolean);
+    return el('div',{className:'auth-overlay',style:{overflowY:'auto',padding:'40px 20px'}},
+      el('div',{className:'auth-modal',role:'dialog','aria-modal':true,style:{maxWidth:560,maxHeight:'calc(100vh - 80px)',overflowY:'auto'}},
+        el('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:8}},'Your debate-style profile'),
+        el('h2',{style:{marginBottom:8,fontSize:'1.4rem'}},'What the AI currently knows about you.'),
+        el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.86rem',lineHeight:1.55,marginBottom:22}},
+          "This is the live profile we weave into every AI response. It combines what you told us and what we observed from your messages. Fully editable."
+        ),
+        // From the questionnaire
+        (qRows.length > 0) && el('div',{style:{marginBottom:24,padding:'18px 20px',background:'rgba(239,68,68,.04)',border:'1px solid rgba(239,68,68,.18)',borderRadius:12}},
+          el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:12}},'From what you told us'),
+          qRows.map(([l,v],i)=>el('div',{key:i,style:{display:'flex',gap:12,marginBottom:8,alignItems:'flex-start'}},
+            el('span',{style:{fontSize:'.68rem',color:'var(--text-dim,#94a3b8)',fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',minWidth:110,paddingTop:2}}, l),
+            el('span',{style:{fontSize:'.9rem',color:'var(--text,#fff)',lineHeight:1.5,flex:1}}, v),
+          ))
+        ),
+        // Silent signals
+        silentSummary
+          ? el('div',{style:{marginBottom:24,padding:'18px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12}},
+              el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:4}},'From how you write'),
+              el('div',{style:{fontSize:'.72rem',color:'var(--text-dim,#94a3b8)',marginBottom:14}}, 'Observed from your last '+silentSummary.n+' messages'),
+              bandBar('Message length', silentSummary.length, silentSummary.length),
+              bandBar('Sentence rhythm', silentSummary.sentences, silentSummary.sentences),
+              bandBar('Debate jargon', silentSummary.jargon, silentSummary.jargon),
+              bandBar('Concedes opponent', silentSummary.concessions, silentSummary.concessions),
+              bandBar('Named historical anchors', silentSummary.anchors, silentSummary.anchors),
+              bandBar('Cites specific years', silentSummary.yearCitations, silentSummary.yearCitations),
+            )
+          : el('div',{style:{marginBottom:24,padding:'18px 20px',background:'rgba(255,255,255,.03)',border:'1px dashed rgba(255,255,255,.1)',borderRadius:12}},
+              el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:8}},'From how you write'),
+              el('p',{style:{fontSize:'.86rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.55,margin:0}}, 'Not enough data yet. After you send a few messages in Debate Chat, the AI will start learning your voice automatically.'),
+            ),
+        el('div',{style:{display:'flex',gap:10}},
+          el('button',{className:'auth-google-btn',style:{flex:1},onClick:()=>setView('edit')},'Edit profile'),
+          el('button',{className:'auth-skip',style:{flex:'0 0 auto'},onClick:onClose},'Close'),
+        ),
+        el('div',{style:{marginTop:14,textAlign:'center'}},
+          el('button',{type:'button',onClick:()=>{if(!confirm('Reset your style profile? This clears both your answers and the observed data.'))return;try{window.DebateStyle && window.DebateStyle.reset();}catch(e){}setResetFlash(true);setTimeout(()=>onClose&&onClose(),600);},style:{background:'transparent',border:'none',color:'var(--text-dim,#94a3b8)',fontSize:'.7rem',cursor:'pointer',fontFamily:'inherit',textDecoration:'underline',opacity:.6}}, resetFlash?'Reset ✓':'Reset profile')
+        ),
+      )
+    );
+  }
+
   return el('div',{className:'auth-overlay',style:{overflowY:'auto',padding:'40px 20px'}},
     el('div',{className:'auth-modal',role:'dialog','aria-modal':true,style:{maxWidth:560,maxHeight:'calc(100vh - 80px)',overflowY:'auto'}},
-      el('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:8}},'Debate-style profile'),
+      el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
+        el('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)'}},'Debate-style profile'),
+        hasQ && el('button',{type:'button',onClick:()=>setView('summary'),style:{background:'transparent',border:'1px solid rgba(255,255,255,.15)',color:'var(--text-dim,#94a3b8)',padding:'4px 12px',borderRadius:999,fontSize:'.62rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}},'View summary')
+      ),
       el('h2',{style:{marginBottom:8}},'Teach the AI how you debate.'),
       el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.9rem',lineHeight:1.55,marginBottom:4}},
         "Every answer is optional. We'll remember what you say and combine it with how you actually write in Debate Chat — so the AI starts matching your style, not the other way around."
@@ -12370,16 +13124,21 @@ const TABS_COMPETITIVE = [
   {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
   {id:'topics',label:'Topics',i18n:'nav.topics'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
+  {id:'congress',label:'Congress',i18n:'nav.congress'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
   {id:'vision',label:'Mapper',i18n:'nav.vision'},
+  {id:'matter',label:'Matter files',i18n:'nav.matter'},
   {id:'team',label:'Team',i18n:'nav.team'},
   {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
+  {id:'tournaments',label:'Tournaments',i18n:'nav.tournaments'},
 ];
-// Everything else: feedback, live debates, saved work, support link.
+// Everything else: social hub, feedback, live debates, saved work, integrations, support link.
 const TABS_OTHER = [
+  {id:'hub',label:'Community hub',i18n:'nav.hub'},
   {id:'feedback',label:'Feedback',i18n:'nav.feedback'},
   {id:'live',label:'Live Debates',i18n:'nav.live'},
   {id:'shared',label:'Saved Cases',i18n:'nav.cases'},
+  {id:'webhooks',label:'Integrations',i18n:'nav.webhooks'},
   {id:'donate',label:'Donate',i18n:'nav.donate',href:'https://buymeacoffee.com/8idanhm'},
 ];
 const TABS_ROW1 = TABS_PRIMARY;
@@ -13222,6 +13981,11 @@ function App() {
       tabPane('vision', React.createElement(RoundVision)),
       tabPane('casual', React.createElement(Casual)),
       tabPane('chat', React.createElement(DebateChat)),
+      tabPane('congress', React.createElement(Congress)),
+      tabPane('tournaments', React.createElement(Tournaments)),
+      tabPane('matter', React.createElement(MatterFiles, { user: user, team: team })),
+      tabPane('webhooks', React.createElement(Webhooks, { user: user })),
+      tabPane('hub', React.createElement(ForumHub, { user: user, onSignIn: () => setShowAuth(true) })),
       tabPane('phil', React.createElement(Philosophy, { onSave: saveCase })),
       tabPane('practice', React.createElement(Practice)),
       tabPane('judge', React.createElement(Judge, { user: user })),

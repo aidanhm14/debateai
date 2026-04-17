@@ -995,8 +995,8 @@ button{font-family:inherit;cursor:pointer}
       Argue with an AI.<br>Become a sharper thinker.
     </h1>
     <div style="display:flex;gap:12px;justify-content:flex-start;margin-top:28px;flex-wrap:wrap;align-items:center">
-      <a href="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
-      <a href="https://debateos1.netlify.app/#case" class="hero-cta hero-cta-secondary">Generate Arguments</a>
+      <a href="/debate-ai" data-requires-auth="1" data-auth-target="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
+      <a href="/#case" data-requires-auth="1" data-auth-target="/#case" class="hero-cta hero-cta-secondary">Generate Arguments</a>
     </div>
 
     <!-- Live demo: fake streaming case generator, pure CSS/JS, no backend. Signals "see it work." -->
@@ -1011,50 +1011,112 @@ button{font-family:inherit;cursor:pointer}
         <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em;margin-bottom:6px">MOTION</div>
         <div class="demo-typing" style="font-size:1rem;color:var(--text);font-weight:600;min-height:1.6em"></div>
         <div style="margin-top:16px;font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em">GOVERNMENT CASE · STREAMING</div>
-        <div class="demo-args">
-          <div class="demo-arg" style="opacity:0">
-            <div class="demo-arg-label">C1 · Market failure</div>
-            <div class="demo-arg-body">Private education entrenches class hierarchy. When families with capital opt out of public systems, per-pupil funding collapses — and with it, the political constituency that defends public schooling.</div>
-          </div>
-          <div class="demo-arg" style="opacity:0">
-            <div class="demo-arg-label">C2 · Democratic cost</div>
-            <div class="demo-arg-body">Schools are where children from different backgrounds learn to see each other as equals. Privatization breaks that. The downstream effect is a generation that treats democracy as a service, not a shared project.</div>
-          </div>
-          <div class="demo-arg" style="opacity:0">
-            <div class="demo-arg-label">C3 · Impact calculus</div>
-            <div class="demo-arg-body">Even conceding modest efficiency gains, the Gov wins because we protect the system that produced every opportunity the Opp's stakeholders enjoy. No private education means no elite capture of public resources.</div>
-          </div>
-        </div>
+        <div class="demo-args" id="demoArgs"></div>
       </div>
     </div>
     <style>
       .demo-typing::after{content:'▋';animation:demo-blink 1s step-end infinite;color:var(--accent);margin-left:2px}
       @keyframes demo-blink{0%,100%{opacity:1}50%{opacity:0}}
-      .demo-args{display:flex;flex-direction:column;gap:12px;margin-top:12px}
-      .demo-arg{padding:12px 14px;background:rgba(255,255,255,.02);border-left:3px solid var(--accent);border-radius:8px;transition:opacity .6s ease}
+      .demo-args{display:flex;flex-direction:column;gap:12px;margin-top:12px;min-height:320px}
+      .demo-arg{padding:12px 14px;background:rgba(255,255,255,.02);border-left:3px solid var(--accent);border-radius:8px;transition:opacity .6s ease;opacity:0}
+      .demo-arg.visible{opacity:1}
       .demo-arg-label{font-size:.68rem;font-weight:800;color:var(--accent);letter-spacing:.1em;margin-bottom:4px}
       .demo-arg-body{font-size:.85rem;color:var(--text);line-height:1.55;opacity:.9}
     </style>
     <script>
+      // Demo rotates through multiple motions + cases so the hero doesn't look
+      // static — visitors who stay 30+ seconds see real variety of what the AI
+      // actually produces. Each entry is a (motion, 3 contentions) tuple.
       (function(){
-        var el = document.querySelector('.demo-typing');
-        if (!el) return;
-        var text = 'THW ban private education';
-        var i = 0;
+        var typeEl = document.querySelector('.demo-typing');
+        var argsEl = document.getElementById('demoArgs');
+        if (!typeEl || !argsEl) return;
+
+        var CASES = [
+          {
+            motion: 'THW ban private education',
+            args: [
+              {label:'C1 · Market failure', body:'Private education entrenches class hierarchy. When families with capital opt out of public systems, per-pupil funding collapses — and with it, the political constituency that defends public schooling.'},
+              {label:'C2 · Democratic cost', body:'Schools are where children from different backgrounds learn to see each other as equals. Privatization breaks that. The downstream effect is a generation that treats democracy as a service, not a shared project.'},
+              {label:'C3 · Impact calculus', body:"Even conceding modest efficiency gains, the Gov wins because we protect the system that produced every opportunity the Opp's stakeholders enjoy. No private education means no elite capture of public resources."},
+            ],
+          },
+          {
+            motion: 'THW tax billionaires out of existence',
+            args: [
+              {label:'C1 · Democratic capture', body:'Concentrated private wealth buys concentrated political outcomes — super-PACs, media acquisitions, regulatory capture. Democracy only works if the wealth gap has a ceiling. A tax that caps net worth removes the purchasing power that bends elections.'},
+              {label:'C2 · Misallocation of capital', body:'Billionaire portfolios are dominated by rent-extracting assets — real estate, index funds, buybacks. Reallocating that capital to public goods (housing, climate, R&D) produces higher marginal utility per dollar because it funds actual new production.'},
+              {label:'C3 · Impact', body:'Even granting modest capital-flight losses, the Gov wins because democracy cannot survive another decade of billionaire ascendancy. The marginal billionaire is worth less than a functioning political system.'},
+            ],
+          },
+          {
+            motion: 'This House would decriminalize all drugs',
+            args: [
+              {label:'C1 · Portugal precedent', body:'Portugal decriminalized personal-use possession in 2001. Overdose deaths fell sharply. Drug use stayed roughly flat. The model isn\'t speculative — it\'s a 24-year empirical case study the US has been ignoring.'},
+              {label:'C2 · Reallocates enforcement', body:'Police time currently spent on possession arrests gets redirected to violence and trafficking. Court backlogs drop. Jails empty of people whose only crime is a substance use disorder — which is a medical condition, not a moral failure.'},
+              {label:'C3 · Impact', body:'Even if you think some consumption rises, the Gov wins on the overdose count alone. Every overdose death on Opp\'s side is a policy choice to criminalize addiction instead of treat it.'},
+            ],
+          },
+          {
+            motion: 'AI should write the news',
+            args: [
+              {label:'C1 · Coverage collapse', body:'Traditional newsroom headcounts have fallen 60% since 2005. Local-news deserts already cover most of rural America. AI-assisted reporting is the only cost structure that can refill those deserts at the depth citizens need to vote intelligently.'},
+              {label:'C2 · Accuracy floor', body:'Major publishers already use AI for earnings reports and sports summaries — and error rates are lower, not higher, than human stringers. Structured-data journalism is exactly the task AI is best at.'},
+              {label:'C3 · Impact', body:"Even granting accountability concerns, the Gov wins because Opp's counterfactual is no coverage at all — and uncovered corruption in a local school board costs more lives than an imperfectly-attributed AI article."},
+            ],
+          },
+          {
+            motion: 'Mandatory voting',
+            args: [
+              {label:'C1 · Eliminates suppression attack surface', body:'The single largest vector of election interference in modern democracies is turnout suppression — voter ID laws, closed polling sites, purges. Mandatory voting removes the entire attack surface. Suppression only matters if turnout is the margin.'},
+              {label:'C2 · Shifts median voter to reality', body:'Current turnout overweights committed partisans. Mandatory voting pulls the median voter toward people who actually bear policy consequences, which disciplines parties into policy platforms that work for the median citizen, not the median donor.'},
+              {label:'C3 · Impact', body:'Even conceding some low-information ballots, the Gov wins because Australia and Belgium show 40-year track records of mandatory voting producing more moderate, more accountable governments — and those outcomes dominate any marginal noise from coerced ballots.'},
+            ],
+          },
+        ];
+
+        var currentIdx = Math.floor(Math.random() * CASES.length);
+        var text = '';
+        var charIdx = 0;
+
+        function renderArgs(args){
+          argsEl.innerHTML = '';
+          args.forEach(function(a){
+            var box = document.createElement('div');
+            box.className = 'demo-arg';
+            box.innerHTML = '<div class="demo-arg-label"></div><div class="demo-arg-body"></div>';
+            box.querySelector('.demo-arg-label').textContent = a.label;
+            box.querySelector('.demo-arg-body').textContent = a.body;
+            argsEl.appendChild(box);
+          });
+        }
+
         function type(){
-          if (i <= text.length){ el.textContent = text.slice(0,i++); setTimeout(type, 60); }
+          if (charIdx <= text.length){ typeEl.textContent = text.slice(0, charIdx++); setTimeout(type, 60); }
           else { setTimeout(revealArgs, 300); }
         }
         function revealArgs(){
-          var args = document.querySelectorAll('.demo-arg');
-          args.forEach(function(a,idx){ setTimeout(function(){ a.style.opacity = 1; }, idx * 700); });
-          setTimeout(function(){
-            el.textContent = '';
-            i = 0;
-            document.querySelectorAll('.demo-arg').forEach(function(a){ a.style.opacity = 0; });
-            setTimeout(type, 600);
-          }, args.length * 700 + 4500);
+          var boxes = argsEl.querySelectorAll('.demo-arg');
+          boxes.forEach(function(b,idx){ setTimeout(function(){ b.classList.add('visible'); }, idx * 700); });
+          setTimeout(nextCase, boxes.length * 700 + 5500);
         }
+        function nextCase(){
+          // Advance to the next case and restart the animation. Cycling rather
+          // than random-on-every-loop so the user doesn't see the same motion
+          // back-to-back.
+          currentIdx = (currentIdx + 1) % CASES.length;
+          typeEl.textContent = '';
+          argsEl.innerHTML = '';
+          charIdx = 0;
+          var picked = CASES[currentIdx];
+          text = picked.motion;
+          renderArgs(picked.args);
+          setTimeout(type, 600);
+        }
+        // Kick off the first round
+        var first = CASES[currentIdx];
+        text = first.motion;
+        renderArgs(first.args);
         setTimeout(type, 800);
       })();
     </script>
@@ -1132,6 +1194,49 @@ button{font-family:inherit;cursor:pointer}
     </div>
     <a href="#" onclick="document.getElementById('googleSignupBtn')?.click();event.preventDefault();" class="ui-btn ui-btn-primary">Sign up with Google — free</a>
     <p style="margin-top:14px;font-size:.75rem;color:var(--text-dim)">Anonymous works too. But the AI forgets you between sessions.</p>
+  </div>
+</section>
+
+<div class="ui-divider"></div>
+
+<!-- "Think like a debater" — positioned for non-debaters. The app's core pitch to
+     normal users: this isn't a tournament tool, it's a way to train how you think.
+     Lives right before pricing so newcomers hit it before any paywall question. -->
+<section id="think-like" class="ui-section" style="text-align:center">
+  <div class="ui-container-sm">
+    <span class="ui-eyebrow">You don't have to be a debater.</span>
+    <h2 class="ui-h1">Learn to <span class="accent">think like one.</span></h2>
+    <p class="ui-lede" style="max-width:640px;margin-left:auto;margin-right:auto">
+      Devil's Advocate isn't built for competition first — it's built so anyone can train the kind of thinking debaters spend years learning. How to build an argument from a claim to a warrant to an impact. How to spot the hole in someone else's logic. How to update your view without losing face. How to concede cleanly and still win on balance. You don't need to know any of the jargon to start.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:36px auto 28px;max-width:820px;text-align:left">
+      <div class="ui-card">
+        <span class="ui-card-label">Think in warrants, not vibes</span>
+        <div class="ui-card-body">Every time you make a claim, the AI asks "why is that true?" — not to be annoying, but because the answer is where your real position lives. You leave sharper than you showed up.</div>
+      </div>
+      <div class="ui-card">
+        <span class="ui-card-label">Find your own blind spots</span>
+        <div class="ui-card-body">The AI pushes back from the side you don't want to hear. After a few rounds, you start catching the weak link in your own reasoning before anyone else does.</div>
+      </div>
+      <div class="ui-card">
+        <span class="ui-card-label">Concede without losing</span>
+        <div class="ui-card-body">"They're right about X, but the point was Y." That move is half of good debate and most of good disagreement. The app trains it until it feels natural in a meeting or a group chat.</div>
+      </div>
+      <div class="ui-card">
+        <span class="ui-card-label">Weigh, don't shout</span>
+        <div class="ui-card-body">Not every argument matters equally. Debaters learn to compare impacts — magnitude, probability, how reversible, who bears the cost. You can use the same habits at work, in policy conversations, anywhere.</div>
+      </div>
+      <div class="ui-card">
+        <span class="ui-card-label">Plain English, no jargon</span>
+        <div class="ui-card-body">Quick Clash mode strips out every debate term. Pro vs. Con, arguments in order, verdict at the end. If you've ever texted an opinion, you can use it.</div>
+      </div>
+      <div class="ui-card">
+        <span class="ui-card-label">Your thinking transfers</span>
+        <div class="ui-card-body">People who do this kind of training get better at interviews, negotiations, writing, leadership, and telling family members why they're wrong at Thanksgiving. The transfer is real.</div>
+      </div>
+    </div>
+    <a href="#" onclick="document.getElementById('googleSignupBtn')?.click();event.preventDefault();" class="ui-btn ui-btn-primary">Start thinking sharper — free</a>
+    <p style="margin-top:14px;font-size:.75rem;color:var(--text-dim)">No debate experience required. No credit card. Takes 30 seconds to start.</p>
   </div>
 </section>
 
@@ -2057,17 +2162,51 @@ window.addEventListener('load', function(){
   }
 
   // Finish the redirect flow if the user returned from signInWithRedirect.
+  // If a CTA stashed a target in sessionStorage, route the user there instead
+  // of dumping them on /#chat.
   try {
     auth.getRedirectResult().then(function(result){
       if (result && result.user) {
         try { localStorage.setItem('debateos-feedback-given', '1'); } catch(e){}
-        window.location.href = '/#chat';
+        var target = '/#chat';
+        try {
+          var stashed = sessionStorage.getItem('debateos-post-signin-redirect');
+          if (stashed) { target = stashed; sessionStorage.removeItem('debateos-post-signin-redirect'); }
+        } catch(e){}
+        window.location.href = target;
       }
     }).catch(function(err){ if (err && err.code !== 'auth/no-auth-event') console.warn('[landing] redirect result err:', err.message); });
   } catch(e){}
 
   // Main sign-up button in the hero
   btn.addEventListener('click', function(){ triggerGoogleSignIn('landing_hero'); });
+
+  // Any element with data-requires-auth="1" becomes a sign-in gate: if the user
+  // is already signed in, the click passes through to the native href. If not,
+  // we intercept, trigger sign-in via redirect, and carry the intended target
+  // through a query param that the auth-return handler will honor.
+  function interceptAuthGates(){
+    var gates = document.querySelectorAll('[data-requires-auth="1"]');
+    gates.forEach(function(gate){
+      gate.addEventListener('click', function(ev){
+        if (auth && auth.currentUser) return; // pass through for signed-in users
+        ev.preventDefault();
+        ev.stopPropagation();
+        var target = gate.getAttribute('data-auth-target') || gate.getAttribute('href') || '/';
+        try { sessionStorage.setItem('debateos-post-signin-redirect', target); } catch(e){}
+        try { window.dosTrack && window.dosTrack('sign_in_start',{source:'hero_cta_gate',target:target}) } catch(e){}
+        try {
+          var provider = new firebase.auth.GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account' });
+          auth.signInWithRedirect(provider);
+        } catch(e){
+          console.warn('[landing] gate signin failed:', e.message);
+          window.location.href = target; // last resort so the user at least gets somewhere
+        }
+      });
+    });
+  }
+  interceptAuthGates();
 
   // Hero timer animation — the highest-signal visual element on the landing
   // page, so it's the biggest sign-up funnel. ALWAYS uses signInWithRedirect,

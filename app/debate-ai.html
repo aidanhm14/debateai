@@ -2167,6 +2167,65 @@ function App(){
     __proStatus = !!(team && (team.plan === 'individual' || team.plan === 'team' || team.plan === 'lifetime'));
   }, [team]);
 
+  // Sign-in gate. The voice-debate feature consumes significant API tokens per
+  // round (15-30 min of back-and-forth with a 4-model-capable opponent), so
+  // anonymous access is not sustainable during beta. Users must sign in with
+  // Google before they can spar. A full-page gate keeps the setup UI hidden so
+  // there's no half-experience — either you're in, or you're one click away.
+  if (!authLoading && !user) {
+    return el('div', {
+      style: {
+        position:'fixed', inset:0, zIndex:10000,
+        background:'radial-gradient(ellipse at 50% 0%, rgba(239,68,68,.18), transparent 60%), #0a0a0d',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        padding:'40px 24px', fontFamily:"'Inter',system-ui,sans-serif", overflowY:'auto',
+      },
+    },
+      el('div', {style:{maxWidth:520, width:'100%', background:'rgba(20,20,24,.85)', border:'1px solid rgba(255,255,255,.1)', borderRadius:20, padding:'40px 36px', backdropFilter:'blur(14px)', boxShadow:'0 24px 80px rgba(0,0,0,.5)'}},
+        el('div', {style:{fontSize:'.7rem', fontWeight:700, letterSpacing:'.14em', textTransform:'uppercase', color:'#ef4444', marginBottom:12}}, 'Debate AI · Voice rounds'),
+        el('h1', {style:{fontSize:'1.8rem', fontWeight:900, letterSpacing:'-.02em', lineHeight:1.15, color:'#fff', marginBottom:12}}, 'Sign in to spar with an AI.'),
+        el('p', {style:{color:'rgba(255,255,255,.6)', fontSize:'.95rem', lineHeight:1.6, marginBottom:24}},
+          "Voice debate rounds run 15–30 minutes and burn real compute. We're free during beta, but we need signed-in users so we can shape the product around who actually shows up. Sign in with Google and get:"
+        ),
+        el('ul', {style:{listStyle:'none', padding:0, margin:'0 0 28px'}},
+          [
+            'Full voice debate against an AI opponent — 10 formats including APDA, BP, PF, LD, Policy, Quick Clash',
+            'A judge ballot with speaker points and line-by-line feedback at the end',
+            'Your debate-style profile — the AI learns how you argue and matches your voice',
+            'Round history that survives across devices',
+            'Unlimited requests once you share beta feedback',
+          ].map((txt, i) => el('li', {key:i, style:{display:'flex', gap:12, alignItems:'flex-start', marginBottom:11, fontSize:'.9rem', lineHeight:1.5, color:'rgba(255,255,255,.85)'}},
+            el('span', {style:{color:'#ef4444', fontWeight:900, flexShrink:0, marginTop:1}}, '→'),
+            el('span', null, txt)
+          ))
+        ),
+        el('button', {
+          onClick: signIn,
+          style: {
+            width:'100%', padding:'14px 22px', borderRadius:999,
+            background:'#fff', color:'#1a1a1f', border:'none',
+            fontWeight:700, fontSize:'.92rem', letterSpacing:'.02em',
+            fontFamily:'inherit', cursor:'pointer', display:'flex',
+            alignItems:'center', justifyContent:'center', gap:10,
+            boxShadow:'0 6px 24px rgba(255,255,255,.18)',
+          },
+        },
+          el('svg', {width:20, height:20, viewBox:'0 0 48 48', xmlns:'http://www.w3.org/2000/svg'},
+            el('path', {fill:'#FFC107', d:'M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z'}),
+            el('path', {fill:'#FF3D00', d:'M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z'}),
+            el('path', {fill:'#4CAF50', d:'M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z'}),
+            el('path', {fill:'#1976D2', d:'M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z'})
+          ),
+          'Sign in with Google'
+        ),
+        el('p', {style:{marginTop:18, textAlign:'center', fontSize:'.78rem', color:'rgba(255,255,255,.45)', lineHeight:1.6}},
+          'Want to try the app without voice first? ',
+          el('a', {href:'/#chat', style:{color:'#f87171', textDecoration:'underline'}}, 'Debate Chat (text only, no sign-in required)')
+        ),
+      )
+    );
+  }
+
   const[lighting,setLighting]=useState(()=>{try{return localStorage.getItem('debateos-lighting')||'dark'}catch{return 'dark'}});
   useEffect(()=>{
     document.documentElement.setAttribute('data-lighting',lighting);
