@@ -61,6 +61,17 @@
   function once(key){try{if(sessionStorage.getItem(key))return false;sessionStorage.setItem(key,'1');return true}catch(e){return true}}
   window.dosTrack=function(ev,params){try{if(window.gtag)gtag('event',ev,Object.assign({page:PAGE},params||{}))}catch(e){}};
   window.dosTrackOnce=function(ev,params){if(once('dos-'+ev))window.dosTrack(ev,params)};
+  /* UTM / traffic-source capture — stash into localStorage so events on /debate-ai,
+     /#chat, etc. can attribute sign-ins back to the campaign that brought the user.
+     Also fires a `landing_utm` event on first arrival so GA4 attribution reports see it. */
+  try{
+    var qs=new URLSearchParams(window.location.search);
+    var utm={source:qs.get('utm_source'),medium:qs.get('utm_medium'),campaign:qs.get('utm_campaign'),term:qs.get('utm_term'),content:qs.get('utm_content'),ref:document.referrer||null,landedAt:new Date().toISOString()};
+    if(utm.source||utm.medium||utm.campaign||utm.ref){
+      localStorage.setItem('debateos-attribution',JSON.stringify(utm));
+      if(once('dos-landing_utm'))window.dosTrack('landing_utm',{source:utm.source||'direct',medium:utm.medium||'none',campaign:utm.campaign||'none',ref_host:utm.ref?(new URL(utm.ref)).hostname:'none'});
+    }
+  }catch(e){}
   /* Engagement: fired after 5s dwell — filters bouncers */
   setTimeout(function(){window.dosTrackOnce('landing_engaged',{dwell:5})},5000);
   /* Scroll depth */
@@ -139,10 +150,6 @@ a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer}
 
 /* ── Nav ──────────────────────────── */
-.beta-strip{position:fixed;top:0;left:0;right:0;z-index:101;background:linear-gradient(90deg,#ef4444ee,#f59e0bee);padding:7px 16px;text-align:center;font-size:.74rem;color:#fff;font-weight:600;letter-spacing:.02em;border-bottom:1px solid #00000030;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.beta-strip a{color:#fff;text-decoration:underline;font-weight:800}
-.beta-strip a:hover{color:#fff8dc}
-@media(max-width:640px){.beta-strip{font-size:.68rem;padding:6px 10px}}
 .nav{
   position:fixed;top:34px;left:0;right:0;z-index:100;
   padding:20px 40px;
@@ -989,8 +996,12 @@ button{font-family:inherit;cursor:pointer}
       Argue with an AI.<br>Become a sharper thinker.
     </h1>
     <div style="display:flex;gap:12px;justify-content:flex-start;margin-top:28px;flex-wrap:wrap;align-items:center">
-      <a href="/debate-ai" data-requires-auth="1" data-auth-target="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
+      <a href="/#chat?try=1" class="hero-cta hero-cta-primary" onclick="try{localStorage.setItem('debateos-try-round','1');if(window.dosTrack)window.dosTrack('try_round_click',{from:'hero'});}catch(e){}">Try a round — no sign up →</a>
+      <a href="/debate-ai" data-requires-auth="1" data-auth-target="/debate-ai" class="hero-cta hero-cta-secondary">Spar with voice</a>
       <a href="/#case" data-requires-auth="1" data-auth-target="/#case" class="hero-cta hero-cta-secondary">Generate Arguments</a>
+    </div>
+    <div style="margin-top:10px;font-size:.78rem;color:var(--text-dim);letter-spacing:.02em">
+      One free round, no login. Save it to your account after.
     </div>
 
     <!-- Live demo: fake streaming case generator, pure CSS/JS, no backend. Signals "see it work." -->
@@ -1462,7 +1473,7 @@ button{font-family:inherit;cursor:pointer}
 
       <div class="faq-item"><button class="faq-q">What if the AI says something wrong?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
         <p>Push back. Seriously — the AI is a debate opponent, not an oracle. If it cites a fact that's wrong or makes a logical leap, call it out. That's exactly the kind of move a strong debater should be able to handle, and it makes you sharper.</p>
-        <p>If the AI's output is just bad (repetitive, off-topic, evasive), hit the feedback link in the beta banner at the top of the page. That's how we tune the prompts. Every round of feedback has changed something in the system.</p>
+        <p>If the AI's output is just bad (repetitive, off-topic, evasive), use the Feedback tab inside the app. That's how we tune the prompts. Every round of feedback has changed something in the system.</p>
       </div></div>
 
       <div class="faq-group-head">Pricing & practical stuff</div>

@@ -49,6 +49,14 @@
     localStorage.setItem('dos-last-visit-day',today);
   }catch(e){}
   setTimeout(function(){window.dosTrackOnce('app_engaged',{dwell:5})},5000);
+  /* Drop-off funnel: fire app_entered as soon as the app loads with
+     the attribution we captured on landing. GA4 sees this next to
+     landing's cta_click so the step-between-click-and-round-start is visible. */
+  try{
+    var attr=JSON.parse(localStorage.getItem('debateos-attribution')||'null');
+    var attrPayload=attr?{source:attr.source||'direct',medium:attr.medium||'none',campaign:attr.campaign||'none',landed_at:attr.landedAt||null}:{source:'direct',medium:'none',campaign:'none'};
+    window.dosTrackOnce('app_entered',attrPayload);
+  }catch(e){}
   document.addEventListener('click',function(e){
     var t=e.target.closest('a,button');if(!t)return;
     var cls=(t.className||'')+'';
@@ -4757,7 +4765,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
 /* ── Thinking Animation Component ─────────────── */
 
 // Universal loading bar — use across all tabs for consistent UX
-function LoadingBar({ label, percent, phase }) {
+function LoadingBar({ label, percent, phase, holdPlease }) {
   const pct = Math.max(2, percent || 0);
   const displayLabel = label || (phase === 'thinking' ? 'Analyzing...' : phase === 'writing' ? 'Writing...' : 'Generating...');
   return React.createElement('div',{className:'loading-bar'},
@@ -4767,6 +4775,15 @@ function LoadingBar({ label, percent, phase }) {
     ),
     React.createElement('div',{className:'loading-bar-track'},
       React.createElement('div',{className:'loading-bar-fill',style:{width:pct+'%'}}),
+    ),
+    // Patience nudge: big AI generations can take 15-30 seconds; we've had
+    // users scroll away or hit back mid-stream and lose the output. Only
+    // surface this on long-running tabs (Case Gen, Debate AI) via the prop.
+    holdPlease && React.createElement('div',{
+      style:{marginTop:10,fontSize:'.74rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5,display:'flex',alignItems:'flex-start',gap:8},
+    },
+      React.createElement('span',{style:{color:'var(--accent,#ef4444)',fontWeight:800,letterSpacing:'.04em',flexShrink:0,paddingTop:1}}, '!'),
+      React.createElement('span',null, 'Hang tight — full generation takes 15–30 seconds. Stay on this tab; scrolling away or switching tabs cancels the stream.'),
     ),
   );
 }
@@ -4973,9 +4990,14 @@ function HighlightableOutput({output, outputRef, streaming, onRevise, motion, de
           onMouseUp: streaming ? undefined : handleMouseUp,
           style:{whiteSpace:'pre-line'}
         , dangerouslySetInnerHTML:{__html:cleanOutput(output, true)}}),
-        streaming && React.createElement('div',{className:'stream-indicator',style:{marginTop:8}},
-          React.createElement('span',{className:'stream-dot'}),
-          'Streaming'
+        streaming && React.createElement('div',{className:'stream-indicator',style:{marginTop:8,display:'flex',flexDirection:'column',alignItems:'flex-start',gap:6}},
+          React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8}},
+            React.createElement('span',{className:'stream-dot'}),
+            'Streaming'
+          ),
+          React.createElement('div',{style:{fontSize:'.74rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5}},
+            'Hang tight — full generation takes 15–30 seconds. Stay on this tab; scrolling away or switching tabs cancels the stream.'
+          ),
         ),
         // Highlight popup
         popup && React.createElement('div',{
@@ -6933,7 +6955,14 @@ function DebateChat() {
     setMessages([
       {role:'system', text:`Motion: "${motion.trim()}". You are arguing ${sideLabel(mySide)}. I'm arguing ${sideLabel(aiSide)}. Make your opening argument — as short or long as you want. Plain English is fine.`}
     ]);
+    try{ if(window.dosTrack) window.dosTrack('round_start',{tab:'chat',side:mySide,motion_len:motion.length}); }catch(e){}
   };
+  // Fire `round_setup_viewed` once per session — this is the missing event
+  // between `cta_click` on the landing and `round_start`. Lets GA4 show
+  // exactly where the drop-off is happening in the funnel.
+  useEffect(()=>{
+    if(!started){ try{ if(window.dosTrackOnce) window.dosTrackOnce('round_setup_viewed',{tab:'chat'}); }catch(e){} }
+  },[started]);
 
   const reset = () => {
     setStarted(false);
@@ -6992,6 +7021,11 @@ function DebateChat() {
         }
         if (parsed && typeof parsed === 'object' && parsed.decision) {
           setBallot(parsed);
+          // Free round delivered — mark the try-once flag consumed so the
+          // next round pushes the user through the AuthGate. This is the
+          // moment of highest intent (they just got a ballot) so prompting
+          // sign-in here converts best.
+          try{ sessionStorage.setItem('debateos-try-used','1'); if(window.dosTrack) window.dosTrack('free_round_completed',{tab:'chat'}); }catch(e){}
         } else {
           // Fallback — render whatever we got as a plain assistant message.
           setMessages(prev => [...prev, {role:'assistant', text: raw || "Couldn't generate a ballot. Try one more exchange and ask again."}]);
@@ -9624,6 +9658,62 @@ function AuthModal({ onSignIn, onSkip }) {
 }
 
 /* ═══════════════════════════════════════════════════
+   AUTH GATE — full-tab sign-in wall for the core AI features.
+   Non-signed-in users see a pitch screen instead of the feature itself.
+   Used to stop anonymous usage of the expensive AI flows and drive
+   Google sign-in, since every anon user is a user we can't re-engage.
+   ═══════════════════════════════════════════════════ */
+function AuthGate({ user, authLoading, feature, tagline, bullets, onSignIn, children, allowTryOnce }) {
+  if (authLoading) {
+    return React.createElement('div',{className:'panel',style:{maxWidth:520,margin:'40px auto',textAlign:'center',color:'var(--text-dim,#94a3b8)'}}, 'Loading…');
+  }
+  if (user) return children;
+  // "Try-once" escape hatch: landing has a "Try a round — no sign up" CTA
+  // that sets localStorage['debateos-try-round']='1'. We honor that flag ONLY
+  // for the tab that enabled it and clear it after the session so the second
+  // round pushes the user to sign in. Keeps the funnel low-friction on first
+  // taste without giving away unlimited anonymous usage.
+  if (allowTryOnce) {
+    try {
+      var flag = localStorage.getItem('debateos-try-round');
+      var used = sessionStorage.getItem('debateos-try-used');
+      if (flag === '1' && !used) {
+        return children;
+      }
+    } catch(e) {}
+  }
+  const el = React.createElement;
+  const defaultBullets = [
+    'The AI remembers how you argue and matches your style',
+    'Save every round, case, and judge analysis across devices',
+    'Unlimited free access during beta — no credit card',
+    'One tap, no forms, no passwords. Google sign-in only.',
+  ];
+  const pitch = bullets || defaultBullets;
+  return el('div',{className:'panel',style:{maxWidth:560,margin:'32px auto',padding:'36px 32px 40px',textAlign:'left'}},
+    el('div',{style:{fontSize:'.68rem',fontWeight:800,letterSpacing:'.18em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:10}}, 'Sign in required'),
+    el('h2',{style:{fontSize:'1.5rem',fontWeight:800,lineHeight:1.25,marginBottom:10,letterSpacing:'-.01em'}}, feature ? 'Sign in to use ' + feature + '.' : 'Sign in to continue.'),
+    tagline && el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.92rem',lineHeight:1.55,marginBottom:20}}, tagline),
+    el('ul',{style:{listStyle:'none',padding:0,margin:'0 0 22px'}},
+      pitch.map((b,i) => el('li',{key:i,style:{display:'flex',gap:10,alignItems:'flex-start',marginBottom:10,fontSize:'.9rem',lineHeight:1.5,color:'var(--text,#e4e8f0)'}},
+        el('span',{style:{color:'#ef4444',fontWeight:800,flexShrink:0}}, '→'),
+        el('span',null, b)
+      ))
+    ),
+    el('button',{
+      onClick:onSignIn,
+      style:{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'14px 22px',background:'#fff',color:'#1a1a1a',border:'none',borderRadius:999,fontWeight:700,fontSize:'.95rem',letterSpacing:'.02em',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 8px 28px rgba(239,68,68,.25)'},
+    },
+      el('img',{src:'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',width:20,height:20,alt:''}),
+      'Sign in with Google — free',
+    ),
+    el('p',{style:{marginTop:12,fontSize:'.72rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.55,textAlign:'center'}},
+      'Takes 2 seconds. No forms, no passwords, no credit card.'
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
    SIGN-UP NUDGE MODAL
    Fires once per 24h for anonymous users after they've generated 2+ things.
    Pitches Google sign-up around the style-memory perk, not around payments.
@@ -10485,7 +10575,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
 
       // AI generating indicator
       aiLoading && el('div',null,
-        el(LoadingBar, { label: t('roundSim.aiPreparing','AI is preparing their') + ' ' + currentSpeechData.code + '...' }),
+        el(LoadingBar, { label: t('roundSim.aiPreparing','AI is preparing their') + ' ' + currentSpeechData.code + '...', holdPlease: true }),
         aiStreaming && speeches[currentSpeech] && el('div',{
           ref:streamRef,
           className:'output streaming-active',
@@ -10536,7 +10626,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
         el('div',{style:{fontSize:'.88rem',color:'#94a3b8',marginTop:6}},t('roundSim.allDelivered','All 6 speeches delivered. Judge feedback below.')),
       ),
 
-      feedbackLoading && el(LoadingBar, { label: t('roundSim.judgeDeliberating','Judge is deliberating...') }),
+      feedbackLoading && el(LoadingBar, { label: t('roundSim.judgeDeliberating','Judge is deliberating...'), holdPlease: true }),
 
       feedback && el('div',{style:{
         padding:'24px 28px',background:'linear-gradient(145deg,#303038,#38383e)',
@@ -10993,7 +11083,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
     ),
 
     // Bot loading
-    botLoading && el(LoadingBar, { label: t('debateBot.thinking', 'The Machine is thinking...') }),
+    botLoading && el(LoadingBar, { label: t('debateBot.thinking', 'The Machine is thinking...'), holdPlease: true }),
 
     // Player input
     isPlayerTurn && el('div', { style: { marginBottom: 20 } },
@@ -11058,7 +11148,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
         el('div', { style: { fontSize: '.88rem', color: '#94a3b8', marginTop: 6 } }, t('debateBot.completeDesc', 'All speeches delivered. Coaching feedback below.')),
       ),
 
-      feedbackLoading && el(LoadingBar, { label: t('debateBot.judging', 'Analyzing your performance...') }),
+      feedbackLoading && el(LoadingBar, { label: t('debateBot.judging', 'Analyzing your performance...'), holdPlease: true }),
 
       feedback && el('div', { className: feedbackLoading ? 'output streaming-active' : '', style: {
         padding: '24px 28px', background: 'linear-gradient(145deg,#303038,#38383e)',
@@ -11807,14 +11897,42 @@ function SharedCases({ user, team }) {
     setMsg('Case imported to your saved cases!');
   };
 
-  if (!user) return el('div', {className:'panel', style:{textAlign:'center',padding:60}},
-    el('h2', {style:{fontSize:'1.4rem',color:'#e4e8f0',marginBottom:12}}, t('sharedCases.title','Team Case Library')),
-    el('p', {style:{color:'#94a3b8',fontSize:'.92rem'}}, t('sharedCases.signInDesc','Sign in and join a team to share cases.')),
+  // Personal-cases card renderer — shared across the unsigned, no-team, and
+  // team-member views so users always see their own library regardless of
+  // team state. Answers the "it should show my saved cases here" ask.
+  const personalCasesCard = () => el('div',{style:{marginBottom:28}},
+    el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
+      el('h3',{style:{fontSize:'1rem',fontWeight:700,color:'#e4e8f0',letterSpacing:'-.01em'}}, 'Your saved cases (' + myCases.length + ')'),
+      myCases.length > 0 && el('span',{style:{fontSize:'.7rem',color:'#64748b',fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase'}}, 'Local'),
+    ),
+    myCases.length === 0
+      ? el('div',{style:{padding:20,background:'#ffffff04',border:'1px dashed #ffffff12',borderRadius:12,color:'#64748b',fontSize:'.88rem',lineHeight:1.5}},
+          'You haven\'t saved any cases yet. Generate a case in the Case Gen tab and hit Save — it\'ll show up here and sync across your devices once you\'re signed in.')
+      : el('div',{style:{display:'grid',gap:8}},
+          myCases.slice(0,12).map(c => el('div',{key:c.id,style:{padding:'12px 14px',background:'#ffffff04',border:'1px solid #ffffff10',borderRadius:10,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}},
+            el('div',{style:{minWidth:0,flex:1}},
+              el('div',{style:{color:'#e4e8f0',fontWeight:600,fontSize:'.88rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, c.motion || 'Untitled'),
+              el('div',{style:{color:'#64748b',fontSize:'.72rem',marginTop:2}}, (c.side||'?') + (c.savedAt ? ' \u00B7 ' + new Date(c.savedAt).toLocaleDateString() : '')),
+            ),
+            team && el('button',{
+              onClick:()=>{setSelectedCase(c.id); setTimeout(shareCase,0);},
+              style:{flexShrink:0,fontSize:'.72rem',padding:'5px 10px',background:'#3b82f615',border:'1px solid #3b82f630',borderRadius:6,color:'#60a5fa',cursor:'pointer',fontWeight:600},
+            }, 'Share with team'),
+          )),
+          myCases.length > 12 && el('div',{style:{textAlign:'center',color:'#64748b',fontSize:'.76rem',marginTop:4}}, '+ ' + (myCases.length-12) + ' more in the Saved Cases tab'),
+        ),
   );
 
-  if (!team) return el('div', {className:'panel', style:{textAlign:'center',padding:60}},
-    el('h2', {style:{fontSize:'1.4rem',color:'#e4e8f0',marginBottom:12}}, t('sharedCases.title','Team Case Library')),
-    el('p', {style:{color:'#94a3b8',fontSize:'.92rem'}}, t('sharedCases.noTeamDesc','Create or join a team to share cases with teammates.')),
+  if (!user) return el('div', {className:'panel'},
+    el('h2', {style:{fontSize:'1.4rem',color:'#e4e8f0',marginBottom:6,fontWeight:800}}, t('sharedCases.title','Team Case Library')),
+    el('p', {style:{color:'#94a3b8',fontSize:'.92rem',marginBottom:20}}, 'Your saved cases below. Sign in + join a team to share them with teammates.'),
+    personalCasesCard(),
+  );
+
+  if (!team) return el('div', {className:'panel'},
+    el('h2', {style:{fontSize:'1.4rem',color:'#e4e8f0',marginBottom:6,fontWeight:800}}, t('sharedCases.title','Team Case Library')),
+    el('p', {style:{color:'#94a3b8',fontSize:'.92rem',marginBottom:20}}, 'Your saved cases below. Create or join a team in the Team tab to share them.'),
+    personalCasesCard(),
   );
 
   return el('div', {className:'panel'},
@@ -11822,6 +11940,8 @@ function SharedCases({ user, team }) {
       el('h2', {style:{fontSize:'1.4rem',fontWeight:800,color:'#e4e8f0',marginBottom:4}}, t('sharedCases.title','Team Case Library')),
       el('p', {style:{color:'#94a3b8',fontSize:'.92rem'}}, t('sharedCases.desc','Share and access cases across your team.')),
     ),
+    personalCasesCard(),
+    el('h3',{style:{fontSize:'1rem',fontWeight:700,color:'#e4e8f0',letterSpacing:'-.01em',marginBottom:12}}, 'Shared with your team'),
     myCases.length > 0 && el('div', {style:{display:'flex',gap:8,marginBottom:24,flexWrap:'wrap'}},
       el('select', {value:selectedCase, onChange:e=>setSelectedCase(e.target.value), style:{flex:1,minWidth:200,padding:'8px 12px',background:'#38383e',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.85rem',outline:'none'}},
         el('option', {value:''}, t('sharedCases.selectCase','Select a case to share...')),
@@ -13986,13 +14106,13 @@ function App() {
       // All tabs rendered but only active one visible — preserves state across switches
       tabPane('topics', React.createElement(TopicHub, { onNavigateTab: navigateTab, onPrefillCase: (c)=>setLoadedCase({...c, id:'prefill-'+Date.now(), savedAt: new Date().toISOString()}) })),
       tabPane('rebuttal', React.createElement(FlowRebuttal)),
-      tabPane('case', React.createElement(CaseGenerator, { onSave: saveCase, loadedCase: loadedCase, onClearLoaded: () => setLoadedCase(null), team, user, onNavigateTab: navigateTab })),
-      tabPane('battle', React.createElement(BattleArena, { onNavigateTab: navigateTab })),
+      tabPane('case', React.createElement(AuthGate, { user, authLoading, onSignIn:()=>setShowAuth(true), feature:'Case Gen', tagline:'Build a full debate case in 30 seconds — framework, three arguments with warrants and named anchors, and pre-empts baked in. Anonymous usage is disabled because we\'ve been hit with abuse — one tap to sign in fixes it.', bullets:['Unlimited free case generation during beta','Case library saved across every device you sign in on','AI that remembers your style, jargon level, and weighing preferences','One tap with Google — no forms, no passwords'] }, React.createElement(CaseGenerator, { onSave: saveCase, loadedCase: loadedCase, onClearLoaded: () => setLoadedCase(null), team, user, onNavigateTab: navigateTab }))),
+      tabPane('battle', React.createElement(AuthGate, { user, authLoading, onSignIn:()=>setShowAuth(true), feature:'Debate AI', tagline:'Argue out loud against an AI opponent that pushes back in real time. Voice + timer + live feedback. Compute-heavy, so we gate it behind sign-in.', bullets:['Live voice debate rounds with judge feedback','Your voice gets scored — tone, structure, clash engagement','Every round saved to your account','Unlimited free during beta'] }, React.createElement(BattleArena, { onNavigateTab: navigateTab }))),
       tabPane('feedback', React.createElement(CaseFeedback)),
       tabPane('res', React.createElement(Resolutions)),
       tabPane('vision', React.createElement(RoundVision)),
-      tabPane('casual', React.createElement(Casual)),
-      tabPane('chat', React.createElement(DebateChat)),
+      tabPane('casual', React.createElement(AuthGate, { user, authLoading, onSignIn:()=>setShowAuth(true), feature:'Casual mode', tagline:'Talk through an argument with the AI in plain English. No jargon, no format, just reasoning practice.', bullets:['Judgment-free sparring — no "debater voice" required','AI adapts to how you actually write','Every conversation saved so you can revisit your thinking','Unlimited during beta'] }, React.createElement(Casual))),
+      tabPane('chat', React.createElement(AuthGate, { user, authLoading, onSignIn:()=>setShowAuth(true), feature:'Debate Chat', allowTryOnce:true, tagline:'Pick a topic, pick a side, type out your argument. The AI takes the other side and pushes back, turn by turn. Type "end" any time and you get a full judge verdict.', bullets:['Ballot card when you type "end" — winner, margin, RFD, drill','AI matches your style once it\'s seen a few messages','Rounds saved across devices','Unlimited free during beta'] }, React.createElement(DebateChat))),
       tabPane('congress', React.createElement(Congress)),
       tabPane('tournaments', React.createElement(Tournaments)),
       tabPane('matter', React.createElement(MatterFiles, { user: user, team: team })),
