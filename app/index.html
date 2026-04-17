@@ -7246,6 +7246,119 @@ const JUDGE_EVAL_TYPES = {
   parent: { label: 'Parent / Lay', desc: 'Persuasion-first — rewards clarity, stories, and accessibility over jargon', prompt: 'You are a lay/parent judge with no debate experience. You evaluate based on persuasiveness, clarity, and common sense. Debate jargon confuses you. The team that tells a clearer, more compelling story wins. You reward accessible language, concrete examples, and emotional resonance. Speed and technicality actively hurt with you.' },
 };
 
+/* ═══════════════════════════════════════════════════
+   JUDGE ANALYZER — paste ballots/RFDs, get preference profile
+   ═══════════════════════════════════════════════════ */
+function JudgeAnalyzer() {
+  const el = React.createElement;
+  const [judgeName, setJudgeName] = useState('');
+  const [ballots, setBallots] = useState('');
+  const [analysis, setAnalysis] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const [brain, setBrain] = useState('claude');
+
+  const run = async () => {
+    if (!ballots.trim()) return;
+    setLoading(true); setErr(''); setAnalysis('');
+    try {
+      const sys = 'You are analyzing a debate judge\'s historical ballots and RFDs to extract a strategic profile. Output structured markdown with these exact sections:\n\n## LIKES (what wins speaks/ballots with this judge)\n- bullet\n- bullet\n\n## DISLIKES (what loses ballots)\n- bullet\n\n## SPEAKER POINTS PATTERNS (what drives highs vs lows)\n- bullet\n\n## STRATEGIC RECOMMENDATIONS (how to debate in front of them)\n- Clear, actionable advice\n\n## PARADIGM GUESS (their decision-calc style: tab, policy, kritikal, parent, flow, truth-over-tech, etc.)\n\nBe specific. Quote actual phrases they use when possible. Identify contradictions if the ballots disagree.';
+      const user = 'Judge: ' + (judgeName || 'Unknown') + '\n\nBallots / RFDs:\n\n' + ballots + '\n\nGenerate their strategic profile.';
+      await callAnyAI(sys, user, (chunk) => setAnalysis(a => a + chunk), brain, { feature: 'judge_analyzer', maxTokens: 3000 });
+      touchStreak();
+      logBetaEvent('generate', { feature: 'judge_analyzer', brain });
+    } catch (e) { setErr(e.message || 'Failed'); }
+    finally { setLoading(false); }
+  };
+
+  return el('div', null,
+    el('h3', {style:{margin:0,fontSize:'1.2rem',fontWeight:700}}, 'Judge Analyzer'),
+    el('p', {style:{color:'#94a3b8',fontSize:'.85rem',marginTop:6,marginBottom:16}}, 'Paste a judge\'s ballots, RFDs, or Tabroom paradigm. AI extracts their preferences so you know exactly how to debate in front of them.'),
+    el('label', {className:'field-label'}, 'Judge Name (optional)'),
+    el('input', {value:judgeName,onChange:e=>setJudgeName(e.target.value),placeholder:'e.g., Sarah Chen', style:{width:'100%',maxWidth:400,padding:10,borderRadius:8,background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.1)',color:'#e2e8f0',fontSize:'.88rem',marginBottom:14}}),
+    el('label', {className:'field-label'}, 'Ballots / RFDs / Paradigm'),
+    el('textarea', {value:ballots,onChange:e=>setBallots(e.target.value),placeholder:'Paste ballot text, RFDs, or their Tabroom paradigm. Multiple ballots = better analysis. Include speaker points if available.',style:{width:'100%',minHeight:200,padding:14,borderRadius:12,background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.1)',color:'#e2e8f0',fontSize:'.9rem',fontFamily:'inherit',lineHeight:1.6,resize:'vertical'}}),
+    el('div',{style:{marginTop:14,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}},
+      el('button',{onClick:run,disabled:loading||!ballots.trim(),className:'btn btn-orange',style:{padding:'12px 24px',fontSize:'.9rem'}}, loading?'Analyzing…':'Analyze Judge →'),
+      el('span',{style:{fontSize:'.75rem',color:'#64748b'}}, 'Tip: include at least 2-3 ballots for reliable patterns.'),
+    ),
+    err && el('div',{style:{marginTop:16,padding:12,background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,color:'#fca5a5',fontSize:'.85rem'}}, err),
+    analysis && el('div',{style:{marginTop:20,padding:'20px 24px',background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:14,whiteSpace:'pre-wrap',color:'#e2e8f0',fontSize:'.92rem',lineHeight:1.7}}, analysis),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   BALLOT OCR — upload ballot photo, extract feedback
+   ═══════════════════════════════════════════════════ */
+function BallotOCR() {
+  const el = React.createElement;
+  const [image, setImage] = useState(null); // {file, b64, mime}
+  const [extracted, setExtracted] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const onFile = (f) => {
+    if (!f) return;
+    if (f.size > 8 * 1024 * 1024) { setErr('Image too large (max 8MB).'); return; }
+    const r = new FileReader();
+    r.onload = () => {
+      const dataUrl = r.result;
+      const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+      if (!m) { setErr('Invalid image.'); return; }
+      setImage({ file: f, b64: m[2], mime: m[1] });
+      setErr('');
+    };
+    r.readAsDataURL(f);
+  };
+
+  const run = async () => {
+    if (!image) return;
+    setLoading(true); setErr(''); setExtracted('');
+    try {
+      // Use /api/claude with vision. Structure: system prompt + multi-part user content.
+      const body = {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        system: 'You are extracting structured feedback from a debate judge\'s ballot photo. Output markdown with these sections: **Speaker Points**, **RFD (Reason for Decision)**, **Specific Feedback** (bulleted), **What to Improve** (bulleted actionable). If a section is not present in the ballot, omit it. Be faithful — do not invent content not visible in the image.',
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: image.mime, data: image.b64 } },
+          { type: 'text', text: 'Extract the judge feedback from this ballot photo.' },
+        ] }],
+        _feature: 'ballot_ocr',
+      };
+      const headers = { 'Content-Type': 'application/json' };
+      if (typeof __getAuthToken === 'function') {
+        const tk = await __getAuthToken();
+        if (tk) headers['Authorization'] = 'Bearer ' + tk;
+      }
+      const res = await fetch('/api/claude', { method: 'POST', headers, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error('Vision API failed: ' + res.status);
+      const data = await res.json();
+      const text = (data.content && data.content[0] && data.content[0].text) || data.text || JSON.stringify(data);
+      setExtracted(text);
+      touchStreak();
+      logBetaEvent('generate', { feature: 'ballot_ocr' });
+    } catch (e) { setErr(e.message || 'Failed'); }
+    finally { setLoading(false); }
+  };
+
+  return el('div', null,
+    el('h3', {style:{margin:0,fontSize:'1.2rem',fontWeight:700}}, 'Ballot OCR'),
+    el('p', {style:{color:'#94a3b8',fontSize:'.85rem',marginTop:6,marginBottom:16}}, 'Snap a photo of your ballot. AI extracts the RFD, speaker points, and specific feedback so nothing gets lost.'),
+    el('div', {style:{border:'2px dashed rgba(255,255,255,.15)',borderRadius:14,padding:'32px 24px',textAlign:'center',background:'rgba(255,255,255,.02)'}},
+      el('input', {type:'file',accept:'image/*',onChange:e=>onFile(e.target.files && e.target.files[0]),id:'ballot-file',style:{display:'none'}}),
+      el('label',{htmlFor:'ballot-file',style:{display:'inline-block',padding:'12px 24px',background:'#ef4444',color:'#fff',borderRadius:10,cursor:'pointer',fontWeight:700,fontSize:'.88rem'}}, image ? 'Change Image' : '📷 Choose Ballot Photo'),
+      image && el('div',{style:{marginTop:16,fontSize:'.82rem',color:'#94a3b8'}}, image.file.name + ' · ' + Math.round(image.file.size/1024) + ' KB'),
+      image && el('img',{src:'data:'+image.mime+';base64,'+image.b64,style:{marginTop:16,maxHeight:240,maxWidth:'100%',borderRadius:8,border:'1px solid rgba(255,255,255,.1)'}}),
+    ),
+    el('div',{style:{marginTop:14,display:'flex',gap:12}},
+      el('button',{onClick:run,disabled:loading||!image,className:'btn btn-orange',style:{padding:'12px 24px',fontSize:'.9rem'}}, loading?'Reading ballot…':'Extract Feedback →'),
+    ),
+    err && el('div',{style:{marginTop:16,padding:12,background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,color:'#fca5a5',fontSize:'.85rem'}}, err),
+    extracted && el('div',{style:{marginTop:20,padding:'20px 24px',background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:14,whiteSpace:'pre-wrap',color:'#e2e8f0',fontSize:'.92rem',lineHeight:1.7}}, extracted),
+  );
+}
+
 function Judge({ user }) {
   const { t } = React.useContext(I18nContext);
   const [judgeMode, setJudgeMode] = useState('flow'); // flow | pool
@@ -7444,15 +7557,19 @@ Think through the strategic implications. Be specific, reference debate theory, 
   };
 
   return React.createElement('div',{className:'panel'},
-    // Mode toggle: Flow Notes vs Judge Pool
-    React.createElement('div',{style:{display:'flex',gap:8,marginBottom:16}},
-      ['flow','pool'].map(m => React.createElement('button',{
+    // Mode toggle: Flow Notes / Judge Pool / Analyzer / Ballot OCR
+    React.createElement('div',{style:{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}},
+      [['flow','Flow Notes'],['pool','Judge Pool'],['analyzer','Judge Analyzer'],['ballot','Ballot OCR']].map(([m,label]) => React.createElement('button',{
         key:m, onClick:()=>setJudgeMode(m),
         style:{padding:'8px 20px',borderRadius:8,border:judgeMode===m?'1.5px solid #ef444450':'1.5px solid #ffffff18',background:judgeMode===m?'#ef444412':'transparent',color:judgeMode===m?'#f87171':'#a8b8c8',cursor:'pointer',fontSize:'.78rem',fontWeight:600,fontFamily:'inherit'}
-      }, m === 'flow' ? 'Flow Notes' : 'Judge Pool')),
+      }, label)),
     ),
     // Judge Pool mode
     judgeMode === 'pool' && React.createElement(JudgePool, { user }),
+    // Judge Analyzer mode
+    judgeMode === 'analyzer' && React.createElement(JudgeAnalyzer),
+    // Ballot OCR mode
+    judgeMode === 'ballot' && React.createElement(BallotOCR),
     // Flow Notes mode
     judgeMode === 'flow' && React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:12,flexWrap:'wrap'}},
       React.createElement('label',{style:{fontSize:'.8rem',fontWeight:600,color:'#a8b8c8',letterSpacing:'.5px',textTransform:'uppercase'}},'Format:'),
