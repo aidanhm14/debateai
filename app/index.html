@@ -2829,40 +2829,52 @@ function cleanOutput(text, asHtml) {
   return t;
 }
 
-// Smooth streaming: commits API text to React at 60fps using rAF
-function createStreamThrottle(onChunk, outputRef) {
-  let latestText = '';
-  let committed = '';
-  let timerId = null;
-  const INTERVAL = 120; // ms between React re-renders — prevents flicker
+// Typing-stream throttle. The API already streams in chunks, but rendering
+// those raw chunks makes the text appear in "blocks" which breaks the typing
+// feel. Instead we accumulate the stream and reveal it character-by-character
+// at ~60fps, using an adaptive step so we never fall so far behind on a fast
+// stream that the user is waiting on the animation after the API is done.
+//
+// Same interface as before (update / finish / cancel) so no callsite changes.
+function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {
+  let streamed = '';           // everything the API has produced so far
+  let revealed = 0;            // chars the user has seen
+  let rafId = null;
+  let finished = false;
+  const BASE_STEP = 3;         // chars per frame when in-sync (≈180 chars/sec — real typing feel)
+  const CATCHUP_CAP = 400;     // beyond this, we speed up so the user isn't stuck watching the animation
+
+  function scheduleTick() { if (rafId == null) rafId = requestAnimationFrame(tick); }
+
+  function tick() {
+    rafId = null;
+    const behind = streamed.length - revealed;
+    if (behind <= 0) {
+      // Nothing new to render. If the stream is done, fire a final onChunk so
+      // consumers see the exact committed text (idempotent — same string).
+      if (finished) onChunk(streamed);
+      return;
+    }
+    // Choose how many chars to reveal this frame.
+    let step;
+    if (finished) {
+      // Stream done — drain the rest quickly but still visibly (≤~1s for 2000 chars)
+      step = Math.max(BASE_STEP * 6, Math.ceil(behind / 30));
+    } else if (behind > CATCHUP_CAP) {
+      // API produced a big burst — speed up so we catch up within ~1s
+      step = Math.ceil(behind / 40);
+    } else {
+      step = BASE_STEP;
+    }
+    revealed = Math.min(streamed.length, revealed + step);
+    try { onChunk(streamed.slice(0, revealed)); } catch(e) { /* consumer error shouldn't kill the stream */ }
+    if (revealed < streamed.length || !finished) scheduleTick();
+  }
 
   return {
-    update(text) {
-      latestText = text;
-      if (!timerId) {
-        timerId = setTimeout(function flush() {
-          if (latestText !== committed) {
-            committed = latestText;
-            onChunk(latestText);
-          }
-          if (latestText !== committed) {
-            timerId = setTimeout(flush, INTERVAL);
-          } else {
-            timerId = null;
-          }
-        }, INTERVAL);
-      }
-    },
-    finish() {
-      if (timerId) { clearTimeout(timerId); timerId = null; }
-      if (latestText !== committed) {
-        committed = latestText;
-      }
-      onChunk(latestText);
-    },
-    cancel() {
-      if (timerId) { clearTimeout(timerId); timerId = null; }
-    }
+    update(text) { streamed = text; scheduleTick(); },
+    finish() { finished = true; scheduleTick(); },
+    cancel() { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } finished = true; },
   };
 }
 
