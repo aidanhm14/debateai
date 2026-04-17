@@ -504,7 +504,29 @@ const SFX = {
    ═══════════════════════════════════════════════════ */
 
 /* ── DEBATE FORMATS ──────────────────── */
+// Ordered so non-debater-friendly formats come first. `quick` is the default
+// in useState('quick') below so new visitors land on something approachable.
 const FORMATS = {
+  quick: {
+    name: 'Quick Clash',
+    desc: '2 speeches each — fast and casual. No debate jargon needed.',
+    sides: ['pro','con'],
+    sideLabels: { pro:'Pro', con:'Con' },
+    speeches: [
+      { code:'P1', name:'Pro Opening',  side:'pro', time:180 },
+      { code:'C1', name:'Con Opening',  side:'con', time:180 },
+      { code:'P2', name:'Pro Rebuttal', side:'pro', time:120 },
+      { code:'C2', name:'Con Rebuttal', side:'con', time:120 },
+    ],
+    rules: {
+      P1:'You are Pro. Make your best 2-3 arguments for the topic. Be direct and conversational.',
+      C1:'You are Con. Directly push back on Pro\'s points and make your own 2-3 counter-arguments.',
+      P2:'You are Pro rebuttal. Respond to Con\'s attacks and explain why Pro still wins.',
+      C2:'You are Con rebuttal. Final word — why Con wins this debate. NO new arguments.',
+    },
+    prep: 120,
+    entry: 'easy',
+  },
   apda: {
     name: 'APDA Parliamentary',
     desc: 'Full 6-speech collegiate parli round',
@@ -636,25 +658,6 @@ const FORMATS = {
       '2AR':'You are Aff giving final rebuttal. Last speech — crystallize the round, final voting issues. NO new arguments.',
     },
     prep: 240,
-  },
-  quick: {
-    name: 'Quick Clash',
-    desc: '2 speeches each — fast and casual',
-    sides: ['pro','con'],
-    sideLabels: { pro:'Pro', con:'Con' },
-    speeches: [
-      { code:'P1', name:'Pro Opening',  side:'pro', time:180 },
-      { code:'C1', name:'Con Opening',  side:'con', time:180 },
-      { code:'P2', name:'Pro Rebuttal', side:'pro', time:120 },
-      { code:'C2', name:'Con Rebuttal', side:'con', time:120 },
-    ],
-    rules: {
-      P1:'You are Pro. Make your best 2-3 arguments for the topic. Be direct and conversational.',
-      C1:'You are Con. Directly push back on Pro\'s points and make your own 2-3 counter-arguments.',
-      P2:'You are Pro rebuttal. Respond to Con\'s attacks and explain why Pro still wins.',
-      C2:'You are Con rebuttal. Final word — why Con wins this debate. NO new arguments.',
-    },
-    prep: 120,
   },
   pf: {
     name: 'Public Forum',
@@ -2195,7 +2198,7 @@ function App(){
   const[priorPct,setPriorPct]=useState(50);    // user's confidence BEFORE the round
   const[posteriorPct,setPosteriorPct]=useState(null); // confidence AFTER
   const[background,setBackground]=useState('');  // optional context for the motion
-  const[format,setFormat]=useState('apda');
+  const[format,setFormat]=useState('quick');
   const[oppStrengths,setOppStrengths]=useState([]);
   const[oppWeaknesses,setOppWeaknesses]=useState([]);
   const[brain,setBrain]=useState('claude');
@@ -2875,12 +2878,20 @@ function App(){
         ),
       ),
 
-      // Format
+      // Format — Quick Clash listed first and tagged "Easy" so non-debaters start here
       el('div',{className:'t-label',style:{marginTop:8}},'Format'),
       el('div',{className:'pills'},
         Object.entries(FORMATS).map(([k,v])=>
-          el('button',{key:k,className:'pill'+(format===k?' on':''),onClick:()=>setFormat(k),title:v.desc},v.name)
+          el('button',{key:k,className:'pill'+(format===k?' on':''),onClick:()=>setFormat(k),title:v.desc,
+            style:v.entry==='easy'?{position:'relative'}:undefined},
+            v.name,
+            v.entry==='easy'&&el('span',{style:{marginLeft:8,fontSize:'.58rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',padding:'2px 7px',borderRadius:999,background:'rgba(34,197,94,.14)',color:'#4ade80',border:'1px solid rgba(34,197,94,.3)',verticalAlign:'middle'}},'Easy')
+          )
         )
+      ),
+      // Helper line under the format picker for brand-new users
+      format==='quick'&&el('div',{style:{fontSize:'.74rem',color:'var(--c-dim)',marginTop:6,maxWidth:520}},
+        'New to debate? Stay on Quick Clash. It\'s Pro vs. Con, two short speeches each, no jargon.'
       ),
 
       // Motion

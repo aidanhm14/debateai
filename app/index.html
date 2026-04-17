@@ -11844,30 +11844,36 @@ function LiveDebates({ user, team, onNavigateTab }) {
 }
 
 
+// Always-visible primary tabs: the core things anyone (debater or not) uses.
+// Rebuttal was removed — debater-only, duplicated Debate AI's rebuttal flow.
 const TABS_PRIMARY = [
-  {id:'topics',label:'Topics',i18n:'nav.topics'},
   {id:'case',label:'Case Gen',i18n:'nav.caseGen'},
   {id:'battle',label:'Debate AI',i18n:'nav.battle',href:'/debate-ai'},
-  {id:'rebuttal',label:'Rebuttal',i18n:'nav.rebuttal'},
-  {id:'res',label:'Motions',i18n:'nav.motions'},
-  {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
-  {id:'judge',label:'Judge',i18n:'nav.judge'},
-  {id:'vision',label:'Mapper',i18n:'nav.vision'},
+  {id:'casual',label:'Casual',i18n:'nav.casual'},
   {id:'newbies',label:'Guide',i18n:'nav.guide'},
 ];
-const TABS_OTHER = [
+// Competitive-debater features: tournament prep, judge analysis, team tools.
+// Surfaced in the "Competitive" dropdown so non-debaters aren't overwhelmed.
+const TABS_COMPETITIVE = [
+  {id:'topics',label:'Topics',i18n:'nav.topics'},
+  {id:'res',label:'Motions',i18n:'nav.motions'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
-  {id:'casual',label:'Casual',i18n:'nav.casual'},
+  {id:'judge',label:'Judge',i18n:'nav.judge'},
+  {id:'vision',label:'Mapper',i18n:'nav.vision'},
+  {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
+  {id:'team',label:'Team',i18n:'nav.team'},
+  {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
+];
+// Everything else: feedback, live debates, saved work, support link.
+const TABS_OTHER = [
   {id:'feedback',label:'Feedback',i18n:'nav.feedback'},
   {id:'live',label:'Live Debates',i18n:'nav.live'},
   {id:'shared',label:'Saved Cases',i18n:'nav.cases'},
-  {id:'team',label:'Team',i18n:'nav.team'},
-  {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
-  {id:'donate',label:'Donate ↗',i18n:'nav.donate',href:'https://buymeacoffee.com/8idanhm'},
+  {id:'donate',label:'Donate',i18n:'nav.donate',href:'https://buymeacoffee.com/8idanhm'},
 ];
 const TABS_ROW1 = TABS_PRIMARY;
-const TABS_ROW2 = TABS_OTHER;
-const TABS = [...TABS_PRIMARY, ...TABS_OTHER];
+const TABS_ROW2 = [...TABS_COMPETITIVE, ...TABS_OTHER];
+const TABS = [...TABS_PRIMARY, ...TABS_COMPETITIVE, ...TABS_OTHER];
 
 /* ═══════════════════════════════════════════════════
    TOPIC HUB — current week's topics across formats
@@ -12114,14 +12120,19 @@ function App() {
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
   const [otherPos, setOtherPos] = useState({top:0,right:0});
+  const [competitiveOpen, setCompetitiveOpen] = useState(false);
+  const [competitivePos, setCompetitivePos] = useState({top:0,right:0});
   useEffect(()=>{
-    if(!otherOpen) return;
-    const close=(ev)=>{if(!ev.target.closest('.nav-other-wrap')) setOtherOpen(false);};
-    const esc=(ev)=>{if(ev.key==='Escape') setOtherOpen(false);};
+    if(!otherOpen && !competitiveOpen) return;
+    const close=(ev)=>{
+      if(otherOpen && !ev.target.closest('.nav-other-wrap[data-menu="other"]')) setOtherOpen(false);
+      if(competitiveOpen && !ev.target.closest('.nav-other-wrap[data-menu="competitive"]')) setCompetitiveOpen(false);
+    };
+    const esc=(ev)=>{if(ev.key==='Escape'){setOtherOpen(false);setCompetitiveOpen(false);}};
     document.addEventListener('click',close);
     document.addEventListener('keydown',esc);
     return ()=>{document.removeEventListener('click',close);document.removeEventListener('keydown',esc);};
-  },[otherOpen]);
+  },[otherOpen,competitiveOpen]);
   const [loadedCase, setLoadedCase] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showGuide, setShowGuide] = useState(() => {
@@ -12513,51 +12524,114 @@ function App() {
                 onClick:(e)=>{e.preventDefault();navigateTab(tb.id);}
               }, t(tb.i18n, tb.label))
         ),
-        // "Other" dropdown for secondary tabs — React-state driven so re-renders don't close it
-        React.createElement('div',{className:'nav-other-wrap'+(otherOpen?' open':'')},
-          React.createElement('button',{
-            type:'button',
-            className:'nav-btn nav-other-trigger'+(TABS_OTHER.some(tb=>tab===tb.id)?' active':''),
-            'aria-haspopup':'menu',
-            'aria-expanded':otherOpen,
-            onClick:(e)=>{
-              e.stopPropagation();
-              if(!otherOpen){
-                const r=e.currentTarget.getBoundingClientRect();
-                setOtherPos({top:r.bottom+6,right:window.innerWidth-r.right});
+        // Dropdown helper — one definition drives both "Competitive" and "Other" menus.
+        (function renderDropdown(opts){
+          const {items, open, setOpen, pos, setPos, label, menuKey} = opts;
+          const activeItem = items.find(tb=>tab===tb.id);
+          return React.createElement('div',{
+            className:'nav-other-wrap'+(open?' open':''),
+            'data-menu':menuKey,
+          },
+            React.createElement('button',{
+              type:'button',
+              className:'nav-btn nav-other-trigger'+(activeItem?' active':''),
+              'aria-haspopup':'menu',
+              'aria-expanded':open,
+              onClick:(e)=>{
+                e.stopPropagation();
+                // Close the other menu when opening this one
+                if(menuKey==='other') setCompetitiveOpen(false);
+                else setOtherOpen(false);
+                if(!open){
+                  const r=e.currentTarget.getBoundingClientRect();
+                  setPos({top:r.bottom+6,right:window.innerWidth-r.right});
+                }
+                setOpen(o=>!o);
               }
-              setOtherOpen(o=>!o);
-            }
-          }, TABS_OTHER.find(tb=>tab===tb.id) ? t(TABS_OTHER.find(tb=>tab===tb.id).i18n, TABS_OTHER.find(tb=>tab===tb.id).label) : 'Other \u25BE'),
-          otherOpen && ReactDOM.createPortal(
-            React.createElement('div',{
-              className:'nav-other-dropdown open',
-              role:'menu',
-              style:{position:'fixed',top:otherPos.top+'px',right:otherPos.right+'px',display:'flex',flexDirection:'column',gap:2},
-              onClick:(e)=>e.stopPropagation(),
-            },
-              TABS_OTHER.map(tb =>
-                tb.href
-                  ? React.createElement('a',{
-                      key:tb.id,
-                      className:'nav-other-item',
-                      href:tb.href,
-                      target:'_blank',
-                      rel:'noopener noreferrer',
-                      style:{textDecoration:'none'},
-                      onClick:()=>setOtherOpen(false),
-                    }, t(tb.i18n, tb.label))
-                  : React.createElement('button',{
-                      key:tb.id,
-                      type:'button',
-                      className:'nav-other-item'+(tab===tb.id?' active':''),
-                      onClick:()=>{navigateTab(tb.id);setOtherOpen(false);}
-                    }, t(tb.i18n, tb.label))
-              )
-            ),
-            document.body
-          )
-        )
+            }, activeItem ? t(activeItem.i18n, activeItem.label) : label+' \u25BE'),
+            open && ReactDOM.createPortal(
+              React.createElement('div',{
+                className:'nav-other-dropdown open',
+                role:'menu',
+                style:{position:'fixed',top:pos.top+'px',right:pos.right+'px',display:'flex',flexDirection:'column',gap:2},
+                onClick:(e)=>e.stopPropagation(),
+              },
+                items.map(tb =>
+                  tb.href
+                    ? React.createElement('a',{
+                        key:tb.id,
+                        className:'nav-other-item',
+                        href:tb.href,
+                        target:'_blank',
+                        rel:'noopener noreferrer',
+                        style:{textDecoration:'none'},
+                        onClick:()=>setOpen(false),
+                      }, t(tb.i18n, tb.label))
+                    : React.createElement('button',{
+                        key:tb.id,
+                        type:'button',
+                        className:'nav-other-item'+(tab===tb.id?' active':''),
+                        onClick:()=>{navigateTab(tb.id);setOpen(false);}
+                      }, t(tb.i18n, tb.label))
+                )
+              ),
+              document.body
+            )
+          );
+        })({items:TABS_COMPETITIVE,open:competitiveOpen,setOpen:setCompetitiveOpen,pos:competitivePos,setPos:setCompetitivePos,label:'Competitive',menuKey:'competitive'}),
+        (function renderDropdown(opts){
+          const {items, open, setOpen, pos, setPos, label, menuKey} = opts;
+          const activeItem = items.find(tb=>tab===tb.id);
+          return React.createElement('div',{
+            className:'nav-other-wrap'+(open?' open':''),
+            'data-menu':menuKey,
+          },
+            React.createElement('button',{
+              type:'button',
+              className:'nav-btn nav-other-trigger'+(activeItem?' active':''),
+              'aria-haspopup':'menu',
+              'aria-expanded':open,
+              onClick:(e)=>{
+                e.stopPropagation();
+                if(menuKey==='other') setCompetitiveOpen(false);
+                else setOtherOpen(false);
+                if(!open){
+                  const r=e.currentTarget.getBoundingClientRect();
+                  setPos({top:r.bottom+6,right:window.innerWidth-r.right});
+                }
+                setOpen(o=>!o);
+              }
+            }, activeItem ? t(activeItem.i18n, activeItem.label) : label+' \u25BE'),
+            open && ReactDOM.createPortal(
+              React.createElement('div',{
+                className:'nav-other-dropdown open',
+                role:'menu',
+                style:{position:'fixed',top:pos.top+'px',right:pos.right+'px',display:'flex',flexDirection:'column',gap:2},
+                onClick:(e)=>e.stopPropagation(),
+              },
+                items.map(tb =>
+                  tb.href
+                    ? React.createElement('a',{
+                        key:tb.id,
+                        className:'nav-other-item',
+                        href:tb.href,
+                        target:'_blank',
+                        rel:'noopener noreferrer',
+                        style:{textDecoration:'none'},
+                        onClick:()=>setOpen(false),
+                      }, t(tb.i18n, tb.label))
+                    : React.createElement('button',{
+                        key:tb.id,
+                        type:'button',
+                        className:'nav-other-item'+(tab===tb.id?' active':''),
+                        onClick:()=>{navigateTab(tb.id);setOpen(false);}
+                      }, t(tb.i18n, tb.label))
+                )
+              ),
+              document.body
+            )
+          );
+        })({items:TABS_OTHER,open:otherOpen,setOpen:setOtherOpen,pos:otherPos,setPos:setOtherPos,label:'Other',menuKey:'other'})
       ),
       // Hamburger overlay menu
       hamburgerOpen && React.createElement('div',{className:'hamburger-overlay open',onClick:()=>setHamburgerOpen(false)},
