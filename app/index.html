@@ -267,9 +267,10 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 /* Sticky nav with a FULLY SOLID page-bg so content scrolling behind is fully
  * masked — no more "pill overlapping the heading" bug. A soft drop-shadow
  * below the nav gives the transition to content underneath a clean edge. */
-.nav{display:flex;gap:16px;margin:0 auto 28px;padding:14px 32px 16px;flex-wrap:nowrap;justify-content:center;align-items:center;background:var(--bg,#0a0a0f)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:none!important;border-bottom:1px solid rgba(255,255,255,.04)!important;box-shadow:0 18px 28px -18px rgba(0,0,0,.7)!important;max-width:100%;width:100%;position:sticky;top:52px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.nav{display:flex;gap:16px;margin:0 auto;padding:14px 32px 40px;flex-wrap:nowrap;justify-content:center;align-items:center;background:var(--bg,#0a0a0f)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:none!important;box-shadow:0 16px 20px -8px var(--bg,#0a0a0f)!important;max-width:100%;width:100%;position:sticky;top:52px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.nav::after{content:"";position:absolute;left:0;right:0;top:100%;height:24px;background:linear-gradient(to bottom,var(--bg,#0a0a0f) 0%,rgba(10,10,15,0) 100%);pointer-events:none}
 .nav::-webkit-scrollbar{display:none}
-@media(max-width:640px){.nav{top:52px;padding:12px 14px 14px;gap:8px;justify-content:flex-start;margin-bottom:20px}}
+@media(max-width:640px){.nav{top:52px;padding:12px 14px 32px;gap:8px;justify-content:flex-start;margin-bottom:0}}
 .nav-btn{
   background:rgba(20,20,24,.55);border:1px solid rgba(255,255,255,.1);color:var(--text-dim,rgba(255,255,255,.7));
   padding:13px 26px;border-radius:999px;font-size:.88rem;font-weight:700;
@@ -13773,6 +13774,19 @@ function App() {
             onClick:()=>setTheme(theme==='grey'?'light':theme==='light'?'dark':'grey'),
             style:{cursor:'pointer',padding:'4px 12px',borderRadius:999,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.05)'},
           }, theme==='grey'?'Light':theme==='light'?'Dark':'Grey'),
+          // Language picker — native <select> styled as a pill so all
+          // 7 supported locales are one tap away. Persists to localStorage
+          // and swaps the rendered strings via the i18n provider above.
+          React.createElement('select',{
+            className:'topbar-pill',
+            value:locale,
+            onChange:e=>setLocale(e.target.value),
+            title:'Change language',
+            'aria-label':'Language',
+            style:{cursor:'pointer',padding:'4px 10px',borderRadius:999,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.05)',color:'inherit',fontFamily:'inherit',fontSize:'inherit',appearance:'none',WebkitAppearance:'none',MozAppearance:'none',textAlign:'center',textAlignLast:'center'},
+          }, SUPPORTED_LOCALES.map(loc =>
+            React.createElement('option',{key:loc.code,value:loc.code,style:{background:'#111',color:'#fff'}}, loc.flag+'  '+loc.name)
+          )),
           // Style profile entry point — always visible, opens the questionnaire modal.
           // Wording shifts based on whether we've captured enough to show a real profile.
           React.createElement('button',{
