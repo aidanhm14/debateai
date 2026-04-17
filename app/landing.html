@@ -2069,14 +2069,32 @@ window.addEventListener('load', function(){
   // Main sign-up button in the hero
   btn.addEventListener('click', function(){ triggerGoogleSignIn('landing_hero'); });
 
-  // Hero timer animation — clicking/keyboard-activating the voice-debate widget
-  // kicks off the same Google sign-in flow. This is the highest-signal visual
-  // element on the landing page, so it's the biggest sign-up funnel.
+  // Hero timer animation — the highest-signal visual element on the landing
+  // page, so it's the biggest sign-up funnel. ALWAYS uses signInWithRedirect,
+  // not popup: popups get silently blocked on Safari and mobile browsers and
+  // that was the cause of "click does nothing / click goes somewhere wrong"
+  // reports. Redirect is bulletproof.
   var heroTimer = document.getElementById('heroTimer');
+  function timerForceSignIn(ev){
+    try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch(e){}
+    try { window.dosTrack && window.dosTrack('sign_in_start',{source:'hero_timer',method:'redirect'}) } catch(e){}
+    console.log('[landing] hero timer clicked — starting Google sign-in redirect');
+    try {
+      var provider = new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      auth.signInWithRedirect(provider);
+    } catch(e){
+      console.warn('[landing] signInWithRedirect threw:', e.message);
+      // Last-ditch fallback: open Google's OAuth URL directly so the user at
+      // least gets to Google, even if Firebase is broken. Better than silently
+      // doing nothing, or redirecting them into the app without sign-in.
+      try { window.location.href = '/?signup=1'; } catch(err){}
+    }
+  }
   if (heroTimer) {
-    heroTimer.addEventListener('click', function(){ triggerGoogleSignIn('hero_timer'); });
+    heroTimer.addEventListener('click', timerForceSignIn);
     heroTimer.addEventListener('keydown', function(ev){
-      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); triggerGoogleSignIn('hero_timer'); }
+      if (ev.key === 'Enter' || ev.key === ' ') { timerForceSignIn(ev); }
     });
     // If the user is already signed in, swap the hover caption to "Continue".
     auth.onAuthStateChanged(function(user){
