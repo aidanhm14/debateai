@@ -6266,6 +6266,163 @@ function Casual() {
   );
 }
 
+/* ═══════════════════════════════════════════════════
+   TAB 4b: DEBATE CHAT
+   Text-based structured debate. AI plays your opponent on a motion.
+   Different from Casual (that's an everyday-argument coach) — here the
+   AI *is* the opponent, not the helper. Mirrors Casual's send/stream
+   plumbing; uses the `debateChat` prompt in prompts.mjs.
+   ═══════════════════════════════════════════════════ */
+
+function DebateChat() {
+  const [motion, setMotion] = useState('');
+  const [mySide, setMySide] = useState('pro'); // 'pro' | 'con'
+  const [started, setStarted] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  const aiSide = mySide === 'pro' ? 'con' : 'pro';
+  const sideLabel = (s) => s === 'pro' ? 'Pro' : 'Con';
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({behavior:'smooth'});
+  }, [messages]);
+
+  const startRound = () => {
+    if (!motion.trim()) return;
+    setStarted(true);
+    setMessages([
+      {role:'system', text:`Motion: "${motion.trim()}". You are arguing ${sideLabel(mySide)}. I'm arguing ${sideLabel(aiSide)}. Make your opening argument — as short or long as you want. Plain English is fine.`}
+    ]);
+  };
+
+  const reset = () => {
+    setStarted(false);
+    setMessages([]);
+    setInput('');
+  };
+
+  const send = async () => {
+    if (!input.trim() || loading) return;
+    const userMsg = input.trim();
+    setInput('');
+    const newMsgs = [...messages, {role:'user', text:userMsg}];
+    setMessages(newMsgs);
+    setLoading(true);
+
+    try {
+      // Build context header so the AI knows the motion + which side is whose
+      const sysHeader = `The motion is: "${motion.trim()}". The user is arguing ${sideLabel(mySide)}. You are arguing ${sideLabel(aiSide)}. You never switch sides mid-round.`;
+      const apiMessages = newMsgs.filter(m=>m.role!=='system').slice(-14).map(m => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.text
+      }));
+      setMessages(prev => [...prev, {role:'assistant', text:''}]);
+      const msgIdx = newMsgs.length;
+      await callClaude(sysHeader, userMsg, (text) => {
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[msgIdx] = {role:'assistant', text:text};
+          return updated;
+        });
+      }, { messages: apiMessages, thinkBudget: 4000, maxTokens: 1400, feature:'debateChat', promptId:'debateChat' });
+    } catch(e) {
+      setMessages(prev => [...prev, {role:'assistant', text:'Error: '+e.message}]);
+    }
+    setLoading(false);
+  };
+
+  // ── SETUP SCREEN ─────────────────────────────────────
+  if (!started) {
+    return React.createElement('div',{className:'panel',style:{maxWidth:640,margin:'0 auto'}},
+      React.createElement('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:10}},'Debate Chat'),
+      React.createElement('h2',{style:{fontSize:'1.4rem',fontWeight:800,marginBottom:8,letterSpacing:'-.01em'}},'Argue a topic with the AI.'),
+      React.createElement('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.92rem',lineHeight:1.55,marginBottom:24}},
+        "Pick a topic, pick your side. I'll take the opposite side and push back, turn by turn. Plain English only — no debate jargon required."
+      ),
+      React.createElement('div',{style:{fontSize:'.68rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:6}},'Topic'),
+      React.createElement('textarea',{
+        value:motion,
+        onChange:e=>setMotion(e.target.value),
+        onKeyDown:e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))startRound()},
+        placeholder:'e.g. Open borders, yes or no?   ·   AI should write the news.   ·   Tax billionaires out of existence.',
+        rows:2,
+        style:{width:'100%',padding:'12px 14px',background:'var(--bg-card,#ffffff06)',border:'1px solid var(--border,rgba(255,255,255,.12))',borderRadius:10,color:'var(--text,#fff)',fontSize:'.94rem',fontFamily:'inherit',resize:'vertical',marginBottom:18}
+      }),
+      React.createElement('div',{style:{fontSize:'.68rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:6}},'Your side'),
+      React.createElement('div',{style:{display:'flex',gap:8,marginBottom:24}},
+        React.createElement('button',{
+          type:'button',
+          onClick:()=>setMySide('pro'),
+          style:{flex:1,padding:'12px 16px',borderRadius:10,border:'1px solid '+(mySide==='pro'?'var(--accent,#ef4444)':'var(--border,rgba(255,255,255,.12))'),background:mySide==='pro'?'var(--accent,#ef4444)':'transparent',color:mySide==='pro'?'#fff':'var(--text-dim,#94a3b8)',fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:'.88rem',letterSpacing:'.04em',textTransform:'uppercase',transition:'.15s'}
+        },'Pro (for the motion)'),
+        React.createElement('button',{
+          type:'button',
+          onClick:()=>setMySide('con'),
+          style:{flex:1,padding:'12px 16px',borderRadius:10,border:'1px solid '+(mySide==='con'?'var(--accent,#ef4444)':'var(--border,rgba(255,255,255,.12))'),background:mySide==='con'?'var(--accent,#ef4444)':'transparent',color:mySide==='con'?'#fff':'var(--text-dim,#94a3b8)',fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:'.88rem',letterSpacing:'.04em',textTransform:'uppercase',transition:'.15s'}
+        },'Con (against the motion)'),
+      ),
+      React.createElement('button',{
+        type:'button',
+        onClick:startRound,
+        disabled:!motion.trim(),
+        className:'btn btn-primary',
+        style:{width:'100%',padding:'14px 22px',fontSize:'.9rem',letterSpacing:'.04em',opacity:motion.trim()?1:.4,cursor:motion.trim()?'pointer':'not-allowed'}
+      },'Start Debating'),
+      React.createElement('p',{style:{marginTop:14,fontSize:'.72rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5,textAlign:'center'}},
+        'Type "end" at any point to get a judge verdict.'
+      ),
+    );
+  }
+
+  // ── ROUND SCREEN ─────────────────────────────────────
+  return React.createElement('div',{className:'panel',style:{maxWidth:720,margin:'0 auto'}},
+    // Header: motion + sides + reset
+    React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:16,paddingBottom:14,borderBottom:'1px solid var(--border,rgba(255,255,255,.08))'}},
+      React.createElement('div',{style:{minWidth:0,flex:1}},
+        React.createElement('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:4}},'Motion'),
+        React.createElement('div',{style:{fontSize:'.95rem',fontWeight:600,lineHeight:1.4,color:'var(--text,#fff)'}},motion),
+        React.createElement('div',{style:{marginTop:8,fontSize:'.72rem',color:'var(--text-dim,#94a3b8)'}},
+          'You: ',React.createElement('strong',{style:{color:'var(--text,#fff)'}},sideLabel(mySide)),
+          '  ·  AI: ',React.createElement('strong',{style:{color:'var(--text,#fff)'}},sideLabel(aiSide)),
+        )
+      ),
+      React.createElement('button',{type:'button',onClick:reset,style:{background:'transparent',border:'1px solid var(--border,rgba(255,255,255,.15))',borderRadius:8,color:'var(--text-dim,#94a3b8)',padding:'6px 12px',fontSize:'.7rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit',flexShrink:0}},'New Round'),
+    ),
+    // Messages
+    React.createElement('div',{style:{maxHeight:460,overflowY:'auto',marginBottom:16,display:'flex',flexDirection:'column',gap:12,paddingRight:4}},
+      messages.map((m,i) => {
+        if (m.role === 'system') {
+          return React.createElement('div',{key:i,style:{alignSelf:'center',fontSize:'.78rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5,textAlign:'center',padding:'10px 14px',background:'rgba(255,255,255,.03)',border:'1px solid var(--border,rgba(255,255,255,.08))',borderRadius:10,maxWidth:'90%'}}, m.text);
+        }
+        const isStreamingMsg = loading && m.role==='assistant' && i===messages.length-1;
+        const isYou = m.role === 'user';
+        const label = isYou ? 'You · '+sideLabel(mySide) : 'AI · '+sideLabel(aiSide);
+        return React.createElement('div',{key:i,style:{alignSelf:isYou?'flex-end':'flex-start',maxWidth:'84%',display:'flex',flexDirection:'column',gap:4}},
+          React.createElement('div',{style:{fontSize:'.6rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:isYou?'var(--accent,#ef4444)':'var(--text-dim,#94a3b8)',paddingLeft:isYou?0:4,paddingRight:isYou?4:0,textAlign:isYou?'right':'left'}}, label),
+          React.createElement('div',{className:(isYou?'':'output')+(isStreamingMsg?' streaming-active':''),style:{background:isYou?'#ef444422':'var(--card-bg,#ffffff08)',border:'1px solid '+(isYou?'#ef444433':'var(--card-border,#ffffff22)'),borderRadius:12,padding:'12px 16px',fontSize:'.92rem',lineHeight:1.5,whiteSpace:'pre-line'},dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}})
+        );
+      }),
+      loading && React.createElement(LoadingBar, { label:'AI is responding...' }),
+      React.createElement('div',{ref:bottomRef})
+    ),
+    // Input
+    React.createElement('div',{style:{display:'flex',gap:10,alignItems:'flex-end'}},
+      React.createElement('textarea',{
+        value:input,
+        onChange:e=>setInput(e.target.value),
+        onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}},
+        placeholder:'Make your argument. Enter to send, Shift+Enter for a new line.',
+        rows:2,
+        style:{flex:1,padding:'10px 14px',background:'var(--bg-card,#ffffff06)',border:'1px solid var(--border,rgba(255,255,255,.12))',borderRadius:10,color:'var(--text,#fff)',fontSize:'.92rem',fontFamily:'inherit',resize:'none'},
+      }),
+      React.createElement('button',{className:'btn btn-primary',onClick:send,disabled:loading||!input.trim(),style:{alignSelf:'stretch',padding:'0 22px'}},'Send')
+    )
+  );
+}
+
 function generateCasualReply(msg, history) {
   const responses = [
     `Okay hold on, they're making a leap here. They said A leads to B but never explained how. Ask them to connect those dots — they can't, because the logic doesn't hold.`,
@@ -11850,6 +12007,7 @@ function LiveDebates({ user, team, onNavigateTab }) {
 const TABS_PRIMARY = [
   {id:'case',label:'Case Gen',i18n:'nav.caseGen'},
   {id:'battle',label:'Debate AI',i18n:'nav.battle',href:'/debate-ai'},
+  {id:'chat',label:'Debate Chat',i18n:'nav.debateChat'},
   {id:'casual',label:'Casual',i18n:'nav.casual'},
   {id:'res',label:'Motions',i18n:'nav.motions'},
   {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
@@ -12679,6 +12837,7 @@ function App() {
       tabPane('res', React.createElement(Resolutions)),
       tabPane('vision', React.createElement(RoundVision)),
       tabPane('casual', React.createElement(Casual)),
+      tabPane('chat', React.createElement(DebateChat)),
       tabPane('phil', React.createElement(Philosophy, { onSave: saveCase })),
       tabPane('practice', React.createElement(Practice)),
       tabPane('judge', React.createElement(Judge, { user: user })),
