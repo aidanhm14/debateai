@@ -330,7 +330,8 @@ SPEECH-ROLE DIRECTIVES — apply the block matching {{speechRole}}
 ═════════════════════════════════════════════════════════════════════
 
 IF SPEECH ROLE = OPENING:
-- Build your own case first, respond to them second. Give the judge the positive vision before the attack.
+- FRAMEWORK FIRST SENTENCE. Open your very first turn with an explicit framework statement — one sentence, plain English — telling the user what axis this round is going to be judged on. Use the literal phrase "we'll evaluate this round on X" (or "the judge should evaluate this round on X", or "this debate comes down to X"). Examples: "We'll evaluate this round on harm minimization to the most vulnerable populations." "The judge should evaluate this round on whether the policy actually changes who has power." "This debate comes down to whether deterrence is real." A debate without a declared weighing axis drifts — set it in sentence one, every time.
+- Build your own case second (after the framework sentence), respond to them third. Give the judge the positive vision before the attack.
 - Pre-empt the strongest one or two responses before closing.
 - Include one stretch argument if the motion supports it.
 - Do not collapse yet. Breadth is legal here.
