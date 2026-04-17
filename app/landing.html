@@ -340,13 +340,29 @@ button{font-family:inherit;cursor:pointer}
   width:100%;
   max-width:380px;
   grid-column:1;
-  justify-self:center;
+  /* Push timer toward the middle — sit at the right edge of its column so it's
+     closer to the headline rather than pinned to the far left of the viewport. */
+  justify-self:end;
   align-self:start;
   margin-top:80px;
+  margin-right:-24px;
   display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
-  pointer-events:none;
+  /* Clickable: pressing the animation kicks off Google sign-in. Biggest visual
+     element on the landing page is now the primary sign-up funnel. */
+  pointer-events:auto;
+  cursor:pointer;
   user-select:none;
+  transition:transform .25s ease;
 }
+.hero-timer:hover{transform:translateY(-2px)}
+.hero-timer::after{
+  content:'Tap to sign in with Google';
+  position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);
+  font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-dim);opacity:.6;white-space:nowrap;
+  transition:opacity .25s ease;pointer-events:none;
+}
+.hero-timer:hover::after{opacity:1;color:var(--accent)}
 /* Hide the hero timer on tablets/phones — it overlaps the headline below ~1100px
    and is decorative anyway. The audio-debate feature is still surfaced via the
    "Debate AI" nav button and the markets section. */
@@ -938,8 +954,11 @@ button{font-family:inherit;cursor:pointer}
   <div class="hero-grain"></div>
   <div class="neural-canvas"><canvas id="neuralNet"></canvas></div>
 
-  <!-- Hero audio-timer: advertises the voice debate feature. Animated waveform + live timer. -->
-  <div class="hero-timer" aria-hidden="true">
+  <!-- Hero audio-timer: advertises the voice debate feature. Also the primary
+       sign-up funnel on landing — clicking the animation triggers Google sign-in.
+       aria-hidden removed so screen readers can interact; role + tabindex added
+       for keyboard access. -->
+  <div class="hero-timer" id="heroTimer" role="button" tabindex="0" aria-label="Sign in with Google to start debating">
     <div class="hero-timer-label">Live</div>
     <div class="hero-timer-ring">
       <div class="hero-timer-wave">
@@ -1037,7 +1056,7 @@ button{font-family:inherit;cursor:pointer}
     <div style="margin-top:18px;display:flex;justify-content:flex-start">
       <button id="googleSignupBtn" type="button" style="display:inline-flex;align-items:center;gap:10px;padding:12px 22px;background:#2a2a30;color:#e5e7eb;border:1px solid #ffffff14;border-radius:999px;font-weight:700;font-size:.88rem;font-family:inherit;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.35);transition:transform .15s,box-shadow .15s,background .15s" onmouseover="this.style.transform='translateY(-1px)';this.style.background='#33333a';this.style.boxShadow='0 10px 30px rgba(0,0,0,.45)'" onmouseout="this.style.transform='translateY(0)';this.style.background='#2a2a30';this.style.boxShadow='0 6px 24px rgba(0,0,0,.35)'">
         <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-        <span id="googleSignupBtnText">Join the beta with Google → unlimited access for feedback</span>
+        <span id="googleSignupBtnText">Sign up with Google — the AI learns your debate style</span>
       </button>
     </div>
 
@@ -1085,11 +1104,39 @@ button{font-family:inherit;cursor:pointer}
   .beta-msg-typing::after{content:'▋';display:inline-block;margin-left:2px;color:var(--accent);animation:beta-blink 1s step-end infinite}
   @keyframes beta-blink{0%,100%{opacity:1}50%{opacity:0}}
 </style>
+<!-- Style memory — the central reason to sign in. Lives right before pricing so the
+     user hits it after they've already seen what the app does, and before any CTA. -->
+<section class="ui-section" style="text-align:center">
+  <div class="ui-container-sm">
+    <span class="ui-eyebrow">Signed-in perk · free</span>
+    <h2 class="ui-h1">The AI learns<br><span class="accent">how you debate.</span></h2>
+    <p class="ui-lede">Sign in with Google and Devil's Advocate starts building a style profile — your jargon level, how you concede, the weighing axes you find persuasive, the debaters you want to sound like. Every round you do, it gets a little closer to matching your voice.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:32px auto 28px;max-width:720px;text-align:left">
+      <div class="ui-card">
+        <span class="ui-card-label">Silent learning</span>
+        <div class="ui-card-body">We watch how you write in Debate Chat and update a profile you can see and edit anytime. No mystery box.</div>
+      </div>
+      <div class="ui-card">
+        <span class="ui-card-label">Explicit questionnaire</span>
+        <div class="ui-card-body">Tell the AI your format, your experience level, the voices you admire, things to avoid. Takes about 60 seconds.</div>
+      </div>
+      <div class="ui-card">
+        <span class="ui-card-label">Carries across devices</span>
+        <div class="ui-card-body">Your style profile follows your account. Open the app on your phone mid-round, the AI still remembers how you argue.</div>
+      </div>
+    </div>
+    <a href="#" onclick="document.getElementById('googleSignupBtn')?.click();event.preventDefault();" class="ui-btn ui-btn-primary">Sign up with Google — free</a>
+    <p style="margin-top:14px;font-size:.75rem;color:var(--text-dim)">Anonymous works too. But the AI forgets you between sessions.</p>
+  </div>
+</section>
+
+<div class="ui-divider"></div>
+
 <section id="pricing" class="ui-section" style="text-align:center">
   <div class="ui-container-sm">
     <span class="ui-eyebrow">Free during beta</span>
     <h2 class="ui-h1">Use everything.<br><span class="accent">Pay nothing.</span></h2>
-    <p class="ui-lede">We need real debaters using the platform so we can make the AI better. All features are unlocked. No sign-up required.</p>
+    <p class="ui-lede">We need real debaters using the platform so we can make the AI better. All features are unlocked. No sign-up required — but signed-in users unlock the AI style memory above.</p>
 
     <div class="beta-chat" aria-hidden="true">
       <div class="beta-chat-head">
@@ -1881,28 +1928,49 @@ window.addEventListener('load', function(){
     }
   });
 
-  btn.addEventListener('click', function(){
-    try { window.dosTrack && window.dosTrack('sign_in_start',{source:'landing_hero'}) } catch(e){}
+  // Shared sign-in action — reused by the main button AND the hero timer animation.
+  // Keeps behavior identical regardless of which entry point the user clicks.
+  function triggerGoogleSignIn(source) {
+    try { window.dosTrack && window.dosTrack('sign_in_start',{source:source||'landing_hero'}) } catch(e){}
     if (auth.currentUser) { window.location.href = '/'; return; }
     var provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    btnText.textContent = 'Opening Google…';
+    if (btnText) btnText.textContent = 'Opening Google…';
     auth.signInWithPopup(provider).then(function(result){
       try { if (window.gtag) gtag('event', 'sign_up', { method: 'Google' }); } catch(e){}
-      try { window.dosTrack && window.dosTrack('sign_in_complete',{source:'landing_hero'}) } catch(e){}
-      // Beta tester incentive: open the feedback form in a new tab (required
-      // to unlock unlimited use) and redirect main tab to the app.
+      try { window.dosTrack && window.dosTrack('sign_in_complete',{source:source||'landing_hero'}) } catch(e){}
       try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); } catch(e){}
       try { localStorage.setItem('debateos-feedback-given', '1'); } catch(e){}
       window.location.href = '/';
     }).catch(function(err){
       console.warn('[landing] Google signin error:', err.code, err.message);
-      btnText.textContent = 'Sign up free with Google — unlock all features';
+      if (btnText) btnText.textContent = 'Sign up free with Google — unlock all features';
       if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         alert('Sign-in failed: ' + (err.message || err.code));
       }
     });
-  });
+  }
+
+  // Main sign-up button in the hero
+  btn.addEventListener('click', function(){ triggerGoogleSignIn('landing_hero'); });
+
+  // Hero timer animation — clicking/keyboard-activating the voice-debate widget
+  // kicks off the same Google sign-in flow. This is the highest-signal visual
+  // element on the landing page, so it's the biggest sign-up funnel.
+  var heroTimer = document.getElementById('heroTimer');
+  if (heroTimer) {
+    heroTimer.addEventListener('click', function(){ triggerGoogleSignIn('hero_timer'); });
+    heroTimer.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); triggerGoogleSignIn('hero_timer'); }
+    });
+    // If the user is already signed in, swap the hover caption to "Continue".
+    auth.onAuthStateChanged(function(user){
+      if (user) {
+        heroTimer.setAttribute('aria-label', 'Continue as ' + (user.displayName || user.email));
+        heroTimer.style.setProperty('--timer-caption', '"Tap to continue \\2192"');
+      }
+    });
+  }
 })();
 });
 </script>

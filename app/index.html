@@ -1526,6 +1526,7 @@ if ('serviceWorker' in navigator) {
 </script>
 </head>
 <script src="/js/voice-guidelines.js"></script>
+<script src="/js/user-style.js"></script>
 <body>
 <div id="beta-strip" style="position:fixed;top:0;left:0;right:0;z-index:10000;background:linear-gradient(90deg,#ef4444dd,#f59e0bdd);padding:6px 36px 6px 14px;text-align:center;font-size:.72rem;color:#fff;font-weight:600;letter-spacing:.02em;border-bottom:1px solid #00000030;font-family:'Inter',system-ui,sans-serif;line-height:1.4">
   <strong>Beta</strong> — free access · <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;font-weight:800">share feedback to unlock unlimited</a>
@@ -2661,6 +2662,7 @@ function initDialecticalFlow() {}
 
 const SUPPORTED_LOCALES = [
   { code: 'en', name: 'English', flag: '\ud83c\uddfa\ud83c\uddf8' },
+  { code: 'hi', name: '\u0939\u093f\u0928\u094d\u0926\u0940', flag: '\ud83c\uddee\ud83c\uddf3' },
   { code: 'de', name: 'Deutsch', flag: '\ud83c\udde9\ud83c\uddea' },
   { code: 'fr', name: 'Fran\u00e7ais', flag: '\ud83c\uddeb\ud83c\uddf7' },
   { code: 'es', name: 'Espa\u00f1ol', flag: '\ud83c\uddea\ud83c\uddf8' },
@@ -5154,7 +5156,7 @@ FAIRNESS CHECK: (1 sentence) Why this dilemma is genuinely hard.
 
 DIFFICULTY: Novice / Intermediate / Advanced
 
-Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points. Do not use em dashes, en dashes, or hyphens as separators.`;
+Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
 
       userPrompt = `Generate 1 original APDA agent case (character-based motion with detailed background).${picked ? ' Topic area: ' + picked + '.' : ' Pick any topic area.'}\n\nCATEGORY GUIDANCE: ${guide}\n\nMake the character feel like a real person with a real life. The dilemma should be genuinely hard — the kind where you change your mind about which side you'd rather be on while prepping.`;
     } else {
@@ -5188,7 +5190,7 @@ FAIRNESS CHECK: (1 sentence) Why this motion is genuinely balanced.
 
 DIFFICULTY: Novice / Intermediate / Advanced
 
-Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points. Do not use em dashes, en dashes, or hyphens as separators. Use plain text with clear section labels.`;
+Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators. Use plain text with clear section labels.`;
 
       userPrompt = `Generate 1 original APDA debate motion.${picked ? ' Topic area: ' + picked + '.' : ' Pick any topic area.'}\n\nCATEGORY GUIDANCE: ${guide}\n\nBe creative and unexpected. Avoid the most obvious take. The motion should reward depth of thinking.`;
     }
@@ -6314,6 +6316,17 @@ function DebateChat() {
 
     try {
       // Build context header so the AI knows the motion + which side is whose
+      // Silent profile capture — every message teaches the style model a little more.
+      try { window.DebateStyle && window.DebateStyle.captureMessage(userMsg, { motion: motion }); } catch(e){}
+      // Build the userStyle directive block if we've seen enough of the user.
+      const userStyleBlock = (() => {
+        try { return (window.DebateStyle && window.DebateStyle.buildUserStyleBlock()) || ''; } catch(e) { return ''; }
+      })();
+      // Speech-role heuristic: treat the first 1-2 turns as "opening," then rebuttal,
+      // then whip/pmr if the user explicitly asks for closing. Prompt interprets these.
+      const speechRole = newMsgs.filter(m=>m.role==='user').length <= 1 ? 'opening'
+                        : newMsgs.filter(m=>m.role==='user').length <= 3 ? 'rebuttal'
+                        : 'whip';
       const sysHeader = `The motion is: "${motion.trim()}". The user is arguing ${sideLabel(mySide)}. You are arguing ${sideLabel(aiSide)}. You never switch sides mid-round.`;
       const apiMessages = newMsgs.filter(m=>m.role!=='system').slice(-14).map(m => ({
         role: m.role === 'assistant' ? 'assistant' : 'user',
@@ -6327,7 +6340,8 @@ function DebateChat() {
           updated[msgIdx] = {role:'assistant', text:text};
           return updated;
         });
-      }, { messages: apiMessages, thinkBudget: 4000, maxTokens: 1400, feature:'debateChat', promptId:'debateChat' });
+      }, { messages: apiMessages, thinkBudget: 4000, maxTokens: 1400, feature:'debateChat', promptId:'debateChat',
+          promptVars: { format: 'accessible', speechRole: speechRole, userStyle: userStyleBlock } });
     } catch(e) {
       setMessages(prev => [...prev, {role:'assistant', text:'Error: '+e.message}]);
     }
@@ -6528,7 +6542,7 @@ IMPORTANT: Be philosophically rigorous. Do NOT oversimplify to the point of inac
 
 Write with genuine intellectual depth. You're talking to smart people who want to actually understand the philosophy, not just parrot it. Use concrete examples, real-world applications, and debate-specific context throughout. Be conversational but rigorous.
 
-Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points. Write in flowing prose with clear section breaks.`;
+Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
           userPrompt = `Philosopher/School: ${philosopher}${concept ? `\nSpecific focus: ${concept}` : ''}${instructions ? `\nInstructions: ${instructions}` : ''}\n\nGive me the full deep dive. I want to actually understand ${selectedPhils.length > 1 ? 'these thinkers' : 'this thinker'}, not just know their name${selectedPhils.length > 1 ? 's. Show how they relate to each other.' : '.'}`;
 
 
@@ -6549,7 +6563,7 @@ For the given philosopher and motion, provide:
 4. WEIGHING UNDER THIS FRAMEWORK
    How does this framework tell the judge to compare impacts? What matters more: scope, probability, reversibility, or something else? Give specific weighing language.
 
-Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points.`;
+Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
           userPrompt = `Philosopher: ${philosopher}\nMotion: ${concept || 'THBT the benefits of AI outweigh the risks'}${instructions ? `\nInstructions: ${instructions}` : ''}\n\nShow me exactly how to run ${philosopher} on this motion, with actual speech language I can use.`;
 
         } else if (exploreMode === 'head-to-head') {
@@ -6562,7 +6576,7 @@ Provide:
 4. WHO WINS THE FRAMEWORK DEBATE? — If Gov runs one and Opp runs the other, how does the judge decide between frameworks? What are the meta-level arguments for each?
 5. THE SYNTHESIS — Can you combine insights from both? When is hybridization possible vs. when must you commit?
 
-Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points.`;
+Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
           const phil1 = selectedPhils[0] || 'Kant';
           const phil2 = selectedPhils[1] || (concept ? concept.split(/\s+vs\.?\s+|\s+and\s+/i)[0]?.trim() : 'Mill');
           userPrompt = `Philosopher 1: ${phil1}\nPhilosopher 2: ${phil2}\n${concept ? `Question/Context: ${concept}` : ''}${instructions ? `\nInstructions: ${instructions}` : ''}\n\nCompare these two head-to-head. Show me the real philosophical clash, not a surface-level comparison.`;
@@ -6592,7 +6606,7 @@ Write everything as actual speech language, not meta-commentary about speech lan
 
 CRITICAL WARNING TO INCLUDE AT THE END: Add a short section called "## Know Your Framework" that warns the debater: this framing language is a starting point, not a finished product. Any competent LO will ask "what do you mean by [key term], specifically?" and if you can't answer beyond what's written here, you'll lose the framework debate. Before running this in a round, make sure you can: (1) explain the underlying philosophy in your own words, (2) give an example the framework language doesn't already contain, and (3) answer the question "why should the judge accept THIS standard over alternatives?" Recommend they use the Deep Dive mode to build that understanding.
 
-Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points.`;
+Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
           userPrompt = `Philosopher: ${philosopher}${concept ? `\nApplied to: ${concept}` : ''}${instructions ? `\nInstructions: ${instructions}` : ''}\n\nBuild me a complete, ready-to-use framework I can deploy in a PM speech.`;
         }
 
@@ -7026,7 +7040,7 @@ Rules:
 - Flag structural problems: arguments that depend on each other, missing counterfactual, no concession strategy, impacts stated but not weighed
 - Flag messy writing: unclear thesis sentences, paragraphs that meander, warrants that start strong and trail off, sub-points that repeat the same idea in different words
 - Order comments by position in the case (first excerpt appears earliest)
-- Use markdown formatting for readability: **bold** for key terms, ## for section headers`;
+Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
 
     try {
       let result = '';
@@ -7110,7 +7124,7 @@ Rules:
     ));
 
     try {
-      const sysPrompt = `You are an expert APDA debate case editor. The user has a specific section of their debate case that received feedback. They are now replying with instructions for how to improve it. Rewrite ONLY the highlighted section based on their instruction. Maintain the same style, tone, and format as the surrounding case. Return ONLY the rewritten text, nothing else. Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points. Do not use em dashes, en dashes, or hyphens as separators.`;
+      const sysPrompt = `You are an expert APDA debate case editor. The user has a specific section of their debate case that received feedback. They are now replying with instructions for how to improve it. Rewrite ONLY the highlighted section based on their instruction. Maintain the same style, tone, and format as the surrounding case. Return ONLY the rewritten text, nothing else. Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
       const userPrompt = `Full case for context:\n\n${caseText}\n\n---\nSection to revise:\n"${comment.excerpt}"\n\nOriginal feedback: ${comment.feedback}\n\nUser's instruction: ${userReply}\n\nRewrite this section:`;
 
       let revised = '';
@@ -7699,7 +7713,7 @@ EVALUATION CRITERIA: warrant quality, impact quality (comparative weighing on ma
 
 SPEAKER SCALE: 27-29 = average (fulfills role with some flaws), 30-32 = above average (minor flaws, strong explanations), 33-35 = excellent (rare flaws), 36+ = exceptional (nearly flawless).
 
-Think through the strategic implications. Be specific, reference debate theory, and give actionable advice. Use markdown formatting: **bold** for key terms, ## for section headers, ### for sub-sections.`;
+Think through the strategic implications. Be specific, reference debate theory, and give actionable advice. Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
       const tagStr = speechTags.length > 0 ? `\nTagged moments: ${speechTags.join(', ')}` : '';
       const userPrompt = `Speech: ${speech.title} (${speech.code}, ${speech.time})\nFormat: ${format}${tagStr}\n\nMy flow notes:\n${note}\n\nGive me specific, strategic feedback on this speech.`;
       await callClaude(sysPrompt, userPrompt, (text) => {
@@ -8076,7 +8090,7 @@ YOUR REVIEW:
 
 6. ONE DRILL: If they had 30 minutes before their next round, what specific thing should they practice? Not generic advice like "work on warrants." Something concrete: "Practice explaining your causal chains out loud to someone who doesn't debate. If you can't make the link from A to B to C conversational, your warrant isn't ready."
 
-Write like a coach who genuinely wants this debater to get better. Be tough but constructive. Do not use em dashes, en dashes, or hyphens as separators. Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points.`;
+Write like a coach who genuinely wants this debater to get better. Be tough but constructive. Do not use em dashes, en dashes, or hyphens as separators. Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
 
     const userPrompt = `Motion: ${motion || '(no motion provided)'}\nSpeech type: ${selectedSpeech.code} (${selectedSpeech.title})\n\nHere is the speech:\n\n${userSpeech}`;
 
@@ -8767,12 +8781,173 @@ function AuthModal({ onSignIn, onSkip }) {
   return React.createElement('div', {className:'auth-overlay'},
     React.createElement('div', {className:'auth-modal',role:'dialog','aria-modal':true},
       React.createElement('h2', null, "Welcome to Devil's Advocate"),
-      React.createElement('p', null, 'Sign in to save your profile and share cases in the forum. You can skip this and use the app without an account.'),
+      React.createElement('p', null, 'Sign in to save your debate-style profile, unlock the AI learning from how you argue, and share cases with your team. You can skip this and use the app without an account, but the AI won\'t remember how you like to debate.'),
       React.createElement('button', {className:'auth-google-btn', onClick:onSignIn},
         React.createElement('img', {src:'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg', width:20, height:20}),
         'Sign in with Google'
       ),
       React.createElement('button', {className:'auth-skip', onClick:onSkip}, 'Skip for now'),
+    )
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   SIGN-UP NUDGE MODAL
+   Fires once per 24h for anonymous users after they've generated 2+ things.
+   Pitches Google sign-up around the style-memory perk, not around payments.
+   ═══════════════════════════════════════════════════ */
+
+function SignUpNudgeModal({ onSignIn, onDismiss }) {
+  const el = React.createElement;
+  const bullet = (txt) => el('li',{style:{display:'flex',gap:10,alignItems:'flex-start',marginBottom:10,fontSize:'.9rem',lineHeight:1.5,color:'var(--text,#e4e8f0)'}},
+    el('span',{style:{color:'#ef4444',fontWeight:800,flexShrink:0}}, '→'),
+    el('span',null, txt)
+  );
+  const neverAgain = () => {
+    try { localStorage.setItem('debateos-signup-nudge-dismissed','1'); } catch(e){}
+    onDismiss && onDismiss();
+  };
+  return el('div',{className:'auth-overlay'},
+    el('div',{className:'auth-modal',role:'dialog','aria-modal':true,style:{maxWidth:480}},
+      el('div',{style:{fontSize:'.68rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:8}},'Free · 15 seconds'),
+      el('h2',{style:{marginBottom:6}},'Want the AI to actually remember how you debate?'),
+      el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.88rem',lineHeight:1.55,marginBottom:16}},
+        "Right now you're anonymous, so every session starts the AI from zero. Sign in with Google and you get:"
+      ),
+      el('ul',{style:{listStyle:'none',padding:0,margin:'0 0 20px'}},
+        bullet('Your debate-style profile — the AI learns your voice, jargon level, and weighing preferences and matches them.'),
+        bullet('Saved cases and rounds across devices.'),
+        bullet('Unlimited requests once you share feedback.'),
+        bullet('Your progress, streak, and stats survive browser resets.'),
+      ),
+      el('button',{className:'auth-google-btn', onClick:onSignIn, style:{marginBottom:10}},
+        el('img',{src:'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg', width:20, height:20}),
+        'Sign in with Google — free'
+      ),
+      el('div',{style:{display:'flex',gap:10,justifyContent:'center'}},
+        el('button',{className:'auth-skip', onClick:onDismiss, style:{flex:1}},'Maybe later'),
+        el('button',{className:'auth-skip', onClick:neverAgain, style:{flex:1,opacity:.55,fontSize:'.72rem'}}, "Don't ask again"),
+      ),
+    )
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   STYLE PROFILE MODAL
+   8-question questionnaire that feeds window.DebateStyle.submitQuestionnaire().
+   The answers render into the {{userStyle}} prompt slot so every AI call
+   reflects how the user actually wants to debate.
+   ═══════════════════════════════════════════════════ */
+
+function StyleProfileModal({ onClose }) {
+  const el = React.createElement;
+  const existing = (window.DebateStyle && window.DebateStyle.getProfile().questionnaire) || {};
+  const [answers, setAnswers] = useState({
+    experienceLevel: existing.experienceLevel || '',
+    formats: existing.formats || [],
+    role: existing.role || '',
+    argumentStyle: existing.argumentStyle || '',
+    wantsJargon: typeof existing.wantsJargon === 'boolean' ? existing.wantsJargon : null,
+    influences: existing.influences || '',
+    goals: existing.goals || '',
+    avoid: existing.avoid || '',
+  });
+  const update = (k, v) => setAnswers(a => ({...a, [k]: v}));
+  const toggleFormat = (fmt) => setAnswers(a => ({
+    ...a,
+    formats: a.formats.includes(fmt) ? a.formats.filter(f => f !== fmt) : [...a.formats, fmt]
+  }));
+
+  const save = () => {
+    try {
+      const clean = {};
+      Object.keys(answers).forEach(k => {
+        const v = answers[k];
+        if (v === '' || v == null) return;
+        if (Array.isArray(v) && v.length === 0) return;
+        clean[k] = v;
+      });
+      if (window.DebateStyle) window.DebateStyle.submitQuestionnaire(clean);
+      try { localStorage.setItem('debateos-style-last-prompted', Date.now().toString()); } catch(e){}
+    } catch(e){}
+    onClose && onClose();
+  };
+
+  // Styled container follows the auth-overlay pattern for consistency.
+  const pill = (active) => ({
+    padding:'8px 14px', borderRadius:999, border:'1px solid '+(active?'var(--accent,#ef4444)':'var(--border,rgba(255,255,255,.15))'),
+    background: active?'rgba(239,68,68,.12)':'transparent',
+    color: active?'#fff':'var(--text-dim,#94a3b8)',
+    fontSize:'.78rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'.15s',
+  });
+  const label = (txt) => el('div',{style:{fontSize:'.66rem',fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:8,marginTop:18}}, txt);
+  const input = (val, onCh, ph) => el('textarea',{
+    value:val||'',
+    onChange:e=>onCh(e.target.value),
+    placeholder:ph,
+    rows:2,
+    style:{width:'100%',padding:'10px 12px',background:'rgba(255,255,255,.03)',border:'1px solid var(--border,rgba(255,255,255,.12))',borderRadius:10,color:'var(--text,#fff)',fontSize:'.88rem',fontFamily:'inherit',resize:'vertical'},
+  });
+
+  return el('div',{className:'auth-overlay',style:{overflowY:'auto',padding:'40px 20px'}},
+    el('div',{className:'auth-modal',role:'dialog','aria-modal':true,style:{maxWidth:560,maxHeight:'calc(100vh - 80px)',overflowY:'auto'}},
+      el('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:8}},'Debate-style profile'),
+      el('h2',{style:{marginBottom:8}},'Teach the AI how you debate.'),
+      el('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.9rem',lineHeight:1.55,marginBottom:4}},
+        "Every answer is optional. We'll remember what you say and combine it with how you actually write in Debate Chat — so the AI starts matching your style, not the other way around."
+      ),
+
+      label('How much debate experience do you have?'),
+      el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+        ['new','some','competitive','coach'].map(lvl =>
+          el('button',{key:lvl,type:'button',onClick:()=>update('experienceLevel', answers.experienceLevel===lvl?'':lvl),style:pill(answers.experienceLevel===lvl)},
+            {new:'New to debate',some:'Some experience',competitive:'Competitive debater',coach:'Coach / judge'}[lvl])
+        )
+      ),
+
+      label('Formats you care about'),
+      el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+        ['APDA','BP','WSDC','PF','LD','Policy','Casual'].map(fmt =>
+          el('button',{key:fmt,type:'button',onClick:()=>toggleFormat(fmt),style:pill(answers.formats.includes(fmt))},fmt)
+        )
+      ),
+
+      label('Your context'),
+      el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+        [['student','Student'],['adult','Adult learner'],['professional','Professional'],['curious','Just curious']].map(([v,lbl]) =>
+          el('button',{key:v,type:'button',onClick:()=>update('role', answers.role===v?'':v),style:pill(answers.role===v)},lbl)
+        )
+      ),
+
+      label('AI argument style you prefer'),
+      el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+        [['tight','Tight and technical'],['narrative','Narrative and persuasive'],['impact','Heavy on impact-weighing'],['principled','Principled / philosophical'],['balanced','Balanced']].map(([v,lbl]) =>
+          el('button',{key:v,type:'button',onClick:()=>update('argumentStyle', answers.argumentStyle===v?'':v),style:pill(answers.argumentStyle===v)},lbl)
+        )
+      ),
+
+      label('Debate jargon — do you want the AI to use it?'),
+      el('div',{style:{display:'flex',gap:6}},
+        el('button',{type:'button',onClick:()=>update('wantsJargon', answers.wantsJargon===true?null:true),style:pill(answers.wantsJargon===true)},'Use it freely'),
+        el('button',{type:'button',onClick:()=>update('wantsJargon', answers.wantsJargon===false?null:false),style:pill(answers.wantsJargon===false)},'Plain English only'),
+      ),
+
+      label('Debaters or voices you admire (optional)'),
+      input(answers.influences, v=>update('influences',v), 'e.g. "my coach at X", "Ryan LaFerty", "a particular podcaster"…'),
+
+      label('What do you want to get better at? (optional)'),
+      input(answers.goals, v=>update('goals',v), 'e.g. "warranting," "staying calm in cross-ex," "not rambling in PMR"…'),
+
+      label('Anything you want the AI to avoid? (optional)'),
+      input(answers.avoid, v=>update('avoid',v), 'e.g. "don\'t bold everything," "don\'t use em-dashes," "don\'t write essays"…'),
+
+      el('div',{style:{display:'flex',gap:10,marginTop:24}},
+        el('button',{className:'auth-google-btn',onClick:save,style:{flex:1}},'Save style profile'),
+        el('button',{className:'auth-skip',onClick:onClose,style:{flex:'0 0 auto'}},'Not now'),
+      ),
+      el('p',{style:{fontSize:'.7rem',color:'var(--text-dim,#94a3b8)',marginTop:14,textAlign:'center',lineHeight:1.5}},
+        'Stored locally. Sign in with Google to keep your profile across devices.'
+      ),
     )
   );
 }
@@ -9200,7 +9375,7 @@ End with a brief section on the round as a whole:
 2. Was the round tight or lopsided? If lopsided, what caused it?
 3. What is the single most important skill this debater should drill before their next tournament?
 
-Use markdown formatting for readability: **bold** for key terms and argument names, ## for main section headers, ### for sub-sections. Use numbered lists and lettered sub-points. Do not use em dashes, en dashes, or hyphens as separators.`;
+Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
 
     const userPrompt = `MOTION: ${motion}\nPLAYER SIDE: ${side === 'gov' ? 'Government' : 'Opposition'}\n\n` +
       allSpeeches.map((s, i) => `--- ${ROUND_SPEECHES[i].code} (${isPlayerSpeech(i) ? 'PLAYER' : 'AI OPPONENT'}) ---\n${s || '(no speech given)'}`).join('\n\n') +
@@ -9734,7 +9909,7 @@ What did the AI do that the human should learn from? Quote the specific argument
 ## One Drill
 A specific practice exercise targeting the weakest skill shown in this debate.
 
-Be direct. No sugarcoating. Use **bold** for key terms and argument names.`;
+Use markdown formatting: ## for main section headers, ### for sub-sections, numbered lists and lettered sub-points. Use **bold** VERY SPARINGLY — at most 2-4 words per paragraph, only for a named entity, a specific number, or a genuinely load-bearing term. Never bold full sentences. Never bold the text after a colon as a matter of habit. If more than about 10 percent of a paragraph would be bold, stop and remove most of it. Do not use em dashes, en dashes, or hyphens as separators.`;
 
     const userPrompt = `MOTION: ${motion}\nHuman played: ${side === 'gov' ? 'Government' : 'Opposition'}\n\n` +
       allExchanges.map((ex, i) => `--- ${ex.role === 'player' ? 'HUMAN' : 'THE MACHINE'} [Speech ${i+1}] ---\n${ex.text}`).join('\n\n') +
@@ -12011,17 +12186,17 @@ const TABS_PRIMARY = [
   {id:'casual',label:'Casual',i18n:'nav.casual'},
   {id:'res',label:'Motions',i18n:'nav.motions'},
   {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
-  {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
   {id:'newbies',label:'Guide',i18n:'nav.guide'},
 ];
 // Competitive-only features kept in the dropdown: the tools that assume the user
-// has an actual tournament coming up (topic research, judge analysis, mapping, team).
+// has an actual tournament coming up (topic research, judge analysis, mapping, team, analytics).
 const TABS_COMPETITIVE = [
   {id:'topics',label:'Topics',i18n:'nav.topics'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
   {id:'vision',label:'Mapper',i18n:'nav.vision'},
   {id:'team',label:'Team',i18n:'nav.team'},
+  {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
 ];
 // Everything else: feedback, live debates, saved work, support link.
 const TABS_OTHER = [
@@ -12294,6 +12469,8 @@ function App() {
   },[otherOpen,competitiveOpen]);
   const [loadedCase, setLoadedCase] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [showStyleProfile, setShowStyleProfile] = useState(false);
+  const [showSignUpNudge, setShowSignUpNudge] = useState(false);
   const [showGuide, setShowGuide] = useState(() => {
     try { return !localStorage.getItem('debateos-welcomed'); } catch(e) { return true; }
   });
@@ -12431,6 +12608,23 @@ function App() {
     const iv = setInterval(h, 3000);
     return () => { window.removeEventListener('storage', h); clearInterval(iv); };
   }, []);
+
+  // Mid-use sign-up nudge: after 2 anonymous generations, once per 24h, surface a modal
+  // that pitches Google sign-up specifically around the style-memory perk. The pitch
+  // is honest — we're telling them the AI remembers how they debate if they sign in.
+  useEffect(() => {
+    if (user) return;              // already signed in — no nudge
+    if (authLoading) return;
+    if (anonUsed < 2) return;      // let them try first
+    try {
+      const last = parseInt(localStorage.getItem('debateos-signup-nudge-at') || '0', 10);
+      if (Date.now() - last < 24*60*60*1000) return; // 24h cooldown
+      const dismissed = localStorage.getItem('debateos-signup-nudge-dismissed') === '1';
+      if (dismissed) return;
+      setShowSignUpNudge(true);
+      localStorage.setItem('debateos-signup-nudge-at', String(Date.now()));
+    } catch(e) {}
+  }, [anonUsed, user, authLoading]);
 
   const saveCase = useCallback((caseData) => {
     // Case version history: if we have a loadedCase and motion+side match, push a new version onto existing case.
@@ -12587,6 +12781,11 @@ function App() {
     ),
     showFeedback && React.createElement(FeedbackModal, { onClose: () => setShowFeedback(false), currentTab: tab }),
     showAuth && React.createElement(AuthModal, { onSignIn: handleSignIn, onSkip: () => setShowAuth(false) }),
+    showStyleProfile && React.createElement(StyleProfileModal, { onClose: () => setShowStyleProfile(false) }),
+    showSignUpNudge && React.createElement(SignUpNudgeModal, {
+      onSignIn: () => { setShowSignUpNudge(false); setShowAuth(true); },
+      onDismiss: () => setShowSignUpNudge(false),
+    }),
     React.createElement(SavedCasesSidebar, {
       isOpen: sidebarOpen,
       onClose: () => setSidebarOpen(false),
@@ -12640,13 +12839,21 @@ function App() {
             onClick:()=>setTheme(theme==='grey'?'light':theme==='light'?'dark':'grey'),
             style:{cursor:'pointer',padding:'4px 12px',borderRadius:999,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.05)'},
           }, theme==='grey'?'Light':theme==='light'?'Dark':'Grey'),
+          // Style profile entry point — always visible, opens the questionnaire modal.
+          // Wording shifts based on whether we've captured enough to show a real profile.
+          React.createElement('button',{
+            className:'topbar-pill',
+            onClick:()=>setShowStyleProfile(true),
+            title:'Set or update how the AI learns your debate style',
+            style:{cursor:'pointer',background:'rgba(239,68,68,.10)',borderColor:'rgba(239,68,68,.28)',color:'#fca5a5',fontWeight:700,padding:'4px 10px'},
+          }, (()=>{try{return (window.DebateStyle && window.DebateStyle.hasMeaningfulProfile()) ? 'My style' : 'Teach AI your style';}catch(e){return 'Teach AI your style';}})()),
           // User / sign-in
           user
             ? React.createElement('div',{className:'topbar-user'},
                 React.createElement('span',{className:'topbar-user-name'}, (user.displayName||user.email||'').split(' ')[0] || user.email),
                 React.createElement('button',{className:'topbar-signout',onClick:signOut},'Sign Out'),
               )
-            : React.createElement('button',{className:'topbar-signin',onClick:()=>setShowAuth(true)},'Sign in'),
+            : React.createElement('button',{className:'topbar-signin',onClick:()=>setShowAuth(true),style:{background:'#ef4444',color:'#fff',padding:'6px 14px',borderRadius:999,fontWeight:700,fontSize:'.72rem',letterSpacing:'.04em'}},'Sign in — free'),
         ),
       ),
       // ── Feature Tab Row ───────────────────────────────────────────────
