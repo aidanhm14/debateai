@@ -264,19 +264,23 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 @media(max-width:640px){.apda-grid{grid-template-columns:1fr}}
 
 /* ── Nav Tabs ─────────────────────────────────── */
-/* Floating tab islands */
-.nav{display:flex;gap:16px;margin:0 auto 48px;padding:4px 32px;flex-wrap:nowrap;justify-content:center;align-items:center;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:none!important;box-shadow:none!important;max-width:100%;width:100%;position:sticky;top:56px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+/* Floating tab islands. The sticky nav sits on top of the page body — we need a
+ * backdrop gradient so the active pill's red glow doesn't bleed onto the heading
+ * content scrolling behind/below it. The ::before creates a soft fade from the
+ * page bg down to transparent that masks content directly under the pills. */
+.nav{display:flex;gap:16px;margin:0 auto 56px;padding:14px 32px 18px;flex-wrap:nowrap;justify-content:center;align-items:center;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:none!important;box-shadow:none!important;max-width:100%;width:100%;position:sticky;top:56px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.nav::before{content:"";position:absolute;inset:0 0 -22px 0;background:linear-gradient(to bottom,var(--bg,#0a0a0f) 0%,var(--bg,#0a0a0f) 55%,rgba(10,10,15,0) 100%);z-index:-1;pointer-events:none}
 .nav::-webkit-scrollbar{display:none}
-@media(max-width:640px){.nav{top:80px;padding:12px 14px 10px;gap:8px;justify-content:flex-start}}
+@media(max-width:640px){.nav{top:80px;padding:12px 14px 16px;gap:8px;justify-content:flex-start;margin-bottom:40px}}
 .nav-btn{
   background:rgba(20,20,24,.55);border:1px solid rgba(255,255,255,.1);color:var(--text-dim,rgba(255,255,255,.7));
   padding:13px 26px;border-radius:999px;font-size:.88rem;font-weight:700;
   letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .2s ease;
   font-family:'Inter',system-ui,sans-serif;white-space:nowrap;text-decoration:none;flex-shrink:0;
-  box-shadow:0 2px 10px rgba(0,0,0,.2);
+  box-shadow:0 2px 10px rgba(0,0,0,.2);position:relative;
 }
 .nav-btn:hover{color:var(--text,#fff);background:rgba(40,40,48,.75);border-color:rgba(255,255,255,.18);transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.35)}
-.nav-btn.active,.nav-btn.active-orange{color:#fff;background:var(--accent,#ef4444);border-color:var(--accent,#ef4444);box-shadow:0 6px 24px var(--accent-glow,rgba(239,68,68,.45))}
+.nav-btn.active,.nav-btn.active-orange{color:#fff;background:var(--accent,#ef4444);border-color:var(--accent,#ef4444);box-shadow:0 4px 14px rgba(239,68,68,.3)}
 .nav-back{transition:opacity .2s,transform .15s}.nav-back:hover:not(:disabled){transform:translateX(-2px)}
 .nav-back:disabled{cursor:default;pointer-events:none}
 
@@ -7093,9 +7097,8 @@ function DebateChat() {
           style:{background:'transparent',border:'1px solid rgba(255,255,255,.14)',color:'var(--text-dim,#94a3b8)',padding:'4px 12px',borderRadius:999,fontSize:'.62rem',fontWeight:700,letterSpacing:'.08em',cursor:'pointer',fontFamily:'inherit',textTransform:'uppercase'},
         }, 'My rounds ('+savedRounds.length+')')
       ),
-      // Heading removed — the nav pill already says "Debate Chat" and the h2
-      // beneath it just repeated the same idea. Lead with the instructions.
-      React.createElement('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.95rem',lineHeight:1.55,marginBottom:24,marginTop:4}},
+      React.createElement('h2',{style:{fontSize:'1.4rem',fontWeight:800,marginBottom:8,letterSpacing:'-.01em'}},'Argue a topic with the AI.'),
+      React.createElement('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.92rem',lineHeight:1.55,marginBottom:24}},
         "Pick a topic, pick your side. I'll take the opposite side and push back, turn by turn. Plain English only — no debate jargon required."
       ),
 
