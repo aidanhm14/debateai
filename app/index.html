@@ -6278,15 +6278,82 @@ function Casual() {
 
 function DebateChat() {
   const [motion, setMotion] = useState('');
+  const [background, setBackground] = useState('');
   const [mySide, setMySide] = useState('pro'); // 'pro' | 'con'
   const [started, setStarted] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
+  // Library state: saved rounds persisted in localStorage + whether the library
+  // panel is currently shown over the setup screen.
+  const ROUNDS_KEY = 'debateos-chat-rounds-v1';
+  const [savedRounds, setSavedRounds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(ROUNDS_KEY) || '[]'); } catch(e) { return []; }
+  });
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+  const persistRounds = (arr) => {
+    setSavedRounds(arr);
+    try { localStorage.setItem(ROUNDS_KEY, JSON.stringify(arr)); } catch(e){}
+  };
+  const saveCurrentRound = () => {
+    if (!motion.trim() || messages.length < 2) return;
+    const row = {
+      id: 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      motion: motion.trim(),
+      background: background.trim(),
+      mySide: mySide,
+      messages: messages,
+      savedAt: Date.now(),
+      turnCount: messages.filter(m=>m.role==='user').length,
+    };
+    const next = [row, ...savedRounds].slice(0, 40); // cap at 40 to keep localStorage sane
+    persistRounds(next);
+    setSavedFlash(true);
+    setTimeout(()=>setSavedFlash(false), 1400);
+  };
+  const loadRound = (row) => {
+    setMotion(row.motion || '');
+    setBackground(row.background || '');
+    setMySide(row.mySide || 'pro');
+    setMessages(row.messages || []);
+    setStarted(true);
+    setShowLibrary(false);
+  };
+  const deleteRound = (id) => {
+    if (!confirm('Delete this saved round?')) return;
+    persistRounds(savedRounds.filter(r => r.id !== id));
+  };
 
   const aiSide = mySide === 'pro' ? 'con' : 'pro';
   const sideLabel = (s) => s === 'pro' ? 'Pro' : 'Con';
+
+  // Topic pool for the "Random motion with background" button. Each entry has
+  // a one-line motion and a two-line background so the AI has real context.
+  const RANDOM_MOTIONS = [
+    { motion:'This house would ban private education.', bg:'Debate is in a country with a mature public education system and significant private-school wealth concentration. Wealthy families currently opt out of public schooling, eroding political buy-in for public investment.' },
+    { motion:'Open borders: yes or no?', bg:'Assume a high-income country considering eliminating almost all immigration restrictions. The labor market has pockets of acute shortage; housing is constrained; wages at the bottom have been stagnant for a decade.' },
+    { motion:'AI should write the news.', bg:'Traditional newsroom headcounts have fallen 60% since 2005. Several major publishers already use AI for sports summaries and earnings reports. Trust in journalism is near historic lows.' },
+    { motion:'Tax billionaires out of existence.', bg:'A proposed wealth tax caps individual net worth at $999 million; assets above that are taxed at effectively 100% annually. Capital flight and enforcement are live design questions.' },
+    { motion:'Mandatory voting.', bg:'Turnout in the last three national elections averaged 48%. Several countries (Australia, Belgium) already enforce mandatory voting with small fines for non-compliance.' },
+    { motion:'Decriminalize all drugs.', bg:'Portugal decriminalized personal-use possession in 2001; overdose deaths fell sharply but drug use stayed roughly flat. Debate sits in a country with an active opioid crisis.' },
+    { motion:'Abolish the SAT.', bg:'Many US universities went test-optional during the pandemic. Early evidence shows predictive validity for first-year GPA is real but modest, and socioeconomic correlations are significant.' },
+    { motion:'Four-day work week.', bg:'UK pilot with 61 companies found 92% kept the four-day schedule after six months, with productivity flat or slightly up and turnover down. Debate is about mandating vs. leaving it to employers.' },
+    { motion:'Ban political donations entirely.', bg:'Current campaign finance rules allow unlimited independent expenditures (US-style) or similar loopholes. Public financing of elections is the proposed alternative.' },
+    { motion:'Free college for all.', bg:'The proposal covers tuition and mandatory fees at public institutions, funded by a mix of federal and state money. Room and board are not covered. Private colleges are not affected.' },
+    { motion:'Ban gas cars by 2035.', bg:'Several jurisdictions (EU, California, UK) have passed or are considering similar timelines. EV charging infrastructure and grid capacity are uneven across the country in question.' },
+    { motion:'Mandate labor representation on corporate boards.', bg:'Germany requires worker representation on supervisory boards of large companies ("codetermination"). The debate considers a US adaptation with workers holding one-third of board seats.' },
+    { motion:'Criminalize parents who refuse vaccines for their kids.', bg:'Proposed penalty is a misdemeanor charge plus mandatory parenting classes. Religious and medical exemptions for the child are preserved; the penalty targets the caregiver decision.' },
+    { motion:'Permit athlete collective bargaining in college sports.', bg:'Following NIL reforms, college athletes can profit from name-image-likeness but still cannot unionize or collectively bargain. Revenue in major programs exceeds $100M annually.' },
+    { motion:'This house would pay reparations for slavery.', bg:'Proposal: direct cash payments to descendants of enslaved people, plus structural investment in historically Black institutions. Funding model and eligibility rules are contested.' },
+    { motion:'Ban targeted political advertising online.', bg:'Platforms currently allow micro-targeting by demographics, interests, and inferred political leaning. The ban would permit only context-based ads (tied to the content of the page, not the viewer).' },
+  ];
+  const randomMotion = () => {
+    const pick = RANDOM_MOTIONS[Math.floor(Math.random() * RANDOM_MOTIONS.length)];
+    setMotion(pick.motion);
+    setBackground(pick.bg);
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({behavior:'smooth'});
@@ -6327,7 +6394,7 @@ function DebateChat() {
       const speechRole = newMsgs.filter(m=>m.role==='user').length <= 1 ? 'opening'
                         : newMsgs.filter(m=>m.role==='user').length <= 3 ? 'rebuttal'
                         : 'whip';
-      const sysHeader = `The motion is: "${motion.trim()}". The user is arguing ${sideLabel(mySide)}. You are arguing ${sideLabel(aiSide)}. You never switch sides mid-round.`;
+      const sysHeader = `The motion is: "${motion.trim()}". The user is arguing ${sideLabel(mySide)}. You are arguing ${sideLabel(aiSide)}. You never switch sides mid-round.` + (background.trim() ? `\n\nBackground / context for the debate (assume all of this is true for the round):\n${background.trim()}` : '');
       const apiMessages = newMsgs.filter(m=>m.role!=='system').slice(-14).map(m => ({
         role: m.role === 'assistant' ? 'assistant' : 'user',
         content: m.text
@@ -6348,45 +6415,136 @@ function DebateChat() {
     setLoading(false);
   };
 
+  // ── LIBRARY PANEL ─────────────────────────────────────
+  // Shown in place of the setup screen when the user clicks "My rounds".
+  if (!started && showLibrary) {
+    return React.createElement('div',{className:'panel',style:{maxWidth:720,margin:'0 auto'}},
+      React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}},
+        React.createElement('div',null,
+          React.createElement('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:4}},'My rounds'),
+          React.createElement('h2',{style:{fontSize:'1.3rem',fontWeight:800,letterSpacing:'-.01em',margin:0}},
+            savedRounds.length===0 ? 'Nothing saved yet.' : savedRounds.length+' saved debate'+(savedRounds.length===1?'':'s')
+          ),
+        ),
+        React.createElement('button',{type:'button',onClick:()=>setShowLibrary(false),style:{background:'transparent',border:'1px solid rgba(255,255,255,.15)',color:'var(--text-dim,#94a3b8)',padding:'6px 14px',borderRadius:999,fontSize:'.72rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit'}},'← Back')
+      ),
+      savedRounds.length === 0
+        ? React.createElement('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.9rem',lineHeight:1.55,padding:'24px 0'}},
+            'When you\'re in a round, hit the save icon in the header and it\'ll show up here. Saved rounds include the full transcript so you can pick up where you left off or review what you wrote.')
+        : React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+            savedRounds.map(r => React.createElement('div',{
+              key:r.id,
+              style:{padding:'14px 16px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.1)',borderRadius:12,display:'flex',flexDirection:'column',gap:8},
+            },
+              React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}},
+                React.createElement('div',{style:{flex:1,minWidth:0}},
+                  React.createElement('div',{style:{fontSize:'.6rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:4}},
+                    sideLabel(r.mySide) + ' · ' + r.turnCount + ' turns · ' + new Date(r.savedAt).toLocaleDateString()
+                  ),
+                  React.createElement('div',{style:{fontSize:'.94rem',fontWeight:600,lineHeight:1.4,color:'var(--text,#fff)'}}, r.motion),
+                  r.background && React.createElement('div',{style:{marginTop:6,fontSize:'.78rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5,maxHeight:48,overflow:'hidden',textOverflow:'ellipsis'}},
+                    r.background.length > 200 ? r.background.slice(0,200)+'…' : r.background
+                  ),
+                ),
+              ),
+              React.createElement('div',{style:{display:'flex',gap:8}},
+                React.createElement('button',{type:'button',onClick:()=>loadRound(r),style:{flex:1,background:'var(--accent,#ef4444)',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontSize:'.76rem',fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}},'Resume round'),
+                React.createElement('button',{type:'button',onClick:()=>deleteRound(r.id),style:{background:'transparent',color:'var(--text-dim,#94a3b8)',border:'1px solid rgba(255,255,255,.12)',borderRadius:8,padding:'8px 14px',fontSize:'.72rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit'}},'Delete'),
+              )
+            ))
+          )
+    );
+  }
+
   // ── SETUP SCREEN ─────────────────────────────────────
   if (!started) {
+    // Tokens reused across inputs so borders look consistent.
+    const BORDER = 'rgba(255,255,255,.14)';
+    const BORDER_STRONG = 'rgba(255,255,255,.26)';
+    const FIELD_BG = 'rgba(0,0,0,.35)';
+    const labelStyle = {fontSize:'.68rem',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:6,display:'flex',alignItems:'center',justifyContent:'space-between'};
+    const fieldStyle = {width:'100%',padding:'12px 14px',background:FIELD_BG,border:'1px solid '+BORDER,borderRadius:10,color:'var(--text,#fff)',fontSize:'.94rem',fontFamily:'inherit',resize:'vertical',marginBottom:18,outline:'none',transition:'border-color .15s'};
+    const onFocus = e => { e.target.style.borderColor = 'rgba(239,68,68,.55)'; };
+    const onBlur = e => { e.target.style.borderColor = BORDER; };
     return React.createElement('div',{className:'panel',style:{maxWidth:640,margin:'0 auto'}},
-      React.createElement('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)',marginBottom:10}},'Debate Chat'),
+      React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}},
+        React.createElement('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--accent,#ef4444)'}},'Debate Chat'),
+        savedRounds.length > 0 && React.createElement('button',{
+          type:'button',
+          onClick:()=>setShowLibrary(true),
+          style:{background:'transparent',border:'1px solid rgba(255,255,255,.14)',color:'var(--text-dim,#94a3b8)',padding:'4px 12px',borderRadius:999,fontSize:'.62rem',fontWeight:700,letterSpacing:'.08em',cursor:'pointer',fontFamily:'inherit',textTransform:'uppercase'},
+        }, 'My rounds ('+savedRounds.length+')')
+      ),
       React.createElement('h2',{style:{fontSize:'1.4rem',fontWeight:800,marginBottom:8,letterSpacing:'-.01em'}},'Argue a topic with the AI.'),
       React.createElement('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.92rem',lineHeight:1.55,marginBottom:24}},
         "Pick a topic, pick your side. I'll take the opposite side and push back, turn by turn. Plain English only — no debate jargon required."
       ),
-      React.createElement('div',{style:{fontSize:'.68rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:6}},'Topic'),
+
+      // Topic label + random button on the same row
+      React.createElement('div',{style:labelStyle},
+        React.createElement('span',null,'Topic'),
+        React.createElement('button',{
+          type:'button',
+          onClick:randomMotion,
+          title:'Pick a random motion and auto-fill a background',
+          style:{background:'transparent',border:'1px solid '+BORDER,color:'var(--text-dim,#94a3b8)',padding:'4px 10px',borderRadius:999,fontSize:'.62rem',fontWeight:700,letterSpacing:'.08em',cursor:'pointer',fontFamily:'inherit',textTransform:'uppercase',transition:'.15s'},
+          onMouseOver:e=>{e.currentTarget.style.color='var(--text,#fff)';e.currentTarget.style.borderColor=BORDER_STRONG;},
+          onMouseOut:e=>{e.currentTarget.style.color='var(--text-dim,#94a3b8)';e.currentTarget.style.borderColor=BORDER;},
+        },'🎲  Random motion + background')
+      ),
       React.createElement('textarea',{
         value:motion,
         onChange:e=>setMotion(e.target.value),
         onKeyDown:e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))startRound()},
+        onFocus:onFocus, onBlur:onBlur,
         placeholder:'e.g. Open borders, yes or no?   ·   AI should write the news.   ·   Tax billionaires out of existence.',
         rows:2,
-        style:{width:'100%',padding:'12px 14px',background:'var(--bg-card,#ffffff06)',border:'1px solid var(--border,rgba(255,255,255,.12))',borderRadius:10,color:'var(--text,#fff)',fontSize:'.94rem',fontFamily:'inherit',resize:'vertical',marginBottom:18}
+        style:fieldStyle,
       }),
-      React.createElement('div',{style:{fontSize:'.68rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--text-dim,#94a3b8)',marginBottom:6}},'Your side'),
+
+      // Background (optional)
+      React.createElement('div',{style:labelStyle},
+        React.createElement('span',null,'Background context  ',React.createElement('span',{style:{textTransform:'none',fontSize:'.58rem',opacity:.7,letterSpacing:0,fontWeight:500,marginLeft:4}},'optional')),
+        background && React.createElement('button',{
+          type:'button',
+          onClick:()=>setBackground(''),
+          style:{background:'transparent',border:'none',color:'var(--text-dim,#94a3b8)',padding:0,fontSize:'.62rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit',letterSpacing:'.04em'},
+        },'Clear')
+      ),
+      React.createElement('textarea',{
+        value:background,
+        onChange:e=>setBackground(e.target.value),
+        onFocus:onFocus, onBlur:onBlur,
+        placeholder:'Any context that shapes the debate — assumptions, setting, scope. Leave blank or use Random motion above.',
+        rows:3,
+        style:fieldStyle,
+      }),
+
+      React.createElement('div',{style:labelStyle}, React.createElement('span',null,'Your side')),
       React.createElement('div',{style:{display:'flex',gap:8,marginBottom:24}},
         React.createElement('button',{
           type:'button',
           onClick:()=>setMySide('pro'),
-          style:{flex:1,padding:'12px 16px',borderRadius:10,border:'1px solid '+(mySide==='pro'?'var(--accent,#ef4444)':'var(--border,rgba(255,255,255,.12))'),background:mySide==='pro'?'var(--accent,#ef4444)':'transparent',color:mySide==='pro'?'#fff':'var(--text-dim,#94a3b8)',fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:'.88rem',letterSpacing:'.04em',textTransform:'uppercase',transition:'.15s'}
+          style:{flex:1,padding:'12px 16px',borderRadius:10,border:'1px solid '+(mySide==='pro'?'var(--accent,#ef4444)':BORDER),background:mySide==='pro'?'var(--accent,#ef4444)':FIELD_BG,color:mySide==='pro'?'#fff':'var(--text-dim,#94a3b8)',fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:'.82rem',letterSpacing:'.06em',textTransform:'uppercase',transition:'.15s'}
         },'Pro (for the motion)'),
         React.createElement('button',{
           type:'button',
           onClick:()=>setMySide('con'),
-          style:{flex:1,padding:'12px 16px',borderRadius:10,border:'1px solid '+(mySide==='con'?'var(--accent,#ef4444)':'var(--border,rgba(255,255,255,.12))'),background:mySide==='con'?'var(--accent,#ef4444)':'transparent',color:mySide==='con'?'#fff':'var(--text-dim,#94a3b8)',fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:'.88rem',letterSpacing:'.04em',textTransform:'uppercase',transition:'.15s'}
+          style:{flex:1,padding:'12px 16px',borderRadius:10,border:'1px solid '+(mySide==='con'?'var(--accent,#ef4444)':BORDER),background:mySide==='con'?'var(--accent,#ef4444)':FIELD_BG,color:mySide==='con'?'#fff':'var(--text-dim,#94a3b8)',fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:'.82rem',letterSpacing:'.06em',textTransform:'uppercase',transition:'.15s'}
         },'Con (against the motion)'),
       ),
       React.createElement('button',{
         type:'button',
         onClick:startRound,
         disabled:!motion.trim(),
-        className:'btn btn-primary',
-        style:{width:'100%',padding:'14px 22px',fontSize:'.9rem',letterSpacing:'.04em',opacity:motion.trim()?1:.4,cursor:motion.trim()?'pointer':'not-allowed'}
-      },'Start Debating'),
+        style:{width:'100%',padding:'14px 22px',fontSize:'.9rem',letterSpacing:'.04em',fontWeight:700,borderRadius:999,border:'none',fontFamily:'inherit',textTransform:'uppercase',transition:'.15s',
+          background:motion.trim()?'var(--accent,#ef4444)':'rgba(239,68,68,.25)',
+          color:motion.trim()?'#fff':'rgba(255,255,255,.55)',
+          cursor:motion.trim()?'pointer':'not-allowed',
+          boxShadow:motion.trim()?'0 6px 24px rgba(239,68,68,.35)':'none'},
+      },motion.trim()?'Start Debating →':'Enter a topic to start'),
       React.createElement('p',{style:{marginTop:14,fontSize:'.72rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5,textAlign:'center'}},
-        'Type "end" at any point to get a judge verdict.'
+        'Type "end" any time to get a judge verdict.'
       ),
     );
   }
@@ -6403,7 +6561,10 @@ function DebateChat() {
           '  ·  AI: ',React.createElement('strong',{style:{color:'var(--text,#fff)'}},sideLabel(aiSide)),
         )
       ),
-      React.createElement('button',{type:'button',onClick:reset,style:{background:'transparent',border:'1px solid var(--border,rgba(255,255,255,.15))',borderRadius:8,color:'var(--text-dim,#94a3b8)',padding:'6px 12px',fontSize:'.7rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit',flexShrink:0}},'New Round'),
+      React.createElement('div',{style:{display:'flex',gap:6,flexShrink:0}},
+        React.createElement('button',{type:'button',onClick:saveCurrentRound,title:'Save this round to My Rounds',style:{background:savedFlash?'rgba(34,197,94,.16)':'transparent',border:'1px solid '+(savedFlash?'rgba(34,197,94,.4)':'var(--border,rgba(255,255,255,.15))'),borderRadius:8,color:savedFlash?'#86efac':'var(--text-dim,#94a3b8)',padding:'6px 12px',fontSize:'.7rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit',transition:'.15s'}},savedFlash?'Saved ✓':'Save'),
+        React.createElement('button',{type:'button',onClick:reset,style:{background:'transparent',border:'1px solid var(--border,rgba(255,255,255,.15))',borderRadius:8,color:'var(--text-dim,#94a3b8)',padding:'6px 12px',fontSize:'.7rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit'}},'New Round'),
+      ),
     ),
     // Messages
     React.createElement('div',{style:{maxHeight:460,overflowY:'auto',marginBottom:16,display:'flex',flexDirection:'column',gap:12,paddingRight:4}},
@@ -12176,21 +12337,23 @@ function LiveDebates({ user, team, onNavigateTab }) {
 }
 
 
-// Always-visible primary tabs: the core things anyone (debater or not) uses.
-// Motions + Philosophy + Analytics were promoted out of the Competitive dropdown
-// because they're the most-used jumping-off points for both newcomers and debaters.
+// Always-visible primary tabs: 5 items — the core things anyone uses, regardless
+// of experience level. Kept tight so the nav row never overflows on standard screens.
+// Motions and Philosophy live in Competitive; they are debater-prep tools, not
+// jumping-off points for new users.
 const TABS_PRIMARY = [
   {id:'case',label:'Case Gen',i18n:'nav.caseGen'},
   {id:'battle',label:'Debate AI',i18n:'nav.battle',href:'/debate-ai'},
   {id:'chat',label:'Debate Chat',i18n:'nav.debateChat'},
   {id:'casual',label:'Casual',i18n:'nav.casual'},
-  {id:'res',label:'Motions',i18n:'nav.motions'},
-  {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
   {id:'newbies',label:'Guide',i18n:'nav.guide'},
 ];
-// Competitive-only features kept in the dropdown: the tools that assume the user
-// has an actual tournament coming up (topic research, judge analysis, mapping, team, analytics).
+// Competitive-only features in the dropdown: the tools that assume the user has
+// an actual tournament coming up or a prep routine (motions archive, philosophy
+// engine, topic research, judge analysis, mapping, team, analytics).
 const TABS_COMPETITIVE = [
+  {id:'res',label:'Motions',i18n:'nav.motions'},
+  {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
   {id:'topics',label:'Topics',i18n:'nav.topics'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
