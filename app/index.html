@@ -209,6 +209,26 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .topbar-pill:hover{color:var(--text,#fff)}
 .topbar-pill.accent{border-color:rgba(239,68,68,.25);color:#f87171;background:rgba(239,68,68,.08)}
 .topbar-pill.accent:hover{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.15)}
+/* In-app "Home" link back to the marketing landing. Theme-aware so the
+   amber/red brand colour stays readable on dark, light, and crimson. */
+.topbar-pill.topbar-pill-home{
+  font-weight:800;letter-spacing:.04em;
+  color:#fbbf24;
+  background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(239,68,68,.18));
+  border-color:rgba(245,158,11,.4);
+}
+.topbar-pill.topbar-pill-home:hover{color:#fcd34d;border-color:rgba(245,158,11,.6);background:linear-gradient(135deg,rgba(245,158,11,.28),rgba(239,68,68,.28))}
+.light-theme .topbar-pill.topbar-pill-home{
+  color:#fff!important;
+  background:linear-gradient(135deg,#d97706,#dc2626)!important;
+  border-color:#dc2626!important;
+}
+.light-theme .topbar-pill.topbar-pill-home:hover{background:linear-gradient(135deg,#b45309,#b91c1c)!important;border-color:#b91c1c!important}
+.crimson-theme .topbar-pill.topbar-pill-home{
+  color:#fff!important;
+  background:linear-gradient(135deg,#f59e0b,#dc2626)!important;
+  border-color:rgba(245,158,11,.5)!important;
+}
 .topbar-pill.plan-badge{cursor:pointer}
 /* Sign in / user area in top bar */
 .topbar-user{display:flex;align-items:center;gap:6px}
@@ -299,6 +319,30 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
   50%   {box-shadow:0 8px 28px rgba(245,158,11,.55), 0 0 0 1px rgba(255,220,160,.3) inset}
 }
 @media(prefers-reduced-motion:reduce){.nav-btn-feature{animation:none}}
+/* Theme-scoped overrides — without these the broader ".light-theme .nav-btn"
+   and ".crimson-theme .nav-btn" rules (higher specificity, also !important)
+   strip the amber gradient and text colour, producing unreadable light-on-
+   light in light mode. Each theme keeps the gradient identity but with a
+   contrast-safe text colour for that background. */
+.light-theme .nav-btn-feature,
+.light-theme .nav-btn.nav-btn-feature{
+  color:#fff!important;
+  background:linear-gradient(135deg,#f59e0b,#ef4444)!important;
+  border-color:rgba(239,68,68,.45)!important;
+  text-shadow:0 1px 2px rgba(0,0,0,.25);
+}
+.light-theme .nav-btn-feature:hover,
+.light-theme .nav-btn.nav-btn-feature:hover{
+  color:#fff!important;
+  background:linear-gradient(135deg,#d97706,#dc2626)!important;
+  border-color:rgba(220,38,38,.6)!important;
+}
+.crimson-theme .nav-btn-feature,
+.crimson-theme .nav-btn.nav-btn-feature{
+  color:#fff!important;
+  background:linear-gradient(135deg,#f59e0b,#dc2626)!important;
+  border-color:rgba(245,158,11,.5)!important;
+}
 .nav-back{transition:opacity .2s,transform .15s}.nav-back:hover:not(:disabled){transform:translateX(-2px)}
 .nav-back:disabled{cursor:default;pointer-events:none}
 
@@ -13075,11 +13119,11 @@ function App() {
           }, 'Cases'),
           // Prominent link back to marketing landing — the main product face
           // lives at / now, so "Home" should feel like a destination, not a
-          // dim utility link. Accent border + bold label.
+          // dim utility link. Styling via .topbar-pill-home class so each
+          // theme can set its own contrast-safe palette.
           React.createElement('a',{
-            className:'topbar-pill accent',
+            className:'topbar-pill topbar-pill-home',
             href:'/',
-            style:{fontWeight:800, letterSpacing:'.04em', background:'linear-gradient(135deg,#f59e0b18,#ef444418)', borderColor:'rgba(245,158,11,.4)', color:'#fbbf24'}
           },'\u2190 Home'),
           React.createElement('a',{className:'topbar-pill',href:'/high-school'},'High School'),
           React.createElement('a',{className:'topbar-pill',href:'/debate-ai'},'Debate AI'),
