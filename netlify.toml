@@ -1,6 +1,6 @@
 [build]
-  publish = "."
-  functions = "netlify/functions"
+  publish = "app"
+  functions = "app/netlify/functions"
 
 [build.environment]
   NETLIFY_SKIP_SECRETS_CHECK = "true"
@@ -9,6 +9,93 @@
   external_node_modules = ["@google-cloud/firestore", "stripe"]
   node_bundler = "esbuild"
 
-# Root-level redirects removed — Netlify reads app/netlify.toml (base dir is
-# "app" per dashboard config). Those old rules were the inverse of the current
-# routing and would silently re-surface if base dir ever changed.
+# ════════════════════════════════════════════════════════════════════
+# Routing — repo has dual copies (stale root files + live /app files).
+# publish="app" above makes Netlify serve from app/, ignoring root copies.
+# All redirects below are read from THIS file (repo-root netlify.toml);
+# app/netlify.toml is no longer authoritative but kept in sync for safety.
+# ════════════════════════════════════════════════════════════════════
+
+# Marketing landing at root. React app at /app.
+[[redirects]]
+  from = "/"
+  to = "/landing.html"
+  status = 200
+
+[[redirects]]
+  from = "/landing"
+  to = "/landing.html"
+  status = 200
+
+[[redirects]]
+  from = "/app"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/app/*"
+  to = "/index.html"
+  status = 200
+
+# Icon 404 patches
+[[redirects]]
+  from = "/favicon.ico"
+  to = "/icons/icon-192.png"
+  status = 200
+
+[[redirects]]
+  from = "/apple-touch-icon.png"
+  to = "/icons/icon-192.png"
+  status = 200
+
+[[redirects]]
+  from = "/apple-touch-icon-precomposed.png"
+  to = "/icons/icon-192.png"
+  status = 200
+
+[[redirects]]
+  from = "/apple-touch-icon-*.png"
+  to = "/icons/icon-512.png"
+  status = 200
+
+# Named pages
+[[redirects]]
+  from = "/high-school"
+  to = "/high-school.html"
+  status = 200
+
+[[redirects]]
+  from = "/debate-ai"
+  to = "/debate-ai.html"
+  status = 200
+
+[[redirects]]
+  from = "/learn"
+  to = "/learn.html"
+  status = 200
+
+[[redirects]]
+  from = "/changelog"
+  to = "/changelog.html"
+  status = 200
+
+[[redirects]]
+  from = "/markets"
+  to = "/markets.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+[[redirects]]
+  from = "/me"
+  to = "/me.html"
+  status = 200
+
+# Legacy Stripe webhook alias
+[[redirects]]
+  from = "/api/billing/webhook"
+  to = "/api/stripe-webhook"
+  status = 200
