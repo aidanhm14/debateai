@@ -3366,9 +3366,15 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   const model = isPro && brain.proModel ? brain.proModel : brain.model;
   const maxTokens = opts.maxTokens || 16000;
 
+  // Voice block is now resolved server-side from _voiceFeature; the client
+  // stub (`voice-guidelines.js`) returns '' for everything. We still build
+  // `voiceBlock` in case a future BYOK-style path wants it on the client.
   const voiceBlock = (window.DEBATE_VOICE && window.DEBATE_VOICE.forFeature(opts.feature)) || '';
   const fullSystemPrompt = systemPrompt + buildStyleBlock() + voiceBlock;
-  const body = { model, max_tokens: maxTokens, stream: true, system: fullSystemPrompt, messages: [{ role:'user', content: userPrompt }], _feature: opts.feature || 'case' };
+  const feature = opts.feature || 'case';
+  const body = { model, max_tokens: maxTokens, stream: true, system: fullSystemPrompt, messages: [{ role:'user', content: userPrompt }], _feature: feature, _voiceFeature: feature };
+  if (opts.promptId) body._promptId = opts.promptId;
+  if (opts.promptVars) body._promptVars = opts.promptVars;
 
   const headers = { 'Content-Type': 'application/json' };
   if (__getAuthToken) { try { const token = await __getAuthToken(); if (token) headers['Authorization'] = 'Bearer ' + token; } catch {} }
@@ -3512,9 +3518,12 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
     } else {
       // Server proxy: include _feature for usage logging and optional
       // _promptId so the server can prepend a static prompt library entry
-      // (keeps long prompts out of the client bundle).
-      const serverBody = { ...body, _feature: feature };
+      // (keeps long prompts out of the client bundle). _voiceFeature tells
+      // the server which voice-guidelines block to inject — keeps the
+      // debater-voice IP server-side.
+      const serverBody = { ...body, _feature: feature, _voiceFeature: feature };
       if (opts.promptId) serverBody._promptId = opts.promptId;
+      if (opts.promptVars) serverBody._promptVars = opts.promptVars;
       const headers = { 'Content-Type': 'application/json' };
       if (__getAuthToken) {
         try {
@@ -6388,6 +6397,12 @@ function DebateChat() {
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input.trim();
+    // Let users type "end" to trigger the judge — matches the hint on the setup screen
+    if (userMsg.toLowerCase() === 'end') {
+      setInput('');
+      endRound();
+      return;
+    }
     setInput('');
     const newMsgs = [...messages, {role:'user', text:userMsg}];
     setMessages(newMsgs);
@@ -6423,6 +6438,39 @@ function DebateChat() {
           promptVars: { format: 'accessible', speechRole: speechRole, userStyle: userStyleBlock } });
     } catch(e) {
       setMessages(prev => [...prev, {role:'assistant', text:'Error: '+e.message}]);
+    }
+    setLoading(false);
+  };
+
+  // Judge verdict — triggered by the "End & Judge" button or by typing "end".
+  // Keeps the voice plain-English to match Debate Chat's accessible framing
+  // (no "ballot story," no philosopher name-drops). feature:'judge' in
+  // voice-guidelines.js injects no debater voice, which is what we want here.
+  const endRound = async () => {
+    if (loading) return;
+    const hasUser = messages.some(m => m.role === 'user');
+    const hasAI = messages.some(m => m.role === 'assistant' && m.text && m.text.trim());
+    if (!hasUser || !hasAI) return; // need at least one full exchange
+    setLoading(true);
+    try {
+      const transcript = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => (m.role === 'user' ? 'USER ('+sideLabel(mySide)+')' : 'AI ('+sideLabel(aiSide)+')') + ': ' + m.text)
+        .join('\n\n');
+      const judgeSys = `You are an impartial judge for a casual back-and-forth debate. The motion is: "${motion.trim()}". The user argued ${sideLabel(mySide)}; the AI argued ${sideLabel(aiSide)}.` +
+        (background.trim() ? `\n\nBackground (assume true for the round):\n${background.trim()}` : '') +
+        `\n\nGive a SHORT verdict in plain English — write the way you'd explain to a smart friend who doesn't do debate. Do NOT use debate jargon ("ballot story," "impact calculus," "framework," "voters," "weighing," "link chain"). Do NOT drop philosopher names. Do NOT hedge — pick a side unless it's genuinely a coin flip.\n\nReturn exactly this structure, nothing else:\nVerdict: Pro, Con, or Close call\nWhy: one sentence on what decided it\nUser's best move: one sentence on what they did well\nAI's best move: one sentence\nIf the user ran this back: one concrete, actionable tip`;
+      const idx = messages.length;
+      setMessages(prev => [...prev, {role:'verdict', text:''}]);
+      await callClaude(judgeSys, 'Here is the full debate so far:\n\n' + transcript + '\n\nGive your verdict.', (text) => {
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[idx] = {role:'verdict', text: text};
+          return updated;
+        });
+      }, { thinkBudget: 2000, maxTokens: 700, feature: 'judge' });
+    } catch(e) {
+      setMessages(prev => [...prev, {role:'verdict', text:'Judge error: '+e.message}]);
     }
     setLoading(false);
   };
@@ -6489,9 +6537,11 @@ function DebateChat() {
           style:{background:'transparent',border:'1px solid rgba(255,255,255,.14)',color:'var(--text-dim,#94a3b8)',padding:'4px 12px',borderRadius:999,fontSize:'.62rem',fontWeight:700,letterSpacing:'.08em',cursor:'pointer',fontFamily:'inherit',textTransform:'uppercase'},
         }, 'My rounds ('+savedRounds.length+')')
       ),
-      React.createElement('h2',{style:{fontSize:'1.4rem',fontWeight:800,marginBottom:8,letterSpacing:'-.01em'}},'Argue a topic with the AI.'),
-      React.createElement('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.92rem',lineHeight:1.55,marginBottom:24}},
-        "Pick a topic, pick your side. I'll take the opposite side and push back, turn by turn. Plain English only — no debate jargon required."
+      // H2 removed — the "Debate Chat" tab already tells you what this is, and
+      // the subtitle below already says "pick a topic." Three mentions of the
+      // same idea in the first screen was overkill.
+      React.createElement('p',{style:{color:'var(--text-dim,#94a3b8)',fontSize:'.95rem',lineHeight:1.55,marginTop:4,marginBottom:24}},
+        "Pick a topic, pick your side. I'll take the opposite and push back, turn by turn. Plain English — no debate jargon required."
       ),
 
       // Topic label + random button on the same row
@@ -6558,7 +6608,7 @@ function DebateChat() {
           boxShadow:motion.trim()?'0 6px 24px rgba(239,68,68,.35)':'none'},
       },motion.trim()?'Start Debating →':'Enter a topic to start'),
       React.createElement('p',{style:{marginTop:14,fontSize:'.72rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5,textAlign:'center'}},
-        'Type "end" any time to get a judge verdict.'
+        'Hit ',React.createElement('strong',{style:{color:'var(--text,#fff)',fontWeight:700}},'End & Judge'),' (or type "end") any time for a verdict in plain English.'
       ),
     );
   }
@@ -6577,6 +6627,14 @@ function DebateChat() {
       ),
       React.createElement('div',{style:{display:'flex',gap:6,flexShrink:0}},
         React.createElement('button',{type:'button',onClick:saveCurrentRound,title:'Save this round to My Rounds',style:{background:savedFlash?'rgba(34,197,94,.16)':'transparent',border:'1px solid '+(savedFlash?'rgba(34,197,94,.4)':'var(--border,rgba(255,255,255,.15))'),borderRadius:8,color:savedFlash?'#86efac':'var(--text-dim,#94a3b8)',padding:'6px 12px',fontSize:'.7rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit',transition:'.15s'}},savedFlash?'Saved ✓':'Save'),
+        // End & Judge — closes out the round with a plain-English verdict. Disabled
+        // until at least one full exchange, or if a verdict already exists.
+        (() => {
+          const hasExchange = messages.some(m=>m.role==='user') && messages.some(m=>m.role==='assistant' && m.text && m.text.trim());
+          const hasVerdict = messages.some(m=>m.role==='verdict');
+          const enabled = hasExchange && !hasVerdict && !loading;
+          return React.createElement('button',{type:'button',onClick:endRound,disabled:!enabled,title:hasVerdict?'Verdict already in — New Round to start fresh':'End the round and get a judge verdict',style:{background:enabled?'rgba(251,191,36,.12)':'transparent',border:'1px solid '+(enabled?'rgba(251,191,36,.42)':'var(--border,rgba(255,255,255,.15))'),borderRadius:8,color:enabled?'#fbbf24':'var(--text-dim,#94a3b8)',padding:'6px 12px',fontSize:'.7rem',fontWeight:600,letterSpacing:'.04em',cursor:enabled?'pointer':'not-allowed',opacity:enabled?1:.55,fontFamily:'inherit',transition:'.15s'}},'End & Judge');
+        })(),
         React.createElement('button',{type:'button',onClick:reset,style:{background:'transparent',border:'1px solid var(--border,rgba(255,255,255,.15))',borderRadius:8,color:'var(--text-dim,#94a3b8)',padding:'6px 12px',fontSize:'.7rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit'}},'New Round'),
       ),
     ),
@@ -6585,6 +6643,13 @@ function DebateChat() {
       messages.map((m,i) => {
         if (m.role === 'system') {
           return React.createElement('div',{key:i,style:{alignSelf:'center',fontSize:'.78rem',color:'var(--text-dim,#94a3b8)',lineHeight:1.5,textAlign:'center',padding:'10px 14px',background:'rgba(255,255,255,.03)',border:'1px solid var(--border,rgba(255,255,255,.08))',borderRadius:10,maxWidth:'90%'}}, m.text);
+        }
+        if (m.role === 'verdict') {
+          const isStreamingVerdict = loading && i === messages.length - 1;
+          return React.createElement('div',{key:i,style:{alignSelf:'stretch',maxWidth:'100%',background:'linear-gradient(135deg, rgba(251,191,36,.08), rgba(239,68,68,.05))',border:'1px solid rgba(251,191,36,.32)',borderRadius:14,padding:'14px 16px',marginTop:4}},
+            React.createElement('div',{style:{fontSize:'.6rem',fontWeight:700,letterSpacing:'.18em',textTransform:'uppercase',color:'#fbbf24',marginBottom:8}},'Judge · Verdict'),
+            React.createElement('div',{className:'output'+(isStreamingVerdict?' streaming-active':''),style:{fontSize:'.92rem',lineHeight:1.6,whiteSpace:'pre-line',color:'var(--text,#fff)'},dangerouslySetInnerHTML:{__html:cleanOutput(m.text || '…', true)}})
+          );
         }
         const isStreamingMsg = loading && m.role==='assistant' && i===messages.length-1;
         const isYou = m.role === 'user';

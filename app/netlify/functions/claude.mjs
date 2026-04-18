@@ -2,6 +2,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
+import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -282,6 +283,11 @@ export default async (request, context) => {
     // _promptId (+ optional _promptVars for {{var}} substitution). Shared
     // helper so gemini.mjs and grok.mjs resolve the same way.
     applyPromptLibrary(body);
+    // Voice guidelines: client sends `_voiceFeature` (e.g. "case", "bot",
+    // "debateChat", "judge"). Server resolves the matching voice block and
+    // appends it to body.system so the debater-voice bank never ships to
+    // view-source.
+    applyVoiceGuidelines(body);
 
     // Validate model — only whitelisted models allowed
     if (!body.model || !ALLOWED_MODELS.includes(body.model)) {

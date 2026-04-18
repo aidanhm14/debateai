@@ -1,5 +1,6 @@
 // Grok (xAI) proxy — OpenAI-compatible API
 import { applyPromptLibrary } from './lib/prompts.mjs';
+import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -85,6 +86,9 @@ export default async (request, context) => {
     // Resolve server-side prompt library references before building the
     // OpenAI-compatible request. After this, body.system holds the full text.
     applyPromptLibrary(body);
+    // Then inject the voice-guidelines block (strips _voiceFeature) so the
+    // debater-voice bank stays server-side.
+    applyVoiceGuidelines(body);
 
     const model = ALLOWED_MODELS.includes(body.model) ? body.model : 'grok-3-mini';
     const maxTokens = Math.min(body.max_tokens || 4000, MAX_TOKENS_CAP);

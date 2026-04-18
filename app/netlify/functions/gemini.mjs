@@ -1,5 +1,6 @@
 // Gemini (Google) proxy — streams SSE back in Gemini format
 import { applyPromptLibrary } from './lib/prompts.mjs';
+import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -89,6 +90,9 @@ export default async (request, context) => {
     // Resolve server-side prompt library references before building the
     // Gemini-shaped request. After this, body.system holds the full text.
     applyPromptLibrary(body);
+    // Then inject the voice-guidelines block (strips _voiceFeature, appends
+    // to body.system) so the IP stays server-side.
+    applyVoiceGuidelines(body);
 
     const model = ALLOWED_MODELS.includes(body.model) ? body.model : 'gemini-2.0-flash';
     const maxTokens = Math.min(body.max_tokens || 4000, MAX_TOKENS_CAP);
