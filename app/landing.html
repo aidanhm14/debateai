@@ -938,6 +938,44 @@ button{font-family:inherit;cursor:pointer}
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
 <script defer src="/js/ui-neural.js"></script>
 
+<!-- Left-rail jump nav. Fixed to the viewport, vertical stack of links, one
+     tap scrolls smoothly to each section. Desktop only — hidden below 1100px
+     so it doesn't steal real estate on mobile. -->
+<style>
+  html{scroll-behavior:smooth}
+  .landing-jumpnav{
+    position:fixed;left:20px;top:50%;transform:translateY(-50%);z-index:20;
+    display:flex;flex-direction:column;gap:4px;
+    padding:12px 8px;
+    background:rgba(15,15,18,.55);
+    border:1px solid var(--border);
+    border-radius:14px;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    box-shadow:0 12px 40px rgba(0,0,0,.35);
+  }
+  .landing-jumpnav a{
+    display:block;padding:8px 14px;
+    font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--text-dim);text-decoration:none;
+    border-radius:999px;
+    transition:color .15s, background .15s;
+    white-space:nowrap;
+  }
+  .landing-jumpnav a:hover{color:var(--text);background:rgba(255,255,255,.06)}
+  .landing-jumpnav a.donate{color:var(--accent)}
+  .landing-jumpnav a.donate:hover{background:rgba(239,68,68,.12)}
+  @media(max-width:1100px){.landing-jumpnav{display:none}}
+</style>
+<nav class="landing-jumpnav" aria-label="Jump to section">
+  <a href="#debate-ai">Debate AI</a>
+  <a href="#how">How it works</a>
+  <a href="#tools">Tools</a>
+  <a href="#pricing">Pricing</a>
+  <a href="#faq">FAQ</a>
+  <a href="#story">Story</a>
+  <a href="https://buymeacoffee.com/8idanhm" target="_blank" rel="noopener" class="donate">Donate</a>
+</nav>
+
 <!-- Nav — shared topbar pattern. One primary CTA (Debate AI), the rest are quiet links. -->
 <nav class="ui-topbar">
   <div class="ui-topbar-left">
@@ -1179,7 +1217,7 @@ button{font-family:inherit;cursor:pointer}
             var r = await fetch('/api/tts', {
               method:'POST',
               headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ text: text, voice: 'male_deep' })
+              body: JSON.stringify({ text: text, voice: 'onyx' })
             });
             if (!r.ok) throw new Error('TTS failed');
             var blob = await r.blob();
@@ -1190,8 +1228,11 @@ button{font-family:inherit;cursor:pointer}
           audio.play();
         } catch(e) {
           btn.classList.remove('playing');
-          btn.innerHTML = '\u26A0 Audio off';
-          setTimeout(function(){ btn.innerHTML = '\u25B6 Play'; }, 2000);
+          // Surface a shorter hint — many failures come from browser autoplay
+          // policy (ignores the first play() without a user gesture). The
+          // button is a user gesture, so subsequent clicks usually work.
+          btn.innerHTML = '\u26A0 Try again';
+          setTimeout(function(){ btn.innerHTML = '\u25B6 Play'; }, 1800);
         }
       }
     })();
