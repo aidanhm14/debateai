@@ -1,5 +1,7 @@
 // OpenAI GPT proxy — translates Claude-style requests to OpenAI format
 import { checkAppCheck } from './lib/appcheck.mjs';
+import { applyPromptLibrary } from './lib/prompts.mjs';
+import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -93,6 +95,11 @@ export default async (request, context) => {
         { status: 413, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
+
+    // Resolve server-side prompt library + voice guidelines before
+    // translating. body.system holds the final text after these calls.
+    applyPromptLibrary(body);
+    applyVoiceGuidelines(body);
 
     // Client sends Claude-style: { system, messages, model, max_tokens, stream }
     // We translate to OpenAI format
