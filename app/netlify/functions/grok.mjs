@@ -4,6 +4,9 @@ import { applyPromptLibrary } from './lib/prompts.mjs';
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
+  'https://www.debateos.com',
+  'https://debatethedevil.com',
+  'https://www.debatethedevil.com',
 ];
 const DEV_ORIGINS = [
   'http://localhost:8888',
