@@ -209,26 +209,12 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .topbar-pill:hover{color:var(--text,#fff)}
 .topbar-pill.accent{border-color:rgba(239,68,68,.25);color:#f87171;background:rgba(239,68,68,.08)}
 .topbar-pill.accent:hover{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.15)}
-/* In-app "Home" link back to the marketing landing. Theme-aware so the
-   amber/red brand colour stays readable on dark, light, and crimson. */
-.topbar-pill.topbar-pill-home{
-  font-weight:800;letter-spacing:.04em;
-  color:#fbbf24;
-  background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(239,68,68,.18));
-  border-color:rgba(245,158,11,.4);
-}
-.topbar-pill.topbar-pill-home:hover{color:#fcd34d;border-color:rgba(245,158,11,.6);background:linear-gradient(135deg,rgba(245,158,11,.28),rgba(239,68,68,.28))}
-.light-theme .topbar-pill.topbar-pill-home{
-  color:#fff!important;
-  background:linear-gradient(135deg,#d97706,#dc2626)!important;
-  border-color:#dc2626!important;
-}
-.light-theme .topbar-pill.topbar-pill-home:hover{background:linear-gradient(135deg,#b45309,#b91c1c)!important;border-color:#b91c1c!important}
-.crimson-theme .topbar-pill.topbar-pill-home{
-  color:#fff!important;
-  background:linear-gradient(135deg,#f59e0b,#dc2626)!important;
-  border-color:rgba(245,158,11,.5)!important;
-}
+/* In-app "Home" link back to the marketing landing. Subtle — enough to
+   signal "this goes somewhere" without competing visually with the nav. */
+.topbar-pill.topbar-pill-home{color:var(--text-dim,rgba(255,255,255,.7))}
+.topbar-pill.topbar-pill-home:hover{color:var(--text,#fff)}
+.light-theme .topbar-pill.topbar-pill-home{color:inherit!important;background:transparent!important}
+.light-theme .topbar-pill.topbar-pill-home:hover{color:var(--accent,#ef4444)!important}
 .topbar-pill.plan-badge{cursor:pointer}
 /* Sign in / user area in top bar */
 .topbar-user{display:flex;align-items:center;gap:6px}
@@ -8917,6 +8903,7 @@ try {
 function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [magicLinkStatus, setMagicLinkStatus] = useState({ state: 'idle', email: '', error: '' });
   useEffect(() => {
     if (!firebaseAuth) { setLoading(false); return; }
     // Complete redirect-based sign-in if the user just returned from Google.
@@ -8925,6 +8912,30 @@ function useAuth() {
       firebaseAuth.getRedirectResult().catch(err => {
         if (err && err.code !== 'auth/no-auth-event') console.warn('[auth] redirect result err:', err.code, err.message);
       });
+    } catch(e) {}
+    // Magic-link return flow. If the user clicked an email-link, Firebase
+    // appends ?apiKey=&mode=signIn&oobCode=... — isSignInWithEmailLink detects
+    // that. We pull their email from localStorage (stashed when we sent the
+    // link) and complete sign-in. If the email isn't in storage (different
+    // browser/device), we prompt them to re-enter it.
+    try {
+      if (firebaseAuth.isSignInWithEmailLink(window.location.href)) {
+        let email = null;
+        try { email = localStorage.getItem('debateos-magic-link-email'); } catch(e) {}
+        if (!email) email = window.prompt('Confirm the email you used to request this sign-in link:');
+        if (email) {
+          firebaseAuth.signInWithEmailLink(email, window.location.href)
+            .then(() => {
+              try { localStorage.removeItem('debateos-magic-link-email'); } catch(e) {}
+              // Strip the oobCode params so a refresh doesn't try to re-consume.
+              try { history.replaceState({}, document.title, window.location.pathname + window.location.hash); } catch(e) {}
+            })
+            .catch(err => {
+              console.warn('[auth] magic link sign-in failed:', err.code, err.message);
+              setMagicLinkStatus({ state: 'error', email: email || '', error: err.message || err.code });
+            });
+        }
+      }
     } catch(e) {}
     return firebaseAuth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
   }, []);
@@ -8950,8 +8961,39 @@ function useAuth() {
       alert('Sign-in failed: ' + ((err && err.message) || code || 'unknown error'));
     }
   };
+  // Passwordless email-link sign-in. Fires a Firebase email with a link that
+  // signs the user in when clicked. Requires "Email link (passwordless sign-in)"
+  // to be enabled in Firebase Console → Authentication → Sign-in method, and
+  // the current domain in Authorized domains.
+  const sendMagicLink = async (email) => {
+    if (!firebaseAuth) return alert('Firebase not configured.');
+    email = (email || '').trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setMagicLinkStatus({ state: 'error', email, error: 'Enter a valid email address.' });
+      return;
+    }
+    setMagicLinkStatus({ state: 'sending', email, error: '' });
+    try {
+      await firebaseAuth.sendSignInLinkToEmail(email, {
+        url: window.location.origin + window.location.pathname,
+        handleCodeInApp: true,
+      });
+      try { localStorage.setItem('debateos-magic-link-email', email); } catch(e) {}
+      setMagicLinkStatus({ state: 'sent', email, error: '' });
+    } catch (err) {
+      console.warn('[auth] sendSignInLinkToEmail failed:', err.code, err.message);
+      let msg = err.message || err.code || 'Unknown error';
+      if (err.code === 'auth/operation-not-allowed') {
+        msg = 'Email-link sign-in isn\u2019t enabled yet. Admin: turn it on in Firebase Console \u2192 Authentication \u2192 Sign-in method.';
+      } else if (err.code === 'auth/unauthorized-continue-uri' || err.code === 'auth/invalid-continue-uri') {
+        msg = 'This domain isn\u2019t authorized for email-link sign-in. Admin: add it under Firebase Console \u2192 Authentication \u2192 Settings \u2192 Authorized domains.';
+      }
+      setMagicLinkStatus({ state: 'error', email, error: msg });
+    }
+  };
+  const resetMagicLink = () => setMagicLinkStatus({ state: 'idle', email: '', error: '' });
   const signOut = async () => { if (firebaseAuth) await firebaseAuth.signOut(); };
-  return { user, loading, signIn, signOut };
+  return { user, loading, signIn, signOut, sendMagicLink, magicLinkStatus, resetMagicLink };
 }
 
 /* ═══════════════════════════════════════════════════
@@ -12766,7 +12808,8 @@ function App() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [billingSuccess, setBillingSuccess] = useState(false);
   const [legalPage, setLegalPage] = useState(null); // null | 'terms' | 'privacy'
-  const { user, loading: authLoading, signIn, signOut } = useAuth();
+  const { user, loading: authLoading, signIn, signOut, sendMagicLink, magicLinkStatus, resetMagicLink } = useAuth();
+  const [magicEmail, setMagicEmail] = useState('');
   useEffect(() => { __getAuthToken = user ? () => user.getIdToken() : null; }, [user]);
   // Merge Firestore cases with localStorage on sign-in
   useEffect(() => {
@@ -13045,13 +13088,49 @@ function App() {
             React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.4}},'1,500 requests · 50 members'),
           ),
         ),
-        // Sign in button
+        // Sign in block — Google, plus passwordless email-link alternative.
         React.createElement('div',{style:{padding:20,background:'#ffffff04',border:'1px solid #ffffff12',borderRadius:12,marginBottom:12}},
           React.createElement('button',{onClick:signIn,style:{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'12px 16px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.92rem',fontWeight:600,cursor:'pointer',transition:'.2s'}},
             React.createElement('img',{src:'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',width:20,height:20}),
             t('auth.signInGoogle','Sign in with Google')
           ),
-          React.createElement('p',{style:{color:'#4b5563',fontSize:'.72rem',marginTop:8,textAlign:'center'}}, 'Sign in to start your subscription and save cases.'),
+          // OR divider
+          React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,margin:'14px 0 10px',color:'#4b5563',fontSize:'.68rem',fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase'}},
+            React.createElement('div',{style:{flex:1,height:1,background:'#ffffff10'}}),
+            React.createElement('span',null,'or'),
+            React.createElement('div',{style:{flex:1,height:1,background:'#ffffff10'}}),
+          ),
+          // Magic-link email form. Three states: idle (form), sending (spinner),
+          // sent (success), error (inline message + retry). All live in
+          // magicLinkStatus from useAuth.
+          magicLinkStatus && magicLinkStatus.state === 'sent'
+            ? React.createElement('div',{style:{padding:'12px 14px',background:'#22c55e12',border:'1px solid #22c55e35',borderRadius:10,textAlign:'center'}},
+                React.createElement('div',{style:{fontSize:'.82rem',color:'#86efac',fontWeight:700,marginBottom:4}}, 'Check your email'),
+                React.createElement('div',{style:{fontSize:'.74rem',color:'#94a3b8',lineHeight:1.5}},
+                  'We sent a sign-in link to ', React.createElement('strong',{style:{color:'#e2e8f0'}}, magicLinkStatus.email), '. Click the link on this device to sign in.'
+                ),
+                React.createElement('button',{onClick:()=>{setMagicEmail('');resetMagicLink();},style:{marginTop:10,background:'transparent',border:'none',color:'#64748b',fontSize:'.7rem',fontWeight:600,cursor:'pointer',textDecoration:'underline',fontFamily:'inherit'}},'Use a different email'),
+              )
+            : React.createElement('div',null,
+                React.createElement('div',{style:{display:'flex',gap:8}},
+                  React.createElement('input',{
+                    type:'email',
+                    value:magicEmail,
+                    onChange:e=>setMagicEmail(e.target.value),
+                    onKeyDown:e=>{if(e.key==='Enter'){sendMagicLink(magicEmail);}},
+                    placeholder:'you@example.com',
+                    disabled: magicLinkStatus && magicLinkStatus.state === 'sending',
+                    style:{flex:1,padding:'10px 12px',background:'#ffffff04',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.86rem',fontFamily:'inherit',outline:'none'}
+                  }),
+                  React.createElement('button',{
+                    onClick:()=>sendMagicLink(magicEmail),
+                    disabled: (magicLinkStatus && magicLinkStatus.state === 'sending') || !magicEmail.trim(),
+                    style:{padding:'10px 14px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.78rem',fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',opacity:((magicLinkStatus&&magicLinkStatus.state==='sending')||!magicEmail.trim())?.5:1}
+                  }, magicLinkStatus && magicLinkStatus.state === 'sending' ? 'Sending\u2026' : 'Email me a link'),
+                ),
+                magicLinkStatus && magicLinkStatus.state === 'error' && React.createElement('div',{style:{marginTop:8,padding:'8px 10px',background:'#ef444412',border:'1px solid #ef444430',borderRadius:8,fontSize:'.72rem',color:'#fca5a5',lineHeight:1.5}}, magicLinkStatus.error),
+              ),
+          React.createElement('p',{style:{color:'#4b5563',fontSize:'.72rem',marginTop:10,textAlign:'center'}}, 'Sign in to start your subscription and save cases.'),
         ),
         // Try free (limited)
         React.createElement('div',{style:{marginTop:12,paddingTop:14,borderTop:'1px solid #ffffff08',textAlign:'center'}},
@@ -13117,14 +13196,14 @@ function App() {
             title:'Saved cases',
             style:{cursor:'pointer',background:'none',border:'none'},
           }, 'Cases'),
-          // Prominent link back to marketing landing — the main product face
-          // lives at / now, so "Home" should feel like a destination, not a
-          // dim utility link. Styling via .topbar-pill-home class so each
-          // theme can set its own contrast-safe palette.
+          // Link back to marketing landing. href is /landing (not /) so the
+          // service worker's cached "/" response from the pre-routing era can't
+          // intercept and show the React app. /landing always rewrites to the
+          // landing page cleanly.
           React.createElement('a',{
             className:'topbar-pill topbar-pill-home',
-            href:'/',
-          },'\u2190 Home'),
+            href:'/landing',
+          },'Home'),
           React.createElement('a',{className:'topbar-pill',href:'/high-school'},'High School'),
           React.createElement('a',{className:'topbar-pill',href:'/debate-ai'},'Debate AI'),
           React.createElement('a',{className:'topbar-pill',href:'/learn'},'Learn'),
