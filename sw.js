@@ -3,8 +3,10 @@
 // with v8 would keep seeing the old cached root until the cache name changed.
 const CACHE_NAME = 'debateos-v9';
 
+// NOTE: '/' was previously precached here. That's why routing changes to the
+// root URL never appeared for existing users — the SW kept serving the old
+// cached HTML of '/'. Removed; the app shell now caches only explicit paths.
 const APP_SHELL = [
-  '/',
   '/landing',
   '/offline.html',
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
