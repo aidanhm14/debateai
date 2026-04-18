@@ -1,4 +1,5 @@
 // Text-to-Speech proxy — ElevenLabs for premium users, OpenAI for free
+import { checkAppCheck } from './lib/appcheck.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -147,6 +148,14 @@ export default async (request, context) => {
     return new Response(
       JSON.stringify({ error: 'TTS not configured.' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } }
+    );
+  }
+
+  const appCheckResult = await checkAppCheck(request);
+  if (!appCheckResult.ok) {
+    return new Response(
+      JSON.stringify({ error: 'App verification failed. Reload the page and try again.', code: 'APP_CHECK_' + appCheckResult.reason.toUpperCase() }),
+      { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
     );
   }
 

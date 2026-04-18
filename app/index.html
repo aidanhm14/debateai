@@ -71,6 +71,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
+<script defer src="/js/app-check.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@1,700;1,900&family=Sora:wght@300;400;600;700;800&display=swap" rel="stylesheet"><link href="https://api.fontshare.com/v2/css?f[]=clash-display@200,300,400,500,600,700&display=swap" rel="stylesheet"><style>
 /* ── Theme Variables (matches landing.html exactly) ─────────────── */
@@ -12625,6 +12627,21 @@ function App() {
   const navigateTab = useCallback((newTab) => {
     if (newTab === tab) return;
     logBetaEvent('tab', { tab: newTab });
+    // Fire a synthetic GA4 page_view so each tab shows up as its own page in
+    // Realtime + Reports → Pages and screens. Without this, the SPA only
+    // counts the initial load and analytics looks empty per-tab.
+    try {
+      if (window.gtag) {
+        window.gtag('event', 'page_view', {
+          page_title: 'Devil\u2019s Advocate \u2014 ' + newTab,
+          page_location: window.location.origin + '/#' + newTab,
+          page_path: '/#' + newTab,
+          tab_id: newTab,
+          previous_tab: tab,
+          authenticated: !!user,
+        });
+      }
+    } catch(e) {}
     setTabTransition('tab-exit');
     setTimeout(() => {
       setTabHistory(prev => [...prev, tab]);
@@ -12632,7 +12649,7 @@ function App() {
       setTabTransition('tab-enter');
       setTimeout(() => setTabTransition(''), 350);
     }, 150);
-  }, [tab]);
+  }, [tab, user]);
   const goBack = useCallback(() => {
     if (tabHistory.length === 0) return;
     setTabTransition('tab-exit');

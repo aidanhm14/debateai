@@ -2,6 +2,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
+import { checkAppCheck } from './lib/appcheck.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -249,7 +250,15 @@ export default async (request, context) => {
     }
   } else {
     // Anonymous path — allow limited unauthenticated access for HS/debate-ai/learn pages.
-    // Layered rate limits (minute/hour/day) per client IP.
+    // App Check first (blocks scripted abuse from non-browser callers), then
+    // layered rate limits (minute/hour/day) per client IP.
+    const appCheckResult = await checkAppCheck(request);
+    if (!appCheckResult.ok) {
+      return new Response(
+        JSON.stringify({ error: 'App verification failed. Reload the page and try again.', code: 'APP_CHECK_' + appCheckResult.reason.toUpperCase() }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
     const check = await checkAnonLayers(ip);
     if (!check.ok) {

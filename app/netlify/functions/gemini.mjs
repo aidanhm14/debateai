@@ -1,5 +1,6 @@
 // Gemini (Google) proxy — streams SSE back in Gemini format
 import { applyPromptLibrary } from './lib/prompts.mjs';
+import { checkAppCheck } from './lib/appcheck.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -68,6 +69,14 @@ export default async (request, context) => {
     return new Response(
       JSON.stringify({ error: 'Gemini not configured. Add GEMINI_API_KEY to Netlify environment variables.' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } }
+    );
+  }
+
+  const appCheckResult = await checkAppCheck(request);
+  if (!appCheckResult.ok) {
+    return new Response(
+      JSON.stringify({ error: 'App verification failed. Reload the page and try again.', code: 'APP_CHECK_' + appCheckResult.reason.toUpperCase() }),
+      { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
     );
   }
 
