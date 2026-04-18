@@ -964,8 +964,40 @@ button{font-family:inherit;cursor:pointer}
   .landing-jumpnav a:hover{color:var(--text);background:rgba(255,255,255,.06)}
   .landing-jumpnav a.donate{color:var(--accent)}
   .landing-jumpnav a.donate:hover{background:rgba(239,68,68,.12)}
+  .landing-jumpnav{transition:opacity .25s ease, transform .25s ease}
+  /* Hidden state: fade + slide left + ignore pointer events so it doesn't
+     intercept clicks on the content underneath when invisible. */
+  .landing-jumpnav.is-hidden{opacity:0;transform:translate(-24px,-50%);pointer-events:none}
   @media(max-width:1100px){.landing-jumpnav{display:none}}
 </style>
+<script>
+  // Hide the landing side-nav when the user is scrolling DOWN (so it stops
+  // covering content like the Markets cards). Reappears as soon as they
+  // scroll up. Threshold of 120px keeps it visible over the hero where the
+  // nav is most useful.
+  (function(){
+    var nav = null;
+    var lastY = 0;
+    var ticking = false;
+    function onScroll(){
+      if (!nav) nav = document.querySelector('.landing-jumpnav');
+      if (!nav) return;
+      var y = window.scrollY || window.pageYOffset || 0;
+      if (y < 120) {
+        nav.classList.remove('is-hidden');
+      } else if (y > lastY + 4) {
+        nav.classList.add('is-hidden');
+      } else if (y < lastY - 4) {
+        nav.classList.remove('is-hidden');
+      }
+      lastY = y;
+      ticking = false;
+    }
+    window.addEventListener('scroll', function(){
+      if (!ticking) { requestAnimationFrame(onScroll); ticking = true; }
+    }, { passive: true });
+  })();
+</script>
 <nav class="landing-jumpnav" aria-label="Jump to section">
   <a href="#debate-ai">Debate AI</a>
   <a href="#how">How it works</a>
