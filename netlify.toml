@@ -1,5 +1,9 @@
 [build]
-  publish = "app"
+  # publish = "." (repo root) is the bullet-proof setup given the dual layout:
+  # root/index.html now contains the landing HTML directly, so Netlify serves
+  # landing at / whether the dashboard honors netlify.toml or not. The React
+  # app lives at /app/ and Netlify serves that subtree as-is.
+  publish = "."
   functions = "app/netlify/functions"
 
 [build.environment]
@@ -16,25 +20,23 @@
 # app/netlify.toml is no longer authoritative but kept in sync for safety.
 # ════════════════════════════════════════════════════════════════════
 
-# Marketing landing at root. React app at /app.
-[[redirects]]
-  from = "/"
-  to = "/landing.html"
-  status = 200
-
+# Marketing landing at root. React app lives under /app/.
+# With publish=".", root/index.html is served at / directly (it IS the
+# landing page content — copy of app/landing.html). No rewrite needed for /.
 [[redirects]]
   from = "/landing"
   to = "/landing.html"
   status = 200
 
+# /app (bare) and /app/anything both serve the React app at /app/index.html
 [[redirects]]
   from = "/app"
-  to = "/index.html"
+  to = "/app/index.html"
   status = 200
 
 [[redirects]]
-  from = "/app/*"
-  to = "/index.html"
+  from = "/app/"
+  to = "/app/index.html"
   status = 200
 
 # Icon 404 patches
