@@ -1,4 +1,7 @@
-const CACHE_NAME = 'debateos-v8';
+// Bumped to v9 to invalidate stale `/` cache from the root-routing swap:
+// before this, `/` cached the React app; now `/` serves landing.html. Users
+// with v8 would keep seeing the old cached root until the cache name changed.
+const CACHE_NAME = 'debateos-v9';
 
 const APP_SHELL = [
   '/',
