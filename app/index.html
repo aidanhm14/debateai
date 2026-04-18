@@ -12584,7 +12584,18 @@ function FlowRebuttal() {
 
 function App() {
   const [userApiKey, setUserApiKey] = useState(() => { try { return sessionStorage.getItem('debateos-byok') || '' } catch(e) { return '' } });
-  const [anonTrial, setAnonTrial] = useState(() => { try { return localStorage.getItem('debateos-anon-trial') === 'true' } catch(e) { return false } });
+  // Paywall delay: auto-grant anon trial on first visit so users don't hit
+  // the pricing/sign-in gate before they've felt the product. The existing
+  // 5-request anon cap still applies, so abuse stays bounded — this just
+  // moves the paywall from "zeroth second" to "after one debate's worth".
+  const [anonTrial, setAnonTrial] = useState(() => {
+    try {
+      if (!localStorage.getItem('debateos-anon-trial')) {
+        localStorage.setItem('debateos-anon-trial', 'true');
+      }
+      return localStorage.getItem('debateos-anon-trial') === 'true';
+    } catch(e) { return true; }
+  });
   const [theme, setTheme] = useState(() => { try { var t=localStorage.getItem('debateos-theme'); if(t==='crimson')t='dark'; return t||'grey' } catch(e) { return 'grey' } });
   const [devPro, setDevProState] = useState(isDevPro);
   const toggleDevPro = () => { const next = !devPro; setDevPro(next); setDevProState(next); };
@@ -13062,7 +13073,14 @@ function App() {
             title:'Saved cases',
             style:{cursor:'pointer',background:'none',border:'none'},
           }, 'Cases'),
-          React.createElement('a',{className:'topbar-pill',href:'/landing'},'Home'),
+          // Prominent link back to marketing landing — the main product face
+          // lives at / now, so "Home" should feel like a destination, not a
+          // dim utility link. Accent border + bold label.
+          React.createElement('a',{
+            className:'topbar-pill accent',
+            href:'/',
+            style:{fontWeight:800, letterSpacing:'.04em', background:'linear-gradient(135deg,#f59e0b18,#ef444418)', borderColor:'rgba(245,158,11,.4)', color:'#fbbf24'}
+          },'\u2190 Home'),
           React.createElement('a',{className:'topbar-pill',href:'/high-school'},'High School'),
           React.createElement('a',{className:'topbar-pill',href:'/debate-ai'},'Debate AI'),
           React.createElement('a',{className:'topbar-pill',href:'/learn'},'Learn'),
