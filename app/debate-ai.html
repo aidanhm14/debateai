@@ -846,7 +846,31 @@ const WEAKNESSES = {
 function buildTraitPrompt(selectedStrengths, selectedWeaknesses) {
   const sLabels = selectedStrengths.map(k => STRENGTHS[k]?.desc || k);
   const wLabels = selectedWeaknesses.map(k => WEAKNESSES[k]?.desc || k);
+  // "God mode" detection: every STRENGTHS key selected AND zero weaknesses.
+  // This is the tournament-champion preset — we escalate the prompt beyond
+  // a generic "you have these strengths" and instruct the model to drop the
+  // strategic-imperfection heuristic that normally leaves attack surface
+  // for the human opponent. God mode is explicitly unbeatable-grade.
+  const allStrengthKeys = Object.keys(STRENGTHS || {});
+  const isGodMode = allStrengthKeys.length > 0
+    && allStrengthKeys.every(k => selectedStrengths.includes(k))
+    && selectedWeaknesses.length === 0;
   let prompt = 'You are a skilled AI debater.';
+  if (isGodMode) {
+    prompt += ` GOD MODE — UNBEATABLE DEBATER:
+You are operating at world-champion level. Every dimension of the craft is maxed out: framework, rhetoric, aggression, philosophy, real-world grounding, strategy, impact calculus, and steelmanning. You have zero weaknesses. The user chose this preset because they want the hardest opponent the app can produce — give them that.
+
+Operating principles for God mode:
+- NO strategic imperfection. Do not leave honest attack surface. Every argument is airtight, every link chain complete, every warrant named and defended.
+- PRE-EMPT the three strongest responses your opponent could make on each argument. Run "even-if" statements so no reply lands.
+- ABSOLUTE weighing discipline. Every impact comes with magnitude, probability, timeframe, reversibility, comparative language, and an explicit "this matters more than their X because Y" ranking.
+- FRAMEWORK SUPREMACY. Set a decision rule in the first 30 seconds that your impacts win under. Make every clash route through your framework.
+- STEELMAN their best possible argument before refuting it, then beat the steelman. Shows the judge you understand the debate at a deep level.
+- CROSS-APPLY liberally. If they drop anything, weaponize it and explain why the drop is fatal to their ballot.
+- RHETORICAL PEAK. Use specific numbers, named historical cases, named mechanisms. Callbacks. One memorable line per speech. Close with a one-sentence ballot story.
+- Be gracious, not smug. A world champion is calm and precise — not trash-talking. The intimidation comes from being unshakeable, not from insults.`;
+    return prompt;
+  }
   if (sLabels.length) prompt += ' Your strengths: ' + sLabels.join('; ') + '.';
   if (wLabels.length) prompt += ' However, you have REAL weaknesses that make you beatable: ' + wLabels.join('; ') + '. These weaknesses should genuinely show up in your arguments — don\'t just mention them, actually exhibit them. A smart opponent should be able to exploit these gaps.';
   if (!sLabels.length && !wLabels.length) prompt += ' You are a well-rounded debater — competent at everything but not dominant at anything. Solid framework, decent examples, clear logic.';
@@ -999,13 +1023,18 @@ function remaining(){ return Math.max(0,LIMIT-getUsage()) }
 let __proStatus = false;
 function isPro(){ return __proStatus; }
 
-// Default trait presets for quick start
+// Default trait presets for quick start. "God" is the tournament-champion
+// preset — every strength on, zero weaknesses. Reserved for when a user
+// wants the hardest possible opponent (e.g. late-elim prep, stress-testing
+// their A-game). The other presets keep realistic weaknesses so practice
+// rounds have an attack surface for the user to exploit.
 const TRAIT_PRESETS = {
   random:    { label:'Random', strengths:[], weaknesses:[] },
   technical: { label:'Technical', strengths:['framework','strategy'], weaknesses:['noExamples','coldDelivery'] },
   orator:    { label:'Orator', strengths:['rhetoric','impact'], weaknesses:['shallow','weakLinks'] },
   aggressive:{ label:'Aggressive', strengths:['aggression','steelmanning'], weaknesses:['dropsCase','predictable'] },
   philosopher:{ label:'Philosopher', strengths:['philosophy','framework'], weaknesses:['abstract','noExamples'] },
+  god:       { label:'God (Unbeatable)', strengths:['framework','rhetoric','aggression','philosophy','realworld','strategy','impact','steelmanning'], weaknesses:[] },
 };
 
 // 3-judge panel — simulated deliberation after the round.
