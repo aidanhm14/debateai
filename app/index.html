@@ -293,25 +293,19 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .nav-btn:focus-visible{box-shadow:0 0 0 3px rgba(239,68,68,.45), 0 2px 10px rgba(0,0,0,.2)}
 .nav-btn-feature:focus-visible{box-shadow:0 0 0 3px rgba(245,158,11,.55), 0 6px 22px rgba(245,158,11,.35)!important}
 .nav-btn.active,.nav-btn.active-orange{color:#fff;background:var(--accent,#ef4444);border-color:var(--accent,#ef4444);box-shadow:0 6px 24px var(--accent-glow,rgba(239,68,68,.45))}
-/* Featured external tab (Debate AI). Distinct amber→red gradient so it reads
-   as "headline destination" without competing with the solid-red active pill.
-   Tight glow: wide blurs read as a squared-off haze around the pill at small
-   sizes, so the shadow stays close to the button body with low alpha. */
+/* Featured external tab (Debate AI). Gradient fill stays (reads as headline
+   destination) but no amber halo and no pulse — both were distracting.
+   Just a neutral dark drop-shadow for depth. */
 .nav-btn-feature{
   color:#fff!important;
   background:linear-gradient(135deg,#f59e0b,#ef4444)!important;
-  border-color:rgba(245,158,11,.55)!important;
-  box-shadow:0 3px 10px rgba(245,158,11,.22)!important;
+  border-color:rgba(245,158,11,.35)!important;
+  box-shadow:0 2px 6px rgba(0,0,0,.25)!important;
   position:relative;
-  animation:nav-feature-pulse 3.2s ease-in-out infinite;
 }
 .nav-btn-feature:hover{
-  transform:translateY(-1px) scale(1.02);
-  box-shadow:0 5px 14px rgba(245,158,11,.32)!important;
-}
-@keyframes nav-feature-pulse{
-  0%,100%{box-shadow:0 3px 10px rgba(245,158,11,.22)}
-  50%   {box-shadow:0 4px 14px rgba(245,158,11,.32)}
+  transform:translateY(-1px);
+  box-shadow:0 4px 10px rgba(0,0,0,.35)!important;
 }
 @media(prefers-reduced-motion:reduce){.nav-btn-feature{animation:none}}
 /* Theme-scoped overrides — without these the broader ".light-theme .nav-btn"
@@ -1349,6 +1343,14 @@ html{background:#111}html:has(body.light-theme){background:#f5f5f7!important}bod
 .light-theme .depth-card{background:#fff!important;border-color:#e7d6d0!important;color:#475569!important}
 .light-theme .depth-card:hover{border-color:#ef444460!important}
 .light-theme .depth-card.active{border-color:#dc2626!important;background:#fef2f2!important;color:#dc2626!important}
+/* Depth card CHILDREN had their own var(--text,#fff) color rules that
+   cascade past the .light-theme card-level override, leaving Quick/Standard
+   unreadable (white-on-white) in light mode. Force dark slate on text. */
+.light-theme .depth-card .depth-title{color:#1e293b!important}
+.light-theme .depth-card .depth-desc{color:#475569!important}
+.light-theme .depth-card .depth-words{color:#94a3b8!important}
+.light-theme .depth-card.active .depth-title{color:#dc2626!important}
+.light-theme .depth-card.active .depth-desc{color:#7f1d1d!important}
 .light-theme .res-card{background:#fff!important;border-color:#e7d6d0!important}
 .light-theme .res-card:hover{border-color:#ef444460!important}
 .light-theme .res-motion{color:#1a1a2e!important}
@@ -12554,21 +12556,22 @@ function LiveDebates({ user, team, onNavigateTab }) {
 
 // Always-visible primary tabs: 5 items — the core things anyone uses, regardless
 // of experience level. Kept tight so the nav row never overflows on standard screens.
-// Motions and Philosophy live in Competitive; they are debater-prep tools, not
-// jumping-off points for new users.
+// Philosophy promoted up from Competitive per Aidan — Debate Chat was replaced
+// because the college audience reaches for Philosophy as a frequent prep tool.
 const TABS_PRIMARY = [
   {id:'case',label:'Case Gen',i18n:'nav.caseGen'},
   {id:'battle',label:'Debate AI',i18n:'nav.battle',href:'/debate-ai'},
-  {id:'chat',label:'Debate Chat',i18n:'nav.debateChat'},
+  {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
   {id:'casual',label:'Casual',i18n:'nav.casual'},
   {id:'newbies',label:'Guide',i18n:'nav.guide'},
 ];
 // Competitive-only features in the dropdown: the tools that assume the user has
-// an actual tournament coming up or a prep routine (motions archive, philosophy
-// engine, topic research, judge analysis, mapping, team, analytics).
+// an actual tournament coming up or a prep routine (motions archive, chat,
+// topic research, judge analysis, mapping, team, analytics). Debate Chat
+// moved here from primary — still fully accessible, just not top-level.
 const TABS_COMPETITIVE = [
   {id:'res',label:'Motions',i18n:'nav.motions'},
-  {id:'phil',label:'Philosophy',i18n:'nav.philosophy'},
+  {id:'chat',label:'Debate Chat',i18n:'nav.debateChat'},
   {id:'topics',label:'Topics',i18n:'nav.topics'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
@@ -13281,6 +13284,17 @@ function App() {
           React.createElement('a',{className:'topbar-pill',href:'/high-school'},'High School'),
           React.createElement('a',{className:'topbar-pill',href:'/debate-ai'},'Debate AI'),
           React.createElement('a',{className:'topbar-pill',href:'/learn'},'Learn'),
+          // Donate — tucked alongside the other topbar links so the ask is
+          // visible without crowding the primary product CTAs. Opens in a new
+          // tab so users don't lose their place in the app.
+          React.createElement('a',{
+            className:'topbar-pill',
+            href:'https://buymeacoffee.com/8idanhm',
+            target:'_blank',
+            rel:'noopener noreferrer',
+            title:'Support DebateOS — it stays free because people chip in',
+            style:{color:'#fca5a5',borderColor:'rgba(239,68,68,.28)',background:'rgba(239,68,68,.08)',fontWeight:700},
+          },'Donate'),
           // Theme toggle
           React.createElement('span',{
             className:'topbar-pill',
