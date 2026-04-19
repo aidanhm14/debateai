@@ -162,6 +162,25 @@
       <div id="feedback-list"></div>
     </div>
   </div>
+
+  <!-- Email subscribers -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Email subscribers <span id="subs-count" class="meta" style="margin-left:6px"></span></span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="subs-search" type="search" placeholder="Filter by email…" style="padding:5px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none;min-width:180px" />
+          <button id="subs-export" style="padding:5px 12px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-size:12px">Export CSV</button>
+        </div>
+      </div>
+      <div id="subs-status" class="empty" style="display:none">Loading…</div>
+      <table id="subs-table" style="display:none">
+        <thead><tr><th>Email</th><th style="text-align:right">Signed up</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div id="subs-empty" class="empty" style="display:none">No signups yet.</div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -243,12 +262,88 @@
       render(cachedData);
       loading.hidden = true;
       appEl.hidden = false;
+      // Fire-and-forget: subscribers load independently so analytics render
+      // isn't blocked if the email_signups pull is slow.
+      loadSubscribers().catch(err => console.warn('subscribers:', err.message));
     } catch (e) {
       loading.hidden = true;
       appEl.hidden = false;
       errBox.innerHTML = '<div class="err-box">Failed to load: ' + (e.message || e) + '</div>';
     }
   }
+
+  // ─────────────────────────────────────────────────────────
+  // Email subscribers — lists the email_signups collection with
+  // client-side search + CSV export.
+  // ─────────────────────────────────────────────────────────
+  let allSubs = [];
+  async function loadSubscribers() {
+    const statusEl = $('subs-status');
+    const tableEl = $('subs-table');
+    const emptyEl = $('subs-empty');
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Loading…';
+    tableEl.style.display = 'none';
+    emptyEl.style.display = 'none';
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch('/api/admin/subscribers', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!r.ok) throw new Error('API ' + r.status);
+      const data = await r.json();
+      allSubs = data.subscribers || [];
+      $('subs-count').textContent = allSubs.length ? '· ' + allSubs.length : '· 0';
+      statusEl.style.display = 'none';
+      if (!allSubs.length) { emptyEl.style.display = 'block'; return; }
+      renderSubs(allSubs);
+    } catch (e) {
+      statusEl.textContent = 'Failed to load subscribers: ' + (e.message || e);
+    }
+  }
+
+  function renderSubs(list) {
+    const tableEl = $('subs-table');
+    const emptyEl = $('subs-empty');
+    const tbody = tableEl.querySelector('tbody');
+    if (!list.length) {
+      tableEl.style.display = 'none';
+      emptyEl.style.display = 'block';
+      emptyEl.textContent = allSubs.length ? 'No matches.' : 'No signups yet.';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    tableEl.style.display = '';
+    tbody.innerHTML = list.map(s => {
+      const when = s.createdAt
+        ? new Date(s.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        : '—';
+      return '<tr><td>' + escapeHtml(s.email) + '</td><td class="num">' + when + '</td></tr>';
+    }).join('');
+  }
+
+  // Live search filter
+  $('subs-search').addEventListener('input', (e) => {
+    const q = (e.target.value || '').trim().toLowerCase();
+    if (!q) return renderSubs(allSubs);
+    renderSubs(allSubs.filter(s => (s.email || '').toLowerCase().includes(q)));
+  });
+
+  // CSV export
+  $('subs-export').addEventListener('click', () => {
+    if (!allSubs.length) return;
+    const rows = [['email', 'created_at'], ...allSubs.map(s => [s.email || '', s.createdAt || ''])];
+    const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'email_signups_' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
 
   // ─────────────────────────────────────────────────────────
   // Render
