@@ -8683,6 +8683,65 @@ function FormatDiagrams() {
   );
 }
 
+// Interactive framework picker — replaces a giant text wall in the Philosophy
+// section of the Guide. 5 framework cards, click one to reveal its "when to
+// deploy" advice. Turns the list-y block into "pick the right lens" practice.
+function FrameworkPicker() {
+  const el = React.createElement;
+  const [pick, setPick] = useState(null);
+  const frameworks = [
+    { id:'util', name:'Utilitarian', emoji:'\u2696\uFE0F', tag:'Biggest aggregate impact wins',
+      body:"Your impacts are large, measurable, and affect many people. You have a clear causal mechanism. Works best for policy debates with concrete outcomes (health, jobs, emissions, deaths averted)." },
+    { id:'deon', name:'Deontological', emoji:'\u{1F6E1}\uFE0F', tag:'Some things are just wrong',
+      body:"Your case involves rights violations, dignity, or moral obligations. The other side's numbers don't matter if the action is inherently wrong. Works best for liberty, autonomy, and bodily-integrity debates." },
+    { id:'virt', name:'Virtue', emoji:'\u{1F3AD}', tag:'What kind of actor would do this?',
+      body:"Actor cases where you argue from the character's perspective. What does it mean to be excellent at this role? Works best for 'TH as X would...' motions — universities, institutions, historical figures." },
+    { id:'crit', name:'Critical', emoji:'\u{1F9E0}', tag:'The neutral isn\u2019t neutral',
+      body:"The motion involves systemic power, structural inequality, or challenging 'common sense.' Works best when the status quo appears neutral but actually benefits a specific group. Foucault, Gramsci, Butler." },
+    { id:'rawl', name:'Rawlsian', emoji:'\u{1F441}\uFE0F', tag:'Design behind the veil of ignorance',
+      body:"Any debate about fairness, distribution, or inequality. Ask: 'Would you design this system if you didn't know your place in it?' Devastating against policies that benefit the already-privileged." },
+  ];
+  const picked = frameworks.find(f => f.id === pick);
+  return el('div', { style:{margin:'12px 0 20px'} },
+    el('div', { style:{fontSize:'.78rem',color:'var(--text-dim,#94a3b8)',marginBottom:10} },
+      'Tap a lens to see when to deploy it \u2192'
+    ),
+    el('div', { style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:8,marginBottom:12} },
+      frameworks.map(f => el('button', {
+        key:f.id,
+        type:'button',
+        onClick:()=>setPick(p => p === f.id ? null : f.id),
+        style:{
+          cursor:'pointer',textAlign:'left',padding:'12px 14px',
+          background: pick===f.id ? 'rgba(239,68,68,.08)' : 'rgba(255,255,255,.02)',
+          border: '1px solid ' + (pick===f.id ? 'rgba(239,68,68,.6)' : 'rgba(255,255,255,.08)'),
+          borderRadius:12,color:'var(--text,#f1f5f9)',fontFamily:'inherit',
+          transition:'.15s',
+        },
+      },
+        el('div', { style:{fontSize:'1rem',marginBottom:4} }, f.emoji),
+        el('div', { style:{fontWeight:700,fontSize:'.88rem',color: pick===f.id ? '#ef4444' : 'var(--text,#f1f5f9)'} }, f.name),
+        el('div', { style:{fontSize:'.72rem',color:'var(--text-dim,#94a3b8)',marginTop:3,lineHeight:1.35} }, f.tag),
+      )),
+    ),
+    picked && el('div', {
+      style:{padding:'14px 16px',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.28)',borderRadius:12,fontSize:'.9rem',lineHeight:1.6,color:'var(--text,#f1f5f9)'},
+    },
+      el('div', { style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#ef4444',marginBottom:8} }, 'When to go ' + picked.name),
+      picked.body,
+    ),
+    !picked && el('div', {
+      style:{padding:'14px 16px',background:'rgba(255,255,255,.02)',border:'1px dashed rgba(255,255,255,.1)',borderRadius:12,fontSize:'.85rem',color:'var(--text-dim,#94a3b8)',textAlign:'center',fontStyle:'italic'},
+    }, 'Pick a framework above to see when it wins.'),
+    el('div', {
+      style:{marginTop:14,padding:'10px 14px',background:'rgba(245,158,11,.06)',border:'1px solid rgba(245,158,11,.22)',borderRadius:10,fontSize:'.8rem',lineHeight:1.5,color:'var(--text,#f1f5f9)'},
+    },
+      el('strong', { style:{color:'#f59e0b'} }, 'The meta-move: '),
+      "Don't just pick a framework \u2014 explain WHY this framework is the right one for THIS motion. The team that wins the framework debate usually wins the round.",
+    ),
+  );
+}
+
 function Newbies() {
   const [expanded, setExpanded] = useState({});
   const toggle = (key) => setExpanded(prev => ({...prev, [key]:!prev[key]}));
@@ -8921,19 +8980,8 @@ function Newbies() {
       el('p',{key:'ex-1'},"Sartre says we are 'condemned to be free.' There is no predetermined human nature; we create ourselves through choices. Bad faith is pretending we have no choice ('I had to do it'). Use this in actor cases to argue that an agent always has a choice and must own the consequences."),
       el('p',{key:'ex-2'},"Camus and absurdism: life has no inherent meaning, but we must live as if it does. The absurd hero acknowledges meaninglessness but revolts against it through action. Powerful in existential/philosophical motions about purpose, happiness, and what makes life worth living."),
       el('p',{key:'fw-title',style:{fontWeight:600,color:'#ef4444',fontSize:'1.05rem',marginTop:20}},"How to Win Framework Debates"),
-      el('div',{key:'fw-tips',className:'newbie-callout',style:{borderLeft:'3px solid #ef4444'}}, el('span',null,
-        el('strong',null,'When to go utilitarian: '), 'Your impacts are large, measurable, and affect many people. You have a clear causal mechanism. Works best for policy debates with concrete outcomes.',
-        el('br'),el('br'),
-        el('strong',null,'When to go deontological: '), "Your case involves rights violations, dignity, or moral obligations. The other side's numbers don't matter if the action is inherently wrong. Works best for liberty and autonomy debates.",
-        el('br'),el('br'),
-        el('strong',null,'When to go virtue ethics: '), "Actor cases where you need to argue from the character's perspective. What kind of person/institution would do this? Works best for 'TH as X would...' motions.",
-        el('br'),el('br'),
-        el('strong',null,'When to go critical: '), "The motion involves systemic power, structural inequality, or challenging 'common sense.' Works best when the status quo appears neutral but actually benefits certain groups.",
-        el('br'),el('br'),
-        el('strong',null,'When to go Rawlsian: '), "Any debate about fairness, distribution, or inequality. Ask: 'Would you design this system if you didn't know your place in it?' Devastating against policies that benefit the already-privileged.",
-        el('br'),el('br'),
-        el('strong',null,'The meta-move: '), "Don't just pick a framework. Explain WHY your framework is the right one for THIS debate. 'We should evaluate through a rights lens because when we're talking about bodily autonomy, counting up aggregate welfare misses the point.' The team that wins the framework debate usually wins the round.",
-      )),
+      // Interactive picker replaces the old giant text-wall callout.
+      el(FrameworkPicker, {key:'fw-picker'}),
     ]},
     { key:'tips', icon:'\u{1F680}', title:'Tips for Getting Started', render: () => [
       el('p',{key:0},"Read the news every day. Not just headlines. Understand WHY things are happening. Debate rewards people who can connect current events to structural arguments."),
