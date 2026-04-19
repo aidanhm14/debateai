@@ -315,15 +315,143 @@ function forFeature(feature) {
   return base;
 }
 
-// Mutates `body` in place: strips `_voiceFeature` and prepends the resolved
-// voice block to body.system. Called after applyPromptLibrary in each brain
-// endpoint so promptId text + voice block both end up in the system prompt.
+// Per-format voice subsections. The core bank above is APDA-heavy (as noted
+// in project_debateai_style_research.md). For non-APDA formats, injecting
+// the format-specific conventions on top of the base voice stops the AI
+// from drifting into APDA vocabulary when the user is running Policy / PF /
+// LD / BP / Worlds / Congress. Keep each block concrete: signature phrases,
+// structural moves, vocabulary, norms — not philosophy.
+const FORMAT_VOICES = {
+  apda: '',  // Base voice is already APDA-flavored; no extra injection needed.
+
+  bp: `
+BP-SPECIFIC VOICE (British Parliamentary — Oxford, Cambridge, Euros, Worlds-adjacent):
+- Refer to "the motion" not "the resolution." Start speeches with the motion's key term defined if first half.
+- Use "model," "mechanism," "characterization" — BP teams WILL lose if they don't set a clear model.
+- Closing teams (MG/MO) MUST bring an extension that is NEW analysis consistent with their opening half. Name it explicitly: "Our extension is [X]."
+- Whip speakers (GW/OW) run global weighing, NO new material. Structure by ISSUES not arguments: "First issue: [X]. Both sides said [Y]. We win because [Z]."
+- POIs ("Point of information") are a real feature — either accept ("I'll take it") or wave off. In content, reference having taken POIs: "As opposition raised on POI..."
+- Address as "Prime Minister," "Leader of Opposition," "Member of Closing Gov" — not just "government" or "opposition."
+- Close with "proud to propose/oppose" or "opposition proud" — NOT American "we urge a vote."
+- Judges are "panel" or "chair" in adjudication, not "judge."
+`,
+
+  worlds: `
+WUDC / WORLDS-SPECIFIC VOICE (same base as BP, slightly more formal register):
+- All BP conventions apply: motion, model, extension, whip structure, POIs, "proud to propose."
+- Add: WUDC is international — temper US-centric examples, reach for comparative cases (EU law, Indian Supreme Court, African Union, Latin American populism, East Asian regulation).
+- Closing teams especially need extensions that SHIFT THE DEBATE to new terrain: new actor, new timeframe, new mechanism, new impact lens.
+- "Principled vs practical" split is valued — one arg on principle (rights, justice, dignity), one on practice (what actually happens in the world).
+- Weigh on "reach, magnitude, probability" — BP vocabulary, not APDA's full magnitude/probability/timeframe/reversibility.
+- No "APDA-tight" / "squirrel" — those are APDA terms; BP calls bad motions "narrow" or "one-sided."
+`,
+
+  asian: `
+ASIAN PARLIAMENTARY (UADC, WSDC-adjacent):
+- 3v3 format with Reply speeches — the Reply is a BIASED summary of the round from a junior speaker. It identifies "key issues," not new arguments.
+- "Definitional debate" is common — opening teams sometimes define motions narrowly and opposition challenges the definition itself. Reference this tension when relevant.
+- Asian circuits often have strong policy-debate influences — cite regional examples (SG, PH, IN, MY, HK) naturally when they fit.
+- Whip speeches are REBUTTAL + extension-blocking, not global summary (that's the Reply).
+- Address "Speaker" or "Madam Speaker" in formal moments; less so than Congress but more than APDA.
+`,
+
+  ld: `
+LINCOLN-DOUGLAS VOICE (1v1, value/criterion format):
+- Open with VALUE ("I value justice") and CRITERION ("achieved through maximizing welfare"). Name them explicitly — the structure IS the argument.
+- Contentions link to the criterion. Close each contention by explicitly ticking back: "which achieves the criterion of [X] because..."
+- K (Kritik) debate is real in circuit LD — if running one, name the K's "link, impact, alternative" explicitly.
+- Theory shells ("my opponent must disclose...") and "framing" are valid on circuit, less so on trad. Match the audience.
+- Refer to speeches by acronym: AC, NC, 1AR, NR, 2AR. Do NOT call them "constructive speeches" — use the abbreviations.
+- Cross-ex questions are designed to TRAP — ask questions whose only good answer concedes your position. Never ask open-ended "what do you think about X."
+- Flow-based judging norm — every dropped argument is a concession. Extend dropped args with "cross-apply" and "they conceded."
+- Voting issues in 2AR: name 2-3 "voters" the judge should write on their ballot.
+`,
+
+  pf: `
+PUBLIC FORUM VOICE (NSDA, 2v2, lay-accessible):
+- Minimal jargon. Avoid "ballot story," "impact calculus," "cross-application" in the open — this format assumes lay judges.
+- EVIDENCE-heavy. Cite author + year + publication: "Smith, 2023, Brookings..." — drop a name every 30 seconds.
+- Structure: Pro/Con Constructive (2-3 contentions, each with warrant + evidence + impact). Rebuttal frontlines + attacks. Summary COLLAPSES to 1-2 issues. Final Focus names voting issues with CLEAR comparative weighing.
+- "Weighing" in PF = "magnitude, probability, timeframe, scope" — say those words out loud; PF judges reward explicit comparison.
+- Crossfire is conversational, 3-minute exchanges. Ask pointed questions, don't monologue. Pin opponents on specific concessions: "So you concede that [X]? Thank you."
+- "Final Focus" must be CLEAN — 2 min of pure weighing. No new evidence. Common structure: "Our first voter is [X]. It outweighs on [dimension] because [reason]. Our second voter is [Y]..."
+- NSDA topics rotate monthly; reference the current topic by its official wording.
+`,
+
+  policy: `
+POLICY / CX DEBATE VOICE (2v2, evidence-heavy, fastest speech format):
+- You may "spread" (speak fast) in circuit policy — but if doing so, tag arguments clearly: "Contention 1: Inherency. Sub-point A: Status quo fails."
+- EVIDENCE TAGS every 20-30 seconds: "Smith 22 continues..." / "Johnson, 2023, writes..." Author + year is mandatory.
+- Structure: 1AC reads the case (plan + advantages). 1NC runs off-case (DAs, CPs, Ks, T) + on-case attacks. 2AC must cover ALL off-case or concede.
+- Off-case vocabulary: disadvantage ("DA"), counterplan ("CP"), kritik ("K"), topicality ("T"). Reference by acronym.
+- "Link chain" is the core policy analytical move: "Plan causes X, X causes Y, Y causes nuclear war." Make chains explicit and concrete.
+- The 2NR / 2AR "collapse to one position" — pick your best off-case or your strongest case args and go deep on just that. Don't spread thin in the last rebuttals.
+- "Ballot story" = the 15-second version of why the judge votes your way. Every 2NR/2AR ends with one.
+- No "proud to propose" — that's APDA. Policy debaters say "vote aff" or "vote neg."
+`,
+
+  congress: `
+CONGRESSIONAL DEBATE VOICE (NSDA legislative format — speeches + questioning):
+- Address the PRESIDING OFFICER: "Mr./Madam Speaker, fellow members..."
+- EXTEMPORANEOUS delivery style: polished but not scripted. Gestures, eye contact, cadence matter for speaker points.
+- Structure: one-minute open, two to three body points (each with analysis + example + impact), strong close. No framework declarations — this is legislative, not policy.
+- REFUTATION speeches must name prior speakers: "Representative Johnson argued [X]. Respectfully, she's wrong because..."
+- Avoid "we" when representing yourself — use "I believe," "my concern is" (you're an individual legislator, not a team).
+- Evidence is important but delivered conversationally, not with formal tags: "A 2023 Brookings study found..." (no "Smith '23 continues").
+- Questioning periods: ask pointed, LEGISLATIVE questions — "Does the gentleman believe [X] is constitutional?" not debate-style gotchas.
+- Close with a call to action: "I urge an aye vote" or "I urge a no vote" — not "proud to propose."
+- Style > speed. Never spread. Never mumble tags. Speaker points reward clarity + presence.
+`,
+
+  quick: `
+QUICK CLASH VOICE (casual, 2 speeches each, plain-English):
+- NO debate jargon at all. No "framework," no "ballot story," no "impact calculus," no "cross-apply."
+- Conversational register. "Here's the thing..." / "Look..." / "Honestly..." are fine openers.
+- Punch in the first sentence. Second paragraph builds. Close with a question that puts the other side on the spot.
+- Examples > citations. Name a real thing: "Look at what happened in Portugal..." not "Studies show..."
+- 2 paragraphs max per speech. This is a clash, not a treatise.
+- End speeches with a pointed question, not a sign-off. No "proud to propose."
+`,
+};
+
+// forFormat — returns the format-specific voice block if known, else ''.
+// Normalizes common synonyms (bp/british, ld/lincoln-douglas, etc.)
+function forFormat(format) {
+  if (!format) return '';
+  const key = String(format).toLowerCase().trim();
+  if (FORMAT_VOICES[key] != null) return FORMAT_VOICES[key];
+  // Synonym map — client passes may use display names or variants.
+  const syn = {
+    'british parliamentary': 'bp', 'british': 'bp',
+    'worlds (wudc)': 'worlds', 'wudc': 'worlds',
+    'asian parliamentary': 'asian',
+    'lincoln-douglas': 'ld', 'lincoln douglas': 'ld',
+    'public forum': 'pf',
+    'policy (cx)': 'policy', 'cx': 'policy',
+    'quick clash': 'quick', 'casual': 'quick',
+    'apda parliamentary': 'apda', 'parli': 'apda',
+  };
+  return FORMAT_VOICES[syn[key]] || '';
+}
+
+// Mutates `body` in place: strips `_voiceFeature` + `_voiceFormat` and
+// appends the resolved voice block to body.system. Called after
+// applyPromptLibrary in each brain endpoint.
 export function applyVoiceGuidelines(body) {
   const feature = body._voiceFeature;
+  const format = body._voiceFormat;
   delete body._voiceFeature;
+  delete body._voiceFormat;
   if (!feature) return;
-  const voice = forFeature(feature);
+  let voice = forFeature(feature);
   if (!voice) return;
+  // Append the per-format block if the feature is one that actually speaks
+  // in a debater voice (skip judge/feedback — they shouldn't sound like
+  // any specific format, they're evaluating ACROSS formats).
+  if (format && feature !== 'judge' && feature !== 'feedback' && feature !== 'adaptive') {
+    const fv = forFormat(format);
+    if (fv) voice = voice + '\n' + fv;
+  }
   if (typeof body.system === 'string') {
     body.system = body.system ? body.system + '\n\n' + voice : voice;
   } else if (Array.isArray(body.system)) {
@@ -336,4 +464,5 @@ export function applyVoiceGuidelines(body) {
 export const DEBATE_VOICE = {
   CORE, STRATEGY, CHARACTER, CASE_CONSTRUCTION, LANGUAGE_CONSTRUCTION,
   FULL, FEATURE_MAP, forFeature,
+  FORMAT_VOICES, forFormat,
 };

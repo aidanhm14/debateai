@@ -1077,6 +1077,11 @@ async function callAI(sys, user, onChunk, brainKey, opts){
   // via opts.voiceFeature — e.g. "judge" for RFD calls, "feedback" to skip
   // debater voice entirely.
   const voiceFeature = (opts && opts.voiceFeature) || 'bot';
+  // Voice format — piped through to the server so the per-format voice
+  // block (FORMAT_VOICES in voice-guidelines.mjs) gets appended. APDA users
+  // see APDA conventions; Policy users see spreading + evidence tags; etc.
+  // Callers (buildPrompt sites inside RoundApp) pass opts.voiceFormat = format.
+  const voiceFormat = opts && opts.voiceFormat;
   const body={
     model: model,
     max_tokens:16000,
@@ -1086,6 +1091,7 @@ async function callAI(sys, user, onChunk, brainKey, opts){
     _feature:'debate-ai',
     _voiceFeature: voiceFeature,
   };
+  if (voiceFormat) body._voiceFormat = voiceFormat;
   // Server-side prompt library: opts.promptId references PROMPT_LIBRARY[key]
   // in netlify/functions/lib/prompts.mjs; opts.promptVars supplies {{var}}
   // substitutions so the static prompt lives server-side.
@@ -2518,14 +2524,17 @@ function App(){
           }
         };
 
-        // Generate argument text — chunks fire TTS and start playing mid-stream
+        // Generate argument text — chunks fire TTS and start playing mid-stream.
+        // Pass voiceFormat so server appends the format-specific voice block
+        // (Policy spreads + evidence tags, PF lay-accessible, LD value/criterion,
+        // BP whip structure, Congress "Mr. Speaker," etc).
         const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           const clean=stripPlan(chunk);
           setAiText(clean);
           const words=clean.split(/\s+/).length;
           setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
           tryChunk(clean,false);
-        },brain);
+        },brain,{voiceFormat:format});
         const txt=stripPlan(rawTxt);
         setAiText(txt);setAiPct(100);
         // Final chunk: anything remaining
