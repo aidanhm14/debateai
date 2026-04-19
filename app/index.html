@@ -13709,11 +13709,21 @@ function App() {
         ),
         // Right: streak + usage + saved-cases toggle + clean nav links + user
         React.createElement('div',{className:'app-topbar-right'},
-          streakCount > 0 && React.createElement('span',{
+          // Streak pill: only surface once the streak is MEANINGFUL. A 1-day
+          // streak is just "you used the app today" and reads as a lie ("look
+          // at my streak!"). Require 2+ consecutive days before displaying.
+          // getStreak() handles the streak-broken case (returns 0 if last
+          // active was >1 day ago), so this also guarantees we never show a
+          // stale streak from earlier in the week.
+          streakCount >= 2 && React.createElement('span',{
             className:'topbar-pill',
             title:streakCount+'-day prep streak',
             style:{background:'rgba(239,68,68,.12)',borderColor:'rgba(239,68,68,.3)',color:'#fca5a5',fontWeight:700,padding:'4px 10px'},
           }, streakCount+'-day streak'),
+          // Free-requests pill: clamp the displayed "used" at the limit so we
+          // never show "20/5" for users with stale localStorage from before
+          // the cap change. Actual enforcement happens server-side + via the
+          // error throw in callAnyAI/callClaude; this is just the display.
           !user && anonUsed >= 0 && React.createElement('span',{
             className:'topbar-pill',
             title:'Free requests used',
