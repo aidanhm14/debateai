@@ -19,7 +19,7 @@ const MAX_TOKENS_CAP = 32000;
 const MAX_TOKENS_CAP_ANON = 8000;
 
 const PRODUCTION_ORIGINS = [
-  'https://debateos1.netlify.app',
+  'https://devilsadvocate1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
   'https://debatethedevil.com',
