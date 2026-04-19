@@ -24,17 +24,15 @@
 # With publish=".", root/index.html is served at / directly (it IS the
 # landing page content — copy of app/landing.html).
 #
-# Belt-and-suspenders: even though root/index.html IS landing content,
-# we still declare an explicit "/" → "/landing.html" redirect so that if
-# Netlify's publish dir ever gets reconfigured (via dashboard overrides
-# that ignore netlify.toml), a root visit still lands on marketing rather
-# than bootstrapping into the React app. Use force=true so this rule wins
-# against any shadow file at `/` that might otherwise be served directly.
+# `/` MUST serve the marketing landing, not the React app. Netlify picks
+# an existing file at `/` before falling through to redirects, so when
+# publish dir is `/app/` the default behavior is to serve `/app/index.html`
+# (the React bundle). force=true makes this rewrite win unconditionally.
 [[redirects]]
   from = "/"
   to = "/landing.html"
   status = 200
-  force = false
+  force = true
 
 [[redirects]]
   from = "/landing"
