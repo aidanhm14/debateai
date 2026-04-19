@@ -1323,27 +1323,38 @@ function useTTS(){
   const[paused,setPaused]=useState(false);
   const[streamStatus,setStreamStatus]=useState('');
   const audioRef=useRef(null);
-  const cancelledRef=useRef(false);
+  // Per-invocation token. Each playChunks/speak call creates a fresh token;
+  // the old loop captures its token by closure and exits on its OWN token flip,
+  // so a new invocation can't accidentally resurrect an old in-flight fetch by
+  // flipping a shared cancelled flag back to false.
+  const tokenRef=useRef(null);
   const pausedRef=useRef(false);
   const onEndRef=useRef(null);
   const modeRef=useRef('none');
   const rateRef=useRef(1.0);
   const progressRef=useRef({elapsed:0,total:0});
 
+  // Cancel any active invocation. Safe to call repeatedly; idempotent.
+  const cancelActive=()=>{
+    if(tokenRef.current){tokenRef.current.cancelled=true;tokenRef.current=null}
+    if(audioRef.current){try{audioRef.current.pause()}catch(e){}try{audioRef.current.src=''}catch(e){}audioRef.current=null}
+    if(window.speechSynthesis)window.speechSynthesis.cancel();
+  };
+
   // Gate that resolves when not paused — used to hold chunk loops between chunks
-  const waitIfPaused=()=>new Promise(resolve=>{
-    if(!pausedRef.current||cancelledRef.current) return resolve();
+  const waitIfPaused=(token)=>new Promise(resolve=>{
+    if(!pausedRef.current||token.cancelled) return resolve();
     const check=()=>{
-      if(!pausedRef.current||cancelledRef.current) resolve();
+      if(!pausedRef.current||token.cancelled) resolve();
       else setTimeout(check,100);
     };
     check();
   });
 
   // Play a single audio blob — returns promise that resolves when done
-  const playBlob=(blob)=>{
+  const playBlob=(blob,token)=>{
     return new Promise((resolve,reject)=>{
-      if(cancelledRef.current) return resolve();
+      if(token.cancelled) return resolve();
       const url=URL.createObjectURL(blob);
       const audio=new Audio(url);
       audioRef.current=audio;
@@ -1374,7 +1385,7 @@ function useTTS(){
   };
 
   // Browser fallback
-  const speakBrowser=(text,rate)=>new Promise(resolve=>{
+  const speakBrowser=(text,rate,token)=>new Promise(resolve=>{
     if(!window.speechSynthesis){resolve();return}
     window.speechSynthesis.cancel();
     const chunks=text.match(/[^.!?]+[.!?]+[\s]*/g)||[text];
@@ -1388,7 +1399,7 @@ function useTTS(){
     const v=_voices.find(v=>/Samantha|Google US English|Aaron/.test(v.name))||_voices.find(v=>v.lang?.startsWith('en'))||null;
     let i=0;
     const next=()=>{
-      if(cancelledRef.current||i>=groups.length){resolve();return}
+      if(token.cancelled||i>=groups.length){resolve();return}
       const u=new SpeechSynthesisUtterance(groups[i]);
       u.rate=rate;u.pitch=1;u.volume=1;if(v)u.voice=v;
       u.onend=()=>{i++;next()};u.onerror=()=>{i++;next()};
@@ -1401,7 +1412,12 @@ function useTTS(){
 
   // ── playChunks: play an array of blob promises sequentially, starting ASAP ──
   const playChunks=(blobPromises,onEnd,onStart)=>{
-    cancelledRef.current=false;pausedRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
+    // Cancel any prior invocation first — prevents old in-flight fetches from
+    // resolving into a new audio element that overlaps this one.
+    cancelActive();
+    const token={cancelled:false};
+    tokenRef.current=token;
+    pausedRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
     modeRef.current='openai';onEndRef.current=onEnd;
     progressRef.current={elapsed:0,total:0};
     const durations=[];
@@ -1410,18 +1426,21 @@ function useTTS(){
     const next=async()=>{
       // Check if done — array may still be growing, so check a "done" flag
       while(i<blobPromises.length){
-        if(cancelledRef.current) break;
-        await waitIfPaused();
-        if(cancelledRef.current) break;
+        if(token.cancelled) break;
+        await waitIfPaused(token);
+        if(token.cancelled) break;
         setStreamStatus(`Playing ${i+1}/${blobPromises.length}`);
         try{
           const blob=await blobPromises[i];
-          if(cancelledRef.current) break;
-          await waitIfPaused();
-          if(cancelledRef.current) break;
+          if(token.cancelled) break;
+          await waitIfPaused(token);
+          if(token.cancelled) break;
           if(!blob||blob.size<500){durations[i]=0;i++;continue}
           const url=URL.createObjectURL(blob);
           const audio=new Audio(url);
+          // Guard: only claim the active audio slot if we're still the active
+          // token. Prevents a stale loop from hijacking audioRef mid-stream.
+          if(tokenRef.current!==token){URL.revokeObjectURL(url);break}
           audioRef.current=audio;
           audio.playbackRate=rateRef.current;
           const ci=i;
@@ -1443,14 +1462,15 @@ function useTTS(){
         i++;
       }
       // Wait briefly in case more chunks arrive
-      if(!cancelledRef.current&&!blobPromises._done){
+      if(!token.cancelled&&!blobPromises._done){
         setTimeout(()=>{
+          if(token.cancelled) return;
           if(blobPromises.length>i) next();
           else{setSpeaking(false);setStreamStatus('');if(onEndRef.current)onEndRef.current()}
         },500);
         return;
       }
-      if(!cancelledRef.current){setSpeaking(false);setStreamStatus('');if(onEndRef.current)onEndRef.current()}
+      if(!token.cancelled){setSpeaking(false);setStreamStatus('');if(onEndRef.current)onEndRef.current()}
     };
     next();
   };
@@ -1471,10 +1491,8 @@ function useTTS(){
   };
 
   const stop=()=>{
-    cancelledRef.current=true;
+    cancelActive();
     pausedRef.current=false;
-    if(audioRef.current){try{audioRef.current.pause()}catch(e){}audioRef.current=null}
-    if(window.speechSynthesis)window.speechSynthesis.cancel();
     setSpeaking(false);setPaused(false);setStreamStatus('');modeRef.current='none';
   };
 
@@ -1493,8 +1511,11 @@ function useTTS(){
 
   // Wrap speak to surface errors
   const speakWithError=(text,wpm=180,onEnd,voiceName='onyx',onStart)=>{
+    cancelActive();
     setTtsError('');
-    cancelledRef.current=false;pausedRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
+    const token={cancelled:false};
+    tokenRef.current=token;
+    pausedRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
     onEndRef.current=onEnd;
     progressRef.current={elapsed:0,total:0};
     const speed=Math.max(0.75,Math.min(2.0,wpm/140));
@@ -1502,9 +1523,10 @@ function useTTS(){
       try{
         modeRef.current='openai';
         const blob=await fetchTTS(text,speed,voiceName);
-        if(cancelledRef.current) return;
+        if(token.cancelled) return;
         if(onStart) onStart();
         const audio=new Audio(URL.createObjectURL(blob));
+        if(tokenRef.current!==token) return;
         audioRef.current=audio;
         audio.playbackRate=rateRef.current;
         audio.ontimeupdate=()=>{
@@ -1518,13 +1540,13 @@ function useTTS(){
       }catch(e){
         console.warn('[TTS] Failed:',e.message,'— browser fallback');
         setTtsError('HD voice failed ('+e.message+'). Using browser voice.');
-        if(!cancelledRef.current){
+        if(!token.cancelled){
           modeRef.current='browser';
           if(onStart) onStart();
-          await speakBrowser(text,Math.max(0.5,Math.min(2.5,wpm/140)));
+          await speakBrowser(text,Math.max(0.5,Math.min(2.5,wpm/140)),token);
         }
       }
-      if(!cancelledRef.current){setSpeaking(false);setStreamStatus('');setTtsError('');if(onEndRef.current)onEndRef.current()}
+      if(!token.cancelled){setSpeaking(false);setStreamStatus('');setTtsError('');if(onEndRef.current)onEndRef.current()}
     })();
   };
 
@@ -1876,6 +1898,17 @@ Every argument ultimately needs an IMPACT — what happens in the real world if 
 4. REVERSIBILITY: Can the damage be undone? "If we're wrong, you adjust the policy. If they're wrong, people are dead. Irreversible harms demand precaution."
 You MUST do at least one explicit impact comparison per speech: "Even if their impact is real, ours outweighs on [dimension] because [reason]."
 Don't just LIST your impacts — COMPARE them directly to theirs. The side that frames the comparison wins.
+
+WHY-IT-MATTERS DISCIPLINE — say the quiet part out loud:
+Every impact you name must be immediately followed by an explicit significance claim. The judge should never have to guess why a number or outcome matters. Use these exact templates at least THREE times across the speech:
+- "...and this matters because [stakes statement — name the people affected, the system at risk, or the principle violated]."
+- "...and this matters because if [mechanism] goes unchecked, [downstream harm that the judge can picture]."
+Whenever you touch an opposing impact, do COMPARATIVE weighing using one of these templates at least TWICE per speech (once in constructive, more in rebuttal):
+- "This matters more than their impact of [name their impact in one phrase] because [dimension: magnitude / probability / timeframe / reversibility / irreversibility / scope / structural vs. marginal], and specifically [the concrete reason their impact is smaller, later, less likely, or recoverable]."
+- "Weigh this against their [impact name]: ours is [bigger / sooner / more certain / irreversible] because [mechanism], and theirs only matters if [list their contingent steps]. That asymmetry is the ballot."
+- "Even granting their [impact name] in full, it still loses to ours because [specific dimension-based reason]."
+Phrases that FAIL this rule and that you MUST NOT use as a substitute: "this is significant," "this is important," "this is huge," "at the end of the day," "the impact is real," "this is why we win." These assert significance without naming it. Replace every instance with the template above.
+Weigh against the OPPONENT'S ACTUAL impacts by name — not a strawman. If the opponent hasn't landed a clear impact yet (first constructive), still weigh against the OBVIOUS opposing impact the judge is imagining ("the other side will say [X]; even if they do, this matters more because [Y]").
 
 EXAMPLES ARE MANDATORY:
 - Every speech must include at least ONE concrete real-world example — a specific country, policy, historical event, company, or case study that illustrates your mechanism.

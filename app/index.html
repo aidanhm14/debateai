@@ -295,7 +295,15 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 
 /* ── Nav Tabs ─────────────────────────────────── */
 /* Floating tab islands */
-.nav{display:flex;gap:16px;margin:16px auto 72px;padding:4px 32px;flex-wrap:nowrap;justify-content:center;align-items:center;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:none!important;box-shadow:none!important;max-width:100%;width:100%;position:sticky;top:52px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+/* NOTE: vertical padding (30px) is load-bearing. `overflow-x:auto` forces
+   the browser to clamp overflow-y from "visible" → "auto", which clips any
+   child shadow/glow that extends outside the box. The active pill's glow
+   is 0 6px 24px rgba(239,68,68,.45) — that's 6px offset + 24px blur, so
+   the shadow extends ~30px below and 24px above the pill. We give 30px
+   top/bottom so the halo reads as a full circular glow, not a hard-cut
+   rectangle. Don't drop this below 30px without also shrinking the pill's
+   box-shadow spread. */
+.nav{display:flex;gap:16px;margin:16px auto 72px;padding:30px 32px;flex-wrap:nowrap;justify-content:center;align-items:center;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:none!important;box-shadow:none!important;max-width:100%;width:100%;position:sticky;top:52px;z-index:999;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
 /* Mobile: when the tab row horizontally scrolls (which it does on phones
    where all the pills can't fit), show a subtle right-edge fade so users
@@ -303,10 +311,10 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
    doesn't work inside a scroll container, so we use a sibling that
    position:fixed covers the right edge of the viewport at the nav's top. */
 @media (max-width:900px){
-  .nav{justify-content:flex-start;padding:4px 16px}
+  .nav{justify-content:flex-start;padding:28px 16px}
   .nav::after{content:'';position:sticky;right:0;display:block;flex-shrink:0;width:24px;height:42px;margin-left:-24px;background:linear-gradient(90deg,transparent 0%,var(--bg,#111) 80%);pointer-events:none}
 }
-@media(max-width:640px){.nav{top:48px;padding:12px 14px 10px;gap:8px;justify-content:flex-start}}
+@media(max-width:640px){.nav{top:48px;padding:24px 14px;gap:8px;justify-content:flex-start}}
 .nav-btn{
   background:rgba(20,20,24,.55);border:1px solid rgba(255,255,255,.1);color:var(--text-dim,rgba(255,255,255,.7));
   padding:13px 26px;border-radius:999px;font-size:.88rem;font-weight:700;
@@ -1243,7 +1251,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
   .panel{width:96%;padding:28px 24px}
 }
 @media(max-width:768px){
-  .nav{gap:8px;padding:8px 12px;max-width:100%;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;-webkit-overflow-scrolling:touch;scrollbar-width:none;mask-image:linear-gradient(to right,transparent 0,#000 8px,#000 calc(100% - 20px),transparent 100%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 8px,#000 calc(100% - 20px),transparent 100%)}
+  .nav{gap:8px;padding:26px 12px;max-width:100%;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;-webkit-overflow-scrolling:touch;scrollbar-width:none;mask-image:linear-gradient(to right,transparent 0,#000 8px,#000 calc(100% - 20px),transparent 100%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 8px,#000 calc(100% - 20px),transparent 100%)}
   .nav::-webkit-scrollbar{display:none}
   .nav-btn{flex-shrink:0;padding:10px 18px;font-size:.8rem}
 }
@@ -1660,6 +1668,59 @@ body.crimson-theme{background:#151518!important;color:#f5f0f0!important}
 .crimson-theme .neural-bg-canvas{opacity:.8}
 .light-theme .neural-bg-canvas{opacity:.35}
 /* ===== END DARK THEME ===== */
+
+/* ═══════════════════════════════════════════════════
+   PERFORMANCE — reduce stutter on mid-tier devices.
+   ───────────────────────────────────────────────────
+   The app accumulated ~28 backdrop-filter:blur() declarations, each of
+   which forces a new compositor layer and a full per-frame offscreen
+   repaint. On phones this reads as scroll stutter and delayed paint
+   on tab switches. We do three things here:
+
+   1. GPU-promote elements that ACTUALLY animate (nav pills on hover,
+      orb rings, the animated logo) via `will-change: transform`. This
+      lets the browser keep them on a separate layer instead of
+      invalidating the parent surface every frame.
+   2. Skip layout and paint for off-screen panels with
+      `content-visibility: auto`. Each hidden tab-pane (9+ of them) was
+      being fully laid out on every viewport resize / theme flip. This
+      cuts that work to ~zero for anything not scrolled into view.
+   3. Downgrade `backdrop-filter: blur(≥16px)` on phones to blur(0) or
+      a much cheaper `saturate()`. The visual loss is negligible at
+      small sizes; the perf gain is real.
+
+   Plus a prefers-reduced-motion block for users who opt out of motion
+   in their OS settings — kills the feature pulse, logo entrance, etc.
+   ═══════════════════════════════════════════════════ */
+.nav-btn,.nav-btn-feature,.orb-glow,.orb-ring,.cta,.topbar-pill{will-change:transform}
+.tab-pane{content-visibility:auto;contain-intrinsic-size:600px}
+@media (max-width:768px){
+  /* Heavy blurs murder scroll perf on phones — drop to saturate() or 0. */
+  .panel,.panel-inner,.depth-card,.guide-overlay,.feedback-modal-overlay,.auth-overlay,.hamburger-overlay,.nav-other-dropdown{
+    backdrop-filter:saturate(1.1)!important;
+    -webkit-backdrop-filter:saturate(1.1)!important;
+  }
+  /* .apda-toggle, .argmap-node: read-only polish, not worth the blur cost. */
+  .apda-toggle,.argmap-node{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  /* Light/crimson input overrides used blur(16px) — chunky on mobile. */
+  .light-theme textarea,.light-theme input,.light-theme select,
+  .crimson-theme textarea,.crimson-theme input,.crimson-theme select,
+  .light-theme .practice-textarea,
+  .light-theme .panel input,.light-theme .panel textarea,.light-theme .panel select,
+  .crimson-theme .prep-room-grid input,.crimson-theme .prep-room-grid textarea{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    scroll-behavior:auto!important;
+  }
+  .orb-ring.pulse,.nav-btn-feature{animation:none!important}
+}
 </style>
 <script data-goatcounter="https://aidanhm31.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 <script>
@@ -3452,9 +3513,13 @@ const ANON_BASE_LIMIT = 5;
 // Giving feedback unlocks UNLIMITED — matches the "unlock unlimited" copy in the beta strip
 function hasGivenFeedback() { try { return localStorage.getItem('debateos-feedback-given') === '1'; } catch { return false; } }
 function markFeedbackGiven() { try { localStorage.setItem('debateos-feedback-given', '1'); } catch {} }
-// FREE TRIAL: unlimited for everyone. We still track usage + feedback for
-// the funnel, but during growth we're not gating requests behind a cap.
-function getAnonLimit() { return Number.POSITIVE_INFINITY; }
+// FREE TIER: 5 total requests across the app before the $5/mo Individual
+// plan (or $1/mo BYOK) is required. This counter is localStorage-based and
+// therefore bypassable by a motivated user — the server-side per-account
+// cap in `canUseProFeature` is the hard limit. This client counter exists
+// to show the user an honest "X/5 free" pill and to trigger the paywall
+// at the expected boundary.
+function getAnonLimit() { return 5; }
 // Back-compat alias — existing code references ANON_LIMIT.
 // Must be `configurable: true` because Babel re-evaluates this script and
 // would otherwise throw "Cannot redefine property" on the second pass,
@@ -3492,6 +3557,13 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
 
   // Enforce usage limits (same as callClaude)
   const _isAnon = !__getAuthToken;
+  // BYOK-crossover detection: if the user has a BYOK key (Anthropic) set
+  // but is asking for a non-Claude brain (GPT / Gemini / Grok), their BYOK
+  // bypass does NOT apply — the call will route through our server and
+  // count against the plan cap. Warn them up front with a specific error
+  // rather than a generic "out of requests."
+  const hasBYOK = !!(__byokKey && __byokKey.startsWith('sk-ant-'));
+  const isCrossProvider = hasBYOK && brainKey !== 'claude';
   if (_isAnon) {
     const used = getAnonUsage();
     if (used >= getAnonLimit()) {
@@ -3499,12 +3571,20 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
         try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); markFeedbackGiven(); } catch(e) {}
         throw new Error('You\'ve used your 5 free requests. We just opened our quick feedback form. Fill it out and you\'ll unlock UNLIMITED requests (refresh after).');
       }
-      throw new Error('You\'ve used all your free requests. Add your own API key (BYOK) for unlimited, or sign in for a plan.');
+      if (isCrossProvider) {
+        throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude for unlimited, or upgrade to Individual ($5/mo) to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 4 brains.');
+      }
+      throw new Error('You\'ve hit the 5-request free limit. Upgrade to Individual ($5/mo for 250 requests) or BYOK ($1/mo, unlimited Claude with your own API key).');
     }
   } else if (__currentTeam) {
     const teamUsed = __currentTeam.usageThisPeriod || 0;
     const teamLimit = __currentTeam.usageLimit || 5;
-    if (teamUsed >= teamLimit) throw new Error('You\'ve hit your plan limit (' + teamLimit + ' requests/month). Upgrade your plan for more.');
+    if (teamUsed >= teamLimit) {
+      if (isCrossProvider && __currentTeam.plan === 'byok') {
+        throw new Error('Your BYOK plan covers Claude only (unlimited with your key). ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' runs through our server and you\u2019ve hit the ' + teamLimit + '-request cap. Switch to Claude, or upgrade to Individual ($5/mo) for all 4 brains.');
+      }
+      throw new Error('You\'ve hit your plan limit (' + teamLimit + ' requests/month). Upgrade your plan for more.');
+    }
   }
   logBetaEvent('generate', { feature: opts.feature || 'case', brain: brainKey });
 
@@ -3603,7 +3683,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
         try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); markFeedbackGiven(); } catch(e) {}
         throw new Error('You\'ve used your 5 free requests. We just opened our quick feedback form. Fill it out and you\'ll unlock UNLIMITED requests (refresh after).');
       }
-      throw new Error('You\'ve used all your free requests. Add your own API key (BYOK) for unlimited, or sign in for a plan.');
+      throw new Error('You\'ve hit the 5-request free limit. Upgrade to Individual ($5/mo for 250 requests) or BYOK ($1/mo, unlimited with your own API key).');
     }
     // Don't increment here — increment after successful response below
   } else if (__currentTeam) {
@@ -7935,13 +8015,20 @@ function BallotOCR() {
   };
 
   return el('div', null,
-    el('h3', {style:{margin:0,fontSize:'1.2rem',fontWeight:700}}, 'Ballot OCR'),
-    el('p', {style:{color:'#94a3b8',fontSize:'.85rem',marginTop:6,marginBottom:16}}, 'Snap a photo of your ballot. AI extracts the RFD, speaker points, and specific feedback so nothing gets lost.'),
-    el('div', {style:{border:'2px dashed rgba(255,255,255,.15)',borderRadius:14,padding:'32px 24px',textAlign:'center',background:'rgba(255,255,255,.02)'}},
-      el('input', {type:'file',accept:'image/*',onChange:e=>onFile(e.target.files && e.target.files[0]),id:'ballot-file',style:{display:'none'}}),
-      el('label',{htmlFor:'ballot-file',style:{display:'inline-block',padding:'12px 24px',background:'#ef4444',color:'#fff',borderRadius:10,cursor:'pointer',fontWeight:700,fontSize:'.88rem'}}, image ? 'Change Image' : 'Choose Ballot Photo'),
-      image && el('div',{style:{marginTop:16,fontSize:'.82rem',color:'#94a3b8'}}, image.file.name + ' · ' + Math.round(image.file.size/1024) + ' KB'),
-      image && el('img',{src:'data:'+image.mime+';base64,'+image.b64,style:{marginTop:16,maxHeight:240,maxWidth:'100%',borderRadius:8,border:'1px solid rgba(255,255,255,.1)'}}),
+    el('h3', {style:{margin:0,fontSize:'1.2rem',fontWeight:700,color:'var(--text,#fff)'}}, 'Ballot OCR'),
+    el('p', {style:{color:'var(--text-dim,#94a3b8)',fontSize:'.85rem',marginTop:6,marginBottom:16}}, 'Snap a photo or upload a file of your ballot. AI extracts the RFD, speaker points, and specific feedback so nothing gets lost.'),
+    el('div', {style:{border:'2px dashed var(--border,rgba(255,255,255,.15))',borderRadius:14,padding:'32px 24px',textAlign:'center',background:'var(--bg-card,rgba(255,255,255,.02))'}},
+      // Two inputs: one forces the phone camera (capture="environment"), the
+      // other is a plain file picker so desktop and mobile users can upload an
+      // image file, PDF, or document scan from their device/cloud drive.
+      el('input', {type:'file',accept:'image/*',capture:'environment',onChange:e=>onFile(e.target.files && e.target.files[0]),id:'ballot-photo',style:{display:'none'}}),
+      el('input', {type:'file',accept:'image/*,application/pdf,.heic,.heif',onChange:e=>onFile(e.target.files && e.target.files[0]),id:'ballot-file',style:{display:'none'}}),
+      el('div',{style:{display:'inline-flex',gap:10,flexWrap:'wrap',justifyContent:'center'}},
+        el('label',{htmlFor:'ballot-photo',style:{display:'inline-block',padding:'12px 22px',background:'var(--accent,#ef4444)',color:'#fff',borderRadius:10,cursor:'pointer',fontWeight:700,fontSize:'.88rem'}}, image ? 'Retake Photo' : 'Take Photo'),
+        el('label',{htmlFor:'ballot-file',style:{display:'inline-block',padding:'12px 22px',background:'transparent',color:'var(--text,#fff)',border:'1.5px solid var(--border,rgba(255,255,255,.2))',borderRadius:10,cursor:'pointer',fontWeight:700,fontSize:'.88rem'}}, image ? 'Change File' : 'Upload File'),
+      ),
+      image && el('div',{style:{marginTop:16,fontSize:'.82rem',color:'var(--text-dim,#94a3b8)'}}, image.file.name + ' · ' + Math.round(image.file.size/1024) + ' KB'),
+      image && image.mime && image.mime.startsWith('image/') && el('img',{src:'data:'+image.mime+';base64,'+image.b64,style:{marginTop:16,maxHeight:240,maxWidth:'100%',borderRadius:8,border:'1px solid var(--border,rgba(255,255,255,.1))'}}),
     ),
     el('div',{style:{marginTop:14,display:'flex',gap:12}},
       el('button',{onClick:run,disabled:loading||!image,className:'btn btn-orange',style:{padding:'12px 24px',fontSize:'.9rem'}}, loading?'Reading ballot…':'Extract Feedback →'),
@@ -8298,43 +8385,48 @@ function JudgePool({ user }) {
   const AVAIL_LABELS = { weekdays:'Weekdays', weekends:'Weekends', both:'Both', flexible:'Flexible' };
 
   if (showForm) {
+    // Panel, inputs, pills all pull from theme vars so the form adapts to
+    // light / dark / crimson instead of rendering as a dark panel inside the
+    // light shell (which read as broken washed-out grays).
+    const panelBg = 'var(--bg-card, rgba(255,255,255,.03))';
+    const panelBorder = '1.5px solid var(--border, rgba(255,255,255,.14))';
+    const inputBg = 'var(--bg-card, rgba(255,255,255,.06))';
+    const inputBorder = '1.5px solid var(--border, rgba(255,255,255,.18))';
+    const accent = 'var(--accent, #ef4444)';
+    const accentGlow = 'var(--accent-glow, rgba(239,68,68,.18))';
+    const inputStyle = { width:'100%', padding:'10px 14px', background:inputBg, color:'var(--text, #fff)', border:inputBorder, borderRadius:10, fontFamily:'inherit', fontSize:'.88rem', outline:'none' };
+    const pill = (active) => ({ padding:'6px 14px', borderRadius:8, border: active ? `1.5px solid ${accent}` : inputBorder, background: active ? accentGlow : 'transparent', color: active ? accent : 'var(--text-dim, #a8b8c8)', cursor:'pointer', fontSize:'.75rem', fontWeight:600, fontFamily:'inherit' });
     return el('div', null,
       el('button', { className:'nav-btn nav-back', onClick:()=>setShowForm(false), style:{marginBottom:12} }, '\u2190 Back'),
-      el('div', { style:{background:'#303038',border:'1.5px solid #ffffff22',borderRadius:14,padding:24} },
-        el('h3', { style:{fontSize:'1.2rem',fontWeight:800,marginBottom:16} }, 'Register as a Judge'),
+      el('div', { style:{background:panelBg, border:panelBorder, borderRadius:14, padding:24, color:'var(--text, #fff)'} },
+        el('h3', { style:{fontSize:'1.2rem', fontWeight:800, marginBottom:16, color:'var(--text, #fff)'} }, 'Register as a Judge'),
         el('label', { className:'field-label' }, 'Your Name'),
-        el('input', { type:'text', value:name, onChange:e=>setName(e.target.value), placeholder:'Full name', style:{marginBottom:16,width:'100%',padding:'10px 14px',background:'#3a3a40',color:'#e4e8f0',border:'1.5px solid #ffffff28',borderRadius:10,fontFamily:'inherit',fontSize:'.88rem'} }),
-        el('div', { style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16} },
+        el('input', { type:'text', value:name, onChange:e=>setName(e.target.value), placeholder:'Full name', style:{...inputStyle, marginBottom:16} }),
+        el('div', { style:{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16} },
           el('div', null,
             el('label', { className:'field-label' }, 'Experience Level'),
-            el('select', { value:experience, onChange:e=>setExperience(e.target.value) },
+            el('select', { value:experience, onChange:e=>setExperience(e.target.value), style:inputStyle },
               Object.entries(EXPERIENCE_LABELS).map(([k,v]) => el('option',{key:k,value:k},v))
             ),
           ),
           el('div', null,
             el('label', { className:'field-label' }, 'Judging Style'),
-            el('select', { value:style, onChange:e=>setStyle(e.target.value) },
+            el('select', { value:style, onChange:e=>setStyle(e.target.value), style:inputStyle },
               Object.entries(STYLE_LABELS).map(([k,v]) => el('option',{key:k,value:k},v))
             ),
           ),
         ),
         el('label', { className:'field-label' }, 'Formats You Judge'),
-        el('div', { style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:16} },
-          ['APDA','BP','WSDC','1v1','Open'].map(f => el('button', {
-            key:f, onClick:()=>toggleFormat(f),
-            style:{padding:'6px 14px',borderRadius:8,border:formats.includes(f)?'1.5px solid #ef444450':'1.5px solid #ffffff18',background:formats.includes(f)?'#ef444412':'transparent',color:formats.includes(f)?'#f87171':'#a8b8c8',cursor:'pointer',fontSize:'.75rem',fontWeight:600,fontFamily:'inherit'},
-          }, f)),
+        el('div', { style:{display:'flex', gap:6, flexWrap:'wrap', marginBottom:16} },
+          ['APDA','BP','WSDC','1v1','Open'].map(f => el('button', { key:f, onClick:()=>toggleFormat(f), style:pill(formats.includes(f)) }, f)),
         ),
         el('label', { className:'field-label' }, 'Availability'),
-        el('div', { style:{display:'flex',gap:6,marginBottom:16} },
-          Object.entries(AVAIL_LABELS).map(([k,v]) => el('button', {
-            key:k, onClick:()=>setAvailability(k),
-            style:{padding:'6px 14px',borderRadius:8,border:availability===k?'1.5px solid #ef444450':'1.5px solid #ffffff18',background:availability===k?'#ef444412':'transparent',color:availability===k?'#f87171':'#a8b8c8',cursor:'pointer',fontSize:'.75rem',fontWeight:600,fontFamily:'inherit'},
-          }, v)),
+        el('div', { style:{display:'flex', gap:6, marginBottom:16} },
+          Object.entries(AVAIL_LABELS).map(([k,v]) => el('button', { key:k, onClick:()=>setAvailability(k), style:pill(availability===k) }, v)),
         ),
         el('label', { className:'field-label' }, 'Short Bio (optional)'),
-        el('textarea', { value:bio, onChange:e=>setBio(e.target.value), placeholder:'Judging philosophy, notable tournaments judged, etc.', style:{minHeight:80,marginBottom:16} }),
-        el('button', { className:'btn btn-primary', disabled:!name.trim()||submitting, onClick:registerJudge, style:{width:'100%',padding:'12px',fontSize:'.92rem'} }, submitting ? 'Registering...' : 'Register as Judge'),
+        el('textarea', { value:bio, onChange:e=>setBio(e.target.value), placeholder:'Judging philosophy, notable tournaments judged, etc.', style:{...inputStyle, minHeight:80, marginBottom:16, resize:'vertical'} }),
+        el('button', { className:'btn btn-primary', disabled:!name.trim()||submitting, onClick:registerJudge, style:{width:'100%', padding:'12px', fontSize:'.92rem'} }, submitting ? 'Registering...' : 'Register as Judge'),
       ),
     );
   }
@@ -11220,7 +11312,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, anonTrial }) {
         el('span', {style:{fontSize:'1.1rem'}}, '\uD83D\uDD11'),
         el('div', {style:{fontWeight:800,color:'#f59e0b',fontSize:'.95rem'}}, 'Your API Key (BYOK)'),
       ),
-      el('p', {style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.6,marginBottom:12}}, 'Paste your Anthropic API key below. Your key is stored only in your browser session — we never see it. All requests go directly to Anthropic from your browser.'),
+      el('p', {style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.6,marginBottom:12}}, 'Paste your Anthropic API key below. Your key is stored only in your browser session — we never see it. Claude requests go directly to Anthropic from your browser using your key.'),
       el('input', {
         type:'password',
         value:userApiKey,
@@ -11230,9 +11322,21 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, anonTrial }) {
       }),
       userApiKey && el('div',{style:{display:'flex',alignItems:'center',gap:6,marginTop:8}},
         el('div',{style:{width:8,height:8,borderRadius:'50%',background:'#22c55e'}}),
-        el('span',{style:{color:'#22c55e',fontSize:'.78rem',fontWeight:600}},'API key set — requests go directly to Anthropic'),
+        el('span',{style:{color:'#22c55e',fontSize:'.78rem',fontWeight:600}},'API key set — Claude requests go directly to Anthropic'),
       ),
       !userApiKey && el('div',{style:{color:'#64748b',fontSize:'.75rem',marginTop:8}},'Get your key at console.anthropic.com/settings/keys'),
+      // 1-provider warning. BYOK currently supports Anthropic only — the
+      // brain picker still shows GPT / Gemini / Grok, but those calls go
+      // through OUR server and count against the BYOK plan's small request
+      // cap. Users who want multi-brain access need to upgrade. Make this
+      // crystal clear so nobody hits a surprise "out of requests" error.
+      el('div', {style:{marginTop:14,padding:'12px 14px',background:'#f59e0b10',border:'1px solid #f59e0b30',borderRadius:10}},
+        el('div', {style:{color:'#fbbf24',fontSize:'.78rem',fontWeight:700,marginBottom:4}}, 'BYOK is one-provider only'),
+        el('div', {style:{color:'#94a3b8',fontSize:'.74rem',lineHeight:1.55}},
+          'Your key unlocks ', el('strong',{style:{color:'#fbbf24'}},'unlimited Claude'), ' requests. ',
+          el('strong',null,'GPT, Gemini, and Grok still count against your plan\u2019s request cap') , ' \u2014 once you cross to another brain you\u2019ll see "you ran out of requests." Stay on Claude as your main engine, or upgrade to Individual ($5/mo) for all 4 brains.'
+        ),
+      ),
     ),
     team.plan === 'trial' && el('div', {style:{padding:20,background:'#ffffff04',border:'1px solid #ffffff0a',borderRadius:12,marginBottom:24}},
       el('div', {style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},
@@ -12754,13 +12858,18 @@ const TABS_COMPETITIVE = [
   {id:'topics',label:'Topics',i18n:'nav.topics'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
+  // Case Feedback lives here (not in Other) because post-round case critique
+  // is a competitive-prep tool, not a general support link.
+  {id:'feedback',label:'Case Feedback',i18n:'nav.feedback'},
+  // Vocab Quiz — debate terminology + elevated vocabulary trainer. Competitive
+  // because vocab mastery is what separates strong speakers from adequate ones.
+  {id:'terms',label:'Vocab Quiz',i18n:'nav.terms'},
   {id:'vision',label:'Mapper',i18n:'nav.vision'},
   {id:'team',label:'Team',i18n:'nav.team'},
   {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
 ];
-// Everything else: feedback, live debates, saved work, support link.
+// Everything else: live debates, saved work, support link.
 const TABS_OTHER = [
-  {id:'feedback',label:'Feedback',i18n:'nav.feedback'},
   {id:'live',label:'Live Debates',i18n:'nav.live'},
   {id:'shared',label:'Saved Cases',i18n:'nav.cases'},
   {id:'donate',label:'Donate',i18n:'nav.donate',href:'https://buymeacoffee.com/8idanhm'},
@@ -12924,20 +13033,204 @@ function FlowRebuttal() {
   );
 }
 
+/* ═══════════════════════════════════════════════════
+   VOCAB QUIZ — debate terminology + elevated vocabulary
+   ───────────────────────────────────────────────────
+   A flashcard + multiple-choice trainer so users learn the technical
+   language of competitive rounds and the elevated vocabulary strong
+   speakers deploy. Terms are grouped into banks; the quiz draws a
+   random term, generates 3 plausible distractors from the same bank,
+   and tracks streak + per-bank accuracy in localStorage.
+   ═══════════════════════════════════════════════════ */
+const VOCAB_TERMS = [
+  // — Flow / structural debate vocabulary —
+  { term:'warrant',          def:'The reasoning that connects a claim to its evidence — the WHY behind the WHAT.',         bank:'debate' },
+  { term:'impact',           def:'The real-world consequence of an argument — what actually happens if it is true.',          bank:'debate' },
+  { term:'framework',        def:'The evaluative lens / decision rule the judge uses to weigh arguments in the round.',       bank:'debate' },
+  { term:'link chain',       def:'The stepwise causal sequence from premise to impact; the argument fails if any link breaks.', bank:'debate' },
+  { term:'extend',           def:'To pull an argument through a later speech with new analysis, not mere repetition.',         bank:'debate' },
+  { term:'drop',             def:'An argument left unanswered by the opposing team — treated as conceded on the flow.',        bank:'debate' },
+  { term:'turn',             def:'Showing an opponent\u2019s argument actually supports your side (link turn or impact turn).', bank:'debate' },
+  { term:'cross-apply',      def:'Import reasoning from one argument into another without re-explaining it from scratch.',    bank:'debate' },
+  { term:'crystallize',      def:'Collapse the round to its decisive voting issues; explain what the judge should write.',    bank:'debate' },
+  { term:'weighing',         def:'Comparing your impact against the opponent\u2019s on magnitude, probability, timeframe, or reversibility.', bank:'debate' },
+  { term:'steelman',         def:'Restating an opponent\u2019s argument at its strongest form before refuting it.',            bank:'debate' },
+  { term:'POI',              def:'Point of Information — a 15-second interjection during an opponent\u2019s speech in parli formats.', bank:'debate' },
+  { term:'ballot story',     def:'The one-sentence reason the judge votes for your side, delivered in the final rebuttal.',   bank:'debate' },
+  { term:'non-unique',       def:'Defensive move: the harm the opponent predicts already happens in the status quo.',          bank:'debate' },
+  { term:'terminal impact',  def:'The final, irreducible consequence at the end of a link chain.',                             bank:'debate' },
+
+  // — Policy / CX-specific —
+  { term:'card',             def:'A tagged quotation from a published source, read aloud as evidence in policy debate.',      bank:'policy' },
+  { term:'topicality (T)',   def:'Argument that the affirmative\u2019s plan falls outside the resolution\u2019s scope.',       bank:'policy' },
+  { term:'counterplan (CP)', def:'Negative advocacy that solves the aff\u2019s harm better than the plan and is competitive.',  bank:'policy' },
+  { term:'disadvantage (DA)',def:'Argument that the plan triggers a worse outcome; structured uniqueness / link / impact.',   bank:'policy' },
+  { term:'kritik (K)',       def:'Critique of an assumption or discourse in the affirmative\u2019s case; has link, impact, alt.', bank:'policy' },
+  { term:'solvency',         def:'Whether the plan actually resolves the harm it identifies.',                                 bank:'policy' },
+  { term:'inherency',        def:'The barrier in the status quo that keeps the harm from being solved absent the plan.',       bank:'policy' },
+  { term:'perm',             def:'Affirmative response to a counterplan: do the plan AND the CP (tests competition).',         bank:'policy' },
+
+  // — Philosophy / big words —
+  { term:'consequentialist', def:'Ethical view that the rightness of an action depends only on its outcomes.',                bank:'philosophy' },
+  { term:'deontological',    def:'Ethical view that duties and rules — not outcomes — determine right action.',                bank:'philosophy' },
+  { term:'teleological',     def:'Reasoning from an end, purpose, or goal; results-focused moral theory.',                     bank:'philosophy' },
+  { term:'normative',        def:'Concerning what OUGHT to be, not merely what is. Prescriptive rather than descriptive.',      bank:'philosophy' },
+  { term:'counterfactual',   def:'A hypothetical world where some condition is altered; the basis of causal comparison.',      bank:'philosophy' },
+  { term:'utilitarian',      def:'Consequentialism where the good = aggregate welfare / the greatest good for the greatest number.', bank:'philosophy' },
+  { term:'Rawlsian',         def:'From Rawls: evaluate policy from behind a veil of ignorance; prioritize the worst-off.',     bank:'philosophy' },
+  { term:'veil of ignorance',def:'Thought experiment where you design institutions without knowing your own position in them.', bank:'philosophy' },
+  { term:'moral hazard',     def:'When a party insulated from risk takes greater risks because someone else bears the cost.',  bank:'philosophy' },
+  { term:'tragedy of the commons', def:'Individually rational use of a shared resource collectively destroys it.',             bank:'philosophy' },
+  { term:'regulatory capture', def:'When a regulator ends up serving the industry it was meant to oversee.',                   bank:'philosophy' },
+  { term:'principal-agent problem', def:'Conflict when an agent\u2019s incentives diverge from the principal\u2019s interests.', bank:'philosophy' },
+
+  // — Rhetoric / elevated vocabulary that sharpens speeches —
+  { term:'vitiate',          def:'To make something legally void or weaken its force.',                                        bank:'vocab' },
+  { term:'attenuate',        def:'To weaken or reduce in force, magnitude, or value; gradual dilution.',                        bank:'vocab' },
+  { term:'palliative',       def:'Reducing pain or severity without addressing the underlying cause; a patch, not a fix.',     bank:'vocab' },
+  { term:'salience',         def:'The prominence or standout-ness of something; how much weight it actually carries.',         bank:'vocab' },
+  { term:'a fortiori',       def:'Latin: "from the stronger"; if X is true, then Y (an even stronger claim) must also be true.', bank:'vocab' },
+  { term:'prima facie',      def:'Latin: "at first sight"; evidence sufficient to establish a claim unless rebutted.',          bank:'vocab' },
+  { term:'sine qua non',     def:'Latin: a condition absolutely necessary; without which, not.',                                bank:'vocab' },
+  { term:'ipso facto',       def:'Latin: "by the fact itself"; as an automatic consequence of a fact already established.',    bank:'vocab' },
+  { term:'ad hominem',       def:'Attacking the person rather than engaging their argument; a classic fallacy.',               bank:'vocab' },
+  { term:'straw man',        def:'Refuting a weakened caricature of your opponent\u2019s argument rather than the real thing.', bank:'vocab' },
+  { term:'begging the question', def:'Circular reasoning: the premise assumes the very thing you\u2019re trying to prove.',     bank:'vocab' },
+  { term:'ergo',             def:'Latin: "therefore"; use sparingly to introduce a direct logical consequence.',                bank:'vocab' },
+  { term:'infinitely regressive', def:'An argument that demands justification at every step without reaching a foundation.',   bank:'vocab' },
+  { term:'epistemic',        def:'Relating to knowledge or the conditions under which claims count as known.',                  bank:'vocab' },
+  { term:'hegemonic',        def:'Exercising overwhelming influence over others — political, cultural, or economic.',           bank:'vocab' },
+  { term:'pareto improvement', def:'A change that makes at least one party better off without making anyone worse off.',        bank:'vocab' },
+];
+
+function VocabQuiz() {
+  const BANKS = { all:'All terms', debate:'Debate flow', policy:'Policy / CX', philosophy:'Philosophy', vocab:'Elevated vocab' };
+  const [activeBank, setActiveBank] = useState(() => { try { return localStorage.getItem('debateos-quiz-bank') || 'all' } catch { return 'all' } });
+  const [mode, setMode] = useState('multi'); // 'multi' | 'flash'
+  const [stats, setStats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('debateos-quiz-stats') || '{}') } catch { return {} }
+  });
+  const persistStats = (next) => { setStats(next); try { localStorage.setItem('debateos-quiz-stats', JSON.stringify(next)) } catch {} };
+  useEffect(() => { try { localStorage.setItem('debateos-quiz-bank', activeBank) } catch {} }, [activeBank]);
+
+  const pool = useMemo(() => activeBank === 'all' ? VOCAB_TERMS : VOCAB_TERMS.filter(t => t.bank === activeBank), [activeBank]);
+
+  const pickCard = () => {
+    if (!pool.length) return null;
+    const correct = pool[Math.floor(Math.random() * pool.length)];
+    // Pull distractors from the SAME bank so wrong answers stay plausible.
+    const distractorPool = (activeBank === 'all' ? VOCAB_TERMS : pool).filter(t => t.term !== correct.term);
+    const distractors = [];
+    const usedIdx = new Set();
+    while (distractors.length < 3 && distractors.length < distractorPool.length) {
+      const i = Math.floor(Math.random() * distractorPool.length);
+      if (usedIdx.has(i)) continue;
+      usedIdx.add(i);
+      distractors.push(distractorPool[i]);
+    }
+    const options = [correct, ...distractors].sort(() => Math.random() - 0.5);
+    return { correct, options };
+  };
+
+  const [card, setCard] = useState(pickCard);
+  const [picked, setPicked] = useState(null); // picked option object (or null)
+  const [flashShown, setFlashShown] = useState(false);
+
+  useEffect(() => { setCard(pickCard()); setPicked(null); setFlashShown(false); }, [activeBank]); // eslint-disable-line
+
+  const next = () => { setCard(pickCard()); setPicked(null); setFlashShown(false); };
+
+  const answer = (opt) => {
+    if (picked) return;
+    setPicked(opt);
+    const correct = opt.term === card.correct.term;
+    const prev = stats[activeBank] || { correct:0, total:0, streak:0, best:0 };
+    const streak = correct ? prev.streak + 1 : 0;
+    const best = Math.max(prev.best || 0, streak);
+    persistStats({ ...stats, [activeBank]: { correct: prev.correct + (correct?1:0), total: prev.total + 1, streak, best } });
+  };
+
+  const s = stats[activeBank] || { correct:0, total:0, streak:0, best:0 };
+  const accuracy = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+
+  const el = React.createElement;
+  const panel = 'var(--bg-card, rgba(255,255,255,.03))';
+  const border = '1px solid var(--border, rgba(255,255,255,.12))';
+  const text = 'var(--text, #fff)';
+  const textDim = 'var(--text-dim, #94a3b8)';
+  const accent = 'var(--accent, #ef4444)';
+
+  if (!card) return el('div',{style:{padding:24,color:textDim}}, 'No terms in this bank.');
+
+  return el('div', null,
+    el('h3', { style:{margin:0, fontSize:'1.4rem', fontWeight:800, color:text} }, 'Vocab Quiz'),
+    el('p', { style:{color:textDim, fontSize:'.9rem', marginTop:6, marginBottom:20} }, 'Learn debate terminology and the elevated vocabulary strong speakers actually use. Pick the best definition \u2014 distractors are pulled from the same bank so they stay plausible.'),
+
+    // Bank + mode selector
+    el('div', { style:{display:'flex', gap:8, flexWrap:'wrap', marginBottom:16} },
+      Object.entries(BANKS).map(([k,label]) => el('button', {
+        key:k, onClick:()=>setActiveBank(k),
+        style:{padding:'6px 14px', borderRadius:999, border: activeBank===k ? `1.5px solid ${accent}` : border, background: activeBank===k ? 'var(--accent-glow, rgba(239,68,68,.15))' : 'transparent', color: activeBank===k ? accent : textDim, cursor:'pointer', fontSize:'.78rem', fontWeight:600, fontFamily:'inherit'}
+      }, label))
+    ),
+    el('div', { style:{display:'flex', gap:8, marginBottom:20} },
+      ['multi','flash'].map(m => el('button', {
+        key:m, onClick:()=>setMode(m),
+        style:{padding:'6px 14px', borderRadius:8, border: mode===m ? `1.5px solid ${accent}` : border, background:'transparent', color: mode===m ? accent : textDim, cursor:'pointer', fontSize:'.74rem', fontWeight:600, fontFamily:'inherit', textTransform:'uppercase', letterSpacing:'.5px'}
+      }, m==='multi' ? 'Quiz' : 'Flashcard'))
+    ),
+
+    // Stats strip
+    el('div', { style:{display:'flex', gap:12, flexWrap:'wrap', marginBottom:20, fontSize:'.78rem', color:textDim} },
+      el('span', null, s.total + ' answered'),
+      el('span', null, accuracy + '% accuracy'),
+      el('span', null, 'Streak: ' + s.streak + (s.best ? ' (best ' + s.best + ')' : '')),
+    ),
+
+    // Card
+    el('div', { style:{background:panel, border, borderRadius:16, padding:24, marginBottom:16} },
+      el('div', { style:{fontSize:'.7rem', fontWeight:700, color:accent, textTransform:'uppercase', letterSpacing:'1.2px', marginBottom:8} }, 'Term'),
+      el('div', { style:{fontSize:'1.8rem', fontWeight:900, color:text, marginBottom:20, letterSpacing:'-.01em'} }, card.correct.term),
+
+      mode === 'multi'
+        ? el('div', { style:{display:'flex', flexDirection:'column', gap:10} },
+            card.options.map((opt,i) => {
+              const isCorrect = picked && opt.term === card.correct.term;
+              const isWrongPick = picked && picked.term === opt.term && !isCorrect;
+              const bg = isCorrect ? 'rgba(34,197,94,.15)' : isWrongPick ? 'rgba(239,68,68,.15)' : panel;
+              const brd = isCorrect ? '1.5px solid rgba(34,197,94,.6)' : isWrongPick ? '1.5px solid rgba(239,68,68,.6)' : border;
+              return el('button', {
+                key:i, onClick:()=>answer(opt), disabled: !!picked,
+                style:{textAlign:'left', padding:'12px 16px', background:bg, border:brd, borderRadius:10, color:text, cursor: picked ? 'default' : 'pointer', fontSize:'.88rem', fontFamily:'inherit', lineHeight:1.5, transition:'.15s'}
+              }, opt.def);
+            })
+          )
+        : el('div', null,
+            !flashShown
+              ? el('button', { onClick:()=>setFlashShown(true), style:{width:'100%', padding:'20px', background:panel, border, borderRadius:12, color:textDim, cursor:'pointer', fontSize:'.92rem', fontFamily:'inherit'} }, 'Tap to reveal definition')
+              : el('div', { style:{padding:'20px 4px', color:text, fontSize:'.95rem', lineHeight:1.65} }, card.correct.def)
+          )
+    ),
+
+    // Next + feedback line
+    el('div', { style:{display:'flex', alignItems:'center', gap:12} },
+      el('button', {
+        onClick: next, className:'btn btn-primary',
+        style:{padding:'10px 22px', fontSize:'.88rem'}
+      }, mode === 'multi' && !picked ? 'Skip →' : 'Next term →'),
+      mode === 'multi' && picked && el('span', { style:{fontSize:'.82rem', color: picked.term === card.correct.term ? '#22c55e' : '#ef4444', fontWeight:600} },
+        picked.term === card.correct.term ? 'Correct.' : 'Correct: \u201C' + card.correct.def.slice(0,90) + (card.correct.def.length>90?'\u2026':'') + '\u201D'
+      ),
+    ),
+  );
+}
+
 function App() {
   const [userApiKey, setUserApiKey] = useState(() => { try { return sessionStorage.getItem('debateos-byok') || '' } catch(e) { return '' } });
-  // Paywall delay: auto-grant anon trial on first visit so users don't hit
-  // the pricing/sign-in gate before they've felt the product. The existing
-  // 5-request anon cap still applies, so abuse stays bounded — this just
-  // moves the paywall from "zeroth second" to "after one debate's worth".
-  const [anonTrial, setAnonTrial] = useState(() => {
-    try {
-      if (!localStorage.getItem('debateos-anon-trial')) {
-        localStorage.setItem('debateos-anon-trial', 'true');
-      }
-      return localStorage.getItem('debateos-anon-trial') === 'true';
-    } catch(e) { return true; }
-  });
+  // Sign-in is required — no anonymous trial. We keep the flag (and any stale
+  // localStorage values) wired so legacy code paths referencing anonTrial stay
+  // safe, but always resolve to false so the auth gate is never bypassed.
+  const [anonTrial, setAnonTrial] = useState(false);
   const [theme, setTheme] = useState(() => { try { var t=localStorage.getItem('debateos-theme'); if(t==='crimson')t='dark'; return t||'grey' } catch(e) { return 'grey' } });
   const [devPro, setDevProState] = useState(isDevPro);
   const toggleDevPro = () => { const next = !devPro; setDevPro(next); setDevProState(next); };
@@ -13131,13 +13424,12 @@ function App() {
     })();
   }, [user]);
 
-  // Handle ?start=true — auto-skip auth for first visit
+  // Legacy ?start=true / ?beta=true handler — previously bypassed auth. Now
+  // just strips the query param so the URL is clean; sign-in is required.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('start') === 'true' || params.get('beta') === 'true') {
-      try { localStorage.setItem('debateos-anon-trial','true'); } catch(e) {}
-      setAnonTrial(true);
-      setToast('Welcome! Sign in to unlock all features and save cases.');
+      try { localStorage.removeItem('debateos-anon-trial'); } catch(e) {}
       window.history.replaceState({}, '', window.location.pathname + (window.location.hash || '#case'));
     }
   }, []);
@@ -13314,34 +13606,67 @@ function App() {
         ),
         React.createElement('p',{style:{color:'#92754a',fontSize:'.72rem',letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,marginBottom:8}},'powered by DebateOS'),
         React.createElement('p',{style:{color:'#94a3b8',fontSize:'.9rem',lineHeight:1.6,marginBottom:24}},t('hero.tagline','The debate engine built specifically for competitive debaters.')),
-        // Pricing tiers
-        React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}},
+        // Pricing tiers — flex row so orphan cards CENTER when they wrap to
+        // their own row. Grid `auto-fit` left the 3rd card stuck on the left
+        // of the second row in 2-col layouts; flex with justify-content:center
+        // lands that orphan in the middle, which reads much better on medium
+        // viewports (phones in landscape, narrow laptop panes).
+        React.createElement('div',{style:{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:10,marginBottom:16}},
+          // Free plan — 5 requests across the app, then upgrade is required.
+          React.createElement('div',{style:{flex:'1 1 160px',minWidth:160,maxWidth:220,padding:16,background:'rgba(148,163,184,.06)',border:'1px solid rgba(148,163,184,.22)',borderRadius:12,textAlign:'center'}},
+            React.createElement('div',{style:{fontSize:'.65rem',fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:6}},'Free'),
+            React.createElement('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'#f1f5f9'}},
+              '$0',
+              React.createElement('span',{style:{fontSize:'.7rem',fontWeight:500,color:'#64748b'}},'/mo')
+            ),
+            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.45}},
+              '5 requests',React.createElement('br'),
+              'total',
+            ),
+            React.createElement('p',{style:{color:'#94a3b8',fontSize:'.62rem',marginTop:8,lineHeight:1.4,fontWeight:600}}, 'Try before you pay'),
+          ),
           // BYOK plan
-          React.createElement('div',{style:{padding:16,background:'#f59e0b08',border:'1px solid #f59e0b25',borderRadius:12,textAlign:'center'}},
+          React.createElement('div',{style:{flex:'1 1 160px',minWidth:160,maxWidth:220,padding:16,background:'#f59e0b08',border:'1px solid #f59e0b25',borderRadius:12,textAlign:'center'}},
             React.createElement('div',{style:{fontSize:'.65rem',fontWeight:700,color:'#f59e0b',textTransform:'uppercase',letterSpacing:'1px',marginBottom:6}},'BYOK'),
             React.createElement('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'#f1f5f9'}},
               '$1',
               React.createElement('span',{style:{fontSize:'.7rem',fontWeight:500,color:'#64748b'}},'/mo')
             ),
-            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.4}},'Your API keys · Unlimited'),
+            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.45}},
+              'Your Anthropic key',React.createElement('br'),
+              'Unlimited Claude',
+            ),
+            // Claude-only warning. BYOK routes Anthropic keys directly to the
+            // Anthropic API — other brains (GPT/Gemini/Grok) go through our
+            // server and count against the plan cap, so users should expect
+            // Claude as their sole engine on this tier.
+            React.createElement('p',{style:{color:'#f59e0b',fontSize:'.62rem',marginTop:8,lineHeight:1.4,fontWeight:600}}, 'Claude only'),
           ),
           // Individual plan
-          React.createElement('div',{style:{padding:16,background:'#ef444408',border:'1px solid #ef444425',borderRadius:12,textAlign:'center'}},
+          React.createElement('div',{style:{flex:'1 1 160px',minWidth:160,maxWidth:220,padding:16,background:'#ef444408',border:'1px solid #ef444425',borderRadius:12,textAlign:'center'}},
             React.createElement('div',{style:{fontSize:'.65rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:'1px',marginBottom:6}},'Individual'),
             React.createElement('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'#f1f5f9'}},
               '$5',
               React.createElement('span',{style:{fontSize:'.7rem',fontWeight:500,color:'#64748b'}},'/mo')
             ),
-            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.4}},'250 requests · 4 AI brains · HD voice'),
+            // Stacked bullets so narrow cards don't chop the line mid-bullet.
+            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.45}},
+              '250 requests',React.createElement('br'),
+              '4 AI brains',React.createElement('br'),
+              'HD voice',
+            ),
           ),
           // Team plan
-          React.createElement('div',{style:{padding:16,background:'#3b82f608',border:'1px solid #3b82f625',borderRadius:12,textAlign:'center'}},
+          React.createElement('div',{style:{flex:'1 1 160px',minWidth:160,maxWidth:220,padding:16,background:'#3b82f608',border:'1px solid #3b82f625',borderRadius:12,textAlign:'center'}},
             React.createElement('div',{style:{fontSize:'.65rem',fontWeight:700,color:'#3b82f6',textTransform:'uppercase',letterSpacing:'1px',marginBottom:6}},'Team'),
             React.createElement('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'#f1f5f9'}},
               '$30',
               React.createElement('span',{style:{fontSize:'.7rem',fontWeight:500,color:'#64748b'}},'/mo')
             ),
-            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.4}},'1,500 requests · 50 members'),
+            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.45}},
+              '1,500 requests',React.createElement('br'),
+              '50 members',
+            ),
           ),
         ),
         // Sign in block — Google, plus passwordless email-link alternative.
@@ -13368,7 +13693,10 @@ function App() {
                 React.createElement('button',{onClick:()=>{setMagicEmail('');resetMagicLink();},style:{marginTop:10,background:'transparent',border:'none',color:'#64748b',fontSize:'.7rem',fontWeight:600,cursor:'pointer',textDecoration:'underline',fontFamily:'inherit'}},'Use a different email'),
               )
             : React.createElement('div',null,
-                React.createElement('div',{style:{display:'flex',gap:8}},
+                // Stacked column so the email input + button can't overflow the
+                // narrow auth panel on mobile (which was clipping "EMAIL ME A LI[NK]"
+                // past the right edge).
+                React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8,width:'100%',minWidth:0}},
                   React.createElement('input',{
                     type:'email',
                     value:magicEmail,
@@ -13376,23 +13704,17 @@ function App() {
                     onKeyDown:e=>{if(e.key==='Enter'){sendMagicLink(magicEmail);}},
                     placeholder:'you@example.com',
                     disabled: magicLinkStatus && magicLinkStatus.state === 'sending',
-                    style:{flex:1,padding:'10px 12px',background:'#ffffff04',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.86rem',fontFamily:'inherit',outline:'none'}
+                    style:{width:'100%',boxSizing:'border-box',padding:'10px 12px',background:'#ffffff04',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.86rem',fontFamily:'inherit',outline:'none'}
                   }),
                   React.createElement('button',{
                     onClick:()=>sendMagicLink(magicEmail),
                     disabled: (magicLinkStatus && magicLinkStatus.state === 'sending') || !magicEmail.trim(),
-                    style:{padding:'10px 14px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.78rem',fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',opacity:((magicLinkStatus&&magicLinkStatus.state==='sending')||!magicEmail.trim())?.5:1}
+                    style:{width:'100%',boxSizing:'border-box',padding:'10px 14px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.78rem',fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',opacity:((magicLinkStatus&&magicLinkStatus.state==='sending')||!magicEmail.trim())?.5:1}
                   }, magicLinkStatus && magicLinkStatus.state === 'sending' ? 'Sending\u2026' : 'Email me a link'),
                 ),
                 magicLinkStatus && magicLinkStatus.state === 'error' && React.createElement('div',{style:{marginTop:8,padding:'8px 10px',background:'#ef444412',border:'1px solid #ef444430',borderRadius:8,fontSize:'.72rem',color:'#fca5a5',lineHeight:1.5}}, magicLinkStatus.error),
               ),
           React.createElement('p',{style:{color:'#4b5563',fontSize:'.72rem',marginTop:10,textAlign:'center'}}, 'Sign in to start your subscription and save cases.'),
-        ),
-        // Try free (limited)
-        React.createElement('div',{style:{marginTop:12,paddingTop:14,borderTop:'1px solid #ffffff08',textAlign:'center'}},
-          React.createElement('button',{onClick:()=>{try{localStorage.setItem('debateos-anon-trial','true')}catch(e){}setAnonTrial(true)},style:{display:'block',width:'100%',padding:'12px 20px',background:'transparent',border:'1px solid #ffffff12',borderRadius:10,color:'#64748b',fontSize:'.82rem',fontWeight:500,cursor:'pointer',transition:'.2s',fontFamily:'inherit'}},
-            'Try free — 5 requests, no sign-up'
-          ),
         ),
       )
     ),
@@ -13689,6 +14011,7 @@ function App() {
       tabPane('phil', React.createElement(Philosophy, { onSave: saveCase })),
       tabPane('practice', React.createElement(Practice)),
       tabPane('judge', React.createElement(Judge, { user: user })),
+      tabPane('terms', React.createElement(VocabQuiz)),
       tabPane('newbies', React.createElement(Newbies)),
       tabPane('shared', React.createElement(SharedCases, { user: user, team: team })),
       tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam, anonTrial: anonTrial })),
