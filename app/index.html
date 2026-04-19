@@ -1740,21 +1740,9 @@ if ('serviceWorker' in navigator) {
 <script src="/js/voice-guidelines.js"></script>
 <script src="/js/user-style.js"></script>
 <body>
-<div id="welcome-card" style="display:none;position:fixed;top:48px;right:16px;z-index:9999;max-width:340px;background:#0f172a;border:1px solid #ef444466;border-left:3px solid #f87171;border-radius:10px;padding:16px 18px 14px;color:#f1f5f9;font-family:'Inter',system-ui,sans-serif;font-size:.82rem;line-height:1.5;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:welcomeIn .4s ease-out">
-  <button type="button" aria-label="Dismiss" onclick="document.getElementById('welcome-card').style.display='none';try{localStorage.setItem('debateos-welcome-seen','1')}catch(e){}" style="position:absolute;right:8px;top:6px;background:transparent;border:none;color:#94a3b8;font-size:1.1rem;line-height:1;cursor:pointer;padding:4px 8px">×</button>
-  <div style="font-weight:700;color:#fff;font-size:.95rem;margin-bottom:6px;letter-spacing:-.01em">Welcome. This app is dense on purpose.</div>
-  <div style="color:#e2e8f0;margin-bottom:10px">Seven tools stacked into one workspace. Poke around, each one solves a different piece of how debaters actually prep.</div>
-  <ul style="list-style:none;padding:0;margin:0 0 10px;color:#e2e8f0">
-    <li style="margin:4px 0"><strong style="color:#fca5a5">Debate AI:</strong> argue out loud against a bot that pushes back</li>
-    <li style="margin:4px 0"><strong style="color:#fca5a5">Case Gen:</strong> full cases in seconds, any topic</li>
-    <li style="margin:4px 0"><strong style="color:#fca5a5">Judge Finder:</strong> paradigms + bias patterns from Tabroom</li>
-    <li style="margin:4px 0"><strong style="color:#fca5a5">Live Debates:</strong> schedule against real people</li>
-    <li style="margin:4px 0"><strong style="color:#fca5a5">Learn:</strong> drill-based skill building</li>
-  </ul>
-  <div style="color:#cbd5e1;font-size:.74rem">Click around. If something isn't relevant to you, skip it, the others probably are.</div>
-</div>
-<script>try{if(!localStorage.getItem('debateos-welcome-seen')){setTimeout(function(){var w=document.getElementById('welcome-card');if(w)w.style.display='block'},1200);}}catch(e){}</script>
-<style>@keyframes welcomeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}@media(max-width:640px){#welcome-card{left:12px;right:12px;max-width:none}}</style>
+<!-- Welcome card removed: it was overlapping the auth gate on first visit and
+     double-explaining content the pricing cards + tab labels already convey. -->
+
 <div id="root" style="background:#0a0a0a"></div>
 <canvas id="neuralBgCanvas" class="neural-bg-canvas"></canvas>
 <script type="text/babel">
@@ -13669,52 +13657,16 @@ function App() {
             ),
           ),
         ),
-        // Sign in block — Google, plus passwordless email-link alternative.
+        // Sign in block — Google only. Magic-link / email-link removed
+        // because (a) Firebase email-link sign-in isn't enabled on this
+        // project and (b) the app-wide decision is "require people to
+        // connect via Gmail" — a single auth path keeps UX clean.
         React.createElement('div',{style:{padding:20,background:'#ffffff04',border:'1px solid #ffffff12',borderRadius:12,marginBottom:12}},
           React.createElement('button',{onClick:signIn,style:{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'12px 16px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.92rem',fontWeight:600,cursor:'pointer',transition:'.2s'}},
             React.createElement('img',{src:'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',width:20,height:20}),
             t('auth.signInGoogle','Sign in with Google')
           ),
-          // OR divider
-          React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,margin:'14px 0 10px',color:'#4b5563',fontSize:'.68rem',fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase'}},
-            React.createElement('div',{style:{flex:1,height:1,background:'#ffffff10'}}),
-            React.createElement('span',null,'or'),
-            React.createElement('div',{style:{flex:1,height:1,background:'#ffffff10'}}),
-          ),
-          // Magic-link email form. Three states: idle (form), sending (spinner),
-          // sent (success), error (inline message + retry). All live in
-          // magicLinkStatus from useAuth.
-          magicLinkStatus && magicLinkStatus.state === 'sent'
-            ? React.createElement('div',{style:{padding:'12px 14px',background:'#22c55e12',border:'1px solid #22c55e35',borderRadius:10,textAlign:'center'}},
-                React.createElement('div',{style:{fontSize:'.82rem',color:'#86efac',fontWeight:700,marginBottom:4}}, 'Check your email'),
-                React.createElement('div',{style:{fontSize:'.74rem',color:'#94a3b8',lineHeight:1.5}},
-                  'We sent a sign-in link to ', React.createElement('strong',{style:{color:'#e2e8f0'}}, magicLinkStatus.email), '. Click the link on this device to sign in.'
-                ),
-                React.createElement('button',{onClick:()=>{setMagicEmail('');resetMagicLink();},style:{marginTop:10,background:'transparent',border:'none',color:'#64748b',fontSize:'.7rem',fontWeight:600,cursor:'pointer',textDecoration:'underline',fontFamily:'inherit'}},'Use a different email'),
-              )
-            : React.createElement('div',null,
-                // Stacked column so the email input + button can't overflow the
-                // narrow auth panel on mobile (which was clipping "EMAIL ME A LI[NK]"
-                // past the right edge).
-                React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8,width:'100%',minWidth:0}},
-                  React.createElement('input',{
-                    type:'email',
-                    value:magicEmail,
-                    onChange:e=>setMagicEmail(e.target.value),
-                    onKeyDown:e=>{if(e.key==='Enter'){sendMagicLink(magicEmail);}},
-                    placeholder:'you@example.com',
-                    disabled: magicLinkStatus && magicLinkStatus.state === 'sending',
-                    style:{width:'100%',boxSizing:'border-box',padding:'10px 12px',background:'#ffffff04',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.86rem',fontFamily:'inherit',outline:'none'}
-                  }),
-                  React.createElement('button',{
-                    onClick:()=>sendMagicLink(magicEmail),
-                    disabled: (magicLinkStatus && magicLinkStatus.state === 'sending') || !magicEmail.trim(),
-                    style:{width:'100%',boxSizing:'border-box',padding:'10px 14px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.78rem',fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',opacity:((magicLinkStatus&&magicLinkStatus.state==='sending')||!magicEmail.trim())?.5:1}
-                  }, magicLinkStatus && magicLinkStatus.state === 'sending' ? 'Sending\u2026' : 'Email me a link'),
-                ),
-                magicLinkStatus && magicLinkStatus.state === 'error' && React.createElement('div',{style:{marginTop:8,padding:'8px 10px',background:'#ef444412',border:'1px solid #ef444430',borderRadius:8,fontSize:'.72rem',color:'#fca5a5',lineHeight:1.5}}, magicLinkStatus.error),
-              ),
-          React.createElement('p',{style:{color:'#4b5563',fontSize:'.72rem',marginTop:10,textAlign:'center'}}, 'Sign in to start your subscription and save cases.'),
+          React.createElement('p',{style:{color:'#4b5563',fontSize:'.72rem',marginTop:12,textAlign:'center'}}, 'Sign in to start your subscription and save cases.'),
         ),
       )
     ),
