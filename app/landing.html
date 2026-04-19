@@ -1099,6 +1099,7 @@ button{font-family:inherit;cursor:pointer}
           <button type="button" class="mini-chat-side" data-side="against" style="flex:1;min-width:120px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit">I'm against it</button>
         </div>
         <button id="miniChatStart" type="button" disabled style="width:100%;margin-top:14px;padding:13px 20px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:.88rem;cursor:pointer;font-family:inherit;letter-spacing:.04em;text-transform:uppercase;opacity:.5;transition:opacity .2s,transform .15s">Start debating</button>
+        <button id="miniChatQuick" type="button" style="width:100%;margin-top:8px;padding:11px 20px;background:transparent;color:#fca5a5;border:1px solid rgba(239,68,68,.35);border-radius:10px;font-weight:700;font-size:.78rem;cursor:pointer;font-family:inherit;letter-spacing:.04em;text-transform:uppercase;transition:background .15s, border-color .15s">🎲 Random topic &mdash; start now</button>
         <div style="margin-top:10px;font-size:.7rem;color:var(--text-dim);text-align:center">Free · no sign-up · limited to a few rounds</div>
       </div>
 
@@ -1268,6 +1269,36 @@ button{font-family:inherit;cursor:pointer}
         var opener = 'Open with 2 short paragraphs taking your side of the motion. Don\u2019t summarize the topic \u2014 jump into the strongest argument. End with one question that forces me to justify my position.';
         messages.push({ role: 'user', content: opener });
         runTurn(null);
+      });
+
+      // Quick Start — random motion + random side, one tap to a live round.
+      // Lowers mini-chat friction from 3 taps to 1 (the landing-page parity
+      // to the /debate-ai Quick Start button).
+      var MINI_MOTIONS = [
+        'Ban legacy admissions at elite universities.',
+        'Require voting in national elections.',
+        'Allow AI to write op-eds without disclosure.',
+        'Tax billionaires at 100% above $999M net worth.',
+        'Decriminalize all personal-use drugs.',
+        'Replace juries with AI judges.',
+        'Mandate a four-day work week.',
+        'Ban private schools.',
+        'Open borders for all high-income countries.',
+        'Ban political donations entirely.',
+      ];
+      var quickBtn = document.getElementById('miniChatQuick');
+      if (quickBtn) quickBtn.addEventListener('click', function(){
+        var pick = MINI_MOTIONS[Math.floor(Math.random() * MINI_MOTIONS.length)];
+        topicEl.value = pick;
+        topic = pick;
+        // Randomize side so the AI's position varies each time.
+        var pickSide = Math.random() < 0.5 ? 'for' : 'against';
+        side = pickSide;
+        sideBtns.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-side') === pickSide); });
+        startBtn.disabled = false;
+        startBtn.style.opacity = '1';
+        // Fire the existing start flow — no duplication of the opener logic.
+        startBtn.click();
       });
 
       sendBtn.addEventListener('click', function(){
