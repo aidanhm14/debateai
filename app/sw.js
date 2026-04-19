@@ -1,7 +1,9 @@
-// Bumped to v9 to invalidate stale `/` cache from the root-routing swap:
-// before this, `/` cached the React app; now `/` serves landing.html. Users
-// with v8 would keep seeing the old cached root until the cache name changed.
-const CACHE_NAME = 'debateos-v9';
+// Bumped to v10 to invalidate the cached React bundle that predates the
+// Competitive-tab reshuffle (Case Feedback + Vocab Quiz added, Feedback
+// removed from Other; the 4-tier pricing gate; BYOK "Claude only" error).
+// Without this bump, users on v9 kept seeing the old dropdown with only
+// 8 items and the old 3-card pricing panel.
+const CACHE_NAME = 'debateos-v10';
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old

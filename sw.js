@@ -1,7 +1,5 @@
-// Bumped to v9 to invalidate stale `/` cache from the root-routing swap:
-// before this, `/` cached the React app; now `/` serves landing.html. Users
-// with v8 would keep seeing the old cached root until the cache name changed.
-const CACHE_NAME = 'debateos-v9';
+// Bumped to v10 — see app/sw.js for detail.
+const CACHE_NAME = 'debateos-v10';
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
