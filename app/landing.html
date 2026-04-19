@@ -116,6 +116,21 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <style>
+/* ── View Transitions: smooth same-origin navigation ──
+   Makes landing → /app and landing → /debate-ai feel continuous instead of a
+   hard page swap. Graceful fallback: browsers without view-transition support
+   (Firefox, Safari <18) just do a normal load, no breakage. */
+@view-transition { navigation: auto; }
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(.22,.9,.32,1);
+}
+::view-transition-old(root) { animation-name: vt-fade-out }
+::view-transition-new(root) { animation-name: vt-fade-in }
+@keyframes vt-fade-out { to { opacity:0; transform:translateY(-6px) } }
+@keyframes vt-fade-in  { from { opacity:0; transform:translateY(8px) } }
+
 *{box-sizing:border-box;margin:0;padding:0}
 
 /* ── Theme: Dark Grey (default) ──── */
@@ -1046,7 +1061,7 @@ button{font-family:inherit;cursor:pointer}
     <!-- LIVE mini debate widget — real /api/claude + /api/tts. Anonymous users can
          fire a full round of back-and-forth right from the landing page before
          any signup. Rate-limited server-side (5/min, 40/hr, 150/day per IP).
-         Full experience lives at /app/debate-ai. -->
+         Full experience lives at /debate-ai. -->
     <div id="miniChat" class="mini-chat" style="margin:40px auto 0;max-width:680px;border:1px solid var(--border);border-radius:16px;background:rgba(15,15,18,.72);backdrop-filter:blur(12px);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:left">
       <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.02)">
         <span style="width:10px;height:10px;border-radius:50%;background:#ef4444"></span>
@@ -1077,7 +1092,7 @@ button{font-family:inherit;cursor:pointer}
         </div>
         <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;font-size:.7rem;color:var(--text-dim)">
           <span>Round <span id="miniChatRound">1</span> of 3</span>
-          <a href="/app/debate-ai" style="color:var(--accent);font-weight:700;text-decoration:none">Full experience →</a>
+          <a href="/debate-ai" style="color:var(--accent);font-weight:700;text-decoration:none">Full experience →</a>
         </div>
       </div>
     </div>
@@ -1210,7 +1225,7 @@ button{font-family:inherit;cursor:pointer}
             sendBtn.disabled = true;
             var done = document.createElement('div');
             done.style.cssText = 'text-align:center;padding:14px;margin-top:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:10px;font-size:.82rem;color:var(--text)';
-            done.innerHTML = 'Nice round. Want to go deeper? <a href="/app/debate-ai" style="color:var(--accent);font-weight:700;text-decoration:none">Open the full Debate AI \u2192</a>';
+            done.innerHTML = 'Nice round. Want to go deeper? <a href="/debate-ai" style="color:var(--accent);font-weight:700;text-decoration:none">Open the full Debate AI \u2192</a>';
             bodyEl.appendChild(done);
             bodyEl.scrollTop = bodyEl.scrollHeight;
           }
