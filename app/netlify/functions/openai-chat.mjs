@@ -4,6 +4,7 @@ import { applyPromptLibrary } from './lib/prompts.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 
 const PRODUCTION_ORIGINS = [
+  'https://debateos1.netlify.app',
   'https://devilsadvocate1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',

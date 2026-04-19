@@ -2,6 +2,7 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 
 const PRODUCTION_ORIGINS = [
+  'https://debateos1.netlify.app',
   'https://devilsadvocate1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
