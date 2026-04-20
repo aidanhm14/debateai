@@ -57,7 +57,7 @@ These are the rules that override other considerations. Any change that violates
 - **No em-dashes in user-facing copy.** Copy was swept to remove them. New copy shouldn't reintroduce them.
 - **No "no sign-up required" / "unlimited" / "free during beta" claims.** Those were stale references to the pre-gate model and keep getting caught in sweeps. Default to naming the actual tiers.
 - **Hard-refresh after SW bumps.** When cached bundles need to expire, bump `CACHE_NAME` in both `sw.js` files. Current: `debateos-v12`.
-- **All six audience pages have their own color identity.** Lawyers gold, sales emerald, teams slate blue, founders amber, students violet, speakers magenta. Debaters IS the main landing (no separate debaters tile on the Professionals grid).
+- **Debate-first is the commitment (2026-04-20).** The six separate audience pages (lawyers / sales / teams / founders / students / speakers) were consolidated into a single `/pro` page. Debaters remains the main landing. Professional use cases share one page with color-coded cards per room. Open strategic question #1 in section 9 — now closed.
 
 ## 5. Voice & tone (how copy sounds)
 
@@ -112,7 +112,7 @@ Target conversion tier: **Individual at $5/mo**. Everything else exists to funne
 
 ## 9. Open strategic questions
 
-1. **Is this a debate tool that happens to extend to professionals, or a professional-argument tool that happens to have a debate niche?** The answer determines whether the audience pages are a funnel experiment or the main product direction. You haven't committed.
+1. ~~Is this a debate tool that happens to extend to professionals, or a professional-argument tool that happens to have a debate niche?~~ **CLOSED 2026-04-20.** Committed to debate-first. Six audience pages consolidated into one `/pro` page. The moat (format accuracy, built by a champion) points at debaters; professionals ride on the same engine as a secondary revenue stream.
 2. **Indian market.** 80% of your traffic is in India. Your copy is US-debate-centric. Either (a) lean into India hard (rewrite hero, reorder format list, partner with school circuits) or (b) accept that a huge share of traffic won't retain. Pick one.
 3. **App Store packaging.** User said defer until the web app is tighter. When it's ready, path is Capacitor wrapping the existing PWA.
 4. **Learning loop.** User-input → style profile → re-injected into prompts. Scaffolding exists (`styleProfile` state, `StyleProfileModal`). Missing: capture-on-generate, server-side summarizer, prompt-injection wiring.
