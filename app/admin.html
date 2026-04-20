@@ -181,6 +181,25 @@
       <div id="subs-empty" class="empty" style="display:none">No signups yet.</div>
     </div>
   </div>
+
+  <!-- Grant lifetime — reconciles Stripe Payment Link purchases -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Grant lifetime</span>
+        <span class="meta">manual upgrade by email</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
+        For users who paid via Stripe Payment Link (which doesn't auto-upgrade). The user must have signed in to the app at least once so a team exists. Reason is optional but helpful for audit.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <input id="grant-email" type="email" placeholder="user@example.com" style="flex:1;min-width:220px;padding:7px 11px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:13px;outline:none" />
+        <input id="grant-reason" type="text" placeholder="reason (e.g. Stripe pi_xxx, $3 lifetime)" style="flex:2;min-width:220px;padding:7px 11px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:13px;outline:none" />
+        <button id="grant-btn" style="padding:7px 16px;border-radius:6px;border:1px solid var(--line);background:var(--fg);color:var(--bg);cursor:pointer;font-size:13px;font-weight:600">Grant lifetime</button>
+      </div>
+      <div id="grant-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -328,6 +347,37 @@
     if (!q) return renderSubs(allSubs);
     renderSubs(allSubs.filter(s => (s.email || '').toLowerCase().includes(q)));
   });
+
+  // Grant-lifetime button: POST to /api/admin/grant-lifetime with the email.
+  // Used to reconcile Stripe Payment Link purchases that don't carry teamId
+  // metadata (webhook can't auto-upgrade those — this flips the plan manually).
+  $('grant-btn').addEventListener('click', async () => {
+    const email = ($('grant-email').value || '').trim();
+    const reason = ($('grant-reason').value || '').trim();
+    const statusEl = $('grant-status');
+    if (!email) { statusEl.textContent = 'Enter an email first.'; statusEl.style.color = 'var(--muted)'; return; }
+    statusEl.textContent = 'Granting…';
+    statusEl.style.color = 'var(--muted)';
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch('/api/admin/grant-lifetime', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, reason }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || ('API ' + r.status));
+      statusEl.textContent = `✓ ${data.email} → lifetime (team "${data.teamName}", was: ${data.previousPlan})`;
+      statusEl.style.color = '#10b981';
+      $('grant-email').value = '';
+      $('grant-reason').value = '';
+    } catch (e) {
+      statusEl.textContent = 'Failed: ' + (e.message || e);
+      statusEl.style.color = '#ef4444';
+    }
+  });
+  $('grant-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('grant-btn').click(); });
+  $('grant-reason').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('grant-btn').click(); });
 
   // CSV export
   $('subs-export').addEventListener('click', () => {
