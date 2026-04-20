@@ -34,6 +34,16 @@ export default async (request) => {
   if (typeof body.context === 'string') {
     updates.context = body.context.trim().slice(0, 500);
   }
+  // Public directory opt-in. Default is false — teams stay private unless the
+  // owner explicitly flips this on.
+  if (typeof body.isPublic === 'boolean') {
+    updates.isPublic = body.isPublic;
+  }
+  // Public-facing blurb shown on the teams directory. Kept short so the
+  // directory stays scannable.
+  if (typeof body.bio === 'string') {
+    updates.bio = body.bio.trim().slice(0, 240);
+  }
 
   if (Object.keys(updates).length === 0) return errorResponse('Nothing to update', 400, request);
 
