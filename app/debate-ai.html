@@ -272,8 +272,16 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   border-radius:14px;max-width:480px;margin:0 auto 20px;text-align:center;
 }
 
-/* ── Responsive ────────────────────── */
+/* ── Responsive ──────────────────────
+   On mobile the 4 secondary nav links (Home / High School / Learn / About)
+   + the lighting toggle wrap to 2 rows and collide with the sign-in button.
+   Hide them and show only logo + auth to keep the top bar clean.
+   Users can still reach those pages from the footer or landing. */
+.sign-btn-short{display:none}
 @media(max-width:640px){
+  .bar-link-secondary{display:none!important}
+  .sign-btn-full{display:none}
+  .sign-btn-short{display:inline}
   .bar{padding:14px 16px}
   .bar-links{gap:12px}
   .bar-links button,.bar-links .sign-btn{min-height:44px;min-width:44px}
@@ -2872,19 +2880,20 @@ function App(){
   const bar=el('div',{className:'bar'},
     el('a',{href:'/',className:'bar-logo',title:'Back to the landing page'},el('em',null,'Debate'),' AI'),
     el('div',{className:'bar-links'},
-      el('button',{onClick:()=>setLighting(lighting==='dark'?'light':'dark'),className:'lighting-toggle',title:'Toggle light/dark mode'},lighting==='dark'?'Light':'Dark'),
-      el('a',{href:'/'},'Home'),
-      el('a',{href:'/high-school'},'High School'),
-      el('a',{href:'/learn'},'Learn'),
-      el('a',{href:'/landing'},'About'),
+      el('button',{onClick:()=>setLighting(lighting==='dark'?'light':'dark'),className:'lighting-toggle bar-link-secondary',title:'Toggle light/dark mode'},lighting==='dark'?'Light':'Dark'),
+      el('a',{href:'/',className:'bar-link-secondary'},'Home'),
+      el('a',{href:'/high-school',className:'bar-link-secondary'},'High School'),
+      el('a',{href:'/learn',className:'bar-link-secondary'},'Learn'),
+      el('a',{href:'/landing',className:'bar-link-secondary'},'About'),
       user ? el('div',{style:{display:'flex',alignItems:'center',gap:10}},
         user.photoURL && el('img',{src:user.photoURL,style:{width:24,height:24,borderRadius:'50%',border:'1px solid var(--c-border4)'}}),
         el('span',{style:{fontSize:'.72rem',color:'var(--c-text3)'}},user.displayName?.split(' ')[0]),
         isPro() && el('span',{style:{fontSize:'.6rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}},'PRO'),
         el('button',{onClick:signOut,style:{fontSize:'.65rem',color:'var(--c-muted)',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}},'Sign Out'),
-      ) : el('button',{onClick:signIn,title:'Sign up free with Google to unlock all features',style:{display:'inline-flex',alignItems:'center',gap:8,fontSize:'.74rem',color:'#1f1f1f',background:'#fff',border:'none',borderRadius:999,padding:'7px 16px',cursor:'pointer',fontWeight:700,fontFamily:'inherit',boxShadow:'0 4px 16px rgba(0,0,0,.35)'}},
+      ) : el('button',{onClick:signIn,className:'sign-btn',title:'Sign up free with Google to unlock all features',style:{display:'inline-flex',alignItems:'center',gap:8,fontSize:'.74rem',color:'#1f1f1f',background:'#fff',border:'none',borderRadius:999,padding:'7px 16px',cursor:'pointer',fontWeight:700,fontFamily:'inherit',boxShadow:'0 4px 16px rgba(0,0,0,.35)',whiteSpace:'nowrap'}},
         el('span',{dangerouslySetInnerHTML:{__html:'<svg width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>'}}),
-        'Join beta with Google'
+        el('span',{className:'sign-btn-full'},'Join beta with Google'),
+        el('span',{className:'sign-btn-short'},'Sign up'),
       ),
     )
   );
