@@ -9365,20 +9365,64 @@ const FIREBASE_CONFIG = {
 };
 
 let firebaseApp, firebaseAuth, firebaseDb;
-try {
-  if (typeof firebase !== 'undefined' && FIREBASE_CONFIG.apiKey !== 'YOUR_FIREBASE_API_KEY') {
-    firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
-    firebaseAuth = firebase.auth();
-    firebaseDb = firebase.firestore();
-  } else if (typeof firebase === 'undefined') {
-    // Firebase CDN script didn't load. Most common cause: in-app browser
-    // (Instagram / Facebook / TikTok / LinkedIn / X) blocking gstatic.com or
-    // breaking popup-based auth. The firebase global stays undefined and
-    // every downstream call silently no-ops with the useless "not configured"
-    // alert. Surface the real cause below via detectInAppBrowser().
-    console.warn('[firebase] SDK global is undefined — likely in-app browser or CDN block.');
-  }
-} catch(e) { console.warn('Firebase init skipped:', e.message); }
+
+// Initialize Firebase. Returns true on success, false if SDK still missing.
+// Extracted so we can re-run it after a dynamic SDK load recovers from a
+// failed initial sync-script load (see loadFirebaseDynamically below).
+function initFirebase() {
+  if (firebaseAuth) return true;
+  try {
+    if (typeof firebase !== 'undefined' && FIREBASE_CONFIG.apiKey !== 'YOUR_FIREBASE_API_KEY') {
+      firebaseApp = firebase.apps && firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      firebaseAuth = firebase.auth();
+      firebaseDb = firebase.firestore();
+      window.firebaseAuth = firebaseAuth; // surface for dynamic consumers
+      window.firebaseDb = firebaseDb;
+      return true;
+    }
+  } catch(e) { console.warn('[firebase] init failed:', e.message); }
+  return false;
+}
+initFirebase();
+if (!firebaseAuth) console.warn('[firebase] sync init did not complete — will retry dynamically on first sign-in.');
+
+// Dynamically reload the Firebase SDK when the sync <script> tags didn't
+// produce a `firebase` global. Causes: network blip, ad blocker on gstatic,
+// corrupt SW cache, in-app browser quirks. Tries the primary gstatic CDN
+// first, falls back to jsDelivr. Resolves true if `firebase` is available
+// after the attempt.
+let firebaseLoadPromise = null;
+async function loadFirebaseDynamically() {
+  if (typeof firebase !== 'undefined') return true;
+  if (firebaseLoadPromise) return firebaseLoadPromise;
+  firebaseLoadPromise = (async () => {
+    const cdns = [
+      { base: 'https://www.gstatic.com/firebasejs/10.12.0/', suffix: '-compat.js' },
+      { base: 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/', suffix: '-compat.js' },
+    ];
+    const modules = ['firebase-app', 'firebase-auth', 'firebase-firestore'];
+    const loadOne = (src) => new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = false; // preserve order
+      s.onload = () => resolve(true);
+      s.onerror = () => reject(new Error('script load failed: ' + src));
+      document.head.appendChild(s);
+    });
+    for (const cdn of cdns) {
+      try {
+        for (const m of modules) await loadOne(cdn.base + m + cdn.suffix);
+        if (typeof firebase !== 'undefined') {
+          console.info('[firebase] dynamically recovered from', cdn.base);
+          return true;
+        }
+      } catch (err) {
+        console.warn('[firebase] dynamic load failed on', cdn.base, '—', err.message);
+      }
+    }
+    return typeof firebase !== 'undefined';
+  })();
+  return firebaseLoadPromise;
+}
 
 // In-app browsers (Instagram/FB/TikTok/LinkedIn/X) block signInWithPopup,
 // often restrict third-party cookies, sometimes don't load gstatic.com at all.
@@ -9416,11 +9460,16 @@ function useAuth() {
     return firebaseAuth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
   }, []);
   const signIn = async () => {
+    // If sync-script init failed, try a dynamic reload before surfacing an
+    // error. Fixes the "Firebase not configured" dead-end when the gstatic
+    // CDN blipped on first page load.
     if (!firebaseAuth) {
-      // The misleading "not configured" text was causing real user confusion —
-      // Firebase IS configured, it just failed to load in their browser.
-      // Common causes: ad blocker blocking gstatic.com, in-app browser
-      // (Instagram/FB/TikTok), corrupt service-worker cache, or network blip.
+      try {
+        await loadFirebaseDynamically();
+        initFirebase();
+      } catch (e) { /* fall through to the alert below */ }
+    }
+    if (!firebaseAuth) {
       const inApp = typeof detectInAppBrowser === 'function' ? detectInAppBrowser() : null;
       if (inApp) {
         alert('Google sign-in doesn\u2019t work inside ' + inApp + '\u2019s browser. Tap the menu (\u22EF or \u22EE) and choose Open in Safari/Chrome.');
