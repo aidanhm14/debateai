@@ -11469,16 +11469,17 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
           ? el('div',{style:{display:'flex',flexDirection:'column',gap:8}},
               el('input',{value:editName,onChange:e=>setEditName(e.target.value),placeholder:'Team name',style:{padding:'6px 12px',background:'#38383e',border:'1px solid #ffffff15',borderRadius:6,color:'#e2e8f0',fontSize:'1.1rem',fontWeight:700,outline:'none'}}),
               el('textarea',{value:editContext,onChange:e=>setEditContext(e.target.value),placeholder:'Team context (e.g. "UChicago APDA team, focused on policy and philosophy cases, strong at framework debate")',rows:2,style:{padding:'6px 12px',background:'#38383e',border:'1px solid #ffffff15',borderRadius:6,color:'#cbd5e1',fontSize:'.82rem',outline:'none',resize:'vertical'}}),
-              // Public directory opt-in. Default off. When on, the team name +
-              // bio + owner first name appear on the public Teams directory.
-              el('label',{style:{display:'flex',alignItems:'flex-start',gap:8,padding:'8px 10px',background:'#38383e',border:'1px solid '+(editIsPublic?'#22c55e40':'#ffffff15'),borderRadius:6,cursor:'pointer'}},
+              // Public directory opt-in. Default off. Uses theme CSS vars so it
+              // reads correctly in both dark and light modes (the hardcoded
+              // #38383e was black-on-white in day theme).
+              el('label',{style:{display:'flex',alignItems:'flex-start',gap:8,padding:'10px 12px',background:'var(--input-bg,var(--bg-card,rgba(127,127,127,.08)))',border:'1px solid '+(editIsPublic?'#22c55e60':'var(--border,rgba(127,127,127,.2))'),borderRadius:8,cursor:'pointer'}},
                 el('input',{type:'checkbox',checked:editIsPublic,onChange:e=>setEditIsPublic(e.target.checked),style:{marginTop:3}}),
                 el('div',null,
-                  el('div',{style:{color:'#e2e8f0',fontSize:'.82rem',fontWeight:600}}, 'List this team publicly'),
-                  el('div',{style:{color:'#94a3b8',fontSize:'.72rem',marginTop:2,lineHeight:1.4}}, 'Shows team name + bio + owner first name + member count on the public Teams directory. No emails or billing info. Off by default.'),
+                  el('div',{style:{color:'var(--text-primary,#e2e8f0)',fontSize:'.82rem',fontWeight:600}}, 'List this team publicly'),
+                  el('div',{style:{color:'var(--text-muted,#94a3b8)',fontSize:'.72rem',marginTop:2,lineHeight:1.4}}, 'Shows team name + bio + owner first name + member count on the public Teams directory. No emails or billing info. Off by default.'),
                 ),
               ),
-              editIsPublic && el('textarea',{value:editBio,onChange:e=>setEditBio(e.target.value),placeholder:'Short public bio \u2014 what your team is about (240 chars)',rows:2,maxLength:240,style:{padding:'6px 12px',background:'#38383e',border:'1px solid #ffffff15',borderRadius:6,color:'#cbd5e1',fontSize:'.82rem',outline:'none',resize:'vertical'}}),
+              editIsPublic && el('textarea',{value:editBio,onChange:e=>setEditBio(e.target.value),placeholder:'Short public bio \u2014 what your team is about (240 chars)',rows:2,maxLength:240,style:{padding:'8px 12px',background:'var(--input-bg,var(--bg-card,rgba(127,127,127,.08)))',border:'1px solid var(--border,rgba(127,127,127,.2))',borderRadius:8,color:'var(--text-primary,#cbd5e1)',fontSize:'.82rem',outline:'none',resize:'vertical'}}),
               el('div',{style:{display:'flex',gap:6}},
                 el('button',{className:'btn btn-primary',style:{padding:'4px 12px',fontSize:'.78rem'},onClick:async()=>{
                   try {
@@ -11751,37 +11752,37 @@ function PublicTeamsBrowser({ currentTeamId }) {
 
   const planColor = (p) => ({ individual:'#3b82f6', team:'#8b5cf6', lifetime:'#22c55e', byok:'#f59e0b' }[p] || '#94a3b8');
 
-  return el('div', {style:{marginTop:40,paddingTop:28,borderTop:'1px solid #ffffff10'}},
+  return el('div', {style:{marginTop:40,paddingTop:28,borderTop:'1px solid var(--border,rgba(127,127,127,.18))'}},
     el('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:6,flexWrap:'wrap'}},
-      el('h3',{style:{margin:0,fontSize:'1.05rem',fontWeight:800,color:'#e4e8f0'}},'Public Teams'),
-      el('span',{style:{fontSize:'.7rem',color:'#64748b'}}, loading ? '' : ('\u00B7 ' + teams.length + ' listed')),
+      el('h3',{style:{margin:0,fontSize:'1.05rem',fontWeight:800,color:'var(--text-primary,#e4e8f0)'}},'Public Teams'),
+      el('span',{style:{fontSize:'.7rem',color:'var(--text-muted,#64748b)'}}, loading ? '' : ('\u00B7 ' + teams.length + ' listed')),
     ),
-    el('p',{style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.5,marginBottom:14}},
+    el('p',{style:{color:'var(--text-muted,#94a3b8)',fontSize:'.82rem',lineHeight:1.5,marginBottom:14}},
       'Teams that opted in to the public directory. Want yours here? Click the \u270F\uFE0F next to your team name above and toggle \u201CList this team publicly.\u201D'
     ),
     !loading && teams.length > 0 && el('input',{
       type:'search', value:q, onChange:e=>setQ(e.target.value),
       placeholder:'Filter by name, bio, or owner\u2026',
-      style:{width:'100%',padding:'8px 12px',background:'#38383e',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.85rem',outline:'none',marginBottom:12}
+      style:{width:'100%',padding:'8px 12px',background:'var(--input-bg,var(--bg-card,rgba(127,127,127,.08)))',border:'1px solid var(--border,rgba(127,127,127,.2))',borderRadius:8,color:'var(--text-primary,#e2e8f0)',fontSize:'.85rem',outline:'none',marginBottom:12}
     }),
-    loading && el('div',{style:{color:'#64748b',fontSize:'.82rem'}}, 'Loading\u2026'),
+    loading && el('div',{style:{color:'var(--text-muted,#64748b)',fontSize:'.82rem'}}, 'Loading\u2026'),
     err && el('div',{style:{color:'#f87171',fontSize:'.82rem',padding:10,background:'#ef444410',borderRadius:8}}, 'Couldn\u2019t load public teams: ' + err),
-    !loading && !err && teams.length === 0 && el('div',{style:{color:'#64748b',fontSize:'.82rem',padding:'16px 0'}},
+    !loading && !err && teams.length === 0 && el('div',{style:{color:'var(--text-muted,#64748b)',fontSize:'.82rem',padding:'16px 0'}},
       'No public teams yet. Be the first \u2014 flip the toggle on your team above to get listed here.'
     ),
-    !loading && filtered.length === 0 && teams.length > 0 && el('div',{style:{color:'#64748b',fontSize:'.82rem'}}, 'No matches for \u201C' + q + '\u201D.'),
+    !loading && filtered.length === 0 && teams.length > 0 && el('div',{style:{color:'var(--text-muted,#64748b)',fontSize:'.82rem'}}, 'No matches for \u201C' + q + '\u201D.'),
     !loading && filtered.length > 0 && el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))',gap:12}},
       filtered.map(t => el('div',{
         key:t.id,
-        style:{padding:'14px 16px',background:'#1f1f24',border:'1px solid ' + (t.id===currentTeamId ? '#ef444440' : '#ffffff15'),borderRadius:12,display:'flex',flexDirection:'column',gap:6}
+        style:{padding:'14px 16px',background:'var(--card-bg,var(--bg-card,rgba(127,127,127,.06)))',border:'1px solid ' + (t.id===currentTeamId ? '#ef444460' : 'var(--card-border,var(--border,rgba(127,127,127,.18)))'),borderRadius:12,display:'flex',flexDirection:'column',gap:6}
       },
         el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}},
-          el('div',{style:{fontWeight:700,color:'#e4e8f0',fontSize:'.95rem',overflow:'hidden',textOverflow:'ellipsis'}}, t.name || 'Untitled team'),
+          el('div',{style:{fontWeight:700,color:'var(--text-primary,#e4e8f0)',fontSize:'.95rem',overflow:'hidden',textOverflow:'ellipsis'}}, t.name || 'Untitled team'),
           t.id===currentTeamId && el('span',{style:{fontSize:'.55rem',fontWeight:700,color:'#ef4444',letterSpacing:'.5px',textTransform:'uppercase'}}, 'Yours'),
         ),
         t.plan && t.plan !== 'trial' && el('span',{style:{alignSelf:'flex-start',fontSize:'.6rem',fontWeight:700,color:planColor(t.plan),background:planColor(t.plan)+'15',border:'1px solid '+planColor(t.plan)+'40',padding:'2px 8px',borderRadius:999,letterSpacing:'.5px',textTransform:'uppercase'}}, t.plan),
-        t.bio && el('div',{style:{color:'#94a3b8',fontSize:'.8rem',lineHeight:1.5}}, t.bio),
-        el('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'.72rem',color:'#64748b',marginTop:4}},
+        t.bio && el('div',{style:{color:'var(--text-muted,#94a3b8)',fontSize:'.8rem',lineHeight:1.5}}, t.bio),
+        el('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'.72rem',color:'var(--text-muted,#64748b)',marginTop:4}},
           el('span',null, t.ownerDisplayName ? ('Owner: ' + t.ownerDisplayName) : ''),
           el('span',null, (t.memberCount || 0) + (t.memberCount === 1 ? ' member' : ' members')),
         ),
