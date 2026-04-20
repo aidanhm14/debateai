@@ -9370,8 +9370,36 @@ try {
     firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
     firebaseAuth = firebase.auth();
     firebaseDb = firebase.firestore();
+  } else if (typeof firebase === 'undefined') {
+    // Firebase CDN script didn't load. Most common cause: in-app browser
+    // (Instagram / Facebook / TikTok / LinkedIn / X) blocking gstatic.com or
+    // breaking popup-based auth. The firebase global stays undefined and
+    // every downstream call silently no-ops with the useless "not configured"
+    // alert. Surface the real cause below via detectInAppBrowser().
+    console.warn('[firebase] SDK global is undefined — likely in-app browser or CDN block.');
   }
 } catch(e) { console.warn('Firebase init skipped:', e.message); }
+
+// In-app browsers (Instagram/FB/TikTok/LinkedIn/X) block signInWithPopup,
+// often restrict third-party cookies, sometimes don't load gstatic.com at all.
+// Detect them and show a clear "open in Safari/Chrome" prompt instead of the
+// broken sign-in modal. Returns the app name (for copy) or null if it's a
+// regular browser.
+function detectInAppBrowser() {
+  try {
+    const ua = navigator.userAgent || '';
+    if (/Instagram/i.test(ua)) return 'Instagram';
+    if (/FBAN|FBAV|FB_IAB/i.test(ua)) return 'Facebook';
+    if (/Musical_ly|BytedanceWebview|TikTok/i.test(ua)) return 'TikTok';
+    if (/LinkedInApp/i.test(ua)) return 'LinkedIn';
+    if (/Twitter|TwitterAndroid/i.test(ua)) return 'X';
+    if (/Snapchat/i.test(ua)) return 'Snapchat';
+    // Reddit Android app uses a WebView with no distinctive UA — detect via
+    // generic "wv" (Android WebView) only as a last resort, since legit Chrome
+    // on some Androids also matches. Keep this conservative.
+    return null;
+  } catch (e) { return null; }
+}
 
 function useAuth() {
   const [user, setUser] = useState(null);
@@ -9388,7 +9416,19 @@ function useAuth() {
     return firebaseAuth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
   }, []);
   const signIn = async () => {
-    if (!firebaseAuth) return alert('Firebase not configured yet. Add your Firebase config to enable profiles and the forum.');
+    if (!firebaseAuth) {
+      // The misleading "not configured" text was causing real user confusion —
+      // Firebase IS configured, it just failed to load in their browser.
+      // Common causes: ad blocker blocking gstatic.com, in-app browser
+      // (Instagram/FB/TikTok), corrupt service-worker cache, or network blip.
+      const inApp = typeof detectInAppBrowser === 'function' ? detectInAppBrowser() : null;
+      if (inApp) {
+        alert('Google sign-in doesn\u2019t work inside ' + inApp + '\u2019s browser. Tap the menu (\u22EF or \u22EE) and choose Open in Safari/Chrome.');
+      } else {
+        alert('Sign-in is temporarily unavailable in this browser. Try: (1) reload the page (Cmd+Shift+R), (2) disable ad blockers for debatethedevil.com, or (3) open in Chrome/Safari if you\u2019re in an in-app browser.');
+      }
+      return;
+    }
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     // Try popup first (better UX — no full page reload). Fall back to redirect
@@ -13721,6 +13761,61 @@ function App() {
   return React.createElement(I18nContext.Provider, {value: {t, locale, setLocale}},
   React.createElement(React.Fragment,null,
     React.createElement(PolyBackground),
+    // In-app browser block. Instagram/Facebook/TikTok/etc. in-app browsers
+    // break Firebase auth (popup blocked, gstatic.com sometimes blocked,
+    // third-party cookies restricted). Show a clear "open in your real
+    // browser" screen instead of the broken sign-in modal that ends in a
+    // misleading "Firebase not configured" alert.
+    (() => {
+      const inApp = typeof detectInAppBrowser === 'function' ? detectInAppBrowser() : null;
+      if (!inApp) return null;
+      // Let the user bypass if they've already chosen to (in case our UA
+      // detection is wrong — an escape hatch worth having).
+      if (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('debateos-bypass-inapp') === '1') return null;
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const href = window.location.href;
+      return React.createElement('div',{style:{position:'fixed',inset:0,zIndex:10000,background:'#111',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px',overflowY:'auto'}},
+        React.createElement('div',{style:{maxWidth:440,width:'100%',textAlign:'center',color:'#e2e8f0'}},
+          React.createElement('h1',{style:{fontSize:'1.8rem',fontWeight:900,marginBottom:6}},
+            React.createElement('span',{style:{color:'#ef4444',fontStyle:'italic'}},"Devil's "),
+            React.createElement('span',{style:{fontWeight:300}},'Advocate')
+          ),
+          React.createElement('p',{style:{color:'#92754a',fontSize:'.7rem',letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,marginBottom:24}},'Open in your browser'),
+          React.createElement('div',{style:{padding:'20px 22px',background:'#1f1f24',border:'1px solid #ffffff18',borderRadius:12,marginBottom:16,textAlign:'left',lineHeight:1.55,fontSize:'.92rem'}},
+            React.createElement('p',{style:{marginBottom:12,color:'#f1f5f9'}},
+              'Google sign-in doesn\u2019t work inside ', React.createElement('b',null,inApp), '\u2019s browser. Please open this page in ', isIOS ? 'Safari' : 'Chrome', ' to continue.'
+            ),
+            React.createElement('p',{style:{color:'#94a3b8',fontSize:'.86rem',marginBottom:4}},
+              isIOS
+                ? React.createElement(React.Fragment, null, 'Tap the ', React.createElement('b',null,'\u22EF menu'), ' at the top right, then ', React.createElement('b',null,'\u201cOpen in Safari\u201d'), '.')
+                : React.createElement(React.Fragment, null, 'Tap the ', React.createElement('b',null,'\u22EE menu'), ' at the top right, then ', React.createElement('b',null,'\u201cOpen in Chrome\u201d'), ' or ', React.createElement('b',null,'\u201cOpen in external browser\u201d'), '.')
+            ),
+          ),
+          React.createElement('button',{
+            onClick: () => {
+              // Best-effort: copy the URL so they can paste into a real browser.
+              try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  navigator.clipboard.writeText(href);
+                  alert('Link copied. Paste it in ' + (isIOS ? 'Safari' : 'Chrome') + '.');
+                } else {
+                  alert('Copy this link into ' + (isIOS ? 'Safari' : 'Chrome') + ':\n\n' + href);
+                }
+              } catch(e) { alert(href); }
+            },
+            style:{width:'100%',padding:'13px 18px',background:'#ef4444',border:'none',borderRadius:10,color:'#fff',fontSize:'.95rem',fontWeight:700,cursor:'pointer',marginBottom:10,fontFamily:'inherit'}
+          }, 'Copy link'),
+          React.createElement('button',{
+            onClick: () => {
+              try { window.localStorage.setItem('debateos-bypass-inapp', '1'); } catch(e) {}
+              // Force a re-render by navigating to the same URL.
+              window.location.reload();
+            },
+            style:{background:'none',border:'none',color:'#64748b',fontSize:'.8rem',cursor:'pointer',fontFamily:'inherit',padding:8}
+          }, 'Continue here anyway \u203A'),
+        )
+      );
+    })(),
     // Auth gate — sign in or use BYOK key (skip if anon trial active)
     !user && !authLoading && !userApiKey && React.createElement('div',{style:{position:'fixed',inset:0,zIndex:9999,background:'rgba(10,15,25,.92)',display:'flex',alignItems:'flex-start',justifyContent:'center',backdropFilter:'blur(8px)',overflowY:'auto',padding:'40px 0'}},
       React.createElement('div',{style:{background:'#303038',border:'1px solid #ffffff22',borderRadius:16,padding:'40px 48px',maxWidth:520,width:'90%',textAlign:'center'}},
