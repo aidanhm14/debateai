@@ -3716,6 +3716,10 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   let response;
   const startTime = Date.now();
   const byokKey = __byokKey;
+  // Abort if the network hangs — without this a stuck Netlify function freezes
+  // the entire round UI until the browser's default 5+ min timeout.
+  const controller = new AbortController();
+  const connectTimeout = setTimeout(() => controller.abort(), 45000);
   try {
     if (byokKey && byokKey.startsWith('sk-ant-')) {
       // BYOK: send directly to Anthropic — no _feature in body
@@ -3728,6 +3732,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
           'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
     } else {
       // Server proxy: include _feature for usage logging and optional
@@ -3749,11 +3754,17 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
         method: 'POST',
         headers,
         body: JSON.stringify(serverBody),
+        signal: controller.signal,
       });
     }
   } catch(fetchErr) {
+    clearTimeout(connectTimeout);
+    if (fetchErr.name === 'AbortError') {
+      throw new Error('The AI service took too long to respond. Your round is still saved — try again in a moment.');
+    }
     throw new Error('Could not connect to the AI service. Check your internet connection and try again.');
   }
+  clearTimeout(connectTimeout);
 
   // Detect Netlify 404 HTML page served as 200 (force=true redirect with missing function)
   const claudeCt = response.headers.get('content-type') || '';
@@ -6539,14 +6550,33 @@ function Casual() {
    ═══════════════════════════════════════════════════ */
 
 function DebateChat() {
-  const [motion, setMotion] = useState('');
-  const [background, setBackground] = useState('');
-  const [mySide, setMySide] = useState('pro'); // 'pro' | 'con'
-  const [started, setStarted] = useState(false);
-  const [messages, setMessages] = useState([]);
+  // Autosave key: preserves an in-progress round across refresh/crash so a
+  // mid-debate drop (API timeout, dead battery, tab close) doesn't cost the
+  // user their round. Cleared on explicit reset or saved-to-library.
+  const DRAFT_KEY = 'debateos-chat-draft-v1';
+  const loadDraft = () => {
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch(e) { return null; }
+  };
+  const initialDraft = loadDraft();
+  const [motion, setMotion] = useState(initialDraft?.motion || '');
+  const [background, setBackground] = useState(initialDraft?.background || '');
+  const [mySide, setMySide] = useState(initialDraft?.mySide || 'pro');
+  const [started, setStarted] = useState(!!(initialDraft?.started && initialDraft?.messages?.length));
+  const [messages, setMessages] = useState(initialDraft?.messages || []);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
+  // Persist in-progress state on every message change. Only write while a round
+  // is live — before-start state doesn't need persisting.
+  useEffect(() => {
+    if (!started || !messages.length) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        motion, background, mySide, started, messages, savedAt: Date.now(),
+      }));
+    } catch(e) {}
+  }, [motion, background, mySide, started, messages]);
+  const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch(e) {} };
   // Library state: saved rounds persisted in localStorage + whether the library
   // panel is currently shown over the setup screen.
   const ROUNDS_KEY = 'debateos-chat-rounds-v1';
@@ -6572,6 +6602,7 @@ function DebateChat() {
     };
     const next = [row, ...savedRounds].slice(0, 40); // cap at 40 to keep localStorage sane
     persistRounds(next);
+    clearDraft();
     setSavedFlash(true);
     setTimeout(()=>setSavedFlash(false), 1400);
   };
@@ -6633,6 +6664,7 @@ function DebateChat() {
     setStarted(false);
     setMessages([]);
     setInput('');
+    clearDraft();
   };
 
   const send = async () => {
@@ -7285,9 +7317,11 @@ RULES:
     ),
 
     output && React.createElement('div',{ref:outputRef,className:'phil-output',style:{position:'relative'}},
-      // Philosopher portrait — Wikipedia REST API thumbnail
+      // Philosopher portrait — Wikipedia REST API thumbnail. Floated right with
+      // shape-outside so the output text wraps around it instead of flowing
+      // underneath (prior bug: text clipped under the circular avatar).
       selectedPhils[0] && React.createElement('div',{
-        style:{position:'absolute',top:16,right:16,width:110,height:110,borderRadius:'50%',overflow:'hidden',border:'2.5px solid #ef444440',zIndex:1,background:'#363638',boxShadow:'0 4px 20px rgba(0,0,0,.3)'},
+        style:{float:'right',shapeOutside:'circle(55px at 55px 55px)',marginLeft:20,marginBottom:12,width:110,height:110,borderRadius:'50%',overflow:'hidden',border:'2.5px solid #ef444440',zIndex:1,background:'#363638',boxShadow:'0 4px 20px rgba(0,0,0,.3)'},
         ref:(el) => {
           if (!el || el.dataset.loaded) return;
           el.dataset.loaded = 'true';
@@ -9238,7 +9272,6 @@ try {
 function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [magicLinkStatus, setMagicLinkStatus] = useState({ state: 'idle', email: '', error: '' });
   useEffect(() => {
     if (!firebaseAuth) { setLoading(false); return; }
     // Complete redirect-based sign-in if the user just returned from Google.
@@ -9247,30 +9280,6 @@ function useAuth() {
       firebaseAuth.getRedirectResult().catch(err => {
         if (err && err.code !== 'auth/no-auth-event') console.warn('[auth] redirect result err:', err.code, err.message);
       });
-    } catch(e) {}
-    // Magic-link return flow. If the user clicked an email-link, Firebase
-    // appends ?apiKey=&mode=signIn&oobCode=... — isSignInWithEmailLink detects
-    // that. We pull their email from localStorage (stashed when we sent the
-    // link) and complete sign-in. If the email isn't in storage (different
-    // browser/device), we prompt them to re-enter it.
-    try {
-      if (firebaseAuth.isSignInWithEmailLink(window.location.href)) {
-        let email = null;
-        try { email = localStorage.getItem('debateos-magic-link-email'); } catch(e) {}
-        if (!email) email = window.prompt('Confirm the email you used to request this sign-in link:');
-        if (email) {
-          firebaseAuth.signInWithEmailLink(email, window.location.href)
-            .then(() => {
-              try { localStorage.removeItem('debateos-magic-link-email'); } catch(e) {}
-              // Strip the oobCode params so a refresh doesn't try to re-consume.
-              try { history.replaceState({}, document.title, window.location.pathname + window.location.hash); } catch(e) {}
-            })
-            .catch(err => {
-              console.warn('[auth] magic link sign-in failed:', err.code, err.message);
-              setMagicLinkStatus({ state: 'error', email: email || '', error: err.message || err.code });
-            });
-        }
-      }
     } catch(e) {}
     return firebaseAuth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
   }, []);
@@ -9296,39 +9305,8 @@ function useAuth() {
       alert('Sign-in failed: ' + ((err && err.message) || code || 'unknown error'));
     }
   };
-  // Passwordless email-link sign-in. Fires a Firebase email with a link that
-  // signs the user in when clicked. Requires "Email link (passwordless sign-in)"
-  // to be enabled in Firebase Console → Authentication → Sign-in method, and
-  // the current domain in Authorized domains.
-  const sendMagicLink = async (email) => {
-    if (!firebaseAuth) return alert('Firebase not configured.');
-    email = (email || '').trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setMagicLinkStatus({ state: 'error', email, error: 'Enter a valid email address.' });
-      return;
-    }
-    setMagicLinkStatus({ state: 'sending', email, error: '' });
-    try {
-      await firebaseAuth.sendSignInLinkToEmail(email, {
-        url: window.location.origin + window.location.pathname,
-        handleCodeInApp: true,
-      });
-      try { localStorage.setItem('debateos-magic-link-email', email); } catch(e) {}
-      setMagicLinkStatus({ state: 'sent', email, error: '' });
-    } catch (err) {
-      console.warn('[auth] sendSignInLinkToEmail failed:', err.code, err.message);
-      let msg = err.message || err.code || 'Unknown error';
-      if (err.code === 'auth/operation-not-allowed') {
-        msg = 'Email-link sign-in isn\u2019t enabled yet. Admin: turn it on in Firebase Console \u2192 Authentication \u2192 Sign-in method.';
-      } else if (err.code === 'auth/unauthorized-continue-uri' || err.code === 'auth/invalid-continue-uri') {
-        msg = 'This domain isn\u2019t authorized for email-link sign-in. Admin: add it under Firebase Console \u2192 Authentication \u2192 Settings \u2192 Authorized domains.';
-      }
-      setMagicLinkStatus({ state: 'error', email, error: msg });
-    }
-  };
-  const resetMagicLink = () => setMagicLinkStatus({ state: 'idle', email: '', error: '' });
   const signOut = async () => { if (firebaseAuth) await firebaseAuth.signOut(); };
-  return { user, loading, signIn, signOut, sendMagicLink, magicLinkStatus, resetMagicLink };
+  return { user, loading, signIn, signOut };
 }
 
 /* ═══════════════════════════════════════════════════
@@ -9414,16 +9392,15 @@ function UpgradeModal({ feature, remaining, onClose, onUpgrade }) {
   );
 }
 
-function AuthModal({ onSignIn, onSkip }) {
-  return React.createElement('div', {className:'auth-overlay'},
+function AuthModal({ onSignIn, onClose }) {
+  return React.createElement('div', {className:'auth-overlay', onClick:e=>{if(e.target===e.currentTarget && onClose) onClose();}},
     React.createElement('div', {className:'auth-modal',role:'dialog','aria-modal':true},
       React.createElement('h2', null, "Welcome to Devil's Advocate"),
-      React.createElement('p', null, 'Sign in to save your debate-style profile, unlock the AI learning from how you argue, and share cases with your team. You can skip this and use the app without an account, but the AI won\'t remember how you like to debate.'),
+      React.createElement('p', null, 'Sign in with Google to unlock your 5 free requests, save your debate-style profile, and share cases with your team.'),
       React.createElement('button', {className:'auth-google-btn', onClick:onSignIn},
         React.createElement('img', {src:'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg', width:20, height:20}),
         'Sign in with Google'
       ),
-      React.createElement('button', {className:'auth-skip', onClick:onSkip}, 'Skip for now'),
     )
   );
 }
@@ -13324,8 +13301,7 @@ function App() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [billingSuccess, setBillingSuccess] = useState(false);
   const [legalPage, setLegalPage] = useState(null); // null | 'terms' | 'privacy'
-  const { user, loading: authLoading, signIn, signOut, sendMagicLink, magicLinkStatus, resetMagicLink } = useAuth();
-  const [magicEmail, setMagicEmail] = useState('');
+  const { user, loading: authLoading, signIn, signOut } = useAuth();
   useEffect(() => { __getAuthToken = user ? () => user.getIdToken() : null; }, [user]);
   // Merge Firestore cases with localStorage on sign-in
   useEffect(() => {
@@ -13404,6 +13380,14 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('billing') === 'success') {
+      // Conversion tracking. soul.md flagged "Paid conversions: 0 tracked" —
+      // we fire on the client redirect so we can attribute which session
+      // actually completed a checkout, without relying on webhook plumbing.
+      try {
+        const plan = params.get('plan') || 'unknown';
+        const sessionId = params.get('session_id') || null;
+        logBetaEvent('conversion', { plan, sessionId, source: 'stripe_redirect' });
+      } catch(e) {}
       window.history.replaceState({}, '', window.location.pathname + window.location.hash);
       setBillingSuccess(true);
       let attempts = 0;
@@ -13655,7 +13639,7 @@ function App() {
       'Feedback'
     ),
     showFeedback && React.createElement(FeedbackModal, { onClose: () => setShowFeedback(false), currentTab: tab }),
-    showAuth && React.createElement(AuthModal, { onSignIn: handleSignIn, onSkip: () => setShowAuth(false) }),
+    showAuth && React.createElement(AuthModal, { onSignIn: handleSignIn, onClose: () => setShowAuth(false) }),
     showStyleProfile && React.createElement(StyleProfileModal, { onClose: () => setShowStyleProfile(false) }),
     showSignUpNudge && React.createElement(SignUpNudgeModal, {
       onSignIn: () => { setShowSignUpNudge(false); setShowAuth(true); },
