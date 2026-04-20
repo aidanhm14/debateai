@@ -12,6 +12,9 @@ const VALID_EVENTS = new Set([
   'speech_practiced',
   'round_mapped',
   'page_view',
+  'session_start',
+  'session_heartbeat',
+  'session_end',
 ]);
 
 // In-memory rate limiting: uid (or anon_<ip>) -> { count, windowStart }

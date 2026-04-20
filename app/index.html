@@ -1866,6 +1866,45 @@ function funnelEvent(stage, meta) {
   } catch(e) {}
 }
 
+// Deep training-signal capture — logs the full prompt → output → user-action
+// triple to Firestore via /api/log-generation. This is the dataset that feeds
+// back into prompt tuning / fine-tunes, separate from lean telemetry above.
+window.__lastGenerationId = null;
+async function logGeneration(payload) {
+  try {
+    if (!payload || !payload.output || payload.output.length < 40) return null;
+    if (typeof __getAuthToken !== 'function') return null;
+    const token = await __getAuthToken();
+    if (!token) return null;
+    const res = await fetch('/api/log-generation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ action: 'generation', ...payload }),
+    });
+    if (!res.ok) { console.warn('[logGeneration]', res.status); return null; }
+    const data = await res.json().catch(() => ({}));
+    if (data && data.id) {
+      window.__lastGenerationId = data.id;
+      return data.id;
+    }
+  } catch(e) { console.warn('[logGeneration]', e.message); }
+  return null;
+}
+async function logGenerationSignal(signal, value, meta) {
+  try {
+    const genId = window.__lastGenerationId;
+    if (!genId) return;
+    if (typeof __getAuthToken !== 'function') return;
+    const token = await __getAuthToken();
+    if (!token) return;
+    await fetch('/api/log-generation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ action: 'signal', generationId: genId, signal, value, meta: meta || {} }),
+    });
+  } catch(e) { console.warn('[logGenerationSignal]', e.message); }
+}
+
 function logBetaEvent(event, data) {
   try {
     const log = JSON.parse(localStorage.getItem('debateos-beta-log') || '[]');
@@ -4372,8 +4411,11 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
     }
     // Auto-version: if regenerating same motion, save previous output as a version
     const motionKey = motion.trim().toLowerCase() + '|' + side;
-    if (output && lastGeneratedMotion.current === motionKey) {
+    const isRegeneration = output && lastGeneratedMotion.current === motionKey;
+    if (isRegeneration) {
       setCaseVersions(prev => [...prev, { text: output, savedAt: new Date().toISOString(), label: 'v' + (prev.length + 1) }]);
+      // Prior case was judged insufficient — that's a negative training signal.
+      logGenerationSignal('regenerate', null, { previousLength: output.length });
     } else if (lastGeneratedMotion.current !== motionKey) {
       // New motion — clear version history
       setCaseVersions([]);
@@ -4409,13 +4451,23 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
       setOutput(text);
     }, outputRef);
 
+    // Capture final output for training-data logging (separate from React state,
+    // which may be stale by the time the post-generation log runs).
+    let _finalOutput = '';
+    const _genStartTs = Date.now();
+    // New generation — clear prior id so stray signals don't attach to it.
+    window.__lastGenerationId = null;
+    let _genErrored = false;
+
     try {
       const depthMaxTokens = depth === 'competition' ? 32000 : depth === 'standard' ? 16000 : 8000;
       const depthThinkBudget = depth === 'competition' ? 8000 : depth === 'standard' ? 4000 : 1024;
       await callAnyAI(sysPrompt, userPrompt, (text) => {
+        _finalOutput = text;
         throttle.update(text);
       }, caseBrain, { thinkBudget: depthThinkBudget, maxTokens: depthMaxTokens, expectedWords, onProgress: (p) => setProgress(p), feature: 'case', promptId: 'caseBase' });
     } catch (err) {
+      _genErrored = true;
       setError(err.message);
     }
     throttle.finish(); // Final commit to React state
@@ -4423,6 +4475,29 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
     setStreaming(false);
     setProgress({ phase: 'idle', percent: 0 });
     if (window.__triggerLogoGen) window.__triggerLogoGen(false); if (window.__triggerDebaterAnim) window.__triggerDebaterAnim(false);
+
+    // Log the full prompt → output pair for training-data collection.
+    // Fire-and-forget; errors are swallowed inside logGeneration.
+    if (!_genErrored && _finalOutput && _finalOutput.length >= 40) {
+      logGeneration({
+        kind: genMode === 'case' ? 'case' : 'tightblock',
+        motion: motion.trim(),
+        side,
+        format,
+        depth,
+        model: caseBrain,
+        promptId: 'caseBase',
+        systemPrompt: sysPrompt,
+        userPrompt,
+        output: _finalOutput,
+        durationMs: Date.now() - _genStartTs,
+        context: {
+          background: background || '',
+          caseTone: caseTone || '',
+          isRegeneration: !!isRegeneration,
+        },
+      });
+    }
   };
 
   const generateSneaky = async () => {
@@ -4904,7 +4979,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
       // Top row — action buttons
       React.createElement('div',{style:{display:'flex',gap:10,alignItems:'center',justifyContent:'center',padding:'14px 20px',flexWrap:'wrap'}},
         React.createElement('button',{
-          onClick:() => { if (onSave) { onSave({ motion, background, side, depth, format, output, mode }); setSaved(true); } },
+          onClick:() => { if (onSave) { onSave({ motion, background, side, depth, format, output, mode }); setSaved(true); logGenerationSignal('save'); } },
           disabled: saved,
           style:{
             padding:'9px 20px',borderRadius:8,fontWeight:700,fontSize:'.82rem',
@@ -4917,7 +4992,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
           },
         }, saved ? '\u2713 Saved' : t('caseGen.saveCase','Save Case')),
         React.createElement('button',{
-          onClick:(e) => { copyWithFeedback(output, e.currentTarget); },
+          onClick:(e) => { copyWithFeedback(output, e.currentTarget); logGenerationSignal('copy'); },
           style:{padding:'9px 18px',borderRadius:8,fontWeight:600,fontSize:'.82rem',cursor:'pointer',fontFamily:'inherit',transition:'.25s',background:'#ffffff08',border:'1px solid #ffffff15',color:'#c8d5e2'},
         }, t('caseGen.copyText','Copy Text')),
         React.createElement(SaveToDocsButton, {
@@ -4950,6 +5025,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
                 if(ratingSubmitted)return;
                 setCaseRating(n); setRatingSubmitted(true);
                 logFeedback('rating',{motion:motion,depth:depth,rating:n,caseLength:output?output.length:0});
+                logGenerationSignal('rate', n);
                 setTimeout(function(){setRatingSubmitted(false)},4000);
               },
               style:{
