@@ -11260,6 +11260,40 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
     } catch (err) { setMsg(errMsg(err)); setActionLoading(false); }
   };
 
+  // Cancel at period end — user keeps paid access until the current period
+  // expires, but no future charges. Calls /api/billing/cancel which flips
+  // Stripe's cancel_at_period_end flag. We confirm with the user first
+  // because cancellation shouldn't be a one-click accident.
+  const cancelSubscription = async () => {
+    const when = team.currentPeriodEnd
+      ? new Date(team.currentPeriodEnd).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+      : 'the end of your billing period';
+    const ok = window.confirm(
+      'Cancel your subscription?\n\n' +
+      'You\u2019ll keep full access until ' + when + '. ' +
+      'After that, your account drops back to the free plan with 3 requests/month. ' +
+      'You can resubscribe anytime.'
+    );
+    if (!ok) return;
+    setActionLoading(true);
+    setMsg('');
+    try {
+      const token = await getToken();
+      const res = await fetch('/api/billing/cancel', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not cancel');
+      setMsg('Canceled. You\u2019ll keep access until ' + (data.cancelAt ? new Date(data.cancelAt).toLocaleDateString() : when) + '.');
+      // Optimistic UI — flip local team state so the button replaces itself
+      // with the "Cancels on <date>" pill without waiting for a refetch.
+      if (typeof onTeamCreated === 'function') {
+        onTeamCreated({ ...team, cancelAtPeriodEnd: true, cancelAt: data.cancelAt });
+      }
+    } catch (err) { setMsg(errMsg(err)); }
+    setActionLoading(false);
+  };
+
   if (teamLoading) return el('div', {className:'panel', style:{padding:32}},
     el('div',{className:'skeleton skeleton-line',style:{width:'40%',height:20,marginBottom:16}}),
     el('div',{className:'skeleton skeleton-line medium'}),
@@ -11357,7 +11391,23 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
         team.plan !== 'trial' && el('span', {style:{fontSize:'.75rem',padding:'3px 10px',borderRadius:20,fontWeight:700,background:planColor+'20',color:planColor,textTransform:'uppercase',letterSpacing:'.5px',marginTop:4,display:'inline-block'}}, team.plan + ' plan'),
         team.context && !editingTeam && el('p',{style:{fontSize:'.78rem',color:'#94a3b8',marginTop:4,maxWidth:400}},team.context),
       ),
-      isOwner && el('button', {onClick:team.stripeSubscriptionId?openPortal:()=>openCheckout('team'), style:{padding:'8px 16px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}, team.stripeSubscriptionId?t('team.manageBilling','Manage Billing'):t('team.upgradePlan','Upgrade Plan')),
+      isOwner && el('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
+        el('button', {onClick:team.stripeSubscriptionId?openPortal:()=>openCheckout('team'), style:{padding:'8px 16px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}, team.stripeSubscriptionId?t('team.manageBilling','Manage Billing'):t('team.upgradePlan','Upgrade Plan')),
+        // Cancel button — only shows for owners with an active subscription
+        // that hasn't already been scheduled to cancel. Uses the in-app
+        // /api/billing/cancel endpoint so users don't have to bounce to the
+        // Stripe portal to stop future charges.
+        team.stripeSubscriptionId && !team.cancelAtPeriodEnd && el('button', {
+          onClick: cancelSubscription,
+          disabled: actionLoading,
+          style:{padding:'8px 16px',background:'#ef444412',border:'1px solid #ef444440',borderRadius:8,color:'#f87171',fontSize:'.78rem',fontWeight:600,cursor:actionLoading?'wait':'pointer',opacity:actionLoading?.7:1},
+          title: 'Cancel — keeps access until ' + (team.currentPeriodEnd ? new Date(team.currentPeriodEnd).toLocaleDateString() : 'period end') + ', no future charge',
+        }, actionLoading ? 'Canceling…' : 'Cancel Subscription'),
+        // Friendly confirmation banner for already-scheduled cancellations
+        team.cancelAtPeriodEnd && el('span',{style:{fontSize:'.72rem',color:'#f59e0b',background:'#f59e0b15',border:'1px solid #f59e0b40',padding:'6px 10px',borderRadius:8,fontWeight:600}},
+          'Cancels ' + (team.cancelAt ? new Date(team.cancelAt).toLocaleDateString() : 'at period end'),
+        ),
+      ),
     ),
     el('div', {style:{marginBottom:28}},
       el('div', {style:{display:'flex',justifyContent:'space-between',marginBottom:6}},
@@ -13854,10 +13904,37 @@ function App() {
             title:'Set or update how the AI learns your debate style',
             style:{cursor:'pointer',background:'rgba(239,68,68,.10)',borderColor:'rgba(239,68,68,.28)',color:'#fca5a5',fontWeight:700,padding:'4px 10px'},
           }, (()=>{try{return (window.DebateStyle && window.DebateStyle.hasMeaningfulProfile()) ? 'My style' : 'Teach AI your style';}catch(e){return 'Teach AI your style';}})()),
-          // User / sign-in
+          // User / sign-in. The display name doubles as the Manage Account entry:
+          // clicking it takes you to the Team tab, which is where billing,
+          // members, invites, style profile, and cancellation all live.
           user
             ? React.createElement('div',{className:'topbar-user'},
-                React.createElement('span',{className:'topbar-user-name'}, (user.displayName||user.email||'').split(' ')[0] || user.email),
+                React.createElement('button',{
+                  className:'topbar-user-name',
+                  onClick:()=>navigateTab('team'),
+                  title:'Manage Account — billing, team, settings',
+                  style:{
+                    cursor:'pointer',
+                    background:'linear-gradient(135deg,#ef444418,#f59e0b18)',
+                    border:'1px solid rgba(239,68,68,.35)',
+                    color:'#fca5a5',
+                    padding:'4px 12px',
+                    borderRadius:999,
+                    fontWeight:700,
+                    fontSize:'.72rem',
+                    letterSpacing:'.02em',
+                    fontFamily:'inherit',
+                    transition:'.2s',
+                    display:'inline-flex',
+                    alignItems:'center',
+                    gap:6,
+                  },
+                  onMouseEnter:(e)=>{e.currentTarget.style.background='linear-gradient(135deg,#ef444428,#f59e0b28)';e.currentTarget.style.borderColor='rgba(239,68,68,.55)';},
+                  onMouseLeave:(e)=>{e.currentTarget.style.background='linear-gradient(135deg,#ef444418,#f59e0b18)';e.currentTarget.style.borderColor='rgba(239,68,68,.35)';},
+                },
+                  React.createElement('span',{style:{opacity:.7,fontSize:'.62rem',textTransform:'uppercase',letterSpacing:'.08em'}},'Manage'),
+                  React.createElement('span',null, (user.displayName||user.email||'').split(' ')[0] || user.email),
+                ),
                 React.createElement('button',{className:'topbar-signout',onClick:signOut},'Sign Out'),
               )
             : React.createElement('button',{className:'topbar-signin',onClick:()=>setShowAuth(true),style:{background:'#ef4444',color:'#fff',padding:'6px 14px',borderRadius:999,fontWeight:700,fontSize:'.72rem',letterSpacing:'.04em'}},'Sign in — free'),
