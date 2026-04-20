@@ -2,6 +2,7 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { requirePaidPlan } from './lib/auth.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -76,6 +77,15 @@ export default async (request, context) => {
     return new Response(
       JSON.stringify({ error: 'App verification failed. Reload the page and try again.', code: 'APP_CHECK_' + appCheckResult.reason.toUpperCase() }),
       { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
+    );
+  }
+
+  // Paid-plan gate — GPT is Pro-tier only. Free users route to /api/claude.
+  const paidCheck = await requirePaidPlan(request, 'GPT');
+  if (!paidCheck.ok) {
+    return new Response(
+      JSON.stringify({ error: paidCheck.error, code: paidCheck.code, currentPlan: paidCheck.currentPlan }),
+      { status: paidCheck.status, headers: { 'Content-Type': 'application/json', ...CORS } }
     );
   }
 

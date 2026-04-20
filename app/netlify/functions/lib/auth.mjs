@@ -101,3 +101,60 @@ export function extractBearerToken(request) {
   if (!auth.startsWith('Bearer ')) return null;
   return auth.slice(7);
 }
+
+/**
+ * Enforce that the caller is signed in AND on a paid plan.
+ * Returns { ok: true, uid, plan } on success, or { ok: false, status, error }
+ * on failure — call sites should return the error response as-is.
+ *
+ * Use this to gate premium endpoints (Gemini, Grok, OpenAI) that free
+ * users can't call. Free Claude usage goes through /api/claude which
+ * has its own anonymous+trial layers and should not use this helper.
+ */
+export async function requirePaidPlan(request, featureName) {
+  const token = extractBearerToken(request);
+  if (!token) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Sign in required. ' + (featureName || 'This model') + ' is a paid-plan feature.',
+      code: 'AUTH_REQUIRED',
+    };
+  }
+
+  let decoded;
+  try {
+    decoded = await verifyIdToken(token);
+  } catch (err) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Authentication failed. Please sign in again.',
+      code: 'AUTH_INVALID',
+    };
+  }
+
+  // Lazy-import firestore to avoid a circular dep + cold-start cost for
+  // callers that happen to be checking auth without needing paid gating.
+  const { getUserTeam } = await import('./firestore.mjs');
+  const result = await getUserTeam(decoded.sub);
+  const plan = result?.team?.plan;
+  const status = result?.team?.status;
+  const isPaid =
+    plan &&
+    plan !== 'trial' &&
+    ['individual', 'team', 'lifetime', 'byok'].includes(plan) &&
+    (!status || status === 'active' || status === 'trialing');
+
+  if (!isPaid) {
+    return {
+      ok: false,
+      status: 402, // Payment Required — semantically precise for this case.
+      error: (featureName || 'This model') + ' is a paid feature. Upgrade to Individual ($5/mo) to unlock Gemini, GPT, and Grok alongside Claude Sonnet.',
+      code: 'PAYMENT_REQUIRED',
+      currentPlan: plan || 'trial',
+    };
+  }
+
+  return { ok: true, uid: decoded.sub, plan };
+}
