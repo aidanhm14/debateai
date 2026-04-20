@@ -4558,6 +4558,13 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
   // Opp Attack Mode — AI attacks the case from opposition perspective
   const runOppAttack = async () => {
     if (!output || oppAttackLoading) return;
+    // Paywall: Opp Attack is a pro feature. Free users get 1 trial taste.
+    const oaCheck = canUseProFeature(team, user, 'opp_attack');
+    if (!oaCheck.allowed) {
+      setOppAttack('Error: Opp Attack is a paid feature — upgrade at /pricing to keep using it. You\u2019ve used your free trial.');
+      return;
+    }
+    if (!isPro(team, user)) useProTrial('opp_attack');
     setOppAttackLoading(true);
     setOppAttack('');
     try {
