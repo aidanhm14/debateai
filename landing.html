@@ -274,13 +274,119 @@ button{font-family:inherit;cursor:pointer}
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Hero content — centered single-column layout. */
+/* Hero content — 2026-04-20 redesign: split layout.
+   Header/credibility stays centered at the top. Below it, a 2-col grid:
+   LEFT = "Debate the AI" label + animated orb + CTAs.
+   RIGHT = live mini-chat demo (the streaming AI output that used to sit
+   below the hero on its own row). Stacks to single column on mobile.
+   Kept max-width roomy so the split has breathing room on wide screens. */
 .hero-content{
   position:relative;z-index:2;
   text-align:center;
-  max-width:820px;
+  max-width:1200px;
   margin:0 auto;
   padding-top:20px;
+}
+.hero-head{
+  max-width:820px;
+  margin:0 auto;
+}
+
+/* ── Split grid ────────────────────────────────────── */
+.hero-split{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);
+  gap:clamp(24px,4vw,56px);
+  align-items:stretch;
+  margin-top:44px;
+  text-align:left;
+}
+.hero-left{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:22px;
+  padding:24px 8px;
+  position:relative;
+}
+.hero-right{
+  min-height:420px;
+  display:flex;flex-direction:column;
+}
+.hero-right > .mini-chat{
+  margin:0 !important;
+  max-width:none !important;
+  width:100%;
+  height:100%;
+  display:flex;flex-direction:column;
+}
+
+/* ── "Debate the AI" label above the orb ───────────── */
+.hero-side-label-big{
+  font-size:.72rem;font-weight:800;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--accent);
+  margin-bottom:4px;
+}
+.hero-orb-caption{
+  font-size:.82rem;color:var(--text-dim);line-height:1.5;
+  max-width:320px;text-align:center;font-style:italic;
+}
+
+/* ── Orb: canvas-based pulsing blob, mirrors /debate-ai aesthetic ──
+   Idle state = gentle wavy circle outline. AI-speaking state (toggled
+   via body.hero-orb-active) = red glow + faster pulse. The widget
+   animates during mini-chat streaming for a cohesive left-right feel. */
+.hero-orb-wrap{
+  position:relative;
+  width:min(340px,80vw);
+  aspect-ratio:1;
+  display:flex;align-items:center;justify-content:center;
+}
+.hero-orb-glow{
+  position:absolute;inset:-12%;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(239,68,68,.22) 0%,rgba(239,68,68,0) 65%);
+  filter:blur(24px);
+  opacity:.35;
+  transition:opacity .4s ease;
+  pointer-events:none;
+}
+.hero-orb-wrap.speaking .hero-orb-glow{opacity:1}
+.hero-orb-ring{
+  position:absolute;inset:0;border-radius:50%;
+  border:1px solid var(--border);
+  transition:border-color .4s ease,box-shadow .4s ease;
+}
+.hero-orb-wrap.speaking .hero-orb-ring{
+  border-color:rgba(239,68,68,.4);
+  box-shadow:0 0 60px rgba(239,68,68,.16);
+  animation:heroOrbPulse 2.4s ease-in-out infinite;
+}
+@keyframes heroOrbPulse{
+  0%,100%{transform:scale(1);opacity:1}
+  50%{transform:scale(1.035);opacity:.75}
+}
+#heroOrb{
+  width:100%;height:100%;border-radius:50%;
+  position:relative;z-index:1;
+}
+
+/* ── CTA row under the orb ─────────────────────────── */
+.hero-left-ctas{
+  display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
+  margin-top:4px;
+}
+.hero-left .hero-cta{margin-top:0}
+
+/* ── Responsive collapse ───────────────────────────── */
+@media(max-width:900px){
+  .hero-split{
+    grid-template-columns:1fr;
+    gap:28px;
+    text-align:center;
+    margin-top:32px;
+  }
+  .hero-left{padding:8px 0}
+  .hero-right{min-height:0}
 }
 
 /* Neural constellation canvas */
@@ -1077,27 +1183,43 @@ button{font-family:inherit;cursor:pointer}
   <div class="neural-canvas"><canvas id="neuralNet"></canvas></div>
 
   <div class="hero-content">
-    <h1>
-      Argue with an AI.<br>Become a sharper thinker.
-    </h1>
-    <div style="display:flex;gap:12px;justify-content:center;margin-top:28px;flex-wrap:wrap;align-items:center">
-      <a href="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
-      <a href="/app#case" class="hero-cta hero-cta-secondary">Debate prep</a>
-    </div>
-    <!-- Credibility line under the CTAs. Trust signal: the product was built
-         by someone who actually wins at the thing it teaches. Format order
-         leads with WSDC / Asian Parli / BP because 80% of traffic is from
-         Indian school + college circuits where those are the dominant
-         formats; APDA still appears as a credibility anchor. -->
-    <div style="margin-top:18px;font-size:.78rem;color:var(--text-dim);letter-spacing:.04em;font-weight:500">
-      Built by an APDA champion. Used by debaters running WSDC, Asian Parli, BP, Policy, LD, PF, and more.
+    <div class="hero-head">
+      <h1>
+        Argue with an AI.<br>Become a sharper thinker.
+      </h1>
+      <!-- Credibility line under the headline. Trust signal: built by someone
+           who actually wins at the thing it teaches. Format order leads with
+           WSDC / Asian Parli / BP because 80% of traffic is Indian school /
+           college circuits; APDA appears as a credibility anchor. -->
+      <div style="margin-top:18px;font-size:.78rem;color:var(--text-dim);letter-spacing:.04em;font-weight:500">
+        Built by an APDA champion. Used by debaters running WSDC, Asian Parli, BP, Policy, LD, PF, and more.
+      </div>
     </div>
 
+    <!-- Split layout: LEFT = "Debate the AI" orb, RIGHT = live streaming demo.
+         The orb pulses red while the mini-chat streams, so the two feel like
+         one system — left is the opponent thinking, right is what it says. -->
+    <div class="hero-split">
+      <div class="hero-left">
+        <div class="hero-side-label-big">Debate the AI</div>
+        <div id="heroOrbWrap" class="hero-orb-wrap">
+          <div class="hero-orb-glow"></div>
+          <div class="hero-orb-ring"></div>
+          <canvas id="heroOrb" aria-hidden="true"></canvas>
+        </div>
+        <div class="hero-orb-caption">Thinks. Challenges. Judges you like a real opponent.</div>
+        <div class="hero-left-ctas">
+          <a href="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
+          <a href="/app#case" class="hero-cta hero-cta-secondary">Debate prep</a>
+        </div>
+      </div>
+
+      <div class="hero-right">
     <!-- LIVE mini debate widget — real /api/claude + /api/tts. Anonymous users can
          fire a full round of back-and-forth right from the landing page before
          any signup. Rate-limited server-side (5/min, 40/hr, 150/day per IP).
          Full experience lives at /app/debate-ai. -->
-    <div id="miniChat" class="mini-chat" style="margin:40px auto 0;max-width:680px;border:1px solid var(--border);border-radius:16px;background:rgba(15,15,18,.72);backdrop-filter:blur(12px);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:left">
+    <div id="miniChat" class="mini-chat" style="margin:0;max-width:none;width:100%;border:1px solid var(--border);border-radius:16px;background:rgba(15,15,18,.72);backdrop-filter:blur(12px);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:left">
       <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.02)">
         <span style="width:10px;height:10px;border-radius:50%;background:#ef4444"></span>
         <span style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></span>
@@ -1131,6 +1253,8 @@ button{font-family:inherit;cursor:pointer}
         </div>
       </div>
     </div>
+      </div><!-- /.hero-right -->
+    </div><!-- /.hero-split -->
     <style>
       .mini-chat-msg{display:flex;gap:10px;margin-bottom:14px;animation:miniChatIn .25s ease-out}
       @keyframes miniChatIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -1148,6 +1272,116 @@ button{font-family:inherit;cursor:pointer}
       .mini-chat-tts.playing{color:var(--accent);border-color:var(--accent)}
       #miniChatSend:disabled,#miniChatStart:disabled{cursor:not-allowed;opacity:.4}
     </style>
+    <!-- ── Hero orb: canvas-based pulsing blob that stands in for the AI
+         opponent on the left half of the split hero. Two modes:
+         idle = gentle wavy circle; ai = faster pulse + red glow, triggered
+         by the mini-chat while Claude is streaming. Self-contained so it
+         can't depend on anything React-side. ─────────────────────── -->
+    <script>
+    (function(){
+      var canvas = document.getElementById('heroOrb');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      var mode = 'idle'; // 'idle' | 'ai'
+      var running = true;
+      window.__heroOrbMode = function(m){ mode = (m === 'ai' ? 'ai' : 'idle'); };
+
+      function resize(){
+        var dpr = window.devicePixelRatio || 1;
+        var rect = canvas.getBoundingClientRect();
+        if (!rect.width) return;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      resize();
+      window.addEventListener('resize', resize, { passive: true });
+
+      // Respect reduced-motion: static ring instead of pulse.
+      var reduced = false;
+      try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+      function draw(){
+        if (!running) return;
+        var rect = canvas.getBoundingClientRect();
+        var W = rect.width, H = rect.height;
+        if (!W || !H) { requestAnimationFrame(draw); return; }
+        ctx.clearRect(0, 0, W, H);
+
+        var cx = W / 2, cy = H / 2;
+        var baseR = Math.min(W, H) * 0.36;
+        var t = reduced ? 0 : (Date.now() / 1000);
+
+        // Two concentric blobs — outer ghost, inner main. Varies by mode.
+        var points = 120;
+        var speed = mode === 'ai' ? 1.6 : 0.5;
+        var amp   = mode === 'ai' ? 0.20 : 0.06;
+
+        // Outer ghost blob
+        ctx.beginPath();
+        for (var i = 0; i <= points; i++) {
+          var a = (i / points) * Math.PI * 2;
+          var r = baseR * 1.08 +
+            Math.sin(a * 5 + t * speed) * baseR * amp +
+            Math.sin(a * 3 - t * speed * 1.4) * baseR * amp * 0.6;
+          var x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        var outerGrad = ctx.createRadialGradient(cx, cy, baseR * 0.5, cx, cy, baseR * 1.4);
+        if (mode === 'ai') {
+          outerGrad.addColorStop(0, 'rgba(239,68,68,.14)');
+          outerGrad.addColorStop(1, 'rgba(239,68,68,0)');
+        } else {
+          outerGrad.addColorStop(0, 'rgba(255,255,255,.04)');
+          outerGrad.addColorStop(1, 'rgba(255,255,255,0)');
+        }
+        ctx.fillStyle = outerGrad;
+        ctx.fill();
+
+        // Inner main blob
+        ctx.beginPath();
+        for (var j = 0; j <= points; j++) {
+          var aa = (j / points) * Math.PI * 2;
+          var rr = baseR +
+            Math.sin(aa * 6 + t * speed * 1.1) * baseR * amp * 0.55 +
+            Math.sin(aa * 4 - t * speed * 0.8) * baseR * amp * 0.35;
+          var xx = cx + Math.cos(aa) * rr, yy = cy + Math.sin(aa) * rr;
+          j === 0 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy);
+        }
+        ctx.closePath();
+        var innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 1.1);
+        if (mode === 'ai') {
+          innerGrad.addColorStop(0, 'rgba(239,68,68,.22)');
+          innerGrad.addColorStop(.6, 'rgba(239,68,68,.06)');
+          innerGrad.addColorStop(1, 'rgba(239,68,68,0)');
+          ctx.strokeStyle = 'rgba(239,68,68,.55)';
+          ctx.shadowColor = 'rgba(239,68,68,.25)';
+          ctx.shadowBlur = 18;
+        } else {
+          innerGrad.addColorStop(0, 'rgba(255,255,255,.06)');
+          innerGrad.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.strokeStyle = 'rgba(255,255,255,.18)';
+          ctx.shadowBlur = 0;
+        }
+        ctx.fillStyle = innerGrad;
+        ctx.fill();
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        requestAnimationFrame(draw);
+      }
+      draw();
+
+      // Pause animation when tab isn't visible to save CPU/battery on the
+      // landing page — users can hover for 10 seconds without a slowdown.
+      document.addEventListener('visibilitychange', function(){
+        running = !document.hidden;
+        if (running) draw();
+      });
+    })();
+    </script>
     <script>
     (function(){
       var topicEl = document.getElementById('miniChatTopic');
@@ -1234,6 +1468,9 @@ button{font-family:inherit;cursor:pointer}
         if (busy) return;
         busy = true;
         sendBtn.disabled = true;
+        // Light up the left-side orb while the AI is "speaking" — ties the
+        // split-layout halves together visually.
+        try { document.getElementById('heroOrbWrap')?.classList.add('speaking'); window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
         statusEl.textContent = 'thinking\u2026';
         if (userText) {
           messages.push({ role: 'user', content: userText });
@@ -1264,6 +1501,7 @@ button{font-family:inherit;cursor:pointer}
           aiNode.style.color = '#ef4444';
           statusEl.textContent = '';
         }
+        try { document.getElementById('heroOrbWrap')?.classList.remove('speaking'); window.__heroOrbMode && window.__heroOrbMode('idle'); } catch(e){}
         busy = false;
         sendBtn.disabled = false;
       }
