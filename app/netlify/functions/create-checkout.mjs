@@ -18,8 +18,15 @@ export default async (request) => {
     return errorResponse('Authentication failed. Please sign in again.', 401, request);
   }
 
+  // Team-first funnel: requiring a team before checkout is intentional.
+  // Teams are DebateOS's social/tracking layer — create one, invite peers,
+  // track your cases and analytics together. Returning 404 here is the
+  // signal the client uses to route to the team-creation flow with
+  // upgrade-intent preserved, rather than letting people pay in isolation.
   const result = await getUserTeam(decoded.sub);
-  if (!result) return errorResponse('No team found. Create a team first.', 404, request);
+  if (!result) {
+    return errorResponse('NEEDS_TEAM', 404, request);
+  }
 
   const { team, membership } = result;
   if (membership.role !== 'owner') {

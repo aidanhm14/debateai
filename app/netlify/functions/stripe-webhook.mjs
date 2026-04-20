@@ -1,6 +1,20 @@
 import Stripe from 'stripe';
 import { getDb, PLANS, FieldValue } from './lib/firestore.mjs';
 
+// Stripe API 2024-06-20+ moved current_period_start / current_period_end
+// from the Subscription object onto its line items. Older API versions
+// still put them on the subscription. Read both so we keep working
+// across an account that's been rolled forward to the Dahlia version.
+function getSubscriptionPeriod(subscription) {
+  const item = subscription?.items?.data?.[0];
+  const start = subscription?.current_period_start ?? item?.current_period_start;
+  const end = subscription?.current_period_end ?? item?.current_period_end;
+  return {
+    periodStart: start ? new Date(start * 1000) : null,
+    periodEnd: end ? new Date(end * 1000) : null,
+  };
+}
+
 export default async (request) => {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -64,14 +78,16 @@ export default async (request) => {
         const priceId = subscription.items.data[0]?.price?.id;
         const plan = getPlanFromPrice(priceId);
 
+        const { periodStart: newStart, periodEnd: newEnd } = getSubscriptionPeriod(subscription);
+        const planDef = PLANS[plan] || PLANS.individual;
         await db.collection('teams').doc(teamId).update({
           stripeSubscriptionId: subscriptionId,
           plan,
           status: mapStripeStatus(subscription.status),
-          usageLimit: PLANS[plan].requests,
-          maxMembers: PLANS[plan].members,
-          currentPeriodStart: new Date(subscription.current_period_start * 1000),
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          usageLimit: planDef.requests,
+          maxMembers: planDef.members,
+          ...(newStart ? { currentPeriodStart: newStart } : {}),
+          ...(newEnd ? { currentPeriodEnd: newEnd } : {}),
           updatedAt: FieldValue.serverTimestamp(),
         });
 
@@ -86,28 +102,28 @@ export default async (request) => {
 
         const priceId = subscription.items.data[0]?.price?.id;
         const plan = getPlanFromPrice(priceId);
-        const periodStart = new Date(subscription.current_period_start * 1000);
-        const periodEnd = new Date(subscription.current_period_end * 1000);
+        const { periodStart, periodEnd } = getSubscriptionPeriod(subscription);
 
         const teamRef = db.collection('teams').doc(teamId);
         const teamDoc = await teamRef.get();
         if (!teamDoc.exists) { console.error('Team not found:', teamId); break; }
         const teamData = teamDoc.data();
 
-        // Reset usage if new billing period
+        // Reset usage if new billing period (only if we have a period to compare against).
         const oldPeriodStart = teamData.currentPeriodStart?.toDate?.()
           || teamData.currentPeriodStart;
-        const isNewPeriod = !oldPeriodStart ||
-          periodStart.getTime() !== new Date(oldPeriodStart).getTime();
+        const isNewPeriod = !!periodStart && (!oldPeriodStart ||
+          periodStart.getTime() !== new Date(oldPeriodStart).getTime());
 
+        const planDef = PLANS[plan] || PLANS.individual;
         const updates = {
           plan,
           status: mapStripeStatus(subscription.status),
-          usageLimit: PLANS[plan].requests,
-          maxMembers: PLANS[plan].members,
-          currentPeriodStart: periodStart,
-          currentPeriodEnd: periodEnd,
+          usageLimit: planDef.requests,
+          maxMembers: planDef.members,
           updatedAt: FieldValue.serverTimestamp(),
+          ...(periodStart ? { currentPeriodStart: periodStart } : {}),
+          ...(periodEnd ? { currentPeriodEnd: periodEnd } : {}),
         };
 
         if (isNewPeriod) {
