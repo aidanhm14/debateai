@@ -1,4 +1,4 @@
-// Text-to-Speech proxy — ElevenLabs for premium users, OpenAI for free
+// Text-to-Speech proxy — Cartesia Sonic for premium, OpenAI tts-1 for free + fallback
 import { checkAppCheck } from './lib/appcheck.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -46,22 +46,24 @@ function checkRateLimit(key) {
 
 const MAX_TEXT_LENGTH = 5000;
 
-// ElevenLabs voice ID mapping — all American accent
-const ELEVENLABS_VOICES = {
-  professor:   'pNInz6obpgDQGcFmaJgB',  // Adam — dominant, firm, American male
-  closer:      'EXAVITQu4vr4xnSDxMaL',  // Sarah — mature, confident, American female
-  surgeon:     'cjVigY5qzO86Huf0OWal',   // Eric — smooth, trustworthy, American male
-  veteran:     'nPczCjzI2devNBz1zQrb',   // Brian — deep, resonant, American male
-  firebrand:   'TX3LPaxmHKxFdv7VOQHJ',  // Liam — energetic, young, American male
-  diplomat:    'XrExE9yKIg1WjnnlVkGX',   // Matilda — professional, American female
-  debater:     'jsCqWAovK2LkecY7zXl4',   // Freya — quick, sharp, American female
-  philosopher: 'IKne3meq5aSn9XLyUdCD',   // Charlie — thoughtful, calm, American male
-  prosecutor:  'bIHbv24MWmeRgasZH58o',   // Will — intense, direct, American male
-  storyteller: 'FGY2WhTYpPnrIDTdsKH5',   // Laura — warm, narrative, American female
+// Cartesia Sonic voice IDs — mapped to each of the 10 debater personalities.
+// Voice IDs are from Cartesia's public library (en-US). Swap in your dashboard
+// if you want to fine-tune the character of any personality.
+const CARTESIA_VOICES = {
+  professor:   'a0e99841-438c-4a64-b679-ae501e7d6091', // Barbershop Man — dominant, firm
+  closer:      'b7d50908-b17c-442d-ad8d-810c63997ed9', // California Girl — confident female
+  surgeon:     '421b3369-f63f-4b03-8980-37a44df1d4e8', // Friendly Reading Man
+  veteran:     '79743797-2087-422f-8dc7-86f9efca85f1', // Movieman — deep resonant male
+  firebrand:   '41534ada-d9a3-4f24-b9d5-3a8e1f2f7fc0', // Energetic young male
+  diplomat:    'bf991597-6c13-47e4-8411-91ec2de5c466', // Newslady — professional female
+  debater:     'd46abd1d-2d02-43e8-819f-51fb652c1c61', // Newsman — sharp, quick
+  philosopher: 'a167e0f3-df7e-4d52-a9c3-f949145efdab', // Salesman — thoughtful male
+  prosecutor:  '820a3788-2b37-4d21-847a-b65d8a68c99a', // Polite Man — intense direct
+  storyteller: '248be419-c632-4f23-adf1-5324ed7dbf1d', // Narrator Lady — warm female
 };
 
-// Map OpenAI voice keys to ElevenLabs personality keys
-const OPENAI_TO_ELEVEN = {
+// Map OpenAI voice keys to personality keys
+const OPENAI_TO_PERSONALITY = {
   onyx: 'professor',
   echo: 'closer',
   fable: 'surgeon',
@@ -74,42 +76,46 @@ const OPENAI_TO_ELEVEN = {
   ballad: 'storyteller',
 };
 
-// ElevenLabs TTS with streaming for faster first-byte
-// intensity: 0 = calm deliberate delivery, 1 = breathless sprint (tournament speed)
-async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0) {
-  const personality = OPENAI_TO_ELEVEN[voice] || voice;
-  const voiceId = ELEVENLABS_VOICES[personality] || ELEVENLABS_VOICES.commanding;
+// Cartesia Sonic — /tts/bytes endpoint. MP3 out, ~90ms TTFB.
+// intensity: 0 = calm deliberate, 1 = breathless tournament speed
+async function cartesiaTTS(text, voice, speed, apiKey, intensity = 0) {
+  const personality = OPENAI_TO_PERSONALITY[voice] || voice;
+  const voiceId = CARTESIA_VOICES[personality] || CARTESIA_VOICES.professor;
 
-  // At high intensity: lower stability → more variation/breathlessness, higher style → more expressive
-  const stability = Math.max(0.15, Math.min(0.8, 0.7 - intensity * 0.55));
-  const style = Math.min(1.0, 0.3 + intensity * 0.5);            // 0.3 calm → 0.8 intense
-  const similarityBoost = Math.max(0.55, 0.75 - intensity * 0.2); // slightly looser at high speed
+  const speedParam = intensity > 0.6 ? 'fastest' : intensity > 0.3 ? 'fast' : 'normal';
+  const emotionTags = intensity > 0.5 ? ['positivity:high', 'curiosity:high'] : [];
 
-  // Use /stream endpoint for faster first-byte delivery
-  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
+  const response = await fetch('https://api.cartesia.ai/tts/bytes', {
     method: 'POST',
     headers: {
-      'xi-api-key': apiKey,
+      'X-API-Key': apiKey,
+      'Cartesia-Version': '2024-11-13',
       'Content-Type': 'application/json',
-      'Accept': 'audio/mpeg',
     },
     body: JSON.stringify({
-      text: text,
-      model_id: 'eleven_turbo_v2_5',  // Turbo model — fastest latency
-      voice_settings: {
-        stability,
-        similarity_boost: similarityBoost,
-        style,
-        use_speaker_boost: true,
+      model_id: 'sonic-2',
+      transcript: text,
+      voice: {
+        mode: 'id',
+        id: voiceId,
+        __experimental_controls: {
+          speed: speedParam,
+          emotion: emotionTags,
+        },
       },
-      optimize_streaming_latency: 3, // Max latency optimization (0-4, higher = faster but slightly lower quality)
+      output_format: {
+        container: 'mp3',
+        sample_rate: 44100,
+        bit_rate: 128000,
+      },
+      language: 'en',
     }),
   });
 
   return response;
 }
 
-// OpenAI TTS for free users — fast, good enough quality
+// OpenAI TTS — free tier + fallback if Cartesia fails
 async function openAITTS(text, voice, speed, apiKey) {
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
@@ -118,7 +124,7 @@ async function openAITTS(text, voice, speed, apiKey) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'tts-1',  // Standard model — faster than tts-1-hd
+      model: 'tts-1',
       input: text,
       voice: voice,
       speed: speed,
@@ -142,10 +148,10 @@ export default async (request, context) => {
     });
   }
 
-  const elevenKey = process.env.ELEVENLABS_API_KEY;
+  const cartesiaKey = process.env.CARTESIA_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
-  if (!elevenKey && !openaiKey) {
+  if (!cartesiaKey && !openaiKey) {
     return new Response(
       JSON.stringify({ error: 'TTS not configured.' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } }
@@ -174,8 +180,8 @@ export default async (request, context) => {
     const text = (body.text || '').slice(0, MAX_TEXT_LENGTH);
     const voice = body.voice || 'onyx';
     const speed = Math.max(0.75, Math.min(2.0, body.speed || 1.0));
-    const intensity = Math.max(0, Math.min(1, body.intensity || 0)); // 0=calm, 1=breathless
-    const premium = !!body.premium; // Premium users get ElevenLabs
+    const intensity = Math.max(0, Math.min(1, body.intensity || 0));
+    const premium = !!body.premium;
 
     if (!text.trim()) {
       return new Response(
@@ -186,23 +192,22 @@ export default async (request, context) => {
 
     let response;
 
-    if (premium && elevenKey) {
-      // Premium users → ElevenLabs streaming (turbo model, lowest latency)
+    // Premium users → Cartesia Sonic (fastest, most natural)
+    if (premium && cartesiaKey) {
       try {
-        response = await elevenLabsTTS(text, voice, speed, elevenKey, intensity);
+        response = await cartesiaTTS(text, voice, speed, cartesiaKey, intensity);
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
-          console.error('ElevenLabs TTS error:', response.status, errText);
+          console.error('Cartesia TTS error:', response.status, errText);
           response = null; // Fall through to OpenAI
         }
       } catch (e) {
-        console.error('ElevenLabs exception:', e.message);
+        console.error('Cartesia exception:', e.message);
         response = null;
       }
     }
 
-    // Free users → OpenAI tts-1 (fast standard model)
-    // Also fallback if ElevenLabs failed for premium
+    // Free users + fallback when Cartesia fails
     if (!response && openaiKey) {
       response = await openAITTS(text, voice, speed, openaiKey);
       if (!response.ok) {
@@ -222,7 +227,6 @@ export default async (request, context) => {
       );
     }
 
-    // Stream audio back — chunked transfer for faster playback start
     return new Response(response.body, {
       status: 200,
       headers: {
