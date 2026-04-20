@@ -1,1 +1,0 @@
-import * as bootstrap from './___netlify-bootstrap.mjs';export const handler = bootstrap.getLambdaHandler('./list-public-teams.mjs')
