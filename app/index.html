@@ -13761,146 +13761,15 @@ function App() {
   return React.createElement(I18nContext.Provider, {value: {t, locale, setLocale}},
   React.createElement(React.Fragment,null,
     React.createElement(PolyBackground),
-    // In-app browser block. Instagram/Facebook/TikTok/etc. in-app browsers
-    // break Firebase auth (popup blocked, gstatic.com sometimes blocked,
-    // third-party cookies restricted). Show a clear "open in your real
-    // browser" screen instead of the broken sign-in modal that ends in a
-    // misleading "Firebase not configured" alert.
-    (() => {
-      const inApp = typeof detectInAppBrowser === 'function' ? detectInAppBrowser() : null;
-      if (!inApp) return null;
-      // Let the user bypass if they've already chosen to (in case our UA
-      // detection is wrong — an escape hatch worth having).
-      if (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('debateos-bypass-inapp') === '1') return null;
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const href = window.location.href;
-      return React.createElement('div',{style:{position:'fixed',inset:0,zIndex:10000,background:'#111',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px',overflowY:'auto'}},
-        React.createElement('div',{style:{maxWidth:440,width:'100%',textAlign:'center',color:'#e2e8f0'}},
-          React.createElement('h1',{style:{fontSize:'1.8rem',fontWeight:900,marginBottom:6}},
-            React.createElement('span',{style:{color:'#ef4444',fontStyle:'italic'}},"Devil's "),
-            React.createElement('span',{style:{fontWeight:300}},'Advocate')
-          ),
-          React.createElement('p',{style:{color:'#92754a',fontSize:'.7rem',letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,marginBottom:24}},'Open in your browser'),
-          React.createElement('div',{style:{padding:'20px 22px',background:'#1f1f24',border:'1px solid #ffffff18',borderRadius:12,marginBottom:16,textAlign:'left',lineHeight:1.55,fontSize:'.92rem'}},
-            React.createElement('p',{style:{marginBottom:12,color:'#f1f5f9'}},
-              'Google sign-in doesn\u2019t work inside ', React.createElement('b',null,inApp), '\u2019s browser. Please open this page in ', isIOS ? 'Safari' : 'Chrome', ' to continue.'
-            ),
-            React.createElement('p',{style:{color:'#94a3b8',fontSize:'.86rem',marginBottom:4}},
-              isIOS
-                ? React.createElement(React.Fragment, null, 'Tap the ', React.createElement('b',null,'\u22EF menu'), ' at the top right, then ', React.createElement('b',null,'\u201cOpen in Safari\u201d'), '.')
-                : React.createElement(React.Fragment, null, 'Tap the ', React.createElement('b',null,'\u22EE menu'), ' at the top right, then ', React.createElement('b',null,'\u201cOpen in Chrome\u201d'), ' or ', React.createElement('b',null,'\u201cOpen in external browser\u201d'), '.')
-            ),
-          ),
-          React.createElement('button',{
-            onClick: () => {
-              // Best-effort: copy the URL so they can paste into a real browser.
-              try {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                  navigator.clipboard.writeText(href);
-                  alert('Link copied. Paste it in ' + (isIOS ? 'Safari' : 'Chrome') + '.');
-                } else {
-                  alert('Copy this link into ' + (isIOS ? 'Safari' : 'Chrome') + ':\n\n' + href);
-                }
-              } catch(e) { alert(href); }
-            },
-            style:{width:'100%',padding:'13px 18px',background:'#ef4444',border:'none',borderRadius:10,color:'#fff',fontSize:'.95rem',fontWeight:700,cursor:'pointer',marginBottom:10,fontFamily:'inherit'}
-          }, 'Copy link'),
-          React.createElement('button',{
-            onClick: () => {
-              try { window.localStorage.setItem('debateos-bypass-inapp', '1'); } catch(e) {}
-              // Force a re-render by navigating to the same URL.
-              window.location.reload();
-            },
-            style:{background:'none',border:'none',color:'#64748b',fontSize:'.8rem',cursor:'pointer',fontFamily:'inherit',padding:8}
-          }, 'Continue here anyway \u203A'),
-        )
-      );
-    })(),
-    // Auth gate — sign in or use BYOK key (skip if anon trial active)
-    !user && !authLoading && !userApiKey && React.createElement('div',{style:{position:'fixed',inset:0,zIndex:9999,background:'rgba(10,15,25,.92)',display:'flex',alignItems:'flex-start',justifyContent:'center',backdropFilter:'blur(8px)',overflowY:'auto',padding:'40px 0'}},
-      React.createElement('div',{style:{background:'#303038',border:'1px solid #ffffff22',borderRadius:16,padding:'40px 48px',maxWidth:520,width:'90%',textAlign:'center'}},
-        React.createElement('h1',{style:{fontSize:'2.2rem',fontWeight:900,color:'#f1f5f9',marginBottom:4}},
-          React.createElement('span',{style:{color:'#ef4444',fontStyle:'italic'}},"Devil's "),
-          React.createElement('span',{style:{fontWeight:300}},'Advocate')
-        ),
-        React.createElement('p',{style:{color:'#92754a',fontSize:'.72rem',letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,marginBottom:8}},'powered by DebateOS'),
-        React.createElement('p',{style:{color:'#94a3b8',fontSize:'.9rem',lineHeight:1.6,marginBottom:24}},t('hero.tagline','The debate engine built specifically for competitive debaters.')),
-        // Pricing tiers — flex row so orphan cards CENTER when they wrap to
-        // their own row. Grid `auto-fit` left the 3rd card stuck on the left
-        // of the second row in 2-col layouts; flex with justify-content:center
-        // lands that orphan in the middle, which reads much better on medium
-        // viewports (phones in landscape, narrow laptop panes).
-        React.createElement('div',{style:{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:10,marginBottom:16}},
-          // Free plan — 5 requests across the app, then upgrade is required.
-          React.createElement('div',{style:{flex:'1 1 160px',minWidth:160,maxWidth:220,padding:16,background:'rgba(148,163,184,.06)',border:'1px solid rgba(148,163,184,.22)',borderRadius:12,textAlign:'center'}},
-            React.createElement('div',{style:{fontSize:'.65rem',fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:6}},'Free'),
-            React.createElement('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'#f1f5f9'}},
-              '$0',
-              React.createElement('span',{style:{fontSize:'.7rem',fontWeight:500,color:'#64748b'}},'/mo')
-            ),
-            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.45}},
-              '5 requests',React.createElement('br'),
-              'total',
-            ),
-            React.createElement('p',{style:{color:'#94a3b8',fontSize:'.62rem',marginTop:8,lineHeight:1.4,fontWeight:600}}, 'Try before you pay'),
-          ),
-          // BYOK plan
-          React.createElement('div',{style:{flex:'1 1 160px',minWidth:160,maxWidth:220,padding:16,background:'#f59e0b08',border:'1px solid #f59e0b25',borderRadius:12,textAlign:'center'}},
-            React.createElement('div',{style:{fontSize:'.65rem',fontWeight:700,color:'#f59e0b',textTransform:'uppercase',letterSpacing:'1px',marginBottom:6}},'BYOK'),
-            React.createElement('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'#f1f5f9'}},
-              '$1',
-              React.createElement('span',{style:{fontSize:'.7rem',fontWeight:500,color:'#64748b'}},'/mo')
-            ),
-            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.45}},
-              'Your Anthropic key',React.createElement('br'),
-              'Unlimited Claude',
-            ),
-            // Claude-only warning. BYOK routes Anthropic keys directly to the
-            // Anthropic API — other brains (GPT/Gemini/Grok) go through our
-            // server and count against the plan cap, so users should expect
-            // Claude as their sole engine on this tier.
-            React.createElement('p',{style:{color:'#f59e0b',fontSize:'.62rem',marginTop:8,lineHeight:1.4,fontWeight:600}}, 'Claude only'),
-          ),
-          // Individual plan
-          React.createElement('div',{style:{flex:'1 1 160px',minWidth:160,maxWidth:220,padding:16,background:'#ef444408',border:'1px solid #ef444425',borderRadius:12,textAlign:'center'}},
-            React.createElement('div',{style:{fontSize:'.65rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:'1px',marginBottom:6}},'Individual'),
-            React.createElement('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'#f1f5f9'}},
-              '$5',
-              React.createElement('span',{style:{fontSize:'.7rem',fontWeight:500,color:'#64748b'}},'/mo')
-            ),
-            // Stacked bullets so narrow cards don't chop the line mid-bullet.
-            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.45}},
-              '250 requests',React.createElement('br'),
-              '4 AI brains',React.createElement('br'),
-              'HD voice',
-            ),
-          ),
-          // Team plan
-          React.createElement('div',{style:{flex:'1 1 160px',minWidth:160,maxWidth:220,padding:16,background:'#3b82f608',border:'1px solid #3b82f625',borderRadius:12,textAlign:'center'}},
-            React.createElement('div',{style:{fontSize:'.65rem',fontWeight:700,color:'#3b82f6',textTransform:'uppercase',letterSpacing:'1px',marginBottom:6}},'Team'),
-            React.createElement('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'#f1f5f9'}},
-              '$30',
-              React.createElement('span',{style:{fontSize:'.7rem',fontWeight:500,color:'#64748b'}},'/mo')
-            ),
-            React.createElement('p',{style:{color:'#64748b',fontSize:'.72rem',marginTop:4,lineHeight:1.45}},
-              '1,500 requests',React.createElement('br'),
-              '50 members',
-            ),
-          ),
-        ),
-        // Sign in block — Google only. Magic-link / email-link removed
-        // because (a) Firebase email-link sign-in isn't enabled on this
-        // project and (b) the app-wide decision is "require people to
-        // connect via Gmail" — a single auth path keeps UX clean.
-        React.createElement('div',{style:{padding:20,background:'#ffffff04',border:'1px solid #ffffff12',borderRadius:12,marginBottom:12}},
-          React.createElement('button',{onClick:signIn,style:{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'12px 16px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:10,color:'#e2e8f0',fontSize:'.92rem',fontWeight:600,cursor:'pointer',transition:'.2s'}},
-            React.createElement('img',{src:'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',width:20,height:20}),
-            t('auth.signInGoogle','Sign in with Google')
-          ),
-          React.createElement('p',{style:{color:'#4b5563',fontSize:'.72rem',marginTop:12,textAlign:'center'}}, 'Sign in to start your subscription and save cases.'),
-        ),
-      )
-    ),
+    // Auth is ADVISED, not required (reversed 2026-04-20). The app is usable
+    // anonymously with a 5-request cap; signed-in users get the persistent
+    // profile, 250-request Individual tier, and learning loop. Persistent
+    // nudges live in: the topbar "Sign in — free" button, the SignUpNudgeModal
+    // after 2+ generations, and feature-specific paywalls on hit-limit.
+    // The prior full-screen pricing gate was removed 2026-04-20 — it was
+    // blocking anon use entirely, which made Firebase failures in Safari /
+    // in-app browsers lock people out. Copy stays in git history if we ever
+    // want to restore it.
     showGuide && React.createElement(WelcomeGuide, { onClose: closeGuide, onNavigate: navigateTab }),
     !showGuide && React.createElement('button',{className:'guide-trigger',onClick:()=>setShowGuide(true),title:'How to use DebateOS','aria-label':'Help guide'},'?'),
     React.createElement('a',{className:'feedback-trigger',href:'https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform',target:'_blank',rel:'noopener noreferrer',title:'Send feedback (beta)','aria-label':'Send feedback'},

@@ -50,7 +50,7 @@ Five things, in order of importance:
 
 These are the rules that override other considerations. Any change that violates one needs an explicit rationale.
 
-- **Gmail-required auth.** No anonymous trials. Email-link disabled. One path in.
+- **Auth is ADVISED, not required (reversed 2026-04-20).** Anyone can use the app anonymously with the 5-request cap; sign-in unlocks the persistent profile, the 250-request Individual tier, and the style-learning loop. The prior full-screen pricing gate blocked too many users whose browser couldn't load Firebase (Safari ITP, in-app browsers, strict extensions). Nudges live in the topbar "Sign in — free" button, the SignUpNudgeModal after 2+ generations, and feature-specific paywalls on limit-hit. Google is still the only provider — email/password and magic-link remain off.
 - **5-request free tier, then paywall.** The free tier is an appetizer, not a product. Displayed as `5/5 free` (clamped — never `20/5`).
 - **BYOK is Claude-only.** Label it Claude-only on the card, the input form, and the error message. Cross-provider attempts throw a specific error.
 - **APDA does NOT belong in the Topics Hub.** It's impromptu, no rolling motion. Only PF / LD / Policy / Congress belong there. APDA users go to the Motions tab (random generator).
@@ -122,6 +122,7 @@ Target conversion tier: **Individual at $5/mo**. Everything else exists to funne
 
 - **Removed anonymous trial** (2026-04). The free-bypass was leaking usage and preventing a real paywall signal. Gmail-required is the only clean policy.
 - **Removed magic-link auth** (2026-04). Firebase email-link wasn't enabled and "via Gmail" was the stated direction. Two paths = confusion; one is clearer.
+- **Reversed Gmail-required gate to advise-only** (2026-04-20). The full-screen pricing/sign-in gate locked out users whose browser couldn't load Firebase (iOS Safari ITP, Instagram/FB/TikTok in-app browsers, strict ad blockers). Too big a funnel leak to ignore. Now: anyone can enter with the 5-request anon cap; sign-in is advised via the topbar CTA + the post-2-generations nudge modal + feature-specific paywalls.
 - **Tab shadows bumped to 30px vertical padding** (2026-04). `overflow-x:auto` on `.nav` clamps overflow-y to auto, clipping the red halo. 30px padding gives the shadow room to breathe.
 - **Case Feedback moved from Other → Competitive** (2026-04). Post-round critique is a competitive-prep tool, not a support link.
 - **Vocab Quiz added to Competitive** (2026-04). 52-term bank across debate flow / Policy / philosophy / elevated vocab. Multiple choice + flashcard mode, localStorage streak.
