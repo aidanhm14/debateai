@@ -50,8 +50,8 @@ export default async (request) => {
       customer: team.stripeCustomerId,
       mode: isLifetime ? 'payment' : 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${siteUrl}?billing=success`,
-      cancel_url: `${siteUrl}?billing=canceled`,
+      success_url: `${siteUrl}?billing=success&plan=${planId}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}?billing=canceled&plan=${planId}`,
       ...(isLifetime
         ? { payment_intent_data: { metadata: { teamId: team.id, plan: 'lifetime' } } }
         : { subscription_data: { metadata: { teamId: team.id } } }
