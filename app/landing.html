@@ -1272,6 +1272,14 @@ button{font-family:inherit;cursor:pointer}
       </div>
 
       <div id="miniChatSetup" style="padding:20px 22px">
+        <!-- Motion of the Day. Deterministic per calendar day so daily
+             visitors see the same motion, 'Use it →' one-click fills the
+             topic input. Rotates through a hand-curated list below. -->
+        <div id="miniChatMotd" style="display:none;padding:10px 12px;margin-bottom:14px;background:rgba(239,68,68,.06);border:1px dashed rgba(239,68,68,.3);border-radius:10px;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:.55rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ef4444;white-space:nowrap">🗓 Motion of the day</span>
+          <span id="miniChatMotdText" style="flex:1;min-width:180px;font-size:.8rem;color:var(--text);line-height:1.4;font-style:italic"></span>
+          <button id="miniChatMotdUse" type="button" style="padding:5px 12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);border-radius:6px;color:#fca5a5;font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;font-family:inherit;white-space:nowrap">Use it →</button>
+        </div>
         <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em;margin-bottom:8px">TOPIC</div>
         <input id="miniChatTopic" type="text" placeholder="e.g. Ban legacy admissions" style="width:100%;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:.95rem;font-family:inherit;outline:none" />
         <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em;margin:16px 0 8px">YOUR SIDE</div>
@@ -1429,6 +1437,48 @@ button{font-family:inherit;cursor:pointer}
       if (!topicEl) return;
 
       var side = null, topic = '', messages = [], round = 0, MAX_ROUNDS = 3, busy = false;
+
+      // Motion of the Day — deterministic daily rotation. 20 hand-curated
+      // motions spanning political philosophy, policy, AI, and culture so
+      // return visitors see something different each day without calling
+      // back to a server.
+      var LANDING_MOTIONS = [
+        'This house would ban billionaires.',
+        'This house would make voting compulsory.',
+        'This house supports universal basic income.',
+        'This house would pause AI development.',
+        'This house would abolish the electoral college.',
+        'This house would replace income tax with a wealth tax.',
+        'This house would ban algorithmic pricing.',
+        'This house would impose a global carbon tax.',
+        'This house would grant constitutional rights to future generations.',
+        'This house regrets the invention of the smartphone.',
+        'This house would ban legacy admissions.',
+        'This house would nationalize the pharmaceutical industry.',
+        'This house would abolish the Senate.',
+        'This house would hold social media companies liable for user radicalization.',
+        'This house would ban unpaid internships.',
+        'This house believes the right to privacy is obsolete.',
+        'This house would create a public option for social media.',
+        'This house would abolish intellectual property for medicines.',
+        'This house would ban private education.',
+        'This house believes benevolent dictatorship is preferable to dysfunctional democracy.',
+      ];
+      var motdEl = document.getElementById('miniChatMotd');
+      var motdTextEl = document.getElementById('miniChatMotdText');
+      var motdUseBtn = document.getElementById('miniChatMotdUse');
+      if (motdEl && motdTextEl && motdUseBtn) {
+        var dayIdx = Math.floor(Date.now() / 86400000) % LANDING_MOTIONS.length;
+        var motd = LANDING_MOTIONS[dayIdx];
+        motdTextEl.textContent = '"' + motd + '"';
+        motdEl.style.display = 'flex';
+        motdUseBtn.addEventListener('click', function(){
+          topicEl.value = motd;
+          topicEl.dispatchEvent(new Event('input', { bubbles: true }));
+          motdEl.style.display = 'none';
+          topicEl.focus();
+        });
+      }
 
       sideBtns.forEach(function(btn){
         btn.addEventListener('click', function(){
