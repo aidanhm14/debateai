@@ -1341,18 +1341,36 @@ button{font-family:inherit;cursor:pointer}
       // a different angle around the orb, each with its own pulse rhythm.
       // Gives the orb an asymmetric, audio-reactive look: a bass hit swells
       // the bottom, a treble hit taps the top-right, etc.
-      // Narrower Gaussian widths → sharper, more localized spikes instead of
-      // soft blobs. Higher exponent on the level signal → crisper attack.
-      var BANDS = [
-        { theta: 0,               freq: 2.3, phase: 0.0, w: 0.32, weight: 1.0 },
-        { theta: Math.PI * 0.5,   freq: 3.1, phase: 1.4, w: 0.36, weight: 0.90 },
-        { theta: Math.PI,         freq: 1.7, phase: 0.7, w: 0.40, weight: 1.1 },
-        { theta: Math.PI * 1.5,   freq: 4.4, phase: 2.2, w: 0.28, weight: 0.80 },
-        { theta: Math.PI * 0.25,  freq: 5.3, phase: 0.3, w: 0.22, weight: 0.65 },
-        { theta: Math.PI * 1.25,  freq: 6.1, phase: 1.9, w: 0.24, weight: 0.60 },
-        { theta: Math.PI * 0.75,  freq: 3.9, phase: 0.9, w: 0.26, weight: 0.70 },
-        { theta: Math.PI * 1.75,  freq: 5.9, phase: 2.5, w: 0.22, weight: 0.55 }
-      ];
+      // Fixed frequency bins placed around the rim, each pulsing on its own
+      // slow rhythm + a fast jitter. Like a spectrum analyzer: no rotation,
+      // bins stay put, staggered attack/decay so nothing syncs up.
+      // 12 bins spaced unevenly around the circle gives the "staggery" feel.
+      var BANDS = [];
+      (function seed(){
+        var thetas = [
+          0.00, 0.55, 1.15, 1.75, 2.30, 2.95,
+          3.55, 4.10, 4.70, 5.25, 5.80, 6.05
+        ];
+        // Slow base frequencies 0.35 - 1.20 Hz so peaks take ~1-3s to swell
+        // and fall. Jitter freq is faster but small-amplitude — adds the
+        // trembly "live audio" feel without speeding up the overall motion.
+        var baseFreqs =  [0.42, 0.68, 0.37, 0.95, 0.55, 1.15, 0.48, 0.78, 0.40, 1.05, 0.60, 0.85];
+        var jitterF   =  [4.1, 5.7, 3.3, 6.8, 4.6, 5.2, 3.9, 6.1, 4.4, 5.8, 3.7, 5.0];
+        var phases    =  [0.0, 1.7, 2.9, 0.8, 3.2, 1.1, 4.5, 2.4, 0.3, 3.8, 1.9, 4.1];
+        var weights   =  [1.00, 0.70, 1.10, 0.55, 0.85, 0.65, 0.95, 0.60, 1.05, 0.50, 0.80, 0.70];
+        var widths    =  [0.22, 0.18, 0.24, 0.16, 0.20, 0.17, 0.23, 0.19, 0.21, 0.15, 0.18, 0.20];
+        for (var i = 0; i < thetas.length; i++) {
+          BANDS.push({
+            theta: thetas[i],
+            baseF: baseFreqs[i],
+            jitF:  jitterF[i],
+            phase: phases[i],
+            w:     widths[i],
+            weight:weights[i],
+            level: 0  // tracked state for attack/decay envelope
+          });
+        }
+      })();
 
       // Shortest angular distance on [-π, π].
       function angDist(a, b){
@@ -1362,21 +1380,37 @@ button{font-family:inherit;cursor:pointer}
         return d;
       }
 
-      // Tight Gaussian bumps + crisp attack envelope. Raising |sin| to ^2.5
-      // gives a snappy rise/fall instead of a sine's lazy shoulder.
-      function bumpAt(a, t){
+      // Update each band's tracked level with fast attack + slower decay.
+      // Real spectrum analyzers snap up to a target and decay slowly — this
+      // mirrors that. `dt` is seconds since last frame (clamped).
+      function stepBands(t, dt){
+        for (var k = 0; k < BANDS.length; k++) {
+          var b = BANDS[k];
+          // Target = slow base pulse shaped to a sharp peak, plus tiny jitter.
+          var slow = Math.abs(Math.sin(t * b.baseF + b.phase));
+          slow = slow * slow;                         // sharpen attack
+          var jit = 0.5 + 0.5 * Math.sin(t * b.jitF + b.phase * 2.3);
+          var target = slow * (0.85 + 0.15 * jit);    // 0..1, peaky
+          var up   = 14.0, down = 3.2;                // attack/decay rates
+          var rate = (target > b.level) ? up : down;
+          // Exponential approach — frame-rate independent.
+          b.level += (target - b.level) * (1 - Math.exp(-rate * dt));
+        }
+      }
+
+      // Read the current (already-stepped) level as spatial bump field.
+      function bumpAt(a){
         var sum = 0;
         for (var k = 0; k < BANDS.length; k++) {
           var b = BANDS[k];
-          var s = Math.abs(Math.sin(t * b.freq + b.phase));
-          var level = s * s * s * 2.2; // ^3 attack, scaled so peaks ~ weight
           var d = angDist(a, b.theta);
           var fall = Math.exp(-(d * d) / (2 * b.w * b.w));
-          sum += level * fall * b.weight;
+          sum += b.level * fall * b.weight;
         }
         return sum;
       }
 
+      var lastT = 0;
       function draw(){
         if (!running) return;
         if (!cssW || !cssH) { requestAnimationFrame(draw); return; }
@@ -1386,20 +1420,23 @@ button{font-family:inherit;cursor:pointer}
         var cx = W / 2, cy = H / 2;
         var baseR = Math.min(W, H) * 0.36;
         var t = reduced ? 0 : (performance.now() / 1000);
+        var dt = lastT ? Math.min(0.1, t - lastT) : 0.016;
+        lastT = t;
 
         var speaking = (mode === 'ai');
         // Audio-reactive amplitude: speaking hits harder on the bumps, idle
         // still visibly breathes so the orb never looks frozen.
-        var bumpAmp = speaking ? 0.32 : 0.20;
-        var rotate = t * (speaking ? 0.35 : 0.18); // slow drift of the band angles
+        var bumpAmp = speaking ? 0.34 : 0.22;
 
-        // More points → sharper spikes resolve without kinking. Tight bumps
-        // need denser sampling to look clean.
+        // Advance band envelopes (attack/decay). Bins stay at fixed angles
+        // — no rotation — so motion looks like a spectrum analyzer.
+        stepBands(t, dt);
+
         var points = 96;
         ctx.beginPath();
         for (var i = 0; i <= points; i++) {
           var a = (i / points) * Math.PI * 2;
-          var bump = bumpAt(a + rotate, t);
+          var bump = bumpAt(a);
           var r = baseR * 1.12 + baseR * bumpAmp * 1.05 * bump * 0.5;
           var x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
           i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
@@ -1410,12 +1447,11 @@ button{font-family:inherit;cursor:pointer}
         else { og.addColorStop(0, 'rgba(255,255,255,.05)'); og.addColorStop(1, 'rgba(255,255,255,0)'); }
         ctx.fillStyle = og; ctx.fill();
 
-        // Main orb body — circle deforms asymmetrically per audio band. The
-        // result: one side bulges while another stays flat, then it migrates.
+        // Main orb body — fixed bins, each side pulses on its own rhythm.
         ctx.beginPath();
         for (var j = 0; j <= points; j++) {
           var aa = (j / points) * Math.PI * 2;
-          var bump2 = bumpAt(aa + rotate, t);
+          var bump2 = bumpAt(aa);
           var rr = baseR + baseR * bumpAmp * bump2;
           var xx = cx + Math.cos(aa) * rr, yy = cy + Math.sin(aa) * rr;
           j === 0 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy);
