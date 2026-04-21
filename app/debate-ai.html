@@ -4152,6 +4152,31 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     return el('div',{className:'page'},
       el('div',{className:'ambient'}),bar,
       el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:90,maxWidth:700,textAlign:'left'}},
+        // Sticky section nav. Long-scroll feedback page had Ballot →
+        // Flow → Patterns → Drill → Transcript with no way to scan back.
+        // Pills jump to each section and light up once the section has
+        // rendered so you know which outputs exist.
+        el('div',{style:{position:'sticky',top:0,zIndex:20,display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',padding:'10px 12px',margin:'-90px -12px 24px',background:'rgba(15,15,18,.88)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',borderBottom:'1px solid var(--c-border2)'}},
+          [
+            {id:'fb-ballot',label:'Ballot',shown:true},
+            {id:'fb-flow',label:'Flow',shown:!!flowSheet},
+            {id:'fb-patterns',label:'Patterns',shown:!!patterns},
+            {id:'fb-drill',label:'Drill',shown:!!drillPlan && !drillPlan.error},
+            {id:'fb-transcript',label:'Transcript',shown:true},
+          ].map(p=>el('a',{
+            key:p.id,
+            href:'#'+p.id,
+            onClick:(e)=>{e.preventDefault();const t=document.getElementById(p.id);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});},
+            style:{
+              padding:'6px 12px',borderRadius:999,fontSize:'.7rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',textDecoration:'none',
+              background:p.shown?'rgba(239,68,68,.12)':'transparent',
+              border:'1px solid '+(p.shown?'rgba(239,68,68,.35)':'var(--c-border2)'),
+              color:p.shown?'#fca5a5':'var(--c-muted)',
+              opacity:p.shown?1:0.55,cursor:'pointer',
+            },
+          },p.label))
+        ),
+        el('div',{id:'fb-ballot'}),
         el('div',{className:'t-label',style:{textAlign:'center'}},'Round Complete'),
         el('h2',{className:'t-hero',style:{fontSize:'clamp(2rem,5vw,3.2rem)',marginBottom:8,textAlign:'center'}},'Judge Ballot'),
         el('p',{className:'t-dim',style:{marginBottom:24,textAlign:'center'}},'"'+motion+'". '+(fmt.sideLabels[side]||side)+' vs AI'),
@@ -4447,7 +4472,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         // Auto flow sheet — AI distills the full round into a coach-style
         // flow a student can study. Placed above the transcript toggle
         // since it's the high-value output; raw transcript is the fallback.
-        el('div',{style:{marginTop:24,textAlign:'center'}},
+        el('div',{id:'fb-flow',style:{marginTop:24,textAlign:'center',scrollMarginTop:80}},
           !flowSheet && !flowLoading && el('button',{
             className:'cta-ghost',
             style:{fontSize:'.78rem'},
@@ -4469,7 +4494,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         // Multi-round pattern analysis. Only appears once the user has
         // actually debated enough for patterns to exist (3+ rounds);
         // before that the button would produce unreliable diagnoses.
-        historyRounds && historyRounds.length >= 3 && el('div',{style:{marginTop:20,textAlign:'center'}},
+        historyRounds && historyRounds.length >= 3 && el('div',{id:'fb-patterns',style:{marginTop:20,textAlign:'center',scrollMarginTop:80}},
           !patterns && !patternsLoading && el('button',{
             className:'cta-ghost',
             style:{fontSize:'.78rem'},
@@ -4488,7 +4513,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           el('div',{className:'transcript-box',style:{maxHeight:520,whiteSpace:'pre-wrap',fontSize:'.82rem',lineHeight:1.65}},patterns),
           // 'Train this' drill launcher — converts the diagnosis into a
           // round designed to force the user into their weakness.
-          el('div',{style:{marginTop:14,textAlign:'center'}},
+          el('div',{id:'fb-drill',style:{marginTop:14,textAlign:'center',scrollMarginTop:80}},
             !drillPlan && !drillLoading && el('button',{
               className:'cta-ghost',
               style:{fontSize:'.78rem'},
@@ -4517,6 +4542,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           drillPlan && drillPlan.error && el('div',{style:{marginTop:12,padding:'10px 14px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',borderRadius:10,fontSize:'.78rem',color:'#fca5a5',textAlign:'center',maxWidth:480,margin:'12px auto 0'}},drillPlan.error),
         ),
 
+        el('div',{id:'fb-transcript',style:{scrollMarginTop:80}}),
         el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
         showTx&&el('div',{className:'transcript-box',style:{maxHeight:360}},log.map(l=>'['+l.code+'. '+l.who+']\n'+l.text).join('\n\n---\n\n')),
 
