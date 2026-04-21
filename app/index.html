@@ -3641,6 +3641,7 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   const fullSystemPrompt = systemPrompt + buildStyleBlock() + voiceBlock;
   const feature = opts.feature || 'case';
   const body = { model, max_tokens: maxTokens, stream: true, system: fullSystemPrompt, messages: [{ role:'user', content: userPrompt }], _feature: feature, _voiceFeature: feature };
+  if (opts.format) body._voiceFormat = opts.format;
   if (opts.promptId) body._promptId = opts.promptId;
   if (opts.promptVars) body._promptVars = opts.promptVars;
 
@@ -3795,6 +3796,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
       // the server which voice-guidelines block to inject. keeps the
       // debater-voice IP server-side.
       const serverBody = { ...body, _feature: feature, _voiceFeature: feature };
+      if (opts.format) serverBody._voiceFormat = opts.format;
       if (opts.promptId) serverBody._promptId = opts.promptId;
       if (opts.promptVars) serverBody._promptVars = opts.promptVars;
       const headers = { 'Content-Type': 'application/json' };
@@ -4480,7 +4482,7 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
       await callAnyAI(sysPrompt, userPrompt, (text) => {
         _finalOutput = text;
         throttle.update(text);
-      }, caseBrain, { thinkBudget: depthThinkBudget, maxTokens: depthMaxTokens, expectedWords, onProgress: (p) => setProgress(p), feature: 'case', promptId: 'caseBase' });
+      }, caseBrain, { thinkBudget: depthThinkBudget, maxTokens: depthMaxTokens, expectedWords, onProgress: (p) => setProgress(p), feature: 'case', format, promptId: 'caseBase' });
     } catch (err) {
       _genErrored = true;
       setError(err.message);

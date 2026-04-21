@@ -594,13 +594,34 @@ function getHsUsage() { try { return parseInt(localStorage.getItem('debateos-ano
 function incHsUsage() { try { localStorage.setItem('debateos-anon-usage', String(getHsUsage() + 1)); } catch {} }
 function getHsRemaining() { return Math.max(0, HS_LIMIT - getHsUsage()); }
 
-async function callClaude(systemPrompt, userPrompt, onChunk) {
+// Maps high-school.html HS_FORMATS keys to voice-guidelines.mjs FORMAT_VOICES
+// keys so the server-side per-format voice block gets appended to the right
+// format. HS Parli is closest to APDA in impromptu conventions; Policy/LD/PF/
+// Congress/MUN map 1:1.
+const HS_VOICE_FORMAT_MAP = {
+  PF: 'pf',
+  LD: 'ld',
+  Policy: 'policy',
+  Parli: 'apda',
+  Congress: 'congress',
+  MUN: 'mun',
+};
+
+async function callClaude(systemPrompt, userPrompt, onChunk, opts) {
   // Enforce usage limit (bypass if BYOK key is set)
   const used = getHsUsage();
   const hasByok = !!(API_STORE.key);
   if (used >= HS_LIMIT && !hasByok) {
     throw new Error('LIMIT_REACHED');
   }
+  // Resolve voice feature + format so the server-side voice bank (and
+  // per-format subsection — see netlify/functions/lib/voice-guidelines.mjs)
+  // gets appended to system. Without these the HS app would ship plain
+  // prompts and the AI would drift into generic/APDA voice on Policy/PF/LD.
+  const voiceFeature = (opts && opts.voiceFeature) || 'bot';
+  const voiceFormat = opts && opts.format
+    ? (HS_VOICE_FORMAT_MAP[opts.format] || String(opts.format).toLowerCase())
+    : null;
   // Try Netlify function first
   const body = {
     model: 'claude-sonnet-4-20250514',
@@ -609,7 +630,9 @@ async function callClaude(systemPrompt, userPrompt, onChunk) {
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
     _feature: 'high-school',
+    _voiceFeature: voiceFeature,
   };
+  if (voiceFormat) body._voiceFormat = voiceFormat;
   try {
     const response = await fetch('/api/claude', {
       method: 'POST',
@@ -885,7 +908,7 @@ function CaseGenerator() {
       await callClaude(sysPrompt, userPrompt, (text) => {
         setOutput(text);
         if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
-      });
+      }, { format, voiceFeature: 'case' });
     } catch (err) {
       setError(formatError(err));
     }
@@ -1127,7 +1150,7 @@ RULES:
           updated[msgIdx] = {role:'assistant', text: text};
           return updated;
         });
-      });
+      }, { format, voiceFeature: 'bot' });
     } catch(e) {
       setMessages(prev => [...prev, {role:'assistant', text: formatError(e)}]);
     }
@@ -1334,7 +1357,7 @@ Include:
 5. COLLAPSE STRATEGY. which argument to go all-in on in Summary/Final Focus and why
 
 Keep it to ~400 words. Be specific and tactical. No filler.`;
-      await callClaude(sysPrompt, `Resolution: ${topic.resolution}\nFormat: ${topic.label}\nSide: ${side}\n\nGive me the quick prep sheet.`, (text) => setPrepOutput(text));
+      await callClaude(sysPrompt, `Resolution: ${topic.resolution}\nFormat: ${topic.label}\nSide: ${side}\n\nGive me the quick prep sheet.`, (text) => setPrepOutput(text), { format: selectedFormat, voiceFeature: 'case' });
     } catch(e) {
       setPrepOutput(formatError(e));
     }
@@ -1589,7 +1612,7 @@ RULES:
       await callClaude(sysPrompt, `The round is starting. I'm ${side} on: "${resolution}". Set up the round.`, (text) => {
         intro = text;
         setMessages([{role:'assistant', text}]);
-      });
+      }, { format, voiceFeature: 'bot' });
     } catch(e) {
       setMessages([{role:'assistant', text: formatError(e)}]);
     }
@@ -1643,7 +1666,7 @@ IMPORTANT: Be a TOUGH but FAIR opponent. Don't let weak arguments slide. Call ou
           updated[msgIdx] = {role:'assistant', text};
           return updated;
         });
-      });
+      }, { format, voiceFeature: 'bot' });
     } catch(e) {
       setMessages(prev => [...prev, {role:'assistant', text:formatError(e)}]);
     }
@@ -1845,7 +1868,7 @@ function CongressLab() {
 7. SPEAKER STRATEGY (what to say if you're the 2nd or 3rd speaker on either side. how to add new ground)
 
 Be specific to THIS bill. Reference real-world parallels, costs, stakeholders. Keep it under 500 words. No markdown.`;
-      await callClaude(sysPrompt, `Analyze this legislation:\n\n${billText}`, (text) => setAnalysisOutput(text));
+      await callClaude(sysPrompt, `Analyze this legislation:\n\n${billText}`, (text) => setAnalysisOutput(text), { format: 'Congress', voiceFeature: 'case' });
     } catch(e) {
       setAnalysisOutput(formatError(e));
     }
@@ -1876,7 +1899,7 @@ CONGRESS SPEECH RULES:
 Write the FULL speech text, ready to deliver. No stage directions, just the words. Also include 2 likely questions opponents will ask and suggested responses.
 No markdown formatting. Natural speech.`;
 
-      await callClaude(sysPrompt, `Bill: ${bill.title}\n\nFull text:\n${bill.text}\n\nWrite a ${speakerLabel} speech (${speechSide} side).`, (text) => setSpeechOutput(text));
+      await callClaude(sysPrompt, `Bill: ${bill.title}\n\nFull text:\n${bill.text}\n\nWrite a ${speakerLabel} speech (${speechSide} side).`, (text) => setSpeechOutput(text), { format: 'Congress', voiceFeature: 'bot' });
     } catch(e) {
       setSpeechOutput(formatError(e));
     }
