@@ -3345,6 +3345,8 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
   const { t } = React.useContext(I18nContext);
   const [search, setSearch] = useState('');
   const [activeTag, setActiveTag] = useState(null);
+  const [activeFormat, setActiveFormat] = useState(null);
+  const [sortBy, setSortBy] = useState('newest'); // newest | oldest | az
   const [expandedId, setExpandedId] = useState(null);
   const [editingTags, setEditingTags] = useState(null); // caseId being edited
   const [tagInput, setTagInput] = useState('');
@@ -3358,12 +3360,26 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
     return Array.from(tagSet).sort();
   }, [cases]);
 
+  // Format filter chips — pulled from actual saved cases, only show
+  // formats the user has actually used (no empty chips for unused ones).
+  const allFormats = useMemo(() => {
+    const set = new Set();
+    cases.forEach(c => { if (c.format) set.add(c.format); });
+    return Array.from(set).sort();
+  }, [cases]);
+
   const filtered = useMemo(() => {
     let result = cases;
     if (activeTag) result = result.filter(c => (c.tags || []).includes(activeTag));
+    if (activeFormat) result = result.filter(c => c.format === activeFormat);
     if (search.trim()) result = result.filter(c => c.motion.toLowerCase().includes(search.toLowerCase()) || (c.side||'').toLowerCase().includes(search.toLowerCase()) || (c.tags||[]).some(t => t.toLowerCase().includes(search.toLowerCase())));
-    return result;
-  }, [cases, search, activeTag]);
+    // Sort — createa new array so we don't mutate the source prop.
+    const sorted = result.slice();
+    if (sortBy === 'oldest') sorted.sort((a,b) => new Date(a.savedAt) - new Date(b.savedAt));
+    else if (sortBy === 'az') sorted.sort((a,b) => (a.motion||'').localeCompare(b.motion||''));
+    else sorted.sort((a,b) => new Date(b.savedAt) - new Date(a.savedAt)); // newest
+    return sorted;
+  }, [cases, search, activeTag, activeFormat, sortBy]);
 
   const addTag = (caseId, tag) => {
     if (!tag.trim() || !onUpdateCase) return;
@@ -3396,10 +3412,35 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
       el('div', { className: 'cases-search' },
         el('input', { type:'text', placeholder:t('savedCases.searchPlaceholder','Search cases...'), value:search, onChange:e=>setSearch(e.target.value) })
       ),
+      // Format filter row — only renders when the user has cases in
+      // 2+ formats (otherwise 'All + one format' is noise).
+      allFormats.length > 1 && el('div', {style:{padding:'0 14px 6px',display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}},
+        el('span', {style:{fontSize:'.58rem',fontWeight:700,color:'#64748b',letterSpacing:'.1em',textTransform:'uppercase',marginRight:2}}, 'Format:'),
+        el('button', {onClick:()=>setActiveFormat(null), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeFormat===null?'#ef4444':'#ffffff15'),background:activeFormat===null?'#ef444420':'transparent',color:activeFormat===null?'#f87171':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, 'All'),
+        allFormats.map(f => el('button', {key:f, onClick:()=>setActiveFormat(activeFormat===f?null:f), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeFormat===f?'#10b981':'#ffffff15'),background:activeFormat===f?'#10b98120':'transparent',color:activeFormat===f?'#34d399':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, f)),
+      ),
+      // Sort row — newest / oldest / A-Z. Always visible so users
+      // don't have to wonder where the 'older' cases went.
+      cases.length > 1 && el('div', {style:{padding:'0 14px 10px',display:'flex',gap:4,alignItems:'center'}},
+        el('span', {style:{fontSize:'.58rem',fontWeight:700,color:'#64748b',letterSpacing:'.1em',textTransform:'uppercase',marginRight:2}}, 'Sort:'),
+        [['newest','Newest'],['oldest','Oldest'],['az','A–Z']].map(([k,label]) =>
+          el('button', {key:k, onClick:()=>setSortBy(k), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(sortBy===k?'#a855f7':'#ffffff15'),background:sortBy===k?'#a855f720':'transparent',color:sortBy===k?'#c084fc':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, label)
+        )
+      ),
       // Tag filter row
-      allTags.length > 0 && el('div', {style:{padding:'0 14px 10px',display:'flex',gap:4,flexWrap:'wrap'}},
+      allTags.length > 0 && el('div', {style:{padding:'0 14px 10px',display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}},
+        el('span', {style:{fontSize:'.58rem',fontWeight:700,color:'#64748b',letterSpacing:'.1em',textTransform:'uppercase',marginRight:2}}, 'Tag:'),
         el('button', {onClick:()=>setActiveTag(null), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeTag===null?'#ef4444':'#ffffff15'),background:activeTag===null?'#ef444420':'transparent',color:activeTag===null?'#f87171':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, 'All'),
         allTags.map(tag => el('button', {key:tag, onClick:()=>setActiveTag(activeTag===tag?null:tag), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeTag===tag?'#3b82f6':'#ffffff15'),background:activeTag===tag?'#3b82f620':'transparent',color:activeTag===tag?'#60a5fa':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, tag)),
+      ),
+      // Result-count hint when filters are active. Quick read on how
+      // many cases matched without needing to scroll the list.
+      (search || activeTag || activeFormat) && el('div', {style:{padding:'0 14px 8px',fontSize:'.66rem',color:'#64748b'}},
+        filtered.length + ' of ' + cases.length + ' ' + (filtered.length===1?'case':'cases'),
+        (search||activeTag||activeFormat) && el('button', {
+          onClick:()=>{setSearch('');setActiveTag(null);setActiveFormat(null);},
+          style:{marginLeft:8,background:'transparent',border:'none',color:'#94a3b8',fontSize:'.66rem',textDecoration:'underline',cursor:'pointer',fontFamily:'inherit',padding:0}
+        }, 'clear filters'),
       ),
       el('div', { className: 'cases-list' },
         filtered.length === 0
@@ -3638,7 +3679,14 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   // stub (`voice-guidelines.js`) returns '' for everything. We still build
   // `voiceBlock` in case a future BYOK-style path wants it on the client.
   const voiceBlock = (window.DEBATE_VOICE && window.DEBATE_VOICE.forFeature(opts.feature)) || '';
-  const fullSystemPrompt = systemPrompt + buildStyleBlock() + voiceBlock;
+  // Team coaching brief — when set on the team, the coach's instructions
+  // get prepended to every team member's AI prompt. This is the shared
+  // team-workspace hook: one coach updates team.context on Friday, every
+  // student's rounds that weekend absorb the priorities automatically.
+  const teamBrief = (typeof __currentTeam !== 'undefined' && __currentTeam && __currentTeam.context)
+    ? 'TEAM COACHING BRIEF (from '+(__currentTeam.teamName||'your team')+'):\n'+__currentTeam.context+'\n\nApply this guidance to your output.\n\n'
+    : '';
+  const fullSystemPrompt = teamBrief + systemPrompt + buildStyleBlock() + voiceBlock;
   const feature = opts.feature || 'case';
   const body = { model, max_tokens: maxTokens, stream: true, system: fullSystemPrompt, messages: [{ role:'user', content: userPrompt }], _feature: feature, _voiceFeature: feature };
   if (opts.format) body._voiceFormat = opts.format;
@@ -3749,7 +3797,14 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   // Voice guidelines are per-feature (see /js/voice-guidelines.js) so judge /
   // feedback prompts don't get debater voice mixed in.
   const voiceBlock = (window.DEBATE_VOICE && window.DEBATE_VOICE.forFeature(opts.feature)) || '';
-  const fullSystemPrompt = systemPrompt + buildStyleBlock() + voiceBlock;
+  // Team coaching brief — when set on the team, the coach's instructions
+  // get prepended to every team member's AI prompt. This is the shared
+  // team-workspace hook: one coach updates team.context on Friday, every
+  // student's rounds that weekend absorb the priorities automatically.
+  const teamBrief = (typeof __currentTeam !== 'undefined' && __currentTeam && __currentTeam.context)
+    ? 'TEAM COACHING BRIEF (from '+(__currentTeam.teamName||'your team')+'):\n'+__currentTeam.context+'\n\nApply this guidance to your output.\n\n'
+    : '';
+  const fullSystemPrompt = teamBrief + systemPrompt + buildStyleBlock() + voiceBlock;
 
   // Ensure budget_tokens < max_tokens and >= 1024 (API requirements)
   const safeBudget = Math.max(1024, Math.min(thinkBudget, maxTokens - 1024));
@@ -11823,7 +11878,12 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
               isOwner && el('button',{onClick:()=>{setEditName(team.teamName||'');setEditContext(team.context||'');setEditIsPublic(!!team.isPublic);setEditBio(team.bio||'');setEditingTeam(true);},style:{background:'none',border:'none',color:'#94a3b8',cursor:'pointer',fontSize:'.8rem',padding:'2px 6px'}},'\u270F\uFE0F'),
             ),
         team.plan !== 'trial' && el('span', {style:{fontSize:'.75rem',padding:'3px 10px',borderRadius:20,fontWeight:700,background:planColor+'20',color:planColor,textTransform:'uppercase',letterSpacing:'.5px',marginTop:4,display:'inline-block'}}, team.plan + ' plan'),
-        team.context && !editingTeam && el('p',{style:{fontSize:'.78rem',color:'#94a3b8',marginTop:4,maxWidth:400}},team.context),
+        team.context && !editingTeam && el('div',{style:{marginTop:6,maxWidth:520,padding:'8px 12px',background:'rgba(34,197,94,.06)',border:'1px solid rgba(34,197,94,.22)',borderRadius:10}},
+          el('div',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#4ade80',marginBottom:4,display:'flex',alignItems:'center',gap:6}},
+            el('span',null,'⚡ Coaching brief · live in every teammate\'s AI prompts'),
+          ),
+          el('p',{style:{fontSize:'.78rem',color:'#cbd5e1',margin:0,lineHeight:1.5}},team.context),
+        ),
       ),
       isOwner && el('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
         el('button', {onClick:team.stripeSubscriptionId?openPortal:()=>openCheckout('team'), style:{padding:'8px 16px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}, team.stripeSubscriptionId?t('team.manageBilling','Manage Billing'):t('team.upgradePlan','Upgrade Plan')),
@@ -13601,6 +13661,10 @@ function TopicHub({ onNavigateTab, onPrefillCase }) {
   // motion per round) so they're not in CURRENT_TOPICS. users who
   // want practice motions for those formats hit the Motions tab.
   const [format, setFormat] = useState('PF');
+  // Accordion state — keyed by `${format}:${i}` so opening a motion on
+  // one format doesn't auto-open the same index when you switch formats.
+  // Multiple cards can be open at once (compare lists side-by-side).
+  const [expanded, setExpanded] = useState({});
   const topic = CURRENT_TOPICS[format];
   return el('div',{className:'panel',style:{maxWidth:960,margin:'0 auto',padding:'28px 32px'}},
     el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-end',flexWrap:'wrap',gap:16,marginBottom:20}},
@@ -13634,24 +13698,35 @@ function TopicHub({ onNavigateTab, onPrefillCase }) {
         const proArgs = (typeof m === 'object' && Array.isArray(m.proArgs)) ? m.proArgs : [];
         const conArgs = (typeof m === 'object' && Array.isArray(m.conArgs)) ? m.conArgs : [];
         const hasPreview = proArgs.length > 0 || conArgs.length > 0;
-        return el('div',{key:i,style:{padding:'18px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12}},
-          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,flexWrap:'wrap',marginBottom:hasPreview?14:0}},
-            el('div',{style:{flex:1,minWidth:260,fontSize:'.95rem',color:'#e2e8f0',lineHeight:1.5}}, motionText),
-            el('div',{style:{display:'flex',gap:8}},
+        const key = format + ':' + i;
+        const isOpen = !!expanded[key];
+        const toggle = () => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+        return el('div',{key:i,style:{background:'rgba(255,255,255,.03)',border:'1px solid '+(isOpen?'rgba(239,68,68,.3)':'rgba(255,255,255,.08)'),borderRadius:12,transition:'border-color .2s ease'}},
+          // Clickable header. The whole row toggles expansion so users
+          // can scan titles quickly. The Gen Gov/Opp buttons stopPropagation
+          // so clicking them doesn't accidentally collapse the card.
+          el('div',{
+            onClick: hasPreview ? toggle : null,
+            style:{padding:'18px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,flexWrap:'wrap',cursor:hasPreview?'pointer':'default'},
+          },
+            el('div',{style:{flex:1,minWidth:260,display:'flex',alignItems:'center',gap:10}},
+              hasPreview && el('span',{style:{fontSize:'.75rem',color:'#94a3b8',lineHeight:1,width:14,display:'inline-block',textAlign:'center',transform:isOpen?'rotate(90deg)':'rotate(0deg)',transition:'transform .2s ease'}, 'aria-hidden':true},'▶'),
+              el('div',{style:{fontSize:'.95rem',color:'#e2e8f0',lineHeight:1.5,flex:1}}, motionText),
+            ),
+            el('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+              hasPreview && el('span',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:isOpen?'#ef4444':'#64748b',whiteSpace:'nowrap'}},isOpen?'Hide args':proArgs.length+' Pro · '+conArgs.length+' Con'),
               el('button',{
-                onClick:()=>{ onPrefillCase && onPrefillCase({motion:motionText, format, side:'Government'}); onNavigateTab && onNavigateTab('case'); },
+                onClick:(e)=>{ e.stopPropagation(); onPrefillCase && onPrefillCase({motion:motionText, format, side:'Government'}); onNavigateTab && onNavigateTab('case'); },
                 className:'btn btn-orange',style:{padding:'8px 16px',fontSize:'.82rem'},
-              }, 'Generate Gov →'),
+              }, 'Gen Gov →'),
               el('button',{
-                onClick:()=>{ onPrefillCase && onPrefillCase({motion:motionText, format, side:'Opposition'}); onNavigateTab && onNavigateTab('case'); },
+                onClick:(e)=>{ e.stopPropagation(); onPrefillCase && onPrefillCase({motion:motionText, format, side:'Opposition'}); onNavigateTab && onNavigateTab('case'); },
                 className:'btn',style:{padding:'8px 16px',fontSize:'.82rem',background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',color:'#e2e8f0'},
-              }, 'Generate Opp →'),
+              }, 'Gen Opp →'),
             ),
           ),
-          // Pre-loaded argument preview. Two-column Pro/Con with short tags
-          // + 1-sentence warrants. Gives the student a cold-read of the
-          // argument landscape before they generate anything.
-          hasPreview && el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginTop:4,paddingTop:14,borderTop:'1px dashed rgba(255,255,255,.08)'}},
+          // Expanded: two-column Pro/Con preview with tags + warrants.
+          hasPreview && isOpen && el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,padding:'0 20px 18px',borderTop:'1px dashed rgba(255,255,255,.08)',paddingTop:16}},
             el('div',null,
               el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#22c55e',marginBottom:8}},'Pro · opening arguments'),
               proArgs.map((a,ai)=>el('div',{key:ai,style:{marginBottom:8,padding:'8px 10px',background:'rgba(34,197,94,.04)',border:'1px solid rgba(34,197,94,.14)',borderRadius:8}},
@@ -13982,6 +14057,11 @@ function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [navigateTab]);
 
+  // Keyboard shortcuts overlay (main app). State declared here; the
+  // handler that reads navigateTab is attached below (after navigateTab
+  // is defined) to avoid TDZ on the const declaration.
+  const [showAppShortcuts, setShowAppShortcuts] = useState(false);
+
   const navigateTab = useCallback((newTab) => {
     if (newTab === tab) return;
     logBetaEvent('tab', { tab: newTab });
@@ -14008,6 +14088,33 @@ function App() {
       setTimeout(() => setTabTransition(''), 350);
     }, 150);
   }, [tab, user]);
+
+  // Keyboard shortcuts handler — defined AFTER navigateTab so the
+  // closure binds to a declared const, not a TDZ reference.
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.isContentEditable) return;
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) { e.preventDefault(); setShowAppShortcuts(s => !s); return; }
+      if (showAppShortcuts && e.key === 'Escape') { e.preventDefault(); setShowAppShortcuts(false); return; }
+      if (e.key === '/') {
+        const motionInput = document.querySelector('textarea[placeholder*="motion"],textarea[placeholder*="Motion"]');
+        if (motionInput) { e.preventDefault(); motionInput.focus(); return; }
+      }
+      if (e.key === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        window.__pendingG = Date.now();
+        return;
+      }
+      if (window.__pendingG && Date.now() - window.__pendingG < 800) {
+        window.__pendingG = 0;
+        const map = { c:'case', t:'topics', r:'rebuttal', b:'battle', f:'feedback', m:'res', v:'vision', j:'judge', p:'phil', l:'live' };
+        const target = map[e.key.toLowerCase()];
+        if (target) { e.preventDefault(); navigateTab(target); }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showAppShortcuts, navigateTab]);
+
   const goBack = useCallback(() => {
     if (tabHistory.length === 0) return;
     setTabTransition('tab-exit');
@@ -14653,6 +14760,62 @@ function App() {
       tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
       tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
       tabPane('live', React.createElement(LiveDebates, { user: user, team: team, onNavigateTab: navigateTab })),
+      // Keyboard shortcuts help overlay — mirrors the debate-ai modal.
+      // Documents the new `?`, `/`, and gmail-style `g → x` shortcuts.
+      // Floating help button — persistent discoverability for the
+      // shortcuts modal. Hides while the modal is open.
+      !showAppShortcuts && React.createElement('button', {
+        onClick: () => setShowAppShortcuts(true),
+        'aria-label': 'Keyboard shortcuts',
+        title: 'Keyboard shortcuts (?)',
+        style: {
+          position:'fixed',right:16,bottom:16,zIndex:99997,
+          width:36,height:36,borderRadius:'50%',
+          background:'rgba(239,68,68,.14)',border:'1px solid rgba(239,68,68,.35)',
+          color:'#fca5a5',fontSize:'1rem',fontWeight:800,lineHeight:1,
+          cursor:'pointer',fontFamily:'inherit',padding:0,
+          display:'flex',alignItems:'center',justifyContent:'center',
+          backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',
+          boxShadow:'0 6px 20px rgba(0,0,0,.35)',
+          transition:'transform .15s ease, background .15s ease, border-color .15s ease',
+        },
+        onMouseEnter: (e) => { e.currentTarget.style.transform='scale(1.08)'; e.currentTarget.style.background='rgba(239,68,68,.22)'; e.currentTarget.style.borderColor='rgba(239,68,68,.55)'; },
+        onMouseLeave: (e) => { e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.background='rgba(239,68,68,.14)'; e.currentTarget.style.borderColor='rgba(239,68,68,.35)'; },
+      }, '?'),
+      showAppShortcuts && React.createElement('div', {
+        onClick: () => setShowAppShortcuts(false),
+        style:{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',zIndex:99998,display:'flex',alignItems:'center',justifyContent:'center',padding:20},
+        role:'dialog','aria-modal':'true','aria-label':'Keyboard shortcuts',
+      },
+        React.createElement('div', {
+          onClick:(e)=>e.stopPropagation(),
+          style:{maxWidth:520,width:'100%',background:'var(--modal-bg,#303038)',border:'1px solid var(--modal-border,#ffffff22)',borderRadius:16,padding:'28px 32px',boxShadow:'0 24px 60px rgba(0,0,0,.5)'},
+        },
+          React.createElement('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}},
+            React.createElement('div', {style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#ef4444'}}, 'Keyboard Shortcuts'),
+            React.createElement('button', {onClick:()=>setShowAppShortcuts(false),style:{background:'transparent',border:'none',color:'#94a3b8',fontSize:'1.2rem',cursor:'pointer',lineHeight:1,padding:4},'aria-label':'Close'}, '×'),
+          ),
+          [
+            ['?', 'show / hide this overlay'],
+            ['Esc', 'close overlays + modals'],
+            ['/', 'focus the motion input (case tab)'],
+            ['g  c', 'go to Case Gen'],
+            ['g  t', 'go to Topics'],
+            ['g  r', 'go to Flow → Rebuttal'],
+            ['g  m', 'go to Motions'],
+            ['g  v', 'go to Round Vision'],
+            ['g  j', 'go to Judge'],
+            ['g  f', 'go to Case Feedback'],
+            ['g  p', 'go to Philosophy'],
+            ['g  l', 'go to Live Debates'],
+            ['g  b', 'go to Battle'],
+          ].map(([k,v], i) => React.createElement('div', {key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,padding:'8px 0',borderTop:i===0?'none':'1px solid #ffffff10'}},
+            React.createElement('kbd', {style:{fontFamily:'ui-monospace, Menlo, monospace',fontSize:'.72rem',fontWeight:700,padding:'3px 9px',background:'rgba(255,255,255,.06)',border:'1px solid #ffffff18',borderRadius:6,color:'#f1f5f9',minWidth:54,textAlign:'center',whiteSpace:'nowrap'}}, k),
+            React.createElement('span', {style:{fontSize:'.8rem',color:'#cbd5e1',lineHeight:1.4,flex:1,textAlign:'right'}}, v),
+          )),
+          React.createElement('div', {style:{marginTop:14,paddingTop:12,borderTop:'1px solid #ffffff10',fontSize:'.68rem',color:'#94a3b8',textAlign:'center'}}, 'Press ', React.createElement('kbd', {style:{fontFamily:'ui-monospace, Menlo, monospace',padding:'2px 6px',background:'rgba(255,255,255,.06)',borderRadius:4,fontSize:'.68rem'}}, '?'), ' any time'),
+        ),
+      ),
       toast && React.createElement('div', {style:{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',padding:'10px 24px',background:'#22c55e',color:'#fff',borderRadius:8,fontWeight:600,fontSize:'.88rem',zIndex:99999,boxShadow:'0 4px 12px rgba(0,0,0,.3)',animation:'fadeIn .2s ease',pointerEvents:'none'}}, toast),
       // Welcome modal after successful payment
       billingSuccess && React.createElement('div', {className:'auth-overlay', onClick:e=>{if(e.target===e.currentTarget)setBillingSuccess(false)}},

@@ -1110,6 +1110,34 @@ const MOTIONS = [
   'This house would impose term limits on Supreme Court justices.',
 ];
 
+// Curated Motion-of-the-Day bank. Separate from MOTIONS (the random-motion
+// pool) because MotD needs metadata — category tag + one-line hook that
+// explains the genuine tension each motion turns on. Matches the landing
+// page's LANDING_MOTIONS shape, kept consistent on purpose so users see
+// the same 20 motions cycle through here regardless of where they hit.
+const MOTD_BANK = [
+  { text:'This house would ban billionaires.', cat:'Politics', hook:'Is concentrated wealth a threat to democracy, or the engine that funds what democracy can\'t?' },
+  { text:'This house would make voting compulsory.', cat:'Politics', hook:'Legitimacy from full participation vs. the signal that low turnout actually sends.' },
+  { text:'This house supports universal basic income.', cat:'Policy', hook:'Dignity and automation-proofing vs. fiscal reality and the labor-incentive question.' },
+  { text:'This house would pause AI development.', cat:'Tech', hook:'Precautionary principle vs. the moratorium that just cedes the lead to less cautious actors.' },
+  { text:'This house would abolish the electoral college.', cat:'Politics', hook:'One-person-one-vote vs. federalism and the incentive to campaign outside swing states.' },
+  { text:'This house would replace income tax with a wealth tax.', cat:'Policy', hook:'Taxing accumulation vs. flight risk and the valuation problem nobody wants to solve.' },
+  { text:'This house would ban algorithmic pricing.', cat:'Tech', hook:'Surveillance pricing vs. price discrimination that actually subsidizes low-income buyers.' },
+  { text:'This house would impose a global carbon tax.', cat:'Policy', hook:'Pigovian fix vs. the coordination failure that sinks every global tax proposal.' },
+  { text:'This house would grant constitutional rights to future generations.', cat:'Ethics', hook:'Intergenerational justice vs. the tyranny of people who can\'t push back on their advocates.' },
+  { text:'This house regrets the invention of the smartphone.', cat:'Culture', hook:'Attention harvest vs. the democratization of information the world had waited for.' },
+  { text:'This house would ban legacy admissions.', cat:'Culture', hook:'Meritocracy vs. the endowment economics elite universities quietly rely on.' },
+  { text:'This house would nationalize the pharmaceutical industry.', cat:'Policy', hook:'Price control vs. the R&D pipeline that private capital actually funds.' },
+  { text:'This house would abolish the Senate.', cat:'Politics', hook:'Majority rule vs. the countermajoritarian brake the founders deliberately built in.' },
+  { text:'This house would hold social media companies liable for user radicalization.', cat:'Tech', hook:'Algorithmic accountability vs. the chilling effect on speech the liability creates.' },
+  { text:'This house would ban unpaid internships.', cat:'Policy', hook:'Class mobility vs. the entry-level rungs of industries that literally cannot afford to pay them.' },
+  { text:'This house believes the right to privacy is obsolete.', cat:'Ethics', hook:'Post-data-exhaust realism vs. the chilling effect an admitted surveillance state produces.' },
+  { text:'This house would create a public option for social media.', cat:'Tech', hook:'Civic infrastructure vs. the first-amendment tangle when the state owns a speech platform.' },
+  { text:'This house would abolish intellectual property for medicines.', cat:'Ethics', hook:'Access vs. the investment pipeline that exists specifically because of enforceable patents.' },
+  { text:'This house would ban private education.', cat:'Culture', hook:'Equality of opportunity vs. the counterfactual where elites opt out of the public system entirely.' },
+  { text:'This house believes benevolent dictatorship is preferable to dysfunctional democracy.', cat:'Politics', hook:'Legitimacy via consent vs. outcomes that actually improve lives — which matters more?' },
+];
+
 /* ═══════════════════════════════════════════════════
    API
    ═══════════════════════════════════════════════════ */
@@ -2420,6 +2448,27 @@ function App(){
   // debaters actually prep: "I'm in front of Judge Chen at Harvard, here's
   // their paradigm, tune the AI to it." When non-empty, takes precedence
   // over the preset in both the AI opponent prompt and the RFD generator.
+  // Motion of the Day — shuffle override for the setup view. null = use
+  // today's date-indexed motion; number = user shuffled to that index.
+  // Resets on round reset so re-entering setup shows today's again.
+  const[motdShuffleIdx,setMotdShuffleIdx]=useState(null);
+  // Starred motions — user-pinned quick-picks. Any motion (MotD, recent
+  // round, or typed) can be starred; starred list renders as a chip row
+  // on setup so a user mid-drill can rotate through their shortlist.
+  const[starredMotions,setStarredMotions]=useState(()=>{
+    try{const raw=localStorage.getItem('debateos-starred-motions');const arr=raw?JSON.parse(raw):[];return Array.isArray(arr)?arr:[];}catch{return [];}
+  });
+  const persistStarred=(next)=>{
+    setStarredMotions(next);
+    try{localStorage.setItem('debateos-starred-motions',JSON.stringify(next));}catch{}
+  };
+  const toggleStar=(text)=>{
+    if(!text||!text.trim()) return;
+    const t=text.trim();
+    const exists=starredMotions.some(m=>m===t);
+    persistStarred(exists ? starredMotions.filter(m=>m!==t) : [t,...starredMotions].slice(0,12));
+  };
+  const isStarred=(text)=>!!(text&&starredMotions.some(m=>m===text.trim()));
   const[customParadigm,setCustomParadigm]=useState(()=>{
     try{return localStorage.getItem('debateos-judge-paradigm-custom')||'';}catch{return '';}
   });
@@ -2482,15 +2531,11 @@ function App(){
   const[voiceEta]=useState(0); // TTS timing display
   const[showTx,setShowTx]=useState(false);
   // Audio progress tick — polled at 200ms while TTS is speaking so the
-  // scrub bar under the pause button updates in real time. Reading
-  // progressRef directly in render would be read-on-render and not
-  // cause re-renders; this state triggers them.
+  // scrub bar under the pause button updates in real time. The useEffect
+  // that reads tts.speaking lives BELOW `const tts=useTTS()` to avoid a
+  // TDZ error on the const during the effect's dependency-array eval at
+  // render time. (Previously defined here and it blew up every render.)
   const[audioTick,setAudioTick]=useState(0);
-  React.useEffect(()=>{
-    if(!tts.speaking) return;
-    const id=setInterval(()=>setAudioTick(t=>t+1),200);
-    return ()=>clearInterval(id);
-  },[tts.speaking]);
   const[prepHint,setPrepHint]=useState('');
   const[prepHintLoading,setPrepHintLoading]=useState(false);
   const[notesSaved,setNotesSaved]=useState(false);
@@ -2566,6 +2611,15 @@ function App(){
   const timer=useTimer();
   const prepTimer=useTimer();
   const endingRef=useRef(false); // guard against double endSpeech calls
+  // Audio progress tick effect (see audioTick state above). Runs only
+  // while TTS is speaking. Placed here — AFTER tts=useTTS() — so the
+  // dependency `tts.speaking` resolves at render time instead of hitting
+  // the const's TDZ.
+  React.useEffect(()=>{
+    if(!tts.speaking) return;
+    const id=setInterval(()=>setAudioTick(t=>t+1),200);
+    return ()=>clearInterval(id);
+  },[tts.speaking]);
 
   // ── Session recovery state ──
   const[recoveryData,setRecoveryData]=useState(()=>{
@@ -2878,7 +2932,14 @@ function App(){
     if(userTurn){text=rec.stop();orb.stopMic();orb.setMode('idle')}
     else{tts.stop();text=aiText;orb.setMode('idle')}
 
-    const entry={code:cur.code,who:userTurn?'You':'AI',text:text||'(no transcript)'};
+    // Spoken duration (seconds used) + WPM — the speech slot allots
+    // cur.time; whatever's left went unused, so elapsed = total - left.
+    // Clamp to >= 1s so we don't divide by zero on instant skips.
+    const elapsedSec=Math.max(1,(cur.time||0)-(timer.left||0));
+    const words=(text||'').trim().split(/\s+/).filter(Boolean).length;
+    const wpmThisSpeech=words>0 ? Math.round(words/(elapsedSec/60)) : 0;
+
+    const entry={code:cur.code,who:userTurn?'You':'AI',text:text||'(no transcript)',durationSec:elapsedSec,wpm:wpmThisSpeech,wordCount:words};
     const newLog=[...log,entry];
     setLog(newLog);setAiText('');
 
@@ -2893,14 +2954,29 @@ function App(){
     }
   };
 
+  // Keyboard shortcuts help modal. Press `?` anywhere outside an input
+  // to toggle. Documents the shortcuts that already exist so new users
+  // can discover them without digging through the code.
+  const[showShortcuts,setShowShortcuts]=useState(false);
+
   // Keyboard shortcuts
   useEffect(()=>{
     const handler=(e)=>{
       // Don't intercept when typing in a textarea/input
       if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
+      // Global: `?` toggles the shortcuts overlay (need shift on most
+      // layouts for the literal ? key).
+      if(e.key==='?'||(e.shiftKey&&e.key==='/')){e.preventDefault();setShowShortcuts(s=>!s);return}
+      if(showShortcuts&&e.key==='Escape'){e.preventDefault();setShowShortcuts(false);return}
       if(phase==='speech'){
         if(e.code==='Space'){e.preventDefault();if(tts.speaking){const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}}
         if(e.code==='Escape'||e.code==='ArrowRight'){e.preventDefault();endSpeech()}
+        // Speed hotkeys 1-5 during AI speech. Match the existing speed
+        // pills so users can crank the pace without mouse travel.
+        if(!isUser&&tts.speaking){
+          const speedMap={Digit1:0.75,Digit2:1,Digit3:1.25,Digit4:1.5,Digit5:2};
+          if(speedMap[e.code]!=null){e.preventDefault();setLiveRate(speedMap[e.code]);tts.setRate(speedMap[e.code])}
+        }
       }
       if(phase==='prep'){
         if(e.code==='Enter'&&!e.shiftKey&&e.target.tagName!=='TEXTAREA'){e.preventDefault();goToSpeeches()}
@@ -2908,7 +2984,7 @@ function App(){
     };
     window.addEventListener('keydown',handler);
     return()=>window.removeEventListener('keydown',handler);
-  },[phase,tts.speaking]);
+  },[phase,tts.speaking,showShortcuts]);
 
   // Adaptive difficulty. check user's win rate against this opponent
   const getWinRate=()=>{
@@ -3210,17 +3286,27 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         const cleaned=fb.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
         const parsed=JSON.parse(cleaned);
         setBallot(parsed);
-        saveRound(allLog,fb,parsed.winner==='user');
+        saveRound(allLog,fb,parsed.winner==='user',parsed.speakerPoints||null);
       }catch{
         // Fallback: save as unstructured
-        saveRound(allLog,fb,null);
+        saveRound(allLog,fb,null,null);
       }
     }catch(e){setFeedback('Could not generate feedback: '+e.message)}
     setFbLoading(false);
   };
 
   // Save round to history
-  const saveRound=(allLog,fb,userWon)=>{
+  const saveRound=(allLog,fb,userWon,speakerPoints)=>{
+    // Coerce speakerPoints to {user, ai} numbers or null. The single-judge
+    // ballot sometimes returns string values, sometimes {user, ai} objects
+    // nested, sometimes flat. Normalize here so downstream histogram code
+    // doesn't have to care.
+    let sp=null;
+    if(speakerPoints&&typeof speakerPoints==='object'){
+      const u=parseFloat(speakerPoints.user);
+      const a=parseFloat(speakerPoints.ai);
+      if(!isNaN(u)||!isNaN(a)) sp={user:isNaN(u)?null:u,ai:isNaN(a)?null:a};
+    }
     const round={
       id:Date.now(),
       date:new Date().toISOString(),
@@ -3232,6 +3318,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       log:allLog,
       feedback:fb||'',
       userWon: userWon, // true/false/null
+      speakerPoints: sp, // {user, ai} or null
     };
     const updated=[round,...historyRounds].slice(0,50);
     setHistoryRounds(updated);
@@ -3303,6 +3390,101 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     URL.revokeObjectURL(url);
   };
 
+  // Share-round card. Renders a 1200×630 (OG-sized) PNG with motion,
+  // format, side, outcome, and speaker points — downloadable and
+  // clipboard-copyable for social. Canvas-only, no backend. Growth
+  // lever: winning a round should be shareable without screenshots.
+  const [shareBusy,setShareBusy]=useState(false);
+  const genShareCard=async()=>{
+    setShareBusy(true);
+    try{
+      const W=1200, H=630;
+      const canvas=document.createElement('canvas');
+      canvas.width=W; canvas.height=H;
+      const ctx=canvas.getContext('2d');
+      // Background — near-black with red radial glow top-right
+      ctx.fillStyle='#0a0a0c'; ctx.fillRect(0,0,W,H);
+      const grad=ctx.createRadialGradient(W*0.78,H*0.18,0, W*0.78,H*0.18, W*0.55);
+      grad.addColorStop(0,'rgba(239,68,68,0.42)');
+      grad.addColorStop(1,'rgba(239,68,68,0)');
+      ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+      // Wordmark
+      ctx.fillStyle='#ffffff';
+      ctx.font='800 34px "Inter", system-ui, sans-serif';
+      ctx.fillText('Debate', 64, 86);
+      ctx.fillStyle='#ef4444';
+      ctx.fillText(' AI', 64+ctx.measureText('Debate').width, 86);
+      // Outcome pill
+      const won = ballot && ballot.winner==='user';
+      const drawn = ballot && ballot.winner && ballot.winner!=='user' && ballot.winner!=='ai';
+      const pillText = won?'Won':drawn?'Split':'Round complete';
+      const pillBg = won?'rgba(34,197,94,0.14)':drawn?'rgba(245,158,11,0.14)':'rgba(239,68,68,0.16)';
+      const pillBorder = won?'rgba(34,197,94,0.6)':drawn?'rgba(245,158,11,0.6)':'rgba(239,68,68,0.5)';
+      const pillColor = won?'#4ade80':drawn?'#fbbf24':'#fca5a5';
+      ctx.font='700 22px "Inter", system-ui, sans-serif';
+      const pillW=ctx.measureText(pillText).width+44;
+      const pillX=W-64-pillW, pillY=58;
+      ctx.fillStyle=pillBg;
+      ctx.strokeStyle=pillBorder; ctx.lineWidth=2;
+      const r=26;
+      ctx.beginPath();
+      ctx.moveTo(pillX+r,pillY);
+      ctx.arcTo(pillX+pillW,pillY,pillX+pillW,pillY+52,r);
+      ctx.arcTo(pillX+pillW,pillY+52,pillX,pillY+52,r);
+      ctx.arcTo(pillX,pillY+52,pillX,pillY,r);
+      ctx.arcTo(pillX,pillY,pillX+pillW,pillY,r);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=pillColor;
+      ctx.fillText(pillText, pillX+22, pillY+34);
+      // Motion (word-wrapped to 3 lines max)
+      ctx.fillStyle='#f1f5f9';
+      ctx.font='800 52px "Inter", system-ui, sans-serif';
+      const wrap=(text,maxW,maxLines)=>{
+        const words=text.split(/\s+/);
+        const lines=[]; let cur='';
+        for(const w of words){
+          const trial=cur?cur+' '+w:w;
+          if(ctx.measureText(trial).width<=maxW) cur=trial;
+          else{ lines.push(cur); cur=w; if(lines.length>=maxLines-1){ while(words.length){ const t=cur+' '+words.shift(); cur=ctx.measureText(t+'…').width<=maxW?t:(words.unshift(),null); if(cur===null){cur=t.slice(0,-1); break;} } lines.push(cur+'…'); return lines; } }
+        }
+        if(cur) lines.push(cur);
+        return lines;
+      };
+      const motionLines=wrap('"'+motion+'"', W-128, 3);
+      motionLines.forEach((line,i)=>ctx.fillText(line, 64, 200+i*62));
+      // Meta row — format · side · pace
+      const metaY = 200 + motionLines.length*62 + 40;
+      ctx.fillStyle='#94a3b8';
+      ctx.font='600 24px "Inter", system-ui, sans-serif';
+      const sideLabel=(FORMATS[format]||FORMATS.apda).sideLabels[side]||side;
+      const fmtName=(FORMATS[format]||FORMATS.apda).name;
+      ctx.fillText(fmtName + '  ·  ' + sideLabel + '  ·  vs ' + (VOICES[voice]?.name||'AI'), 64, metaY);
+      // Speaker points block (if available)
+      if(ballot && ballot.speakerPoints){
+        ctx.fillStyle='#cbd5e1';
+        ctx.font='700 28px "Inter", system-ui, sans-serif';
+        const sp='You: '+(ballot.speakerPoints.user||'—')+'   AI: '+(ballot.speakerPoints.ai||'—');
+        ctx.fillText(sp, 64, metaY+48);
+      }
+      // Footer
+      ctx.fillStyle='rgba(255,255,255,0.35)';
+      ctx.font='500 20px "Inter", system-ui, sans-serif';
+      ctx.fillText('debateai.com  ·  argue with an AI, get sharper', 64, H-48);
+      // Export
+      const blob=await new Promise(res=>canvas.toBlob(res,'image/png',0.95));
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      const slug=motion.slice(0,40).replace(/[^a-zA-Z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+      a.href=url; a.download='debate-'+slug+'.png';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      if(typeof gtag==='function')gtag('event','share_card_generated',{format,won});
+    }catch(e){
+      console.warn('[share-card] failed:',e);
+    }
+    setShareBusy(false);
+  };
+
   // Reset
   const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null)})};
 
@@ -3359,8 +3541,64 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     }
   };
 
+  // Keyboard shortcuts overlay — position:fixed so rendering it inside
+  // any phase's tree lands it at the viewport root. Defined once here
+  // and included in each phase return below.
+  const shortcutsOverlay = showShortcuts && el('div',{
+    onClick:()=>setShowShortcuts(false),
+    style:{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20},
+    role:'dialog','aria-modal':'true','aria-label':'Keyboard shortcuts',
+  },
+    el('div',{
+      onClick:(e)=>e.stopPropagation(),
+      style:{maxWidth:480,width:'100%',background:'var(--c-surface2)',border:'1px solid var(--c-border2)',borderRadius:16,padding:'28px 32px',boxShadow:'0 24px 60px rgba(0,0,0,.5)'},
+    },
+      el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}},
+        el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#ef4444'}},'Keyboard Shortcuts'),
+        el('button',{onClick:()=>setShowShortcuts(false),style:{background:'transparent',border:'none',color:'var(--c-muted)',fontSize:'1.2rem',cursor:'pointer',lineHeight:1,padding:4},'aria-label':'Close'},'×'),
+      ),
+      [
+        ['?','show / hide this overlay'],
+        ['Space','pause or resume AI speech'],
+        ['Esc','end the current speech early (or close this overlay)'],
+        ['→','skip ahead to next speech'],
+        ['Enter','during prep — start speeches'],
+        ['1 / 2 / 3 / 4 / 5','AI speech playback: 0.75× / 1× / 1.25× / 1.5× / 2×'],
+      ].map(([k,v],i)=>el('div',{key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,padding:'10px 0',borderTop:i===0?'none':'1px solid var(--c-border2)'}},
+        el('kbd',{style:{fontFamily:'ui-monospace, Menlo, monospace',fontSize:'.74rem',fontWeight:700,padding:'4px 10px',background:'rgba(255,255,255,.06)',border:'1px solid var(--c-border2)',borderRadius:6,color:'var(--c-bright)',minWidth:54,textAlign:'center',whiteSpace:'nowrap'}},k),
+        el('span',{style:{fontSize:'.82rem',color:'var(--c-text)',lineHeight:1.4,flex:1,textAlign:'right'}},v),
+      )),
+      el('div',{style:{marginTop:18,paddingTop:14,borderTop:'1px solid var(--c-border2)',fontSize:'.68rem',color:'var(--c-muted)',textAlign:'center',letterSpacing:'.04em'}},'Press ',el('kbd',{style:{fontFamily:'ui-monospace, Menlo, monospace',padding:'2px 6px',background:'rgba(255,255,255,.06)',borderRadius:4,fontSize:'.68rem'}},'?'),' any time'),
+    ),
+  );
+
+  // Floating help button — persistent affordance that the shortcuts
+  // modal exists at all. Users who don't think to press `?` now have
+  // a clickable target; users who know the shortcut can ignore it.
+  // Hides when the modal is open so it doesn't float over the dialog.
+  const helpFloatingButton = !showShortcuts && el('button',{
+    onClick:()=>setShowShortcuts(true),
+    'aria-label':'Keyboard shortcuts',
+    title:'Keyboard shortcuts (?)',
+    style:{
+      position:'fixed',right:16,bottom:16,zIndex:900,
+      width:36,height:36,borderRadius:'50%',
+      background:'rgba(239,68,68,.14)',border:'1px solid rgba(239,68,68,.35)',
+      color:'#fca5a5',fontSize:'1rem',fontWeight:800,lineHeight:1,
+      cursor:'pointer',fontFamily:'inherit',padding:0,
+      display:'flex',alignItems:'center',justifyContent:'center',
+      backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',
+      boxShadow:'0 6px 20px rgba(0,0,0,.35)',
+      transition:'transform .15s ease, background .15s ease, border-color .15s ease',
+    },
+    onMouseEnter:(e)=>{e.currentTarget.style.transform='scale(1.08)';e.currentTarget.style.background='rgba(239,68,68,.22)';e.currentTarget.style.borderColor='rgba(239,68,68,.55)';},
+    onMouseLeave:(e)=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.background='rgba(239,68,68,.14)';e.currentTarget.style.borderColor='rgba(239,68,68,.35)';},
+  },'?');
+
   // ── SETUP ──
   if(phase==='setup') return el('div',{className:'page'},
+    shortcutsOverlay,
+    helpFloatingButton,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
       el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
@@ -3412,29 +3650,155 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       // Motion
       el('div',{className:'t-label',style:{marginTop:24}},'Motion'),
       el('textarea',{className:'float-input',rows:2,placeholder:'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
-      // Motion of the Day — deterministic per calendar day so users hitting
-      // the app at the same moment see the same motion. Stable engagement
-      // hook (users can default-argue today's motion without picking one)
-      // + pass-through to random / their own input.
+      // Motion of the Day — matches landing's richer card shape. Category
+      // chip + hook line + shuffle so users can preview a different motion
+      // without waiting for tomorrow. motdShuffleIdx is a local state the
+      // setup view owns; on use, the motion is lifted into the setup
+      // flow via setMotion.
       (()=>{
-        const dayIdx = Math.floor(Date.now()/86400000) % MOTIONS.length;
-        const motd = MOTIONS[dayIdx];
-        if(motion===motd) return null; // already using it, no banner
+        const baseIdx = Math.floor(Date.now()/86400000) % MOTD_BANK.length;
+        const curIdx = motdShuffleIdx != null ? motdShuffleIdx : baseIdx;
+        const m = MOTD_BANK[curIdx] || MOTD_BANK[0];
+        if(motion === m.text) return null; // already using it, no banner
+        let dateStr = '';
+        if(motdShuffleIdx == null){
+          try{ dateStr = new Date().toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}); }catch{}
+        } else { dateStr = 'shuffled'; }
         return el('div',{style:{
-          display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',
-          padding:'10px 14px',marginTop:10,
-          background:'rgba(239,68,68,.06)',border:'1px dashed rgba(239,68,68,.25)',
-          borderRadius:10,textAlign:'left',
+          padding:'14px 16px',marginTop:10,
+          background:'linear-gradient(135deg,rgba(239,68,68,.08) 0%,rgba(239,68,68,.03) 100%)',
+          border:'1px solid rgba(239,68,68,.28)',borderRadius:12,textAlign:'left',
         }},
-          el('span',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#ef4444',whiteSpace:'nowrap'}},'🗓 Motion of the day'),
-          el('span',{style:{flex:1,minWidth:220,fontSize:'.82rem',color:'var(--c-text)',lineHeight:1.4,fontStyle:'italic'}},'"'+motd+'"'),
-          el('button',{
-            onClick:()=>setMotion(motd),
-            style:{padding:'5px 12px',background:'rgba(239,68,68,.15)',border:'1px solid rgba(239,68,68,.4)',borderRadius:6,color:'#fca5a5',fontSize:'.66rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'},
-          },'Use it →'),
+          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:10,marginBottom:8,flexWrap:'wrap'}},
+            el('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
+              el('span',{style:{fontSize:'.55rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#ef4444'}},'🗓 Motion of the day'),
+              dateStr && el('span',{style:{fontSize:'.62rem',color:'var(--c-muted)',fontWeight:500}},dateStr),
+            ),
+            el('span',{style:{fontSize:'.55rem',fontWeight:800,letterSpacing:'.1em',textTransform:'uppercase',padding:'3px 8px',borderRadius:999,color:'#ef4444',background:'rgba(239,68,68,.12)',border:'1px solid rgba(239,68,68,.3)'}},m.cat),
+          ),
+          el('div',{style:{fontSize:'.92rem',color:'var(--c-text)',lineHeight:1.4,fontWeight:600,marginBottom:6}},m.text),
+          el('div',{style:{fontSize:'.72rem',color:'var(--c-muted)',lineHeight:1.5,fontStyle:'italic',marginBottom:12}},m.hook),
+          el('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+            el('button',{
+              onClick:()=>setMotion(m.text),
+              style:{flex:1,padding:'8px 14px',background:'var(--accent)',border:'none',borderRadius:8,color:'#fff',fontSize:'.7rem',fontWeight:800,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',minWidth:110},
+            },'Use it →'),
+            el('button',{
+              onClick:()=>{
+                let next;
+                do { next = Math.floor(Math.random()*MOTD_BANK.length); }
+                while(next === curIdx && MOTD_BANK.length > 1);
+                setMotdShuffleIdx(next);
+              },
+              title:'Preview a different motion',
+              style:{padding:'8px 12px',background:'transparent',border:'1px solid rgba(239,68,68,.35)',borderRadius:8,color:'#fca5a5',fontSize:'.7rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'},
+            },'🎲 Shuffle'),
+            el('button',{
+              onClick:()=>toggleStar(m.text),
+              title:isStarred(m.text)?'Remove from starred':'Save to starred',
+              style:{padding:'8px 12px',background:isStarred(m.text)?'rgba(245,158,11,.18)':'transparent',border:'1px solid '+(isStarred(m.text)?'rgba(245,158,11,.5)':'rgba(239,68,68,.35)'),borderRadius:8,color:isStarred(m.text)?'#fbbf24':'#fca5a5',fontSize:'.82rem',cursor:'pointer',fontFamily:'inherit',lineHeight:1},
+              'aria-label':isStarred(m.text)?'Unstar motion':'Star motion',
+            },isStarred(m.text)?'★':'☆'),
+          ),
         );
       })(),
+      // Starred motions — chip row under the MotD card. Only renders when
+      // the user has at least one pinned motion. Click fills the motion;
+      // × unstars without touching the active motion.
+      starredMotions.length>0 && el('div',{style:{marginTop:12,padding:'10px 12px',background:'rgba(245,158,11,.04)',border:'1px solid rgba(245,158,11,.16)',borderRadius:10,textAlign:'left'}},
+        el('div',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#fbbf24',marginBottom:8}},'★ Starred motions'),
+        el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+          starredMotions.map((t,i)=>el('div',{key:i,style:{display:'inline-flex',alignItems:'stretch',background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.26)',borderRadius:999,overflow:'hidden'}},
+            el('button',{
+              onClick:()=>setMotion(t),
+              title:t,
+              style:{padding:'5px 10px 5px 12px',background:'transparent',border:'none',color:'var(--c-text)',fontSize:'.72rem',cursor:'pointer',fontFamily:'inherit',fontWeight:500,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},
+            },t),
+            el('button',{
+              onClick:()=>toggleStar(t),
+              'aria-label':'Remove '+t.slice(0,40)+' from starred',
+              style:{padding:'5px 10px 5px 4px',background:'transparent',border:'none',borderLeft:'1px solid rgba(245,158,11,.22)',color:'#fbbf24',fontSize:'.72rem',cursor:'pointer',fontFamily:'inherit',opacity:.7,lineHeight:1},
+            },'×'),
+          )),
+        ),
+      ),
       el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
+
+      // Daily streak. Counts consecutive calendar days the user has
+      // saved at least one round. Breaking days zeros the streak; the
+      // current day counts once the first round is saved.
+      (()=>{
+        if(!Array.isArray(historyRounds)||!historyRounds.length) return null;
+        const dayKey=(d)=>{try{const x=new Date(d);return x.getFullYear()+'-'+(x.getMonth()+1)+'-'+x.getDate();}catch{return null;}};
+        const days=new Set();
+        for(const r of historyRounds){const k=dayKey(r.date||r.id);if(k)days.add(k);}
+        // Walk back from today counting contiguous days.
+        let streak=0;
+        const today=new Date();today.setHours(0,0,0,0);
+        for(let i=0;i<400;i++){
+          const d=new Date(today);d.setDate(today.getDate()-i);
+          const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+          if(days.has(k)) streak++;
+          else if(i===0) continue; // missed today so far, not a break yet
+          else break;
+        }
+        const didToday=days.has(today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate());
+        if(streak<1 && !didToday) return null;
+        return el('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',marginTop:12,background:'rgba(245,158,11,.06)',border:'1px solid rgba(245,158,11,.22)',borderRadius:10}},
+          el('span',{style:{fontSize:'1.15rem',lineHeight:1},'aria-hidden':true},'🔥'),
+          el('div',{style:{flex:1,minWidth:0,fontSize:'.74rem',color:'var(--c-text)',lineHeight:1.4}},
+            el('strong',{style:{color:'#fbbf24',fontWeight:800}},streak+' day'+(streak===1?'':'s')),
+            ' — ',
+            didToday?'today\'s round is logged. keep it going.':'do a round today to keep the streak alive.',
+          ),
+        );
+      })(),
+
+      // Recent rounds — return-user hook. Shows the user's last 3 rounds
+      // inline so they can rematch an opponent on the same motion with
+      // one click. 'Rematch' flips to a voice they HAVEN'T faced yet (if
+      // one exists) so they train against variety rather than the same
+      // personality over and over.
+      (()=>{
+        const recent = (historyRounds||[]).slice(0,3);
+        if(!recent.length) return null;
+        const voiceKeys = Object.keys(VOICES||{});
+        return el('div',{style:{marginTop:14,padding:'12px 14px',background:'rgba(255,255,255,.02)',border:'1px solid var(--c-border2)',borderRadius:10,textAlign:'left'}},
+          el('div',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--c-muted)',marginBottom:10}},'Recent rounds'),
+          recent.map((r,i)=>{
+            const won = r.userWon===true, lost=r.userWon===false;
+            const pillBg = won?'rgba(34,197,94,.14)':lost?'rgba(239,68,68,.14)':'rgba(245,158,11,.14)';
+            const pillFg = won?'#4ade80':lost?'#f87171':'#fbbf24';
+            const pillBorder = won?'rgba(34,197,94,.35)':lost?'rgba(239,68,68,.35)':'rgba(245,158,11,.35)';
+            const pillLabel = won?'W':lost?'L':'—';
+            return el('div',{key:r.id||i,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderTop:i===0?'none':'1px solid var(--c-border2)'}},
+              el('span',{style:{fontSize:'.66rem',fontWeight:800,padding:'3px 8px',borderRadius:6,background:pillBg,color:pillFg,border:'1px solid '+pillBorder,minWidth:24,textAlign:'center'}},pillLabel),
+              el('div',{style:{flex:1,minWidth:0,fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.35,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:r.motion||''},r.motion||'(no motion)'),
+              el('span',{style:{fontSize:'.6rem',color:'var(--c-muted)',whiteSpace:'nowrap',letterSpacing:'.04em',textTransform:'uppercase',fontWeight:600}},(r.formatName||r.format||'').slice(0,6)),
+              el('button',{
+                onClick:()=>toggleStar(r.motion||''),
+                title:isStarred(r.motion)?'Remove from starred':'Save to starred',
+                'aria-label':isStarred(r.motion)?'Unstar motion':'Star motion',
+                style:{padding:'4px 8px',background:isStarred(r.motion)?'rgba(245,158,11,.18)':'transparent',border:'1px solid '+(isStarred(r.motion)?'rgba(245,158,11,.5)':'var(--c-border2)'),borderRadius:6,color:isStarred(r.motion)?'#fbbf24':'var(--c-muted)',fontSize:'.8rem',cursor:'pointer',fontFamily:'inherit',lineHeight:1},
+              },isStarred(r.motion)?'★':'☆'),
+              el('button',{
+                onClick:()=>{
+                  setMotion(r.motion||'');
+                  // Flip to a different voice if possible so rematch feels
+                  // fresh; keep the same format + side so the round is
+                  // comparable on its own terms.
+                  const other = voiceKeys.find(v => v !== r.voice);
+                  if(other && r.voice) setVoice(other);
+                  if(r.format && FORMATS[r.format]) setFormat(r.format);
+                  if(r.side) setSide(r.side);
+                },
+                title:'Pre-fills the motion, same format + side, new voice',
+                style:{padding:'5px 10px',background:'transparent',border:'1px solid rgba(239,68,68,.35)',borderRadius:6,color:'#fca5a5',fontSize:'.6rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'},
+              },'Rematch →'),
+            );
+          })
+        );
+      })(),
 
       // Confidence-delta widget (only shows when deep-linked from a market card)
       marketPct!=null && el('div',{
@@ -3839,6 +4203,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
 
   // ── PREP ──
   if(phase==='prep') return el('div',{className:'page'},
+    shortcutsOverlay,
+    helpFloatingButton,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
       el('div',{className:'t-label'},'Prep Time'),
@@ -3889,6 +4255,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   if(phase==='speech'){
     const tc=timer.left<=15?'danger':timer.left<=30?'warn':'';
     return el('div',{className:'page'},
+      shortcutsOverlay,
+      helpFloatingButton,
       el('div',{className:'ambient'}),bar,
       el('div',{className:stageClass,key:'s'+idx},
 
@@ -4091,8 +4459,35 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     const b=ballot; // structured ballot or null
     const wr=getWinRate();
     return el('div',{className:'page'},
+      shortcutsOverlay,
+      helpFloatingButton,
       el('div',{className:'ambient'}),bar,
       el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:90,maxWidth:700,textAlign:'left'}},
+        // Sticky section nav. Long-scroll feedback page had Ballot →
+        // Flow → Patterns → Drill → Transcript with no way to scan back.
+        // Pills jump to each section and light up once the section has
+        // rendered so you know which outputs exist.
+        el('div',{style:{position:'sticky',top:0,zIndex:20,display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',padding:'10px 12px',margin:'-90px -12px 24px',background:'rgba(15,15,18,.88)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',borderBottom:'1px solid var(--c-border2)'}},
+          [
+            {id:'fb-ballot',label:'Ballot',shown:true},
+            {id:'fb-flow',label:'Flow',shown:!!flowSheet},
+            {id:'fb-patterns',label:'Patterns',shown:!!patterns},
+            {id:'fb-drill',label:'Drill',shown:!!drillPlan && !drillPlan.error},
+            {id:'fb-transcript',label:'Transcript',shown:true},
+          ].map(p=>el('a',{
+            key:p.id,
+            href:'#'+p.id,
+            onClick:(e)=>{e.preventDefault();const t=document.getElementById(p.id);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});},
+            style:{
+              padding:'6px 12px',borderRadius:999,fontSize:'.7rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',textDecoration:'none',
+              background:p.shown?'rgba(239,68,68,.12)':'transparent',
+              border:'1px solid '+(p.shown?'rgba(239,68,68,.35)':'var(--c-border2)'),
+              color:p.shown?'#fca5a5':'var(--c-muted)',
+              opacity:p.shown?1:0.55,cursor:'pointer',
+            },
+          },p.label))
+        ),
+        el('div',{id:'fb-ballot'}),
         el('div',{className:'t-label',style:{textAlign:'center'}},'Round Complete'),
         el('h2',{className:'t-hero',style:{fontSize:'clamp(2rem,5vw,3.2rem)',marginBottom:8,textAlign:'center'}},'Judge Ballot'),
         el('p',{className:'t-dim',style:{marginBottom:24,textAlign:'center'}},'"'+motion+'". '+(fmt.sideLabels[side]||side)+' vs AI'),
@@ -4222,6 +4617,50 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
               el('div',{style:{fontSize:'2rem',fontWeight:900,color:wr.rate>=0.5?'#22c55e':'#f59e0b'}},Math.round(wr.rate*100)+'%'),
             ),
           ),
+          // Speaker-points sparkline. Pulls the user speakerPoints field
+          // from the last up-to-10 saved rounds (oldest→newest) and renders
+          // a small bar chart so the student can see their trend across
+          // rounds. Only appears once 2+ rounds have persisted speakerPoints
+          // — older rounds from before this field was added won't show up,
+          // which is fine (data accretes forward).
+          (()=>{
+            const recent = (historyRounds||[])
+              .filter(r=>r&&r.speakerPoints&&typeof r.speakerPoints.user==='number')
+              .slice(0,10)
+              .reverse();
+            // Include the current round's score if we just parsed one and
+            // it isn't already in historyRounds (saveRound writes async).
+            const currentSp = (b&&b.speakerPoints&&typeof parseFloat(b.speakerPoints.user)==='number'&&!isNaN(parseFloat(b.speakerPoints.user))) ? parseFloat(b.speakerPoints.user) : null;
+            const series = [...recent.map(r=>r.speakerPoints.user)];
+            if(currentSp!=null && (series.length===0||series[series.length-1]!==currentSp)) series.push(currentSp);
+            if(series.length<2) return null;
+            const min=Math.min(...series,25);
+            const max=Math.max(...series,30);
+            const range=Math.max(1,max-min);
+            const avg=series.reduce((a,b)=>a+b,0)/series.length;
+            const delta=series.length>=2 ? series[series.length-1]-series[0] : 0;
+            return el('div',{style:{padding:'14px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,marginBottom:20}},
+              el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:8}},
+                el('div',{style:{fontSize:'.62rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.12em',color:'var(--c-muted)'}},'Your speaker points · last '+series.length+' rounds'),
+                el('div',{style:{fontSize:'.74rem',color:'var(--c-text3)',display:'flex',gap:14,flexWrap:'wrap'}},
+                  el('span',null,'avg: ',el('strong',{style:{color:'var(--c-bright)'}},avg.toFixed(1))),
+                  delta!==0 && el('span',{style:{color:delta>0?'#22c55e':'#f87171'}},(delta>0?'↑ +':'↓ ')+Math.abs(delta).toFixed(1)+' pts'),
+                ),
+              ),
+              el('div',{style:{display:'flex',alignItems:'flex-end',gap:5,height:48,paddingTop:2}},
+                series.map((pt,i)=>{
+                  const h=Math.max(6,Math.round(((pt-min)/range)*42)+6);
+                  const isLast=i===series.length-1;
+                  return el('div',{key:i,title:'Round '+(i+1)+' · '+pt.toFixed(1)+' pts',style:{
+                    flex:1,minWidth:0,height:h+'px',
+                    background:isLast?'linear-gradient(180deg,#ef4444,#b91c1c)':'linear-gradient(180deg,rgba(239,68,68,.45),rgba(239,68,68,.15))',
+                    borderRadius:'3px 3px 0 0',
+                    transition:'height .25s ease',
+                  }});
+                })
+              ),
+            );
+          })(),
 
           // Key clash
           b.keyClash&&el('div',{style:{padding:'16px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,marginBottom:20}},
@@ -4344,7 +4783,57 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         // Auto flow sheet — AI distills the full round into a coach-style
         // flow a student can study. Placed above the transcript toggle
         // since it's the high-value output; raw transcript is the fallback.
-        el('div',{style:{marginTop:24,textAlign:'center'}},
+        // Speaking-pace card. Per-speech user WPM averaged across the
+        // round, benchmarked against format norms. Only renders if any
+        // user speech actually had captured speech-rec text (else wpm=0).
+        (()=>{
+          const userSpeeches=(log||[]).filter(l=>l.who==='You' && l.wpm && l.wpm>0);
+          if(userSpeeches.length<1) return null;
+          const totalWords=userSpeeches.reduce((a,l)=>a+(l.wordCount||0),0);
+          const totalSec=userSpeeches.reduce((a,l)=>a+(l.durationSec||0),0);
+          const avgWpm=totalSec>0 ? Math.round(totalWords/(totalSec/60)) : 0;
+          // Format-specific WPM bands. Policy spreads hot; PF stays
+          // conversational; APDA/BP land in the middle.
+          const bands={
+            policy:{low:250,ideal:350,high:420,label:'Policy spread'},
+            pf:{low:160,ideal:190,high:220,label:'PF conversational'},
+            ld:{low:180,ideal:230,high:320,label:'LD circuit'},
+            congress:{low:150,ideal:175,high:195,label:'Congress oratorical'},
+            apda:{low:170,ideal:200,high:230,label:'APDA parli'},
+            bp:{low:170,ideal:200,high:230,label:'BP parli'},
+            worlds:{low:165,ideal:195,high:225,label:'WSDC'},
+            asian:{low:175,ideal:205,high:235,label:'Asian Parli'},
+            quick:{low:140,ideal:170,high:200,label:'Quick Clash'},
+          };
+          const b=bands[format]||bands.apda;
+          const verdict = avgWpm<b.low ? 'under pace' : avgWpm>b.high ? 'over pace' : 'in pocket';
+          const color = verdict==='in pocket' ? '#22c55e' : '#f59e0b';
+          return el('div',{style:{padding:'14px 18px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,marginBottom:20}},
+            el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10,flexWrap:'wrap',gap:8}},
+              el('div',{style:{fontSize:'.62rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.12em',color:'var(--c-muted)'}},'Your speaking pace'),
+              el('div',{style:{fontSize:'.7rem',color:'var(--c-text3)'}},b.label,' · target ',b.ideal,' wpm'),
+            ),
+            el('div',{style:{display:'flex',alignItems:'baseline',gap:10,marginBottom:8}},
+              el('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'var(--c-bright)',fontVariantNumeric:'tabular-nums'}},avgWpm),
+              el('div',{style:{fontSize:'.74rem',color:'var(--c-muted)'}},'wpm · '+totalWords+' words over '+Math.round(totalSec)+'s'),
+              el('div',{style:{fontSize:'.68rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',color:color,marginLeft:'auto'}},verdict),
+            ),
+            // Bar: marker for user avg, notches for format low/ideal/high
+            (()=>{
+              const rangeMin=Math.min(b.low-40,avgWpm-20);
+              const rangeMax=Math.max(b.high+40,avgWpm+20);
+              const span=Math.max(1,rangeMax-rangeMin);
+              const pct=(v)=>Math.max(0,Math.min(100,((v-rangeMin)/span)*100));
+              return el('div',{style:{position:'relative',height:6,background:'rgba(255,255,255,.05)',borderRadius:3,marginTop:4}},
+                el('div',{style:{position:'absolute',left:pct(b.low)+'%',width:(pct(b.high)-pct(b.low))+'%',top:0,bottom:0,background:'rgba(34,197,94,.25)',borderRadius:3}}),
+                el('div',{style:{position:'absolute',left:pct(b.ideal)+'%',top:-3,bottom:-3,width:2,background:'#22c55e'}}),
+                el('div',{style:{position:'absolute',left:pct(avgWpm)+'%',top:-5,bottom:-5,width:3,background:color,borderRadius:2}}),
+              );
+            })(),
+          );
+        })(),
+
+        el('div',{id:'fb-flow',style:{marginTop:24,textAlign:'center',scrollMarginTop:80}},
           !flowSheet && !flowLoading && el('button',{
             className:'cta-ghost',
             style:{fontSize:'.78rem'},
@@ -4366,7 +4855,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         // Multi-round pattern analysis. Only appears once the user has
         // actually debated enough for patterns to exist (3+ rounds);
         // before that the button would produce unreliable diagnoses.
-        historyRounds && historyRounds.length >= 3 && el('div',{style:{marginTop:20,textAlign:'center'}},
+        historyRounds && historyRounds.length >= 3 && el('div',{id:'fb-patterns',style:{marginTop:20,textAlign:'center',scrollMarginTop:80}},
           !patterns && !patternsLoading && el('button',{
             className:'cta-ghost',
             style:{fontSize:'.78rem'},
@@ -4385,7 +4874,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           el('div',{className:'transcript-box',style:{maxHeight:520,whiteSpace:'pre-wrap',fontSize:'.82rem',lineHeight:1.65}},patterns),
           // 'Train this' drill launcher — converts the diagnosis into a
           // round designed to force the user into their weakness.
-          el('div',{style:{marginTop:14,textAlign:'center'}},
+          el('div',{id:'fb-drill',style:{marginTop:14,textAlign:'center',scrollMarginTop:80}},
             !drillPlan && !drillLoading && el('button',{
               className:'cta-ghost',
               style:{fontSize:'.78rem'},
@@ -4414,12 +4903,14 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           drillPlan && drillPlan.error && el('div',{style:{marginTop:12,padding:'10px 14px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',borderRadius:10,fontSize:'.78rem',color:'#fca5a5',textAlign:'center',maxWidth:480,margin:'12px auto 0'}},drillPlan.error),
         ),
 
+        el('div',{id:'fb-transcript',style:{scrollMarginTop:80}}),
         el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
         showTx&&el('div',{className:'transcript-box',style:{maxHeight:360}},log.map(l=>'['+l.code+'. '+l.who+']\n'+l.text).join('\n\n---\n\n')),
 
         el('div',{className:'row-c',style:{marginTop:28,flexWrap:'wrap'}},
           el('button',{className:'cta-ghost',onClick:copyAll},'Copy'),
           el('button',{className:'cta-ghost',onClick:()=>downloadRound(motion,format,side,log,feedback,ballot)},'⬇ Download .txt'),
+          el('button',{className:'cta-ghost',onClick:genShareCard,disabled:shareBusy,title:'Generate a shareable PNG of this round'},shareBusy?'Rendering…':'📸 Share card'),
           el('button',{className:'cta-ghost',onClick:()=>saveCase(),style:caseSaved?{background:'rgba(34,197,94,.15)',borderColor:'#22c55e',color:'#22c55e'}:{}},caseSaved?'Case Saved':'Save Case'),
           el('button',{className:'cta',style:{marginTop:0},onClick:newRound},'New Round'),
         ),
