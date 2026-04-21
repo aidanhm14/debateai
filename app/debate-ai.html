@@ -3807,8 +3807,36 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           el('canvas',{className:'orb',ref:orb.ref}),
         ),
 
-        // Timer
-        el('div',{className:'t-time'+(tc?' '+tc:'')},timer.fmt(timer.left)),
+        // Timer + pause button. Pause/resume already existed (Spacebar
+        // shortcut + tts.togglePause) but had no affordance — users
+        // couldn't discover it. This surfaces it for AI speeches where
+        // the audio is driving the timer; pausing stops both.
+        el('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:10}},
+          el('div',{className:'t-time'+(tc?' '+tc:'')},timer.fmt(timer.left)),
+          !isUser && tts.speaking && el('button',{
+            onClick:()=>{
+              const wasPaused=tts.paused;
+              tts.togglePause();
+              if(wasPaused) timer.resume();
+              else timer.pause();
+            },
+            style:{
+              display:'inline-flex',alignItems:'center',gap:8,
+              padding:'8px 18px',borderRadius:999,
+              background:tts.paused?'rgba(239,68,68,.15)':'rgba(255,255,255,.04)',
+              border:'1px solid '+(tts.paused?'rgba(239,68,68,.5)':'var(--c-border2)'),
+              color:tts.paused?'#fca5a5':'var(--c-text)',
+              fontSize:'.74rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',
+              cursor:'pointer',fontFamily:'inherit',
+              transition:'background .15s, border-color .15s, color .15s',
+            },
+            title:tts.paused?'Resume (Space)':'Pause (Space)',
+            'aria-label':tts.paused?'Resume playback':'Pause playback',
+          },
+            el('span',{'aria-hidden':true,style:{fontSize:'.9rem',lineHeight:1}},tts.paused?'▶':'❚❚'),
+            el('span',null,tts.paused?'Resume':'Pause'),
+          ),
+        ),
 
         // Per-speech transcript removed — it overlaid the orb during audio
         // playback and broke the "just listen to a real debater speaking"
