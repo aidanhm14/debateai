@@ -3,6 +3,7 @@
 // - Premium + opt-in Cartesia: pass body.provider === 'cartesia' to A/B-test Sonic (faster, cheaper, flatter)
 // - Free + fallback: OpenAI tts-1
 import { checkAppCheck } from './lib/appcheck.mjs';
+import { humanizeForTTS } from './lib/tts-humanize.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -226,10 +227,20 @@ export default async (request, context) => {
 
   try {
     const body = await request.json();
-    const text = (body.text || '').slice(0, MAX_TEXT_LENGTH);
+    const rawText = (body.text || '').slice(0, MAX_TEXT_LENGTH);
     const voice = body.voice || 'onyx';
     const speed = Math.max(0.75, Math.min(2.0, body.speed || 1.0));
-    const intensity = Math.max(0, Math.min(1, body.intensity || 0));
+    // Humanizer strips stage directions, normalizes pause markers, and
+    // auto-detects intensity if the caller didn't specify one. Callers that
+    // set `humanize: false` get the old raw-text behavior (useful for short
+    // UI chimes where pause injection would sound weird).
+    const shouldHumanize = body.humanize !== false;
+    const callerIntensity = typeof body.intensity === 'number' ? body.intensity : undefined;
+    const humanized = shouldHumanize
+      ? humanizeForTTS(rawText, { intensity: callerIntensity })
+      : { text: rawText, intensity: callerIntensity || 0 };
+    const text = humanized.text;
+    const intensity = Math.max(0, Math.min(1, humanized.intensity || 0));
     const premium = !!body.premium;
     const provider = (body.provider || '').toLowerCase(); // 'cartesia' opts into the A/B flag
 

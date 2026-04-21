@@ -217,30 +217,23 @@ button{font-family:inherit;cursor:pointer}
 .nav-contact:hover{border-color:var(--text);background:var(--bg-card)}
 
 /* ── Theme Switcher ──────────────── */
-.theme-dots{display:flex;gap:6px;align-items:center}
+.theme-dots{display:flex;gap:6px;align-items:center;padding:0 6px;position:relative}
+.theme-dots::before{
+  content:'Lighting';
+  font-size:.58rem;font-weight:700;letterSpacing:1px;text-transform:uppercase;
+  color:var(--text-dim);opacity:.55;margin-right:4px;letter-spacing:1px;
+}
 .theme-dot{
-  width:18px;height:18px;border-radius:50%;border:2px solid transparent;
+  width:16px;height:16px;border-radius:50%;border:2px solid transparent;
   cursor:pointer;transition:border-color .2s,transform .2s;
+  padding:0;
 }
 .theme-dot:hover{transform:scale(1.2)}
 .theme-dot.active{border-color:var(--text)}
 .theme-dot[data-t="grey"]{background:#444}
 .theme-dot[data-t="day"]{background:#d4dbe6}
 .theme-dot[data-t="crimson"]{background:#ef4444}
-button.theme-dot{padding:0;outline:none;appearance:none;-webkit-appearance:none}
-button.theme-dot:focus-visible{border-color:var(--text)}
-
-/* Lighting picker inside the landing-jumpnav (side rail).
-   Sits below Donate as a tiny grouped control. */
-.jumpnav-theme{
-  display:flex;flex-direction:column;align-items:center;gap:6px;
-  margin-top:8px;padding:10px 8px 4px;
-  border-top:1px solid var(--border);
-}
-.jumpnav-theme-label{
-  font-size:.58rem;font-weight:800;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--text-dim);
-}
+@media (max-width:720px){.theme-dots::before{display:none}}
 
 /* ── Hero ─────────────────────────── */
 /* Two-column layout above 1100px: content on the left, audio-timer on
@@ -253,7 +246,7 @@ button.theme-dot:focus-visible{border-color:var(--text)}
   display:flex;
   justify-content:center;
   align-items:flex-start;
-  padding:76px clamp(40px,7vw,120px) 44px;
+  padding:110px clamp(40px,7vw,120px) 80px;
   overflow:hidden;
 }
 .hero-bg{
@@ -302,7 +295,7 @@ button.theme-dot:focus-visible{border-color:var(--text)}
   text-align:center;
   max-width:1200px;
   margin:0 auto;
-  padding-top:4px;
+  padding-top:20px;
 }
 .hero-head{
   max-width:820px;
@@ -315,14 +308,14 @@ button.theme-dot:focus-visible{border-color:var(--text)}
   grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);
   gap:clamp(24px,4vw,56px);
   align-items:stretch;
-  margin-top:20px;
+  margin-top:44px;
   text-align:left;
 }
 .hero-left{
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  gap:14px;
-  padding:8px 8px;
+  gap:22px;
+  padding:24px 8px;
   position:relative;
 }
 .hero-right{
@@ -354,7 +347,7 @@ button.theme-dot:focus-visible{border-color:var(--text)}
    animates during mini-chat streaming for a cohesive left-right feel. */
 .hero-orb-wrap{
   position:relative;
-  width:min(260px,68vw);
+  width:min(340px,80vw);
   aspect-ratio:1;
   display:flex;align-items:center;justify-content:center;
 }
@@ -386,70 +379,10 @@ button.theme-dot:focus-visible{border-color:var(--text)}
   width:100%;height:100%;border-radius:50%;
   position:relative;z-index:1;
 }
-/* Try-me bubble — typewriter-streamed debate line that appears over the orb.
-   Hidden until #heroTryMeBtn is clicked. Syncs with .speaking so the orb
-   pulses in time with the line, giving one unified "AI is thinking + speaking"
-   cue instead of two disconnected UI elements. */
-.hero-tryme-line{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:min(78%,280px);max-width:82%;
-  padding:14px 16px;border-radius:14px;
-  background:rgba(15,15,18,.82);border:1px solid rgba(239,68,68,.28);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  font-size:.88rem;font-weight:500;color:var(--text);line-height:1.45;
-  text-align:left;letter-spacing:-.005em;
-  opacity:0;pointer-events:none;z-index:3;
-  transition:opacity .32s ease,transform .32s cubic-bezier(.22,.9,.32,1);
-  box-shadow:0 18px 44px rgba(0,0,0,.55),0 0 0 1px rgba(239,68,68,.06) inset;
-}
-.hero-tryme-line::before{
-  content:'';position:absolute;left:18px;top:-4px;width:8px;height:8px;
-  background:#ef4444;border-radius:50%;box-shadow:0 0 12px rgba(239,68,68,.7);
-  animation:heroTryMeDot 1.2s ease-in-out infinite;
-}
-@keyframes heroTryMeDot{0%,100%{opacity:1}50%{opacity:.35}}
-.hero-orb-wrap.speaking .hero-tryme-line{
-  opacity:1;transform:translate(-50%,calc(-50% - 6px));
-}
-.hero-tryme-caret{
-  display:inline-block;width:2px;height:1em;background:#ef4444;
-  margin-left:2px;vertical-align:-.12em;animation:heroTryMeCaret 1s step-end infinite;
-}
-@keyframes heroTryMeCaret{50%{opacity:0}}
-/* Small, top-right "Try me" chip pinned to the orb wrap.
-   Was a full-width primary CTA before — users thought that was the main button.
-   Now it reads as a discovery affordance on the orb itself, like a voice-memo
-   play control. Click to hear the AI speak a line. */
-.hero-tryme-btn{
-  position:absolute;top:6px;right:6px;z-index:5;
-  display:inline-flex;align-items:center;gap:6px;
-  padding:7px 11px 7px 9px;
-  background:rgba(239,68,68,.92);color:#fff;
-  border:1px solid rgba(255,255,255,.14);
-  border-radius:999px;
-  font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
-  font-family:inherit;cursor:pointer;
-  box-shadow:0 6px 18px rgba(239,68,68,.28),0 0 0 1px rgba(239,68,68,.35);
-  transition:transform .15s ease,box-shadow .2s ease,opacity .2s ease;
-  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-}
-.hero-tryme-btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(239,68,68,.4),0 0 0 1px #ef4444}
-.hero-tryme-btn:active{transform:translateY(0)}
-.hero-tryme-btn:disabled{opacity:.5;cursor:default;transform:none}
-.hero-tryme-btn-icon{font-size:.66rem;line-height:1;transform:translateY(.5px)}
-.hero-tryme-btn.playing .hero-tryme-btn-icon{animation:heroTryMeBtnPulse 1s ease-in-out infinite}
-@keyframes heroTryMeBtnPulse{0%,100%{opacity:1}50%{opacity:.35}}
-@media(max-width:640px){
-  .hero-tryme-btn{top:4px;right:4px;padding:6px 10px 6px 8px;font-size:.62rem}
-}
-/* On narrow screens, let the bubble breathe by pushing the canvas behind it */
-@media(max-width:640px){
-  .hero-tryme-line{font-size:.82rem;padding:12px 14px;width:min(86%,260px)}
-}
 
 /* ── CTA row under the orb ─────────────────────────── */
 .hero-left-ctas{
-  display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center;
+  display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
   margin-top:4px;
 }
 .hero-left .hero-cta{margin-top:0}
@@ -458,13 +391,12 @@ button.theme-dot:focus-visible{border-color:var(--text)}
 @media(max-width:900px){
   .hero-split{
     grid-template-columns:1fr;
-    gap:18px;
+    gap:28px;
     text-align:center;
-    margin-top:16px;
+    margin-top:32px;
   }
-  .hero-left{padding:4px 0;gap:10px}
+  .hero-left{padding:8px 0}
   .hero-right{min-height:0}
-  .hero-orb-wrap{width:min(220px,58vw)}
 }
 
 /* Neural constellation canvas */
@@ -480,13 +412,13 @@ button.theme-dot:focus-visible{border-color:var(--text)}
 }
 
 .hero h1{
-  font-size:clamp(1.9rem,3.8vw,2.8rem);
+  font-size:clamp(2.2rem,5vw,3.8rem);
   font-weight:900;
   text-transform:uppercase;
   letter-spacing:-.03em;
   line-height:.95;
   color:var(--text);
-  margin-bottom:8px;
+  margin-bottom:12px;
 }
 .hero h1 .line3{
   display:block;
@@ -947,8 +879,8 @@ button.theme-dot:focus-visible{border-color:var(--text)}
 [data-theme="day"] .markets-eyebrow::before,
 [data-theme="day"] .market-source-dot{background:#2563eb;box-shadow:0 0 10px rgba(37,99,235,.9)}
 .hero-cta-primary{
-  font-size:1rem !important;
-  padding:15px 40px !important;
+  font-size:1.15rem !important;
+  padding:22px 56px !important;
   background:var(--accent) !important;
   color:#fff !important;
   box-shadow:0 8px 30px rgba(220,38,38,.42), 0 0 0 0 rgba(220,38,38,.55);
@@ -959,8 +891,8 @@ button.theme-dot:focus-visible{border-color:var(--text)}
   background:transparent !important;
   color:var(--text) !important;
   border:1px solid var(--border);
-  padding:13px 28px !important;
-  font-size:.82rem !important;
+  padding:18px 36px !important;
+  font-size:.9rem !important;
 }
 .hero-cta-secondary:hover{border-color:var(--text);background:var(--bg-card) !important}
 @keyframes ctaPulse{
@@ -1130,8 +1062,8 @@ button.theme-dot:focus-visible{border-color:var(--text)}
   .tools{grid-template-columns:1fr}
   .how-row{grid-template-columns:1fr}
   .wrap{padding:0 20px}
-  .hero{padding:78px 16px 32px}
-  .hero h1{font-size:clamp(1.6rem,7.4vw,2.3rem)}
+  .hero{padding:120px 20px 60px}
+  .hero h1{font-size:clamp(2rem,10vw,3.2rem)}
   .footer{flex-direction:column;gap:12px;text-align:center;padding:32px 20px}
   #pricing .tools{grid-template-columns:1fr !important}
   .pricing-grid{grid-template-columns:repeat(2,1fr)}
@@ -1192,8 +1124,6 @@ button.theme-dot:focus-visible{border-color:var(--text)}
   .landing-jumpnav a:hover{color:var(--text);background:rgba(255,255,255,.06)}
   .landing-jumpnav a.donate{color:var(--accent)}
   .landing-jumpnav a.donate:hover{background:rgba(239,68,68,.12)}
-  .landing-jumpnav a.signin{color:#fff;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.35);padding:8px 12px;border-radius:10px}
-  .landing-jumpnav a.signin:hover{background:rgba(239,68,68,.22);border-color:#ef4444}
   .landing-jumpnav{transition:opacity .25s ease, transform .25s ease}
   /* Hidden state: fade + slide left + ignore pointer events so it doesn't
      intercept clicks on the content underneath when invisible. */
@@ -1233,33 +1163,28 @@ button.theme-dot:focus-visible{border-color:var(--text)}
   <a href="#how">How it works</a>
   <a href="#tools">Tools</a>
   <a href="#adults">For Professionals</a>
-  <a href="/schools">For Schools</a>
   <a href="#topics">Current Topics</a>
   <a href="/markets">Markets</a>
   <a href="#pricing">Pricing</a>
   <a href="#faq">FAQ</a>
   <a href="#story">Story</a>
-  <a href="#signin" id="jumpnavSignIn" class="signin">Sign in</a>
   <a href="https://buymeacoffee.com/8idanhm" target="_blank" rel="noopener" class="donate">Donate</a>
-  <div class="jumpnav-theme" aria-label="Choose lighting">
-    <span class="jumpnav-theme-label">Lighting</span>
-    <div class="theme-dots" role="radiogroup" aria-label="Theme">
-      <button type="button" class="theme-dot" data-t="grey"    role="radio" aria-label="Dark"    title="Dark"></button>
-      <button type="button" class="theme-dot" data-t="crimson" role="radio" aria-label="Crimson" title="Crimson"></button>
-      <button type="button" class="theme-dot" data-t="day"     role="radio" aria-label="Light"   title="Light"></button>
-    </div>
-  </div>
 </nav>
 
 <!-- Nav. shared topbar pattern. One primary CTA (Debate AI), the rest are quiet links. -->
 <nav class="ui-topbar">
   <div class="ui-topbar-left">
-    <a href="/landing" class="ui-topbar-logo"><span>Debate</span> AI.</a>
+    <a href="/landing" class="ui-topbar-logo" aria-label="Debate AI trademark, home"><span>Debate</span> AI.<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup></a>
   </div>
   <div class="ui-topbar-right">
     <a href="/app#case" class="ui-topbar-link">College</a>
     <a href="/high-school" class="ui-topbar-link">High School</a>
     <a href="/learn" class="ui-topbar-link">Adults</a>
+    <div class="theme-dots" role="group" aria-label="Change lighting" title="Change lighting">
+      <button class="theme-dot active" data-t="crimson" aria-label="Crimson (default dark)" title="Crimson — default dark"></button>
+      <button class="theme-dot" data-t="grey" aria-label="Grey (neutral dark)" title="Grey — neutral dark"></button>
+      <button class="theme-dot" data-t="day" aria-label="Day (light mode)" title="Day — light mode"></button>
+    </div>
     <a href="/debate-ai" class="ui-btn ui-btn-primary ui-btn-sm" style="padding:8px 18px">Debate AI</a>
   </div>
 </nav>
@@ -1304,15 +1229,10 @@ button.theme-dot:focus-visible{border-color:var(--text)}
           <div class="hero-orb-glow"></div>
           <div class="hero-orb-ring"></div>
           <canvas id="heroOrb" aria-hidden="true"></canvas>
-          <button type="button" id="heroTryMeBtn" class="hero-tryme-btn" aria-label="Play a sample debate line">
-            <span class="hero-tryme-btn-icon" aria-hidden="true">▶</span>
-            <span class="hero-tryme-btn-label">Try me</span>
-          </button>
-          <div id="heroTryMeLine" class="hero-tryme-line" aria-live="polite"></div>
         </div>
-        <div class="hero-orb-caption" id="heroOrbCaption">Thinks. Challenges. Judges you like a real opponent.</div>
+        <div class="hero-orb-caption">Thinks. Challenges. Judges you like a real opponent.</div>
         <div class="hero-left-ctas">
-          <a href="/debate-ai" class="hero-cta hero-cta-primary">Full round →</a>
+          <a href="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
           <a href="/app#case" class="hero-cta hero-cta-secondary">Debate prep</a>
         </div>
       </div>
@@ -1340,7 +1260,7 @@ button.theme-dot:focus-visible{border-color:var(--text)}
           <button type="button" class="mini-chat-side" data-side="against" style="flex:1;min-width:120px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit">I'm against it</button>
         </div>
         <button id="miniChatStart" type="button" disabled style="width:100%;margin-top:14px;padding:13px 20px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:.88rem;cursor:pointer;font-family:inherit;letter-spacing:.04em;text-transform:uppercase;opacity:.5;transition:opacity .2s,transform .15s">Start debating</button>
-        <div id="miniChatFooter" style="margin-top:10px;font-size:.7rem;color:var(--text-dim);text-align:center">5 free requests · Sign in with Google to continue</div>
+        <div style="margin-top:10px;font-size:.7rem;color:var(--text-dim);text-align:center">5 free requests · Sign in with Google to continue</div>
       </div>
 
       <div id="miniChatBody" style="display:none;padding:14px 18px;max-height:440px;overflow-y:auto"></div>
@@ -1632,13 +1552,22 @@ button.theme-dot:focus-visible{border-color:var(--text)}
             var r = await fetch('/api/tts', {
               method:'POST',
               headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ text: text, voice: 'onyx' })
+              // speed=1.15 nudges OpenAI's synth engine faster at the source;
+              // playbackRate below then brings ElevenLabs in line too so the
+              // landing demo reads at tournament-speaker pace, not podcast.
+              body: JSON.stringify({ text: text, voice: 'onyx', speed: 1.15 })
             });
             if (!r.ok) throw new Error('TTS failed');
             var blob = await r.blob();
             audio = new Audio(URL.createObjectURL(blob));
             ttsCache[text] = audio;
           }
+          // Bump playback ~20% above the source rate. Real competitive
+          // debaters speak around 180-220 wpm; default TTS lands around
+          // 150 which reads as "explainer voice" and kills the demo's
+          // "sharp debater" framing. 1.2 lands near 200 wpm without
+          // sounding chipmunk.
+          audio.playbackRate = 1.2;
           audio.onended = function(){ btn.classList.remove('playing'); btn.innerHTML = '\u25B6 Play'; };
           audio.play();
         } catch(e) {
@@ -1696,114 +1625,12 @@ button.theme-dot:focus-visible{border-color:var(--text)}
     <div class="tools" style="margin-bottom:24px">
       <div class="tool"><h3>5 AI Personalities</h3><p><strong>Technical</strong> (framework + strategy, cold delivery), <strong>Orator</strong> (rhetoric + impact calc, shallow warrants), <strong>Aggressive</strong> (relentless pressure, drops case), <strong>Philosopher</strong> (Rawls, Kant, Foucault. but abstract), and <strong>Random</strong> (roll the dice). Each has real strengths AND real weaknesses you can learn to exploit.</p></div>
       <div class="tool"><h3>4 AI Brains</h3><p>Powered by Claude, GPT, Gemini, and Grok. not just one model. Each brain argues differently: Claude is surgical, GPT is creative, Gemini is fast and well-rounded, Grok is unfiltered. This multi-model approach is why the AI actually sounds like a real debater, not a chatbot.</p></div>
-      <div class="tool"><h3>Human Voice</h3><p>6 voices from deep &amp; authoritative to warm &amp; friendly. Not a robot. natural speech with real pacing. Pause, skip, or raise a POI mid-speech.</p></div>
+      <div class="tool"><h3>Human Voice</h3><p>6 ElevenLabs voices tuned per personality: <strong>Professor</strong> (deep, authoritative), <strong>Closer</strong> (confident, mature), <strong>Firebrand</strong> (young, energetic), <strong>Diplomat</strong> (measured, pro), <strong>Surgeon</strong> (smooth, trustworthy), <strong>Storyteller</strong> (warm, narrative). Real pacing, real breath &mdash; not the flat robot read every other tool ships. <strong>Why it matters:</strong> debate is a spoken game. Practicing against monotone TTS teaches you to beat a textbook; a voice that sounds like the person across the table teaches you to beat a round. Raise a POI mid-speech. Pause, skip, or scrub back. Switch voices round-to-round so your ear never goes on autopilot.</p></div>
       <div class="tool"><h3>Formats elite colleges prioritize</h3><p><strong>APDA</strong> (American Parliamentary) is the format prioritized at Harvard, Yale, Princeton, Stanford, Columbia, UChicago, MIT, Dartmouth, Penn, Brown, Cornell, Georgetown, and most Ivy+ schools. <strong>BP</strong> (British Parliamentary) is the format prioritized at Oxford, Cambridge, LSE, and most top UK / European / international universities. <strong>WUDC (Worlds)</strong>. the global college championship. runs in BP. Debate AI supports all three first-class, plus Quick Class, Lincoln-Douglas, Policy, PF, WSDC, Asian Parli, and Congress.</p></div>
     </div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;align-items:center">
-      <a href="/debate-ai" style="display:inline-block;padding:14px 36px;background:var(--accent);color:#fff;border-radius:100px;font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;transition:transform .2s;text-decoration:none">Try Debate AI &rarr;</a>
-      <button type="button" id="featuresModalBtn" style="display:inline-block;padding:14px 28px;background:transparent;color:var(--accent);border:2px solid var(--accent);border-radius:100px;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;font-family:inherit;transition:background .2s,color .2s">See full features list &rarr;</button>
-    </div>
+    <a href="/debate-ai" style="display:inline-block;padding:14px 36px;background:var(--accent);color:#fff;border-radius:100px;font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;transition:transform .2s;text-decoration:none">Try Debate AI &rarr;</a>
   </div>
 </section>
-
-<!-- Full features modal. lists every capability in 8 groups. opened from
-     #debate-ai section. closes on overlay click or Esc. -->
-<div id="featuresModal" role="dialog" aria-modal="true" aria-labelledby="featuresModalTitle" style="position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:1000;display:none;align-items:flex-start;justify-content:center;padding:60px 20px;overflow-y:auto">
-  <div style="background:var(--bg-elev,#0a0a0f);border:1px solid var(--accent-border,rgba(255,77,94,.3));border-radius:24px;max-width:1100px;width:100%;padding:48px 56px;position:relative">
-    <button type="button" id="featuresModalClose" aria-label="Close" style="position:absolute;top:20px;right:20px;background:transparent;border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer;font-family:inherit;line-height:1">&times;</button>
-    <h2 id="featuresModalTitle" class="sec-title" style="margin-bottom:6px">Every feature. No fluff.</h2>
-    <p style="color:var(--text-dim);font-size:.95rem;margin-bottom:36px">The full scoop on what Debate AI actually does.</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:32px 40px">
-      <div>
-        <h4 style="color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--accent-border,rgba(255,77,94,.2))">AI Opponents</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;line-height:1.55;color:var(--text-dim)">
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">5 Personalities</b>Technical, Orator, Aggressive, Philosopher, Random. each with distinct arguing styles and weaknesses.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">4 Model Brains</b>Claude, GPT, Gemini, Grok. switch mid-round for a different opponent.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Scoutable Weaknesses</b>Each personality has learnable tells and patterns you can exploit.</li>
-          <li style="padding:8px 0"><b style="color:var(--text);display:block;margin-bottom:2px">Adaptive Difficulty</b>AI matches your skill level or cranks up for stretch rounds.</li>
-        </ul>
-      </div>
-      <div>
-        <h4 style="color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--accent-border,rgba(255,77,94,.2))">Live Voice Debate</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;line-height:1.55;color:var(--text-dim)">
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">6 Natural Voices</b>Authoritative to warm. pick the voice that matches the personality you're facing.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Real-Time Speech</b>Speak into your mic, hear the AI speak back with human pacing.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Mid-Speech POIs</b>Raise Points of Information. AI accepts, declines, or dismisses like a real debater.</li>
-          <li style="padding:8px 0"><b style="color:var(--text);display:block;margin-bottom:2px">Pause &amp; Skip</b>Full control over the round flow.</li>
-        </ul>
-      </div>
-      <div>
-        <h4 style="color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--accent-border,rgba(255,77,94,.2))">Debate Formats</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;line-height:1.55;color:var(--text-dim)">
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">APDA</b>American Parliamentary. Ivy+ college circuit standard.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">BP</b>British Parliamentary. UK / European / international standard.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">WUDC</b>World Universities Debating Championship format.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Lincoln-Douglas</b>Classic 1v1 value debate.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Policy &amp; PF</b>Full CX and team-format debate.</li>
-          <li style="padding:8px 0"><b style="color:var(--text);display:block;margin-bottom:2px">WSDC, Asian Parli, Congress, Quick Class</b>World Schools, Asian Parli, legislative, and fast drilling.</li>
-        </ul>
-      </div>
-      <div>
-        <h4 style="color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--accent-border,rgba(255,77,94,.2))">Judging &amp; Feedback</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;line-height:1.55;color:var(--text-dim)">
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Full Judge Ballot</b>RFD, speaker points, and winning-team breakdown after every round.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Flow Notes</b>Auto-generated flow tracking extensions, drops, and turns.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Speech-Level Feedback</b>Per-speech critique on structure, warranting, rhetoric, and POIs.</li>
-          <li style="padding:8px 0"><b style="color:var(--text);display:block;margin-bottom:2px">Improvement Tracking</b>See your speaker-points trend over time.</li>
-        </ul>
-      </div>
-      <div>
-        <h4 style="color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--accent-border,rgba(255,77,94,.2))">Topics &amp; Prep</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;line-height:1.55;color:var(--text-dim)">
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Topic Library</b>Curated motions across policy, philosophy, economics, tech, and more.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Custom Motions</b>Type any motion you want to drill.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Prep Time</b>Built-in timed prep matching real tournament conditions.</li>
-          <li style="padding:8px 0"><b style="color:var(--text);display:block;margin-bottom:2px">Side Selection</b>Choose Gov/Opp or let the coin flip decide.</li>
-        </ul>
-      </div>
-      <div>
-        <h4 style="color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--accent-border,rgba(255,77,94,.2))">Round Experience</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;line-height:1.55;color:var(--text-dim)">
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Speech Timing</b>Real tournament timers per format and position.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Position Choice</b>PM, LO, MG, MO, GW, OW across BP; PMC, LOC, etc. in APDA.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Replay &amp; Save</b>Every round saved. replay, re-listen, review.</li>
-          <li style="padding:8px 0"><b style="color:var(--text);display:block;margin-bottom:2px">Transcripts</b>Full text transcript of every speech.</li>
-        </ul>
-      </div>
-      <div>
-        <h4 style="color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--accent-border,rgba(255,77,94,.2))">Levels &amp; Audiences</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;line-height:1.55;color:var(--text-dim)">
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">High School</b>Novice to varsity. formats and coaching tuned for HS circuits.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">College</b>APDA, BP, WUDC prep for competitive college debaters.</li>
-          <li style="padding:8px 0"><b style="color:var(--text);display:block;margin-bottom:2px">Adults</b>Argumentation practice for lawyers, professionals, hobbyists.</li>
-        </ul>
-      </div>
-      <div>
-        <h4 style="color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--accent-border,rgba(255,77,94,.2))">Coming Soon</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;line-height:1.55;color:var(--text-dim)">
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">2v2 Team Mode</b>You + partner vs. two AI opponents.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Tournament Simulation</b>Full bracket runs with seeding and breaks.</li>
-          <li style="padding:8px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text);display:block;margin-bottom:2px">Coach Dashboard</b>Team-level insights for coaches and directors.</li>
-          <li style="padding:8px 0"><b style="color:var(--text);display:block;margin-bottom:2px">Video Mode</b>Face-on-screen AI opponent with expression and gesture.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
-<script>
-(function(){
-  var modal=document.getElementById('featuresModal');
-  var btn=document.getElementById('featuresModalBtn');
-  var close=document.getElementById('featuresModalClose');
-  if(!modal||!btn) return;
-  function open(){modal.style.display='flex';document.body.style.overflow='hidden';if(typeof gtag==='function')gtag('event','features_modal_open',{location:'landing_debate_ai'})}
-  function shut(){modal.style.display='none';document.body.style.overflow=''}
-  btn.addEventListener('click',open);
-  if(close) close.addEventListener('click',shut);
-  modal.addEventListener('click',function(e){if(e.target===modal)shut()});
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&modal.style.display==='flex')shut()});
-})();
-</script>
 
 <!-- Pricing / Free-during-beta. clean version, matches main-app aesthetic -->
 <style>
@@ -2239,7 +2066,7 @@ button.theme-dot:focus-visible{border-color:var(--text)}
 
 <!-- Footer -->
 <footer class="footer">
-  <span><span style="color:var(--accent)">Debate</span> AI</span>
+  <span><span style="color:var(--accent)">Debate</span> AI<sup style="font-size:.55em;opacity:.6;margin-left:2px">&trade;</sup></span>
   <div class="footer-links">
     <a href="/app#case">College App</a>
     <a href="/high-school">HS Edition</a>
@@ -2252,6 +2079,12 @@ button.theme-dot:focus-visible{border-color:var(--text)}
   </div>
   <div class="footer-links" style="margin-top:8px">
     <a href="/pro">For Professionals</a>
+    <a href="/terms.html">Terms</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/trademark.html">Trademarks</a>
+  </div>
+  <div class="footer-legal" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:.72rem;color:var(--text-dim);line-height:1.6;max-width:720px;margin-left:auto;margin-right:auto;text-align:center">
+    &copy; 2026 Debate AI. All rights reserved. &ldquo;Debate AI,&rdquo; the Debate AI logo, and associated product names (Devil's Advocate, DebateOS) are trademarks of Aidan Hollinger. Unauthorized use, reproduction, scraping, or derivative training of this site's voice guidelines, prompts, or content is prohibited. AI outputs are for educational and practice use only and are not a substitute for professional coaching, legal, or academic advice.
   </div>
 </footer>
 
@@ -2269,15 +2102,14 @@ document.querySelectorAll('.theme-dot').forEach(function(dot){
     try{localStorage.setItem('da-theme',t)}catch(e){}
   });
 });
-// Restore saved theme
+// Restore saved theme (default = crimson if none saved; sync active dot
+// either way so the picker never lies about the current lighting).
 try{
-  var saved=localStorage.getItem('da-theme');
-  if(saved){
-    document.documentElement.setAttribute('data-theme',saved);
-    document.querySelectorAll('.theme-dot').forEach(function(d){
-      d.classList.toggle('active',d.getAttribute('data-t')===saved);
-    });
-  }
+  var saved=localStorage.getItem('da-theme') || 'crimson';
+  document.documentElement.setAttribute('data-theme',saved);
+  document.querySelectorAll('.theme-dot').forEach(function(d){
+    d.classList.toggle('active',d.getAttribute('data-t')===saved);
+  });
 }catch(e){}
 
 // Live prediction-markets section.
@@ -2780,19 +2612,11 @@ window.addEventListener('load', function(){
   var btnText = document.getElementById('googleSignupBtnText');
   if (!btn) return;
 
-  // If already signed in, swap the button to "Continue to app" and drop
-  // the "Sign in with Google to continue" nag from the mini-chat footer.
-  // Showing a sign-in prompt to someone who is already signed in is a
-  // trust-burning moment — they feel invisible to the product.
+  // If already signed in, swap the button to "Continue to app"
   auth.onAuthStateChanged(function(user){
-    var footer = document.getElementById('miniChatFooter');
     if (user) {
-      var first = (user.displayName || user.email || '').split(' ')[0].split('@')[0];
       btnText.textContent = 'Continue as ' + (user.displayName || user.email) + ' →';
       btn.onclick = function(){ window.location.href = '/'; };
-      if (footer) footer.textContent = 'Signed in as ' + first + ' · unlimited requests';
-    } else {
-      if (footer) footer.textContent = '5 free requests · Sign in with Google to continue';
     }
   });
 
@@ -2842,313 +2666,8 @@ window.addEventListener('load', function(){
     }).catch(function(err){ if (err && err.code !== 'auth/no-auth-event') console.warn('[landing] redirect result err:', err.message); });
   } catch(e){}
 
-  // Try-me button — plays REAL TTS audio for a debate-voice line with
-  // pause/resume, prefetched next-up audio, and a typewriter bubble synced
-  // to audio playback. 20-line rotation, ElevenLabs turbo preferred (falls
-  // back to OpenAI on the server if ElevenLabs is down). Faster delivery
-  // via server speed=1.15 + client playbackRate=1.1 so the listener gets
-  // a quick-but-natural sample, not a slow narration.
-  (function(){
-    var tryBtn = document.getElementById('heroTryMeBtn');
-    var line = document.getElementById('heroTryMeLine');
-    var orb = document.getElementById('heroOrbWrap');
-    var caption = document.getElementById('heroOrbCaption');
-    if (!tryBtn || !line || !orb) return;
-    var btnLabel = tryBtn.querySelector('.hero-tryme-btn-label');
-    var btnIcon = tryBtn.querySelector('.hero-tryme-btn-icon');
-
-    // 20-line rotation — a mix of PM opener framings, sharp rebuttals,
-    // weighing moves, and cross-ex pressure. All short enough to fit the
-    // bubble, all what a real debater on the circuit would actually say.
-    var LINES = [
-      "First — for some framing. The most important impact in this round is institutional trust, because every policy you run after this depends on whether citizens still believe the state can keep its word.",
-      "First, for some framing, the decisive impact here is the downstream harm on people who can't absorb it. Wealthy communities survive bad policy. Linda in Dayton doesn't.",
-      "First, for some framing, the impact that matters most is opportunity cost. Every dollar this plan spends is a dollar the next bill can't, and the people depending on that next bill don't have a lobbyist in the room.",
-      "First — for some framing — the most important impact in this round is the precedent it sets. One policy is a choice. A repeated pattern becomes the rule the next generation inherits.",
-      "First, for some framing, the impact we care about most is whose voice enters the room when the decision is made. Procedural harm compounds long after any single outcome is reversed.",
-      "First — for some framing. The only impact that matters in this round is the marginal worker. Not the median, not the average. The one on the edge whose job breaks under the policy you're selling.",
-      "First, for some framing. Impact calculus in this round runs on reversibility. Their harms you can undo. Ours you can't. That asymmetry is the entire ballot.",
-      "First, for some framing — we're not debating whether this policy has costs. We're debating who eats them. Identify that person, and the round is decided.",
-      "Framework first. Whichever side reduces net harm to the worst-off people wins the round. We meet it. They don't. Here's why.",
-      "Here's the thing about your jobs argument — it collapses the second you look at Dayton in 2008. You don't have a model for what happens to the line cook when the plant closes.",
-      "Their own evidence — a 2023 Brookings piece — says enforcement in this sector historically spikes the informal market by thirty percent. That's not our turn. That's their turn. We just pointed at it.",
-      "I'll concede your first claim. Doesn't matter. The round lives on the second one, and you haven't given the judge a warrant.",
-      "You keep saying stakeholders. Name one. Tell me who actually loses in the world your plan builds, or stop using the word.",
-      "That's not an impact. That's a vibe. Give me a mechanism, a number, or a named person, or I'm not voting on it.",
-      "Dropped argument. Cross-apply my second contention — you never touched the causal chain, and silence on the flow reads as concession.",
-      "You want autonomy as a terminal value. Fine. Then explain why Linda in Queens loses her job under your plan, and tell me whose autonomy that respects.",
-      "Three responses to their deterrence argument. One — the warrant is empirically false. Two — even if true, the link is three contingent steps. Three — it's a link turn. Their own logic cuts against them.",
-      "Weigh it. Our impact is more probable, more immediate, and lands on people with zero buffer. Theirs is speculative and lands on people who can absorb it. That's the comparison the judge has to make.",
-      "Cross-ex. Your plan text gives the agency enforcement power. Your Meyer evidence assumes independent review. Which one are we debating — because those are two different policies.",
-      "One sentence close. Every warrant they gave you flows our way once you pull the link turn. Proud to oppose.",
-      "The delta in this round comes down to forty thousand coal miners in Appalachia losing their jobs versus two billion dollars in quarterly buybacks for shareholders who will never meet one of them. That's not a close call — that's your ballot.",
-      "Judge, the delta in this round reduces to this. Nine hundred thousand undocumented restaurant workers get deported under their plan. That's weighed against roughly six hundred million in annual compliance savings for three Fortune-500 chains. You pick the ballot.",
-      "The whole round collapses to one number. Eighteen thousand rural hospital beds go offline under their policy, versus a projected four-hundred-million-dollar premium reduction for people who already have employer coverage. Tell me which of those the judge cares about more.",
-      "Here's the delta. Two hundred and sixty thousand Medicaid recipients in Ohio lose coverage to fund a tax credit that averages eleven hundred dollars a year for households making over four hundred grand. That's the trade. Vote opp.",
-      "The delta in this round is seventy thousand textile jobs in Bangladesh versus a three-percent margin bump for Zara. Their own evidence says margin goes up. Our evidence says who pays for it. Weigh those against each other."
-    ];
-
-    var lastIdx = -1;
-    var audioCache = {}; // text -> { url, audio, duration }
-    var prefetchPromise = null;
-    // State machine: idle | loading | playing | paused
-    var state = 'idle';
-    var current = null; // { text, audio, durationMs, typeController }
-
-    function pickLine(){
-      if (LINES.length < 2) return LINES[0] || '';
-      var i; do { i = Math.floor(Math.random() * LINES.length); } while (i === lastIdx);
-      lastIdx = i; return LINES[i];
-    }
-    function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
-    function setBtn(mode){
-      if (!btnLabel || !btnIcon) return;
-      tryBtn.classList.toggle('playing', mode === 'playing' || mode === 'loading');
-      if (mode === 'idle')    { btnIcon.textContent = '▶'; btnLabel.textContent = 'Try me'; tryBtn.disabled = false; }
-      if (mode === 'loading') { btnIcon.textContent = '●'; btnLabel.textContent = 'Loading'; tryBtn.disabled = true; }
-      if (mode === 'playing') { btnIcon.textContent = '❚❚'; btnLabel.textContent = 'Pause'; tryBtn.disabled = false; }
-      if (mode === 'paused')  { btnIcon.textContent = '▶'; btnLabel.textContent = 'Resume'; tryBtn.disabled = false; }
-    }
-
-    async function fetchAudio(text){
-      if (audioCache[text] && audioCache[text].url) return audioCache[text];
-      var r = await fetch('/api/tts', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        // premium: true → ElevenLabs turbo (much more natural than tts-1).
-        // echo voice → "Sarah," mature/confident American female on EL,
-        // safe fallback to OpenAI echo if ElevenLabs key missing.
-        // speed: 1.15 → tighter pacing, still legible. Client also bumps
-        // playbackRate for a final snap.
-        body: JSON.stringify({ text: text, voice: 'echo', premium: true, speed: 1.15, intensity: 0.35 })
-      });
-      if (!r.ok) throw new Error('TTS ' + r.status);
-      var blob = await r.blob();
-      var url = URL.createObjectURL(blob);
-      var entry = { url: url, duration: 0 };
-      audioCache[text] = entry;
-      return entry;
-    }
-
-    // Pre-warm: the instant the landing page is idle, grab audio for a
-    // randomly-chosen line so the FIRST click returns audio immediately.
-    // Uses requestIdleCallback when available so it never blocks paint.
-    function prewarm(){
-      if (prefetchPromise) return prefetchPromise;
-      var first = pickLine();
-      // Keep the rotation state honest: we've "shown" this one.
-      prefetchPromise = fetchAudio(first).then(function(entry){
-        // Prime an <audio> element so metadata is ready on click.
-        var a = new Audio(entry.url);
-        a.preload = 'auto';
-        entry.audio = a;
-        return entry;
-      }).catch(function(err){
-        console.warn('[try-me] prewarm failed:', err && err.message);
-        prefetchPromise = null;
-      });
-      return prefetchPromise;
-    }
-    if (typeof window.requestIdleCallback === 'function') {
-      window.requestIdleCallback(prewarm, { timeout: 2500 });
-    } else {
-      setTimeout(prewarm, 1200);
-    }
-
-    // Prefetch the NEXT line in the background while the current one plays,
-    // so click-to-audio on the next interaction is instant.
-    function prefetchNext(){
-      // Peek one index ahead without locking it in — pickLine() will still
-      // randomize, but caching a random other line is almost always a hit.
-      var candidates = [];
-      for (var k = 0; k < LINES.length; k++) if (k !== lastIdx && !audioCache[LINES[k]]) candidates.push(k);
-      if (!candidates.length) return;
-      var idx = candidates[Math.floor(Math.random() * candidates.length)];
-      fetchAudio(LINES[idx]).catch(function(){ /* swallow */ });
-    }
-
-    // Typewriter with a controller so we can pause/resume/abort.
-    function makeTypewriter(text, targetEl){
-      var total = text.length;
-      var pos = 0;
-      var paused = false;
-      var aborted = false;
-      var resumeResolver = null;
-      function render(){
-        targetEl.innerHTML = text.slice(0, pos) + '<span class="hero-tryme-caret"></span>';
-      }
-      function weightAt(i){
-        var ch = text.charAt(i);
-        if (ch === ' ') return 0.55;
-        if (ch === ',') return 2.6;
-        if (ch === '—' || ch === '-') return 2.2;
-        if (ch === '.' || ch === '?' || ch === '!') return 4.2;
-        return 1;
-      }
-      function run(totalMs){
-        // Sum weights to scale per-char delay to the budget.
-        var sum = 0;
-        for (var i = 0; i < total; i++) sum += weightAt(i);
-        var scale = totalMs / Math.max(1, sum);
-        return new Promise(function(resolve){
-          function step(){
-            if (aborted) return resolve();
-            if (pos >= total) return resolve();
-            if (paused) {
-              // Wait until resume() fires.
-              new Promise(function(r){ resumeResolver = r; }).then(step);
-              return;
-            }
-            pos++;
-            render();
-            setTimeout(step, Math.max(8, weightAt(pos - 1) * scale));
-          }
-          step();
-        });
-      }
-      return {
-        start: function(totalMs){ return run(totalMs); },
-        pause: function(){ paused = true; },
-        resume: function(){ paused = false; if (resumeResolver){ var r = resumeResolver; resumeResolver = null; r(); } },
-        abort: function(){ aborted = true; paused = false; if (resumeResolver){ var r = resumeResolver; resumeResolver = null; r(); } },
-      };
-    }
-
-    async function startFresh(){
-      state = 'loading';
-      setBtn('loading');
-      try { window.dosTrack && window.dosTrack('try_me_click',{source:'landing_hero'}) } catch(e){}
-
-      // Prefer the prewarmed entry if the user lands on that exact line;
-      // otherwise pick a new one and fetch. The rotation guarantees variety.
-      var text = pickLine();
-      var entry;
-      try {
-        entry = await fetchAudio(text);
-      } catch(e) {
-        console.warn('[try-me] TTS failed, silent typewriter fallback:', e && e.message);
-        entry = { url: null, duration: 0 };
-      }
-
-      var audio = entry.audio || (entry.url ? new Audio(entry.url) : null);
-      if (audio && !entry.audio) { audio.preload = 'auto'; entry.audio = audio; }
-      if (audio) {
-        // Faster-than-recorded playback pushes the edge of natural without
-        // sounding chipmunk. 1.1–1.2 is the sweet spot for debate register.
-        try { audio.playbackRate = 1.1; audio.preservesPitch = true; } catch(e){}
-        if (!isFinite(audio.duration) || !audio.duration) {
-          await new Promise(function(resolve){
-            var done = false;
-            function finish(){ if (done) return; done = true; resolve(); }
-            audio.addEventListener('loadedmetadata', finish, { once:true });
-            audio.addEventListener('canplay', finish, { once:true });
-            audio.addEventListener('error', finish, { once:true });
-            setTimeout(finish, 1200);
-          });
-        }
-      }
-      var durationMs = 0;
-      if (audio && isFinite(audio.duration) && audio.duration > 0) {
-        durationMs = (audio.duration * 1000) / (audio.playbackRate || 1);
-      }
-      if (!durationMs) durationMs = Math.max(2400, Math.min(7000, text.length * 38));
-
-      // Light the orb and render the bubble.
-      try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
-      orb.classList.add('speaking');
-      if (caption) caption.style.opacity = '.3';
-      line.innerHTML = '<span class="hero-tryme-caret"></span>';
-
-      var typer = makeTypewriter(text, line);
-      current = { text: text, audio: audio, durationMs: durationMs, typer: typer };
-      state = 'playing';
-      setBtn('playing');
-
-      // Kick off audio (user gesture is still active from the click).
-      var audioPromise = Promise.resolve();
-      if (audio) {
-        try {
-          var p = audio.play();
-          if (p && typeof p.then === 'function') p.catch(function(){});
-          audioPromise = new Promise(function(resolve){
-            audio.addEventListener('ended', resolve, { once:true });
-            audio.addEventListener('error', resolve, { once:true });
-            setTimeout(resolve, durationMs + 2500);
-          });
-        } catch(e) {}
-      }
-
-      // Prefetch the next audio while the current plays so the next click
-      // starts instantly. Background; don't await.
-      prefetchNext();
-
-      // Typewriter runs in parallel with audio.
-      var typeMs = Math.max(1800, durationMs - 300);
-      await Promise.all([ typer.start(typeMs), audioPromise ]);
-
-      // Hold for a beat so the reader lands on the final punctuation.
-      await sleep(650);
-      teardown();
-    }
-
-    function teardown(){
-      orb.classList.remove('speaking');
-      try { window.__heroOrbMode && window.__heroOrbMode('idle'); } catch(e){}
-      if (caption) caption.style.opacity = '';
-      setTimeout(function(){ if (state === 'idle') line.innerHTML = ''; }, 320);
-      if (current && current.typer) current.typer.abort();
-      current = null;
-      state = 'idle';
-      setBtn('idle');
-    }
-
-    function pauseCurrent(){
-      if (!current) return;
-      if (current.audio) { try { current.audio.pause(); } catch(e){} }
-      if (current.typer) current.typer.pause();
-      state = 'paused';
-      setBtn('paused');
-    }
-    function resumeCurrent(){
-      if (!current) return;
-      if (current.audio) {
-        try {
-          var p = current.audio.play();
-          if (p && typeof p.then === 'function') p.catch(function(){});
-        } catch(e){}
-      }
-      if (current.typer) current.typer.resume();
-      state = 'playing';
-      setBtn('playing');
-    }
-
-    tryBtn.addEventListener('click', function(){
-      if (state === 'idle')    { startFresh(); return; }
-      if (state === 'playing') { pauseCurrent(); return; }
-      if (state === 'paused')  { resumeCurrent(); return; }
-      // 'loading' → ignore
-    });
-  })();
-
   // Main sign-up button in the hero
   btn.addEventListener('click', function(){ triggerGoogleSignIn('landing_hero'); });
-
-  // Left-rail Sign In link — fires the same Google flow. If already signed in,
-  // swap the label to the user's first name and route to the app.
-  var jumpnavSignIn = document.getElementById('jumpnavSignIn');
-  if (jumpnavSignIn) {
-    jumpnavSignIn.addEventListener('click', function(ev){
-      try { ev.preventDefault(); } catch(e){}
-      if (auth.currentUser) { window.location.href = '/#chat'; return; }
-      triggerGoogleSignIn('landing_sidenav');
-    });
-    auth.onAuthStateChanged(function(user){
-      if (user) {
-        var first = (user.displayName || user.email || '').split(' ')[0].split('@')[0];
-        jumpnavSignIn.textContent = first ? (first + ' →') : 'Continue →';
-      }
-    });
-  }
 
   // Hero timer animation. the highest-signal visual element on the landing
   // page, so it's the biggest sign-up funnel. ALWAYS uses signInWithRedirect,

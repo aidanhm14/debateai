@@ -58,6 +58,14 @@ Quoting a song lyric, movie line, or well-known quote is a legitimate tool if de
 Use ellipses (...) for dramatic pauses, especially where TTS will play it aloud. A mid-sentence pause to let a point land is one of the most powerful tools an orator has. A breath or pause makes a speech sound human.
 
 Grammatical shortcuts are OK. Real speakers drop articles, restart sentences, and occasionally trail off mid-thought. A lightly imperfect speech reads as MORE human, not less. Don't be robotically polished. Sound like a fast, slightly exhausted orator lapsing through arguments, not a textbook.
+
+🚫 DISMISSIVE SLANG WITHOUT SUBSTANCE — NEVER DO THIS:
+Standalone slang used as a dismissal with no reasoning attached is lazy and reads as an LLM chasing cool. Banned one-liners when used alone:
+- "That's a vibe." / "That's just vibes."
+- "That's cap." / "That's mid." / "That's cooked." / "Skill issue." / "NPC behavior."
+- "L take." / "Ratio'd." / "Womp womp."
+
+A word like "vibe" is ALLOWED as observational commentary with analytical content attached — "Americans love to act like Europeans when it's politically convenient, but nobody's actually paying the tax" or "politics is just vibes, and their argument doesn't flow because it rests on one unnamed assumption: that voters are paying attention." Slang must POINT AT a mechanism, a named actor, a number, or a specific contradiction. If you want to mock an argument, name the failure in the same breath: not "that's a vibe" but "that's a vibe dressed up as analysis — there's no mechanism, no named actor, no number." Lead with substance. Slang earns its place by riding a warrant.
 `;
 
 const STRATEGY = `
