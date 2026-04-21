@@ -2878,7 +2878,14 @@ function App(){
     if(userTurn){text=rec.stop();orb.stopMic();orb.setMode('idle')}
     else{tts.stop();text=aiText;orb.setMode('idle')}
 
-    const entry={code:cur.code,who:userTurn?'You':'AI',text:text||'(no transcript)'};
+    // Spoken duration (seconds used) + WPM — the speech slot allots
+    // cur.time; whatever's left went unused, so elapsed = total - left.
+    // Clamp to >= 1s so we don't divide by zero on instant skips.
+    const elapsedSec=Math.max(1,(cur.time||0)-(timer.left||0));
+    const words=(text||'').trim().split(/\s+/).filter(Boolean).length;
+    const wpmThisSpeech=words>0 ? Math.round(words/(elapsedSec/60)) : 0;
+
+    const entry={code:cur.code,who:userTurn?'You':'AI',text:text||'(no transcript)',durationSec:elapsedSec,wpm:wpmThisSpeech,wordCount:words};
     const newLog=[...log,entry];
     setLog(newLog);setAiText('');
 
@@ -4472,6 +4479,56 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         // Auto flow sheet — AI distills the full round into a coach-style
         // flow a student can study. Placed above the transcript toggle
         // since it's the high-value output; raw transcript is the fallback.
+        // Speaking-pace card. Per-speech user WPM averaged across the
+        // round, benchmarked against format norms. Only renders if any
+        // user speech actually had captured speech-rec text (else wpm=0).
+        (()=>{
+          const userSpeeches=(log||[]).filter(l=>l.who==='You' && l.wpm && l.wpm>0);
+          if(userSpeeches.length<1) return null;
+          const totalWords=userSpeeches.reduce((a,l)=>a+(l.wordCount||0),0);
+          const totalSec=userSpeeches.reduce((a,l)=>a+(l.durationSec||0),0);
+          const avgWpm=totalSec>0 ? Math.round(totalWords/(totalSec/60)) : 0;
+          // Format-specific WPM bands. Policy spreads hot; PF stays
+          // conversational; APDA/BP land in the middle.
+          const bands={
+            policy:{low:250,ideal:350,high:420,label:'Policy spread'},
+            pf:{low:160,ideal:190,high:220,label:'PF conversational'},
+            ld:{low:180,ideal:230,high:320,label:'LD circuit'},
+            congress:{low:150,ideal:175,high:195,label:'Congress oratorical'},
+            apda:{low:170,ideal:200,high:230,label:'APDA parli'},
+            bp:{low:170,ideal:200,high:230,label:'BP parli'},
+            worlds:{low:165,ideal:195,high:225,label:'WSDC'},
+            asian:{low:175,ideal:205,high:235,label:'Asian Parli'},
+            quick:{low:140,ideal:170,high:200,label:'Quick Clash'},
+          };
+          const b=bands[format]||bands.apda;
+          const verdict = avgWpm<b.low ? 'under pace' : avgWpm>b.high ? 'over pace' : 'in pocket';
+          const color = verdict==='in pocket' ? '#22c55e' : '#f59e0b';
+          return el('div',{style:{padding:'14px 18px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,marginBottom:20}},
+            el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10,flexWrap:'wrap',gap:8}},
+              el('div',{style:{fontSize:'.62rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.12em',color:'var(--c-muted)'}},'Your speaking pace'),
+              el('div',{style:{fontSize:'.7rem',color:'var(--c-text3)'}},b.label,' · target ',b.ideal,' wpm'),
+            ),
+            el('div',{style:{display:'flex',alignItems:'baseline',gap:10,marginBottom:8}},
+              el('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'var(--c-bright)',fontVariantNumeric:'tabular-nums'}},avgWpm),
+              el('div',{style:{fontSize:'.74rem',color:'var(--c-muted)'}},'wpm · '+totalWords+' words over '+Math.round(totalSec)+'s'),
+              el('div',{style:{fontSize:'.68rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',color:color,marginLeft:'auto'}},verdict),
+            ),
+            // Bar: marker for user avg, notches for format low/ideal/high
+            (()=>{
+              const rangeMin=Math.min(b.low-40,avgWpm-20);
+              const rangeMax=Math.max(b.high+40,avgWpm+20);
+              const span=Math.max(1,rangeMax-rangeMin);
+              const pct=(v)=>Math.max(0,Math.min(100,((v-rangeMin)/span)*100));
+              return el('div',{style:{position:'relative',height:6,background:'rgba(255,255,255,.05)',borderRadius:3,marginTop:4}},
+                el('div',{style:{position:'absolute',left:pct(b.low)+'%',width:(pct(b.high)-pct(b.low))+'%',top:0,bottom:0,background:'rgba(34,197,94,.25)',borderRadius:3}}),
+                el('div',{style:{position:'absolute',left:pct(b.ideal)+'%',top:-3,bottom:-3,width:2,background:'#22c55e'}}),
+                el('div',{style:{position:'absolute',left:pct(avgWpm)+'%',top:-5,bottom:-5,width:3,background:color,borderRadius:2}}),
+              );
+            })(),
+          );
+        })(),
+
         el('div',{id:'fb-flow',style:{marginTop:24,textAlign:'center',scrollMarginTop:80}},
           !flowSheet && !flowLoading && el('button',{
             className:'cta-ghost',
