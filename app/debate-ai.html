@@ -2452,6 +2452,23 @@ function App(){
   // today's date-indexed motion; number = user shuffled to that index.
   // Resets on round reset so re-entering setup shows today's again.
   const[motdShuffleIdx,setMotdShuffleIdx]=useState(null);
+  // Starred motions — user-pinned quick-picks. Any motion (MotD, recent
+  // round, or typed) can be starred; starred list renders as a chip row
+  // on setup so a user mid-drill can rotate through their shortlist.
+  const[starredMotions,setStarredMotions]=useState(()=>{
+    try{const raw=localStorage.getItem('debateos-starred-motions');const arr=raw?JSON.parse(raw):[];return Array.isArray(arr)?arr:[];}catch{return [];}
+  });
+  const persistStarred=(next)=>{
+    setStarredMotions(next);
+    try{localStorage.setItem('debateos-starred-motions',JSON.stringify(next));}catch{}
+  };
+  const toggleStar=(text)=>{
+    if(!text||!text.trim()) return;
+    const t=text.trim();
+    const exists=starredMotions.some(m=>m===t);
+    persistStarred(exists ? starredMotions.filter(m=>m!==t) : [t,...starredMotions].slice(0,12));
+  };
+  const isStarred=(text)=>!!(text&&starredMotions.some(m=>m===text.trim()));
   const[customParadigm,setCustomParadigm]=useState(()=>{
     try{return localStorage.getItem('debateos-judge-paradigm-custom')||'';}catch{return '';}
   });
@@ -3647,9 +3664,35 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
               title:'Preview a different motion',
               style:{padding:'8px 12px',background:'transparent',border:'1px solid rgba(239,68,68,.35)',borderRadius:8,color:'#fca5a5',fontSize:'.7rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'},
             },'🎲 Shuffle'),
+            el('button',{
+              onClick:()=>toggleStar(m.text),
+              title:isStarred(m.text)?'Remove from starred':'Save to starred',
+              style:{padding:'8px 12px',background:isStarred(m.text)?'rgba(245,158,11,.18)':'transparent',border:'1px solid '+(isStarred(m.text)?'rgba(245,158,11,.5)':'rgba(239,68,68,.35)'),borderRadius:8,color:isStarred(m.text)?'#fbbf24':'#fca5a5',fontSize:'.82rem',cursor:'pointer',fontFamily:'inherit',lineHeight:1},
+              'aria-label':isStarred(m.text)?'Unstar motion':'Star motion',
+            },isStarred(m.text)?'★':'☆'),
           ),
         );
       })(),
+      // Starred motions — chip row under the MotD card. Only renders when
+      // the user has at least one pinned motion. Click fills the motion;
+      // × unstars without touching the active motion.
+      starredMotions.length>0 && el('div',{style:{marginTop:12,padding:'10px 12px',background:'rgba(245,158,11,.04)',border:'1px solid rgba(245,158,11,.16)',borderRadius:10,textAlign:'left'}},
+        el('div',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#fbbf24',marginBottom:8}},'★ Starred motions'),
+        el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+          starredMotions.map((t,i)=>el('div',{key:i,style:{display:'inline-flex',alignItems:'stretch',background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.26)',borderRadius:999,overflow:'hidden'}},
+            el('button',{
+              onClick:()=>setMotion(t),
+              title:t,
+              style:{padding:'5px 10px 5px 12px',background:'transparent',border:'none',color:'var(--c-text)',fontSize:'.72rem',cursor:'pointer',fontFamily:'inherit',fontWeight:500,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},
+            },t),
+            el('button',{
+              onClick:()=>toggleStar(t),
+              'aria-label':'Remove '+t.slice(0,40)+' from starred',
+              style:{padding:'5px 10px 5px 4px',background:'transparent',border:'none',borderLeft:'1px solid rgba(245,158,11,.22)',color:'#fbbf24',fontSize:'.72rem',cursor:'pointer',fontFamily:'inherit',opacity:.7,lineHeight:1},
+            },'×'),
+          )),
+        ),
+      ),
       el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
 
       // Recent rounds — return-user hook. Shows the user's last 3 rounds
