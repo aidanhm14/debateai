@@ -3567,9 +3567,33 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     ),
   );
 
+  // Floating help button — persistent affordance that the shortcuts
+  // modal exists at all. Users who don't think to press `?` now have
+  // a clickable target; users who know the shortcut can ignore it.
+  // Hides when the modal is open so it doesn't float over the dialog.
+  const helpFloatingButton = !showShortcuts && el('button',{
+    onClick:()=>setShowShortcuts(true),
+    'aria-label':'Keyboard shortcuts',
+    title:'Keyboard shortcuts (?)',
+    style:{
+      position:'fixed',right:16,bottom:16,zIndex:900,
+      width:36,height:36,borderRadius:'50%',
+      background:'rgba(239,68,68,.14)',border:'1px solid rgba(239,68,68,.35)',
+      color:'#fca5a5',fontSize:'1rem',fontWeight:800,lineHeight:1,
+      cursor:'pointer',fontFamily:'inherit',padding:0,
+      display:'flex',alignItems:'center',justifyContent:'center',
+      backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',
+      boxShadow:'0 6px 20px rgba(0,0,0,.35)',
+      transition:'transform .15s ease, background .15s ease, border-color .15s ease',
+    },
+    onMouseEnter:(e)=>{e.currentTarget.style.transform='scale(1.08)';e.currentTarget.style.background='rgba(239,68,68,.22)';e.currentTarget.style.borderColor='rgba(239,68,68,.55)';},
+    onMouseLeave:(e)=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.background='rgba(239,68,68,.14)';e.currentTarget.style.borderColor='rgba(239,68,68,.35)';},
+  },'?');
+
   // ── SETUP ──
   if(phase==='setup') return el('div',{className:'page'},
     shortcutsOverlay,
+    helpFloatingButton,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
       el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
@@ -4175,6 +4199,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   // ── PREP ──
   if(phase==='prep') return el('div',{className:'page'},
     shortcutsOverlay,
+    helpFloatingButton,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
       el('div',{className:'t-label'},'Prep Time'),
@@ -4225,6 +4250,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   if(phase==='speech'){
     const tc=timer.left<=15?'danger':timer.left<=30?'warn':'';
     return el('div',{className:'page'},
+      shortcutsOverlay,
+      helpFloatingButton,
       el('div',{className:'ambient'}),bar,
       el('div',{className:stageClass,key:'s'+idx},
 
@@ -4427,6 +4454,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     const b=ballot; // structured ballot or null
     const wr=getWinRate();
     return el('div',{className:'page'},
+      shortcutsOverlay,
+      helpFloatingButton,
       el('div',{className:'ambient'}),bar,
       el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:90,maxWidth:700,textAlign:'left'}},
         // Sticky section nav. Long-scroll feedback page had Ballot →
