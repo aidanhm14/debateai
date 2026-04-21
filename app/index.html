@@ -12092,11 +12092,12 @@ function SharedCases({ user, team }) {
     return () => unsub();
   }, [team]);
 
-  const shareCase = async () => {
-    if (!selectedCase || !team || !firebaseDb) return;
+  const shareCase = async (caseIdOverride) => {
+    const id = (typeof caseIdOverride === 'string' && caseIdOverride) ? caseIdOverride : selectedCase;
+    if (!id || !team || !firebaseDb) return;
     setSharing(true);
     try {
-      const c = myCases.find(x => x.id === selectedCase);
+      const c = myCases.find(x => x.id === id);
       if (!c) throw new Error('Case not found');
       await firebaseDb.collection('shared_cases').add({
         teamId: team.teamId,
@@ -12141,11 +12142,41 @@ function SharedCases({ user, team }) {
         el('option', {value:''}, t('sharedCases.selectCase','Select a case to share...')),
         myCases.map(c => el('option', {key:c.id, value:c.id}, (c.motion||'Untitled').substring(0,60) + ' (' + (c.side||'?') + ')')),
       ),
-      el('button', {onClick:shareCase, disabled:sharing||!selectedCase, style:{padding:'8px 16px',background:'#3b82f620',border:'1px solid #3b82f640',borderRadius:8,color:'#60a5fa',fontWeight:600,cursor:'pointer',fontSize:'.82rem'}}, sharing?t('sharedCases.sharing','Sharing...'):t('sharedCases.shareWithTeam','Share with Team')),
+      el('button', {onClick:()=>shareCase(), disabled:sharing||!selectedCase, style:{padding:'8px 16px',background:'#3b82f620',border:'1px solid #3b82f640',borderRadius:8,color:'#60a5fa',fontWeight:600,cursor:'pointer',fontSize:'.82rem'}}, sharing?t('sharedCases.sharing','Sharing...'):t('sharedCases.shareWithTeam','Share with Team')),
     ),
     msg && el('div', {style:{marginBottom:16,padding:'10px 16px',borderRadius:8,background:msg.startsWith('Error')?'#ef444420':'#22c55e20',color:msg.startsWith('Error')?'#f87171':'#4ade80',fontSize:'.85rem'}}, msg),
     loading ? el('div',{style:{textAlign:'center',color:'#64748b',padding:20}},t('sharedCases.loadingShared','Loading shared cases...')) :
-    sharedCases.length === 0 ? el('div',{style:{textAlign:'center',color:'#64748b',padding:40,background:'#ffffff04',borderRadius:12}},t('sharedCases.noSharedYet','No shared cases yet. Share your first case above!')) :
+    sharedCases.length === 0 ? (
+      myCases.length > 0
+        ? el('div', {style:{padding:'20px 18px',background:'#ffffff04',border:'1px solid #ffffff08',borderRadius:12}},
+            el('div', {style:{color:'#94a3b8',fontSize:'.85rem',marginBottom:14,textAlign:'center'}},
+              t('sharedCases.tapToShare','No shared cases yet — tap one of your saved cases to share it with your team:')),
+            el('div', {style:{display:'flex',gap:12,overflowX:'auto',paddingBottom:6,scrollbarWidth:'thin'}},
+              myCases.map(c => el('button', {
+                key:c.id,
+                onClick:()=>shareCase(c.id),
+                disabled:sharing,
+                style:{
+                  minWidth:220,maxWidth:260,flexShrink:0,textAlign:'left',
+                  padding:'14px 16px',background:'#ffffff06',border:'1px solid #ffffff12',borderRadius:10,
+                  color:'#e4e8f0',cursor:sharing?'not-allowed':'pointer',
+                  fontFamily:'inherit',transition:'border-color .15s,background .15s,transform .1s',
+                  display:'flex',flexDirection:'column',gap:8,
+                },
+                onMouseEnter:e=>{ if(!sharing){e.currentTarget.style.borderColor='#3b82f680';e.currentTarget.style.background='#ffffff0a';} },
+                onMouseLeave:e=>{ e.currentTarget.style.borderColor='#ffffff12';e.currentTarget.style.background='#ffffff06'; },
+              },
+                el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}},
+                  el('div', {style:{fontWeight:700,fontSize:'.88rem',lineHeight:1.3,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}, c.motion || 'Untitled'),
+                  c.side && el('span', {style:{flexShrink:0,fontSize:'.62rem',padding:'2px 7px',borderRadius:4,background:c.side.toLowerCase()==='gov'?'#22c55e20':'#ef444420',color:c.side.toLowerCase()==='gov'?'#4ade80':'#f87171',fontWeight:700,letterSpacing:'.05em',textTransform:'uppercase'}}, c.side),
+                ),
+                el('div', {style:{fontSize:'.7rem',color:'#60a5fa',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase'}}, sharing?'Sharing…':'Share →'),
+              )),
+            ),
+          )
+        : el('div',{style:{textAlign:'center',color:'#64748b',padding:40,background:'#ffffff04',borderRadius:12}},
+            t('sharedCases.noSharedYet','No shared cases yet. Share your first case above!'))
+    ) :
     sharedCases.map(c => el('div', {key:c.id, style:{padding:16,background:'#ffffff04',border:'1px solid #ffffff08',borderRadius:10,marginBottom:8}},
       el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}},
         el('div', null,
