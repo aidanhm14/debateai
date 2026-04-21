@@ -1,4 +1,7 @@
-// Text-to-Speech proxy — Cartesia Sonic for premium, OpenAI tts-1 for free + fallback
+// Text-to-Speech proxy
+// - Premium (default): ElevenLabs turbo_v2_5 streaming — expressive, voice-matched to debater personalities
+// - Premium + opt-in Cartesia: pass body.provider === 'cartesia' to A/B-test Sonic (faster, cheaper, flatter)
+// - Free + fallback: OpenAI tts-1
 import { checkAppCheck } from './lib/appcheck.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -45,8 +48,22 @@ function checkRateLimit(key) {
 
 const MAX_TEXT_LENGTH = 5000;
 
-// Cartesia Sonic voice IDs — map each debater personality to a library voice.
-// Swap IDs via play.cartesia.ai if you want to fine-tune any personality.
+// ElevenLabs voice ID mapping — all American accent, matched per-personality
+const ELEVENLABS_VOICES = {
+  professor:   'pNInz6obpgDQGcFmaJgB',  // Adam — dominant, firm, American male
+  closer:      'EXAVITQu4vr4xnSDxMaL',  // Sarah — mature, confident, American female
+  surgeon:     'cjVigY5qzO86Huf0OWal',   // Eric — smooth, trustworthy, American male
+  veteran:     'nPczCjzI2devNBz1zQrb',   // Brian — deep, resonant, American male
+  firebrand:   'TX3LPaxmHKxFdv7VOQHJ',  // Liam — energetic, young, American male
+  diplomat:    'XrExE9yKIg1WjnnlVkGX',   // Matilda — professional, American female
+  debater:     'jsCqWAovK2LkecY7zXl4',   // Freya — quick, sharp, American female
+  philosopher: 'IKne3meq5aSn9XLyUdCD',   // Charlie — thoughtful, calm, American male
+  prosecutor:  'bIHbv24MWmeRgasZH58o',   // Will — intense, direct, American male
+  storyteller: 'FGY2WhTYpPnrIDTdsKH5',   // Laura — warm, narrative, American female
+};
+
+// Cartesia Sonic voice IDs — placeholder mapping for the opt-in A/B flag.
+// Pick real IDs from play.cartesia.ai/voices before relying on this provider.
 const CARTESIA_VOICES = {
   professor:   'a0e99841-438c-4a64-b679-ae501e7d6091',
   closer:      'b7d50908-b17c-442d-ad8d-810c63997ed9',
@@ -60,6 +77,7 @@ const CARTESIA_VOICES = {
   storyteller: '248be419-c632-4f23-adf1-5324ed7dbf1d',
 };
 
+// Map OpenAI voice keys to personality keys
 const OPENAI_TO_PERSONALITY = {
   onyx: 'professor',
   echo: 'closer',
@@ -73,7 +91,41 @@ const OPENAI_TO_PERSONALITY = {
   ballad: 'storyteller',
 };
 
-// Cartesia Sonic — /tts/bytes endpoint, ~90ms TTFB
+// ElevenLabs TTS with streaming for faster first-byte
+// intensity: 0 = calm deliberate delivery, 1 = breathless sprint (tournament speed)
+async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0) {
+  const personality = OPENAI_TO_PERSONALITY[voice] || voice;
+  const voiceId = ELEVENLABS_VOICES[personality] || ELEVENLABS_VOICES.professor;
+
+  // At high intensity: lower stability → more variation/breathlessness, higher style → more expressive
+  const stability = Math.max(0.15, Math.min(0.8, 0.7 - intensity * 0.55));
+  const style = Math.min(1.0, 0.3 + intensity * 0.5);
+  const similarityBoost = Math.max(0.55, 0.75 - intensity * 0.2);
+
+  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey,
+      'Content-Type': 'application/json',
+      'Accept': 'audio/mpeg',
+    },
+    body: JSON.stringify({
+      text: text,
+      model_id: 'eleven_turbo_v2_5',
+      voice_settings: {
+        stability,
+        similarity_boost: similarityBoost,
+        style,
+        use_speaker_boost: true,
+      },
+      optimize_streaming_latency: 3,
+    }),
+  });
+
+  return response;
+}
+
+// Cartesia Sonic — opt-in via body.provider === 'cartesia'
 async function cartesiaTTS(text, voice, speed, apiKey, intensity = 0) {
   const personality = OPENAI_TO_PERSONALITY[voice] || voice;
   const voiceId = CARTESIA_VOICES[personality] || CARTESIA_VOICES.professor;
@@ -143,10 +195,11 @@ export default async (request, context) => {
     });
   }
 
+  const elevenKey = process.env.ELEVENLABS_API_KEY;
   const cartesiaKey = process.env.CARTESIA_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
-  if (!cartesiaKey && !openaiKey) {
+  if (!elevenKey && !cartesiaKey && !openaiKey) {
     return new Response(
       JSON.stringify({ error: 'TTS not configured.' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } }
@@ -176,6 +229,7 @@ export default async (request, context) => {
     const speed = Math.max(0.75, Math.min(2.0, body.speed || 1.0));
     const intensity = Math.max(0, Math.min(1, body.intensity || 0));
     const premium = !!body.premium;
+    const provider = (body.provider || '').toLowerCase(); // 'cartesia' opts into the A/B flag
 
     if (!text.trim()) {
       return new Response(
@@ -186,7 +240,8 @@ export default async (request, context) => {
 
     let response;
 
-    if (premium && cartesiaKey) {
+    // Premium + explicit opt-in → Cartesia Sonic (A/B flag, not default)
+    if (premium && provider === 'cartesia' && cartesiaKey) {
       try {
         response = await cartesiaTTS(text, voice, speed, cartesiaKey, intensity);
         if (!response.ok) {
@@ -200,6 +255,22 @@ export default async (request, context) => {
       }
     }
 
+    // Premium default → ElevenLabs turbo_v2_5
+    if (!response && premium && elevenKey) {
+      try {
+        response = await elevenLabsTTS(text, voice, speed, elevenKey, intensity);
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          console.error('ElevenLabs TTS error:', response.status, errText);
+          response = null;
+        }
+      } catch (e) {
+        console.error('ElevenLabs exception:', e.message);
+        response = null;
+      }
+    }
+
+    // Free users + fallback when premium providers fail
     if (!response && openaiKey) {
       response = await openAITTS(text, voice, speed, openaiKey);
       if (!response.ok) {
