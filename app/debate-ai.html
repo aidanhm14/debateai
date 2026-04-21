@@ -2481,6 +2481,16 @@ function App(){
   const[aiPct,setAiPct]=useState(0);       // generation progress %
   const[voiceEta]=useState(0); // TTS timing display
   const[showTx,setShowTx]=useState(false);
+  // Audio progress tick — polled at 200ms while TTS is speaking so the
+  // scrub bar under the pause button updates in real time. Reading
+  // progressRef directly in render would be read-on-render and not
+  // cause re-renders; this state triggers them.
+  const[audioTick,setAudioTick]=useState(0);
+  React.useEffect(()=>{
+    if(!tts.speaking) return;
+    const id=setInterval(()=>setAudioTick(t=>t+1),200);
+    return ()=>clearInterval(id);
+  },[tts.speaking]);
   const[prepHint,setPrepHint]=useState('');
   const[prepHintLoading,setPrepHintLoading]=useState(false);
   const[notesSaved,setNotesSaved]=useState(false);
@@ -3956,6 +3966,32 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
             el('span',{'aria-hidden':true,style:{fontSize:'.9rem',lineHeight:1}},tts.paused?'▶':'❚❚'),
             el('span',null,tts.paused?'Resume':'Pause'),
           ),
+          // Audio progress bar — read-only for now. Chunked playback
+          // means 'scrubbing' would require stitching across N Audio
+          // elements which is out of scope. Seeing the elapsed / total
+          // still gives users feedback on where they are in the speech.
+          !isUser && tts.speaking && (()=>{
+            const p = tts.getAudioTime ? tts.getAudioTime() : {currentTime:0,duration:0};
+            const cur = p.currentTime || 0;
+            const tot = p.duration || 0;
+            const pct = tot > 0 ? Math.max(0, Math.min(100, (cur/tot)*100)) : 0;
+            const fmt = s => {
+              if(!isFinite(s) || s < 0) s = 0;
+              const m = Math.floor(s/60), sec = Math.floor(s%60);
+              return m + ':' + (sec<10?'0':'') + sec;
+            };
+            // Suppress audioTick reference so React lint sees the dep.
+            const _=audioTick;
+            return el('div',{style:{width:'100%',maxWidth:260,margin:'0 auto'}},
+              el('div',{style:{height:3,borderRadius:2,background:'var(--c-surface3)',overflow:'hidden',position:'relative'}},
+                el('div',{style:{height:'100%',width:pct+'%',background:'linear-gradient(90deg,#ef4444,#f87171)',transition:'width .2s linear'}}),
+              ),
+              tot > 0 && el('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'.62rem',color:'var(--c-muted)',marginTop:4,fontVariantNumeric:'tabular-nums',letterSpacing:'.04em'}},
+                el('span',null,fmt(cur)),
+                el('span',null,fmt(tot)),
+              ),
+            );
+          })(),
         ),
 
         // Per-speech transcript removed — it overlaid the orb during audio
