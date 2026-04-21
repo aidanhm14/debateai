@@ -2433,6 +2433,42 @@ function App(){
       else localStorage.removeItem('debateos-judge-paradigm-custom');
     }catch{}
   };
+  // Judge pool. Circuit debaters face the same judges multiple times
+  // across a tournament season. Save N named paradigms, one click to
+  // load for a round, no re-pasting.
+  const[judgePool,setJudgePool]=useState(()=>{
+    try{
+      const raw=localStorage.getItem('debateos-judge-pool');
+      if(!raw) return [];
+      const arr=JSON.parse(raw);
+      return Array.isArray(arr)?arr:[];
+    }catch{return []}
+  });
+  const persistJudgePool=(next)=>{
+    setJudgePool(next);
+    try{localStorage.setItem('debateos-judge-pool',JSON.stringify(next));}catch{}
+  };
+  const saveJudgeToPool=()=>{
+    const text=customParadigm.trim();
+    if(!text) return;
+    const name=(window.prompt('Name this judge (e.g. "Chen — Harvard", "Rodriguez — lay parent"):')||'').trim();
+    if(!name) return;
+    const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const existing=judgePool.findIndex(j=>j.name.toLowerCase()===name.toLowerCase());
+    const next=existing>=0
+      ? judgePool.map((j,i)=>i===existing?{...j,paradigm:text}:j)
+      : [...judgePool,{id,name,paradigm:text}];
+    persistJudgePool(next);
+  };
+  const loadJudgeFromPool=(id)=>{
+    const j=judgePool.find(x=>x.id===id);
+    if(!j) return;
+    saveCustomParadigm(j.paradigm);
+    setShowCustomParadigm(true);
+  };
+  const deleteJudgeFromPool=(id)=>{
+    persistJudgePool(judgePool.filter(j=>j.id!==id));
+  };
   const[wpm,setWpm]=useState(180);
   const[liveRate,setLiveRate]=useState(1.0);
   const[idx,setIdx]=useState(0);
@@ -3436,10 +3472,35 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           JUDGE_PARADIGMS[judgeParadigm]?.label||judgeParadigm,
           '" preset'
         ),
-        customParadigm.trim() && el('button',{
-          onClick:()=>{saveCustomParadigm('');setShowCustomParadigm(false);},
-          style:{marginTop:6,padding:'4px 10px',background:'transparent',border:'1px solid var(--c-border2)',borderRadius:6,color:'var(--c-muted)',fontSize:'.64rem',cursor:'pointer',fontFamily:'inherit',letterSpacing:'.06em',textTransform:'uppercase'},
-        },'Clear custom paradigm'),
+        el('div',{style:{marginTop:10,display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}},
+          customParadigm.trim() && el('button',{
+            onClick:saveJudgeToPool,
+            style:{padding:'5px 12px',background:'rgba(34,197,94,.1)',border:'1px solid rgba(34,197,94,.35)',borderRadius:6,color:'#4ade80',fontSize:'.64rem',cursor:'pointer',fontFamily:'inherit',letterSpacing:'.06em',textTransform:'uppercase',fontWeight:700},
+          },'+ Save to Judge Pool'),
+          customParadigm.trim() && el('button',{
+            onClick:()=>{saveCustomParadigm('');setShowCustomParadigm(false);},
+            style:{padding:'5px 12px',background:'transparent',border:'1px solid var(--c-border2)',borderRadius:6,color:'var(--c-muted)',fontSize:'.64rem',cursor:'pointer',fontFamily:'inherit',letterSpacing:'.06em',textTransform:'uppercase'},
+          },'Clear custom paradigm'),
+        ),
+        // Saved judge pool. One click to load a prepped paradigm.
+        judgePool.length>0 && el('div',{style:{marginTop:14,paddingTop:12,borderTop:'1px dashed var(--c-border2)'}},
+          el('div',{style:{fontSize:'.6rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-muted)',marginBottom:8,textAlign:'center'}},'My Judge Pool'),
+          el('div',{style:{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center'}},
+            judgePool.map(j=>el('div',{key:j.id,style:{display:'inline-flex',alignItems:'center',gap:0,background:'rgba(255,255,255,.04)',border:'1px solid var(--c-border2)',borderRadius:999,overflow:'hidden'}},
+              el('button',{
+                onClick:()=>loadJudgeFromPool(j.id),
+                title:j.paradigm.slice(0,200)+(j.paradigm.length>200?'…':''),
+                style:{padding:'6px 10px 6px 12px',background:'transparent',border:'none',color:'var(--c-text)',fontSize:'.7rem',cursor:'pointer',fontFamily:'inherit',fontWeight:600,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},
+              },j.name),
+              el('button',{
+                onClick:()=>{if(window.confirm('Remove "'+j.name+'" from your judge pool?'))deleteJudgeFromPool(j.id);},
+                'aria-label':'Remove '+j.name,
+                title:'Remove',
+                style:{padding:'6px 10px 6px 4px',background:'transparent',border:'none',borderLeft:'1px solid var(--c-border2)',color:'var(--c-muted)',fontSize:'.7rem',cursor:'pointer',fontFamily:'inherit',opacity:.6,lineHeight:1},
+              },'×'),
+            )),
+          ),
+        ),
       ),
 
       // Side
