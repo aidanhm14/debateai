@@ -402,8 +402,32 @@ button{font-family:inherit;cursor:pointer}
   margin-left:2px;vertical-align:-.12em;animation:heroTryMeCaret 1s step-end infinite;
 }
 @keyframes heroTryMeCaret{50%{opacity:0}}
-#heroTryMeBtn{cursor:pointer;font-family:inherit;border:none}
-#heroTryMeBtn:disabled{opacity:.55;cursor:default}
+/* Small, top-right "Try me" chip pinned to the orb wrap.
+   Was a full-width primary CTA before — users thought that was the main button.
+   Now it reads as a discovery affordance on the orb itself, like a voice-memo
+   play control. Click to hear the AI speak a line. */
+.hero-tryme-btn{
+  position:absolute;top:6px;right:6px;z-index:5;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 11px 7px 9px;
+  background:rgba(239,68,68,.92);color:#fff;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:999px;
+  font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  font-family:inherit;cursor:pointer;
+  box-shadow:0 6px 18px rgba(239,68,68,.28),0 0 0 1px rgba(239,68,68,.35);
+  transition:transform .15s ease,box-shadow .2s ease,opacity .2s ease;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.hero-tryme-btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(239,68,68,.4),0 0 0 1px #ef4444}
+.hero-tryme-btn:active{transform:translateY(0)}
+.hero-tryme-btn:disabled{opacity:.5;cursor:default;transform:none}
+.hero-tryme-btn-icon{font-size:.66rem;line-height:1;transform:translateY(.5px)}
+.hero-tryme-btn.playing .hero-tryme-btn-icon{animation:heroTryMeBtnPulse 1s ease-in-out infinite}
+@keyframes heroTryMeBtnPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media(max-width:640px){
+  .hero-tryme-btn{top:4px;right:4px;padding:6px 10px 6px 8px;font-size:.62rem}
+}
 /* On narrow screens, let the bubble breathe by pushing the canvas behind it */
 @media(max-width:640px){
   .hero-tryme-line{font-size:.82rem;padding:12px 14px;width:min(86%,260px)}
@@ -1256,12 +1280,15 @@ button{font-family:inherit;cursor:pointer}
           <div class="hero-orb-glow"></div>
           <div class="hero-orb-ring"></div>
           <canvas id="heroOrb" aria-hidden="true"></canvas>
+          <button type="button" id="heroTryMeBtn" class="hero-tryme-btn" aria-label="Play a sample debate line">
+            <span class="hero-tryme-btn-icon" aria-hidden="true">▶</span>
+            <span class="hero-tryme-btn-label">Try me</span>
+          </button>
           <div id="heroTryMeLine" class="hero-tryme-line" aria-live="polite"></div>
         </div>
         <div class="hero-orb-caption" id="heroOrbCaption">Thinks. Challenges. Judges you like a real opponent.</div>
         <div class="hero-left-ctas">
-          <button type="button" id="heroTryMeBtn" class="hero-cta hero-cta-primary">Try me →</button>
-          <a href="/debate-ai" class="hero-cta hero-cta-secondary">Full round</a>
+          <a href="/debate-ai" class="hero-cta hero-cta-primary">Full round →</a>
           <a href="/app#case" class="hero-cta hero-cta-secondary">Debate prep</a>
         </div>
       </div>
@@ -2681,72 +2708,160 @@ window.addEventListener('load', function(){
     }).catch(function(err){ if (err && err.code !== 'auth/no-auth-event') console.warn('[landing] redirect result err:', err.message); });
   } catch(e){}
 
-  // Try-me button — streams a debate-relevant line into the orb bubble,
-  // synced with the "speaking" glow + pulse so it reads as one moving thing.
-  // Picks a fresh line each click, cycles through a curated bank. No network
-  // call — the goal is instant, intuitive feedback on what sparring feels like.
+  // Try-me button — plays REAL TTS audio for a PM-opener-framing line and
+  // synchronizes an on-orb typewriter bubble + the orb's speaking pulse.
+  // Uses /api/tts (ElevenLabs + OpenAI fallback) — same endpoint the mini
+  // chat uses. Caches blobs per-line so repeated clicks don't re-hit the API.
+  // Autoplay policy: the click itself is the user gesture, so audio.play()
+  // is allowed. If TTS fails, falls back to a silent typewriter so the
+  // user still sees the line move.
   (function(){
     var tryBtn = document.getElementById('heroTryMeBtn');
     var line = document.getElementById('heroTryMeLine');
     var orb = document.getElementById('heroOrbWrap');
     var caption = document.getElementById('heroOrbCaption');
     if (!tryBtn || !line || !orb) return;
-    // Short, real-debate-voiced openings a human opponent might actually say.
-    // Mixed formats so the demo doesn't feel format-locked — LD framework,
-    // parli rebuttal, PF evidence register, casual pushback.
+    var btnLabel = tryBtn.querySelector('.hero-tryme-btn-label');
+    var btnIcon = tryBtn.querySelector('.hero-tryme-btn-icon');
+    // PM-opener framing lines — what a real first-speaker says to set up
+    // the most important impact in the round before diving into arguments.
     var LINES = [
-      "Framework first. Whichever side reduces net harm to the worst-off people wins the round. You don't.",
-      "Here's the thing about your jobs argument — it collapses the second you look at Dayton in 2008.",
-      "Their own evidence, a 2023 Brookings piece, says enforcement spikes the informal market 30 percent. That's the link turn.",
-      "I'll concede your first claim. Doesn't matter — the second one is where the round lives, and you don't have a warrant.",
-      "You keep saying 'stakeholders.' Name one. Tell me who actually loses in the world your plan builds.",
-      "That's not an impact. That's a vibe. Give me a mechanism or I'm not voting on it.",
-      "Dropped argument. Cross-apply my second contention — you never touched the causal chain.",
-      "You want autonomy as a terminal value. Fine. Then explain why Linda in Queens loses her job under your plan."
+      "First — for some framing. We believe the most important impact in this round is institutional trust, because every policy you run after this depends on whether citizens still believe the state can keep its word.",
+      "First, for some framing, we believe the most important impact here is the downstream harm on people who can't absorb it. Wealthy communities survive bad policy. Linda in Dayton doesn't.",
+      "First, for some framing — the decisive impact in this round is opportunity cost. Every time the state says yes to this, it says no to the next policy on the list, and we should ask who pays for that trade.",
+      "First, for some framing, the most important impact in this round is the precedent it sets. One policy is a choice. A repeated pattern becomes the rule the next generation lives under.",
+      "First — for some framing. The impact we care about most is whose voice enters the room when the decision is made, because procedural harm compounds long after any single outcome is reversed."
     ];
     var lastIdx = -1;
     var playing = false;
+    var audioCache = {};
     function pickLine(){
       if (LINES.length < 2) return LINES[0] || '';
       var i; do { i = Math.floor(Math.random() * LINES.length); } while (i === lastIdx);
       lastIdx = i; return LINES[i];
     }
     function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+    async function fetchAudio(text){
+      if (audioCache[text]) return audioCache[text];
+      var r = await fetch('/api/tts', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ text: text, voice: 'onyx' })
+      });
+      if (!r.ok) throw new Error('TTS ' + r.status);
+      var blob = await r.blob();
+      var url = URL.createObjectURL(blob);
+      audioCache[text] = url;
+      return url;
+    }
+    // Drive a per-character reveal across a total duration. If audio is
+    // available, we aim for audio.duration so the caret lands on the period
+    // at about the moment TTS finishes speaking. Feels like one motion.
+    async function typewrite(text, totalMs){
+      var n = text.length;
+      if (n === 0) return;
+      // Weight punctuation pauses so the flow reads like speech, not a printer.
+      var weights = new Array(n);
+      var sum = 0;
+      for (var i = 0; i < n; i++) {
+        var ch = text.charAt(i);
+        var w = 1;
+        if (ch === ' ') w = 0.6;
+        else if (ch === ',') w = 3.2;
+        else if (ch === '—' || ch === '-') w = 2.6;
+        else if (ch === '.' || ch === '?' || ch === '!') w = 5.5;
+        weights[i] = w;
+        sum += w;
+      }
+      var scale = totalMs / sum;
+      for (var j = 0; j < n; j++) {
+        line.innerHTML = text.slice(0, j + 1) + '<span class="hero-tryme-caret"></span>';
+        await sleep(Math.max(8, weights[j] * scale));
+      }
+    }
     async function playOnce(){
       if (playing) return;
       playing = true;
       tryBtn.disabled = true;
-      var original = tryBtn.textContent;
-      tryBtn.textContent = 'Listening…';
+      tryBtn.classList.add('playing');
+      if (btnLabel) btnLabel.textContent = 'Loading';
+      if (btnIcon) btnIcon.textContent = '●';
       try { window.dosTrack && window.dosTrack('try_me_click',{source:'landing_hero'}) } catch(e){}
+
+      var text = pickLine();
+      var audio = null;
+      var durationMs = 0;
+
+      // Try to get TTS audio first. Audio duration drives the typewriter pace.
+      try {
+        var url = await fetchAudio(text);
+        audio = new Audio(url);
+        audio.preload = 'auto';
+        // Wait briefly for metadata so we know the true duration.
+        await new Promise(function(resolve){
+          var done = false;
+          function finish(){ if (done) return; done = true; resolve(); }
+          audio.addEventListener('loadedmetadata', finish, { once:true });
+          audio.addEventListener('canplay', finish, { once:true });
+          audio.addEventListener('error', finish, { once:true });
+          setTimeout(finish, 1800);
+        });
+        if (isFinite(audio.duration) && audio.duration > 0) {
+          durationMs = audio.duration * 1000;
+        }
+      } catch(e) {
+        console.warn('[try-me] TTS fetch failed, falling back to silent typewriter:', e && e.message);
+        audio = null;
+      }
+      // Fallback pace if TTS didn't give us a real duration.
+      if (!durationMs) durationMs = Math.max(3200, Math.min(9000, text.length * 48));
+
+      // Light the orb.
       try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
       orb.classList.add('speaking');
       if (caption) caption.style.opacity = '.3';
-      var text = pickLine();
       line.innerHTML = '<span class="hero-tryme-caret"></span>';
-      // Brief beat so the bubble fades in cleanly before characters stream.
-      await sleep(180);
-      // Typewriter — slightly variable speed for natural cadence.
-      for (var i = 0; i < text.length; i++) {
-        var ch = text.charAt(i);
-        line.innerHTML = text.slice(0, i + 1) + '<span class="hero-tryme-caret"></span>';
-        // Commas and periods get a breath; spaces pass fast.
-        var delay = 18 + Math.random() * 14;
-        if (ch === ',') delay = 140;
-        else if (ch === '.' || ch === '?' || ch === '!') delay = 260;
-        else if (ch === ' ') delay = 10;
-        await sleep(delay);
+
+      // Start audio + typewriter in parallel. Small delay so the bubble
+      // fade-in finishes before the first character appears.
+      if (btnLabel) btnLabel.textContent = 'Playing';
+      if (btnIcon) btnIcon.textContent = '♪';
+      var audioPromise = Promise.resolve();
+      if (audio) {
+        try {
+          var p = audio.play();
+          if (p && typeof p.then === 'function') {
+            p.catch(function(err){
+              console.warn('[try-me] audio.play() rejected:', err && err.message);
+            });
+          }
+          audioPromise = new Promise(function(resolve){
+            audio.addEventListener('ended', resolve, { once:true });
+            audio.addEventListener('error', resolve, { once:true });
+            // Safety timeout so we never hang the UI.
+            setTimeout(resolve, durationMs + 2500);
+          });
+        } catch(e){ /* audio failed; typewriter still runs */ }
       }
-      // Hold the finished line so the reader can land on it.
-      await sleep(1400);
-      // Fade the orb back to idle; bubble fades out with it.
+      await sleep(160);
+      // Typewriter runs in parallel with audio. Reserve ~400ms tail so the
+      // reader lands on the final punctuation before audio ends.
+      var typeMs = Math.max(2200, durationMs - 400);
+      await Promise.all([ typewrite(text, typeMs), audioPromise ]);
+
+      // Hold for a beat so the reader can sit with the finished line.
+      await sleep(900);
+
+      // Fade orb back to idle.
       orb.classList.remove('speaking');
       try { window.__heroOrbMode && window.__heroOrbMode('idle'); } catch(e){}
       if (caption) caption.style.opacity = '';
       await sleep(320);
       line.innerHTML = '';
+      tryBtn.classList.remove('playing');
+      if (btnLabel) btnLabel.textContent = 'Try me';
+      if (btnIcon) btnIcon.textContent = '▶';
       tryBtn.disabled = false;
-      tryBtn.textContent = original;
       playing = false;
     }
     tryBtn.addEventListener('click', playOnce);
