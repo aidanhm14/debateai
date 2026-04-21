@@ -1279,10 +1279,27 @@ button{font-family:inherit;cursor:pointer}
         <!-- Motion of the Day. Deterministic per calendar day so daily
              visitors see the same motion, 'Use it →' one-click fills the
              topic input. Rotates through a hand-curated list below. -->
-        <div id="miniChatMotd" style="display:none;padding:10px 12px;margin-bottom:14px;background:rgba(239,68,68,.06);border:1px dashed rgba(239,68,68,.3);border-radius:10px;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-size:.55rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ef4444;white-space:nowrap">🗓 Motion of the day</span>
-          <span id="miniChatMotdText" style="flex:1;min-width:180px;font-size:.8rem;color:var(--text);line-height:1.4;font-style:italic"></span>
-          <button id="miniChatMotdUse" type="button" style="padding:5px 12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);border-radius:6px;color:#fca5a5;font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;font-family:inherit;white-space:nowrap">Use it →</button>
+        <!-- Motion of the Day card. Upgraded from a plain dashed banner
+             to a proper mini-card with:
+             - today's date (trust signal that rotation is real)
+             - category chip (politics / tech / ethics / policy / culture)
+             - motion + one-line hook explaining why it's contestable
+             - Use it + Shuffle buttons (Shuffle lets you preview any
+               future day's motion without waiting) -->
+        <div id="miniChatMotd" style="display:none;padding:14px 16px;margin-bottom:14px;background:linear-gradient(135deg,rgba(239,68,68,.08) 0%,rgba(239,68,68,.03) 100%);border:1px solid rgba(239,68,68,.28);border-radius:12px;position:relative">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:.55rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ef4444">🗓 Motion of the day</span>
+              <span id="miniChatMotdDate" style="font-size:.62rem;color:var(--text-dim);font-weight:500"></span>
+            </div>
+            <span id="miniChatMotdCat" style="font-size:.55rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:999px;color:#ef4444;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3)"></span>
+          </div>
+          <div id="miniChatMotdText" style="font-size:.92rem;color:var(--text);line-height:1.4;font-weight:600;margin-bottom:6px"></div>
+          <div id="miniChatMotdHook" style="font-size:.72rem;color:var(--text-dim);line-height:1.5;font-style:italic;margin-bottom:12px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="miniChatMotdUse" type="button" style="flex:1;padding:8px 14px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;font-family:inherit;min-width:110px">Use it →</button>
+            <button id="miniChatMotdShuffle" type="button" title="Preview a different motion" style="padding:8px 12px;background:transparent;border:1px solid rgba(239,68,68,.35);border-radius:8px;color:#fca5a5;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;font-family:inherit">🎲 Shuffle</button>
+          </div>
         </div>
         <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em;margin-bottom:8px">TOPIC</div>
         <input id="miniChatTopic" type="text" placeholder="e.g. Ban legacy admissions" style="width:100%;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:.95rem;font-family:inherit;outline:none" />
@@ -1443,45 +1460,74 @@ button{font-family:inherit;cursor:pointer}
       var side = null, topic = '', messages = [], round = 0, MAX_ROUNDS = 3, busy = false;
 
       // Motion of the Day — deterministic daily rotation. 20 hand-curated
-      // motions spanning political philosophy, policy, AI, and culture so
-      // return visitors see something different each day without calling
-      // back to a server.
+      // motions tagged with a category + one-line hook explaining what
+      // makes them genuinely contestable (not just 'debate this topic'
+      // but 'here's the tension the best round turns on').
       var LANDING_MOTIONS = [
-        'This house would ban billionaires.',
-        'This house would make voting compulsory.',
-        'This house supports universal basic income.',
-        'This house would pause AI development.',
-        'This house would abolish the electoral college.',
-        'This house would replace income tax with a wealth tax.',
-        'This house would ban algorithmic pricing.',
-        'This house would impose a global carbon tax.',
-        'This house would grant constitutional rights to future generations.',
-        'This house regrets the invention of the smartphone.',
-        'This house would ban legacy admissions.',
-        'This house would nationalize the pharmaceutical industry.',
-        'This house would abolish the Senate.',
-        'This house would hold social media companies liable for user radicalization.',
-        'This house would ban unpaid internships.',
-        'This house believes the right to privacy is obsolete.',
-        'This house would create a public option for social media.',
-        'This house would abolish intellectual property for medicines.',
-        'This house would ban private education.',
-        'This house believes benevolent dictatorship is preferable to dysfunctional democracy.',
+        { text:'This house would ban billionaires.', cat:'Politics', hook:'Is concentrated wealth a threat to democracy, or the engine that funds the things democracy can\'t?' },
+        { text:'This house would make voting compulsory.', cat:'Politics', hook:'Legitimacy from full participation vs. the signal that low turnout actually sends.' },
+        { text:'This house supports universal basic income.', cat:'Policy', hook:'Dignity and automation-proofing vs. fiscal reality and the labor-incentive question.' },
+        { text:'This house would pause AI development.', cat:'Tech', hook:'Precautionary principle vs. the moratorium that just cedes the lead to less cautious actors.' },
+        { text:'This house would abolish the electoral college.', cat:'Politics', hook:'One-person-one-vote vs. federalism and the incentive to campaign outside swing states.' },
+        { text:'This house would replace income tax with a wealth tax.', cat:'Policy', hook:'Taxing accumulation vs. flight risk and the valuation problem nobody wants to solve.' },
+        { text:'This house would ban algorithmic pricing.', cat:'Tech', hook:'Surveillance pricing vs. price discrimination that actually subsidizes low-income buyers.' },
+        { text:'This house would impose a global carbon tax.', cat:'Policy', hook:'Pigovian fix vs. the coordination failure that sinks every global tax proposal.' },
+        { text:'This house would grant constitutional rights to future generations.', cat:'Ethics', hook:'Intergenerational justice vs. the tyranny of people who can\'t push back on their advocates.' },
+        { text:'This house regrets the invention of the smartphone.', cat:'Culture', hook:'Attention harvest vs. the democratization of information the world had waited for.' },
+        { text:'This house would ban legacy admissions.', cat:'Culture', hook:'Meritocracy vs. the endowment economics elite universities quietly rely on.' },
+        { text:'This house would nationalize the pharmaceutical industry.', cat:'Policy', hook:'Price control vs. the R&D pipeline that private capital actually funds.' },
+        { text:'This house would abolish the Senate.', cat:'Politics', hook:'Majority rule vs. the countermajoritarian brake the founders deliberately built in.' },
+        { text:'This house would hold social media companies liable for user radicalization.', cat:'Tech', hook:'Algorithmic accountability vs. the chilling effect on speech the liability creates.' },
+        { text:'This house would ban unpaid internships.', cat:'Policy', hook:'Class mobility vs. the entry-level rungs of industries that literally cannot afford to pay them.' },
+        { text:'This house believes the right to privacy is obsolete.', cat:'Ethics', hook:'Post-data-exhaust realism vs. the chilling effect an admitted surveillance state produces.' },
+        { text:'This house would create a public option for social media.', cat:'Tech', hook:'Civic infrastructure vs. the first-amendment tangle when the state owns a speech platform.' },
+        { text:'This house would abolish intellectual property for medicines.', cat:'Ethics', hook:'Access vs. the investment pipeline that exists specifically because of enforceable patents.' },
+        { text:'This house would ban private education.', cat:'Culture', hook:'Equality of opportunity vs. the counterfactual where elites opt out of the public system entirely.' },
+        { text:'This house believes benevolent dictatorship is preferable to dysfunctional democracy.', cat:'Politics', hook:'Legitimacy via consent vs. outcomes that actually improve lives — which matters more?' },
       ];
       var motdEl = document.getElementById('miniChatMotd');
       var motdTextEl = document.getElementById('miniChatMotdText');
+      var motdCatEl = document.getElementById('miniChatMotdCat');
+      var motdHookEl = document.getElementById('miniChatMotdHook');
+      var motdDateEl = document.getElementById('miniChatMotdDate');
       var motdUseBtn = document.getElementById('miniChatMotdUse');
+      var motdShuffleBtn = document.getElementById('miniChatMotdShuffle');
       if (motdEl && motdTextEl && motdUseBtn) {
-        var dayIdx = Math.floor(Date.now() / 86400000) % LANDING_MOTIONS.length;
-        var motd = LANDING_MOTIONS[dayIdx];
-        motdTextEl.textContent = '"' + motd + '"';
-        motdEl.style.display = 'flex';
+        var baseIdx = Math.floor(Date.now() / 86400000) % LANDING_MOTIONS.length;
+        var curIdx = baseIdx;
+        var renderMotd = function(){
+          var m = LANDING_MOTIONS[curIdx];
+          motdTextEl.textContent = m.text;
+          if (motdCatEl) motdCatEl.textContent = m.cat;
+          if (motdHookEl) motdHookEl.textContent = m.hook;
+          if (motdDateEl && curIdx === baseIdx) {
+            try {
+              motdDateEl.textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' });
+            } catch(e) { motdDateEl.textContent = ''; }
+          } else if (motdDateEl) {
+            motdDateEl.textContent = 'shuffled';
+          }
+        };
+        renderMotd();
+        motdEl.style.display = 'block';
         motdUseBtn.addEventListener('click', function(){
-          topicEl.value = motd;
+          topicEl.value = LANDING_MOTIONS[curIdx].text;
           topicEl.dispatchEvent(new Event('input', { bubbles: true }));
           motdEl.style.display = 'none';
           topicEl.focus();
         });
+        if (motdShuffleBtn) {
+          motdShuffleBtn.addEventListener('click', function(){
+            // advance to a different motion; guard against landing on
+            // the same index twice in a row so shuffle always changes
+            // something.
+            var next;
+            do { next = Math.floor(Math.random() * LANDING_MOTIONS.length); }
+            while (next === curIdx && LANDING_MOTIONS.length > 1);
+            curIdx = next;
+            renderMotd();
+          });
+        }
       }
 
       sideBtns.forEach(function(btn){
