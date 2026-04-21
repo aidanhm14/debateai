@@ -1552,13 +1552,22 @@ button{font-family:inherit;cursor:pointer}
             var r = await fetch('/api/tts', {
               method:'POST',
               headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ text: text, voice: 'onyx' })
+              // speed=1.15 nudges OpenAI's synth engine faster at the source;
+              // playbackRate below then brings ElevenLabs in line too so the
+              // landing demo reads at tournament-speaker pace, not podcast.
+              body: JSON.stringify({ text: text, voice: 'onyx', speed: 1.15 })
             });
             if (!r.ok) throw new Error('TTS failed');
             var blob = await r.blob();
             audio = new Audio(URL.createObjectURL(blob));
             ttsCache[text] = audio;
           }
+          // Bump playback ~20% above the source rate. Real competitive
+          // debaters speak around 180-220 wpm; default TTS lands around
+          // 150 which reads as "explainer voice" and kills the demo's
+          // "sharp debater" framing. 1.2 lands near 200 wpm without
+          // sounding chipmunk.
+          audio.playbackRate = 1.2;
           audio.onended = function(){ btn.classList.remove('playing'); btn.innerHTML = '\u25B6 Play'; };
           audio.play();
         } catch(e) {
