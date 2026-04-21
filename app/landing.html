@@ -1294,6 +1294,48 @@ button{font-family:inherit;cursor:pointer}
       .mini-chat-tts:hover{color:var(--text);background:rgba(255,255,255,.08)}
       .mini-chat-tts.playing{color:var(--accent);border-color:var(--accent)}
       #miniChatSend:disabled,#miniChatStart:disabled{cursor:not-allowed;opacity:.4}
+
+      /* ── Light-mode overrides ──────────────────────────────────────
+         The mini-chat, its inputs, and the Google sign-up button are
+         all styled with hardcoded dark-surface rgba values. On day mode
+         (white background) those render as dark cards floating on white,
+         and the rgba(255,255,255,.04) input tints become invisible. Map
+         everything onto light surfaces here rather than rewriting the
+         inline styles. */
+      [data-theme="day"] #miniChat{
+        background:rgba(255,255,255,.88)!important;
+        box-shadow:0 20px 60px rgba(0,0,0,.08)!important;
+        border-color:rgba(0,0,0,.08)!important;
+      }
+      [data-theme="day"] #miniChatTopic,
+      [data-theme="day"] .mini-chat-side,
+      [data-theme="day"] #miniChatInput{
+        background:rgba(0,0,0,.04)!important;
+        border-color:rgba(0,0,0,.1)!important;
+      }
+      [data-theme="day"] #miniChatInputWrap{
+        background:rgba(0,0,0,.02)!important;
+        border-top-color:rgba(0,0,0,.08)!important;
+      }
+      [data-theme="day"] .mini-chat-msg.ai .mini-chat-avatar{
+        background:rgba(0,0,0,.04);
+      }
+      [data-theme="day"] .mini-chat-tts{
+        background:rgba(0,0,0,.04);
+      }
+      [data-theme="day"] .mini-chat-tts:hover{
+        background:rgba(0,0,0,.08);
+      }
+      [data-theme="day"] #googleSignupBtn{
+        background:#fff!important;
+        color:#1f1f23!important;
+        border:1px solid rgba(0,0,0,.12)!important;
+        box-shadow:0 6px 24px rgba(0,0,0,.08)!important;
+      }
+      [data-theme="day"] #googleSignupBtn:hover{
+        background:#f5f5f7!important;
+        box-shadow:0 10px 30px rgba(0,0,0,.12)!important;
+      }
     </style>
     <!-- Hero orb animation. see landing.html (root) for detailed comment -->
     <script>
@@ -1377,12 +1419,21 @@ button{font-family:inherit;cursor:pointer}
           ctx.shadowColor = 'rgba(239,68,68,.2)';
           ctx.shadowBlur = 6;
         } else {
-          innerGrad.addColorStop(0, 'rgba(255,255,255,.06)');
-          innerGrad.addColorStop(1, 'rgba(255,255,255,0)');
-          // Low-contrast blob: wavy shape drifts inside the outer ring
-          // without competing with it. .13 + no shadow reads as a ghosted
-          // contour — you perceive motion, not a hard outline.
-          ctx.strokeStyle = 'rgba(255,255,255,.13)';
+          // Theme-aware idle colors. Light mode uses a dark ghosted stroke
+          // on the light background; dark mode uses a white ghosted stroke
+          // on the dark background. Either way: low contrast by design so
+          // the blob reads as drifting inside the outer ring, not a hard
+          // flower outline competing with it.
+          var isLight = document.documentElement.getAttribute('data-theme') === 'day';
+          if (isLight) {
+            innerGrad.addColorStop(0, 'rgba(0,0,0,.04)');
+            innerGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.strokeStyle = 'rgba(0,0,0,.18)';
+          } else {
+            innerGrad.addColorStop(0, 'rgba(255,255,255,.06)');
+            innerGrad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.strokeStyle = 'rgba(255,255,255,.13)';
+          }
           ctx.shadowBlur = 0;
         }
         ctx.fillStyle = innerGrad;
