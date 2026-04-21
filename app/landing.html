@@ -1218,6 +1218,7 @@ button{font-family:inherit;cursor:pointer}
   <a href="#how">How it works</a>
   <a href="#tools">Tools</a>
   <a href="#adults">For Professionals</a>
+  <a href="/schools">For Schools</a>
   <a href="#topics">Current Topics</a>
   <a href="/markets">Markets</a>
   <a href="#pricing">Pricing</a>
@@ -1316,7 +1317,7 @@ button{font-family:inherit;cursor:pointer}
           <button type="button" class="mini-chat-side" data-side="against" style="flex:1;min-width:120px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit">I'm against it</button>
         </div>
         <button id="miniChatStart" type="button" disabled style="width:100%;margin-top:14px;padding:13px 20px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:.88rem;cursor:pointer;font-family:inherit;letter-spacing:.04em;text-transform:uppercase;opacity:.5;transition:opacity .2s,transform .15s">Start debating</button>
-        <div style="margin-top:10px;font-size:.7rem;color:var(--text-dim);text-align:center">5 free requests · Sign in with Google to continue</div>
+        <div id="miniChatFooter" style="margin-top:10px;font-size:.7rem;color:var(--text-dim);text-align:center">5 free requests · Sign in with Google to continue</div>
       </div>
 
       <div id="miniChatBody" style="display:none;padding:14px 18px;max-height:440px;overflow-y:auto"></div>
@@ -2756,11 +2757,19 @@ window.addEventListener('load', function(){
   var btnText = document.getElementById('googleSignupBtnText');
   if (!btn) return;
 
-  // If already signed in, swap the button to "Continue to app"
+  // If already signed in, swap the button to "Continue to app" and drop
+  // the "Sign in with Google to continue" nag from the mini-chat footer.
+  // Showing a sign-in prompt to someone who is already signed in is a
+  // trust-burning moment — they feel invisible to the product.
   auth.onAuthStateChanged(function(user){
+    var footer = document.getElementById('miniChatFooter');
     if (user) {
+      var first = (user.displayName || user.email || '').split(' ')[0].split('@')[0];
       btnText.textContent = 'Continue as ' + (user.displayName || user.email) + ' →';
       btn.onclick = function(){ window.location.href = '/'; };
+      if (footer) footer.textContent = 'Signed in as ' + first + ' · unlimited requests';
+    } else {
+      if (footer) footer.textContent = '5 free requests · Sign in with Google to continue';
     }
   });
 
