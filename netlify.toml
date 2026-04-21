@@ -1,9 +1,26 @@
+# ════════════════════════════════════════════════════════════════════
+# SERVING TRUTH (as of 2026-04-21)
+#
+# The Netlify dashboard has the base/publish directory set to `app/`,
+# so Netlify reads `app/netlify.toml` as the authoritative config and
+# serves files from the `app/` subtree. Verified by diffing prod HTML
+# (`curl https://debateai.com/`) against `app/landing.html` — identical
+# modulo Netlify's auto-injected RUM script.
+#
+# This file (repo-root netlify.toml) is NOT read by Netlify in the
+# current setup. It is kept as a safety mirror of `app/netlify.toml`
+# so if someone flips the base directory back to repo root, routing
+# still works. Any change to routing MUST be made in both files.
+#
+# Prior comments in this file claimed the opposite ("stale /app files,
+# live root files"). That was wrong and led to weeks of edits landing
+# in `app/landing.html` while the author believed they were editing
+# dead root copies. The stale root `landing.html` and `index.html`
+# were deleted in this cleanup.
+# ════════════════════════════════════════════════════════════════════
+
 [build]
-  # publish = "." (repo root) is the bullet-proof setup given the dual layout:
-  # root/index.html now contains the landing HTML directly, so Netlify serves
-  # landing at / whether the dashboard honors netlify.toml or not. The React
-  # app lives at /app/ and Netlify serves that subtree as-is.
-  publish = "."
+  publish = "app"
   functions = "app/netlify/functions"
 
 [build.environment]
@@ -13,44 +30,8 @@
   external_node_modules = ["@google-cloud/firestore", "stripe"]
   node_bundler = "esbuild"
 
-# ════════════════════════════════════════════════════════════════════
-# Routing — repo has dual copies (stale root files + live /app files).
-# publish="app" above makes Netlify serve from app/, ignoring root copies.
-# All redirects below are read from THIS file (repo-root netlify.toml);
-# app/netlify.toml is no longer authoritative but kept in sync for safety.
-# ════════════════════════════════════════════════════════════════════
-
-# Marketing landing at root. React app lives under /app/.
-# With publish=".", root/index.html is served at / directly (it IS the
-# landing page content — copy of app/landing.html).
-#
-# `/` MUST serve the marketing landing, not the React app. Netlify picks
-# an existing file at `/` before falling through to redirects, so when
-# publish dir is `/app/` the default behavior is to serve `/app/index.html`
-# (the React bundle). force=true makes this rewrite win unconditionally.
-[[redirects]]
-  from = "/"
-  to = "/landing.html"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/landing"
-  to = "/landing.html"
-  status = 200
-
-# /app (bare) and /app/anything both serve the React app at /app/index.html
-[[redirects]]
-  from = "/app"
-  to = "/app/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/app/"
-  to = "/app/index.html"
-  status = 200
-
-# Icon 404 patches
+# Icon 404 patches — browsers and PWAs request canonical icon paths
+# that don't physically exist. Serve them from /icons/ via rewrite.
 [[redirects]]
   from = "/favicon.ico"
   to = "/icons/icon-192.png"
@@ -71,62 +52,76 @@
   to = "/icons/icon-512.png"
   status = 200
 
+# Marketing landing at /. React app lives under /app/.
+# `force = true` is load-bearing: without it Netlify serves any shadow
+# file at `/` before falling through, which broke the site when /index.html
+# was the React bundle. With force=true the rewrite wins unconditionally.
+[[redirects]]
+  from = "/"
+  to = "/landing.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/landing"
+  to = "/landing.html"
+  status = 200
+
+[[redirects]]
+  from = "/app"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/app/*"
+  to = "/index.html"
+  status = 200
+
 # Named pages
 [[redirects]]
   from = "/high-school"
   to = "/high-school.html"
   status = 200
 
-# Debaters landing (remains separate from root landing per soul.md).
 [[redirects]]
   from = "/debaters"
   to = "/debaters.html"
   status = 200
 
-# Consolidated professional-overflow page. Replaces the six per-audience
-# pages (lawyers / sales / teams / founders / students / speakers) which
-# were deleted 2026-04-20. Old URLs 301 to /pro so inbound links don't 404.
+# Consolidated /pro page replaces the six per-audience pages (deleted
+# 2026-04-20). Legacy URLs 301 to /pro.
 [[redirects]]
   from = "/pro"
   to = "/pro.html"
   status = 200
-
 [[redirects]]
   from = "/lawyers"
   to = "/pro"
   status = 301
-
 [[redirects]]
   from = "/sales"
   to = "/pro"
   status = 301
-
 [[redirects]]
   from = "/teams"
   to = "/pro"
   status = 301
-
 [[redirects]]
   from = "/founders"
   to = "/pro"
   status = 301
-
 [[redirects]]
   from = "/students"
   to = "/pro"
   status = 301
-
 [[redirects]]
   from = "/speakers"
   to = "/pro"
   status = 301
 
-# debate-ai page only exists at /app/debate-ai.html. Point the redirect at
-# the real file path so both Netlify prod and local `netlify dev` resolve it
-# (netlify dev doesn't do the implicit subtree fallback production does).
 [[redirects]]
   from = "/debate-ai"
-  to = "/app/debate-ai.html"
+  to = "/debate-ai.html"
   status = 200
 
 [[redirects]]
@@ -149,15 +144,30 @@
   to = "/admin.html"
   status = 200
 
-# /me was a stale localStorage-only debates archive superseded by the full
-# Team + Library system. Page deleted 2026-04-20; route 301s to /debate-ai
-# so old bookmarks / tweets land on the sparring page instead of 404.
+[[redirects]]
+  from = "/pricing"
+  to = "/pricing.html"
+  status = 200
+
+# /me deleted 2026-04-20 — stale localStorage archive. 301 to /debate-ai
+# so old bookmarks land on the sparring page instead of 404.
 [[redirects]]
   from = "/me"
   to = "/debate-ai"
   status = 301
 
-# Legacy Stripe webhook alias
+# ──────────────────────────────────────────────────────────────────
+# API routing — DO NOT add /api/* redirects here.
+#
+# Every function uses Netlify Functions v2 and self-declares its
+# route via `export const config = { path: '/api/...' }`. Adding
+# [[redirects]] from /api/* to /.netlify/functions/* with force=true
+# overrides the function's own routing and rewrites to a path that
+# doesn't exist for v2 functions.
+#
+# Legacy alias /api/billing/webhook → /api/stripe-webhook kept because
+# old Stripe configs may still point there.
+# ──────────────────────────────────────────────────────────────────
 [[redirects]]
   from = "/api/billing/webhook"
   to = "/api/stripe-webhook"

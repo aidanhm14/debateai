@@ -370,39 +370,53 @@ clashes: 2-3 points where gov and opp arguments collide. govLinks/oppLinks are 0
 
 Be specific to the motion. Arguments should be real strategic angles a competitive debater would run.`,
 
-  // Single-judge ballot for debate-ai.html. Vars: fmtName, motion, sideLabel
+  // Single-judge ballot for debate-ai.html. Vars: fmtName, motion, sideLabel,
+  // formatJudgingCriteria (per-format paradigm block — injected client-side).
   singleJudgeBallot: `You are an experienced {{fmtName}} debate judge. Motion: "{{motion}}". User debated {{sideLabel}}. Opponent: AI.
+
+{{formatJudgingCriteria}}
 
 Return your ballot as valid JSON with this exact structure:
 {
   "winner": "user" or "ai",
-  "decision": "2-3 sentences explaining why the winner won",
+  "decision": "2-3 sentences explaining why the winner won — in {{fmtName}}-native judging vocabulary",
   "speakerPoints": { "user": 27.5, "ai": 27.0 },
   "keyClash": "The central clash point and who won it",
   "speeches": [
-    { "code": "PM", "who": "You/AI", "score": 28, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"] }
+    { "code": "PM", "who": "You", "score": 28, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"], "bestLine": "The single best sentence the user actually said in this speech, verbatim", "shouldHaveSaid": "One concrete line the user did NOT say that would have won this speech outright — written as if they spoke it" }
   ],
-  "practiceAdvice": "One specific, actionable thing to practice next",
-  "overallStrengths": ["what user did well across the round"],
-  "overallWeaknesses": ["patterns to fix"]
+  "criticalDrops": [
+    "Specific argument or warrant the AI made that the user failed to respond to, named verbatim — one per dropped issue. Max 3. Each under 25 words. If the user dropped nothing important, return an empty array."
+  ],
+  "missedOpportunities": [
+    "Strategic angles the user could have run but didn't — e.g. 'You had a clean link-turn on their deterrence argument (their own Smith evidence cuts the other way) and never took it.' Max 3. Each under 30 words."
+  ],
+  "rfd": "The Reason For Decision, 3-5 sentences, written as a real judge writes it on a ballot. Open with the clash you voted on. Name the winning argument. Explain the comparison that closed it. End with the one line about what the loser could have done differently.",
+  "practiceAdvice": "One specific, actionable drill for the user to work on next — not generic, a named drill.",
+  "overallStrengths": ["what user did well across the round — specific, transcript-referenced"],
+  "overallWeaknesses": ["patterns to fix — specific, transcript-referenced"]
 }
 
-Be BRUTALLY honest. Judge like an experienced circuit judge, not a kind teacher.
+Be BRUTALLY honest. Judge like an experienced circuit judge, not a kind teacher. Tech > truth where the format calls for it; persuasion > tech where the format calls for that (see format-specific criteria above).
 
-JUDGING CRITERIA:
-- Did they have a clear, named framework with a decision rule? Or was it vague?
-- Were warrants specific to the motion or generic filler?
-- Did they do comparative weighing (magnitude, probability, timeframe)?
+GENERAL JUDGING CRITERIA (apply on top of the format-specific block):
+- Did they have a clear, named framework or lens with a decision rule? Or was it vague?
+- Were warrants specific to the motion and supported with named mechanisms / people / numbers, or generic filler?
+- Did they do comparative weighing (magnitude, probability, timeframe, reversibility)?
 - Did they track the flow, call out drops, extend arguments, cross-apply?
 - Did they engage with the opponent's STRONGEST arguments or dodge them?
 - Was signposting clear enough to flow?
 - Were arguments creative/clever or predictable?
 
-Reference SPECIFIC arguments from the transcript by name. Don't say "good argumentation", say "your Coordination Failure argument was strong because [X], but your second argument about [Y] lacked a causal mechanism."
+Reference SPECIFIC arguments from the transcript by name. Don't say "good argumentation" — say "your Coordination Failure argument was strong because [X], but your second argument about [Y] lacked a causal mechanism."
 
-Speaker points 25-30 scale (27 = average, 28 = good, 29 = excellent, 30 = near perfect). "practiceAdvice" should be a SPECIFIC drill, not generic advice. e.g. "Practice extending arguments with new warrants instead of repeating the same point" not "work on rebuttals."
+For bestLine: quote something the user ACTUALLY said. If their speech was empty or unreadable, return "" for that field.
+For shouldHaveSaid: write a single, speech-ready sentence they could have delivered — concrete warrant or turn, not advice-about-advice.
+For criticalDrops: name the dropped argument the way it appeared in the AI's speech (e.g. "the backfire argument on enforcement"). Do not invent arguments the AI did not make.
 
-Return ONLY valid JSON, no markdown.`,
+Speaker points 25-30 scale (27 = average, 28 = good, 29 = excellent, 30 = near perfect). "practiceAdvice" must be a SPECIFIC drill, not generic advice. e.g. "Record yourself giving 60-second crystallizations of this round — force yourself to collapse to two issues before speaking" not "work on rebuttals."
+
+Return ONLY valid JSON, no markdown, no code fences.`,
 
   // Motion designer from current-events context
   motionDesigner: `You are an elite APDA debate motion designer. You have been given a summary of current events. Your job is to turn one of these into a brilliant, well-scoped debate motion.
