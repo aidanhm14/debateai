@@ -1110,34 +1110,6 @@ const MOTIONS = [
   'This house would impose term limits on Supreme Court justices.',
 ];
 
-// Curated Motion-of-the-Day bank. Separate from MOTIONS (the random-motion
-// pool) because MotD needs metadata — category tag + one-line hook that
-// explains the genuine tension each motion turns on. Matches the landing
-// page's LANDING_MOTIONS shape, kept consistent on purpose so users see
-// the same 20 motions cycle through here regardless of where they hit.
-const MOTD_BANK = [
-  { text:'This house would ban billionaires.', cat:'Politics', hook:'Is concentrated wealth a threat to democracy, or the engine that funds what democracy can\'t?' },
-  { text:'This house would make voting compulsory.', cat:'Politics', hook:'Legitimacy from full participation vs. the signal that low turnout actually sends.' },
-  { text:'This house supports universal basic income.', cat:'Policy', hook:'Dignity and automation-proofing vs. fiscal reality and the labor-incentive question.' },
-  { text:'This house would pause AI development.', cat:'Tech', hook:'Precautionary principle vs. the moratorium that just cedes the lead to less cautious actors.' },
-  { text:'This house would abolish the electoral college.', cat:'Politics', hook:'One-person-one-vote vs. federalism and the incentive to campaign outside swing states.' },
-  { text:'This house would replace income tax with a wealth tax.', cat:'Policy', hook:'Taxing accumulation vs. flight risk and the valuation problem nobody wants to solve.' },
-  { text:'This house would ban algorithmic pricing.', cat:'Tech', hook:'Surveillance pricing vs. price discrimination that actually subsidizes low-income buyers.' },
-  { text:'This house would impose a global carbon tax.', cat:'Policy', hook:'Pigovian fix vs. the coordination failure that sinks every global tax proposal.' },
-  { text:'This house would grant constitutional rights to future generations.', cat:'Ethics', hook:'Intergenerational justice vs. the tyranny of people who can\'t push back on their advocates.' },
-  { text:'This house regrets the invention of the smartphone.', cat:'Culture', hook:'Attention harvest vs. the democratization of information the world had waited for.' },
-  { text:'This house would ban legacy admissions.', cat:'Culture', hook:'Meritocracy vs. the endowment economics elite universities quietly rely on.' },
-  { text:'This house would nationalize the pharmaceutical industry.', cat:'Policy', hook:'Price control vs. the R&D pipeline that private capital actually funds.' },
-  { text:'This house would abolish the Senate.', cat:'Politics', hook:'Majority rule vs. the countermajoritarian brake the founders deliberately built in.' },
-  { text:'This house would hold social media companies liable for user radicalization.', cat:'Tech', hook:'Algorithmic accountability vs. the chilling effect on speech the liability creates.' },
-  { text:'This house would ban unpaid internships.', cat:'Policy', hook:'Class mobility vs. the entry-level rungs of industries that literally cannot afford to pay them.' },
-  { text:'This house believes the right to privacy is obsolete.', cat:'Ethics', hook:'Post-data-exhaust realism vs. the chilling effect an admitted surveillance state produces.' },
-  { text:'This house would create a public option for social media.', cat:'Tech', hook:'Civic infrastructure vs. the first-amendment tangle when the state owns a speech platform.' },
-  { text:'This house would abolish intellectual property for medicines.', cat:'Ethics', hook:'Access vs. the investment pipeline that exists specifically because of enforceable patents.' },
-  { text:'This house would ban private education.', cat:'Culture', hook:'Equality of opportunity vs. the counterfactual where elites opt out of the public system entirely.' },
-  { text:'This house believes benevolent dictatorship is preferable to dysfunctional democracy.', cat:'Politics', hook:'Legitimacy via consent vs. outcomes that actually improve lives — which matters more?' },
-];
-
 /* ═══════════════════════════════════════════════════
    API
    ═══════════════════════════════════════════════════ */
@@ -2448,10 +2420,6 @@ function App(){
   // debaters actually prep: "I'm in front of Judge Chen at Harvard, here's
   // their paradigm, tune the AI to it." When non-empty, takes precedence
   // over the preset in both the AI opponent prompt and the RFD generator.
-  // Motion of the Day — shuffle override for the setup view. null = use
-  // today's date-indexed motion; number = user shuffled to that index.
-  // Resets on round reset so re-entering setup shows today's again.
-  const[motdShuffleIdx,setMotdShuffleIdx]=useState(null);
   // Starred motions — user-pinned quick-picks. Any motion (MotD, recent
   // round, or typed) can be starred; starred list renders as a chip row
   // on setup so a user mid-drill can rotate through their shortlist.
@@ -3650,59 +3618,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       // Motion
       el('div',{className:'t-label',style:{marginTop:24}},'Motion'),
       el('textarea',{className:'float-input',rows:2,placeholder:'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
-      // Motion of the Day — matches landing's richer card shape. Category
-      // chip + hook line + shuffle so users can preview a different motion
-      // without waiting for tomorrow. motdShuffleIdx is a local state the
-      // setup view owns; on use, the motion is lifted into the setup
-      // flow via setMotion.
-      (()=>{
-        const baseIdx = Math.floor(Date.now()/86400000) % MOTD_BANK.length;
-        const curIdx = motdShuffleIdx != null ? motdShuffleIdx : baseIdx;
-        const m = MOTD_BANK[curIdx] || MOTD_BANK[0];
-        if(motion === m.text) return null; // already using it, no banner
-        let dateStr = '';
-        if(motdShuffleIdx == null){
-          try{ dateStr = new Date().toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}); }catch{}
-        } else { dateStr = 'shuffled'; }
-        return el('div',{style:{
-          padding:'14px 16px',marginTop:10,
-          background:'linear-gradient(135deg,rgba(239,68,68,.08) 0%,rgba(239,68,68,.03) 100%)',
-          border:'1px solid rgba(239,68,68,.28)',borderRadius:12,textAlign:'left',
-        }},
-          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:10,marginBottom:8,flexWrap:'wrap'}},
-            el('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
-              el('span',{style:{fontSize:'.55rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#ef4444'}},'🗓 Motion of the day'),
-              dateStr && el('span',{style:{fontSize:'.62rem',color:'var(--c-muted)',fontWeight:500}},dateStr),
-            ),
-            el('span',{style:{fontSize:'.55rem',fontWeight:800,letterSpacing:'.1em',textTransform:'uppercase',padding:'3px 8px',borderRadius:999,color:'#ef4444',background:'rgba(239,68,68,.12)',border:'1px solid rgba(239,68,68,.3)'}},m.cat),
-          ),
-          el('div',{style:{fontSize:'.92rem',color:'var(--c-text)',lineHeight:1.4,fontWeight:600,marginBottom:6}},m.text),
-          el('div',{style:{fontSize:'.72rem',color:'var(--c-muted)',lineHeight:1.5,fontStyle:'italic',marginBottom:12}},m.hook),
-          el('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
-            el('button',{
-              onClick:()=>setMotion(m.text),
-              style:{flex:1,padding:'8px 14px',background:'var(--accent)',border:'none',borderRadius:8,color:'#fff',fontSize:'.7rem',fontWeight:800,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',minWidth:110},
-            },'Use it →'),
-            el('button',{
-              onClick:()=>{
-                let next;
-                do { next = Math.floor(Math.random()*MOTD_BANK.length); }
-                while(next === curIdx && MOTD_BANK.length > 1);
-                setMotdShuffleIdx(next);
-              },
-              title:'Preview a different motion',
-              style:{padding:'8px 12px',background:'transparent',border:'1px solid rgba(239,68,68,.35)',borderRadius:8,color:'#fca5a5',fontSize:'.7rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'},
-            },'🎲 Shuffle'),
-            el('button',{
-              onClick:()=>toggleStar(m.text),
-              title:isStarred(m.text)?'Remove from starred':'Save to starred',
-              style:{padding:'8px 12px',background:isStarred(m.text)?'rgba(245,158,11,.18)':'transparent',border:'1px solid '+(isStarred(m.text)?'rgba(245,158,11,.5)':'rgba(239,68,68,.35)'),borderRadius:8,color:isStarred(m.text)?'#fbbf24':'#fca5a5',fontSize:'.82rem',cursor:'pointer',fontFamily:'inherit',lineHeight:1},
-              'aria-label':isStarred(m.text)?'Unstar motion':'Star motion',
-            },isStarred(m.text)?'★':'☆'),
-          ),
-        );
-      })(),
-      // Starred motions — chip row under the MotD card. Only renders when
+      // Starred motions — chip row under the motion textarea. Only renders when
       // the user has at least one pinned motion. Click fills the motion;
       // × unstars without touching the active motion.
       starredMotions.length>0 && el('div',{style:{marginTop:12,padding:'10px 12px',background:'rgba(245,158,11,.04)',border:'1px solid rgba(245,158,11,.16)',borderRadius:10,textAlign:'left'}},
