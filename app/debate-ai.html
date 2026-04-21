@@ -2893,14 +2893,29 @@ function App(){
     }
   };
 
+  // Keyboard shortcuts help modal. Press `?` anywhere outside an input
+  // to toggle. Documents the shortcuts that already exist so new users
+  // can discover them without digging through the code.
+  const[showShortcuts,setShowShortcuts]=useState(false);
+
   // Keyboard shortcuts
   useEffect(()=>{
     const handler=(e)=>{
       // Don't intercept when typing in a textarea/input
       if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
+      // Global: `?` toggles the shortcuts overlay (need shift on most
+      // layouts for the literal ? key).
+      if(e.key==='?'||(e.shiftKey&&e.key==='/')){e.preventDefault();setShowShortcuts(s=>!s);return}
+      if(showShortcuts&&e.key==='Escape'){e.preventDefault();setShowShortcuts(false);return}
       if(phase==='speech'){
         if(e.code==='Space'){e.preventDefault();if(tts.speaking){const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}}
         if(e.code==='Escape'||e.code==='ArrowRight'){e.preventDefault();endSpeech()}
+        // Speed hotkeys 1-5 during AI speech. Match the existing speed
+        // pills so users can crank the pace without mouse travel.
+        if(!isUser&&tts.speaking){
+          const speedMap={Digit1:0.75,Digit2:1,Digit3:1.25,Digit4:1.5,Digit5:2};
+          if(speedMap[e.code]!=null){e.preventDefault();setLiveRate(speedMap[e.code]);tts.setRate(speedMap[e.code])}
+        }
       }
       if(phase==='prep'){
         if(e.code==='Enter'&&!e.shiftKey&&e.target.tagName!=='TEXTAREA'){e.preventDefault();goToSpeeches()}
@@ -2908,7 +2923,7 @@ function App(){
     };
     window.addEventListener('keydown',handler);
     return()=>window.removeEventListener('keydown',handler);
-  },[phase,tts.speaking]);
+  },[phase,tts.speaking,showShortcuts]);
 
   // Adaptive difficulty. check user's win rate against this opponent
   const getWinRate=()=>{
@@ -3210,17 +3225,27 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         const cleaned=fb.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
         const parsed=JSON.parse(cleaned);
         setBallot(parsed);
-        saveRound(allLog,fb,parsed.winner==='user');
+        saveRound(allLog,fb,parsed.winner==='user',parsed.speakerPoints||null);
       }catch{
         // Fallback: save as unstructured
-        saveRound(allLog,fb,null);
+        saveRound(allLog,fb,null,null);
       }
     }catch(e){setFeedback('Could not generate feedback: '+e.message)}
     setFbLoading(false);
   };
 
   // Save round to history
-  const saveRound=(allLog,fb,userWon)=>{
+  const saveRound=(allLog,fb,userWon,speakerPoints)=>{
+    // Coerce speakerPoints to {user, ai} numbers or null. The single-judge
+    // ballot sometimes returns string values, sometimes {user, ai} objects
+    // nested, sometimes flat. Normalize here so downstream histogram code
+    // doesn't have to care.
+    let sp=null;
+    if(speakerPoints&&typeof speakerPoints==='object'){
+      const u=parseFloat(speakerPoints.user);
+      const a=parseFloat(speakerPoints.ai);
+      if(!isNaN(u)||!isNaN(a)) sp={user:isNaN(u)?null:u,ai:isNaN(a)?null:a};
+    }
     const round={
       id:Date.now(),
       date:new Date().toISOString(),
@@ -3232,6 +3257,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       log:allLog,
       feedback:fb||'',
       userWon: userWon, // true/false/null
+      speakerPoints: sp, // {user, ai} or null
     };
     const updated=[round,...historyRounds].slice(0,50);
     setHistoryRounds(updated);
@@ -3359,8 +3385,40 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     }
   };
 
+  // Keyboard shortcuts overlay — position:fixed so rendering it inside
+  // any phase's tree lands it at the viewport root. Defined once here
+  // and included in each phase return below.
+  const shortcutsOverlay = showShortcuts && el('div',{
+    onClick:()=>setShowShortcuts(false),
+    style:{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20},
+    role:'dialog','aria-modal':'true','aria-label':'Keyboard shortcuts',
+  },
+    el('div',{
+      onClick:(e)=>e.stopPropagation(),
+      style:{maxWidth:480,width:'100%',background:'var(--c-surface2)',border:'1px solid var(--c-border2)',borderRadius:16,padding:'28px 32px',boxShadow:'0 24px 60px rgba(0,0,0,.5)'},
+    },
+      el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}},
+        el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#ef4444'}},'Keyboard Shortcuts'),
+        el('button',{onClick:()=>setShowShortcuts(false),style:{background:'transparent',border:'none',color:'var(--c-muted)',fontSize:'1.2rem',cursor:'pointer',lineHeight:1,padding:4},'aria-label':'Close'},'×'),
+      ),
+      [
+        ['?','show / hide this overlay'],
+        ['Space','pause or resume AI speech'],
+        ['Esc','end the current speech early (or close this overlay)'],
+        ['→','skip ahead to next speech'],
+        ['Enter','during prep — start speeches'],
+        ['1 / 2 / 3 / 4 / 5','AI speech playback: 0.75× / 1× / 1.25× / 1.5× / 2×'],
+      ].map(([k,v],i)=>el('div',{key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,padding:'10px 0',borderTop:i===0?'none':'1px solid var(--c-border2)'}},
+        el('kbd',{style:{fontFamily:'ui-monospace, Menlo, monospace',fontSize:'.74rem',fontWeight:700,padding:'4px 10px',background:'rgba(255,255,255,.06)',border:'1px solid var(--c-border2)',borderRadius:6,color:'var(--c-bright)',minWidth:54,textAlign:'center',whiteSpace:'nowrap'}},k),
+        el('span',{style:{fontSize:'.82rem',color:'var(--c-text)',lineHeight:1.4,flex:1,textAlign:'right'}},v),
+      )),
+      el('div',{style:{marginTop:18,paddingTop:14,borderTop:'1px solid var(--c-border2)',fontSize:'.68rem',color:'var(--c-muted)',textAlign:'center',letterSpacing:'.04em'}},'Press ',el('kbd',{style:{fontFamily:'ui-monospace, Menlo, monospace',padding:'2px 6px',background:'rgba(255,255,255,.06)',borderRadius:4,fontSize:'.68rem'}},'?'),' any time'),
+    ),
+  );
+
   // ── SETUP ──
   if(phase==='setup') return el('div',{className:'page'},
+    shortcutsOverlay,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
       el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
@@ -3839,6 +3897,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
 
   // ── PREP ──
   if(phase==='prep') return el('div',{className:'page'},
+    shortcutsOverlay,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
       el('div',{className:'t-label'},'Prep Time'),
@@ -4222,6 +4281,50 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
               el('div',{style:{fontSize:'2rem',fontWeight:900,color:wr.rate>=0.5?'#22c55e':'#f59e0b'}},Math.round(wr.rate*100)+'%'),
             ),
           ),
+          // Speaker-points sparkline. Pulls the user speakerPoints field
+          // from the last up-to-10 saved rounds (oldest→newest) and renders
+          // a small bar chart so the student can see their trend across
+          // rounds. Only appears once 2+ rounds have persisted speakerPoints
+          // — older rounds from before this field was added won't show up,
+          // which is fine (data accretes forward).
+          (()=>{
+            const recent = (historyRounds||[])
+              .filter(r=>r&&r.speakerPoints&&typeof r.speakerPoints.user==='number')
+              .slice(0,10)
+              .reverse();
+            // Include the current round's score if we just parsed one and
+            // it isn't already in historyRounds (saveRound writes async).
+            const currentSp = (b&&b.speakerPoints&&typeof parseFloat(b.speakerPoints.user)==='number'&&!isNaN(parseFloat(b.speakerPoints.user))) ? parseFloat(b.speakerPoints.user) : null;
+            const series = [...recent.map(r=>r.speakerPoints.user)];
+            if(currentSp!=null && (series.length===0||series[series.length-1]!==currentSp)) series.push(currentSp);
+            if(series.length<2) return null;
+            const min=Math.min(...series,25);
+            const max=Math.max(...series,30);
+            const range=Math.max(1,max-min);
+            const avg=series.reduce((a,b)=>a+b,0)/series.length;
+            const delta=series.length>=2 ? series[series.length-1]-series[0] : 0;
+            return el('div',{style:{padding:'14px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,marginBottom:20}},
+              el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:8}},
+                el('div',{style:{fontSize:'.62rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.12em',color:'var(--c-muted)'}},'Your speaker points · last '+series.length+' rounds'),
+                el('div',{style:{fontSize:'.74rem',color:'var(--c-text3)',display:'flex',gap:14,flexWrap:'wrap'}},
+                  el('span',null,'avg: ',el('strong',{style:{color:'var(--c-bright)'}},avg.toFixed(1))),
+                  delta!==0 && el('span',{style:{color:delta>0?'#22c55e':'#f87171'}},(delta>0?'↑ +':'↓ ')+Math.abs(delta).toFixed(1)+' pts'),
+                ),
+              ),
+              el('div',{style:{display:'flex',alignItems:'flex-end',gap:5,height:48,paddingTop:2}},
+                series.map((pt,i)=>{
+                  const h=Math.max(6,Math.round(((pt-min)/range)*42)+6);
+                  const isLast=i===series.length-1;
+                  return el('div',{key:i,title:'Round '+(i+1)+' · '+pt.toFixed(1)+' pts',style:{
+                    flex:1,minWidth:0,height:h+'px',
+                    background:isLast?'linear-gradient(180deg,#ef4444,#b91c1c)':'linear-gradient(180deg,rgba(239,68,68,.45),rgba(239,68,68,.15))',
+                    borderRadius:'3px 3px 0 0',
+                    transition:'height .25s ease',
+                  }});
+                })
+              ),
+            );
+          })(),
 
           // Key clash
           b.keyClash&&el('div',{style:{padding:'16px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,marginBottom:20}},
