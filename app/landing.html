@@ -372,6 +372,42 @@ button{font-family:inherit;cursor:pointer}
   width:100%;height:100%;border-radius:50%;
   position:relative;z-index:1;
 }
+/* Try-me bubble — typewriter-streamed debate line that appears over the orb.
+   Hidden until #heroTryMeBtn is clicked. Syncs with .speaking so the orb
+   pulses in time with the line, giving one unified "AI is thinking + speaking"
+   cue instead of two disconnected UI elements. */
+.hero-tryme-line{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(78%,280px);max-width:82%;
+  padding:14px 16px;border-radius:14px;
+  background:rgba(15,15,18,.82);border:1px solid rgba(239,68,68,.28);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  font-size:.88rem;font-weight:500;color:var(--text);line-height:1.45;
+  text-align:left;letter-spacing:-.005em;
+  opacity:0;pointer-events:none;z-index:3;
+  transition:opacity .32s ease,transform .32s cubic-bezier(.22,.9,.32,1);
+  box-shadow:0 18px 44px rgba(0,0,0,.55),0 0 0 1px rgba(239,68,68,.06) inset;
+}
+.hero-tryme-line::before{
+  content:'';position:absolute;left:18px;top:-4px;width:8px;height:8px;
+  background:#ef4444;border-radius:50%;box-shadow:0 0 12px rgba(239,68,68,.7);
+  animation:heroTryMeDot 1.2s ease-in-out infinite;
+}
+@keyframes heroTryMeDot{0%,100%{opacity:1}50%{opacity:.35}}
+.hero-orb-wrap.speaking .hero-tryme-line{
+  opacity:1;transform:translate(-50%,calc(-50% - 6px));
+}
+.hero-tryme-caret{
+  display:inline-block;width:2px;height:1em;background:#ef4444;
+  margin-left:2px;vertical-align:-.12em;animation:heroTryMeCaret 1s step-end infinite;
+}
+@keyframes heroTryMeCaret{50%{opacity:0}}
+#heroTryMeBtn{cursor:pointer;font-family:inherit;border:none}
+#heroTryMeBtn:disabled{opacity:.55;cursor:default}
+/* On narrow screens, let the bubble breathe by pushing the canvas behind it */
+@media(max-width:640px){
+  .hero-tryme-line{font-size:.82rem;padding:12px 14px;width:min(86%,260px)}
+}
 
 /* ── CTA row under the orb ─────────────────────────── */
 .hero-left-ctas{
@@ -1117,6 +1153,8 @@ button{font-family:inherit;cursor:pointer}
   .landing-jumpnav a:hover{color:var(--text);background:rgba(255,255,255,.06)}
   .landing-jumpnav a.donate{color:var(--accent)}
   .landing-jumpnav a.donate:hover{background:rgba(239,68,68,.12)}
+  .landing-jumpnav a.signin{color:#fff;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.35);padding:8px 12px;border-radius:10px}
+  .landing-jumpnav a.signin:hover{background:rgba(239,68,68,.22);border-color:#ef4444}
   .landing-jumpnav{transition:opacity .25s ease, transform .25s ease}
   /* Hidden state: fade + slide left + ignore pointer events so it doesn't
      intercept clicks on the content underneath when invisible. */
@@ -1161,6 +1199,7 @@ button{font-family:inherit;cursor:pointer}
   <a href="#pricing">Pricing</a>
   <a href="#faq">FAQ</a>
   <a href="#story">Story</a>
+  <a href="#signin" id="jumpnavSignIn" class="signin">Sign in</a>
   <a href="https://buymeacoffee.com/8idanhm" target="_blank" rel="noopener" class="donate">Donate</a>
 </nav>
 
@@ -1217,10 +1256,12 @@ button{font-family:inherit;cursor:pointer}
           <div class="hero-orb-glow"></div>
           <div class="hero-orb-ring"></div>
           <canvas id="heroOrb" aria-hidden="true"></canvas>
+          <div id="heroTryMeLine" class="hero-tryme-line" aria-live="polite"></div>
         </div>
-        <div class="hero-orb-caption">Thinks. Challenges. Judges you like a real opponent.</div>
+        <div class="hero-orb-caption" id="heroOrbCaption">Thinks. Challenges. Judges you like a real opponent.</div>
         <div class="hero-left-ctas">
-          <a href="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
+          <button type="button" id="heroTryMeBtn" class="hero-cta hero-cta-primary">Try me →</button>
+          <a href="/debate-ai" class="hero-cta hero-cta-secondary">Full round</a>
           <a href="/app#case" class="hero-cta hero-cta-secondary">Debate prep</a>
         </div>
       </div>
@@ -2640,8 +2681,96 @@ window.addEventListener('load', function(){
     }).catch(function(err){ if (err && err.code !== 'auth/no-auth-event') console.warn('[landing] redirect result err:', err.message); });
   } catch(e){}
 
+  // Try-me button — streams a debate-relevant line into the orb bubble,
+  // synced with the "speaking" glow + pulse so it reads as one moving thing.
+  // Picks a fresh line each click, cycles through a curated bank. No network
+  // call — the goal is instant, intuitive feedback on what sparring feels like.
+  (function(){
+    var tryBtn = document.getElementById('heroTryMeBtn');
+    var line = document.getElementById('heroTryMeLine');
+    var orb = document.getElementById('heroOrbWrap');
+    var caption = document.getElementById('heroOrbCaption');
+    if (!tryBtn || !line || !orb) return;
+    // Short, real-debate-voiced openings a human opponent might actually say.
+    // Mixed formats so the demo doesn't feel format-locked — LD framework,
+    // parli rebuttal, PF evidence register, casual pushback.
+    var LINES = [
+      "Framework first. Whichever side reduces net harm to the worst-off people wins the round. You don't.",
+      "Here's the thing about your jobs argument — it collapses the second you look at Dayton in 2008.",
+      "Their own evidence, a 2023 Brookings piece, says enforcement spikes the informal market 30 percent. That's the link turn.",
+      "I'll concede your first claim. Doesn't matter — the second one is where the round lives, and you don't have a warrant.",
+      "You keep saying 'stakeholders.' Name one. Tell me who actually loses in the world your plan builds.",
+      "That's not an impact. That's a vibe. Give me a mechanism or I'm not voting on it.",
+      "Dropped argument. Cross-apply my second contention — you never touched the causal chain.",
+      "You want autonomy as a terminal value. Fine. Then explain why Linda in Queens loses her job under your plan."
+    ];
+    var lastIdx = -1;
+    var playing = false;
+    function pickLine(){
+      if (LINES.length < 2) return LINES[0] || '';
+      var i; do { i = Math.floor(Math.random() * LINES.length); } while (i === lastIdx);
+      lastIdx = i; return LINES[i];
+    }
+    function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+    async function playOnce(){
+      if (playing) return;
+      playing = true;
+      tryBtn.disabled = true;
+      var original = tryBtn.textContent;
+      tryBtn.textContent = 'Listening…';
+      try { window.dosTrack && window.dosTrack('try_me_click',{source:'landing_hero'}) } catch(e){}
+      try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
+      orb.classList.add('speaking');
+      if (caption) caption.style.opacity = '.3';
+      var text = pickLine();
+      line.innerHTML = '<span class="hero-tryme-caret"></span>';
+      // Brief beat so the bubble fades in cleanly before characters stream.
+      await sleep(180);
+      // Typewriter — slightly variable speed for natural cadence.
+      for (var i = 0; i < text.length; i++) {
+        var ch = text.charAt(i);
+        line.innerHTML = text.slice(0, i + 1) + '<span class="hero-tryme-caret"></span>';
+        // Commas and periods get a breath; spaces pass fast.
+        var delay = 18 + Math.random() * 14;
+        if (ch === ',') delay = 140;
+        else if (ch === '.' || ch === '?' || ch === '!') delay = 260;
+        else if (ch === ' ') delay = 10;
+        await sleep(delay);
+      }
+      // Hold the finished line so the reader can land on it.
+      await sleep(1400);
+      // Fade the orb back to idle; bubble fades out with it.
+      orb.classList.remove('speaking');
+      try { window.__heroOrbMode && window.__heroOrbMode('idle'); } catch(e){}
+      if (caption) caption.style.opacity = '';
+      await sleep(320);
+      line.innerHTML = '';
+      tryBtn.disabled = false;
+      tryBtn.textContent = original;
+      playing = false;
+    }
+    tryBtn.addEventListener('click', playOnce);
+  })();
+
   // Main sign-up button in the hero
   btn.addEventListener('click', function(){ triggerGoogleSignIn('landing_hero'); });
+
+  // Left-rail Sign In link — fires the same Google flow. If already signed in,
+  // swap the label to the user's first name and route to the app.
+  var jumpnavSignIn = document.getElementById('jumpnavSignIn');
+  if (jumpnavSignIn) {
+    jumpnavSignIn.addEventListener('click', function(ev){
+      try { ev.preventDefault(); } catch(e){}
+      if (auth.currentUser) { window.location.href = '/#chat'; return; }
+      triggerGoogleSignIn('landing_sidenav');
+    });
+    auth.onAuthStateChanged(function(user){
+      if (user) {
+        var first = (user.displayName || user.email || '').split(' ')[0].split('@')[0];
+        jumpnavSignIn.textContent = first ? (first + ' →') : 'Continue →';
+      }
+    });
+  }
 
   // Hero timer animation. the highest-signal visual element on the landing
   // page, so it's the biggest sign-up funnel. ALWAYS uses signInWithRedirect,
