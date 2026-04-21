@@ -13515,13 +13515,30 @@ const TABS = [...TABS_PRIMARY, ...TABS_COMPETITIVE, ...TABS_OTHER];
 // only 15 minutes of prep. There is no "current APDA topic" the way there
 // is a current PF / LD / Policy topic. Users wanting practice motions for
 // APDA should hit the Motions tab (random motion generator) instead.
+// Shape: motions entries are either strings (legacy — still supported) or
+// objects { text, proArgs:[{tag,warrant}], conArgs:[{tag,warrant}] }. Pre-
+// loaded args let a student see the argument landscape BEFORE generating
+// a full case, which is the roadmap intent for the topic hub — save the
+// 'cold read' minute at the start of every prep session.
 const CURRENT_TOPICS = {
   PF: {
     label: 'Public Forum',
     desc: 'NSDA Public Forum. April 2026',
     updated: 'Apr 2026',
     motions: [
-      'Resolved: The United States federal government should substantially increase its investment in domestic semiconductor manufacturing.',
+      {
+        text: 'Resolved: The United States federal government should substantially increase its investment in domestic semiconductor manufacturing.',
+        proArgs: [
+          { tag: 'Supply-chain resilience', warrant: 'A 2024 BIS study found 92% of leading-edge logic chips come from Taiwan — a single Strait incident halts US auto, defense, and healthcare manufacturing within weeks.' },
+          { tag: 'Wage floor in manufacturing belts', warrant: 'Intel\'s Ohio fabs pay median $24/hr vs. $17 for local non-union work; CHIPS Act expansion directly re-shores high-wage production jobs non-college workers can access.' },
+          { tag: 'AI-era military edge', warrant: 'DoD has stated AI dominance requires domestic 2nm-capable foundries; without them, every frontier model trained for DoD has a foreign-chokepoint dependency that adversaries can exploit.' },
+        ],
+        conArgs: [
+          { tag: 'Subsidy waste / rent-seeking', warrant: 'GAO 2025 flagged $13B in CHIPS Act awards with no binding production milestones; further investment compounds moral hazard and corporate capture before we audit the existing round.' },
+          { tag: 'Talent bottleneck', warrant: 'SIA projects a 67,000-worker shortfall by 2030 — you can pour money into fab construction but US engineering pipelines can\'t staff them, so the marginal subsidy dollar gets eaten by wage inflation, not output.' },
+          { tag: 'Allied decoupling backfire', warrant: 'Forcing Taiwanese, Korean, and Dutch firms to onshore triggers reciprocal export controls that hurt US firms downstream (Micron, Applied Materials) more than the adversary the policy targets.' },
+        ],
+      },
     ],
   },
   LD: {
@@ -13529,7 +13546,19 @@ const CURRENT_TOPICS = {
     desc: 'NSDA LD. March/April 2026',
     updated: 'Mar/Apr 2026',
     motions: [
-      'Resolved: A just society ought to presume the innocence of the accused.',
+      {
+        text: 'Resolved: A just society ought to presume the innocence of the accused.',
+        proArgs: [
+          { tag: 'Rawlsian original position', warrant: 'Behind a veil of ignorance, rational agents choose presumption of innocence because the asymmetry of state vs. individual power means wrongful punishment is the worst-case outcome for any citizen.' },
+          { tag: 'Epistemic humility as a virtue', warrant: 'Coscia & Kahneman show accusatory priors systematically encode status-quo bias; presuming innocence is the procedural expression of taking epistemic limits seriously.' },
+          { tag: 'Blackstone\'s ratio', warrant: '"Better that ten guilty escape than one innocent suffer" — the presumption isn\'t about outcomes, it\'s about which error type a just society refuses to commit.' },
+        ],
+        conArgs: [
+          { tag: 'Procedural vs. social presumption', warrant: 'Presumption is a courtroom rule, not a social one — extending it to "society" imports legal standards into contexts (employment, media, harm reduction) where they produce worse outcomes than reasonable suspicion.' },
+          { tag: 'Victim-centered justice', warrant: 'Restorative-justice frameworks (Braithwaite) argue presumption structurally centers the accused, systematically marginalizing survivor voices in the procedures meant to protect them.' },
+          { tag: 'Power asymmetry flip', warrant: 'In cases where the accused holds structural power (executives, police, officials), blanket presumption insulates the powerful — justice requires contextual, not universal, presumption.' },
+        ],
+      },
     ],
   },
   Policy: {
@@ -13537,7 +13566,19 @@ const CURRENT_TOPICS = {
     desc: '2025, 26 season topic',
     updated: '2025, 26',
     motions: [
-      'Resolved: The United States federal government should substantially increase its protection of water resources in the United States.',
+      {
+        text: 'Resolved: The United States federal government should substantially increase its protection of water resources in the United States.',
+        proArgs: [
+          { tag: 'PFAS inherency', warrant: 'EPA\'s 2024 monitoring found PFAS in 45% of US tap water; existing enforcement under SDWA is set at voluntary targets, so only federal action triggers the regulatory floor that actually protects aquifers.' },
+          { tag: 'Colorado Basin adv.', warrant: 'Lake Mead is at 28% capacity; without federal preemption of state-level water compacts, interstate underuse lawsuits (Arizona v. California pattern) will cascade — federal action solves coordination failure.' },
+          { tag: 'Tribal sovereignty', warrant: 'NARF 2023 data: 48% of reservations lack reliable potable water. Federal obligations under Winters doctrine + IRA funding give the aff a T-able, solvency-backed mandate no CP accesses.' },
+        ],
+        conArgs: [
+          { tag: 'Federalism DA', warrant: 'State water compacts are the stable equilibrium — federal preemption triggers Roberts Court backlash (West Virginia v. EPA doctrine), which turns aff solvency by gutting admin authority broadly.' },
+          { tag: 'States CP', warrant: 'The 10 highest-water-stress states each do the plan via interstate compact. Solves 90%+ of case, no link to federalism DA, avoids EPA bureaucratic capture the aff relies on.' },
+          { tag: 'Cap K', warrant: 'Aff\'s protection framing commodifies water as a managed resource — the alt (commons-based water governance per Ostrom) solves the root cause the aff merely papers over.' },
+        ],
+      },
     ],
   },
   Congress: {
@@ -13586,22 +13627,48 @@ function TopicHub({ onNavigateTab, onPrefillCase }) {
       el('div',{style:{fontSize:'.7rem',fontWeight:700,color:'#ef4444',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:6}}, topic.label+' · '+topic.updated),
       el('div',{style:{fontSize:'.95rem',color:'#e2e8f0',lineHeight:1.5}}, topic.desc),
     ),
-    el('div',{style:{display:'grid',gap:12}},
-      topic.motions.map((m,i)=>
-        el('div',{key:i,style:{padding:'18px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,flexWrap:'wrap'}},
-          el('div',{style:{flex:1,minWidth:260,fontSize:'.95rem',color:'#e2e8f0',lineHeight:1.5}}, m),
-          el('div',{style:{display:'flex',gap:8}},
-            el('button',{
-              onClick:()=>{ onPrefillCase && onPrefillCase({motion:m, format, side:'Government'}); onNavigateTab && onNavigateTab('case'); },
-              className:'btn btn-orange',style:{padding:'8px 16px',fontSize:'.82rem'},
-            }, 'Generate Gov →'),
-            el('button',{
-              onClick:()=>{ onPrefillCase && onPrefillCase({motion:m, format, side:'Opposition'}); onNavigateTab && onNavigateTab('case'); },
-              className:'btn',style:{padding:'8px 16px',fontSize:'.82rem',background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',color:'#e2e8f0'},
-            }, 'Generate Opp →'),
+    el('div',{style:{display:'grid',gap:14}},
+      topic.motions.map((m,i)=>{
+        // Support both legacy strings and {text, proArgs, conArgs} objects
+        const motionText = typeof m === 'string' ? m : (m.text || '');
+        const proArgs = (typeof m === 'object' && Array.isArray(m.proArgs)) ? m.proArgs : [];
+        const conArgs = (typeof m === 'object' && Array.isArray(m.conArgs)) ? m.conArgs : [];
+        const hasPreview = proArgs.length > 0 || conArgs.length > 0;
+        return el('div',{key:i,style:{padding:'18px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12}},
+          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,flexWrap:'wrap',marginBottom:hasPreview?14:0}},
+            el('div',{style:{flex:1,minWidth:260,fontSize:'.95rem',color:'#e2e8f0',lineHeight:1.5}}, motionText),
+            el('div',{style:{display:'flex',gap:8}},
+              el('button',{
+                onClick:()=>{ onPrefillCase && onPrefillCase({motion:motionText, format, side:'Government'}); onNavigateTab && onNavigateTab('case'); },
+                className:'btn btn-orange',style:{padding:'8px 16px',fontSize:'.82rem'},
+              }, 'Generate Gov →'),
+              el('button',{
+                onClick:()=>{ onPrefillCase && onPrefillCase({motion:motionText, format, side:'Opposition'}); onNavigateTab && onNavigateTab('case'); },
+                className:'btn',style:{padding:'8px 16px',fontSize:'.82rem',background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',color:'#e2e8f0'},
+              }, 'Generate Opp →'),
+            ),
           ),
-        )
-      )
+          // Pre-loaded argument preview. Two-column Pro/Con with short tags
+          // + 1-sentence warrants. Gives the student a cold-read of the
+          // argument landscape before they generate anything.
+          hasPreview && el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginTop:4,paddingTop:14,borderTop:'1px dashed rgba(255,255,255,.08)'}},
+            el('div',null,
+              el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#22c55e',marginBottom:8}},'Pro · opening arguments'),
+              proArgs.map((a,ai)=>el('div',{key:ai,style:{marginBottom:8,padding:'8px 10px',background:'rgba(34,197,94,.04)',border:'1px solid rgba(34,197,94,.14)',borderRadius:8}},
+                el('div',{style:{fontSize:'.74rem',fontWeight:700,color:'#4ade80',marginBottom:3}}, a.tag),
+                el('div',{style:{fontSize:'.76rem',color:'#cbd5e1',lineHeight:1.5}}, a.warrant),
+              ))
+            ),
+            el('div',null,
+              el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#ef4444',marginBottom:8}},'Con · opening arguments'),
+              conArgs.map((a,ai)=>el('div',{key:ai,style:{marginBottom:8,padding:'8px 10px',background:'rgba(239,68,68,.04)',border:'1px solid rgba(239,68,68,.14)',borderRadius:8}},
+                el('div',{style:{fontSize:'.74rem',fontWeight:700,color:'#f87171',marginBottom:3}}, a.tag),
+                el('div',{style:{fontSize:'.76rem',color:'#cbd5e1',lineHeight:1.5}}, a.warrant),
+              ))
+            ),
+          ),
+        );
+      })
     ),
     el('p',{style:{color:'#64748b',fontSize:'.75rem',marginTop:20,lineHeight:1.5}},
       'Topics update manually for now. Tabroom API integration coming. this page will auto-refresh every Monday.'
