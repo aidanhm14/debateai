@@ -3412,6 +3412,28 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       // Motion
       el('div',{className:'t-label',style:{marginTop:24}},'Motion'),
       el('textarea',{className:'float-input',rows:2,placeholder:'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
+      // Motion of the Day — deterministic per calendar day so users hitting
+      // the app at the same moment see the same motion. Stable engagement
+      // hook (users can default-argue today's motion without picking one)
+      // + pass-through to random / their own input.
+      (()=>{
+        const dayIdx = Math.floor(Date.now()/86400000) % MOTIONS.length;
+        const motd = MOTIONS[dayIdx];
+        if(motion===motd) return null; // already using it, no banner
+        return el('div',{style:{
+          display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',
+          padding:'10px 14px',marginTop:10,
+          background:'rgba(239,68,68,.06)',border:'1px dashed rgba(239,68,68,.25)',
+          borderRadius:10,textAlign:'left',
+        }},
+          el('span',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#ef4444',whiteSpace:'nowrap'}},'🗓 Motion of the day'),
+          el('span',{style:{flex:1,minWidth:220,fontSize:'.82rem',color:'var(--c-text)',lineHeight:1.4,fontStyle:'italic'}},'"'+motd+'"'),
+          el('button',{
+            onClick:()=>setMotion(motd),
+            style:{padding:'5px 12px',background:'rgba(239,68,68,.15)',border:'1px solid rgba(239,68,68,.4)',borderRadius:6,color:'#fca5a5',fontSize:'.66rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'},
+          },'Use it →'),
+        );
+      })(),
       el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
 
       // Confidence-delta widget (only shows when deep-linked from a market card)
