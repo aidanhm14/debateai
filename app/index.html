@@ -3345,6 +3345,8 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
   const { t } = React.useContext(I18nContext);
   const [search, setSearch] = useState('');
   const [activeTag, setActiveTag] = useState(null);
+  const [activeFormat, setActiveFormat] = useState(null);
+  const [sortBy, setSortBy] = useState('newest'); // newest | oldest | az
   const [expandedId, setExpandedId] = useState(null);
   const [editingTags, setEditingTags] = useState(null); // caseId being edited
   const [tagInput, setTagInput] = useState('');
@@ -3358,12 +3360,26 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
     return Array.from(tagSet).sort();
   }, [cases]);
 
+  // Format filter chips — pulled from actual saved cases, only show
+  // formats the user has actually used (no empty chips for unused ones).
+  const allFormats = useMemo(() => {
+    const set = new Set();
+    cases.forEach(c => { if (c.format) set.add(c.format); });
+    return Array.from(set).sort();
+  }, [cases]);
+
   const filtered = useMemo(() => {
     let result = cases;
     if (activeTag) result = result.filter(c => (c.tags || []).includes(activeTag));
+    if (activeFormat) result = result.filter(c => c.format === activeFormat);
     if (search.trim()) result = result.filter(c => c.motion.toLowerCase().includes(search.toLowerCase()) || (c.side||'').toLowerCase().includes(search.toLowerCase()) || (c.tags||[]).some(t => t.toLowerCase().includes(search.toLowerCase())));
-    return result;
-  }, [cases, search, activeTag]);
+    // Sort — createa new array so we don't mutate the source prop.
+    const sorted = result.slice();
+    if (sortBy === 'oldest') sorted.sort((a,b) => new Date(a.savedAt) - new Date(b.savedAt));
+    else if (sortBy === 'az') sorted.sort((a,b) => (a.motion||'').localeCompare(b.motion||''));
+    else sorted.sort((a,b) => new Date(b.savedAt) - new Date(a.savedAt)); // newest
+    return sorted;
+  }, [cases, search, activeTag, activeFormat, sortBy]);
 
   const addTag = (caseId, tag) => {
     if (!tag.trim() || !onUpdateCase) return;
@@ -3396,10 +3412,35 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
       el('div', { className: 'cases-search' },
         el('input', { type:'text', placeholder:t('savedCases.searchPlaceholder','Search cases...'), value:search, onChange:e=>setSearch(e.target.value) })
       ),
+      // Format filter row — only renders when the user has cases in
+      // 2+ formats (otherwise 'All + one format' is noise).
+      allFormats.length > 1 && el('div', {style:{padding:'0 14px 6px',display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}},
+        el('span', {style:{fontSize:'.58rem',fontWeight:700,color:'#64748b',letterSpacing:'.1em',textTransform:'uppercase',marginRight:2}}, 'Format:'),
+        el('button', {onClick:()=>setActiveFormat(null), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeFormat===null?'#ef4444':'#ffffff15'),background:activeFormat===null?'#ef444420':'transparent',color:activeFormat===null?'#f87171':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, 'All'),
+        allFormats.map(f => el('button', {key:f, onClick:()=>setActiveFormat(activeFormat===f?null:f), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeFormat===f?'#10b981':'#ffffff15'),background:activeFormat===f?'#10b98120':'transparent',color:activeFormat===f?'#34d399':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, f)),
+      ),
+      // Sort row — newest / oldest / A-Z. Always visible so users
+      // don't have to wonder where the 'older' cases went.
+      cases.length > 1 && el('div', {style:{padding:'0 14px 10px',display:'flex',gap:4,alignItems:'center'}},
+        el('span', {style:{fontSize:'.58rem',fontWeight:700,color:'#64748b',letterSpacing:'.1em',textTransform:'uppercase',marginRight:2}}, 'Sort:'),
+        [['newest','Newest'],['oldest','Oldest'],['az','A–Z']].map(([k,label]) =>
+          el('button', {key:k, onClick:()=>setSortBy(k), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(sortBy===k?'#a855f7':'#ffffff15'),background:sortBy===k?'#a855f720':'transparent',color:sortBy===k?'#c084fc':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, label)
+        )
+      ),
       // Tag filter row
-      allTags.length > 0 && el('div', {style:{padding:'0 14px 10px',display:'flex',gap:4,flexWrap:'wrap'}},
+      allTags.length > 0 && el('div', {style:{padding:'0 14px 10px',display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}},
+        el('span', {style:{fontSize:'.58rem',fontWeight:700,color:'#64748b',letterSpacing:'.1em',textTransform:'uppercase',marginRight:2}}, 'Tag:'),
         el('button', {onClick:()=>setActiveTag(null), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeTag===null?'#ef4444':'#ffffff15'),background:activeTag===null?'#ef444420':'transparent',color:activeTag===null?'#f87171':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, 'All'),
         allTags.map(tag => el('button', {key:tag, onClick:()=>setActiveTag(activeTag===tag?null:tag), style:{padding:'2px 8px',borderRadius:12,fontSize:'.68rem',fontWeight:600,border:'1px solid '+(activeTag===tag?'#3b82f6':'#ffffff15'),background:activeTag===tag?'#3b82f620':'transparent',color:activeTag===tag?'#60a5fa':'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}, tag)),
+      ),
+      // Result-count hint when filters are active. Quick read on how
+      // many cases matched without needing to scroll the list.
+      (search || activeTag || activeFormat) && el('div', {style:{padding:'0 14px 8px',fontSize:'.66rem',color:'#64748b'}},
+        filtered.length + ' of ' + cases.length + ' ' + (filtered.length===1?'case':'cases'),
+        (search||activeTag||activeFormat) && el('button', {
+          onClick:()=>{setSearch('');setActiveTag(null);setActiveFormat(null);},
+          style:{marginLeft:8,background:'transparent',border:'none',color:'#94a3b8',fontSize:'.66rem',textDecoration:'underline',cursor:'pointer',fontFamily:'inherit',padding:0}
+        }, 'clear filters'),
       ),
       el('div', { className: 'cases-list' },
         filtered.length === 0
