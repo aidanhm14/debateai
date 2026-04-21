@@ -200,6 +200,30 @@
       <div id="grant-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
     </div>
   </div>
+
+  <!-- Grant exemplar weight. marks a user's past debate_rounds as few-shot
+       examples that get injected into future AI opponents' system prompts. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Grant exemplar weight</span>
+        <span class="meta">flag a user's past rounds as AI training examples</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
+        Marks a user's past /debate-ai rounds as "exemplars". Future AI opponents retrieve 1–3 matching exemplars on each round and mirror their style. Weight 3 = admin-tier (heaviest), 1 = lightweight, 0 = revoke. The user must have signed in at least once.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <input id="exemplar-email" type="email" placeholder="user@example.com" style="flex:2;min-width:220px;padding:7px 11px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:13px;outline:none" />
+        <select id="exemplar-weight" style="padding:7px 11px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:13px;outline:none">
+          <option value="3" selected>Weight 3 (admin)</option>
+          <option value="1">Weight 1 (light)</option>
+          <option value="0">Weight 0 (revoke)</option>
+        </select>
+        <button id="exemplar-btn" style="padding:7px 16px;border-radius:6px;border:1px solid var(--line);background:var(--fg);color:var(--bg);cursor:pointer;font-size:13px;font-weight:600">Grant exemplar</button>
+      </div>
+      <div id="exemplar-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -378,6 +402,37 @@
   });
   $('grant-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('grant-btn').click(); });
   $('grant-reason').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('grant-btn').click(); });
+
+  // Grant-exemplar button: marks a user as an exemplar-weighted author so
+  // their past /debate-ai rounds are retrieved as few-shot examples in the AI
+  // opponent's system prompt. Same super-admin gate as grant-lifetime.
+  $('exemplar-btn').addEventListener('click', async () => {
+    const email = ($('exemplar-email').value || '').trim();
+    const weight = parseInt($('exemplar-weight').value, 10);
+    const statusEl = $('exemplar-status');
+    if (!email) { statusEl.textContent = 'Enter an email first.'; statusEl.style.color = 'var(--muted)'; return; }
+    statusEl.textContent = 'Granting…';
+    statusEl.style.color = 'var(--muted)';
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch('/api/admin/grant-exemplar', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, weight }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || ('API ' + r.status));
+      statusEl.textContent = weight === 0
+        ? `✓ ${data.email} revoked (weight 0)`
+        : `✓ ${data.email} → exemplar weight ${data.weight}`;
+      statusEl.style.color = '#10b981';
+      $('exemplar-email').value = '';
+    } catch (e) {
+      statusEl.textContent = 'Failed: ' + (e.message || e);
+      statusEl.style.color = '#ef4444';
+    }
+  });
+  $('exemplar-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('exemplar-btn').click(); });
 
   // CSV export
   $('subs-export').addEventListener('click', () => {
