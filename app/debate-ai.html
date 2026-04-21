@@ -2531,15 +2531,11 @@ function App(){
   const[voiceEta]=useState(0); // TTS timing display
   const[showTx,setShowTx]=useState(false);
   // Audio progress tick — polled at 200ms while TTS is speaking so the
-  // scrub bar under the pause button updates in real time. Reading
-  // progressRef directly in render would be read-on-render and not
-  // cause re-renders; this state triggers them.
+  // scrub bar under the pause button updates in real time. The useEffect
+  // that reads tts.speaking lives BELOW `const tts=useTTS()` to avoid a
+  // TDZ error on the const during the effect's dependency-array eval at
+  // render time. (Previously defined here and it blew up every render.)
   const[audioTick,setAudioTick]=useState(0);
-  React.useEffect(()=>{
-    if(!tts.speaking) return;
-    const id=setInterval(()=>setAudioTick(t=>t+1),200);
-    return ()=>clearInterval(id);
-  },[tts.speaking]);
   const[prepHint,setPrepHint]=useState('');
   const[prepHintLoading,setPrepHintLoading]=useState(false);
   const[notesSaved,setNotesSaved]=useState(false);
@@ -2615,6 +2611,15 @@ function App(){
   const timer=useTimer();
   const prepTimer=useTimer();
   const endingRef=useRef(false); // guard against double endSpeech calls
+  // Audio progress tick effect (see audioTick state above). Runs only
+  // while TTS is speaking. Placed here — AFTER tts=useTTS() — so the
+  // dependency `tts.speaking` resolves at render time instead of hitting
+  // the const's TDZ.
+  React.useEffect(()=>{
+    if(!tts.speaking) return;
+    const id=setInterval(()=>setAudioTick(t=>t+1),200);
+    return ()=>clearInterval(id);
+  },[tts.speaking]);
 
   // ── Session recovery state ──
   const[recoveryData,setRecoveryData]=useState(()=>{
