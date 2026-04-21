@@ -4418,6 +4418,13 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
   const generateCase = async (genMode) => {
     if (!motion.trim()) return;
+    // Generate Opposition (tightblock) is a Pro-only feature. Free users see
+    // a blurred button + upgrade prompt; this guard catches any code path
+    // (DevTools, stale contextHint) that would bypass the UI gate.
+    if (genMode === 'tightblock' && !isPro(team, user)) {
+      try { if (window.__navigateTab) window.__navigateTab('team'); else window.location.href='/pricing.html'; } catch(e){ window.location.href='/pricing.html'; }
+      return;
+    }
     if (typeof gtag === 'function') {
       gtag('event', 'case_generate', {
         mode: genMode,
@@ -4835,14 +4842,38 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
           React.createElement('span',null,React.createElement('span',{className:'spinner'}),t('caseGen.generatingCase','Generating via '+(CASE_BRAINS[caseBrain]?.name||'Claude')+'...')) :
           t('caseGen.generateCase','Generate Case')
         ),
-        React.createElement('button',{
-          className:'btn btn-secondary',
-          onClick:()=>{ checkContext('tightblock'); setSaved(false); },
-          disabled:loading || checkingContext
-        }, loading && mode==='tightblock' ?
-          React.createElement('span',null,React.createElement('span',{className:'spinner'}),t('caseGen.generatingOpposition','Generating via '+(CASE_BRAINS[caseBrain]?.name||'Claude')+'...')) :
-          t('caseGen.generateOpposition','Generate Opposition')
-        ),
+        // Generate Opposition — Pro-only. Non-subscribers see a blurred
+        // button with a lock overlay; the overlay intercepts clicks and
+        // routes them to the billing tab (where they can upgrade).
+        (function(){
+          const userIsPro = isPro(team, user);
+          return React.createElement('div',{style:{position:'relative',flex:'1 1 auto',display:'flex'}},
+            React.createElement('button',{
+              className:'btn btn-secondary',
+              onClick:()=>{ if(!userIsPro) return; checkContext('tightblock'); setSaved(false); },
+              disabled:loading || checkingContext,
+              style:{flex:'1 1 auto', filter: userIsPro ? 'none' : 'blur(3px)', pointerEvents: userIsPro ? 'auto' : 'none', opacity: userIsPro ? 1 : 0.55, transition:'filter .2s, opacity .2s'},
+              'aria-hidden': userIsPro ? undefined : true,
+            }, loading && mode==='tightblock' ?
+              React.createElement('span',null,React.createElement('span',{className:'spinner'}),t('caseGen.generatingOpposition','Generating via '+(CASE_BRAINS[caseBrain]?.name||'Claude')+'...')) :
+              t('caseGen.generateOpposition','Generate Opposition')
+            ),
+            !userIsPro && React.createElement('button',{
+              type:'button',
+              onClick:()=>{ try { if (window.__navigateTab) window.__navigateTab('team'); else window.location.href='/pricing.html'; } catch(e){ window.location.href='/pricing.html'; } },
+              style:{
+                position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                background:'transparent', border:'none', cursor:'pointer',
+                color:'#fbbf24', fontWeight:800, fontSize:'.82rem', letterSpacing:'.5px', textTransform:'uppercase',
+                zIndex:2,
+              },
+              'aria-label':'Upgrade to unlock Generate Opposition',
+            },
+              React.createElement('span',{style:{fontSize:'1rem'}},'\uD83D\uDD12'),
+              React.createElement('span',null,'Pro — Upgrade to Unlock'),
+            ),
+          );
+        })(),
       ),
 
       // Context hint. AI suggests more background
