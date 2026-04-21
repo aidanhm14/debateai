@@ -13620,6 +13620,10 @@ function TopicHub({ onNavigateTab, onPrefillCase }) {
   // motion per round) so they're not in CURRENT_TOPICS. users who
   // want practice motions for those formats hit the Motions tab.
   const [format, setFormat] = useState('PF');
+  // Accordion state — keyed by `${format}:${i}` so opening a motion on
+  // one format doesn't auto-open the same index when you switch formats.
+  // Multiple cards can be open at once (compare lists side-by-side).
+  const [expanded, setExpanded] = useState({});
   const topic = CURRENT_TOPICS[format];
   return el('div',{className:'panel',style:{maxWidth:960,margin:'0 auto',padding:'28px 32px'}},
     el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-end',flexWrap:'wrap',gap:16,marginBottom:20}},
@@ -13653,24 +13657,35 @@ function TopicHub({ onNavigateTab, onPrefillCase }) {
         const proArgs = (typeof m === 'object' && Array.isArray(m.proArgs)) ? m.proArgs : [];
         const conArgs = (typeof m === 'object' && Array.isArray(m.conArgs)) ? m.conArgs : [];
         const hasPreview = proArgs.length > 0 || conArgs.length > 0;
-        return el('div',{key:i,style:{padding:'18px 20px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12}},
-          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,flexWrap:'wrap',marginBottom:hasPreview?14:0}},
-            el('div',{style:{flex:1,minWidth:260,fontSize:'.95rem',color:'#e2e8f0',lineHeight:1.5}}, motionText),
-            el('div',{style:{display:'flex',gap:8}},
+        const key = format + ':' + i;
+        const isOpen = !!expanded[key];
+        const toggle = () => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+        return el('div',{key:i,style:{background:'rgba(255,255,255,.03)',border:'1px solid '+(isOpen?'rgba(239,68,68,.3)':'rgba(255,255,255,.08)'),borderRadius:12,transition:'border-color .2s ease'}},
+          // Clickable header. The whole row toggles expansion so users
+          // can scan titles quickly. The Gen Gov/Opp buttons stopPropagation
+          // so clicking them doesn't accidentally collapse the card.
+          el('div',{
+            onClick: hasPreview ? toggle : null,
+            style:{padding:'18px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,flexWrap:'wrap',cursor:hasPreview?'pointer':'default'},
+          },
+            el('div',{style:{flex:1,minWidth:260,display:'flex',alignItems:'center',gap:10}},
+              hasPreview && el('span',{style:{fontSize:'.75rem',color:'#94a3b8',lineHeight:1,width:14,display:'inline-block',textAlign:'center',transform:isOpen?'rotate(90deg)':'rotate(0deg)',transition:'transform .2s ease'}, 'aria-hidden':true},'▶'),
+              el('div',{style:{fontSize:'.95rem',color:'#e2e8f0',lineHeight:1.5,flex:1}}, motionText),
+            ),
+            el('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+              hasPreview && el('span',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:isOpen?'#ef4444':'#64748b',whiteSpace:'nowrap'}},isOpen?'Hide args':proArgs.length+' Pro · '+conArgs.length+' Con'),
               el('button',{
-                onClick:()=>{ onPrefillCase && onPrefillCase({motion:motionText, format, side:'Government'}); onNavigateTab && onNavigateTab('case'); },
+                onClick:(e)=>{ e.stopPropagation(); onPrefillCase && onPrefillCase({motion:motionText, format, side:'Government'}); onNavigateTab && onNavigateTab('case'); },
                 className:'btn btn-orange',style:{padding:'8px 16px',fontSize:'.82rem'},
-              }, 'Generate Gov →'),
+              }, 'Gen Gov →'),
               el('button',{
-                onClick:()=>{ onPrefillCase && onPrefillCase({motion:motionText, format, side:'Opposition'}); onNavigateTab && onNavigateTab('case'); },
+                onClick:(e)=>{ e.stopPropagation(); onPrefillCase && onPrefillCase({motion:motionText, format, side:'Opposition'}); onNavigateTab && onNavigateTab('case'); },
                 className:'btn',style:{padding:'8px 16px',fontSize:'.82rem',background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',color:'#e2e8f0'},
-              }, 'Generate Opp →'),
+              }, 'Gen Opp →'),
             ),
           ),
-          // Pre-loaded argument preview. Two-column Pro/Con with short tags
-          // + 1-sentence warrants. Gives the student a cold-read of the
-          // argument landscape before they generate anything.
-          hasPreview && el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginTop:4,paddingTop:14,borderTop:'1px dashed rgba(255,255,255,.08)'}},
+          // Expanded: two-column Pro/Con preview with tags + warrants.
+          hasPreview && isOpen && el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,padding:'0 20px 18px',borderTop:'1px dashed rgba(255,255,255,.08)',paddingTop:16}},
             el('div',null,
               el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#22c55e',marginBottom:8}},'Pro · opening arguments'),
               proArgs.map((a,ai)=>el('div',{key:ai,style:{marginBottom:8,padding:'8px 10px',background:'rgba(34,197,94,.04)',border:'1px solid rgba(34,197,94,.14)',borderRadius:8}},
