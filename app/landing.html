@@ -2810,13 +2810,12 @@ window.addEventListener('load', function(){
     }).catch(function(err){ if (err && err.code !== 'auth/no-auth-event') console.warn('[landing] redirect result err:', err.message); });
   } catch(e){}
 
-  // Try-me button — plays REAL TTS audio for a PM-opener-framing line and
-  // synchronizes an on-orb typewriter bubble + the orb's speaking pulse.
-  // Uses /api/tts (ElevenLabs + OpenAI fallback) — same endpoint the mini
-  // chat uses. Caches blobs per-line so repeated clicks don't re-hit the API.
-  // Autoplay policy: the click itself is the user gesture, so audio.play()
-  // is allowed. If TTS fails, falls back to a silent typewriter so the
-  // user still sees the line move.
+  // Try-me button — plays REAL TTS audio for a debate-voice line with
+  // pause/resume, prefetched next-up audio, and a typewriter bubble synced
+  // to audio playback. 20-line rotation, ElevenLabs turbo preferred (falls
+  // back to OpenAI on the server if ElevenLabs is down). Faster delivery
+  // via server speed=1.15 + client playbackRate=1.1 so the listener gets
+  // a quick-but-natural sample, not a slow narration.
   (function(){
     var tryBtn = document.getElementById('heroTryMeBtn');
     var line = document.getElementById('heroTryMeLine');
@@ -2825,148 +2824,273 @@ window.addEventListener('load', function(){
     if (!tryBtn || !line || !orb) return;
     var btnLabel = tryBtn.querySelector('.hero-tryme-btn-label');
     var btnIcon = tryBtn.querySelector('.hero-tryme-btn-icon');
-    // PM-opener framing lines — what a real first-speaker says to set up
-    // the most important impact in the round before diving into arguments.
+
+    // 20-line rotation — a mix of PM opener framings, sharp rebuttals,
+    // weighing moves, and cross-ex pressure. All short enough to fit the
+    // bubble, all what a real debater on the circuit would actually say.
     var LINES = [
-      "First — for some framing. We believe the most important impact in this round is institutional trust, because every policy you run after this depends on whether citizens still believe the state can keep its word.",
-      "First, for some framing, we believe the most important impact here is the downstream harm on people who can't absorb it. Wealthy communities survive bad policy. Linda in Dayton doesn't.",
-      "First, for some framing — the decisive impact in this round is opportunity cost. Every time the state says yes to this, it says no to the next policy on the list, and we should ask who pays for that trade.",
-      "First, for some framing, the most important impact in this round is the precedent it sets. One policy is a choice. A repeated pattern becomes the rule the next generation lives under.",
-      "First — for some framing. The impact we care about most is whose voice enters the room when the decision is made, because procedural harm compounds long after any single outcome is reversed."
+      "First — for some framing. The most important impact in this round is institutional trust, because every policy you run after this depends on whether citizens still believe the state can keep its word.",
+      "First, for some framing, the decisive impact here is the downstream harm on people who can't absorb it. Wealthy communities survive bad policy. Linda in Dayton doesn't.",
+      "First, for some framing, the impact that matters most is opportunity cost. Every time the state says yes to this, it says no to the next policy on the list, and we should ask who pays for that trade.",
+      "First — for some framing — the most important impact in this round is the precedent it sets. One policy is a choice. A repeated pattern becomes the rule the next generation lives under.",
+      "First, for some framing, the impact we care about most is whose voice enters the room when the decision is made. Procedural harm compounds long after any single outcome is reversed.",
+      "First — for some framing. The only impact that matters in this round is the marginal worker. Not the median, not the average. The one on the edge whose job breaks under the policy you're selling.",
+      "First, for some framing. Impact calculus in this round runs on reversibility. Their impact you can undo. Ours you can't. That asymmetry is the entire ballot.",
+      "First, for some framing — we're not debating whether this policy has costs. We're debating who eats them. Identify that person, and the round is decided.",
+      "Framework first. Whichever side reduces net harm to the worst-off people wins the round. We meet it. They don't. Here's why.",
+      "Here's the thing about your jobs argument — it collapses the second you look at Dayton in 2008. They don't have a model for what happens to the line cook.",
+      "Their own evidence — a 2023 Brookings piece — says enforcement spikes the informal market thirty percent. That's not our turn, that's their turn. We just pointed at it.",
+      "I'll concede your first claim. Doesn't matter. The round lives on the second one, and you haven't given the judge a warrant.",
+      "You keep saying stakeholders. Name one. Tell me who actually loses in the world your plan builds, or stop using the word.",
+      "That's not an impact. That's a vibe. Give me a mechanism, a number, or a named person, or I'm not voting on it.",
+      "Dropped argument. Cross-apply my second contention — they never touched the causal chain, and silence on the flow reads as concession.",
+      "You want autonomy as a terminal value. Fine. Then explain why Linda in Queens loses her job under your plan, and tell me whose autonomy that respects.",
+      "Three responses to their deterrence argument. One — the warrant is empirically false. Two — even if true, the link is three contingent steps. Three — it's a link turn. Their own logic cuts against them.",
+      "Weigh it. Our impact is more probable, more immediate, and lands on people with zero buffer. Theirs is speculative and lands on people who can absorb it. That's the comparison the judge has to make.",
+      "Cross-ex question. Does your plan actually do the thing you said it does, or does it do the thing your evidence says it does? Because those aren't the same policy.",
+      "One sentence close. Every warrant they gave you flows our way once you pull the link turn. Proud to oppose."
     ];
+
     var lastIdx = -1;
-    var playing = false;
-    var audioCache = {};
+    var audioCache = {}; // text -> { url, audio, duration }
+    var prefetchPromise = null;
+    // State machine: idle | loading | playing | paused
+    var state = 'idle';
+    var current = null; // { text, audio, durationMs, typeController }
+
     function pickLine(){
       if (LINES.length < 2) return LINES[0] || '';
       var i; do { i = Math.floor(Math.random() * LINES.length); } while (i === lastIdx);
       lastIdx = i; return LINES[i];
     }
     function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+    function setBtn(mode){
+      if (!btnLabel || !btnIcon) return;
+      tryBtn.classList.toggle('playing', mode === 'playing' || mode === 'loading');
+      if (mode === 'idle')    { btnIcon.textContent = '▶'; btnLabel.textContent = 'Try me'; tryBtn.disabled = false; }
+      if (mode === 'loading') { btnIcon.textContent = '●'; btnLabel.textContent = 'Loading'; tryBtn.disabled = true; }
+      if (mode === 'playing') { btnIcon.textContent = '❚❚'; btnLabel.textContent = 'Pause'; tryBtn.disabled = false; }
+      if (mode === 'paused')  { btnIcon.textContent = '▶'; btnLabel.textContent = 'Resume'; tryBtn.disabled = false; }
+    }
+
     async function fetchAudio(text){
-      if (audioCache[text]) return audioCache[text];
+      if (audioCache[text] && audioCache[text].url) return audioCache[text];
       var r = await fetch('/api/tts', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ text: text, voice: 'onyx' })
+        // premium: true → ElevenLabs turbo (much more natural than tts-1).
+        // echo voice → "Sarah," mature/confident American female on EL,
+        // safe fallback to OpenAI echo if ElevenLabs key missing.
+        // speed: 1.15 → tighter pacing, still legible. Client also bumps
+        // playbackRate for a final snap.
+        body: JSON.stringify({ text: text, voice: 'echo', premium: true, speed: 1.15, intensity: 0.35 })
       });
       if (!r.ok) throw new Error('TTS ' + r.status);
       var blob = await r.blob();
       var url = URL.createObjectURL(blob);
-      audioCache[text] = url;
-      return url;
+      var entry = { url: url, duration: 0 };
+      audioCache[text] = entry;
+      return entry;
     }
-    // Drive a per-character reveal across a total duration. If audio is
-    // available, we aim for audio.duration so the caret lands on the period
-    // at about the moment TTS finishes speaking. Feels like one motion.
-    async function typewrite(text, totalMs){
-      var n = text.length;
-      if (n === 0) return;
-      // Weight punctuation pauses so the flow reads like speech, not a printer.
-      var weights = new Array(n);
-      var sum = 0;
-      for (var i = 0; i < n; i++) {
+
+    // Pre-warm: the instant the landing page is idle, grab audio for a
+    // randomly-chosen line so the FIRST click returns audio immediately.
+    // Uses requestIdleCallback when available so it never blocks paint.
+    function prewarm(){
+      if (prefetchPromise) return prefetchPromise;
+      var first = pickLine();
+      // Keep the rotation state honest: we've "shown" this one.
+      prefetchPromise = fetchAudio(first).then(function(entry){
+        // Prime an <audio> element so metadata is ready on click.
+        var a = new Audio(entry.url);
+        a.preload = 'auto';
+        entry.audio = a;
+        return entry;
+      }).catch(function(err){
+        console.warn('[try-me] prewarm failed:', err && err.message);
+        prefetchPromise = null;
+      });
+      return prefetchPromise;
+    }
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(prewarm, { timeout: 2500 });
+    } else {
+      setTimeout(prewarm, 1200);
+    }
+
+    // Prefetch the NEXT line in the background while the current one plays,
+    // so click-to-audio on the next interaction is instant.
+    function prefetchNext(){
+      // Peek one index ahead without locking it in — pickLine() will still
+      // randomize, but caching a random other line is almost always a hit.
+      var candidates = [];
+      for (var k = 0; k < LINES.length; k++) if (k !== lastIdx && !audioCache[LINES[k]]) candidates.push(k);
+      if (!candidates.length) return;
+      var idx = candidates[Math.floor(Math.random() * candidates.length)];
+      fetchAudio(LINES[idx]).catch(function(){ /* swallow */ });
+    }
+
+    // Typewriter with a controller so we can pause/resume/abort.
+    function makeTypewriter(text, targetEl){
+      var total = text.length;
+      var pos = 0;
+      var paused = false;
+      var aborted = false;
+      var resumeResolver = null;
+      function render(){
+        targetEl.innerHTML = text.slice(0, pos) + '<span class="hero-tryme-caret"></span>';
+      }
+      function weightAt(i){
         var ch = text.charAt(i);
-        var w = 1;
-        if (ch === ' ') w = 0.6;
-        else if (ch === ',') w = 3.2;
-        else if (ch === '—' || ch === '-') w = 2.6;
-        else if (ch === '.' || ch === '?' || ch === '!') w = 5.5;
-        weights[i] = w;
-        sum += w;
+        if (ch === ' ') return 0.55;
+        if (ch === ',') return 2.6;
+        if (ch === '—' || ch === '-') return 2.2;
+        if (ch === '.' || ch === '?' || ch === '!') return 4.2;
+        return 1;
       }
-      var scale = totalMs / sum;
-      for (var j = 0; j < n; j++) {
-        line.innerHTML = text.slice(0, j + 1) + '<span class="hero-tryme-caret"></span>';
-        await sleep(Math.max(8, weights[j] * scale));
+      function run(totalMs){
+        // Sum weights to scale per-char delay to the budget.
+        var sum = 0;
+        for (var i = 0; i < total; i++) sum += weightAt(i);
+        var scale = totalMs / Math.max(1, sum);
+        return new Promise(function(resolve){
+          function step(){
+            if (aborted) return resolve();
+            if (pos >= total) return resolve();
+            if (paused) {
+              // Wait until resume() fires.
+              new Promise(function(r){ resumeResolver = r; }).then(step);
+              return;
+            }
+            pos++;
+            render();
+            setTimeout(step, Math.max(8, weightAt(pos - 1) * scale));
+          }
+          step();
+        });
       }
+      return {
+        start: function(totalMs){ return run(totalMs); },
+        pause: function(){ paused = true; },
+        resume: function(){ paused = false; if (resumeResolver){ var r = resumeResolver; resumeResolver = null; r(); } },
+        abort: function(){ aborted = true; paused = false; if (resumeResolver){ var r = resumeResolver; resumeResolver = null; r(); } },
+      };
     }
-    async function playOnce(){
-      if (playing) return;
-      playing = true;
-      tryBtn.disabled = true;
-      tryBtn.classList.add('playing');
-      if (btnLabel) btnLabel.textContent = 'Loading';
-      if (btnIcon) btnIcon.textContent = '●';
+
+    async function startFresh(){
+      state = 'loading';
+      setBtn('loading');
       try { window.dosTrack && window.dosTrack('try_me_click',{source:'landing_hero'}) } catch(e){}
 
+      // Prefer the prewarmed entry if the user lands on that exact line;
+      // otherwise pick a new one and fetch. The rotation guarantees variety.
       var text = pickLine();
-      var audio = null;
-      var durationMs = 0;
-
-      // Try to get TTS audio first. Audio duration drives the typewriter pace.
+      var entry;
       try {
-        var url = await fetchAudio(text);
-        audio = new Audio(url);
-        audio.preload = 'auto';
-        // Wait briefly for metadata so we know the true duration.
-        await new Promise(function(resolve){
-          var done = false;
-          function finish(){ if (done) return; done = true; resolve(); }
-          audio.addEventListener('loadedmetadata', finish, { once:true });
-          audio.addEventListener('canplay', finish, { once:true });
-          audio.addEventListener('error', finish, { once:true });
-          setTimeout(finish, 1800);
-        });
-        if (isFinite(audio.duration) && audio.duration > 0) {
-          durationMs = audio.duration * 1000;
-        }
+        entry = await fetchAudio(text);
       } catch(e) {
-        console.warn('[try-me] TTS fetch failed, falling back to silent typewriter:', e && e.message);
-        audio = null;
+        console.warn('[try-me] TTS failed, silent typewriter fallback:', e && e.message);
+        entry = { url: null, duration: 0 };
       }
-      // Fallback pace if TTS didn't give us a real duration.
-      if (!durationMs) durationMs = Math.max(3200, Math.min(9000, text.length * 48));
 
-      // Light the orb.
+      var audio = entry.audio || (entry.url ? new Audio(entry.url) : null);
+      if (audio && !entry.audio) { audio.preload = 'auto'; entry.audio = audio; }
+      if (audio) {
+        // Faster-than-recorded playback pushes the edge of natural without
+        // sounding chipmunk. 1.1–1.2 is the sweet spot for debate register.
+        try { audio.playbackRate = 1.1; audio.preservesPitch = true; } catch(e){}
+        if (!isFinite(audio.duration) || !audio.duration) {
+          await new Promise(function(resolve){
+            var done = false;
+            function finish(){ if (done) return; done = true; resolve(); }
+            audio.addEventListener('loadedmetadata', finish, { once:true });
+            audio.addEventListener('canplay', finish, { once:true });
+            audio.addEventListener('error', finish, { once:true });
+            setTimeout(finish, 1200);
+          });
+        }
+      }
+      var durationMs = 0;
+      if (audio && isFinite(audio.duration) && audio.duration > 0) {
+        durationMs = (audio.duration * 1000) / (audio.playbackRate || 1);
+      }
+      if (!durationMs) durationMs = Math.max(2400, Math.min(7000, text.length * 38));
+
+      // Light the orb and render the bubble.
       try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
       orb.classList.add('speaking');
       if (caption) caption.style.opacity = '.3';
       line.innerHTML = '<span class="hero-tryme-caret"></span>';
 
-      // Start audio + typewriter in parallel. Small delay so the bubble
-      // fade-in finishes before the first character appears.
-      if (btnLabel) btnLabel.textContent = 'Playing';
-      if (btnIcon) btnIcon.textContent = '♪';
+      var typer = makeTypewriter(text, line);
+      current = { text: text, audio: audio, durationMs: durationMs, typer: typer };
+      state = 'playing';
+      setBtn('playing');
+
+      // Kick off audio (user gesture is still active from the click).
       var audioPromise = Promise.resolve();
       if (audio) {
         try {
           var p = audio.play();
-          if (p && typeof p.then === 'function') {
-            p.catch(function(err){
-              console.warn('[try-me] audio.play() rejected:', err && err.message);
-            });
-          }
+          if (p && typeof p.then === 'function') p.catch(function(){});
           audioPromise = new Promise(function(resolve){
             audio.addEventListener('ended', resolve, { once:true });
             audio.addEventListener('error', resolve, { once:true });
-            // Safety timeout so we never hang the UI.
             setTimeout(resolve, durationMs + 2500);
           });
-        } catch(e){ /* audio failed; typewriter still runs */ }
+        } catch(e) {}
       }
-      await sleep(160);
-      // Typewriter runs in parallel with audio. Reserve ~400ms tail so the
-      // reader lands on the final punctuation before audio ends.
-      var typeMs = Math.max(2200, durationMs - 400);
-      await Promise.all([ typewrite(text, typeMs), audioPromise ]);
 
-      // Hold for a beat so the reader can sit with the finished line.
-      await sleep(900);
+      // Prefetch the next audio while the current plays so the next click
+      // starts instantly. Background; don't await.
+      prefetchNext();
 
-      // Fade orb back to idle.
+      // Typewriter runs in parallel with audio.
+      var typeMs = Math.max(1800, durationMs - 300);
+      await Promise.all([ typer.start(typeMs), audioPromise ]);
+
+      // Hold for a beat so the reader lands on the final punctuation.
+      await sleep(650);
+      teardown();
+    }
+
+    function teardown(){
       orb.classList.remove('speaking');
       try { window.__heroOrbMode && window.__heroOrbMode('idle'); } catch(e){}
       if (caption) caption.style.opacity = '';
-      await sleep(320);
-      line.innerHTML = '';
-      tryBtn.classList.remove('playing');
-      if (btnLabel) btnLabel.textContent = 'Try me';
-      if (btnIcon) btnIcon.textContent = '▶';
-      tryBtn.disabled = false;
-      playing = false;
+      setTimeout(function(){ if (state === 'idle') line.innerHTML = ''; }, 320);
+      if (current && current.typer) current.typer.abort();
+      current = null;
+      state = 'idle';
+      setBtn('idle');
     }
-    tryBtn.addEventListener('click', playOnce);
+
+    function pauseCurrent(){
+      if (!current) return;
+      if (current.audio) { try { current.audio.pause(); } catch(e){} }
+      if (current.typer) current.typer.pause();
+      state = 'paused';
+      setBtn('paused');
+    }
+    function resumeCurrent(){
+      if (!current) return;
+      if (current.audio) {
+        try {
+          var p = current.audio.play();
+          if (p && typeof p.then === 'function') p.catch(function(){});
+        } catch(e){}
+      }
+      if (current.typer) current.typer.resume();
+      state = 'playing';
+      setBtn('playing');
+    }
+
+    tryBtn.addEventListener('click', function(){
+      if (state === 'idle')    { startFresh(); return; }
+      if (state === 'playing') { pauseCurrent(); return; }
+      if (state === 'paused')  { resumeCurrent(); return; }
+      // 'loading' → ignore
+    });
   })();
 
   // Main sign-up button in the hero
