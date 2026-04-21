@@ -3638,7 +3638,14 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   // stub (`voice-guidelines.js`) returns '' for everything. We still build
   // `voiceBlock` in case a future BYOK-style path wants it on the client.
   const voiceBlock = (window.DEBATE_VOICE && window.DEBATE_VOICE.forFeature(opts.feature)) || '';
-  const fullSystemPrompt = systemPrompt + buildStyleBlock() + voiceBlock;
+  // Team coaching brief — when set on the team, the coach's instructions
+  // get prepended to every team member's AI prompt. This is the shared
+  // team-workspace hook: one coach updates team.context on Friday, every
+  // student's rounds that weekend absorb the priorities automatically.
+  const teamBrief = (typeof __currentTeam !== 'undefined' && __currentTeam && __currentTeam.context)
+    ? 'TEAM COACHING BRIEF (from '+(__currentTeam.teamName||'your team')+'):\n'+__currentTeam.context+'\n\nApply this guidance to your output.\n\n'
+    : '';
+  const fullSystemPrompt = teamBrief + systemPrompt + buildStyleBlock() + voiceBlock;
   const feature = opts.feature || 'case';
   const body = { model, max_tokens: maxTokens, stream: true, system: fullSystemPrompt, messages: [{ role:'user', content: userPrompt }], _feature: feature, _voiceFeature: feature };
   if (opts.format) body._voiceFormat = opts.format;
@@ -3749,7 +3756,14 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   // Voice guidelines are per-feature (see /js/voice-guidelines.js) so judge /
   // feedback prompts don't get debater voice mixed in.
   const voiceBlock = (window.DEBATE_VOICE && window.DEBATE_VOICE.forFeature(opts.feature)) || '';
-  const fullSystemPrompt = systemPrompt + buildStyleBlock() + voiceBlock;
+  // Team coaching brief — when set on the team, the coach's instructions
+  // get prepended to every team member's AI prompt. This is the shared
+  // team-workspace hook: one coach updates team.context on Friday, every
+  // student's rounds that weekend absorb the priorities automatically.
+  const teamBrief = (typeof __currentTeam !== 'undefined' && __currentTeam && __currentTeam.context)
+    ? 'TEAM COACHING BRIEF (from '+(__currentTeam.teamName||'your team')+'):\n'+__currentTeam.context+'\n\nApply this guidance to your output.\n\n'
+    : '';
+  const fullSystemPrompt = teamBrief + systemPrompt + buildStyleBlock() + voiceBlock;
 
   // Ensure budget_tokens < max_tokens and >= 1024 (API requirements)
   const safeBudget = Math.max(1024, Math.min(thinkBudget, maxTokens - 1024));
@@ -11823,7 +11837,12 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
               isOwner && el('button',{onClick:()=>{setEditName(team.teamName||'');setEditContext(team.context||'');setEditIsPublic(!!team.isPublic);setEditBio(team.bio||'');setEditingTeam(true);},style:{background:'none',border:'none',color:'#94a3b8',cursor:'pointer',fontSize:'.8rem',padding:'2px 6px'}},'\u270F\uFE0F'),
             ),
         team.plan !== 'trial' && el('span', {style:{fontSize:'.75rem',padding:'3px 10px',borderRadius:20,fontWeight:700,background:planColor+'20',color:planColor,textTransform:'uppercase',letterSpacing:'.5px',marginTop:4,display:'inline-block'}}, team.plan + ' plan'),
-        team.context && !editingTeam && el('p',{style:{fontSize:'.78rem',color:'#94a3b8',marginTop:4,maxWidth:400}},team.context),
+        team.context && !editingTeam && el('div',{style:{marginTop:6,maxWidth:520,padding:'8px 12px',background:'rgba(34,197,94,.06)',border:'1px solid rgba(34,197,94,.22)',borderRadius:10}},
+          el('div',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#4ade80',marginBottom:4,display:'flex',alignItems:'center',gap:6}},
+            el('span',null,'⚡ Coaching brief · live in every teammate\'s AI prompts'),
+          ),
+          el('p',{style:{fontSize:'.78rem',color:'#cbd5e1',margin:0,lineHeight:1.5}},team.context),
+        ),
       ),
       isOwner && el('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
         el('button', {onClick:team.stripeSubscriptionId?openPortal:()=>openCheckout('team'), style:{padding:'8px 16px',background:'#ffffff08',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}, team.stripeSubscriptionId?t('team.manageBilling','Manage Billing'):t('team.upgradePlan','Upgrade Plan')),
