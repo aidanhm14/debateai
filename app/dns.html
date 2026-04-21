@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DNS Diagnostic · Debate AI</title>
+<meta name="description" content="Look up DNS records for any domain — A, AAAA, CNAME, MX, NS, TXT, SOA, CAA.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  :root { --bg:#0b0f17; --fg:#e8eef7; --muted:#94a3b8; --accent:#ef4444; --card:#121826; --line:#1f2937; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:840px;margin:0 auto;padding:48px 24px 96px}
+  header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:32px;gap:16px;flex-wrap:wrap}
+  h1{font:700 30px/1.1 "SF Pro Display",-apple-system,system-ui,sans-serif;margin:0;letter-spacing:-0.02em}
+  .sub{color:var(--muted);font-size:13px;margin-top:6px}
+  .back{color:var(--muted);font-size:14px}
+  form{display:flex;gap:8px;margin:0 0 28px;flex-wrap:wrap}
+  input[type=text]{flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);color:var(--fg);padding:12px 14px;border-radius:8px;font:15px/1.2 "SF Mono",ui-monospace,Menlo,monospace;outline:none}
+  input[type=text]:focus{border-color:var(--accent)}
+  select{background:var(--card);border:1px solid var(--line);color:var(--fg);padding:12px 14px;border-radius:8px;font:14px/1 system-ui,sans-serif;outline:none}
+  button{background:var(--accent);color:#fff;border:0;padding:12px 20px;border-radius:8px;font:600 14px/1 system-ui,sans-serif;cursor:pointer;letter-spacing:0.02em}
+  button:disabled{opacity:0.5;cursor:wait}
+  .meta{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;margin-bottom:16px;min-height:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:12px}
+  .card h2{font:600 13px/1 system-ui,sans-serif;margin:0 0 10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)}
+  .card h2 .count{color:var(--fg);opacity:0.5;margin-left:6px;font-weight:400}
+  .rec{font:13px/1.6 "SF Mono",ui-monospace,Menlo,monospace;color:#cbd5e1;word-break:break-all;padding:4px 0;border-top:1px dashed var(--line)}
+  .rec:first-of-type{border-top:0}
+  .empty{color:var(--muted);font-size:13px;font-style:italic}
+  .err{color:var(--err);font-size:13px}
+  .pri{color:var(--muted);margin-right:8px;font-variant-numeric:tabular-nums}
+  .hint{color:var(--muted);font-size:12px;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>DNS Diagnostic</h1>
+      <div class="sub">Resolve A, AAAA, CNAME, MX, NS, TXT, SOA, and CAA records for any domain.</div>
+    </div>
+    <a class="back" href="/landing">← back</a>
+  </header>
+
+  <form id="f" autocomplete="off">
+    <input id="domain" type="text" name="domain" placeholder="example.com" required pattern="^[A-Za-z0-9.-]+$" spellcheck="false">
+    <select id="type" name="type" title="Record type">
+      <option value="">All records</option>
+      <option value="A">A</option>
+      <option value="AAAA">AAAA</option>
+      <option value="CNAME">CNAME</option>
+      <option value="MX">MX</option>
+      <option value="NS">NS</option>
+      <option value="TXT">TXT</option>
+      <option value="SOA">SOA</option>
+      <option value="CAA">CAA</option>
+    </select>
+    <button id="go" type="submit">Lookup</button>
+  </form>
+
+  <div id="meta" class="meta"></div>
+  <div id="out"></div>
+</div>
+
+<script>
+  const f = document.getElementById('f');
+  const domainEl = document.getElementById('domain');
+  const typeEl = document.getElementById('type');
+  const go = document.getElementById('go');
+  const meta = document.getElementById('meta');
+  const out = document.getElementById('out');
+
+  // Seed from ?domain= in URL so results are shareable.
+  const params = new URLSearchParams(location.search);
+  if (params.get('domain')) {
+    domainEl.value = params.get('domain');
+    if (params.get('type')) typeEl.value = params.get('type');
+    requestAnimationFrame(() => f.requestSubmit());
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+    );
+  }
+
+  function renderRecords(type, group) {
+    if (!group.ok) {
+      return '<div class="err">lookup failed: ' + esc(group.error) + '</div>';
+    }
+    if (!group.records.length) {
+      return '<div class="empty">no records</div>';
+    }
+    return group.records
+      .map((r) => {
+        if (type === 'MX') {
+          return '<div class="rec"><span class="pri">' + esc(r.priority) + '</span>' + esc(r.exchange) + '</div>';
+        }
+        if (type === 'SOA') {
+          return (
+            '<div class="rec">nsname: ' + esc(r.nsname) + '</div>' +
+            '<div class="rec">hostmaster: ' + esc(r.hostmaster) + '</div>' +
+            '<div class="rec">serial: ' + esc(r.serial) + ' · refresh: ' + esc(r.refresh) +
+            ' · retry: ' + esc(r.retry) + ' · expire: ' + esc(r.expire) + ' · minttl: ' + esc(r.minttl) + '</div>'
+          );
+        }
+        if (type === 'CAA') {
+          const key = Object.keys(r).find((k) => k !== 'critical') || 'issue';
+          return '<div class="rec">' + esc(key) + ' ' + esc(r[key]) + (r.critical ? ' (critical)' : '') + '</div>';
+        }
+        if (typeof r === 'object') {
+          return '<div class="rec">' + esc(JSON.stringify(r)) + '</div>';
+        }
+        return '<div class="rec">' + esc(r) + '</div>';
+      })
+      .join('');
+  }
+
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const domain = domainEl.value.trim().toLowerCase();
+    const type = typeEl.value;
+    if (!domain) return;
+
+    go.disabled = true;
+    meta.textContent = 'Resolving ' + domain + '…';
+    out.innerHTML = '';
+
+    const qs = new URLSearchParams({ domain });
+    if (type) qs.set('type', type);
+
+    // Reflect query in URL so results can be shared.
+    const newUrl = location.pathname + '?' + qs.toString();
+    history.replaceState(null, '', newUrl);
+
+    try {
+      const res = await fetch('/api/dns-lookup?' + qs.toString());
+      const data = await res.json();
+      if (!res.ok) {
+        meta.innerHTML = '<span class="err">' + esc(data.error || ('HTTP ' + res.status)) + '</span>';
+        return;
+      }
+      meta.textContent = 'Resolved ' + esc(data.domain) + ' in ' + data.elapsedMs + 'ms · ' + new Date(data.queriedAt).toLocaleTimeString();
+      const order = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'SOA', 'CAA'];
+      out.innerHTML = order
+        .filter((t) => data.results[t])
+        .map((t) => {
+          const g = data.results[t];
+          const count = g.ok ? g.records.length : '—';
+          return (
+            '<section class="card">' +
+              '<h2>' + t + '<span class="count">(' + count + ')</span></h2>' +
+              renderRecords(t, g) +
+            '</section>'
+          );
+        })
+        .join('');
+    } catch (err) {
+      meta.innerHTML = '<span class="err">network error: ' + esc(err.message) + '</span>';
+    } finally {
+      go.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
