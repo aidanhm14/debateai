@@ -1749,7 +1749,36 @@ Use this intelligence. If they don't weigh, you weigh extensively. If they rely 
 // `${DEBATE_VOICE_GUIDELINES}` interpolations below become no-ops.
 const DEBATE_VOICE_GUIDELINES = '';
 
-function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,difficultyNote,background,currentLog,historyRounds,targetWordCount){
+// Build the rivalry memory block: if the user has faced THIS voice
+// personality before, give the AI a short history so it can reference the
+// prior rounds naturally. This is what turns a one-shot debate into an
+// ongoing rivalry — the AI "remembers" getting beaten on the impact calc
+// last round and anticipates it this round.
+function buildOpponentMemory(voice, historyRounds) {
+  if (!voice || !Array.isArray(historyRounds) || !historyRounds.length) return '';
+  const prior = historyRounds.filter(r => r && r.voice === voice);
+  if (!prior.length) return '';
+  const wins = prior.filter(r => r.userWon === true).length;
+  const losses = prior.filter(r => r.userWon === false).length;
+  // Last 3 rounds, most recent first — enough to ground the AI's memory
+  // without overflowing the system prompt.
+  const recent = prior.slice(0, 3).map((r, i) => {
+    const outcome = r.userWon === true ? 'they beat you' : r.userWon === false ? 'you beat them' : 'split decision';
+    const side = r.sideLabel || r.side || '?';
+    return `  ${i+1}. "${(r.motion||'').slice(0,100)}" — they ran ${side} — ${outcome}`;
+  }).join('\n');
+  const personaLine = `You've debated this opponent ${prior.length} time${prior.length===1?'':'s'} before. Record so far: ${losses}W-${wins}L in your favor.`;
+  return `
+RIVALRY — YOU AND THIS DEBATER HAVE HISTORY:
+${personaLine}
+Recent rounds:
+${recent}
+
+Play this like a rematch. Reference the history sparingly but real — "last time you ran ${prior[0].sideLabel||prior[0].side||'the other side'} on a motion like this and I caught the drop on..." or "I've learned your tells — you'll likely collapse to the impact argument, so I'm pre-empting it this time." Do NOT force the reference if it doesn't fit; ONE callback per speech is plenty. The goal is to make this feel like a debate between two people who've been in a room together before, not a cold open.
+`;
+}
+
+function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,difficultyNote,background,currentLog,historyRounds,targetWordCount,voice){
   const fmt=FORMATS[format]||FORMATS.apda;
   const traitPrompt=buildTraitPrompt(oppStr||[],oppWk||[]);
   const userLabel=fmt.sideLabels[userSide]||userSide;
@@ -1768,6 +1797,7 @@ function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,di
   // Build flow analysis and opponent model
   const flowAnalysis=buildFlowAnalysis(history,format,userSide);
   const opponentModel=buildOpponentModel(currentLog||[],historyRounds||[],userSide);
+  const rivalryMemory=buildOpponentMemory(voice, historyRounds||[]);
 
   const steelmanInstruction=history?`
 STEELMANNING. NON-NEGOTIABLE:
@@ -1802,6 +1832,7 @@ ${unconventionalNote}
 ${difficultyNote||''}
 ${flowAnalysis}
 ${opponentModel}
+${rivalryMemory}
 
 ${background?'BACKGROUND/CONTEXT for this motion:\n'+background:''}
 ${history?'Previous speeches:\n'+history:'First speech of the round.'}
@@ -2602,7 +2633,7 @@ function App(){
         // Pass voiceFormat so server appends the format-specific voice block
         // (Policy spreads + evidence tags, PF lay-accessible, LD value/criterion,
         // BP whip structure, Congress "Mr. Speaker," etc).
-        const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
+        const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords,voice),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           const clean=stripPlan(chunk);
           setAiText(clean);
           const words=clean.split(/\s+/).length;
@@ -3032,10 +3063,26 @@ function App(){
           )
         )
       ),
-      // Selected voice description
+      // Selected voice description + rivalry pill
       VOICES[voice]&&el('div',{style:{textAlign:'center',marginTop:8,fontSize:'.72rem',color:'var(--c-text)',lineHeight:1.4,maxWidth:360,margin:'8px auto 0'}},
         VOICES[voice].desc
       ),
+      // Rivalry stats — shows prior W/L vs this specific voice so the user
+      // feels the recurring-opponent loop. Only renders if they've faced
+      // this voice at least once.
+      (function(){
+        const prior = (historyRounds||[]).filter(r => r && r.voice === voice);
+        if (!prior.length) return null;
+        const wins = prior.filter(r => r.userWon === true).length;
+        const losses = prior.filter(r => r.userWon === false).length;
+        const ties = prior.length - wins - losses;
+        const label = wins+'W-'+losses+'L'+(ties?'-'+ties+'T':'');
+        return el('div',{style:{textAlign:'center',marginTop:10}},
+          el('span',{style:{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.3)',borderRadius:100,fontSize:'.66rem',color:'#fca5a5',fontWeight:700,letterSpacing:'.5px',textTransform:'uppercase'}},
+            '⚔ Rivalry: '+label+' vs '+VOICES[voice].name+' ('+prior.length+' rounds)'
+          )
+        );
+      })(),
 
       // AI Speed
       el('div',{className:'t-label',style:{marginTop:24}},'AI Speed'),
