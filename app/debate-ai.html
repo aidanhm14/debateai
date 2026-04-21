@@ -96,6 +96,51 @@ body{
   background:radial-gradient(circle 400px at 30% 70%,rgba(239,68,68,.03),transparent);
 }
 
+/* ── Audience silhouettes ──────────────────────────────────────────
+   Two fixed columns of listening-head silhouettes flanking the speech
+   view. Only visible during phase==='speech' (React gates the mount).
+   Each head has its own slow nod/sway animation with staggered delay
+   so the crowd reads as alive, not synchronized. Light mode mirrors
+   the dark palette with a cream-over-ivory tone. */
+.audience-heads{
+  position:fixed;top:50%;transform:translateY(-50%);
+  z-index:1;pointer-events:none;
+  width:clamp(120px, 16vw, 220px);
+  opacity:.55;
+  filter:blur(.4px);
+  transition:opacity .5s ease;
+}
+.audience-heads.left{left:0}
+.audience-heads.right{right:0;transform:translateY(-50%) scaleX(-1)}
+.audience-heads svg{width:100%;height:auto;display:block;overflow:visible}
+[data-lighting="light"] .audience-heads{opacity:.40}
+@media (max-width:900px){.audience-heads{display:none}}
+
+.aud-head{
+  transform-origin: var(--ox, 50%) var(--oy, 70%);
+  animation: aud-nod var(--dur, 6.5s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  will-change: transform;
+}
+.aud-glow{
+  transform-origin: var(--ox, 50%) var(--oy, 70%);
+  animation: aud-glow var(--dur, 6.5s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes aud-nod{
+  0%,100% { transform: translateY(0)   rotate(0deg) }
+  22%     { transform: translateY(-1px) rotate(-1.1deg) }
+  48%     { transform: translateY(1px)  rotate(.7deg) }
+  74%     { transform: translateY(0)    rotate(-.4deg) }
+}
+@keyframes aud-glow{
+  0%,100% { opacity:.45 }
+  50%     { opacity:.85 }
+}
+@media (prefers-reduced-motion: reduce){
+  .aud-head,.aud-glow{animation:none}
+}
+
 /* ── Page ──────────────────────────── */
 .page{
   position:relative;z-index:1;min-height:100vh;
@@ -107,9 +152,9 @@ body{
   position:fixed;top:0;left:0;right:0;z-index:50;
   padding:20px 32px;display:flex;align-items:center;justify-content:space-between;
 }
-.bar-logo{font-size:.9rem;font-weight:700;color:#f5f5f7;text-decoration:none;letter-spacing:-.01em;opacity:.7;transition:opacity .2s}
-.bar-logo:hover{opacity:1}
-.bar-logo em{color:#ef4444;font-style:normal}
+.bar-logo{font-size:1.45rem;font-weight:900;color:#f5f5f7;text-decoration:none;letter-spacing:-.025em;opacity:.95;transition:opacity .2s,transform .2s;line-height:1}
+.bar-logo:hover{opacity:1;transform:translateY(-1px)}
+.bar-logo em{color:#ef4444;font-style:normal;font-weight:900}
 .bar-links{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
 .bar-links a{font-size:.72rem;font-weight:500;color:rgba(255,255,255,.35);text-decoration:none;text-transform:uppercase;letter-spacing:.08em;transition:color .2s}
 .bar-links a:hover{color:rgba(255,255,255,.7)}
@@ -2197,6 +2242,67 @@ async function shareConfidenceCard(args) {
 }
 
 /* ═══════════════════════════════════════════════════
+   AUDIENCE HEADS — silhouettes flanking the speech view
+   ═══════════════════════════════════════════════════ */
+
+// Pseudo-random but stable seats. Each head gets a slightly different
+// size, offset, nod duration, and delay so the crowd reads alive.
+// Rendered twice (left + right) with scaleX(-1) mirror on right.
+const AUDIENCE_SEATS = [
+  { x: 22, y: 62, r: 13, dur: 6.8, delay: 0.0, alpha: .85 },
+  { x: 58, y: 52, r: 14, dur: 7.3, delay: 1.4, alpha: .80 },
+  { x: 92, y: 68, r: 12, dur: 6.1, delay: 0.7, alpha: .70 },
+  { x: 38, y: 96, r: 16, dur: 7.9, delay: 2.1, alpha: .95 },
+  { x: 78, y: 98, r: 15, dur: 6.5, delay: 0.3, alpha: .90 },
+  { x: 14, y: 128, r: 14, dur: 7.1, delay: 1.9, alpha: .82 },
+  { x: 52, y: 138, r: 17, dur: 8.4, delay: 0.9, alpha: 1.0 },
+  { x: 96, y: 132, r: 13, dur: 6.7, delay: 2.6, alpha: .75 },
+  { x: 30, y: 176, r: 15, dur: 7.5, delay: 1.2, alpha: .88 },
+  { x: 72, y: 184, r: 16, dur: 8.1, delay: 0.5, alpha: .92 },
+];
+
+function AudienceHeads({ side }){
+  // Each head = a circle for the skull + an ellipse arc for the shoulders,
+  // wrapped in a group that animates via CSS (aud-nod). A softer glow sibling
+  // fades its opacity independently so the crowd shimmers subtly.
+  return el('div', { className: 'audience-heads ' + side, 'aria-hidden': 'true' },
+    el('svg', { viewBox: '0 0 110 220', preserveAspectRatio: 'xMidYMid meet' },
+      AUDIENCE_SEATS.map((s, i) =>
+        el('g', {
+          key: i,
+          className: 'aud-head',
+          style: { '--dur': s.dur + 's', '--delay': s.delay + 's', '--ox': s.x + 'px', '--oy': (s.y + s.r * 1.6) + 'px' }
+        },
+          // Soft halo behind each head — picks up the crimson accent.
+          el('circle', {
+            className: 'aud-glow',
+            cx: s.x, cy: s.y, r: s.r * 1.8,
+            fill: 'rgba(239,68,68,0.08)',
+            style: { '--dur': (s.dur * 1.3) + 's', '--delay': s.delay + 's' }
+          }),
+          // Shoulders — flattened ellipse clipped by the bottom of the viewbox.
+          el('ellipse', {
+            cx: s.x, cy: s.y + s.r * 1.4,
+            rx: s.r * 1.75, ry: s.r * 1.25,
+            fill: 'rgba(255,255,255,' + (s.alpha * 0.22) + ')',
+            stroke: 'rgba(255,255,255,' + (s.alpha * 0.18) + ')',
+            strokeWidth: '0.6'
+          }),
+          // Head.
+          el('circle', {
+            cx: s.x, cy: s.y,
+            r: s.r,
+            fill: 'rgba(255,255,255,' + (s.alpha * 0.28) + ')',
+            stroke: 'rgba(255,255,255,' + (s.alpha * 0.28) + ')',
+            strokeWidth: '0.8'
+          }),
+        )
+      )
+    )
+  );
+}
+
+/* ═══════════════════════════════════════════════════
    APP
    ═══════════════════════════════════════════════════ */
 
@@ -2931,6 +3037,8 @@ function App(){
   // ── SETUP ──
   if(phase==='setup') return el('div',{className:'page'},
     el('div',{className:'ambient'}),bar,
+    el(AudienceHeads,{side:'left',key:'al-setup'}),
+    el(AudienceHeads,{side:'right',key:'ar-setup'}),
     el('div',{className:stageClass},
       el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
       el('p',{className:'t-sub'},'Choose your format, opponent, and go.'),
@@ -3301,6 +3409,8 @@ function App(){
   // ── PREP ──
   if(phase==='prep') return el('div',{className:'page'},
     el('div',{className:'ambient'}),bar,
+    el(AudienceHeads,{side:'left',key:'al-prep'}),
+    el(AudienceHeads,{side:'right',key:'ar-prep'}),
     el('div',{className:stageClass},
       el('div',{className:'t-label'},'Prep Time'),
       el('div',{className:'t-time'+(prepTimer.left<=60?' danger':'')},prepTimer.fmt(prepTimer.left)),
@@ -3351,6 +3461,8 @@ function App(){
     const tc=timer.left<=15?'danger':timer.left<=30?'warn':'';
     return el('div',{className:'page'},
       el('div',{className:'ambient'}),bar,
+      el(AudienceHeads,{side:'left',key:'al'}),
+      el(AudienceHeads,{side:'right',key:'ar'}),
       el('div',{className:stageClass,key:'s'+idx},
 
         // Progress pips
@@ -3504,6 +3616,8 @@ function App(){
     const wr=getWinRate();
     return el('div',{className:'page'},
       el('div',{className:'ambient'}),bar,
+      el(AudienceHeads,{side:'left',key:'al-fb'}),
+      el(AudienceHeads,{side:'right',key:'ar-fb'}),
       el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:90,maxWidth:700,textAlign:'left'}},
         el('div',{className:'t-label',style:{textAlign:'center'}},'Round Complete'),
         el('h2',{className:'t-hero',style:{fontSize:'clamp(2rem,5vw,3.2rem)',marginBottom:8,textAlign:'center'}},'Judge Ballot'),
