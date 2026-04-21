@@ -29,6 +29,13 @@ async function getAdminUids(db) {
     uids.push(doc.id);
     weights[doc.id] = doc.data().exemplarWeight || 1;
   });
+  // Auto-include the super-admin (site operator) at max weight so their
+  // rounds count as exemplars without needing a separate grant step.
+  const superAdmin = process.env.ADMIN_UID;
+  if (superAdmin && !weights[superAdmin]) {
+    uids.push(superAdmin);
+    weights[superAdmin] = 3;
+  }
   adminCache = { uids, weights, at: Date.now() };
   return adminCache;
 }
