@@ -1791,7 +1791,8 @@ function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,di
   const isFirst=speech.code==='PM'||speech.code==='LO'||speech.code==='AC'||speech.code==='NC'||speech.code==='P1'||speech.code==='C1';
   const isLaterConstructive=!isRebuttal&&!isFirst&&(speech.code==='DPM'||speech.code==='DLO'||speech.code==='MG'||speech.code==='MO');
   const isExtension=speech.code==='MG'||speech.code==='MO';
-  const isCX=speech.code==='CX1'||speech.code==='CX2';
+  const isCX=/^CX\d*$/.test(speech.code)||speech.code==='GCX';
+  const cxIsCrossfire=format==='pf'; // PF crossfire is collaborative Q&A; Policy/LD CX is one-sided questioning
   const isConstructive=!isRebuttal;
 
   // Build flow analysis and opponent model
@@ -1822,6 +1823,38 @@ ARGUMENT CREATIVITY:
 ARGUMENT ORIGINALITY:
 - At least one argument should come from an unexpected angle. Ask: what would a smart opponent NOT see coming?`;
 
+  // Cross-examination / crossfire simulator. Real CX is a rapid-fire Q&A
+  // dialogue, not a monologue. When the speech slot is a CX period, the AI
+  // should produce 5-8 exchanges tagged by speaker so the output reads as
+  // an actual transcript instead of a block of prose.
+  const cxSimulatorBlock = isCX ? `
+CX / CROSSFIRE SIMULATOR — MANDATORY DIALOGUE FORMAT:
+
+This is NOT a speech. It is a ${cxIsCrossfire ? 'CROSSFIRE' : 'CROSS-EXAMINATION'} period. You are simulating the BACK-AND-FORTH between both debaters. Output 5-8 rapid exchanges total, each ONE or TWO sentences max per turn.
+
+FORMAT every turn with a speaker tag at the start of the line, like a transcript:
+${cxIsCrossfire
+  ? `${aiLabel}: [pointed question or sharp response]
+${userLabel}: [concise answer or counter-question]
+${aiLabel}: [follow-up that pins them down]
+${userLabel}: [response]
+...`
+  : `${aiLabel}: [sharp, specific question designed to pin down the opponent on a weak link]
+${userLabel}: [realistic ${userLabel.toLowerCase()} answer — not a strawman, what they'd actually say]
+${aiLabel}: [follow-up that extracts a damaging concession]
+${userLabel}: [they squirm or concede]
+...`}
+
+RULES:
+- NO monologues. Every turn is 1-2 sentences. Interruption and re-direction are normal.
+- NO opening greeting ("Thank you for taking this question"). Start with the first question.
+- ${cxIsCrossfire ? 'CROSSFIRE is collaborative aggression — both sides ask AND answer. Swap the asker every 2-3 exchanges.' : 'Only the ASKER asks questions. The answerer only answers. Do not let the answerer counter-interrogate.'}
+- Questions should PIN on: evidence quality, missing warrants, alternative causality, contradictions between their own arguments, specific numbers they didn't cite.
+- End on a CONCESSION or a DAMAGING ADMISSION. The last exchange should leave the judge thinking the ${aiLabel} side walked out with something.
+- Use the user's actual prior speech content (see history) to target real weaknesses, not generic attacks.
+- NO stage directions, NO "*pause*", NO markdown. Pure dialogue with speaker tags.
+` : '';
+
   return `You are a skilled ${aiLabel} debater in a ${fmt.name} debate. Motion/Resolution: "${motion}".
 
 ${traitPrompt}
@@ -1833,6 +1866,7 @@ ${difficultyNote||''}
 ${flowAnalysis}
 ${opponentModel}
 ${rivalryMemory}
+${cxSimulatorBlock}
 
 ${background?'BACKGROUND/CONTEXT for this motion:\n'+background:''}
 ${history?'Previous speeches:\n'+history:'First speech of the round.'}
