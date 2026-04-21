@@ -13982,6 +13982,11 @@ function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [navigateTab]);
 
+  // Keyboard shortcuts overlay (main app). State declared here; the
+  // handler that reads navigateTab is attached below (after navigateTab
+  // is defined) to avoid TDZ on the const declaration.
+  const [showAppShortcuts, setShowAppShortcuts] = useState(false);
+
   const navigateTab = useCallback((newTab) => {
     if (newTab === tab) return;
     logBetaEvent('tab', { tab: newTab });
@@ -14008,6 +14013,33 @@ function App() {
       setTimeout(() => setTabTransition(''), 350);
     }, 150);
   }, [tab, user]);
+
+  // Keyboard shortcuts handler — defined AFTER navigateTab so the
+  // closure binds to a declared const, not a TDZ reference.
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.isContentEditable) return;
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) { e.preventDefault(); setShowAppShortcuts(s => !s); return; }
+      if (showAppShortcuts && e.key === 'Escape') { e.preventDefault(); setShowAppShortcuts(false); return; }
+      if (e.key === '/') {
+        const motionInput = document.querySelector('textarea[placeholder*="motion"],textarea[placeholder*="Motion"]');
+        if (motionInput) { e.preventDefault(); motionInput.focus(); return; }
+      }
+      if (e.key === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        window.__pendingG = Date.now();
+        return;
+      }
+      if (window.__pendingG && Date.now() - window.__pendingG < 800) {
+        window.__pendingG = 0;
+        const map = { c:'case', t:'topics', r:'rebuttal', b:'battle', f:'feedback', m:'res', v:'vision', j:'judge', p:'phil', l:'live' };
+        const target = map[e.key.toLowerCase()];
+        if (target) { e.preventDefault(); navigateTab(target); }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showAppShortcuts, navigateTab]);
+
   const goBack = useCallback(() => {
     if (tabHistory.length === 0) return;
     setTabTransition('tab-exit');
@@ -14653,6 +14685,42 @@ function App() {
       tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
       tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
       tabPane('live', React.createElement(LiveDebates, { user: user, team: team, onNavigateTab: navigateTab })),
+      // Keyboard shortcuts help overlay — mirrors the debate-ai modal.
+      // Documents the new `?`, `/`, and gmail-style `g → x` shortcuts.
+      showAppShortcuts && React.createElement('div', {
+        onClick: () => setShowAppShortcuts(false),
+        style:{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',zIndex:99998,display:'flex',alignItems:'center',justifyContent:'center',padding:20},
+        role:'dialog','aria-modal':'true','aria-label':'Keyboard shortcuts',
+      },
+        React.createElement('div', {
+          onClick:(e)=>e.stopPropagation(),
+          style:{maxWidth:520,width:'100%',background:'var(--modal-bg,#303038)',border:'1px solid var(--modal-border,#ffffff22)',borderRadius:16,padding:'28px 32px',boxShadow:'0 24px 60px rgba(0,0,0,.5)'},
+        },
+          React.createElement('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}},
+            React.createElement('div', {style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#ef4444'}}, 'Keyboard Shortcuts'),
+            React.createElement('button', {onClick:()=>setShowAppShortcuts(false),style:{background:'transparent',border:'none',color:'#94a3b8',fontSize:'1.2rem',cursor:'pointer',lineHeight:1,padding:4},'aria-label':'Close'}, '×'),
+          ),
+          [
+            ['?', 'show / hide this overlay'],
+            ['Esc', 'close overlays + modals'],
+            ['/', 'focus the motion input (case tab)'],
+            ['g  c', 'go to Case Gen'],
+            ['g  t', 'go to Topics'],
+            ['g  r', 'go to Flow → Rebuttal'],
+            ['g  m', 'go to Motions'],
+            ['g  v', 'go to Round Vision'],
+            ['g  j', 'go to Judge'],
+            ['g  f', 'go to Case Feedback'],
+            ['g  p', 'go to Philosophy'],
+            ['g  l', 'go to Live Debates'],
+            ['g  b', 'go to Battle'],
+          ].map(([k,v], i) => React.createElement('div', {key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,padding:'8px 0',borderTop:i===0?'none':'1px solid #ffffff10'}},
+            React.createElement('kbd', {style:{fontFamily:'ui-monospace, Menlo, monospace',fontSize:'.72rem',fontWeight:700,padding:'3px 9px',background:'rgba(255,255,255,.06)',border:'1px solid #ffffff18',borderRadius:6,color:'#f1f5f9',minWidth:54,textAlign:'center',whiteSpace:'nowrap'}}, k),
+            React.createElement('span', {style:{fontSize:'.8rem',color:'#cbd5e1',lineHeight:1.4,flex:1,textAlign:'right'}}, v),
+          )),
+          React.createElement('div', {style:{marginTop:14,paddingTop:12,borderTop:'1px solid #ffffff10',fontSize:'.68rem',color:'#94a3b8',textAlign:'center'}}, 'Press ', React.createElement('kbd', {style:{fontFamily:'ui-monospace, Menlo, monospace',padding:'2px 6px',background:'rgba(255,255,255,.06)',borderRadius:4,fontSize:'.68rem'}}, '?'), ' any time'),
+        ),
+      ),
       toast && React.createElement('div', {style:{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',padding:'10px 24px',background:'#22c55e',color:'#fff',borderRadius:8,fontWeight:600,fontSize:'.88rem',zIndex:99999,boxShadow:'0 4px 12px rgba(0,0,0,.3)',animation:'fadeIn .2s ease',pointerEvents:'none'}}, toast),
       // Welcome modal after successful payment
       billingSuccess && React.createElement('div', {className:'auth-overlay', onClick:e=>{if(e.target===e.currentTarget)setBillingSuccess(false)}},
