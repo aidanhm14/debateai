@@ -2875,6 +2875,12 @@ function App(){
   // sheet (per-round) by giving a meta view across rounds.
   const[patterns,setPatterns]=useState('');
   const[patternsLoading,setPatternsLoading]=useState(false);
+  // 'Train this' — given the pattern analysis, generate a round designed
+  // to stress-test the user's #1 weakness. One-click launches the setup
+  // with motion/side/format/opponent-traits pre-filled so they can't
+  // accidentally pick something comfortable.
+  const[drillPlan,setDrillPlan]=useState(null); // { motion, side, format, traits[], why }
+  const[drillLoading,setDrillLoading]=useState(false);
 
   // Parse [Judge]: turn format into array of {judge, text} for bubble rendering
   const parsePanelTurns=(raw)=>{
@@ -2963,6 +2969,71 @@ Do NOT hedge ("it seems," "perhaps"). This is coaching, not horoscope.`;
       setPatterns('Could not analyze patterns: '+e.message);
     }
     setPatternsLoading(false);
+  };
+
+  const genDrillPlan=async()=>{
+    if(!patterns){return}
+    setDrillLoading(true);
+    setDrillPlan(null);
+    const strengthKeys=Object.keys(STRENGTHS||{});
+    const sys=`You are a debate coach. The student just had their last N rounds analyzed and the diagnosis is below. Your job: design ONE round that will force them to confront their #1 weakness.
+
+Output EXACTLY this JSON structure and nothing else (no backticks, no prose before or after):
+{
+  "motion": "A specific debate motion as a single sentence",
+  "side": "gov" | "opp",
+  "format": "apda" | "bp" | "worlds" | "asian" | "ld" | "pf" | "policy" | "congress" | "quick",
+  "traits": ["1-3 keys from this list: ${strengthKeys.join(', ')}"],
+  "why": "One sentence: how this round specifically stress-tests their #1 weakness."
+}
+
+Rules:
+- The motion must be debatable (splits a room) and SPECIFICALLY set up to exercise their weakness. If they drop impacts, pick a motion with competing harm stories. If they struggle with framework, pick a motion where framework clash is unavoidable.
+- Choose the SIDE that forces them into the weakness, not the comfortable side.
+- Pick a format they've shown weakness in if any; otherwise match their most-played format.
+- traits = opponent strengths to load up. If they drop on the flow, give the AI "strategy" + "steelmanning". If they lose the rhetoric game, give it "rhetoric" + "impact".
+- The 'why' is the coaching payoff — why THIS motion, not a generic one.
+- JSON only. No markdown. No explanation. No closing sentence.`;
+    try{
+      let raw='';
+      await callAI(sys,'PATTERN DIAGNOSIS:\n\n'+patterns,chunk=>{raw=chunk},brain,{voiceFeature:'feedback'});
+      const cleaned=raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      const parsed=JSON.parse(cleaned);
+      if(parsed && parsed.motion) setDrillPlan(parsed);
+      else setDrillPlan({error:'Could not build a drill plan. Try again.'});
+    }catch(e){
+      setDrillPlan({error:'Drill-plan generation failed: '+e.message});
+    }
+    setDrillLoading(false);
+  };
+
+  const useDrillPlan=()=>{
+    if(!drillPlan||drillPlan.error) return;
+    // Clear round + apply drill settings, then drop the user on setup with
+    // everything pre-filled so they can't dodge the weakness by re-picking
+    // a comfortable motion.
+    clearSession();
+    transition('setup',()=>{
+      setMotion(drillPlan.motion||'');
+      setBackground('');
+      setIdx(0);
+      setLog([]);
+      setFeedback('');
+      setBallot(null);
+      setNotes('');
+      setAiText('');
+      setShowTx(false);
+      setPanelText('');
+      setPanelResult(null);
+      setFlowSheet('');
+      setPatterns('');
+      setDrillPlan(null);
+      if(drillPlan.format && FORMATS[drillPlan.format]) setFormat(drillPlan.format);
+      const f=FORMATS[drillPlan.format]||FORMATS.apda;
+      if(drillPlan.side && f.sides.includes(drillPlan.side)) setSide(drillPlan.side);
+      else setSide(f.sides[0]);
+      if(Array.isArray(drillPlan.traits)) setOppStrengths(drillPlan.traits.filter(t=>STRENGTHS&&STRENGTHS[t]));
+    });
   };
 
   const genFlowSheet=async(allLog)=>{
@@ -3161,7 +3232,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   };
 
   // Reset
-  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('')})};
+  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null)})};
 
   /* ─── RENDER ─────────────────────── */
 
@@ -4106,6 +4177,35 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
             !patternsLoading&&el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:genPatterns},'Re-analyze'),
           ),
           el('div',{className:'transcript-box',style:{maxHeight:520,whiteSpace:'pre-wrap',fontSize:'.82rem',lineHeight:1.65}},patterns),
+          // 'Train this' drill launcher — converts the diagnosis into a
+          // round designed to force the user into their weakness.
+          el('div',{style:{marginTop:14,textAlign:'center'}},
+            !drillPlan && !drillLoading && el('button',{
+              className:'cta-ghost',
+              style:{fontSize:'.78rem'},
+              onClick:genDrillPlan,
+            },'🎯 Build a round that drills this'),
+            drillLoading && el('div',{style:{fontSize:'.78rem',color:'var(--c-muted)'}},
+              el('span',{className:'spinner',style:{marginRight:8}}),
+              'Designing your drill round…'
+            ),
+          ),
+          drillPlan && !drillPlan.error && el('div',{style:{marginTop:12,padding:'18px 20px',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.24)',borderRadius:14,maxWidth:560,margin:'12px auto 0',textAlign:'left'}},
+            el('div',{style:{fontSize:'.58rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.14em',color:'#ef4444',marginBottom:10}},'Drill round proposal'),
+            el('div',{style:{fontSize:'.95rem',fontWeight:700,lineHeight:1.4,marginBottom:8,color:'var(--c-bright)'}},'"'+(drillPlan.motion||'')+'"'),
+            el('div',{style:{fontSize:'.76rem',color:'var(--c-text3)',marginBottom:10}},
+              (FORMATS[drillPlan.format]?.name||drillPlan.format||'apda'),
+              ' · You play ',
+              (FORMATS[drillPlan.format]||FORMATS.apda).sideLabels[drillPlan.side]||drillPlan.side,
+              (Array.isArray(drillPlan.traits)&&drillPlan.traits.length?' · AI loaded with: '+drillPlan.traits.map(t=>STRENGTHS[t]?.label||t).join(', '):''),
+            ),
+            drillPlan.why && el('div',{style:{fontSize:'.8rem',color:'var(--c-text4)',fontStyle:'italic',lineHeight:1.55,marginBottom:14,paddingLeft:10,borderLeft:'2px solid rgba(239,68,68,.4)'}},drillPlan.why),
+            el('div',{style:{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'flex-end'}},
+              el('button',{className:'cta-ghost',style:{fontSize:'.74rem',padding:'8px 14px',marginTop:0},onClick:()=>setDrillPlan(null)},'Skip'),
+              el('button',{className:'cta',style:{fontSize:'.78rem',padding:'9px 18px',marginTop:0},onClick:useDrillPlan},'Start this round →'),
+            ),
+          ),
+          drillPlan && drillPlan.error && el('div',{style:{marginTop:12,padding:'10px 14px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',borderRadius:10,fontSize:'.78rem',color:'#fca5a5',textAlign:'center',maxWidth:480,margin:'12px auto 0'}},drillPlan.error),
         ),
 
         el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
