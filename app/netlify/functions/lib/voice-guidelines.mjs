@@ -397,6 +397,9 @@ const FEATURE_MAP = {
   philosophy:  CORE + LEGITIMACY,
   casual:      CORE + LEGITIMACY,
   debateChat:  CORE + LEGITIMACY, // casual-adjacent; plain-English opponent in the Debate Chat tab
+  // Student Congress speeches — delivered live like `case` but more formal
+  // than APDA parli, so no CHARACTER block (no slang / annoyed register).
+  congress:    CORE + STRATEGY + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY,
   feedback:    LEGITIMACY,
   judge:       LEGITIMACY,
   adaptive:    LEGITIMACY,
@@ -413,6 +416,9 @@ const SPICE_MAP = {
   philosophy: [STRATEGY, CHARACTER],
   casual:     [CHARACTER],
   debateChat: [CHARACTER],
+  // Congress gets no spice — formal register, don't randomize character
+  // or extra case-construction on top of the core structure.
+  congress:   [],
   unknown:    [STRATEGY],
 };
 

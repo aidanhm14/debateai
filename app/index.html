@@ -13468,6 +13468,11 @@ const TABS_COMPETITIVE = [
   {id:'res',label:'Motions',i18n:'nav.motions'},
   {id:'chat',label:'Debate Chat',i18n:'nav.debateChat'},
   {id:'topics',label:'Topics',i18n:'nav.topics'},
+  // Student Congress speech generator (authorship / neg / constructive /
+  // crystallization). Lives right after Topics because users prepping for
+  // a Congress tournament hit Topics to pick the bill, then Congress to
+  // write the speech. Keeping the two adjacent matches that workflow.
+  {id:'congress',label:'Congress',i18n:'nav.congress'},
   {id:'practice',label:'Practice',i18n:'nav.practice'},
   {id:'judge',label:'Judge',i18n:'nav.judge'},
   // Case Feedback lives here (not in Other) because post-round case critique
@@ -13787,6 +13792,168 @@ function TopicHub({ onNavigateTab, onPrefillCase }) {
     ),
     el('p',{style:{color:'#64748b',fontSize:'.75rem',marginTop:20,lineHeight:1.5}},
       'Prep curated by hand; updated manually as NSDA rotates resolutions. Tabroom-scrape auto-refresh coming.'
+    ),
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   CONGRESS. authorship + constructive + crystallization speech generator
+   ───────────────────────────────────────────────────
+   Student Congress is a deliberation format — each chamber debates a
+   docket of bills/resolutions with 3-minute speeches. Authorship (first
+   Aff, proposing the bill) is the hardest one to write because there's
+   no prior speaker to react to; this tab scaffolds Authorship, 1st Neg,
+   Constructive (later speakers, must clash not repeat), and
+   Crystallization (final speaker, collapse the round to voting issues).
+   Prepd died in Jan 2026 leaving this market completely unserved, per
+   the competitive-research notes on the roadmap.
+   ═══════════════════════════════════════════════════ */
+const CONGRESS_SPEECH_TYPES = [
+  { id:'authorship',      label:'Authorship',        hint:'Aff. first speaker. proposes the bill. no prior speech to react to.' },
+  { id:'first_neg',       label:'1st Negation',       hint:'First Con speech. attack the author\'s frame head-on.' },
+  { id:'constructive',    label:'Constructive',      hint:'Later speaker. extend your side AND clash with what was said. no block-reading.' },
+  { id:'crystallization', label:'Crystallization',   hint:'Final speaker on your side. collapse to voting issues, tell the chamber why they vote your way.' },
+];
+
+function CongressSpeech() {
+  const el = React.createElement;
+  // Default to PF-parallel defaults that match how a student actually opens this tab:
+  // Authorship speech on the first current-docket bill, Aff side.
+  const docket = CURRENT_TOPICS.Congress.motions;
+  const [billIdx, setBillIdx] = useState(0);
+  const [customBill, setCustomBill] = useState('');
+  const [useCustom, setUseCustom] = useState(false);
+  const [speechType, setSpeechType] = useState('authorship');
+  const [side, setSide] = useState('Affirmation');
+  const [flow, setFlow] = useState('');
+  const [brain, setBrain] = useState('claude');
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const activeBill = useCustom ? { text: customBill.trim(), overview:'', govContentions:[], oppContentions:[], keyTerms:[], judgesWant:'' } : docket[billIdx];
+  const needsFlow = speechType !== 'authorship';
+  // Authorship is always Aff by definition; the UI hides the side picker
+  // and forces Affirmation so students don't accidentally request
+  // "Authorship / Con" which doesn't exist as a speech type.
+  const effectiveSide = speechType === 'authorship' ? 'Affirmation' : side;
+
+  const buildSystemPrompt = () => {
+    const typeLabel = CONGRESS_SPEECH_TYPES.find(t=>t.id===speechType).label;
+    const typeGuidance = {
+      authorship:      'Open with a concrete hook (a specific story, statistic, or image — not "in today\'s world"). State the bill\'s purpose in one crisp sentence. Give 2-3 numbered contentions with tag, warrant, impact. Close with a direct call to pass.',
+      first_neg:       'Open by naming the strongest part of the author\'s frame, then reversing it ("the author is right that X matters — but this bill won\'t deliver X"). Deliver 2-3 numbered clash contentions with warrants + impacts. Close with a call to vote no.',
+      constructive:    'Extend your side without repeating prior speakers. EVERY point must either (a) add new warrant/evidence to an existing argument or (b) clash directly with a named opposing speaker. No block-reading. End with a mini-weighing moment.',
+      crystallization: 'Collapse the round to 2-3 voting issues. Name each (e.g. "First, safety. Second, cost.") and weigh your side\'s impact vs. the opposition\'s on magnitude / probability / reversibility. Tell the chamber exactly why they vote your way.',
+    }[speechType];
+
+    const lines = [];
+    lines.push('You are an elite Student Congress speaker writing a 3-minute floor speech. Deliver a speech, not an analysis — this gets read ALOUD at the podium.');
+    lines.push('');
+    lines.push('SPEECH TYPE: ' + typeLabel + '.');
+    lines.push('SIDE: ' + effectiveSide + '.');
+    lines.push('BILL/RESOLUTION: ' + activeBill.text);
+    lines.push('');
+    lines.push('STRUCTURE (' + typeLabel + '): ' + typeGuidance);
+    lines.push('');
+    lines.push('VOICE:');
+    lines.push('- Formal Congress register. No slang, no APDA jokes, no "devil\'s advocate" framing.');
+    lines.push('- First-person confidence ("I rise to affirm..." / "I rise in negation of...").');
+    lines.push('- Address the chamber ("Fellow delegates", "Mr./Madam President").');
+    lines.push('- Specific numbers and names where you can — sound like you\'ve read the bill.');
+    lines.push('- Vary sentence length for rhythm; short punch lines land the impact.');
+    lines.push('- Total length: ~450-520 words (≈ 3 minutes at Congress pace).');
+    lines.push('');
+    lines.push('OUTPUT FORMAT: plain prose of the speech itself, with section headers in ALL CAPS (INTRODUCTION / CONTENTION 1 / CONTENTION 2 / CONTENTION 3 / CONCLUSION). No stage directions, no "[applause]" tags, no markdown.');
+    return lines.join('\n');
+  };
+
+  const run = async () => {
+    if (!activeBill.text) { setErr('Pick a bill from the docket or paste your own.'); return; }
+    setLoading(true); setErr(''); setOutput(''); setCopied(false);
+    try {
+      const sys = buildSystemPrompt();
+      const user = [
+        'Write my ' + CONGRESS_SPEECH_TYPES.find(t=>t.id===speechType).label + ' speech now.',
+        activeBill.overview ? '\nBill context: ' + activeBill.overview : '',
+        needsFlow && flow.trim() ? '\nFlow of prior speeches (clash with these, don\'t repeat):\n' + flow.trim() : '',
+      ].filter(Boolean).join('\n');
+      await callAnyAI(sys, user, (chunk)=>setOutput(o=>o+chunk), brain, { feature:'congress', maxTokens: 2200 });
+      touchStreak();
+      logBetaEvent('generate', { feature:'congress', brain, speechType, side:effectiveSide });
+    } catch (e) { setErr(e.message || 'Failed'); }
+    finally { setLoading(false); }
+  };
+
+  const copyOutput = async () => {
+    try { await navigator.clipboard.writeText(output); setCopied(true); setTimeout(()=>setCopied(false), 1600); } catch(_){}
+  };
+
+  const pill = (active) => ({
+    padding:'8px 14px',borderRadius:999,fontSize:'.8rem',fontWeight:600,cursor:'pointer',
+    background:active?'#ef4444':'rgba(255,255,255,.04)',
+    color:active?'#fff':'#94a3b8',
+    border:'1px solid '+(active?'#ef4444':'rgba(255,255,255,.1)'),
+    fontFamily:'inherit',transition:'.15s',
+  });
+
+  const activeType = CONGRESS_SPEECH_TYPES.find(t=>t.id===speechType);
+
+  return el('div',{className:'panel',style:{maxWidth:960,margin:'0 auto',padding:'28px 32px'}},
+    el('h2',{style:{margin:0,fontSize:'1.5rem',fontWeight:800,letterSpacing:'-.3px'}}, 'Student Congress'),
+    el('p',{style:{color:'#94a3b8',fontSize:'.88rem',marginTop:6,marginBottom:22}}, 'Authorship, 1st Neg, constructive, crystallization. 3-minute speeches delivered in chamber register — no APDA jokes.'),
+
+    // Bill picker.
+    el('div',{className:'field-label'}, 'Bill / Resolution'),
+    el('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}},
+      docket.map((b,i)=> el('button',{key:i, onClick:()=>{setBillIdx(i);setUseCustom(false);}, style:pill(!useCustom && billIdx===i)}, b.text.substring(0,44)+(b.text.length>44?'…':''))),
+      el('button',{onClick:()=>setUseCustom(true), style:pill(useCustom)}, 'Custom bill…'),
+    ),
+    useCustom && el('textarea',{
+      value:customBill, onChange:e=>setCustomBill(e.target.value),
+      placeholder:'Paste your bill text or type a title — "A Bill to Establish a National High-Speed Rail Authority"',
+      style:{width:'100%',minHeight:80,padding:12,borderRadius:10,background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.1)',color:'#e2e8f0',fontSize:'.9rem',fontFamily:'inherit',lineHeight:1.5,resize:'vertical',marginBottom:8},
+    }),
+
+    // Speech type picker.
+    el('div',{className:'field-label',style:{marginTop:14}}, 'Speech type'),
+    el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+      CONGRESS_SPEECH_TYPES.map(t=> el('button',{key:t.id, onClick:()=>setSpeechType(t.id), style:pill(speechType===t.id)}, t.label))
+    ),
+    activeType && el('div',{style:{fontSize:'.76rem',color:'#64748b',marginTop:8,fontStyle:'italic'}}, activeType.hint),
+
+    // Side picker — hidden for Authorship (always Aff).
+    speechType !== 'authorship' && el('div', null,
+      el('div',{className:'field-label',style:{marginTop:14}}, 'Side'),
+      el('div',{style:{display:'flex',gap:6}},
+        ['Affirmation','Negation'].map(s=> el('button',{key:s, onClick:()=>setSide(s), style:pill(side===s)}, s))
+      ),
+    ),
+
+    // Flow field — only relevant when there's a prior speaker.
+    needsFlow && el('div',null,
+      el('div',{className:'field-label',style:{marginTop:14}}, 'Flow of prior speeches (optional, makes clash sharper)'),
+      el('textarea',{
+        value:flow, onChange:e=>setFlow(e.target.value),
+        placeholder:'Sen. Kim (Aff): cost savings $4B/yr. Rep. Ortiz (Neg): rural access harm…',
+        style:{width:'100%',minHeight:110,padding:12,borderRadius:10,background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.1)',color:'#e2e8f0',fontSize:'.88rem',fontFamily:'inherit',lineHeight:1.55,resize:'vertical'},
+      }),
+    ),
+
+    // Generate.
+    el('div',{style:{display:'flex',gap:12,alignItems:'center',marginTop:18,flexWrap:'wrap'}},
+      el('button',{onClick:run, disabled:loading || !activeBill.text, className:'btn btn-orange', style:{padding:'12px 24px',fontSize:'.9rem'}}, loading?'Generating…':'Generate speech →'),
+    ),
+    err && el('div',{style:{marginTop:16,padding:12,background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,color:'#fca5a5',fontSize:'.85rem'}}, err),
+
+    // Output.
+    output && el('div',{style:{marginTop:20}},
+      el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
+        el('div',{className:'field-label',style:{margin:0}}, 'Speech'),
+        el('button',{onClick:copyOutput, className:'btn', style:{padding:'6px 12px',fontSize:'.76rem',background:'rgba(59,130,246,.12)',border:'1px solid rgba(59,130,246,.28)',color:'#60a5fa'}}, copied?'Copied ✓':'Copy speech'),
+      ),
+      el('div',{style:{padding:'22px 26px',background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:14,whiteSpace:'pre-wrap',color:'#e2e8f0',fontSize:'.94rem',lineHeight:1.75}}, output),
     ),
   );
 }
@@ -14751,6 +14918,7 @@ function App() {
       React.createElement(AdBanner, { team: team, user: user, onNavigate: navigateTab }),
       // All tabs rendered but only active one visible. preserves state across switches
       tabPane('topics', React.createElement(TopicHub, { onNavigateTab: navigateTab, onPrefillCase: (c)=>setLoadedCase({...c, id:'prefill-'+Date.now(), savedAt: new Date().toISOString()}) })),
+      tabPane('congress', React.createElement(CongressSpeech)),
       tabPane('rebuttal', React.createElement(FlowRebuttal)),
       tabPane('case', React.createElement(CaseGenerator, { onSave: saveCase, loadedCase: loadedCase, onClearLoaded: () => setLoadedCase(null), team, user, onNavigateTab: navigateTab })),
       tabPane('battle', React.createElement(BattleArena, { onNavigateTab: navigateTab })),
