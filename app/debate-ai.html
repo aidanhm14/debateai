@@ -2862,6 +2862,12 @@ function App(){
   const[panelText,setPanelText]=useState(''); // streaming 3-judge deliberation
   const[panelResult,setPanelResult]=useState(null); // parsed vote tally
   const[panelLoading,setPanelLoading]=useState(false);
+  // Post-round auto flow sheet. AI reads the full round transcript and
+  // produces a compact per-speech flow — arguments, warrants, drops,
+  // extensions, turns — so the student can study the round the way a
+  // coach would flow it. Plain-text markdown table so it copies cleanly.
+  const[flowSheet,setFlowSheet]=useState('');
+  const[flowLoading,setFlowLoading]=useState(false);
 
   // Parse [Judge]: turn format into array of {judge, text} for bubble rendering
   const parsePanelTurns=(raw)=>{
@@ -2892,6 +2898,55 @@ function App(){
     const votes = [mayaVote, marcusVote, chenVote].filter(v=>v==='user'||v==='ai');
     const tally = votes.filter(v=>v==='user').length + '-' + votes.filter(v=>v==='ai').length;
     return { maya: mayaVote, marcus: marcusVote, chen: chenVote, winner, tally, speakerPoints: { user: spUser, ai: spAi }, practice };
+  };
+
+  const genFlowSheet=async(allLog)=>{
+    setFlowLoading(true);
+    setFlowSheet('');
+    const tx=allLog.map(l=>`[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
+    const sys=`You are a debate coach reading a round transcript and producing a FLOW SHEET the way a tab-style judge would flow it in real time. Your output is a compact, readable plain-text table a student can use to study the round.
+
+OUTPUT FORMAT — plain text (no markdown headers, no backticks). Use this exact structure:
+
+ROUND FLOW — ${fmt.name} · "${motion}"
+Side: user=${fmt.sideLabels[side]||side}
+
+ARGUMENT LEDGER
+---------------
+For each DISTINCT argument that appeared in the round, one row:
+  [tag] · ran by: [gov/opp or user/ai] · outcome: [won / dropped / turned / conceded / mitigated]
+  Warrant: 1 sentence.
+  Journey: brief speech-by-speech ("PM introduced → LO responded with X → MG extended → MO dropped it").
+  Flow status: whether this argument reaches the ballot or not, and why.
+
+Aim for 5-8 arguments. Don't invent arguments that weren't actually made — only flow what the transcript contains.
+
+KEY CLASHES
+-----------
+2-3 clashes between the sides. For each:
+  CLASH: [name]
+  Gov/User said: ...
+  Opp/AI said: ...
+  Winner of the clash + one-sentence reason.
+
+DROPS & CONCESSIONS
+-------------------
+Every argument that was dropped or conceded, one per line:
+  [speech code]: [who] dropped [argument name] — why it matters.
+
+WEIGHING
+--------
+One paragraph. What the judge weighs the round on in practice — magnitude/probability/timeframe/reversibility — and whose impacts win under that lens. Be blunt about which side lost the weighing, if either.
+
+Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing paragraph, no "hope this helps."`;
+    try{
+      let raw='';
+      await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;setFlowSheet(chunk)},brain,{voiceFeature:'feedback'});
+      setFlowSheet(raw);
+    }catch(e){
+      setFlowSheet('Could not generate flow sheet: '+e.message);
+    }
+    setFlowLoading(false);
   };
 
   const genPanelFeedback=async(allLog)=>{
@@ -3041,7 +3096,7 @@ function App(){
   };
 
   // Reset
-  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null)})};
+  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('')})};
 
   /* ─── RENDER ─────────────────────── */
 
@@ -3942,6 +3997,28 @@ function App(){
           panelText&&!panelLoading&&el('div',{style:{textAlign:'center',marginTop:14}},
             el('button',{className:'cta-ghost',style:{fontSize:'.76rem'},onClick:()=>genPanelFeedback(log)},'New deliberation'),
           ),
+        ),
+
+        // Auto flow sheet — AI distills the full round into a coach-style
+        // flow a student can study. Placed above the transcript toggle
+        // since it's the high-value output; raw transcript is the fallback.
+        el('div',{style:{marginTop:24,textAlign:'center'}},
+          !flowSheet && !flowLoading && el('button',{
+            className:'cta-ghost',
+            style:{fontSize:'.78rem'},
+            onClick:()=>genFlowSheet(log),
+          },'📋 Generate flow sheet'),
+          flowLoading && el('div',{style:{fontSize:'.78rem',color:'var(--c-muted)'}},
+            el('span',{className:'spinner',style:{marginRight:8}}),
+            'Flowing the round…'
+          ),
+        ),
+        flowSheet && el('div',{style:{marginTop:12}},
+          el('div',{style:{display:'flex',justifyContent:'center',gap:10,marginBottom:8}},
+            el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:()=>{navigator.clipboard.writeText(flowSheet).catch(()=>{})}},'Copy flow'),
+            !flowLoading&&el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:()=>genFlowSheet(log)},'Re-flow'),
+          ),
+          el('div',{className:'transcript-box',style:{maxHeight:480,whiteSpace:'pre-wrap',fontFamily:'ui-monospace, Menlo, monospace',fontSize:'.78rem',lineHeight:1.6}},flowSheet),
         ),
 
         el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
