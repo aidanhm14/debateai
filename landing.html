@@ -1341,13 +1341,17 @@ button{font-family:inherit;cursor:pointer}
       // a different angle around the orb, each with its own pulse rhythm.
       // Gives the orb an asymmetric, audio-reactive look: a bass hit swells
       // the bottom, a treble hit taps the top-right, etc.
+      // Narrower Gaussian widths → sharper, more localized spikes instead of
+      // soft blobs. Higher exponent on the level signal → crisper attack.
       var BANDS = [
-        { theta: 0,               freq: 2.3, phase: 0.0, w: 0.85, weight: 1.0 },
-        { theta: Math.PI * 0.5,   freq: 3.1, phase: 1.4, w: 0.90, weight: 0.85 },
-        { theta: Math.PI,         freq: 1.7, phase: 0.7, w: 0.95, weight: 1.1 },
-        { theta: Math.PI * 1.5,   freq: 4.4, phase: 2.2, w: 0.80, weight: 0.70 },
-        { theta: Math.PI * 0.25,  freq: 5.3, phase: 0.3, w: 0.60, weight: 0.55 },
-        { theta: Math.PI * 1.25,  freq: 6.1, phase: 1.9, w: 0.55, weight: 0.50 }
+        { theta: 0,               freq: 2.3, phase: 0.0, w: 0.32, weight: 1.0 },
+        { theta: Math.PI * 0.5,   freq: 3.1, phase: 1.4, w: 0.36, weight: 0.90 },
+        { theta: Math.PI,         freq: 1.7, phase: 0.7, w: 0.40, weight: 1.1 },
+        { theta: Math.PI * 1.5,   freq: 4.4, phase: 2.2, w: 0.28, weight: 0.80 },
+        { theta: Math.PI * 0.25,  freq: 5.3, phase: 0.3, w: 0.22, weight: 0.65 },
+        { theta: Math.PI * 1.25,  freq: 6.1, phase: 1.9, w: 0.24, weight: 0.60 },
+        { theta: Math.PI * 0.75,  freq: 3.9, phase: 0.9, w: 0.26, weight: 0.70 },
+        { theta: Math.PI * 1.75,  freq: 5.9, phase: 2.5, w: 0.22, weight: 0.55 }
       ];
 
       // Shortest angular distance on [-π, π].
@@ -1358,18 +1362,19 @@ button{font-family:inherit;cursor:pointer}
         return d;
       }
 
-      // Total bump displacement at angle a, time t. Each band contributes
-      // a Gaussian bump whose height pulses on its own frequency.
+      // Tight Gaussian bumps + crisp attack envelope. Raising |sin| to ^2.5
+      // gives a snappy rise/fall instead of a sine's lazy shoulder.
       function bumpAt(a, t){
         var sum = 0;
         for (var k = 0; k < BANDS.length; k++) {
           var b = BANDS[k];
-          var level = Math.abs(Math.sin(t * b.freq + b.phase));
+          var s = Math.abs(Math.sin(t * b.freq + b.phase));
+          var level = s * s * s * 2.2; // ^3 attack, scaled so peaks ~ weight
           var d = angDist(a, b.theta);
           var fall = Math.exp(-(d * d) / (2 * b.w * b.w));
           sum += level * fall * b.weight;
         }
-        return sum; // roughly 0..3
+        return sum;
       }
 
       function draw(){
@@ -1385,12 +1390,12 @@ button{font-family:inherit;cursor:pointer}
         var speaking = (mode === 'ai');
         // Audio-reactive amplitude: speaking hits harder on the bumps, idle
         // still visibly breathes so the orb never looks frozen.
-        var bumpAmp = speaking ? 0.28 : 0.16;
+        var bumpAmp = speaking ? 0.32 : 0.20;
         var rotate = t * (speaking ? 0.35 : 0.18); // slow drift of the band angles
 
-        // Outer ambient halo — same band-driven deformation but swelled out
-        // and softer, so there's a "sound ripple" layer beyond the main body.
-        var points = 64;
+        // More points → sharper spikes resolve without kinking. Tight bumps
+        // need denser sampling to look clean.
+        var points = 96;
         ctx.beginPath();
         for (var i = 0; i <= points; i++) {
           var a = (i / points) * Math.PI * 2;
