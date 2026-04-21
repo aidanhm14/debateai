@@ -3336,6 +3336,101 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     URL.revokeObjectURL(url);
   };
 
+  // Share-round card. Renders a 1200×630 (OG-sized) PNG with motion,
+  // format, side, outcome, and speaker points — downloadable and
+  // clipboard-copyable for social. Canvas-only, no backend. Growth
+  // lever: winning a round should be shareable without screenshots.
+  const [shareBusy,setShareBusy]=useState(false);
+  const genShareCard=async()=>{
+    setShareBusy(true);
+    try{
+      const W=1200, H=630;
+      const canvas=document.createElement('canvas');
+      canvas.width=W; canvas.height=H;
+      const ctx=canvas.getContext('2d');
+      // Background — near-black with red radial glow top-right
+      ctx.fillStyle='#0a0a0c'; ctx.fillRect(0,0,W,H);
+      const grad=ctx.createRadialGradient(W*0.78,H*0.18,0, W*0.78,H*0.18, W*0.55);
+      grad.addColorStop(0,'rgba(239,68,68,0.42)');
+      grad.addColorStop(1,'rgba(239,68,68,0)');
+      ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+      // Wordmark
+      ctx.fillStyle='#ffffff';
+      ctx.font='800 34px "Inter", system-ui, sans-serif';
+      ctx.fillText('Debate', 64, 86);
+      ctx.fillStyle='#ef4444';
+      ctx.fillText(' AI', 64+ctx.measureText('Debate').width, 86);
+      // Outcome pill
+      const won = ballot && ballot.winner==='user';
+      const drawn = ballot && ballot.winner && ballot.winner!=='user' && ballot.winner!=='ai';
+      const pillText = won?'Won':drawn?'Split':'Round complete';
+      const pillBg = won?'rgba(34,197,94,0.14)':drawn?'rgba(245,158,11,0.14)':'rgba(239,68,68,0.16)';
+      const pillBorder = won?'rgba(34,197,94,0.6)':drawn?'rgba(245,158,11,0.6)':'rgba(239,68,68,0.5)';
+      const pillColor = won?'#4ade80':drawn?'#fbbf24':'#fca5a5';
+      ctx.font='700 22px "Inter", system-ui, sans-serif';
+      const pillW=ctx.measureText(pillText).width+44;
+      const pillX=W-64-pillW, pillY=58;
+      ctx.fillStyle=pillBg;
+      ctx.strokeStyle=pillBorder; ctx.lineWidth=2;
+      const r=26;
+      ctx.beginPath();
+      ctx.moveTo(pillX+r,pillY);
+      ctx.arcTo(pillX+pillW,pillY,pillX+pillW,pillY+52,r);
+      ctx.arcTo(pillX+pillW,pillY+52,pillX,pillY+52,r);
+      ctx.arcTo(pillX,pillY+52,pillX,pillY,r);
+      ctx.arcTo(pillX,pillY,pillX+pillW,pillY,r);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=pillColor;
+      ctx.fillText(pillText, pillX+22, pillY+34);
+      // Motion (word-wrapped to 3 lines max)
+      ctx.fillStyle='#f1f5f9';
+      ctx.font='800 52px "Inter", system-ui, sans-serif';
+      const wrap=(text,maxW,maxLines)=>{
+        const words=text.split(/\s+/);
+        const lines=[]; let cur='';
+        for(const w of words){
+          const trial=cur?cur+' '+w:w;
+          if(ctx.measureText(trial).width<=maxW) cur=trial;
+          else{ lines.push(cur); cur=w; if(lines.length>=maxLines-1){ while(words.length){ const t=cur+' '+words.shift(); cur=ctx.measureText(t+'…').width<=maxW?t:(words.unshift(),null); if(cur===null){cur=t.slice(0,-1); break;} } lines.push(cur+'…'); return lines; } }
+        }
+        if(cur) lines.push(cur);
+        return lines;
+      };
+      const motionLines=wrap('"'+motion+'"', W-128, 3);
+      motionLines.forEach((line,i)=>ctx.fillText(line, 64, 200+i*62));
+      // Meta row — format · side · pace
+      const metaY = 200 + motionLines.length*62 + 40;
+      ctx.fillStyle='#94a3b8';
+      ctx.font='600 24px "Inter", system-ui, sans-serif';
+      const sideLabel=(FORMATS[format]||FORMATS.apda).sideLabels[side]||side;
+      const fmtName=(FORMATS[format]||FORMATS.apda).name;
+      ctx.fillText(fmtName + '  ·  ' + sideLabel + '  ·  vs ' + (VOICES[voice]?.name||'AI'), 64, metaY);
+      // Speaker points block (if available)
+      if(ballot && ballot.speakerPoints){
+        ctx.fillStyle='#cbd5e1';
+        ctx.font='700 28px "Inter", system-ui, sans-serif';
+        const sp='You: '+(ballot.speakerPoints.user||'—')+'   AI: '+(ballot.speakerPoints.ai||'—');
+        ctx.fillText(sp, 64, metaY+48);
+      }
+      // Footer
+      ctx.fillStyle='rgba(255,255,255,0.35)';
+      ctx.font='500 20px "Inter", system-ui, sans-serif';
+      ctx.fillText('debateai.com  ·  argue with an AI, get sharper', 64, H-48);
+      // Export
+      const blob=await new Promise(res=>canvas.toBlob(res,'image/png',0.95));
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      const slug=motion.slice(0,40).replace(/[^a-zA-Z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+      a.href=url; a.download='debate-'+slug+'.png';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      if(typeof gtag==='function')gtag('event','share_card_generated',{format,won});
+    }catch(e){
+      console.warn('[share-card] failed:',e);
+    }
+    setShareBusy(false);
+  };
+
   // Reset
   const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null)})};
 
@@ -4606,6 +4701,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         el('div',{className:'row-c',style:{marginTop:28,flexWrap:'wrap'}},
           el('button',{className:'cta-ghost',onClick:copyAll},'Copy'),
           el('button',{className:'cta-ghost',onClick:()=>downloadRound(motion,format,side,log,feedback,ballot)},'⬇ Download .txt'),
+          el('button',{className:'cta-ghost',onClick:genShareCard,disabled:shareBusy,title:'Generate a shareable PNG of this round'},shareBusy?'Rendering…':'📸 Share card'),
           el('button',{className:'cta-ghost',onClick:()=>saveCase(),style:caseSaved?{background:'rgba(34,197,94,.15)',borderColor:'#22c55e',color:'#22c55e'}:{}},caseSaved?'Case Saved':'Save Case'),
           el('button',{className:'cta',style:{marginTop:0},onClick:newRound},'New Round'),
         ),
