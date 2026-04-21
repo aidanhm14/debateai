@@ -1667,7 +1667,7 @@ function useTTS(){
   const[ttsError,setTtsError]=useState('');
 
   // Wrap speak to surface errors
-  const speakWithError=(text,wpm=180,onEnd,voiceName='onyx',onStart)=>{
+  const speakWithError=(text,wpm=200,onEnd,voiceName='onyx',onStart)=>{
     cancelActive();
     setTtsError('');
     const token={cancelled:false};
@@ -2518,7 +2518,7 @@ function App(){
   const deleteJudgeFromPool=(id)=>{
     persistJudgePool(judgePool.filter(j=>j.id!==id));
   };
-  const[wpm,setWpm]=useState(180);
+  const[wpm,setWpm]=useState(200);
   const[liveRate,setLiveRate]=useState(1.0);
   const[idx,setIdx]=useState(0);
   const[log,setLog]=useState([]);            // {code,who,text}
@@ -2654,7 +2654,7 @@ function App(){
     setSide(recoveryData.side||'gov');
     setBrain(recoveryData.brain||'claude');
     setVoice(recoveryData.voice||'onyx');
-    setWpm(recoveryData.wpm||180);
+    setWpm(recoveryData.wpm||200);
     setOppStrengths(recoveryData.oppStrengths||[]);
     setOppWeaknesses(recoveryData.oppWeaknesses||[]);
     setBackground(recoveryData.background||'');
@@ -4356,32 +4356,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
             el('span',{'aria-hidden':true,style:{fontSize:'.9rem',lineHeight:1}},tts.paused?'▶':'❚❚'),
             el('span',null,tts.paused?'Resume':'Pause'),
           ),
-          // Audio progress bar — read-only for now. Chunked playback
-          // means 'scrubbing' would require stitching across N Audio
-          // elements which is out of scope. Seeing the elapsed / total
-          // still gives users feedback on where they are in the speech.
-          !isUser && tts.speaking && (()=>{
-            const p = tts.getAudioTime ? tts.getAudioTime() : {currentTime:0,duration:0};
-            const cur = p.currentTime || 0;
-            const tot = p.duration || 0;
-            const pct = tot > 0 ? Math.max(0, Math.min(100, (cur/tot)*100)) : 0;
-            const fmt = s => {
-              if(!isFinite(s) || s < 0) s = 0;
-              const m = Math.floor(s/60), sec = Math.floor(s%60);
-              return m + ':' + (sec<10?'0':'') + sec;
-            };
-            // Suppress audioTick reference so React lint sees the dep.
-            const _=audioTick;
-            return el('div',{style:{width:'100%',maxWidth:260,margin:'0 auto'}},
-              el('div',{style:{height:3,borderRadius:2,background:'var(--c-surface3)',overflow:'hidden',position:'relative'}},
-                el('div',{style:{height:'100%',width:pct+'%',background:'linear-gradient(90deg,#ef4444,#f87171)',transition:'width .2s linear'}}),
-              ),
-              tot > 0 && el('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'.62rem',color:'var(--c-muted)',marginTop:4,fontVariantNumeric:'tabular-nums',letterSpacing:'.04em'}},
-                el('span',null,fmt(cur)),
-                el('span',null,fmt(tot)),
-              ),
-            );
-          })(),
+          // Audio progress bar removed — with chunked TTS playback the
+          // 'total' kept growing as new chunks streamed in, so the
+          // elapsed-vs-total readout was always lying. The speech-slot
+          // timer above already tells you how long the speech is and
+          // how much of it is left; a second clock was noise.
         ),
 
         // Per-speech transcript removed — it overlaid the orb during audio
