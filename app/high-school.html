@@ -1855,15 +1855,21 @@ const PARLIPRO_TERMS = [
 ];
 
 function CongressLab() {
-  const [subTab, setSubTab] = useState('bills'); // bills, parlipro, speech
+  const [subTab, setSubTab] = useState('bills'); // bills, parlipro, speech, questions
   const [selectedBill, setSelectedBill] = useState(0);
   const [speechSide, setSpeechSide] = useState('pro');
-  const [speechNum, setSpeechNum] = useState(1); // 1st, 2nd, 3rd speaker
+  const [speechNum, setSpeechNum] = useState(1); // 1=author, 2-3=mid, 4=crystallization
   const [speechOutput, setSpeechOutput] = useState(null);
   const [loading, setLoading] = useState(false);
   const [customBill, setCustomBill] = useState('');
   const [analysisOutput, setAnalysisOutput] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  // Questioning-period prep — generates both sharp questions to ASK the
+  // other side AND likely questions you'll FACE with tight answers. This
+  // is Congress's unique mechanic and the biggest gap left in the lab.
+  const [qSide, setQSide] = useState('pro');
+  const [qOutput, setQOutput] = useState(null);
+  const [qLoading, setQLoading] = useState(false);
 
   const bill = SAMPLE_BILLS[selectedBill];
 
@@ -1895,7 +1901,9 @@ Be specific to THIS bill. Reference real-world parallels, costs, stakeholders. K
     try {
       const speakerLabel = speechNum === 1 ? (speechSide === 'pro' ? 'Authorship/Sponsorship' : 'First Negation') :
                            speechNum === 2 ? (speechSide === 'pro' ? 'Second Pro' : 'Second Con') :
-                           (speechSide === 'pro' ? 'Third Pro' : 'Third Con');
+                           speechNum === 3 ? (speechSide === 'pro' ? 'Third Pro' : 'Third Con') :
+                           (speechSide === 'pro' ? 'Crystallization (Pro)' : 'Crystallization (Con)');
+      const isCrystal = speechNum === 4;
 
       const sysPrompt = `You are a Congressional Debate speech writer helping a high school debater write a ${speakerLabel} speech on a bill.
 
@@ -1903,7 +1911,13 @@ CONGRESS SPEECH RULES:
 - MAX 3 minutes. Every word counts. This should be ~400 words.
 - ${speechNum === 1 && speechSide === 'pro' ? 'AUTHORSHIP: You introduce the bill. Explain what it does, why it matters, address the strongest objection preemptively.' : ''}
 - ${speechNum === 1 && speechSide === 'con' ? 'FIRST NEGATION: The most important con speech. Establish the core opposition framework. Hit the bill\'s biggest weakness.' : ''}
-- ${speechNum >= 2 ? 'LATER SPEAKER: You MUST bring NEW arguments or evidence. Don\'t repeat what previous speakers said. Reference and build on earlier speeches: "As the previous speaker noted... I\'d like to add..."' : ''}
+- ${speechNum === 2 || speechNum === 3 ? 'LATER SPEAKER: You MUST bring NEW arguments or evidence. Don\'t repeat what previous speakers said. Reference and build on earlier speeches: "As the previous speaker noted... I\'d like to add..."' : ''}
+- ${isCrystal ? `CRYSTALLIZATION SPEECH. This is what separates break-round Congress reps from prelim-level ones. Your job is FOUR things, in this exact order:
+   1. FRAMING the chamber has settled into (name it: "This chamber has essentially been arguing about [X] vs [Y]")
+   2. WEIGHING (explicit impact calc: magnitude, probability, who bears the cost) — tell the chamber whose side the math favors and WHY, using the actual speeches that came before
+   3. ONE GENUINELY NEW ANGLE nobody has raised yet — not a warmed-over previous argument. Must be a fresh actor, fresh timeframe, fresh second-order effect, or a critical lens the chamber missed
+   4. CALL TO ACTION that references the chamber by name ("I urge my colleagues on both sides...") and names the specific vote you want
+   Do NOT waste speech time recapping every prior argument. Crystallize means distill. The chamber heard the arguments; you're telling them which ones mattered.` : ''}
 - Include a strong hook/opening line (attention-getter)
 - Use real evidence with specific sources where possible
 - End with a clear call to action: "For these reasons, I urge a ${speechSide === 'pro' ? 'yes' : 'no'} vote on this legislation."
@@ -1920,10 +1934,49 @@ No markdown formatting. Natural speech.`;
     setLoading(false);
   };
 
+  // Questioning-period prep. Generates both directions: sharp questions
+  // to ASK the other side (that advance your own case) and tough questions
+  // you'll likely FACE with 30-second answers. The unique value vs. speech
+  // writing is that questioning is where speaker points are won — a good
+  // question makes the chamber lean forward; a bad answer loses the ballot.
+  const genQuestions = async () => {
+    setQLoading(true);
+    setQOutput('');
+    try {
+      const sysPrompt = `You are a Congressional Debate coach preparing a high school debater for the questioning period on a bill. The debater is arguing the ${qSide.toUpperCase()} side.
+
+Your output has TWO sections, exactly these headers (no markdown):
+
+QUESTIONS TO ASK THE OTHER SIDE (6 total)
+For each, give:
+- THE QUESTION, phrased formally ("Does the Representative believe that..." / "Is the Gentlelady aware that..."). Single-sentence, pointed, PIN on a specific weakness (missing mechanism, unfunded mandate, ignored stakeholder, contradicting evidence, jurisdictional overreach, historical counterexample).
+- WHY IT WORKS: one sentence on the trap. What concession does it force? What does it set up for YOUR later speech?
+Rank from strongest (a knockout question that reshapes the round) to setup (a question that plants a later argument).
+
+QUESTIONS YOU'LL LIKELY FACE (6 total) + ANSWERS
+For each, give:
+- THE QUESTION the other side will throw at you (realistic — not a strawman; this is what a sharp opponent actually asks).
+- A 20-30 SECOND ANSWER: name the premise you grant, name the premise you reject, close with a pivot to YOUR strongest argument.
+
+Rules:
+- Formal Congress register: "the Representative," "the Gentleman/Gentlelady," "this body," "the chamber." Never "you."
+- No gotcha theatre. Judges penalize rude questioning. Sharp but respectful.
+- Questions must be answerable in under 30 seconds. Don't write essays.
+- Be specific to THIS bill — use its exact provisions, dollar figures, timelines, stakeholders.
+
+Output plain text. No markdown. No bullet characters.`;
+
+      await callClaude(sysPrompt, `Bill: ${bill.title}\n\nFull text:\n${bill.text}\n\nPrepare questioning-period material for the ${qSide} side.`, (text) => setQOutput(text), { format: 'Congress', voiceFeature: 'case' });
+    } catch(e) {
+      setQOutput(formatError(e));
+    }
+    setQLoading(false);
+  };
+
   return React.createElement('div',{className:'panel'},
     // Sub-tabs
     React.createElement('div',{style:{display:'flex',gap:8,marginBottom:20}},
-      [['bills','Bill Analysis'],['speech','Speech Writer'],['parlipro','Parli Pro']].map(([id,label]) =>
+      [['bills','Bill Analysis'],['speech','Speech Writer'],['questions','Questioning'],['parlipro','Parli Pro']].map(([id,label]) =>
         React.createElement('button',{key:id,className:'chip'+(subTab===id?' active':''),onClick:()=>setSubTab(id)}, label)
       )
     ),
@@ -1977,6 +2030,7 @@ No markdown formatting. Natural speech.`;
             React.createElement('option',{value:1}, speechSide==='pro' ? 'Authorship (1st Pro)' : 'First Negation (1st Con)'),
             React.createElement('option',{value:2}, speechSide==='pro' ? '2nd Pro Speaker' : '2nd Con Speaker'),
             React.createElement('option',{value:3}, speechSide==='pro' ? '3rd Pro Speaker' : '3rd Con Speaker'),
+            React.createElement('option',{value:4}, speechSide==='pro' ? 'Crystallization (Late Pro)' : 'Crystallization (Late Con)'),
           ),
         ),
       ),
@@ -1984,6 +2038,30 @@ No markdown formatting. Natural speech.`;
         loading ? React.createElement('span',null,React.createElement('span',{className:'spinner'}),'Writing speech...') : 'Generate Speech'
       ),
       speechOutput && React.createElement('div',{className:'output',style:{whiteSpace:'pre-wrap',marginTop:16}}, speechOutput),
+    ),
+
+    // QUESTIONING sub-tab — Congress's unique mechanic and where speaker
+    // points are won. Outputs both sides: sharp questions to ask + tough
+    // questions you'll face with tight answers.
+    subTab === 'questions' && React.createElement(React.Fragment, null,
+      React.createElement('p',{style:{color:'#888',fontSize:'.88rem',marginBottom:16}},'Questioning-period prep. Get six sharp questions to ask + six likely questions you\'ll face, with 30-second answers. Speaker points are won here.'),
+      React.createElement('label',{className:'field-label'},'Bill'),
+      React.createElement('select',{value:selectedBill,onChange:e=>{setSelectedBill(Number(e.target.value));setQOutput(null);},style:{marginBottom:16}},
+        SAMPLE_BILLS.map((b,i) => React.createElement('option',{key:i,value:i}, b.title))
+      ),
+      React.createElement('div',{className:'row',style:{marginBottom:16}},
+        React.createElement('div',null,
+          React.createElement('label',{className:'field-label red'},'Your Side'),
+          React.createElement('select',{value:qSide,onChange:e=>setQSide(e.target.value)},
+            React.createElement('option',{value:'pro'},'Pro (Support)'),
+            React.createElement('option',{value:'con'},'Con (Oppose)'),
+          ),
+        ),
+      ),
+      React.createElement('button',{className:'btn btn-orange',onClick:genQuestions,disabled:qLoading},
+        qLoading ? React.createElement('span',null,React.createElement('span',{className:'spinner'}),'Prepping questions...') : 'Generate Questioning Prep'
+      ),
+      qOutput && React.createElement('div',{className:'output',style:{whiteSpace:'pre-wrap',marginTop:16}}, qOutput),
     ),
 
     // PARLIPRO sub-tab
