@@ -2868,6 +2868,13 @@ function App(){
   // coach would flow it. Plain-text markdown table so it copies cleanly.
   const[flowSheet,setFlowSheet]=useState('');
   const[flowLoading,setFlowLoading]=useState(false);
+  // Multi-round pattern analysis. After enough rounds exist in history,
+  // AI reads the last N and surfaces recurring weaknesses the user can
+  // actually train out — what they drop, where their speaker points
+  // dip, which argument types they mishandle. Compounds with the flow
+  // sheet (per-round) by giving a meta view across rounds.
+  const[patterns,setPatterns]=useState('');
+  const[patternsLoading,setPatternsLoading]=useState(false);
 
   // Parse [Judge]: turn format into array of {judge, text} for bubble rendering
   const parsePanelTurns=(raw)=>{
@@ -2898,6 +2905,64 @@ function App(){
     const votes = [mayaVote, marcusVote, chenVote].filter(v=>v==='user'||v==='ai');
     const tally = votes.filter(v=>v==='user').length + '-' + votes.filter(v=>v==='ai').length;
     return { maya: mayaVote, marcus: marcusVote, chen: chenVote, winner, tally, speakerPoints: { user: spUser, ai: spAi }, practice };
+  };
+
+  // Build a compact, Claude-readable summary of the user's last N rounds.
+  // Full transcripts would blow the token budget, so we extract what a
+  // coach would actually look at: motion, format, side, voice, result,
+  // ballot highlights, and a 400-char sample of the user's longest
+  // speech for voice/style pattern-matching.
+  const buildHistoryDigest=(rounds)=>{
+    return rounds.slice(0,12).map((r,i)=>{
+      const userSpeeches=(r.log||[]).filter(l=>l.who==='You');
+      const longest=userSpeeches.reduce((a,b)=>(b.text||'').length>(a.text||'').length?b:a,{text:''});
+      const sample=(longest.text||'').slice(0,400);
+      const outcome=r.userWon===true?'WON':r.userWon===false?'LOST':'tie/unknown';
+      const ballotSnippet=(r.feedback||'').slice(0,600);
+      return `ROUND ${i+1} — ${r.formatName||r.format} · ${r.sideLabel||r.side} · vs ${r.voice||'unknown voice'} — ${outcome}
+Motion: ${r.motion||''}
+User-speech sample: ${sample}
+Ballot highlights: ${ballotSnippet}`;
+    }).join('\n\n---\n\n');
+  };
+
+  const genPatterns=async()=>{
+    if(!historyRounds||historyRounds.length<3){setPatterns('Need at least 3 saved rounds before we can find patterns. Keep debating.');return}
+    setPatternsLoading(true);
+    setPatterns('');
+    const digest=buildHistoryDigest(historyRounds);
+    const sys=`You are a debate coach reading ${Math.min(historyRounds.length,12)} rounds a single debater ran against AI opponents. Your job is to find RECURRING patterns — strengths that consistently show up, weaknesses that keep costing rounds, and the single highest-leverage fix for this debater.
+
+Rules:
+- Base everything on evidence IN THE DIGEST. Quote specifically ("in round 3 the ballot says...") rather than speaking in generalities.
+- Diagnose PATTERNS, not individual round failures. If something only happened once, don't list it.
+- Be honest. A kind coach who won't tell you what's wrong is a useless coach. Point out the thing they keep doing that loses the round, specifically.
+- Structure your output as PLAIN TEXT (no markdown fences, no headers styled as #):
+
+RECURRING STRENGTHS (what works)
+- 2-4 bullets. What shows up in rounds they win AND rounds they lose — their actual core competency.
+
+RECURRING WEAKNESSES (what loses rounds)
+- 3-5 bullets. Rank by how often this shows up in losses. For each: name the specific behavior + quote 1 ballot line that called it out.
+
+VOICE / DELIVERY PATTERNS
+- 1-3 bullets about their speaking style. Do they lean abstract? Do they signpost? Do they front-load arguments? Use the speech samples.
+
+FORMAT-SPECIFIC NOTES
+- If they perform differently in one format vs another, say so. Otherwise skip.
+
+THE ONE DRILL
+- Single most important thing this debater should practice next. Name the drill specifically (not "work on rebuttals" but "write three rebuttal openings that start with a link turn, read them aloud, time them, aim for under 20 seconds each"). This drill must target their #1 weakness.
+
+Do NOT hedge ("it seems," "perhaps"). This is coaching, not horoscope.`;
+    try{
+      let raw='';
+      await callAI(sys,digest,chunk=>{raw=chunk;setPatterns(chunk)},brain,{voiceFeature:'feedback'});
+      setPatterns(raw);
+    }catch(e){
+      setPatterns('Could not analyze patterns: '+e.message);
+    }
+    setPatternsLoading(false);
   };
 
   const genFlowSheet=async(allLog)=>{
@@ -3096,7 +3161,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   };
 
   // Reset
-  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('')})};
+  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('')})};
 
   /* ─── RENDER ─────────────────────── */
 
@@ -4019,6 +4084,28 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
             !flowLoading&&el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:()=>genFlowSheet(log)},'Re-flow'),
           ),
           el('div',{className:'transcript-box',style:{maxHeight:480,whiteSpace:'pre-wrap',fontFamily:'ui-monospace, Menlo, monospace',fontSize:'.78rem',lineHeight:1.6}},flowSheet),
+        ),
+
+        // Multi-round pattern analysis. Only appears once the user has
+        // actually debated enough for patterns to exist (3+ rounds);
+        // before that the button would produce unreliable diagnoses.
+        historyRounds && historyRounds.length >= 3 && el('div',{style:{marginTop:20,textAlign:'center'}},
+          !patterns && !patternsLoading && el('button',{
+            className:'cta-ghost',
+            style:{fontSize:'.78rem'},
+            onClick:genPatterns,
+          },'📊 Find patterns across your last '+Math.min(historyRounds.length,12)+' rounds'),
+          patternsLoading && el('div',{style:{fontSize:'.78rem',color:'var(--c-muted)'}},
+            el('span',{className:'spinner',style:{marginRight:8}}),
+            'Coaching across your history…'
+          ),
+        ),
+        patterns && el('div',{style:{marginTop:12}},
+          el('div',{style:{display:'flex',justifyContent:'center',gap:10,marginBottom:8}},
+            el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:()=>{navigator.clipboard.writeText(patterns).catch(()=>{})}},'Copy patterns'),
+            !patternsLoading&&el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:genPatterns},'Re-analyze'),
+          ),
+          el('div',{className:'transcript-box',style:{maxHeight:520,whiteSpace:'pre-wrap',fontSize:'.82rem',lineHeight:1.65}},patterns),
         ),
 
         el('button',{className:'transcript-btn',style:{marginTop:28},onClick:()=>setShowTx(!showTx)},showTx?'▼ Hide round transcript':'▶ Show round transcript'),
