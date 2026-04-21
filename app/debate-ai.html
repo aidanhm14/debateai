@@ -3695,6 +3695,36 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       ),
       el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
 
+      // Daily streak. Counts consecutive calendar days the user has
+      // saved at least one round. Breaking days zeros the streak; the
+      // current day counts once the first round is saved.
+      (()=>{
+        if(!Array.isArray(historyRounds)||!historyRounds.length) return null;
+        const dayKey=(d)=>{try{const x=new Date(d);return x.getFullYear()+'-'+(x.getMonth()+1)+'-'+x.getDate();}catch{return null;}};
+        const days=new Set();
+        for(const r of historyRounds){const k=dayKey(r.date||r.id);if(k)days.add(k);}
+        // Walk back from today counting contiguous days.
+        let streak=0;
+        const today=new Date();today.setHours(0,0,0,0);
+        for(let i=0;i<400;i++){
+          const d=new Date(today);d.setDate(today.getDate()-i);
+          const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+          if(days.has(k)) streak++;
+          else if(i===0) continue; // missed today so far, not a break yet
+          else break;
+        }
+        const didToday=days.has(today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate());
+        if(streak<1 && !didToday) return null;
+        return el('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',marginTop:12,background:'rgba(245,158,11,.06)',border:'1px solid rgba(245,158,11,.22)',borderRadius:10}},
+          el('span',{style:{fontSize:'1.15rem',lineHeight:1},'aria-hidden':true},'🔥'),
+          el('div',{style:{flex:1,minWidth:0,fontSize:'.74rem',color:'var(--c-text)',lineHeight:1.4}},
+            el('strong',{style:{color:'#fbbf24',fontWeight:800}},streak+' day'+(streak===1?'':'s')),
+            ' — ',
+            didToday?'today\'s round is logged. keep it going.':'do a round today to keep the streak alive.',
+          ),
+        );
+      })(),
+
       // Recent rounds — return-user hook. Shows the user's last 3 rounds
       // inline so they can rematch an opponent on the same motion with
       // one click. 'Rematch' flips to a voice they HAVEN'T faced yet (if
