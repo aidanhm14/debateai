@@ -817,6 +817,94 @@ const FORMATS = {
   },
 };
 
+/* ── JUDGE PARADIGMS ───────────────────
+ * User picks the judge they want to train against. The AI opponent reads
+ * the paradigm and adapts strategy — no jargon for lay judges, heavy flow
+ * for tab judges, narrative for parents, etc. Also fed into the RFD
+ * generator so the ballot voice matches the judge the user chose. */
+const JUDGE_PARADIGMS = {
+  flow: {
+    label: 'Tab / Flow Judge',
+    short: 'Votes on the flow. Drops are fatal.',
+    prompt: `Your judge is a TAB / FLOW judge. They evaluate strictly on the flow. Tech over truth. Dropped arguments are conceded, no intervention. Strategic implications:
+- Signpost RUTHLESSLY — every argument numbered and named
+- Drop callouts are weapons — if the opponent dropped an argument, weaponize it
+- Impact calculus in canonical form: magnitude, probability, timeframe, reversibility
+- Line-by-line refutation. Do not skip responses
+- Technical debate jargon is fine ("cross-apply," "extend," "link turn," "even-if")`,
+  },
+  lay: {
+    label: 'Lay / Parent Judge',
+    short: 'No jargon. Persuade them like a normal person.',
+    prompt: `Your judge is a LAY / PARENT judge. They have never watched competitive debate. Strategic implications:
+- ZERO jargon. No "framework," no "impact calc," no "cross-apply," no "ballot story"
+- Plain English. Short sentences. Real-world examples over abstract warrants
+- Narrative over structure. Tell a story. Make them FEEL the harm or the benefit
+- Delivery matters more than technical precision. Speak slowly. Be warm or righteous
+- NEVER acknowledge the judge is lay — just argue in a way that lands for them
+- Persuasion > domination. A lay judge rewards the debater they'd TRUST.`,
+  },
+  policy: {
+    label: 'Policymaker',
+    short: 'What would you do if you were in charge?',
+    prompt: `Your judge is a POLICYMAKER. They evaluate the round as if choosing a real-world policy. Strategic implications:
+- SOLVENCY mechanics — does the plan actually work? Who implements, funds, enforces?
+- Cost-benefit analysis with concrete numbers where possible
+- Stakeholder analysis: who wins, who loses, at what scale
+- Real-world precedents heavily favored over abstract theory
+- Pragmatic tradeoffs beat ideological purity — admit the downside and show net benefit`,
+  },
+  games: {
+    label: 'Games-Playing',
+    short: 'Debate-as-a-game. Theory and tricks welcome.',
+    prompt: `Your judge is a GAMES-PLAYING judge. They treat the round as a strategic game. Anything theoretically legitimate is fair play. Strategic implications:
+- Theory shells and a-priori arguments are live (T, condo, counterplan theory)
+- Spikes and pre-empts score well
+- "Hidden" offense rewarded — drop a hard-to-notice warrant early, extend it late
+- Impact turns and link turns preferred over defense
+- Intervention is anathema — strategic drops and silent concessions are legit moves`,
+  },
+  truth: {
+    label: 'Truth-over-Tech',
+    short: 'Arguments must be actually true, not just extended.',
+    prompt: `Your judge is a TRUTH-OVER-TECH judge. A technically-won but factually-wrong argument loses. Strategic implications:
+- NO BS warrants. Every claim must be genuinely defensible, not just asserted
+- Real evidence or reasoning beats dropped-therefore-true
+- Strategic concessions on weak arguments score HIGHER than defending the indefensible
+- Emphasize the arguments that are both true AND technically winning — narrow the round to your strongest ground`,
+  },
+  k: {
+    label: 'Kritik-Friendly',
+    short: 'Pomo, critical theory, identity arguments welcome.',
+    prompt: `Your judge is a KRITIK-FRIENDLY judge. They engage with critical theory, postmodernism, identity-based arguments, and structural critique. Strategic implications:
+- Alternative and framework are everything — link + impact + alt solves
+- Representations, discourse, and epistemology matter
+- Performance and method-level arguments are live
+- "Pre-fiat" impacts (discursive, pedagogical) can outweigh post-fiat
+- Aff/Neg of the topic can still lose to a kritik of the underlying assumptions`,
+  },
+  hs_coach: {
+    label: 'HS Coach',
+    short: 'Former debater. Middle ground between tab and lay.',
+    prompt: `Your judge is a HIGH SCHOOL COACH / former debater. Flow-literate but values delivery and persuasion. Strategic implications:
+- Some jargon OK ("impact," "framework," "drop") but don't overdo it
+- Technical wins count, but pretty technical wins count more
+- Speaker points reward polish, clarity, and controlled aggression
+- Prefers substantive clash over theory arguments — don't lead with condo bad
+- Rewards round-vision: debaters who explicitly identify the stakes of the round`,
+  },
+  ap: {
+    label: 'APDA Alum',
+    short: 'College parli voice. Rewards creative framing.',
+    prompt: `Your judge is an APDA ALUM (college parli circuit). Rewards creative case framing, sharp analysis, and personality. Strategic implications:
+- Tight cases with clever framing score best
+- Wit and personality are assets — drop "lol" moments and sarcasm when earned
+- Philosophy and abstract frameworks welcome if handled with precision
+- Named arguments and callbacks land well ("the marginal worker test," "whose-lives-get-worse")
+- Reward round-shaping moves: silent spikes, strategic concessions, layering the round`,
+  },
+};
+
 /* ── AI VOICES ──────────────────────── */
 // Free users: OpenAI TTS voices. Pro users: ElevenLabs premium voices (same selector, upgraded quality).
 const VOICES = {
@@ -2083,7 +2171,7 @@ ${isFirst ? `VOCABULARY & TONE:
 - CONFIDENT, not arrogant. The best debaters sound like they're explaining something obvious to a friend, not performing for an audience. Controlled intensity. you believe what you're saying because the logic demands it.
 - Dismissive when earned: "That argument is dead on arrival" or "Their link chain doesn't survive first contact with the real world." But only when you've actually shown why. confidence without warrant is bluster.
 - Vary your energy. Not every sentence is a haymaker. Build quietly, then punch. Some of the most devastating debate moments are said calmly: "And that's the point they can't get around."
-- COLLOQUIAL FLAIR (use sparingly, ~10-15% of the speech): Code-switch between philosophical precision and real-talk. "That argument is cooked," "their framework is mid at best," "this is where their case falls apart and they know it." Dismissive confidence when you've EARNED it. after you've shown the warrant is broken, you can twist the knife. But don't lead with slang. lead with substance, punctuate with personality.` : ''}`;
+- COLLOQUIAL FLAIR (use sparingly, ~10-15% of the speech): Code-switch between precision and real-talk ONLY when it carries analytical weight. Good: "Americans love to act like Europeans when it's politically convenient — but nobody's actually paying the tax" (observational, names a real tension). "Politics is just vibes, and their argument doesn't flow because it rests on one unnamed assumption: that voters are paying attention." (substantive, wit points at a mechanism). "This is where their case falls apart and they know it — their own evidence contradicts their impact." Bad, NEVER DO THIS: empty slang used as a dismissal with no reasoning attached. "That's a vibe." "That's cap." "Skill issue." "Mid." "Cooked." "NPC behavior." Standalone slang without a WARRANT attached reads as cheap and LLM-chasing-cool. If you want to mock an argument, name the specific failure in the same breath: not "that's a vibe" but "that's a vibe dressed up as analysis — there's no mechanism, no named actor, no number." The word "vibe" is allowed as observational commentary ("politics runs on vibes," "the current discourse is pure vibes") but NEVER as a one-word dismissal of an opponent's argument.` : ''}`;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2312,6 +2400,13 @@ function App(){
   const[brain,setBrain]=useState('claude');
   const[voice,setVoice]=useState('onyx');
   const[side,setSide]=useState('gov');
+  // Judge paradigm — shapes BOTH the AI opponent's strategy (they try to
+  // win the judge they're in front of) AND the final RFD voice. Persisted
+  // to localStorage so the user's preferred training judge sticks around.
+  const[judgeParadigm,setJudgeParadigm]=useState(()=>{
+    try{return localStorage.getItem('debateos-judge-paradigm')||'flow';}catch{return 'flow';}
+  });
+  const saveJudgeParadigm=(k)=>{setJudgeParadigm(k);try{localStorage.setItem('debateos-judge-paradigm',k);}catch{}};
   const[wpm,setWpm]=useState(180);
   const[liveRate,setLiveRate]=useState(1.0);
   const[idx,setIdx]=useState(0);
