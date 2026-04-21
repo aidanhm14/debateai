@@ -270,6 +270,34 @@ button{font-family:inherit;cursor:pointer}
   filter:blur(48px);
   animation:drift2 12s ease-in-out infinite alternate;
 }
+
+/* ── First-visit onboarding cues ──────────────────
+   Pulse highlight on Motion of the Day + Orb tooltip.
+   Both suppressed once the user has visited at least once
+   (body.has-visited), set by an inline script on load. */
+@keyframes onboardPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}
+  50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}
+}
+body:not(.has-visited) #miniChatMotd.is-visible{
+  animation:onboardPulse 2.6s ease-in-out 3;
+}
+/* Orb hover tooltip. shows a small hint the first time the user
+   mouses the orb, fades out after .onboard-hint-seen is set. */
+.hero-orb-tooltip{
+  position:absolute;top:-6px;right:-6px;
+  background:#ef4444;color:#fff;font-size:.58rem;font-weight:800;
+  letter-spacing:.12em;text-transform:uppercase;
+  padding:5px 10px;border-radius:999px;
+  pointer-events:none;white-space:nowrap;
+  box-shadow:0 6px 20px rgba(239,68,68,.4);
+  opacity:0;transform:translateY(-4px) scale(.9);
+  transition:opacity .35s ease,transform .35s ease;
+}
+body:not(.has-visited) .hero-orb-tooltip{
+  opacity:1;transform:translateY(0) scale(1);
+  animation:onboardPulse 2.6s ease-in-out 3;
+}
 @keyframes drift{
   0%{transform:translate(0,0) scale(1)}
   100%{transform:translate(-40px,30px) scale(1.05)}
@@ -1253,6 +1281,7 @@ button{font-family:inherit;cursor:pointer}
           <div class="hero-orb-glow"></div>
           <div class="hero-orb-ring"></div>
           <canvas id="heroOrb" aria-hidden="true"></canvas>
+          <div class="hero-orb-tooltip" aria-hidden="true">👉 Debate live</div>
         </div>
         <div class="hero-orb-caption">Thinks. Challenges. Judges you like a real opponent.</div>
         <div class="hero-left-ctas">
@@ -1510,6 +1539,10 @@ button{font-family:inherit;cursor:pointer}
         };
         renderMotd();
         motdEl.style.display = 'block';
+        // Pulse trigger — CSS targets `.is-visible` so we only kick the
+        // animation after the card actually lays out. Guarded by the
+        // has-visited body class (set below).
+        motdEl.classList.add('is-visible');
         motdUseBtn.addEventListener('click', function(){
           topicEl.value = LANDING_MOTIONS[curIdx].text;
           topicEl.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2213,6 +2246,28 @@ button{font-family:inherit;cursor:pointer}
 </footer>
 
 <script>
+// First-visit onboarding. Pulse-highlight the Motion of the Day and
+// show the orb tooltip on the first landing-page visit; suppress on
+// every subsequent visit. Flag stored in localStorage so the hint
+// is one-time per device, not per session. CSS keys off
+// body:not(.has-visited) so repeat visitors never see the cues.
+(function(){
+  try {
+    if (localStorage.getItem('da-has-visited')) {
+      document.body.classList.add('has-visited');
+    } else {
+      // Mark visited after 8s so the pulse finishes its 3 cycles
+      // before we arm the one-time guard. Keeps cues visible on
+      // accidental-reload-within-8s paths.
+      setTimeout(function(){
+        try { localStorage.setItem('da-has-visited','1'); } catch(e){}
+      }, 8000);
+    }
+  } catch(e) {
+    document.body.classList.add('has-visited'); // privacy-mode fallback
+  }
+})();
+
 // FAQ accordion
 document.querySelectorAll('.faq-q').forEach(function(b){b.addEventListener('click',function(){var i=b.closest('.faq-item'),o=i.classList.contains('open');document.querySelectorAll('.faq-item.open').forEach(function(x){x.classList.remove('open')});if(!o)i.classList.add('open')})});
 
