@@ -8326,7 +8326,7 @@ const JUDGE_EVAL_TYPES = {
 /* ═══════════════════════════════════════════════════
    JUDGE ANALYZER. paste ballots/RFDs, get preference profile
    ═══════════════════════════════════════════════════ */
-function JudgeAnalyzer() {
+function JudgeAnalyzer({ team, user, onNavigateTab }) {
   const el = React.createElement;
   const [judgeName, setJudgeName] = useState('');
   const [ballots, setBallots] = useState('');
@@ -8334,9 +8334,12 @@ function JudgeAnalyzer() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [brain, setBrain] = useState('claude');
+  const userIsPro = isPro(team, user);
+  const goUpgrade = () => { try { if (onNavigateTab) onNavigateTab('team'); else window.location.href='/pricing.html'; } catch(e){ window.location.href='/pricing.html'; } };
 
   const run = async () => {
     if (!ballots.trim()) return;
+    if (!userIsPro) { goUpgrade(); return; }
     setLoading(true); setErr(''); setAnalysis('');
     try {
       const sys = 'You are analyzing a debate judge\'s historical ballots and RFDs to extract a strategic profile. Output structured markdown with these exact sections:\n\n## LIKES (what wins speaks/ballots with this judge)\n- bullet\n- bullet\n\n## DISLIKES (what loses ballots)\n- bullet\n\n## SPEAKER POINTS PATTERNS (what drives highs vs lows)\n- bullet\n\n## STRATEGIC RECOMMENDATIONS (how to debate in front of them)\n- Clear, actionable advice\n\n## PARADIGM GUESS (their decision-calc style: tab, policy, kritikal, parent, flow, truth-over-tech, etc.)\n\nBe specific. Quote actual phrases they use when possible. Identify contradictions if the ballots disagree.';
@@ -8348,7 +8351,19 @@ function JudgeAnalyzer() {
     finally { setLoading(false); }
   };
 
-  return el('div', null,
+  return el('div', {style:{position:'relative', minHeight: userIsPro ? 'auto' : 420}},
+    // Pro gate overlay — free users see the form blurred with an upgrade CTA
+    !userIsPro && el('div', {style:{position:'absolute',inset:0,background:'#2b2b30e6',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,backdropFilter:'blur(6px)',borderRadius:14}},
+      el('div', {style:{textAlign:'center',padding:'40px 30px',maxWidth:420}},
+        el('div', {style:{fontSize:'2rem',marginBottom:12}}, '\uD83D\uDD12'),
+        el('div', {style:{fontWeight:800,fontSize:'1.25rem',color:'#f1f5f9',marginBottom:8}}, 'Judge Analyzer'),
+        el('div', {style:{color:'#94a3b8',fontSize:'.88rem',lineHeight:1.6,marginBottom:20}}, 'Paste ballots, RFDs, or a Tabroom paradigm and get a strategic profile of any judge — likes, dislikes, speaker-point drivers, and how to win their ballot. Available on Individual and Lifetime plans.'),
+        el('div', {style:{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}},
+          el('button', {className:'btn btn-primary', onClick:goUpgrade, style:{padding:'10px 24px',fontSize:'.88rem'}}, 'Upgrade to Unlock'),
+          el('div', {style:{color:'#64748b',fontSize:'.78rem',alignSelf:'center'}}, 'Starting at $5/mo'),
+        ),
+      ),
+    ),
     el('h3', {style:{margin:0,fontSize:'1.2rem',fontWeight:700}}, 'Judge Analyzer'),
     el('p', {style:{color:'#94a3b8',fontSize:'.85rem',marginTop:6,marginBottom:16}}, 'Paste a judge\'s ballots, RFDs, or Tabroom paradigm. AI extracts their preferences so you know exactly how to debate in front of them.'),
     el('label', {className:'field-label'}, 'Judge Name (optional)'),
@@ -8443,7 +8458,7 @@ function BallotOCR() {
   );
 }
 
-function Judge({ user }) {
+function Judge({ user, team, onNavigateTab }) {
   const { t } = React.useContext(I18nContext);
   const [judgeMode, setJudgeMode] = useState('flow'); // flow | pool
   const [format, setFormat] = useState('APDA');
@@ -8650,8 +8665,8 @@ Think through the strategic implications. Be specific, reference debate theory, 
     ),
     // Judge Pool mode
     judgeMode === 'pool' && React.createElement(JudgePool, { user }),
-    // Judge Analyzer mode
-    judgeMode === 'analyzer' && React.createElement(JudgeAnalyzer),
+    // Judge Analyzer mode — Pro-only per pricing page
+    judgeMode === 'analyzer' && React.createElement(JudgeAnalyzer, { team, user, onNavigateTab }),
     // Ballot OCR mode
     judgeMode === 'ballot' && React.createElement(BallotOCR),
     // Flow Notes mode
@@ -14564,7 +14579,7 @@ function App() {
       tabPane('chat', React.createElement(DebateChat)),
       tabPane('phil', React.createElement(Philosophy, { onSave: saveCase })),
       tabPane('practice', React.createElement(Practice)),
-      tabPane('judge', React.createElement(Judge, { user: user })),
+      tabPane('judge', React.createElement(Judge, { user: user, team: team, onNavigateTab: navigateTab })),
       tabPane('terms', React.createElement(VocabQuiz)),
       tabPane('newbies', React.createElement(Newbies)),
       tabPane('shared', React.createElement(SharedCases, { user: user, team: team })),
