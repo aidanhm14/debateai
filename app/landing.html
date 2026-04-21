@@ -217,16 +217,23 @@ button{font-family:inherit;cursor:pointer}
 .nav-contact:hover{border-color:var(--text);background:var(--bg-card)}
 
 /* ── Theme Switcher ──────────────── */
-.theme-dots{display:flex;gap:6px;align-items:center}
+.theme-dots{display:flex;gap:6px;align-items:center;padding:0 6px;position:relative}
+.theme-dots::before{
+  content:'Lighting';
+  font-size:.58rem;font-weight:700;letterSpacing:1px;text-transform:uppercase;
+  color:var(--text-dim);opacity:.55;margin-right:4px;letter-spacing:1px;
+}
 .theme-dot{
-  width:18px;height:18px;border-radius:50%;border:2px solid transparent;
+  width:16px;height:16px;border-radius:50%;border:2px solid transparent;
   cursor:pointer;transition:border-color .2s,transform .2s;
+  padding:0;
 }
 .theme-dot:hover{transform:scale(1.2)}
 .theme-dot.active{border-color:var(--text)}
 .theme-dot[data-t="grey"]{background:#444}
 .theme-dot[data-t="day"]{background:#d4dbe6}
 .theme-dot[data-t="crimson"]{background:#ef4444}
+@media (max-width:720px){.theme-dots::before{display:none}}
 
 /* ── Hero ─────────────────────────── */
 /* Two-column layout above 1100px: content on the left, audio-timer on
@@ -1173,6 +1180,11 @@ button{font-family:inherit;cursor:pointer}
     <a href="/app#case" class="ui-topbar-link">College</a>
     <a href="/high-school" class="ui-topbar-link">High School</a>
     <a href="/learn" class="ui-topbar-link">Adults</a>
+    <div class="theme-dots" role="group" aria-label="Change lighting" title="Change lighting">
+      <button class="theme-dot active" data-t="crimson" aria-label="Crimson (default dark)" title="Crimson — default dark"></button>
+      <button class="theme-dot" data-t="grey" aria-label="Grey (neutral dark)" title="Grey — neutral dark"></button>
+      <button class="theme-dot" data-t="day" aria-label="Day (light mode)" title="Day — light mode"></button>
+    </div>
     <a href="/debate-ai" class="ui-btn ui-btn-primary ui-btn-sm" style="padding:8px 18px">Debate AI</a>
   </div>
 </nav>
@@ -2081,15 +2093,14 @@ document.querySelectorAll('.theme-dot').forEach(function(dot){
     try{localStorage.setItem('da-theme',t)}catch(e){}
   });
 });
-// Restore saved theme
+// Restore saved theme (default = crimson if none saved; sync active dot
+// either way so the picker never lies about the current lighting).
 try{
-  var saved=localStorage.getItem('da-theme');
-  if(saved){
-    document.documentElement.setAttribute('data-theme',saved);
-    document.querySelectorAll('.theme-dot').forEach(function(d){
-      d.classList.toggle('active',d.getAttribute('data-t')===saved);
-    });
-  }
+  var saved=localStorage.getItem('da-theme') || 'crimson';
+  document.documentElement.setAttribute('data-theme',saved);
+  document.querySelectorAll('.theme-dot').forEach(function(d){
+    d.classList.toggle('active',d.getAttribute('data-t')===saved);
+  });
 }catch(e){}
 
 // Live prediction-markets section.
