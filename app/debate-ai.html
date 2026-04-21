@@ -195,7 +195,7 @@ body{
 
 /* ── The Orb (waveform) ────────────── */
 .orb-wrap{
-  position:relative;width:280px;height:280px;margin:0 auto 32px;
+  position:relative;width:min(460px,88vw);aspect-ratio:1;max-width:540px;margin:0 auto 32px;
   display:flex;align-items:center;justify-content:center;
 }
 .orb-glow{
@@ -212,6 +212,52 @@ body{
 .orb-ring.pulse{animation:orbPulse 2s ease-in-out infinite}
 @keyframes orbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.7}}
 canvas.orb{width:220px;height:220px;border-radius:50%}
+
+/* ── AI Speech Bubble (typewriter synced to TTS audio) ──
+   Same visual language as the landing try-me: dark card with red accent
+   dot, backdrop blur, soft shadow. Lives inside the orb-wrap so it sits
+   over the pulsing orb exactly like the landing demo — except here the
+   text is the AI's live speech, revealed character-by-character at the
+   pace of the actual audio timeline. */
+.ai-speech-bubble{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%) scale(.96);
+  width:min(88%,520px);max-width:92%;
+  padding:18px 22px;border-radius:16px;
+  background:rgba(15,15,18,.86);border:1px solid rgba(239,68,68,.32);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  font-size:1rem;font-weight:500;color:var(--fg);line-height:1.5;
+  text-align:left;letter-spacing:-.005em;
+  opacity:0;pointer-events:none;z-index:4;
+  transition:opacity .32s ease,transform .32s cubic-bezier(.22,.9,.32,1);
+  box-shadow:0 22px 60px rgba(0,0,0,.55),0 0 0 1px rgba(239,68,68,.06) inset;
+  max-height:min(58vh,360px);overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.ai-speech-bubble.visible{
+  opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto;
+}
+.ai-speech-bubble::before{
+  content:'';position:absolute;left:22px;top:-5px;width:10px;height:10px;
+  background:#ef4444;border-radius:50%;box-shadow:0 0 14px rgba(239,68,68,.75);
+  animation:aiBubbleDot 1.2s ease-in-out infinite;
+}
+@keyframes aiBubbleDot{0%,100%{opacity:1}50%{opacity:.32}}
+.ai-speech-bubble.paused::before{animation:none;opacity:.4}
+.ai-speech-bubble::-webkit-scrollbar{width:3px}
+.ai-speech-bubble::-webkit-scrollbar-thumb{background:rgba(239,68,68,.25);border-radius:4px}
+.ai-bubble-caret{
+  display:inline-block;width:2px;height:1em;background:#ef4444;
+  margin-left:2px;vertical-align:-.12em;animation:aiBubbleCaret 1s step-end infinite;
+}
+@keyframes aiBubbleCaret{50%{opacity:0}}
+/* Light mode parity */
+[data-lighting="light"] .ai-speech-bubble{background:rgba(255,255,255,.92);border-color:rgba(239,68,68,.35);color:#1a1a1e}
+/* Mobile: shrink the bubble so it doesn't cover the whole orb area */
+@media(max-width:640px){
+  .ai-speech-bubble{width:94%;font-size:.88rem;padding:14px 16px;max-height:52vh;line-height:1.5}
+  .ai-speech-bubble::before{left:16px;top:-4px;width:8px;height:8px}
+}
 
 /* ── Speech Progress ───────────────── */
 .progress-bar{display:flex;gap:8px;justify-content:center;margin-bottom:40px}
@@ -2339,6 +2385,13 @@ function App(){
   const[aiPct,setAiPct]=useState(0);       // generation progress %
   const[voiceEta]=useState(0); // TTS timing display
   const[showTx,setShowTx]=useState(false);
+  // Characters of `aiText` that are currently "revealed" in the on-orb
+  // speech bubble. Driven by a RAF loop in useEffect below that reads
+  // tts.getAudioTime() each frame — so the typewriter paces to the actual
+  // audio timeline, not an arbitrary char-delay. Monotonic: once a char
+  // is revealed it stays revealed.
+  const[aiRevealed,setAiRevealed]=useState(0);
+  const aiRevealedRef=useRef(0);
   const[prepHint,setPrepHint]=useState('');
   const[prepHintLoading,setPrepHintLoading]=useState(false);
   const[notesSaved,setNotesSaved]=useState(false);
@@ -2773,6 +2826,57 @@ function App(){
     window.addEventListener('keydown',handler);
     return()=>window.removeEventListener('keydown',handler);
   },[phase,tts.speaking]);
+
+  // Drive the on-orb typewriter reveal from actual TTS audio position.
+  // While tts is speaking we run a RAF loop that reads getAudioTime() and
+  // maps playback ratio → character count on aiText. Monotonic (never
+  // regresses). If duration isn't known yet (early chunks), falls back to
+  // a time-based approximation so the caret still moves. When tts stops
+  // speaking (fallback to browser voice, or audio not ready), reveals
+  // the full aiText immediately so the user is never stuck behind a caret.
+  useEffect(()=>{
+    if(phase!=='speech') return;
+    let raf=0;
+    const startWall=Date.now();
+    const tick=()=>{
+      const full=aiText||'';
+      if(!full.length){ raf=requestAnimationFrame(tick); return; }
+      let target=aiRevealedRef.current;
+      if(tts.speaking){
+        const at=tts.getAudioTime?.()||{currentTime:0,duration:0};
+        const dur=at.duration||0, cur=at.currentTime||0;
+        if(dur>0 && cur>=0){
+          // ratio of audio played → chars visible. Small lookahead (0.15s)
+          // so the caret leads the voice by a beat rather than trailing —
+          // reads as "the AI just said this word" instead of lagging print.
+          const r=Math.min(1, (cur + 0.15) / dur);
+          target=Math.max(target, Math.floor(r * full.length));
+        } else {
+          // No audio metadata yet. Pace at ~17 chars/sec as a placeholder
+          // so the bubble doesn't sit completely frozen while the first
+          // chunk loads.
+          const elapsed=(Date.now()-startWall)/1000;
+          target=Math.max(target, Math.min(full.length, Math.floor(elapsed*17)));
+        }
+      } else {
+        // Not speaking — either audio finished or fallback mode. Either
+        // way, don't leave text hidden behind the caret.
+        target=full.length;
+      }
+      if(target!==aiRevealedRef.current){
+        aiRevealedRef.current=target;
+        setAiRevealed(target);
+      }
+      raf=requestAnimationFrame(tick);
+    };
+    raf=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(raf);
+  },[phase,aiText,tts.speaking]);
+
+  // Reset revealed count when a new speech begins (aiText gets cleared).
+  useEffect(()=>{
+    if(!aiText){ aiRevealedRef.current=0; setAiRevealed(0); }
+  },[aiText]);
 
   // Adaptive difficulty. check user's win rate against this opponent
   const getWinRate=()=>{
@@ -3532,11 +3636,22 @@ function App(){
           );
         })(),
 
-        // The orb
+        // The orb — with an in-orb typewriter speech bubble while the AI
+        // speaks. Text reveals at actual audio pace (see the RAF effect
+        // above on getAudioTime). Same visual language as the landing
+        // try-me demo so /landing and /debate-ai share one motion grammar.
         el('div',{className:'orb-wrap'},
           el('div',{className:'orb-glow'+(!isUser||tts.speaking?' on':'')}),
           el('div',{className:'orb-ring'+(isUser?' active':tts.speaking||aiLoading?' active pulse':'')}),
           el('canvas',{className:'orb',ref:orb.ref}),
+          (!isUser&&aiText)&&el('div',{
+            className:'ai-speech-bubble visible'+(tts.paused?' paused':''),
+            'aria-live':'polite',
+          },
+            (aiRevealed<aiText.length)
+              ? el(React.Fragment,null, aiText.slice(0,aiRevealed), el('span',{className:'ai-bubble-caret'}))
+              : aiText
+          ),
         ),
 
         // Timer
