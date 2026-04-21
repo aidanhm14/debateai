@@ -1,17 +1,25 @@
 /* Neural constellation background — shared across all pages.
-   Only animates in dark / crimson themes. Looks for #uiNeuralCanvas. */
+   Only animates in dark / crimson themes. Looks for #uiNeuralCanvas.
+   Perf-optimized 2026-04-21: single pairwise pass (physics+edges in
+   one loop), squared-distance gate before sqrt, mobile node downscale,
+   visibility pause. Target <2ms/frame on mid-tier laptops. */
 (function(){
   var c=document.getElementById('uiNeuralCanvas');
   if(!c) return;
   var ctx=c.getContext('2d');
-  var nodes=[],pulses=[];
-  var W,H,dpr=window.devicePixelRatio||1;
-  var NODE_COUNT=40,CONNECT_DIST_DARK=150,CONNECT_DIST_LIGHT=180;
+  var nodes=[],edges=[],pulses=[];
+  var W,H,dpr=Math.min(window.devicePixelRatio||1,2);
+  var isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
+  var reduced=false;
+  try{reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
+  var NODE_COUNT=isMobile?16:32;
+  var CONNECT_DIST_DARK=150,CONNECT_DIST_LIGHT=180;
   var MIN_SPEED=.04;
+  var running=true;
 
   function resize(){
     W=window.innerWidth;H=window.innerHeight;
-    c.width=W*dpr;c.height=H*dpr;
+    c.width=(W*dpr)|0;c.height=(H*dpr)|0;
     c.style.width=W+'px';c.style.height=H+'px';
     ctx.setTransform(dpr,0,0,dpr,0,0);
   }
@@ -30,87 +38,100 @@
   function addPulse(fi,ti){pulses.push({from:fi,to:ti,t:0,speed:.006+Math.random()*.008})}
 
   function tick(){
+    if(!running)return;
     var isLight=document.body.classList.contains('light-theme');
-    var isCrimson=document.body.classList.contains('crimson-theme');
-    ctx.clearRect(0,0,W,H);
+    var CDIST=isLight?CONNECT_DIST_LIGHT:CONNECT_DIST_DARK;
+    var CDIST_SQ=CDIST*CDIST;
     var R=239,G=68,B=68;
     if(isLight){R=100;G=130;B=180}
-    var CDIST=isLight?CONNECT_DIST_LIGHT:CONNECT_DIST_DARK;
+    ctx.clearRect(0,0,W,H);
 
+    // Single pairwise pass — physics forces AND edge draw in one O(n²) loop.
+    // Previous version did this twice. Squared-dist gate avoids most sqrt calls.
+    var edgeAlpha=isLight?.12:.3;
+    var lineW=isLight?.4:.5;
+    edges.length=0;
+    var cxW=W/2,cyH=H/2;
     for(var i=0;i<nodes.length;i++){
       var n=nodes[i];
       n.pulse+=.008;
       for(var j=i+1;j<nodes.length;j++){
-        var dx=nodes[j].x-n.x,dy=nodes[j].y-n.y;
+        var nj=nodes[j];
+        var dx=nj.x-n.x,dy=nj.y-n.y;
         var d2=dx*dx+dy*dy;
-        if(d2<3600&&d2>1){
+        if(d2<CDIST_SQ&&d2>1){
           var d=Math.sqrt(d2);
-          var force=.003*(60-d)/60;
-          n.vx-=dx/d*force;n.vy-=dy/d*force;
-          nodes[j].vx+=dx/d*force;nodes[j].vy+=dy/d*force;
-        }
-      }
-      var cx=W/2,cy=H/2;
-      var dcx=cx-n.x,dcy=cy-n.y;
-      var dc=Math.sqrt(dcx*dcx+dcy*dcy);
-      if(dc>Math.min(W,H)*.4){n.vx+=dcx/dc*.0005;n.vy+=dcy/dc*.0005}
-      var spd=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
-      if(spd<MIN_SPEED&&spd>0){n.vx=n.vx/spd*MIN_SPEED;n.vy=n.vy/spd*MIN_SPEED}
-      if(spd>.2){n.vx=n.vx/spd*.2;n.vy=n.vy/spd*.2}
-      n.x+=n.vx;n.y+=n.vy;
-      var margin=20;
-      if(n.x<-margin)n.x=W+margin;
-      if(n.x>W+margin)n.x=-margin;
-      if(n.y<-margin)n.y=H+margin;
-      if(n.y>H+margin)n.y=-margin;
-    }
-
-    var edgeAlpha=isLight?.12:.3;
-    var lineW=isLight?.4:.5;
-    var edges=[];
-    for(var i=0;i<nodes.length;i++){
-      for(var j=i+1;j<nodes.length;j++){
-        var dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y;
-        var d=Math.sqrt(dx*dx+dy*dy);
-        if(d<CDIST){
+          // Draw edge
           var alpha=(1-d/CDIST)*edgeAlpha;
           ctx.beginPath();
-          ctx.moveTo(nodes[i].x,nodes[i].y);
-          ctx.lineTo(nodes[j].x,nodes[j].y);
+          ctx.moveTo(n.x,n.y);
+          ctx.lineTo(nj.x,nj.y);
           ctx.strokeStyle='rgba('+R+','+G+','+B+','+alpha+')';
           ctx.lineWidth=lineW;ctx.stroke();
           edges.push([i,j]);
+          // Repulsion force if close
+          if(d2<3600){
+            var force=.003*(60-d)/60;
+            var nx=dx/d*force,ny=dy/d*force;
+            n.vx-=nx;n.vy-=ny;
+            nj.vx+=nx;nj.vy+=ny;
+          }
         }
       }
+      // Gentle pull toward center for drifters
+      var dcx=cxW-n.x,dcy=cyH-n.y;
+      var dc2=dcx*dcx+dcy*dcy;
+      var minR=Math.min(W,H)*.4;
+      if(dc2>minR*minR){
+        var dc=Math.sqrt(dc2);
+        n.vx+=dcx/dc*.0005;n.vy+=dcy/dc*.0005;
+      }
+      var spd2=n.vx*n.vx+n.vy*n.vy;
+      if(spd2<MIN_SPEED*MIN_SPEED&&spd2>0){
+        var spd=Math.sqrt(spd2);
+        n.vx=n.vx/spd*MIN_SPEED;n.vy=n.vy/spd*MIN_SPEED;
+      } else if(spd2>.04){
+        var spd3=Math.sqrt(spd2);
+        n.vx=n.vx/spd3*.2;n.vy=n.vy/spd3*.2;
+      }
+      n.x+=n.vx;n.y+=n.vy;
+      var m=20;
+      if(n.x<-m)n.x=W+m;else if(n.x>W+m)n.x=-m;
+      if(n.y<-m)n.y=H+m;else if(n.y>H+m)n.y=-m;
     }
+
     var nodeAlpha=isLight?.2:.4;
-    for(var i=0;i<nodes.length;i++){
-      var n=nodes[i];
-      var glow=nodeAlpha+Math.sin(n.pulse)*.1;
-      var nr=isLight?n.r*.9:n.r;
+    for(var k=0;k<nodes.length;k++){
+      var nk=nodes[k];
+      var glow=nodeAlpha+Math.sin(nk.pulse)*.1;
+      var nr=isLight?nk.r*.9:nk.r;
       ctx.beginPath();
-      ctx.arc(n.x,n.y,nr,0,Math.PI*2);
+      ctx.arc(nk.x,nk.y,nr,0,Math.PI*2);
       ctx.fillStyle='rgba('+R+','+G+','+B+','+glow+')';
       ctx.fill();
     }
-    for(var i=pulses.length-1;i>=0;i--){
-      var p=pulses[i];
-      p.t+=p.speed;
-      if(p.t>=1){pulses.splice(i,1);continue}
-      var a=nodes[p.from],b=nodes[p.to];
-      var px=a.x+(b.x-a.x)*p.t,py=a.y+(b.y-a.y)*p.t;
-      var pa=(isLight?.15:.3)*(1-Math.abs(p.t-.5)*2);
+    for(var p=pulses.length-1;p>=0;p--){
+      var pu=pulses[p];
+      pu.t+=pu.speed;
+      if(pu.t>=1){pulses.splice(p,1);continue}
+      var a=nodes[pu.from],b=nodes[pu.to];
+      var px=a.x+(b.x-a.x)*pu.t,py=a.y+(b.y-a.y)*pu.t;
+      var pa=(isLight?.15:.3)*(1-Math.abs(pu.t-.5)*2);
       ctx.beginPath();
       ctx.arc(px,py,isLight?1.5:2,0,Math.PI*2);
       ctx.fillStyle='rgba('+R+','+G+','+B+','+pa+')';ctx.fill();
     }
     if(Math.random()<.04&&edges.length>0){
-      var e=edges[Math.floor(Math.random()*edges.length)];
+      var e=edges[(Math.random()*edges.length)|0];
       addPulse(e[0],e[1]);
     }
     requestAnimationFrame(tick);
   }
+  if(reduced){init();return}
   init();
-  window.addEventListener('resize',resize);
+  window.addEventListener('resize',resize,{passive:true});
+  document.addEventListener('visibilitychange',function(){
+    running=!document.hidden;if(running)tick();
+  });
   tick();
 })();
