@@ -1925,6 +1925,48 @@ function JudgeAnalyzer() {
   const [output, setOutput] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Local paradigm parser: keyword scan that produces a structured judge
+  // profile BEFORE the user spends a Claude credit. The Claude analysis is
+  // still richer; this is the at-a-glance card for the round briefing.
+  const parsedTraits = React.useMemo(() => {
+    const t = paradigmText.toLowerCase();
+    if (t.length < 30) return null;
+    const traits = [];
+    const has = (re) => re.test(t);
+    // Judge type
+    if (has(/\blay\b|first[- ]?time|parent judge|new judge|community judge/)) traits.push({ label: 'Lay judge', kind: 'type', tone: 'amber', why: 'Mentions lay / parent / first-time judge — speak conversationally, no jargon.' });
+    else if (has(/tabula rasa|\btab\b judge|\btab\b\s|truth over tech/)) traits.push({ label: 'Tab / TOT', kind: 'type', tone: 'blue', why: 'Tabula rasa or truth-over-tech — they evaluate the round on what you tell them.' });
+    else if (has(/flow judge|tech over truth|technical|i flow|i\s?will flow/)) traits.push({ label: 'Flow judge', kind: 'type', tone: 'red', why: 'Self-identifies as flow / tech over truth — extensions and dropped args matter.' });
+    else if (has(/policymaker|policy maker/)) traits.push({ label: 'Policymaker', kind: 'type', tone: 'blue', why: 'Weighs the round like a legislator — net benefits framing wins.' });
+    else if (has(/stock issues/)) traits.push({ label: 'Stock issues', kind: 'type', tone: 'blue', why: 'Defaults to stock issues — harms / inherency / solvency / topicality.' });
+
+    // Speed
+    if (has(/spread(ing)?|fast as you want|as fast as|400\s*wpm|fine with speed/)) traits.push({ label: 'Speed OK', kind: 'speed', tone: 'green', why: 'Comfortable with spreading / fast delivery.' });
+    else if (has(/slow down|conversational|don't spread|do not spread|cant flow speed|can't flow speed|no spread/)) traits.push({ label: 'Slow it down', kind: 'speed', tone: 'amber', why: 'Explicitly asks for conversational pace — penalize spreading.' });
+
+    // Theory
+    if (has(/no theory|don't run theory|do not run theory|theory unfriendly|theory bad/)) traits.push({ label: 'No theory', kind: 'theory', tone: 'amber', why: 'Hostile to theory — stick to substance.' });
+    else if (has(/theory ok|love theory|theory good|i\s?vote on theory|will vote on theory/)) traits.push({ label: 'Theory OK', kind: 'theory', tone: 'green', why: 'Open to theory — RVIs, T, condo all on the table.' });
+
+    // Ks
+    if (has(/\bno (k|kritik|kritiks)\b|don't run k|do not run k|k unfriendly|kritik unfriendly/)) traits.push({ label: 'No Ks', kind: 'ks', tone: 'amber', why: 'Hostile to kritiks — substance only.' });
+    else if (has(/\bks?\b ok|love (k|kritik|kritiks)|k friendly|kritik friendly/)) traits.push({ label: 'K friendly', kind: 'ks', tone: 'green', why: 'Open to kritiks.' });
+
+    // Evidence vs rhetoric
+    if (has(/evidence comparison|warrants|card quality|warrant your|evidence quality|cite warrants/)) traits.push({ label: 'Evidence-heavy', kind: 'style', tone: 'red', why: 'Wants warrants and evidence comparison — drop unwarranted assertions.' });
+    if (has(/persuasive|rhetoric|delivery|presentation|speaking style|speaker points for/)) traits.push({ label: 'Style points', kind: 'style', tone: 'blue', why: 'Notices delivery — strong speaks reward polish.' });
+
+    // Framework / weighing
+    if (has(/framework first|weighing|weigh the round|impact calculus|extend warrants/)) traits.push({ label: 'Weighing matters', kind: 'frame', tone: 'red', why: 'Wants explicit comparative weighing — magnitude / probability / timeframe.' });
+    if (has(/value\b|criterion|value criterion|fw\b/) && format === 'LD') traits.push({ label: 'Framework focus', kind: 'frame', tone: 'red', why: 'LD-style framework / V-C clash matters.' });
+
+    // CX / crossfire
+    if (has(/aggressive (cross|cx)|aggressive crossfire|cross\s?ex aggressive|tough cx/)) traits.push({ label: 'CX OK aggressive', kind: 'cx', tone: 'blue', why: 'Tolerates aggressive CX — go after weak warrants.' });
+    else if (has(/be polite|polite crossfire|don't be rude|rude\b|don't talk over/)) traits.push({ label: 'Polite CX', kind: 'cx', tone: 'amber', why: 'Penalizes rudeness in cross — stay measured.' });
+
+    return traits.length ? traits : null;
+  }, [paradigmText, format]);
+
   const analyze = async () => {
     if (!paradigmText.trim()) return;
     setLoading(true);
@@ -1976,6 +2018,31 @@ Be specific and actionable. Reference the judge's own words. Keep it under 400 w
           React.createElement('button',{key:key,className:'chip'+(format===key?' active':''),onClick:()=>setFormat(key),style:{fontSize:'.78rem',padding:'6px 14px'}}, fmt.label)
         )
       )
+    ),
+    // ── Quick-read trait card. Free, instant, runs locally on every keystroke
+    //   so you can read the judge before paying a Claude credit on the deeper
+    //   analysis. Keyword-based — see parsedTraits memo above.
+    parsedTraits && React.createElement('div',{style:{marginTop:18,padding:14,background:'#ffffff04',border:'1px solid #ffffff10',borderRadius:10}},
+      React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10}},
+        React.createElement('div',{style:{fontSize:'.72rem',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'#94a3b8'}}, 'Quick read'),
+        React.createElement('div',{style:{fontSize:'.65rem',color:'#64748b'}}, parsedTraits.length + ' signal' + (parsedTraits.length===1?'':'s') + ' detected'),
+      ),
+      React.createElement('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}},
+        parsedTraits.map((tr,i)=>{
+          const colors = {
+            red:    { bg:'#ef444418', bd:'#ef444440', tx:'#fca5a5' },
+            blue:   { bg:'#3b82f618', bd:'#3b82f640', tx:'#93c5fd' },
+            green:  { bg:'#22c55e18', bd:'#22c55e40', tx:'#86efac' },
+            amber:  { bg:'#f59e0b18', bd:'#f59e0b40', tx:'#fcd34d' },
+          }[tr.tone] || { bg:'#ffffff08', bd:'#ffffff20', tx:'#cbd5e1' };
+          return React.createElement('span',{
+            key:i,
+            title:tr.why,
+            style:{padding:'4px 10px',background:colors.bg,border:'1px solid '+colors.bd,borderRadius:999,color:colors.tx,fontSize:'.72rem',fontWeight:700,whiteSpace:'nowrap'}
+          }, tr.label);
+        })
+      ),
+      React.createElement('div',{style:{fontSize:'.7rem',color:'#64748b',lineHeight:1.5}}, 'Hover a chip for the cue. Run \u201CAnalyze Judge\u201D below for the full strategic breakdown.'),
     ),
     React.createElement('div',{style:{marginTop:20}},
       React.createElement('button',{className:'btn btn-primary',onClick:analyze,disabled:loading||!paradigmText.trim()},
