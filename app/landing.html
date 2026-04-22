@@ -1211,26 +1211,21 @@ button{font-family:inherit;cursor:pointer}
   <div class="neural-canvas"><canvas id="neuralNet"></canvas></div>
 
   <div class="hero-content">
-    <div class="hero-head">
-      <h1>
-        Argue with an AI.<br>Become a sharper thinker.
-      </h1>
-      <div id="heroCredit" style="display:none"></div>
-      <script>
-      (function(){
-        try {
-          var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch(e){}
-          var lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
-          var isIndia = /Asia\/(Kolkata|Calcutta)/i.test(tz) || /-in$|^hi|^bn|^ta|^te|^mr|^gu|^kn|^pa|^ml/.test(lang);
-          if (isIndia) {
-            var el = document.getElementById('heroCredit');
-            if (el) el.innerHTML = 'Built by an APDA national champion. Used by debaters running <strong style="color:var(--text)">Asian Parli, WSDC, BP</strong>, Policy, LD, PF, and more.';
-            document.documentElement.setAttribute('data-region','in');
-          }
-        } catch(e){}
-      })();
-      </script>
-    </div>
+    <div id="heroCredit" style="display:none"></div>
+    <script>
+    (function(){
+      try {
+        var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch(e){}
+        var lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+        var isIndia = /Asia\/(Kolkata|Calcutta)/i.test(tz) || /-in$|^hi|^bn|^ta|^te|^mr|^gu|^kn|^pa|^ml/.test(lang);
+        if (isIndia) {
+          var el = document.getElementById('heroCredit');
+          if (el) el.innerHTML = 'Built by an APDA national champion. Used by debaters running <strong style="color:var(--text)">Asian Parli, WSDC, BP</strong>, Policy, LD, PF, and more.';
+          document.documentElement.setAttribute('data-region','in');
+        }
+      } catch(e){}
+    })();
+    </script>
 
     <!-- Split layout: LEFT = "Debate the AI" orb, RIGHT = live streaming demo.
          The orb pulses red while the mini-chat streams, so the two feel like
@@ -1403,6 +1398,52 @@ button{font-family:inherit;cursor:pointer}
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // ── Audio-frequency bars: classic speaker visualizer inside the orb.
+        // Vertical bars centered, heights driven by layered sin waves to fake
+        // a spectrum analyzer. Idle = small ambient bobbing, AI = tall pulses.
+        var BARS = 22;
+        var maxBarH = baseR * (mode === 'ai' ? 1.25 : 0.55);
+        var minBarH = baseR * 0.08;
+        var barW = Math.max(2, baseR * 0.055);
+        var barGap = barW * 0.7;
+        var totalW = BARS * barW + (BARS - 1) * barGap;
+        var startX = cx - totalW / 2;
+        var barSpeed = mode === 'ai' ? 4.2 : 1.8;
+        for (var b = 0; b < BARS; b++) {
+          // Center-weighted envelope so middle bars peak higher (looks like a
+          // real spectrum where mids dominate when a voice is speaking).
+          var center = (BARS - 1) / 2;
+          var envelope = 1 - Math.pow(Math.abs(b - center) / center, 1.6) * 0.7;
+          var phase = b * 0.42;
+          // Layered sine waves at different frequencies to break uniformity
+          // and feel like multi-band audio rather than a metronome.
+          var v =
+            Math.sin(t * barSpeed + phase) * 0.55 +
+            Math.sin(t * barSpeed * 1.7 + phase * 1.3) * 0.32 +
+            Math.sin(t * barSpeed * 0.6 - phase * 0.8) * 0.22;
+          v = (v + 1) / 2;
+          var h = minBarH + (maxBarH - minBarH) * v * envelope;
+          var x = startX + b * (barW + barGap);
+          var y = cy - h / 2;
+          if (mode === 'ai') {
+            ctx.fillStyle = 'rgba(239,68,68,.85)';
+            ctx.shadowColor = 'rgba(239,68,68,.55)';
+            ctx.shadowBlur = 8;
+          } else {
+            ctx.fillStyle = 'rgba(255,255,255,.32)';
+            ctx.shadowBlur = 0;
+          }
+          var rad = Math.min(barW / 2, h / 2);
+          if (ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(x, y, barW, h, rad);
+            ctx.fill();
+          } else {
+            ctx.fillRect(x, y, barW, h);
+          }
+        }
         ctx.shadowBlur = 0;
 
         requestAnimationFrame(draw);
