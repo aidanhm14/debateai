@@ -2343,13 +2343,29 @@ function HsUsageBanner() {
   return null;
 }
 
+// Map URL hash to tab id so /high-school#current opens Live Topics
+// directly, /high-school#congress opens Congress Lab, etc. Used by the
+// landing-page topic cards and any external link.
+const VALID_TABS = ['case','topics','current','rebuttal','congress','judge','speed','evidence','learn'];
+function tabFromHash(){
+  const h = (window.location.hash || '').replace('#','');
+  return VALID_TABS.includes(h) ? h : 'case';
+}
+
 function App() {
-  const [tab, setTab] = useState('case');
+  const [tab, setTab] = useState(tabFromHash);
   const [theme, setTheme] = useState('dark');
 
   useEffect(() => {
     document.body.className = theme === 'light' ? 'light-theme' : '';
   }, [theme]);
+
+  // React to manual hash navigation (back button, in-page anchor click).
+  useEffect(() => {
+    const onHash = () => setTab(tabFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   const renderTab = () => {
     switch(tab) {
@@ -2399,7 +2415,13 @@ function App() {
           React.createElement('button',{
             key:t.id,
             className:'nav-btn'+(tab===t.id?' active':''),
-            onClick:()=>setTab(t.id)
+            onClick:()=>{
+              setTab(t.id);
+              // Mirror the active tab to the URL hash so back/forward and
+              // refreshes preserve the user's spot, and external deep links
+              // (landing-page topic cards) line up with what they see.
+              try { history.replaceState(null,'','#'+t.id); } catch(e){}
+            }
           },t.label)
         )
       ),
