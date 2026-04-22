@@ -1305,12 +1305,14 @@ button{font-family:inherit;cursor:pointer}
       #miniChatSend:disabled,#miniChatStart:disabled{cursor:not-allowed;opacity:.4}
 
       /* ── Fullscreen takeover ─────────────────────────────────────────
-         When the user taps the topic input we promote the mini-chat to
-         a fullscreen surface. Same DOM (so the focused input keeps focus
-         and any typed text is preserved); the FLIP transform in JS
-         handles the smooth grow-from-its-spot animation. The
-         .is-fullscreen state owns inset/border-radius; the transform on
-         miniChat is what animates between the two states. */
+         Animation strategy: the chat snaps to fullscreen layout instantly
+         (so the inner content settles at its final size in one paint),
+         then a clip-path "iris" opens from the chat's original rect to
+         the full viewport. Old version animated a CSS transform on the
+         chat — that worked geometrically but the inner setup was
+         already at fullscreen size, so during the FLIP the visible
+         children looked oversized inside a tiny container = the glitch.
+         clip-path doesn't move children, just unmasks them. */
       #miniChatBackdrop{
         position:fixed;inset:0;z-index:9990;
         background:rgba(0,0,0,.78);
@@ -1327,29 +1329,20 @@ button{font-family:inherit;cursor:pointer}
         z-index:9991;
         box-shadow:none!important;
         display:flex;flex-direction:column;
-        /* Solid surface in fullscreen: the translucent chat-panel bg
-           designed for the hero card lets the backdrop bleed through and
-           the page reads as a dark fog. Override with the real surface. */
         background:#0a0a0c!important;
         backdrop-filter:none!important;
         border:none!important;
+        /* Promote to its own layer so the clip-path animation runs on the
+           compositor instead of triggering paint on the page below. */
+        will-change:clip-path,opacity;
       }
+      /* Center the existing setup on the empty fullscreen canvas; keep
+         existing font sizes so the inner content doesn't reflow during
+         the iris animation. */
       #miniChat.is-fullscreen #miniChatSetup{
-        max-width:760px;width:100%;margin:0 auto;
-        padding:max(60px,8vh) 28px 40px;
+        max-width:560px;width:100%;margin:0 auto;
+        padding:max(56px,8vh) 24px 40px;
         flex:1;
-      }
-      #miniChat.is-fullscreen #miniChatSetup > div:first-child{
-        font-size:.78rem;letter-spacing:.18em;
-      }
-      #miniChat.is-fullscreen #miniChatTopic{
-        font-size:1.4rem!important;padding:18px 20px!important;
-      }
-      #miniChat.is-fullscreen .mini-chat-side{
-        font-size:1rem!important;padding:16px 20px!important;
-      }
-      #miniChat.is-fullscreen #miniChatStart{
-        font-size:1.05rem!important;padding:18px 24px!important;
       }
       #miniChatClose{
         position:absolute;top:14px;right:14px;z-index:2;
@@ -1532,60 +1525,107 @@ button{font-family:inherit;cursor:pointer}
       var roundEl = document.getElementById('miniChatRound');
       if (!topicEl) return;
 
-      // ── Fullscreen takeover. FLIP technique: snap to fullscreen, measure,
-      // then animate the inverse transform back to the small position so the
-      // user perceives a smooth grow. The DOM node never moves, so the
-      // focused input keeps its caret + any keystrokes already typed.
+      // ── Fullscreen takeover. clip-path "iris" technique: the chat snaps
+      // to fullscreen layout in one paint, then a CSS clip-path animates
+      // from the original mini-chat rect (everything else masked) to
+      // inset(0) (full viewport). The same DOM node holds focus so any
+      // keystrokes typed during the animation are preserved.
+      //
+      // Why clip-path and not transform: the previous transform-FLIP scaled
+      // the chat container down to the original size, but the children
+      // (centered setup at 560px max-width) had already laid out at
+      // fullscreen — so during the animation the inner content visibly
+      // floated at oversized scale inside a tiny shrunk box. Reads as a
+      // glitch. Clip-path doesn't move children, only unmasks them, so the
+      // animation feels like an iris opening from the original spot.
       var miniChat = document.getElementById('miniChat');
       var closeBtn = document.getElementById('miniChatClose');
       var backdrop = document.createElement('div');
       backdrop.id = 'miniChatBackdrop';
       document.body.appendChild(backdrop);
       var expanded = false;
+      var originalRect = null;
 
-      function flipTo(applyClass){
-        var first = miniChat.getBoundingClientRect();
-        applyClass();
-        var last = miniChat.getBoundingClientRect();
-        var dx = first.left - last.left;
-        var dy = first.top - last.top;
-        var sx = first.width / last.width;
-        var sy = first.height / last.height;
-        miniChat.style.transformOrigin = 'top left';
-        miniChat.style.transition = 'none';
-        miniChat.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
-        // Force layout flush so the next transform animates from this state.
-        void miniChat.offsetWidth;
-        miniChat.style.transition = 'transform .55s cubic-bezier(.22,.95,.3,1.02)';
-        miniChat.style.transform = '';
+      function clipFromRect(r){
+        var top = Math.max(0, r.top|0);
+        var left = Math.max(0, r.left|0);
+        var right = Math.max(0, (window.innerWidth - r.right)|0);
+        var bottom = Math.max(0, (window.innerHeight - r.bottom)|0);
+        return 'inset(' + top + 'px ' + right + 'px ' + bottom + 'px ' + left + 'px round 16px)';
       }
+
       function expand(){
         if (expanded) return;
-        flipTo(function(){
-          miniChat.classList.add('is-fullscreen');
-          backdrop.classList.add('active');
-          document.body.classList.add('mini-chat-open');
+        // Capture the rect BEFORE swapping to fullscreen — that's where the
+        // iris starts. The chat is currently in the hero-right grid cell.
+        originalRect = miniChat.getBoundingClientRect();
+        var initialClip = clipFromRect(originalRect);
+        // Promote to fullscreen layout in one paint. Children settle at
+        // their final positions immediately — the clip just hides most of
+        // them at frame 0.
+        miniChat.classList.add('is-fullscreen');
+        backdrop.classList.add('active');
+        document.body.classList.add('mini-chat-open');
+        miniChat.style.transition = 'none';
+        miniChat.style.clipPath = initialClip;
+        miniChat.style.webkitClipPath = initialClip;
+        // Force a layout flush so the browser commits the start state
+        // before we ask it to animate to the end state.
+        // eslint-disable-next-line no-unused-expressions
+        miniChat.offsetWidth;
+        // Next animation frame: kick off the iris.
+        requestAnimationFrame(function(){
+          miniChat.style.transition = 'clip-path .55s cubic-bezier(.22,.95,.3,1.02), -webkit-clip-path .55s cubic-bezier(.22,.95,.3,1.02)';
+          miniChat.style.clipPath = 'inset(0px round 0px)';
+          miniChat.style.webkitClipPath = 'inset(0px round 0px)';
         });
         expanded = true;
       }
+
       function collapse(){
         if (!expanded) return;
-        flipTo(function(){
-          miniChat.classList.remove('is-fullscreen');
-          backdrop.classList.remove('active');
-          document.body.classList.remove('mini-chat-open');
-        });
         expanded = false;
         try { topicEl.blur(); } catch(e){}
+        var targetClip = originalRect ? clipFromRect(originalRect) : 'inset(40% round 16px)';
+        miniChat.style.transition = 'clip-path .4s cubic-bezier(.4,0,.2,1), -webkit-clip-path .4s cubic-bezier(.4,0,.2,1), opacity .25s ease .2s';
+        miniChat.style.clipPath = targetClip;
+        miniChat.style.webkitClipPath = targetClip;
+        miniChat.style.opacity = '0';
+        backdrop.classList.remove('active');
+        // Tear down the fullscreen state once the iris has closed. Resetting
+        // the inline styles in this order avoids a one-frame "snap" where
+        // the chat reappears at full viewport before the class is removed.
+        setTimeout(function(){
+          miniChat.classList.remove('is-fullscreen');
+          document.body.classList.remove('mini-chat-open');
+          miniChat.style.transition = 'none';
+          miniChat.style.clipPath = '';
+          miniChat.style.webkitClipPath = '';
+          miniChat.style.opacity = '';
+          // Force one more layout flush, then clear the transition lock.
+          miniChat.offsetWidth;
+          miniChat.style.transition = '';
+        }, 420);
       }
+
       // Tap into the input on focus — that's the trigger the user wants
       // ("when i press this and type"). Focus fires before the first
-      // keystroke so the expand starts immediately, smoothing the transition.
+      // keystroke so the expand starts immediately.
       topicEl.addEventListener('focus', expand);
+      // Pointerdown also catches taps that scroll the input into view
+      // first — needed on mobile where focus may fire after the page jumps.
+      topicEl.addEventListener('pointerdown', function(){
+        if (!expanded) requestAnimationFrame(expand);
+      });
       closeBtn && closeBtn.addEventListener('click', collapse);
       backdrop.addEventListener('click', collapse);
       document.addEventListener('keydown', function(e){
         if (e.key === 'Escape' && expanded) collapse();
+      });
+      // Recompute rect on resize so the iris-close still lands at the right
+      // spot if the user rotated the device while expanded.
+      window.addEventListener('resize', function(){
+        if (!expanded || !miniChat.parentElement) return;
       });
 
       var side = null, topic = '', messages = [], round = 0, MAX_ROUNDS = 3, busy = false;
