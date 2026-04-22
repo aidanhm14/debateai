@@ -1439,6 +1439,16 @@ Keep it to ~400 words. Be specific and tactical. No filler.`;
    TAB 6: SPEED DRILL. WPM tracking & speaking practice
    ═══════════════════════════════════════════════════ */
 
+// Persist drill history across sessions so users can see WPM trend over
+// time. localStorage key is namespaced under the HS app to avoid clashes.
+const SPEED_DRILL_KEY = 'debateos-hs-speeddrill-history';
+function loadDrillHistory(){
+  try { return JSON.parse(localStorage.getItem(SPEED_DRILL_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveDrillHistory(arr){
+  try { localStorage.setItem(SPEED_DRILL_KEY, JSON.stringify(arr.slice(-50))); } catch(e) {}
+}
+
 function SpeedDrill() {
   const [mode, setMode] = useState(null); // null, 'reading', 'results'
   const [targetWPM, setTargetWPM] = useState(180);
@@ -1447,6 +1457,10 @@ function SpeedDrill() {
   const [elapsed, setElapsed] = useState(0);
   const [timerInterval, setTimerInterval] = useState(null);
   const [speechType, setSpeechType] = useState('constructive');
+  const [history, setHistory] = useState(loadDrillHistory);
+  const [customText, setCustomText] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
+  const [customSaved, setCustomSaved] = useState(false);
 
   const DRILL_TEXTS = [
     { name: 'PF Constructive (Easy)', wc: 450, time: '4 min', text: `Our first contention is the Innovation Chill effect. When governments impose heavy-handed AI regulations, they don't just slow down dangerous AI. They slow down ALL AI development. The European Union's AI Act, implemented in 2024, has already caused a measurable decline in European AI startups. According to the Stanford HAI AI Index Report, EU-based AI companies received 32% less venture capital in 2025 compared to 2023, while US and Chinese companies saw increases. This matters because AI innovation drives economic growth, medical breakthroughs, and solutions to climate change. A 2025 McKinsey report estimated that AI could add $13 trillion to global GDP by 2030, but only if development continues at current pace. Regulation doesn't just affect big tech companies. It disproportionately burdens small startups that can't afford compliance teams. The result? Innovation concentrates in the hands of the very tech giants that regulation was supposed to constrain. Our second contention is the Global Competition argument. The United States is in a technology race with China. If we regulate AI more strictly than our competitors, we don't make the world safer. We just ensure that the AI systems shaping the future are built under authoritarian values rather than democratic ones. The RAND Corporation's 2025 analysis found that China's AI capabilities are advancing 40% faster than projected, specifically in areas where US regulation has created barriers. The impact is clear: American AI leadership is not just an economic issue. It's a national security imperative.` },
@@ -1454,7 +1468,11 @@ function SpeedDrill() {
     { name: 'Policy 1AC Excerpt (Hard)', wc: 550, time: '5 min', text: `Contention One is Inherency. The status quo fails to address rising wealth inequality. Despite decades of economic growth, the Congressional Budget Office reports that the top 1% of households now hold more wealth than the entire bottom 90% combined. This represents a 40-year trend that existing policy has failed to reverse. The Tax Cuts and Jobs Act of 2017 actually accelerated concentration, with 83% of benefits flowing to the top 1% according to the Tax Policy Center. Current progressive taxation is insufficient. Effective tax rates for billionaires average just 8.2% according to a White House analysis of IRS data, lower than many middle-class families. Contention Two is the Harms of Inaction. Sub-point A is Democratic Erosion. Concentrated wealth translates directly to concentrated political power. A Princeton study by Gilens and Page analyzed 1,779 policy outcomes and found that economic elites and organized business groups have substantial independent impact on US government policy, while average citizens have little or no influence. This is not a theoretical concern. It is an empirical finding about how American democracy actually functions. Sub-point B is Health Disparities. The Lancet Commission on Public Policy and Health found that income inequality is directly responsible for 883,000 excess deaths annually in the United States. Life expectancy gaps between the richest and poorest Americans now exceed 15 years. These are not natural outcomes. They are policy choices. Sub-point C is Economic Instability. IMF research demonstrates that extreme inequality increases the frequency and severity of financial crises. Countries with higher inequality experienced deeper recessions in 2008 and slower recoveries. The mechanism is clear: when purchasing power concentrates at the top, aggregate demand falls, asset bubbles form, and the economy becomes fragile. The plan: The United States federal government should implement a progressive wealth tax of 2% on net worth above $50 million and 3% above $1 billion, with revenues directed to a Federal Opportunity Fund providing universal pre-K, community college, and first-generation homebuyer assistance.` },
   ];
 
-  const currentText = DRILL_TEXTS[selectedText];
+  // Custom text is selected when selectedText === 'custom' AND a draft exists.
+  const isCustom = selectedText === 'custom' && customSaved && customText.trim().length > 0;
+  const currentText = isCustom
+    ? { name: 'Your Custom Speech', wc: customText.trim().split(/\s+/).length, time: '—', text: customText.trim() }
+    : DRILL_TEXTS[Math.min(selectedText, DRILL_TEXTS.length - 1)];
   const wordCount = currentText.text.split(/\s+/).length;
 
   const startDrill = () => {
@@ -1468,6 +1486,12 @@ function SpeedDrill() {
 
   const finishDrill = () => {
     clearInterval(timerInterval);
+    const wpm = elapsed > 0 ? Math.round(wordCount / (elapsed / 60)) : 0;
+    if (wpm > 0 && wpm < 600) {
+      const next = [...history, { ts: Date.now(), name: currentText.name, wpm, target: targetWPM, sec: elapsed }];
+      setHistory(next);
+      saveDrillHistory(next);
+    }
     setMode('results');
   };
 
@@ -1555,7 +1579,60 @@ function SpeedDrill() {
       targetWPM <= 260 ? 'Fast pace. Flow judges, competitive LD and PF.' :
       'Spreading territory. Policy and circuit LD only.'
     ),
-    React.createElement('button',{className:'btn btn-primary',onClick:startDrill,style:{width:'100%',fontSize:'1.1rem',padding:'18px'}},'Start Drill'),
+    React.createElement('button',{className:'btn btn-primary',onClick:startDrill,style:{width:'100%',fontSize:'1.1rem',padding:'18px',marginBottom:18}},'Start Drill'),
+
+    // ── Custom speech upload. Drill your OWN cards instead of the canned
+    //   examples. Stays in component state — paste once, drill repeatedly.
+    React.createElement('div',{style:{padding:14,background:'#ffffff04',border:'1px solid #ffffff10',borderRadius:10,marginBottom:18}},
+      React.createElement('button',{type:'button',onClick:()=>setShowCustom(s=>!s),style:{background:'none',border:'none',color:'#94a3b8',fontSize:'.78rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',cursor:'pointer',padding:0,fontFamily:'inherit'}},
+        (showCustom ? '\u25BE' : '\u25B8') + '  Drill your own speech'
+      ),
+      showCustom && React.createElement('div',{style:{marginTop:10}},
+        React.createElement('textarea',{
+          value:customText,
+          onChange:e=>{setCustomText(e.target.value);setCustomSaved(false)},
+          rows:5,
+          placeholder:'Paste a speech, card block, or rebuttal here…',
+          style:{width:'100%',padding:10,background:'rgba(0,0,0,.35)',border:'1px solid #ffffff14',borderRadius:8,color:'#e2e8f0',fontSize:'.86rem',fontFamily:'inherit',resize:'vertical'}
+        }),
+        React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:8}},
+          React.createElement('span',{style:{fontSize:'.72rem',color:'#64748b'}}, customText.trim() ? customText.trim().split(/\s+/).length + ' words' : ''),
+          React.createElement('button',{type:'button',onClick:()=>{if(!customText.trim())return;setCustomSaved(true);setSelectedText('custom')},disabled:!customText.trim(),style:{background:customText.trim()?'#ef4444':'#ffffff10',color:customText.trim()?'#fff':'#666',border:'none',borderRadius:6,padding:'6px 14px',fontSize:'.78rem',fontWeight:700,cursor:customText.trim()?'pointer':'not-allowed',fontFamily:'inherit'}}, customSaved && selectedText==='custom' ? '\u2713 Loaded' : 'Use this speech'),
+        ),
+      ),
+    ),
+
+    // ── Drill history. Recent attempts + best-WPM-per-speech, hydrated from
+    //   localStorage so progress survives reloads. Empty until first drill.
+    history.length > 0 && React.createElement('div',{style:{padding:14,background:'#ffffff04',border:'1px solid #ffffff10',borderRadius:10}},
+      React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10}},
+        React.createElement('div',{style:{fontSize:'.78rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#94a3b8'}}, 'Your trend  ·  ' + history.length + ' drill' + (history.length===1?'':'s')),
+        React.createElement('div',{style:{fontSize:'.7rem',color:'#64748b'}}, 'Best: ' + Math.max.apply(null, history.map(h=>h.wpm)) + ' WPM'),
+      ),
+      // Inline sparkline as bars: tiny 22-bar histogram of last drills.
+      React.createElement('div',{style:{display:'flex',alignItems:'flex-end',gap:3,height:36,marginBottom:10}},
+        history.slice(-22).map((h,i)=>{
+          const max = Math.max.apply(null, history.map(x=>x.wpm));
+          const heightPct = max > 0 ? Math.max(6, (h.wpm / max) * 100) : 6;
+          const onTarget = Math.abs(h.wpm - h.target) < 15;
+          return React.createElement('div',{
+            key:i,
+            title: h.wpm + ' WPM · target ' + h.target,
+            style:{flex:1,height:heightPct+'%',background:onTarget?'#22c55e':'#ef4444aa',borderRadius:2,minWidth:4}
+          });
+        })
+      ),
+      // Latest 3 drills as text rows.
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:6}},
+        history.slice(-3).reverse().map((h,i)=>
+          React.createElement('div',{key:i,style:{display:'flex',justifyContent:'space-between',fontSize:'.72rem',color:'#94a3b8'}},
+            React.createElement('span',{style:{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'60%'}}, h.name),
+            React.createElement('span',null, h.wpm + ' / ' + h.target + ' WPM'),
+          )
+        )
+      ),
+      React.createElement('button',{type:'button',onClick:()=>{setHistory([]);saveDrillHistory([])},style:{marginTop:10,background:'none',border:'none',color:'#475569',fontSize:'.68rem',cursor:'pointer',padding:0,fontFamily:'inherit',textDecoration:'underline'}}, 'Clear history'),
+    ),
   );
 }
 
