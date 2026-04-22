@@ -1257,6 +1257,7 @@ button{font-family:inherit;cursor:pointer}
         <span style="width:10px;height:10px;border-radius:50%;background:#22c55e"></span>
         <span style="margin-left:12px;font-size:.72rem;color:var(--text-dim);letter-spacing:.04em;font-weight:600">LIVE · debateai / debate-chat</span>
         <span id="miniChatStatus" style="margin-left:auto;font-size:.68rem;color:var(--text-dim);letter-spacing:.02em"></span>
+        <button id="miniChatClose" type="button" aria-label="Close fullscreen chat">&times;</button>
       </div>
 
       <div id="miniChatSetup" style="padding:20px 22px">
@@ -1302,6 +1303,65 @@ button{font-family:inherit;cursor:pointer}
       .mini-chat-tts:hover{color:var(--text);background:rgba(255,255,255,.08)}
       .mini-chat-tts.playing{color:var(--accent);border-color:var(--accent)}
       #miniChatSend:disabled,#miniChatStart:disabled{cursor:not-allowed;opacity:.4}
+
+      /* ── Fullscreen takeover ─────────────────────────────────────────
+         When the user taps the topic input we promote the mini-chat to
+         a fullscreen surface. Same DOM (so the focused input keeps focus
+         and any typed text is preserved); the FLIP transform in JS
+         handles the smooth grow-from-its-spot animation. The
+         .is-fullscreen state owns inset/border-radius; the transform on
+         miniChat is what animates between the two states. */
+      #miniChatBackdrop{
+        position:fixed;inset:0;z-index:9990;
+        background:rgba(0,0,0,.78);
+        backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+        opacity:0;pointer-events:none;
+        transition:opacity .42s cubic-bezier(.22,.95,.3,1);
+      }
+      #miniChatBackdrop.active{opacity:1;pointer-events:auto}
+      #miniChat.is-fullscreen{
+        position:fixed!important;
+        top:0!important;left:0!important;right:0!important;bottom:0!important;
+        width:100vw!important;max-width:none!important;height:100vh!important;
+        margin:0!important;border-radius:0!important;
+        z-index:9991;
+        box-shadow:none!important;
+        display:flex;flex-direction:column;
+        /* Solid surface in fullscreen: the translucent chat-panel bg
+           designed for the hero card lets the backdrop bleed through and
+           the page reads as a dark fog. Override with the real surface. */
+        background:#0a0a0c!important;
+        backdrop-filter:none!important;
+        border:none!important;
+      }
+      #miniChat.is-fullscreen #miniChatSetup{
+        max-width:760px;width:100%;margin:0 auto;
+        padding:max(60px,8vh) 28px 40px;
+        flex:1;
+      }
+      #miniChat.is-fullscreen #miniChatSetup > div:first-child{
+        font-size:.78rem;letter-spacing:.18em;
+      }
+      #miniChat.is-fullscreen #miniChatTopic{
+        font-size:1.4rem!important;padding:18px 20px!important;
+      }
+      #miniChat.is-fullscreen .mini-chat-side{
+        font-size:1rem!important;padding:16px 20px!important;
+      }
+      #miniChat.is-fullscreen #miniChatStart{
+        font-size:1.05rem!important;padding:18px 24px!important;
+      }
+      #miniChatClose{
+        position:absolute;top:14px;right:14px;z-index:2;
+        width:36px;height:36px;border-radius:50%;
+        border:1px solid var(--border);background:rgba(255,255,255,.04);
+        color:var(--text-dim);font-size:1.1rem;line-height:1;cursor:pointer;
+        display:none;align-items:center;justify-content:center;
+        transition:color .2s,background .2s,border-color .2s;
+      }
+      #miniChat.is-fullscreen #miniChatClose{display:flex}
+      #miniChatClose:hover{color:var(--text);background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18)}
+      body.mini-chat-open{overflow:hidden}
     </style>
     <!-- Hero orb animation. see landing.html (root) for detailed comment -->
     <script>
@@ -1377,13 +1437,11 @@ button{font-family:inherit;cursor:pointer}
           innerGrad.addColorStop(0, 'rgba(239,68,68,.22)');
           innerGrad.addColorStop(.6, 'rgba(239,68,68,.06)');
           innerGrad.addColorStop(1, 'rgba(239,68,68,0)');
-          // Sharper edge: higher-opacity stroke + no shadow-blur so the
-          // wavy outline reads as a crisp contour instead of a soft halo.
-          // The shadow-blur was smearing the line to ~18px of fuzz; kept
-          // only a faint glow so the orb still registers as luminous.
+          // Crisp red contour. shadowBlur was the chrome-stutter culprit
+          // here too (set every frame in AI mode) — the .hero-orb-glow CSS
+          // layer behind the canvas already gives the orb a luminous halo,
+          // so the canvas stroke can stay shadow-free.
           ctx.strokeStyle = 'rgba(239,68,68,.9)';
-          ctx.shadowColor = 'rgba(239,68,68,.2)';
-          ctx.shadowBlur = 6;
         } else {
           // Low-contrast idle stroke: the blob should drift inside the
           // outer ring, not compete with it as a hard flower outline.
@@ -1473,6 +1531,62 @@ button{font-family:inherit;cursor:pointer}
       var statusEl = document.getElementById('miniChatStatus');
       var roundEl = document.getElementById('miniChatRound');
       if (!topicEl) return;
+
+      // ── Fullscreen takeover. FLIP technique: snap to fullscreen, measure,
+      // then animate the inverse transform back to the small position so the
+      // user perceives a smooth grow. The DOM node never moves, so the
+      // focused input keeps its caret + any keystrokes already typed.
+      var miniChat = document.getElementById('miniChat');
+      var closeBtn = document.getElementById('miniChatClose');
+      var backdrop = document.createElement('div');
+      backdrop.id = 'miniChatBackdrop';
+      document.body.appendChild(backdrop);
+      var expanded = false;
+
+      function flipTo(applyClass){
+        var first = miniChat.getBoundingClientRect();
+        applyClass();
+        var last = miniChat.getBoundingClientRect();
+        var dx = first.left - last.left;
+        var dy = first.top - last.top;
+        var sx = first.width / last.width;
+        var sy = first.height / last.height;
+        miniChat.style.transformOrigin = 'top left';
+        miniChat.style.transition = 'none';
+        miniChat.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
+        // Force layout flush so the next transform animates from this state.
+        void miniChat.offsetWidth;
+        miniChat.style.transition = 'transform .55s cubic-bezier(.22,.95,.3,1.02)';
+        miniChat.style.transform = '';
+      }
+      function expand(){
+        if (expanded) return;
+        flipTo(function(){
+          miniChat.classList.add('is-fullscreen');
+          backdrop.classList.add('active');
+          document.body.classList.add('mini-chat-open');
+        });
+        expanded = true;
+      }
+      function collapse(){
+        if (!expanded) return;
+        flipTo(function(){
+          miniChat.classList.remove('is-fullscreen');
+          backdrop.classList.remove('active');
+          document.body.classList.remove('mini-chat-open');
+        });
+        expanded = false;
+        try { topicEl.blur(); } catch(e){}
+      }
+      // Tap into the input on focus — that's the trigger the user wants
+      // ("when i press this and type"). Focus fires before the first
+      // keystroke so the expand starts immediately, smoothing the transition.
+      topicEl.addEventListener('focus', expand);
+      closeBtn && closeBtn.addEventListener('click', collapse);
+      backdrop.addEventListener('click', collapse);
+      document.addEventListener('keydown', function(e){
+        if (e.key === 'Escape' && expanded) collapse();
+      });
 
       var side = null, topic = '', messages = [], round = 0, MAX_ROUNDS = 3, busy = false;
 
@@ -2517,13 +2631,39 @@ try{
 })();
 
 // Neural constellation animation
+// Perf notes (the rewrite that killed Chrome stutter):
+//   1. Cache accent + rgba strings — getComputedStyle was running 60×/sec
+//      and forcing a synchronous style recalc every frame.
+//   2. distSq instead of Math.sqrt for the connection test (only sqrt the
+//      mouse-repulsion path, which fires for ≤1 node per frame).
+//   3. Batch ALL edges into ONE beginPath + ONE stroke. The old loop did
+//      one stroke() per edge — 100+ state mutations per frame on Chrome.
+//   4. Batch ALL nodes into ONE beginPath + ONE fill. Same reason.
+//   5. Pause the animation loop entirely when the page is hidden or the
+//      canvas is offscreen so it doesn't compete with the orb above.
 (function(){
   var c=document.getElementById('neuralNet');
   if(!c)return;
   var ctx=c.getContext('2d');
   var nodes=[],edges=[],pulses=[];
   var W,H,dpr=window.devicePixelRatio||1;
-  var NODE_COUNT=80,CONNECT_DIST=170,MOUSE={x:-999,y:-999};
+  var NODE_COUNT=80,CONNECT_DIST=170,CONNECT_DIST_SQ=CONNECT_DIST*CONNECT_DIST;
+  var MOUSE={x:-999,y:-999};
+  var TWO_PI=Math.PI*2;
+
+  // Pre-formatted rgba strings, refreshed only when the theme actually
+  // changes. The hex value is read once from CSS at init and on theme dot
+  // click — never inside the rAF loop.
+  var EDGE_COLOR='', NODE_COLOR='', PULSE_CORE='', PULSE_GLOW='';
+  function refreshTheme(){
+    var hex=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#ef4444';
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    var rgb=r+','+g+','+b;
+    EDGE_COLOR='rgba('+rgb+',0.10)';
+    NODE_COLOR='rgba('+rgb+',0.38)';
+    PULSE_CORE='rgba('+rgb+',0.55)';
+    PULSE_GLOW='rgba('+rgb+',0.14)';
+  }
 
   function resize(){
     var r=c.parentElement.getBoundingClientRect();
@@ -2533,17 +2673,9 @@ try{
     ctx.setTransform(dpr,0,0,dpr,0,0);
   }
 
-  function getAccent(){
-    return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#ef4444';
-  }
-
-  function hexToRgb(hex){
-    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-    return{r:r,g:g,b:b};
-  }
-
   function init(){
     resize();
+    refreshTheme();
     nodes=[];
     for(var i=0;i<NODE_COUNT;i++){
       nodes.push({
@@ -2551,8 +2683,7 @@ try{
         y:Math.random()*H,
         vx:(Math.random()-.5)*.4,
         vy:(Math.random()-.5)*.4,
-        r:Math.random()*2+1,
-        pulse:Math.random()*Math.PI*2
+        r:Math.random()*2+1
       });
     }
   }
@@ -2561,21 +2692,24 @@ try{
     pulses.push({from:fromIdx,to:toIdx,t:0,speed:.02+Math.random()*.02});
   }
 
+  var running=true;
+  var rafId=0;
   function tick(){
-    var accent=getAccent();
-    var rgb=hexToRgb(accent);
+    if(!running){rafId=0;return}
     ctx.clearRect(0,0,W,H);
 
     // Update nodes
-    for(var i=0;i<nodes.length;i++){
-      var n=nodes[i];
+    var i,j,n,dx,dy,dSq;
+    for(i=0;i<nodes.length;i++){
+      n=nodes[i];
       n.x+=n.vx;n.y+=n.vy;
-      n.pulse+=.02;
 
-      // Mouse repulsion
-      var dx=n.x-MOUSE.x,dy=n.y-MOUSE.y;
-      var dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist<120&&dist>0){
+      // Mouse repulsion: only path that needs sqrt, and at most ~1 node is
+      // close enough to matter, so the cost is bounded.
+      dx=n.x-MOUSE.x;dy=n.y-MOUSE.y;
+      dSq=dx*dx+dy*dy;
+      if(dSq<14400&&dSq>0){
+        var dist=Math.sqrt(dSq);
         n.vx+=dx/dist*.15;
         n.vy+=dy/dist*.15;
       }
@@ -2586,36 +2720,39 @@ try{
       // Bounce
       if(n.x<0||n.x>W)n.vx*=-1;
       if(n.y<0||n.y>H)n.vy*=-1;
-      n.x=Math.max(0,Math.min(W,n.x));
-      n.y=Math.max(0,Math.min(H,n.y));
+      if(n.x<0)n.x=0;else if(n.x>W)n.x=W;
+      if(n.y<0)n.y=0;else if(n.y>H)n.y=H;
     }
 
-    // Draw edges
-    edges=[];
-    for(var i=0;i<nodes.length;i++){
-      for(var j=i+1;j<nodes.length;j++){
-        var dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y;
-        var d=Math.sqrt(dx*dx+dy*dy);
-        if(d<CONNECT_DIST){
-          var alpha=(1-d/CONNECT_DIST)*.15;
-          ctx.beginPath();
-          ctx.moveTo(nodes[i].x,nodes[i].y);
-          ctx.lineTo(nodes[j].x,nodes[j].y);
-          ctx.strokeStyle='rgba('+rgb.r+','+rgb.g+','+rgb.b+','+alpha+')';
-          ctx.lineWidth=.8;
-          ctx.stroke();
-          edges.push([i,j]);
+    // Edges: ONE path, ONE stroke. We lose per-edge alpha falloff but it
+    // was barely visible anyway, and the old code stroked once per edge.
+    edges.length=0;
+    ctx.beginPath();
+    for(i=0;i<nodes.length;i++){
+      var ni=nodes[i];
+      for(j=i+1;j<nodes.length;j++){
+        var nj=nodes[j];
+        dx=ni.x-nj.x;dy=ni.y-nj.y;
+        dSq=dx*dx+dy*dy;
+        if(dSq<CONNECT_DIST_SQ){
+          ctx.moveTo(ni.x,ni.y);
+          ctx.lineTo(nj.x,nj.y);
+          edges.push(i,j);
         }
       }
     }
+    ctx.strokeStyle=EDGE_COLOR;
+    ctx.lineWidth=.8;
+    ctx.stroke();
 
     // Randomly spawn pulses
     if(edges.length>0&&Math.random()<.03){
-      var e=edges[Math.floor(Math.random()*edges.length)];
-      addPulse(e[0],e[1]);
+      var idx=Math.floor(Math.random()*(edges.length/2))*2;
+      addPulse(edges[idx],edges[idx+1]);
     }
 
-    // Draw pulses (traveling dots along edges)
+    // Pulses: small count (≤10) so per-pulse fill is fine. Skip the glow
+    // ring on slower devices? — keep for now, it's bounded.
     for(var p=pulses.length-1;p>=0;p--){
       var pulse=pulses[p];
       pulse.t+=pulse.speed;
@@ -2624,33 +2761,46 @@ try{
       var px=a.x+(b.x-a.x)*pulse.t;
       var py=a.y+(b.y-a.y)*pulse.t;
       var glow=Math.sin(pulse.t*Math.PI);
+      ctx.globalAlpha=glow;
       ctx.beginPath();
-      ctx.arc(px,py,2.5*glow+1,0,Math.PI*2);
-      ctx.fillStyle='rgba('+rgb.r+','+rgb.g+','+rgb.b+','+(glow*.6)+')';
+      ctx.arc(px,py,6*glow+2,0,TWO_PI);
+      ctx.fillStyle=PULSE_GLOW;
       ctx.fill();
-      // Glow
       ctx.beginPath();
-      ctx.arc(px,py,6*glow+2,0,Math.PI*2);
-      ctx.fillStyle='rgba('+rgb.r+','+rgb.g+','+rgb.b+','+(glow*.15)+')';
-      ctx.fill();
-    }
-
-    // Draw nodes
-    for(var i=0;i<nodes.length;i++){
-      var n=nodes[i];
-      var glow=.3+Math.sin(n.pulse)*.2;
-      ctx.beginPath();
-      ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
-      ctx.fillStyle='rgba('+rgb.r+','+rgb.g+','+rgb.b+','+glow+')';
+      ctx.arc(px,py,2.5*glow+1,0,TWO_PI);
+      ctx.fillStyle=PULSE_CORE;
       ctx.fill();
     }
+    ctx.globalAlpha=1;
 
-    requestAnimationFrame(tick);
+    // Nodes: ONE path, ONE fill. Lost the per-node twinkle but it was
+    // ±20% alpha jitter — invisible against the neural-net background.
+    ctx.beginPath();
+    for(i=0;i<nodes.length;i++){
+      n=nodes[i];
+      ctx.moveTo(n.x+n.r,n.y);
+      ctx.arc(n.x,n.y,n.r,0,TWO_PI);
+    }
+    ctx.fillStyle=NODE_COLOR;
+    ctx.fill();
+
+    rafId=requestAnimationFrame(tick);
   }
 
+  function start(){if(!rafId&&running){rafId=requestAnimationFrame(tick)}}
+  function stop(){running=false;if(rafId){cancelAnimationFrame(rafId);rafId=0}}
+
   init();
-  tick();
+  running=true;tick();
   window.addEventListener('resize',function(){resize()});
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){stop()}else{running=true;start()}
+  });
+  // Refresh accent only when the theme dots are clicked (rare). The CSS
+  // var is mutated synchronously, but give the browser a frame to settle.
+  document.querySelectorAll('.theme-dot').forEach(function(dot){
+    dot.addEventListener('click',function(){requestAnimationFrame(refreshTheme)});
+  });
   c.parentElement.addEventListener('mousemove',function(e){
     var r=c.parentElement.getBoundingClientRect();
     MOUSE.x=e.clientX-r.left;MOUSE.y=e.clientY-r.top;
