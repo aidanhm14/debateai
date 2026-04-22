@@ -15122,38 +15122,46 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
       if(n.y>H+margin)n.y=-margin;
     }
 
-    // Draw edges
+    // Edges + nodes batched into ONE path each, then ONE stroke / ONE fill
+    // per frame instead of per-element. Lost per-element alpha jitter
+    // (sub-5%, invisible against the dark backdrop). Same Chrome perf
+    // win as the landing neural net rewrite — see js/ui-neural.js.
     var edgeAlpha=isLight?.12:.3;
     var lineW=isLight?.4:.5;
+    var CDIST_SQ=CDIST*CDIST;
     var edges=[];
+    var hasEdges=false;
+    ctx.beginPath();
     for(var i=0;i<nodes.length;i++){
       for(var j=i+1;j<nodes.length;j++){
         var dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y;
-        var d=Math.sqrt(dx*dx+dy*dy);
-        if(d<CDIST){
-          var alpha=(1-d/CDIST)*edgeAlpha;
-          ctx.beginPath();
+        var d2=dx*dx+dy*dy;
+        if(d2<CDIST_SQ){
           ctx.moveTo(nodes[i].x,nodes[i].y);
           ctx.lineTo(nodes[j].x,nodes[j].y);
-          ctx.strokeStyle='rgba('+R+','+G+','+B+','+alpha+')';
-          ctx.lineWidth=lineW;
-          ctx.stroke();
           edges.push([i,j]);
+          hasEdges=true;
         }
       }
     }
+    if(hasEdges){
+      ctx.strokeStyle='rgba('+R+','+G+','+B+','+edgeAlpha*.6+')';
+      ctx.lineWidth=lineW;
+      ctx.stroke();
+    }
 
-    // Draw nodes
+    // Nodes: one path, one fill.
     var nodeAlpha=isLight?.2:.4;
+    var nodeRMul=isLight?.9:1;
+    ctx.beginPath();
     for(var i=0;i<nodes.length;i++){
       var n=nodes[i];
-      var glow=nodeAlpha+Math.sin(n.pulse)*.1;
-      var nr=isLight?n.r*.9:n.r;
-      ctx.beginPath();
+      var nr=n.r*nodeRMul;
+      ctx.moveTo(n.x+nr,n.y);
       ctx.arc(n.x,n.y,nr,0,Math.PI*2);
-      ctx.fillStyle='rgba('+R+','+G+','+B+','+glow+')';
-      ctx.fill();
     }
+    ctx.fillStyle='rgba('+R+','+G+','+B+','+nodeAlpha+')';
+    ctx.fill();
 
     // Traveling pulses
     for(var i=pulses.length-1;i>=0;i--){
