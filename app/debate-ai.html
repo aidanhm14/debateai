@@ -1922,6 +1922,54 @@ ARGUMENT ORIGINALITY:
   // dialogue, not a monologue. When the speech slot is a CX period, the AI
   // should produce 5-8 exchanges tagged by speaker so the output reads as
   // an actual transcript instead of a block of prose.
+  // Skilled-move injections. Each one is a technique real top-circuit
+  // debaters use that generic LLMs don't produce natively. Each is gated
+  // on (a) speech role where the move is appropriate, and (b) a probability
+  // roll so no two rounds sound identical. The AI is also instructed to
+  // only deploy the move when it actually fits — the probability gate is
+  // "permission to consider it," not "must use it."
+
+  // Closing/final-rebuttal speeches across all formats. These are the
+  // speeches where explicit weighing calculus is doctrinal — the ballot
+  // literally cannot be decided without it.
+  const isClosingSpeech = speech.code==='LOR'||speech.code==='PMR'   // APDA
+    ||speech.code==='GW'||speech.code==='OW'                          // BP/Asian/Worlds whips
+    ||speech.code.startsWith('Reply')                                 // Asian reply speeches
+    ||speech.code==='2AR'||speech.code==='2NR'||speech.code==='NR'    // LD/Policy final rebuttals
+    ||speech.code==='PFF'||speech.code==='CFF'                        // PF final focus
+    ||speech.code==='PS'||speech.code==='CS'                          // PF summary (also MUN closing)
+    ||speech.code==='CSO';                                            // MUN opposition closing
+
+  // Even-if stacks — only really useful in rebuttals, where you're
+  // beating arguments that have actually been made. Skip on first
+  // constructives because there's nothing to "even if" yet.
+  const evenIfEligible = isRebuttal && !isCX;
+  const evenIfRoll = evenIfEligible ? Math.random() : 1;
+  const evenIfBlock = (evenIfEligible && evenIfRoll < 0.6) ? `
+EVEN-IF STACKING — LAYERED DEFENSE ON AT LEAST ONE ARGUMENT:
+When responding to an opponent argument that could go either way, don't rely on a single line of response. Stack defenses in an "even-if" structure so the argument loses no matter which line of defense the opponent breaks. Format:
+"Their argument fails for three reasons. First, [your primary response that denies the argument]. Even if you grant them [X], [secondary response — usually a warrant attack or alternative causality]. Even if you grant them both, [third response — usually impact takeout or weighing frame]."
+This is the hallmark of a rigorous rebuttal. It forces the opponent to beat every layer, not just the top one. Use it on at least one central argument — ideally on the argument the judge is most likely to vote on.
+GUARDRAIL: Only stack even-ifs when each layer is genuinely true. A stack with a fake middle layer is worse than a clean single response — opponents and judges see through it.
+` : '';
+
+  // Explicit weighing calculus — should be near-default in closing speeches.
+  // 70% probability keeps it dominant but lets some rounds breathe with a
+  // more narrative-driven close.
+  const weighingEligible = isClosingSpeech;
+  const weighingRoll = weighingEligible ? Math.random() : 1;
+  const weighingBlock = (weighingEligible && weighingRoll < 0.7) ? `
+EXPLICIT WEIGHING CALCULUS — NAME THE DIMENSIONS BY NAME:
+This is a closing speech. The judge is deciding. Do not leave impact calculus implicit. Walk through at least three of the canonical weighing dimensions BY NAME, comparing your side's impact to theirs on each:
+- MAGNITUDE: How many people affected? How severe per person? Compare.
+- PROBABILITY: How likely is your impact vs. theirs? Name the link chain gaps on their side.
+- TIMEFRAME: When does the harm/benefit hit? Near-term vs. long-term tradeoffs.
+- REVERSIBILITY: If they're wrong, can we recover? If we're wrong, can they recover? Irreversible harms usually outweigh.
+- SCOPE: Structural vs. one-off? Systemic changes outweigh one-time effects in most judging frames.
+Format: "On magnitude, we win because — [comparison]. On probability, we win because — [comparison]. On timeframe, we win because — [comparison]." Make the comparison explicit; never just list your own impacts without contrasting theirs.
+GUARDRAIL: Don't cherry-pick dimensions you win on and ignore the ones you lose on. If they win probability, concede it and explain why your magnitude advantage still outweighs. Judges reward honesty in weighing; they penalize one-sided impact calc that ignores obvious counter-weighing.
+` : '';
+
   // Tight-call option — parli-only, Opposition-opening-speech-only. Gives
   // the AI LO permission to call tight on genuinely undefendable motions,
   // the way a real APDA Opp would. Gated on a probability so even a tight
@@ -1990,6 +2038,8 @@ ${opponentModel}
 ${rivalryMemory}
 ${paradigmBlock}
 ${tightCallBlock}
+${evenIfBlock}
+${weighingBlock}
 ${cxSimulatorBlock}
 
 ${background?'BACKGROUND/CONTEXT for this motion:\n'+background:''}
