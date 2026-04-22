@@ -1261,7 +1261,10 @@ button{font-family:inherit;cursor:pointer}
       </div>
 
       <div id="miniChatSetup" style="padding:20px 22px">
-        <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em;margin-bottom:8px">TOPIC</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em">TOPIC</div>
+          <button id="miniChatExpand" type="button" style="padding:4px 10px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px">⛶ Open debate bot</button>
+        </div>
         <input id="miniChatTopic" type="text" placeholder="e.g. Ban legacy admissions" style="width:100%;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:.95rem;font-family:inherit;outline:none" />
         <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em;margin:16px 0 8px">YOUR SIDE</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1620,15 +1623,13 @@ button{font-family:inherit;cursor:pointer}
         };
       }
 
-      // Tap into the input on focus — that's the trigger the user wants
-      // ("when i press this and type"). Focus fires before the first
-      // keystroke so the expand starts immediately.
-      topicEl.addEventListener('focus', expand);
-      // Pointerdown also catches taps that scroll the input into view
-      // first — needed on mobile where focus may fire after the page jumps.
-      topicEl.addEventListener('pointerdown', function(){
-        if (!expanded) requestAnimationFrame(expand);
-      });
+      // Fullscreen is opt-in via an explicit button. Auto-expanding on
+      // input focus felt glitchy: users tapping the topic field got
+      // yanked into a mostly-black takeover they didn't ask for. The
+      // inline mini-chat works fine on its own; the fullscreen mode is
+      // just a bigger surface for users who explicitly want it.
+      var expandBtn = document.getElementById('miniChatExpand');
+      expandBtn && expandBtn.addEventListener('click', expand);
       closeBtn && closeBtn.addEventListener('click', collapse);
       backdrop.addEventListener('click', collapse);
       document.addEventListener('keydown', function(e){
