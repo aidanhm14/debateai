@@ -1922,6 +1922,33 @@ ARGUMENT ORIGINALITY:
   // dialogue, not a monologue. When the speech slot is a CX period, the AI
   // should produce 5-8 exchanges tagged by speaker so the output reads as
   // an actual transcript instead of a block of prose.
+  // Tight-call option — parli-only, Opposition-opening-speech-only. Gives
+  // the AI LO permission to call tight on genuinely undefendable motions,
+  // the way a real APDA Opp would. Gated on a probability so even a tight
+  // motion only triggers the call ~35% of the time — keeps it rare enough
+  // that the user sees it as a legitimate strategic option the AI noticed,
+  // not a default behavior. Off entirely on non-parli formats.
+  const isParliFormat = format==='apda'||format==='bp'||format==='asian'||format==='worlds';
+  const tightCallEligible = isParliFormat && speech.code==='LO';
+  const tightCallRoll = tightCallEligible ? Math.random() : 1;
+  const tightCallBlock = (tightCallEligible && tightCallRoll < 0.35) ? `
+TIGHT-CALL OPTION — YOU MAY CALL TIGHT IF THIS MOTION IS GENUINELY UNDEFENDABLE:
+Before you deliver your LO, honestly assess whether the motion "${motion}" gives Gov an unfair advantage that no skilled Opp could beat. A motion is "tight" in APDA terms when:
+- The proposition is obviously correct to most judges (e.g., "cure cancer," "end child slavery") — Opp has no legitimate ground.
+- The framing, caveats, or framework pre-empt every viable Opp impact before the round even starts.
+- Any reasonable Opp counter-case runs into a built-in trap the PM set up.
+
+IF you judge this motion to be genuinely tight (not just difficult — TIGHT), you may open your LO with a tight call. Two legitimate patterns, pick one:
+  (1) Tightness-only: "Before I give my opposition case, I want to call this round tight. The motion gives Gov an unfair advantage because [specific reason]. Our position is that tightness is the only voting issue. I won't run a counter-case because any substantive engagement would legitimize a motion that shouldn't be runnable on APDA." Then spend 3-4 minutes arguing why the motion is tight (no Opp ground, pre-empted framework, undefendable proposition, etc.).
+  (2) Dual-track: "I want to note that I believe this motion is tight — [one-sentence reason]. I'll still give a substantive case because I have to, but the judge should weigh tightness as an independent voting issue on top of my arguments." Then deliver a normal LO, but reference tightness once more in your closing.
+
+IMPORTANT GUARDRAILS:
+- Do NOT call tight on motions that are just hard. Hard ≠ tight. If you can imagine a sharp debater beating Gov, the case is winnable and you should run straight opp instead.
+- Do NOT call tight on motions where you can articulate a coherent Opp framework — even a creative one. If you have ground, take it.
+- If you're not genuinely convinced the motion is tight, IGNORE THIS ENTIRE BLOCK and deliver a normal LO. A spurious tight call loses you the round.
+- Be specific about WHY the motion is tight. "Gov just has a stronger case" is not a tight call — that's just a losing round. A real tight call names the structural feature (framing, caveats, pre-emption, obvious-proposition status) that forecloses Opp ground.
+` : '';
+
   const cxSimulatorBlock = isCX ? `
 CX / CROSSFIRE SIMULATOR — MANDATORY DIALOGUE FORMAT:
 
@@ -1962,6 +1989,7 @@ ${flowAnalysis}
 ${opponentModel}
 ${rivalryMemory}
 ${paradigmBlock}
+${tightCallBlock}
 ${cxSimulatorBlock}
 
 ${background?'BACKGROUND/CONTEXT for this motion:\n'+background:''}
