@@ -322,7 +322,7 @@ button{font-family:inherit;cursor:pointer}
 .hero-side-label-big{
   font-size:.72rem;font-weight:800;letter-spacing:.18em;
   text-transform:uppercase;color:var(--accent);
-  margin-bottom:4px;
+  margin:0 0 4px;
 }
 .hero-orb-caption{
   font-size:.82rem;color:var(--text-dim);line-height:1.5;
@@ -1232,7 +1232,7 @@ button{font-family:inherit;cursor:pointer}
          one system. left is the opponent thinking, right is what it says. -->
     <div class="hero-split">
       <div class="hero-left">
-        <div class="hero-side-label-big">Debate the AI</div>
+        <h1 class="hero-side-label-big">Debate the AI</h1>
         <div id="heroOrbWrap" class="hero-orb-wrap">
           <div class="hero-orb-glow"></div>
           <div class="hero-orb-ring"></div>
@@ -1554,31 +1554,29 @@ button{font-family:inherit;cursor:pointer}
         return 'inset(' + top + 'px ' + right + 'px ' + bottom + 'px ' + left + 'px round 16px)';
       }
 
+      // Web Animations API runs on the compositor and doesn't depend on a
+      // two-rAF "set initial then animate to final" dance. That dance was
+      // fragile: if rAF was throttled or didn't fire (background tab, reduced
+      // frame budget, some Safari cases) the chat got stuck at the initial
+      // clip rect forever — black page with faint content, the glitch users
+      // reported. animate() schedules the keyframes atomically, no rAF gap.
+      var activeAnim = null;
+
       function expand(){
         if (expanded) return;
-        // Capture the rect BEFORE swapping to fullscreen — that's where the
-        // iris starts. The chat is currently in the hero-right grid cell.
         originalRect = miniChat.getBoundingClientRect();
         var initialClip = clipFromRect(originalRect);
-        // Promote to fullscreen layout in one paint. Children settle at
-        // their final positions immediately — the clip just hides most of
-        // them at frame 0.
         miniChat.classList.add('is-fullscreen');
         backdrop.classList.add('active');
         document.body.classList.add('mini-chat-open');
-        miniChat.style.transition = 'none';
-        miniChat.style.clipPath = initialClip;
-        miniChat.style.webkitClipPath = initialClip;
-        // Force a layout flush so the browser commits the start state
-        // before we ask it to animate to the end state.
-        // eslint-disable-next-line no-unused-expressions
-        miniChat.offsetWidth;
-        // Next animation frame: kick off the iris.
-        requestAnimationFrame(function(){
-          miniChat.style.transition = 'clip-path .55s cubic-bezier(.22,.95,.3,1.02), -webkit-clip-path .55s cubic-bezier(.22,.95,.3,1.02)';
-          miniChat.style.clipPath = 'inset(0px round 0px)';
-          miniChat.style.webkitClipPath = 'inset(0px round 0px)';
-        });
+        if (activeAnim) { activeAnim.cancel(); activeAnim = null; }
+        activeAnim = miniChat.animate(
+          [
+            { clipPath: initialClip, WebkitClipPath: initialClip, opacity: 1 },
+            { clipPath: 'inset(0px round 0px)', WebkitClipPath: 'inset(0px round 0px)', opacity: 1 }
+          ],
+          { duration: 550, easing: 'cubic-bezier(.22,.95,.3,1.02)', fill: 'forwards' }
+        );
         expanded = true;
       }
 
@@ -1587,25 +1585,20 @@ button{font-family:inherit;cursor:pointer}
         expanded = false;
         try { topicEl.blur(); } catch(e){}
         var targetClip = originalRect ? clipFromRect(originalRect) : 'inset(40% round 16px)';
-        miniChat.style.transition = 'clip-path .4s cubic-bezier(.4,0,.2,1), -webkit-clip-path .4s cubic-bezier(.4,0,.2,1), opacity .25s ease .2s';
-        miniChat.style.clipPath = targetClip;
-        miniChat.style.webkitClipPath = targetClip;
-        miniChat.style.opacity = '0';
         backdrop.classList.remove('active');
-        // Tear down the fullscreen state once the iris has closed. Resetting
-        // the inline styles in this order avoids a one-frame "snap" where
-        // the chat reappears at full viewport before the class is removed.
-        setTimeout(function(){
+        if (activeAnim) { activeAnim.cancel(); activeAnim = null; }
+        activeAnim = miniChat.animate(
+          [
+            { clipPath: 'inset(0px round 0px)', WebkitClipPath: 'inset(0px round 0px)', opacity: 1 },
+            { clipPath: targetClip, WebkitClipPath: targetClip, opacity: 0 }
+          ],
+          { duration: 420, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }
+        );
+        activeAnim.onfinish = function(){
           miniChat.classList.remove('is-fullscreen');
           document.body.classList.remove('mini-chat-open');
-          miniChat.style.transition = 'none';
-          miniChat.style.clipPath = '';
-          miniChat.style.webkitClipPath = '';
-          miniChat.style.opacity = '';
-          // Force one more layout flush, then clear the transition lock.
-          miniChat.offsetWidth;
-          miniChat.style.transition = '';
-        }, 420);
+          if (activeAnim) { activeAnim.cancel(); activeAnim = null; }
+        };
       }
 
       // Tap into the input on focus — that's the trigger the user wants
