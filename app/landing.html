@@ -258,17 +258,6 @@ button{font-family:inherit;cursor:pointer}
   animation:drift2 12s ease-in-out infinite alternate;
 }
 
-/* ── First-visit onboarding cues ──────────────────
-   Pulse highlight on the orb tooltip. Suppressed once the user
-   has visited at least once (body.has-visited), set by an inline
-   script on load. */
-@keyframes onboardPulse{
-  0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}
-  50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}
-}
-body:not(.has-visited) #miniChatMotd.is-visible{
-  animation:onboardPulse 2.6s ease-in-out 3;
-}
 @keyframes drift{
   0%{transform:translate(0,0) scale(1)}
   100%{transform:translate(-40px,30px) scale(1.05)}
@@ -2122,28 +2111,6 @@ body:not(.has-visited) #miniChatMotd.is-visible{
 </footer>
 
 <script>
-// First-visit onboarding. Show the orb tooltip on the first landing-
-// page visit; suppress on every subsequent visit. Flag stored in
-// localStorage so the hint is one-time per device, not per session.
-// CSS keys off body:not(.has-visited) so repeat visitors never see
-// the cues.
-(function(){
-  try {
-    if (localStorage.getItem('da-has-visited')) {
-      document.body.classList.add('has-visited');
-    } else {
-      // Mark visited after 8s so the pulse finishes its 3 cycles
-      // before we arm the one-time guard. Keeps cues visible on
-      // accidental-reload-within-8s paths.
-      setTimeout(function(){
-        try { localStorage.setItem('da-has-visited','1'); } catch(e){}
-      }, 8000);
-    }
-  } catch(e) {
-    document.body.classList.add('has-visited'); // privacy-mode fallback
-  }
-})();
-
 // FAQ accordion
 document.querySelectorAll('.faq-q').forEach(function(b){b.addEventListener('click',function(){var i=b.closest('.faq-item'),o=i.classList.contains('open');document.querySelectorAll('.faq-item.open').forEach(function(x){x.classList.remove('open')});if(!o)i.classList.add('open')})});
 
