@@ -1691,9 +1691,21 @@ const PARLIPRO_TERMS = [
   { term: 'Presiding Officer (PO)', def: 'The student running the session. Recognizes speakers, maintains order, rules on motions. Elected at the start.', when: 'Running for PO is a separate competition. Good POs earn extra speaker points.' },
 ];
 
+// Persistent Congress bill library — saved bills survive reloads so a
+// user can prep on the same bill across multiple sessions.
+const CONGRESS_BILLS_KEY = 'debateos-hs-congress-bills';
+function loadSavedBills(){
+  try { return JSON.parse(localStorage.getItem(CONGRESS_BILLS_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveSavedBills(arr){
+  try { localStorage.setItem(CONGRESS_BILLS_KEY, JSON.stringify(arr.slice(-20))); } catch(e) {}
+}
+
 function CongressLab() {
   const [subTab, setSubTab] = useState('bills'); // bills, parlipro, speech, questions
   const [selectedBill, setSelectedBill] = useState(0);
+  const [savedBills, setSavedBills] = useState(loadSavedBills);
+  const [billNameInput, setBillNameInput] = useState('');
   const [speechSide, setSpeechSide] = useState('pro');
   const [speechNum, setSpeechNum] = useState(1); // 1=author, 2-3=mid, 4=crystallization
   const [speechOutput, setSpeechOutput] = useState(null);
@@ -1830,10 +1842,30 @@ Output plain text. No markdown. No bullet characters.`;
           ),
         )
       ),
+      // Saved bill library — user-pasted bills, persisted across reloads.
+      savedBills.length > 0 && React.createElement('div',{style:{marginTop:14}},
+        React.createElement('label',{className:'field-label',style:{color:'#888'}},'Your Saved Bills (' + savedBills.length + ')'),
+        React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:6}},
+          savedBills.slice().reverse().map((sb, i) =>
+            React.createElement('div',{key:sb.id,style:{display:'flex',alignItems:'center',gap:8,padding:'10px 12px',background:'#ffffff04',border:'1px solid #ffffff10',borderRadius:8}},
+              React.createElement('button',{type:'button',onClick:()=>{setCustomBill(sb.text);setBillNameInput(sb.name);setAnalysisOutput(null)},style:{flex:1,textAlign:'left',background:'none',border:'none',color:'#cbd5e1',fontSize:'.84rem',cursor:'pointer',padding:0,fontFamily:'inherit',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},
+                React.createElement('span',{style:{fontWeight:700,color:'#e2e8f0'}}, sb.name),
+                React.createElement('span',{style:{color:'#64748b',fontSize:'.7rem',marginLeft:8}}, new Date(sb.ts).toLocaleDateString()),
+              ),
+              React.createElement('button',{type:'button',title:'Delete',onClick:()=>{const next=savedBills.filter(x=>x.id!==sb.id);setSavedBills(next);saveSavedBills(next)},style:{background:'none',border:'none',color:'#475569',cursor:'pointer',padding:'4px 6px',fontSize:'.9rem',fontFamily:'inherit'}}, '\u00D7'),
+            )
+          )
+        ),
+      ),
       // Custom bill input
       React.createElement('div',{style:{marginTop:12}},
         React.createElement('label',{className:'field-label',style:{color:'#888'}},'Or Paste Your Own Bill'),
         React.createElement('textarea',{placeholder:'Paste bill text here...',value:customBill,onChange:e=>setCustomBill(e.target.value),rows:3}),
+        // Save-this-bill row, only shown once user has actual text pasted.
+        customBill.trim().length > 50 && React.createElement('div',{style:{display:'flex',gap:8,marginTop:8,alignItems:'center'}},
+          React.createElement('input',{type:'text',value:billNameInput,onChange:e=>setBillNameInput(e.target.value),placeholder:'Name this bill (e.g. "S. 14 — Carbon Tax")',style:{flex:1,padding:'8px 10px',background:'rgba(0,0,0,.35)',border:'1px solid #ffffff14',borderRadius:8,color:'#e2e8f0',fontSize:'.82rem',fontFamily:'inherit'}}),
+          React.createElement('button',{type:'button',onClick:()=>{const name=(billNameInput||'Untitled bill').trim();const next=[...savedBills,{id:Date.now()+'_'+Math.random().toString(36).slice(2,7),name:name,text:customBill.trim(),ts:Date.now()}];setSavedBills(next);saveSavedBills(next);setBillNameInput('')},style:{background:'#22c55e',color:'#0a0a0c',border:'none',borderRadius:6,padding:'8px 14px',fontSize:'.78rem',fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}, 'Save bill'),
+        ),
       ),
       // Bill text display
       React.createElement('div',{style:{marginTop:16,padding:16,background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:10,fontSize:'.88rem',color:'#ccc',lineHeight:1.7,maxHeight:250,overflowY:'auto',whiteSpace:'pre-wrap'}}, customBill.trim() || bill.text),
