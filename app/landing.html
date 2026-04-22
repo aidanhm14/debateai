@@ -1403,6 +1403,9 @@ button{font-family:inherit;cursor:pointer}
         // ── Audio-frequency bars: classic speaker visualizer inside the orb.
         // Vertical bars centered, heights driven by layered sin waves to fake
         // a spectrum analyzer. Idle = small ambient bobbing, AI = tall pulses.
+        // Perf: build ONE Path2D and fill once per frame. Setting fillStyle/
+        // shadow per-bar (and beginPath per-bar) tanks Chrome's compositor
+        // because shadowBlur forces a software paint pass each call.
         var BARS = 22;
         var maxBarH = baseR * (mode === 'ai' ? 1.25 : 0.55);
         var minBarH = baseR * 0.08;
@@ -1411,10 +1414,12 @@ button{font-family:inherit;cursor:pointer}
         var totalW = BARS * barW + (BARS - 1) * barGap;
         var startX = cx - totalW / 2;
         var barSpeed = mode === 'ai' ? 4.2 : 1.8;
+        var center = (BARS - 1) / 2;
+        var canRound = !!ctx.roundRect;
+        ctx.beginPath();
         for (var b = 0; b < BARS; b++) {
           // Center-weighted envelope so middle bars peak higher (looks like a
           // real spectrum where mids dominate when a voice is speaking).
-          var center = (BARS - 1) / 2;
           var envelope = 1 - Math.pow(Math.abs(b - center) / center, 1.6) * 0.7;
           var phase = b * 0.42;
           // Layered sine waves at different frequencies to break uniformity
@@ -1427,24 +1432,23 @@ button{font-family:inherit;cursor:pointer}
           var h = minBarH + (maxBarH - minBarH) * v * envelope;
           var x = startX + b * (barW + barGap);
           var y = cy - h / 2;
-          if (mode === 'ai') {
-            ctx.fillStyle = 'rgba(239,68,68,.85)';
-            ctx.shadowColor = 'rgba(239,68,68,.55)';
-            ctx.shadowBlur = 8;
-          } else {
-            ctx.fillStyle = 'rgba(255,255,255,.32)';
-            ctx.shadowBlur = 0;
-          }
-          var rad = Math.min(barW / 2, h / 2);
-          if (ctx.roundRect) {
-            ctx.beginPath();
+          if (canRound) {
+            var rad = Math.min(barW / 2, h / 2);
             ctx.roundRect(x, y, barW, h, rad);
-            ctx.fill();
           } else {
-            ctx.fillRect(x, y, barW, h);
+            ctx.rect(x, y, barW, h);
           }
         }
+        if (mode === 'ai') {
+          ctx.fillStyle = 'rgba(239,68,68,.85)';
+        } else {
+          ctx.fillStyle = 'rgba(255,255,255,.32)';
+        }
+        // No shadowBlur on the bars: it was the main jank source on Chrome.
+        // The orb's own .hero-orb-glow CSS layer already provides the red
+        // ambience around the canvas, so the bars don't need their own glow.
         ctx.shadowBlur = 0;
+        ctx.fill();
 
         requestAnimationFrame(draw);
       }
