@@ -1257,14 +1257,10 @@ button{font-family:inherit;cursor:pointer}
         <span style="width:10px;height:10px;border-radius:50%;background:#22c55e"></span>
         <span style="margin-left:12px;font-size:.72rem;color:var(--text-dim);letter-spacing:.04em;font-weight:600">LIVE · debateai / debate-chat</span>
         <span id="miniChatStatus" style="margin-left:auto;font-size:.68rem;color:var(--text-dim);letter-spacing:.02em"></span>
-        <button id="miniChatClose" type="button" aria-label="Close fullscreen chat">&times;</button>
       </div>
 
       <div id="miniChatSetup" style="padding:20px 22px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em">TOPIC</div>
-          <button id="miniChatExpand" type="button" style="padding:4px 10px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px">⛶ Open debate bot</button>
-        </div>
+        <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em;margin-bottom:8px">TOPIC</div>
         <input id="miniChatTopic" type="text" placeholder="e.g. Ban legacy admissions" style="width:100%;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:.95rem;font-family:inherit;outline:none" />
         <div style="font-size:.65rem;font-weight:800;color:var(--accent);letter-spacing:.15em;margin:16px 0 8px">YOUR SIDE</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1306,76 +1302,11 @@ button{font-family:inherit;cursor:pointer}
       .mini-chat-tts:hover{color:var(--text);background:rgba(255,255,255,.08)}
       .mini-chat-tts.playing{color:var(--accent);border-color:var(--accent)}
       #miniChatSend:disabled,#miniChatStart:disabled{cursor:not-allowed;opacity:.4}
-
-      /* ── Fullscreen takeover ─────────────────────────────────────────
-         Animation strategy: the chat snaps to fullscreen layout instantly
-         (so the inner content settles at its final size in one paint),
-         then a clip-path "iris" opens from the chat's original rect to
-         the full viewport. Old version animated a CSS transform on the
-         chat — that worked geometrically but the inner setup was
-         already at fullscreen size, so during the FLIP the visible
-         children looked oversized inside a tiny container = the glitch.
-         clip-path doesn't move children, just unmasks them. */
-      #miniChatBackdrop{
-        position:fixed;inset:0;z-index:9990;
-        background:#0a0a0c;
-        opacity:0;pointer-events:none;
-        transition:opacity .42s cubic-bezier(.22,.95,.3,1);
-      }
-      #miniChatBackdrop.active{opacity:1;pointer-events:auto}
-      #miniChat.is-fullscreen{
-        position:fixed!important;
-        top:0!important;left:0!important;right:0!important;bottom:0!important;
-        width:100vw!important;max-width:none!important;height:100vh!important;
-        margin:0!important;border-radius:0!important;
-        z-index:9991;
-        box-shadow:none!important;
-        display:flex;flex-direction:column;
-        /* Lighter than the previous #0a0a0c + a subtle accent glow so the
-           fullscreen panel doesn't read as a void. With the old near-black
-           the inner inputs (rgba(255,255,255,.04)) had effectively zero
-           contrast and the whole screen looked like a glitch. */
-        background:radial-gradient(ellipse at top, rgba(239,68,68,.08), transparent 55%), #14141a!important;
-        backdrop-filter:none!important;
-        border:none!important;
-        /* Promote to its own layer so the clip-path animation runs on the
-           compositor instead of triggering paint on the page below. */
-        will-change:clip-path,opacity;
-      }
-      /* Center the existing setup on the empty fullscreen canvas; keep
-         existing font sizes so the inner content doesn't reflow during
-         the iris animation. */
-      #miniChat.is-fullscreen #miniChatSetup{
-        max-width:560px;width:100%;margin:0 auto;
-        padding:max(56px,8vh) 24px 40px;
-        flex:1;
-      }
-      /* Boost input + button contrast against the near-black canvas so
-         typed content is actually visible in the fullscreen takeover. */
-      #miniChat.is-fullscreen #miniChatTopic,
-      #miniChat.is-fullscreen #miniChatInput{
-        background:rgba(255,255,255,.07)!important;
-        border:1px solid rgba(255,255,255,.22)!important;
-      }
-      #miniChat.is-fullscreen .mini-chat-side{
-        background:rgba(255,255,255,.06)!important;
-        border:1px solid rgba(255,255,255,.18)!important;
-      }
-      #miniChat.is-fullscreen .mini-chat-side.active{
-        background:rgba(239,68,68,.16)!important;
-        border-color:var(--accent)!important;
-      }
-      #miniChatClose{
-        position:absolute;top:14px;right:14px;z-index:2;
-        width:36px;height:36px;border-radius:50%;
-        border:1px solid var(--border);background:rgba(255,255,255,.04);
-        color:var(--text-dim);font-size:1.1rem;line-height:1;cursor:pointer;
-        display:none;align-items:center;justify-content:center;
-        transition:color .2s,background .2s,border-color .2s;
-      }
-      #miniChat.is-fullscreen #miniChatClose{display:flex}
-      #miniChatClose:hover{color:var(--text);background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18)}
-      body.mini-chat-open{overflow:hidden}
+      /* Fullscreen takeover removed entirely. The mini-chat is now a
+         pure inline widget: type a topic, pick a side, click Start. The
+         "Full experience →" link in the input wrap takes anyone who
+         wants the full surface to /app/debate-ai. Three rounds of
+         iris-animation regressions weren't worth the polish. */
     </style>
     <!-- Hero orb animation. see landing.html (root) for detailed comment -->
     <script>
@@ -1546,99 +1477,9 @@ button{font-family:inherit;cursor:pointer}
       var roundEl = document.getElementById('miniChatRound');
       if (!topicEl) return;
 
-      // ── Fullscreen takeover. clip-path "iris" technique: the chat snaps
-      // to fullscreen layout in one paint, then a CSS clip-path animates
-      // from the original mini-chat rect (everything else masked) to
-      // inset(0) (full viewport). The same DOM node holds focus so any
-      // keystrokes typed during the animation are preserved.
-      //
-      // Why clip-path and not transform: the previous transform-FLIP scaled
-      // the chat container down to the original size, but the children
-      // (centered setup at 560px max-width) had already laid out at
-      // fullscreen — so during the animation the inner content visibly
-      // floated at oversized scale inside a tiny shrunk box. Reads as a
-      // glitch. Clip-path doesn't move children, only unmasks them, so the
-      // animation feels like an iris opening from the original spot.
-      var miniChat = document.getElementById('miniChat');
-      var closeBtn = document.getElementById('miniChatClose');
-      var backdrop = document.createElement('div');
-      backdrop.id = 'miniChatBackdrop';
-      document.body.appendChild(backdrop);
-      var expanded = false;
-      var originalRect = null;
-
-      function clipFromRect(r){
-        var top = Math.max(0, r.top|0);
-        var left = Math.max(0, r.left|0);
-        var right = Math.max(0, (window.innerWidth - r.right)|0);
-        var bottom = Math.max(0, (window.innerHeight - r.bottom)|0);
-        return 'inset(' + top + 'px ' + right + 'px ' + bottom + 'px ' + left + 'px round 16px)';
-      }
-
-      // Web Animations API runs on the compositor and doesn't depend on a
-      // two-rAF "set initial then animate to final" dance. That dance was
-      // fragile: if rAF was throttled or didn't fire (background tab, reduced
-      // frame budget, some Safari cases) the chat got stuck at the initial
-      // clip rect forever — black page with faint content, the glitch users
-      // reported. animate() schedules the keyframes atomically, no rAF gap.
-      var activeAnim = null;
-
-      function expand(){
-        if (expanded) return;
-        originalRect = miniChat.getBoundingClientRect();
-        var initialClip = clipFromRect(originalRect);
-        miniChat.classList.add('is-fullscreen');
-        backdrop.classList.add('active');
-        document.body.classList.add('mini-chat-open');
-        if (activeAnim) { activeAnim.cancel(); activeAnim = null; }
-        activeAnim = miniChat.animate(
-          [
-            { clipPath: initialClip, WebkitClipPath: initialClip, opacity: 1 },
-            { clipPath: 'inset(0px round 0px)', WebkitClipPath: 'inset(0px round 0px)', opacity: 1 }
-          ],
-          { duration: 550, easing: 'cubic-bezier(.22,.95,.3,1.02)', fill: 'forwards' }
-        );
-        expanded = true;
-      }
-
-      function collapse(){
-        if (!expanded) return;
-        expanded = false;
-        try { topicEl.blur(); } catch(e){}
-        var targetClip = originalRect ? clipFromRect(originalRect) : 'inset(40% round 16px)';
-        backdrop.classList.remove('active');
-        if (activeAnim) { activeAnim.cancel(); activeAnim = null; }
-        activeAnim = miniChat.animate(
-          [
-            { clipPath: 'inset(0px round 0px)', WebkitClipPath: 'inset(0px round 0px)', opacity: 1 },
-            { clipPath: targetClip, WebkitClipPath: targetClip, opacity: 0 }
-          ],
-          { duration: 420, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }
-        );
-        activeAnim.onfinish = function(){
-          miniChat.classList.remove('is-fullscreen');
-          document.body.classList.remove('mini-chat-open');
-          if (activeAnim) { activeAnim.cancel(); activeAnim = null; }
-        };
-      }
-
-      // Fullscreen is opt-in via an explicit button. Auto-expanding on
-      // input focus felt glitchy: users tapping the topic field got
-      // yanked into a mostly-black takeover they didn't ask for. The
-      // inline mini-chat works fine on its own; the fullscreen mode is
-      // just a bigger surface for users who explicitly want it.
-      var expandBtn = document.getElementById('miniChatExpand');
-      expandBtn && expandBtn.addEventListener('click', expand);
-      closeBtn && closeBtn.addEventListener('click', collapse);
-      backdrop.addEventListener('click', collapse);
-      document.addEventListener('keydown', function(e){
-        if (e.key === 'Escape' && expanded) collapse();
-      });
-      // Recompute rect on resize so the iris-close still lands at the right
-      // spot if the user rotated the device while expanded.
-      window.addEventListener('resize', function(){
-        if (!expanded || !miniChat.parentElement) return;
-      });
+      // Mini-chat is purely inline now. Anyone who wants the full
+      // surface clicks the "Full experience →" link in the input wrap,
+      // which routes to /app/debate-ai.
 
       var side = null, topic = '', messages = [], round = 0, MAX_ROUNDS = 3, busy = false;
 
