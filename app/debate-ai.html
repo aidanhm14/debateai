@@ -989,6 +989,13 @@ const VOICES = {
   sage:    { name:'The Philosopher', gender:'Male',   desc:'Thoughtful & measured. The Socratic method in human form.' },
   ash:     { name:'The Prosecutor',  gender:'Male',   desc:'Intense & relentless. Cross-examines every claim to death.' },
   ballad:  { name:'The Storyteller', gender:'Female', desc:'Warm & compelling. Turns policy arguments into narratives.' },
+  // Expansion pack — broader range of debater archetypes:
+  statesman: { name:'The Statesman', gender:'Male',   desc:'Warm British gravitas. Sounds like the senior MP closing for the Crown.' },
+  barrister: { name:'The Barrister', gender:'Male',   desc:'British, courtroom-precise. Picks your case apart cross-examination style.' },
+  upstart:   { name:'The Upstart',   gender:'Female', desc:'Youthful British, hungry. The freshman who reads every paper before the round.' },
+  heckler:   { name:'The Heckler',   gender:'Male',   desc:'Gravelly, sardonic. The senior who\'s seen this argument fifty times and isn\'t hiding it.' },
+  disruptor: { name:'The Disruptor', gender:'Female', desc:'High-energy challenger. Thrives on chaos in the round.' },
+  tactician: { name:'The Tactician', gender:'Male',   desc:'Calm, measured strategist. Three moves ahead, never loud about it.' },
 };
 
 /* ── AI OPPONENT TRAITS ─────────────── */
@@ -1185,14 +1192,29 @@ const MOTIONS = [
    API
    ═══════════════════════════════════════════════════ */
 
-const LIMIT = 5;
+// Generation gate. Anonymous users get 5 free requests lifetime; signing
+// in with Google bumps the cap to 10 (5 base + 5 bonus). Pro tier bypasses
+// this entirely. The counter lives in localStorage so it survives reloads;
+// signing in doesn't reset usage, just raises the ceiling.
+const ANON_LIMIT = 5;
+const SIGNED_IN_LIMIT = 10;
 function getUsage(){ try{return parseInt(localStorage.getItem('debateos-anon-usage')||'0',10)}catch{return 0} }
 function incUsage(){ try{localStorage.setItem('debateos-anon-usage',String(getUsage()+1))}catch{} }
-function remaining(){ return Math.max(0,LIMIT-getUsage()) }
+function getEffectiveLimit(){
+  if (__proStatus) return Infinity;
+  return __signedInStatus ? SIGNED_IN_LIMIT : ANON_LIMIT;
+}
+function remaining(){ return Math.max(0, getEffectiveLimit() - getUsage()); }
+// Back-compat: old code references LIMIT directly. Keep it pointing at the
+// effective ceiling for any straggler call sites.
+const LIMIT = ANON_LIMIT;
 
-// Check if user has pro access. set by App from team data
+// Auth status mirrored from React state into module scope so the helpers
+// above (called from outside the component tree) see the latest value.
 let __proStatus = false;
+let __signedInStatus = false;
 function isPro(){ return __proStatus; }
+function isSignedIn(){ return __signedInStatus; }
 
 // Default trait presets for quick start. "God" is the tournament-champion
 // preset. every strength on, zero weaknesses. Reserved for when a user
@@ -1268,6 +1290,18 @@ async function callAnthropicDirect(body){
 
 // Unified AI call. supports Claude, OpenAI, and xAI streaming formats
 async function callAI(sys, user, onChunk, brainKey, opts){
+  // Generation gate: refuse the call if the user has already burned their
+  // free quota. The thrown error carries a 'code' the UI catches to surface
+  // the upgrade CTA instead of a generic failure. Pro tier (Infinity limit)
+  // and BYOK (bring your own Anthropic key) both bypass this.
+  if (!isPro() && !getStoredKey() && getUsage() >= getEffectiveLimit()) {
+    var err = new Error(isSignedIn() ? 'Free quota used. Upgrade to keep going.' : 'Free quota used. Sign in for 5 more.');
+    err.code = isSignedIn() ? 'QUOTA_PRO' : 'QUOTA_SIGNIN';
+    if (typeof window !== 'undefined') {
+      try { window.dispatchEvent(new CustomEvent('debateos-quota-hit', { detail: { code: err.code } })); } catch(e){}
+    }
+    throw err;
+  }
   const brain = BRAINS[brainKey] || BRAINS.claude;
   const pro = isPro();
   const model = pro && brain.proModel ? brain.proModel : brain.model;
@@ -2554,6 +2588,13 @@ function App(){
     __proStatus = !!(team && (team.plan === 'individual' || team.plan === 'team' || team.plan === 'lifetime'));
   }, [team]);
 
+  // Mirror auth state into the module-level helper. Modules that gate on
+  // generation count (callAI, the CTA banners) live outside this component
+  // tree so they can't read `user` directly.
+  useEffect(() => {
+    __signedInStatus = !!user;
+  }, [user]);
+
   const[lighting,setLighting]=useState(()=>{try{return localStorage.getItem('debateos-lighting')||'dark'}catch{return 'dark'}});
   useEffect(()=>{
     document.documentElement.setAttribute('data-lighting',lighting);
@@ -2838,6 +2879,25 @@ function App(){
   // 'saved' shows saved cases, past rounds, and "how I think as a debater"
   // (the genPatterns analyzer). One landing screen for everything historical.
   const[setupTab,setSetupTab]=useState('setup');
+
+  // Quota CTA — shown when callAI() throws QUOTA_SIGNIN (anon hit 5/5) or
+  // QUOTA_PRO (signed-in hit 10/10). Kicks the user to sign-in or pricing.
+  const[quotaCTA,setQuotaCTA]=useState(null);  // null | 'signin' | 'pro'
+  useEffect(()=>{
+    function handler(e){
+      var code = e?.detail?.code;
+      if (code === 'QUOTA_SIGNIN') setQuotaCTA('signin');
+      else if (code === 'QUOTA_PRO') setQuotaCTA('pro');
+    }
+    window.addEventListener('debateos-quota-hit', handler);
+    return () => window.removeEventListener('debateos-quota-hit', handler);
+  }, []);
+  // Force-rerender when usage changes so "X left" badges stay fresh.
+  const[, forceUsageTick] = useState(0);
+  useEffect(()=>{
+    var id = setInterval(()=>forceUsageTick(n=>n+1), 2000);
+    return () => clearInterval(id);
+  }, []);
 
   const saveCase=(customTitle)=>{
     // Extract AI constructive speeches from the log
@@ -3822,6 +3882,37 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     }
   };
 
+  // Quota CTA modal — fires when callAI() throws QUOTA_SIGNIN or
+  // QUOTA_PRO. Two flavors: anon-hit-5 (sign in for 5 more) and
+  // signed-in-hit-10 (upgrade for unlimited). position:fixed so it lands
+  // at the viewport root regardless of which phase rendered it.
+  const quotaCtaOverlay = quotaCTA && el('div',{
+    onClick:()=>setQuotaCTA(null),
+    style:{position:'fixed',inset:0,background:'rgba(0,0,0,.78)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center',padding:20},
+    role:'dialog','aria-modal':'true','aria-label':'Upgrade to keep going',
+  },
+    el('div',{
+      onClick:e=>e.stopPropagation(),
+      style:{maxWidth:480,width:'100%',padding:'28px 28px 24px',background:'var(--c-surface)',border:'1px solid rgba(239,68,68,.35)',borderRadius:18,boxShadow:'0 20px 80px rgba(0,0,0,.6)',textAlign:'center'},
+    },
+      el('div',{style:{fontSize:'.6rem',fontWeight:800,letterSpacing:'.18em',textTransform:'uppercase',color:'#fca5a5',marginBottom:10}},quotaCTA==='signin'?'Free quota used':'Signed-in quota used'),
+      el('div',{style:{fontSize:'1.3rem',fontWeight:800,color:'var(--c-bright)',lineHeight:1.25,marginBottom:8}},
+        quotaCTA==='signin' ? 'Get 5 more generations' : 'Upgrade to keep practicing'
+      ),
+      el('div',{style:{fontSize:'.86rem',color:'var(--c-text)',lineHeight:1.5,marginBottom:20}},
+        quotaCTA==='signin'
+          ? 'You’ve used your 5 free generations. Sign in with Google to unlock 5 more on the house — and the AI starts learning your debate style.'
+          : 'You’ve used all 10 free generations. Pro unlocks unlimited rounds across all four AI brains plus HD voice.'
+      ),
+      el('div',{style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
+        quotaCTA==='signin'
+          ? el('button',{onClick:()=>{setQuotaCTA(null);try{signIn()}catch(e){}},style:{padding:'12px 24px',background:'#fff',color:'#1f1f1f',border:'none',borderRadius:999,fontSize:'.85rem',fontWeight:800,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 16px rgba(0,0,0,.35)'}},'Sign up with Google →')
+          : el('a',{href:'/pricing',style:{padding:'12px 24px',background:'#ef4444',color:'#fff',border:'none',borderRadius:999,fontSize:'.85rem',fontWeight:800,cursor:'pointer',fontFamily:'inherit',textDecoration:'none',display:'inline-block',boxShadow:'0 4px 16px rgba(239,68,68,.35)'}},'See plans →'),
+        el('button',{onClick:()=>setQuotaCTA(null),style:{padding:'12px 22px',background:'transparent',color:'var(--c-text)',border:'1px solid var(--c-border2)',borderRadius:999,fontSize:'.82rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit'}},'Maybe later'),
+      ),
+    )
+  );
+
   // Keyboard shortcuts overlay — position:fixed so rendering it inside
   // any phase's tree lands it at the viewport root. Defined once here
   // and included in each phase return below.
@@ -3895,6 +3986,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   // SAVED VIEW — saved cases + past rounds + "how I think as a debater"
   if(phase==='setup' && setupTab==='saved') return el('div',{className:'page'},
     shortcutsOverlay,
+    quotaCtaOverlay,
     helpFloatingButton,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
@@ -4009,6 +4101,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
 
   if(phase==='setup') return el('div',{className:'page'},
     shortcutsOverlay,
+    quotaCtaOverlay,
     helpFloatingButton,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
@@ -4417,6 +4510,28 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
 
       el('button',{className:'cta cta-setup-sticky',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
 
+      // Generation counter — surfaces remaining quota under the Start Round
+      // button so users see the gate before they hit it. Pro hides it; anon
+      // and signed-in see the appropriate upgrade nudge.
+      !isPro() && (function(){
+        var left = remaining();
+        var total = getEffectiveLimit();
+        var atLimit = left <= 0;
+        var nearLimit = left <= 2 && !atLimit;
+        var color = atLimit ? '#ef4444' : nearLimit ? '#f59e0b' : 'var(--c-dim)';
+        return el('div',{style:{textAlign:'center',marginTop:10,fontSize:'.72rem',color:color,letterSpacing:'.02em'}},
+          atLimit
+            ? (isSignedIn()
+                ? el(React.Fragment,null,'Free quota used · ',el('a',{href:'/pricing',style:{color:'#fca5a5',fontWeight:700,textDecoration:'underline'}},'Upgrade for unlimited'))
+                : el(React.Fragment,null,'Free quota used · ',el('button',{onClick:()=>{try{signIn()}catch(e){}},style:{background:'none',border:'none',color:'#fca5a5',fontWeight:700,textDecoration:'underline',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',padding:0}},'Sign in for 5 more'))
+              )
+            : (isSignedIn()
+                ? left+' of '+total+' generations left · signed-in tier'
+                : el(React.Fragment,null,left+' of '+total+' free generations left · ',el('button',{onClick:()=>{try{signIn()}catch(e){}},style:{background:'none',border:'none',color:'var(--c-bright)',fontWeight:700,textDecoration:'underline',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',padding:0}},'sign in for 5 more'))
+              )
+        );
+      })(),
+
       // Past Rounds & Saved Cases buttons
       el('div',{className:'row-c',style:{marginTop:16,flexWrap:'wrap'}},
         historyRounds.length>0&&el('button',{className:'cta-ghost',onClick:()=>setShowHistory(true)},
@@ -4582,6 +4697,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   // ── PREP ──
   if(phase==='prep') return el('div',{className:'page'},
     shortcutsOverlay,
+    quotaCtaOverlay,
     helpFloatingButton,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},

@@ -383,28 +383,26 @@ button{font-family:inherit;cursor:pointer}
   position:relative;z-index:1;
 }
 
-/* ── "Try me" button: plays a randomized sample debate line via TTS so
-   anonymous visitors hear what the opponent sounds like before signing
-   in. Sits between the orb caption and the CTA row. */
-.try-me-btn{
-  display:inline-flex;align-items:center;gap:7px;
-  margin:6px auto 4px;
-  padding:9px 22px;
-  background:rgba(239,68,68,.10);
-  border:1px solid rgba(239,68,68,.32);
-  color:var(--text);
-  border-radius:999px;
-  font-size:.74rem;font-weight:700;
-  letter-spacing:.10em;text-transform:uppercase;
-  cursor:pointer;font-family:inherit;
-  transition:background .2s,border-color .2s,transform .15s;
+/* The orb itself is the trigger now (no separate Try-me button taking up
+   vertical space and crowding the CTA row). Hovering brightens the ring +
+   glow + caption hint; clicking plays a sample debate line. */
+.hero-orb-wrap{cursor:pointer;transition:transform .25s ease}
+.hero-orb-wrap:hover{transform:translateY(-2px)}
+.hero-orb-wrap:hover .hero-orb-glow{opacity:.95}
+.hero-orb-wrap:hover .hero-orb-ring{
+  border-color:rgba(239,68,68,.65);
+  box-shadow:0 0 50px rgba(239,68,68,.30), inset 0 0 32px rgba(239,68,68,.10);
 }
-.try-me-btn:hover{background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.55);transform:translateY(-1px)}
-.try-me-btn.loading{opacity:.65;cursor:wait}
-.try-me-btn.playing{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.7)}
-.try-me-icon{font-size:.72em;line-height:1}
-.try-me-btn.playing .try-me-icon{animation:try-me-pulse 1.2s ease-in-out infinite}
-@keyframes try-me-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+.hero-orb-wrap.playing .hero-orb-glow{opacity:1}
+.hero-orb-hint{
+  font-size:.62rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--text-dim);margin-top:6px;text-align:center;
+  transition:color .25s ease, opacity .25s ease;
+  pointer-events:none;
+}
+.hero-orb-wrap:hover ~ .hero-orb-hint{color:var(--accent);opacity:1}
+.hero-orb-wrap.playing ~ .hero-orb-hint{color:var(--accent);opacity:1}
+.hero-orb-wrap.loading ~ .hero-orb-hint{opacity:.7}
 
 /* ── CTA row under the orb ─────────────────────────── */
 .hero-left-ctas{
@@ -1381,11 +1379,7 @@ button{font-family:inherit;cursor:pointer}
           <div class="hero-orb-ring"></div>
           <canvas id="heroOrb" aria-hidden="true"></canvas>
         </div>
-        <div class="hero-orb-caption">Thinks. Challenges. Judges you like a real opponent.</div>
-        <button id="tryMeBtn" class="try-me-btn" type="button" aria-label="Hear a sample debate line">
-          <span class="try-me-icon" aria-hidden="true">▶</span>
-          <span class="try-me-label">Try me</span>
-        </button>
+        <div class="hero-orb-hint" id="orbHint">Click the orb to hear it speak</div>
         <div class="hero-left-ctas">
           <a href="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
           <a href="/app#case" class="hero-cta hero-cta-secondary">Debate prep</a>
@@ -1658,10 +1652,20 @@ button{font-family:inherit;cursor:pointer}
          plays, so the button feels connected to the visual. -->
     <script>
     (function(){
-      var btn = document.getElementById('tryMeBtn');
+      // The orb wrapper is the click target (no separate button — keeps the
+      // CTA row uncrowded and lets "Spar with an AI" + "Debate prep" both
+      // breathe). Hover brightens via CSS; click plays a sample line.
+      var btn = document.getElementById('heroOrbWrap');
       if (!btn) return;
-      var labelEl = btn.querySelector('.try-me-label');
-      var iconEl  = btn.querySelector('.try-me-icon');
+      btn.setAttribute('role','button');
+      btn.setAttribute('tabindex','0');
+      btn.setAttribute('aria-label','Hear a sample debate line');
+      var hintEl = document.getElementById('orbHint');
+      function setHint(t){ if (hintEl) hintEl.textContent = t; }
+      // Stub-compatibility shims so the existing playAudio/setLabel code
+      // below keeps working unchanged.
+      var labelEl = { set textContent(t){ setHint(t); } };
+      var iconEl  = { set textContent(t){} };
 
       // Sample lines in the user's debate voice — informal, deadpan,
       // jargon-heavy, named ("side opp", "MG", "link chain"). Short
@@ -1692,8 +1696,8 @@ button{font-family:inherit;cursor:pointer}
       function setIcon(t){ if (iconEl) iconEl.textContent = t; }
       function reset(){
         btn.classList.remove('loading','playing');
-        setIcon('▶'); setLabel('Try me');
-        try { document.getElementById('heroOrbWrap')?.classList.remove('speaking'); } catch(e){}
+        setLabel('Click the orb to hear it speak');
+        try { btn.classList.remove('speaking'); } catch(e){}
         try { window.__heroOrbMode && window.__heroOrbMode('idle'); } catch(e){}
       }
 
@@ -1736,9 +1740,8 @@ button{font-family:inherit;cursor:pointer}
         current = a;
         lastIdx = idx;
         btn.classList.remove('loading');
-        btn.classList.add('playing');
-        setIcon('❚❚'); setLabel('Stop');
-        try { document.getElementById('heroOrbWrap')?.classList.add('speaking'); } catch(e){}
+        btn.classList.add('playing','speaking');
+        setLabel('Click again to stop');
         try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
         a.onended = function(){ if (current === a) current = null; reset(); };
         a.onerror = function(){ if (current === a) current = null; reset(); };
@@ -1747,9 +1750,14 @@ button{font-family:inherit;cursor:pointer}
       }
 
       btn.addEventListener('click', async function(){
-        // Stop any currently-playing sample first so successive clicks don't
-        // overlap two voices.
-        if (current) { try { current.pause(); } catch(e){} current = null; }
+        // Click-while-playing acts as a stop toggle (not "play another").
+        // Cleaner UX for an icon-style trigger.
+        if (current) {
+          try { current.pause(); } catch(e){}
+          current = null;
+          reset();
+          return;
+        }
         var idx = pickIndex();
 
         // Cache hit — play instantly, no network.
@@ -1777,9 +1785,14 @@ button{font-family:inherit;cursor:pointer}
           }
         } catch(e) {
           btn.classList.remove('loading');
-          setLabel('Try again');
-          setTimeout(function(){ if (!current) { setIcon('▶'); setLabel('Try me'); } }, 1800);
+          setLabel('Try again — click the orb');
+          setTimeout(function(){ if (!current) reset(); }, 2000);
         }
+      });
+      // Keyboard support — Enter / Space triggers the same handler since
+      // we made the orb a role=button.
+      btn.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
       });
 
       // Eager prefetch — fire ALL samples in parallel on idle so by the

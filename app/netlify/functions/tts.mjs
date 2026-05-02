@@ -51,7 +51,8 @@ function checkRateLimit(key) {
 
 const MAX_TEXT_LENGTH = 5000;
 
-// ElevenLabs voice ID mapping — all American accent, matched per-personality
+// ElevenLabs voice ID mapping — matched per-personality. Mix of American
+// and British accents now to widen the range of opponents users hear.
 const ELEVENLABS_VOICES = {
   professor:   'pNInz6obpgDQGcFmaJgB',  // Adam — dominant, firm, American male
   closer:      'EXAVITQu4vr4xnSDxMaL',  // Sarah — mature, confident, American female
@@ -63,6 +64,36 @@ const ELEVENLABS_VOICES = {
   philosopher: 'IKne3meq5aSn9XLyUdCD',   // Charlie — thoughtful, calm, American male
   prosecutor:  'bIHbv24MWmeRgasZH58o',   // Will — intense, direct, American male
   storyteller: 'FGY2WhTYpPnrIDTdsKH5',   // Laura — warm, narrative, American female
+  // Expansion pack — broader range of debate archetypes:
+  statesman:   'JBFqnCBsd6RMkjVDRZzb',   // George — warm British, gravitas
+  barrister:   'onwK4e9ZLuTAKqWW03F9',   // Daniel — British authoritative, courtroom
+  upstart:     'pFZP5JQG7iQjIQuC4Bku',   // Lily — youthful British female, sharp
+  heckler:     'CwhRBWXzGAHq8TQ4Fs17',   // Roger — gravelly older male, sardonic
+  disruptor:   'cgSgspJ2msm6clMCkdW9',   // Jessica — youthful female, high-energy
+  tactician:   'pqHfZKP75CvOlQylNhV4',   // Bill — calm narrator male, measured
+};
+
+// Free-tier fallback. OpenAI only ships 10 voices, so new personas reuse
+// the closest match. Keys here MUST mirror ELEVENLABS_VOICES — anything
+// unmapped falls through to 'onyx'. Used by the handler when premium=false
+// or when the ElevenLabs provider returns non-OK.
+const PERSONA_TO_OPENAI = {
+  professor: 'onyx',
+  closer: 'echo',
+  surgeon: 'fable',
+  veteran: 'alloy',
+  firebrand: 'nova',
+  diplomat: 'shimmer',
+  debater: 'coral',
+  philosopher: 'sage',
+  prosecutor: 'ash',
+  storyteller: 'ballad',
+  statesman: 'onyx',     // closest match: deep, authoritative
+  barrister: 'ash',      // closest match: intense, direct
+  upstart: 'coral',      // closest match: quick, sharp
+  heckler: 'alloy',      // closest match: rich baritone, dry
+  disruptor: 'nova',     // closest match: high-energy
+  tactician: 'sage',     // closest match: thoughtful, measured
 };
 
 // Cartesia Sonic voice IDs — placeholder mapping for the opt-in A/B flag.
@@ -78,6 +109,13 @@ const CARTESIA_VOICES = {
   philosopher: 'a167e0f3-df7e-4d52-a9c3-f949145efdab',
   prosecutor:  '820a3788-2b37-4d21-847a-b65d8a68c99a',
   storyteller: '248be419-c632-4f23-adf1-5324ed7dbf1d',
+  // Expansion pack — placeholder IDs (Cartesia is opt-in; replace before relying on it):
+  statesman:   'a0e99841-438c-4a64-b679-ae501e7d6091',
+  barrister:   '820a3788-2b37-4d21-847a-b65d8a68c99a',
+  upstart:     'd46abd1d-2d02-43e8-819f-51fb652c1c61',
+  heckler:     '79743797-2087-422f-8dc7-86f9efca85f1',
+  disruptor:   '41534ada-d9a3-4f24-b9d5-3a8e1f2f7fc0',
+  tactician:   'a167e0f3-df7e-4d52-a9c3-f949145efdab',
 };
 
 // Map OpenAI voice keys to personality keys
@@ -93,6 +131,15 @@ const OPENAI_TO_PERSONALITY = {
   ash: 'prosecutor',
   ballad: 'storyteller',
 };
+
+// Set of valid OpenAI voice keys. Any incoming `voice` that isn't in this
+// set must be translated through PERSONA_TO_OPENAI before hitting OpenAI's
+// API, otherwise the request 400s with "invalid_voice".
+const OPENAI_VALID_VOICES = new Set(Object.keys(OPENAI_TO_PERSONALITY));
+function resolveOpenAIVoice(voice){
+  if (OPENAI_VALID_VOICES.has(voice)) return voice;
+  return PERSONA_TO_OPENAI[voice] || 'onyx';
+}
 
 // ElevenLabs TTS with streaming for faster first-byte
 // intensity: 0 = calm deliberate delivery, 1 = breathless sprint (tournament speed)
@@ -167,6 +214,10 @@ async function cartesiaTTS(text, voice, speed, apiKey, intensity = 0) {
 }
 
 async function openAITTS(text, voice, speed, apiKey) {
+  // Translate persona keys (statesman, barrister, etc.) to a valid OpenAI
+  // voice key before calling. Without this, free-tier requests for new
+  // personas would get rejected by OpenAI with invalid_voice.
+  const safeVoice = resolveOpenAIVoice(voice);
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {
@@ -176,7 +227,7 @@ async function openAITTS(text, voice, speed, apiKey) {
     body: JSON.stringify({
       model: 'tts-1',
       input: text,
-      voice: voice,
+      voice: safeVoice,
       speed: speed,
       response_format: 'mp3',
     }),
