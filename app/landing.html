@@ -291,7 +291,11 @@ button{font-family:inherit;cursor:pointer}
 /* ── Split grid ────────────────────────────────────── */
 .hero-split{
   display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);
+  /* Chat-side gets more horizontal real estate. The orb is fixed-aspect
+     so giving the right column a wider share doesn't squeeze it. The chat
+     becomes the primary funnel — wider input, fewer line wraps in the
+     streaming AI replies. */
+  grid-template-columns:minmax(0,.85fr) minmax(0,1.4fr);
   gap:clamp(24px,4vw,56px);
   align-items:stretch;
   margin-top:44px;
@@ -1647,7 +1651,14 @@ button{font-family:inherit;cursor:pointer}
       var voices = ['onyx','echo','fable','alloy','nova','shimmer','coral','sage','ash','ballad'];
       var lastIdx = -1;
       var current = null;
-      var loading = false;
+      // Preload queue: a single fetched-and-ready sample sitting in memory.
+      // Idle prefetch fires on page load (after a small delay so it doesn't
+      // race the orb / neural-net first paint) and refills after every play.
+      // First click is then instant — no network round-trip — instead of the
+      // ~1-2s users were seeing.
+      var preloaded = null;        // { audio, url }
+      var preloadInFlight = false;
+      var PLAYBACK_RATE = 1.4;     // ~30% faster than the prior 1.1
 
       function setLabel(t){ if (labelEl) labelEl.textContent = t; }
       function setIcon(t){ if (iconEl) iconEl.textContent = t; }
@@ -1658,21 +1669,72 @@ button{font-family:inherit;cursor:pointer}
         try { window.__heroOrbMode && window.__heroOrbMode('idle'); } catch(e){}
       }
 
-      btn.addEventListener('click', async function(){
-        if (loading) return;
-        // Stop any currently-playing sample first so successive clicks don't
-        // overlap two voices.
-        if (current) { try { current.pause(); } catch(e){} current = null; }
+      function pickIndex(){
         var idx;
         do { idx = Math.floor(Math.random() * samples.length); }
         while (samples.length > 1 && idx === lastIdx);
-        lastIdx = idx;
-        var voice = voices[Math.floor(Math.random() * voices.length)];
-        var text  = samples[idx];
+        return idx;
+      }
 
-        loading = true;
+      function prefetchOne(){
+        if (preloaded || preloadInFlight) return;
+        preloadInFlight = true;
+        var idx = pickIndex();
+        var voice = voices[Math.floor(Math.random() * voices.length)];
+        var text = samples[idx];
+        fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, voice: voice, speed: 1.0, premium: false, intensity: 0.45 })
+        }).then(function(r){ return r.ok ? r.blob() : null; }).then(function(blob){
+          preloadInFlight = false;
+          if (!blob) return;
+          var url = URL.createObjectURL(blob);
+          var a = new Audio(url);
+          a.playbackRate = PLAYBACK_RATE;
+          a.preload = 'auto';
+          // Force the browser to actually buffer the bytes. Without this,
+          // some browsers defer decoding until play() and you still see a
+          // ~200ms hitch on the first click.
+          try { a.load(); } catch(e){}
+          preloaded = { audio: a, url: url, idx: idx };
+        }).catch(function(){ preloadInFlight = false; });
+      }
+
+      function playAudio(a, url, idx){
+        current = a;
+        lastIdx = idx;
+        btn.classList.remove('loading');
+        btn.classList.add('playing');
+        setIcon('❚❚'); setLabel('Stop');
+        try { document.getElementById('heroOrbWrap')?.classList.add('speaking'); } catch(e){}
+        try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
+        a.onended = function(){ try { URL.revokeObjectURL(url); } catch(e){} if (current === a) current = null; reset(); prefetchOne(); };
+        a.onerror = function(){ try { URL.revokeObjectURL(url); } catch(e){} if (current === a) current = null; reset(); prefetchOne(); };
+        a.play().catch(function(){ reset(); });
+      }
+
+      btn.addEventListener('click', async function(){
+        // Stop any currently-playing sample first so successive clicks don't
+        // overlap two voices.
+        if (current) { try { current.pause(); } catch(e){} current = null; }
+
+        // Cache hit — play instantly, no network.
+        if (preloaded) {
+          var hit = preloaded;
+          preloaded = null;
+          playAudio(hit.audio, hit.url, hit.idx);
+          // Refill the cache for the NEXT click in the background.
+          prefetchOne();
+          return;
+        }
+
+        // Cache miss — fetch on demand.
         btn.classList.add('loading');
         setLabel('Loading…');
+        var idx = pickIndex();
+        var voice = voices[Math.floor(Math.random() * voices.length)];
+        var text  = samples[idx];
         try {
           var r = await fetch('/api/tts', {
             method: 'POST',
@@ -1683,32 +1745,26 @@ button{font-family:inherit;cursor:pointer}
           var blob = await r.blob();
           var url = URL.createObjectURL(blob);
           var a = new Audio(url);
-          a.playbackRate = 1.1;
-          current = a;
-          loading = false;
-          btn.classList.remove('loading');
-          btn.classList.add('playing');
-          setIcon('❚❚'); setLabel('Stop');
-          try { document.getElementById('heroOrbWrap')?.classList.add('speaking'); } catch(e){}
-          try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
-          a.onended = function(){ try { URL.revokeObjectURL(url); } catch(e){} if (current === a) current = null; reset(); };
-          a.onerror = function(){ try { URL.revokeObjectURL(url); } catch(e){} if (current === a) current = null; reset(); };
-          a.play().catch(function(){ reset(); });
+          a.playbackRate = PLAYBACK_RATE;
+          playAudio(a, url, idx);
+          // Refill in the background after the first manual fetch too.
+          prefetchOne();
         } catch(e) {
-          loading = false;
           btn.classList.remove('loading');
           setLabel('Try again');
           setTimeout(function(){ if (!current) { setIcon('▶'); setLabel('Try me'); } }, 1800);
         }
       });
 
-      // Click-while-playing acts as a stop toggle.
-      btn.addEventListener('click', function(){
-        if (current && btn.classList.contains('playing')) {
-          // The async handler above will start a NEW sample on the next
-          // microtask. Let it. (Successive presses cycle naturally.)
-        }
-      });
+      // Idle prefetch — kicks off the first sample fetch as soon as the
+      // browser is done with critical work. The first click is then the
+      // network round-trip the user already paid for during page load, not
+      // a 1-2s wait at click time.
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(prefetchOne, { timeout: 2500 });
+      } else {
+        setTimeout(prefetchOne, 1500);
+      }
     })();
     </script>
 
