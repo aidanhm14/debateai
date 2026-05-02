@@ -2815,6 +2815,11 @@ function App(){
   const[viewingCase,setViewingCase]=useState(null);
   const[caseSaved,setCaseSaved]=useState(false); // flash "Saved!" in feedback phase
 
+  // Setup-screen tab. 'setup' shows the format/motion/brain pickers;
+  // 'saved' shows saved cases, past rounds, and "how I think as a debater"
+  // (the genPatterns analyzer). One landing screen for everything historical.
+  const[setupTab,setSetupTab]=useState('setup');
+
   const saveCase=(customTitle)=>{
     // Extract AI constructive speeches from the log
     const aiSpeeches=log.filter(l=>l.who==='AI');
@@ -3853,6 +3858,92 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   },'?');
 
   // ── SETUP ──
+  // Tab bar for the setup screen. Shared between the Setup and Saved views.
+  const setupTabBar = el('div',{style:{display:'flex',gap:6,justifyContent:'center',marginBottom:18,marginTop:4}},
+    [['setup','Setup'],['saved','Saved']].map(([k,label])=>el('button',{
+      key:k,onClick:()=>setSetupTab(k),
+      style:{
+        padding:'8px 22px',borderRadius:999,
+        background:setupTab===k?'rgba(239,68,68,.16)':'transparent',
+        border:'1px solid '+(setupTab===k?'rgba(239,68,68,.55)':'var(--c-border2)'),
+        color:setupTab===k?'#fca5a5':'var(--c-text)',
+        fontSize:'.78rem',fontWeight:setupTab===k?700:500,letterSpacing:'.04em',
+        cursor:'pointer',fontFamily:'inherit',
+      },
+    },label,k==='saved'&&(savedCases.length+historyRounds.length)>0&&el('span',{style:{marginLeft:6,fontSize:'.62rem',opacity:.7}},'('+(savedCases.length+historyRounds.length)+')')))
+  );
+
+  // SAVED VIEW — saved cases + past rounds + "how I think as a debater"
+  if(phase==='setup' && setupTab==='saved') return el('div',{className:'page'},
+    shortcutsOverlay,
+    helpFloatingButton,
+    el('div',{className:'ambient'}),bar,
+    el('div',{className:stageClass},
+      el('h1',{className:'t-hero'},'Saved'),
+      el('p',{className:'t-sub'},'Cases, past rounds, and how you think as a debater.'),
+      setupTabBar,
+
+      // Saved cases
+      el('div',{style:{marginTop:24,padding:'18px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border2)',borderRadius:14,textAlign:'left'}},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10}},
+          el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--c-bright)',letterSpacing:'.14em',textTransform:'uppercase'}},'Saved cases ('+savedCases.length+')'),
+          savedCases.length>0&&el('button',{className:'cta-ghost',style:{margin:0,padding:'4px 12px',fontSize:'.7rem'},onClick:()=>{setSetupTab('setup');setShowCases(true)}},'Open library')
+        ),
+        savedCases.length===0
+          ? el('div',{style:{fontSize:'.8rem',color:'var(--c-dim)'}},'After a round, hit "Save case" on the AI’s speeches to bank the best ones here.')
+          : el('div',{style:{display:'flex',flexDirection:'column',gap:6}},
+              savedCases.slice(0,5).map(c=>el('button',{key:c.id,onClick:()=>{setSetupTab('setup');setShowCases(true);setViewingCase(c)},style:{
+                textAlign:'left',padding:'10px 12px',background:'rgba(255,255,255,.02)',border:'1px solid var(--c-border2)',
+                borderRadius:8,cursor:'pointer',fontFamily:'inherit',color:'var(--c-text)',
+              }},
+                el('div',{style:{fontSize:'.85rem',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},c.title),
+                el('div',{style:{fontSize:'.68rem',color:'var(--c-dim)',marginTop:2}},c.formatName+' · '+c.sideLabel+' · '+new Date(c.date).toLocaleDateString())
+              ))
+            ),
+      ),
+
+      // Past rounds
+      el('div',{style:{marginTop:18,padding:'18px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border2)',borderRadius:14,textAlign:'left'}},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10}},
+          el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--c-bright)',letterSpacing:'.14em',textTransform:'uppercase'}},'Round history ('+historyRounds.length+')'),
+          historyRounds.length>0&&el('button',{className:'cta-ghost',style:{margin:0,padding:'4px 12px',fontSize:'.7rem'},onClick:()=>{setSetupTab('setup');setShowHistory(true)}},'Open all')
+        ),
+        historyRounds.length===0
+          ? el('div',{style:{fontSize:'.8rem',color:'var(--c-dim)'}},'Finished rounds appear here with the judge ballot, score, and full transcript.')
+          : el('div',{style:{display:'flex',flexDirection:'column',gap:6}},
+              historyRounds.slice(0,5).map(r=>el('button',{key:r.id,onClick:()=>{setSetupTab('setup');setShowHistory(true);setViewingRound&&setViewingRound(r)},style:{
+                textAlign:'left',padding:'10px 12px',background:'rgba(255,255,255,.02)',border:'1px solid var(--c-border2)',
+                borderRadius:8,cursor:'pointer',fontFamily:'inherit',color:'var(--c-text)',display:'flex',alignItems:'center',gap:10,
+              }},
+                el('span',{style:{
+                  fontSize:'.6rem',fontWeight:800,letterSpacing:'.08em',padding:'2px 8px',borderRadius:4,
+                  background:r.userWon===true?'rgba(34,197,94,.12)':r.userWon===false?'rgba(239,68,68,.12)':'rgba(255,255,255,.05)',
+                  color:r.userWon===true?'#4ade80':r.userWon===false?'#fca5a5':'var(--c-dim)',
+                }},r.userWon===true?'WIN':r.userWon===false?'LOSS':'—'),
+                el('div',{style:{flex:1,minWidth:0}},
+                  el('div',{style:{fontSize:'.85rem',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},(r.motion||'').slice(0,80)),
+                  el('div',{style:{fontSize:'.68rem',color:'var(--c-dim)',marginTop:2}},(r.formatName||'')+' · '+new Date(r.date||r.id).toLocaleDateString())
+                )
+              ))
+            ),
+      ),
+
+      // How I think as a debater
+      el('div',{style:{marginTop:18,padding:'18px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border2)',borderRadius:14,textAlign:'left'}},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10}},
+          el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--c-bright)',letterSpacing:'.14em',textTransform:'uppercase'}},'How I think as a debater'),
+          el('button',{className:'cta-ghost',style:{margin:0,padding:'4px 12px',fontSize:'.7rem'},disabled:patternsLoading,onClick:genPatterns},patternsLoading?'Analyzing…':patterns?'Refresh':'Analyze'),
+        ),
+        historyRounds.length<3
+          ? el('div',{style:{fontSize:'.8rem',color:'var(--c-dim)'}},'After 3+ rounds, this surfaces the recurring strengths, weaknesses, and the single highest-leverage fix for your style. '+(3-historyRounds.length)+' more to unlock.')
+          : !patterns
+            ? el('div',{style:{fontSize:'.8rem',color:'var(--c-dim)'}},'Hit Analyze to read recurring patterns across your last '+Math.min(historyRounds.length,12)+' rounds.')
+            : el('div',{style:{fontSize:'.85rem',lineHeight:1.6,color:'var(--c-text)',whiteSpace:'pre-wrap'}},patterns)
+      ),
+    ),
+
+  );
+
   if(phase==='setup') return el('div',{className:'page'},
     shortcutsOverlay,
     helpFloatingButton,
@@ -3860,6 +3951,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     el('div',{className:stageClass},
       el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
       el('p',{className:'t-sub'},'Choose your format, opponent, and go.'),
+      setupTabBar,
       // Framing callout. sets the mental model before users start. This is
       // NOT a chat interface; it's a timed speech simulator. Naming that up
       // front prevents the "why can't I just type back and forth" confusion.
