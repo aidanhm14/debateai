@@ -321,9 +321,18 @@ button{font-family:inherit;cursor:pointer}
 }
 
 /* ── "Debate the AI" label above the orb ───────────── */
+/* Override the global .hero h1 sizing — that rule wraps "DEBATE THE AI"
+   to two lines once the orb column is narrow. The headline is supposed
+   to sit on a single line above the orb, big enough to anchor the
+   left column without competing with the main hero h1 over on the chat
+   side. white-space:nowrap is non-negotiable here. */
 .hero-side-label-big{
-  font-size:.72rem;font-weight:800;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--accent);
+  font-size:clamp(1.6rem,2.6vw,2.4rem) !important;
+  font-weight:900;
+  letter-spacing:-.02em !important;
+  text-transform:uppercase;color:var(--text);
+  white-space:nowrap;
+  line-height:1;
   margin:0 0 4px;
 }
 .hero-orb-caption{
@@ -1142,16 +1151,26 @@ button{font-family:inherit;cursor:pointer}
      decide what locale to render in, so the page is translated on load
      before the user sees any English. CSS hides Google's banner + tooltip. -->
 <style>
-  .lang-picker{position:fixed;top:12px;right:12px;z-index:9999;font-family:inherit}
-  .lang-picker select{
+  /* Picker is moved into the topbar via JS so it doesn't sit on top of
+     the existing nav buttons. Default position is offscreen; .lang-picker.in-nav
+     resets layout for inline rendering inside .ui-topbar-right. */
+  .lang-picker{position:absolute;left:-9999px;top:-9999px;font-family:inherit}
+  .lang-picker.in-nav{position:static;left:auto;top:auto;display:inline-flex;align-items:center}
+  #langPickerSel{
     appearance:none;-webkit-appearance:none;
-    padding:6px 26px 6px 10px;border-radius:8px;
-    background:rgba(0,0,0,.55) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23fff' stroke-width='1.5'><polyline points='1.5 2 6 6 10.5 2'/></svg>") no-repeat right 8px center / 10px;
-    color:#fff;border:1px solid rgba(255,255,255,.18);
-    font-size:.74rem;font-weight:600;letter-spacing:.04em;
-    cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    padding:6px 22px 6px 10px;border-radius:8px;
+    background:rgba(255,255,255,.04) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23fff' stroke-width='1.5'><polyline points='1.5 2 6 6 10.5 2'/></svg>") no-repeat right 6px center / 9px;
+    color:var(--text);border:1px solid var(--border);
+    font-size:.72rem;font-weight:600;letter-spacing:.02em;
+    cursor:pointer;font-family:inherit;
+    max-width:140px;
   }
-  .lang-picker select:hover{border-color:rgba(255,255,255,.35)}
+  #langPickerSel:hover{border-color:rgba(255,255,255,.28)}
+  /* Tight viewports — collapse to flag-only so the topbar still fits */
+  @media(max-width:720px){
+    #langPickerSel{max-width:54px;font-size:0;padding:6px 16px 6px 6px}
+    #langPickerSel option{font-size:.78rem}
+  }
   /* Google Translate strips */
   .goog-te-banner-frame.skiptranslate,.goog-te-gadget-icon{display:none!important}
   body{top:0!important}
@@ -1202,6 +1221,16 @@ button{font-family:inherit;cursor:pointer}
     if(sel){
       sel.value=saved;
       sel.addEventListener('change',function(){window.__setLang(sel.value)});
+    }
+    // Move the picker into the topbar (between the theme dots and the
+    // Debate AI CTA) so it doesn't overlap the existing nav buttons.
+    var pickerWrap = document.querySelector('.lang-picker');
+    var navRight = document.querySelector('.ui-topbar-right');
+    var debateBtn = navRight && navRight.querySelector('.ui-btn-primary');
+    if (pickerWrap && navRight) {
+      pickerWrap.classList.add('in-nav');
+      if (debateBtn) navRight.insertBefore(pickerWrap, debateBtn);
+      else navRight.appendChild(pickerWrap);
     }
     // Only load the Google widget if a non-English locale is active. Saves
     // ~70KB of script + a network round-trip for the default English read.
@@ -1634,30 +1663,29 @@ button{font-family:inherit;cursor:pointer}
       var labelEl = btn.querySelector('.try-me-label');
       var iconEl  = btn.querySelector('.try-me-icon');
 
-      // Lines written to sound like a real debater, not an explainer.
-      // Mix of strategic moves: weighing, drop callouts, link attacks,
-      // strategic concessions, cross-applies, ballot crystallization.
-      // First two are the user's seed examples, lightly polished.
+      // Sample lines in the user's debate voice — informal, deadpan,
+      // jargon-heavy, named ("side opp", "MG", "link chain"). Short
+      // declarative sentences. Smart brevity, never redundant.
       var samples = [
-        "Honestly, it's charitable to say this plan is worth considering. Side opp is full of unwarranted claims, like their argument that the housing market self-corrects in a recession. The markets will fail because of our opponents' plan, and side opp's link chain is practically empty.",
-        "Side gov totally knifes their own arguments about gender equality when MG instigates a pseudo-gender-culture war with his preposterous claims about women voters. They can't run feminism and tradition in the same speech.",
-        "On the flow, opp dropped our coordination-failure argument entirely. Extend that. Since it's uncontested, you're voting on it, judge — full stop.",
-        "Their entire case hangs on one link, and it just snapped. They argued deregulation triggers innovation, but the 2008 evidence cuts the exact other way: deregulation triggered the crisis they're claiming to prevent.",
-        "Grant them every word of their economic argument. Every word. They still lose, because none of it touches our principal harm — the rights violation happens in their world too, just dressed up in deficit numbers.",
-        "Cross-apply the moral hazard warrant from our first contention. It directly answers their second point about subsidies, because the same incentive distortion shows up wherever the state insures private risk.",
-        "The ballot question is simple — whose mechanism actually does the work? Theirs requires three contingent steps, each unlikely. Ours requires one direct change. That asymmetry is the round.",
-        "Side opp asks you to imagine a fictional version of the status quo where the harm doesn't exist yet. We're debating reality. In reality, criminalization is what's manufacturing the very harm they're claiming decriminalization causes."
+        "Honestly, charitable to call this a plan. Side opp swears the markets will fix what they just told you the markets broke. Their link chain is empty.",
+        "Side gov totally knifes their gender-equality stuff the second MG opens a pseudo-culture-war on women voters. Can't run feminism and these talking points in one speech.",
+        "Opp dropped our coordination-failure argument. Cold. Extend it — you're voting on it.",
+        "Their whole case hangs on one link. It just snapped. 2008 cuts the exact other way they're using it.",
+        "Grant them every word. Every word. They still lose — none of it touches the rights violation.",
+        "Cross-apply the moral hazard warrant onto their second point. Same incentive distortion, different decade.",
+        "Ballot question is whose mechanism actually works. Theirs needs three contingent steps. Ours needs one. That's the round.",
+        "Side opp wants you to imagine a status quo where the harm doesn't exist yet. We're debating the real one — criminalization is the harm."
       ];
       var voices = ['onyx','echo','fable','alloy','nova','shimmer','coral','sage','ash','ballad'];
       var lastIdx = -1;
       var current = null;
-      // Preload queue: a single fetched-and-ready sample sitting in memory.
-      // Idle prefetch fires on page load (after a small delay so it doesn't
-      // race the orb / neural-net first paint) and refills after every play.
-      // First click is then instant — no network round-trip — instead of the
-      // ~1-2s users were seeing.
-      var preloaded = null;        // { audio, url }
-      var preloadInFlight = false;
+      // Per-sample cache. Each entry: { audio: HTMLAudioElement, url: blobURL }.
+      // We pre-fetch ALL samples concurrently on idle, so by the time the user
+      // clicks anything is already buffered and play() fires instantly. The
+      // audio element is reused across clicks (currentTime = 0 + play()) — no
+      // re-fetch ever needed for the same sample.
+      var cacheByIdx = {};
+      var inFlightByIdx = {};
       var PLAYBACK_RATE = 1.4;     // ~30% faster than the prior 1.1
 
       function setLabel(t){ if (labelEl) labelEl.textContent = t; }
@@ -1676,32 +1704,35 @@ button{font-family:inherit;cursor:pointer}
         return idx;
       }
 
-      function prefetchOne(){
-        if (preloaded || preloadInFlight) return;
-        preloadInFlight = true;
-        var idx = pickIndex();
-        var voice = voices[Math.floor(Math.random() * voices.length)];
+      // Pick a deterministic-ish but varied voice per sample so each line
+      // has a consistent identity AND the cycle hits different voices.
+      function voiceForIdx(idx){ return voices[idx % voices.length]; }
+
+      function prefetchSample(idx){
+        if (cacheByIdx[idx] || inFlightByIdx[idx]) return;
+        var voice = voiceForIdx(idx);
         var text = samples[idx];
-        fetch('/api/tts', {
+        inFlightByIdx[idx] = fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: text, voice: voice, speed: 1.0, premium: false, intensity: 0.45 })
         }).then(function(r){ return r.ok ? r.blob() : null; }).then(function(blob){
-          preloadInFlight = false;
+          delete inFlightByIdx[idx];
           if (!blob) return;
           var url = URL.createObjectURL(blob);
           var a = new Audio(url);
           a.playbackRate = PLAYBACK_RATE;
           a.preload = 'auto';
-          // Force the browser to actually buffer the bytes. Without this,
-          // some browsers defer decoding until play() and you still see a
-          // ~200ms hitch on the first click.
           try { a.load(); } catch(e){}
-          preloaded = { audio: a, url: url, idx: idx };
-        }).catch(function(){ preloadInFlight = false; });
+          cacheByIdx[idx] = { audio: a, url: url };
+        }).catch(function(){ delete inFlightByIdx[idx]; });
       }
 
-      function playAudio(a, url, idx){
+      function prefetchAll(){
+        for (var i = 0; i < samples.length; i++) prefetchSample(i);
+      }
+
+      function playAudio(a, idx){
         current = a;
         lastIdx = idx;
         btn.classList.remove('loading');
@@ -1709,8 +1740,9 @@ button{font-family:inherit;cursor:pointer}
         setIcon('❚❚'); setLabel('Stop');
         try { document.getElementById('heroOrbWrap')?.classList.add('speaking'); } catch(e){}
         try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
-        a.onended = function(){ try { URL.revokeObjectURL(url); } catch(e){} if (current === a) current = null; reset(); prefetchOne(); };
-        a.onerror = function(){ try { URL.revokeObjectURL(url); } catch(e){} if (current === a) current = null; reset(); prefetchOne(); };
+        a.onended = function(){ if (current === a) current = null; reset(); };
+        a.onerror = function(){ if (current === a) current = null; reset(); };
+        try { a.currentTime = 0; } catch(e){}
         a.play().catch(function(){ reset(); });
       }
 
@@ -1718,37 +1750,31 @@ button{font-family:inherit;cursor:pointer}
         // Stop any currently-playing sample first so successive clicks don't
         // overlap two voices.
         if (current) { try { current.pause(); } catch(e){} current = null; }
+        var idx = pickIndex();
 
         // Cache hit — play instantly, no network.
-        if (preloaded) {
-          var hit = preloaded;
-          preloaded = null;
-          playAudio(hit.audio, hit.url, hit.idx);
-          // Refill the cache for the NEXT click in the background.
-          prefetchOne();
+        if (cacheByIdx[idx]) {
+          playAudio(cacheByIdx[idx].audio, idx);
           return;
         }
 
-        // Cache miss — fetch on demand.
+        // Cache miss — fetch this specific sample on demand. Other samples
+        // continue prefetching in the background.
         btn.classList.add('loading');
         setLabel('Loading…');
-        var idx = pickIndex();
-        var voice = voices[Math.floor(Math.random() * voices.length)];
-        var text  = samples[idx];
+        prefetchSample(idx);
         try {
-          var r = await fetch('/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: text, voice: voice, speed: 1.0, premium: false, intensity: 0.45 })
-          });
-          if (!r.ok) throw new Error('tts ' + r.status);
-          var blob = await r.blob();
-          var url = URL.createObjectURL(blob);
-          var a = new Audio(url);
-          a.playbackRate = PLAYBACK_RATE;
-          playAudio(a, url, idx);
-          // Refill in the background after the first manual fetch too.
-          prefetchOne();
+          // Wait for the in-flight prefetch we just kicked off (or one already
+          // pending) to land.
+          var deadline = Date.now() + 8000;
+          while (!cacheByIdx[idx] && Date.now() < deadline) {
+            await new Promise(function(r){ setTimeout(r, 80); });
+          }
+          if (cacheByIdx[idx]) {
+            playAudio(cacheByIdx[idx].audio, idx);
+          } else {
+            throw new Error('timeout');
+          }
         } catch(e) {
           btn.classList.remove('loading');
           setLabel('Try again');
@@ -1756,14 +1782,14 @@ button{font-family:inherit;cursor:pointer}
         }
       });
 
-      // Idle prefetch — kicks off the first sample fetch as soon as the
-      // browser is done with critical work. The first click is then the
-      // network round-trip the user already paid for during page load, not
-      // a 1-2s wait at click time.
+      // Eager prefetch — fire ALL samples in parallel on idle so by the
+      // time the user clicks anything, the audio is buffered and ready.
+      // Each sample is one short request (~30-80KB MP3); 8 in parallel is
+      // a reasonable cost for guaranteed-instant playback.
       if ('requestIdleCallback' in window) {
-        requestIdleCallback(prefetchOne, { timeout: 2500 });
+        requestIdleCallback(prefetchAll, { timeout: 2500 });
       } else {
-        setTimeout(prefetchOne, 1500);
+        setTimeout(prefetchAll, 1500);
       }
     })();
     </script>
