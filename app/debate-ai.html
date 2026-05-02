@@ -1583,10 +1583,16 @@ function useTTS(){
             const prior=durations.slice(0,ci).reduce((a,b)=>a+(b||0),0);
             progressRef.current.elapsed=prior+(audio.currentTime||0);
           };
-          if(!started){started=true;if(onStart)onStart()}
           await new Promise((res,rej)=>{
             audio.onended=()=>{URL.revokeObjectURL(url);res()};
             audio.onerror=()=>{URL.revokeObjectURL(url);res()};
+            // Fire onStart only when audio has actually begun playing — i.e.
+            // when the first frames hit the speakers. Previously onStart fired
+            // before audio.play(), which started the speech timer while the
+            // browser was still buffering, costing the AI ~200-500ms of clock.
+            audio.onplaying=()=>{
+              if(!started){started=true;if(onStart)onStart()}
+            };
             audio.play().catch(()=>{URL.revokeObjectURL(url);res()});
           });
         }catch{durations[i]=0}
@@ -2198,6 +2204,22 @@ EXAMPLES ARE MANDATORY:
 - Bad example: "History shows this doesn't work." Good example: "When Sweden tried this exact approach in 2015, the result was a 30% increase in [specific outcome] because [mechanism]."
 - If you cite an example, connect it back to your warrant: "This proves our [Warrant Name]. the same dynamic applies here because [parallel]."
 
+ANALOGIES. WITTY AND HUMAN, NEVER AI:
+You must use ONE sharp analogy per speech. The single biggest tell that an argument was AI-generated is the analogy. Get this right and you sound like a real debater; get it wrong and the judge writes "ChatGPT" on the flow.
+- BANNED openers (these are pure AI tells): "Imagine a world where," "Think of it like," "It's like if," "Picture this," "It's the equivalent of," "It's no different than," "It's akin to," "Consider this analogy," "By analogy," "Just as X, so too Y," "Much like a," "It's similar to."
+- BANNED tropes (overused by every LLM): the ship of Theseus, the trolley problem, a house of cards, a ticking time bomb, the elephant in the room, threading a needle, a double-edged sword, a Pandora's box, kicking the can down the road, putting a Band-Aid on a bullet wound, building a house on sand, a slippery slope (as a phrase, not the fallacy), the camel's nose under the tent, the genie out of the bottle, rearranging deck chairs on the Titanic.
+- DO use analogies grounded in CONCRETE, MUNDANE, MODERN human life: how a specific app behaves, a sports moment a fan would recognize, a small-stakes daily situation, a workplace dynamic, a moment from a recent film or news cycle, a piece of consumer tech everyone has used, food, money, cars, dating, parenting, school. Specific brands and product names are fine and make it sound human ("This is Adobe charging you for a font you already paid for in 2007.").
+- KEEP them under 14 words. The wittiest analogies are short, declarative, and land on a punchline noun. Long analogies signal AI explanation; short ones signal human compression.
+- DROP them mid-sentence WITHOUT a setup phrase. Just say the comparison. Don't announce it.
+  * BAD (AI): "Their plan is like trying to fix a leaky faucet by replacing the entire kitchen, when a simple repair would do."
+  * GOOD (human): "Their plan is replacing the kitchen because the faucet drips."
+  * BAD (AI): "It's akin to building a skyscraper on a foundation of sand."
+  * GOOD (human): "They're pouring concrete on a swamp and calling it engineering."
+  * BAD (AI): "Imagine if every time you wanted to drive, you had to rebuild the engine."
+  * GOOD (human): "This is unlocking your phone with a 90-step verification."
+- WIT comes from SPECIFICITY + UNDERSTATEMENT, not from being clever. The funniest debate analogies sound deadpan, not cute. Avoid puns, avoid alliteration, avoid anything that reads as "trying to be funny." Sound like a tired senior debater who's seen this argument fifty times.
+- One analogy per speech. Two is showing off; three is desperate. Make it count.
+
 ${isFirst && !isCX ? `MODEL/MECHANISM. FOR POLICY MOTIONS:
 If the motion proposes a policy change, you MUST establish the MODEL in your first constructive:
 - WHO implements this? (government, international body, private sector)
@@ -2487,6 +2509,35 @@ function App(){
   const[oppWeaknesses,setOppWeaknesses]=useState([]);
   const[brain,setBrain]=useState('claude');
   const[voice,setVoice]=useState('onyx');
+
+  // Voice preview — clicking a voice in the picker plays a short sample so
+  // users can hear what each persona sounds like before locking in. The ref
+  // holds the active preview audio so a new click cancels the prior one.
+  const previewAudioRef = useRef(null);
+  const previewVoice = (voiceKey) => {
+    try { if (previewAudioRef.current) { previewAudioRef.current.pause(); previewAudioRef.current = null; } } catch {}
+    const samples = [
+      'I yield the floor, but only because my opponent has already lost the round.',
+      'Their argument has three problems, and the third one is fatal.',
+      'Grant them everything they said. They still lose. Here is why.',
+      'The judge does not need a roadmap. The judge needs the truth.',
+      'On the flow, they dropped our strongest point. That is the round.',
+    ];
+    const text = samples[Math.floor(Math.random() * samples.length)];
+    fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice: voiceKey, speed: 1.0, premium: typeof isPro==='function'?isPro():false, intensity: 0 }),
+    }).then(r => r.ok ? r.blob() : null).then(blob => {
+      if (!blob) return;
+      const a = new Audio(URL.createObjectURL(blob));
+      a.playbackRate = 1.1;
+      previewAudioRef.current = a;
+      a.onended = () => { try { URL.revokeObjectURL(a.src); } catch {} if (previewAudioRef.current === a) previewAudioRef.current = null; };
+      a.play().catch(() => {});
+    }).catch(() => {});
+  };
+
   const[side,setSide]=useState('gov');
   // Judge paradigm — shapes BOTH the AI opponent's strategy (they try to
   // win the judge they're in front of) AND the final RFD voice. Persisted
@@ -2578,6 +2629,62 @@ function App(){
   const[aiPct,setAiPct]=useState(0);       // generation progress %
   const[voiceEta]=useState(0); // TTS timing display
   const[showTx,setShowTx]=useState(false);
+  // 30s countdown gate before AI starts speaking. The countdown begins the
+  // moment the first audio chunk is ready; the user presses Start (or the
+  // counter hits 0) to actually fire playback. Lets users finish notes /
+  // brace themselves instead of being ambushed by the AI's voice.
+  const[aiCountdown,setAiCountdown]=useState(null);
+  const aiStartRef = useRef(null);
+  useEffect(()=>{
+    if(aiCountdown===null) return;
+    if(aiCountdown<=0){
+      const fn = aiStartRef.current;
+      aiStartRef.current = null;
+      setAiCountdown(null);
+      if(fn) fn();
+      return;
+    }
+    const id = setTimeout(()=>setAiCountdown(c => (c===null?null:c-1)), 1000);
+    return () => clearTimeout(id);
+  },[aiCountdown]);
+  const startAiSpeechNow = () => {
+    const fn = aiStartRef.current;
+    aiStartRef.current = null;
+    setAiCountdown(null);
+    if(fn) fn();
+  };
+
+  // Auto-generated background context. Most motions need a sentence or two
+  // of "what's actually being debated" — actor, current state, key tension —
+  // before either side can argue cleanly. If the user leaves the background
+  // field blank, we ask Claude Haiku for a 2-3 sentence factual primer and
+  // surface it as a faded watermark behind the stage.
+  const[generatedBackground,setGeneratedBackground]=useState('');
+  const bgRequestedFor = useRef('');
+  const ensureBackground = async (m) => {
+    if (!m || !m.trim()) return;
+    if (background && background.trim()) return;
+    if (bgRequestedFor.current === m) return;
+    bgRequestedFor.current = m;
+    try {
+      const r = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 220,
+          system: 'You write debate background primers. Given a motion, output 2-3 plain sentences of factual context: who decides, what the current state of the issue is, and what is actually contested. No fluff, no opinion, no rhetoric, no "this house" framing. Plain prose only.',
+          messages: [{ role:'user', content: `Motion: "${m}". Write the background.` }],
+          stream: false,
+          _feature: 'debate-ai-background-gen',
+        }),
+      });
+      if (!r.ok) return;
+      const d = await r.json();
+      const text = (d && d.content && d.content[0] && d.content[0].text || '').trim();
+      if (text) setGeneratedBackground(text);
+    } catch {}
+  };
   // Audio progress tick — polled at 200ms while TTS is speaking so the
   // scrub bar under the pause button updates in real time. The useEffect
   // that reads tts.speaking lives BELOW `const tts=useTTS()` to avoid a
@@ -2789,7 +2896,7 @@ function App(){
   const transition=(next,cb)=>{setVis(false);setTimeout(()=>{if(cb)cb();setPhase(next);setTimeout(()=>setVis(true),50)},350)};
 
   // Start debate
-  const startDebate=()=>{if(!motion.trim())return;SFX.startRound();warmUpTTS();if(typeof gtag==='function')gtag('event','round_start',{format:fmt.name,side,motion_length:motion.length});transition('prep',()=>prepTimer.go(fmt.prep))};
+  const startDebate=()=>{if(!motion.trim())return;SFX.startRound();warmUpTTS();ensureBackground(motion);if(typeof gtag==='function')gtag('event','round_start',{format:fmt.name,side,motion_length:motion.length});transition('prep',()=>prepTimer.go(fmt.prep))};
 
   // Quick-start: one-tap flow that picks a random motion, forces Quick
   // Clash format (shortest round), picks pro, and fires startDebate.
@@ -2923,12 +3030,17 @@ function App(){
           blobPromises.push(blobP);
           console.log(`%c[TTS] Chunk ${blobPromises.length} queued (${splitText.split(/\s+/).length} words)`,'color:cyan');
 
-          // Start playback on the FIRST chunk. don't wait for AI to finish
+          // Start playback on the FIRST chunk. don't wait for AI to finish.
+          // Audio is now gated: instead of auto-starting, queue a starter and
+          // hand off to the 30s countdown UI. User presses Start (or the
+          // counter expires) to actually fire playChunks.
           if(!playbackStarted){
             playbackStarted=true;
             setAiLoading('voice');
-            console.log('%c[TTS] Starting live playback while AI still generating','color:lime;font-weight:bold');
-            tts.playChunks(blobPromises,()=>{orb.setMode('idle');setTimeout(()=>endSpeech(),800)},onAudioStart);
+            console.log('%c[TTS] Audio ready — gated behind 30s countdown / Start','color:lime;font-weight:bold');
+            const startFn = () => tts.playChunks(blobPromises,()=>{orb.setMode('idle');setTimeout(()=>endSpeech(),800)},onAudioStart);
+            aiStartRef.current = startFn;
+            setAiCountdown(30);
           }
         };
 
@@ -3908,12 +4020,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       el('div',{className:'t-label',style:{marginTop:24}},'AI Voice',isPro()&&el('span',{style:{marginLeft:8,fontSize:'.55rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4,verticalAlign:'middle'}},'HD VOICE')),
       el('div',{className:'pills',style:{flexWrap:'wrap',justifyContent:'center'}},
         Object.entries(VOICES).map(([k,v])=>
-          el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>setVoice(k),style:{minWidth:voice===k?'auto':undefined}},
+          el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>{ setVoice(k); previewVoice(k); },style:{minWidth:voice===k?'auto':undefined}},
             v.name,
             voice===k&&el('span',{style:{marginLeft:6,fontSize:'.6rem',opacity:.6,fontWeight:400}},v.gender)
           )
         )
       ),
+      el('div',{style:{textAlign:'center',marginTop:6,fontSize:'.62rem',color:'var(--c-subtle)',letterSpacing:'.04em'}},'Tap any voice to hear a sample line'),
       // Selected voice description + rivalry pill
       VOICES[voice]&&el('div',{style:{textAlign:'center',marginTop:8,fontSize:'.72rem',color:'var(--c-text)',lineHeight:1.4,maxWidth:360,margin:'8px auto 0'}},
         VOICES[voice].desc
@@ -3953,21 +4066,29 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
         Object.entries(BRAINS).map(([k,v])=>{
           var isActive=brain===k;
-          return el('button',{key:k,onClick:()=>setBrain(k),title:v.desc,style:{
+          // Free tier: only Claude is selectable. The other brains are visible
+          // but locked behind upgrade so users can still see what's available.
+          var locked = k!=='claude' && !isPro();
+          return el('button',{key:k,onClick:()=>{
+            if(locked){ window.location.href='/#pricing'; return; }
+            setBrain(k);
+          },title:locked?v.desc+' — Pro only':v.desc,style:{
             padding:'8px 16px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',
             transition:'.2s',fontSize:'.82rem',fontWeight:isActive?700:500,
             background:isActive?v.color+'18':'var(--c-surface3)',
             border:'1px solid '+(isActive?v.color+'55':'var(--c-border5)'),
             color:isActive?v.color:'#94a3b8',
             display:'flex',alignItems:'center',gap:6,
+            opacity:locked?.45:1,
           }},
             el('span',{style:{width:8,height:8,borderRadius:'50%',background:v.color,display:'inline-block',opacity:isActive?1:.4}}),
             v.name,
+            locked&&el('span',{style:{marginLeft:4,fontSize:'.55rem',fontWeight:700,letterSpacing:'.04em',color:'#fca5a5',background:'rgba(239,68,68,.12)',border:'1px solid rgba(239,68,68,.25)',padding:'1px 5px',borderRadius:4}},'PRO'),
           );
         })
       ),
       isPro()&&el('div',{style:{fontSize:'.72rem',color:'rgba(239,68,68,.6)',fontWeight:600,marginTop:4}},'Pro. using faster, smarter models'),
-      !isPro()&&el('div',{style:{fontSize:'.72rem',color:'var(--c-dim)',marginTop:4}},'Free tier · ',el('a',{href:'/#pricing',style:{color:'rgba(239,68,68,.5)',textDecoration:'underline'}},'Upgrade for faster generation')),
+      !isPro()&&el('div',{style:{fontSize:'.72rem',color:'var(--c-dim)',marginTop:4}},'Free tier: Claude only · ',el('a',{href:'/#pricing',style:{color:'rgba(239,68,68,.5)',textDecoration:'underline'}},'Upgrade for all 4 brains')),
 
       // ── Advanced Settings Toggle ──
       el('button',{onClick:()=>setShowAdvanced(!showAdvanced),style:{marginTop:24,background:'none',border:'1px solid var(--c-border2)',borderRadius:10,padding:'10px 20px',color:'var(--c-text)',fontSize:'.78rem',cursor:'pointer',display:'flex',alignItems:'center',gap:8,margin:'24px auto 0',transition:'all .2s'}},
@@ -4264,10 +4385,27 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           ))
         ),
 
+        // Faded full-stage watermark of the background context. Auto-generated
+        // when the user left the background blank. Sits behind everything at
+        // very low opacity so it reads like the literal "background" of the
+        // debate without competing with the orb / timer.
+        (background||generatedBackground)&&el('div',{style:{
+          position:'fixed',inset:0,zIndex:0,pointerEvents:'none',
+          display:'flex',alignItems:'center',justifyContent:'center',
+          padding:'8vw 10vw',
+        }},el('div',{style:{
+          fontSize:'clamp(1rem,1.5vw,1.4rem)',lineHeight:1.55,fontStyle:'italic',
+          color:'rgba(255,255,255,.05)',textAlign:'center',
+          maxWidth:1200,fontWeight:300,letterSpacing:'.01em',
+        }},background||generatedBackground)),
+
         // Resolution display
-        el('div',{style:{maxWidth:600,margin:'0 auto 16px',textAlign:'center'}},
+        el('div',{style:{maxWidth:600,margin:'0 auto 16px',textAlign:'center',position:'relative',zIndex:1}},
           el('div',{style:{fontSize:'.92rem',fontWeight:600,color:'var(--c-text3)',lineHeight:1.4,fontStyle:'italic'}},'"'+motion+'"'),
-          background&&el('div',{style:{fontSize:'.72rem',color:'var(--c-subtle)',marginTop:4,lineHeight:1.3}},background),
+          (background||generatedBackground)&&el('div',{style:{fontSize:'.72rem',color:'var(--c-subtle)',marginTop:4,lineHeight:1.3}},
+            !background&&generatedBackground?el('span',{style:{fontSize:'.55rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(239,68,68,.55)',marginRight:6}},'Context'):null,
+            background||generatedBackground
+          ),
         ),
 
         // Speech info
@@ -4282,6 +4420,32 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
 
         // TTS error banner
         !isUser&&tts.ttsError&&el('div',{style:{padding:'8px 14px',background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.2)',borderRadius:10,maxWidth:400,margin:'0 auto 12px',fontSize:'.75rem',color:'#f59e0b',textAlign:'center'}},tts.ttsError),
+
+        // 30s countdown gate before AI begins speaking. Audio is generated and
+        // ready to fire — clicking "Start" (or letting the counter hit 0)
+        // triggers playback so the user is never ambushed by the AI voice.
+        !isUser&&aiCountdown!==null&&el('div',{style:{
+          maxWidth:480,margin:'0 auto 16px',padding:'18px 22px',
+          background:'rgba(239,68,68,.06)',
+          border:'1px solid rgba(239,68,68,.28)',
+          borderRadius:14,textAlign:'center',
+        }},
+          el('div',{style:{fontSize:'.6rem',fontWeight:700,letterSpacing:'.16em',textTransform:'uppercase',color:'#fca5a5',marginBottom:8}},'AI Voice Ready'),
+          el('div',{style:{fontSize:'2.4rem',fontWeight:800,color:'#fff',lineHeight:1,marginBottom:4,fontVariantNumeric:'tabular-nums'}},'0:'+String(aiCountdown).padStart(2,'0')),
+          el('div',{style:{fontSize:'.78rem',color:'var(--c-text)',marginBottom:14}},'Press Start when you’re ready. Auto-starts at 0:00.'),
+          el('button',{
+            onClick:startAiSpeechNow,
+            style:{
+              display:'inline-flex',alignItems:'center',gap:8,
+              padding:'12px 32px',borderRadius:999,
+              background:'#ef4444',color:'#fff',
+              border:'1px solid rgba(239,68,68,.7)',
+              fontSize:'.86rem',fontWeight:800,letterSpacing:'.08em',textTransform:'uppercase',
+              cursor:'pointer',fontFamily:'inherit',
+              boxShadow:'0 6px 18px rgba(239,68,68,.35)',
+            },
+          },'▶ Start AI speech'),
+        ),
 
         // Mic fallback: text input when mic unavailable
         isUser&&!rec.micAvailable&&el('textarea',{
@@ -4359,11 +4523,28 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           // how much of it is left; a second clock was noise.
         ),
 
-        // Per-speech transcript removed — it overlaid the orb during audio
-        // playback and broke the "just listen to a real debater speaking"
-        // framing the orb + timer are built around. The full round
-        // transcript is still available at the end of the round (see the
-        // '▶ Show round transcript' toggle below the feedback block).
+        // Live transcript: while the AI is generating + speaking, stream
+        // the text into a panel below the orb so users can read along. Auto-
+        // scrolls so the latest sentence stays in view. Only rendered during
+        // an AI turn; the full round transcript is still available at end.
+        !isUser&&aiText&&el('div',{
+          className:'live-transcript',
+          ref:(node)=>{ if(node) node.scrollTop = node.scrollHeight; },
+          style:{
+            maxWidth:720,margin:'18px auto 0',padding:'14px 18px',
+            background:'rgba(255,255,255,.025)',
+            border:'1px solid var(--c-border2)',
+            borderRadius:12,
+            fontSize:'.84rem',lineHeight:1.55,color:'var(--c-text)',
+            maxHeight:200,overflowY:'auto',
+            textAlign:'left',
+            whiteSpace:'pre-wrap',
+            fontFamily:'inherit',
+          },
+        },
+          el('div',{style:{fontSize:'.55rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--c-subtle)',marginBottom:6}},'Live transcript'),
+          aiText
+        ),
 
         // POI: user can send a POI during AI speech (middle of speech only)
         !isUser&&fmt.poi&&timer.left<(cur.time-60)&&timer.left>60&&el('div',{style:{marginTop:12}},

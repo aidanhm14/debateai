@@ -523,6 +523,20 @@ button{font-family:inherit;cursor:pointer}
     0 0 60px rgba(239,68,68,.2),
     0 0 120px rgba(180,20,20,.14);
   border:1px solid rgba(239,68,68,.22);
+}
+/* "Breathing" halo — opacity-animated overlay instead of box-shadow keyframes
+   on the ring itself. Animating box-shadow with 100-150px blurs forces a full
+   repaint every frame; opacity on a separate layer is GPU-composited. */
+.hero-timer-ring::after{
+  content:'';position:absolute;inset:0;
+  border-radius:50%;
+  pointer-events:none;
+  box-shadow:
+    inset 0 0 120px rgba(200,30,30,.3),
+    0 0 85px rgba(239,68,68,.28),
+    0 0 150px rgba(200,30,30,.2);
+  opacity:.4;
+  will-change:opacity;
   animation:timer-breathe 4.5s ease-in-out infinite;
 }
 .hero-timer-ring::before{
@@ -857,26 +871,21 @@ button{font-family:inherit;cursor:pointer}
   .markets-foot{font-size:.7rem;margin-top:24px}
 }
 .hero-cta-primary{
-  font-size:1.15rem !important;
-  padding:22px 56px !important;
+  font-size:.95rem !important;
+  padding:16px 32px !important;
   background:var(--accent) !important;
   color:#fff !important;
-  box-shadow:0 8px 30px rgba(220,38,38,.42), 0 0 0 0 rgba(220,38,38,.55);
-  animation:ctaPulse 2.4s ease-in-out infinite;
+  box-shadow:0 6px 18px rgba(220,38,38,.3);
 }
-.hero-cta-primary:hover{transform:translateY(-2px) !important;box-shadow:0 12px 38px rgba(220,38,38,.6) !important}
+.hero-cta-primary:hover{transform:translateY(-2px) !important;box-shadow:0 10px 26px rgba(220,38,38,.45) !important}
 .hero-cta-secondary{
   background:transparent !important;
   color:var(--text) !important;
   border:1px solid var(--border);
-  padding:18px 36px !important;
-  font-size:.9rem !important;
+  padding:16px 32px !important;
+  font-size:.95rem !important;
 }
 .hero-cta-secondary:hover{border-color:var(--text);background:var(--bg-card) !important}
-@keyframes ctaPulse{
-  0%,100%{box-shadow:0 8px 30px rgba(220,38,38,.42), 0 0 0 0 rgba(220,38,38,.5)}
-  50%{box-shadow:0 8px 34px rgba(220,38,38,.55), 0 0 0 12px rgba(220,38,38,0)}
-}
 
 /* ── Sections ─────────────────────── */
 .sec{padding:80px 0}
@@ -1513,13 +1522,27 @@ button{font-family:inherit;cursor:pointer}
         return wrap.querySelector('.mini-chat-body-txt');
       }
 
-      function addTtsButton(textNode, text){
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'mini-chat-tts';
-        btn.innerHTML = '\u25B6 Play';
-        btn.addEventListener('click', function(){ playTts(btn, text); });
-        textNode.parentNode.appendChild(btn);
+      // Word-by-word typewriter so the AI reply feels generated rather than
+      // pasted in. ~24ms/word lands near 200 wpm \u2014 the same tournament-speaker
+      // pace the (now removed) TTS used to read at, so the visual rhythm
+      // matches what a real debater sounds like.
+      function typewrite(node, text){
+        return new Promise(function(resolve){
+          node.textContent = '';
+          var words = text.split(/(\s+)/);
+          var i = 0;
+          function step(){
+            if (i >= words.length){ resolve(); return; }
+            node.textContent += words[i];
+            i++;
+            // Auto-scroll while typing so long replies stay in view.
+            bodyEl.scrollTop = bodyEl.scrollHeight;
+            // Whitespace tokens shouldn't wait; words wait ~24ms.
+            var delay = /^\s+$/.test(words[i-1]) ? 0 : 24;
+            setTimeout(step, delay);
+          }
+          step();
+        });
       }
 
       async function callClaude(){
@@ -1563,9 +1586,11 @@ button{font-family:inherit;cursor:pointer}
         try {
           var reply = await callClaude();
           aiNode.classList.remove('mini-chat-typing');
-          aiNode.textContent = reply;
+          // Stream the response in word-by-word so it feels generated.
+          // The cursor on the parent goes away the instant the first word
+          // lands, replaced by the typewriter motion itself.
+          await typewrite(aiNode, reply);
           messages.push({ role: 'assistant', content: reply });
-          addTtsButton(aiNode, reply);
           round++;
           roundEl.textContent = String(Math.min(round, MAX_ROUNDS));
           statusEl.textContent = '';
@@ -1611,47 +1636,6 @@ button{font-family:inherit;cursor:pointer}
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }
       });
 
-      // TTS playback via /api/tts (server handles both ElevenLabs and OpenAI fallback).
-      var ttsCache = {};
-      async function playTts(btn, text){
-        if (btn.classList.contains('playing')) return;
-        btn.classList.add('playing');
-        btn.innerHTML = '\u2022\u2022\u2022';
-        try {
-          var audio;
-          if (ttsCache[text]) {
-            audio = ttsCache[text];
-          } else {
-            var r = await fetch('/api/tts', {
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              // speed=1.15 nudges OpenAI's synth engine faster at the source;
-              // playbackRate below then brings ElevenLabs in line too so the
-              // landing demo reads at tournament-speaker pace, not podcast.
-              body: JSON.stringify({ text: text, voice: 'onyx', speed: 1.15 })
-            });
-            if (!r.ok) throw new Error('TTS failed');
-            var blob = await r.blob();
-            audio = new Audio(URL.createObjectURL(blob));
-            ttsCache[text] = audio;
-          }
-          // Bump playback ~20% above the source rate. Real competitive
-          // debaters speak around 180-220 wpm; default TTS lands around
-          // 150 which reads as "explainer voice" and kills the demo's
-          // "sharp debater" framing. 1.2 lands near 200 wpm without
-          // sounding chipmunk.
-          audio.playbackRate = 1.2;
-          audio.onended = function(){ btn.classList.remove('playing'); btn.innerHTML = '\u25B6 Play'; };
-          audio.play();
-        } catch(e) {
-          btn.classList.remove('playing');
-          // Surface a shorter hint. many failures come from browser autoplay
-          // policy (ignores the first play() without a user gesture). The
-          // button is a user gesture, so subsequent clicks usually work.
-          btn.innerHTML = '\u26A0 Try again';
-          setTimeout(function(){ btn.innerHTML = '\u25B6 Play'; }, 1800);
-        }
-      }
     })();
     </script>
     <div style="margin-top:18px;display:flex;justify-content:center">
