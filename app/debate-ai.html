@@ -372,6 +372,14 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 [data-lighting="light"] .t-time{color:#1a1a1e}
 [data-lighting="light"] .float-input{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.1);color:#1a1a1e}
 [data-lighting="light"] .float-input:focus{border-color:rgba(239,68,68,.5)}
+
+/* Theme-aware copy of the watermark + transcript panel + saved-tab cards.
+   Without these, the dark-theme white tints (rgba(255,255,255,.05) etc.)
+   render invisible on the light theme — relevant for school projectors. */
+.bg-watermark-text{color:rgba(255,255,255,.06)}
+[data-lighting="light"] .bg-watermark-text{color:rgba(0,0,0,.07)}
+[data-lighting="light"] .live-transcript{background:rgba(0,0,0,.03)!important;border-color:rgba(0,0,0,.08)!important;color:#1a1a1e!important}
+[data-lighting="light"] .recovery-banner{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.18)}
 [data-lighting="light"] .float-input::placeholder{color:rgba(0,0,0,.25)}
 [data-lighting="light"] .pill{border-color:rgba(0,0,0,.12);color:rgba(0,0,0,.45)}
 [data-lighting="light"] .pill:hover{border-color:rgba(0,0,0,.3);color:rgba(0,0,0,.7)}
@@ -2880,6 +2888,17 @@ function App(){
   // (the genPatterns analyzer). One landing screen for everything historical.
   const[setupTab,setSetupTab]=useState('setup');
 
+  // Inline brain-lock popover. Clicking GPT/Grok/Gemini on free tier used
+  // to hard-navigate to /#pricing; users lost their setup context. Now we
+  // surface a small popover near the brain row instead — same upgrade CTA
+  // without the page jump.
+  const[brainLock,setBrainLock]=useState(null); // null | brain key (string)
+  useEffect(()=>{
+    if (!brainLock) return;
+    const id = setTimeout(()=>setBrainLock(null), 5000);
+    return () => clearTimeout(id);
+  }, [brainLock]);
+
   // Quota CTA — shown when callAI() throws QUOTA_SIGNIN (anon hit 5/5) or
   // QUOTA_PRO (signed-in hit 10/10). Kicks the user to sign-in or pricing.
   const[quotaCTA,setQuotaCTA]=useState(null);  // null | 'signin' | 'pro'
@@ -3012,6 +3031,9 @@ function App(){
       } else {
         setLog(savedLog);
         setIdx(resumeIdx);
+        // Resume path also enters speech phase — fire background autogen
+        // here too so the watermark renders for resumed rounds.
+        ensureBackground(recoveryData.motion);
         transition('speech',()=>{
           setIdx(resumeIdx);
           setTimeout(()=>runSpeech(resumeIdx,savedLog),400);
@@ -3075,7 +3097,7 @@ function App(){
   const transition=(next,cb)=>{setVis(false);setTimeout(()=>{if(cb)cb();setPhase(next);setTimeout(()=>setVis(true),50)},350)};
 
   // Start debate
-  const startDebate=()=>{if(!motion.trim())return;SFX.startRound();warmUpTTS();ensureBackground(motion);if(typeof gtag==='function')gtag('event','round_start',{format:fmt.name,side,motion_length:motion.length});transition('prep',()=>prepTimer.go(fmt.prep))};
+  const startDebate=()=>{if(!motion.trim())return;SFX.startRound();warmUpTTS();if(typeof gtag==='function')gtag('event','round_start',{format:fmt.name,side,motion_length:motion.length});transition('prep',()=>prepTimer.go(fmt.prep))};
 
   // Quick-start: one-tap flow that picks a random motion, forces Quick
   // Clash format (shortest round), picks pro, and fires startDebate.
@@ -3099,6 +3121,10 @@ function App(){
 
   // Skip prep → first speech
   const goToSpeeches=()=>{SFX.click();
+    // Lazy background autogen: only fire if the user is actually entering
+    // speeches (not at startDebate, which they might cancel during prep).
+    // Saves a Claude call per round when users abort during prep.
+    ensureBackground(motion);
     warmUpTTS();
     prepTimer.reset();
     transition('speech',()=>{setIdx(0);setLog([]);setTimeout(()=>runSpeech(0,[]),400)});
@@ -3218,10 +3244,20 @@ function App(){
           if(!playbackStarted){
             playbackStarted=true;
             setAiLoading('voice');
-            console.log('%c[TTS] Audio ready — gated behind 30s countdown / Start','color:lime;font-weight:bold');
+            // Countdown scales to the speech itself: 10% of the speech's
+            // total time, capped at 30s, floored at 5s. Stops 30s of dead
+            // air before a 60s cross-ex while keeping a real "brace
+            // yourself" pause before an 8min Constructive.
+            const countdownSec = Math.max(5, Math.min(30, Math.round((s.time||300) * 0.1)));
+            // Skip-the-gate preference: power users opt out via the modal,
+            // and we honor it for the rest of the session + future visits.
+            let skipGate = false;
+            try { skipGate = localStorage.getItem('debateos-skip-ai-countdown') === '1'; } catch(e){}
+            console.log('%c[TTS] Audio ready — gated behind '+countdownSec+'s countdown / Start','color:lime;font-weight:bold');
             const startFn = () => tts.playChunks(blobPromises,()=>{orb.setMode('idle');setTimeout(()=>endSpeech(),800)},onAudioStart);
             aiStartRef.current = startFn;
-            setAiCountdown(30);
+            if (skipGate) startFn();
+            else setAiCountdown(countdownSec);
           }
         };
 
@@ -4095,6 +4131,31 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
             ? el('div',{style:{fontSize:'.8rem',color:'var(--c-dim)'}},'Hit Analyze to read recurring patterns across your last '+Math.min(historyRounds.length,12)+' rounds.')
             : el('div',{style:{fontSize:'.85rem',lineHeight:1.6,color:'var(--c-text)',whiteSpace:'pre-wrap'}},patterns)
       ),
+
+      // Practice drill — companion to "How I think". Only renders once
+      // patterns exist, since the drill is built FROM the diagnosis. The
+      // generated drill applies a motion/side/traits combo specifically
+      // designed to stress-test the user's #1 weakness, then drops them
+      // on setup with everything pre-filled.
+      patterns && el('div',{style:{marginTop:18,padding:'18px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border2)',borderRadius:14,textAlign:'left'}},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10}},
+          el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--c-bright)',letterSpacing:'.14em',textTransform:'uppercase'}},'Practice drill'),
+          el('button',{className:'cta-ghost',style:{margin:0,padding:'4px 12px',fontSize:'.7rem'},disabled:drillLoading,onClick:genDrillPlan},drillLoading?'Building…':drillPlan&&!drillPlan.error?'Re-roll':'Build drill'),
+        ),
+        !drillPlan
+          ? el('div',{style:{fontSize:'.8rem',color:'var(--c-dim)'}},'A round designed around your #1 weakness. The motion, side, and AI opponent traits are picked to force the practice you actually need — not the comfortable round you\'d pick yourself.')
+          : drillPlan.error
+            ? el('div',{style:{fontSize:'.8rem',color:'#fca5a5'}},drillPlan.error)
+            : el('div',null,
+                el('div',{style:{fontSize:'.92rem',fontWeight:700,color:'var(--c-bright)',lineHeight:1.4,marginBottom:6}},'"'+drillPlan.motion+'"'),
+                el('div',{style:{fontSize:'.7rem',color:'var(--c-subtle)',marginBottom:10}},
+                  (FORMATS[drillPlan.format]?.name || drillPlan.format) + ' · You are ' + ((FORMATS[drillPlan.format]?.sideLabels||{})[drillPlan.side] || drillPlan.side) +
+                  (Array.isArray(drillPlan.traits)&&drillPlan.traits.length?' · AI loaded: '+drillPlan.traits.join(', '):'')
+                ),
+                drillPlan.why && el('div',{style:{fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.55,marginBottom:12,fontStyle:'italic'}},drillPlan.why),
+                el('button',{className:'cta',onClick:useDrillPlan,style:{padding:'10px 22px',fontSize:'.82rem',marginTop:0}},'Run this drill →'),
+              )
+      ),
     ),
 
   );
@@ -4417,29 +4478,52 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         'AI Brain',
         brain!=='claude'&&el('span',{style:{fontSize:'.6rem',color:BRAINS[brain]?.color||'#fff',opacity:.7,fontWeight:500,textTransform:'none',letterSpacing:0}},BRAINS[brain]?.desc),
       ),
-      el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
-        Object.entries(BRAINS).map(([k,v])=>{
-          var isActive=brain===k;
-          // Free tier: only Claude is selectable. The other brains are visible
-          // but locked behind upgrade so users can still see what's available.
-          var locked = k!=='claude' && !isPro();
-          return el('button',{key:k,onClick:()=>{
-            if(locked){ window.location.href='/#pricing'; return; }
-            setBrain(k);
-          },title:locked?v.desc+' — Pro only':v.desc,style:{
-            padding:'8px 16px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',
-            transition:'.2s',fontSize:'.82rem',fontWeight:isActive?700:500,
-            background:isActive?v.color+'18':'var(--c-surface3)',
-            border:'1px solid '+(isActive?v.color+'55':'var(--c-border5)'),
-            color:isActive?v.color:'#94a3b8',
-            display:'flex',alignItems:'center',gap:6,
-            opacity:locked?.45:1,
-          }},
-            el('span',{style:{width:8,height:8,borderRadius:'50%',background:v.color,display:'inline-block',opacity:isActive?1:.4}}),
-            v.name,
-            locked&&el('span',{style:{marginLeft:4,fontSize:'.55rem',fontWeight:700,letterSpacing:'.04em',color:'#fca5a5',background:'rgba(239,68,68,.12)',border:'1px solid rgba(239,68,68,.25)',padding:'1px 5px',borderRadius:4}},'PRO'),
-          );
-        })
+      el('div',{style:{position:'relative'}},
+        el('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+          Object.entries(BRAINS).map(([k,v])=>{
+            var isActive=brain===k;
+            // Free tier: only Claude is selectable. The other brains are visible
+            // but locked behind upgrade so users can still see what's available.
+            var locked = k!=='claude' && !isPro();
+            return el('button',{key:k,onClick:()=>{
+              if(locked){ setBrainLock(k); return; }
+              setBrain(k);
+            },title:locked?v.desc+' — Pro only':v.desc,style:{
+              padding:'8px 16px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',
+              transition:'.2s',fontSize:'.82rem',fontWeight:isActive?700:500,
+              background:isActive?v.color+'18':'var(--c-surface3)',
+              border:'1px solid '+(isActive?v.color+'55':'var(--c-border5)'),
+              color:isActive?v.color:'#94a3b8',
+              display:'flex',alignItems:'center',gap:6,
+              opacity:locked?.45:1,
+            }},
+              el('span',{style:{width:8,height:8,borderRadius:'50%',background:v.color,display:'inline-block',opacity:isActive?1:.4}}),
+              v.name,
+              locked&&el('span',{style:{marginLeft:4,fontSize:'.55rem',fontWeight:700,letterSpacing:'.04em',color:'#fca5a5',background:'rgba(239,68,68,.12)',border:'1px solid rgba(239,68,68,.25)',padding:'1px 5px',borderRadius:4}},'PRO'),
+            );
+          })
+        ),
+        // Inline lock popover — shown when a free user clicks a Pro brain.
+        // Auto-dismisses after 5s (handled by the useEffect on brainLock).
+        brainLock && BRAINS[brainLock] && el('div',{
+          style:{
+            marginTop:10,padding:'10px 14px',
+            background:'rgba(239,68,68,.08)',
+            border:'1px solid rgba(239,68,68,.32)',
+            borderRadius:10,
+            display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,
+            animation:'fadeIn .2s ease',
+          },
+        },
+          el('div',{style:{textAlign:'left',fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.4}},
+            el('strong',{style:{color:BRAINS[brainLock].color||'#fff'}},BRAINS[brainLock].name),
+            ' — Pro unlocks all four brains plus HD voice.'
+          ),
+          el('div',{style:{display:'flex',gap:6,flexShrink:0}},
+            el('a',{href:'/pricing',style:{padding:'6px 14px',background:'#ef4444',color:'#fff',borderRadius:999,fontSize:'.72rem',fontWeight:800,textDecoration:'none',letterSpacing:'.04em'}},'Upgrade →'),
+            el('button',{onClick:()=>setBrainLock(null),style:{padding:'6px 10px',background:'transparent',color:'var(--c-text)',border:'1px solid var(--c-border2)',borderRadius:999,fontSize:'.7rem',cursor:'pointer',fontFamily:'inherit'}},'×'),
+          ),
+        ),
       ),
       isPro()&&el('div',{style:{fontSize:'.72rem',color:'rgba(239,68,68,.6)',fontWeight:600,marginTop:4}},'Pro. using faster, smarter models'),
       !isPro()&&el('div',{style:{fontSize:'.72rem',color:'var(--c-dim)',marginTop:4}},'Free tier: Claude only · ',el('a',{href:'/#pricing',style:{color:'rgba(239,68,68,.5)',textDecoration:'underline'}},'Upgrade for all 4 brains')),
@@ -4510,15 +4594,34 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
 
       el('button',{className:'cta cta-setup-sticky',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
 
-      // Generation counter — surfaces remaining quota under the Start Round
-      // button so users see the gate before they hit it. Pro hides it; anon
-      // and signed-in see the appropriate upgrade nudge.
+      // Generation counter + soft CTA. Surfaces remaining quota under
+      // Start Round so users see the gate before they hit it. At ≤1 left
+      // (anon) or ≤1 left (signed-in) we promote the line to a louder
+      // banner with the upgrade CTA inline — catching users while they're
+      // still engaged instead of waiting for the hard block at zero.
       !isPro() && (function(){
         var left = remaining();
         var total = getEffectiveLimit();
         var atLimit = left <= 0;
+        var oneLeft = left === 1;
         var nearLimit = left <= 2 && !atLimit;
         var color = atLimit ? '#ef4444' : nearLimit ? '#f59e0b' : 'var(--c-dim)';
+        // Louder soft-CTA banner when the user has exactly 1 generation left.
+        // Sits between the dim counter (which always shows) and the modal
+        // (which only fires AT zero). Three states cover the funnel cleanly.
+        if (oneLeft) {
+          var softMsg = isSignedIn()
+            ? 'Last free generation. Upgrade to keep practicing across all four brains.'
+            : 'Last free generation. Sign in with Google for 5 more on the house.';
+          var softCta = isSignedIn()
+            ? el('a',{href:'/pricing',style:{display:'inline-flex',alignItems:'center',gap:6,marginTop:8,padding:'8px 18px',background:'#ef4444',color:'#fff',borderRadius:999,fontSize:'.78rem',fontWeight:800,textDecoration:'none',letterSpacing:'.04em'}},'See plans →')
+            : el('button',{onClick:()=>{try{signIn()}catch(e){}},style:{display:'inline-flex',alignItems:'center',gap:6,marginTop:8,padding:'8px 18px',background:'#fff',color:'#1f1f1f',border:'none',borderRadius:999,fontSize:'.78rem',fontWeight:800,cursor:'pointer',fontFamily:'inherit',letterSpacing:'.04em'}},'Sign up with Google →');
+          return el('div',{style:{maxWidth:480,margin:'14px auto 0',padding:'12px 16px',background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.32)',borderRadius:12,textAlign:'center'}},
+            el('div',{style:{fontSize:'.6rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#f59e0b',marginBottom:4}},'Heads up'),
+            el('div',{style:{fontSize:'.82rem',color:'var(--c-text)',lineHeight:1.4}},softMsg),
+            softCta,
+          );
+        }
         return el('div',{style:{textAlign:'center',marginTop:10,fontSize:'.72rem',color:color,letterSpacing:'.02em'}},
           atLimit
             ? (isSignedIn()
@@ -4766,13 +4869,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         // when the user left the background blank. Sits behind everything at
         // very low opacity so it reads like the literal "background" of the
         // debate without competing with the orb / timer.
-        (background||generatedBackground)&&el('div',{style:{
+        (background||generatedBackground)&&el('div',{className:'bg-watermark',style:{
           position:'fixed',inset:0,zIndex:0,pointerEvents:'none',
           display:'flex',alignItems:'center',justifyContent:'center',
           padding:'8vw 10vw',
-        }},el('div',{style:{
+        }},el('div',{className:'bg-watermark-text',style:{
           fontSize:'clamp(1rem,1.5vw,1.4rem)',lineHeight:1.55,fontStyle:'italic',
-          color:'rgba(255,255,255,.05)',textAlign:'center',
+          textAlign:'center',
           maxWidth:1200,fontWeight:300,letterSpacing:'.01em',
         }},background||generatedBackground)),
 
@@ -4822,6 +4925,17 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
               boxShadow:'0 6px 18px rgba(239,68,68,.35)',
             },
           },'▶ Start AI speech'),
+          // Skip-the-gate opt-out. Persisted across sessions so power users
+          // who hate the countdown only have to dismiss it once.
+          el('div',{style:{marginTop:10,fontSize:'.66rem',color:'var(--c-dim)'}},
+            el('button',{
+              onClick:()=>{
+                try { localStorage.setItem('debateos-skip-ai-countdown','1'); } catch(e){}
+                startAiSpeechNow();
+              },
+              style:{background:'none',border:'none',color:'var(--c-dim)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline',padding:0},
+            },'Always skip this countdown'),
+          ),
         ),
 
         // Mic fallback: text input when mic unavailable
