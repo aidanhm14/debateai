@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Live Debates · Debate AI</title>
+<meta name="description" content="Post a motion, accept a challenge, debate live against another human. Forum for human-vs-human debate rounds with format support: APDA, BP, PF, LD, Policy, Public Forum, Worlds, Asian Parli, Congress." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/live">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/live">
+<meta property="og:title" content="Live Debates · Debate AI">
+<meta property="og:description" content="Argue with humans, not just AI. Post a motion, accept a challenge.">
+<meta property="og:image" content="https://debateai.com/og-image.png">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
+:root{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.16);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.18);
+  --text:#fff;--text-dim:rgba(255,255,255,.55);--text-ghost:rgba(255,255,255,.18);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --radius-lg:18px;--radius-md:12px;
+  --shadow-lg:0 18px 60px rgba(0,0,0,.45);
+}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 50% 0%,rgba(239,68,68,.10),transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 80%,rgba(59,130,246,.06),transparent 60%);
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+
+/* ─── Top bar ──────────────────────────────────────── */
+.bar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;
+  background:rgba(10,10,12,.84);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+.bar-logo{font-size:1.15rem;font-weight:900;letter-spacing:-.02em}
+.bar-logo em{color:var(--accent);font-style:normal}
+.bar-links{display:flex;align-items:center;gap:18px}
+.bar-links a{font-size:.78rem;font-weight:600;color:var(--text-dim);transition:color .2s}
+.bar-links a:hover{color:var(--text)}
+.bar-cta{
+  padding:8px 18px;background:var(--accent);color:#fff !important;
+  border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.04em;
+  transition:transform .15s,box-shadow .15s;
+}
+.bar-cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(239,68,68,.4)}
+@media(max-width:720px){
+  .bar-links a:not(.bar-cta){display:none}
+  .bar{padding:12px 16px}
+}
+
+/* ─── Hero ─────────────────────────────────────────── */
+.hero{
+  max-width:1100px;margin:0 auto;padding:64px 24px 36px;text-align:center;
+}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);
+  padding:6px 14px;border-radius:999px;
+  background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.28);
+  margin-bottom:18px;
+}
+.hero-eyebrow .live-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);
+  animation:pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+.hero h1{
+  font-size:clamp(2.2rem,5.5vw,3.8rem);
+  font-weight:900;line-height:1;letter-spacing:-.03em;
+  margin-bottom:14px;
+}
+.hero h1 em{color:var(--accent);font-style:normal}
+.hero-sub{
+  font-size:clamp(.95rem,1.4vw,1.1rem);
+  color:var(--text-dim);max-width:620px;margin:0 auto 26px;line-height:1.55;
+}
+
+/* ─── Layout ───────────────────────────────────────── */
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px 80px}
+.layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
+  gap:36px;
+  margin-top:8px;
+}
+@media(max-width:880px){
+  .layout{grid-template-columns:1fr;gap:24px}
+}
+
+/* ─── Section heading ──────────────────────────────── */
+.sec-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  margin-bottom:14px;
+}
+.sec-head h2{
+  font-size:.78rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text);
+}
+.sec-head .count{
+  font-size:.68rem;color:var(--text-dim);font-weight:600;letter-spacing:.04em;
+}
+
+/* ─── Challenge cards ──────────────────────────────── */
+.cards{display:flex;flex-direction:column;gap:12px}
+.card{
+  padding:18px 20px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  transition:border-color .15s,transform .15s;
+}
+.card:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.card-head{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-bottom:10px;
+}
+.tag{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 10px;border-radius:999px;
+  font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  border:1px solid;
+}
+.tag-side{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.32);color:#4ade80}
+.tag-side.opp{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.32);color:#fca5a5}
+.tag-format{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim)}
+.tag-time{margin-left:auto;background:transparent;border-color:transparent;color:var(--text-ghost);text-transform:none;font-weight:600;letter-spacing:0;font-size:.66rem}
+.card-motion{
+  font-size:1.02rem;font-weight:700;line-height:1.4;
+  margin-bottom:6px;
+}
+.card-meta{
+  font-size:.74rem;color:var(--text-dim);margin-bottom:14px;
+}
+.card-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{
+  padding:8px 16px;border-radius:999px;
+  font-size:.74rem;font-weight:800;letter-spacing:.04em;
+  cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text);
+  transition:background .15s,border-color .15s,transform .15s;
+}
+.btn:hover{background:rgba(255,255,255,.04);border-color:var(--border-strong);transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#dc2626;border-color:#dc2626}
+.btn-ghost{padding:6px 12px;font-size:.7rem}
+
+.empty{
+  padding:36px 22px;text-align:center;
+  background:var(--bg-card);border:1px dashed var(--border);
+  border-radius:var(--radius-md);
+  color:var(--text-dim);font-size:.88rem;line-height:1.55;
+}
+
+/* ─── Post form ────────────────────────────────────── */
+.aside{
+  position:sticky;top:80px;align-self:start;
+}
+.post-form{
+  padding:22px 22px 18px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+}
+.post-form h3{
+  font-size:.78rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:14px;
+}
+.field{margin-bottom:14px}
+.field label{
+  display:block;font-size:.66rem;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;
+}
+.field input, .field textarea, .field select{
+  width:100%;padding:10px 12px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-family:inherit;font-size:.92rem;
+  outline:none;
+  transition:border-color .15s;
+}
+.field textarea{resize:vertical;min-height:64px}
+.field input:focus, .field textarea:focus, .field select:focus{
+  border-color:rgba(239,68,68,.5);
+}
+.side-row{display:flex;gap:8px}
+.side-row .pill{
+  flex:1;padding:10px 14px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-weight:700;font-size:.82rem;
+  cursor:pointer;font-family:inherit;
+  transition:background .15s,border-color .15s;
+}
+.side-row .pill.active{
+  background:rgba(239,68,68,.12);border-color:var(--accent);color:#fca5a5;
+}
+.post-submit{
+  width:100%;padding:13px 20px;
+  background:var(--accent);color:#fff;border:none;border-radius:10px;
+  font-weight:800;font-size:.9rem;cursor:pointer;font-family:inherit;
+  letter-spacing:.04em;text-transform:uppercase;
+  transition:background .15s,transform .15s;
+}
+.post-submit:hover:not(:disabled){background:#dc2626;transform:translateY(-1px)}
+.post-submit:disabled{opacity:.45;cursor:not-allowed}
+.post-help{
+  font-size:.7rem;color:var(--text-dim);margin-top:8px;line-height:1.45;text-align:center;
+}
+
+/* ─── How it works ─────────────────────────────────── */
+.how{
+  margin-top:60px;padding:36px 28px;
+  background:rgba(255,255,255,.02);border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+}
+.how h2{
+  font-size:.78rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:18px;text-align:center;
+}
+.how-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:18px;
+}
+@media(max-width:720px){.how-grid{grid-template-columns:1fr}}
+.how-step{
+  padding:18px;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-md);
+}
+.how-step-n{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.32);
+  color:var(--accent);font-size:.78rem;font-weight:800;
+  margin-bottom:10px;
+}
+.how-step h3{font-size:.92rem;font-weight:700;margin-bottom:6px}
+.how-step p{font-size:.78rem;color:var(--text-dim);line-height:1.55}
+
+/* ─── Coming-soon banner ───────────────────────────── */
+.soon{
+  margin-top:24px;padding:18px 22px;
+  background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(168,85,247,.06));
+  border:1px solid rgba(59,130,246,.28);
+  border-radius:var(--radius-md);
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+.soon-eyebrow{
+  font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:#93c5fd;padding:3px 10px;border-radius:999px;
+  background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.32);
+}
+.soon-text{font-size:.84rem;color:var(--text);line-height:1.5;flex:1;min-width:240px}
+
+/* ─── Footer ───────────────────────────────────────── */
+.footer{
+  max-width:1100px;margin:60px auto 0;padding:24px;text-align:center;
+  border-top:1px solid var(--border);
+  font-size:.74rem;color:var(--text-dim);
+}
+.footer a{color:var(--text-dim);transition:color .2s}
+.footer a:hover{color:var(--text)}
+
+/* ─── Toasts ───────────────────────────────────────── */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  padding:12px 22px;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:999px;font-size:.84rem;font-weight:600;
+  box-shadow:var(--shadow-lg);z-index:200;
+  animation:toast-in .25s ease-out;
+}
+@keyframes toast-in{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+</style>
+</head>
+<body>
+
+<nav class="bar">
+  <a href="/landing" class="bar-logo"><em>Debate</em> AI</a>
+  <div class="bar-links">
+    <a href="/learn">Learn</a>
+    <a href="/debate-ai">Debate AI</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/landing#faq">About</a>
+    <a href="/debate-ai" class="bar-cta">Try the AI</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-eyebrow"><span class="live-dot"></span>Live Debates</div>
+  <h1>Argue with humans. <em>Live.</em></h1>
+  <p class="hero-sub">Post a motion, pick your side, and wait for someone to take you on. Or jump into an open challenge below. Every round is logged to your record so you can climb your own ladder.</p>
+</section>
+
+<div class="wrap">
+  <div class="layout">
+
+    <!-- LEFT: Open challenges feed -->
+    <div>
+      <div class="sec-head">
+        <h2>Open challenges</h2>
+        <span id="challengeCount" class="count">0 waiting</span>
+      </div>
+      <div id="cards" class="cards">
+        <!-- challenges render here -->
+      </div>
+      <div id="empty" class="empty" style="display:none">
+        Nothing open right now. Post the first challenge — it’ll show up here for anyone to accept.
+      </div>
+
+      <div class="soon">
+        <span class="soon-eyebrow">Coming next</span>
+        <p class="soon-text">Live voice rooms with the same format-aware judging as the AI mode. Drop in, get matched, debate. Sign up to be first in.</p>
+      </div>
+
+      <div class="how">
+        <h2>How it works</h2>
+        <div class="how-grid">
+          <div class="how-step">
+            <div class="how-step-n">1</div>
+            <h3>Post a motion</h3>
+            <p>Pick a topic, the side you want, and the format. It goes on the public board.</p>
+          </div>
+          <div class="how-step">
+            <div class="how-step-n">2</div>
+            <h3>Get matched</h3>
+            <p>Anyone scrolling can accept the opposite side. Both sides get pinged when the match is set.</p>
+          </div>
+          <div class="how-step">
+            <div class="how-step-n">3</div>
+            <h3>Debate live</h3>
+            <p>Format-aware speech timer, live transcript, judge ballot at the end. Saved to your record.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Post a challenge -->
+    <aside class="aside">
+      <form id="postForm" class="post-form">
+        <h3>Post a challenge</h3>
+        <div class="field">
+          <label for="motion">Motion</label>
+          <textarea id="motion" rows="2" placeholder="e.g. This house would ban legacy admissions" maxlength="320" required></textarea>
+        </div>
+        <div class="field">
+          <label>Your side</label>
+          <div class="side-row">
+            <button type="button" class="pill" data-side="pro">Pro / Gov</button>
+            <button type="button" class="pill" data-side="con">Con / Opp</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="format">Format</label>
+          <select id="format" required>
+            <option value="quick">Quick Clash · 2 speeches each</option>
+            <option value="apda">APDA Parliamentary</option>
+            <option value="bp">British Parliamentary</option>
+            <option value="worlds">Worlds (WSDC)</option>
+            <option value="asian">Asian Parliamentary</option>
+            <option value="ld">Lincoln-Douglas</option>
+            <option value="pf">Public Forum</option>
+            <option value="policy">Policy (CX)</option>
+            <option value="congress">Student Congress</option>
+          </select>
+        </div>
+        <button id="postSubmit" type="submit" class="post-submit" disabled>Post challenge</button>
+        <p class="post-help">Posts are public. No personal info required — pick a handle below.</p>
+        <div class="field" style="margin-top:14px;margin-bottom:0">
+          <label for="handle">Handle (optional)</label>
+          <input id="handle" type="text" maxlength="24" placeholder="anonymous" />
+        </div>
+      </form>
+    </aside>
+
+  </div>
+</div>
+
+<footer class="footer">
+  <div><span style="color:var(--accent)">Debate</span> AI<sup style="font-size:.55em;opacity:.6;margin-left:2px">&trade;</sup> · <a href="/landing">Home</a> · <a href="/debate-ai">Spar with AI</a> · <a href="/pricing">Pricing</a></div>
+  <div style="margin-top:6px">© 2026 Debate AI. Live Debates are user-posted; treat strangers' takes accordingly.</div>
+</footer>
+
+<div id="toastHost"></div>
+
+<script>
+(function(){
+  // ── Storage layer. localStorage v1 — schema is shaped for an easy
+  // Firestore migration later (the `serverTimestamp` becomes a real
+  // server-side timestamp, the rest stays). Stub `liveDebatesAdapter`
+  // makes that switch a one-file change.
+  var STORAGE_KEY = 'debateos-live-challenges';
+  var MAX_LIST = 80;
+
+  function loadList(){
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch(e){ return []; }
+  }
+  function saveList(list){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_LIST))); } catch(e){}
+  }
+
+  // Seed with two examples on first visit so the page never reads empty.
+  // Marked `seed:true` so we can filter them out of accept-tracking.
+  function ensureSeed(){
+    var list = loadList();
+    if (list.length > 0) return list;
+    var now = Date.now();
+    var seeded = [
+      {
+        id: 's-' + now,
+        motion: 'This house would require all elected officials to undergo annual psychological evaluation.',
+        side: 'pro',
+        format: 'apda',
+        handle: 'national_champ',
+        ts: now - 14 * 60 * 1000,
+        seed: true,
+      },
+      {
+        id: 's-' + (now + 1),
+        motion: 'This house regrets the rise of viral activism.',
+        side: 'con',
+        format: 'quick',
+        handle: 'firstround',
+        ts: now - 42 * 60 * 1000,
+        seed: true,
+      },
+    ];
+    saveList(seeded);
+    return seeded;
+  }
+
+  // ── Format labels mirror /debate-ai's FORMATS dict (lite version)
+  var FORMATS = {
+    quick:    { name:'Quick Clash',         sideLabel:{pro:'Pro',con:'Con'} },
+    apda:     { name:'APDA Parliamentary',  sideLabel:{pro:'Gov',con:'Opp'} },
+    bp:       { name:'British Parliamentary',sideLabel:{pro:'Gov',con:'Opp'} },
+    worlds:   { name:'Worlds (WSDC)',       sideLabel:{pro:'Prop',con:'Opp'} },
+    asian:    { name:'Asian Parliamentary', sideLabel:{pro:'Gov',con:'Opp'} },
+    ld:       { name:'Lincoln-Douglas',     sideLabel:{pro:'Aff',con:'Neg'} },
+    pf:       { name:'Public Forum',        sideLabel:{pro:'Pro',con:'Con'} },
+    policy:   { name:'Policy (CX)',         sideLabel:{pro:'Aff',con:'Neg'} },
+    congress: { name:'Student Congress',    sideLabel:{pro:'For',con:'Against'} },
+  };
+
+  function fmtTime(ts){
+    var diff = Date.now() - ts;
+    if (diff < 60_000) return 'just now';
+    if (diff < 3600_000) return Math.floor(diff/60_000) + ' min ago';
+    if (diff < 86400_000) return Math.floor(diff/3600_000) + ' h ago';
+    return Math.floor(diff/86400_000) + ' d ago';
+  }
+
+  function escHtml(s){
+    return String(s||'').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function toast(msg){
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.getElementById('toastHost').appendChild(t);
+    setTimeout(function(){ t.style.transition='opacity .3s'; t.style.opacity='0'; }, 2400);
+    setTimeout(function(){ t.remove(); }, 2800);
+  }
+
+  // ── Render the open-challenges list
+  function render(){
+    var list = loadList();
+    var host = document.getElementById('cards');
+    var empty = document.getElementById('empty');
+    var count = document.getElementById('challengeCount');
+    host.innerHTML = '';
+    if (list.length === 0) {
+      empty.style.display = 'block';
+      count.textContent = '0 waiting';
+      return;
+    }
+    empty.style.display = 'none';
+    count.textContent = list.length + (list.length === 1 ? ' waiting' : ' waiting');
+    list.forEach(function(c){
+      var f = FORMATS[c.format] || FORMATS.quick;
+      var theirSideLabel = f.sideLabel[c.side];
+      var yourSide = c.side === 'pro' ? 'con' : 'pro';
+      var yourSideLabel = f.sideLabel[yourSide];
+      var card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML =
+        '<div class="card-head">' +
+          '<span class="tag tag-side ' + (c.side === 'pro' ? '' : 'opp') + '">They want ' + escHtml(theirSideLabel) + '</span>' +
+          '<span class="tag tag-format">' + escHtml(f.name) + '</span>' +
+          '<span class="tag tag-time">' + fmtTime(c.ts) + (c.handle ? ' · ' + escHtml(c.handle) : '') + '</span>' +
+        '</div>' +
+        '<div class="card-motion">' + escHtml(c.motion) + '</div>' +
+        '<div class="card-meta">You’d argue <strong>' + escHtml(yourSideLabel) + '</strong>. Click accept to open the round in Debate AI with everything pre-filled.</div>' +
+        '<div class="card-actions">' +
+          '<button class="btn btn-primary" data-accept="' + c.id + '">Accept challenge →</button>' +
+          (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>') +
+        '</div>';
+      host.appendChild(card);
+    });
+
+    // Wire accept / remove buttons
+    host.querySelectorAll('[data-accept]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-accept');
+        var c = loadList().find(function(x){ return x.id === id; });
+        if (!c) return;
+        // Route to /debate-ai with motion pre-filled. The acceptor argues
+        // the OPPOSITE side from the poster.
+        var yourSide = c.side === 'pro' ? 'con' : 'pro';
+        var url = '/debate-ai?motion=' + encodeURIComponent(c.motion) +
+                  '&side=' + encodeURIComponent(yourSide) +
+                  '&format=' + encodeURIComponent(c.format) +
+                  '&source=live';
+        try { gtag('event', 'live_accept', { format: c.format, side: yourSide }); } catch(e){}
+        location.href = url;
+      });
+    });
+    host.querySelectorAll('[data-remove]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-remove');
+        var list = loadList().filter(function(x){ return x.id !== id; });
+        saveList(list);
+        render();
+        toast('Challenge removed.');
+      });
+    });
+  }
+
+  // ── Post-form interactions
+  var sideButtons = document.querySelectorAll('.side-row .pill');
+  var motionEl = document.getElementById('motion');
+  var formatEl = document.getElementById('format');
+  var handleEl = document.getElementById('handle');
+  var submitEl = document.getElementById('postSubmit');
+  var formEl   = document.getElementById('postForm');
+  var selectedSide = null;
+
+  sideButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      selectedSide = btn.getAttribute('data-side');
+      sideButtons.forEach(function(b){ b.classList.toggle('active', b === btn); });
+      updateSubmit();
+    });
+  });
+  motionEl.addEventListener('input', updateSubmit);
+  formatEl.addEventListener('change', updateSubmit);
+
+  function updateSubmit(){
+    var ok = motionEl.value.trim().length > 5 && selectedSide && formatEl.value;
+    submitEl.disabled = !ok;
+  }
+
+  formEl.addEventListener('submit', function(e){
+    e.preventDefault();
+    if (submitEl.disabled) return;
+    var list = loadList();
+    var entry = {
+      id: 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2,8),
+      motion: motionEl.value.trim(),
+      side: selectedSide,
+      format: formatEl.value,
+      handle: handleEl.value.trim() || 'anonymous',
+      ts: Date.now(),
+    };
+    list.unshift(entry);
+    saveList(list);
+    motionEl.value = '';
+    handleEl.value = '';
+    selectedSide = null;
+    sideButtons.forEach(function(b){ b.classList.remove('active'); });
+    submitEl.disabled = true;
+    try { gtag('event', 'live_post', { format: entry.format, side: entry.side }); } catch(e){}
+    toast('Challenge posted.');
+    render();
+  });
+
+  // ── Boot
+  ensureSeed();
+  render();
+
+  // Refresh "X min ago" labels every 30s without a full re-render
+  setInterval(function(){
+    document.querySelectorAll('.tag-time').forEach(function(el, i){
+      var list = loadList();
+      var c = list[i];
+      if (!c) return;
+      // Preserve the handle suffix
+      var suffix = c.handle ? ' · ' + c.handle : '';
+      el.textContent = fmtTime(c.ts) + suffix;
+    });
+  }, 30000);
+})();
+</script>
+</body>
+</html>
