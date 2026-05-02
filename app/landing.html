@@ -1036,8 +1036,11 @@ button{font-family:inherit;cursor:pointer}
 .footer{
   border-top:1px solid var(--border);
   padding:32px 40px;max-width:1000px;margin:0 auto;
-  display:flex;justify-content:space-between;align-items:center;
+  display:flex;flex-direction:column;gap:16px;
   font-size:.78rem;color:var(--text-dim);
+}
+.footer-row{
+  display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;
 }
 .footer a{
   color:var(--text-dim);transition:color .2s, border-color .2s;
@@ -1108,6 +1111,84 @@ button{font-family:inherit;cursor:pointer}
 </style>
 </head>
 <body>
+
+<!-- Language picker — Google Translate widget for full-page translation.
+     The widget loads the script lazily and reads the googtrans cookie to
+     decide what locale to render in, so the page is translated on load
+     before the user sees any English. CSS hides Google's banner + tooltip. -->
+<style>
+  .lang-picker{position:fixed;top:12px;right:12px;z-index:9999;font-family:inherit}
+  .lang-picker select{
+    appearance:none;-webkit-appearance:none;
+    padding:6px 26px 6px 10px;border-radius:8px;
+    background:rgba(0,0,0,.55) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23fff' stroke-width='1.5'><polyline points='1.5 2 6 6 10.5 2'/></svg>") no-repeat right 8px center / 10px;
+    color:#fff;border:1px solid rgba(255,255,255,.18);
+    font-size:.74rem;font-weight:600;letter-spacing:.04em;
+    cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  }
+  .lang-picker select:hover{border-color:rgba(255,255,255,.35)}
+  /* Google Translate strips */
+  .goog-te-banner-frame.skiptranslate,.goog-te-gadget-icon{display:none!important}
+  body{top:0!important}
+  .goog-tooltip,.goog-tooltip:hover{display:none!important}
+  .goog-text-highlight{background:transparent!important;box-shadow:none!important}
+  #google_translate_element{display:none}
+</style>
+<div class="lang-picker">
+  <select id="langPickerSel" aria-label="Change language">
+    <option value="en">🇺🇸 English</option>
+    <option value="es">🇪🇸 Español</option>
+    <option value="fr">🇫🇷 Français</option>
+    <option value="de">🇩🇪 Deutsch</option>
+    <option value="zh">🇨🇳 中文</option>
+    <option value="ko">🇰🇷 한국어</option>
+    <option value="hi">🇮🇳 हिन्दी</option>
+  </select>
+</div>
+<div id="google_translate_element"></div>
+<script>
+(function(){
+  var KEY='debateos-locale';
+  function setCookie(name,val,domain){
+    document.cookie=name+'='+val+'; path=/'+(domain?'; domain='+domain:'');
+  }
+  function clearCookie(name,domain){
+    document.cookie=name+'=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC'+(domain?'; domain='+domain:'');
+  }
+  window.__setLang=function(lang){
+    var host=location.hostname;
+    var bare=host.replace(/^www\./,'');
+    clearCookie('googtrans');clearCookie('googtrans','.'+host);clearCookie('googtrans','.'+bare);
+    if(lang&&lang!=='en'){
+      var v='/en/'+lang;
+      setCookie('googtrans',v);setCookie('googtrans',v,'.'+host);setCookie('googtrans',v,'.'+bare);
+      try{localStorage.setItem(KEY,lang)}catch(e){}
+    }else{
+      try{localStorage.removeItem(KEY)}catch(e){}
+    }
+    location.reload();
+  };
+  window.googleTranslateElementInit=function(){
+    new google.translate.TranslateElement({pageLanguage:'en',autoDisplay:false,layout:google.translate.TranslateElement.InlineLayout.SIMPLE},'google_translate_element');
+  };
+  document.addEventListener('DOMContentLoaded',function(){
+    var sel=document.getElementById('langPickerSel');
+    var saved='en';try{saved=localStorage.getItem(KEY)||'en'}catch(e){}
+    if(sel){
+      sel.value=saved;
+      sel.addEventListener('change',function(){window.__setLang(sel.value)});
+    }
+    // Only load the Google widget if a non-English locale is active. Saves
+    // ~70KB of script + a network round-trip for the default English read.
+    if(saved&&saved!=='en'){
+      var s=document.createElement('script');
+      s.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      s.async=true;
+      document.head.appendChild(s);
+    }
+  });
+})();
+</script>
 
 <!-- Welcome card removed. First-visit popup was doing three jobs at once
      (description + guide + donate CTA) and stepping on the hero. The
@@ -2208,21 +2289,20 @@ button{font-family:inherit;cursor:pointer}
 
 <!-- Footer -->
 <footer class="footer">
-  <span><span style="color:var(--accent)">Debate</span> AI<sup style="font-size:.55em;opacity:.6;margin-left:2px">&trade;</sup></span>
-  <div class="footer-links">
-    <a href="/app#case">College App</a>
-    <a href="/high-school">HS Edition</a>
-    <a href="/debate-ai">Debate AI</a>
-    <a href="/learn">Learn</a>
-    <a href="#tools">Tools</a>
-    <a href="#adults">Professionals</a>
-    <a href="#topics">Topics</a>
-    <a href="mailto:feedback@debateos.com">Contact</a>
+  <div class="footer-row">
+    <span><span style="color:var(--accent)">Debate</span> AI<sup style="font-size:.55em;opacity:.6;margin-left:2px">&trade;</sup></span>
+    <div class="footer-links">
+      <a href="/app#case">College App</a>
+      <a href="/high-school">HS Edition</a>
+      <a href="/debate-ai">Debate AI</a>
+      <a href="/learn">Learn</a>
+      <a href="#tools">Tools</a>
+      <a href="/pro">For Professionals</a>
+      <a href="#topics">Topics</a>
+      <a href="mailto:feedback@debateos.com">Contact</a>
+    </div>
   </div>
-  <div class="footer-links" style="margin-top:8px">
-    <a href="/pro" style="white-space:nowrap">For Professionals</a>
-  </div>
-  <div class="footer-legal" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:.72rem;color:var(--text-dim);line-height:1.6;max-width:720px;margin-left:auto;margin-right:auto;text-align:center">
+  <div class="footer-legal" style="padding-top:14px;border-top:1px solid var(--border);font-size:.72rem;color:var(--text-dim);line-height:1.6;max-width:720px;margin:0 auto;text-align:center">
     &copy; 2026 Debate AI. All rights reserved. &ldquo;Debate AI,&rdquo; the Debate AI logo, and associated product names (Devil's Advocate, DebateOS) are trademarks of Aidan Hollinger. Unauthorized use, reproduction, scraping, or derivative training of this site's voice guidelines, prompts, or content is prohibited. AI outputs are for educational and practice use only and are not a substitute for professional coaching, legal, or academic advice.
   </div>
 </footer>

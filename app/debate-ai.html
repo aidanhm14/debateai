@@ -403,6 +403,68 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 </style>
 </head>
 <body>
+
+<!-- Language picker (mirrors landing.html). Lazy-loads Google Translate
+     only when a non-English locale is set, so English users pay no cost. -->
+<style>
+  .lang-picker{position:fixed;top:12px;right:12px;z-index:9999;font-family:inherit}
+  .lang-picker select{
+    appearance:none;-webkit-appearance:none;
+    padding:6px 26px 6px 10px;border-radius:8px;
+    background:rgba(0,0,0,.55) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23fff' stroke-width='1.5'><polyline points='1.5 2 6 6 10.5 2'/></svg>") no-repeat right 8px center / 10px;
+    color:#fff;border:1px solid rgba(255,255,255,.18);
+    font-size:.74rem;font-weight:600;letter-spacing:.04em;
+    cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  }
+  .lang-picker select:hover{border-color:rgba(255,255,255,.35)}
+  .goog-te-banner-frame.skiptranslate,.goog-te-gadget-icon{display:none!important}
+  body{top:0!important}
+  .goog-tooltip,.goog-tooltip:hover{display:none!important}
+  .goog-text-highlight{background:transparent!important;box-shadow:none!important}
+  #google_translate_element{display:none}
+</style>
+<div class="lang-picker">
+  <select id="langPickerSel" aria-label="Change language">
+    <option value="en">🇺🇸 English</option>
+    <option value="es">🇪🇸 Español</option>
+    <option value="fr">🇫🇷 Français</option>
+    <option value="de">🇩🇪 Deutsch</option>
+    <option value="zh">🇨🇳 中文</option>
+    <option value="ko">🇰🇷 한국어</option>
+    <option value="hi">🇮🇳 हिन्दी</option>
+  </select>
+</div>
+<div id="google_translate_element"></div>
+<script>
+(function(){
+  var KEY='debateos-locale';
+  function setCookie(n,v,d){document.cookie=n+'='+v+'; path=/'+(d?'; domain='+d:'');}
+  function clearCookie(n,d){document.cookie=n+'=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC'+(d?'; domain='+d:'');}
+  window.__setLang=function(lang){
+    var host=location.hostname,bare=host.replace(/^www\./,'');
+    clearCookie('googtrans');clearCookie('googtrans','.'+host);clearCookie('googtrans','.'+bare);
+    if(lang&&lang!=='en'){
+      var v='/en/'+lang;
+      setCookie('googtrans',v);setCookie('googtrans',v,'.'+host);setCookie('googtrans',v,'.'+bare);
+      try{localStorage.setItem(KEY,lang)}catch(e){}
+    }else{try{localStorage.removeItem(KEY)}catch(e){}}
+    location.reload();
+  };
+  window.googleTranslateElementInit=function(){
+    new google.translate.TranslateElement({pageLanguage:'en',autoDisplay:false,layout:google.translate.TranslateElement.InlineLayout.SIMPLE},'google_translate_element');
+  };
+  document.addEventListener('DOMContentLoaded',function(){
+    var sel=document.getElementById('langPickerSel');
+    var saved='en';try{saved=localStorage.getItem(KEY)||'en'}catch(e){}
+    if(sel){sel.value=saved;sel.addEventListener('change',function(){window.__setLang(sel.value)});}
+    if(saved&&saved!=='en'){
+      var s=document.createElement('script');
+      s.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      s.async=true;document.head.appendChild(s);
+    }
+  });
+})();
+</script>
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
 <script defer src="/js/ui-neural.js"></script>
 <div id="root"></div>
