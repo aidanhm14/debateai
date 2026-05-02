@@ -3783,7 +3783,16 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       recoveryData&&(Date.now()-recoveryData.timestamp<3600000)&&el('div',{className:'recovery-banner'},
         el('div',{style:{fontSize:'.85rem',fontWeight:700,color:'var(--c-bright)',marginBottom:6}},'Resume unfinished round?'),
         el('div',{style:{fontSize:'.75rem',color:'var(--c-text)',marginBottom:12}},
-          '"'+(recoveryData.motion||'').slice(0,60)+'". '+(FORMATS[recoveryData.format]||FORMATS.apda).name+'. Speech '+(recoveryData.idx+1)
+          '"'+(()=>{
+            const m=(recoveryData.motion||'').trim();
+            // Cut at the last word boundary under 140 chars so the resume
+            // card never reads as "...undergo psycho" (mid-word amputation).
+            // 140 fits two lines on the card without blowing it up.
+            if(m.length<=140) return m;
+            const cut=m.slice(0,140);
+            const sp=cut.lastIndexOf(' ');
+            return (sp>80?cut.slice(0,sp):cut).replace(/[.,;:!?-]+$/,'')+'…';
+          })()+'". '+(FORMATS[recoveryData.format]||FORMATS.apda).name+'. Speech '+(recoveryData.idx+1)
         ),
         el('div',{style:{display:'flex',gap:8,justifyContent:'center'}},
           el('button',{className:'cta-ghost',style:{marginTop:0,padding:'8px 20px',background:'rgba(59,130,246,.15)',borderColor:'rgba(59,130,246,.3)',color:'#3b82f6'},onClick:resumeSession},'Resume'),
