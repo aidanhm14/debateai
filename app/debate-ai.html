@@ -2510,12 +2510,40 @@ function App(){
   const[brain,setBrain]=useState('claude');
   const[voice,setVoice]=useState('onyx');
 
-  // Voice preview — clicking a voice in the picker plays a short sample so
-  // users can hear what each persona sounds like before locking in. The ref
-  // holds the active preview audio so a new click cancels the prior one.
+  // Voice preview — clicking a voice plays a short sample line so users hear
+  // what each persona sounds like before locking in. Three problems the
+  // naive version had: (1) clicking voice B while A's fetch was in flight
+  // played BOTH when their blobs landed, (2) clicking A twice fired two
+  // fetches, (3) the playing audio kept going if you clicked another voice.
+  // Fix: AbortController kills the prior fetch, a monotonic token ignores
+  // stale resolutions, and a per-voice cache makes repeat clicks instant.
   const previewAudioRef = useRef(null);
+  const previewCacheRef = useRef({});
+  const previewAbortRef = useRef(null);
+  const previewTokenRef = useRef(0);
   const previewVoice = (voiceKey) => {
-    try { if (previewAudioRef.current) { previewAudioRef.current.pause(); previewAudioRef.current = null; } } catch {}
+    // 1. Stop whatever's currently playing.
+    try {
+      const a = previewAudioRef.current;
+      if (a) { a.pause(); try { a.currentTime = 0; } catch {} }
+    } catch {}
+    previewAudioRef.current = null;
+    // 2. Cancel any in-flight fetch from a prior click.
+    if (previewAbortRef.current) {
+      try { previewAbortRef.current.abort(); } catch {}
+      previewAbortRef.current = null;
+    }
+    const myToken = ++previewTokenRef.current;
+    // 3. Cache hit: instant replay, no network.
+    const cached = previewCacheRef.current[voiceKey];
+    if (cached) {
+      try { cached.currentTime = 0; } catch {}
+      cached.playbackRate = 1.1;
+      previewAudioRef.current = cached;
+      cached.play().catch(() => {});
+      return;
+    }
+    // 4. Fetch fresh sample, store in cache once it lands.
     const samples = [
       'I yield the floor, but only because my opponent has already lost the round.',
       'Their argument has three problems, and the third one is fatal.',
@@ -2524,16 +2552,21 @@ function App(){
       'On the flow, they dropped our strongest point. That is the round.',
     ];
     const text = samples[Math.floor(Math.random() * samples.length)];
+    const ac = new AbortController();
+    previewAbortRef.current = ac;
     fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, voice: voiceKey, speed: 1.0, premium: typeof isPro==='function'?isPro():false, intensity: 0 }),
+      signal: ac.signal,
     }).then(r => r.ok ? r.blob() : null).then(blob => {
+      // Stale resolution: a newer click superseded this fetch. Drop it.
+      if (previewTokenRef.current !== myToken) return;
       if (!blob) return;
       const a = new Audio(URL.createObjectURL(blob));
       a.playbackRate = 1.1;
+      previewCacheRef.current[voiceKey] = a;
       previewAudioRef.current = a;
-      a.onended = () => { try { URL.revokeObjectURL(a.src); } catch {} if (previewAudioRef.current === a) previewAudioRef.current = null; };
       a.play().catch(() => {});
     }).catch(() => {});
   };
@@ -2973,10 +3006,12 @@ function App(){
         const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
 
         // ── Chunked TTS pipeline: fire audio for each paragraph as soon as it's ready ──
-        // Default to 0 (calm delivery) so fast speech doesn't also sound breathless.
-        // The old coupling (ttsSpeed-1)/1 auto-cranked intensity whenever the user
-        // bumped speed, which was the main "annoying, too intense" signal.
-        const ttsIntensity=0;
+        // Intensity 0 read as flat-narrator "explainer voice" — debate is a
+        // performance, so the AI opponent should sound like one. 0.45 is the
+        // sweet spot: clear emotional inflection on big claims and rhetorical
+        // peaks, but not tied to playback speed (the prior bug that made fast
+        // speech also sound breathless and overcaffeinated).
+        const ttsIntensity=0.45;
         const fetchTTSBlob=(text)=>{
           const input=text.slice(0,4000);
           return fetch('/api/tts',{
@@ -3665,7 +3700,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         el('button',{onClick:signOut,style:{fontSize:'.65rem',color:'var(--c-muted)',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}},'Sign Out'),
       ) : el('button',{onClick:signIn,className:'sign-btn',title:'Sign up free with Google to unlock all features',style:{display:'inline-flex',alignItems:'center',gap:8,fontSize:'.74rem',color:'#1f1f1f',background:'#fff',border:'none',borderRadius:999,padding:'7px 16px',cursor:'pointer',fontWeight:700,fontFamily:'inherit',boxShadow:'0 4px 16px rgba(0,0,0,.35)',whiteSpace:'nowrap'}},
         el('span',{dangerouslySetInnerHTML:{__html:'<svg width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>'}}),
-        el('span',{className:'sign-btn-full'},'Join beta with Google'),
+        el('span',{className:'sign-btn-full'},'Sign up with Google'),
         el('span',{className:'sign-btn-short'},'Sign up'),
       ),
     )

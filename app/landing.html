@@ -2096,7 +2096,7 @@ button{font-family:inherit;cursor:pointer}
 
       <div class="faq-item"><button class="faq-q">What if the AI says something wrong?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
         <p>Push back. Seriously. the AI is a debate opponent, not an oracle. If it cites a fact that's wrong or makes a logical leap, call it out. That's exactly the kind of move a strong debater should be able to handle, and it makes you sharper.</p>
-        <p>If the AI's output is just bad (repetitive, off-topic, evasive), hit the feedback link in the beta banner at the top of the page. That's how we tune the prompts. Every round of feedback has changed something in the system.</p>
+        <p>If the AI's output is just bad (repetitive, off-topic, evasive), hit the feedback link in-app. That's how we tune the prompts. Every round of feedback has changed something in the system.</p>
       </div></div>
 
       <div class="faq-group-head">Pricing & practical stuff</div>
@@ -2104,7 +2104,7 @@ button{font-family:inherit;cursor:pointer}
       <div class="faq-item"><button class="faq-q">How much does it cost?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
         <p>Four tiers. <strong>Free</strong>. 5 total requests across the app, Gmail sign-in required. <strong>BYOK ($1/mo)</strong>. unlimited Claude when you bring your own Anthropic API key (other brains aren't covered on this tier). <strong>Individual ($5/mo)</strong>. 250 requests/month across all four brains (Claude, GPT, Gemini, Grok) plus HD voice. <strong>Team ($30/mo)</strong>. 1,500 requests, 50 seats.</p>
         <p>Sign-in is via Google only right now. we found a single clear auth path beats maintaining a second magic-link flow.</p>
-        <p>Pricing may move after beta. Anyone subscribed during beta keeps their rate until a formal change is announced in-app.</p>
+        <p>Pricing may move as we add features. Anyone subscribed at a given rate keeps it until a formal change is announced in-app.</p>
       </div></div>
 
       <div class="faq-item"><button class="faq-q">Does it work on my phone?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
@@ -2805,11 +2805,15 @@ window.addEventListener('load', function(){
   var btnText = document.getElementById('googleSignupBtnText');
   if (!btn) return;
 
-  // If already signed in, swap the button to "Continue to app"
+  // If already signed in, hide the button entirely. The landing page IS "/",
+  // so a "Continue as ..." button just navigates to the same place — it
+  // reads as a dead-end loop. Signed-in users land here from a bookmark or
+  // a back-nav and want the page out of their way, not another CTA.
   auth.onAuthStateChanged(function(user){
     if (user) {
-      btnText.textContent = 'Continue as ' + (user.displayName || user.email) + ' →';
-      btn.onclick = function(){ window.location.href = '/'; };
+      var wrap = btn.parentElement;
+      if (wrap) wrap.style.display = 'none';
+      else btn.style.display = 'none';
     }
   });
 
