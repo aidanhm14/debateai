@@ -1406,7 +1406,8 @@ button{font-family:inherit;cursor:pointer}
       var ctx = canvas.getContext('2d');
       var mode = 'idle';
       var running = true;
-      window.__heroOrbMode = function(m){ mode = (m === 'ai' ? 'ai' : 'idle'); };
+      var inView = true; // toggled by IntersectionObserver below
+      window.__heroOrbMode = function(m){ mode = (m === 'ai' ? 'ai' : 'idle'); gradKey = ''; };
 
       function resize(){
         var dpr = window.devicePixelRatio || 1;
@@ -1415,6 +1416,7 @@ button{font-family:inherit;cursor:pointer}
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        gradKey = ''; // invalidate cached gradients on resize
       }
       resize();
       window.addEventListener('resize', resize, { passive: true });
@@ -1422,8 +1424,53 @@ button{font-family:inherit;cursor:pointer}
       var reduced = false;
       try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
 
-      function draw(){
+      // ── Perf cache ──────────────────────────────────────────────────
+      // Chrome's canvas pipeline pays a real cost for createRadialGradient,
+      // and the prior code built TWO new gradients every frame (60 × 2 ×
+      // refresh = ~7000/min). Safari is more forgiving here — that's why
+      // the user saw jank on Chrome but not Safari. We now cache them and
+      // only rebuild when size or mode actually changes.
+      var gradKey = '';
+      var outerGrad, innerGrad, strokeStyleCached, fillBarsCached;
+      function ensureGradients(W, H, baseR){
+        var key = mode + ':' + Math.round(baseR);
+        if (key === gradKey) return;
+        gradKey = key;
+        var cx = W / 2, cy = H / 2;
+        outerGrad = ctx.createRadialGradient(cx, cy, baseR * 0.5, cx, cy, baseR * 1.4);
+        innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 1.1);
+        if (mode === 'ai') {
+          outerGrad.addColorStop(0, 'rgba(239,68,68,.14)');
+          outerGrad.addColorStop(1, 'rgba(239,68,68,0)');
+          innerGrad.addColorStop(0, 'rgba(239,68,68,.22)');
+          innerGrad.addColorStop(.6, 'rgba(239,68,68,.06)');
+          innerGrad.addColorStop(1, 'rgba(239,68,68,0)');
+          strokeStyleCached = 'rgba(239,68,68,.9)';
+          fillBarsCached = 'rgba(239,68,68,.85)';
+        } else {
+          outerGrad.addColorStop(0, 'rgba(255,255,255,.04)');
+          outerGrad.addColorStop(1, 'rgba(255,255,255,0)');
+          innerGrad.addColorStop(0, 'rgba(255,255,255,.06)');
+          innerGrad.addColorStop(1, 'rgba(255,255,255,0)');
+          strokeStyleCached = 'rgba(255,255,255,.13)';
+          fillBarsCached = 'rgba(255,255,255,.32)';
+        }
+      }
+
+      // Throttle to ~45fps on Chrome — visually indistinguishable from 60
+      // for slow-drifting blob animation, ~25% less GPU/CPU per second.
+      var lastFrame = 0;
+      var FRAME_MIN_MS = 22; // ~45fps cap
+
+      function draw(now){
         if (!running) return;
+        if (!inView) return; // paused entirely while offscreen
+        if (now && now - lastFrame < FRAME_MIN_MS) {
+          requestAnimationFrame(draw);
+          return;
+        }
+        lastFrame = now || 0;
+
         var rect = canvas.getBoundingClientRect();
         var W = rect.width, H = rect.height;
         if (!W || !H) { requestAnimationFrame(draw); return; }
@@ -1432,9 +1479,14 @@ button{font-family:inherit;cursor:pointer}
         var cx = W / 2, cy = H / 2;
         var baseR = Math.min(W, H) * 0.36;
         var t = reduced ? 0 : (Date.now() / 1000);
-        var points = 120;
+        // Halved from 120. Visually identical for a 360px orb at 45fps; the
+        // resulting path is half the size so Chrome's path tessellation cost
+        // drops accordingly.
+        var points = 60;
         var speed = mode === 'ai' ? 1.6 : 0.75;
         var amp   = mode === 'ai' ? 0.20 : 0.11;
+
+        ensureGradients(W, H, baseR);
 
         ctx.beginPath();
         for (var i = 0; i <= points; i++) {
@@ -1446,14 +1498,6 @@ button{font-family:inherit;cursor:pointer}
           i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         }
         ctx.closePath();
-        var outerGrad = ctx.createRadialGradient(cx, cy, baseR * 0.5, cx, cy, baseR * 1.4);
-        if (mode === 'ai') {
-          outerGrad.addColorStop(0, 'rgba(239,68,68,.14)');
-          outerGrad.addColorStop(1, 'rgba(239,68,68,0)');
-        } else {
-          outerGrad.addColorStop(0, 'rgba(255,255,255,.04)');
-          outerGrad.addColorStop(1, 'rgba(255,255,255,0)');
-        }
         ctx.fillStyle = outerGrad;
         ctx.fill();
 
@@ -1467,31 +1511,13 @@ button{font-family:inherit;cursor:pointer}
           j === 0 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy);
         }
         ctx.closePath();
-        var innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 1.1);
-        if (mode === 'ai') {
-          innerGrad.addColorStop(0, 'rgba(239,68,68,.22)');
-          innerGrad.addColorStop(.6, 'rgba(239,68,68,.06)');
-          innerGrad.addColorStop(1, 'rgba(239,68,68,0)');
-          // Crisp red contour. shadowBlur was the chrome-stutter culprit
-          // here too (set every frame in AI mode) — the .hero-orb-glow CSS
-          // layer behind the canvas already gives the orb a luminous halo,
-          // so the canvas stroke can stay shadow-free.
-          ctx.strokeStyle = 'rgba(239,68,68,.9)';
-        } else {
-          // Low-contrast idle stroke: the blob should drift inside the
-          // outer ring, not compete with it as a hard flower outline.
-          innerGrad.addColorStop(0, 'rgba(255,255,255,.06)');
-          innerGrad.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.strokeStyle = 'rgba(255,255,255,.13)';
-          ctx.shadowBlur = 0;
-        }
         ctx.fillStyle = innerGrad;
         ctx.fill();
+        ctx.strokeStyle = strokeStyleCached;
         ctx.lineWidth = 1.5;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.stroke();
-        ctx.shadowBlur = 0;
 
         // ── Audio-frequency bars: classic speaker visualizer inside the orb.
         // Vertical bars centered, heights driven by layered sin waves to fake
@@ -1532,25 +1558,33 @@ button{font-family:inherit;cursor:pointer}
             ctx.rect(x, y, barW, h);
           }
         }
-        if (mode === 'ai') {
-          ctx.fillStyle = 'rgba(239,68,68,.85)';
-        } else {
-          ctx.fillStyle = 'rgba(255,255,255,.32)';
-        }
-        // No shadowBlur on the bars: it was the main jank source on Chrome.
-        // The orb's own .hero-orb-glow CSS layer already provides the red
-        // ambience around the canvas, so the bars don't need their own glow.
-        ctx.shadowBlur = 0;
+        ctx.fillStyle = fillBarsCached;
         ctx.fill();
 
         requestAnimationFrame(draw);
       }
-      draw();
+      requestAnimationFrame(draw);
 
       document.addEventListener('visibilitychange', function(){
         running = !document.hidden;
-        if (running) draw();
+        if (running) requestAnimationFrame(draw);
       });
+
+      // Pause the loop entirely when the orb scrolls offscreen. The neural-
+      // net canvas already does this; the orb didn't, which meant it kept
+      // burning frames at the bottom of the (long) landing page. Single
+      // biggest battery / Chrome-jank win.
+      if (window.IntersectionObserver) {
+        try {
+          var io = new IntersectionObserver(function(entries){
+            entries.forEach(function(en){
+              inView = en.isIntersecting;
+              if (inView && running) requestAnimationFrame(draw);
+            });
+          }, { rootMargin: '120px' });
+          io.observe(canvas);
+        } catch(e){}
+      }
     })();
     </script>
     <script>

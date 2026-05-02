@@ -4630,12 +4630,20 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         ),
 
         // Live transcript: while the AI is generating + speaking, stream
-        // the text into a panel below the orb so users can read along. Auto-
-        // scrolls so the latest sentence stays in view. Only rendered during
-        // an AI turn; the full round transcript is still available at end.
+        // the text into a panel below the orb so users can read along.
+        // Auto-scroll ONLY if the user is already pinned near the bottom —
+        // if they've scrolled up to re-read an earlier line, leave them
+        // there. Previously every aiText update yanked them back to the
+        // bottom, so reading anything above the latest sentence was
+        // impossible. Only rendered during an AI turn; the full round
+        // transcript is still available at end.
         !isUser&&aiText&&el('div',{
           className:'live-transcript',
-          ref:(node)=>{ if(node) node.scrollTop = node.scrollHeight; },
+          ref:(node)=>{
+            if (!node) return;
+            var dist = node.scrollHeight - node.scrollTop - node.clientHeight;
+            if (dist < 40) node.scrollTop = node.scrollHeight;
+          },
           style:{
             maxWidth:720,margin:'18px auto 0',padding:'14px 18px',
             background:'rgba(255,255,255,.025)',
@@ -4643,6 +4651,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
             borderRadius:12,
             fontSize:'.84rem',lineHeight:1.55,color:'var(--c-text)',
             maxHeight:200,overflowY:'auto',
+            overscrollBehavior:'contain',
             textAlign:'left',
             whiteSpace:'pre-wrap',
             fontFamily:'inherit',
