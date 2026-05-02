@@ -164,11 +164,9 @@ button{font-family:inherit;cursor:pointer}
   z-index:50;
   display:flex;flex-direction:column;align-items:flex-start;gap:18px;
   padding:22px 16px;
-  background:rgba(15,15,18,.55);
+  background:rgba(15,15,18,.92);
   border:1px solid rgba(255,255,255,.08);
   border-radius:18px;
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
 }
 .side-nav a{
   font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
@@ -1211,10 +1209,9 @@ button{font-family:inherit;cursor:pointer}
     position:fixed;left:20px;top:50%;transform:translateY(-50%);z-index:20;
     display:flex;flex-direction:column;gap:4px;
     padding:12px 8px;
-    background:rgba(15,15,18,.55);
+    background:rgba(15,15,18,.92);
     border:1px solid var(--border);
     border-radius:14px;
-    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
     box-shadow:0 12px 40px rgba(0,0,0,.35);
   }
   .landing-jumpnav a{
@@ -1340,7 +1337,7 @@ button{font-family:inherit;cursor:pointer}
          fire a full round of back-and-forth right from the landing page before
          any signup. Rate-limited server-side (5/min, 40/hr, 150/day per IP).
          Full experience lives at /app/debate-ai. -->
-    <div id="miniChat" class="mini-chat" style="margin:0;max-width:none;width:100%;border:1px solid var(--border);border-radius:16px;background:rgba(15,15,18,.72);backdrop-filter:blur(12px);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:left">
+    <div id="miniChat" class="mini-chat" style="margin:0;max-width:none;width:100%;border:1px solid var(--border);border-radius:16px;background:rgba(15,15,18,.92);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:left;transform:translateZ(0)">
       <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.02)">
         <span style="width:10px;height:10px;border-radius:50%;background:#ef4444"></span>
         <span style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></span>
@@ -1410,7 +1407,11 @@ button{font-family:inherit;cursor:pointer}
       window.__heroOrbMode = function(m){ mode = (m === 'ai' ? 'ai' : 'idle'); gradKey = ''; };
 
       function resize(){
-        var dpr = window.devicePixelRatio || 1;
+        // Cap DPR at 1.5. Retina (DPR=2) costs 4× the pixels of DPR=1, and
+        // for an organic blob with anti-aliased fills the visual difference
+        // between 1.5 and 2 is invisible. Chrome's per-frame fill rate on
+        // the orb drops by ~44% at DPR=1.5 vs DPR=2.
+        var dpr = Math.min(1.5, window.devicePixelRatio || 1);
         var rect = canvas.getBoundingClientRect();
         if (!rect.width) return;
         canvas.width = rect.width * dpr;
@@ -1457,10 +1458,11 @@ button{font-family:inherit;cursor:pointer}
         }
       }
 
-      // Throttle to ~45fps on Chrome — visually indistinguishable from 60
-      // for slow-drifting blob animation, ~25% less GPU/CPU per second.
+      // Cap to ~30fps. The blob drifts at sub-Hz speed; 30fps is honestly
+      // visually identical and cuts per-frame canvas work in half compared
+      // to the prior 45fps cap. (60fps was always overkill for this orb.)
       var lastFrame = 0;
-      var FRAME_MIN_MS = 22; // ~45fps cap
+      var FRAME_MIN_MS = 33; // ~30fps cap
 
       function draw(now){
         if (!running) return;
@@ -1756,7 +1758,7 @@ button{font-family:inherit;cursor:pointer}
     <div style="margin-top:18px;display:flex;justify-content:center">
       <button id="googleSignupBtn" type="button" style="display:inline-flex;align-items:center;gap:10px;padding:12px 22px;background:#2a2a30;color:#e5e7eb;border:1px solid #ffffff14;border-radius:999px;font-weight:700;font-size:.88rem;font-family:inherit;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.35);transition:transform .15s,box-shadow .15s,background .15s" onmouseover="this.style.transform='translateY(-1px)';this.style.background='#33333a';this.style.boxShadow='0 10px 30px rgba(0,0,0,.45)'" onmouseout="this.style.transform='translateY(0)';this.style.background='#2a2a30';this.style.boxShadow='0 6px 24px rgba(0,0,0,.35)'">
         <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-        <span id="googleSignupBtnText">Sign up with Google. the AI learns your debate style</span>
+        <span id="googleSignupBtnText">Sign up with Google. The AI learns your debate style</span>
       </button>
     </div>
 
@@ -2719,7 +2721,10 @@ try{
   var ctx=c.getContext('2d');
   var nodes=[],edges=[],pulses=[];
   var W,H,dpr=window.devicePixelRatio||1;
-  var NODE_COUNT=80,CONNECT_DIST=170,CONNECT_DIST_SQ=CONNECT_DIST*CONNECT_DIST;
+  // Halved from 80. Edge-detection is O(n²) so dropping to 40 is a 4× cut
+  // in per-frame distance checks (1600 → 400). Visually the constellation
+  // reads the same — at 80 nodes most edges blurred together anyway.
+  var NODE_COUNT=40,CONNECT_DIST=170,CONNECT_DIST_SQ=CONNECT_DIST*CONNECT_DIST;
   var MOUSE={x:-999,y:-999};
   var TWO_PI=Math.PI*2;
 
