@@ -415,11 +415,11 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 <!-- Language picker (mirrors landing.html). Lazy-loads Google Translate
      only when a non-English locale is set, so English users pay no cost. -->
 <style>
-  /* Pin to top-LEFT, not top-right. The right side of the debate-ai
-     topbar is owned by the React-rendered Sign up / theme dots cluster;
-     the prior right-aligned picker overlapped it. Top-left is empty
-     here (the logo is centered as a heading, not in a corner). */
-  .lang-picker{position:fixed;top:12px;left:12px;z-index:9999;font-family:inherit}
+  /* Default: hidden offscreen until JS moves it into the React-rendered
+     .bar-links cluster (top-right next to Light/Dark, About, Sign up).
+     Putting it there avoids overlapping the bar-logo on the left. */
+  .lang-picker{position:absolute;left:-9999px;top:-9999px;font-family:inherit}
+  .lang-picker.in-nav{position:static;left:auto;top:auto;display:inline-flex;align-items:center}
   .lang-picker select{
     appearance:none;-webkit-appearance:none;
     padding:6px 22px 6px 10px;border-radius:8px;
@@ -429,10 +429,10 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
     cursor:pointer;font-family:inherit;
   }
   .lang-picker select:hover{border-color:rgba(255,255,255,.35)}
-  /* Tight viewports — flag-only so the picker doesn't crowd the corner */
+  /* Tight viewports — narrower picker so it fits the topbar without
+     crowding the Sign-up pill, but still shows the flag + abbreviation. */
   @media(max-width:720px){
-    .lang-picker select{font-size:0;padding:6px 16px 6px 6px}
-    .lang-picker option{font-size:.78rem}
+    .lang-picker select{font-size:.66rem;padding:5px 18px 5px 6px;letter-spacing:0}
   }
   .goog-te-banner-frame.skiptranslate,.goog-te-gadget-icon{display:none!important}
   body{top:0!important}
@@ -474,6 +474,31 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
     var sel=document.getElementById('langPickerSel');
     var saved='en';try{saved=localStorage.getItem(KEY)||'en'}catch(e){}
     if(sel){sel.value=saved;sel.addEventListener('change',function(){window.__setLang(sel.value)});}
+    // Move the picker into the React-rendered .bar-links cluster so it
+    // sits next to Light/Dark / Home / High School / Sign up — not on
+    // top of the bar-logo. React mounts on a timer, so we poll briefly
+    // until .bar-links exists.
+    var pickerWrap = document.querySelector('.lang-picker');
+    var attempts = 0;
+    function tryMount(){
+      var barLinks = document.querySelector('.bar-links');
+      if (pickerWrap && barLinks) {
+        pickerWrap.classList.add('in-nav');
+        // Insert before the user/sign-in chunk (last child) so it sits
+        // after the secondary nav but before the auth pill.
+        var lastChild = barLinks.lastElementChild;
+        if (lastChild) barLinks.insertBefore(pickerWrap, lastChild);
+        else barLinks.appendChild(pickerWrap);
+        return true;
+      }
+      return false;
+    }
+    if (!tryMount()) {
+      var poll = setInterval(function(){
+        attempts++;
+        if (tryMount() || attempts > 40) clearInterval(poll);
+      }, 75);
+    }
     if(saved&&saved!=='en'){
       var s=document.createElement('script');
       s.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
