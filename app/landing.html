@@ -370,6 +370,29 @@ button{font-family:inherit;cursor:pointer}
   position:relative;z-index:1;
 }
 
+/* ── "Try me" button: plays a randomized sample debate line via TTS so
+   anonymous visitors hear what the opponent sounds like before signing
+   in. Sits between the orb caption and the CTA row. */
+.try-me-btn{
+  display:inline-flex;align-items:center;gap:7px;
+  margin:6px auto 4px;
+  padding:9px 22px;
+  background:rgba(239,68,68,.10);
+  border:1px solid rgba(239,68,68,.32);
+  color:var(--text);
+  border-radius:999px;
+  font-size:.74rem;font-weight:700;
+  letter-spacing:.10em;text-transform:uppercase;
+  cursor:pointer;font-family:inherit;
+  transition:background .2s,border-color .2s,transform .15s;
+}
+.try-me-btn:hover{background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.55);transform:translateY(-1px)}
+.try-me-btn.loading{opacity:.65;cursor:wait}
+.try-me-btn.playing{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.7)}
+.try-me-icon{font-size:.72em;line-height:1}
+.try-me-btn.playing .try-me-icon{animation:try-me-pulse 1.2s ease-in-out infinite}
+@keyframes try-me-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+
 /* ── CTA row under the orb ─────────────────────────── */
 .hero-left-ctas{
   display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
@@ -1326,6 +1349,10 @@ button{font-family:inherit;cursor:pointer}
           <canvas id="heroOrb" aria-hidden="true"></canvas>
         </div>
         <div class="hero-orb-caption">Thinks. Challenges. Judges you like a real opponent.</div>
+        <button id="tryMeBtn" class="try-me-btn" type="button" aria-label="Hear a sample debate line">
+          <span class="try-me-icon" aria-hidden="true">▶</span>
+          <span class="try-me-label">Try me</span>
+        </button>
         <div class="hero-left-ctas">
           <a href="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
           <a href="/app#case" class="hero-cta hero-cta-secondary">Debate prep</a>
@@ -1589,6 +1616,102 @@ button{font-family:inherit;cursor:pointer}
       }
     })();
     </script>
+
+    <!-- Try-me button: plays a randomized debate-style sample line via TTS
+         so visitors hear what the AI opponent sounds like (and how a real
+         debater articulates a response) before they sign up. Cycles through
+         8 lines in random order without repeating the last one, picks a
+         random voice each press. The orb lights up red while the audio
+         plays, so the button feels connected to the visual. -->
+    <script>
+    (function(){
+      var btn = document.getElementById('tryMeBtn');
+      if (!btn) return;
+      var labelEl = btn.querySelector('.try-me-label');
+      var iconEl  = btn.querySelector('.try-me-icon');
+
+      // Lines written to sound like a real debater, not an explainer.
+      // Mix of strategic moves: weighing, drop callouts, link attacks,
+      // strategic concessions, cross-applies, ballot crystallization.
+      // First two are the user's seed examples, lightly polished.
+      var samples = [
+        "Honestly, it's charitable to say this plan is worth considering. Side opp is full of unwarranted claims, like their argument that the housing market self-corrects in a recession. The markets will fail because of our opponents' plan, and side opp's link chain is practically empty.",
+        "Side gov totally knifes their own arguments about gender equality when MG instigates a pseudo-gender-culture war with his preposterous claims about women voters. They can't run feminism and tradition in the same speech.",
+        "On the flow, opp dropped our coordination-failure argument entirely. Extend that. Since it's uncontested, you're voting on it, judge — full stop.",
+        "Their entire case hangs on one link, and it just snapped. They argued deregulation triggers innovation, but the 2008 evidence cuts the exact other way: deregulation triggered the crisis they're claiming to prevent.",
+        "Grant them every word of their economic argument. Every word. They still lose, because none of it touches our principal harm — the rights violation happens in their world too, just dressed up in deficit numbers.",
+        "Cross-apply the moral hazard warrant from our first contention. It directly answers their second point about subsidies, because the same incentive distortion shows up wherever the state insures private risk.",
+        "The ballot question is simple — whose mechanism actually does the work? Theirs requires three contingent steps, each unlikely. Ours requires one direct change. That asymmetry is the round.",
+        "Side opp asks you to imagine a fictional version of the status quo where the harm doesn't exist yet. We're debating reality. In reality, criminalization is what's manufacturing the very harm they're claiming decriminalization causes."
+      ];
+      var voices = ['onyx','echo','fable','alloy','nova','shimmer','coral','sage','ash','ballad'];
+      var lastIdx = -1;
+      var current = null;
+      var loading = false;
+
+      function setLabel(t){ if (labelEl) labelEl.textContent = t; }
+      function setIcon(t){ if (iconEl) iconEl.textContent = t; }
+      function reset(){
+        btn.classList.remove('loading','playing');
+        setIcon('▶'); setLabel('Try me');
+        try { document.getElementById('heroOrbWrap')?.classList.remove('speaking'); } catch(e){}
+        try { window.__heroOrbMode && window.__heroOrbMode('idle'); } catch(e){}
+      }
+
+      btn.addEventListener('click', async function(){
+        if (loading) return;
+        // Stop any currently-playing sample first so successive clicks don't
+        // overlap two voices.
+        if (current) { try { current.pause(); } catch(e){} current = null; }
+        var idx;
+        do { idx = Math.floor(Math.random() * samples.length); }
+        while (samples.length > 1 && idx === lastIdx);
+        lastIdx = idx;
+        var voice = voices[Math.floor(Math.random() * voices.length)];
+        var text  = samples[idx];
+
+        loading = true;
+        btn.classList.add('loading');
+        setLabel('Loading…');
+        try {
+          var r = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text, voice: voice, speed: 1.0, premium: false, intensity: 0.45 })
+          });
+          if (!r.ok) throw new Error('tts ' + r.status);
+          var blob = await r.blob();
+          var url = URL.createObjectURL(blob);
+          var a = new Audio(url);
+          a.playbackRate = 1.1;
+          current = a;
+          loading = false;
+          btn.classList.remove('loading');
+          btn.classList.add('playing');
+          setIcon('❚❚'); setLabel('Stop');
+          try { document.getElementById('heroOrbWrap')?.classList.add('speaking'); } catch(e){}
+          try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
+          a.onended = function(){ try { URL.revokeObjectURL(url); } catch(e){} if (current === a) current = null; reset(); };
+          a.onerror = function(){ try { URL.revokeObjectURL(url); } catch(e){} if (current === a) current = null; reset(); };
+          a.play().catch(function(){ reset(); });
+        } catch(e) {
+          loading = false;
+          btn.classList.remove('loading');
+          setLabel('Try again');
+          setTimeout(function(){ if (!current) { setIcon('▶'); setLabel('Try me'); } }, 1800);
+        }
+      });
+
+      // Click-while-playing acts as a stop toggle.
+      btn.addEventListener('click', function(){
+        if (current && btn.classList.contains('playing')) {
+          // The async handler above will start a NEW sample on the next
+          // microtask. Let it. (Successive presses cycle naturally.)
+        }
+      });
+    })();
+    </script>
+
     <script>
     (function(){
       var topicEl = document.getElementById('miniChatTopic');
