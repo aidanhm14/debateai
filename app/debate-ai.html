@@ -559,9 +559,35 @@ function useAuth() {
     });
   }, []);
   const signIn = async () => {
-    if (!firebaseAuth) return alert('Auth not available.');
+    if (!firebaseAuth) {
+      if (window.gtag) gtag('event', 'sign_in_error', { code: 'auth_unavailable', page: 'debate-ai' });
+      alert('Sign-in is still loading — refresh and try again.');
+      return;
+    }
     const provider = new firebase.auth.GoogleAuthProvider();
-    await firebaseAuth.signInWithPopup(provider);
+    // In-app browsers (Instagram, FB, TikTok, LinkedIn, Twitter, WeChat, Line)
+    // and iOS Safari ITP block popup OAuth silently — that's the bulk of the
+    // documented 62% sign-in drop. Use redirect there; onAuthStateChanged
+    // picks up the result on return.
+    const ua = navigator.userAgent || '';
+    const isMobile = /iPhone|iPad|Android/i.test(ua);
+    const isInApp = /(Instagram|FBAN|FBAV|FB_IAB|Twitter|LinkedIn|TikTok|MicroMessenger|Line\//i).test(ua);
+    try {
+      if (isMobile || isInApp) {
+        await firebaseAuth.signInWithRedirect(provider);
+      } else {
+        await firebaseAuth.signInWithPopup(provider);
+      }
+    } catch (e) {
+      const code = e.code || 'unknown';
+      console.error('Sign-in error:', code, e.message);
+      if (window.gtag) gtag('event', 'sign_in_error', { code, page: 'debate-ai' });
+      // Popup blocked / closed by browser policy → fall back to redirect.
+      if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        try { await firebaseAuth.signInWithRedirect(provider); return; } catch (e2) { e = e2; }
+      }
+      alert('Sign-in failed: ' + (e.message || e.code || 'try again'));
+    }
   };
   const signOut = async () => { if (firebaseAuth) await firebaseAuth.signOut(); };
   return { user, team, loading, signIn, signOut };

@@ -240,7 +240,11 @@
     measurementId: "G-0V4R5MY3BT"
   };
 
-  const app = firebase.initializeApp(FIREBASE_CONFIG);
+  // Reuse existing app if track.js / usage-banner.js / upgrade-cta.js
+  // (defer-loaded) initialized it first. Calling initializeApp twice
+  // throws "Firebase App named '[DEFAULT]' already exists" — see the
+  // identical fix on debate-ai.html.
+  const app = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
   const auth = firebase.auth();
 
   const $ = id => document.getElementById(id);
