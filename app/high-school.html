@@ -1213,35 +1213,43 @@ function EvidenceFinder() {
   const [topic, setTopic] = useState('');
   const [side, setSide] = useState('Pro');
   const [output, setOutput] = useState(null);
+  const [citations, setCitations] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const find = async () => {
     if (!topic.trim()) return;
     setLoading(true);
-    setOutput('');
+    setOutput('Searching the web for real evidence…');
+    setCitations([]);
     try {
-      const sysPrompt = `You are a research assistant for high school debaters. Given a topic and side, generate a list of evidence cards that a debater could use in a round.
+      // Calls Perplexity (sonar-pro) via /api/perplexity in evidence mode.
+      // Returns synthesized cards + a citations array of real URLs the model
+      // pulled. Falls back through the function's anon per-IP rate limit
+      // when the user isn't signed in.
+      const sideClause = side === 'Both'
+        ? 'covering both Pro and Con angles equally'
+        : 'supporting the ' + side + ' side';
+      const query = 'Find peer-reviewed studies, government reports, think-tank analyses, and reputable journalism (2022–2026) ' + sideClause + ' of: "' + topic.trim() + '". Return 6–8 distinct sources with specific findings, statistics, or quotations a competitive debater could cite in-round.';
 
-For each piece of evidence:
-1. SOURCE: Real, reputable source name (think tanks, government agencies, academic journals, major newspapers)
-2. FINDING: The specific claim or statistic
-3. TAG: A one-sentence summary a debater would read as the tag line
-4. HOW TO USE IT: Which argument this supports and where in the case it fits
-5. SEARCH TIP: What to Google to find this or similar evidence
-
-Generate 6-8 evidence suggestions. Mix quantitative (stats, data) and qualitative (expert opinions, case studies). Prioritize recent sources (2022-2026).
-
-Be honest: note which evidence you're confident exists vs. which you're suggesting as likely findable. Always tell them to verify before using in a round.`;
-      await callClaude(sysPrompt, `Topic: ${topic}\nSide: ${side}\n\nFind me evidence.`, (text) => setOutput(text));
+      const res = await fetch('/api/perplexity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'evidence', query }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Research search failed');
+      setOutput(data.text || 'No results returned. Try a more specific topic.');
+      setCitations(Array.isArray(data.citations) ? data.citations : []);
     } catch(e) {
       setOutput(formatError(e));
+      setCitations([]);
     }
     setLoading(false);
   };
 
   return React.createElement('div',{className:'panel'},
     React.createElement('p',{style:{color:'#888',marginBottom:16,fontSize:'.92rem'}},
-      'Get evidence suggestions and research directions for any topic. Always verify sources before using in a round.'
+      'Live web research via Perplexity. Returns real sources with citations — verify the link still says what the tag claims before reading in-round.'
     ),
     React.createElement('label',{className:'field-label'},'Topic or Resolution'),
     React.createElement('textarea',{
@@ -1256,10 +1264,23 @@ Be honest: note which evidence you're confident exists vs. which you're suggesti
     ),
     React.createElement('div',{style:{marginTop:20}},
       React.createElement('button',{className:'btn btn-orange',onClick:find,disabled:loading},
-        loading ? React.createElement('span',null,React.createElement('span',{className:'spinner'}),'Searching...') : 'Find Evidence'
+        loading ? React.createElement('span',null,React.createElement('span',{className:'spinner'}),'Searching the web…') : 'Find Evidence'
       )
     ),
-    output && React.createElement('div',{className:'output',style:{whiteSpace:'pre-wrap'}}, output)
+    output && React.createElement('div',{className:'output',style:{whiteSpace:'pre-wrap'}}, output),
+    citations.length > 0 && React.createElement('div',{
+      style:{marginTop:18,padding:'14px 16px',background:'#ffffff06',border:'1px solid #ffffff14',borderRadius:10}
+    },
+      React.createElement('div',{style:{fontSize:'.7rem',fontWeight:800,letterSpacing:'.14em',color:'#ef4444',textTransform:'uppercase',marginBottom:10}}, 'Sources (' + citations.length + ')'),
+      React.createElement('ol',{style:{paddingLeft:20,margin:0,fontSize:'.85rem',lineHeight:1.65}},
+        citations.map((c,i) => React.createElement('li',{key:i,style:{marginBottom:6}},
+          React.createElement('a',{
+            href:c.url, target:'_blank', rel:'noopener noreferrer',
+            style:{color:'#60a5fa',wordBreak:'break-word'}
+          }, c.title || c.url)
+        ))
+      )
+    )
   );
 }
 

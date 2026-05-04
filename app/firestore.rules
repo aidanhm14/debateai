@@ -129,31 +129,17 @@ service cloud.firestore {
 
     // ── teams ────────────────────────────────────────────────────────
     // Members can read; only owner can write the team doc.
+    // Inlined ownership check (was isTeamOwner/isTeamMember helpers, but
+    // isTeamMember referenced an undefined getTeamMemberByQuery and the
+    // helpers added no clarity over a direct ownerUid comparison).
     match /teams/{teamId} {
-      function isTeamOwner() {
-        return isSignedIn()
-            && resource.data.ownerUid == request.auth.uid;
-      }
-
-      function isTeamMember() {
-        return isSignedIn()
-            && exists(/databases/$(database)/documents/team_members/$(request.auth.uid + '_' + teamId))
-               || getTeamMemberByQuery(teamId);
-      }
-
-      // Simplified: rely on the ownerUid field for ownership,
-      // and check the team_members collection for membership.
-      // Since Firestore rules can't query, we check the team doc's
-      // member list or rely on team_members subcollection.
-      // For read: any authenticated user who has a team_members entry.
-      // Practically, the server-side functions handle complex membership
-      // checks; these rules provide a safety net.
-
       allow read:   if isSignedIn();
       allow create: if isSignedIn()
                     && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if isTeamOwner();
-      allow delete: if isTeamOwner();
+      allow update: if isSignedIn()
+                    && resource.data.ownerUid == request.auth.uid;
+      allow delete: if isSignedIn()
+                    && resource.data.ownerUid == request.auth.uid;
 
       // members subcollection
       match /members/{memberId} {
