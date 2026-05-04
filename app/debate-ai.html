@@ -2697,67 +2697,6 @@ function App(){
   const[brain,setBrain]=useState('claude');
   const[voice,setVoice]=useState('onyx');
 
-  // Voice preview — clicking a voice plays a short sample line so users hear
-  // what each persona sounds like before locking in. Three problems the
-  // naive version had: (1) clicking voice B while A's fetch was in flight
-  // played BOTH when their blobs landed, (2) clicking A twice fired two
-  // fetches, (3) the playing audio kept going if you clicked another voice.
-  // Fix: AbortController kills the prior fetch, a monotonic token ignores
-  // stale resolutions, and a per-voice cache makes repeat clicks instant.
-  const previewAudioRef = useRef(null);
-  const previewCacheRef = useRef({});
-  const previewAbortRef = useRef(null);
-  const previewTokenRef = useRef(0);
-  const previewVoice = (voiceKey) => {
-    // 1. Stop whatever's currently playing.
-    try {
-      const a = previewAudioRef.current;
-      if (a) { a.pause(); try { a.currentTime = 0; } catch {} }
-    } catch {}
-    previewAudioRef.current = null;
-    // 2. Cancel any in-flight fetch from a prior click.
-    if (previewAbortRef.current) {
-      try { previewAbortRef.current.abort(); } catch {}
-      previewAbortRef.current = null;
-    }
-    const myToken = ++previewTokenRef.current;
-    // 3. Cache hit: instant replay, no network.
-    const cached = previewCacheRef.current[voiceKey];
-    if (cached) {
-      try { cached.currentTime = 0; } catch {}
-      cached.playbackRate = 1.1;
-      previewAudioRef.current = cached;
-      cached.play().catch(() => {});
-      return;
-    }
-    // 4. Fetch fresh sample, store in cache once it lands.
-    const samples = [
-      'I yield the floor, but only because my opponent has already lost the round.',
-      'Their argument has three problems, and the third one is fatal.',
-      'Grant them everything they said. They still lose. Here is why.',
-      'The judge does not need a roadmap. The judge needs the truth.',
-      'On the flow, they dropped our strongest point. That is the round.',
-    ];
-    const text = samples[Math.floor(Math.random() * samples.length)];
-    const ac = new AbortController();
-    previewAbortRef.current = ac;
-    fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice: voiceKey, speed: 1.0, premium: typeof isPro==='function'?isPro():false, intensity: 0 }),
-      signal: ac.signal,
-    }).then(r => r.ok ? r.blob() : null).then(blob => {
-      // Stale resolution: a newer click superseded this fetch. Drop it.
-      if (previewTokenRef.current !== myToken) return;
-      if (!blob) return;
-      const a = new Audio(URL.createObjectURL(blob));
-      a.playbackRate = 1.1;
-      previewCacheRef.current[voiceKey] = a;
-      previewAudioRef.current = a;
-      a.play().catch(() => {});
-    }).catch(() => {});
-  };
-
   const[side,setSide]=useState('gov');
   // Judge paradigm — shapes BOTH the AI opponent's strategy (they try to
   // win the judge they're in front of) AND the final RFD voice. Persisted
@@ -4492,13 +4431,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       el('div',{className:'t-label',style:{marginTop:24}},'AI Voice',isPro()&&el('span',{style:{marginLeft:8,fontSize:'.55rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4,verticalAlign:'middle'}},'HD VOICE')),
       el('div',{className:'pills',style:{flexWrap:'wrap',justifyContent:'center'}},
         Object.entries(VOICES).map(([k,v])=>
-          el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>{ setVoice(k); previewVoice(k); },style:{minWidth:voice===k?'auto':undefined}},
+          el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>setVoice(k),style:{minWidth:voice===k?'auto':undefined}},
             v.name,
             voice===k&&el('span',{style:{marginLeft:6,fontSize:'.6rem',opacity:.6,fontWeight:400}},v.gender)
           )
         )
       ),
-      el('div',{style:{textAlign:'center',marginTop:6,fontSize:'.62rem',color:'var(--c-subtle)',letterSpacing:'.04em'}},'Tap any voice to hear a sample line'),
       // Selected voice description + rivalry pill
       VOICES[voice]&&el('div',{style:{textAlign:'center',marginTop:8,fontSize:'.72rem',color:'var(--c-text)',lineHeight:1.4,maxWidth:360,margin:'8px auto 0'}},
         VOICES[voice].desc
