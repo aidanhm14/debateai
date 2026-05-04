@@ -529,7 +529,12 @@ const FIREBASE_CONFIG = {
 let firebaseApp, firebaseAuth, firebaseDb;
 try {
   if (typeof firebase !== 'undefined') {
-    firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+    // Reuse the existing app if track.js / usage-banner.js / upgrade-cta.js
+    // (all defer-loaded) already initialized it. Calling initializeApp twice
+    // throws "Firebase App named '[DEFAULT]' already exists!" — the catch
+    // below swallowed that silently, leaving firebaseAuth undefined and
+    // every Sign-in click hitting "Auth not available."
+    firebaseApp = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
     firebaseAuth = firebase.auth();
     firebaseDb = firebase.firestore();
   }
