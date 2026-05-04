@@ -379,7 +379,6 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
    render invisible on the light theme — relevant for school projectors. */
 .bg-watermark-text{color:rgba(255,255,255,.06)}
 [data-lighting="light"] .bg-watermark-text{color:rgba(0,0,0,.07)}
-[data-lighting="light"] .live-transcript{background:rgba(0,0,0,.03)!important;border-color:rgba(0,0,0,.08)!important;color:#1a1a1e!important}
 [data-lighting="light"] .recovery-banner{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.18)}
 [data-lighting="light"] .float-input::placeholder{color:rgba(0,0,0,.25)}
 [data-lighting="light"] .pill{border-color:rgba(0,0,0,.12);color:rgba(0,0,0,.45)}
@@ -5007,38 +5006,6 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           // elapsed-vs-total readout was always lying. The speech-slot
           // timer above already tells you how long the speech is and
           // how much of it is left; a second clock was noise.
-        ),
-
-        // Live transcript: while the AI is generating + speaking, stream
-        // the text into a panel below the orb so users can read along.
-        // Auto-scroll ONLY if the user is already pinned near the bottom —
-        // if they've scrolled up to re-read an earlier line, leave them
-        // there. Previously every aiText update yanked them back to the
-        // bottom, so reading anything above the latest sentence was
-        // impossible. Only rendered during an AI turn; the full round
-        // transcript is still available at end.
-        !isUser&&aiText&&el('div',{
-          className:'live-transcript',
-          ref:(node)=>{
-            if (!node) return;
-            var dist = node.scrollHeight - node.scrollTop - node.clientHeight;
-            if (dist < 40) node.scrollTop = node.scrollHeight;
-          },
-          style:{
-            maxWidth:720,margin:'18px auto 0',padding:'14px 18px',
-            background:'rgba(255,255,255,.025)',
-            border:'1px solid var(--c-border2)',
-            borderRadius:12,
-            fontSize:'.84rem',lineHeight:1.55,color:'var(--c-text)',
-            maxHeight:200,overflowY:'auto',
-            overscrollBehavior:'contain',
-            textAlign:'left',
-            whiteSpace:'pre-wrap',
-            fontFamily:'inherit',
-          },
-        },
-          el('div',{style:{fontSize:'.55rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--c-subtle)',marginBottom:6}},'Live transcript'),
-          aiText
         ),
 
         // POI: user can send a POI during AI speech (middle of speech only)
