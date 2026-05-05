@@ -195,49 +195,54 @@ body{
 .cta-ghost:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
 
 /* ── In-round side panel (Notes / Flow / Cases) ────────
-   Tablet+ (≥768px): fixed slide-in from the right edge so opening it
-   doesn't shove the orb / timer around. Mobile: full-width sheet at the
-   bottom of the stage so it stays one-handed reachable. */
+   Tablet+ (≥768px): slim fixed sidebar on the right edge — narrow
+   enough to not crowd the orb / timer or eat the topbar.
+   Mobile: full-width sheet at the bottom of the stage so it stays
+   one-handed reachable. */
 .round-panel{
-  position:fixed;top:80px;right:16px;bottom:16px;
-  width:min(420px, calc(100vw - 32px));
-  background:var(--c-surface);
-  border:1px solid var(--c-border);
-  border-radius:16px;
-  padding:16px;
-  display:flex;flex-direction:column;gap:10px;
+  position:fixed;top:96px;right:14px;bottom:18px;
+  width:min(280px, calc(100vw - 28px));
+  background:rgba(20,20,24,.92);
+  border:1px solid var(--c-border2);
+  border-radius:12px;
+  padding:10px 12px;
+  display:flex;flex-direction:column;gap:8px;
   z-index:30;
-  box-shadow:0 12px 40px rgba(0,0,0,.35);
+  box-shadow:0 10px 32px rgba(0,0,0,.32);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
   overflow:hidden;
   animation:roundPanelIn .18s ease-out;
 }
 @keyframes roundPanelIn{
-  from{transform:translateX(16px);opacity:0}
+  from{transform:translateX(12px);opacity:0}
   to{transform:translateX(0);opacity:1}
 }
 .round-panel-head{
   display:flex;align-items:center;justify-content:space-between;
-  padding-bottom:10px;border-bottom:1px solid var(--c-border);
+  padding-bottom:6px;border-bottom:1px solid var(--c-border);
+  margin:-2px -2px 0;
 }
 .round-panel-title{
-  font-size:.7rem;font-weight:800;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--c-text3);
+  font-size:.6rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--c-subtle);
+  padding-left:4px;
 }
 .round-panel-close{
-  background:transparent;border:none;color:var(--c-text3);
-  font-size:1.4rem;line-height:1;width:28px;height:28px;
-  border-radius:8px;cursor:pointer;font-family:inherit;
+  background:transparent;border:none;color:var(--c-subtle);
+  font-size:1.1rem;line-height:1;width:22px;height:22px;
+  border-radius:6px;cursor:pointer;font-family:inherit;
   display:flex;align-items:center;justify-content:center;
   transition:background .15s,color .15s;
 }
 .round-panel-close:hover{background:rgba(255,255,255,.06);color:var(--c-text)}
 .round-panel-textarea{
-  flex:1;min-height:200px;resize:none;width:100%;
-  font-size:.88rem;line-height:1.5;
+  flex:1;min-height:180px;resize:none;width:100%;
+  font-size:.82rem;line-height:1.5;padding:8px 10px;
 }
 .round-panel-body{
-  flex:1;overflow-y:auto;font-size:.85rem;line-height:1.5;
-  padding-right:4px;
+  flex:1;overflow-y:auto;font-size:.78rem;line-height:1.5;
+  padding-right:2px;
 }
 @media(max-width:767px){
   /* On phones the right rail isn't reachable one-handed and the orb
@@ -246,8 +251,8 @@ body{
   .round-panel{
     position:fixed;top:auto;left:0;right:0;bottom:0;
     width:100%;
-    border-radius:18px 18px 0 0;
-    max-height:60vh;
+    border-radius:16px 16px 0 0;
+    max-height:55vh;
     animation:roundPanelInBottom .18s ease-out;
   }
   @keyframes roundPanelInBottom{
@@ -256,8 +261,9 @@ body{
   }
 }
 [data-lighting="light"] .round-panel{
-  background:#fafaf7;border-color:rgba(0,0,0,.08);
-  box-shadow:0 12px 40px rgba(0,0,0,.12);
+  background:rgba(250,250,247,.94);
+  border-color:rgba(0,0,0,.08);
+  box-shadow:0 10px 32px rgba(0,0,0,.10);
 }
 
 /* ── The Orb (waveform) ────────────── */
@@ -5083,12 +5089,23 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           el('button',{className:'cta-ghost speech-btn',onClick:endSpeech},isUser?'End Speech →':'Skip →'),
         ),
 
-        // In-round tools. notes, flow, saved cases
-        el('div',{className:'row-c',style:{gap:6,marginTop:8}},
+        // In-round tools. notes, flow, saved cases, plus an in-round
+        // "Save case" shortcut so the user doesn't have to wait for the
+        // feedback page (which only shows after the entire round ends).
+        // Save is gated on at least one AI speech being in the log —
+        // saving an empty round would silently no-op and leave the user
+        // wondering why nothing landed in their library.
+        (()=>{const aiSpeechCount=log.filter(l=>l.who==='AI').length;return el('div',{className:'row-c',style:{gap:6,marginTop:8,flexWrap:'wrap'}},
           el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='notes'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='notes'?null:'notes')},'Notes'),
           el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='flow'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='flow'?null:'flow')},'Flow'),
           savedCases.length>0&&el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='cases'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='cases'?null:'cases')},'Cases'),
-        ),
+          aiSpeechCount>0 && el('button',{
+            className:'cta-ghost',
+            style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,...(caseSaved?{background:'rgba(34,197,94,.15)',borderColor:'#22c55e',color:'#22c55e'}:{})},
+            onClick:()=>saveCase(),
+            title:'Save the AI\'s '+aiSpeechCount+' speech'+(aiSpeechCount===1?'':'es')+' so far to your case library',
+          },caseSaved?'✓ Saved':'★ Save case'),
+        )})(),
 
         // In-round side panel. Renders as a fixed slide-in from the right
         // on tablet+ screens so the panel doesn't push the orb / timer
