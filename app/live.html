@@ -1254,9 +1254,13 @@ button{font-family:inherit}
     var empty = document.getElementById('empty');
     var count = document.getElementById('challengeCount');
     host.innerHTML = '';
+    // Track which rooms are still on screen so stale subscriptions
+    // (bailed challenges, removed posts) get torn down at the end.
+    var activeRooms = {};
     if (list.length === 0) {
       empty.style.display = 'block';
       count.textContent = '0 waiting';
+      pruneRoomSubscriptions(activeRooms);
       return;
     }
     empty.style.display = 'none';
@@ -1299,35 +1303,57 @@ button{font-family:inherit}
         var room = jitsiRoomUrl(c.id);
         var gcal = googleCalUrl(c);
         var profile = loadProfile();
-        // Build the /live-round handoff URL. The accepter is on `yourSide`,
-        // the poster's handle goes on the other side. We pass the SAME
-        // Jitsi room name (DebateAI-<challengeId>) so both sides connect
-        // to the same in-page video room with no manual coordination.
+        var roomName = 'DebateAI-' + String(c.id).replace(/[^a-zA-Z0-9]/g,'');
+        // Subscribe to the synced round doc so the card flips to
+        // 'opponent is in the room, join now' the instant the other
+        // side hits Start. Idempotent, ensures only one listener
+        // per room.
+        ensureRoomSubscription(c);
+        activeRooms[roomName] = true;
+        var rs = roomStatus[roomName] || {};
+        var roundLive = rs.status === 'round';
+        var hasBallot = rs.hasBallot;
+
         var roundParams = new URLSearchParams({
           motion: c.motion || c.topicLine || c.themeLine || '',
           format: c.format,
           pro: yourSide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
           con: yourSide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
-          room: 'DebateAI-' + String(c.id).replace(/[^a-zA-Z0-9]/g,''),
+          room: roomName,
           challengeId: c.id,
         });
         var roundUrl = '/live-round.html?' + roundParams.toString();
-        var meta = canJoin
-          ? 'Round room is live. Click <strong>Start judged round</strong>, both sides land in the same in-page video room and the AI judges the round at the end.'
-          : (sched
-              ? 'Matched as <strong>' + escHtml(yourSideLabel) + '</strong>. Kickoff ' + escHtml(sched.label) + '. The judged-round room launches at kickoff.'
-              : 'Queued to debate <strong>' + escHtml(yourSideLabel) + '</strong> against <strong>@' + escHtml(c.handle || 'anonymous') + '</strong>. Hit Start any time once your opponent\'s online.');
+        var meta;
+        if (hasBallot){
+          meta = '<span style="color:#4ade80;font-weight:700">✓ Ballot ready.</span> The AI judged the round, click below to see who won + the RFD.';
+        } else if (roundLive){
+          meta = '<span style="color:#4ade80;font-weight:700;display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:rec-pulse 1.6s ease-in-out infinite"></span>Your opponent is in the room.</span> Click Join below, the AI is already in there waiting.';
+        } else if (canJoin){
+          meta = 'Kickoff time hit. Click <strong>Start judged round</strong>, both sides land in the same in-page video room.';
+        } else if (sched){
+          meta = 'Matched as <strong>' + escHtml(yourSideLabel) + '</strong>. Kickoff ' + escHtml(sched.label) + '. The judged-round room launches at kickoff.';
+        } else {
+          meta = 'Queued to debate <strong>' + escHtml(yourSideLabel) + '</strong> against <strong>@' + escHtml(c.handle || 'anonymous') + '</strong>. Hit Start any time once your opponent\'s online.';
+        }
+
+        var ctaLabel, ctaClass;
+        if (hasBallot){ ctaLabel = '📋 View ballot'; ctaClass = 'btn-room'; }
+        else if (roundLive){ ctaLabel = '▶ Join, opponent is in the room'; ctaClass = 'btn-primary'; }
+        else if (canJoin){ ctaLabel = '▶ Start judged round'; ctaClass = 'btn-primary'; }
+        else { ctaLabel = '▶ Start judged round'; ctaClass = 'btn-room'; }
+
         card.innerHTML =
           '<div class="card-head">' +
             '<span class="tag tag-matched">✓ You accepted</span>' +
             '<span class="tag tag-format">' + escHtml(f.name) + '</span>' +
             schedChip +
+            (roundLive && !hasBallot ? '<span class="tag" style="background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.4);color:#4ade80;font-weight:800">● LIVE</span>' : '') +
             '<span class="tag tag-time">vs @' + escHtml(c.handle || 'anonymous') + '</span>' +
           '</div>' +
           '<div class="card-motion">' + escHtml(displayText) + '</div>' +
           '<div class="card-meta">' + meta + '</div>' +
           '<div class="card-actions">' +
-            '<a class="btn ' + (canJoin ? 'btn-primary' : 'btn-room') + '" target="_blank" rel="noopener" href="' + escHtml(roundUrl) + '" data-start-round="' + c.id + '">▶ Start judged round</a>' +
+            '<a class="btn ' + ctaClass + '" target="_blank" rel="noopener" href="' + escHtml(roundUrl) + '" data-start-round="' + c.id + '">' + ctaLabel + '</a>' +
             (gcal ? '<a class="btn btn-ghost" target="_blank" rel="noopener" href="' + escHtml(gcal) + '" data-gcal="' + c.id + '">+ Google Calendar</a>' : '') +
             (c.scheduledAt ? '<button class="btn btn-ghost" data-ical="' + c.id + '">.ics</button>' : '') +
             '<button class="btn btn-bail" data-bail="' + c.id + '">✕ Bail</button>' +
@@ -1351,6 +1377,7 @@ button{font-family:inherit}
       }
       host.appendChild(card);
     });
+    pruneRoomSubscriptions(activeRooms);
 
     // Accept flow. Routes through the confirmation modal so the user
     // explicitly opts in + provides contact info before we mark the
@@ -1929,6 +1956,46 @@ button{font-family:inherit}
   function deleteChallenge(challengeId){
     if (!firebaseDb || !currentUser) return;
     firebaseDb.collection('live_challenges').doc(challengeId).delete().catch(function(){});
+  }
+
+  // ── Round-status subscriptions. Per accepted challenge, subscribe
+  // to live_rounds/{room}. When the OTHER side hits Start, status
+  // flips to 'round'; when the AI ballot lands, status flips to
+  // 'ballot'. We mirror those into roomStatus so the card render can
+  // swap to a green 'Join now, opponent in room' CTA or a 'View
+  // ballot' CTA without polling.
+  var roomStatus = {};        // roomName -> { status, ballot, updatedAt }
+  var roomUnsubs = {};        // roomName -> unsubscribe fn
+  function challengeRoom(c){ return 'DebateAI-' + String(c.id).replace(/[^a-zA-Z0-9]/g,''); }
+
+  function ensureRoomSubscription(c){
+    if (!firebaseDb || !currentUser) return;
+    var room = challengeRoom(c);
+    if (roomUnsubs[room]) return;
+    roomUnsubs[room] = firebaseDb.collection('live_rounds').doc(room).onSnapshot(function(doc){
+      var d = (doc && doc.exists) ? (doc.data() || {}) : {};
+      var prev = roomStatus[room] || {};
+      roomStatus[room] = {
+        status: d.status || null,
+        hasBallot: !!d.ballot,
+      };
+      // Only re-render if something visible to the card changed
+      if (prev.status !== roomStatus[room].status || prev.hasBallot !== roomStatus[room].hasBallot){
+        render();
+      }
+    }, function(e){ console.warn('[Live] room status sub failed', e); });
+  }
+
+  // Garbage-collect subscriptions for rooms we no longer care about
+  // (e.g., user bailed). Called from render() on the active set.
+  function pruneRoomSubscriptions(activeRooms){
+    Object.keys(roomUnsubs).forEach(function(room){
+      if (!activeRooms[room]){
+        try { roomUnsubs[room](); } catch(e){}
+        delete roomUnsubs[room];
+        delete roomStatus[room];
+      }
+    });
   }
 
   // ── Boot
