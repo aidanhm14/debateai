@@ -133,7 +133,19 @@ button{font-family:inherit}
 .btn-mic{padding:8px 14px;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .btn-mic.live{background:rgba(239,68,68,.16);color:#fca5a5;border-color:rgba(239,68,68,.5)}
 .btn-mic.live::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;margin-right:6px;vertical-align:middle;animation:pulse 1.4s ease-in-out infinite}
-.btn-end{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-end{background:rgba(255,255,255,.04);color:var(--text);border-color:var(--border-strong)}
+.btn-end:hover{background:rgba(255,255,255,.08)}
+.btn-play{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:.78rem;padding:11px 20px}
+.btn-play:hover{background:#dc2626;border-color:#dc2626}
+.btn-pause{background:rgba(245,158,11,.16);color:#fbbf24;border-color:rgba(245,158,11,.5);font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:.78rem;padding:11px 20px}
+.btn-pause:hover{background:rgba(245,158,11,.24);border-color:rgba(245,158,11,.7)}
+.timer-num.paused{color:var(--text-dim)}
+.timer-num.paused::after{content:' · paused';font-size:.42em;font-weight:700;color:var(--amber);letter-spacing:.08em;text-transform:uppercase;margin-left:6px;vertical-align:middle}
+.ready-hint{
+  margin-top:6px;font-size:.7rem;color:var(--text-dim);
+  letter-spacing:.04em;
+}
+.ready-hint strong{color:var(--text)}
 
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .row.between{justify-content:space-between}
@@ -333,6 +345,7 @@ button{font-family:inherit}
           <span class="timer-target" id="timerTarget">/ 0:00</span>
         </div>
         <div class="timer-progress"><div class="timer-bar" id="timerBar" style="width:0%"></div></div>
+        <div class="ready-hint" id="readyHint">Click <strong>▶ Start speech</strong> when you're ready — the timer doesn't start until you do.</div>
       </div>
 
       <div class="transcript-area">
@@ -343,6 +356,7 @@ button{font-family:inherit}
         </div>
         <textarea id="speechText" placeholder="Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said."></textarea>
         <div class="row">
+          <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start speech</button>
           <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
           <button class="btn" id="skipSpeechBtn" type="button" style="font-size:.7rem">Skip</button>
         </div>
@@ -515,8 +529,13 @@ button{font-family:inherit}
     speechIdx: 0,
     log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, overran }
     timerInterval: null,
-    timerStart: 0,
-    timerTotalSec: 0,
+    // Timer state machine. 'ready' = speech loaded, timer not started yet
+    // (the user has to click Start speech). 'running' = ticking. 'paused' =
+    // user hit pause; clock frozen. 'ended' = speech over, no longer tracked.
+    timerState: 'ready',
+    timerStart: 0,           // wall-clock ms when current run segment began
+    timerElapsed: 0,         // accumulated seconds across all run segments
+    timerTotalSec: 0,        // target duration for the current speech
     jitsiApi: null,
     recognition: null,
     micActive: false,
@@ -578,7 +597,8 @@ button{font-family:inherit}
     state.micFinal = '';
     updateWordCount();
     renderSequence();
-    startTimer(sp.time);
+    // Speech loads in 'ready' state — speakers click Start when set.
+    prepareTimer(sp.time);
     $('speechText').focus();
   }
 
@@ -597,27 +617,86 @@ button{font-family:inherit}
     $('wordCount').textContent = n + ' word' + (n===1?'':'s');
   }
 
-  // ── Timer
-  function startTimer(targetSec){
-    stopTimer();
-    state.timerStart = Date.now();
-    state.timerTotalSec = targetSec;
-    function tick(){
-      var elapsed = (Date.now() - state.timerStart) / 1000;
-      var remaining = state.timerTotalSec - elapsed;
-      var num = $('timerNum'), bar = $('timerBar');
-      num.textContent = remaining >= 0 ? fmtTime(remaining) : '+' + fmtTime(-remaining);
-      var pct = Math.min(100, Math.max(0, 100 * elapsed / state.timerTotalSec));
-      bar.style.width = pct + '%';
-      var warnClass = remaining < 0 ? 'over' : remaining < 30 ? 'warn' : '';
-      num.className = 'timer-num' + (warnClass ? ' ' + warnClass : '');
-      bar.className = 'timer-bar' + (warnClass ? ' ' + warnClass : '');
+  // ── Timer (ready → running ↔ paused → ended)
+  // Speech loads in 'ready' state — clock shows the full speech length and
+  // doesn't tick until the user hits Start. Pause freezes the clock; resume
+  // picks up where it left off. Total elapsed accumulates across run
+  // segments so multiple pauses still produce a correct durationSec.
+  function getElapsed(){
+    if (state.timerState === 'running'){
+      return state.timerElapsed + (Date.now() - state.timerStart) / 1000;
     }
-    tick();
-    state.timerInterval = setInterval(tick, 200);
+    return state.timerElapsed;
+  }
+  function drawTimer(){
+    var elapsed = getElapsed();
+    var remaining = state.timerTotalSec - elapsed;
+    var num = $('timerNum'), bar = $('timerBar');
+    if (!num) return;
+    num.textContent = remaining >= 0 ? fmtTime(remaining) : '+' + fmtTime(-remaining);
+    var pct = Math.min(100, Math.max(0, 100 * elapsed / Math.max(1, state.timerTotalSec)));
+    bar.style.width = pct + '%';
+    var warnClass = '';
+    if (state.timerState === 'paused') warnClass = 'paused';
+    else if (remaining < 0) warnClass = 'over';
+    else if (remaining < 30 && state.timerState === 'running') warnClass = 'warn';
+    num.className = 'timer-num' + (warnClass ? ' ' + warnClass : '');
+    bar.className = 'timer-bar' + (warnClass && warnClass !== 'paused' ? ' ' + warnClass : '');
+  }
+  function prepareTimer(targetSec){
+    stopTimer();
+    state.timerTotalSec = targetSec;
+    state.timerElapsed = 0;
+    state.timerStart = 0;
+    state.timerState = 'ready';
+    drawTimer();
+    updatePlayPauseBtn();
+    var hint = $('readyHint');
+    if (hint) hint.style.display = '';
+  }
+  function startSpeechTimer(){
+    if (state.timerState === 'running' || state.timerState === 'ended') return;
+    state.timerStart = Date.now();
+    state.timerState = 'running';
+    state.timerInterval = setInterval(drawTimer, 200);
+    drawTimer();
+    updatePlayPauseBtn();
+    var hint = $('readyHint');
+    if (hint) hint.style.display = 'none';
+  }
+  function pauseSpeechTimer(){
+    if (state.timerState !== 'running') return;
+    state.timerElapsed += (Date.now() - state.timerStart) / 1000;
+    state.timerStart = 0;
+    state.timerState = 'paused';
+    if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
+    drawTimer();
+    updatePlayPauseBtn();
+  }
+  function togglePlayPause(){
+    if (state.timerState === 'ready' || state.timerState === 'paused') startSpeechTimer();
+    else if (state.timerState === 'running') pauseSpeechTimer();
   }
   function stopTimer(){
     if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
+    state.timerState = 'ended';
+  }
+  function updatePlayPauseBtn(){
+    var btn = $('playPauseBtn');
+    if (!btn) return;
+    if (state.timerState === 'ready'){
+      btn.textContent = '▶ Start speech';
+      btn.className = 'btn btn-play';
+    } else if (state.timerState === 'running'){
+      btn.textContent = '⏸ Pause';
+      btn.className = 'btn btn-pause';
+    } else if (state.timerState === 'paused'){
+      btn.textContent = '▶ Resume';
+      btn.className = 'btn btn-play';
+    } else {
+      btn.textContent = '▶ Start speech';
+      btn.className = 'btn btn-play';
+    }
   }
 
   // ── Mic / SpeechRecognition. Uses the standard Web Speech API. Chrome
@@ -755,7 +834,7 @@ button{font-family:inherit}
     var f = FORMATS[state.formatKey];
     var sp = f.speeches[state.speechIdx];
     if (!sp) return;
-    var elapsed = state.timerInterval ? (Date.now() - state.timerStart)/1000 : 0;
+    var elapsed = getElapsed();
     stopTimer();
     setMicActive(false);
     var sideKey = sp.side;
@@ -962,7 +1041,14 @@ button{font-family:inherit}
   $('startBtn').addEventListener('click', startRound);
 
   // Round controls
-  $('endSpeechBtn').addEventListener('click', function(){ endSpeech(); });
+  $('playPauseBtn').addEventListener('click', togglePlayPause);
+  $('endSpeechBtn').addEventListener('click', function(){
+    // Confirm-out if the timer was never started (likely accidental click).
+    if (state.timerState === 'ready'){
+      if (!confirm('End ' + FORMATS[state.formatKey].speeches[state.speechIdx].code + ' without starting the timer? The speech will be logged as 0:00.')) return;
+    }
+    endSpeech();
+  });
   $('skipSpeechBtn').addEventListener('click', function(){
     if (!confirm('Skip ' + FORMATS[state.formatKey].speeches[state.speechIdx].code + '? It will be marked skipped on the ballot.')) return;
     endSpeech({ skipped:true });
@@ -973,12 +1059,16 @@ button{font-family:inherit}
     updateWordCount();
   });
 
-  // Keyboard: Space to mic, Enter to end
+  // Keyboard: Space = play/pause (most natural mapping in a timer-driven
+  // UI), M = toggle mic, Enter = end speech. Mic moved off Space because
+  // play/pause is now the primary action and Space is the universal
+  // play/pause key.
   document.addEventListener('keydown', function(e){
     if (state.phase !== 'round') return;
     if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) return;
-    if (e.key === ' '){ e.preventDefault(); setMicActive(!state.micActive); }
-    if (e.key === 'Enter'){ e.preventDefault(); endSpeech(); }
+    if (e.key === ' '){ e.preventDefault(); togglePlayPause(); }
+    else if (e.key === 'm' || e.key === 'M'){ e.preventDefault(); setMicActive(!state.micActive); }
+    else if (e.key === 'Enter'){ e.preventDefault(); endSpeech(); }
   });
 
   // Allow editing motion inline if missing
