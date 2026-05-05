@@ -1615,19 +1615,35 @@ button{font-family:inherit}
     return now;
   }
 
+  // Validation. Used to disable the submit button silently which left
+  // users staring at a dead button with no feedback. Now we keep the
+  // button enabled and surface any missing pieces as a toast on
+  // submit. The minimum bar is just 'motion has some content' since
+  // everything else has sensible defaults at submit time.
+  function validatePost(){
+    var errors = [];
+    if (!motionEl.value.trim()) errors.push('Motion is empty.');
+    if (selectedReveal === 'topic' && !topicLineEl.value.trim()) errors.push('Topic line needed when reveal is "Topic only".');
+    if (selectedReveal === 'theme' && !themeLineEl.value) errors.push('Pick a theme.');
+    if (!selectedSide) errors.push('Pick your side (Pro or Con).');
+    if (!formatEl.value) errors.push('Pick a format.');
+    if (selectedWhen === 'custom' && !customTimeEl.value) errors.push('Pick a date/time.');
+    if (selectedWhen === 'custom' && customTimeEl.value && new Date(customTimeEl.value).getTime() < Date.now() - 60_000) errors.push('Date/time is in the past.');
+    return errors;
+  }
   function updateSubmit(){
-    var motionOK = motionEl.value.trim().length > 5;
-    var revealOK = selectedReveal === 'full' ||
-      (selectedReveal === 'topic' && topicLineEl.value.trim().length >= 3) ||
-      (selectedReveal === 'theme' && themeLineEl.value);
-    var whenOK = selectedWhen !== 'custom' || (customTimeEl.value && new Date(customTimeEl.value).getTime() > Date.now() - 60_000);
-    var ok = motionOK && revealOK && selectedSide && formatEl.value && whenOK;
-    submitEl.disabled = !ok;
+    // Button stays enabled — submit handler surfaces errors on click
+    // so the user always knows why something didn't work.
+    submitEl.disabled = false;
   }
 
   formEl.addEventListener('submit', function(e){
     e.preventDefault();
-    if (submitEl.disabled) return;
+    var errors = validatePost();
+    if (errors.length){
+      toast(errors.join(' '));
+      return;
+    }
     var list = loadList();
     var entry = {
       id: 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2,8),
