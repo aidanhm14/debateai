@@ -1401,7 +1401,7 @@ button{font-family:inherit}
             '<a class="btn ' + ctaClass + '" target="_blank" rel="noopener" href="' + escHtml(roundUrl) + '" data-start-round="' + c.id + '">' + ctaLabel + '</a>' +
             (gcal ? '<a class="btn btn-ghost" target="_blank" rel="noopener" href="' + escHtml(gcal) + '" data-gcal="' + c.id + '">+ Google Calendar</a>' : '') +
             (c.scheduledAt ? '<button class="btn btn-ghost" data-ical="' + c.id + '">.ics</button>' : '') +
-            (c.accepterContact ? '<a class="btn btn-ghost" href="' + (/@/.test(c.accepterContact) ? 'mailto:' : 'tel:') + escHtml(c.accepterContact) + '">📨 Contact opponent</a>' : '') +
+            (c.accepterContact ? '<button class="btn btn-ghost" data-copy-contact="' + escHtml(c.accepterContact) + '" title="Click to copy" type="button">📨 ' + escHtml(c.accepterContact) + '</button>' : '') +
             '<button class="btn btn-bail" data-bail-poster="' + c.id + '">✕ Cancel match</button>';
         } else if (isMine){
           headExtra = '<span class="tag tag-matched">✓ You posted this</span>';
@@ -1565,6 +1565,20 @@ button{font-family:inherit}
           navigator.clipboard.writeText(url);
           toast('Link copied. Send it to your opponent, they sign in and accept.');
         } catch(e){ toast('Link is: ' + url); }
+      });
+    });
+    // Copy opponent contact info instead of jumping to mailto:/tel:
+    // (which yanked users out to Outlook/Phone whether they wanted
+    // to or not). Click copies to clipboard so they can paste it
+    // wherever they actually want to message from.
+    host.querySelectorAll('[data-copy-contact]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var contact = btn.getAttribute('data-copy-contact');
+        if (!contact) return;
+        try {
+          navigator.clipboard.writeText(contact);
+          toast('Contact copied: ' + contact);
+        } catch(e){ toast('Contact: ' + contact); }
       });
     });
     // Poster cancelling the match. Same Firestore op as the accepter
