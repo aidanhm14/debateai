@@ -9309,9 +9309,151 @@ function FrameworkPicker() {
   );
 }
 
+// Per-format speech flows for the Structure-of-a-Round timeline.
+// Decoupled from FORMATS / FormatDiagrams so the guide can render with
+// timing notes ("~2 min", "Up to 15 min") that aren't part of the app's
+// runtime-timer FORMATS dict. Sides: 'gov' = red, 'opp' = blue, 'both'
+// = amber for shared pre-round phases like POCs/POIs windows.
+const GUIDE_SPEECH_FLOWS = {
+  apda: {
+    label: 'APDA Parliamentary',
+    note: 'US college 2v2. Built at UChicago for programs without big coaching staffs. Impromptu, no evidence — the case-writer chooses the topic.',
+    flow: [
+      {label:'Background + Case Statement',side:'gov',time:'~2 min',desc:'Gov reads the motion and context aloud'},
+      {label:'Points of Clarification',side:'both',time:'Up to 15 min',desc:'Opp asks questions about the case'},
+      {label:'PM Constructive',side:'gov',time:'7:30',desc:'Prime Minister presents the case'},
+      {label:'LO Constructive',side:'opp',time:'8:30',desc:'Leader of Opposition responds + builds counter'},
+      {label:'MG',side:'gov',time:'8:30',desc:'Member of Government extends and defends'},
+      {label:'MO',side:'opp',time:'8:30',desc:'Member of Opposition extends and attacks'},
+      {label:'LO Rebuttal',side:'opp',time:'4:00',desc:'Opposition summary and weighing'},
+      {label:'PM Rebuttal',side:'gov',time:'5:00',desc:'Government gets the last word'},
+    ],
+  },
+  bp: {
+    label: 'British Parliamentary (BP / Worlds)',
+    note: '4 teams of 2 (OG, OO, CG, CO). 15 min prep. Closing teams MUST bring an extension. Used at WUDC.',
+    flow: [
+      {label:'Prime Minister',side:'gov',time:'7:00',desc:'Set up case, define motion (Opening Gov)'},
+      {label:'Leader of Opposition',side:'opp',time:'7:00',desc:'Respond + independent opp case (Opening Opp)'},
+      {label:'Deputy PM',side:'gov',time:'7:00',desc:'Rebuild + extend OG case'},
+      {label:'Deputy LO',side:'opp',time:'7:00',desc:'Rebuild + extend OO case'},
+      {label:'Member of Gov',side:'gov',time:'7:00',desc:'Closing Gov extension — new dimension'},
+      {label:'Member of Opp',side:'opp',time:'7:00',desc:'Closing Opp extension — new dimension'},
+      {label:'Gov Whip',side:'gov',time:'7:00',desc:'Crystallize for closing Gov, no new args'},
+      {label:'Opp Whip',side:'opp',time:'7:00',desc:'Crystallize for closing Opp, no new args'},
+    ],
+  },
+  worlds: {
+    label: 'World Schools (WSDC)',
+    note: '2 teams of 3. Reply speeches by 1st or 2nd speaker (NOT 3rd). Emphasizes accessible argumentation — judges score matter, manner, and method.',
+    flow: [
+      {label:'1st Proposition',side:'gov',time:'8:00',desc:'Framework + 1-2 arguments'},
+      {label:'1st Opposition',side:'opp',time:'8:00',desc:'Counter-framework + arguments'},
+      {label:'2nd Proposition',side:'gov',time:'8:00',desc:'Rebuild + new args + rebut'},
+      {label:'2nd Opposition',side:'opp',time:'8:00',desc:'Rebuild + new args + rebut'},
+      {label:'3rd Proposition',side:'gov',time:'8:00',desc:'Primarily rebuttal + extend'},
+      {label:'3rd Opposition',side:'opp',time:'8:00',desc:'Primarily rebuttal + extend'},
+      {label:'Opposition Reply',side:'opp',time:'4:00',desc:'Biased summary, no new args'},
+      {label:'Proposition Reply',side:'gov',time:'4:00',desc:'Biased summary, no new args'},
+    ],
+  },
+  asian: {
+    label: 'Asian Parliamentary',
+    note: '2 teams of 3 in the UADC tradition. Whip speeches close substantive debate; Reply speeches are biased summaries.',
+    flow: [
+      {label:'Prime Minister',side:'gov',time:'7:00',desc:'Define motion, framework, arguments'},
+      {label:'Leader of Opposition',side:'opp',time:'7:00',desc:'Counter-framework + arguments'},
+      {label:'Deputy PM',side:'gov',time:'7:00',desc:'Extend + rebut LO'},
+      {label:'Deputy LO',side:'opp',time:'7:00',desc:'Extend + rebut DPM'},
+      {label:'Government Whip',side:'gov',time:'7:00',desc:'Crystallize, no new substantive args'},
+      {label:'Opposition Whip',side:'opp',time:'7:00',desc:'Crystallize, no new substantive args'},
+      {label:'Opposition Reply',side:'opp',time:'4:00',desc:'Biased summary'},
+      {label:'Government Reply',side:'gov',time:'4:00',desc:'Biased summary'},
+    ],
+  },
+  ld: {
+    label: 'Lincoln-Douglas (LD)',
+    note: '1v1 value debate. Centered on a value premise + criterion. Resolutions rotate every 2 months on the NSDA / NFL circuit.',
+    flow: [
+      {label:'Affirmative Constructive',side:'gov',time:'6:00',desc:'Value, criterion, and contentions'},
+      {label:'Cross-Examination by Neg',side:'opp',time:'3:00',desc:'Question Aff'},
+      {label:'Negative Constructive',side:'opp',time:'7:00',desc:'Counter-value or counter-criterion + attacks'},
+      {label:'Cross-Examination by Aff',side:'gov',time:'3:00',desc:'Question Neg'},
+      {label:'1st Affirmative Rebuttal',side:'gov',time:'4:00',desc:'Defend Aff and respond to Neg'},
+      {label:'Negative Rebuttal',side:'opp',time:'6:00',desc:'Crystallize and weigh — Neg’s last speech'},
+      {label:'2nd Affirmative Rebuttal',side:'gov',time:'3:00',desc:'Final voters, no new args'},
+    ],
+  },
+  pf: {
+    label: 'Public Forum (PF)',
+    note: '2v2, monthly NSDA topic. Lay-accessible — judges are often parents and community members, so weighing and clear language matter more than jargon.',
+    flow: [
+      {label:'1st Pro Constructive',side:'gov',time:'4:00',desc:'Pro case'},
+      {label:'1st Con Constructive',side:'opp',time:'4:00',desc:'Con case'},
+      {label:'Crossfire (1st speakers)',side:'both',time:'3:00',desc:'Direct Q&A between 1st speakers'},
+      {label:'2nd Pro Rebuttal',side:'gov',time:'4:00',desc:'Attack Con'},
+      {label:'2nd Con Rebuttal',side:'opp',time:'4:00',desc:'Attack Pro + frontline'},
+      {label:'Crossfire (2nd speakers)',side:'both',time:'3:00',desc:'Direct Q&A between 2nd speakers'},
+      {label:'Pro Summary',side:'gov',time:'3:00',desc:'Voters and weighing'},
+      {label:'Con Summary',side:'opp',time:'3:00',desc:'Voters and weighing'},
+      {label:'Grand Crossfire',side:'both',time:'3:00',desc:'All four speakers Q&A'},
+      {label:'Pro Final Focus',side:'gov',time:'2:00',desc:'Voters, no new args'},
+      {label:'Con Final Focus',side:'opp',time:'2:00',desc:'Voters, no new args'},
+    ],
+  },
+  policy: {
+    label: 'Policy / CX',
+    note: '2v2 with evidence. Spreading is common at the circuit level. Year-long topic; off-case positions (DAs, CPs, Ks, T) are standard.',
+    flow: [
+      {label:'1AC',side:'gov',time:'8:00',desc:'Affirmative case + plan'},
+      {label:'CX of 1A by 2N',side:'opp',time:'3:00',desc:'Cross-examination'},
+      {label:'1NC',side:'opp',time:'8:00',desc:'Off-case (DAs, CPs, K, T) + on-case'},
+      {label:'CX of 1N by 1A',side:'gov',time:'3:00',desc:'Cross-examination'},
+      {label:'2AC',side:'gov',time:'8:00',desc:'Answer everything in 1NC'},
+      {label:'CX of 2A by 1N',side:'opp',time:'3:00',desc:'Cross-examination'},
+      {label:'2NC',side:'opp',time:'8:00',desc:'Block strategy: extend on chosen positions'},
+      {label:'CX of 2N by 2A',side:'gov',time:'3:00',desc:'Cross-examination'},
+      {label:'1NR',side:'opp',time:'5:00',desc:'Negative block — split with 2NC'},
+      {label:'1AR',side:'gov',time:'5:00',desc:'Hardest speech — answer entire negative block'},
+      {label:'2NR',side:'opp',time:'5:00',desc:'Collapse — pick the winning position'},
+      {label:'2AR',side:'gov',time:'5:00',desc:'Final word for Aff'},
+    ],
+  },
+  congress: {
+    label: 'Student Congress',
+    note: 'Mock legislative debate. Speakers alternate Aff/Neg on each bill. "Mr./Madam Speaker" framing throughout.',
+    flow: [
+      {label:'Authorship / Sponsorship',side:'gov',time:'3:00',desc:'First aff speech, presents the bill'},
+      {label:'1st Negation',side:'opp',time:'3:00',desc:'First neg speech, attacks the bill'},
+      {label:'2nd Affirmation',side:'gov',time:'3:00',desc:'New aff arguments + answer 1st neg'},
+      {label:'2nd Negation',side:'opp',time:'3:00',desc:'New neg arguments + answer 2nd aff'},
+      {label:'Subsequent speeches',side:'both',time:'3:00 each',desc:'Alternating Aff / Neg until previous question'},
+      {label:'Voting',side:'both',time:'—',desc:'Chamber votes the bill up or down'},
+    ],
+  },
+  mun: {
+    label: 'Model UN',
+    note: 'Roleplay diplomacy. Delegates speak in third person ("the delegation of France"). Operative + preambulatory clauses; resolutions cited by number.',
+    flow: [
+      {label:'Roll Call & Agenda',side:'both',time:'—',desc:'Establish quorum + set the agenda'},
+      {label:'Speakers List',side:'both',time:'1:00–2:00 each',desc:'Delegates speak on the topic in turn'},
+      {label:'Moderated Caucus',side:'both',time:'15–20 min',desc:'Structured speeches on a sub-topic'},
+      {label:'Unmoderated Caucus',side:'both',time:'15–20 min',desc:'Free negotiation; bloc-building'},
+      {label:'Working Paper → Draft Resolution',side:'both',time:'rolling',desc:'Draft + sponsor a resolution'},
+      {label:'Amendments',side:'both',time:'rolling',desc:'Friendly + unfriendly amendments'},
+      {label:'Voting Bloc',side:'both',time:'—',desc:'Roll call vote on each draft resolution'},
+    ],
+  },
+};
+
 function Newbies() {
   const [expanded, setExpanded] = useState({});
   const toggle = (key) => setExpanded(prev => ({...prev, [key]:!prev[key]}));
+  // Format selection for the Structure-of-a-Round timeline. APDA is
+  // the default since it's the platform's primary format, but the
+  // picker above the diagram lets a newcomer flip to whatever they're
+  // actually running.
+  const [guideFmt, setGuideFmt] = useState('apda');
 
   const el = React.createElement;
 
@@ -9329,24 +9471,9 @@ function Newbies() {
       el('div',{key:2,className:'newbie-callout'}, "Dress is casual. Wear what you'd wear to class. Friday night dinner is usually provided, plus Saturday breakfast and lunch. You'll be nervous. Everyone is. You'll probably speak too fast, forget a warrant, and feel like the other team is way better. This is normal. The other team also forgot a warrant and also thinks you're better than them."),
       el('p',{key:3},"You will lose rounds, probably most of your early ones. This is the learning process, not a failure. The best debaters in the country lost constantly when they started. The most important thing: after each round, listen to the judge's RFD. That feedback is gold."),
     ]},
-    { key:'structure', icon:'\u{1F4CB}', title:'Structure of a Round', render: () => [
-      el('p',{key:0},"Here's what happens in a standard APDA cases round:"),
-      el('table',{key:1,className:'newbie-table'},
-        el('thead',null,el('tr',null, el('th',null,'Speech'), el('th',null,'Side'), el('th',null,'Time'))),
-        el('tbody',null,
-          el('tr',null, el('td',null,'Background + Case Statement'), el('td',null,'Gov reads aloud'), el('td',null,'~2 min')),
-          el('tr',null, el('td',null,'Points of Clarification (POCs)'), el('td',null,'Both'), el('td',null,'Up to 15 min')),
-          el('tr',null, el('td',null,'PM Constructive (PMC)'), el('td',null,'Government'), el('td',null,'7:30')),
-          el('tr',null, el('td',null,'Leader of Opp Constructive (LOC)'), el('td',null,'Opposition'), el('td',null,'8:30')),
-          el('tr',null, el('td',null,'Member of Government (MG)'), el('td',null,'Government'), el('td',null,'8:30')),
-          el('tr',null, el('td',null,'Member of Opposition (MO)'), el('td',null,'Opposition'), el('td',null,'8:30')),
-          el('tr',null, el('td',null,'LO Rebuttal (LOR)'), el('td',null,'Opposition'), el('td',null,'4 min')),
-          el('tr',null, el('td',null,'PM Rebuttal (PMR)'), el('td',null,'Government'), el('td',null,'5 min')),
-        )
-      ),
-      el('p',{key:2},"All speeches have a 30-second grace period. During constructive speeches (not LOR or PMR), the other team can offer Points of Information (POIs), which are brief questions or comments that support their side. You offer one by raising your hand, and the speaker can accept or decline. General rule: if someone offers you a POI, almost never take it."),
-      el('div',{key:3,className:'newbie-callout'}, el('span',null, el('strong',null,'No new arguments in rebuttals. '), "LOR and PMR can introduce new weighing and new examples, but no new substantive arguments or responses. If you think the other team brought something new in rebuttal, you can call a Point of Order by interrupting and saying so. The judge rules on whether it's new.")),
-    ]},
+    // (Format-specific structure of a round was moved up into the
+    // top-of-page diagram with the format picker — no longer in the
+    // expandable sections list.)
     { key:'formats', icon:'\uD83C\uDF10', title:'Debate Formats Around the World', render: () => {
       return [React.createElement(FormatDiagrams, {key:'fd'})];
     }},
@@ -9561,16 +9688,8 @@ function Newbies() {
     ]},
   ];
 
-  const speechFlow = [
-    {label:'Background + Case Statement',side:'gov',time:'~2 min',desc:'Gov reads the motion and context aloud'},
-    {label:'Points of Clarification',side:'both',time:'Up to 15 min',desc:'Opp asks questions about the case'},
-    {label:'PM Constructive',side:'gov',time:'7:30',desc:'Prime Minister presents the case'},
-    {label:'LO Constructive',side:'opp',time:'8:30',desc:'Leader of Opposition responds + builds counter'},
-    {label:'MG',side:'gov',time:'8:30',desc:'Member of Government extends and defends'},
-    {label:'MO',side:'opp',time:'8:30',desc:'Member of Opposition extends and attacks'},
-    {label:'LO Rebuttal',side:'opp',time:'4:00',desc:'Opposition summary and weighing'},
-    {label:'PM Rebuttal',side:'gov',time:'5:00',desc:'Government gets the last word'},
-  ];
+  const guideEntry = GUIDE_SPEECH_FLOWS[guideFmt] || GUIDE_SPEECH_FLOWS.apda;
+  const speechFlow = guideEntry.flow;
 
   return el('div',{className:'panel'},
     el('div',{className:'newbie-hero'},
@@ -9589,10 +9708,35 @@ function Newbies() {
       ),
       el('span',{style:{marginLeft:'auto',color:'#ef4444',fontSize:'.8rem',fontWeight:600}},'\u25B6 Watch'),
     ),
-    // Visual round structure diagram
+    // Visual round structure diagram — format-agnostic. Picker above
+    // the timeline lets newcomers pick any of the 9 supported formats
+    // and the diagram redraws against that format's flow data. APDA is
+    // the default; the previous version was hardcoded to APDA + had a
+    // "Why APDA is the default" callout below that read as advertising
+    // a specific debate type.
     el('div',{style:{margin:'24px 0 28px',padding:'24px',background:'#ffffff04',border:'1px solid #ffffff18',borderRadius:14}},
-      el('h3',{style:{color:'#e4e8f0',fontSize:'1.1rem',fontWeight:800,marginBottom:4,textAlign:'center'}},'Structure of a Round'),
-      el('p',{style:{color:'#64748b',fontSize:'.78rem',textAlign:'center',marginBottom:20}},'How a standard APDA cases round flows from start to finish'),
+      el('h3',{style:{color:'#e4e8f0',fontSize:'1.1rem',fontWeight:800,marginBottom:14,textAlign:'center'}},'Guide to a Round'),
+      // Format picker — pill row, scrolls horizontally on phones.
+      el('div',{style:{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:6,marginBottom:14}},
+        Object.entries(GUIDE_SPEECH_FLOWS).map(([k,v])=>{
+          const active = guideFmt === k;
+          return el('button',{
+            key:k,
+            onClick:()=>setGuideFmt(k),
+            style:{
+              padding:'6px 12px',borderRadius:999,
+              fontSize:'.72rem',fontWeight:700,letterSpacing:'.04em',
+              border:'1px solid '+(active?'#ef4444':'#ffffff20'),
+              background:active?'#ef444418':'transparent',
+              color:active?'#fca5a5':'#94a3b8',
+              cursor:'pointer',fontFamily:'inherit',
+              transition:'background .15s,color .15s,border-color .15s',
+            },
+          },v.label.replace(/\s*\([^)]*\)\s*$/,''));
+        })
+      ),
+      el('p',{style:{color:'#94a3b8',fontSize:'.82rem',textAlign:'center',marginBottom:6,fontWeight:600}},guideEntry.label),
+      el('p',{style:{color:'#64748b',fontSize:'.74rem',textAlign:'center',marginBottom:20,maxWidth:520,marginLeft:'auto',marginRight:'auto',lineHeight:1.5}},guideEntry.note),
       el('div',{style:{display:'flex',flexDirection:'column',gap:6}},
         speechFlow.map((s,i) =>
           el('div',{key:i,style:{display:'grid',gridTemplateColumns:'1fr 40px 1fr',alignItems:'center',gap:0}},
@@ -9641,13 +9785,12 @@ function Newbies() {
         ),
       ),
     ),
-    // APDA explanation + prep time note
-    el('div',{style:{margin:'12px 0 20px',padding:'12px 16px',background:'#ef444408',border:'1px solid #ef444420',borderRadius:10,fontSize:'.85rem',lineHeight:1.6,color:'#b0bec5'}},
-      el('strong',{style:{color:'#ef4444'}},'Why APDA is the default: '),
-      "Built at UChicago for debate programs without big coaching staffs. APDA is the default, and my personal favorite: 2v2, impromptu, no evidence. Every tool here works across formats.",
-      el('br'),el('br'),
-      el('strong',{style:{color:'#f59e0b'}},'Prep time: '),
-      "Cases rounds: Gov has unlimited prep, Opp gets POC period (~5-15 min). Motions rounds: both sides get 15 min. Use this app to learn structure and strategy, then apply those skills with your own brain.",
+    // Format-agnostic note. The previous version was an APDA pitch
+    // that read as "use this format" — replaced with a neutral
+    // reminder that the rest of the app supports every format above.
+    el('div',{style:{margin:'12px 0 20px',padding:'12px 16px',background:'#ffffff04',border:'1px solid #ffffff15',borderRadius:10,fontSize:'.84rem',lineHeight:1.6,color:'#b0bec5'}},
+      el('strong',{style:{color:'#e4e8f0'}},'Every tool here works across formats. '),
+      "Pick whichever format above matches the round you're prepping. The Case Gen, Debate AI sparring partner, judge feedback, and ballot rubric all adapt to your selection — POIs in Worlds, evidence tags in Policy, framework-first in LD, the right speech-by-speech timer for whatever you click.",
     ),
     sections.map(s =>
       el('div',{key:s.key,id:'newbie-'+s.key,className:'newbie-section'},
