@@ -5071,48 +5071,54 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       })(),
 
       // Recent rounds — return-user hook. Shows the user's last 3 rounds
-      // inline so they can rematch an opponent on the same motion with
-      // one click. 'Rematch' flips to a voice they HAVEN'T faced yet (if
-      // one exists) so they train against variety rather than the same
-      // personality over and over.
+      // as a compact horizontal row of cards so 3 rounds occupy ONE line
+      // of vertical space instead of three. Each card has a W/L pill,
+      // truncated motion, format, and a Rematch button. 'Rematch' flips
+      // to a voice they HAVEN'T faced yet (if one exists) so they train
+      // against variety rather than the same personality over and over.
+      // Was a vertical stack; user feedback: too long on the y-axis.
       (()=>{
         const recent = (historyRounds||[]).slice(0,3);
         if(!recent.length) return null;
         const voiceKeys = Object.keys(VOICES||{});
-        return el('div',{style:{marginTop:14,padding:'12px 14px',background:'rgba(255,255,255,.02)',border:'1px solid var(--c-border2)',borderRadius:10,textAlign:'left'}},
-          el('div',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--c-muted)',marginBottom:10}},'Recent rounds'),
-          recent.map((r,i)=>{
-            const won = r.userWon===true, lost=r.userWon===false;
-            const pillBg = won?'rgba(34,197,94,.14)':lost?'rgba(239,68,68,.14)':'rgba(245,158,11,.14)';
-            const pillFg = won?'#4ade80':lost?'#f87171':'#fbbf24';
-            const pillBorder = won?'rgba(34,197,94,.35)':lost?'rgba(239,68,68,.35)':'rgba(245,158,11,.35)';
-            const pillLabel = won?'W':lost?'L':'—';
-            return el('div',{key:r.id||i,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderTop:i===0?'none':'1px solid var(--c-border2)'}},
-              el('span',{style:{fontSize:'.66rem',fontWeight:800,padding:'3px 8px',borderRadius:6,background:pillBg,color:pillFg,border:'1px solid '+pillBorder,minWidth:24,textAlign:'center'}},pillLabel),
-              el('div',{style:{flex:1,minWidth:0,fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.35,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:r.motion||''},r.motion||'(no motion)'),
-              el('span',{style:{fontSize:'.6rem',color:'var(--c-muted)',whiteSpace:'nowrap',letterSpacing:'.04em',textTransform:'uppercase',fontWeight:600}},(r.formatName||r.format||'').slice(0,6)),
-              el('button',{
-                onClick:()=>toggleStar(r.motion||''),
-                title:isStarred(r.motion)?'Remove from starred':'Save to starred',
-                'aria-label':isStarred(r.motion)?'Unstar motion':'Star motion',
-                style:{padding:'4px 8px',background:isStarred(r.motion)?'rgba(245,158,11,.18)':'transparent',border:'1px solid '+(isStarred(r.motion)?'rgba(245,158,11,.5)':'var(--c-border2)'),borderRadius:6,color:isStarred(r.motion)?'#fbbf24':'var(--c-muted)',fontSize:'.8rem',cursor:'pointer',fontFamily:'inherit',lineHeight:1},
-              },isStarred(r.motion)?'★':'☆'),
-              el('button',{
-                onClick:()=>{
-                  setMotion(r.motion||'');
-                  // Flip to a different voice if possible so rematch feels
-                  // fresh; keep the same format + side so the round is
-                  // comparable on its own terms.
-                  const other = voiceKeys.find(v => v !== r.voice);
-                  if(other && r.voice) setVoice(other);
-                  if(r.format && FORMATS[r.format]) setFormat(r.format);
-                  if(r.side) setSide(r.side);
-                },
-                title:'Pre-fills the motion, same format + side, new voice',
-                style:{padding:'5px 10px',background:'transparent',border:'1px solid rgba(239,68,68,.35)',borderRadius:6,color:'#fca5a5',fontSize:'.6rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'},
-              },'Rematch →'),
-            );
-          })
+        return el('div',{style:{marginTop:14,padding:'10px 12px',background:'rgba(255,255,255,.02)',border:'1px solid var(--c-border2)',borderRadius:10,textAlign:'left'}},
+          el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}},
+            el('div',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--c-muted)'}},'Recent rounds'),
+            historyRounds.length>3&&el('button',{className:'cta-ghost',style:{margin:0,padding:'2px 10px',fontSize:'.6rem'},onClick:()=>setShowHistory(true)},'Open all'),
+          ),
+          el('div',{style:{display:'grid',gridTemplateColumns:`repeat(${recent.length},minmax(0,1fr))`,gap:8}},
+            recent.map((r,i)=>{
+              const won = r.userWon===true, lost=r.userWon===false;
+              const pillBg = won?'rgba(34,197,94,.14)':lost?'rgba(239,68,68,.14)':'rgba(245,158,11,.14)';
+              const pillFg = won?'#4ade80':lost?'#f87171':'#fbbf24';
+              const pillBorder = won?'rgba(34,197,94,.35)':lost?'rgba(239,68,68,.35)':'rgba(245,158,11,.35)';
+              const pillLabel = won?'W':lost?'L':'—';
+              return el('div',{key:r.id||i,style:{padding:'8px 10px',background:'rgba(255,255,255,.015)',border:'1px solid var(--c-border2)',borderRadius:8,display:'flex',flexDirection:'column',gap:6,minWidth:0}},
+                el('div',{style:{display:'flex',alignItems:'center',gap:6}},
+                  el('span',{style:{fontSize:'.58rem',fontWeight:800,padding:'2px 6px',borderRadius:5,background:pillBg,color:pillFg,border:'1px solid '+pillBorder,letterSpacing:'.04em'}},pillLabel),
+                  el('span',{style:{fontSize:'.55rem',color:'var(--c-muted)',whiteSpace:'nowrap',letterSpacing:'.06em',textTransform:'uppercase',fontWeight:700}},(r.formatName||r.format||'').slice(0,8)),
+                  el('button',{
+                    onClick:()=>toggleStar(r.motion||''),
+                    title:isStarred(r.motion)?'Remove from starred':'Save to starred',
+                    'aria-label':isStarred(r.motion)?'Unstar motion':'Star motion',
+                    style:{marginLeft:'auto',padding:'1px 6px',background:isStarred(r.motion)?'rgba(245,158,11,.18)':'transparent',border:'1px solid '+(isStarred(r.motion)?'rgba(245,158,11,.5)':'var(--c-border2)'),borderRadius:5,color:isStarred(r.motion)?'#fbbf24':'var(--c-muted)',fontSize:'.72rem',cursor:'pointer',fontFamily:'inherit',lineHeight:1},
+                  },isStarred(r.motion)?'★':'☆'),
+                ),
+                el('div',{style:{fontSize:'.74rem',color:'var(--c-text)',lineHeight:1.3,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden',textOverflow:'ellipsis'},title:r.motion||''},r.motion||'(no motion)'),
+                el('button',{
+                  onClick:()=>{
+                    setMotion(r.motion||'');
+                    const other = voiceKeys.find(v => v !== r.voice);
+                    if(other && r.voice) setVoice(other);
+                    if(r.format && FORMATS[r.format]) setFormat(r.format);
+                    if(r.side) setSide(r.side);
+                  },
+                  title:'Pre-fills the motion, same format + side, new voice',
+                  style:{padding:'4px 8px',background:'transparent',border:'1px solid rgba(239,68,68,.35)',borderRadius:6,color:'#fca5a5',fontSize:'.58rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'},
+                },'Rematch →'),
+              );
+            })
+          )
         );
       })(),
 
@@ -5220,11 +5226,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         VOICES[voice].desc
       ),
       // Rivalry stats — shows prior W/L vs this specific voice so the user
-      // feels the recurring-opponent loop. Only renders if they've faced
-      // this voice at least once.
+      // feels the recurring-opponent loop. Gated at ≥3 rounds vs the same
+      // voice — a single prior round read as noise, not a rivalry.
       (function(){
         const prior = (historyRounds||[]).filter(r => r && r.voice === voice);
-        if (!prior.length) return null;
+        if (prior.length < 3) return null;
         const wins = prior.filter(r => r.userWon === true).length;
         const losses = prior.filter(r => r.userWon === false).length;
         const ties = prior.length - wins - losses;
