@@ -3853,9 +3853,8 @@ function App(){
           console.log(`%c[TTS] Chunk ${blobPromises.length} queued (${splitText.split(/\s+/).length} words)`,'color:cyan');
 
           // Start playback on the FIRST chunk. don't wait for AI to finish.
-          // Audio is now gated: instead of auto-starting, queue a starter and
-          // hand off to the 30s countdown UI. User presses Start (or the
-          // counter expires) to actually fire playChunks.
+          // Audio is gated: queue a starter and hand off to the countdown UI.
+          // User presses Start (or the counter expires) to fire playChunks.
           if(!playbackStarted){
             playbackStarted=true;
             setAiLoading('voice');
@@ -3868,11 +3867,38 @@ function App(){
             // and we honor it for the rest of the session + future visits.
             let skipGate = false;
             try { skipGate = localStorage.getItem('debateos-skip-ai-countdown') === '1'; } catch(e){}
-            console.log('%c[TTS] Audio ready, gated behind '+countdownSec+'s countdown / Start','color:lime;font-weight:bold');
             const startFn = () => tts.playChunks(blobPromises,()=>{orb.setMode('idle');setTimeout(()=>endSpeech(),800)},onAudioStart);
             aiStartRef.current = startFn;
-            if (skipGate) startFn();
-            else setAiCountdown(countdownSec);
+            if (skipGate) {
+              console.log('%c[TTS] Audio ready, skip-gate preference honored','color:lime;font-weight:bold');
+              startFn();
+            } else {
+              // Fast-network bypass. By the time the first TTS chunk lands,
+              // if ≥ 2 chunks are already queued the AI + TTS pipeline is
+              // keeping up — no point making the user sit through 5–30s of
+              // empty countdown. On slow networks only the one chunk has
+              // been queued by then, so the gate stays as a "brace yourself"
+              // affordance instead of a dead screen. Hard ceiling: if the
+              // first chunk hasn't resolved within 1.5s, show the gate
+              // anyway so the user always sees a Start affordance.
+              let decided = false;
+              const decide = (bypass) => {
+                if (decided) return;
+                decided = true;
+                if (bypass) {
+                  console.log('%c[TTS] Fast network — bypassing '+countdownSec+'s countdown','color:lime;font-weight:bold');
+                  startFn();
+                } else {
+                  console.log('%c[TTS] Audio ready, gated behind '+countdownSec+'s countdown / Start','color:lime;font-weight:bold');
+                  setAiCountdown(countdownSec);
+                }
+              };
+              blobP.then(blob => {
+                if (blob && blobPromises.length >= 2) decide(true);
+                else decide(false);
+              }).catch(()=> decide(false));
+              setTimeout(() => decide(false), 1500);
+            }
           }
         };
 
