@@ -4291,9 +4291,18 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         promptVars:{ fmtName:fmt.name, motion:motion, sideLabel:fmt.sideLabels[side]||side },
       });
       setFeedback(fb);
-      // Parse structured ballot
+      // Parse structured ballot. Robust extraction: the model sometimes
+      // wraps the JSON in ```json fences, sometimes adds a leading
+      // "Here is the ballot:" sentence, sometimes both. Strip fences,
+      // then find the first '{' and walk to the matching '}' so prose
+      // before/after the JSON doesn't break the parse.
       try{
-        const cleaned=fb.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+        let cleaned=fb.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+        const firstBrace=cleaned.indexOf('{');
+        const lastBrace=cleaned.lastIndexOf('}');
+        if(firstBrace>=0 && lastBrace>firstBrace){
+          cleaned=cleaned.slice(firstBrace,lastBrace+1);
+        }
         const parsed=JSON.parse(cleaned);
         setBallot(parsed);
         saveRound(allLog,fb,parsed.winner==='user',parsed.speakerPoints||null);
@@ -6001,7 +6010,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     accountOverlay,
       helpFloatingButton,
       el('div',{className:'ambient'}),bar,
-      el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:90,maxWidth:700,textAlign:'left'}},
+      el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:90,maxWidth:640,margin:'0 auto',textAlign:'left'}},
         // Sticky section nav. Long-scroll feedback page had Ballot →
         // Flow → Patterns → Drill → Transcript with no way to scan back.
         // Pills jump to each section and light up once the section has
@@ -6041,12 +6050,15 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
 
         // Structured ballot
         b && el('div',{style:{width:'100%'}},
-          // Decision banner
-          el('div',{style:{padding:'20px 24px',background:b.winner==='user'?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)',border:'1px solid '+(b.winner==='user'?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'),borderRadius:16,marginBottom:20,textAlign:'center'}},
-            el('div',{style:{fontSize:'1.6rem',fontWeight:900,color:b.winner==='user'?'#22c55e':'#ef4444',marginBottom:6}},
+          // Decision banner — centered, lighter visual weight than the
+          // previous block. Decision body in a softer neutral so the
+          // verdict pops and the reasoning reads as supporting copy.
+          el('div',{style:{padding:'18px 22px',background:b.winner==='user'?'rgba(34,197,94,.06)':'rgba(239,68,68,.06)',border:'1px solid '+(b.winner==='user'?'rgba(34,197,94,.22)':'rgba(239,68,68,.22)'),borderRadius:16,marginBottom:18,textAlign:'center'}},
+            el('div',{style:{fontSize:'.6rem',fontWeight:800,letterSpacing:'.16em',textTransform:'uppercase',color:'var(--c-muted)',marginBottom:6}},'Single judge · ballot'),
+            el('div',{style:{fontSize:'1.5rem',fontWeight:900,color:b.winner==='user'?'#22c55e':'#ef4444',marginBottom:10,letterSpacing:'-.01em'}},
               b.winner==='user'?'You Win':'Opponent Wins'
             ),
-            el('p',{style:{fontSize:'.88rem',color:'var(--c-text4)',lineHeight:1.5}},b.decision),
+            el('p',{style:{fontSize:'.86rem',color:'var(--c-text4)',lineHeight:1.6,maxWidth:560,margin:'0 auto'}},b.decision),
           ),
 
           // Speaker Points
@@ -6170,10 +6182,16 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           ),
         ),
 
-        // Fallback: raw text if JSON parse failed + retry button
-        !b&&feedback&&el('div',null,
-          el('div',{className:'fb-card'},el('div',{className:'feedback-text'},feedback)),
-          el('button',{className:'cta-ghost',style:{marginTop:12,display:'block',margin:'12px auto'},onClick:()=>genFeedback(log)},'Retry Judge Feedback'),
+        // Fallback: when JSON parse fails. Don't dump the raw JSON to
+        // the screen — that's what the user reported seeing as a code
+        // block. Show a clean retry card instead. The transcript is
+        // still saved client-side; the user can re-roll the judge or
+        // continue without a structured ballot.
+        !b&&feedback&&!fbLoading&&el('div',{style:{maxWidth:520,margin:'24px auto',padding:'24px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border2)',borderRadius:14,textAlign:'center'}},
+          el('div',{style:{fontSize:'2rem',marginBottom:8}},'⚖️'),
+          el('div',{style:{fontSize:'1.05rem',fontWeight:800,marginBottom:6}},'Couldn’t parse the ballot'),
+          el('p',{style:{fontSize:'.85rem',color:'var(--c-text4)',lineHeight:1.55,margin:'0 0 16px'}},'The judge’s response didn’t come back in a clean format. Your round is saved — re-roll the ballot below.'),
+          el('button',{className:'cta',style:{margin:0},onClick:()=>genFeedback(log)},'Re-roll the ballot'),
         ),
 
         // ── 3-Judge Panel Deliberation ──────────────────────────────
