@@ -102,6 +102,43 @@ service cloud.firestore {
                     && resource.data.creatorUid == request.auth.uid;
     }
 
+    // ── live_rounds ──────────────────────────────────────────────────
+    // Per-room synced state for the AI-judged 2-human round flow:
+    // motion, format, speaker names + UIDs, completed speech log,
+    // current speech index, and the AI ballot once generated. Doc ID
+    // is the deterministic room slug (DebateAI-<challengeId> or a
+    // randomly-generated room name shared via URL).
+    //
+    // Read = any signed-in user (links are shared between speakers,
+    // and we don't have a backend introduction step yet so the URL is
+    // the entry control). Update = any signed-in user — the
+    // participants discover each other dynamically by both landing on
+    // the same URL. Tighten to participant-only writes once we wire
+    // the server-side challenge accept flow.
+    match /live_rounds/{roomId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && stringUnder('motion', 4096);
+      allow update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    // ── live_challenges ──────────────────────────────────────────────
+    // Cross-user challenge board — replaces the localStorage-only
+    // /live.html state. Doc has: posterUid, motion, format, side,
+    // scheduledAt, reveal, handle, etc. Anyone signed in can read
+    // (so the board lists challenges across users). Only the poster
+    // can delete their own challenge.
+    match /live_challenges/{challengeId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.posterUid == request.auth.uid
+                    && stringUnder('motion', 1024);
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn()
+                    && resource.data.posterUid == request.auth.uid;
+    }
+
     // ── referral_credits ─────────────────────────────────────────────
     // Server-side only. Deny all client access.
     match /referral_credits/{docId} {

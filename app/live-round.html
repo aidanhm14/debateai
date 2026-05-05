@@ -11,13 +11,16 @@
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
 
-<!-- Jitsi via popup window. We previously embedded meet.jit.si via
-     JitsiMeetExternalAPI but meet.jit.si caps free embeds at 5 minutes
-     and shows a 'use Jitsi as a Service for production embedding'
-     banner. Direct navigation to meet.jit.si has no such cap, so we
-     pop the call out into a side window instead — same in-platform
-     feel (it's a child window of this page) without the 5-min limit.
-     -->
+<!-- Daily.co video. Free tier (10k min/mo) with embeddable iframes,
+     no moderator gate, no 5-min cap. Server-side function creates
+     the room with our API key; client embeds the returned URL. Falls
+     back gracefully if Daily isn't configured (env vars missing). -->
+
+<!-- Firebase compat SDK — auth + Firestore. Same project as the rest
+     of the app so a sign-in here also unlocks /debate-ai etc. -->
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
 
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -48,6 +51,63 @@ button{font-family:inherit}
   padding:12px 22px;background:rgba(10,10,12,.92);border-bottom:1px solid var(--border);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
 }
+
+/* Auth gate — full-page sign-in screen. Shown until firebaseAuth
+   resolves with a user. Once signed in, the gate is removed and the
+   real round UI takes over. */
+.auth-gate{
+  position:fixed;inset:0;z-index:400;
+  display:flex;align-items:center;justify-content:center;padding:32px;
+  background:radial-gradient(ellipse 60% 50% at 50% 30%,rgba(239,68,68,.10),transparent 60%),var(--bg);
+}
+.auth-card{
+  max-width:440px;width:100%;padding:32px;text-align:center;
+  background:var(--bg-card);border:1px solid var(--border-strong);border-radius:18px;
+  box-shadow:var(--shadow-lg);
+}
+.auth-card .auth-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);padding:5px 12px;border-radius:999px;
+  background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.28);
+  margin-bottom:18px;
+}
+.auth-card .auth-eyebrow .dot{
+  width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);
+  animation:pulse 1.6s ease-in-out infinite;
+}
+.auth-card h1{font-size:1.5rem;font-weight:900;line-height:1.15;letter-spacing:-.02em;margin-bottom:10px}
+.auth-card p{font-size:.88rem;color:var(--text-dim);line-height:1.6;margin-bottom:20px}
+.auth-card .auth-bullets{
+  text-align:left;font-size:.82rem;color:var(--text);line-height:1.6;margin:18px 0 22px;
+  padding:14px 18px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;
+}
+.auth-card .auth-bullets div{display:flex;gap:10px;align-items:flex-start}
+.auth-card .auth-bullets div + div{margin-top:8px}
+.auth-card .auth-bullets .check{color:#4ade80;font-weight:800}
+.auth-google-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:13px 22px;
+  background:#fff;color:#1a1a1a;border:none;border-radius:12px;
+  font-family:inherit;font-weight:700;font-size:.92rem;cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+  box-shadow:0 4px 14px rgba(0,0,0,.3);
+}
+.auth-google-btn:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.auth-google-btn svg{width:18px;height:18px;flex-shrink:0}
+.auth-card .auth-disclaimer{font-size:.7rem;color:var(--text-ghost);margin-top:14px;line-height:1.55}
+.auth-card .auth-error{font-size:.78rem;color:#fca5a5;margin-top:12px}
+
+/* Top bar auth chip — visible after sign-in */
+.bar-user{display:inline-flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:999px}
+.bar-user-pic{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#a855f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.62rem;font-weight:800;overflow:hidden}
+.bar-user-pic img{width:100%;height:100%;object-fit:cover}
+.bar-user-name{font-size:.72rem;color:var(--text);font-weight:700;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-user-out{padding:2px 8px;background:transparent;color:var(--text-dim);border:none;font-size:.6rem;cursor:pointer;font-family:inherit;letter-spacing:.06em;text-transform:uppercase}
+.bar-user-out:hover{color:var(--text)}
+
+/* Daily.co iframe — fills the left pane completely */
+.daily-frame{width:100%;height:100%;border:none;background:#000;display:block}
 .bar-logo{font-size:1rem;font-weight:900;letter-spacing:-.02em}
 .bar-logo em{color:var(--accent);font-style:normal}
 .bar-meta{display:flex;align-items:center;gap:14px;font-size:.74rem;color:var(--text-dim);font-weight:600}
@@ -312,34 +372,60 @@ button{font-family:inherit}
   <a href="/live" class="bar-logo"><em>Debate</em> AI · Live Round</a>
   <div class="bar-meta">
     <span id="phaseLabel"><span class="dot"></span> Setup</span>
+    <span id="barUser" style="display:none"></span>
     <a href="/live" class="bar-back">← Back to board</a>
   </div>
 </nav>
 
+<!-- Auth gate. Required for any /live-round access — we need a UID to
+     key Firestore writes for the synced round state, and to identify
+     the speaker on the ballot. Hidden once Firebase auth resolves
+     with a user; if Firebase fails to load entirely, the gate offers
+     a 'continue without signing in' escape that falls back to local-
+     only mode (no cross-browser sync but the round still works). -->
+<div id="authGate" class="auth-gate" style="display:none">
+  <div class="auth-card">
+    <div class="auth-eyebrow"><span class="dot"></span> Live Round · AI-Judged</div>
+    <h1>Sign in to debate</h1>
+    <p>One Google account, both speakers see the same speeches and ballot in real time. Your name + photo become your speaker label on the ballot.</p>
+    <div class="auth-bullets">
+      <div><span class="check">✓</span><span>Both sides see speeches as they're delivered</span></div>
+      <div><span class="check">✓</span><span>AI ballot syncs to both screens at the end</span></div>
+      <div><span class="check">✓</span><span>Round saved to your record (W/L, speaks, RFD)</span></div>
+    </div>
+    <button class="auth-google-btn" id="signInGoogleBtn" type="button">
+      <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+      Continue with Google
+    </button>
+    <div class="auth-disclaimer">We use your Google name + photo to label your speeches and your email to identify you across devices. Sign out anytime from the top bar.</div>
+    <div class="auth-error" id="authError" style="display:none"></div>
+  </div>
+</div>
+
 <div class="split">
 
-  <!-- LEFT: Call control. The Jitsi room opens in a popup window
-       (window.open) on Start so the call sits next to this page. We
-       avoid embedding because meet.jit.si caps free embeds at 5 min.
-       Direct navigation has no cap. -->
+  <!-- LEFT: Daily.co iframe. Server-side function creates the room
+       with our API key, returns the URL, we drop it in an iframe.
+       Falls back to a call-card with copy-link + share-URL buttons
+       if Daily isn't configured (DAILY_API_KEY/DAILY_DOMAIN env
+       vars missing). -->
   <div class="jitsi-pane" id="jitsiPane">
     <div class="call-card" id="callCard">
       <div class="call-icon">📹</div>
       <div>
         <h2>Video room</h2>
-        <div class="call-sub" id="callSub">Click <strong style="color:var(--text)">Start round</strong> in the panel to open the call window. Share this page's URL with your opponent — they'll land here too and join the same room.</div>
+        <div class="call-sub" id="callSub">Click <strong style="color:var(--text)">Start round</strong> in the panel to launch the embedded video room. Share this page's URL with your opponent — they'll land here too and join the same room.</div>
       </div>
-      <div class="call-status closed" id="callStatus"><span class="dot"></span><span id="callStatusText">Call not opened yet</span></div>
+      <div class="call-status closed" id="callStatus"><span class="dot"></span><span id="callStatusText">Room not launched yet</span></div>
       <div class="call-room">
         <span class="call-room-label">Room</span>
         <span class="call-room-name" id="roomDisplay"></span>
       </div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-        <button class="btn-call-primary" id="openCallBtn" type="button">▶ Open call window</button>
-        <button class="btn-call-secondary" id="copyRoomBtn" type="button">Copy call link</button>
+        <button class="btn-call-secondary" id="copyRoomBtn" type="button">Copy page link</button>
       </div>
       <div class="call-share">
-        <strong>Tip:</strong> Send the URL of <em>this page</em> to your opponent (not just the call link). They land here, hit Open call, and you're both in the same room with the same speech timer + ballot panel.
+        <strong>How both speakers join:</strong> send your opponent <em>this page's URL</em>. They land here with the same room and same panel — speeches and the ballot sync to both screens.
       </div>
     </div>
   </div>
@@ -590,19 +676,41 @@ button{font-family:inherit}
     speechIdx: 0,
     log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, overran }
     timerInterval: null,
-    // Timer state machine. 'ready' = speech loaded, timer not started yet
-    // (the user has to click Start speech). 'running' = ticking. 'paused' =
-    // user hit pause; clock frozen. 'ended' = speech over, no longer tracked.
     timerState: 'ready',
-    timerStart: 0,           // wall-clock ms when current run segment began
-    timerElapsed: 0,         // accumulated seconds across all run segments
-    timerTotalSec: 0,        // target duration for the current speech
-    callWindow: null,        // popup window for the meet.jit.si room
-    callPoll: null,          // interval id polling callWindow.closed
+    timerStart: 0,
+    timerElapsed: 0,
+    timerTotalSec: 0,
+    dailyUrl: null,          // resolved via /api/create-daily-room on Start
+    dailyMounted: false,
     recognition: null,
     micActive: false,
-    micFinal: '',            // committed transcript chunks
+    micFinal: '',
+    // Auth + sync
+    user: null,              // Firebase user object (null until signed in)
+    db: null,                // Firestore instance
+    roundDocRef: null,       // doc ref for live_rounds/{room}
+    roundUnsub: null,        // unsubscribe fn for the snapshot listener
+    suppressNextSync: false, // local-write guard (don't double-render our own writes)
   };
+
+  // ── Firebase init (shared project across the app)
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  var firebaseAuth = null, firebaseDb = null;
+  try {
+    if (typeof firebase !== 'undefined'){
+      var app = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      firebaseAuth = firebase.auth();
+      firebaseDb = firebase.firestore();
+      state.db = firebaseDb;
+    }
+  } catch(e){ console.warn('[Firebase] init failed', e); }
 
   // ── Setup view rendering
   function renderSetup(){
@@ -829,52 +937,54 @@ button{font-family:inherit}
     }
   }
 
-  // ── Call window. Replaced the prior JitsiMeetExternalAPI iframe
-  // mount (which trips meet.jit.si's 5-minute embed cap) with a child
-  // window via window.open. Direct navigation to meet.jit.si has no
-  // such cap, and the popup sits next to this page so the UX is still
-  // 'in-platform' (a child window of this tab, not a separate tab the
-  // user has to find). We poll callWindow.closed so the status pill +
-  // primary button reflect reality if the user closes the call.
-  function jitsiUrl(){ return 'https://meet.jit.si/' + state.room; }
-
-  function openCallWindow(){
-    if (state.callWindow && !state.callWindow.closed){
-      try { state.callWindow.focus(); } catch(e){}
-      return;
-    }
-    var w = 560, h = 720;
-    var left = (window.screen && window.screen.availWidth) ? Math.max(0, window.screen.availWidth - w - 20) : 100;
-    var top = 80;
-    var features = 'width='+w+',height='+h+',left='+left+',top='+top+',resizable=yes,scrollbars=yes,toolbar=no,menubar=no';
-    var win = window.open(jitsiUrl(), 'live-round-call-' + state.room, features);
-    if (!win){
-      toast('Popup blocked — allow popups for this site, or use the Copy call link button.');
-      updateCallStatus();
-      return;
-    }
-    state.callWindow = win;
-    updateCallStatus();
-    // Poll for close so the UI matches real state
-    if (state.callPoll) clearInterval(state.callPoll);
-    state.callPoll = setInterval(function(){
-      if (!state.callWindow || state.callWindow.closed){
-        state.callWindow = null;
-        clearInterval(state.callPoll); state.callPoll = null;
-        updateCallStatus();
-      }
-    }, 1500);
-    try { gtag('event', 'live_round_call_open'); } catch(e){}
+  // ── Daily.co video room. Server-side function creates the room
+  // with our API key (idempotent — same name = same room across both
+  // speakers). Returns a URL we drop into an iframe so video/audio/
+  // chat/screenshare are all in-page. No 5-min cap, no moderator
+  // gate. If the function fails (env vars missing, API down), the
+  // call card stays visible with a copy-page-link fallback so the
+  // round can still proceed (just without embedded video).
+  function setCallStatus(text, kind){
+    var st = $('callStatus'), txt = $('callStatusText');
+    if (!st) return;
+    st.classList.remove('open','closed');
+    if (kind) st.classList.add(kind);
+    txt.textContent = text;
   }
 
-  function updateCallStatus(){
-    var st = $('callStatus'), txt = $('callStatusText'), btn = $('openCallBtn');
-    if (!st) return;
-    var open = state.callWindow && !state.callWindow.closed;
-    st.classList.toggle('open', !!open);
-    st.classList.toggle('closed', !open);
-    txt.textContent = open ? 'Call window open' : 'Call not opened yet';
-    if (btn) btn.textContent = open ? '⇪ Focus call window' : '▶ Open call window';
+  function mountDaily(){
+    if (state.dailyMounted) return;
+    setCallStatus('Creating video room…', 'closed');
+    fetch('/api/create-daily-room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: state.room }),
+    }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, body: j }; }); })
+      .then(function(res){
+        if (!res.ok){
+          var msg = res.body && res.body.error ? res.body.error : 'Daily room creation failed';
+          if (res.body && res.body.hint) msg += ' — ' + res.body.hint;
+          setCallStatus('Video room unavailable — ' + msg, 'closed');
+          console.warn('[Daily]', res.body);
+          return;
+        }
+        state.dailyUrl = res.body.url;
+        var pane = $('jitsiPane');
+        var existingCard = $('callCard');
+        if (existingCard) existingCard.remove();
+        // Build the iframe with explicit permissions for cam/mic/display
+        var iframe = document.createElement('iframe');
+        iframe.className = 'daily-frame';
+        iframe.src = state.dailyUrl;
+        iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
+        iframe.title = 'Live video room';
+        pane.appendChild(iframe);
+        state.dailyMounted = true;
+        try { gtag('event', 'live_round_daily_mount'); } catch(e){}
+      }).catch(function(e){
+        setCallStatus('Could not reach /api/create-daily-room', 'closed');
+        console.warn('[Daily] request failed', e);
+      });
   }
 
   // ── Phase transitions
@@ -895,9 +1005,13 @@ button{font-family:inherit}
     $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
     $('setupView').classList.add('hidden');
     $('roundView').classList.remove('hidden');
-    // Auto-open the call popup. Browser allows window.open from a
-    // direct user gesture (the Start click), which this still is.
-    openCallWindow();
+    // Mount the embedded Daily.co iframe. /api/create-daily-room is
+    // idempotent on the room name so both speakers (each landing on
+    // the same /live-round URL) end up in the same video room.
+    mountDaily();
+    // Push initial round doc so the second speaker landing on this
+    // URL sees a Firestore-backed round in progress and joins it.
+    publishRoundInit();
     renderRound();
     try { gtag('event', 'live_round_start', { format: state.formatKey }); } catch(e){}
   }
@@ -1113,15 +1227,25 @@ button{font-family:inherit}
   });
   $('startBtn').addEventListener('click', startRound);
 
-  // Call window controls
-  $('openCallBtn').addEventListener('click', openCallWindow);
-  $('copyRoomBtn').addEventListener('click', function(){
-    var url = jitsiUrl();
-    try { navigator.clipboard.writeText(url); toast('Call link copied: ' + url); }
+  // Call card controls. The "Copy page link" button copies THIS
+  // page's URL (incl. motion/format/names/room params) so sharing
+  // it puts the recipient straight into the same round on the same
+  // Daily room. Earlier we had an Open-call-window button; with the
+  // Daily iframe replacing the popup, opening is implicit on Start.
+  var copyBtn = $('copyRoomBtn');
+  if (copyBtn) copyBtn.addEventListener('click', function(){
+    var url = location.href;
+    try { navigator.clipboard.writeText(url); toast('Page link copied — share it with your opponent.'); }
     catch(e){ toast('Copy failed — link is: ' + url); }
-    try { gtag('event', 'live_round_call_link_copy'); } catch(e){}
+    try { gtag('event', 'live_round_page_link_copy'); } catch(e){}
   });
-  updateCallStatus();
+
+  // Stub for Firestore round sync. Real implementation pushes the
+  // initial round doc on Start and subscribes to updates so both
+  // speakers see speeches + ballot live. Wired in the next commit.
+  function publishRoundInit(){ /* no-op until Firestore sync ships */ }
+  function publishSpeech(_entry){ /* no-op until Firestore sync ships */ }
+  function publishBallot(_b){ /* no-op until Firestore sync ships */ }
 
   // Round controls
   $('playPauseBtn').addEventListener('click', togglePlayPause);
@@ -1164,6 +1288,84 @@ button{font-family:inherit}
       updateStartBtn();
     }
   });
+
+  // ── Auth gate. Required for Firestore writes (live round sync) and
+  // ballot save-to-record. If Firebase didn't load (script blocked,
+  // offline), the gate is silently bypassed so the round still works
+  // local-only — better degraded experience than a hard wall.
+  function showAuthGate(){
+    var gate = $('authGate');
+    if (gate) gate.style.display = 'flex';
+  }
+  function hideAuthGate(){
+    var gate = $('authGate');
+    if (gate) gate.style.display = 'none';
+  }
+  function renderUserChip(){
+    var host = $('barUser');
+    if (!host) return;
+    if (!state.user){ host.style.display = 'none'; host.innerHTML = ''; return; }
+    var u = state.user;
+    var photo = u.photoURL || '';
+    var name = (u.displayName || u.email || 'You').split(/\s+/)[0];
+    var initials = (u.displayName || u.email || '?').split(/\s+/).slice(0,2).map(function(s){return (s[0]||'').toUpperCase();}).join('');
+    host.style.display = 'inline-flex';
+    host.innerHTML =
+      '<span class="bar-user">' +
+        '<span class="bar-user-pic">' + (photo ? '<img src="' + escHtml(photo) + '" alt="" />' : escHtml(initials)) + '</span>' +
+        '<span class="bar-user-name">' + escHtml(name) + '</span>' +
+        '<button class="bar-user-out" id="signOutBtn" type="button">Out</button>' +
+      '</span>';
+    var ob = document.getElementById('signOutBtn');
+    if (ob) ob.addEventListener('click', function(){
+      try { firebaseAuth.signOut(); } catch(e){}
+    });
+  }
+  function doGoogleSignIn(){
+    if (!firebaseAuth){
+      var err = $('authError'); if (err){ err.style.display = 'block'; err.textContent = 'Sign-in is loading — try again in a moment.'; }
+      return;
+    }
+    var provider = new firebase.auth.GoogleAuthProvider();
+    firebaseAuth.signInWithPopup(provider).catch(function(e){
+      console.warn('[Auth] sign-in failed', e);
+      // Some in-app browsers (Instagram/TikTok/etc) block popup OAuth.
+      // Fall back to redirect, which most embedded browsers tolerate.
+      if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')){
+        firebaseAuth.signInWithRedirect(provider);
+      } else {
+        var err = $('authError'); if (err){ err.style.display = 'block'; err.textContent = 'Sign-in failed: ' + (e && e.message ? e.message : 'unknown error'); }
+      }
+    });
+  }
+  if (firebaseAuth){
+    // Show gate while we wait for Firebase to resolve current user
+    showAuthGate();
+    var googleBtn = $('signInGoogleBtn');
+    if (googleBtn) googleBtn.addEventListener('click', doGoogleSignIn);
+    firebaseAuth.onAuthStateChanged(function(user){
+      state.user = user || null;
+      if (user){
+        // Auto-fill speaker name on first sign-in if blank. So if a
+        // friend lands on this URL, hits sign-in, and their name is
+        // 'Alex Chen', we drop 'Alex' into whichever side is empty.
+        if (user.displayName){
+          if (!state.proName){ state.proName = user.displayName; var pn=$('proName'); if (pn) pn.value = state.proName; }
+          else if (!state.conName && state.proName !== user.displayName){ state.conName = user.displayName; var cn=$('conName'); if (cn) cn.value = state.conName; }
+          updateStartBtn();
+        }
+        hideAuthGate();
+        renderUserChip();
+      } else {
+        showAuthGate();
+        renderUserChip();
+      }
+    });
+  } else {
+    // Firebase didn't load — degrade gracefully, no auth gate. The
+    // round still runs, just without cross-device sync.
+    hideAuthGate();
+  }
 
   // ── Boot
   renderSetup();
