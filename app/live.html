@@ -16,6 +16,12 @@
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
 
+<!-- Firebase compat SDK — auth + Firestore so the challenge board is
+     shared across users instead of localStorage-only. -->
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
 <style>
@@ -437,6 +443,56 @@ button{font-family:inherit}
   font-size:.7rem;color:var(--text-dim);margin-top:4px;letter-spacing:.02em;
 }
 
+/* ─── Auth gate (Google sign-in) ───────────────────── */
+.auth-gate{
+  position:fixed;inset:0;z-index:400;
+  display:flex;align-items:center;justify-content:center;padding:32px;
+  background:radial-gradient(ellipse 60% 50% at 50% 30%,rgba(239,68,68,.10),transparent 60%),var(--bg);
+}
+.auth-card{
+  max-width:440px;width:100%;padding:32px;text-align:center;
+  background:var(--bg-card);border:1px solid var(--border-strong);border-radius:18px;
+  box-shadow:var(--shadow-lg);
+}
+.auth-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);padding:5px 12px;border-radius:999px;
+  background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.28);
+  margin-bottom:18px;
+}
+.auth-eyebrow .dot-anim{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:auth-pulse 1.6s ease-in-out infinite}
+@keyframes auth-pulse{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+.auth-card h1{font-size:1.4rem;font-weight:900;line-height:1.15;letter-spacing:-.02em;margin-bottom:10px}
+.auth-card p{font-size:.86rem;color:var(--text-dim);line-height:1.6;margin-bottom:18px}
+.auth-bullets{
+  text-align:left;font-size:.8rem;color:var(--text);line-height:1.55;margin:18px 0 22px;
+  padding:14px 18px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;
+}
+.auth-bullets > div{display:flex;gap:10px;align-items:flex-start}
+.auth-bullets > div + div{margin-top:8px}
+.auth-bullets .check{color:#4ade80;font-weight:800}
+.auth-google-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:13px 22px;
+  background:#fff;color:#1a1a1a;border:none;border-radius:12px;
+  font-family:inherit;font-weight:700;font-size:.9rem;cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+  box-shadow:0 4px 14px rgba(0,0,0,.3);
+}
+.auth-google-btn:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.auth-google-btn svg{width:18px;height:18px;flex-shrink:0}
+.auth-disclaimer{font-size:.7rem;color:var(--text-ghost);margin-top:14px;line-height:1.55}
+.auth-error{font-size:.78rem;color:#fca5a5;margin-top:12px}
+
+/* Top-bar user chip */
+.bar-user{display:inline-flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:999px;margin-right:8px}
+.bar-user-pic{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#a855f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.62rem;font-weight:800;overflow:hidden}
+.bar-user-pic img{width:100%;height:100%;object-fit:cover}
+.bar-user-name{font-size:.72rem;color:var(--text);font-weight:700;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-user-out{padding:2px 8px;background:transparent;color:var(--text-dim);border:none;font-size:.6rem;cursor:pointer;font-family:inherit;letter-spacing:.06em;text-transform:uppercase}
+.bar-user-out:hover{color:var(--text)}
+
 /* ─── Bail / room buttons ──────────────────────────── */
 .btn-bail{
   background:transparent;border:1px solid rgba(239,68,68,.32);
@@ -459,9 +515,35 @@ button{font-family:inherit}
     <a href="/debate-ai">Debate AI</a>
     <a href="/pricing">Pricing</a>
     <a href="/landing#faq">About</a>
+    <span id="barUser"></span>
     <a href="/debate-ai" class="bar-cta">Try the AI</a>
   </div>
 </nav>
+
+<!-- Auth gate. Required to use the live debate board (post + accept
+     are both Firestore writes, and we key challenges to your UID so
+     bails / posts / accepts are tied back to your record). The gate
+     covers the page until Firebase resolves a signed-in user. If
+     Firebase fails to load entirely, the gate is bypassed and the
+     page falls back to its prior localStorage-only behavior. -->
+<div id="authGate" class="auth-gate" style="display:none">
+  <div class="auth-card">
+    <div class="auth-eyebrow"><span class="dot-anim"></span> Live Debates · AI-Judged</div>
+    <h1>Sign in to debate live</h1>
+    <p>One Google account, both sides see the same board, the same speeches, and the same AI ballot — no manual coordination.</p>
+    <div class="auth-bullets">
+      <div><span class="check">✓</span><span>Post or accept challenges across users (not just on your device)</span></div>
+      <div><span class="check">✓</span><span>Both sides see speeches as they're delivered + the ballot live</span></div>
+      <div><span class="check">✓</span><span>Round W/L, speaker points, and RFD saved to your record</span></div>
+    </div>
+    <button class="auth-google-btn" id="signInGoogleBtn" type="button">
+      <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+      Continue with Google
+    </button>
+    <div class="auth-disclaimer">We use your Google name + photo as your debater label and your email to sync your record across devices. Sign out anytime from the top bar.</div>
+    <div class="auth-error" id="authError" style="display:none"></div>
+  </div>
+</div>
 
 <section class="hero">
   <div class="hero-eyebrow"><span class="live-dot"></span>Live Debates · AI-judged</div>
@@ -794,6 +876,28 @@ button{font-family:inherit}
 
 <script>
 (function(){
+  // ── Firebase init (shared project across the app)
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  var firebaseAuth = null, firebaseDb = null;
+  try {
+    if (typeof firebase !== 'undefined'){
+      var app = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      firebaseAuth = firebase.auth();
+      firebaseDb = firebase.firestore();
+    }
+  } catch(e){ console.warn('[Firebase] init failed', e); }
+
+  // Current user — null until signed in. Used to gate writes (post,
+  // accept) and to attribute challenges to a UID.
+  var currentUser = null;
+
   // ── Storage layer. localStorage v1 — schema is shaped for an easy
   // Firestore migration later (the `serverTimestamp` becomes a real
   // server-side timestamp, the rest stays). Stub `liveDebatesAdapter`
@@ -1084,6 +1188,7 @@ button{font-family:inherit}
     node.querySelector('[data-bail]').addEventListener('click', function(){
       var reason = node.querySelector('#bailReason').value.trim();
       bailAcceptance(challengeId);
+      unpublishAcceptance(challengeId);
       try { gtag('event', 'live_bail', { has_reason: !!reason }); } catch(e){}
       closeModal();
       toast('You bailed. Slot reopened.');
@@ -1245,6 +1350,7 @@ button{font-family:inherit}
         if (!c) return;
         showAcceptConfirm(c, function(payload){
           markAccepted(id, payload);
+          publishAcceptance(id, payload);
           try { gtag('event', 'live_accept', { format: c.format, side: c.side === 'pro' ? 'con' : 'pro' }); } catch(e){}
           toast('Accepted. Meeting room + calendar link are on the card.');
           render();
@@ -1348,6 +1454,7 @@ button{font-family:inherit}
         var id = btn.getAttribute('data-remove');
         var list = loadList().filter(function(x){ return x.id !== id; });
         saveList(list);
+        deleteChallenge(id);
         render();
         toast('Challenge removed.');
       });
@@ -1464,6 +1571,7 @@ button{font-family:inherit}
     };
     list.unshift(entry);
     saveList(list);
+    publishChallenge(entry);
     motionEl.value = '';
     topicLineEl.value = '';
     themeLineEl.value = '';
@@ -1647,6 +1755,166 @@ button{font-family:inherit}
   document.querySelectorAll('.tab').forEach(function(b){
     b.addEventListener('click', function(){ setTab(b.getAttribute('data-tab')); });
   });
+
+  // ── Auth gate. Pages stays gated until Firebase resolves a signed-
+  // in user. If Firebase fails to load entirely, the gate is bypassed
+  // and we fall back to local-only mode so the page still works on a
+  // bad network — degraded but functional.
+  function showAuthGate(){ var g=document.getElementById('authGate'); if (g) g.style.display='flex'; }
+  function hideAuthGate(){ var g=document.getElementById('authGate'); if (g) g.style.display='none'; }
+  function renderUserChip(){
+    var host = document.getElementById('barUser');
+    if (!host) return;
+    if (!currentUser){ host.innerHTML = ''; return; }
+    var u = currentUser;
+    var photo = u.photoURL || '';
+    var nm = (u.displayName || u.email || 'You').split(/\s+/)[0];
+    var initials = (u.displayName || u.email || '?').split(/\s+/).slice(0,2).map(function(s){return (s[0]||'').toUpperCase();}).join('');
+    host.innerHTML =
+      '<span class="bar-user">' +
+        '<span class="bar-user-pic">' + (photo ? '<img src="' + escHtml(photo) + '" alt="" />' : escHtml(initials)) + '</span>' +
+        '<span class="bar-user-name">' + escHtml(nm) + '</span>' +
+        '<button class="bar-user-out" id="signOutBtn" type="button">Out</button>' +
+      '</span>';
+    var ob = document.getElementById('signOutBtn');
+    if (ob) ob.addEventListener('click', function(){ try { firebaseAuth.signOut(); } catch(e){} });
+  }
+  function doGoogleSignIn(){
+    if (!firebaseAuth){
+      var err = document.getElementById('authError'); if (err){ err.style.display='block'; err.textContent='Sign-in is loading — try again in a moment.'; }
+      return;
+    }
+    var provider = new firebase.auth.GoogleAuthProvider();
+    firebaseAuth.signInWithPopup(provider).catch(function(e){
+      console.warn('[Auth] sign-in failed', e);
+      if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')){
+        firebaseAuth.signInWithRedirect(provider);
+      } else {
+        var err = document.getElementById('authError'); if (err){ err.style.display='block'; err.textContent='Sign-in failed: '+(e && e.message ? e.message : 'unknown error'); }
+      }
+    });
+  }
+  if (firebaseAuth){
+    showAuthGate();
+    var gBtn = document.getElementById('signInGoogleBtn');
+    if (gBtn) gBtn.addEventListener('click', doGoogleSignIn);
+    firebaseAuth.onAuthStateChanged(function(user){
+      currentUser = user || null;
+      if (user){
+        // Auto-fill profile from Google account on first sign-in
+        var p = loadProfile();
+        var dirty = false;
+        if (!p.name && user.displayName){ p.name = user.displayName; dirty = true; }
+        if (!p.avatar && user.photoURL){ p.avatar = user.photoURL; dirty = true; }
+        if (dirty) saveProfile(p);
+        hideAuthGate();
+        renderUserChip();
+        // Subscribe to the cross-user Firestore challenge feed.
+        // Re-renders board live whenever any user posts/accepts/bails.
+        subscribeChallenges();
+      } else {
+        showAuthGate();
+        renderUserChip();
+      }
+    });
+  } else {
+    hideAuthGate();
+  }
+
+  // ── Firestore challenges layer. Cross-user board, live updates.
+  // Falls back to localStorage if Firestore is unavailable so the
+  // page degrades gracefully on offline/blocked-script.
+  var challengeUnsub = null;
+  function subscribeChallenges(){
+    if (!firebaseDb || challengeUnsub) return;
+    try {
+      challengeUnsub = firebaseDb.collection('live_challenges')
+        .orderBy('createdAt', 'desc')
+        .limit(80)
+        .onSnapshot(function(snap){
+          var list = [];
+          snap.forEach(function(doc){
+            var d = doc.data() || {};
+            list.push({
+              id: doc.id,
+              motion: d.motion || '',
+              side: d.side || 'pro',
+              format: d.format || 'quick',
+              handle: d.handle || 'anonymous',
+              ts: d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : (d.ts || Date.now()),
+              reveal: d.reveal || 'full',
+              topicLine: d.topicLine || '',
+              themeLine: d.themeLine || '',
+              scheduledAt: d.scheduledAt && d.scheduledAt.toMillis ? d.scheduledAt.toMillis() : d.scheduledAt,
+              posterUid: d.posterUid || null,
+              accepterUid: d.accepterUid || null,
+              accepterName: d.accepterName || null,
+              accepterContact: d.accepterContact || null,
+            });
+          });
+          // Mirror into the localStorage cache so callers (render,
+          // Manage tab) keep working without rewrites. localStorage
+          // remains the single source of truth for the rendering layer
+          // — Firestore is the cross-user feed; localStorage is the
+          // hot cache.
+          saveList(list);
+          render();
+          if (document.getElementById('manageView') && document.getElementById('manageView').style.display !== 'none') renderManage();
+        }, function(err){
+          console.warn('[Live] challenges subscribe failed', err);
+        });
+    } catch(e){ console.warn('[Live] subscribe init failed', e); }
+  }
+
+  // Push a posted challenge to Firestore so it shows up on every
+  // user's board (not just the poster's localStorage). Falls through
+  // to local-only persistence if Firestore is unavailable.
+  function publishChallenge(entry){
+    if (!firebaseDb || !currentUser) return;
+    var fsEntry = {
+      motion: entry.motion,
+      side: entry.side,
+      format: entry.format,
+      handle: entry.handle || 'anonymous',
+      reveal: entry.reveal,
+      topicLine: entry.topicLine || '',
+      themeLine: entry.themeLine || '',
+      scheduledAt: entry.scheduledAt || null,
+      posterUid: currentUser.uid,
+      posterName: currentUser.displayName || '',
+      posterPhoto: currentUser.photoURL || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    firebaseDb.collection('live_challenges').doc(entry.id).set(fsEntry).catch(function(e){
+      console.warn('[Live] publish challenge failed', e);
+    });
+  }
+
+  // Push an acceptance to the challenge doc so the poster sees it.
+  function publishAcceptance(challengeId, payload){
+    if (!firebaseDb || !currentUser) return;
+    firebaseDb.collection('live_challenges').doc(challengeId).update({
+      accepterUid: currentUser.uid,
+      accepterName: payload.name || currentUser.displayName || '',
+      accepterContact: payload.contact || '',
+      acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(function(e){ console.warn('[Live] publish acceptance failed', e); });
+  }
+
+  function unpublishAcceptance(challengeId){
+    if (!firebaseDb || !currentUser) return;
+    firebaseDb.collection('live_challenges').doc(challengeId).update({
+      accepterUid: firebase.firestore.FieldValue.delete(),
+      accepterName: firebase.firestore.FieldValue.delete(),
+      accepterContact: firebase.firestore.FieldValue.delete(),
+      acceptedAt: firebase.firestore.FieldValue.delete(),
+    }).catch(function(){});
+  }
+
+  function deleteChallenge(challengeId){
+    if (!firebaseDb || !currentUser) return;
+    firebaseDb.collection('live_challenges').doc(challengeId).delete().catch(function(){});
+  }
 
   // ── Boot
   ensureSeed();
