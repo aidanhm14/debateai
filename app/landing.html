@@ -2518,11 +2518,24 @@ button{font-family:inherit;cursor:pointer}
 // FAQ accordion
 document.querySelectorAll('.faq-q').forEach(function(b){b.addEventListener('click',function(){var i=b.closest('.faq-item'),o=i.classList.contains('open');document.querySelectorAll('.faq-item.open').forEach(function(x){x.classList.remove('open')});if(!o)i.classList.add('open')})});
 
-// Theme switcher
+// Theme switcher. Mirrors the chosen theme onto the body class so
+// shared ui.css (which uses body.light-theme / body.crimson-theme
+// for token overrides) picks up the change too. Without this the
+// page-level [data-theme] vars get clobbered by ui.css's body-level
+// :root,body defaults — that's why early light mode looked broken.
+function applyThemeClasses(t){
+  document.documentElement.setAttribute('data-theme',t);
+  var b=document.body;
+  if (!b) return;
+  b.classList.remove('light-theme','crimson-theme','grey-theme');
+  if (t==='light') b.classList.add('light-theme');
+  else if (t==='crimson') b.classList.add('crimson-theme');
+  else if (t==='grey') b.classList.add('grey-theme');
+}
 document.querySelectorAll('.theme-dot').forEach(function(dot){
   dot.addEventListener('click',function(){
     var t=dot.getAttribute('data-t');
-    document.documentElement.setAttribute('data-theme',t);
+    applyThemeClasses(t);
     document.querySelectorAll('.theme-dot').forEach(function(d){d.classList.remove('active')});
     dot.classList.add('active');
     try{localStorage.setItem('da-theme',t)}catch(e){}
@@ -2538,7 +2551,7 @@ try{
     saved='crimson';
     try{localStorage.setItem('da-theme',saved);}catch(e){}
   }
-  document.documentElement.setAttribute('data-theme',saved);
+  applyThemeClasses(saved);
   document.querySelectorAll('.theme-dot').forEach(function(d){
     d.classList.toggle('active',d.getAttribute('data-t')===saved);
   });
