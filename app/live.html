@@ -1359,6 +1359,27 @@ button{font-family:inherit}
             '<button class="btn btn-bail" data-bail="' + c.id + '">✕ Bail</button>' +
           '</div>';
       } else {
+        // You can't accept your own challenge — that would put both
+        // sides as the same person and break the round flow. Show a
+        // 'You posted this' badge + share-link button instead, with
+        // the Remove button still available so the user can pull it
+        // back. Compare on posterUid (Firestore-backed identity)
+        // first, fall back to handle for legacy localStorage entries.
+        var isMine = currentUser && c.posterUid && c.posterUid === currentUser.uid;
+        var actions;
+        if (isMine){
+          actions =
+            '<span class="tag tag-matched" style="margin-right:8px">✓ You posted this</span>' +
+            '<button class="btn btn-ghost" data-copy-link="' + c.id + '">Copy link to share</button>' +
+            (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>');
+        } else {
+          actions =
+            '<button class="btn btn-primary" data-accept="' + c.id + '">Accept challenge →</button>' +
+            (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>');
+        }
+        var meta = isMine
+          ? 'Waiting for someone to accept the <strong>' + escHtml(yourSideLabel) + '</strong> side. Share the link or wait.'
+          : 'You\'d argue <strong>' + escHtml(yourSideLabel) + '</strong>. ' + (sched && sched.live ? 'Match is live, accept to enter the room.' : sched && c.scheduledAt ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Accept to queue up.');
         card.innerHTML =
           '<div class="card-head">' +
             '<span class="tag tag-side ' + (c.side === 'pro' ? '' : 'opp') + '">They want ' + escHtml(theirSideLabel) + '</span>' +
@@ -1369,11 +1390,8 @@ button{font-family:inherit}
           '</div>' +
           '<div class="card-motion">' + escHtml(displayText) + '</div>' +
           (head.hint ? '<div class="card-meta" style="font-style:italic;opacity:.75">' + escHtml(head.hint) + '</div>' : '') +
-          '<div class="card-meta">You’d argue <strong>' + escHtml(yourSideLabel) + '</strong>. ' + (sched && sched.live ? 'Match is live, accept to enter the room.' : sched && c.scheduledAt ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Accept to queue up.') + '</div>' +
-          '<div class="card-actions">' +
-            '<button class="btn btn-primary" data-accept="' + c.id + '">Accept challenge →</button>' +
-            (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>') +
-          '</div>';
+          '<div class="card-meta">' + meta + '</div>' +
+          '<div class="card-actions">' + actions + '</div>';
       }
       host.appendChild(card);
     });
@@ -1498,6 +1516,19 @@ button{font-family:inherit}
         deleteChallenge(id);
         render();
         toast('Challenge removed.');
+      });
+    });
+    // 'Copy link to share' on your own challenge cards. Copies the
+    // /live URL so you can paste it to a friend on another device or
+    // another Google account; they land on the board signed in as
+    // themselves and can accept.
+    host.querySelectorAll('[data-copy-link]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var url = location.origin + '/live';
+        try {
+          navigator.clipboard.writeText(url);
+          toast('Link copied. Send it to your opponent, they sign in and accept.');
+        } catch(e){ toast('Link is: ' + url); }
       });
     });
   }
