@@ -333,30 +333,45 @@ button{font-family:inherit;cursor:pointer}
   background:var(--hero-grad);
   overflow:hidden;
 }
+/* Hero ambient glows. Previously used filter:blur(64px)/blur(48px) on
+   animated pseudo-elements — Chrome's large-radius blur runs on the
+   main thread (Safari composites it on the GPU), so on Chrome the
+   drift animation pinned a CPU core every frame and made the rest of
+   the page feel heavy. Dropped the filter entirely; the radial-
+   gradient's transparent-at-62% stop already produces a soft falloff,
+   and stretching the element bigger compensates for the missing blur
+   visually. will-change:transform forces both layers onto their own
+   compositor layer so the drift translate is a pure GPU op. */
 .hero-bg::before{
   content:'';position:absolute;
-  top:-20%;right:-10%;
-  width:80%;height:120%;
-  background:radial-gradient(ellipse at center, var(--accent-glow) 0%, transparent 62%);
-  filter:blur(64px);
-  animation:drift 10s ease-in-out infinite alternate;
+  top:-30%;right:-20%;
+  width:100%;height:140%;
+  background:radial-gradient(ellipse at center, var(--accent-glow) 0%, transparent 65%);
+  will-change:transform;
+  animation:drift 14s ease-in-out infinite alternate;
 }
 .hero-bg::after{
   content:'';position:absolute;
-  bottom:-10%;left:-10%;
-  width:60%;height:80%;
-  background:radial-gradient(ellipse at center, var(--accent-glow2) 0%, transparent 62%);
-  filter:blur(48px);
-  animation:drift2 12s ease-in-out infinite alternate;
+  bottom:-20%;left:-20%;
+  width:80%;height:100%;
+  background:radial-gradient(ellipse at center, var(--accent-glow2) 0%, transparent 65%);
+  will-change:transform;
+  animation:drift2 16s ease-in-out infinite alternate;
 }
 
 @keyframes drift{
-  0%{transform:translate(0,0) scale(1)}
-  100%{transform:translate(-40px,30px) scale(1.05)}
+  0%{transform:translate3d(0,0,0) scale(1)}
+  100%{transform:translate3d(-40px,30px,0) scale(1.05)}
 }
 @keyframes drift2{
-  0%{transform:translate(0,0) scale(1)}
-  100%{transform:translate(30px,-20px) scale(1.08)}
+  0%{transform:translate3d(0,0,0) scale(1)}
+  100%{transform:translate3d(30px,-20px,0) scale(1.08)}
+}
+/* Respect the user's reduced-motion preference — drift animations
+   contribute nothing functional, so honoring this is free perf for
+   anyone with it set, plus accessibility compliance. */
+@media (prefers-reduced-motion: reduce){
+  .hero-bg::before, .hero-bg::after{ animation:none !important; }
 }
 
 .hero-grain{
@@ -1329,6 +1344,12 @@ button{font-family:inherit;cursor:pointer}
       var mode = 'idle';
       var running = true;
       var inView = true; // toggled by IntersectionObserver below
+      // Chrome-specific perf branches. Chrome's canvas paint pipeline is
+      // the slowest of the big three for this pattern (multi-layered
+      // gradient + many path segments + compositor blending). On Chrome
+      // we cut path point count (~33%) and bar count (~36%) — visually
+      // close to identical at 220px while halving per-frame work.
+      var isChrome = /Chrome/.test(navigator.userAgent) && !/Edg|OPR/.test(navigator.userAgent);
       window.__heroOrbMode = function(m){ mode = (m === 'ai' ? 'ai' : 'idle'); gradKey = ''; };
 
       function resize(){
@@ -1406,28 +1427,22 @@ button{font-family:inherit;cursor:pointer}
         var cx = W / 2, cy = H / 2;
         var baseR = Math.min(W, H) * 0.36;
         var t = reduced ? 0 : (Date.now() / 1000);
-        // Halved from 120. Visually identical for a 360px orb at 45fps; the
-        // resulting path is half the size so Chrome's path tessellation cost
-        // drops accordingly.
-        var points = 60;
+        // Trimmed from 60 → 40 points. The blob is a soft organic shape;
+        // 40 lineTo() segments at 220px wide are still anti-aliased to a
+        // smooth curve. Chrome's path tessellation cost is roughly linear
+        // in segment count, so this is a ~33% per-frame win.
+        var points = isChrome ? 32 : 40;
         var speed = mode === 'ai' ? 1.6 : 0.75;
         var amp   = mode === 'ai' ? 0.20 : 0.11;
 
         ensureGradients(W, H, baseR);
 
-        ctx.beginPath();
-        for (var i = 0; i <= points; i++) {
-          var a = (i / points) * Math.PI * 2;
-          var r = baseR * 1.08 +
-            Math.sin(a * 5 + t * speed) * baseR * amp +
-            Math.sin(a * 3 - t * speed * 1.4) * baseR * amp * 0.6;
-          var x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
-          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fillStyle = outerGrad;
-        ctx.fill();
-
+        // Single blob path. The OUTER glow was a second canvas blob
+        // (60 path segments + outer gradient fill, every frame). We
+        // dropped it because the existing .hero-orb-glow CSS layer
+        // already paints a soft red radial-gradient behind the canvas
+        // — visually it carries the "halo" character without per-frame
+        // canvas work. Saves ~half the per-frame paint work on Chrome.
         ctx.beginPath();
         for (var j = 0; j <= points; j++) {
           var aa = (j / points) * Math.PI * 2;
@@ -1452,7 +1467,8 @@ button{font-family:inherit;cursor:pointer}
         // Perf: build ONE Path2D and fill once per frame. Setting fillStyle/
         // shadow per-bar (and beginPath per-bar) tanks Chrome's compositor
         // because shadowBlur forces a software paint pass each call.
-        var BARS = 22;
+        // 22 → 14 on Chrome where the per-bar Path2D ops are most expensive.
+        var BARS = isChrome ? 14 : 22;
         var maxBarH = baseR * (mode === 'ai' ? 1.25 : 0.55);
         var minBarH = baseR * 0.08;
         var barW = Math.max(2, baseR * 0.055);

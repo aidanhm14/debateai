@@ -11,14 +11,45 @@
   if(!c) return;
   var ctx=c.getContext('2d');
   var nodes=[],edges=[],pulses=[];
-  var W,H,dpr=Math.min(window.devicePixelRatio||1,2);
+  // DPR cap: 1.5 matches the orb. The neural constellation is a soft
+  // background — Retina (DPR=2) costs 4× the pixel fill rate for ~zero
+  // visible difference at typical viewing distance. On Chrome where
+  // canvas paint isn't as compositor-friendly as Safari, this single
+  // change drops main-thread frame time noticeably on M1 / M2 Macs.
+  var W,H,dpr=Math.min(window.devicePixelRatio||1,1.5);
+  // Detect Chrome — its canvas paint pipeline is the slowest of the big
+  // three for this pattern (many short edges + small fills). On Chrome
+  // we cut node count by ~25% AND drop the connect distance, both of
+  // which directly cut the O(N²) per-frame edge collection.
+  var isChrome = /Chrome/.test(navigator.userAgent) && !/Edg|OPR/.test(navigator.userAgent);
   var isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
   var reduced=false;
   try{reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
-  var NODE_COUNT=isMobile?16:32;
-  var CONNECT_DIST_DARK=150,CONNECT_DIST_LIGHT=180;
+  var NODE_COUNT = isMobile ? 16 : (isChrome ? 24 : 32);
+  var CONNECT_DIST_DARK = isChrome ? 130 : 150;
+  var CONNECT_DIST_LIGHT = isChrome ? 150 : 180;
   var MIN_SPEED=.04;
   var TWO_PI=Math.PI*2;
+  // Frame cap. rAF fires at the display's native rate (60Hz on most
+  // laptops, 120-144Hz on newer phones / iPad / gaming displays).
+  // Drawing this background 144× per second is wasted work — the
+  // motion is slow enough that 60fps is indistinguishable from 144.
+  var FRAME_MIN_MS = 1000/60 - 1;
+  var lastDrawAt = 0;
+  // Visibility gate. Pause when the canvas scrolls fully offscreen
+  // (rAF already throttles hidden tabs, but on a long landing page
+  // the constellation runs continuously even after the user scrolls
+  // 6 sections down).
+  var inView = true;
+  if ('IntersectionObserver' in window){
+    try{
+      new IntersectionObserver(function(entries){
+        for (var i=0;i<entries.length;i++){
+          inView = entries[i].isIntersecting;
+        }
+      }, { threshold: 0.01 }).observe(c);
+    }catch(e){}
+  }
   var running=true,rafId=0;
 
   // Pre-formatted color strings, refreshed on theme flip via a MutationObserver
@@ -58,8 +89,24 @@
   }
   function addPulse(fi,ti){pulses.push({from:fi,to:ti,t:0,speed:.006+Math.random()*.008})}
 
-  function tick(){
+  function tick(ts){
     if(!running){rafId=0;return}
+    // Frame cap — skip the paint if we're firing at 144Hz but only
+    // need 60Hz. The rAF re-fire still happens; we just bail out
+    // before the expensive O(N²) edge pass.
+    var now = ts || performance.now();
+    if (now - lastDrawAt < FRAME_MIN_MS) {
+      rafId = requestAnimationFrame(tick);
+      return;
+    }
+    // Skip paint entirely when canvas is offscreen — rAF keeps the
+    // loop alive so we resume the moment it scrolls back into view.
+    if (!inView) {
+      lastDrawAt = now;
+      rafId = requestAnimationFrame(tick);
+      return;
+    }
+    lastDrawAt = now;
     ctx.clearRect(0,0,W,H);
 
     // Pass 1: physics + collect edge endpoints. Squared-dist gate skips
