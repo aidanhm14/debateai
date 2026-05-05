@@ -4645,7 +4645,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         className:'cta',
         onClick:quickStart,
         style:{marginTop:18,background:'linear-gradient(135deg,#f59e0b,#ef4444)',boxShadow:'0 6px 24px rgba(239,68,68,.35)',fontWeight:800,letterSpacing:'.04em'}
-      }, '\u26A1 Quick Start. random motion, one tap'),
+      }, '\u26A1 Quick tap for Quick Clash'),
       el('div',{style:{fontSize:'.7rem',color:'var(--c-dim)',marginTop:6,marginBottom:8}},'or customize below \u2193'),
 
       // Session recovery banner
@@ -5472,18 +5472,53 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           el('button',{className:'cta-ghost',onClick:()=>{setPoiOffer(false);setLog(prev=>[...prev,{code:'POI',who:'POI',text:'AI offered POI. declined'}])},style:{padding:'8px 16px',fontSize:'.78rem',opacity:.5,marginTop:0}},'Decline'),
         ),
 
-        // Live speed control during AI speech. Buttons label their actual
-        // effective WPM (setup wpm × multiplier) instead of opaque "1.5×".
-        // The user picks a wpm setting in setup and then sees the same
-        // unit reflected here, so it's obvious how the slider, the live
-        // multiplier, and the audio they're hearing relate.
-        !isUser&&tts.speaking&&el('div',{className:'row-c',style:{gap:6,marginBottom:8,flexWrap:'wrap',justifyContent:'center'}},
-          el('span',{style:{fontSize:'.65rem',color:'var(--c-muted)',marginRight:4}},'WPM (base ',el('strong',{style:{color:'var(--c-text3)'}},wpm),'):'),
-          [0.75,1,1.25,1.5,2,2.5,3].map(r=>{
-            const eff=Math.round(wpm*r);
-            return el('button',{key:r,onClick:()=>{setLiveRate(r);tts.setRate(r)},title:r+'× live playback',style:{padding:'4px 10px',fontSize:'.68rem',borderRadius:8,border:liveRate===r?'1px solid rgba(239,68,68,.5)':'1px solid var(--c-border2)',background:liveRate===r?'rgba(239,68,68,.15)':'var(--c-surface2)',color:liveRate===r?'#ef4444':'var(--c-text)',cursor:'pointer',fontWeight:liveRate===r?700:500}},eff);
-          })
-        ),
+        // Live speed control during AI speech. Continuous WPM slider
+        // (range = base wpm × [0.5, 3.0] clamped to 100-700 wpm so the
+        // browser audio playbackRate stays within its 0.5-3.0 hard
+        // limit). Anchor presets sit underneath the slider for fast
+        // reaches — click "300" and the slider snaps + the audio rate
+        // updates in real time. Setup-wpm baseline is shown on the
+        // left so the user can tell "1× would be 200 wpm right now."
+        !isUser&&tts.speaking&&(()=>{
+          const minWpm = Math.max(100, Math.round(wpm * 0.5));
+          const maxWpm = Math.min(700, Math.round(wpm * 3.0));
+          const liveWpm = Math.round(wpm * liveRate);
+          const presets = [
+            { label:'Slow',     mult:0.75 },
+            { label:'Normal',   mult:1.0  },
+            { label:'Brisk',    mult:1.25 },
+            { label:'Fast',     mult:1.5  },
+            { label:'Sprint',   mult:2.0  },
+            { label:'Spread',   mult:2.5  },
+          ];
+          return el('div',{style:{maxWidth:520,margin:'0 auto 8px',padding:'10px 14px',background:'var(--c-surface2)',border:'1px solid var(--c-border2)',borderRadius:12}},
+            el('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:8}},
+              el('span',{style:{fontSize:'.6rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--c-muted)',whiteSpace:'nowrap'}},'WPM'),
+              el('input',{
+                type:'range',
+                min:minWpm,max:maxWpm,step:5,
+                value:liveWpm,
+                onChange:(e)=>{
+                  const targetWpm = parseInt(e.target.value,10);
+                  const r = Math.max(0.5, Math.min(3.0, targetWpm / wpm));
+                  setLiveRate(r);
+                  tts.setRate(r);
+                },
+                style:{flex:1,accentColor:'#ef4444'},
+                'aria-label':'Live WPM',
+              }),
+              el('div',{style:{fontVariantNumeric:'tabular-nums',fontWeight:700,fontSize:'1.05rem',color:'#ef4444',minWidth:64,textAlign:'right'}},liveWpm,el('span',{style:{fontSize:'.6rem',color:'var(--c-muted)',fontWeight:600,marginLeft:4}},'wpm')),
+            ),
+            el('div',{style:{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'center'}},
+              presets.map(p=>{
+                const eff=Math.round(wpm*p.mult);
+                const active=Math.abs(liveRate-p.mult)<0.01;
+                return el('button',{key:p.mult,onClick:()=>{setLiveRate(p.mult);tts.setRate(p.mult);},title:eff+' wpm',style:{padding:'3px 9px',fontSize:'.62rem',fontWeight:active?700:500,borderRadius:6,border:active?'1px solid rgba(239,68,68,.5)':'1px solid var(--c-border2)',background:active?'rgba(239,68,68,.12)':'transparent',color:active?'#fca5a5':'var(--c-text3)',cursor:'pointer',fontFamily:'inherit',letterSpacing:'.04em'}},p.label);
+              })
+            ),
+            el('div',{style:{textAlign:'center',marginTop:6,fontSize:'.6rem',color:'var(--c-subtle)',letterSpacing:'.04em'}},'Setup WPM ',el('strong',{style:{color:'var(--c-text3)'}},wpm),' · Drag for fine-tune, click a preset for fast reach'),
+          );
+        })(),
 
         // Controls
         el('div',{className:'row-c'},
