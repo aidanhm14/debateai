@@ -493,6 +493,9 @@ button{font-family:inherit}
 
 /* Top-bar user chip */
 .bar-user{display:inline-flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:999px;margin-right:8px}
+.bar-user-edit{display:inline-flex;align-items:center;gap:8px;background:transparent;border:none;padding:0;margin:0;cursor:pointer;font-family:inherit;color:inherit;border-radius:999px;transition:background .15s}
+.bar-user-edit:hover{background:rgba(255,255,255,.04)}
+.bar-user-edit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .bar-user-pic{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#a855f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.62rem;font-weight:800;overflow:hidden}
 .bar-user-pic img{width:100%;height:100%;object-fit:cover}
 .bar-user-name{font-size:.72rem;color:var(--text);font-weight:700;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1926,12 +1929,16 @@ button{font-family:inherit}
     var initials = (u.displayName || u.email || '?').split(/\s+/).slice(0,2).map(function(s){return (s[0]||'').toUpperCase();}).join('');
     host.innerHTML =
       '<span class="bar-user">' +
-        '<span class="bar-user-pic">' + (photo ? '<img src="' + escHtml(photo) + '" alt="" />' : escHtml(initials)) + '</span>' +
-        '<span class="bar-user-name">' + escHtml(nm) + '</span>' +
+        '<button class="bar-user-edit" id="editProfileBtn" type="button" title="Edit profile" aria-label="Edit profile">' +
+          '<span class="bar-user-pic">' + (photo ? '<img src="' + escHtml(photo) + '" alt="" />' : escHtml(initials)) + '</span>' +
+          '<span class="bar-user-name">' + escHtml(nm) + '</span>' +
+        '</button>' +
         '<button class="bar-user-out" id="signOutBtn" type="button">Out</button>' +
       '</span>';
     var ob = document.getElementById('signOutBtn');
     if (ob) ob.addEventListener('click', function(){ try { firebaseAuth.signOut(); } catch(e){} });
+    var ep = document.getElementById('editProfileBtn');
+    if (ep) ep.addEventListener('click', function(){ setTab('manage'); });
   }
   function doGoogleSignIn(){
     if (!firebaseAuth){
