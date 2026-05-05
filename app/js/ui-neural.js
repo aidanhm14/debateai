@@ -52,7 +52,12 @@
   var EDGE_COLOR='',NODE_COLOR='',PULSE_COLOR='',CDIST=CONNECT_DIST_DARK,CDIST_SQ=CDIST*CDIST;
   var lineW=.5,nodeRMul=1;
   function refreshTheme(){
-    var isLight=document.body.classList.contains('light-theme');
+    // Read both selectors so we react no matter which page set the theme:
+    // landing toggles `data-theme="light"` on <html>; /app + /high-school
+    // toggle `body.light-theme`. Either signal flips the constellation
+    // colors to the lighter palette.
+    var isLight=document.documentElement.getAttribute('data-theme')==='light'
+              ||document.body.classList.contains('light-theme');
     var R=isLight?100:239,G=isLight?130:68,B=isLight?180:68;
     var rgb=R+','+G+','+B;
     EDGE_COLOR='rgba('+rgb+','+(isLight?.07:.18)+')';
@@ -201,11 +206,12 @@
   document.addEventListener('visibilitychange',function(){
     if(document.hidden){stop()}else{running=true;start()}
   });
-  // Theme dot listeners exist on landing; for other pages just observe body
-  // class changes so the constellation re-tints when crimson↔grey or theme
-  // ↔ light flips.
+  // Re-tint the constellation when the theme flips. Two observers because
+  // landing flips `data-theme` on <html> while /app + /high-school flip a
+  // class on <body>; either signal should trigger refreshTheme.
   if(window.MutationObserver){
     new MutationObserver(refreshTheme).observe(document.body,{attributes:true,attributeFilter:['class']});
+    new MutationObserver(refreshTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   }
   tick();
 })();
