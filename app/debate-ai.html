@@ -1157,7 +1157,10 @@ const BRAINS = {
   },
 };
 
-const MOTIONS = [
+// Parliamentary motion bank — shared across APDA / BP / Asian / Worlds.
+// All four use "This house would / believes / regrets..." phrasing, so one
+// pool feeds all of them. Quick Clash gets a separate, jargon-free bank.
+const PARLI_MOTIONS = [
   // Classic political philosophy
   'This house would ban billionaires.',
   'This house would abolish the electoral college.',
@@ -1249,6 +1252,133 @@ const MOTIONS = [
   'This house believes whistleblowers should receive absolute legal immunity.',
   'This house would impose term limits on Supreme Court justices.',
 ];
+
+// Format-specific motion banks. Each format has its own native motion style.
+// Picking "Random Motion" or quickStart pulls from the bank that matches the
+// currently-selected format, so MUN never gets handed "This house would..."
+// (which is parli phrasing, not committee-and-topic phrasing) and Policy
+// never gets handed a one-line parli motion when it expects a full plan.
+const MOTIONS_BY_FORMAT = {
+  // Quick Clash — beginner-friendly. Plain "Should we...?" questions, no
+  // debate jargon, no "This house" framing. The whole point of Quick is
+  // that someone with zero debate background can jump in.
+  quick: [
+    'Should homework be banned for K-12 students?',
+    'Should social media require government ID to sign up?',
+    'Should the U.S. adopt a four-day work week?',
+    'Should college tuition be free at public universities?',
+    'Should we ban private jets?',
+    'Should the voting age be lowered to 16?',
+    'Should AI-generated art count as real art?',
+    'Should student loan debt be canceled?',
+    'Should tipping be abolished?',
+    'Should single-use plastics be banned?',
+    'Should grades be replaced with pass/fail?',
+    'Should facial recognition be banned in public spaces?',
+    'Should self-driving cars be allowed on public roads?',
+    'Should standardized tests like the SAT be eliminated?',
+    'Should billionaires exist?',
+    'Should employees be allowed to unionize without management interference?',
+  ],
+  apda: PARLI_MOTIONS,
+  bp: PARLI_MOTIONS,
+  asian: PARLI_MOTIONS,
+  worlds: PARLI_MOTIONS,
+  // Lincoln-Douglas — values/principle resolutions. Normative, not policy.
+  // The classic LD pattern is "A just / moral X ought (not) to Y."
+  ld: [
+    'Resolved: A just society ought not use the death penalty.',
+    'Resolved: Civil disobedience in a democracy is morally justified.',
+    'Resolved: Individual rights ought to be valued above the collective good.',
+    'Resolved: A just government ought to provide a universal basic income to its citizens.',
+    'Resolved: It is morally permissible to break an unjust law.',
+    'Resolved: Inaction in the face of injustice makes individuals morally culpable.',
+    'Resolved: The protection of domestic civil liberties ought to be valued above the prevention of terrorism.',
+    'Resolved: A just government ought to prioritize liberty over equality.',
+    'Resolved: Reparations from majority populations to historically oppressed groups are morally justified.',
+    'Resolved: Restorative justice is preferable to retributive justice.',
+    'Resolved: A just society ought to recognize a right of secession.',
+    'Resolved: Truth-telling ought to be valued above the prevention of harm.',
+    'Resolved: It is morally permissible for victims to use deadly force as deliberate retaliation against repeated abuse.',
+    'Resolved: In a democracy, voting ought to be a moral obligation.',
+    'Resolved: A just government ought to prohibit the private ownership of firearms.',
+  ],
+  // Public Forum — current-event policy resolutions. NSDA writes a fresh
+  // one each month; these are the kinds of topics actually circulated.
+  pf: [
+    'Resolved: The United States federal government should substantially increase its security cooperation with NATO in the cyber domain.',
+    'Resolved: The benefits of NATO\'s expansion since 1991 outweigh the harms.',
+    'Resolved: The United States should accede to the United Nations Convention on the Law of the Sea.',
+    'Resolved: The People\'s Republic of China is a greater threat to U.S. interests than the Russian Federation.',
+    'Resolved: The United States federal government should substantially increase its investment in artificial intelligence research and development.',
+    'Resolved: The European Union should abolish the unanimity requirement for foreign-policy decisions.',
+    'Resolved: On balance, the benefits of social media for adolescents outweigh the harms.',
+    'Resolved: The United States should adopt a single-payer universal healthcare system.',
+    'Resolved: The United Nations should grant the African Union a permanent seat on the Security Council.',
+    'Resolved: The United States federal government should ban TikTok.',
+    'Resolved: The United States federal government should substantially increase economic and military aid to Taiwan.',
+    'Resolved: The benefits of corporate use of generative AI outweigh the harms.',
+  ],
+  // Policy (CX) — full "Resolved: The USFG should..." plan resolutions.
+  // Topic stems are intentionally broad to allow many possible plan texts.
+  policy: [
+    'Resolved: The United States federal government should substantially increase its investment in domestic semiconductor manufacturing.',
+    'Resolved: The United States federal government should substantially increase its diplomatic and economic engagement with the African Union.',
+    'Resolved: The United States federal government should substantially reduce its military presence in one or more of the following: the Arabian Peninsula, the Korean Peninsula, the Republic of the Philippines.',
+    'Resolved: The United States federal government should substantially increase fiscal redistribution toward persons living in poverty in the United States.',
+    'Resolved: The United States federal government should establish a Carbon Border Adjustment Mechanism.',
+    'Resolved: The United States federal government should substantially increase legal protections for LGBTQ persons in the United States.',
+    'Resolved: The United States federal government should substantially increase its investment in K-12 STEM education.',
+    'Resolved: The United States federal government should establish a federal jobs guarantee.',
+    'Resolved: The United States federal government should substantially increase its public health infrastructure for pandemic preparedness.',
+    'Resolved: The United States federal government should substantially increase the regulation of large-language-model artificial intelligence systems.',
+  ],
+  // Congress — bills and resolutions, named the way docket items actually
+  // appear. NSDA chambers debate either "A Bill to..." or "A Resolution to..."
+  congress: [
+    'A Resolution to Recognize Climate Change as a National Security Threat',
+    'A Bill to Establish a Federal Right to Repair Electronic Devices',
+    'A Resolution to Condemn the Development and Use of Lethal Autonomous Weapons Systems',
+    'A Bill to Provide Universal Pre-Kindergarten Education to All American Children',
+    'A Resolution Calling for the Abolition of the Electoral College',
+    'A Bill to Mandate Algorithmic Transparency for Major Social Media Platforms',
+    'A Resolution to Recognize Statehood for Washington, D.C.',
+    'A Bill to Cancel All Federally Held Student Loan Debt',
+    'A Resolution to Strengthen Sanctions Against the Russian Federation',
+    'A Bill to Establish a Federal Wealth Tax on Net Worth Above Fifty Million Dollars',
+    'A Bill to Implement a Carbon Tax with Per-Capita Dividends',
+    'A Resolution to End the United States Embargo of Cuba',
+    'A Bill to Codify the Right to Abortion Access at the Federal Level',
+    'A Resolution to Withdraw the United States from the World Trade Organization',
+  ],
+  // Model UN — committee + topic, the way docket items appear at conference.
+  // Format: "<COMMITTEE>: <Topic>" so the delegate immediately knows what
+  // body they're sitting in. THW / Resolved: framing would be wrong here.
+  mun: [
+    'UNSC: The Situation in Sudan',
+    'WHO: Strengthening Global Pandemic Preparedness and Response',
+    'UNGA-1 (DISEC): Regulation of Lethal Autonomous Weapons Systems',
+    'UNHRC: Protecting the Rights of Climate-Displaced Persons',
+    'ECOSOC: Closing the Global Digital Divide',
+    'UNSC: The Question of Taiwan',
+    'UNGA-3 (SOCHUM): Combating Disinformation in the Age of Generative AI',
+    'UNESCO: Restitution of Cultural Property to Countries of Origin',
+    'IAEA: The Iranian Nuclear Program',
+    'UNEP: Financing Loss and Damage from Climate Change',
+    'UNDP: Sovereign Debt Relief for the Global South',
+    'UN Women: Eliminating Gender-Based Violence in Armed Conflict',
+    'UNSC: Reform of the Permanent Membership and Veto',
+    'UNGA-2 (ECOFIN): Reforming the International Tax Architecture',
+    'UNHRC: Internet Shutdowns and the Right to Free Expression',
+    'WHO: Equitable Access to mRNA Vaccine Technology',
+  ],
+};
+
+function motionsFor(fmt){ return MOTIONS_BY_FORMAT[fmt] || PARLI_MOTIONS; }
+function randomMotionFor(fmt){
+  const arr = motionsFor(fmt);
+  return arr[Math.floor(Math.random()*arr.length)];
+}
 
 /* ═══════════════════════════════════════════════════
    API
@@ -3104,7 +3234,7 @@ function App(){
     }
   },[quickStartPending,motion,format]);
   const quickStart=()=>{
-    const m = MOTIONS[Math.floor(Math.random()*MOTIONS.length)];
+    const m = randomMotionFor('quick');
     setMotion(m);
     if(format!=='quick') setFormat('quick');
     const quickFmt = FORMATS.quick;
@@ -4238,7 +4368,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           )),
         ),
       ),
-      el('button',{className:'cta-ghost',onClick:()=>setMotion(MOTIONS[Math.floor(Math.random()*MOTIONS.length)]),style:{marginTop:8,marginBottom:4}},'Random Motion'),
+      el('button',{className:'cta-ghost',onClick:()=>setMotion(randomMotionFor(format)),style:{marginTop:8,marginBottom:4}},'Random Motion'),
 
       // Daily streak. Counts consecutive calendar days the user has
       // saved at least one round. Breaking days zeros the streak; the
