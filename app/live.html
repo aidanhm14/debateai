@@ -24,10 +24,31 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
+<!-- Restore theme BEFORE first paint so users coming from /landing
+     don't see a brief grey flash if they're holding a crimson/light
+     preference. Mirrors the same `da-theme` localStorage key landing
+     uses. Defaults to crimson to match the landing default-active dot. -->
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow-x:hidden}
-:root{
+/* Three canonical themes — grey (default), crimson, light — mirrored
+   from landing.html so navigating from / to /live preserves the user's
+   theme via localStorage.da-theme. The state-color tokens (green/amber/
+   blue) keep their saturated dark-mode values across themes since they
+   carry semantic meaning (live/queued/judge) not surface meaning. */
+:root,[data-theme="grey"]{
   --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
   --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.16);
   --accent:#ef4444;--accent-glow:rgba(239,68,68,.18);
@@ -35,14 +56,37 @@ html,body{height:100%;overflow-x:hidden}
   --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
   --radius-lg:18px;--radius-md:12px;
   --shadow-lg:0 18px 60px rgba(0,0,0,.45);
+  --bar-bg:rgba(10,10,12,.84);
+  --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(239,68,68,.10),transparent 60%),radial-gradient(ellipse 60% 50% at 100% 80%,rgba(59,130,246,.06),transparent 60%);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.12);--border-strong:rgba(239,68,68,.28);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --text:#fff;--text-dim:rgba(255,255,255,.55);--text-ghost:rgba(239,68,68,.15);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --radius-lg:18px;--radius-md:12px;
+  --shadow-lg:0 18px 60px rgba(0,0,0,.55);
+  --bar-bg:rgba(0,0,0,.92);
+  --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(239,68,68,.18),transparent 60%),radial-gradient(ellipse 60% 50% at 100% 80%,rgba(239,68,68,.08),transparent 60%);
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.08);--border-strong:rgba(0,0,0,.18);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.18);
+  --text:#1a1a1f;--text-dim:rgba(0,0,0,.55);--text-ghost:rgba(0,0,0,.18);
+  --green:#16a34a;--amber:#d97706;--blue:#2563eb;
+  --radius-lg:18px;--radius-md:12px;
+  --shadow-lg:0 18px 60px rgba(0,0,0,.10);
+  --bar-bg:rgba(250,250,247,.85);
+  --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(220,38,38,.06),transparent 60%),radial-gradient(ellipse 60% 50% at 100% 80%,rgba(37,99,235,.04),transparent 60%);
 }
 body{
   font-family:'Inter',system-ui,sans-serif;
   background:var(--bg);color:var(--text);
   -webkit-font-smoothing:antialiased;
-  background-image:
-    radial-gradient(ellipse 70% 50% at 50% 0%,rgba(239,68,68,.10),transparent 60%),
-    radial-gradient(ellipse 60% 50% at 100% 80%,rgba(59,130,246,.06),transparent 60%);
+  background-image:var(--body-grad);
+  transition:background .4s,color .4s;
 }
 a{color:inherit;text-decoration:none}
 button{font-family:inherit}
@@ -52,9 +96,10 @@ button{font-family:inherit}
   position:sticky;top:0;z-index:50;
   display:flex;align-items:center;justify-content:space-between;
   padding:14px 28px;
-  background:rgba(10,10,12,.84);
+  background:var(--bar-bg);
   border-bottom:1px solid var(--border);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  transition:background .4s,border-color .4s;
 }
 .bar-logo{font-size:1.15rem;font-weight:900;letter-spacing:-.02em}
 .bar-logo em{color:var(--accent);font-style:normal}
@@ -66,10 +111,26 @@ button{font-family:inherit}
   border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.04em;
   transition:transform .15s,box-shadow .15s;
 }
-.bar-cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(239,68,68,.4)}
+.bar-cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px var(--accent-glow)}
+/* Theme picker — same red/grey/white set as landing. Identical
+   selectors so the same localStorage `da-theme` key flows across pages. */
+.theme-dots{display:inline-flex;gap:6px;align-items:center;padding:0 4px}
+.theme-dot{
+  width:14px;height:14px;border-radius:50%;
+  border:1.5px solid var(--border-strong);background:#444;
+  cursor:pointer;padding:0;transition:transform .15s,border-color .2s;
+}
+.theme-dot:hover{transform:scale(1.2)}
+.theme-dot.active{border-color:var(--text)}
+.theme-dot[data-t="grey"]{background:#444}
+.theme-dot[data-t="crimson"]{background:#ef4444}
+.theme-dot[data-t="light"]{background:#fafaf7;border-color:rgba(0,0,0,.18)}
+[data-theme="light"] .theme-dot{border-color:rgba(0,0,0,.18)}
+[data-theme="light"] .theme-dot.active{border-color:#1a1a1f}
 @media(max-width:720px){
   .bar-links a:not(.bar-cta){display:none}
   .bar{padding:12px 16px}
+  .theme-dots{display:none}
 }
 
 /* ─── Hero ─────────────────────────────────────────── */
@@ -524,6 +585,11 @@ button{font-family:inherit}
     <a href="/debate-ai">Debate AI</a>
     <a href="/pricing">Pricing</a>
     <a href="/landing#faq">About</a>
+    <div class="theme-dots" role="group" aria-label="Change lighting" title="Change lighting">
+      <button class="theme-dot" data-t="crimson" aria-label="Crimson (default dark)" title="Crimson, default dark"></button>
+      <button class="theme-dot" data-t="grey" aria-label="Grey (neutral dark)" title="Grey, neutral dark"></button>
+      <button class="theme-dot" data-t="light" aria-label="Light (off-white)" title="Light, off-white"></button>
+    </div>
     <span id="barUser"></span>
     <a href="/debate-ai" class="bar-cta">Try the AI</a>
   </div>
@@ -2235,6 +2301,27 @@ button{font-family:inherit}
     render();
     if (document.getElementById('manageView').style.display !== 'none') renderManage();
   }, 20000);
+})();
+</script>
+
+<!-- Theme picker: same red/grey/white set as landing, same localStorage
+     key (da-theme), so flipping here also flips landing on next visit. -->
+<script>
+(function(){
+  function syncDots(t){
+    document.querySelectorAll('.theme-dot').forEach(function(d){
+      d.classList.toggle('active', d.getAttribute('data-t')===t);
+    });
+  }
+  try{ syncDots(document.documentElement.getAttribute('data-theme')||'crimson'); }catch(e){}
+  document.querySelectorAll('.theme-dot').forEach(function(dot){
+    dot.addEventListener('click', function(){
+      var t=dot.getAttribute('data-t');
+      document.documentElement.setAttribute('data-theme', t);
+      syncDots(t);
+      try{ localStorage.setItem('da-theme', t); }catch(e){}
+    });
+  });
 })();
 </script>
 </body>
