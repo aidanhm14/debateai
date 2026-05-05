@@ -11,9 +11,14 @@
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
 
-<!-- Jitsi External API. Embeds the meet.jit.si room as an iframe so
-     video/audio/chat/screenshare all work in-page (no separate tab). -->
-<script src="https://meet.jit.si/external_api.js"></script>
+<!-- Jitsi via popup window. We previously embedded meet.jit.si via
+     JitsiMeetExternalAPI but meet.jit.si caps free embeds at 5 minutes
+     and shows a 'use Jitsi as a Service for production embedding'
+     banner. Direct navigation to meet.jit.si has no such cap, so we
+     pop the call out into a side window instead — same in-platform
+     feel (it's a child window of this page) without the 5-min limit.
+     -->
+
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -62,19 +67,59 @@ button{font-family:inherit}
   html,body{height:auto;overflow:auto}
 }
 
-/* Jitsi container */
+/* Call control pane (replaces the iframe). Holds the open-call CTA,
+   room name + copy-link, status (open/closed), and a brief explainer.
+   Same column position as the prior iframe so the layout is unchanged.
+   */
 .jitsi-pane{
-  position:relative;background:#000;border-right:1px solid var(--border);
+  position:relative;background:#0a0a0c;border-right:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;padding:32px 28px;
 }
-.jitsi-pane > *{width:100%;height:100%}
-.jitsi-fallback{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  flex-direction:column;gap:14px;padding:32px;text-align:center;color:var(--text-dim);
-  background:radial-gradient(ellipse at 50% 50%,rgba(239,68,68,.06),transparent 70%);
+.call-card{
+  max-width:420px;width:100%;display:flex;flex-direction:column;gap:18px;text-align:center;
 }
-.jitsi-fallback h2{font-size:1.05rem;color:var(--text);font-weight:800;margin-bottom:4px}
-.jitsi-fallback p{font-size:.84rem;line-height:1.55;max-width:380px}
-.jitsi-fallback a{color:var(--accent);font-weight:700}
+.call-icon{
+  width:72px;height:72px;border-radius:50%;
+  background:linear-gradient(135deg,rgba(239,68,68,.18),rgba(239,68,68,.04));
+  border:1px solid rgba(239,68,68,.32);
+  display:flex;align-items:center;justify-content:center;margin:0 auto;
+  font-size:2rem;color:#fca5a5;
+}
+.call-card h2{font-size:1.15rem;font-weight:800;color:var(--text);letter-spacing:-.01em}
+.call-card .call-sub{font-size:.84rem;color:var(--text-dim);line-height:1.55}
+.call-status{
+  display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;
+  font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-dim);
+  margin:0 auto;
+}
+.call-status.open{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.32);color:#4ade80}
+.call-status.closed{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.32);color:#fbbf24}
+.call-status .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.call-status.open .dot{box-shadow:0 0 8px currentColor;animation:pulse 1.6s ease-in-out infinite}
+.call-room{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;
+  font-size:.78rem;color:var(--text);
+}
+.call-room-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-right:auto;flex-shrink:0}
+.call-room-name{font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--text);font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;text-align:left}
+.btn-call-primary{
+  padding:14px 22px;font-size:.92rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  border-radius:999px;background:var(--accent);color:#fff;border:1px solid var(--accent);
+  cursor:pointer;font-family:inherit;transition:transform .15s,box-shadow .15s,background .15s;
+  box-shadow:0 6px 24px rgba(239,68,68,.24);
+}
+.btn-call-primary:hover{background:#dc2626;transform:translateY(-1px);box-shadow:0 12px 32px rgba(239,68,68,.32)}
+.btn-call-secondary{
+  padding:8px 14px;font-size:.7rem;font-weight:700;letter-spacing:.04em;
+  border-radius:999px;background:transparent;color:var(--text-dim);
+  border:1px solid var(--border);cursor:pointer;font-family:inherit;
+  transition:color .15s,border-color .15s;
+}
+.btn-call-secondary:hover{color:var(--text);border-color:var(--border-strong)}
+.call-share{font-size:.74rem;color:var(--text-dim);line-height:1.55;padding:10px 14px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.18);border-radius:10px}
+.call-share strong{color:#dbeafe}
 
 /* Round panel */
 .panel{
@@ -273,13 +318,29 @@ button{font-family:inherit}
 
 <div class="split">
 
-  <!-- LEFT: Jitsi embed. mounted on round-start so the user explicitly
-       opts into mic/cam access at the same moment as the debate begins. -->
+  <!-- LEFT: Call control. The Jitsi room opens in a popup window
+       (window.open) on Start so the call sits next to this page. We
+       avoid embedding because meet.jit.si caps free embeds at 5 min.
+       Direct navigation has no cap. -->
   <div class="jitsi-pane" id="jitsiPane">
-    <div class="jitsi-fallback" id="jitsiFallback">
-      <h2>Video room loads when you start</h2>
-      <p>Click <strong>Start round</strong> in the panel to mount the Jitsi room. Both speakers should be in the same room — share this page URL with your opponent and they'll land here too.</p>
-      <p style="font-size:.74rem">Room: <strong id="roomDisplay" style="color:var(--text)"></strong></p>
+    <div class="call-card" id="callCard">
+      <div class="call-icon">📹</div>
+      <div>
+        <h2>Video room</h2>
+        <div class="call-sub" id="callSub">Click <strong style="color:var(--text)">Start round</strong> in the panel to open the call window. Share this page's URL with your opponent — they'll land here too and join the same room.</div>
+      </div>
+      <div class="call-status closed" id="callStatus"><span class="dot"></span><span id="callStatusText">Call not opened yet</span></div>
+      <div class="call-room">
+        <span class="call-room-label">Room</span>
+        <span class="call-room-name" id="roomDisplay"></span>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="btn-call-primary" id="openCallBtn" type="button">▶ Open call window</button>
+        <button class="btn-call-secondary" id="copyRoomBtn" type="button">Copy call link</button>
+      </div>
+      <div class="call-share">
+        <strong>Tip:</strong> Send the URL of <em>this page</em> to your opponent (not just the call link). They land here, hit Open call, and you're both in the same room with the same speech timer + ballot panel.
+      </div>
     </div>
   </div>
 
@@ -536,7 +597,8 @@ button{font-family:inherit}
     timerStart: 0,           // wall-clock ms when current run segment began
     timerElapsed: 0,         // accumulated seconds across all run segments
     timerTotalSec: 0,        // target duration for the current speech
-    jitsiApi: null,
+    callWindow: null,        // popup window for the meet.jit.si room
+    callPoll: null,          // interval id polling callWindow.closed
     recognition: null,
     micActive: false,
     micFinal: '',            // committed transcript chunks
@@ -767,43 +829,52 @@ button{font-family:inherit}
     }
   }
 
-  // ── Jitsi. Mounted lazily on first round-start. Auto-grants mic+cam
-  // (the user just clicked Start so the consent is implicit), uses the
-  // hostless meet.jit.si server (no auth, free, public room name).
-  function mountJitsi(){
-    if (state.jitsiApi) return;
-    if (typeof JitsiMeetExternalAPI === 'undefined'){
-      console.warn('[Jitsi] external API not loaded');
+  // ── Call window. Replaced the prior JitsiMeetExternalAPI iframe
+  // mount (which trips meet.jit.si's 5-minute embed cap) with a child
+  // window via window.open. Direct navigation to meet.jit.si has no
+  // such cap, and the popup sits next to this page so the UX is still
+  // 'in-platform' (a child window of this tab, not a separate tab the
+  // user has to find). We poll callWindow.closed so the status pill +
+  // primary button reflect reality if the user closes the call.
+  function jitsiUrl(){ return 'https://meet.jit.si/' + state.room; }
+
+  function openCallWindow(){
+    if (state.callWindow && !state.callWindow.closed){
+      try { state.callWindow.focus(); } catch(e){}
       return;
     }
-    var pane = $('jitsiPane');
-    pane.innerHTML = '';
-    try {
-      state.jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', {
-        roomName: state.room,
-        parentNode: pane,
-        configOverwrite: {
-          startWithAudioMuted: false,
-          startWithVideoMuted: false,
-          prejoinPageEnabled: false,
-          disableDeepLinking: true,
-        },
-        interfaceConfigOverwrite: {
-          MOBILE_APP_PROMO: false,
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_WATERMARK_FOR_GUESTS: false,
-          DISABLE_VIDEO_BACKGROUND: true,
-        },
-        userInfo: {
-          displayName: (state.speechIdx === 0)
-            ? (state.proName + ' or ' + state.conName)
-            : (state.proName + '/' + state.conName),
-        },
-      });
-    } catch(e){
-      console.warn('[Jitsi] mount failed', e);
-      pane.innerHTML = '<div class="jitsi-fallback"><h2>Couldn\'t embed video room</h2><p>Open <a href="https://meet.jit.si/' + escHtml(state.room) + '" target="_blank" rel="noopener">' + escHtml(state.room) + '</a> in another tab and continue the round here.</p></div>';
+    var w = 560, h = 720;
+    var left = (window.screen && window.screen.availWidth) ? Math.max(0, window.screen.availWidth - w - 20) : 100;
+    var top = 80;
+    var features = 'width='+w+',height='+h+',left='+left+',top='+top+',resizable=yes,scrollbars=yes,toolbar=no,menubar=no';
+    var win = window.open(jitsiUrl(), 'live-round-call-' + state.room, features);
+    if (!win){
+      toast('Popup blocked — allow popups for this site, or use the Copy call link button.');
+      updateCallStatus();
+      return;
     }
+    state.callWindow = win;
+    updateCallStatus();
+    // Poll for close so the UI matches real state
+    if (state.callPoll) clearInterval(state.callPoll);
+    state.callPoll = setInterval(function(){
+      if (!state.callWindow || state.callWindow.closed){
+        state.callWindow = null;
+        clearInterval(state.callPoll); state.callPoll = null;
+        updateCallStatus();
+      }
+    }, 1500);
+    try { gtag('event', 'live_round_call_open'); } catch(e){}
+  }
+
+  function updateCallStatus(){
+    var st = $('callStatus'), txt = $('callStatusText'), btn = $('openCallBtn');
+    if (!st) return;
+    var open = state.callWindow && !state.callWindow.closed;
+    st.classList.toggle('open', !!open);
+    st.classList.toggle('closed', !open);
+    txt.textContent = open ? 'Call window open' : 'Call not opened yet';
+    if (btn) btn.textContent = open ? '⇪ Focus call window' : '▶ Open call window';
   }
 
   // ── Phase transitions
@@ -824,7 +895,9 @@ button{font-family:inherit}
     $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
     $('setupView').classList.add('hidden');
     $('roundView').classList.remove('hidden');
-    mountJitsi();
+    // Auto-open the call popup. Browser allows window.open from a
+    // direct user gesture (the Start click), which this still is.
+    openCallWindow();
     renderRound();
     try { gtag('event', 'live_round_start', { format: state.formatKey }); } catch(e){}
   }
@@ -1039,6 +1112,16 @@ button{font-family:inherit}
     renderSetup();
   });
   $('startBtn').addEventListener('click', startRound);
+
+  // Call window controls
+  $('openCallBtn').addEventListener('click', openCallWindow);
+  $('copyRoomBtn').addEventListener('click', function(){
+    var url = jitsiUrl();
+    try { navigator.clipboard.writeText(url); toast('Call link copied: ' + url); }
+    catch(e){ toast('Copy failed — link is: ' + url); }
+    try { gtag('event', 'live_round_call_link_copy'); } catch(e){}
+  });
+  updateCallStatus();
 
   // Round controls
   $('playPauseBtn').addEventListener('click', togglePlayPause);
