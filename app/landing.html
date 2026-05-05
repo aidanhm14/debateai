@@ -1218,9 +1218,9 @@ button{font-family:inherit;cursor:pointer}
     <a href="/" class="ui-topbar-logo" aria-label="Debate AI trademark, home"><span>Debate</span> AI.<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup></a>
   </div>
   <div class="ui-topbar-right">
-    <a href="/debaters" class="ui-topbar-link">College</a>
+    <a href="/debaters" class="ui-topbar-link">College Debaters</a>
     <a href="/high-school" class="ui-topbar-link">High School</a>
-    <a href="/learn" class="ui-topbar-link">Adults</a>
+    <a href="/learn" class="ui-topbar-link">Newbies &amp; Adults</a>
     <a href="/live" class="ui-topbar-link" style="display:inline-flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;display:inline-block"></span>Live</a>
     <div class="theme-dots" role="group" aria-label="Change lighting" title="Change lighting">
       <button class="theme-dot active" data-t="crimson" aria-label="Crimson (default dark)" title="Crimson — default dark"></button>
@@ -1427,22 +1427,33 @@ button{font-family:inherit;cursor:pointer}
         var cx = W / 2, cy = H / 2;
         var baseR = Math.min(W, H) * 0.36;
         var t = reduced ? 0 : (Date.now() / 1000);
-        // Trimmed from 60 → 40 points. The blob is a soft organic shape;
-        // 40 lineTo() segments at 220px wide are still anti-aliased to a
-        // smooth curve. Chrome's path tessellation cost is roughly linear
-        // in segment count, so this is a ~33% per-frame win.
-        var points = isChrome ? 32 : 40;
+        // 60-point blob — restored to the original high-fidelity
+        // density. Aidan's read is the orb isn't the FPS bottleneck,
+        // and the lower-density version felt less premium.
+        var points = 60;
         var speed = mode === 'ai' ? 1.6 : 0.75;
         var amp   = mode === 'ai' ? 0.20 : 0.11;
 
         ensureGradients(W, H, baseR);
 
-        // Single blob path. The OUTER glow was a second canvas blob
-        // (60 path segments + outer gradient fill, every frame). We
-        // dropped it because the existing .hero-orb-glow CSS layer
-        // already paints a soft red radial-gradient behind the canvas
-        // — visually it carries the "halo" character without per-frame
-        // canvas work. Saves ~half the per-frame paint work on Chrome.
+        // Outer halo blob — soft, larger radius, painted under the
+        // inner blob with the wider radial gradient. Was dropped for
+        // perf and replaced by the CSS .hero-orb-glow layer; the CSS
+        // layer alone read flatter, so the canvas outer is back.
+        ctx.beginPath();
+        for (var i = 0; i <= points; i++) {
+          var a = (i / points) * Math.PI * 2;
+          var r = baseR * 1.08 +
+            Math.sin(a * 5 + t * speed) * baseR * amp +
+            Math.sin(a * 3 - t * speed * 1.4) * baseR * amp * 0.6;
+          var x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = outerGrad;
+        ctx.fill();
+
+        // Inner blob path.
         ctx.beginPath();
         for (var j = 0; j <= points; j++) {
           var aa = (j / points) * Math.PI * 2;
@@ -1467,8 +1478,7 @@ button{font-family:inherit;cursor:pointer}
         // Perf: build ONE Path2D and fill once per frame. Setting fillStyle/
         // shadow per-bar (and beginPath per-bar) tanks Chrome's compositor
         // because shadowBlur forces a software paint pass each call.
-        // 22 → 14 on Chrome where the per-bar Path2D ops are most expensive.
-        var BARS = isChrome ? 14 : 22;
+        var BARS = 22;
         var maxBarH = baseR * (mode === 'ai' ? 1.25 : 0.55);
         var minBarH = baseR * 0.08;
         var barW = Math.max(2, baseR * 0.055);

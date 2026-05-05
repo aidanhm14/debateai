@@ -11,23 +11,18 @@
   if(!c) return;
   var ctx=c.getContext('2d');
   var nodes=[],edges=[],pulses=[];
-  // DPR cap: 1.5 matches the orb. The neural constellation is a soft
-  // background — Retina (DPR=2) costs 4× the pixel fill rate for ~zero
-  // visible difference at typical viewing distance. On Chrome where
-  // canvas paint isn't as compositor-friendly as Safari, this single
-  // change drops main-thread frame time noticeably on M1 / M2 Macs.
-  var W,H,dpr=Math.min(window.devicePixelRatio||1,1.5);
-  // Detect Chrome — its canvas paint pipeline is the slowest of the big
-  // three for this pattern (many short edges + small fills). On Chrome
-  // we cut node count by ~25% AND drop the connect distance, both of
-  // which directly cut the O(N²) per-frame edge collection.
-  var isChrome = /Chrome/.test(navigator.userAgent) && !/Edg|OPR/.test(navigator.userAgent);
+  // Render at full Retina (DPR=2) for the wide, high-resolution look.
+  // Chrome-specific density cuts were rolled back — Aidan's read is
+  // that the constellation isn't the FPS bottleneck, and the lower
+  // density made the field feel sparse at desktop widths. Zero-cost
+  // wins (frame cap, offscreen pause, single-stroke batching) stay in.
+  var W,H,dpr=Math.min(window.devicePixelRatio||1,2);
   var isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
   var reduced=false;
   try{reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
-  var NODE_COUNT = isMobile ? 16 : (isChrome ? 24 : 32);
-  var CONNECT_DIST_DARK = isChrome ? 130 : 150;
-  var CONNECT_DIST_LIGHT = isChrome ? 150 : 180;
+  var NODE_COUNT = isMobile ? 16 : 32;
+  var CONNECT_DIST_DARK = 150;
+  var CONNECT_DIST_LIGHT = 180;
   var MIN_SPEED=.04;
   var TWO_PI=Math.PI*2;
   // Frame cap. rAF fires at the display's native rate (60Hz on most

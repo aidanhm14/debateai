@@ -284,6 +284,7 @@ body{
 .orb-ring.active{border-color:rgba(239,68,68,.3);box-shadow:0 0 60px rgba(239,68,68,.1)}
 .orb-ring.pulse{animation:orbPulse 2s ease-in-out infinite}
 @keyframes orbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.7}}
+@keyframes live-dot-pulse{0%,100%{opacity:.55;transform:scale(.92)}50%{opacity:1;transform:scale(1.18)}}
 canvas.orb{width:220px;height:220px;border-radius:50%}
 /* Interrupt flash. Brief red bloom + slight contraction so the cut-off
    reads as a hard stop, not a smooth fade. .interrupted class is set
@@ -1597,6 +1598,27 @@ function caseFileFor(motion){
   return CASE_FILES[motion.trim()] || null;
 }
 
+// Plain-text scrubber for the background/context preview. The auto-
+// generated and curated entries sometimes leak markdown — `# Heading`
+// lines, **bold**, leading bullet markers — which read as raw glyphs
+// in the rendered text. Strip them to plain prose so the badge reads
+// like a paragraph, not a snippet of source.
+function stripPlainMd(s){
+  if (!s) return '';
+  return String(s)
+    .replace(/^\s*#{1,6}\s+.*$/gm, '')   // drop entire markdown header lines
+    .replace(/\*\*(.+?)\*\*/g, '$1')     // **bold**
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2') // *italic* (avoid **)
+    .replace(/__(.+?)__/g, '$1')         // __bold__
+    .replace(/(^|\s)_([^_\n]+)_/g, '$1$2') // _italic_
+    .replace(/^\s*[-*+]\s+/gm, '')       // bullet markers
+    .replace(/^\s*>\s+/gm, '')           // blockquotes
+    .replace(/`([^`]+)`/g, '$1')         // inline code
+    .replace(/[#]+/g, '')                // any stray # symbol
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /* ═══════════════════════════════════════════════════
    API
    ═══════════════════════════════════════════════════ */
@@ -1930,13 +1952,16 @@ function useOrb(){
       grad.addColorStop(0,'rgba(239,68,68,.08)');
       grad.addColorStop(1,'rgba(239,68,68,0)');
       ctx.strokeStyle='rgba(239,68,68,.35)';
-      // shadowBlur=30 here was set every frame in AI mode and forced
-      // Chrome onto a software paint path. The container's CSS box-shadow
-      // (or the radial-gradient backdrop on the orb wrap) provides the
-      // glow already; the canvas stroke can stay shadow-free.
+      // Restored: AI-mode glow halo. The pulsing red shadow is the
+      // signature "the AI is alive" beat — Aidan's read is the canvas
+      // shadow isn't what's costing FPS, and the orb felt flat without
+      // it. Chrome's software-paint penalty here is real but small at
+      // 60fps for a 220px element.
+      ctx.shadowBlur=30;ctx.shadowColor='rgba(239,68,68,.35)';
     }
     ctx.fillStyle=grad;ctx.fill();
     ctx.lineWidth=1.5;ctx.stroke();
+    ctx.shadowBlur=0;
 
     ctx.restore();
     if(runRef.current) animRef.current=requestAnimationFrame(draw);
@@ -2058,10 +2083,54 @@ function useTTS(){
   const rateRef=useRef(1.0);
   const progressRef=useRef({elapsed:0,total:0});
 
+  // ── Web Audio gapless-playback state ──
+  // Why Web Audio for chunked TTS: HTMLAudioElement (`new Audio(url)`) has
+  // ~150-300ms of decode-and-play overhead PER chunk on Chrome, which is
+  // exactly where the stutter came from — the AI voice would gasp between
+  // sentences. Safari's media element is faster but still not free.
+  // Switching to AudioContext.decodeAudioData + AudioBufferSourceNode means
+  // each chunk is decoded into a Float32 buffer and scheduled with sample-
+  // accurate `start(when)`, producing genuinely gapless playback that's
+  // identical between browsers.
+  const webAudioCtxRef=useRef(null);
+  const webAudioSourcesRef=useRef([]);
+  const webAudioGainRef=useRef(null);
+  const webAudioStartTimeRef=useRef(null);
+  const webAudioElapsedTimerRef=useRef(null);
+
+  const getWebAudioCtx=()=>{
+    if(!webAudioCtxRef.current){
+      try{
+        const C=window.AudioContext||window.webkitAudioContext;
+        if(!C) return null;
+        webAudioCtxRef.current=new C();
+      }catch(e){return null}
+    }
+    return webAudioCtxRef.current;
+  };
+
+  const stopWebAudio=()=>{
+    for(const s of webAudioSourcesRef.current){
+      try{s.stop()}catch{}
+      try{s.disconnect()}catch{}
+    }
+    webAudioSourcesRef.current=[];
+    if(webAudioGainRef.current){
+      try{webAudioGainRef.current.disconnect()}catch{}
+      webAudioGainRef.current=null;
+    }
+    webAudioStartTimeRef.current=null;
+    if(webAudioElapsedTimerRef.current){
+      clearInterval(webAudioElapsedTimerRef.current);
+      webAudioElapsedTimerRef.current=null;
+    }
+  };
+
   // Cancel any active invocation. Safe to call repeatedly; idempotent.
   const cancelActive=()=>{
     if(tokenRef.current){tokenRef.current.cancelled=true;tokenRef.current=null}
     if(audioRef.current){try{audioRef.current.pause()}catch(e){}try{audioRef.current.src=''}catch(e){}audioRef.current=null}
+    stopWebAudio();
     if(window.speechSynthesis)window.speechSynthesis.cancel();
   };
 
@@ -2107,7 +2176,7 @@ function useTTS(){
     return fetch('/api/tts',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:text.slice(0,4000),voice:voiceName||'sage',speed,premium:isPro(),intensity:i,provider:isPro()?providerPref:undefined}),
+      body:JSON.stringify({text:stripPlainMd(text).slice(0,4000),voice:voiceName||'sage',speed,premium:isPro(),intensity:i,provider:isPro()?providerPref:undefined}),
     }).then(r=>{
       if(!r.ok) throw new Error('TTS '+r.status);
       return r.blob();
@@ -2140,21 +2209,22 @@ function useTTS(){
 
   // speak is now defined below as speakWithError (with error surfacing)
 
-  // ── playChunks: play an array of blob promises sequentially, starting ASAP ──
-  const playChunks=(blobPromises,onEnd,onStart)=>{
-    // Cancel any prior invocation first. prevents old in-flight fetches from
-    // resolving into a new audio element that overlaps this one.
-    cancelActive();
-    const token={cancelled:false};
-    tokenRef.current=token;
-    pausedRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
-    modeRef.current='openai';onEndRef.current=onEnd;
-    progressRef.current={elapsed:0,total:0};
-    const durations=[];
-    let i=0;let started=false;
-
+  // ── playChunks (Web Audio path): gapless chunked TTS playback ──
+  // The previous implementation built a fresh `<audio>` element per chunk,
+  // which on Chrome cost 150-300ms of decode-and-play overhead BETWEEN
+  // chunks (the audible "gasp" between sentences during AI speech). The
+  // Web Audio path here:
+  //   1. fetches each blob → arrayBuffer → ctx.decodeAudioData → AudioBuffer
+  //   2. schedules an AudioBufferSourceNode with start(when) where `when`
+  //      is sample-accurate to the previous chunk's end → zero gap
+  //   3. pre-decodes chunks ahead of playback so the schedule head is
+  //      always full
+  // Falls back to the HTMLMedia path if AudioContext / decodeAudioData
+  // isn't available (very rare on modern browsers).
+  const playChunksHTMLMedia=(blobPromises,onEnd,onStart,token)=>{
+    modeRef.current='openai';
+    const durations=[];let i=0;let started=false;
     const next=async()=>{
-      // Check if done. array may still be growing, so check a "done" flag
       while(i<blobPromises.length){
         if(token.cancelled) break;
         await waitIfPaused(token);
@@ -2168,36 +2238,21 @@ function useTTS(){
           if(!blob||blob.size<500){durations[i]=0;i++;continue}
           const url=URL.createObjectURL(blob);
           const audio=new Audio(url);
-          // Guard: only claim the active audio slot if we're still the active
-          // token. Prevents a stale loop from hijacking audioRef mid-stream.
           if(tokenRef.current!==token){URL.revokeObjectURL(url);break}
           audioRef.current=audio;
           audio.playbackRate=rateRef.current;
           const ci=i;
-          audio.onloadedmetadata=()=>{
-            durations[ci]=audio.duration||0;
-            progressRef.current.total=durations.reduce((a,b)=>a+(b||0),0);
-          };
-          audio.ontimeupdate=()=>{
-            const prior=durations.slice(0,ci).reduce((a,b)=>a+(b||0),0);
-            progressRef.current.elapsed=prior+(audio.currentTime||0);
-          };
-          await new Promise((res,rej)=>{
+          audio.onloadedmetadata=()=>{durations[ci]=audio.duration||0;progressRef.current.total=durations.reduce((a,b)=>a+(b||0),0)};
+          audio.ontimeupdate=()=>{const prior=durations.slice(0,ci).reduce((a,b)=>a+(b||0),0);progressRef.current.elapsed=prior+(audio.currentTime||0)};
+          await new Promise((res)=>{
             audio.onended=()=>{URL.revokeObjectURL(url);res()};
             audio.onerror=()=>{URL.revokeObjectURL(url);res()};
-            // Fire onStart only when audio has actually begun playing — i.e.
-            // when the first frames hit the speakers. Previously onStart fired
-            // before audio.play(), which started the speech timer while the
-            // browser was still buffering, costing the AI ~200-500ms of clock.
-            audio.onplaying=()=>{
-              if(!started){started=true;if(onStart)onStart()}
-            };
+            audio.onplaying=()=>{if(!started){started=true;if(onStart)onStart()}};
             audio.play().catch(()=>{URL.revokeObjectURL(url);res()});
           });
         }catch{durations[i]=0}
         i++;
       }
-      // Wait briefly in case more chunks arrive
       if(!token.cancelled&&!blobPromises._done){
         setTimeout(()=>{
           if(token.cancelled) return;
@@ -2211,11 +2266,162 @@ function useTTS(){
     next();
   };
 
+  const playChunks=(blobPromises,onEnd,onStart)=>{
+    cancelActive();
+    const token={cancelled:false};
+    tokenRef.current=token;
+    pausedRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
+    onEndRef.current=onEnd;
+    progressRef.current={elapsed:0,total:0};
+
+    const ctx=getWebAudioCtx();
+    if(!ctx||typeof ctx.decodeAudioData!=='function'){
+      return playChunksHTMLMedia(blobPromises,onEnd,onStart,token);
+    }
+    modeRef.current='webaudio';
+    if(ctx.state==='suspended'){try{ctx.resume()}catch{}}
+
+    // Master gain — leaves room to add a fade-in/out later without
+    // re-wiring the chain. Sources connect through this rather than
+    // straight to destination so volume/ducking can be adjusted in one
+    // place.
+    const masterGain=ctx.createGain();
+    masterGain.gain.value=1;
+    masterGain.connect(ctx.destination);
+    webAudioGainRef.current=masterGain;
+    webAudioSourcesRef.current=[];
+
+    let scheduleHead=null;       // ctx-time at which the next source should start
+    let firstStartTime=null;     // ctx-time of the first chunk (anchors elapsed)
+    let started=false;
+    let i=0;
+    let endFired=false;
+
+    const fireOnStartWhenAudible=(startAt)=>{
+      const tick=()=>{
+        if(token.cancelled) return;
+        if(ctx.currentTime>=startAt){if(onStart)onStart()}
+        else setTimeout(tick,5);
+      };
+      tick();
+    };
+
+    const scheduleChunk=(audioBuffer)=>{
+      if(token.cancelled) return;
+      const src=ctx.createBufferSource();
+      src.buffer=audioBuffer;
+      src.playbackRate.value=rateRef.current;
+      src.connect(masterGain);
+
+      if(scheduleHead===null){
+        // 80ms lead-in so Chrome has time to wire up the graph before the
+        // first sample is pulled. Anything tighter risks an audible glitch
+        // on the first frame; anything looser is just dead air.
+        scheduleHead=ctx.currentTime+0.08;
+        firstStartTime=scheduleHead;
+        webAudioStartTimeRef.current=firstStartTime;
+      }
+      const startAt=scheduleHead;
+      try{src.start(startAt)}catch(e){console.warn('[TTS] src.start failed',e);return}
+
+      const adjDur=audioBuffer.duration/Math.max(0.1,rateRef.current);
+      scheduleHead=startAt+adjDur;
+      webAudioSourcesRef.current.push(src);
+      progressRef.current.total=scheduleHead-firstStartTime;
+
+      if(!started){started=true;fireOnStartWhenAudible(startAt)}
+    };
+
+    // Producer/consumer loop — pulls each blob as it resolves, decodes,
+    // and schedules. Decoding happens off the main thread (browser
+    // implementation detail) so this won't block UI work.
+    (async()=>{
+      while(true){
+        if(token.cancelled) break;
+        if(pausedRef.current){
+          await waitIfPaused(token);
+          if(token.cancelled) break;
+        }
+        if(i<blobPromises.length){
+          setStreamStatus(`Playing ${i+1}/${blobPromises.length}`);
+          try{
+            const blob=await blobPromises[i];
+            if(token.cancelled) break;
+            if(blob&&blob.size>=500){
+              const ab=await blob.arrayBuffer();
+              if(token.cancelled) break;
+              // decodeAudioData consumes the ArrayBuffer; pass a fresh
+              // copy so we never hand the same buffer to two calls.
+              const buf=await ctx.decodeAudioData(ab.slice(0));
+              if(token.cancelled) break;
+              scheduleChunk(buf);
+            }
+          }catch(e){
+            console.warn('[TTS] Web Audio chunk failed',e);
+          }
+          i++;
+          continue;
+        }
+        if(!blobPromises._done){
+          await new Promise(r=>setTimeout(r,60));
+          continue;
+        }
+        break;
+      }
+
+      if(token.cancelled) return;
+      if(scheduleHead===null){
+        // Nothing ever decoded successfully — fall through to "done" so
+        // the round doesn't hang waiting for a speech that never plays.
+        setSpeaking(false);setStreamStatus('');
+        if(onEndRef.current)onEndRef.current();
+        return;
+      }
+      // Wait for the last scheduled source to finish before firing onEnd.
+      const wait=()=>{
+        if(token.cancelled) return;
+        if(endFired) return;
+        const remaining=scheduleHead-ctx.currentTime;
+        if(remaining<=0.02){
+          endFired=true;
+          stopWebAudio();
+          setSpeaking(false);setStreamStatus('');
+          if(onEndRef.current)onEndRef.current();
+        }else{
+          // If we're paused, ctx.currentTime stops advancing — the loop
+          // still wakes up periodically and recomputes, so resume just
+          // works without extra plumbing here.
+          setTimeout(wait,Math.max(40,Math.min(500,remaining*1000)));
+        }
+      };
+      wait();
+    })();
+
+    // Elapsed-time poller. ctx.currentTime advances only while the ctx
+    // is running, so this naturally pauses while suspended.
+    if(webAudioElapsedTimerRef.current) clearInterval(webAudioElapsedTimerRef.current);
+    webAudioElapsedTimerRef.current=setInterval(()=>{
+      if(token.cancelled){clearInterval(webAudioElapsedTimerRef.current);webAudioElapsedTimerRef.current=null;return}
+      if(firstStartTime!==null){
+        progressRef.current.elapsed=Math.max(0,ctx.currentTime-firstStartTime);
+      }
+    },100);
+  };
+
   const togglePause=()=>{
     const willPause=!pausedRef.current;
     pausedRef.current=willPause;
     setPaused(willPause);
-    if(modeRef.current==='openai'){
+    if(modeRef.current==='webaudio'){
+      const ctx=webAudioCtxRef.current;
+      if(ctx){
+        // Suspending the AudioContext freezes ALL scheduled sources at
+        // sample boundaries — no clicks, no half-played frames. Resume
+        // unfreezes them in the same state.
+        if(willPause){try{ctx.suspend()}catch{}}
+        else{try{ctx.resume()}catch{}}
+      }
+    } else if(modeRef.current==='openai'){
       if(audioRef.current){
         if(willPause){try{audioRef.current.pause()}catch(e){}}
         else{try{audioRef.current.play()}catch(e){}}
@@ -2232,9 +2438,31 @@ function useTTS(){
     setSpeaking(false);setPaused(false);setStreamStatus('');modeRef.current='none';
   };
 
-  const setRate=(rate)=>{rateRef.current=rate;if(audioRef.current)audioRef.current.playbackRate=rate};
+  const setRate=(rate)=>{
+    rateRef.current=rate;
+    if(audioRef.current)audioRef.current.playbackRate=rate;
+    // Web Audio: update the playbackRate on every currently-scheduled
+    // source so the change applies to whatever's playing right now AND
+    // the chunks already queued behind it. Note that this leaves a
+    // small alignment gap at the next chunk boundary (the start times
+    // were computed at the OLD rate); acceptable trade-off for a rare
+    // mid-speech rate change.
+    if(modeRef.current==='webaudio'){
+      for(const s of webAudioSourcesRef.current){
+        try{s.playbackRate.setValueAtTime(rate,webAudioCtxRef.current.currentTime)}catch{}
+      }
+    }
+  };
 
   const getAudioTime=()=>{
+    if(modeRef.current==='webaudio'){
+      const ctx=webAudioCtxRef.current;
+      if(ctx&&webAudioStartTimeRef.current!==null){
+        const elapsed=Math.max(0,ctx.currentTime-webAudioStartTimeRef.current);
+        return{currentTime:elapsed,duration:progressRef.current.total||0,rate:rateRef.current||1};
+      }
+      return{currentTime:0,duration:0,rate:rateRef.current||1};
+    }
     if(!audioRef.current) return{currentTime:0,duration:0,rate:1};
     const e=progressRef.current.elapsed>0?progressRef.current.elapsed:(audioRef.current.currentTime||0);
     const t=progressRef.current.total>0?progressRef.current.total:(audioRef.current.duration||0);
@@ -3129,7 +3357,7 @@ function App(){
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 220,
-          system: 'You write debate background primers. Given a motion, output 2-3 plain sentences of factual context: who decides, what the current state of the issue is, and what is actually contested. No fluff, no opinion, no rhetoric, no "this house" framing. Plain prose only.',
+          system: 'You write debate background primers. Given a motion, output 2-3 plain sentences of factual context: who decides, what the current state of the issue is, and what is actually contested. No fluff, no opinion, no rhetoric, no "this house" framing. Plain prose only — never use markdown, headings, hash signs, asterisks, bullets, bold, italics, or any other formatting. Output is rendered as plain text directly to the screen.',
           messages: [{ role:'user', content: `Motion: "${m}". Write the background.` }],
           stream: false,
           _feature: 'debate-ai-background-gen',
@@ -3482,7 +3710,11 @@ function App(){
         // speech also sound breathless and overcaffeinated).
         const ttsIntensity=0.45;
         const fetchTTSBlob=(text)=>{
-          const input=text.slice(0,4000);
+          // Scrub markdown before TTS: ElevenLabs Turbo handles `**bold**`
+          // gracefully (silently ignores) but tts-1 occasionally pronounces
+          // stray asterisks or hash signs. Stripping defensively keeps the
+          // delivery clean across providers.
+          const input=stripPlainMd(text).slice(0,4000);
           return fetch('/api/tts',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
@@ -4187,6 +4419,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     el('div',{className:'bar-links'},
       el('button',{onClick:()=>setLighting(lighting==='dark'?'light':'dark'),className:'lighting-toggle bar-link-secondary',title:'Toggle light/dark mode'},lighting==='dark'?'Light':'Dark'),
       el('a',{href:'/',className:'bar-link-secondary'},'Home'),
+      el('a',{href:'/live',className:'bar-link-secondary',title:'Argue with humans, live',style:{display:'inline-flex',alignItems:'center',gap:6}},
+        el('span',{style:{width:6,height:6,borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 8px #ef4444',animation:'live-dot-pulse 1.6s ease-in-out infinite',display:'inline-block'}}),
+        'Live'
+      ),
       el('a',{href:'/high-school',className:'bar-link-secondary'},'High School'),
       el('a',{href:'/learn',className:'bar-link-secondary'},'Learn'),
       el('a',{href:'/landing',className:'bar-link-secondary'},'About'),
@@ -4765,7 +5001,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       // their own override. The user's manual entry takes precedence.
       !background && generatedBackground && el('div',{style:{marginTop:6,padding:'10px 14px',background:'var(--c-surface2)',border:'1px solid var(--c-border2)',borderRadius:10,fontSize:'.78rem',color:'var(--c-text3)',lineHeight:1.5,textAlign:'left'}},
         el('div',{style:{fontSize:'.55rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:caseFileFor(motion)?'#fca5a5':'var(--c-subtle)',marginBottom:4}},caseFileFor(motion)?'★ Curated background':'Generated context'),
-        generatedBackground,
+        stripPlainMd(generatedBackground),
       ),
 
       // Daily streak. Counts consecutive calendar days the user has
@@ -5364,7 +5600,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           cf && el('div',{style:{display:'inline-flex',alignItems:'center',gap:6,marginTop:6,fontSize:'.55rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#fca5a5',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.25)',padding:'3px 9px',borderRadius:999}},'★ Curated case'),
           (background||generatedBackground)&&el('div',{style:{fontSize:'.72rem',color:'var(--c-subtle)',marginTop:6,lineHeight:1.5}},
             !background&&generatedBackground?el('span',{style:{fontSize:'.55rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(239,68,68,.55)',marginRight:6}},cf?'Background':'Context'):null,
-            background||generatedBackground
+            stripPlainMd(background||generatedBackground)
           ),
         )})(),
 
