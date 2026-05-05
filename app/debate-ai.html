@@ -194,6 +194,72 @@ body{
 }
 .cta-ghost:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
 
+/* ── In-round side panel (Notes / Flow / Cases) ────────
+   Tablet+ (≥768px): fixed slide-in from the right edge so opening it
+   doesn't shove the orb / timer around. Mobile: full-width sheet at the
+   bottom of the stage so it stays one-handed reachable. */
+.round-panel{
+  position:fixed;top:80px;right:16px;bottom:16px;
+  width:min(420px, calc(100vw - 32px));
+  background:var(--c-surface);
+  border:1px solid var(--c-border);
+  border-radius:16px;
+  padding:16px;
+  display:flex;flex-direction:column;gap:10px;
+  z-index:30;
+  box-shadow:0 12px 40px rgba(0,0,0,.35);
+  overflow:hidden;
+  animation:roundPanelIn .18s ease-out;
+}
+@keyframes roundPanelIn{
+  from{transform:translateX(16px);opacity:0}
+  to{transform:translateX(0);opacity:1}
+}
+.round-panel-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding-bottom:10px;border-bottom:1px solid var(--c-border);
+}
+.round-panel-title{
+  font-size:.7rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--c-text3);
+}
+.round-panel-close{
+  background:transparent;border:none;color:var(--c-text3);
+  font-size:1.4rem;line-height:1;width:28px;height:28px;
+  border-radius:8px;cursor:pointer;font-family:inherit;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s,color .15s;
+}
+.round-panel-close:hover{background:rgba(255,255,255,.06);color:var(--c-text)}
+.round-panel-textarea{
+  flex:1;min-height:200px;resize:none;width:100%;
+  font-size:.88rem;line-height:1.5;
+}
+.round-panel-body{
+  flex:1;overflow-y:auto;font-size:.85rem;line-height:1.5;
+  padding-right:4px;
+}
+@media(max-width:767px){
+  /* On phones the right rail isn't reachable one-handed and the orb
+     dominates the viewport, so dock the panel at the bottom of the
+     stage as a full-width sheet instead of an over-the-top slab. */
+  .round-panel{
+    position:fixed;top:auto;left:0;right:0;bottom:0;
+    width:100%;
+    border-radius:18px 18px 0 0;
+    max-height:60vh;
+    animation:roundPanelInBottom .18s ease-out;
+  }
+  @keyframes roundPanelInBottom{
+    from{transform:translateY(16px);opacity:0}
+    to{transform:translateY(0);opacity:1}
+  }
+}
+[data-lighting="light"] .round-panel{
+  background:#fafaf7;border-color:rgba(0,0,0,.08);
+  box-shadow:0 12px 40px rgba(0,0,0,.12);
+}
+
 /* ── The Orb (waveform) ────────────── */
 .orb-wrap{
   position:relative;width:280px;height:280px;margin:0 auto 32px;
@@ -1815,7 +1881,15 @@ function warmUpTTS(){
   _audioUnlocked=true;
 }
 
-/* ── TTS. simple, reliable audio playback ── */
+/* ── TTS. simple, reliable audio playback ──
+   Empirical baselines for "how many words per minute does the engine
+   output at speed=1.0?". Used to convert the user's wpm slider into a
+   server-side speed value that actually plays back AT that wpm. The
+   prior code divided by 140 for both engines, which made the slider
+   ~7% optimistic for OpenAI and ~25% optimistic for browser voices —
+   the value on the screen never matched the wpm actually delivered. */
+const TTS_BASE_WPM = 150;          // OpenAI tts-1 / ElevenLabs turbo at speed=1.0
+const BROWSER_TTS_BASE_WPM = 175;  // SpeechSynthesisUtterance at rate=1.0 (English)
 
 function useTTS(){
   const[speaking,setSpeaking]=useState(false);
@@ -2023,7 +2097,11 @@ function useTTS(){
     pausedRef.current=false;setPaused(false);setSpeaking(true);setStreamStatus('');
     onEndRef.current=onEnd;
     progressRef.current={elapsed:0,total:0};
-    const speed=Math.max(0.75,Math.min(2.0,wpm/140));
+    // OpenAI tts-1 at speed=1.0 outputs ~150 wpm empirically (varied a
+    // bit per voice). Divide by that, not 140 — using 140 made the
+    // resulting playback ~7% faster than the user's chosen wpm across
+    // the board, so the WPM slider lied.
+    const speed=Math.max(0.75,Math.min(2.0,wpm/TTS_BASE_WPM));
     (async()=>{
       try{
         modeRef.current='openai';
@@ -2048,7 +2126,10 @@ function useTTS(){
         if(!token.cancelled){
           modeRef.current='browser';
           if(onStart) onStart();
-          await speakBrowser(text,Math.max(0.5,Math.min(2.5,wpm/140)),token);
+          // Browser SpeechSynthesisUtterance.rate=1.0 ≈ ~175 wpm for
+          // English voices (varies more than OpenAI). Match the slider
+          // by dividing by 175 instead of 140.
+          await speakBrowser(text,Math.max(0.5,Math.min(2.5,wpm/BROWSER_TTS_BASE_WPM)),token);
         }
       }
       if(!token.cancelled){setSpeaking(false);setStreamStatus('');setTtsError('');if(onEndRef.current)onEndRef.current()}
@@ -3167,12 +3248,16 @@ function App(){
       orb.setMode('ai');setAiLoading(true);setAiText('');setAiPct(0);
       const stopThinking=SFX.thinking();
       try{
-        // Word count = what TTS will deliver in the speech time
-        // TTS base rate ~150 wpm × playback speed (wpm/140) = actual words per minute
-        const actualWPM=Math.round(150*(wpm/140));
-        const targetWords=Math.round((s.time/60)*actualWPM);
+        // Match the LLM's word budget to the user's chosen wpm directly,
+        // and ask TTS to play that text at the same wpm. Previously we
+        // computed actualWPM = 150 × (wpm/140) ≈ 1.07 × wpm, so the AI
+        // generated 7% more words than the user's setting and the TTS
+        // played 7% faster than the slider claimed — the slider lied
+        // about the wpm being delivered. Now: targetWords = time × wpm,
+        // ttsSpeed = wpm / TTS_BASE_WPM, both anchored to the same number.
+        const targetWords=Math.round((s.time/60)*wpm);
         const hist=currentLog.map(l=>`[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
-        const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/140));
+        const ttsSpeed=Math.max(0.75,Math.min(2.0,wpm/TTS_BASE_WPM));
 
         // ── Chunked TTS pipeline: fire audio for each paragraph as soon as it's ready ──
         // Intensity 0 read as flat-narrator "explainer voice" — debate is a
@@ -5005,22 +5090,45 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           savedCases.length>0&&el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='cases'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='cases'?null:'cases')},'Cases'),
         ),
 
-        // In-round panel content
-        showRoundPanel==='notes'&&el('div',{style:{width:'100%',maxWidth:'min(90vw,700px)',margin:'12px auto 0'}},
-          el('textarea',{className:'float-input',rows:5,placeholder:'Your prep notes...',value:notes,onChange:e=>{setNotes(e.target.value);try{localStorage.setItem('debateos-prep-notes',e.target.value)}catch{}},style:{width:'100%',fontSize:'.85rem'}}),
-        ),
-        showRoundPanel==='flow'&&el('div',{style:{width:'100%',maxWidth:'min(90vw,700px)',margin:'12px auto 0',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,padding:'16px 20px',maxHeight:280,overflowY:'auto'}},
-          log.length===0?el('div',{style:{color:'var(--c-dim)',fontSize:'.78rem',textAlign:'center'}},'No speeches yet'):
-          log.map((l,i)=>el('div',{key:i,style:{marginBottom:10,paddingBottom:10,borderBottom:'1px solid var(--c-border)'}},
-            el('div',{style:{fontSize:'.65rem',fontWeight:700,color:l.who==='You'?'#ef4444':'var(--c-text3)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:4}},l.code+'. '+l.who),
-            el('div',{style:{fontSize:'.78rem',color:'var(--c-mid)',lineHeight:1.5,maxHeight:80,overflow:'hidden'}},l.text.slice(0,300)+(l.text.length>300?'...':'')),
-          ))
-        ),
-        showRoundPanel==='cases'&&el('div',{style:{width:'100%',maxWidth:'min(90vw,700px)',margin:'12px auto 0',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,padding:'16px 20px',maxHeight:280,overflowY:'auto'}},
-          savedCases.slice(0,5).map(c=>el('div',{key:c.id,style:{marginBottom:10,paddingBottom:10,borderBottom:'1px solid var(--c-border)',cursor:'pointer'},onClick:()=>{navigator.clipboard.writeText(c.fullText).catch(()=>{})}},
-            el('div',{style:{fontSize:'.75rem',fontWeight:600,color:'var(--c-text3)'}},'"'+c.motion.slice(0,60)+'"'),
-            el('div',{style:{fontSize:'.6rem',color:'var(--c-dim)',marginTop:2}},c.formatName+' · '+c.sideLabel+' · Tap to copy'),
-          ))
+        // In-round side panel. Renders as a fixed slide-in from the right
+        // on tablet+ screens so the panel doesn't push the orb / timer
+        // around when the user pops it open. The CSS class .round-panel
+        // owns positioning so the mobile fallback (full-width sheet under
+        // the stage) lives in one place instead of inline styles fighting
+        // each other across breakpoints.
+        showRoundPanel && el('div',{className:'round-panel'},
+          el('div',{className:'round-panel-head'},
+            el('div',{className:'round-panel-title'},
+              showRoundPanel==='notes'?'Notes':
+              showRoundPanel==='flow'?'Flow so far':
+              'Saved cases'
+            ),
+            el('button',{
+              className:'round-panel-close',
+              onClick:()=>setShowRoundPanel(null),
+              'aria-label':'Close panel',
+              title:'Close',
+            },'×')
+          ),
+          showRoundPanel==='notes' && el('textarea',{
+            className:'float-input round-panel-textarea',
+            placeholder:'Your prep notes…',
+            value:notes,
+            onChange:e=>{setNotes(e.target.value);try{localStorage.setItem('debateos-prep-notes',e.target.value)}catch{}},
+          }),
+          showRoundPanel==='flow' && el('div',{className:'round-panel-body'},
+            log.length===0?el('div',{style:{color:'var(--c-dim)',fontSize:'.78rem',textAlign:'center'}},'No speeches yet'):
+            log.map((l,i)=>el('div',{key:i,style:{marginBottom:10,paddingBottom:10,borderBottom:'1px solid var(--c-border)'}},
+              el('div',{style:{fontSize:'.65rem',fontWeight:700,color:l.who==='You'?'#ef4444':'var(--c-text3)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:4}},l.code+'. '+l.who),
+              el('div',{style:{fontSize:'.78rem',color:'var(--c-mid)',lineHeight:1.5,maxHeight:80,overflow:'hidden'}},l.text.slice(0,300)+(l.text.length>300?'...':'')),
+            ))
+          ),
+          showRoundPanel==='cases' && el('div',{className:'round-panel-body'},
+            savedCases.slice(0,5).map(c=>el('div',{key:c.id,style:{marginBottom:10,paddingBottom:10,borderBottom:'1px solid var(--c-border)',cursor:'pointer'},onClick:()=>{navigator.clipboard.writeText(c.fullText).catch(()=>{})}},
+              el('div',{style:{fontSize:'.75rem',fontWeight:600,color:'var(--c-text3)'}},'"'+c.motion.slice(0,60)+'"'),
+              el('div',{style:{fontSize:'.6rem',color:'var(--c-dim)',marginTop:2}},c.formatName+' · '+c.sideLabel+' · Tap to copy'),
+            ))
+          ),
         ),
 
         // Mobile-friendly hint (replaces keyboard-only hints)

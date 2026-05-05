@@ -143,6 +143,11 @@ button{font-family:inherit}
 .tag-side.opp{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.32);color:#fca5a5}
 .tag-format{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim)}
 .tag-time{margin-left:auto;background:transparent;border-color:transparent;color:var(--text-ghost);text-transform:none;font-weight:600;letter-spacing:0;font-size:.66rem}
+/* Matched state — challenge user accepted but live voice hasn't shipped yet.
+   Same card chrome, swapped tag color + dimmed motion to read as "queued." */
+.tag-matched{background:rgba(59,130,246,.10);border-color:rgba(59,130,246,.32);color:#93c5fd}
+.card-matched{border-color:rgba(59,130,246,.22);background:linear-gradient(180deg,var(--bg-card),rgba(59,130,246,.03))}
+.card-matched .card-motion{color:rgba(255,255,255,.78)}
 .card-motion{
   font-size:1.02rem;font-weight:700;line-height:1.4;
   margin-bottom:6px;
@@ -403,6 +408,11 @@ button{font-family:inherit}
   // server-side timestamp, the rest stays). Stub `liveDebatesAdapter`
   // makes that switch a one-file change.
   var STORAGE_KEY = 'debateos-live-challenges';
+  // Local "I accepted this" registry. Lets a card render in its
+  // matched state on refresh without a backend. When live voice rooms
+  // ship, this becomes the queue of pending pairings keyed off the
+  // user's anon ID.
+  var ACCEPTED_KEY = 'debateos-live-accepted';
   var MAX_LIST = 80;
 
   function loadList(){
@@ -411,6 +421,20 @@ button{font-family:inherit}
   }
   function saveList(list){
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_LIST))); } catch(e){}
+  }
+  function loadAccepted(){
+    try { return JSON.parse(localStorage.getItem(ACCEPTED_KEY) || '[]'); }
+    catch(e){ return []; }
+  }
+  function saveAccepted(ids){
+    try { localStorage.setItem(ACCEPTED_KEY, JSON.stringify(ids.slice(-50))); } catch(e){}
+  }
+  function markAccepted(id){
+    var ids = loadAccepted();
+    if (ids.indexOf(id) === -1) { ids.push(id); saveAccepted(ids); }
+  }
+  function isAccepted(id){
+    return loadAccepted().indexOf(id) !== -1;
   }
 
   // Seed with two examples on first visit so the page never reads empty.
@@ -498,38 +522,73 @@ button{font-family:inherit}
       var theirSideLabel = f.sideLabel[c.side];
       var yourSide = c.side === 'pro' ? 'con' : 'pro';
       var yourSideLabel = f.sideLabel[yourSide];
+      var accepted = isAccepted(c.id);
       var card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML =
-        '<div class="card-head">' +
-          '<span class="tag tag-side ' + (c.side === 'pro' ? '' : 'opp') + '">They want ' + escHtml(theirSideLabel) + '</span>' +
-          '<span class="tag tag-format">' + escHtml(f.name) + '</span>' +
-          '<span class="tag tag-time">' + fmtTime(c.ts) + (c.handle ? ' · ' + escHtml(c.handle) : '') + '</span>' +
-        '</div>' +
-        '<div class="card-motion">' + escHtml(c.motion) + '</div>' +
-        '<div class="card-meta">You’d argue <strong>' + escHtml(yourSideLabel) + '</strong>. Click accept to open the round in Debate AI with everything pre-filled.</div>' +
-        '<div class="card-actions">' +
-          '<button class="btn btn-primary" data-accept="' + c.id + '">Accept challenge →</button>' +
-          (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>') +
-        '</div>';
+      card.className = 'card' + (accepted ? ' card-matched' : '');
+      // Matched state: the user already hit Accept on a prior visit
+      // (or earlier this session). Show a "queued for live voice" badge
+      // and an explicit AI-fallback button instead of the original
+      // accept-then-redirect that dumped users straight into AI mode.
+      if (accepted) {
+        card.innerHTML =
+          '<div class="card-head">' +
+            '<span class="tag tag-matched">✓ You accepted</span>' +
+            '<span class="tag tag-format">' + escHtml(f.name) + '</span>' +
+            '<span class="tag tag-time">' + fmtTime(c.ts) + (c.handle ? ' · ' + escHtml(c.handle) : '') + '</span>' +
+          '</div>' +
+          '<div class="card-motion">' + escHtml(c.motion) + '</div>' +
+          '<div class="card-meta">You’re queued to debate <strong>' + escHtml(yourSideLabel) + '</strong>. Live voice rooms ship soon — we’ll ping you when the poster is online.</div>' +
+          '<div class="card-actions">' +
+            '<button class="btn" data-spar-ai="' + c.id + '">Spar with the AI in the meantime →</button>' +
+            (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>') +
+          '</div>';
+      } else {
+        card.innerHTML =
+          '<div class="card-head">' +
+            '<span class="tag tag-side ' + (c.side === 'pro' ? '' : 'opp') + '">They want ' + escHtml(theirSideLabel) + '</span>' +
+            '<span class="tag tag-format">' + escHtml(f.name) + '</span>' +
+            '<span class="tag tag-time">' + fmtTime(c.ts) + (c.handle ? ' · ' + escHtml(c.handle) : '') + '</span>' +
+          '</div>' +
+          '<div class="card-motion">' + escHtml(c.motion) + '</div>' +
+          '<div class="card-meta">You’d argue <strong>' + escHtml(yourSideLabel) + '</strong>. Accept to queue up — live voice rooms are rolling out soon.</div>' +
+          '<div class="card-actions">' +
+            '<button class="btn btn-primary" data-accept="' + c.id + '">Accept challenge →</button>' +
+            (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>') +
+          '</div>';
+      }
       host.appendChild(card);
     });
 
-    // Wire accept / remove buttons
+    // Wire accept buttons. Accepting a human-posted challenge no longer
+    // routes to /debate-ai (the AI sparring page) — that was misleading
+    // when the whole feature is sold as human-vs-human. Now we just mark
+    // the challenge as claimed locally, swap the card to its matched
+    // state, and let the user opt into AI fallback if they want.
     host.querySelectorAll('[data-accept]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var id = btn.getAttribute('data-accept');
         var c = loadList().find(function(x){ return x.id === id; });
         if (!c) return;
-        // Route to /debate-ai with motion pre-filled. The acceptor argues
-        // the OPPOSITE side from the poster.
-        var yourSide = c.side === 'pro' ? 'con' : 'pro';
-        var url = '/debate-ai?motion=' + encodeURIComponent(c.motion) +
-                  '&side=' + encodeURIComponent(yourSide) +
-                  '&format=' + encodeURIComponent(c.format) +
-                  '&source=live';
-        try { gtag('event', 'live_accept', { format: c.format, side: yourSide }); } catch(e){}
-        location.href = url;
+        markAccepted(id);
+        try { gtag('event', 'live_accept', { format: c.format, side: c.side === 'pro' ? 'con' : 'pro' }); } catch(e){}
+        toast('You\'re queued. We\'ll ping you when live voice rooms ship.');
+        render();
+      });
+    });
+    // Explicit AI-fallback button (only visible after accept). Routes to
+    // /debate-ai with the motion as a hash so the user can paste it in,
+    // which is the cleanest non-deep-link handoff now that we've removed
+    // the URL-param parser. Fully opt-in — the user pressed it knowing
+    // they're switching modes.
+    host.querySelectorAll('[data-spar-ai]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-spar-ai');
+        var c = loadList().find(function(x){ return x.id === id; });
+        if (!c) return;
+        try { navigator.clipboard.writeText(c.motion); } catch(e){}
+        try { gtag('event', 'live_spar_ai_fallback', { format: c.format }); } catch(e){}
+        toast('Motion copied — paste it on Debate AI.');
+        location.href = '/debate-ai';
       });
     });
     host.querySelectorAll('[data-remove]').forEach(function(btn){

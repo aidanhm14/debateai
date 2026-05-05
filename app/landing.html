@@ -1561,7 +1561,11 @@ button{font-family:inherit;cursor:pointer}
       // re-fetch ever needed for the same sample.
       var cacheByIdx = {};
       var inFlightByIdx = {};
-      var PLAYBACK_RATE = 1.4;     // ~30% faster than the prior 1.1
+      // Compound speed: server renders at 1.15× (smaller audio file, faster
+      // download), client plays back at 1.5×. Effective ~1.7× without the
+      // chipmunk artifacts you get above 1.6× client rate alone.
+      var SERVER_SPEED  = 1.15;
+      var PLAYBACK_RATE = 1.5;
 
       function setLabel(t){ if (labelEl) labelEl.textContent = t; }
       function setIcon(t){ if (iconEl) iconEl.textContent = t; }
@@ -1590,7 +1594,7 @@ button{font-family:inherit;cursor:pointer}
         inFlightByIdx[idx] = fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text, voice: voice, speed: 1.0, premium: false, intensity: 0.45 })
+          body: JSON.stringify({ text: text, voice: voice, speed: SERVER_SPEED, premium: false, intensity: 0.45 })
         }).then(function(r){ return r.ok ? r.blob() : null; }).then(function(blob){
           delete inFlightByIdx[idx];
           if (!blob) return;
@@ -1666,15 +1670,21 @@ button{font-family:inherit;cursor:pointer}
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
       });
 
-      // Eager prefetch — fire ALL samples in parallel on idle so by the
-      // time the user clicks anything, the audio is buffered and ready.
-      // Each sample is one short request (~30-80KB MP3); 8 in parallel is
-      // a reasonable cost for guaranteed-instant playback.
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(prefetchAll, { timeout: 2500 });
-      } else {
-        setTimeout(prefetchAll, 1500);
-      }
+      // Eager prefetch — kick off IMMEDIATELY (no rIC / setTimeout delay)
+      // so first-click latency is dominated by audio.play(), not by an
+      // outstanding fetch the browser hadn't started yet. We prioritize
+      // a single "first-pick" sample before fanning out to the rest, so
+      // even on a cold cache the very first click hits something already
+      // buffered if the user gives us ~half a second.
+      var firstIdx = pickIndex();
+      prefetchSample(firstIdx);
+      // Fan out the remaining samples on the next macrotask so the browser
+      // doesn't open all 8 sockets at once and starve the priority pick.
+      setTimeout(function(){
+        for (var i = 0; i < samples.length; i++) {
+          if (i !== firstIdx) prefetchSample(i);
+        }
+      }, 0);
     })();
     </script>
 
