@@ -1138,32 +1138,66 @@ button{font-family:inherit}
       }
       return r.text();
     }).then(function(raw){
+      console.log('[ballot] raw response:', raw);
       var parsed = parseBallot(raw);
-      if (!parsed){ throw new Error('Could not parse ballot. Raw response saved to console.'); console.log(raw); }
+      if (!parsed){
+        // Log everything we can so the user can debug from console
+        console.error('[ballot] parse failed. Raw response above.');
+        throw new Error('Could not parse ballot. See browser console for the raw response.');
+      }
       renderBallot(parsed);
       // Push to Firestore so the other speaker's screen flips to the
       // ballot view automatically, no manual share, no refresh.
       publishBallot(parsed);
       try { gtag('event', 'live_round_ballot', { format: state.formatKey, winner: parsed.winner }); } catch(e){}
     }).catch(function(err){
+      console.error('[ballot]', err);
       $('ballotLoading').innerHTML = '<div style="color:#fca5a5;font-weight:700">Ballot failed</div>'
         + '<div style="font-size:.78rem;margin-top:6px;color:var(--text-dim)">' + escHtml(err.message) + '</div>'
         + '<div style="margin-top:14px"><button class="btn" onclick="location.reload()">Try again</button></div>';
     });
   }
 
+  // Anthropic non-stream responses come back as { content: [{type:'text', text:'...'}] }.
+  // Streamed via /api/claude proxy may also return that wrapper as a
+  // single chunk. Handle both: if the JSON parse yields a Claude
+  // wrapper (has `content` array with `text`), unwrap to the inner
+  // text; otherwise treat the JSON itself as the ballot.
   function parseBallot(raw){
     if (!raw) return null;
     var s = String(raw).replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
-    var first = s.indexOf('{'), last = s.lastIndexOf('}');
+    if (!s) return null;
+
+    // Step 1: try to parse the WHOLE response as JSON. If it's a
+    // Claude API wrapper, extract the text from content[0].text.
+    var inner = s;
+    try {
+      var maybeWrapper = JSON.parse(s);
+      if (maybeWrapper && Array.isArray(maybeWrapper.content)){
+        var combined = maybeWrapper.content.map(function(c){
+          return (c && typeof c.text === 'string') ? c.text : '';
+        }).join('');
+        if (combined) inner = combined;
+      } else if (maybeWrapper && maybeWrapper.winner){
+        // Already the ballot itself.
+        inner = s;
+      }
+    } catch(e){ /* not JSON, treat as plain text */ }
+
+    // Step 2: extract the JSON object from the inner text. Strip code
+    // fences, find the outermost {...}, parse.
+    inner = inner.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    var first = inner.indexOf('{'), last = inner.lastIndexOf('}');
     if (first < 0 || last <= first) return null;
     try {
-      var obj = JSON.parse(s.slice(first, last+1));
-      // sanity defaults
-      obj.winner = (obj.winner || '').toLowerCase();
+      var obj = JSON.parse(inner.slice(first, last + 1));
+      obj.winner = String(obj.winner || '').toLowerCase();
       if (obj.winner !== 'pro' && obj.winner !== 'con') return null;
       return obj;
-    } catch(e){ return null; }
+    } catch(e){
+      console.warn('[ballot] inner JSON parse failed:', e.message, 'inner:', inner.slice(0, 500));
+      return null;
+    }
   }
 
   function renderBallot(b){
