@@ -285,6 +285,16 @@ body{
 .orb-ring.pulse{animation:orbPulse 2s ease-in-out infinite}
 @keyframes orbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.7}}
 canvas.orb{width:220px;height:220px;border-radius:50%}
+/* Interrupt flash. Brief red bloom + slight contraction so the cut-off
+   reads as a hard stop, not a smooth fade. .interrupted class is set
+   on the orb-wrap for ~1.2s by the React handler, then cleared. */
+.orb-wrap.interrupted{animation:orbInterrupt 1.2s cubic-bezier(.4,0,.2,1) 1}
+@keyframes orbInterrupt{
+  0%   {filter:none;transform:scale(1)}
+  10%  {filter:drop-shadow(0 0 22px rgba(239,68,68,.7)) brightness(1.25);transform:scale(.96)}
+  35%  {filter:drop-shadow(0 0 18px rgba(239,68,68,.5)) brightness(1.15);transform:scale(1.01)}
+  100% {filter:none;transform:scale(1)}
+}
 
 /* ── Speech Progress ───────────────── */
 .progress-bar{display:flex;gap:8px;justify-content:center;margin-bottom:40px}
@@ -3463,8 +3473,16 @@ function App(){
     }
   };
 
-  // End speech + advance (guarded against double-calls)
-  const endSpeech=()=>{
+  // Visual cue when the user cuts the AI off. `wasInterrupted` flashes
+  // the orb red and tags the log entry so the feedback page knows the
+  // speech didn't run to completion.
+  const[wasInterrupted,setWasInterrupted]=useState(false);
+
+  // End speech + advance (guarded against double-calls). The optional
+  // `interrupted` flag flips the entry's metadata + flashes the orb so
+  // a user-cut-off speech reads differently from a clean skip when they
+  // review the round later.
+  const endSpeech=(opts={})=>{
     if(endingRef.current) return; // prevent double-fire from keyboard+button race
     endingRef.current=true;
     timer.reset();
@@ -3472,10 +3490,16 @@ function App(){
     setPoiActive(false);setPoiText('');setPoiOffer(false);
     if(poiTimeoutRef.current){clearTimeout(poiTimeoutRef.current);poiTimeoutRef.current=null}
     const userTurn=cur.side===side;
-    if(typeof gtag==='function')gtag('event','speech_end',{speech:cur.code,who:userTurn?'user':'ai',format:fmt.name});
+    const interrupted = !!opts.interrupted && !userTurn;
+    if(typeof gtag==='function')gtag('event','speech_end',{speech:cur.code,who:userTurn?'user':'ai',format:fmt.name,interrupted});
     let text='';
     if(userTurn){text=rec.stop();orb.stopMic();orb.setMode('idle')}
     else{tts.stop();text=aiText;orb.setMode('idle')}
+
+    if (interrupted) {
+      setWasInterrupted(true);
+      setTimeout(()=>setWasInterrupted(false), 1200);
+    }
 
     // Spoken duration (seconds used) + WPM — the speech slot allots
     // cur.time; whatever's left went unused, so elapsed = total - left.
@@ -3484,7 +3508,7 @@ function App(){
     const words=(text||'').trim().split(/\s+/).filter(Boolean).length;
     const wpmThisSpeech=words>0 ? Math.round(words/(elapsedSec/60)) : 0;
 
-    const entry={code:cur.code,who:userTurn?'You':'AI',text:text||'(no transcript)',durationSec:elapsedSec,wpm:wpmThisSpeech,wordCount:words};
+    const entry={code:cur.code,who:userTurn?'You':'AI',text:(text||'(no transcript)')+(interrupted?' [interrupted]':''),durationSec:elapsedSec,wpm:wpmThisSpeech,wordCount:words,interrupted};
     const newLog=[...log,entry];
     setLog(newLog);setAiText('');
 
@@ -3516,6 +3540,10 @@ function App(){
       if(phase==='speech'){
         if(e.code==='Space'){e.preventDefault();if(tts.speaking){const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}}
         if(e.code==='Escape'||e.code==='ArrowRight'){e.preventDefault();endSpeech()}
+        // `i` cuts the AI off mid-speech. Only meaningful when the AI
+        // is actively speaking; pressing it during the user's turn is
+        // a no-op so we don't accidentally end the user's own speech.
+        if(e.code==='KeyI' && tts.speaking){e.preventDefault();endSpeech({interrupted:true})}
         // Speed hotkeys 1-5 during AI speech. Match the existing speed
         // pills so users can crank the pace without mouse travel.
         if(!isUser&&tts.speaking){
@@ -4137,6 +4165,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       [
         ['?','show / hide this overlay'],
         ['Space','pause or resume AI speech'],
+        ['I','interrupt — cut the AI off mid-speech'],
         ['Esc','end the current speech early (or close this overlay)'],
         ['→','skip ahead to next speech'],
         ['Enter','during prep — start speeches'],
@@ -5258,8 +5287,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           );
         })(),
 
-        // The orb
-        el('div',{className:'orb-wrap'},
+        // The orb. `interrupted` adds a 1.2s red-flash class so the
+        // visual confirms the cut-off — without it, hitting Interrupt
+        // just silently jumps to the next speech and feels broken.
+        el('div',{className:'orb-wrap'+(wasInterrupted?' interrupted':'')},
           el('div',{className:'orb-glow'+(!isUser||tts.speaking?' on':'')}),
           el('div',{className:'orb-ring'+(isUser?' active':tts.speaking||aiLoading?' active pulse':'')}),
           el('canvas',{className:'orb',ref:orb.ref}),
@@ -5334,7 +5365,24 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         // Controls
         el('div',{className:'row-c'},
           !isUser&&tts.speaking&&el('button',{className:'cta-ghost speech-btn',onClick:()=>{const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}},tts.paused?'▶ Resume':'⏸ Pause'),
-          el('button',{className:'cta-ghost speech-btn',onClick:endSpeech},isUser?'End Speech →':'Skip →'),
+          // Cut-off button — only meaningful while the AI is actively
+          // speaking. Red border + bold red label so it reads as a hard
+          // stop, distinct from "Skip" (which is the polite version).
+          // Press `i` for keyboard parity. Routes through endSpeech with
+          // interrupted:true so the log entry tags the cut and the
+          // ballot can later weight an interrupted speech differently.
+          !isUser&&tts.speaking&&el('button',{
+            className:'speech-btn',
+            onClick:()=>endSpeech({interrupted:true}),
+            title:'Cut the AI off mid-speech (i)',
+            style:{
+              background:'rgba(239,68,68,.14)',
+              color:'#fca5a5',
+              border:'1px solid rgba(239,68,68,.5)',
+              fontWeight:700,letterSpacing:'.04em',
+            },
+          },'🛑 Interrupt'),
+          el('button',{className:'cta-ghost speech-btn',onClick:()=>endSpeech()},isUser?'End Speech →':'Skip →'),
         ),
 
         // In-round tools. notes, flow, saved cases, plus an in-round
