@@ -23,8 +23,29 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+
+<!-- Restore theme BEFORE first paint so a user coming from landing
+     or /live doesn't see a brief grey flash if they're holding a
+     crimson or light preference. Same `da-theme` key as the rest. -->
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
 <style>
-  :root {
+  /* Three canonical themes — grey (default), crimson, light — mirrored
+     from landing.html + /live so the same `da-theme` localStorage key
+     persists across pages. Pricing's existing token vocabulary (--fg,
+     --muted, --dim, --line) is preserved so the rest of this file
+     doesn't need a rewrite — only the values flip per theme. */
+  :root,[data-theme="grey"]{
     --bg:#07080d;
     --bg-2:#0f1018;
     --fg:#eef1f8;
@@ -37,6 +58,37 @@
     --purple:#8b5cf6;
     --line:rgba(255,255,255,.08);
     --line-hot:rgba(239,68,68,.4);
+    --orb-opacity:.35;
+  }
+  [data-theme="crimson"]{
+    --bg:#000;
+    --bg-2:#0c0306;
+    --fg:#fff;
+    --muted:rgba(255,255,255,.55);
+    --dim:rgba(255,255,255,.32);
+    --accent:#ef4444;
+    --gold:#f59e0b;
+    --green:#22c55e;
+    --blue:#3b82f6;
+    --purple:#8b5cf6;
+    --line:rgba(239,68,68,.12);
+    --line-hot:rgba(239,68,68,.5);
+    --orb-opacity:.45;
+  }
+  [data-theme="light"]{
+    --bg:#fafaf7;
+    --bg-2:#fff;
+    --fg:#1a1a1f;
+    --muted:rgba(0,0,0,.55);
+    --dim:rgba(0,0,0,.35);
+    --accent:#dc2626;
+    --gold:#d97706;
+    --green:#16a34a;
+    --blue:#2563eb;
+    --purple:#7c3aed;
+    --line:rgba(0,0,0,.08);
+    --line-hot:rgba(220,38,38,.4);
+    --orb-opacity:.18;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:var(--bg);color:var(--fg);font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
@@ -46,7 +98,7 @@
 
   /* Background, subtle animated orbs, no Vanta clutter */
   .bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-  .orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:.35;animation:drift 28s ease-in-out infinite}
+  .orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:var(--orb-opacity);animation:drift 28s ease-in-out infinite}
   .orb-1{width:520px;height:520px;background:#ef4444;top:-10%;left:-10%;animation-delay:0s}
   .orb-2{width:420px;height:420px;background:#8b5cf6;bottom:-15%;right:-10%;animation-delay:-9s}
   .orb-3{width:360px;height:360px;background:#f59e0b;top:40%;left:50%;animation-delay:-18s}
@@ -65,6 +117,23 @@
   .logo-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent)}
   nav a.back{color:var(--muted);font-size:.88rem;padding:8px 16px;border-radius:999px;border:1px solid var(--line);transition:.2s}
   nav a.back:hover{color:var(--fg);border-color:var(--line-hot)}
+
+  /* Theme picker — same red/grey/white set as landing + /live, same
+     localStorage key (da-theme) so flipping here flips everywhere. */
+  .theme-dots{display:inline-flex;gap:6px;align-items:center}
+  .theme-dot{
+    width:14px;height:14px;border-radius:50%;
+    border:1.5px solid var(--line);background:#444;
+    cursor:pointer;padding:0;transition:transform .15s,border-color .2s;
+  }
+  .theme-dot:hover{transform:scale(1.2)}
+  .theme-dot.active{border-color:var(--fg)}
+  .theme-dot[data-t="grey"]{background:#444}
+  .theme-dot[data-t="crimson"]{background:#ef4444}
+  .theme-dot[data-t="light"]{background:#fafaf7;border-color:rgba(0,0,0,.18)}
+  [data-theme="light"] .theme-dot{border-color:rgba(0,0,0,.18)}
+  [data-theme="light"] .theme-dot.active{border-color:#1a1a1f}
+  @media(max-width:600px){.theme-dots{display:none}}
 
   /* Hero */
   .hero{text-align:center;padding:32px 0 60px;max-width:880px;margin:0 auto}
@@ -189,7 +258,14 @@
     <span class="logo-dot"></span>
     Debate AI
   </a>
-  <a href="/app" class="back">← Back to app</a>
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="theme-dots" role="group" aria-label="Change lighting" title="Change lighting">
+      <button class="theme-dot" data-t="crimson" aria-label="Crimson (default dark)" title="Crimson, default dark"></button>
+      <button class="theme-dot" data-t="grey" aria-label="Grey (neutral dark)" title="Grey, neutral dark"></button>
+      <button class="theme-dot" data-t="light" aria-label="Light (off-white)" title="Light, off-white"></button>
+    </div>
+    <a href="/app" class="back">← Back to app</a>
+  </div>
 </nav>
 
 <section class="hero">
@@ -428,6 +504,27 @@
 
   // Wait a tick for Firebase compat scripts to load, then init.
   window.addEventListener('load', () => setTimeout(initAuth, 50));
+</script>
+
+<!-- Theme picker. Same red/grey/white set + same `da-theme` localStorage
+     key as the rest of the site, so flipping here flips everywhere. -->
+<script>
+(function(){
+  function syncDots(t){
+    document.querySelectorAll('.theme-dot').forEach(function(d){
+      d.classList.toggle('active', d.getAttribute('data-t')===t);
+    });
+  }
+  try{ syncDots(document.documentElement.getAttribute('data-theme')||'crimson'); }catch(e){}
+  document.querySelectorAll('.theme-dot').forEach(function(dot){
+    dot.addEventListener('click', function(){
+      var t=dot.getAttribute('data-t');
+      document.documentElement.setAttribute('data-theme', t);
+      syncDots(t);
+      try{ localStorage.setItem('da-theme', t); }catch(e){}
+    });
+  });
+})();
 </script>
 
 </body>
