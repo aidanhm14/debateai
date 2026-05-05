@@ -148,6 +148,11 @@ button{font-family:inherit}
 .tag-matched{background:rgba(59,130,246,.10);border-color:rgba(59,130,246,.32);color:#93c5fd}
 .card-matched{border-color:rgba(59,130,246,.22);background:linear-gradient(180deg,var(--bg-card),rgba(59,130,246,.03))}
 .card-matched .card-motion{color:rgba(255,255,255,.78)}
+/* Live state — scheduled time has arrived. Glowing green border so it
+   pops above the rest of the board; pulsing dot in the schedule chip
+   carries the same "you're up" cue as the topbar Live link. */
+.card-live{border-color:rgba(34,197,94,.55);box-shadow:0 0 0 1px rgba(34,197,94,.18),0 8px 32px rgba(34,197,94,.10);animation:card-live-pulse 2.4s ease-in-out infinite}
+@keyframes card-live-pulse{0%,100%{box-shadow:0 0 0 1px rgba(34,197,94,.18),0 8px 32px rgba(34,197,94,.10)}50%{box-shadow:0 0 0 1px rgba(34,197,94,.32),0 12px 38px rgba(34,197,94,.18)}}
 .card-motion{
   font-size:1.02rem;font-weight:700;line-height:1.4;
   margin-bottom:6px;
@@ -361,6 +366,50 @@ button{font-family:inherit}
           <label for="motion">Motion</label>
           <textarea id="motion" rows="2" placeholder="e.g. This house would ban legacy admissions" maxlength="320" required></textarea>
         </div>
+        <!-- Reveal mode. Posters can choose how much to show on the
+             public board. Full = the whole motion is visible. Topic =
+             only a one-line topic (you write it). Theme = only a broad
+             theme (e.g. "AI policy") — full motion is revealed at
+             match-start. Builds anticipation + makes the board feel
+             like a tournament where you don't always know what's
+             coming. -->
+        <div class="field">
+          <label>Reveal</label>
+          <div class="side-row" id="revealRow">
+            <button type="button" class="pill" data-reveal="full">Full motion</button>
+            <button type="button" class="pill" data-reveal="topic">Topic only</button>
+            <button type="button" class="pill" data-reveal="theme">Theme only</button>
+          </div>
+        </div>
+        <div class="field" id="topicField" style="display:none">
+          <label for="topicLine">Topic line <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">(public)</span></label>
+          <input id="topicLine" type="text" maxlength="80" placeholder="e.g. Legacy admissions" />
+        </div>
+        <div class="field" id="themeField" style="display:none">
+          <label for="themeLine">Theme <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">(public)</span></label>
+          <select id="themeLine">
+            <option value="">Pick a theme…</option>
+            <option value="AI &amp; technology">AI &amp; technology</option>
+            <option value="Civil liberties">Civil liberties</option>
+            <option value="Climate &amp; environment">Climate &amp; environment</option>
+            <option value="Criminal justice">Criminal justice</option>
+            <option value="Democracy &amp; elections">Democracy &amp; elections</option>
+            <option value="Economy &amp; markets">Economy &amp; markets</option>
+            <option value="Education">Education</option>
+            <option value="Foreign policy">Foreign policy</option>
+            <option value="Free speech">Free speech</option>
+            <option value="Health &amp; medicine">Health &amp; medicine</option>
+            <option value="Identity &amp; culture">Identity &amp; culture</option>
+            <option value="Immigration">Immigration</option>
+            <option value="Labor &amp; work">Labor &amp; work</option>
+            <option value="Media &amp; journalism">Media &amp; journalism</option>
+            <option value="Philosophy &amp; ethics">Philosophy &amp; ethics</option>
+            <option value="Religion">Religion</option>
+            <option value="Science policy">Science policy</option>
+            <option value="Tech regulation">Tech regulation</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
         <div class="field">
           <label>Your side</label>
           <div class="side-row">
@@ -381,6 +430,25 @@ button{font-family:inherit}
             <option value="policy">Policy (CX)</option>
             <option value="congress">Student Congress</option>
           </select>
+        </div>
+        <!-- Schedule. Defaults to "now" (open queue) but posters can
+             pick a specific time so two debaters can plan to meet. The
+             card on the board shows the countdown; once the time
+             arrives the card flips into a "live now" state. Custom
+             takes a datetime-local input. -->
+        <div class="field">
+          <label>When</label>
+          <div class="side-row" id="whenRow" style="flex-wrap:wrap;gap:6px">
+            <button type="button" class="pill" data-when="now">Now</button>
+            <button type="button" class="pill" data-when="30m">+30 min</button>
+            <button type="button" class="pill" data-when="1h">+1 hr</button>
+            <button type="button" class="pill" data-when="2h">+2 hr</button>
+            <button type="button" class="pill" data-when="custom">Custom</button>
+          </div>
+        </div>
+        <div class="field" id="customTimeField" style="display:none">
+          <label for="customTime">Date &amp; time</label>
+          <input id="customTime" type="datetime-local" />
         </div>
         <button id="postSubmit" type="submit" class="post-submit" disabled>Post challenge</button>
         <p class="post-help">Posts are public. No personal info required — pick a handle below.</p>
@@ -437,8 +505,10 @@ button{font-family:inherit}
     return loadAccepted().indexOf(id) !== -1;
   }
 
-  // Seed with two examples on first visit so the page never reads empty.
+  // Seed with three examples on first visit so the page never reads empty.
   // Marked `seed:true` so we can filter them out of accept-tracking.
+  // Mix of reveal modes + schedule states so newcomers see the full
+  // range of what the board can do.
   function ensureSeed(){
     var list = loadList();
     if (list.length > 0) return list;
@@ -451,6 +521,8 @@ button{font-family:inherit}
         format: 'apda',
         handle: 'national_champ',
         ts: now - 14 * 60 * 1000,
+        reveal: 'full',
+        scheduledAt: now + 25 * 60 * 1000,  // kicks off in 25 min
         seed: true,
       },
       {
@@ -460,6 +532,21 @@ button{font-family:inherit}
         format: 'quick',
         handle: 'firstround',
         ts: now - 42 * 60 * 1000,
+        reveal: 'topic',
+        topicLine: 'Viral activism',
+        scheduledAt: now,  // live now
+        seed: true,
+      },
+      {
+        id: 's-' + (now + 2),
+        motion: 'This house, as the United States, would significantly increase regulation of large language models.',
+        side: 'con',
+        format: 'bp',
+        handle: 'redteam',
+        ts: now - 6 * 60 * 1000,
+        reveal: 'theme',
+        themeLine: 'AI & technology',
+        scheduledAt: now + 90 * 60 * 1000,  // kicks off in 1.5h
         seed: true,
       },
     ];
@@ -503,6 +590,43 @@ button{font-family:inherit}
     setTimeout(function(){ t.remove(); }, 2800);
   }
 
+  // ── Schedule helpers
+  // fmtSchedule: returns "Live now", "in 23m", "in 2h 15m", "Tue 4:30pm" etc.
+  // The schedule label is the most load-bearing UI on the board now —
+  // people decide which challenge to take based on whether they can
+  // make the time. So we show absolute time for >24h, relative for <24h,
+  // and a glowing "Live now" state once the kickoff time has arrived.
+  function fmtSchedule(scheduledAt){
+    if (!scheduledAt) return null;
+    var now = Date.now();
+    var diff = scheduledAt - now;
+    if (diff <= 0 && diff > -2 * 3600_000) return { label:'Live now', live:true };
+    if (diff <= -2 * 3600_000) return { label:'Expired', expired:true };
+    if (diff < 60_000) return { label:'starting…', soon:true };
+    if (diff < 3600_000) return { label:'in ' + Math.round(diff/60_000) + 'm', soon:diff < 600_000 };
+    if (diff < 86400_000) {
+      var h = Math.floor(diff/3600_000), m = Math.round((diff%3600_000)/60_000);
+      return { label:'in ' + h + 'h' + (m ? ' ' + m + 'm' : ''), soon:false };
+    }
+    var d = new Date(scheduledAt);
+    var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var hour = d.getHours(), min = d.getMinutes();
+    var ampm = hour >= 12 ? 'pm' : 'am';
+    hour = hour % 12 || 12;
+    return { label: days[d.getDay()] + ' ' + hour + ':' + (min < 10 ? '0' : '') + min + ampm, soon:false };
+  }
+
+  // What to show as the headline of a card based on the poster's
+  // reveal choice. Full = motion. Topic = topicLine the poster wrote.
+  // Theme = the picked category. Older entries (no `reveal` field) get
+  // the legacy "full" treatment.
+  function revealHeadline(c){
+    if (!c.reveal || c.reveal === 'full') return { text: c.motion, hint: '' };
+    if (c.reveal === 'topic') return { text: c.topicLine || c.motion || '(no topic)', hint: 'Topic only — full motion at kickoff' };
+    if (c.reveal === 'theme') return { text: c.themeLine || 'Surprise theme', hint: 'Theme only — motion revealed at kickoff' };
+    return { text: c.motion, hint: '' };
+  }
+
   // ── Render the open-challenges list
   function render(){
     var list = loadList();
@@ -523,23 +647,48 @@ button{font-family:inherit}
       var yourSide = c.side === 'pro' ? 'con' : 'pro';
       var yourSideLabel = f.sideLabel[yourSide];
       var accepted = isAccepted(c.id);
+      var sched = fmtSchedule(c.scheduledAt);
+      var head = revealHeadline(c);
+      // Once accepted, both sides should see the full motion regardless
+      // of reveal mode — the reveal is for browsers, not for the matched
+      // pair.
+      var displayText = accepted ? c.motion : head.text;
       var card = document.createElement('div');
-      card.className = 'card' + (accepted ? ' card-matched' : '');
+      card.className = 'card' + (accepted ? ' card-matched' : '') + (sched && sched.live ? ' card-live' : '');
+      // Schedule chip — colored badge that shows whether the debate is
+      // queued now, scheduled for later, live, or expired.
+      var schedChip = '';
+      if (sched){
+        var color = sched.live ? '#22c55e' : sched.soon ? '#f59e0b' : '#93c5fd';
+        var bg = sched.live ? 'rgba(34,197,94,.14)' : sched.soon ? 'rgba(245,158,11,.12)' : 'rgba(59,130,246,.10)';
+        var border = sched.live ? 'rgba(34,197,94,.45)' : sched.soon ? 'rgba(245,158,11,.32)' : 'rgba(59,130,246,.32)';
+        schedChip = '<span class="tag" style="background:' + bg + ';border-color:' + border + ';color:' + color + ';font-weight:800">' + (sched.live ? '● ' : '⏱ ') + escHtml(sched.label) + '</span>';
+      }
+      var revealChip = '';
+      if (!accepted && c.reveal && c.reveal !== 'full'){
+        revealChip = '<span class="tag" style="background:rgba(168,85,247,.10);border-color:rgba(168,85,247,.32);color:#c4b5fd;font-weight:800">' + (c.reveal === 'theme' ? 'THEME' : 'TOPIC') + ' ONLY</span>';
+      }
       // Matched state: the user already hit Accept on a prior visit
       // (or earlier this session). Show a "queued for live voice" badge
-      // and an explicit AI-fallback button instead of the original
-      // accept-then-redirect that dumped users straight into AI mode.
+      // plus the kickoff time and (when the time arrives) a Join Live
+      // CTA — that's the actual hand-off into the live voice room.
       if (accepted) {
+        var canJoin = sched && sched.live;
+        var meta = sched && sched.live
+          ? 'Live voice room is open. Click Join to enter.'
+          : (sched ? 'You’re matched as <strong>' + escHtml(yourSideLabel) + '</strong>. Kickoff ' + escHtml(sched.label) + '.' : 'You’re queued to debate <strong>' + escHtml(yourSideLabel) + '</strong>. Live voice rooms are rolling out — we’ll ping you when the poster is online.');
         card.innerHTML =
           '<div class="card-head">' +
             '<span class="tag tag-matched">✓ You accepted</span>' +
             '<span class="tag tag-format">' + escHtml(f.name) + '</span>' +
-            '<span class="tag tag-time">' + fmtTime(c.ts) + (c.handle ? ' · ' + escHtml(c.handle) : '') + '</span>' +
+            schedChip +
+            '<span class="tag tag-time">' + escHtml(c.handle || 'anonymous') + '</span>' +
           '</div>' +
-          '<div class="card-motion">' + escHtml(c.motion) + '</div>' +
-          '<div class="card-meta">You’re queued to debate <strong>' + escHtml(yourSideLabel) + '</strong>. Live voice rooms ship soon — we’ll ping you when the poster is online.</div>' +
+          '<div class="card-motion">' + escHtml(displayText) + '</div>' +
+          '<div class="card-meta">' + meta + '</div>' +
           '<div class="card-actions">' +
-            '<button class="btn" data-spar-ai="' + c.id + '">Spar with the AI in the meantime →</button>' +
+            (canJoin ? '<button class="btn btn-primary" data-join="' + c.id + '">▶ Join live debate</button>' : '<button class="btn" data-spar-ai="' + c.id + '">Spar the AI in the meantime →</button>') +
+            (c.scheduledAt ? '<button class="btn btn-ghost" data-ical="' + c.id + '">Add to calendar</button>' : '') +
             (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>') +
           '</div>';
       } else {
@@ -547,10 +696,13 @@ button{font-family:inherit}
           '<div class="card-head">' +
             '<span class="tag tag-side ' + (c.side === 'pro' ? '' : 'opp') + '">They want ' + escHtml(theirSideLabel) + '</span>' +
             '<span class="tag tag-format">' + escHtml(f.name) + '</span>' +
+            schedChip +
+            revealChip +
             '<span class="tag tag-time">' + fmtTime(c.ts) + (c.handle ? ' · ' + escHtml(c.handle) : '') + '</span>' +
           '</div>' +
-          '<div class="card-motion">' + escHtml(c.motion) + '</div>' +
-          '<div class="card-meta">You’d argue <strong>' + escHtml(yourSideLabel) + '</strong>. Accept to queue up — live voice rooms are rolling out soon.</div>' +
+          '<div class="card-motion">' + escHtml(displayText) + '</div>' +
+          (head.hint ? '<div class="card-meta" style="font-style:italic;opacity:.75">' + escHtml(head.hint) + '</div>' : '') +
+          '<div class="card-meta">You’d argue <strong>' + escHtml(yourSideLabel) + '</strong>. ' + (sched && sched.live ? 'Match is live — accept to enter the room.' : sched && c.scheduledAt ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Accept to queue up.') + '</div>' +
           '<div class="card-actions">' +
             '<button class="btn btn-primary" data-accept="' + c.id + '">Accept challenge →</button>' +
             (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>') +
@@ -591,6 +743,55 @@ button{font-family:inherit}
         location.href = '/debate-ai';
       });
     });
+    // Join live debate. Routes to /debate-ai with the motion + side
+    // pre-loaded via URL hash, so the user lands directly in setup
+    // with everything pre-filled instead of typing it again. When real
+    // human-vs-human voice rooms ship, this becomes a websocket join
+    // call instead of an AI-mode hand-off.
+    host.querySelectorAll('[data-join]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-join');
+        var c = loadList().find(function(x){ return x.id === id; });
+        if (!c) return;
+        try { gtag('event', 'live_join', { format: c.format }); } catch(e){}
+        var yourSide = c.side === 'pro' ? 'con' : 'pro';
+        var params = new URLSearchParams({ motion: c.motion, format: c.format, side: yourSide, live: '1' });
+        location.href = '/debate-ai#' + params.toString();
+      });
+    });
+    // Add to calendar. Generates an ICS download client-side so we
+    // don't need a server roundtrip. Works on iOS / macOS Calendar,
+    // Outlook, Google Calendar (via import).
+    host.querySelectorAll('[data-ical]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-ical');
+        var c = loadList().find(function(x){ return x.id === id; });
+        if (!c || !c.scheduledAt) return;
+        var f = FORMATS[c.format] || FORMATS.quick;
+        var start = new Date(c.scheduledAt);
+        var end   = new Date(c.scheduledAt + 60*60*1000);
+        function ics(d){ return d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,''); }
+        var ical = [
+          'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Debate AI//Live//EN',
+          'BEGIN:VEVENT',
+          'UID:' + c.id + '@debateai.com',
+          'DTSTAMP:' + ics(new Date()),
+          'DTSTART:' + ics(start),
+          'DTEND:'   + ics(end),
+          'SUMMARY:Live debate — ' + (c.motion || c.topicLine || c.themeLine || 'Surprise topic').replace(/[\r\n,;]/g,' '),
+          'DESCRIPTION:Format: ' + f.name + '\\nJoin at https://debateai.com/live',
+          'URL:https://debateai.com/live',
+          'END:VEVENT','END:VCALENDAR',
+        ].join('\r\n');
+        var blob = new Blob([ical], { type:'text/calendar' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = 'debate-' + c.id + '.ics';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+        try { gtag('event', 'live_ical_export', { format: c.format }); } catch(e){}
+      });
+    });
     host.querySelectorAll('[data-remove]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var id = btn.getAttribute('data-remove');
@@ -603,13 +804,26 @@ button{font-family:inherit}
   }
 
   // ── Post-form interactions
-  var sideButtons = document.querySelectorAll('.side-row .pill');
+  // Pills are scoped per row (side / reveal / when) so they don't all
+  // toggle off each other. Each row has its own "selected" state held
+  // in a small variable below.
+  var sideButtons = document.querySelectorAll('#postForm .side-row [data-side]');
+  var revealButtons = document.querySelectorAll('#revealRow [data-reveal]');
+  var whenButtons = document.querySelectorAll('#whenRow [data-when]');
   var motionEl = document.getElementById('motion');
+  var topicLineEl = document.getElementById('topicLine');
+  var topicField = document.getElementById('topicField');
+  var themeLineEl = document.getElementById('themeLine');
+  var themeField = document.getElementById('themeField');
+  var customTimeEl = document.getElementById('customTime');
+  var customTimeField = document.getElementById('customTimeField');
   var formatEl = document.getElementById('format');
   var handleEl = document.getElementById('handle');
   var submitEl = document.getElementById('postSubmit');
   var formEl   = document.getElementById('postForm');
   var selectedSide = null;
+  var selectedReveal = 'full';
+  var selectedWhen = 'now';
 
   sideButtons.forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -618,11 +832,66 @@ button{font-family:inherit}
       updateSubmit();
     });
   });
+  // Default reveal = full motion. Picking topic or theme reveals the
+  // matching field below the picker; switching back to full hides them.
+  revealButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      selectedReveal = btn.getAttribute('data-reveal');
+      revealButtons.forEach(function(b){ b.classList.toggle('active', b === btn); });
+      topicField.style.display = selectedReveal === 'topic' ? '' : 'none';
+      themeField.style.display = selectedReveal === 'theme' ? '' : 'none';
+      updateSubmit();
+    });
+  });
+  // Default to full so the form has a sane initial state
+  (function(){
+    var b = document.querySelector('#revealRow [data-reveal="full"]');
+    if (b) b.classList.add('active');
+  })();
+  whenButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      selectedWhen = btn.getAttribute('data-when');
+      whenButtons.forEach(function(b){ b.classList.toggle('active', b === btn); });
+      customTimeField.style.display = selectedWhen === 'custom' ? '' : 'none';
+      if (selectedWhen === 'custom' && !customTimeEl.value){
+        // Pre-fill with "in 1 hour" as a reasonable default
+        var d = new Date(Date.now() + 60*60*1000);
+        d.setSeconds(0, 0);
+        customTimeEl.value = d.toISOString().slice(0,16);
+      }
+      updateSubmit();
+    });
+  });
+  (function(){
+    var b = document.querySelector('#whenRow [data-when="now"]');
+    if (b) b.classList.add('active');
+  })();
   motionEl.addEventListener('input', updateSubmit);
+  topicLineEl.addEventListener('input', updateSubmit);
+  themeLineEl.addEventListener('change', updateSubmit);
   formatEl.addEventListener('change', updateSubmit);
+  customTimeEl.addEventListener('change', updateSubmit);
+
+  function resolveScheduledAt(){
+    var now = Date.now();
+    if (selectedWhen === 'now') return now;
+    if (selectedWhen === '30m') return now + 30*60*1000;
+    if (selectedWhen === '1h') return now + 60*60*1000;
+    if (selectedWhen === '2h') return now + 2*60*60*1000;
+    if (selectedWhen === 'custom' && customTimeEl.value){
+      var t = new Date(customTimeEl.value).getTime();
+      return isNaN(t) ? now : t;
+    }
+    return now;
+  }
 
   function updateSubmit(){
-    var ok = motionEl.value.trim().length > 5 && selectedSide && formatEl.value;
+    var motionOK = motionEl.value.trim().length > 5;
+    var revealOK = selectedReveal === 'full' ||
+      (selectedReveal === 'topic' && topicLineEl.value.trim().length >= 3) ||
+      (selectedReveal === 'theme' && themeLineEl.value);
+    var whenOK = selectedWhen !== 'custom' || (customTimeEl.value && new Date(customTimeEl.value).getTime() > Date.now() - 60_000);
+    var ok = motionOK && revealOK && selectedSide && formatEl.value && whenOK;
     submitEl.disabled = !ok;
   }
 
@@ -637,16 +906,30 @@ button{font-family:inherit}
       format: formatEl.value,
       handle: handleEl.value.trim() || 'anonymous',
       ts: Date.now(),
+      reveal: selectedReveal,
+      topicLine: selectedReveal === 'topic' ? topicLineEl.value.trim() : '',
+      themeLine: selectedReveal === 'theme' ? themeLineEl.value : '',
+      scheduledAt: resolveScheduledAt(),
     };
     list.unshift(entry);
     saveList(list);
     motionEl.value = '';
+    topicLineEl.value = '';
+    themeLineEl.value = '';
+    customTimeEl.value = '';
     handleEl.value = '';
     selectedSide = null;
+    selectedReveal = 'full';
+    selectedWhen = 'now';
     sideButtons.forEach(function(b){ b.classList.remove('active'); });
+    revealButtons.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-reveal') === 'full'); });
+    whenButtons.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-when') === 'now'); });
+    topicField.style.display = 'none';
+    themeField.style.display = 'none';
+    customTimeField.style.display = 'none';
     submitEl.disabled = true;
-    try { gtag('event', 'live_post', { format: entry.format, side: entry.side }); } catch(e){}
-    toast('Challenge posted.');
+    try { gtag('event', 'live_post', { format: entry.format, side: entry.side, reveal: entry.reveal, scheduled: entry.scheduledAt > entry.ts + 60_000 }); } catch(e){}
+    toast(entry.scheduledAt > Date.now() + 60_000 ? 'Challenge scheduled.' : 'Challenge posted.');
     render();
   });
 
@@ -654,17 +937,9 @@ button{font-family:inherit}
   ensureSeed();
   render();
 
-  // Refresh "X min ago" labels every 30s without a full re-render
-  setInterval(function(){
-    document.querySelectorAll('.tag-time').forEach(function(el, i){
-      var list = loadList();
-      var c = list[i];
-      if (!c) return;
-      // Preserve the handle suffix
-      var suffix = c.handle ? ' · ' + c.handle : '';
-      el.textContent = fmtTime(c.ts) + suffix;
-    });
-  }, 30000);
+  // Re-render every 20s so countdowns tick down and "Live now"
+  // states flip on automatically. Cheap because the list is small.
+  setInterval(render, 20000);
 })();
 </script>
 </body>
