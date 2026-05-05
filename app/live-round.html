@@ -641,6 +641,8 @@ button{font-family:inherit}
     format: qs.get('format') || 'quick',
     pro:    qs.get('pro')    || '',
     con:    qs.get('con')    || '',
+    proUid: qs.get('proUid') || '',
+    conUid: qs.get('conUid') || '',
     room:   qs.get('room')   || ('DebateAI-Round-' + Math.random().toString(36).slice(2,10)),
   };
   if (!FORMATS[prefill.format]) prefill.format = 'quick';
@@ -672,6 +674,8 @@ button{font-family:inherit}
     motion: prefill.motion,
     proName: prefill.pro,
     conName: prefill.con,
+    proUid: prefill.proUid,
+    conUid: prefill.conUid,
     room: prefill.room,
     speechIdx: 0,
     log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, overran }
@@ -747,6 +751,30 @@ button{font-family:inherit}
   }
 
   // ── Round view rendering
+  // Identify which side this signed-in user is on. Uses proUid/conUid
+  // URL params (which /live.html populates from the challenge doc).
+  // null = unknown (e.g., direct entry from 'Debate a friend now'
+  // without a challenge backing) — turn gating disabled in that case.
+  function mySide(){
+    if (!state.user) return null;
+    if (state.proUid && state.proUid === state.user.uid) return 'pro';
+    if (state.conUid && state.conUid === state.user.uid) return 'con';
+    return null;
+  }
+
+  // Whether the current speech belongs to me. The format spec uses
+  // the format's native side keys ('gov'/'opp', 'aff'/'neg', etc.) —
+  // we map those onto pro/con (first side = pro, second side = con).
+  function isMyTurn(){
+    var f = FORMATS[state.formatKey];
+    var sp = f && f.speeches[state.speechIdx];
+    if (!sp) return false;
+    var ms = mySide();
+    if (!ms) return true; // no UID mapping → don't gate
+    var spIsFirstSide = sp.side === f.sides[0];
+    return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
+  }
+
   function renderRound(){
     var f = FORMATS[state.formatKey];
     var sp = f.speeches[state.speechIdx];
@@ -758,7 +786,10 @@ button{font-family:inherit}
 
     $('speechCode').textContent = sp.code;
     $('speechName').textContent = sp.name;
-    $('speakerName').textContent = speakerName + ' (' + sideLabel + ')';
+    var myTurn = isMyTurn();
+    var ms = mySide();
+    var youTag = myTurn && ms ? ' 🎤 YOUR TURN' : ms ? ' 👂 OPPONENT\'S TURN' : '';
+    $('speakerName').textContent = speakerName + ' (' + sideLabel + ')' + youTag;
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
     sideTag.className = 'tag ' + (isFirstSide ? 'tag-pro' : 'tag-con');
@@ -769,7 +800,33 @@ button{font-family:inherit}
     renderSequence();
     // Speech loads in 'ready' state, speakers click Start when set.
     prepareTimer(sp.time);
-    $('speechText').focus();
+    // Gate the speech panel — only the active speaker can start /
+    // type / mic. Other side sees a 'waiting for opponent' state.
+    var ta = $('speechText');
+    var micBtn = $('micBtn');
+    var skipBtn = $('skipSpeechBtn');
+    var endBtn = $('endSpeechBtn');
+    var hint = $('readyHint');
+    if (ms && !myTurn){
+      if (ta){ ta.disabled = true; ta.placeholder = 'Opponent is speaking. Listen + prep your response.'; }
+      if (micBtn) micBtn.disabled = true;
+      if (skipBtn) skipBtn.disabled = true;
+      if (endBtn) endBtn.disabled = true;
+      if (hint) hint.innerHTML = '⏳ Waiting for <strong>' + escHtml(speakerName) + '</strong> to speak. The clock starts when they hit Start.';
+    } else {
+      if (ta){ ta.disabled = false; ta.placeholder = 'Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said.'; }
+      if (micBtn) micBtn.disabled = false;
+      if (skipBtn) skipBtn.disabled = false;
+      if (endBtn) endBtn.disabled = false;
+      if (hint){
+        if (myTurn && ms){
+          hint.innerHTML = '🎤 <strong>Your turn.</strong> Don\'t forget to click <strong>Start mic</strong> so the AI captures your speech for the ballot.';
+        } else {
+          hint.innerHTML = 'Click <strong>▶ Start speech</strong> when you\'re ready, the timer doesn\'t start until you do.';
+        }
+      }
+      if (ta && (!ms || myTurn)) ta.focus();
+    }
   }
 
   function renderSequence(){
@@ -1055,7 +1112,21 @@ button{font-family:inherit}
     $('ballotView').classList.remove('hidden');
     $('ballotLoading').classList.remove('hidden');
     $('ballotResult').classList.add('hidden');
+    // Tell the other side via Firestore that the ballot is being
+    // generated, so their screen can show 'Ballot generating…'
+    // immediately instead of waiting until the final ballot lands.
+    publishBallotPending();
     generateBallot();
+  }
+
+  function publishBallotPending(){
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    ref.update({
+      status: 'ballot',
+      ballotPending: true,
+      ballotPendingAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(function(e){ console.warn('[Round sync] pending failed', e); });
   }
 
   // ── Ballot. Sends the full round transcript to /api/claude with a
@@ -1072,29 +1143,38 @@ button{font-family:inherit}
     }).join('\n\n');
 
     var system = [
-      "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, and rigorous, these are real debaters who want to learn.",
+      "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP — these are real debaters paying for tournament-grade adjudication. A shallow ballot wastes their round.",
       "",
-      "FORMAT RULES, judge the round through this lens:",
-      "- " + f.name + " is the format. The speech sequence is fixed and the speakers below ran it.",
+      "JUDGING APPROACH:",
+      "- Treat this like a real RFD at a championship round: identify the 2–3 KEY CLASHES by name (not just topics — name the specific arguments).",
+      "- For each clash, walk through how it played out: who initiated it, who responded, how the response landed, who collapsed it.",
+      "- Name DROPPED arguments — anything an opponent put forward that the other side didn't engage with. Drops decide rounds.",
+      "- Do explicit WEIGHING: magnitude vs probability vs timeframe vs reversibility. Tell the debaters which argument outweighed which and why.",
+      "- The deciding issue should be a single sentence ('The round comes down to X because…') and the rest of the RFD justifies it.",
+      "- Quote-style references are great. Cite specific phrases or claims from the transcript so debaters can find the exact moment.",
+      "",
+      "FORMAT RULES — judge through this lens:",
+      "- " + f.name + " conventions apply. The speech sequence is fixed and the speakers ran it.",
       "- Reward: clash, weighing, warranted analysis, format-appropriate strategic choices, clear ballot stories.",
-      "- Penalize: dropped arguments not extended, unweighed contradictions, abandoning offense, jargon without warrant.",
-      "- Speaker points: score on the appropriate scale for this format. APDA/Worlds: 25-30 (28 = average, 29+ = strong). PF/LD: 27-30. Policy: 27-29. Quick Clash: just rank 1-10 effort.",
-      "- 'overran' tag = went past time. Do not penalize a few seconds, but a meaningful overrun shows poor time management.",
+      "- Penalize: dropped arguments, unweighed contradictions, abandoning offense, jargon without warrant, no engagement with the other side.",
+      "- Speaker points scale: APDA/Worlds 25–30 (28 average, 29+ strong, 30 elite). PF/LD 27–30. Policy 27–29. Quick Clash 1–10 effort.",
+      "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
+      "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       "",
-      "OUTPUT, return ONLY a single JSON object with NO prose before or after. Schema:",
+      "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
       "{",
       '  "winner": "pro" | "con",',
       '  "proName": "<name>",',
       '  "conName": "<name>",',
       '  "proPoints": <number>,',
       '  "conPoints": <number>,',
-      '  "rfd": "<3-6 sentence reason for decision: who won the key clashes, how the round played out, what the deciding issue was>",',
-      '  "proFeedback": "<2-3 sentences: what the pro speaker did well + one specific improvement>",',
-      '  "conFeedback": "<2-3 sentences: same for con>"',
+      '  "rfd": "<8–14 sentence RFD. Open with the deciding issue in one sentence. Then walk through the 2–3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it.>",',
+      '  "proFeedback": "<5–8 sentences for the Pro speaker: 1) one specific strategic strength (what worked + why), 2) one technical area to fix with a concrete example from their speech, 3) one big-picture observation about their approach to this format.>",',
+      '  "conFeedback": "<5–8 sentences for the Con speaker: same structure as proFeedback.>"',
       "}",
       "",
       "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
-      "Keep the RFD specific to what was said. Quote-style references are great. Do not be sycophantic, call out drops and missed weighing.",
+      "Be specific to what was said. Quote-style references are great. Do not be sycophantic — call out drops, missed weighing, and weak warrants. If a side ran no real arguments, say so plainly.",
     ].join('\n');
 
     var user = "MOTION: " + state.motion + "\n\nFORMAT: " + f.name + "\n\nPRO/" + f.sideLabels[f.sides[0]].toUpperCase() + " SPEAKER: " + state.proName
@@ -1112,7 +1192,11 @@ button{font-family:inherit}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+        // Bumped from 4000 so the AI has real space to write the
+        // multi-clash RFD + per-speaker feedback the prompt now asks
+        // for. The deeper RFD is the actual product here, the
+        // marginal token cost is trivial.
+        max_tokens: 8000,
         stream: false,
         system: p.system,
         messages: [{ role:'user', content: p.user }],
@@ -1233,10 +1317,42 @@ button{font-family:inherit}
         (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + escHtml(b.conFeedback) + '</p>' : '') +
       '</div>' +
       '<div class="rfd-actions">' +
+        '<button class="btn btn-primary" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
         '<button class="btn" id="copyBallotBtn" type="button">Copy ballot</button>' +
         '<a class="btn" href="/live">Back to board</a>' +
-        '<a class="btn btn-primary" href="' + location.pathname + location.search + '" onclick="setTimeout(function(){location.reload()},10);return true">Run another round</a>' +
       '</div>';
+    // Save round to Firestore (saved_rounds/{uid}_{room}). One per
+    // user per round. Idempotent — clicking twice just re-writes
+    // the same doc with an updated savedAt timestamp.
+    var saveBtn = $('saveRoundBtn');
+    if (saveBtn) saveBtn.addEventListener('click', function(){
+      if (!firebaseDb || !state.user){ toast('Sign in to save the round to your record.'); return; }
+      var docId = state.user.uid + '_' + state.room;
+      var savedDoc = {
+        uid: state.user.uid,
+        userName: state.user.displayName || '',
+        userEmail: state.user.email || '',
+        room: state.room,
+        motion: state.motion,
+        format: state.formatKey,
+        formatName: f.name,
+        proName: state.proName,
+        conName: state.conName,
+        speeches: state.log,
+        ballot: b,
+        winnerName: winnerName,
+        winnerSide: winnerSide,
+        savedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      firebaseDb.collection('saved_rounds').doc(docId).set(savedDoc).then(function(){
+        toast('✓ Round saved to your record.');
+        saveBtn.textContent = '✓ Saved to record';
+        saveBtn.disabled = true;
+      }).catch(function(e){
+        console.warn('[save round]', e);
+        toast('Save failed: ' + (e.message || 'unknown'));
+      });
+    });
     $('copyBallotBtn').addEventListener('click', function(){
       var f = FORMATS[state.formatKey];
       var lines = [
@@ -1336,9 +1452,26 @@ button{font-family:inherit}
       }
     }
 
-    // Ballot landing, show it on both screens
-    if (d.ballot && state.phase !== 'ballot'){
+    // Ballot pending — other side shows 'Ballot generating…' the
+    // moment the active speaker hits End on the last speech, instead
+    // of waiting until the final ballot lands.
+    if (d.ballotPending && !d.ballot && state.phase !== 'ballot' && state.phase !== 'ballot-rendered'){
       state.phase = 'ballot';
+      $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Judging…';
+      $('roundView').classList.add('hidden');
+      $('ballotView').classList.remove('hidden');
+      $('ballotResult').classList.add('hidden');
+      var bl = $('ballotLoading');
+      bl.classList.remove('hidden');
+      bl.innerHTML =
+        '<div class="spinner"></div>' +
+        '<div style="font-size:.92rem;font-weight:700;color:var(--text)">Ballot is generating…</div>' +
+        '<div style="font-size:.74rem;margin-top:6px">Reading both transcripts and writing the RFD. Both screens will flip when it lands.</div>';
+    }
+
+    // Ballot landing, show it on both screens
+    if (d.ballot && state.phase !== 'ballot-rendered'){
+      state.phase = 'ballot-rendered';
       $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span> Ballot in';
       $('roundView').classList.add('hidden');
       $('ballotView').classList.remove('hidden');

@@ -139,6 +139,21 @@ service cloud.firestore {
                     && resource.data.posterUid == request.auth.uid;
     }
 
+    // ── saved_rounds ─────────────────────────────────────────────────
+    // User saves a completed live round to their record (motion,
+    // format, ballot, speeches). Doc ID = uid + '_' + room so the
+    // same user re-saving the same round just updates the doc
+    // instead of creating duplicates. Reads + writes scoped to the
+    // owning user.
+    match /saved_rounds/{docId} {
+      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn()
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // ── referral_credits ─────────────────────────────────────────────
     // Server-side only. Deny all client access.
     match /referral_credits/{docId} {
