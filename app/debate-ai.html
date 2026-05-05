@@ -4722,7 +4722,51 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           )),
         ),
       ),
-      el('button',{className:'cta-ghost',onClick:()=>setMotion(randomMotionFor(format)),style:{marginTop:8,marginBottom:4}},'Random Motion'),
+      // Action row: Random Motion + Generate Background. Sit side-by-side
+      // directly under the motion textarea so the user's whole "fill out
+      // the round" workflow stays in one vertical region. Background was
+      // previously buried near the bottom of the setup screen, which made
+      // it feel like an afterthought even though the AI uses it heavily.
+      el('div',{style:{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center',marginTop:8,marginBottom:4}},
+        el('button',{className:'cta-ghost',onClick:()=>setMotion(randomMotionFor(format)),style:{marginTop:0}},'Random Motion'),
+        el('button',{
+          className:'cta-ghost',
+          disabled:!motion.trim(),
+          onClick:()=>{
+            if(!motion.trim()) return;
+            // Allow regeneration even if background already exists by
+            // resetting bgRequestedFor so ensureBackground re-runs. Same
+            // path as auto-fill on round start, just user-triggered.
+            try{bgRequestedFor.current='';}catch{}
+            setBackground('');
+            setGeneratedBackground('');
+            ensureBackground(motion);
+          },
+          title:!motion.trim()?'Type or pick a motion first':'Pull factual context for this motion (curated if available, else AI-generated)',
+          style:{marginTop:0},
+        },'⚡ Generate background'),
+      ),
+      // Background field (optional manual entry / shows auto-gen output).
+      // Lives directly under the action row — the textarea is empty by
+      // default; if Generate background is clicked or the round starts,
+      // the resolved background populates generatedBackground (shown in
+      // a subtle box below) and the user can still type their own
+      // override into the textarea.
+      el('textarea',{
+        className:'float-input',
+        rows:2,
+        placeholder:motion.trim()?'Add your own context — country, actor, constraints, time period. Or click ⚡ Generate background.':'Pick a motion first, then add context.',
+        value:background,
+        onChange:e=>setBackground(e.target.value),
+        style:{minHeight:54,fontSize:'.86rem',marginTop:4},
+      }),
+      // Generated-background preview. Renders only when the AI-generated
+      // (or curated) background is available AND the user hasn't typed
+      // their own override. The user's manual entry takes precedence.
+      !background && generatedBackground && el('div',{style:{marginTop:6,padding:'10px 14px',background:'var(--c-surface2)',border:'1px solid var(--c-border2)',borderRadius:10,fontSize:'.78rem',color:'var(--c-text3)',lineHeight:1.5,textAlign:'left'}},
+        el('div',{style:{fontSize:'.55rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:caseFileFor(motion)?'#fca5a5':'var(--c-subtle)',marginBottom:4}},caseFileFor(motion)?'★ Curated background':'Generated context'),
+        generatedBackground,
+      ),
 
       // Daily streak. Counts consecutive calendar days the user has
       // saved at least one round. Breaking days zeros the streak; the
@@ -5025,12 +5069,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           ),
         ),
 
-        // Background (optional)
-        el('div',{className:'t-label',style:{marginTop:24,display:'flex',alignItems:'center',gap:8}},
-          'Background',
-          el('span',{style:{fontSize:'.55rem',fontWeight:500,color:'var(--c-dim)',textTransform:'none',letterSpacing:'0'}},'optional')
-        ),
-        el('textarea',{className:'float-input',rows:2,placeholder:'Country context, actor details, constraints, time period... Leave blank to skip.',value:background,onChange:e=>setBackground(e.target.value),style:{minHeight:60,fontSize:'.9rem'}}),
+        // Background field moved up next to Random Motion / Generate
+        // background buttons — see the action row right under the motion
+        // textarea. Keeping this comment as a breadcrumb.
       ),
 
       // Summary line
