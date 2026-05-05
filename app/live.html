@@ -1370,26 +1370,33 @@ button{font-family:inherit}
         var rs = roomStatus[roomName] || {};
         if (isMine && hasAccepter){
           // Poster sees the match — subscribe to the round doc so the
-          // 'opponent in room' presence applies here too.
+          // 'opponent in room' presence applies here too. Action set
+          // matches the accepter's view (Start round + Google Cal +
+          // .ics + cancel) so the round is symmetrically accessible
+          // from both sides.
           ensureRoomSubscription(c);
           activeRooms[roomName] = true;
           var profile = loadProfile();
+          var posterIsPro = c.side === 'pro';
           var roundParams = new URLSearchParams({
             motion: c.motion || c.topicLine || c.themeLine || '',
             format: c.format,
-            pro: c.side === 'pro' ? (profile.name || c.posterName || 'You') : (c.accepterName || 'Opponent'),
-            con: c.side === 'con' ? (profile.name || c.posterName || 'You') : (c.accepterName || 'Opponent'),
+            pro: posterIsPro ? (profile.name || c.posterName || 'You') : (c.accepterName || 'Opponent'),
+            con: posterIsPro ? (c.accepterName || 'Opponent') : (profile.name || c.posterName || 'You'),
             room: roomName,
             challengeId: c.id,
           });
           var roundUrl = '/live-round.html?' + roundParams.toString();
+          var gcal = googleCalUrl(c);
           var ctaLabel, ctaClass;
-          if (rs.hasBallot){ ctaLabel = '📋 View ballot'; ctaClass = 'btn-room'; meta = '<span style="color:#4ade80;font-weight:700">✓ Ballot ready.</span> The AI judged the round.'; }
+          if (rs.hasBallot){ ctaLabel = '📋 View ballot'; ctaClass = 'btn-room'; meta = '<span style="color:#4ade80;font-weight:700">✓ Ballot ready.</span> The AI judged the round, click below to see the RFD.'; }
           else if (rs.status === 'round'){ ctaLabel = '▶ Join, opponent is in the room'; ctaClass = 'btn-primary'; meta = '<span style="color:#4ade80;font-weight:700;display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:rec-pulse 1.6s ease-in-out infinite"></span>' + escHtml(c.accepterName || 'Opponent') + ' is in the room.</span> Click Join.'; }
-          else { ctaLabel = '▶ Start judged round'; ctaClass = 'btn-primary'; meta = '<strong style="color:#4ade80">@' + escHtml(c.accepterName || 'Opponent') + ' accepted</strong> and will argue <strong>' + escHtml(yourSideLabel) + '</strong>. ' + (sched && sched.live ? 'Match is live, click Start.' : sched ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Start any time once they\'re online.'); }
+          else { ctaLabel = '▶ Start judged round'; ctaClass = 'btn-primary'; meta = '<strong style="color:#4ade80">@' + escHtml(c.accepterName || 'Opponent') + ' accepted</strong> and will argue the other side. ' + (sched && sched.live ? 'Match is live, click Start.' : sched ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Start any time once they\'re online.'); }
           headExtra = '<span class="tag" style="background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.4);color:#4ade80;font-weight:800">✓ MATCHED</span>';
           actions =
             '<a class="btn ' + ctaClass + '" target="_blank" rel="noopener" href="' + escHtml(roundUrl) + '" data-start-round="' + c.id + '">' + ctaLabel + '</a>' +
+            (gcal ? '<a class="btn btn-ghost" target="_blank" rel="noopener" href="' + escHtml(gcal) + '" data-gcal="' + c.id + '">+ Google Calendar</a>' : '') +
+            (c.scheduledAt ? '<button class="btn btn-ghost" data-ical="' + c.id + '">.ics</button>' : '') +
             (c.accepterContact ? '<a class="btn btn-ghost" href="' + (/@/.test(c.accepterContact) ? 'mailto:' : 'tel:') + escHtml(c.accepterContact) + '">📨 Contact opponent</a>' : '') +
             '<button class="btn btn-bail" data-bail-poster="' + c.id + '">✕ Cancel match</button>';
         } else if (isMine){
