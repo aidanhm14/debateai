@@ -1609,6 +1609,14 @@ function callClaude(sys, user, onChunk){ return callAI(sys, user, onChunk, 'clau
    AUDIO HOOKS
    ═══════════════════════════════════════════════════ */
 
+// Single shared DPR cap — Retina (DPR=2) costs 4× the pixels of DPR=1
+// for a soft amplitude-modulated blob; 1.5 is the perf/quality sweet spot.
+// Capping here matches the hero orb on the landing page and is what fixed
+// jank on iPad/older Android Chrome where uncapped DPR pushed pixel fill
+// past the GPU's per-frame budget.
+const ORB_DPR_CAP = 1.5;
+function orbDpr(){ return Math.min(ORB_DPR_CAP, window.devicePixelRatio || 1); }
+
 function useOrb(){
   const ref=useRef(null);
   const ctxRef=useRef(null);
@@ -1617,29 +1625,65 @@ function useOrb(){
   const animRef=useRef(null);
   const modeRef=useRef('idle');
   const runRef=useRef(false);
+  // Persistent allocations. Re-creating these every frame triggered GC
+  // pauses on lower-end devices. AI buffer is fixed-size (64 bins of
+  // synthetic data); mic buffer is sized in startMic when fftSize is known.
+  const aiBufRef=useRef(new Uint8Array(64));
+  const micBufRef=useRef(null);
+  // Frame cap. requestAnimationFrame fires at the display's native rate
+  // (60Hz on most laptops, 120-144Hz on newer phones/iPads/gaming displays).
+  // Drawing 144× per second to a soft blob blows the per-frame budget on
+  // anything that isn't a high-end Mac. Cap at ~60fps; we still paint
+  // smoothly and free up a ton of headroom on high-refresh displays.
+  const lastDrawRef=useRef(0);
+  const FRAME_MIN_MS = 1000/60 - 1;
+  // Visibility gating. requestAnimationFrame already throttles to ~1Hz
+  // on hidden tabs, but on a visible page where the orb has scrolled
+  // offscreen we'd still keep painting. IntersectionObserver pauses the
+  // canvas paint (not the rAF loop) when the orb leaves the viewport.
+  const visibleRef=useRef(true);
+  const cleanupRef=useRef(null);
 
-  const draw=useCallback(()=>{
-    const c=ref.current;if(!c)return;
+  const draw=useCallback((ts)=>{
+    const c=ref.current;
+    if(!c){ return; }
+    // If we're offscreen / tab hidden, skip the paint but keep the loop
+    // alive so we resume promptly when the user scrolls back.
+    if(!visibleRef.current){
+      if(runRef.current) animRef.current=requestAnimationFrame(draw);
+      return;
+    }
+    const tsNow = ts || performance.now();
+    if (tsNow - lastDrawRef.current < FRAME_MIN_MS) {
+      if(runRef.current) animRef.current=requestAnimationFrame(draw);
+      return;
+    }
+    lastDrawRef.current = tsNow;
+
     const ctx=c.getContext('2d');
-    const W=c.width/2,H=c.height/2; // logical half (already scaled)
-    const dpr=window.devicePixelRatio||1;
+    const dpr=orbDpr();
     const cx=c.width/(2*dpr),cy=c.height/(2*dpr),baseR=cx*0.7;
     ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.clearRect(0,0,c.width/dpr,c.height/dpr);
 
+    // Pull time once and reuse — Date.now() is a cross-process syscall
+    // on some browsers; calling it 4× per frame showed up in profiles.
+    const tMs = tsNow;
+    const t = tMs / 1000;
     let pts=120,ampData=null,globalAmp=0;
 
-    if(modeRef.current==='mic'&&analyserRef.current){
-      const data=new Uint8Array(analyserRef.current.frequencyBinCount);
-      analyserRef.current.getByteFrequencyData(data);
-      ampData=data;globalAmp=data.reduce((a,b)=>a+b,0)/data.length/255;
+    if(modeRef.current==='mic'&&analyserRef.current&&micBufRef.current){
+      const buf=micBufRef.current;
+      analyserRef.current.getByteFrequencyData(buf);
+      ampData=buf;
+      let sum=0;for(let i=0;i<buf.length;i++)sum+=buf[i];
+      globalAmp=sum/buf.length/255;
     } else if(modeRef.current==='ai'){
-      const t=Date.now()/1000;
       globalAmp=0.25+Math.sin(t*3)*.12+Math.sin(t*7.3)*.06;
-      ampData=new Uint8Array(64);
+      ampData=aiBufRef.current;
       for(let i=0;i<64;i++) ampData[i]=128+Math.sin(t*4+i*.4)*55+Math.sin(t*8.5+i*.9)*25;
     } else {
-      globalAmp=0.015+Math.sin(Date.now()/2500*Math.PI)*.008;
+      globalAmp=0.015+Math.sin(tMs/2500*Math.PI)*.008;
     }
 
     // Draw organic blob
@@ -1651,8 +1695,8 @@ function useOrb(){
         const idx=Math.floor((i/pts)*ampData.length);
         r+=((ampData[idx]||128)/255)*baseR*0.35;
       } else {
-        r+=Math.sin(a*5+Date.now()/500)*baseR*globalAmp;
-        r+=Math.sin(a*3-Date.now()/700)*baseR*globalAmp*0.5;
+        r+=Math.sin(a*5+tMs/500)*baseR*globalAmp;
+        r+=Math.sin(a*3-tMs/700)*baseR*globalAmp*0.5;
       }
       const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
       i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
@@ -1683,12 +1727,38 @@ function useOrb(){
 
   const init=()=>{
     const c=ref.current;if(!c)return;
-    const dpr=window.devicePixelRatio||1;
+    const dpr=orbDpr();
     const rect=c.getBoundingClientRect();
     c.width=rect.width*dpr;c.height=rect.height*dpr;
-    runRef.current=true;draw();
+    // Wire visibility gating once per canvas. We attach to document for
+    // tab visibility and IntersectionObserver for in-viewport detection.
+    if (!cleanupRef.current){
+      const onVis = ()=>{ if (document.hidden) visibleRef.current = false; else visibleRef.current = true; };
+      document.addEventListener('visibilitychange', onVis);
+      let io = null;
+      if ('IntersectionObserver' in window){
+        io = new IntersectionObserver((entries)=>{
+          for (const e of entries){
+            visibleRef.current = e.isIntersecting && !document.hidden;
+          }
+        }, { threshold: 0.01 });
+        io.observe(c);
+      }
+      cleanupRef.current = ()=>{
+        document.removeEventListener('visibilitychange', onVis);
+        if (io) io.disconnect();
+      };
+    }
+    runRef.current=true;
+    lastDrawRef.current=0;
+    draw();
   };
-  const kill=()=>{runRef.current=false;if(animRef.current)cancelAnimationFrame(animRef.current);stopMic()};
+  const kill=()=>{
+    runRef.current=false;
+    if(animRef.current)cancelAnimationFrame(animRef.current);
+    if(cleanupRef.current){ cleanupRef.current(); cleanupRef.current=null; }
+    stopMic();
+  };
   const setMode=(m)=>{modeRef.current=m};
 
   const startMic=async()=>{
@@ -1698,6 +1768,7 @@ function useOrb(){
       ctxRef.current=new(window.AudioContext||window.webkitAudioContext)();
       analyserRef.current=ctxRef.current.createAnalyser();
       analyserRef.current.fftSize=256;
+      micBufRef.current=new Uint8Array(analyserRef.current.frequencyBinCount);
       ctxRef.current.createMediaStreamSource(s).connect(analyserRef.current);
       modeRef.current='mic';
     }catch{}
