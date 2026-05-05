@@ -1027,7 +1027,7 @@ button{font-family:inherit}
     var sideKey = sp.side;
     var isFirstSide = sideKey === f.sides[0];
     var speakerName = isFirstSide ? state.proName : state.conName;
-    state.log.push({
+    var entry = {
       code: sp.code,
       name: sp.name,
       side: sp.side,
@@ -1036,8 +1036,10 @@ button{font-family:inherit}
       durationSec: Math.round(elapsed),
       overran: elapsed > sp.time + 5,
       skipped: !!opts.skipped,
-    });
+    };
+    state.log.push(entry);
     state.speechIdx++;
+    publishSpeech(entry);
     if (state.speechIdx >= f.speeches.length){
       finishRound();
     } else {
@@ -1139,6 +1141,9 @@ button{font-family:inherit}
       var parsed = parseBallot(raw);
       if (!parsed){ throw new Error('Could not parse ballot. Raw response saved to console.'); console.log(raw); }
       renderBallot(parsed);
+      // Push to Firestore so the other speaker's screen flips to the
+      // ballot view automatically — no manual share, no refresh.
+      publishBallot(parsed);
       try { gtag('event', 'live_round_ballot', { format: state.formatKey, winner: parsed.winner }); } catch(e){}
     }).catch(function(err){
       $('ballotLoading').innerHTML = '<div style="color:#fca5a5;font-weight:700">Ballot failed</div>'
@@ -1240,12 +1245,128 @@ button{font-family:inherit}
     try { gtag('event', 'live_round_page_link_copy'); } catch(e){}
   });
 
-  // Stub for Firestore round sync. Real implementation pushes the
-  // initial round doc on Start and subscribes to updates so both
-  // speakers see speeches + ballot live. Wired in the next commit.
-  function publishRoundInit(){ /* no-op until Firestore sync ships */ }
-  function publishSpeech(_entry){ /* no-op until Firestore sync ships */ }
-  function publishBallot(_b){ /* no-op until Firestore sync ships */ }
+  // ── Firestore round sync. live_rounds/{roomId} is the single
+  // source of truth for the round state. Writes are idempotent
+  // (set-with-merge, arrayUnion). The snapshot listener reconciles
+  // local state with remote — so when one speaker hits End on a
+  // speech, the other speaker's view advances to the next speech;
+  // when the ballot generates, both screens flip to the ballot view.
+  function getRoundDocRef(){
+    if (!firebaseDb || !state.user) return null;
+    if (!state.roundDocRef) state.roundDocRef = firebaseDb.collection('live_rounds').doc(state.room);
+    return state.roundDocRef;
+  }
+
+  function subscribeRound(){
+    if (state.roundUnsub) return;
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    state.roundUnsub = ref.onSnapshot(function(doc){
+      if (!doc || !doc.exists) return;
+      onRoundSnapshot(doc.data() || {});
+    }, function(e){ console.warn('[Round sync] snapshot error', e); });
+  }
+
+  // Reconciliation: pick up any remote field that's ahead of us.
+  // Writers don't suppress their own snapshots — the conditions here
+  // (length > local, idx > local, ballot && phase != ballot) ensure
+  // we only act on truly-new info, so re-renders are idempotent.
+  function onRoundSnapshot(d){
+    var changedSetup = false;
+    if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md) md.textContent = d.motion; changedSetup = true; }
+    if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
+    if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
+    if (d.conName && state.conName !== d.conName){ state.conName = d.conName; var cn=$('conName'); if (cn) cn.value = d.conName; changedSetup = true; }
+    if (changedSetup && state.phase === 'setup') renderSetup();
+
+    // Phase advance: remote is in round/ballot but we're still in setup
+    if ((d.status === 'round' || d.status === 'ballot') && state.phase === 'setup'){
+      state.phase = 'round';
+      $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + ((d.speechIdx||0)+1) + '/' + FORMATS[state.formatKey].speeches.length;
+      $('setupView').classList.add('hidden');
+      $('roundView').classList.remove('hidden');
+      mountDaily();
+    }
+
+    // Speech reconciliation
+    if (Array.isArray(d.speeches) && d.speeches.length > state.log.length){
+      var newOnes = d.speeches.slice(state.log.length);
+      newOnes.forEach(function(sp){ state.log.push(sp); });
+    }
+    if (typeof d.speechIdx === 'number' && d.speechIdx > state.speechIdx && state.phase === 'round'){
+      state.speechIdx = d.speechIdx;
+      var f = FORMATS[state.formatKey];
+      if (state.speechIdx < f.speeches.length){
+        $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length;
+        renderRound();
+      }
+    }
+
+    // Ballot landing — show it on both screens
+    if (d.ballot && state.phase !== 'ballot'){
+      state.phase = 'ballot';
+      $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span> Ballot in';
+      $('roundView').classList.add('hidden');
+      $('ballotView').classList.remove('hidden');
+      $('ballotLoading').classList.add('hidden');
+      renderBallot(d.ballot);
+    }
+  }
+
+  function publishRoundInit(){
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    ref.set({
+      motion: state.motion,
+      format: state.formatKey,
+      proName: state.proName,
+      conName: state.conName,
+      posterUid: state.user.uid,
+      posterName: state.user.displayName || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      status: 'round',
+      speechIdx: 0,
+    }, { merge: true }).catch(function(e){ console.warn('[Round sync] init failed', e); });
+  }
+
+  function publishSpeech(entry){
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    // arrayUnion is idempotent only when entries are deeply equal — we
+    // tag with a unique seq so two writers can't accidentally collapse
+    // each other's pushes.
+    var tagged = Object.assign({ seq: state.log.length }, entry);
+    ref.update({
+      speeches: firebase.firestore.FieldValue.arrayUnion(tagged),
+      speechIdx: state.speechIdx,
+      status: 'round',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(function(e){
+      // If doc doesn't exist (rare race), create it then retry once.
+      if (e && /No document to update/i.test(e.message || '')){
+        publishRoundInit();
+        setTimeout(function(){
+          ref.update({
+            speeches: firebase.firestore.FieldValue.arrayUnion(tagged),
+            speechIdx: state.speechIdx,
+            status: 'round',
+          }).catch(function(){});
+        }, 200);
+      } else {
+        console.warn('[Round sync] speech failed', e);
+      }
+    });
+  }
+
+  function publishBallot(b){
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    ref.update({
+      ballot: b,
+      status: 'ballot',
+      completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(function(e){ console.warn('[Round sync] ballot failed', e); });
+  }
 
   // Round controls
   $('playPauseBtn').addEventListener('click', togglePlayPause);
@@ -1356,6 +1477,10 @@ button{font-family:inherit}
         }
         hideAuthGate();
         renderUserChip();
+        // Subscribe to the synced round doc. If the first speaker
+        // already started, the snapshot will land in <500ms and our
+        // setup view will auto-advance into the round in progress.
+        subscribeRound();
       } else {
         showAuthGate();
         renderUserChip();
