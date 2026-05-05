@@ -556,10 +556,10 @@ button{font-family:inherit}
   <h1>Debate humans online with <em>AI judges.</em></h1>
   <p class="hero-sub">Post a motion, pick your side, hop on the in-page video room, and let the same format-aware AI judge that scores your AI rounds adjudicate the live human-vs-human debate. Tournament-grade ballots, no entry fee.</p>
   <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-    <a href="/live-round.html" class="bar-cta" style="padding:11px 22px;font-size:.82rem">▶ Debate a friend now</a>
+    <a href="#postForm" id="organizeBtn" class="bar-cta" style="padding:11px 22px;font-size:.82rem">▶ Organize a debate with a friend</a>
     <a href="#how" class="btn btn-ghost" style="padding:11px 18px;font-size:.78rem;border:1px solid var(--border);border-radius:999px;color:var(--text-dim);background:transparent">How it works ↓</a>
   </div>
-  <div style="margin-top:10px;font-size:.72rem;color:var(--text-ghost)">Already have someone lined up? Click above and share the link with them. Or browse open challenges below.</div>
+  <div style="margin-top:10px;font-size:.72rem;color:var(--text-ghost)">Pick a motion, format, side, and time. Share the link with your friend, they sign in and accept. Round room launches when both sides hit Start.</div>
 </section>
 
 <div class="tabs">
@@ -1942,9 +1942,18 @@ button{font-family:inherit}
 
   // Push a posted challenge to Firestore so it shows up on every
   // user's board (not just the poster's localStorage). Falls through
-  // to local-only persistence if Firestore is unavailable.
+  // to local-only persistence if Firestore is unavailable. Surfaces
+  // permission errors as visible toasts so the user notices when
+  // rules need updating in Firebase Console.
   function publishChallenge(entry){
-    if (!firebaseDb || !currentUser) return;
+    if (!firebaseDb){
+      toast('Firestore not loaded, challenge saved locally only.');
+      return;
+    }
+    if (!currentUser){
+      toast('Not signed in, challenge saved locally only.');
+      return;
+    }
     var fsEntry = {
       motion: entry.motion,
       side: entry.side,
@@ -1965,6 +1974,10 @@ button{font-family:inherit}
     };
     firebaseDb.collection('live_challenges').doc(entry.id).set(fsEntry).catch(function(e){
       console.warn('[Live] publish challenge failed', e);
+      var msg = (e && e.code === 'permission-denied')
+        ? 'Posted locally only — Firestore rules need deploying. Open Firebase Console → Firestore → Rules and paste from app/firestore.rules.'
+        : 'Cross-user post failed: ' + (e && e.message ? e.message : 'unknown');
+      toast(msg);
     });
   }
 
@@ -2083,6 +2096,26 @@ button{font-family:inherit}
       }
     });
   }
+
+  // 'Organize a debate' hero CTA scrolls to the post form. Was jumping
+  // into /live-round which mounted a Daily room immediately, but the
+  // user's actual intent is 'set up the round first, then run it' —
+  // pick motion/format/side/when, share the link, let your friend
+  // accept, then click Start. The post form on the right is exactly
+  // that flow.
+  var organizeBtn = document.getElementById('organizeBtn');
+  if (organizeBtn) organizeBtn.addEventListener('click', function(e){
+    var form = document.getElementById('postForm');
+    if (!form) return;
+    e.preventDefault();
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Brief red glow to direct the eye to the form
+    form.style.transition = 'box-shadow .25s';
+    form.style.boxShadow = '0 0 0 2px rgba(239,68,68,.5), 0 12px 36px rgba(239,68,68,.18)';
+    setTimeout(function(){ form.style.boxShadow = ''; }, 1600);
+    var motion = document.getElementById('motion');
+    if (motion) setTimeout(function(){ motion.focus(); }, 350);
+  });
 
   // ── Boot
   ensureSeed();
