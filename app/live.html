@@ -1391,8 +1391,9 @@ button{font-family:inherit}
         showAcceptConfirm(c, function(payload){
           markAccepted(id, payload);
           publishAcceptance(id, payload);
+          notifyAccepted(c, payload);
           try { gtag('event', 'live_accept', { format: c.format, side: c.side === 'pro' ? 'con' : 'pro' }); } catch(e){}
-          toast('Accepted. Meeting room + calendar link are on the card.');
+          toast('Accepted. Both sides emailed; meeting room is on the card.');
           render();
         });
       });
@@ -1925,11 +1926,62 @@ button{font-family:inherit}
       posterUid: currentUser.uid,
       posterName: currentUser.displayName || '',
       posterPhoto: currentUser.photoURL || '',
+      // Email is needed so the accepter can trigger an accept
+      // notification email back to the poster. Stored alongside
+      // the rest so we don't need a second user-profile lookup.
+      posterEmail: currentUser.email || '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
     firebaseDb.collection('live_challenges').doc(entry.id).set(fsEntry).catch(function(e){
       console.warn('[Live] publish challenge failed', e);
     });
+  }
+
+  // Fire both sides an email via /api/notify-accepted. Falls through
+  // silently if the function isn't configured (RESEND_API_KEY missing
+  // = 503, just logs a warning). Caller does NOT block on this — the
+  // accept itself succeeds regardless.
+  function notifyAccepted(challenge, payload){
+    if (!firebaseAuth || !currentUser) return;
+    if (!challenge || !challenge.posterEmail) return;
+    var profile = loadProfile();
+    var roomName = 'DebateAI-' + String(challenge.id).replace(/[^a-zA-Z0-9]/g,'');
+    var yourSide = challenge.side === 'pro' ? 'con' : 'pro';
+    var roundParams = new URLSearchParams({
+      motion: challenge.motion || challenge.topicLine || challenge.themeLine || '',
+      format: challenge.format,
+      pro: yourSide === 'pro' ? (payload.name || profile.name || 'You') : (challenge.posterName || challenge.handle || 'Opponent'),
+      con: yourSide === 'con' ? (payload.name || profile.name || 'You') : (challenge.posterName || challenge.handle || 'Opponent'),
+      room: roomName,
+      challengeId: challenge.id,
+    });
+    var roundUrl = location.origin + '/live-round.html?' + roundParams.toString();
+    var calendarUrl = googleCalUrl(challenge);
+    currentUser.getIdToken().then(function(token){
+      return fetch('/api/notify-accepted', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({
+          challengeId: challenge.id,
+          motion: challenge.motion || challenge.topicLine || challenge.themeLine || '',
+          format: (FORMATS[challenge.format] || FORMATS.quick).name,
+          scheduledAt: challenge.scheduledAt || null,
+          roomUrl: roundUrl,
+          calendarUrl: calendarUrl,
+          poster: {
+            email: challenge.posterEmail,
+            name: challenge.posterName || challenge.handle || 'Anonymous',
+            contact: '',  // we don't collect poster contact upfront
+          },
+          accepter: {
+            email: currentUser.email || '',
+            name: payload.name || profile.name || currentUser.displayName || 'Anonymous',
+            contact: payload.contact || profile.contact || '',
+          },
+        }),
+      });
+    }).then(function(r){ if (!r.ok) console.warn('[Live] notify failed', r.status); })
+      .catch(function(e){ console.warn('[Live] notify request failed', e); });
   }
 
   // Push an acceptance to the challenge doc so the poster sees it.
