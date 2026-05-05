@@ -285,6 +285,31 @@ body{
 .orb-ring.pulse{animation:orbPulse 2s ease-in-out infinite}
 @keyframes orbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.7}}
 @keyframes live-dot-pulse{0%,100%{opacity:.55;transform:scale(.92)}50%{opacity:1;transform:scale(1.18)}}
+/* Speech-stage split layout — when there is a background/context for
+   the motion, the orb moves to the right column and the
+   resolution+context block sits on the left so the user can see both
+   at once instead of scrolling top-down. Below the row, everything
+   else (mic fallback, POI, scouting, WPM slider, controls, in-round
+   tools) flows full-width. Mobile collapses to a stack with the orb
+   on top so the spoken-game feel comes first. */
+.speech-stage-row{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+@media(min-width:900px){
+  .speech-stage-row.split{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:16px 56px;
+    align-items:center;
+    max-width:1180px;
+    margin:0 auto;
+  }
+  .speech-stage-row.split .speech-context{text-align:left;max-width:none;margin:0;justify-self:end;width:100%}
+  .speech-stage-row.split .speech-context > div{text-align:left}
+  .speech-stage-row.split .speech-orb-block{display:flex;flex-direction:column;align-items:center;gap:10px;justify-self:start;width:100%}
+}
+@media(max-width:899px){
+  .speech-stage-row.split .speech-orb-block{order:-1}
+  .speech-stage-row.split .speech-context{margin-top:8px}
+}
 canvas.orb{width:220px;height:220px;border-radius:50%}
 /* Interrupt flash. Brief red bloom + slight contraction so the cut-off
    reads as a hard stop, not a smooth fade. .interrupted class is set
@@ -2274,6 +2299,17 @@ function useTTS(){
     onEndRef.current=onEnd;
     progressRef.current={elapsed:0,total:0};
 
+    // Web Audio path is opt-in for now. The HTMLMedia path has slightly
+    // larger gaps between chunks on Chrome but is rock-solid across
+    // browsers + autoplay policies. The Web Audio rewrite hit silent
+    // failures on some devices (suspended AudioContext that never
+    // resumed after the gesture), so default behavior is the proven
+    // path until the WA branch is fully verified.
+    let useWebAudio=false;
+    try{useWebAudio=localStorage.getItem('debateos-tts-engine')==='webaudio'}catch{}
+    if(!useWebAudio){
+      return playChunksHTMLMedia(blobPromises,onEnd,onStart,token);
+    }
     const ctx=getWebAudioCtx();
     if(!ctx||typeof ctx.decodeAudioData!=='function'){
       return playChunksHTMLMedia(blobPromises,onEnd,onStart,token);
@@ -5601,27 +5637,75 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           ))
         ),
 
-        // Resolution display. The "Curated case" badge fires when the
-        // motion has a hand-written CASE_FILES entry, so users (and the
-        // AI itself, indirectly via the prompt) know the background is
-        // load-bearing fact, not LLM-generated approximation.
-        (()=>{const cf=caseFileFor(motion);return el('div',{style:{maxWidth:600,margin:'0 auto 16px',textAlign:'center',position:'relative',zIndex:1}},
-          el('div',{style:{fontSize:'.92rem',fontWeight:600,color:'var(--c-text3)',lineHeight:1.4,fontStyle:'italic'}},'"'+motion+'"'),
-          cf && el('div',{style:{display:'inline-flex',alignItems:'center',gap:6,marginTop:6,fontSize:'.55rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#fca5a5',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.25)',padding:'3px 9px',borderRadius:999}},'★ Curated case'),
-          (background||generatedBackground)&&el('div',{style:{fontSize:'.72rem',color:'var(--c-subtle)',marginTop:6,lineHeight:1.5}},
-            !background&&generatedBackground?el('span',{style:{fontSize:'.55rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(239,68,68,.55)',marginRight:6}},cf?'Background':'Context'):null,
-            stripPlainMd(background||generatedBackground)
+        // ── Stage row: motion+context (left) + phase label + orb + timer (right)
+        // Side-by-side when there is a background to display, stacked
+        // otherwise. The split makes resolution + context legible AT
+        // THE SAME TIME as the orb is speaking, instead of forcing a
+        // scroll between them. Mobile collapses to a stack (orb on top).
+        el('div',{className:'speech-stage-row'+((background||generatedBackground)?' split':'')},
+          // Resolution display (left col when split). The "Curated case" badge fires when
+          // the motion has a hand-written CASE_FILES entry, so users (and
+          // the AI itself, indirectly via the prompt) know the background
+          // is load-bearing fact, not LLM-generated approximation.
+          el('div',{className:'speech-context'},
+            (()=>{const cf=caseFileFor(motion);return el('div',{style:{maxWidth:600,margin:'0 auto 16px',textAlign:'center',position:'relative',zIndex:1}},
+              el('div',{style:{fontSize:'.92rem',fontWeight:600,color:'var(--c-text3)',lineHeight:1.4,fontStyle:'italic'}},'"'+motion+'"'),
+              cf && el('div',{style:{display:'inline-flex',alignItems:'center',gap:6,marginTop:6,fontSize:'.55rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#fca5a5',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.25)',padding:'3px 9px',borderRadius:999}},'★ Curated case'),
+              (background||generatedBackground)&&el('div',{style:{fontSize:'.72rem',color:'var(--c-subtle)',marginTop:6,lineHeight:1.5}},
+                !background&&generatedBackground?el('span',{style:{fontSize:'.55rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(239,68,68,.55)',marginRight:6}},cf?'Background':'Context'):null,
+                stripPlainMd(background||generatedBackground)
+              ),
+            )})(),
           ),
-        )})(),
-
-        // Speech info
-        el('div',{className:'t-label'},isUser?'Your Turn':'AI Speaking'),
-        el('div',{className:'t-phase'},cur.code+'. '+cur.name),
-        el('div',{className:'t-dim',style:{marginBottom:12}},
-          isUser?(rec.micAvailable?'Speak now. your voice is being transcribed':rec.micError):
-          aiLoading==='voice'?(tts.streamStatus||'Preparing HD voice...'):
-          aiLoading?'Writing argument via '+(BRAINS[brain]||BRAINS.claude).name+(isPro()?' Pro':'')+' ... '+aiPct+'%':
-          tts.paused?'Paused':'LIVE. Timer running'
+          // Right col when split: phase header + orb + timer.
+          el('div',{className:'speech-orb-block'},
+            el('div',{className:'t-label'},isUser?'Your Turn':'AI Speaking'),
+            el('div',{className:'t-phase'},cur.code+'. '+cur.name),
+            el('div',{className:'t-dim',style:{marginBottom:12}},
+              isUser?(rec.micAvailable?'Speak now. your voice is being transcribed':rec.micError):
+              aiLoading==='voice'?(tts.streamStatus||'Preparing HD voice...'):
+              aiLoading?'Writing argument via '+(BRAINS[brain]||BRAINS.claude).name+(isPro()?' Pro':'')+' ... '+aiPct+'%':
+              tts.paused?'Paused':'LIVE. Timer running'
+            ),
+            // The orb. `interrupted` adds a 1.2s red-flash class so the
+            // visual confirms the cut-off — without it, hitting Interrupt
+            // just silently jumps to the next speech and feels broken.
+            el('div',{className:'orb-wrap'+(wasInterrupted?' interrupted':'')},
+              el('div',{className:'orb-glow'+(!isUser||tts.speaking?' on':'')}),
+              el('div',{className:'orb-ring'+(isUser?' active':tts.speaking||aiLoading?' active pulse':'')}),
+              el('canvas',{className:'orb',ref:orb.ref}),
+            ),
+            // Timer + pause button. Pause/resume already existed (Spacebar
+            // shortcut + tts.togglePause) but had no affordance — users
+            // couldn't discover it. This surfaces it for AI speeches where
+            // the audio is driving the timer; pausing stops both.
+            el('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:10}},
+              el('div',{className:'t-time'+(tc?' '+tc:'')},timer.fmt(timer.left)),
+              !isUser && tts.speaking && el('button',{
+                onClick:()=>{
+                  const wasPaused=tts.paused;
+                  tts.togglePause();
+                  if(wasPaused) timer.resume();
+                  else timer.pause();
+                },
+                style:{
+                  display:'inline-flex',alignItems:'center',gap:8,
+                  padding:'8px 18px',borderRadius:999,
+                  background:tts.paused?'rgba(239,68,68,.15)':'rgba(255,255,255,.04)',
+                  border:'1px solid '+(tts.paused?'rgba(239,68,68,.5)':'var(--c-border2)'),
+                  color:tts.paused?'#fca5a5':'var(--c-text)',
+                  fontSize:'.74rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',
+                  cursor:'pointer',fontFamily:'inherit',
+                  transition:'background .15s, border-color .15s, color .15s',
+                },
+                title:tts.paused?'Resume (Space)':'Pause (Space)',
+                'aria-label':tts.paused?'Resume playback':'Pause playback',
+              },
+                el('span',{'aria-hidden':true,style:{fontSize:'.9rem',lineHeight:1}},tts.paused?'▶':'❚❚'),
+                el('span',null,tts.paused?'Resume':'Pause'),
+              ),
+            ),
+          ),
         ),
 
         // TTS error banner
@@ -5696,51 +5780,6 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
             detections.map((d,i)=>el('div',{key:i,style:{fontSize:'.72rem',color:'var(--c-text)'}},d))
           );
         })(),
-
-        // The orb. `interrupted` adds a 1.2s red-flash class so the
-        // visual confirms the cut-off — without it, hitting Interrupt
-        // just silently jumps to the next speech and feels broken.
-        el('div',{className:'orb-wrap'+(wasInterrupted?' interrupted':'')},
-          el('div',{className:'orb-glow'+(!isUser||tts.speaking?' on':'')}),
-          el('div',{className:'orb-ring'+(isUser?' active':tts.speaking||aiLoading?' active pulse':'')}),
-          el('canvas',{className:'orb',ref:orb.ref}),
-        ),
-
-        // Timer + pause button. Pause/resume already existed (Spacebar
-        // shortcut + tts.togglePause) but had no affordance — users
-        // couldn't discover it. This surfaces it for AI speeches where
-        // the audio is driving the timer; pausing stops both.
-        el('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:10}},
-          el('div',{className:'t-time'+(tc?' '+tc:'')},timer.fmt(timer.left)),
-          !isUser && tts.speaking && el('button',{
-            onClick:()=>{
-              const wasPaused=tts.paused;
-              tts.togglePause();
-              if(wasPaused) timer.resume();
-              else timer.pause();
-            },
-            style:{
-              display:'inline-flex',alignItems:'center',gap:8,
-              padding:'8px 18px',borderRadius:999,
-              background:tts.paused?'rgba(239,68,68,.15)':'rgba(255,255,255,.04)',
-              border:'1px solid '+(tts.paused?'rgba(239,68,68,.5)':'var(--c-border2)'),
-              color:tts.paused?'#fca5a5':'var(--c-text)',
-              fontSize:'.74rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',
-              cursor:'pointer',fontFamily:'inherit',
-              transition:'background .15s, border-color .15s, color .15s',
-            },
-            title:tts.paused?'Resume (Space)':'Pause (Space)',
-            'aria-label':tts.paused?'Resume playback':'Pause playback',
-          },
-            el('span',{'aria-hidden':true,style:{fontSize:'.9rem',lineHeight:1}},tts.paused?'▶':'❚❚'),
-            el('span',null,tts.paused?'Resume':'Pause'),
-          ),
-          // Audio progress bar removed — with chunked TTS playback the
-          // 'total' kept growing as new chunks streamed in, so the
-          // elapsed-vs-total readout was always lying. The speech-slot
-          // timer above already tells you how long the speech is and
-          // how much of it is left; a second clock was noise.
-        ),
 
         // POI: user can send a POI during AI speech (middle of speech only)
         !isUser&&fmt.poi&&timer.left<(cur.time-60)&&timer.left>60&&el('div',{style:{marginTop:12}},
