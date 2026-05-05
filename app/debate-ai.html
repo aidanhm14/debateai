@@ -5075,12 +5075,17 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           el('button',{className:'cta-ghost',onClick:()=>{setPoiOffer(false);setLog(prev=>[...prev,{code:'POI',who:'POI',text:'AI offered POI. declined'}])},style:{padding:'8px 16px',fontSize:'.78rem',opacity:.5,marginTop:0}},'Decline'),
         ),
 
-        // Live speed control during AI speech
-        !isUser&&tts.speaking&&el('div',{className:'row-c',style:{gap:6,marginBottom:8}},
-          el('span',{style:{fontSize:'.65rem',color:'var(--c-muted)',marginRight:4}},'Speed:'),
-          [0.75,1,1.25,1.5,2,2.5,3].map(r=>
-            el('button',{key:r,onClick:()=>{setLiveRate(r);tts.setRate(r)},style:{padding:'4px 10px',fontSize:'.68rem',borderRadius:8,border:liveRate===r?'1px solid rgba(239,68,68,.5)':'1px solid var(--c-border2)',background:liveRate===r?'rgba(239,68,68,.15)':'var(--c-surface2)',color:liveRate===r?'#ef4444':'var(--c-text)',cursor:'pointer',fontWeight:liveRate===r?700:500}},r+'×')
-          )
+        // Live speed control during AI speech. Buttons label their actual
+        // effective WPM (setup wpm × multiplier) instead of opaque "1.5×".
+        // The user picks a wpm setting in setup and then sees the same
+        // unit reflected here, so it's obvious how the slider, the live
+        // multiplier, and the audio they're hearing relate.
+        !isUser&&tts.speaking&&el('div',{className:'row-c',style:{gap:6,marginBottom:8,flexWrap:'wrap',justifyContent:'center'}},
+          el('span',{style:{fontSize:'.65rem',color:'var(--c-muted)',marginRight:4}},'WPM (base ',el('strong',{style:{color:'var(--c-text3)'}},wpm),'):'),
+          [0.75,1,1.25,1.5,2,2.5,3].map(r=>{
+            const eff=Math.round(wpm*r);
+            return el('button',{key:r,onClick:()=>{setLiveRate(r);tts.setRate(r)},title:r+'× live playback',style:{padding:'4px 10px',fontSize:'.68rem',borderRadius:8,border:liveRate===r?'1px solid rgba(239,68,68,.5)':'1px solid var(--c-border2)',background:liveRate===r?'rgba(239,68,68,.15)':'var(--c-surface2)',color:liveRate===r?'#ef4444':'var(--c-text)',cursor:'pointer',fontWeight:liveRate===r?700:500}},eff);
+          })
         ),
 
         // Controls
@@ -5169,7 +5174,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
         // Flow → Patterns → Drill → Transcript with no way to scan back.
         // Pills jump to each section and light up once the section has
         // rendered so you know which outputs exist.
-        el('div',{style:{position:'sticky',top:0,zIndex:20,display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',padding:'10px 12px',margin:'-90px -12px 24px',background:'rgba(15,15,18,.88)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',borderBottom:'1px solid var(--c-border2)'}},
+        // The `margin:0 calc(-50vw + 50%)` trick breaks the pill bar out
+        // of the stage's 700px max-width so it spans the full viewport,
+        // genuinely centered on the page instead of centered-within-stage
+        // (which read as left-of-center on wide displays).
+        el('div',{style:{position:'sticky',top:0,zIndex:20,display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',padding:'10px 12px',margin:'-90px calc(-50vw + 50%) 24px',background:'rgba(15,15,18,.88)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',borderBottom:'1px solid var(--c-border2)'}},
           [
             {id:'fb-ballot',label:'Ballot',shown:true},
             {id:'fb-flow',label:'Flow',shown:!!flowSheet},
@@ -5221,6 +5230,25 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
             wr.total>=2&&el('div',{style:{flex:1,minWidth:140,padding:'16px 20px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14,textAlign:'center'}},
               el('div',{style:{fontSize:'.65rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-muted)',marginBottom:6}},'Overall Win Rate'),
               el('div',{style:{fontSize:'2rem',fontWeight:900,color:wr.rate>=0.5?'#22c55e':'#f59e0b'}},Math.round(wr.rate*100)+'%'),
+            ),
+          ),
+          // How points work — collapsed by default so the page stays
+          // scannable; the user can pop it open to see what the rubric
+          // actually weighs and how the AI judge is mapping speech
+          // quality onto the standard APDA / college-parli 23-30 scale.
+          el('details',{style:{marginBottom:20,padding:'12px 18px',background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:14}},
+            el('summary',{style:{cursor:'pointer',fontSize:'.7rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--c-muted)',userSelect:'none'}},'How points work'),
+            el('div',{style:{marginTop:12,fontSize:'.84rem',color:'var(--c-text4)',lineHeight:1.6}},
+              el('p',{style:{margin:0}},'Scored on the APDA / college-parli ',el('strong',null,'23-30 scale'),'. The AI judge weighs ',el('strong',null,'clarity, signposting, framework, warrant depth, weighing, and round impact'),' — the same rubric a real circuit judge uses.'),
+              el('div',{style:{marginTop:12,display:'grid',gridTemplateColumns:'auto 1fr',rowGap:6,columnGap:14,fontSize:'.8rem'}},
+                el('div',{style:{fontWeight:800,color:'#22c55e'}},'30'), el('div',null,'Exceptional. Top-1% speech — controlled, surprising, clean.'),
+                el('div',{style:{fontWeight:800,color:'#22c55e'}},'29'), el('div',null,'Excellent. Bid-ready. Sharp warrants, real weighing.'),
+                el('div',{style:{fontWeight:800,color:'#84cc16'}},'28'), el('div',null,'Above average. Strong content, a few rough patches.'),
+                el('div',{style:{fontWeight:800,color:'var(--c-text)'}},'27'), el('div',null,'Solid average. Made the arguments; didn\'t crystallize.'),
+                el('div',{style:{fontWeight:800,color:'#f59e0b'}},'26'), el('div',null,'Below average. Drops, weak warrants, or tone issues.'),
+                el('div',{style:{fontWeight:800,color:'#ef4444'}},'25 ↓'), el('div',null,'Major issues. Big gaps in structure or content.'),
+              ),
+              el('p',{style:{marginTop:12,marginBottom:0,fontSize:'.74rem',color:'var(--c-subtle)',fontStyle:'italic'}},'AI estimates can drift ±1.5 round-to-round. Trends across many rounds are more reliable than any single number.'),
             ),
           ),
           // Speaker-points sparkline. Pulls the user speakerPoints field
