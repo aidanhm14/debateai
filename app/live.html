@@ -1985,11 +1985,14 @@ button{font-family:inherit}
   }
 
   // Push an acceptance to the challenge doc so the poster sees it.
+  // Email is stored alongside the rest so the scheduled kickoff
+  // reminder can email the accepter without a second user lookup.
   function publishAcceptance(challengeId, payload){
     if (!firebaseDb || !currentUser) return;
     firebaseDb.collection('live_challenges').doc(challengeId).update({
       accepterUid: currentUser.uid,
       accepterName: payload.name || currentUser.displayName || '',
+      accepterEmail: currentUser.email || '',
       accepterContact: payload.contact || '',
       acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).catch(function(e){ console.warn('[Live] publish acceptance failed', e); });
