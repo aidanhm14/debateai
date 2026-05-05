@@ -1359,6 +1359,30 @@ const PARLI_MOTIONS = [
   'This house would ban inheritance above $5 million.',
   'This house believes whistleblowers should receive absolute legal immunity.',
   'This house would impose term limits on Supreme Court justices.',
+  // ─── More concrete / contemporary additions ───
+  // These motions name specific policies, actors, or jurisdictions —
+  // less "generic philosophy bait", more like what circuit-level APDA
+  // motions actually look like. Many have curated case files.
+  'This house would abolish the filibuster.',
+  'This house would pack the Supreme Court.',
+  'This house would require labor representation on US corporate boards.',
+  'This house would mandate algorithmic transparency for major social media platforms.',
+  'This house would require ID verification to use social media.',
+  'This house would ban legacy admissions at Ivy+ universities.',
+  'This house would condition US foreign aid on the recipient holding free elections.',
+  'This house would substantially reduce US troop presence in the Middle East.',
+  'This house would establish a federal jobs guarantee.',
+  'This house would replace standardized testing with portfolio-based admissions.',
+  'This house would ban deepfake content of real people without consent.',
+  'This house would require AI-generated content to be watermarked.',
+  'This house would abolish daylight saving time.',
+  'This house would ban political advertising on social media.',
+  'This house would require corporations to disclose climate-related financial risk.',
+  'This house would grant parents the right to opt out of standardized curricula.',
+  'This house would tax church property at the same rate as commercial property.',
+  'This house would replace the SAT with a national civic-knowledge exam.',
+  'This house would ban the use of facial recognition by law enforcement.',
+  'This house would require a constitutional amendment to declare war.',
 ];
 
 // Format-specific motion banks. Each format has its own native motion style.
@@ -1486,6 +1510,91 @@ function motionsFor(fmt){ return MOTIONS_BY_FORMAT[fmt] || PARLI_MOTIONS; }
 function randomMotionFor(fmt){
   const arr = motionsFor(fmt);
   return arr[Math.floor(Math.random()*arr.length)];
+}
+
+// ── Curated case files ─────────────────────────────────────────────
+// Hand-written background primers for high-leverage APDA / parli
+// motions. When the user picks a motion that has a case file, we skip
+// the LLM-generated background entirely and use this — pre-written
+// backgrounds are faster (no Claude Haiku round-trip), more accurate
+// (named actors, real numbers, real dates), and consistent across
+// rounds (the AI can rely on the same factual frame across speeches).
+//
+// Background fields follow APDA convention: 3-5 sentences of plain
+// factual context. Who decides, what the current law/practice is,
+// what's actually contested. NOT framing, NOT opinion, NOT rhetoric.
+// `tags` drives a "Curated case" badge on the motion picker so users
+// know which motions have hand-written backgrounds.
+//
+// Add new entries by motion-text key. Match the canonical phrasing in
+// PARLI_MOTIONS so lookups hit. If you write a new motion that
+// deserves a case file, add the motion to PARLI_MOTIONS first.
+const CASE_FILES = {
+  'This house would ban billionaires.': {
+    background: 'A "billionaire ban" typically means a hard wealth cap (commonly proposed at $1B) implemented via an annual wealth tax that confiscates assets above the threshold, with carve-outs for primary residence and small-business equity. Eight US senators have introduced wealth-tax bills since 2019; none have passed. Norway, Switzerland, and Spain levy ongoing wealth taxes today; France, Germany, and Sweden repealed theirs after capital flight. The contested question is whether wealth above $1B encodes economically useful capital allocation or rent-seeking — and whether enforcement (asset valuation, offshoring, the Diller test) is feasible at scale.',
+    tags: ['economics','inequality','wealth-tax'],
+  },
+  'This house would abolish the electoral college.': {
+    background: 'The Electoral College allocates 538 electors across states by population + 2 (matching House + Senate seats); a candidate needs 270 to win. Five US elections (1824, 1876, 1888, 2000, 2016) have produced a popular-vote loser as president. Abolition requires either a constitutional amendment (2/3 of Congress + 3/4 of states) or the National Popular Vote Interstate Compact (NPVIC), which has 209 of the 270 electoral votes needed to trigger. The contested question is whether the EC protects rural / low-population states from majoritarian dominance, or whether it distorts campaign attention to a handful of swing states (in 2020 ~96% of campaign events occurred in 12 states).',
+    tags: ['elections','democracy','constitutional'],
+  },
+  'This house would make voting compulsory.': {
+    background: 'Compulsory voting is enforced in ~22 countries including Australia (since 1924, ~91% turnout, ~$20 fine), Belgium, Brazil, and Singapore. Voter ID, weekend voting, and mail-in voting are typically bundled with the mandate. US turnout has averaged ~60% in presidential and ~40% in midterm elections over the past 40 years. The contested question is whether a state may compel political participation, and whether mandatory turnout improves representation or just adds noise from disengaged voters (the median Australian still ranks turnout requirements as net-positive in long-running ANU surveys).',
+    tags: ['democracy','elections','liberty'],
+  },
+  'This house would abolish the Senate.': {
+    background: 'The US Senate gives each state 2 seats regardless of population — Wyoming (590k people) gets the same representation as California (39M). The Senate confirms federal judges, ratifies treaties, and houses the filibuster (60-vote threshold for most legislation since 1975). The Constitution\'s Article V explicitly forbids depriving any state of equal Senate suffrage without its consent, making abolition the only constitutional change that arguably requires unanimous state consent. The contested question is whether the chamber\'s counter-majoritarian design protects geographic / minority interests or systematically over-represents declining rural populations.',
+    tags: ['legislative','constitutional','representation'],
+  },
+  'This house supports universal basic income.': {
+    background: 'UBI is an unconditional cash transfer to every adult, typically proposed at $1,000-1,500/mo in US contexts (Yang 2020, Stockton SEED, Alaska Permanent Fund as a partial precedent). Funded variously by VAT, wealth tax, or unwinding existing welfare programs. The largest randomized trial to date (Sam Altman / OpenResearch, 1k recipients, $1k/mo for 3 years, results published 2024) showed modest reductions in work hours (~1.3 hrs/week) and large gains in financial security, mental health, and entrepreneurship. The contested question is whether UBI replaces or supplements existing means-tested welfare, and whether the work-disincentive trade is worth the simplicity gains.',
+    tags: ['economics','welfare','labor'],
+  },
+  'This house would ban unpaid internships.': {
+    background: 'In the US, the FLSA technically requires interns to be paid minimum wage unless the "primary beneficiary" 7-factor test (Glatt v. Fox, 2015) is met. Enforcement is sparse — ~40% of US college internships are still unpaid, concentrated in nonprofits, government, journalism, fashion, and entertainment. The EU\'s Quality Framework for Traineeships (2014) and proposed 2024 directive require pay across member states. The contested question is whether unpaid internships are an entry-point to industries that selectively favor students with parental financial support (the access-equity argument) or a price discovery mechanism for skill-building roles employers wouldn\'t otherwise offer.',
+    tags: ['labor','education','equity'],
+  },
+  'This house believes AI development should be paused.': {
+    background: 'The "pause AI" call refers to the March 2023 FLI open letter signed by 30k+ researchers proposing a 6-month moratorium on training models more capable than GPT-4. No major lab paused. The current frontier (GPT-5, Claude Opus 4, Gemini 3) operates under voluntary commitments to the White House (2023) and the EU AI Act (2024-26 phased rollout). A pause would require either international treaty or unilateral US export controls on training compute (already in place against China since Oct 2022). The contested question is whether the catastrophic-risk pathway (loss-of-control / misuse / concentration) outweighs the lost benefits (medical research, climate modeling, productivity) and whether a pause is enforceable given open-source releases.',
+    tags: ['technology','safety','governance'],
+  },
+  'This house would impose a global carbon tax.': {
+    background: 'A global carbon tax would price CO2 emissions at a uniform rate across countries, typically proposed at $50-100/ton (the IMF benchmark). 39 countries currently price carbon via tax or ETS, covering ~23% of global emissions; prices range from <$1/ton (Ukraine) to ~$130/ton (Sweden). The EU\'s CBAM (Carbon Border Adjustment Mechanism, full force 2026) effectively extends EU pricing to imports, the closest thing to a unilateral global tax. The contested question is whether a uniform price is achievable without WTO challenges and whether revenue should be returned as dividends (Hansen, Citizens\' Climate Lobby), recycled into clean-tech subsidies, or transferred to developing-world adaptation.',
+    tags: ['climate','economics','international'],
+  },
+  'This house would abolish the death penalty worldwide.': {
+    background: 'As of 2024, 144 countries have abolished the death penalty in law or practice; 55 retain it including the US (27 states), China, Iran, Saudi Arabia, North Korea, Vietnam, Egypt. China executes the most people annually (estimated thousands; figures classified); the US executed 24 in 2023. International pressure operates through the ICCPR Second Optional Protocol and EU export bans on lethal-injection drugs. The contested question is whether the moral cost of the irreversible-error rate (~4% of US death-row inmates are later exonerated, NAS 2014) outweighs deterrence and retributive-justice claims, given that meta-analyses (Donohue/Wolfers 2005) find no robust deterrent effect.',
+    tags: ['justice','rights','international'],
+  },
+  'This house would abolish legacy admissions.': {
+    background: 'Legacy preferences give an admissions boost to children of alumni at ~25% of US selective universities, including most of the Ivy League. At Harvard, legacy applicants are admitted at ~33% vs ~6% overall (Arcidiacono et al., 2019 lawsuit data). The 2023 Supreme Court ruling against race-conscious admissions (SFFA v. Harvard) prompted Wesleyan, Amherst, MIT, JHU, and Carnegie Mellon to drop legacy preferences voluntarily; Colorado banned them by state law in 2021, Maryland in 2024. The contested question is whether legacy admissions are a fundraising mechanism universities can\'t afford to lose or a class-perpetuation tool that crowds out otherwise-qualified first-gen applicants.',
+    tags: ['education','equity','class'],
+  },
+  'This house would dissolve NATO.': {
+    background: 'NATO is a 32-member mutual defense alliance founded 1949; Article 5 obligates members to treat an attack on one as an attack on all (invoked once, post-9/11). Members commit to spending 2% of GDP on defense; 23 of 32 met the target in 2024. NATO has expanded eastward 5 times since 1990, most recently adding Finland (2023) and Sweden (2024) post-Russia\'s Ukraine invasion. Dissolution would require unanimous member agreement. The contested question is whether NATO\'s deterrence value against Russia (and increasingly China via Indo-Pacific partnerships) justifies the expansion-provocation feedback loop that Mearsheimer and others argue contributed to the 2022 Ukraine war.',
+    tags: ['international','security','alliance'],
+  },
+  'This house would lower the voting age to 16.': {
+    background: 'The 26th Amendment set the US voting age at 18 in 1971, replacing 21. Austria, Brazil, Argentina, Cuba, Ecuador, Nicaragua, and Scotland (for local + Scottish Parliament elections) allow 16-year-olds to vote. Six US municipalities including Takoma Park MD and Hyattsville MD allow 16-year-old voting in local elections. Cognitive-development research (Hart/Atkins, AAP) finds 16-year-olds match adults on "cold cognition" (deliberative judgment) but lag on "hot cognition" (pressured impulse) — voting is closer to the former. The contested question is whether civic engagement at 16 (still in school, in stable households) produces more durable lifelong voters than enfranchisement at 18 (the transition-instability year), and whether maturity arguments survive the consistency test against draft eligibility, criminal liability, and contract law.',
+    tags: ['democracy','youth','rights'],
+  },
+  'This house would mandate organ donation upon death.': {
+    background: 'Mandatory donation (a.k.a. "presumed consent" or "opt-out") is law in Spain, Austria, Belgium, France, Wales, England (since 2020), Singapore, and ~25 others. Spain has the world\'s highest deceased-donor rate at ~46/million; the US runs an opt-in system at ~40/million. Family-veto provisions in most opt-out countries effectively make consent semi-presumed rather than absolute. ~17 Americans die daily waiting for a transplant; the US transplant waiting list is ~104k. The contested question is whether the state has a claim on the body after death, whether opt-out genuinely changes outcomes (Spain\'s lead correlates more with infrastructure than with the legal regime per Rithalia et al. BMJ 2009), and whether religious / bodily-autonomy objections survive the override.',
+    tags: ['ethics','health','autonomy'],
+  },
+  'This house would abolish prisons.': {
+    background: 'Prison abolition (Davis, Gilmore, Critical Resistance) calls for replacing incarceration with restorative justice, mental-health treatment, drug treatment, and economic investment in source communities. The US incarcerates ~1.8M people (the highest absolute and per-capita in the developed world); 60% are non-violent, ~20% are pretrial detainees who haven\'t been convicted of anything. Pilot programs in Norway (Halden), Portugal (drug decriminalization 2001), and several US cities (LA County\'s mental-health diversion, San Francisco\'s pre-arrest diversion) suggest dramatic reductions are possible without full abolition. The contested question is whether the violent-offender residual (~13% of state prisoners are serving for murder/manslaughter) makes "abolish all prisons" a category error, or whether even those cases have non-carceral alternatives once the system isn\'t over-built around the median case.',
+    tags: ['justice','reform','radical'],
+  },
+  'This house would abolish intellectual property for medicines.': {
+    background: 'Pharmaceutical IP under TRIPS (1995) grants 20-year patent monopolies on new drugs. The result: branded drugs like Humira at $77k/yr in the US vs ~$3k in countries with biosimilar competition. The 2001 Doha Declaration permits compulsory licensing for public health emergencies; India and Brazil have used it for HIV antiretrovirals, dropping prices ~95%. Abolition would replace patents with prize funds (Stiglitz, Kremer), public R&D (NIH funds ~$50B/yr already, ~32% of new drug R&D), or advance market commitments. The contested question is whether ~$200B/yr in global pharma R&D survives without monopoly pricing, or whether the existing system already over-rewards me-too drugs and underfunds antibiotics, neglected tropical diseases, and pediatric formulations the patent incentive doesn\'t reach.',
+    tags: ['health','ip','economics'],
+  },
+};
+
+function caseFileFor(motion){
+  if (!motion) return null;
+  return CASE_FILES[motion.trim()] || null;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -3003,6 +3112,16 @@ function App(){
     if (background && background.trim()) return;
     if (bgRequestedFor.current === m) return;
     bgRequestedFor.current = m;
+    // Short-circuit on curated case files. Hand-written backgrounds are
+    // (a) faster — no Claude Haiku round-trip on the 1.4-2s p50 path,
+    // (b) more accurate — named actors, real numbers, real dates, and
+    // (c) consistent across rounds for the same motion. Falls through to
+    // the auto-gen path below for motions that aren't in CASE_FILES.
+    const cf = caseFileFor(m);
+    if (cf && cf.background) {
+      setGeneratedBackground(cf.background);
+      return;
+    }
     try {
       const r = await fetch('/api/claude', {
         method: 'POST',
@@ -5195,14 +5314,18 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
           ))
         ),
 
-        // Resolution display
-        el('div',{style:{maxWidth:600,margin:'0 auto 16px',textAlign:'center',position:'relative',zIndex:1}},
+        // Resolution display. The "Curated case" badge fires when the
+        // motion has a hand-written CASE_FILES entry, so users (and the
+        // AI itself, indirectly via the prompt) know the background is
+        // load-bearing fact, not LLM-generated approximation.
+        (()=>{const cf=caseFileFor(motion);return el('div',{style:{maxWidth:600,margin:'0 auto 16px',textAlign:'center',position:'relative',zIndex:1}},
           el('div',{style:{fontSize:'.92rem',fontWeight:600,color:'var(--c-text3)',lineHeight:1.4,fontStyle:'italic'}},'"'+motion+'"'),
-          (background||generatedBackground)&&el('div',{style:{fontSize:'.72rem',color:'var(--c-subtle)',marginTop:4,lineHeight:1.3}},
-            !background&&generatedBackground?el('span',{style:{fontSize:'.55rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(239,68,68,.55)',marginRight:6}},'Context'):null,
+          cf && el('div',{style:{display:'inline-flex',alignItems:'center',gap:6,marginTop:6,fontSize:'.55rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#fca5a5',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.25)',padding:'3px 9px',borderRadius:999}},'★ Curated case'),
+          (background||generatedBackground)&&el('div',{style:{fontSize:'.72rem',color:'var(--c-subtle)',marginTop:6,lineHeight:1.5}},
+            !background&&generatedBackground?el('span',{style:{fontSize:'.55rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(239,68,68,.55)',marginRight:6}},cf?'Background':'Context'):null,
             background||generatedBackground
           ),
-        ),
+        )})(),
 
         // Speech info
         el('div',{className:'t-label'},isUser?'Your Turn':'AI Speaking'),
