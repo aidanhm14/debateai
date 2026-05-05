@@ -434,7 +434,12 @@ button{font-family:inherit}
 <section class="hero">
   <div class="hero-eyebrow"><span class="live-dot"></span>Live Debates · AI-judged</div>
   <h1>Argue with humans. <em>AI judges.</em></h1>
-  <p class="hero-sub">Post a motion, pick your side, hop on a video call, and let the same format-aware AI judge that scores your AI rounds adjudicate live human-vs-human debates. Tournament-grade ballots, no entry fee.</p>
+  <p class="hero-sub">Post a motion, pick your side, hop on the in-page video room, and let the same format-aware AI judge that scores your AI rounds adjudicate the live human-vs-human debate. Tournament-grade ballots, no entry fee.</p>
+  <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <a href="/live-round.html" class="bar-cta" style="padding:11px 22px;font-size:.82rem">▶ Start a judged round now</a>
+    <a href="#how" class="btn btn-ghost" style="padding:11px 18px;font-size:.78rem;border:1px solid var(--border);border-radius:999px;color:var(--text-dim);background:transparent">How it works ↓</a>
+  </div>
+  <div style="margin-top:10px;font-size:.72rem;color:var(--text-ghost)">Or scroll down to browse open challenges from other debaters</div>
 </section>
 
 <div class="tabs">
@@ -463,7 +468,7 @@ button{font-family:inherit}
         <p class="soon-text">Live voice rooms with the same format-aware judging as the AI mode. Drop in, get matched, debate. Sign up to be first in.</p>
       </div>
 
-      <div class="how">
+      <div class="how" id="how">
         <h2>How it works</h2>
         <div class="how-grid">
           <div class="how-step">
@@ -1060,18 +1065,34 @@ button{font-family:inherit}
         revealChip = '<span class="tag" style="background:rgba(168,85,247,.10);border-color:rgba(168,85,247,.32);color:#c4b5fd;font-weight:800">' + (c.reveal === 'theme' ? 'THEME' : 'TOPIC') + ' ONLY</span>';
       }
       // Matched state: the user already hit Accept on a prior visit
-      // (or earlier this session). Shows the meeting room link, the
-      // calendar handoffs, the bail option, and (when the time has
-      // arrived) the primary Join CTA.
+      // (or earlier this session). The primary CTA is "Start judged
+      // round" — that opens /live-round.html with the motion, format,
+      // names, and shared Jitsi room name prefilled, so both sides land
+      // on the same page with an embedded video room and per-speech
+      // ballot UI.
       if (accepted) {
         var canJoin = sched && sched.live;
         var room = jitsiRoomUrl(c.id);
         var gcal = googleCalUrl(c);
+        var profile = loadProfile();
+        // Build the /live-round handoff URL. The accepter is on `yourSide`,
+        // the poster's handle goes on the other side. We pass the SAME
+        // Jitsi room name (DebateAI-<challengeId>) so both sides connect
+        // to the same in-page video room with no manual coordination.
+        var roundParams = new URLSearchParams({
+          motion: c.motion || c.topicLine || c.themeLine || '',
+          format: c.format,
+          pro: yourSide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+          con: yourSide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+          room: 'DebateAI-' + String(c.id).replace(/[^a-zA-Z0-9]/g,''),
+          challengeId: c.id,
+        });
+        var roundUrl = '/live-round.html?' + roundParams.toString();
         var meta = canJoin
-          ? 'Meeting room is open. Click <strong>Join</strong> to enter the call.'
+          ? 'Round room is live. Click <strong>Start judged round</strong> — both sides land in the same in-page video room and the AI judges the round at the end.'
           : (sched
-              ? 'Matched as <strong>' + escHtml(yourSideLabel) + '</strong>. Kickoff ' + escHtml(sched.label) + '. AI judge will be in the room.'
-              : 'Queued to debate <strong>' + escHtml(yourSideLabel) + '</strong> against <strong>@' + escHtml(c.handle || 'anonymous') + '</strong>. We\'ll surface the room link once the poster confirms a time.');
+              ? 'Matched as <strong>' + escHtml(yourSideLabel) + '</strong>. Kickoff ' + escHtml(sched.label) + '. The judged-round room launches at kickoff.'
+              : 'Queued to debate <strong>' + escHtml(yourSideLabel) + '</strong> against <strong>@' + escHtml(c.handle || 'anonymous') + '</strong>. Hit Start any time once your opponent\'s online.');
         card.innerHTML =
           '<div class="card-head">' +
             '<span class="tag tag-matched">✓ You accepted</span>' +
@@ -1082,13 +1103,10 @@ button{font-family:inherit}
           '<div class="card-motion">' + escHtml(displayText) + '</div>' +
           '<div class="card-meta">' + meta + '</div>' +
           '<div class="card-actions">' +
-            (canJoin
-              ? '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + escHtml(room) + '" data-join-room="' + c.id + '">▶ Join live debate</a>'
-              : '<a class="btn btn-room" target="_blank" rel="noopener" href="' + escHtml(room) + '" data-join-room="' + c.id + '">▶ Open meeting room</a>') +
+            '<a class="btn ' + (canJoin ? 'btn-primary' : 'btn-room') + '" target="_blank" rel="noopener" href="' + escHtml(roundUrl) + '" data-start-round="' + c.id + '">▶ Start judged round</a>' +
             (gcal ? '<a class="btn btn-ghost" target="_blank" rel="noopener" href="' + escHtml(gcal) + '" data-gcal="' + c.id + '">+ Google Calendar</a>' : '') +
             (c.scheduledAt ? '<button class="btn btn-ghost" data-ical="' + c.id + '">.ics</button>' : '') +
             '<button class="btn btn-bail" data-bail="' + c.id + '">✕ Bail</button>' +
-            (!canJoin ? '<button class="btn btn-ghost" data-spar-ai="' + c.id + '">Spar AI meanwhile →</button>' : '') +
           '</div>';
       } else {
         card.innerHTML =
@@ -1136,12 +1154,14 @@ button{font-family:inherit}
         showBailConfirm(id, function(){ render(); });
       });
     });
-    // Jitsi room open — telemetry only; the anchor handles the navigation.
-    host.querySelectorAll('[data-join-room]').forEach(function(btn){
+    // Judged-round handoff. Anchor opens /live-round.html in a new
+    // tab with motion/format/names/room prefilled. Telemetry only here;
+    // the anchor href handles navigation.
+    host.querySelectorAll('[data-start-round]').forEach(function(btn){
       btn.addEventListener('click', function(){
-        var id = btn.getAttribute('data-join-room');
+        var id = btn.getAttribute('data-start-round');
         var c = loadList().find(function(x){ return x.id === id; });
-        try { gtag('event', 'live_room_open', { format: c && c.format }); } catch(e){}
+        try { gtag('event', 'live_round_start', { format: c && c.format }); } catch(e){}
       });
     });
     // Google Calendar handoff — telemetry only.
@@ -1422,13 +1442,23 @@ button{font-family:inherit}
         if (!c) return '<div class="activity-row" style="opacity:.55"><strong>(challenge no longer listed)</strong><div class="activity-meta">accepted ' + fmtTime(a.ts) + '</div></div>';
         var f = FORMATS[c.format] || FORMATS.quick;
         var sched = fmtSchedule(c.scheduledAt);
-        var room = jitsiRoomUrl(id);
         var gcal = googleCalUrl(c);
+        var yourSide = c.side === 'pro' ? 'con' : 'pro';
+        var profile = loadProfile();
+        var roundParams = new URLSearchParams({
+          motion: c.motion || c.topicLine || c.themeLine || '',
+          format: c.format,
+          pro: yourSide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+          con: yourSide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+          room: 'DebateAI-' + String(id).replace(/[^a-zA-Z0-9]/g,''),
+          challengeId: id,
+        });
+        var roundUrl = '/live-round.html?' + roundParams.toString();
         return '<div class="activity-row">' +
           '<strong>' + escHtml((c.motion || c.topicLine || c.themeLine || '').slice(0,80)) + '</strong>' +
           '<div class="activity-meta">' + escHtml(f.name) + ' · vs @' + escHtml(c.handle || 'anonymous') + (sched ? ' · ' + escHtml(sched.label) : '') + '</div>' +
           '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' +
-            '<a class="btn btn-room" style="font-size:.7rem;padding:6px 12px" target="_blank" rel="noopener" href="' + escHtml(room) + '">▶ Open meeting room</a>' +
+            '<a class="btn btn-room" style="font-size:.7rem;padding:6px 12px" target="_blank" rel="noopener" href="' + escHtml(roundUrl) + '">▶ Start judged round</a>' +
             (gcal ? '<a class="btn btn-ghost" style="font-size:.7rem;padding:6px 12px" target="_blank" rel="noopener" href="' + escHtml(gcal) + '">+ Google Calendar</a>' : '') +
             '<button class="btn btn-bail" data-bail-mgr="' + id + '">✕ Bail</button>' +
           '</div>' +

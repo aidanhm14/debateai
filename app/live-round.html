@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Live Round · Debate AI</title>
+<meta name="description" content="Two humans, AI judge. In-platform video room + per-speech timer + transcript capture + tournament-grade ballot." />
+<meta name="robots" content="noindex" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<!-- Jitsi External API. Embeds the meet.jit.si room as an iframe so
+     video/audio/chat/screenshare all work in-page (no separate tab). -->
+<script src="https://meet.jit.si/external_api.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+:root{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.16);
+  --accent:#ef4444;
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --text:#fff;--text-dim:rgba(255,255,255,.55);--text-ghost:rgba(255,255,255,.18);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.45);
+}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;height:100vh;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+
+/* Top bar */
+.bar{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 22px;background:rgba(10,10,12,.92);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+.bar-logo{font-size:1rem;font-weight:900;letter-spacing:-.02em}
+.bar-logo em{color:var(--accent);font-style:normal}
+.bar-meta{display:flex;align-items:center;gap:14px;font-size:.74rem;color:var(--text-dim);font-weight:600}
+.bar-meta .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+.bar-back{padding:6px 14px;border:1px solid var(--border);border-radius:999px;font-size:.72rem;font-weight:700;color:var(--text-dim);transition:color .15s,border-color .15s}
+.bar-back:hover{color:var(--text);border-color:var(--border-strong)}
+
+/* Main split: Jitsi (left) + round panel (right) */
+.split{
+  flex:1;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(380px,1fr);
+  min-height:0;
+}
+@media(max-width:1000px){
+  .split{grid-template-columns:1fr;grid-template-rows:50% 50%}
+  body{height:auto;overflow:auto}
+  html,body{height:auto;overflow:auto}
+}
+
+/* Jitsi container */
+.jitsi-pane{
+  position:relative;background:#000;border-right:1px solid var(--border);
+}
+.jitsi-pane > *{width:100%;height:100%}
+.jitsi-fallback{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:14px;padding:32px;text-align:center;color:var(--text-dim);
+  background:radial-gradient(ellipse at 50% 50%,rgba(239,68,68,.06),transparent 70%);
+}
+.jitsi-fallback h2{font-size:1.05rem;color:var(--text);font-weight:800;margin-bottom:4px}
+.jitsi-fallback p{font-size:.84rem;line-height:1.55;max-width:380px}
+.jitsi-fallback a{color:var(--accent);font-weight:700}
+
+/* Round panel */
+.panel{
+  background:var(--bg-elev);overflow-y:auto;display:flex;flex-direction:column;
+}
+.panel-section{padding:20px 22px;border-bottom:1px solid var(--border)}
+.panel-section:last-child{border-bottom:none}
+
+.label{
+  font-size:.62rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;
+}
+
+/* Setup */
+.motion-display{
+  font-size:1.02rem;font-weight:700;line-height:1.45;color:var(--text);
+  padding:14px 16px;background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:12px;margin-bottom:14px;
+}
+.format-display{
+  display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;
+}
+.tag{
+  display:inline-flex;padding:3px 10px;border-radius:999px;
+  font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  border:1px solid var(--border);color:var(--text-dim);
+}
+.tag.tag-pro{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.32);color:#4ade80}
+.tag.tag-con{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.32);color:#fca5a5}
+
+.field{margin-bottom:12px}
+.field label{
+  display:block;font-size:.62rem;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;
+}
+.field input,.field select,.field textarea{
+  width:100%;padding:10px 12px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border);border-radius:10px;color:var(--text);
+  font-family:inherit;font-size:.92rem;outline:none;transition:border-color .15s;
+}
+.field textarea{resize:vertical;min-height:120px;line-height:1.5}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:rgba(239,68,68,.5);
+}
+
+.btn{
+  padding:10px 18px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text);font-family:inherit;font-weight:700;
+  font-size:.78rem;letter-spacing:.04em;cursor:pointer;
+  transition:background .15s,border-color .15s,transform .15s;
+}
+.btn:hover{background:rgba(255,255,255,.04);border-color:var(--border-strong);transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#dc2626;border-color:#dc2626}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;background:var(--accent)}
+.btn-mic{padding:8px 14px;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.btn-mic.live{background:rgba(239,68,68,.16);color:#fca5a5;border-color:rgba(239,68,68,.5)}
+.btn-mic.live::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;margin-right:6px;vertical-align:middle;animation:pulse 1.4s ease-in-out infinite}
+.btn-end{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row.between{justify-content:space-between}
+
+/* Round phase */
+.speech-header{
+  padding:18px 22px;background:linear-gradient(180deg,rgba(239,68,68,.06),transparent);
+  border-bottom:1px solid var(--border);
+}
+.speech-header .speaker-line{
+  display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;
+}
+.speech-header .speaker-name{font-size:1.3rem;font-weight:900;letter-spacing:-.01em}
+.speech-header .speech-name{font-size:.86rem;color:var(--text-dim);font-weight:600}
+.speech-header .speech-code{
+  font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  padding:3px 9px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--text);
+}
+
+.timer-row{
+  display:flex;align-items:baseline;gap:14px;margin-top:6px;
+}
+.timer-num{
+  font-size:2.4rem;font-weight:900;font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em;color:var(--text);line-height:1;
+}
+.timer-num.warn{color:var(--amber)}
+.timer-num.over{color:var(--accent)}
+.timer-target{font-size:.74rem;color:var(--text-dim);font-weight:600}
+.timer-progress{
+  height:3px;background:rgba(255,255,255,.06);border-radius:2px;
+  overflow:hidden;margin-top:8px;
+}
+.timer-bar{height:100%;background:var(--accent);transition:width .3s linear}
+.timer-bar.warn{background:var(--amber)}
+.timer-bar.over{background:var(--accent);animation:pulse 1.2s ease-in-out infinite}
+
+.transcript-area{padding:18px 22px;flex:1;display:flex;flex-direction:column;gap:10px}
+.transcript-area textarea{
+  flex:1;min-height:200px;width:100%;padding:14px 16px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:12px;color:var(--text);font-family:inherit;font-size:.92rem;
+  line-height:1.55;outline:none;resize:none;
+}
+.transcript-area textarea:focus{border-color:rgba(239,68,68,.4)}
+.transcript-helpers{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.7rem;color:var(--text-dim)}
+.transcript-helpers .word-count{margin-left:auto;font-variant-numeric:tabular-nums}
+
+/* Speech sequence sidebar (collapsible bottom strip) */
+.sequence{
+  padding:12px 22px;background:rgba(255,255,255,.02);border-top:1px solid var(--border);
+}
+.sequence-list{
+  display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;
+}
+.sequence-item{
+  flex-shrink:0;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.03);
+  border:1px solid var(--border);font-size:.66rem;color:var(--text-dim);font-weight:700;
+  letter-spacing:.04em;display:flex;align-items:center;gap:6px;
+}
+.sequence-item.done{color:var(--green);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.06)}
+.sequence-item.active{color:var(--accent);border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.10);font-weight:800}
+.sequence-item .pill{
+  padding:1px 6px;border-radius:4px;font-size:.58rem;background:rgba(255,255,255,.06);
+}
+
+/* Ballot */
+.ballot-loading{padding:48px 22px;text-align:center;color:var(--text-dim)}
+.ballot-loading .spinner{
+  width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;margin:0 auto 14px;animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.verdict{
+  padding:22px;text-align:center;border-radius:14px;margin:18px 22px;
+  border:1px solid;
+}
+.verdict.pro{background:rgba(34,197,94,.06);border-color:rgba(34,197,94,.28)}
+.verdict.con{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.28)}
+.verdict-headline{font-size:1.5rem;font-weight:900;letter-spacing:-.01em;margin-bottom:6px}
+.verdict.pro .verdict-headline{color:#4ade80}
+.verdict.con .verdict-headline{color:#fca5a5}
+.verdict-sub{font-size:.86rem;color:var(--text-dim);line-height:1.5}
+
+.points-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 22px 18px;
+}
+.points-card{
+  padding:14px 16px;border:1px solid var(--border);border-radius:12px;
+  background:rgba(255,255,255,.02);text-align:center;
+}
+.points-card .name{font-size:.7rem;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.points-card .pts{font-size:1.6rem;font-weight:900;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
+.points-card .pts-label{font-size:.62rem;color:var(--text-ghost);margin-top:4px;letter-spacing:.06em;text-transform:uppercase}
+
+.rfd{padding:0 22px 24px;font-size:.92rem;line-height:1.7;color:var(--text)}
+.rfd h3{font-size:.7rem;font-weight:800;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
+.rfd p{margin-bottom:10px}
+.rfd-actions{padding:0 22px 22px;display:flex;gap:8px;flex-wrap:wrap}
+
+/* Hidden */
+.hidden{display:none !important}
+
+/* Toasts */
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  padding:10px 20px;background:var(--bg-card);border:1px solid var(--border-strong);
+  border-radius:999px;font-size:.82rem;font-weight:600;
+  box-shadow:var(--shadow-lg);z-index:200;
+  animation:toast-in .25s ease-out;
+}
+@keyframes toast-in{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+</style>
+</head>
+<body>
+
+<nav class="bar">
+  <a href="/live" class="bar-logo"><em>Debate</em> AI · Live Round</a>
+  <div class="bar-meta">
+    <span id="phaseLabel"><span class="dot"></span> Setup</span>
+    <a href="/live" class="bar-back">← Back to board</a>
+  </div>
+</nav>
+
+<div class="split">
+
+  <!-- LEFT: Jitsi embed. mounted on round-start so the user explicitly
+       opts into mic/cam access at the same moment as the debate begins. -->
+  <div class="jitsi-pane" id="jitsiPane">
+    <div class="jitsi-fallback" id="jitsiFallback">
+      <h2>Video room loads when you start</h2>
+      <p>Click <strong>Start round</strong> in the panel to mount the Jitsi room. Both speakers should be in the same room — share this page URL with your opponent and they'll land here too.</p>
+      <p style="font-size:.74rem">Room: <strong id="roomDisplay" style="color:var(--text)"></strong></p>
+    </div>
+  </div>
+
+  <!-- RIGHT: Round panel. swaps between setup, round, and ballot views. -->
+  <div class="panel" id="panel">
+
+    <!-- ── SETUP ── -->
+    <div id="setupView">
+      <div class="panel-section">
+        <div class="label">Motion</div>
+        <div class="motion-display" id="motionDisplay">(set ?motion= in URL)</div>
+        <div class="label">Format</div>
+        <div class="format-display" id="formatDisplay"></div>
+      </div>
+      <div class="panel-section">
+        <div class="label">Speakers</div>
+        <div class="field">
+          <label for="proName" id="proLabel">Pro speaker</label>
+          <input id="proName" type="text" maxlength="40" placeholder="Name on the Pro/Aff side" />
+        </div>
+        <div class="field">
+          <label for="conName" id="conLabel">Con speaker</label>
+          <input id="conName" type="text" maxlength="40" placeholder="Name on the Con/Neg side" />
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="label">Format</div>
+        <div class="field">
+          <select id="formatSel">
+            <option value="quick">Quick Clash · 2 speeches each (fastest test)</option>
+            <option value="apda">APDA Parliamentary · 6 speeches</option>
+            <option value="bp">British Parliamentary · 8 speeches</option>
+            <option value="worlds">Worlds (WUDC) · 8 speeches</option>
+            <option value="asian">Asian Parliamentary · 8 speeches</option>
+            <option value="ld">Lincoln-Douglas · 7 segments</option>
+            <option value="pf">Public Forum · 11 segments</option>
+            <option value="policy">Policy (CX) · 12 segments</option>
+            <option value="congress">Student Congress</option>
+          </select>
+        </div>
+        <div class="label">Speech sequence</div>
+        <div id="sequencePreview" style="font-size:.78rem;color:var(--text-dim);line-height:1.6"></div>
+      </div>
+      <div class="panel-section">
+        <button id="startBtn" class="btn btn-primary" style="width:100%;font-size:.92rem;padding:14px;letter-spacing:.06em;text-transform:uppercase" disabled>▶ Start round</button>
+        <p style="font-size:.7rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center">Click Start to launch the video room and begin Speech 1. Both speakers should join the same room.</p>
+      </div>
+    </div>
+
+    <!-- ── ROUND (active speech) ── -->
+    <div id="roundView" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div class="speech-header">
+        <div class="speaker-line">
+          <span class="speech-code" id="speechCode">PM</span>
+          <span class="speech-name" id="speechName">Speech</span>
+        </div>
+        <div class="speaker-line" style="margin-bottom:0">
+          <span class="speaker-name" id="speakerName">—</span>
+          <span class="tag" id="speakerSide">—</span>
+        </div>
+        <div class="timer-row">
+          <span class="timer-num" id="timerNum">0:00</span>
+          <span class="timer-target" id="timerTarget">/ 0:00</span>
+        </div>
+        <div class="timer-progress"><div class="timer-bar" id="timerBar" style="width:0%"></div></div>
+      </div>
+
+      <div class="transcript-area">
+        <div class="transcript-helpers row">
+          <button class="btn btn-mic" id="micBtn" type="button">🎙 Start mic</button>
+          <span id="micHint">Live transcribes the active speaker. Edit the text directly anytime.</span>
+          <span class="word-count" id="wordCount">0 words</span>
+        </div>
+        <textarea id="speechText" placeholder="Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said."></textarea>
+        <div class="row">
+          <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
+          <button class="btn" id="skipSpeechBtn" type="button" style="font-size:.7rem">Skip</button>
+        </div>
+      </div>
+
+      <div class="sequence">
+        <div class="label" style="margin-bottom:6px">Speech sequence</div>
+        <div class="sequence-list" id="sequenceList"></div>
+      </div>
+    </div>
+
+    <!-- ── BALLOT ── -->
+    <div id="ballotView" class="hidden">
+      <div id="ballotLoading" class="ballot-loading">
+        <div class="spinner"></div>
+        <div style="font-size:.92rem;font-weight:700;color:var(--text)">Generating AI ballot…</div>
+        <div style="font-size:.74rem;margin-top:6px">Reading both transcripts, weighing the round, writing the RFD.</div>
+      </div>
+      <div id="ballotResult" class="hidden"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toastHost"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── Format spec. Slimmed from /debate-ai (no AI rules — both sides
+  // are humans here, AI only judges at the end). speeches[] is the
+  // canonical ordering; each entry has code, name, side, time(seconds).
+  var FORMATS = {
+    quick: { name:'Quick Clash', sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'}, speeches:[
+      { code:'P1', name:'Pro Opening',  side:'pro', time:180 },
+      { code:'C1', name:'Con Opening',  side:'con', time:180 },
+      { code:'P2', name:'Pro Rebuttal', side:'pro', time:120 },
+      { code:'C2', name:'Con Rebuttal', side:'con', time:120 },
+    ]},
+    apda: { name:'APDA Parliamentary', sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'}, speeches:[
+      { code:'PM',  name:'Prime Minister',     side:'gov', time:450 },
+      { code:'LO',  name:'Leader of Opp',      side:'opp', time:510 },
+      { code:'MG',  name:'Member of Gov',      side:'gov', time:510 },
+      { code:'MO',  name:'Member of Opp',      side:'opp', time:510 },
+      { code:'LOR', name:'LO Rebuttal',        side:'opp', time:270 },
+      { code:'PMR', name:'PM Rebuttal',        side:'gov', time:330 },
+    ]},
+    bp: { name:'British Parliamentary', sides:['og','oo'], sideLabels:{og:'Opening Government',oo:'Opening Opposition'}, speeches:[
+      { code:'PM',  name:'Prime Minister',           side:'og', time:420 },
+      { code:'LO',  name:'Leader of Opposition',     side:'oo', time:420 },
+      { code:'DPM', name:'Deputy Prime Minister',    side:'og', time:420 },
+      { code:'DLO', name:'Deputy Leader of Opp',     side:'oo', time:420 },
+      { code:'MG',  name:'Member of Government',     side:'og', time:420 },
+      { code:'MO',  name:'Member of Opposition',     side:'oo', time:420 },
+      { code:'GW',  name:'Government Whip',          side:'og', time:420 },
+      { code:'OW',  name:'Opposition Whip',          side:'oo', time:420 },
+    ]},
+    worlds: { name:'Worlds (WUDC)', sides:['og','oo'], sideLabels:{og:'Opening Government',oo:'Opening Opposition'}, speeches:[
+      { code:'PM',  name:'Prime Minister',           side:'og', time:420 },
+      { code:'LO',  name:'Leader of Opposition',     side:'oo', time:420 },
+      { code:'DPM', name:'Deputy Prime Minister',    side:'og', time:420 },
+      { code:'DLO', name:'Deputy Leader of Opp',     side:'oo', time:420 },
+      { code:'MG',  name:'Member of Government',     side:'og', time:420 },
+      { code:'MO',  name:'Member of Opposition',     side:'oo', time:420 },
+      { code:'GW',  name:'Government Whip',          side:'og', time:420 },
+      { code:'OW',  name:'Opposition Whip',          side:'oo', time:420 },
+    ]},
+    asian: { name:'Asian Parliamentary', sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'}, speeches:[
+      { code:'PM',  name:'Prime Minister',     side:'gov', time:420 },
+      { code:'LO',  name:'Leader of Opp',      side:'opp', time:420 },
+      { code:'DPM', name:'Deputy PM',          side:'gov', time:420 },
+      { code:'DLO', name:'Deputy Leader Opp',  side:'opp', time:420 },
+      { code:'GW',  name:'Government Whip',    side:'gov', time:420 },
+      { code:'OW',  name:'Opposition Whip',    side:'opp', time:420 },
+      { code:'Reply_O', name:'Opposition Reply', side:'opp', time:240 },
+      { code:'Reply_G', name:'Government Reply', side:'gov', time:240 },
+    ]},
+    ld: { name:'Lincoln-Douglas', sides:['aff','neg'], sideLabels:{aff:'Affirmative',neg:'Negative'}, speeches:[
+      { code:'AC',  name:'Affirmative Constructive', side:'aff', time:360 },
+      { code:'CX1', name:'Cross-Exam (Neg asks)',    side:'neg', time:180 },
+      { code:'NC',  name:'Negative Constructive',    side:'neg', time:420 },
+      { code:'CX2', name:'Cross-Exam (Aff asks)',    side:'aff', time:180 },
+      { code:'1AR', name:'Aff Rebuttal',             side:'aff', time:240 },
+      { code:'NR',  name:'Neg Rebuttal',             side:'neg', time:360 },
+      { code:'2AR', name:'Aff Rebuttal',             side:'aff', time:180 },
+    ]},
+    pf: { name:'Public Forum', sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'}, speeches:[
+      { code:'PC',  name:'Pro Constructive',   side:'pro', time:240 },
+      { code:'CC',  name:'Con Constructive',    side:'con', time:240 },
+      { code:'CX1', name:'Crossfire',           side:'pro', time:180 },
+      { code:'PR',  name:'Pro Rebuttal',        side:'pro', time:240 },
+      { code:'CR',  name:'Con Rebuttal',        side:'con', time:240 },
+      { code:'CX2', name:'Crossfire',           side:'con', time:180 },
+      { code:'PS',  name:'Pro Summary',         side:'pro', time:180 },
+      { code:'CS',  name:'Con Summary',         side:'con', time:180 },
+      { code:'GCX', name:'Grand Crossfire',     side:'pro', time:180 },
+      { code:'PFF', name:'Pro Final Focus',     side:'pro', time:120 },
+      { code:'CFF', name:'Con Final Focus',     side:'con', time:120 },
+    ]},
+    policy: { name:'Policy (CX)', sides:['aff','neg'], sideLabels:{aff:'Affirmative',neg:'Negative'}, speeches:[
+      { code:'1AC', name:'1st Aff Constructive',  side:'aff', time:480 },
+      { code:'CX1', name:'Cross-Ex (Neg asks)',    side:'neg', time:180 },
+      { code:'1NC', name:'1st Neg Constructive',   side:'neg', time:480 },
+      { code:'CX2', name:'Cross-Ex (Aff asks)',    side:'aff', time:180 },
+      { code:'2AC', name:'2nd Aff Constructive',   side:'aff', time:480 },
+      { code:'CX3', name:'Cross-Ex (Neg asks)',    side:'neg', time:180 },
+      { code:'2NC', name:'2nd Neg Constructive',   side:'neg', time:480 },
+      { code:'CX4', name:'Cross-Ex (Aff asks)',    side:'aff', time:180 },
+      { code:'1NR', name:'1st Neg Rebuttal',       side:'neg', time:300 },
+      { code:'1AR', name:'1st Aff Rebuttal',       side:'aff', time:300 },
+      { code:'2NR', name:'2nd Neg Rebuttal',       side:'neg', time:300 },
+      { code:'2AR', name:'2nd Aff Rebuttal',       side:'aff', time:300 },
+    ]},
+    congress: { name:'Student Congress', sides:['pro','con'], sideLabels:{pro:'Proponent',con:'Opponent'}, speeches:[
+      { code:'S1',  name:'Sponsorship Speech',       side:'pro', time:180 },
+      { code:'Q1',  name:'Questioning Period',        side:'con', time:90 },
+      { code:'S2',  name:'First Negation',            side:'con', time:180 },
+      { code:'Q2',  name:'Questioning Period',        side:'pro', time:90 },
+      { code:'S3',  name:'Second Pro Speech',         side:'pro', time:180 },
+      { code:'Q3',  name:'Questioning Period',        side:'con', time:90 },
+      { code:'S4',  name:'Second Con Speech',         side:'con', time:180 },
+      { code:'Q4',  name:'Questioning Period',        side:'pro', time:90 },
+      { code:'S5',  name:'Third Pro Speech',          side:'pro', time:180 },
+      { code:'S6',  name:'Third Con Speech',          side:'con', time:180 },
+    ]},
+  };
+
+  // ── URL params. /live-round.html?motion=X&format=apda&pro=Alex&con=Bob&room=DebateAI-c123
+  // Both /live.html (after accept) and direct links share the same shape so
+  // a posted-then-accepted challenge lands here with everything prefilled.
+  var qs = new URLSearchParams(location.search);
+  var prefill = {
+    motion: qs.get('motion') || '',
+    format: qs.get('format') || 'quick',
+    pro:    qs.get('pro')    || '',
+    con:    qs.get('con')    || '',
+    room:   qs.get('room')   || ('DebateAI-Round-' + Math.random().toString(36).slice(2,10)),
+  };
+  if (!FORMATS[prefill.format]) prefill.format = 'quick';
+
+  // ── Shorthands
+  var $ = function(id){ return document.getElementById(id); };
+  function escHtml(s){
+    return String(s||'').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function fmtTime(sec){
+    if (sec < 0) sec = 0;
+    var m = Math.floor(sec/60), s = Math.floor(sec%60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+  function toast(msg){
+    var t = document.createElement('div');
+    t.className = 'toast'; t.textContent = msg;
+    $('toastHost').appendChild(t);
+    setTimeout(function(){ t.style.transition='opacity .3s'; t.style.opacity='0'; }, 2400);
+    setTimeout(function(){ t.remove(); }, 2800);
+  }
+
+  // ── State
+  var state = {
+    phase: 'setup',          // 'setup' | 'round' | 'ballot'
+    formatKey: prefill.format,
+    motion: prefill.motion,
+    proName: prefill.pro,
+    conName: prefill.con,
+    room: prefill.room,
+    speechIdx: 0,
+    log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, overran }
+    timerInterval: null,
+    timerStart: 0,
+    timerTotalSec: 0,
+    jitsiApi: null,
+    recognition: null,
+    micActive: false,
+    micFinal: '',            // committed transcript chunks
+  };
+
+  // ── Setup view rendering
+  function renderSetup(){
+    var f = FORMATS[state.formatKey];
+    $('motionDisplay').textContent = state.motion || '(no motion provided — paste one in via the URL or set it now)';
+    $('formatDisplay').innerHTML =
+      '<span class="tag">' + escHtml(f.name) + '</span>' +
+      '<span class="tag tag-pro">' + escHtml(f.sideLabels[f.sides[0]]) + '</span>' +
+      '<span class="tag tag-con">' + escHtml(f.sideLabels[f.sides[1]]) + '</span>' +
+      '<span class="tag">' + f.speeches.length + ' speech' + (f.speeches.length===1?'':'es') + '</span>';
+    $('proLabel').textContent = f.sideLabels[f.sides[0]] + ' speaker';
+    $('conLabel').textContent = f.sideLabels[f.sides[1]] + ' speaker';
+    $('proName').value = state.proName;
+    $('conName').value = state.conName;
+    $('formatSel').value = state.formatKey;
+    $('roomDisplay').textContent = state.room;
+
+    // Speech sequence preview
+    var totalMin = Math.round(f.speeches.reduce(function(s,sp){return s+sp.time;},0)/60);
+    var seq = f.speeches.map(function(sp){
+      var who = sp.side === f.sides[0] ? 'pro' : 'con';
+      return '<span class="tag tag-' + who + '" style="margin:2px 4px 2px 0">' + escHtml(sp.code) + ' · ' + Math.round(sp.time/60*10)/10 + 'm</span>';
+    }).join('');
+    $('sequencePreview').innerHTML = seq + '<div style="margin-top:8px;color:var(--text-ghost)">Total: ~' + totalMin + ' minutes</div>';
+
+    updateStartBtn();
+  }
+
+  function updateStartBtn(){
+    var ok = state.motion.trim().length > 5
+          && $('proName').value.trim().length > 0
+          && $('conName').value.trim().length > 0;
+    $('startBtn').disabled = !ok;
+  }
+
+  // ── Round view rendering
+  function renderRound(){
+    var f = FORMATS[state.formatKey];
+    var sp = f.speeches[state.speechIdx];
+    if (!sp){ finishRound(); return; }
+    var sideKey = sp.side;
+    var isFirstSide = sideKey === f.sides[0];
+    var speakerName = isFirstSide ? state.proName : state.conName;
+    var sideLabel = f.sideLabels[sideKey];
+
+    $('speechCode').textContent = sp.code;
+    $('speechName').textContent = sp.name;
+    $('speakerName').textContent = speakerName + ' (' + sideLabel + ')';
+    var sideTag = $('speakerSide');
+    sideTag.textContent = sideLabel;
+    sideTag.className = 'tag ' + (isFirstSide ? 'tag-pro' : 'tag-con');
+    $('timerTarget').textContent = '/ ' + fmtTime(sp.time);
+    $('speechText').value = '';
+    state.micFinal = '';
+    updateWordCount();
+    renderSequence();
+    startTimer(sp.time);
+    $('speechText').focus();
+  }
+
+  function renderSequence(){
+    var f = FORMATS[state.formatKey];
+    var html = f.speeches.map(function(sp, i){
+      var cls = i < state.speechIdx ? 'done' : (i === state.speechIdx ? 'active' : '');
+      return '<div class="sequence-item ' + cls + '" title="' + escHtml(sp.name) + '"><span class="pill">' + escHtml(sp.code) + '</span>' + (i < state.speechIdx ? '✓' : (i === state.speechIdx ? '▶' : '·')) + '</div>';
+    }).join('');
+    $('sequenceList').innerHTML = html;
+  }
+
+  function updateWordCount(){
+    var txt = $('speechText').value.trim();
+    var n = txt ? txt.split(/\s+/).length : 0;
+    $('wordCount').textContent = n + ' word' + (n===1?'':'s');
+  }
+
+  // ── Timer
+  function startTimer(targetSec){
+    stopTimer();
+    state.timerStart = Date.now();
+    state.timerTotalSec = targetSec;
+    function tick(){
+      var elapsed = (Date.now() - state.timerStart) / 1000;
+      var remaining = state.timerTotalSec - elapsed;
+      var num = $('timerNum'), bar = $('timerBar');
+      num.textContent = remaining >= 0 ? fmtTime(remaining) : '+' + fmtTime(-remaining);
+      var pct = Math.min(100, Math.max(0, 100 * elapsed / state.timerTotalSec));
+      bar.style.width = pct + '%';
+      var warnClass = remaining < 0 ? 'over' : remaining < 30 ? 'warn' : '';
+      num.className = 'timer-num' + (warnClass ? ' ' + warnClass : '');
+      bar.className = 'timer-bar' + (warnClass ? ' ' + warnClass : '');
+    }
+    tick();
+    state.timerInterval = setInterval(tick, 200);
+  }
+  function stopTimer(){
+    if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
+  }
+
+  // ── Mic / SpeechRecognition. Uses the standard Web Speech API. Chrome
+  // and Safari (recent) support it; Firefox does not. The transcript is
+  // editable so users can correct fly-byes without restarting.
+  function initRecognition(){
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+    var rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    rec.onresult = function(e){
+      var interim = '';
+      for (var i = e.resultIndex; i < e.results.length; i++){
+        var r = e.results[i];
+        if (r.isFinal) state.micFinal += (state.micFinal ? ' ' : '') + r[0].transcript.trim();
+        else interim += r[0].transcript;
+      }
+      var ta = $('speechText');
+      var combined = (state.micFinal + ' ' + interim).trim();
+      // Only clobber if user hasn't manually edited beyond what we own.
+      // Simplest heuristic: if textarea value starts with what we've
+      // committed, append; otherwise leave the user edit alone and
+      // restart capturing from the current cursor.
+      if (ta.value.length === 0 || ta.value === ta._lastMicValue){
+        ta.value = combined;
+        ta._lastMicValue = combined;
+      } else {
+        // user typed something. fold mic content in at the end.
+        if (interim || (e.results[e.results.length-1] && e.results[e.results.length-1].isFinal)){
+          ta.value = (ta.value.trim() + ' ' + (interim || '')).trim();
+        }
+      }
+      updateWordCount();
+    };
+    rec.onerror = function(e){
+      console.warn('[Mic] error', e.error);
+      if (e.error === 'not-allowed') {
+        toast('Mic blocked. Type the speech instead.');
+        setMicActive(false);
+      }
+    };
+    rec.onend = function(){
+      // auto-restart while we're still in a speech and mic is ON
+      if (state.micActive && state.phase === 'round'){
+        try { rec.start(); } catch(e){}
+      }
+    };
+    return rec;
+  }
+  function setMicActive(on){
+    var btn = $('micBtn');
+    if (on && !state.recognition) state.recognition = initRecognition();
+    if (on && !state.recognition){
+      toast('Mic not supported in this browser. Use Chrome or just type.');
+      return;
+    }
+    state.micActive = on;
+    if (on){
+      try { state.recognition.start(); } catch(e){}
+      btn.textContent = '⏸ Stop mic';
+      btn.classList.add('live');
+    } else {
+      try { state.recognition && state.recognition.stop(); } catch(e){}
+      btn.textContent = '🎙 Start mic';
+      btn.classList.remove('live');
+    }
+  }
+
+  // ── Jitsi. Mounted lazily on first round-start. Auto-grants mic+cam
+  // (the user just clicked Start so the consent is implicit), uses the
+  // hostless meet.jit.si server (no auth, free, public room name).
+  function mountJitsi(){
+    if (state.jitsiApi) return;
+    if (typeof JitsiMeetExternalAPI === 'undefined'){
+      console.warn('[Jitsi] external API not loaded');
+      return;
+    }
+    var pane = $('jitsiPane');
+    pane.innerHTML = '';
+    try {
+      state.jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', {
+        roomName: state.room,
+        parentNode: pane,
+        configOverwrite: {
+          startWithAudioMuted: false,
+          startWithVideoMuted: false,
+          prejoinPageEnabled: false,
+          disableDeepLinking: true,
+        },
+        interfaceConfigOverwrite: {
+          MOBILE_APP_PROMO: false,
+          SHOW_JITSI_WATERMARK: false,
+          SHOW_WATERMARK_FOR_GUESTS: false,
+          DISABLE_VIDEO_BACKGROUND: true,
+        },
+        userInfo: {
+          displayName: (state.speechIdx === 0)
+            ? (state.proName + ' or ' + state.conName)
+            : (state.proName + '/' + state.conName),
+        },
+      });
+    } catch(e){
+      console.warn('[Jitsi] mount failed', e);
+      pane.innerHTML = '<div class="jitsi-fallback"><h2>Couldn\'t embed video room</h2><p>Open <a href="https://meet.jit.si/' + escHtml(state.room) + '" target="_blank" rel="noopener">' + escHtml(state.room) + '</a> in another tab and continue the round here.</p></div>';
+    }
+  }
+
+  // ── Phase transitions
+  function startRound(){
+    state.motion = ($('motionDisplay').textContent === '(no motion provided — paste one in via the URL or set it now)') ? '' : state.motion;
+    if (!state.motion){
+      var m = prompt('Motion?');
+      if (!m || m.trim().length < 5){ return; }
+      state.motion = m.trim();
+      $('motionDisplay').textContent = state.motion;
+    }
+    state.proName = $('proName').value.trim();
+    state.conName = $('conName').value.trim();
+    state.formatKey = $('formatSel').value;
+    state.speechIdx = 0;
+    state.log = [];
+    state.phase = 'round';
+    $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
+    $('setupView').classList.add('hidden');
+    $('roundView').classList.remove('hidden');
+    mountJitsi();
+    renderRound();
+    try { gtag('event', 'live_round_start', { format: state.formatKey }); } catch(e){}
+  }
+
+  function endSpeech(opts){
+    opts = opts || {};
+    var f = FORMATS[state.formatKey];
+    var sp = f.speeches[state.speechIdx];
+    if (!sp) return;
+    var elapsed = state.timerInterval ? (Date.now() - state.timerStart)/1000 : 0;
+    stopTimer();
+    setMicActive(false);
+    var sideKey = sp.side;
+    var isFirstSide = sideKey === f.sides[0];
+    var speakerName = isFirstSide ? state.proName : state.conName;
+    state.log.push({
+      code: sp.code,
+      name: sp.name,
+      side: sp.side,
+      speakerName: speakerName,
+      text: opts.skipped ? '(skipped)' : ($('speechText').value.trim() || '(no transcript)'),
+      durationSec: Math.round(elapsed),
+      overran: elapsed > sp.time + 5,
+      skipped: !!opts.skipped,
+    });
+    state.speechIdx++;
+    if (state.speechIdx >= f.speeches.length){
+      finishRound();
+    } else {
+      $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length;
+      renderRound();
+    }
+  }
+
+  function finishRound(){
+    state.phase = 'ballot';
+    $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Judging…';
+    $('roundView').classList.add('hidden');
+    $('ballotView').classList.remove('hidden');
+    $('ballotLoading').classList.remove('hidden');
+    $('ballotResult').classList.add('hidden');
+    generateBallot();
+  }
+
+  // ── Ballot. Sends the full round transcript to /api/claude with a
+  // schema-locked prompt asking for a JSON ballot keyed by speaker name.
+  // Streamed because the upstream endpoint streams; we collect the chunks
+  // and parse the JSON at the end.
+  function buildBallotPrompt(){
+    var f = FORMATS[state.formatKey];
+    var transcript = state.log.map(function(l){
+      return '[' + l.code + ' · ' + l.speakerName + ' (' + f.sideLabels[l.side] + ')]'
+        + (l.overran ? ' [OVERRAN]' : '')
+        + (l.skipped ? ' [SKIPPED]' : '')
+        + '\n' + l.text;
+    }).join('\n\n');
+
+    var system = [
+      "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, and rigorous — these are real debaters who want to learn.",
+      "",
+      "FORMAT RULES — judge the round through this lens:",
+      "- " + f.name + " is the format. The speech sequence is fixed and the speakers below ran it.",
+      "- Reward: clash, weighing, warranted analysis, format-appropriate strategic choices, clear ballot stories.",
+      "- Penalize: dropped arguments not extended, unweighed contradictions, abandoning offense, jargon without warrant.",
+      "- Speaker points: score on the appropriate scale for this format. APDA/Worlds: 25-30 (28 = average, 29+ = strong). PF/LD: 27-30. Policy: 27-29. Quick Clash: just rank 1-10 effort.",
+      "- 'overran' tag = went past time. Do not penalize a few seconds, but a meaningful overrun shows poor time management.",
+      "",
+      "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
+      "{",
+      '  "winner": "pro" | "con",',
+      '  "proName": "<name>",',
+      '  "conName": "<name>",',
+      '  "proPoints": <number>,',
+      '  "conPoints": <number>,',
+      '  "rfd": "<3-6 sentence reason for decision: who won the key clashes, how the round played out, what the deciding issue was>",',
+      '  "proFeedback": "<2-3 sentences: what the pro speaker did well + one specific improvement>",',
+      '  "conFeedback": "<2-3 sentences: same for con>"',
+      "}",
+      "",
+      "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
+      "Keep the RFD specific to what was said. Quote-style references are great. Do not be sycophantic — call out drops and missed weighing.",
+    ].join('\n');
+
+    var user = "MOTION: " + state.motion + "\n\nFORMAT: " + f.name + "\n\nPRO/" + f.sideLabels[f.sides[0]].toUpperCase() + " SPEAKER: " + state.proName
+      + "\nCON/" + f.sideLabels[f.sides[1]].toUpperCase() + " SPEAKER: " + state.conName
+      + "\n\nFULL ROUND TRANSCRIPT:\n\n" + transcript
+      + "\n\nReturn the JSON ballot now.";
+
+    return { system: system, user: user };
+  }
+
+  function generateBallot(){
+    var p = buildBallotPrompt();
+    fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        stream: false,
+        system: p.system,
+        messages: [{ role:'user', content: p.user }],
+        _feature: 'live-round',
+      }),
+    }).then(function(r){
+      if (!r.ok) throw new Error('Ballot API ' + r.status);
+      var ct = r.headers.get('content-type') || '';
+      if (ct.indexOf('text/event-stream') >= 0) {
+        // Streaming response — collect chunks from SSE.
+        return r.text().then(function(text){
+          // Extract any text deltas
+          var chunks = text.split('\n').filter(function(l){ return l.indexOf('data:') === 0; }).map(function(l){
+            try { return JSON.parse(l.slice(5).trim()); } catch(e){ return null; }
+          }).filter(Boolean);
+          var combined = chunks.map(function(c){
+            if (c.delta && c.delta.text) return c.delta.text;
+            if (c.content_block && c.content_block.text) return c.content_block.text;
+            return '';
+          }).join('');
+          return combined;
+        });
+      }
+      return r.text();
+    }).then(function(raw){
+      var parsed = parseBallot(raw);
+      if (!parsed){ throw new Error('Could not parse ballot. Raw response saved to console.'); console.log(raw); }
+      renderBallot(parsed);
+      try { gtag('event', 'live_round_ballot', { format: state.formatKey, winner: parsed.winner }); } catch(e){}
+    }).catch(function(err){
+      $('ballotLoading').innerHTML = '<div style="color:#fca5a5;font-weight:700">Ballot failed</div>'
+        + '<div style="font-size:.78rem;margin-top:6px;color:var(--text-dim)">' + escHtml(err.message) + '</div>'
+        + '<div style="margin-top:14px"><button class="btn" onclick="location.reload()">Try again</button></div>';
+    });
+  }
+
+  function parseBallot(raw){
+    if (!raw) return null;
+    var s = String(raw).replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    var first = s.indexOf('{'), last = s.lastIndexOf('}');
+    if (first < 0 || last <= first) return null;
+    try {
+      var obj = JSON.parse(s.slice(first, last+1));
+      // sanity defaults
+      obj.winner = (obj.winner || '').toLowerCase();
+      if (obj.winner !== 'pro' && obj.winner !== 'con') return null;
+      return obj;
+    } catch(e){ return null; }
+  }
+
+  function renderBallot(b){
+    $('ballotLoading').classList.add('hidden');
+    var result = $('ballotResult');
+    result.classList.remove('hidden');
+    var f = FORMATS[state.formatKey];
+    var winnerName = b.winner === 'pro' ? state.proName : state.conName;
+    var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
+    var loserName  = b.winner === 'pro' ? state.conName : state.proName;
+    var loserSide  = b.winner === 'pro' ? f.sideLabels[f.sides[1]] : f.sideLabels[f.sides[0]];
+    result.innerHTML =
+      '<div class="verdict ' + (b.winner === 'pro' ? 'pro' : 'con') + '">' +
+        '<div class="verdict-headline">' + escHtml(winnerName) + ' wins</div>' +
+        '<div class="verdict-sub">' + escHtml(winnerSide) + ' over ' + escHtml(loserSide) + ' (' + escHtml(loserName) + ')</div>' +
+      '</div>' +
+      '<div class="points-grid">' +
+        '<div class="points-card">' +
+          '<div class="name">' + escHtml(state.proName) + ' · ' + escHtml(f.sideLabels[f.sides[0]]) + '</div>' +
+          '<div class="pts">' + (b.proPoints != null ? escHtml(String(b.proPoints)) : '—') + '</div>' +
+          '<div class="pts-label">Speaker points</div>' +
+        '</div>' +
+        '<div class="points-card">' +
+          '<div class="name">' + escHtml(state.conName) + ' · ' + escHtml(f.sideLabels[f.sides[1]]) + '</div>' +
+          '<div class="pts">' + (b.conPoints != null ? escHtml(String(b.conPoints)) : '—') + '</div>' +
+          '<div class="pts-label">Speaker points</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="rfd">' +
+        '<h3>Reason for decision</h3>' +
+        '<p>' + escHtml(b.rfd || '(no RFD generated)') + '</p>' +
+        (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + escHtml(b.proFeedback) + '</p>' : '') +
+        (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + escHtml(b.conFeedback) + '</p>' : '') +
+      '</div>' +
+      '<div class="rfd-actions">' +
+        '<button class="btn" id="copyBallotBtn" type="button">Copy ballot</button>' +
+        '<a class="btn" href="/live">Back to board</a>' +
+        '<a class="btn btn-primary" href="' + location.pathname + location.search + '" onclick="setTimeout(function(){location.reload()},10);return true">Run another round</a>' +
+      '</div>';
+    $('copyBallotBtn').addEventListener('click', function(){
+      var f = FORMATS[state.formatKey];
+      var lines = [
+        'Live Round Ballot — ' + f.name,
+        'Motion: ' + state.motion,
+        '',
+        winnerName + ' (' + winnerSide + ') wins.',
+        '',
+        state.proName + ': ' + (b.proPoints != null ? b.proPoints + ' speaks' : ''),
+        state.conName + ': ' + (b.conPoints != null ? b.conPoints + ' speaks' : ''),
+        '',
+        'RFD: ' + (b.rfd || ''),
+        '',
+        state.proName + ': ' + (b.proFeedback || ''),
+        state.conName + ': ' + (b.conFeedback || ''),
+      ].join('\n');
+      try { navigator.clipboard.writeText(lines); toast('Ballot copied to clipboard.'); } catch(e){ toast('Couldn\'t copy.'); }
+    });
+  }
+
+  // ── Wire setup form
+  $('proName').addEventListener('input', function(){ state.proName = this.value; updateStartBtn(); });
+  $('conName').addEventListener('input', function(){ state.conName = this.value; updateStartBtn(); });
+  $('formatSel').addEventListener('change', function(){
+    state.formatKey = this.value;
+    renderSetup();
+  });
+  $('startBtn').addEventListener('click', startRound);
+
+  // Round controls
+  $('endSpeechBtn').addEventListener('click', function(){ endSpeech(); });
+  $('skipSpeechBtn').addEventListener('click', function(){
+    if (!confirm('Skip ' + FORMATS[state.formatKey].speeches[state.speechIdx].code + '? It will be marked skipped on the ballot.')) return;
+    endSpeech({ skipped:true });
+  });
+  $('micBtn').addEventListener('click', function(){ setMicActive(!state.micActive); });
+  $('speechText').addEventListener('input', function(){
+    this._lastMicValue = null; // user took control
+    updateWordCount();
+  });
+
+  // Keyboard: Space to mic, Enter to end
+  document.addEventListener('keydown', function(e){
+    if (state.phase !== 'round') return;
+    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) return;
+    if (e.key === ' '){ e.preventDefault(); setMicActive(!state.micActive); }
+    if (e.key === 'Enter'){ e.preventDefault(); endSpeech(); }
+  });
+
+  // Allow editing motion inline if missing
+  $('motionDisplay').addEventListener('click', function(){
+    if (state.motion) return;
+    var m = prompt('Motion?');
+    if (m && m.trim().length > 5){
+      state.motion = m.trim();
+      $('motionDisplay').textContent = state.motion;
+      updateStartBtn();
+    }
+  });
+
+  // ── Boot
+  renderSetup();
+  // If everything's prefilled (incl. motion), auto-focus Start so power
+  // users can keyboard through.
+  if (state.motion && state.proName && state.conName){
+    $('startBtn').focus();
+  } else {
+    $((state.proName ? 'conName' : 'proName')).focus();
+  }
+})();
+</script>
+</body>
+</html>
