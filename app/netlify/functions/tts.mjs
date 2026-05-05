@@ -235,6 +235,78 @@ async function openAITTS(text, voice, speed, apiKey) {
   return response;
 }
 
+// Inworld TTS — opt-in via body.provider === 'inworld' for Pro users.
+// Sub-200ms latency, fully multilingual, "#1 ranked TTS" per their pitch.
+// Field names follow the Inworld v1 spec exactly: snake_case for body
+// keys, "voice_id" + "model_id", audio_config wrapper, Basic auth.
+// Voice names map our debater personalities → Inworld's stock voices.
+// Fallback for unknown personality is "Sarah" (the platform's default
+// example voice — bright American female).
+const INWORLD_VOICES = {
+  professor:   'Christopher',  // Deep authoritative male
+  closer:      'Sarah',        // Mature confident female
+  surgeon:     'Adam',         // Smooth trustworthy male
+  veteran:     'Eric',         // Resonant gravitas
+  firebrand:   'Liam',         // Energetic young male
+  diplomat:    'Matilda',      // Professional female
+  debater:     'Freya',        // Sharp quick female
+  philosopher: 'Charlie',      // Thoughtful calm male
+  prosecutor:  'Will',         // Intense direct male
+  storyteller: 'Laura',        // Warm narrative female
+  statesman:   'George',       // Warm British male
+  barrister:   'Daniel',       // British authoritative
+  upstart:     'Lily',         // Youthful British female
+  heckler:     'Roger',        // Gravelly older male
+  disruptor:   'Jessica',      // Youthful energy female
+  tactician:   'Bill',         // Calm narrator male
+};
+async function inworldTTS(text, voice, speed, apiKey) {
+  const personality = OPENAI_TO_PERSONALITY[voice] || voice;
+  const voiceId = INWORLD_VOICES[personality] || 'Sarah';
+  // Inworld uses Basic auth with the raw key as the credential (no
+  // base64 encoding). The "Basic " prefix is part of their format —
+  // see the Make Your First API Call page on inworld.ai. If a future
+  // deploy needs base64-encoded credentials, set INWORLD_AUTH_BASE64=1.
+  const useBase64 = process.env.INWORLD_AUTH_BASE64 === '1';
+  const cred = useBase64 ? Buffer.from(apiKey).toString('base64') : apiKey;
+  const auth = `Basic ${cred}`;
+  const response = await fetch('https://api.inworld.ai/tts/v1/voice', {
+    method: 'POST',
+    headers: {
+      'Authorization': auth,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      text,
+      voice_id: voiceId,
+      model_id: 'inworld-tts-1.5-max',
+      audio_config: {
+        audio_encoding: 'MP3',
+      },
+    }),
+  });
+  // Inworld responds with a JSON envelope: { audioContent: "<base64>" }
+  // — repackage it as a raw mp3 byte response so it matches the shape
+  // the other providers (ElevenLabs/Cartesia/OpenAI) return. The client
+  // expects to consume `response.body` as an audio blob; staying
+  // byte-stream parity here means no client-side branching per provider.
+  if (response.ok) {
+    const ct = response.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const j = await response.json().catch(() => ({}));
+      const b64 = j.audioContent || j.audio || j.audio_content;
+      if (b64) {
+        const buf = Buffer.from(b64, 'base64');
+        return new Response(buf, {
+          status: 200,
+          headers: { 'content-type': 'audio/mpeg' },
+        });
+      }
+    }
+  }
+  return response;
+}
+
 export default async (request, context) => {
   const CORS = getCorsHeaders(request);
 
@@ -251,9 +323,10 @@ export default async (request, context) => {
 
   const elevenKey = process.env.ELEVENLABS_API_KEY;
   const cartesiaKey = process.env.CARTESIA_API_KEY;
+  const inworldKey = process.env.INWORLD_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
-  if (!elevenKey && !cartesiaKey && !openaiKey) {
+  if (!elevenKey && !cartesiaKey && !inworldKey && !openaiKey) {
     return new Response(
       JSON.stringify({ error: 'TTS not configured.' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } }
@@ -315,6 +388,21 @@ export default async (request, context) => {
         }
       } catch (e) {
         console.error('Cartesia exception:', e.message);
+        response = null;
+      }
+    }
+
+    // Premium + explicit opt-in → Inworld TTS 1.5 Max (Pro provider option)
+    if (!response && premium && provider === 'inworld' && inworldKey) {
+      try {
+        response = await inworldTTS(text, voice, speed, inworldKey);
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          console.error('Inworld TTS error:', response.status, errText);
+          response = null;
+        }
+      } catch (e) {
+        console.error('Inworld exception:', e.message);
         response = null;
       }
     }

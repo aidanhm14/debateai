@@ -1979,10 +1979,16 @@ function useTTS(){
   // override per-character.
   const fetchTTS=(text,speed,voiceName,intensity)=>{
     const i = typeof intensity === 'number' ? Math.min(1,Math.max(0,intensity)) : 0;
+    // useTTS lives at module scope; can't close over App-level state.
+    // Read the provider preference from localStorage on each request so
+    // changes from the Account modal take effect on the next speech
+    // without needing to thread state down through the hook.
+    let providerPref;
+    try{providerPref = localStorage.getItem('debateos-tts-provider')||'elevenlabs'}catch{providerPref='elevenlabs'}
     return fetch('/api/tts',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:text.slice(0,4000),voice:voiceName||'sage',speed,premium:isPro(),intensity:i}),
+      body:JSON.stringify({text:text.slice(0,4000),voice:voiceName||'sage',speed,premium:isPro(),intensity:i,provider:isPro()?providerPref:undefined}),
     }).then(r=>{
       if(!r.ok) throw new Error('TTS '+r.status);
       return r.blob();
@@ -2832,6 +2838,21 @@ function App(){
   const[oppWeaknesses,setOppWeaknesses]=useState([]);
   const[brain,setBrain]=useState('claude');
   const[voice,setVoice]=useState('onyx');
+  // Account modal toggle. Lives in the topbar; opens a centered overlay
+  // with email + plan badge + BYOK key entry + TTS provider selector +
+  // manage-subscription link to Stripe billing portal.
+  const[showAccount,setShowAccount]=useState(false);
+  // BYOK key entry. Mirrors getStoredKey()/setStoredKey() so the modal
+  // and the offline-fallback prompt share the same localStorage slot.
+  const[byokKey,setByokKey]=useState(()=>{try{return localStorage.getItem('debateos-anthropic-key')||''}catch{return ''}});
+  const[byokRevealed,setByokRevealed]=useState(false);
+  // TTS provider preference. Pro users can opt into Inworld (sub-200ms,
+  // multilingual, distinct voice timbre) instead of the default
+  // ElevenLabs turbo_v2_5. Free users always get OpenAI tts-1 regardless
+  // of this setting — backend ignores the provider field for non-premium.
+  const[ttsProvider,setTtsProvider]=useState(()=>{try{return localStorage.getItem('debateos-tts-provider')||'elevenlabs'}catch{return 'elevenlabs'}});
+  useEffect(()=>{try{localStorage.setItem('debateos-tts-provider',ttsProvider)}catch{}},[ttsProvider]);
+  const[providerTestStatus,setProviderTestStatus]=useState('');
   // AI speaking language. Separate from the UI translation locale —
   // a user reading the UI in English can still want the AI to debate
   // in Spanish or Mandarin (e.g. circuit prep in their first language).
@@ -3336,7 +3357,7 @@ function App(){
           return fetch('/api/tts',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro(),intensity:ttsIntensity}),
+            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro(),intensity:ttsIntensity,provider:isPro()?ttsProvider:undefined}),
           }).then(r=>{
             if(!r.ok) throw new Error('TTS '+r.status);
             return r.blob();
@@ -4023,9 +4044,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
       el('a',{href:'/learn',className:'bar-link-secondary'},'Learn'),
       el('a',{href:'/landing',className:'bar-link-secondary'},'About'),
       user ? el('div',{style:{display:'flex',alignItems:'center',gap:10}},
-        user.photoURL && el('img',{src:user.photoURL,style:{width:24,height:24,borderRadius:'50%',border:'1px solid var(--c-border4)'}}),
-        el('span',{style:{fontSize:'.72rem',color:'var(--c-text3)'}},user.displayName?.split(' ')[0]),
+        user.photoURL && el('img',{src:user.photoURL,style:{width:24,height:24,borderRadius:'50%',border:'1px solid var(--c-border4)',cursor:'pointer'},onClick:()=>setShowAccount(true),title:'Account & API key'}),
+        el('span',{style:{fontSize:'.72rem',color:'var(--c-text3)',cursor:'pointer'},onClick:()=>setShowAccount(true)},user.displayName?.split(' ')[0]),
         isPro() && el('span',{style:{fontSize:'.6rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}},'PRO'),
+        el('button',{onClick:()=>setShowAccount(true),style:{fontSize:'.65rem',color:'var(--c-muted)',background:'none',border:'1px solid var(--c-border2)',borderRadius:6,padding:'2px 8px',cursor:'pointer',fontFamily:'inherit'},title:'Account & API key'},'Account'),
         el('button',{onClick:signOut,style:{fontSize:'.65rem',color:'var(--c-muted)',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}},'Sign Out'),
       ) : el('button',{onClick:signIn,className:'sign-btn',title:'Sign up free with Google to unlock all features',style:{display:'inline-flex',alignItems:'center',gap:8,fontSize:'.74rem',color:'#1f1f1f',background:'#fff',border:'none',borderRadius:999,padding:'7px 16px',cursor:'pointer',fontWeight:700,fontFamily:'inherit',boxShadow:'0 4px 16px rgba(0,0,0,.35)',whiteSpace:'nowrap'}},
         el('span',{dangerouslySetInnerHTML:{__html:'<svg width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>'}}),
@@ -4127,6 +4149,150 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     ),
   );
 
+  // ── Account modal — opens from the topbar Account button ─────────
+  // Shows email + plan badge + BYOK API-key entry + (Pro) TTS provider
+  // selector + manage-subscription link. The BYOK entry is the headline
+  // feature: subscribers who picked the BYOK plan land here after
+  // checkout to paste their Anthropic key, which gets stored in
+  // localStorage under debateos-anthropic-key (the same slot the
+  // direct-Anthropic fallback path reads on offline retries).
+  const planLabel = (() => {
+    if (!user) return 'Not signed in';
+    if (!team) return 'Free';
+    const p = team.plan || 'free';
+    return ({free:'Free',byok:'BYOK',individual:'Individual',team:'Team',lifetime:'Lifetime'})[p] || p;
+  })();
+  const testTtsProvider = async (which) => {
+    setProviderTestStatus('Testing ' + (which === 'inworld' ? 'Inworld' : which === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI') + '…');
+    try {
+      const r = await fetch('/api/tts', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          text: 'This is a quick voice test. The motion is whether AI debaters should set the pace.',
+          voice: voice || 'onyx',
+          speed: 1.0,
+          premium: isPro(),
+          intensity: 0.4,
+          provider: which,
+        }),
+      });
+      if (!r.ok) throw new Error('TTS '+r.status);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => { URL.revokeObjectURL(url); setProviderTestStatus(''); };
+      audio.onerror = () => { setProviderTestStatus('Playback failed'); };
+      await audio.play();
+      setProviderTestStatus('▶ Playing…');
+    } catch (e) {
+      setProviderTestStatus('Test failed: ' + e.message);
+      setTimeout(() => setProviderTestStatus(''), 3000);
+    }
+  };
+  const openBillingPortal = async () => {
+    try {
+      if (!user) return;
+      const token = await user.getIdToken();
+      const r = await fetch('/api/billing-portal', {
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+      });
+      const data = await r.json().catch(() => ({}));
+      if (data.url) location.href = data.url;
+      else alert(data.error || 'Could not open billing portal.');
+    } catch (e) {
+      alert('Billing portal error: ' + e.message);
+    }
+  };
+  const accountOverlay = showAccount && el('div',{
+    style:{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.62)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',padding:20},
+    onClick:(e)=>{ if(e.target===e.currentTarget) setShowAccount(false); },
+  },
+    el('div',{style:{width:'100%',maxWidth:520,background:'var(--c-surface)',border:'1px solid var(--c-border)',borderRadius:18,padding:'22px 24px',color:'var(--c-text)',boxShadow:'0 24px 60px rgba(0,0,0,.45)'}},
+      // Header
+      el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}},
+        el('div',{style:{display:'flex',alignItems:'center',gap:10}},
+          user && user.photoURL && el('img',{src:user.photoURL,style:{width:32,height:32,borderRadius:'50%',border:'1px solid var(--c-border4)'}}),
+          el('div',null,
+            el('div',{style:{fontSize:'.92rem',fontWeight:700}}, user ? (user.displayName || user.email) : 'Account'),
+            user && el('div',{style:{fontSize:'.7rem',color:'var(--c-muted)'}}, user.email),
+          ),
+        ),
+        el('button',{onClick:()=>setShowAccount(false),style:{background:'none',border:'none',color:'var(--c-muted)',fontSize:'1.4rem',cursor:'pointer',lineHeight:1}},'×'),
+      ),
+      // Plan badge
+      el('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:18,padding:'10px 14px',background:'var(--c-surface2)',border:'1px solid var(--c-border2)',borderRadius:10}},
+        el('span',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--c-muted)'}},'Plan'),
+        el('span',{style:{fontSize:'.82rem',fontWeight:700,color:isPro()?'#ef4444':'var(--c-text)'}},planLabel),
+        isPro() && el('span',{style:{marginLeft:'auto',fontSize:'.6rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.12)',padding:'2px 8px',borderRadius:999}},'PRO'),
+      ),
+      // BYOK API key. The headline reason a BYOK subscriber lands here.
+      el('div',{style:{marginBottom:18}},
+        el('label',{style:{display:'block',fontSize:'.62rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--c-muted)',marginBottom:6}},'Anthropic API key (BYOK)'),
+        el('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+          el('input',{
+            type:byokRevealed?'text':'password',
+            value:byokKey,
+            placeholder:'sk-ant-…',
+            onChange:e=>setByokKey(e.target.value),
+            style:{flex:1,padding:'9px 12px',background:'var(--c-surface2)',border:'1px solid var(--c-border2)',borderRadius:8,color:'var(--c-text)',fontFamily:'ui-monospace,monospace',fontSize:'.78rem',outline:'none'},
+          }),
+          el('button',{onClick:()=>setByokRevealed(!byokRevealed),style:{padding:'8px 10px',background:'transparent',border:'1px solid var(--c-border2)',borderRadius:8,color:'var(--c-muted)',cursor:'pointer',fontFamily:'inherit',fontSize:'.7rem'},title:byokRevealed?'Hide':'Reveal'},byokRevealed?'Hide':'Show'),
+        ),
+        el('div',{style:{display:'flex',gap:8,marginTop:8,flexWrap:'wrap'}},
+          el('button',{onClick:()=>{
+            const k=byokKey.trim();
+            if(!k){try{localStorage.removeItem('debateos-anthropic-key')}catch{};setProviderTestStatus('Key cleared');setTimeout(()=>setProviderTestStatus(''),1500);return;}
+            if(!k.startsWith('sk-ant-')){setProviderTestStatus('That doesn\'t look like an Anthropic key (sk-ant-…)');return;}
+            try{localStorage.setItem('debateos-anthropic-key',k)}catch{}
+            setProviderTestStatus('✓ Saved. Direct Anthropic calls unlocked.');
+            setTimeout(()=>setProviderTestStatus(''),2200);
+          },style:{padding:'8px 14px',background:'var(--c-accent,#ef4444)',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontFamily:'inherit',fontSize:'.78rem',fontWeight:700}},'Save key'),
+          el('a',{href:'https://console.anthropic.com/settings/keys',target:'_blank',rel:'noopener',style:{padding:'8px 12px',background:'transparent',border:'1px solid var(--c-border2)',borderRadius:8,color:'var(--c-text)',textDecoration:'none',fontSize:'.74rem'}},'Get a key →'),
+        ),
+        el('p',{style:{marginTop:8,fontSize:'.7rem',color:'var(--c-subtle)',lineHeight:1.5}},'Stored in your browser only. We never see this key — your prompts go directly from your browser to Anthropic, billed to your account.'),
+      ),
+      // TTS provider — Pro only
+      el('div',{style:{marginBottom:18,opacity:isPro()?1:.55}},
+        el('label',{style:{display:'block',fontSize:'.62rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--c-muted)',marginBottom:6}},'Voice provider ',!isPro() && el('span',{style:{marginLeft:6,fontSize:'.55rem',fontWeight:700,color:'#ef4444',background:'rgba(239,68,68,.12)',padding:'2px 7px',borderRadius:999}},'Pro')),
+        el('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+          ['elevenlabs','inworld'].map(p=>{
+            const label = p==='inworld'?'Inworld TTS 1.5':'ElevenLabs Turbo';
+            const sub   = p==='inworld'?'Sub-200ms · multilingual':'Default · expressive · proven';
+            return el('button',{key:p,disabled:!isPro(),onClick:()=>setTtsProvider(p),style:{
+              flex:1,minWidth:200,
+              padding:'10px 14px',
+              background:ttsProvider===p?'rgba(239,68,68,.12)':'var(--c-surface2)',
+              border:'1px solid '+(ttsProvider===p?'rgba(239,68,68,.5)':'var(--c-border2)'),
+              borderRadius:10,
+              color:ttsProvider===p?'#fca5a5':'var(--c-text)',
+              cursor:isPro()?'pointer':'not-allowed',
+              fontFamily:'inherit',textAlign:'left',
+            }},
+              el('div',{style:{fontSize:'.82rem',fontWeight:700,marginBottom:2}},label),
+              el('div',{style:{fontSize:'.66rem',color:'var(--c-muted)'}},sub),
+            );
+          }),
+        ),
+        el('div',{style:{display:'flex',gap:8,marginTop:10,alignItems:'center',flexWrap:'wrap'}},
+          el('button',{disabled:!isPro(),onClick:()=>testTtsProvider(ttsProvider),style:{padding:'7px 14px',background:'transparent',border:'1px solid var(--c-border2)',borderRadius:8,color:'var(--c-text)',cursor:isPro()?'pointer':'not-allowed',fontFamily:'inherit',fontSize:'.74rem'}},'▶ Test current voice'),
+          providerTestStatus && el('span',{style:{fontSize:'.7rem',color:'var(--c-muted)'}},providerTestStatus),
+        ),
+        !isPro() && el('p',{style:{marginTop:8,fontSize:'.7rem',color:'var(--c-subtle)'}},'Upgrade to Individual / Lifetime / Team to unlock premium voice providers.'),
+      ),
+      // Manage subscription
+      user && team && team.plan && team.plan !== 'free' && el('button',{
+        onClick:openBillingPortal,
+        style:{width:'100%',padding:'10px 14px',background:'transparent',border:'1px solid var(--c-border2)',borderRadius:10,color:'var(--c-text)',cursor:'pointer',fontFamily:'inherit',fontSize:'.78rem',fontWeight:600},
+      },'Manage subscription on Stripe →'),
+      (!user || !team || !team.plan || team.plan === 'free') && el('a',{
+        href:'/pricing',
+        style:{display:'block',textAlign:'center',padding:'10px 14px',background:'var(--c-accent,#ef4444)',color:'#fff',borderRadius:10,textDecoration:'none',fontWeight:700,fontSize:'.82rem'},
+      },'See plans →'),
+    ),
+  );
+
   // Floating help button — persistent affordance that the shortcuts
   // modal exists at all. Users who don't think to press `?` now have
   // a clickable target; users who know the shortcut can ignore it.
@@ -4169,6 +4335,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   // SAVED VIEW — saved cases + past rounds + "how I think as a debater"
   if(phase==='setup' && setupTab==='saved') return el('div',{className:'page'},
     shortcutsOverlay,
+    accountOverlay,
     quotaCtaOverlay,
     helpFloatingButton,
     el('div',{className:'ambient'}),bar,
@@ -4309,6 +4476,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
 
   if(phase==='setup') return el('div',{className:'page'},
     shortcutsOverlay,
+    accountOverlay,
     quotaCtaOverlay,
     helpFloatingButton,
     el('div',{className:'ambient'}),bar,
@@ -4931,6 +5099,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
   // ── PREP ──
   if(phase==='prep') return el('div',{className:'page'},
     shortcutsOverlay,
+    accountOverlay,
     quotaCtaOverlay,
     helpFloatingButton,
     el('div',{className:'ambient'}),bar,
@@ -4984,6 +5153,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     const tc=timer.left<=15?'danger':timer.left<=30?'warn':'';
     return el('div',{className:'page'},
       shortcutsOverlay,
+    accountOverlay,
       helpFloatingButton,
       el('div',{className:'ambient'}),bar,
       el('div',{className:stageClass,key:'s'+idx},
@@ -5240,6 +5410,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW —". No closing
     const wr=getWinRate();
     return el('div',{className:'page'},
       shortcutsOverlay,
+    accountOverlay,
       helpFloatingButton,
       el('div',{className:'ambient'}),bar,
       el('div',{className:stageClass,style:{justifyContent:'flex-start',paddingTop:90,maxWidth:700,textAlign:'left'}},
