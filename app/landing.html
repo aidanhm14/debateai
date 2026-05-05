@@ -1595,15 +1595,17 @@ button{font-family:inherit;cursor:pointer}
       // re-fetch ever needed for the same sample.
       var cacheByIdx = {};
       var inFlightByIdx = {};
-      // The landing demo is the user's first-impression of voice quality , 
-      // route it through ElevenLabs Turbo v2.5 (premium=true) with natural
-      // pacing. The previous 2.2×-compound-speed config + free-tier
-      // OpenAI tts-1 sounded chipmunky and obviously synthetic, which
-      // killed the "wow this sounds like a real debater" beat. Now: HD
-      // voices, real cadence, real breath. Marginal cost per visit, big
-      // conversion lift.
-      var SERVER_SPEED  = 1.0;
-      var PLAYBACK_RATE = 1.0;
+      // ElevenLabs Turbo v2.5 (premium=true). Natural cadence pulled
+      // up a notch — at 1.0× the orb sounded too leisurely for the
+      // "this is a fast-talking debater" identity we're selling.
+      // Combined effective speed ≈ 1.44× (server 1.2 × playback 1.2),
+      // which lands in 'sharp, deliberate, urgent' without crossing
+      // into the chipmunky 1.6×+ range that killed the earlier config.
+      // Volume forced to max + Web Audio gain (1.5×) so the orb hits
+      // hard on the first listen.
+      var SERVER_SPEED  = 1.20;
+      var PLAYBACK_RATE = 1.20;
+      var GAIN_BOOST    = 1.5;
 
       function setLabel(t){ if (labelEl) labelEl.textContent = t; }
       function setIcon(t){ if (iconEl) iconEl.textContent = t; }
@@ -1654,6 +1656,40 @@ button{font-family:inherit;cursor:pointer}
         for (var i = 0; i < samples.length; i++) prefetchSample(i);
       }
 
+      // Web Audio context — lazy-created on first user gesture (click)
+      // since browsers block AudioContext creation otherwise. Each Audio
+      // element gets wrapped with a MediaElementAudioSourceNode → GainNode
+      // exactly once, then routed through the gain stage so output sits
+      // ~1.5× louder than the raw audio element. Marked on the element
+      // so we don't double-wrap on replay.
+      var audioCtx = null;
+      function ensureAudioCtx(){
+        if (audioCtx) return audioCtx;
+        try {
+          var Ctx = window.AudioContext || window.webkitAudioContext;
+          if (Ctx) audioCtx = new Ctx();
+        } catch(e){ audioCtx = null; }
+        return audioCtx;
+      }
+      function wireGain(a){
+        if (a.__gainWired) return;
+        var ctx = ensureAudioCtx();
+        if (!ctx) return;
+        try {
+          if (ctx.state === 'suspended') ctx.resume();
+          var src = ctx.createMediaElementSource(a);
+          var gain = ctx.createGain();
+          gain.gain.value = GAIN_BOOST;
+          src.connect(gain);
+          gain.connect(ctx.destination);
+          a.__gainWired = true;
+        } catch(e){
+          // Some browsers throw if the element already routes elsewhere.
+          // Mark wired so we don't retry every play.
+          a.__gainWired = true;
+        }
+      }
+
       function playAudio(a, idx){
         current = a;
         lastIdx = idx;
@@ -1661,6 +1697,8 @@ button{font-family:inherit;cursor:pointer}
         btn.classList.add('playing','speaking');
         setLabel('Click again to stop');
         try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
+        a.volume = 1.0;
+        wireGain(a);
         a.onended = function(){ if (current === a) current = null; reset(); };
         a.onerror = function(){ if (current === a) current = null; reset(); };
         try { a.currentTime = 0; } catch(e){}

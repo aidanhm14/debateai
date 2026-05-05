@@ -1359,37 +1359,62 @@ button{font-family:inherit}
             '<button class="btn btn-bail" data-bail="' + c.id + '">✕ Bail</button>' +
           '</div>';
       } else {
-        // You can't accept your own challenge — that would put both
-        // sides as the same person and break the round flow. Show a
-        // 'You posted this' badge + share-link button instead, with
-        // the Remove button still available so the user can pull it
-        // back. Compare on posterUid (Firestore-backed identity)
-        // first, fall back to handle for legacy localStorage entries.
+        // Three sub-states for non-locally-accepted cards:
+        //   (a) I'm the poster + someone accepted: 'Matched! @X is in.'
+        //   (b) I'm the poster + nobody accepted: 'Waiting...'
+        //   (c) Open challenge from someone else: Accept button
         var isMine = currentUser && c.posterUid && c.posterUid === currentUser.uid;
-        var actions;
-        if (isMine){
+        var hasAccepter = !!c.accepterUid && (!currentUser || c.accepterUid !== currentUser.uid);
+        var actions, meta, headExtra = '';
+        var roomName = 'DebateAI-' + String(c.id).replace(/[^a-zA-Z0-9]/g,'');
+        var rs = roomStatus[roomName] || {};
+        if (isMine && hasAccepter){
+          // Poster sees the match — subscribe to the round doc so the
+          // 'opponent in room' presence applies here too.
+          ensureRoomSubscription(c);
+          activeRooms[roomName] = true;
+          var profile = loadProfile();
+          var roundParams = new URLSearchParams({
+            motion: c.motion || c.topicLine || c.themeLine || '',
+            format: c.format,
+            pro: c.side === 'pro' ? (profile.name || c.posterName || 'You') : (c.accepterName || 'Opponent'),
+            con: c.side === 'con' ? (profile.name || c.posterName || 'You') : (c.accepterName || 'Opponent'),
+            room: roomName,
+            challengeId: c.id,
+          });
+          var roundUrl = '/live-round.html?' + roundParams.toString();
+          var ctaLabel, ctaClass;
+          if (rs.hasBallot){ ctaLabel = '📋 View ballot'; ctaClass = 'btn-room'; meta = '<span style="color:#4ade80;font-weight:700">✓ Ballot ready.</span> The AI judged the round.'; }
+          else if (rs.status === 'round'){ ctaLabel = '▶ Join, opponent is in the room'; ctaClass = 'btn-primary'; meta = '<span style="color:#4ade80;font-weight:700;display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:rec-pulse 1.6s ease-in-out infinite"></span>' + escHtml(c.accepterName || 'Opponent') + ' is in the room.</span> Click Join.'; }
+          else { ctaLabel = '▶ Start judged round'; ctaClass = 'btn-primary'; meta = '<strong style="color:#4ade80">@' + escHtml(c.accepterName || 'Opponent') + ' accepted</strong> and will argue <strong>' + escHtml(yourSideLabel) + '</strong>. ' + (sched && sched.live ? 'Match is live, click Start.' : sched ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Start any time once they\'re online.'); }
+          headExtra = '<span class="tag" style="background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.4);color:#4ade80;font-weight:800">✓ MATCHED</span>';
           actions =
-            '<span class="tag tag-matched" style="margin-right:8px">✓ You posted this</span>' +
+            '<a class="btn ' + ctaClass + '" target="_blank" rel="noopener" href="' + escHtml(roundUrl) + '" data-start-round="' + c.id + '">' + ctaLabel + '</a>' +
+            (c.accepterContact ? '<a class="btn btn-ghost" href="' + (/@/.test(c.accepterContact) ? 'mailto:' : 'tel:') + escHtml(c.accepterContact) + '">📨 Contact opponent</a>' : '') +
+            '<button class="btn btn-bail" data-bail-poster="' + c.id + '">✕ Cancel match</button>';
+        } else if (isMine){
+          headExtra = '<span class="tag tag-matched">✓ You posted this</span>';
+          actions =
             '<button class="btn btn-ghost" data-copy-link="' + c.id + '">Copy link to share</button>' +
             (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>');
+          meta = 'Waiting for someone to accept the <strong>' + escHtml(yourSideLabel) + '</strong> side. Share the link or wait.';
         } else {
           actions =
             '<button class="btn btn-primary" data-accept="' + c.id + '">Accept challenge →</button>' +
             (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>');
+          meta = 'You\'d argue <strong>' + escHtml(yourSideLabel) + '</strong>. ' + (sched && sched.live ? 'Match is live, accept to enter the room.' : sched && c.scheduledAt ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Accept to queue up.');
         }
-        var meta = isMine
-          ? 'Waiting for someone to accept the <strong>' + escHtml(yourSideLabel) + '</strong> side. Share the link or wait.'
-          : 'You\'d argue <strong>' + escHtml(yourSideLabel) + '</strong>. ' + (sched && sched.live ? 'Match is live, accept to enter the room.' : sched && c.scheduledAt ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Accept to queue up.');
         card.innerHTML =
           '<div class="card-head">' +
-            '<span class="tag tag-side ' + (c.side === 'pro' ? '' : 'opp') + '">They want ' + escHtml(theirSideLabel) + '</span>' +
+            (isMine && hasAccepter ? headExtra : '<span class="tag tag-side ' + (c.side === 'pro' ? '' : 'opp') + '">They want ' + escHtml(theirSideLabel) + '</span>') +
             '<span class="tag tag-format">' + escHtml(f.name) + '</span>' +
             schedChip +
-            revealChip +
+            (isMine && !hasAccepter ? revealChip : '') +
+            (isMine && !hasAccepter ? headExtra : '') +
             '<span class="tag tag-time">' + fmtTime(c.ts) + (c.handle ? ' · ' + escHtml(c.handle) : '') + '</span>' +
           '</div>' +
           '<div class="card-motion">' + escHtml(displayText) + '</div>' +
-          (head.hint ? '<div class="card-meta" style="font-style:italic;opacity:.75">' + escHtml(head.hint) + '</div>' : '') +
+          (head.hint && !(isMine && hasAccepter) ? '<div class="card-meta" style="font-style:italic;opacity:.75">' + escHtml(head.hint) + '</div>' : '') +
           '<div class="card-meta">' + meta + '</div>' +
           '<div class="card-actions">' + actions + '</div>';
       }
@@ -1529,6 +1554,18 @@ button{font-family:inherit}
           navigator.clipboard.writeText(url);
           toast('Link copied. Send it to your opponent, they sign in and accept.');
         } catch(e){ toast('Link is: ' + url); }
+      });
+    });
+    // Poster cancelling the match. Same Firestore op as the accepter
+    // bail (clears accepter fields), surfaced to the poster as 'Cancel
+    // match' since semantically it's them backing out of the matched
+    // pairing.
+    host.querySelectorAll('[data-bail-poster]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-bail-poster');
+        if (!confirm('Cancel this match? The accepter will be unmatched and your challenge reopens to the board.')) return;
+        unpublishAcceptance(id);
+        toast('Match canceled. Challenge is open again.');
       });
     });
   }
@@ -1915,6 +1952,11 @@ button{font-family:inherit}
   // Falls back to localStorage if Firestore is unavailable so the
   // page degrades gracefully on offline/blocked-script.
   var challengeUnsub = null;
+  // Track which of MY challenges already had an accepter on the prior
+  // snapshot so we only toast on the moment of new acceptance, not on
+  // every re-render of an already-matched challenge.
+  var seenAccepters = {};
+  var firstChallengeSnapshot = true;
   function subscribeChallenges(){
     if (!firebaseDb || challengeUnsub) return;
     try {
@@ -1925,6 +1967,19 @@ button{font-family:inherit}
           var list = [];
           snap.forEach(function(doc){
             var d = doc.data() || {};
+            // New-acceptance toast for the poster. Only fires after the
+            // first snapshot (so re-mounting the page doesn't re-toast
+            // historical acceptances) and only for transitions
+            // 'no accepter' → 'has accepter'.
+            if (!firstChallengeSnapshot && currentUser && d.posterUid === currentUser.uid && d.accepterUid){
+              var prev = seenAccepters[doc.id];
+              if (!prev){
+                toast('🎉 ' + (d.accepterName || 'A debater') + ' accepted your challenge!');
+                try { gtag('event', 'live_challenge_accepted_notification'); } catch(e){}
+              }
+            }
+            seenAccepters[doc.id] = d.accepterUid || null;
+
             list.push({
               id: doc.id,
               motion: d.motion || '',
@@ -1942,6 +1997,7 @@ button{font-family:inherit}
               accepterContact: d.accepterContact || null,
             });
           });
+          firstChallengeSnapshot = false;
           // Mirror into the localStorage cache so callers (render,
           // Manage tab) keep working without rewrites. localStorage
           // remains the single source of truth for the rendering layer
