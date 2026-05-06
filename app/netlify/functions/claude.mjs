@@ -1,10 +1,11 @@
 // Claude API proxy — strips _feature before forwarding to Anthropic
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
-import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
+import { getUserTeam, logUsage, PLANS, getDb } from './lib/firestore.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 import { transformAnthropicSSE } from './lib/strip-markdown.mjs';
+import { applyRetrieval } from './lib/retrieval.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -302,6 +303,28 @@ export default async (request, context) => {
     // appends it to body.system so the debater-voice bank never ships to
     // view-source.
     applyVoiceGuidelines(body);
+    // Retrieval-augmented prompting: pulls top-rated past outputs on
+    // similar motions and injects them as positive exemplars (+1 anti-
+    // exemplar). Reads the optional `_retrievalMotion` / `_retrievalFormat`
+    // / `_retrievalSide` fields the client populates for case-gen / bot
+    // / vision flows. Soft-fails on any Firestore error — retrieval is
+    // best-effort, never blocks a generation. The user's own outputs are
+    // excluded from the candidate pool to avoid same-person echo loops.
+    if (body._retrievalMotion || body._retrievalFeature) {
+      if (userId) body._retrievalUid = userId;
+      try {
+        const db = getDb();
+        await applyRetrieval(db, body, request);
+      } catch (err) {
+        console.warn('[claude.mjs] retrieval skipped:', err.message);
+        // Strip retrieval hints even on error so they don't reach Anthropic.
+        delete body._retrievalFeature;
+        delete body._retrievalMotion;
+        delete body._retrievalFormat;
+        delete body._retrievalSide;
+        delete body._retrievalUid;
+      }
+    }
 
     // Validate model — only whitelisted models allowed
     if (!body.model || !ALLOWED_MODELS.includes(body.model)) {
