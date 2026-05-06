@@ -361,6 +361,22 @@ button{font-family:inherit}
 .timer-bar.over{background:var(--accent);animation:pulse 1.2s ease-in-out infinite}
 
 .transcript-area{padding:18px 22px;flex:1;display:flex;flex-direction:column;gap:10px}
+.training-banner{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 14px;border-radius:10px;
+  background:rgba(239,68,68,.06);
+  border:1px solid rgba(239,68,68,.22);
+  color:var(--text);font-size:.78rem;line-height:1.5;
+}
+.training-banner .training-icon{
+  flex-shrink:0;color:#ef4444;font-size:.6rem;
+  margin-top:6px;animation:training-pulse 1.6s ease-in-out infinite;
+}
+.training-banner .training-copy strong{color:#fca5a5;font-weight:700}
+@keyframes training-pulse{
+  0%,100%{opacity:.55}
+  50%{opacity:1}
+}
 .transcript-area textarea{
   flex:1;min-height:200px;width:100%;padding:14px 16px;
   background:rgba(255,255,255,.03);border:1px solid var(--border);
@@ -573,6 +589,13 @@ button{font-family:inherit}
       </div>
 
       <div class="transcript-area">
+        <div class="training-banner" id="trainingBanner">
+          <span class="training-icon">●</span>
+          <span class="training-copy">
+            <strong>Recording is on by default.</strong>
+            Mic auto-starts when you hit <strong>▶ Start speech</strong>. The transcript powers the AI ballot AND becomes labeled training data — winning speeches teach Debate AI what works, losing speeches teach it what to avoid. You can edit the transcript anytime, or stop the mic if you don't want this round in the training pool.
+          </span>
+        </div>
         <div class="transcript-helpers row">
           <button class="btn btn-mic" id="micBtn" type="button">🎙 Start mic</button>
           <span id="micHint">Live transcribes the active speaker. Edit the text directly anytime.</span>
@@ -897,9 +920,9 @@ button{font-family:inherit}
       if (endBtn) endBtn.disabled = false;
       if (hint){
         if (myTurn && ms){
-          hint.innerHTML = '🎤 <strong>Your turn.</strong> Don\'t forget to click <strong>Start mic</strong> so the AI captures your speech for the ballot.';
+          hint.innerHTML = '🎤 <strong>Your turn.</strong> Hit <strong>▶ Start speech</strong> when ready. The mic auto-starts so the transcript is captured for the AI ballot, and the round becomes labeled training data that improves Debate AI for everyone. You can edit the transcript anytime.';
         } else {
-          hint.innerHTML = 'Click <strong>▶ Start speech</strong> when you\'re ready, the timer doesn\'t start until you do.';
+          hint.innerHTML = 'Click <strong>▶ Start speech</strong> when you\'re ready, the timer doesn\'t start until you do. The mic will auto-start so your transcript gets captured for the ballot and feeds Debate AI\'s training loop.';
         }
       }
       if (ta && (!ms || myTurn)) ta.focus();
@@ -978,7 +1001,27 @@ button{font-family:inherit}
     updatePlayPauseBtn();
   }
   function togglePlayPause(){
-    if (state.timerState === 'ready' || state.timerState === 'paused') startSpeechTimer();
+    if (state.timerState === 'ready' || state.timerState === 'paused') {
+      var wasReady = state.timerState === 'ready';
+      startSpeechTimer();
+      // Auto-start the mic on speech start when this speech belongs to the
+      // current user. Captures the transcript for the ballot AND feeds the
+      // Debate AI training loop (rounds + per-speech text become labeled
+      // examples once the panel returns a verdict). We only auto-start on
+      // the FIRST run of a speech (transitioning out of 'ready'), not on
+      // every resume — otherwise pausing would silently re-prompt for mic.
+      if (wasReady && isMyTurn() && !state.micActive) {
+        setMicActive(true);
+        if (state.micActive) {
+          toast('🎙 Mic recording. Transcript feeds the AI ballot and improves the system.');
+        } else {
+          // setMicActive bailed (no SR support, blocked, etc.) — surface
+          // the consequence so the user types instead of silently losing
+          // their speech to the training loop.
+          toast('⚠️ Mic unavailable. Type the speech in the box so it gets captured.');
+        }
+      }
+    }
     else if (state.timerState === 'running') pauseSpeechTimer();
   }
   function stopTimer(){
