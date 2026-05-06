@@ -2,6 +2,7 @@
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { transformOpenAISSE } from './lib/strip-markdown.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -140,10 +141,12 @@ export default async (request, context) => {
       }),
     });
 
-    return new Response(response.body, {
+    const contentType = response.headers.get('Content-Type') || 'text/event-stream';
+    const scrubbed = body.stream && contentType.includes('event-stream') ? transformOpenAISSE(response.body) : response.body;
+    return new Response(scrubbed, {
       status: response.status,
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
+        'Content-Type': contentType,
         'Cache-Control': 'no-cache',
         ...CORS,
       },

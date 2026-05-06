@@ -4,6 +4,7 @@ import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { transformAnthropicSSE } from './lib/strip-markdown.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -337,11 +338,15 @@ export default async (request, context) => {
       logUsage(teamId, userId, feature).catch(err => console.error('logUsage failed:', err));
     }
 
-    // Stream the response through to the client
-    return new Response(response.body, {
+    // Stream the response through the markdown scrubber so plain-text-only
+    // outputs reach the client even if a model slips a stray ## or **.
+    const contentType = response.headers.get('Content-Type') || 'text/event-stream';
+    const isStream = contentType.includes('event-stream');
+    const scrubbed = isStream ? transformAnthropicSSE(response.body) : response.body;
+    return new Response(scrubbed, {
       status: response.status,
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
+        'Content-Type': contentType,
         'Cache-Control': 'no-cache',
         ...CORS,
       },

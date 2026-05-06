@@ -1,6 +1,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { scrubPlainText } from './lib/strip-markdown.mjs';
 
 // In-memory rate limiter. Resets on cold start, but Netlify lambdas warm up
 // per-region so this gives reasonable abuse protection between full freezes.
@@ -132,7 +133,7 @@ export default async (request) => {
     }
 
     const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
+    const text = scrubPlainText(data.choices?.[0]?.message?.content || '');
 
     // Perplexity returns either `citations: [url, ...]` (older sonar) or
     // `search_results: [{title,url,...}]` (sonar-pro). Normalize both into

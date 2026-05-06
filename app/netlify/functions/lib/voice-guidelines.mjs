@@ -10,6 +10,9 @@
 // forFeature) so future per-format work can slot straight in.
 
 const CORE = `
+🚫 FORMATTING — HARD RULE FOR ALL ARGUMENT TEXT:
+Output PLAIN TEXT only. Do NOT use any markdown. NO asterisks (no * and no **). NO hash characters (no # and no ##). NO underscores for emphasis (no __ and no _). NO bold, NO italics, NO markdown headers. Section labels are written as plain words followed by a colon (Background:, Framework:, Argument 1:, A2 Block:) — never as ## headers and never bolded with **. Numbered lists use 1., 2., 3.; sub-points use a., b., c. and roman numerals i., ii., iii. — no bullet stars. Em dashes, en dashes, and hyphens are NOT separators — restructure with periods, colons, or natural connective phrases. This rule applies to every argument, speech, case, rebuttal, POI, and reply. If you ever feel the urge to wrap a phrase in asterisks or open a section with hashes, you are about to fail this rule — write the section label or load-bearing phrase in plain words instead.
+
 🚫 FORBIDDEN OPENERS AND PHRASES (do NOT use any of these — they are instant ChatGPT tells):
 - "Imagine a world where..." / "Picture this..." / "Close your eyes and imagine..."
 - "I'm here to show you..." / "I'm here to argue..." / "In this speech I will..."
@@ -119,6 +122,11 @@ const LANGUAGE_CONSTRUCTION = `
 LANGUAGE CONSTRUCTION — THE MECHANICS OF SOUNDING HUMAN:
 
 This is the most important section. If your speech trips any of these wires, it reads as AI slop and the judge checks out. Read it twice.
+
+────────────────────────────────────────────────────────
+0. PLAIN TEXT ONLY — NO MARKDOWN CHARACTERS (auto-fail if present)
+────────────────────────────────────────────────────────
+Every output is PLAIN TEXT. Do NOT use asterisks (* or **), hash characters (# or ##), or underscores (_ or __) for any formatting purpose anywhere in the speech, case, rebuttal, POI, judge feedback, or reply. No bold, no italics, no markdown headers, no bullet stars. Sections are labeled with plain words and a colon (Framework:, Argument 1:). Lists are numbered (1., 2., 3.) or lettered (a., b., c. / i., ii., iii.). Em dashes, en dashes, and hyphens are NOT separators — restructure with periods, colons, or natural connective phrases. If your draft contains any *, #, or _ used as formatting, you have failed this rule. Strip them and rewrite.
 
 ────────────────────────────────────────────────────────
 1. THE LLM TELLS — BANNED PHRASES (auto-fail if present)

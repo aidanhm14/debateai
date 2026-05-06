@@ -2,6 +2,7 @@
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { transformGeminiArray } from './lib/strip-markdown.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -166,8 +167,9 @@ export default async (request, context) => {
       );
     }
 
-    // Stream the response back
-    return new Response(response.body, {
+    // Stream the response back through the markdown scrubber.
+    const scrubbed = useStream ? transformGeminiArray(response.body) : response.body;
+    return new Response(scrubbed, {
       status: 200,
       headers: {
         'Content-Type': useStream ? 'text/event-stream' : 'application/json',
