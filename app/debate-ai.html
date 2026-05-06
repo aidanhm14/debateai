@@ -4123,10 +4123,19 @@ function App(){
       if(phase==='speech'){
         if(e.code==='Space'){e.preventDefault();if(tts.speaking){const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}}
         if(e.code==='Escape'||e.code==='ArrowRight'){e.preventDefault();endSpeech()}
-        // `i` cuts the AI off mid-speech. Only meaningful when the AI
-        // is actively speaking; pressing it during the user's turn is
-        // a no-op so we don't accidentally end the user's own speech.
-        if(e.code==='KeyI' && tts.speaking){e.preventDefault();endSpeech({interrupted:true})}
+        // `i` interjects: pauses the AI mid-speech (no advance) so the
+        // user can type/record an objection. Hit Resume on the Pause
+        // button to let the AI continue, or Skip to end the speech.
+        // Only meaningful when the AI is actively speaking; pressing
+        // it during the user's turn is a no-op so we don't accidentally
+        // pause the user's own speech.
+        if(e.code==='KeyI' && tts.speaking){
+          e.preventDefault();
+          if(!tts.paused) tts.togglePause();
+          timer.pause();
+          setWasInterrupted(true);
+          setTimeout(()=>setWasInterrupted(false),1200);
+        }
         // Speed hotkeys 1-5 during AI speech. Match the existing speed
         // pills so users can crank the pace without mouse travel.
         if(!isUser&&tts.speaking){
@@ -4835,7 +4844,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       [
         ['?','show / hide this overlay'],
         ['Space','pause or resume AI speech'],
-        ['I','interrupt, cut the AI off mid-speech'],
+        ['I','interject, pause AI mid-speech so you can object (Resume to continue, Skip to end)'],
         ['Esc','end the current speech early (or close this overlay)'],
         ['→','skip ahead to next speech'],
         ['Enter','during prep, start speeches'],
@@ -6079,23 +6088,32 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         // Controls
         el('div',{className:'row-c'},
           !isUser&&tts.speaking&&el('button',{className:'cta-ghost speech-btn',onClick:()=>{const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}},tts.paused?'▶ Resume':'⏸ Pause'),
-          // Cut-off button, only meaningful while the AI is actively
-          // speaking. Red border + bold red label so it reads as a hard
-          // stop, distinct from "Skip" (which is the polite version).
-          // Press `i` for keyboard parity. Routes through endSpeech with
-          // interrupted:true so the log entry tags the cut and the
-          // ballot can later weight an interrupted speech differently.
+          // Interject button. PAUSES the AI mid-speech (TTS halts, clock
+          // freezes) so the user can type/speak an objection without
+          // advancing to the next speech. Distinct from Pause: same
+          // mechanic but a louder visual + flashes the orb red so the
+          // AI registers that they were cut. To let the AI continue,
+          // hit ▶ Resume on the Pause button. To end the speech entirely,
+          // hit Skip →. Press `i` for keyboard parity. Previously this
+          // called endSpeech({interrupted:true}) which advanced to the
+          // next slot — that surprised users who wanted a real
+          // interruption flow, not a hard skip.
           !isUser&&tts.speaking&&el('button',{
             className:'speech-btn',
-            onClick:()=>endSpeech({interrupted:true}),
-            title:'Cut the AI off mid-speech (i)',
+            onClick:()=>{
+              if(!tts.paused) tts.togglePause();
+              timer.pause();
+              setWasInterrupted(true);
+              setTimeout(()=>setWasInterrupted(false),1200);
+            },
+            title:'Pause the AI mid-speech to interject. Hit ▶ Resume to let them continue, or Skip → to end their speech. (i)',
             style:{
               background:'rgba(239,68,68,.14)',
               color:'#fca5a5',
               border:'1px solid rgba(239,68,68,.5)',
               fontWeight:700,letterSpacing:'.04em',
             },
-          },'🛑 Interrupt'),
+          },tts.paused?'🛑 AI paused':'🛑 Interrupt'),
           el('button',{className:'cta-ghost speech-btn',onClick:()=>endSpeech()},isUser?'End Speech →':'Skip →'),
         ),
 
