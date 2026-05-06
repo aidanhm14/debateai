@@ -2271,6 +2271,201 @@ const TABS = [
   {id:'learn',label:'Learn'},
 ];
 
+/* ═══════════════════════════════════════════════════
+   TOOL GUIDE. one-card explainer at the top of every tab.
+   Mirrors the college (index.html) ToolGuide pattern but with
+   HS-specific copy. Collapses to a single-line "i" pill after
+   first dismissal (per-tool localStorage flag) so returning
+   users aren't shouted at, but new students see the full intro.
+   ═══════════════════════════════════════════════════ */
+const TOOL_GUIDES = {
+  case: {
+    title: 'Case Builder. write a full HS-format case in 90 seconds',
+    purpose: 'Generates a full case for any resolution in your format (PF, LD, Policy, Congress, Parli, MUN). Output is a real competition case. tagged contentions, warrants, evidence-style citations where the format allows them, and weighing.',
+    when: 'Reach for this once you have the resolution. Use it to draft a case file before a tournament, or to see how a strong case on this side looks before you write your own.',
+    steps: [
+      'Pick your format. the AI changes its register completely. PF cites Brookings, LD cites Kant, Policy reads cards, Congress addresses Mr./Madam Speaker.',
+      'Paste the resolution and pick Aff/Pro or Neg/Con.',
+      'Pick a depth. Quick (5 min reads), Standard (full constructive), Competition (deep, with extensions).',
+      'Hit Generate. read along while it streams.',
+      'Save the case to your library, or click Download to take it into Google Docs.',
+    ],
+  },
+  current: {
+    title: 'Live Topics. the current month\'s NSDA topics with pre-loaded args',
+    purpose: 'The active resolutions for PF, LD, Policy, Congress, World Schools, and MUN, refreshed monthly. Each topic ships with Pro and Con argument tags so you can see the landscape before you write a case.',
+    when: 'First thing to hit when a new topic releases. Read the args, pick which ones speak to you, then jump to Case Builder with that direction in mind.',
+    steps: [
+      'Pick your format tab.',
+      'Read the resolution. then scan the Pro and Con argument cards.',
+      'Click any argument card to seed Case Builder with it as your starting contention.',
+    ],
+  },
+  rebuttal: {
+    title: 'Rebuttal Coach. paste an opp argument, get 3 ways to crush it',
+    purpose: 'You give it the argument the other team is making. it gives you three responses. warrant denial (their evidence is wrong), link turn (their argument actually proves your side), and impact turn (the harm they claim is actually a benefit, or vice versa).',
+    when: 'Mid-tournament between rounds when your prep brain is fried, or any time you need to drill rebuttal speed. Critical for PF Summary and Final Focus.',
+    steps: [
+      'Paste the opp\'s exact argument.',
+      'Pick your format. responses are tuned for PF crossfire vs LD CX vs Policy 2NR.',
+      'Get three responses tagged by type and ranked by strength.',
+      'Memorize one. take the other two as backup. write all three onto your blocks doc.',
+    ],
+  },
+  congress: {
+    title: 'Congress Lab. write a full Congress speech with one click',
+    purpose: 'Generates a 3-minute Congress speech (sponsorship, second-pro, second-con, crystallization, or closer) with a hook, two-to-three points, evidence, and a strong close. Includes the address line ("Mr./Madam Speaker, fellow members of this chamber").',
+    when: 'Before a Congress tournament, or for daily reps if you want speaks at chamber. Speech precedence matters in Congress, so practice giving 1st-pro AND 5th-pro on the same bill.',
+    steps: [
+      'Paste the bill or resolution text.',
+      'Pick your speech precedence (1st-pro, 2nd-con, etc).',
+      'Hit Generate. the AI varies the structure based on precedence. early speeches set the debate, late speeches crystallize and add fresh analysis.',
+      'Practice it out loud against the timer. Congress rewards extemp delivery, not reading from a script.',
+    ],
+  },
+  judge: {
+    title: 'Judge Analyzer. read a paradigm, get a strategic profile',
+    purpose: 'Paste a judge\'s paradigm or RFD style and get a structured profile. what they like, what they hate, what wins their speaks, and exactly how to debate in front of them.',
+    when: 'Before every round at a tournament. Pull the judge\'s Tabroom paradigm, paste it, get the read. Especially valuable in PF and LD where lay-vs-flow is a coin flip per round.',
+    steps: [
+      'Paste the paradigm text into the box.',
+      'Pick your format. analysis is tuned to format norms.',
+      'Read the four sections. Likes, Dislikes, Speaker Points patterns, and Strategic Adjustments.',
+      'Build your speech doc around the Strategic Adjustments. that section is the actual play.',
+    ],
+  },
+  speed: {
+    title: 'Speed Drill. spreading and clarity practice',
+    purpose: 'A speed-reading drill timer. you read a speech doc out loud, get a transcription back, and see your accuracy and WPM. Used to grow speed without sacrificing intelligibility.',
+    when: 'Daily for Policy debaters and circuit LD. PF and lay LD do not need this. clarity at 220 wpm beats spreading at 350 wpm in front of a parent judge.',
+    steps: [
+      'Pick a sample speech or paste your own.',
+      'Hit Record and read it out loud at your goal speed.',
+      'Review the transcript. words you slurred or skipped show up red.',
+      'Drill the same passage 3 times. Then move on.',
+    ],
+  },
+  evidence: {
+    title: 'Evidence. find real cards for your contentions',
+    purpose: 'Searches real news, think-tank reports, and academic sources for evidence supporting (or against) a specific claim. Returns tagged citations you can drop into a card with author + date + source.',
+    when: 'During case prep, especially for evidence-heavy formats (PF, Policy). Verify every cite before you use it. AI can mis-tag, and a power-tagged card is a free turn for the opp.',
+    steps: [
+      'Type the claim you want evidence for.',
+      'Pick your format. recommended source pools differ. PF uses Brookings/CSIS/RAND, Policy adds International Security and CRS.',
+      'Get back 3-5 candidate citations.',
+      'Open each source link, verify the quote actually appears, then cut your card.',
+    ],
+  },
+  topics: {
+    title: 'Practice Topics. random resolutions for off-season prep',
+    purpose: 'A random resolution generator for practice rounds when there\'s no tournament topic to grind. Pulls from a wide bank of policy, philosophical, and current-event motions across formats.',
+    when: 'Off-season practice, summer camps, scrim with a partner. Also useful for testing whether you can write a case on something you have not seen.',
+    steps: [
+      'Pick a category, or hit Random.',
+      'Read the resolution. give yourself the format-appropriate prep time (PF/LD = 0 prep, Policy = 8-min CX prep, Parli = 15-min prep).',
+      'Bounce the resolution to Case Builder when you\'re ready to write.',
+    ],
+  },
+  learn: {
+    title: 'Learn. the basics of every HS debate format',
+    purpose: 'Walkthroughs of every format we support. PF, LD, Policy, Congress, Parli, MUN, World Schools. Each walkthrough covers the speech order, what each speech has to do, the vocabulary you need to know, and the strategic norms.',
+    when: 'First few weeks debating, or when you switch formats. New PF debater? Read the PF page. Switching to LD? Read the LD page first. Saves a season of trial and error.',
+    steps: [
+      'Pick a format from the menu.',
+      'Read the speech-by-speech breakdown.',
+      'Skim the vocab list. circle anything unfamiliar.',
+      'Practice with Case Builder + Speed Drill once the format clicks.',
+    ],
+  },
+};
+
+function ToolGuide({ toolId }) {
+  const el = React.createElement;
+  const guide = TOOL_GUIDES[toolId];
+  const storageKey = 'debateos-hs-toolguide-' + toolId;
+  const initialOpen = (() => {
+    try { return localStorage.getItem(storageKey) === 'open'; } catch (e) { return false; }
+  })();
+  const [open, setOpen] = useState(initialOpen);
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try { localStorage.setItem(storageKey, next ? 'open' : 'closed'); } catch(e) {}
+  };
+  if (!guide) return null;
+  if (!open) {
+    return el('button', {
+      onClick: toggle,
+      style: {
+        display:'flex', alignItems:'center', gap:8,
+        margin:'0 auto 14px auto', padding:'7px 14px',
+        background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.18)',
+        borderRadius:999, color:'#fca5a5',
+        fontSize:'.78rem', fontWeight:600, letterSpacing:'.2px',
+        fontFamily:'inherit', cursor:'pointer',
+        maxWidth:1100, width:'94%',
+      },
+      title:'Show me what this tool does and how to use it',
+    },
+      el('span',{style:{
+        display:'inline-flex', alignItems:'center', justifyContent:'center',
+        width:16, height:16, borderRadius:8, background:'rgba(239,68,68,0.18)',
+        color:'#fca5a5', fontWeight:800, fontSize:'.7rem',
+      }}, 'i'),
+      el('span',null, guide.title),
+      el('span',{style:{color:'#94a3b8',fontWeight:500}}, ' . how to use'),
+    );
+  }
+  return el('div', {
+    style: {
+      maxWidth:1100, width:'94%',
+      margin:'0 auto 18px auto', padding:'14px 16px 12px 16px',
+      background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.18)',
+      borderRadius:14, color:'#e4e8f0', fontSize:'.86rem', lineHeight:1.55,
+      boxSizing:'border-box',
+    },
+  },
+    el('div', { style:{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8} },
+      el('div', { style:{
+        display:'inline-flex',alignItems:'center',justifyContent:'center',
+        width:22,height:22,borderRadius:11,background:'rgba(239,68,68,0.18)',
+        color:'#fca5a5',fontWeight:800,fontSize:'.78rem',flexShrink:0,
+      }}, 'i'),
+      el('div', { style:{flex:1} },
+        el('div', { style:{fontWeight:700,fontSize:'.95rem',color:'#f1f5f9',marginBottom:2} }, guide.title),
+        el('div', { style:{color:'#cbd5e1'} }, guide.purpose),
+      ),
+      el('button', {
+        onClick: toggle,
+        title:'Hide this guide',
+        style:{
+          background:'transparent',border:'1px solid #ffffff20',color:'#94a3b8',
+          fontSize:'.7rem',fontWeight:600,padding:'4px 9px',borderRadius:6,
+          cursor:'pointer',fontFamily:'inherit',flexShrink:0,
+        },
+      }, 'Hide'),
+    ),
+    guide.when && el('div', {
+      style:{color:'#94a3b8',marginBottom:8,fontStyle:'italic',fontSize:'.82rem',paddingLeft:32},
+    }, 'When to use it. ', guide.when),
+    Array.isArray(guide.steps) && guide.steps.length > 0 && el('div', {
+      style:{paddingLeft:32},
+    },
+      el('div', {style:{fontWeight:700,fontSize:'.78rem',letterSpacing:'.4px',textTransform:'uppercase',color:'#a8b8c8',marginBottom:4}}, 'How to use it'),
+      el('ol', { style:{margin:0,paddingLeft:18,color:'#cbd5e1'} },
+        guide.steps.map((s, i) => el('li', {key:i,style:{marginBottom:3}}, s)),
+      ),
+    ),
+    el('div', {
+      style:{marginTop:10,paddingLeft:32,fontSize:'.74rem',color:'#64748b',lineHeight:1.5},
+    },
+      'Heads up: when you rate a generation, save a case, or finish a debate round, your interactions improve the system over time. ',
+      'Outputs you mark high-quality become exemplars the AI references for future motions; low-rated outputs become anti-exemplars it learns to avoid. ',
+      'You can stop sharing data anytime by signing out and using the app anonymously, or by deleting your account.',
+    ),
+  );
+}
+
 function ByokInput({ compact }) {
   const el = React.createElement;
   const [key, setKey] = useState(API_STORE.key);
@@ -2403,17 +2598,25 @@ function App() {
   }, []);
 
   const renderTab = () => {
+    let component = null;
     switch(tab) {
-      case 'case': return React.createElement(CaseGenerator);
-      case 'topics': return React.createElement(TopicExplorer);
-      case 'current': return React.createElement(CurrentTopics);
-      case 'rebuttal': return React.createElement(RebuttalCoach);
-      case 'congress': return React.createElement(CongressLab);
-      case 'judge': return React.createElement(JudgeAnalyzer);
-      case 'speed': return React.createElement(SpeedDrill);
-      case 'evidence': return React.createElement(EvidenceFinder);
-      case 'learn': return React.createElement(Learn);
+      case 'case': component = React.createElement(CaseGenerator); break;
+      case 'topics': component = React.createElement(TopicExplorer); break;
+      case 'current': component = React.createElement(CurrentTopics); break;
+      case 'rebuttal': component = React.createElement(RebuttalCoach); break;
+      case 'congress': component = React.createElement(CongressLab); break;
+      case 'judge': component = React.createElement(JudgeAnalyzer); break;
+      case 'speed': component = React.createElement(SpeedDrill); break;
+      case 'evidence': component = React.createElement(EvidenceFinder); break;
+      case 'learn': component = React.createElement(Learn); break;
     }
+    // Always show the per-tool guide above the tab content. Collapses to a
+    // single-line "i" pill after first dismissal so returning users aren't
+    // shouted at, but new students see the full intro.
+    return React.createElement(React.Fragment, null,
+      React.createElement(ToolGuide, { toolId: tab }),
+      component,
+    );
   };
 
   return React.createElement(React.Fragment,null,

@@ -13747,6 +13747,299 @@ function LiveDebates({ user, team, onNavigateTab }) {
 // reached for outside competitive prep too (anyone with a paragraph of writing
 // they want sharpened uses it), and burying it under a dropdown lost the click
 // rate. Philosophy and Guide stay primary for the casual / newcomer paths.
+
+/* ═══════════════════════════════════════════════════
+   TOOL GUIDE. one-card explainer at the top of every tab.
+   Tells the user: what the tool is, when to reach for it,
+   and a short numbered "how to use it" list. Collapses to
+   a single-line "i" pill after first dismissal so returning
+   users aren't shouted at. localStorage flag is per-tool.
+   Copy lives in TOOL_GUIDES[id]; new tabs without an entry
+   get nothing rendered (silent fallback).
+   ═══════════════════════════════════════════════════ */
+const TOOL_GUIDES = {
+  case: {
+    title: 'Case Gen — build a full debate case',
+    purpose: 'Generates a competition-grade case for any motion, side, and format. You get a constructive with framework, named arguments, warrants, A2 blocks, and (optionally) MG strategy notes and PMR architecture.',
+    when: 'Reach for this right after you get a motion, or when you are building a practice case file. Not for live in-round speeches. for those, use Debate AI.',
+    steps: [
+      'Paste or type the motion into the Motion field.',
+      'Pick your side (Gov / Opp) and your format (APDA, BP, PF, LD, Policy, Congress, etc).',
+      'Add Background only if the motion needs context the AI cannot infer (a specific actor, a niche policy, a named event).',
+      'Hit Generate. Watch the case stream in. you can read along while it writes.',
+      'Highlight any section to revise it, add a Sneaky Spike, or run the Opp Attack to see how a Nationals finalist would tear it apart.',
+      'Rate the case 1-5 stars at the end. The rating feeds the system. high-rated cases become exemplars for future generations on similar motions.',
+    ],
+  },
+  battle: {
+    title: 'Debate AI — full timed round against an AI opponent',
+    purpose: 'A complete debate. you speak (or type) every speech, the AI delivers the opposite side, and a 3-judge panel deliberates and gives an RFD plus speaker points and a specific drill to practice next.',
+    when: 'When you want a real round to practice in, not just a case to read. Best for the night before a tournament, or any time you want pressure-tested feedback.',
+    steps: [
+      'Pick your format and the side you want to debate.',
+      'Run through the speeches in order. Record your voice or type the text.',
+      'The AI delivers the opposite side\'s speech each turn, in the right voice for your format.',
+      'After your last speech, three judges deliberate publicly. you see the disagreement, the cross-applies, the final ballot.',
+      'Read the RFD and the per-speaker drill. that drill is the one thing you should practice before the next round.',
+    ],
+  },
+  feedback: {
+    title: 'Case Feedback — line-by-line critique of a case you wrote',
+    purpose: 'Reads a case you already drafted and tags issues by severity (round-losing, major, minor, polish, strength, strategic). Each comment links to the exact passage and offers a suggested revision you can Apply or Reject.',
+    when: 'After you draft a case, before you take it into a round. Also useful on any debate-shaped paragraph. forensic essays, op-eds, mock trial openings.',
+    steps: [
+      'Paste the case text into the box.',
+      'Pick the format the case is written for. the rubric shifts (PF wants evidence, BP wants extension, APDA wants tight warrant chains).',
+      'Hit Analyze. underlined passages = comments. click any to read the critique.',
+      'Apply the AI\'s revision, write your own, or Reject and keep your version. The rejection itself is a signal that helps the system learn what you actually want.',
+    ],
+  },
+  phil: {
+    title: 'Philosophy — frameworks, philosophers, and side-by-side comparison',
+    purpose: 'Deep, accurate explanations of philosophers and their frameworks. Use Deep Dive for one author. use Comparison to see where two or three philosophers agree, disagree, and how a debater would deploy each.',
+    when: 'Only when the motion is genuinely normative. rights, justice, duty, freedom. and you need a framework that does real argumentative work. Do not lean on this for empirical policy motions; concrete mechanisms beat philosophy on those.',
+    steps: [
+      'Pick 1-3 philosophers (the size of the bubble = how often they show up in real rounds).',
+      'Add a concept or motion if you have one in mind.',
+      'Choose Deep Dive (one author, full treatment) or Comparison (Venn-style overlap).',
+      'Read the output. cite the framework only when it earns its place in your case.',
+    ],
+  },
+  casual: {
+    title: 'Casual — sharp comebacks for everyday arguments',
+    purpose: 'A chat assistant for non-debate disputes. work fights, group chat feuds, comment-section beefs, family disagreements. Gives you the move (call out the logic, flip the argument, reframe, name the tactic) in 3-5 sentences, not a full case.',
+    when: 'Whenever someone has said something you want to push back on and you need a fast tactical response. NOT for round prep. competitive-format vocab is stripped here on purpose.',
+    steps: [
+      'Tell the assistant what the other person said and what you think.',
+      'It gives you the read first ("they\'re moving the goalposts" / "they\'re right on this part but wrong on the bigger picture").',
+      'It gives you ONE clear move to make, with the reasoning behind it.',
+      'Reply back with how it landed. we refine.',
+    ],
+  },
+  newbies: {
+    title: 'Guide — onboarding walkthrough for debate basics',
+    purpose: 'A friendly tour of how debate actually works. format flow, speech roles, what each speech is supposed to do, basic vocab (warrant, link chain, framework, voter). No prep knowledge required.',
+    when: 'First few sessions on the platform, or any time you forget what speech goes where in a format.',
+    steps: [
+      'Pick your format from the dropdown.',
+      'Walk through each speech card in order. each one says what the speech is, who gives it, and what it has to accomplish.',
+      'Click any underlined term for a plain-English definition.',
+      'When you\'re comfortable with the flow, jump to Case Gen or Debate AI to put it into practice.',
+    ],
+  },
+  judge: {
+    title: 'Judge — the full judging toolkit (4 modes)',
+    purpose: 'Four tools for judging and learning from judges. switch between them with the row of buttons at the top.',
+    when: 'Before a tournament (Judge Analyzer to pre-read your panel), during rounds (Flow Notes to take live flow), after rounds (Ballot OCR to digitize paper ballots; Judge Pool to share your read of a judge with teammates).',
+    steps: [
+      'Flow Notes. live flow tool. pick your format and judge type, type or record speech-by-speech, tag arguments (Strong Warrant, Dropped Arg, Good Turn, etc), then hit Get Feedback for an end-of-speech read on the round.',
+      'Judge Pool. browse the community-built profile of any judge. their preferences, their RFD style, what wins their ballot. Add your own observations after rounds.',
+      'Judge Analyzer (Pro). paste a judge\'s historical ballots or RFDs and get a structured profile. likes, dislikes, speaker-point patterns, paradigm guess, and strategic recommendations for debating in front of them.',
+      'Ballot OCR. snap a photo of a paper ballot, get the text extracted. Paste that text into Judge Analyzer for the full pipeline.',
+    ],
+  },
+  res: {
+    title: 'Motions — random APDA-style motion generator',
+    purpose: 'Pulls a random impromptu motion across categories (philosophical, policy, actor, current events, creative) and optionally suggests a background and Gov / Opp angles.',
+    when: 'Solo prep practice, especially for parli formats (APDA, BP, Asians, Worlds). Also for testing your case-gen muscle on motions you have not seen.',
+    steps: [
+      'Pick a category, or hit Random for any.',
+      'Read the motion and the background. give yourself 15 minutes of prep before checking the angles.',
+      'Optionally bounce the motion straight to Case Gen with one click.',
+    ],
+  },
+  topics: {
+    title: 'Topics — current monthly topic hub',
+    purpose: 'The current month\'s competition topics for PF, LD, Policy, Congress, and World Schools. Each topic ships with pre-loaded Pro and Con argument tags and warrants so you can scan the landscape before you generate a case.',
+    when: 'Anyone debating a fixed-topic format (PF / LD / Policy / Congress / WSDC). NOT for APDA. APDA is impromptu, every round gets a fresh motion from the tournament, so there is no "current APDA topic." For APDA, use Motions instead.',
+    steps: [
+      'Pick your format tab. read the current resolution.',
+      'Skim the pre-loaded Pro / Con args to map the terrain.',
+      'Click any argument to seed Case Gen with it as a starting point.',
+    ],
+  },
+  practice: {
+    title: 'Practice — solo speech drill timer',
+    purpose: 'A speech-by-speech practice tool with a timer, a flow recorder, and post-speech feedback on tag clarity, weighing, and rebuttal rhythm.',
+    when: 'Daily reps. The tournament-day version of "do your scales." 10 minutes of Practice every day moves your speaks faster than any other tool.',
+    steps: [
+      'Pick a format and a speech role (PM, LO, MG, MO, etc).',
+      'Hit Start. record or type your speech against the timer.',
+      'After the buzzer, get a structured critique. signposting, warrant depth, weighing, hedging, banned phrases.',
+    ],
+  },
+  vision: {
+    title: 'Mapper — pre-round strategist',
+    purpose: 'A 15-minute prep-room coach. Reads the motion you give it and walks you through likely opp angles ranked by probability, the framework battle, key clash points, danger zones, and the winning narrative for the round.',
+    when: 'In the 15 minutes between motion drop and round start. This is the tool for "what should I run." not a case generator, a strategist.',
+    steps: [
+      'Paste the motion and pick your side.',
+      'Read the four sections: motion-at-a-glance, likely opp angles, framework battle, clash points.',
+      'Pick the ONE narrative the section identifies as winning, then jump to Case Gen with that locked in.',
+    ],
+  },
+  terms: {
+    title: 'Vocab Quiz — debate terminology + elevated vocab trainer',
+    purpose: 'Flash-card-style quiz on debate vocabulary (warrant, link turn, kritik, voter) and elevated SAT-tier vocab (rendition, infinitely regressive, exodus, particularize) that strong debaters reach for in-round.',
+    when: 'On a phone in line at the cafeteria. Repeated short sessions beat one long cram. Vocab mastery is what separates strong speakers from adequate ones.',
+    steps: [
+      'Pick a deck. Debate Core, Elevated Vocab, or Mixed.',
+      'Quiz yourself. words you miss come back faster.',
+      'Track your streak in the corner.',
+    ],
+  },
+  chat: {
+    title: 'Debate Chat — structured text debate against the AI',
+    purpose: 'Lighter than the full Debate AI flow. you and the AI take turns in writing, format-aware, with format-correct vocabulary and structure.',
+    when: 'When you want practice but do not have time for a full timed round, or you want to grind a specific speech role over and over.',
+    steps: [
+      'Pick the format and the speech role you want to play.',
+      'Type your speech. the AI replies in the opposing role.',
+      'After 2-3 exchanges, hit End Round for a verdict.',
+    ],
+  },
+  shared: {
+    title: 'Saved Cases — your case library + community shares',
+    purpose: 'Every case you save shows up here. you can tag, organize, and re-open them. The Community tab shows cases other users chose to share publicly.',
+    when: 'Whenever you want to revisit, edit, or hand a case to a partner.',
+    steps: [
+      'My Cases. your private library. click any case to re-open in Case Gen.',
+      'Community. browse public cases. clone any to your library to edit.',
+      'Use Tags + Search to find by motion topic.',
+    ],
+  },
+  team: {
+    title: 'Team — manage your debate team',
+    purpose: 'Create or join a team, invite teammates by email, share a case file across the team, see team-wide analytics.',
+    when: 'For coaches and team captains. Required for tournament prep where everyone shares a case bank and a flow archive.',
+    steps: [
+      'Create a team or accept an invite.',
+      'Invite members by email. they get the team\'s shared library.',
+      'Share a case from Case Gen with one click. it lands in everyone\'s Saved Cases.',
+    ],
+  },
+  analytics: {
+    title: 'Analytics — your usage and progression over time',
+    purpose: 'Tracks cases generated, rounds debated, average ratings, daily streak, and which formats / sides you debate most. The data is also what powers personalized practice suggestions.',
+    when: 'Weekly check-in. especially before a tournament when you want to confirm where your blind spots are.',
+    steps: [
+      'Open the dashboard. read the headline numbers.',
+      'Filter by date range. see what shifted week-over-week.',
+      'Note any format you have not practiced in 14+ days. that is your next Practice session.',
+    ],
+  },
+  live: {
+    title: 'Live Debates — real-time human-vs-human rooms',
+    purpose: 'Public and private rooms where two real users debate in real time. The AI is hands-off. it just runs the timer, the speech-slot logic, and (optionally) the post-round flow analysis.',
+    when: 'Pickup rounds with another user, or scrim with a teammate. Useful when you do not have a partner in the room.',
+    steps: [
+      'Browse public rooms or create one.',
+      'Pick your side and ready up.',
+      'Debate live. timer + speech slots are auto-managed.',
+      'After the round, run an AI flow analysis on the transcript if you want feedback.',
+    ],
+  },
+  rebuttal: {
+    title: 'Flow Rebuttal — paste an argument, get a tagged response',
+    purpose: 'You give it the opponent\'s argument. it gives you 3 ways to respond. warrant denial, link turn, impact turn. Tagged so you can write each one onto the flow in two seconds.',
+    when: 'Mid-round, between speeches, when you need a clean response and your prep brain is fried.',
+    steps: [
+      'Paste the opp\'s argument exactly as they said it.',
+      'Get three tagged responses ranked by leverage.',
+      'Pick one (or weave two) into your next speech.',
+    ],
+  },
+};
+
+function ToolGuide({ toolId }) {
+  const el = React.createElement;
+  const guide = TOOL_GUIDES[toolId];
+  // Default: collapsed. Users who hit "Show me how" expand it; we remember the
+  // choice per-tool in localStorage so a returning user sees it the way they
+  // left it. New users get the collapsed pill, can expand for the full intro.
+  const storageKey = 'debateos-toolguide-' + toolId;
+  const initialOpen = (() => {
+    try { return localStorage.getItem(storageKey) === 'open'; } catch (e) { return false; }
+  })();
+  const [open, setOpen] = useState(initialOpen);
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try { localStorage.setItem(storageKey, next ? 'open' : 'closed'); } catch(e) {}
+  };
+  if (!guide) return null;
+  if (!open) {
+    // Collapsed: a single-line pill. Always visible so users discover help fast.
+    return el('button', {
+      onClick: toggle,
+      style: {
+        display:'flex', alignItems:'center', gap:8,
+        margin:'0 0 14px 0', padding:'7px 14px',
+        background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.18)',
+        borderRadius:999, color:'#fca5a5',
+        fontSize:'.78rem', fontWeight:600, letterSpacing:'.2px',
+        fontFamily:'inherit', cursor:'pointer',
+      },
+      title:'Show me what this tool does and how to use it',
+    },
+      el('span',{style:{
+        display:'inline-flex', alignItems:'center', justifyContent:'center',
+        width:16, height:16, borderRadius:8, background:'rgba(239,68,68,0.18)',
+        color:'#fca5a5', fontWeight:800, fontSize:'.7rem',
+      }}, 'i'),
+      el('span',null, guide.title),
+      el('span',{style:{color:'#94a3b8',fontWeight:500}}, ' · how to use'),
+    );
+  }
+  // Expanded: full guide card.
+  return el('div', {
+    style: {
+      margin:'0 0 18px 0', padding:'14px 16px 12px 16px',
+      background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.18)',
+      borderRadius:14, color:'#e4e8f0', fontSize:'.86rem', lineHeight:1.55,
+    },
+  },
+    el('div', { style:{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8} },
+      el('div', { style:{
+        display:'inline-flex',alignItems:'center',justifyContent:'center',
+        width:22,height:22,borderRadius:11,background:'rgba(239,68,68,0.18)',
+        color:'#fca5a5',fontWeight:800,fontSize:'.78rem',flexShrink:0,
+      }}, 'i'),
+      el('div', { style:{flex:1} },
+        el('div', { style:{fontWeight:700,fontSize:'.95rem',color:'#f1f5f9',marginBottom:2} }, guide.title),
+        el('div', { style:{color:'#cbd5e1'} }, guide.purpose),
+      ),
+      el('button', {
+        onClick: toggle,
+        title:'Hide this guide',
+        style:{
+          background:'transparent',border:'1px solid #ffffff20',color:'#94a3b8',
+          fontSize:'.7rem',fontWeight:600,padding:'4px 9px',borderRadius:6,
+          cursor:'pointer',fontFamily:'inherit',flexShrink:0,
+        },
+      }, 'Hide'),
+    ),
+    guide.when && el('div', {
+      style:{color:'#94a3b8',marginBottom:8,fontStyle:'italic',fontSize:'.82rem',paddingLeft:32},
+    }, 'When to use it. ', guide.when),
+    Array.isArray(guide.steps) && guide.steps.length > 0 && el('div', {
+      style:{paddingLeft:32},
+    },
+      el('div', {style:{fontWeight:700,fontSize:'.78rem',letterSpacing:'.4px',textTransform:'uppercase',color:'#a8b8c8',marginBottom:4}}, 'How to use it'),
+      el('ol', { style:{margin:0,paddingLeft:18,color:'#cbd5e1'} },
+        guide.steps.map((s, i) => el('li', {key:i,style:{marginBottom:3}}, s)),
+      ),
+    ),
+    el('div', {
+      style:{marginTop:10,paddingLeft:32,fontSize:'.74rem',color:'#64748b',lineHeight:1.5},
+    },
+      'Heads up: when you rate a generation, save a case, or finish a debate round, your interactions improve the system over time. ',
+      'Outputs you mark high-quality become exemplars the AI references for future motions; low-rated outputs become anti-exemplars it learns to avoid. ',
+      'You can stop sharing data anytime by deleting your account or signing out and using the app anonymously.',
+    ),
+  );
+}
+
 const TABS_PRIMARY = [
   {id:'case',label:'Case Gen',i18n:'nav.caseGen'},
   {id:'battle',label:'Debate AI',i18n:'nav.battle',href:'/debate-ai'},
@@ -14606,13 +14899,17 @@ function App() {
     await signIn();
   };
 
-  // Wrap a tab component so it stays mounted but hidden when inactive
+  // Wrap a tab component so it stays mounted but hidden when inactive.
+  // We also stitch a per-tool ToolGuide above the component so users always
+  // see what the tool is for and how to use it. The guide collapses to a
+  // single-line "i" button after first dismissal (per-tab localStorage), so
+  // returning users aren't shouted at, but new users get the full intro.
   const tabPane = (id, component) =>
     React.createElement('div', {
       key: id,
       className: 'tab-pane active ' + (tab === id ? tabTransition : ''),
       style: { width: '100%', display: tab === id ? 'block' : 'none' }
-    }, component);
+    }, React.createElement(ToolGuide, { toolId: id }), component);
 
   return React.createElement(I18nContext.Provider, {value: {t, locale, setLocale}},
   React.createElement(React.Fragment,null,
