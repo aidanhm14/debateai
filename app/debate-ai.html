@@ -4413,6 +4413,48 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       });
       const parsed=parsePanelVote(raw);
       if(parsed) setPanelResult(parsed);
+      // Wire 3: when the 3-judge panel returns a verdict, post a richer
+      // log-debate entry. The single-judge log already fired from
+      // saveRound; this overlay carries judge votes + per-judge RFDs +
+      // practice advice. Server side, this becomes a second debates/{id}
+      // doc — debate_speeches rows are duplicated but tagged with the
+      // panel's verdict for cleaner training labels.
+      if(parsed && user){
+        try{
+          const judgeRfds=parsePanelTurns(raw);
+          const judgesByName={};
+          ['maya','marcus','chen'].forEach(k=>{
+            const turns=judgeRfds.filter(t=>t.judge===k).map(t=>t.text);
+            const rfd=turns.join('\n\n').slice(0,3500);
+            judgesByName[k]={
+              name: k.charAt(0).toUpperCase()+k.slice(1),
+              paradigm: (PANEL_JUDGES[k]&&PANEL_JUDGES[k].paradigm)||'',
+              ballot: parsed[k]||null,
+              rfd,
+            };
+          });
+          user.getIdToken().then(token=>{
+            fetch('/api/log-debate',{
+              method:'POST',
+              headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+              body:JSON.stringify({
+                motion, format, side, voice, brain,
+                speeches: allLog,
+                verdict: {
+                  winner: parsed.winner,
+                  tally: parsed.tally,
+                  source: 'panel',
+                  judges: [judgesByName.maya, judgesByName.marcus, judgesByName.chen],
+                  speakerPoints: parsed.speakerPoints,
+                  practice: parsed.practice,
+                },
+                consent: true,
+              }),
+              keepalive: true,
+            }).catch(()=>{});
+          }).catch(()=>{});
+        }catch(e){}
+      }
     }catch(e){
       setPanelText('Could not generate panel deliberation: '+e.message);
     }
@@ -4493,6 +4535,38 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       user.getIdToken().then(token=>{
         firebaseDb.collection('debate_rounds').doc(user.uid+'_'+round.id).set(round).catch(()=>{});
       }).catch(()=>{});
+    }
+    // Wire 3 of the self-recurring feedback loop: every AI-judged round
+    // becomes labeled training data. POST to /api/log-debate which writes
+    // a debates/{id} doc + N debate_speeches rows. Each speech is tagged
+    // won/lost by the verdict so retrieval can use winning speeches as
+    // exemplars and losing speeches as anti-exemplars on future calls.
+    // Fires fire-and-forget; failure is silent (training data is bonus,
+    // not load-bearing for the user-visible flow).
+    if(user){
+      try{
+        user.getIdToken().then(token=>{
+          fetch('/api/log-debate',{
+            method:'POST',
+            headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+            body:JSON.stringify({
+              motion: round.motion,
+              format: round.format,
+              side: round.side,
+              voice: round.voice,
+              brain: round.brain,
+              speeches: round.log,
+              verdict: userWon === null ? null : {
+                winner: userWon === true ? 'user' : userWon === false ? 'ai' : 'tie',
+                speakerPoints: speakerPoints || null,
+                source: 'single',
+              },
+              consent: true,
+            }),
+            keepalive: true,
+          }).catch(()=>{});
+        }).catch(()=>{});
+      }catch(e){}
     }
   };
 

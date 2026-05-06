@@ -263,6 +263,53 @@ service cloud.firestore {
       allow delete: if isOwner(uid);
     }
 
+    // ── generations / generation_signals ─────────────────────────────
+    // Training-pool capture from log-generation.mjs. Owner can read
+    // their own rows so admin/me can show their history; nobody can
+    // write directly (server-only via Admin SDK). Owner can delete
+    // their own rows for "forget my data" support.
+    match /generations/{docId} {
+      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow write:  if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+    match /generation_signals/{docId} {
+      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow write:  if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── generation_pairs ─────────────────────────────────────────────
+    // Pairwise eval rows from log-pair.mjs. Owner-readable for transparency
+    // ("show me the pairs the system used to learn from me") but write-
+    // protected: only the server function and the offline judge can set
+    // winners.
+    match /generation_pairs/{docId} {
+      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow write:  if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── debates / debate_speeches ────────────────────────────────────
+    // From log-debate.mjs. Same pattern as generations.
+    match /debates/{docId} {
+      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow write:  if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+    match /debate_speeches/{docId} {
+      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow write:  if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── voice_drafts ─────────────────────────────────────────────────
+    // distill-voice cron writes draft voice-guidelines patches here for
+    // human review. Admin-only — no client access.
+    match /voice_drafts/{docId} {
+      allow read, write: if false;
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }

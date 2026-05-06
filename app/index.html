@@ -1916,6 +1916,12 @@ function funnelEvent(stage, meta) {
 // triple to Firestore via /api/log-generation. This is the dataset that feeds
 // back into prompt tuning / fine-tunes, separate from lean telemetry above.
 window.__lastGenerationId = null;
+// Wire 2: pairwise eval. We track the previous generation id per
+// motion+kind so we can record a head-to-head pair every time the user
+// regenerates. The pair is keyed by the user's identity and contains
+// both ids; later signals (save / discard / rate / regenerate-again) on
+// the right side flip the winner via /api/log-pair?action=infer.
+window.__pairContext = null; // { kind, motion, leftId } — set when a generation completes and a regeneration becomes possible
 async function logGeneration(payload) {
   try {
     if (!payload || !payload.output || payload.output.length < 40) return null;
@@ -1930,7 +1936,31 @@ async function logGeneration(payload) {
     if (!res.ok) { console.warn('[logGeneration]', res.status); return null; }
     const data = await res.json().catch(() => ({}));
     if (data && data.id) {
+      // If we have a pair context — i.e. the user just regenerated on
+      // the same motion + kind — post a generation_pairs row tying the
+      // previous id (left) to this new one (right). Fire-and-forget.
+      const ctx = window.__pairContext;
+      const newKind = payload.kind || ctx && ctx.kind;
+      const newMotion = payload.motion || ctx && ctx.motion;
+      if (ctx && ctx.leftId && ctx.kind === newKind && ctx.motion === newMotion) {
+        try {
+          fetch('/api/log-pair', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({
+              action: 'pair',
+              leftId: ctx.leftId,
+              rightId: data.id,
+              motion: newMotion,
+              kind: newKind,
+              format: payload.format,
+              side: payload.side,
+            }),
+          }).catch(() => {});
+        } catch(e) {}
+      }
       window.__lastGenerationId = data.id;
+      window.__pairContext = { kind: newKind, motion: newMotion, leftId: data.id };
       return data.id;
     }
   } catch(e) { console.warn('[logGeneration]', e.message); }
@@ -1948,6 +1978,24 @@ async function logGenerationSignal(signal, value, meta) {
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       body: JSON.stringify({ action: 'signal', generationId: genId, signal, value, meta: meta || {} }),
     });
+    // Wire 2: surface the same signal to the pair-inference endpoint so
+    // the most-recent generation_pairs row (where this id is the right
+    // side) gets a winner. Map signals to coarse buckets the server
+    // understands.
+    let inferSignal = null;
+    if (signal === 'save') inferSignal = 'save';
+    else if (signal === 'rate' && typeof value === 'number') inferSignal = value >= 4 ? 'rate_high' : (value <= 2 ? 'rate_low' : null);
+    else if (signal === 'discard') inferSignal = 'discard';
+    else if (signal === 'regenerate') inferSignal = 'regenerate';
+    if (inferSignal) {
+      try {
+        fetch('/api/log-pair', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ action: 'infer', rightId: genId, signal: inferSignal }),
+        }).catch(() => {});
+      } catch(e) {}
+    }
   } catch(e) { console.warn('[logGenerationSignal]', e.message); }
 }
 
