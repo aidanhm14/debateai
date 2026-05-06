@@ -246,6 +246,23 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── public_profiles ──────────────────────────────────────────────
+    // Mirrored from user_profiles by /api/save-profile when the user
+    // opts in via the public-profile editor. World-readable so the
+    // /live Community tab and /api/list-debaters can render the
+    // directory without auth. Only the owning user can write their own
+    // doc (the server function uses Admin SDK, which bypasses these
+    // rules — these checks are a safety net for any client write path).
+    match /public_profiles/{uid} {
+      allow read: if true;
+      allow create, update: if isOwner(uid)
+                            && (!('bio' in request.resource.data)
+                                || stringUnder('bio', 1024))
+                            && (!('nickname' in request.resource.data)
+                                || stringUnder('nickname', 64));
+      allow delete: if isOwner(uid);
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }

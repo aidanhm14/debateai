@@ -57,6 +57,56 @@ export default async (request) => {
       return jsonResponse({ ok: true, type: 'style_profile' }, 200, request);
     }
 
+    // ─── Public community profile ────────────────────────────────────
+    // Powers the Community tab on /live. Written to TWO places:
+    //   user_profiles/{uid}.publicProfile  → owner-only, source of truth
+    //   public_profiles/{uid}              → world-readable when isPublic
+    // The mirror exists so /api/list-debaters can do one cheap query
+    // instead of joining permissions per row.
+    if (body.type === 'public_profile') {
+      const p = body.profile || {};
+      // Strict shape so we don't smuggle anything weird into a public doc.
+      const clamp = (v, max) => typeof v === 'string' ? v.slice(0, max) : '';
+      const arr = (v, max, each) => Array.isArray(v) ? v.slice(0, max).map(x => clamp(x, each)).filter(Boolean) : [];
+      const safeProfile = {
+        nickname:    clamp(p.nickname, 32),       // public handle
+        displayName: clamp(p.displayName, 64),    // optional real name (or same as nickname)
+        location:    clamp(p.location, 64),       // "Brown / RI" / "Mumbai" — debater-readable
+        school:      clamp(p.school, 80),         // current institution
+        circuit:     clamp(p.circuit, 32),        // APDA / NPDA / WUDC / NSDA / NDT etc.
+        formats:     arr(p.formats, 8, 24),       // ['apda','bp','pf']
+        styleTags:   arr(p.styleTags, 8, 24),     // e.g. ['analytical','spreader','squirrelly','tab','lay-friendly']
+        bio:         clamp(p.bio, 500),           // 1-2 sentence self-description
+        years:       clamp(p.years, 32),          // e.g. "3 years" or "high school + college"
+        signatureCases: arr(p.signatureCases, 5, 120),
+        wins:        Number.isFinite(p.wins) ? Math.max(0, Math.min(99999, p.wins | 0)) : null,
+        losses:      Number.isFinite(p.losses) ? Math.max(0, Math.min(99999, p.losses | 0)) : null,
+        isPublic:    !!p.isPublic,
+      };
+
+      // Server-known identity bits — overwrite anything the client tried to send
+      // for these so the public card is grounded in the real account.
+      const identity = {
+        uid,
+        photoURL: typeof decoded.picture === 'string' ? decoded.picture.slice(0, 500) : null,
+        // We don't expose email. Even on public cards, the email stays private.
+      };
+
+      await db.collection('user_profiles').doc(uid).set({
+        publicProfile: { ...safeProfile, ...identity, updatedAt: FieldValue.serverTimestamp() },
+      }, { merge: true });
+
+      // Mirror to public_profiles for the directory query. If isPublic flips
+      // false we keep the doc but flag it so list-debaters can filter cheaply.
+      await db.collection('public_profiles').doc(uid).set({
+        ...safeProfile,
+        ...identity,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      return jsonResponse({ ok: true, type: 'public_profile', profile: safeProfile }, 200, request);
+    }
+
     // Referral tracking
     if (body.type === 'referral_credit') {
       const referrerUid = body.referrerUid;
