@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Leaderboard · Debate AI</title>
+<meta name="description" content="Top debaters on Debate AI, ranked by AI-judged speaker points across APDA, BP, PF, LD, Policy, Worlds and more." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/leaderboard">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/leaderboard">
+<meta property="og:title" content="Leaderboard · Debate AI">
+<meta property="og:description" content="Top debaters across all formats, AI-judged.">
+<meta property="og:image" content="https://debateai.com/og-image.png">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
+:root,[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.16);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.18);
+  --text:#fff;--text-dim:rgba(255,255,255,.68);--text-ghost:rgba(255,255,255,.38);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --radius-lg:18px;--radius-md:12px;
+  --shadow-lg:0 18px 60px rgba(0,0,0,.45);
+  --bar-bg:rgba(10,10,12,.84);
+  --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(239,68,68,.10),transparent 60%),radial-gradient(ellipse 60% 50% at 100% 80%,rgba(59,130,246,.06),transparent 60%);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.12);--border-strong:rgba(239,68,68,.28);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --text:#fff;--text-dim:rgba(255,255,255,.68);--text-ghost:rgba(239,68,68,.42);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --radius-lg:18px;--radius-md:12px;
+  --shadow-lg:0 18px 60px rgba(0,0,0,.55);
+  --bar-bg:rgba(0,0,0,.92);
+  --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(239,68,68,.18),transparent 60%),radial-gradient(ellipse 60% 50% at 100% 80%,rgba(239,68,68,.08),transparent 60%);
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.08);--border-strong:rgba(0,0,0,.18);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.18);
+  --text:#1a1a1f;--text-dim:rgba(0,0,0,.68);--text-ghost:rgba(0,0,0,.42);
+  --green:#16a34a;--amber:#d97706;--blue:#2563eb;
+  --radius-lg:18px;--radius-md:12px;
+  --shadow-lg:0 18px 60px rgba(0,0,0,.10);
+  --bar-bg:rgba(250,250,247,.85);
+  --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(220,38,38,.06),transparent 60%),radial-gradient(ellipse 60% 50% at 100% 80%,rgba(37,99,235,.04),transparent 60%);
+}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  background-image:var(--body-grad);
+  transition:background .4s,color .4s;
+  min-height:100vh;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+
+/* ─── Top bar (matches live.html) ───── */
+.bar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;
+  background:var(--bar-bg);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  transition:background .4s,border-color .4s;
+}
+.bar-logo{font-size:1.15rem;font-weight:900;letter-spacing:-.02em}
+.bar-logo em{color:var(--accent);font-style:normal}
+.bar-links{display:flex;align-items:center;gap:18px}
+.bar-links a{font-size:.78rem;font-weight:600;color:var(--text-dim);transition:color .2s}
+.bar-links a:hover{color:var(--text)}
+.bar-cta{
+  padding:8px 18px;background:var(--accent);color:#fff !important;
+  border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.04em;
+  transition:transform .15s,box-shadow .15s;
+}
+.bar-cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px var(--accent-glow)}
+.theme-dots{display:inline-flex;gap:6px;align-items:center;padding:0 4px}
+.theme-dot{
+  width:14px;height:14px;border-radius:50%;
+  border:1.5px solid var(--border-strong);background:#444;
+  cursor:pointer;padding:0;transition:transform .15s,border-color .2s;
+}
+.theme-dot:hover{transform:scale(1.2)}
+.theme-dot.active{border-color:var(--text)}
+.theme-dot[data-t="grey"]{background:#444}
+.theme-dot[data-t="crimson"]{background:#ef4444}
+.theme-dot[data-t="light"]{background:#fafaf7;border-color:rgba(0,0,0,.18)}
+[data-theme="light"] .theme-dot{border-color:rgba(0,0,0,.18)}
+[data-theme="light"] .theme-dot.active{border-color:#1a1a1f}
+@media(max-width:720px){
+  .bar-links a:not(.bar-cta){display:none}
+  .bar{padding:12px 16px}
+}
+@media(max-width:480px){
+  .theme-dots{display:none}
+}
+
+/* ─── Hero ─── */
+.hero{
+  max-width:980px;margin:48px auto 28px;padding:0 24px;text-align:center;
+}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:14px;
+}
+.hero-eyebrow::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 10px var(--accent-glow);
+}
+.hero h1{
+  font-size:clamp(2rem,5vw,3.4rem);font-weight:900;
+  letter-spacing:-.025em;line-height:1.05;margin-bottom:14px;
+}
+.hero h1 em{color:var(--accent);font-style:normal}
+.hero p{
+  font-size:1.02rem;color:var(--text-dim);max-width:620px;
+  margin:0 auto;line-height:1.55;
+}
+
+/* ─── Tabs ─── */
+.tabs{
+  display:flex;justify-content:center;gap:6px;margin:32px auto 18px;
+  padding:6px;background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:999px;width:fit-content;
+}
+.tab{
+  padding:8px 18px;font-size:.78rem;font-weight:700;
+  color:var(--text-dim);background:transparent;border:none;border-radius:999px;
+  cursor:pointer;transition:background .2s,color .2s;letter-spacing:.02em;
+}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--accent);color:#fff}
+
+/* ─── Board ─── */
+.board-wrap{
+  max-width:920px;margin:0 auto 48px;padding:0 24px;
+}
+.board{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:hidden;
+  box-shadow:var(--shadow-lg);
+}
+.board-row{
+  display:grid;grid-template-columns:60px 1fr 90px 100px 110px;
+  align-items:center;gap:14px;padding:14px 22px;
+  border-bottom:1px solid var(--border);
+  transition:background .15s;
+}
+.board-row.head{
+  background:var(--bg-elev);font-size:.66rem;
+  text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+  color:var(--text-ghost);
+}
+.board-row:not(.head):hover{background:var(--bg-elev)}
+.board-row:last-child{border-bottom:none}
+.rank{
+  font-weight:900;font-size:1.05rem;color:var(--text-dim);
+  letter-spacing:-.02em;
+}
+.rank.gold{color:#fbbf24}
+.rank.silver{color:#cbd5e1}
+.rank.bronze{color:#d97706}
+[data-theme="light"] .rank.silver{color:#64748b}
+.debater{font-weight:700;font-size:.92rem;letter-spacing:-.01em}
+.debater .badge{
+  display:inline-block;margin-left:8px;padding:2px 7px;
+  font-size:.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  background:rgba(34,197,94,.15);color:var(--green);
+  border:1px solid rgba(34,197,94,.35);border-radius:4px;
+  vertical-align:1px;
+}
+[data-theme="light"] .debater .badge{
+  background:rgba(22,163,74,.10);border-color:rgba(22,163,74,.3);
+}
+.score{
+  font-weight:800;font-size:1rem;font-variant-numeric:tabular-nums;
+  color:var(--accent);letter-spacing:-.01em;
+}
+.fmt{
+  font-size:.74rem;color:var(--text-dim);font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.when{
+  font-size:.7rem;color:var(--text-ghost);font-weight:500;
+  text-align:right;font-variant-numeric:tabular-nums;
+}
+@media(max-width:680px){
+  .board-row{grid-template-columns:40px 1fr 70px 80px;gap:8px;padding:12px 14px}
+  .board-row .when{display:none}
+  .board-row.head .when{display:none}
+  .debater{font-size:.86rem}
+  .debater .badge{margin-left:6px;padding:1px 5px;font-size:.55rem}
+  .score{font-size:.92rem}
+  .fmt{font-size:.68rem}
+}
+
+/* ─── Empty / loading states ─── */
+.state{
+  padding:64px 24px;text-align:center;
+}
+.state h3{
+  font-size:1.1rem;font-weight:800;margin-bottom:8px;
+}
+.state p{
+  font-size:.9rem;color:var(--text-dim);max-width:420px;margin:0 auto 18px;line-height:1.55;
+}
+.state .cta{
+  display:inline-block;margin-top:6px;
+  padding:11px 22px;background:var(--accent);color:#fff;
+  border-radius:999px;font-size:.8rem;font-weight:800;letter-spacing:.04em;
+  transition:transform .15s,box-shadow .15s;
+}
+.state .cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px var(--accent-glow)}
+.spinner{
+  display:inline-block;width:24px;height:24px;
+  border:2.5px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── Sign-in CTA strip ─── */
+.signin-strip{
+  max-width:920px;margin:0 auto 64px;padding:24px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  flex-wrap:wrap;
+}
+.signin-strip .copy{flex:1;min-width:240px}
+.signin-strip h4{font-size:1rem;font-weight:800;margin-bottom:4px;letter-spacing:-.01em}
+.signin-strip p{font-size:.82rem;color:var(--text-dim);line-height:1.5}
+.signin-strip .cta{
+  padding:11px 22px;background:var(--accent);color:#fff;
+  border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.04em;
+  white-space:nowrap;transition:transform .15s,box-shadow .15s;
+}
+.signin-strip .cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px var(--accent-glow)}
+
+/* ─── Footer ─── */
+.footer{
+  max-width:920px;margin:32px auto;padding:0 24px;
+  text-align:center;font-size:.72rem;color:var(--text-ghost);
+}
+.footer a{color:var(--text-dim)}
+.footer a:hover{color:var(--text)}
+</style>
+</head>
+<body>
+
+<nav class="bar">
+  <a href="/" class="bar-logo"><em>Debate</em> AI</a>
+  <div class="bar-links">
+    <a href="/learn">Learn</a>
+    <a href="/debate-ai">Debate AI</a>
+    <a href="/live">Live</a>
+    <a href="/pricing">Pricing</a>
+    <div class="theme-dots" role="group" aria-label="Change lighting" title="Change lighting">
+      <button class="theme-dot" data-t="crimson" aria-label="Crimson (default dark)" title="Crimson, default dark"></button>
+      <button class="theme-dot" data-t="grey" aria-label="Grey (neutral dark)" title="Grey, neutral dark"></button>
+      <button class="theme-dot" data-t="light" aria-label="Light (off-white)" title="Light, off-white"></button>
+    </div>
+    <a href="/debate-ai" class="bar-cta">Try the AI</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-eyebrow">AI-Judged · Cross-Format</div>
+  <h1>The <em>leaderboard.</em></h1>
+  <p>Top debaters across every format, ranked by speaker points from AI ballots. Win a round, earn your place. Names are first-name + last-initial only — for full anonymity, see your account settings.</p>
+</section>
+
+<div class="tabs" role="tablist">
+  <button class="tab active" data-view="top" role="tab" type="button">Top scores</button>
+  <button class="tab" data-view="week" role="tab" type="button">This week</button>
+  <button class="tab" data-view="recent" role="tab" type="button">Recent rounds</button>
+</div>
+
+<div class="board-wrap">
+  <div id="board" class="board">
+    <div class="state">
+      <div class="spinner" aria-label="Loading"></div>
+    </div>
+  </div>
+</div>
+
+<aside class="signin-strip" id="signinStrip" hidden>
+  <div class="copy">
+    <h4>Claim your spot</h4>
+    <p>Sign in once and your AI-judged rounds automatically count toward the board. Your full Google name is never shown — only first name + last initial.</p>
+  </div>
+  <a class="cta" href="/debate-ai">Start a round →</a>
+</aside>
+
+<footer class="footer">
+  Ranks update at every completed round. <a href="/debate-ai">Run a round</a> · <a href="/learn">Learn the formats</a>
+</footer>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  measurementId: "G-0V4R5MY3BT"
+};
+
+let db=null;
+try{
+  if(typeof firebase!=='undefined'){
+    const app=firebase.apps&&firebase.apps.length?firebase.apps[0]:firebase.initializeApp(FIREBASE_CONFIG);
+    db=firebase.firestore();
+  }
+}catch(e){
+  console.warn('[leaderboard] firebase init failed:',e);
+}
+
+const board=document.getElementById('board');
+const tabs=document.querySelectorAll('.tab');
+const signinStrip=document.getElementById('signinStrip');
+
+const state={view:'top',cache:{}};
+
+function fmtAgo(ts){
+  if(!ts)return '';
+  const d=ts.toDate?ts.toDate():new Date(ts);
+  const diff=Date.now()-d.getTime();
+  const mins=Math.floor(diff/60000);
+  if(mins<1)return 'just now';
+  if(mins<60)return mins+'m ago';
+  const hrs=Math.floor(mins/60);
+  if(hrs<24)return hrs+'h ago';
+  const days=Math.floor(hrs/24);
+  if(days<7)return days+'d ago';
+  const wks=Math.floor(days/7);
+  if(wks<5)return wks+'w ago';
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+
+function fmtScore(s){
+  if(typeof s!=='number'||isNaN(s))return '—';
+  return s.toFixed(1);
+}
+
+function rankClass(i){
+  if(i===0)return 'gold';
+  if(i===1)return 'silver';
+  if(i===2)return 'bronze';
+  return '';
+}
+
+function rankPrefix(i){
+  if(i===0)return '🥇';
+  if(i===1)return '🥈';
+  if(i===2)return '🥉';
+  return '#'+(i+1);
+}
+
+function renderRows(rows){
+  if(!rows.length){
+    board.innerHTML=`
+      <div class="state">
+        <h3>No rounds yet</h3>
+        <p>The board is fresh. The first AI-judged round to complete claims rank one. Run a round and put your name on it.</p>
+        <a class="cta" href="/debate-ai">Start a round →</a>
+      </div>`;
+    return;
+  }
+  const head=`
+    <div class="board-row head">
+      <div>Rank</div>
+      <div>Debater</div>
+      <div>Score</div>
+      <div>Format</div>
+      <div class="when">When</div>
+    </div>`;
+  const body=rows.map((r,i)=>`
+    <div class="board-row">
+      <div class="rank ${rankClass(i)}">${rankPrefix(i)}</div>
+      <div class="debater">${escapeHtml(r.displayName||'Anonymous')}${r.won?'<span class="badge">W</span>':''}</div>
+      <div class="score">${fmtScore(r.score)}</div>
+      <div class="fmt">${escapeHtml(r.formatName||r.format||'—')}</div>
+      <div class="when">${fmtAgo(r.completedAt)}</div>
+    </div>`).join('');
+  board.innerHTML=head+body;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadView(view){
+  if(!db){
+    board.innerHTML=`<div class="state"><h3>Couldn't load</h3><p>The leaderboard needs a network connection. Refresh the page once you're back online.</p></div>`;
+    return;
+  }
+  if(state.cache[view]){
+    renderRows(state.cache[view]);
+    return;
+  }
+  board.innerHTML=`<div class="state"><div class="spinner" aria-label="Loading"></div></div>`;
+  try{
+    let q;
+    if(view==='top'){
+      q=db.collection('leaderboard_entries').orderBy('score','desc').limit(100);
+    }else if(view==='recent'||view==='week'){
+      // Both pull recent first; "week" filters client-side to last 7d.
+      // Single-field index — no composite index required.
+      q=db.collection('leaderboard_entries').orderBy('completedAt','desc').limit(view==='week'?200:100);
+    }
+    const snap=await q.get();
+    let rows=snap.docs.map(d=>d.data());
+    if(view==='week'){
+      const cutoff=Date.now()-7*24*60*60*1000;
+      rows=rows.filter(r=>{
+        const ts=r.completedAt&&r.completedAt.toDate?r.completedAt.toDate().getTime():0;
+        return ts>=cutoff;
+      }).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,100);
+    }
+    state.cache[view]=rows;
+    renderRows(rows);
+    signinStrip.hidden=false;
+  }catch(e){
+    console.warn('[leaderboard] load failed:',e);
+    board.innerHTML=`<div class="state"><h3>Couldn't load the board</h3><p>Hit refresh — if it keeps happening, the Firestore rules may need a deploy.</p></div>`;
+  }
+}
+
+tabs.forEach(t=>{
+  t.addEventListener('click',()=>{
+    const view=t.dataset.view;
+    if(view===state.view)return;
+    state.view=view;
+    tabs.forEach(x=>x.classList.toggle('active',x===t));
+    loadView(view);
+  });
+});
+
+loadView('top');
+
+// Theme picker
+(function(){
+  function syncDots(t){
+    document.querySelectorAll('.theme-dot').forEach(function(d){
+      d.classList.toggle('active', d.getAttribute('data-t')===t);
+    });
+  }
+  try{ syncDots(document.documentElement.getAttribute('data-theme')||'crimson'); }catch(e){}
+  document.querySelectorAll('.theme-dot').forEach(function(dot){
+    dot.addEventListener('click', function(){
+      var t=dot.getAttribute('data-t');
+      document.documentElement.setAttribute('data-theme', t);
+      syncDots(t);
+      try{ localStorage.setItem('da-theme', t); }catch(e){}
+    });
+  });
+})();
+</script>
+</body>
+</html>
