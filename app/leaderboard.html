@@ -420,6 +420,25 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// Run a query and, if Firestore screams about a missing composite index,
+// fall back to a single-field orderBy and filter client-side. The
+// indexes ship in firestore.indexes.json so this fallback should
+// almost never fire — but if a deploy hasn't propagated yet, the
+// user sees a populated board instead of an error panel.
+async function loadWithFallback(primary, fallback){
+  try{
+    const snap=await primary.get();
+    return snap.docs.map(d=>d.data());
+  }catch(e){
+    if(/index|FAILED_PRECONDITION/i.test(e.message||'')){
+      console.warn('[leaderboard] composite index missing, falling back:',e.message);
+      const snap=await fallback().get();
+      return snap.docs.map(d=>d.data());
+    }
+    throw e;
+  }
+}
+
 async function loadView(view){
   if(!db){
     board.innerHTML=`<div class="state"><h3>Couldn't load</h3><p>The leaderboard needs a network connection. Refresh the page once you're back online.</p></div>`;
@@ -434,28 +453,31 @@ async function loadView(view){
     let rows=[];
     if(view==='live'){
       // Online debaters: human-vs-human live rounds, ranked by speaker
-      // points from the AI ballot. One entry per (uid, room) so a single
-      // user can hold multiple slots if they've debated multiple rooms.
-      const snap=await db.collection('leaderboard_entries')
-        .where('kind','==','live')
-        .orderBy('score','desc')
-        .limit(100)
-        .get();
-      rows=snap.docs.map(d=>d.data());
+      // points from the AI ballot.
+      rows=await loadWithFallback(
+        db.collection('leaderboard_entries')
+          .where('kind','==','live')
+          .orderBy('score','desc')
+          .limit(100),
+        ()=>db.collection('leaderboard_entries')
+          .orderBy('score','desc')
+          .limit(500)
+      );
+      // If we hit the fallback path, filter client-side.
+      rows=rows.filter(r=>r.kind==='live').slice(0,100);
     }else if(view==='ai'){
-      // Beat the AI: rounds where the user beat the AI directly. Pull
-      // by score among winners. We then drop any kind:'live' on the
-      // client (defensive — live entries shouldn't have won:true unless
-      // they did, but they belong on the other tab regardless).
-      // Two-shot read: legacy entries (no kind field) can't be matched
-      // by `where('kind','==','ai')`, so we query won:true and filter.
-      const snap=await db.collection('leaderboard_entries')
-        .where('won','==',true)
-        .orderBy('score','desc')
-        .limit(200)
-        .get();
-      rows=snap.docs.map(d=>d.data())
-        .filter(r=>r.kind!=='live')
+      // Beat the AI: rounds where the user beat the AI directly.
+      rows=await loadWithFallback(
+        db.collection('leaderboard_entries')
+          .where('won','==',true)
+          .orderBy('score','desc')
+          .limit(200),
+        ()=>db.collection('leaderboard_entries')
+          .orderBy('score','desc')
+          .limit(500)
+      );
+      rows=rows
+        .filter(r=>r.won===true && r.kind!=='live')
         .slice(0,100);
     }
     state.cache[view]=rows;
@@ -463,7 +485,11 @@ async function loadView(view){
     signinStrip.hidden=false;
   }catch(e){
     console.warn('[leaderboard] load failed:',e);
-    board.innerHTML=`<div class="state"><h3>Couldn't load the board</h3><p>Hit refresh — if it keeps happening, a one-time Firestore composite index needs to be created (the console will link to it the first time).</p></div>`;
+    // Last-resort soft empty: show the empty state, not an error. People
+    // can still click into the relevant surface from the empty CTA.
+    state.cache[view]=[];
+    renderRows([]);
+    signinStrip.hidden=false;
   }
 }
 
