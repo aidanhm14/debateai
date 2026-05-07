@@ -80,9 +80,13 @@ export default async (request) => {
     }
   }
 
-  // For authenticated team callers we still respect plan caps
+  // For authenticated team callers we still respect plan caps. Status
+  // gate only applies to PAID plans — trial / lifetime users always
+  // pass through to the usage cap (which is the honest "you've hit your
+  // free tier" upsell, not a fake paywall on a free user).
   if (team) {
-    if (!['active', 'trialing'].includes(team.status)) {
+    const PAYWALLED_PLANS = ['byok', 'individual', 'team'];
+    if (PAYWALLED_PLANS.includes(team.plan) && !['active', 'trialing'].includes(team.status)) {
       return errorResponse('Subscription inactive. Please update your billing.', 402, request);
     }
     const planLimits = PLANS[team.plan] || PLANS.trial;

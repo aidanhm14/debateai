@@ -223,8 +223,15 @@ export default async (request, context) => {
       const { team } = result;
       teamId = team.id;
 
-      // Check subscription status
-      if (!['active', 'trialing'].includes(team.status)) {
+      // Subscription gate. Only block users on a PAID plan with a broken
+      // billing relationship — trial users (free tier) and lifetime users
+      // (paid-once-active-forever) should never hit a 402, even if their
+      // team's status field is null/missing/'inactive' from a legacy or
+      // race-conditioned write. Falling through to the usage gate is the
+      // honest funnel: trial users get 3 free requests, then USAGE_LIMIT
+      // upsells them. Hitting 402 before that is a fake paywall.
+      const PAYWALLED_PLANS = ['byok', 'individual', 'team'];
+      if (PAYWALLED_PLANS.includes(team.plan) && !['active', 'trialing'].includes(team.status)) {
         return new Response(
           JSON.stringify({ error: 'Subscription inactive. Please update your billing.', code: 'SUBSCRIPTION_INACTIVE' }),
           { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } }
