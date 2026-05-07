@@ -372,6 +372,20 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 
 /* ── Controls Row ──────────────────── */
 .row-c{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+/* Sticky speech controls on phones. Without this, scrolling up to re-read
+   the motion or scout the transcript pushes End Speech / Interrupt off
+   screen — there's no keyboard fallback on touch devices. The wrapper
+   stays pinned to the bottom of the viewport during the speech phase
+   with a subtle bg fade so content scrolling behind stays readable. */
+@media(max-width:640px){
+  .speech-controls-mobile-sticky{
+    position:sticky;bottom:8px;z-index:25;
+    padding-top:14px;padding-bottom:6px;
+    background:linear-gradient(to top, var(--bg) 55%, transparent);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    margin-top:12px;
+  }
+}
 
 /* ── Limit Warning ─────────────────── */
 .limit-warn{font-size:.78rem;color:#ef4444;margin-top:16px;opacity:.7}
@@ -405,12 +419,22 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
    Users can still reach those pages from the footer or landing. */
 .sign-btn-short{display:none}
 @media(max-width:640px){
-  .bar-link-secondary{display:none!important}
+  /* Hide most secondary nav on phones to keep the bar tidy, but KEEP
+     the Leaderboard link reachable — it's a discovery path the user
+     would otherwise have to leave the page to find. The .bar-link-keep
+     class opts a single link out of the global hide. */
+  .bar-link-secondary:not(.bar-link-keep){display:none!important}
+  .bar-link-secondary.bar-link-keep{
+    /* Compact label so it fits next to the sign-in pill on phones. */
+    font-size:.66rem;letter-spacing:.04em;
+    padding:10px 6px; /* ~44px tap target */
+  }
   .sign-btn-full{display:none}
   .sign-btn-short{display:inline}
   .bar{padding:14px 16px}
   .bar-links{gap:12px}
-  .bar-links button,.bar-links .sign-btn{min-height:44px;min-width:44px}
+  .bar-links button,.bar-links .sign-btn,.bar-links a{min-height:44px;display:inline-flex;align-items:center}
+  .bar-links button.bar-link-secondary{min-width:44px}
   .center{padding:80px 16px 112px}  /* bottom padding reserves space for sticky CTA */
   .orb-wrap{width:200px;height:200px}
   canvas.orb{width:160px;height:160px}
@@ -6189,8 +6213,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           );
         })(),
 
-        // Controls
-        el('div',{className:'row-c'},
+        // Controls — sticky-bottom on phones so they survive scrolling
+        // up to re-read the motion or transcript.
+        el('div',{className:'row-c speech-controls-mobile-sticky'},
           !isUser&&tts.speaking&&el('button',{className:'cta-ghost speech-btn',onClick:()=>{const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}},tts.paused?'▶ Resume':'⏸ Pause'),
           // Cut-off button, only meaningful while the AI is actively
           // speaking. Red border + bold red label so it reads as a hard
