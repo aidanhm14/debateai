@@ -631,6 +631,48 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 </script>
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
 <script defer src="/js/ui-neural.js"></script>
+<!-- Shared topbar — same nav across /landing, /debate-ai, /learn,
+     /high-school, /devils-advocate. The user-slot hook below lets
+     /debate-ai inject its app-specific Account modal trigger. -->
+<script>
+  // Bridge between the shared topbar's user slot and the React-rendered
+  // Account modal. window.__daOpenAccount is wired by React after mount.
+  window.daTopbarUserSlot = function(slot, u){
+    slot.innerHTML = '';
+    slot.style.fontSize = '.72rem';
+    slot.style.color = 'var(--text-dim)';
+    if (u.photoURL){
+      var img = document.createElement('img');
+      img.src = u.photoURL;
+      img.alt = '';
+      img.style.cssText = 'width:24px;height:24px;border-radius:50%;border:1px solid var(--c-border4);cursor:pointer';
+      img.addEventListener('click', function(){ if(window.__daOpenAccount) window.__daOpenAccount(); });
+      slot.appendChild(img);
+    }
+    var name = document.createElement('span');
+    name.textContent = (u.displayName || u.email || '').split(/\s+/)[0] || '';
+    name.style.cursor = 'pointer';
+    name.addEventListener('click', function(){ if(window.__daOpenAccount) window.__daOpenAccount(); });
+    slot.appendChild(name);
+    var acct = document.createElement('button');
+    acct.type = 'button';
+    acct.textContent = 'Account';
+    acct.title = 'Account & API key';
+    acct.style.cssText = 'font-size:.65rem;color:var(--text-dim);background:none;border:1px solid var(--c-border2);border-radius:14px;padding:3px 10px;cursor:pointer;font-family:inherit';
+    acct.addEventListener('click', function(){ if(window.__daOpenAccount) window.__daOpenAccount(); });
+    slot.appendChild(acct);
+    var out = document.createElement('button');
+    out.type = 'button';
+    out.textContent = 'Sign out';
+    out.style.cssText = 'background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.7rem;padding:0';
+    out.addEventListener('click', function(){
+      try { window.firebase.auth().signOut(); } catch(e){}
+    });
+    slot.appendChild(out);
+  };
+</script>
+<div id="daTopbar"></div>
+<script defer src="/js/topbar.js"></script>
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
@@ -4769,41 +4811,18 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
   /* ─── RENDER ─────────────────────── */
 
-  const bar=el('div',{className:'bar'},
-    el('a',{href:'/',className:'bar-logo',title:'Back to the landing page'},el('em',null,'Debate'),' AI'),
-    el('div',{className:'bar-links'},
-      el('button',{onClick:()=>setLighting(lighting==='dark'?'light':'dark'),className:'lighting-toggle bar-link-secondary',title:'Toggle light/dark mode'},lighting==='dark'?'Light':'Dark'),
-      el('a',{href:'/',className:'bar-link-secondary'},'Home'),
-      el('a',{href:'/live',className:'bar-link-secondary',title:'Argue with humans, live',style:{display:'inline-flex',alignItems:'center',gap:6}},
-        el('span',{style:{width:6,height:6,borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 8px #ef4444',animation:'live-dot-pulse 1.6s ease-in-out infinite',display:'inline-block'}}),
-        'Live'
-      ),
-      el('a',{href:'/high-school',className:'bar-link-secondary'},'High School'),
-      el('a',{href:'/learn',className:'bar-link-secondary'},'Learn'),
-      el('a',{href:'/leaderboard',className:'bar-link-secondary'},'Leaderboard'),
-      el('a',{href:'/landing',className:'bar-link-secondary'},'About'),
-      user ? el('div',{style:{display:'flex',alignItems:'center',gap:10}},
-        user.photoURL && el('img',{src:user.photoURL,style:{width:24,height:24,borderRadius:'50%',border:'1px solid var(--c-border4)',cursor:'pointer'},onClick:()=>setShowAccount(true),title:'Account & API key'}),
-        el('span',{style:{fontSize:'.72rem',color:'var(--c-text3)',cursor:'pointer'},onClick:()=>setShowAccount(true)},user.displayName?.split(' ')[0]),
-        isPro() && el('span',{style:{fontSize:'.6rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}},'PRO'),
-        el('button',{onClick:()=>setShowAccount(true),style:{fontSize:'.65rem',color:'var(--c-muted)',background:'none',border:'1px solid var(--c-border2)',borderRadius:6,padding:'2px 8px',cursor:'pointer',fontFamily:'inherit'},title:'Account & API key'},'Account'),
-        el('button',{onClick:signOut,style:{fontSize:'.65rem',color:'var(--c-muted)',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}},'Sign Out'),
-      ) : (historyRounds.length > 0
-        // Returning user with at least one completed round: they've felt
-        // the value, the prominent Google pill is now justified.
-        ? el('button',{onClick:signIn,className:'sign-btn',title:'Sign up free with Google to save your record + claim your leaderboard spot',style:{display:'inline-flex',alignItems:'center',gap:8,fontSize:'.74rem',color:'#1f1f1f',background:'#fff',border:'none',borderRadius:999,padding:'7px 16px',cursor:'pointer',fontWeight:700,fontFamily:'inherit',boxShadow:'0 4px 16px rgba(0,0,0,.35)',whiteSpace:'nowrap'}},
-            el('span',{dangerouslySetInnerHTML:{__html:'<svg width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>'}}),
-            el('span',{className:'sign-btn-full'},'Save your record'),
-            el('span',{className:'sign-btn-short'},'Save'),
-          )
-        // First-time visitor: skip the cold OAuth ask. Provide a small
-        // text-link path for users who already want to sign in (e.g.
-        // returning on a new device); the contextual prompt fires
-        // post-round when they have a real reason to.
-        : el('button',{onClick:signIn,style:{fontSize:'.7rem',color:'var(--c-muted)',background:'transparent',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'4px 10px',whiteSpace:'nowrap'},title:'Sign in (optional — we save your rounds locally)'},'Sign in')
-      ),
-    )
-  );
+  // Topbar is rendered outside React by /js/topbar.js — same bar as
+  // /landing, /learn, /high-school, /devils-advocate. The user-slot
+  // hook (window.daTopbarUserSlot in <head>) opens the Account modal
+  // here via window.__daOpenAccount, which is set in an effect below.
+  // Cold-OAuth deferral (the "Save your record" Google pill that only
+  // appeared after the first round) is preserved as a contextual
+  // post-round prompt elsewhere in the flow, not in the topbar.
+  useEffect(()=>{
+    window.__daOpenAccount = ()=>setShowAccount(true);
+    return ()=>{ if(window.__daOpenAccount === setShowAccount) window.__daOpenAccount = null; };
+  },[]);
+  const bar=el(React.Fragment,null);
 
   const stageClass='center '+(vis?'visible':'entering');
 
