@@ -224,6 +224,27 @@
       <div id="exemplar-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
     </div>
   </div>
+
+  <!-- One-shot leaderboard backfill. Reads every debate_rounds doc with a
+       numeric speakerPoints.user and writes a slim leaderboard_entries
+       row. Idempotent (doc id `uid_roundId`) so re-running merges. Use
+       Dry run first to see counts, then Run for real. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Backfill leaderboard</span>
+        <span class="meta">seed /leaderboard from existing debate_rounds</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
+        Scans <code>debate_rounds</code>, writes a slim entry to <code>leaderboard_entries</code> for every round with a numeric speaker score. Idempotent — re-running merges. Run dry first to confirm counts.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <button id="backfill-dry-btn" style="padding:7px 16px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;font-size:13px;font-weight:600">Dry run</button>
+        <button id="backfill-run-btn" style="padding:7px 16px;border-radius:10px;border:1px solid var(--line);background:var(--fg);color:var(--bg);cursor:pointer;font-size:13px;font-weight:600">Run backfill</button>
+      </div>
+      <div id="backfill-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -437,6 +458,42 @@
     }
   });
   $('exemplar-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('exemplar-btn').click(); });
+
+  // ─────────────────────────────────────────────────────────
+  // Leaderboard backfill. One-shot; idempotent. Dry run reports counts
+  // without writing; the real run writes leaderboard_entries for every
+  // debate_rounds doc with a numeric speakerPoints.user.
+  // ─────────────────────────────────────────────────────────
+  async function runBackfill(dryRun) {
+    const statusEl = $('backfill-status');
+    statusEl.textContent = dryRun ? 'Counting…' : 'Backfilling…';
+    statusEl.style.color = 'var(--muted)';
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch('/api/admin/backfill-leaderboard', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: !!dryRun }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || ('API ' + r.status));
+      if (dryRun) {
+        const sample = (data.sampleNames || []).join(', ');
+        statusEl.innerHTML = `✓ Dry run · ${data.eligible}/${data.totalRounds} rounds eligible across ${data.uniqueUsers} users.${sample ? ' Sample: ' + sample : ''}`;
+      } else {
+        statusEl.textContent = `✓ Wrote ${data.written}/${data.totalRounds} entries across ${data.uniqueUsers} users.`;
+      }
+      statusEl.style.color = '#10b981';
+    } catch (e) {
+      statusEl.textContent = 'Failed: ' + (e.message || e);
+      statusEl.style.color = '#ef4444';
+    }
+  }
+  $('backfill-dry-btn').addEventListener('click', () => runBackfill(true));
+  $('backfill-run-btn').addEventListener('click', () => {
+    if (!confirm('Run leaderboard backfill? This writes one entry per eligible debate_rounds doc. Idempotent, so safe to re-run.')) return;
+    runBackfill(false);
+  });
 
   // CSV export
   $('subs-export').addEventListener('click', () => {
