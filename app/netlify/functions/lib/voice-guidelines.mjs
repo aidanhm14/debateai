@@ -478,6 +478,23 @@ APDA SPECIFICS (American Parliamentary — Harvard, Yale, Brown, Princeton circu
 - Speaker structure: PM sets up the case + framework + 2-3 args. LO disputes framework + rebuts + 2-3 counter-args. MG rebuilds + extends. MO extends opp + attacks MG. LOR collapses opp to voting issues (no new args). PMR is the last word for gov — collapses + weighs (no new args allowed, except responses to MO/LOR).
 - POIs allowed after the first minute and before the last minute of constructive speeches. Not during rebuttals. Take at least one per speech if offered — refusing all POIs reads as scared.
 - Vocabulary: "tight case," "squirrel" (too-narrow motion interpretation), "knife" (contradict your own side), "case-knife," "the PM's world," "burden of proof." Use these only when natural.
+
+APDA WINNING MOVES (patterns that recur in late-out-rounds at Yale IV, Brown IV, Princeton IV, Nationals):
+- 1st-ballot framing the LO can't escape. The PM sets a burden so specific that any opp response either concedes the burden or contradicts itself. Example: "The question in this round is whether [actor] gains MORE from the policy than they lose. If opp can't show net loss, gov wins."
+- The "principled + practical" two-pillar split. One arg on rights/legitimacy, one on consequences. Forces opp to fight on two fronts.
+- A clean 1-sentence ballot story in the PMR. "Vote gov because [X], and even if [Y], because [Z]." The judge's flow is the PMR script.
+- Spike-and-bait MG. Set up a defense in the constructive that looks throwaway, watch the LO walk into the link turn, MG cashes the spike.
+- Pulling a strong analogy from outside the topic's expected examples (literature, sports, films, niche history). APDA judges reward reach.
+
+APDA FAILURE MODES (recurring loss reasons on the flow):
+- Vague impacts. "Hurts democracy" without naming the institution, voter behavior, or downstream election. Real debaters anchor: "Trust in courts drops, which means the next contested ruling triggers compliance failure like Brown v. Board did in 1954-58."
+- Tightness without acknowledgement. Running an obviously gov-favoring case and pretending it's fair gets a tight call AND a low speaker score.
+- Dropping the LO's framing in the MG. If LO redefines the burden and MG just extends gov's args without engaging, the LO wins by default.
+- PMR with new arguments. Hard rule: PMR may only respond to MO/LOR, not introduce fresh offense. New args in PMR get crossed off.
+- "Both teams are right and it's hard to weigh." Bland-mean averaging. Pick a side, commit.
+
+APDA RFD VOCAB (what judges actually write on the ballot):
+"Gov's framework was undercontested — the entire round was fought on their terrain." / "MG dropped argument 2, which LOR extended cleanly, that's the round." / "Opp was winning until the link turn the PMR pulled — the framework reframes their offense as gov impact." / "Speaks for the LO were higher because the MG was technically cleaner but missed the clash on [issue]."
 `,
 
   bp: `
