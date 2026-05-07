@@ -1032,24 +1032,42 @@ button{font-family:inherit;cursor:pointer}
 .how-card h3{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.02em}
 .how-card p{font-size:.8rem;color:var(--text-dim);line-height:1.55}
 
-/* ── FAQ ───────────────────────────── */
-.faq-item{border-bottom:1px solid var(--border)}
+/* ── FAQ ─────────────────────────────
+   Rounded card pattern. The previous design was just border-bottom rows
+   which read as sharp-edged on light backgrounds. Each item is now a
+   pill/card with its own soft border so the FAQ feels "circular" rather
+   than tabular. Hover/open states tint the border and lift slightly. */
+.faq-item{
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  background:var(--bg-elev);
+  margin-bottom:10px;
+  overflow:hidden;
+  transition:border-color .25s,box-shadow .25s,transform .25s;
+}
+.faq-item:hover{border-color:var(--accent-border)}
+.faq-item.open{
+  border-color:var(--accent-border);
+  box-shadow:0 8px 28px rgba(239,68,68,.08);
+}
 .faq-q{
   width:100%;display:flex;justify-content:space-between;align-items:center;
-  padding:20px 0;background:none;border:none;
+  padding:18px 22px;background:none;border:none;
   color:var(--nav-link);font-size:.88rem;font-weight:600;
   text-align:left;font-family:inherit;transition:color .2s;
   text-transform:uppercase;letter-spacing:.02em;
+  border-radius:var(--radius-lg);
+  cursor:pointer;
 }
 .faq-q:hover{color:var(--text)}
 .faq-chev{width:14px;height:14px;flex-shrink:0;color:var(--text-ghost);transition:transform .3s}
-.faq-item.open .faq-chev{transform:rotate(180deg)}
-.faq-a{max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.22,1,.36,1),padding .35s}
-.faq-item.open .faq-a{max-height:900px;padding-bottom:22px}
+.faq-item.open .faq-chev{transform:rotate(180deg);color:var(--accent)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.22,1,.36,1),padding .35s;padding:0 22px}
+.faq-item.open .faq-a{max-height:900px;padding-bottom:20px}
 .faq-a p{margin-bottom:10px}
 .faq-a p:last-child{margin-bottom:0}
 .faq-a strong{color:var(--text);font-weight:700}
-.faq-group-head{font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:24px 0 8px;padding-top:10px}
+.faq-group-head{font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:28px 0 12px;padding-top:8px}
 .faq-group-head:first-of-type{margin-top:0;padding-top:0}
 .faq-a p{font-size:.82rem;color:var(--text-dim);line-height:1.6}
 
@@ -1176,7 +1194,7 @@ button{font-family:inherit;cursor:pointer}
   .lang-picker.in-nav{position:static;left:auto;top:auto;display:inline-flex;align-items:center}
   #langPickerSel{
     appearance:none;-webkit-appearance:none;
-    padding:6px 22px 6px 10px;border-radius:8px;
+    padding:6px 22px 6px 10px;border-radius:14px;
     background:rgba(255,255,255,.04) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23fff' stroke-width='1.5'><polyline points='1.5 2 6 6 10.5 2'/></svg>") no-repeat right 6px center / 9px;
     color:var(--text);border:1px solid var(--border);
     font-size:.72rem;font-weight:600;letter-spacing:.02em;
@@ -1398,25 +1416,127 @@ button{font-family:inherit;cursor:pointer}
     })();
     </script>
 
-    <!-- Split layout: LEFT = "Debate the AI" orb, RIGHT = live streaming demo.
-         The orb pulses red while the mini-chat streams, so the two feel like
-         one system. left is the opponent thinking, right is what it says. -->
-    <div class="hero-split">
-      <div class="hero-left">
-        <h1 class="hero-side-label-big">Debate AI</h1>
-        <div id="heroOrbWrap" class="hero-orb-wrap">
+    <!-- Hero focal: the LIVE typing animation. Was previously buried inside
+         the pricing section as decoration; promoted here as the main hero
+         so the first thing visitors see is a real, motion-rotating debate
+         being argued. The whole card is a link to /debate-ai. -->
+    <h1 class="hero-side-label-big" style="text-align:center;margin:0 auto 18px;display:block;font-size:clamp(2rem,4.4vw,3.6rem) !important">Debate AI</h1>
+
+    <a href="/debate-ai" id="heroBetaChatLink" aria-label="Start debating an AI" style="display:block;max-width:760px;margin:0 auto;text-decoration:none;color:inherit;cursor:pointer;transition:transform .2s,box-shadow .2s">
+      <div class="beta-chat" id="heroBetaChat" aria-hidden="true" style="margin:0;background:rgba(15,15,18,.78);backdrop-filter:blur(8px)">
+        <div class="beta-chat-head">
+          <span class="beta-chat-head-dot"></span>
+          <span>Live · debating an AI</span>
+          <span class="beta-chat-motion" id="heroBetaChatMotion"></span>
+        </div>
+        <div class="beta-msg beta-msg-you">
+          <div class="beta-msg-avatar">YOU</div>
+          <div style="flex:1">
+            <div class="beta-msg-label">Your argument</div>
+            <div class="beta-msg-body" id="heroBetaChatYou"></div>
+          </div>
+        </div>
+        <div class="beta-msg beta-msg-ai">
+          <div class="beta-msg-avatar">AI</div>
+          <div style="flex:1">
+            <div class="beta-msg-label">AI rebuttal</div>
+            <div class="beta-msg-body" id="heroBetaChatAi"></div>
+          </div>
+        </div>
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+          <span style="font-size:.74rem;color:var(--text-dim);font-weight:600">Click to step in and argue this round &rarr;</span>
+          <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px;background:var(--accent);color:#fff;border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase">Spar with an AI →</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- Scoped styles for the in-hero beta-chat (animation copied from
+         the pricing block; consolidating them up here so the same element
+         can render in either spot without re-defining the keyframes). -->
+    <style>
+      .beta-chat{max-width:760px;margin:0 auto 36px;padding:20px;background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);text-align:left}
+      .beta-chat-head{display:flex;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim)}
+      .beta-chat-head-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
+      .beta-chat-motion{margin-left:auto;color:var(--text);font-weight:600;letter-spacing:0;text-transform:none;font-size:.74rem}
+      .beta-msg{display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}
+      .beta-msg:last-of-type{margin-bottom:0}
+      .beta-msg-avatar{flex-shrink:0;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;letter-spacing:.02em;border:1px solid var(--border)}
+      .beta-msg-you .beta-msg-avatar{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft)}
+      .beta-msg-ai .beta-msg-avatar{color:var(--text-dim);background:var(--bg-card)}
+      .beta-msg-body{flex:1;font-size:.9rem;line-height:1.6;color:var(--text);min-height:1.55em}
+      .beta-msg-label{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px}
+      .beta-msg-you .beta-msg-label{color:var(--accent)}
+      .beta-msg-typing::after{content:'▋';display:inline-block;margin-left:2px;color:var(--accent);animation:beta-blink 1s step-end infinite}
+      @keyframes beta-blink{0%,100%{opacity:1}50%{opacity:0}}
+      #heroBetaChatLink:hover .beta-chat{border-color:var(--accent-border);box-shadow:0 30px 80px rgba(239,68,68,.18)}
+      #heroBetaChatLink:hover{transform:translateY(-2px)}
+    </style>
+
+    <script>
+    (function(){
+      var motions=[
+        {m:'This House would ban private schools.',you:'Private schooling entrenches class hierarchy. per-pupil funding collapses when capital opts out.',ai:'Extend that and you nationalize education access. The wealthy will just credential-launder through tutoring and abroad. You lose the constituency, not the hierarchy.'},
+        {m:'AI should write the news.',you:'Human editors are bottlenecks. AI can cover 10x more stories with equal factual accuracy.',ai:'Accuracy is not coverage. Journalism needs accountability. a byline that can be sued, fired, or shamed. Remove that and you get volume, not truth.'},
+        {m:'Open borders, yes or no?',you:'Free movement of labor grows GDP and self-corrects through price signals.',ai:'GDP isn\'t distributed by price signals. You get aggregate growth and collapsing wage floors in the bottom quintile. which is exactly who votes against open borders next cycle.'},
+        {m:'Tax billionaires out of existence.',you:'Concentrated wealth buys political outcomes. democracy requires a wealth ceiling.',ai:'A ceiling without a floor just exports the billionaires. You lose the tax base and keep the political capture, because lobbying scales with reputation, not net worth.'},
+        {m:'Mandatory voting.',you:'Compulsory turnout eliminates the turnout-suppression attack surface entirely.',ai:'It also eliminates the signal that low turnout sends about legitimacy. You\'ll push uninformed ballots that track whatever was on TV last week. that\'s noise, not democracy.'}
+      ];
+      var youEl=document.getElementById('heroBetaChatYou');
+      var aiEl=document.getElementById('heroBetaChatAi');
+      var motionEl=document.getElementById('heroBetaChatMotion');
+      if(!youEl||!aiEl) return;
+      var idx=Math.floor(Math.random()*motions.length);
+      function type(el,text,speed){
+        return new Promise(function(res){
+          el.textContent='';el.classList.add('beta-msg-typing');
+          var i=0;(function step(){
+            if(i<=text.length){el.textContent=text.slice(0,i);i++;setTimeout(step,speed)}
+            else{el.classList.remove('beta-msg-typing');res()}
+          })();
+        });
+      }
+      function pause(ms){return new Promise(function(r){setTimeout(r,ms)})}
+      async function loop(){
+        while(true){
+          var cur=motions[idx%motions.length];
+          motionEl.textContent=cur.m;
+          youEl.textContent='';aiEl.textContent='';
+          await pause(400);
+          await type(youEl,cur.you,22);
+          await pause(700);
+          await type(aiEl,cur.ai,18);
+          await pause(3200);
+          idx++;
+        }
+      }
+      var started=false;
+      var io=new IntersectionObserver(function(entries){
+        entries.forEach(function(e){if(e.isIntersecting&&!started){started=true;loop();io.disconnect()}});
+      },{threshold:.15});
+      io.observe(document.getElementById('heroBetaChat'));
+    })();
+    </script>
+
+    <!-- Secondary CTAs sit below the animation. The animation itself is
+         the primary CTA (clickable to /debate-ai); these expose the two
+         other top-level surfaces (Live human-vs-human + Case generator)
+         that don't fit naturally inside the chat card. -->
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:22px auto 0;max-width:760px">
+      <a href="/live" class="hero-cta hero-cta-secondary" style="display:inline-flex;align-items:center;gap:6px">Debate humans live →</a>
+      <a href="/app#case" class="hero-cta hero-cta-secondary" style="display:inline-flex;align-items:center;gap:6px">Case prep</a>
+    </div>
+
+    <div class="hero-split" hidden>
+      <div class="hero-left" hidden>
+        <h1 class="hero-side-label-big" hidden>Debate AI</h1>
+        <div id="heroOrbWrap" class="hero-orb-wrap" hidden>
           <div class="hero-orb-glow"></div>
           <div class="hero-orb-ring"></div>
           <canvas id="heroOrb" aria-hidden="true"></canvas>
         </div>
-        <div class="hero-orb-hint" id="orbHint">Click the orb to hear it speak</div>
-        <div class="hero-left-ctas">
-          <a href="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
-          <a href="/app#case" class="hero-cta hero-cta-secondary">Debate prep</a>
-        </div>
       </div>
 
-      <div class="hero-right">
+      <div class="hero-right" hidden>
     <!-- LIVE mini debate widget. real /api/claude + /api/tts. Anonymous users can
          fire a full round of back-and-forth right from the landing page before
          any signup. Rate-limited server-side (5/min, 40/hr, 150/day per IP).
@@ -1469,7 +1589,7 @@ button{font-family:inherit;cursor:pointer}
       .mini-chat-typing::after{content:'▋';display:inline-block;margin-left:2px;color:var(--accent);animation:miniChatBlink 1s step-end infinite}
       @keyframes miniChatBlink{0%,100%{opacity:1}50%{opacity:0}}
       .mini-chat-side.active{background:rgba(239,68,68,.12)!important;border-color:var(--accent)!important;color:var(--accent)!important}
-      .mini-chat-tts{margin-top:6px;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:.68rem;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.04em;text-transform:uppercase}
+      .mini-chat-tts{margin-top:6px;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:var(--text-dim);font-size:.68rem;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.04em;text-transform:uppercase}
       .mini-chat-tts:hover{color:var(--text);background:rgba(255,255,255,.08)}
       .mini-chat-tts.playing{color:var(--accent);border-color:var(--accent)}
       #miniChatSend:disabled,#miniChatStart:disabled{cursor:not-allowed;opacity:.4}
@@ -2185,7 +2305,7 @@ button{font-family:inherit;cursor:pointer}
   }
   .topic-card:hover{border-color:rgba(239,68,68,.45);background:rgba(20,20,26,.78);transform:translateY(-2px)}
   .topic-card-meta{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .topic-card-fmt{font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border:1px solid;border-radius:6px}
+  .topic-card-fmt{font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border:1px solid;border-radius:10px}
   .topic-card-month{font-size:.7rem;color:var(--text-dim);letter-spacing:.05em}
   .topic-card-res{font-size:.92rem;line-height:1.5;color:var(--text);font-weight:500}
   .topic-card-args{display:flex;flex-direction:column;gap:4px;font-size:.74rem;color:var(--text-dim);line-height:1.5}
@@ -2211,24 +2331,9 @@ button{font-family:inherit;cursor:pointer}
   </div>
 </section>
 
-<!-- Pricing / Free-during-beta. clean version, matches main-app aesthetic -->
-<style>
-  /* Scoped-only styles: chat demo. Everything else uses shared ui.css primitives. */
-  .beta-chat{max-width:640px;margin:0 auto 36px;padding:20px;background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);text-align:left}
-  .beta-chat-head{display:flex;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim)}
-  .beta-chat-head-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
-  .beta-chat-motion{margin-left:auto;color:var(--text);font-weight:600;letter-spacing:0;text-transform:none;font-size:.74rem}
-  .beta-msg{display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}
-  .beta-msg:last-of-type{margin-bottom:0}
-  .beta-msg-avatar{flex-shrink:0;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;letter-spacing:.02em;border:1px solid var(--border)}
-  .beta-msg-you .beta-msg-avatar{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft)}
-  .beta-msg-ai .beta-msg-avatar{color:var(--text-dim);background:var(--bg-card)}
-  .beta-msg-body{flex:1;font-size:.9rem;line-height:1.6;color:var(--text);min-height:1.55em}
-  .beta-msg-label{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px}
-  .beta-msg-you .beta-msg-label{color:var(--accent)}
-  .beta-msg-typing::after{content:'▋';display:inline-block;margin-left:2px;color:var(--accent);animation:beta-blink 1s step-end infinite}
-  @keyframes beta-blink{0%,100%{opacity:1}50%{opacity:0}}
-</style>
+<!-- Pricing / Free-during-beta. clean version, matches main-app aesthetic.
+     Beta-chat styles were duplicated here; consolidated up in the hero
+     style block (around line 1438) since the widget now lives there. -->
 <!-- Style memory. the central reason to sign in. Lives right before pricing so the
      user hits it after they've already seen what the app does, and before any CTA. -->
 <section class="ui-section" style="text-align:center">
@@ -2259,72 +2364,10 @@ button{font-family:inherit;cursor:pointer}
 
 <section id="pricing" class="ui-section" style="text-align:center;padding-top:56px;padding-bottom:32px">
   <div class="ui-container-sm">
-    <div class="beta-chat" aria-hidden="true">
-      <div class="beta-chat-head">
-        <span class="beta-chat-head-dot"></span>
-        <span>Live · debating an AI</span>
-        <span class="beta-chat-motion" id="betaChatMotion"></span>
-      </div>
-      <div class="beta-msg beta-msg-you">
-        <div class="beta-msg-avatar">YOU</div>
-        <div style="flex:1">
-          <div class="beta-msg-label">Your argument</div>
-          <div class="beta-msg-body" id="betaChatYou"></div>
-        </div>
-      </div>
-      <div class="beta-msg beta-msg-ai">
-        <div class="beta-msg-avatar">AI</div>
-        <div style="flex:1">
-          <div class="beta-msg-label">AI rebuttal</div>
-          <div class="beta-msg-body" id="betaChatAi"></div>
-        </div>
-      </div>
-    </div>
-    <script>
-    (function(){
-      var motions=[
-        {m:'This House would ban private schools.',you:'Private schooling entrenches class hierarchy. per-pupil funding collapses when capital opts out.',ai:'Extend that and you nationalize education access. The wealthy will just credential-launder through tutoring and abroad. You lose the constituency, not the hierarchy.'},
-        {m:'AI should write the news.',you:'Human editors are bottlenecks. AI can cover 10x more stories with equal factual accuracy.',ai:'Accuracy is not coverage. Journalism needs accountability. a byline that can be sued, fired, or shamed. Remove that and you get volume, not truth.'},
-        {m:'Open borders, yes or no?',you:'Free movement of labor grows GDP and self-corrects through price signals.',ai:'GDP isn\'t distributed by price signals. You get aggregate growth and collapsing wage floors in the bottom quintile. which is exactly who votes against open borders next cycle.'},
-        {m:'Tax billionaires out of existence.',you:'Concentrated wealth buys political outcomes. democracy requires a wealth ceiling.',ai:'A ceiling without a floor just exports the billionaires. You lose the tax base and keep the political capture, because lobbying scales with reputation, not net worth.'},
-        {m:'Mandatory voting.',you:'Compulsory turnout eliminates the turnout-suppression attack surface entirely.',ai:'It also eliminates the signal that low turnout sends about legitimacy. You\'ll push uninformed ballots that track whatever was on TV last week. that\'s noise, not democracy.'}
-      ];
-      var youEl=document.getElementById('betaChatYou');
-      var aiEl=document.getElementById('betaChatAi');
-      var motionEl=document.getElementById('betaChatMotion');
-      if(!youEl||!aiEl) return;
-      var idx=Math.floor(Math.random()*motions.length);
-      function type(el,text,speed){
-        return new Promise(function(res){
-          el.textContent='';el.classList.add('beta-msg-typing');
-          var i=0;(function step(){
-            if(i<=text.length){el.textContent=text.slice(0,i);i++;setTimeout(step,speed)}
-            else{el.classList.remove('beta-msg-typing');res()}
-          })();
-        });
-      }
-      function pause(ms){return new Promise(function(r){setTimeout(r,ms)})}
-      async function loop(){
-        while(true){
-          var cur=motions[idx%motions.length];
-          motionEl.textContent=cur.m;
-          youEl.textContent='';aiEl.textContent='';
-          await pause(400);
-          await type(youEl,cur.you,22);
-          await pause(700);
-          await type(aiEl,cur.ai,18);
-          await pause(3200);
-          idx++;
-        }
-      }
-      var started=false;
-      var io=new IntersectionObserver(function(entries){
-        entries.forEach(function(e){if(e.isIntersecting&&!started){started=true;loop();io.disconnect()}});
-      },{threshold:.15});
-      io.observe(document.querySelector('.beta-chat'));
-    })();
-    </script>
-
+    <!-- The duplicate beta-chat that previously sat here was promoted to the
+         hero (top of the page) so the typing animation is the very first
+         thing visitors see. Removed here to avoid running two copies of the
+         same loop. -->
   </div>
 </section>
 
