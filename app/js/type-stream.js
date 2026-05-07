@@ -3,10 +3,12 @@
 // PURPOSE: the landing hero's scripted demo cycles canned motions and reveals
 // each character per frame, with a red block cursor (▋) at the typing edge.
 // The user wants that same look applied to REAL AI output everywhere — live
-// debate speech, devil's advocate, case prep, judge verdict, mini-chat.
+// debate speech, the case-gen tools at /devils-advocate.html (Case Generator
+// / Round Vision / Philosophy — the URL is legacy; the brand is "Debate AI"
+// now), case prep on /, judge verdict, prep coach.
 //
-// The streaming pipeline (callAI / callClaude in debate-ai.html and
-// devils-advocate.html) calls onChunk(fullTextSoFar) repeatedly as SSE
+// The streaming pipeline (callAI / callClaude in debate-ai.html and the
+// case-gen page) calls onChunk(fullTextSoFar) repeatedly as SSE
 // chunks arrive. Most callers pass that straight to setState / textContent,
 // which paints text instantly the moment a chunk lands. That's wrong for
 // our visual: we want the user to see characters APPEAR one at a time.
@@ -95,7 +97,22 @@
       // Cap at MAX_BURST_CHARS so a long pause doesn't dump everything.
       const want = Math.round((cps * dt) / 1000);
       const advance = Math.max(1, Math.min(want, MAX_BURST_CHARS));
-      const next = Math.min(buffer.length, shown + advance);
+      let next = Math.min(buffer.length, shown + advance);
+
+      // ANTI-TOWER PASS. Structured AI output (numbered cases, indented
+      // warrants) has lots of `\n` + leading whitespace. Revealing those
+      // one-per-frame produces a "skinny tower" — a partial line of one
+      // indented char while the next line crawls in. Cure: when we'd land
+      // ON a whitespace boundary, fast-forward through the entire ws run
+      // AND grab the first non-space char of the next line in the same
+      // frame, so each line begins with visible content already in place.
+      // Only triggers when we're sitting on whitespace — keeps cps honest
+      // for normal text.
+      if (next < buffer.length && /[\n\r\t ]/.test(buffer[next])) {
+        while (next < buffer.length && /[\n\r\t ]/.test(buffer[next])) next++;
+        if (next < buffer.length) next++;
+      }
+
       if (next !== shown) {
         shown = next;
         setText(buffer.slice(0, shown));

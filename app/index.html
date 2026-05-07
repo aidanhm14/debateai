@@ -848,8 +848,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 /* ▋ block cursor matches the landing-hero typewriter and the TypeStream
    utility used elsewhere — consistent typing-animation signature across
    the app. Was a thin 2px vertical bar; switched to a block glyph so all
-   AI-text surfaces (hero, devil's advocate, debate-ai, case prep, etc.)
-   share the same cursor character. */
+   AI-text surfaces (hero, the legacy /devils-advocate case-gen tools,
+   debate-ai, case prep) share the same cursor character. */
 .output.streaming-active::after{content:'▋';display:inline-block;margin-left:2px;color:#ef4444;vertical-align:baseline;animation:cursorBlink .8s step-end infinite}
 @keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
 .output *{margin:0;padding:0}
@@ -3128,6 +3128,16 @@ function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {
       step = BASE_STEP;
     }
     revealed = Math.min(streamed.length, revealed + step);
+    // ANTI-TOWER PASS. Structured AI output (numbered cases, indented
+    // warrants, markdown headings followed by blank lines) has lots of
+    // `\n` + leading whitespace. Revealing those one-per-frame produces a
+    // "skinny tower" — a partial line of one indented char while the next
+    // line crawls in. Only triggers when we'd land ON whitespace; keeps
+    // cps honest for normal text.
+    if (revealed < streamed.length && /[\n\r\t ]/.test(streamed[revealed])) {
+      while (revealed < streamed.length && /[\n\r\t ]/.test(streamed[revealed])) revealed++;
+      if (revealed < streamed.length) revealed++;
+    }
     try { onChunk(streamed.slice(0, revealed)); } catch(e) { /* consumer error shouldn't kill the stream */ }
     if (revealed < streamed.length || !finished) scheduleTick();
   }
