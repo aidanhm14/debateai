@@ -550,19 +550,16 @@ button{font-family:inherit;cursor:pointer}
 }
 .hero-right{
   display:flex;flex-direction:column;
-  /* Pin the chat to roughly the headline's vertical position on the orb
-     side (which sits centered in its own track). Lands the chat box top
-     near the "DEBATE THE AI" baseline so the two columns balance instead
-     of the chat hanging at the orb's midline. */
-  align-self:start;
-  padding-top:clamp(40px,8vh,90px);
+  /* Vertically center the typing card against the orb (which is also
+     centered in hero-left). Both columns now occupy roughly the same
+     visual band rather than one sitting high while the other sits
+     centered, which used to look unbalanced. */
+  align-self:center;
+  padding-top:0;
 }
-.hero-right > .mini-chat{
-  margin:0 !important;
-  max-width:none !important;
+.hero-right > a, .hero-right > .beta-chat{
   width:100%;
-  /* Drop the height:100%, the chat is now content-sized. */
-  display:flex;flex-direction:column;
+  display:block;
 }
 
 /* ── "Debate the AI" label above the orb ───────────── */
@@ -655,6 +652,19 @@ button{font-family:inherit;cursor:pointer}
   margin-top:4px;
 }
 .hero-left .hero-cta{margin-top:0}
+
+/* ── CTA row under BOTH columns (orb + typing card) ─────
+   The split puts orb left / typing card right; this row spans the full
+   hero width and centers the three primary deflections (Spar / Live /
+   Case prep) so neither column "owns" the CTAs. */
+.hero-cta-row{
+  display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
+  margin:32px auto 0;max-width:760px;
+}
+@media(max-width:560px){
+  .hero-cta-row{gap:8px}
+  .hero-cta-row > *{flex:1 1 auto;min-width:0}
+}
 
 /* ── Responsive collapse ───────────────────────────── */
 @media(max-width:960px){
@@ -1418,44 +1428,57 @@ button{font-family:inherit;cursor:pointer}
     })();
     </script>
 
-    <!-- Hero focal: the LIVE typing animation. Whole card is a link to
-         /debate-ai. The "DEBATE AI" h1 + orb canvas + interactive
-         mini-chat that used to live alongside the animation were removed
-         per design direction; the animation IS the hero now. -->
-
-    <a href="/debate-ai" id="heroBetaChatLink" aria-label="Start debating an AI" style="display:block;max-width:760px;margin:0 auto;text-decoration:none;color:inherit;cursor:pointer;transition:transform .2s,box-shadow .2s">
-      <div class="beta-chat" id="heroBetaChat" aria-hidden="true" style="margin:0;backdrop-filter:blur(8px)">
-        <div class="beta-chat-head">
-          <span class="beta-chat-head-dot"></span>
-          <span>Live · debating an AI</span>
-          <span class="beta-chat-motion" id="heroBetaChatMotion"></span>
+    <!-- Hero split: LEFT = orb (canvas voice visualizer, click to hear a
+         sample line via TTS), RIGHT = LIVE typing animation card (auto-
+         rotating debate motions, whole card links to /debate-ai). The two
+         columns balance — visual identity on the left, sample dialogue on
+         the right — and stack on mobile. CTAs sit below both columns. -->
+    <div class="hero-split">
+      <div class="hero-left">
+        <div id="heroOrbWrap" class="hero-orb-wrap">
+          <div class="hero-orb-glow"></div>
+          <div class="hero-orb-ring"></div>
+          <canvas id="heroOrb" aria-hidden="true"></canvas>
         </div>
-        <div class="beta-msg beta-msg-you">
-          <div class="beta-msg-avatar">YOU</div>
-          <div style="flex:1">
-            <div class="beta-msg-label">Your argument</div>
-            <div class="beta-msg-body" id="heroBetaChatYou"></div>
-          </div>
-        </div>
-        <div class="beta-msg beta-msg-ai">
-          <div class="beta-msg-avatar">AI</div>
-          <div style="flex:1">
-            <div class="beta-msg-label">AI rebuttal</div>
-            <div class="beta-msg-body" id="heroBetaChatAi"></div>
-          </div>
-        </div>
-        <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
-          <span style="font-size:.74rem;color:var(--text-dim);font-weight:600">Click to step in and argue this round &rarr;</span>
-          <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px;background:var(--accent);color:#fff;border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase">Spar with an AI →</span>
-        </div>
+        <div class="hero-orb-hint" id="orbHint">Click the orb to hear it speak</div>
       </div>
-    </a>
+
+      <div class="hero-right">
+        <a href="/debate-ai" id="heroBetaChatLink" aria-label="Start debating an AI" style="display:block;text-decoration:none;color:inherit;cursor:pointer;transition:transform .2s,box-shadow .2s">
+          <div class="beta-chat" id="heroBetaChat" aria-hidden="true" style="margin:0;backdrop-filter:blur(8px)">
+            <div class="beta-chat-head">
+              <span class="beta-chat-head-dot"></span>
+              <span>Live · debating an AI</span>
+              <span class="beta-chat-motion" id="heroBetaChatMotion"></span>
+            </div>
+            <div class="beta-msg beta-msg-you">
+              <div class="beta-msg-avatar">YOU</div>
+              <div style="flex:1">
+                <div class="beta-msg-label">Your argument</div>
+                <div class="beta-msg-body" id="heroBetaChatYou"></div>
+              </div>
+            </div>
+            <div class="beta-msg beta-msg-ai">
+              <div class="beta-msg-avatar">AI</div>
+              <div style="flex:1">
+                <div class="beta-msg-label">AI rebuttal</div>
+                <div class="beta-msg-body" id="heroBetaChatAi"></div>
+              </div>
+            </div>
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+              <span style="font-size:.74rem;color:var(--text-dim);font-weight:600">Click to step in and argue this round &rarr;</span>
+              <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px;background:var(--accent);color:#fff;border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase">Spar with an AI →</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
 
     <!-- Scoped styles for the in-hero beta-chat (animation copied from
          the pricing block; consolidating them up here so the same element
          can render in either spot without re-defining the keyframes). -->
     <style>
-      .beta-chat{max-width:760px;margin:0 auto 36px;padding:20px;background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);text-align:left}
+      .beta-chat{width:100%;padding:20px;background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);text-align:left}
       .beta-chat-head{display:flex;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim)}
       .beta-chat-head-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
       .beta-chat-motion{margin-left:auto;color:var(--text);font-weight:600;letter-spacing:0;text-transform:none;font-size:.74rem}
@@ -1533,13 +1556,331 @@ button{font-family:inherit;cursor:pointer}
     })();
     </script>
 
-    <!-- Secondary CTAs sit below the animation. The animation itself is
-         the primary CTA (clickable to /debate-ai); these expose the two
-         other top-level surfaces (Live human-vs-human + Case generator)
-         that don't fit naturally inside the chat card. -->
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:22px auto 0;max-width:760px">
-      <a href="/live" class="hero-cta hero-cta-secondary" style="display:inline-flex;align-items:center;gap:6px">Debate humans live →</a>
-      <a href="/app#case" class="hero-cta hero-cta-secondary" style="display:inline-flex;align-items:center;gap:6px">Case prep</a>
+    <!-- Hero orb animation. Canvas-based pulsing blob + audio-frequency
+         bars. Idle = soft white wave, AI-speaking = red pulse. The orb
+         lights up while a sample TTS line plays (next script). -->
+    <script>
+    (function(){
+      var canvas = document.getElementById('heroOrb');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      var mode = 'idle';
+      var running = true;
+      var inView = true;
+      var isChrome = /Chrome/.test(navigator.userAgent) && !/Edg|OPR/.test(navigator.userAgent);
+      window.__heroOrbMode = function(m){ mode = (m === 'ai' ? 'ai' : 'idle'); gradKey = ''; };
+
+      function resize(){
+        var dpr = Math.min(1.5, window.devicePixelRatio || 1);
+        var rect = canvas.getBoundingClientRect();
+        if (!rect.width) return;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        gradKey = '';
+      }
+      resize();
+      window.addEventListener('resize', resize, { passive: true });
+
+      var reduced = false;
+      try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+      var gradKey = '';
+      var outerGrad, innerGrad, strokeStyleCached, fillBarsCached;
+      function ensureGradients(W, H, baseR){
+        var key = mode + ':' + Math.round(baseR);
+        if (key === gradKey) return;
+        gradKey = key;
+        var cx = W / 2, cy = H / 2;
+        outerGrad = ctx.createRadialGradient(cx, cy, baseR * 0.5, cx, cy, baseR * 1.4);
+        innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 1.1);
+        if (mode === 'ai') {
+          outerGrad.addColorStop(0, 'rgba(239,68,68,.14)');
+          outerGrad.addColorStop(1, 'rgba(239,68,68,0)');
+          innerGrad.addColorStop(0, 'rgba(239,68,68,.22)');
+          innerGrad.addColorStop(.6, 'rgba(239,68,68,.06)');
+          innerGrad.addColorStop(1, 'rgba(239,68,68,0)');
+          strokeStyleCached = 'rgba(239,68,68,.9)';
+          fillBarsCached = 'rgba(239,68,68,.85)';
+        } else {
+          outerGrad.addColorStop(0, 'rgba(255,255,255,.04)');
+          outerGrad.addColorStop(1, 'rgba(255,255,255,0)');
+          innerGrad.addColorStop(0, 'rgba(255,255,255,.06)');
+          innerGrad.addColorStop(1, 'rgba(255,255,255,0)');
+          strokeStyleCached = 'rgba(255,255,255,.13)';
+          fillBarsCached = 'rgba(255,255,255,.32)';
+        }
+      }
+
+      var lastFrame = 0;
+      var FRAME_MIN_MS = 33;
+
+      function draw(now){
+        if (!running) return;
+        if (!inView) return;
+        if (now && now - lastFrame < FRAME_MIN_MS) {
+          requestAnimationFrame(draw);
+          return;
+        }
+        lastFrame = now || 0;
+
+        var rect = canvas.getBoundingClientRect();
+        var W = rect.width, H = rect.height;
+        if (!W || !H) { requestAnimationFrame(draw); return; }
+        ctx.clearRect(0, 0, W, H);
+
+        var cx = W / 2, cy = H / 2;
+        var baseR = Math.min(W, H) * 0.36;
+        var t = reduced ? 0 : (Date.now() / 1000);
+        var points = 60;
+        var speed = mode === 'ai' ? 1.6 : 0.75;
+        var amp   = mode === 'ai' ? 0.20 : 0.11;
+
+        ensureGradients(W, H, baseR);
+
+        ctx.beginPath();
+        for (var i = 0; i <= points; i++) {
+          var a = (i / points) * Math.PI * 2;
+          var r = baseR * 1.08 +
+            Math.sin(a * 5 + t * speed) * baseR * amp +
+            Math.sin(a * 3 - t * speed * 1.4) * baseR * amp * 0.6;
+          var x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = outerGrad;
+        ctx.fill();
+
+        ctx.beginPath();
+        for (var j = 0; j <= points; j++) {
+          var aa = (j / points) * Math.PI * 2;
+          var rr = baseR +
+            Math.sin(aa * 6 + t * speed * 1.1) * baseR * amp * 0.55 +
+            Math.sin(aa * 4 - t * speed * 0.8) * baseR * amp * 0.35;
+          var xx = cx + Math.cos(aa) * rr, yy = cy + Math.sin(aa) * rr;
+          j === 0 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy);
+        }
+        ctx.closePath();
+        ctx.fillStyle = innerGrad;
+        ctx.fill();
+        ctx.strokeStyle = strokeStyleCached;
+        ctx.lineWidth = 1.5;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        var BARS = 22;
+        var maxBarH = baseR * (mode === 'ai' ? 1.25 : 0.55);
+        var minBarH = baseR * 0.08;
+        var barW = Math.max(2, baseR * 0.055);
+        var barGap = barW * 0.7;
+        var totalW = BARS * barW + (BARS - 1) * barGap;
+        var startX = cx - totalW / 2;
+        var barSpeed = mode === 'ai' ? 4.2 : 1.8;
+        var center = (BARS - 1) / 2;
+        var canRound = !!ctx.roundRect;
+        ctx.beginPath();
+        for (var b = 0; b < BARS; b++) {
+          var envelope = 1 - Math.pow(Math.abs(b - center) / center, 1.6) * 0.7;
+          var phase = b * 0.42;
+          var v =
+            Math.sin(t * barSpeed + phase) * 0.55 +
+            Math.sin(t * barSpeed * 1.7 + phase * 1.3) * 0.32 +
+            Math.sin(t * barSpeed * 0.6 - phase * 0.8) * 0.22;
+          v = (v + 1) / 2;
+          var h = minBarH + (maxBarH - minBarH) * v * envelope;
+          var x = startX + b * (barW + barGap);
+          var y = cy - h / 2;
+          if (canRound) {
+            var rad = Math.min(barW / 2, h / 2);
+            ctx.roundRect(x, y, barW, h, rad);
+          } else {
+            ctx.rect(x, y, barW, h);
+          }
+        }
+        ctx.fillStyle = fillBarsCached;
+        ctx.fill();
+
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+
+      document.addEventListener('visibilitychange', function(){
+        running = !document.hidden;
+        if (running) requestAnimationFrame(draw);
+      });
+
+      if (window.IntersectionObserver) {
+        try {
+          var io = new IntersectionObserver(function(entries){
+            entries.forEach(function(en){
+              inView = en.isIntersecting;
+              if (inView && running) requestAnimationFrame(draw);
+            });
+          }, { rootMargin: '120px' });
+          io.observe(canvas);
+        } catch(e){}
+      }
+    })();
+    </script>
+
+    <!-- Try-me: clicking the orb plays a TTS sample line. The orb lights
+         up red while playing so the visualizer feels live. Samples are
+         pre-fetched on idle so the first click is near-instant. -->
+    <script>
+    (function(){
+      var btn = document.getElementById('heroOrbWrap');
+      if (!btn) return;
+      btn.setAttribute('role','button');
+      btn.setAttribute('tabindex','0');
+      btn.setAttribute('aria-label','Hear a sample debate line');
+      var hintEl = document.getElementById('orbHint');
+      function setHint(t){ if (hintEl) hintEl.textContent = t; }
+      var labelEl = { set textContent(t){ setHint(t); } };
+
+      var samples = [
+        "Their case is a bridge missing the middle plank. You see the entrance, you see the exit. Walk it, you drop.",
+        "Markets don't clean up what markets broke. 2008 settled that one. Putting the arsonist on the fire crew is not a plan.",
+        "Veil-of-ignorance test on their plan. Would you take it without knowing which side you'd land on? Nobody picks the side that loses by default.",
+        "Their link chain has one bolt holding it. We snapped it. The chain's on the floor. Extend that, you vote on it.",
+        "Subsidize the cure, you tax the prevention. That's moral hazard with a press release. Cross-apply onto their second contention.",
+        "You can't average out a rights violation. One person isn't a rounding error in their utilitarian math. The framework eats itself.",
+        "They're asking free markets to fix what free markets caused. That's the fox running the henhouse audit. On the clock.",
+        "Side opp wants the status quo where the harm hasn't happened yet. We're debating the real one. Criminalization IS the harm."
+      ];
+      var voices = ['onyx','echo','fable','alloy','nova','shimmer','coral','sage','ash','ballad'];
+      var lastIdx = -1;
+      var current = null;
+      var cacheByIdx = {};
+      var inFlightByIdx = {};
+      var SERVER_SPEED  = 1.20;
+      var PLAYBACK_RATE = 1.56;
+      var GAIN_BOOST    = 1.5;
+
+      function setLabel(t){ if (labelEl) labelEl.textContent = t; }
+      function reset(){
+        btn.classList.remove('loading','playing','speaking');
+        setLabel('Click the orb to hear it speak');
+        try { window.__heroOrbMode && window.__heroOrbMode('idle'); } catch(e){}
+      }
+      function pickIndex(){
+        var idx;
+        do { idx = Math.floor(Math.random() * samples.length); }
+        while (samples.length > 1 && idx === lastIdx);
+        return idx;
+      }
+      function voiceForIdx(idx){ return voices[idx % voices.length]; }
+
+      function prefetchSample(idx){
+        if (cacheByIdx[idx] || inFlightByIdx[idx]) return;
+        var voice = voiceForIdx(idx);
+        var text = samples[idx];
+        inFlightByIdx[idx] = fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, voice: voice, speed: SERVER_SPEED, premium: true, intensity: 0.55 })
+        }).then(function(r){ return r.ok ? r.blob() : null; }).then(function(blob){
+          delete inFlightByIdx[idx];
+          if (!blob) return;
+          var url = URL.createObjectURL(blob);
+          var a = new Audio(url);
+          a.playbackRate = PLAYBACK_RATE;
+          a.preload = 'auto';
+          try { a.load(); } catch(e){}
+          cacheByIdx[idx] = { audio: a, url: url };
+        }).catch(function(){ delete inFlightByIdx[idx]; });
+      }
+
+      var audioCtx = null;
+      function ensureAudioCtx(){
+        if (audioCtx) return audioCtx;
+        try {
+          var Ctx = window.AudioContext || window.webkitAudioContext;
+          if (Ctx) audioCtx = new Ctx();
+        } catch(e){ audioCtx = null; }
+        return audioCtx;
+      }
+      function wireGain(a){
+        if (a.__gainWired) return;
+        var ctxA = ensureAudioCtx();
+        if (!ctxA) return;
+        try {
+          if (ctxA.state === 'suspended') ctxA.resume();
+          var src = ctxA.createMediaElementSource(a);
+          var gain = ctxA.createGain();
+          gain.gain.value = GAIN_BOOST;
+          src.connect(gain);
+          gain.connect(ctxA.destination);
+          a.__gainWired = true;
+        } catch(e){ a.__gainWired = true; }
+      }
+
+      function playAudio(a, idx){
+        current = a;
+        lastIdx = idx;
+        btn.classList.remove('loading');
+        btn.classList.add('playing','speaking');
+        setLabel('Click again to stop');
+        try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
+        a.volume = 1.0;
+        wireGain(a);
+        a.onended = function(){ if (current === a) current = null; reset(); };
+        a.onerror = function(){ if (current === a) current = null; reset(); };
+        try { a.currentTime = 0; } catch(e){}
+        a.play().catch(function(){ reset(); });
+      }
+
+      btn.addEventListener('click', async function(e){
+        // Don't intercept clicks that bubble from inside the typing card,
+        // even though the card lives in a different column.
+        if (current) {
+          try { current.pause(); } catch(e){}
+          current = null;
+          reset();
+          return;
+        }
+        var idx = pickIndex();
+        if (cacheByIdx[idx]) {
+          playAudio(cacheByIdx[idx].audio, idx);
+          return;
+        }
+        btn.classList.add('loading');
+        setLabel('Loading…');
+        prefetchSample(idx);
+        try {
+          var deadline = Date.now() + 8000;
+          while (!cacheByIdx[idx] && Date.now() < deadline) {
+            await new Promise(function(r){ setTimeout(r, 80); });
+          }
+          if (cacheByIdx[idx]) playAudio(cacheByIdx[idx].audio, idx);
+          else throw new Error('timeout');
+        } catch(e2) {
+          btn.classList.remove('loading');
+          setLabel('Try again, click the orb');
+          setTimeout(function(){ if (!current) reset(); }, 2000);
+        }
+      });
+      btn.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
+      });
+
+      var firstIdx = pickIndex();
+      prefetchSample(firstIdx);
+      setTimeout(function(){
+        for (var i = 0; i < samples.length; i++) {
+          if (i !== firstIdx) prefetchSample(i);
+        }
+      }, 0);
+    })();
+    </script>
+
+    <!-- CTA row sits below BOTH hero columns (orb on the left, typing
+         animation on the right). Primary first (Spar with an AI →), then
+         the two adjacent surfaces visitors might want to deflect to. -->
+    <div class="hero-cta-row">
+      <a href="/debate-ai" class="hero-cta hero-cta-primary">Spar with an AI →</a>
+      <a href="/live" class="hero-cta hero-cta-secondary" style="display:inline-flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;display:inline-block"></span>Debate humans live</a>
+      <a href="/app#case" class="hero-cta hero-cta-secondary">Case prep</a>
     </div>
 
     <div style="margin-top:18px;display:flex;justify-content:center">
