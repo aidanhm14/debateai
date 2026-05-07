@@ -17,6 +17,7 @@
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
 
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -222,6 +223,56 @@ button{font-family:inherit}
   .fmt{font-size:.68rem}
 }
 
+/* ─── Format filter pills (v1.1) ─── */
+.fmt-pills{
+  display:flex;flex-wrap:wrap;gap:6px;justify-content:center;
+  max-width:760px;margin:14px auto 0;padding:0 16px;
+}
+.fmt-pill{
+  padding:6px 14px;font-size:.7rem;font-weight:700;letter-spacing:.04em;
+  color:var(--text-dim);background:transparent;
+  border:1px solid var(--border);border-radius:999px;
+  cursor:pointer;transition:background .15s,border-color .15s,color .15s;
+  font-family:inherit;
+}
+.fmt-pill:hover{color:var(--text);border-color:var(--border-strong)}
+.fmt-pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ─── Your-rank pinned card (v1.1) ─── */
+.your-rank{
+  max-width:920px;margin:24px auto 0;padding:0 24px;
+}
+.your-rank-card{
+  display:flex;align-items:center;gap:18px;
+  padding:14px 22px;
+  background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(239,68,68,.06));
+  border:1px solid rgba(251,191,36,.32);
+  border-radius:var(--radius-md);
+}
+[data-theme="light"] .your-rank-card{
+  background:linear-gradient(135deg,rgba(251,191,36,.12),rgba(220,38,38,.05));
+}
+.your-rank-eyebrow{
+  font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:#fbbf24;margin-bottom:2px;
+}
+.your-rank-line{font-size:.92rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.your-rank-line strong{color:#fbbf24;font-weight:900}
+.your-rank-sub{font-size:.74rem;color:var(--text-dim);margin-top:2px}
+.your-rank-cta{
+  margin-left:auto;flex-shrink:0;
+  padding:8px 16px;border-radius:999px;
+  background:transparent;border:1px solid var(--border-strong);
+  color:var(--text);font-size:.72rem;font-weight:700;letter-spacing:.04em;
+  text-decoration:none;white-space:nowrap;
+  transition:background .15s,border-color .15s;
+}
+.your-rank-cta:hover{background:var(--bg-elev);border-color:var(--text)}
+@media(max-width:560px){
+  .your-rank-card{flex-wrap:wrap;gap:10px;padding:12px 16px}
+  .your-rank-cta{margin-left:0;width:100%;text-align:center}
+}
+
 /* ─── Empty / loading states ─── */
 .state{
   padding:64px 24px;text-align:center;
@@ -302,6 +353,17 @@ button{font-family:inherit}
   <button class="tab" data-view="ai" role="tab" type="button">Beat the AI</button>
 </div>
 
+<!-- Format filter pills. Populated client-side from the loaded
+     entries' formats so we don't show empty filters. Hidden until
+     data lands. -->
+<div id="fmtPills" class="fmt-pills" hidden></div>
+
+<!-- Your-rank pinned card. Renders only when the viewer is signed in
+     AND has at least one entry in the current view. Computed from
+     the loaded top-100; if the user isn't in the top 100 we run a
+     separate uid-scoped query for their best score. -->
+<div id="yourRank" class="your-rank" hidden></div>
+
 <div class="board-wrap">
   <div id="board" class="board">
     <div class="state">
@@ -334,10 +396,12 @@ const FIREBASE_CONFIG = {
 };
 
 let db=null;
+let auth=null;
 try{
   if(typeof firebase!=='undefined'){
     const app=firebase.apps&&firebase.apps.length?firebase.apps[0]:firebase.initializeApp(FIREBASE_CONFIG);
     db=firebase.firestore();
+    if(firebase.auth) auth=firebase.auth();
   }
 }catch(e){
   console.warn('[leaderboard] firebase init failed:',e);
@@ -346,8 +410,12 @@ try{
 const board=document.getElementById('board');
 const tabs=document.querySelectorAll('.tab');
 const signinStrip=document.getElementById('signinStrip');
+const fmtPillsHost=document.getElementById('fmtPills');
+const yourRankHost=document.getElementById('yourRank');
 
-const state={view:'live',cache:{}};
+// state.format=null means "all formats" (no filter applied).
+// state.user is set by onAuthStateChanged; null when signed out.
+const state={view:'live',format:null,user:null,cache:{},userBest:{}};
 
 function fmtAgo(ts){
   if(!ts)return '';
@@ -384,12 +452,24 @@ function rankPrefix(i){
   return '#'+(i+1);
 }
 
-function renderRows(rows){
+// Apply the current format filter to a row list. Format key matches if
+// either the slug (`format`) or display name (`formatName`) matches the
+// active pill — old entries written before formatName was a thing only
+// have the slug.
+function applyFormatFilter(rows){
+  if(!state.format) return rows;
+  const f=state.format;
+  return rows.filter(r=>r.format===f||r.formatName===f);
+}
+
+function renderRows(allRows){
+  const rows=applyFormatFilter(allRows);
   if(!rows.length){
     const liveTab=state.view==='live';
+    const filterClause=state.format?` for ${escapeHtml(state.format)}`:'';
     board.innerHTML=`
       <div class="state">
-        <h3>${liveTab?'No live rounds yet':'No AI wins yet'}</h3>
+        <h3>${liveTab?'No live rounds yet':'No AI wins yet'}${filterClause}</h3>
         <p>${liveTab
           ? 'Be the first to win a human-vs-human round. The same AI judge that scores AI rounds adjudicates the live debate. Speaker points become your rank.'
           : 'Run a round against the AI and beat it on the ballot. Speaker points become your rank.'}</p>
@@ -414,6 +494,136 @@ function renderRows(rows){
       <div class="when">${fmtAgo(r.completedAt)}</div>
     </div>`).join('');
   board.innerHTML=head+body;
+}
+
+// Format pills derived from the unique formats in the current view's
+// loaded entries — adapts to whatever's actually on the board, no
+// hardcoded list.
+function renderFormatPills(allRows){
+  if(!fmtPillsHost) return;
+  const set=new Map();  // key by formatName||format, preserve display
+  for(const r of allRows){
+    const display=r.formatName||r.format||'';
+    if(!display) continue;
+    if(!set.has(display)) set.set(display,display);
+  }
+  const formats=Array.from(set.keys());
+  if(formats.length<=1){
+    fmtPillsHost.hidden=true;
+    fmtPillsHost.innerHTML='';
+    return;
+  }
+  fmtPillsHost.hidden=false;
+  const html=[
+    `<button class="fmt-pill${state.format===null?' active':''}" data-fmt="" type="button">All formats</button>`,
+    ...formats.map(f=>`<button class="fmt-pill${state.format===f?' active':''}" data-fmt="${escapeHtml(f)}" type="button">${escapeHtml(f)}</button>`),
+  ].join('');
+  fmtPillsHost.innerHTML=html;
+  fmtPillsHost.querySelectorAll('.fmt-pill').forEach(p=>{
+    p.addEventListener('click',()=>{
+      const f=p.getAttribute('data-fmt')||null;
+      if(state.format===f && f!==null) return;
+      state.format=f;
+      // Re-render pills (active state) and rows + your-rank with the
+      // filter applied.
+      renderFormatPills(state.cache[state.view]||[]);
+      renderRows(state.cache[state.view]||[]);
+      renderYourRank();
+    });
+  });
+}
+
+// Compute and render the "Your rank" card. Only renders if the user is
+// signed in AND has at least one entry in the current view (with the
+// current format filter applied). Falls back to a uid-scoped query when
+// the user's best score isn't in the loaded top-100.
+async function renderYourRank(){
+  if(!yourRankHost) return;
+  if(!state.user || !db){
+    yourRankHost.hidden=true;
+    yourRankHost.innerHTML='';
+    return;
+  }
+  const uid=state.user.uid;
+  const allRows=state.cache[state.view]||[];
+  const filteredRows=applyFormatFilter(allRows);
+
+  // First, look in the loaded rows (cheap path).
+  let best=null;
+  let rankInView=-1;
+  for(let i=0;i<filteredRows.length;i++){
+    const r=filteredRows[i];
+    if(r.uid===uid){
+      if(!best||(typeof r.score==='number'&&r.score>(best.score||-Infinity))){
+        best=r; rankInView=i;
+      }
+    }
+  }
+
+  // If not found in top 100, do a cheap uid-scoped query for the user's
+  // best entry (cached per view+format so we don't re-query on every
+  // pill click).
+  if(!best){
+    const cacheKey=state.view+':'+(state.format||'');
+    if(state.userBest[cacheKey]!==undefined){
+      best=state.userBest[cacheKey];
+    } else {
+      try{
+        const snap=await db.collection('leaderboard_entries')
+          .where('uid','==',uid)
+          .orderBy('score','desc')
+          .limit(20)
+          .get();
+        const candidates=snap.docs.map(d=>d.data());
+        const filtered=applyFormatFilter(candidates).filter(r=>{
+          // Match the same view-level filter used by loadView.
+          if(state.view==='live') return r.kind==='live';
+          if(state.view==='ai') return r.won===true && r.kind!=='live';
+          return true;
+        });
+        best=filtered[0]||null;
+        state.userBest[cacheKey]=best;
+      }catch(e){
+        console.warn('[leaderboard] your-rank query failed:',e&&e.message);
+      }
+    }
+  }
+
+  if(!best){
+    yourRankHost.hidden=true;
+    yourRankHost.innerHTML='';
+    return;
+  }
+
+  // Compute rank: position among filtered top 100 if found, else "outside top 100".
+  const totalLoaded=filteredRows.length;
+  const yourScore=typeof best.score==='number'?best.score:null;
+  let rankCopy;
+  if(rankInView>=0){
+    const ahead=rankInView; // 0 = first
+    const behind=totalLoaded-rankInView-1;
+    if(rankInView===0){
+      rankCopy=`You're #1 with <strong>${fmtScore(yourScore)}</strong>${behind?` — ${behind} below you`:''}.`;
+    } else {
+      rankCopy=`You're #${rankInView+1} with <strong>${fmtScore(yourScore)}</strong>${ahead?` — ${ahead} above`:''}, ${behind} below.`;
+    }
+  } else {
+    // Off the loaded top — show their best with no precise rank.
+    rankCopy=`Your best: <strong>${fmtScore(yourScore)}</strong>. Outside the top ${totalLoaded||100}.`;
+  }
+
+  const ctaHref=state.view==='live'?'/live':'/debate-ai';
+  const ctaText=state.view==='live'?'Run another live round':'Beat the AI again';
+  yourRankHost.hidden=false;
+  yourRankHost.innerHTML=`
+    <div class="your-rank-card">
+      <div>
+        <div class="your-rank-eyebrow">Your rank</div>
+        <div class="your-rank-line">${rankCopy}</div>
+        <div class="your-rank-sub">${escapeHtml(best.formatName||best.format||'—')} · ${escapeHtml(best.displayName||'You')}</div>
+      </div>
+      <a class="your-rank-cta" href="${ctaHref}">${ctaText} →</a>
+    </div>`;
 }
 
 function escapeHtml(s){
@@ -481,15 +691,19 @@ async function loadView(view){
         .slice(0,100);
     }
     state.cache[view]=rows;
+    renderFormatPills(rows);
     renderRows(rows);
-    signinStrip.hidden=false;
+    renderYourRank();
+    signinStrip.hidden=!!state.user; // hide CTA if signed in
   }catch(e){
     console.warn('[leaderboard] load failed:',e);
     // Last-resort soft empty: show the empty state, not an error. People
     // can still click into the relevant surface from the empty CTA.
     state.cache[view]=[];
+    renderFormatPills([]);
     renderRows([]);
-    signinStrip.hidden=false;
+    renderYourRank();
+    signinStrip.hidden=!!state.user;
   }
 }
 
@@ -510,11 +724,27 @@ tabs.forEach(t=>{
     const view=t.dataset.view;
     if(view===state.view)return;
     state.view=view;
+    state.format=null; // formats are per-view; reset on switch
     tabs.forEach(x=>x.classList.toggle('active',x===t));
     updateSigninStripCta(view);
     loadView(view);
   });
 });
+
+// Wire auth so the "Your rank" card can render. Keeping it lazy and
+// non-blocking — the board renders immediately for signed-out users
+// and the rank pill pops in the moment auth resolves.
+if(auth){
+  auth.onAuthStateChanged(u=>{
+    state.user=u||null;
+    state.userBest={}; // invalidate cached uid-scoped queries
+    if(state.cache[state.view]){
+      // Re-render with the same data, just re-evaluate your-rank.
+      renderYourRank();
+      signinStrip.hidden=!!state.user;
+    }
+  });
+}
 
 updateSigninStripCta(state.view);
 loadView(state.view);
