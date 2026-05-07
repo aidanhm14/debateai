@@ -3286,6 +3286,12 @@ function App(){
   const[oppWeaknesses,setOppWeaknesses]=useState([]);
   const[brain,setBrain]=useState('claude');
   const[voice,setVoice]=useState('onyx');
+  // Judge count picker. 1 = single Tab/flow judge (default, fast). 3 =
+  // full APDA-style panel of Maya / Marcus / Dr. Chen who deliberate
+  // and reach a 3-0 or 2-1 vote. Auto-fires the panel deliberation
+  // after the round when set to 3, instead of needing a separate click
+  // on the ballot screen.
+  const[judgeCount,setJudgeCount]=useState(1);
   // Account modal toggle. Lives in the topbar; opens a centered overlay
   // with email + plan badge + BYOK key entry + TTS provider selector +
   // manage-subscription link to Stripe billing portal.
@@ -4359,6 +4365,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       }
     }catch(e){setFeedback('Could not generate feedback: '+e.message)}
     setFbLoading(false);
+    // If the user picked a 3-judge panel at setup, fire the panel
+    // deliberation automatically once the single ballot lands. They
+    // already opted in; no second click required. The panel block on
+    // the ballot screen still allows manual re-rolls.
+    if(judgeCount===3 && !panelText && !panelLoading){
+      try{ genPanelFeedback(allLog); }catch(e){}
+    }
   };
 
   // Save round to history
@@ -5442,9 +5455,49 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         // textarea. Keeping this comment as a breadcrumb.
       ),
 
+      // Judge count picker — one Tab/flow judge (fast) or a 3-judge APDA
+      // panel that deliberates after the round. Sits right above Start
+      // Round so the choice is the last thing the user sets.
+      el('div',{style:{margin:'18px auto 0',maxWidth:520}},
+        el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--c-muted)',textAlign:'center',marginBottom:8}},'Judges'),
+        el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
+          el('button',{
+            type:'button',
+            onClick:()=>setJudgeCount(1),
+            style:{
+              padding:'12px 14px',borderRadius:14,cursor:'pointer',fontFamily:'inherit',textAlign:'left',
+              background:judgeCount===1?'rgba(96,165,250,.10)':'transparent',
+              border:'1px solid '+(judgeCount===1?'rgba(96,165,250,.55)':'var(--c-border2)'),
+              color:'var(--c-text)',
+              transition:'background .18s,border-color .18s',
+            }
+          },
+            el('div',{style:{fontSize:'.86rem',fontWeight:800,marginBottom:2}},'1 judge'),
+            el('div',{style:{fontSize:'.7rem',color:'var(--c-text3)',lineHeight:1.4}},'Fast. Single ballot from the Tab/flow judge.'),
+          ),
+          el('button',{
+            type:'button',
+            onClick:()=>setJudgeCount(3),
+            style:{
+              padding:'12px 14px',borderRadius:14,cursor:'pointer',fontFamily:'inherit',textAlign:'left',
+              background:judgeCount===3?'linear-gradient(180deg,rgba(168,85,247,.10),rgba(96,165,250,.10))':'transparent',
+              border:'1px solid '+(judgeCount===3?'rgba(168,85,247,.55)':'var(--c-border2)'),
+              color:'var(--c-text)',
+              transition:'background .18s,border-color .18s',
+            }
+          },
+            el('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:2}},
+              el('span',{style:{fontSize:'.86rem',fontWeight:800}},'3-judge panel'),
+              el('span',{style:{fontSize:'.55rem',padding:'2px 6px',borderRadius:999,background:'rgba(168,85,247,.18)',color:'#c084fc',fontWeight:800,letterSpacing:'.06em'}},'APDA'),
+            ),
+            el('div',{style:{fontSize:'.7rem',color:'var(--c-text3)',lineHeight:1.4}},'Maya · Marcus · Dr. Chen deliberate, then vote 3-0 or 2-1.'),
+          ),
+        ),
+      ),
+
       // Summary line
       el('div',{className:'t-dim',style:{marginTop:16}},
-        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' voice'+(oppStrengths.length||oppWeaknesses.length?' · Custom opponent':'')
+        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' voice · '+(judgeCount===3?'3-judge panel':'1 judge')+(oppStrengths.length||oppWeaknesses.length?' · Custom opponent':'')
 
       ),
 
