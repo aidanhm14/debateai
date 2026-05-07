@@ -1962,12 +1962,20 @@ function setDevPro() {}
 
 function isPro(team, user) {
   // Pro = user has an active paid team. Trial plan is free-tier.
-  // Any of these plans unlocks premium: individual, team, lifetime, byok.
+  // Lifetime is a one-time payment with no ongoing subscription status,
+  // so it always unlocks once the team doc has plan='lifetime' — the
+  // status field may be missing/legacy/anything; the source of truth is
+  // that the user paid. For subscription plans we only block on EXPLICIT
+  // Stripe-bad statuses (canceled/unpaid/etc.); 'past_due' is a grace
+  // state and 'inactive'/null/undefined are typical from legacy writes
+  // and shouldn't lock a paying user out of features they already paid for.
   if (!team) return false;
   const plan = team.plan;
   if (!plan || plan === 'trial') return false;
-  if (team.status && team.status !== 'active' && team.status !== 'trialing') return false;
-  return plan === 'individual' || plan === 'team' || plan === 'lifetime' || plan === 'byok';
+  if (plan === 'lifetime') return true;
+  const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
+  if (KNOWN_INACTIVE.has(team.status)) return false;
+  return plan === 'individual' || plan === 'team' || plan === 'byok';
 }
 
 // Pro trial tracking. 5 free tries per feature

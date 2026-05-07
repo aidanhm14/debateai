@@ -80,13 +80,15 @@ export default async (request) => {
     }
   }
 
-  // For authenticated team callers we still respect plan caps. Status
-  // gate only applies to PAID plans — trial / lifetime users always
-  // pass through to the usage cap (which is the honest "you've hit your
-  // free tier" upsell, not a fake paywall on a free user).
+  // For authenticated team callers we still respect plan caps. Lifetime
+  // is paid-once-forever; trial is free-tier. Both bypass the status
+  // check. For subscriptions, only block on explicit Stripe-bad statuses
+  // (canceled/unpaid/etc); 'past_due' is a grace state and 'inactive'/null
+  // are legacy/race writes that shouldn't lock out paying customers.
   if (team) {
-    const PAYWALLED_PLANS = ['byok', 'individual', 'team'];
-    if (PAYWALLED_PLANS.includes(team.plan) && !['active', 'trialing'].includes(team.status)) {
+    const SUB_PLANS = new Set(['byok', 'individual', 'team']);
+    const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
+    if (SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status)) {
       return errorResponse('Subscription inactive. Please update your billing.', 402, request);
     }
     const planLimits = PLANS[team.plan] || PLANS.trial;

@@ -223,15 +223,17 @@ export default async (request, context) => {
       const { team } = result;
       teamId = team.id;
 
-      // Subscription gate. Only block users on a PAID plan with a broken
-      // billing relationship — trial users (free tier) and lifetime users
-      // (paid-once-active-forever) should never hit a 402, even if their
-      // team's status field is null/missing/'inactive' from a legacy or
-      // race-conditioned write. Falling through to the usage gate is the
-      // honest funnel: trial users get 3 free requests, then USAGE_LIMIT
-      // upsells them. Hitting 402 before that is a fake paywall.
-      const PAYWALLED_PLANS = ['byok', 'individual', 'team'];
-      if (PAYWALLED_PLANS.includes(team.plan) && !['active', 'trialing'].includes(team.status)) {
+      // Subscription gate. Lifetime is paid-once-active-forever; trial is
+      // the free tier. Both bypass the status check entirely and rely on
+      // the usage cap for upsell. For paid subscriptions we only block on
+      // EXPLICIT Stripe-bad statuses — 'past_due' is a grace state Stripe
+      // retries through, and null/'inactive' from legacy/race-conditioned
+      // writes shouldn't lock out users who actually paid. The previous
+      // logic (allowlist requiring 'active' | 'trialing') was a fake paywall
+      // hitting paying customers.
+      const SUB_PLANS = new Set(['byok', 'individual', 'team']);
+      const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
+      if (SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status)) {
         return new Response(
           JSON.stringify({ error: 'Subscription inactive. Please update your billing.', code: 'SUBSCRIPTION_INACTIVE' }),
           { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } }
