@@ -4712,7 +4712,7 @@ A brief strategic playbook: what happens in each speech, what the other side lik
 Be specific and concrete. Name the exact words, phrases, and strategic moves. This is a masterclass in legitimate gamesmanship. CRITICAL: You MUST complete ALL 7 sections. Do not stop mid-section. End with a complete sentence.`;
     try {
       const throttle = createStreamThrottle((text) => setSneakyOutput(text), null);
-      await callClaude(sysPrompt, userPrompt, (text) => throttle.update(text), { thinkBudget: 6000, maxTokens: 12000, expectedWords: 1500, feature: 'case' });
+      await callClaude(sysPrompt, userPrompt, (text) => throttle.update(text), { thinkBudget: 6000, maxTokens: 12000, expectedWords: 1500, feature: 'case', retrievalMotion: motion, retrievalSide: side, format });
       throttle.finish();
     } catch (err) {
       setError(err.message);
@@ -4736,7 +4736,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
     try {
       // Prompt lives server-side as PROMPT_LIBRARY.oppAttack
       const throttle = createStreamThrottle((text) => setOppAttack(text), null);
-      await callClaude('', 'Here is the Government case to attack:\n\n' + output, (text) => throttle.update(text), { thinkBudget: 8000, maxTokens: 8000, expectedWords: 1000, feature: 'case', promptId: 'oppAttack' });
+      await callClaude('', 'Here is the Government case to attack:\n\n' + output, (text) => throttle.update(text), { thinkBudget: 8000, maxTokens: 8000, expectedWords: 1000, feature: 'case', promptId: 'oppAttack', retrievalMotion: motion, retrievalSide: 'opp', format });
       throttle.finish();
     } catch(err) { setOppAttack('Error: ' + safeError(err)); }
     setOppAttackLoading(false);
@@ -6583,7 +6583,7 @@ function RoundVision() {
       // Prompt lives server-side as PROMPT_LIBRARY.prepRoomStrategist
       const userPrompt = `Motion: ${motion}\nMy side: ${side}\n\nGive me the full round vision.`;
       const throttle = createStreamThrottle((text) => setOutput(text), null);
-      await callClaude('', userPrompt, (text) => throttle.update(text), { thinkBudget: 10000, maxTokens: 8000, expectedWords: 2000, onProgress: (p) => setVProgress(p), feature: 'vision', promptId: 'prepRoomStrategist', promptVars: { visionFormat } });
+      await callClaude('', userPrompt, (text) => throttle.update(text), { thinkBudget: 10000, maxTokens: 8000, expectedWords: 2000, onProgress: (p) => setVProgress(p), feature: 'vision', promptId: 'prepRoomStrategist', promptVars: { visionFormat }, retrievalMotion: motion, retrievalSide: side, format: visionFormat });
       throttle.finish();
     } catch(e) {
       setOutput('Error: ' + safeError(e));
@@ -9180,7 +9180,7 @@ Write like a coach who genuinely wants this debater to get better. Be tough but 
 
     try {
       const thr = createStreamThrottle((text) => setFeedback(text), null);
-      await callClaude(sysPrompt, userPrompt, (text) => thr.update(text), { thinkBudget: 8000, maxTokens: 6000, expectedWords: 1000, onProgress: (p) => setSpProgress(p), feature: 'practice' });
+      await callClaude(sysPrompt, userPrompt, (text) => thr.update(text), { thinkBudget: 8000, maxTokens: 6000, expectedWords: 1000, onProgress: (p) => setSpProgress(p), feature: 'practice', retrievalMotion: motion, retrievalSide: 'practice' });
       thr.finish();
     } catch(e) {
       setFeedback('Error: ' + safeError(e));

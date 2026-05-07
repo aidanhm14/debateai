@@ -1413,6 +1413,70 @@ button{font-family:inherit}
     var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
     var loserName  = b.winner === 'pro' ? state.conName : state.proName;
     var loserSide  = b.winner === 'pro' ? f.sideLabels[f.sides[1]] : f.sideLabels[f.sides[0]];
+
+    // Wire 3 (extension): live human-vs-human rounds are the cleanest
+    // training signal we have — real speeches with a real verdict. Post
+    // to /api/log-debate so each speech becomes a labeled training row,
+    // exactly like AI-judged debate-ai rounds. Fire-and-forget; the
+    // user's ballot UX is decoupled from this.
+    try {
+      if (state.user && firebase && firebase.auth) {
+        // Map pro/con → user/ai semantics expected by log-debate.
+        // We treat the CALLER (state.user) as 'user' on whichever side
+        // they were assigned, and the opponent as 'ai' for schema parity.
+        // Only the speeches the caller delivered get who:'You'; opponent
+        // speeches get who:'AI'. This lets the same retrieval code use
+        // them as positive/negative exemplars without a schema fork.
+        var mySideKey = (state.user.uid === state.proUid) ? f.sides[0] : f.sides[1];
+        var mySide01 = (state.user.uid === state.proUid) ? 'pro' : 'con';
+        var speeches = state.log.map(function(sp){
+          var spSideIsFirst = sp.side === f.sides[0];
+          var who = (spSideIsFirst && mySide01 === 'pro') || (!spSideIsFirst && mySide01 === 'con')
+            ? 'You'
+            : 'AI';
+          return {
+            code: sp.code,
+            who: who,
+            text: sp.text || '',
+            durationSec: sp.durationSec || null,
+            wordCount: sp.wordCount || null,
+            interrupted: false,
+          };
+        });
+        var winnerForLog = b.winner === mySide01 ? 'user' : 'ai';
+        var pointsForMe = b.winner === 'pro'
+          ? (mySide01 === 'pro' ? b.proPoints : b.conPoints)
+          : (mySide01 === 'pro' ? b.proPoints : b.conPoints);
+        firebase.auth().currentUser.getIdToken().then(function(token){
+          fetch('/api/log-debate', {
+            method:'POST',
+            headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+            body: JSON.stringify({
+              motion: state.motion,
+              format: state.formatKey,
+              side: mySideKey,
+              voice: 'live-human',          // distinguishes live rounds from debate-ai rounds in the training pool
+              brain: 'live-ballot',
+              speeches: speeches,
+              verdict: {
+                winner: winnerForLog,
+                source: 'live-ballot',
+                speakerPoints: {
+                  user: mySide01 === 'pro' ? b.proPoints : b.conPoints,
+                  ai:   mySide01 === 'pro' ? b.conPoints : b.proPoints,
+                },
+                practice: b.proFeedback || b.conFeedback || '',
+              },
+              consent: true,
+            }),
+            keepalive: true,
+          }).catch(function(){});
+        }).catch(function(){});
+      }
+    } catch(e) {
+      console.warn('[live-round] log-debate failed:', e.message);
+    }
+
     result.innerHTML =
       '<div class="verdict ' + (b.winner === 'pro' ? 'pro' : 'con') + '">' +
         '<div class="verdict-headline">' + escHtml(winnerName) + ' wins</div>' +

@@ -1788,6 +1788,28 @@ button{font-family:inherit}
             (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>');
           meta = 'You\'d argue <strong>' + escHtml(yourSideLabel) + '</strong>. ' + (sched && sched.live ? 'Match is live, accept to enter the room.' : sched && c.scheduledAt ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Accept to queue up.');
         }
+        // If the poster has a public Community profile, surface their
+        // style tags + a tiny "View profile" affordance inline on the
+        // card. Converts the directory from a passive tab into a
+        // discovery feed: a debater scrolling Browse can see "this
+        // poster is APDA, analytical, lay-friendly" and decide to
+        // accept based on style fit.
+        var pp = (!isMine && c.posterUid && window.__publicProfilesByUid) ? window.__publicProfilesByUid[c.posterUid] : null;
+        var styleStrip = '';
+        var profileBtn = '';
+        if (pp) {
+          var tags = [];
+          (pp.formats || []).slice(0, 2).forEach(function(t){
+            tags.push('<span class="tag" style="background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.28);color:#fca5a5;font-size:.62rem">' + escHtml(String(t).toUpperCase()) + '</span>');
+          });
+          (pp.styleTags || []).slice(0, 3).forEach(function(t){
+            tags.push('<span class="tag" style="background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim);font-size:.62rem">' + escHtml(t) + '</span>');
+          });
+          if (tags.length){
+            styleStrip = '<div class="card-meta" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">' + tags.join('') + '</div>';
+          }
+          profileBtn = '<button type="button" class="btn btn-ghost" data-view-profile="' + escHtml(c.posterUid) + '" style="padding:6px 12px;font-size:.7rem">View profile</button>';
+        }
         card.innerHTML =
           '<div class="card-head">' +
             (isMine && hasAccepter ? headExtra : '<span class="tag tag-side ' + (c.side === 'pro' ? '' : 'opp') + '">They want ' + escHtml(theirSideLabel) + '</span>') +
@@ -1800,11 +1822,24 @@ button{font-family:inherit}
           '<div class="card-motion">' + escHtml(displayText) + '</div>' +
           (head.hint && !(isMine && hasAccepter) ? '<div class="card-meta" style="font-style:italic;opacity:.75">' + escHtml(head.hint) + '</div>' : '') +
           '<div class="card-meta">' + meta + '</div>' +
-          '<div class="card-actions">' + actions + '</div>';
+          styleStrip +
+          '<div class="card-actions">' + actions + (profileBtn ? profileBtn : '') + '</div>';
       }
       host.appendChild(card);
     });
     pruneRoomSubscriptions(activeRooms);
+
+    // View-profile click: opens the existing Community detail modal so
+    // a Browse-tab user can read the poster's bio + signature cases
+    // before deciding to accept.
+    host.querySelectorAll('[data-view-profile]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var uid = btn.getAttribute('data-view-profile');
+        var pp = window.__publicProfilesByUid && window.__publicProfilesByUid[uid];
+        if (pp && typeof showDebaterDetail === 'function') showDebaterDetail(pp);
+      });
+    });
 
     // Accept flow. Routes through the confirmation modal so the user
     // explicitly opts in + provides contact info before we mark the
@@ -2269,6 +2304,15 @@ button{font-family:inherit}
   var myPublicProfile = null;
   var communityCache = [];
   var communityFormatFilter = '';
+  // uid → profile lookup populated from /api/list-debaters. Used both
+  // by the Community tab and by Browse-tab challenge cards so a poster's
+  // style tags + nickname show up inline on their challenge.
+  window.__publicProfilesByUid = window.__publicProfilesByUid || {};
+  function indexCommunity(rows){
+    (rows || []).forEach(function(r){
+      if (r && r.uid) window.__publicProfilesByUid[r.uid] = r;
+    });
+  }
 
   function escHtmlSafe(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -2304,11 +2348,26 @@ button{font-family:inherit}
       var res = await fetch(url, { headers: { 'Accept':'application/json' } });
       var data = res.ok ? await res.json() : { debaters: [] };
       communityCache = data.debaters || [];
+      indexCommunity(communityCache);
     } catch (e) {
       communityCache = [];
     }
     renderCommunity();
   }
+  // Warm the by-uid cache on page load so challenge-card discovery
+  // pills show up even before the user clicks Community for the first
+  // time. Cheap (one no-auth GET) and fire-and-forget.
+  (async function prefetchPublicProfiles(){
+    try {
+      var res = await fetch('/api/list-debaters?limit=60');
+      if (!res.ok) return;
+      var data = await res.json();
+      indexCommunity(data.debaters || []);
+      // Trigger a re-render of any already-mounted challenge cards so
+      // poster discovery pills appear without a manual refresh.
+      try { if (typeof render === 'function') render(); } catch(e){}
+    } catch(e){}
+  })();
   function renderCommunity(){
     var grid = document.getElementById('communityCards');
     var emp  = document.getElementById('communityEmpty');
