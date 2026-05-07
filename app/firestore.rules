@@ -246,6 +246,24 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── debate_rounds ────────────────────────────────────────────────
+    // Per-user history of completed AI rounds (motion, format, side, log,
+    // feedback, ballot, speakerPoints). Doc ID convention: `${uid}_${roundId}`
+    // so the same user re-saving the same round just merges instead of
+    // creating duplicates. Reads + writes scoped to the owning user — these
+    // are private histories, not the public leaderboard.
+    match /debate_rounds/{docId} {
+      allow read:   if isSignedIn()
+                    && docId.matches('^' + request.auth.uid + '_.*');
+      allow create: if isSignedIn()
+                    && docId.matches('^' + request.auth.uid + '_.*')
+                    && stringUnder('motion', 4096);
+      allow update: if isSignedIn()
+                    && docId.matches('^' + request.auth.uid + '_.*');
+      allow delete: if isSignedIn()
+                    && docId.matches('^' + request.auth.uid + '_.*');
+    }
+
     // ── leaderboard_entries ──────────────────────────────────────────
     // Slim, denormalized public board of completed-round results.
     // Public read so the /leaderboard page works for anonymous visitors

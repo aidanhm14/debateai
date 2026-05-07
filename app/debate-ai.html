@@ -3601,7 +3601,12 @@ function App(){
     try{const d=localStorage.getItem('debateos-session');return d?JSON.parse(d):null}catch{return null}
   });
 
-  // Auto-save round state every 30s during speech phase
+  // Auto-save round state every 30s during speech phase, plus on every
+  // speech-boundary state change (idx/log.length deps), plus on tab-close
+  // via beforeunload. The beforeunload listener is the safety net: React
+  // commits state asynchronously, so a tab-close in the microsecond window
+  // between setLog() and the next commit could lose the latest entry
+  // without it.
   useEffect(()=>{
     if(phase!=='speech'&&phase!=='prep') return;
     const save=()=>{
@@ -3613,10 +3618,11 @@ function App(){
         }));
       }catch{}
     };
-    save(); // save immediately on phase enter
+    save(); // save immediately on phase enter / boundary
     const iv=setInterval(save,30000);
-    return()=>clearInterval(iv);
-  },[phase,idx,log.length]);
+    window.addEventListener('beforeunload',save);
+    return()=>{clearInterval(iv);window.removeEventListener('beforeunload',save)};
+  },[phase,idx,log.length,motion,notes]);
 
   // Clear session on round complete or new round
   const clearSession=()=>{try{localStorage.removeItem('debateos-session')}catch{}};
@@ -5043,8 +5049,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       }, '\u26A1 Quick tap for Quick Clash'),
       el('div',{style:{fontSize:'.7rem',color:'var(--c-dim)',marginTop:6,marginBottom:8}},'or customize below \u2193'),
 
-      // Session recovery banner
-      recoveryData&&(Date.now()-recoveryData.timestamp<3600000)&&el('div',{className:'recovery-banner'},
+      // Session recovery banner. Stale window is 24h so users who close
+      // the tab mid-round (commute, sleep, dinner) can pick up where they
+      // left off the next time they visit. Was 1h — too short; lots of
+      // users came back the next morning to a discarded round.
+      recoveryData&&(Date.now()-recoveryData.timestamp<86400000)&&el('div',{className:'recovery-banner'},
         el('div',{style:{fontSize:'.85rem',fontWeight:700,color:'var(--c-bright)',marginBottom:6}},'Resume unfinished round?'),
         el('div',{style:{fontSize:'.75rem',color:'var(--c-text)',marginBottom:12}},
           '"'+(()=>{
