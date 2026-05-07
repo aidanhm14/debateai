@@ -195,6 +195,7 @@
      the user clicks the Google signup button (which runs after defer). -->
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
@@ -1922,6 +1923,121 @@ button{font-family:inherit;cursor:pointer}
     </div>
   </div>
 </section>
+
+<!-- Live leaderboard preview. Pulls the top 3 entries from
+     `leaderboard_entries` and links to /leaderboard for the full board.
+     Sits between live-debates and current-topics so the flow reads:
+     "post a debate → debate live → top scores → drill topics". The
+     section hides itself entirely if Firestore can't load (no SDK,
+     network, etc.) — better than rendering an empty card. -->
+<div class="divider"></div>
+<section id="leaderboard-preview" class="sec" style="padding:56px 24px 32px;display:none">
+  <div class="wrap" style="max-width:760px;text-align:center">
+    <div class="sec-label" style="color:#fbbf24">Top this week</div>
+    <h2 style="font-size:clamp(1.6rem,3.2vw,2.4rem);font-weight:900;letter-spacing:-.025em;line-height:1.1;margin:6px 0 6px">
+      The leaderboard is <em style="color:var(--accent);font-style:normal">live.</em>
+    </h2>
+    <p style="font-size:.92rem;color:var(--text-dim);max-width:520px;margin:0 auto 22px;line-height:1.55">
+      Every AI-judged round counts. Names are first-name + last-initial; signing in is the only thing standing between you and a top spot.
+    </p>
+    <div id="lb-preview-rows" style="display:flex;flex-direction:column;gap:8px;max-width:520px;margin:0 auto 18px">
+      <!-- rows injected by script -->
+    </div>
+    <a href="/leaderboard" class="hero-cta hero-cta-primary" style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;font-size:.85rem">View full leaderboard →</a>
+  </div>
+</section>
+
+<style>
+.lb-prev-row{
+  display:grid;grid-template-columns:36px 1fr 70px;align-items:center;gap:10px;
+  padding:10px 16px;background:rgba(255,255,255,.03);
+  border:1px solid var(--border);border-radius:14px;
+  text-align:left;font-size:.86rem;
+  transition:background .2s,border-color .2s;
+}
+.lb-prev-row:hover{background:rgba(255,255,255,.05);border-color:var(--border-strong)}
+[data-theme="light"] .lb-prev-row{background:rgba(0,0,0,.02)}
+[data-theme="light"] .lb-prev-row:hover{background:rgba(0,0,0,.04)}
+.lb-prev-rank{font-weight:900;font-size:1.1rem;color:var(--text-dim);letter-spacing:-.02em}
+.lb-prev-rank.gold{color:#fbbf24}
+.lb-prev-rank.silver{color:#cbd5e1}
+[data-theme="light"] .lb-prev-rank.silver{color:#64748b}
+.lb-prev-rank.bronze{color:#d97706}
+.lb-prev-name{font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-prev-score{font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;text-align:right;letter-spacing:-.01em}
+.lb-prev-empty{
+  padding:18px;background:rgba(255,255,255,.03);border:1px dashed var(--border);
+  border-radius:14px;font-size:.85rem;color:var(--text-dim);
+}
+[data-theme="light"] .lb-prev-empty{background:rgba(0,0,0,.02)}
+</style>
+<script>
+// Live leaderboard preview loader. Runs on window.load so the deferred
+// Firebase SDK has parsed; gracefully no-ops if Firestore isn't reachable.
+window.addEventListener('load', function(){
+  var section = document.getElementById('leaderboard-preview');
+  var rowsHost = document.getElementById('lb-preview-rows');
+  if (!section || !rowsHost) return;
+  if (typeof firebase === 'undefined' || !firebase.firestore) return;
+
+  function escHtmlLb(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function rankClass(i){return i===0?'gold':i===1?'silver':i===2?'bronze':''}
+  function rankPrefix(i){return i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}
+
+  try {
+    // Reuse the app already initialized by the auth IIFE earlier on the page.
+    // If for some reason that didn't run yet, init defensively.
+    if (!firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+        authDomain: "debateos-78ac5.firebaseapp.com",
+        projectId: "debateos-78ac5",
+        storageBucket: "debateos-78ac5.firebasestorage.app",
+        messagingSenderId: "860359449192",
+        appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+        measurementId: "G-0V4R5MY3BT"
+      });
+    }
+    var db = firebase.firestore();
+    // Pull recent entries, then client-side: filter to last 7 days, sort by
+    // score desc, take top 3. Single-field index, no composite index needed.
+    db.collection('leaderboard_entries')
+      .orderBy('completedAt','desc')
+      .limit(80)
+      .get()
+      .then(function(snap){
+        var cutoff = Date.now() - 7*24*60*60*1000;
+        var rows = snap.docs.map(function(d){return d.data()}).filter(function(r){
+          var ts = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate().getTime() : 0;
+          return ts >= cutoff;
+        }).sort(function(a,b){return (b.score||0)-(a.score||0)}).slice(0,3);
+        if (!rows.length){
+          rowsHost.innerHTML = '<div class="lb-prev-empty">Empty board this week — the next round to complete claims rank one. <a href="/debate-ai" style="color:var(--accent);font-weight:700">Run a round →</a></div>';
+        } else {
+          rowsHost.innerHTML = rows.map(function(r,i){
+            var score = (typeof r.score === 'number' && !isNaN(r.score)) ? r.score.toFixed(1) : '—';
+            return '<div class="lb-prev-row">'
+              + '<div class="lb-prev-rank '+rankClass(i)+'">'+rankPrefix(i)+'</div>'
+              + '<div class="lb-prev-name">'+escHtmlLb(r.displayName||'Anonymous')+'</div>'
+              + '<div class="lb-prev-score">'+score+'</div>'
+              + '</div>';
+          }).join('');
+        }
+        section.style.display = 'block';
+      })
+      .catch(function(err){
+        console.warn('[landing] leaderboard preview load failed:', err && err.message);
+        // Section stays hidden on failure rather than rendering an empty box.
+      });
+  } catch(e) {
+    console.warn('[landing] leaderboard preview init error:', e.message);
+  }
+});
+</script>
 
 <!-- Current topic hub. Surfaces the live NSDA PF + LD + Policy resolutions
      so a visitor lands on something they can ACT on (drill the actual topic
