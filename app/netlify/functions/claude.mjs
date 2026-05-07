@@ -214,37 +214,52 @@ export default async (request, context) => {
         );
       }
 
-      const result = await getUserTeam(userId);
-      if (!result) {
-        return new Response(
-          JSON.stringify({ error: 'No team found. Create or join a team first.' }),
-          { status: 403, headers: { 'Content-Type': 'application/json', ...CORS } }
-        );
-      }
+      // Founder / unlimited bypass. The product owner gets unlimited
+      // requests so the app never accidentally locks Aidan out of his
+      // own backend. Configured via the FOUNDER_EMAIL / FOUNDER_EMAILS
+      // (comma-separated) env vars, or the hardcoded fallback below.
+      // Skip team/subscription/usage checks entirely for founder users
+      // — they still get rate-limited per minute (above) so an
+      // accidental tight loop can't burn the Anthropic budget.
+      const FOUNDER_EMAILS_RAW = (process.env.FOUNDER_EMAILS || process.env.FOUNDER_EMAIL || 'aidandavidhollinger@gmail.com');
+      const FOUNDER_EMAILS = FOUNDER_EMAILS_RAW.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      const callerEmail = (decoded.email || '').toLowerCase();
+      const isFounder = !!callerEmail && FOUNDER_EMAILS.includes(callerEmail);
+      if (isFounder) {
+        teamId = 'founder';
+      } else {
+        const result = await getUserTeam(userId);
+        if (!result) {
+          return new Response(
+            JSON.stringify({ error: 'No team found. Create or join a team first.' }),
+            { status: 403, headers: { 'Content-Type': 'application/json', ...CORS } }
+          );
+        }
 
-      const { team } = result;
-      teamId = team.id;
+        const { team } = result;
+        teamId = team.id;
 
-      // Check subscription status
-      if (!['active', 'trialing'].includes(team.status)) {
-        return new Response(
-          JSON.stringify({ error: 'Subscription inactive. Please update your billing.', code: 'SUBSCRIPTION_INACTIVE' }),
-          { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } }
-        );
-      }
+        // Check subscription status
+        if (!['active', 'trialing'].includes(team.status)) {
+          return new Response(
+            JSON.stringify({ error: 'Subscription inactive. Please update your billing.', code: 'SUBSCRIPTION_INACTIVE' }),
+            { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } }
+          );
+        }
 
-      // Check usage limits
-      const planLimits = PLANS[team.plan] || PLANS.trial;
-      if (team.usageThisPeriod >= planLimits.requests) {
-        return new Response(
-          JSON.stringify({
-            error: 'Monthly usage limit reached. Upgrade your plan for more requests.',
-            code: 'USAGE_LIMIT_REACHED',
-            usage: team.usageThisPeriod,
-            limit: planLimits.requests,
-          }),
-          { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
-        );
+        // Check usage limits
+        const planLimits = PLANS[team.plan] || PLANS.trial;
+        if (team.usageThisPeriod >= planLimits.requests) {
+          return new Response(
+            JSON.stringify({
+              error: 'Monthly usage limit reached. Upgrade your plan for more requests.',
+              code: 'USAGE_LIMIT_REACHED',
+              usage: team.usageThisPeriod,
+              limit: planLimits.requests,
+            }),
+            { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
+          );
+        }
       }
     } catch (err) {
       return new Response(

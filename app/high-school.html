@@ -1375,8 +1375,65 @@ function CurrentTopics() {
   const [expandedArg, setExpandedArg] = useState(null);
   const [prepOutput, setPrepOutput] = useState(null);
   const [prepLoading, setPrepLoading] = useState(false);
+  // Live overlay: fetched from Perplexity on tab open, cached 24h in
+  // localStorage. If fetch succeeds, overrides CURRENT_TOPICS for this
+  // session so the UI shows whatever NSDA / NDT-CEDA are running RIGHT
+  // NOW instead of the hardcoded fallback. If fetch fails, the original
+  // CURRENT_TOPICS shows so the page never goes blank.
+  const [liveTopics, setLiveTopics] = useState(()=>{
+    try {
+      const raw = localStorage.getItem('hs-live-topics');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.fetchedAt || Date.now() - parsed.fetchedAt > 24*60*60*1000) return null;
+      return parsed;
+    } catch(e) { return null; }
+  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState(null);
+
+  const refreshLiveTopics = React.useCallback(async () => {
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const res = await fetch('/api/perplexity', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          query: 'What are the current NSDA Public Forum, Lincoln-Douglas, and Policy debate resolutions for this month? List each as: FORMAT (cycle): Resolution: <text>. Plus name 2-3 currently popular Pro/Aff arguments and 2-3 Con/Neg arguments per topic if you know them. Keep response under 800 words.',
+        }),
+      });
+      if (!res.ok) throw new Error('fetch ' + res.status);
+      const data = await res.json();
+      const text = (data && data.text) || '';
+      if (!text) throw new Error('empty');
+      const next = { fetchedAt: Date.now(), text };
+      localStorage.setItem('hs-live-topics', JSON.stringify(next));
+      setLiveTopics(next);
+    } catch (e) {
+      setRefreshError(e.message || 'fetch failed');
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  // Auto-refresh on mount if we have no cached live topics or cache is stale.
+  useEffect(() => {
+    if (!liveTopics) refreshLiveTopics();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const topic = CURRENT_TOPICS[selectedFormat];
+  const liveAge = liveTopics && liveTopics.fetchedAt
+    ? (() => {
+        const m = Math.floor((Date.now() - liveTopics.fetchedAt) / 60000);
+        if (m < 1) return 'just now';
+        if (m < 60) return m + 'm ago';
+        const h = Math.floor(m / 60);
+        if (h < 24) return h + 'h ago';
+        return Math.floor(h / 24) + 'd ago';
+      })()
+    : null;
 
   const quickPrep = async (side) => {
     setPrepLoading(true);
@@ -2630,7 +2687,7 @@ function App() {
         React.createElement('a',{href:'/debate-ai'},'Debate AI'),
         React.createElement('a',{href:'/app#case'},'College Prep'),
         React.createElement('a',{href:'/high-school#learn',className:'active-link'},'HS Tools'),
-        React.createElement('a',{href:'/app'},'My Account'),
+        React.createElement('a',{href:'/app#team'},'My Account'),
       ),
     ),
     React.createElement('div',{className:'app'},
