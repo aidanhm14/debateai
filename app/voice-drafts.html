@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Voice Drafts · Debate AI Admin</title>
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  :root{
+    --bg:#0b0f17;--fg:#e8eef7;--muted:#94a3b8;--dim:#64748b;
+    --accent:#ef4444;--good:#22c55e;--warn:#f59e0b;--info:#3b82f6;
+    --card:#121826;--line:#1f2937;--line-soft:#1e293b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:980px;margin:0 auto;padding:32px 24px 96px}
+  header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--line);padding-bottom:14px}
+  h1{font:700 24px/1.1 system-ui,sans-serif;margin:0;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:13px;max-width:680px;line-height:1.55}
+  .gate{max-width:380px;margin:120px auto;text-align:center;padding:32px;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+  .gate h2{margin:0 0 8px;font:600 22px/1.2 system-ui}
+  .gate p{color:var(--muted);margin:0 0 20px;font-size:13px}
+  .gate button{width:100%;padding:11px 16px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-size:14px}
+  .gate .err{color:var(--accent);margin-top:12px;font-size:12px}
+  .loading{color:var(--muted);text-align:center;padding:80px 0}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:22px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi .lbl{color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+  .kpi .val{font:700 22px/1.1 system-ui;margin-top:4px;font-variant-numeric:tabular-nums}
+
+  .draft{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+  .draft.reviewed{border-color:rgba(34,197,94,.4)}
+  .draft.applied{border-color:rgba(59,130,246,.55);box-shadow:0 0 0 1px rgba(59,130,246,.2) inset}
+  .draft-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .draft-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .pill{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:transparent}
+  .pill.good{background:rgba(34,197,94,.10);color:#4ade80;border-color:rgba(34,197,94,.4)}
+  .pill.info{background:rgba(59,130,246,.12);color:#60a5fa;border-color:rgba(59,130,246,.45)}
+  .pill.warn{background:rgba(245,158,11,.10);color:#fbbf24;border-color:rgba(245,158,11,.4)}
+  .draft-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font:600 12px system-ui;letterSpacing:.04em;transition:.15s}
+  .btn:hover{color:var(--fg);border-color:var(--muted)}
+  .btn-good{color:#4ade80;border-color:rgba(34,197,94,.45)}
+  .btn-good:hover{background:rgba(34,197,94,.12);color:#86efac}
+  .btn-info{color:#60a5fa;border-color:rgba(59,130,246,.45)}
+  .btn-info:hover{background:rgba(59,130,246,.12);color:#93c5fd}
+  .btn-danger{color:#f87171;border-color:rgba(239,68,68,.4)}
+  .btn-danger:hover{background:rgba(239,68,68,.12)}
+  .draft-samples{font-size:12px;color:var(--dim);margin-top:6px}
+  .patch{margin-top:14px;padding:14px 16px;background:#0a0d14;border:1px solid var(--line-soft);border-radius:10px;color:#cbd5e1;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word;max-height:380px;overflow-y:auto}
+  .copy-btn{margin-top:10px;font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+  .copy-btn:hover{color:var(--fg)}
+  .empty{text-align:center;color:var(--dim);padding:60px 0}
+  .ts{font-variant-numeric:tabular-nums;color:var(--dim);font-size:11px}
+  .err-box{background:#ef444415;border:1px solid #ef444444;color:#fca5a5;padding:14px 16px;border-radius:10px;margin:20px 0;font-size:13px}
+  .controls{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .filter{display:flex;gap:6px;flex-wrap:wrap}
+  .filter .btn[aria-pressed="true"]{color:#fff;background:var(--accent);border-color:var(--accent)}
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+<script defer src="/js/app-check.js"></script>
+</head>
+<body>
+
+<div id="gate" class="gate" hidden>
+  <h2>Admin only</h2>
+  <p>Sign in with the founder Google account to review voice-guideline drafts.</p>
+  <button id="signin-btn">Sign in with Google</button>
+  <div id="gate-err" class="err"></div>
+  <div id="gate-signed" class="ts" style="margin-top:14px"></div>
+</div>
+
+<div id="loading" class="loading"><span class="spin"></span>Loading drafts…</div>
+
+<div id="app" class="wrap" hidden>
+  <header>
+    <div>
+      <h1>Voice Drafts</h1>
+      <div class="sub">
+        Weekly distillation patches from <code>distill-voice.mjs</code>. Each draft is a Sonnet-written proposal for new copy in <code>app/netlify/functions/lib/voice-guidelines.mjs</code>, based on the past 7 days of high-signal generations + winning/losing speeches. Read, copy the relevant parts into the voice file, then mark Applied so you don't see it again.
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button id="refresh" class="btn">↻ Refresh</button>
+      <button id="signout" class="btn">Sign out</button>
+      <a class="btn" href="/admin">Admin →</a>
+    </div>
+  </header>
+
+  <div id="err"></div>
+  <div class="summary" id="summary"></div>
+
+  <div class="controls">
+    <div class="filter" id="filter">
+      <button type="button" class="btn" aria-pressed="true" data-f="all">All</button>
+      <button type="button" class="btn" aria-pressed="false" data-f="unreviewed">Unreviewed</button>
+      <button type="button" class="btn" aria-pressed="false" data-f="reviewed">Reviewed not applied</button>
+      <button type="button" class="btn" aria-pressed="false" data-f="applied">Applied</button>
+    </div>
+    <div class="ts" id="lastUpdated"></div>
+  </div>
+
+  <div id="drafts"></div>
+</div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),
+  authDomain: 'debateos-78ac5.firebaseapp.com',
+  projectId: 'debateos-78ac5',
+  storageBucket: 'debateos-78ac5.firebasestorage.app',
+  messagingSenderId: '860359449192',
+  appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const $ = id => document.getElementById(id);
+
+const gate = $('gate'), loading = $('loading'), appEl = $('app'), errBox = $('err');
+let drafts = [];
+let filter = 'all';
+
+auth.onAuthStateChanged(async (user) => {
+  if (!user) {
+    gate.hidden = false;
+    loading.hidden = true;
+    appEl.hidden = true;
+    return;
+  }
+  gate.hidden = true;
+  $('gate-signed').textContent = 'Signed in: ' + user.email;
+  await loadDrafts();
+});
+
+$('signin-btn').addEventListener('click', async () => {
+  $('gate-err').textContent = '';
+  try {
+    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+  } catch (e) {
+    $('gate-err').textContent = e.message || 'Sign-in failed';
+  }
+});
+$('signout').addEventListener('click', () => auth.signOut());
+$('refresh').addEventListener('click', () => loadDrafts());
+
+document.querySelectorAll('#filter .btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#filter .btn').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    btn.setAttribute('aria-pressed', 'true');
+    filter = btn.getAttribute('data-f');
+    render();
+  });
+});
+
+async function loadDrafts() {
+  loading.hidden = false;
+  appEl.hidden = true;
+  errBox.innerHTML = '';
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const r = await fetch('/api/admin/voice-drafts', { headers: { Authorization: 'Bearer ' + token } });
+    if (r.status === 403) {
+      loading.hidden = true;
+      gate.hidden = false;
+      $('gate-err').innerHTML =
+        'Your account is not marked as admin. Set <code>ADMIN_UID</code> in Netlify or set <code>isAdmin: true</code> on your <code>user_profiles</code> doc.<br><br>' +
+        'Your UID: <code>' + (auth.currentUser?.uid || '?') + '</code>';
+      return;
+    }
+    if (!r.ok) throw new Error('API ' + r.status);
+    const data = await r.json();
+    drafts = data.drafts || [];
+    render();
+    loading.hidden = true;
+    appEl.hidden = false;
+    $('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    loading.hidden = true;
+    appEl.hidden = false;
+    errBox.innerHTML = '<div class="err-box">Failed to load: ' + (e.message || e) + '</div>';
+  }
+}
+
+function fmtDate(ms) {
+  if (!ms) return '';
+  return new Date(ms).toLocaleString();
+}
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function render() {
+  const total = drafts.length;
+  const unreviewed = drafts.filter(d => !d.reviewed).length;
+  const reviewedOnly = drafts.filter(d => d.reviewed && !d.applied).length;
+  const applied = drafts.filter(d => d.applied).length;
+  $('summary').innerHTML =
+    '<div class="kpi"><div class="lbl">Total drafts</div><div class="val">' + total + '</div></div>' +
+    '<div class="kpi"><div class="lbl">Unreviewed</div><div class="val" style="color:#fbbf24">' + unreviewed + '</div></div>' +
+    '<div class="kpi"><div class="lbl">Reviewed</div><div class="val" style="color:#4ade80">' + reviewedOnly + '</div></div>' +
+    '<div class="kpi"><div class="lbl">Applied</div><div class="val" style="color:#60a5fa">' + applied + '</div></div>';
+
+  let visible = drafts;
+  if (filter === 'unreviewed') visible = drafts.filter(d => !d.reviewed);
+  else if (filter === 'reviewed') visible = drafts.filter(d => d.reviewed && !d.applied);
+  else if (filter === 'applied') visible = drafts.filter(d => d.applied);
+
+  const host = $('drafts');
+  if (!visible.length) {
+    host.innerHTML = '<div class="empty">No drafts in this filter. The distill-voice cron writes one every Monday at 09:00 UTC.</div>';
+    return;
+  }
+
+  host.innerHTML = visible.map(d => {
+    const cls = d.applied ? 'applied' : (d.reviewed ? 'reviewed' : '');
+    const status = d.applied
+      ? '<span class="pill info">Applied ' + escHtml(fmtDate(d.appliedAt)) + '</span>'
+      : (d.reviewed
+          ? '<span class="pill good">Reviewed ' + escHtml(fmtDate(d.reviewedAt)) + '</span>'
+          : '<span class="pill warn">Pending review</span>');
+    const sampleStr = d.samples
+      ? Object.entries(d.samples).map(([k, v]) => k + ':' + v).join(' · ')
+      : 'unknown sample size';
+    const actions =
+      (d.applied
+        ? '<button class="btn" data-action="unapply" data-id="' + d.id + '">Mark unapplied</button>'
+        : '<button class="btn btn-info" data-action="apply" data-id="' + d.id + '">Mark Applied</button>') +
+      (d.reviewed && !d.applied
+        ? '<button class="btn" data-action="unreview" data-id="' + d.id + '">Mark unreviewed</button>'
+        : (!d.reviewed
+            ? '<button class="btn btn-good" data-action="review" data-id="' + d.id + '">Mark Reviewed</button>'
+            : '')) +
+      '<button class="btn btn-danger" data-action="delete" data-id="' + d.id + '">Delete</button>';
+
+    return '<div class="draft ' + cls + '">' +
+      '<div class="draft-head">' +
+        '<div class="draft-meta">' +
+          status +
+          '<span class="pill">' + escHtml(d.source || 'distill-voice') + '</span>' +
+          (d.week ? '<span class="pill">week ' + escHtml(d.week) + '</span>' : '') +
+          '<span class="ts">created ' + escHtml(fmtDate(d.createdAt)) + ' · ' + d.patchChars + ' chars</span>' +
+        '</div>' +
+        '<div class="draft-actions">' + actions + '</div>' +
+      '</div>' +
+      '<div class="draft-samples">samples: ' + escHtml(sampleStr) + '</div>' +
+      '<div class="patch" id="patch-' + d.id + '">' + escHtml(d.patch || '(empty patch)') + '</div>' +
+      '<button class="copy-btn" data-copy="' + d.id + '">Copy patch</button>' +
+    '</div>';
+  }).join('');
+
+  // Wire actions
+  host.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.getAttribute('data-action');
+      const id = btn.getAttribute('data-id');
+      if (action === 'delete' && !confirm('Delete this draft? This cannot be undone.')) return;
+      btn.disabled = true;
+      btn.textContent = '…';
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const r = await fetch('/api/admin/voice-drafts', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', Authorization:'Bearer ' + token },
+          body: JSON.stringify({ action, id }),
+        });
+        if (!r.ok) throw new Error('API ' + r.status);
+        await loadDrafts();
+      } catch (e) {
+        btn.disabled = false;
+        alert('Action failed: ' + (e.message || e));
+      }
+    });
+  });
+  host.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-copy');
+      const d = drafts.find(x => x.id === id);
+      if (!d) return;
+      navigator.clipboard.writeText(d.patch || '').then(() => {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied ✓';
+        setTimeout(() => { btn.textContent = orig; }, 1200);
+      }).catch(() => alert('Copy failed'));
+    });
+  });
+}
+</script>
+</body>
+</html>
