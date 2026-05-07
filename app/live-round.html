@@ -1429,6 +1429,43 @@ button{font-family:inherit}
         console.warn('[save round]', e);
         toast('Save failed: ' + (e.message || 'unknown'));
       });
+
+      // Public leaderboard entry — only the SAVING user gets ranked, with
+      // their side's speaker points + win flag. Tagged kind:'live' so the
+      // /leaderboard "Online debaters" tab finds it. Other side will write
+      // its own entry when that user clicks Save on their device.
+      try {
+        var mySide = (state.user.uid === (state.proUid||'') || state.proName === (state.user.displayName||''))
+          ? 'pro' : 'con';
+        var myPoints = mySide === 'pro' ? b.proPoints : b.conPoints;
+        var myWon = b.winner === mySide;
+        if (typeof myPoints === 'number' && !isNaN(myPoints)) {
+          var fullName = (state.user.displayName || '').trim();
+          var parts = fullName.split(/\s+/).filter(Boolean);
+          var shortName = parts.length >= 2
+            ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
+            : (parts[0] || 'Anonymous');
+          var lbEntry = {
+            uid: state.user.uid,
+            displayName: shortName,
+            score: myPoints,
+            won: myWon,
+            kind: 'live',
+            motion: state.motion || '',
+            format: state.formatKey,
+            formatName: f.name,
+            side: mySide,
+            sideLabel: f.sideLabels[f.sides[mySide === 'pro' ? 0 : 1]],
+            opponentName: mySide === 'pro' ? (state.conName || '') : (state.proName || ''),
+            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            roundId: state.room,
+          };
+          firebaseDb.collection('leaderboard_entries')
+            .doc(state.user.uid + '_' + state.room)
+            .set(lbEntry)
+            .catch(function(e){ console.warn('[leaderboard write]', e); });
+        }
+      } catch(e) { console.warn('[leaderboard tag]', e); }
     });
     $('copyBallotBtn').addEventListener('click', function(){
       var f = FORMATS[state.formatKey];

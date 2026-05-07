@@ -292,15 +292,14 @@ button{font-family:inherit}
 </nav>
 
 <section class="hero">
-  <div class="hero-eyebrow">AI-Judged · Cross-Format</div>
+  <div class="hero-eyebrow">AI-Judged · Two Boards</div>
   <h1>The <em>leaderboard.</em></h1>
-  <p>Top debaters across every format, ranked by speaker points from AI ballots. Win a round, earn your place. Names are first-name + last-initial only — for full anonymity, see your account settings.</p>
+  <p>Two ranks: humans who beat each other live, and humans who beat the AI itself. Both judged by the same AI ballot. Names are first-name + last-initial only — for full anonymity, see your account settings.</p>
 </section>
 
 <div class="tabs" role="tablist">
-  <button class="tab active" data-view="top" role="tab" type="button">Top scores</button>
-  <button class="tab" data-view="week" role="tab" type="button">This week</button>
-  <button class="tab" data-view="recent" role="tab" type="button">Recent rounds</button>
+  <button class="tab active" data-view="live" role="tab" type="button">Online debaters</button>
+  <button class="tab" data-view="ai" role="tab" type="button">Beat the AI</button>
 </div>
 
 <div class="board-wrap">
@@ -316,11 +315,11 @@ button{font-family:inherit}
     <h4>Claim your spot</h4>
     <p>Sign in once and your AI-judged rounds automatically count toward the board. Your full Google name is never shown — only first name + last initial.</p>
   </div>
-  <a class="cta" href="/debate-ai">Start a round →</a>
+  <a class="cta" href="/debate-ai" id="signinStripCta">Start a round →</a>
 </aside>
 
 <footer class="footer">
-  Ranks update at every completed round. <a href="/debate-ai">Run a round</a> · <a href="/learn">Learn the formats</a>
+  Ranks update at every completed round. <a href="/live">Debate humans live</a> · <a href="/debate-ai">Beat the AI</a> · <a href="/learn">Learn the formats</a>
 </footer>
 
 <script>
@@ -348,7 +347,7 @@ const board=document.getElementById('board');
 const tabs=document.querySelectorAll('.tab');
 const signinStrip=document.getElementById('signinStrip');
 
-const state={view:'top',cache:{}};
+const state={view:'live',cache:{}};
 
 function fmtAgo(ts){
   if(!ts)return '';
@@ -387,11 +386,14 @@ function rankPrefix(i){
 
 function renderRows(rows){
   if(!rows.length){
+    const liveTab=state.view==='live';
     board.innerHTML=`
       <div class="state">
-        <h3>No rounds yet</h3>
-        <p>The board is fresh. The first AI-judged round to complete claims rank one. Run a round and put your name on it.</p>
-        <a class="cta" href="/debate-ai">Start a round →</a>
+        <h3>${liveTab?'No live rounds yet':'No AI wins yet'}</h3>
+        <p>${liveTab
+          ? 'Be the first to win a human-vs-human round. The same AI judge that scores AI rounds adjudicates the live debate. Speaker points become your rank.'
+          : 'Run a round against the AI and beat it on the ballot. Speaker points become your rank.'}</p>
+        <a class="cta" href="${liveTab?'/live':'/debate-ai'}">${liveTab?'Open the live board →':'Start a round →'}</a>
       </div>`;
     return;
   }
@@ -429,29 +431,51 @@ async function loadView(view){
   }
   board.innerHTML=`<div class="state"><div class="spinner" aria-label="Loading"></div></div>`;
   try{
-    let q;
-    if(view==='top'){
-      q=db.collection('leaderboard_entries').orderBy('score','desc').limit(100);
-    }else if(view==='recent'||view==='week'){
-      // Both pull recent first; "week" filters client-side to last 7d.
-      // Single-field index — no composite index required.
-      q=db.collection('leaderboard_entries').orderBy('completedAt','desc').limit(view==='week'?200:100);
-    }
-    const snap=await q.get();
-    let rows=snap.docs.map(d=>d.data());
-    if(view==='week'){
-      const cutoff=Date.now()-7*24*60*60*1000;
-      rows=rows.filter(r=>{
-        const ts=r.completedAt&&r.completedAt.toDate?r.completedAt.toDate().getTime():0;
-        return ts>=cutoff;
-      }).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,100);
+    let rows=[];
+    if(view==='live'){
+      // Online debaters: human-vs-human live rounds, ranked by speaker
+      // points from the AI ballot. One entry per (uid, room) so a single
+      // user can hold multiple slots if they've debated multiple rooms.
+      const snap=await db.collection('leaderboard_entries')
+        .where('kind','==','live')
+        .orderBy('score','desc')
+        .limit(100)
+        .get();
+      rows=snap.docs.map(d=>d.data());
+    }else if(view==='ai'){
+      // Beat the AI: rounds where the user beat the AI directly. Pull
+      // by score among winners. We then drop any kind:'live' on the
+      // client (defensive — live entries shouldn't have won:true unless
+      // they did, but they belong on the other tab regardless).
+      // Two-shot read: legacy entries (no kind field) can't be matched
+      // by `where('kind','==','ai')`, so we query won:true and filter.
+      const snap=await db.collection('leaderboard_entries')
+        .where('won','==',true)
+        .orderBy('score','desc')
+        .limit(200)
+        .get();
+      rows=snap.docs.map(d=>d.data())
+        .filter(r=>r.kind!=='live')
+        .slice(0,100);
     }
     state.cache[view]=rows;
     renderRows(rows);
     signinStrip.hidden=false;
   }catch(e){
     console.warn('[leaderboard] load failed:',e);
-    board.innerHTML=`<div class="state"><h3>Couldn't load the board</h3><p>Hit refresh — if it keeps happening, the Firestore rules may need a deploy.</p></div>`;
+    board.innerHTML=`<div class="state"><h3>Couldn't load the board</h3><p>Hit refresh — if it keeps happening, a one-time Firestore composite index needs to be created (the console will link to it the first time).</p></div>`;
+  }
+}
+
+function updateSigninStripCta(view){
+  const cta=document.getElementById('signinStripCta');
+  if(!cta)return;
+  if(view==='live'){
+    cta.textContent='Open the live board →';
+    cta.setAttribute('href','/live');
+  }else{
+    cta.textContent='Start an AI round →';
+    cta.setAttribute('href','/debate-ai');
   }
 }
 
@@ -461,11 +485,13 @@ tabs.forEach(t=>{
     if(view===state.view)return;
     state.view=view;
     tabs.forEach(x=>x.classList.toggle('active',x===t));
+    updateSigninStripCta(view);
     loadView(view);
   });
 });
 
-loadView('top');
+updateSigninStripCta(state.view);
+loadView(state.view);
 
 // Theme picker
 (function(){
