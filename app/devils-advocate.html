@@ -25,6 +25,7 @@
 <script defer src="/js/track.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
+<script src="/js/type-stream.js"></script>
 <style>
 /* ── Reset & Base ─────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -975,9 +976,17 @@ function CaseGenerator() {
       ? buildCasePrompt(motion, background, side, format, depth)
       : buildTightblockPrompt(motion, background, side, format, depth);
 
+    // Wrap setOutput in a TypeStream buffer so characters reveal at a
+    // steady ~110 cps even when the network delivers a full chunk at
+    // once. Matches the landing-hero typewriter feel for real AI output.
+    const stream = (typeof window !== 'undefined' && window.TypeStream)
+      ? window.TypeStream.create(setOutput, { cps: 110 })
+      : null;
+
     try {
       await callClaude(sysPrompt, userPrompt, (text) => {
-        setOutput(text);
+        if (stream) stream.feed(text);
+        else setOutput(text);
         // Auto-scroll output
         if (outputRef.current) {
           outputRef.current.scrollTop = outputRef.current.scrollHeight;
@@ -990,6 +999,7 @@ function CaseGenerator() {
         setError(err.message);
       }
     }
+    if (stream) stream.done();
     setLoading(false);
     setStreaming(false);
   };
@@ -1271,7 +1281,7 @@ Return ONLY the replacement text. Nothing else.`;
           'Streaming'
         ),
         React.createElement('div',{
-          className:'output output-selectable',
+          className:'output output-selectable' + (streaming ? ' type-stream-active' : ''),
           ref:outputRef,
           onMouseUp:handleMouseUp,
           style:{whiteSpace:'pre-wrap'}
