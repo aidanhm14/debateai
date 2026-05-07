@@ -48,17 +48,29 @@ export default async (request) => {
   if (!priceId) return errorResponse('Invalid plan. Choose "byok", "individual", "team", or "lifetime".', 400, request);
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const siteUrl = process.env.SITE_URL || 'https://debateos.com';
+  // Default to debateai.com (the live brand) instead of the legacy
+  // debateos.com which now 404s. SITE_URL env var still wins if set.
+  const siteUrl = process.env.SITE_URL || 'https://debateai.com';
 
   const isLifetime = planId === 'lifetime';
 
   try {
+    // If we already have a Stripe customer for this team, reuse it so
+    // the user lands on Checkout pre-filled. Otherwise pass
+    // customer_email so Stripe creates a new customer with the right
+    // email — without either, the Checkout form opens blank and a fresh
+    // anonymous customer is created (annoying for billing reconciliation).
     const sessionParams = {
-      customer: team.stripeCustomerId,
       mode: isLifetime ? 'payment' : 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${siteUrl}?billing=success&plan=${planId}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}?billing=canceled&plan=${planId}`,
+      success_url: `${siteUrl}/?billing=success&plan=${planId}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/pricing?billing=canceled&plan=${planId}`,
+      ...(team.stripeCustomerId
+        ? { customer: team.stripeCustomerId }
+        : decoded.email
+          ? { customer_email: decoded.email }
+          : {}
+      ),
       ...(isLifetime
         ? { payment_intent_data: { metadata: { teamId: team.id, plan: 'lifetime' } } }
         : { subscription_data: { metadata: { teamId: team.id } } }
