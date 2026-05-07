@@ -677,12 +677,18 @@ async function callClaude(sys, user, onChunk){
    CONSTANTS
    ═══════════════════════════════════════════════════ */
 
+// Devil's Advocate ('AI') was redundant with Quick Debate — both put
+// the user in a back-and-forth with the AI on the opposite side. Quick
+// Debate has the more useful 3-exchange + feedback flow, so we collapse
+// to that one. Anyone who needs the full-power "argue with AI" surface
+// has /debate-ai for it. Removing AI from MODES also drops the lesson
+// chip + the modeContent map entry so the route silently 404s back to
+// the guide.
 const MODES = [
   { id:'debate',   label:'Quick Debate' },
   { id:'news',     label:'Be Up to Date' },
   { id:'builder',  label:'Arg Builder' },
   { id:'fallacy',  label:'Fallacy Trainer' },
-  { id:'AI',       label:"Debate AI" },
   { id:'persuade', label:'Persuasion Lab' },
   { id:'rebuttal', label:'Rebuttal Drill' },
   { id:'weighing', label:'Weighing Practice' },
@@ -785,7 +791,10 @@ function ChatView({ messages, input, setInput, onSend, loading, placeholder, chi
     ),
     children,
     el('div',{className:'input-row'},
-      el('textarea',{rows:2,placeholder:placeholder||'Type your response...',value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSend()}},disabled:loading}),
+      // Textarea stays typeable even while loading so users can pre-type
+      // their response while the AI generates. Send button alone is
+      // disabled-on-load to prevent firing into a busy stream.
+      el('textarea',{rows:2,placeholder:placeholder||'Type your response...',value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!loading&&input.trim())onSend()}}}),
       el('button',{onClick:onSend,disabled:loading||!input.trim()},'Send'),
     ),
   );
@@ -795,7 +804,7 @@ function ChatView({ messages, input, setInput, onSend, loading, placeholder, chi
    QUICK DEBATE MODE
    ═══════════════════════════════════════════════════ */
 
-function QuickDebate(){
+function QuickDebate({ preloadedTopic } = {}){
   const[stage,setStage]=useState('pick'); // pick | chat | feedback
   const[topic,setTopic]=useState('');
   const[msgs,setMsgs]=useState([]);
@@ -804,6 +813,18 @@ function QuickDebate(){
   const[feedback,setFeedback]=useState('');
   const[turn,setTurn]=useState(0); // user turns taken
   const rem=remaining();
+
+  // Auto-start the round if the user came here via "Take this to Quick
+  // Debate" on the Be-Up-to-Date news brief. The pending topic is set
+  // on a global stash by window.__loadMotion in App; we read it once
+  // on mount, clear it, and kick off the debate immediately.
+  useEffect(() => {
+    if (preloadedTopic && stage === 'pick') {
+      try { if (window.__pendingQuickDebateTopic) window.__pendingQuickDebateTopic = null; } catch(e){}
+      startDebate(preloadedTopic);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const startDebate=async(t)=>{
     setTopic(t);setStage('chat');setMsgs([]);setTurn(0);setFeedback('');
@@ -877,10 +898,26 @@ function QuickDebate(){
 
   // chat stage
   const remaining_turns=3-turn;
+  // First-message hint: when the AI is generating its OPENING argument,
+  // chat-area is empty and the user has nothing to react to. Surface a
+  // clear "Generating an argument for you to counter..." status so the
+  // page doesn't look frozen while we wait. After messages start arriving
+  // the existing 'Thinking...' bubble takes over.
+  const awaitingFirstAI = loading && msgs.length === 0;
   return el(React.Fragment,null,
     el('div',{className:'t-label'},'"'+topic+'"'),
     el('p',{className:'t-dim',style:{marginBottom:12}},remaining_turns+' exchange'+(remaining_turns!==1?'s':'')+' left'),
-    el(ChatView,{messages:msgs,input,setInput,onSend:send,loading,placeholder:'Make your argument...'}),
+    awaitingFirstAI && el('div',{
+      className:'card',
+      style:{display:'flex',alignItems:'center',gap:12,padding:'14px 18px',marginBottom:12,fontStyle:'italic',color:'rgba(0,0,0,.65)'},
+    },
+      el('span',{
+        style:{display:'inline-block',width:14,height:14,borderRadius:'50%',border:'2px solid rgba(239,68,68,.3)',borderTopColor:'#ef4444',animation:'spin .8s linear infinite'},
+        'aria-hidden':true,
+      }),
+      'Generating an argument for you to counter…',
+    ),
+    el(ChatView,{messages:msgs,input,setInput,onSend:send,loading,placeholder: awaitingFirstAI ? 'Pre-type your opening if you want — fires when the AI lands' : 'Make your argument...'}),
   );
 }
 
@@ -1783,15 +1820,24 @@ function App(){
   );
 
   const modeContent={
-    debate:el(QuickDebate,{key:'debate'}),
+    debate:el(QuickDebate,{key:'debate',preloadedTopic:window.__pendingQuickDebateTopic||null}),
     news:el(BeUpToDate,{key:'news'}),
     builder:el(ArgBuilder,{key:'builder'}),
     fallacy:el(FallacyTrainer,{key:'fallacy'}),
-    AI:el(DevilsAdvocate,{key:'AI'}),
     persuade:el(PersuasionLab,{key:'persuade'}),
     rebuttal:el(RebuttalDrill,{key:'rebuttal'}),
     weighing:el(WeighingPractice,{key:'weighing'}),
   };
+
+  // window.__loadMotion: called by the Be-Up-to-Date "Take this to Quick
+  // Debate" button. Sets the topic on a global stash, switches mode to
+  // 'debate', QuickDebate reads the stash on mount and starts the round.
+  if (typeof window !== 'undefined') {
+    window.__loadMotion = (motion) => {
+      try { window.__pendingQuickDebateTopic = String(motion || '').slice(0, 240); } catch(e){}
+      switchMode('debate');
+    };
+  }
 
   const modeDesc={
     debate:'Go back-and-forth on any topic. 3 exchanges, then feedback.',
@@ -1829,10 +1875,10 @@ function App(){
 
     el('div',{className:'tier-label'},el('span',{className:'num'},'3'),el('span',null,'Advanced Drills')),
     el('div',{className:'lesson-chips'},
-      el('button',{className:'lesson-chip',onClick:()=>switchMode('AI')},
-        el('strong',null,"Debate AI"),
-        el('span',null,'Have your own beliefs challenged from every angle.'),
-      ),
+      // Devil's Advocate chip removed — was redundant with Quick Debate
+      // above and confused users who thought it was the full /debate-ai
+      // surface. Anyone who wants the full live opponent flow can hit
+      // /debate-ai directly from the top nav.
       el('button',{className:'lesson-chip',onClick:()=>switchMode('persuade')},
         el('strong',null,'Persuasion Lab'),
         el('span',null,'Real scenarios. Win over a skeptic with the right approach.'),
