@@ -1220,10 +1220,14 @@ Return ONLY the replacement text. Nothing else.`;
         const userPrompt = `Here is the current case:\n\n${output}\n\nUser's revision request: ${userComment}\n\nApply this revision and return the complete updated case.`;
 
         let revisedFull = '';
+        const ts = window.TypeStream && window.TypeStream.create(onRevise, { cps: 110 });
         await callClaude(sysPrompt, userPrompt, (text) => {
           revisedFull = text;
-          onRevise(text);
+          if (ts) ts.feed(text);
+          else onRevise(text);
         });
+        if (ts) ts.done();
+        else onRevise(revisedFull);
 
         const preview = revisedFull.length > 200
           ? revisedFull.substring(0, 200) + '...'
@@ -1372,7 +1376,9 @@ function Resolutions() {
 
 Keep it to 80-150 words. Be specific. use real facts, policies, and statistics where relevant. Write in the style of a competitive APDA case background section.`;
         const userPrompt = `Motion: ${result}\n\nWrite the background section.`;
-        await callClaude(sysPrompt, userPrompt, (text) => setBgText(text));
+        const ts = window.TypeStream && window.TypeStream.create(setBgText, { cps: 130 });
+        await callClaude(sysPrompt, userPrompt, (text) => { if (ts) ts.feed(text); else setBgText(text); });
+        if (ts) ts.done();
       } catch(e) {
         setBgText('Error: ' + e.message);
       }
@@ -1418,7 +1424,7 @@ Keep it to 80-150 words. Be specific. use real facts, policies, and statistics w
           onClick:roll,
         }, 'Re-roll'),
       ),
-      bgText && React.createElement('div',{className:'res-bg',style:{marginTop:14,textAlign:'left'}}, bgText)
+      bgText && React.createElement('div',{className:'res-bg' + (loadingBg ? ' type-stream-active' : ''),style:{marginTop:14,textAlign:'left'}}, bgText)
     )
   );
 }
