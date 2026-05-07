@@ -51,6 +51,7 @@
 <script defer src="/js/track.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
+<script src="/js/type-stream.js"></script>
 <script src="/js/voice-guidelines.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -4329,7 +4330,9 @@ THE ONE DRILL
 Do NOT hedge ("it seems," "perhaps"). This is coaching, not horoscope.`;
     try{
       let raw='';
-      await callAI(sys,digest,chunk=>{raw=chunk;setPatterns(chunk)},brain,{voiceFeature:'feedback'});
+      const ts=window.TypeStream&&window.TypeStream.create(setPatterns,{cps:120});
+      await callAI(sys,digest,chunk=>{raw=chunk;if(ts)ts.feed(chunk);else setPatterns(chunk)},brain,{voiceFeature:'feedback'});
+      if(ts)ts.done();
       setPatterns(raw);
     }catch(e){
       setPatterns('Could not analyze patterns: '+e.message);
@@ -4443,7 +4446,9 @@ One paragraph. What the judge weighs the round on in practice, magnitude/probabi
 Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing paragraph, no "hope this helps."`;
     try{
       let raw='';
-      await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;setFlowSheet(chunk)},brain,{voiceFeature:'feedback'});
+      const ts=window.TypeStream&&window.TypeStream.create(setFlowSheet,{cps:140});
+      await callAI(sys,'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;if(ts)ts.feed(chunk);else setFlowSheet(chunk)},brain,{voiceFeature:'feedback'});
+      if(ts)ts.done();
       setFlowSheet(raw);
     }catch(e){
       setFlowSheet('Could not generate flow sheet: '+e.message);
@@ -4459,9 +4464,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     // Prompt lives server-side as PROMPT_LIBRARY.judgePanelDeliberation
     try{
       let raw='';
+      const ts=window.TypeStream&&window.TypeStream.create(setPanelText,{cps:120});
       await callAI('','Full round transcript:\n\n'+tx,chunk=>{
         raw=chunk;
-        setPanelText(chunk);
+        if(ts)ts.feed(chunk);
+        else setPanelText(chunk);
       },brain,{
         promptId:'judgePanelDeliberation',
         promptVars:{
@@ -4477,6 +4484,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           voiceGuidelines:DEBATE_VOICE_GUIDELINES,
         },
       });
+      if(ts)ts.done();
       const parsed=parsePanelVote(raw);
       if(parsed) setPanelResult(parsed);
     }catch(e){
@@ -4498,10 +4506,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         : (judgeParadigm && JUDGE_PARADIGMS[judgeParadigm])
           ? 'Judge paradigm the user selected for this round: '+JUDGE_PARADIGMS[judgeParadigm].label+'.\n'+JUDGE_PARADIGMS[judgeParadigm].prompt+'\nYour ballot MUST be written in the voice of this paradigm, weigh and decide the way this judge would.\n\n'
           : '';
-      const fb=await callAI('',paradigmNote+'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;setFeedback(chunk)},brain,{
+      const ts=window.TypeStream&&window.TypeStream.create(setFeedback,{cps:120});
+      const fb=await callAI('',paradigmNote+'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;if(ts)ts.feed(chunk);else setFeedback(chunk)},brain,{
         promptId:'singleJudgeBallot',
         promptVars:{ fmtName:fmt.name, motion:motion, sideLabel:fmt.sideLabels[side]||side },
       });
+      if(ts)ts.done();
       setFeedback(fb);
       // Parse structured ballot. Robust extraction: the model sometimes
       // wraps the JSON in ```json fences, sometimes adds a leading
@@ -5897,8 +5907,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           setPrepHintLoading(true);setPrepHint('');if(typeof gtag==='function')gtag('event','ai_prep_coach',{format:fmt.name,side});
           try{
             const sideLabel=fmt.sideLabels[side]||side;
+            const ts=window.TypeStream&&window.TypeStream.create(setPrepHint,{cps:130});
             // Prompt lives server-side as PROMPT_LIBRARY.prepCoach
-            const hint=await callAI('','Help me prep for this round.',chunk=>setPrepHint(chunk),brain,{
+            const hint=await callAI('','Help me prep for this round.',chunk=>{if(ts)ts.feed(chunk);else setPrepHint(chunk)},brain,{
               promptId:'prepCoach',
               promptVars:{
                 fmtName:fmt.name,
@@ -5907,13 +5918,14 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
                 backgroundLine:background?'Background: '+background:'',
               },
             });
+            if(ts)ts.done();
             setPrepHint(hint);
           }catch{setPrepHint('Could not generate suggestions.')}
           setPrepHintLoading(false);
         }},prepHintLoading?'Thinking...':'Get AI Help'),
         el('button',{className:'cta-ghost',style:{fontSize:'.75rem',padding:'8px 16px'},onClick:()=>{setNotes('');try{localStorage.removeItem('debateos-prep-notes')}catch{}}},'Clear Notes'),
       ),
-      prepHint&&el('div',{style:{marginTop:12,padding:'14px 18px',background:'var(--c-surface)',border:'1px solid rgba(239,68,68,.1)',borderRadius:12,maxWidth:480,textAlign:'left',fontSize:'.82rem',color:'var(--c-text3)',lineHeight:1.5,whiteSpace:'pre-wrap'}},prepHint),
+      prepHint&&el('div',{className:prepHintLoading?'type-stream-active':'',style:{marginTop:12,padding:'14px 18px',background:'var(--c-surface)',border:'1px solid rgba(239,68,68,.1)',borderRadius:12,maxWidth:480,textAlign:'left',fontSize:'.82rem',color:'var(--c-text3)',lineHeight:1.5,whiteSpace:'pre-wrap'}},prepHint),
 
       // Keyboard hint
       el('div',{className:'kb-hint',style:{fontSize:'.6rem',color:'var(--c-faint)',marginTop:16}},'Press Space to pause/resume · Escape to skip speech · → to advance'),
@@ -6636,7 +6648,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:()=>{navigator.clipboard.writeText(flowSheet).catch(()=>{})}},'Copy flow'),
             !flowLoading&&el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:()=>genFlowSheet(log)},'Re-flow'),
           ),
-          el('div',{className:'transcript-box',style:{maxHeight:480,whiteSpace:'pre-wrap',fontFamily:'ui-monospace, Menlo, monospace',fontSize:'.78rem',lineHeight:1.6}},flowSheet),
+          el('div',{className:'transcript-box'+(flowLoading?' type-stream-active':''),style:{maxHeight:480,whiteSpace:'pre-wrap',fontFamily:'ui-monospace, Menlo, monospace',fontSize:'.78rem',lineHeight:1.6}},flowSheet),
         ),
 
         // Multi-round pattern analysis. Only appears once the user has
@@ -6658,7 +6670,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:()=>{navigator.clipboard.writeText(patterns).catch(()=>{})}},'Copy patterns'),
             !patternsLoading&&el('button',{className:'transcript-btn',style:{fontSize:'.65rem'},onClick:genPatterns},'Re-analyze'),
           ),
-          el('div',{className:'transcript-box',style:{maxHeight:520,whiteSpace:'pre-wrap',fontSize:'.82rem',lineHeight:1.65}},patterns),
+          el('div',{className:'transcript-box'+(patternsLoading?' type-stream-active':''),style:{maxHeight:520,whiteSpace:'pre-wrap',fontSize:'.82rem',lineHeight:1.65}},patterns),
           // 'Train this' drill launcher, converts the diagnosis into a
           // round designed to force the user into their weakness.
           el('div',{id:'fb-drill',style:{marginTop:14,textAlign:'center',scrollMarginTop:80}},
