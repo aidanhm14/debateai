@@ -215,15 +215,49 @@
   --sketch-stroke:rgba(255,255,255,.5);
 }
 
-/* ── Theme: Crimson (sharp black/red) */
+/* ── Theme: Crimson (sharp black/red)
+   Secondary text was failing AA on the radial-gradient backdrop
+   (.68 white + slight red tint reads ~3.5:1). Bumped --text-dim and
+   --nav-link toward .85/.78 so body copy and the left-rail jumpnav
+   are clearly legible. --text-ghost goes from .42 → .72 — was
+   essentially invisible before. --border bumped so card/section
+   separators actually exist. */
 [data-theme="crimson"]{
-  --bg:#000;--bg-card:rgba(255,40,40,.03);--border:rgba(239,68,68,.12);
-  --text:#fff;--text-dim:rgba(255,255,255,.68);--text-ghost:rgba(239,68,68,.42);
+  --bg:#000;--bg-card:rgba(255,40,40,.04);--border:rgba(239,68,68,.22);
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.72);
   --accent:#ef4444;--accent-glow:rgba(239,68,68,.52);--accent-glow2:rgba(239,68,68,.28);
   --hero-grad:linear-gradient(135deg,#0f0406 0%,#070203 25%,#110406 50%,#070203 75%,#0f0406 100%);
-  --nav-link:rgba(255,255,255,.5);--cta-bg:#ef4444;--cta-text:#fff;
-  --stroke-ghost:1.5px rgba(239,68,68,.3);--ghost-fill:rgba(239,68,68,.06);
-  --sketch-stroke:rgba(239,68,68,.5);
+  --nav-link:rgba(255,255,255,.78);--cta-bg:#ef4444;--cta-text:#fff;
+  --stroke-ghost:1.5px rgba(239,68,68,.45);--ghost-fill:rgba(239,68,68,.08);
+  --sketch-stroke:rgba(239,68,68,.6);
+}
+/* Crimson-theme overrides for elements that were under-contrast on
+   the dark gradient backdrop. The base --text-dim bump above gets us
+   most of the way; these handle the specific spots where a hard-coded
+   color or low-opacity stack was leaving text barely visible. */
+[data-theme="crimson"] .landing-jumpnav{
+  background:rgba(0,0,0,.78);border-color:rgba(239,68,68,.32);
+  box-shadow:0 12px 40px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04);
+}
+[data-theme="crimson"] .landing-jumpnav a{color:rgba(255,255,255,.82)}
+[data-theme="crimson"] .landing-jumpnav a:hover{color:#fff;background:rgba(239,68,68,.18)}
+[data-theme="crimson"] .hero-cta-secondary{
+  background:rgba(255,255,255,.06) !important;
+  color:#fff !important;
+  border:1px solid rgba(239,68,68,.45) !important;
+}
+[data-theme="crimson"] .hero-cta-secondary:hover{
+  background:rgba(239,68,68,.14) !important;
+  border-color:rgba(239,68,68,.7) !important;
+}
+[data-theme="crimson"] #heroCredit{color:rgba(255,255,255,.85)}
+[data-theme="crimson"] #heroCredit strong{color:#fff;font-weight:700}
+[data-theme="crimson"] .hero-orb-hint{color:#fca5a5;font-weight:700}
+[data-theme="crimson"] .hero-promo{
+  background:linear-gradient(135deg,rgba(239,68,68,.22),rgba(239,68,68,.08)) !important;
+  border-color:rgba(239,68,68,.55) !important;
+  color:#fff !important;
+  box-shadow:0 4px 18px rgba(239,68,68,.22) !important;
 }
 
 /* ── Theme: Light (off-white + warm red accents) ─────
@@ -416,19 +450,34 @@ button{font-family:inherit;cursor:pointer}
 .bar-user-out:hover{color:var(--text)}
 
 /* ── Theme Switcher ──────────────── */
-/* Two clickable dots, grey vs crimson tint. The dots are self-explanatory
-   visually, so the "Lighting" pseudo-label was just noise in the topbar. */
-.theme-dots{display:flex;gap:6px;align-items:center;padding:0 6px;position:relative}
-.theme-dot{
-  width:16px;height:16px;border-radius:50%;border:2px solid transparent;
-  cursor:pointer;transition:border-color .2s,transform .2s;
-  padding:0;
+/* Three theme picker dots. Wrapped in a subtle tray so they read as
+   a grouped widget, not free-floating blobs (the unwrapped white
+   light-mode dot used to look like a stray pill next to whichever
+   topbar link was on its left). Tray + smaller dots + ring-on-dark
+   keep all three visually balanced regardless of active theme. */
+.theme-dots{
+  display:inline-flex;gap:5px;align-items:center;
+  padding:4px 6px;border-radius:999px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  position:relative;
 }
-.theme-dot:hover{transform:scale(1.2)}
-.theme-dot.active{border-color:var(--text)}
-.theme-dot[data-t="grey"]{background:#444}
+.theme-dot{
+  width:13px;height:13px;border-radius:50%;
+  border:1.5px solid rgba(255,255,255,.2);
+  cursor:pointer;transition:border-color .2s,transform .2s;
+  padding:0;box-shadow:0 0 0 1px rgba(0,0,0,.2);
+}
+.theme-dot:hover{transform:scale(1.18);border-color:rgba(255,255,255,.45)}
+.theme-dot.active{border-color:var(--text);box-shadow:0 0 0 2px var(--accent-glow,rgba(239,68,68,.4))}
+.theme-dot[data-t="grey"]{background:#666}
 .theme-dot[data-t="crimson"]{background:#ef4444}
-.theme-dot[data-t="light"]{background:#fafaf7;border-color:rgba(0,0,0,.18)}
+/* Light dot: keep the off-white fill but add a stronger edge ring so
+   it has contrast against any backdrop. The inner dark border + the
+   tray's outer border form a clear two-tone outline. */
+.theme-dot[data-t="light"]{background:#f5f5ee;border-color:rgba(0,0,0,.45)}
+[data-theme="crimson"] .theme-dots{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25)}
+[data-theme="grey"]    .theme-dots{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}
+[data-theme="light"]   .theme-dots{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.1)}
 
 /* ── Hero ─────────────────────────── */
 /* Two-column layout above 1100px: content on the left, audio-timer on
@@ -1880,32 +1929,52 @@ button{font-family:inherit;cursor:pointer}
       }
       function voiceForIdx(idx){ return voices[idx % voices.length]; }
 
+      // Fetch with a clean fallback chain. We prefer OpenAI gpt-4o-mini-tts
+      // (sounds like the Voice AI on /voice-debate) but fall back to the
+      // premium ElevenLabs path if OpenAI 502s in production — beats
+      // serving a silent orb. Errors get surfaced to the console so we
+      // can debug from devtools instead of guessing why the click did
+      // nothing.
+      function ttsFetch(text, voice, opts){
+        return fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ text: text, voice: voice, speed: SERVER_SPEED, intensity: 0.25 }, opts || {})),
+        }).then(function(r){
+          if (r.ok) return r.blob();
+          return r.text().then(function(t){
+            throw new Error('TTS ' + r.status + ': ' + (t || '').slice(0, 240));
+          });
+        });
+      }
+
       function prefetchSample(idx){
         if (cacheByIdx[idx] || inFlightByIdx[idx]) return;
         var voice = voiceForIdx(idx);
         var text = samples[idx];
-        // Route to OpenAI gpt-4o-mini-tts on purpose: the orb is meant
-        // to *sound* like the OpenAI Realtime voice the user hears in
-        // /voice-debate, not the ElevenLabs premium voice that handles
-        // long-form Pro speeches. premium:false (default) lands on the
-        // OpenAI fallback in tts.mjs. The custom 'instructions' string
-        // overrides the per-voice persona default so the orb reads as
-        // a casual conversational sample, not in-round combat.
         var instr = ORB_INSTRUCTIONS_BY_VOICE[voice] || ORB_INSTRUCTIONS_BY_VOICE.coral;
-        inFlightByIdx[idx] = fetch('/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text, voice: voice, speed: SERVER_SPEED, premium: false, intensity: 0.25, instructions: instr })
-        }).then(function(r){ return r.ok ? r.blob() : null; }).then(function(blob){
-          delete inFlightByIdx[idx];
-          if (!blob) return;
-          var url = URL.createObjectURL(blob);
-          var a = new Audio(url);
-          a.playbackRate = PLAYBACK_RATE;
-          a.preload = 'auto';
-          try { a.load(); } catch(e){}
-          cacheByIdx[idx] = { audio: a, url: url };
-        }).catch(function(){ delete inFlightByIdx[idx]; });
+        // Try OpenAI first (premium:false). If it fails for any reason
+        // — model/quota/instruction-rejected — fall back to ElevenLabs.
+        // Both return mp3 blobs so the consumer code is identical.
+        inFlightByIdx[idx] = ttsFetch(text, voice, { premium: false, instructions: instr })
+          .catch(function(err){
+            console.warn('[orb] OpenAI TTS failed, falling back to ElevenLabs:', err.message);
+            return ttsFetch(text, voice, { premium: true });
+          })
+          .then(function(blob){
+            delete inFlightByIdx[idx];
+            if (!blob) return;
+            var url = URL.createObjectURL(blob);
+            var a = new Audio(url);
+            a.playbackRate = PLAYBACK_RATE;
+            a.preload = 'auto';
+            try { a.load(); } catch(e){}
+            cacheByIdx[idx] = { audio: a, url: url };
+          })
+          .catch(function(err){
+            delete inFlightByIdx[idx];
+            console.warn('[orb] both TTS providers failed:', err && err.message);
+          });
       }
 
       var audioCtx = null;
@@ -1956,7 +2025,22 @@ button{font-family:inherit;cursor:pointer}
         a.onended = function(){ if (current === a) current = null; reset(); };
         a.onerror = function(){ if (current === a) current = null; reset(); };
         try { a.currentTime = 0; } catch(e){}
-        a.play().catch(function(){ reset(); });
+        // Browsers gate Web Audio output behind a user gesture. The
+        // click that triggered playAudio counts as the gesture, but
+        // ctxA.resume() is async — if we don't wait for it, the
+        // audio plays into a suspended graph and produces silence.
+        var ctxA = audioCtx;
+        var doPlay = function(){
+          a.play().catch(function(err){
+            console.warn('[orb] play() failed:', err && err.message);
+            reset();
+          });
+        };
+        if (ctxA && ctxA.state === 'suspended'){
+          ctxA.resume().then(doPlay, doPlay);
+        } else {
+          doPlay();
+        }
       }
 
       btn.addEventListener('click', async function(e){
