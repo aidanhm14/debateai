@@ -4709,6 +4709,35 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     const updated=[round,...historyRounds].slice(0,50);
     setHistoryRounds(updated);
     try{localStorage.setItem('debateos-round-history',JSON.stringify(updated))}catch{}
+    // First-round retention email. Fires after the first AI round
+    // completes — server-side gates on (a) email never sent before
+    // for this uid, (b) round count == 1, so re-firing on subsequent
+    // rounds is a no-op. Fire-and-forget; never block the save flow.
+    if(user&&historyRounds.length===0){
+      try{
+        user.getIdToken().then(token=>{
+          const fname=(user.displayName||'').trim().split(/\s+/)[0]||'';
+          // Compress the feedback for the email body — RFD section
+          // first if structured, else first 600 chars of the raw fb.
+          let rfdSnippet=(fb||'').slice(0,600);
+          try{
+            const rfdMatch=(fb||'').match(/RFD[^:]*:\s*([\s\S]{40,600})/i);
+            if(rfdMatch&&rfdMatch[1])rfdSnippet=rfdMatch[1].trim().slice(0,600);
+          }catch{}
+          fetch('/api/send-first-round-email',{
+            method:'POST',
+            headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+            body:JSON.stringify({
+              motion: round.motion||'',
+              side: round.sideLabel||'',
+              format: round.formatName||'',
+              firstName: fname,
+              rfdSnippet: rfdSnippet,
+            }),
+          }).catch(()=>{});
+        });
+      }catch{}
+    }
     // Also save to Firestore if signed in
     if(user&&firebaseDb){
       user.getIdToken().then(token=>{

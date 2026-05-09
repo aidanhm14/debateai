@@ -23,6 +23,11 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- A/B test scaffold. Assigns visitors to hero-copy variants
+     (control vs 'tournament-grade') and fires ab_variant exposure
+     events. Conversion is the existing paid_conversion / purchase
+     stream — join on uid in /admin user-activity to compute lift. -->
+<script defer src="/js/ab-test.js"></script>
 
 <!-- Restore theme BEFORE first paint so a user coming from landing
      or /live doesn't see a brief grey flash if they're holding a
@@ -271,11 +276,35 @@
 </nav>
 
 <section class="hero">
-  <span class="eyebrow">Priced for debaters, not SaaS founders</span>
-  <h1>Think it through <span class="accent">before</span> a judge does.</h1>
-  <p class="lede">Unlimited drafts, four AI opponents, Sneaky Strategies, Opp Attack, Judge Analyzer, Live Debates, Writing Style Profile, everything, for less than what you spent on your last tournament registration.</p>
+  <span class="eyebrow" id="heroEyebrow">Priced for debaters, not SaaS founders</span>
+  <h1 id="heroH1">Think it through <span class="accent">before</span> a judge does.</h1>
+  <p class="lede" id="heroLede">Unlimited drafts, four AI opponents, Sneaky Strategies, Opp Attack, Judge Analyzer, Live Debates, Writing Style Profile, everything, for less than what you spent on your last tournament registration.</p>
   <p class="reassure"><strong>Cancel anytime.</strong> You keep access until the end of your billing period. No annual contracts, no "gotcha" fine print.</p>
 </section>
+<script>
+// A/B test: pricing_hero_v1
+//   control  → existing 'Think it through before a judge does.' copy
+//   punchy   → tournament-grade angle + explicit $5 anchor
+// ab.apply runs the variant handler on assignment; if A/B framework
+// hasn't loaded (cache miss / blocked), the page renders control.
+(function(){
+  function go(){
+    if (!window.ab) { setTimeout(go, 60); return; }
+    window.ab.apply('pricing_hero_v1', ['control', 'punchy'], {
+      control: function(){ /* DOM already matches control. */ },
+      punchy: function(){
+        var eb = document.getElementById('heroEyebrow');
+        var h1 = document.getElementById('heroH1');
+        var lede = document.getElementById('heroLede');
+        if (eb) eb.textContent = 'Tournament-grade AI judging';
+        if (h1) h1.innerHTML = 'Practice like the round actually <span class="accent">counts.</span>';
+        if (lede) lede.textContent = 'Four AI opponents, format-aware ballots, live human-vs-human rounds judged by the same engine. $5 a month, less than one tournament registration.';
+      },
+    });
+  }
+  go();
+})();
+</script>
 
 <div class="grid" id="plans">
   <!-- Free -->
