@@ -376,6 +376,26 @@ button{font-family:inherit}
 .transcript-helpers{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.7rem;color:var(--text-dim)}
 .transcript-helpers .word-count{margin-left:auto;font-variant-numeric:tabular-nums}
 
+/* Auto-mic toggle. Sits next to the mic button so the relationship is
+   obvious. Hidden entirely on no-mic browsers (iOS, Firefox) since
+   the auto-mic concept doesn't apply when there's no mic to auto-
+   engage. */
+.auto-mic-toggle{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:8px;
+  font-size:.66rem;font-weight:700;letter-spacing:.06em;
+  color:var(--text-dim);cursor:pointer;
+  border:1px solid var(--border);background:rgba(255,255,255,.02);
+  transition:color .15s,border-color .15s,background .15s;
+  user-select:none;
+}
+.auto-mic-toggle:hover{color:var(--text);border-color:var(--border-strong)}
+.auto-mic-toggle input[type=checkbox]{
+  width:13px;height:13px;margin:0;accent-color:var(--accent);cursor:pointer;
+}
+.auto-mic-toggle.off{color:var(--text-dim);background:transparent}
+.auto-mic-toggle.on{color:#fca5a5;border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.06)}
+
 /* Speech sequence sidebar (collapsible bottom strip) */
 .sequence{
   padding:12px 22px;background:rgba(255,255,255,.02);border-top:1px solid var(--border);
@@ -651,6 +671,10 @@ button{font-family:inherit}
       <div class="transcript-area">
         <div class="transcript-helpers row">
           <button class="btn btn-mic" id="micBtn" type="button">🎙 Start mic</button>
+          <label class="auto-mic-toggle" id="autoMicLabel" title="When on, the mic engages automatically when you click Start speech. Off = mic stays off until you click Start mic yourself.">
+            <input type="checkbox" id="autoMicCheckbox" />
+            <span>Auto-mic</span>
+          </label>
           <span id="micHint">Live transcribes the active speaker. Edit the text directly anytime.</span>
           <span class="word-count" id="wordCount">0 words</span>
         </div>
@@ -1081,6 +1105,9 @@ button{font-family:inherit}
     // already shown this index, so re-renders from snapshot updates
     // won't double-fire it.
     flashTurnOverlay();
+    // Sync the auto-mic toggle visibility/state — handles the case
+    // where renderRound runs before the auto-mic init block.
+    if (typeof syncAutoMicToggle === 'function') syncAutoMicToggle();
   }
 
   function renderSequence(){
@@ -1150,9 +1177,9 @@ button{font-family:inherit}
     // if they hit pause they may have explicitly killed the mic) and
     // only when it's actually their turn (otherwise we're an off-side
     // viewer mirroring the timer state and shouldn't grab the mic).
-    // Skipped on no-mic browsers (iOS Safari, Firefox) so we don't
-    // request a permission we can't use.
-    if (wasReady && isMyTurn() && !state.micActive && state.micSupport && state.micSupport.available){
+    // Skipped on no-mic browsers + when the user has unticked the
+    // 'Auto-mic' toggle in the speech panel.
+    if (wasReady && isMyTurn() && !state.micActive && state.autoMic && state.micSupport && state.micSupport.available){
       try { setMicActive(true); } catch(e){ console.warn('[mic auto]', e); }
     }
     // Mirror the timer state to the off-side speaker. The remote peer
@@ -1261,6 +1288,25 @@ button{font-family:inherit}
     return { available: true };
   }
   state.micSupport = detectMicSupport();
+
+  // Auto-mic preference. Defaults to ON (auto-engages mic when the
+  // active speaker hits Start speech). Persists per-browser via
+  // localStorage so a user who turns it off keeps it off across
+  // rounds. Irrelevant on no-mic browsers — the toggle hides itself
+  // entirely there.
+  state.autoMic = (function(){
+    try { var v = localStorage.getItem('debateos-auto-mic'); return v === null ? true : v === '1'; }
+    catch(e){ return true; }
+  })();
+  function syncAutoMicToggle(){
+    var lbl = $('autoMicLabel'), cb = $('autoMicCheckbox');
+    if (!lbl || !cb) return;
+    if (!state.micSupport.available){ lbl.style.display = 'none'; return; }
+    lbl.style.display = '';
+    cb.checked = !!state.autoMic;
+    lbl.classList.toggle('on', !!state.autoMic);
+    lbl.classList.toggle('off', !state.autoMic);
+  }
 
   function initRecognition(){
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2150,6 +2196,18 @@ button{font-family:inherit}
     endSpeech({ skipped:true });
   });
   $('micBtn').addEventListener('click', function(){ setMicActive(!state.micActive); });
+  // Auto-mic preference toggle. Persists to localStorage on change so
+  // the user's preference survives reload + applies to the next round.
+  (function(){
+    var cb = $('autoMicCheckbox');
+    if (!cb) return;
+    cb.addEventListener('change', function(){
+      state.autoMic = !!cb.checked;
+      try { localStorage.setItem('debateos-auto-mic', state.autoMic ? '1' : '0'); } catch(e){}
+      syncAutoMicToggle();
+    });
+    syncAutoMicToggle();
+  })();
   $('speechText').addEventListener('input', function(){
     this._lastMicValue = null; // user took control
     updateWordCount();
