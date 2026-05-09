@@ -250,8 +250,6 @@
   background:rgba(239,68,68,.14) !important;
   border-color:rgba(239,68,68,.7) !important;
 }
-[data-theme="crimson"] #heroCredit{color:rgba(255,255,255,.85)}
-[data-theme="crimson"] #heroCredit strong{color:#fff;font-weight:700}
 [data-theme="crimson"] .hero-orb-hint{color:#fff;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.45)}
 [data-theme="crimson"] .hero-promo{
   background:linear-gradient(135deg,rgba(239,68,68,.22),rgba(239,68,68,.08)) !important;
@@ -1514,12 +1512,9 @@ button{font-family:inherit;cursor:pointer}
     })();
     </script>
 
-    <!-- Built-by-a-champion credibility strip. Always visible (not just
-         for India), with copy that swaps based on region detection so
-         Indian visitors lead with Asian Parli / WSDC / BP — those are
-         the formats they actually run, not APDA. soul.md §8 + open-Q #2:
-         80% of traffic is Indian and the page used to read US-first. -->
-    <div id="heroCredit" style="font-size:.82rem;line-height:1.5;color:var(--text-dim);max-width:560px;margin:0 auto 18px;text-align:center">Built by an APDA national champion. Used by debaters running <strong style="color:var(--text)">APDA, BP, Worlds, Policy, LD, PF</strong>, and more.</div>
+    <!-- Region detection. The 'Built by a champion' credit line was
+         removed per user request. India still gets a tweaked promo
+         strap so the headline points at the right circuits. -->
     <script>
     (function(){
       try {
@@ -1527,8 +1522,6 @@ button{font-family:inherit;cursor:pointer}
         var lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
         var isIndia = /Asia\/(Kolkata|Calcutta)/i.test(tz) || /-in$|^hi|^bn|^ta|^te|^mr|^gu|^kn|^pa|^ml/.test(lang);
         if (isIndia) {
-          var credit = document.getElementById('heroCredit');
-          if (credit) credit.innerHTML = 'Built by an APDA national champion. Used by Indian school + college debaters running <strong style="color:var(--text)">Asian Parli, WSDC, BP</strong> first, plus Policy, LD, PF, and more.';
           var promoText = document.getElementById('heroPromoText');
           if (promoText) promoText.textContent = 'Asian Parli, WSDC, BP — judged by AI';
           var promoTag = document.getElementById('heroPromoTag');
@@ -1734,22 +1727,43 @@ button{font-family:inherit;cursor:pointer}
 
       var gradKey = '';
       var outerGrad, innerGrad, strokeStyleCached, fillBarsCached;
+      // Theme-aware idle palette. The original idle colors were
+      // rgba(255,255,255,…) — invisible on the light theme's cream
+      // backdrop. Read the active theme so the orb has visible
+      // strokes regardless of which theme is set.
+      function isLightTheme(){
+        try { return document.documentElement.getAttribute('data-theme') === 'light'; }
+        catch(e){ return false; }
+      }
       function ensureGradients(W, H, baseR){
-        var key = mode + ':' + Math.round(baseR);
+        var light = isLightTheme();
+        var key = mode + ':' + Math.round(baseR) + ':' + (light ? 'l' : 'd');
         if (key === gradKey) return;
         gradKey = key;
         var cx = W / 2, cy = H / 2;
         outerGrad = ctx.createRadialGradient(cx, cy, baseR * 0.5, cx, cy, baseR * 1.4);
         innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 1.1);
         if (mode === 'ai') {
+          // 'AI speaking' — red wash works on both themes (red is the
+          // brand accent against either dark or cream).
           outerGrad.addColorStop(0, 'rgba(239,68,68,.14)');
           outerGrad.addColorStop(1, 'rgba(239,68,68,0)');
           innerGrad.addColorStop(0, 'rgba(239,68,68,.22)');
           innerGrad.addColorStop(.6, 'rgba(239,68,68,.06)');
           innerGrad.addColorStop(1, 'rgba(239,68,68,0)');
-          strokeStyleCached = 'rgba(239,68,68,.9)';
-          fillBarsCached = 'rgba(239,68,68,.85)';
+          strokeStyleCached = light ? 'rgba(220,38,38,.9)' : 'rgba(239,68,68,.9)';
+          fillBarsCached = light ? 'rgba(220,38,38,.75)' : 'rgba(239,68,68,.85)';
+        } else if (light) {
+          // Idle on light theme — DARK strokes on the cream backdrop.
+          // Without this branch the orb is white-on-cream = invisible.
+          outerGrad.addColorStop(0, 'rgba(0,0,0,.05)');
+          outerGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          innerGrad.addColorStop(0, 'rgba(0,0,0,.07)');
+          innerGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          strokeStyleCached = 'rgba(0,0,0,.32)';
+          fillBarsCached = 'rgba(0,0,0,.42)';
         } else {
+          // Idle on dark themes — original white wash.
           outerGrad.addColorStop(0, 'rgba(255,255,255,.04)');
           outerGrad.addColorStop(1, 'rgba(255,255,255,0)');
           innerGrad.addColorStop(0, 'rgba(255,255,255,.06)');
@@ -1927,7 +1941,7 @@ button{font-family:inherit;cursor:pointer}
         "Their case is a bridge missing the middle plank. You see the entrance, you see the exit. Walk it, you drop.",
         "Markets don't clean up what markets broke. 2008 settled that one. Putting the arsonist on the fire crew is not a plan.",
         "Veil-of-ignorance test on their plan. Would you take it without knowing which side you'd land on? Nobody picks the side that loses by default.",
-        "Their link chain has one bolt holding it. We snapped it. The chain's on the floor. Extend that, you vote on it.",
+        "Their whole link chain rested on one assumption. We broke it three speeches ago. Everything they built on top of it goes with it.",
         "Subsidize the cure, you tax the prevention. That's moral hazard with a press release. Cross-apply onto their second contention.",
         "You can't average out a rights violation. One person isn't a rounding error in their utilitarian math. The framework eats itself.",
         "They're asking free markets to fix what free markets caused. That's the fox running the henhouse audit. On the clock.",
@@ -1943,11 +1957,12 @@ button{font-family:inherit;cursor:pointer}
       var current = null;
       var cacheByIdx = {};
       var inFlightByIdx = {};
-      // Used to be 1.20 server × 1.56 client = 1.87× total which made
-      // the orb sound rushed and synthetic. New pacing is 1.0 × 1.05 =
-      // 1.05× — natural conversational speed, slight forward lean.
-      var SERVER_SPEED  = 1.00;
-      var PLAYBACK_RATE = 1.05;
+      // Pacing tuned for the orb sample — should feel like a sharp
+      // college debater landing a quick line, not a podcast monologue.
+      // 1.10 server × 1.20 client = 1.32× total. Faster than the 1.05
+      // 'natural' pass, much slower than the original rushed 1.87×.
+      var SERVER_SPEED  = 1.10;
+      var PLAYBACK_RATE = 1.20;
       var GAIN_BOOST    = 1.5;
       var ORB_INSTRUCTIONS_BY_VOICE = {
         ash:     'Speak like a college debater chatting casually with a friend at the back of the room. Quick, sharp, slight smirk on the punchline. Natural breath, no rushing.',
@@ -2000,14 +2015,12 @@ button{font-family:inherit;cursor:pointer}
         var voice = voiceForIdx(idx);
         var text = samples[idx];
         var instr = ORB_INSTRUCTIONS_BY_VOICE[voice] || ORB_INSTRUCTIONS_BY_VOICE.coral;
-        // Try OpenAI first (premium:false). If it fails for any reason
-        // — model/quota/instruction-rejected — fall back to ElevenLabs.
-        // Both return mp3 blobs so the consumer code is identical.
+        // OpenAI gpt-4o-mini-tts ONLY. ElevenLabs fallback was removed
+        // because the user reported the fallback voice sounded like
+        // generic TTS, not the OpenAI Realtime voice they wanted on
+        // the orb. If OpenAI fails, the orb fails loudly (logs in
+        // console) instead of silently dropping to a different voice.
         inFlightByIdx[idx] = ttsFetch(text, voice, { premium: false, instructions: instr })
-          .catch(function(err){
-            console.warn('[orb] OpenAI TTS failed, falling back to ElevenLabs:', err.message);
-            return ttsFetch(text, voice, { premium: true });
-          })
           .then(function(blob){
             delete inFlightByIdx[idx];
             if (!blob) return;
@@ -2020,7 +2033,7 @@ button{font-family:inherit;cursor:pointer}
           })
           .catch(function(err){
             delete inFlightByIdx[idx];
-            console.warn('[orb] both TTS providers failed:', err && err.message);
+            console.warn('[orb] OpenAI TTS failed:', err && err.message);
           });
       }
 
