@@ -6245,13 +6245,18 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           ),
         ),
 
-        // Mic fallback: text input when mic unavailable
+        // Mic fallback: text input when mic unavailable. First-round
+        // users (no history yet) get a starter-outline placeholder so
+        // the textarea isn't a blank page — first-round audit found
+        // blank-page paralysis was the #1 friction at speech 1.
         isUser&&!rec.micAvailable&&el('textarea',{
-          className:'float-input',rows:4,
-          placeholder:'Type your argument here...',
+          className:'float-input',rows:6,
+          placeholder: historyRounds.length===0 && idx===0
+            ? 'New here? Try this outline:\n\n1. My main argument is __________\n2. Here\'s why it matters __________\n3. The other side might say __________ — but that\'s wrong because __________\n\nReplace the blanks. 60-90 seconds is plenty. The AI judges what you write.'
+            : 'Type your argument here...',
           value:rec.transcript,
           onChange:e=>rec.setManualText(e.target.value),
-          style:{maxWidth:480,margin:'0 auto 16px',display:'block',fontSize:'.9rem'},
+          style:{maxWidth:560,margin:'0 auto 16px',display:'block',fontSize:'.9rem'},
           autoFocus:true,
         }),
 
