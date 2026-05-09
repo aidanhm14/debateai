@@ -1190,15 +1190,59 @@ function getUserFirstName(){
 }
 
 // Curated motions that produce strong, clashy practice rounds. Each is
-// a real APDA-style motion with an obvious clash axis — picked so a
-// first-time user gets a usable round even if they don't have one ready.
+// Motion bank: 36 real APDA/parli-style motions across 9 categories.
+// Each click on a category chip rerolls a random motion from that
+// bank into the textbox so the user gets variety without picking one
+// fixed motion. The 🎲 Random button rolls across all categories.
+// Categories are labeled by the most common debater shorthand on
+// each circuit (AI/Edu/Climate/Tech for tournaments, Demo/India/
+// Ethics/Econ/Foreign for substantive depth).
 const SAMPLE_MOTIONS = [
-  { tag:'AI',    text:'THBT social media platforms should be liable for misinformation that goes viral on their platforms' },
-  { tag:'Edu',   text:'THW abolish legacy admissions at universities' },
+  // AI / data / platforms
+  { tag:'AI', text:'THBT social media platforms should be liable for misinformation that goes viral on their platforms' },
+  { tag:'AI', text:'THW require informed consent before any algorithmic content recommendation' },
+  { tag:'AI', text:'THBT AI-generated political ads should be banned in democratic elections' },
+  { tag:'AI', text:'THBT AI labor displacement is a net good for human flourishing' },
+  // Education
+  { tag:'Edu', text:'THW abolish legacy admissions at universities' },
+  { tag:'Edu', text:'THBT standardized testing does more harm than good' },
+  { tag:'Edu', text:'THW eliminate letter grades in K-12 in favor of pass/fail' },
+  { tag:'Edu', text:'THBT colleges should weight applicants by socioeconomic status, not race' },
+  // Climate / environment
   { tag:'Climate', text:'THBT the international community should impose conditional aid to combat climate change' },
-  { tag:'Tech',  text:'THW require informed consent before any algorithmic content recommendation' },
-  { tag:'Demo',  text:'THBT we regret the rise of citizen journalism' },
+  { tag:'Climate', text:'THW prioritize nuclear power over renewables for the energy transition' },
+  { tag:'Climate', text:'THBT climate reparations from rich nations to the global south are owed' },
+  { tag:'Climate', text:'THW ban private jet ownership' },
+  // Tech / surveillance / platforms
+  { tag:'Tech', text:'THBT facial recognition in public spaces should be banned outright' },
+  { tag:'Tech', text:'THW break up the major tech monopolies (Meta, Google, Amazon, Apple)' },
+  { tag:'Tech', text:'THBT end-to-end encryption is on balance a net good' },
+  { tag:'Tech', text:'THW make algorithmic newsfeeds opt-in, with chronological as the default' },
+  // Democracy / civic
+  { tag:'Demo', text:'THBT we regret the rise of citizen journalism' },
+  { tag:'Demo', text:'THW make voting compulsory for all citizens over 18' },
+  { tag:'Demo', text:'THBT deliberative citizens\' assemblies should replace legislative debate on contested issues' },
+  { tag:'Demo', text:'THW lower the voting age to 16' },
+  // India / South Asia
   { tag:'India', text:'THBT the BJP has been a net positive for Indian democracy' },
+  { tag:'India', text:'THW lift the ban on commercial surrogacy in India' },
+  { tag:'India', text:'THBT India should pursue full convertibility of the rupee on the capital account' },
+  { tag:'India', text:'THBT the caste-based reservation system should be replaced with class-based affirmative action' },
+  // Ethics / philosophy
+  { tag:'Ethics', text:'THW permit voluntary euthanasia for terminally ill adults' },
+  { tag:'Ethics', text:'THBT it is morally permissible to break an unjust law' },
+  { tag:'Ethics', text:'THW require professional licensing for parents of children under 18' },
+  { tag:'Ethics', text:'THBT animal agriculture should be phased out within a generation' },
+  // Economy / markets
+  { tag:'Econ', text:'THW tax wealth above $1B at confiscatory rates' },
+  { tag:'Econ', text:'THBT universal basic income should replace existing welfare programs' },
+  { tag:'Econ', text:'THW cancel all federal student loan debt' },
+  { tag:'Econ', text:'THBT minimum-wage laws do more harm than good for the workers they target' },
+  // Foreign policy / IR
+  { tag:'Foreign', text:'THW recognize Taiwan as an independent state' },
+  { tag:'Foreign', text:'THBT NATO should expand to include all willing European democracies' },
+  { tag:'Foreign', text:'THW abolish the UN Security Council veto' },
+  { tag:'Foreign', text:'THBT the West\'s sanctions regime against Russia has failed' },
 ];
 
 function fmtTime(sec){
@@ -2159,12 +2203,122 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       // ── LEFT COLUMN: numbered setup steps ───────────────────────
       el('div', null,
 
-        // Step 1: Mode
+        // Step 1: Motion (now first — natural flow is "what do I want to
+        // argue?" before "what shape should the round take?"). The mode
+        // step moves below so the user has the motion in mind when
+        // picking a drill.
         el('div', { className:'step' },
           el('div', { className:'step-h' },
             el('div', { className:'step-num' }, '1'),
-            el('div', { className:'step-title' }, 'Choose a mode'),
+            el('div', { className:'step-title' }, 'Pick a motion'),
           ),
+          el('div', { className:'step-help' }, 'Type your own, click a category chip to roll one, or leave blank and the AI asks you on the mic.'),
+          el('div', { className:'card' },
+            el('input', {
+              type:'text',
+              className:'motion-input',
+              value: motion,
+              onChange: e => setMotion(e.target.value),
+              placeholder: 'THBT social media does more harm than good…',
+              maxLength: 400,
+              'aria-label':'Debate motion',
+            }),
+            // Category chips: click a tag to reroll a random motion from
+            // that category into the textbox. Re-clicking the same tag
+            // gives a different motion (avoids the previous one when
+            // there's more than one in the bank). 🎲 rolls across all
+            // categories. Hover any chip to see how many motions sit in
+            // that bucket.
+            (function(){
+              const cats = [];
+              const seen = {};
+              SAMPLE_MOTIONS.forEach(m => {
+                if (!seen[m.tag]) { seen[m.tag] = true; cats.push(m.tag); }
+              });
+              const lastByTag = {};
+              const lastAll = { v: null };
+              const rollCategory = (tag) => {
+                const pool = SAMPLE_MOTIONS.filter(m => m.tag === tag);
+                if (pool.length === 0) return;
+                let pick;
+                if (pool.length === 1) {
+                  pick = pool[0];
+                } else {
+                  do { pick = pool[Math.floor(Math.random() * pool.length)]; }
+                  while (lastByTag[tag] && pick.text === lastByTag[tag]);
+                }
+                lastByTag[tag] = pick.text;
+                setMotion(pick.text);
+              };
+              const rollAny = () => {
+                let pick;
+                if (SAMPLE_MOTIONS.length === 1) pick = SAMPLE_MOTIONS[0];
+                else {
+                  do { pick = SAMPLE_MOTIONS[Math.floor(Math.random() * SAMPLE_MOTIONS.length)]; }
+                  while (lastAll.v && pick.text === lastAll.v);
+                }
+                lastAll.v = pick.text;
+                setMotion(pick.text);
+              };
+              return el('div', { className:'motion-chips' },
+                el('button', {
+                  type:'button',
+                  className:'motion-chip',
+                  onClick: rollAny,
+                  title: 'Roll a random motion from any category',
+                  style: { background:'rgba(239,68,68,.10)', borderColor:'rgba(239,68,68,.35)', color:'#fca5a5', fontWeight:700 },
+                }, '🎲 Random'),
+                ...cats.map(tag => {
+                  const count = SAMPLE_MOTIONS.filter(m => m.tag === tag).length;
+                  return el('button', {
+                    key: tag,
+                    type:'button',
+                    className:'motion-chip',
+                    onClick: () => rollCategory(tag),
+                    title: count + ' ' + tag + ' motion' + (count === 1 ? '' : 's') + ' — click to reroll',
+                  }, tag);
+                })
+              );
+            })(),
+          ),
+        ),
+
+        // Step 2: Side (was step 3 — promoted because picking the side
+        // is the second decision a debater makes naturally, right after
+        // 'what's the motion?'). Government / Opposition stays as the
+        // common-tongue label.
+        el('div', { className:'step' },
+          el('div', { className:'step-h' },
+            el('div', { className:'step-num' }, '2'),
+            el('div', { className:'step-title' }, 'Pick your side'),
+          ),
+          el('div', { className:'step-help' }, 'Government argues for the motion. Opposition argues against.'),
+          el('div', { className:'card' },
+            el('div', { className:'side-seg', role:'radiogroup', 'aria-label':'Your side' },
+              el('button', {
+                type:'button', role:'radio',
+                'aria-pressed': side==='gov',
+                onClick: ()=> setSide('gov'),
+              }, 'Government'),
+              el('button', {
+                type:'button', role:'radio',
+                'aria-pressed': side==='opp',
+                onClick: ()=> setSide('opp'),
+              }, 'Opposition'),
+            ),
+          ),
+        ),
+
+        // Step 3: Mode (was step 1 — moved last on the left column
+        // because it's a HOW question; the user can only pick the right
+        // drill once they know what they're arguing and what side they
+        // hold. Defaults to 'Full Round' which works for any motion.)
+        el('div', { className:'step' },
+          el('div', { className:'step-h' },
+            el('div', { className:'step-num' }, '3'),
+            el('div', { className:'step-title' }, 'Pick a drill'),
+          ),
+          el('div', { className:'step-help' }, 'What kind of round do you want? Each drill is a different sub-skill.'),
           el('div', { className:'card' },
             el('div', { className:'modes' },
               MODES.map(m =>
@@ -2180,59 +2334,6 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
                 )
               )
             )
-          ),
-        ),
-
-        // Step 2: Motion
-        el('div', { className:'step' },
-          el('div', { className:'step-h' },
-            el('div', { className:'step-num' }, '2'),
-            el('div', { className:'step-title' }, 'Add a motion'),
-          ),
-          el('div', { className:'step-help' }, 'Leave blank for a generated motion you say out loud.'),
-          el('div', { className:'card' },
-            el('input', {
-              type:'text',
-              className:'motion-input',
-              value: motion,
-              onChange: e => setMotion(e.target.value),
-              placeholder: 'THBT social media does more harm than good…',
-              maxLength: 400,
-              'aria-label':'Debate motion',
-            }),
-            el('div', { className:'motion-chips' },
-              SAMPLE_MOTIONS.map((m,i) =>
-                el('button', {
-                  key:i,
-                  type:'button',
-                  className:'motion-chip',
-                  onClick:()=>setMotion(m.text),
-                  title: m.text,
-                }, m.tag)
-              )
-            ),
-          ),
-        ),
-
-        // Step 3: Side
-        el('div', { className:'step' },
-          el('div', { className:'step-h' },
-            el('div', { className:'step-num' }, '3'),
-            el('div', { className:'step-title' }, 'Choose your side'),
-          ),
-          el('div', { className:'card' },
-            el('div', { className:'side-seg', role:'radiogroup', 'aria-label':'Your side' },
-              el('button', {
-                type:'button', role:'radio',
-                'aria-pressed': side==='gov',
-                onClick: ()=> setSide('gov'),
-              }, 'Government'),
-              el('button', {
-                type:'button', role:'radio',
-                'aria-pressed': side==='opp',
-                onClick: ()=> setSide('opp'),
-              }, 'Opposition'),
-            ),
           ),
         ),
       ),
