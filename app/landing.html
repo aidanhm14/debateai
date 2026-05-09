@@ -1977,42 +1977,14 @@ button{font-family:inherit;cursor:pointer}
           });
       }
 
-      var audioCtx = null;
-      function ensureAudioCtx(){
-        if (audioCtx) return audioCtx;
-        try {
-          var Ctx = window.AudioContext || window.webkitAudioContext;
-          if (Ctx) audioCtx = new Ctx();
-        } catch(e){ audioCtx = null; }
-        return audioCtx;
-      }
-      function wireGain(a){
-        if (a.__gainWired) return;
-        var ctxA = ensureAudioCtx();
-        if (!ctxA) return;
-        try {
-          if (ctxA.state === 'suspended') ctxA.resume();
-          var src = ctxA.createMediaElementSource(a);
-          var gain = ctxA.createGain();
-          gain.gain.value = GAIN_BOOST;
-          // AnalyserNode taps the audio post-gain so the orb visualizer
-          // can read live frequency data and pulse against the actual
-          // speech. fftSize 256 → 128 frequency bins, plenty for the
-          // 22 spectrum bars + a smoothed amplitude track for the
-          // outer ring. The analyser is exposed on window so the draw
-          // loop can pick it up without a tight import path.
-          var analyser = ctxA.createAnalyser();
-          analyser.fftSize = 256;
-          analyser.smoothingTimeConstant = 0.7;
-          src.connect(gain);
-          gain.connect(analyser);
-          analyser.connect(ctxA.destination);
-          window.__heroOrbAnalyser = analyser;
-          window.__heroOrbBins = new Uint8Array(analyser.frequencyBinCount);
-          a.__gainWired = true;
-        } catch(e){ a.__gainWired = true; }
-      }
-
+      // Web Audio routing was killing playback in production: the
+      // createMediaElementSource → gain → analyser → destination chain
+      // produced silence on at least one browser/context combo, even
+      // though .play() resolved cleanly. Reverted to plain HTMLAudio
+      // playback — audio routes through the browser's default output,
+      // which always works. The orb's procedural sin-wave animation
+      // (in the canvas draw loop) keeps running; the audio-reactive
+      // path was nice-to-have, audibility is non-negotiable.
       function playAudio(a, idx){
         current = a;
         lastIdx = idx;
@@ -2021,25 +1993,24 @@ button{font-family:inherit;cursor:pointer}
         setLabel('Click again to stop');
         try { window.__heroOrbMode && window.__heroOrbMode('ai'); } catch(e){}
         a.volume = 1.0;
-        wireGain(a);
+        a.muted = false;
         a.onended = function(){ if (current === a) current = null; reset(); };
-        a.onerror = function(){ if (current === a) current = null; reset(); };
+        a.onerror = function(){
+          console.warn('[orb] audio element error:', a.error && a.error.message);
+          if (current === a) current = null;
+          reset();
+        };
         try { a.currentTime = 0; } catch(e){}
-        // Browsers gate Web Audio output behind a user gesture. The
-        // click that triggered playAudio counts as the gesture, but
-        // ctxA.resume() is async — if we don't wait for it, the
-        // audio plays into a suspended graph and produces silence.
-        var ctxA = audioCtx;
-        var doPlay = function(){
-          a.play().catch(function(err){
-            console.warn('[orb] play() failed:', err && err.message);
+        // Synchronous play() call inside the click handler keeps us in
+        // the browser's user-gesture context — required by iOS Safari
+        // and Chrome's autoplay policy. If it rejects, log + reset.
+        var p = a.play();
+        if (p && typeof p.catch === 'function'){
+          p.catch(function(err){
+            console.warn('[orb] play() rejected:', err && err.message);
+            setLabel('Tap again to play');
             reset();
           });
-        };
-        if (ctxA && ctxA.state === 'suspended'){
-          ctxA.resume().then(doPlay, doPlay);
-        } else {
-          doPlay();
         }
       }
 
