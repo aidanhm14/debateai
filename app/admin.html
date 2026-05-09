@@ -245,6 +245,28 @@
       <div id="backfill-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
     </div>
   </div>
+
+  <!-- Per-user activity feed. Reads events/ collection scoped to a
+       single uid (or email lookup) and renders the timeline + summary
+       counts so support / debugging / retention work has a real
+       per-user view. Powered by /api/admin/user-activity. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Per-user activity</span>
+        <span class="meta">events/ timeline scoped to one user</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:12px;line-height:1.5">
+        Look up a user's full activity feed — sessions, page views, generations, conversions, and every <code>app_event</code> from the <code>gtag</code> bridge. Useful for "what did this user actually do?" support questions and retention deep-dives.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <input id="ua-input" type="text" placeholder="UID or email" autocomplete="off" style="flex:1;min-width:240px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--fg);font-size:13px;outline:none">
+        <button id="ua-fetch-btn" style="padding:8px 18px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Fetch activity</button>
+      </div>
+      <div id="ua-status" style="font-size:12px;color:var(--muted);min-height:16px;margin-bottom:10px"></div>
+      <div id="ua-result"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -494,6 +516,145 @@
     if (!confirm('Run leaderboard backfill? This writes one entry per eligible debate_rounds doc. Idempotent, so safe to re-run.')) return;
     runBackfill(false);
   });
+
+  // ─────────────────────────────────────────────────────────
+  // Per-user activity feed
+  // ─────────────────────────────────────────────────────────
+  function fmtTs(ms){
+    if (!ms) return '—';
+    const d = new Date(ms);
+    return d.toLocaleString(undefined, { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+  }
+  function fmtRelative(ms){
+    if (!ms) return '';
+    const diff = Date.now() - ms;
+    if (diff < 60_000) return 'just now';
+    if (diff < 3_600_000) return Math.round(diff/60_000) + 'm ago';
+    if (diff < 86_400_000) return Math.round(diff/3_600_000) + 'h ago';
+    return Math.round(diff/86_400_000) + 'd ago';
+  }
+  function escHtml(s){
+    return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  // Per-event rendering. Most events are page_view / session_* /
+  // app_event with gtag-bridge metadata.name carrying the original
+  // event. Compress that into a single human label.
+  function eventLabel(e){
+    if (e.event === 'app_event' && e.metadata && e.metadata.name) return e.metadata.name;
+    return e.event;
+  }
+  function eventDetail(e){
+    const meta = e.metadata || {};
+    const parts = [];
+    if (meta.path && e.event !== 'app_event') parts.push(meta.path);
+    Object.keys(meta).forEach(k => {
+      if (k === 'session_id' || k === 'path' || k === 'name' || k === 'user_agent' || k === 'screen' || k === 'lang' || k === 'referrer' || k === 'title') return;
+      const v = meta[k];
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'){
+        parts.push(k + '=' + String(v).slice(0, 60));
+      }
+    });
+    return parts.join(' · ');
+  }
+
+  async function fetchUserActivity(){
+    const input = $('ua-input').value.trim();
+    if (!input){ $('ua-status').textContent = 'Enter a UID or email.'; return; }
+    const isEmail = input.includes('@');
+    const param = isEmail ? ('email=' + encodeURIComponent(input)) : ('uid=' + encodeURIComponent(input));
+    $('ua-status').innerHTML = '<span class="spin"></span> Fetching activity…';
+    $('ua-result').innerHTML = '';
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not signed in');
+      const token = await user.getIdToken();
+      const r = await fetch('/api/admin/user-activity?' + param, {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!r.ok){
+        const txt = await r.text().catch(() => '');
+        throw new Error('HTTP ' + r.status + ': ' + (txt || 'request failed').slice(0, 240));
+      }
+      const data = await r.json();
+      renderUserActivity(data);
+      $('ua-status').textContent = '';
+    } catch(err){
+      $('ua-status').innerHTML = '<span style="color:var(--accent)">' + escHtml(err.message) + '</span>';
+    }
+  }
+
+  function renderUserActivity(data){
+    const profile = data.profile || {};
+    const team = data.team || null;
+    const summary = data.summary || {};
+    const events = data.events || [];
+
+    const headerHtml =
+      '<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding:14px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:12px;flex-wrap:wrap">' +
+        (profile.photoURL ? '<img src="' + escHtml(profile.photoURL) + '" style="width:48px;height:48px;border-radius:50%;flex-shrink:0">' : '') +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-weight:700;font-size:15px">' + escHtml(profile.displayName || data.uid) + '</div>' +
+          '<div class="ts">' + escHtml(profile.email || '—') + ' · UID ' + escHtml(data.uid) + '</div>' +
+          '<div class="ts" style="margin-top:4px">' +
+            (profile.createdAt ? 'Joined ' + fmtTs(profile.createdAt) + ' · ' : '') +
+            (profile.lastLoginAt ? 'Last login ' + fmtRelative(profile.lastLoginAt) : 'No login record') +
+          '</div>' +
+        '</div>' +
+        (team
+          ? '<div style="text-align:right;font-size:12px;color:var(--muted)"><div style="color:var(--fg);font-weight:700;text-transform:capitalize">' + escHtml(team.plan) + '</div><div>' + escHtml(team.status) + ' · ' + (team.usageThisPeriod || 0) + '/' + (team.usageLimit || 0) + '</div></div>'
+          : '<div style="font-size:12px;color:var(--dim);font-style:italic">no team</div>')
+      + '</div>';
+
+    const summaryHtml =
+      '<div class="kpis" style="margin-bottom:18px">' +
+        '<div class="kpi"><div class="lbl">Sessions</div><div class="val">' + (summary.sessions || 0) + '</div><div class="delta">' + (summary.firstSeen ? 'first ' + fmtTs(summary.firstSeen) : '') + '</div></div>' +
+        '<div class="kpi"><div class="lbl">Page views</div><div class="val">' + (summary.pageViews || 0) + '</div></div>' +
+        '<div class="kpi"><div class="lbl">Generations</div><div class="val">' + (summary.generations || 0) + '</div></div>' +
+        '<div class="kpi"><div class="lbl">Conversions</div><div class="val">' + (summary.conversions || 0) + '</div></div>' +
+      '</div>';
+
+    const counts = summary.eventCounts || {};
+    const topEvents = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 12);
+    const countsHtml = topEvents.length
+      ? '<div class="section" style="margin-top:0"><h2>Event mix</h2><table>' +
+        '<thead><tr><th>Event</th><th class="num">Count</th></tr></thead><tbody>' +
+        topEvents.map(([k, v]) => '<tr><td>' + escHtml(k) + '</td><td class="num">' + v + '</td></tr>').join('') +
+        '</tbody></table></div>'
+      : '';
+
+    const timelineHtml = events.length
+      ? '<div class="section"><h2>Timeline (' + events.length + ' most recent)</h2>' +
+        '<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.01)">' +
+        events.slice(0, 200).map(e => {
+          const detail = eventDetail(e);
+          return '<div style="padding:10px 14px;border-bottom:1px solid var(--line-soft);display:flex;gap:12px;align-items:flex-start;font-size:12px">' +
+            '<div style="color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:11px;min-width:140px">' + escHtml(eventLabel(e)) + '</div>' +
+            '<div style="flex:1;min-width:0;color:var(--fg);line-height:1.5">' +
+              (detail ? escHtml(detail) : '<span style="color:var(--dim)">—</span>') +
+            '</div>' +
+            '<div class="ts" style="white-space:nowrap">' + fmtRelative(e.ts) + '</div>' +
+          '</div>';
+        }).join('') +
+        '</div></div>'
+      : '<div class="empty">No events recorded for this user yet.</div>';
+
+    $('ua-result').innerHTML = headerHtml + summaryHtml + countsHtml + timelineHtml;
+  }
+
+  $('ua-fetch-btn').addEventListener('click', fetchUserActivity);
+  $('ua-input').addEventListener('keydown', e => { if (e.key === 'Enter') fetchUserActivity(); });
+  // Auto-fetch if ?uid= or ?email= is in the URL — supports linking
+  // straight to a specific user's activity from elsewhere.
+  (function(){
+    const params = new URLSearchParams(location.search);
+    const uid = params.get('uid'), email = params.get('email');
+    if (uid || email){
+      $('ua-input').value = uid || email;
+      // Wait for auth to resolve before firing.
+      const tryFetch = () => { if (auth.currentUser) fetchUserActivity(); else setTimeout(tryFetch, 300); };
+      tryFetch();
+    }
+  })();
 
   // CSV export
   $('subs-export').addEventListener('click', () => {
