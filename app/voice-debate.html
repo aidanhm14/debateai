@@ -898,6 +898,83 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
   background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.18);
   border-radius:6px;padding:7px 10px;
 }
+
+/* Mute button — sits in the live-controls row */
+.mute-btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:6px 12px;border-radius:8px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  color:#e6e6ee;font-size:.7rem;font-weight:600;letter-spacing:.02em;
+  transition:all .12s;
+}
+.mute-btn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.2)}
+.mute-btn.on{
+  background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.4);
+  color:#fecaca;
+}
+
+/* Hide the theme-picker dots from the shared topbar on this page —
+   they don't fit the voice-debate aesthetic and add visual noise. */
+#daTopbar .theme-dots{display:none !important}
+
+/* ── "How it works" disclosure section ────────────── */
+.howto{
+  margin-top:36px;padding-top:28px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+.howto-h{
+  font-size:.74rem;font-weight:700;letter-spacing:.16em;
+  text-transform:uppercase;color:#9b9bab;margin-bottom:14px;
+}
+.howto-grid{
+  display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+  gap:8px;
+}
+.howto-item{
+  background:rgba(255,255,255,.018);
+  border:1px solid rgba(255,255,255,.05);
+  border-radius:9px;
+  overflow:hidden;
+  transition:border-color .15s, background .15s;
+}
+.howto-item:hover{border-color:rgba(255,255,255,.1)}
+.howto-item[open]{
+  background:rgba(255,255,255,.025);
+  border-color:rgba(239,68,68,.18);
+}
+.howto-item summary{
+  list-style:none;cursor:pointer;
+  padding:13px 16px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:.86rem;font-weight:600;color:#e6e6ee;
+  letter-spacing:-.005em;
+  user-select:none;
+}
+.howto-item summary::-webkit-details-marker{display:none}
+.howto-item summary::after{
+  content:'+';font-size:1.05rem;color:#7a7a8a;font-weight:400;
+  transition:transform .2s, color .15s;
+}
+.howto-item[open] summary::after{transform:rotate(45deg);color:#fca5a5}
+.howto-item summary:hover{color:#fff}
+.howto-item .body{
+  padding:0 16px 14px;font-size:.78rem;line-height:1.6;color:#a3a3b3;
+}
+.howto-item .body p{margin:0 0 8px}
+.howto-item .body p:last-child{margin-bottom:0}
+.howto-item .body strong{color:#e6e6ee;font-weight:600}
+.howto-item .body ul{margin:6px 0 0 16px;padding:0}
+.howto-item .body li{margin:3px 0}
+.howto-item .body code{
+  font-family:'JetBrains Mono', monospace;font-size:.86em;
+  background:rgba(255,255,255,.04);padding:1px 5px;border-radius:3px;
+  color:#fde2e2;
+}
+.howto-item .body .accent{color:#fca5a5;font-weight:600}
+.howto-item .body .pip{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#22c55e;margin-right:6px;vertical-align:middle;
+}
 </style>
 </head>
 <body>
@@ -1234,6 +1311,9 @@ function App(){
   // the browser via HTMLAudioElement.playbackRate. 0.9 to 1.5 keeps
   // pitch artifacts mild.
   const [playbackRate, setPlaybackRate] = useState(1.0);
+  // Mute: disable the local mic track so the AI can't VAD-interrupt
+  // itself when you breathe / cough / shuffle papers during its speech.
+  const [muted, setMuted] = useState(false);
   // Which model + endpoint the server actually negotiated. Surfaced
   // in the live UI so the user can see whether they're talking to
   // gpt-realtime, gpt-realtime-2, or the legacy preview model.
@@ -1406,6 +1486,16 @@ function App(){
       try { audioElRef.current.playbackRate = playbackRate; } catch(e){}
     }
   }, [playbackRate]);
+
+  // Toggle the local mic track on/off when the user mutes themselves.
+  // This prevents accidental VAD-triggered interruptions while still
+  // keeping the WebRTC connection alive — much cleaner than tearing
+  // down and re-adding the track.
+  useEffect(()=>{
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    stream.getAudioTracks().forEach(t => { try { t.enabled = !muted; } catch(e){} });
+  }, [muted]);
 
   /* ── Realtime event handler ───────────────────── */
 
@@ -1728,21 +1818,28 @@ function App(){
           //  - `modalities` was renamed to `output_modalities`
           //  - turn_detection still lives at session.turn_detection
           //  - input_audio_transcription is now session.audio.input.transcription
+          // GA Realtime moved turn_detection INSIDE session.audio.input
+          // (it used to be a top-level session field on the beta API).
+          // Without this, OpenAI 400s with "Unknown parameter:
+          // 'session.turn_detection'" and the user's speech stops
+          // interrupting the AI mid-sentence (the killer feature).
           dc.send(JSON.stringify({
             type: 'session.update',
             session: {
               type: 'realtime',
               output_modalities: ['audio'],
               audio: {
-                input: { transcription: { model: 'whisper-1' } },
+                input: {
+                  transcription: { model: 'whisper-1' },
+                  turn_detection: {
+                    type: 'server_vad',
+                    threshold: 0.5,
+                    prefix_padding_ms: 300,
+                    silence_duration_ms: 500,
+                    create_response: true,
+                  },
+                },
                 output: { voice: persona.voice },
-              },
-              turn_detection: {
-                type: 'server_vad',
-                threshold: 0.5,
-                prefix_padding_ms: 300,
-                silence_duration_ms: 500,
-                create_response: true,
               },
             },
           }));
@@ -2223,9 +2320,16 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             )
           )
         ),
-        // Audio speed control + model badge — both live, both
-        // tweakable mid-session.
+        // Live controls — speed, mute, model badge, recording badge.
+        // All tweakable mid-session.
         el('div', { className:'live-controls' },
+          el('button', {
+            type:'button',
+            className: 'mute-btn' + (muted ? ' on' : ''),
+            onClick: ()=> setMuted(m => !m),
+            title: muted ? 'Unmute mic' : 'Mute mic (stops auto-interrupting the AI)',
+            'aria-pressed': muted,
+          }, muted ? '🔇  Muted' : '🎙  Mic on'),
           el('div', { className:'speed-ctl' },
             el('span', { className:'lbl' }, 'speed'),
             el('button', {
