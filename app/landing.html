@@ -306,7 +306,31 @@
    were hard-coded outside the token system. Catches the most common
    offenders (rgba(255,255,255) backgrounds, hard #fff text on cards,
    the neural-net canvas constellation lines that need contrast). */
-[data-theme="light"] body{color:#1a1a1f}
+/* Re-bind body's CSS custom properties when html has [data-theme] set,
+   regardless of whether body has the matching class yet. ui.css ships a
+   `body{...--text:#fff;...}` fallback for older pages without [data-theme],
+   and that rule wins over html's [data-theme="light"] {--text:#1a1a1f}
+   on body specifically because the selector targets the body element
+   directly. Without these overrides, body-class-less paint flashes
+   (e.g., topbar.js sets html data-theme before landing.html's bottom
+   script applies the body class) leave you with a cream backdrop and
+   white text. Specificity (0,0,1,1) beats body{} (0,0,0,1). */
+[data-theme="light"] body{
+  color:#1a1a1f;
+  --text:#1a1a1f;--text-dim:rgba(0,0,0,.68);--text-ghost:rgba(0,0,0,.42);
+  --bg:#fafaf7;--bg-card:rgba(0,0,0,.03);--border:rgba(0,0,0,.08);
+  --accent-glow2:rgba(220,38,38,.10);
+}
+[data-theme="crimson"] body{
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.72);
+  --bg:#000;--border:rgba(239,68,68,.22);
+  --accent-glow2:rgba(239,68,68,.20);
+}
+[data-theme="grey"] body{
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.65);
+  --bg:#111;--border:rgba(255,255,255,.18);
+  --accent-glow2:rgba(239,68,68,.22);
+}
 [data-theme="light"] .ui-card{background:#fff;border-color:rgba(0,0,0,.08);box-shadow:0 1px 3px rgba(0,0,0,.04)}
 [data-theme="light"] .ui-topbar{background:rgba(250,250,247,.85);border-bottom:1px solid rgba(0,0,0,.06)}
 [data-theme="light"] .faq-item{border-color:rgba(0,0,0,.08);background:#fff}
