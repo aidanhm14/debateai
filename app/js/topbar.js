@@ -118,15 +118,31 @@
     });
     right.appendChild(dots);
 
-    // Primary CTA is "Debate AI" everywhere — except ON /debate-ai,
-    // where it'd be a no-op. Swap to "Live" so the bar still has a
-    // CTA on every page.
-    var onDebateAi = /\/debate-ai(\b|\/)/.test(here);
-    var cta = el('a', {
-      href: onDebateAi ? '/live' : '/debate-ai',
-      class: 'ui-btn ui-btn-primary ui-btn-sm',
-      style: { padding: '8px 18px' },
-    }, onDebateAi ? 'Live debates' : 'Debate AI');
+    // Primary CTA is now Voice AI everywhere — voice is the moat
+    // against ChatGPT (real-time, sub-200ms, full interruption) and
+    // the user-flagged most-important surface. Gold-amber gradient
+    // makes it pop against the red brand wall. Falls back to
+    // "Debate AI" when already on /voice-debate so the bar still
+    // has a working CTA on every page.
+    var onVoiceDebate = /\/voice-debate(\b|\/)/.test(here);
+    var cta;
+    if (onVoiceDebate) {
+      cta = el('a', {
+        href: '/debate-ai',
+        class: 'ui-btn ui-btn-primary ui-btn-sm',
+        style: { padding: '8px 18px' },
+      }, 'Debate AI');
+    } else {
+      cta = el('a', {
+        href: '/voice-debate',
+        class: 'ui-btn ui-btn-sm ui-btn-voice',
+        title: 'Talk out loud. The AI cuts in.',
+        style: { padding: '8px 16px 8px 14px' },
+      });
+      var pulse = el('span', { class: 'ui-btn-voice-dot', 'aria-hidden': 'true' });
+      cta.appendChild(pulse);
+      cta.appendChild(document.createTextNode('🎙 Voice AI'));
+    }
     right.appendChild(cta);
 
     var userSlot = el('span', { id: 'barUser' });
