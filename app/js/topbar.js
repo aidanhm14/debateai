@@ -153,8 +153,19 @@
     document.querySelectorAll('.ui-topbar .theme-dot').forEach(function(d){
       d.addEventListener('click', function(){
         var t = d.getAttribute('data-t');
-        document.documentElement.setAttribute('data-theme', t);
+        var prev = document.documentElement.getAttribute('data-theme') || '';
         try { localStorage.setItem('da-theme', t); } catch(e){}
+        // Hard reload on theme change so token cascade, ui.css
+        // body-class rebinds, and any per-section <style> blocks
+        // settle from scratch. Avoids half-flipped pages when
+        // switching grey ↔ light ↔ crimson on surfaces with
+        // section-scoped style blocks.
+        if (prev !== t) {
+          document.documentElement.setAttribute('data-theme', t);
+          window.location.reload();
+          return;
+        }
+        document.documentElement.setAttribute('data-theme', t);
         sync(t);
       });
     });

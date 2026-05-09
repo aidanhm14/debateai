@@ -323,18 +323,32 @@
 [data-theme="light"] .topic-card,
 [data-theme="light"] .tool,
 [data-theme="light"] .ui-section .ui-card{
-  background:#fff;border-color:rgba(0,0,0,.08);
+  background:#fff !important;border-color:rgba(0,0,0,.08) !important;
   box-shadow:0 1px 2px rgba(0,0,0,.04);
 }
 [data-theme="light"] .topic-card:hover,
 [data-theme="light"] .tool:hover{
-  background:#fff;border-color:rgba(220,38,38,.45);
+  background:#fff !important;border-color:rgba(220,38,38,.45) !important;
   box-shadow:0 6px 18px rgba(220,38,38,.10);
 }
 [data-theme="light"] .topic-card h3{color:#1a1a1f}
 [data-theme="light"] .topic-card .topic-period{color:rgba(0,0,0,.45)}
 [data-theme="light"] .tool h3{color:#1a1a1f}
 [data-theme="light"] .tool p{color:rgba(0,0,0,.6)}
+/* Topic-card inner text classes weren't covered before — body text
+   inherited from .topic-card's color:inherit cascade, but in light
+   mode the cascade resolved to white (because the inline <style>
+   block scoped to the section ran AFTER the [data-theme="light"]
+   block and re-bound color tokens). Force explicit dark-on-white
+   colors so the resolution + arg lines are legible regardless of
+   token cascade order. */
+[data-theme="light"] .topic-card{color:#1a1a1f}
+[data-theme="light"] .topic-card-res{color:#1a1a1f !important}
+[data-theme="light"] .topic-card-args{color:rgba(0,0,0,.72) !important}
+[data-theme="light"] .topic-card-args > div{color:rgba(0,0,0,.72)}
+[data-theme="light"] .topic-card-month{color:rgba(0,0,0,.55) !important}
+[data-theme="light"] .topic-card-cta{color:#dc2626 !important}
+[data-theme="light"] .topic-card-fmt{background:rgba(0,0,0,.02)}
 /* Hero CTAs in light: invert the contrast so the primary reads as
    red-on-white and the secondary reads as outlined dark. */
 [data-theme="light"] .hero-cta-primary{background:#dc2626 !important;color:#fff !important;box-shadow:0 6px 18px rgba(220,38,38,.25) !important}
@@ -729,9 +743,16 @@ button{font-family:inherit;cursor:pointer}
    hero width and centers the three primary deflections (Spar / Live /
    Case prep) so neither column "owns" the CTAs. */
 .hero-cta-row{
-  display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
-  margin:32px auto 0;max-width:760px;
+  display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center;
+  margin:32px auto 0;max-width:920px;
 }
+/* Compress CTA padding inside this row so all 4 (Spar / Voice / Live /
+   Prep) fit on one line on desktop. The Prep button was wrapping below
+   when the row max-width + 44px horizontal CTA padding exceeded the
+   line. Tightened to 26px horizontal here without touching CTA padding
+   in other contexts. */
+.hero-cta-row .hero-cta{padding:14px 26px !important;font-size:.82rem !important;margin-top:0}
+.hero-cta-row .hero-cta-secondary{padding:14px 22px !important}
 @media(max-width:560px){
   .hero-cta-row{gap:8px}
   .hero-cta-row > *{flex:1 1 auto;min-width:0}
@@ -1042,6 +1063,21 @@ button{font-family:inherit;cursor:pointer}
 .tool:hover{border-color:var(--accent);background:var(--bg-card)}
 .tool h3{font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.02em}
 .tool p{font-size:.8rem;color:var(--text-dim);line-height:1.55}
+/* Defensive dark-theme overrides — section h2 + tool cards were
+   reading near-invisible in user screenshots even though the tokens
+   should resolve to bright white. Force explicit white so a
+   cascading variable mishap can't dim them again. */
+[data-theme="grey"] #tools .sec-title,
+[data-theme="crimson"] #tools .sec-title,
+[data-theme="grey"] #tools .tool h3,
+[data-theme="crimson"] #tools .tool h3{color:#fff !important;text-shadow:0 2px 24px rgba(239,68,68,.16)}
+[data-theme="grey"] #tools .tool p,
+[data-theme="crimson"] #tools .tool p{color:rgba(255,255,255,.88) !important}
+[data-theme="grey"] #tools .ui-chip,
+[data-theme="crimson"] #tools .ui-chip{color:#fff !important;border-color:rgba(239,68,68,.5) !important;background:rgba(239,68,68,.08) !important}
+/* Same treatment for #current-topics — sec-title + body p got dim too. */
+[data-theme="grey"] #current-topics .sec-title,
+[data-theme="crimson"] #current-topics .sec-title{color:#fff !important;text-shadow:0 2px 24px rgba(34,197,94,.16)}
 
 /* ── Adults / Professionals grid ─────────────────────────────
    Seven audience cards (Debaters / Lawyers / Sales / Teams /
@@ -2356,7 +2392,7 @@ window.addEventListener('load', function(){
      full pre-loaded args + quick-prep generator live. Keep topic strings
      in sync with high-school.html → CURRENT_TOPICS when they cycle. -->
 <div class="divider"></div>
-<section class="sec" id="current-topics" style="background:#070709">
+<section class="sec" id="current-topics" style="background:var(--bg)">
   <div class="wrap">
     <div style="text-align:center;margin-bottom:28px">
       <div class="sec-label" style="color:#22c55e">Live Topics</div>
@@ -2412,15 +2448,20 @@ window.addEventListener('load', function(){
 </section>
 
 <style>
+  /* Topic cards. Background pulled from --bg-elev so light theme
+     flips to a near-white card on the warm-cream section bg, while
+     dark themes keep the deep card surface. Hardcoded rgba was
+     winning over [data-theme="light"] overrides earlier — the token
+     route avoids the cascade fight. */
   .topic-card{
     display:flex;flex-direction:column;gap:12px;
     padding:20px 22px;
-    background:rgba(15,15,18,.65);
+    background:var(--bg-elev,rgba(15,15,18,.65));
     border:1px solid var(--border);border-radius:14px;
-    text-decoration:none;color:inherit;
+    text-decoration:none;color:var(--text);
     transition:border-color .25s ease, transform .25s ease, background .25s ease;
   }
-  .topic-card:hover{border-color:rgba(239,68,68,.45);background:rgba(20,20,26,.78);transform:translateY(-2px)}
+  .topic-card:hover{border-color:var(--accent);background:var(--bg-card);transform:translateY(-2px)}
   .topic-card-meta{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .topic-card-fmt{font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border:1px solid;border-radius:10px}
   .topic-card-month{font-size:.7rem;color:var(--text-dim);letter-spacing:.05em}
@@ -2778,10 +2819,21 @@ function applyThemeClasses(t){
 document.querySelectorAll('.theme-dot').forEach(function(dot){
   dot.addEventListener('click',function(){
     var t=dot.getAttribute('data-t');
+    var prev=document.documentElement.getAttribute('data-theme')||'';
+    try{localStorage.setItem('da-theme',t)}catch(e){}
+    // Force a full reload on theme change so token cascade, ui.css
+    // body-class rebinds, and any per-section style block all settle
+    // from a clean slate. Without this, switching grey ↔ light could
+    // leave half-flipped text/card colors in sections that scope
+    // their own <style> blocks (e.g. /current-topics).
+    if (prev !== t) {
+      applyThemeClasses(t);
+      window.location.reload();
+      return;
+    }
     applyThemeClasses(t);
     document.querySelectorAll('.theme-dot').forEach(function(d){d.classList.remove('active')});
     dot.classList.add('active');
-    try{localStorage.setItem('da-theme',t)}catch(e){}
   });
 });
 // Restore saved theme. Default = crimson if none saved OR if the saved
