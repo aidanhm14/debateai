@@ -208,6 +208,40 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── matchmaking_queue ────────────────────────────────────────────
+    // Ephemeral queue for the /spar matchmaking flow. Doc ID === uid
+    // so each user has exactly one queue entry. Rule shape:
+    //  - read: any signed-in user (so the polling client can see who
+    //    else is waiting in their format)
+    //  - create: only your own doc; status must be 'waiting'
+    //  - update: your own doc OR the peer's doc as part of a match
+    //    transaction. The match transaction writes status:'matched'
+    //    + room + matchedWith on BOTH docs; we let any signed-in
+    //    user do that on a peer's doc as long as they're flipping
+    //    a 'waiting' → 'matched' transition (guards against random
+    //    writes mid-round).
+    //  - delete: only your own doc (pagehide cleanup, cancel).
+    function isMatchTransition() {
+      return resource.data.status == 'waiting'
+          && request.resource.data.status == 'matched'
+          && request.resource.data.matchedWith == request.auth.uid;
+    }
+    match /matchmaking_queue/{queueUid} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && queueUid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'waiting';
+      allow update: if isSignedIn()
+                    && (
+                      // self-update (status changes, cancel, fallback flip)
+                      queueUid == request.auth.uid
+                      // OR match transaction on a peer's doc
+                      || isMatchTransition()
+                    );
+      allow delete: if isSignedIn() && queueUid == request.auth.uid;
+    }
+
     // ── live_challenges ──────────────────────────────────────────────
     // Cross-user challenge board — replaces the localStorage-only
     // /live.html state. Doc has: posterUid, motion, format, side,

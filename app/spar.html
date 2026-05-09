@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Find a sparring partner · Debate AI</title>
+<meta name="description" content="Match into a live debate round with another human in 30 seconds. AI fallback if nobody pairs in 60s. Sub-200ms voice, AI-judged at the end." />
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/spar">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+
+<script defer src="/js/track.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root,[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.18);--border-strong:rgba(255,255,255,.32);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.65);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.55);
+  --bar-bg:rgba(10,10,12,.92);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.22);--border-strong:rgba(239,68,68,.42);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.55);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.65);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.6);
+  --bar-bg:rgba(0,0,0,.95);
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.22);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.22);
+  --green:#16a34a;--amber:#d97706;--blue:#2563eb;
+  --text:#1a1a1f;--text-dim:rgba(0,0,0,.7);--text-ghost:rgba(0,0,0,.46);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.10);
+  --bar-bg:rgba(250,250,247,.85);
+}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;
+  display:flex;flex-direction:column;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+.bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 22px;background:var(--bar-bg);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  position:sticky;top:0;z-index:50;
+}
+.bar-logo{font-size:1rem;font-weight:900;letter-spacing:-.02em;color:var(--text)}
+.bar-logo em{color:var(--accent);font-style:normal}
+.bar-back{padding:6px 14px;border:1px solid var(--border);border-radius:999px;font-size:.72rem;font-weight:700;color:var(--text-dim);transition:color .15s,border-color .15s}
+.bar-back:hover{color:var(--text);border-color:var(--border-strong)}
+
+.wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 22px 80px}
+.shell{max-width:560px;width:100%;text-align:center}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  padding:5px 12px;border-radius:999px;
+  background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.34);
+  color:var(--accent);margin-bottom:18px;
+}
+.eyebrow .pip{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+
+h1{font-size:clamp(2rem,5vw,2.8rem);font-weight:900;letter-spacing:-.025em;line-height:1.1;margin-bottom:12px;color:var(--text)}
+h1 em{color:var(--accent);font-style:normal}
+
+.lede{font-size:1rem;color:var(--text-dim);line-height:1.55;max-width:480px;margin:0 auto 32px;font-weight:500}
+
+/* Orb — deliberately bigger than the landing one. This page IS the orb. */
+.orb-wrap{
+  position:relative;width:280px;height:280px;margin:0 auto 22px;
+  display:flex;align-items:center;justify-content:center;
+}
+.orb-glow{
+  position:absolute;inset:-20%;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,var(--accent-glow) 0%,transparent 60%);
+  filter:blur(20px);opacity:.7;
+  animation:orb-breathe 3s ease-in-out infinite;
+}
+@keyframes orb-breathe{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.08);opacity:.85}}
+.orb-ring{
+  position:absolute;inset:0;border-radius:50%;
+  border:1.5px solid var(--accent);
+  opacity:.85;
+  animation:orb-rotate 8s linear infinite;
+}
+@keyframes orb-rotate{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.orb-ring::before{
+  content:'';position:absolute;top:-3px;left:50%;width:6px;height:6px;border-radius:50%;
+  background:#fff;box-shadow:0 0 12px var(--accent),0 0 24px var(--accent);
+  transform:translateX(-50%);
+}
+.orb-core{
+  position:relative;width:64%;height:64%;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.18) 0%,rgba(239,68,68,.42) 35%,rgba(0,0,0,.85) 100%);
+  box-shadow:inset 0 0 60px rgba(0,0,0,.65),0 0 60px rgba(239,68,68,.35);
+}
+.orb-wrap.matched .orb-glow{background:radial-gradient(circle,rgba(34,197,94,.5),transparent 60%);animation-duration:1s}
+.orb-wrap.matched .orb-ring{border-color:#22c55e}
+.orb-wrap.matched .orb-ring::before{background:#fff;box-shadow:0 0 12px #22c55e,0 0 24px #22c55e}
+
+.status{
+  font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:8px;letter-spacing:-.005em;
+  min-height:32px;
+}
+.status .dim{color:var(--text-dim);font-weight:500}
+.countdown{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.78rem;font-weight:600;color:var(--text-ghost);letter-spacing:.06em;text-transform:uppercase;
+  padding:6px 14px;border-radius:999px;
+  background:var(--bg-card);border:1px solid var(--border);
+  margin-bottom:24px;
+}
+.countdown strong{color:var(--text);font-variant-numeric:tabular-nums;font-weight:800;font-size:.86rem}
+
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.btn{
+  padding:11px 22px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text);font-family:inherit;font-weight:700;
+  font-size:.84rem;letter-spacing:.04em;cursor:pointer;
+  transition:all .15s;
+}
+.btn:hover{background:rgba(255,255,255,.04);border-color:var(--border-strong);transform:translateY(-1px)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 6px 24px var(--accent-glow)}
+.btn.primary:hover{background:#dc2626;border-color:#dc2626}
+.btn.ghost{background:transparent;color:var(--text-dim)}
+.btn.ghost:hover{color:var(--text)}
+
+.format-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 11px;border-radius:999px;
+  background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.32);
+  color:#93c5fd;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  margin-bottom:18px;
+}
+
+.queue-stats{
+  font-size:.7rem;color:var(--text-ghost);font-weight:600;letter-spacing:.06em;
+  margin-top:8px;
+}
+.queue-stats strong{color:var(--text-dim);font-variant-numeric:tabular-nums}
+
+/* Sign-in gate. We REQUIRE auth for human-vs-human (anti-abuse) but
+   gate softly: explain why, offer Google sign-in, AND offer the AI
+   fallback as an alternative for users who don't want to sign in. */
+.gate{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
+  padding:32px 28px;max-width:440px;width:100%;text-align:center;
+}
+.gate h2{font-size:1.4rem;font-weight:900;letter-spacing:-.015em;margin-bottom:10px;color:var(--text)}
+.gate p{font-size:.92rem;color:var(--text-dim);line-height:1.55;margin-bottom:18px}
+.gate-google{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:13px 22px;background:#fff;color:#1a1a1a;border-radius:12px;
+  font-weight:700;font-size:.9rem;cursor:pointer;border:none;font-family:inherit;
+  transition:transform .15s;margin-bottom:10px;
+}
+.gate-google:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.3)}
+.gate-google svg{width:18px;height:18px;flex-shrink:0}
+.gate-disclaimer{font-size:.74rem;color:var(--text-ghost);margin-top:12px;line-height:1.55}
+.gate .ai-alt{
+  display:block;margin-top:14px;padding:10px 14px;
+  font-size:.78rem;color:var(--accent);font-weight:700;
+  border:1px dashed rgba(239,68,68,.42);border-radius:10px;
+  text-decoration:none;transition:background .15s;
+}
+.gate .ai-alt:hover{background:rgba(239,68,68,.08)}
+
+.error{
+  padding:12px 16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.32);
+  border-radius:10px;color:#fca5a5;font-size:.84rem;margin-top:14px;
+}
+
+/* Helpful link strip at bottom */
+.foot{
+  font-size:.74rem;color:var(--text-ghost);margin-top:24px;line-height:1.6;
+}
+.foot a{color:var(--text-dim);text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)}
+.foot a:hover{color:var(--text)}
+</style>
+</head>
+<body>
+
+<nav class="bar">
+  <a href="/" class="bar-logo"><em>Debate</em> AI · Spar</a>
+  <a href="/" class="bar-back">← Home</a>
+</nav>
+
+<div class="wrap">
+  <div class="shell" id="shell">
+    <!-- Inserted by JS based on auth + queue state. -->
+    <div class="eyebrow"><span class="pip"></span>Loading…</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── Firebase init ────────────────────────────────────
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  var firebaseApp = null, firebaseAuth = null, firebaseDb = null;
+  try {
+    if (typeof firebase !== 'undefined'){
+      firebaseApp = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      firebaseAuth = firebase.auth();
+      firebaseDb = firebase.firestore();
+    }
+  } catch(e){ console.warn('[spar] firebase init', e); }
+
+  // ── URL params ───────────────────────────────────────
+  // /spar?format=quick — auto-pick format. Defaults to 'quick' since
+  // it's the most-newcomer-friendly + universal pair point.
+  var qs = new URLSearchParams(location.search);
+  var FORMATS = ['quick','apda','bp','worlds','asian','ld','pf','policy'];
+  var formatParam = (qs.get('format') || 'quick').toLowerCase();
+  if (FORMATS.indexOf(formatParam) < 0) formatParam = 'quick';
+
+  // ── State ────────────────────────────────────────────
+  var state = {
+    user: null,
+    queueDocRef: null,
+    queueUnsub: null,
+    joinedAtMs: 0,
+    countdownInterval: null,
+    matchPollInterval: null,
+    waitingPeers: 0,
+    cancelled: false,
+  };
+
+  // 60-second timer until AI fallback. After this, we mark the user's
+  // queue doc as 'matched_ai' and bounce them to /debate-ai with the
+  // motion preserved. This is the load-bearing decision: a debate
+  // engine where AI is the FALLBACK, not the headline.
+  var AI_FALLBACK_SEC = 60;
+
+  var shell = document.getElementById('shell');
+
+  function escHtml(s){
+    return String(s||'').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  // ── Render: signed-out gate ──────────────────────────
+  // Anti-abuse posture: human-vs-human REQUIRES sign-in. The AI side
+  // doesn't, and that's the alternative we surface explicitly so the
+  // user can choose AI without bouncing off a hard wall.
+  function renderGate(){
+    shell.innerHTML =
+      '<div class="gate">' +
+        '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
+        '<h2>Sign in to spar with another debater.</h2>' +
+        '<p>Live human-vs-human is signed-in only — keeps the queue free of bots and gives you a profile your opponent can see. AI sparring stays anonymous if you\'d rather skip the sign-in.</p>' +
+        '<button class="gate-google" id="signInBtn" type="button">' +
+          '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
+          'Continue with Google' +
+        '</button>' +
+        '<a class="ai-alt" href="/debate-ai">Or spar with the AI now (no sign-in needed) →</a>' +
+        '<div class="gate-disclaimer">We use your Google name + photo to label you to your opponent. Sign out anytime.</div>' +
+        '<div id="gateError"></div>' +
+      '</div>';
+    document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
+    try { gtag('event', 'spar_gate_view', {}); } catch(e){}
+  }
+
+  function doGoogleSignIn(){
+    if (!firebaseAuth){
+      document.getElementById('gateError').innerHTML = '<div class="error">Sign-in didn\'t load. Refresh the page or skip to the AI fallback.</div>';
+      return;
+    }
+    var provider = new firebase.auth.GoogleAuthProvider();
+    firebaseAuth.signInWithPopup(provider).catch(function(err){
+      // Some in-app browsers (Instagram, TikTok) block popup OAuth.
+      // Fall back to redirect, which most embedded browsers tolerate.
+      if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')){
+        firebaseAuth.signInWithRedirect(provider);
+      } else {
+        var ge = document.getElementById('gateError');
+        if (ge) ge.innerHTML = '<div class="error">Sign-in failed: ' + escHtml(err && err.message || 'unknown') + '</div>';
+      }
+    });
+  }
+
+  // ── Render: searching state ──────────────────────────
+  function renderSearching(){
+    var formatLabel = formatParam.toUpperCase();
+    shell.innerHTML =
+      '<div class="eyebrow"><span class="pip"></span>Looking for a partner</div>' +
+      '<h1>Finding you a <em>debater.</em></h1>' +
+      '<p class="lede">We\'ll match you with another human running the same format. AI fallback if nobody pairs in 60 seconds.</p>' +
+      '<span class="format-pill" title="Format you\'re queueing for">' + escHtml(formatLabel) + '</span>' +
+      '<div class="orb-wrap" id="orbWrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
+      '<div class="status" id="statusText">Searching… <span class="dim">No one in your queue yet.</span></div>' +
+      '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" id="cancelBtn">Cancel & go home</button>' +
+        '<a class="btn" href="/debate-ai">Skip to AI now</a>' +
+      '</div>' +
+      '<div class="queue-stats" id="queueStats"></div>' +
+      '<div class="foot">Your camera + mic stay off until you accept the match. Match found = you both jump into a video room.</div>';
+    document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
+    startCountdown();
+  }
+
+  // ── Render: matched! ─────────────────────────────────
+  function renderMatched(roomName, peerName){
+    var orb = document.getElementById('orbWrap');
+    if (orb) orb.classList.add('matched');
+    shell.innerHTML =
+      '<div class="eyebrow" style="background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:#4ade80"><span class="pip" style="background:#22c55e;box-shadow:0 0 8px #22c55e"></span>Match found</div>' +
+      '<h1>You\'re paired with <em>' + escHtml(peerName || 'a debater') + '</em>.</h1>' +
+      '<p class="lede">Joining the round room now. Camera + mic prompt in a sec — accept and you\'re live.</p>' +
+      '<div class="orb-wrap matched" id="orbWrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
+      '<div class="status">Loading round…</div>';
+    try { gtag('event', 'spar_match_found', { format: formatParam }); } catch(e){}
+  }
+
+  // ── Render: AI fallback fired ────────────────────────
+  function renderFallback(){
+    shell.innerHTML =
+      '<div class="eyebrow" style="background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.4);color:#fbbf24"><span class="pip" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b"></span>AI Fallback</div>' +
+      '<h1>No human in 60s. <em>Spinning up the AI</em>.</h1>' +
+      '<p class="lede">The queue is thin right now — handing you to the AI sparring partner so you don\'t lose your prep time.</p>' +
+      '<div class="orb-wrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
+      '<div class="status">Loading AI round…</div>';
+    try { gtag('event', 'spar_ai_fallback', { format: formatParam }); } catch(e){}
+    setTimeout(function(){ location.href = '/debate-ai'; }, 1200);
+  }
+
+  // ── Countdown timer ──────────────────────────────────
+  function startCountdown(){
+    if (state.countdownInterval) clearInterval(state.countdownInterval);
+    state.countdownInterval = setInterval(function(){
+      var elapsed = Math.floor((Date.now() - state.joinedAtMs) / 1000);
+      var remaining = Math.max(0, AI_FALLBACK_SEC - elapsed);
+      var num = document.getElementById('countdownNum');
+      if (num) num.textContent = String(remaining);
+      if (remaining <= 0){
+        clearInterval(state.countdownInterval);
+        state.countdownInterval = null;
+        triggerAIFallback();
+      }
+    }, 250);
+  }
+
+  // ── Queue logic ──────────────────────────────────────
+  // matchmaking_queue/{uid}: {
+  //   uid, format, status: 'waiting' | 'matched' | 'matched_ai' | 'cancelled',
+  //   joinedAt, matchedWith, room
+  // }
+  // Pairing strategy: client-side polling + transaction. Every 2s we
+  // query the queue for another waiting user with the same format
+  // (excluding self). If found, run a transaction that marks BOTH
+  // docs matched in lockstep. Whichever client races first wins;
+  // the loser sees their own doc updated by the winner's transaction
+  // and follows the same room link.
+  function joinQueue(){
+    if (!state.user || !firebaseDb) return;
+    state.cancelled = false;
+    state.joinedAtMs = Date.now();
+    var ref = firebaseDb.collection('matchmaking_queue').doc(state.user.uid);
+    state.queueDocRef = ref;
+    var fullName = (state.user.displayName || '').trim();
+    var parts = fullName.split(/\s+/).filter(Boolean);
+    var shortName = parts.length >= 2
+      ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
+      : (parts[0] || (state.user.email ? state.user.email.split('@')[0] : 'Anonymous'));
+    ref.set({
+      uid: state.user.uid,
+      displayName: shortName,
+      photoURL: state.user.photoURL || '',
+      format: formatParam,
+      status: 'waiting',
+      joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).then(function(){
+      try { gtag('event', 'spar_queue_join', { format: formatParam }); } catch(e){}
+      subscribeMyDoc();
+      startMatchPolling();
+    }).catch(function(err){
+      console.warn('[spar] queue join failed:', err);
+      shell.innerHTML += '<div class="error">Could not join queue: ' + escHtml(err.message || 'unknown') + '. <a href="/debate-ai" style="color:inherit;text-decoration:underline">Skip to AI</a>.</div>';
+    });
+    renderSearching();
+  }
+
+  // Listen to my own queue doc — when ANOTHER user's transaction marks
+  // me as matched, this fires and I navigate to the round.
+  function subscribeMyDoc(){
+    if (!state.queueDocRef) return;
+    if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} }
+    state.queueUnsub = state.queueDocRef.onSnapshot(function(doc){
+      if (!doc.exists) return;
+      var d = doc.data();
+      if (d.status === 'matched' && d.room && d.matchedWith){
+        teardownQueue();
+        renderMatched(d.room, d.matchedWithName || 'a debater');
+        // Build the live-round URL — we don't know which side we got;
+        // the round-room infra will reconcile via posterUid/accepterUid
+        // semantics. Pass both UIDs and the format.
+        var params = new URLSearchParams({
+          motion: '',
+          format: formatParam,
+          pro: d.proName || shortNameOf(state.user),
+          con: d.conName || (d.matchedWithName || 'Opponent'),
+          proUid: d.proUid || state.user.uid,
+          conUid: d.conUid || d.matchedWith,
+          room: d.room,
+          source: 'spar',
+        });
+        setTimeout(function(){ location.href = '/live-round.html?' + params.toString(); }, 900);
+      } else if (d.status === 'cancelled'){
+        teardownQueue();
+        location.href = '/';
+      }
+    }, function(err){
+      console.warn('[spar] subscribeMyDoc error', err);
+    });
+  }
+  function shortNameOf(u){
+    if (!u) return 'You';
+    var fullName = (u.displayName || '').trim();
+    var parts = fullName.split(/\s+/).filter(Boolean);
+    return parts.length >= 2
+      ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
+      : (parts[0] || 'You');
+  }
+
+  // Poll the queue every 2s for a peer. If found, race a transaction.
+  function startMatchPolling(){
+    if (state.matchPollInterval) clearInterval(state.matchPollInterval);
+    state.matchPollInterval = setInterval(tryMatch, 2000);
+    setTimeout(tryMatch, 600); // first attempt fast
+  }
+
+  function tryMatch(){
+    if (state.cancelled || !state.user || !firebaseDb) return;
+    var queue = firebaseDb.collection('matchmaking_queue');
+    queue
+      .where('format', '==', formatParam)
+      .where('status', '==', 'waiting')
+      .limit(8)
+      .get()
+      .then(function(snap){
+        // Show waiting-peer count for fun in the UI.
+        var others = snap.docs.filter(function(d){ return d.id !== state.user.uid; });
+        state.waitingPeers = others.length;
+        var stats = document.getElementById('queueStats');
+        if (stats) stats.innerHTML = others.length === 0
+          ? 'No other debaters in your queue right now.'
+          : '<strong>' + others.length + '</strong> other debater' + (others.length === 1 ? '' : 's') + ' in your queue.';
+        if (others.length === 0) return;
+        // Pick the OLDEST other waiting user (FIFO fairness) and try
+        // to claim the match.
+        others.sort(function(a, b){
+          var as = (a.data().joinedAt && a.data().joinedAt.seconds) || 0;
+          var bs = (b.data().joinedAt && b.data().joinedAt.seconds) || 0;
+          return as - bs;
+        });
+        attemptMatch(others[0].id, others[0].data());
+      })
+      .catch(function(err){
+        // Composite-index race or rule misfire — log + keep polling.
+        console.warn('[spar] queue query failed', err);
+      });
+  }
+
+  function attemptMatch(peerUid, peerData){
+    if (state.cancelled || !state.user || !firebaseDb) return;
+    var queue = firebaseDb.collection('matchmaking_queue');
+    var myRef = queue.doc(state.user.uid);
+    var peerRef = queue.doc(peerUid);
+    // Deterministic room name from the lex-sorted UID pair so both
+    // clients converge on the same /live-round room when their
+    // snapshot listeners fire. SparMatch- prefix makes it filterable
+    // in the live_rounds collection later.
+    var pair = [state.user.uid, peerUid].sort();
+    var roomName = 'SparMatch-' + pair[0].slice(0,8) + '-' + pair[1].slice(0,8);
+    // Pro/Con assignment — pair[0] (lex-first UID) is Pro by
+    // convention. Stable + arbitrary; both clients agree.
+    var proUid = pair[0];
+    var conUid = pair[1];
+    var myShort = shortNameOf(state.user);
+    var peerShort = peerData.displayName || 'Opponent';
+
+    firebaseDb.runTransaction(function(tx){
+      return Promise.all([tx.get(myRef), tx.get(peerRef)]).then(function(snaps){
+        var mine = snaps[0].data();
+        var theirs = snaps[1].data();
+        if (!mine || !theirs) throw new Error('queue_doc_missing');
+        if (mine.status !== 'waiting' || theirs.status !== 'waiting') throw new Error('lost_race');
+        var commonUpdate = {
+          status: 'matched',
+          room: roomName,
+          matchedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          proUid: proUid,
+          conUid: conUid,
+          proName: proUid === state.user.uid ? myShort : peerShort,
+          conName: conUid === state.user.uid ? myShort : peerShort,
+        };
+        tx.update(myRef, Object.assign({ matchedWith: peerUid, matchedWithName: peerShort }, commonUpdate));
+        tx.update(peerRef, Object.assign({ matchedWith: state.user.uid, matchedWithName: myShort }, commonUpdate));
+      });
+    }).then(function(){
+      try { gtag('event', 'spar_match_made', { format: formatParam }); } catch(e){}
+      // The snapshot listener on my own doc will fire and navigate.
+    }).catch(function(err){
+      // Race lost or peer cancelled — keep polling, no UI change.
+      if (err && err.message !== 'lost_race') {
+        console.warn('[spar] match transaction failed', err);
+      }
+    });
+  }
+
+  function triggerAIFallback(){
+    if (state.cancelled) return;
+    teardownQueue();
+    if (state.queueDocRef){
+      state.queueDocRef.update({
+        status: 'matched_ai',
+        matchedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).catch(function(){});
+    }
+    renderFallback();
+  }
+
+  function cancelQueue(){
+    state.cancelled = true;
+    teardownQueue();
+    if (state.queueDocRef){
+      state.queueDocRef.update({
+        status: 'cancelled',
+        cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).catch(function(){});
+    }
+    try { gtag('event', 'spar_cancel', { format: formatParam }); } catch(e){}
+    location.href = '/';
+  }
+
+  function teardownQueue(){
+    if (state.countdownInterval){ clearInterval(state.countdownInterval); state.countdownInterval = null; }
+    if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }
+    if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
+  }
+
+  // Tab close / nav away — drop our queue doc so we don't ghost.
+  window.addEventListener('pagehide', function(){
+    if (state.queueDocRef && !state.cancelled){
+      state.queueDocRef.delete().catch(function(){});
+    }
+  });
+
+  // ── Boot ─────────────────────────────────────────────
+  if (firebaseAuth){
+    firebaseAuth.onAuthStateChanged(function(user){
+      state.user = user || null;
+      if (user) joinQueue();
+      else renderGate();
+    });
+  } else {
+    renderGate();
+  }
+})();
+</script>
+
+</body>
+</html>
