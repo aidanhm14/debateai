@@ -1037,14 +1037,40 @@ button{font-family:inherit}
       if (ppOff){ ppOff.disabled = true; ppOff.style.display = 'none'; }
       if (hint) hint.innerHTML = '👂 <strong>' + escHtml(speakerName) + '</strong> is up. Their timer ticks live above. Your turn comes next.';
     } else {
-      if (ta){ ta.disabled = false; ta.placeholder = 'Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said.'; }
-      if (micBtn){ micBtn.disabled = false; micBtn.style.display = ''; }
+      if (ta){ ta.disabled = false; }
+      // No-mic browsers (iOS Safari, Firefox): hide mic button entirely
+      // and rewrite the textarea placeholder + hint to lead with typing.
+      // The auto-mic call in startSpeechTimer also no-ops in this branch
+      // so we never prompt for permissions we can't use.
+      var noMic = !state.micSupport.available;
+      if (ta){
+        ta.placeholder = noMic
+          ? 'Type your speech here. The AI judge reads what you write — pace yourself against the timer above.'
+          : 'Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said.';
+      }
+      if (micBtn){
+        if (noMic){
+          micBtn.style.display = 'none';
+        } else {
+          micBtn.disabled = false; micBtn.style.display = '';
+        }
+      }
+      var micHint = $('micHint');
+      if (micHint){
+        micHint.textContent = noMic
+          ? '✍️ Type your speech below. (Mic transcription not available on this browser.)'
+          : 'Live transcribes the active speaker. Edit the text directly anytime.';
+        micHint.style.color = noMic ? '#fbbf24' : '';
+        micHint.style.fontWeight = noMic ? '700' : '';
+      }
       if (skipBtn){ skipBtn.disabled = false; skipBtn.style.display = ''; }
       if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; }
       var pp = $('playPauseBtn'); if (pp){ pp.disabled = false; pp.style.display = ''; }
       if (hint){
         if (myTurn && ms){
-          hint.innerHTML = '🎤 <strong>Your turn.</strong> Hit <strong>▶ Start speech</strong> — the mic engages automatically so the AI captures your speech for the ballot.';
+          hint.innerHTML = noMic
+            ? '✍️ <strong>Your turn.</strong> Type your speech in the box below. Hit <strong>▶ Start speech</strong> to start the clock.'
+            : '🎤 <strong>Your turn.</strong> Hit <strong>▶ Start speech</strong> — the mic engages automatically so the AI captures your speech for the ballot.';
         } else {
           hint.innerHTML = 'Click <strong>▶ Start speech</strong> when you\'re ready, the timer doesn\'t start until you do.';
         }
@@ -1124,7 +1150,9 @@ button{font-family:inherit}
     // if they hit pause they may have explicitly killed the mic) and
     // only when it's actually their turn (otherwise we're an off-side
     // viewer mirroring the timer state and shouldn't grab the mic).
-    if (wasReady && isMyTurn() && !state.micActive){
+    // Skipped on no-mic browsers (iOS Safari, Firefox) so we don't
+    // request a permission we can't use.
+    if (wasReady && isMyTurn() && !state.micActive && state.micSupport && state.micSupport.available){
       try { setMicActive(true); } catch(e){ console.warn('[mic auto]', e); }
     }
     // Mirror the timer state to the off-side speaker. The remote peer
@@ -1217,6 +1245,23 @@ button{font-family:inherit}
   // ── Mic / SpeechRecognition. Uses the standard Web Speech API. Chrome
   // and Safari (recent) support it; Firefox does not. The transcript is
   // editable so users can correct fly-byes without restarting.
+  //
+  // Mic support detection. iOS Safari has webkitSpeechRecognition but
+  // it's broken in practice — works inconsistently across iOS versions,
+  // produces zero transcripts even when 'allowed', and is the dominant
+  // mobile browser for the 80% Indian audience. Treat iOS as unsupported
+  // and route those users to type-instead. Firefox also has no Web
+  // Speech support; same fallback.
+  function detectMicSupport(){
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return { available: false, reason: 'no-api' };
+    var ua = navigator.userAgent || '';
+    var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    if (isIOS) return { available: false, reason: 'ios-safari-unreliable' };
+    return { available: true };
+  }
+  state.micSupport = detectMicSupport();
+
   function initRecognition(){
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return null;
@@ -1740,19 +1785,77 @@ button{font-family:inherit}
       '<div class="rfd-actions">' +
         '<button class="btn btn-primary" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
         '<button class="btn" id="copyBallotBtn" type="button">Copy ballot</button>' +
+        '<button class="btn" id="publishDiscBtn" type="button" title="Publish your speeches to the public disclosure board so other debaters can read + import them">🌐 Publish to /disclosures</button>' +
         '<a class="btn" href="/live">Back to board</a>' +
       '</div>';
     // Spectators don't get the save-to-record button — the round is
     // not theirs to log against their personal speaker history. Same
-    // applies to the leaderboard consent checkbox (they can't post
-    // somebody else's W/L flag) — hide the whole panel so the UI
-    // doesn't dangle a broken control.
+    // applies to the leaderboard consent checkbox + the publish-to-
+    // disclosures button (none of those are theirs to fire). Hide
+    // the whole set so the UI doesn't dangle broken controls.
     if (isSpectator()){
       var sb = document.getElementById('saveRoundBtn');
       if (sb) sb.remove();
       var lbc = document.querySelector('.lb-consent');
       if (lbc) lbc.remove();
+      var pdb = document.getElementById('publishDiscBtn');
+      if (pdb) pdb.remove();
     }
+
+    // Publish-to-/disclosures handler. Builds the speaker's own
+    // speeches into a single text blob and writes a shared_cases doc
+    // with visibility:'public'. Idempotent on (uid, room) so re-clicks
+    // just update the same doc instead of spamming the board.
+    var pubBtn = $('publishDiscBtn');
+    if (pubBtn) pubBtn.addEventListener('click', function(){
+      if (!firebaseDb || !state.user){ toast('Sign in to publish a disclosure.'); return; }
+      var ms = mySide();
+      var f = FORMATS[state.formatKey];
+      // Filter the speech log to MY speeches (the ones tied to my side).
+      // The opponent's text isn't mine to disclose — even on a
+      // publicly-resolved round, a disclosure only carries the
+      // publisher's own arguments.
+      var mine = (state.log || []).filter(function(e){
+        if (!ms) return true;
+        var spIsFirstSide = e.side === f.sides[0];
+        return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
+      });
+      var fullText = mine.map(function(e){ return '[' + (e.code || '') + ']\n' + (e.text || ''); }).join('\n\n');
+      if (!fullText.trim()){ toast('No speeches to publish yet.'); return; }
+      var fullName = (state.user.displayName || '').trim();
+      var parts = fullName.split(/\s+/).filter(Boolean);
+      var shortName = parts.length >= 2
+        ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
+        : (parts[0] || (state.user.email ? state.user.email.split('@')[0] : 'Anonymous'));
+      var sideLabel = ms ? f.sideLabels[ms === 'pro' ? f.sides[0] : f.sides[1]] : '';
+      pubBtn.textContent = 'Publishing…';
+      pubBtn.disabled = true;
+      firebaseDb.collection('shared_cases').doc(state.user.uid + '_' + state.room).set({
+        teamId: null,
+        sharedBy: shortName,
+        sharedByUid: state.user.uid,
+        authorUid: state.user.uid,
+        motion: state.motion || 'Untitled',
+        side: sideLabel,
+        format: f.name,
+        depth: '',
+        output: fullText,
+        sharedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        visibility: 'public',
+        sourceRound: state.room,
+      }, { merge: true }).then(function(){
+        pubBtn.textContent = '✓ Published · view';
+        pubBtn.disabled = false;
+        pubBtn.onclick = function(){ window.open('/disclosures', '_blank'); };
+        try { gtag('event', 'disclosure_publish', { format: state.formatKey, source: 'live_round' }); } catch(e){}
+        toast('✓ Published to /disclosures.');
+      }).catch(function(e){
+        console.warn('[publishDisc]', e);
+        pubBtn.textContent = '🌐 Publish to /disclosures';
+        pubBtn.disabled = false;
+        toast('Publish failed: ' + (e.message || 'unknown'));
+      });
+    });
     // Save round to Firestore (saved_rounds/{uid}_{room}). One per
     // user per round. Idempotent — clicking twice just re-writes
     // the same doc with an updated savedAt timestamp.
