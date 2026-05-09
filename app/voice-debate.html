@@ -1137,6 +1137,9 @@ function App(){
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
+      // GA Realtime endpoint — no `OpenAI-Beta: realtime=v1` header.
+      // gpt-realtime-2 lives on the GA API only; the beta header would
+      // force a legacy preview endpoint that doesn't know about it.
       const sdpRes = await fetch(
         'https://api.openai.com/v1/realtime?model=' + encodeURIComponent(session.model || 'gpt-realtime-2'),
         {
@@ -1145,7 +1148,6 @@ function App(){
           headers: {
             'Authorization': 'Bearer ' + ephemeralKey,
             'Content-Type': 'application/sdp',
-            'OpenAI-Beta': 'realtime=v1',
           },
         }
       );

@@ -299,12 +299,16 @@ export default async (request, context) => {
     const transcribeModel = process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL
       || 'gpt-realtime-whisper';
 
+    // GA Realtime endpoint — no `OpenAI-Beta: realtime=v1` header.
+    // The beta header forces the legacy preview API, which doesn't
+    // know about `gpt-realtime-2` and 400s with "only available on
+    // the GA API." Drop the header and the GA endpoint accepts the
+    // same body shape.
     const upstream = await fetch('https://api.openai.com/v1/realtime/sessions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'OpenAI-Beta': 'realtime=v1',
       },
       body: JSON.stringify({
         model,
