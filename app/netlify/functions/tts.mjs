@@ -256,7 +256,7 @@ function buildOpenAIInstructions(voice, intensity) {
   return base;
 }
 
-async function openAITTS(text, voice, speed, apiKey, intensity = 0) {
+async function openAITTS(text, voice, speed, apiKey, intensity = 0, customInstructions = null) {
   // Translate persona keys (statesman, barrister, etc.) to a valid OpenAI
   // voice key before calling. Without this, free-tier requests for new
   // personas would get rejected by OpenAI with invalid_voice.
@@ -281,7 +281,11 @@ async function openAITTS(text, voice, speed, apiKey, intensity = 0) {
       response_format: 'mp3',
     };
     if (supportsInstructions) {
-      body.instructions = buildOpenAIInstructions(voice, intensity);
+      // Caller can override the auto-built persona instructions by
+      // passing a string in the request body. Used by the landing
+      // orb, which wants a casual conversational register instead of
+      // the in-round prosecutorial / professorial defaults.
+      body.instructions = customInstructions || buildOpenAIInstructions(voice, intensity);
     }
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
@@ -500,7 +504,15 @@ export default async (request, context) => {
     // so by the time we get a !ok response here, every OpenAI model
     // attempt failed — surface the actual upstream error.
     if (!response && openaiKey) {
-      response = await openAITTS(text, voice, speed, openaiKey, intensity);
+      // Caller can pass `instructions` (string, max 600 chars) to
+      // override the per-voice persona prompt. Used by the landing
+      // orb to ask for a casual conversational register rather than
+      // the in-round prosecutorial defaults that ship with the
+      // 16 personas.
+      const customInstr = (typeof body.instructions === 'string' && body.instructions.trim())
+        ? body.instructions.slice(0, 600)
+        : null;
+      response = await openAITTS(text, voice, speed, openaiKey, intensity, customInstr);
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
         console.error('OpenAI TTS error:', response.status, errText);

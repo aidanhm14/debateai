@@ -1562,11 +1562,13 @@ button{font-family:inherit;cursor:pointer}
     <script>
     (function(){
       var motions=[
-        {m:'This House would ban private schools.',you:'Private schooling entrenches class hierarchy. per-pupil funding collapses when capital opts out.',ai:'Extend that and you nationalize education access. The wealthy will just credential-launder through tutoring and abroad. You lose the constituency, not the hierarchy.'},
-        {m:'AI should write the news.',you:'Human editors are bottlenecks. AI can cover 10x more stories with equal factual accuracy.',ai:'Accuracy is not coverage. Journalism needs accountability. a byline that can be sued, fired, or shamed. Remove that and you get volume, not truth.'},
-        {m:'Open borders, yes or no?',you:'Free movement of labor grows GDP and self-corrects through price signals.',ai:'GDP isn\'t distributed by price signals. You get aggregate growth and collapsing wage floors in the bottom quintile. which is exactly who votes against open borders next cycle.'},
-        {m:'Tax billionaires out of existence.',you:'Concentrated wealth buys political outcomes. democracy requires a wealth ceiling.',ai:'A ceiling without a floor just exports the billionaires. You lose the tax base and keep the political capture, because lobbying scales with reputation, not net worth.'},
-        {m:'Mandatory voting.',you:'Compulsory turnout eliminates the turnout-suppression attack surface entirely.',ai:'It also eliminates the signal that low turnout sends about legitimacy. You\'ll push uninformed ballots that track whatever was on TV last week. that\'s noise, not democracy.'}
+        {m:'This House would ban private schools.',you:'Private schools entrench class hierarchy. Once capital opts out of public education, per-pupil funding for everyone else collapses.',ai:'Ban them and the wealthy migrate to elite tutoring and overseas boarding. Same hierarchy, harder to tax. You\'re fighting the exit, not the cause.'},
+        {m:'AI should write the news.',you:'Human editors are bottlenecks. AI covers ten times the stories at the same factual accuracy.',ai:'Accuracy isn\'t accountability. Journalism needs a byline that can be sued, fired, or shamed. Strip that out and volume is all that\'s left.'},
+        {m:'Open borders.',you:'Free movement of labor grows aggregate output. Markets self-correct through wage signals.',ai:'GDP isn\'t distributed by signals, it\'s distributed by power. You get growth on top and collapsing wage floors at the bottom. The bottom quintile is exactly who votes against open borders next cycle.'},
+        {m:'Tax billionaires out of existence.',you:'Concentrated wealth buys political outcomes. Democracy requires a ceiling.',ai:'A ceiling without an exit ban just relocates them. You lose the tax base and keep the capture, because lobbying scales with reputation, not net worth.'},
+        {m:'Mandatory voting.',you:'Compulsory turnout eliminates the entire suppression attack surface in one move.',ai:'It also eliminates what low turnout signals about legitimacy. You get uninformed ballots tracking whatever was on TV last week. That\'s noise, not democracy.'},
+        {m:'Scrap legacy admissions at universities.',you:'Legacy preference is hereditary aristocracy in a hoodie. The class of 2050 should not be picked by the class of 1990.',ai:'You scrap legacy and donor ties and the endowment shrinks. The same diversity programs you want to protect are funded by exactly that pipeline. Kill the floor first and the ceiling falls with it.'},
+        {m:'Tax meat at the same rate as alcohol.',you:'Animal agriculture is the single largest avoidable source of methane. We tax alcohol for far smaller externalities.',ai:'Pigouvian taxes work when there\'s a substitute. Alcohol has water. Meat doesn\'t have plant protein at the same price point in lower-income markets, so you\'re just regressively taxing dinner.'}
       ];
       var youEl=document.getElementById('heroBetaChatYou');
       var aiEl=document.getElementById('heroBetaChatAi');
@@ -1834,14 +1836,34 @@ button{font-family:inherit;cursor:pointer}
         "They're asking free markets to fix what free markets caused. That's the fox running the henhouse audit. On the clock.",
         "Side opp wants the status quo where the harm hasn't happened yet. We're debating the real one. Criminalization IS the harm."
       ];
-      var voices = ['onyx','echo','fable','alloy','nova','shimmer','coral','sage','ash','ballad'];
+      // Voice rotation. gpt-4o-mini-tts honors free-form 'instructions'
+      // for tone steering, so even with the same 10 voices we can shape
+      // each sample to feel like a different speaker. Casual conversational
+      // register, not in-round prosecutorial — these are landing-page
+      // teasers, not closing arguments.
+      var voices = ['ash','coral','ballad','sage','onyx','nova','fable','alloy','echo','shimmer'];
       var lastIdx = -1;
       var current = null;
       var cacheByIdx = {};
       var inFlightByIdx = {};
-      var SERVER_SPEED  = 1.20;
-      var PLAYBACK_RATE = 1.56;
+      // Used to be 1.20 server × 1.56 client = 1.87× total which made
+      // the orb sound rushed and synthetic. New pacing is 1.0 × 1.05 =
+      // 1.05× — natural conversational speed, slight forward lean.
+      var SERVER_SPEED  = 1.00;
+      var PLAYBACK_RATE = 1.05;
       var GAIN_BOOST    = 1.5;
+      var ORB_INSTRUCTIONS_BY_VOICE = {
+        ash:     'Speak like a college debater chatting casually with a friend at the back of the room. Quick, sharp, slight smirk on the punchline. Natural breath, no rushing.',
+        coral:   'Speak warm and smart, like an upperclassman explaining the round breakdown over coffee. Clear, unhurried, a touch of dry humor on the kicker.',
+        ballad:  'Speak with relaxed narrative warmth, like reading a friend an interesting paragraph aloud. Easy cadence, gentle emphasis on the strongest words.',
+        sage:    'Speak slowly and thoughtfully, like a debater walking you through the logic in conversation. Real pauses where the thought turns.',
+        onyx:    'Speak with calm authority, like an experienced debater making a confident point in a casual chat. Measured, no theatrics.',
+        nova:    'Speak bright and articulate, like a sharp friend explaining why the argument actually matters. Energy without volume.',
+        fable:   'Speak with a warm, slightly British storyteller cadence. Conversational, wry, lands the closing word with a tiny pause.',
+        alloy:   'Speak in an even, friendly register — clear and direct, the way a smart classmate breaks down an argument in plain English.',
+        echo:    'Speak smooth and confident, like a closer who already won the round and is just walking you through how. Light, easy.',
+        shimmer: 'Speak with light, articulate energy, like a quick-witted friend cutting through nonsense. Crisp, but never harsh.',
+      };
 
       function setLabel(t){ if (labelEl) labelEl.textContent = t; }
       function reset(){
@@ -1865,11 +1887,14 @@ button{font-family:inherit;cursor:pointer}
         // to *sound* like the OpenAI Realtime voice the user hears in
         // /voice-debate, not the ElevenLabs premium voice that handles
         // long-form Pro speeches. premium:false (default) lands on the
-        // OpenAI fallback in tts.mjs.
+        // OpenAI fallback in tts.mjs. The custom 'instructions' string
+        // overrides the per-voice persona default so the orb reads as
+        // a casual conversational sample, not in-round combat.
+        var instr = ORB_INSTRUCTIONS_BY_VOICE[voice] || ORB_INSTRUCTIONS_BY_VOICE.coral;
         inFlightByIdx[idx] = fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text, voice: voice, speed: SERVER_SPEED, premium: false, intensity: 0.55 })
+          body: JSON.stringify({ text: text, voice: voice, speed: SERVER_SPEED, premium: false, intensity: 0.25, instructions: instr })
         }).then(function(r){ return r.ok ? r.blob() : null; }).then(function(blob){
           delete inFlightByIdx[idx];
           if (!blob) return;

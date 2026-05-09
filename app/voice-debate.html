@@ -847,6 +847,37 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
   outline:2px solid #ef4444;outline-offset:2px;
 }
 
+/* 'Standing by' orb in the setup right column. Smaller than the live
+   stage orb (180px vs 280px) so it doesn't compete with the form, but
+   uses the same canvas + animation function so the visual continuity
+   into the live round is one-to-one. Crimson glow at idle, no green
+   user-active variant since this is pre-mic-grant. */
+.setup-orb-card{
+  text-align:center;padding:22px 18px 18px;margin-bottom:18px;
+  background:linear-gradient(180deg, rgba(239,68,68,.04) 0%, rgba(255,255,255,.018) 100%);
+  border:1px solid rgba(239,68,68,.18);
+  border-radius:14px;
+  position:relative;overflow:hidden;
+}
+.setup-orb-card::before{
+  content:'';position:absolute;inset:-30%;
+  background:radial-gradient(ellipse 60% 60% at 50% 40%, rgba(239,68,68,.08) 0%, transparent 60%);
+  pointer-events:none;
+}
+.setup-orb-card canvas.setup-orb{
+  width:180px;height:180px;display:block;margin:0 auto;
+  position:relative;z-index:1;
+}
+@media (max-width:600px){.setup-orb-card canvas.setup-orb{width:150px;height:150px}}
+.setup-orb-card .setup-orb-label{
+  margin-top:14px;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;
+  font-weight:700;color:#fca5a5;position:relative;z-index:1;
+}
+.setup-orb-card .setup-orb-sub{
+  margin-top:6px;font-size:.78rem;color:#a3a3b3;line-height:1.5;
+  max-width:260px;margin-left:auto;margin-right:auto;position:relative;z-index:1;
+}
+
 /* Mic permission notice — neutral warm so it sits in the same
    crimson-on-dark world as the rest of the setup. The cold blue
    the previous pass used read as an alert from a different app. */
@@ -1434,6 +1465,12 @@ function App(){
   const userBufRef = useRef(null);
   const orbCanvasRef = useRef(null);
   const orbStopRef = useRef(null);
+  // Setup-screen orb. Renders a 'standing by' breathing animation
+  // while the user configures the round so the right column reads as
+  // alive — matches the orb the user will see during the live round
+  // and makes the AI feel like it's already there waiting.
+  const setupOrbCanvasRef = useRef(null);
+  const setupOrbStopRef = useRef(null);
   const micPollRef = useRef(null);
 
   useEffect(()=>{ turnsRef.current = turns; }, [turns]);
@@ -1940,6 +1977,32 @@ function App(){
 
   /* ── Orb bootstrap (after canvas mounts) ──────── */
 
+  // Setup orb. Synthetic 'preparing to debate you' levels — a slow
+  // breath baseline plus a soft thought-pulse every few seconds so the
+  // orb reads as 'alive but waiting'. Drives the same startOrbAnimation
+  // so the visual language is identical to the live round.
+  useEffect(()=>{
+    if (status !== 'idle') return;
+    const canvas = setupOrbCanvasRef.current;
+    if (!canvas) return;
+    const startedAt = Date.now();
+    const fakeUserSpeakingRef = { current: false };
+    const getLevels = () => {
+      const t = (Date.now() - startedAt) / 1000;
+      // Long breath at ~0.18Hz (5.5s cycle) so it's clearly alive
+      // but never frantic. Plus a brief thought-pulse every ~3.5s
+      // — Gaussian envelope so it eases in/out.
+      const breath = 0.06 + Math.sin(t * 1.1) * 0.035;
+      const phase = (t % 3.5) - 1.4;
+      const pulse = Math.exp(-(phase * phase) / 0.18) * 0.13;
+      return { ai: Math.max(0, breath + pulse), user: 0 };
+    };
+    setupOrbStopRef.current = startOrbAnimation(canvas, getLevels, fakeUserSpeakingRef);
+    return () => {
+      if (setupOrbStopRef.current) { try { setupOrbStopRef.current(); } catch(e){} setupOrbStopRef.current = null; }
+    };
+  }, [status]);
+
   useEffect(()=>{
     if (status !== 'live') return;
     const canvas = orbCanvasRef.current;
@@ -2157,6 +2220,20 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
 
       // ── RIGHT COLUMN: opponent picker (top), sticky summary card (bottom) ───────
       el('div', { className:'summary-col' },
+
+        // 'Standing by' orb — same visual language as the live round
+        // so the AI reads as already in the room, just waiting for the
+        // user to configure and hit Start. Uses the synthetic idle
+        // levels driven by the useEffect at status==='idle'.
+        el('div', { className:'setup-orb-card' },
+          el('canvas', { className:'setup-orb', ref: setupOrbCanvasRef, 'aria-hidden':'true' }),
+          el('div', { className:'setup-orb-label' },
+            '◉ ' + (persona && persona.name ? persona.name.split(' ')[0].toUpperCase() : 'OPPONENT') + ' · STANDING BY'
+          ),
+          el('div', { className:'setup-orb-sub' },
+            'Ready when you are. Pick the format, name the motion, hit Start.'
+          ),
+        ),
 
         // Step 4 (visually right column): Opponent picker
         el('div', { className:'step' },
