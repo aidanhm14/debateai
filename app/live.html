@@ -22,6 +22,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
 
+<!-- Per-user telemetry. Auto-fires session_start, page_view, heartbeat,
+     and session_end for any signed-in visitor. window.track(event, meta)
+     is exposed for ad-hoc page events (challenge_post, challenge_accept,
+     etc — added inline in this page's script block). -->
+<script defer src="/js/track.js"></script>
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
 <!-- Restore theme BEFORE first paint so users coming from /landing
@@ -724,6 +730,12 @@ button{font-family:inherit}
         </div>
         <div class="field">
           <label for="format">Format</label>
+          <!-- Default order is US-circuit-first (APDA, BP, Worlds, Asian
+               Parli...). The script below reorders the options for
+               visitors detected as Indian — Asian Parli, WSDC, and BP
+               lead, since soul.md §8 + open-Q #2 flagged that 80% of
+               traffic is Indian and the Indian school/college circuits
+               run those formats. APDA stays in the list but moves down. -->
           <select id="format" required>
             <option value="quick">Quick Clash · 2 speeches each</option>
             <option value="apda">APDA Parliamentary</option>
@@ -736,6 +748,26 @@ button{font-family:inherit}
             <option value="congress">Student Congress</option>
           </select>
         </div>
+        <script>
+        (function(){
+          try {
+            var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch(e){}
+            var lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+            var isIndia = /Asia\/(Kolkata|Calcutta)/i.test(tz) || /-in$|^hi|^bn|^ta|^te|^mr|^gu|^kn|^pa|^ml/.test(lang);
+            if (!isIndia) return;
+            var sel = document.getElementById('format');
+            if (!sel) return;
+            // India circuit ordering: Asian Parli + WSDC + BP first,
+            // then everything else. Quick Clash stays at the very top
+            // since it's the universal "no jargon, just go" entry.
+            var order = ['quick', 'asian', 'worlds', 'bp', 'apda', 'ld', 'pf', 'policy', 'congress'];
+            var byKey = {};
+            Array.prototype.forEach.call(sel.options, function(o){ byKey[o.value] = o; });
+            sel.innerHTML = '';
+            order.forEach(function(k){ if (byKey[k]) sel.appendChild(byKey[k]); });
+          } catch(e){}
+        })();
+        </script>
         <!-- Schedule. Defaults to "now" (open queue) but posters can
              pick a specific time so two debaters can plan to meet. The
              card on the board shows the countdown; once the time

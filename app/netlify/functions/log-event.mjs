@@ -20,6 +20,12 @@ const VALID_EVENTS = new Set([
   // which is one of the two reasons soul.md flagged "Paid conversions:
   // 0 tracked." (The other was the client-side eventMap missing it.)
   'conversion',
+  // Generic bucket for arbitrary product events mirrored from the
+  // gtag → track bridge in /js/track.js. The original gtag event
+  // name comes through as metadata.name so the admin dashboard /
+  // per-user activity feed can still slice on it without forcing
+  // every new event to be added to this allowlist by hand.
+  'app_event',
 ]);
 
 // In-memory rate limiting: uid (or anon_<ip>) -> { count, windowStart }

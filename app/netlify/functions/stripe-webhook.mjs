@@ -95,6 +95,14 @@ export default async (request) => {
         break;
       }
 
+      // customer.subscription.created fires on every new subscription.
+      // We were relying on checkout.session.completed alone, which DOES
+      // fire for the standard Checkout flow but NOT when a user changes
+      // plans through the Stripe billing portal — there's no Checkout
+      // session there, just a subscription mutation. Handling created
+      // explicitly closes that gap. Idempotent with .updated since we
+      // do a conditional update on teams/{teamId}.
+      case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
         const teamId = subscription.metadata?.teamId;

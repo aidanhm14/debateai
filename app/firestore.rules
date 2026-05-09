@@ -119,14 +119,30 @@ service cloud.firestore {
       allow read:   if isSignedIn();
       allow create: if isSignedIn()
                     && stringUnder('motion', 4096);
+
+      // The consent map can only be touched by the consenting user
+      // for their own UID key. Computes the affected keys of the
+      // leaderboardConsent map between old and new doc state and
+      // requires every changed key to equal the writer's auth.uid.
+      // No leaderboardConsent change at all → returns true so it
+      // doesn't block currentTimer / speech-log updates.
+      function leaderboardConsentChangeIsOwnUid() {
+        let oldMap = resource.data.get('leaderboardConsent', {});
+        let newMap = request.resource.data.get('leaderboardConsent', {});
+        let changed = newMap.diff(oldMap).affectedKeys();
+        return changed.size() == 0 || changed.hasOnly([request.auth.uid]);
+      }
+
       // Participant-only writes once the round has both UIDs locked
       // in (i.e., a posted+accepted challenge). Spectators land here
       // signed-in but match neither side, so they can read the round
-      // but can't mutate it — protects currentTimer + leaderboardConsent
-      // + the speech log from being spoofed by a third-party viewer.
+      // but can't mutate it. Plus: even between participants, the
+      // leaderboardConsent map is per-UID — neither side can flip
+      // the other's consent flag to bypass dual consent.
       // Legacy rounds without proUid/conUid (direct-link/local-only
       // flows) keep the open update so they don't break.
       allow update: if isSignedIn()
+                    && leaderboardConsentChangeIsOwnUid()
                     && (
                       !('proUid' in resource.data)
                       || !('conUid' in resource.data)

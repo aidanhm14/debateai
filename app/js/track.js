@@ -100,6 +100,48 @@
     return post(event, baseMeta(metadata));
   };
 
+  // gtag → track bridge. Every gtag('event', name, params) call gets
+  // mirrored into the per-user log under the generic 'app_event'
+  // allowlist entry, with the original event name carried as
+  // metadata.name. This means existing gtag analytics on any page that
+  // loads track.js automatically populate the per-user activity feed
+  // — no code-level changes needed at each call site. We queue events
+  // fired before the user resolves so we don't drop early page events.
+  var gtagQueue = [];
+  function bridge(name, params) {
+    var meta = { name: String(name).slice(0, 80) };
+    if (params && typeof params === 'object'){
+      // Sanitize at the edge — the server already truncates, but
+      // keeping the shape tight here saves a round-trip on garbage.
+      var keys = Object.keys(params).slice(0, 10);
+      for (var i = 0; i < keys.length; i++){
+        var k = keys[i], v = params[k];
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'){
+          meta[k] = v;
+        }
+      }
+    }
+    if (currentUser) post('app_event', baseMeta(meta));
+    else gtagQueue.push(meta);
+  }
+  function drainGtagQueue() {
+    if (!currentUser || !gtagQueue.length) return;
+    var batch = gtagQueue; gtagQueue = [];
+    for (var i = 0; i < batch.length; i++) post('app_event', baseMeta(batch[i]));
+  }
+  try {
+    var origGtag = window.gtag;
+    window.gtag = function(){
+      try { if (origGtag) origGtag.apply(this, arguments); } catch(e){}
+      try {
+        var a = arguments;
+        if (a && a[0] === 'event' && typeof a[1] === 'string'){
+          bridge(a[1], a[2] || {});
+        }
+      } catch(e){}
+    };
+  } catch(e){}
+
   function firePageView() {
     if (pageViewFired) return;
     pageViewFired = true;
@@ -144,6 +186,7 @@
       if (!user) return;
       fireSessionStart();
       firePageView();
+      drainGtagQueue();
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = setInterval(fireHeartbeat, HEARTBEAT_MS);
     });
