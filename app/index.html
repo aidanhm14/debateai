@@ -1938,7 +1938,7 @@ function logBetaEvent(event, data) {
   // end up sending "Bearer [object Promise]" and the function 401s.
   (async () => {
     try {
-      const eventMap = { generate:'case_generated', tab:'page_view', battle:'battle_started', feedback:'feedback_requested', philosophy:'philosophy_explored', forum:'forum_post', motion:'motion_rolled', practice:'speech_practiced', map:'round_mapped' };
+      const eventMap = { generate:'case_generated', tab:'page_view', battle:'battle_started', feedback:'feedback_requested', philosophy:'philosophy_explored', forum:'forum_post', motion:'motion_rolled', practice:'speech_practiced', map:'round_mapped', conversion:'conversion' };
       const mapped = eventMap[event] || 'page_view';
       if (typeof __getAuthToken !== 'function') { console.warn('[logBetaEvent] no __getAuthToken'); return; }
       const token = await __getAuthToken();
@@ -14473,14 +14473,33 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('billing') === 'success') {
-      // Conversion tracking. soul.md flagged "Paid conversions: 0 tracked" , 
-      // we fire on the client redirect so we can attribute which session
-      // actually completed a checkout, without relying on webhook plumbing.
+      // Conversion tracking. soul.md flagged "Paid conversions: 0 tracked",
+      // root cause was that 'conversion' wasn't in eventMap so the server
+      // logged it as 'page_view' AND the GA4 standard 'purchase' event
+      // never fired so the GA dashboard couldn't count revenue. Both
+      // fixed: 'conversion' now maps to itself in logBetaEvent, and we
+      // fire gtag('event','purchase',...) here with the standard GA4
+      // ecommerce shape (value + currency + transaction_id) so the
+      // attribution works without server-side plumbing.
       try {
         const plan = params.get('plan') || 'unknown';
         const sessionId = params.get('session_id') || null;
-        logBetaEvent('conversion', { plan, sessionId, source: 'stripe_redirect' });
-      } catch(e) {}
+        // Plan → revenue map matches the locked pricing in soul.md §7.
+        const revenueByPlan = { byok: 1, individual: 5, team: 30, lifetime: 99 };
+        const value = revenueByPlan[plan] != null ? revenueByPlan[plan] : 0;
+        if (typeof gtag === 'function'){
+          gtag('event', 'purchase', {
+            transaction_id: sessionId || ('local-' + Date.now()),
+            value: value,
+            currency: 'USD',
+            items: [{ item_id: plan, item_name: 'DebateAI ' + plan, price: value, quantity: 1 }],
+          });
+          // Also fire a sign-of-life custom event so the /admin dashboard
+          // sees a checkout regardless of GA4 sampling.
+          gtag('event', 'paid_conversion', { plan, sessionId, value });
+        }
+        logBetaEvent('conversion', { plan, sessionId, value, source: 'stripe_redirect' });
+      } catch(e) { console.warn('[conversion]', e); }
       window.history.replaceState({}, '', window.location.pathname + window.location.hash);
       setBillingSuccess(true);
       let attempts = 0;

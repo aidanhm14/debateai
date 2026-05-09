@@ -15,6 +15,11 @@ const VALID_EVENTS = new Set([
   'session_start',
   'session_heartbeat',
   'session_end',
+  // Stripe checkout-success conversion event. Was missing from this
+  // allowlist so every paid conversion came back 400 from the server,
+  // which is one of the two reasons soul.md flagged "Paid conversions:
+  // 0 tracked." (The other was the client-side eventMap missing it.)
+  'conversion',
 ]);
 
 // In-memory rate limiting: uid (or anon_<ip>) -> { count, windowStart }

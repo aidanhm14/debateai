@@ -119,7 +119,20 @@ service cloud.firestore {
       allow read:   if isSignedIn();
       allow create: if isSignedIn()
                     && stringUnder('motion', 4096);
-      allow update: if isSignedIn();
+      // Participant-only writes once the round has both UIDs locked
+      // in (i.e., a posted+accepted challenge). Spectators land here
+      // signed-in but match neither side, so they can read the round
+      // but can't mutate it — protects currentTimer + leaderboardConsent
+      // + the speech log from being spoofed by a third-party viewer.
+      // Legacy rounds without proUid/conUid (direct-link/local-only
+      // flows) keep the open update so they don't break.
+      allow update: if isSignedIn()
+                    && (
+                      !('proUid' in resource.data)
+                      || !('conUid' in resource.data)
+                      || resource.data.proUid == request.auth.uid
+                      || resource.data.conUid == request.auth.uid
+                    );
       allow delete: if false;
     }
 

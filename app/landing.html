@@ -1349,7 +1349,7 @@ button{font-family:inherit;cursor:pointer}
 </script>
 <nav class="landing-jumpnav" aria-label="Jump to section">
   <a href="#debate-ai">Debate AI</a>
-  <a href="/voice-debate" style="display:inline-flex;align-items:center;gap:6px">🎙 Voice AI</a>
+  <a href="#voice-ai" style="display:inline-flex;align-items:center;gap:6px">🎙 Voice AI</a>
   <a href="/live" style="display:inline-flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;display:inline-block"></span>Live Debates</a>
   <a href="/leaderboard">Leaderboard</a>
   <a href="#tools">Tools</a>
@@ -1378,13 +1378,18 @@ button{font-family:inherit;cursor:pointer}
          debates with an AI judge) is the first thing visitors see now
          instead of being buried halfway down the page. Click target =
          the live board. -->
-    <a href="/live" class="hero-promo" style="display:flex;align-items:center;justify-content:center;gap:10px;max-width:fit-content;margin:0 auto 22px;padding:9px 18px 9px 14px;background:linear-gradient(135deg,rgba(239,68,68,.14),rgba(239,68,68,.06));border:1px solid rgba(239,68,68,.4);border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.04em;color:var(--text);text-decoration:none;transition:transform .15s,box-shadow .15s,background .15s;box-shadow:0 4px 18px rgba(239,68,68,.12)" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 10px 28px rgba(239,68,68,.24)';this.style.background='linear-gradient(135deg,rgba(239,68,68,.20),rgba(239,68,68,.10))'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 18px rgba(239,68,68,.12)';this.style.background='linear-gradient(135deg,rgba(239,68,68,.14),rgba(239,68,68,.06))'">
-      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;animation:rec-pulse 1.6s ease-in-out infinite"></span><span style="color:#ef4444;letter-spacing:.14em">NEW</span></span>
-      <span>Debate humans online with AI judges</span>
+    <a id="heroPromo" href="/live" class="hero-promo" style="display:flex;align-items:center;justify-content:center;gap:10px;max-width:fit-content;margin:0 auto 22px;padding:9px 18px 9px 14px;background:linear-gradient(135deg,rgba(239,68,68,.14),rgba(239,68,68,.06));border:1px solid rgba(239,68,68,.4);border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.04em;color:var(--text);text-decoration:none;transition:transform .15s,box-shadow .15s,background .15s;box-shadow:0 4px 18px rgba(239,68,68,.12)" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 10px 28px rgba(239,68,68,.24)';this.style.background='linear-gradient(135deg,rgba(239,68,68,.20),rgba(239,68,68,.10))'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 18px rgba(239,68,68,.12)';this.style.background='linear-gradient(135deg,rgba(239,68,68,.14),rgba(239,68,68,.06))'">
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;animation:rec-pulse 1.6s ease-in-out infinite"></span><span style="color:#ef4444;letter-spacing:.14em" id="heroPromoTag">NEW</span></span>
+      <span id="heroPromoText">Debate humans online with AI judges</span>
       <span style="color:var(--accent);font-weight:900">→</span>
     </a>
 
-    <div id="heroCredit" style="display:none"></div>
+    <!-- Built-by-a-champion credibility strip. Always visible (not just
+         for India), with copy that swaps based on region detection so
+         Indian visitors lead with Asian Parli / WSDC / BP — those are
+         the formats they actually run, not APDA. soul.md §8 + open-Q #2:
+         80% of traffic is Indian and the page used to read US-first. -->
+    <div id="heroCredit" style="font-size:.82rem;line-height:1.5;color:var(--text-dim);max-width:560px;margin:0 auto 18px;text-align:center">Built by an APDA national champion. Used by debaters running <strong style="color:var(--text)">APDA, BP, Worlds, Policy, LD, PF</strong>, and more.</div>
     <script>
     (function(){
       try {
@@ -1392,8 +1397,12 @@ button{font-family:inherit;cursor:pointer}
         var lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
         var isIndia = /Asia\/(Kolkata|Calcutta)/i.test(tz) || /-in$|^hi|^bn|^ta|^te|^mr|^gu|^kn|^pa|^ml/.test(lang);
         if (isIndia) {
-          var el = document.getElementById('heroCredit');
-          if (el) el.innerHTML = 'Built by an APDA national champion. Used by debaters running <strong style="color:var(--text)">Asian Parli, WSDC, BP</strong>, Policy, LD, PF, and more.';
+          var credit = document.getElementById('heroCredit');
+          if (credit) credit.innerHTML = 'Built by an APDA national champion. Used by Indian school + college debaters running <strong style="color:var(--text)">Asian Parli, WSDC, BP</strong> first, plus Policy, LD, PF, and more.';
+          var promoText = document.getElementById('heroPromoText');
+          if (promoText) promoText.textContent = 'Asian Parli, WSDC, BP — judged by AI';
+          var promoTag = document.getElementById('heroPromoTag');
+          if (promoTag) promoTag.textContent = 'INDIA';
           document.documentElement.setAttribute('data-region','in');
         }
       } catch(e){}
@@ -1642,6 +1651,32 @@ button{font-family:inherit;cursor:pointer}
         var speed = mode === 'ai' ? 1.6 : 0.75;
         var amp   = mode === 'ai' ? 0.20 : 0.11;
 
+        // Live audio reactivity. When TTS is playing, the AnalyserNode
+        // wired in wireGain() exposes window.__heroOrbAnalyser. We pull
+        // the byte-frequency data each frame, compute a 0..1 overall
+        // amplitude (low-mid band, where speech energy lives), and use
+        // it to PUMP the outer ring + bias the bar heights. This is
+        // what turns the procedural sin-wave orb into something that
+        // tracks the actual OpenAI voice pulses in real time.
+        var liveAmp = 0;
+        var bins = null;
+        if (mode === 'ai' && window.__heroOrbAnalyser && window.__heroOrbBins){
+          try {
+            window.__heroOrbAnalyser.getByteFrequencyData(window.__heroOrbBins);
+            bins = window.__heroOrbBins;
+            // Average the lower 32 bins (≈0–4kHz with fftSize 256 @
+            // 24kHz) — that's where speech sibilance + vowel energy
+            // sits. The full spectrum has too much DC quiet to give a
+            // punchy reactive signal.
+            var sum = 0;
+            for (var k = 1; k < 33; k++) sum += bins[k];
+            liveAmp = sum / 32 / 255;
+          } catch(e){ liveAmp = 0; }
+        }
+        // Modulate the procedural amplitude with live audio so the ring
+        // breathes with the speech instead of running its own clock.
+        if (liveAmp > 0) amp = amp * (0.55 + liveAmp * 1.2);
+
         ensureGradients(W, H, baseR);
 
         ctx.beginPath();
@@ -1689,11 +1724,23 @@ button{font-family:inherit;cursor:pointer}
         for (var b = 0; b < BARS; b++) {
           var envelope = 1 - Math.pow(Math.abs(b - center) / center, 1.6) * 0.7;
           var phase = b * 0.42;
-          var v =
-            Math.sin(t * barSpeed + phase) * 0.55 +
-            Math.sin(t * barSpeed * 1.7 + phase * 1.3) * 0.32 +
-            Math.sin(t * barSpeed * 0.6 - phase * 0.8) * 0.22;
-          v = (v + 1) / 2;
+          var v;
+          if (bins) {
+            // Map each bar to a frequency bin. Stride covers the speech
+            // range (skip bin 0 which is DC). 22 bars across 96 useful
+            // bins ≈ stride 4 with a bit of edge headroom.
+            var binIdx = 1 + Math.floor((b / (BARS - 1)) * 88);
+            v = (bins[binIdx] || 0) / 255;
+            // Add a gentle sin so silent moments still breathe instead
+            // of flatlining; weighted toward the live signal.
+            v = v * 0.85 + ((Math.sin(t * barSpeed + phase) + 1) / 2) * 0.15;
+          } else {
+            v =
+              Math.sin(t * barSpeed + phase) * 0.55 +
+              Math.sin(t * barSpeed * 1.7 + phase * 1.3) * 0.32 +
+              Math.sin(t * barSpeed * 0.6 - phase * 0.8) * 0.22;
+            v = (v + 1) / 2;
+          }
           var h = minBarH + (maxBarH - minBarH) * v * envelope;
           var x = startX + b * (barW + barGap);
           var y = cy - h / 2;
@@ -1781,10 +1828,15 @@ button{font-family:inherit;cursor:pointer}
         if (cacheByIdx[idx] || inFlightByIdx[idx]) return;
         var voice = voiceForIdx(idx);
         var text = samples[idx];
+        // Route to OpenAI gpt-4o-mini-tts on purpose: the orb is meant
+        // to *sound* like the OpenAI Realtime voice the user hears in
+        // /voice-debate, not the ElevenLabs premium voice that handles
+        // long-form Pro speeches. premium:false (default) lands on the
+        // OpenAI fallback in tts.mjs.
         inFlightByIdx[idx] = fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text, voice: voice, speed: SERVER_SPEED, premium: true, intensity: 0.55 })
+          body: JSON.stringify({ text: text, voice: voice, speed: SERVER_SPEED, premium: false, intensity: 0.55 })
         }).then(function(r){ return r.ok ? r.blob() : null; }).then(function(blob){
           delete inFlightByIdx[idx];
           if (!blob) return;
@@ -1815,8 +1867,20 @@ button{font-family:inherit;cursor:pointer}
           var src = ctxA.createMediaElementSource(a);
           var gain = ctxA.createGain();
           gain.gain.value = GAIN_BOOST;
+          // AnalyserNode taps the audio post-gain so the orb visualizer
+          // can read live frequency data and pulse against the actual
+          // speech. fftSize 256 → 128 frequency bins, plenty for the
+          // 22 spectrum bars + a smoothed amplitude track for the
+          // outer ring. The analyser is exposed on window so the draw
+          // loop can pick it up without a tight import path.
+          var analyser = ctxA.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.7;
           src.connect(gain);
-          gain.connect(ctxA.destination);
+          gain.connect(analyser);
+          analyser.connect(ctxA.destination);
+          window.__heroOrbAnalyser = analyser;
+          window.__heroOrbBins = new Uint8Array(analyser.frequencyBinCount);
           a.__gainWired = true;
         } catch(e){ a.__gainWired = true; }
       }
@@ -1907,9 +1971,38 @@ button{font-family:inherit;cursor:pointer}
   </div>
 </section>
 
+<!-- Voice AI · live sparring. The killer feature of the AI side: speak
+     a speech out loud, the AI debater interrupts, takes POIs, hits back
+     in real time. Sits directly under the hero CTA row so visitors who
+     just heard the orb sample line know exactly where to go to actually
+     try it. -->
+<div class="divider"></div>
+<section id="voice-ai" class="sec" style="padding:64px 24px 36px">
+  <div class="wrap" style="text-align:center">
+    <div style="display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);padding:6px 14px;border-radius:999px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.28);margin-bottom:16px">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:rec-pulse 1.6s ease-in-out infinite"></span>
+      Voice AI · live sparring
+    </div>
+    <h2 style="font-size:clamp(2rem,4.5vw,3.2rem);font-weight:900;letter-spacing:-.03em;line-height:1.05;margin-bottom:14px">Talk to a debater. <em style="color:var(--accent);font-style:normal">Interrupt them.</em> Get an RFD.</h2>
+    <p style="font-size:clamp(.95rem,1.3vw,1.05rem);color:var(--text-dim);max-width:680px;margin:0 auto 22px;line-height:1.6">
+      Hit start, deliver your speech out loud. The AI cuts in mid-sentence, takes your POIs, fires its case back. Sub-200ms voice via OpenAI Realtime, full interruption, format-aware. End the session and the same judge engine gives you a written RFD on what landed and what dropped. <strong style="color:var(--text)">Closer to a real round than any text chat will ever be.</strong>
+    </p>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:28px;font-size:.78rem;color:var(--text-dim)">
+      <span style="display:inline-flex;align-items:center;gap:6px">🎙 <strong style="color:var(--text);font-weight:700">16 personas</strong></span>
+      <span style="display:inline-flex;align-items:center;gap:6px">⚡ <strong style="color:var(--text);font-weight:700">Sub-200ms</strong> latency</span>
+      <span style="display:inline-flex;align-items:center;gap:6px">✋ <strong style="color:var(--text);font-weight:700">Cut in any time</strong></span>
+      <span style="display:inline-flex;align-items:center;gap:6px">📋 <strong style="color:var(--text);font-weight:700">Judge RFD</strong> after</span>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <a href="/voice-debate" class="hero-cta hero-cta-primary" style="display:inline-flex;align-items:center;gap:8px">🎙 Start a voice round →</a>
+      <a href="/debate-ai" class="hero-cta hero-cta-secondary" style="display:inline-flex;align-items:center;gap:8px">Try text mode first</a>
+    </div>
+  </div>
+</section>
+
 <!-- Live Debates · AI-judged. Headline feature, slotted directly under
      the hero so it's the first content block visitors hit after the
-     orb/mini-chat. Anchored on "Debate humans online, AI judges" , 
+     orb/mini-chat. Anchored on "Debate humans online, AI judges" ,
      the part nobody else does. Routes to /live for the board and
      /live-round.html for an instant in-page round. -->
 <div class="divider"></div>

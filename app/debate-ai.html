@@ -3842,6 +3842,14 @@ function App(){
     try{const d=localStorage.getItem('debateos-session');return d?JSON.parse(d):null}catch{return null}
   });
 
+  // First-round onboarding flag. Drives the welcome card on the setup
+  // view. localStorage-backed so dismissal sticks across visits and
+  // we don't nag returning users. The state mirror lets the dismiss
+  // button trigger a React re-render (localStorage alone wouldn't).
+  const[daOnboarded,setDaOnboarded]=useState(()=>{
+    try{ return localStorage.getItem('debateos-da-onboarded') === '1' }catch{ return true }
+  });
+
   // Auto-save round state every 30s during speech phase, plus on every
   // speech-boundary state change (idx/log.length deps), plus on tab-close
   // via beforeunload. The beforeunload listener is the safety net: React
@@ -3986,6 +3994,10 @@ function App(){
     const quickFmt = FORMATS.quick;
     if(quickFmt && !quickFmt.sides.includes(side)) setSide(quickFmt.sides[0]);
     setQuickStartPending(true);
+    // Hitting Quick Clash counts as completing the onboarding intent —
+    // the welcome card has done its job, no need to nag on next visit.
+    try{ localStorage.setItem('debateos-da-onboarded','1') }catch(e){}
+    setDaOnboarded(true);
   };
 
   // Skip prep → first speech
@@ -5281,6 +5293,35 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
       el('p',{className:'t-sub'},'Choose your format, opponent, and go.'),
       setupTabBar,
+      // First-round welcome card. Renders once for new users and points
+      // them at the one-tap Quick Clash so they finish a round before
+      // they decide. soul.md flagged 2% W1 retention as the biggest
+      // problem; everything else is downstream of users not finishing
+      // a first round. Dismiss persists in localStorage so it doesn't
+      // re-appear after the user has run a round.
+      !daOnboarded && el('div',{
+        className:'recovery-banner',
+        style:{
+          background:'linear-gradient(135deg,rgba(239,68,68,.10),rgba(245,158,11,.06))',
+          border:'1px solid rgba(239,68,68,.32)',
+          marginBottom:8,
+        },
+      },
+        el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.16em',textTransform:'uppercase',color:'#fca5a5',marginBottom:8}},'🎯 Your first round'),
+        el('div',{style:{fontSize:'.92rem',fontWeight:700,color:'var(--c-bright)',marginBottom:6,lineHeight:1.3}},'30 seconds to your first speech.'),
+        el('div',{style:{fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.55,marginBottom:12}},
+          'Hit ',
+          el('strong',{style:{color:'#fca5a5'}},'⚡ Quick tap for Quick Clash'),
+          ' below — we\'ll pick the motion, format, and side. You give a short speech, the AI debates back, the judge tells you what landed and what dropped. That\'s the whole loop.',
+        ),
+        el('div',{style:{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}},
+          el('button',{
+            className:'cta-ghost',
+            style:{marginTop:0,padding:'7px 14px',fontSize:'.72rem',opacity:.7},
+            onClick:()=>{ try{ localStorage.setItem('debateos-da-onboarded','1') }catch(e){}; setDaOnboarded(true); },
+          },'Skip the intro'),
+        ),
+      ),
       // Framing callout removed \u2014 read as a warning banner; the orb +
       // setup form already make it clear this is a speech simulator.
       // One-tap quick start. picks a random motion, Quick Clash format
