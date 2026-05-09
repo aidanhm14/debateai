@@ -2888,6 +2888,41 @@ function buildPrompt(speech,userSide,motion,history,notes,format,oppStr,oppWk,di
   const aiSides=fmt.sides.filter(s=>s!==userSide);
   const aiLabel=fmt.sideLabels[aiSides[0]]||aiSides[0];
   const rule=fmt.rules[speech.code]||'Deliver your speech.';
+  // Beginner-tone fork: round 1 of a brand-new user. They've never
+  // seen circuit jargon, they don't know what 'extend,' 'cross-apply,'
+  // 'voting issue,' or 'warrant' mean, and the whole point of Quick
+  // Clash is "no debate jargon needed." If the AI opens with
+  // 'Distinguished judge, my opponent's framework crumbles on the
+  // weighing analysis,' the user bounces. This block down-shifts the
+  // register to plain English while keeping the substance.
+  const isFirstRound = (historyRounds||[]).length === 0;
+  const beginnerToneNote = isFirstRound ? `
+
+────────────────────────────────────────────────────────
+BEGINNER-TONE OVERRIDE — THIS USER'S FIRST EVER ROUND
+────────────────────────────────────────────────────────
+
+This is the user's first round on the platform. Assume they've never
+seen formal debate before. Drop circuit jargon entirely:
+- NO "extend," "cross-apply," "warrant," "link chain," "voting issue,"
+  "weighing analysis," "ballot story," "dispositive," "framework,"
+  "burden of proof" as terms-of-art. If you must reference any of
+  these, explain in plain English in the same breath.
+- NO "judge," "ladies and gentlemen," "distinguished opposition."
+  Speak like you're explaining a strong opinion to a smart friend.
+- Sentences shorter. Examples concrete. One main argument done well
+  beats three half-explained ones.
+- Still smart. Still witty. Still NOT robotic. The voice rules above
+  all apply — beginner-tone means dropping JARGON, not dropping
+  intelligence or personality.
+- Concrete > abstract. "When the city banned plastic bags in 2019,
+  here's what actually happened…" beats any framework name.
+
+The user is on Quick Clash precisely because they're new. Match the
+register to that intent. Round 2 onward, drop this constraint and
+treat them as someone who knows the format.
+────────────────────────────────────────────────────────
+` : '';
   const isRebuttal=speech.code.includes('R')||speech.code==='LOR'||speech.code==='PMR'||speech.code==='GW'||speech.code==='OW'||speech.code.startsWith('Reply');
   const isWhip=speech.code==='GW'||speech.code==='OW';
   const isReply=speech.code.startsWith('Reply');
@@ -3063,7 +3098,7 @@ nouns can stay in their native form. The motion stays as-given.
     : '';
 
   return `${langDirective}You are a skilled ${aiLabel} debater in a ${fmt.name} debate. Motion/Resolution: "${motion}".
-
+${beginnerToneNote}
 ${traitPrompt}
 
 ${rule}
@@ -3835,12 +3870,17 @@ function App(){
     const aiSide=fmt.sides.find(s=>s!==side)||'opp';
     const aiSideLabel=fmt.sideLabels[aiSide]||aiSide;
     const fullText=aiSpeeches.map(s=>s.text).join('\n\n');
-    // Floor check (length, profanity, link-spam) — same guard the
-    // /live-round publish path runs. /js/disclosure-guard.js is
-    // loaded inline below; we no-op silently if not present.
+    // Floor check (length, profanity, link-spam) + LLM classifier.
+    // Local guard runs instantly; LLM check fires only if local
+    // passed and we have an auth token. Fails open on network blips
+    // so transient errors don't block a real publisher.
     if(window.disclosureGuard){
-      const check=window.disclosureGuard.check({motion,output:fullText});
-      if(!check.ok){alert(check.reason);return}
+      let token=null;
+      try{ token=await user.getIdToken(); }catch{}
+      const check = window.disclosureGuard.fullCheck
+        ? await window.disclosureGuard.fullCheck({motion,output:fullText},token)
+        : window.disclosureGuard.check({motion,output:fullText});
+      if(!check.ok){alert(check.reason);setCasePublished(null);return}
     }
     const fullName=(user.displayName||'').trim();
     const parts=fullName.split(/\s+/).filter(Boolean);
@@ -4029,7 +4069,22 @@ function App(){
   const transition=(next,cb)=>{setVis(false);setTimeout(()=>{if(cb)cb();setPhase(next);setTimeout(()=>setVis(true),50)},350)};
 
   // Start debate
-  const startDebate=()=>{if(!motion.trim())return;SFX.startRound();warmUpTTS();if(typeof gtag==='function')gtag('event','round_start',{format:fmt.name,side,motion_length:motion.length});transition('prep',()=>prepTimer.go(fmt.prep))};
+  const startDebate=()=>{
+    if(!motion.trim())return;
+    SFX.startRound();warmUpTTS();
+    if(typeof gtag==='function')gtag('event','round_start',{format:fmt.name,side,motion_length:motion.length});
+    // First-round prep cut. The default Quick Clash prep is 120s
+    // which is fine for a returning debater warming up but is a
+    // bounce-trap for first-timers — they hit Quick Clash expecting
+    // instant action and get a 2-minute timer instead. For round 1
+    // on Quick Clash specifically, cut prep to 30s so they're in
+    // their first speech in under a minute. Other formats keep
+    // their full prep (Worlds debaters need 15 minutes; we don't
+    // touch those rules).
+    const isFirstQuick = historyRounds.length===0 && format==='quick';
+    const prepSec = isFirstQuick ? 30 : fmt.prep;
+    transition('prep',()=>prepTimer.go(prepSec));
+  };
 
   // Quick-start: one-tap flow that picks a random motion, forces Quick
   // Clash format (shortest round), picks pro, and fires startDebate.
@@ -6158,6 +6213,28 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           el('div',{className:'speech-orb-block'},
             el('div',{className:'t-label'},isUser?'Your Turn':'AI Speaking'),
             el('div',{className:'t-phase'},cur.code+'. '+cur.name),
+            // Progress indicator. Tells the user the SHAPE of the
+            // round so they can pace themselves. First-round audit
+            // flagged that new debaters didn't know how many speeches
+            // were left or that a ballot was coming. Renders as
+            // 'Speech 2 of 4 · then AI rebuts · then ballot'.
+            el('div',{
+              className:'t-dim',
+              style:{fontSize:'.66rem',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:8,opacity:.75},
+              title:'Where you are in the round',
+            },
+              (function(){
+                const total = SPEECHES.length;
+                const cur1 = idx + 1;
+                const remaining = total - cur1;
+                const tail = remaining === 0
+                  ? 'last speech · then ballot'
+                  : remaining === 1
+                    ? 'one speech left · then ballot'
+                    : (remaining + ' speeches left · then ballot');
+                return 'Speech ' + cur1 + ' of ' + total + ' · ' + tail;
+              })()
+            ),
             el('div',{className:'t-dim',style:{marginBottom:12}},
               isUser?(rec.micAvailable?'Speak now. your voice is being transcribed':rec.micError):
               aiLoading==='voice'?(tts.streamStatus||'Preparing HD voice...'):

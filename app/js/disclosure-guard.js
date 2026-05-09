@@ -83,5 +83,52 @@
     return { ok: true };
   }
 
-  window.disclosureGuard = { check: check };
+  // LLM-classify check. Heavier than the local word-list — runs
+  // /api/classify-disclosure which calls Claude Haiku. Only fires
+  // AFTER the local check passes (so we don't burn an LLM call on
+  // obvious junk). Auth-required; caller passes the user's id token.
+  // Fails OPEN on network/server errors so a transient blip never
+  // blocks a legit publisher. Returns the same { ok, reason } shape.
+  async function llmCheck(input, token) {
+    if (!token) return { ok: true, reason: 'no_token' };
+    try {
+      const r = await fetch('/api/classify-disclosure', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          motion: String(input && input.motion || ''),
+          output: String(input && input.output || ''),
+        }),
+      });
+      if (!r.ok) return { ok: true, reason: 'classifier_http_' + r.status };
+      const data = await r.json().catch(() => ({}));
+      if (data && data.ok === false) {
+        return {
+          ok: false,
+          reason: data.reason || 'Disclosure flagged for review.',
+          category: data.category || 'unknown',
+        };
+      }
+      return { ok: true };
+    } catch (e) {
+      // Fail open on network errors — same pattern as the server-side
+      // function. Better to ship a publish than block on a blip.
+      return { ok: true, reason: 'classifier_unreachable' };
+    }
+  }
+
+  // Combined check: local first (instant), LLM second (only if local
+  // passed AND a token is provided). Use this as the single entry
+  // point from publish handlers.
+  async function fullCheck(input, token) {
+    const local = check(input);
+    if (!local.ok) return local;
+    if (!token) return local; // local pass + no auth token = ship it
+    return await llmCheck(input, token);
+  }
+
+  window.disclosureGuard = { check: check, llmCheck: llmCheck, fullCheck: fullCheck };
 })();

@@ -660,6 +660,7 @@ button{font-family:inherit}
     <!-- ── ROUND (active speech) ── -->
     <div id="roundView" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
       <div class="speech-header">
+        <div class="speech-progress" id="speechProgress" style="font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim);opacity:.8;margin-bottom:6px">Speech 1 of 4 · then ballot</div>
         <div class="speaker-line">
           <span class="speech-code" id="speechCode">PM</span>
           <span class="speech-name" id="speechName">Speech</span>
@@ -1028,6 +1029,18 @@ button{font-family:inherit}
 
     $('speechCode').textContent = sp.code;
     $('speechName').textContent = sp.name;
+    // Progress indicator. Audit flagged that new users didn't know
+    // how many speeches were left or that a ballot was coming next.
+    var prog = $('speechProgress');
+    if (prog){
+      var total = f.speeches.length;
+      var cur1 = state.speechIdx + 1;
+      var remaining = total - cur1;
+      var tail = remaining === 0 ? 'last speech · then ballot'
+        : remaining === 1 ? 'one speech left · then ballot'
+        : (remaining + ' speeches left · then ballot');
+      prog.textContent = 'Speech ' + cur1 + ' of ' + total + ' · ' + tail;
+    }
     var myTurn = isMyTurn();
     var ms = mySide();
     var spectator = isSpectator();
@@ -1876,44 +1889,62 @@ button{font-family:inherit}
       });
       var fullText = mine.map(function(e){ return '[' + (e.code || '') + ']\n' + (e.text || ''); }).join('\n\n');
       if (!fullText.trim()){ toast('No speeches to publish yet.'); return; }
-      // Quality / safety floor before the public-board write.
-      if (window.disclosureGuard){
-        var check = window.disclosureGuard.check({ motion: state.motion, output: fullText });
-        if (!check.ok){ toast(check.reason); return; }
-      }
       var fullName = (state.user.displayName || '').trim();
       var parts = fullName.split(/\s+/).filter(Boolean);
       var shortName = parts.length >= 2
         ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
         : (parts[0] || (state.user.email ? state.user.email.split('@')[0] : 'Anonymous'));
       var sideLabel = ms ? f.sideLabels[ms === 'pro' ? f.sides[0] : f.sides[1]] : '';
-      pubBtn.textContent = 'Publishing…';
-      pubBtn.disabled = true;
-      firebaseDb.collection('shared_cases').doc(state.user.uid + '_' + state.room).set({
-        teamId: null,
-        sharedBy: shortName,
-        sharedByUid: state.user.uid,
-        authorUid: state.user.uid,
-        motion: state.motion || 'Untitled',
-        side: sideLabel,
-        format: f.name,
-        depth: '',
-        output: fullText,
-        sharedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        visibility: 'public',
-        sourceRound: state.room,
-      }, { merge: true }).then(function(){
-        pubBtn.textContent = '✓ Published · view';
-        pubBtn.disabled = false;
-        pubBtn.onclick = function(){ window.open('/disclosures', '_blank'); };
-        try { gtag('event', 'disclosure_publish', { format: state.formatKey, source: 'live_round' }); } catch(e){}
-        toast('✓ Published to /disclosures.');
-      }).catch(function(e){
-        console.warn('[publishDisc]', e);
-        pubBtn.textContent = '🌐 Publish to /disclosures';
-        pubBtn.disabled = false;
-        toast('Publish failed: ' + (e.message || 'unknown'));
-      });
+      // Closed-over publish writer. Runs once the safety guard
+      // resolves (or immediately if the guard isn't available).
+      var runPublish = function(){
+        pubBtn.textContent = 'Publishing…';
+        pubBtn.disabled = true;
+        firebaseDb.collection('shared_cases').doc(state.user.uid + '_' + state.room).set({
+          teamId: null,
+          sharedBy: shortName,
+          sharedByUid: state.user.uid,
+          authorUid: state.user.uid,
+          motion: state.motion || 'Untitled',
+          side: sideLabel,
+          format: f.name,
+          depth: '',
+          output: fullText,
+          sharedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          visibility: 'public',
+          sourceRound: state.room,
+        }, { merge: true }).then(function(){
+          pubBtn.textContent = '✓ Published · view';
+          pubBtn.disabled = false;
+          pubBtn.onclick = function(){ window.open('/disclosures', '_blank'); };
+          try { gtag('event', 'disclosure_publish', { format: state.formatKey, source: 'live_round' }); } catch(e){}
+          toast('✓ Published to /disclosures.');
+        }).catch(function(e){
+          console.warn('[publishDisc]', e);
+          pubBtn.textContent = '🌐 Publish to /disclosures';
+          pubBtn.disabled = false;
+          toast('Publish failed: ' + (e.message || 'unknown'));
+        });
+      };
+      // Quality / safety floor + LLM classifier. Word-list local
+      // check is instant; LLM classify fires server-side only if
+      // local passed AND we have an auth token. fullCheck fails open
+      // on network errors so a blip never blocks a real publisher.
+      var input = { motion: state.motion, output: fullText };
+      if (window.disclosureGuard && window.disclosureGuard.fullCheck){
+        state.user.getIdToken().then(function(token){
+          window.disclosureGuard.fullCheck(input, token).then(function(check){
+            if (!check.ok){ toast(check.reason); return; }
+            runPublish();
+          });
+        }).catch(function(){ runPublish(); });
+      } else if (window.disclosureGuard){
+        var localOnly = window.disclosureGuard.check(input);
+        if (!localOnly.ok){ toast(localOnly.reason); return; }
+        runPublish();
+      } else {
+        runPublish();
+      }
     });
     // Save round to Firestore (saved_rounds/{uid}_{room}). One per
     // user per round. Idempotent — clicking twice just re-writes

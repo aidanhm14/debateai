@@ -12435,11 +12435,15 @@ function SharedCases({ user, team }) {
       // Quality / safety floor for PUBLIC disclosures only. Team-only
       // shares stay unchecked since they're inside an established
       // group; /disclosures is the surface that needs the guard.
+      // Local word-list runs instant; LLM classify fires server-side
+      // when fullCheck is available + we have a token.
       if (shareVisibility === 'public' && window.disclosureGuard){
-        const guardCheck = window.disclosureGuard.check({
-          motion: c.motion || '',
-          output: c.output || c.text || '',
-        });
+        const input = { motion: c.motion || '', output: c.output || c.text || '' };
+        let token = null;
+        try { token = await user.getIdToken(); } catch {}
+        const guardCheck = window.disclosureGuard.fullCheck
+          ? await window.disclosureGuard.fullCheck(input, token)
+          : window.disclosureGuard.check(input);
         if (!guardCheck.ok){
           setMsg('Cannot publish: ' + guardCheck.reason);
           setSharing(false);
