@@ -242,6 +242,35 @@ input[type=text]:focus,select:focus,textarea:focus{
   font-size:.68rem;color:#5a5a6a;text-align:center;letter-spacing:.04em;
 }
 
+/* live controls (speed + model badge) — sit just below the mic meter */
+.live-controls{
+  margin-top:14px;display:flex;align-items:center;justify-content:center;
+  gap:14px;flex-wrap:wrap;font-size:.7rem;color:#7a7a8a;
+}
+.speed-ctl{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 8px;border-radius:8px;
+  background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.06);
+}
+.speed-ctl .lbl{letter-spacing:.08em;text-transform:uppercase;font-size:.6rem}
+.speed-ctl .val{
+  font-family:'JetBrains Mono', monospace;font-size:.72rem;font-weight:600;
+  color:#e6e6ee;min-width:32px;text-align:center;font-variant-numeric:tabular-nums;
+}
+.speed-ctl .spd{
+  width:22px;height:22px;border-radius:6px;
+  background:rgba(255,255,255,.04);color:#a3a3b3;
+  display:grid;place-items:center;font-weight:700;line-height:1;
+  transition:all .12s;
+}
+.speed-ctl .spd:hover{background:rgba(239,68,68,.12);color:#fca5a5}
+.model-badge{
+  font-family:'JetBrains Mono', monospace;font-size:.62rem;
+  padding:4px 8px;border-radius:6px;
+  background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.18);
+  color:#bfdbfe;letter-spacing:.02em;
+}
+
 /* mic level meter under the orb */
 .miclevel{
   margin-top:16px;display:flex;align-items:center;gap:6px;
@@ -750,6 +779,16 @@ function App(){
   const [userFirstName, setUserFirstName] = useState(() => getUserFirstName());
   // Bond-up celebration card (end of session, if a level was reached).
   const [bondUp, setBondUp] = useState(null);
+  // Audio playback rate for the AI's voice — Realtime audio doesn't
+  // expose a server-side speed parameter, so we accelerate playback in
+  // the browser via HTMLAudioElement.playbackRate. 0.9 to 1.5 keeps
+  // pitch artifacts mild.
+  const [playbackRate, setPlaybackRate] = useState(1.0);
+  // Which model + endpoint the server actually negotiated. Surfaced
+  // in the live UI so the user can see whether they're talking to
+  // gpt-realtime, gpt-realtime-2, or the legacy preview model.
+  const [negotiatedModel, setNegotiatedModel] = useState('');
+  const [negotiatedEndpoint, setNegotiatedEndpoint] = useState('');
 
   // Watch Firebase auth so the greeting personalizes once sign-in resolves.
   useEffect(()=>{
@@ -859,6 +898,14 @@ function App(){
   }, []);
 
   useEffect(()=>{ return cleanup; }, [cleanup]);
+
+  // Push playback rate to the live audio element whenever the user
+  // adjusts the slider during a session.
+  useEffect(()=>{
+    if (audioElRef.current) {
+      try { audioElRef.current.playbackRate = playbackRate; } catch(e){}
+    }
+  }, [playbackRate]);
 
   /* ── Realtime event handler ───────────────────── */
 
@@ -1039,6 +1086,8 @@ function App(){
       const session = await mintRes.json();
       const ephemeralKey = session?.client_secret?.value;
       if (!ephemeralKey) throw new Error('Session response missing client_secret.');
+      setNegotiatedModel(session.model || '');
+      setNegotiatedEndpoint(session.endpoint || '');
 
       setConnectStep('Requesting microphone…');
 
@@ -1050,6 +1099,7 @@ function App(){
       const audioEl = document.createElement('audio');
       audioEl.autoplay = true;
       audioEl.playsInline = true;
+      audioEl.playbackRate = playbackRate; // honor whatever the user set
       document.body.appendChild(audioEl);
       audioElRef.current = audioEl;
       pc.ontrack = (evt) => {
@@ -1136,9 +1186,13 @@ function App(){
 
         try {
           const nameSuffix = userFirstName ? (', ' + userFirstName) : '';
+          // Casual, low-energy openers. The CHARACTER preamble already
+          // bans "Absolutely", "Let's get into it", etc. — we restate
+          // the no-enthusiasm rule here because greetings are where the
+          // model is most likely to slip into hype-man mode.
           const greetingInstructions = motion.trim()
-            ? `Greet ${userFirstName || 'the user'} briefly in character (under 10 seconds). Name the motion in one short clean line, name your side, then say "Whenever you're ready${nameSuffix}." No lecture, just the handshake.`
-            : `Open the round with exactly this opening line, in your character's voice: "So what are we debating today${nameSuffix}?" Then stop and wait for them to say the motion. Do not suggest a motion yourself, do not list options, do not lecture. One sentence, then silence.`;
+            ? `Open in character. Under 8 seconds. Name the motion in one short clean line, name your side, then say "whenever you're ready${nameSuffix}". Do NOT say "Absolutely", "Let's get into it", "Sure", or any enthusiastic interjection. Dry and direct.`
+            : `Open with exactly this line, in your character's voice and dry register: "what's up${nameSuffix}, what are we debating?" Then stop. Do not suggest motions. Do not list options. Do not say "Absolutely" or any enthusiastic filler. One short line, then silence.`;
           dc.send(JSON.stringify({
             type: 'response.create',
             response: {
@@ -1501,6 +1555,27 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
               el('div', { key:i, className:'bar' + (on ? ' on' : '') })
             )
           )
+        ),
+        // Audio speed control + model badge — both live, both
+        // tweakable mid-session.
+        el('div', { className:'live-controls' },
+          el('div', { className:'speed-ctl' },
+            el('span', { className:'lbl' }, 'speed'),
+            el('button', {
+              className:'spd',
+              onClick:()=> setPlaybackRate(r => Math.max(0.9, Math.round((r - 0.1) * 10) / 10)),
+              title:'Slower',
+            }, '−'),
+            el('span', { className:'val' }, playbackRate.toFixed(1) + '×'),
+            el('button', {
+              className:'spd',
+              onClick:()=> setPlaybackRate(r => Math.min(1.5, Math.round((r + 0.1) * 10) / 10)),
+              title:'Faster',
+            }, '+'),
+          ),
+          negotiatedModel && el('span', { className:'model-badge', title: negotiatedEndpoint || '' },
+            negotiatedModel
+          ),
         ),
       ),
 

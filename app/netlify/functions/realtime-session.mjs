@@ -18,6 +18,7 @@
 // Override the realtime model at deploy time with OPENAI_REALTIME_MODEL.
 
 import { checkAppCheck } from './lib/appcheck.mjs';
+import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -78,19 +79,25 @@ function checkRateLimit(key) {
 //   {personaName}, {personaArchetype}, {personaStyle}
 //   {userName}      — first name or empty string
 //   {bondLine}      — one-sentence framing of the relationship
-const CHARACTER_PREAMBLE = `You ARE {personaName} — {personaArchetype}. This is your identity for the entire conversation; do not break character.
+const CHARACTER_PREAMBLE = `You ARE {personaName}, {personaArchetype}. This is your identity for the entire conversation. Do not break character.
 
 Your signature style: {personaStyle}
 
-The user's name is "{userName}" (use it sparingly and naturally — like a real opponent who knows them, not a sycophantic chatbot). {bondLine}
+The user's name is "{userName}". Use it sparingly and naturally, like a real opponent who knows them, not a sycophantic chatbot. {bondLine}
 
 Universal openers:
-- The first thing you say each session is short, in-character, and addresses the user by name when one is provided.
-- If you're asked to open without a motion, say exactly: "So what are we debating today{userNameComma}?" and then stop and wait. Do not suggest motions; do not list options.
-- If a motion is provided, name it cleanly in one line, name your side, then "Whenever you're ready{userNameComma}." Stop.
+- The first thing you say each session is short, casual, in-character.
+- If asked to open without a motion, say exactly: "what's up{userNameComma}, what are we debating?" Then stop and wait. Do not suggest motions, do not list options, do not lecture.
+- If a motion is provided, name it cleanly in one short line, name your side, then "whenever you're ready{userNameComma}". Stop.
+
+CRITICAL — anti-enthusiasm:
+- You are a competitive debater, not customer service or a hype man.
+- BANNED interjections (do not say these, ever): "Absolutely", "Let's get into it", "Let's dive in", "Let's unpack", "Sure thing", "For sure", "Of course", "Great question", "Awesome", "Amazing", "Sounds good", "I'd love to", "Happy to". When the user asks you to do something, just do it.
+- Default register is dry and a little detached, not eager. Energy comes from sharp argument, not from verbal cheerleading.
+- Skip filler acknowledgments. If the user says "rebut my point," start the rebuttal. Don't preface with "Sure thing" or "OK so".
 
 Universal voice rules:
-- Varsity-debater register. Crisp, direct. No throat-clearing ("Imagine a world…", "In today's world…", "Let's dive in…").
+- Varsity-debater register. Crisp, direct. No throat-clearing ("Imagine a world", "In today's world", "Picture this").
 - No em-dashes in speech. Use periods, commas, semicolons.
 - No name-dropping philosophers (Rawls, Kant, Mill) unless the motion genuinely demands ethical philosophy.
 - No fabricated citations or made-up statistics. If you cite a number, it should be one you'd defend.
@@ -293,7 +300,20 @@ export default async (request, context) => {
       .replaceAll('{side}', side === 'gov' || side === 'pm' || side === 'mg' ? 'Government' : 'Opposition')
       .replaceAll('{format}', format);
 
-    const instructions = characterPreamble + modeBlock;
+    // Prepend the same voice bank that powers the main /debate-ai brains
+    // (claude.mjs, openai-chat.mjs, etc.). 'bot' = CORE + STRATEGY +
+    // CHARACTER + LANGUAGE_CONSTRUCTION — the right blocks for a live
+    // opponent. Plus the format block when we have one. This is what
+    // makes the realtime opponent THINK like the rest of the app's
+    // brains instead of being a separate, weaker voice.
+    let voiceBank = '';
+    try {
+      voiceBank = DEBATE_VOICE.forFeature('bot') || '';
+      const fmtBlock = format ? DEBATE_VOICE.forFormat?.(format) : '';
+      if (fmtBlock) voiceBank = voiceBank + '\n\n' + fmtBlock;
+    } catch(e) { /* voice bank optional — function still works without it */ }
+
+    const instructions = (voiceBank ? voiceBank + '\n\n' : '') + characterPreamble + modeBlock;
 
     // Model try-list. Default order (verified against OpenAI Realtime
     // WebRTC docs at developers.openai.com/api/docs/guides/realtime-webrtc):
