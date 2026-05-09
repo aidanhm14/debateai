@@ -267,6 +267,8 @@ h1 em{color:var(--accent);font-style:normal}
     matchPollInterval: null,
     waitingPeers: 0,
     cancelled: false,
+    broaden: false,
+    broadenOffered: false,
   };
 
   // 60-second timer until AI fallback. After this, we mark the user's
@@ -274,6 +276,12 @@ h1 em{color:var(--accent);font-style:normal}
   // motion preserved. This is the load-bearing decision: a debate
   // engine where AI is the FALLBACK, not the headline.
   var AI_FALLBACK_SEC = 60;
+  // After 45s with no match, surface a 'broaden formats' toggle so
+  // users in thin-pair queues (Worlds, Asian Parli) can match across
+  // formats instead of timing out into AI. Click → flip my queue
+  // doc to broaden:true and the polling expands to any-format peers
+  // who also have broaden:true (or my exact format).
+  var BROADEN_OFFER_SEC = 45;
 
   var shell = document.getElementById('shell');
 
@@ -377,12 +385,40 @@ h1 em{color:var(--accent);font-style:normal}
       var remaining = Math.max(0, AI_FALLBACK_SEC - elapsed);
       var num = document.getElementById('countdownNum');
       if (num) num.textContent = String(remaining);
+      // Broaden-formats offer at 45s. Surfaces below the cancel/skip
+      // buttons; user click flips state + queue doc.
+      if (elapsed >= BROADEN_OFFER_SEC && !state.broadenOffered && !state.broaden){
+        state.broadenOffered = true;
+        offerBroaden();
+      }
       if (remaining <= 0){
         clearInterval(state.countdownInterval);
         state.countdownInterval = null;
         triggerAIFallback();
       }
     }, 250);
+  }
+
+  function offerBroaden(){
+    var stats = document.getElementById('queueStats');
+    if (!stats) return;
+    stats.innerHTML =
+      '<div style="margin-top:14px;padding:14px 16px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.32);border-radius:12px;text-align:left;color:var(--text)">' +
+        '<div style="font-size:.82rem;font-weight:700;margin-bottom:6px;color:#bfdbfe">Thin queue on ' + escHtml(formatParam.toUpperCase()) + '?</div>' +
+        '<div style="font-size:.78rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px">Match across formats instead. We\'ll pair you with any debater who\'s also broadened. Format gets picked on the round itself.</div>' +
+        '<button class="btn primary" id="broadenBtn" style="font-size:.78rem;padding:8px 16px">Broaden formats</button>' +
+      '</div>';
+    var bb = document.getElementById('broadenBtn');
+    if (bb) bb.addEventListener('click', function(){
+      state.broaden = true;
+      if (state.queueDocRef){
+        state.queueDocRef.update({ broaden: true }).catch(function(){});
+      }
+      try { gtag('event', 'spar_broaden_formats', { from: formatParam }); } catch(e){}
+      stats.innerHTML = '<div style="margin-top:14px;padding:10px 14px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.28);border-radius:10px;color:#4ade80;font-size:.78rem;font-weight:600">✓ Broadened — pairing across formats now.</div>';
+      // Force an immediate match attempt with the new criteria.
+      tryMatch();
+    });
   }
 
   // ── Queue logic ──────────────────────────────────────
@@ -477,33 +513,47 @@ h1 em{color:var(--accent);font-style:normal}
   function tryMatch(){
     if (state.cancelled || !state.user || !firebaseDb) return;
     var queue = firebaseDb.collection('matchmaking_queue');
-    queue
-      .where('format', '==', formatParam)
-      .where('status', '==', 'waiting')
-      .limit(8)
-      .get()
-      .then(function(snap){
-        // Show waiting-peer count for fun in the UI.
-        var others = snap.docs.filter(function(d){ return d.id !== state.user.uid; });
-        state.waitingPeers = others.length;
-        var stats = document.getElementById('queueStats');
-        if (stats) stats.innerHTML = others.length === 0
+    // Two-query strategy. Always query my exact format. If I've
+    // broadened, ALSO query for any waiting peer with broaden:true
+    // (regardless of format). Merge results; pair with the oldest.
+    // The exact-format query wins ties so users who haven't broadened
+    // still get same-format matches preferentially.
+    var queries = [
+      queue.where('format', '==', formatParam).where('status', '==', 'waiting').limit(8).get(),
+    ];
+    if (state.broaden){
+      queries.push(
+        queue.where('broaden', '==', true).where('status', '==', 'waiting').limit(8).get()
+      );
+    }
+    Promise.all(queries).then(function(snaps){
+      var seen = {};
+      var others = [];
+      snaps.forEach(function(snap){
+        snap.docs.forEach(function(d){
+          if (d.id === state.user.uid) return;
+          if (seen[d.id]) return;
+          seen[d.id] = true;
+          others.push(d);
+        });
+      });
+      state.waitingPeers = others.length;
+      var stats = document.getElementById('queueStats');
+      if (stats && !state.broadenOffered){
+        stats.innerHTML = others.length === 0
           ? 'No other debaters in your queue right now.'
           : '<strong>' + others.length + '</strong> other debater' + (others.length === 1 ? '' : 's') + ' in your queue.';
-        if (others.length === 0) return;
-        // Pick the OLDEST other waiting user (FIFO fairness) and try
-        // to claim the match.
-        others.sort(function(a, b){
-          var as = (a.data().joinedAt && a.data().joinedAt.seconds) || 0;
-          var bs = (b.data().joinedAt && b.data().joinedAt.seconds) || 0;
-          return as - bs;
-        });
-        attemptMatch(others[0].id, others[0].data());
-      })
-      .catch(function(err){
-        // Composite-index race or rule misfire — log + keep polling.
-        console.warn('[spar] queue query failed', err);
+      }
+      if (others.length === 0) return;
+      others.sort(function(a, b){
+        var as = (a.data().joinedAt && a.data().joinedAt.seconds) || 0;
+        var bs = (b.data().joinedAt && b.data().joinedAt.seconds) || 0;
+        return as - bs;
       });
+      attemptMatch(others[0].id, others[0].data());
+    }).catch(function(err){
+      console.warn('[spar] queue query failed', err);
+    });
   }
 
   function attemptMatch(peerUid, peerData){

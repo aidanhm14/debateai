@@ -692,6 +692,11 @@ button{font-family:inherit}
           <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start speech</button>
           <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
           <button class="btn" id="skipSpeechBtn" type="button" style="font-size:.7rem">Skip</button>
+          <!-- Forfeit + Next: spar-only escape hatch. Mid-round = the
+               current round is abandoned (the opponent sees a forfeit
+               banner), and the user re-queues. Confirm dialog to
+               prevent accidental clicks. Hidden for non-spar rounds. -->
+          <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:#fbbf24;border-color:rgba(245,158,11,.32)">Next →</button>
         </div>
       </div>
 
@@ -821,6 +826,7 @@ button{font-family:inherit}
   // ── URL params. /live-round.html?motion=X&format=apda&pro=Alex&con=Bob&room=DebateAI-c123
   // Both /live.html (after accept) and direct links share the same shape so
   // a posted-then-accepted challenge lands here with everything prefilled.
+  // /spar matchmaking sends source=spar with NO motion — handled below.
   var qs = new URLSearchParams(location.search);
   var prefill = {
     motion: qs.get('motion') || '',
@@ -830,8 +836,48 @@ button{font-family:inherit}
     proUid: qs.get('proUid') || '',
     conUid: qs.get('conUid') || '',
     room:   qs.get('room')   || ('DebateAI-Round-' + Math.random().toString(36).slice(2,10)),
+    source: qs.get('source') || '',
   };
   if (!FORMATS[prefill.format]) prefill.format = 'quick';
+
+  // Spar-round motion bank. /spar matches users with no motion in
+  // hand (the queue is for 'find me an opponent,' not 'agree on a
+  // topic'). The lex-first UID auto-picks a random motion from this
+  // bank and writes it to live_rounds/{room}.motion; the snapshot
+  // listener on the other client picks it up. Bank is intentionally
+  // wide and accessible — no in-jokes, no India-only specifics, no
+  // motions that need a deep brief to argue.
+  var SPAR_MOTIONS = [
+    'This House would ban single-use plastics outright',
+    'This House regrets the rise of social media',
+    'This House would scrap legacy admissions at universities',
+    'This House would tax billionaires out of existence',
+    'This House would lower the voting age to 16',
+    'This House would make voting compulsory',
+    'This House regrets the rise of citizen journalism',
+    'This House would prioritize nuclear power over renewables',
+    'This House would adopt a four-day work week',
+    'This House would make algorithmic newsfeeds opt-in',
+    'This House would ban private jet ownership',
+    'This House would cancel all federal student loan debt',
+    'This House would replace standardized testing with portfolio assessment',
+    'This House would require professional licensing for parents',
+    'This House would phase out animal agriculture within a generation',
+    'This House would ban facial recognition in public spaces',
+    'This House would break up the major tech monopolies',
+    'This House would recognize Taiwan as an independent state',
+    'This House would adopt universal basic income',
+    'This House would require informed consent for algorithmic content recommendation',
+  ];
+  function pickSparMotion(seed){
+    // Deterministic pick keyed off the room name so both clients
+    // converge on the same motion without coordinating. Falls back
+    // to Math.random for non-spar rounds (unused there).
+    if (!seed) return SPAR_MOTIONS[Math.floor(Math.random() * SPAR_MOTIONS.length)];
+    var h = 5381;
+    for (var i = 0; i < seed.length; i++) h = ((h << 5) + h) ^ seed.charCodeAt(i);
+    return SPAR_MOTIONS[Math.abs(h) % SPAR_MOTIONS.length];
+  }
 
   // ── Shorthands
   var $ = function(id){ return document.getElementById(id); };
@@ -1853,7 +1899,14 @@ button{font-family:inherit}
         '<button class="btn btn-primary" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
         '<button class="btn" id="copyBallotBtn" type="button">Copy ballot</button>' +
         '<button class="btn" id="publishDiscBtn" type="button" title="Publish your speeches to the public disclosure board so other debaters can read + import them">🌐 Publish to Community</button>' +
-        '<a class="btn" href="/live">Back to board</a>' +
+        // Next opponent — only surfaces for /spar-sourced rounds.
+        // Routes back to the queue, preserving the format so the next
+        // round happens in the same surface. Re-queue, not forfeit
+        // (round is already over).
+        (prefill.source === 'spar'
+          ? '<a class="btn btn-primary" href="/spar?format=' + encodeURIComponent(state.formatKey) + '" id="nextOpponentBtn" style="background:var(--green);border-color:var(--green);box-shadow:0 6px 24px rgba(34,197,94,.32)">Next opponent →</a>'
+          : '<a class="btn" href="/live">Back to board</a>'
+        ) +
       '</div>';
     // Spectators don't get the save-to-record button — the round is
     // not theirs to log against their personal speaker history. Same
@@ -2071,6 +2124,27 @@ button{font-family:inherit}
   // we only act on truly-new info, so re-renders are idempotent.
   function onRoundSnapshot(d){
     var changedSetup = false;
+    // Opponent forfeited (spar 'Next →' was hit by the other side).
+    // Show a banner + auto-bounce back to the queue after 4s so we
+    // re-pair instead of staring at an abandoned round.
+    if (d.status === 'forfeit' && d.forfeitedBy && state.user && d.forfeitedBy !== state.user.uid && !state.forfeitHandled){
+      state.forfeitHandled = true;
+      var existing = document.getElementById('forfeitBanner');
+      if (!existing){
+        var banner = document.createElement('div');
+        banner.id = 'forfeitBanner';
+        banner.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);padding:12px 20px;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.5);border-radius:14px;color:#fbbf24;font-size:.86rem;font-weight:700;letter-spacing:.02em;z-index:300;box-shadow:0 12px 40px rgba(0,0,0,.5);max-width:560px;text-align:center';
+        banner.innerHTML = 'Your opponent left for the next match. Re-queueing you in 4s…';
+        document.body.appendChild(banner);
+      }
+      try { gtag('event', 'spar_opponent_forfeit', { format: state.formatKey }); } catch(e){}
+      setTimeout(function(){
+        if (prefill.source === 'spar') {
+          location.href = '/spar?format=' + encodeURIComponent(state.formatKey);
+        }
+      }, 4000);
+      return; // skip the rest of the snapshot processing — round's done
+    }
     // Spectators take participant UIDs from the round doc on first
     // snapshot so isSpectator() and mySide() resolve correctly.
     if (d.posterUid && !state.proUid && !state.conUid){
@@ -2235,6 +2309,33 @@ button{font-family:inherit}
     }
     endSpeech();
   });
+  // Spar-only 'Forfeit + Next' button. Visible whenever the round
+  // came from /spar (URL ?source=spar). Click confirms, marks the
+  // round as forfeited in Firestore so the opponent sees a banner,
+  // then re-queues with the same format.
+  (function(){
+    var fb = $('forfeitNextBtn');
+    if (!fb) return;
+    if (prefill.source === 'spar') fb.style.display = '';
+    fb.addEventListener('click', function(){
+      var msg = state.phase === 'round'
+        ? 'Forfeit this round and queue for the next opponent? Your opponent will see you bailed.'
+        : 'Queue for the next opponent?';
+      if (!confirm(msg)) return;
+      // Mark forfeited so the opponent's snapshot listener can react.
+      var ref = getRoundDocRef();
+      if (ref){
+        ref.update({
+          forfeitedBy: state.user ? state.user.uid : null,
+          forfeitedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          status: 'forfeit',
+        }).catch(function(){});
+      }
+      try { gtag('event', 'spar_forfeit_next', { format: state.formatKey, phase: state.phase }); } catch(e){}
+      location.href = '/spar?format=' + encodeURIComponent(state.formatKey);
+    });
+  })();
+
   $('skipSpeechBtn').addEventListener('click', function(){
     if (!confirm('Skip ' + FORMATS[state.formatKey].speeches[state.speechIdx].code + '? It will be marked skipped on the ballot.')) return;
     endSpeech({ skipped:true });
@@ -2373,6 +2474,27 @@ button{font-family:inherit}
         // already started, the snapshot will land in <500ms and our
         // setup view will auto-advance into the round in progress.
         subscribeRound();
+        // Spar matchmaking auto-start. If the URL says source=spar
+        // and we have no motion yet, the lex-first UID picks a
+        // deterministic motion from SPAR_MOTIONS (keyed off the
+        // room name so both clients converge on the same one) and
+        // kicks off the round automatically — no setup screen to
+        // click through. The peer's snapshot listener picks up the
+        // motion + speechIdx and follows.
+        if (prefill.source === 'spar' && !state.motion && state.proUid && state.conUid){
+          var iAmFirst = state.user.uid === state.proUid; // proUid = lex-first by spar convention
+          if (iAmFirst){
+            // Tiny delay so both clients have time to subscribe before
+            // we publish — avoids a race where peer joins after we've
+            // already advanced past round init.
+            setTimeout(function(){
+              if (state.motion) return; // peer already wrote it
+              state.motion = pickSparMotion(state.room);
+              var md = $('motionDisplay'); if (md) md.textContent = state.motion;
+              startRound();
+            }, 600);
+          }
+        }
       } else {
         showAuthGate();
         renderUserChip();
