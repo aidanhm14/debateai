@@ -261,27 +261,51 @@ async function openAITTS(text, voice, speed, apiKey, intensity = 0) {
   // voice key before calling. Without this, free-tier requests for new
   // personas would get rejected by OpenAI with invalid_voice.
   const safeVoice = resolveOpenAIVoice(voice);
-  const model = process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts';
-  const supportsInstructions = model !== 'tts-1' && model !== 'tts-1-hd';
-  const body = {
-    model,
-    input: text,
-    voice: safeVoice,
-    speed: speed,
-    response_format: 'mp3',
-  };
-  if (supportsInstructions) {
-    body.instructions = buildOpenAIInstructions(voice, intensity);
+
+  // Model try-list. We attempt the highest-quality first and fall back
+  // through known-good models so a hiccup with one (model not yet
+  // available on this account, instructions field rejected, etc.)
+  // doesn't black-hole the audio for the user. tts-1 is the proven
+  // floor — every account that has Audio API access can call it.
+  const envModel = process.env.OPENAI_TTS_MODEL;
+  const candidates = [envModel, 'gpt-4o-mini-tts', 'tts-1'].filter(Boolean);
+
+  let lastErr = null;
+  for (const model of candidates) {
+    const supportsInstructions = model !== 'tts-1' && model !== 'tts-1-hd';
+    const body = {
+      model,
+      input: text,
+      voice: safeVoice,
+      speed: speed,
+      response_format: 'mp3',
+    };
+    if (supportsInstructions) {
+      body.instructions = buildOpenAIInstructions(voice, intensity);
+    }
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    if (response.ok) return response;
+    // Capture and continue. Status-code logic: 4xx is usually
+    // model/param-specific so trying another model can help; 5xx is
+    // usually upstream-wide so trying again won't help — but the cost
+    // is one extra fetch, fine.
+    lastErr = { model, status: response.status, text: await response.text().catch(() => '') };
+    console.error(`[tts] openai model "${model}" failed:`, response.status, (lastErr.text || '').slice(0, 240));
   }
-  const response = await fetch('https://api.openai.com/v1/audio/speech', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  return response;
+  // All candidates failed — synthesize a Response object the outer
+  // handler can inspect. status=502 makes the surrounding code treat
+  // this as an upstream failure and surface a clear error to the user.
+  return new Response(
+    JSON.stringify({ error: 'OPENAI_TTS_ALL_FAILED', last: lastErr }),
+    { status: lastErr?.status || 502, headers: { 'Content-Type': 'application/json' } }
+  );
 }
 
 // Inworld TTS — opt-in via body.provider === 'inworld' for Pro users.
@@ -471,14 +495,23 @@ export default async (request, context) => {
       }
     }
 
-    // Free users + fallback when premium providers fail
+    // Free users + fallback when premium providers fail. openAITTS
+    // walks its own model try-list internally (gpt-4o-mini-tts → tts-1)
+    // so by the time we get a !ok response here, every OpenAI model
+    // attempt failed — surface the actual upstream error.
     if (!response && openaiKey) {
       response = await openAITTS(text, voice, speed, openaiKey, intensity);
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
         console.error('OpenAI TTS error:', response.status, errText);
+        let openaiMessage = '';
+        try {
+          const parsed = JSON.parse(errText);
+          openaiMessage = parsed?.last?.text || parsed?.error?.message || parsed?.error || '';
+          if (typeof openaiMessage !== 'string') openaiMessage = JSON.stringify(openaiMessage).slice(0, 240);
+        } catch(e) { openaiMessage = errText.slice(0, 240); }
         return new Response(
-          JSON.stringify({ error: 'TTS_ERROR ' + response.status }),
+          JSON.stringify({ error: 'TTS_ERROR ' + response.status, openai: openaiMessage }),
           { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } }
         );
       }
