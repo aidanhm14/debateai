@@ -445,21 +445,50 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   }
 
   // ── Snapshot listener for public disclosures ──────────────────
-  // visibility=='public' filter. Limit 200 to keep payload reasonable;
-  // can paginate later if community grows past that.
+  // The composite (visibility,sharedAt) index is defined in
+  // firestore.indexes.json; on a fresh deploy it can take a few
+  // minutes to build, during which the orderBy version returns a
+  // FAILED_PRECONDITION. Try the indexed query first for speed, fall
+  // back to a where-only query + client-side sort if the index isn't
+  // ready yet so the page never breaks.
+  function attachSnap(query, label){
+    return query.onSnapshot(function(snap){
+      var docs = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+      // Always sort client-side as well, so the where-only fallback
+      // ends up in the same order as the indexed path.
+      docs.sort(function(a, b){
+        var as = (a.sharedAt && a.sharedAt.seconds) || 0;
+        var bs = (b.sharedAt && b.sharedAt.seconds) || 0;
+        return bs - as;
+      });
+      allCases = docs;
+      applyFilters();
+    }, function(err){
+      console.warn('[disclosures] ' + label + ' snapshot error', err);
+      // Index-not-ready or missing → quietly retry with the where-only
+      // path. Other errors (permissions, network) → show a friendly
+      // empty state instead of the scary raw Firebase URL.
+      if (label === 'composite' && err && /FAILED_PRECONDITION|index/i.test(err.message || err.code || '')){
+        attachSnap(firebaseDb.collection('shared_cases').where('visibility', '==', 'public').limit(200), 'fallback');
+      } else {
+        $('cards').innerHTML =
+          '<div class="empty" style="grid-column:1/-1">' +
+            '<h3>Disclosure board is warming up.</h3>' +
+            '<p style="margin-top:8px">If this sticks for more than a minute, refresh — the search index is finishing its first build.</p>' +
+          '</div>';
+        $('empty').style.display = 'none';
+      }
+    });
+  }
   function loadDisclosures(){
     if (!firebaseDb) return;
-    firebaseDb.collection('shared_cases')
-      .where('visibility', '==', 'public')
-      .orderBy('sharedAt', 'desc')
-      .limit(200)
-      .onSnapshot(function(snap){
-        allCases = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
-        applyFilters();
-      }, function(err){
-        console.warn('[disclosures] snapshot error', err);
-        $('cards').innerHTML = '<div class="empty"><h3>Could not load disclosures.</h3><p>' + escHtml(err.message || 'unknown error') + '</p></div>';
-      });
+    attachSnap(
+      firebaseDb.collection('shared_cases')
+        .where('visibility', '==', 'public')
+        .orderBy('sharedAt', 'desc')
+        .limit(200),
+      'composite'
+    );
   }
 
   // Wait for auth even if anonymous — the Firestore rule for
