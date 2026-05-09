@@ -1,7 +1,10 @@
 // Text-to-Speech proxy
 // - Premium (default): ElevenLabs turbo_v2_5 streaming — expressive, voice-matched to debater personalities
 // - Premium + opt-in Cartesia: pass body.provider === 'cartesia' to A/B-test Sonic (faster, cheaper, flatter)
-// - Free + fallback: OpenAI tts-1
+// - Free + fallback: OpenAI gpt-4o-mini-tts with per-persona `instructions` steering
+//   (March-2025 model — supports natural-language delivery direction; massively
+//    closes the gap to the premium providers without changing the voice list).
+//   Override the model with env OPENAI_TTS_MODEL=tts-1 if a rollback is needed.
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { humanizeForTTS } from './lib/tts-humanize.mjs';
 
@@ -213,24 +216,70 @@ async function cartesiaTTS(text, voice, speed, apiKey, intensity = 0) {
   return response;
 }
 
-async function openAITTS(text, voice, speed, apiKey) {
+// Per-persona delivery direction — passed as the `instructions` field to
+// gpt-4o-mini-tts. The model honors free-form natural-language steering
+// (tone, cadence, emotional weight, accent hints), which is what closes
+// the perceived gap to ElevenLabs without changing the voice list.
+// Keep these tight: 1–2 sentences max. The model takes vivid, concrete
+// direction better than long taxonomies.
+const OPENAI_PERSONA_INSTRUCTIONS = {
+  professor:   'Speak like a tenured lecturer commanding a hall — deep, deliberate, every word weighted. No hesitation, no hedging.',
+  closer:      'Speak with the calm confidence of a closer who already knows she has won the round. Smooth, persuasive, slightly satisfied.',
+  surgeon:     'Speak with cold surgical precision — measured pauses between clauses, dissecting each claim with care.',
+  veteran:     'Speak in the rich baritone of a 500-round veteran. Unhurried, unsurprised, dryly authoritative.',
+  firebrand:   'Speak with relentless conviction — emphatic, forward-leaning, every claim hot to the touch. Build pressure beat by beat.',
+  diplomat:    'Speak with polished diplomatic poise — warm, composed, making sharp attacks sound entirely reasonable.',
+  debater:     'Speak fast and sharp like a college circuit debater — quick wit, crisp consonants, slight upward energy on impact lines.',
+  philosopher: 'Speak slowly and reflectively, like leading a Socratic seminar. Long internal pauses, gentle emphasis on key terms.',
+  prosecutor:  'Speak with prosecutorial intensity — clipped, accusatory, building toward each conclusion like a closing argument.',
+  storyteller: 'Speak warmly and narratively, like opening a documentary. Land emotional beats softly; let the story do the persuasion.',
+  statesman:   'Speak with British parliamentary gravitas — warm baritone, measured cadence, the senior MP closing for the Crown.',
+  barrister:   'Speak with crisp British courtroom precision — exacting, deliberate, picking apart claims one by one.',
+  upstart:     'Speak with hungry youthful British energy — quick, sharp, like the freshman who read every paper before the round.',
+  heckler:     'Speak gravelly and sardonic — older, world-weary, like you have heard this argument fifty times and stopped pretending otherwise.',
+  disruptor:   'Speak with high-energy challenger cadence — interruptive, slightly irreverent, thriving on chaos in the round.',
+  tactician:   'Speak quietly and three moves ahead — calm, tactical, never raising the voice but always landing the point.',
+};
+
+function buildOpenAIInstructions(voice, intensity) {
+  const personality = OPENAI_TO_PERSONALITY[voice] || voice;
+  const base = OPENAI_PERSONA_INSTRUCTIONS[personality] || OPENAI_PERSONA_INSTRUCTIONS.professor;
+  // Intensity overlay: at high values, ask for urgent stakes + faster
+  // cadence; at the low end leave the calm baseline alone. Same dial the
+  // ElevenLabs path uses — keeps cross-provider behavior coherent.
+  if (intensity > 0.6) {
+    return base + ' Elevated emotion — urgent stakes, faster cadence, breath audible on emphasis.';
+  }
+  if (intensity > 0.3) {
+    return base + ' Lean into rhetorical peaks; clear emotional inflection on big claims.';
+  }
+  return base;
+}
+
+async function openAITTS(text, voice, speed, apiKey, intensity = 0) {
   // Translate persona keys (statesman, barrister, etc.) to a valid OpenAI
   // voice key before calling. Without this, free-tier requests for new
   // personas would get rejected by OpenAI with invalid_voice.
   const safeVoice = resolveOpenAIVoice(voice);
+  const model = process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts';
+  const supportsInstructions = model !== 'tts-1' && model !== 'tts-1-hd';
+  const body = {
+    model,
+    input: text,
+    voice: safeVoice,
+    speed: speed,
+    response_format: 'mp3',
+  };
+  if (supportsInstructions) {
+    body.instructions = buildOpenAIInstructions(voice, intensity);
+  }
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'tts-1',
-      input: text,
-      voice: safeVoice,
-      speed: speed,
-      response_format: 'mp3',
-    }),
+    body: JSON.stringify(body),
   });
   return response;
 }
@@ -424,7 +473,7 @@ export default async (request, context) => {
 
     // Free users + fallback when premium providers fail
     if (!response && openaiKey) {
-      response = await openAITTS(text, voice, speed, openaiKey);
+      response = await openAITTS(text, voice, speed, openaiKey, intensity);
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
         console.error('OpenAI TTS error:', response.status, errText);
