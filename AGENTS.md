@@ -28,6 +28,9 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   ├── landing.html           ~2700 lines, marketing entry. Same rules.
 │   ├── live.html              live tournament rooms (Daily.co video)
 │   ├── devils-advocate.html   single-AI sparring mode
+│   ├── voice-debate.html      live voice debate via OpenAI Realtime
+│   │                            (WebRTC, server-side VAD = interruption,
+│   │                             5 modes, post-session RFD)
 │   ├── learn.html, leaderboard.html, pricing.html, schools.html, etc.
 │   ├── js/                    small standalone client modules
 │   │                            (track.js, usage-banner.js, topbar.js,
@@ -43,6 +46,13 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   │       │     TTS proxy. Routes to ElevenLabs (Pro default), Inworld
 │   │       │     + Cartesia (Pro opt-in), or OpenAI gpt-4o-mini-tts with
 │   │       │     per-persona `instructions` (free + fallback).
+│   │       ├── realtime-session.mjs
+│   │       │     OpenAI Realtime (gpt-realtime-2) ephemeral-token
+│   │       │     minter for /voice-debate.html. App-Check gated, hard
+│   │       │     rate-limited (6 sessions/hour/IP). Browser does
+│   │       │     direct WebRTC to OpenAI; server is never in the
+│   │       │     audio path. Models overridable via env:
+│   │       │     OPENAI_REALTIME_MODEL, OPENAI_REALTIME_TRANSCRIBE_MODEL.
 │   │       ├── lib/
 │   │       │   ├── voice-guidelines.mjs   THE voice bank. Server-side so
 │   │       │   │                            view-source can't scrape it.

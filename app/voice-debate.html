@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Live Voice Debate · Debate AI</title>
+<meta name="description" content="Live voice debate with full interruption. Cut in mid-speech, take POIs, run cross-ex drills. Powered by OpenAI gpt-realtime-2." />
+<meta name="theme-color" content="#0a0a12" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/ui.css">
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
+<script defer src="/js/app-check.js"></script>
+<script defer src="/js/track.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{min-height:100%;width:100%}
+body{
+  font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
+  background:#06060c;
+  color:#e6e6ee;
+  font-size:16px;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;font-size:inherit}
+a{color:inherit}
+:focus-visible{outline:2px solid #ef4444;outline-offset:2px;border-radius:4px}
+
+/* ── Ambient backdrop ─────────────────────────────── */
+.bg{
+  position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 10%, rgba(239,68,68,.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 90%, rgba(168,85,247,.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 20% 80%, rgba(96,165,250,.04) 0%, transparent 60%),
+    #06060c;
+}
+.bg::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,.025) 1px, transparent 0);
+  background-size:32px 32px;
+  mask-image:radial-gradient(ellipse 70% 70% at 50% 30%, #000 30%, transparent 80%);
+}
+
+.shell{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:22px 18px 80px}
+
+/* ── Header ───────────────────────────────────────── */
+.head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:32px;gap:12px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em;font-size:1.05rem}
+.brand a{text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px}
+.brand .logo-mark{
+  width:32px;height:32px;border-radius:9px;
+  background:linear-gradient(135deg,#ef4444 0%,#7c2d12 100%);
+  display:grid;place-items:center;color:#fff;font-weight:900;font-size:.78rem;
+  box-shadow:0 4px 16px rgba(239,68,68,.35), inset 0 1px 0 rgba(255,255,255,.15);
+}
+.beta{
+  display:inline-block;font-size:.55rem;letter-spacing:.14em;color:#fca5a5;
+  background:rgba(239,68,68,.12);padding:3px 7px;border-radius:4px;
+  font-weight:700;text-transform:uppercase;border:1px solid rgba(239,68,68,.2);
+}
+.back{
+  font-size:.78rem;color:#9b9bab;text-decoration:none;
+  padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.07);
+  transition:all .15s;
+}
+.back:hover{background:rgba(255,255,255,.04);color:#e6e6ee;border-color:rgba(255,255,255,.12)}
+
+/* ── Hero ─────────────────────────────────────────── */
+.hero{margin-bottom:28px;text-align:center}
+.hero h1{
+  font-size:clamp(2rem, 5vw, 2.85rem);font-weight:900;letter-spacing:-.035em;
+  line-height:1.05;margin-bottom:14px;
+  background:linear-gradient(180deg,#fff 0%,#a3a3b3 130%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero h1 .accent{
+  background:linear-gradient(135deg,#ef4444 0%,#fb7185 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero .lede{
+  color:#9b9bab;font-size:1.02rem;line-height:1.55;
+  max-width:560px;margin:0 auto;
+}
+.hero .lede strong{color:#e6e6ee;font-weight:600}
+.hero .meta{
+  display:inline-flex;align-items:center;gap:8px;margin-top:14px;
+  font-size:.7rem;color:#7a7a8a;letter-spacing:.05em;
+}
+.hero .meta .pip{width:5px;height:5px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pip 2.4s ease-in-out infinite}
+@keyframes pip{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* ── Cards ────────────────────────────────────────── */
+.card{
+  background:linear-gradient(180deg, rgba(255,255,255,.035) 0%, rgba(255,255,255,.01) 100%);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px;padding:18px;margin-bottom:14px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+.card h3{
+  font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;
+  color:#7a7a8a;margin-bottom:12px;font-weight:700;
+}
+
+/* ── Mode picker ──────────────────────────────────── */
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.mode{
+  position:relative;
+  padding:14px;border:1px solid rgba(255,255,255,.06);border-radius:12px;
+  background:linear-gradient(180deg, rgba(255,255,255,.025) 0%, rgba(0,0,0,.15) 100%);
+  text-align:left;transition:all .18s cubic-bezier(.2,.8,.2,1);
+  display:flex;flex-direction:column;gap:6px;
+  overflow:hidden;
+}
+.mode::before{
+  content:'';position:absolute;inset:0;border-radius:12px;
+  background:linear-gradient(135deg, rgba(239,68,68,.12) 0%, transparent 50%);
+  opacity:0;transition:opacity .18s;pointer-events:none;
+}
+.mode:hover{border-color:rgba(239,68,68,.25);transform:translateY(-1px)}
+.mode:hover::before{opacity:1}
+.mode.on{
+  border-color:rgba(239,68,68,.55);
+  background:linear-gradient(180deg, rgba(239,68,68,.1) 0%, rgba(239,68,68,.02) 100%);
+  box-shadow:0 0 0 1px rgba(239,68,68,.25), 0 8px 24px rgba(239,68,68,.12);
+}
+.mode.on::before{opacity:1}
+.mode .icon{font-size:1.25rem;line-height:1;margin-bottom:4px}
+.mode .t{font-size:.88rem;font-weight:700;color:#e6e6ee;letter-spacing:-.005em}
+.mode .d{font-size:.72rem;color:#9b9bab;line-height:1.4}
+.mode.on .t{color:#fecaca}
+
+/* ── Inputs ───────────────────────────────────────── */
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row > *{flex:1;min-width:160px}
+input[type=text],select,textarea{
+  width:100%;padding:13px 14px;
+  border:1px solid rgba(255,255,255,.08);border-radius:11px;
+  background:rgba(0,0,0,.35);color:#e6e6ee;
+  font-size:.92rem;font-family:inherit;outline:none;
+  transition:border-color .15s, box-shadow .15s;
+}
+input[type=text]:focus,select:focus,textarea:focus{
+  border-color:rgba(239,68,68,.55);box-shadow:0 0 0 3px rgba(239,68,68,.1);
+}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{
+  font-size:.7rem;color:#9b9bab;padding:6px 11px;
+  border:1px solid rgba(255,255,255,.08);border-radius:999px;
+  background:rgba(0,0,0,.2);transition:all .15s;
+}
+.chip:hover{border-color:rgba(239,68,68,.4);color:#e6e6ee}
+
+/* ── Side toggle ──────────────────────────────────── */
+.side-toggle{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px;
+  padding:4px;background:rgba(0,0,0,.3);border-radius:11px;
+  border:1px solid rgba(255,255,255,.06);
+}
+.side-toggle button{
+  padding:11px 12px;border-radius:8px;font-size:.85rem;font-weight:600;
+  color:#9b9bab;transition:all .15s;
+}
+.side-toggle button.on{background:rgba(239,68,68,.15);color:#fecaca}
+
+/* ── Primary CTA ──────────────────────────────────── */
+.cta{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:18px;
+  background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);
+  color:#fff;border-radius:14px;
+  font-size:1rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  transition:transform .15s, box-shadow .15s, opacity .15s;
+  box-shadow:0 8px 24px rgba(239,68,68,.3), inset 0 1px 0 rgba(255,255,255,.15);
+}
+.cta:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 12px 32px rgba(239,68,68,.4), inset 0 1px 0 rgba(255,255,255,.15)}
+.cta:active:not(:disabled){transform:translateY(0)}
+.cta:disabled{opacity:.5;cursor:not-allowed}
+.cta.stop{background:linear-gradient(135deg,#3a3a44 0%,#1f1f28 100%);box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.cta.ghost{background:transparent;border:1px solid rgba(255,255,255,.12);color:#e6e6ee;box-shadow:none}
+.cta.ghost:hover:not(:disabled){background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.2)}
+.cta .arrow{font-size:1.1em;line-height:1;display:inline-block;transition:transform .2s}
+.cta:hover .arrow{transform:translateX(3px)}
+
+/* ── LIVE: the showpiece ──────────────────────────── */
+.stage{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;
+  padding:40px 18px 28px;
+  background:radial-gradient(ellipse 80% 100% at 50% 50%, rgba(239,68,68,.06) 0%, transparent 70%);
+  border-radius:18px;margin-bottom:14px;
+}
+.stage canvas.orb{
+  width:280px;height:280px;
+  filter:drop-shadow(0 0 40px rgba(239,68,68,.35));
+  transition:filter .25s;
+}
+@media (max-width:600px){.stage canvas.orb{width:230px;height:230px}}
+.stage.user canvas.orb{filter:drop-shadow(0 0 40px rgba(34,197,94,.35))}
+.stage .label{
+  margin-top:18px;font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;
+  font-weight:700;color:#9b9bab;
+}
+.stage .label .who{color:#fca5a5;transition:color .2s}
+.stage.user .label .who{color:#86efac}
+.stage .timer{
+  margin-top:8px;font-family:'JetBrains Mono', monospace;
+  font-size:1.4rem;font-weight:600;color:#e6e6ee;letter-spacing:.05em;
+  font-variant-numeric:tabular-nums;
+}
+.stage .timer .total{color:#5a5a6a;font-size:.8rem;margin-left:4px}
+.stage .stats{
+  display:flex;gap:18px;margin-top:12px;
+  font-size:.7rem;color:#7a7a8a;letter-spacing:.05em;
+}
+.stage .stats span strong{color:#e6e6ee;font-weight:600;font-variant-numeric:tabular-nums}
+.stage .hint{
+  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  font-size:.68rem;color:#5a5a6a;text-align:center;letter-spacing:.04em;
+}
+
+/* mic level meter under the orb */
+.miclevel{
+  margin-top:16px;display:flex;align-items:center;gap:6px;
+  font-size:.65rem;color:#7a7a8a;letter-spacing:.08em;
+}
+.miclevel .bars{display:flex;gap:2px}
+.miclevel .bar{
+  width:3px;height:14px;border-radius:2px;
+  background:rgba(34,197,94,.18);
+  transition:background .08s, height .08s;
+}
+.miclevel .bar.on{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.4)}
+
+/* ── Transcript ───────────────────────────────────── */
+.transcript{
+  min-height:240px;max-height:480px;overflow-y:auto;padding:6px 4px;
+  scroll-behavior:smooth;
+}
+.transcript::-webkit-scrollbar{width:6px}
+.transcript::-webkit-scrollbar-track{background:transparent}
+.transcript::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+.turn{
+  padding:12px 14px;border-radius:11px;margin-bottom:9px;
+  font-size:.95rem;line-height:1.55;letter-spacing:-.005em;
+  animation:turnIn .25s ease-out;
+}
+@keyframes turnIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.turn.ai{
+  background:linear-gradient(180deg, rgba(239,68,68,.06) 0%, rgba(239,68,68,.02) 100%);
+  border-left:3px solid rgba(239,68,68,.5);
+}
+.turn.you{
+  background:linear-gradient(180deg, rgba(34,197,94,.06) 0%, rgba(34,197,94,.02) 100%);
+  border-left:3px solid rgba(34,197,94,.5);
+}
+.turn.system{
+  background:rgba(255,255,255,.025);font-size:.72rem;color:#7a7a8a;
+  border-left:2px solid rgba(255,255,255,.12);font-style:italic;padding:8px 12px;
+}
+.turn .label{
+  font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;
+  font-weight:800;margin-bottom:5px;opacity:.85;
+}
+.turn.ai .label{color:#fca5a5}
+.turn.you .label{color:#86efac}
+.turn .interrupted{
+  display:inline-block;margin-left:8px;font-size:.55rem;color:#fbbf24;
+  background:rgba(251,191,36,.12);padding:2px 6px;border-radius:3px;
+  letter-spacing:.08em;animation:flashWarn .6s ease-out;
+}
+@keyframes flashWarn{0%{background:rgba(251,191,36,.4)}100%{background:rgba(251,191,36,.12)}}
+
+/* ── Notices / errors ─────────────────────────────── */
+.notice{padding:13px 15px;border-radius:11px;font-size:.85rem;line-height:1.55;margin-bottom:14px}
+.notice.warn{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);color:#fde68a}
+.notice.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
+.notice.info{background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.18);color:#bfdbfe}
+.notice strong{color:#fff;font-weight:600}
+
+/* ── Connecting state ─────────────────────────────── */
+.connecting{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:50px 20px;gap:18px;
+}
+.spinner{
+  width:40px;height:40px;border-radius:50%;
+  border:2px solid rgba(239,68,68,.15);border-top-color:#ef4444;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.connecting .step{font-size:.78rem;color:#9b9bab;letter-spacing:.04em}
+
+/* ── End-of-session summary ───────────────────────── */
+.summary-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;
+}
+.stat-card{
+  padding:14px;border-radius:12px;text-align:center;
+  background:linear-gradient(180deg, rgba(255,255,255,.035) 0%, rgba(0,0,0,.15) 100%);
+  border:1px solid rgba(255,255,255,.06);
+}
+.stat-card .v{
+  font-family:'JetBrains Mono', monospace;font-size:1.55rem;font-weight:600;
+  color:#e6e6ee;letter-spacing:-.01em;font-variant-numeric:tabular-nums;
+}
+.stat-card .l{font-size:.62rem;color:#7a7a8a;letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
+.talk-bar{
+  height:8px;border-radius:4px;background:rgba(34,197,94,.25);
+  position:relative;overflow:hidden;margin:6px 0 4px;
+}
+.talk-bar .ai-fill{
+  position:absolute;right:0;top:0;bottom:0;
+  background:rgba(239,68,68,.6);transition:width .6s cubic-bezier(.2,.8,.2,1);
+}
+.talk-bar-legend{display:flex;justify-content:space-between;font-size:.62rem;color:#7a7a8a;letter-spacing:.08em}
+
+.rfd-card{
+  background:linear-gradient(180deg, rgba(168,85,247,.07) 0%, rgba(168,85,247,.02) 100%);
+  border:1px solid rgba(168,85,247,.22);
+  border-radius:14px;padding:20px;
+  white-space:pre-wrap;line-height:1.65;font-size:.92rem;
+  margin-top:14px;
+}
+.rfd-card h3{
+  color:#c4b5fd;font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;
+  margin-bottom:14px;font-weight:700;
+}
+
+/* ── Personalities (gamified character picker) ───── */
+.persona-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;
+}
+.persona{
+  position:relative;text-align:left;padding:14px;
+  border:1px solid rgba(255,255,255,.06);border-radius:12px;
+  background:linear-gradient(180deg, rgba(255,255,255,.025) 0%, rgba(0,0,0,.15) 100%);
+  transition:all .18s cubic-bezier(.2,.8,.2,1);
+  display:flex;gap:12px;align-items:flex-start;
+  overflow:hidden;
+}
+.persona::before{
+  content:'';position:absolute;inset:0;border-radius:12px;
+  background:linear-gradient(135deg, var(--accent-glow, rgba(239,68,68,.15)) 0%, transparent 60%);
+  opacity:0;transition:opacity .18s;pointer-events:none;
+}
+.persona:hover{border-color:var(--accent-border, rgba(239,68,68,.3));transform:translateY(-1px)}
+.persona:hover::before{opacity:1}
+.persona.on{
+  border-color:var(--accent-strong, rgba(239,68,68,.6));
+  background:linear-gradient(180deg, rgba(239,68,68,.08) 0%, rgba(239,68,68,.015) 100%);
+  box-shadow:0 0 0 1px var(--accent-border, rgba(239,68,68,.3)), 0 8px 24px rgba(0,0,0,.25);
+}
+.persona.on::before{opacity:1}
+.persona .avatar{
+  width:46px;height:46px;flex-shrink:0;border-radius:50%;
+  display:grid;place-items:center;
+  font-weight:900;font-size:1.05rem;color:#fff;letter-spacing:-.02em;
+  background:var(--avatar-bg, linear-gradient(135deg,#ef4444,#7c2d12));
+  box-shadow:0 4px 12px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.18);
+}
+.persona .body{flex:1;min-width:0}
+.persona .name-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.persona .name{font-size:.95rem;font-weight:700;color:#e6e6ee;letter-spacing:-.01em}
+.persona .arch{font-size:.65rem;color:#7a7a8a;text-transform:uppercase;letter-spacing:.12em;font-weight:600}
+.persona .bio{font-size:.74rem;color:#9b9bab;line-height:1.45;margin-top:5px}
+.persona .bond{
+  display:flex;align-items:center;gap:6px;margin-top:8px;
+  font-size:.65rem;color:#7a7a8a;letter-spacing:.06em;font-weight:600;
+}
+.persona .bond .stars{color:#fbbf24;letter-spacing:.05em;font-size:.7rem}
+.persona .bond .level{color:#c4b5fd}
+.persona .bond .rounds{color:#7a7a8a;font-variant-numeric:tabular-nums}
+
+.bond-up-card{
+  background:linear-gradient(135deg, rgba(251,191,36,.1) 0%, rgba(168,85,247,.08) 100%);
+  border:1px solid rgba(251,191,36,.25);
+  border-radius:12px;padding:14px 16px;margin-bottom:14px;
+  display:flex;align-items:center;gap:14px;
+  animation:bondPulse .8s ease-out;
+}
+@keyframes bondPulse{0%{transform:scale(.96);opacity:0}100%{transform:scale(1);opacity:1}}
+.bond-up-card .b-avatar{
+  width:42px;height:42px;flex-shrink:0;border-radius:50%;
+  display:grid;place-items:center;color:#fff;font-weight:900;font-size:1rem;
+  background:var(--avatar-bg, linear-gradient(135deg,#ef4444,#7c2d12));
+}
+.bond-up-card .msg{flex:1}
+.bond-up-card .msg .t{font-size:.78rem;color:#fde68a;font-weight:700;letter-spacing:.04em}
+.bond-up-card .msg .s{font-size:.7rem;color:#9b9bab;margin-top:2px}
+
+/* ── Footer ───────────────────────────────────────── */
+.foot{
+  margin-top:32px;padding-top:20px;
+  border-top:1px solid rgba(255,255,255,.06);
+  text-align:center;font-size:.7rem;color:#5a5a6a;line-height:1.6;
+}
+.foot a{color:#9b9bab;text-decoration:underline;text-decoration-color:rgba(255,255,255,.15);text-underline-offset:2px}
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+<div id="daTopbar"></div>
+<script defer src="/js/topbar.js"></script>
+<div id="root"></div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try {
+  if (typeof firebase !== 'undefined') {
+    if (!(firebase.apps && firebase.apps.length)) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+  }
+} catch (e) { console.warn('[voice-debate] firebase init skipped:', e.message); }
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+const el = React.createElement;
+
+/* ═══════════════════════════════════════════════════════════════════
+   VOICE DEBATE — OpenAI Realtime (gpt-realtime-2)
+
+   Server mints an ephemeral token (/api/realtime-session); browser
+   opens a direct WebRTC peer connection to OpenAI. Server-side VAD
+   handles interruption — when the user speaks, the AI auto-cancels
+   its in-flight response. Our server is never in the audio path.
+
+   The orb visualizer taps both audio streams via Web Audio AnalyserNodes
+   so the UI stays in sync with what the user is actually hearing.
+═══════════════════════════════════════════════════════════════════ */
+
+const MODES = [
+  { key:'apda',       icon:'🎙️', title:'APDA Practice Round',     desc:'Full impromptu round. AI takes the opposite side.' },
+  { key:'crossex',    icon:'⚖️', title:'Cross-Examination Drill', desc:'AI fires CX questions; answer under pressure.' },
+  { key:'rebuttal',   icon:'⚡',  title:'Rebuttal Sparring',       desc:'Short alternating turns. Pure clash, no monologues.' },
+  { key:'layjudge',   icon:'👤', title:'Lay Judge Pitch',          desc:'Pitch your case to a smart non-debater.' },
+  { key:'aggressive', icon:'🔥', title:'Tournament Opponent',      desc:'Champion-grade. Steelman, then bury.' },
+];
+
+// Named personalities — each maps to one Realtime voice but reads as
+// a CHARACTER, not a voice slider. The user picks one and "builds a
+// relationship" with them across rounds (see bond tracking below).
+// Each has signature combat moves baked into `style` — the realtime
+// session uses these in the system prompt so the persona actually
+// debates differently, not just sounds different.
+const PERSONALITIES = [
+  { key:'verse',   voice:'verse',
+    name:'Cassidy Vale', initials:'CV', archetype:'The All-Rounder',
+    bio:'Versatile and sharp. Your default sparring partner. Picks you apart on whichever flank you leave open.',
+    style:'Switches register fluidly. Frames clean, attacks clean, weighs clean. No signature gimmick. Just relentlessly competent.',
+    avatarBg:'linear-gradient(135deg,#ef4444 0%,#7c2d12 100%)',
+    accentBorder:'rgba(239,68,68,.3)', accentStrong:'rgba(239,68,68,.6)', accentGlow:'rgba(239,68,68,.15)' },
+  { key:'ash',     voice:'ash',
+    name:'Marcus Crane', initials:'MC', archetype:'The Prosecutor',
+    bio:'Cold and direct. Treats every speech like a closing argument, and you like a witness on the stand.',
+    style:'Clipped, accusatory cadence. Names dropped arguments by exact phrase. Builds toward a verdict.',
+    avatarBg:'linear-gradient(135deg,#dc2626 0%,#450a0a 100%)',
+    accentBorder:'rgba(220,38,38,.35)', accentStrong:'rgba(220,38,38,.65)', accentGlow:'rgba(220,38,38,.18)' },
+  { key:'coral',   voice:'coral',
+    name:'Priya Reddi', initials:'PR', archetype:'The Quick Wit',
+    bio:'College-circuit champion. Reads every paper before the round and remembers it.',
+    style:'Fast, sharp, dryly funny. Counter-intuitive frames. Lands one-liners on impact beats.',
+    avatarBg:'linear-gradient(135deg,#fb7185 0%,#9f1239 100%)',
+    accentBorder:'rgba(251,113,133,.35)', accentStrong:'rgba(251,113,133,.6)', accentGlow:'rgba(251,113,133,.15)' },
+  { key:'sage',    voice:'sage',
+    name:'Dr. Eleanor Voss', initials:'EV', archetype:'The Philosopher',
+    bio:'Socratic and patient. Lets you build your case, then dismantles the foundation.',
+    style:'Measured pacing. Long internal pauses. Asks the question you wish you had answered.',
+    avatarBg:'linear-gradient(135deg,#a855f7 0%,#581c87 100%)',
+    accentBorder:'rgba(168,85,247,.35)', accentStrong:'rgba(168,85,247,.6)', accentGlow:'rgba(168,85,247,.15)' },
+  { key:'ballad',  voice:'ballad',
+    name:'Rosa Lopez', initials:'RL', archetype:'The Storyteller',
+    bio:'Narrative weapon. Turns policy arguments into people you can\'t unsee.',
+    style:'Warm, grounded. Names "Linda in Dayton". Specific people, specific stakes. Soft delivery, hard impacts.',
+    avatarBg:'linear-gradient(135deg,#fbbf24 0%,#92400e 100%)',
+    accentBorder:'rgba(251,191,36,.35)', accentStrong:'rgba(251,191,36,.6)', accentGlow:'rgba(251,191,36,.15)' },
+  { key:'shimmer', voice:'shimmer',
+    name:'Aisha Khan', initials:'AK', archetype:'The Diplomat',
+    bio:'Polished and devastating. Makes the cruelest attack sound entirely reasonable.',
+    style:'Composed, gracious, lethal. Concedes ground that doesn\'t matter so the ground that does matters more.',
+    avatarBg:'linear-gradient(135deg,#22d3ee 0%,#155e75 100%)',
+    accentBorder:'rgba(34,211,238,.35)', accentStrong:'rgba(34,211,238,.6)', accentGlow:'rgba(34,211,238,.15)' },
+  { key:'echo',    voice:'echo',
+    name:'Maya Chen', initials:'MA', archetype:'The Closer',
+    bio:'Confident bordering on smug. Sounds like she has already won the round.',
+    style:'Tight openings, ruthless weighing, dismissive teardowns of dropped links.',
+    avatarBg:'linear-gradient(135deg,#84cc16 0%,#365314 100%)',
+    accentBorder:'rgba(132,204,22,.35)', accentStrong:'rgba(132,204,22,.6)', accentGlow:'rgba(132,204,22,.15)' },
+  { key:'alloy',   voice:'alloy',
+    name:'Theo Alvarez', initials:'TA', archetype:'The Veteran',
+    bio:'Five hundred rounds deep. Nothing surprises him, including you.',
+    style:'Rich baritone, dry humor. Steelmans first. Buries quietly. Says "I\'ve seen this argument before", and means it.',
+    avatarBg:'linear-gradient(135deg,#525252 0%,#171717 100%)',
+    accentBorder:'rgba(115,115,115,.4)', accentStrong:'rgba(180,180,180,.55)', accentGlow:'rgba(255,255,255,.08)' },
+];
+
+const BOND_LEVELS = [
+  { min:0,  label:'New' },
+  { min:1,  label:'Acquaintance' },
+  { min:5,  label:'Sparring Partner' },
+  { min:15, label:'Rival' },
+  { min:30, label:'Nemesis' },
+  { min:60, label:'Arch-Nemesis' },
+];
+function bondInfo(rounds){
+  let cur = BOND_LEVELS[0];
+  for (const lvl of BOND_LEVELS) if (rounds >= lvl.min) cur = lvl;
+  const stars = Math.min(5, Math.floor(BOND_LEVELS.findIndex(l => l === cur)));
+  return { ...cur, stars };
+}
+function getBond(personaKey){
+  try { return parseInt(localStorage.getItem('debateai-bond-' + personaKey) || '0', 10) || 0; }
+  catch(e){ return 0; }
+}
+function incrementBond(personaKey){
+  try {
+    const next = getBond(personaKey) + 1;
+    localStorage.setItem('debateai-bond-' + personaKey, String(next));
+    return next;
+  } catch(e){ return 0; }
+}
+function getRememberedPersona(){
+  try { return localStorage.getItem('debateai-persona') || 'verse'; } catch(e){ return 'verse'; }
+}
+function rememberPersona(key){
+  try { localStorage.setItem('debateai-persona', key); } catch(e){}
+}
+
+// First name pulled from Firebase auth's displayName when available;
+// otherwise an empty string so the greeting falls back gracefully to
+// "So what are we debating today?" without a name.
+function getUserFirstName(){
+  try {
+    if (typeof firebase === 'undefined' || !firebase.auth) return '';
+    const u = firebase.auth().currentUser;
+    if (!u) return '';
+    const dn = u.displayName || '';
+    const first = dn.split(/\s+/)[0] || '';
+    return first.slice(0, 30);
+  } catch(e){ return ''; }
+}
+
+// Curated motions that produce strong, clashy practice rounds. Each is
+// a real APDA-style motion with an obvious clash axis — picked so a
+// first-time user gets a usable round even if they don't have one ready.
+const SAMPLE_MOTIONS = [
+  { tag:'AI',    text:'THBT social media platforms should be liable for misinformation that goes viral on their platforms' },
+  { tag:'Edu',   text:'THW abolish legacy admissions at universities' },
+  { tag:'Climate', text:'THBT the international community should impose conditional aid to combat climate change' },
+  { tag:'Tech',  text:'THW require informed consent before any algorithmic content recommendation' },
+  { tag:'Demo',  text:'THBT we regret the rise of citizen journalism' },
+  { tag:'India', text:'THBT the BJP has been a net positive for Indian democracy' },
+];
+
+function fmtTime(sec){
+  if(!isFinite(sec)) return '0:00';
+  const m = Math.floor(sec/60), s = Math.floor(sec%60);
+  return m + ':' + (s<10?'0':'') + s;
+}
+
+const SESSION_HARD_CAP_SEC = 8 * 60;
+
+/* ── Web Audio helpers ───────────────────────────── */
+
+// Singleton AudioContext. Some browsers throttle creation if abused;
+// reuse one per page. resume() needs a user gesture, which we always
+// have (Start button).
+let _audioCtx = null;
+function getAudioCtx(){
+  if (_audioCtx) return _audioCtx;
+  try {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch(e){ return null; }
+  return _audioCtx;
+}
+
+// Synth chime — short oscillator burst, no external audio files.
+// Used for session start / end / interrupt cues. Subtle so it doesn't
+// sound like a notification bot.
+function chime(freqs, opts){
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') { try { ctx.resume(); } catch(e){} }
+  const dur = (opts && opts.dur) || 0.18;
+  const gain = (opts && opts.gain) || 0.05;
+  const type = (opts && opts.type) || 'sine';
+  const stagger = (opts && opts.stagger) || 0.06;
+  freqs.forEach((f, i) => {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    const start = ctx.currentTime + i * stagger;
+    osc.type = type;
+    osc.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.exponentialRampToValueAtTime(gain, start + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + dur + 0.02);
+  });
+}
+const SFX = {
+  start: () => chime([660, 880, 990], { dur: 0.22, gain: 0.045, stagger: 0.08 }),
+  end:   () => chime([660, 440, 330], { dur: 0.32, gain: 0.04,  stagger: 0.1, type: 'triangle' }),
+  interrupt: () => chime([1400], { dur: 0.05, gain: 0.025, type: 'square' }),
+};
+
+/* ── Orb canvas — the showpiece visual ───────────── */
+
+// Renders a circular waveform-meets-aurora that responds to either the
+// AI audio amplitude or the user's mic amplitude (whichever is louder).
+// Pure 2D canvas, no WebGL — works everywhere, low CPU.
+function startOrbAnimation(canvas, getLevels, isUserSpeakingRef){
+  const ctx = canvas.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const fitCanvas = () => {
+    const cssW = canvas.clientWidth || 280;
+    const cssH = canvas.clientHeight || 280;
+    canvas.width = cssW * dpr;
+    canvas.height = cssH * dpr;
+  };
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+
+  let raf = null;
+  let phase = 0;
+  // Slight smoothing so the orb breathes instead of stuttering on each
+  // amplitude sample. Larger smoothing = chiller motion.
+  let smoothLevel = 0;
+
+  const draw = () => {
+    const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2;
+    const R = Math.min(W, H) * 0.32;
+    const { ai, user } = getLevels();
+    const isUser = !!isUserSpeakingRef.current;
+    const live = Math.max(ai, user);
+    smoothLevel += (live - smoothLevel) * 0.18;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Color palette — green for user-active, crimson otherwise.
+    const accent = isUser ? [34,197,94] : [239,68,68];
+
+    // Outer aurora glow
+    const auroraR = R * (1.4 + smoothLevel * 0.7);
+    const grad = ctx.createRadialGradient(cx, cy, R*0.2, cx, cy, auroraR);
+    grad.addColorStop(0, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.35 + smoothLevel*0.3})`);
+    grad.addColorStop(0.4, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.12 + smoothLevel*0.15})`);
+    grad.addColorStop(1, `rgba(${accent[0]},${accent[1]},${accent[2]},0)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Inner ring waveform
+    phase += 0.012 + smoothLevel * 0.02;
+    const segments = 96;
+    ctx.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const a = t * Math.PI * 2;
+      // Layered sine modulation gives an organic, breathing motion.
+      const r = R * (1 + smoothLevel * 0.55) +
+                Math.sin(a * 6 + phase * 2) * (3 + smoothLevel * 14) +
+                Math.sin(a * 11 - phase * 3) * (2 + smoothLevel * 9) +
+                Math.cos(a * 3 + phase) * (4 + smoothLevel * 6);
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.lineWidth = 1.6 * dpr;
+    ctx.strokeStyle = `rgba(${accent[0]},${accent[1]},${accent[2]},${0.55 + smoothLevel*0.3})`;
+    ctx.stroke();
+    ctx.fillStyle = `rgba(${accent[0]},${accent[1]},${accent[2]},${0.04 + smoothLevel*0.06})`;
+    ctx.fill();
+
+    // Inner pulsing core
+    const coreR = R * (0.55 + smoothLevel * 0.25);
+    const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+    coreGrad.addColorStop(0, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.6 + smoothLevel*0.3})`);
+    coreGrad.addColorStop(1, `rgba(${accent[0]},${accent[1]},${accent[2]},0)`);
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, coreR, 0, Math.PI*2);
+    ctx.fill();
+
+    // Bright hot center
+    ctx.fillStyle = `rgba(255,255,255,${0.5 + smoothLevel*0.4})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4 * dpr + smoothLevel*8, 0, Math.PI*2);
+    ctx.fill();
+
+    raf = requestAnimationFrame(draw);
+  };
+  draw();
+
+  return () => {
+    if (raf) cancelAnimationFrame(raf);
+    window.removeEventListener('resize', fitCanvas);
+  };
+}
+
+/* ─────────────────────────────────────────────────── */
+
+function App(){
+  const [mode, setMode] = useState('apda');
+  // The motion is now optional — the AI opens by ASKING what to debate
+  // ("So what are we debating today, {name}?"), so users can either
+  // pre-fill a motion or just speak it after the greeting.
+  const [motion, setMotion] = useState('');
+  // Persona persists across sessions for the gamified bond. Default to
+  // whichever character the user picked last time.
+  const [personaKey, setPersonaKey] = useState(() => getRememberedPersona());
+  const [side, setSide] = useState('opp');
+  // Bond tick — bumps when the user finishes a round so the picker
+  // re-renders with the new round count without a full reload.
+  const [bondTick, setBondTick] = useState(0);
+  // First name is read on render; updated when Firebase auth resolves.
+  const [userFirstName, setUserFirstName] = useState(() => getUserFirstName());
+  // Bond-up celebration card (end of session, if a level was reached).
+  const [bondUp, setBondUp] = useState(null);
+
+  // Watch Firebase auth so the greeting personalizes once sign-in resolves.
+  useEffect(()=>{
+    let unsub = null;
+    try {
+      if (typeof firebase !== 'undefined' && firebase.auth) {
+        unsub = firebase.auth().onAuthStateChanged(()=>{
+          setUserFirstName(getUserFirstName());
+        });
+      }
+    } catch(e){}
+    return ()=>{ try { unsub && unsub(); } catch(e){} };
+  }, []);
+
+  const persona = useMemo(
+    () => PERSONALITIES.find(p => p.key === personaKey) || PERSONALITIES[0],
+    [personaKey]
+  );
+  // bondTick is intentionally referenced so the memo recomputes after a round.
+  const bondCount = useMemo(() => getBond(personaKey), [personaKey, bondTick]);
+  const bond = bondInfo(bondCount);
+
+  // Connection state machine: idle → connecting → live → ended
+  const [status, setStatus] = useState('idle');
+  const [connectStep, setConnectStep] = useState('');
+  const [error, setError] = useState('');
+
+  // Live state
+  const [speaking, setSpeaking] = useState('idle'); // 'ai' | 'user' | 'idle'
+  const [elapsed, setElapsed] = useState(0);
+  const [turns, setTurns] = useState([]);
+  const [interruptCount, setInterruptCount] = useState(0);
+  const [aiSpeakingMs, setAiSpeakingMs] = useState(0);
+  const [userSpeakingMs, setUserSpeakingMs] = useState(0);
+
+  // Post-session
+  const [rfd, setRfd] = useState('');
+  const [rfdLoading, setRfdLoading] = useState(false);
+
+  // Mic-meter (5 bars; ambient indicator that mic is alive)
+  const [micBars, setMicBars] = useState([0,0,0,0,0]);
+
+  // Refs for things that shouldn't trigger re-renders
+  const pcRef = useRef(null);
+  const dcRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const audioElRef = useRef(null);
+  const startedAtRef = useRef(0);
+  const tickRef = useRef(null);
+  const lastSpeechTickRef = useRef({ ai: 0, user: 0, who: null });
+  const turnsRef = useRef([]);
+  const currentAiTurnRef = useRef(null);
+  const currentUserTurnRef = useRef(null);
+  const isUserSpeakingRef = useRef(false);
+
+  // AnalyserNodes for the orb + mic meter
+  const aiAnalyserRef = useRef(null);
+  const userAnalyserRef = useRef(null);
+  const aiBufRef = useRef(null);
+  const userBufRef = useRef(null);
+  const orbCanvasRef = useRef(null);
+  const orbStopRef = useRef(null);
+  const micPollRef = useRef(null);
+
+  useEffect(()=>{ turnsRef.current = turns; }, [turns]);
+
+  /* ── Turn helpers ─────────────────────────────── */
+
+  const upsertTurn = useCallback((turn)=>{
+    setTurns(prev=>{
+      const idx = prev.findIndex(t => t.id === turn.id);
+      if (idx >= 0) {
+        const next = prev.slice();
+        next[idx] = { ...next[idx], ...turn };
+        return next;
+      }
+      return [...prev, turn];
+    });
+  }, []);
+  const addSystem = useCallback((text)=>{
+    setTurns(prev => [...prev, { id:'sys-'+Date.now()+'-'+Math.random(), who:'system', text }]);
+  }, []);
+
+  /* ── Cleanup ──────────────────────────────────── */
+
+  const cleanup = useCallback(()=>{
+    if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
+    if (micPollRef.current) { clearInterval(micPollRef.current); micPollRef.current = null; }
+    if (orbStopRef.current) { try{ orbStopRef.current(); }catch(e){} orbStopRef.current = null; }
+    try { dcRef.current && dcRef.current.close(); } catch(e){}
+    dcRef.current = null;
+    try { pcRef.current && pcRef.current.close(); } catch(e){}
+    pcRef.current = null;
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t=>{ try{t.stop()}catch(e){} });
+      localStreamRef.current = null;
+    }
+    if (audioElRef.current) {
+      try { audioElRef.current.srcObject = null; } catch(e){}
+      try { audioElRef.current.remove(); } catch(e){}
+      audioElRef.current = null;
+    }
+    aiAnalyserRef.current = null;
+    userAnalyserRef.current = null;
+    setSpeaking('idle');
+    isUserSpeakingRef.current = false;
+  }, []);
+
+  useEffect(()=>{ return cleanup; }, [cleanup]);
+
+  /* ── Realtime event handler ───────────────────── */
+
+  const handleEvent = useCallback((evt)=>{
+    if (!evt || !evt.type) return;
+
+    switch (evt.type) {
+      case 'session.created':
+      case 'session.updated':
+        break;
+
+      case 'input_audio_buffer.speech_started': {
+        // User started talking — interrupt if AI was mid-response.
+        const cur = currentAiTurnRef.current;
+        if (cur) {
+          upsertTurn({ ...cur, interrupted: true });
+          currentAiTurnRef.current = null;
+          setInterruptCount(n => n + 1);
+          SFX.interrupt();
+        }
+        setSpeaking('user');
+        isUserSpeakingRef.current = true;
+        const id = 'you-' + Date.now();
+        currentUserTurnRef.current = { id, who:'you', text:'…' };
+        upsertTurn(currentUserTurnRef.current);
+        lastSpeechTickRef.current = { ai: 0, user: Date.now(), who: 'user' };
+        break;
+      }
+
+      case 'input_audio_buffer.speech_stopped': {
+        if (lastSpeechTickRef.current.who === 'user' && lastSpeechTickRef.current.user) {
+          setUserSpeakingMs(ms => ms + (Date.now() - lastSpeechTickRef.current.user));
+        }
+        lastSpeechTickRef.current = { ai: 0, user: 0, who: null };
+        isUserSpeakingRef.current = false;
+        if (speaking === 'user') setSpeaking('idle');
+        break;
+      }
+
+      case 'conversation.item.input_audio_transcription.completed': {
+        const id = currentUserTurnRef.current?.id;
+        if (id) {
+          upsertTurn({ id, who:'you', text: evt.transcript || '' });
+          currentUserTurnRef.current = null;
+        } else {
+          upsertTurn({ id:'you-'+Date.now(), who:'you', text: evt.transcript || '' });
+        }
+        break;
+      }
+
+      case 'response.created': {
+        const id = 'ai-' + Date.now();
+        currentAiTurnRef.current = { id, who:'ai', text:'' };
+        upsertTurn(currentAiTurnRef.current);
+        setSpeaking('ai');
+        lastSpeechTickRef.current = { ai: Date.now(), user: 0, who: 'ai' };
+        break;
+      }
+
+      case 'response.audio_transcript.delta': {
+        const cur = currentAiTurnRef.current;
+        if (cur) {
+          cur.text = (cur.text || '') + (evt.delta || '');
+          upsertTurn(cur);
+        }
+        break;
+      }
+
+      case 'response.audio_transcript.done': {
+        const cur = currentAiTurnRef.current;
+        if (cur) {
+          cur.text = evt.transcript || cur.text;
+          upsertTurn(cur);
+        }
+        break;
+      }
+
+      case 'response.done': {
+        if (lastSpeechTickRef.current.who === 'ai' && lastSpeechTickRef.current.ai) {
+          setAiSpeakingMs(ms => ms + (Date.now() - lastSpeechTickRef.current.ai));
+        }
+        lastSpeechTickRef.current = { ai: 0, user: 0, who: null };
+        if (speaking === 'ai') setSpeaking('idle');
+        currentAiTurnRef.current = null;
+        break;
+      }
+
+      case 'error':
+        console.error('[realtime event error]', evt.error);
+        addSystem('Error: ' + (evt.error?.message || 'unknown'));
+        break;
+
+      default:
+        break;
+    }
+  }, [upsertTurn, addSystem, speaking]);
+
+  /* ── stop / start ─────────────────────────────── */
+
+  function stop(systemMsg) {
+    SFX.end();
+    cleanup();
+    setStatus('ended');
+    if (systemMsg) addSystem(systemMsg);
+    else addSystem('Session ended.');
+
+    // Only count this as a "round together" if the user actually
+    // engaged — at least one user turn with real text. Stops accidental
+    // start/stop clicks from inflating bond counters.
+    const realUserTurns = turnsRef.current.filter(
+      t => t.who === 'you' && (t.text || '').trim().length > 4
+    ).length;
+    if (realUserTurns >= 1) {
+      const beforeLevel = bondInfo(getBond(personaKey)).label;
+      const after = incrementBond(personaKey);
+      const afterLevel = bondInfo(after).label;
+      setBondTick(n => n + 1);
+      // Bond-up moment: surfaces a celebratory card if the round
+      // crossed a threshold (Acquaintance → Sparring Partner, etc.).
+      if (beforeLevel !== afterLevel) {
+        setBondUp({ from: beforeLevel, to: afterLevel, count: after });
+      } else {
+        setBondUp({ from: null, to: null, count: after });
+      }
+    } else {
+      setBondUp(null);
+    }
+  }
+
+  const start = useCallback(async ()=>{
+    setError('');
+    setRfd('');
+    setTurns([]);
+    setInterruptCount(0);
+    setAiSpeakingMs(0);
+    setUserSpeakingMs(0);
+    setStatus('connecting');
+    setConnectStep('Minting session…');
+
+    try {
+      // Resume audio context now (we have a user gesture). Crucial on
+      // iOS Safari, which won't unlock audio without one.
+      const ctx = getAudioCtx();
+      if (ctx && ctx.state === 'suspended') { try { await ctx.resume(); } catch(e){} }
+
+      // 1. Mint ephemeral session token via our backend.
+      // Server prepends a CHARACTER preamble to the mode prompt so the
+      // AI knows who it IS (persona name + archetype + style), who the
+      // USER is (first name when signed in), and how many rounds they
+      // have together. That's what powers the relationship arc.
+      const mintRes = await fetch('/api/realtime-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode, motion, side, format: 'APDA',
+          voice: persona.voice,
+          personaName: persona.name,
+          personaArchetype: persona.archetype,
+          personaStyle: persona.style,
+          userName: userFirstName,
+          bondCount,
+        }),
+      });
+      if (!mintRes.ok) {
+        const detail = await mintRes.text().catch(()=> '');
+        let parsed = ''; try { parsed = JSON.parse(detail).error || ''; } catch(e){}
+        if (mintRes.status === 429) {
+          throw new Error('Rate limit hit. 6 sessions per hour. Try again soon.');
+        }
+        throw new Error('Could not start session (' + mintRes.status + '). ' + (parsed || detail.slice(0,140)));
+      }
+      const session = await mintRes.json();
+      const ephemeralKey = session?.client_secret?.value;
+      if (!ephemeralKey) throw new Error('Session response missing client_secret.');
+
+      setConnectStep('Requesting microphone…');
+
+      // 2. WebRTC peer connection
+      const pc = new RTCPeerConnection();
+      pcRef.current = pc;
+
+      // Remote audio sink
+      const audioEl = document.createElement('audio');
+      audioEl.autoplay = true;
+      audioEl.playsInline = true;
+      document.body.appendChild(audioEl);
+      audioElRef.current = audioEl;
+      pc.ontrack = (evt) => {
+        if (evt.streams && evt.streams[0]) {
+          audioEl.srcObject = evt.streams[0];
+          // Tap the AI stream for the orb visualizer.
+          try {
+            const ctx2 = getAudioCtx();
+            if (ctx2) {
+              const src = ctx2.createMediaStreamSource(evt.streams[0]);
+              const an = ctx2.createAnalyser();
+              an.fftSize = 512;
+              an.smoothingTimeConstant = 0.7;
+              src.connect(an);
+              aiAnalyserRef.current = an;
+              aiBufRef.current = new Uint8Array(an.frequencyBinCount);
+            }
+          } catch(e){ console.warn('[orb] AI analyser tap failed:', e); }
+        }
+      };
+
+      // Local mic
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+      } catch(e) {
+        throw new Error('Microphone permission denied. Allow mic access in your browser settings, then reload.');
+      }
+      localStreamRef.current = stream;
+      stream.getTracks().forEach(t => pc.addTrack(t, stream));
+
+      // Tap mic for level meter + orb (user-side amplitude).
+      try {
+        const ctx2 = getAudioCtx();
+        if (ctx2) {
+          const src = ctx2.createMediaStreamSource(stream);
+          const an = ctx2.createAnalyser();
+          an.fftSize = 512;
+          an.smoothingTimeConstant = 0.6;
+          src.connect(an);
+          userAnalyserRef.current = an;
+          userBufRef.current = new Uint8Array(an.frequencyBinCount);
+        }
+      } catch(e){ console.warn('[orb] mic analyser tap failed:', e); }
+
+      // Data channel for events
+      const dc = pc.createDataChannel('oai-events');
+      dcRef.current = dc;
+      dc.onmessage = (e) => {
+        try { handleEvent(JSON.parse(e.data)); }
+        catch(err) { console.warn('[dc parse]', err); }
+      };
+      dc.onopen = () => {
+        // Kick off the AI greeting immediately. Without this, both sides
+        // sit silent until the user speaks first — bad for a demo.
+        //
+        // Two greeting shapes depending on whether the user pre-filled
+        // a motion:
+        //   - No motion: open with "So what are we debating today,
+        //     {Name}?" — the killer first impression. Conversational,
+        //     personal, and prompts the user to literally SAY the
+        //     motion out loud (which is how a real round opens).
+        //   - With motion: short formal opening — name the motion in
+        //     one line, name the side, then "Whenever you're ready."
+        try {
+          const nameSuffix = userFirstName ? (', ' + userFirstName) : '';
+          const greetingInstructions = motion.trim()
+            ? `Greet ${userFirstName || 'the user'} briefly in character (under 10 seconds). Name the motion in one short clean line, name your side, then say "Whenever you're ready${nameSuffix}." No lecture, just the handshake.`
+            : `Open the round with exactly this opening line, in your character's voice: "So what are we debating today${nameSuffix}?" Then stop and wait for them to say the motion. Do not suggest a motion yourself, do not list options, do not lecture. One sentence, then silence.`;
+          dc.send(JSON.stringify({
+            type: 'response.create',
+            response: {
+              modalities: ['audio','text'],
+              instructions: greetingInstructions,
+            }
+          }));
+        } catch(e){ console.warn('[dc] greeting send failed:', e); }
+      };
+
+      setConnectStep('Negotiating with OpenAI…');
+
+      // 3. SDP offer/answer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const sdpRes = await fetch(
+        'https://api.openai.com/v1/realtime?model=' + encodeURIComponent(session.model || 'gpt-realtime-2'),
+        {
+          method: 'POST',
+          body: offer.sdp,
+          headers: {
+            'Authorization': 'Bearer ' + ephemeralKey,
+            'Content-Type': 'application/sdp',
+            'OpenAI-Beta': 'realtime=v1',
+          },
+        }
+      );
+      if (!sdpRes.ok) {
+        const detail = await sdpRes.text().catch(()=> '');
+        throw new Error('OpenAI handshake failed (' + sdpRes.status + '). ' + detail.slice(0,140));
+      }
+      const answerSdp = await sdpRes.text();
+      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+      // 4. Live!
+      startedAtRef.current = Date.now();
+      tickRef.current = setInterval(()=>{
+        const t = (Date.now() - startedAtRef.current) / 1000;
+        setElapsed(t);
+        if (t >= SESSION_HARD_CAP_SEC) {
+          stop('Session ended (8-minute cap reached).');
+        }
+      }, 250);
+
+      // Mic level poll — drives the 5-bar meter under the orb.
+      micPollRef.current = setInterval(()=>{
+        const an = userAnalyserRef.current, buf = userBufRef.current;
+        if (!an || !buf) return;
+        an.getByteFrequencyData(buf);
+        let sum = 0; for (let i = 0; i < buf.length; i++) sum += buf[i];
+        const avg = sum / buf.length / 255; // 0-1
+        const lit = Math.max(0, Math.min(5, Math.round(avg * 8)));
+        setMicBars([0,1,2,3,4].map(i => i < lit ? 1 : 0));
+      }, 90);
+
+      setStatus('live');
+      SFX.start();
+      addSystem('Live. Speak whenever. Interrupting the AI is the whole point.');
+    } catch (e) {
+      console.error('[start] failed:', e);
+      setError(e.message || String(e));
+      setStatus('idle');
+      cleanup();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, motion, voice, side, addSystem, handleEvent, cleanup]);
+
+  /* ── Orb bootstrap (after canvas mounts) ──────── */
+
+  useEffect(()=>{
+    if (status !== 'live') return;
+    const canvas = orbCanvasRef.current;
+    if (!canvas) return;
+    const getLevels = () => {
+      let ai = 0, user = 0;
+      const aA = aiAnalyserRef.current, aB = aiBufRef.current;
+      if (aA && aB) {
+        aA.getByteFrequencyData(aB);
+        let s = 0; for (let i = 0; i < aB.length; i++) s += aB[i];
+        ai = Math.min(1, (s / aB.length / 255) * 1.6);
+      }
+      const uA = userAnalyserRef.current, uB = userBufRef.current;
+      if (uA && uB) {
+        uA.getByteFrequencyData(uB);
+        let s = 0; for (let i = 0; i < uB.length; i++) s += uB[i];
+        user = Math.min(1, (s / uB.length / 255) * 1.8);
+      }
+      return { ai, user };
+    };
+    orbStopRef.current = startOrbAnimation(canvas, getLevels, isUserSpeakingRef);
+    return () => {
+      if (orbStopRef.current) { orbStopRef.current(); orbStopRef.current = null; }
+    };
+  }, [status]);
+
+  /* ── RFD generation ───────────────────────────── */
+
+  const generateRFD = useCallback(async ()=>{
+    setRfdLoading(true);
+    setRfd('');
+    try {
+      const transcriptText = turnsRef.current
+        .filter(t => t.who === 'you' || t.who === 'ai')
+        .map(t => (t.who === 'you' ? 'YOU' : 'AI') + ': ' + (t.text || '').trim() + (t.interrupted ? ' [interrupted]' : ''))
+        .join('\n\n');
+      const modeLabel = MODES.find(m => m.key === mode)?.title || mode;
+      const sys = `You are a debate judge giving a Reason for Decision after a live voice debate. Mode: ${modeLabel}. Motion: "${motion}". Side the user took: ${side === 'gov' ? 'Government' : 'Opposition'}.
+
+Format the RFD exactly as:
+
+DECISION
+(one line — who would win on the flow if this were a competitive round)
+
+BEST MOMENT
+(1-2 sentences — name the specific exchange and why it landed)
+
+COSTLIEST MOMENT
+(1-2 sentences — name the specific exchange and why it cost ground)
+
+TWO FIXES FOR NEXT ROUND
+1. ...
+2. ...
+
+Tone: varsity-debater register. Specific to the actual exchange — quote the user's claim back at them when relevant. No throat-clearing. No em-dashes. No generic coaching. If the user only spoke briefly, say so and base feedback on what's there.`;
+      const user = 'TRANSCRIPT:\n\n' + transcriptText;
+
+      const res = await fetch('/api/openai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          system: sys,
+          messages: [{ role: 'user', content: user }],
+          stream: false,
+        }),
+      });
+      if (!res.ok) throw new Error('RFD ' + res.status);
+      const data = await res.json();
+      const text = data?.choices?.[0]?.message?.content
+        || data?.message?.content
+        || data?.text
+        || '';
+      setRfd(text || '(No RFD returned.)');
+    } catch (e) {
+      setRfd('Could not generate RFD: ' + e.message);
+    } finally {
+      setRfdLoading(false);
+    }
+  }, [mode, motion, side]);
+
+  /* ── Auto-scroll transcript ───────────────────── */
+
+  const transcriptRef = useRef(null);
+  useEffect(()=>{
+    const node = transcriptRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [turns]);
+
+  /* ── Derived ──────────────────────────────────── */
+
+  const isLive = status === 'live';
+  const isConnecting = status === 'connecting';
+  const isEnded = status === 'ended';
+
+  const totalSpokenMs = aiSpeakingMs + userSpeakingMs;
+  const aiSharePct = totalSpokenMs > 0 ? Math.round((aiSpeakingMs / totalSpokenMs) * 100) : 50;
+  const userSharePct = 100 - aiSharePct;
+
+  const stageClass = 'stage' + (speaking === 'user' ? ' user' : '');
+
+  /* ── Render ───────────────────────────────────── */
+
+  return el('div', { className:'shell' },
+    // Header
+    el('div', { className:'head' },
+      el('div', { className:'brand' },
+        el('a', { href:'/' },
+          el('span', { className:'logo-mark' }, 'D'),
+          el('span', null, 'Debate AI ', el('span', { className:'beta' }, 'Voice · Beta')),
+        ),
+      ),
+      el('a', { className:'back', href:'/debate-ai' }, '← text mode'),
+    ),
+
+    // Hero (only when not live)
+    !isLive && !isConnecting && el('div', { className:'hero' },
+      el('h1', null, 'The AI talks back. ', el('span', { className:'accent' }, 'And listens.')),
+      el('p', { className:'lede' },
+        userFirstName
+          ? [
+              persona.name + ' will open with ',
+              el('strong', { key:'q' }, '"So what are we debating today, ' + userFirstName + '?"'),
+              '. Say the motion out loud, then it\'s a real round. Cut in mid-speech, take POIs, run cross-ex.',
+            ]
+          : [
+              'Speak your case. Cut in mid-speech. Take POIs. Run cross-ex. ',
+              persona.name + ' hears you the moment you start talking and reacts in real time.',
+            ]
+      ),
+      el('div', { className:'meta' },
+        el('span', { className:'pip' }), 'Live · 8-min cap · 6 sessions/hour',
+      ),
+    ),
+
+    // Setup
+    !isLive && !isConnecting && el('div', null,
+      el('div', { className:'card' },
+        el('h3', null, 'Mode'),
+        el('div', { className:'modes' },
+          MODES.map(m =>
+            el('button', {
+              key:m.key,
+              className:'mode' + (mode===m.key ? ' on' : ''),
+              onClick:()=>{ setMode(m.key); }
+            },
+              el('div', { className:'icon' }, m.icon),
+              el('div', { className:'t' }, m.title),
+              el('div', { className:'d' }, m.desc),
+            )
+          )
+        )
+      ),
+
+      el('div', { className:'card' },
+        el('h3', null, 'Motion · optional'),
+        el('div', { style:{fontSize:'.74rem',color:'#9b9bab',marginBottom:10,lineHeight:1.5} },
+          'Leave blank and ' + persona.name.split(' ')[0] + ' will open with ',
+          el('em', null, '"So what are we debating today',
+            userFirstName ? ', ' + userFirstName + '?"' : '?"'
+          ),
+          '. Say the motion out loud, or pre-fill one below.',
+        ),
+        el('input', {
+          type:'text',
+          value: motion,
+          onChange: e => setMotion(e.target.value),
+          placeholder: 'THBT… (or leave blank)',
+          maxLength: 400,
+        }),
+        el('div', { className:'chips' },
+          SAMPLE_MOTIONS.map((m,i) =>
+            el('button', {
+              key:i,
+              className:'chip',
+              onClick:()=>setMotion(m.text),
+              title: m.text,
+            }, m.tag)
+          )
+        ),
+      ),
+
+      el('div', { className:'card' },
+        el('h3', null, 'You argue'),
+        el('div', { className:'side-toggle' },
+          el('button', {
+            className: side==='gov' ? 'on' : '',
+            onClick: ()=> setSide('gov'),
+          }, 'Government'),
+          el('button', {
+            className: side==='opp' ? 'on' : '',
+            onClick: ()=> setSide('opp'),
+          }, 'Opposition'),
+        ),
+      ),
+
+      // Persona picker — the gamified bit. Each is a named character
+      // with a persistent bond counter (rounds-together) saved in
+      // localStorage. Pick once and the choice sticks across visits.
+      el('div', { className:'card' },
+        el('h3', null, 'Who are you debating today?'),
+        el('div', { style:{fontSize:'.74rem',color:'#9b9bab',marginBottom:12,lineHeight:1.5} },
+          'Pick the opponent you want to spar with. Each round you finish builds the bond. Acquaintance → Sparring Partner → Rival → Nemesis.',
+        ),
+        el('div', { className:'persona-grid' },
+          PERSONALITIES.map(p => {
+            const r = getBond(p.key);
+            const b = bondInfo(r);
+            // Star rendering: filled stars = bond level (0-5).
+            const stars = '★'.repeat(b.stars) + '☆'.repeat(Math.max(0, 5 - b.stars));
+            const styleVars = {
+              '--avatar-bg':    p.avatarBg,
+              '--accent-border':p.accentBorder,
+              '--accent-strong':p.accentStrong,
+              '--accent-glow':  p.accentGlow,
+            };
+            return el('button', {
+              key:p.key,
+              className:'persona' + (personaKey===p.key ? ' on' : ''),
+              style: styleVars,
+              onClick:()=>{ setPersonaKey(p.key); rememberPersona(p.key); },
+            },
+              el('div', { className:'avatar' }, p.initials),
+              el('div', { className:'body' },
+                el('div', { className:'name-row' },
+                  el('div', { className:'name' }, p.name),
+                  el('div', { className:'arch' }, p.archetype),
+                ),
+                el('div', { className:'bio' }, p.bio),
+                el('div', { className:'bond' },
+                  el('span', { className:'stars' }, stars),
+                  el('span', { className:'level' }, b.label),
+                  el('span', { className:'rounds' }, '·'),
+                  el('span', { className:'rounds' }, r + ' round' + (r === 1 ? '' : 's')),
+                ),
+              ),
+            );
+          })
+        ),
+      ),
+
+      error && el('div', { className:'notice error' }, error),
+
+      el('button', { className:'cta', onClick: start },
+        'Step in with ' + persona.name.split(' ')[0],
+        ' ', el('span', { className:'arrow' }, '→')
+      ),
+
+      el('div', { style:{marginTop:14,fontSize:'.7rem',color:'#5a5a6a',lineHeight:1.6,textAlign:'center'} },
+        'Microphone permission required. Audio streams directly between your browser and OpenAI; transcripts stay in your browser unless you save them.'
+      ),
+    ),
+
+    // Connecting
+    isConnecting && el('div', { className:'card' },
+      el('div', { className:'connecting' },
+        el('div', { className:'spinner' }),
+        el('div', { className:'step' }, connectStep || 'Connecting…'),
+      ),
+    ),
+
+    // LIVE — the showpiece
+    isLive && el('div', null,
+      el('div', { className: stageClass },
+        el('canvas', { className:'orb', ref: orbCanvasRef }),
+        el('div', { className:'label' },
+          el('span', { className:'who' },
+            speaking === 'user' ? '◉ ' + (userFirstName ? userFirstName.toUpperCase() : 'YOU') + ' SPEAKING' :
+            speaking === 'ai'   ? '◉ ' + persona.name.split(' ')[0].toUpperCase() + ' SPEAKING' :
+                                   '○ LISTENING'
+          ),
+        ),
+        el('div', { className:'timer' },
+          fmtTime(elapsed),
+          el('span', { className:'total' }, ' / ' + fmtTime(SESSION_HARD_CAP_SEC)),
+        ),
+        el('div', { className:'stats' },
+          el('span', null, el('strong', null, interruptCount), ' interrupts'),
+          el('span', null, 'AI ', el('strong', null, aiSharePct + '%'), ' / You ', el('strong', null, userSharePct + '%')),
+        ),
+        el('div', { className:'miclevel' },
+          'mic',
+          el('div', { className:'bars' },
+            micBars.map((on, i) =>
+              el('div', { key:i, className:'bar' + (on ? ' on' : '') })
+            )
+          )
+        ),
+      ),
+
+      el('div', { className:'card' },
+        el('h3', null, 'Live Transcript'),
+        el('div', { className:'transcript', ref: transcriptRef },
+          turns.length === 0
+            ? el('div', { style:{color:'#5a5a6a',fontSize:'.82rem',padding:'30px 4px',textAlign:'center'} },
+                'Waiting for the first word…'
+              )
+            : turns.map(t =>
+                el('div', { key:t.id, className:'turn ' + t.who },
+                  t.who !== 'system' && el('div', { className:'label' },
+                    t.who === 'ai' ? 'AI' : 'You',
+                    t.interrupted && el('span', { className:'interrupted' }, 'INTERRUPTED'),
+                  ),
+                  el('div', null, t.text || (t.who === 'system' ? '' : '…')),
+                )
+              )
+        ),
+      ),
+
+      el('button', { className:'cta stop', onClick: ()=>stop() }, 'End Session'),
+    ),
+
+    // Ended — summary + RFD
+    isEnded && el('div', null,
+      // Bond-up moment: shows when the user has just crossed a level
+      // threshold with this persona, or just confirms bond +1.
+      bondUp && el('div', {
+        className:'bond-up-card',
+        style:{ '--avatar-bg': persona.avatarBg },
+      },
+        el('div', { className:'b-avatar' }, persona.initials),
+        el('div', { className:'msg' },
+          el('div', { className:'t' },
+            bondUp.from && bondUp.from !== bondUp.to
+              ? '★ ' + persona.name + ': ' + bondUp.from + ' → ' + bondUp.to
+              : '+1 round with ' + persona.name
+          ),
+          el('div', { className:'s' },
+            bondUp.count + ' round' + (bondUp.count === 1 ? '' : 's') + ' together' +
+            (bondUp.from && bondUp.from !== bondUp.to
+              ? ' · bond level up'
+              : '')
+          ),
+        ),
+      ),
+
+      el('div', { className:'notice info' }, el('strong', null, 'Round complete.'), ' Generate the judge\'s RFD to see how it landed.'),
+
+      // Stat tiles
+      el('div', { className:'summary-grid' },
+        el('div', { className:'stat-card' },
+          el('div', { className:'v' }, fmtTime(elapsed)),
+          el('div', { className:'l' }, 'Round time'),
+        ),
+        el('div', { className:'stat-card' },
+          el('div', { className:'v' }, interruptCount),
+          el('div', { className:'l' }, 'Interrupts'),
+        ),
+        el('div', { className:'stat-card' },
+          el('div', { className:'v' }, turns.filter(t => t.who === 'you').length),
+          el('div', { className:'l' }, 'Your turns'),
+        ),
+        el('div', { className:'stat-card' },
+          el('div', { className:'v' }, turns.filter(t => t.who === 'ai').length),
+          el('div', { className:'l' }, 'AI turns'),
+        ),
+      ),
+
+      // Talk-time bar
+      el('div', { className:'card' },
+        el('h3', null, 'Talk-time split'),
+        el('div', { className:'talk-bar' },
+          el('div', { className:'ai-fill', style:{ width: aiSharePct + '%' } }),
+        ),
+        el('div', { className:'talk-bar-legend' },
+          el('span', null, 'You ' + userSharePct + '%'),
+          el('span', null, 'AI ' + aiSharePct + '%'),
+        ),
+      ),
+
+      !rfd && el('button', {
+        className:'cta',
+        onClick: generateRFD,
+        disabled: rfdLoading,
+      }, rfdLoading ? 'Generating RFD…' : ['Generate Judge RFD ', el('span', { key:'a', className:'arrow' }, '→')]),
+
+      rfd && el('div', { className:'rfd-card' },
+        el('h3', null, 'Reason for Decision'),
+        rfd,
+      ),
+
+      el('div', { className:'card', style:{marginTop:14} },
+        el('h3', null, 'Transcript'),
+        el('div', { className:'transcript', ref: transcriptRef },
+          turns.filter(t => t.who !== 'system').length === 0
+            ? el('div', { style:{color:'#5a5a6a',fontSize:'.82rem',padding:'20px 4px',textAlign:'center'} }, 'No turns recorded.')
+            : turns.filter(t => t.who !== 'system').map(t =>
+                el('div', { key:t.id, className:'turn ' + t.who },
+                  el('div', { className:'label' },
+                    t.who === 'ai' ? 'AI' : 'You',
+                    t.interrupted && el('span', { className:'interrupted' }, 'INTERRUPTED'),
+                  ),
+                  el('div', null, t.text || '…'),
+                )
+              )
+        ),
+      ),
+
+      el('button', {
+        className:'cta ghost',
+        style:{marginTop:14},
+        onClick: ()=>{
+          setStatus('idle');
+          setTurns([]);
+          setRfd('');
+          setElapsed(0);
+          setInterruptCount(0);
+          setAiSpeakingMs(0);
+          setUserSpeakingMs(0);
+        }
+      }, 'Run Another Round'),
+    ),
+
+    el('div', { className:'foot' },
+      'Voice mode is in beta. Built on OpenAI gpt-realtime-2 + WebRTC. Feedback: ',
+      el('a', { href:'mailto:hello@debateai.com' }, 'hello@debateai.com'),
+    ),
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(el(App));
+</script>
+</body>
+</html>
