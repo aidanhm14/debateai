@@ -540,6 +540,49 @@ button{font-family:inherit}
   font-size:.92rem;color:var(--text-dim);font-weight:600;line-height:1.4;
 }
 .turn-overlay .to-sub strong{color:var(--text);font-weight:700}
+
+/* Share-clip modal. Renders a 9:16 PNG card the user can drop into
+   Reels/TikTok/Twitter. Canvas is generated at 1080×1920 for crisp
+   share quality, scaled-down preview rendered as <img> at 270×480
+   so the modal fits a phone screen. Web Share API for native
+   one-tap, download fallback for desktop browsers without it. */
+.clip-overlay{
+  position:fixed;inset:0;z-index:500;
+  display:none;align-items:center;justify-content:center;padding:18px;
+  background:rgba(0,0,0,.78);backdrop-filter:blur(6px);
+  animation:to-in .22s ease-out;
+}
+.clip-overlay.show{display:flex}
+.clip-card{
+  width:100%;max-width:340px;
+  background:var(--bg-card);border:1px solid var(--border-strong);
+  border-radius:20px;box-shadow:var(--shadow-lg);overflow:hidden;
+  animation:to-card-in .3s cubic-bezier(.2,.9,.3,1.2);
+}
+.clip-preview-wrap{
+  background:#0a0a0f;padding:14px;display:flex;justify-content:center;
+}
+.clip-preview{
+  width:100%;max-width:280px;aspect-ratio:9/16;border-radius:14px;
+  background:#000;box-shadow:0 8px 28px rgba(0,0,0,.6);
+  display:block;
+}
+.clip-actions{
+  padding:14px 18px 18px;display:flex;flex-direction:column;gap:10px;
+}
+.clip-actions .clip-row{display:flex;gap:10px}
+.clip-actions .btn{flex:1;justify-content:center}
+.clip-hint{
+  font-size:.7rem;color:var(--text-dim);text-align:center;line-height:1.5;
+}
+.clip-close{
+  position:absolute;top:14px;right:14px;
+  width:34px;height:34px;border-radius:50%;
+  background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);
+  color:#fff;cursor:pointer;font-size:1rem;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+}
+.clip-close:hover{background:rgba(0,0,0,.78)}
 </style>
 </head>
 <body>
@@ -1898,6 +1941,12 @@ button{font-family:inherit}
       '<div class="rfd-actions">' +
         '<button class="btn btn-primary" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
         '<button class="btn" id="copyBallotBtn" type="button">Copy ballot</button>' +
+        // Share clip — generates a 9:16 PNG with motion + verdict +
+        // best line + watermark. The viral hook: post-round, one tap
+        // and you have a Reels/TikTok-ready card. Surfaces for every
+        // round, not just /spar (a /live round that ends in a sharp
+        // win is also worth sharing).
+        '<button class="btn" id="shareClipBtn" type="button" title="Generate a 9:16 share card with the motion, verdict, and your best line">📲 Share clip</button>' +
         '<button class="btn" id="publishDiscBtn" type="button" title="Publish your speeches to the public disclosure board so other debaters can read + import them">🌐 Publish to Community</button>' +
         // Next opponent — only surfaces for /spar-sourced rounds.
         // Routes back to the queue, preserving the format so the next
@@ -1999,6 +2048,19 @@ button{font-family:inherit}
         runPublish();
       }
     });
+
+    // Share-clip handler. Renders a 9:16 PNG card with the round's
+    // verdict + motion + your best line, then offers it via Web
+    // Share API (mobile, one-tap to Reels/IG/X) with a download
+    // fallback for desktop. The viral hook for the matchmaking
+    // flywheel: post-round, the user has a Reels-ready trophy in
+    // <2s, no editor required.
+    var shareBtn = $('shareClipBtn');
+    if (shareBtn) shareBtn.addEventListener('click', function(){
+      try { gtag('event', 'share_clip_open', { format: state.formatKey, won: b.winner === mySide() }); } catch(e){}
+      openShareClipModal(b);
+    });
+
     // Save round to Firestore (saved_rounds/{uid}_{room}). One per
     // user per round. Idempotent — clicking twice just re-writes
     // the same doc with an updated savedAt timestamp.
@@ -2095,6 +2157,355 @@ button{font-family:inherit}
     catch(e){ toast('Copy failed, link is: ' + url); }
     try { gtag('event', 'live_round_page_link_copy'); } catch(e){}
   });
+
+  // ── Share-clip generator. Renders a 9:16 PNG card (1080×1920)
+  // post-round. The card carries: format badge, verdict band,
+  // motion, your "best line" pull-quote, RFD snippet, watermark.
+  // Web Share API for native one-tap share on mobile; download
+  // fallback for desktop. Designed to be the viral hook for the
+  // matchmaking loop — every shared clip is an organic ad.
+
+  // Pick the user's best line from their own speeches: filter the
+  // round log by side, split into sentences, prefer 60-180 char
+  // sentences (long enough to be meaningful, short enough to read
+  // as a pull-quote at clip scale). Falls back to the longest
+  // sentence in any speech when the user has no transcript (e.g.
+  // spectator clip, mic was off).
+  function pickBestLine(b){
+    var f = FORMATS[state.formatKey];
+    var ms = mySide();
+    var log = state.log || [];
+    var mine = ms ? log.filter(function(e){
+      var spIsFirstSide = e.side === f.sides[0];
+      return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
+    }) : log;
+    var pool = mine.length ? mine : log;
+    var sentences = [];
+    pool.forEach(function(e){
+      var t = (e.text || '').replace(/\s+/g, ' ').trim();
+      if (!t) return;
+      // Split on sentence terminators; keep punctuation off but
+      // tag back the period so the quote ends cleanly.
+      t.split(/(?<=[.!?])\s+/).forEach(function(s){
+        s = s.trim();
+        if (s.length >= 30 && s.length <= 220) sentences.push(s);
+      });
+    });
+    if (!sentences.length) return null;
+    // Sweet-spot ranking: prefer 80-160 chars, then taper.
+    sentences.sort(function(a, b){
+      function score(s){
+        var len = s.length;
+        if (len >= 80 && len <= 160) return 1000 - Math.abs(120 - len);
+        if (len < 80) return 600 + len;
+        return 800 - Math.min(60, len - 160);
+      }
+      return score(b) - score(a);
+    });
+    return sentences[0];
+  }
+
+  // Wrap text into lines that fit a max width. Returns an array of
+  // strings. Uses ctx.measureText for real width, since 9:16 cards
+  // are render-once we can afford the per-word measurement.
+  function wrapLines(ctx, text, maxWidth){
+    var words = (text || '').split(/\s+/).filter(Boolean);
+    var lines = [];
+    var current = '';
+    for (var i = 0; i < words.length; i++){
+      var probe = current ? current + ' ' + words[i] : words[i];
+      if (ctx.measureText(probe).width <= maxWidth){
+        current = probe;
+      } else {
+        if (current) lines.push(current);
+        current = words[i];
+      }
+    }
+    if (current) lines.push(current);
+    return lines;
+  }
+
+  // Render the 9:16 share card to a canvas, return a Promise that
+  // resolves to a PNG Blob. Layout fixed at 1080×1920 so social
+  // platforms upload it without re-encoding the aspect.
+  function renderClipCanvas(b){
+    var canvas = document.createElement('canvas');
+    canvas.width = 1080; canvas.height = 1920;
+    var ctx = canvas.getContext('2d');
+    // roundRect polyfill — Safari < 16.4 doesn't ship it. Keeps the
+    // share card from throwing on older mobile devices.
+    if (typeof ctx.roundRect !== 'function'){
+      ctx.roundRect = function(x, y, w, h, r){
+        var rr = (typeof r === 'number') ? r : 0;
+        this.moveTo(x + rr, y);
+        this.lineTo(x + w - rr, y); this.quadraticCurveTo(x + w, y, x + w, y + rr);
+        this.lineTo(x + w, y + h - rr); this.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+        this.lineTo(x + rr, y + h); this.quadraticCurveTo(x, y + h, x, y + h - rr);
+        this.lineTo(x, y + rr); this.quadraticCurveTo(x, y, x + rr, y);
+      };
+    }
+    var f = FORMATS[state.formatKey];
+    var ms = mySide();
+    var won = ms && b.winner === ms;
+    var didLose = ms && b.winner && b.winner !== ms;
+
+    // Background: vertical gradient skewed by outcome. Win = green-
+    // tinted, loss = red-tinted, spectator/draw = neutral red.
+    var grad = ctx.createLinearGradient(0, 0, 0, 1920);
+    if (won){
+      grad.addColorStop(0, '#0a1f12'); grad.addColorStop(1, '#06120a');
+    } else if (didLose){
+      grad.addColorStop(0, '#1a0a0e'); grad.addColorStop(1, '#0a0508');
+    } else {
+      grad.addColorStop(0, '#15090c'); grad.addColorStop(1, '#080406');
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // Top accent bar
+    var accent = won ? '#22c55e' : (didLose ? '#ef4444' : '#ef4444');
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, 1080, 8);
+
+    // Header: DEBATEAI wordmark (left) + format badge (right)
+    ctx.font = '900 44px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.fillText('DEBATE', 64, 110);
+    ctx.fillStyle = accent;
+    ctx.fillText('AI', 64 + ctx.measureText('DEBATE').width + 4, 110);
+    // Format pill, right-aligned
+    var formatLabel = (f && f.name ? f.name : (state.formatKey || 'Round')).toUpperCase();
+    ctx.font = '700 24px ui-sans-serif, system-ui, sans-serif';
+    var fLabelW = ctx.measureText(formatLabel).width;
+    var pillX = 1080 - 64 - fLabelW - 36;
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(pillX, 80, fLabelW + 36, 44, 22);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.fillText(formatLabel, pillX + 18, 110);
+
+    // Verdict band — the visual anchor of the card
+    var verdictY = 200;
+    var verdictH = 220;
+    ctx.fillStyle = won ? 'rgba(34,197,94,0.12)' : (didLose ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.10)');
+    ctx.fillRect(0, verdictY, 1080, verdictH);
+    ctx.strokeStyle = won ? 'rgba(34,197,94,0.45)' : (didLose ? 'rgba(239,68,68,0.45)' : 'rgba(239,68,68,0.35)');
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, verdictY); ctx.lineTo(1080, verdictY);
+    ctx.moveTo(0, verdictY + verdictH); ctx.lineTo(1080, verdictY + verdictH);
+    ctx.stroke();
+    // Verdict eyebrow
+    ctx.font = '800 22px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.textAlign = 'center';
+    ctx.fillText(won ? 'VICTORY' : (didLose ? 'DEFEAT' : 'ROUND RESULT'), 540, verdictY + 56);
+    // Verdict headline
+    ctx.font = '900 92px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = won ? '#4ade80' : (didLose ? '#fca5a5' : '#ffffff');
+    var winnerName = b.winner === 'pro' ? state.proName : state.conName;
+    var winnerSide = '';
+    if (f && f.sideLabels) winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
+    var headline = won ? 'I won.' : (didLose ? 'I lost.' : (winnerName || 'Round') + ' wins');
+    ctx.fillText(headline, 540, verdictY + 154);
+    // Verdict sub
+    ctx.font = '600 26px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    var pp = b.proPoints != null ? b.proPoints : null;
+    var cp = b.conPoints != null ? b.conPoints : null;
+    var sub = winnerSide ? winnerSide.toUpperCase() : '';
+    if (pp != null && cp != null) sub += (sub ? ' · ' : '') + pp + '–' + cp + ' speaks';
+    if (sub) ctx.fillText(sub, 540, verdictY + 196);
+
+    // Motion block
+    var motion = state.motion || 'Untitled motion';
+    var motionY = 510;
+    ctx.font = '900 56px ui-serif, Georgia, "Times New Roman", serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    var motionLines = wrapLines(ctx, motion, 920);
+    motionLines = motionLines.slice(0, 4); // hard cap
+    motionLines.forEach(function(line, i){
+      ctx.fillText(line, 540, motionY + i * 70);
+    });
+    var motionEnd = motionY + motionLines.length * 70 + 30;
+
+    // Pull-quote block — your best line. The hook that makes the
+    // share share-worthy.
+    var bestLine = pickBestLine(b);
+    if (bestLine){
+      var quoteY = Math.max(motionEnd + 50, 880);
+      // Big stylized opening quote mark
+      ctx.font = '900 220px ui-serif, Georgia, "Times New Roman", serif';
+      ctx.fillStyle = won ? 'rgba(34,197,94,0.32)' : 'rgba(239,68,68,0.32)';
+      ctx.textAlign = 'left';
+      ctx.fillText('“', 80, quoteY);
+      // Quote body
+      ctx.font = '600 italic 40px ui-serif, Georgia, "Times New Roman", serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      var quoteLines = wrapLines(ctx, bestLine, 920);
+      quoteLines = quoteLines.slice(0, 8);
+      quoteLines.forEach(function(line, i){
+        ctx.fillText(line, 80, quoteY + 60 + i * 56);
+      });
+      // Attribution
+      ctx.font = '700 22px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.textAlign = 'left';
+      var byName = (state.user && state.user.displayName) ? state.user.displayName : (ms ? (ms === 'pro' ? state.proName : state.conName) : (winnerName || ''));
+      var attLabel = '— ' + (byName || 'Speaker');
+      if (ms && f && f.sideLabels){
+        attLabel += ', ' + f.sideLabels[ms === 'pro' ? f.sides[0] : f.sides[1]];
+      }
+      ctx.fillText(attLabel, 80, quoteY + 60 + quoteLines.length * 56 + 36);
+    }
+
+    // Footer block: RFD snippet + watermark
+    // First sentence of the RFD, capped at ~160 chars.
+    var rfdRaw = (b.rfd || '').replace(/\s+/g, ' ').trim();
+    var rfdSnippet = '';
+    if (rfdRaw){
+      var firstSentence = rfdRaw.split(/(?<=[.!?])\s+/)[0] || rfdRaw;
+      if (firstSentence.length > 180) firstSentence = firstSentence.slice(0, 177) + '…';
+      rfdSnippet = firstSentence;
+    }
+    if (rfdSnippet){
+      var rfdY = 1620;
+      ctx.font = '800 20px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = accent;
+      ctx.textAlign = 'left';
+      ctx.fillText('JUDGE’S RFD', 80, rfdY);
+      ctx.font = '500 28px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      var rfdLines = wrapLines(ctx, rfdSnippet, 920);
+      rfdLines = rfdLines.slice(0, 3);
+      rfdLines.forEach(function(line, i){
+        ctx.fillText(line, 80, rfdY + 38 + i * 38);
+      });
+    }
+
+    // Watermark band — the conversion hook. Never remove.
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    ctx.fillRect(0, 1820, 1080, 100);
+    ctx.font = '900 32px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.fillText('debateai.com', 80, 1880);
+    ctx.font = '700 22px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.textAlign = 'right';
+    ctx.fillText('Spar a real debater. Free.', 1000, 1880);
+
+    return new Promise(function(resolve, reject){
+      canvas.toBlob(function(blob){
+        if (blob) resolve(blob); else reject(new Error('toBlob returned null'));
+      }, 'image/png', 0.95);
+    });
+  }
+
+  // Open the modal: render the canvas, drop the blob URL into a
+  // preview <img>, wire share + download. Modal is built once per
+  // open (cheap, less state to manage than re-using).
+  function openShareClipModal(b){
+    // If an old modal is hanging around, close it first.
+    var existing = document.getElementById('clipOverlay');
+    if (existing) existing.remove();
+    var ov = document.createElement('div');
+    ov.className = 'clip-overlay show';
+    ov.id = 'clipOverlay';
+    ov.innerHTML =
+      '<div class="clip-card" style="position:relative">' +
+        '<button class="clip-close" id="clipCloseBtn" aria-label="Close">✕</button>' +
+        '<div class="clip-preview-wrap">' +
+          '<img class="clip-preview" id="clipPreview" alt="Share card preview" />' +
+        '</div>' +
+        '<div class="clip-actions">' +
+          '<div class="clip-row">' +
+            '<button class="btn btn-primary" id="clipShareBtn" type="button" style="background:var(--accent);border-color:var(--accent)">📲 Share</button>' +
+            '<button class="btn" id="clipDownloadBtn" type="button">💾 Download</button>' +
+          '</div>' +
+          '<div class="clip-hint">9:16 PNG · drop into Reels, TikTok, X, or your story.</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    document.getElementById('clipCloseBtn').addEventListener('click', function(){ ov.remove(); });
+    ov.addEventListener('click', function(e){ if (e.target === ov) ov.remove(); });
+
+    var img = document.getElementById('clipPreview');
+    var shareBtn = document.getElementById('clipShareBtn');
+    var dlBtn = document.getElementById('clipDownloadBtn');
+    var blobRef = null;
+    shareBtn.disabled = true; dlBtn.disabled = true;
+    shareBtn.textContent = 'Rendering…';
+
+    renderClipCanvas(b).then(function(blob){
+      blobRef = blob;
+      var url = URL.createObjectURL(blob);
+      img.src = url;
+      shareBtn.disabled = false; dlBtn.disabled = false;
+      shareBtn.textContent = '📲 Share';
+    }).catch(function(err){
+      console.warn('[clip render]', err);
+      shareBtn.textContent = 'Render failed';
+      toast('Couldn\'t render the clip. Try again?');
+    });
+
+    var fileName = 'debateai-' + (state.formatKey || 'round') + '-' + Date.now() + '.png';
+
+    shareBtn.addEventListener('click', function(){
+      if (!blobRef) return;
+      var won = mySide() && b.winner === mySide();
+      var shareText = (won ? 'Just won a round on debateai.com.' : 'Sparred on debateai.com.') +
+        ' Motion: "' + (state.motion || '') + '"';
+      // Web Share API w/ files works on iOS Safari + Chrome
+      // Android. Falls back to URL-only share, then to download.
+      try {
+        var file = new File([blobRef], fileName, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })){
+          navigator.share({
+            files: [file],
+            title: 'Debate AI',
+            text: shareText,
+            url: 'https://debateai.com',
+          }).then(function(){
+            try { gtag('event', 'share_clip_shared', { method: 'webshare_files' }); } catch(e){}
+          }).catch(function(){ /* user cancelled */ });
+          return;
+        }
+        if (navigator.share){
+          navigator.share({ title: 'Debate AI', text: shareText, url: 'https://debateai.com' })
+            .then(function(){ try { gtag('event', 'share_clip_shared', { method: 'webshare_text' }); } catch(e){} })
+            .catch(function(){});
+          return;
+        }
+      } catch(e){ console.warn('[webshare]', e); }
+      // Desktop fallback: trigger download + open Twitter intent
+      triggerDownload(blobRef, fileName);
+      try { gtag('event', 'share_clip_shared', { method: 'download_fallback' }); } catch(e){}
+      toast('Saved as ' + fileName + '. Drop it into your post.');
+    });
+
+    dlBtn.addEventListener('click', function(){
+      if (!blobRef) return;
+      triggerDownload(blobRef, fileName);
+      try { gtag('event', 'share_clip_downloaded', { format: state.formatKey }); } catch(e){}
+    });
+  }
+
+  function triggerDownload(blob, name){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ a.remove(); URL.revokeObjectURL(url); }, 250);
+  }
 
   // ── Firestore round sync. live_rounds/{roomId} is the single
   // source of truth for the round state. Writes are idempotent
