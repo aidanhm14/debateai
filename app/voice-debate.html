@@ -1023,12 +1023,18 @@ function App(){
         }),
       });
       if (!mintRes.ok) {
-        const detail = await mintRes.text().catch(()=> '');
-        let parsed = ''; try { parsed = JSON.parse(detail).error || ''; } catch(e){}
+        const raw = await mintRes.text().catch(()=> '');
+        let body = {}; try { body = JSON.parse(raw); } catch(e){}
         if (mintRes.status === 429) {
           throw new Error('Rate limit hit. 6 sessions per hour. Try again soon.');
         }
-        throw new Error('Could not start session (' + mintRes.status + '). ' + (parsed || detail.slice(0,140)));
+        // Show OpenAI's actual error message when we have one — e.g.
+        // "model `gpt-realtime-2` does not exist" tells you exactly
+        // what to flip OPENAI_REALTIME_MODEL to in Netlify env.
+        const friendly = body.openai
+          ? body.openai + (body.modelTried ? ' (model tried: ' + body.modelTried + ')' : '')
+          : (body.error || raw.slice(0,200) || ('HTTP ' + mintRes.status));
+        throw new Error('Could not start session: ' + friendly);
       }
       const session = await mintRes.json();
       const ephemeralKey = session?.client_secret?.value;

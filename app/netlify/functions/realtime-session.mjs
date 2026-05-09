@@ -336,10 +336,22 @@ export default async (request, context) => {
 
     if (!upstream.ok) {
       const errText = await upstream.text().catch(() => '');
-      console.error('Realtime mint error:', upstream.status, errText.slice(0, 500));
+      console.error('Realtime mint error:', upstream.status, errText.slice(0, 800));
+      // Surface OpenAI's actual error message to the client. A 400 from
+      // OpenAI usually points at a specific field (model, voice, etc.)
+      // that we got wrong — without echoing it through, we'd be guessing.
+      let openaiMessage = '';
+      try {
+        const parsed = JSON.parse(errText);
+        openaiMessage = parsed?.error?.message
+          || parsed?.message
+          || (typeof parsed?.error === 'string' ? parsed.error : '')
+          || '';
+      } catch(e) { openaiMessage = errText.slice(0, 300); }
       return new Response(JSON.stringify({
         error: 'REALTIME_MINT_' + upstream.status,
-        detail: errText.slice(0, 200),
+        openai: openaiMessage,
+        modelTried: model,
       }), { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
