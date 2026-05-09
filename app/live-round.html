@@ -424,6 +424,31 @@ button{font-family:inherit}
 .rfd p{margin-bottom:10px}
 .rfd-actions{padding:0 22px 22px;display:flex;gap:8px;flex-wrap:wrap}
 
+/* Leaderboard consent panel — appears in the rfd-actions strip and
+   gates the public-leaderboard write on dual consent + a validity
+   floor. Both sides must check the box on their own screen before
+   the W/L flag and speaks are posted to /leaderboard. */
+.lb-consent{
+  display:flex;gap:12px;align-items:flex-start;
+  padding:12px 14px;margin:0 22px 14px;border-radius:12px;
+  background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.18);
+  cursor:pointer;transition:border-color .15s,background .15s;
+}
+.lb-consent:hover{border-color:rgba(96,165,250,.32)}
+.lb-consent.invalid{background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.22);cursor:default}
+.lb-consent.invalid:hover{border-color:rgba(245,158,11,.22)}
+.lb-consent input[type=checkbox]{
+  width:18px;height:18px;flex-shrink:0;margin-top:2px;cursor:pointer;
+  accent-color:var(--accent);
+}
+.lb-consent input[type=checkbox]:disabled{cursor:not-allowed;opacity:.4}
+.lb-consent .lb-body{flex:1;min-width:0;font-size:.78rem;line-height:1.5;color:var(--text-dim)}
+.lb-consent .lb-body strong{display:block;color:var(--text);font-weight:700;font-size:.86rem;margin-bottom:3px}
+.lb-consent.invalid .lb-body strong{color:#fbbf24}
+.lb-consent .lb-status{display:block;margin-top:5px;font-size:.72rem;font-weight:600}
+.lb-consent .lb-status.waiting{color:#fbbf24}
+.lb-consent .lb-status.posted{color:#4ade80}
+
 /* Hidden */
 .hidden{display:none !important}
 
@@ -436,6 +461,52 @@ button{font-family:inherit}
   animation:toast-in .25s ease-out;
 }
 @keyframes toast-in{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+
+/* Turn-change overlay. Fires whenever the active speech advances so
+   nobody mistakes whose turn it is — especially the off-side speaker
+   who's been listening and might've zoned out. Auto-dismisses after
+   ~2.2s; pointer-events:none so it never traps clicks. */
+.turn-overlay{
+  position:fixed;inset:0;z-index:300;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(ellipse 90% 80% at 50% 50%, rgba(0,0,0,.55) 0%, rgba(0,0,0,.20) 60%, transparent 100%);
+  animation:to-in .25s ease-out;
+  pointer-events:none;
+}
+.turn-overlay.to-out{animation:to-out .5s ease-in forwards}
+@keyframes to-in{from{opacity:0}to{opacity:1}}
+@keyframes to-out{to{opacity:0}}
+.turn-overlay .to-card{
+  padding:30px 44px;text-align:center;min-width:280px;max-width:520px;
+  background:var(--bg-card);border:1px solid var(--border-strong);
+  border-radius:18px;box-shadow:var(--shadow-lg);
+  animation:to-card-in .35s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes to-card-in{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
+.turn-overlay-mine .to-card{
+  border-color:rgba(34,197,94,.55);
+  box-shadow:0 0 60px rgba(34,197,94,.32),var(--shadow-lg);
+}
+.turn-overlay-theirs .to-card{
+  border-color:rgba(239,68,68,.55);
+  box-shadow:0 0 60px rgba(239,68,68,.32),var(--shadow-lg);
+}
+.turn-overlay .to-eyebrow{
+  font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:12px;
+}
+.turn-overlay .to-heading{
+  font-size:1.9rem;font-weight:900;letter-spacing:-.02em;color:var(--text);line-height:1.05;
+  margin-bottom:8px;
+}
+.turn-overlay-mine .to-heading{color:#4ade80}
+.turn-overlay-theirs .to-heading{color:#fca5a5}
+[data-theme="light"] .turn-overlay-mine .to-heading{color:#15803d}
+[data-theme="light"] .turn-overlay-theirs .to-heading{color:#b91c1c}
+.turn-overlay .to-sub{
+  font-size:.92rem;color:var(--text-dim);font-weight:600;line-height:1.4;
+}
+.turn-overlay .to-sub strong{color:var(--text);font-weight:700}
 </style>
 </head>
 <body>
@@ -839,6 +910,19 @@ button{font-family:inherit}
     return null;
   }
 
+  // Spectator: signed in, the round HAS participant UIDs on both
+  // sides, and the user matches neither. A round without participant
+  // UIDs (legacy / direct-link rounds) does NOT make the visitor a
+  // spectator — the existing fallthrough still treats them as the
+  // active speaker in that case. So spectators only happen for rounds
+  // posted through the challenge flow, which is the safe surface to
+  // gate on.
+  function isSpectator(){
+    if (!state.user) return false;
+    if (!state.proUid || !state.conUid) return false;
+    return state.user.uid !== state.proUid && state.user.uid !== state.conUid;
+  }
+
   // Whether the current speech belongs to me. The format spec uses
   // the format's native side keys ('gov'/'opp', 'aff'/'neg', etc.) —
   // we map those onto pro/con (first side = pro, second side = con).
@@ -846,10 +930,54 @@ button{font-family:inherit}
     var f = FORMATS[state.formatKey];
     var sp = f && f.speeches[state.speechIdx];
     if (!sp) return false;
+    if (isSpectator()) return false;
     var ms = mySide();
     if (!ms) return true; // no UID mapping → don't gate
     var spIsFirstSide = sp.side === f.sides[0];
     return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
+  }
+
+  // Track which speech we last flashed an overlay for so we don't
+  // re-fire on idempotent re-renders (e.g. Firestore snapshots that
+  // don't actually advance the speech index).
+  var lastOverlayIdx = -1;
+  function flashTurnOverlay(){
+    if (state.phase !== 'round') return;
+    if (lastOverlayIdx === state.speechIdx) return;
+    lastOverlayIdx = state.speechIdx;
+    var f = FORMATS[state.formatKey];
+    var sp = f && f.speeches[state.speechIdx];
+    if (!sp) return;
+    var isFirstSide = sp.side === f.sides[0];
+    var speakerName = isFirstSide ? state.proName : state.conName;
+    var sideLabel = f.sideLabels[sp.side];
+    var ms = mySide();
+    var myTurn = isMyTurn();
+    var heading, sub, kind;
+    if (ms && myTurn){
+      heading = 'Your turn';
+      sub = '<strong>' + escHtml(sp.code) + '</strong> · ' + escHtml(sp.name);
+      kind = 'mine';
+    } else if (ms && !myTurn){
+      heading = escHtml(speakerName) + ' is up';
+      sub = '<strong>' + escHtml(sp.code) + '</strong> · ' + escHtml(sp.name) + ' · ' + escHtml(sideLabel);
+      kind = 'theirs';
+    } else {
+      heading = escHtml(speakerName) + ' (' + escHtml(sideLabel) + ')';
+      sub = '<strong>' + escHtml(sp.code) + '</strong> · ' + escHtml(sp.name);
+      kind = 'neutral';
+    }
+    var ov = document.createElement('div');
+    ov.className = 'turn-overlay turn-overlay-' + kind;
+    ov.innerHTML =
+      '<div class="to-card">' +
+        '<div class="to-eyebrow">Speech ' + (state.speechIdx + 1) + ' of ' + f.speeches.length + '</div>' +
+        '<div class="to-heading">' + heading + '</div>' +
+        '<div class="to-sub">' + sub + '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    setTimeout(function(){ ov.classList.add('to-out'); }, 1700);
+    setTimeout(function(){ if (ov && ov.parentNode) ov.remove(); }, 2300);
   }
 
   function renderRound(){
@@ -865,7 +993,8 @@ button{font-family:inherit}
     $('speechName').textContent = sp.name;
     var myTurn = isMyTurn();
     var ms = mySide();
-    var youTag = myTurn && ms ? ' 🎤 YOUR TURN' : ms ? ' 👂 OPPONENT\'S TURN' : '';
+    var spectator = isSpectator();
+    var youTag = spectator ? ' 👁 SPECTATING' : (myTurn && ms ? ' 🎤 YOUR TURN' : ms ? ' 👂 OPPONENT\'S TURN' : '');
     $('speakerName').textContent = speakerName + ' (' + sideLabel + ')' + youTag;
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
@@ -884,7 +1013,15 @@ button{font-family:inherit}
     var skipBtn = $('skipSpeechBtn');
     var endBtn = $('endSpeechBtn');
     var hint = $('readyHint');
-    if (ms && !myTurn){
+    if (spectator){
+      if (ta){ ta.disabled = true; ta.placeholder = 'Spectator view. The transcript appears live as the speakers deliver each speech.'; }
+      if (micBtn) micBtn.disabled = true;
+      if (skipBtn) skipBtn.disabled = true;
+      if (endBtn) endBtn.disabled = true;
+      var ppBtn = $('playPauseBtn');
+      if (ppBtn) ppBtn.disabled = true;
+      if (hint) hint.innerHTML = '👁 You\'re watching <strong>' + escHtml(state.proName || 'Pro') + '</strong> vs <strong>' + escHtml(state.conName || 'Con') + '</strong>. Your camera and mic stay off.';
+    } else if (ms && !myTurn){
       if (ta){ ta.disabled = true; ta.placeholder = 'Opponent is speaking. Listen + prep your response.'; }
       if (micBtn) micBtn.disabled = true;
       if (skipBtn) skipBtn.disabled = true;
@@ -895,6 +1032,7 @@ button{font-family:inherit}
       if (micBtn) micBtn.disabled = false;
       if (skipBtn) skipBtn.disabled = false;
       if (endBtn) endBtn.disabled = false;
+      var pp = $('playPauseBtn'); if (pp) pp.disabled = false;
       if (hint){
         if (myTurn && ms){
           hint.innerHTML = '🎤 <strong>Your turn.</strong> Don\'t forget to click <strong>Start mic</strong> so the AI captures your speech for the ballot.';
@@ -904,6 +1042,10 @@ button{font-family:inherit}
       }
       if (ta && (!ms || myTurn)) ta.focus();
     }
+    // Flash the turn-change banner. flashTurnOverlay no-ops if we've
+    // already shown this index, so re-renders from snapshot updates
+    // won't double-fire it.
+    flashTurnOverlay();
   }
 
   function renderSequence(){
@@ -1106,11 +1248,23 @@ button{font-family:inherit}
         var pane = $('jitsiPane');
         var existingCard = $('callCard');
         if (existingCard) existingCard.remove();
-        // Build the iframe with explicit permissions for cam/mic/display
+        // Build the iframe with explicit permissions for cam/mic/display.
+        // Spectators land with cam + mic off via Daily query params so
+        // their feeds don't appear in the room. (Daily honors
+        // ?startVideoOff= and ?startAudioOff= URL params on the room.)
         var iframe = document.createElement('iframe');
         iframe.className = 'daily-frame';
-        iframe.src = state.dailyUrl;
-        iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
+        var url = state.dailyUrl;
+        if (isSpectator()){
+          var sep = url.indexOf('?') >= 0 ? '&' : '?';
+          url += sep + 'startVideoOff=true&startAudioOff=true';
+        }
+        iframe.src = url;
+        // Spectators don't get camera/microphone permission so the
+        // browser doesn't even prompt for them; they're audience-only.
+        iframe.allow = isSpectator()
+          ? 'autoplay; clipboard-write'
+          : 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
         iframe.title = 'Live video room';
         pane.appendChild(iframe);
         state.dailyMounted = true;
@@ -1152,6 +1306,7 @@ button{font-family:inherit}
 
   function endSpeech(opts){
     opts = opts || {};
+    if (isSpectator()) return; // spectators can't advance the round
     var f = FORMATS[state.formatKey];
     var sp = f.speeches[state.speechIdx];
     if (!sp) return;
@@ -1197,6 +1352,7 @@ button{font-family:inherit}
   }
 
   function publishBallotPending(){
+    if (isSpectator()) return;
     var ref = getRoundDocRef();
     if (!ref) return;
     ref.update({
@@ -1361,15 +1517,128 @@ button{font-family:inherit}
     }
   }
 
+  // Validity floor for posting to the public leaderboard. We only
+  // surface the W/L flag + speaker points if BOTH speakers actually
+  // ran the full round at meaningful pace, otherwise the leaderboard
+  // is full of drive-by 5-second 'rounds' and the rankings are noise.
+  // Each speech must (a) not be skipped, (b) have a real transcript,
+  // (c) clock at least 30% of its target time. The 30% floor is
+  // generous on purpose: meaningful prep can finish a 7-min speech in
+  // 2:30 and that's still a real speech.
+  function validateLeaderboardEligibility(){
+    var f = FORMATS[state.formatKey];
+    if (!f) return { ok: false, reason: 'Unknown format' };
+    var totalSpeeches = f.speeches.length;
+    if (!state.log || state.log.length !== totalSpeeches){
+      return { ok: false, reason: 'Round incomplete (' + (state.log||[]).length + '/' + totalSpeeches + ' speeches)' };
+    }
+    for (var i = 0; i < state.log.length; i++){
+      var entry = state.log[i];
+      var target = (f.speeches[i] && f.speeches[i].time) || 0;
+      var code = entry.code || ('S' + (i+1));
+      if (entry.skipped) return { ok: false, reason: code + ' was skipped' };
+      var t = String(entry.text || '').trim();
+      if (!t || t === '(skipped)' || t === '(no transcript)'){
+        return { ok: false, reason: code + ' has no transcript' };
+      }
+      if (target > 0 && (entry.durationSec || 0) < Math.floor(target * 0.3)){
+        return { ok: false, reason: code + ' was too short (' + (entry.durationSec || 0) + 's of ' + target + 's target)' };
+      }
+    }
+    if (!state.proUid || !state.conUid){
+      return { ok: false, reason: 'Leaderboard requires a posted+accepted challenge so both speakers are signed-in' };
+    }
+    return { ok: true };
+  }
+
+  // Build the leaderboard_entries doc for the SAVING user. Same shape
+  // as before — kind:'live', user's own side + speaker points + win
+  // flag. The /leaderboard 'Online debaters' tab finds it. Idempotent
+  // on the doc id ({uid}_{room}) so re-firing is a no-op.
+  function writeOwnLeaderboardEntry(b){
+    if (!firebaseDb || !state.user) return;
+    var f = FORMATS[state.formatKey];
+    if (!f) return;
+    try {
+      var mySideForLb = (state.user.uid === (state.proUid||'')) ? 'pro'
+                       : (state.user.uid === (state.conUid||'')) ? 'con'
+                       : null;
+      if (!mySideForLb) return;
+      var myPoints = mySideForLb === 'pro' ? b.proPoints : b.conPoints;
+      var myWon = b.winner === mySideForLb;
+      if (typeof myPoints !== 'number' || isNaN(myPoints)) return;
+      var fullName = (state.user.displayName || '').trim();
+      var parts = fullName.split(/\s+/).filter(Boolean);
+      var shortName = parts.length >= 2
+        ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
+        : (parts[0] || 'Anonymous');
+      var lbEntry = {
+        uid: state.user.uid,
+        displayName: shortName,
+        score: myPoints,
+        won: myWon,
+        kind: 'live',
+        motion: state.motion || '',
+        format: state.formatKey,
+        formatName: f.name,
+        side: mySideForLb,
+        sideLabel: f.sideLabels[f.sides[mySideForLb === 'pro' ? 0 : 1]],
+        opponentName: mySideForLb === 'pro' ? (state.conName || '') : (state.proName || ''),
+        completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        roundId: state.room,
+      };
+      firebaseDb.collection('leaderboard_entries')
+        .doc(state.user.uid + '_' + state.room)
+        .set(lbEntry)
+        .then(function(){ updateConsentStatus('posted'); })
+        .catch(function(e){ console.warn('[leaderboard write]', e); });
+    } catch(e){ console.warn('[leaderboard tag]', e); }
+  }
+
+  // Visual feedback in the consent panel as the dual-consent state
+  // moves through (waiting on opponent → posted to leaderboard).
+  function updateConsentStatus(kind){
+    var s = document.getElementById('lbConsentStatus');
+    if (!s) return;
+    s.className = 'lb-status ' + (kind || '');
+    if (kind === 'waiting') s.textContent = '✓ You consented. Waiting for your opponent.';
+    else if (kind === 'posted') s.textContent = '✓ Posted to leaderboard.';
+    else s.textContent = '';
+  }
+
   function renderBallot(b){
     $('ballotLoading').classList.add('hidden');
     var result = $('ballotResult');
     result.classList.remove('hidden');
+    state.lastBallot = b; // stash for the snapshot-driven leaderboard write
     var f = FORMATS[state.formatKey];
     var winnerName = b.winner === 'pro' ? state.proName : state.conName;
     var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
     var loserName  = b.winner === 'pro' ? state.conName : state.proName;
     var loserSide  = b.winner === 'pro' ? f.sideLabels[f.sides[1]] : f.sideLabels[f.sides[0]];
+    var validity = validateLeaderboardEligibility();
+    var lbBlock;
+    if (validity.ok){
+      lbBlock =
+        '<label class="lb-consent" for="lbConsentCheckbox">' +
+          '<input type="checkbox" id="lbConsentCheckbox" />' +
+          '<div class="lb-body">' +
+            '<strong>Post result to public leaderboard</strong>' +
+            'Counts your W/L flag and ' + (b.winner === 'pro' ? (b.proPoints != null ? b.proPoints : '?') : (b.conPoints != null ? b.conPoints : '?')) +
+            ' speaker points on /leaderboard. Both speakers must check the box on their own screen — neither side can post the result alone.' +
+            '<span class="lb-status" id="lbConsentStatus"></span>' +
+          '</div>' +
+        '</label>';
+    } else {
+      lbBlock =
+        '<label class="lb-consent invalid">' +
+          '<input type="checkbox" disabled />' +
+          '<div class="lb-body">' +
+            '<strong>Round doesn\'t qualify for the leaderboard</strong>' +
+            escHtml(validity.reason) + '. The leaderboard only counts rounds where both sides ran the full format at meaningful pace, so the rankings reflect real arguing.' +
+          '</div>' +
+        '</label>';
+    }
     result.innerHTML =
       '<div class="verdict ' + (b.winner === 'pro' ? 'pro' : 'con') + '">' +
         '<div class="verdict-headline">' + escHtml(winnerName) + ' wins</div>' +
@@ -1393,14 +1662,26 @@ button{font-family:inherit}
         (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + escHtml(b.proFeedback) + '</p>' : '') +
         (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + escHtml(b.conFeedback) + '</p>' : '') +
       '</div>' +
+      lbBlock +
       '<div class="rfd-actions">' +
         '<button class="btn btn-primary" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
         '<button class="btn" id="copyBallotBtn" type="button">Copy ballot</button>' +
         '<a class="btn" href="/live">Back to board</a>' +
       '</div>';
+    // Spectators don't get the save-to-record button — the round is
+    // not theirs to log against their personal speaker history.
+    if (isSpectator()){
+      var sb = document.getElementById('saveRoundBtn');
+      if (sb) sb.remove();
+    }
     // Save round to Firestore (saved_rounds/{uid}_{room}). One per
     // user per round. Idempotent — clicking twice just re-writes
     // the same doc with an updated savedAt timestamp.
+    //
+    // Leaderboard is now decoupled: clicking Save also publishes the
+    // user's consent flag to the round doc. The actual leaderboard
+    // write fires from the snapshot listener once BOTH sides have
+    // consented — see the leaderboardConsent block in onRoundSnapshot.
     var saveBtn = $('saveRoundBtn');
     if (saveBtn) saveBtn.addEventListener('click', function(){
       if (!firebaseDb || !state.user){ toast('Sign in to save the round to your record.'); return; }
@@ -1430,42 +1711,23 @@ button{font-family:inherit}
         toast('Save failed: ' + (e.message || 'unknown'));
       });
 
-      // Public leaderboard entry — only the SAVING user gets ranked, with
-      // their side's speaker points + win flag. Tagged kind:'live' so the
-      // /leaderboard "Online debaters" tab finds it. Other side will write
-      // its own entry when that user clicks Save on their device.
-      try {
-        var mySide = (state.user.uid === (state.proUid||'') || state.proName === (state.user.displayName||''))
-          ? 'pro' : 'con';
-        var myPoints = mySide === 'pro' ? b.proPoints : b.conPoints;
-        var myWon = b.winner === mySide;
-        if (typeof myPoints === 'number' && !isNaN(myPoints)) {
-          var fullName = (state.user.displayName || '').trim();
-          var parts = fullName.split(/\s+/).filter(Boolean);
-          var shortName = parts.length >= 2
-            ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
-            : (parts[0] || 'Anonymous');
-          var lbEntry = {
-            uid: state.user.uid,
-            displayName: shortName,
-            score: myPoints,
-            won: myWon,
-            kind: 'live',
-            motion: state.motion || '',
-            format: state.formatKey,
-            formatName: f.name,
-            side: mySide,
-            sideLabel: f.sideLabels[f.sides[mySide === 'pro' ? 0 : 1]],
-            opponentName: mySide === 'pro' ? (state.conName || '') : (state.proName || ''),
-            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            roundId: state.room,
-          };
-          firebaseDb.collection('leaderboard_entries')
-            .doc(state.user.uid + '_' + state.room)
-            .set(lbEntry)
-            .catch(function(e){ console.warn('[leaderboard write]', e); });
+      // Leaderboard consent: only fires if the user opted in via the
+      // checkbox AND validity passes. Writes a per-UID consent flag
+      // to live_rounds/{room}; the snapshot listener flips both
+      // screens into 'posted' once both UIDs have consented.
+      var consentBox = document.getElementById('lbConsentCheckbox');
+      if (consentBox && consentBox.checked && validity.ok){
+        var ref = getRoundDocRef();
+        if (ref){
+          var consentUpdate = {};
+          consentUpdate['leaderboardConsent.' + state.user.uid] = true;
+          ref.set({ leaderboardConsent: {} }, { merge: true }).then(function(){
+            return ref.update(consentUpdate);
+          }).then(function(){
+            updateConsentStatus('waiting');
+          }).catch(function(e){ console.warn('[lb consent]', e); });
         }
-      } catch(e) { console.warn('[leaderboard tag]', e); }
+      }
     });
     $('copyBallotBtn').addEventListener('click', function(){
       var f = FORMATS[state.formatKey];
@@ -1537,6 +1799,14 @@ button{font-family:inherit}
   // we only act on truly-new info, so re-renders are idempotent.
   function onRoundSnapshot(d){
     var changedSetup = false;
+    // Spectators take participant UIDs from the round doc on first
+    // snapshot so isSpectator() and mySide() resolve correctly.
+    if (d.posterUid && !state.proUid && !state.conUid){
+      // The poster's side is whichever side they wrote into proName/
+      // conName when starting. We can't know which is which from
+      // posterUid alone, so leave proUid/conUid as the URL params
+      // gave us — they're the ones that matter for spectator gating.
+    }
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md) md.textContent = d.motion; changedSetup = true; }
     if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
@@ -1546,10 +1816,16 @@ button{font-family:inherit}
     // Phase advance: remote is in round/ballot but we're still in setup
     if ((d.status === 'round' || d.status === 'ballot') && state.phase === 'setup'){
       state.phase = 'round';
-      $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + ((d.speechIdx||0)+1) + '/' + FORMATS[state.formatKey].speeches.length;
+      var spec = isSpectator();
+      $('phaseLabel').innerHTML = '<span class="dot"></span> ' + (spec ? 'Spectating · Speech ' : 'Live · Speech ') + ((d.speechIdx||0)+1) + '/' + FORMATS[state.formatKey].speeches.length;
       $('setupView').classList.add('hidden');
+      var sw = document.getElementById('spectatorWait');
+      if (sw) sw.remove();
       $('roundView').classList.remove('hidden');
       mountDaily();
+      if (typeof d.speechIdx === 'number') state.speechIdx = d.speechIdx;
+      if (Array.isArray(d.speeches)) state.log = d.speeches.slice();
+      renderRound();
     }
 
     // Speech reconciliation
@@ -1592,9 +1868,27 @@ button{font-family:inherit}
       $('ballotLoading').classList.add('hidden');
       renderBallot(d.ballot);
     }
+
+    // Leaderboard dual-consent reconciliation. Once both proUid and
+    // conUid have flipped their consent flag to true, each user's
+    // local snapshot handler writes its own leaderboard_entries doc.
+    // Spectators don't qualify (they're not in the consent set).
+    // Idempotent on state.lbWritten so re-snapshots don't double-fire.
+    var ballotForLb = d.ballot || state.lastBallot;
+    var consents = d.leaderboardConsent || {};
+    if (ballotForLb && state.user && state.proUid && state.conUid && !state.lbWritten && !isSpectator()){
+      if (consents[state.proUid] === true && consents[state.conUid] === true && consents[state.user.uid] === true){
+        state.lbWritten = true;
+        writeOwnLeaderboardEntry(ballotForLb);
+      } else if (consents[state.user.uid] === true){
+        // I've consented, opponent hasn't yet.
+        updateConsentStatus('waiting');
+      }
+    }
   }
 
   function publishRoundInit(){
+    if (isSpectator()) return; // spectators don't seed round state
     var ref = getRoundDocRef();
     if (!ref) return;
     ref.set({
@@ -1611,6 +1905,7 @@ button{font-family:inherit}
   }
 
   function publishSpeech(entry){
+    if (isSpectator()) return;
     var ref = getRoundDocRef();
     if (!ref) return;
     // arrayUnion is idempotent only when entries are deeply equal, we
@@ -1640,6 +1935,7 @@ button{font-family:inherit}
   }
 
   function publishBallot(b){
+    if (isSpectator()) return;
     var ref = getRoundDocRef();
     if (!ref) return;
     ref.update({
@@ -1750,13 +2046,33 @@ button{font-family:inherit}
     firebaseAuth.onAuthStateChanged(function(user){
       state.user = user || null;
       if (user){
-        // Auto-fill speaker name on first sign-in if blank. So if a
-        // friend lands on this URL, hits sign-in, and their name is
-        // 'Alex Chen', we drop 'Alex' into whichever side is empty.
-        if (user.displayName){
+        // Auto-fill speaker name on first sign-in if blank, but ONLY
+        // if this user is a participant. Spectators (UID matches
+        // neither side) shouldn't overwrite the actual speakers'
+        // names just because they happen to load the page.
+        if (user.displayName && !isSpectator()){
           if (!state.proName){ state.proName = user.displayName; var pn=$('proName'); if (pn) pn.value = state.proName; }
           else if (!state.conName && state.proName !== user.displayName){ state.conName = user.displayName; var cn=$('conName'); if (cn) cn.value = state.conName; }
           updateStartBtn();
+        }
+        // Spectators skip the setup screen entirely — they're just
+        // here to watch. Show a placeholder until the round doc loads.
+        if (isSpectator()){
+          $('setupView').classList.add('hidden');
+          var spectatorWait = document.getElementById('spectatorWait');
+          if (!spectatorWait){
+            spectatorWait = document.createElement('div');
+            spectatorWait.id = 'spectatorWait';
+            spectatorWait.style.cssText = 'padding:48px 22px;text-align:center;color:var(--text-dim);font-size:.92rem;line-height:1.55';
+            spectatorWait.innerHTML =
+              '<div style="font-size:2rem;margin-bottom:14px">👁</div>' +
+              '<div style="font-weight:800;color:var(--text);font-size:1.05rem;margin-bottom:6px">Spectator view</div>' +
+              '<div>You\'re watching this round as a third-party viewer. Your camera and mic stay off. The transcript and ballot appear here as the speakers deliver them.</div>' +
+              '<div style="margin-top:16px;font-size:.78rem">Loading round…</div>';
+            $('panel').appendChild(spectatorWait);
+          }
+          $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--blue);box-shadow:0 0 8px var(--blue)"></span> Spectating';
+          mountDaily();
         }
         hideAuthGate();
         renderUserChip();

@@ -1487,6 +1487,33 @@ button{font-family:inherit}
             '<button class="btn btn-ghost" data-copy-link="' + c.id + '">Copy link to share</button>' +
             (c.seed ? '' : '<button class="btn btn-ghost" data-remove="' + c.id + '">Remove</button>');
           meta = 'Waiting for someone to accept the <strong>' + escHtml(yourSideLabel) + '</strong> side. Share the link or wait.';
+        } else if (hasAccepter){
+          // The challenge already has both sides locked in. A third
+          // viewer can't accept it any more — but they can spectate
+          // the live room. Build the same /live-round URL the
+          // participants use; the round-page's spectator detection
+          // (UID matches neither proUid nor conUid) flips it into
+          // viewer mode automatically.
+          ensureRoomSubscription(c);
+          activeRooms[roomName] = true;
+          var posterIsProSpec = c.side === 'pro';
+          var specParams = new URLSearchParams({
+            motion: c.motion || c.topicLine || c.themeLine || '',
+            format: c.format,
+            pro: posterIsProSpec ? (c.posterName || c.handle || 'Pro') : (c.accepterName || 'Pro'),
+            con: posterIsProSpec ? (c.accepterName || 'Con') : (c.posterName || c.handle || 'Con'),
+            proUid: posterIsProSpec ? (c.posterUid || '') : (c.accepterUid || ''),
+            conUid: posterIsProSpec ? (c.accepterUid || '') : (c.posterUid || ''),
+            room: roomName,
+            challengeId: c.id,
+          });
+          var specUrl = '/live-round.html?' + specParams.toString();
+          var liveNow = rs.status === 'round' || rs.status === 'ballot';
+          actions =
+            '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + escHtml(specUrl) + '" data-spectate="' + c.id + '">👁 ' + (liveNow ? 'Spectate live' : 'Open viewer') + '</a>';
+          meta = liveNow
+            ? '<span style="color:#4ade80;font-weight:700">● Live now.</span> Both speakers are matched, the round is in progress. Watch as a third-party viewer (your camera and mic stay off).'
+            : 'Both sides are matched. The round hasn\'t started yet, hit the viewer when they go live.';
         } else {
           actions =
             '<button class="btn btn-primary" data-accept="' + c.id + '">Accept challenge →</button>' +
@@ -1537,6 +1564,16 @@ button{font-family:inherit}
       btn.addEventListener('click', function(){
         var id = btn.getAttribute('data-bail');
         showBailConfirm(id, function(){ render(); });
+      });
+    });
+    // Spectator handoff. Anchor opens /live-round.html in viewer mode
+    // (the round page detects 'UID matches neither side' and flips to
+    // spectator UI). Telemetry only here; the anchor href handles nav.
+    host.querySelectorAll('[data-spectate]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-spectate');
+        var c = loadList().find(function(x){ return x.id === id; });
+        try { gtag('event', 'live_round_spectate', { format: c && c.format }); } catch(e){}
       });
     });
     // Judged-round handoff. Anchor opens /live-round.html in a new
