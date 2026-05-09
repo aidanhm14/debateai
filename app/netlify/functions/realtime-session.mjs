@@ -299,77 +299,104 @@ export default async (request, context) => {
     const transcribeModel = process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL
       || 'gpt-realtime-whisper';
 
-    // GA Realtime endpoint — no `OpenAI-Beta: realtime=v1` header.
-    // The beta header forces the legacy preview API, which doesn't
-    // know about `gpt-realtime-2` and 400s with "only available on
-    // the GA API." Drop the header and the GA endpoint accepts the
-    // same body shape.
-    const upstream = await fetch('https://api.openai.com/v1/realtime/sessions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+    // GA Realtime API uses a different endpoint than the beta preview.
+    // The legacy preview was POST /v1/realtime/sessions with an
+    // `OpenAI-Beta: realtime=v1` header. The GA path for minting an
+    // ephemeral key for browser WebRTC is /v1/realtime/client_secrets
+    // (this is the new naming OpenAI moved to for client-side keys).
+    //
+    // We try the GA path first, then fall back to the legacy path
+    // with the beta header so this code keeps working if the user's
+    // OPENAI_REALTIME_MODEL env override points at an older preview
+    // model. The first one that returns 2xx wins.
+    const baseBody = {
+      model,
+      voice,
+      instructions,
+      modalities: ['audio', 'text'],
+      input_audio_transcription: { model: transcribeModel },
+      turn_detection: {
+        type: 'server_vad',
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 500,
+        create_response: true,
       },
-      body: JSON.stringify({
-        model,
-        voice,
-        instructions,
-        modalities: ['audio', 'text'],
-        // Whisper-on-input lets us render the user's words in the live
-        // transcript without burning a separate STT call. The model
-        // doesn't need this to understand the user (it hears the audio
-        // directly) — it's purely for the UI transcript.
-        input_audio_transcription: { model: transcribeModel },
-        // Server-side VAD is the killer feature: when the user starts
-        // speaking, OpenAI auto-cancels any in-flight assistant response
-        // and starts listening. That's how we get true interruption
-        // without writing client-side VAD.
-        turn_detection: {
-          type: 'server_vad',
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 500,
-          create_response: true,
-        },
-        // Keep beats short by default; the prompt also tells the model
-        // to keep turns 15-45s. Combining server-cap + prompt-cap makes
-        // it harder for the model to monologue.
-        max_response_output_tokens: 4000,
-      }),
-    });
+      max_response_output_tokens: 4000,
+    };
+    const attempts = [
+      {
+        label: 'GA /client_secrets',
+        url: 'https://api.openai.com/v1/realtime/client_secrets',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: baseBody }),
+      },
+      {
+        label: 'GA /sessions',
+        url: 'https://api.openai.com/v1/realtime/sessions',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(baseBody),
+      },
+      {
+        label: 'beta /sessions',
+        url: 'https://api.openai.com/v1/realtime/sessions',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'realtime=v1' },
+        body: JSON.stringify(baseBody),
+      },
+    ];
 
-    if (!upstream.ok) {
-      const errText = await upstream.text().catch(() => '');
-      console.error('Realtime mint error:', upstream.status, errText.slice(0, 800));
-      // Surface OpenAI's actual error message to the client. A 400 from
-      // OpenAI usually points at a specific field (model, voice, etc.)
-      // that we got wrong — without echoing it through, we'd be guessing.
+    let upstream = null;
+    let lastErrText = '';
+    let lastLabel = '';
+    for (const attempt of attempts) {
+      const r = await fetch(attempt.url, { method: 'POST', headers: attempt.headers, body: attempt.body });
+      lastLabel = attempt.label;
+      if (r.ok) { upstream = r; break; }
+      lastErrText = await r.text().catch(() => '');
+      console.error(`Realtime mint ${attempt.label} failed:`, r.status, lastErrText.slice(0, 400));
+      // 401/403 = key/permission issue; no point trying more endpoints.
+      if (r.status === 401 || r.status === 403) {
+        upstream = r; // surface the auth error
+        break;
+      }
+    }
+
+    if (!upstream || !upstream.ok) {
       let openaiMessage = '';
       try {
-        const parsed = JSON.parse(errText);
+        const parsed = JSON.parse(lastErrText);
         openaiMessage = parsed?.error?.message
           || parsed?.message
           || (typeof parsed?.error === 'string' ? parsed.error : '')
           || '';
-      } catch(e) { openaiMessage = errText.slice(0, 300); }
+      } catch(e) { openaiMessage = lastErrText.slice(0, 300); }
       return new Response(JSON.stringify({
-        error: 'REALTIME_MINT_' + upstream.status,
+        error: 'REALTIME_MINT_' + (upstream?.status || 'ALL_FAILED'),
         openai: openaiMessage,
         modelTried: model,
+        endpointTried: lastLabel,
       }), { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
     const session = await upstream.json();
+    // GA /client_secrets returns { value, expires_at, session: {...} } at
+    // the top level; legacy /sessions returns { client_secret: { value,
+    // expires_at }, id, ... }. Normalize both shapes so the browser
+    // gets a consistent { client_secret: { value, ... }, session_id }.
+    const clientSecret = session.client_secret
+      || (session.value ? { value: session.value, expires_at: session.expires_at } : null);
+    const sessionId = session.id || session.session?.id || null;
 
     // Hand the browser only what WebRTC needs. The ephemeral
     // client_secret is short-lived and scoped to one session — safe to
     // ship to the page. The raw OPENAI_API_KEY stays here.
     return new Response(JSON.stringify({
-      client_secret: session.client_secret,
-      session_id: session.id,
+      client_secret: clientSecret,
+      session_id: sessionId,
       model,
       voice,
       mode,
+      endpoint: lastLabel,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...CORS },
