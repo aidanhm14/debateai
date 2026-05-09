@@ -1105,17 +1105,35 @@ function App(){
         catch(err) { console.warn('[dc parse]', err); }
       };
       dc.onopen = () => {
-        // Kick off the AI greeting immediately. Without this, both sides
-        // sit silent until the user speaks first — bad for a demo.
+        // Two send-paths once the data channel opens:
         //
-        // Two greeting shapes depending on whether the user pre-filled
-        // a motion:
-        //   - No motion: open with "So what are we debating today,
-        //     {Name}?" — the killer first impression. Conversational,
-        //     personal, and prompts the user to literally SAY the
-        //     motion out loud (which is how a real round opens).
-        //   - With motion: short formal opening — name the motion in
-        //     one line, name the side, then "Whenever you're ready."
+        // 1. session.update — pushes the FULL session config
+        //    (instructions, voice, turn_detection, transcription).
+        //    This is the safety net for when the server minted the
+        //    session with a minimal body (the GA endpoint may not
+        //    accept all the config inline; sending it as an event
+        //    after connect is the documented pattern).
+        // 2. response.create — kicks off the opening greeting so
+        //    there's no awkward dead air on session start.
+        try {
+          dc.send(JSON.stringify({
+            type: 'session.update',
+            session: {
+              instructions: undefined, // server already set this from mint; left here as a hint for the GA path that might not have
+              modalities: ['audio','text'],
+              voice: persona.voice,
+              input_audio_transcription: { model: 'whisper-1' },
+              turn_detection: {
+                type: 'server_vad',
+                threshold: 0.5,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 500,
+                create_response: true,
+              },
+            },
+          }));
+        } catch(e){ console.warn('[dc] session.update send failed:', e); }
+
         try {
           const nameSuffix = userFirstName ? (', ' + userFirstName) : '';
           const greetingInstructions = motion.trim()

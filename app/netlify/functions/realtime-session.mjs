@@ -340,24 +340,56 @@ export default async (request, context) => {
       },
       max_response_output_tokens: 4000,
     });
+    // Per https://platform.openai.com/docs/guides/realtime, the GA
+    // model gpt-realtime-2 lives at /v1/realtime for the live session.
+    // The ephemeral-key mint is a separate call. We don't yet know the
+    // exact mint URL/body shape from the new docs — try the known
+    // candidates with a minimal body (just model + voice). Everything
+    // else (instructions, turn_detection, modalities) can be sent as
+    // a session.update event over the data channel after connect, so
+    // a minimal mint body keeps the surface area we have to guess at small.
+    //
+    // Two body shapes (full + minimal) × four URLs = the matrix below.
+    // Full body works against the legacy /sessions endpoint; minimal
+    // body is the safest bet against the GA endpoint.
+    const fullBody = (m) => ({
+      model: m,
+      voice,
+      instructions,
+      modalities: ['audio', 'text'],
+      input_audio_transcription: { model: transcribeModel },
+      turn_detection: {
+        type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300,
+        silence_duration_ms: 500, create_response: true,
+      },
+      max_response_output_tokens: 4000,
+    });
+    const minBody = (m) => ({ model: m, voice });
+
     const endpoints = [
       {
-        label: 'GA /client_secrets',
+        label: 'GA /client_secrets (min body)',
         url: 'https://api.openai.com/v1/realtime/client_secrets',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        wrap: (body) => JSON.stringify({ session: body }),
+        body: (m) => JSON.stringify({ session: minBody(m) }),
       },
       {
-        label: 'GA /sessions',
+        label: 'GA /client_secrets (flat min body)',
+        url: 'https://api.openai.com/v1/realtime/client_secrets',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: (m) => JSON.stringify(minBody(m)),
+      },
+      {
+        label: 'GA /sessions (full body)',
         url: 'https://api.openai.com/v1/realtime/sessions',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        wrap: (body) => JSON.stringify(body),
+        body: (m) => JSON.stringify(fullBody(m)),
       },
       {
-        label: 'beta /sessions',
+        label: 'beta /sessions (full body)',
         url: 'https://api.openai.com/v1/realtime/sessions',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'realtime=v1' },
-        wrap: (body) => JSON.stringify(body),
+        body: (m) => JSON.stringify(fullBody(m)),
       },
     ];
 
@@ -373,7 +405,7 @@ export default async (request, context) => {
         const r = await fetch(ep.url, {
           method: 'POST',
           headers: ep.headers,
-          body: ep.wrap(buildBody(candidate)),
+          body: ep.body(candidate),
         });
         lastLabel = ep.label + ' / ' + candidate;
         if (r.ok) { upstream = r; break outer; }
