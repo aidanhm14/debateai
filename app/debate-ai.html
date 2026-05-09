@@ -49,6 +49,7 @@
 <script defer src="/js/app-check.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script defer src="/js/track.js"></script>
+<script defer src="/js/disclosure-guard.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
 <script src="/js/type-stream.js"></script>
@@ -3834,6 +3835,13 @@ function App(){
     const aiSide=fmt.sides.find(s=>s!==side)||'opp';
     const aiSideLabel=fmt.sideLabels[aiSide]||aiSide;
     const fullText=aiSpeeches.map(s=>s.text).join('\n\n');
+    // Floor check (length, profanity, link-spam) — same guard the
+    // /live-round publish path runs. /js/disclosure-guard.js is
+    // loaded inline below; we no-op silently if not present.
+    if(window.disclosureGuard){
+      const check=window.disclosureGuard.check({motion,output:fullText});
+      if(!check.ok){alert(check.reason);return}
+    }
     const fullName=(user.displayName||'').trim();
     const parts=fullName.split(/\s+/).filter(Boolean);
     const shortName=parts.length>=2

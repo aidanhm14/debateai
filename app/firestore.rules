@@ -68,12 +68,37 @@ service cloud.firestore {
                     && validVisibility()
                     && (!('content' in request.resource.data)
                         || stringUnder('content', 51200));
-      allow update: if isAuthor()
-                    && incomingIsAuthor()
-                    && validVisibility()
-                    && (!('content' in request.resource.data)
-                        || stringUnder('content', 51200));
+      // Voting + vote-count maintenance: the parent doc's voteScore +
+      // voteCount are atomically updated by the voting client. Allow
+      // ANY signed-in user to update those two fields (plus the
+      // existing author-only rule for everything else). Practical
+      // effect: voters can bump the score, but can't rewrite the case.
+      function onlyVoteFieldsChanged() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        return changed.hasOnly(['voteScore', 'voteCount']);
+      }
+      allow update: if isSignedIn()
+                    && (
+                      (isAuthor()
+                        && incomingIsAuthor()
+                        && validVisibility()
+                        && (!('content' in request.resource.data)
+                            || stringUnder('content', 51200)))
+                      || onlyVoteFieldsChanged()
+                    );
       allow delete: if isAuthor();
+
+      // Per-user vote records. Doc id MUST be the voter's uid so each
+      // user gets exactly one vote. Vote value is +1 (up), -1 (down),
+      // or 0 (cleared). Author-side rule layered to prevent self-vote
+      // gaming on disclosures.
+      match /votes/{voterUid} {
+        allow read:   if isSignedIn();
+        allow create, update: if isSignedIn()
+                      && voterUid == request.auth.uid
+                      && request.resource.data.vote in [-1, 0, 1];
+        allow delete: if isSignedIn() && voterUid == request.auth.uid;
+      }
     }
 
     // ── forum_posts ──────────────────────────────────────────────────

@@ -26,6 +26,10 @@
      /live-round (round start, speech end, ballot view, save, leaderboard
      consent) so the per-user activity log on /admin is complete. -->
 <script defer src="/js/track.js"></script>
+<!-- Client-side floor for the publish-to-/disclosures flow: profanity
+     word-list, min length, URL-spam ratio. Cheap pre-check before the
+     Firestore write so junk never lands on the public board. -->
+<script defer src="/js/disclosure-guard.js"></script>
 
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -1868,6 +1872,11 @@ button{font-family:inherit}
       });
       var fullText = mine.map(function(e){ return '[' + (e.code || '') + ']\n' + (e.text || ''); }).join('\n\n');
       if (!fullText.trim()){ toast('No speeches to publish yet.'); return; }
+      // Quality / safety floor before the public-board write.
+      if (window.disclosureGuard){
+        var check = window.disclosureGuard.check({ motion: state.motion, output: fullText });
+        if (!check.ok){ toast(check.reason); return; }
+      }
       var fullName = (state.user.displayName || '').trim();
       var parts = fullName.split(/\s+/).filter(Boolean);
       var shortName = parts.length >= 2

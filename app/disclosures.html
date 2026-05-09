@@ -166,6 +166,28 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .btn.primary:hover{background:#dc2626;border-color:#dc2626}
 
+/* Vote buttons inline on each card. Sit alongside the meta row so the
+   vote action is one click away from the case title. Active state
+   keys off the user's stored vote (+1 → up green, -1 → down amber). */
+.vote-group{
+  display:inline-flex;align-items:center;gap:4px;margin-right:auto;
+}
+.vote-btn{
+  padding:4px 8px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-size:.78rem;font-weight:700;
+  cursor:pointer;transition:all .15s;font-family:inherit;
+  display:inline-flex;align-items:center;gap:4px;
+}
+.vote-btn:hover{border-color:var(--border-strong);color:var(--text)}
+.vote-btn.up.on{color:#4ade80;border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.1)}
+.vote-btn.down.on{color:#fbbf24;border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.1)}
+.vote-score{
+  font-size:.74rem;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--text);min-width:24px;text-align:center;letter-spacing:.02em;
+}
+.vote-score.pos{color:#4ade80}
+.vote-score.neg{color:#fbbf24}
+
 .empty{
   text-align:center;padding:60px 22px;color:var(--text-dim);font-size:.92rem;line-height:1.6;
   background:var(--bg-card);border:1px dashed var(--border);border-radius:14px;
@@ -249,6 +271,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       <button class="filter-chip" data-format="pf">PF</button>
       <button class="filter-chip" data-format="policy">Policy</button>
     </div>
+    <div class="group" id="sortFilters" style="margin-left:auto">
+      <button class="filter-chip on" data-sort="recent">Newest</button>
+      <button class="filter-chip" data-sort="top">Top-voted</button>
+    </div>
   </div>
 
   <div id="cards" class="cards">
@@ -331,6 +357,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   var filterSide = '';
   var filterFormat = '';
   var searchTerm = '';
+  var sortMode = 'recent'; // 'recent' | 'top'
+  var myVotes = {}; // caseId → -1 | 0 | 1, populated as we vote
 
   function applyFilters(){
     var host = $('cards');
@@ -345,6 +373,18 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       }
       return true;
     });
+    // Apply sort. 'recent' is the default snapshot order. 'top' sorts
+    // by voteScore desc; ties broken by recency so a 0-vote brand-new
+    // disclosure outranks a 0-vote stale one.
+    if (sortMode === 'top'){
+      matched.sort(function(a, b){
+        var va = a.voteScore || 0, vb = b.voteScore || 0;
+        if (va !== vb) return vb - va;
+        var as = (a.sharedAt && a.sharedAt.seconds) || 0;
+        var bs = (b.sharedAt && b.sharedAt.seconds) || 0;
+        return bs - as;
+      });
+    }
     if (matched.length === 0){
       host.innerHTML = '';
       host.style.display = 'none';
@@ -361,6 +401,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       var date = c.sharedAt && c.sharedAt.seconds
         ? new Date(c.sharedAt.seconds * 1000).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'})
         : '';
+      var score = c.voteScore || 0;
+      var scoreClass = score > 0 ? 'pos' : score < 0 ? 'neg' : '';
+      var myVote = myVotes[c.id] || 0;
       return '' +
         '<div class="card" data-id="' + escHtml(c.id) + '">' +
           '<div class="row">' +
@@ -370,12 +413,82 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           '<div class="motion">' + escHtml(c.motion || 'Untitled motion') + '</div>' +
           '<div class="preview">' + escHtml(preview) + '</div>' +
           '<div class="actions">' +
+            '<div class="vote-group">' +
+              '<button class="vote-btn up' + (myVote === 1 ? ' on' : '') + '" data-vote="up" data-id="' + escHtml(c.id) + '" title="Helpful disclosure">▲</button>' +
+              '<span class="vote-score ' + scoreClass + '">' + (score > 0 ? '+' : '') + score + '</span>' +
+              '<button class="vote-btn down' + (myVote === -1 ? ' on' : '') + '" data-vote="down" data-id="' + escHtml(c.id) + '" title="Low quality">▼</button>' +
+            '</div>' +
             '<div class="meta">' + escHtml(c.sharedBy || 'Anonymous') + (date ? ' · ' + date : '') + '</div>' +
-            '<button class="btn primary" data-open="' + escHtml(c.id) + '" style="margin-left:auto">Read full case</button>' +
+            '<button class="btn primary" data-open="' + escHtml(c.id) + '">Read full case</button>' +
             '<button class="btn" data-import="' + escHtml(c.id) + '">Import</button>' +
           '</div>' +
         '</div>';
     }).join('');
+  }
+
+  // Vote handler. Writes shared_cases/{caseId}/votes/{uid} with the
+  // user's vote (+1, -1, or 0 to clear) AND atomically increments
+  // the parent doc's voteScore + voteCount. If the user already
+  // voted, we delta from the previous value rather than blindly
+  // re-applying so the score stays correct.
+  function castVote(caseId, direction){
+    if (!firebaseDb || !currentUser){ toast('Sign in to vote.'); return; }
+    var prev = myVotes[caseId] || 0;
+    var next = direction === 'up' ? 1 : direction === 'down' ? -1 : 0;
+    if (next === prev) next = 0; // toggle off if clicking the same arrow again
+    var delta = next - prev;
+    if (delta === 0) return;
+    myVotes[caseId] = next;
+    // Optimistic local update so the UI reflects the vote instantly.
+    var caseObj = allCases.find(function(c){ return c.id === caseId; });
+    if (caseObj){
+      caseObj.voteScore = (caseObj.voteScore || 0) + delta;
+    }
+    applyFilters();
+    var caseRef = firebaseDb.collection('shared_cases').doc(caseId);
+    var voteRef = caseRef.collection('votes').doc(currentUser.uid);
+    var inc = firebase.firestore.FieldValue.increment;
+    Promise.all([
+      voteRef.set({
+        vote: next,
+        votedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }),
+      caseRef.update({
+        voteScore: inc(delta),
+        voteCount: inc(prev === 0 && next !== 0 ? 1 : (prev !== 0 && next === 0 ? -1 : 0)),
+      }),
+    ]).catch(function(err){
+      console.warn('[vote]', err);
+      // Roll back the optimistic update on failure.
+      myVotes[caseId] = prev;
+      if (caseObj) caseObj.voteScore = (caseObj.voteScore || 0) - delta;
+      applyFilters();
+      toast('Vote failed: ' + (err.message || 'unknown'));
+    });
+    try { gtag('event', 'disclosure_vote', { value: next }); } catch(e){}
+  }
+
+  // Hydrate myVotes by reading the user's existing vote docs. Lets
+  // the UI light up the up/down arrows the user already cast on
+  // page-refresh.
+  function loadMyVotes(){
+    if (!firebaseDb || !currentUser) return;
+    firebaseDb.collectionGroup('votes')
+      .where(firebase.firestore.FieldPath.documentId(), '>=', currentUser.uid)
+      .where(firebase.firestore.FieldPath.documentId(), '<=', currentUser.uid + '')
+      .limit(200)
+      .get()
+      .then(function(snap){
+        snap.docs.forEach(function(d){
+          var parent = d.ref.parent.parent;
+          if (parent && parent.id) myVotes[parent.id] = d.data().vote || 0;
+        });
+        applyFilters();
+      })
+      .catch(function(){
+        // collectionGroup query needs an index; if it fails, skip
+        // the hydration — votes still cast fine, just no pre-light.
+      });
   }
 
   // Open the full case in a modal reader. Pulls fresh from the array
@@ -498,6 +611,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       currentUser = user || null;
       if (user){
         loadDisclosures();
+        loadMyVotes();
       } else {
         $('cards').innerHTML =
           '<div class="empty" style="grid-column:1/-1">' +
@@ -531,11 +645,25 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       applyFilters();
     });
   });
+  document.querySelectorAll('#sortFilters .filter-chip').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#sortFilters .filter-chip').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      sortMode = b.getAttribute('data-sort') || 'recent';
+      applyFilters();
+    });
+  });
 
   // Card click handlers (delegated since the grid re-renders).
   document.getElementById('cards').addEventListener('click', function(e){
-    var openId = e.target.getAttribute && e.target.getAttribute('data-open');
-    var importId = e.target.getAttribute && e.target.getAttribute('data-import');
+    var t = e.target;
+    var openId = t.getAttribute && t.getAttribute('data-open');
+    var importId = t.getAttribute && t.getAttribute('data-import');
+    var voteId = t.getAttribute && t.getAttribute('data-id') && t.getAttribute('data-vote');
+    if (voteId){
+      castVote(t.getAttribute('data-id'), t.getAttribute('data-vote'));
+      return;
+    }
     if (openId) openCase(openId);
     else if (importId){
       var c = allCases.find(function(x){ return x.id === importId; });

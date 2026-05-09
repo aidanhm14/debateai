@@ -75,6 +75,10 @@
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
+<!-- Disclosure guard (length / profanity / link-spam floor) for the
+     SharedCases public-publish flow. Loaded everywhere that can
+     publish to /disclosures. -->
+<script defer src="/js/disclosure-guard.js"></script>
 <!-- Cross-page fade transitions. Mirrors the @view-transition CSS
      above for browsers without cross-document View Transitions API
      support (everything pre-Chrome 126), so internal nav fades on
@@ -12428,6 +12432,20 @@ function SharedCases({ user, team }) {
     try {
       const c = myCases.find(x => x.id === selectedCase);
       if (!c) throw new Error('Case not found');
+      // Quality / safety floor for PUBLIC disclosures only. Team-only
+      // shares stay unchecked since they're inside an established
+      // group; /disclosures is the surface that needs the guard.
+      if (shareVisibility === 'public' && window.disclosureGuard){
+        const guardCheck = window.disclosureGuard.check({
+          motion: c.motion || '',
+          output: c.output || c.text || '',
+        });
+        if (!guardCheck.ok){
+          setMsg('Cannot publish: ' + guardCheck.reason);
+          setSharing(false);
+          return;
+        }
+      }
       // Anonymise the author for public disclosures so visitors don't
       // see real names by default. Team-scoped shares keep the full
       // displayName because teammates already know each other.
