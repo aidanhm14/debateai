@@ -53,14 +53,24 @@ service cloud.firestore {
 
     // ── shared_cases ─────────────────────────────────────────────────
     // Anyone authenticated can read. Only the author can write/delete.
+    // 'visibility' field gates the public disclosure board: 'team'
+    // (default — keep within team scope) or 'public' (visible to anyone
+    // signed-in via the /disclosures community page). The constraint
+    // lets us trust the value when the disclosure UI queries by it.
+    function validVisibility() {
+      return !('visibility' in request.resource.data)
+          || request.resource.data.visibility in ['team', 'public', 'private'];
+    }
     match /shared_cases/{caseId} {
       allow read:   if isSignedIn();
       allow create: if isSignedIn()
                     && incomingIsAuthor()
+                    && validVisibility()
                     && (!('content' in request.resource.data)
                         || stringUnder('content', 51200));
       allow update: if isAuthor()
                     && incomingIsAuthor()
+                    && validVisibility()
                     && (!('content' in request.resource.data)
                         || stringUnder('content', 51200));
       allow delete: if isAuthor();

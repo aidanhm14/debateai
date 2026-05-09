@@ -12400,6 +12400,13 @@ function SharedCases({ user, team }) {
   const [sharing, setSharing] = useState(false);
   const [selectedCase, setSelectedCase] = useState('');
   const [msg, setMsg] = useState('');
+  // Visibility for the next share. 'team' (default) keeps the case
+  // inside the user's team only; 'public' posts it to the community
+  // disclosure board at /disclosures, where any signed-in debater can
+  // read + import it. There's no 'private' here because saved_cases
+  // are already private by default — they live in localStorage and
+  // never touch Firestore until you explicitly share them.
+  const [shareVisibility, setShareVisibility] = useState('team');
   const myCases = useMemo(() => loadSavedCases().filter(c => c.mode !== 'philosophy' && c.side !== 'Philosophy' && c.format !== 'Philosophy'), []);
 
   useEffect(() => {
@@ -12421,17 +12428,33 @@ function SharedCases({ user, team }) {
     try {
       const c = myCases.find(x => x.id === selectedCase);
       if (!c) throw new Error('Case not found');
+      // Anonymise the author for public disclosures so visitors don't
+      // see real names by default. Team-scoped shares keep the full
+      // displayName because teammates already know each other.
+      const fullName = (user.displayName || '').trim();
+      const parts = fullName.split(/\s+/).filter(Boolean);
+      const shortName = parts.length >= 2
+        ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
+        : (parts[0] || (user.email ? user.email.split('@')[0] : 'Anonymous'));
+      const isPublic = shareVisibility === 'public';
       await firebaseDb.collection('shared_cases').add({
         teamId: team.teamId,
-        sharedBy: user.displayName || user.email || 'Unknown',
+        sharedBy: isPublic ? shortName : (user.displayName || user.email || 'Unknown'),
         sharedByUid: user.uid,
         motion: c.motion || 'Untitled',
         side: c.side || '',
+        format: c.format || '',
         depth: c.depth || '',
         output: c.output || c.text || '',
         sharedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        visibility: shareVisibility, // 'team' | 'public'
+        // authorUid is the canonical author key the disclosure rules
+        // gate writes on. Mirrors sharedByUid for back-compat.
+        authorUid: user.uid,
       });
-      setMsg('Case shared with your team!');
+      setMsg(isPublic
+        ? '✓ Shared to public disclosures. Anyone signed in can read it on /disclosures.'
+        : '✓ Shared with your team.');
       setSelectedCase('');
     } catch (err) { setMsg('Error: ' + (err?.message || 'Something went wrong')); }
     setSharing(false);
@@ -12459,23 +12482,54 @@ function SharedCases({ user, team }) {
       el('h2', {style:{fontSize:'1.4rem',fontWeight:800,color:'#e4e8f0',marginBottom:4}}, t('sharedCases.title','Team Case Library')),
       el('p', {style:{color:'#94a3b8',fontSize:'.92rem'}}, t('sharedCases.desc','Share and access cases across your team.')),
     ),
-    myCases.length > 0 && el('div', {style:{display:'flex',gap:8,marginBottom:24,flexWrap:'wrap'}},
-      el('select', {value:selectedCase, onChange:e=>setSelectedCase(e.target.value), style:{flex:1,minWidth:200,padding:'8px 12px',background:'#38383e',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.85rem',outline:'none'}},
-        el('option', {value:''}, t('sharedCases.selectCase','Select a case to share...')),
-        myCases.map(c => el('option', {key:c.id, value:c.id}, (c.motion||'Untitled').substring(0,60) + ' (' + (c.side||'?') + ')')),
+    myCases.length > 0 && el('div', {style:{marginBottom:24}},
+      // Privacy/visibility chooser. Teammates-only is the default
+      // because that matches the existing flow + the principle of
+      // least surprise (sharing != publishing). Public flips the doc
+      // visibility flag so it shows up on /disclosures community board.
+      el('div', {style:{display:'flex',gap:8,marginBottom:10,padding:'4px',background:'#ffffff04',borderRadius:10,border:'1px solid #ffffff10',flexWrap:'wrap'}},
+        el('button', {
+          onClick:()=>setShareVisibility('team'),
+          style:{flex:1,minWidth:180,padding:'10px 14px',borderRadius:8,fontSize:'.8rem',fontWeight:600,cursor:'pointer',border:'1px solid '+(shareVisibility==='team'?'#3b82f660':'transparent'),background:shareVisibility==='team'?'#3b82f620':'transparent',color:shareVisibility==='team'?'#60a5fa':'#94a3b8',textAlign:'left',transition:'all .15s'},
+        },
+          el('div',{style:{fontSize:'.86rem',fontWeight:700,marginBottom:2}}, '🔒 Team only'),
+          el('div',{style:{fontSize:'.7rem',opacity:.8,fontWeight:400,lineHeight:1.4}}, 'Visible only to your team. Default — keep prep tight.'),
+        ),
+        el('button', {
+          onClick:()=>setShareVisibility('public'),
+          style:{flex:1,minWidth:180,padding:'10px 14px',borderRadius:8,fontSize:'.8rem',fontWeight:600,cursor:'pointer',border:'1px solid '+(shareVisibility==='public'?'#22c55e60':'transparent'),background:shareVisibility==='public'?'#22c55e15':'transparent',color:shareVisibility==='public'?'#4ade80':'#94a3b8',textAlign:'left',transition:'all .15s'},
+        },
+          el('div',{style:{fontSize:'.86rem',fontWeight:700,marginBottom:2}}, '🌐 Public disclosure'),
+          el('div',{style:{fontSize:'.7rem',opacity:.8,fontWeight:400,lineHeight:1.4}}, 'Posts to ', el('strong',{key:'a'},'/disclosures'), ' for any signed-in debater to read. Author shown as first-name + last initial.'),
+        ),
       ),
-      el('button', {onClick:shareCase, disabled:sharing||!selectedCase, style:{padding:'8px 16px',background:'#3b82f620',border:'1px solid #3b82f640',borderRadius:8,color:'#60a5fa',fontWeight:600,cursor:'pointer',fontSize:'.82rem'}}, sharing?t('sharedCases.sharing','Sharing...'):t('sharedCases.shareWithTeam','Share with Team')),
+      el('div', {style:{display:'flex',gap:8,flexWrap:'wrap'}},
+        el('select', {value:selectedCase, onChange:e=>setSelectedCase(e.target.value), style:{flex:1,minWidth:200,padding:'8px 12px',background:'#38383e',border:'1px solid #ffffff15',borderRadius:8,color:'#e2e8f0',fontSize:'.85rem',outline:'none'}},
+          el('option', {value:''}, t('sharedCases.selectCase','Select a case to share...')),
+          myCases.map(c => el('option', {key:c.id, value:c.id}, (c.motion||'Untitled').substring(0,60) + ' (' + (c.side||'?') + ')')),
+        ),
+        el('button', {onClick:shareCase, disabled:sharing||!selectedCase, style:{padding:'8px 16px',background:shareVisibility==='public'?'#22c55e20':'#3b82f620',border:'1px solid '+(shareVisibility==='public'?'#22c55e40':'#3b82f640'),borderRadius:8,color:shareVisibility==='public'?'#4ade80':'#60a5fa',fontWeight:600,cursor:'pointer',fontSize:'.82rem'}},
+          sharing ? t('sharedCases.sharing','Sharing...') :
+          shareVisibility==='public' ? '🌐 Publish' : '🔒 Share with Team'
+        ),
+      ),
     ),
     msg && el('div', {style:{marginBottom:16,padding:'10px 16px',borderRadius:8,background:msg.startsWith('Error')?'#ef444420':'#22c55e20',color:msg.startsWith('Error')?'#f87171':'#4ade80',fontSize:'.85rem'}}, msg),
     loading ? el('div',{style:{textAlign:'center',color:'#64748b',padding:20}},t('sharedCases.loadingShared','Loading shared cases...')) :
     sharedCases.length === 0 ? el('div',{style:{textAlign:'center',color:'#64748b',padding:40,background:'#ffffff04',borderRadius:12}},t('sharedCases.noSharedYet','No shared cases yet. Share your first case above!')) :
     sharedCases.map(c => el('div', {key:c.id, style:{padding:16,background:'#ffffff04',border:'1px solid #ffffff08',borderRadius:10,marginBottom:8}},
-      el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}},
-        el('div', null,
+      el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8,gap:10}},
+        el('div', {style:{minWidth:0,flex:1}},
           el('div', {style:{color:'#e4e8f0',fontWeight:600,fontSize:'.95rem',marginBottom:2}}, c.motion || 'Untitled'),
           el('div', {style:{color:'#64748b',fontSize:'.78rem'}}, 'Shared by ' + (c.sharedBy||'Unknown') + (c.sharedAt ? ' \u00B7 ' + new Date(c.sharedAt.seconds ? c.sharedAt.seconds*1000 : c.sharedAt).toLocaleDateString() : '')),
         ),
-        el('div', {style:{display:'flex',gap:6}},
+        el('div', {style:{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}},
+          // Visibility badge \u2014 small but unmistakable. Public = green
+          // 'world' marker, team = blue lock. Defaults to team for any
+          // legacy doc that pre-dates the visibility field.
+          el('span', {style:{fontSize:'.66rem',padding:'2px 8px',borderRadius:999,letterSpacing:'.06em',textTransform:'uppercase',fontWeight:700,background:c.visibility==='public'?'#22c55e18':'#3b82f615',color:c.visibility==='public'?'#4ade80':'#60a5fa',border:'1px solid '+(c.visibility==='public'?'#22c55e40':'#3b82f635')}},
+            c.visibility==='public' ? '\uD83C\uDF10 Public' : '\uD83D\uDD12 Team'
+          ),
           c.side && el('span', {style:{fontSize:'.7rem',padding:'2px 8px',borderRadius:4,background:c.side.toLowerCase()==='gov'?'#22c55e15':'#ef444415',color:c.side.toLowerCase()==='gov'?'#4ade80':'#f87171',fontWeight:600}}, c.side),
           el('button', {onClick:()=>importCase(c), style:{fontSize:'.75rem',padding:'2px 10px',background:'#3b82f615',border:'1px solid #3b82f630',borderRadius:4,color:'#60a5fa',cursor:'pointer',fontWeight:600}}, t('sharedCases.import','Import')),
         ),

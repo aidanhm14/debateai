@@ -30,12 +30,13 @@
   // it doubles as a back-to-app for visitors who landed on a marketing
   // page mid-flow.
   var LINKS = [
-    { href: '/app#case',     label: 'College Prep' },
-    { href: '/high-school',  label: 'High School'  },
-    { href: '/learn',        label: 'Adults'       },
-    { href: '/voice-debate', label: '🎙 Voice'     },
-    { href: '/live',         label: 'Live', live: true },
-    { href: '/leaderboard',  label: 'Leaderboard'  },
+    { href: '/app#case',      label: 'College Prep' },
+    { href: '/high-school',   label: 'High School'  },
+    { href: '/learn',         label: 'Adults'       },
+    { href: '/voice-debate',  label: '🎙 Voice'     },
+    { href: '/live',          label: 'Live', live: true },
+    { href: '/disclosures',   label: 'Disclosures'  },
+    { href: '/leaderboard',   label: 'Leaderboard'  },
   ];
 
   function el(tag, attrs, children){
