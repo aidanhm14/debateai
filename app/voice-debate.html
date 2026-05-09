@@ -1155,23 +1155,23 @@ function App(){
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // The model the server actually minted against is echoed back as
-      // session.model. If we hard-coded gpt-realtime-2 here but the
-      // server fell back to gpt-4o-realtime-preview, the WebRTC
-      // handshake would 400 with a model mismatch. Always trust the
-      // server's choice. Older preview models need the OpenAI-Beta
-      // header on the SDP exchange too — add it conditionally.
-      const negotiatedModel = session.model || 'gpt-4o-realtime-preview';
-      const isLegacyPreview = /preview/.test(negotiatedModel);
-      const sdpHeaders = {
-        'Authorization': 'Bearer ' + ephemeralKey,
-        'Content-Type': 'application/sdp',
-      };
-      if (isLegacyPreview) sdpHeaders['OpenAI-Beta'] = 'realtime=v1';
-      const sdpRes = await fetch(
-        'https://api.openai.com/v1/realtime?model=' + encodeURIComponent(negotiatedModel),
-        { method: 'POST', body: offer.sdp, headers: sdpHeaders }
-      );
+      // The server tells us where to POST the SDP and which headers to
+      // include — different between the GA Realtime API
+      // (POST /v1/realtime/calls, no extra headers) and the legacy beta
+      // (POST /v1/realtime?model=..., needs OpenAI-Beta header). Trust
+      // the server so we never have to guess from the model name.
+      const sdpUrl = session.sdpUrl
+        || 'https://api.openai.com/v1/realtime/calls';
+      const extraSdpHeaders = session.sdpHeaders || {};
+      const sdpRes = await fetch(sdpUrl, {
+        method: 'POST',
+        body: offer.sdp,
+        headers: {
+          'Authorization': 'Bearer ' + ephemeralKey,
+          'Content-Type': 'application/sdp',
+          ...extraSdpHeaders,
+        },
+      });
       if (!sdpRes.ok) {
         const detail = await sdpRes.text().catch(()=> '');
         throw new Error('OpenAI handshake failed (' + sdpRes.status + '). ' + detail.slice(0,140));

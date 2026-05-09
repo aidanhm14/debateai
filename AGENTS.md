@@ -47,11 +47,13 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   │       │     + Cartesia (Pro opt-in), or OpenAI gpt-4o-mini-tts with
 │   │       │     per-persona `instructions` (free + fallback).
 │   │       ├── realtime-session.mjs
-│   │       │     OpenAI Realtime (gpt-realtime-2) ephemeral-token
-│   │       │     minter for /voice-debate.html. App-Check gated, hard
-│   │       │     rate-limited (6 sessions/hour/IP). Browser does
-│   │       │     direct WebRTC to OpenAI; server is never in the
-│   │       │     audio path. Models overridable via env:
+│   │       │     OpenAI Realtime (gpt-realtime / gpt-realtime-2)
+│   │       │     ephemeral-token minter for /voice-debate.html.
+│   │       │     App-Check gated, rate-limited (6/hour/IP). Browser
+│   │       │     does direct WebRTC to OpenAI; server is never in the
+│   │       │     audio path. See "OpenAI Realtime API reference"
+│   │       │     section below for the canonical endpoint shapes.
+│   │       │     Models overridable via env:
 │   │       │     OPENAI_REALTIME_MODEL, OPENAI_REALTIME_TRANSCRIBE_MODEL.
 │   │       ├── lib/
 │   │       │   ├── voice-guidelines.mjs   THE voice bank. Server-side so
@@ -203,6 +205,61 @@ These pairs duplicate intentionally; if you edit one, edit the other:
   Obsidian vault at `~/Documents/Obsidian Vault/Projects/DebateAI — HQ.md`
   is the live project dashboard for forward-looking work — read it for
   current KPIs, priorities, and in-flight threads when planning.
+
+## OpenAI Realtime API reference (verified May 2026)
+
+Confirmed against
+https://developers.openai.com/api/docs/guides/realtime-webrtc — DON'T
+re-guess this from training-set memory. The beta/preview API used
+different endpoints and body shapes; the GA shape below is what works
+today on `gpt-realtime` / `gpt-realtime-2`.
+
+**Step 1 — server mints ephemeral token:**
+
+```
+POST https://api.openai.com/v1/realtime/client_secrets
+Authorization: Bearer ${OPENAI_API_KEY}
+Content-Type: application/json
+
+{
+  "session": {
+    "type": "realtime",
+    "model": "gpt-realtime",
+    "audio": { "output": { "voice": "marin" } },
+    "instructions": "..."
+  }
+}
+```
+
+Response: `{ "value": "EPHEMERAL_KEY", "expires_at": ..., "session": {...} }`.
+
+**Step 2 — browser exchanges WebRTC SDP:**
+
+```
+POST https://api.openai.com/v1/realtime/calls
+Authorization: Bearer ${EPHEMERAL_KEY}
+Content-Type: application/sdp
+
+<SDP offer body>
+```
+
+Response body is the SDP answer.
+
+**Step 3 — push session config over the data channel** after the WebRTC
+connection opens, with `{ type: "session.update", session: {...} }`.
+This is where things like `turn_detection`, `input_audio_transcription`,
+and `modalities` live in the GA API. Then send a
+`{ type: "response.create", response: { ... } }` to kick off the AI's
+opening turn (otherwise you sit silent until the user speaks first).
+
+**Legacy beta API (still works for the older preview models):**
+
+- Mint: `POST /v1/realtime/sessions` with `OpenAI-Beta: realtime=v1`,
+  flat body containing `model`, `voice`, `instructions`,
+  `turn_detection`, etc. Response wraps the secret in
+  `client_secret: { value, expires_at }`.
+- SDP: `POST /v1/realtime?model=...` with `OpenAI-Beta: realtime=v1`.
+- Use this only when an account doesn't have GA Realtime access yet.
 
 ## When in doubt
 

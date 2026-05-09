@@ -295,21 +295,18 @@ export default async (request, context) => {
 
     const instructions = characterPreamble + modeBlock;
 
-    // Model try-list. Default order:
-    //   1. Whatever OPENAI_REALTIME_MODEL env override says (if set).
-    //   2. gpt-realtime-2 (May 2026 GA model — preferred when reachable).
-    //   3. gpt-4o-realtime-preview-2024-12-17 (proven stable on the
-    //      beta endpoint; works on every account that has Realtime).
-    //   4. gpt-4o-realtime-preview (alias, last resort).
-    // We walk the list and use the first model that any endpoint accepts.
-    // If gpt-realtime-2 is unreachable from this account / endpoint, the
-    // older model still gives the user a working demo with the same
-    // interruption + WebRTC + persona system.
+    // Model try-list. Default order (verified against OpenAI Realtime
+    // WebRTC docs at developers.openai.com/api/docs/guides/realtime-webrtc):
+    //   1. OPENAI_REALTIME_MODEL env override (if set).
+    //   2. gpt-realtime          — name shown in the GA docs example.
+    //   3. gpt-realtime-2        — newer model name some accounts have.
+    //   4. gpt-4o-realtime-preview — legacy fallback, proven on every
+    //                                Realtime-enabled account.
     const envModel = process.env.OPENAI_REALTIME_MODEL;
     const modelCandidates = [
       envModel,
+      'gpt-realtime',
       'gpt-realtime-2',
-      'gpt-4o-realtime-preview-2024-12-17',
       'gpt-4o-realtime-preview',
     ].filter(Boolean);
     const transcribeModel = process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL
@@ -340,19 +337,28 @@ export default async (request, context) => {
       },
       max_response_output_tokens: 4000,
     });
-    // Per https://platform.openai.com/docs/guides/realtime, the GA
-    // model gpt-realtime-2 lives at /v1/realtime for the live session.
-    // The ephemeral-key mint is a separate call. We don't yet know the
-    // exact mint URL/body shape from the new docs — try the known
-    // candidates with a minimal body (just model + voice). Everything
-    // else (instructions, turn_detection, modalities) can be sent as
-    // a session.update event over the data channel after connect, so
-    // a minimal mint body keeps the surface area we have to guess at small.
+    // GA Realtime mint — exact shape from the WebRTC docs:
+    //   POST https://api.openai.com/v1/realtime/client_secrets
+    //   Body: { "session": { "type": "realtime", "model": "...",
+    //                        "audio": { "output": { "voice": "..." } },
+    //                        "instructions": "..." } }
+    //   Response: { "value": "EPHEMERAL_KEY", ... }
     //
-    // Two body shapes (full + minimal) × four URLs = the matrix below.
-    // Full body works against the legacy /sessions endpoint; minimal
-    // body is the safest bet against the GA endpoint.
-    const fullBody = (m) => ({
+    // The legacy /sessions endpoint (used in the beta) accepted voice +
+    // turn_detection + transcription inline; the GA mint endpoint takes
+    // a smaller surface and you push the rest as a session.update event
+    // over the data channel after the WebRTC connection opens.
+    const gaBody = (m) => ({
+      session: {
+        type: 'realtime',
+        model: m,
+        audio: { output: { voice } },
+        instructions,
+      },
+    });
+    // Legacy fallback for accounts still on the beta API. Keeps the
+    // older preview model usable.
+    const legacyBody = (m) => ({
       model: m,
       voice,
       instructions,
@@ -362,34 +368,20 @@ export default async (request, context) => {
         type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300,
         silence_duration_ms: 500, create_response: true,
       },
-      max_response_output_tokens: 4000,
     });
-    const minBody = (m) => ({ model: m, voice });
 
     const endpoints = [
       {
-        label: 'GA /client_secrets (min body)',
+        label: 'GA /client_secrets',
         url: 'https://api.openai.com/v1/realtime/client_secrets',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: (m) => JSON.stringify({ session: minBody(m) }),
+        body: (m) => JSON.stringify(gaBody(m)),
       },
       {
-        label: 'GA /client_secrets (flat min body)',
-        url: 'https://api.openai.com/v1/realtime/client_secrets',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: (m) => JSON.stringify(minBody(m)),
-      },
-      {
-        label: 'GA /sessions (full body)',
-        url: 'https://api.openai.com/v1/realtime/sessions',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: (m) => JSON.stringify(fullBody(m)),
-      },
-      {
-        label: 'beta /sessions (full body)',
+        label: 'beta /sessions',
         url: 'https://api.openai.com/v1/realtime/sessions',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'realtime=v1' },
-        body: (m) => JSON.stringify(fullBody(m)),
+        body: (m) => JSON.stringify(legacyBody(m)),
       },
     ];
 
@@ -433,13 +425,22 @@ export default async (request, context) => {
     }
 
     const session = await upstream.json();
-    // GA /client_secrets returns { value, expires_at, session: {...} } at
-    // the top level; legacy /sessions returns { client_secret: { value,
-    // expires_at }, id, ... }. Normalize both shapes so the browser
-    // gets a consistent { client_secret: { value, ... }, session_id }.
+    // Response shapes:
+    //   GA /client_secrets → { value, expires_at, session: {...} }
+    //   legacy /sessions   → { client_secret: { value, expires_at }, id, ... }
+    // Normalize both so the browser sees a consistent
+    // { client_secret: { value, expires_at }, session_id, sdpUrl }.
     const clientSecret = session.client_secret
       || (session.value ? { value: session.value, expires_at: session.expires_at } : null);
     const sessionId = session.id || session.session?.id || null;
+    // SDP exchange URL differs between APIs:
+    //   GA → POST https://api.openai.com/v1/realtime/calls
+    //   legacy → POST https://api.openai.com/v1/realtime?model=...
+    const isGA = lastLabel.startsWith('GA');
+    const sdpUrl = isGA
+      ? 'https://api.openai.com/v1/realtime/calls'
+      : 'https://api.openai.com/v1/realtime?model=' + encodeURIComponent(model);
+    const sdpHeaders = isGA ? {} : { 'OpenAI-Beta': 'realtime=v1' };
 
     // Hand the browser only what WebRTC needs. The ephemeral
     // client_secret is short-lived and scoped to one session — safe to
@@ -451,6 +452,8 @@ export default async (request, context) => {
       voice,
       mode,
       endpoint: lastLabel,
+      sdpUrl,
+      sdpHeaders,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...CORS },
