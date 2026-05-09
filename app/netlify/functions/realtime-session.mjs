@@ -295,9 +295,25 @@ export default async (request, context) => {
 
     const instructions = characterPreamble + modeBlock;
 
-    const model = process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime-2';
+    // Model try-list. Default order:
+    //   1. Whatever OPENAI_REALTIME_MODEL env override says (if set).
+    //   2. gpt-realtime-2 (May 2026 GA model — preferred when reachable).
+    //   3. gpt-4o-realtime-preview-2024-12-17 (proven stable on the
+    //      beta endpoint; works on every account that has Realtime).
+    //   4. gpt-4o-realtime-preview (alias, last resort).
+    // We walk the list and use the first model that any endpoint accepts.
+    // If gpt-realtime-2 is unreachable from this account / endpoint, the
+    // older model still gives the user a working demo with the same
+    // interruption + WebRTC + persona system.
+    const envModel = process.env.OPENAI_REALTIME_MODEL;
+    const modelCandidates = [
+      envModel,
+      'gpt-realtime-2',
+      'gpt-4o-realtime-preview-2024-12-17',
+      'gpt-4o-realtime-preview',
+    ].filter(Boolean);
     const transcribeModel = process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL
-      || 'gpt-realtime-whisper';
+      || 'whisper-1';
 
     // GA Realtime API uses a different endpoint than the beta preview.
     // The legacy preview was POST /v1/realtime/sessions with an
@@ -309,8 +325,8 @@ export default async (request, context) => {
     // with the beta header so this code keeps working if the user's
     // OPENAI_REALTIME_MODEL env override points at an older preview
     // model. The first one that returns 2xx wins.
-    const baseBody = {
-      model,
+    const buildBody = (m) => ({
+      model: m,
       voice,
       instructions,
       modalities: ['audio', 'text'],
@@ -323,41 +339,47 @@ export default async (request, context) => {
         create_response: true,
       },
       max_response_output_tokens: 4000,
-    };
-    const attempts = [
+    });
+    const endpoints = [
       {
         label: 'GA /client_secrets',
         url: 'https://api.openai.com/v1/realtime/client_secrets',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session: baseBody }),
+        wrap: (body) => JSON.stringify({ session: body }),
       },
       {
         label: 'GA /sessions',
         url: 'https://api.openai.com/v1/realtime/sessions',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(baseBody),
+        wrap: (body) => JSON.stringify(body),
       },
       {
         label: 'beta /sessions',
         url: 'https://api.openai.com/v1/realtime/sessions',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'realtime=v1' },
-        body: JSON.stringify(baseBody),
+        wrap: (body) => JSON.stringify(body),
       },
     ];
 
     let upstream = null;
     let lastErrText = '';
     let lastLabel = '';
-    for (const attempt of attempts) {
-      const r = await fetch(attempt.url, { method: 'POST', headers: attempt.headers, body: attempt.body });
-      lastLabel = attempt.label;
-      if (r.ok) { upstream = r; break; }
-      lastErrText = await r.text().catch(() => '');
-      console.error(`Realtime mint ${attempt.label} failed:`, r.status, lastErrText.slice(0, 400));
-      // 401/403 = key/permission issue; no point trying more endpoints.
-      if (r.status === 401 || r.status === 403) {
-        upstream = r; // surface the auth error
-        break;
+    let model = modelCandidates[0];
+    // (endpoint × model) try-matrix. First combination that returns
+    // 2xx wins. Auth failures short-circuit the whole thing.
+    outer: for (const ep of endpoints) {
+      for (const candidate of modelCandidates) {
+        model = candidate;
+        const r = await fetch(ep.url, {
+          method: 'POST',
+          headers: ep.headers,
+          body: ep.wrap(buildBody(candidate)),
+        });
+        lastLabel = ep.label + ' / ' + candidate;
+        if (r.ok) { upstream = r; break outer; }
+        lastErrText = await r.text().catch(() => '');
+        console.error(`Realtime mint failed [${lastLabel}]:`, r.status, lastErrText.slice(0, 300));
+        if (r.status === 401 || r.status === 403) { upstream = r; break outer; }
       }
     }
 
