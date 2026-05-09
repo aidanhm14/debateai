@@ -180,12 +180,12 @@ body{
 /* ── Pills ─────────────────────────── */
 .pills{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap;max-width:780px;margin-left:auto;margin-right:auto}
 .pill{
-  padding:10px 16px;border-radius:100px;border:1.5px solid rgba(255,255,255,.1);
-  background:transparent;color:rgba(255,255,255,.4);font-size:.76rem;font-weight:600;
-  cursor:pointer;transition:all .25s;font-family:inherit;letter-spacing:.02em;white-space:nowrap;
+  padding:10px 16px;border-radius:100px;border:1.5px solid rgba(255,255,255,.28);
+  background:rgba(255,255,255,.04);color:rgba(255,255,255,.78);font-size:.78rem;font-weight:700;
+  cursor:pointer;transition:all .2s;font-family:inherit;letter-spacing:.04em;white-space:nowrap;
 }
-.pill:hover{border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.7)}
-.pill.on{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.06)}
+.pill:hover{border-color:rgba(255,255,255,.5);color:#fff;background:rgba(255,255,255,.08)}
+.pill.on{border-color:#ef4444;color:#fff;background:rgba(239,68,68,.22);box-shadow:0 0 0 1px rgba(239,68,68,.4)}
 
 /* ── WPM Slider ────────────────────── */
 .wpm{display:flex;align-items:center;gap:16px;margin:20px auto;max-width:320px;width:100%}
@@ -531,9 +531,9 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
    render invisible on the light theme, relevant for school projectors. */
 [data-lighting="light"] .recovery-banner{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.18)}
 [data-lighting="light"] .float-input::placeholder{color:rgba(0,0,0,.25)}
-[data-lighting="light"] .pill{border-color:rgba(0,0,0,.12);color:rgba(0,0,0,.45)}
-[data-lighting="light"] .pill:hover{border-color:rgba(0,0,0,.3);color:rgba(0,0,0,.7)}
-[data-lighting="light"] .pill.on{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.06)}
+[data-lighting="light"] .pill{border-color:rgba(0,0,0,.28);color:rgba(0,0,0,.7);background:rgba(0,0,0,.02)}
+[data-lighting="light"] .pill:hover{border-color:rgba(0,0,0,.5);color:#0a0a0a;background:rgba(0,0,0,.06)}
+[data-lighting="light"] .pill.on{border-color:#ef4444;color:#fff;background:#ef4444;box-shadow:0 0 0 1px rgba(239,68,68,.4)}
 [data-lighting="light"] .cta-ghost{border-color:rgba(0,0,0,.1);color:rgba(0,0,0,.4)}
 [data-lighting="light"] .cta-ghost:hover{border-color:rgba(0,0,0,.25);color:rgba(0,0,0,.7)}
 [data-lighting="light"] .wpm span{color:rgba(0,0,0,.35)}
@@ -4265,10 +4265,6 @@ function App(){
       if(phase==='speech'){
         if(e.code==='Space'){e.preventDefault();if(tts.speaking){const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}}
         if(e.code==='Escape'||e.code==='ArrowRight'){e.preventDefault();endSpeech()}
-        // `i` cuts the AI off mid-speech. Only meaningful when the AI
-        // is actively speaking; pressing it during the user's turn is
-        // a no-op so we don't accidentally end the user's own speech.
-        if(e.code==='KeyI' && tts.speaking){e.preventDefault();endSpeech({interrupted:true})}
         // Speed hotkeys 1-5 during AI speech. Match the existing speed
         // pills so users can crank the pace without mouse travel.
         if(!isUser&&tts.speaking){
@@ -6226,23 +6222,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         // up to re-read the motion or transcript.
         el('div',{className:'row-c speech-controls-mobile-sticky'},
           !isUser&&tts.speaking&&el('button',{className:'cta-ghost speech-btn',onClick:()=>{const wasPaused=tts.paused;tts.togglePause();if(wasPaused){timer.resume()}else{timer.pause()}}},tts.paused?'▶ Resume':'⏸ Pause'),
-          // Cut-off button, only meaningful while the AI is actively
-          // speaking. Red border + bold red label so it reads as a hard
-          // stop, distinct from "Skip" (which is the polite version).
-          // Press `i` for keyboard parity. Routes through endSpeech with
-          // interrupted:true so the log entry tags the cut and the
-          // ballot can later weight an interrupted speech differently.
-          !isUser&&tts.speaking&&el('button',{
-            className:'speech-btn',
-            onClick:()=>endSpeech({interrupted:true}),
-            title:'Cut the AI off mid-speech (i)',
-            style:{
-              background:'rgba(239,68,68,.14)',
-              color:'#fca5a5',
-              border:'1px solid rgba(239,68,68,.5)',
-              fontWeight:700,letterSpacing:'.04em',
-            },
-          },'🛑 Interrupt'),
+          // Interrupt was removed — it was misfiring as 'end the round'
+          // when the user pressed it on the final speech (endSpeech with
+          // interrupted:true still advances the speech index and the
+          // round-complete branch flips to the ballot). Skip → covers
+          // the polite cut-off; the round shouldn't have a separate
+          // hard-stop button until the underlying interruption flow
+          // doesn't risk ending the round.
           el('button',{className:'cta-ghost speech-btn',onClick:()=>endSpeech()},isUser?'End Speech →':'Skip →'),
         ),
 

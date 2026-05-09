@@ -33,6 +33,7 @@
     { href: '/app#case',     label: 'College Prep' },
     { href: '/high-school',  label: 'High School'  },
     { href: '/learn',        label: 'Adults'       },
+    { href: '/voice-debate', label: '🎙 Voice'     },
     { href: '/live',         label: 'Live', live: true },
     { href: '/leaderboard',  label: 'Leaderboard'  },
   ];

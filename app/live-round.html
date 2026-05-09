@@ -1019,23 +1019,27 @@ button{font-family:inherit}
       if (skipBtn) skipBtn.disabled = true;
       if (endBtn) endBtn.disabled = true;
       var ppBtn = $('playPauseBtn');
-      if (ppBtn) ppBtn.disabled = true;
+      if (ppBtn){ ppBtn.disabled = true; ppBtn.style.display = 'none'; }
       if (hint) hint.innerHTML = '👁 You\'re watching <strong>' + escHtml(state.proName || 'Pro') + '</strong> vs <strong>' + escHtml(state.conName || 'Con') + '</strong>. Your camera and mic stay off.';
     } else if (ms && !myTurn){
       if (ta){ ta.disabled = true; ta.placeholder = 'Opponent is speaking. Listen + prep your response.'; }
-      if (micBtn) micBtn.disabled = true;
-      if (skipBtn) skipBtn.disabled = true;
-      if (endBtn) endBtn.disabled = true;
-      if (hint) hint.innerHTML = '⏳ Waiting for <strong>' + escHtml(speakerName) + '</strong> to speak. The clock starts when they hit Start.';
+      if (micBtn){ micBtn.disabled = true; micBtn.style.display = 'none'; }
+      if (skipBtn){ skipBtn.disabled = true; skipBtn.style.display = 'none'; }
+      if (endBtn){ endBtn.disabled = true; endBtn.style.display = 'none'; }
+      // Off-side speaker should NOT see the start-speech button — the
+      // active speaker is the only one who can advance the clock.
+      var ppOff = $('playPauseBtn');
+      if (ppOff){ ppOff.disabled = true; ppOff.style.display = 'none'; }
+      if (hint) hint.innerHTML = '👂 <strong>' + escHtml(speakerName) + '</strong> is up. Their timer ticks live above. Your turn comes next.';
     } else {
       if (ta){ ta.disabled = false; ta.placeholder = 'Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said.'; }
-      if (micBtn) micBtn.disabled = false;
-      if (skipBtn) skipBtn.disabled = false;
-      if (endBtn) endBtn.disabled = false;
-      var pp = $('playPauseBtn'); if (pp) pp.disabled = false;
+      if (micBtn){ micBtn.disabled = false; micBtn.style.display = ''; }
+      if (skipBtn){ skipBtn.disabled = false; skipBtn.style.display = ''; }
+      if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; }
+      var pp = $('playPauseBtn'); if (pp){ pp.disabled = false; pp.style.display = ''; }
       if (hint){
         if (myTurn && ms){
-          hint.innerHTML = '🎤 <strong>Your turn.</strong> Don\'t forget to click <strong>Start mic</strong> so the AI captures your speech for the ballot.';
+          hint.innerHTML = '🎤 <strong>Your turn.</strong> Hit <strong>▶ Start speech</strong> — the mic engages automatically so the AI captures your speech for the ballot.';
         } else {
           hint.innerHTML = 'Click <strong>▶ Start speech</strong> when you\'re ready, the timer doesn\'t start until you do.';
         }
@@ -1102,6 +1106,7 @@ button{font-family:inherit}
   }
   function startSpeechTimer(){
     if (state.timerState === 'running' || state.timerState === 'ended') return;
+    var wasReady = state.timerState === 'ready';
     state.timerStart = Date.now();
     state.timerState = 'running';
     state.timerInterval = setInterval(drawTimer, 200);
@@ -1109,6 +1114,18 @@ button{font-family:inherit}
     updatePlayPauseBtn();
     var hint = $('readyHint');
     if (hint) hint.style.display = 'none';
+    // Auto-engage the mic when the active speaker starts the speech.
+    // Only on the ready→running transition (not on resume from pause —
+    // if they hit pause they may have explicitly killed the mic) and
+    // only when it's actually their turn (otherwise we're an off-side
+    // viewer mirroring the timer state and shouldn't grab the mic).
+    if (wasReady && isMyTurn() && !state.micActive){
+      try { setMicActive(true); } catch(e){ console.warn('[mic auto]', e); }
+    }
+    // Mirror the timer state to the off-side speaker. The remote peer
+    // reads this and starts its own ticking display so they can see
+    // the active speaker's clock count up.
+    publishTimerState();
   }
   function pauseSpeechTimer(){
     if (state.timerState !== 'running') return;
@@ -1116,6 +1133,53 @@ button{font-family:inherit}
     state.timerStart = 0;
     state.timerState = 'paused';
     if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
+    drawTimer();
+    updatePlayPauseBtn();
+    publishTimerState();
+  }
+
+  // Mirror the active speaker's timer to the round doc so the off-side
+  // (and spectators) can render the same elapsed clock locally. We use
+  // client-clock timestamps; both browsers are usually within a couple
+  // of seconds and this isn't latency-sensitive enough for a server
+  // timestamp round-trip. Off-side reconstructs elapsed = accumulatedMs
+  // + (Date.now() - startMs) when state==='running', accumulatedMs
+  // alone when state==='paused' or 'ready'.
+  function publishTimerState(){
+    if (isSpectator()) return;
+    if (!isMyTurn()) return;
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    var payload = {
+      currentTimer: {
+        speechIdx: state.speechIdx,
+        state: state.timerState,
+        startMs: state.timerState === 'running' ? state.timerStart : 0,
+        accumulatedMs: Math.round(state.timerElapsed * 1000),
+        totalSec: state.timerTotalSec,
+        // updatedAtMs lets the off-side detect a stale timer from a
+        // prior speech and ignore it across speech boundaries.
+        updatedAtMs: Date.now(),
+      },
+    };
+    ref.set(payload, { merge: true }).catch(function(e){ console.warn('[timer sync]', e); });
+  }
+
+  // Run the off-side's local timer interval driven by the remote
+  // currentTimer payload. We compute elapsed against the active
+  // speaker's clock and re-render every 200ms — same cadence as
+  // drawTimer's local interval, so the readout looks identical.
+  function applyRemoteTimer(t){
+    if (!t || typeof t !== 'object') return;
+    if (t.speechIdx !== state.speechIdx) return; // stale from a prior speech
+    state.timerTotalSec = t.totalSec || state.timerTotalSec;
+    state.timerState = t.state || 'ready';
+    state.timerElapsed = (t.accumulatedMs || 0) / 1000;
+    state.timerStart = t.state === 'running' ? (t.startMs || Date.now()) : 0;
+    if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
+    if (state.timerState === 'running'){
+      state.timerInterval = setInterval(drawTimer, 200);
+    }
     drawTimer();
     updatePlayPauseBtn();
   }
@@ -1329,6 +1393,11 @@ button{font-family:inherit}
     state.log.push(entry);
     state.speechIdx++;
     publishSpeech(entry);
+    // Clear the currentTimer mirror so the next speaker doesn't see
+    // the prior speech's elapsed value flash in for one snapshot tick
+    // before their own ready-state takes over.
+    var ref = getRoundDocRef();
+    if (ref) ref.update({ currentTimer: firebase.firestore.FieldValue.delete() }).catch(function(){});
     if (state.speechIdx >= f.speeches.length){
       finishRound();
     } else {
@@ -1840,6 +1909,15 @@ button{font-family:inherit}
         $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length;
         renderRound();
       }
+    }
+
+    // Off-side timer mirroring. When the active speaker pushes a
+    // currentTimer payload tagged to the current speechIdx, mirror it
+    // into our local timer state so the off-side sees the active
+    // speaker's clock count up. Only run for non-active sides — the
+    // active speaker owns its own timer locally.
+    if (state.phase === 'round' && d.currentTimer && !isMyTurn()){
+      applyRemoteTimer(d.currentTimer);
     }
 
     // Ballot pending — other side shows 'Ballot generating…' the
