@@ -1250,6 +1250,38 @@ function App(){
   // Show 3 featured opponents by default; user can expand to all 8.
   const [showAllOpponents, setShowAllOpponents] = useState(false);
 
+  // Smartness slider — 1 = solo gpt-realtime (fastest start), 5 = full
+  // council (Claude + Gemini + Grok + GPT-5 consult before first speech).
+  // Persisted across sessions so the user's preferred level sticks.
+  const [smartness, setSmartness] = useState(()=>{
+    try { return Math.max(1, Math.min(5, parseInt(localStorage.getItem('debateai-smartness')||'1', 10))); }
+    catch(e){ return 1; }
+  });
+  useEffect(()=>{
+    try { localStorage.setItem('debateai-smartness', String(smartness)); } catch(e){}
+  }, [smartness]);
+
+  // Microphone permission state — checked on mount via the Permissions
+  // API so we can render an accurate notice ("granted" / "needs prompt"
+  // / "blocked"). Best-effort: Safari supports permissions.query for
+  // 'microphone' as of 16.4; older browsers fall through to 'unknown'.
+  const [micPerm, setMicPerm] = useState('unknown'); // unknown | granted | prompt | denied
+  useEffect(()=>{
+    let cancelled = false;
+    let permRef = null;
+    (async ()=>{
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const p = await navigator.permissions.query({ name: 'microphone' });
+          permRef = p;
+          if (!cancelled) setMicPerm(p.state);
+          p.onchange = () => { if (!cancelled) setMicPerm(p.state); };
+        }
+      } catch(e) { /* unsupported — leave as unknown */ }
+    })();
+    return () => { cancelled = true; if (permRef) permRef.onchange = null; };
+  }, []);
+
   // Watch Firebase auth so the greeting personalizes once sign-in resolves.
   useEffect(()=>{
     let unsub = null;
@@ -1526,6 +1558,14 @@ function App(){
       // AI knows who it IS (persona name + archetype + style), who the
       // USER is (first name when signed in), and how many rounds they
       // have together. That's what powers the relationship arc.
+      // smartness > 1 triggers a server-side parallel "council" — the
+      // function calls Claude/Gemini/Grok/GPT-5 to research the motion
+      // before minting the realtime session. Adds 2-6s of latency to
+      // the connection but the AI's first speech is dramatically
+      // sharper. Show the user what's happening while they wait.
+      if (smartness > 1) {
+        setConnectStep('Convening AI council (' + smartness + ' brains)…');
+      }
       const mintRes = await fetch('/api/realtime-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1537,6 +1577,7 @@ function App(){
           personaStyle: persona.style,
           userName: userFirstName,
           bondCount,
+          smartness,
         }),
       });
       if (!mintRes.ok) {
@@ -2074,6 +2115,62 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           ),
         ),
 
+        // Smartness slider — picks how many extra brains the AI
+        // consults before its first speech. 1 = solo (fastest), 5 =
+        // full council (~6s slower start, much sharper arguments).
+        (function(){
+          const SMART_LABELS = [
+            { lvl:1, name:'Quick',       desc:'Solo gpt-realtime. Fastest start.' },
+            { lvl:2, name:'Sharp',       desc:'+ Claude research. ~3s slower start, better framework.' },
+            { lvl:3, name:'Tournament',  desc:'+ Claude + Gemini council. Stronger weighing.' },
+            { lvl:4, name:'Council',     desc:'+ Claude + Gemini + Grok. Multi-angle prep.' },
+            { lvl:5, name:'World Champ', desc:'Full council + GPT-5 synthesis. ~6s start, hardest opponent.' },
+          ];
+          const cur = SMART_LABELS[smartness - 1] || SMART_LABELS[0];
+          return el('div', { className:'smart-card' },
+            el('div', { className:'smart-h' },
+              el('span', { className:'lbl' }, 'Smartness'),
+              el('span', { className:'lvl' }, cur.name),
+            ),
+            el('div', { className:'smart-desc' }, cur.desc),
+            el('input', {
+              type:'range',
+              className:'smart-slider',
+              min:1, max:5, step:1, value: smartness,
+              onChange: e => setSmartness(parseInt(e.target.value, 10)),
+              'aria-label':'AI smartness level',
+            }),
+            el('div', { className:'smart-ticks' },
+              SMART_LABELS.map(s =>
+                el('span', { key:s.lvl, className: smartness===s.lvl ? 'on' : '' }, s.name)
+              )
+            ),
+            smartness >= 4 && el('div', { className:'smart-warn' },
+              '⚠ Council mode adds ~3-6 seconds to the session start while ' + (smartness === 5 ? '4' : '3') + ' brains research the motion in parallel.'
+            ),
+          );
+        })(),
+
+        // Microphone permission notice — surfaces ABOVE the Start CTA
+        // so the user knows the browser dialog is coming and what it's for.
+        el('div', { className:'mic-notice ' + (micPerm === 'granted' ? 'granted' : micPerm === 'denied' ? 'denied' : '') },
+          el('div', { className:'mic-icon' }, '🎤'),
+          el('div', { className:'body' },
+            el('div', { className:'t' },
+              micPerm === 'granted' ? 'Microphone ready' :
+              micPerm === 'denied'  ? 'Microphone blocked' :
+                                       'Microphone access needed'
+            ),
+            el('div', { className:'d' },
+              micPerm === 'granted'
+                ? 'Your browser already has mic access for this site. Hit Start and you\'re live.'
+                : micPerm === 'denied'
+                  ? ['Your browser is blocking mic access. Open ', el('strong', { key:'a' }, 'Site Settings'), ' for debateai.com and re-allow the microphone, then reload.']
+                  : ['When you click Start, your browser will pop a permission dialog. Click ', el('strong', { key:'b' }, 'Allow'), '. Audio streams directly to OpenAI Realtime; nothing is saved unless you download the recording after the round.']
+            ),
+          ),
+        ),
+
         error && el('div', { className:'notice error' }, error),
 
         // Start CTA
@@ -2082,9 +2179,10 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             type:'button',
             className:'cta',
             onClick: start,
+            disabled: micPerm === 'denied',
           }, 'Start voice debate'),
           el('div', { className:'helper' },
-            'Mic permission required. You can interrupt the AI mid-sentence.'
+            'You can interrupt the AI mid-sentence. The whole point.'
           ),
         ),
       ),

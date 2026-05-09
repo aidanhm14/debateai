@@ -20,6 +20,150 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 
+/* ── AI COUNCIL ──────────────────────────────────────────────────
+   When smartness > 1, the function calls Claude / Gemini / Grok /
+   GPT-5 in parallel BEFORE minting the realtime session. Each brain
+   returns its strongest 3 arguments + counter-arguments + evidence
+   for the AI's side. The synthesis is prepended to the system
+   prompt as "council research notes" — the realtime AI then has
+   4 brains' worth of prep to draw from on its first speech.
+
+   Cost: ~$0.005-0.02 per council call across all four. Latency:
+   2-6 seconds added to session start (parallelized).
+
+   Failures: any single brain failing is silently ignored. If all
+   fail, we proceed with no research notes (the realtime AI just
+   uses its base prompt).
+   ─────────────────────────────────────────────────────────────── */
+
+const COUNCIL_TIMEOUT_MS = 9000; // hard cap so a slow brain doesn't stall session start
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' timeout')), ms)),
+  ]);
+}
+
+function buildCouncilPrompt(motion, sideLabel) {
+  const aiSide = sideLabel === 'Government' ? 'Opposition' : 'Government';
+  return `You are a varsity debate coach prepping arguments for the AI debater. The motion is: "${motion || '(no motion specified — assume a clash-rich APDA-style motion the user will state)'}". The user is arguing ${sideLabel}; the AI is on the ${aiSide} side.
+
+Generate prep notes the AI can use in its first speech. Be specific, mechanism-first, and tournament-grade.
+
+Format:
+ARGUMENTS (3, ranked by strength)
+1. [tag] — [mechanism in one sentence] — [impact / weighing]
+2. ...
+3. ...
+
+ANTICIPATED USER ARGS (2)
+- [their likely arg] → [response]
+
+EVIDENCE / EXAMPLES (2 real ones, no fabrication)
+- ...
+
+Do NOT write the speech. Just prep notes. Under 250 words total. No throat-clearing, no em-dashes, no name-dropping philosophers unless the motion demands it.`;
+}
+
+async function callClaudeCouncil(prompt) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return null;
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': key, 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 800,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  return j?.content?.[0]?.text || null;
+}
+
+async function callGeminiCouncil(prompt) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 800, temperature: 0.6 },
+    }),
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  return j?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+async function callGrokCouncil(prompt) {
+  const key = process.env.XAI_API_KEY;
+  if (!key) return null;
+  const r = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'grok-4',
+      max_tokens: 800,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  return j?.choices?.[0]?.message?.content || null;
+}
+
+async function callGPT5Council(prompt) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: process.env.OPENAI_COUNCIL_MODEL || 'gpt-5',
+      max_tokens: 800,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  return j?.choices?.[0]?.message?.content || null;
+}
+
+async function gatherCouncil(motion, sideLabel, smartness) {
+  if (!smartness || smartness <= 1) return '';
+  const prompt = buildCouncilPrompt(motion, sideLabel);
+  // Smartness → which brains to consult.
+  //   2 = Claude only
+  //   3 = Claude + Gemini
+  //   4 = Claude + Gemini + Grok
+  //   5 = full council + GPT-5 synthesis
+  const calls = [];
+  if (smartness >= 2) calls.push(['Claude', withTimeout(callClaudeCouncil(prompt), COUNCIL_TIMEOUT_MS, 'Claude').catch(()=>null)]);
+  if (smartness >= 3) calls.push(['Gemini', withTimeout(callGeminiCouncil(prompt), COUNCIL_TIMEOUT_MS, 'Gemini').catch(()=>null)]);
+  if (smartness >= 4) calls.push(['Grok',   withTimeout(callGrokCouncil(prompt),   COUNCIL_TIMEOUT_MS, 'Grok').catch(()=>null)]);
+  if (smartness >= 5) calls.push(['GPT-5',  withTimeout(callGPT5Council(prompt),   COUNCIL_TIMEOUT_MS, 'GPT-5').catch(()=>null)]);
+  const results = await Promise.all(calls.map(([_, p]) => p));
+  const blocks = [];
+  calls.forEach(([name], i) => {
+    const text = (results[i] || '').trim();
+    if (text) blocks.push(`### ${name}'s prep notes\n${text}`);
+  });
+  if (blocks.length === 0) return '';
+  return [
+    '═══════════════════════════════════════════════',
+    'COUNCIL RESEARCH (you have prep notes from ' + blocks.length + ' AI coach' + (blocks.length === 1 ? '' : 'es') + '):',
+    '═══════════════════════════════════════════════',
+    blocks.join('\n\n'),
+    '═══════════════════════════════════════════════',
+    'Use the strongest arguments above as the spine of your first speech. Do NOT read them verbatim — synthesize them in your own character\'s voice. If multiple coaches converge on the same argument, that\'s your A1.',
+    '═══════════════════════════════════════════════',
+  ].join('\n');
+}
+
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://devilsadvocate1.netlify.app',
@@ -319,7 +463,23 @@ export default async (request, context) => {
       if (fmtBlock) voiceBank = voiceBank + '\n\n' + fmtBlock;
     } catch(e) { /* voice bank optional — function still works without it */ }
 
-    const instructions = (voiceBank ? voiceBank + '\n\n' : '') + characterPreamble + modeBlock;
+    // AI Council — when smartness > 1, parallel-consult Claude /
+    // Gemini / Grok / GPT-5 for prep notes, then prepend the synthesis
+    // to the system instructions. The realtime AI uses these as the
+    // spine of its first speech.
+    const smartness = Math.max(1, Math.min(5, parseInt(body.smartness, 10) || 1));
+    let councilResearch = '';
+    if (smartness > 1) {
+      const sideLabel = (side === 'gov' || side === 'pm' || side === 'mg') ? 'Government' : 'Opposition';
+      try {
+        councilResearch = await gatherCouncil(motion, sideLabel, smartness);
+      } catch(e) { console.error('Council assembly failed:', e); }
+    }
+
+    const instructions =
+      (councilResearch ? councilResearch + '\n\n' : '') +
+      (voiceBank ? voiceBank + '\n\n' : '') +
+      characterPreamble + modeBlock;
 
     // Model try-list. Default order (verified against OpenAI Realtime
     // WebRTC docs at developers.openai.com/api/docs/guides/realtime-webrtc):
