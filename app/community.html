@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Community · Debate AI</title>
+<meta name="description" content="The Debate AI community: public case disclosures, threaded discussion, vote on what's good. Read how other debaters tackled motions across APDA, BP, Worlds, Asian Parli, LD, PF, Policy. Import any case." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/community">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/community">
+<meta property="og:title" content="Community · Debate AI">
+<meta property="og:description" content="Public case disclosures + threaded discussion. Read, vote, post. Import any case across formats.">
+<meta property="og:image" content="https://debateai.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Community · Debate AI">
+<meta name="twitter:description" content="Public case disclosures + threaded discussion. Read, vote, post.">
+<meta name="twitter:image" content="https://debateai.com/og-image.png">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+
+<!-- Per-user telemetry — same as the rest of the signed-in surfaces.
+     window.track is exposed for ad-hoc disclosure events (open, import). -->
+<script defer src="/js/track.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root,[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.16);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.18);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --text:#fff;--text-dim:rgba(255,255,255,.68);--text-ghost:rgba(255,255,255,.38);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.45);
+  --bar-bg:rgba(10,10,12,.92);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.12);--border-strong:rgba(239,68,68,.28);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --text:#fff;--text-dim:rgba(255,255,255,.72);--text-ghost:rgba(239,68,68,.42);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.55);
+  --bar-bg:rgba(0,0,0,.95);
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.08);--border-strong:rgba(0,0,0,.18);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.18);
+  --green:#16a34a;--amber:#d97706;--blue:#2563eb;
+  --text:#1a1a1f;--text-dim:rgba(0,0,0,.68);--text-ghost:rgba(0,0,0,.42);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.10);
+  --bar-bg:rgba(250,250,247,.85);
+}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+.bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 22px;background:var(--bar-bg);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  position:sticky;top:0;z-index:50;
+}
+.bar-logo{font-size:1rem;font-weight:900;letter-spacing:-.02em}
+.bar-logo em{color:var(--accent);font-style:normal}
+.bar-meta{display:flex;align-items:center;gap:14px;font-size:.74rem;color:var(--text-dim);font-weight:600}
+.bar-back{padding:6px 14px;border:1px solid var(--border);border-radius:999px;font-size:.72rem;font-weight:700;color:var(--text-dim);transition:color .15s,border-color .15s}
+.bar-back:hover{color:var(--text);border-color:var(--border-strong)}
+
+.wrap{max-width:1100px;margin:0 auto;padding:42px 22px 80px}
+
+.hero{text-align:center;margin-bottom:38px}
+.hero .eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:#4ade80;padding:5px 12px;border-radius:999px;
+  background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.32);
+  margin-bottom:16px;
+}
+.hero .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+.hero h1{font-size:clamp(2rem,5vw,3rem);font-weight:900;letter-spacing:-.025em;line-height:1.05;margin-bottom:14px}
+.hero h1 em{color:var(--accent);font-style:normal}
+.hero p{font-size:clamp(.92rem,1.3vw,1.05rem);color:var(--text-dim);max-width:660px;margin:0 auto;line-height:1.6}
+.hero p strong{color:var(--text);font-weight:700}
+
+/* Filter strip */
+.filters{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:30px 0 20px;padding:14px 16px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+}
+.filters .group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.filter-chip{
+  padding:7px 13px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-size:.74rem;font-weight:700;
+  letter-spacing:.04em;transition:all .15s;
+}
+.filter-chip:hover{color:var(--text);border-color:var(--border-strong)}
+.filter-chip.on{background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.45);color:var(--accent)}
+.search{
+  flex:1;min-width:200px;padding:8px 12px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-size:.86rem;
+  font-family:inherit;outline:none;
+}
+.search:focus{border-color:rgba(239,68,68,.5)}
+
+/* Disclosure cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.card{
+  padding:18px 18px 16px;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:14px;display:flex;flex-direction:column;gap:10px;
+  transition:border-color .2s,transform .15s;
+}
+.card:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.card .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card .row.between{justify-content:space-between}
+.card .motion{font-size:.95rem;font-weight:700;line-height:1.35;color:var(--text);letter-spacing:-.01em;flex:1;min-width:0}
+.card .meta{font-size:.7rem;color:var(--text-ghost);font-weight:600;letter-spacing:.04em}
+.card .preview{
+  font-size:.78rem;color:var(--text-dim);line-height:1.55;
+  max-height:84px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom,#000 60%,transparent);
+  mask-image:linear-gradient(to bottom,#000 60%,transparent);
+}
+.card .actions{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:6px;border-top:1px dashed var(--border)}
+
+.tag{
+  display:inline-flex;padding:3px 9px;border-radius:999px;
+  font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  border:1px solid var(--border);color:var(--text-dim);
+}
+.tag.gov,.tag.pro,.tag.aff{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.34);color:#4ade80}
+.tag.opp,.tag.con,.tag.neg{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.34);color:#fca5a5}
+.tag.format{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.30);color:#93c5fd}
+
+.btn{
+  padding:7px 13px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-family:inherit;font-weight:700;
+  font-size:.74rem;letter-spacing:.04em;cursor:pointer;
+  transition:all .15s;
+}
+.btn:hover{color:var(--text);border-color:var(--border-strong);background:rgba(255,255,255,.03)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:#dc2626;border-color:#dc2626}
+
+/* Tab switcher between Cases (disclosures) and Discussion (forum) */
+.tabs{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:18px;padding:6px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  width:fit-content;
+}
+.tab{
+  padding:9px 18px;border-radius:10px;
+  background:transparent;color:var(--text-dim);
+  font-family:inherit;font-size:.82rem;font-weight:700;letter-spacing:.04em;
+  cursor:pointer;transition:background .15s,color .15s;
+}
+.tab:hover{color:var(--text)}
+.tab.on{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(239,68,68,.28)}
+
+/* Discussion threads — list of cards, similar shape to disclosure cards
+   but vertically denser and with title-first hierarchy. */
+.threads{display:flex;flex-direction:column;gap:10px}
+.thread-card{
+  padding:16px 18px;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:12px;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
+  cursor:pointer;transition:border-color .2s,transform .15s;
+}
+.thread-card:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.thread-vote{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:36px}
+.thread-vote .vote-btn{padding:2px 8px;font-size:.74rem}
+.thread-vote .vote-score{font-size:.86rem;font-weight:800}
+.thread-body{min-width:0}
+.thread-title{font-size:1rem;font-weight:700;color:var(--text);line-height:1.3;letter-spacing:-.005em;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.thread-preview{font-size:.78rem;color:var(--text-dim);line-height:1.5;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.thread-meta{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-size:.7rem;color:var(--text-ghost);font-weight:600;letter-spacing:.04em;margin-top:6px;
+}
+.thread-meta .cat-tag{
+  padding:2px 8px;border-radius:999px;
+  background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.32);
+  color:#93c5fd;text-transform:uppercase;font-weight:700;letter-spacing:.06em;
+}
+.thread-stats{
+  display:flex;flex-direction:column;align-items:flex-end;gap:4px;
+  font-size:.7rem;color:var(--text-ghost);font-weight:600;white-space:nowrap;
+}
+.thread-stats .replies{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;border-radius:999px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-dim);
+}
+@media(max-width:600px){
+  .thread-card{grid-template-columns:auto 1fr;gap:10px}
+  .thread-stats{grid-column:1/-1;flex-direction:row;justify-content:space-between}
+}
+
+/* Reply rendering inside the thread modal */
+.reply{padding:14px 16px;border-top:1px solid var(--border);font-size:.88rem;line-height:1.55;color:var(--text)}
+.reply:first-child{border-top:none}
+.reply .reply-meta{font-size:.7rem;color:var(--text-ghost);font-weight:600;margin-bottom:6px}
+.reply .reply-body{white-space:pre-wrap;word-break:break-word}
+.reply-form{
+  padding:14px 16px;border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:8px;
+}
+.reply-form textarea{
+  width:100%;min-height:80px;padding:10px 12px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-family:inherit;font-size:.88rem;
+  outline:none;resize:vertical;
+}
+.reply-form textarea:focus{border-color:var(--accent)}
+
+/* Vote buttons inline on each card. Sit alongside the meta row so the
+   vote action is one click away from the case title. Active state
+   keys off the user's stored vote (+1 → up green, -1 → down amber). */
+.vote-group{
+  display:inline-flex;align-items:center;gap:4px;margin-right:auto;
+}
+.vote-btn{
+  padding:4px 8px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-size:.78rem;font-weight:700;
+  cursor:pointer;transition:all .15s;font-family:inherit;
+  display:inline-flex;align-items:center;gap:4px;
+}
+.vote-btn:hover{border-color:var(--border-strong);color:var(--text)}
+.vote-btn.up.on{color:#4ade80;border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.1)}
+.vote-btn.down.on{color:#fbbf24;border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.1)}
+.vote-score{
+  font-size:.74rem;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--text);min-width:24px;text-align:center;letter-spacing:.02em;
+}
+.vote-score.pos{color:#4ade80}
+.vote-score.neg{color:#fbbf24}
+
+.empty{
+  text-align:center;padding:60px 22px;color:var(--text-dim);font-size:.92rem;line-height:1.6;
+  background:var(--bg-card);border:1px dashed var(--border);border-radius:14px;
+}
+.empty h3{color:var(--text);font-size:1.05rem;font-weight:800;margin-bottom:6px}
+.empty a{color:var(--accent);font-weight:700}
+
+.skeleton{
+  height:180px;background:linear-gradient(90deg,var(--bg-card) 0%,rgba(255,255,255,.03) 50%,var(--bg-card) 100%);
+  background-size:200% 100%;animation:sk 1.4s linear infinite;border-radius:14px;
+}
+@keyframes sk{from{background-position:200% 0}to{background-position:-200% 0}}
+
+/* Reader modal */
+.modal{
+  position:fixed;inset:0;z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  background:rgba(0,0,0,.65);backdrop-filter:blur(6px);
+}
+.modal-card{
+  max-width:760px;width:100%;max-height:84vh;display:flex;flex-direction:column;
+  background:var(--bg-card);border:1px solid var(--border-strong);border-radius:16px;
+  box-shadow:var(--shadow-lg);
+}
+.modal-head{
+  padding:18px 22px;border-bottom:1px solid var(--border);
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+}
+.modal-head h2{font-size:1.08rem;font-weight:800;line-height:1.3;color:var(--text);letter-spacing:-.01em}
+.modal-head .meta{font-size:.74rem;color:var(--text-dim);margin-top:6px;font-weight:600}
+.modal-close{padding:6px 10px;border-radius:8px;color:var(--text-dim);font-size:1.1rem;line-height:1}
+.modal-close:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.modal-body{
+  padding:22px;overflow-y:auto;font-size:.92rem;line-height:1.6;color:var(--text);
+  white-space:pre-wrap;
+}
+.modal-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  padding:10px 18px;background:var(--bg-card);border:1px solid var(--border-strong);
+  border-radius:999px;font-size:.82rem;font-weight:600;color:var(--text);
+  box-shadow:var(--shadow-lg);z-index:300;animation:toast-in .22s ease-out;
+}
+@keyframes toast-in{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+</style>
+</head>
+<body>
+
+<nav class="bar">
+  <a href="/landing" class="bar-logo"><em>Debate</em> AI · Community</a>
+  <div class="bar-meta">
+    <a href="/debate-ai" style="font-size:.74rem;font-weight:700">Debate AI</a>
+    <a href="/leaderboard" style="font-size:.74rem;font-weight:700">Leaderboard</a>
+    <a href="/landing" class="bar-back">← Home</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow"><span class="dot"></span>Community · Public</div>
+    <h1>Read what the community <em>actually argued.</em> Talk to them.</h1>
+    <p>Two surfaces here. <strong>Cases</strong> are full disclosures other debaters published; read, vote, import, riff off. <strong>Discussion</strong> is the threaded forum — ask a question, post a take, fight about a motion. Private prep stays private; only what people opt to publish appears here.</p>
+  </div>
+
+  <!-- Tab switcher: Cases (existing disclosures) vs Discussion
+       (new threaded forum). Both share the same auth gate; switching
+       tabs hides/shows the relevant sections. -->
+  <div class="tabs">
+    <button class="tab on" data-tab="cases">📚 Cases</button>
+    <button class="tab" data-tab="discussion">💬 Discussion</button>
+  </div>
+
+  <!-- ── CASES TAB ────────────────────────────────────────────── -->
+  <div id="casesPane">
+    <div class="filters">
+      <input id="search" class="search" type="text" placeholder="Search motions or argument text…" autocomplete="off" />
+      <div class="group" id="sideFilters">
+        <button class="filter-chip on" data-side="">All sides</button>
+        <button class="filter-chip" data-side="gov">Gov / Pro / Aff</button>
+        <button class="filter-chip" data-side="opp">Opp / Con / Neg</button>
+      </div>
+      <div class="group" id="formatFilters">
+        <button class="filter-chip on" data-format="">All formats</button>
+        <button class="filter-chip" data-format="quick">Quick Clash</button>
+        <button class="filter-chip" data-format="apda">APDA</button>
+        <button class="filter-chip" data-format="bp">BP</button>
+        <button class="filter-chip" data-format="worlds">Worlds</button>
+        <button class="filter-chip" data-format="asian">Asian</button>
+        <button class="filter-chip" data-format="ld">LD</button>
+        <button class="filter-chip" data-format="pf">PF</button>
+        <button class="filter-chip" data-format="policy">Policy</button>
+      </div>
+      <div class="group" id="sortFilters" style="margin-left:auto">
+        <button class="filter-chip on" data-sort="recent">Newest</button>
+        <button class="filter-chip" data-sort="top">Top-voted</button>
+      </div>
+    </div>
+
+    <div id="cards" class="cards">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+
+    <div id="empty" class="empty" style="display:none">
+      <h3>No public cases yet.</h3>
+      <p style="margin-top:8px">Be the first. Run a round on <a href="/debate-ai">/debate-ai</a>, save the case, then publish it from the Team Case Library or the post-round screen.</p>
+    </div>
+  </div>
+
+  <!-- ── DISCUSSION TAB ──────────────────────────────────────── -->
+  <div id="discussionPane" style="display:none">
+    <div class="filters" style="justify-content:space-between">
+      <div class="group" id="threadCategoryFilters">
+        <button class="filter-chip on" data-thread-cat="">All</button>
+        <button class="filter-chip" data-thread-cat="general">General</button>
+        <button class="filter-chip" data-thread-cat="apda">APDA</button>
+        <button class="filter-chip" data-thread-cat="bp">BP</button>
+        <button class="filter-chip" data-thread-cat="worlds">Worlds / WSDC</button>
+        <button class="filter-chip" data-thread-cat="asian">Asian Parli</button>
+        <button class="filter-chip" data-thread-cat="ld">LD</button>
+        <button class="filter-chip" data-thread-cat="pf">PF</button>
+        <button class="filter-chip" data-thread-cat="policy">Policy</button>
+        <button class="filter-chip" data-thread-cat="meta">Meta</button>
+      </div>
+      <button id="newThreadBtn" class="btn primary" style="padding:9px 16px;font-size:.78rem">+ New thread</button>
+    </div>
+
+    <div id="threads" class="threads"></div>
+    <div id="threadsEmpty" class="empty" style="display:none">
+      <h3>No threads yet.</h3>
+      <p style="margin-top:8px">Start the conversation. Hit <strong>+ New thread</strong> above. Ask a question, post a take, fight about a motion — anything debate-adjacent is fair game.</p>
+    </div>
+  </div>
+</div>
+
+<div id="modalHost"></div>
+<div id="toastHost"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  var firebaseAuth = null, firebaseDb = null, currentUser = null;
+  try {
+    if (typeof firebase !== 'undefined'){
+      var app = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      firebaseAuth = firebase.auth();
+      firebaseDb = firebase.firestore();
+      firebaseAuth.onAuthStateChanged(function(u){ currentUser = u || null; });
+    }
+  } catch(e){ console.warn('[disclosures] firebase init failed', e); }
+
+  var $ = function(id){ return document.getElementById(id); };
+  function escHtml(s){
+    return String(s||'').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function toast(msg){
+    var t = document.createElement('div');
+    t.className = 'toast'; t.textContent = msg;
+    $('toastHost').appendChild(t);
+    setTimeout(function(){ t.style.transition='opacity .3s'; t.style.opacity='0'; }, 2400);
+    setTimeout(function(){ t.remove(); }, 2800);
+  }
+
+  // Side normalization across formats. Different formats use 'gov/opp',
+  // 'pro/con', 'aff/neg'. Normalize so a single side filter slots them
+  // all into 2 buckets without having to remember the format-specific
+  // label vocabulary.
+  function normalizeSide(side){
+    var s = String(side||'').toLowerCase();
+    if (s.indexOf('gov') === 0 || s === 'pro' || s === 'aff' || s.indexOf('og') === 0) return 'gov';
+    if (s.indexOf('opp') === 0 || s === 'con' || s === 'neg' || s.indexOf('oo') === 0) return 'opp';
+    return '';
+  }
+  function normalizeFormat(fmt){
+    var f = String(fmt||'').toLowerCase();
+    if (!f) return '';
+    if (f.indexOf('apda') >= 0) return 'apda';
+    if (f.indexOf('british') >= 0 || f === 'bp') return 'bp';
+    if (f.indexOf('worlds') >= 0 || f.indexOf('wsdc') >= 0 || f.indexOf('wudc') >= 0) return 'worlds';
+    if (f.indexOf('asian') >= 0) return 'asian';
+    if (f.indexOf('lincoln') >= 0 || f === 'ld') return 'ld';
+    if (f.indexOf('public forum') >= 0 || f === 'pf') return 'pf';
+    if (f.indexOf('policy') >= 0 || f.indexOf('cx') >= 0) return 'policy';
+    if (f.indexOf('quick') >= 0) return 'quick';
+    return '';
+  }
+
+  var allCases = [];
+  var filterSide = '';
+  var filterFormat = '';
+  var searchTerm = '';
+  var sortMode = 'recent'; // 'recent' | 'top'
+  var myVotes = {}; // caseId → -1 | 0 | 1, populated as we vote
+
+  function applyFilters(){
+    var host = $('cards');
+    var empty = $('empty');
+    var q = searchTerm.toLowerCase().trim();
+    var matched = allCases.filter(function(c){
+      if (filterSide && normalizeSide(c.side) !== filterSide) return false;
+      if (filterFormat && normalizeFormat(c.format) !== filterFormat) return false;
+      if (q){
+        var hay = ((c.motion||'') + ' ' + (c.output||'')).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    // Apply sort. 'recent' is the default snapshot order. 'top' sorts
+    // by voteScore desc; ties broken by recency so a 0-vote brand-new
+    // disclosure outranks a 0-vote stale one.
+    if (sortMode === 'top'){
+      matched.sort(function(a, b){
+        var va = a.voteScore || 0, vb = b.voteScore || 0;
+        if (va !== vb) return vb - va;
+        var as = (a.sharedAt && a.sharedAt.seconds) || 0;
+        var bs = (b.sharedAt && b.sharedAt.seconds) || 0;
+        return bs - as;
+      });
+    }
+    if (matched.length === 0){
+      host.innerHTML = '';
+      host.style.display = 'none';
+      empty.style.display = '';
+      return;
+    }
+    host.style.display = '';
+    empty.style.display = 'none';
+    host.innerHTML = matched.map(function(c){
+      var sideClass = normalizeSide(c.side);
+      var sideLabel = c.side ? escHtml(c.side) : '';
+      var fmtLabel = c.format ? escHtml(c.format) : '';
+      var preview = (c.output || '').slice(0, 360);
+      var date = c.sharedAt && c.sharedAt.seconds
+        ? new Date(c.sharedAt.seconds * 1000).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'})
+        : '';
+      var score = c.voteScore || 0;
+      var scoreClass = score > 0 ? 'pos' : score < 0 ? 'neg' : '';
+      var myVote = myVotes[c.id] || 0;
+      return '' +
+        '<div class="card" data-id="' + escHtml(c.id) + '">' +
+          '<div class="row">' +
+            (sideLabel ? '<span class="tag ' + sideClass + '">' + sideLabel + '</span>' : '') +
+            (fmtLabel ? '<span class="tag format">' + fmtLabel + '</span>' : '') +
+          '</div>' +
+          '<div class="motion">' + escHtml(c.motion || 'Untitled motion') + '</div>' +
+          '<div class="preview">' + escHtml(preview) + '</div>' +
+          '<div class="actions">' +
+            '<div class="vote-group">' +
+              '<button class="vote-btn up' + (myVote === 1 ? ' on' : '') + '" data-vote="up" data-id="' + escHtml(c.id) + '" title="Helpful disclosure">▲</button>' +
+              '<span class="vote-score ' + scoreClass + '">' + (score > 0 ? '+' : '') + score + '</span>' +
+              '<button class="vote-btn down' + (myVote === -1 ? ' on' : '') + '" data-vote="down" data-id="' + escHtml(c.id) + '" title="Low quality">▼</button>' +
+            '</div>' +
+            '<div class="meta">' + escHtml(c.sharedBy || 'Anonymous') + (date ? ' · ' + date : '') + '</div>' +
+            '<button class="btn primary" data-open="' + escHtml(c.id) + '">Read full case</button>' +
+            '<button class="btn" data-import="' + escHtml(c.id) + '">Import</button>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // Vote handler. Writes shared_cases/{caseId}/votes/{uid} with the
+  // user's vote (+1, -1, or 0 to clear) AND atomically increments
+  // the parent doc's voteScore + voteCount. If the user already
+  // voted, we delta from the previous value rather than blindly
+  // re-applying so the score stays correct.
+  function castVote(caseId, direction){
+    if (!firebaseDb || !currentUser){ toast('Sign in to vote.'); return; }
+    var prev = myVotes[caseId] || 0;
+    var next = direction === 'up' ? 1 : direction === 'down' ? -1 : 0;
+    if (next === prev) next = 0; // toggle off if clicking the same arrow again
+    var delta = next - prev;
+    if (delta === 0) return;
+    myVotes[caseId] = next;
+    // Optimistic local update so the UI reflects the vote instantly.
+    var caseObj = allCases.find(function(c){ return c.id === caseId; });
+    if (caseObj){
+      caseObj.voteScore = (caseObj.voteScore || 0) + delta;
+    }
+    applyFilters();
+    var caseRef = firebaseDb.collection('shared_cases').doc(caseId);
+    var voteRef = caseRef.collection('votes').doc(currentUser.uid);
+    var inc = firebase.firestore.FieldValue.increment;
+    Promise.all([
+      voteRef.set({
+        vote: next,
+        votedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }),
+      caseRef.update({
+        voteScore: inc(delta),
+        voteCount: inc(prev === 0 && next !== 0 ? 1 : (prev !== 0 && next === 0 ? -1 : 0)),
+      }),
+    ]).catch(function(err){
+      console.warn('[vote]', err);
+      // Roll back the optimistic update on failure.
+      myVotes[caseId] = prev;
+      if (caseObj) caseObj.voteScore = (caseObj.voteScore || 0) - delta;
+      applyFilters();
+      toast('Vote failed: ' + (err.message || 'unknown'));
+    });
+    try { gtag('event', 'disclosure_vote', { value: next }); } catch(e){}
+  }
+
+  // Hydrate myVotes by reading the user's existing vote docs. Lets
+  // the UI light up the up/down arrows the user already cast on
+  // page-refresh.
+  function loadMyVotes(){
+    if (!firebaseDb || !currentUser) return;
+    firebaseDb.collectionGroup('votes')
+      .where(firebase.firestore.FieldPath.documentId(), '>=', currentUser.uid)
+      .where(firebase.firestore.FieldPath.documentId(), '<=', currentUser.uid + '')
+      .limit(200)
+      .get()
+      .then(function(snap){
+        snap.docs.forEach(function(d){
+          var parent = d.ref.parent.parent;
+          if (parent && parent.id) myVotes[parent.id] = d.data().vote || 0;
+        });
+        applyFilters();
+      })
+      .catch(function(){
+        // collectionGroup query needs an index; if it fails, skip
+        // the hydration — votes still cast fine, just no pre-light.
+      });
+  }
+
+  // Open the full case in a modal reader. Pulls fresh from the array
+  // (already loaded by the snapshot listener) so no extra Firestore fetch.
+  function openCase(id){
+    var c = allCases.find(function(x){ return x.id === id; });
+    if (!c) return;
+    var host = $('modalHost');
+    host.innerHTML =
+      '<div class="modal" id="modalRoot">' +
+        '<div class="modal-card">' +
+          '<div class="modal-head">' +
+            '<div>' +
+              '<h2>' + escHtml(c.motion || 'Untitled motion') + '</h2>' +
+              '<div class="meta">' +
+                (c.side ? escHtml(c.side) + ' · ' : '') +
+                (c.format ? escHtml(c.format) + ' · ' : '') +
+                'Shared by ' + escHtml(c.sharedBy || 'Anonymous') +
+              '</div>' +
+            '</div>' +
+            '<button class="modal-close" id="modalClose" type="button" aria-label="Close">✕</button>' +
+          '</div>' +
+          '<div class="modal-body">' + escHtml(c.output || '(empty)') + '</div>' +
+          '<div class="modal-foot">' +
+            '<button class="btn" id="modalImportBtn">Import to my cases</button>' +
+            '<button class="btn primary" data-href="/debate-ai" id="modalDebateBtn">Debate this motion →</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    var root = $('modalRoot');
+    function close(){ host.innerHTML = ''; }
+    root.addEventListener('click', function(e){ if (e.target === root) close(); });
+    $('modalClose').addEventListener('click', close);
+    $('modalImportBtn').addEventListener('click', function(){ importCase(c); close(); });
+    $('modalDebateBtn').addEventListener('click', function(){
+      try { gtag('event','disclosure_debate_motion'); } catch(e){}
+      var url = '/debate-ai?motion=' + encodeURIComponent(c.motion || '');
+      location.href = url;
+    });
+    try { gtag('event','disclosure_open',{ format: normalizeFormat(c.format), side: normalizeSide(c.side) }); } catch(e){}
+  }
+
+  // Import a public disclosure into the visitor's localStorage cases.
+  // Uses the same shape /debate-ai's loadSavedCases reads, so they
+  // immediately appear in the user's saved-cases list.
+  function importCase(c){
+    try {
+      var raw = localStorage.getItem('debateos-saved-cases');
+      var arr = raw ? JSON.parse(raw) : [];
+      arr.unshift({
+        id: 'disc_' + Date.now(),
+        motion: c.motion || '',
+        side: c.side || '',
+        format: c.format || '',
+        depth: c.depth || '',
+        output: c.output || '',
+        savedAt: new Date().toISOString(),
+        sharedFrom: c.sharedBy || 'Anonymous',
+        importedFromDisclosure: true,
+      });
+      localStorage.setItem('debateos-saved-cases', JSON.stringify(arr.slice(0, 100)));
+      toast('✓ Imported. Open /debate-ai to use it.');
+      try { gtag('event','disclosure_import',{ format: normalizeFormat(c.format), side: normalizeSide(c.side) }); } catch(e){}
+    } catch(e){
+      toast('Import failed: ' + e.message);
+    }
+  }
+
+  // ── Snapshot listener for public disclosures ──────────────────
+  // The composite (visibility,sharedAt) index is defined in
+  // firestore.indexes.json; on a fresh deploy it can take a few
+  // minutes to build, during which the orderBy version returns a
+  // FAILED_PRECONDITION. Try the indexed query first for speed, fall
+  // back to a where-only query + client-side sort if the index isn't
+  // ready yet so the page never breaks.
+  function attachSnap(query, label){
+    return query.onSnapshot(function(snap){
+      var docs = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+      // Always sort client-side as well, so the where-only fallback
+      // ends up in the same order as the indexed path.
+      docs.sort(function(a, b){
+        var as = (a.sharedAt && a.sharedAt.seconds) || 0;
+        var bs = (b.sharedAt && b.sharedAt.seconds) || 0;
+        return bs - as;
+      });
+      allCases = docs;
+      applyFilters();
+    }, function(err){
+      console.warn('[disclosures] ' + label + ' snapshot error', err);
+      // Index-not-ready or missing → quietly retry with the where-only
+      // path. Other errors (permissions, network) → show a friendly
+      // empty state instead of the scary raw Firebase URL.
+      if (label === 'composite' && err && /FAILED_PRECONDITION|index/i.test(err.message || err.code || '')){
+        attachSnap(firebaseDb.collection('shared_cases').where('visibility', '==', 'public').limit(200), 'fallback');
+      } else {
+        $('cards').innerHTML =
+          '<div class="empty" style="grid-column:1/-1">' +
+            '<h3>Disclosure board is warming up.</h3>' +
+            '<p style="margin-top:8px">If this sticks for more than a minute, refresh — the search index is finishing its first build.</p>' +
+          '</div>';
+        $('empty').style.display = 'none';
+      }
+    });
+  }
+  function loadDisclosures(){
+    if (!firebaseDb) return;
+    attachSnap(
+      firebaseDb.collection('shared_cases')
+        .where('visibility', '==', 'public')
+        .orderBy('sharedAt', 'desc')
+        .limit(200),
+      'composite'
+    );
+  }
+
+  // Wait for auth even if anonymous — the Firestore rule for
+  // shared_cases requires isSignedIn(). If not signed in, prompt.
+  if (firebaseAuth){
+    firebaseAuth.onAuthStateChanged(function(user){
+      currentUser = user || null;
+      if (user){
+        loadDisclosures();
+        loadMyVotes();
+        loadThreads();
+        loadMyThreadVotes();
+      } else {
+        $('cards').innerHTML =
+          '<div class="empty" style="grid-column:1/-1">' +
+            '<h3>Sign in to read the community.</h3>' +
+            '<p style="margin-top:8px">Cases + discussion are signed-in only so we can rate-limit posts + tie attribution to a real account. ' +
+            '<a href="/debate-ai">Sign in via Google →</a></p>' +
+          '</div>';
+        $('empty').style.display = 'none';
+        $('threads').innerHTML =
+          '<div class="empty">' +
+            '<h3>Sign in to join the discussion.</h3>' +
+            '<p style="margin-top:8px"><a href="/debate-ai">Sign in via Google →</a></p>' +
+          '</div>';
+        $('threadsEmpty').style.display = 'none';
+      }
+    });
+  }
+
+  // Filter + search wiring
+  $('search').addEventListener('input', function(){
+    searchTerm = this.value;
+    applyFilters();
+  });
+  document.querySelectorAll('#sideFilters .filter-chip').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#sideFilters .filter-chip').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      filterSide = b.getAttribute('data-side') || '';
+      applyFilters();
+    });
+  });
+  document.querySelectorAll('#formatFilters .filter-chip').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#formatFilters .filter-chip').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      filterFormat = b.getAttribute('data-format') || '';
+      applyFilters();
+    });
+  });
+  document.querySelectorAll('#sortFilters .filter-chip').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#sortFilters .filter-chip').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      sortMode = b.getAttribute('data-sort') || 'recent';
+      applyFilters();
+    });
+  });
+
+  // Card click handlers (delegated since the grid re-renders).
+  document.getElementById('cards').addEventListener('click', function(e){
+    var t = e.target;
+    var openId = t.getAttribute && t.getAttribute('data-open');
+    var importId = t.getAttribute && t.getAttribute('data-import');
+    var voteId = t.getAttribute && t.getAttribute('data-id') && t.getAttribute('data-vote');
+    if (voteId){
+      castVote(t.getAttribute('data-id'), t.getAttribute('data-vote'));
+      return;
+    }
+    if (openId) openCase(openId);
+    else if (importId){
+      var c = allCases.find(function(x){ return x.id === importId; });
+      if (c) importCase(c);
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────
+  // DISCUSSION SUB-FORUM
+  // ────────────────────────────────────────────────────────────
+  // Threaded posts in the forum_posts collection. Top-level threads
+  // have parentId === null. Replies have parentId === <thread doc id>
+  // and rootId === <thread doc id> (rootId lets us query 'all replies
+  // in a thread' efficiently via the (rootId, createdAt) composite
+  // index).
+
+  var allThreads = [];
+  var threadFilter = '';
+  var myThreadVotes = {};
+  var openThreadUnsub = null;
+
+  function tabSwitch(tab){
+    var casesPane = $('casesPane'), discPane = $('discussionPane');
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+    var active = document.querySelector('.tab[data-tab="' + tab + '"]');
+    if (active) active.classList.add('on');
+    if (tab === 'discussion'){
+      casesPane.style.display = 'none';
+      discPane.style.display = '';
+    } else {
+      casesPane.style.display = '';
+      discPane.style.display = 'none';
+    }
+    try { gtag('event','community_tab',{tab:tab}); } catch(e){}
+  }
+  document.querySelectorAll('.tab').forEach(function(b){
+    b.addEventListener('click', function(){ tabSwitch(b.getAttribute('data-tab')); });
+  });
+  // Anchor links: /community#discussion deep-links to the forum tab.
+  if ((location.hash || '').toLowerCase() === '#discussion') tabSwitch('discussion');
+
+  // ── Thread list rendering ─────────────────────────────────
+  function renderThreads(){
+    var host = $('threads');
+    var empty = $('threadsEmpty');
+    var matched = allThreads.filter(function(t){
+      if (threadFilter && (t.category || 'general') !== threadFilter) return false;
+      return true;
+    });
+    if (matched.length === 0){
+      host.innerHTML = '';
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+    host.innerHTML = matched.map(function(t){
+      var score = t.voteScore || 0;
+      var scoreClass = score > 0 ? 'pos' : score < 0 ? 'neg' : '';
+      var myVote = myThreadVotes[t.id] || 0;
+      var date = t.createdAt && t.createdAt.seconds
+        ? new Date(t.createdAt.seconds * 1000).toLocaleDateString(undefined, {month:'short',day:'numeric'})
+        : '';
+      var preview = (t.content || '').replace(/\s+/g,' ').slice(0, 220);
+      var cat = t.category || 'general';
+      var replies = t.replyCount || 0;
+      return '' +
+        '<div class="thread-card" data-thread="' + escHtml(t.id) + '">' +
+          '<div class="thread-vote">' +
+            '<button class="vote-btn up' + (myVote === 1 ? ' on' : '') + '" data-thread-vote="up" data-thread="' + escHtml(t.id) + '" title="Upvote">▲</button>' +
+            '<span class="vote-score ' + scoreClass + '">' + (score > 0 ? '+' : '') + score + '</span>' +
+            '<button class="vote-btn down' + (myVote === -1 ? ' on' : '') + '" data-thread-vote="down" data-thread="' + escHtml(t.id) + '" title="Downvote">▼</button>' +
+          '</div>' +
+          '<div class="thread-body">' +
+            '<div class="thread-title">' + escHtml(t.title || 'Untitled') + '</div>' +
+            (preview ? '<div class="thread-preview">' + escHtml(preview) + '</div>' : '') +
+            '<div class="thread-meta">' +
+              '<span class="cat-tag">' + escHtml(cat) + '</span>' +
+              '<span>' + escHtml(t.authorName || 'Anonymous') + (date ? ' · ' + date : '') + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="thread-stats">' +
+            '<span class="replies">💬 ' + replies + '</span>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function loadThreads(){
+    if (!firebaseDb) return;
+    firebaseDb.collection('forum_posts')
+      .where('parentId', '==', null)
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .onSnapshot(function(snap){
+        allThreads = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+        renderThreads();
+      }, function(err){
+        // Index-not-ready fallback — pull where-only and sort client-side.
+        if (err && /FAILED_PRECONDITION|index/i.test(err.message || '')){
+          firebaseDb.collection('forum_posts')
+            .where('parentId', '==', null)
+            .limit(100)
+            .onSnapshot(function(snap){
+              var docs = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+              docs.sort(function(a,b){
+                var as = (a.createdAt && a.createdAt.seconds) || 0;
+                var bs = (b.createdAt && b.createdAt.seconds) || 0;
+                return bs - as;
+              });
+              allThreads = docs;
+              renderThreads();
+            });
+          return;
+        }
+        console.warn('[threads] snapshot error', err);
+      });
+  }
+
+  function loadMyThreadVotes(){
+    // Per-user vote state for thread upvotes — same pattern as
+    // /community Cases tab. Skipped if collectionGroup index missing;
+    // votes still cast fine, just no pre-light on refresh.
+    if (!firebaseDb || !currentUser) return;
+    firebaseDb.collectionGroup('votes')
+      .where(firebase.firestore.FieldPath.documentId(), '>=', currentUser.uid)
+      .where(firebase.firestore.FieldPath.documentId(), '<=', currentUser.uid + '')
+      .limit(400)
+      .get()
+      .then(function(snap){
+        snap.docs.forEach(function(d){
+          var parent = d.ref.parent.parent;
+          if (!parent) return;
+          // The collectionGroup hits BOTH shared_cases/votes and
+          // forum_posts/votes — split by which collection the parent
+          // is in.
+          var parentPath = parent.path;
+          if (parentPath.indexOf('forum_posts/') === 0){
+            myThreadVotes[parent.id] = d.data().vote || 0;
+          }
+        });
+        renderThreads();
+      })
+      .catch(function(){});
+  }
+
+  // ── Vote on a thread ─────────────────────────────────────
+  function castThreadVote(threadId, direction){
+    if (!firebaseDb || !currentUser){ toast('Sign in to vote.'); return; }
+    var prev = myThreadVotes[threadId] || 0;
+    var next = direction === 'up' ? 1 : direction === 'down' ? -1 : 0;
+    if (next === prev) next = 0;
+    var delta = next - prev;
+    if (delta === 0) return;
+    myThreadVotes[threadId] = next;
+    var t = allThreads.find(function(x){ return x.id === threadId; });
+    if (t) t.voteScore = (t.voteScore || 0) + delta;
+    renderThreads();
+    var threadRef = firebaseDb.collection('forum_posts').doc(threadId);
+    var voteRef = threadRef.collection('votes').doc(currentUser.uid);
+    var inc = firebase.firestore.FieldValue.increment;
+    Promise.all([
+      voteRef.set({ vote: next, votedAt: firebase.firestore.FieldValue.serverTimestamp() }),
+      threadRef.update({
+        voteScore: inc(delta),
+        voteCount: inc(prev === 0 && next !== 0 ? 1 : (prev !== 0 && next === 0 ? -1 : 0)),
+      }),
+    ]).catch(function(err){
+      myThreadVotes[threadId] = prev;
+      if (t) t.voteScore = (t.voteScore || 0) - delta;
+      renderThreads();
+      toast('Vote failed: ' + (err.message || 'unknown'));
+    });
+  }
+
+  // ── New-thread modal ──────────────────────────────────────
+  function openNewThread(){
+    if (!currentUser){ toast('Sign in to post a thread.'); return; }
+    var host = $('modalHost');
+    host.innerHTML =
+      '<div class="modal" id="modalRoot">' +
+        '<div class="modal-card">' +
+          '<div class="modal-head">' +
+            '<div><h2>New thread</h2><div class="meta">Posts to /community discussion. Visible to all signed-in users.</div></div>' +
+            '<button class="modal-close" id="modalClose" type="button" aria-label="Close">✕</button>' +
+          '</div>' +
+          '<div class="modal-body" style="padding:18px 22px">' +
+            '<input id="ntTitle" type="text" maxlength="160" placeholder="Thread title (e.g. \'Best India-circuit motions for Asian Parli prep?\')" style="width:100%;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.95rem;outline:none" />' +
+            '<select id="ntCat" style="width:100%;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.85rem;outline:none">' +
+              '<option value="general">General</option>' +
+              '<option value="apda">APDA</option>' +
+              '<option value="bp">BP</option>' +
+              '<option value="worlds">Worlds / WSDC</option>' +
+              '<option value="asian">Asian Parli</option>' +
+              '<option value="ld">LD</option>' +
+              '<option value="pf">PF</option>' +
+              '<option value="policy">Policy</option>' +
+              '<option value="meta">Meta (about Debate AI)</option>' +
+            '</select>' +
+            '<textarea id="ntBody" maxlength="51200" placeholder="What are you thinking? (Markdown not supported; plain text only.)" style="width:100%;min-height:160px;padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;line-height:1.55;outline:none;resize:vertical"></textarea>' +
+          '</div>' +
+          '<div class="modal-foot">' +
+            '<button class="btn" id="ntCancel">Cancel</button>' +
+            '<button class="btn primary" id="ntPost">Post thread</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    var root = $('modalRoot');
+    var close = function(){ host.innerHTML = ''; };
+    root.addEventListener('click', function(e){ if (e.target === root) close(); });
+    $('modalClose').addEventListener('click', close);
+    $('ntCancel').addEventListener('click', close);
+    $('ntTitle').focus();
+    $('ntPost').addEventListener('click', function(){
+      var title = ($('ntTitle').value || '').trim();
+      var content = ($('ntBody').value || '').trim();
+      var category = $('ntCat').value || 'general';
+      if (title.length < 4){ toast('Title is too short.'); return; }
+      if (content.length < 10){ toast('Body is too short.'); return; }
+      var fullName = (currentUser.displayName || '').trim();
+      var parts = fullName.split(/\s+/).filter(Boolean);
+      var shortName = parts.length >= 2
+        ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
+        : (parts[0] || (currentUser.email ? currentUser.email.split('@')[0] : 'Anonymous'));
+      var btn = $('ntPost');
+      btn.textContent = 'Posting…'; btn.disabled = true;
+      firebaseDb.collection('forum_posts').add({
+        authorUid: currentUser.uid,
+        authorName: shortName,
+        authorPhoto: currentUser.photoURL || '',
+        title: title.slice(0, 200),
+        content: content,
+        parentId: null,
+        rootId: null,
+        category: category,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        voteScore: 0,
+        voteCount: 0,
+        replyCount: 0,
+      }).then(function(){
+        try { gtag('event','community_thread_post',{category:category}); } catch(e){}
+        toast('✓ Thread posted.');
+        close();
+      }).catch(function(err){
+        btn.textContent = 'Post thread'; btn.disabled = false;
+        toast('Post failed: ' + (err.message || 'unknown'));
+      });
+    });
+  }
+
+  // ── Thread reader: open a thread in the modal with replies ──
+  function openThread(threadId){
+    var t = allThreads.find(function(x){ return x.id === threadId; });
+    if (!t) return;
+    var host = $('modalHost');
+    host.innerHTML =
+      '<div class="modal" id="modalRoot">' +
+        '<div class="modal-card">' +
+          '<div class="modal-head">' +
+            '<div style="min-width:0;flex:1">' +
+              '<h2>' + escHtml(t.title || 'Untitled') + '</h2>' +
+              '<div class="meta">' +
+                '<span class="cat-tag" style="margin-right:6px;padding:2px 8px;border-radius:999px;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.32);color:#93c5fd;text-transform:uppercase;font-weight:700;letter-spacing:.06em;font-size:.62rem">' + escHtml(t.category || 'general') + '</span>' +
+                escHtml(t.authorName || 'Anonymous') +
+              '</div>' +
+            '</div>' +
+            '<button class="modal-close" id="modalClose" type="button" aria-label="Close">✕</button>' +
+          '</div>' +
+          '<div class="modal-body" style="padding:0">' +
+            '<div style="padding:18px 22px;font-size:.92rem;line-height:1.6;white-space:pre-wrap;border-bottom:1px solid var(--border)">' + escHtml(t.content || '') + '</div>' +
+            '<div id="threadReplies"><div class="empty" style="border:none;padding:24px">Loading replies…</div></div>' +
+          '</div>' +
+          '<div class="reply-form">' +
+            '<textarea id="replyBody" maxlength="51200" placeholder="Reply… (plain text only)"></textarea>' +
+            '<div style="display:flex;justify-content:flex-end">' +
+              '<button class="btn primary" id="postReplyBtn">Post reply</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    var root = $('modalRoot');
+    var close = function(){
+      if (openThreadUnsub){ try{ openThreadUnsub(); } catch(e){} openThreadUnsub = null; }
+      host.innerHTML = '';
+    };
+    root.addEventListener('click', function(e){ if (e.target === root) close(); });
+    $('modalClose').addEventListener('click', close);
+
+    // Live-stream replies for this thread.
+    openThreadUnsub = firebaseDb.collection('forum_posts')
+      .where('rootId', '==', threadId)
+      .orderBy('createdAt', 'asc')
+      .limit(200)
+      .onSnapshot(function(snap){
+        var rh = $('threadReplies');
+        if (!rh) return;
+        if (snap.empty){
+          rh.innerHTML = '<div class="empty" style="border:none;padding:18px">No replies yet. Be the first.</div>';
+          return;
+        }
+        rh.innerHTML = snap.docs.map(function(d){
+          var r = d.data();
+          var date = r.createdAt && r.createdAt.seconds
+            ? new Date(r.createdAt.seconds * 1000).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
+            : '';
+          return '<div class="reply">' +
+            '<div class="reply-meta">' + escHtml(r.authorName || 'Anonymous') + (date ? ' · ' + date : '') + '</div>' +
+            '<div class="reply-body">' + escHtml(r.content || '') + '</div>' +
+          '</div>';
+        }).join('');
+      }, function(err){
+        // Index-fallback: query by parentId without orderBy and sort
+        // client-side. Same shape as the threads-list fallback.
+        if (err && /FAILED_PRECONDITION|index/i.test(err.message || '')){
+          firebaseDb.collection('forum_posts')
+            .where('parentId', '==', threadId)
+            .limit(200)
+            .get()
+            .then(function(snap){
+              var docs = snap.docs.map(function(d){ return d.data(); });
+              docs.sort(function(a,b){
+                var as = (a.createdAt && a.createdAt.seconds) || 0;
+                var bs = (b.createdAt && b.createdAt.seconds) || 0;
+                return as - bs;
+              });
+              var rh = $('threadReplies');
+              if (rh) rh.innerHTML = docs.length === 0
+                ? '<div class="empty" style="border:none;padding:18px">No replies yet. Be the first.</div>'
+                : docs.map(function(r){
+                    var date = r.createdAt && r.createdAt.seconds
+                      ? new Date(r.createdAt.seconds * 1000).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
+                      : '';
+                    return '<div class="reply"><div class="reply-meta">' + escHtml(r.authorName || 'Anonymous') + (date ? ' · ' + date : '') + '</div><div class="reply-body">' + escHtml(r.content || '') + '</div></div>';
+                  }).join('');
+            });
+          return;
+        }
+        var rh2 = $('threadReplies');
+        if (rh2) rh2.innerHTML = '<div class="empty" style="border:none;padding:18px">Could not load replies.</div>';
+      });
+
+    $('postReplyBtn').addEventListener('click', function(){
+      if (!currentUser){ toast('Sign in to reply.'); return; }
+      var body = ($('replyBody').value || '').trim();
+      if (body.length < 4){ toast('Reply is too short.'); return; }
+      var fullName = (currentUser.displayName || '').trim();
+      var parts = fullName.split(/\s+/).filter(Boolean);
+      var shortName = parts.length >= 2
+        ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
+        : (parts[0] || (currentUser.email ? currentUser.email.split('@')[0] : 'Anonymous'));
+      var btn = $('postReplyBtn');
+      btn.textContent = 'Posting…'; btn.disabled = true;
+      firebaseDb.collection('forum_posts').add({
+        authorUid: currentUser.uid,
+        authorName: shortName,
+        authorPhoto: currentUser.photoURL || '',
+        title: '',
+        content: body,
+        parentId: threadId,
+        rootId: threadId,
+        category: t.category || 'general',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        voteScore: 0,
+        voteCount: 0,
+      }).then(function(){
+        // Bump replyCount on the parent thread (rule allows
+        // signed-in user to update vote/reply counts only).
+        firebaseDb.collection('forum_posts').doc(threadId).update({
+          replyCount: firebase.firestore.FieldValue.increment(1),
+        }).catch(function(){});
+        try { gtag('event','community_reply'); } catch(e){}
+        $('replyBody').value = '';
+        btn.textContent = 'Post reply'; btn.disabled = false;
+      }).catch(function(err){
+        btn.textContent = 'Post reply'; btn.disabled = false;
+        toast('Reply failed: ' + (err.message || 'unknown'));
+      });
+    });
+  }
+
+  // ── Wiring ────────────────────────────────────────────────
+  $('newThreadBtn').addEventListener('click', openNewThread);
+  document.querySelectorAll('#threadCategoryFilters .filter-chip').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#threadCategoryFilters .filter-chip').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      threadFilter = b.getAttribute('data-thread-cat') || '';
+      renderThreads();
+    });
+  });
+  $('threads').addEventListener('click', function(e){
+    var t = e.target;
+    var voteId = t.getAttribute && t.getAttribute('data-thread-vote');
+    if (voteId){
+      castThreadVote(t.getAttribute('data-thread'), voteId);
+      return;
+    }
+    var card = t.closest && t.closest('.thread-card');
+    if (card) openThread(card.getAttribute('data-thread'));
+  });
+})();
+</script>
+
+</body>
+</html>

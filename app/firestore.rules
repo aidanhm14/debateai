@@ -102,16 +102,37 @@ service cloud.firestore {
     }
 
     // ── forum_posts ──────────────────────────────────────────────────
-    // Anyone authenticated can read. Only the author can write/delete.
+    // Threaded discussion under /community. Top-level threads have
+    // parentId == null; replies have parentId == <thread doc id>.
+    // Anyone authenticated can read. Only the author can write/delete
+    // the thread/reply itself. Vote counts on the parent doc are
+    // updatable by anyone signed in (same pattern as shared_cases).
+    function forumOnlyVoteFieldsChanged() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['voteScore', 'voteCount', 'replyCount']);
+    }
     match /forum_posts/{postId} {
       allow read:   if isSignedIn();
       allow create: if isSignedIn()
                     && incomingIsAuthor()
                     && (!('content' in request.resource.data)
                         || stringUnder('content', 51200));
-      allow update: if isAuthor()
-                    && incomingIsAuthor();
+      allow update: if isSignedIn()
+                    && (
+                      (isAuthor() && incomingIsAuthor()
+                       && (!('content' in request.resource.data)
+                           || stringUnder('content', 51200)))
+                      || forumOnlyVoteFieldsChanged()
+                    );
       allow delete: if isAuthor();
+
+      match /votes/{voterUid} {
+        allow read:   if isSignedIn();
+        allow create, update: if isSignedIn()
+                      && voterUid == request.auth.uid
+                      && request.resource.data.vote in [-1, 0, 1];
+        allow delete: if isSignedIn() && voterUid == request.auth.uid;
+      }
     }
 
     // ── judge_pool ───────────────────────────────────────────────────

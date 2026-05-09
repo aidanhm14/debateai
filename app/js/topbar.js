@@ -35,7 +35,7 @@
     { href: '/learn',         label: 'Adults'       },
     { href: '/voice-debate',  label: '🎙 Voice'     },
     { href: '/live',          label: 'Live', live: true },
-    { href: '/disclosures',   label: 'Disclosures'  },
+    { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
   ];
 
