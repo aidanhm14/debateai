@@ -7,7 +7,26 @@
 //
 // Exposes window.track(event, metadata) for page-specific calls.
 // Feeds the same /api/log-event pipeline the /admin dashboard reads.
+//
+// Also pulls in /js/page-transition.js as a side-effect: that file is
+// the cross-page fade transition (in/out body opacity on internal nav)
+// and lives behind the same script tag so any page with track.js gets
+// the smoother nav for free, without per-page wiring. Idempotent —
+// loading the same script twice is a no-op since the IIFE inside it
+// only registers handlers once.
 // ──────────────────────────────────────────────────────────────────
+(function () {
+  try {
+    var existing = document.querySelector('script[src="/js/page-transition.js"]');
+    if (!existing) {
+      var pt = document.createElement('script');
+      pt.src = '/js/page-transition.js';
+      pt.defer = true;
+      document.head.appendChild(pt);
+    }
+  } catch (e) {}
+})();
+
 (function () {
   'use strict';
 
