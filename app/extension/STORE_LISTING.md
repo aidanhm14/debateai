@@ -114,9 +114,24 @@ Required to queue a single pending action (the selection text the user just clic
 Required by the side panel's "Paste from clipboard" fallback button. In environments where the right-click flow is intercepted by the page (some PDF viewers, some intranet tools), the user copies the passage and pastes it manually; this permission is what lets the panel read clipboard contents on the explicit Paste click.
 ```
 
+**`identity`**
+```
+Required to call chrome.identity.getAuthToken so the user can connect their Google account to the Counter side panel and have the extension read their currently-open Google Doc via the Google Docs API. The token is requested only after the user clicks "Connect" inside the side panel; it is never requested in the background, never persisted by the extension, and is revoked the moment the user clicks "Disconnect".
+```
+
+**`tabs`**
+```
+Required to read the URL of the user's active tab so the side panel can identify which Google Doc the user is currently viewing. Without this, the "Read active doc" button cannot resolve the document ID. The extension does not iterate other tabs, does not track tab-change events, and does not read tab content beyond what is required to extract the docId from the URL.
+```
+
 **Host permission `https://debateai.com/*` and `https://debatethedevil.com/*`**
 ```
 The Counter side panel renders an iframe of debateai.com's voice round and typed flow so the extension shares one engine, one billing surface, and one auth session with the web app. host_permissions on these origins is required for the iframe to load and for postMessage bridging between the panel and the iframe to work without origin-blocking. No other origins are accessed by the extension's own code.
+```
+
+**Host permission `https://docs.googleapis.com/*` and `https://www.googleapis.com/*`**
+```
+Required to call the Google Docs API (read documents the user explicitly chose to read by clicking "Read active doc") and the Google OAuth userinfo endpoint (used to display the connected account's email in the side panel). These calls happen only after the user has explicitly authenticated via Google's OAuth consent screen and only on the user's manual click on "Read active doc".
 ```
 
 **Content script on `<all_urls>`**
@@ -137,15 +152,15 @@ https://debateai.com/privacy-extension
 
 | Type | Counter collects? | Note |
 |---|---|---|
-| Personally identifiable information | No | Counter never reads names, emails, phone numbers from page content. |
+| Personally identifiable information | Yes (limited) | If the user connects Google Docs, the email address of the connected Google account is displayed in the side panel for confirmation. Not stored, not transmitted to any third party, never used for advertising. |
 | Health information | No | |
 | Financial / payment information | No | Billing happens at debateai.com via Stripe; the extension never sees payment information. |
-| Authentication information | No | If the user signs in inside the iframe, sign-in happens at debateai.com against Firebase. The extension itself does not store or transmit credentials. |
+| Authentication information | No | If the user signs in inside the iframe, sign-in happens at debateai.com against Firebase. The extension itself does not store or transmit credentials. The Google OAuth token used for the Docs API is held only in chrome.identity's cache, which the user can clear by clicking "Disconnect". |
 | Personal communications | No | |
 | Location | No | |
 | Web history | No | The extension does not track browsing history. |
 | User activity | Yes | Selection text clicked through a Counter context-menu item is sent to debateai.com for AI processing. |
-| Website content | Yes | Same as above — the user's explicit selection is the website content collected. |
+| Website content | Yes | Same as above. Additionally, when the user clicks "Read active doc", the contents of the currently-open Google Doc are fetched via the official Google Docs API and shown in the side panel for the user's review. |
 
 **Required certification checkboxes**
 - [x] I do not sell or transfer user data to third parties, outside of approved use cases.

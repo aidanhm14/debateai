@@ -49,6 +49,8 @@ mkdir -p "$STAGE_DIR" "$DIST_DIR"
 
 # Whitelist of paths that ship to users. Anything not in this list is
 # excluded from the zip. Adding a new top-level file? Add it here too.
+# scripts/, GOOGLE_CLOUD_SETUP.md, STORE_LISTING.md, build.sh — all are
+# dev artifacts and stay out of the user-facing bundle.
 SHIP_PATHS=(
   manifest.json
   background.js
@@ -57,6 +59,7 @@ SHIP_PATHS=(
   sidepanel.html
   sidepanel.js
   icons
+  lib
 )
 
 for p in "${SHIP_PATHS[@]}"; do

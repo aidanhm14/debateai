@@ -60,6 +60,19 @@
     <p>If you sign in via the side panel, sign-in happens against <code>debateai.com</code> using Google OAuth (Firebase Authentication). The extension does not store, read, or transmit Google credentials directly. Billing is handled at <code>debateai.com</code> via Stripe; the extension never sees payment information. Usage history (rounds you ran, motions you saved) is stored against your DebateAI account on Firestore, not in the extension.</p>
   </div>
 
+  <div class="card">
+    <h3>Google Docs (optional, opt-in only)</h3>
+    <p>Counter can connect to your Google account so it can read the Google Doc you currently have open and use it as the source for an oral exam drill. This is strictly opt-in. The flow is:</p>
+    <ul>
+      <li>You click <strong>Connect</strong> in the side panel's Docs strip.</li>
+      <li>Google's OAuth consent screen opens. You choose your account and approve the requested scopes (<code>documents.readonly</code> and <code>userinfo.email</code>).</li>
+      <li>Chrome stores a short-lived access token in its own <code>chrome.identity</code> cache, which the extension reads but never copies, never persists, and never transmits anywhere except to Google's official APIs.</li>
+      <li>When you click <strong>Read active doc</strong>, the extension reads the URL of your active tab, extracts the document ID, calls <code>https://docs.googleapis.com/v1/documents/{docId}</code> with your token, and shows the document title + first 600 characters in the side panel.</li>
+      <li>Clicking <strong>Disconnect</strong> revokes the cached token immediately. You can also revoke access at any time from <a href="https://myaccount.google.com/connections" target="_blank" rel="noopener">your Google account's connected apps page</a>.</li>
+    </ul>
+    <p>The extension does NOT iterate over other tabs, does NOT read documents in the background, and does NOT transmit doc content to <code>debateai.com</code> or any third party other than Google's APIs themselves. Doc content shown in the side panel exists only for the duration of the current panel view.</p>
+  </div>
+
   <h2>What the extension never does</h2>
   <ul>
     <li>It does not read the contents of pages you have not selected text on.</li>
@@ -74,9 +87,12 @@
     <li><strong>sidePanel</strong>: render the Counter UI in Chrome's side panel.</li>
     <li><strong>contextMenus</strong>: add the "Quiz me on this passage", "Defend this out loud", and "Cross-examine the AI on this" entries when you right-click selected text.</li>
     <li><strong>activeTab</strong>: when you trigger Counter, read the URL and selection of the tab you are on so the extension knows what to send to the panel. No other tabs are accessed.</li>
+    <li><strong>tabs</strong>: read the URL of your active tab when you click "Read active doc" so the extension can identify which Google Doc you are looking at. The extension does not iterate other tabs, does not listen for tab changes, and does not read tab content beyond the URL.</li>
     <li><strong>storage</strong>: queue a single pending action between context-menu click and side-panel load. Nothing else is stored.</li>
     <li><strong>clipboardRead</strong>: support the "Paste from clipboard" fallback button in the side panel, used in environments where the right-click flow is intercepted by the page.</li>
-    <li><strong>host_permissions for debateai.com and debatethedevil.com</strong>: load the side panel's iframe content from those origins. No other origins are accessed by the extension's own code.</li>
+    <li><strong>identity</strong>: enable Google OAuth via <code>chrome.identity.getAuthToken</code> so you can connect your Google account and have Counter read your active Google Doc. Tokens are held only in Chrome's identity cache, never persisted by the extension.</li>
+    <li><strong>host_permissions for debateai.com and debatethedevil.com</strong>: load the side panel's iframe content from those origins.</li>
+    <li><strong>host_permissions for docs.googleapis.com and www.googleapis.com</strong>: call the Google Docs API (read-only) and the Google OAuth userinfo endpoint after you have explicitly connected your Google account.</li>
     <li><strong>Content script on all URLs</strong>: required to detect copy events in Google Docs (which uses canvas rendering, so the standard right-click + selection capture does not work). The content script does not read the page; it only listens for copy events to surface the floating "Quiz me" pill on Docs and Office Online.</li>
   </ul>
 

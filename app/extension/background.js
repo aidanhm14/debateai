@@ -1,8 +1,19 @@
 // DebateAI extension service worker.
 // Owns: context-menu setup, command shortcuts, side-panel opening, and
-// queueing actions for the side panel to drain on load. Stays small —
-// MV3 service workers get killed aggressively, so anything stateful goes
-// through chrome.storage.session.
+// queueing actions for the side panel to drain on load. Also owns the
+// Google Docs API auth + read path (Stage 1 of the Counter agent).
+// Stays small — MV3 service workers get killed aggressively, so anything
+// stateful goes through chrome.storage.session.
+
+import {
+  getAuthToken,
+  clearAuthToken,
+  getUserEmail,
+  readDoc,
+  docToPlainText,
+  parseDocId,
+  getDocTitle,
+} from './lib/docs-api.js';
 
 const APP_URL = 'https://debateai.com/debate-ai.html?ext=1';
 
@@ -92,6 +103,94 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   await openPanelInWindow(tab?.windowId);
 });
 
+// ── Google Docs agent (Stage 1: auth + read-active-doc) ──────────────
+// The side panel sends:
+//   {type:'docs-status'}        -> {connected, email}
+//   {type:'docs-connect'}       -> opens the OAuth consent screen,
+//                                   resolves to {connected:true, email}
+//                                   or {error}
+//   {type:'docs-disconnect'}    -> revokes the cached token
+//   {type:'docs-read-active'}   -> reads the user's currently active
+//                                   tab; if it's a Docs URL, fetches the
+//                                   doc and returns
+//                                   {title, snippet, charCount, docId}
+// All handlers ALWAYS resolve via sendResponse (never throw), so the
+// side panel can render a clean error state instead of a console trace.
+
+async function getActiveDocsTab() {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (!tab) return null;
+  const docId = parseDocId(tab.url || '');
+  if (!docId) return { tab, docId: '' };
+  return { tab, docId };
+}
+
+async function handleDocsMessage(msg) {
+  switch (msg?.type) {
+    case 'docs-status': {
+      // Non-interactive token check. Returns connected:false if the user
+      // hasn't authorized yet — never pops the consent screen on its own.
+      try {
+        const token = await getAuthToken({ interactive: false });
+        const email = await getUserEmail(token).catch(() => '');
+        return { connected: true, email };
+      } catch (e) {
+        return { connected: false, email: '' };
+      }
+    }
+    case 'docs-connect': {
+      try {
+        const token = await getAuthToken({ interactive: true });
+        const email = await getUserEmail(token).catch(() => '');
+        return { connected: true, email };
+      } catch (e) {
+        // Most common cause: manifest oauth2.client_id is the placeholder.
+        const msg = String(e?.message || e);
+        const hint = msg.includes('OAuth2') || msg.includes('client_id') || msg.includes('PASTE_')
+          ? 'Paste your Google OAuth client ID into manifest.json (see GOOGLE_CLOUD_SETUP.md), then reload the extension at chrome://extensions.'
+          : '';
+        return { error: msg, hint };
+      }
+    }
+    case 'docs-disconnect': {
+      try {
+        const token = await getAuthToken({ interactive: false }).catch(() => null);
+        if (token) await clearAuthToken(token);
+        return { ok: true };
+      } catch (e) {
+        return { error: String(e?.message || e) };
+      }
+    }
+    case 'docs-read-active': {
+      try {
+        const active = await getActiveDocsTab();
+        if (!active?.tab) return { error: 'No active tab found.' };
+        if (!active.docId) {
+          return {
+            error: 'The active tab is not a Google Doc. Open a doc at docs.google.com and try again.',
+            activeUrl: active.tab.url || '',
+          };
+        }
+        const token = await getAuthToken({ interactive: true });
+        const doc = await readDoc(active.docId, token);
+        const text = docToPlainText(doc);
+        const SNIPPET_MAX = 600;
+        return {
+          docId: active.docId,
+          title: getDocTitle(doc),
+          snippet: text.slice(0, SNIPPET_MAX),
+          charCount: text.length,
+          truncated: text.length > SNIPPET_MAX,
+        };
+      } catch (e) {
+        return { error: String(e?.message || e) };
+      }
+    }
+    default:
+      return null;
+  }
+}
+
 // Content scripts can ask the SW to open the panel + queue text directly
 // (used by the Docs floating pill, where the content script already has
 // the freshly-copied text in hand from the copy event).
@@ -109,6 +208,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: true });
     })();
     return true; // keep the channel open for async sendResponse
+  }
+  if (msg?.type && msg.type.startsWith('docs-')) {
+    handleDocsMessage(msg).then((res) => sendResponse(res || { error: 'unknown docs message' }));
+    return true; // async sendResponse
   }
   return false;
 });

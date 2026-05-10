@@ -136,6 +136,106 @@ typedBtn?.addEventListener('click', () => {
   typedBtn.title = onVoice ? 'Switch back to the voice round' : 'Switch to typed flow (debate-ai)';
 });
 
+// ── Google Docs agent strip (Stage 1) ───────────────────────────────
+// All UI state mirrors the SW's reply: connected/disconnected, the
+// signed-in email, the active doc's title + snippet. The SW does the
+// heavy lifting (chrome.identity, fetch /v1/documents) — this file
+// just renders the result.
+const docsToggleBtn = document.getElementById('docsToggle');
+const docsEl = document.getElementById('docs');
+const docsStatusEl = document.getElementById('docsStatus');
+const docsConnectBtn = document.getElementById('docsConnect');
+const docsDisconnectBtn = document.getElementById('docsDisconnect');
+const docsReadBtn = document.getElementById('docsRead');
+const docsBodyEl = document.getElementById('docsBody');
+
+function sendBg(msg) {
+  return new Promise((resolve) => {
+    if (!chrome?.runtime?.sendMessage) { resolve({ error: 'chrome.runtime missing' }); return; }
+    chrome.runtime.sendMessage(msg, (res) => resolve(res || { error: 'no response' }));
+  });
+}
+
+function setDocsBody(html) { docsBodyEl.innerHTML = html; }
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderDocsConnected(email) {
+  docsEl.classList.add('is-connected');
+  docsStatusEl.textContent = email ? `Connected as ${email}` : 'Connected to Google Docs';
+  docsConnectBtn.style.display = 'none';
+  docsDisconnectBtn.style.display = 'inline-flex';
+  docsReadBtn.style.display = 'inline-flex';
+}
+function renderDocsDisconnected() {
+  docsEl.classList.remove('is-connected');
+  docsStatusEl.textContent = 'Not connected to Google Docs';
+  docsConnectBtn.style.display = 'inline-flex';
+  docsDisconnectBtn.style.display = 'none';
+  docsReadBtn.style.display = 'none';
+}
+function renderDocsError(msg, hint) {
+  setDocsBody(
+    `<div class="docs__error">${escapeHtml(msg)}</div>` +
+    (hint ? `<div class="docs__hint">${escapeHtml(hint)}</div>` : '')
+  );
+}
+function renderDocPreview(payload) {
+  const meta = `${payload.charCount.toLocaleString()} chars${payload.truncated ? ' (showing first 600)' : ''}`;
+  setDocsBody(
+    `<div class="docs__panel docs__panel--meta"><span class="docs__title">${escapeHtml(payload.title)}</span> · ${escapeHtml(meta)}</div>` +
+    `<div class="docs__panel">${escapeHtml(payload.snippet || '(empty)')}</div>`
+  );
+}
+
+async function refreshDocsStatus() {
+  const res = await sendBg({ type: 'docs-status' });
+  if (res?.connected) renderDocsConnected(res.email);
+  else renderDocsDisconnected();
+}
+
+docsToggleBtn?.addEventListener('click', () => {
+  const open = !docsEl.classList.contains('is-open');
+  docsEl.classList.toggle('is-open', open);
+  if (open) refreshDocsStatus();
+});
+
+docsConnectBtn?.addEventListener('click', async () => {
+  docsConnectBtn.disabled = true;
+  setDocsBody('');
+  const res = await sendBg({ type: 'docs-connect' });
+  docsConnectBtn.disabled = false;
+  if (res?.connected) {
+    renderDocsConnected(res.email);
+    showToast('Google Docs connected.');
+  } else {
+    renderDocsError(res?.error || 'Connect failed.', res?.hint);
+  }
+});
+
+docsDisconnectBtn?.addEventListener('click', async () => {
+  await sendBg({ type: 'docs-disconnect' });
+  setDocsBody('');
+  renderDocsDisconnected();
+  showToast('Disconnected.');
+});
+
+docsReadBtn?.addEventListener('click', async () => {
+  docsReadBtn.disabled = true;
+  setDocsBody('<div class="docs__panel--meta">Reading active doc…</div>');
+  const res = await sendBg({ type: 'docs-read-active' });
+  docsReadBtn.disabled = false;
+  if (res?.error) {
+    renderDocsError(res.error, res.activeUrl ? `Active tab: ${res.activeUrl}` : '');
+  } else if (res?.title) {
+    renderDocPreview(res);
+  } else {
+    renderDocsError('No response from background script.');
+  }
+});
+
 retryBtn?.addEventListener('click', () => {
   errShade.classList.remove('is-shown');
   frame.src = frame.src;

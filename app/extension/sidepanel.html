@@ -68,6 +68,61 @@
     border: 0;
     background: var(--bg);
   }
+  /* ── Google Docs agent strip (Stage 1: read-only) ──
+     Sits between the top brand bar and the iframe. Hidden by default;
+     toggled via the "Docs" button in the brand bar. Compact — single
+     row when collapsed, grows to ~120px when an active doc is read.   */
+  .docs {
+    display: none;
+    border-bottom: 1px solid var(--line);
+    background: #0d0d11;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--fg);
+    gap: 8px;
+    flex-direction: column;
+  }
+  .docs.is-open { display: flex; }
+  .docs__row { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+  .docs__status {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--muted); font-size: 11px; flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .docs__dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #6a6a72; flex: 0 0 auto;
+  }
+  .docs.is-connected .docs__dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
+  .docs__btn {
+    appearance: none; border: 1px solid var(--line);
+    background: var(--chip); color: var(--fg);
+    border-radius: 6px; padding: 4px 9px; cursor: pointer;
+    font: 11px/1 -apple-system, system-ui, sans-serif;
+  }
+  .docs__btn:hover { background: var(--chip-hover); }
+  .docs__btn--primary {
+    background: linear-gradient(180deg,#e54545,#c83232);
+    border-color: rgba(229,69,69,.6); color:#fff; font-weight:600;
+  }
+  .docs__btn--primary:hover { filter: brightness(1.06); }
+  .docs__panel {
+    background: #14141a; border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font-size: 11px;
+    color: var(--fg); max-height: 140px; overflow: auto;
+    line-height: 1.45; white-space: pre-wrap; word-break: break-word;
+  }
+  .docs__panel--meta {
+    color: var(--muted); font-size: 10.5px;
+    border: 0; background: transparent; padding: 2px 0; max-height: none;
+  }
+  .docs__error {
+    background: rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.4);
+    color: #fca5a5; padding: 7px 9px; border-radius: 6px; font-size: 11px;
+  }
+  .docs__hint { color: var(--muted); font-size: 10.5px; margin-top: 2px; }
+  .docs__title { color: var(--fg); font-weight: 600; }
+  iframe#frame.is-shorter { height: calc(100% - 36px - var(--docs-h, 56px)); }
   .toast {
     position: fixed;
     left: 12px;
@@ -117,9 +172,23 @@
     <span class="bar__brand">Counter</span>
     <span class="bar__hint" id="hint">Highlight study material. The AI cross-examines you.</span>
     <span class="bar__spacer"></span>
+    <button class="btn" id="docsToggle" title="Connect to Google Docs">Docs</button>
     <button class="btn" id="typed" title="Switch to typed flow (debate-ai)">Typed</button>
     <button class="btn" id="paste" title="Paste from clipboard">Paste</button>
     <button class="btn" id="reload" title="Reload the panel">↻</button>
+  </div>
+  <!-- Google Docs agent strip. Stage 1 = read-only proof-of-life:
+       OAuth, then read the active Doc and surface title + snippet.
+       Stage 2 will turn the snippet into actionable Suggestions. -->
+  <div class="docs" id="docs">
+    <div class="docs__row">
+      <span class="docs__dot" aria-hidden="true"></span>
+      <span class="docs__status" id="docsStatus">Not connected to Google Docs</span>
+      <button class="docs__btn docs__btn--primary" id="docsConnect">Connect</button>
+      <button class="docs__btn" id="docsDisconnect" style="display:none">Disconnect</button>
+      <button class="docs__btn" id="docsRead" style="display:none">Read active doc</button>
+    </div>
+    <div id="docsBody"></div>
   </div>
   <iframe
     id="frame"
