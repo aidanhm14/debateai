@@ -2843,32 +2843,29 @@ button{font-family:inherit;cursor:pointer}
     padding:48px 24px 56px;position:relative;overflow:hidden;
   }
   /* Smooth the seam where the hero (.hero-bg gradient + ambient glows)
-     meets the globe section. Without this, you got a hard horizontal
-     line: hero bottom is a warm dark-red from the ambient glows, globe
-     section top is just body-bg at a different gradient stop — sharp
-     contrast band. ::before adds a soft warm wash at the top of the
-     globe section that matches the hero's bottom warmth, then fades
-     out over ~220px so the rest of the section reads normally. */
+     meets the globe section. Soft radial bloom centered above the
+     section — no hard horizontal end-edge to read as a band, fades to
+     transparent in every direction. Wide enough to bleed up into the
+     hero by 80px and across the full width. */
   .hero-globe-section::before{
-    content:"";position:absolute;left:0;right:0;top:0;height:220px;
-    background:linear-gradient(to bottom,
-      rgba(70,22,32,0.55) 0%,
-      rgba(45,15,22,0.32) 35%,
-      rgba(20,8,12,0.12) 70%,
-      rgba(0,0,0,0) 100%);
+    content:"";position:absolute;left:-10%;right:-10%;top:-80px;height:540px;
+    background:radial-gradient(ellipse 70% 55% at 50% 30%,
+      rgba(80,24,34,0.42) 0%,
+      rgba(45,14,20,0.22) 35%,
+      rgba(0,0,0,0) 75%);
     pointer-events:none;z-index:0;
   }
   [data-theme="grey"] .hero-globe-section::before{
-    background:linear-gradient(to bottom,
-      rgba(50,50,58,0.45) 0%,
-      rgba(30,30,36,0.25) 40%,
-      rgba(0,0,0,0) 100%);
+    background:radial-gradient(ellipse 70% 55% at 50% 30%,
+      rgba(60,60,68,0.38) 0%,
+      rgba(30,30,36,0.18) 40%,
+      rgba(0,0,0,0) 75%);
   }
   [data-theme="light"] .hero-globe-section::before{
-    background:linear-gradient(to bottom,
-      rgba(244,240,235,0.85) 0%,
-      rgba(244,240,235,0.45) 35%,
-      rgba(244,240,235,0) 100%);
+    background:radial-gradient(ellipse 70% 55% at 50% 30%,
+      rgba(244,240,235,0.7) 0%,
+      rgba(244,240,235,0.32) 40%,
+      rgba(244,240,235,0) 75%);
   }
   /* Section content needs to sit above the fade strip. */
   .hero-globe-section > .hero-globe-wrap{position:relative;z-index:1}
@@ -2926,6 +2923,13 @@ button{font-family:inherit;cursor:pointer}
        layer that, on some Chrome configs, paints with subtly
        different alpha than the surrounding section, showing up as a
        square shadow box around the canvas. */
+    /* Radial mask so the canvas's own rectangular bounds are never
+       visible. Marker glows, floor reflection, and sphere highlights
+       all fade to transparent as they approach the canvas edges,
+       killing the last source of "rectangular shadow" artifacts the
+       user kept catching. */
+    -webkit-mask-image:radial-gradient(circle at 50% 52%, #000 60%, transparent 88%);
+    mask-image:radial-gradient(circle at 50% 52%, #000 60%, transparent 88%);
   }
   @media(max-width:880px){
     .hero-globe-wrap{grid-template-columns:1fr;gap:24px;text-align:center}
@@ -3022,7 +3026,8 @@ button{font-family:inherit;cursor:pointer}
           land:'rgba(180,40,40,',
           markerCore:'255,80,80',
           markerHi:'255,180,180',
-          floor:'rgba(220,80,80,0.30)'
+          // Real shadow on a light surface — neutral grey/black, not pink.
+          floor:'rgba(40,30,30,0.28)'
         };
       }
       // crimson default (also fine for grey theme — same family)
@@ -3033,7 +3038,12 @@ button{font-family:inherit;cursor:pointer}
         land:'rgba(220,60,60,',
         markerCore:'255,110,110',
         markerHi:'255,210,210',
-        floor:'rgba(239,68,68,0.35)'
+        // Floor shadow: a real shadow is dark, not red. The previous
+        // bright-red floor read as a separate glowing puddle next to
+        // the globe rather than a shadow under it. Now: dark-warm
+        // shadow at center, fading to transparent — sits the globe
+        // on a surface instead of next to a puddle.
+        floor:'rgba(20,5,8,0.55)'
       };
     }
 
@@ -3282,8 +3292,12 @@ button{font-family:inherit;cursor:pointer}
         // the globe radius, so the size hierarchy is preserved across
         // viewport sizes. Small depth boost so front pins look bigger.
         var pinR = m.size * r * 1.15 * (0.75 + depth * 0.35);
-        // Soft outer glow
-        var glowR = pinR * 4;
+        // Soft outer glow. Was *4 — for India (pinR ≈ 55) that meant a
+        // 220px glow radius, almost the full half-canvas, pushing the
+        // glow into the radial mask edge and giving big-marker pins a
+        // squashed look near the sphere limb. *2.8 keeps the glow
+        // contained inside the sphere bounds for all marker sizes.
+        var glowR = pinR * 2.8;
         var glow = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, glowR);
         glow.addColorStop(0, 'rgba(' + c.markerCore + ',' + (0.55 * depth) + ')');
         glow.addColorStop(0.4, 'rgba(' + c.markerCore + ',' + (0.22 * depth) + ')');
