@@ -201,6 +201,11 @@
 <script defer src="/js/track.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
+<!-- Persona seed pool. Backfills the "Top this week" preview below the
+     hero so a brand-new visitor never sees a one-row board with a
+     test entry. Real Firestore entries always merge in on top.
+     Defer is fine: the preview loader runs on window.load. -->
+<script defer src="/js/community-seed.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 
@@ -2376,7 +2381,6 @@ window.addEventListener('load', function(){
   var section = document.getElementById('leaderboard-preview');
   var rowsHost = document.getElementById('lb-preview-rows');
   if (!section || !rowsHost) return;
-  if (typeof firebase === 'undefined' || !firebase.firestore) return;
 
   function escHtmlLb(s){
     return String(s == null ? '' : s)
@@ -2385,6 +2389,42 @@ window.addEventListener('load', function(){
   }
   function rankClass(i){return i===0?'gold':i===1?'silver':i===2?'bronze':''}
   function rankPrefix(i){return i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}
+
+  // Firebase didn't load (Safari ITP, in-app browser, blocked CDN). The
+  // section used to stay hidden in that case. Now we render the seed
+  // pool alone — same social-proof logic as /leaderboard.
+  if (typeof firebase === 'undefined' || !firebase.firestore){
+    try {
+      if (window.DEBATEAI_SEED && typeof window.DEBATEAI_SEED.buildPool === 'function'){
+        var live = window.DEBATEAI_SEED.buildPool('live') || [];
+        var ai = window.DEBATEAI_SEED.buildPool('ai') || [];
+        var seen = {};
+        live.concat(ai).forEach(function(r){
+          if (!seen[r.uid] || (r.score||0) > (seen[r.uid].score||0)) seen[r.uid] = r;
+        });
+        var cutoff = Date.now() - 7*24*60*60*1000;
+        var rows = Object.keys(seen).map(function(k){return seen[k]})
+          .filter(function(r){
+            var ts = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate().getTime() : 0;
+            return ts >= cutoff;
+          })
+          .sort(function(a,b){return (b.score||0)-(a.score||0)})
+          .slice(0,3);
+        if (rows.length){
+          rowsHost.innerHTML = rows.map(function(r,i){
+            var score = (typeof r.score === 'number' && !isNaN(r.score)) ? r.score.toFixed(1) : '—';
+            return '<div class="lb-prev-row">'
+              + '<div class="lb-prev-rank '+rankClass(i)+'">'+rankPrefix(i)+'</div>'
+              + '<div class="lb-prev-name">'+escHtmlLb(r.displayName||'Anonymous')+'</div>'
+              + '<div class="lb-prev-score">'+score+'</div>'
+              + '</div>';
+          }).join('');
+          section.style.display = 'block';
+        }
+      }
+    } catch(e){ /* keep hidden on failure */ }
+    return;
+  }
 
   try {
     // Reuse the app already initialized by the auth IIFE earlier on the page.
@@ -2401,35 +2441,76 @@ window.addEventListener('load', function(){
       });
     }
     var db = firebase.firestore();
-    // Pull recent entries, then client-side: filter to last 7 days, sort by
-    // score desc, take top 3. Single-field index, no composite index needed.
+
+    // Build the seed pool slice that's eligible for "Top this week":
+    // pull both the live and ai pools (real preview is unified, no
+    // kind filter), keep entries from the last 7 days, dedupe by uid.
+    function seedRowsThisWeek(){
+      var pool = [];
+      try {
+        if (window.DEBATEAI_SEED && typeof window.DEBATEAI_SEED.buildPool === 'function'){
+          var live = window.DEBATEAI_SEED.buildPool('live') || [];
+          var ai = window.DEBATEAI_SEED.buildPool('ai') || [];
+          var seen = {};
+          live.concat(ai).forEach(function(r){
+            // Same uid can appear in both pools (a debater who runs both
+            // human-vs-human and beat-the-AI rounds). Keep the higher score.
+            if (!seen[r.uid] || (r.score||0) > (seen[r.uid].score||0)){
+              seen[r.uid] = r;
+            }
+          });
+          pool = Object.keys(seen).map(function(k){return seen[k]});
+        }
+      } catch(e){ /* no-op */ }
+      var cutoff = Date.now() - 7*24*60*60*1000;
+      return pool.filter(function(r){
+        var ts = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate().getTime() : 0;
+        return ts >= cutoff;
+      });
+    }
+
+    function renderRows(rows){
+      if (!rows.length){
+        rowsHost.innerHTML = '<div class="lb-prev-empty">Empty board this week. The next round to complete claims rank one. <a href="/debate-ai" style="color:var(--accent);font-weight:700">Run a round →</a></div>';
+      } else {
+        rowsHost.innerHTML = rows.map(function(r,i){
+          var score = (typeof r.score === 'number' && !isNaN(r.score)) ? r.score.toFixed(1) : '—';
+          return '<div class="lb-prev-row">'
+            + '<div class="lb-prev-rank '+rankClass(i)+'">'+rankPrefix(i)+'</div>'
+            + '<div class="lb-prev-name">'+escHtmlLb(r.displayName||'Anonymous')+'</div>'
+            + '<div class="lb-prev-score">'+score+'</div>'
+            + '</div>';
+        }).join('');
+      }
+      section.style.display = 'block';
+    }
+
+    // Pull recent entries, then client-side: filter to last 7 days, merge
+    // with the seed pool, sort by score desc, take top 3. Single-field
+    // index, no composite index needed.
     db.collection('leaderboard_entries')
       .orderBy('completedAt','desc')
       .limit(80)
       .get()
       .then(function(snap){
         var cutoff = Date.now() - 7*24*60*60*1000;
-        var rows = snap.docs.map(function(d){return d.data()}).filter(function(r){
+        var real = snap.docs.map(function(d){return d.data()}).filter(function(r){
           var ts = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate().getTime() : 0;
           return ts >= cutoff;
-        }).sort(function(a,b){return (b.score||0)-(a.score||0)}).slice(0,3);
-        if (!rows.length){
-          rowsHost.innerHTML = '<div class="lb-prev-empty">Empty board this week — the next round to complete claims rank one. <a href="/debate-ai" style="color:var(--accent);font-weight:700">Run a round →</a></div>';
-        } else {
-          rowsHost.innerHTML = rows.map(function(r,i){
-            var score = (typeof r.score === 'number' && !isNaN(r.score)) ? r.score.toFixed(1) : '—';
-            return '<div class="lb-prev-row">'
-              + '<div class="lb-prev-rank '+rankClass(i)+'">'+rankPrefix(i)+'</div>'
-              + '<div class="lb-prev-name">'+escHtmlLb(r.displayName||'Anonymous')+'</div>'
-              + '<div class="lb-prev-score">'+score+'</div>'
-              + '</div>';
-          }).join('');
-        }
-        section.style.display = 'block';
+        });
+        // Merge real + seeds. Real entries take precedence at equal score
+        // because their uids never collide with the 'da-seed-*' prefix.
+        var rows = real.concat(seedRowsThisWeek())
+          .sort(function(a,b){return (b.score||0)-(a.score||0)})
+          .slice(0,3);
+        renderRows(rows);
       })
       .catch(function(err){
         console.warn('[landing] leaderboard preview load failed:', err && err.message);
-        // Section stays hidden on failure rather than rendering an empty box.
+        // Firestore failed (Safari ITP, in-app browser, App Check). Render
+        // the seed pool alone rather than hiding the section — the whole
+        // point is social proof above the fold.
+        renderRows(seedRowsThisWeek().sort(function(a,b){return (b.score||0)-(a.score||0)}).slice(0,3));
       });
   } catch(e) {
     console.warn('[landing] leaderboard preview init error:', e.message);
