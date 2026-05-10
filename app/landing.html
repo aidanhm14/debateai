@@ -2839,34 +2839,14 @@ button{font-family:inherit;cursor:pointer}
 <style>
   .hero-globe-section{
     padding:48px 24px 56px;position:relative;overflow:hidden;
+    /* Just pure black under the hero. The user explicitly asked for
+       this over any blur/bloom transition — the previous radial-gradient
+       ::before read as a fuzzy maroon strip below the seam, which was
+       worse than the original sharp seam. Solid #000 covers whatever
+       the body gradient would have shown at this y-position. */
+    background:#000;
   }
-  /* Smooth the seam where the hero (.hero-bg gradient + ambient glows)
-     meets the globe section. Soft radial bloom centered above the
-     section — no hard horizontal end-edge to read as a band, fades to
-     transparent in every direction. Wide enough to bleed up into the
-     hero by 80px and across the full width. */
-  .hero-globe-section::before{
-    content:"";position:absolute;left:-10%;right:-10%;top:-80px;height:540px;
-    background:radial-gradient(ellipse 70% 55% at 50% 30%,
-      rgba(80,24,34,0.42) 0%,
-      rgba(45,14,20,0.22) 35%,
-      rgba(0,0,0,0) 75%);
-    pointer-events:none;z-index:0;
-  }
-  [data-theme="grey"] .hero-globe-section::before{
-    background:radial-gradient(ellipse 70% 55% at 50% 30%,
-      rgba(60,60,68,0.38) 0%,
-      rgba(30,30,36,0.18) 40%,
-      rgba(0,0,0,0) 75%);
-  }
-  [data-theme="light"] .hero-globe-section::before{
-    background:radial-gradient(ellipse 70% 55% at 50% 30%,
-      rgba(244,240,235,0.7) 0%,
-      rgba(244,240,235,0.32) 40%,
-      rgba(244,240,235,0) 75%);
-  }
-  /* Section content needs to sit above the fade strip. */
-  .hero-globe-section > .hero-globe-wrap{position:relative;z-index:1}
+  [data-theme="light"] .hero-globe-section{background:#fafaf7}
   .hero-globe-wrap{
     max-width:1180px;margin:0 auto;
     display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;
@@ -2921,13 +2901,13 @@ button{font-family:inherit;cursor:pointer}
        layer that, on some Chrome configs, paints with subtly
        different alpha than the surrounding section, showing up as a
        square shadow box around the canvas. */
-    /* Radial mask so the canvas's own rectangular bounds are never
-       visible. Marker glows, floor reflection, and sphere highlights
-       all fade to transparent as they approach the canvas edges,
-       killing the last source of "rectangular shadow" artifacts the
-       user kept catching. */
-    -webkit-mask-image:radial-gradient(circle at 50% 52%, #000 60%, transparent 88%);
-    mask-image:radial-gradient(circle at 50% 52%, #000 60%, transparent 88%);
+    /* Soft radial mask. With markers and land dots now fading via
+       depth in the JS, this only needs to feather the outermost pixels
+       (floor shadow's outer rim). Previous 60→88 was aggressive and
+       clipped marker glows hard at the limb — read as a "glitch
+       away" rather than a 3D recede. Now 80→98: barely there. */
+    -webkit-mask-image:radial-gradient(circle at 50% 52%, #000 80%, transparent 98%);
+    mask-image:radial-gradient(circle at 50% 52%, #000 80%, transparent 98%);
   }
   @media(max-width:880px){
     .hero-globe-wrap{grid-template-columns:1fr;gap:24px;text-align:center}
@@ -3260,71 +3240,85 @@ button{font-family:inherit;cursor:pointer}
         ctx.stroke();
       }
 
-      // Land-hint dots, depth-shaded so the sphere reads as 3D
+      // Land-hint dots — same smooth depth fade as markers so
+      // continents recede over the limb in 3D instead of popping out.
       for (var i = 0; i < LAND.length; i++){
         var L = project(LAND[i][0], LAND[i][1]);
-        if (L[2] <= 0) continue;
+        var fL = L[2] / 0.18;
+        if (fL <= 0) continue;
+        if (fL > 1) fL = 1;
+        var lFade = fL * fL * (3 - 2 * fL);
         var lx = cx + L[0] * r;
         var ly = cy - L[1] * r;
         var depthL = L[2];
-        ctx.fillStyle = c.land + (0.20 + depthL * 0.55) + ')';
+        ctx.fillStyle = c.land + ((0.20 + depthL * 0.55) * lFade) + ')';
         ctx.beginPath();
-        ctx.arc(lx, ly, 1.2 + depthL * 0.6, 0, Math.PI * 2);
+        ctx.arc(lx, ly, (1.2 + depthL * 0.6) * (0.5 + lFade * 0.5), 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // Markers, back-to-front so front pins paint over back glow
+      // Markers — back-to-front, with smooth depth fade so they
+      // disappear in 3D as they rotate over the limb instead of
+      // glitching off all at once. The previous "if (z <= -0.05)
+      // continue" combined with a hard radial mask on the canvas
+      // caused pins to pop in/out at the sphere edge. Now: pins fade
+      // continuously from full at z≥0.18 to invisible at z≤-0.02.
       var rendered = [];
       for (var j = 0; j < MARKERS.length; j++){
         var M = MARKERS[j];
         var P = project(M.location[0], M.location[1]);
-        if (P[2] <= -0.05) continue; // back face (small bleed for edge pins)
-        rendered.push({ x: cx + P[0] * r, y: cy - P[1] * r, z: P[2], size: M.size });
+        // smoothstep-ish fade band straddling the limb
+        var f = (P[2] + 0.02) / 0.20;
+        if (f <= 0) continue; // fully behind the sphere
+        if (f > 1) f = 1;
+        // ease-in-out for a more natural fall-off
+        var fade = f * f * (3 - 2 * f);
+        rendered.push({
+          x: cx + P[0] * r,
+          y: cy - P[1] * r,
+          z: P[2],
+          size: M.size,
+          fade: fade
+        });
       }
       rendered.sort(function(a, b){ return a.z - b.z; });
 
       for (var k = 0; k < rendered.length; k++){
         var m = rendered[k];
         var depth = Math.max(0, m.z);
-        // Marker radius scales with M.size (the per-country share) AND
-        // the globe radius, so the size hierarchy is preserved across
-        // viewport sizes. Small depth boost so front pins look bigger.
-        var pinR = m.size * r * 1.15 * (0.75 + depth * 0.35);
-        // Soft outer glow. Was *4 — for India (pinR ≈ 55) that meant a
-        // 220px glow radius, almost the full half-canvas, pushing the
-        // glow into the radial mask edge and giving big-marker pins a
-        // squashed look near the sphere limb. *2.8 keeps the glow
-        // contained inside the sphere bounds for all marker sizes.
+        var fade = m.fade;
+        // Pin radius scales with M.size (per-country share) and the
+        // globe radius, plus a small depth boost so front pins look
+        // physically larger. fade also shrinks the pin as it
+        // approaches the limb — small + dim = a real 3D recede.
+        var pinR = m.size * r * 1.15 * (0.75 + depth * 0.35) * (0.5 + fade * 0.5);
         var glowR = pinR * 2.8;
         var glow = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, glowR);
-        glow.addColorStop(0, 'rgba(' + c.markerCore + ',' + (0.55 * depth) + ')');
-        glow.addColorStop(0.4, 'rgba(' + c.markerCore + ',' + (0.22 * depth) + ')');
-        glow.addColorStop(1, 'rgba(' + c.markerCore + ',0)');
+        glow.addColorStop(0,   'rgba(' + c.markerCore + ',' + (0.55 * depth * fade) + ')');
+        glow.addColorStop(0.4, 'rgba(' + c.markerCore + ',' + (0.22 * depth * fade) + ')');
+        glow.addColorStop(1,   'rgba(' + c.markerCore + ',0)');
         ctx.fillStyle = glow;
         ctx.beginPath();
         ctx.arc(m.x, m.y, glowR, 0, Math.PI * 2);
         ctx.fill();
-        // Solid dot
-        ctx.fillStyle = 'rgba(' + c.markerCore + ',' + (0.65 + depth * 0.35) + ')';
+        ctx.fillStyle = 'rgba(' + c.markerCore + ',' + ((0.45 + depth * 0.35) * fade) + ')';
         ctx.beginPath();
         ctx.arc(m.x, m.y, pinR, 0, Math.PI * 2);
         ctx.fill();
-        // Highlight (small bright spot, makes pins read as 3D beads)
         if (pinR > 2){
-          ctx.fillStyle = 'rgba(' + c.markerHi + ',' + (0.55 * depth) + ')';
+          ctx.fillStyle = 'rgba(' + c.markerHi + ',' + (0.55 * depth * fade) + ')';
           ctx.beginPath();
           ctx.arc(m.x - pinR * 0.3, m.y - pinR * 0.3, pinR * 0.4, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
-      // Floor reflection — soft red ellipse below the sphere, sells the
-      // "globe sitting on a surface" feeling without paying for a
-      // canvas-wide drop-shadow filter.
+      // Floor shadow — soft dark ellipse below the sphere, sells the
+      // "globe sitting on a surface" feeling.
       var floorY = cy + r * 1.05;
       var floor = ctx.createRadialGradient(cx, floorY, 0, cx, floorY, r * 0.85);
       floor.addColorStop(0, c.floor);
-      floor.addColorStop(1, 'rgba(239,68,68,0)');
+      floor.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = floor;
       ctx.beginPath();
       ctx.ellipse(cx, floorY, r * 0.85, r * 0.12, 0, 0, Math.PI * 2);
