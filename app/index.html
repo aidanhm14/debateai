@@ -12431,7 +12431,55 @@ function SharedCases({ user, team }) {
   // default — they live in localStorage and never touch Firestore
   // until you explicitly share them.
   const [shareVisibility, setShareVisibility] = useState('team');
-  const myCases = useMemo(() => loadSavedCases().filter(c => c.mode !== 'philosophy' && c.side !== 'Philosophy' && c.format !== 'Philosophy'), []);
+  // myCases is state (not useMemo) so the in-place editor below can mutate
+  // a case and have the card list reflect the new motion / side / output
+  // without forcing the user to navigate away and back.
+  const [myCases, setMyCases] = useState(() =>
+    loadSavedCases().filter(c => c.mode !== 'philosophy' && c.side !== 'Philosophy' && c.format !== 'Philosophy')
+  );
+  // null = no editor open; otherwise the full case object being edited.
+  // Working copy lives in `editDraft` so cancel reverts and only Save
+  // commits to the persisted list.
+  const [editingId, setEditingId] = useState(null);
+  const [editDraft, setEditDraft] = useState(null);
+
+  // Open the editor for a given saved case. Snapshots motion / side /
+  // format / output into the draft so user edits don't escape if they
+  // hit Cancel or close the modal.
+  const openCaseEditor = (c) => {
+    setEditingId(c.id);
+    setEditDraft({
+      motion: c.motion || '',
+      side: c.side || '',
+      format: c.format || '',
+      output: c.output || c.text || '',
+    });
+  };
+  const closeCaseEditor = () => { setEditingId(null); setEditDraft(null); };
+
+  // Commit edits back to localStorage (the source of truth) and the
+  // local myCases state. We update the matching id in the FULL saved
+  // cases array (loaded fresh from storage) so any case fields outside
+  // the four we expose for editing — tags, notes, depth, savedAt — are
+  // preserved untouched. Bumps savedAt so the edited case sorts to the
+  // top of "recent" lists everywhere else in the app.
+  const saveCaseEdit = () => {
+    if (!editingId || !editDraft) return;
+    const all = loadSavedCases();
+    const next = all.map(c => c.id === editingId
+      ? Object.assign({}, c, {
+          motion: editDraft.motion.trim() || c.motion,
+          side: editDraft.side,
+          format: editDraft.format,
+          output: editDraft.output,
+          savedAt: new Date().toISOString(),
+        })
+      : c);
+    persistCases(next);
+    setMyCases(next.filter(c => c.mode !== 'philosophy' && c.side !== 'Philosophy' && c.format !== 'Philosophy'));
+    setMsg('✓ Case saved.');
+    closeCaseEditor();
+  };
 
   useEffect(() => {
     if (!team || !firebaseDb) { setLoading(false); return; }
@@ -12562,33 +12610,70 @@ function SharedCases({ user, team }) {
             const sideRaw = (c.side||'').toLowerCase();
             const sideColor = sideRaw==='gov' || sideRaw==='pro' || sideRaw==='aff' ? '#22c55e' : sideRaw==='opp' || sideRaw==='con' || sideRaw==='neg' ? '#ef4444' : '#94a3b8';
             const savedAt = c.savedAt ? new Date(c.savedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '';
-            return el('button', {
+            // Card is now a div with two interactive children (select + open).
+            // Was a single <button> wrapping everything which made it
+            // impossible to put a sub-button inside (button-in-button is
+            // invalid HTML and Chrome silently ignores the inner click).
+            return el('div', {
               key: c.id,
-              onClick: ()=>setSelectedCase(isSel ? '' : c.id),
-              type: 'button',
+              role: 'group',
               style: {
+                position:'relative',
                 textAlign:'left',
-                padding:'12px 14px',
                 borderRadius:10,
                 border:'1px solid '+(isSel?'#ef444460':'#ffffff12'),
                 background:isSel?'#ef444412':'#ffffff05',
-                cursor:'pointer',
                 transition:'all .15s',
-                display:'flex',
-                flexDirection:'column',
-                gap:6,
                 minWidth:0,
               },
             },
-              el('div', {style:{fontSize:'.86rem',fontWeight:700,color:'#e4e8f0',lineHeight:1.35,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}},
-                c.motion || 'Untitled case',
+              // Select / deselect — fills the body of the card so click-anywhere
+              // still selects, matching the original UX.
+              el('button', {
+                onClick: ()=>setSelectedCase(isSel ? '' : c.id),
+                type: 'button',
+                'aria-pressed': isSel,
+                title: isSel ? 'Deselect this case' : 'Select for sharing',
+                style: {
+                  display:'flex',flexDirection:'column',gap:6,
+                  width:'100%',textAlign:'left',
+                  padding:'12px 40px 12px 14px',
+                  background:'transparent',border:'none',color:'inherit',
+                  cursor:'pointer',font:'inherit',
+                },
+              },
+                el('div', {style:{fontSize:'.86rem',fontWeight:700,color:'#e4e8f0',lineHeight:1.35,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}},
+                  c.motion || 'Untitled case',
+                ),
+                el('div', {style:{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}},
+                  c.side && el('span', {style:{fontSize:'.65rem',padding:'2px 7px',borderRadius:999,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',background:sideColor+'20',color:sideColor,border:'1px solid '+sideColor+'35'}}, c.side),
+                  c.format && el('span', {style:{fontSize:'.65rem',padding:'2px 7px',borderRadius:999,fontWeight:600,color:'#94a3b8',background:'#ffffff08',border:'1px solid #ffffff12'}}, c.format),
+                  savedAt && el('span', {style:{fontSize:'.66rem',color:'#64748b',marginLeft:'auto'}}, savedAt),
+                ),
+                isSel && el('div', {style:{fontSize:'.66rem',color:'#fca5a5',fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',marginTop:2}}, '✓ Selected'),
               ),
-              el('div', {style:{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}},
-                c.side && el('span', {style:{fontSize:'.65rem',padding:'2px 7px',borderRadius:999,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',background:sideColor+'20',color:sideColor,border:'1px solid '+sideColor+'35'}}, c.side),
-                c.format && el('span', {style:{fontSize:'.65rem',padding:'2px 7px',borderRadius:999,fontWeight:600,color:'#94a3b8',background:'#ffffff08',border:'1px solid #ffffff12'}}, c.format),
-                savedAt && el('span', {style:{fontSize:'.66rem',color:'#64748b',marginLeft:'auto'}}, savedAt),
-              ),
-              isSel && el('div', {style:{fontSize:'.66rem',color:'#fca5a5',fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',marginTop:2}}, '✓ Selected'),
+              // Open / edit — small icon-button anchored to the top-right.
+              // Positioned absolute so the surrounding select-button doesn't
+              // capture clicks on it. title attribute carries the
+              // explanation ("Open and edit") because the icon alone is too
+              // ambiguous for a first-time user.
+              el('button', {
+                onClick: (e)=>{ e.stopPropagation(); openCaseEditor(c); },
+                type: 'button',
+                title: 'Open and edit this case',
+                'aria-label': 'Edit case: ' + (c.motion || 'Untitled'),
+                style: {
+                  position:'absolute',top:6,right:6,
+                  width:28,height:28,borderRadius:6,
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  background:'#ffffff08',border:'1px solid #ffffff15',
+                  color:'#94a3b8',cursor:'pointer',font:'inherit',
+                  fontSize:'.85rem',padding:0,
+                  transition:'all .15s',
+                },
+                onMouseEnter:(e)=>{ e.currentTarget.style.background='#ffffff14'; e.currentTarget.style.color='#e4e8f0'; },
+                onMouseLeave:(e)=>{ e.currentTarget.style.background='#ffffff08'; e.currentTarget.style.color='#94a3b8'; },
+              }, '✎'),
             );
           }),
         ),
@@ -12627,6 +12712,108 @@ function SharedCases({ user, team }) {
       ),
       c.output && el('div', {style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.6,maxHeight:80,overflow:'hidden',maskImage:'linear-gradient(to bottom, black 60%, transparent)'}}, c.output.substring(0,300) + '...'),
     )),
+
+    // ── Edit-case modal ────────────────────────────────────────────────
+    // Renders only when the user has clicked the ✎ pencil on a saved
+    // case. Full-screen overlay so the user can focus on the case
+    // content (the output textarea is the main edit surface here —
+    // motion / side / format are quick taps but the output is where
+    // most of the prep work lives). Cancel reverts; Save persists to
+    // localStorage and updates myCases so the card list reflects the
+    // new motion/side/output without a reload.
+    editingId && editDraft && el('div', {
+      style:{
+        position:'fixed',inset:0,zIndex:1000,
+        background:'rgba(5,5,8,0.75)',
+        backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        padding:24,
+      },
+      onClick:(e)=>{ if (e.target === e.currentTarget) closeCaseEditor(); },
+    },
+      el('div', {
+        style:{
+          width:'100%',maxWidth:760,maxHeight:'90vh',
+          background:'#0c0e16',border:'1px solid #ffffff14',borderRadius:14,
+          display:'flex',flexDirection:'column',
+          boxShadow:'0 24px 60px rgba(0,0,0,0.55)',
+        },
+      },
+        // Header
+        el('div', {style:{padding:'16px 20px',borderBottom:'1px solid #ffffff10',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}},
+          el('div', null,
+            el('div', {style:{fontSize:'.66rem',fontWeight:800,letterSpacing:'.16em',textTransform:'uppercase',color:'#94a3b8',marginBottom:2}}, 'Editing case'),
+            el('div', {style:{fontSize:'.95rem',fontWeight:700,color:'#e4e8f0'}}, 'Make changes and Save, or Cancel to revert'),
+          ),
+          el('button', {
+            onClick:closeCaseEditor,
+            type:'button','aria-label':'Close',
+            style:{width:32,height:32,borderRadius:8,background:'#ffffff08',border:'1px solid #ffffff15',color:'#94a3b8',cursor:'pointer',font:'inherit',fontSize:'1.1rem'},
+          }, '×'),
+        ),
+        // Body — scrollable
+        el('div', {style:{padding:'18px 20px',overflowY:'auto',display:'flex',flexDirection:'column',gap:14,flex:1,minHeight:0}},
+          // Motion
+          el('label', {style:{display:'flex',flexDirection:'column',gap:6}},
+            el('span', {style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.10em',textTransform:'uppercase',color:'#94a3b8'}}, 'Motion'),
+            el('input', {
+              type:'text', value:editDraft.motion,
+              onChange:(e)=>setEditDraft(Object.assign({}, editDraft, { motion:e.target.value })),
+              placeholder:'This house would…',
+              style:{padding:'10px 12px',background:'#ffffff05',border:'1px solid #ffffff15',borderRadius:8,color:'#e4e8f0',fontSize:'.92rem',font:'inherit'},
+            }),
+          ),
+          // Side + Format on one row
+          el('div', {style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
+            el('label', {style:{display:'flex',flexDirection:'column',gap:6}},
+              el('span', {style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.10em',textTransform:'uppercase',color:'#94a3b8'}}, 'Side'),
+              el('select', {
+                value:editDraft.side,
+                onChange:(e)=>setEditDraft(Object.assign({}, editDraft, { side:e.target.value })),
+                style:{padding:'10px 12px',background:'#ffffff05',border:'1px solid #ffffff15',borderRadius:8,color:'#e4e8f0',fontSize:'.92rem',font:'inherit'},
+              },
+                el('option', {value:''}, '— none —'),
+                ['Government','Opposition','Pro','Con','Aff','Neg'].map(s => el('option', {key:s,value:s}, s)),
+              ),
+            ),
+            el('label', {style:{display:'flex',flexDirection:'column',gap:6}},
+              el('span', {style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.10em',textTransform:'uppercase',color:'#94a3b8'}}, 'Format'),
+              el('select', {
+                value:editDraft.format,
+                onChange:(e)=>setEditDraft(Object.assign({}, editDraft, { format:e.target.value })),
+                style:{padding:'10px 12px',background:'#ffffff05',border:'1px solid #ffffff15',borderRadius:8,color:'#e4e8f0',fontSize:'.92rem',font:'inherit'},
+              },
+                el('option', {value:''}, '— none —'),
+                ['APDA','BP','Worlds','Asian','LD','PF','Policy','Congress','MUN','Quick'].map(f => el('option', {key:f,value:f}, f)),
+              ),
+            ),
+          ),
+          // Case content — the main edit surface
+          el('label', {style:{display:'flex',flexDirection:'column',gap:6,flex:1,minHeight:0}},
+            el('span', {style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.10em',textTransform:'uppercase',color:'#94a3b8'}}, 'Case content'),
+            el('textarea', {
+              value:editDraft.output,
+              onChange:(e)=>setEditDraft(Object.assign({}, editDraft, { output:e.target.value })),
+              placeholder:'Your case prep, arguments, evidence, blocks…',
+              style:{padding:'12px 14px',background:'#ffffff05',border:'1px solid #ffffff15',borderRadius:8,color:'#e4e8f0',fontSize:'.88rem',lineHeight:1.6,font:'inherit',minHeight:260,resize:'vertical'},
+            }),
+          ),
+        ),
+        // Footer — Cancel + Save
+        el('div', {style:{padding:'14px 20px',borderTop:'1px solid #ffffff10',display:'flex',gap:10,justifyContent:'flex-end',background:'#ffffff03'}},
+          el('button', {
+            onClick:closeCaseEditor,
+            type:'button',
+            style:{padding:'9px 18px',background:'transparent',border:'1px solid #ffffff15',borderRadius:8,color:'#94a3b8',fontWeight:600,cursor:'pointer',fontSize:'.84rem',font:'inherit'},
+          }, 'Cancel'),
+          el('button', {
+            onClick:saveCaseEdit,
+            type:'button',
+            style:{padding:'9px 22px',background:'#3b82f6',border:'1px solid #3b82f6',borderRadius:8,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:'.84rem',font:'inherit'},
+          }, 'Save changes'),
+        ),
+      ),
+    ),
   );
 }
 
