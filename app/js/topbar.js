@@ -96,6 +96,29 @@
       right.appendChild(a);
     });
 
+    // SFX mute toggle. Sits between the page links and the theme
+    // dots so it's consistent across pages. Inline SVG speaker icon —
+    // not an emoji (per the 2026-05-10 emoji sweep). aria-pressed
+    // flips when the user toggles, the strike-through line in the
+    // SVG appears via CSS when [aria-pressed=true]. State is read
+    // from window.SFX.isMuted() (localStorage da-sfx-muted) so it
+    // picks up whatever the user set on a previous page.
+    var sfxBtn = el('button', {
+      class: 'sfx-toggle',
+      type: 'button',
+      'aria-pressed': 'false',
+      'aria-label': 'Toggle sound effects',
+      title: 'Mute sounds',
+    });
+    sfxBtn.innerHTML =
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M11 5 6 9H2v6h4l5 4z"/>' +
+        '<path class="sfx-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>' +
+        '<path class="sfx-wave" d="M19 5a9 9 0 0 1 0 14"/>' +
+        '<line class="sfx-strike" x1="3" y1="3" x2="21" y2="21"/>' +
+      '</svg>';
+    right.appendChild(sfxBtn);
+
     var dots = el('div', {
       class: 'theme-dots',
       role: 'group',
@@ -141,8 +164,9 @@
       });
       // Removed the red recording-dot pulse — it read as "live recording"
       // which was misleading on a CTA that just routes to /voice-debate.
-      // The gold-amber gradient + 🎙 emoji already say "voice."
-      cta.appendChild(document.createTextNode('🎙 Voice AI'));
+      // Plain text label per the 2026-05-10 emoji sweep; the gold-amber
+      // gradient still does the visual identity work.
+      cta.appendChild(document.createTextNode('Voice AI'));
     }
     right.appendChild(cta);
 
@@ -155,7 +179,31 @@
     mount.replaceChildren(nav);
 
     wireThemeDots();
+    wireSfxToggle();
     hydrateUser(userSlot);
+  }
+
+  // SFX mute toggle. Reads window.SFX.isMuted() (localStorage-backed)
+  // on mount + on click. SFX module loads with `defer` on every page
+  // that needs it, but topbar.js may render before sfx.js parses —
+  // we read defensively and re-sync via a window 'load' listener so
+  // late-arriving state is reflected without a reload.
+  function wireSfxToggle(){
+    var btn = document.querySelector('.ui-topbar .sfx-toggle');
+    if (!btn) return;
+    function syncBtn(){
+      var muted = !!(window.SFX && window.SFX.isMuted && window.SFX.isMuted());
+      btn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      btn.title = muted ? 'Sounds muted — click to unmute' : 'Mute sounds';
+    }
+    syncBtn();
+    // Re-sync once the page is fully loaded in case sfx.js was deferred.
+    window.addEventListener('load', syncBtn, { once: true });
+    btn.addEventListener('click', function(){
+      if (!window.SFX || typeof window.SFX.toggleMute !== 'function') return;
+      window.SFX.toggleMute();
+      syncBtn();
+    });
   }
 
   // Theme picker — three dots, syncs with [data-theme] on <html> and
