@@ -519,6 +519,42 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 }
 .lighting-toggle:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)}
 
+/* ── Page-local theme picker ──────────
+   Reinstates the grey / crimson / light dots on this page after the
+   shared topbar dropped them 2026-05-10 (brand consolidation). Scoped
+   to /debate-ai so the topbar stays clean elsewhere. Click writes
+   `da-theme` (global) AND `debateos-lighting` (page-local) in lockstep
+   so the two color systems never disagree on a reload. */
+.dai-theme-dots{
+  position:fixed;right:18px;bottom:18px;z-index:60;
+  display:inline-flex;gap:6px;align-items:center;
+  padding:6px 8px;border-radius:999px;
+  background:rgba(20,20,24,.55);
+  border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:0 4px 18px rgba(0,0,0,.35);
+}
+.dai-theme-dots .theme-dot{
+  width:14px;height:14px;border-radius:50%;
+  border:1.5px solid rgba(255,255,255,.2);background:#444;
+  cursor:pointer;padding:0;transition:transform .15s,border-color .2s;
+}
+.dai-theme-dots .theme-dot:hover{transform:scale(1.18)}
+.dai-theme-dots .theme-dot.active{border-color:#fff;box-shadow:0 0 0 2px rgba(239,68,68,.45)}
+.dai-theme-dots .theme-dot[data-t="grey"]{background:#666}
+.dai-theme-dots .theme-dot[data-t="crimson"]{background:#ef4444}
+.dai-theme-dots .theme-dot[data-t="light"]{background:#f5f5ee;border-color:rgba(0,0,0,.45)}
+[data-theme="light"] .dai-theme-dots,
+[data-lighting="light"] .dai-theme-dots{background:rgba(255,255,255,.85);border-color:rgba(0,0,0,.1);box-shadow:0 4px 18px rgba(0,0,0,.08)}
+[data-theme="light"] .dai-theme-dots .theme-dot,
+[data-lighting="light"] .dai-theme-dots .theme-dot{border-color:rgba(0,0,0,.18)}
+[data-theme="light"] .dai-theme-dots .theme-dot.active,
+[data-lighting="light"] .dai-theme-dots .theme-dot.active{border-color:#1a1a1f;box-shadow:0 0 0 2px rgba(220,38,38,.35)}
+@media(max-width:560px){
+  .dai-theme-dots{right:12px;bottom:12px;padding:5px 6px;gap:5px}
+  .dai-theme-dots .theme-dot{width:12px;height:12px;border-width:1px}
+}
+
 /* ── Light Mode ───────────────────── */
 [data-lighting="light"] body{background:#f5f5f0;color:#1a1a1e}
 [data-lighting="light"] .ambient{background:radial-gradient(ellipse 60% 50% at 50% 45%,rgba(239,68,68,.04),transparent 70%)}
@@ -711,6 +747,49 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 </script>
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
+
+<!-- Page-local theme picker. Three dots, fixed bottom-right. Restores
+     the grey / crimson / light toggle that was removed from the shared
+     topbar 2026-05-10 — scoped to /debate-ai only so the topbar stays
+     brand-clean elsewhere. Writes `da-theme` (global) and
+     `debateos-lighting` (page-local) in lockstep so the two color
+     systems can't disagree on the next paint. Reloads on change so
+     ui.css token cascade + React's data-lighting effect both settle
+     from a clean slate (same pattern as landing.html). -->
+<div class="dai-theme-dots" role="group" aria-label="Theme">
+  <button type="button" class="theme-dot" data-t="grey"    aria-label="Grey theme"    title="Grey"></button>
+  <button type="button" class="theme-dot" data-t="crimson" aria-label="Crimson theme" title="Crimson"></button>
+  <button type="button" class="theme-dot" data-t="light"   aria-label="Light theme"   title="Light"></button>
+</div>
+<script>
+(function(){
+  var dots = document.querySelectorAll('.dai-theme-dots .theme-dot');
+  function sync(t){
+    dots.forEach(function(d){ d.classList.toggle('active', d.getAttribute('data-t') === t); });
+  }
+  var current = '';
+  try { current = localStorage.getItem('da-theme') || ''; } catch(e){}
+  if (!current) current = document.documentElement.getAttribute('data-theme') || 'crimson';
+  sync(current);
+  dots.forEach(function(dot){
+    dot.addEventListener('click', function(){
+      var t = dot.getAttribute('data-t');
+      var prev = document.documentElement.getAttribute('data-theme') || '';
+      try {
+        localStorage.setItem('da-theme', t);
+        localStorage.setItem('debateos-lighting', t === 'light' ? 'light' : 'dark');
+      } catch(e){}
+      if (prev !== t){
+        document.documentElement.setAttribute('data-theme', t);
+        window.location.reload();
+        return;
+      }
+      sync(t);
+    });
+  });
+})();
+</script>
+
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
