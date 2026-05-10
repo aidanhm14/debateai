@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Seed Runner · Admin · Debate AI</title>
+<meta name="robots" content="noindex,nofollow" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0c; --bg-elev:#101014; --bg-card:#15151a;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.18);
+  --accent:#ef4444; --accent-glow:rgba(239,68,68,.4);
+  --text:#fff; --text-dim:rgba(255,255,255,.68); --text-ghost:rgba(255,255,255,.42);
+  --green:#22c55e; --amber:#f59e0b; --blue:#3b82f6;
+  --mono:'JetBrains Mono', ui-monospace, monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text)}
+body{
+  font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(ellipse 70% 50% at 50% 0%, rgba(239,68,68,.10), transparent 60%);
+  min-height:100vh; padding:32px 20px 80px;
+}
+.wrap{max-width:920px;margin:0 auto}
+
+/* Header */
+.head{margin-bottom:28px}
+.head .eyebrow{
+  display:inline-block; font-size:.66rem; font-weight:800; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--accent); padding:4px 10px; border:1px solid rgba(239,68,68,.32);
+  border-radius:999px; background:rgba(239,68,68,.06); margin-bottom:10px;
+}
+.head h1{font-size:1.8rem;font-weight:900;letter-spacing:-.02em;margin-bottom:6px}
+.head p{font-size:.92rem;color:var(--text-dim);line-height:1.55;max-width:640px}
+
+/* Sections */
+.card{
+  background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+  padding:22px; margin-bottom:18px;
+}
+.card h2{font-size:.8rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px}
+
+/* Form rows */
+.row{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.row label{font-size:.85rem;font-weight:700;min-width:110px}
+.row input[type="number"], .row select, .row input[type="text"]{
+  background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:10px;
+  color:var(--text); font-family:inherit; font-size:.9rem; padding:9px 12px; outline:none;
+}
+.row input[type="number"]{width:90px}
+.row select{min-width:180px}
+.row input[type="text"]{flex:1;min-width:280px}
+.row input:focus, .row select:focus{border-color:var(--accent)}
+.row .hint{font-size:.74rem;color:var(--text-ghost);margin-left:6px}
+.row.toggle{gap:8px}
+.row.toggle input{width:18px;height:18px;accent-color:var(--accent)}
+
+/* Buttons */
+.btns{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+.btn{
+  font-family:inherit;font-weight:800;font-size:.82rem;letter-spacing:.04em;
+  padding:11px 22px;border-radius:999px;border:1px solid var(--border-strong);
+  background:transparent;color:var(--text);cursor:pointer;
+  transition:transform .12s, background .15s, border-color .15s, opacity .15s;
+}
+.btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.04);border-color:var(--text)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#dc2626;border-color:#dc2626;box-shadow:0 6px 18px var(--accent-glow)}
+.btn.danger{border-color:rgba(239,68,68,.4);color:#fca5a5}
+.btn.danger:hover{background:rgba(239,68,68,.1);border-color:#ef4444}
+
+/* Progress */
+.progress{
+  height:10px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden;margin:10px 0 14px;
+}
+.progress .fill{
+  height:100%;background:linear-gradient(90deg,#ef4444,#f59e0b);
+  width:0%;transition:width .25s ease-out;
+}
+.summary{
+  font-family:var(--mono); font-size:.78rem; color:var(--text-dim); line-height:1.55;
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:6px 16px;
+}
+.summary span strong{color:var(--text);font-weight:700}
+
+/* Log */
+.log{
+  font-family:var(--mono); font-size:.74rem; line-height:1.6;
+  max-height:480px; overflow-y:auto;
+  background:#08080a; border:1px solid var(--border); border-radius:12px;
+  padding:14px 16px;
+}
+.log .line{margin-bottom:6px;color:var(--text-dim);word-break:break-word}
+.log .line.ok{color:var(--text)}
+.log .line.err{color:#fca5a5}
+.log .line.info{color:#93c5fd}
+.log .line .ts{color:var(--text-ghost);margin-right:8px}
+.log .line .winner{color:var(--green);font-weight:700}
+.log .line .pts{color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Auth gate */
+.gate{text-align:center;padding:80px 20px}
+.gate h2{font-size:1.4rem;font-weight:900;margin-bottom:8px}
+.gate p{color:var(--text-dim);margin-bottom:18px}
+
+/* Inline RFD preview accordion */
+.rfd{margin-top:6px;padding:8px 10px;background:rgba(255,255,255,.03);border-left:2px solid rgba(239,68,68,.4);font-style:italic;color:var(--text-dim);white-space:pre-wrap}
+
+a{color:var(--text-dim);text-decoration:underline;text-decoration-color:rgba(255,255,255,.18)}
+a:hover{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="head">
+    <span class="eyebrow">Admin · internal use only</span>
+    <h1>Seed Runner</h1>
+    <p>
+      Generates AI-vs-AI debate rounds against Claude Haiku and writes the
+      results to <code>leaderboard_entries</code>. Each round is two speeches
+      plus a judge call (~12-15s). Loops client-side; one HTTP call per round
+      so timeouts don't cascade. Entries are tagged <code>simulated:true</code>
+      and uid-prefixed <code>ai-runner-*</code> for later filtering.
+    </p>
+  </div>
+
+  <!-- Auth gate -->
+  <div id="gate" class="gate" style="display:none">
+    <h2>Sign in</h2>
+    <p>This page is admin-only. Sign in with the Google account associated with the admin uid or <code>user_profiles.isAdmin = true</code>.</p>
+    <button id="signinBtn" class="btn primary">Sign in with Google</button>
+  </div>
+
+  <!-- Main UI (hidden until admin auth resolves) -->
+  <div id="main" style="display:none">
+
+    <div class="card">
+      <h2>Run config</h2>
+      <div class="row">
+        <label for="count">Rounds</label>
+        <input id="count" type="number" min="1" max="30" value="10">
+        <span class="hint">Each round = 2 leaderboard entries (one per side). Max 30 per batch.</span>
+      </div>
+      <div class="row">
+        <label for="format">Format</label>
+        <select id="format">
+          <option value="">Any (weighted)</option>
+          <option value="asian">Asian Parli</option>
+          <option value="bp">British Parli</option>
+          <option value="apda">APDA</option>
+          <option value="worlds">Worlds</option>
+          <option value="pf">Public Forum</option>
+          <option value="ld">Lincoln-Douglas</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="motion">Motion</label>
+        <input id="motion" type="text" placeholder="(blank = pick from default bank)">
+      </div>
+      <div class="row toggle">
+        <input id="dryRun" type="checkbox">
+        <label for="dryRun" style="min-width:0">Dry run</label>
+        <span class="hint">Generates speeches + judge call, returns the result, but doesn't write to Firestore. Use to sanity-check prompts before a real batch.</span>
+      </div>
+      <div class="btns">
+        <button id="runBtn" class="btn primary">Run rounds</button>
+        <button id="stopBtn" class="btn danger" disabled>Stop</button>
+      </div>
+    </div>
+
+    <div id="progressCard" class="card" style="display:none">
+      <h2>Progress</h2>
+      <div class="progress"><div class="fill" id="fill"></div></div>
+      <div class="summary" id="summary"></div>
+    </div>
+
+    <div id="logCard" class="card" style="display:none">
+      <h2>Log</h2>
+      <div id="log" class="log"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  var app = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+  var auth = firebase.auth();
+
+  var $ = function(id){ return document.getElementById(id); };
+  var stopRequested = false;
+  var running = false;
+
+  // State carried across rounds for the summary readout.
+  var state = {
+    requested: 0,
+    done: 0,
+    written: 0,
+    failed: 0,
+    totalMs: 0,
+  };
+
+  function ts(){
+    var d = new Date(); var p = function(n){return String(n).padStart(2,'0')};
+    return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  }
+
+  function logLine(html, cls){
+    var el = document.createElement('div');
+    el.className = 'line' + (cls ? ' ' + cls : '');
+    el.innerHTML = '<span class="ts">' + ts() + '</span>' + html;
+    $('log').prepend(el);
+  }
+
+  function updateSummary(){
+    var avg = state.done ? Math.round(state.totalMs / state.done) : 0;
+    $('summary').innerHTML = ''
+      + '<span>Requested: <strong>' + state.requested + '</strong></span>'
+      + '<span>Completed: <strong>' + state.done + '</strong></span>'
+      + '<span>Written: <strong>' + state.written + '</strong></span>'
+      + '<span>Failed: <strong>' + state.failed + '</strong></span>'
+      + '<span>Avg/round: <strong>' + avg + 'ms</strong></span>';
+    var pct = state.requested ? Math.round((state.done / state.requested) * 100) : 0;
+    $('fill').style.width = pct + '%';
+  }
+
+  function escapeHtml(s){
+    return String(s||'').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  // Single round call. Returns the parsed response or throws.
+  async function runOne(opts){
+    var token = await auth.currentUser.getIdToken();
+    var r = await fetch('/api/seed-round', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer ' + token,
+      },
+      body: JSON.stringify(opts),
+    });
+    var j; try { j = await r.json(); } catch(e){ j = { ok:false, error:'non-JSON response' }; }
+    if (!r.ok || !j.ok){
+      throw new Error(j.error || ('HTTP ' + r.status));
+    }
+    return j;
+  }
+
+  // Run N rounds sequentially. Caller controls stop via stopRequested.
+  async function runBatch(){
+    if (running) return;
+    running = true;
+    stopRequested = false;
+    $('runBtn').disabled = true;
+    $('stopBtn').disabled = false;
+
+    var count = Math.max(1, Math.min(30, Number($('count').value) || 10));
+    var format = $('format').value || undefined;
+    var motion = $('motion').value.trim() || undefined;
+    var dryRun = $('dryRun').checked;
+
+    state = { requested: count, done: 0, written: 0, failed: 0, totalMs: 0 };
+    $('progressCard').style.display = '';
+    $('logCard').style.display = '';
+    $('log').innerHTML = '';
+    $('fill').style.width = '0%';
+    updateSummary();
+
+    logLine('Batch start: <strong>' + count + '</strong> round' + (count===1?'':'s') +
+      (format ? ' · format <strong>' + escapeHtml(format) + '</strong>' : ' · weighted format mix') +
+      (motion ? ' · motion locked' : '') +
+      (dryRun ? ' · <strong>dry run</strong>' : ''),
+      'info');
+
+    for (var i = 0; i < count; i++){
+      if (stopRequested){ logLine('Stopped by user.', 'info'); break; }
+      var roundLabel = '#' + (i + 1) + '/' + count;
+      try {
+        var res = await runOne({ format: format, motion: motion, dryRun: dryRun });
+        state.done++;
+        state.totalMs += (res.durationMs || 0);
+        if (res.written) state.written += 1;
+        var winnerSide = res.judge && res.judge.winner;
+        var winnerHandle = winnerSide === 'opp' ? res.opp.handle : res.gov.handle;
+        var line = roundLabel +
+          ' · <strong>' + escapeHtml(res.formatName) + '</strong>' +
+          ' · "' + escapeHtml((res.motion || '').slice(0, 70)) + (res.motion.length > 70 ? '…' : '') + '"' +
+          ' · winner <span class="winner">' + escapeHtml(winnerHandle) + '</span>' +
+          ' · gov <span class="pts">' + res.gov.score.toFixed(1) + '</span> /' +
+          ' opp <span class="pts">' + res.opp.score.toFixed(1) + '</span>' +
+          ' · ' + (res.durationMs || 0) + 'ms' +
+          (res.written ? '' : ' <em>(dry)</em>');
+        logLine(line, 'ok');
+        if (res.judge && res.judge.rfd){
+          var rfd = document.createElement('div');
+          rfd.className = 'rfd';
+          rfd.textContent = '“' + res.judge.rfd + '”';
+          $('log').firstChild.appendChild(rfd);
+        }
+      } catch (err){
+        state.failed++;
+        state.done++;
+        logLine(roundLabel + ' · <strong>FAIL</strong>: ' + escapeHtml(err.message || String(err)), 'err');
+      }
+      updateSummary();
+    }
+
+    logLine('Batch end. Wrote <strong>' + state.written + '</strong> rounds, <strong>' + state.failed + '</strong> failed.', 'info');
+    running = false;
+    $('runBtn').disabled = false;
+    $('stopBtn').disabled = true;
+  }
+
+  // Auth wiring.
+  function showMain(){ $('gate').style.display = 'none'; $('main').style.display = ''; }
+  function showGate(){ $('gate').style.display = ''; $('main').style.display = 'none'; }
+
+  auth.onAuthStateChanged(function(user){
+    if (!user){ showGate(); return; }
+    // Verify admin via the same shape the function uses (server-side
+    // gate is the real check; this client check just hides the form
+    // for non-admins so they don't see it).
+    firebase.firestore().collection('user_profiles').doc(user.uid).get()
+      .then(function(doc){
+        var profileAdmin = doc.exists && doc.data().isAdmin === true;
+        if (profileAdmin){
+          showMain();
+        } else {
+          // Could be that ADMIN_UID is set instead — show the form anyway,
+          // server-side will 403 if they're not admin.
+          showMain();
+        }
+      })
+      .catch(function(){
+        showMain();
+      });
+  });
+
+  $('signinBtn').addEventListener('click', function(){
+    var provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(function(err){
+      alert('Sign in failed: ' + (err.message || err));
+    });
+  });
+  $('runBtn').addEventListener('click', runBatch);
+  $('stopBtn').addEventListener('click', function(){
+    stopRequested = true;
+    $('stopBtn').disabled = true;
+    logLine('Stop requested. Will halt after the current round completes.', 'info');
+  });
+})();
+</script>
+
+</body>
+</html>
