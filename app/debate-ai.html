@@ -3543,6 +3543,12 @@ function App(){
   const[vis,setVis]=useState(true);          // fade transition
   const[motion,setMotion]=useState('');
   const[background,setBackground]=useState('');  // optional context for the motion
+  // Motion triage. APDA-only pre-prep "is this a tight case?" memo. Fired
+  // by the button under the motion textarea. Resets whenever the motion
+  // changes so a stale triage never shows for a new motion.
+  const[triage,setTriage]=useState('');
+  const[triageBusy,setTriageBusy]=useState(false);
+  const[triageError,setTriageError]=useState('');
   const[format,setFormat]=useState('quick');
   const[oppStrengths,setOppStrengths]=useState([]);
   const[oppWeaknesses,setOppWeaknesses]=useState([]);
@@ -3747,6 +3753,73 @@ function App(){
       if (text) setGeneratedBackground(text);
     } catch {}
   };
+
+  // Motion triage. APDA pre-prep "is this a tight case?" — runs the
+  // MOTION_TRIAGE voice block server-side via _voiceFeature: 'motionTriage'.
+  // Output is a 250-450 word structured memo (Verdict / Leak vectors /
+  // Ground / Empirical knockout / Tighter rewrites / Next move). Mirrors
+  // the in-round tight-call definition (~line 3034) so pre-prep triage
+  // and in-round tight calls speak the same language. APDA-only by design
+  // for now; other parli formats can opt in later.
+  const runTriage = async () => {
+    const m = (motion || '').trim();
+    if (!m) return;
+    if (format !== 'apda') return;
+    setTriage('');
+    setTriageError('');
+    setTriageBusy(true);
+    try {
+      const r = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1400,
+          system: 'You are an APDA debate coach running pre-prep motion triage. The user has not committed to prep yet. Output the structured memo per the format and rules in the voice guideline. No throat-clearing. Verdict-first.',
+          messages: [{ role:'user', content: `Motion: "${m}". Run the APDA triage.` }],
+          stream: false,
+          _feature: 'debate-ai-motion-triage',
+          _voiceFeature: 'motionTriage',
+          _voiceFormat: 'apda',
+        }),
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => '');
+        let msg = 'Triage failed.';
+        try { const j = JSON.parse(txt); msg = (j && (j.error || j.message)) || msg; } catch {}
+        if (r.status === 401) msg = 'Sign in to use motion triage.';
+        if (r.status === 429) msg = 'Hit your usage cap. Upgrade to keep going.';
+        setTriageError(msg);
+        return;
+      }
+      const d = await r.json();
+      const text = (d && d.content && d.content[0] && d.content[0].text || '').trim();
+      if (text) setTriage(text);
+      else setTriageError('Empty response. Try again.');
+    } catch (e) {
+      setTriageError('Triage failed. Check your connection and try again.');
+    } finally {
+      setTriageBusy(false);
+    }
+  };
+  // Reset stale triage when the motion changes — a memo about an old
+  // motion would mislead. Keep it cheap; just clear the state.
+  useEffect(() => { setTriage(''); setTriageError(''); }, [motion]);
+  // Tiny renderer for the triage memo. The AI emits **bold** section
+  // labels per the voice block. We tokenize so labels render as <strong>
+  // without dangerouslySetInnerHTML (no XSS surface). Plain text otherwise;
+  // wrapped in a pre-wrap div so the AI's line breaks survive.
+  const renderTriageMd = (text) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((p, i) => {
+      if (/^\*\*[^*]+\*\*$/.test(p)) {
+        return el('strong', { key:i, style:{color:'var(--c-bright)',fontWeight:700} }, p.slice(2,-2));
+      }
+      return p;
+    });
+  };
+
   // Audio progress tick, polled at 200ms while TTS is speaking so the
   // scrub bar under the pause button updates in real time. The useEffect
   // that reads tts.speaking lives BELOW `const tts=useTTS()` to avoid a
@@ -5573,6 +5646,32 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           title:!motion.trim()?'Type or pick a motion first':'Pull factual context for this motion (curated if available, else AI-generated)',
           style:{marginTop:0},
         },'⚡ Generate background'),
+      ),
+      // APDA pre-prep motion triage. "Is this a tight case?" runs the
+      // MOTION_TRIAGE voice block server-side. APDA-only by design — it's
+      // the format with the most squirrel/hack risk and a real "tight"
+      // vocabulary. Other parli formats can opt in later. Hidden for
+      // non-APDA formats so the surface stays format-honest. The
+      // explainer line under the button defines "tight" in plain debater
+      // register so users new to the term aren't lost.
+      format==='apda' && el('div',{style:{marginTop:10}},
+        el('div',{style:{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center'}},
+          el('button',{
+            className:'cta-ghost',
+            disabled:!motion.trim()||triageBusy,
+            onClick:runTriage,
+            title:!motion.trim()?'Type or pick an APDA motion first':'APDA pre-prep triage. Tight = motion gives one side an unfair lock. Hard ≠ tight.',
+            style:{marginTop:0,borderColor:'rgba(168,85,247,.4)',color:'#c084fc'},
+          }, triageBusy?'Triaging…':'Is this a tight case?'),
+        ),
+        el('div',{style:{textAlign:'center',marginTop:6,fontSize:'.68rem',color:'var(--c-dim)',lineHeight:1.45,fontStyle:'italic',maxWidth:480,margin:'6px auto 0'}},
+          'APDA pre-prep read. ',el('strong',{style:{color:'var(--c-text)',fontStyle:'normal'}},'Tight'),' = motion gives one side an unfair lock. ',el('strong',{style:{color:'var(--c-text)',fontStyle:'normal'}},'Hard ≠ tight.'),' Returns a verdict, where it leaks, ground for both sides, an empirical knockout, and tighter rewrites.',
+        ),
+        triageError && el('div',{style:{marginTop:8,padding:'8px 12px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.28)',borderRadius:8,fontSize:'.74rem',color:'#fca5a5',textAlign:'center'}}, triageError),
+        triage && el('div',{style:{marginTop:12,padding:'14px 16px',background:'rgba(168,85,247,.05)',border:'1px solid rgba(168,85,247,.22)',borderRadius:10,fontSize:'.84rem',color:'var(--c-text)',lineHeight:1.6,whiteSpace:'pre-wrap',textAlign:'left'}},
+          el('div',{style:{fontSize:'.55rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#c084fc',marginBottom:8}},'★ Triage memo'),
+          renderTriageMd(triage),
+        ),
       ),
       // Background field (optional manual entry / shows auto-gen output).
       // Lives directly under the action row, the textarea is empty by
