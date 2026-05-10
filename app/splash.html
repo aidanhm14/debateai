@@ -68,15 +68,24 @@ body{
   position:absolute;inset:0;
   border-radius:50%;
   border:1.5px solid rgba(239,68,68,.55);
-  animation:pulse 2.6s cubic-bezier(.2,.7,.2,1) infinite;
+  /* 4.2s (was 2.6s) reads as a slow sonar ping rather than a busy
+     pulse. Smoother easing too — cubic-bezier(.4,0,.2,1) is the
+     material standard-out which feels less "popped" than the prior
+     (.2,.7,.2,1). Stagger updated to .keep the 4-ring cadence even
+     across the longer cycle (~1.05s between rings starting). */
+  animation:pulse 4.2s cubic-bezier(.4,0,.2,1) infinite;
 }
-.ring:nth-child(2){animation-delay:.65s}
-.ring:nth-child(3){animation-delay:1.3s}
-.ring:nth-child(4){animation-delay:1.95s}
+.ring:nth-child(2){animation-delay:1.05s}
+.ring:nth-child(3){animation-delay:2.10s}
+.ring:nth-child(4){animation-delay:3.15s}
 @keyframes pulse{
-  0%{transform:scale(.55);opacity:.95;border-width:2px}
-  80%{opacity:0;border-width:.5px}
-  100%{transform:scale(1.65);opacity:0}
+  /* Tighter envelope (.6 → 1.55 vs .55 → 1.65) so the rings feel like
+     they bloom rather than snap outward. Opacity curve also smoother:
+     hold a touch longer at the start, fade gently. */
+  0%{transform:scale(.6);opacity:.92;border-width:2px}
+  18%{opacity:.85}
+  85%{opacity:0;border-width:.5px}
+  100%{transform:scale(1.55);opacity:0}
 }
 .core{
   position:relative;z-index:2;
@@ -87,7 +96,9 @@ body{
     0 0 120px rgba(239,68,68,.32),
     inset 0 -8px 30px rgba(0,0,0,.45);
   display:flex;align-items:center;justify-content:center;
-  animation:breathe 3.4s ease-in-out infinite;
+  /* Slowed from 3.4s to 5.2s so the breathe reads as inhale/exhale
+     rather than nervous pulse. Same scale envelope. */
+  animation:breathe 5.2s ease-in-out infinite;
 }
 @keyframes breathe{
   0%,100%{transform:scale(1)}
@@ -264,6 +275,101 @@ body{
   }
   ['mousemove','touchstart','keydown'].forEach(function(ev){
     window.addEventListener(ev, prefetch, { once:true, passive:true });
+  });
+
+  // ── Sonar ping audio ────────────────────────────────────
+  // Soft synthesized chime synced to each visual ring pulse (4.2s
+  // cycle, 1.05s stagger). No external audio file; pure Web Audio
+  // sine + exponential gain envelope so it's tiny + ships nothing
+  // extra. Volume targets ambient (~0.04 peak) so it's "felt" not
+  // "blasted." Suppressed under prefers-reduced-motion + when the
+  // tab isn't visible.
+  //
+  // Browser autoplay policy: AudioContext starts suspended until a
+  // user gesture. We init on first pointermove/touch/key + fire the
+  // first ping right then so the user gets immediate confirmation
+  // the page has audio (vs. wondering why it's silent).
+  var audioCtx = null;
+  var pingTimer = null;
+  var motionReduced = false;
+  try { motionReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+  function ping(){
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    if (document.hidden) return;
+    var now = audioCtx.currentTime;
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.type = 'sine';
+    // Sweep down ~220 → 110 Hz over 700ms — feels like a sonar
+    // ping descending into water. Two sine layers (a quiet 4th
+    // overtone) for a touch of body without making it bright.
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.exponentialRampToValueAtTime(110, now + 0.7);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.045, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.9);
+
+    // Subtle 4th overtone for warmth — much quieter than the
+    // fundamental, decays faster.
+    var osc2 = audioCtx.createOscillator();
+    var gain2 = audioCtx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(440, now);
+    osc2.frequency.exponentialRampToValueAtTime(220, now + 0.5);
+    gain2.gain.setValueAtTime(0.0001, now);
+    gain2.gain.exponentialRampToValueAtTime(0.012, now + 0.04);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+    osc2.connect(gain2).connect(audioCtx.destination);
+    osc2.start(now);
+    osc2.stop(now + 0.55);
+  }
+
+  function startPings(){
+    if (pingTimer) return;
+    if (motionReduced) return;
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(function(){});
+    }
+    ping();
+    // Cycle matches the ring CSS animation duration so audio + visual
+    // pulse stay phase-locked.
+    pingTimer = setInterval(ping, 4200);
+  }
+
+  function initAudio(){
+    if (audioCtx || motionReduced) return;
+    try {
+      var Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return;
+      audioCtx = new Ctor();
+      // First gesture also kicks off the loop — Safari needs the
+      // explicit resume(); Chrome auto-runs once we're past gesture.
+      startPings();
+    } catch(e){ audioCtx = null; }
+  }
+  ['pointerdown','touchstart','keydown','mousemove'].forEach(function(ev){
+    window.addEventListener(ev, initAudio, { once:true, passive:true });
+  });
+  // Stop the loop the moment we navigate so the ping doesn't bleed
+  // into the next page during the 320ms press-out animation.
+  ['beforeunload','pagehide'].forEach(function(ev){
+    window.addEventListener(ev, function(){
+      if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
+      try { audioCtx && audioCtx.close(); } catch(e){}
+    }, { passive:true });
+  });
+  // Pause when tab is backgrounded so we don't ping into a hidden
+  // tab; resume when foregrounded.
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden && pingTimer){
+      clearInterval(pingTimer); pingTimer = null;
+    } else if (!document.hidden && audioCtx && !pingTimer){
+      startPings();
+    }
   });
 })();
 </script>
