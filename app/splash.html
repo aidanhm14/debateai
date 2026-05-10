@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Debate AI · Argue out loud</title>
+<meta name="description" content="Voice-first AI debate trainer. Real-time interruption, format-accurate judging, 16 voices. Tap anywhere to enter." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/">
+<meta property="og:title" content="Debate AI · Argue out loud">
+<meta property="og:description" content="An AI that pushes back. In real time. Voice first.">
+<meta property="og:image" content="https://debateai.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Debate AI · Argue out loud">
+<meta name="twitter:description" content="An AI that pushes back. In real time. Voice first.">
+<meta name="twitter:image" content="https://debateai.com/og-image.png">
+<meta name="theme-color" content="#000000" />
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#000}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  color:#fff;-webkit-font-smoothing:antialiased;
+  cursor:pointer;
+  user-select:none;-webkit-user-select:none;
+}
+
+/* ── Full-bleed stage ──────────────────────────────────── */
+.stage{
+  position:fixed;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 50%, rgba(239,68,68,.18), transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% 100%, rgba(239,68,68,.10), transparent 70%),
+    #000;
+  /* fade-in on first paint */
+  opacity:0;
+  animation:stageIn .9s cubic-bezier(.2,.7,.2,1) .15s forwards;
+}
+@keyframes stageIn{to{opacity:1}}
+
+/* ── Brand mark, top ───────────────────────────────────── */
+.brand{
+  position:fixed;top:22px;left:50%;transform:translateX(-50%);
+  font-size:.78rem;font-weight:900;letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(255,255,255,.62);
+  pointer-events:none;
+}
+.brand em{color:#ef4444;font-style:normal}
+
+/* ── Center: mic + pulsing rings ───────────────────────── */
+.orb{
+  position:relative;
+  width:240px;height:240px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:48px;
+}
+.ring{
+  position:absolute;inset:0;
+  border-radius:50%;
+  border:1.5px solid rgba(239,68,68,.55);
+  animation:pulse 2.6s cubic-bezier(.2,.7,.2,1) infinite;
+}
+.ring:nth-child(2){animation-delay:.65s}
+.ring:nth-child(3){animation-delay:1.3s}
+.ring:nth-child(4){animation-delay:1.95s}
+@keyframes pulse{
+  0%{transform:scale(.55);opacity:.95;border-width:2px}
+  80%{opacity:0;border-width:.5px}
+  100%{transform:scale(1.65);opacity:0}
+}
+.core{
+  position:relative;z-index:2;
+  width:96px;height:96px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #ff6b6b 0%, #ef4444 45%, #b91c1c 100%);
+  box-shadow:
+    0 0 60px rgba(239,68,68,.55),
+    0 0 120px rgba(239,68,68,.32),
+    inset 0 -8px 30px rgba(0,0,0,.45);
+  display:flex;align-items:center;justify-content:center;
+  animation:breathe 3.4s ease-in-out infinite;
+}
+@keyframes breathe{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.06)}
+}
+/* Inline mic glyph — no external SVG load */
+.mic{
+  width:34px;height:34px;
+  fill:#fff;opacity:.96;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));
+}
+
+/* ── Headline + subhead ────────────────────────────────── */
+.heads{
+  text-align:center;max-width:640px;
+  /* slide-up after stage fade */
+  opacity:0;transform:translateY(14px);
+  animation:headsIn .9s cubic-bezier(.2,.7,.2,1) .55s forwards;
+}
+@keyframes headsIn{to{opacity:1;transform:translateY(0)}}
+.heads h1{
+  font-size:clamp(2.4rem, 6.8vw, 4.4rem);
+  font-weight:900;letter-spacing:-.035em;line-height:.98;
+  margin-bottom:18px;
+}
+.heads h1 em{color:#ef4444;font-style:normal}
+.heads p{
+  font-size:clamp(1rem, 1.6vw, 1.2rem);
+  color:rgba(255,255,255,.72);font-weight:500;letter-spacing:-.005em;
+  line-height:1.45;
+}
+
+/* ── Tap-to-enter hint at bottom ───────────────────────── */
+.hint{
+  position:fixed;bottom:32px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  font-size:.72rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(255,255,255,.48);
+  pointer-events:none;
+  /* delayed fade-in so attention lands on the mic first */
+  opacity:0;
+  animation:hintIn 1s ease-out 1.4s forwards;
+}
+@keyframes hintIn{to{opacity:1}}
+.hint .arrow{
+  width:1px;height:18px;background:rgba(255,255,255,.34);
+  animation:bounce 1.6s ease-in-out infinite;
+}
+@keyframes bounce{
+  0%,100%{transform:translateY(0);opacity:.34}
+  50%{transform:translateY(4px);opacity:.7}
+}
+
+/* ── Skip link, top-right ──────────────────────────────── */
+.skip{
+  position:fixed;top:22px;right:22px;
+  padding:6px 12px;border-radius:999px;
+  font-size:.7rem;font-weight:700;letter-spacing:.06em;
+  color:rgba(255,255,255,.55);
+  border:1px solid rgba(255,255,255,.16);
+  background:transparent;text-decoration:none;
+  transition:color .15s,border-color .15s,background .15s;
+  cursor:pointer;
+  z-index:10;
+}
+.skip:hover{color:#fff;border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.04)}
+
+/* ── Press-flash on click ──────────────────────────────── */
+.stage.press{animation:pressOut .5s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes pressOut{
+  0%{opacity:1;transform:scale(1)}
+  60%{opacity:1;transform:scale(1.03)}
+  100%{opacity:0;transform:scale(1.06)}
+}
+
+@media(max-width:600px){
+  .orb{width:200px;height:200px;margin-bottom:36px}
+  .core{width:80px;height:80px}
+  .mic{width:28px;height:28px}
+  .hint{bottom:22px}
+}
+
+/* Respect reduced-motion: kill the pulse / breathe / bounce */
+@media(prefers-reduced-motion:reduce){
+  .ring,.core,.heads,.hint .arrow,.stage{animation:none}
+  .stage{opacity:1}
+  .heads{opacity:1;transform:none}
+  .hint{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage" role="button" tabindex="0" aria-label="Enter Debate AI">
+  <div class="brand"><em>Debate</em> AI</div>
+
+  <a href="/landing" class="skip" id="skip" aria-label="Skip splash">Skip →</a>
+
+  <div class="orb" aria-hidden="true">
+    <span class="ring"></span>
+    <span class="ring"></span>
+    <span class="ring"></span>
+    <span class="ring"></span>
+    <div class="core">
+      <!-- Inline mic glyph: avoids an extra request, scales cleanly. -->
+      <svg class="mic" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 14.5a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5.5a3 3 0 0 0 3 3z"/>
+        <path d="M18.5 11.5a.75.75 0 0 0-1.5 0 5 5 0 0 1-10 0 .75.75 0 0 0-1.5 0 6.5 6.5 0 0 0 5.75 6.46V20H8.5a.75.75 0 0 0 0 1.5h7a.75.75 0 0 0 0-1.5h-2.75v-2.04a6.5 6.5 0 0 0 5.75-6.46z"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="heads">
+    <h1>Argue out <em>loud.</em></h1>
+    <p>An AI that pushes back. In real time. Voice first.</p>
+  </div>
+
+  <div class="hint">
+    <span>Tap anywhere to enter</span>
+    <div class="arrow"></div>
+  </div>
+</div>
+
+<script>
+// Single click target: anywhere on the stage routes to /landing. The
+// explicit Skip button does the same thing — kept for visible
+// affordance + keyboard users who'd otherwise tab through nothing.
+//
+// We pre-prefetch /landing on first interaction (mousemove or touchstart)
+// so the click→nav handoff feels instant. Netlify edges it; the browser
+// just needs the bytes warm.
+(function(){
+  var stage = document.getElementById('stage');
+  var skip  = document.getElementById('skip');
+  var navigated = false;
+
+  function go(href){
+    if (navigated) return;
+    navigated = true;
+    try { gtag('event','splash_enter',{ via: href === '/landing' ? 'tap' : 'skip' }); } catch(e){}
+    // Trigger the press-out animation, then nav. Animation duration
+    // is 500ms but we nav at 320ms so the page swap feels instant
+    // while the splash is still visually receding.
+    stage.classList.add('press');
+    setTimeout(function(){ window.location.href = href; }, 320);
+  }
+
+  stage.addEventListener('click', function(e){
+    // Don't intercept clicks on the explicit Skip link — let it nav
+    // with its native href so the URL is preserved if the click
+    // happens before our handler runs.
+    if (e.target.closest && e.target.closest('#skip')) return;
+    go('/landing');
+  });
+  stage.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go('/landing'); }
+  });
+  // Skip link: still go through go() so the press animation fires
+  // and the analytics event records.
+  skip.addEventListener('click', function(e){
+    e.preventDefault();
+    go('/landing');
+  });
+
+  // Prefetch /landing on first interaction. Cheaper than prefetching
+  // on load because some visitors immediately bounce; we only pay the
+  // bytes when we have evidence the user is engaging.
+  var prefetched = false;
+  function prefetch(){
+    if (prefetched) return; prefetched = true;
+    var link = document.createElement('link');
+    link.rel = 'prefetch'; link.href = '/landing';
+    document.head.appendChild(link);
+  }
+  ['mousemove','touchstart','keydown'].forEach(function(ev){
+    window.addEventListener(ev, prefetch, { once:true, passive:true });
+  });
+})();
+</script>
+
+</body>
+</html>

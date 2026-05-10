@@ -3,12 +3,15 @@
 // removed from Other; the 4-tier pricing gate; BYOK "Claude only" error).
 // Without this bump, users on v9 kept seeing the old dropdown with only
 // 8 items and the old 3-card pricing panel.
-const CACHE_NAME = 'debateos-v72';
+const CACHE_NAME = 'debateos-v73';
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
 // cached HTML of '/'. Removed; the app shell now caches only explicit paths.
+// /splash is the new root entry (2026-05-10) so we precache it for fast
+// first paint on repeat visits; /landing stays in the shell for the click-through.
 const APP_SHELL = [
+  '/splash',
   '/landing',
   '/offline.html',
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
