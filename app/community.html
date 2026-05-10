@@ -28,6 +28,15 @@
      window.track is exposed for ad-hoc disclosure events (open, import). -->
 <script defer src="/js/track.js"></script>
 
+<!-- Hand-curated seed pools for the Cases + Discussion tabs. These
+     render even when the visitor is signed-out so the page never
+     looks empty on first load. Real Firestore docs always merge in
+     on top via the snapshot listener. Both modules are NOT defer
+     because the inline init script reads them synchronously when
+     auth resolves. -->
+<script src="/js/community-disclosures.js"></script>
+<script src="/js/community-threads.js"></script>
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
 <script>
@@ -556,6 +565,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       caseObj.voteScore = (caseObj.voteScore || 0) + delta;
     }
     applyFilters();
+    // Seed disclosures don't have a Firestore parent doc to increment;
+    // keep the optimistic UI update and skip the DB write rather than
+    // letting the increment fail and trigger a scary rollback + toast.
+    if (caseObj && caseObj.seed){ return; }
     var caseRef = firebaseDb.collection('shared_cases').doc(caseId);
     var voteRef = caseRef.collection('votes').doc(currentUser.uid);
     var inc = firebase.firestore.FieldValue.increment;
@@ -685,6 +698,13 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         var bs = (b.sharedAt && b.sharedAt.seconds) || 0;
         return bs - as;
       });
+      // Merge in the hand-written seed disclosures so the Cases tab
+      // always feels populated. Real docs sort to true position and
+      // outrank seeds at the same recency. Seeds carry a 'da-disc-*'
+      // id prefix; no collision risk with real Firestore-generated ids.
+      if (window.DEBATEAI_DISCLOSURES && typeof window.DEBATEAI_DISCLOSURES.merge === 'function'){
+        docs = window.DEBATEAI_DISCLOSURES.merge(docs, { limit: 200 });
+      }
       allCases = docs;
       applyFilters();
     }, function(err){
@@ -715,8 +735,23 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     );
   }
 
-  // Wait for auth even if anonymous — the Firestore rule for
-  // shared_cases requires isSignedIn(). If not signed in, prompt.
+  // Render the seed pools immediately on page load — no auth wait —
+  // so a brand-new visitor sees a populated community before being
+  // asked to sign in. The auth listener below only adds REAL docs on
+  // top once it resolves; if the visitor never signs in, they still
+  // get the full seeded experience.
+  if (window.DEBATEAI_DISCLOSURES && typeof window.DEBATEAI_DISCLOSURES.merge === 'function'){
+    allCases = window.DEBATEAI_DISCLOSURES.merge([], { limit: 200 });
+    applyFilters();
+  }
+  if (window.DEBATEAI_THREADS && typeof window.DEBATEAI_THREADS.merge === 'function'){
+    allThreads = window.DEBATEAI_THREADS.merge([], { limit: 100 });
+    renderThreads();
+  }
+
+  // Wait for auth. If signed in, load real docs (the snapshot listeners
+  // re-merge seeds). If signed out, the seed pools above are already
+  // rendered; we just hang a small inline nudge below the boards.
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
       currentUser = user || null;
@@ -725,21 +760,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         loadMyVotes();
         loadThreads();
         loadMyThreadVotes();
-      } else {
-        $('cards').innerHTML =
-          '<div class="empty" style="grid-column:1/-1">' +
-            '<h3>Sign in to read the community.</h3>' +
-            '<p style="margin-top:8px">Cases + discussion are signed-in only so we can rate-limit posts + tie attribution to a real account. ' +
-            '<a href="/debate-ai">Sign in via Google →</a></p>' +
-          '</div>';
-        $('empty').style.display = 'none';
-        $('threads').innerHTML =
-          '<div class="empty">' +
-            '<h3>Sign in to join the discussion.</h3>' +
-            '<p style="margin-top:8px"><a href="/debate-ai">Sign in via Google →</a></p>' +
-          '</div>';
-        $('threadsEmpty').style.display = 'none';
       }
+      // No `else` branch — the seed render at the top of this block
+      // already populated the boards. The signed-out user can browse,
+      // open cases, import to localStorage. To vote or post they hit
+      // the existing "Sign in to vote" toast in castVote/castThreadVote.
     });
   }
 
@@ -870,6 +895,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     }).join('');
   }
 
+  // Helper: merge real thread docs with the seed pool. Centralized so
+  // both the indexed-snap and the fallback-snap go through the same
+  // path. No-op if community-threads.js didn't load.
+  function mergeThreadSeeds(docs){
+    if (window.DEBATEAI_THREADS && typeof window.DEBATEAI_THREADS.merge === 'function'){
+      return window.DEBATEAI_THREADS.merge(docs, { limit: 100 });
+    }
+    return docs;
+  }
   function loadThreads(){
     if (!firebaseDb) return;
     firebaseDb.collection('forum_posts')
@@ -877,7 +911,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       .orderBy('createdAt', 'desc')
       .limit(100)
       .onSnapshot(function(snap){
-        allThreads = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+        var docs = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+        allThreads = mergeThreadSeeds(docs);
         renderThreads();
       }, function(err){
         // Index-not-ready fallback — pull where-only and sort client-side.
@@ -892,7 +927,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
                 var bs = (b.createdAt && b.createdAt.seconds) || 0;
                 return bs - as;
               });
-              allThreads = docs;
+              allThreads = mergeThreadSeeds(docs);
               renderThreads();
             });
           return;
@@ -940,6 +975,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     var t = allThreads.find(function(x){ return x.id === threadId; });
     if (t) t.voteScore = (t.voteScore || 0) + delta;
     renderThreads();
+    // Seed threads have no Firestore parent — keep optimistic UI, skip
+    // the increment that would otherwise fail-and-rollback.
+    if (t && t.seed){ return; }
     var threadRef = firebaseDb.collection('forum_posts').doc(threadId);
     var voteRef = threadRef.collection('votes').doc(currentUser.uid);
     var inc = firebase.firestore.FieldValue.increment;
