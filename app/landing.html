@@ -2090,25 +2090,35 @@ button{font-family:inherit;cursor:pointer}
         var voice = voiceForIdx(idx);
         var text = samples[idx];
         var instr = ORB_INSTRUCTIONS_BY_VOICE[voice] || ORB_INSTRUCTIONS_BY_VOICE.coral;
-        // OpenAI gpt-4o-mini-tts ONLY. ElevenLabs fallback was removed
-        // because the user reported the fallback voice sounded like
-        // generic TTS, not the OpenAI Realtime voice they wanted on
-        // the orb. If OpenAI fails, the orb fails loudly (logs in
-        // console) instead of silently dropping to a different voice.
+        function cacheBlob(blob){
+          if (!blob) return;
+          var url = URL.createObjectURL(blob);
+          var a = new Audio(url);
+          a.playbackRate = PLAYBACK_RATE;
+          a.preload = 'auto';
+          try { a.load(); } catch(e){}
+          cacheByIdx[idx] = { audio: a, url: url };
+        }
+        // Prefer OpenAI gpt-4o-mini-tts (matches the /voice-debate Realtime
+        // voice). When OpenAI is out of quota (429) or otherwise erroring,
+        // fall back to ElevenLabs so the orb still has a voice — a working
+        // orb beats a silent one even if the fallback voice is plainer.
         inFlightByIdx[idx] = ttsFetch(text, voice, { premium: false, instructions: instr })
           .then(function(blob){
             delete inFlightByIdx[idx];
-            if (!blob) return;
-            var url = URL.createObjectURL(blob);
-            var a = new Audio(url);
-            a.playbackRate = PLAYBACK_RATE;
-            a.preload = 'auto';
-            try { a.load(); } catch(e){}
-            cacheByIdx[idx] = { audio: a, url: url };
+            cacheBlob(blob);
           })
           .catch(function(err){
-            delete inFlightByIdx[idx];
-            console.warn('[orb] OpenAI TTS failed:', err && err.message);
+            console.warn('[orb] OpenAI TTS failed, retrying via ElevenLabs:', err && err.message);
+            return ttsFetch(text, voice, { premium: true })
+              .then(function(blob){
+                delete inFlightByIdx[idx];
+                cacheBlob(blob);
+              })
+              .catch(function(err2){
+                delete inFlightByIdx[idx];
+                console.warn('[orb] ElevenLabs fallback also failed:', err2 && err2.message);
+              });
           });
       }
 
@@ -2204,10 +2214,7 @@ button{font-family:inherit;cursor:pointer}
         <span style="width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff;display:inline-block;animation:rec-pulse 1.6s ease-in-out infinite"></span>
         Find a sparring partner. 30 seconds.
       </a>
-      <a href="/voice-debate" class="hero-cta hero-cta-voice" style="display:inline-flex;align-items:center;gap:8px">
-        <span style="width:7px;height:7px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 2px rgba(255,255,255,.7),0 0 8px rgba(220,38,38,.9);display:inline-block;animation:rec-pulse 1.4s ease-in-out infinite"></span>
-        🎙 Voice AI · Talk out loud
-      </a>
+      <a href="/voice-debate" class="hero-cta hero-cta-secondary">Voice AI · Talk out loud</a>
       <a href="/debate-ai" class="hero-cta hero-cta-secondary">Spar with the AI →</a>
     </div>
 
