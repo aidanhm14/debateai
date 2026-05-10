@@ -1739,21 +1739,15 @@ button{font-family:inherit;cursor:pointer}
       </div>
     </div>
 
-    <!-- Pro Voice nudge. The honest framing: voice-mode-with-real-
-         interruption costs us money per minute on OpenAI Realtime, so
-         it sits behind Pro. Keep the copy candid; debaters respect
-         that more than "premium experience" marketing. Linked to
-         /voice-debate so the curious can sample (the page itself
-         enforces the gating). -->
-    <a href="/voice-debate" data-voice-cta-on class="hero-pro-voice" style="display:block;margin:18px auto 0;max-width:560px;padding:14px 18px;border-radius:14px;background:linear-gradient(135deg,rgba(251,191,36,.10),rgba(239,68,68,.08));border:1px solid rgba(251,191,36,.32);text-decoration:none;color:inherit;transition:transform .15s,border-color .15s">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:.62rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#fbbf24;padding:3px 9px;border-radius:999px;background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.4)">Pro · voice</span>
-        <span style="font-size:.92rem;font-weight:800;letter-spacing:-.01em;color:var(--text)">Want to interrupt the AI mid-sentence?</span>
-      </div>
-      <div style="margin-top:6px;font-size:.78rem;color:var(--text-dim);line-height:1.5">
-        Voice mode lets you cut in mid-rebuttal, take POIs, and run cross-ex live. It's behind Pro because OpenAI's Realtime API charges us per minute of audio — the typed engine is unmetered, voice isn't. <strong style="color:#fbbf24;font-weight:800">Try Voice AI →</strong>
-      </div>
-    </a>
+    <!-- Big Pro Voice card removed 2026-05-10. The hero's gold-amber
+         "Want to interrupt the AI mid-sentence?" panel was eating the
+         visual weight that the primary "Start a debate" CTA needs.
+         The same Pro Voice cost-honest framing now lives in the small
+         #infoTab floating side tab (see bottom of body) — visitors
+         who want the explanation tap the tab; visitors who don't see
+         a clean hero. The rail's "Voice [PRO]" link still routes to
+         /voice-debate, so the path is one click in either case. -->
+
 
     <!-- Scoped styles for the in-hero beta-chat (animation copied from
          the pricing block; consolidating them up here so the same element
@@ -2338,6 +2332,40 @@ button{font-family:inherit;cursor:pointer}
         text-align:center;
         display:inline-flex !important;align-items:center;justify-content:center;gap:10px;
         font-weight:900 !important;letter-spacing:-.005em !important;
+        /* Pressable affordance — was flat-red, no depth.
+             • linear gradient top→bottom suggests a 3D pill
+             • inset top highlight = caught light
+             • offset drop shadow lifts the button off the page
+             • inset bottom shadow caps the bottom edge so it reads
+               as a physical object, not a sticker
+           Active state pushes the button "down" by 1px + scales 99%
+           and dims the shadows so it feels like a real press. */
+        background:linear-gradient(180deg,#f87171 0%,#ef4444 55%,#dc2626 100%) !important;
+        box-shadow:
+          0 10px 28px rgba(220,38,38,.42),
+          0 2px 6px rgba(220,38,38,.25),
+          inset 0 1px 0 rgba(255,255,255,.30),
+          inset 0 -2px 0 rgba(0,0,0,.18) !important;
+        text-shadow:0 1px 2px rgba(0,0,0,.18);
+        transition:transform .12s ease, box-shadow .15s ease, filter .15s ease !important;
+      }
+      .hero-cta-mega:hover{
+        transform:translateY(-2px) !important;
+        filter:brightness(1.05);
+        box-shadow:
+          0 14px 36px rgba(220,38,38,.55),
+          0 3px 8px rgba(220,38,38,.32),
+          inset 0 1px 0 rgba(255,255,255,.32),
+          inset 0 -2px 0 rgba(0,0,0,.18) !important;
+      }
+      .hero-cta-mega:active{
+        transform:translateY(1px) scale(.99) !important;
+        filter:brightness(.96);
+        box-shadow:
+          0 4px 12px rgba(220,38,38,.32),
+          0 1px 2px rgba(220,38,38,.20),
+          inset 0 1px 0 rgba(255,255,255,.18),
+          inset 0 -1px 0 rgba(0,0,0,.22) !important;
       }
       .hero-cta-mega .hero-cta-arrow{
         font-weight:700;transition:transform .2s;
@@ -3448,6 +3476,252 @@ window.addEventListener('load', function(){
     });
     try { gtag('event','voice_cta_gated',{ reason: s.reason || 'unspecified' }); } catch(e){}
   }).catch(function(){});
+})();
+</script>
+
+<!-- Floating side tab: "Pro / Updates". Right edge of viewport, sticky.
+     Replaces the giant gold-amber Pro Voice card that used to live in
+     the hero (removed 2026-05-10 because it was eating the visual
+     weight of the primary CTA). The tab itself is small + ignorable;
+     visitors who tap it get the cost-honest Pro Voice explanation
+     and a recap of recent shipped changes (pulled from /changelog,
+     same data source as whats-new.js). Two-tab panel inside, defaults
+     to "Pro · voice" since that's the upsell story. -->
+<aside id="infoTab" aria-label="Pro info and recent updates">
+  <button id="infoTabHandle" type="button" aria-expanded="false" aria-controls="infoTabPanel">
+    <span class="ith-pro">PRO</span>
+    <span class="ith-sep" aria-hidden="true"></span>
+    <span class="ith-updates">UPDATES</span>
+  </button>
+  <div id="infoTabPanel" role="dialog" aria-labelledby="infoTabPanelTitle" hidden>
+    <div class="itp-tabs" role="tablist">
+      <button class="itp-tab itp-tab-active" data-itp-tab="pro" role="tab" aria-selected="true">Pro · Voice</button>
+      <button class="itp-tab" data-itp-tab="updates" role="tab" aria-selected="false">What's new</button>
+      <button id="infoTabClose" type="button" aria-label="Close panel">×</button>
+    </div>
+    <div class="itp-body" data-itp-body="pro">
+      <div id="infoTabPanelTitle" class="itp-h">Want to interrupt the AI mid-sentence?</div>
+      <p>Voice mode lets you cut in mid-rebuttal, take POIs, and run cross-ex live. It's behind Pro because OpenAI's Realtime API charges us per minute of audio — the typed engine is unmetered, voice isn't.</p>
+      <a href="/voice-debate" class="itp-cta">Try Voice AI &rarr;</a>
+    </div>
+    <div class="itp-body" data-itp-body="updates" hidden>
+      <div class="itp-h">Recent ship log</div>
+      <ol id="itpUpdates" class="itp-updates">
+        <li class="itp-loading">Loading…</li>
+      </ol>
+      <a href="/changelog" class="itp-cta itp-cta-sub">Full changelog &rarr;</a>
+    </div>
+  </div>
+</aside>
+
+<style>
+/* ── Floating side tab "infoTab" ───────────────────────── */
+#infoTab{
+  position:fixed;right:0;top:50%;transform:translateY(-50%);
+  z-index:90;
+  font-family:'Inter',system-ui,sans-serif;
+  display:flex;flex-direction:row;align-items:flex-start;
+  pointer-events:none; /* enable on children only so the tab doesn't catch clicks behind */
+}
+#infoTab > *{pointer-events:auto}
+#infoTabHandle{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  padding:14px 6px;width:30px;
+  background:linear-gradient(180deg,rgba(251,191,36,.18),rgba(239,68,68,.10));
+  border:1px solid rgba(251,191,36,.42);border-right:none;
+  border-radius:12px 0 0 12px;
+  color:#fbbf24;cursor:pointer;font-family:inherit;
+  box-shadow:-4px 0 14px rgba(0,0,0,.35);
+  transition:padding .15s, background .15s;
+}
+#infoTabHandle:hover{
+  padding-right:8px;
+  background:linear-gradient(180deg,rgba(251,191,36,.28),rgba(239,68,68,.16));
+}
+#infoTabHandle .ith-pro,
+#infoTabHandle .ith-updates{
+  font-size:.6rem;font-weight:900;letter-spacing:.18em;
+  writing-mode:vertical-rl;transform:rotate(180deg);
+  display:inline-block;line-height:1;
+}
+#infoTabHandle .ith-updates{color:rgba(255,255,255,.7)}
+#infoTabHandle .ith-sep{
+  width:14px;height:1px;background:rgba(251,191,36,.45);
+  margin:2px 0;
+}
+[data-theme="light"] #infoTabHandle{
+  background:linear-gradient(180deg,rgba(217,119,6,.16),rgba(220,38,38,.08));
+  border-color:rgba(217,119,6,.45);
+  color:#b45309;
+  box-shadow:-4px 0 14px rgba(0,0,0,.10);
+}
+[data-theme="light"] #infoTabHandle .ith-updates{color:rgba(0,0,0,.55)}
+[data-theme="light"] #infoTabHandle .ith-sep{background:rgba(217,119,6,.5)}
+
+#infoTabPanel{
+  width:320px;max-width:calc(100vw - 50px);
+  margin-right:30px;
+  background:var(--bg-card,#15151a);
+  border:1px solid var(--border-strong,rgba(255,255,255,.18));
+  border-right:none;
+  border-radius:14px 0 0 14px;
+  padding:0;overflow:hidden;
+  box-shadow:-12px 14px 40px rgba(0,0,0,.45);
+  color:var(--text,#fff);
+  animation:itpSlide .25s cubic-bezier(.2,.7,.2,1);
+}
+@keyframes itpSlide{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+[data-theme="light"] #infoTabPanel{
+  background:#fff;color:#1a1a1f;
+  border-color:rgba(0,0,0,.12);
+  box-shadow:-12px 14px 40px rgba(0,0,0,.10);
+}
+.itp-tabs{
+  display:flex;align-items:center;gap:0;
+  padding:6px 8px 0;
+  border-bottom:1px solid var(--border,rgba(255,255,255,.08));
+}
+.itp-tab{
+  flex:0 0 auto;padding:9px 12px;
+  font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  background:transparent;border:none;
+  color:var(--text-dim,rgba(255,255,255,.55));cursor:pointer;
+  font-family:inherit;border-bottom:2px solid transparent;
+  margin-bottom:-1px;
+  transition:color .15s, border-color .15s;
+}
+.itp-tab:hover{color:var(--text,#fff)}
+.itp-tab.itp-tab-active{color:var(--accent,#ef4444);border-bottom-color:var(--accent,#ef4444)}
+[data-theme="light"] .itp-tab{color:rgba(0,0,0,.55)}
+[data-theme="light"] .itp-tab:hover{color:#1a1a1f}
+[data-theme="light"] .itp-tab.itp-tab-active{color:#dc2626;border-bottom-color:#dc2626}
+#infoTabClose{
+  margin-left:auto;width:28px;height:28px;
+  background:transparent;border:none;color:var(--text-dim,rgba(255,255,255,.55));
+  font-size:1.2rem;line-height:1;cursor:pointer;border-radius:6px;
+}
+#infoTabClose:hover{color:var(--text,#fff);background:rgba(255,255,255,.06)}
+[data-theme="light"] #infoTabClose{color:rgba(0,0,0,.45)}
+[data-theme="light"] #infoTabClose:hover{color:#1a1a1f;background:rgba(0,0,0,.05)}
+.itp-body{padding:14px 16px 16px}
+.itp-h{
+  font-size:.92rem;font-weight:800;letter-spacing:-.01em;margin-bottom:6px;
+}
+.itp-body p{
+  font-size:.78rem;color:var(--text-dim,rgba(255,255,255,.7));line-height:1.55;margin:0 0 12px;
+}
+[data-theme="light"] .itp-body p{color:rgba(0,0,0,.7)}
+.itp-cta{
+  display:inline-block;font-size:.74rem;font-weight:800;letter-spacing:.04em;
+  color:#fbbf24;text-decoration:none;
+}
+.itp-cta:hover{text-decoration:underline}
+.itp-cta-sub{margin-top:8px;font-weight:700;color:var(--accent,#ef4444)}
+[data-theme="light"] .itp-cta{color:#d97706}
+[data-theme="light"] .itp-cta-sub{color:#dc2626}
+.itp-updates{margin:0 0 8px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.itp-updates li{font-size:.74rem;line-height:1.4;display:flex;flex-direction:column;gap:2px}
+.itp-updates li.itp-loading{color:var(--text-ghost,rgba(255,255,255,.42));font-style:italic}
+.itp-updates .iu-date{
+  font-size:.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-ghost,rgba(255,255,255,.42));font-variant-numeric:tabular-nums;
+}
+.itp-updates .iu-title{font-weight:600;color:var(--text,#fff)}
+[data-theme="light"] .itp-updates .iu-date{color:rgba(0,0,0,.45)}
+[data-theme="light"] .itp-updates .iu-title{color:#1a1a1f}
+
+@media(max-width:560px){
+  #infoTab{top:auto;bottom:90px;transform:none}
+  #infoTabHandle{padding:10px 5px;width:26px;border-radius:10px 0 0 10px}
+  #infoTabHandle .ith-pro,
+  #infoTabHandle .ith-updates{font-size:.55rem;letter-spacing:.14em}
+  #infoTabPanel{width:280px}
+}
+</style>
+
+<script>
+// Floating Pro / Updates side tab. Tab handle on the right edge,
+// click toggles a small panel with two tabs:
+//   - Pro · Voice: the cost-honest interrupt-mode explanation
+//     (replaces the big gold-amber hero card removed 2026-05-10).
+//   - What's new: latest 3 entries from /changelog, same data
+//     source as whats-new.js. Shares the parsing approach but reads
+//     once-on-open instead of fetching on page load.
+// Panel hidden by default; open state lives in DOM only (no
+// localStorage) — it's an on-demand affordance, not a notification.
+(function(){
+  var handle = document.getElementById('infoTabHandle');
+  var panel  = document.getElementById('infoTabPanel');
+  var closeBtn = document.getElementById('infoTabClose');
+  var tabs   = document.querySelectorAll('.itp-tab');
+  var bodies = document.querySelectorAll('.itp-body');
+  if (!handle || !panel) return;
+
+  var updatesLoaded = false;
+
+  function setOpen(open){
+    panel.hidden = !open;
+    handle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    handle.style.display = open ? 'none' : '';  // hide handle while panel is open (panel has its own close)
+  }
+  function setTab(name){
+    tabs.forEach(function(t){
+      var active = t.getAttribute('data-itp-tab') === name;
+      t.classList.toggle('itp-tab-active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    bodies.forEach(function(b){
+      b.hidden = b.getAttribute('data-itp-body') !== name;
+    });
+    if (name === 'updates' && !updatesLoaded){
+      loadUpdates();
+    }
+  }
+  function loadUpdates(){
+    updatesLoaded = true;
+    fetch('/changelog', { credentials:'omit' })
+      .then(function(r){ return r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(html){
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var items = doc.querySelectorAll('article.entry');
+        var out = [];
+        for (var i = 0; i < items.length && out.length < 4; i++){
+          var d = items[i].querySelector('.date');
+          var t = items[i].querySelector('.title');
+          if (d && t) out.push({ date: d.textContent.trim(), title: t.textContent.trim() });
+        }
+        var ol = document.getElementById('itpUpdates');
+        if (!ol) return;
+        if (!out.length){ ol.innerHTML = '<li class="itp-loading">No updates yet.</li>'; return; }
+        ol.innerHTML = out.map(function(e){
+          return '<li><span class="iu-date">' + escapeHtmlIT(e.date) + '</span><span class="iu-title">' + escapeHtmlIT(e.title) + '</span></li>';
+        }).join('');
+      })
+      .catch(function(){
+        var ol = document.getElementById('itpUpdates');
+        if (ol) ol.innerHTML = '<li class="itp-loading">Couldn\'t load updates.</li>';
+      });
+  }
+  function escapeHtmlIT(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  handle.addEventListener('click', function(){ setOpen(true); });
+  closeBtn && closeBtn.addEventListener('click', function(){ setOpen(false); });
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ setTab(t.getAttribute('data-itp-tab')); });
+  });
+  // Esc closes the panel, click outside also closes.
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && !panel.hidden) setOpen(false);
+  });
+  document.addEventListener('click', function(e){
+    if (panel.hidden) return;
+    if (panel.contains(e.target) || handle.contains(e.target)) return;
+    setOpen(false);
+  });
 })();
 </script>
 
