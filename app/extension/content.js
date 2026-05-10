@@ -75,11 +75,11 @@
     wrap.id = 'debateai-ext-pill';
     wrap.className = 'debateai-ext-pill debateai-ext-pill--hidden';
     wrap.innerHTML = `
-      <button type="button" class="debateai-ext-pill__btn" data-debateai-action="debate-this">
+      <button type="button" class="debateai-ext-pill__btn" data-debateai-action="quiz-me">
         <span class="debateai-ext-pill__dot"></span>
-        <span class="debateai-ext-pill__label">Debate this</span>
+        <span class="debateai-ext-pill__label">Quiz me</span>
       </button>
-      <button type="button" class="debateai-ext-pill__btn debateai-ext-pill__btn--ghost" data-debateai-action="rebut-this">Rebut</button>
+      <button type="button" class="debateai-ext-pill__btn debateai-ext-pill__btn--ghost" data-debateai-action="defend-this">Defend</button>
       <button type="button" class="debateai-ext-pill__close" data-debateai-action="dismiss" aria-label="Dismiss">×</button>
     `;
     document.documentElement.appendChild(wrap);
@@ -113,7 +113,7 @@
     const el = ensurePill();
     const preview = text.length > 60 ? text.slice(0, 57) + '…' : text;
     const label = el.querySelector('.debateai-ext-pill__label');
-    if (label) label.textContent = `Debate: "${preview}"`;
+    if (label) label.textContent = `Quiz me: "${preview}"`;
     el.classList.remove('debateai-ext-pill--hidden');
     if (pillTimer) clearTimeout(pillTimer);
     pillTimer = setTimeout(hidePill, 9000);

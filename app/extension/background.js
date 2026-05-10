@@ -13,16 +13,19 @@ chrome.sidePanel
   .catch((e) => console.warn('[debateai-ext] sidePanel.setPanelBehavior', e));
 
 chrome.runtime.onInstalled.addListener(() => {
-  // Three context-menu entries for selected text. The action determines
-  // which mode the side panel will steer the user toward (debate / rebut /
-  // case-prep), but all three currently land on the setup screen with
-  // motion prefilled — the user picks their format and brain there.
+  // Three context-menu entries for selected text. Each action signals a
+  // different framing to the bridge in debate-ai.html:
+  //   quiz-me     -> "AI, quiz me on this passage" (study-test framing)
+  //   cross-exam  -> "AI, defend the opposite; I'll cross-examine you back"
+  //   defend-this -> "I'll defend; AI cross-examines me" (oral-exam framing)
+  // All three land on the setup screen with the passage prefilled — the
+  // user picks their format and brain (or jumps straight to voice round).
   const items = [
-    { id: 'debate-this', title: 'Debate this with DebateAI', contexts: ['selection'] },
-    { id: 'rebut-this', title: 'Rebut this argument', contexts: ['selection'] },
-    { id: 'case-prep', title: 'Build a case from this', contexts: ['selection'] },
+    { id: 'quiz-me', title: 'Quiz me on this passage', contexts: ['selection'] },
+    { id: 'defend-this', title: 'Defend this out loud (cross-exam)', contexts: ['selection'] },
+    { id: 'cross-exam', title: 'Cross-examine the AI on this', contexts: ['selection'] },
     { id: 'sep-1', type: 'separator', contexts: ['selection'] },
-    { id: 'open-panel', title: 'Open DebateAI side panel', contexts: ['action', 'page'] },
+    { id: 'open-panel', title: 'Open Counter side panel', contexts: ['action', 'page'] },
   ];
   for (const item of items) {
     chrome.contextMenus.create(item, () => {
@@ -65,7 +68,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
   if (command !== 'debate-selection' && command !== 'rebut-selection') return;
-  const action = command === 'rebut-selection' ? 'rebut-this' : 'debate-this';
+  // debate-selection (Cmd+Shift+D) -> quiz-me framing (the default oral
+  // exam drill: AI grills the student on the highlighted passage)
+  // rebut-selection (Cmd+Shift+R) -> defend-this framing (student already
+  // has a take, AI cross-examines them on it)
+  const action = command === 'rebut-selection' ? 'defend-this' : 'quiz-me';
   let text = '';
   if (tab?.id != null) {
     try {

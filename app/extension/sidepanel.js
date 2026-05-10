@@ -39,11 +39,16 @@ function sendToIframe(payload) {
 
 function setHintFromPayload(p) {
   if (!p) return;
-  const action = p.action || 'debate-this';
+  const action = p.action || 'quiz-me';
+  // Map action -> verb shown in the side-panel header. Picked so the user
+  // can tell at a glance which framing the bridge will apply: AI quizzes
+  // you, AI defends and you cross-exam, or you defend and AI cross-exams.
   const verb =
-    action === 'rebut-this' ? 'Rebutting'
-    : action === 'case-prep' ? 'Building a case from'
-    : 'Debating';
+    action === 'defend-this' ? 'Defending'
+    : action === 'cross-exam' ? 'Cross-examining'
+    : action === 'rebut-this' ? 'Rebutting'
+    : action === 'debate-this' ? 'Debating'
+    : 'Quiz on';
   if (p.text) {
     const preview = p.text.length > 56 ? p.text.slice(0, 53) + '…' : p.text;
     hint.textContent = `${verb}: "${preview}"`;
@@ -98,11 +103,11 @@ pasteBtn.addEventListener('click', async () => {
       showToast('Clipboard is empty.');
       return;
     }
-    setHintFromPayload({ action: 'debate-this', text });
-    sendToIframe({ action: 'debate-this', text });
-    showToast('Sent to DebateAI.');
+    setHintFromPayload({ action: 'quiz-me', text });
+    sendToIframe({ action: 'quiz-me', text });
+    showToast('Sent to Counter.');
   } catch (e) {
-    showToast('Clipboard read blocked. Try the Debate-this menu instead.');
+    showToast('Clipboard read blocked. Try the Quiz-me menu instead.');
   }
 });
 

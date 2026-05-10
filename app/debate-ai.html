@@ -3687,16 +3687,57 @@ function App(){
 
   // Chrome-extension bridge. When debate-ai.html is loaded inside the
   // extension's side panel (?ext=1), the panel posts the user's selection
-  // as { type:'debateai-ext', action, text }. Short selections become the
-  // motion; long ones become background context with a sentence-1 summary
-  // as the motion. We always land on the setup screen so the user picks
-  // their format and brain — the extension stages, it doesn't auto-fire.
+  // as { type:'debateai-ext', action, text }. The 'Counter' extension is
+  // branded as an oral-exam trainer, so the bridge frames every prefill
+  // as an oral defense / quiz prompt — the AI plays examiner, the
+  // student defends. Three actions:
+  //   quiz-me     -> "Quiz me on this passage." (default, AI-led drill)
+  //   defend-this -> "Defend this out loud. AI cross-examines."
+  //   cross-exam  -> "I'll cross-examine the AI on this."
+  // (Legacy debate-this/rebut-this still work, treated as quiz-me.)
+  // We land on the setup screen so the user picks their format and brain.
   useEffect(()=>{
     let isExt=false;
-    try{isExt=new URLSearchParams(location.search).get('ext')==='1';}catch{}
+    let extMode='counter';
+    try{
+      const qs=new URLSearchParams(location.search);
+      isExt=qs.get('ext')==='1';
+      extMode=qs.get('mode')||'counter';
+    }catch{}
     if(!isExt) return;
-    try{document.documentElement.setAttribute('data-ext','1');}catch{}
-    const SHORT=240;
+    try{
+      document.documentElement.setAttribute('data-ext','1');
+      document.documentElement.setAttribute('data-ext-mode',extMode);
+    }catch{}
+    const SHORT=200;
+    const frame=(action,text)=>{
+      // Frame the motion as an oral-exam prompt so the existing AI
+      // pipeline (which treats `motion` as the round's resolution) puts
+      // the AI in examiner/cross-exam posture. The raw passage always
+      // goes into background so the AI has the source material in hand.
+      const isLong=text.length>SHORT;
+      const passage=isLong
+        ? text
+        : '';
+      const stem=isLong
+        ? (text.match(/[^.!?]+[.!?]/)||[text])[0].trim().slice(0,SHORT)
+        : text;
+      let motion=text;
+      if(action==='defend-this'||action==='rebut-this'){
+        motion=isLong
+          ? `Defend this passage in a viva: "${stem}"`
+          : `Defend out loud: ${stem}`;
+      }else if(action==='cross-exam'){
+        motion=isLong
+          ? `Cross-examine the AI on this passage: "${stem}"`
+          : `Cross-examine the AI on: ${stem}`;
+      }else{ // quiz-me / debate-this / fallback
+        motion=isLong
+          ? `Oral exam: defend this passage. "${stem}"`
+          : `Oral exam: ${stem}`;
+      }
+      return { motion, background: passage };
+    };
     const handle=(ev)=>{
       if(!ev||!ev.data||ev.data.type!=='debateai-ext') return;
       // Only trust the extension panel as the parent. Other origins (the
@@ -3705,14 +3746,10 @@ function App(){
       if(!origin.startsWith('chrome-extension://')) return;
       const text=String(ev.data.text||'').trim();
       if(!text) return;
-      if(text.length<=SHORT){
-        setMotion(text);
-        setBackground('');
-      }else{
-        const firstSentence=(text.match(/[^.!?]+[.!?]/)||[text])[0].trim().slice(0,SHORT);
-        setMotion(firstSentence||text.slice(0,SHORT));
-        setBackground(text);
-      }
+      const action=String(ev.data.action||'quiz-me');
+      const { motion, background } = frame(action, text);
+      setMotion(motion);
+      setBackground(background);
       setPhase('setup');
       // Smooth-scroll the motion field into view if the user had scrolled
       // away from setup. Cheap, only on the next tick.
