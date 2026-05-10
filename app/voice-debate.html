@@ -1411,10 +1411,18 @@ function App(){
   const [userFirstName, setUserFirstName] = useState(() => getUserFirstName());
   // Bond-up celebration card (end of session, if a level was reached).
   const [bondUp, setBondUp] = useState(null);
-  // Audio playback rate for the AI's voice — Realtime audio doesn't
-  // expose a server-side speed parameter, so we accelerate playback in
-  // the browser via HTMLAudioElement.playbackRate. 0.9 to 1.5 keeps
-  // pitch artifacts mild.
+  // Audio "speed" control. Two layers because the Realtime API has no
+  // server-side speed parameter and HTMLAudioElement.playbackRate is
+  // unreliable on a live WebRTC MediaStream (Chrome partially honors
+  // it; Safari ignores it). Layers:
+  //   1. playbackRate — best-effort browser-side acceleration. Does
+  //      something on Chrome at moderate rates, near nothing on Safari.
+  //   2. AI-side pacing nudge — a debounced conversation.item.create
+  //      with a `system` role + a WPM target. The AI sees this as
+  //      runtime context and adjusts its delivery on the NEXT response.
+  //      This is what actually moves the needle audibly.
+  // Range 0.85–1.6 keeps pitch artifacts mild on layer 1 and gives
+  // layer 2 a meaningful WPM swing (~150 → ~290 wpm).
   const [playbackRate, setPlaybackRate] = useState(1.0);
   // Mute: disable the local mic track so the AI can't VAD-interrupt
   // itself when you breathe / cough / shuffle papers during its speech.
@@ -1594,11 +1602,52 @@ function App(){
   useEffect(()=>{ return cleanup; }, [cleanup]);
 
   // Push playback rate to the live audio element whenever the user
-  // adjusts the slider during a session.
+  // adjusts the slider during a session. Best-effort: browsers don't
+  // guarantee playbackRate on a MediaStream-backed audio element. The
+  // AI-side pacing nudge below is the layer that actually changes the
+  // perceived speed.
   useEffect(()=>{
     if (audioElRef.current) {
       try { audioElRef.current.playbackRate = playbackRate; } catch(e){}
     }
+  }, [playbackRate]);
+
+  // AI-side pacing nudge — sends a debounced system-role conversation
+  // item over the data channel telling the AI what WPM to target on
+  // the next turn. This is what makes the speed slider audibly affect
+  // the AI's delivery (the playbackRate above is unreliable on live
+  // WebRTC streams). 1.0× = 180 wpm baseline; 0.85× = 153 wpm
+  // (deliberate); 1.6× = 288 wpm (debater pace).
+  //
+  // Debounced 450ms so rapid +/- clicks send ONE update instead of a
+  // burst of conflicting pacing notes that would whiplash the AI.
+  // Skipped on initial mount (== 1.0×) so we don't spam the channel
+  // with a no-op on session start.
+  const lastPacingRateRef = useRef(1.0);
+  useEffect(()=>{
+    if (!dcRef.current || dcRef.current.readyState !== 'open') return;
+    if (Math.abs(playbackRate - lastPacingRateRef.current) < 0.01) return;
+    const t = setTimeout(()=>{
+      try {
+        const wpm = Math.round(180 * playbackRate);
+        const pace = playbackRate < 0.95 ? 'slower and more deliberately'
+          : playbackRate > 1.05 ? 'faster, with brisk debater pacing'
+          : 'at normal conversational pace';
+        dcRef.current.send(JSON.stringify({
+          type: 'conversation.item.create',
+          item: {
+            type: 'message',
+            role: 'system',
+            content: [{
+              type: 'input_text',
+              text: '[Pacing update] Speak ' + pace + ' from your next turn onward — target ~' + wpm + ' words per minute. Hold this pace until told otherwise. Do NOT acknowledge this note in speech.'
+            }]
+          }
+        }));
+        lastPacingRateRef.current = playbackRate;
+      } catch(e){ /* dc closed mid-flight; ignore */ }
+    }, 450);
+    return ()=> clearTimeout(t);
   }, [playbackRate]);
 
   // Toggle the local mic track on/off when the user mutes themselves.
@@ -2576,18 +2625,18 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             title: muted ? 'Unmute mic' : 'Mute mic (stops auto-interrupting the AI)',
             'aria-pressed': muted,
           }, muted ? '🔇  Muted' : '🎙  Mic on'),
-          el('div', { className:'speed-ctl' },
+          el('div', { className:'speed-ctl', title:'Adjusts AI delivery pace on the next turn (sends a pacing nudge to the model). Browser playback rate also nudges live audio where the OS allows it.' },
             el('span', { className:'lbl' }, 'speed'),
             el('button', {
               className:'spd',
-              onClick:()=> setPlaybackRate(r => Math.max(0.9, Math.round((r - 0.1) * 10) / 10)),
-              title:'Slower',
+              onClick:()=> setPlaybackRate(r => Math.max(0.85, Math.round((r - 0.05) * 100) / 100)),
+              title:'Slower (next turn pace + live audio)',
             }, '−'),
-            el('span', { className:'val' }, playbackRate.toFixed(1) + '×'),
+            el('span', { className:'val' }, (playbackRate < 0.99 || playbackRate > 1.01 ? playbackRate.toFixed(2) : '1.0') + '×'),
             el('button', {
               className:'spd',
-              onClick:()=> setPlaybackRate(r => Math.min(1.5, Math.round((r + 0.1) * 10) / 10)),
-              title:'Faster',
+              onClick:()=> setPlaybackRate(r => Math.min(1.6, Math.round((r + 0.05) * 100) / 100)),
+              title:'Faster (next turn pace + live audio)',
             }, '+'),
           ),
           negotiatedModel && el('span', { className:'model-badge', title: negotiatedEndpoint || '' },
