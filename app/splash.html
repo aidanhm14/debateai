@@ -64,66 +64,118 @@ body{
 }
 .brand em{color:#ef4444;font-style:normal;margin-right:6px}
 
-/* ── Triangle lines + PREP / COMMUNITY tags ────────────────────
-   Two diagonal lines fan from a point below the wordmark out to the
-   bottom corners, with a vertical gradient that fades to transparent
-   across the mic so the orb floats clean. PREP / COMMUNITY are
-   anchor links riding on those lines and route to the case-prep tab
-   and community page respectively. */
-.line{
-  position:fixed;
-  left:50%;top:80px;
-  width:2px;height:115vh;
-  background:linear-gradient(
-    to bottom,
-    rgba(255,255,255,.9)   0%,
-    rgba(255,255,255,.55)  4%,
-    rgba(255,255,255,0)    9%,
-    rgba(255,255,255,0)   38%,
-    rgba(255,255,255,.45) 44%,
-    rgba(255,255,255,.95) 64%,
-    rgba(255,255,255,1)  100%
-  );
-  transform-origin:top center;
-  box-shadow:0 0 18px rgba(255,255,255,.10);
+/* ── Audio frequency bars + PREP / COMMUNITY tags ───────────────
+   Two banks of animated vertical bars fan out from the mic to the
+   left and right edges of the viewport, each bar pulsing on its own
+   staggered phase so the whole thing reads as a live audio spectrum
+   / oscilloscope feed. The mic is the source; the bars are what it
+   sees. Bars fade to transparent at the outer edges via mask-image
+   so they bleed into the dark background instead of stopping in a
+   hard line. PREP and COMMUNITY are anchor pills floating in the
+   bar field — large, brand-red, click-through to /app#case and
+   /community respectively. */
+.wave{
+  position:fixed;top:50%;
+  display:flex;align-items:center;
+  gap:4px;
+  height:160px;width:42vw;
+  transform:translateY(-50%);
+  z-index:2;
   pointer-events:none;
-  z-index:3;
   opacity:0;
-  animation:lineGrow 1.1s cubic-bezier(.2,.7,.2,1) .35s forwards;
+  animation:waveIn 1.2s cubic-bezier(.2,.7,.2,1) .35s forwards;
 }
-.line-l{transform:translateX(-50%) rotate(-40deg)}
-.line-r{transform:translateX(-50%) rotate(40deg)}
-@keyframes lineGrow{
-  from{height:0;opacity:0}
-  to{height:115vh;opacity:1}
+.wave-l{
+  left:0;
+  padding-left:36px;
+  -webkit-mask-image:linear-gradient(to right, transparent 0%, #000 16%, #000 84%, transparent 100%);
+          mask-image:linear-gradient(to right, transparent 0%, #000 16%, #000 84%, transparent 100%);
 }
+.wave-r{
+  right:0;
+  padding-right:36px;
+  flex-direction:row-reverse;
+  -webkit-mask-image:linear-gradient(to left, transparent 0%, #000 16%, #000 84%, transparent 100%);
+          mask-image:linear-gradient(to left, transparent 0%, #000 16%, #000 84%, transparent 100%);
+}
+.wave span{
+  flex:1 1 0;
+  min-width:3px;max-width:6px;
+  height:60%;
+  border-radius:3px;
+  background:linear-gradient(to top,
+    rgba(239,68,68,.20) 0%,
+    rgba(239,68,68,.9)  45%,
+    #ff8a8a            100%);
+  box-shadow:0 0 10px rgba(239,68,68,.35);
+  transform-origin:center;
+  transform:scaleY(var(--rest,.3));
+  animation:barPulse 1.9s cubic-bezier(.4,0,.2,1) infinite;
+  animation-delay:var(--d,0s);
+}
+@keyframes barPulse{
+  0%,100%{transform:scaleY(var(--rest,.25))}
+  50%    {transform:scaleY(var(--peak,1))}
+}
+@keyframes waveIn{
+  from{opacity:0;transform:translateY(-50%) scale(.94)}
+  to  {opacity:1;transform:translateY(-50%) scale(1)}
+}
+/* PREP / COMMUNITY chips. Larger and pill-shaped this time so they
+   read as a real CTA, not an inline tag. Glassy red surface with a
+   subtle inner highlight, hover lift. */
 .tag{
   position:fixed;z-index:5;
-  display:inline-flex;align-items:center;justify-content:center;
-  padding:16px 30px;
-  background:#ef4444;
+  display:inline-flex;align-items:center;gap:10px;
+  padding:18px 34px;
+  background:linear-gradient(180deg, #ff5e5e 0%, #ef4444 55%, #c81e1e 100%);
   color:#0a0a0a;
   font-family:'Inter',system-ui,-apple-system,sans-serif;
-  font-weight:800;letter-spacing:.2em;font-size:1.05rem;
+  font-weight:900;letter-spacing:.2em;font-size:1.05rem;
   text-transform:uppercase;
   text-decoration:none;
-  box-shadow:0 6px 28px rgba(239,68,68,.4);
-  transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.22);
+  box-shadow:
+    0 10px 38px rgba(239,68,68,.45),
+    0 2px 0 rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.45);
+  transition:transform .22s ease, box-shadow .22s ease, filter .22s ease;
   opacity:0;
-  animation:tagIn .55s ease-out 1s forwards;
+  animation:tagIn .55s cubic-bezier(.2,.7,.2,1) 1s forwards;
   cursor:pointer;
 }
-.tag:hover{
-  transform:translateY(-3px) scale(1.04);
-  box-shadow:0 14px 38px rgba(239,68,68,.55);
-  background:#ff5252;
+.tag::after{
+  content:"\2192";
+  font-weight:800;font-size:1.05em;letter-spacing:0;
+  color:rgba(0,0,0,.7);
+  transition:transform .22s ease;
 }
+.tag:hover{
+  transform:translateY(-4px) scale(1.04);
+  filter:saturate(1.1);
+  box-shadow:
+    0 18px 54px rgba(239,68,68,.6),
+    0 2px 0 rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.6);
+}
+.tag:hover::after{transform:translateX(4px)}
 .tag:active{transform:translateY(-1px) scale(1.02)}
-.tag-prep{top:30%;left:13%}
-.tag-comm{top:30%;right:11%}
+.tag-prep{top:50%;left:5vw;transform:translateY(-50%)}
+.tag-comm{top:50%;right:5vw;transform:translateY(-50%)}
+.tag-prep{animation-name:tagInL}
+.tag-comm{animation-name:tagInR}
+@keyframes tagInL{
+  from{opacity:0;transform:translate(-12px,-50%)}
+  to  {opacity:1;transform:translate(0,-50%)}
+}
+@keyframes tagInR{
+  from{opacity:0;transform:translate(12px,-50%)}
+  to  {opacity:1;transform:translate(0,-50%)}
+}
 @keyframes tagIn{
   from{opacity:0;transform:translateY(-8px)}
-  to{opacity:1;transform:translateY(0)}
+  to  {opacity:1;transform:translateY(0)}
 }
 
 /* ── Center: mic + pulsing rings ───────────────────────── */
@@ -234,25 +286,31 @@ body{
   .core{width:80px;height:80px}
   .mic{width:28px;height:28px}
   .hint{bottom:22px}
-  /* Tighter mobile triangle so the lines stay on screen. Solid stroke
-     since the smaller mobile mic clears the line at 32° and the
-     desktop fade would resurface off-screen on a phone-width viewport. */
-  .line-l{transform:translateX(-50%) rotate(-32deg)}
-  .line-r{transform:translateX(-50%) rotate(32deg)}
-  .line{background:rgba(255,255,255,.82)}
-  .tag-prep{left:6%;top:24%}
-  .tag-comm{right:5%;top:24%}
-  .tag{padding:11px 16px;font-size:.82rem;letter-spacing:.14em}
+  /* Mobile: pull the wave fields off the side edges since a phone-width
+     viewport can't fit a 42vw bar bank on each side plus the mic AND
+     readable tags. Bars stay but they're shorter and tighter; tags drop
+     to corners just above the headline so they don't collide with the
+     bars or the mic. */
+  .wave{width:38vw;height:90px}
+  .wave-l{padding-left:18px}
+  .wave-r{padding-right:18px}
+  .wave span{min-width:2px;max-width:4px}
+  .tag{padding:13px 22px;font-size:.86rem;letter-spacing:.16em;border-radius:11px}
+  .tag-prep{top:auto;bottom:24%;left:5vw;transform:none}
+  .tag-comm{top:auto;bottom:24%;right:5vw;transform:none}
+  .tag-prep,.tag-comm{animation-name:tagIn}
   .brand{top:18px;font-size:.74rem}
 }
 
 /* Respect reduced-motion: kill the pulse / breathe / bounce */
 @media(prefers-reduced-motion:reduce){
-  .ring,.core,.heads,.hint .arrow,.stage,.line,.tag{animation:none}
+  .ring,.core,.heads,.hint .arrow,.stage,.wave,.wave span,.tag{animation:none}
   .stage{opacity:1}
-  .heads,.line,.tag{opacity:1;transform:none}
-  .line-l{transform:translateX(-50%) rotate(-40deg)}
-  .line-r{transform:translateX(-50%) rotate(40deg)}
+  .heads,.wave,.tag{opacity:1}
+  .heads{transform:none}
+  .wave{transform:translateY(-50%)}
+  .wave span{transform:scaleY(.6)}
+  .tag-prep,.tag-comm{transform:translateY(-50%)}
   .hint{opacity:1}
 }
 </style>
@@ -262,8 +320,8 @@ body{
 <div class="stage" id="stage" role="button" tabindex="0" aria-label="Enter Debate AI">
   <div class="brand"><em>Debate</em>AI</div>
 
-  <div class="line line-l" aria-hidden="true"></div>
-  <div class="line line-r" aria-hidden="true"></div>
+  <div class="wave wave-l" id="waveL" aria-hidden="true"></div>
+  <div class="wave wave-r" id="waveR" aria-hidden="true"></div>
 
   <a href="/app#case" class="tag tag-prep" aria-label="Open case prep">PREP</a>
   <a href="/community" class="tag tag-comm" aria-label="Open community">COMMUNITY</a>
@@ -308,6 +366,66 @@ body{
 // so the click→nav handoff feels instant. Netlify edges it; the browser
 // just needs the bytes warm.
 (function(){
+  // ── Populate the audio-spectrum bars ───────────────────────────
+  // Generates N bars in each wave bank with staggered animation
+  // delays so the whole field reads as a rolling wave instead of
+  // every bar pulsing in lockstep. Each bar gets a custom rest +
+  // peak amplitude via CSS variables so the silhouette is organic
+  // — like an actual EQ visualization, not a uniform metronome.
+  // Bars closest to the mic peak highest; bars farthest from the
+  // mic stay quieter so the overall shape suggests sound emanating
+  // outward from the center.
+  function buildBars(el, count, dir){
+    if (!el) return;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < count; i++) {
+      var b = document.createElement('span');
+      // Phase: distribute delays across the 1.9s cycle. dir flips the
+      // direction so left vs right banks roll *outward* from the mic.
+      var phase = (i / count) * 1.9 * dir;
+      // Light per-bar jitter so adjacent bars aren't perfectly in sync
+      var jitter = (Math.random() - 0.5) * 0.18;
+      // Amplitude ramp: bars near the inner edge (closest to the mic)
+      // peak ~1.0, bars near the outer edge taper to ~0.45. Position
+      // 0 = innermost on each side regardless of left/right.
+      var nearness = 1 - (i / count); // 1 → 0
+      var peak = 0.5 + nearness * 0.55 + (Math.random() - 0.5) * 0.12;
+      var rest = 0.18 + nearness * 0.18;
+      b.style.setProperty('--d',    (phase + jitter).toFixed(3) + 's');
+      b.style.setProperty('--peak', peak.toFixed(2));
+      b.style.setProperty('--rest', rest.toFixed(2));
+      frag.appendChild(b);
+    }
+    el.appendChild(frag);
+  }
+  // Left bank: index 0 is closest to mic (right edge of left field).
+  // wave-l uses default row direction, so index 0 is the leftmost
+  // bar — we want the opposite. Build it in reverse so the inner-most
+  // bar (next to the mic) corresponds to nearness=1.
+  function buildReverse(el, count, dir){
+    if (!el) return;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < count; i++) {
+      var nearness = i / count; // 0 (outer) → 1 (inner = mic side)
+      var phase = (i / count) * 1.9 * dir;
+      var jitter = (Math.random() - 0.5) * 0.18;
+      var peak = 0.5 + nearness * 0.55 + (Math.random() - 0.5) * 0.12;
+      var rest = 0.18 + nearness * 0.18;
+      var b = document.createElement('span');
+      b.style.setProperty('--d',    (phase + jitter).toFixed(3) + 's');
+      b.style.setProperty('--peak', peak.toFixed(2));
+      b.style.setProperty('--rest', rest.toFixed(2));
+      frag.appendChild(b);
+    }
+    el.appendChild(frag);
+  }
+  var barCount = (window.innerWidth < 600) ? 24 : 42;
+  // wave-l is laid out left-to-right (outer→inner), so use buildReverse
+  // wave-r is reversed via flex-direction:row-reverse so index 0 is the
+  // INNER bar (closest to the mic). buildBars works there directly.
+  buildReverse(document.getElementById('waveL'), barCount, -1);
+  buildBars(document.getElementById('waveR'),  barCount,  1);
+
   var stage = document.getElementById('stage');
   var navigated = false;
 
