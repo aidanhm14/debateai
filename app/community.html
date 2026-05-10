@@ -479,6 +479,18 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   var searchTerm = '';
   var sortMode = 'recent'; // 'recent' | 'top'
   var myVotes = {}; // caseId → -1 | 0 | 1, populated as we vote
+  // Discussion-tab state. Hoisted next to the cases vars on purpose:
+  // the seed-init block (~L743) calls renderThreads() before flow
+  // reaches the original declarations down at the DISCUSSION SUB-FORUM
+  // section. `var` hoists the binding but not the initializer, so
+  // leaving them down there left myThreadVotes === undefined at call
+  // time and renderThreads threw on `myThreadVotes[t.id]`. That throw
+  // killed the IIFE before the .tab click listeners attached, which
+  // broke the Cases ↔ Discussion tab switch silently.
+  var allThreads = [];
+  var threadFilter = '';
+  var myThreadVotes = {};
+  var openThreadUnsub = null;
 
   function applyFilters(){
     var host = $('cards');
@@ -823,11 +835,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   // and rootId === <thread doc id> (rootId lets us query 'all replies
   // in a thread' efficiently via the (rootId, createdAt) composite
   // index).
-
-  var allThreads = [];
-  var threadFilter = '';
-  var myThreadVotes = {};
-  var openThreadUnsub = null;
+  //
+  // The four thread state vars (allThreads / threadFilter /
+  // myThreadVotes / openThreadUnsub) used to live here, but were moved
+  // up next to the cases vars (~L482) so renderThreads() doesn't crash
+  // when the seed-init block calls it before flow reaches this point.
 
   function tabSwitch(tab){
     var casesPane = $('casesPane'), discPane = $('discussionPane');
