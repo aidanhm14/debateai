@@ -942,9 +942,20 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
   cursor:pointer;border:2px solid #06060c;
 }
 .smart-ticks{
-  display:flex;justify-content:space-between;font-size:.6rem;color:#7a7a8a;
-  letter-spacing:.04em;margin-top:8px;padding:0 2px;
+  /* Position-relative so children can absolute-place at the same
+     percentage the slider thumb center sits at. Using flex+space-between
+     here was misleading: the thumb's center range is inset by
+     thumb-radius (9px) on each side, but space-between distributes spans
+     to the container edges with the gap collapsing around variable label
+     widths. The selected tick label visibly drifted from the thumb on
+     anything but the middle position. width:100% is explicit because
+     an element with only abs-positioned children doesn't always fill
+     its block container (the abs children are out of flow, so there's
+     nothing pushing the container to its natural width). */
+  position:relative;width:100%;height:1.1em;margin-top:8px;
+  font-size:.6rem;color:#7a7a8a;letter-spacing:.04em;
 }
+.smart-ticks span{position:absolute;white-space:nowrap;top:0}
 .smart-ticks span.on{color:#fca5a5;font-weight:600}
 .smart-warn{
   font-size:.65rem;color:#fde68a;margin-top:8px;line-height:1.5;
@@ -2523,9 +2534,26 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
               'aria-label':'AI smartness level',
             }),
             el('div', { className:'smart-ticks' },
-              SMART_LABELS.map(s =>
-                el('span', { key:s.lvl, className: smartness===s.lvl ? 'on' : '' }, s.name)
-              )
+              // Each tick positioned at the same fraction of the slider
+              // track that the thumb center sits at for that value, with
+              // the 9px bumper accounted for so values 1 and 5 actually
+              // line up with the thumb's leftmost / rightmost center.
+              // Ends use translateX(0) / translateX(-100%) instead of
+              // -50% so 'Quick' / 'World Champ' anchor to the inner edge
+              // and don't overflow the card padding on either side.
+              SMART_LABELS.map((s, i) => {
+                const N = SMART_LABELS.length;
+                const frac = i / (N - 1);
+                const left = 'calc(9px + ' + frac + ' * (100% - 18px))';
+                const transform = i === 0 ? 'translateX(0)'
+                  : i === N - 1 ? 'translateX(-100%)'
+                  : 'translateX(-50%)';
+                return el('span', {
+                  key:s.lvl,
+                  className: smartness===s.lvl ? 'on' : '',
+                  style: { left, transform },
+                }, s.name);
+              })
             ),
             smartness >= 4 && el('div', { className:'smart-warn' },
               '⚠ ' + cur.name + ' mode adds ~3-6 seconds to the session start while ' + (smartness === 5 ? '4' : '3') + ' brains research the motion in parallel.'
