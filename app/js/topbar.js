@@ -1,5 +1,5 @@
 /* Shared topbar — single source of truth for /landing, /debate-ai,
-   /learn, /high-school, /devils-advocate, /leaderboard, /live, /pricing.
+   /learn, /high-school, /leaderboard, /live, /pricing.
    Each page gets the SAME markup, the SAME link order, the SAME theme
    dots, and the SAME auth slot, so navigation no longer feels jumpy
    between pages.
@@ -137,10 +137,11 @@
         href: '/voice-debate',
         class: 'ui-btn ui-btn-sm ui-btn-voice',
         title: 'Talk out loud. The AI cuts in.',
-        style: { padding: '8px 16px 8px 14px' },
+        style: { padding: '8px 18px' },
       });
-      var pulse = el('span', { class: 'ui-btn-voice-dot', 'aria-hidden': 'true' });
-      cta.appendChild(pulse);
+      // Removed the red recording-dot pulse — it read as "live recording"
+      // which was misleading on a CTA that just routes to /voice-debate.
+      // The gold-amber gradient + 🎙 emoji already say "voice."
       cta.appendChild(document.createTextNode('🎙 Voice AI'));
     }
     right.appendChild(cta);

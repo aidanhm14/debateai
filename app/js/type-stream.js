@@ -3,9 +3,8 @@
 // PURPOSE: the landing hero's scripted demo cycles canned motions and reveals
 // each character per frame, with a red block cursor (▋) at the typing edge.
 // The user wants that same look applied to REAL AI output everywhere — live
-// debate speech, the case-gen tools at /devils-advocate.html (Case Generator
-// / Round Vision / Philosophy — the URL is legacy; the brand is "Debate AI"
-// now), case prep on /, judge verdict, prep coach.
+// debate speech, case-gen tools (Case Generator / Round Vision /
+// Philosophy), case prep on /, judge verdict, prep coach.
 //
 // The streaming pipeline (callAI / callClaude in debate-ai.html and the
 // case-gen page) calls onChunk(fullTextSoFar) repeatedly as SSE

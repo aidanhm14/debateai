@@ -46,6 +46,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
+<!-- Site-wide audio mutual-exclusion. Loaded sync (no defer) so it's
+     installed before any TTS / sample audio attempts to play. -->
+<script src="/js/audio-bus.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script defer src="/js/track.js"></script>
@@ -84,17 +87,23 @@ html,body{height:100%;overflow-x:hidden}
   --c-scrim:rgba(0,0,0,.6);--c-scrim2:rgba(0,0,0,.92);
 }
 [data-lighting="light"]{
+  /* Light-theme contrast pass. Was: text vars maxed at .7 alpha black
+     on cream — body text at .4 alpha was ~2.5:1 contrast against
+     #f5f5f0, well under WCAG AA's 4.5:1. The dark-theme values were
+     authored at the same alphas but white-on-black is much more
+     forgiving. Bumped each tier so the modal + every light-theme
+     surface reads cleanly. Borders also bumped so card edges show. */
   --bg:#f5f5f0;--fg:#1a1a1e;
-  --c-faint:rgba(0,0,0,.1);--c-dim:rgba(0,0,0,.15);
-  --c-subtle:rgba(0,0,0,.2);--c-muted:rgba(0,0,0,.25);
-  --c-mid:rgba(0,0,0,.3);--c-text:rgba(0,0,0,.4);
-  --c-text2:rgba(0,0,0,.45);--c-text3:rgba(0,0,0,.5);
-  --c-text4:rgba(0,0,0,.6);--c-bright:rgba(0,0,0,.7);
-  --c-surface:rgba(0,0,0,.02);--c-surface2:rgba(0,0,0,.03);
-  --c-surface3:rgba(0,0,0,.05);--c-surface4:rgba(0,0,0,.06);
-  --c-border:rgba(0,0,0,.06);--c-border2:rgba(0,0,0,.08);
-  --c-border3:rgba(0,0,0,.1);--c-border4:rgba(0,0,0,.15);
-  --c-border5:rgba(0,0,0,.2);
+  --c-faint:rgba(0,0,0,.18);--c-dim:rgba(0,0,0,.28);
+  --c-subtle:rgba(0,0,0,.42);--c-muted:rgba(0,0,0,.55);
+  --c-mid:rgba(0,0,0,.62);--c-text:rgba(0,0,0,.75);
+  --c-text2:rgba(0,0,0,.78);--c-text3:rgba(0,0,0,.82);
+  --c-text4:rgba(0,0,0,.86);--c-bright:rgba(0,0,0,.92);
+  --c-surface:rgba(0,0,0,.025);--c-surface2:rgba(0,0,0,.045);
+  --c-surface3:rgba(0,0,0,.07);--c-surface4:rgba(0,0,0,.09);
+  --c-border:rgba(0,0,0,.12);--c-border2:rgba(0,0,0,.16);
+  --c-border3:rgba(0,0,0,.2);--c-border4:rgba(0,0,0,.28);
+  --c-border5:rgba(0,0,0,.36);
   --c-scrim:rgba(245,245,240,.7);--c-scrim2:rgba(245,245,240,.97);
 }
 body{
@@ -661,7 +670,7 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
 <script defer src="/js/ui-neural.js"></script>
 <!-- Shared topbar — same nav across /landing, /debate-ai, /learn,
-     /high-school, /devils-advocate. The user-slot hook below lets
+     /high-school. The user-slot hook below lets
      /debate-ai inject its app-specific Account modal trigger. -->
 <script>
   // Bridge between the shared topbar's user slot and the React-rendered
@@ -5133,7 +5142,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   /* ─── RENDER ─────────────────────── */
 
   // Topbar is rendered outside React by /js/topbar.js — same bar as
-  // /landing, /learn, /high-school, /devils-advocate. The user-slot
+  // /landing, /learn, /high-school. The user-slot
   // hook (window.daTopbarUserSlot in <head>) opens the Account modal
   // here via window.__daOpenAccount, which is set in an effect below.
   // Cold-OAuth deferral (the "Save your record" Google pill that only
