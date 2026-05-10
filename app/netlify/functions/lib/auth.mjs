@@ -103,6 +103,25 @@ export function extractBearerToken(request) {
 }
 
 /**
+ * Owner-account allowlist. These verified Firebase emails bypass every
+ * server-side paywall: paid-plan gates, per-period usage caps, and the
+ * voice-session lifetime cap. The shop owner shouldn't get locked out
+ * of their own product while QA-ing it. Compared lowercase against the
+ * `email` claim of a verified ID token (signature still has to validate,
+ * so a spoofed email won't pass).
+ *
+ * To add a teammate, just add their Google address here — no other code
+ * changes needed. To revoke, remove the entry and redeploy.
+ */
+export const OWNER_EMAILS = new Set([
+  'aidandavidhollinger@gmail.com',
+]);
+
+export function isOwnerEmail(email) {
+  return OWNER_EMAILS.has(String(email || '').toLowerCase());
+}
+
+/**
  * Enforce that the caller is signed in AND on a paid plan.
  * Returns { ok: true, uid, plan } on success, or { ok: false, status, error }
  * on failure — call sites should return the error response as-is.
@@ -132,6 +151,12 @@ export async function requirePaidPlan(request, featureName) {
       error: 'Authentication failed. Please sign in again.',
       code: 'AUTH_INVALID',
     };
+  }
+
+  // Owner bypass — short-circuit before the firestore lookup so the
+  // owner can use every paid model without a team record.
+  if (isOwnerEmail(decoded.email)) {
+    return { ok: true, uid: decoded.sub, plan: 'owner' };
   }
 
   // Lazy-import firestore to avoid a circular dep + cold-start cost for

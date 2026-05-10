@@ -1,4 +1,4 @@
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
@@ -57,12 +57,14 @@ export default async (request) => {
   // back to anonymous per-IP limits. This keeps free-tier surfaces (Evidence
   // Finder on /high-school, motion designer on /app news fetch) working.
   let userId = null;
+  let userEmail = null;
   let team = null;
   const token = extractBearerToken(request);
   if (token) {
     try {
       const decoded = await verifyIdToken(token);
       userId = decoded.sub;
+      userEmail = decoded.email || null;
       const teamResult = await getUserTeam(userId);
       if (teamResult) team = teamResult.team;
     } catch (_) { /* fall through to anon */ }
@@ -92,7 +94,7 @@ export default async (request) => {
       return errorResponse('Subscription inactive. Please update your billing.', 402, request);
     }
     const planLimits = PLANS[team.plan] || PLANS.trial;
-    if (team.usageThisPeriod >= planLimits.requests) {
+    if (!isOwnerEmail(userEmail) && team.usageThisPeriod >= planLimits.requests) {
       return errorResponse('Monthly usage limit reached. Upgrade your plan for more requests.', 429, request);
     }
   }

@@ -18,21 +18,14 @@
 // Override the realtime model at deploy time with OPENAI_REALTIME_MODEL.
 
 import { checkAppCheck } from './lib/appcheck.mjs';
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 
 // Voice usage cap for free signed-in users. Pro/Team/Lifetime plans
-// bypass. Anon users are gated client-side (1 lifetime via localStorage)
-// + by the existing 6/hour/IP rate limit at the bottom of this function.
+// and owner-allowlisted emails (see lib/auth.mjs) bypass. Anon users
+// are gated client-side (1 lifetime via localStorage) + by the existing
+// 6/hour/IP rate limit at the bottom of this function.
 const FREE_VOICE_LIFETIME_LIMIT = 3;
-
-// Owner allowlist — these emails bypass the voice cap regardless of
-// stored plan. Keeps the owner from getting locked out of their own
-// product after burning the 3 free sessions on QA. Compared against
-// the verified Firebase ID token's `email` claim, lowercased.
-const OWNER_EMAILS = new Set([
-  'aidandavidhollinger@gmail.com',
-]);
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 
 /* ── AI COUNCIL ──────────────────────────────────────────────────
@@ -435,7 +428,7 @@ export default async (request, context) => {
         isPro = p.plan === 'pro' || p.plan === 'team' || p.plan === 'lifetime' || p.isPro === true;
         voiceUsedBefore = Math.max(0, parseInt(p.voiceSessionsUsed, 10) || 0);
       }
-      if (OWNER_EMAILS.has(String(decoded.email || '').toLowerCase())){
+      if (isOwnerEmail(decoded.email)){
         isPro = true;
       }
       if (!isPro && voiceUsedBefore >= FREE_VOICE_LIFETIME_LIMIT){

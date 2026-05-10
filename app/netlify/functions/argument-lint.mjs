@@ -15,7 +15,7 @@
 // "drop in on any Wikipedia / news / Docs page and tighten my argument"
 // use case, where the user hasn't necessarily authenticated yet.
 
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 
@@ -183,7 +183,7 @@ export default async (request) => {
         });
       }
       const planLimits = PLANS[team.plan] || PLANS.trial;
-      if (team.usageThisPeriod >= planLimits.requests) {
+      if (!isOwnerEmail(decoded.email) && team.usageThisPeriod >= planLimits.requests) {
         return new Response(JSON.stringify({
           error: 'Monthly usage limit reached. Upgrade your plan for more requests.',
           code: 'USAGE_LIMIT_REACHED',
