@@ -1362,12 +1362,13 @@ button{font-family:inherit}
   }
 
   // ── Companion-doc cache for live_challenge_contacts/{id}.
-  // Holds per-challenge contact info (posterEmail / accepterEmail /
-  // accepterContact) that no longer lives on the public live_challenges
-  // doc. Read rule on the companion only allows the matched parties,
-  // so a permission-denied catch is expected for non-matched viewers
-  // and we cache a sentinel so we don't retry per render frame.
-  var companionContacts = {};       // challengeId → { posterEmail, accepterEmail, accepterContact, _fetched }
+  // Holds per-challenge contact info (posterEmail / posterContact /
+  // accepterEmail / accepterContact) that no longer lives on the public
+  // live_challenges doc. Read rule on the companion only allows the
+  // matched parties, so a permission-denied catch is expected for
+  // non-matched viewers and we cache a sentinel so we don't retry per
+  // render frame.
+  var companionContacts = {};       // challengeId → { posterEmail, posterContact, accepterEmail, accepterContact, _fetched }
   var companionPending = {};        // dedupe in-flight fetches
   function ensureCompanionContact(challengeId){
     if (!firebaseDb || !currentUser || !challengeId) return null;
@@ -1380,6 +1381,7 @@ button{font-family:inherit}
         var d = snap.data() || {};
         companionContacts[challengeId] = {
           posterEmail: d.posterEmail || '',
+          posterContact: d.posterContact || '',
           accepterEmail: d.accepterEmail || '',
           accepterContact: d.accepterContact || '',
           _fetched: true,
@@ -1494,6 +1496,12 @@ button{font-family:inherit}
         else if (canJoin){ ctaLabel = '▶ Start judged round'; ctaClass = 'btn-primary'; }
         else { ctaLabel = '▶ Start judged round'; ctaClass = 'btn-room'; }
 
+        // Symmetric contact pill: poster's contact (or email) lives on
+        // the private companion doc and is readable by the accepter
+        // (rule restricts to posterUid + accepterUid). Same lazy-fetch
+        // path the poster's matched card uses for the accepter's contact.
+        var companionAcc = ensureCompanionContact(c.id) || companionContacts[c.id];
+        var posterContactPill = (companionAcc && (companionAcc.posterContact || companionAcc.posterEmail)) || '';
         card.innerHTML =
           '<div class="card-head">' +
             '<span class="tag tag-matched">✓ You accepted</span>' +
@@ -1508,6 +1516,7 @@ button{font-family:inherit}
             '<a class="btn ' + ctaClass + '" target="_blank" rel="noopener" href="' + escHtml(roundUrl) + '" data-start-round="' + c.id + '">' + ctaLabel + '</a>' +
             (gcal ? '<a class="btn btn-ghost" target="_blank" rel="noopener" href="' + escHtml(gcal) + '" data-gcal="' + c.id + '">+ Google Calendar</a>' : '') +
             (c.scheduledAt ? '<button class="btn btn-ghost" data-ical="' + c.id + '">.ics</button>' : '') +
+            (posterContactPill ? '<button class="btn btn-ghost" data-copy-contact="' + escHtml(posterContactPill) + '" title="Click to copy poster contact" type="button">' + escHtml(posterContactPill) + '</button>' : '') +
             '<button class="btn btn-bail" data-bail="' + c.id + '">✕ Bail</button>' +
           '</div>';
       } else {
@@ -2279,10 +2288,16 @@ button{font-family:inherit}
       toast(msg);
     });
     // Private companion doc — only the poster + (later) accepter can read.
+    // posterContact = the freeform phone/email the user typed in their
+    // profile (loadProfile().contact). It's optional but, when set, gives
+    // the accepter something to copy alongside posterEmail so they can
+    // coordinate via whatever channel the poster prefers.
+    var pp = loadProfile();
     firebaseDb.collection('live_challenge_contacts').doc(entry.id).set({
       challengeId: entry.id,
       posterUid: currentUser.uid,
       posterEmail: currentUser.email || '',
+      posterContact: pp.contact || '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).catch(function(e){
       console.warn('[Live] publish contact companion failed', e && e.message);

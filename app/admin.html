@@ -246,6 +246,30 @@
     </div>
   </div>
 
+  <!-- One-shot privacy scrub for legacy live_challenges docs. The
+       2026-05-10 fix moved emails off live_challenges into the private
+       live_challenge_contacts companion. New posts land in the right
+       place, but pre-fix challenges still carry posterEmail /
+       accepterEmail / accepterContact as fields on the public doc.
+       Scrub copies them to the companion + strips them off the public
+       doc. Idempotent. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Scrub leaked challenge contacts</span>
+        <span class="meta">strip emails off legacy live_challenges → private companion</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
+        Scans <code>live_challenges</code>, copies <code>posterEmail</code> / <code>accepterEmail</code> / <code>accepterContact</code> to <code>live_challenge_contacts/{id}</code>, then deletes them off the public doc. Idempotent — re-running on already-clean docs is a no-op.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <button id="scrub-dry-btn" style="padding:7px 16px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;font-size:13px;font-weight:600">Dry run</button>
+        <button id="scrub-run-btn" style="padding:7px 16px;border-radius:10px;border:1px solid var(--line);background:var(--fg);color:var(--bg);cursor:pointer;font-size:13px;font-weight:600">Run scrub</button>
+      </div>
+      <div id="scrub-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
+    </div>
+  </div>
+
   <!-- Per-user activity feed. Reads events/ collection scoped to a
        single uid (or email lookup) and renders the timeline + summary
        counts so support / debugging / retention work has a real
@@ -515,6 +539,45 @@
   $('backfill-run-btn').addEventListener('click', () => {
     if (!confirm('Run leaderboard backfill? This writes one entry per eligible debate_rounds doc. Idempotent, so safe to re-run.')) return;
     runBackfill(false);
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // Privacy scrub. One-shot; idempotent. Copies posterEmail /
+  // accepterEmail / accepterContact off legacy live_challenges docs
+  // into the private live_challenge_contacts companion, then strips
+  // them off the public doc. Runs through /api/admin-scrub-challenge-contacts.
+  // ─────────────────────────────────────────────────────────
+  async function runScrub(dryRun){
+    const statusEl = $('scrub-status');
+    statusEl.textContent = dryRun ? 'Counting…' : 'Scrubbing…';
+    statusEl.style.color = 'var(--muted)';
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch('/api/admin-scrub-challenge-contacts', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: !!dryRun }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error((data && data.error) || ('API ' + r.status));
+      const s = data.stats || {};
+      const errMsg = (s.errors && s.errors.length) ? ` · ${s.errors.length} errors` : '';
+      if (dryRun){
+        statusEl.innerHTML = `✓ Dry run · ${s.eligible}/${s.scanned} docs need scrubbing (${s.alreadyClean} already clean)${errMsg}.`;
+      } else {
+        statusEl.innerHTML = `✓ Scrub complete · copied ${s.copied}, stripped ${s.stripped} of ${s.eligible} eligible (${s.alreadyClean} were already clean)${errMsg}.`;
+      }
+      statusEl.style.color = '#10b981';
+      if (s.errors && s.errors.length) console.warn('[scrub] errors:', s.errors);
+    } catch (e){
+      statusEl.textContent = 'Failed: ' + (e.message || e);
+      statusEl.style.color = '#ef4444';
+    }
+  }
+  $('scrub-dry-btn').addEventListener('click', () => runScrub(true));
+  $('scrub-run-btn').addEventListener('click', () => {
+    if (!confirm('Run privacy scrub? Strips posterEmail / accepterEmail / accepterContact off legacy live_challenges docs and copies them to the private companion. Idempotent, safe to re-run.')) return;
+    runScrub(false);
   });
 
   // ─────────────────────────────────────────────────────────
