@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# ──────────────────────────────────────────────────────────────────
+# Auto-bump the service-worker CACHE_NAME when client-side files
+# change in a DebateAI commit.
+#
+# AGENTS.md says: "Bump CACHE_NAME in BOTH sw.js files when HTML/bundle
+# changes." Skipping the bump = users on stale caches for hours.
+# This hook automates the bump so it can never be forgotten.
+#
+# Triggers on any staged .html/.js/.css/.mjs under app/ (excluding
+# the netlify functions dir, which is server-side only and not
+# served to the browser) or at the repo root.
+#
+# If the user already staged sw.js themselves, the hook trusts that
+# and exits cleanly — no double-bump.
+#
+# If the repo isn't DebateAI (no app/sw.js + sw.js pair), the hook
+# is a no-op so it stays safe for any other repo that happens to
+# share this hooks directory.
+#
+# Soft-fail: any unexpected error just warns and lets the commit
+# proceed rather than blocking the dev's flow.
+# ──────────────────────────────────────────────────────────────────
+
+set -u
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+[ -z "$REPO_ROOT" ] && exit 0
+
+SW_APP="$REPO_ROOT/app/sw.js"
+SW_ROOT="$REPO_ROOT/sw.js"
+
+# DebateAI-specific guard. Other repos that share this hooks dir
+# won't have both files and will skip silently.
+[ -f "$SW_APP" ] || exit 0
+[ -f "$SW_ROOT" ] || exit 0
+
+STAGED="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)"
+[ -z "$STAGED" ] && exit 0
+
+# If the user is already touching sw.js in this commit, trust them.
+# They either bumped manually or are intentionally editing the SW
+# logic itself — we don't want to clobber their version choice.
+if printf '%s\n' "$STAGED" | grep -qE '^(app/)?sw\.js$'; then
+  exit 0
+fi
+
+# Look for client-side file changes that should invalidate the cache.
+# Server-side .mjs functions never reach the browser, so they're excluded.
+TRIGGERS="$(
+  printf '%s\n' "$STAGED" \
+    | grep -E '\.(html|js|mjs|css)$' \
+    | grep -vE '^app/netlify/functions/' \
+    | grep -vE '^netlify/functions/' \
+    || true
+)"
+[ -z "$TRIGGERS" ] && exit 0
+
+# Read the current version from app/sw.js (authoritative side per AGENTS.md).
+CURRENT="$(grep -oE "debateos-v[0-9]+" "$SW_APP" | head -1 || true)"
+if [ -z "$CURRENT" ]; then
+  echo "[sw-bump] warn: couldn't find debateos-vN in $SW_APP — skipping auto-bump" >&2
+  exit 0
+fi
+
+NUM="$(printf '%s' "$CURRENT" | grep -oE '[0-9]+$')"
+NEXT="$((NUM + 1))"
+NEW="debateos-v${NEXT}"
+
+# Portable in-place edit (BSD sed on macOS needs the empty backup arg;
+# the .bak trick is the portable workaround that works on both BSD and GNU).
+if ! sed -i.bak -E "s/debateos-v[0-9]+/${NEW}/g" "$SW_APP" "$SW_ROOT" 2>/dev/null; then
+  echo "[sw-bump] warn: sed failed bumping CACHE_NAME — skipping" >&2
+  rm -f "$SW_APP.bak" "$SW_ROOT.bak"
+  exit 0
+fi
+rm -f "$SW_APP.bak" "$SW_ROOT.bak"
+
+# Re-stage the bumped files so they ride along on the commit.
+git add "$SW_APP" "$SW_ROOT" 2>/dev/null || true
+
+# One-line summary so the dev can see exactly what fired and why.
+TRIGGER_COUNT="$(printf '%s\n' "$TRIGGERS" | wc -l | tr -d ' ')"
+echo "[sw-bump] ${CURRENT} → ${NEW} (${TRIGGER_COUNT} client file$([ "$TRIGGER_COUNT" = "1" ] || echo s) changed)"
+
+exit 0

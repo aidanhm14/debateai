@@ -72,6 +72,23 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 └── sw.js                      bump CACHE_NAME with app/sw.js together
 ```
 
+## First-time setup (per clone)
+
+```bash
+# Install the SW auto-bump pre-commit hook. Touches a client file
+# (HTML/JS/CSS under app/, excluding netlify/functions/)? The hook
+# bumps CACHE_NAME in both sw.js files and re-stages them for you.
+# One-off; idempotent if re-run.
+bash scripts/install-hooks.sh
+```
+
+The canonical hook lives at `scripts/hooks/pre-commit` so it travels
+with the repo. The installer copies it into `.git/hooks/`. If you ever
+need to skip the auto-bump intentionally (e.g., docs-only commit that
+somehow touched a client file), stage `app/sw.js` or `sw.js` yourself
+in the same commit — the hook trusts manual SW edits and won't
+double-bump.
+
 ## How to run / ship
 
 ```bash
@@ -103,7 +120,7 @@ of ~10 minutes of work, not big PRs.
   motion. Routes to the Motions tab.
 - **No JSX** in `debate-ai.html` or `landing.html`. React-via-CDN means
   `el(tag, props, ...children)`. JSX in those files breaks the runtime.
-- **Bump `CACHE_NAME` in BOTH `sw.js` files** when HTML/bundle changes.
+- **Bump `CACHE_NAME` in BOTH `sw.js` files** when HTML/bundle changes. The `scripts/hooks/pre-commit` hook (installed via `bash scripts/install-hooks.sh`) does this automatically on every commit that touches client-side files. Only relevant if you skipped the hook install — in which case bump manually.
 - **Never precache `/` in the service worker** — it broke root routing.
 - **Never skip git hooks** (`--no-verify`).
 - **Pricing is locked**: Free $0, BYOK $1/mo, Individual $5/mo, Lifetime $14.99 once, Team $30/mo. (Lifetime added to canonical 2026-05-10 — same 250 requests/mo as Individual but a one-time charge instead of recurring; lives in `app/pricing.html` and the in-product paywall card.)
@@ -183,7 +200,9 @@ These pairs duplicate intentionally; if you edit one, edit the other:
   `GEMINI_API_KEY`, `XAI_API_KEY`, `ELEVENLABS_API_KEY`,
   `STRIPE_SECRET_KEY`, Firebase admin creds, etc.
 - Skipping the SW cache bump after an HTML edit — users get the stale
-  bundle for hours until their cache expires.
+  bundle for hours until their cache expires. The pre-commit hook
+  (see "First-time setup" above) auto-bumps so this is only a footgun
+  when the hook isn't installed on the current machine.
 
 ## Codex-specific
 
