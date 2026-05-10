@@ -142,6 +142,81 @@
   }
   .docs__hint { color: var(--muted); font-size: 10.5px; margin-top: 2px; }
   .docs__title { color: var(--fg); font-weight: 600; }
+  /* ── Agent block (Stage 2) ── */
+  .agent {
+    display: none;
+    border-top: 1px dashed var(--line);
+    padding-top: 8px;
+    margin-top: 4px;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .docs.is-doc-loaded .agent { display: flex; }
+  .agent__row { display: flex; gap: 6px; }
+  .agent__input {
+    flex: 1; min-width: 0;
+    background: #14141a;
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 9px;
+    font: 11.5px/1.3 -apple-system, system-ui, sans-serif;
+    outline: none;
+  }
+  .agent__input:focus { border-color: rgba(229,69,69,.55); }
+  .agent__input::placeholder { color: var(--muted); }
+  .agent__hint {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.3;
+  }
+  .agent__proposal {
+    background: #11111a;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 11.5px;
+  }
+  .agent__reason {
+    color: #c4b5fd;
+    font-style: italic;
+    line-height: 1.4;
+  }
+  .agent__diff {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .agent__old {
+    background: rgba(239,68,68,.10);
+    border-left: 2px solid rgba(239,68,68,.55);
+    color: #fca5a5;
+    text-decoration: line-through;
+    padding: 5px 8px;
+    border-radius: 0 4px 4px 0;
+    word-break: break-word;
+    white-space: pre-wrap;
+    max-height: 120px;
+    overflow: auto;
+  }
+  .agent__new {
+    background: rgba(74,222,128,.10);
+    border-left: 2px solid rgba(74,222,128,.55);
+    color: #86efac;
+    padding: 5px 8px;
+    border-radius: 0 4px 4px 0;
+    word-break: break-word;
+    white-space: pre-wrap;
+    max-height: 160px;
+    overflow: auto;
+  }
+  .agent__actions { display: flex; gap: 6px; justify-content: flex-end; }
   iframe#frame.is-shorter { height: calc(100% - 36px - var(--docs-h, 56px)); }
   .toast {
     position: fixed;
@@ -209,6 +284,23 @@
       <button class="docs__btn" id="docsRead" style="display:none">Read active doc</button>
     </div>
     <div id="docsBody"></div>
+    <!-- Stage 2 agent block. Hidden until a doc is loaded; appears
+         below the snippet so the user can sharpen what they just read. -->
+    <div class="agent" id="agent">
+      <div class="agent__row">
+        <input
+          class="agent__input"
+          id="agentInput"
+          type="text"
+          placeholder="Sharpen this. e.g. ‘make the thesis more direct’"
+          maxlength="240"
+          aria-label="What should the agent sharpen in your doc?"
+        />
+        <button class="docs__btn docs__btn--primary" id="agentPropose">Propose</button>
+      </div>
+      <div class="agent__hint">Counter proposes one edit at a time. You confirm before anything writes to your Doc.</div>
+      <div id="agentProposal"></div>
+    </div>
   </div>
   <iframe
     id="frame"

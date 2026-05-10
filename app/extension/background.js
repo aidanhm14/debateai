@@ -13,7 +13,13 @@ import {
   docToPlainText,
   parseDocId,
   getDocTitle,
+  applyReplaceAllText,
 } from './lib/docs-api.js';
+
+// Where the agent sends its proposal request. The Netlify function at
+// /api/docs-agent calls Claude with one tool (propose_edit) and returns
+// {tool, input:{containsText, replaceText, reason}}.
+const DOCS_AGENT_URL = 'https://debateai.com/api/docs-agent';
 
 const APP_URL = 'https://debateai.com/debate-ai.html?ext=1';
 
@@ -178,12 +184,64 @@ async function handleDocsMessage(msg) {
         return {
           docId: active.docId,
           title: getDocTitle(doc),
+          // Full doc text used by the Stage 2 agent so propose_edit
+          // can target paragraphs the snippet doesn't reach. Capped
+          // server-side at 8000 chars.
+          fullText: text,
           snippet: text.slice(0, SNIPPET_MAX),
           charCount: text.length,
           truncated: text.length > SNIPPET_MAX,
         };
       } catch (e) {
         return { error: String(e?.message || e) };
+      }
+    }
+    case 'docs-propose-edit': {
+      // Send the user's request + the doc passage to /api/docs-agent.
+      // No auth or extension-side guardrails beyond size — the agent's
+      // server-side prompt + tool schema enforce single-edit, exact-
+      // match-required behavior.
+      try {
+        const userRequest = String(msg.userRequest || '').trim();
+        const passage = String(msg.passage || '').trim();
+        const docTitle = String(msg.docTitle || '').slice(0, 200);
+        if (!userRequest) return { error: 'Tell Counter what to sharpen.' };
+        if (!passage) return { error: 'No doc passage to work on. Read your doc first.' };
+        const res = await fetch(DOCS_AGENT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userRequest, passage: passage.slice(0, 8000), docTitle }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return { error: data?.error || `agent ${res.status}` };
+        if (data?.error) return { error: data.error, assistantMessage: data.assistantMessage || '' };
+        return data; // { tool, input:{containsText, replaceText, reason} }
+      } catch (e) {
+        return { error: String(e?.message || e) };
+      }
+    }
+    case 'docs-apply-edit': {
+      // The user confirmed. Hit the Docs API with replaceAllText.
+      try {
+        const docId = String(msg.docId || '').trim();
+        const containsText = String(msg.containsText || '');
+        const replaceText = String(msg.replaceText || '');
+        if (!docId) return { error: 'docId is required' };
+        if (!containsText) return { error: 'containsText is required' };
+        const token = await getAuthToken({ interactive: true });
+        const result = await applyReplaceAllText(docId, containsText, replaceText, token);
+        if (!result.occurrencesChanged) {
+          return {
+            error: 'No changes made — the live doc no longer contained the exact text the agent saw. Re-read the doc and try again.',
+          };
+        }
+        return { ok: true, occurrencesChanged: result.occurrencesChanged };
+      } catch (e) {
+        const m = String(e?.message || e);
+        const hint = m.includes('403') || m.includes('PERMISSION_DENIED')
+          ? 'Manifest scope may still be documents.readonly. Update oauth2.scopes to include /auth/documents (read+write), reload the extension, and re-Connect to grant the broader access.'
+          : '';
+        return { error: m, hint };
       }
     }
     default:

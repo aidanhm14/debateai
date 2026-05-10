@@ -1,17 +1,20 @@
 // Google Docs API client. Runs in the extension's background service
 // worker (which is exempt from page CSP and has access to chrome.identity).
 //
-// Stage 1 scope (current): read-only.
+// Stage 1: read-only.
 //   getAuthToken({ interactive }) -> Bearer token via chrome.identity
 //   getUserEmail(token)           -> /oauth2/v3/userinfo
 //   readDoc(docId, token)         -> /v1/documents/{docId}
 //   docToPlainText(doc)           -> walk the Docs body, return plain text
 //   parseDocId(url)               -> extract docId from a Docs URL
 //
-// Stage 2 (future): adds proposeSuggestion(...) which calls
-//   /v1/documents/{docId}:batchUpdate with insertText + writeControl set
-//   to track-changes mode (Suggesting). Not exported yet — keep the
-//   surface minimal until the Stage 1 read path is verified working.
+// Stage 2: write.
+//   applyReplaceAllText(docId, containsText, replaceText, token)
+//     -> /v1/documents/{docId}:batchUpdate with a single replaceAllText
+//        request. Direct edit (no Suggesting Mode — the Docs API does
+//        not expose programmatic suggestion creation; tracked-change UX
+//        would require a different OAuth scope and a different surface).
+//        Cmd/Ctrl+Z and Docs version history are the safety nets.
 
 const DOCS_API_BASE = 'https://docs.googleapis.com/v1';
 const OAUTH_USERINFO = 'https://www.googleapis.com/oauth2/v3/userinfo';
@@ -137,4 +140,50 @@ export function parseDocId(url) {
  */
 export function getDocTitle(doc) {
   return doc?.title?.trim() || 'Untitled document';
+}
+
+/**
+ * Apply a single replaceAllText edit to the document. The agent guarantees
+ * (server-side) that containsText appears exactly once in the passage it
+ * was given, but live docs can change between read and write — so this
+ * surfaces the API's `occurrencesChanged` count so the caller can warn
+ * if the live doc had unexpected matches.
+ *
+ * @param {string} docId
+ * @param {string} containsText  - the exact existing text
+ * @param {string} replaceText   - the replacement
+ * @param {string} token         - Bearer token from getAuthToken
+ * @returns {Promise<{occurrencesChanged: number, revisionId: string}>}
+ */
+export async function applyReplaceAllText(docId, containsText, replaceText, token) {
+  if (!docId) throw new Error('docId is required');
+  if (!containsText) throw new Error('containsText is required');
+  const res = await fetch(`${DOCS_API_BASE}/documents/${encodeURIComponent(docId)}:batchUpdate`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      requests: [
+        {
+          replaceAllText: {
+            containsText: { text: containsText, matchCase: true },
+            replaceText: replaceText,
+          },
+        },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`docs.batchUpdate ${res.status}: ${text.slice(0, 240)}`);
+  }
+  const data = await res.json();
+  // batchUpdate returns replies[]; replaceAllText reply has occurrencesChanged.
+  const reply = data?.replies?.[0]?.replaceAllText || {};
+  return {
+    occurrencesChanged: reply.occurrencesChanged || 0,
+    revisionId: data?.writeControl?.requiredRevisionId || data?.documentId || '',
+  };
 }

@@ -148,6 +148,12 @@ const docsConnectBtn = document.getElementById('docsConnect');
 const docsDisconnectBtn = document.getElementById('docsDisconnect');
 const docsReadBtn = document.getElementById('docsRead');
 const docsBodyEl = document.getElementById('docsBody');
+// Stage 2 agent surface
+const agentInputEl = document.getElementById('agentInput');
+const agentProposeBtn = document.getElementById('agentPropose');
+const agentProposalEl = document.getElementById('agentProposal');
+let loadedDoc = null;       // { docId, title, fullText }
+let currentProposal = null; // { containsText, replaceText, reason }
 
 function sendBg(msg) {
   return new Promise((resolve) => {
@@ -171,10 +177,14 @@ function renderDocsConnected(email) {
 }
 function renderDocsDisconnected() {
   docsEl.classList.remove('is-connected');
+  docsEl.classList.remove('is-doc-loaded');
   docsStatusEl.textContent = 'Not connected to Google Docs';
   docsConnectBtn.style.display = 'inline-flex';
   docsDisconnectBtn.style.display = 'none';
   docsReadBtn.style.display = 'none';
+  loadedDoc = null;
+  currentProposal = null;
+  if (agentProposalEl) agentProposalEl.innerHTML = '';
 }
 function renderDocsError(msg, hint) {
   setDocsBody(
@@ -188,6 +198,17 @@ function renderDocPreview(payload) {
     `<div class="docs__panel docs__panel--meta"><span class="docs__title">${escapeHtml(payload.title)}</span> · ${escapeHtml(meta)}</div>` +
     `<div class="docs__panel">${escapeHtml(payload.snippet || '(empty)')}</div>`
   );
+  // Stash the loaded doc for the Stage 2 agent. The agent input + diff
+  // card become visible via the .is-doc-loaded class.
+  loadedDoc = {
+    docId: payload.docId,
+    title: payload.title,
+    fullText: payload.fullText || payload.snippet || '',
+  };
+  docsEl.classList.add('is-doc-loaded');
+  // Reset any prior proposal — new doc, fresh slate.
+  agentProposalEl.innerHTML = '';
+  currentProposal = null;
 }
 
 async function refreshDocsStatus() {
@@ -229,10 +250,109 @@ docsReadBtn?.addEventListener('click', async () => {
   docsReadBtn.disabled = false;
   if (res?.error) {
     renderDocsError(res.error, res.activeUrl ? `Active tab: ${res.activeUrl}` : '');
+    docsEl.classList.remove('is-doc-loaded');
+    loadedDoc = null;
   } else if (res?.title) {
     renderDocPreview(res);
   } else {
     renderDocsError('No response from background script.');
+    docsEl.classList.remove('is-doc-loaded');
+  }
+});
+
+// ── Stage 2: agent propose + apply ──────────────────────────────
+function renderProposal(input) {
+  currentProposal = input;
+  agentProposalEl.innerHTML = `
+    <div class="agent__proposal">
+      <div class="agent__reason">${escapeHtml(input.reason || '')}</div>
+      <div class="agent__diff">
+        <div class="agent__old" title="Existing text in your doc">${escapeHtml(input.containsText || '')}</div>
+        <div class="agent__new" title="Proposed replacement">${escapeHtml(input.replaceText || '')}</div>
+      </div>
+      <div class="agent__actions">
+        <button class="docs__btn" data-agent-action="reject">Reject</button>
+        <button class="docs__btn docs__btn--primary" data-agent-action="apply">Apply to Doc</button>
+      </div>
+    </div>
+  `;
+  agentProposalEl.querySelectorAll('[data-agent-action]').forEach((btn) => {
+    btn.addEventListener('click', onProposalAction);
+  });
+}
+
+function renderProposalError(error, hint) {
+  agentProposalEl.innerHTML =
+    `<div class="docs__error">${escapeHtml(error)}</div>` +
+    (hint ? `<div class="docs__hint">${escapeHtml(hint)}</div>` : '');
+  currentProposal = null;
+}
+
+async function onProposalAction(ev) {
+  const action = ev.currentTarget.getAttribute('data-agent-action');
+  if (action === 'reject') {
+    agentProposalEl.innerHTML = '';
+    currentProposal = null;
+    return;
+  }
+  if (action !== 'apply') return;
+  if (!currentProposal || !loadedDoc?.docId) {
+    renderProposalError('Lost the doc context. Reload and try again.');
+    return;
+  }
+  // Lock buttons during the API call so a double-click doesn't fire twice.
+  agentProposalEl.querySelectorAll('button').forEach((b) => (b.disabled = true));
+  const res = await sendBg({
+    type: 'docs-apply-edit',
+    docId: loadedDoc.docId,
+    containsText: currentProposal.containsText,
+    replaceText: currentProposal.replaceText,
+  });
+  if (res?.ok) {
+    agentProposalEl.innerHTML =
+      `<div class="docs__panel docs__panel--meta" style="color:#86efac">` +
+      `Applied. ${res.occurrencesChanged} change${res.occurrencesChanged === 1 ? '' : 's'} written to the doc. ` +
+      `Cmd/Ctrl+Z in Docs reverts.</div>`;
+    currentProposal = null;
+    showToast('Edit applied to your Doc.');
+  } else {
+    renderProposalError(res?.error || 'Apply failed.', res?.hint);
+  }
+}
+
+agentProposeBtn?.addEventListener('click', async () => {
+  const userRequest = (agentInputEl.value || '').trim();
+  if (!userRequest) {
+    agentInputEl.focus();
+    return;
+  }
+  if (!loadedDoc) {
+    renderProposalError('Read a doc first so the agent has something to work on.');
+    return;
+  }
+  agentProposeBtn.disabled = true;
+  agentProposalEl.innerHTML = `<div class="docs__panel docs__panel--meta">Thinking…</div>`;
+  const res = await sendBg({
+    type: 'docs-propose-edit',
+    userRequest,
+    passage: loadedDoc.fullText || '',
+    docTitle: loadedDoc.title || '',
+  });
+  agentProposeBtn.disabled = false;
+  if (res?.tool === 'propose_edit' && res.input) {
+    renderProposal(res.input);
+  } else if (res?.assistantMessage) {
+    renderProposalError(res.assistantMessage);
+  } else {
+    renderProposalError(res?.error || 'No proposal returned.', res?.hint);
+  }
+});
+
+// Submit on Enter for ergonomics — small input, the user is keyboard-led.
+agentInputEl?.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' && !ev.shiftKey) {
+    ev.preventDefault();
+    agentProposeBtn?.click();
   }
 });
 

@@ -62,15 +62,18 @@
 
   <div class="card">
     <h3>Google Docs (optional, opt-in only)</h3>
-    <p>Counter can connect to your Google account so it can read the Google Doc you currently have open and use it as the source for an oral exam drill. This is strictly opt-in. The flow is:</p>
+    <p>Counter can connect to your Google account so it can read the Google Doc you currently have open, use it as the source for an oral exam drill, and (with your explicit confirmation) apply targeted text edits the AI proposes. This is strictly opt-in and every write is gated on your manual <strong>Apply to Doc</strong> click. The flow is:</p>
     <ul>
       <li>You click <strong>Connect</strong> in the side panel's Docs strip.</li>
-      <li>Google's OAuth consent screen opens. You choose your account and approve the requested scopes (<code>documents.readonly</code> and <code>userinfo.email</code>).</li>
+      <li>Google's OAuth consent screen opens. You choose your account and approve the requested scopes (<code>documents</code> for read + write, <code>userinfo.email</code> to display the connected account in the side panel).</li>
       <li>Chrome stores a short-lived access token in its own <code>chrome.identity</code> cache, which the extension reads but never copies, never persists, and never transmits anywhere except to Google's official APIs.</li>
       <li>When you click <strong>Read active doc</strong>, the extension reads the URL of your active tab, extracts the document ID, calls <code>https://docs.googleapis.com/v1/documents/{docId}</code> with your token, and shows the document title + first 600 characters in the side panel.</li>
+      <li>If you ask the agent to sharpen a specific passage, the doc text and your request are sent to <code>https://debateai.com/api/docs-agent</code>, which proxies the call to Anthropic Claude with one tool (<code>propose_edit</code>) and returns the proposed replacement. The agent never writes to your doc on its own.</li>
+      <li>The proposal renders inline in the side panel as a diff. If you click <strong>Apply to Doc</strong>, the extension calls <code>documents.batchUpdate</code> with a single <code>replaceAllText</code> request that swaps the exact agent-proposed text with the new text. If you click <strong>Reject</strong>, nothing is written.</li>
+      <li>All edits are reversible from inside Google Docs via Cmd/Ctrl+Z and the version history (File → Version history). The extension never deletes content beyond the specific span the agent proposed and you confirmed.</li>
       <li>Clicking <strong>Disconnect</strong> revokes the cached token immediately. You can also revoke access at any time from <a href="https://myaccount.google.com/connections" target="_blank" rel="noopener">your Google account's connected apps page</a>.</li>
     </ul>
-    <p>The extension does NOT iterate over other tabs, does NOT read documents in the background, and does NOT transmit doc content to <code>debateai.com</code> or any third party other than Google's APIs themselves. Doc content shown in the side panel exists only for the duration of the current panel view.</p>
+    <p>The extension does NOT iterate over other tabs, does NOT read documents in the background, does NOT auto-apply edits, and does NOT transmit doc content to anyone except (a) the Google Docs API directly and (b) the <code>/api/docs-agent</code> endpoint for the duration of generating one edit proposal. Doc content shown in the side panel exists only for the duration of the current panel view.</p>
   </div>
 
   <h2>What the extension never does</h2>

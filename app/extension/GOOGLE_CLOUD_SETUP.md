@@ -111,9 +111,14 @@ re-sign offline `.crx` builds with the same identity.
 4. **Save and Continue**
 5. **Scopes** screen → **Add or Remove Scopes** → search for and
    select:
-   - `https://www.googleapis.com/auth/documents.readonly`
+   - `https://www.googleapis.com/auth/documents` (read + write — required
+     for the agent to apply user-confirmed edits to the active doc)
    - `https://www.googleapis.com/auth/userinfo.email`
    - **Update** → **Save and Continue**
+   - This scope is treated as a "sensitive" scope by Google. While in
+     Testing mode (next step) you can use it without verification; for
+     production launch on the Web Store, plan for OAuth verification
+     (~2-6 weeks security review).
 6. **Test users** screen — add **your own Google account email**
    while the app is in Testing mode. (You can later "Publish app" to
    open it to all Google accounts; for first-week dogfooding stay in
@@ -210,19 +215,28 @@ That's Stage 1 working end-to-end.
 
 ---
 
-## What changes when Stage 2 ships (preview)
+## Stage 2 is now live
 
-When the agent moves from read-only to making suggestions:
+The setup above already requests the broader `documents` scope (read +
+write), which is what Stage 2 needs. You don't have to redo anything.
 
-1. Update the manifest's `oauth2.scopes` to swap
-   `documents.readonly` for `documents` (read + write).
-2. In Google Cloud → OAuth consent screen → **Edit App** → Scopes →
-   add the new scope.
-3. Users who already connected will get re-prompted on next Connect to
-   approve the broader scope.
+What Stage 2 unlocks in the side panel:
 
-Stage 2 does NOT require a new OAuth client; the existing one keeps
-working with broader scopes.
+- After **Read active doc** loads your document, an agent input appears
+  below the snippet ("Sharpen this. e.g. 'make the thesis more direct'")
+- Type a request and hit **Propose** (or Enter)
+- Counter sends the doc passage + your request to `/api/docs-agent`,
+  which calls Claude with one tool (`propose_edit`)
+- The proposal renders as a diff card: red-strikethrough for the existing
+  text, green for the replacement, italic for the agent's reason
+- **Apply to Doc** writes the single replacement via
+  `documents.batchUpdate`. Cmd/Ctrl+Z in Docs reverts.
+- **Reject** discards the proposal; nothing is written
+
+If the agent picks text that doesn't appear exactly once in the passage,
+the server-side guardrails surface that as an error before the side
+panel ever shows an Apply button — the user is asked to refine the
+request.
 
 ---
 

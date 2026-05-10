@@ -141,7 +141,12 @@ The Counter side panel renders an iframe of debateai.com's voice round and typed
 
 **Host permission `https://docs.googleapis.com/*` and `https://www.googleapis.com/*`**
 ```
-Required to call the Google Docs API (read documents the user explicitly chose to read by clicking "Read active doc") and the Google OAuth userinfo endpoint (used to display the connected account's email in the side panel). These calls happen only after the user has explicitly authenticated via Google's OAuth consent screen and only on the user's manual click on "Read active doc".
+Required to call the Google Docs API and the Google OAuth userinfo endpoint after the user has explicitly authenticated. The extension reads documents only when the user clicks "Read active doc"; it writes documents only when the user clicks "Apply to Doc" on a specific edit proposal the user reviewed in the side panel. Each API call is gated on a manual user action; nothing happens in the background. The userinfo endpoint is used solely to display the connected account's email in the side panel for confirmation.
+```
+
+**OAuth scope `https://www.googleapis.com/auth/documents`**
+```
+Required for the user-confirmed editing flow: the user reads their doc, asks Counter to sharpen a specific passage, reviews the agent's proposed replacement in a diff card, and clicks "Apply to Doc" to commit the single replacement. Without write access, only the read-and-quiz drill is possible. Every write goes through documents.batchUpdate with one replaceAllText request scoped to the exact text the user confirmed; the extension never edits docs in the background, never deletes spans the user did not see, and never iterates over multiple docs.
 ```
 
 **Content script on `<all_urls>`**
