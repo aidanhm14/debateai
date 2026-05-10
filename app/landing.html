@@ -2296,30 +2296,94 @@ button{font-family:inherit;cursor:pointer}
     })();
     </script>
 
-    <!-- CTA row sits below BOTH hero columns (orb on the left, typing
-         animation on the right). The primary now points at the
-         /spar matchmaking flow per the strategy pivot 2026-05-09 —
-         AI is the fallback at 60s, not the headline. Old 'Spar with
-         an AI →' demoted to a secondary surface; new visitors who
-         want straight-to-AI can still get there in one click. -->
-    <div class="hero-cta-row">
-      <a href="/spar" class="hero-cta hero-cta-primary" style="display:inline-flex;align-items:center;gap:8px">
-        <span style="width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff;display:inline-block;animation:rec-pulse 1.6s ease-in-out infinite"></span>
-        Find a sparring partner. 30 seconds.
+    <!-- Hero CTA — option A redesign 2026-05-10. ONE primary action
+         (typed-mode debate, the free funnel that hits the 5-msg cap and
+         drives the $5 conversion) plus a quiet text-link rail for the
+         three alternate paths. The previous row had four equal-weight
+         CTAs in three different gradients which gave new visitors no
+         hint about what to actually click. Single-primary forces the
+         decision while keeping every other path one click away. -->
+    <div class="hero-cta-stack">
+      <a href="/debate-ai" class="hero-cta hero-cta-primary hero-cta-mega">
+        Start a debate <span class="hero-cta-arrow">→</span>
       </a>
-      <a href="/voice-debate" class="hero-cta hero-cta-voice" data-voice-cta-on style="display:inline-flex;align-items:center;gap:8px">
-        <span style="width:7px;height:7px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 2px rgba(255,255,255,.7),0 0 8px rgba(220,38,38,.9);display:inline-block;animation:rec-pulse 1.4s ease-in-out infinite"></span>
-        Voice AI · Talk out loud
-      </a>
-      <!-- Swapped in when /api/voice-status returns enabled:false. Hidden
-           by default so it never flashes on a normal load. See
-           voice-status.js and the gating script at the bottom of this file. -->
-      <a href="/debate-ai" class="hero-cta hero-cta-secondary" data-voice-cta-off hidden style="display:none;align-items:center;gap:8px">
-        Try typed mode <span style="opacity:.6;font-weight:600;font-size:.86em">· voice at capacity</span>
-      </a>
-      <a href="/debate-ai" class="hero-cta hero-cta-secondary">Spar with the AI →</a>
-      <a href="/app#case" class="hero-cta hero-cta-secondary">Prep</a>
+      <div class="hero-cta-rail" role="navigation" aria-label="Other ways to debate">
+        <a href="/spar" class="hero-cta-rail-link">Find a partner</a>
+        <span class="hero-cta-rail-sep" aria-hidden="true">·</span>
+        <a href="/voice-debate" class="hero-cta-rail-link hero-cta-rail-pro" data-voice-cta-on>
+          Voice <span class="hero-cta-rail-tag">Pro</span>
+        </a>
+        <!-- Swapped in when /api/voice-status returns enabled:false. -->
+        <a href="/debate-ai" class="hero-cta-rail-link" data-voice-cta-off hidden style="display:none">
+          Voice at capacity <span class="hero-cta-rail-tag" style="color:var(--text-ghost);border-color:var(--border)">typed only</span>
+        </a>
+        <span class="hero-cta-rail-sep" aria-hidden="true">·</span>
+        <a href="/app#case" class="hero-cta-rail-link">Prep a case</a>
+      </div>
     </div>
+
+    <style>
+      /* Option A hero CTA — single primary + text-link rail */
+      .hero-cta-stack{
+        display:flex;flex-direction:column;align-items:center;gap:14px;
+        margin-top:28px;
+      }
+      .hero-cta-mega{
+        /* Override the standard hero-cta-primary sizing so this one
+           obviously dominates. ~520px max width on desktop, fluid on
+           phone. Pill shape matches the brand language. */
+        font-size:1.05rem !important;
+        padding:18px 36px !important;
+        min-width:min(520px,86vw);
+        text-align:center;
+        display:inline-flex !important;align-items:center;justify-content:center;gap:10px;
+        font-weight:900 !important;letter-spacing:-.005em !important;
+      }
+      .hero-cta-mega .hero-cta-arrow{
+        font-weight:700;transition:transform .2s;
+      }
+      .hero-cta-mega:hover .hero-cta-arrow{transform:translateX(4px)}
+      /* Text-link rail. Inline pills separated by dots. Each link is
+         text-weight; hover bumps to full text color. Voice (Pro) gets
+         a small gold-amber tag to mark the upsell without making it
+         a primary action. */
+      .hero-cta-rail{
+        display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;
+        justify-content:center;
+        font-size:.84rem;font-weight:600;
+        color:var(--text-dim);
+        max-width:520px;
+      }
+      .hero-cta-rail-link{
+        color:var(--text-dim) !important;
+        text-decoration:none;padding:4px 2px;
+        transition:color .15s;
+        display:inline-flex;align-items:center;gap:6px;
+      }
+      .hero-cta-rail-link:hover{color:var(--text) !important}
+      .hero-cta-rail-pro{color:#fbbf24 !important}
+      .hero-cta-rail-pro:hover{color:#f59e0b !important}
+      .hero-cta-rail-tag{
+        font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+        padding:2px 7px;border-radius:999px;
+        background:rgba(251,191,36,.12);
+        border:1px solid rgba(251,191,36,.4);
+        color:#fbbf24;
+      }
+      .hero-cta-rail-sep{
+        color:var(--text-ghost);font-weight:700;opacity:.7;user-select:none;
+      }
+      [data-theme="light"] .hero-cta-rail-link{color:rgba(0,0,0,.55) !important}
+      [data-theme="light"] .hero-cta-rail-link:hover{color:#1a1a1f !important}
+      [data-theme="light"] .hero-cta-rail-pro{color:#d97706 !important}
+      [data-theme="light"] .hero-cta-rail-pro:hover{color:#b45309 !important}
+      [data-theme="light"] .hero-cta-rail-tag{color:#d97706;background:rgba(217,119,6,.10);border-color:rgba(217,119,6,.35)}
+      @media(max-width:560px){
+        .hero-cta-mega{font-size:.95rem !important;padding:15px 24px !important}
+        .hero-cta-rail{font-size:.78rem;gap:8px}
+        .hero-cta-rail-tag{font-size:.55rem;padding:1px 6px}
+      }
+    </style>
 
     <div style="margin-top:18px;display:flex;justify-content:center">
       <button id="googleSignupBtn" type="button" class="google-signup-btn">
