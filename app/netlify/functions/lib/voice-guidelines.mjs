@@ -610,8 +610,69 @@ OUTPUT FORMAT (markdown allowed; the app renders this as styled text):
 **Tighter rewrites.** [1-3 sharpened versions of the motion that survive Opp better.]
 **Next move.** [One agentic line: prep Gov / steelman Opp / run a tighter rewrite.]
 
-Length: 250-450 words. Tight. No throat-clearing. No "let's explore both sides." No em-dashes — periods, commas, semicolons only.
+Length: 400 words HARD CAP. Tight beats comprehensive. If you find yourself writing a fifth bullet under any heading, cut the weakest one. No throat-clearing. No "let's explore both sides." No em-dashes — periods, commas, semicolons only.
 `;
+
+// Per-format triage overlays. The universal MOTION_TRIAGE block above is
+// APDA-flavored by default (its vocabulary — "tight," "squirrel," "hack" —
+// comes from APDA prep room culture). For non-APDA parli formats the
+// triage substance is the same but the priorities and slang shift. These
+// overlays append a short, format-specific addendum so the memo speaks
+// the format's native language. Keyed by the same _voiceFormat the
+// brain endpoint already passes through.
+const MOTION_TRIAGE_FORMATS = {
+  apda: '',  // base block IS APDA. No overlay needed.
+  bp: `
+
+────────────────────────────────────────────────────────
+BP-SPECIFIC TRIAGE OVERLAY
+────────────────────────────────────────────────────────
+This is a BP motion. Layer the following on top of the universal triage:
+- BP rounds turn on the HALF-CALL: which two benches (OG/CG vs OO/CO) get the easier ground? Verdicts in BP read as "Gov half / Opp half / Open." Use those terms.
+- Closing benches need EXTENSION SPACE. Flag whether the motion gives Closing room to introduce a meaningfully different argument (a real extension), or whether it forces Closing to just re-warrant Opening (= dead bench). A motion is BP-loose if Closing on either side has no extension path.
+- POI culture: BP rewards strategic POIs. Note whether the motion has obvious POI-bait moments where Opp should hit Gov mid-speech.
+- Whip strategy: BP whips weigh, not introduce. If the motion produces clash that's hard to weigh (apples-to-oranges impacts), flag it — that hurts whip teams disproportionately.
+- Vocabulary: "OG/OO/CG/CO," "extension," "dead bench," "half-call," "POI bait," "whip-able clash," "knife." Don't say "PM/LO" (that's APDA).
+`,
+  asian: `
+
+────────────────────────────────────────────────────────
+ASIAN PARLI / WSDC TRIAGE OVERLAY
+────────────────────────────────────────────────────────
+This is an Asian Parliamentary or WSDC motion. Layer the following on top of the universal triage:
+- Asian Parli has a REPLY SPEECH (the 4-min biased adjudication at the end). The reply belongs to whichever side has the cleaner narrative, NOT necessarily the side with more arguments. Flag which side gets the easier reply going in — that's a real strategic asymmetry.
+- Three speakers per side means more SPECIALIZATION space than BP. The motion is Asian-tight if it forces all three speakers on one bench to argue overlapping ground (= weak division of labor). A good Asian motion creates clean carve-outs across speakers.
+- WSDC judging weighs STYLE / CONTENT / STRATEGY separately. A motion that produces high content but is hard to deliver stylishly (technical / data-heavy) advantages content-strong teams. A motion that rewards storytelling advantages style-strong teams. Note the bias.
+- Indian-circuit motions often involve dev-economy, federalism, caste, or regional geopolitics. If this motion is in those areas, lean on real Indian context (Tamil Nadu mid-day meals, MGNREGA, Article 370, Niti Aayog, RBI) rather than US/EU defaults.
+- Vocabulary: "PM/DPM/Whip," "reply speech," "matter / manner / method," "first / second / third proposition." Don't borrow APDA "PMC" or BP "extension."
+`,
+  worlds: `
+
+────────────────────────────────────────────────────────
+WORLDS / WUDC TRIAGE OVERLAY
+────────────────────────────────────────────────────────
+This is a Worlds (WUDC) motion. Layer the following on top of the universal triage:
+- WUDC is BP structurally so the half-call still applies, but motions are usually broader and more values-laden. Flag whether the motion is a POLICY motion (specific actor + action) or a VALUE motion (THBT / THR). Strategy differs: policy motions reward mech + impacts; value motions reward framework wars.
+- THBT motions are Gov-heavy by default (Gov gets to define the value claim). Flag asymmetry early.
+- THR (This House Regrets) motions live or die on the COUNTERFACTUAL. Gov has to construct a coherent alternative world; if the motion makes the counterfactual obvious or absurd, one side is locked.
+- IR / development / global-south motions dominate the WUDC bank. Real regional context wins over US-centric framings. Specific actors (UNHCR, AU, ASEAN, IMF, World Bank, BRICS) outperform "the international community."
+- POI strategy at WUDC is sharper than domestic BP — judges read POI-handling as a manner score. Flag motions where POIs are the strategic crux.
+- Vocabulary: "OG/OO/CG/CO," "extension," "framework first," "counterfactual," "global comparative." Cite WUDC final motions when the parallel is obvious (Vietnam 2023, Belgrade 2024, etc.) but only if you're confident the citation is real.
+`,
+};
+
+// Resolve the right format-specific triage overlay. Returns '' for
+// unknown formats so the universal block stands alone. Lowercased +
+// normalized to handle 'BP' / 'British' / 'british-parliamentary'.
+function motionTriageOverlay(format) {
+  const f = String(format || '').toLowerCase();
+  if (!f) return '';
+  if (f.indexOf('apda') >= 0) return MOTION_TRIAGE_FORMATS.apda;
+  if (f.indexOf('bp') >= 0 || f.indexOf('british') >= 0) return MOTION_TRIAGE_FORMATS.bp;
+  if (f.indexOf('asian') >= 0 || f.indexOf('wsdc') >= 0) return MOTION_TRIAGE_FORMATS.asian;
+  if (f.indexOf('worlds') >= 0 || f.indexOf('wudc') >= 0) return MOTION_TRIAGE_FORMATS.worlds;
+  return '';
+}
 
 const FULL = CORE + STRATEGY + CHARACTER + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY + VOICE_REINFORCEMENT;
 
@@ -1106,6 +1167,14 @@ export function applyVoiceGuidelines(body) {
   if (format && feature !== 'judge' && feature !== 'feedback' && feature !== 'adaptive') {
     const fv = forFormat(format);
     if (fv) voice = voice + '\n' + fv;
+  }
+  // Triage feature gets a small format-specific overlay on top of the
+  // universal MOTION_TRIAGE block. APDA returns '' (the base block IS
+  // APDA-flavored). BP / Asian / Worlds get format-native vocabulary +
+  // strategic priorities so the memo speaks the right prep-room language.
+  if (feature === 'motionTriage' && format) {
+    const overlay = motionTriageOverlay(format);
+    if (overlay) voice = voice + '\n' + overlay;
   }
   // Append the topic primer if the client passed one (e.g., 'finance' for
   // motions about banks / markets / regulation). Skip for judge/feedback/

@@ -3754,17 +3754,44 @@ function App(){
     } catch {}
   };
 
-  // Motion triage. APDA pre-prep "is this a tight case?" — runs the
-  // MOTION_TRIAGE voice block server-side via _voiceFeature: 'motionTriage'.
-  // Output is a 250-450 word structured memo (Verdict / Leak vectors /
-  // Ground / Empirical knockout / Tighter rewrites / Next move). Mirrors
-  // the in-round tight-call definition (~line 3034) so pre-prep triage
-  // and in-round tight calls speak the same language. APDA-only by design
-  // for now; other parli formats can opt in later.
-  const runTriage = async () => {
-    const m = (motion || '').trim();
+  // Formats eligible for the pre-prep triage surface. Parli-only on
+  // purpose: triage vocabulary ("tight," "squirrel," "half-call,"
+  // "extension," "reply weighing," "POI bait") is parli-native. LD / PF /
+  // Policy / Congress / MUN have totally different pre-prep heuristics
+  // (T flow, evidence quality, framework lit, bill text) and would need
+  // their own voice blocks; not free-rolling those formats into a memo
+  // that uses the wrong language.
+  const TRIAGE_FORMATS = ['apda','bp','asian','worlds'];
+  const triageEligible = TRIAGE_FORMATS.indexOf(format) !== -1;
+  // Cache keyed by format|motion. Hit avoids re-burning a Sonnet call
+  // (~$0.04 + a free-tier request) when the user re-clicks on a motion
+  // they already triaged this session. Component-scoped via useRef so it
+  // doesn't trigger renders, and isn't persisted (next page load = fresh).
+  const triageCache = useRef({});
+  const triageCacheKey = (fmt, m) => (fmt || 'unknown') + '|' + (m || '').trim();
+
+  // Motion triage. Pre-prep "is this a tight case?" runs the MOTION_TRIAGE
+  // voice block server-side via _voiceFeature: 'motionTriage'. Output is
+  // a ≤400-word structured memo (Verdict / Leak vectors / Ground /
+  // Empirical knockout / Tighter rewrites / Next move). Aligned with the
+  // in-round tight-call definition (~line 3034) so pre-prep triage and
+  // in-round tight calls speak the same language. Per-format overlays in
+  // voice-guidelines.mjs add BP / Asian / Worlds register on top of the
+  // APDA-flavored base. Accepts motionOverride so the clickable rewrite
+  // buttons can pass the new motion synchronously without waiting for
+  // the setMotion state update to flush.
+  const runTriage = async (motionOverride) => {
+    const m = ((motionOverride != null ? motionOverride : motion) || '').trim();
     if (!m) return;
-    if (format !== 'apda') return;
+    if (TRIAGE_FORMATS.indexOf(format) === -1) return;
+    // Cache hit — return instantly, don't burn a request.
+    const key = triageCacheKey(format, m);
+    const cached = triageCache.current[key];
+    if (cached) {
+      setTriage(cached);
+      setTriageError('');
+      return;
+    }
     setTriage('');
     setTriageError('');
     setTriageBusy(true);
@@ -3775,12 +3802,12 @@ function App(){
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 1400,
-          system: 'You are an APDA debate coach running pre-prep motion triage. The user has not committed to prep yet. Output the structured memo per the format and rules in the voice guideline. No throat-clearing. Verdict-first.',
-          messages: [{ role:'user', content: `Motion: "${m}". Run the APDA triage.` }],
+          system: 'You are a parli debate coach running pre-prep motion triage. The user has not committed to prep yet. Output the structured memo per the format and rules in the voice guideline. No throat-clearing. Verdict-first.',
+          messages: [{ role:'user', content: `Motion: "${m}". Run the triage.` }],
           stream: false,
           _feature: 'debate-ai-motion-triage',
           _voiceFeature: 'motionTriage',
-          _voiceFormat: 'apda',
+          _voiceFormat: format,
         }),
       });
       if (!r.ok) {
@@ -3794,8 +3821,10 @@ function App(){
       }
       const d = await r.json();
       const text = (d && d.content && d.content[0] && d.content[0].text || '').trim();
-      if (text) setTriage(text);
-      else setTriageError('Empty response. Try again.');
+      if (text) {
+        triageCache.current[key] = text;
+        setTriage(text);
+      } else setTriageError('Empty response. Try again.');
     } catch (e) {
       setTriageError('Triage failed. Check your connection and try again.');
     } finally {
@@ -3803,8 +3832,33 @@ function App(){
     }
   };
   // Reset stale triage when the motion changes — a memo about an old
-  // motion would mislead. Keep it cheap; just clear the state.
+  // motion would mislead. Cache survives so re-running on a previously
+  // triaged motion is instant (no fetch).
   useEffect(() => { setTriage(''); setTriageError(''); }, [motion]);
+  // Parse the AI-emitted "Tighter rewrites." section into clickable
+  // motion strings. The voice block tells the AI to format these as a
+  // numbered list under a **Tighter rewrites.** heading. Tolerant of
+  // both quoted ("...") and bare forms, and stops at the next bold
+  // heading so it doesn't slurp the "Next move" line.
+  const parseTighterRewrites = (memo) => {
+    if (!memo) return [];
+    const m = memo.match(/\*\*Tighter rewrites\.?\*\*\s*([\s\S]*?)(?=\n\s*\*\*[A-Z]|$)/);
+    if (!m) return [];
+    const block = m[1];
+    const items = [];
+    const re = /^\s*\d+\.\s+(?:"([^"]+)"|(.+?))\s*$/gm;
+    let mm;
+    while ((mm = re.exec(block)) !== null) {
+      const text = (mm[1] || mm[2] || '').trim().replace(/^["']|["']$/g, '');
+      // Skip prose-only lines (e.g. "Flips the default..." trailing
+      // explanations). Heuristic: a real rewrite starts with a motion
+      // verb / clause familiar to debaters.
+      if (text && text.length > 12 && /^(THW|THBT|THR|THS|TH |This [Hh]ouse)/.test(text)) {
+        items.push(text);
+      }
+    }
+    return items;
+  };
   // Tiny renderer for the triage memo. The AI emits **bold** section
   // labels per the voice block. We tokenize so labels render as <strong>
   // without dangerouslySetInnerHTML (no XSS surface). Plain text otherwise;
@@ -5647,30 +5701,67 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           style:{marginTop:0},
         },'⚡ Generate background'),
       ),
-      // APDA pre-prep motion triage. "Is this a tight case?" runs the
-      // MOTION_TRIAGE voice block server-side. APDA-only by design — it's
-      // the format with the most squirrel/hack risk and a real "tight"
-      // vocabulary. Other parli formats can opt in later. Hidden for
-      // non-APDA formats so the surface stays format-honest. The
-      // explainer line under the button defines "tight" in plain debater
-      // register so users new to the term aren't lost.
-      format==='apda' && el('div',{style:{marginTop:10}},
+      // Pre-prep motion triage. "Is this a tight case?" runs the
+      // MOTION_TRIAGE voice block server-side. Parli-only — APDA, BP,
+      // Asian Parli, Worlds — because those are the formats with prep
+      // rooms where motion-triage is a real coaching habit (and where
+      // the vocabulary "tight / loose / squirrel / extension / half"
+      // actually applies). Per-format overlays in voice-guidelines.mjs
+      // shift the register so a BP user gets BP slang, an Asian user
+      // gets Asian-specific reply-speech weighing notes, etc.
+      triageEligible && el('div',{style:{marginTop:10}},
         el('div',{style:{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center'}},
           el('button',{
             className:'cta-ghost',
             disabled:!motion.trim()||triageBusy,
-            onClick:runTriage,
-            title:!motion.trim()?'Type or pick an APDA motion first':'APDA pre-prep read. Tight = motion gives one side an unfair lock. Hard ≠ tight.',
+            onClick:()=>runTriage(),
+            title:!motion.trim()?'Type or pick a motion first':'Parli pre-prep read. Tight = motion gives one side an unfair lock. Hard ≠ tight.',
             style:{marginTop:0,borderColor:'rgba(168,85,247,.4)',color:'#c084fc'},
           }, triageBusy?'Reading…':'Is this a tight case?'),
         ),
         el('div',{style:{textAlign:'center',marginTop:6,fontSize:'.68rem',color:'var(--c-dim)',lineHeight:1.45,fontStyle:'italic',maxWidth:480,margin:'6px auto 0'}},
-          'APDA pre-prep read. ',el('strong',{style:{color:'var(--c-text)',fontStyle:'normal'}},'Tight'),' = motion gives one side an unfair lock. ',el('strong',{style:{color:'var(--c-text)',fontStyle:'normal'}},'Hard ≠ tight.'),' Returns a verdict, where it leaks, ground for both sides, an empirical knockout, and tighter rewrites.',
+          ((FORMATS[format]||{}).name||'Parli')+' pre-prep read. ',el('strong',{style:{color:'var(--c-text)',fontStyle:'normal'}},'Tight'),' = motion gives one side an unfair lock. ',el('strong',{style:{color:'var(--c-text)',fontStyle:'normal'}},'Hard ≠ tight.'),' Returns a verdict, where it leaks, ground for both sides, an empirical knockout, and tighter rewrites.',
         ),
         triageError && el('div',{style:{marginTop:8,padding:'8px 12px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.28)',borderRadius:8,fontSize:'.74rem',color:'#fca5a5',textAlign:'center'}}, triageError),
         triage && el('div',{style:{marginTop:12,padding:'14px 16px',background:'rgba(168,85,247,.05)',border:'1px solid rgba(168,85,247,.22)',borderRadius:10,fontSize:'.84rem',color:'var(--c-text)',lineHeight:1.6,whiteSpace:'pre-wrap',textAlign:'left'}},
           el('div',{style:{fontSize:'.55rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#c084fc',marginBottom:8}},'★ Pre-prep read'),
           renderTriageMd(triage),
+          // Clickable tighter-rewrite buttons. Parsed from the AI's
+          // "Tighter rewrites." section. Click swaps the new motion
+          // into the textarea AND auto-reruns the triage on it (the
+          // override path bypasses the async setMotion flush). Cache
+          // hit on a previously seen rewrite returns instantly.
+          (()=>{
+            const rewrites = parseTighterRewrites(triage);
+            if (!rewrites.length) return null;
+            return el('div',{style:{marginTop:14,paddingTop:12,borderTop:'1px solid rgba(168,85,247,.18)'}},
+              el('div',{style:{fontSize:'.58rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#c084fc',marginBottom:8}},'Try a tighter rewrite →'),
+              el('div',{style:{display:'flex',flexDirection:'column',gap:6}},
+                rewrites.map((r,i)=>el('button',{
+                  key:i,
+                  onClick:()=>{
+                    setMotion(r);
+                    runTriage(r);
+                    // Reset background so it regenerates against the
+                    // new motion when the user starts the round.
+                    try{bgRequestedFor.current='';}catch{}
+                    setBackground('');
+                    setGeneratedBackground('');
+                  },
+                  title:'Swap this motion in + run a fresh triage',
+                  style:{
+                    textAlign:'left',padding:'9px 12px',
+                    background:'rgba(168,85,247,.08)',
+                    border:'1px solid rgba(168,85,247,.28)',
+                    borderRadius:8,color:'var(--c-text)',
+                    fontSize:'.78rem',lineHeight:1.45,
+                    fontFamily:'inherit',cursor:'pointer',
+                    whiteSpace:'normal',
+                  },
+                },r))
+              )
+            );
+          })(),
         ),
       ),
       // Background field (optional manual entry / shows auto-gen output).
