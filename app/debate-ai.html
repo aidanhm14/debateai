@@ -1927,6 +1927,15 @@ const LIMIT = ANON_LIMIT;
 // above (called from outside the component tree) see the latest value.
 let __proStatus = false;
 let __signedInStatus = false;
+// Owner allowlist — these signed-in emails get treated as Pro on the
+// client (matching the server-side bypass in lib/auth.mjs) so the
+// owner doesn't see paywalls on their own product. Compared lowercase.
+const OWNER_EMAILS = new Set([
+  'aidandavidhollinger@gmail.com',
+]);
+function isOwnerEmail(email){
+  return OWNER_EMAILS.has(String(email || '').toLowerCase());
+}
 function isPro(){ return __proStatus; }
 function isSignedIn(){ return __signedInStatus; }
 
@@ -3642,10 +3651,11 @@ function App(){
   const auth = useAuth();
   const { user, team, loading: authLoading, signIn, signOut } = auth;
 
-  // Set global pro status from team data
+  // Set global pro status from team data, with owner-email bypass.
   useEffect(() => {
-    __proStatus = !!(team && (team.plan === 'individual' || team.plan === 'team' || team.plan === 'lifetime'));
-  }, [team]);
+    const planPro = !!(team && (team.plan === 'individual' || team.plan === 'team' || team.plan === 'lifetime'));
+    __proStatus = planPro || isOwnerEmail(user && user.email);
+  }, [team, user]);
 
   // Mirror auth state into the module-level helper. Modules that gate on
   // generation count (callAI, the CTA banners) live outside this component
