@@ -752,14 +752,26 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   // asked to sign in. The auth listener below only adds REAL docs on
   // top once it resolves; if the visitor never signs in, they still
   // get the full seeded experience.
-  if (window.DEBATEAI_DISCLOSURES && typeof window.DEBATEAI_DISCLOSURES.merge === 'function'){
-    allCases = window.DEBATEAI_DISCLOSURES.merge([], { limit: 200 });
-    applyFilters();
-  }
-  if (window.DEBATEAI_THREADS && typeof window.DEBATEAI_THREADS.merge === 'function'){
-    allThreads = window.DEBATEAI_THREADS.merge([], { limit: 100 });
-    renderThreads();
-  }
+  //
+  // CRITICAL: each seed-init call is wrapped in try/catch independently
+  // so a throw inside the seed module (or inside applyFilters /
+  // renderThreads) cannot kill the IIFE before the .tab and
+  // .filter-chip click listeners attach below. The 2026-05-10 d01bd19
+  // hoisting bug burned us because an unwrapped throw here silently
+  // bricked the whole page — buttons rendered but did nothing. Don't
+  // remove these try/catches.
+  try {
+    if (window.DEBATEAI_DISCLOSURES && typeof window.DEBATEAI_DISCLOSURES.merge === 'function'){
+      allCases = window.DEBATEAI_DISCLOSURES.merge([], { limit: 200 });
+      applyFilters();
+    }
+  } catch(e){ console.warn('[community] seed disclosures init failed', e); }
+  try {
+    if (window.DEBATEAI_THREADS && typeof window.DEBATEAI_THREADS.merge === 'function'){
+      allThreads = window.DEBATEAI_THREADS.merge([], { limit: 100 });
+      renderThreads();
+    }
+  } catch(e){ console.warn('[community] seed threads init failed', e); }
 
   // Wait for auth. If signed in, load real docs (the snapshot listeners
   // re-merge seeds). If signed out, the seed pools above are already
