@@ -74,6 +74,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/usage-banner.js"></script>
+<!-- Global UI sound effects. ChatBot fires send/receive/success on
+     submit, AI reply, and ballot-ready respectively. -->
+<script defer src="/js/sfx.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
 <!-- Disclosure guard (length / profanity / link-spam floor) for the
      SharedCases public-publish flow. Loaded everywhere that can
@@ -6944,6 +6947,8 @@ function DebateChat() {
       endRound();
       return;
     }
+    // Audible cue on submit. Synthesized; no asset dependency.
+    try { window.SFX && window.SFX.send(); } catch(e){}
     setInput('');
     const newMsgs = [...messages, {role:'user', text:userMsg}];
     setMessages(newMsgs);
@@ -6977,8 +6982,11 @@ function DebateChat() {
         });
       }, { messages: apiMessages, thinkBudget: 4000, maxTokens: 1400, feature:'debateChat', promptId:'debateChat',
           promptVars: { format: 'accessible', speechRole: speechRole, userStyle: userStyleBlock } });
+      // AI reply landed cleanly. Audible cue.
+      try { window.SFX && window.SFX.receive(); } catch(e){}
     } catch(e) {
       setMessages(prev => [...prev, {role:'assistant', text:'Error: '+e.message}]);
+      try { window.SFX && window.SFX.error(); } catch(e){}
     }
     setLoading(false);
   };
@@ -7010,8 +7018,11 @@ function DebateChat() {
           return updated;
         });
       }, { thinkBudget: 2000, maxTokens: 700, feature: 'judge' });
+      // Ballot landed. Milestone cue — louder than a turn-receive.
+      try { window.SFX && window.SFX.success(); } catch(e){}
     } catch(e) {
       setMessages(prev => [...prev, {role:'verdict', text:'Judge error: '+e.message}]);
+      try { window.SFX && window.SFX.error(); } catch(e){}
     }
     setLoading(false);
   };

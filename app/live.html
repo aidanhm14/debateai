@@ -31,6 +31,10 @@
      is exposed for ad-hoc page events (challenge_post, challenge_accept,
      etc — added inline in this page's script block). -->
 <script defer src="/js/track.js"></script>
+<!-- Global UI sound effects. live.html fires confirm() on post +
+     success() on accept so the high-friction actions get audible
+     feedback alongside the existing toast. -->
+<script defer src="/js/sfx.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -1640,6 +1644,9 @@ button{font-family:inherit}
           publishAcceptance(id, payload);
           notifyAccepted(c, payload);
           try { gtag('event', 'live_accept', { format: c.format, side: c.side === 'pro' ? 'con' : 'pro' }); } catch(e){}
+          // Match-confirmed milestone cue. Louder than a tick — both
+          // parties just locked in.
+          try { window.SFX && window.SFX.success(); } catch(e){}
           toast('Accepted. Both sides emailed; meeting room is on the card.');
           render();
         });
@@ -1925,6 +1932,9 @@ button{font-family:inherit}
     list.unshift(entry);
     saveList(list);
     publishChallenge(entry);
+    // Posted — confirm cue (warm, single-note). Lighter than success()
+    // because the post is a commit but not yet a match.
+    try { window.SFX && window.SFX.confirm(); } catch(e){}
     motionEl.value = '';
     topicLineEl.value = '';
     themeLineEl.value = '';

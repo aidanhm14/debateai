@@ -23,6 +23,12 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
+<!-- Global UI sound effects. Pure Web Audio synthesis, no MP3 assets.
+     Tap-to-enter plays SFX.confirm() alongside the (optional) MP3 hook
+     so visitors get immediate feedback even when the MP3 file is
+     missing or still loading. -->
+<script defer src="/js/sfx.js"></script>
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:#000}
@@ -262,6 +268,9 @@ body{
   function go(href){
     if (navigated) return;
     navigated = true;
+    // Synthesized confirm tone first (instant, no asset dependency),
+    // then the optional richer MP3 hook on top. Either alone is fine.
+    try { window.SFX && window.SFX.confirm(); } catch(e){}
     playHook();
     try { gtag('event','splash_enter',{ via: href === '/landing' ? 'tap' : 'skip' }); } catch(e){}
     // Trigger the press-out animation, then nav. Animation duration

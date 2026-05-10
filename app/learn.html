@@ -36,6 +36,10 @@
 })();</script>
 <!-- Microsoft Clarity. session replay + heatmaps. Configure ID in /js/clarity.js -->
 <script defer src="/js/clarity.js"></script>
+<!-- Global UI sound effects. window.SFX.send() / receive() / success() etc.
+     ChatView fires send + receive on each turn so the user gets audible
+     feedback on submit and on AI reply. -->
+<script defer src="/js/sfx.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/ui.css">
 
@@ -800,9 +804,26 @@ const FALLACIES = [
 
 function ChatView({ messages, input, setInput, onSend, loading, placeholder, children }){
   const chatRef = useRef(null);
+  const prevAiCount = useRef(0);
   useEffect(()=>{
     if(chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   },[messages,loading]);
+  // Audio cue when a new AI message lands. Counts AI messages and
+  // fires SFX.receive() once on each increment. Skips the very first
+  // render so a fresh page load with seeded conversation doesn't
+  // play out-of-context. SFX.send() fires from the wrapped onSend
+  // below so we don't depend on the user's textarea-keypress path.
+  useEffect(()=>{
+    const aiCount = messages.filter(m => m.role === 'ai' || m.role === 'assistant').length;
+    if (aiCount > prevAiCount.current && prevAiCount.current > 0){
+      try { window.SFX && window.SFX.receive(); } catch(e){}
+    }
+    prevAiCount.current = aiCount;
+  },[messages]);
+  function handleSend(){
+    try { window.SFX && window.SFX.send(); } catch(e){}
+    onSend();
+  }
 
   return el(React.Fragment,null,
     // Render chat-area whenever there are messages OR the AI is
@@ -828,8 +849,8 @@ function ChatView({ messages, input, setInput, onSend, loading, placeholder, chi
     ),
     children,
     el('div',{className:'input-row'},
-      el('textarea',{rows:2,placeholder:placeholder||'Type your response...',value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSend()}},disabled:loading}),
-      el('button',{onClick:onSend,disabled:loading||!input.trim()},loading?'Generating…':'Send'),
+      el('textarea',{rows:2,placeholder:placeholder||'Type your response...',value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend()}},disabled:loading}),
+      el('button',{onClick:handleSend,disabled:loading||!input.trim()},loading?'Generating…':'Send'),
     ),
   );
 }
