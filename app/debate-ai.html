@@ -4446,8 +4446,16 @@ function App(){
       }catch(e){
         stopThinking();
         setAiLoading(false);
-        const msg='Something went wrong: '+e.message;
-        setAiText('['+msg+']');
+        // Surface the AI error with both the raw cause and a clear next
+        // action. Generic "Something went wrong" leaves users staring
+        // at a dead orb wondering whether to refresh, retry, or wait.
+        const raw = (e && e.message) || 'unknown error';
+        const hint = /401|sign in/i.test(raw) ? ' Sign in (top right) and retry.'
+          : /429|rate limit|quota|cap/i.test(raw) ? ' You hit your usage cap. /pricing has BYOK $1/mo for unlimited Claude.'
+          : /Failed to fetch|network|offline/i.test(raw) ? ' Network is flaky. Check your connection and tap retry.'
+          : /500|server|backend/i.test(raw) ? ' AI backend hiccupped. Wait 10 seconds and retry, or paste a Claude API key in Settings for instant unlimited.'
+          : ' Tap the orb to retry, or refresh if it sticks.';
+        setAiText('[AI request failed: ' + raw + '.' + hint + ']');
         orb.setMode('idle');
       }
     }
