@@ -12,10 +12,17 @@
    every page reads as one product. Selectors support both conventions:
    landing uses `[data-theme="X"]` on <html>, the older /app + /high-school
    code uses `body.X-theme`. Keeping both lets us migrate page-by-page
-   without breaking either side. ────────────────────────────────────── */
+   without breaking either side.
+   2026-05-10: dropped the bare `body` selector from this default block.
+   It was unconditionally setting GREY tokens on every <body>, which
+   shadowed `[data-theme="light"]` / `[data-theme="crimson"]` set on
+   <html> (body's own scope wins inside body's subtree). Result: light
+   theme was rendering dark backdrops with light-theme text colors —
+   nearly-black `.tier-name` on a `#111` bg on /pricing, etc. The
+   legacy `body.crimson-theme` / `body.light-theme` selectors below
+   still work; they each set their OWN tokens explicitly. */
 :root,
-[data-theme="grey"],
-body{
+[data-theme="grey"]{
   --bg:#111;
   --bg-card:rgba(255,255,255,.03);
   --bg-elev:rgba(20,20,24,.55);
