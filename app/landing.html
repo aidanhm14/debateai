@@ -653,19 +653,57 @@ button{font-family:inherit;cursor:pointer}
 
 /* ── Split grid ────────────────────────────────────── */
 .hero-split{
-  /* Was a 2-col grid with orb on left + chat on right. Orb removed
-     2026-05-10; the chat preview is now the sole hero artifact and
-     centers itself with a sane max-width. Keeping the .hero-split
-     wrapper class so adjacent layout rules (mobile breakpoints,
-     parent margin) still target the right element. */
+  /* 2-column hero: primary CTA stack on the left, animated chat preview
+     on the right. align-items:flex-start anchors the CTA column to the
+     top of the row so the chat card can grow vertically (each motion's
+     rebuttal text is a different length) without nudging the START
+     button down a pixel. Stacks to a single column on narrow screens
+     via the breakpoints further down. */
   display:flex;
+  align-items:flex-start;
   justify-content:center;
+  gap:36px;
+  flex-wrap:wrap;
   margin-top:44px;
   text-align:left;
 }
 .hero-split .hero-right{
+  flex:1 1 420px;
   width:100%;
-  max-width:620px;
+  max-width:560px;
+}
+.hero-split .hero-cta-stack{
+  flex:0 0 auto;
+  width:300px;
+  max-width:100%;
+  /* Top-pad so the START button visually aligns with the chat-card head
+     (which has its own 20px padding + 12px head margin). Keeps the two
+     columns reading as one row instead of one floating above the other. */
+  padding-top:18px;
+}
+.hero-split .hero-cta-mega{
+  /* Override the standalone-mega min-width:520px so the button fits in
+     the narrower left column. The big-pill treatment is restored on
+     mobile, where the column collapses back to full width. */
+  min-width:0 !important;
+  width:100%;
+  font-size:1rem !important;
+  padding:16px 24px !important;
+}
+.hero-split .hero-cta-rail{
+  /* Inside the narrow left column the inline rail wraps 2+1 unevenly.
+     Stack the three pills vertically so the column reads as one
+     coherent CTA group instead of a ragged row. Each pill stretches
+     to column width for visual rhythm with the START button above. */
+  flex-direction:column;
+  align-items:stretch;
+  gap:8px;
+  width:100%;
+  max-width:none;
+}
+.hero-split .hero-cta-rail-link{
+  width:100%;
+  justify-content:center;
 }
 .hero-left{
   display:flex;flex-direction:column;
@@ -811,14 +849,36 @@ button{font-family:inherit;cursor:pointer}
 
 /* ── Responsive collapse ───────────────────────────── */
 @media(max-width:960px){
-  /* hero-split is now a single-column flex (orb removed 2026-05-10);
-     drop the leftover grid-template-columns rule and just tighten
-     spacing for tablet. */
+  /* Collapse the 2-column hero to a vertical stack. CTA stack reads
+     first (primary action above the demo); chat card sits below at
+     full width. */
   .hero-split{
+    flex-direction:column;
+    align-items:center;
     gap:28px;
     text-align:center;
     margin-top:32px;
   }
+  .hero-split .hero-cta-stack{
+    width:100%;
+    max-width:520px;
+    padding-top:0;
+  }
+  .hero-split .hero-cta-mega{
+    /* Restore the dominant pill treatment on mobile single-column. */
+    font-size:1.05rem !important;
+    padding:18px 36px !important;
+  }
+  .hero-split .hero-cta-rail{
+    /* Restore inline rail on mobile — the column expands to full width
+     so the three pills fit comfortably across one line. */
+    flex-direction:row;
+    align-items:center;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:12px;
+  }
+  .hero-split .hero-cta-rail-link{width:auto;justify-content:center}
   .hero-right{min-height:0}
   .hero-right > .mini-chat{width:100%;max-width:100%}
 }
@@ -1668,6 +1728,29 @@ button{font-family:inherit;cursor:pointer}
          hero should sell. The CTAs that used to sit below both columns
          now sit below this single card. -->
     <div class="hero-split">
+      <!-- Left column: primary CTA stack. Anchored top-aligned next to the
+           chat card so the right-side typing animation can grow vertically
+           without bumping the START button down the page. Stacks back to a
+           single column on narrow screens (mobile rules at the bottom of
+           the .hero-split CSS block). -->
+      <div class="hero-cta-stack">
+        <a href="/debate-ai" class="hero-cta hero-cta-primary hero-cta-mega">
+          Start a debate <span class="hero-cta-arrow">→</span>
+        </a>
+        <div class="hero-cta-rail" role="navigation" aria-label="Other ways to debate">
+          <a href="/spar" class="hero-cta-rail-link">Find a partner</a>
+          <span class="hero-cta-rail-sep" aria-hidden="true">·</span>
+          <a href="/voice-debate" class="hero-cta-rail-link hero-cta-rail-pro" data-voice-cta-on>
+            Voice <span class="hero-cta-rail-tag">Pro</span>
+          </a>
+          <!-- Swapped in when /api/voice-status returns enabled:false. -->
+          <a href="/debate-ai" class="hero-cta-rail-link" data-voice-cta-off hidden style="display:none">
+            Voice at capacity <span class="hero-cta-rail-tag" style="color:var(--text-ghost);border-color:var(--border)">typed only</span>
+          </a>
+          <span class="hero-cta-rail-sep" aria-hidden="true">·</span>
+          <a href="/app#case" class="hero-cta-rail-link">Prep a case</a>
+        </div>
+      </div>
       <div class="hero-right">
         <a href="/app#casual" id="heroBetaChatLink" aria-label="Open casual chat with the AI" style="display:block;text-decoration:none;color:inherit;cursor:pointer;transition:transform .2s,box-shadow .2s">
           <div class="beta-chat" id="heroBetaChat" aria-hidden="true" style="margin:0;backdrop-filter:blur(8px)">
@@ -2249,37 +2332,14 @@ button{font-family:inherit;cursor:pointer}
     })();
     </script>
 
-    <!-- Hero CTA — option A redesign 2026-05-10. ONE primary action
-         (typed-mode debate, the free funnel that hits the 5-msg cap and
-         drives the $5 conversion) plus a quiet text-link rail for the
-         three alternate paths. The previous row had four equal-weight
-         CTAs in three different gradients which gave new visitors no
-         hint about what to actually click. Single-primary forces the
-         decision while keeping every other path one click away. -->
-    <div class="hero-cta-stack">
-      <a href="/debate-ai" class="hero-cta hero-cta-primary hero-cta-mega">
-        Start a debate <span class="hero-cta-arrow">→</span>
-      </a>
-      <div class="hero-cta-rail" role="navigation" aria-label="Other ways to debate">
-        <a href="/spar" class="hero-cta-rail-link">Find a partner</a>
-        <span class="hero-cta-rail-sep" aria-hidden="true">·</span>
-        <a href="/voice-debate" class="hero-cta-rail-link hero-cta-rail-pro" data-voice-cta-on>
-          Voice <span class="hero-cta-rail-tag">Pro</span>
-        </a>
-        <!-- Swapped in when /api/voice-status returns enabled:false. -->
-        <a href="/debate-ai" class="hero-cta-rail-link" data-voice-cta-off hidden style="display:none">
-          Voice at capacity <span class="hero-cta-rail-tag" style="color:var(--text-ghost);border-color:var(--border)">typed only</span>
-        </a>
-        <span class="hero-cta-rail-sep" aria-hidden="true">·</span>
-        <a href="/app#case" class="hero-cta-rail-link">Prep a case</a>
-      </div>
-    </div>
-
     <style>
-      /* Option A hero CTA — single primary + text-link rail */
+      /* Hero CTA stack — primary START button + supporting rail. Lives
+         inside .hero-split as the left column on desktop so it can sit
+         beside the chat card without being pushed down when the typing
+         animation grows the card vertically. Stacks back below the chat
+         on mobile (rules at the bottom of the .hero-split CSS). */
       .hero-cta-stack{
         display:flex;flex-direction:column;align-items:center;gap:14px;
-        margin-top:28px;
       }
       .hero-cta-mega{
         /* Override the standard hero-cta-primary sizing so this one
