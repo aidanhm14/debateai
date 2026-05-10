@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Counter — argument linter</title>
+<meta name="description" content="Paste an argument. Get a claim / warrant / impact breakdown plus structural suggestions. No facts added, just structure tightened." />
+<meta name="robots" content="noindex" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0c;
+    --fg: #e8e8ea;
+    --muted: #8a8a92;
+    --dim: #5c5c64;
+    --line: #232328;
+    --chip: #15151a;
+    --chip-hover: #1f1f25;
+    --crimson: #e54545;
+    --crimson-dim: #c83232;
+    --good: #22c55e;
+    --warn: #f59e0b;
+    --bad: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .topbar {
+    flex: 0 0 auto;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand {
+    font-weight: 800;
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .brand::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--crimson);
+    box-shadow: 0 0 0 0 rgba(229, 69, 69, 0.55);
+    animation: pulse 2.4s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(229, 69, 69, 0.55); }
+    70%  { box-shadow: 0 0 0 8px rgba(229, 69, 69, 0); }
+    100% { box-shadow: 0 0 0 0   rgba(229, 69, 69, 0); }
+  }
+  .topbar__title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+  .topbar__sub {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  main {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 14px 16px 28px;
+  }
+  .panel {
+    background: #0f0f14;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 110px;
+    max-height: 240px;
+    resize: vertical;
+    background: var(--chip);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  textarea:focus { outline: 1px solid var(--crimson); border-color: var(--crimson); }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .row__spacer { flex: 1 1 auto; }
+  .btn {
+    appearance: none;
+    background: var(--chip);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .btn:hover { background: var(--chip-hover); }
+  .btn--primary {
+    background: linear-gradient(180deg, var(--crimson), var(--crimson-dim));
+    border-color: rgba(229, 69, 69, 0.6);
+    color: #fff;
+    font-weight: 600;
+  }
+  .btn--primary:hover { filter: brightness(1.07); }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  select {
+    appearance: none;
+    background: var(--chip);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 26px 7px 10px;
+    font: inherit;
+    font-size: 12px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238a8a92' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+  .counter {
+    color: var(--dim);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .counter.is-over { color: var(--bad); }
+  .hint {
+    color: var(--muted);
+    font-size: 11.5px;
+    margin-top: 6px;
+  }
+  .results { display: none; }
+  .results.is-shown { display: block; }
+  .section {
+    margin-bottom: 14px;
+  }
+  .section__h {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .claim {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--fg);
+    padding: 12px 14px;
+    border-left: 3px solid var(--crimson);
+    background: rgba(229, 69, 69, 0.04);
+    border-radius: 0 8px 8px 0;
+  }
+  .warrants { display: flex; flex-direction: column; gap: 8px; }
+  .warrant {
+    background: #0f0f14;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .warrant__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+  }
+  .badge--strong { color: var(--good); border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.08); }
+  .badge--medium { color: var(--warn); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08); }
+  .badge--weak { color: var(--bad); border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); }
+  .warrant__text { font-size: 13.5px; }
+  .warrant__issue {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 4px;
+    font-style: italic;
+  }
+  .impact {
+    background: #0f0f14;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .missing {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .missing__chip {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: var(--warn);
+  }
+  .list { list-style: none; padding: 0; margin: 0; }
+  .list li {
+    padding: 8px 12px;
+    background: #0f0f14;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .list li::before {
+    content: '→ ';
+    color: var(--dim);
+  }
+  .rephrase {
+    background: #0f0f14;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .rephrase__label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--crimson);
+    margin-bottom: 6px;
+  }
+  .rephrase__text {
+    font-size: 13.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
+  .rephrase__copy {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 3px 8px;
+    font-size: 10.5px;
+  }
+  .err {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .loading {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 24px 12px;
+  }
+  .loading::after {
+    content: '';
+    display: inline-block;
+    width: 0;
+    overflow: hidden;
+    vertical-align: bottom;
+    animation: dots 1.2s steps(4) infinite;
+  }
+  @keyframes dots {
+    to { width: 1.2em; }
+  }
+  .toast {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    background: #1a1a1f;
+    color: #fff;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    transform: translateY(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 180ms ease, opacity 160ms ease;
+    z-index: 10;
+  }
+  .toast.is-shown { transform: translateY(0); opacity: 1; }
+  .disclaimer {
+    color: var(--dim);
+    font-size: 10.5px;
+    text-align: center;
+    margin-top: 12px;
+    padding: 0 8px;
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar__row">
+      <span class="brand">Counter · Linter</span>
+    </div>
+    <div class="topbar__title">Tighten an argument.</div>
+    <div class="topbar__sub">Claim, warrants, impact. No facts added. Structure only.</div>
+  </div>
+
+  <main>
+    <div class="panel">
+      <textarea id="input" placeholder="Paste an argument, a paragraph from your essay, or a contention from your case. I'll show you the claim, the warrants holding it up, what's missing, and a tighter rewrite."></textarea>
+      <div class="row">
+        <select id="format" aria-label="Format hint">
+          <option value="">General</option>
+          <option value="APDA">APDA</option>
+          <option value="BP">BP / Worlds</option>
+          <option value="Asian Parli">Asian Parli</option>
+          <option value="Policy">Policy</option>
+          <option value="LD">LD</option>
+          <option value="PF">PF</option>
+          <option value="Congress">Congress</option>
+          <option value="MUN">MUN</option>
+          <option value="Viva">Viva / oral exam</option>
+          <option value="Essay">Essay defense</option>
+        </select>
+        <span class="counter" id="counter">0 / 6000</span>
+        <span class="row__spacer"></span>
+        <button class="btn" id="clearBtn" type="button">Clear</button>
+        <button class="btn btn--primary" id="lintBtn" type="button">Lint argument</button>
+      </div>
+      <div class="hint">No facts get added or invented. The linter rewrites structure, not content.</div>
+    </div>
+
+    <div id="status"></div>
+    <div class="results" id="results"></div>
+    <div class="disclaimer">Coaching, not cheating. The linter never adds evidence or rebuttals you didn't write.</div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // ── Constants ───────────────────────────────────────────────────
+    const MAX_INPUT = 6000;
+    const API_URL = '/api/argument-lint';
+
+    // ── DOM refs ────────────────────────────────────────────────────
+    const inputEl = document.getElementById('input');
+    const formatEl = document.getElementById('format');
+    const counterEl = document.getElementById('counter');
+    const lintBtn = document.getElementById('lintBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const toastEl = document.getElementById('toast');
+
+    function showToast(msg, ms = 2200) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('is-shown');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => toastEl.classList.remove('is-shown'), ms);
+    }
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function updateCounter() {
+      const n = inputEl.value.length;
+      counterEl.textContent = `${n.toLocaleString()} / ${MAX_INPUT.toLocaleString()}`;
+      counterEl.classList.toggle('is-over', n > MAX_INPUT);
+      lintBtn.disabled = n === 0 || n > MAX_INPUT;
+    }
+    inputEl.addEventListener('input', updateCounter);
+    updateCounter();
+
+    clearBtn.addEventListener('click', () => {
+      inputEl.value = '';
+      resultsEl.innerHTML = '';
+      resultsEl.classList.remove('is-shown');
+      statusEl.innerHTML = '';
+      updateCounter();
+      inputEl.focus();
+    });
+
+    // ── Lint flow ───────────────────────────────────────────────────
+    // App Check token attachment is handled globally by /js/app-check.js
+    // (it wraps window.fetch for any /api/* call). We only need to add
+    // an Authorization header for signed-in users.
+    async function runLint() {
+      const text = inputEl.value.trim();
+      if (!text) return;
+      if (text.length > MAX_INPUT) {
+        showToast('Passage too long. Trim it under 6,000 characters.');
+        return;
+      }
+      lintBtn.disabled = true;
+      resultsEl.classList.remove('is-shown');
+      resultsEl.innerHTML = '';
+      statusEl.innerHTML = '<div class="loading">Linting</div>';
+
+      const headers = { 'Content-Type': 'application/json' };
+      try {
+        const user = window.firebase?.auth?.()?.currentUser;
+        if (user) {
+          const idToken = await user.getIdToken();
+          if (idToken) headers['Authorization'] = 'Bearer ' + idToken;
+        }
+      } catch (e) {}
+
+      let res;
+      try {
+        res = await fetch(API_URL, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ text, format: formatEl.value || '' }),
+        });
+      } catch (e) {
+        statusEl.innerHTML = `<div class="err">Network error. Check your connection and try again.</div>`;
+        lintBtn.disabled = false;
+        return;
+      }
+
+      let data = null;
+      try { data = await res.json(); } catch (e) {}
+
+      if (!res.ok || !data?.ok) {
+        const msg = data?.error || `Lint failed (${res.status}).`;
+        statusEl.innerHTML = `<div class="err">${escapeHtml(msg)}</div>`;
+        lintBtn.disabled = false;
+        return;
+      }
+      statusEl.innerHTML = '';
+      renderResult(data.result);
+      lintBtn.disabled = false;
+    }
+    lintBtn.addEventListener('click', runLint);
+    inputEl.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') runLint();
+    });
+
+    function renderResult(r) {
+      if (!r || typeof r !== 'object') {
+        statusEl.innerHTML = `<div class="err">The linter returned an empty response. Try again.</div>`;
+        return;
+      }
+      const claim = r.claim || '(no claim detected)';
+      const warrants = Array.isArray(r.warrants) ? r.warrants : [];
+      const impact = r.impact || {};
+      const missingMoves = Array.isArray(r.missing_moves) ? r.missing_moves : [];
+      const rephrasings = Array.isArray(r.rephrasings) ? r.rephrasings : [];
+      const oppHooks = Array.isArray(r.opposition_hooks) ? r.opposition_hooks : [];
+
+      const html = [];
+
+      html.push(`<div class="section">
+        <div class="section__h">Claim</div>
+        <div class="claim">${escapeHtml(claim)}</div>
+      </div>`);
+
+      if (warrants.length) {
+        html.push(`<div class="section">
+          <div class="section__h">Warrants · ${warrants.length}</div>
+          <div class="warrants">
+            ${warrants.map(w => {
+              const s = String(w.strength || 'medium').toLowerCase();
+              const cls = s === 'strong' ? 'badge--strong' : s === 'weak' ? 'badge--weak' : 'badge--medium';
+              return `<div class="warrant">
+                <div class="warrant__head">
+                  <span class="badge ${cls}">${escapeHtml(s)}</span>
+                </div>
+                <div class="warrant__text">${escapeHtml(w.text || '')}</div>
+                ${w.issue ? `<div class="warrant__issue">${escapeHtml(w.issue)}</div>` : ''}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`);
+      }
+
+      if (impact.text || (impact.missing && impact.missing.length)) {
+        html.push(`<div class="section">
+          <div class="section__h">Impact</div>
+          <div class="impact">
+            <div>${escapeHtml(impact.text || '(no impact landed)')}</div>
+            ${impact.missing && impact.missing.length
+              ? `<div class="missing">${impact.missing.map(m => `<span class="missing__chip">missing: ${escapeHtml(m)}</span>`).join('')}</div>`
+              : ''}
+          </div>
+        </div>`);
+      }
+
+      if (missingMoves.length) {
+        html.push(`<div class="section">
+          <div class="section__h">Structural gaps</div>
+          <ul class="list">
+            ${missingMoves.map(m => `<li>${escapeHtml(m)}</li>`).join('')}
+          </ul>
+        </div>`);
+      }
+
+      if (rephrasings.length) {
+        html.push(`<div class="section">
+          <div class="section__h">Suggested rephrasings</div>
+          ${rephrasings.map((rp, i) => `<div class="rephrase">
+            <button class="btn rephrase__copy" data-copy="${i}" type="button">Copy</button>
+            <div class="rephrase__label">${escapeHtml(rp.label || 'Rewrite')}</div>
+            <div class="rephrase__text">${escapeHtml(rp.text || '')}</div>
+          </div>`).join('')}
+        </div>`);
+      }
+
+      if (oppHooks.length) {
+        html.push(`<div class="section">
+          <div class="section__h">What an opponent attacks</div>
+          <ul class="list">
+            ${oppHooks.map(h => `<li>${escapeHtml(h)}</li>`).join('')}
+          </ul>
+        </div>`);
+      }
+
+      resultsEl.innerHTML = html.join('');
+      resultsEl.classList.add('is-shown');
+
+      // Copy handlers for rephrasings
+      resultsEl.querySelectorAll('[data-copy]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const idx = Number(btn.getAttribute('data-copy'));
+          const text = rephrasings[idx]?.text || '';
+          if (!text) return;
+          try {
+            await navigator.clipboard.writeText(text);
+            showToast('Copied.');
+          } catch (e) {
+            showToast('Copy blocked by browser.');
+          }
+        });
+      });
+
+      // Scroll the results into view inside the panel (matters in the
+      // narrow side-panel viewport).
+      resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── Extension bridge ────────────────────────────────────────────
+    // When loaded inside the Counter side panel (?ext=1), accept payloads
+    // posted from sidepanel.js and prefill + auto-run. Sends a "ready"
+    // ping so the panel can drain its queued pendingAction.
+    (function bridgeInit() {
+      const qs = new URLSearchParams(location.search);
+      const isExt = qs.get('ext') === '1';
+      if (!isExt) return;
+      try {
+        document.documentElement.setAttribute('data-ext', '1');
+      } catch (e) {}
+
+      window.addEventListener('message', (ev) => {
+        if (!ev || !ev.data) return;
+        if (ev.data.type !== 'debateai-ext') return;
+        if (!String(ev.origin || '').startsWith('chrome-extension://')) return;
+        const text = String(ev.data.text || '').trim();
+        if (!text) return;
+        // Soft-cap on ingest. Anything longer than 6k chars gets trimmed
+        // to the front (the introduction is usually where the claim
+        // sits) rather than rejected outright.
+        inputEl.value = text.length > MAX_INPUT ? text.slice(0, MAX_INPUT) : text;
+        updateCounter();
+        // Auto-run only if the action requests it. The "lint-this"
+        // action means the user explicitly asked for a lint, so we run.
+        if (ev.data.action === 'lint-this' || ev.data.action === 'lint') {
+          runLint();
+        }
+      });
+
+      try { window.parent && window.parent.postMessage({ type: 'debateai-ext-ready' }, '*'); } catch (e) {}
+    })();
+
+    // ── Standalone query-param prefill (works outside the extension) ─
+    // /linter.html?text=... lets the user share a link or test the page
+    // without the extension wrapper. The extension bridge above takes
+    // priority if both are present.
+    (function prefillFromQuery() {
+      try {
+        const qs = new URLSearchParams(location.search);
+        const t = qs.get('text');
+        if (t && !inputEl.value) {
+          inputEl.value = t.length > MAX_INPUT ? t.slice(0, MAX_INPUT) : t;
+          updateCounter();
+        }
+        const f = qs.get('format');
+        if (f) {
+          const opt = Array.from(formatEl.options).find((o) => o.value.toLowerCase() === f.toLowerCase());
+          if (opt) formatEl.value = opt.value;
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- Firebase compat SDKs + App Check helper. /js/app-check.js wraps
+       window.fetch to inject the App Check token into every /api/* call,
+       so the linter doesn't need to handle the token by hand. We init
+       Firebase on the load event to match the pattern used by
+       learn.html / voice-debate.html. -->
+  <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
+  <script defer src="/js/app-check.js"></script>
+  <script>
+    window.addEventListener('load', function () {
+      try {
+        if (typeof firebase === 'undefined') return;
+        var CONFIG = {
+          apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+          authDomain: "debateos-78ac5.firebaseapp.com",
+          projectId: "debateos-78ac5",
+          storageBucket: "debateos-78ac5.firebasestorage.app",
+          messagingSenderId: "860359449192",
+          appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+        };
+        if (!firebase.apps.length) firebase.initializeApp(CONFIG);
+      } catch (e) {
+        console.warn('[linter] Firebase init failed', e && e.message);
+      }
+    });
+  </script>
+</body>
+</html>

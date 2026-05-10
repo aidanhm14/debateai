@@ -30,14 +30,18 @@ chrome.sidePanel
   .catch((e) => console.warn('[debateai-ext] sidePanel.setPanelBehavior', e));
 
 chrome.runtime.onInstalled.addListener(() => {
-  // Three context-menu entries for selected text. Each action signals a
-  // different framing to the bridge in debate-ai.html:
+  // Four context-menu entries for selected text. Each action signals a
+  // different framing to the side panel:
+  //   lint-this   -> "Open the linter on this passage" (Grammarly-style
+  //                  structural critique — no voice round, no AI debater,
+  //                  just claim/warrant/impact + suggested rephrasings).
   //   quiz-me     -> "AI, quiz me on this passage" (study-test framing)
   //   cross-exam  -> "AI, defend the opposite; I'll cross-examine you back"
   //   defend-this -> "I'll defend; AI cross-examines me" (oral-exam framing)
-  // All three land on the setup screen with the passage prefilled — the
-  // user picks their format and brain (or jumps straight to voice round).
+  // Lint routes to /linter.html in the iframe; the other three route to
+  // the voice round (default) or typed flow.
   const items = [
+    { id: 'lint-this', title: 'Lint this argument (claim / warrant / impact)', contexts: ['selection'] },
     { id: 'quiz-me', title: 'Quiz me on this passage', contexts: ['selection'] },
     { id: 'defend-this', title: 'Defend this out loud (cross-exam)', contexts: ['selection'] },
     { id: 'cross-exam', title: 'Cross-examine the AI on this', contexts: ['selection'] },
@@ -84,12 +88,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
-  if (command !== 'debate-selection' && command !== 'rebut-selection') return;
+  if (command !== 'debate-selection' && command !== 'rebut-selection' && command !== 'lint-selection') return;
   // debate-selection (Cmd+Shift+D) -> quiz-me framing (the default oral
   // exam drill: AI grills the student on the highlighted passage)
   // rebut-selection (Cmd+Shift+R) -> defend-this framing (student already
   // has a take, AI cross-examines them on it)
-  const action = command === 'rebut-selection' ? 'defend-this' : 'quiz-me';
+  // lint-selection  (Cmd+Shift+L) -> lint-this framing (Grammarly-style
+  // structural critique in the linter pane — no voice round)
+  const action =
+    command === 'lint-selection' ? 'lint-this'
+    : command === 'rebut-selection' ? 'defend-this'
+    : 'quiz-me';
   let text = '';
   if (tab?.id != null) {
     try {

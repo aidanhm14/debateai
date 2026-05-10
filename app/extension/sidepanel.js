@@ -6,22 +6,66 @@
 //   - reload + iframe load-failure handling
 
 const APP_ORIGIN = 'https://debateai.com';
-// Two surfaces under the same brand:
-//  - voice-debate.html  -> default. Voice round (OpenAI Realtime). The
-//                          actual oral-exam drill — student speaks, AI
-//                          examiner asks, AI grades.
-//  - debate-ai.html     -> escape hatch for users who want the typed
-//                          flow (no mic, slower pace, full setup screen).
+// Three surfaces under the same brand. The Mode buttons in the top bar
+// rotate between them; the lint-this context-menu action force-switches
+// to LINT_URL regardless of the current view.
+//  - voice-debate.html  -> Voice round (OpenAI Realtime). The actual oral
+//                          exam drill: student speaks, AI examiner asks,
+//                          AI grades.
+//  - debate-ai.html     -> Typed flow (no mic, full setup screen). Useful
+//                          when the user can't speak right now (library,
+//                          shared room).
+//  - linter.html        -> "Grammarly for debate." Paste any passage; get
+//                          a claim / warrant / impact breakdown with
+//                          structural suggestions. No facts ever added.
 const VOICE_URL = APP_ORIGIN + '/voice-debate.html?ext=1&mode=counter';
 const TYPED_URL = APP_ORIGIN + '/debate-ai.html?ext=1&mode=counter';
+const LINT_URL  = APP_ORIGIN + '/linter.html?ext=1';
 const frame = document.getElementById('frame');
 const pasteBtn = document.getElementById('paste');
 const reloadBtn = document.getElementById('reload');
-const typedBtn = document.getElementById('typed');
+const modeBtn = document.getElementById('mode');
 const retryBtn = document.getElementById('retry');
 const errShade = document.getElementById('errShade');
 const hint = document.getElementById('hint');
 const toast = document.getElementById('toast');
+
+// Which surface is currently in the iframe. Drives the Mode button label
+// + which URL we swap to next.
+function currentMode() {
+  const src = frame.src || '';
+  if (src.includes('/linter.html')) return 'lint';
+  if (src.includes('/debate-ai.html')) return 'typed';
+  return 'voice';
+}
+function setMode(next) {
+  const url = next === 'lint' ? LINT_URL : next === 'typed' ? TYPED_URL : VOICE_URL;
+  if (frame.src === url) return;
+  errShade.classList.remove('is-shown');
+  frame.src = url;
+  updateModeButton();
+}
+function updateModeButton() {
+  if (!modeBtn) return;
+  const m = currentMode();
+  // Rotation order: voice → typed → lint → voice. Label shows the NEXT
+  // mode the button will switch to (matches the convention of the prior
+  // Typed/Voice toggle).
+  const next =
+    m === 'voice' ? 'typed'
+    : m === 'typed' ? 'lint'
+    : 'voice';
+  const label =
+    next === 'lint'  ? 'Lint'
+    : next === 'typed' ? 'Typed'
+    : 'Voice';
+  modeBtn.textContent = label;
+  const title =
+    next === 'lint'  ? 'Switch to the argument linter'
+    : next === 'typed' ? 'Switch to the typed flow'
+    : 'Switch back to the voice round';
+  modeBtn.title = title;
+}
 
 let frameReady = false;
 const queueWhileLoading = [];
@@ -51,11 +95,13 @@ function setHintFromPayload(p) {
   const action = p.action || 'quiz-me';
   // Map action -> verb shown in the side-panel header. Picked so the user
   // can tell at a glance which framing the bridge will apply: AI quizzes
-  // you, AI defends and you cross-exam, or you defend and AI cross-exams.
+  // you, AI defends and you cross-exam, you defend and AI cross-exams,
+  // or the linter inspects the passage without an AI debater at all.
   const verb =
-    action === 'defend-this' ? 'Defending'
-    : action === 'cross-exam' ? 'Cross-examining'
-    : action === 'rebut-this' ? 'Rebutting'
+    action === 'lint-this'   ? 'Linting'
+    : action === 'defend-this' ? 'Defending'
+    : action === 'cross-exam'  ? 'Cross-examining'
+    : action === 'rebut-this'  ? 'Rebutting'
     : action === 'debate-this' ? 'Debating'
     : 'Quiz on';
   if (p.text) {
@@ -72,8 +118,29 @@ async function drainPending() {
     if (!pendingAction) return;
     await chrome.storage.session.remove(['pendingAction']);
     setHintFromPayload(pendingAction);
+    // Lint actions target the linter surface; other actions target the
+    // voice/typed surfaces. If we're on the wrong surface for the
+    // pending action, swap the iframe BEFORE posting — the new page's
+    // bridge mounts and will receive the queued payload via the
+    // "ready" handshake.
+    const action = pendingAction.action || 'quiz-me';
+    const onLinter = currentMode() === 'lint';
+    const wantsLint = action === 'lint-this' || action === 'lint';
+    if (wantsLint && !onLinter) {
+      // Re-queue: setMode triggers an iframe load → frame.addEventListener
+      // 'load' calls drainPending again 350ms later, which will pick up
+      // the still-pending action (we already removed it, so put it back).
+      await chrome.storage.session.set({ pendingAction });
+      setMode('lint');
+      return;
+    }
+    if (!wantsLint && onLinter) {
+      await chrome.storage.session.set({ pendingAction });
+      setMode('voice');
+      return;
+    }
     sendToIframe({
-      action: pendingAction.action,
+      action,
       text: pendingAction.text || '',
       sourceUrl: pendingAction.sourceUrl || '',
       sourceTitle: pendingAction.sourceTitle || '',
@@ -125,16 +192,18 @@ reloadBtn.addEventListener('click', () => {
   frame.src = frame.src;
 });
 
-// Toggle between voice round and typed flow. Both surfaces support the
-// ext bridge, so switching just swaps the iframe src and the next
-// pendingAction (or paste) drains into the new page.
-typedBtn?.addEventListener('click', () => {
-  const onVoice = frame.src.includes('/voice-debate.html');
-  errShade.classList.remove('is-shown');
-  frame.src = onVoice ? TYPED_URL : VOICE_URL;
-  typedBtn.textContent = onVoice ? 'Voice' : 'Typed';
-  typedBtn.title = onVoice ? 'Switch back to the voice round' : 'Switch to typed flow (debate-ai)';
+// Cycle between the three surfaces (voice → typed → lint → voice). All
+// three support the ext bridge, so swapping the iframe src is enough —
+// the next pendingAction (or paste / shortcut) drains into the new page
+// once its bridge mounts and fires "debateai-ext-ready".
+modeBtn?.addEventListener('click', () => {
+  const m = currentMode();
+  const next = m === 'voice' ? 'typed' : m === 'typed' ? 'lint' : 'voice';
+  setMode(next);
 });
+// Initial label reflects whatever the iframe currently shows (in case
+// the side panel was reloaded mid-session).
+updateModeButton();
 
 // ── Google Docs agent strip (Stage 1) ───────────────────────────────
 // All UI state mirrors the SW's reply: connected/disconnected, the
