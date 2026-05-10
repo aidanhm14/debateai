@@ -2484,12 +2484,28 @@ button{font-family:inherit;cursor:pointer}
   .hero-globe-canvas-wrap{
     position:relative;display:flex;justify-content:center;align-items:center;
     width:100%;aspect-ratio:1;max-width:520px;margin:0 auto;
+    /* Reserve space even before the canvas backing buffer is sized.
+       Without this, a layout race on first paint can leave the canvas
+       at 0×0 in some Chrome configurations and the globe never appears. */
+    min-width:240px;min-height:240px;
+    /* Static fallback halo so the section never looks empty if WebGL
+       is disabled (corp policy / Chrome flag / GPU blocklist) or the
+       module import is blocked by an extension. */
+    background:
+      radial-gradient(circle at 50% 52%, var(--accent-glow,rgba(239,68,68,.22)) 0%, rgba(0,0,0,0) 62%);
   }
   .hero-globe-canvas{
     width:100%;height:100%;display:block;
     contain:layout paint;
-    /* Subtle floor glow so the globe doesn't feel pasted onto the page. */
-    filter:drop-shadow(0 18px 40px var(--accent-glow,rgba(239,68,68,.25)));
+    /* drop-shadow(filter) on a constantly-redrawn WebGL canvas is the
+       single biggest source of jank on Chrome — the GPU has to re-blur
+       the entire bitmap every frame. Use a sibling pseudo-glow instead
+       (see ::after below) so the canvas itself paints cheaply. */
+  }
+  .hero-globe-canvas-wrap::after{
+    content:"";position:absolute;left:6%;right:6%;bottom:-4%;height:18%;
+    background:radial-gradient(ellipse at center, var(--accent-glow,rgba(239,68,68,.35)) 0%, rgba(0,0,0,0) 70%);
+    filter:blur(6px);pointer-events:none;z-index:-1;
   }
   @media(max-width:880px){
     .hero-globe-wrap{grid-template-columns:1fr;gap:24px;text-align:center}
@@ -2593,36 +2609,67 @@ button{font-family:inherit;cursor:pointer}
     var pointerInteractionMovement = 0;
     var paused = false;
     var globe = null;
+    var lastFrameT = 0;
     var reduced = false;
     try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
 
     function build(){
       if (globe) { try { globe.destroy(); } catch(e){} globe = null; }
-      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Cap DPR at 1.5. On retina (dpr=2) and 4K (dpr=3) Chrome was
+      // rendering 4×–9× the pixels of the displayed size, which is what
+      // made the globe stagger on mid-tier laptops. 1.5 still looks
+      // crisp at 520px and roughly halves shader cost.
+      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       var rect = canvas.getBoundingClientRect();
       var size = Math.max(240, Math.round(rect.width || 480));
       var c = themeColors();
-      globe = createGlobe(canvas, {
-        devicePixelRatio: dpr,
-        width: size * dpr,
-        height: size * dpr,
-        phi: 0,
-        theta: 0.18,
-        dark: c.dark,
-        diffuse: 1.2,
-        mapSamples: 16000,
-        mapBrightness: c.mapBrightness,
-        baseColor: c.baseColor,
-        markerColor: c.markerColor,
-        glowColor: c.glowColor,
-        markers: MARKERS,
-        onRender: function(state){
-          state.phi = phi + pointerInteractionMovement / 200;
-          if (!pointerInteracting && !paused && !reduced) phi += 0.0035;
-          state.width = size * dpr;
-          state.height = size * dpr;
-        }
-      });
+      try {
+        globe = createGlobe(canvas, {
+          devicePixelRatio: dpr,
+          width: size * dpr,
+          height: size * dpr,
+          phi: 0,
+          theta: 0.18,
+          dark: c.dark,
+          diffuse: 1.2,
+          // 16000 was the cobe demo default. It overdraws for our 520px
+          // surface and was the second biggest source of jank. 11000 is
+          // visually indistinguishable here and ~30% cheaper per frame.
+          mapSamples: 11000,
+          mapBrightness: c.mapBrightness,
+          baseColor: c.baseColor,
+          markerColor: c.markerColor,
+          glowColor: c.glowColor,
+          markers: MARKERS,
+          onRender: function(state){
+            // Frame-time-independent rotation. The previous "phi += 0.0035
+            // per frame" logic ran twice as fast on 120Hz displays and
+            // visibly stuttered when Chrome dropped below 60. dt is
+            // clamped so a tab-resume doesn't fast-forward the spin.
+            var now = performance.now();
+            var dt = lastFrameT ? Math.min(64, now - lastFrameT) : 16;
+            lastFrameT = now;
+            if (!pointerInteracting && !paused && !reduced) {
+              phi += 0.00012 * dt; // ≈ 0.0072 rad / 60Hz frame, smooth on any refresh
+            }
+            state.phi = phi + pointerInteractionMovement / 200;
+            // Re-sync to the canvas's actual rendered size each frame so
+            // a late font load or container resize doesn't leave the
+            // shader drawing into a stale viewport (looks like a
+            // squished or off-center sphere on Chrome).
+            var cw = canvas.clientWidth || size;
+            state.width = cw * dpr;
+            state.height = cw * dpr;
+          }
+        });
+      } catch (err) {
+        // Most likely cause here is no WebGL (corp policy, GPU blocklist,
+        // or the rare Chrome flag combo). Tag the wrapper so the static
+        // fallback halo we set in CSS at least signals "something lives
+        // here," and log so we'd see it in error reporting.
+        canvas.parentElement && canvas.parentElement.setAttribute('data-globe-failed', '1');
+        console.warn('[globe] init failed', err);
+      }
     }
 
     // Drag-to-rotate. Pause auto-spin while dragging.
@@ -2669,7 +2716,24 @@ button{font-family:inherit;cursor:pointer}
       rzTimer = setTimeout(build, 120);
     });
 
+    // Build synchronously so the globe is visible even in environments
+    // where rAF is throttled at load — Reddit / Instagram / TikTok
+    // in-app browsers, backgrounded Chrome tabs, and some embed contexts
+    // all fail to fire rAF until the user explicitly focuses the tab.
+    // (A previous attempt to defer to two rAFs for layout-settling broke
+    // first paint in those environments — invisible globe, no error.)
     build();
+
+    // Belt-and-suspenders: rebuild once on window.load if the canvas's
+    // measured width changed since the initial build. Catches the
+    // layout race where build() ran before grid + web font settled and
+    // the WebGL viewport ended up stretched against the actual element.
+    window.addEventListener('load', function(){
+      if (!globe) { build(); return; }
+      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      var w = canvas.clientWidth;
+      if (w && Math.abs(w - canvas.width / dpr) > 12) build();
+    }, { once: true });
   })();
 </script>
 
