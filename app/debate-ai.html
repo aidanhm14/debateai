@@ -3945,6 +3945,17 @@ function App(){
     try{ return localStorage.getItem('debateos-da-onboarded') === '1' }catch{ return true }
   });
 
+  // Orb-splash on first visit to /debate-ai. Pulsing orb + voice/type CTAs
+  // as the entry, instead of dropping users straight into the setup form.
+  // localStorage-keyed so returning users land on setup directly.
+  const[splashSeen,setSplashSeen]=useState(()=>{
+    try{ return localStorage.getItem('debateos-da-splash-seen') === '1' }catch{ return true }
+  });
+  const dismissSplash=()=>{
+    try{ localStorage.setItem('debateos-da-splash-seen','1') }catch(e){}
+    setSplashSeen(true);
+  };
+
   // Auto-save round state every 30s during speech phase, plus on every
   // speech-boundary state change (idx/log.length deps), plus on tab-close
   // via beforeunload. The beforeunload listener is the safety net: React
@@ -5420,6 +5431,41 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       ),
     ),
 
+  );
+
+  // Orb-splash entry. Renders once for first-time visitors before the
+  // setup form appears, so the app's first impression is a voice-first
+  // hero (matches the landing page intent) rather than a dense form.
+  if(phase==='setup' && !splashSeen) return el('div',{
+    style:{
+      position:'fixed',inset:0,zIndex:9000,
+      background:'radial-gradient(ellipse at top, #1a0408 0%, #0c0c10 60%, #050507 100%)',
+      display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+      padding:'48px 24px',gap:36,overflow:'hidden',
+      animation:'daSplashIn .55s ease-out both',
+    },
+  },
+    el('style',null,
+      '@keyframes daSplashIn{from{opacity:0}to{opacity:1}}'+
+      '@keyframes daSplashOrb{0%,100%{transform:scale(1);box-shadow:0 0 90px rgba(239,68,68,.32),inset 0 0 70px rgba(239,68,68,.22)}50%{transform:scale(1.035);box-shadow:0 0 130px rgba(239,68,68,.55),inset 0 0 100px rgba(239,68,68,.38)}}'+
+      '@keyframes daSplashRing{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.85;transform:scale(1.06)}}'
+    ),
+    el('div',{style:{position:'absolute',top:'-25%',right:'-15%',width:'70%',height:'110%',background:'radial-gradient(ellipse at center, rgba(239,68,68,.18) 0%, transparent 60%)',pointerEvents:'none',zIndex:0}}),
+    el('div',{style:{position:'relative',width:'min(300px,58vw)',aspectRatio:'1',zIndex:2,display:'flex',alignItems:'center',justifyContent:'center'}},
+      el('div',{style:{position:'absolute',inset:'-10%',borderRadius:'50%',background:'radial-gradient(circle, rgba(239,68,68,.35) 0%, rgba(239,68,68,0) 60%)',filter:'blur(28px)',animation:'daSplashRing 3.6s ease-in-out infinite'}}),
+      el('div',{style:{position:'relative',width:'100%',height:'100%',borderRadius:'50%',background:'radial-gradient(circle at 50% 45%, rgba(239,68,68,.38) 0%, rgba(120,20,30,.28) 40%, rgba(20,4,8,.65) 75%, rgba(8,2,4,.85) 100%)',animation:'daSplashOrb 3.4s ease-in-out infinite'}}),
+    ),
+    el('div',{style:{textAlign:'center',zIndex:2,maxWidth:540}},
+      el('h1',{style:{fontSize:'clamp(2rem,5vw,3.4rem)',fontWeight:900,letterSpacing:'-.03em',margin:'0 0 14px',lineHeight:1,color:'#fff',textTransform:'uppercase'}},
+        el('em',{style:{fontStyle:'italic',color:'#ef4444',fontWeight:900}},'Debate'),' AI'
+      ),
+      el('p',{style:{fontSize:'clamp(.95rem,1.6vw,1.1rem)',color:'rgba(255,255,255,.72)',lineHeight:1.5,margin:0}},'Spar a real opponent. Out loud, on the clock, judged like a round.'),
+    ),
+    el('div',{style:{display:'flex',gap:12,zIndex:2,flexWrap:'wrap',justifyContent:'center'}},
+      el('a',{href:'/voice-debate',style:{padding:'14px 30px',background:'#dc2626',color:'#fff',borderRadius:999,fontSize:'.85rem',fontWeight:800,letterSpacing:'.06em',textTransform:'uppercase',textDecoration:'none',boxShadow:'0 10px 28px rgba(220,38,38,.4)',transition:'transform .2s'}},'Talk out loud'),
+      el('button',{onClick:dismissSplash,style:{padding:'14px 30px',background:'transparent',color:'#fff',border:'1px solid rgba(255,255,255,.32)',borderRadius:999,fontSize:'.85rem',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}},'Type a debate'),
+    ),
+    el('button',{onClick:dismissSplash,style:{position:'absolute',bottom:28,zIndex:2,background:'transparent',border:'none',color:'rgba(255,255,255,.42)',fontSize:'.72rem',cursor:'pointer',fontFamily:'inherit',letterSpacing:'.08em',textTransform:'uppercase'}},'Skip intro'),
   );
 
   if(phase==='setup') return el('div',{className:'page'},
