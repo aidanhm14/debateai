@@ -96,8 +96,8 @@
       right.appendChild(a);
     });
 
-    // SFX mute toggle. Sits between the page links and the theme
-    // dots so it's consistent across pages. Inline SVG speaker icon —
+    // SFX mute toggle. Sits between the page links and the auth slot
+    // so it's consistent across pages. Inline SVG speaker icon —
     // not an emoji (per the 2026-05-10 emoji sweep). aria-pressed
     // flips when the user toggles, the strike-through line in the
     // SVG appears via CSS when [aria-pressed=true]. State is read
@@ -119,27 +119,16 @@
       '</svg>';
     right.appendChild(sfxBtn);
 
-    var dots = el('div', {
-      class: 'theme-dots',
-      role: 'group',
-      'aria-label': 'Change lighting',
-      title: 'Change lighting',
-    });
-    [
-      { t: 'crimson', label: 'Crimson, default dark' },
-      { t: 'grey',    label: 'Grey, neutral dark'    },
-      { t: 'light',   label: 'Light, off-white'      },
-    ].forEach(function(opt){
-      var btn = el('button', {
-        class: 'theme-dot',
-        'data-t': opt.t,
-        'aria-label': opt.label,
-        title: opt.label,
-        type: 'button',
-      });
-      dots.appendChild(btn);
-    });
-    right.appendChild(dots);
+    // Theme-dot tray removed 2026-05-10 per brand consolidation. The
+    // crimson/grey/light picker was diluting the brand wall and adding
+    // noise to a topbar that already has 7 links + SFX + a CTA + auth
+    // slot. Existing users with `da-theme=light` saved in localStorage
+    // keep their preference (wireThemeDots still applies it on load);
+    // they just can't toggle anymore. The CSS rules + per-page
+    // <button.theme-dot> markup that still ship in older pages are
+    // inert now (no element exists for them in the topbar). Per-page
+    // inline trays in /live, /live-round, /leaderboard were removed in
+    // the same pass.
 
     // Primary CTA is now Voice AI everywhere — voice is the moat
     // against ChatGPT (real-time, sub-200ms, full interruption) and
