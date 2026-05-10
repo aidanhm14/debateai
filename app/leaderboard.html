@@ -29,6 +29,15 @@
      this surface in their activity history. -->
 <script defer src="/js/track.js"></script>
 
+<!-- Community seed pool. Backfills both ranks with deterministic
+     personas so a brand-new visitor sees a populated board instead
+     of a ghost town. Real Firestore entries always merge in on top.
+     Seed rows carry seed:true and a 'da-seed-*' uid prefix; do not
+     write them anywhere persistent.
+     Note: NOT defer — must be live by the time the inline init script
+     runs loadView() so the Firestore promise can merge against it. -->
+<script src="/js/community-seed.js"></script>
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
 <script>
@@ -659,8 +668,20 @@ async function loadWithFallback(primary, fallback){
 }
 
 async function loadView(view){
+  // No Firebase available (Safari ITP, in-app browser, blocked CDN).
+  // Render the seeded board so the page still looks alive — these
+  // visitors can't write rounds anyway, but they should see what the
+  // community looks like before deciding whether to sign in.
   if(!db){
-    board.innerHTML=`<div class="state"><h3>Couldn't load</h3><p>The leaderboard needs a network connection. Refresh the page once you're back online.</p></div>`;
+    if(window.DEBATEAI_SEED&&typeof window.DEBATEAI_SEED.merge==='function'){
+      const seeded=window.DEBATEAI_SEED.merge([],view,{limit:100});
+      state.cache[view]=seeded;
+      renderFormatPills(seeded);
+      renderRows(seeded);
+      signinStrip.hidden=false;
+    }else{
+      board.innerHTML=`<div class="state"><h3>Couldn't load</h3><p>The leaderboard needs a network connection. Refresh the page once you're back online.</p></div>`;
+    }
     return;
   }
   if(state.cache[view]){
@@ -699,6 +720,14 @@ async function loadView(view){
         .filter(r=>r.won===true && r.kind!=='live')
         .slice(0,100);
     }
+    // Merge in the seeded persona pool so a brand-new viewer sees a
+    // populated board rather than a single-row board (or empty). Real
+    // entries always sort to their true position and outrank seeds at
+    // the same score; seeds fill the long tail. No-op if community-seed.js
+    // didn't load.
+    if(window.DEBATEAI_SEED&&typeof window.DEBATEAI_SEED.merge==='function'){
+      rows=window.DEBATEAI_SEED.merge(rows,view,{limit:100});
+    }
     state.cache[view]=rows;
     renderFormatPills(rows);
     renderRows(rows);
@@ -706,11 +735,15 @@ async function loadView(view){
     signinStrip.hidden=!!state.user; // hide CTA if signed in
   }catch(e){
     console.warn('[leaderboard] load failed:',e);
-    // Last-resort soft empty: show the empty state, not an error. People
-    // can still click into the relevant surface from the empty CTA.
-    state.cache[view]=[];
-    renderFormatPills([]);
-    renderRows([]);
+    // Last-resort soft empty: still try to render the seed pool so the
+    // page isn't an apologetic empty state when Firestore is flaky.
+    let fallback=[];
+    if(window.DEBATEAI_SEED&&typeof window.DEBATEAI_SEED.merge==='function'){
+      fallback=window.DEBATEAI_SEED.merge([],view,{limit:100});
+    }
+    state.cache[view]=fallback;
+    renderFormatPills(fallback);
+    renderRows(fallback);
     renderYourRank();
     signinStrip.hidden=!!state.user;
   }
