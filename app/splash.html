@@ -227,6 +227,12 @@ body{
 // explicit Skip button does the same thing — kept for visible
 // affordance + keyboard users who'd otherwise tab through nothing.
 //
+// On tap we kick off both the press-out animation AND a brief AI voice
+// line (/audio/splash-hook.mp3) so the "voice first" promise lands
+// instantly. The audio plays defensively — if the file is missing, the
+// .play() promise rejects, we swallow the error, and the visual flow
+// continues unchanged. See app/audio/README.md for how to (re)generate.
+//
 // We pre-prefetch /landing on first interaction (mousemove or touchstart)
 // so the click→nav handoff feels instant. Netlify edges it; the browser
 // just needs the bytes warm.
@@ -235,13 +241,35 @@ body{
   var skip  = document.getElementById('skip');
   var navigated = false;
 
+  // Audio element. Volume kept under unity so the line is present but
+  // not jarring on a hot speaker. Preload kept to 'auto' so the bytes
+  // are ready by the time the user taps.
+  var hookAudio = null;
+  try {
+    hookAudio = new Audio('/audio/splash-hook.mp3');
+    hookAudio.preload = 'auto';
+    hookAudio.volume = 0.7;
+  } catch(e){ /* Audio unavailable in this env — proceed silent */ }
+
+  function playHook(){
+    if (!hookAudio) return;
+    // play() returns a Promise that rejects on autoplay-block, missing
+    // file, or codec issue. Catch silently — splash works without audio.
+    var p; try { p = hookAudio.play(); } catch(e){ return; }
+    if (p && typeof p.catch === 'function') p.catch(function(){ /* no-op */ });
+  }
+
   function go(href){
     if (navigated) return;
     navigated = true;
+    playHook();
     try { gtag('event','splash_enter',{ via: href === '/landing' ? 'tap' : 'skip' }); } catch(e){}
     // Trigger the press-out animation, then nav. Animation duration
     // is 500ms but we nav at 320ms so the page swap feels instant
-    // while the splash is still visually receding.
+    // while the splash is still visually receding. The audio continues
+    // playing right up until /landing replaces the document — usually
+    // the visitor still hears the first ~1 second of the line, which
+    // is exactly the "I'll push back" hook.
     stage.classList.add('press');
     setTimeout(function(){ window.location.href = href; }, 320);
   }

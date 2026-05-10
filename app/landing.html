@@ -218,6 +218,12 @@
      test entry. Real Firestore entries always merge in on top.
      Defer is fine: the preview loader runs on window.load. -->
 <script defer src="/js/community-seed.js"></script>
+<!-- Voice-AI availability flag. Pulls /api/voice-status (env-driven).
+     The hero voice CTAs swap to typed-mode siblings when this returns
+     enabled:false (set VOICE_AI_ENABLED=false in Netlify dashboard for
+     instant kill-switch when OpenAI quota or any other upstream issue
+     hits). See app/js/voice-status.js. -->
+<script defer src="/js/voice-status.js"></script>
 <style>
 /* Theme is locked to crimson on landing — hide the picker entirely so
    users don't see a no-op control. The dots still render on every other
@@ -2264,9 +2270,15 @@ button{font-family:inherit;cursor:pointer}
         <span style="width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff;display:inline-block;animation:rec-pulse 1.6s ease-in-out infinite"></span>
         Find a sparring partner. 30 seconds.
       </a>
-      <a href="/voice-debate" class="hero-cta hero-cta-voice" style="display:inline-flex;align-items:center;gap:8px">
+      <a href="/voice-debate" class="hero-cta hero-cta-voice" data-voice-cta-on style="display:inline-flex;align-items:center;gap:8px">
         <span style="width:7px;height:7px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 2px rgba(255,255,255,.7),0 0 8px rgba(220,38,38,.9);display:inline-block;animation:rec-pulse 1.4s ease-in-out infinite"></span>
         🎙 Voice AI · Talk out loud
+      </a>
+      <!-- Swapped in when /api/voice-status returns enabled:false. Hidden
+           by default so it never flashes on a normal load. See
+           voice-status.js and the gating script at the bottom of this file. -->
+      <a href="/debate-ai" class="hero-cta hero-cta-secondary" data-voice-cta-off hidden style="display:none;align-items:center;gap:8px">
+        💬 Try typed mode <span style="opacity:.6;font-weight:600;font-size:.86em">· voice at capacity</span>
       </a>
       <a href="/debate-ai" class="hero-cta hero-cta-secondary">Spar with the AI →</a>
       <a href="/app#case" class="hero-cta hero-cta-secondary">Prep</a>
@@ -2312,9 +2324,13 @@ button{font-family:inherit;cursor:pointer}
       <span class="voice-ai-chip">📋 <strong>Judge RFD</strong> after</span>
     </div>
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-      <a href="/voice-debate" class="hero-cta hero-cta-voice" style="display:inline-flex;align-items:center;gap:10px;font-size:.95rem !important;padding:16px 32px !important">
+      <a href="/voice-debate" class="hero-cta hero-cta-voice" data-voice-cta-on style="display:inline-flex;align-items:center;gap:10px;font-size:.95rem !important;padding:16px 32px !important">
         <span style="width:8px;height:8px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 2px rgba(255,255,255,.7),0 0 10px rgba(220,38,38,.9);display:inline-block;animation:rec-pulse 1.4s ease-in-out infinite"></span>
         🎙 Start a voice round →
+      </a>
+      <!-- Swapped in when voice is disabled. Hidden by default. -->
+      <a href="/debate-ai" class="hero-cta hero-cta-secondary" data-voice-cta-off hidden style="display:none;align-items:center;gap:10px;font-size:.95rem !important;padding:16px 32px !important">
+        💬 Start a typed round → <span style="opacity:.6;font-weight:600;font-size:.86em">voice at capacity</span>
       </a>
       <a href="/app#casual" class="hero-cta hero-cta-secondary" style="display:inline-flex;align-items:center;gap:8px">Try text mode first</a>
     </div>
@@ -3277,6 +3293,30 @@ window.addEventListener('load', function(){
   } catch(e) {
     console.warn('[billing-banner] failed:', e);
   }
+})();
+</script>
+
+<!-- Voice CTA gate: when /api/voice-status returns enabled:false, swap
+     the [data-voice-cta-on] anchors out for their [data-voice-cta-off]
+     siblings. Defaults to no swap on fetch failure (we don't want a
+     flaky function to hide voice for everyone). -->
+<script>
+(function(){
+  var ready = window.daVoiceStatusReady;
+  if (!ready || typeof ready.then !== 'function') return;
+  ready.then(function(s){
+    if (!s || s.enabled !== false) return;
+    document.querySelectorAll('[data-voice-cta-on]').forEach(function(el){
+      el.hidden = true;
+      el.style.display = 'none';
+    });
+    document.querySelectorAll('[data-voice-cta-off]').forEach(function(el){
+      el.hidden = false;
+      // Restore inline-flex so the icon + text wrap right.
+      el.style.display = 'inline-flex';
+    });
+    try { gtag('event','voice_cta_gated',{ reason: s.reason || 'unspecified' }); } catch(e){}
+  }).catch(function(){});
 })();
 </script>
 

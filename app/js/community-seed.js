@@ -172,10 +172,25 @@
     return out;
   }
 
+  // Once real activity reaches this many entries on a given view, seeds
+  // retreat completely and the board is real-only. Tunable per call via
+  // opts.floorThreshold (set to 0 to always include seeds; set to a huge
+  // number to force seed-only mode forever).
+  const FLOOR_THRESHOLD = 30;
+
   function merge(realRows, view, opts){
     const limit=(opts&&opts.limit)||100;
+    const real=Array.isArray(realRows) ? realRows : [];
+    const threshold=(opts&&typeof opts.floorThreshold==='number')
+      ? opts.floorThreshold : FLOOR_THRESHOLD;
+    // Seed-floor: once real activity outgrows the seed bank, seeds go
+    // quiet entirely. Real entries carry the page on their own and the
+    // seeds stop being a tell.
+    if (threshold > 0 && real.length >= threshold){
+      return real.slice(0, limit);
+    }
     const seeds=buildPool(view);
-    const all=Array.isArray(realRows) ? realRows.concat(seeds) : seeds.slice();
+    const all=real.concat(seeds);
     all.sort((a,b)=>{
       const s=(b.score||0)-(a.score||0);
       if(s!==0) return s;

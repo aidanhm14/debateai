@@ -399,12 +399,24 @@ Vote Con. The harm is global and ongoing. The benefit is intra-alliance and part
     }));
   }
 
+  // Once real activity reaches this many published cases, seeds retreat
+  // entirely. Tunable via opts.floorThreshold.
+  const FLOOR_THRESHOLD = 10;
+
   // Merge real entries with seed pool. Real entries take precedence on
   // id collision (none expected — seeds are 'da-disc-*'-prefixed).
   function merge(realRows, opts){
     const limit = (opts && opts.limit) || 200;
+    const real = Array.isArray(realRows) ? realRows : [];
+    const threshold = (opts && typeof opts.floorThreshold === 'number')
+      ? opts.floorThreshold : FLOOR_THRESHOLD;
+    // Seed-floor: once real disclosures outgrow the bank, the page is
+    // real-only and seeds stop being a tell.
+    if (threshold > 0 && real.length >= threshold){
+      return real.slice(0, limit);
+    }
     const seeds = build();
-    const all = Array.isArray(realRows) ? realRows.concat(seeds) : seeds.slice();
+    const all = real.concat(seeds);
     // Default sort matches the page's 'recent' sort: newest first by
     // sharedAt.seconds. The community page re-sorts client-side when
     // the user picks 'top', so this is just the initial order.

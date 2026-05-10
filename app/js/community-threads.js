@@ -261,10 +261,21 @@ Curious what other people would put in this slot. The thing nobody tells you in 
     });
   }
 
+  // Once real activity reaches this many threads, seeds retreat entirely.
+  // Tunable via opts.floorThreshold.
+  const FLOOR_THRESHOLD = 8;
+
   function merge(realRows, opts){
     const limit = (opts && opts.limit) || 100;
+    const real = Array.isArray(realRows) ? realRows : [];
+    const threshold = (opts && typeof opts.floorThreshold === 'number')
+      ? opts.floorThreshold : FLOOR_THRESHOLD;
+    // Seed-floor: once the forum has its own gravity, seeds go quiet.
+    if (threshold > 0 && real.length >= threshold){
+      return real.slice(0, limit);
+    }
     const seeds = build();
-    const all = Array.isArray(realRows) ? realRows.concat(seeds) : seeds.slice();
+    const all = real.concat(seeds);
     all.sort((a, b) => {
       const as = (a.createdAt && a.createdAt.seconds) || 0;
       const bs = (b.createdAt && b.createdAt.seconds) || 0;
