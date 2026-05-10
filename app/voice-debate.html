@@ -1484,8 +1484,11 @@ function App(){
   //      with a `system` role + a WPM target. The AI sees this as
   //      runtime context and adjusts its delivery on the NEXT response.
   //      This is what actually moves the needle audibly.
-  // Range 0.85–1.6 keeps pitch artifacts mild on layer 1 and gives
-  // layer 2 a meaningful WPM swing (~150 → ~290 wpm).
+  // Range 0.85–2.5 spans conversational to Policy-spread territory.
+  // Layer 1 (browser playbackRate) gets noticeable pitch artifacts
+  // above ~1.6 on Chrome and is mostly ignored on Safari. Layer 2
+  // (pacing nudge) carries the real swing: ~150 wpm at 0.85× up to
+  // ~450 wpm at 2.5× — the latter is roughly Policy-debate spread.
   const [playbackRate, setPlaybackRate] = useState(1.0);
   // Mute: disable the local mic track so the AI can't VAD-interrupt
   // itself when you breathe / cough / shuffle papers during its speech.
@@ -2885,7 +2888,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             el('span', { className:'val' }, (playbackRate < 0.99 || playbackRate > 1.01 ? playbackRate.toFixed(2) : '1.0') + '×'),
             el('button', {
               className:'spd',
-              onClick:()=> setPlaybackRate(r => Math.min(1.6, Math.round((r + 0.05) * 100) / 100)),
+              onClick:()=> setPlaybackRate(r => Math.min(2.5, Math.round((r + 0.05) * 100) / 100)),
               title:'Faster (next turn pace + live audio)',
             }, '+'),
           ),
