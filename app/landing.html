@@ -1513,6 +1513,294 @@ button{font-family:inherit;cursor:pointer}
 </head>
 <body>
 
+<!-- ─────────────────────────────────────────────────────────────────────
+     SPLASH INTRO OVERLAY
+     Full-screen black intro that fronts the landing on first visit.
+     Two diagonal white lines form a triangle, with PREP / COMMUNITY tags
+     pinned to them, a pulsing red mic orb at center, and the headline
+     below. "TAP ANYWHERE TO ENTER" or the top-right Skip pill dismisses
+     it. SessionStorage flag suppresses re-show in the same session so
+     refresh doesn't bombard returning visitors mid-flow.
+     ───────────────────────────────────────────────────────────────────── -->
+<style>
+  .splash-intro{
+    position:fixed;inset:0;z-index:9999;
+    background:#000;color:#fff;
+    font-family:'Inter',system-ui,sans-serif;
+    overflow:hidden;
+    cursor:pointer;
+    animation:splash-fade-in .55s ease-out both;
+  }
+  .splash-intro.is-leaving{
+    animation:splash-fade-out .42s ease-in both;
+    pointer-events:none;
+  }
+  @keyframes splash-fade-in{
+    from{opacity:0}
+    to{opacity:1}
+  }
+  @keyframes splash-fade-out{
+    from{opacity:1;transform:scale(1)}
+    to{opacity:0;transform:scale(1.02)}
+  }
+  /* Soft red vignette behind the mic, mirrors the in-app red glow */
+  .splash-intro::before{
+    content:"";position:absolute;left:50%;top:42%;
+    width:900px;height:900px;transform:translate(-50%,-50%);
+    background:radial-gradient(circle, rgba(239,68,68,.16) 0%, rgba(239,68,68,.05) 35%, transparent 60%);
+    pointer-events:none;
+  }
+  .splash-wordmark{
+    position:absolute;top:30px;left:0;right:0;
+    text-align:center;
+    font-weight:800;letter-spacing:.14em;font-size:.82rem;
+    text-transform:uppercase;
+    color:#ef4444;
+    z-index:3;
+  }
+  .splash-wordmark-ai{
+    color:#fff;margin-left:6px;font-weight:700;letter-spacing:.18em;
+  }
+  .splash-skip{
+    position:absolute;top:22px;right:22px;z-index:5;
+    display:inline-flex;align-items:center;gap:6px;
+    padding:9px 18px;border-radius:999px;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.18);
+    color:#fff;font-family:inherit;font-size:.78rem;font-weight:600;letter-spacing:.04em;
+    cursor:pointer;
+    transition:background .18s,border-color .18s,transform .18s;
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  }
+  .splash-skip:hover{
+    background:rgba(239,68,68,.14);
+    border-color:rgba(239,68,68,.55);
+    transform:translateY(-1px);
+  }
+  /* Two diagonal lines forming the triangle. Anchored to top-center
+     (just below the wordmark) and fanning out to the bottom corners.
+     transform-origin top so the scale animation flows downward. */
+  .splash-line{
+    position:absolute;
+    left:50%;top:80px;
+    width:3px;height:115vh;
+    background:#fff;
+    transform-origin:top center;
+    box-shadow:0 0 16px rgba(255,255,255,.18);
+    animation:splash-line-grow 1.1s cubic-bezier(.2,.7,.2,1) .15s both;
+  }
+  .splash-line-left{transform:translateX(-50%) rotate(-28deg)}
+  .splash-line-right{transform:translateX(-50%) rotate(28deg)}
+  @keyframes splash-line-grow{
+    from{height:0;opacity:0}
+    to{height:115vh;opacity:1}
+  }
+  /* PREP / COMMUNITY tags. Pinned to roughly the upper third of each
+     diagonal. Solid brand red, black text, blocky. */
+  .splash-tag{
+    position:absolute;z-index:4;
+    padding:10px 18px;
+    background:#ef4444;
+    color:#0a0a0a;
+    font-weight:800;letter-spacing:.18em;font-size:.86rem;
+    text-transform:uppercase;
+    box-shadow:0 6px 24px rgba(239,68,68,.35);
+    animation:splash-tag-in .55s ease-out 1s both;
+  }
+  .splash-tag-prep{top:30%;left:15%}
+  .splash-tag-comm{top:30%;right:13%}
+  @keyframes splash-tag-in{
+    from{opacity:0;transform:translateY(-8px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  /* Center mic orb. Radial-gradient red sphere with 3 expanding rings
+     emanating outward in staggered phases. Mic glyph sits centered. */
+  .splash-mic-wrap{
+    position:absolute;left:50%;top:38%;
+    transform:translate(-50%,-50%);
+    width:280px;height:280px;
+    display:flex;align-items:center;justify-content:center;
+    z-index:3;
+  }
+  .splash-ring{
+    position:absolute;left:50%;top:50%;
+    width:120px;height:120px;
+    border:1.5px solid rgba(239,68,68,.55);
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    opacity:0;
+    animation:splash-ring-pulse 3.4s ease-out infinite;
+  }
+  .splash-ring-2{animation-delay:1.13s}
+  .splash-ring-3{animation-delay:2.26s}
+  @keyframes splash-ring-pulse{
+    0%   {width:110px;height:110px;opacity:.85;border-color:rgba(239,68,68,.7)}
+    70%  {opacity:.18}
+    100% {width:360px;height:360px;opacity:0;border-color:rgba(239,68,68,.2)}
+  }
+  .splash-mic{
+    position:relative;z-index:2;
+    width:118px;height:118px;border-radius:50%;
+    background:radial-gradient(circle at 50% 38%, #ff5a5a 0%, #d62121 55%, #7a0e0e 100%);
+    box-shadow:
+      0 0 70px rgba(239,68,68,.55),
+      0 0 24px rgba(239,68,68,.45),
+      inset 0 -10px 24px rgba(0,0,0,.4),
+      inset 0 6px 14px rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;
+    animation:splash-mic-breathe 3.4s ease-in-out infinite;
+  }
+  @keyframes splash-mic-breathe{
+    0%,100%{transform:scale(1)}
+    50%{transform:scale(1.03)}
+  }
+  .splash-mic svg{width:42px;height:42px;color:#fff}
+  /* Hero text */
+  .splash-hero{
+    position:absolute;left:0;right:0;top:64%;
+    text-align:center;
+    z-index:3;
+    padding:0 24px;
+    animation:splash-hero-in .7s cubic-bezier(.2,.7,.2,1) .55s both;
+  }
+  @keyframes splash-hero-in{
+    from{opacity:0;transform:translateY(14px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  .splash-hero h1{
+    margin:0;
+    font-size:clamp(2.4rem,7vw,5rem);
+    font-weight:800;
+    letter-spacing:-.02em;
+    line-height:1;
+    color:#fff;
+  }
+  .splash-hero .splash-loud{color:#ef4444}
+  .splash-hero p{
+    margin:18px 0 0;
+    font-size:clamp(.95rem,1.6vw,1.15rem);
+    color:rgba(255,255,255,.72);
+    font-weight:500;
+    letter-spacing:.01em;
+  }
+  /* Tap to enter footer */
+  .splash-enter{
+    position:absolute;left:0;right:0;bottom:34px;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    color:rgba(255,255,255,.55);
+    font-size:.7rem;font-weight:700;letter-spacing:.28em;
+    text-transform:uppercase;
+    z-index:3;
+    animation:splash-hero-in .7s ease-out 1.3s both;
+  }
+  .splash-enter-line{
+    width:1px;height:22px;background:rgba(255,255,255,.35);
+  }
+  .splash-enter-bar{
+    margin-top:6px;width:42px;height:2px;border-radius:2px;
+    background:rgba(255,255,255,.25);
+    animation:splash-enter-bar 2.2s ease-in-out infinite;
+  }
+  @keyframes splash-enter-bar{
+    0%,100%{opacity:.25;transform:scaleX(.6)}
+    50%{opacity:.7;transform:scaleX(1)}
+  }
+  /* Mobile: narrow the triangle, drop tags inward, shrink mic */
+  @media(max-width:720px){
+    .splash-line-left{transform:translateX(-50%) rotate(-36deg)}
+    .splash-line-right{transform:translateX(-50%) rotate(36deg)}
+    .splash-tag-prep{left:8%;top:26%}
+    .splash-tag-comm{right:6%;top:26%}
+    .splash-tag{padding:8px 12px;font-size:.72rem;letter-spacing:.14em}
+    .splash-mic-wrap{width:220px;height:220px;top:36%}
+    .splash-mic{width:92px;height:92px}
+    .splash-mic svg{width:34px;height:34px}
+    .splash-hero{top:60%}
+    .splash-hero p{margin-top:14px}
+    .splash-skip{top:14px;right:14px;padding:7px 14px;font-size:.72rem}
+    .splash-wordmark{top:18px;font-size:.74rem}
+    .splash-enter{bottom:22px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .splash-intro,.splash-line,.splash-tag,.splash-hero,.splash-enter{animation:none!important}
+    .splash-ring{display:none}
+    .splash-mic{animation:none}
+  }
+</style>
+<div id="splashIntro" class="splash-intro" role="dialog" aria-modal="true" aria-label="Welcome to Debate AI">
+  <div class="splash-wordmark">DEBATE<span class="splash-wordmark-ai">AI</span></div>
+  <button id="splashSkipBtn" class="splash-skip" type="button" aria-label="Skip intro">Skip <span aria-hidden="true">&rarr;</span></button>
+
+  <div class="splash-line splash-line-left" aria-hidden="true"></div>
+  <div class="splash-line splash-line-right" aria-hidden="true"></div>
+
+  <div class="splash-tag splash-tag-prep" aria-hidden="true">PREP</div>
+  <div class="splash-tag splash-tag-comm" aria-hidden="true">COMMUNITY</div>
+
+  <div class="splash-mic-wrap" aria-hidden="true">
+    <span class="splash-ring splash-ring-1"></span>
+    <span class="splash-ring splash-ring-2"></span>
+    <span class="splash-ring splash-ring-3"></span>
+    <span class="splash-mic">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/>
+        <path d="M5 11a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </span>
+  </div>
+
+  <div class="splash-hero">
+    <h1>Argue out <span class="splash-loud">loud.</span></h1>
+    <p>An AI that pushes back. In real time. Voice first.</p>
+  </div>
+
+  <div class="splash-enter">
+    <div class="splash-enter-line"></div>
+    <span>Tap anywhere to enter</span>
+    <div class="splash-enter-bar"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var KEY='dos_splash_seen_v1';
+  var splash=document.getElementById('splashIntro');
+  if(!splash) return;
+  // Suppress within the same session after first dismiss so a refresh
+  // doesn't reset the user back to the intro mid-flow. New tabs/sessions
+  // (and ?intro=1) see it again.
+  try{
+    var q=(location.search||'').toLowerCase();
+    var force=/[?&]intro=1\b/.test(q);
+    if(!force && sessionStorage.getItem(KEY)==='1'){
+      splash.parentNode && splash.parentNode.removeChild(splash);
+      return;
+    }
+  }catch(e){}
+  // Lock body scroll while splash is up
+  var prevOverflow=document.body.style.overflow;
+  document.body.style.overflow='hidden';
+  function dismiss(ev){
+    if(ev) ev.preventDefault();
+    if(splash.classList.contains('is-leaving')) return;
+    splash.classList.add('is-leaving');
+    try{ sessionStorage.setItem(KEY,'1'); }catch(e){}
+    try{ window.dosTrackOnce && window.dosTrackOnce('splash_dismiss',{via: ev && ev.target && ev.target.id==='splashSkipBtn' ? 'skip' : 'tap'}); }catch(e){}
+    setTimeout(function(){
+      if(splash.parentNode) splash.parentNode.removeChild(splash);
+      document.body.style.overflow=prevOverflow||'';
+    },420);
+  }
+  // Tap anywhere on the overlay dismisses
+  splash.addEventListener('click',dismiss);
+  // ESC also dismisses for keyboard users
+  document.addEventListener('keydown',function escHandler(e){
+    if(e.key==='Escape'||e.key==='Enter'||e.key===' '){ dismiss(e); document.removeEventListener('keydown',escHandler); }
+  });
+})();
+</script>
+
 <!-- Language picker, Google Translate widget for full-page translation.
      The widget loads the script lazily and reads the googtrans cookie to
      decide what locale to render in, so the page is translated on load
