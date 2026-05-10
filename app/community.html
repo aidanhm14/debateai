@@ -1108,58 +1108,82 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     root.addEventListener('click', function(e){ if (e.target === root) close(); });
     $('modalClose').addEventListener('click', close);
 
-    // Live-stream replies for this thread.
+    // Pull seed replies for this thread (empty array if not a seed).
+    // We always merge them with whatever the live snapshot returns,
+    // so a real reply posted on a seed thread appears alongside the
+    // seeded discussion rather than replacing it.
+    var seedReplies = (window.DEBATEAI_THREADS && typeof window.DEBATEAI_THREADS.getReplies === 'function')
+      ? window.DEBATEAI_THREADS.getReplies(threadId)
+      : [];
+
+    function renderReplies(realDocs){
+      var rh = $('threadReplies');
+      if (!rh) return;
+      var combined = (realDocs || []).concat(seedReplies);
+      // Sort oldest first (matches the existing snapshot ordering).
+      combined.sort(function(a, b){
+        var as = (a.createdAt && a.createdAt.seconds) || 0;
+        var bs = (b.createdAt && b.createdAt.seconds) || 0;
+        return as - bs;
+      });
+      if (!combined.length){
+        rh.innerHTML = '<div class="empty" style="border:none;padding:18px">No replies yet. Be the first.</div>';
+        return;
+      }
+      rh.innerHTML = combined.map(function(r){
+        var date = r.createdAt && r.createdAt.seconds
+          ? new Date(r.createdAt.seconds * 1000).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
+          : '';
+        return '<div class="reply">' +
+          '<div class="reply-meta">' + escHtml(r.authorName || 'Anonymous') + (date ? ' · ' + date : '') + '</div>' +
+          '<div class="reply-body">' + escHtml(r.content || '') + '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // Render seed replies immediately so the modal isn't blank during
+    // the Firestore round-trip. The snapshot below will re-render with
+    // any real replies merged in.
+    if (seedReplies.length) renderReplies([]);
+
+    // If Firestore isn't available (signed-out visitor on a seed thread),
+    // skip the snapshot entirely — the seed replies are already on screen.
+    if (!firebaseDb){
+      if (!seedReplies.length){
+        var rh0 = $('threadReplies');
+        if (rh0) rh0.innerHTML = '<div class="empty" style="border:none;padding:18px">Sign in to read replies.</div>';
+      }
+    } else {
+    // Live-stream real replies for this thread.
     openThreadUnsub = firebaseDb.collection('forum_posts')
       .where('rootId', '==', threadId)
       .orderBy('createdAt', 'asc')
       .limit(200)
       .onSnapshot(function(snap){
-        var rh = $('threadReplies');
-        if (!rh) return;
-        if (snap.empty){
-          rh.innerHTML = '<div class="empty" style="border:none;padding:18px">No replies yet. Be the first.</div>';
-          return;
-        }
-        rh.innerHTML = snap.docs.map(function(d){
-          var r = d.data();
-          var date = r.createdAt && r.createdAt.seconds
-            ? new Date(r.createdAt.seconds * 1000).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
-            : '';
-          return '<div class="reply">' +
-            '<div class="reply-meta">' + escHtml(r.authorName || 'Anonymous') + (date ? ' · ' + date : '') + '</div>' +
-            '<div class="reply-body">' + escHtml(r.content || '') + '</div>' +
-          '</div>';
-        }).join('');
+        renderReplies(snap.docs.map(function(d){ return d.data(); }));
       }, function(err){
         // Index-fallback: query by parentId without orderBy and sort
-        // client-side. Same shape as the threads-list fallback.
+        // client-side. Same shape as the threads-list fallback. Real
+        // docs go through renderReplies so seed replies stay merged in.
         if (err && /FAILED_PRECONDITION|index/i.test(err.message || '')){
           firebaseDb.collection('forum_posts')
             .where('parentId', '==', threadId)
             .limit(200)
             .get()
             .then(function(snap){
-              var docs = snap.docs.map(function(d){ return d.data(); });
-              docs.sort(function(a,b){
-                var as = (a.createdAt && a.createdAt.seconds) || 0;
-                var bs = (b.createdAt && b.createdAt.seconds) || 0;
-                return as - bs;
-              });
-              var rh = $('threadReplies');
-              if (rh) rh.innerHTML = docs.length === 0
-                ? '<div class="empty" style="border:none;padding:18px">No replies yet. Be the first.</div>'
-                : docs.map(function(r){
-                    var date = r.createdAt && r.createdAt.seconds
-                      ? new Date(r.createdAt.seconds * 1000).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
-                      : '';
-                    return '<div class="reply"><div class="reply-meta">' + escHtml(r.authorName || 'Anonymous') + (date ? ' · ' + date : '') + '</div><div class="reply-body">' + escHtml(r.content || '') + '</div></div>';
-                  }).join('');
+              renderReplies(snap.docs.map(function(d){ return d.data(); }));
             });
           return;
         }
-        var rh2 = $('threadReplies');
-        if (rh2) rh2.innerHTML = '<div class="empty" style="border:none;padding:18px">Could not load replies.</div>';
+        // Hard error: keep the seed replies on screen (renderReplies
+        // was already called above), only show the failure if there
+        // were no seeds either.
+        if (!seedReplies.length){
+          var rh2 = $('threadReplies');
+          if (rh2) rh2.innerHTML = '<div class="empty" style="border:none;padding:18px">Could not load replies.</div>';
+        }
       });
+    } // end if(firebaseDb)
 
     $('postReplyBtn').addEventListener('click', function(){
       if (!currentUser){ toast('Sign in to reply.'); return; }
