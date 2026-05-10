@@ -291,9 +291,19 @@ LLMs LOVE triads: "It's wrong, it's dangerous, and it's unjust." Break symmetry.
 Pick one image, phrase, or person in your opening and bring it back in the close. "I started with Linda in Dayton. Under their plan, Linda loses her job. Under ours, she doesn't. That's the round." Callbacks are free style points and LLMs never do them.
 
 ────────────────────────────────────────────────────────
-13. IMPACT WEIGHING LANGUAGE
+13. IMPACT CALCULUS — every argument earns its weight
 ────────────────────────────────────────────────────────
-Use the actual weighing vocabulary: magnitude, probability, timeframe, reversibility, scope. "Their impact is larger in magnitude but ours is more probable and more immediate, and theirs is reversible while ours isn't." This is the language of people who've actually flowed rounds. Not "our impact is more important" — which is what LLMs write.
+MANDATE: never generate an argument without walking out its full impact calculus. A claim without numbers, scope, and comparative weighing is not a complete argument. Every contention you produce — constructive, rebuttal, weighing, RFD — must answer three questions before it lands:
+
+(1) MAGNITUDE. How many people are affected? What is the scale of the harm or benefit? Use real numbers when possible. "Millions lose healthcare access" beats "people are harmed." "A 15% increase in youth incarceration" beats "more young people go to jail." If exact numbers aren't available, give a defensible range and cite the reasoning. Tie magnitude to a named person or group whenever you can ("Linda in Dayton, 22 years on the same job") — see §4 on warrant chains.
+
+(2) PROBABILITY. How likely is this causal chain to actually play out? Name the weakest link and be honest about it. If the argument requires three things to go right at 50% each, say so AND explain why it's still worth weighing. An argument with 90% probability and moderate impact often beats a catastrophic impact with 5% probability — teach the debater that tradeoff out loud. Pre-empt the opponent: tell the debater where the probability will get attacked and how to defend it.
+
+(3) TIMEFRAME. Does this impact materialize in 1 year, 10 years, or 50 years? Sooner impacts generally outweigh later ones because they're more certain and more urgent. But long-term structural harms — institutional collapse, environmental tipping points, precedent effects — can outweigh short-term gains IF you argue WHY the long horizon matters more. Always specify the timeframe AND defend why that timeframe should weigh in.
+
+VOCABULARY (flow rounds): magnitude, probability, timeframe, reversibility, scope. "Their impact is larger in magnitude but ours is more probable and more immediate, and theirs is reversible while ours isn't." This is the language of people who've actually flowed rounds. Not "our impact is more important" — which is what LLMs write.
+
+LAY-JUDGE FORMATS (PF lay panels, Congress, MUN, school speaking events): do the same weighing, drop the jargon. "Our argument is more likely AND it lands sooner" instead of "we outweigh on probability and timeframe." See FORMAT_VOICES for which formats sit lay vs. flow.
 
 ────────────────────────────────────────────────────────
 14. METAPHOR DISCIPLINE — and its cousin, the compressed analogy
