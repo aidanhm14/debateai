@@ -1224,10 +1224,25 @@ const BOND_LEVELS = [
   { min:30, label:'Nemesis' },
   { min:60, label:'Arch-Nemesis' },
 ];
-function bondInfo(rounds){
-  let cur = BOND_LEVELS[0];
-  for (const lvl of BOND_LEVELS) if (rounds >= lvl.min) cur = lvl;
-  const stars = Math.min(5, Math.floor(BOND_LEVELS.findIndex(l => l === cur)));
+// Examiner ladder. Stays out of the debate surface — only resolves
+// for the 'examiner' persona used by the Counter chrome extension.
+// The labels mirror Indian higher-ed progression (First Year through
+// Distinction) so the bond carries narrative weight for the student
+// audience instead of "Sparring Partner -> Rival" which reads weird
+// for a school panel examiner.
+const EXAMINER_BOND_LEVELS = [
+  { min:0,  label:'First Year' },
+  { min:1,  label:'Sophomore' },
+  { min:5,  label:'Final Year' },
+  { min:15, label:'Honors' },
+  { min:30, label:'Distinction' },
+  { min:60, label:'Dean’s List' },
+];
+function bondInfo(rounds, personaKey){
+  const ladder = personaKey === 'examiner' ? EXAMINER_BOND_LEVELS : BOND_LEVELS;
+  let cur = ladder[0];
+  for (const lvl of ladder) if (rounds >= lvl.min) cur = lvl;
+  const stars = Math.min(5, Math.floor(ladder.findIndex(l => l === cur)));
   return { ...cur, stars };
 }
 function getBond(personaKey){
@@ -1270,6 +1285,18 @@ function getUserFirstName(){
 // Categories are labeled by the most common debater shorthand on
 // each circuit (AI/Edu/Climate/Tech for tournaments, Demo/India/
 // Ethics/Econ/Foreign for substantive depth).
+// Counter-mode (chrome extension) sample passages. Surface only when
+// extMode==='counter' — these are exam-topic stems, not debate motions.
+// Picked to span CBSE/ICSE board syllabi: one science (Class 10
+// Biology), one science (Class 9-10 Physics), one humanities (Class 9
+// History) — the three buckets that Indian board exams actually test
+// orally. Click prefills the motion field; Dr. Iyer then runs a viva.
+const COUNTER_SAMPLE_PASSAGES = [
+  { label:'Photosynthesis',  text:'Photosynthesis: how green plants convert light energy, water, and carbon dioxide into glucose and oxygen.' },
+  { label:'Newton’s Laws',   text:'Newton’s three laws of motion: inertia, F=ma, and the equal-and-opposite pair.' },
+  { label:'French Revolution', text:'The French Revolution: causes, course, and consequences from 1789 to 1799.' },
+];
+
 const SAMPLE_MOTIONS = [
   // AI / data / platforms
   { tag:'AI', text:'THBT social media platforms should be liable for misinformation that goes viral on their platforms' },
@@ -1530,6 +1557,13 @@ function App(){
     try { localStorage.setItem('debateai-smartness', String(smartness)); } catch(e){}
   }, [smartness]);
 
+  // Chrome-extension surface state. extMode is '' when the page is
+  // loaded directly (debateai.com), 'counter' when loaded inside the
+  // chrome extension's side panel iframe (?ext=1&mode=counter). Drives
+  // the Indian-market polish layer: exam-topic sample chips, examiner-
+  // specific bond ladder labels, WhatsApp share, voice-first onboarding.
+  const [extMode, setExtMode] = useState('');
+
   // Chrome-extension bridge for the Counter / oral-exam side panel.
   // When voice-debate.html is loaded inside the extension iframe with
   // ?ext=1, the panel posts {type:'debateai-ext', action, text}. We
@@ -1539,18 +1573,19 @@ function App(){
   // one tap from hitting Connect.
   useEffect(() => {
     let isExt = false;
-    let extMode = 'counter';
+    let mode = 'counter';
     try {
       const qs = new URLSearchParams(location.search);
       isExt = qs.get('ext') === '1';
-      extMode = qs.get('mode') || 'counter';
+      mode = qs.get('mode') || 'counter';
     } catch (e) {}
     if (!isExt) return;
     try {
       document.documentElement.setAttribute('data-ext', '1');
-      document.documentElement.setAttribute('data-ext-mode', extMode);
+      document.documentElement.setAttribute('data-ext-mode', mode);
     } catch (e) {}
-    if (extMode === 'counter') {
+    setExtMode(mode);
+    if (mode === 'counter') {
       // Auto-pick the closest realtime mode for oral examination — the
       // realtime engine's `crossex` prompt is short-question / pause /
       // probe, which is exactly the viva shape. (When/if a dedicated
@@ -1710,7 +1745,7 @@ function App(){
   );
   // bondTick is intentionally referenced so the memo recomputes after a round.
   const bondCount = useMemo(() => getBond(personaKey), [personaKey, bondTick]);
-  const bond = bondInfo(bondCount);
+  const bond = bondInfo(bondCount, personaKey);
 
   // Connection state machine: idle → connecting → live → ended
   const [status, setStatus] = useState('idle');
@@ -1988,9 +2023,9 @@ function App(){
       t => t.who === 'you' && (t.text || '').trim().length > 4
     ).length;
     if (realUserTurns >= 1) {
-      const beforeLevel = bondInfo(getBond(personaKey)).label;
+      const beforeLevel = bondInfo(getBond(personaKey), personaKey).label;
       const after = incrementBond(personaKey);
-      const afterLevel = bondInfo(after).label;
+      const afterLevel = bondInfo(after, personaKey).label;
       setBondTick(n => n + 1);
       // Bond-up moment: surfaces a celebratory card if the round
       // crossed a threshold (Acquaintance → Sparring Partner, etc.).
@@ -2048,6 +2083,21 @@ function App(){
           if (tok) authHeader = { 'Authorization': 'Bearer ' + tok };
         }
       } catch(e){ /* anon fall-through */ }
+      // Examiner-persona override for the empty-motion case. The
+      // universal CHARACTER_PREAMBLE on the server tells the AI to
+      // open with "what's up{userName}, what are we debating?" — that
+      // greeting is wrong for an oral exam. When the user hits
+      // Connect with motion blank AND the persona is Dr. Iyer, append
+      // a viva-specific opener directive so the model says
+      // "What's your name, and what are you preparing for today?"
+      // first, then runs a brief 2-3 question exam on whatever the
+      // student names. The more-specific persona instruction wins
+      // over the universal default in the model's prompt-following.
+      const isExaminerOnboarding =
+        persona.key === 'examiner' && !String(motion || '').trim();
+      const effectivePersonaStyle = isExaminerOnboarding
+        ? persona.style + ' VIVA OPENER — your first words this session, EXACTLY: "What\'s your name, and what are you preparing for today?" Then stop and wait. After the student answers, identify the topic from what they said (a chapter, a concept, a paper, a viva subject) and run a brief 2-3 question oral exam on it. Do NOT use the debate greeting; do NOT ask "what are we debating today."'
+        : persona.style;
       const mintRes = await fetch('/api/realtime-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
@@ -2056,7 +2106,7 @@ function App(){
           voice: persona.voice,
           personaName: persona.name,
           personaArchetype: persona.archetype,
-          personaStyle: persona.style,
+          personaStyle: effectivePersonaStyle,
           userName: userFirstName,
           bondCount,
           smartness,
@@ -2543,17 +2593,52 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             el('div', { className:'step-num' }, '1'),
             el('div', { className:'step-title' }, 'Pick a motion'),
           ),
-          el('div', { className:'step-help' }, 'Type your own, click a category chip to roll one, or leave blank and the AI asks you on the mic.'),
+          el('div', { className:'step-help' }, extMode === 'counter'
+            ? 'Type a passage you want to be quizzed on, tap a sample, or leave blank and Dr. Iyer asks on the mic.'
+            : 'Type your own, click a category chip to roll one, or leave blank and the AI asks you on the mic.'),
           el('div', { className:'card' },
             el('input', {
               type:'text',
               className:'motion-input',
               value: motion,
               onChange: e => setMotion(e.target.value),
-              placeholder: 'THBT social media does more harm than good…',
+              placeholder: extMode === 'counter'
+                ? 'e.g. Photosynthesis: light + water + CO₂ → glucose + O₂…'
+                : 'THBT social media does more harm than good…',
               maxLength: 400,
-              'aria-label':'Debate motion',
+              'aria-label': extMode === 'counter' ? 'Passage or topic for the viva' : 'Debate motion',
             }),
+            // Counter-mode sample passages. Three exam-syllabus stems
+            // (one bio, one physics, one history) so the first-time user
+            // hits "yes this is for me" immediately. Sits ABOVE the
+            // existing debate-motion category chips so the user doesn't
+            // have to scan a row of "AI / Edu / Climate" tags first.
+            extMode === 'counter' && el('div', {
+              className:'motion-chips',
+              style:{ marginTop:8 },
+            },
+              el('span', {
+                style:{
+                  fontSize:'.7rem', color:'#8a8a9a', letterSpacing:'.04em',
+                  textTransform:'uppercase', alignSelf:'center', marginRight:2,
+                },
+              }, 'Try with:'),
+              ...COUNTER_SAMPLE_PASSAGES.map(p =>
+                el('button', {
+                  key:p.label,
+                  type:'button',
+                  className:'motion-chip',
+                  onClick: () => setMotion(p.text),
+                  title: p.text,
+                  style:{
+                    background:'rgba(168,85,247,.10)',
+                    borderColor:'rgba(168,85,247,.35)',
+                    color:'#c4b5fd',
+                    fontWeight:600,
+                  },
+                }, p.label)
+              )
+            ),
             // Category chips: click a tag to reroll a random motion from
             // that category into the textbox. Re-clicking the same tag
             // gives a different motion (avoids the previous one when
@@ -2696,7 +2781,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             el('div', { className:'opps' },
               (showAllOpponents ? PERSONALITIES : PERSONALITIES.slice(0, 3)).map(p => {
                 const r = getBond(p.key);
-                const b = bondInfo(r);
+                const b = bondInfo(r, p.key);
                 return el('button', {
                   key:p.key,
                   type:'button',
@@ -3053,6 +3138,25 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             download: 'debate-' + persona.key + '-' + new Date().toISOString().slice(0,10) + '.' + recordingExt,
             className:'download-btn',
           }, '⬇  Download round audio'),
+        ),
+        // WhatsApp share. Counter only — debate users get the existing
+        // round-audio download instead. Tap opens WhatsApp's share
+        // sheet on mobile or web.WhatsApp on desktop, prefilled with a
+        // viva-flavored line. The Indian board-exam audience lives in
+        // WhatsApp groups, so a tap-to-share at end-of-round is the
+        // single highest-leverage growth lever for that surface.
+        extMode === 'counter' && el('div', { className:'download-row', style:{marginTop:8} },
+          el('a', {
+            href: (function(){
+              const topic = (motion || 'my notes').slice(0, 80);
+              const text = `Just ran a viva on “${topic}” with Counter, the AI cross-examines you out loud. Try yours: https://debateai.com/?ref=wa`;
+              return 'https://wa.me/?text=' + encodeURIComponent(text);
+            })(),
+            target:'_blank',
+            rel:'noopener',
+            className:'download-btn',
+            style:{ background:'rgba(37,211,102,.12)', borderColor:'rgba(37,211,102,.4)', color:'#5be584' },
+          }, 'Share viva on WhatsApp'),
         ),
       ),
 

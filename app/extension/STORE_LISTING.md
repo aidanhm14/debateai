@@ -13,9 +13,9 @@ it as the source-of-truth when you update the listing.
 Counter: Oral Exam Trainer
 ```
 
-**Short description** (≤132 chars, 110 used)
+**Short description** (≤132 chars, 120 used)
 ```
-Highlight study material on any page. The AI cross-examines you out loud. Viva, oral exam, and interview prep.
+AI cross-examines you on highlighted study material. Viva, oral exam, CBSE/ICSE board prep, JEE/NEET interview practice.
 ```
 
 **Category**
@@ -39,10 +39,13 @@ and an examiner-style AI cross-examines you out loud. You defend
 your answer; it asks the next question.
 
 Built for:
-• Indian board-exam vivas (CBSE / ICSE / state board orals)
-• College-entrance interviews (IIT, NEET, NMIMS, IIM, school admissions)
-• University seminars and thesis defenses
-• Practice for any exam where you have to argue out loud, not just write
+• CBSE viva (Class 10 + 12 Physics, Chemistry, Biology, Computer Science practical and project orals)
+• ICSE oral practice (Hindi, English, History, Geography, Biology orals)
+• State board oral exams (Maharashtra HSC, Karnataka PUC, Tamil Nadu state board, etc.)
+• JEE Advanced + NEET counselling and interview prep
+• IIT / IIM / NMIMS / NLU / school-admission interview rehearsal
+• University seminars, internal assessment vivas, dissertation and thesis defenses
+• Any exam where you have to argue out loud, not just write — including English-medium and Hindi-medium
 
 What you get
 • Highlight + right-click → Quiz me on this passage
