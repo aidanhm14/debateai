@@ -1,5 +1,5 @@
 // Bumped to v10 — see app/sw.js for detail.
-const CACHE_NAME = 'debateos-v113';
+const CACHE_NAME = 'debateos-v114';
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
@@ -52,6 +52,17 @@ function shouldCache(response) {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Bail on non-http(s) schemes. The Cache API rejects requests with
+  // schemes like chrome-extension:, moz-extension:, safari-extension:,
+  // data:, blob:, etc. — and a few popular Chrome extensions
+  // (Apollo, ChromePolyfill, etc.) issue chrome-extension:// fetches
+  // through page contexts. Without this gate, every such request floods
+  // the console with "Request scheme 'chrome-extension' is unsupported"
+  // and breaks the SW promise chain.
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
 
   // Never intercept API calls — let them go straight to the network.
   // API 404s were being cached and replayed, which broke /api/claude etc.
