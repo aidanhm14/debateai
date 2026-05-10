@@ -13,9 +13,9 @@ it as the source-of-truth when you update the listing.
 Counter: Oral Exam Trainer
 ```
 
-**Short description** (≤132 chars, 120 used)
+**Short description** (≤132 chars, 112 used)
 ```
-AI cross-examines you on highlighted study material. Viva, oral exam, CBSE/ICSE board prep, JEE/NEET interview practice.
+Defend your work out loud. The AI grills you the way your panel will. Viva, oral exam, CBSE/ICSE, JEE/NEET prep.
 ```
 
 **Category**
@@ -33,10 +33,17 @@ AI cross-examines you on highlighted study material. Viva, oral exam, CBSE/ICSE 
 ## Detailed description (≤16,000 chars)
 
 ```
-Counter is the AI you couldn't sit across from in school. Highlight
-any passage in Google Docs, an article, a PDF, or a textbook page,
-and an examiner-style AI cross-examines you out loud. You defend
-your answer; it asks the next question.
+Counter is the AI you couldn't sit across from in school. You wrote
+the essay. You built the project. You drafted the paper. Now the
+panel wants you to defend it out loud, and "I think I get it" is not
+going to land. Counter is the sparring partner that grills you the
+way your teacher will, before your teacher gets the chance.
+
+Highlight your own work in Google Docs, or paste it into the side
+panel, and an examiner-style AI cross-examines you out loud. You
+defend the claim; it asks the next question. After 3-5 probes it
+closes with examiner-voice oral feedback: what landed, what didn't,
+and where to tighten before the real panel.
 
 Built for:
 • CBSE viva (Class 10 + 12 Physics, Chemistry, Biology, Computer Science practical and project orals)
