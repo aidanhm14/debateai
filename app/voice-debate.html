@@ -1652,6 +1652,13 @@ function App(){
   const ANON_VOICE_LIMIT = 1;
   const FREE_VOICE_LIMIT = 3;
   const ANON_USAGE_KEY = 'da-voice-anon-used';
+  // Owner allowlist — bypasses the voice cap on the client so the gate
+  // never shows the upgrade card to these accounts. Server enforces the
+  // same allowlist in realtime-session.mjs; this just keeps the UI
+  // honest when the owner is signed in.
+  const OWNER_EMAILS = new Set([
+    'aidandavidhollinger@gmail.com',
+  ]);
   const [voiceGate, setVoiceGate] = useState({
     loading: true,
     signedIn: false,
@@ -1694,6 +1701,9 @@ function App(){
             isPro = d.plan === 'pro' || d.plan === 'team' || d.plan === 'lifetime' || d.isPro === true;
           }
         } catch(e){ /* read failure → treat as fresh; server will enforce real cap */ }
+        if (OWNER_EMAILS.has(String(u.email || '').toLowerCase())){
+          isPro = true;
+        }
       } else {
         used = readAnonUsed();
       }
