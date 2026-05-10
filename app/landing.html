@@ -2602,11 +2602,20 @@ button{font-family:inherit;cursor:pointer}
     </div>
   </div>
 </section>
-<script type="module">
-  import createGlobe from '/js/vendor/cobe.js';
+<script>
+  // 2D-CANVAS globe (no WebGL). Replaces the cobe/WebGL build because
+  // cobe was silently producing zero pixels on a non-trivial slice of
+  // real Chrome installs (visible halo + neural-net background, but no
+  // globe — repro'd by user on macOS Chrome). Causes ranged from GPU
+  // blocklist to compositor layer issues with aspect-ratio + WebGL
+  // canvases; debugging across users' specific configs was a rabbit
+  // hole. 2D canvas paints reliably everywhere and looks consistent
+  // with the dark/red landing aesthetic.
   (function(){
     var canvas = document.getElementById('heroGlobeCanvas');
-    if (!canvas || typeof createGlobe !== 'function') return;
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
     // Top markets, from Firebase analytics breakdown. [lat, lng, size];
     // cobe pin radius is 0..0.2, but the visual diameter scales roughly
     // linearly with `size` while the human eye reads AREA, not radius.
@@ -2642,105 +2651,242 @@ button{font-family:inherit;cursor:pointer}
       { location: [37.5665, 126.9780],  size: 0.012 }, // Seoul
     ];
 
+    // Theme palette. Light mode kept lighter; default crimson is what
+    // most users see on the landing.
     function themeColors(){
       var theme = document.documentElement.getAttribute('data-theme') || 'crimson';
       var lighting = document.documentElement.getAttribute('data-lighting') || '';
       if (theme === 'light' || lighting === 'light'){
         return {
-          dark: 0,
-          mapBrightness: 1.4,
-          baseColor: [0.86, 0.84, 0.80],
-          glowColor: [0.95, 0.65, 0.65],
-          markerColor: [0.86, 0.15, 0.15]
+          sphereCore:'rgba(220,200,195,0.65)',
+          sphereOuter:'rgba(190,160,160,0.45)',
+          grid:'rgba(200,60,60,0.18)',
+          land:'rgba(180,40,40,',
+          markerCore:'255,80,80',
+          markerHi:'255,180,180',
+          floor:'rgba(220,80,80,0.30)'
         };
       }
-      if (theme === 'grey'){
-        return {
-          dark: 1, mapBrightness: 6,
-          baseColor: [0.32, 0.32, 0.34],
-          glowColor: [0.95, 0.4, 0.4],
-          markerColor: [1, 0.32, 0.32]
-        };
-      }
-      // crimson default
+      // crimson default (also fine for grey theme — same family)
       return {
-        dark: 1, mapBrightness: 6,
-        baseColor: [0.65, 0.12, 0.12],
-        glowColor: [1, 0.30, 0.30],
-        markerColor: [1, 0.55, 0.55]
+        sphereCore:'rgba(150,30,30,0.55)',
+        sphereOuter:'rgba(40,8,8,0.55)',
+        grid:'rgba(239,68,68,0.14)',
+        land:'rgba(220,60,60,',
+        markerCore:'255,110,110',
+        markerHi:'255,210,210',
+        floor:'rgba(239,68,68,0.35)'
       };
     }
 
-    var phi = 0;
+    // Hand-tuned land-hint dots. Not a real coastline — just enough to
+    // suggest continent silhouettes when the sphere rotates. ~150 points;
+    // any more starts to feel busy on a 520px globe.
+    var LAND = [
+      // North America
+      [70,-150],[68,-130],[65,-110],[60,-100],[55,-115],[60,-130],[55,-100],[50,-105],
+      [50,-120],[48,-90],[45,-95],[42,-80],[40,-75],[37,-90],[35,-105],[32,-115],
+      [30,-95],[28,-100],[25,-100],[20,-100],[18,-92],[15,-90],[55,-75],[50,-70],
+      [45,-65],[60,-95],[60,-80],[68,-85],
+      // South America
+      [10,-72],[5,-75],[0,-70],[-5,-65],[-10,-70],[-15,-65],[-20,-60],[-25,-65],
+      [-30,-65],[-35,-65],[-40,-65],[-45,-70],[-15,-50],[-10,-50],[-5,-55],[-20,-45],
+      [-22,-43],[-30,-55],
+      // Europe
+      [60,10],[58,15],[55,20],[55,30],[50,5],[50,15],[50,25],[48,2],[45,5],[45,20],
+      [42,15],[40,15],[40,25],[60,30],[55,40],[60,50],
+      // Africa
+      [32,-5],[30,5],[25,15],[20,25],[15,30],[10,35],[5,30],[0,25],[-5,30],
+      [-10,30],[-15,28],[-20,28],[-25,30],[-30,25],[-30,18],[5,15],[8,5],[12,-5],
+      [15,-10],[10,0],[-15,15],[-25,20],
+      // Middle East / Russia
+      [60,60],[60,80],[60,100],[60,120],[55,80],[50,55],[55,55],[50,80],[60,140],
+      [65,90],[70,100],[68,140],[35,40],[35,50],[40,45],
+      // Asia
+      [40,75],[40,90],[40,110],[35,105],[30,90],[25,80],[20,75],[30,115],[35,125],
+      [40,125],[42,130],[45,135],[50,135],[28,85],[30,75],[15,80],[12,77],[10,80],
+      [22,90],[18,98],[15,100],[10,105],
+      // SE Asia / Indonesia / Philippines
+      [0,110],[-3,115],[-5,120],[-7,115],[3,125],[8,125],[12,122],[15,120],[18,121],
+      [-8,140],[-3,135],
+      // Australia / NZ
+      [-15,135],[-20,130],[-25,135],[-30,140],[-32,150],[-25,150],[-20,145],[-30,120],
+      [-37,145],[-42,170]
+    ];
+
+    var phi = 0;                // base auto-spin angle in radians
+    var displayPhi = 0;         // phi + drag offset, recomputed each tick
     var pointerInteracting = null;
     var pointerInteractionMovement = 0;
     var paused = false;
-    var globe = null;
-    var lastFrameT = 0;
+    var lastT = 0;
+    var rafId = 0;
+    var W = 0, H = 0;           // CSS pixels; backing buffer is W*dpr × H*dpr
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
     var reduced = false;
     try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
 
-    function build(){
-      if (globe) { try { globe.destroy(); } catch(e){} globe = null; }
-      // Cap DPR at 1.5. On retina (dpr=2) and 4K (dpr=3) Chrome was
-      // rendering 4×–9× the pixels of the displayed size, which is what
-      // made the globe stagger on mid-tier laptops. 1.5 still looks
-      // crisp at 520px and roughly halves shader cost.
-      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    function resize(){
       var rect = canvas.getBoundingClientRect();
       var size = Math.max(240, Math.round(rect.width || 480));
+      W = size; H = size;
+      canvas.width = Math.round(size * dpr);
+      canvas.height = Math.round(size * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // Project (lat, lng) on a unit sphere to screen-space relative to
+    // (0,0) using current displayPhi. Returns [x, y, z] where z>0 means
+    // facing the camera (visible). Includes a fixed axial tilt so the
+    // sphere doesn't look like a flat disk at the poles.
+    var TILT = 0.32; // ≈ 18°
+    var TILT_C = Math.cos(TILT), TILT_S = Math.sin(TILT);
+    function project(lat, lng){
+      var latR = lat * Math.PI / 180;
+      var lngR = lng * Math.PI / 180 - displayPhi;
+      var cLat = Math.cos(latR);
+      var x = cLat * Math.sin(lngR);
+      var y0 = Math.sin(latR);
+      var z0 = cLat * Math.cos(lngR);
+      // tilt around X axis so the north pole leans toward camera
+      var y = y0 * TILT_C - z0 * TILT_S;
+      var z = y0 * TILT_S + z0 * TILT_C;
+      return [x, y, z];
+    }
+
+    function draw(){
       var c = themeColors();
-      try {
-        globe = createGlobe(canvas, {
-          devicePixelRatio: dpr,
-          width: size * dpr,
-          height: size * dpr,
-          phi: 0,
-          theta: 0.18,
-          dark: c.dark,
-          diffuse: 1.2,
-          // 16000 was the cobe demo default. It overdraws for our 520px
-          // surface and was the second biggest source of jank. 11000 is
-          // visually indistinguishable here and ~30% cheaper per frame.
-          mapSamples: 11000,
-          mapBrightness: c.mapBrightness,
-          baseColor: c.baseColor,
-          markerColor: c.markerColor,
-          glowColor: c.glowColor,
-          markers: MARKERS,
-          onRender: function(state){
-            // Frame-time-independent rotation. The previous "phi += 0.0035
-            // per frame" logic ran twice as fast on 120Hz displays and
-            // visibly stuttered when Chrome dropped below 60. dt is
-            // clamped so a tab-resume doesn't fast-forward the spin.
-            var now = performance.now();
-            var dt = lastFrameT ? Math.min(64, now - lastFrameT) : 16;
-            lastFrameT = now;
-            if (!pointerInteracting && !paused && !reduced) {
-              // 0.00021 rad/ms ≈ 0.21 rad/sec, matching the original
-              // 0.0035-per-frame feel at 60Hz — but stays the same on
-              // 120Hz instead of doubling, and survives dropped frames
-              // without a visible stutter.
-              phi += 0.00021 * dt;
-            }
-            state.phi = phi + pointerInteractionMovement / 200;
-            // Re-sync to the canvas's actual rendered size each frame so
-            // a late font load or container resize doesn't leave the
-            // shader drawing into a stale viewport (looks like a
-            // squished or off-center sphere on Chrome).
-            var cw = canvas.clientWidth || size;
-            state.width = cw * dpr;
-            state.height = cw * dpr;
-          }
-        });
-      } catch (err) {
-        // Most likely cause here is no WebGL (corp policy, GPU blocklist,
-        // or the rare Chrome flag combo). Tag the wrapper so the static
-        // fallback halo we set in CSS at least signals "something lives
-        // here," and log so we'd see it in error reporting.
-        canvas.parentElement && canvas.parentElement.setAttribute('data-globe-failed', '1');
-        console.warn('[globe] init failed', err);
+      var cx = W / 2, cy = H / 2;
+      var r = Math.min(W, H) * 0.42;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Sphere base — radial gradient suggests a lit hemisphere
+      var sphereGrad = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.30, r * 0.06, cx, cy, r);
+      sphereGrad.addColorStop(0, c.sphereCore);
+      sphereGrad.addColorStop(1, c.sphereOuter);
+      ctx.fillStyle = sphereGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Outline
+      ctx.strokeStyle = c.grid;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Latitude / longitude grid (front hemisphere only, so the sphere
+      // reads as 3D). 30° spacing keeps it sparse and unobtrusive.
+      ctx.lineWidth = 0.8;
+      for (var lat = -60; lat <= 60; lat += 30){
+        ctx.beginPath();
+        var first = true;
+        for (var lng = -180; lng <= 180; lng += 4){
+          var p = project(lat, lng);
+          if (p[2] < 0.02){ first = true; continue; }
+          var sx = cx + p[0] * r;
+          var sy = cy - p[1] * r;
+          if (first){ ctx.moveTo(sx, sy); first = false; }
+          else { ctx.lineTo(sx, sy); }
+        }
+        ctx.stroke();
       }
+      for (var lng2 = 0; lng2 < 360; lng2 += 30){
+        ctx.beginPath();
+        var first2 = true;
+        for (var lat2 = -85; lat2 <= 85; lat2 += 4){
+          var p2 = project(lat2, lng2);
+          if (p2[2] < 0.02){ first2 = true; continue; }
+          var sx2 = cx + p2[0] * r;
+          var sy2 = cy - p2[1] * r;
+          if (first2){ ctx.moveTo(sx2, sy2); first2 = false; }
+          else { ctx.lineTo(sx2, sy2); }
+        }
+        ctx.stroke();
+      }
+
+      // Land-hint dots, depth-shaded so the sphere reads as 3D
+      for (var i = 0; i < LAND.length; i++){
+        var L = project(LAND[i][0], LAND[i][1]);
+        if (L[2] <= 0) continue;
+        var lx = cx + L[0] * r;
+        var ly = cy - L[1] * r;
+        var depthL = L[2];
+        ctx.fillStyle = c.land + (0.20 + depthL * 0.55) + ')';
+        ctx.beginPath();
+        ctx.arc(lx, ly, 1.2 + depthL * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Markers, back-to-front so front pins paint over back glow
+      var rendered = [];
+      for (var j = 0; j < MARKERS.length; j++){
+        var M = MARKERS[j];
+        var P = project(M.location[0], M.location[1]);
+        if (P[2] <= -0.05) continue; // back face (small bleed for edge pins)
+        rendered.push({ x: cx + P[0] * r, y: cy - P[1] * r, z: P[2], size: M.size });
+      }
+      rendered.sort(function(a, b){ return a.z - b.z; });
+
+      for (var k = 0; k < rendered.length; k++){
+        var m = rendered[k];
+        var depth = Math.max(0, m.z);
+        // Marker radius scales with M.size (the per-country share) AND
+        // the globe radius, so the size hierarchy is preserved across
+        // viewport sizes. Small depth boost so front pins look bigger.
+        var pinR = m.size * r * 1.15 * (0.75 + depth * 0.35);
+        // Soft outer glow
+        var glowR = pinR * 4;
+        var glow = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, glowR);
+        glow.addColorStop(0, 'rgba(' + c.markerCore + ',' + (0.55 * depth) + ')');
+        glow.addColorStop(0.4, 'rgba(' + c.markerCore + ',' + (0.22 * depth) + ')');
+        glow.addColorStop(1, 'rgba(' + c.markerCore + ',0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, glowR, 0, Math.PI * 2);
+        ctx.fill();
+        // Solid dot
+        ctx.fillStyle = 'rgba(' + c.markerCore + ',' + (0.65 + depth * 0.35) + ')';
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, pinR, 0, Math.PI * 2);
+        ctx.fill();
+        // Highlight (small bright spot, makes pins read as 3D beads)
+        if (pinR > 2){
+          ctx.fillStyle = 'rgba(' + c.markerHi + ',' + (0.55 * depth) + ')';
+          ctx.beginPath();
+          ctx.arc(m.x - pinR * 0.3, m.y - pinR * 0.3, pinR * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Floor reflection — soft red ellipse below the sphere, sells the
+      // "globe sitting on a surface" feeling without paying for a
+      // canvas-wide drop-shadow filter.
+      var floorY = cy + r * 1.05;
+      var floor = ctx.createRadialGradient(cx, floorY, 0, cx, floorY, r * 0.85);
+      floor.addColorStop(0, c.floor);
+      floor.addColorStop(1, 'rgba(239,68,68,0)');
+      ctx.fillStyle = floor;
+      ctx.beginPath();
+      ctx.ellipse(cx, floorY, r * 0.85, r * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function tick(now){
+      var dt = lastT ? Math.min(64, now - lastT) : 16;
+      lastT = now;
+      if (pointerInteracting === null && !paused && !reduced){
+        // 0.00021 rad/ms ≈ 0.21 rad/sec — full rotation in ~30 sec,
+        // matching the original cobe feel. Frame-time-independent so
+        // 120Hz displays don't double-speed and dropped frames don't
+        // jerk forward.
+        phi += 0.00021 * dt;
+      }
+      displayPhi = phi + pointerInteractionMovement / 200;
+      draw();
+      rafId = requestAnimationFrame(tick);
     }
 
     // Drag-to-rotate. Pause auto-spin while dragging.
@@ -2748,18 +2894,18 @@ button{font-family:inherit;cursor:pointer}
       pointerInteracting = e.clientX - pointerInteractionMovement;
       canvas.style.cursor = 'grabbing';
     });
-    canvas.addEventListener('pointerup', function(){ pointerInteracting = null; canvas.style.cursor = 'grab'; });
-    canvas.addEventListener('pointerout', function(){ pointerInteracting = null; canvas.style.cursor = 'grab'; });
+    function endDrag(){ pointerInteracting = null; canvas.style.cursor = 'grab'; }
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointerout', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
     canvas.addEventListener('pointermove', function(e){
       if (pointerInteracting !== null){
-        var delta = e.clientX - pointerInteracting;
-        pointerInteractionMovement = delta;
+        pointerInteractionMovement = e.clientX - pointerInteracting;
       }
     });
     canvas.style.cursor = 'grab';
 
-    // Pause when off-screen. Continuous WebGL on a hidden globe wastes
-    // battery on the long landing-page scroll.
+    // Pause when offscreen — saves battery on the long scroll.
     try {
       var io = new IntersectionObserver(function(entries){
         entries.forEach(function(en){ paused = !en.isIntersecting; });
@@ -2768,42 +2914,34 @@ button{font-family:inherit;cursor:pointer}
     } catch(e){}
 
     // Theme picker on /debate-ai writes data-theme/data-lighting on
-    // <html>. We listen so the globe re-skins live (no reload).
+    // <html>. Re-paint with the new palette on next tick (no reload).
     try {
-      var obs = new MutationObserver(function(muts){
-        for (var i = 0; i < muts.length; i++){
-          if (muts[i].attributeName === 'data-theme' || muts[i].attributeName === 'data-lighting'){
-            build();
-            return;
-          }
-        }
-      });
+      var obs = new MutationObserver(function(){ /* themeColors() called per-tick */ });
       obs.observe(document.documentElement, { attributes: true });
     } catch(e){}
 
     var rzTimer = null;
     window.addEventListener('resize', function(){
       clearTimeout(rzTimer);
-      rzTimer = setTimeout(build, 120);
+      rzTimer = setTimeout(resize, 120);
     });
 
-    // Build synchronously so the globe is visible even in environments
-    // where rAF is throttled at load — Reddit / Instagram / TikTok
-    // in-app browsers, backgrounded Chrome tabs, and some embed contexts
-    // all fail to fire rAF until the user explicitly focuses the tab.
-    // (A previous attempt to defer to two rAFs for layout-settling broke
-    // first paint in those environments — invisible globe, no error.)
-    build();
+    resize();
+    rafId = requestAnimationFrame(tick);
 
-    // Belt-and-suspenders: rebuild once on window.load if the canvas's
-    // measured width changed since the initial build. Catches the
-    // layout race where build() ran before grid + web font settled and
-    // the WebGL viewport ended up stretched against the actual element.
+    // Fallback: rAF doesn't fire while a tab is hidden / backgrounded
+    // (Chrome, Firefox, Safari). setTimeout still does. Force one paint
+    // 100ms in so the user sees at least the static globe even if their
+    // tab loads in the background; rAF takes over once they focus.
+    setTimeout(function(){ if (lastT === 0) draw(); }, 100);
+
+    // If load fires after layout shifts (font swap, etc), re-read size
     window.addEventListener('load', function(){
-      if (!globe) { build(); return; }
-      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       var w = canvas.clientWidth;
-      if (w && Math.abs(w - canvas.width / dpr) > 12) build();
+      if (w && Math.abs(w - W) > 12) resize();
+      // Second forced paint after layout-settle, in case the first
+      // setTimeout fallback drew at a stale size.
+      if (lastT === 0) draw();
     }, { once: true });
   })();
 </script>
