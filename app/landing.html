@@ -2546,33 +2546,38 @@ button{font-family:inherit;cursor:pointer}
     var canvas = document.getElementById('heroGlobeCanvas');
     if (!canvas || typeof createGlobe !== 'function') return;
     // Top markets, from Firebase analytics breakdown. [lat, lng, size];
-    // size 0..0.2 (cobe uses it as a relative pin radius).
+    // cobe pin radius is 0..0.2, but the visual diameter scales roughly
+    // linearly with `size` while the human eye reads AREA, not radius.
+    // So previous "size ∝ user share" undersold the dominance of India
+    // (68.5% of MAU) — every pin looked like a comparable chunk.
+    // Now: size ∝ sqrt(share) so AREA tracks share. India is the big
+    // red blob you can't miss; everyone else is clearly subordinate.
     var MARKERS = [
-      { location: [20.5937, 78.9629],   size: 0.18 },  // India 68.5%
+      { location: [20.5937, 78.9629],   size: 0.20 },  // India 68.5% — max, the elephant in the room
       { location: [37.0902, -95.7129],  size: 0.085 }, // US 8.3%
-      { location: [12.8797, 121.7740],  size: 0.05 },  // Philippines
-      { location: [-14.2350, -51.9253], size: 0.045 }, // Brazil
-      { location: [30.3753, 69.3451],   size: 0.045 }, // Pakistan
-      { location: [23.6345, -102.5528], size: 0.04 },  // Mexico
-      { location: [38.9637, 35.2433],   size: 0.04 },  // Turkey
-      { location: [26.8206, 30.8025],   size: 0.035 }, // Egypt
-      { location: [-38.4161, -63.6167], size: 0.035 }, // Argentina
-      { location: [47.1625, 19.5033],   size: 0.03 },  // Hungary
-      { location: [52.1326, 5.2913],    size: 0.03 },  // Netherlands
-      { location: [51.9194, 19.1451],   size: 0.03 },  // Poland
-      { location: [55.3781, -3.4360],   size: 0.035 }, // UK
-      { location: [56.1304, -106.3468], size: 0.035 }, // Canada
-      { location: [-25.2744, 133.7751], size: 0.03 },  // Australia
-      { location: [1.3521, 103.8198],   size: 0.03 },  // Singapore
-      { location: [25.2048, 55.2708],   size: 0.03 },  // UAE
-      { location: [40.7128, -74.0060],  size: 0.03 },  // NYC pin
-      { location: [34.0522, -118.2437], size: 0.03 },  // LA pin
-      { location: [13.7563, 100.5018],  size: 0.025 }, // Bangkok
-      { location: [-1.2921, 36.8219],   size: 0.025 }, // Nairobi
-      { location: [9.0820, 8.6753],     size: 0.025 }, // Nigeria
-      { location: [-33.8688, 151.2093], size: 0.025 }, // Sydney
-      { location: [35.6762, 139.6503],  size: 0.025 }, // Tokyo
-      { location: [37.5665, 126.9780],  size: 0.025 }, // Seoul
+      { location: [12.8797, 121.7740],  size: 0.045 }, // Philippines ~2%
+      { location: [-14.2350, -51.9253], size: 0.040 }, // Brazil ~1.6%
+      { location: [30.3753, 69.3451],   size: 0.040 }, // Pakistan ~1.6%
+      { location: [23.6345, -102.5528], size: 0.030 }, // Mexico ~0.9%
+      { location: [38.9637, 35.2433],   size: 0.030 }, // Turkey ~0.9%
+      { location: [55.3781, -3.4360],   size: 0.028 }, // UK ~0.8%
+      { location: [56.1304, -106.3468], size: 0.028 }, // Canada ~0.8%
+      { location: [26.8206, 30.8025],   size: 0.024 }, // Egypt ~0.6%
+      { location: [-38.4161, -63.6167], size: 0.024 }, // Argentina ~0.6%
+      { location: [47.1625, 19.5033],   size: 0.018 }, // Hungary
+      { location: [52.1326, 5.2913],    size: 0.018 }, // Netherlands
+      { location: [51.9194, 19.1451],   size: 0.018 }, // Poland
+      { location: [-25.2744, 133.7751], size: 0.016 }, // Australia
+      { location: [1.3521, 103.8198],   size: 0.016 }, // Singapore
+      { location: [25.2048, 55.2708],   size: 0.016 }, // UAE
+      { location: [40.7128, -74.0060],  size: 0.016 }, // NYC
+      { location: [34.0522, -118.2437], size: 0.016 }, // LA
+      { location: [13.7563, 100.5018],  size: 0.012 }, // Bangkok
+      { location: [-1.2921, 36.8219],   size: 0.012 }, // Nairobi
+      { location: [9.0820, 8.6753],     size: 0.012 }, // Nigeria
+      { location: [-33.8688, 151.2093], size: 0.012 }, // Sydney
+      { location: [35.6762, 139.6503],  size: 0.012 }, // Tokyo
+      { location: [37.5665, 126.9780],  size: 0.012 }, // Seoul
     ];
 
     function themeColors(){
@@ -2650,7 +2655,11 @@ button{font-family:inherit;cursor:pointer}
             var dt = lastFrameT ? Math.min(64, now - lastFrameT) : 16;
             lastFrameT = now;
             if (!pointerInteracting && !paused && !reduced) {
-              phi += 0.00012 * dt; // ≈ 0.0072 rad / 60Hz frame, smooth on any refresh
+              // 0.00021 rad/ms ≈ 0.21 rad/sec, matching the original
+              // 0.0035-per-frame feel at 60Hz — but stays the same on
+              // 120Hz instead of doubling, and survives dropped frames
+              // without a visible stutter.
+              phi += 0.00021 * dt;
             }
             state.phi = phi + pointerInteractionMovement / 200;
             // Re-sync to the canvas's actual rendered size each frame so
