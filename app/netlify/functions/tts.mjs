@@ -74,6 +74,14 @@ const ELEVENLABS_VOICES = {
   heckler:     'CwhRBWXzGAHq8TQ4Fs17',   // Roger — gravelly older male, sardonic
   disruptor:   'cgSgspJ2msm6clMCkdW9',   // Jessica — youthful female, high-energy
   tactician:   'pqHfZKP75CvOlQylNhV4',   // Bill — calm narrator male, measured
+  // Counter (oral exam) extension default persona. Indian-English
+  // examiner. ElevenLabs voice ID is a placeholder — falls back to the
+  // measured-narrator voice until an Indian-English voice ID is dropped
+  // in via env override (ELEVENLABS_VOICE_EXAMINER) or hard-set here.
+  // Free tier (OpenAI gpt-4o-mini-tts) gets the accent steering via
+  // OPENAI_PERSONA_INSTRUCTIONS below, which is more important than the
+  // ElevenLabs swap given who's actually using oral exam mode.
+  examiner:    process.env.ELEVENLABS_VOICE_EXAMINER || 'pqHfZKP75CvOlQylNhV4',
 };
 
 // Free-tier fallback. OpenAI only ships 10 voices, so new personas reuse
@@ -97,6 +105,7 @@ const PERSONA_TO_OPENAI = {
   heckler: 'alloy',      // closest match: rich baritone, dry
   disruptor: 'nova',     // closest match: high-energy
   tactician: 'sage',     // closest match: thoughtful, measured
+  examiner: 'sage',      // measured academic; Indian-English steered via instructions
 };
 
 // Cartesia Sonic voice IDs — placeholder mapping for the opt-in A/B flag.
@@ -119,6 +128,10 @@ const CARTESIA_VOICES = {
   heckler:     '79743797-2087-422f-8dc7-86f9efca85f1',
   disruptor:   '41534ada-d9a3-4f24-b9d5-3a8e1f2f7fc0',
   tactician:   'a167e0f3-df7e-4d52-a9c3-f949145efdab',
+  // Examiner (Counter ext default). Cartesia is opt-in; ID falls back
+  // to the philosopher voice until an Indian-English Cartesia voice is
+  // wired in via env override.
+  examiner:    process.env.CARTESIA_VOICE_EXAMINER || 'a167e0f3-df7e-4d52-a9c3-f949145efdab',
 };
 
 // Map OpenAI voice keys to personality keys
@@ -239,6 +252,7 @@ const OPENAI_PERSONA_INSTRUCTIONS = {
   heckler:     'Speak gravelly and sardonic — older, world-weary, like you have heard this argument fifty times and stopped pretending otherwise.',
   disruptor:   'Speak with high-energy challenger cadence — interruptive, slightly irreverent, thriving on chaos in the round.',
   tactician:   'Speak quietly and three moves ahead — calm, tactical, never raising the voice but always landing the point.',
+  examiner:    'Speak in measured Indian-English with senior-academic cadence. Even pacing, slight musical lift on probe questions, no theatrics. Patient between question and answer, warm but not eager. The register of a senior school panel examiner conducting a viva. No rhotic American R, no British clipping; standard Indian-English vowels.',
 };
 
 function buildOpenAIInstructions(voice, intensity) {
@@ -336,6 +350,11 @@ const INWORLD_VOICES = {
   heckler:     'Roger',        // Gravelly older male
   disruptor:   'Jessica',      // Youthful energy female
   tactician:   'Bill',         // Calm narrator male
+  // Examiner (Counter ext default). Inworld is Pro opt-in; falls back
+  // to the calm-narrator voice until an Indian-English Inworld voice
+  // is wired in via INWORLD_VOICE_EXAMINER. Accent direction comes
+  // from the system prompt either way.
+  examiner:    process.env.INWORLD_VOICE_EXAMINER || 'Bill',
 };
 async function inworldTTS(text, voice, speed, apiKey) {
   const personality = OPENAI_TO_PERSONALITY[voice] || voice;

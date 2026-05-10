@@ -1286,6 +1286,32 @@ const FORMATS = {
     },
     prep: 180,
   },
+  viva: {
+    name: 'Viva (Oral Exam)',
+    desc: 'School / college oral exam drill. AI examines you on a passage.',
+    sides: ['student','examiner'],
+    sideLabels: { student:'Student (defending)', examiner:'Examiner (asking)' },
+    speeches: [
+      { code:'OD',  name:'Opening Defense',     side:'student',  time:120 },
+      { code:'Q1',  name:'Examiner Probe',      side:'examiner', time:90 },
+      { code:'A1',  name:'Student Answer',      side:'student',  time:90 },
+      { code:'Q2',  name:'Follow-Up Probe',     side:'examiner', time:90 },
+      { code:'A2',  name:'Student Answer',      side:'student',  time:90 },
+      { code:'Q3',  name:'Final Probe',         side:'examiner', time:60 },
+      { code:'A3',  name:'Closing Defense',     side:'student',  time:90 },
+    ],
+    rules: {
+      OD:'You are the STUDENT giving the opening defense. State your understanding of the passage, the central thesis or claim, and why it holds. 2 minutes. Plain academic English, no debate jargon, no fabricated citations. Walk the examiner through the mechanism, not just the conclusion.',
+      Q1:'You are the EXAMINER. The student just gave their opening defense. Ask ONE precise probing question that targets the weakest link in their reasoning. Indian-English measured academic register. No leading. Wait for them to answer. Examples: "What assumption are you making about [X]?" / "Where does the chain from [Y] to [Z] go through?" / "Can you defend that against the counter-case where [W]?" Single question, then stop.',
+      A1:'You are the STUDENT answering the probe. Direct answer first, then warrant. If you don\'t know, say so honestly and reason from first principles. 90 seconds.',
+      Q2:'You are the EXAMINER. Follow up on the student\'s last answer. If they conceded ground, push deeper. If they held firm, test the edges of their position. ONE question, then stop. Same Indian-English measured register.',
+      A2:'You are the STUDENT. Answer the follow-up. Build on or repair your prior position; don\'t restart from scratch.',
+      Q3:'You are the EXAMINER. Final probe. The synthesis question — make them tie their position to a real-world implication or a borderline case. ONE question.',
+      A3:'You are the STUDENT giving the closing defense. Synthesize. Why your position holds, what you concede, what you would still defend if the panel pushed harder. 90 seconds. No new claims; tighten what you have.',
+    },
+    prep: 60,
+    entry: 'oral',
+  },
   mun: {
     name: 'Model UN',
     desc: 'Committee simulation. Speeches, caucuses, resolutions.',
@@ -3750,6 +3776,12 @@ function App(){
       const { motion, background } = frame(action, text);
       setMotion(motion);
       setBackground(background);
+      // Counter (oral exam) extension mode: auto-pick the viva format so
+      // the speech-list, side labels, and per-format voice all line up
+      // with examiner-style probing instead of debate-round structure.
+      if(extMode==='counter'&&typeof FORMATS!=='undefined'&&FORMATS.viva){
+        try{ setFormat('viva'); }catch{}
+      }
       setPhase('setup');
       // Smooth-scroll the motion field into view if the user had scrolled
       // away from setup. Cheap, only on the next tick.
@@ -5823,9 +5855,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       el('div',{className:'pills'},
         Object.entries(FORMATS).map(([k,v])=>
           el('button',{key:k,className:'pill'+(format===k?' on':''),onClick:()=>setFormat(k),title:v.desc,
-            style:v.entry==='easy'?{position:'relative'}:undefined},
+            style:(v.entry==='easy'||v.entry==='oral')?{position:'relative'}:undefined},
             v.name,
-            v.entry==='easy'&&el('span',{style:{marginLeft:8,fontSize:'.58rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',padding:'2px 7px',borderRadius:999,background:'rgba(34,197,94,.14)',color:'#4ade80',border:'1px solid rgba(34,197,94,.3)',verticalAlign:'middle'}},'Easy')
+            v.entry==='easy'&&el('span',{style:{marginLeft:8,fontSize:'.58rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',padding:'2px 7px',borderRadius:999,background:'rgba(34,197,94,.14)',color:'#4ade80',border:'1px solid rgba(34,197,94,.3)',verticalAlign:'middle'}},'Easy'),
+            v.entry==='oral'&&el('span',{style:{marginLeft:8,fontSize:'.58rem',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',padding:'2px 7px',borderRadius:999,background:'rgba(168,85,247,.14)',color:'#c4b5fd',border:'1px solid rgba(168,85,247,.3)',verticalAlign:'middle'}},'Oral')
           )
         )
       ),

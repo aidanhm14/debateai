@@ -6,9 +6,18 @@
 //   - reload + iframe load-failure handling
 
 const APP_ORIGIN = 'https://debateai.com';
+// Two surfaces under the same brand:
+//  - voice-debate.html  -> default. Voice round (OpenAI Realtime). The
+//                          actual oral-exam drill — student speaks, AI
+//                          examiner asks, AI grades.
+//  - debate-ai.html     -> escape hatch for users who want the typed
+//                          flow (no mic, slower pace, full setup screen).
+const VOICE_URL = APP_ORIGIN + '/voice-debate.html?ext=1&mode=counter';
+const TYPED_URL = APP_ORIGIN + '/debate-ai.html?ext=1&mode=counter';
 const frame = document.getElementById('frame');
 const pasteBtn = document.getElementById('paste');
 const reloadBtn = document.getElementById('reload');
+const typedBtn = document.getElementById('typed');
 const retryBtn = document.getElementById('retry');
 const errShade = document.getElementById('errShade');
 const hint = document.getElementById('hint');
@@ -114,6 +123,17 @@ pasteBtn.addEventListener('click', async () => {
 reloadBtn.addEventListener('click', () => {
   errShade.classList.remove('is-shown');
   frame.src = frame.src;
+});
+
+// Toggle between voice round and typed flow. Both surfaces support the
+// ext bridge, so switching just swaps the iframe src and the next
+// pendingAction (or paste) drains into the new page.
+typedBtn?.addEventListener('click', () => {
+  const onVoice = frame.src.includes('/voice-debate.html');
+  errShade.classList.remove('is-shown');
+  frame.src = onVoice ? TYPED_URL : VOICE_URL;
+  typedBtn.textContent = onVoice ? 'Voice' : 'Typed';
+  typedBtn.title = onVoice ? 'Switch back to the voice round' : 'Switch to typed flow (debate-ai)';
 });
 
 retryBtn?.addEventListener('click', () => {

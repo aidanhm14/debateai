@@ -1204,6 +1204,19 @@ const PERSONALITIES = [
     style:'Rich baritone, dry humor. Steelmans first. Buries quietly. Says "I\'ve seen this argument before", and means it.',
     avatarBg:'linear-gradient(135deg,#525252 0%,#171717 100%)',
     accentBorder:'rgba(115,115,115,.4)', accentStrong:'rgba(180,180,180,.55)', accentGlow:'rgba(255,255,255,.08)' },
+  // Default persona for the Counter (oral exam) chrome extension.
+  // Realtime voice timbre stays American (no Realtime voice currently
+  // ships as Indian-English), but the `style` line steers register hard
+  // toward Indian-English measured academic delivery — the realtime
+  // model honors free-form accent direction in instructions, same way
+  // gpt-4o-mini-tts does. Hindi-language vivas should set aiLanguage='hi'
+  // separately; this persona is for English-medium oral exams.
+  { key:'examiner', voice:'sage',
+    name:'Dr. Iyer', initials:'DI', archetype:'The Examiner',
+    bio:'Senior viva examiner. Precise, patient, exactly where it hurts. Same voice your school panel will have.',
+    style:'Indian-English measured academic register. Even cadence, no theatrics, slight musicality on probe questions. Asks one precise question and waits in silence; never piles on. Acknowledges right answers briefly ("yes; and now the harder one"), accepts "I don\'t know" cleanly without judgment, and pivots to a smaller entry point. Closes with a 30-second oral-feedback summary in examiner voice.',
+    avatarBg:'linear-gradient(135deg,#a855f7 0%,#312e81 100%)',
+    accentBorder:'rgba(168,85,247,.35)', accentStrong:'rgba(168,85,247,.6)', accentGlow:'rgba(168,85,247,.15)' },
 ];
 
 const BOND_LEVELS = [
@@ -1519,6 +1532,61 @@ function App(){
   useEffect(()=>{
     try { localStorage.setItem('debateai-smartness', String(smartness)); } catch(e){}
   }, [smartness]);
+
+  // Chrome-extension bridge for the Counter / oral-exam side panel.
+  // When voice-debate.html is loaded inside the extension iframe with
+  // ?ext=1, the panel posts {type:'debateai-ext', action, text}. We
+  // prefill the motion field, auto-pick the Examiner persona, default
+  // to crossex (closest match for an oral examination), and tell the
+  // panel we're ready so it drains queued actions. The user is then
+  // one tap from hitting Connect.
+  useEffect(() => {
+    let isExt = false;
+    let extMode = 'counter';
+    try {
+      const qs = new URLSearchParams(location.search);
+      isExt = qs.get('ext') === '1';
+      extMode = qs.get('mode') || 'counter';
+    } catch (e) {}
+    if (!isExt) return;
+    try {
+      document.documentElement.setAttribute('data-ext', '1');
+      document.documentElement.setAttribute('data-ext-mode', extMode);
+    } catch (e) {}
+    if (extMode === 'counter') {
+      // Auto-pick the closest realtime mode for oral examination — the
+      // realtime engine's `crossex` prompt is short-question / pause /
+      // probe, which is exactly the viva shape. (When/if a dedicated
+      // 'viva' mode ships in MODES, swap this to that key.)
+      try { setMode('crossex'); } catch (e) {}
+      // Auto-pick the Examiner persona if available; fall back to the
+      // user's remembered persona otherwise.
+      try {
+        const hasExaminer = typeof PERSONALITIES !== 'undefined'
+          && PERSONALITIES.some(p => p.key === 'examiner');
+        if (hasExaminer) setPersonaKey('examiner');
+      } catch (e) {}
+    }
+    const SHORT = 200;
+    const handle = (ev) => {
+      if (!ev || !ev.data || ev.data.type !== 'debateai-ext') return;
+      // Trust only the extension panel as parent.
+      if (!String(ev.origin || '').startsWith('chrome-extension://')) return;
+      const text = String(ev.data.text || '').trim();
+      if (!text) return;
+      // For voice-debate the motion is the spoken topic. Long passages
+      // get their first sentence in the motion field; the rest is dropped
+      // here (the realtime model gets context from the system prompt
+      // separately, and the motion box has only one line of UI room).
+      const stem = text.length > SHORT
+        ? (text.match(/[^.!?]+[.!?]/) || [text])[0].trim().slice(0, SHORT)
+        : text;
+      setMotion(stem);
+    };
+    window.addEventListener('message', handle);
+    try { window.parent && window.parent.postMessage({ type: 'debateai-ext-ready' }, '*'); } catch (e) {}
+    return () => window.removeEventListener('message', handle);
+  }, []);
 
   // Microphone permission state — checked on mount via the Permissions
   // API so we can render an accurate notice ("granted" / "needs prompt"
