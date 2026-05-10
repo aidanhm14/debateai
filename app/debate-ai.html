@@ -3801,7 +3801,13 @@ function App(){
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 1400,
+          // 900 not 1400: with the format overlay pushing input tokens
+          // to ~5800, the bigger output cap pushed total Sonnet
+          // generation past Netlify's 26s sync-function timeout and
+          // returned 504. The voice block already says "400 words HARD
+          // CAP" (~600 output tokens), so 900 is comfortable headroom
+          // and lands the response under the timeout.
+          max_tokens: 900,
           system: 'You are a parli debate coach running pre-prep motion triage. The user has not committed to prep yet. Output the structured memo per the format and rules in the voice guideline. No throat-clearing. Verdict-first.',
           messages: [{ role:'user', content: `Motion: "${m}". Run the triage.` }],
           stream: false,
