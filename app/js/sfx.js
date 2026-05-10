@@ -151,10 +151,19 @@
   //   interrupt → click    (user cut into the AI mid-turn; subtle tick,
   //                          NOT a celebration — it's a cut, not a win)
   //   end       → confirm  (session ended cleanly; warm closing chime)
-  // Without these, voice-debate's calls throw "is not a function" and
-  // the outer catch (now narrowed in voice-debate) used to roll back
-  // the WebRTC session as if connection had failed.
-  window.SFX = {
+  //
+  // MERGE, don't replace. debate-ai.html has an inline `const SFX = {...}`
+  // with richer methods (startRound, thinking, ready, preparing, etc.)
+  // that get hoisted to window.SFX after Babel transpiles the inline
+  // text/babel script (const → var → window prop). topbar.js then
+  // injects this file deferred, AFTER the inline scope has already
+  // populated window.SFX. A bare `window.SFX = {...}` here would clobber
+  // those page-specific methods, breaking Quick Clash + every other
+  // round-start path on debate-ai.html. Object.assign with the existing
+  // SFX as the LAST source means page-specific methods win, and pages
+  // without an inline SFX (splash, learn, live, voice-debate) still get
+  // the full shared API.
+  var sharedSFX = {
     click: click,
     send: send,
     receive: receive,
@@ -169,4 +178,5 @@
     unmute: function(){ setMuted(false); },
     toggleMute: function(){ var m = !isMuted(); setMuted(m); return m; },
   };
+  window.SFX = Object.assign({}, sharedSFX, window.SFX || {});
 })();
