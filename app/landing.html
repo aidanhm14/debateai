@@ -3975,7 +3975,10 @@ window.addEventListener('load', function(){
       try { localStorage.setItem('debateos-feedback-given', '1'); } catch(e){}
       window.location.href = '/#chat';
     }).catch(function(err){
-      console.warn('[landing] Google signin popup error:', err && err.code, err && err.message);
+      var code = (err && err.code) || 'unknown';
+      var msg = (err && err.message) || '';
+      console.warn('[landing] Google signin popup error:', code, msg);
+      try { if (window.gtag) gtag('event', 'sign_in_error', { code: code, message: msg.slice(0, 200), surface: source || 'landing_hero', method: 'popup' }); } catch(e){}
       if (btnText) btnText.textContent = 'Sign up free with Google. unlock all features';
       // Popup-blocked is the #1 cause of silent sign-in failure. When it happens,
       // fall back to redirect-based auth so the user still reaches Google.
@@ -3995,7 +3998,13 @@ window.addEventListener('load', function(){
         try { localStorage.setItem('debateos-feedback-given', '1'); } catch(e){}
         window.location.href = '/#chat';
       }
-    }).catch(function(err){ if (err && err.code !== 'auth/no-auth-event') console.warn('[landing] redirect result err:', err.message); });
+    }).catch(function(err){
+      var code = (err && err.code) || 'unknown';
+      if (code !== 'auth/no-auth-event') {
+        console.warn('[landing] redirect result err:', err && err.message);
+        try { if (window.gtag) gtag('event', 'sign_in_error', { code: code, message: ((err && err.message) || '').slice(0, 200), surface: 'landing_redirect_result', method: 'redirect' }); } catch(e){}
+      }
+    });
   } catch(e){}
 
   // Main sign-up button in the hero
@@ -4028,6 +4037,7 @@ window.addEventListener('load', function(){
       auth.signInWithRedirect(provider);
     } catch(e){
       console.warn('[landing] signInWithRedirect threw:', e.message);
+      try { if (window.gtag) gtag('event', 'sign_in_error', { code: (e && e.code) || 'redirect_throw', message: ((e && e.message) || '').slice(0, 200), surface: 'hero_timer', method: 'redirect' }); } catch(_){}
       // Last-ditch fallback: open Google's OAuth URL directly so the user at
       // least gets to Google, even if Firebase is broken. Better than silently
       // doing nothing, or redirecting them into the app without sign-in.

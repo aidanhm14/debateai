@@ -10042,7 +10042,10 @@ function useAuth() {
     // Without this, signInWithRedirect silently strands the user on the gate.
     try {
       firebaseAuth.getRedirectResult().catch(err => {
-        if (err && err.code !== 'auth/no-auth-event') console.warn('[auth] redirect result err:', err.code, err.message);
+        if (err && err.code !== 'auth/no-auth-event') {
+          console.warn('[auth] redirect result err:', err.code, err.message);
+          try { if (window.gtag) gtag('event', 'sign_in_error', { code: err.code || 'unknown', message: (err.message || '').slice(0, 200), surface: 'index_redirect_result', method: 'redirect' }); } catch(e){}
+        }
       });
     } catch(e) {}
     return firebaseAuth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
@@ -10076,11 +10079,15 @@ function useAuth() {
     try {
       await firebaseAuth.signInWithPopup(provider);
     } catch (err) {
-      const code = err && err.code;
+      const code = (err && err.code) || 'unknown';
+      const msg = (err && err.message || '').slice(0, 200);
+      try { if (window.gtag) gtag('event', 'sign_in_error', { code, message: msg, surface: 'index_useauth', method: 'popup' }); } catch(e){}
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
       const popupBlocked = code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment' || code === 'auth/internal-error';
       if (popupBlocked) {
-        try { await firebaseAuth.signInWithRedirect(provider); return; } catch(e) {}
+        try { await firebaseAuth.signInWithRedirect(provider); return; } catch(e) {
+          try { if (window.gtag) gtag('event', 'sign_in_error', { code: (e && e.code) || 'redirect_fallback_throw', message: ((e && e.message) || '').slice(0, 200), surface: 'index_useauth', method: 'redirect_fallback' }); } catch(_){}
+        }
       }
       console.warn('[auth] sign-in failed:', code, err && err.message);
       alert('Sign-in failed: ' + ((err && err.message) || code || 'unknown error'));

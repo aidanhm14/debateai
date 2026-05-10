@@ -867,11 +867,15 @@ function useAuth() {
       }
     } catch (e) {
       const code = e.code || 'unknown';
+      const msg = (e.message || '').slice(0, 200);
       console.error('Sign-in error:', code, e.message);
-      if (window.gtag) gtag('event', 'sign_in_error', { code, page: 'debate-ai' });
+      if (window.gtag) gtag('event', 'sign_in_error', { code, message: msg, surface: 'debate-ai', method: (isMobile || isInApp) ? 'redirect' : 'popup' });
       // Popup blocked / closed by browser policy → fall back to redirect.
       if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        try { await firebaseAuth.signInWithRedirect(provider); return; } catch (e2) { e = e2; }
+        try { await firebaseAuth.signInWithRedirect(provider); return; } catch (e2) {
+          if (window.gtag) gtag('event', 'sign_in_error', { code: e2.code || 'redirect_fallback_throw', message: (e2.message || '').slice(0, 200), surface: 'debate-ai', method: 'redirect_fallback' });
+          e = e2;
+        }
       }
       alert('Sign-in failed: ' + (e.message || e.code || 'try again'));
     }
