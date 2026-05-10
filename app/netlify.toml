@@ -52,27 +52,27 @@
 # ──────────────────────────────────────────────────────────────────
 # URL canonicalization — kill duplicate URLs that split analytics.
 #
-# Before: /, /index.html, /landing, /landing.html were serving two
-# real pages under FOUR URLs, splitting pageview counts and returning
-# visitor attribution (confirmed in Netlify analytics: /landing 3391,
-# / 1475, /index.html 554, /landing.html 10 — all for 2 real pages).
+# Root routing.
 #
-# After: / shows the voice-first splash; /landing is the marketing page;
-# .html variants 301 to clean URLs.
-# ──────────────────────────────────────────────────────────────────
-# Splash page (sexy minimal voice-AI intro) is now the public face at /.
-# It tap-routes to /landing where the full marketing surface lives.
-# The React app moved to /app so product lives at /app#case, /app#chat, etc.
-# Direct visits to /landing skip the splash (returning users + deep links).
+# Reverted the splash interstitial at "/" (2026-05-15) because it tanked
+# SEO: the splash has ~14 words of body content and zero outbound links,
+# so Google was indexing an empty page at the canonical URL while the
+# real marketing copy on /landing accumulated none of the brand equity.
+# Bounce rate on / was punishing rank for branded searches too.
+# Now: / serves /landing.html directly (the 2,700-line marketing page
+# with the SoftwareApplication + FAQPage structured data Google reads
+# for rich results). The splash is still reachable at /splash for
+# anyone who wants the voice-first intro; the launch animation lives
+# on but stops being the public face at the canonical URL.
 #
-# `force = true` is load-bearing: without it, Netlify serves any shadow
-# file at `/` (including /index.html, which when publish=app is the React
-# app bundle) BEFORE falling through to this rule. That caused
-# debatethedevil.com to boot straight into the app instead of the
-# marketing landing. With force=true the rewrite wins unconditionally.
+# `force = true` is load-bearing: without it Netlify serves any shadow
+# file at `/` (including /index.html, which when publish=app is the
+# React app bundle) BEFORE falling through to this rule. That caused
+# debatethedevil.com to boot into the app instead of marketing. With
+# force=true the rewrite wins unconditionally.
 [[redirects]]
   from = "/"
-  to = "/splash.html"
+  to = "/landing.html"
   status = 200
   force = true
 
