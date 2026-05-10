@@ -2553,26 +2553,20 @@ button{font-family:inherit;cursor:pointer}
     width:100%;aspect-ratio:1;max-width:520px;margin:0 auto;
     /* Reserve space even before the canvas backing buffer is sized.
        Without this, a layout race on first paint can leave the canvas
-       at 0×0 in some Chrome configurations and the globe never appears. */
+       at 0×0 in some Chrome configurations. */
     min-width:240px;min-height:240px;
-    /* Static fallback halo so the section never looks empty if WebGL
-       is disabled (corp policy / Chrome flag / GPU blocklist) or the
-       module import is blocked by an extension. */
-    background:
-      radial-gradient(circle at 50% 52%, var(--accent-glow,rgba(239,68,68,.22)) 0%, rgba(0,0,0,0) 62%);
+    /* No background here. A previous radial-gradient + ::after halo
+       combo created a visibly rectangular dark patch around the globe
+       (the wrap box was square, the gradient was elliptical, the
+       corners gave the rectangle away). Canvas2D paints its own floor
+       reflection now, which is the only ground glow we need. */
   }
   .hero-globe-canvas{
     width:100%;height:100%;display:block;
-    contain:layout paint;
-    /* drop-shadow(filter) on a constantly-redrawn WebGL canvas is the
-       single biggest source of jank on Chrome — the GPU has to re-blur
-       the entire bitmap every frame. Use a sibling pseudo-glow instead
-       (see ::after below) so the canvas itself paints cheaply. */
-  }
-  .hero-globe-canvas-wrap::after{
-    content:"";position:absolute;left:6%;right:6%;bottom:-4%;height:18%;
-    background:radial-gradient(ellipse at center, var(--accent-glow,rgba(239,68,68,.35)) 0%, rgba(0,0,0,0) 70%);
-    filter:blur(6px);pointer-events:none;z-index:-1;
+    /* No `contain: layout paint` — it forces a separate compositor
+       layer that, on some Chrome configs, paints with subtly
+       different alpha than the surrounding section, showing up as a
+       square shadow box around the canvas. */
   }
   @media(max-width:880px){
     .hero-globe-wrap{grid-template-columns:1fr;gap:24px;text-align:center}
@@ -2684,39 +2678,126 @@ button{font-family:inherit;cursor:pointer}
       };
     }
 
-    // Hand-tuned land-hint dots. Not a real coastline — just enough to
-    // suggest continent silhouettes when the sphere rotates. ~150 points;
-    // any more starts to feel busy on a 520px globe.
+    // Land-hint dots traced along real continent silhouettes. ~310
+    // points; dense enough that you can recognize continents at a
+    // glance, sparse enough that the globe doesn't read as a solid
+    // textured ball. Coastlines first, then sparse interior fill.
     var LAND = [
-      // North America
-      [70,-150],[68,-130],[65,-110],[60,-100],[55,-115],[60,-130],[55,-100],[50,-105],
-      [50,-120],[48,-90],[45,-95],[42,-80],[40,-75],[37,-90],[35,-105],[32,-115],
-      [30,-95],[28,-100],[25,-100],[20,-100],[18,-92],[15,-90],[55,-75],[50,-70],
-      [45,-65],[60,-95],[60,-80],[68,-85],
-      // South America
-      [10,-72],[5,-75],[0,-70],[-5,-65],[-10,-70],[-15,-65],[-20,-60],[-25,-65],
-      [-30,-65],[-35,-65],[-40,-65],[-45,-70],[-15,-50],[-10,-50],[-5,-55],[-20,-45],
-      [-22,-43],[-30,-55],
-      // Europe
-      [60,10],[58,15],[55,20],[55,30],[50,5],[50,15],[50,25],[48,2],[45,5],[45,20],
-      [42,15],[40,15],[40,25],[60,30],[55,40],[60,50],
-      // Africa
-      [32,-5],[30,5],[25,15],[20,25],[15,30],[10,35],[5,30],[0,25],[-5,30],
-      [-10,30],[-15,28],[-20,28],[-25,30],[-30,25],[-30,18],[5,15],[8,5],[12,-5],
-      [15,-10],[10,0],[-15,15],[-25,20],
-      // Middle East / Russia
-      [60,60],[60,80],[60,100],[60,120],[55,80],[50,55],[55,55],[50,80],[60,140],
-      [65,90],[70,100],[68,140],[35,40],[35,50],[40,45],
-      // Asia
-      [40,75],[40,90],[40,110],[35,105],[30,90],[25,80],[20,75],[30,115],[35,125],
-      [40,125],[42,130],[45,135],[50,135],[28,85],[30,75],[15,80],[12,77],[10,80],
-      [22,90],[18,98],[15,100],[10,105],
-      // SE Asia / Indonesia / Philippines
-      [0,110],[-3,115],[-5,120],[-7,115],[3,125],[8,125],[12,122],[15,120],[18,121],
-      [-8,140],[-3,135],
-      // Australia / NZ
-      [-15,135],[-20,130],[-25,135],[-30,140],[-32,150],[-25,150],[-20,145],[-30,120],
-      [-37,145],[-42,170]
+      // ── NORTH AMERICA ──
+      // Alaska + Aleutians + northern Canadian coast
+      [62,-165],[58,-160],[60,-155],[63,-152],[65,-148],[68,-148],[70,-145],
+      [70,-135],[70,-125],[70,-110],[71,-95],[68,-88],[65,-80],
+      // Hudson Bay + eastern Canada
+      [62,-92],[58,-94],[55,-90],[55,-82],[60,-78],[63,-75],[58,-65],[52,-58],
+      // Greenland (counts as the same big northern landmass at this scale)
+      [78,-40],[75,-45],[72,-40],[68,-50],[63,-50],[78,-25],[75,-22],
+      // US/Canada Atlantic coast
+      [48,-65],[45,-67],[43,-70],[41,-72],[40,-74],[38,-75],[36,-76],[34,-78],
+      [32,-80],[30,-81],[27,-80],[25,-80],
+      // Gulf coast + Florida tip
+      [25,-82],[27,-83],[30,-85],[30,-88],[29,-92],[28,-95],[26,-97],
+      // Mexico east + interior
+      [22,-98],[20,-97],[18,-95],[19,-90],[21,-87],[18,-88],
+      // Central America narrow neck
+      [16,-90],[14,-87],[12,-85],[10,-83],[8,-80],
+      // Mexico west + US west coast
+      [16,-95],[19,-104],[23,-106],[27,-110],[30,-115],[32,-117],[35,-120],
+      [38,-122],[42,-124],[46,-124],[48,-124],[55,-130],[58,-135],[60,-145],
+      // US/Canada interior (sparse)
+      [40,-100],[45,-100],[50,-105],[35,-100],[45,-90],[40,-88],[36,-85],
+      [50,-95],[55,-110],[55,-100],[40,-110],[45,-115],[35,-110],
+
+      // ── SOUTH AMERICA ──
+      // North coast (Venezuela, Guianas)
+      [11,-72],[10,-67],[8,-62],[6,-58],[4,-52],[2,-50],
+      // East/Atlantic coast (Brazilian bulge)
+      [0,-50],[-2,-44],[-5,-37],[-8,-35],[-12,-38],[-15,-39],[-18,-39],
+      [-22,-41],[-25,-48],[-28,-49],[-32,-52],[-34,-58],[-37,-57],
+      // Patagonia
+      [-40,-62],[-43,-65],[-46,-67],[-50,-69],[-52,-70],[-54,-68],
+      // Pacific/Andes coast going north
+      [-50,-74],[-44,-73],[-38,-72],[-32,-71],[-25,-70],[-18,-71],[-12,-77],
+      [-6,-79],[-2,-80],[2,-78],[5,-77],
+      // Interior (Amazon basin sparse)
+      [-3,-65],[-5,-60],[-8,-55],[-10,-65],[-13,-58],[-15,-50],[-18,-55],
+      [-22,-58],[-28,-60],[-15,-70],
+
+      // ── EUROPE ──
+      // Iberia
+      [37,-9],[38,-3],[40,-8],[42,-2],[43,-3],[40,1],[37,-2],
+      // France + UK/Ireland
+      [44,-1],[47,-4],[50,1],[51,4],[53,9],[54,-3],[57,-5],[55,-7],[51,-8],
+      // Scandinavia
+      [58,8],[60,10],[63,14],[65,18],[68,20],[70,25],[68,15],
+      // Central Europe
+      [50,7],[49,15],[52,18],[54,12],[50,20],[48,17],[46,11],
+      // Italy
+      [45,9],[43,11],[41,14],[39,16],[37,15],
+      // Balkans + Greece
+      [44,20],[42,21],[40,23],[37,24],[39,21],
+      // Eastern Europe + western Russia
+      [50,28],[53,28],[55,33],[58,33],[60,30],[55,40],[58,45],
+
+      // ── AFRICA ──
+      // Mediterranean coast
+      [36,-5],[35,-2],[34,3],[33,10],[33,15],[31,20],[31,28],[31,32],
+      // Northeast (Egypt, Sudan)
+      [27,33],[24,33],[20,33],[17,35],[14,37],
+      // Horn of Africa
+      [11,42],[9,45],[5,46],[3,42],[10,49],
+      // East coast going south
+      [0,40],[-3,40],[-7,39],[-11,40],[-15,40],[-19,35],[-23,35],[-27,32],
+      [-30,30],[-32,28],
+      // Southern tip (Cape)
+      [-34,18],[-34,22],[-32,17],[-30,17],
+      // West coast going north
+      [-25,15],[-21,13],[-18,12],[-13,13],[-8,13],[-3,9],[2,9],[5,5],
+      [6,-3],[9,-13],[12,-15],[15,-17],[20,-17],[24,-15],[28,-12],[31,-9],
+      // Interior (Sahara, Sahel, central, Madagascar)
+      [20,0],[18,8],[15,15],[12,20],[10,25],[5,20],[0,20],[-5,25],[-10,25],
+      [-15,25],[-20,28],[8,30],[3,15],[-5,15],[-12,18],[-25,28],
+      [-20,46],[-22,48],[-18,49],[-25,46],
+
+      // ── MIDDLE EAST ──
+      [37,38],[35,42],[37,45],[40,42],[39,48],
+      [33,48],[30,48],[27,50],[24,52],[20,55],[16,52],[13,46],
+      [29,35],[32,36],
+      // ── RUSSIA / SIBERIA ──
+      [60,40],[60,50],[58,55],[55,55],[58,65],[60,75],[62,85],[65,90],
+      [68,75],[70,85],[68,100],[65,110],[60,115],[62,125],[68,130],
+      [70,140],[65,150],[62,160],[68,175],
+      // Kamchatka + far east
+      [55,160],[58,162],[52,158],
+
+      // ── ASIA (CHINA, KOREA, JAPAN, INDIA, SE ASIA) ──
+      // China interior + coast
+      [50,90],[48,100],[45,110],[42,115],[40,118],[38,120],[35,118],[32,120],
+      [30,121],[28,121],[26,120],[24,118],[22,114],[42,90],[40,85],
+      [40,100],[35,100],[30,105],[35,108],[28,107],
+      // Korea + Japan
+      [38,127],[36,127],[33,127],[37,140],[40,141],[43,142],[35,135],[34,131],
+      // India subcontinent
+      [33,75],[30,77],[28,77],[25,72],[22,70],[20,73],[16,73],[12,75],[10,77],
+      [8,77],[10,80],[14,80],[18,83],[21,86],[24,89],[27,88],[26,92],[24,93],
+      // SE Asia mainland
+      [23,96],[20,96],[17,99],[14,100],[12,103],[14,107],[10,105],[12,108],
+      [10,110],[16,108],[20,105],
+      // Indonesia / Malaysia / Philippines
+      [3,102],[1,103],[-1,109],[-3,114],[-5,113],[-6,107],[-8,114],[-9,120],
+      [-8,125],[-3,128],[-1,134],[-4,138],[-7,140],
+      [10,124],[12,123],[14,121],[16,120],[8,124],[7,126],
+      // Sri Lanka
+      [8,81],[6,81],
+
+      // ── AUSTRALIA / NZ ──
+      [-12,131],[-14,135],[-15,138],[-17,141],[-20,148],[-25,153],[-28,153],
+      [-32,152],[-35,150],[-37,147],[-39,146],[-38,144],[-37,140],[-35,138],
+      [-32,134],[-32,130],[-33,124],[-33,118],[-30,116],[-25,114],[-21,114],
+      [-17,123],[-15,128],
+      // interior dots
+      [-22,134],[-25,140],[-28,135],[-26,128],
+      // New Zealand
+      [-37,174],[-39,175],[-41,174],[-44,170],[-46,168]
     ];
 
     var phi = 0;                // base auto-spin angle in radians
