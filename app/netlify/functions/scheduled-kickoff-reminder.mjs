@@ -125,7 +125,24 @@ export default async (req) => {
     const d = doc.data() || {};
     const id = doc.id;
     if (d.reminderSent === true) { stats.skipped++; continue; }
-    if (!d.accepterEmail || !d.posterEmail) { stats.skipped++; continue; }
+
+    // Emails moved off the public live_challenges doc into the private
+    // live_challenge_contacts/{id} companion. Read from companion first;
+    // fall back to legacy d.* fields for old docs that haven't been
+    // scrubbed yet. Skip the round if neither source has both emails.
+    let posterEmail = d.posterEmail || '';
+    let accepterEmail = d.accepterEmail || '';
+    let accepterContact = d.accepterContact || '';
+    try {
+      const c = await db.collection('live_challenge_contacts').doc(id).get();
+      if (c.exists) {
+        const cd = c.data() || {};
+        posterEmail = cd.posterEmail || posterEmail;
+        accepterEmail = cd.accepterEmail || accepterEmail;
+        accepterContact = cd.accepterContact || accepterContact;
+      }
+    } catch (e) { /* fall back to whatever's on the doc */ }
+    if (!accepterEmail || !posterEmail) { stats.skipped++; continue; }
 
     const minutesAway = Math.max(1, Math.round((d.scheduledAt - now) / 60000));
     const kickoff = fmtTime(d.scheduledAt);
@@ -136,20 +153,20 @@ export default async (req) => {
     const posterHtml = reminderTemplate({
       motion, format, kickoff, roomUrl: roundUrl,
       opponent: fmtName({ name: d.accepterName }),
-      opponentContact: d.accepterContact || d.accepterEmail || '',
+      opponentContact: accepterContact || accepterEmail || '',
       minutesAway,
     });
     const accepterHtml = reminderTemplate({
       motion, format, kickoff, roomUrl: roundUrl,
       opponent: fmtName({ name: d.posterName, handle: d.handle }),
-      opponentContact: d.posterEmail || '',
+      opponentContact: posterEmail || '',
       minutesAway,
     });
 
     try {
       await Promise.allSettled([
-        sendEmail(apiKey, from, [d.posterEmail],   `Kickoff in ${minutesAway} min: ` + motion.slice(0, 60), posterHtml),
-        sendEmail(apiKey, from, [d.accepterEmail], `Kickoff in ${minutesAway} min: ` + motion.slice(0, 60), accepterHtml),
+        sendEmail(apiKey, from, [posterEmail],   `Kickoff in ${minutesAway} min: ` + motion.slice(0, 60), posterHtml),
+        sendEmail(apiKey, from, [accepterEmail], `Kickoff in ${minutesAway} min: ` + motion.slice(0, 60), accepterHtml),
       ]);
       await doc.ref.update({ reminderSent: true, reminderSentAt: Date.now() });
       stats.sent++;

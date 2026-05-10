@@ -1361,6 +1361,42 @@ button{font-family:inherit}
     return { text: c.motion, hint: '' };
   }
 
+  // ── Companion-doc cache for live_challenge_contacts/{id}.
+  // Holds per-challenge contact info (posterEmail / accepterEmail /
+  // accepterContact) that no longer lives on the public live_challenges
+  // doc. Read rule on the companion only allows the matched parties,
+  // so a permission-denied catch is expected for non-matched viewers
+  // and we cache a sentinel so we don't retry per render frame.
+  var companionContacts = {};       // challengeId → { posterEmail, accepterEmail, accepterContact, _fetched }
+  var companionPending = {};        // dedupe in-flight fetches
+  function ensureCompanionContact(challengeId){
+    if (!firebaseDb || !currentUser || !challengeId) return null;
+    if (companionContacts[challengeId]) return companionContacts[challengeId];
+    if (companionPending[challengeId]) return null;
+    companionPending[challengeId] = true;
+    firebaseDb.collection('live_challenge_contacts').doc(challengeId).get().then(function(snap){
+      delete companionPending[challengeId];
+      if (snap.exists){
+        var d = snap.data() || {};
+        companionContacts[challengeId] = {
+          posterEmail: d.posterEmail || '',
+          accepterEmail: d.accepterEmail || '',
+          accepterContact: d.accepterContact || '',
+          _fetched: true,
+        };
+      } else {
+        companionContacts[challengeId] = { _fetched: true, _missing: true };
+      }
+      // Re-render so the matched-card row picks up the now-cached contact.
+      try { render(); } catch(e){}
+    }).catch(function(){
+      delete companionPending[challengeId];
+      // Permission-denied is the expected state for non-matched viewers.
+      companionContacts[challengeId] = { _fetched: true, _denied: true };
+    });
+    return null;
+  }
+
   // ── Render the open-challenges list
   function render(){
     var list = loadList();
@@ -1511,11 +1547,18 @@ button{font-family:inherit}
           else if (rs.status === 'round'){ ctaLabel = '▶ Join, opponent is in the room'; ctaClass = 'btn-primary'; meta = '<span style="color:#4ade80;font-weight:700;display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:rec-pulse 1.6s ease-in-out infinite"></span>' + escHtml(c.accepterName || 'Opponent') + ' is in the room.</span> Click Join.'; }
           else { ctaLabel = '▶ Start judged round'; ctaClass = 'btn-primary'; meta = '<strong style="color:#4ade80">@' + escHtml(c.accepterName || 'Opponent') + ' accepted</strong> and will argue the other side. ' + (sched && sched.live ? 'Match is live, click Start.' : sched ? 'Kickoff ' + escHtml(sched.label) + '.' : 'Start any time once they\'re online.'); }
           headExtra = '<span class="tag" style="background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.4);color:#4ade80;font-weight:800">✓ MATCHED</span>';
+          // Pull accepter contact from the private companion doc
+          // (only readable by posterUid + accepterUid). Falls back to
+          // c.accepterContact for legacy challenges that still carry
+          // the field on the public doc — those will be scrubbed in
+          // a separate cleanup pass. New posts never leak.
+          var companion = ensureCompanionContact(c.id) || companionContacts[c.id];
+          var matchedContact = (companion && companion.accepterContact) || c.accepterContact || '';
           actions =
             '<a class="btn ' + ctaClass + '" target="_blank" rel="noopener" href="' + escHtml(roundUrl) + '" data-start-round="' + c.id + '">' + ctaLabel + '</a>' +
             (gcal ? '<a class="btn btn-ghost" target="_blank" rel="noopener" href="' + escHtml(gcal) + '" data-gcal="' + c.id + '">+ Google Calendar</a>' : '') +
             (c.scheduledAt ? '<button class="btn btn-ghost" data-ical="' + c.id + '">.ics</button>' : '') +
-            (c.accepterContact ? '<button class="btn btn-ghost" data-copy-contact="' + escHtml(c.accepterContact) + '" title="Click to copy" type="button">📨 ' + escHtml(c.accepterContact) + '</button>' : '') +
+            (matchedContact ? '<button class="btn btn-ghost" data-copy-contact="' + escHtml(matchedContact) + '" title="Click to copy" type="button">📨 ' + escHtml(matchedContact) + '</button>' : '') +
             '<button class="btn btn-bail" data-bail-poster="' + c.id + '">✕ Cancel match</button>';
         } else if (isMine){
           headExtra = '<span class="tag tag-matched">✓ You posted this</span>';
@@ -2220,12 +2263,14 @@ button{font-family:inherit}
       posterUid: currentUser.uid,
       posterName: currentUser.displayName || '',
       posterPhoto: currentUser.photoURL || '',
-      // Email is needed so the accepter can trigger an accept
-      // notification email back to the poster. Stored alongside
-      // the rest so we don't need a second user-profile lookup.
-      posterEmail: currentUser.email || '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
+    // posterEmail used to live on this doc, but live_challenges is
+    // readable by every signed-in user (the board lists challenges
+    // across the userbase). Moved to live_challenge_contacts/{id} —
+    // a private companion doc whose rule restricts read/write to
+    // posterUid + accepterUid. Same for accepterEmail/accepterContact
+    // when the accept happens.
     firebaseDb.collection('live_challenges').doc(entry.id).set(fsEntry).catch(function(e){
       console.warn('[Live] publish challenge failed', e);
       var msg = (e && e.code === 'permission-denied')
@@ -2233,15 +2278,44 @@ button{font-family:inherit}
         : 'Cross-user post failed: ' + (e && e.message ? e.message : 'unknown');
       toast(msg);
     });
+    // Private companion doc — only the poster + (later) accepter can read.
+    firebaseDb.collection('live_challenge_contacts').doc(entry.id).set({
+      challengeId: entry.id,
+      posterUid: currentUser.uid,
+      posterEmail: currentUser.email || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(function(e){
+      console.warn('[Live] publish contact companion failed', e && e.message);
+    });
   }
 
   // Fire both sides an email via /api/notify-accepted. Falls through
   // silently if the function isn't configured (RESEND_API_KEY missing
   // = 503, just logs a warning). Caller does NOT block on this — the
   // accept itself succeeds regardless.
+  //
+  // posterEmail used to live on the public challenge doc; now it's on
+  // the private companion (live_challenge_contacts/{id}) which the
+  // accepter can read. Fetch from there with a fallback to the doc
+  // field for legacy challenges that haven't been scrubbed yet.
   function notifyAccepted(challenge, payload){
     if (!firebaseAuth || !currentUser) return;
-    if (!challenge || !challenge.posterEmail) return;
+    if (!challenge) return;
+    if (firebaseDb){
+      firebaseDb.collection('live_challenge_contacts').doc(challenge.id).get()
+        .then(function(snap){
+          var posterEmail = (snap.exists && snap.data().posterEmail) || challenge.posterEmail || '';
+          if (!posterEmail) return;
+          notifyAcceptedInner(challenge, payload, posterEmail);
+        })
+        .catch(function(){
+          if (challenge.posterEmail) notifyAcceptedInner(challenge, payload, challenge.posterEmail);
+        });
+    } else if (challenge.posterEmail){
+      notifyAcceptedInner(challenge, payload, challenge.posterEmail);
+    }
+  }
+  function notifyAcceptedInner(challenge, payload, posterEmail){
     var profile = loadProfile();
     var roomName = 'DebateAI-' + String(challenge.id).replace(/[^a-zA-Z0-9]/g,'');
     var yourSide = challenge.side === 'pro' ? 'con' : 'pro';
@@ -2267,7 +2341,7 @@ button{font-family:inherit}
           roomUrl: roundUrl,
           calendarUrl: calendarUrl,
           poster: {
-            email: challenge.posterEmail,
+            email: posterEmail,
             name: challenge.posterName || challenge.handle || 'Anonymous',
             contact: '',  // we don't collect poster contact upfront
           },
@@ -2282,18 +2356,27 @@ button{font-family:inherit}
       .catch(function(e){ console.warn('[Live] notify request failed', e); });
   }
 
-  // Push an acceptance to the challenge doc so the poster sees it.
-  // Email is stored alongside the rest so the scheduled kickoff
-  // reminder can email the accepter without a second user lookup.
+  // Push an acceptance: name + uid + acceptedAt go on the public
+  // challenge doc (poster needs to see who accepted). Email and
+  // freeform contact go on the PRIVATE live_challenge_contacts/{id}
+  // companion doc — readable only by posterUid + accepterUid per
+  // Firestore rule. Keeps both sides' inboxes out of the public board.
   function publishAcceptance(challengeId, payload){
     if (!firebaseDb || !currentUser) return;
     firebaseDb.collection('live_challenges').doc(challengeId).update({
       accepterUid: currentUser.uid,
       accepterName: payload.name || currentUser.displayName || '',
+      acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(function(e){ console.warn('[Live] publish acceptance failed', e); });
+    firebaseDb.collection('live_challenge_contacts').doc(challengeId).set({
+      challengeId: challengeId,
+      accepterUid: currentUser.uid,
       accepterEmail: currentUser.email || '',
       accepterContact: payload.contact || '',
       acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }).catch(function(e){ console.warn('[Live] publish acceptance failed', e); });
+    }, { merge: true }).catch(function(e){
+      console.warn('[Live] publish contact companion (accept) failed', e && e.message);
+    });
   }
 
   function unpublishAcceptance(challengeId){
@@ -2301,8 +2384,12 @@ button{font-family:inherit}
     firebaseDb.collection('live_challenges').doc(challengeId).update({
       accepterUid: firebase.firestore.FieldValue.delete(),
       accepterName: firebase.firestore.FieldValue.delete(),
-      accepterContact: firebase.firestore.FieldValue.delete(),
       acceptedAt: firebase.firestore.FieldValue.delete(),
+    }).catch(function(){});
+    firebaseDb.collection('live_challenge_contacts').doc(challengeId).update({
+      accepterUid: firebase.firestore.FieldValue.delete(),
+      accepterEmail: firebase.firestore.FieldValue.delete(),
+      accepterContact: firebase.firestore.FieldValue.delete(),
     }).catch(function(){});
   }
 

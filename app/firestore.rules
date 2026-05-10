@@ -258,6 +258,39 @@ service cloud.firestore {
                     && resource.data.posterUid == request.auth.uid;
     }
 
+    // ── live_challenge_contacts ──────────────────────────────────────
+    // Private companion to live_challenges. Stores posterEmail,
+    // accepterEmail, and the accepter's freeform contact (phone/email).
+    // These USED TO live on live_challenges itself, which is publicly
+    // readable by every signed-in user — leaking emails to the whole
+    // userbase. Moved here so only the matched parties can read.
+    //
+    // Doc id matches the parent live_challenges/{challengeId}. Doc has:
+    //   { challengeId, posterUid, posterEmail, accepterUid?,
+    //     accepterEmail?, accepterContact?, createdAt, acceptedAt? }
+    //
+    // Read: only the poster or the accepter on this match.
+    // Create: poster only (during postChallenge), must self-author.
+    // Update: poster (extending their own fields) or accepter (writing
+    //   their accept fields, must self-author them).
+    // Delete: poster (when deleting their challenge).
+    match /live_challenge_contacts/{challengeId} {
+      allow read:   if isSignedIn()
+                    && (resource.data.posterUid == request.auth.uid
+                        || resource.data.accepterUid == request.auth.uid);
+      allow create: if isSignedIn()
+                    && request.resource.data.posterUid == request.auth.uid;
+      // Update is the accept path (or poster amending their own row).
+      // Allow if the writer is the existing poster OR if the writer is
+      // setting/clearing themselves as the accepter.
+      allow update: if isSignedIn()
+                    && (resource.data.posterUid == request.auth.uid
+                        || request.resource.data.accepterUid == request.auth.uid
+                        || resource.data.accepterUid == request.auth.uid);
+      allow delete: if isSignedIn()
+                    && resource.data.posterUid == request.auth.uid;
+    }
+
     // ── saved_rounds ─────────────────────────────────────────────────
     // User saves a completed live round to their record (motion,
     // format, ballot, speeches). Doc ID = uid + '_' + room so the
