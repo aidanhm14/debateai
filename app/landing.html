@@ -184,6 +184,18 @@
 })();</script>
 <!-- Microsoft Clarity. session replay + heatmaps. Configure ID in /js/clarity.js -->
 <script defer src="/js/clarity.js"></script>
+
+<!-- Theme lock: landing is designed for crimson (the orb glow + casual-chat
+     panel + sparring CTAs all read as broken on the light token set).
+     Force it before first paint and signal to topbar.js + the bottom-of-body
+     bootstrap that this page is theme-locked. Other pages still respect
+     the user's saved preference. Don't write to localStorage here — we
+     don't want landing's lock to leak into /leaderboard / /community. -->
+<script>
+  document.documentElement.setAttribute('data-theme','crimson');
+  window.daLockTheme = 'crimson';
+</script>
+
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -207,6 +219,11 @@
      Defer is fine: the preview loader runs on window.load. -->
 <script defer src="/js/community-seed.js"></script>
 <style>
+/* Theme is locked to crimson on landing — hide the picker entirely so
+   users don't see a no-op control. The dots still render on every other
+   page that uses topbar.js (leaderboard, community, etc.). */
+.theme-dots{display:none !important}
+
 *{box-sizing:border-box;margin:0;padding:0}
 
 /* ── Theme: Dark Grey (default) ────
@@ -2949,40 +2966,51 @@ function applyThemeClasses(t){
   else if (t==='crimson') b.classList.add('crimson-theme');
   else if (t==='grey') b.classList.add('grey-theme');
 }
-document.querySelectorAll('.theme-dot').forEach(function(dot){
-  dot.addEventListener('click',function(){
-    var t=dot.getAttribute('data-t');
-    var prev=document.documentElement.getAttribute('data-theme')||'';
-    try{localStorage.setItem('da-theme',t)}catch(e){}
-    // Force a full reload on theme change so token cascade, ui.css
-    // body-class rebinds, and any per-section style block all settle
-    // from a clean slate. Without this, switching grey ↔ light could
-    // leave half-flipped text/card colors in sections that scope
-    // their own <style> blocks (e.g. /current-topics).
-    if (prev !== t) {
+// Theme-dot click handlers — skipped entirely when the page is locked.
+// The dots are hidden via CSS in the locked case anyway, but the no-op
+// guard keeps us safe if a stale handler somewhere tries to fire.
+if (!window.daLockTheme) {
+  document.querySelectorAll('.theme-dot').forEach(function(dot){
+    dot.addEventListener('click',function(){
+      var t=dot.getAttribute('data-t');
+      var prev=document.documentElement.getAttribute('data-theme')||'';
+      try{localStorage.setItem('da-theme',t)}catch(e){}
+      // Force a full reload on theme change so token cascade, ui.css
+      // body-class rebinds, and any per-section style block all settle
+      // from a clean slate. Without this, switching grey ↔ light could
+      // leave half-flipped text/card colors in sections that scope
+      // their own <style> blocks (e.g. /current-topics).
+      if (prev !== t) {
+        applyThemeClasses(t);
+        window.location.reload();
+        return;
+      }
       applyThemeClasses(t);
-      window.location.reload();
-      return;
-    }
-    applyThemeClasses(t);
-    document.querySelectorAll('.theme-dot').forEach(function(d){d.classList.remove('active')});
-    dot.classList.add('active');
+      document.querySelectorAll('.theme-dot').forEach(function(d){d.classList.remove('active')});
+      dot.classList.add('active');
+    });
   });
-});
-// Restore saved theme. Default = crimson if none saved OR if the saved
-// value is 'day' (light mode was removed; anyone still holding that
-// preference gets rehomed to crimson instead of being stuck in a mode
-// with no picker dot). Sync the active dot so the picker never lies.
+}
+// Restore saved theme — UNLESS this page is theme-locked (landing is, see
+// the early-paint script in <head>). The lock keeps the page in crimson
+// regardless of the user's global preference, because the orb + casual
+// chat panel + sparring CTAs were designed only for the crimson tokens.
+// We deliberately don't touch localStorage here so other pages
+// (/leaderboard, /community, etc.) stay user-controlled.
 try{
-  var saved=localStorage.getItem('da-theme');
-  if(!saved || saved==='day') {
-    saved='crimson';
-    try{localStorage.setItem('da-theme',saved);}catch(e){}
+  if (window.daLockTheme){
+    applyThemeClasses(window.daLockTheme);
+  } else {
+    var saved=localStorage.getItem('da-theme');
+    if(!saved || saved==='day') {
+      saved='crimson';
+      try{localStorage.setItem('da-theme',saved);}catch(e){}
+    }
+    applyThemeClasses(saved);
+    document.querySelectorAll('.theme-dot').forEach(function(d){
+      d.classList.toggle('active',d.getAttribute('data-t')===saved);
+    });
   }
-  applyThemeClasses(saved);
-  document.querySelectorAll('.theme-dot').forEach(function(d){
-    d.classList.toggle('active',d.getAttribute('data-t')===saved);
-  });
 }catch(e){}
 
 // Hero topic ticker. fades through debate motions to advertise breadth.

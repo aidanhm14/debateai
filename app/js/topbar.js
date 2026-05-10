@@ -160,7 +160,23 @@
   // Theme picker — three dots, syncs with [data-theme] on <html> and
   // localStorage `da-theme`. Reads the current theme once on mount so
   // the active dot lights up correctly across page loads.
+  //
+  // Per-page lock: if the page sets `window.daLockTheme = 'crimson'`
+  // (or any theme) before topbar.js runs, we honor it: don't read
+  // localStorage, don't override the html attribute, hide the dots.
+  // Landing uses this because the orb + casual-chat panel + sparring
+  // CTAs were designed for crimson tokens only and break on the light
+  // token set. Other pages are unaffected.
   function wireThemeDots(){
+    if (window.daLockTheme){
+      var locked = window.daLockTheme;
+      document.documentElement.setAttribute('data-theme', locked);
+      // Hide the dots — they exist in markup but mean nothing here.
+      document.querySelectorAll('.ui-topbar .theme-dots').forEach(function(host){
+        host.style.display = 'none';
+      });
+      return;
+    }
     var current = '';
     try { current = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!current) current = document.documentElement.getAttribute('data-theme') || 'crimson';
