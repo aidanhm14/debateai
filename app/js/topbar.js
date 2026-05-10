@@ -16,6 +16,25 @@
    /css/ui.css under .ui-topbar* — every page already loads ui.css. */
 (function(){
   var here = (location.pathname || '/').replace(/\/$/,'') || '/';
+
+  // Ensure /js/sfx.js is loaded. The SFX mute toggle (rendered + wired
+  // below) calls window.SFX.toggleMute() and isMuted(), so the module
+  // needs to be present on every page that mounts the shared topbar.
+  // landing/learn/voice-debate/community/pricing/spar don't include
+  // sfx.js explicitly; without this auto-inject the toggle button
+  // rendered fine but its click handler short-circuited because
+  // window.SFX was undefined and the user got "this button doesn't
+  // work." Idempotent: skips if SFX already on window or a script tag
+  // is already in the head. Defer so it doesn't block topbar render.
+  (function ensureSfxLoaded(){
+    if (window.SFX) return;
+    if (document.querySelector('script[src*="/js/sfx.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/sfx.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+
   // Normalize a few synonyms so "/" and "/landing" both light up Home.
   function pathMatches(href){
     var h = href.replace(/\/$/,'') || '/';
