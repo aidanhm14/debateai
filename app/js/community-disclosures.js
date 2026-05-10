@@ -44,7 +44,7 @@
       motion: 'THBT social media platforms should be legally liable for user-generated misinformation.',
       side: 'Government',
       format: 'APDA',
-      sharedBy: 'Aarav K.',
+      sharedBy: 'parli_pilgrim',
       ageDays: 2,
       voteScore: 14,
       voteCount: 16,
@@ -64,7 +64,7 @@ Pre-empt. Opp will say "kills small platforms." Our threshold is 1M MAU and immu
       motion: 'THBT social media platforms should be legally liable for user-generated misinformation.',
       side: 'Opposition',
       format: 'APDA',
-      sharedBy: 'Priya S.',
+      sharedBy: 'frontlinekid',
       ageDays: 1,
       voteScore: 19,
       voteCount: 21,
@@ -87,7 +87,7 @@ Why we win. Gov shifts the cost of liability onto the people Gov claims to prote
       motion: 'On balance, social media platforms should be legally liable for user-generated misinformation.',
       side: 'Pro',
       format: 'PF',
-      sharedBy: 'Madison T.',
+      sharedBy: 'cite_or_die',
       ageDays: 4,
       voteScore: 8,
       voteCount: 10,
@@ -107,40 +107,14 @@ Impact: liability is the only intervention that scales with platform size. Self-
 Weighing. Magnitude: 232K dead vs. unverified speculation about chilled speech. Probability: NetzDG data is empirical, not hypothetical. Pro wins on every relevant metric the judge cares about.`
     },
 
-    {
-      motion: 'On balance, social media platforms should be legally liable for user-generated misinformation.',
-      side: 'Con',
-      format: 'PF',
-      sharedBy: 'Connor B.',
-      ageDays: 3,
-      voteScore: 11,
-      voteCount: 13,
-      output:
-`Framework: vote on the marginal user, not the marginal lawsuit.
-
-C1: Over-removal is the predictable equilibrium.
-Sub A: Keller (Stanford CIS, 2023) reviewed 1,400 NetzDG removals: 28.5% were of legal speech, removed because the platform's algorithm couldn't distinguish satire from harmful content.
-Sub B: The asymmetry is brutal. A platform pays nothing for over-removal. It pays a $50M judgment for under-removal. There is no rational platform that does not over-remove.
-Impact: legitimate political speech, especially from minority and dissenting voices, gets disappeared at scale. Pen America 2024 documents 11,000 verified takedowns of activist content under EU DSA enforcement in its first 18 months.
-
-C2: The 232K death stat is a probabilistic mess.
-Pro's Lancet figure attributes deaths via a counterfactual that assumes zero baseline misinformation. Their own appendix confidence interval runs 47K to 419K. We're voting on a number that could be off by an order of magnitude.
-
-C3: Liability won't reach the actual sources.
-The supply of misinformation comes from state actors (RT, Sputnik, IRA-style farms) and engagement entrepreneurs. Neither is deterred by liability on Meta. They will migrate to Telegram, X (which is already absorbing the cost), and the next platform. We pay the censorship cost, get none of the harm reduction.
-
-Vote Con. Con wins on probability, on link strength, and on the sign of the harm.`
-    },
-
     // ── Motion: economic growth vs. environmental regulation (developing economies) ──
-    // India-heavy circuit motion. Three angles: Asian Parli gov, Asian opp,
-    // and a WUDC framing that pivots to climate justice.
+    // India-heavy circuit motion.
 
     {
       motion: 'THW prioritize economic growth over environmental regulation in developing economies.',
       side: 'Government',
       format: 'Asian Parliamentary',
-      sharedBy: 'Anika R.',
+      sharedBy: 'delhi_circuit',
       ageDays: 5,
       voteScore: 22,
       voteCount: 26,
@@ -165,7 +139,7 @@ Pre-empt. Opp will say "they'll lock in dirty infrastructure." Our suspension is
       motion: 'THW prioritize economic growth over environmental regulation in developing economies.',
       side: 'Opposition',
       format: 'Asian Parliamentary',
-      sharedBy: 'Rohan M.',
+      sharedBy: 'wsdcbound',
       ageDays: 5,
       voteScore: 17,
       voteCount: 20,
@@ -184,37 +158,13 @@ Solar LCOE in India fell below thermal coal in 2022. Battery storage is on the s
 Vote Opp. The 3 billion get more growth, more health, and more political agency under modest enforcement than under Gov's deregulation. Gov's case is genuinely held but factually a decade out of date.`
     },
 
-    {
-      motion: 'THW shift the global climate-finance burden onto historic high-emitters via a binding GDP-linked tax.',
-      side: 'Opening Government',
-      format: 'Worlds (WUDC)',
-      sharedBy: 'Olivia H.',
-      ageDays: 8,
-      voteScore: 9,
-      voteCount: 11,
-      output:
-`Model. A binding climate finance tax: 1.2% of GDP/year from countries that emitted over 1% of cumulative historic CO2 (roughly: US, EU members, UK, Japan, Russia, Australia, Canada). Funds disbursed via a reformed Green Climate Fund, conditioned on adaptation infrastructure and just-transition support. Replaces the current voluntary Loss & Damage pledge regime.
-
-Arg 1 (PM). The voluntary regime is a structural failure.
-COP15 promised $100B/year by 2020. Actual 2022 disbursement: $89B, of which 71% was loans, not grants. The countries that need adaptation finance are servicing debt to the same countries that emitted the carbon. A binding regime is the only mechanism that aligns scale to harm.
-
-Arg 2 (PM). Cost-internalization is morally coherent.
-The polluter-pays principle is uncontroversial in domestic environmental law. We make a US chemical plant pay for groundwater contamination it caused. We do not make the contamination victim pay because they're "downstream." The international climate regime currently makes the victim pay. Gov makes the polluter pay. That is the ENTIRE moral content of the policy.
-
-Arg 3 (DPM extension hint). The political economy actually works.
-The 1.2% number is calibrated below the 2-3% defense spending these countries already do. It is fundable without austerity. And it stabilizes the recipient governments. Climate displacement is the largest projected source of state failure by 2040 (UNHCR / IDMC modeling). The donor countries get migration stability as a direct return.
-
-Closing-half teams: extension can run on enforcement architecture (compliance court? conditionality?) or on equity weighting between G20 and least-developed donors.`
-    },
-
     // ── Motion: abolish standardized testing in college admissions ────
-    // LD aff/neg + APDA gov so the format spread is visible.
 
     {
       motion: 'Resolved: The United States ought to abolish standardized testing as a factor in college admissions.',
       side: 'Affirmative',
       format: 'Lincoln-Douglas',
-      sharedBy: 'Sophia W.',
+      sharedBy: 'criterionkid',
       ageDays: 7,
       voteScore: 13,
       voteCount: 15,
@@ -243,7 +193,7 @@ Voters.
       motion: 'Resolved: The United States ought to abolish standardized testing as a factor in college admissions.',
       side: 'Negative',
       format: 'Lincoln-Douglas',
-      sharedBy: 'Ethan G.',
+      sharedBy: 'tabover_truth',
       ageDays: 6,
       voteScore: 16,
       voteCount: 18,
@@ -267,38 +217,13 @@ Dartmouth (2024) reinstated the test after analyzing its 2020-2023 test-optional
 Vote Neg. Aff's mechanism harms its own protected class.`
     },
 
-    {
-      motion: 'THW abolish standardized testing in undergraduate admissions.',
-      side: 'Government',
-      format: 'APDA',
-      sharedBy: 'Niharika P.',
-      ageDays: 9,
-      voteScore: 6,
-      voteCount: 8,
-      output:
-`Posting this because the LD round on the same topic missed the parli-style framing argument. The strongest gov case isn't about the SAT-income correlation (Reardon stats are great but contested). It's about the ROLE of admissions.
-
-Characterization. We're abolishing the test as a REQUIRED factor. Institutions can ask for a graded writing sample or a transcript. They cannot use SAT/ACT/AP composite scores as an admit threshold or a sorting variable.
-
-Arg 1. The test outsources the admissions function to a private vendor.
-ETS and the College Board are private firms with no accountability to the institutions whose decisions they shape. When Caltech makes a 1530 cut, Caltech has handed its mission-critical sorting to a multiple-choice exam designed in 1926 by a eugenicist. We do not let Pearson decide who passes the bar. Same principle.
-
-Arg 2. The admissions system is supposed to be lossy on the right axis.
-A four-hour exam that measures pattern-recognition under time pressure is a fine measure of pattern recognition under time pressure. It is a poor measure of intellectual curiosity, persistence, or original thought, which is what universities exist to develop. Using the wrong proxy gives us the wrong students.
-
-Arg 3. The transition has a working precedent.
-University of California (2021) dropped the SAT for systemwide admissions. They built a multi-factor review pipeline (transcript, essays, context). Yield, retention, and faculty-rated student quality are statistically indistinguishable from the pre-2020 cohort. We are not speculating about whether this works. The largest public university system in the US ran the experiment.
-
-Hot take: the LD opp side ran "this hurts low-income kids without alternative signals." The empirical answer is that multi-factor review doesn't actually drop them. UC's own first-gen admit rate went up 4 points.`
-    },
-
     // ── Motion: AI more harm than good in next decade (WUDC) ──────────
 
     {
       motion: 'THBT artificial intelligence will do more harm than good in the next decade.',
       side: 'Opening Government',
       format: 'Worlds (WUDC)',
-      sharedBy: 'Diya S.',
+      sharedBy: 'octas_or_bust',
       ageDays: 6,
       voteScore: 21,
       voteCount: 25,
@@ -321,7 +246,7 @@ Closing-half: extension is open on either (a) governance failure modes (no worki
       motion: 'THBT artificial intelligence will do more harm than good in the next decade.',
       side: 'Opening Opposition',
       format: 'Worlds (WUDC)',
-      sharedBy: 'Hassan A.',
+      sharedBy: 'closingoo',
       ageDays: 6,
       voteScore: 18,
       voteCount: 22,
@@ -346,7 +271,7 @@ Closing teams have lots of room: governance, military stability, education leapf
       motion: 'THW grant nation-states full sovereignty over data generated by their citizens, including the right to mandate domestic storage and processing.',
       side: 'Opening Government',
       format: 'British Parliamentary',
-      sharedBy: 'Sara T.',
+      sharedBy: 'mgextension',
       ageDays: 11,
       voteScore: 7,
       voteCount: 9,
@@ -368,7 +293,7 @@ DPM extension hint. Carry the case into international cooperation: sovereignty i
       motion: 'THW grant nation-states full sovereignty over data generated by their citizens, including the right to mandate domestic storage and processing.',
       side: 'Opening Opposition',
       format: 'British Parliamentary',
-      sharedBy: 'Akhil V.',
+      sharedBy: 'oo_bench',
       ageDays: 10,
       voteScore: 12,
       voteCount: 14,
@@ -387,62 +312,13 @@ Climate models, pandemic surveillance, refugee identification, financial-crime n
 Closing opp: extension space on (a) the digital trade chilling effect on developing-world exporters and (b) why "rights" framing is captured by the wrong actors in practice.`
     },
 
-    // ── Motion: abolish private property in real estate (APDA) ────────
-    // Impromptu motion, philosophy register is permitted here per format.
-
-    {
-      motion: 'THW abolish private property over real estate.',
-      side: 'Government',
-      format: 'APDA',
-      sharedBy: 'Tarun B.',
-      ageDays: 13,
-      voteScore: 4,
-      voteCount: 7,
-      output:
-`Characterization. Land is held in trust by the state, allocated via long-duration leases (50-99 years) for residential and productive use, with use rights protected and tradable. Improvements (the building, not the land) remain private property. This is closer to the Singaporean HUDC model than to Soviet collectivization.
-
-Arg 1. Land is not a product of labor. The classical liberal argument FOR property rights doesn't reach it.
-Locke's labor-mixing theory: you own the apple because you mixed your labor with picking it. The land was already there. Even on Locke's own terms, the case for ownership of unimproved land is weak; the case for ownership of, e.g., the entire urban core of London because an ancestor enclosed it in 1640 is essentially nonexistent. Gov is not radical here. We are consistent with the most-defensible version of the property-rights tradition.
-
-Arg 2. The current regime captures all productive surplus to land rent.
-Henry George made this argument in 1879 and the data has only sharpened. Roughly 60% of the productivity growth in major cities since 2000 has been captured as residential land appreciation rather than wages or business profit (Knoll, Schularick, Steger, AER 2017). Working people produce the urban value; landowners harvest it. Gov's model breaks the harvesting mechanism without breaking the productivity.
-
-Arg 3. The Singapore proof of concept.
-85% of Singaporean residences are on government-leased land. Singapore has the highest home-ownership rate among OECD-comparable economies, the lowest gini in housing, and one of the most dynamic urban economies in the world. The model works. It is not utopian.
-
-Pre-empt to opp's "Soviet" attack: we explicitly preserve improvements as private property and use rights as tradable. This is liberal land reform, not collectivization.`
-    },
-
-    {
-      motion: 'THW abolish private property over real estate.',
-      side: 'Opposition',
-      format: 'APDA',
-      sharedBy: 'Phoebe L.',
-      ageDays: 12,
-      voteScore: 11,
-      voteCount: 13,
-      output:
-`We accept Gov's framing (long lease model, improvements stay private). The opp case lives in the implementation reality.
-
-Arg 1. "The state holds it in trust" requires a state that can be trusted.
-Gov's model presumes a high-capacity, low-corruption administrative state allocating leases on the merits. Singapore has the second-cleanest civil service in the world per Transparency International. The motion is global. The median state allocating land leases looks like Lagos, Manila, Cairo, where the lease becomes a patronage instrument and the politically connected get the prime parcels in perpetuity. We have replaced one allocation problem with a worse one.
-
-Arg 2. The transition is the harm.
-"Abolishing private property in real estate" is not a notional adjustment. It is a $300T global asset reclassification. The bulk of household wealth in middle-income economies is in the home. Compensating at fair value bankrupts the state; compensating below fair value is expropriation that destroys the savings of the median family. There is no path that doesn't crater either the fiscal balance or the asset base of normal people. Gov's case never names a non-catastrophic transition.
-
-Arg 3. The Henry George case proves much less than Gov claims.
-Land Value Tax achieves the rent-capture goal Gov wants, without abolishing ownership. We can run a 4% LVT, fund redistribution, break the rent-capture machine, and leave the property regime intact. Gov picks the maximally disruptive lever for a problem that has a calibrated lever available. That is bad policy design even if you grant Gov's diagnosis.
-
-Vote opp on (a) the implementation problem at global scale, (b) the transition cost falling on the people Gov claims to help, (c) the existence of a working alternative tool.`
-    },
-
     // ── Motion: NATO expansion (PF) ────────────────────────────────────
 
     {
       motion: 'On balance, NATO expansion since 1991 has been beneficial.',
       side: 'Pro',
       format: 'PF',
-      sharedBy: 'Henry M.',
+      sharedBy: 'pfdrops',
       ageDays: 14,
       voteScore: 9,
       voteCount: 11,
@@ -468,7 +344,7 @@ Vote Pro: empirically, expansion delivered the goods on the metric the resolutio
       motion: 'On balance, NATO expansion since 1991 has been beneficial.',
       side: 'Con',
       format: 'PF',
-      sharedBy: 'Meera J.',
+      sharedBy: 'crystallize',
       ageDays: 14,
       voteScore: 13,
       voteCount: 16,

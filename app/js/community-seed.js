@@ -1,74 +1,57 @@
 /* community-seed.js
  *
- * Bootstraps the public-facing community surfaces (leaderboard, /community)
- * with a deterministic pool of seeded personas so the boards aren't empty
- * for a brand-new visitor. Real Firestore entries always merge in on top
- * and outrank seeds at the same score — seeds fill the long tail.
+ * Backfills /leaderboard so a brand-new visitor doesn't see a one-row
+ * board. Sizing tuned to "early app with a real community forming"
+ * (~30 live + ~18 ai), not "fully populated production board"
+ * (~160+) — the lower number reads as authentic growth instead of
+ * social-proof theater.
  *
- * Why this lives here, not in Firestore:
- * - Seeds never write to the DB, so no risk of polluting real ranks,
- *   admin counts, or revenue analytics. They only render on the client.
- * - Each seed carries `seed:true` + `seedV` so future code can identify
- *   and remove them in one place when real activity outpaces the bank.
+ * Names are handle-style usernames: lowercase, sometimes
+ * underscored, occasionally numbered, debate-coded vocabulary mixed
+ * with generic handles. A real signed-in user shows up as "First L."
+ * (derived from their Google displayName), but power users on debate
+ * platforms typically pick their own handle if the surface allows it,
+ * and we want the seeds to feel like the latter, not like everyone
+ * defaulted to a Google sign-in.
  *
- * Mix tuned to the actual visitor breakdown (soul.md §8: ~80% India).
- * Names are first-name + last-initial only, matching the real
- * leaderboard's privacy convention. Don't add school/handle/photo —
- * the real entries don't carry those, and we want seeds to be visually
- * indistinguishable from real rows.
+ * Each seed carries seed:true + a 'da-seed-*' uid prefix. Real
+ * Firestore entries always merge in on top — seeds fill the long tail.
  */
 (function(){
   'use strict';
 
-  const SEED_VERSION = 1;
+  const SEED_VERSION = 3;
 
-  // First-name pool weighted to roughly match traffic origin. Indian
-  // names dominate because the visitor base does. No surnames — the
-  // public board only ever shows first + last-initial.
-  const NAMES_INDIA = [
-    'Aarav','Aaradhya','Aarush','Aditi','Aditya','Advika','Akshay','Anaya','Anika','Ananya',
-    'Aniket','Anirudh','Anjali','Arjun','Aryan','Avani','Ayaan','Daksh','Devansh','Dhruv',
-    'Diya','Esha','Gauri','Hrithik','Ira','Ishaan','Ishita','Jaya','Kabir','Kavya',
-    'Krishna','Lakshya','Manav','Meera','Mihir','Naina','Neel','Neha','Nisha','Nishant',
-    'Niharika','Pranav','Priya','Raghav','Rahul','Rhea','Rishi','Riya','Rohan','Saanvi',
-    'Sahil','Samar','Sanvi','Sara','Shaurya','Shreya','Siddharth','Siya','Tanvi','Tara',
-    'Tarun','Vaani','Vedika','Vihaan','Vikram','Vivaan','Vivek','Yash','Yuvraj','Zara',
-    'Adi','Akhil','Asha','Bhavya','Chetan','Hari','Indra','Kunal','Mira','Parth',
-    'Reyansh','Sneha','Tanish','Uday','Vansh',
-  ];
-  const NAMES_WEST = [
-    'Aaron','Abigail','Aiden','Alex','Amelia','Andrew','Anna','Ben','Charlotte','Chloe',
-    'Connor','Daniel','David','Ella','Emily','Emma','Ethan','Evan','Grace','Hannah',
-    'Henry','Isaac','Isabella','Jack','James','Jacob','Julia','Liam','Lily','Logan',
-    'Lucas','Madeline','Madison','Mason','Matthew','Mia','Michael','Natalie','Noah','Olivia',
-    'Oliver','Owen','Phoebe','Quinn','Rachel','Ryan','Sarah','Sebastian','Sophia','William',
-  ];
-  const NAMES_OTHER = [
-    'Hassan','Ahmed','Ali','Fatima','Ayesha','Zainab',  // PK
-    'Miguel','Sofia','Gabriel','Beatriz','Joaquin',     // PH/Latam
-    'Wei','Jing','Hui','Ming','Xin',                    // SG/CN
-    'Jihye','Minjun','Seoyun','Haerin',                 // KR
-    'Tendai','Amara','Kwame','Nia','Chidi',             // Africa
-    'Yusuf','Layla','Omar',                              // ME
-  ];
-
-  // Targeted mix: Indian-heavy, then West, then everywhere else. Repeats
-  // are intentional — they bias the weighted draw without inflating the
-  // unique-name list past what we actually have.
-  const NAME_POOL = [
-    ...NAMES_INDIA, ...NAMES_INDIA,  // 2x weight on India to ~match 80% mix
-    ...NAMES_WEST,
-    ...NAMES_OTHER,
-  ];
-
-  const LAST_INITIALS = [
-    'A','B','C','D','G','H','I','J','K','L','M','N','P','R','S','T','V','W','Y','Z',
+  // Handle pool. Mix of:
+  //   - debate-coded handles (parli, flow, 1ar, condo, k, etc.)
+  //   - generic short handles (mango42, klondike)
+  //   - lowercase first names (aarav, meera) — what a user gets if
+  //     they only typed a first name into the Google account form
+  //   - a few First-Lastinitial entries to keep variety realistic
+  // No emoji, no special chars beyond _ . and digits — real platforms
+  // strip those, and so do we for visual hygiene.
+  const HANDLES = [
+    // debate-coded
+    'parli_kid','bp_overhang','apdacrustaceans','pfdrops','kshell','theory_pls',
+    'flow_rat','flowingok','tab_judge_no','1ar_collapse','2nr_god','dropthecase',
+    'mgextension','whip_only','topicality_dad','condo_good','extend_pls',
+    'octas_or_bust','bidkid','wsdcbound','prelim_quad','linkturn','mgowned',
+    'judgeparadigm','impact_calc','warrant_dropper','frontlinekid','spreader',
+    // generic short handles
+    'mango42','zenith23','nightshift_','darkbluepen','quietkid','purplehaze',
+    'tundra','ringo07','klondike','merlot','cinnabar','slowburn','hibachi',
+    'ferrum','aux_8','octalpha','sevenup','riverbend','ploughshare',
+    // lowercase first names
+    'aarav','priya','meera','tarun','diya','connor','niharika','sara',
+    'pranav','rohan','akhil','olivia','sebastian','vihaan',
+    // occasional First L. for variety (matches what real Google sign-in produces)
+    'Aarav K.','Madison T.','Connor B.','Anjali R.','Hassan A.',
+    // edge cases — real boards have these too
+    'Anonymous','coach','?','vivek','x_x','newkid',
   ];
 
   // Format mix tuned to where Debate AI traffic actually competes.
   // Asian Parli + BP up top because the India-heavy circuit runs those.
-  // Quick Clash kept low — it's a beginner format, fewer leaderboard
-  // entries earned through it.
   const FORMAT_BANK = [
     { slug:'asian',   name:'Asian Parli',     w:24 },
     { slug:'bp',      name:'British Parli',   w:18 },
@@ -85,8 +68,8 @@
 
   // mulberry32 — fast, well-tested 32-bit PRNG. Seeds are deterministic
   // strings so the same persona index produces the same persona forever
-  // (until SEED_VERSION bumps), and a daily key produces a small
-  // refresh in scores + timestamps.
+  // (until SEED_VERSION bumps); a daily key produces a small refresh
+  // in scores + timestamps so the board doesn't feel statue-still.
   function hashStr(s){
     let h=2166136261>>>0;
     for(let i=0;i<s.length;i++){
@@ -112,25 +95,20 @@
     return bank[0];
   }
 
-  // Day key rolls forward each calendar day in the viewer's TZ. Cheap,
-  // good enough — we don't need cross-TZ identical state, just a daily
-  // refresh so the board feels alive rather than statue-still.
   function dayKey(){
     const d=new Date();
     return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
   }
 
-  // Score curve: roughly matches what AI-judged speaker points actually
-  // look like in our prod data. Top is rare, mid-board is dense, the
-  // floor is well above 25 because below that you typically don't even
-  // post to the board.
+  // Score curve — kept similar to v2 but with shallower falloff since
+  // there are fewer rows. Top is rare, mid-board is dense, the floor is
+  // well above 25.
   function scoreForRank(rank){
-    if(rank<3)  return 29.6 - rank*0.15;            // 29.6 / 29.45 / 29.3
-    if(rank<10) return 29.2 - (rank-3)*0.08;        // 29.2..28.7
-    if(rank<25) return 28.6 - (rank-10)*0.05;       // 28.6..27.9
-    if(rank<55) return 27.85 - (rank-25)*0.03;      // 27.85..27.0
-    if(rank<100)return 27.0 - (rank-55)*0.018;      // 27.0..26.2
-    return 26.2 - (rank-100)*0.012;                  // long tail
+    if(rank<3)  return 29.4 - rank*0.18;            // 29.4 / 29.22 / 29.04
+    if(rank<10) return 28.9 - (rank-3)*0.10;        // 28.9..28.2
+    if(rank<20) return 28.1 - (rank-10)*0.06;       // 28.1..27.5
+    if(rank<35) return 27.4 - (rank-20)*0.05;       // 27.4..26.7
+    return 26.7 - (rank-35)*0.04;                    // long tail
   }
 
   // Age bucket distribution: skew strongly recent so the top of the
@@ -146,45 +124,31 @@
     return 30*24*60+Math.floor(r()*60*24*60);                 // older
   }
 
-  // Wrap a JS Date in a Firestore-Timestamp-shaped object so the
-  // existing fmtAgo() in leaderboard.html doesn't need to special-case
-  // seeds. Just exposes .toDate(), which is what the consumer calls.
   function tsLike(date){
     return { toDate(){ return date; } };
   }
 
-  // Build one persona deterministically from its index. Every field
-  // that affects ranking is seeded by index so the pool is stable;
-  // every field that affects "feels alive" (score jitter, timestamp,
-  // motion variation) is seeded by index+dayKey so it rolls daily.
   function buildPersona(index, view, day){
     const stableSeed='da-seed-'+SEED_VERSION+'-'+index;
     const rs=prng(stableSeed);
-    const first=pick(NAME_POOL,rs);
-    const lastI=pick(LAST_INITIALS,rs);
+    const handle=pick(HANDLES,rs);
     const format=pickWeighted(FORMAT_BANK,FORMAT_TOTAL_W,rs);
 
     const dailySeed=stableSeed+'@'+day+'@'+view;
     const rd=prng(dailySeed);
     const base=scoreForRank(index);
-    const jitter=(rd()-0.5)*0.45;     // ±~0.22 pt — small enough to keep
-                                       // ordering mostly stable, big
-                                       // enough that the top-3 sometimes
-                                       // shuffle.
+    const jitter=(rd()-0.5)*0.45;
     const score=Math.max(25.4,Math.min(29.85,base+jitter));
 
     const ageMin=ageMinutesFor(rd);
     const completedAt=tsLike(new Date(Date.now()-ageMin*60*1000));
 
-    // Live tab carries a W badge for entries marked won. AI tab requires
-    // won:true to render at all (loadView filters it). So:
-    //   - live seeds: ~55% won (mix of W and no-W rows)
-    //   - ai seeds: always won, always kind:'ai'
+    // Live tab: ~55% have W badge. AI tab: all wins (the tab requires it).
     const isWin = view==='ai' ? true : rd()<0.55;
 
     return {
       uid: stableSeed,
-      displayName: first+' '+lastI+'.',
+      displayName: handle,
       score: Number(score.toFixed(1)),
       won: isWin,
       kind: view==='ai' ? 'ai' : 'live',
@@ -196,12 +160,11 @@
     };
   }
 
-  // Build the full pool for a view. Size is deliberately larger than the
-  // 100-row board so daily jitter can shuffle entries on/off without
-  // creating gaps.
+  // Pool sizes deliberately reduced (was 160 / 130 in v2). Reads as
+  // "real growing community" rather than "fully seeded production."
   function buildPool(view){
     const day=dayKey();
-    const size = view==='ai' ? 130 : 160;
+    const size = view==='ai' ? 18 : 30;
     const out=[];
     for(let i=0;i<size;i++){
       out.push(buildPersona(i, view, day));
@@ -209,15 +172,10 @@
     return out;
   }
 
-  // Public API: merge real entries with the seed pool, sort, cap.
-  // Real entries take precedence on a uid collision — but seed uids are
-  // 'da-seed-*'-prefixed and won't ever collide with Firebase Auth UIDs.
   function merge(realRows, view, opts){
     const limit=(opts&&opts.limit)||100;
     const seeds=buildPool(view);
     const all=Array.isArray(realRows) ? realRows.concat(seeds) : seeds.slice();
-    // Sort by score desc, with a small tiebreaker by recency so equal
-    // scores don't reshuffle on every render.
     all.sort((a,b)=>{
       const s=(b.score||0)-(a.score||0);
       if(s!==0) return s;
@@ -228,11 +186,9 @@
     return all.slice(0,limit);
   }
 
-  // Expose for the leaderboard page (and future callers — community.html
-  // can use the same merge() with a different view if we ever extend).
   window.DEBATEAI_SEED = {
     version: SEED_VERSION,
     merge,
-    buildPool,  // exposed for tests / debug
+    buildPool,
   };
 })();
