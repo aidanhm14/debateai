@@ -2470,6 +2470,243 @@ button{font-family:inherit;cursor:pointer}
   </div>
 </section>
 
+<!-- Social-proof globe. Rotating earth with marker pins on the live
+     user concentrations from Firebase analytics (India 68.5%, US 8.3%,
+     Philippines, Brazil, Pakistan, Mexico, Turkey, …). Sits between
+     the hero and the Voice AI section so it lands as the "this is
+     real, here's the scale" moment right after the CTAs. Uses cobe
+     via esm.sh — ~7KB, single WebGL canvas, no dependencies. -->
+<style>
+  .hero-globe-section{
+    padding:48px 24px 56px;position:relative;overflow:hidden;
+  }
+  .hero-globe-wrap{
+    max-width:1180px;margin:0 auto;
+    display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;
+  }
+  .hero-globe-eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);
+    padding:5px 12px;border-radius:999px;
+    background:rgba(239,68,68,.10);
+    border:1px solid rgba(239,68,68,.28);
+    margin-bottom:18px;
+  }
+  .hero-globe-eyebrow .dot{
+    width:6px;height:6px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+    animation:rec-pulse 1.6s ease-in-out infinite;
+  }
+  .hero-globe-headline{
+    font-size:clamp(1.7rem,3vw,2.5rem);font-weight:900;letter-spacing:-.025em;line-height:1.1;
+    margin:0 0 14px;color:var(--text);
+  }
+  .hero-globe-headline em{font-style:normal;color:var(--accent)}
+  .hero-globe-sub{
+    font-size:1.02rem;color:var(--text-dim);line-height:1.65;margin:0 0 24px;max-width:560px;
+  }
+  .hero-globe-stats{display:flex;gap:36px;flex-wrap:wrap}
+  .hero-globe-stat{display:flex;flex-direction:column;gap:2px;min-width:90px}
+  .hero-globe-stat strong{
+    font-size:1.65rem;font-weight:900;color:var(--text);letter-spacing:-.02em;line-height:1;
+  }
+  .hero-globe-stat span{
+    font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--text-dim);margin-top:6px;
+  }
+  .hero-globe-canvas-wrap{
+    position:relative;display:flex;justify-content:center;align-items:center;
+    width:100%;aspect-ratio:1;max-width:520px;margin:0 auto;
+  }
+  .hero-globe-canvas{
+    width:100%;height:100%;display:block;
+    contain:layout paint;
+    /* Subtle floor glow so the globe doesn't feel pasted onto the page. */
+    filter:drop-shadow(0 18px 40px var(--accent-glow,rgba(239,68,68,.25)));
+  }
+  @media(max-width:880px){
+    .hero-globe-wrap{grid-template-columns:1fr;gap:24px;text-align:center}
+    .hero-globe-canvas-wrap{order:-1;max-width:380px}
+    .hero-globe-stats{justify-content:center}
+    .hero-globe-stat{align-items:center}
+    .hero-globe-sub{margin-left:auto;margin-right:auto}
+  }
+  @media(max-width:560px){
+    .hero-globe-section{padding:32px 18px 40px}
+    .hero-globe-canvas-wrap{max-width:300px}
+    .hero-globe-stat strong{font-size:1.35rem}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .hero-globe-canvas{filter:none}
+  }
+</style>
+<section class="hero-globe-section" aria-label="Where Debate AI is being used right now">
+  <div class="hero-globe-wrap">
+    <div class="hero-globe-text">
+      <div class="hero-globe-eyebrow"><span class="dot" aria-hidden="true"></span>Live in 115 countries</div>
+      <h2 class="hero-globe-headline">Debaters in <em>115 countries</em> are training against this AI.</h2>
+      <p class="hero-globe-sub">~7,000 monthly users from India, the US, the Philippines, Brazil, Pakistan, Mexico, Turkey, Egypt, Argentina, Hungary, the Netherlands, Poland and a hundred more. Solo-built, ~$0.09 blended CAC.</p>
+      <div class="hero-globe-stats">
+        <div class="hero-globe-stat"><strong>~7K</strong><span>Monthly users</span></div>
+        <div class="hero-globe-stat"><strong>115</strong><span>Countries</span></div>
+        <div class="hero-globe-stat"><strong>$0.09</strong><span>CAC</span></div>
+      </div>
+    </div>
+    <div class="hero-globe-canvas-wrap">
+      <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with markers on top user countries"></canvas>
+    </div>
+  </div>
+</section>
+<script type="module">
+  import createGlobe from 'https://esm.sh/cobe@0.6.3';
+  (function(){
+    var canvas = document.getElementById('heroGlobeCanvas');
+    if (!canvas || typeof createGlobe !== 'function') return;
+    // Top markets, from Firebase analytics breakdown. [lat, lng, size];
+    // size 0..0.2 (cobe uses it as a relative pin radius).
+    var MARKERS = [
+      { location: [20.5937, 78.9629],   size: 0.18 },  // India 68.5%
+      { location: [37.0902, -95.7129],  size: 0.085 }, // US 8.3%
+      { location: [12.8797, 121.7740],  size: 0.05 },  // Philippines
+      { location: [-14.2350, -51.9253], size: 0.045 }, // Brazil
+      { location: [30.3753, 69.3451],   size: 0.045 }, // Pakistan
+      { location: [23.6345, -102.5528], size: 0.04 },  // Mexico
+      { location: [38.9637, 35.2433],   size: 0.04 },  // Turkey
+      { location: [26.8206, 30.8025],   size: 0.035 }, // Egypt
+      { location: [-38.4161, -63.6167], size: 0.035 }, // Argentina
+      { location: [47.1625, 19.5033],   size: 0.03 },  // Hungary
+      { location: [52.1326, 5.2913],    size: 0.03 },  // Netherlands
+      { location: [51.9194, 19.1451],   size: 0.03 },  // Poland
+      { location: [55.3781, -3.4360],   size: 0.035 }, // UK
+      { location: [56.1304, -106.3468], size: 0.035 }, // Canada
+      { location: [-25.2744, 133.7751], size: 0.03 },  // Australia
+      { location: [1.3521, 103.8198],   size: 0.03 },  // Singapore
+      { location: [25.2048, 55.2708],   size: 0.03 },  // UAE
+      { location: [40.7128, -74.0060],  size: 0.03 },  // NYC pin
+      { location: [34.0522, -118.2437], size: 0.03 },  // LA pin
+      { location: [13.7563, 100.5018],  size: 0.025 }, // Bangkok
+      { location: [-1.2921, 36.8219],   size: 0.025 }, // Nairobi
+      { location: [9.0820, 8.6753],     size: 0.025 }, // Nigeria
+      { location: [-33.8688, 151.2093], size: 0.025 }, // Sydney
+      { location: [35.6762, 139.6503],  size: 0.025 }, // Tokyo
+      { location: [37.5665, 126.9780],  size: 0.025 }, // Seoul
+    ];
+
+    function themeColors(){
+      var theme = document.documentElement.getAttribute('data-theme') || 'crimson';
+      var lighting = document.documentElement.getAttribute('data-lighting') || '';
+      if (theme === 'light' || lighting === 'light'){
+        return {
+          dark: 0,
+          mapBrightness: 1.4,
+          baseColor: [0.86, 0.84, 0.80],
+          glowColor: [0.95, 0.65, 0.65],
+          markerColor: [0.86, 0.15, 0.15]
+        };
+      }
+      if (theme === 'grey'){
+        return {
+          dark: 1, mapBrightness: 6,
+          baseColor: [0.32, 0.32, 0.34],
+          glowColor: [0.95, 0.4, 0.4],
+          markerColor: [1, 0.32, 0.32]
+        };
+      }
+      // crimson default
+      return {
+        dark: 1, mapBrightness: 6,
+        baseColor: [0.65, 0.12, 0.12],
+        glowColor: [1, 0.30, 0.30],
+        markerColor: [1, 0.55, 0.55]
+      };
+    }
+
+    var phi = 0;
+    var pointerInteracting = null;
+    var pointerInteractionMovement = 0;
+    var paused = false;
+    var globe = null;
+    var reduced = false;
+    try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+    function build(){
+      if (globe) { try { globe.destroy(); } catch(e){} globe = null; }
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var rect = canvas.getBoundingClientRect();
+      var size = Math.max(240, Math.round(rect.width || 480));
+      var c = themeColors();
+      globe = createGlobe(canvas, {
+        devicePixelRatio: dpr,
+        width: size * dpr,
+        height: size * dpr,
+        phi: 0,
+        theta: 0.18,
+        dark: c.dark,
+        diffuse: 1.2,
+        mapSamples: 16000,
+        mapBrightness: c.mapBrightness,
+        baseColor: c.baseColor,
+        markerColor: c.markerColor,
+        glowColor: c.glowColor,
+        markers: MARKERS,
+        onRender: function(state){
+          state.phi = phi + pointerInteractionMovement / 200;
+          if (!pointerInteracting && !paused && !reduced) phi += 0.0035;
+          state.width = size * dpr;
+          state.height = size * dpr;
+        }
+      });
+    }
+
+    // Drag-to-rotate. Pause auto-spin while dragging.
+    canvas.addEventListener('pointerdown', function(e){
+      pointerInteracting = e.clientX - pointerInteractionMovement;
+      canvas.style.cursor = 'grabbing';
+    });
+    canvas.addEventListener('pointerup', function(){ pointerInteracting = null; canvas.style.cursor = 'grab'; });
+    canvas.addEventListener('pointerout', function(){ pointerInteracting = null; canvas.style.cursor = 'grab'; });
+    canvas.addEventListener('pointermove', function(e){
+      if (pointerInteracting !== null){
+        var delta = e.clientX - pointerInteracting;
+        pointerInteractionMovement = delta;
+      }
+    });
+    canvas.style.cursor = 'grab';
+
+    // Pause when off-screen. Continuous WebGL on a hidden globe wastes
+    // battery on the long landing-page scroll.
+    try {
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(en){ paused = !en.isIntersecting; });
+      }, { rootMargin: '100px' });
+      io.observe(canvas);
+    } catch(e){}
+
+    // Theme picker on /debate-ai writes data-theme/data-lighting on
+    // <html>. We listen so the globe re-skins live (no reload).
+    try {
+      var obs = new MutationObserver(function(muts){
+        for (var i = 0; i < muts.length; i++){
+          if (muts[i].attributeName === 'data-theme' || muts[i].attributeName === 'data-lighting'){
+            build();
+            return;
+          }
+        }
+      });
+      obs.observe(document.documentElement, { attributes: true });
+    } catch(e){}
+
+    var rzTimer = null;
+    window.addEventListener('resize', function(){
+      clearTimeout(rzTimer);
+      rzTimer = setTimeout(build, 120);
+    });
+
+    build();
+  })();
+</script>
+
 <!-- Voice AI · live sparring. The killer feature of the AI side: speak
      a speech out loud, the AI debater interrupts, takes POIs, hits back
      in real time. Sits directly under the hero CTA row so visitors who
