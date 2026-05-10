@@ -296,6 +296,30 @@ body{background:#fffaf7}
 .input-row button:hover{transform:translateY(-1px)}
 .input-row button:disabled{opacity:.3;cursor:not-allowed;transform:none}
 
+/* Typing-dots indicator for the AI's "generating argument" state.
+   Three dots staggered so it reads as composing, not as a static
+   ellipsis. Tighter than a spinner because the AI usually responds
+   in 2-6s — a fully spinning element feels heavier than a typing
+   prompt for that duration. */
+.typing-dots{
+  display:inline-flex;align-items:center;gap:4px;margin-left:6px;
+  vertical-align:middle;
+}
+.typing-dots span{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(0,0,0,.42);
+  animation:typingDot 1.2s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2){animation-delay:.2s}
+.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes typingDot{
+  0%,60%,100%{opacity:.3;transform:translateY(0)}
+  30%{opacity:1;transform:translateY(-2px)}
+}
+.chat-msg.ai.generating{
+  font-style:italic;color:rgba(0,0,0,.55);
+}
+
 /* ── Cards ─────────────────────────── */
 .card{
   width:100%;max-width:600px;text-align:left;
@@ -792,15 +816,20 @@ function ChatView({ messages, input, setInput, onSend, loading, placeholder, chi
         el('span',{className:'sender'},m.role==='user'?'You':'AI'),
         m.text
       )),
-      loading && el('div',{className:'chat-msg ai',style:{fontStyle:'italic'}},
+      loading && el('div',{className:'chat-msg ai generating'},
         el('span',{className:'sender'},'AI'),
-        'Thinking...'
+        'Generating argument',
+        el('span',{className:'typing-dots','aria-hidden':true},
+          el('span'),
+          el('span'),
+          el('span'),
+        ),
       ),
     ),
     children,
     el('div',{className:'input-row'},
       el('textarea',{rows:2,placeholder:placeholder||'Type your response...',value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSend()}},disabled:loading}),
-      el('button',{onClick:onSend,disabled:loading||!input.trim()},'Send'),
+      el('button',{onClick:onSend,disabled:loading||!input.trim()},loading?'Generating…':'Send'),
     ),
   );
 }
