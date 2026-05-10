@@ -999,6 +999,16 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
 }
 .smart-ticks span{position:absolute;white-space:nowrap;top:0}
 .smart-ticks span.on{color:#fca5a5;font-weight:600}
+/* Mid-track dot for unselected interior steps. Sits at the same
+   y-baseline as the endpoint labels so the slider reads as a 5-stop
+   range without crowding the card with text. The selected tick
+   still renders its full label (replaces the dot) so the user can
+   see WHICH stop they're on without consulting the badge. */
+.smart-ticks .tick-dot{
+  width:4px;height:4px;border-radius:50%;
+  background:rgba(255,255,255,.22);
+  display:block;top:6px;
+}
 .smart-warn{
   font-size:.65rem;color:#fde68a;margin-top:8px;line-height:1.5;
   background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.18);
@@ -2699,23 +2709,35 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
               'aria-label':'AI smartness level',
             }),
             el('div', { className:'smart-ticks' },
-              // Each tick positioned at the same fraction of the slider
-              // track that the thumb center sits at for that value, with
-              // the 9px bumper accounted for so values 1 and 5 actually
-              // line up with the thumb's leftmost / rightmost center.
-              // Ends use translateX(0) / translateX(-100%) instead of
-              // -50% so 'Quick' / 'World Champ' anchor to the inner edge
-              // and don't overflow the card padding on either side.
+              // Only show the two endpoint labels under the track. The
+              // current level's full name already lives in the .lvl
+              // badge top-right, so the middle three (Sharp / Tournament
+              // / Council) were duplicating info AND colliding with
+              // each other at every viewport under ~520px (Council
+              // crashed into World Champ even on desktop card widths).
+              // Endpoint labels still anchor the user's mental model
+              // of the range. Dim ticks render as small dots between.
               SMART_LABELS.map((s, i) => {
                 const N = SMART_LABELS.length;
                 const frac = i / (N - 1);
                 const left = 'calc(9px + ' + frac + ' * (100% - 18px))';
+                const isEnd = i === 0 || i === N - 1;
+                const isSelected = smartness === s.lvl;
+                if (!isEnd && !isSelected) {
+                  // Mid-track dot only; no label text
+                  return el('span', {
+                    key: s.lvl,
+                    className: 'tick-dot',
+                    style: { left, transform: 'translateX(-50%)' },
+                    'aria-hidden': 'true',
+                  });
+                }
                 const transform = i === 0 ? 'translateX(0)'
                   : i === N - 1 ? 'translateX(-100%)'
                   : 'translateX(-50%)';
                 return el('span', {
-                  key:s.lvl,
-                  className: smartness===s.lvl ? 'on' : '',
+                  key: s.lvl,
+                  className: isSelected ? 'on' : '',
                   style: { left, transform },
                 }, s.name);
               })

@@ -89,16 +89,17 @@ These are the rules that override other considerations. Any change that violates
 
 ## 7. Pricing (decided, stop debating it)
 
-Four tiers, locked:
+Five tiers, locked (Lifetime added to canonical list 2026-05-10):
 
 | Tier | Price | What you get |
 |---|---|---|
-| Free | $0 | 5 total requests, Gmail sign-in required |
+| Free | $0 | 5 anonymous + 5 more on sign-in (10 total) |
 | BYOK | $1/mo | Unlimited Claude (Anthropic-only, user's key) |
-| Individual | $5/mo | 250 requests, 4 brains, HD voice |
+| Individual | $5/mo | 250 requests/mo, 4 brains, HD voice |
+| Lifetime | $14.99 once | 250 requests/mo forever, no recurring charge. One-time unlock for the user who'd rather not think about it again. |
 | Team | $30/mo | 1,500 requests, 50 seats |
 
-Target conversion tier: **Individual at $5/mo**. Everything else exists to funnel toward it. BYOK is for the power users who'd otherwise leave; Team is for debate clubs and later sales motion.
+Target conversion tier: **Individual at $5/mo**. Everything else exists to funnel toward it. BYOK is for the power users who'd otherwise leave; Lifetime is for the impulse-buy converter who wants out of the recurring-charge cycle; Team is for debate clubs and later sales motion.
 
 ## 8. Current state (updated Apr 2026)
 
