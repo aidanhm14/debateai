@@ -1980,17 +1980,36 @@ function App(){
         break;
       }
 
-      case 'response.audio_transcript.delta': {
-        const cur = currentAiTurnRef.current;
-        if (cur) {
-          cur.text = (cur.text || '') + (evt.delta || '');
-          upsertTurn(cur);
+      // Audio output transcript stream. Match both naming conventions:
+      // the original GA shape (`response.audio_transcript.*`) and the
+      // newer one observed on gpt-realtime-2 (`response.output_audio_-
+      // transcript.*`). Listening for both costs nothing and stops the
+      // transcript log from rendering as a wall of "…" when the server
+      // happens to use the prefix the handler didn't expect.
+      //
+      // Also resilient now: if a delta arrives before `response.created`
+      // populated currentAiTurnRef (out-of-order websocket frame, race
+      // on session restart, etc.), we lazy-create the AI turn instead
+      // of silently dropping the chunk.
+      case 'response.audio_transcript.delta':
+      case 'response.output_audio_transcript.delta': {
+        let cur = currentAiTurnRef.current;
+        if (!cur) {
+          cur = { id: 'ai-' + Date.now(), who: 'ai', text: '' };
+          currentAiTurnRef.current = cur;
         }
+        cur.text = (cur.text || '') + (evt.delta || '');
+        upsertTurn(cur);
         break;
       }
 
-      case 'response.audio_transcript.done': {
-        const cur = currentAiTurnRef.current;
+      case 'response.audio_transcript.done':
+      case 'response.output_audio_transcript.done': {
+        let cur = currentAiTurnRef.current;
+        if (!cur && evt.transcript) {
+          cur = { id: 'ai-' + Date.now(), who: 'ai', text: '' };
+          currentAiTurnRef.current = cur;
+        }
         if (cur) {
           cur.text = evt.transcript || cur.text;
           upsertTurn(cur);
@@ -2305,7 +2324,15 @@ function App(){
               output_modalities: ['audio'],
               audio: {
                 input: {
-                  transcription: { model: 'whisper-1' },
+                  // language:'en' kills the most famous Whisper failure mode:
+                  // on silence or low-energy noise, whisper-1 with no language
+                  // hint hallucinates "Sampai jumpa di video selanjutnya" and
+                  // similar Indonesian/Spanish YouTube outro phrases (the
+                  // training set was full of them). Pinning English cuts that
+                  // off. Multilingual users on the Counter extension's Hindi
+                  // viva path already set their own aiLanguage upstream — this
+                  // default only applies to the standard English-debate flow.
+                  transcription: { model: 'whisper-1', language: 'en' },
                   turn_detection: {
                     type: 'server_vad',
                     threshold: 0.5,
@@ -3006,7 +3033,22 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
               className:'cta',
               onClick: start,
               disabled: micPerm === 'denied' || voiceGate.loading,
-            }, 'Start voice debate'),
+            },
+              // Tag the Start button with the current smartness label
+              // whenever it's above Quick. Solves the "I clicked simple
+              // round, why is it convening 5 brains?" confusion — the
+              // slider is persisted across sessions in localStorage, so
+              // a one-time experiment with World Champ silently slows
+              // every later start until the user notices and drags it
+              // back. Surfacing the level inline kills the surprise.
+              smartness > 1
+                ? 'Start voice debate · ' + (
+                    smartness === 5 ? 'World Champ' :
+                    smartness === 4 ? 'Council' :
+                    smartness === 3 ? 'Tournament' : 'Sharp'
+                  ) + ' (~' + (smartness >= 4 ? '6' : '3') + 's slower)'
+                : 'Start voice debate'
+            ),
             el('div', { className:'helper' },
               voiceGate.isPro
                 ? 'Pro · unlimited voice rounds. Interrupt the AI mid-sentence.'
