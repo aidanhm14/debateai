@@ -775,6 +775,45 @@ input[type=text]:focus,select:focus,textarea:focus{
   font-size:.72rem;color:#7a7a8a;text-align:center;line-height:1.45;
 }
 
+/* Voice usage gate. Replaces the Start button when an anon user has
+   used their 1 free trial (state='sign-in') or a free signed-in user
+   has used their 3 lifetime sessions (state='upgrade'). Card-style
+   so it reads as a deliberate gate, not a generic warning. */
+.voice-gate{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:18px 20px;
+  background:linear-gradient(135deg,rgba(251,191,36,.10),rgba(239,68,68,.06));
+  border:1px solid rgba(251,191,36,.32);
+  border-radius:14px;
+  text-align:center;
+}
+.voice-gate .vg-eyebrow{
+  font-size:.6rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;
+  color:#fbbf24;
+}
+.voice-gate .vg-h{
+  font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-.01em;
+}
+.voice-gate .vg-body{
+  font-size:.78rem;color:#a0a0b0;line-height:1.55;margin:2px 0 4px;max-width:380px;
+}
+.voice-gate .vg-cta{
+  /* Keep the Start-button visual identity so the gate reads as the
+     same surface, just with a different label/intent. */
+  display:inline-block;width:100%;padding:13px 18px;
+  font-size:.9rem;font-weight:800;letter-spacing:.04em;
+  background:#ef4444;color:#fff;text-decoration:none;text-align:center;
+  border-radius:11px;border:none;cursor:pointer;
+  box-shadow:0 6px 16px rgba(239,68,68,.22);
+  transition:background .15s,transform .15s;
+}
+.voice-gate .vg-cta:hover{background:#dc2626;transform:translateY(-1px)}
+.voice-gate .vg-fallback{
+  font-size:.74rem;color:#a0a0b0;text-decoration:none;
+  margin-top:2px;
+}
+.voice-gate .vg-fallback:hover{color:#fff;text-decoration:underline}
+
 /* Compact opponent picker (right column) */
 .opps{display:flex;flex-direction:column;gap:6px}
 .opp{
@@ -1489,17 +1528,102 @@ function App(){
     return () => { cancelled = true; if (permRef) permRef.onchange = null; };
   }, []);
 
-  // Watch Firebase auth so the greeting personalizes once sign-in resolves.
+  // ── Voice usage gate ─────────────────────────────────────────────
+  // Tiered access:
+  //   • Anon visitors: 1 free voice session (localStorage counter)
+  //   • Signed-in free: 3 lifetime voice sessions (server-truth on
+  //     user_profiles/{uid}.voiceSessionsUsed, client read-only)
+  //   • Pro: no client cap (server-side 6/hour/IP rate limit still applies)
+  // Client-side gate is UX-only; the real enforcement lives in
+  // realtime-session.mjs which checks Firestore on every mint.
+  const ANON_VOICE_LIMIT = 1;
+  const FREE_VOICE_LIMIT = 3;
+  const ANON_USAGE_KEY = 'da-voice-anon-used';
+  const [voiceGate, setVoiceGate] = useState({
+    loading: true,
+    signedIn: false,
+    isPro: false,
+    used: 0,
+    limit: ANON_VOICE_LIMIT,
+    state: 'ok',  // 'ok' | 'sign-in' | 'upgrade'
+  });
+
+  function readAnonUsed(){
+    try { return Math.max(0, parseInt(localStorage.getItem(ANON_USAGE_KEY), 10) || 0); }
+    catch(e){ return 0; }
+  }
+  function bumpAnonUsed(){
+    try { localStorage.setItem(ANON_USAGE_KEY, String(readAnonUsed() + 1)); } catch(e){}
+  }
+
+  // Recompute gate state from current auth + counter. Called on
+  // mount, on auth state change, and after a successful session
+  // start (so the button updates immediately).
+  const refreshVoiceGate = useCallback(async ()=>{
+    let signedIn = false;
+    let isPro = false;
+    let used = 0;
+    let limit = ANON_VOICE_LIMIT;
+    let state = 'ok';
+    try {
+      const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+      if (u){
+        signedIn = true;
+        limit = FREE_VOICE_LIMIT;
+        // Pull profile once; voiceSessionsUsed is the server-incremented
+        // counter, plan/tier flags whether they're Pro.
+        try {
+          const db = firebase.firestore();
+          const snap = await db.collection('user_profiles').doc(u.uid).get();
+          if (snap.exists){
+            const d = snap.data() || {};
+            used = Math.max(0, parseInt(d.voiceSessionsUsed, 10) || 0);
+            isPro = d.plan === 'pro' || d.plan === 'team' || d.plan === 'lifetime' || d.isPro === true;
+          }
+        } catch(e){ /* read failure → treat as fresh; server will enforce real cap */ }
+      } else {
+        used = readAnonUsed();
+      }
+      if (isPro){
+        state = 'ok';
+      } else if (signedIn && used >= FREE_VOICE_LIMIT){
+        state = 'upgrade';
+      } else if (!signedIn && used >= ANON_VOICE_LIMIT){
+        state = 'sign-in';
+      } else {
+        state = 'ok';
+      }
+    } catch(e){ /* fall through with defaults */ }
+    setVoiceGate({ loading: false, signedIn, isPro, used, limit, state });
+  }, []);
+
+  // Watch Firebase auth so the greeting personalizes once sign-in resolves
+  // AND the gate state recomputes after sign-in/out.
   useEffect(()=>{
     let unsub = null;
     try {
       if (typeof firebase !== 'undefined' && firebase.auth) {
         unsub = firebase.auth().onAuthStateChanged(()=>{
           setUserFirstName(getUserFirstName());
+          refreshVoiceGate();
         });
       }
     } catch(e){}
+    // Kick an initial read in case auth resolves before this hook attaches.
+    refreshVoiceGate();
     return ()=>{ try { unsub && unsub(); } catch(e){} };
+  }, [refreshVoiceGate]);
+
+  // Sign-in trigger. Used by the gate's "Sign in with Google" CTA.
+  const triggerGoogleSignIn = useCallback(async ()=>{
+    try {
+      if (typeof firebase === 'undefined' || !firebase.auth) return;
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await firebase.auth().signInWithPopup(provider);
+      // onAuthStateChanged listener above will refresh the gate.
+    } catch(e){
+      setError('Sign in failed: ' + (e.message || e));
+    }
   }, []);
 
   const persona = useMemo(
@@ -1834,9 +1958,21 @@ function App(){
       if (smartness > 1) {
         setConnectStep('Convening AI council (' + smartness + ' brains)…');
       }
+      // Attach Firebase ID token so the server can attribute the
+      // session to a uid + enforce the 3-lifetime free-tier voice
+      // cap (FREE_VOICE_LIFETIME_LIMIT in realtime-session.mjs).
+      // Anon callers send no token; the server falls back to the
+      // 6/hour/IP rate limit + the client gate at 1 anon session.
+      let authHeader = {};
+      try {
+        if (firebase.auth && firebase.auth().currentUser){
+          const tok = await firebase.auth().currentUser.getIdToken();
+          if (tok) authHeader = { 'Authorization': 'Bearer ' + tok };
+        }
+      } catch(e){ /* anon fall-through */ }
       const mintRes = await fetch('/api/realtime-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({
           mode, motion, side, format: 'APDA',
           voice: persona.voice,
@@ -1853,6 +1989,17 @@ function App(){
         let body = {}; try { body = JSON.parse(raw); } catch(e){}
         if (mintRes.status === 429) {
           throw new Error('Rate limit hit. 6 sessions per hour. Try again soon.');
+        }
+        // Server says the signed-in user has hit their free voice cap.
+        // Refresh the gate so the UI swaps to the upgrade card on next
+        // render, and surface a kind='upgrade' error so the renderer
+        // can branch (we don't have a renderer for that yet — falls
+        // through to the error notice for v1).
+        if (mintRes.status === 402 && body.upgrade){
+          try { await refreshVoiceGate(); } catch(e){}
+          const e = new Error(body.error || 'Free voice rounds exhausted. Upgrade to Pro for unlimited voice.');
+          e.kind = 'upgrade';
+          throw e;
         }
         // OpenAI account is at quota — detected by the upstream message
         // forwarded as body.openai (realtime-session.mjs L605-615 maps
@@ -2119,6 +2266,21 @@ function App(){
       setStatus('live');
       SFX.start();
       addSystem('Live. Speak whenever. Interrupting the AI is the whole point.');
+      // Voice usage counter — incremented client-side on successful
+      // session start so the gate UI updates immediately. Anon goes
+      // to localStorage; signed-in is server-truth (incremented by
+      // realtime-session.mjs on the next request) so we just refresh
+      // the gate to pull the post-mint count from Firestore.
+      try {
+        if (firebase.auth && firebase.auth().currentUser){
+          // Server already incremented (or will, in the wave-2 commit).
+          // Refresh the gate so the helper text shows the new remaining.
+          refreshVoiceGate();
+        } else {
+          bumpAnonUsed();
+          refreshVoiceGate();
+        }
+      } catch(e){}
     } catch (e) {
       console.error('[start] failed:', e);
       setError(e.message || String(e));
@@ -2596,16 +2758,51 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           : el('div', { className:'notice error' }, error)
         ),
 
-        // Start CTA
+        // Start CTA — gated by voice usage tier. Anon: 1 lifetime test.
+        // Signed-in free: 3 lifetime sessions. Pro: unlimited (server
+        // 6/hour/IP rate limit still applies). The gate state is
+        // computed in refreshVoiceGate() and re-checked on auth + after
+        // each successful start.
         el('div', { className:'summary-cta' },
-          el('button', {
-            type:'button',
-            className:'cta',
-            onClick: start,
-            disabled: micPerm === 'denied',
-          }, 'Start voice debate'),
-          el('div', { className:'helper' },
-            'You can interrupt the AI mid-sentence. The whole point.'
+          voiceGate.state === 'sign-in' ? el('div', { className:'voice-gate' },
+            el('div', { className:'vg-eyebrow' }, 'Free trial used'),
+            el('div', { className:'vg-h' }, 'Sign in for 3 more rounds'),
+            el('p', { className:'vg-body' },
+              'You\'ve used your one anonymous voice round. Sign in with Google for 3 more — they save to your record so you can come back to them.',
+            ),
+            el('button', {
+              type:'button', className:'cta vg-cta',
+              onClick: triggerGoogleSignIn,
+            }, 'Sign in with Google'),
+            el('a', { href:'/debate-ai', className:'vg-fallback' }, 'or try typed mode (unmetered) →'),
+          ) :
+          voiceGate.state === 'upgrade' ? el('div', { className:'voice-gate' },
+            el('div', { className:'vg-eyebrow' }, 'Free voice rounds used'),
+            el('div', { className:'vg-h' }, 'Upgrade to Pro for unlimited voice'),
+            el('p', { className:'vg-body' },
+              'You\'ve hit the 3-session free cap. Voice runs on OpenAI\'s Realtime API, charged per audio minute, which is why it sits behind Pro. Typed mode stays unmetered for your account.',
+            ),
+            el('a', {
+              href:'/pricing', className:'cta vg-cta',
+            }, 'See Pro pricing →'),
+            el('a', { href:'/debate-ai', className:'vg-fallback' }, 'or keep going in typed mode →'),
+          ) :
+          el(React.Fragment, null,
+            el('button', {
+              type:'button',
+              className:'cta',
+              onClick: start,
+              disabled: micPerm === 'denied' || voiceGate.loading,
+            }, 'Start voice debate'),
+            el('div', { className:'helper' },
+              voiceGate.isPro
+                ? 'Pro · unlimited voice rounds. Interrupt the AI mid-sentence.'
+                : voiceGate.signedIn
+                  ? ((voiceGate.limit - voiceGate.used) + ' of ' + voiceGate.limit + ' free rounds left.')
+                  : (voiceGate.used > 0
+                      ? 'Free trial available. Sign in after for 3 more rounds.'
+                      : '1 free anonymous round, then sign in for 3 more.'),
+            ),
           ),
         ),
       ),

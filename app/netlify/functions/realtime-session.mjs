@@ -18,6 +18,13 @@
 // Override the realtime model at deploy time with OPENAI_REALTIME_MODEL.
 
 import { checkAppCheck } from './lib/appcheck.mjs';
+import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { getDb, FieldValue } from './lib/firestore.mjs';
+
+// Voice usage cap for free signed-in users. Pro/Team/Lifetime plans
+// bypass. Anon users are gated client-side (1 lifetime via localStorage)
+// + by the existing 6/hour/IP rate limit at the bottom of this function.
+const FREE_VOICE_LIFETIME_LIMIT = 3;
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 
 /* ── AI COUNCIL ──────────────────────────────────────────────────
@@ -398,6 +405,43 @@ export default async (request, context) => {
     }), { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
+  // ── Voice usage gate (signed-in lifetime cap) ─────────────────────
+  // Anon callers fall through (client gates them at 1 + the IP rate
+  // limit above stops abuse). Signed-in callers get 3 lifetime free
+  // sessions; Pro / Team / Lifetime plans bypass. We compute the
+  // verdict here so we can reject before paying the OpenAI mint cost.
+  // The actual increment happens AFTER the mint succeeds — failed
+  // mints don't burn the user's quota.
+  let signedInUid = null;
+  let isPro = false;
+  let voiceUsedBefore = 0;
+  try {
+    const token = extractBearerToken(request);
+    if (token){
+      const decoded = await verifyIdToken(token);
+      signedInUid = decoded.sub;
+      const db = getDb();
+      const profileSnap = await db.collection('user_profiles').doc(signedInUid).get();
+      if (profileSnap.exists){
+        const p = profileSnap.data() || {};
+        isPro = p.plan === 'pro' || p.plan === 'team' || p.plan === 'lifetime' || p.isPro === true;
+        voiceUsedBefore = Math.max(0, parseInt(p.voiceSessionsUsed, 10) || 0);
+      }
+      if (!isPro && voiceUsedBefore >= FREE_VOICE_LIFETIME_LIMIT){
+        return new Response(JSON.stringify({
+          error: 'VOICE_FREE_LIMIT: You\'ve used all ' + FREE_VOICE_LIFETIME_LIMIT + ' free voice sessions. Upgrade to Pro for unlimited voice.',
+          upgrade: true,
+          used: voiceUsedBefore,
+          limit: FREE_VOICE_LIFETIME_LIMIT,
+        }), { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+    }
+  } catch(authErr){
+    // Token present but invalid → treat as anon. The IP rate limit
+    // above already throttled abuse; no further action needed here.
+    console.warn('[realtime-session] auth check soft-failed:', authErr && authErr.message);
+  }
+
   try {
     const body = await request.json();
     const mode = ALLOWED_MODES.has((body.mode || '').toLowerCase())
@@ -637,6 +681,25 @@ export default async (request, context) => {
       : 'https://api.openai.com/v1/realtime?model=' + encodeURIComponent(model);
     const sdpHeaders = isGA ? {} : { 'OpenAI-Beta': 'realtime=v1' };
 
+    // Mint succeeded — increment the signed-in user's voice counter
+    // atomically. Fire-and-forget: we don't want a Firestore hiccup
+    // to delay the WebRTC handshake the browser is waiting on. If the
+    // increment fails, the next mint call re-reads the (stale) count
+    // and the user effectively gets one extra session — acceptable
+    // failure mode.
+    if (signedInUid && !isPro){
+      try {
+        getDb().collection('user_profiles').doc(signedInUid).set({
+          voiceSessionsUsed: FieldValue.increment(1),
+          voiceSessionLastAt: FieldValue.serverTimestamp(),
+        }, { merge: true }).catch(function(e){
+          console.warn('[realtime-session] increment failed:', e && e.message);
+        });
+      } catch(e){
+        console.warn('[realtime-session] increment threw:', e && e.message);
+      }
+    }
+
     // Hand the browser only what WebRTC needs. The ephemeral
     // client_secret is short-lived and scoped to one session — safe to
     // ship to the page. The raw OPENAI_API_KEY stays here.
@@ -649,6 +712,11 @@ export default async (request, context) => {
       endpoint: lastLabel,
       sdpUrl,
       sdpHeaders,
+      voiceUsage: signedInUid ? {
+        used: voiceUsedBefore + 1,
+        limit: isPro ? null : FREE_VOICE_LIFETIME_LIMIT,
+        isPro: isPro,
+      } : null,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...CORS },
