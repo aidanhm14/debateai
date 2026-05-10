@@ -64,16 +64,14 @@ body{
 }
 .brand em{color:#ef4444;font-style:normal;margin-right:6px}
 
-/* ── Audio frequency bars + PREP / COMMUNITY tags ───────────────
+/* ── Audio frequency bars ───────────────────────────────────────
    Two banks of animated vertical bars fan out from the mic to the
    left and right edges of the viewport, each bar pulsing on its own
    staggered phase so the whole thing reads as a live audio spectrum
    / oscilloscope feed. The mic is the source; the bars are what it
    sees. Bars fade to transparent at the outer edges via mask-image
    so they bleed into the dark background instead of stopping in a
-   hard line. PREP and COMMUNITY are anchor pills floating in the
-   bar field — large, brand-red, click-through to /app#case and
-   /community respectively. */
+   hard line. */
 .wave{
   position:fixed;top:50%;
   display:flex;align-items:center;
@@ -121,63 +119,6 @@ body{
   from{opacity:0;transform:translateY(-50%) scale(.94)}
   to  {opacity:1;transform:translateY(-50%) scale(1)}
 }
-/* PREP / COMMUNITY chips. Larger and pill-shaped this time so they
-   read as a real CTA, not an inline tag. Glassy red surface with a
-   subtle inner highlight, hover lift. */
-.tag{
-  position:fixed;z-index:5;
-  display:inline-flex;align-items:center;gap:10px;
-  padding:18px 34px;
-  background:linear-gradient(180deg, #ff5e5e 0%, #ef4444 55%, #c81e1e 100%);
-  color:#0a0a0a;
-  font-family:'Inter',system-ui,-apple-system,sans-serif;
-  font-weight:900;letter-spacing:.2em;font-size:1.05rem;
-  text-transform:uppercase;
-  text-decoration:none;
-  border-radius:14px;
-  border:1px solid rgba(255,255,255,.22);
-  box-shadow:
-    0 10px 38px rgba(239,68,68,.45),
-    0 2px 0 rgba(0,0,0,.18),
-    inset 0 1px 0 rgba(255,255,255,.45);
-  transition:transform .22s ease, box-shadow .22s ease, filter .22s ease;
-  opacity:0;
-  animation:tagIn .55s cubic-bezier(.2,.7,.2,1) 1s forwards;
-  cursor:pointer;
-}
-.tag::after{
-  content:"\2192";
-  font-weight:800;font-size:1.05em;letter-spacing:0;
-  color:rgba(0,0,0,.7);
-  transition:transform .22s ease;
-}
-.tag:hover{
-  transform:translateY(-4px) scale(1.04);
-  filter:saturate(1.1);
-  box-shadow:
-    0 18px 54px rgba(239,68,68,.6),
-    0 2px 0 rgba(0,0,0,.18),
-    inset 0 1px 0 rgba(255,255,255,.6);
-}
-.tag:hover::after{transform:translateX(4px)}
-.tag:active{transform:translateY(-1px) scale(1.02)}
-.tag-prep{top:50%;left:5vw;transform:translateY(-50%)}
-.tag-comm{top:50%;right:5vw;transform:translateY(-50%)}
-.tag-prep{animation-name:tagInL}
-.tag-comm{animation-name:tagInR}
-@keyframes tagInL{
-  from{opacity:0;transform:translate(-12px,-50%)}
-  to  {opacity:1;transform:translate(0,-50%)}
-}
-@keyframes tagInR{
-  from{opacity:0;transform:translate(12px,-50%)}
-  to  {opacity:1;transform:translate(0,-50%)}
-}
-@keyframes tagIn{
-  from{opacity:0;transform:translateY(-8px)}
-  to  {opacity:1;transform:translateY(0)}
-}
-
 /* ── Center: mic + pulsing rings ───────────────────────── */
 .orb{
   position:relative;
@@ -287,30 +228,23 @@ body{
   .mic{width:28px;height:28px}
   .hint{bottom:22px}
   /* Mobile: pull the wave fields off the side edges since a phone-width
-     viewport can't fit a 42vw bar bank on each side plus the mic AND
-     readable tags. Bars stay but they're shorter and tighter; tags drop
-     to corners just above the headline so they don't collide with the
-     bars or the mic. */
+     viewport can't fit a 42vw bar bank on each side plus the mic. Bars
+     stay but they're shorter and tighter. */
   .wave{width:38vw;height:90px}
   .wave-l{padding-left:18px}
   .wave-r{padding-right:18px}
   .wave span{min-width:2px;max-width:4px}
-  .tag{padding:13px 22px;font-size:.86rem;letter-spacing:.16em;border-radius:11px}
-  .tag-prep{top:auto;bottom:24%;left:5vw;transform:none}
-  .tag-comm{top:auto;bottom:24%;right:5vw;transform:none}
-  .tag-prep,.tag-comm{animation-name:tagIn}
   .brand{top:18px;font-size:.74rem}
 }
 
 /* Respect reduced-motion: kill the pulse / breathe / bounce */
 @media(prefers-reduced-motion:reduce){
-  .ring,.core,.heads,.hint .arrow,.stage,.wave,.wave span,.tag{animation:none}
+  .ring,.core,.heads,.hint .arrow,.stage,.wave,.wave span{animation:none}
   .stage{opacity:1}
-  .heads,.wave,.tag{opacity:1}
+  .heads,.wave{opacity:1}
   .heads{transform:none}
   .wave{transform:translateY(-50%)}
   .wave span{transform:scaleY(.6)}
-  .tag-prep,.tag-comm{transform:translateY(-50%)}
   .hint{opacity:1}
 }
 </style>
@@ -322,9 +256,6 @@ body{
 
   <div class="wave wave-l" id="waveL" aria-hidden="true"></div>
   <div class="wave wave-r" id="waveR" aria-hidden="true"></div>
-
-  <a href="/app#case" class="tag tag-prep" aria-label="Open case prep">PREP</a>
-  <a href="/community" class="tag tag-comm" aria-label="Open community">COMMUNITY</a>
 
   <div class="orb" aria-hidden="true">
     <span class="ring"></span>
@@ -465,17 +396,7 @@ body{
     setTimeout(function(){ window.location.href = href; }, 320);
   }
 
-  stage.addEventListener('click', function(e){
-    // PREP / COMMUNITY are anchor links riding on the stage. Let the
-    // browser navigate to their own hrefs instead of redirecting to
-    // /landing — but still play the SFX + analytics so the press
-    // feedback fires before the page swaps out.
-    var tag = e.target.closest && e.target.closest('.tag');
-    if (tag) {
-      try { window.SFX && window.SFX.confirm(); } catch(_){}
-      try { gtag('event','splash_tag_click',{ href: tag.getAttribute('href') }); } catch(_){}
-      return; // navigation proceeds via the anchor
-    }
+  stage.addEventListener('click', function(){
     go('/landing');
   });
   stage.addEventListener('keydown', function(e){
