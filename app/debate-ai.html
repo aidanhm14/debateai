@@ -3685,6 +3685,51 @@ function App(){
   });
   useEffect(()=>{try{localStorage.setItem('debateos-ai-lang',aiLanguage)}catch{}},[aiLanguage]);
 
+  // Chrome-extension bridge. When debate-ai.html is loaded inside the
+  // extension's side panel (?ext=1), the panel posts the user's selection
+  // as { type:'debateai-ext', action, text }. Short selections become the
+  // motion; long ones become background context with a sentence-1 summary
+  // as the motion. We always land on the setup screen so the user picks
+  // their format and brain — the extension stages, it doesn't auto-fire.
+  useEffect(()=>{
+    let isExt=false;
+    try{isExt=new URLSearchParams(location.search).get('ext')==='1';}catch{}
+    if(!isExt) return;
+    try{document.documentElement.setAttribute('data-ext','1');}catch{}
+    const SHORT=240;
+    const handle=(ev)=>{
+      if(!ev||!ev.data||ev.data.type!=='debateai-ext') return;
+      // Only trust the extension panel as the parent. Other origins (the
+      // page hosting an unrelated iframe of us, etc.) are ignored.
+      const origin=String(ev.origin||'');
+      if(!origin.startsWith('chrome-extension://')) return;
+      const text=String(ev.data.text||'').trim();
+      if(!text) return;
+      if(text.length<=SHORT){
+        setMotion(text);
+        setBackground('');
+      }else{
+        const firstSentence=(text.match(/[^.!?]+[.!?]/)||[text])[0].trim().slice(0,SHORT);
+        setMotion(firstSentence||text.slice(0,SHORT));
+        setBackground(text);
+      }
+      setPhase('setup');
+      // Smooth-scroll the motion field into view if the user had scrolled
+      // away from setup. Cheap, only on the next tick.
+      setTimeout(()=>{
+        try{
+          const el=document.querySelector('[data-motion-input], textarea[name="motion"], textarea#motion')||document.querySelector('textarea');
+          el&&el.scrollIntoView({behavior:'smooth',block:'center'});
+          el&&el.focus&&el.focus();
+        }catch{}
+      },80);
+    };
+    window.addEventListener('message',handle);
+    // Tell the panel we're mounted so it can drain queued actions.
+    try{window.parent&&window.parent.postMessage({type:'debateai-ext-ready'},'*');}catch{}
+    return ()=>window.removeEventListener('message',handle);
+  },[]);
+
   const[side,setSide]=useState('gov');
   // Judge paradigm, shapes BOTH the AI opponent's strategy (they try to
   // win the judge they're in front of) AND the final RFD voice. Persisted

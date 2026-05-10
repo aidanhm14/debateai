@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DebateAI</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0c;
+    --fg: #e8e8ea;
+    --muted: #8a8a92;
+    --line: #232328;
+    --chip: #15151a;
+    --chip-hover: #1f1f25;
+    --crimson: #e54545;
+  }
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+  .bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    background: rgba(10, 10, 12, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar__brand {
+    color: var(--crimson);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .bar__hint {
+    color: var(--muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bar__spacer { flex: 1; }
+  .btn {
+    appearance: none;
+    background: var(--chip);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font: 11px/1 -apple-system, system-ui, sans-serif;
+  }
+  .btn:hover { background: var(--chip-hover); }
+  iframe#frame {
+    display: block;
+    width: 100%;
+    height: calc(100% - 36px);
+    border: 0;
+    background: var(--bg);
+  }
+  .toast {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    background: #1a1a1f;
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    transform: translateY(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 180ms ease, opacity 160ms ease;
+    z-index: 10;
+  }
+  .toast.is-shown {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  .err-shade {
+    position: absolute;
+    inset: 36px 0 0 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--bg);
+    text-align: center;
+    color: var(--muted);
+    z-index: 4;
+  }
+  .err-shade.is-shown { display: flex; }
+  .err-shade__inner { max-width: 320px; }
+  .err-shade__title {
+    color: var(--fg);
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  a { color: #f0a0a0; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <span class="bar__brand">DebateAI</span>
+    <span class="bar__hint" id="hint">Highlight text on any page → spar.</span>
+    <span class="bar__spacer"></span>
+    <button class="btn" id="paste" title="Paste from clipboard">Paste</button>
+    <button class="btn" id="reload" title="Reload the panel">↻</button>
+  </div>
+  <iframe
+    id="frame"
+    title="DebateAI"
+    src="https://debateai.com/debate-ai.html?ext=1"
+    allow="microphone; camera; autoplay; clipboard-read; clipboard-write; display-capture"
+    referrerpolicy="origin"
+  ></iframe>
+  <div class="err-shade" id="errShade">
+    <div class="err-shade__inner">
+      <div class="err-shade__title">Couldn't load DebateAI</div>
+      <p>Check your connection, or open the full app at <a href="https://debateai.com" target="_blank" rel="noopener">debateai.com</a>.</p>
+      <button class="btn" id="retry">Retry</button>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
