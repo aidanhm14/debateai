@@ -278,6 +278,8 @@ h1 em{color:var(--accent);font-style:normal}
     user: null,
     queueDocRef: null,
     queueUnsub: null,
+    queueWatchUnsub: null,
+    matchTriggerPending: false,
     joinedAtMs: 0,
     countdownInterval: null,
     matchPollInterval: null,
@@ -442,12 +444,40 @@ h1 em{color:var(--accent);font-style:normal}
   //   uid, format, status: 'waiting' | 'matched' | 'matched_ai' | 'cancelled',
   //   joinedAt, matchedWith, room
   // }
-  // Pairing strategy: client-side polling + transaction. Every 2s we
-  // query the queue for another waiting user with the same format
-  // (excluding self). If found, run a transaction that marks BOTH
-  // docs matched in lockstep. Whichever client races first wins;
-  // the loser sees their own doc updated by the winner's transaction
-  // and follows the same room link.
+  // Pairing strategy: real-time onSnapshot listener on the queue +
+  // 2s polling fallback + transaction. The listener triggers an
+  // immediate match attempt the instant a peer joins the queue; the
+  // poll covers any case where the snapshot stream stalls (network
+  // blip, Firestore reconnect). Whichever client races the
+  // transaction first wins; the loser sees its own doc updated by
+  // the winner's transaction and follows the same room link.
+  //
+  // ──────────────── REQUIRED Firebase config ────────────────
+  // 1. Firestore security rules on matchmaking_queue:
+  //      match /matchmaking_queue/{uid} {
+  //        allow read: if request.auth != null;
+  //        allow create, update, delete: if request.auth != null
+  //          && (request.auth.uid == uid
+  //              || resource.data.matchedWith == request.auth.uid);
+  //      }
+  //    The matchedWith clause is what lets the WINNING client of a
+  //    race transaction also update the LOSING peer's doc to mark it
+  //    matched. Without it the transaction succeeds for self and
+  //    fails for peer, leaving the loser stuck on "searching."
+  //
+  // 2. Composite index for the polling query (Firebase Console →
+  //    Firestore → Indexes):
+  //      collection: matchmaking_queue
+  //      fields:     format ASC, status ASC, joinedAt ASC
+  //
+  // 3. (Optional, for the broaden path) second composite index:
+  //      collection: matchmaking_queue
+  //      fields:     broaden ASC, status ASC, joinedAt ASC
+  //
+  // Without (1) clients can't write/read the queue at all. Without
+  // (2) the polling + snapshot queries return empty silently and
+  // every spar request falls through to the AI fallback at 60s.
+  // ──────────────────────────────────────────────────────────
   function joinQueue(){
     if (!state.user || !firebaseDb) return;
     state.cancelled = false;
@@ -472,7 +502,22 @@ h1 em{color:var(--accent);font-style:normal}
       startMatchPolling();
     }).catch(function(err){
       console.warn('[spar] queue join failed:', err);
-      shell.innerHTML += '<div class="error">Could not join queue: ' + escHtml(err.message || 'unknown') + '. <a href="/debate-ai" style="color:inherit;text-decoration:underline">Skip to AI</a>.</div>';
+      // Pattern-match on the error so the user gets a real next step
+      // instead of a raw Firebase error code. Each branch maps to one
+      // of the four most-likely failure modes documented above the
+      // function: rules misconfig (1), composite-index missing
+      // surfacing as a permission error too sometimes, network drop,
+      // unknown.
+      var raw = (err && (err.message || err.code)) || 'unknown';
+      var msg;
+      if (/permission|denied|insufficient/i.test(raw)) {
+        msg = "Couldn't join the queue (permissions). The Firestore rule for matchmaking_queue likely needs updating to allow signed-in users to write their own doc. Skip to AI for now.";
+      } else if (/network|offline|unavailable|failed-precondition/i.test(raw)) {
+        msg = "Network problem reaching the queue. Check your connection and try again.";
+      } else {
+        msg = "Couldn't join the queue: " + raw + ". Skip to AI or refresh.";
+      }
+      shell.innerHTML += '<div class="error">' + escHtml(msg) + ' <a href="/debate-ai" style="color:inherit;text-decoration:underline">Skip to AI</a>.</div>';
     });
     renderSearching();
   }
@@ -519,11 +564,39 @@ h1 em{color:var(--accent);font-style:normal}
       : (parts[0] || 'You');
   }
 
-  // Poll the queue every 2s for a peer. If found, race a transaction.
+  // Real-time queue watcher + polling fallback. The snapshot listener
+  // fires the moment another peer's queue doc lands in Firestore,
+  // making pairing sub-second instead of up-to-2s with polling alone.
+  // Polling stays as a fallback for snapshot-stream hiccups (network
+  // blip, Firestore reconnect, cold-start latency).
+  //
+  // Debounce: rapid-fire snapshot events (multiple peers joining at
+  // once) coalesce to one tryMatch per ~150ms so we don't pile up
+  // transaction attempts.
   function startMatchPolling(){
     if (state.matchPollInterval) clearInterval(state.matchPollInterval);
     state.matchPollInterval = setInterval(tryMatch, 2000);
     setTimeout(tryMatch, 600); // first attempt fast
+
+    if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} }
+    state.queueWatchUnsub = firebaseDb.collection('matchmaking_queue')
+      .where('format', '==', formatParam)
+      .where('status', '==', 'waiting')
+      .limit(8)
+      .onSnapshot(function(){
+        if (state.matchTriggerPending) return;
+        state.matchTriggerPending = true;
+        setTimeout(function(){
+          state.matchTriggerPending = false;
+          tryMatch();
+        }, 150);
+      }, function(err){
+        // Common cause of the snapshot stream erroring: composite
+        // index for (format, status) isn't built yet. The polling
+        // path uses the same query and will surface the same error
+        // through tryMatch's catch — log here for diagnostic clarity.
+        console.warn('[spar] queue snapshot stream error (likely missing composite index on format+status+joinedAt):', err);
+      });
   }
 
   function tryMatch(){
@@ -648,6 +721,8 @@ h1 em{color:var(--accent);font-style:normal}
     if (state.countdownInterval){ clearInterval(state.countdownInterval); state.countdownInterval = null; }
     if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
+    if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} state.queueWatchUnsub = null; }
+    state.matchTriggerPending = false;
   }
 
   // Tab close / nav away — drop our queue doc so we don't ghost.
