@@ -282,6 +282,11 @@ body{background:#fffaf7}
 }
 .input-row textarea:focus{border-color:rgba(239,68,68,.4)}
 .input-row textarea::placeholder{color:rgba(0,0,0,.25)}
+/* Visible disabled state. Without this, the browser default for a
+   disabled textarea on white is nearly invisible — users tap, see no
+   change, conclude the page is broken. The opacity dip + cursor swap
+   make "we're waiting on the AI, hang on" obvious. */
+.input-row textarea:disabled{opacity:.45;cursor:not-allowed;background:rgba(0,0,0,.02)}
 .input-row button{
   padding:0 20px;border:none;border-radius:14px;
   background:#ef4444;color:#fff;font-size:.8rem;font-weight:700;
@@ -776,7 +781,13 @@ function ChatView({ messages, input, setInput, onSend, loading, placeholder, chi
   },[messages,loading]);
 
   return el(React.Fragment,null,
-    messages.length>0 && el('div',{className:'chat-area',ref:chatRef},
+    // Render chat-area whenever there are messages OR the AI is
+    // working. Without `|| loading`, the very first AI turn (Quick
+    // Debate's opening response, Persuasion Lab / Rebuttal Drill's
+    // first reply) had no visible "Thinking..." indicator — users saw
+    // an empty space + a textarea that wouldn't accept input (because
+    // disabled:loading is true). Felt like the page was broken.
+    (messages.length>0 || loading) && el('div',{className:'chat-area',ref:chatRef},
       messages.map((m,i)=>el('div',{key:i,className:'chat-msg '+(m.role==='user'?'user':'ai')},
         el('span',{className:'sender'},m.role==='user'?'You':'AI'),
         m.text
