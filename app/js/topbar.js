@@ -52,7 +52,7 @@
     { href: '/app#case',      label: 'College Prep' },
     { href: '/high-school',   label: 'High School'  },
     { href: '/learn',         label: 'Learn to Argue' },
-    { href: '/voice-debate',  label: '🎙 Voice'     },
+    { href: '/voice-debate',  label: 'Voice'        },
     { href: '/live',          label: 'Live', live: true },
     { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
