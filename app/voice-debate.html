@@ -2392,7 +2392,13 @@ function App(){
       }, 90);
 
       setStatus('live');
-      SFX.start();
+      // SFX is a UI-feedback nicety; never let a missing/broken method
+      // throw out of the live-session bring-up and into the outer catch
+      // (which would call cleanup() and roll back the WebRTC session
+      // we just successfully established). Earlier regression: SFX.start
+      // was never defined on the shared sfx.js, so every voice round
+      // crashed here right after going live.
+      try { window.SFX && SFX.start && SFX.start(); } catch (sfxErr) { console.warn('[start] SFX chime skipped:', sfxErr); }
       addSystem('Live. Speak whenever. Interrupting the AI is the whole point.');
       // Voice usage counter — incremented client-side on successful
       // session start so the gate UI updates immediately. Anon goes
