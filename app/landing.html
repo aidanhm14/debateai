@@ -1531,6 +1531,17 @@ button{font-family:inherit;cursor:pointer}
     cursor:pointer;
     animation:splash-fade-in .55s ease-out both;
   }
+  /* Force every splash text element through the same font stack so the
+     wordmark, tags, hero, and footer read as one typographic system
+     even if a parent style elsewhere on the page tries to override. */
+  .splash-intro,
+  .splash-intro h1,
+  .splash-intro p,
+  .splash-intro span,
+  .splash-intro a,
+  .splash-intro button{
+    font-family:'Inter',system-ui,sans-serif;
+  }
   .splash-intro.is-leaving{
     animation:splash-fade-out .42s ease-in both;
     pointer-events:none;
@@ -1589,26 +1600,44 @@ button{font-family:inherit;cursor:pointer}
     box-shadow:0 0 16px rgba(255,255,255,.18);
     animation:splash-line-grow 1.1s cubic-bezier(.2,.7,.2,1) .15s both;
   }
-  .splash-line-left{transform:translateX(-50%) rotate(-28deg)}
-  .splash-line-right{transform:translateX(-50%) rotate(28deg)}
+  /* Open the apex from a sharp 56° to a more natural ~80° so the
+     triangle reads as a structure pointing inward rather than a tight
+     V. Mobile keeps a tighter tilt so the lines don't shoot off the
+     side of a phone. */
+  .splash-line-left{transform:translateX(-50%) rotate(-40deg)}
+  .splash-line-right{transform:translateX(-50%) rotate(40deg)}
   @keyframes splash-line-grow{
     from{height:0;opacity:0}
     to{height:115vh;opacity:1}
   }
-  /* PREP / COMMUNITY tags. Pinned to roughly the upper third of each
-     diagonal. Solid brand red, black text, blocky. */
+  /* PREP / COMMUNITY tags. Anchor links — clicking PREP routes to the
+     case-prep tab in the app, COMMUNITY routes to the community page.
+     Solid brand red, black text, blocky. Larger than the v1 sizing per
+     user request. */
   .splash-tag{
     position:absolute;z-index:4;
-    padding:10px 18px;
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:16px 30px;
     background:#ef4444;
     color:#0a0a0a;
-    font-weight:800;letter-spacing:.18em;font-size:.86rem;
+    font-weight:800;letter-spacing:.2em;font-size:1.05rem;
     text-transform:uppercase;
-    box-shadow:0 6px 24px rgba(239,68,68,.35);
+    text-decoration:none;
+    box-shadow:0 6px 28px rgba(239,68,68,.4);
+    transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
     animation:splash-tag-in .55s ease-out 1s both;
+    cursor:pointer;
   }
-  .splash-tag-prep{top:30%;left:15%}
-  .splash-tag-comm{top:30%;right:13%}
+  .splash-tag:hover{
+    transform:translateY(-3px) scale(1.04);
+    box-shadow:0 14px 38px rgba(239,68,68,.55);
+    background:#ff5252;
+  }
+  .splash-tag:active{
+    transform:translateY(-1px) scale(1.02);
+  }
+  .splash-tag-prep{top:30%;left:13%}
+  .splash-tag-comm{top:30%;right:11%}
   @keyframes splash-tag-in{
     from{opacity:0;transform:translateY(-8px)}
     to{opacity:1;transform:translateY(0)}
@@ -1705,13 +1734,15 @@ button{font-family:inherit;cursor:pointer}
     0%,100%{opacity:.25;transform:scaleX(.6)}
     50%{opacity:.7;transform:scaleX(1)}
   }
-  /* Mobile: narrow the triangle, drop tags inward, shrink mic */
+  /* Mobile: tighter angle so the lines stay on screen, tags pulled in
+     and resized so they remain finger-friendly without colliding with
+     the mic in the middle. */
   @media(max-width:720px){
-    .splash-line-left{transform:translateX(-50%) rotate(-36deg)}
-    .splash-line-right{transform:translateX(-50%) rotate(36deg)}
-    .splash-tag-prep{left:8%;top:26%}
-    .splash-tag-comm{right:6%;top:26%}
-    .splash-tag{padding:8px 12px;font-size:.72rem;letter-spacing:.14em}
+    .splash-line-left{transform:translateX(-50%) rotate(-32deg)}
+    .splash-line-right{transform:translateX(-50%) rotate(32deg)}
+    .splash-tag-prep{left:6%;top:24%}
+    .splash-tag-comm{right:5%;top:24%}
+    .splash-tag{padding:11px 16px;font-size:.82rem;letter-spacing:.14em}
     .splash-mic-wrap{width:220px;height:220px;top:36%}
     .splash-mic{width:92px;height:92px}
     .splash-mic svg{width:34px;height:34px}
@@ -1734,8 +1765,8 @@ button{font-family:inherit;cursor:pointer}
   <div class="splash-line splash-line-left" aria-hidden="true"></div>
   <div class="splash-line splash-line-right" aria-hidden="true"></div>
 
-  <div class="splash-tag splash-tag-prep" aria-hidden="true">PREP</div>
-  <div class="splash-tag splash-tag-comm" aria-hidden="true">COMMUNITY</div>
+  <a href="/app#case" class="splash-tag splash-tag-prep" aria-label="Open case prep">PREP</a>
+  <a href="/community" class="splash-tag splash-tag-comm" aria-label="Open community">COMMUNITY</a>
 
   <div class="splash-mic-wrap" aria-hidden="true">
     <span class="splash-ring splash-ring-1"></span>
@@ -1758,7 +1789,7 @@ button{font-family:inherit;cursor:pointer}
 
   <div class="splash-enter">
     <div class="splash-enter-line"></div>
-    <span>Tap anywhere to enter</span>
+    <span>Tap for home page</span>
     <div class="splash-enter-bar"></div>
   </div>
 </div>
@@ -1782,6 +1813,16 @@ button{font-family:inherit;cursor:pointer}
   var prevOverflow=document.body.style.overflow;
   document.body.style.overflow='hidden';
   function dismiss(ev){
+    // PREP / COMMUNITY tags are anchors. Let the browser navigate, but
+    // flip the session flag and release scroll lock so the splash
+    // doesn't reappear when the user comes back via the back button.
+    var link = ev && ev.target && ev.target.closest && ev.target.closest('a[href]');
+    if(link){
+      try{ sessionStorage.setItem(KEY,'1'); }catch(e){}
+      document.body.style.overflow=prevOverflow||'';
+      try{ window.dosTrackOnce && window.dosTrackOnce('splash_link_click',{href: link.getAttribute('href')}); }catch(e){}
+      return; // navigation proceeds
+    }
     if(ev) ev.preventDefault();
     if(splash.classList.contains('is-leaving')) return;
     splash.classList.add('is-leaving');
@@ -1792,7 +1833,7 @@ button{font-family:inherit;cursor:pointer}
       document.body.style.overflow=prevOverflow||'';
     },420);
   }
-  // Tap anywhere on the overlay dismisses
+  // Tap anywhere on the overlay dismisses (links short-circuit above)
   splash.addEventListener('click',dismiss);
   // ESC also dismisses for keyboard users
   document.addEventListener('keydown',function escHandler(e){
