@@ -142,19 +142,26 @@
   }
 
   // ── Public API ─────────────────────────────────────────────────────
-  // `start` is an alias for `success` — voice-debate calls SFX.start()
-  // when a live session begins, which has the same "milestone reached,
-  // go ahead" semantics as the C-E-G arpeggio. Aliased rather than
-  // duplicated so a future tweak to the success palette stays in one
-  // place. Without this, SFX.start() throws "is not a function" and
-  // voice-debate's start flow falls into its outer catch — rolling
-  // back the live session as if WebRTC had failed.
+  // Voice-debate semantic aliases. The shared SFX palette has six core
+  // sounds; voice-debate calls additional verbs (start / interrupt /
+  // end) for round-lifecycle moments. Aliased rather than duplicated
+  // so palette tweaks stay in one place.
+  //   start     → success  (round goes live, same "milestone reached"
+  //                          arpeggio semantics)
+  //   interrupt → click    (user cut into the AI mid-turn; subtle tick,
+  //                          NOT a celebration — it's a cut, not a win)
+  //   end       → confirm  (session ended cleanly; warm closing chime)
+  // Without these, voice-debate's calls throw "is not a function" and
+  // the outer catch (now narrowed in voice-debate) used to roll back
+  // the WebRTC session as if connection had failed.
   window.SFX = {
     click: click,
     send: send,
     receive: receive,
     success: success,
     start: success,
+    interrupt: click,
+    end: confirm,
     error: error,
     confirm: confirm,
     isMuted: isMuted,

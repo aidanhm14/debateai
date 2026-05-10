@@ -1928,7 +1928,7 @@ function App(){
           upsertTurn({ ...cur, interrupted: true });
           currentAiTurnRef.current = null;
           setInterruptCount(n => n + 1);
-          SFX.interrupt();
+          try { window.SFX && SFX.interrupt && SFX.interrupt(); } catch (sfxErr) { console.warn('[interrupt] SFX skipped:', sfxErr); }
         }
         setSpeaking('user');
         isUserSpeakingRef.current = true;
@@ -2010,7 +2010,7 @@ function App(){
   /* ── stop / start ─────────────────────────────── */
 
   function stop(systemMsg) {
-    SFX.end();
+    try { window.SFX && SFX.end && SFX.end(); } catch (sfxErr) { console.warn('[stop] SFX skipped:', sfxErr); }
     cleanup();
     setStatus('ended');
     if (systemMsg) addSystem(systemMsg);
@@ -2369,59 +2369,62 @@ function App(){
       }
       const answerSdp = await sdpRes.text();
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
-
-      // 4. Live!
-      startedAtRef.current = Date.now();
-      tickRef.current = setInterval(()=>{
-        const t = (Date.now() - startedAtRef.current) / 1000;
-        setElapsed(t);
-        if (t >= SESSION_HARD_CAP_SEC) {
-          stop('Session ended (8-minute cap reached).');
-        }
-      }, 250);
-
-      // Mic level poll — drives the 5-bar meter under the orb.
-      micPollRef.current = setInterval(()=>{
-        const an = userAnalyserRef.current, buf = userBufRef.current;
-        if (!an || !buf) return;
-        an.getByteFrequencyData(buf);
-        let sum = 0; for (let i = 0; i < buf.length; i++) sum += buf[i];
-        const avg = sum / buf.length / 255; // 0-1
-        const lit = Math.max(0, Math.min(5, Math.round(avg * 8)));
-        setMicBars([0,1,2,3,4].map(i => i < lit ? 1 : 0));
-      }, 90);
-
-      setStatus('live');
-      // SFX is a UI-feedback nicety; never let a missing/broken method
-      // throw out of the live-session bring-up and into the outer catch
-      // (which would call cleanup() and roll back the WebRTC session
-      // we just successfully established). Earlier regression: SFX.start
-      // was never defined on the shared sfx.js, so every voice round
-      // crashed here right after going live.
-      try { window.SFX && SFX.start && SFX.start(); } catch (sfxErr) { console.warn('[start] SFX chime skipped:', sfxErr); }
-      addSystem('Live. Speak whenever. Interrupting the AI is the whole point.');
-      // Voice usage counter — incremented client-side on successful
-      // session start so the gate UI updates immediately. Anon goes
-      // to localStorage; signed-in is server-truth (incremented by
-      // realtime-session.mjs on the next request) so we just refresh
-      // the gate to pull the post-mint count from Firestore.
-      try {
-        if (firebase.auth && firebase.auth().currentUser){
-          // Server already incremented (or will, in the wave-2 commit).
-          // Refresh the gate so the helper text shows the new remaining.
-          refreshVoiceGate();
-        } else {
-          bumpAnonUsed();
-          refreshVoiceGate();
-        }
-      } catch(e){}
     } catch (e) {
+      // Outer catch is intentionally narrow — only WebRTC handshake
+      // failures (mint, peer connection, SDP exchange) roll back the
+      // session. Earlier regression: a phantom SFX method (SFX.start)
+      // threw inside the post-connection setup and the catch tore down
+      // a successfully-established live session as if the connection
+      // itself had failed. Post-connection code now lives below the
+      // try/catch so it can't trigger a false rollback.
       console.error('[start] failed:', e);
       setError(e.message || String(e));
       setErrorKind(e.kind || '');
       setStatus('idle');
       cleanup();
+      return;
     }
+
+    // 4. Live! WebRTC is established. Past this point, nothing should
+    //    be allowed to roll the session back — non-critical errors
+    //    (telemetry, UI chimes, gate refresh) are swallowed locally
+    //    rather than thrown.
+    startedAtRef.current = Date.now();
+    tickRef.current = setInterval(()=>{
+      const t = (Date.now() - startedAtRef.current) / 1000;
+      setElapsed(t);
+      if (t >= SESSION_HARD_CAP_SEC) {
+        stop('Session ended (8-minute cap reached).');
+      }
+    }, 250);
+
+    // Mic level poll — drives the 5-bar meter under the orb.
+    micPollRef.current = setInterval(()=>{
+      const an = userAnalyserRef.current, buf = userBufRef.current;
+      if (!an || !buf) return;
+      an.getByteFrequencyData(buf);
+      let sum = 0; for (let i = 0; i < buf.length; i++) sum += buf[i];
+      const avg = sum / buf.length / 255; // 0-1
+      const lit = Math.max(0, Math.min(5, Math.round(avg * 8)));
+      setMicBars([0,1,2,3,4].map(i => i < lit ? 1 : 0));
+    }, 90);
+
+    setStatus('live');
+    try { window.SFX && SFX.start && SFX.start(); } catch (sfxErr) { console.warn('[start] SFX chime skipped:', sfxErr); }
+    addSystem('Live. Speak whenever. Interrupting the AI is the whole point.');
+    // Voice usage counter — incremented client-side on successful
+    // session start so the gate UI updates immediately. Anon goes to
+    // localStorage; signed-in is server-truth (incremented by
+    // realtime-session.mjs on the next request) so we just refresh
+    // the gate to pull the post-mint count from Firestore.
+    try {
+      if (firebase.auth && firebase.auth().currentUser){
+        refreshVoiceGate();
+      } else {
+        bumpAnonUsed();
+        refreshVoiceGate();
+      }
+    } catch(e){ console.warn('[start] gate refresh skipped:', e); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, motion, persona, side, userFirstName, bondCount, addSystem, handleEvent, cleanup]);
 
@@ -2910,7 +2913,25 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         // Microphone permission notice — surfaces ABOVE the Start CTA
         // so the user knows the browser dialog is coming and what it's for.
         el('div', { className:'mic-notice ' + (micPerm === 'granted' ? 'granted' : micPerm === 'denied' ? 'denied' : '') },
-          el('div', { className:'mic-icon' }, ''),
+          // Inline SVG mic glyph. The original emoji was stripped in the
+          // emoji-purge sweep but never replaced, leaving an empty
+          // colored box. SVG follows the page's text-label-and-CSS-only
+          // norm (it's not a pictographic emoji) and stroke:currentColor
+          // picks up the per-state color rule (.granted → green,
+          // .denied → red, default → red).
+          el('div', { className:'mic-icon' },
+            el('svg', {
+              width: '18', height: '18', viewBox: '0 0 24 24',
+              fill: 'none', stroke: 'currentColor', strokeWidth: '2',
+              strokeLinecap: 'round', strokeLinejoin: 'round',
+              'aria-hidden': 'true',
+            },
+              el('rect', { x: '9', y: '2', width: '6', height: '12', rx: '3' }),
+              el('path', { d: 'M5 11a7 7 0 0 0 14 0' }),
+              el('line', { x1: '12', y1: '18', x2: '12', y2: '22' }),
+              el('line', { x1: '8', y1: '22', x2: '16', y2: '22' }),
+            ),
+          ),
           el('div', { className:'body' },
             el('div', { className:'t' },
               micPerm === 'granted' ? 'Microphone ready' :
