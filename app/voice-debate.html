@@ -1121,6 +1121,50 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
    they don't fit the voice-debate aesthetic and add visual noise. */
 #daTopbar .theme-dots{display:none !important}
 
+/* ── Counter chrome-extension mode (?ext=1&mode=counter) ──
+   The page is iframed inside the Counter side panel, which already
+   carries its own "Counter" brand bar, mic-permission banner, and
+   close button. Anything that re-states the broader DebateAI surface
+   inside the iframe is noise:
+     • the global topbar (cross-page nav, theme picker, sign-in CTA)
+     • the page-local .head with the "← text mode" link
+     • the .foot ("Voice mode runs on OpenAI Realtime…") — written for
+       a debate audience, not a viva audience
+   The bridge already auto-picks crossex + Examiner + smartness=1, so
+   the steps for Side / Drill / Opponent and the Smartness card are
+   ALSO dead chrome here — those JSX nodes are short-circuited
+   directly in the render (look for `extMode !== 'counter' &&`) so we
+   never even mount the React subtrees. The CSS below cleans up what
+   has to stay in the DOM. Counter-mode iframe lands the user at:
+   reframed hero + motion field + Start CTA, in a single column. */
+html[data-ext="1"][data-ext-mode="counter"] #daTopbar,
+html[data-ext="1"][data-ext-mode="counter"] .head,
+html[data-ext="1"][data-ext-mode="counter"] .foot {
+  display:none !important;
+}
+/* No fixed topbar to clear, so the 78px top padding can drop. */
+html[data-ext="1"][data-ext-mode="counter"] .shell {
+  padding-top:18px;
+  padding-bottom:32px;
+}
+/* Single-column setup — the Counter side panel is ~400px wide; the
+   two-column grid would compress both columns into unreadability. */
+html[data-ext="1"][data-ext-mode="counter"] .setup-grid {
+  grid-template-columns:minmax(0,1fr);
+}
+html[data-ext="1"][data-ext-mode="counter"] .summary-col {
+  position:static;
+}
+/* Hero is left-aligned, no status pill — the Counter brand bar above
+   already carries the "live / latency / cap" reassurance. */
+html[data-ext="1"][data-ext-mode="counter"] .hero-status {
+  display:none !important;
+}
+html[data-ext="1"][data-ext-mode="counter"] .hero {
+  grid-template-columns:1fr;
+  margin-bottom:20px;
+}
+
 /* ── "How it works" disclosure section ────────────── */
 .howto{
   margin-top:36px;padding-top:28px;
@@ -1689,6 +1733,12 @@ function App(){
           && PERSONALITIES.some(p => p.key === 'examiner');
         if (hasExaminer) setPersonaKey('examiner');
       } catch (e) {}
+      // Counter is single-purpose: get the user to a live viva in one
+      // tap. Pin smartness to 1 (Quick) so the session starts in <1s
+      // instead of negotiating 3-4 brains the user can't see and never
+      // asked for. The smartness card UI is hidden in counter mode, so
+      // this is the value that ships unless we explicitly change it.
+      try { setSmartness(1); } catch (e) {}
     }
     const SHORT = 200;
     const handle = (ev) => {
@@ -2784,12 +2834,21 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       el('a', { className:'back', href:'/debate-ai' }, '← text mode'),
     ),
 
-    // Hero — left headline + right status pill (per redesign brief)
+    // Hero — left headline + right status pill (per redesign brief).
+    // Counter (oral-exam) mode rewrites the headline + lede so the
+    // surface reads as "Dr. Iyer is going to grill you on your work"
+    // rather than "live voice debate over WebRTC". Same engine, just
+    // framed for the audience that arrived through the Counter
+    // extension instead of debateai.com/voice-debate.html.
     !isLive && !isConnecting && el('div', { className:'hero' },
       el('div', null,
-        el('h1', null, 'The AI talks back. ', el('span', { className:'accent' }, 'And listens.')),
+        extMode === 'counter'
+          ? el('h1', null, 'Defend your work. ', el('span', { className:'accent' }, 'Out loud.'))
+          : el('h1', null, 'The AI talks back. ', el('span', { className:'accent' }, 'And listens.')),
         el('p', { className:'lede' },
-          'Speak your case, cut in mid-speech, take POIs. Live voice debate over WebRTC.'
+          extMode === 'counter'
+            ? 'Dr. Iyer asks one question at a time, waits, then probes the soft spot. Paste your thesis, hit Start, talk.'
+            : 'Speak your case, cut in mid-speech, take POIs. Live voice debate over WebRTC.'
         ),
       ),
       el('div', { className:'hero-status' },
@@ -2867,7 +2926,13 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             // there's more than one in the bank). 🎲 rolls across all
             // categories. Hover any chip to see how many motions sit in
             // that bucket.
-            (function(){
+            // Counter mode hides this row — the SAMPLE_MOTIONS bank is
+            // debate-flavored ("THBT social media does more harm…"), so
+            // rolling a random one drops a debate motion into a viva
+            // user's textbox. The Counter samples above (Photosynthesis,
+            // Newton's Laws, French Revolution) cover the same "give me
+            // something to try" need with on-brand syllabus stems.
+            extMode !== 'counter' && (function(){
               const cats = [];
               const seen = {};
               SAMPLE_MOTIONS.forEach(m => {
@@ -2925,7 +2990,9 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         // is the second decision a debater makes naturally, right after
         // 'what's the motion?'). Government / Opposition stays as the
         // common-tongue label.
-        el('div', { className:'step' },
+        // In Counter (oral-exam) mode there's no Gov/Opp — you're
+        // defending your own work — so the whole step is skipped.
+        extMode !== 'counter' && el('div', { className:'step' },
           el('div', { className:'step-h' },
             el('div', { className:'step-num' }, '2'),
             el('div', { className:'step-title' }, 'Pick your side'),
@@ -2951,7 +3018,9 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         // because it's a HOW question; the user can only pick the right
         // drill once they know what they're arguing and what side they
         // hold. Defaults to 'Full Round' which works for any motion.)
-        el('div', { className:'step' },
+        // Counter mode is locked to crossex (viva = short Q&A under
+        // pressure) by the ext bridge useEffect; no drill picker shown.
+        extMode !== 'counter' && el('div', { className:'step' },
           el('div', { className:'step-h' },
             el('div', { className:'step-num' }, '3'),
             el('div', { className:'step-title' }, 'Pick a drill'),
@@ -2989,12 +3058,17 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             '◉ ' + (persona && persona.name ? persona.name.split(' ')[0].toUpperCase() : 'OPPONENT') + ' · STANDING BY'
           ),
           el('div', { className:'setup-orb-sub' },
-            'Ready when you are. Pick the format, name the motion, hit Start.'
+            extMode === 'counter'
+              ? 'Ready when you are. Paste your thesis (or leave it blank), then hit Start.'
+              : 'Ready when you are. Pick the format, name the motion, hit Start.'
           ),
         ),
 
-        // Step 4 (visually right column): Opponent picker
-        el('div', { className:'step' },
+        // Step 4 (visually right column): Opponent picker.
+        // Counter mode is locked to Dr. Iyer (Examiner persona) by the
+        // ext bridge; offering a choice between debate personalities
+        // would dilute the viva framing the Counter brand promises.
+        extMode !== 'counter' && el('div', { className:'step' },
           el('div', { className:'step-h' },
             el('div', { className:'step-num' }, '4'),
             el('div', { className:'step-title' }, 'Pick an opponent'),
@@ -3031,25 +3105,28 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           ),
         ),
 
-        // Session summary card
+        // Session summary card. In Counter mode it reads as "Your viva"
+        // and drops the debate-only rows (drill mode, gov/opp side).
+        // Examiner row stays — confirms Dr. Iyer is the one running it.
         el('div', { className:'summary-card' },
-          el('div', { className:'ttl' }, 'Your round'),
-          el('div', { className:'row' },
+          el('div', { className:'ttl' }, extMode === 'counter' ? 'Your viva' : 'Your round'),
+          extMode !== 'counter' && el('div', { className:'row' },
             el('div', { className:'k' }, 'Mode'),
             el('div', { className:'v' }, MODES.find(m => m.key === mode)?.title || mode),
           ),
           el('div', { className:'row' },
-            el('div', { className:'k' }, 'Motion'),
+            el('div', { className:'k' }, extMode === 'counter' ? 'Topic' : 'Motion'),
             motion.trim()
               ? el('div', { className:'v' }, motion)
-              : el('div', { className:'v muted' }, 'You will state it on mic'),
+              : el('div', { className:'v muted' },
+                  extMode === 'counter' ? 'You will state it on mic' : 'You will state it on mic'),
           ),
-          el('div', { className:'row' },
+          extMode !== 'counter' && el('div', { className:'row' },
             el('div', { className:'k' }, 'Side'),
             el('div', { className:'v' }, side === 'gov' ? 'Government' : 'Opposition'),
           ),
           el('div', { className:'row' },
-            el('div', { className:'k' }, 'Opponent'),
+            el('div', { className:'k' }, extMode === 'counter' ? 'Examiner' : 'Opponent'),
             el('div', { className:'v' }, persona.name + ' (' + persona.archetype + ')'),
           ),
           el('div', { className:'row' },
@@ -3061,7 +3138,11 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         // Smartness slider — picks how many extra brains the AI
         // consults before its first speech. 1 = solo (fastest), 5 =
         // full council (~6s slower start, much sharper arguments).
-        (function(){
+        // Hidden in Counter mode: viva drills want a fast start (the
+        // value of "Tournament" / "World Champ" prep is over the
+        // course of a debate round, not a 60-second oral exam probe),
+        // and the bridge already pins smartness to 1 on entry.
+        extMode !== 'counter' && (function(){
           const SMART_LABELS = [
             { lvl:1, name:'Quick',       desc:'Solo gpt-realtime. Fastest start.' },
             { lvl:2, name:'Sharp',       desc:'+ Claude research. ~3s slower start, better framework.' },
