@@ -1,5 +1,5 @@
 // Bumped to v10 — see app/sw.js for detail.
-const CACHE_NAME = 'debateos-v133';
+const CACHE_NAME = 'debateos-v134';
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
