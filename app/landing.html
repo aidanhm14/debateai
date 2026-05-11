@@ -1620,6 +1620,21 @@ section.hero{
   -webkit-background-clip:text;
   background-clip:text;
   -webkit-text-fill-color:transparent;
+  /* Italic glyphs ("s" in "argues" especially) have a right-bearing
+     that overshoots the typographic advance. At the headline cap size
+     that "s" was getting clipped by the headline's max-width + the
+     background-clip:text mask (which paints from the upright bbox, not
+     the italic-tilted glyph). Two-part fix:
+       1. box-decoration-break:clone repaints the gradient per line, so
+          each wrapped line carries the full background + the same
+          padding rules instead of treating the inline as one long box.
+       2. padding-right with a negative margin-right gives the italic
+          letterform extra render room without expanding the layout box,
+          so the headline still wraps in the same place as before. */
+  -webkit-box-decoration-break:clone;
+  box-decoration-break:clone;
+  padding-right:.10em;
+  margin-right:-.06em;
 }
 [data-theme="light"] .hero-headline .hh-accent{
   background:linear-gradient(180deg,#ef4444 0%,#b91c1c 100%);
