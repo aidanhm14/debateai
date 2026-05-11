@@ -6761,21 +6761,54 @@ function Casual() {
       ),
     ),
     React.createElement('div',{style:{
-      maxHeight:400,overflowY:'auto',marginBottom:16,
-      display:'flex',flexDirection:'column',gap:12
+      // Auto-size to content. The previous maxHeight:400 + overflow:auto
+      // forced a 400px-tall scroll container even when empty, which
+      // surfaced as a giant blank box above the Thinking indicator on
+      // first send. min-height:0 lets the container collapse cleanly
+      // pre-first-message; max-height:60vh keeps long histories from
+      // pushing the input off the page.
+      minHeight: messages.length ? 80 : 0,
+      maxHeight:'60vh', overflowY:'auto', marginBottom: messages.length || loading ? 16 : 0,
+      display:'flex', flexDirection:'column', gap:12,
+      transition:'min-height .2s ease, margin-bottom .2s ease'
     }},
       messages.map((m,i) => {
-        const isStreamingMsg = loading && m.role==='assistant' && i===messages.length-1;
-        return React.createElement('div',{key:i,className:(m.role==='user'?'rc-user':'rc-ai') + (isStreamingMsg?' output streaming-active':''),style:{
-          alignSelf: m.role==='user' ? 'flex-end' : 'flex-start',
-          background: m.role==='user' ? '#ef444422' : 'var(--card-bg,#ffffff08)',
-          border: '1px solid ' + (m.role==='user' ? '#ef444433' : 'var(--card-border,#ffffff22)'),
-          borderRadius: 12, padding:'12px 16px',
-          maxWidth:'80%', fontSize:'.92rem', lineHeight:1.45, whiteSpace:'pre-line'
-        }, dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}});
+        const isLastAssistant = m.role==='assistant' && i===messages.length-1;
+        const isStreamingMsg = loading && isLastAssistant;
+        const isEmptyStreaming = isStreamingMsg && !(m.text && m.text.trim());
+        // While the assistant bubble is empty + streaming, render the
+        // LoadingBar INSIDE the bubble instead of as a separate card
+        // below the list. Stops the duplicated "blank assistant + extra
+        // Thinking card" pattern that read as broken formatting.
+        const childContent = isEmptyStreaming
+          ? React.createElement(LoadingBar, { label: 'Thinking...' })
+          : null;
+        const props = {
+          key: i,
+          className:(m.role==='user'?'rc-user':'rc-ai') + (isStreamingMsg?' output streaming-active':''),
+          style:{
+            alignSelf: m.role==='user' ? 'flex-end' : 'flex-start',
+            background: m.role==='user' ? '#ef444422' : 'var(--card-bg,#ffffff08)',
+            border: '1px solid ' + (m.role==='user' ? '#ef444433' : 'var(--card-border,#ffffff22)'),
+            borderRadius: 12, padding:'12px 16px',
+            maxWidth:'80%', fontSize:'.92rem', lineHeight:1.45, whiteSpace:'pre-line'
+          },
+        };
+        if (childContent) {
+          return React.createElement('div', props, childContent);
+        }
+        return React.createElement('div', Object.assign({}, props, {
+          dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}
+        }));
       }
       ),
-      loading && React.createElement(LoadingBar, { label: 'Thinking...' }),
+      // Show the LoadingBar as a standalone card ONLY when no
+      // assistant bubble is currently being streamed. The streaming
+      // path renders its own inline LoadingBar inside the bubble (see
+      // map above), which removes the previous double-card glitch
+      // where "blank assistant bubble" and "Thinking…" stacked.
+      loading && !(messages.length && messages[messages.length-1].role === 'assistant') &&
+        React.createElement(LoadingBar, { label: 'Thinking...' }),
       React.createElement('div',{ref:bottomRef})
     ),
     React.createElement('div',{style:{display:'flex',gap:10}},
@@ -7624,7 +7657,15 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
       setStreaming(true);
       if (window.__triggerLogoGen) window.__triggerLogoGen(true); if (window.__triggerDebaterAnim) window.__triggerDebaterAnim(true);
       const throttle = createStreamThrottle((text) => setOutput(text), outputRef);
-      await callClaude(sysPrompt + '\n\nIMPORTANT: Give a focused but rigorous overview. Aim for 800-1200 words. Cover the essential ideas with their important internal distinctions, key debate applications, intellectual evolution if relevant, and one strong example. Be accessible but never sacrifice accuracy for simplicity. if a concept has important nuances, include them. The user can request an even deeper treatment after reading this.', userPrompt, (text) => throttle.update(text), { thinkBudget: 8000, maxTokens: 6000, expectedWords: 1000, onProgress: (p) => setPProgress(p), feature: 'philosophy' });
+      // maxTokens bumped 6000 → 16000 (2026-05-11) — the philosophy
+      // generator routinely produces framework + 2-3 motion
+      // applications, which spilled well past 6000 tokens and hit the
+      // truncation ceiling mid-sentence. The continuation logic in
+      // callClaude does pick up where it left off, but each continuation
+      // request adds ~3-4s of latency and the seams between continuations
+      // sometimes drop a sentence. Giving the first response real headroom
+      // means most generations complete in one pass.
+      await callClaude(sysPrompt + '\n\nIMPORTANT: Give a focused but rigorous overview. Aim for 1200-1800 words for a single concept; if applying to multiple motions, scale up proportionally (2500-3500 words for 2-3 motion applications). Cover the essential ideas with their important internal distinctions, key debate applications, intellectual evolution if relevant, and one strong example per motion. Be accessible but never sacrifice accuracy for simplicity. If a concept has important nuances, include them. FINISH every section you start — never leave a sentence mid-clause. The user can request an even deeper treatment after reading this.', userPrompt, (text) => throttle.update(text), { thinkBudget: 8000, maxTokens: 16000, expectedWords: 2500, onProgress: (p) => setPProgress(p), feature: 'philosophy' });
       throttle.finish();
     } catch(e) {
       setOutput('Error: ' + safeError(e));

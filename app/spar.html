@@ -116,7 +116,22 @@ h1 em{color:var(--accent);font-style:normal}
 
 .lede{font-size:1rem;color:var(--text-dim);line-height:1.55;max-width:480px;margin:0 auto 32px;font-weight:500}
 
-/* Orb — deliberately bigger than the landing one. This page IS the orb. */
+/* Globe — the centerpiece of this page. Replaces the prior static red
+   orb with a live rotating sphere of pinned debaters. Mounts via
+   /js/world-globe.js into the inner <canvas>. Aspect-ratio:1 keeps
+   the canvas square; the globe is inscribed inside the radial halo. */
+.globe-wrap{
+  position:relative;width:300px;max-width:84vw;margin:0 auto 22px;
+  aspect-ratio:1 / 1;
+}
+.globe-frame{
+  position:relative;width:100%;height:100%;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.18) 0%, rgba(239,68,68,.04) 45%, transparent 72%);
+}
+.globe-frame canvas{display:block;width:100%;height:100%}
+
+/* Legacy orb — still used by renderMatched() and renderFallback() as
+   brief transition states. Kept for those two short-lived screens. */
 .orb-wrap{
   position:relative;width:280px;height:280px;margin:0 auto 22px;
   display:flex;align-items:center;justify-content:center;
@@ -236,6 +251,12 @@ h1 em{color:var(--accent);font-style:normal}
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
 
+<!-- Rotating-globe data + renderer for the searching state. Defer-loaded
+     so they don't block firebase / topbar; renderSearching() retries
+     until DebateGlobe is on window. -->
+<script defer src="/js/world-data.js?v=1"></script>
+<script defer src="/js/world-globe.js?v=1"></script>
+
 <div class="wrap" style="padding-top:90px">
   <div class="shell" id="shell">
     <!-- Inserted by JS based on auth + queue state. -->
@@ -312,11 +333,15 @@ h1 em{color:var(--accent);font-style:normal}
   // ── Render: signed-out gate ──────────────────────────
   // Anti-abuse posture: human-vs-human REQUIRES sign-in. The AI side
   // doesn't, and that's the alternative we surface explicitly so the
-  // user can choose AI without bouncing off a hard wall.
+  // user can choose AI without bouncing off a hard wall. The globe
+  // sits above the sign-in CTA so visitors immediately see the live
+  // network they're being asked to join (bigger pull than a static
+  // form). Same canvas + mountGlobe used in renderSearching().
   function renderGate(){
     shell.innerHTML =
       '<div class="gate">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
+        '<div class="globe-wrap"><div class="globe-frame"><canvas id="sparGlobe" aria-label="Live network of debaters"></canvas></div></div>' +
         '<h2>Sign in to spar with another debater.</h2>' +
         '<p>Live human-vs-human is signed-in only. Keeps the queue free of bots and gives you a profile your opponent can see. AI sparring stays anonymous if you\'d rather skip the sign-in.</p>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
@@ -328,6 +353,7 @@ h1 em{color:var(--accent);font-style:normal}
         '<div id="gateError"></div>' +
       '</div>';
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
+    mountGlobe('sparGlobe');
     try { gtag('event', 'spar_gate_view', {}); } catch(e){}
   }
 
@@ -358,7 +384,11 @@ h1 em{color:var(--accent);font-style:normal}
       '<h1>Finding you a <em>debater.</em></h1>' +
       '<p class="lede">We\'ll match you with another human running the same format. AI fallback if nobody pairs in 60 seconds.</p>' +
       '<span class="format-pill" title="Format you\'re queueing for">' + escHtml(formatLabel) + '</span>' +
-      '<div class="orb-wrap" id="orbWrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
+      // Rotating globe — replaces the static red orb. The visual makes
+      // the wait feel like joining a real network instead of staring at
+      // a loading spinner. Mounts via /js/world-globe.js after this
+      // innerHTML lands.
+      '<div class="globe-wrap"><div class="globe-frame"><canvas id="sparGlobe" aria-label="Live network of debaters"></canvas></div></div>' +
       '<div class="status" id="statusText">Searching… <span class="dim">No one in your queue yet.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
       '<div class="btn-row">' +
@@ -369,6 +399,29 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="foot">Your camera + mic stay off until you accept the match. Match found = you both jump into a video room.</div>';
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
     startCountdown();
+    mountGlobe('sparGlobe');
+  }
+
+  // Mount the globe once world-globe.js has loaded. Keeps a handle
+  // so we can stop it on re-render to avoid orphan rAF loops.
+  var globeHandle = null;
+  function mountGlobe(canvasId){
+    if (globeHandle && globeHandle.stop) { try { globeHandle.stop(); } catch(e){} }
+    globeHandle = null;
+    function tryMount(retries){
+      if (!window.DebateGlobe) {
+        if (retries > 0) return setTimeout(function(){ tryMount(retries - 1); }, 60);
+        return;
+      }
+      var c = document.getElementById(canvasId);
+      if (!c) return;
+      globeHandle = window.DebateGlobe.mount(c, {
+        palette: 'accent',
+        rotateDegPerSec: 5,
+        showArcs: true,
+      });
+    }
+    tryMount(40);
   }
 
   // ── Render: matched! ─────────────────────────────────

@@ -75,8 +75,12 @@ These are the rules that override other considerations. Any change that violates
 **Banned phrases (these rot the brand if they appear):**
 - "no sign-up required" · "Free during beta" · "unlimited requests" (on Free) · "Infinity free"
 - "Pay nothing" · "holistic approach" · "robust framework" · "at the end of the day"
-- "Let's dive in" · "Let's unpack" · "In today's world" · "It's important to note"
+- "Let's dive in" · "Let's unpack" · "Let's break it down" · "Let me break this down" · "Let me explain"
+- "Hear me out" · "Stay with me" · "Bear with me"
+- "In today's world" · "It's important to note"
 - "ladies and gentlemen" · "I'm here to argue"
+
+**The no-preface rule.** Never announce what you're about to say — say it. "Three reasons they're wrong, let's break it down" → "Three reasons they're wrong. One: ... Two: ... Three: ..." The numbers ARE the structure; the preface is dead weight. Same for "Here's why this fails" → cut "Here's why," start with the reason. Articulate, not chatty.
 
 ## 6. Build philosophy
 

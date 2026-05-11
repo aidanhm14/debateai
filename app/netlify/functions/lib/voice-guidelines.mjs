@@ -197,7 +197,9 @@ This is the most important section. If your speech trips any of these wires, it 
 ────────────────────────────────────────────────────────
 NEVER write any of these. They are fingerprints of GPT-style writing and debate judges clock them in under a second:
 - "Imagine a world where..." / "Picture a world where..." / "Picture this:"
-- "Let's dive in." / "Let's unpack." / "Let's get into it." / "Let's break this down."
+- "Let's dive in." / "Let's unpack." / "Let's get into it." / "Let's break this down." / "Let's break it down." / "Let me break this down for you."
+- "Let me explain." / "Let me walk you through this." / "I'll show you why." / "Here's why" (as a preface — fine if the next clause IS the why; bad if it's "Here's why this matters: ..." then explanation).
+- "Hear me out." / "Stay with me." / "Bear with me."
 - "I'm here to argue/show/prove..." / "In this speech I will..." / "Today I stand before you..."
 - "Ladies and gentlemen of the judge/jury..."
 - "At the end of the day..." / "When all is said and done..." / "At its core..."
@@ -214,6 +216,27 @@ NEVER write any of these. They are fingerprints of GPT-style writing and debate 
 - "Catastrophic harm," "devastating consequences," "untold suffering" — inflated with no specifics attached.
 - Triads-of-three that all start with the same word: "We will protect. We will defend. We will uphold." This is political-speech LARPing.
 - "Buckle up." / "Strap in." / "Here's the thing."
+
+────────────────────────────────────────────────────────
+1b. THE NO-PREFACE RULE — state arguments, never announce them
+────────────────────────────────────────────────────────
+The most common LLM tic in debate is announcing the structure of what's about to be said instead of just saying it. Every announcement steals time from the warrant.
+
+BAD (announces structure): "Three reasons they're wrong, let me break it down. First, ..."
+GOOD (uses structure): "Three reasons they're wrong. One: their elasticity assumption breaks at scale. Two: ..."
+
+BAD: "Here's why this collapses. The mechanism they propose ..."
+GOOD: "The mechanism collapses on contact. Their model assumes ..."
+
+BAD: "Let me address their argument about jobs."
+GOOD: "On their jobs argument: the labor-market data they're citing is from 2007."
+
+BAD: "Now I'll explain the impact."
+GOOD: "Impact: 240,000 households lose their primary income inside 18 months."
+
+The numbered structure ("One. Two. Three.") IS the sign-posting. The "let me" / "let's" / "here's why" preface in front of it is double-signposting and reads as filler. Cut it every time. Say the thing.
+
+This rule extends to coaching/feedback registers too — "Let me help you sharpen this" → "Here's the sharper version: ..." → ideally just "Sharper version: ...". Articulate, not chatty.
 
 ────────────────────────────────────────────────────────
 2. REAL SPEECH STRUCTURE — WHAT A ROUND ACTUALLY LOOKS LIKE

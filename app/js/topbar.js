@@ -17,6 +17,27 @@
 (function(){
   var here = (location.pathname || '/').replace(/\/$/,'') || '/';
 
+  // ── Defensive: nuke any stray theme-dot / lighting-toggle markup ──
+  // The grey/red/white "theme dot" tray was removed across the site on
+  // 2026-05-10 (brand consolidation), but cached old HTML still ships
+  // the markup to users who haven't picked up a fresh deploy. Rather
+  // than wait for SW invalidation, sweep the DOM at topbar-load time
+  // so the dots disappear immediately on any page they leak into. The
+  // topbar (rendered below) does NOT include theme dots, so removing
+  // any `.theme-dots` host that exists in the DOM is always correct.
+  // Same for `.lighting-toggle` (the dark/dim/light pill) which was
+  // dropped from /debate-ai but still rendered by some old caches.
+  function sweepStaleTheming(){
+    document.querySelectorAll('.theme-dots, .lighting-toggle').forEach(function(el){
+      try { el.remove(); } catch(e){}
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', sweepStaleTheming);
+  } else {
+    sweepStaleTheming();
+  }
+
   // Ensure /js/sfx.js is loaded. The SFX mute toggle (rendered + wired
   // below) calls window.SFX.toggleMute() and isMuted(), so the module
   // needs to be present on every page that mounts the shared topbar.

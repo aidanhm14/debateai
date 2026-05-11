@@ -111,9 +111,16 @@ of ~10 minutes of work, not big PRs.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
   sign-up required", "unlimited" on Free, "Pay nothing", "holistic",
-  "robust framework", "let's dive in", "let's unpack", "in today's
-  world", "ladies and gentlemen", "I'm here to argue", "at the end of
-  the day", "it's important to note".
+  "robust framework", "let's dive in", "let's unpack", "let's break
+  it down", "let me break this down", "let me explain", "hear me
+  out", "stay with me", "bear with me", "in today's world", "ladies
+  and gentlemen", "I'm here to argue", "at the end of the day",
+  "it's important to note".
+- **No-preface rule.** Never announce what you're about to say — say
+  it. "Three reasons they're wrong, let's break it down" → just
+  "Three reasons they're wrong. One: ... Two: ... Three: ..." The
+  numbers ARE the structure; the preface is dead weight. Same for
+  "Here's why this fails" → cut "Here's why," start with the reason.
 - **BYOK is Anthropic-only.** Don't add OpenAI/Gemini BYOK. Cross-provider
   BYOK attempts must throw a labeled error.
 - **APDA never goes in the Topics Hub.** It's impromptu — no rolling

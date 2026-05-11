@@ -159,10 +159,12 @@
   // injects this file deferred, AFTER the inline scope has already
   // populated window.SFX. A bare `window.SFX = {...}` here would clobber
   // those page-specific methods, breaking Quick Clash + every other
-  // round-start path on debate-ai.html. Object.assign with the existing
-  // SFX as the LAST source means page-specific methods win, and pages
-  // without an inline SFX (splash, learn, live, voice-debate) still get
-  // the full shared API.
+  // round-start path on debate-ai.html (the user got
+  // "SFX.startRound is not a function" the moment they clicked START
+  // ROUND). Object.assign with the existing SFX as the LAST source
+  // means page-specific methods win on conflicting keys, and pages
+  // without an inline SFX (splash, learn, live, voice-debate) still
+  // get the full shared API.
   var sharedSFX = {
     click: click,
     send: send,

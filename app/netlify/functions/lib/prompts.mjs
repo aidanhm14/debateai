@@ -380,10 +380,10 @@ Return your ballot as valid JSON with this exact structure:
 {
   "winner": "user" or "ai",
   "decision": "2-3 sentences explaining why the winner won — in {{fmtName}}-native judging vocabulary",
-  "speakerPoints": { "user": 27.5, "ai": 27.0 },
+  "speakerPoints": { "user": 26.0, "ai": 26.5 },
   "keyClash": "The central clash point and who won it",
   "speeches": [
-    { "code": "PM", "who": "You", "score": 28, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"], "bestLine": "The single best sentence the user actually said in this speech, verbatim", "shouldHaveSaid": "One concrete line the user did NOT say that would have won this speech outright — written as if they spoke it" }
+    { "code": "PM", "who": "You", "score": 26, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"], "bestLine": "The single best sentence the user actually said in this speech, verbatim", "shouldHaveSaid": "One concrete line the user did NOT say that would have won this speech outright — written as if they spoke it" }
   ],
   "criticalDrops": [
     "Specific argument or warrant the AI made that the user failed to respond to, named verbatim — one per dropped issue. Max 3. Each under 25 words. If the user dropped nothing important, return an empty array."
@@ -414,7 +414,26 @@ For bestLine: quote something the user ACTUALLY said. If their speech was empty 
 For shouldHaveSaid: write a single, speech-ready sentence they could have delivered — concrete warrant or turn, not advice-about-advice.
 For criticalDrops: name the dropped argument the way it appeared in the AI's speech (e.g. "the backfire argument on enforcement"). Do not invent arguments the AI did not make.
 
-Speaker points 25-30 scale (27 = average, 28 = good, 29 = excellent, 30 = near perfect). "practiceAdvice" must be a SPECIFIC drill, not generic advice. e.g. "Record yourself giving 60-second crystallizations of this round — force yourself to collapse to two issues before speaking" not "work on rebuttals."
+Speaker points — USE THE FULL SCALE, INCLUDING THE LOW END. The leaderboard is currently inflated because every AI judge defaults to 27+. Recalibrate now:
+
+  22-23 = unfinished / incoherent. No structure, no warrants, dropped most clashes.
+  24    = struggling. Has a thesis but no link chain; key arguments dropped.
+  25    = below average for a competitive round. Some structure, weak warranting, missed framework.
+  26    = average attempt. Recognizable structure, basic warrants, no weighing.
+  26.5  = average-plus. Competent on substance, thin on rebuttal or weighing.
+  27    = good. Clean structure, real warrants, some comparative weighing.
+  27.5  = strong. Clean flow tracking, named-example evidence, measurable impact analysis.
+  28    = excellent — would clear at most tournaments. Sharp warrants, smart cross-applications, weighing all the way through.
+  28.5  = very strong, late-out-rounds level.
+  29    = top-of-field. Given maybe 1 round in 50.
+  29.5  = essentially never given.
+  30    = impossible for a non-pro; do not award.
+
+DEFAULT TO THE LOW-MID OF THIS RANGE. If a speech had ANY of these flaws, score 26 or below: missing a warrant, dropping a contention without naming it, no impact comparison, no real weighing, framework named but not used as a decision rule, no specific examples / numbers / actors, generic LLM phrasing ("it is important to note", "let's break this down"). If three or more flaws, score 25 or below.
+
+Do NOT cluster all scores in the 27-28 range "to be encouraging." Encouragement comes from accurate critique, not from a flat-grading inflation that makes the leaderboard meaningless. A real circuit ballot at a national tournament shows scores ranging 24-29 across a single round; mirror that spread.
+
+"practiceAdvice" must be a SPECIFIC drill, not generic advice. e.g. "Record yourself giving 60-second crystallizations of this round — force yourself to collapse to two issues before speaking" not "work on rebuttals."
 
 Return ONLY valid JSON, no markdown, no code fences.`,
 

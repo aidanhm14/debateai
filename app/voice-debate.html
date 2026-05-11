@@ -296,6 +296,27 @@ input[type=text]:focus,select:focus,textarea:focus{
 .miclevel .bar.on{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.4)}
 
 /* ── Transcript ───────────────────────────────────── */
+/* Action buttons in the transcript card header (Copy / .txt). Sized
+   smaller than .cta so they sit comfortably alongside the h3 title.
+   Hover lifts subtly; the Copy button briefly swaps to "✓ Copied"
+   via the copiedFlash state. */
+.tx-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;border-radius:8px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.14);
+  color:#e6e6ee;font:600 .76rem/1 inherit;letter-spacing:.01em;
+  cursor:pointer;font-family:inherit;
+  transition:background .15s, border-color .15s, transform .12s;
+}
+.tx-btn:hover{
+  background:rgba(255,255,255,.12);
+  border-color:rgba(239,68,68,.42);
+  color:#fca5a5;
+  transform:translateY(-1px);
+}
+.tx-btn:active{transform:translateY(0)}
+
 .transcript{
   min-height:240px;max-height:480px;overflow-y:auto;padding:6px 4px;
   scroll-behavior:smooth;
@@ -952,64 +973,134 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
 .mic-notice.denied{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.22)}
 .mic-notice.denied .mic-icon{background:rgba(239,68,68,.14);color:#fca5a5}
 
-/* Smartness slider — picks how many extra brains the AI consults
-   during prep before its first speech. */
+/* Smartness selector — five circular pill buttons in a connected scale.
+   Replaced the earlier <input type="range"> linear slider because the
+   thin rail + tiny tick dots felt utilitarian; pills are tactile,
+   readable on touch, and tap-targets are bigger than the slider thumb. */
 .smart-card{
   background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.06);
-  border-radius:10px;padding:14px;
+  border-radius:14px;padding:16px;
 }
 .smart-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;gap:10px}
 .smart-h .lbl{font-size:.82rem;font-weight:600;color:#e6e6ee}
 .smart-h .lvl{
-  font-size:.7rem;color:#fca5a5;letter-spacing:.04em;font-weight:600;
-  background:rgba(239,68,68,.08);padding:3px 8px;border-radius:6px;
-  border:1px solid rgba(239,68,68,.18);
+  font-size:.7rem;color:#fca5a5;letter-spacing:.04em;font-weight:700;
+  background:rgba(239,68,68,.10);padding:4px 10px;border-radius:999px;
+  border:1px solid rgba(239,68,68,.28);
 }
-.smart-desc{font-size:.7rem;color:#8a8a9a;line-height:1.5;margin-bottom:12px;min-height:30px}
-.smart-slider-row{display:flex;align-items:center;gap:10px}
-.smart-slider{
-  flex:1;-webkit-appearance:none;appearance:none;
-  height:4px;border-radius:2px;background:rgba(255,255,255,.08);outline:none;
+.smart-desc{font-size:.74rem;color:#8a8a9a;line-height:1.5;margin-bottom:14px;min-height:30px}
+
+/* Pill row + connecting rail. Position-relative so the rail and the
+   accent fill can absolute-position behind the buttons. */
+.smart-pills{
+  position:relative;display:flex;align-items:center;justify-content:space-between;
+  gap:6px;padding:6px 4px 4px;
 }
-.smart-slider::-webkit-slider-thumb{
-  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
-  background:#ef4444;cursor:pointer;border:2px solid #06060c;
-  box-shadow:0 0 0 1px rgba(239,68,68,.4);
+/* Background rail — runs the full width behind the pills. Inset by
+   pill-radius on each side so it visually starts and ends at the
+   center of the first / last pill. */
+.smart-pills-rail{
+  position:absolute;left:18px;right:18px;top:50%;height:3px;
+  background:rgba(255,255,255,.08);border-radius:999px;
+  transform:translateY(-50%);
+  pointer-events:none;
 }
-.smart-slider::-moz-range-thumb{
-  width:18px;height:18px;border-radius:50%;background:#ef4444;
-  cursor:pointer;border:2px solid #06060c;
+/* Accent fill — same anchoring as the rail. width:0..100% based on the
+   selected pill's index so the fill grows/shrinks like a progress bar. */
+.smart-pills-fill{
+  position:absolute;left:18px;top:50%;height:3px;
+  background:linear-gradient(90deg, #ef4444 0%, #fca5a5 100%);
+  border-radius:999px;
+  transform:translateY(-50%);
+  transition:width .22s cubic-bezier(.2,.7,.2,1);
+  pointer-events:none;
+  box-shadow:0 0 14px rgba(239,68,68,.45);
+  /* The right-edge anchor at left:18px handles the narrow case; the
+     fill's width math (set inline) accounts for the inset. */
+  max-width:calc(100% - 36px);
 }
-.smart-ticks{
-  /* Position-relative so children can absolute-place at the same
-     percentage the slider thumb center sits at. Using flex+space-between
-     here was misleading: the thumb's center range is inset by
-     thumb-radius (9px) on each side, but space-between distributes spans
-     to the container edges with the gap collapsing around variable label
-     widths. The selected tick label visibly drifted from the thumb on
-     anything but the middle position. width:100% is explicit because
-     an element with only abs-positioned children doesn't always fill
-     its block container (the abs children are out of flow, so there's
-     nothing pushing the container to its natural width). */
-  position:relative;width:100%;height:1.1em;margin-top:8px;
-  font-size:.6rem;color:#7a7a8a;letter-spacing:.04em;
+.smart-pill{
+  position:relative;z-index:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:36px;height:36px;border-radius:50%;
+  background:#0d0d14;color:#7a7a8a;
+  border:1.5px solid rgba(255,255,255,.10);
+  font:700 .82rem/1 inherit;letter-spacing:.02em;
+  cursor:pointer;font-family:inherit;
+  transition:transform .15s, box-shadow .2s, border-color .2s, background .2s, color .2s;
+  -webkit-tap-highlight-color:transparent;
 }
-.smart-ticks span{position:absolute;white-space:nowrap;top:0}
-.smart-ticks span.on{color:#fca5a5;font-weight:600}
-/* Mid-track dot for unselected interior steps. Sits at the same
-   y-baseline as the endpoint labels so the slider reads as a 5-stop
-   range without crowding the card with text. The selected tick
-   still renders its full label (replaces the dot) so the user can
-   see WHICH stop they're on without consulting the badge. */
-.smart-ticks .tick-dot{
-  width:4px;height:4px;border-radius:50%;
-  background:rgba(255,255,255,.22);
-  display:block;top:6px;
+.smart-pill:hover{
+  transform:translateY(-1px);
+  border-color:rgba(239,68,68,.45);
+  color:#fca5a5;
 }
+.smart-pill:focus-visible{
+  outline:none;
+  border-color:#fca5a5;
+  box-shadow:0 0 0 3px rgba(239,68,68,.28);
+}
+/* "done" = a step BEFORE the current selection. Filled with accent at
+   reduced intensity so the user reads the scale as "everything up to
+   here is on." */
+.smart-pill.done{
+  background:rgba(239,68,68,.18);
+  border-color:rgba(239,68,68,.55);
+  color:#fca5a5;
+}
+.smart-pill.on{
+  background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color:#fca5a5;
+  color:#fff;
+  box-shadow:
+    0 0 0 4px rgba(239,68,68,.18),
+    0 0 18px rgba(239,68,68,.55),
+    inset 0 0 8px rgba(255,255,255,.18);
+  transform:scale(1.08);
+}
+
+/* Five labels under the pill row, one per pill. Same space-between
+   geometry as the pill row above so each label sits centered under
+   its pill regardless of container width. White-space:nowrap keeps
+   short labels (Quick / Sharp / Council) from wrapping; the wider
+   ones (Tournament / World Champ) wrap to two lines on narrow
+   viewports rather than crashing into their neighbors. */
+.smart-pills-labels{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  font-size:.62rem;color:#7a7a8a;letter-spacing:.03em;
+  font-weight:700;text-transform:uppercase;
+  margin-top:10px;padding:0;
+  gap:6px;
+}
+.smart-pills-labels span{
+  flex:1 1 0;
+  text-align:center;
+  line-height:1.2;
+  /* min-width:0 so flex children can shrink below their content size
+     without overflowing the row. */
+  min-width:0;
+  transition:color .2s, transform .2s;
+}
+.smart-pills-labels span.on{
+  color:#fca5a5;
+  transform:scale(1.04);
+  text-shadow:0 0 8px rgba(252,165,165,.35);
+}
+@media (max-width:420px){
+  .smart-pills-labels{font-size:.62rem;letter-spacing:.01em;gap:3px;text-transform:none}
+  .smart-pills-labels span{font-weight:600}
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .smart-pill{ transition:none; }
+  .smart-pill.on{ transform:none; }
+  .smart-pills-fill{ transition:none; }
+}
+
 .smart-warn{
-  font-size:.65rem;color:#fde68a;margin-top:8px;line-height:1.5;
+  font-size:.66rem;color:#fde68a;margin-top:12px;line-height:1.5;
   background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.18);
-  border-radius:6px;padding:7px 10px;
+  border-radius:8px;padding:8px 11px;
 }
 
 /* Mute button — sits in the live-controls row */
@@ -1916,10 +2007,33 @@ function App(){
   // This prevents accidental VAD-triggered interruptions while still
   // keeping the WebRTC connection alive — much cleaner than tearing
   // down and re-adding the track.
+  //
+  // Mute also flips the AI into MONOLOGUE MODE: the response.done
+  // handler reads mutedRef and auto-fires another response.create so
+  // the AI keeps speaking instead of going silent waiting for clash
+  // input that will never come. We also push a one-line system note
+  // so the AI extends its turns (no more 15-45s clash beats while
+  // the user has explicitly opted out of clash).
+  const mutedRef = useRef(false);
   useEffect(()=>{
+    mutedRef.current = muted;
     const stream = localStreamRef.current;
-    if (!stream) return;
-    stream.getAudioTracks().forEach(t => { try { t.enabled = !muted; } catch(e){} });
+    if (stream) stream.getAudioTracks().forEach(t => { try { t.enabled = !muted; } catch(e){} });
+    const dc = dcRef.current;
+    if (!dc || dc.readyState !== 'open') return;
+    try {
+      const note = muted
+        ? '[Mode change] The user just MUTED their mic to listen. Switch to continuous-monologue mode: keep building your argument across multiple beats without pausing for clash. Aim for 60-90 second runs per beat, then immediately roll into the next contention or extension. Do NOT ask "are you still there?" or check in. Do NOT acknowledge this note. Just keep speaking until you are unmuted.'
+        : '[Mode change] The user just UNMUTED. Return to normal clash mode: short 15-45 second turns, leave space for them to interrupt or POI you. Do NOT acknowledge this note.';
+      dc.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'system',
+          content: [{ type: 'input_text', text: note }],
+        },
+      }));
+    } catch(e){ /* dc closed mid-flight */ }
   }, [muted]);
 
   /* ── Realtime event handler ───────────────────── */
@@ -2024,6 +2138,27 @@ function App(){
         lastSpeechTickRef.current = { ai: 0, user: 0, who: null };
         if (speaking === 'ai') setSpeaking('idle');
         currentAiTurnRef.current = null;
+        // Muted-mode auto-continue. The user has opted out of clash,
+        // so the AI shouldn't go silent waiting for input that won't
+        // come. Fire another response.create immediately so it rolls
+        // into the next beat. Tiny delay (220ms) leaves a natural
+        // micro-pause between beats so it doesn't sound like one
+        // unbroken stream of speech.
+        if (mutedRef.current) {
+          setTimeout(()=>{
+            const dc = dcRef.current;
+            if (!dc || dc.readyState !== 'open') return;
+            if (!mutedRef.current) return;
+            try {
+              dc.send(JSON.stringify({
+                type: 'response.create',
+                response: {
+                  instructions: 'Continue your argument. The user is still muted and listening. Build the next beat — extend a contention, make a new one, or move into impact calculus. Do NOT recap, do NOT ask if they are there, do NOT acknowledge this prompt. Just keep speaking.',
+                },
+              }));
+            } catch(e){ /* dc closed mid-flight */ }
+          }, 220);
+        }
         break;
       }
 
@@ -2324,15 +2459,25 @@ function App(){
               output_modalities: ['audio'],
               audio: {
                 input: {
-                  // language:'en' kills the most famous Whisper failure mode:
-                  // on silence or low-energy noise, whisper-1 with no language
-                  // hint hallucinates "Sampai jumpa di video selanjutnya" and
-                  // similar Indonesian/Spanish YouTube outro phrases (the
-                  // training set was full of them). Pinning English cuts that
-                  // off. Multilingual users on the Counter extension's Hindi
-                  // viva path already set their own aiLanguage upstream — this
-                  // default only applies to the standard English-debate flow.
-                  transcription: { model: 'whisper-1', language: 'en' },
+                  // gpt-4o-mini-transcribe is ~30% more accurate than
+                  // whisper-1 on technical/jargon-heavy speech (debate
+                  // formats, philosophy terms, named-entity citations
+                  // like "Bostrom 2014" or "the EU AI Act"). Same
+                  // streaming latency. Falls back automatically if the
+                  // account doesn't have access — server can override
+                  // via OPENAI_REALTIME_TRANSCRIBE_MODEL.
+                  //
+                  // language:'en' kills the most famous Whisper-family
+                  // failure mode: on silence or low-energy noise the
+                  // model with no language hint hallucinates "Sampai
+                  // jumpa di video selanjutnya" and similar Indonesian
+                  // / Spanish YouTube outro phrases (the training set
+                  // was full of them). Pinning English cuts that off.
+                  // Multilingual users on the Counter extension's
+                  // Hindi viva path already set their own aiLanguage
+                  // upstream — this default only applies to the
+                  // standard English-debate flow.
+                  transcription: { model: 'gpt-4o-mini-transcribe', language: 'en' },
                   turn_detection: {
                     type: 'server_vad',
                     threshold: 0.5,
@@ -2519,6 +2664,36 @@ function App(){
       if (orbStopRef.current) { orbStopRef.current(); orbStopRef.current = null; }
     };
   }, [status]);
+
+  /* ── Transcript capture ──────────────────────────
+     Single source of truth for the round transcript. Used by:
+       • generateRFD()  — feeds the judge prompt
+       • Copy button    — clipboard.writeText
+       • Download .txt  — Blob + <a download>
+     Header includes the motion + side + persona + date so a saved
+     transcript stands alone outside the app. ───────────────── */
+  const buildTranscriptText = useCallback(()=>{
+    const turns = turnsRef.current.filter(t => t.who === 'you' || t.who === 'ai');
+    if (!turns.length) return '';
+    const stamp = new Date().toISOString().slice(0,16).replace('T', ' ');
+    const header = [
+      'Debate AI · voice round transcript',
+      'Date:    ' + stamp + ' UTC',
+      'Motion:  ' + (motion || '(stated on mic)'),
+      'Side:    ' + (side === 'gov' ? 'Government' : 'Opposition'),
+      'Mode:    ' + ((MODES.find(m => m.key === mode) || {}).title || mode),
+      'Opp:     ' + persona.name + ' (' + persona.archetype + ')',
+      ''.padEnd(60, '─'),
+      '',
+    ].join('\n');
+    const body = turns.map(t => {
+      var who = t.who === 'you' ? 'YOU' : 'AI';
+      var tag = t.interrupted ? ' [interrupted]' : '';
+      return who + ':' + tag + '\n' + (t.text || '').trim();
+    }).join('\n\n');
+    return header + body + '\n';
+  }, [motion, side, mode, persona]);
+  const [copiedFlash, setCopiedFlash] = useState(false);
 
   /* ── RFD generation ───────────────────────────── */
 
@@ -2901,46 +3076,56 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
               el('span', { className:'lvl' }, cur.name),
             ),
             el('div', { className:'smart-desc' }, cur.desc),
-            el('input', {
-              type:'range',
-              className:'smart-slider',
-              min:1, max:5, step:1, value: smartness,
-              onChange: e => setSmartness(parseInt(e.target.value, 10)),
+            // Five circular pill buttons replace the prior linear range
+            // input. Each pill is a complete tap-target carrying its
+            // level number; the selected one fills with accent + glows.
+            // Connector line behind the pills reads as a "scale" so the
+            // monotonic ordering is still visible. Tab/Arrow keys move
+            // between pills; Enter/Space selects.
+            el('div', {
+              className:'smart-pills',
+              role:'radiogroup',
               'aria-label':'AI smartness level',
-            }),
-            el('div', { className:'smart-ticks' },
-              // Only show the two endpoint labels under the track. The
-              // current level's full name already lives in the .lvl
-              // badge top-right, so the middle three (Sharp / Tournament
-              // / Council) were duplicating info AND colliding with
-              // each other at every viewport under ~520px (Council
-              // crashed into World Champ even on desktop card widths).
-              // Endpoint labels still anchor the user's mental model
-              // of the range. Dim ticks render as small dots between.
-              SMART_LABELS.map((s, i) => {
-                const N = SMART_LABELS.length;
-                const frac = i / (N - 1);
-                const left = 'calc(9px + ' + frac + ' * (100% - 18px))';
-                const isEnd = i === 0 || i === N - 1;
-                const isSelected = smartness === s.lvl;
-                if (!isEnd && !isSelected) {
-                  // Mid-track dot only; no label text
-                  return el('span', {
-                    key: s.lvl,
-                    className: 'tick-dot',
-                    style: { left, transform: 'translateX(-50%)' },
-                    'aria-hidden': 'true',
-                  });
-                }
-                const transform = i === 0 ? 'translateX(0)'
-                  : i === N - 1 ? 'translateX(-100%)'
-                  : 'translateX(-50%)';
-                return el('span', {
-                  key: s.lvl,
-                  className: isSelected ? 'on' : '',
-                  style: { left, transform },
-                }, s.name);
-              })
+            },
+              el('div', { className:'smart-pills-rail', 'aria-hidden':'true' }),
+              el('div', {
+                className:'smart-pills-fill',
+                'aria-hidden':'true',
+                style: { width: ((smartness - 1) / (SMART_LABELS.length - 1) * 100) + '%' },
+              }),
+              SMART_LABELS.map(s => el('button', {
+                key: s.lvl,
+                type:'button',
+                className: 'smart-pill' + (smartness === s.lvl ? ' on' : '') + (smartness > s.lvl ? ' done' : ''),
+                role:'radio',
+                'aria-checked': smartness === s.lvl,
+                'aria-label': s.name + ' (' + s.desc + ')',
+                title: s.name + ' — ' + s.desc,
+                onClick: () => setSmartness(s.lvl),
+                onKeyDown: e => {
+                  if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSmartness(Math.min(5, smartness + 1));
+                  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSmartness(Math.max(1, smartness - 1));
+                  }
+                },
+              }, String(s.lvl))),
+            ),
+            // All 5 labels rendered under the pills so the scale is
+            // self-documenting — the user can see every level's name at
+            // once without poking around. Selected label gets the
+            // accent color so the eye lands on the current state. Each
+            // label sits directly under its pill via the same
+            // space-between flex layout, so the label always tracks
+            // with its corresponding pill.
+            el('div', { className:'smart-pills-labels' },
+              SMART_LABELS.map(s => el('span', {
+                key: s.lvl,
+                className: smartness === s.lvl ? 'on' : '',
+                title: s.desc,
+              }, s.name)),
             ),
             smartness >= 4 && el('div', { className:'smart-warn' },
               '⚠ ' + cur.name + ' mode adds ~3-6 seconds to the session start while ' + (smartness === 5 ? '4' : '3') + ' brains research the motion in parallel.'
@@ -2989,11 +3174,16 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         error && (errorKind === 'quota'
           ? el('div', { className:'notice error', style:{ display:'flex', flexDirection:'column', gap:'10px', alignItems:'flex-start' } },
               el('div', { style:{ fontWeight:700 } }, error),
+              // /app#casual drops into the lightweight casual chat (one
+              // motion, AI rebuts inline, no setup wizard) — much lower
+              // friction than /debate-ai's full round flow when the
+              // user is bouncing off a voice quota error and just wants
+              // to keep arguing in text.
               el('a', {
-                href:'/debate-ai',
+                href:'/app#casual',
                 className:'cta',
                 style:{ alignSelf:'stretch', textAlign:'center', textDecoration:'none', padding:'10px 18px' },
-              }, 'Switch to typed mode →'),
+              }, 'Switch to typed chat →'),
             )
           : el('div', { className:'notice error' }, error)
         ),
@@ -3014,7 +3204,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
               type:'button', className:'cta vg-cta',
               onClick: triggerGoogleSignIn,
             }, 'Sign in with Google'),
-            el('a', { href:'/debate-ai', className:'vg-fallback' }, 'or try typed mode (unmetered) →'),
+            el('a', { href:'/app#casual', className:'vg-fallback' }, 'or try casual typed chat (unmetered) →'),
           ) :
           voiceGate.state === 'upgrade' ? el('div', { className:'voice-gate' },
             el('div', { className:'vg-eyebrow' }, 'Free voice rounds used'),
@@ -3025,7 +3215,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             el('a', {
               href:'/pricing', className:'cta vg-cta',
             }, 'See Pro pricing →'),
-            el('a', { href:'/debate-ai', className:'vg-fallback' }, 'or keep going in typed mode →'),
+            el('a', { href:'/app#casual', className:'vg-fallback' }, 'or keep going in casual typed chat →'),
           ) :
           el(React.Fragment, null,
             el('button', {
@@ -3105,7 +3295,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             type:'button',
             className: 'mute-btn' + (muted ? ' on' : ''),
             onClick: ()=> setMuted(m => !m),
-            title: muted ? 'Unmute mic' : 'Mute mic (stops auto-interrupting the AI)',
+            title: muted ? 'Unmute mic (back to clash mode)' : 'Mute mic (AI keeps speaking in continuous monologue mode)',
             'aria-pressed': muted,
           }, muted ? 'Muted' : 'Mic on'),
           el('div', { className:'speed-ctl', title:'Adjusts AI delivery pace on the next turn (sends a pacing nudge to the model). Browser playback rate also nudges live audio where the OS allows it.' },
@@ -3133,7 +3323,53 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       ),
 
       el('div', { className:'card' },
-        el('h3', null, 'Live Transcript'),
+        // Live transcript header — same Copy / .txt action buttons as
+        // the post-debate card. Users sometimes want to capture a key
+        // exchange MID-ROUND (to share or to save before a connection
+        // hiccup wipes the state). Both buttons read from the same
+        // turnsRef the renderer reads from, so what you see is exactly
+        // what gets copied/downloaded.
+        el('div', {
+          style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:8,flexWrap:'wrap'},
+        },
+          el('h3', { style:{margin:0} }, 'Live Transcript'),
+          turns.filter(t => t.who !== 'system').length > 0 && el('div', {
+            style:{display:'flex',gap:8,alignItems:'center'},
+          },
+            el('button', {
+              type:'button',
+              className:'tx-btn',
+              onClick: ()=>{
+                const text = buildTranscriptText();
+                if (!text) return;
+                try {
+                  navigator.clipboard.writeText(text);
+                  setCopiedFlash(true);
+                  setTimeout(()=> setCopiedFlash(false), 1400);
+                } catch(e) {}
+              },
+              title:'Copy the transcript so far to clipboard',
+            }, copiedFlash ? '✓ Copied' : 'Copy'),
+            el('button', {
+              type:'button',
+              className:'tx-btn',
+              onClick: ()=>{
+                const text = buildTranscriptText();
+                if (!text) return;
+                const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'debate-transcript-' + new Date().toISOString().slice(0,10) + '.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(()=> URL.revokeObjectURL(url), 1000);
+              },
+              title:'Download the transcript so far as a .txt file',
+            }, '⬇ .txt'),
+          ),
+        ),
         el('div', { className:'transcript', ref: transcriptRef },
           turns.length === 0
             ? el('div', { style:{color:'#9b9bab',fontSize:'.86rem',padding:'30px 4px',textAlign:'center'} },
@@ -3252,7 +3488,51 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       ),
 
       el('div', { className:'card', style:{marginTop:14} },
-        el('h3', null, 'Transcript'),
+        // Transcript card header — title on the left, action buttons on
+        // the right. Copy / Download .txt let users capture the full
+        // round transcript without screenshotting the scroll. Both run
+        // off the same buildTranscriptText() so the formats match.
+        el('div', {
+          style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:8,flexWrap:'wrap'},
+        },
+          el('h3', { style:{margin:0} }, 'Transcript'),
+          turns.filter(t => t.who !== 'system').length > 0 && el('div', {
+            style:{display:'flex',gap:8,alignItems:'center'},
+          },
+            el('button', {
+              type:'button',
+              className:'tx-btn',
+              onClick: ()=>{
+                const text = buildTranscriptText();
+                if (!text) return;
+                try {
+                  navigator.clipboard.writeText(text);
+                  setCopiedFlash(true);
+                  setTimeout(()=> setCopiedFlash(false), 1400);
+                } catch(e) { /* clipboard blocked — fall through */ }
+              },
+              title:'Copy the full transcript to clipboard',
+            }, copiedFlash ? '✓ Copied' : 'Copy'),
+            el('button', {
+              type:'button',
+              className:'tx-btn',
+              onClick: ()=>{
+                const text = buildTranscriptText();
+                if (!text) return;
+                const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'debate-transcript-' + new Date().toISOString().slice(0,10) + '.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(()=> URL.revokeObjectURL(url), 1000);
+              },
+              title:'Download the full transcript as a .txt file',
+            }, '⬇ .txt'),
+          ),
+        ),
         el('div', { className:'transcript', ref: transcriptRef },
           turns.filter(t => t.who !== 'system').length === 0
             ? el('div', { style:{color:'#5a5a6a',fontSize:'.82rem',padding:'20px 4px',textAlign:'center'} }, 'No turns recorded.')

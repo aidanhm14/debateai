@@ -179,10 +179,25 @@ body{
   width:100%;max-width:480px;background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.08);border-radius:16px;
   padding:20px 22px;color:#f5f5f7;font-size:1rem;font-family:inherit;
-  outline:none;resize:none;transition:border-color .2s;line-height:1.5;
+  outline:none;transition:border-color .2s;line-height:1.5;
+  /* Vertical resize handle — users with long motions / extensive prep
+     notes need room to write. min-height keeps the input visually
+     anchored, max-height stops a runaway drag from pushing the page
+     into nonsense. The handle appears in the bottom-right corner of
+     the textarea automatically (browser default for resize:vertical). */
+  resize:vertical;
+  min-height:64px;
+  max-height:80vh;
 }
 .float-input:focus{border-color:rgba(239,68,68,.4)}
 .float-input::placeholder{color:rgba(255,255,255,.2)}
+/* Style the resize grip so it matches the dark theme. WebKit only —
+   Firefox uses a built-in indicator that respects the surrounding
+   color so it already blends. */
+.float-input::-webkit-resizer{
+  background:linear-gradient(135deg, transparent 50%, rgba(239,68,68,.4) 50%);
+  border-bottom-right-radius:14px;
+}
 
 /* ── Pills ─────────────────────────── */
 .pills{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap;max-width:780px;margin-left:auto;margin-right:auto}
@@ -260,8 +275,14 @@ body{
 }
 .round-panel-close:hover{background:rgba(255,255,255,.06);color:var(--c-text)}
 .round-panel-textarea{
-  flex:1;min-height:180px;resize:none;width:100%;
+  flex:1;min-height:180px;width:100%;
   font-size:.82rem;line-height:1.5;padding:8px 10px;
+  /* Resize allowed inside the side panel too — overrides the
+     resize:none that previously locked this textarea to 180px tall.
+     max-height capped to the panel's height so dragging doesn't
+     overflow the surrounding card layout. */
+  resize:vertical;
+  max-height:70vh;
 }
 .round-panel-body{
   flex:1;overflow-y:auto;font-size:.78rem;line-height:1.5;
@@ -755,9 +776,7 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
      topbar 2026-05-10 — scoped to /debate-ai only so the topbar stays
      brand-clean elsewhere. Writes `da-theme` (global) and
      `debateos-lighting` (page-local) in lockstep so the two color
-     systems can't disagree on the next paint. Reloads on change so
-     ui.css token cascade + React's data-lighting effect both settle
-     from a clean slate (same pattern as landing.html). -->
+     systems can't disagree on the next paint. -->
 <div class="dai-theme-dots" role="group" aria-label="Theme">
   <button type="button" class="theme-dot" data-t="grey"    aria-label="Grey theme"    title="Grey"></button>
   <button type="button" class="theme-dot" data-t="crimson" aria-label="Crimson theme" title="Crimson"></button>
@@ -776,8 +795,7 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   // Swap in place — no reload. The page reads color from
   // [data-theme] / [data-lighting] attributes at runtime, so updating
   // the attrs is enough; ui.css tokens recascade and the page-local
-  // [data-lighting="light"] block fires immediately. Skipping reload
-  // also kills any reload-induced audio side effects.
+  // [data-lighting="light"] block fires immediately.
   dots.forEach(function(dot){
     dot.addEventListener('click', function(){
       var t = dot.getAttribute('data-t');
@@ -790,14 +808,95 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
       html.setAttribute('data-theme', t);
       html.setAttribute('data-lighting', lighting);
       sync(t);
-      // Drop the button focus immediately so no native focus ring lingers.
       try { dot.blur(); } catch(e){}
     });
   });
 })();
 </script>
 
-<div id="root"></div>
+<!-- App root + recovery fallback. If the React bundle below fails to
+     mount within 6s (stale SW cache, blocked CDN, JS exception in the
+     babel transpile), swap the placeholder for an actionable recovery
+     card so users never see a silently blank page. The placeholder is
+     replaced by ReactDOM.createRoot the moment App() returns its first
+     element, so the success path costs zero perceptible delay. -->
+<div id="root">
+  <div id="da-boot-placeholder" style="
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;padding:48px 24px;
+    color:rgba(255,255,255,.55);font:500 .95rem/1.5 system-ui,sans-serif;
+    text-align:center;background:#06060c;z-index:1
+  ">
+    <div style="
+      width:44px;height:44px;border-radius:50%;
+      border:2px solid rgba(239,68,68,.25);border-top-color:#ef4444;
+      animation:da-spin 0.9s linear infinite;
+    "></div>
+    <div>Loading the round engine…</div>
+    <div id="da-boot-stuck" style="display:none;max-width:380px;margin-top:6px">
+      <p style="color:#fca5a5;font-weight:700;margin-bottom:8px">Something's stuck.</p>
+      <p style="color:rgba(255,255,255,.5);font-size:.84rem;margin-bottom:14px">
+        The app didn't mount. Usually a stale cache. Hard-refresh below to recover.
+      </p>
+      <button id="da-boot-recover" type="button" style="
+        background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:999px;
+        font-weight:700;font-size:.85rem;cursor:pointer;font-family:inherit
+      ">Hard reload</button>
+    </div>
+    <style>@keyframes da-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}</style>
+  </div>
+</div>
+<script>
+  // Recovery wiring — fires the "Hard reload" path that wipes the SW
+  // and asks for a fresh navigation. Runs OUTSIDE the babel block so
+  // even a babel-syntax error still leaves us with a working button.
+  (function(){
+    var STUCK_MS = 6000;
+    var stuckTimer = setTimeout(function(){
+      var stuck = document.getElementById('da-boot-stuck');
+      if (stuck) stuck.style.display = 'block';
+    }, STUCK_MS);
+    var ro = new MutationObserver(function(){
+      var p = document.getElementById('da-boot-placeholder');
+      if (!p) {
+        clearTimeout(stuckTimer);
+        ro.disconnect();
+      }
+    });
+    var rootEl = document.getElementById('root');
+    if (rootEl) ro.observe(rootEl, { childList: true });
+    document.addEventListener('click', function(e){
+      if (e.target && e.target.id === 'da-boot-recover') {
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(rs){
+              rs.forEach(function(r){ try{ r.unregister(); }catch(e){} });
+            });
+          }
+          if (window.caches && caches.keys) {
+            caches.keys().then(function(ks){
+              ks.forEach(function(k){ try{ caches.delete(k); }catch(e){} });
+            });
+          }
+        } catch(e){}
+        setTimeout(function(){ location.reload(); }, 250);
+      }
+    });
+    window.addEventListener('error', function(ev){
+      var p = document.getElementById('da-boot-placeholder');
+      if (!p) return;
+      var stuck = document.getElementById('da-boot-stuck');
+      if (stuck) {
+        stuck.style.display = 'block';
+        var msg = ev && ev.message ? ev.message : 'Unknown error';
+        var detail = document.createElement('div');
+        detail.style.cssText = 'margin-top:10px;font-size:.7rem;color:rgba(255,255,255,.35);font-family:monospace;word-break:break-word';
+        detail.textContent = msg.slice(0, 200);
+        stuck.appendChild(detail);
+      }
+    });
+  })();
+</script>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 const el = React.createElement;
@@ -3278,7 +3377,17 @@ After your plan, write ONLY the speech text. No plan tags, no markdown, no stage
 
 ${DEBATE_VOICE_GUIDELINES}
 
-CRITICAL. WORD COUNT IS MANDATORY: This speech MUST be approximately ${targetWordCount||Math.floor(speech.time/60)*170} words. This is a ${Math.floor(speech.time/60)}-minute speech at the user's chosen speed.${targetWordCount>Math.floor(speech.time/60)*200?` The user chose HIGH SPEED (${targetWordCount} words in ${Math.floor(speech.time/60)} min). You MUST write significantly more content than a normal-speed speech. Pack in more arguments, more warrants, denser analysis. Every sentence must earn its place.`:targetWordCount<Math.floor(speech.time/60)*150?` The user chose SLOW SPEED (${targetWordCount} words in ${Math.floor(speech.time/60)} min). Write fewer, more deliberate arguments. Go deeper on each point rather than covering more ground.`:''} Count your words. If you are far under ${targetWordCount} words, you are speaking too slowly for the time. If far over, you are going too long. Aim for ±10% of ${targetWordCount} words.
+CRITICAL. WORD COUNT FLOOR (NON-NEGOTIABLE): This speech MUST be AT LEAST ${Math.round((targetWordCount||Math.floor(speech.time/60)*170)*0.92)} words and TARGET ${targetWordCount||Math.floor(speech.time/60)*170} words. This is a ${Math.floor(speech.time/60)}-minute speech at the user's chosen speed.${targetWordCount>Math.floor(speech.time/60)*200?` The user chose HIGH SPEED (${targetWordCount} words in ${Math.floor(speech.time/60)} min). You MUST write significantly more content than a normal-speed speech. Pack in more arguments, more warrants, denser analysis. Every sentence must earn its place.`:targetWordCount<Math.floor(speech.time/60)*150?` The user chose SLOW SPEED (${targetWordCount} words in ${Math.floor(speech.time/60)} min). Write fewer, more deliberate arguments. Go deeper on each point rather than covering more ground.`:''}
+
+THE #1 FAILURE MODE TO AVOID is delivering a speech that runs short. LLMs default to concise; debaters use every second. If your draft is under ${Math.round((targetWordCount||Math.floor(speech.time/60)*170)*0.92)} words, you are NOT done — keep building. Specifically, if you're short:
+- Add a third or fourth contention. Real constructives at this length carry 3-4 substantive arguments, not 2.
+- Deepen each warrant chain by one more inferential step (mechanism → second-order effect → who specifically gets hurt → why that's the round-deciding harm).
+- Add a named example, a real number, a specific actor under each argument — vague claims compress, concrete ones expand naturally without padding.
+- For rebuttals: take ONE more clash and walk through it line-by-line ("On their X argument: their warrant is Y. But Y assumes Z. Z fails because...").
+- For prep-time speeches (LOR, PMR, GW, OW, replies): expand the framing layer, then explicitly weigh against TWO of their voters instead of one.
+NEVER end a speech early just because you've made your point. The judge expects you to use the full clock. Padding is bad; under-running is worse — you're trading airtime for nothing.
+
+Count your words before you finish. Aim for ${targetWordCount||Math.floor(speech.time/60)*170} ±10%. Hard floor: ${Math.round((targetWordCount||Math.floor(speech.time/60)*170)*0.92)} words. Hard ceiling: ${Math.round((targetWordCount||Math.floor(speech.time/60)*170)*1.10)} words.
 
 CASE STRUCTURE. YOU MUST FOLLOW THIS EXACT ARCHITECTURE (spoken aloud, no markdown):
 
@@ -4427,7 +4536,12 @@ function App(){
   // Start debate
   const startDebate=()=>{
     if(!motion.trim())return;
-    SFX.startRound();warmUpTTS();
+    // SFX/TTS warmup is decorative — wrap in try/catch so a missing
+    // method (e.g. the historic /js/sfx.js collision where window.SFX
+    // got overwritten and lost startRound) can't take down the entire
+    // round-start flow. The round MUST start regardless of audio.
+    try { if (SFX && typeof SFX.startRound === 'function') SFX.startRound(); } catch(e) { console.warn('[startDebate] SFX failed:', e); }
+    try { warmUpTTS(); } catch(e) { console.warn('[startDebate] TTS warmup failed:', e); }
     if(typeof gtag==='function')gtag('event','round_start',{format:fmt.name,side,motion_length:motion.length});
     // First-round prep cut. The default Quick Clash prep is 120s
     // which is fine for a returning debater warming up but is a
@@ -4467,12 +4581,13 @@ function App(){
   };
 
   // Skip prep → first speech
-  const goToSpeeches=()=>{SFX.click();
+  const goToSpeeches=()=>{
+    try { if (SFX && typeof SFX.click === 'function') SFX.click(); } catch(e){}
     // Lazy background autogen: only fire if the user is actually entering
     // speeches (not at startDebate, which they might cancel during prep).
     // Saves a Claude call per round when users abort during prep.
     ensureBackground(motion);
-    warmUpTTS();
+    try { warmUpTTS(); } catch(e){}
     prepTimer.reset();
     transition('speech',()=>{setIdx(0);setLog([]);setTimeout(()=>runSpeech(0,[]),400)});
   };
@@ -4515,7 +4630,15 @@ function App(){
     } else {
       // AI turn. overlapped: start fetching audio for first half while still generating text
       orb.setMode('ai');setAiLoading(true);setAiText('');setAiPct(0);
-      const stopThinking=SFX.thinking();
+      // Defensive: SFX.thinking() returns a stop function. If SFX is
+      // missing the method (the historic /js/sfx.js collision bug),
+      // fall back to a no-op so the AI turn still runs.
+      var stopThinking = (function(){
+        try {
+          if (SFX && typeof SFX.thinking === 'function') return SFX.thinking() || function(){};
+        } catch(e){}
+        return function(){};
+      })();
       try{
         // Match the LLM's word budget to the user's chosen wpm directly,
         // and ask TTS to play that text at the same wpm. Previously we
@@ -4662,7 +4785,7 @@ function App(){
 
         // If no chunks were created at all, fallback to single-shot
         if(!playbackStarted){
-          SFX.ready();
+          try { if (SFX && typeof SFX.ready === 'function') SFX.ready(); } catch(e){}
           setAiLoading('voice');
           tts.speak(txt,wpm,()=>{orb.setMode('idle');setTimeout(()=>endSpeech(),800)},voice,onAudioStart);
         }
@@ -6898,23 +7021,28 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           el('button',{className:'cta-ghost speech-btn',onClick:()=>endSpeech()},isUser?'End Speech →':'Skip →'),
         ),
 
-        // In-round tools. notes, flow, saved cases, plus an in-round
-        // "Save case" shortcut so the user doesn't have to wait for the
-        // feedback page (which only shows after the entire round ends).
-        // Save is gated on at least one AI speech being in the log , 
-        // saving an empty round would silently no-op and leave the user
-        // wondering why nothing landed in their library.
-        (()=>{const aiSpeechCount=log.filter(l=>l.who==='AI').length;return el('div',{className:'row-c',style:{gap:6,marginTop:8,flexWrap:'wrap'}},
-          el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='notes'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='notes'?null:'notes')},'Notes'),
-          el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='flow'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='flow'?null:'flow')},'Flow'),
-          savedCases.length>0&&el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='cases'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='cases'?null:'cases')},'Cases'),
-          aiSpeechCount>0 && el('button',{
-            className:'cta-ghost',
-            style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,...(caseSaved?{background:'rgba(34,197,94,.15)',borderColor:'#22c55e',color:'#22c55e'}:{})},
-            onClick:()=>saveCase(),
-            title:'Save the AI\'s '+aiSpeechCount+' speech'+(aiSpeechCount===1?'':'es')+' so far to your case library',
-          },caseSaved?'✓ Saved':'★ Save case'),
-        )})(),
+        // In-round tools. Notes + Flow buttons used to live here too
+        // but were dropped 2026-05-10: the speech-screen view is the
+        // wrong moment to nudge a user to open a notes panel — they're
+        // mid-speech, talking to the orb, and the floating pills under
+        // End Speech read as visual clutter. Notes/Flow stay reachable
+        // via the prep screen; in-speech the user just talks. Saved
+        // Cases + the in-round "Save case" shortcut do still belong
+        // here (post-AI-turn capture is a load-bearing flow), but the
+        // whole row is hidden when there's nothing to show.
+        (()=>{
+          const aiSpeechCount=log.filter(l=>l.who==='AI').length;
+          if (savedCases.length === 0 && aiSpeechCount === 0) return null;
+          return el('div',{className:'row-c',style:{gap:6,marginTop:8,flexWrap:'wrap'}},
+            savedCases.length>0&&el('button',{className:'cta-ghost',style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,opacity:showRoundPanel==='cases'?.9:.4},onClick:()=>setShowRoundPanel(showRoundPanel==='cases'?null:'cases')},'Cases'),
+            aiSpeechCount>0 && el('button',{
+              className:'cta-ghost',
+              style:{padding:'6px 14px',fontSize:'.68rem',marginTop:0,...(caseSaved?{background:'rgba(34,197,94,.15)',borderColor:'#22c55e',color:'#22c55e'}:{})},
+              onClick:()=>saveCase(),
+              title:'Save the AI\'s '+aiSpeechCount+' speech'+(aiSpeechCount===1?'':'es')+' so far to your case library',
+            },caseSaved?'✓ Saved':'★ Save case'),
+          );
+        })(),
 
         // In-round side panel. Renders as a fixed slide-in from the right
         // on tablet+ screens so the panel doesn't push the orb / timer

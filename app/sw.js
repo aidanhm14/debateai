@@ -3,7 +3,7 @@
 // removed from Other; the 4-tier pricing gate; BYOK "Claude only" error).
 // Without this bump, users on v9 kept seeing the old dropdown with only
 // 8 items and the old 3-card pricing panel.
-const CACHE_NAME = 'debateos-v125';
+const CACHE_NAME = 'debateos-v126';
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
@@ -53,18 +53,31 @@ function shouldCache(response) {
   return response && response.ok && (response.type === 'basic' || response.type === 'cors');
 }
 
+// Cache only http(s) requests. Defense-in-depth so a future caller path
+// can't bypass the protocol guard at the top of the fetch handler.
+function isCacheableRequest(request) {
+  if (!request || !request.url) return false;
+  return request.url.indexOf('http:') === 0 || request.url.indexOf('https:') === 0;
+}
+
 // Fetch handler
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Bail on non-http(s) schemes. The Cache API rejects requests with
-  // schemes like chrome-extension:, moz-extension:, safari-extension:,
-  // data:, blob:, etc. — and a few popular Chrome extensions
-  // (Apollo, ChromePolyfill, etc.) issue chrome-extension:// fetches
-  // through page contexts. Without this gate, every such request floods
-  // the console with "Request scheme 'chrome-extension' is unsupported"
-  // and breaks the SW promise chain.
+  // ── HARD GUARD: only ever intercept http(s) ─────────────────────
+  // Browser extensions (Grammarly, password managers, ad blockers,
+  // ChatGPT helpers, Apollo, ChromePolyfill, etc.) inject content
+  // scripts that surface here as chrome-extension:// (Chrome / Edge),
+  // moz-extension:// (Firefox), or safari-extension:// (Safari). We
+  // were calling event.respondWith on those, then cache.put(request,
+  // ...) — which throws synchronously with "Failed to execute 'put'
+  // on 'Cache': Request scheme '...' is unsupported" because Cache
+  // only accepts http(s). Each failure surfaces as an unhandled
+  // promise rejection; with a chatty extension installed the console
+  // fills with 100+ errors per page load. Same applies to data:,
+  // blob:, file:. Returning without calling event.respondWith() lets
+  // the browser handle natively.
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return;
   }
@@ -86,9 +99,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (shouldCache(response)) {
+          if (shouldCache(response) && isCacheableRequest(request)) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(()=>{});
           }
           return response;
         })
@@ -128,9 +141,9 @@ self.addEventListener('fetch', (event) => {
         (cached) =>
           cached ||
           fetch(request).then((response) => {
-            if (shouldCache(response)) {
+            if (shouldCache(response) && isCacheableRequest(request)) {
               const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(()=>{});
             }
             return response;
           })
@@ -143,9 +156,9 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (shouldCache(response)) {
+        if (shouldCache(response) && isCacheableRequest(request)) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(()=>{});
         }
         return response;
       })
