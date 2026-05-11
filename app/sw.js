@@ -3,7 +3,7 @@
 // removed from Other; the 4-tier pricing gate; BYOK "Claude only" error).
 // Without this bump, users on v9 kept seeing the old dropdown with only
 // 8 items and the old 3-card pricing panel.
-const CACHE_NAME = 'debateos-v129';
+const CACHE_NAME = 'debateos-v130';
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
