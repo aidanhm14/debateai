@@ -64,16 +64,21 @@ mb = draw.textbbox((0, 0), "D", font=mark_font)
 mw, mh = mb[2] - mb[0], mb[3] - mb[1]
 draw.text((72 + (112 - mw) / 2 - mb[0], 72 + (112 - mh) / 2 - mb[1] - 6), "D", font=mark_font, fill=RED)
 
-wordmark = font(118, "black")
-debate_w = draw.textbbox((0, 0), "Debate ", font=wordmark)[2]
-draw.text((72, 232), "Debate ", font=wordmark, fill=WHITE)
-draw.text((72 + debate_w, 232), "AI", font=wordmark, fill=RED)
+brand = font(46, "black")
+brand_w = draw.textbbox((0, 0), "Debate ", font=brand)[2]
+draw.text((72, 232), "Debate ", font=brand, fill=WHITE)
+draw.text((72 + brand_w, 232), "AI", font=brand, fill=RED)
 
-tagline = font(40, "bold")
-draw.text((76, 380), "Live debates. Judged by AI.", font=tagline, fill=DIM)
+tagline = font(78, "black")
+draw.text((72, 296), "Most AI agrees.", font=tagline, fill=WHITE)
+contrast_y = 384
+prefix = "This one "
+prefix_w = draw.textbbox((0, 0), prefix, font=tagline)[2]
+draw.text((72, contrast_y), prefix, font=tagline, fill=WHITE)
+draw.text((72 + prefix_w, contrast_y), "argues.", font=tagline, fill=RED)
 
-sub = font(26, "regular")
-draw.text((76, 442), "Spar a format-accurate AI opponent. Get a tournament-grade ballot.", font=sub, fill=GHOST)
+sub = font(30, "bold")
+draw.text((72, 484), "Find the hole in your case before the round does.", font=sub, fill=DIM)
 
 chip_font = font(22, "bold")
 chips = ["WSDC", "BP", "APDA", "Policy", "LD", "PF", "Congress", "MUN"]
