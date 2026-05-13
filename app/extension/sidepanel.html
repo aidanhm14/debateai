@@ -216,6 +216,19 @@
     color: #fff;
     box-shadow: inset 0 0 0 1px rgba(229, 69, 69, 0.2);
   }
+  /* Ghost variant for the persona "More / Show less" toggle. Reads
+     as an affordance, not an option — borderless until hover. */
+  .chip--ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .chip--ghost:hover {
+    background: var(--chip);
+    border-color: var(--line);
+    color: var(--fg);
+  }
   .chip__sub {
     font-size: 10px;
     color: var(--muted);
@@ -381,6 +394,103 @@
     padding: 0 2px;
     line-height: 1.5;
   }
+
+  /* Quick-start chips. Render below the topic field when it's empty;
+     one click fills the field. Topic-specific — mix of viva-style
+     academic prompts (Indian board / IIT slant per soul.md §8) and
+     classic debate motions so first-time users see what Counter can
+     drill on without staring at an empty textarea. */
+  .quickstart {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: -4px;
+  }
+  .quickstart__label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .quickstart__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .quickstart__chip {
+    appearance: none;
+    background: var(--bg-elev);
+    border: 1px solid var(--line-soft);
+    color: var(--fg-soft);
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+    text-align: left;
+    line-height: 1.3;
+    max-width: 100%;
+  }
+  .quickstart__chip:hover {
+    background: var(--bg-elev-2);
+    border-color: var(--line);
+    color: var(--fg);
+  }
+  .quickstart__tag {
+    color: var(--crimson);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-right: 5px;
+    opacity: 0.85;
+  }
+
+  /* Failed-drill recovery strip. Sticky inline notice that survives
+     the toast fade so the user can re-attempt without typing again.
+     Appears under the topic field, dismisses on click or on next
+     drill success. */
+  .retry-strip {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #fde68a;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+  .retry-strip.is-shown { display: flex; }
+  .retry-strip__msg { flex: 1; }
+  .retry-strip__cta {
+    appearance: none;
+    background: rgba(245, 158, 11, 0.18);
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    color: #fff;
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .retry-strip__cta:hover { background: rgba(245, 158, 11, 0.28); }
+  .retry-strip__close {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: rgba(253, 230, 138, 0.6);
+    font-size: 14px;
+    line-height: 1;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+  }
+  .retry-strip__close:hover { color: #fff; }
 
   /* Onboarding card. Visible only when the user has no recent drills —
      gives the three discoverable entry points (chip on selection,
@@ -643,6 +753,17 @@
             </div>
             <span class="topic-meta__count" id="topicCount">0 / 900</span>
           </div>
+        </div>
+
+        <div class="quickstart" id="quickstartBlock">
+          <span class="quickstart__label">Try one</span>
+          <div class="quickstart__chips" id="quickstartChips"></div>
+        </div>
+
+        <div class="retry-strip" id="retryStrip" role="status">
+          <span class="retry-strip__msg" id="retryStripMsg">Last drill didn't start. Mic was likely blocked.</span>
+          <button class="retry-strip__cta" id="retryStripBtn" type="button">Try again</button>
+          <button class="retry-strip__close" id="retryStripClose" type="button" aria-label="Dismiss">×</button>
         </div>
       </div>
 

@@ -77,15 +77,23 @@ const MODES = [
   { key: 'apda',       label: 'Full Round',  desc: 'Open + rebut + close' },
 ];
 
-// Personas the user can flip between from the chip row. Subset of the
-// app's full PERSONALITIES list, chosen to cover the most common Counter
-// archetypes. Keys MUST match the app's persona keys.
+// All 9 personas from app/voice-debate.html's PERSONALITIES. First 4
+// render by default; the rest unfurl behind a "More" toggle so the
+// setup card stays compact while still giving access to the full bench.
+// Keys MUST match the app's persona keys (renderChips sends them
+// verbatim to the iframe bridge, which calls setPersonaKey).
 const PERSONAS = [
-  { key: 'examiner', label: 'Dr. Iyer',      desc: 'Examiner (default)' },
-  { key: 'verse',    label: 'Cassidy Vale',  desc: 'All-rounder' },
-  { key: 'ash',      label: 'Marcus Crane',  desc: 'Prosecutor' },
-  { key: 'coral',    label: 'Priya Reddi',   desc: 'Quick wit' },
+  { key: 'examiner', label: 'Dr. Iyer',         desc: 'Examiner (default)' },
+  { key: 'verse',    label: 'Cassidy Vale',     desc: 'All-rounder' },
+  { key: 'ash',      label: 'Marcus Crane',     desc: 'Prosecutor' },
+  { key: 'coral',    label: 'Priya Reddi',      desc: 'Quick wit' },
+  { key: 'sage',     label: 'Dr. Eleanor Voss', desc: 'Philosopher' },
+  { key: 'echo',     label: 'Maya Chen',        desc: 'Closer' },
+  { key: 'alloy',    label: 'Theo Alvarez',     desc: 'Veteran' },
+  { key: 'shimmer',  label: 'Aisha Khan',       desc: 'Diplomat' },
+  { key: 'ballad',   label: 'Rosa Lopez',       desc: 'Storyteller' },
 ];
+const PERSONA_PRIMARY_COUNT = 4;
 const DEFAULT_MODE = 'crossex';
 const DEFAULT_PERSONA = 'examiner';
 
@@ -113,7 +121,23 @@ const els = {
   errShade: document.getElementById('errShade'),
   retryBtn: document.getElementById('retry'),
   toast: document.getElementById('toast'),
+  quickstartBlock: document.getElementById('quickstartBlock'),
+  quickstartChips: document.getElementById('quickstartChips'),
+  retryStrip: document.getElementById('retryStrip'),
+  retryStripMsg: document.getElementById('retryStripMsg'),
+  retryStripBtn: document.getElementById('retryStripBtn'),
+  retryStripClose: document.getElementById('retryStripClose'),
 };
+
+// Quick-start prompts. Mixed slate so a first-time user sees both
+// academic-viva (CBSE/ICSE/IIT/JEE) and debate-motion shape — Counter
+// drills either. Tags front-load category so the chip reads fast.
+const QUICKSTART_PROMPTS = [
+  { tag: 'Bio',     text: 'Mitochondria — role in cellular apoptosis.' },
+  { tag: 'Lit',     text: 'Hamlet\'s delay — psychological vs. moral reading.' },
+  { tag: 'Physics', text: 'Newton\'s third law applied to rocket propulsion.' },
+  { tag: 'Motion',  text: 'India should make voting compulsory.' },
+];
 
 const state = {
   mode: DEFAULT_MODE,
@@ -121,6 +145,13 @@ const state = {
   topic: '',
   drilling: false,
   frameReady: false,
+  // Persona-expander state. Stays collapsed by default; auto-expands
+  // (one-shot) if the user's stored persona pick lives in the hidden
+  // tail so they don't see "selected" reflected as missing.
+  personasExpanded: false,
+  // Last drill's failure mode — drives the sticky retry strip below
+  // the topic field when a session bailed before going live.
+  lastDrillFailed: false,
 };
 
 // Anything we want to post before the iframe handshake completes.
@@ -154,6 +185,7 @@ window.addEventListener('message', (ev) => {
   }
   if (t === 'debateai-ext-live') {
     setDrilling(true);
+    hideRetryStrip();
     try { chrome.runtime.sendMessage({ type: 'drill-started' }); } catch (_) {}
     recordRecent({
       topic: state.topic.slice(0, 200),
@@ -194,10 +226,11 @@ window.addEventListener('message', (ev) => {
         showToast('Drill ended.');
       }
     } else {
-      // Failed before going live — surface a friendlier nudge than the
-      // iframe's own raw error string. The iframe's error UI is still
-      // visible behind us if the user reopens the panel.
+      // Failed before going live. The toast is transient; the sticky
+      // retry strip survives so the user can re-attempt without
+      // re-entering the topic.
       showToast('Drill didn\'t start. Check the mic prompt and try again.');
+      showRetryStrip('Last drill didn\'t go live. Mic was likely blocked, or the page lost focus mid-prompt.');
     }
     return;
   }
@@ -280,6 +313,37 @@ function renderChips(host, items, currentKey, onPick) {
   });
 }
 
+function renderPersonaChips() {
+  if (!els.personaChips) return;
+  // Always show the primary 4 + the user's pick if it lives in the
+  // hidden tail (so the "is-on" chip is never invisible).
+  const primary = PERSONAS.slice(0, PERSONA_PRIMARY_COUNT);
+  const hidden = PERSONAS.slice(PERSONA_PRIMARY_COUNT);
+  const pickedHidden = hidden.find((p) => p.key === state.persona);
+  const visible = state.personasExpanded
+    ? PERSONAS
+    : pickedHidden
+      ? [...primary, pickedHidden]
+      : primary;
+  renderChips(els.personaChips, visible, state.persona, setPersona);
+  // Append a More/Less toggle as the last chip in the row.
+  const extras = hidden.length - (pickedHidden && !state.personasExpanded ? 1 : 0);
+  if (extras > 0 || state.personasExpanded) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'chip chip--ghost';
+    more.setAttribute('aria-expanded', state.personasExpanded ? 'true' : 'false');
+    more.textContent = state.personasExpanded
+      ? 'Show less'
+      : `More · +${extras}`;
+    more.addEventListener('click', () => {
+      state.personasExpanded = !state.personasExpanded;
+      renderPersonaChips();
+    });
+    els.personaChips.appendChild(more);
+  }
+}
+
 function setMode(key) {
   if (!MODES.some((m) => m.key === key)) return;
   state.mode = key;
@@ -292,7 +356,7 @@ function setPersona(key) {
   if (!PERSONAS.some((p) => p.key === key)) return;
   state.persona = key;
   saveLocal(STORAGE_KEYS.persona, key);
-  renderChips(els.personaChips, PERSONAS, state.persona, setPersona);
+  renderPersonaChips();
   sendToIframe({ persona: key });
 }
 
@@ -321,7 +385,50 @@ function updateStartButton() {
       els.startSub.textContent = isMac ? '⌘⇧D anywhere' : 'Ctrl+Shift+D';
     }
   }
+  // Quick-start chips: only visible when topic is empty AND we're not
+  // mid-drill. Once the user has something to drill on, they don't need
+  // sample prompts in the way.
+  if (els.quickstartBlock) {
+    els.quickstartBlock.hidden = hasTopic;
+  }
 }
+
+function renderQuickstart() {
+  const host = els.quickstartChips;
+  if (!host) return;
+  host.innerHTML = '';
+  QUICKSTART_PROMPTS.forEach((p) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'quickstart__chip';
+    btn.title = p.text;
+    btn.innerHTML =
+      `<span class="quickstart__tag">${escapeHtml(p.tag)}</span>` +
+      escapeHtml(p.text);
+    btn.addEventListener('click', () => {
+      setTopic(p.text);
+      els.topicField?.focus();
+    });
+    host.appendChild(btn);
+  });
+}
+
+// ── Retry strip (failed drill recovery) ────────────────────────────
+function showRetryStrip(msg) {
+  if (!els.retryStrip) return;
+  state.lastDrillFailed = true;
+  if (msg && els.retryStripMsg) els.retryStripMsg.textContent = msg;
+  els.retryStrip.classList.add('is-shown');
+}
+function hideRetryStrip() {
+  state.lastDrillFailed = false;
+  els.retryStrip?.classList.remove('is-shown');
+}
+els.retryStripBtn?.addEventListener('click', () => {
+  hideRetryStrip();
+  els.startBtn?.click();
+});
+els.retryStripClose?.addEventListener('click', () => hideRetryStrip());
 
 els.topicField?.addEventListener('input', (ev) => {
   state.topic = ev.target.value;
@@ -553,7 +660,8 @@ function escapeHtml(s) {
   if (savedPersona && PERSONAS.some((p) => p.key === savedPersona)) state.persona = savedPersona;
 
   renderChips(els.modeChips, MODES, state.mode, setMode);
-  renderChips(els.personaChips, PERSONAS, state.persona, setPersona);
+  renderPersonaChips();
+  renderQuickstart();
   updateTopicCount();
   updateStartButton();
   renderRecent();
