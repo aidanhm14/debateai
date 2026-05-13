@@ -358,35 +358,56 @@
         }
         slot.style.display = 'inline-flex';
         slot.style.alignItems = 'center';
-        slot.style.gap = '8px';
+        slot.style.gap = '10px';
         slot.style.fontSize = '.72rem';
         slot.style.color = 'var(--text-dim)';
         var first = ((u.displayName || u.email || '').split(/\s+/)[0]) || 'Account';
         slot.innerHTML = '';
-        // Name links to /profile so signed-in users have one obvious
-        // path to their dashboard (level / streak / achievements /
-        // settings). On the dashboard itself we collapse the link to
-        // a non-link span so we don't render "Profile → Profile".
+        // Name doubles as the entry point to /profile so every signed-in
+        // page surfaces a path to the dashboard. Pill chrome (rounded
+        // border, optional photo, hover highlight) signals it's
+        // clickable. On the /profile page itself we render a non-link
+        // span so we don't show a "you are here → here" dead link;
+        // the pill border switches to the accent to indicate "you're
+        // already on this page."
         var onProfile = /^\/profile/.test(here);
-        var name;
-        if (onProfile) {
-          name = document.createElement('span');
-          name.textContent = first;
+        var nameLink;
+        if (onProfile){
+          nameLink = document.createElement('span');
+          nameLink.style.cssText = 'color:var(--text);font-weight:700;font-size:.78rem;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid var(--accent);background:var(--bg-elev)';
         } else {
-          name = document.createElement('a');
-          name.href = '/profile';
-          name.textContent = first;
-          name.style.cssText = 'color:var(--text);text-decoration:none;font-weight:700;border-bottom:1px dotted var(--text-ghost);padding-bottom:1px';
-          name.title = 'Open your dashboard';
+          nameLink = document.createElement('a');
+          nameLink.href = '/profile';
+          nameLink.title = 'Open your dashboard';
+          nameLink.style.cssText = 'color:var(--text);text-decoration:none;font-weight:700;font-size:.78rem;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg-card,transparent);transition:background .15s,border-color .15s';
+          nameLink.addEventListener('mouseenter', function(){
+            nameLink.style.background = 'var(--bg-elev)';
+            nameLink.style.borderColor = 'var(--accent)';
+          });
+          nameLink.addEventListener('mouseleave', function(){
+            nameLink.style.background = 'var(--bg-card,transparent)';
+            nameLink.style.borderColor = 'var(--border)';
+          });
         }
+        if (u.photoURL){
+          var img = document.createElement('img');
+          img.src = u.photoURL;
+          img.alt = '';
+          img.referrerPolicy = 'no-referrer';
+          img.style.cssText = 'width:18px;height:18px;border-radius:50%;object-fit:cover';
+          nameLink.appendChild(img);
+        }
+        var nameText = document.createElement('span');
+        nameText.textContent = first;
+        nameLink.appendChild(nameText);
         var out = document.createElement('button');
         out.type = 'button';
         out.textContent = 'Sign out';
-        out.style.cssText = 'background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.7rem;padding:0';
+        out.style.cssText = 'background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.68rem;padding:0';
         out.addEventListener('click', function(){
           try { window.firebase.auth().signOut(); } catch(e){}
         });
-        slot.appendChild(name);
+        slot.appendChild(nameLink);
         slot.appendChild(out);
       });
     } catch(e){}
