@@ -5310,37 +5310,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     if(user&&firebaseDb){
       user.getIdToken().then(token=>{
         firebaseDb.collection('debate_rounds').doc(user.uid+'_'+round.id).set(round).catch(()=>{});
-        // Slim public leaderboard entry — denormalized so /leaderboard reads
-        // are cheap and don't need to scan the heavy debate_rounds collection.
-        // Only writes if we have a numeric speakerPoints.user (the rank metric).
-        // Display name is shortened to first name + last-initial to keep PII
-        // exposure minimal; users haven't opted into a full-name public board.
-        const userScore=sp&&typeof sp.user==='number'?sp.user:null;
-        if(userScore!=null){
-          const fullName=(user.displayName||'').trim();
-          const parts=fullName.split(/\s+/).filter(Boolean);
-          const shortName=parts.length>=2
-            ? `${parts[0]} ${parts[parts.length-1][0].toUpperCase()}.`
-            : (parts[0]||'Anonymous');
-          const entry={
-            uid:user.uid,
-            displayName:shortName,
-            score:userScore,
-            won:userWon===true,
-            // kind = 'ai' tags this as a beat-the-AI round (vs 'live' for
-            // human-vs-human). The /leaderboard page splits the board on
-            // this so the two ranks don't pollute each other.
-            kind:'ai',
-            motion:motion||'',
-            format,
-            formatName:(FORMATS[format]||FORMATS.apda).name,
-            side,
-            sideLabel:(FORMATS[format]||FORMATS.apda).sideLabels[side]||side,
-            completedAt:firebase.firestore.FieldValue.serverTimestamp(),
-            roundId:round.id,
-          };
-          firebaseDb.collection('leaderboard_entries').doc(user.uid+'_'+round.id).set(entry).catch(()=>{});
-        }
+        // Leaderboard write is intentionally OFF for the typed flow.
+        // Project rule (2026-05-13): the leaderboard ranks voice rounds
+        // only — typed rounds remain in the user's personal history
+        // (debate_rounds above) but never enter the public ranking.
+        // Speaker points from voice-debate.html's RFD are the only
+        // input to leaderboard_entries now.
       }).catch(()=>{});
     }
   };

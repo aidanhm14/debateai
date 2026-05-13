@@ -151,7 +151,12 @@
       displayName: handle,
       score: Number(score.toFixed(1)),
       won: isWin,
-      kind: view==='ai' ? 'ai' : 'live',
+      // Voice-only leaderboard rule (2026-05-13): the solo-vs-AI tab
+      // now reads kind:'voice' only. Seeds match so the seed pool
+      // doesn't render as "empty" the moment the filter changes.
+      // 'live' seeds are untouched — live human-vs-human is already
+      // voice-native.
+      kind: view==='ai' ? 'voice' : 'live',
       format: format.slug,
       formatName: format.name,
       completedAt,

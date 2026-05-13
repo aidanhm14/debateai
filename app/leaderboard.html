@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Leaderboard · Debate AI</title>
-<meta name="description" content="Top debaters on Debate AI, ranked by AI-judged speaker points across APDA, BP, PF, LD, Policy, Worlds and more." />
+<meta name="description" content="Voice-only leaderboard on Debate AI. Speaker points come from live voice rounds — typed rounds don't rank. Judged by the same AI ballot across APDA, BP, PF, LD, Policy, Worlds." />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://debateai.com/leaderboard">
 <meta property="og:type" content="website">
@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://debateai.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Leaderboard · Debate AI">
-<meta name="twitter:description" content="Top debaters on Debate AI, ranked by AI-judged speaker points across APDA, BP, PF, LD, Policy, Worlds and more.">
+<meta name="twitter:description" content="Voice-only leaderboard on Debate AI. Speaker points come from live voice rounds — typed rounds don't rank.">
 <meta name="twitter:image" content="https://debateai.com/og-image.png">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -167,6 +167,26 @@ button{font-family:inherit}
 .hero p{
   font-size:1.02rem;color:var(--text-dim);max-width:620px;
   margin:0 auto;line-height:1.55;
+}
+
+/* Voice-only rule strip. Sits under the hero copy so the rule is
+   visible on every board view — readers can't miss it on the way
+   to the tabs. */
+.rule-strip{
+  display:inline-flex;align-items:center;gap:8px;
+  margin:18px auto 0;padding:8px 14px;
+  background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.32);
+  border-radius:999px;
+  font-size:.82rem;color:var(--text-dim);
+  text-align:left;line-height:1.4;
+  max-width:680px;
+}
+.rule-strip strong{color:var(--text);font-weight:700;letter-spacing:.01em}
+.rule-strip__dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent);flex:0 0 auto;
+  box-shadow:0 0 0 3px rgba(239,68,68,.16);
 }
 
 /* ─── Tabs ─── */
@@ -361,14 +381,18 @@ button{font-family:inherit}
 </nav>
 
 <section class="hero">
-  <div class="hero-eyebrow">AI-Judged · Two Boards</div>
+  <div class="hero-eyebrow">Voice-Only · Two Boards</div>
   <h1>The <em>leaderboard.</em></h1>
-  <p>Two ranks: humans who beat each other live, and humans who beat the AI itself. Both judged by the same AI ballot. Names show however you set them on your account.</p>
+  <p>Two ranks: humans who beat each other in live voice rounds, and solo speakers ranked by judge speaker points. Both judged by the same AI ballot. Names show first name + last initial.</p>
+  <div class="rule-strip" role="note">
+    <span class="rule-strip__dot" aria-hidden="true"></span>
+    <span><strong>Voice only.</strong> Typed rounds stay in your history but never rank. Speaker points are spoken-ballot output from your last voice round.</span>
+  </div>
 </section>
 
 <div class="tabs" role="tablist">
-  <button class="tab active" data-view="live" role="tab" type="button">Online debaters</button>
-  <button class="tab" data-view="ai" role="tab" type="button">Beat the AI</button>
+  <button class="tab active" data-view="live" role="tab" type="button">Live voice</button>
+  <button class="tab" data-view="ai" role="tab" type="button">Solo voice</button>
 </div>
 
 <!-- Format filter pills. Populated client-side from the loaded
@@ -393,13 +417,13 @@ button{font-family:inherit}
 <aside class="signin-strip" id="signinStrip" hidden>
   <div class="copy">
     <h4>Claim your spot</h4>
-    <p>Sign in once and your AI-judged rounds automatically count toward the board. Your full Google name is never shown — only first name + last initial.</p>
+    <p>Sign in once and your voice rounds count automatically. Typed rounds stay in your history, but only voice speaker points feed the rank. Names show first name + last initial.</p>
   </div>
-  <a class="cta" href="/debate-ai" id="signinStripCta">Start a round →</a>
+  <a class="cta" href="/voice-debate" id="signinStripCta">Start a voice round →</a>
 </aside>
 
 <footer class="footer">
-  Ranks update at every completed round. <a href="/live">Debate humans live</a> · <a href="/debate-ai">Beat the AI</a> · <a href="/learn">Learn the formats</a>
+  Voice rounds only. <a href="/live">Debate humans live</a> · <a href="/voice-debate">Run a voice round</a> · <a href="/learn">Learn the formats</a>
 </footer>
 
 <script>
@@ -484,11 +508,11 @@ function renderRows(allRows){
     const filterClause=state.format?` for ${escapeHtml(state.format)}`:'';
     board.innerHTML=`
       <div class="state">
-        <h3>${liveTab?'No live rounds yet':'No AI wins yet'}${filterClause}</h3>
+        <h3>${liveTab?'No live voice rounds yet':'No solo voice rounds yet'}${filterClause}</h3>
         <p>${liveTab
-          ? 'Be the first to win a human-vs-human round. The same AI judge that scores AI rounds adjudicates the live debate. Speaker points become your rank.'
-          : 'Run a round against the AI and beat it on the ballot. Speaker points become your rank.'}</p>
-        <a class="cta" href="${liveTab?'/live':'/debate-ai'}">${liveTab?'Open the live board →':'Start a round →'}</a>
+          ? 'Be the first to land a live human-vs-human voice round. The same AI ballot scores both boards. Speaker points become your rank.'
+          : 'Speak through a voice round and let the judge score you on the RFD. Typed rounds don’t rank.'}</p>
+        <a class="cta" href="${liveTab?'/live':'/voice-debate'}">${liveTab?'Open the live board →':'Start a voice round →'}</a>
       </div>`;
     return;
   }
@@ -593,7 +617,10 @@ async function renderYourRank(){
         const filtered=applyFormatFilter(candidates).filter(r=>{
           // Match the same view-level filter used by loadView.
           if(state.view==='live') return r.kind==='live';
-          if(state.view==='ai') return r.won===true && r.kind!=='live';
+          // 'ai' is the legacy view key — the surface now reads voice-only
+          // entries (kind:'voice') written by voice-debate.html after RFD.
+          // Older kind:'ai' rows from the typed flow are no longer counted.
+          if(state.view==='ai') return r.kind==='voice';
           return true;
         });
         best=filtered[0]||null;
@@ -714,10 +741,15 @@ async function loadView(view){
       // If we hit the fallback path, filter client-side.
       rows=rows.filter(r=>r.kind==='live').slice(0,100);
     }else if(view==='ai'){
-      // Beat the AI: rounds where the user beat the AI directly.
+      // Solo voice: voice rounds vs the AI, ranked by RFD speaker
+      // points. Internal view key stays 'ai' for backward-compat with
+      // bookmarks, but the surface reads only kind:'voice' entries —
+      // the voice-only rule (2026-05-13) means typed rounds never
+      // appear here. Older kind:'ai' rows from debate-ai.html are
+      // ignored on read.
       rows=await loadWithFallback(
         db.collection('leaderboard_entries')
-          .where('won','==',true)
+          .where('kind','==','voice')
           .orderBy('score','desc')
           .limit(200),
         ()=>db.collection('leaderboard_entries')
@@ -725,7 +757,7 @@ async function loadView(view){
           .limit(500)
       );
       rows=rows
-        .filter(r=>r.won===true && r.kind!=='live')
+        .filter(r=>r.kind==='voice')
         .slice(0,100);
     }
     // Merge in the seeded persona pool so a brand-new viewer sees a
@@ -764,8 +796,10 @@ function updateSigninStripCta(view){
     cta.textContent='Open the live board →';
     cta.setAttribute('href','/live');
   }else{
-    cta.textContent='Start an AI round →';
-    cta.setAttribute('href','/debate-ai');
+    // Voice-only rule: solo board CTA goes to the voice round, not
+    // the typed flow.
+    cta.textContent='Start a voice round →';
+    cta.setAttribute('href','/voice-debate');
   }
 }
 

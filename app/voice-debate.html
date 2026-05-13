@@ -2963,8 +2963,11 @@ function App(){
 
 Format the RFD exactly as:
 
+SPEAKER POINTS: NN.N
+(a single number for the USER between 25.0 and 30.0 in 0.1 increments. 27.5 is a clean win. 28.5+ is national-circuit elite. 26.0 is below average. Never round to whole numbers — pick the tenth that fits. This score is the leaderboard rank; be honest, not generous.)
+
 DECISION
-(one line — who would win on the flow if this were a competitive round)
+(one line — who would win on the flow if this were a competitive round, "USER" or "AI")
 
 BEST MOMENT
 (1-2 sentences — name the specific exchange and why it landed)
@@ -3001,6 +3004,61 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       // the session where the user finds out how they did. Honors the
       // global mute via SFX.
       try { window.SFX && SFX.rfdReveal && SFX.rfdReveal(); } catch (sfxErr) { console.warn('[generateRFD] SFX skipped:', sfxErr); }
+
+      // ── Voice-only leaderboard write ──────────────────────────
+      // Project rule (2026-05-13): the leaderboard ranks ONLY voice
+      // rounds. Typed rounds (debate-ai.html) stay in the user's
+      // history but never write leaderboard_entries. The score is
+      // parsed from the SPEAKER POINTS line in the RFD; if the model
+      // hands back something out-of-range or unparseable, we skip
+      // the write rather than poison the board with a default score.
+      try {
+        const scoreMatch = (text || '').match(/SPEAKER\s*POINTS\s*[:\-]?\s*([0-9]{2}(?:\.[0-9])?)/i);
+        const parsedScore = scoreMatch ? parseFloat(scoreMatch[1]) : NaN;
+        const score = (Number.isFinite(parsedScore) && parsedScore >= 25 && parsedScore <= 30)
+          ? Math.round(parsedScore * 10) / 10
+          : null;
+        const decisionMatch = (text || '').match(/DECISION\s*\n+\s*([^\n]+)/i);
+        const decisionLine = decisionMatch ? decisionMatch[1].trim() : '';
+        const userWon = /\bUSER\b/i.test(decisionLine) && !/\bAI\b.*\bwin/i.test(decisionLine);
+
+        const u = (typeof firebase !== 'undefined' && firebase.auth)
+          ? firebase.auth().currentUser : null;
+        if (u && score != null && typeof firebase.firestore === 'function') {
+          const fullName = (u.displayName || '').trim();
+          const parts = fullName.split(/\s+/).filter(Boolean);
+          const shortName = parts.length >= 2
+            ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
+            : (parts[0] || 'Anonymous');
+          const roundId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const entry = {
+            uid: u.uid,
+            displayName: shortName,
+            score,
+            won: userWon,
+            // kind = 'voice' is the new leaderboard source of truth.
+            // The legacy 'ai' kind (typed-flow writes) is no longer
+            // read by /leaderboard — see the 2026-05-13 rule.
+            kind: 'voice',
+            motion: (motion || '').slice(0, 240),
+            format: mode || '',
+            formatName: modeLabel,
+            side: side || '',
+            sideLabel: side === 'gov' ? 'Government'
+                     : side === 'opp' ? 'Opposition' : '',
+            persona: personaKey || '',
+            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            roundId,
+          };
+          firebase.firestore()
+            .collection('leaderboard_entries')
+            .doc(`${u.uid}_${roundId}`)
+            .set(entry)
+            .catch((err) => console.warn('[generateRFD] leaderboard write failed', err));
+        }
+      } catch (lbErr) {
+        console.warn('[generateRFD] leaderboard parse/write skipped', lbErr);
+      }
     } catch (e) {
       setRfd('Could not generate RFD: ' + e.message);
       try { window.SFX && SFX.error && SFX.error(); } catch (sfxErr) {}
