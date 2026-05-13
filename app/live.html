@@ -439,6 +439,183 @@ button{font-family:inherit}
 .tab:hover{color:var(--text)}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 
+/* ─── Day-of banner (sticky countdown) ──────────────── */
+/* Shows when the user has a scheduled match starting within the next
+   60 min OR a live one within the 2-hour join window. Three states:
+   default (blue), imminent (≤5 min, orange pulse), live (T<=0, green
+   pulse + JOIN NOW CTA). Position is sticky below the topbar so the
+   countdown rides along as the user scrolls the board. Dismissable
+   per-challenge so users who don't plan to join can clear it. */
+.dayof-banner{
+  position:sticky;top:60px;z-index:48;
+  max-width:1100px;margin:14px auto 0;padding:14px 22px;
+  display:flex;align-items:center;gap:16px;
+  background:linear-gradient(135deg,rgba(59,130,246,.18),rgba(34,197,94,.06));
+  border:1px solid rgba(59,130,246,.36);
+  border-radius:var(--radius-md);
+  box-shadow:0 12px 40px rgba(0,0,0,.4);
+}
+.dayof-banner.imminent{
+  background:linear-gradient(135deg,rgba(245,158,11,.22),rgba(239,68,68,.10));
+  border-color:rgba(245,158,11,.45);
+  animation:dayof-pulse-amber 1.8s ease-in-out infinite;
+}
+.dayof-banner.live{
+  background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(59,130,246,.08));
+  border-color:rgba(34,197,94,.55);
+  animation:dayof-pulse-green 1.4s ease-in-out infinite;
+}
+@keyframes dayof-pulse-amber{
+  0%,100%{box-shadow:0 12px 40px rgba(245,158,11,.22)}
+  50%{box-shadow:0 14px 55px rgba(245,158,11,.45)}
+}
+@keyframes dayof-pulse-green{
+  0%,100%{box-shadow:0 12px 40px rgba(34,197,94,.25)}
+  50%{box-shadow:0 16px 60px rgba(34,197,94,.55)}
+}
+.dayof-info{flex:1;min-width:0}
+.dayof-eyebrow{
+  font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:#93c5fd;display:inline-flex;align-items:center;gap:6px;
+}
+.dayof-eyebrow::before{
+  content:"";width:6px;height:6px;border-radius:50%;
+  background:#3b82f6;box-shadow:0 0 8px rgba(59,130,246,.7);
+}
+.dayof-banner.imminent .dayof-eyebrow{color:#fcd34d}
+.dayof-banner.imminent .dayof-eyebrow::before{background:#f59e0b;box-shadow:0 0 10px rgba(245,158,11,.8)}
+.dayof-banner.live .dayof-eyebrow{color:#4ade80}
+.dayof-banner.live .dayof-eyebrow::before{background:#22c55e;box-shadow:0 0 12px rgba(34,197,94,.9)}
+.dayof-motion{
+  font-size:.96rem;font-weight:800;color:var(--text);
+  margin-top:3px;letter-spacing:-.01em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.dayof-meta{
+  font-size:.72rem;color:var(--text-dim);margin-top:3px;font-weight:500;
+}
+.dayof-countdown{
+  display:flex;flex-direction:column;align-items:flex-end;gap:8px;
+  flex-shrink:0;
+}
+.dayof-clock{
+  font-size:1.7rem;font-weight:900;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--text);line-height:1;
+}
+.dayof-banner.live .dayof-clock{color:#4ade80}
+.dayof-cta{
+  display:inline-block;padding:10px 22px;font-weight:800;font-size:.78rem;
+  letter-spacing:.04em;border-radius:999px;background:var(--accent);color:#fff;
+  text-decoration:none;white-space:nowrap;
+  transition:transform .15s,box-shadow .15s;
+}
+.dayof-cta:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(239,68,68,.36)}
+.dayof-banner.live .dayof-cta{
+  background:#22c55e;
+  box-shadow:0 0 0 1px rgba(34,197,94,.4),0 8px 28px rgba(34,197,94,.55);
+}
+.dayof-banner.live .dayof-cta:hover{box-shadow:0 0 0 1px rgba(34,197,94,.5),0 10px 32px rgba(34,197,94,.75)}
+.dayof-dismiss{
+  background:transparent;border:none;color:var(--text-ghost);
+  font-size:1.4rem;line-height:1;cursor:pointer;padding:0 6px;
+  margin-left:4px;flex-shrink:0;
+}
+.dayof-dismiss:hover{color:var(--text)}
+@media(max-width:680px){
+  .dayof-banner{flex-direction:column;align-items:stretch;gap:10px;padding:14px 16px;top:54px}
+  .dayof-motion{white-space:normal}
+  .dayof-countdown{flex-direction:row;justify-content:space-between;align-items:center}
+}
+
+/* ─── Today panel (calendar groups) ─────────────────── */
+/* User-scoped "what's on my schedule" block above the open queue.
+   Sources from challenges the viewer posted or accepted (not the full
+   public queue) so it reads as a personal calendar. Groups by Live now
+   / Soon (≤60m) / Today / This week / Later. Hidden when the viewer
+   has no scheduled matches. */
+.today-panel{
+  margin-bottom:18px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:hidden;
+  box-shadow:0 12px 36px rgba(0,0,0,.25);
+}
+.tp-head{
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+}
+.tp-head h3{
+  font-size:.86rem;font-weight:800;letter-spacing:.04em;margin:0;
+  text-transform:uppercase;
+}
+.tp-head h3 em{color:var(--accent);font-style:normal}
+.tp-sub{
+  font-size:.7rem;color:var(--text-dim);font-weight:600;letter-spacing:.04em;
+}
+.day-group{padding:12px 18px;border-bottom:1px solid var(--border)}
+.day-group:last-child{border-bottom:none}
+.dg-label{
+  font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-ghost);margin-bottom:8px;display:flex;align-items:center;gap:8px;
+}
+.dg-label .dg-count{
+  font-weight:700;color:var(--text-dim);
+}
+.day-group.live .dg-label{color:#4ade80}
+.day-group.soon .dg-label{color:#fbbf24}
+.day-item{
+  display:grid;grid-template-columns:120px 1fr auto;align-items:center;
+  gap:14px;padding:8px 0;font-size:.82rem;
+}
+.day-item + .day-item{border-top:1px dashed var(--border)}
+.di-time{
+  font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);
+  letter-spacing:-.01em;
+}
+.di-time .di-rel{
+  display:block;font-size:.66rem;font-weight:600;color:var(--text-ghost);
+  letter-spacing:0;margin-top:2px;
+}
+.day-item.live .di-time{color:#4ade80}
+.day-item.soon .di-time{color:#fbbf24}
+.di-motion{
+  font-weight:600;color:var(--text);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.di-fmt{
+  display:inline-block;margin-right:8px;padding:1px 7px;font-size:.6rem;
+  font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-dim);background:var(--bg-elev);
+  border:1px solid var(--border);border-radius:4px;vertical-align:1px;
+}
+.di-cta{
+  font-size:.7rem;font-weight:800;letter-spacing:.04em;
+  padding:6px 14px;border-radius:999px;background:transparent;
+  border:1px solid var(--border-strong);color:var(--text);
+  text-decoration:none;white-space:nowrap;
+  transition:background .15s,border-color .15s,transform .15s;
+}
+.di-cta:hover{background:var(--bg-elev);border-color:var(--text);transform:translateY(-1px)}
+.day-item.live .di-cta,.day-item.soon .di-cta{
+  background:var(--accent);color:#fff;border-color:var(--accent);
+}
+.day-item.live .di-cta{background:#22c55e;border-color:#22c55e}
+@media(max-width:680px){
+  .day-item{grid-template-columns:90px 1fr;gap:10px}
+  .di-cta{grid-column:1 / -1;text-align:center}
+}
+
+/* ─── Expired toggle on the Open Challenges header ──── */
+.exp-toggle{
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-dim);font-family:inherit;
+  padding:5px 12px;border-radius:999px;font-size:.62rem;
+  font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s;
+}
+.exp-toggle:hover{color:var(--text);border-color:var(--border-strong)}
+.exp-toggle.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
 /* ─── Modals (accept-confirm, bail) ────────────────── */
 .modal-backdrop{
   position:fixed;inset:0;
@@ -639,6 +816,14 @@ button{font-family:inherit}
   </div>
 </div>
 
+<!-- Day-of countdown banner. Only renders when the viewer has a
+     scheduled match starting within the next 60 min OR a match that's
+     currently live (within the 2-hour join window). Sticky below the
+     topbar so it follows the user as they scroll. Dismiss button
+     suppresses the banner for one challenge id per page session via
+     localStorage so the user doesn't get re-prompted. -->
+<div id="dayofBanner" class="dayof-banner" hidden role="status" aria-live="polite"></div>
+
 <section class="hero">
   <div class="hero-eyebrow"><span class="live-dot"></span>Live Debates · AI-judged</div>
   <h1>Debate humans online with <em>AI judges.</em></h1>
@@ -659,9 +844,19 @@ button{font-family:inherit}
 
     <!-- LEFT: Open challenges feed -->
     <div>
+      <!-- Today panel. User-scoped calendar grouped by Live / Soon /
+           Today / This week / Later. Source is challenges the viewer
+           posted or accepted, not the full public queue. Hidden when
+           empty. -->
+      <div id="todayPanel" class="today-panel" hidden></div>
+
       <div class="sec-head">
         <h2>Open challenges</h2>
         <span id="challengeCount" class="count">0 waiting</span>
+        <!-- Hide-expired toggle. Default is hidden (board reads clean);
+             toggle on to surface old challenges with their ballots.
+             Label updates with the actual expired count for clarity. -->
+        <button id="expToggle" class="exp-toggle" type="button" aria-pressed="false" hidden>Show expired</button>
       </div>
       <div id="cards" class="cards">
         <!-- challenges render here -->
@@ -1400,7 +1595,18 @@ button{font-family:inherit}
 
   // ── Render the open-challenges list
   function render(){
-    var list = loadList();
+    var fullList = loadList();
+    // Day-of: hide expired challenges by default so the board doesn't
+    // get dominated by old matches the user never followed through on.
+    // The "Show expired" toggle next to the count lets users surface
+    // them when they want to recover a ballot or audit history.
+    var expiredCount = 0;
+    var list = fullList.filter(function(c){
+      var s = fmtSchedule(c.scheduledAt);
+      if (s && s.expired){ expiredCount++; return showExpired; }
+      return true;
+    });
+    updateExpiredToggle(expiredCount);
     var host = document.getElementById('cards');
     var empty = document.getElementById('empty');
     var count = document.getElementById('challengeCount');
@@ -2479,18 +2685,334 @@ button{font-family:inherit}
     if (motion) setTimeout(function(){ motion.focus(); }, 350);
   });
 
+  // ════════════════════════════════════════════════════════════════
+  // Day-of system. Three pieces that share the same data source
+  // (challenges where the viewer is poster or accepter):
+  //
+  //   1. dayofBanner — sticky countdown at the top, shown when the
+  //      nearest "mine" match starts in ≤60 min or is currently live.
+  //      Three states: default (>5 min), imminent (≤5 min, amber
+  //      pulse), live (T≤0, green pulse + JOIN NOW CTA).
+  //   2. todayPanel — calendar-style block above the open queue,
+  //      grouped by Live / Soon (≤60m) / Today / This week / Later.
+  //   3. expToggle — hides expired challenges from the open queue by
+  //      default; toggle to surface them.
+  //
+  // No new Firestore collections; all reads are over the existing
+  // challenges list. Tickers: 1s for the banner clock (lightweight
+  // text node update), 30s for the panel grouping. Both no-op when
+  // there's nothing relevant on screen.
+  // ════════════════════════════════════════════════════════════════
+
+  var showExpired = false;
+  // Per-session dismiss set for the day-of banner. Keyed by challenge
+  // id so dismissing one match doesn't suppress the next imminent
+  // match. Cleared on reload, which is the right scope for a banner.
+  var dayofDismissed = {};
+
+  // "My matches" = challenges the viewer posted or accepted. Used by
+  // both the banner and the today panel — the banner only ever surfaces
+  // someone's own match, never a random public one.
+  function myMatches(){
+    var list = loadList();
+    var meUid = currentUser && currentUser.uid;
+    return list.filter(function(c){
+      if (meUid && c.posterUid === meUid) return true;
+      if (meUid && c.accepterUid === meUid) return true;
+      if (isAccepted(c.id)) return true;
+      return false;
+    });
+  }
+
+  // Pick the next "imminent" match for the banner. Imminent means
+  // either currently in the live window OR scheduled within the next
+  // 60 min. Returns null when nothing fits. Tied matches resolve by
+  // soonest start time. Excludes dismissed ids.
+  function pickDayofMatch(){
+    var list = myMatches();
+    var now = Date.now();
+    var best = null;
+    list.forEach(function(c){
+      if (!c.scheduledAt) return;
+      if (dayofDismissed[c.id]) return;
+      var diff = c.scheduledAt - now;
+      // Live window: between kickoff and 2h after. Soon window: kickoff
+      // is 0–60 min away. Both qualify; anything else is too far out.
+      var inWindow = (diff > -2 * 3600_000 && diff <= 0) || (diff > 0 && diff <= 60 * 60_000);
+      if (!inWindow) return;
+      if (!best || c.scheduledAt < best.scheduledAt) best = c;
+    });
+    return best;
+  }
+
+  // Format the countdown text. Returns "h:mm:ss" when >1h, "m:ss"
+  // otherwise. When kickoff has passed (diff ≤ 0), returns the live
+  // sentinel which renderDayofBanner reads as the green "JOIN NOW"
+  // state.
+  function fmtClock(diff){
+    if (diff <= 0) return 'LIVE';
+    var s = Math.floor(diff / 1000);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    function pad(n){ return n < 10 ? '0' + n : '' + n; }
+    if (h > 0) return h + ':' + pad(m) + ':' + pad(sec);
+    return m + ':' + pad(sec);
+  }
+
+  function renderDayofBanner(){
+    var host = document.getElementById('dayofBanner');
+    if (!host) return;
+    var c = pickDayofMatch();
+    if (!c){
+      host.hidden = true;
+      host.innerHTML = '';
+      return;
+    }
+    var diff = c.scheduledAt - Date.now();
+    var live = diff <= 0;
+    var imminent = !live && diff <= 5 * 60_000;
+    host.classList.toggle('imminent', imminent);
+    host.classList.toggle('live', live);
+    host.hidden = false;
+
+    var f = FORMATS[c.format] || FORMATS.quick;
+    var head = revealHeadline(c);
+    var motion = (isAccepted(c.id) || (currentUser && c.posterUid === currentUser.uid)) ? (c.motion || head.text) : head.text;
+
+    // Build the join URL. Use the same /live-round.html params shape the
+    // existing matched-card CTA uses so the day-of path lands users in
+    // the same room with the same prefill. For an unmatched (poster-side
+    // only) banner, we fall back to anchoring the form so the poster
+    // can copy the share link.
+    var profile = loadProfile();
+    var roomName = 'DebateAI-' + String(c.id).replace(/[^a-zA-Z0-9]/g, '');
+    var mySide = (currentUser && c.posterUid === currentUser.uid)
+      ? c.side
+      : (c.side === 'pro' ? 'con' : 'pro');
+    var roundParams = new URLSearchParams({
+      motion: c.motion || c.topicLine || c.themeLine || '',
+      format: c.format || 'quick',
+      pro: mySide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+      con: mySide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+      room: roomName,
+      challengeId: c.id,
+    });
+    var roundUrl = '/live-round.html?' + roundParams.toString();
+
+    var eyebrow = live
+      ? 'Live now · join the room'
+      : (imminent ? 'Starts any minute' : 'Coming up · ' + f.name);
+    var ctaLabel = live ? '▶ JOIN NOW' : 'Open lobby';
+
+    host.innerHTML =
+      '<div class="dayof-info">' +
+        '<div class="dayof-eyebrow">' + escHtml(eyebrow) + '</div>' +
+        '<div class="dayof-motion">' + escHtml(motion || '(motion revealed at kickoff)') + '</div>' +
+        '<div class="dayof-meta">' + escHtml(f.name) + ' · ' + escHtml(f.sideLabel[mySide] || mySide) +
+          (c.handle ? ' · vs @' + escHtml(c.handle) : '') + '</div>' +
+      '</div>' +
+      '<div class="dayof-countdown">' +
+        '<div class="dayof-clock" data-clock>' + (live ? 'LIVE' : escHtml(fmtClock(diff))) + '</div>' +
+        '<a class="dayof-cta" href="' + escHtml(roundUrl) + '" target="_blank" rel="noopener">' + escHtml(ctaLabel) + '</a>' +
+      '</div>' +
+      '<button class="dayof-dismiss" type="button" aria-label="Dismiss" data-dayof-dismiss="' + escHtml(c.id) + '">×</button>';
+  }
+
+  // Cheap clock tick: only touches the .dayof-clock textContent, and
+  // re-renders the banner fully when state crosses a threshold (live /
+  // imminent / default) or when the picked match changes. No DOM
+  // thrash during a quiet minute.
+  var lastBannerState = '';
+  function tickDayofClock(){
+    var host = document.getElementById('dayofBanner');
+    if (!host || host.hidden) return;
+    var c = pickDayofMatch();
+    if (!c){ renderDayofBanner(); return; }
+    var diff = c.scheduledAt - Date.now();
+    var state = c.id + ':' + (diff <= 0 ? 'live' : diff <= 5*60_000 ? 'imminent' : 'default');
+    if (state !== lastBannerState){
+      lastBannerState = state;
+      renderDayofBanner();
+      // Fire a soft chime when the banner crosses into LIVE so users
+      // who left the tab in the background get an audible cue. Honors
+      // window.SFX mute state.
+      if (diff <= 0 && diff > -5000){
+        try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){}
+      }
+      return;
+    }
+    var clock = host.querySelector('[data-clock]');
+    if (clock) clock.textContent = diff <= 0 ? 'LIVE' : fmtClock(diff);
+  }
+
+  // ── Today panel: group "my matches" by time-of-day.
+  function renderTodayPanel(){
+    var host = document.getElementById('todayPanel');
+    if (!host) return;
+    var list = myMatches().filter(function(c){
+      if (!c.scheduledAt) return false;
+      var s = fmtSchedule(c.scheduledAt);
+      if (s && s.expired) return false;
+      return true;
+    });
+    if (!list.length){
+      host.hidden = true;
+      host.innerHTML = '';
+      return;
+    }
+    var now = Date.now();
+    var today = new Date();
+    var endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).getTime();
+    var endOfWeek = now + 7 * 86400_000;
+
+    var groups = { live: [], soon: [], today: [], week: [], later: [] };
+    list.forEach(function(c){
+      var diff = c.scheduledAt - now;
+      if (diff <= 0 && diff > -2 * 3600_000) groups.live.push(c);
+      else if (diff > 0 && diff <= 60 * 60_000) groups.soon.push(c);
+      else if (diff > 0 && c.scheduledAt <= endOfToday) groups.today.push(c);
+      else if (diff > 0 && c.scheduledAt <= endOfWeek) groups.week.push(c);
+      else if (diff > 0) groups.later.push(c);
+    });
+    // Sort each group by start time so the soonest match leads.
+    Object.keys(groups).forEach(function(k){
+      groups[k].sort(function(a,b){ return a.scheduledAt - b.scheduledAt; });
+    });
+
+    function timeStr(ts){
+      var d = new Date(ts);
+      var h = d.getHours(), m = d.getMinutes();
+      var ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      return h + ':' + (m < 10 ? '0' : '') + m + ampm;
+    }
+    function dayStr(ts){
+      var d = new Date(ts);
+      var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return days[d.getDay()];
+    }
+    function relStr(diff){
+      if (diff <= 0) return 'live';
+      if (diff < 60_000) return 'starting';
+      if (diff < 3600_000) return 'in ' + Math.round(diff/60_000) + 'm';
+      if (diff < 86400_000){
+        var h = Math.floor(diff/3600_000), mm = Math.round((diff%3600_000)/60_000);
+        return 'in ' + h + 'h' + (mm ? ' ' + mm + 'm' : '');
+      }
+      var d = Math.round(diff/86400_000);
+      return 'in ' + d + 'd';
+    }
+
+    function rowFor(c, klass){
+      var f = FORMATS[c.format] || FORMATS.quick;
+      var head = revealHeadline(c);
+      var mineFull = isAccepted(c.id) || (currentUser && c.posterUid === currentUser.uid);
+      var motion = mineFull ? (c.motion || head.text) : head.text;
+      var diff = c.scheduledAt - now;
+      var primary = (klass === 'live') ? 'LIVE NOW' : timeStr(c.scheduledAt);
+      var sub = (klass === 'live') ? 'in the room' : (klass === 'soon' || klass === 'today' ? relStr(diff) : dayStr(c.scheduledAt));
+      var ctaLabel = (klass === 'live') ? 'Join' : (klass === 'soon' ? 'Open' : '+ Cal');
+      var ctaHref;
+      if (klass === 'live' || klass === 'soon'){
+        var profile = loadProfile();
+        var roomName = 'DebateAI-' + String(c.id).replace(/[^a-zA-Z0-9]/g, '');
+        var mySide = (currentUser && c.posterUid === currentUser.uid) ? c.side : (c.side === 'pro' ? 'con' : 'pro');
+        var roundParams = new URLSearchParams({
+          motion: c.motion || c.topicLine || c.themeLine || '',
+          format: c.format || 'quick',
+          pro: mySide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+          con: mySide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+          room: roomName,
+          challengeId: c.id,
+        });
+        ctaHref = '/live-round.html?' + roundParams.toString();
+      } else {
+        ctaHref = googleCalUrl(c) || '#';
+      }
+      var extTarget = (klass === 'live' || klass === 'soon') ? '_blank' : '_blank';
+      return '<div class="day-item ' + klass + '">' +
+        '<div class="di-time">' + escHtml(primary) + '<span class="di-rel">' + escHtml(sub) + '</span></div>' +
+        '<div class="di-motion"><span class="di-fmt">' + escHtml(f.name) + '</span>' + escHtml(motion || '(motion revealed at kickoff)') + '</div>' +
+        '<a class="di-cta" href="' + escHtml(ctaHref) + '" target="' + extTarget + '" rel="noopener">' + escHtml(ctaLabel) + '</a>' +
+      '</div>';
+    }
+
+    var sections = [];
+    function add(klass, label, arr){
+      if (!arr.length) return;
+      sections.push(
+        '<div class="day-group ' + klass + '">' +
+          '<div class="dg-label">' + escHtml(label) + ' <span class="dg-count">· ' + arr.length + '</span></div>' +
+          arr.map(function(c){ return rowFor(c, klass); }).join('') +
+        '</div>'
+      );
+    }
+    add('live',  'Live now', groups.live);
+    add('soon',  'Soon · next hour', groups.soon);
+    add('today', 'Today', groups.today);
+    add('week',  'This week', groups.week);
+    add('later', 'Later', groups.later);
+
+    var total = list.length;
+    host.innerHTML =
+      '<div class="tp-head">' +
+        '<h3>Your <em>schedule</em></h3>' +
+        '<span class="tp-sub">' + total + ' match' + (total === 1 ? '' : 'es') + ' lined up</span>' +
+      '</div>' +
+      sections.join('');
+    host.hidden = false;
+  }
+
+  // Toggle for expired challenges. Hidden by default; appears with a
+  // count once we know how many are actually filtered.
+  function updateExpiredToggle(expiredCount){
+    var btn = document.getElementById('expToggle');
+    if (!btn) return;
+    if (expiredCount <= 0){
+      btn.hidden = true;
+      return;
+    }
+    btn.hidden = false;
+    btn.textContent = showExpired
+      ? 'Hide expired (' + expiredCount + ')'
+      : 'Show expired (' + expiredCount + ')';
+    btn.classList.toggle('on', showExpired);
+    btn.setAttribute('aria-pressed', showExpired ? 'true' : 'false');
+  }
+
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (t && t.id === 'expToggle'){
+      showExpired = !showExpired;
+      render();
+      return;
+    }
+    if (t && t.matches && t.matches('[data-dayof-dismiss]')){
+      var id = t.getAttribute('data-dayof-dismiss');
+      if (id) dayofDismissed[id] = true;
+      renderDayofBanner();
+    }
+  });
+
   // ── Boot
   ensureSeed();
   render();
+  renderDayofBanner();
+  renderTodayPanel();
   // Honor #manage hash so deep-linking into the profile editor works
   if (location.hash === '#manage') setTab('manage');
 
   // Re-render every 20s so countdowns tick down and "Live now"
   // states flip on automatically. Cheap because the list is small.
+  // Day-of clock ticks every second (one DOM text-node update) when
+  // the banner is showing; everything else is on the 20s cadence.
   setInterval(function(){
     render();
+    renderTodayPanel();
     if (document.getElementById('manageView').style.display !== 'none') renderManage();
   }, 20000);
+  setInterval(tickDayofClock, 1000);
 })();
 </script>
 
