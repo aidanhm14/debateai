@@ -5845,23 +5845,27 @@ try{
 })();
 
 // Section-reveal chimes. As major sections scroll into view, fire a
-// subtle SFX.receive() once per section per page load. Adds a sense
-// of momentum to the scroll without spamming — the IntersectionObserver
-// disconnects each entry after firing so re-scrolling is silent.
-// Skips the hero/proof-strip (above the fold on load, would chime
-// immediately and feel weird). Skips on first call too so a user who
-// reloads mid-page doesn't get a chime stack from the initial layout
-// pass. Honors the global SFX mute via the standard SFX module.
+// per-section chime once per page load. Each section gets its OWN
+// sound so scrolling feels like a journey through different moments
+// rather than a metronome on the same tone. Build-up curve: subtle
+// reveals early, triumph at the leaderboard, verdict-sting at the
+// final "why debate" payoff. IntersectionObserver unobserves each
+// entry after firing so re-scrolling is silent. A 600ms armed gate
+// suppresses the initial-pass chimes for already-visible elements.
 (function(){
   if (!('IntersectionObserver' in window)) return;
-  var targets = [
-    '#spar', '#debate-ai', '#topics', '#tools',
-    '#leaderboard-preview', '#faq', '#why',
-  ];
-  // Use a flag we set AFTER the first observer pass so the initial
-  // page-load callback (which fires synchronously for already-visible
-  // elements) doesn't trigger sound. Real scroll-into-view events fire
-  // later and DO chime.
+  // Map section → SFX method. Order tells a story: discovery → product
+  // → social proof → big-finale verdict sting at #why.
+  var sectionChimes = {
+    'spar':               'success',     // C-E-G arpeggio. discovery of the moat
+    'debate-ai':          'send',        // upward sweep. "you can chat"
+    'topics':             'receive',     // soft swoosh. gentle reveal
+    'tools':              'confirm',     // warm chime. features land
+    'leaderboard-preview':'success',     // winning vibes
+    'faq':                'receive',     // gentle wind-down
+    'why':                'rfdReveal',   // the verdict. biggest moment
+  };
+
   var armed = false;
   setTimeout(function(){ armed = true; }, 600);
 
@@ -5874,18 +5878,43 @@ try{
       fired[id] = true;
       obs.unobserve(entry.target);
       if (!armed) return;
+      var chime = sectionChimes[id];
       try {
-        if (window.SFX && typeof window.SFX.receive === 'function') {
-          window.SFX.receive();
+        if (window.SFX && chime && typeof window.SFX[chime] === 'function') {
+          window.SFX[chime]();
         }
       } catch(_){}
     });
   }, { threshold: 0.25 });
 
-  targets.forEach(function(sel){
-    var el = document.querySelector(sel);
+  Object.keys(sectionChimes).forEach(function(id){
+    var el = document.getElementById(id);
     if (el) obs.observe(el);
   });
+})();
+
+// First-scroll welcome chime. Browser autoplay policy blocks audio
+// until a user gesture; scrolling counts as one, and unlike a CTA
+// click it doesn't already trigger SFX (so no layering). Fires
+// SFX.success once on the first scroll event of the page session so
+// the landing has a moment of acoustic "you arrived" energy without
+// being part of the constant scroll chime stream. Removes its own
+// listener after firing so subsequent scrolls stay silent until they
+// hit a section threshold.
+(function(){
+  function welcome(){
+    window.removeEventListener('scroll', welcome);
+    window.removeEventListener('wheel', welcome);
+    window.removeEventListener('touchstart', welcome);
+    try {
+      if (window.SFX && typeof window.SFX.success === 'function') {
+        window.SFX.success();
+      }
+    } catch(_){}
+  }
+  window.addEventListener('scroll', welcome, { passive: true, once: true });
+  window.addEventListener('wheel', welcome, { passive: true, once: true });
+  window.addEventListener('touchstart', welcome, { passive: true, once: true });
 })();
 
 // Hero audio-timer live countdown. loops 7:11 → 0:00 → resets. Pure theatre.
