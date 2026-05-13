@@ -627,6 +627,23 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 [data-lighting="light"] .history-detail .hd-who.ai{color:rgba(0,0,0,.35)}
 [data-lighting="light"] .history-detail .hd-text{color:rgba(0,0,0,.5)}
 [data-lighting="light"] .recovery-banner{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.15)}
+
+/* ── Counter chrome-extension mode (?ext=1&mode=counter) ──
+   Mirrors the voice-debate.html treatment: the page is iframed inside
+   the Counter side panel which already carries Counter brand + mic +
+   close. Anything that re-states the broader DebateAI surface inside
+   the iframe is noise here:
+     • the global #daTopbar (cross-page nav, theme dots, sign-in CTA)
+     • the floating "?" shortcuts button (chrome-extension users learn
+       through the Counter brand bar, not keyboard chords)
+   JSX-level hides for the format picker, Quick Clash CTA, motion
+   triage, etc. live inline as `!isCounterExt && el(...)` — see the
+   App component. */
+html[data-ext="1"][data-ext-mode="counter"] #daTopbar { display:none !important; }
+html[data-ext="1"][data-ext-mode="counter"] body { padding-top:0 !important; }
+/* Setup screen padding — the page normally pads under the fixed
+   topbar; no topbar in counter mode, so the hero pulls up. */
+html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important; }
 </style>
 </head>
 <body>
@@ -5491,6 +5508,20 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   },[]);
   const bar=el(React.Fragment,null);
 
+  // Are we rendered inside the Counter chrome-extension side panel?
+  // Read at render time from the URL (?ext=1&mode=counter); the value
+  // is stable for the lifetime of the page so we don't need state.
+  // Drives JSX-level gating: format picker, language picker, motion
+  // triage, Quick Clash CTA, Setup/Saved tabs, and the page hero/sub
+  // all short-circuit or reframe when this is true. See also the CSS
+  // block in <head> that hides the global #daTopbar in this mode.
+  const isCounterExt=(()=>{
+    try{
+      const qs=new URLSearchParams(location.search);
+      return qs.get('ext')==='1' && (qs.get('mode')||'counter')==='counter';
+    }catch(e){ return false; }
+  })();
+
   const stageClass='center '+(vis?'visible':'entering');
 
   // Auto-set side to first available when format changes
@@ -5916,16 +5947,31 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     helpFloatingButton,
     el('div',{className:'ambient'}),bar,
     el('div',{className:stageClass},
-      el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
-      el('p',{className:'t-sub'},'Choose your format, opponent, and go.'),
-      setupTabBar,
+      // Hero — reframed for the Counter chrome-extension audience:
+      // "Counter · Viva" instead of "Debate AI", and a viva-context
+      // sub instead of "Choose your format, opponent, and go." The
+      // ext bridge has already locked the format to viva, so the
+      // copy here just confirms what's about to happen.
+      isCounterExt
+        ? el('h1',{className:'t-hero'},el('em',null,'Counter'),' · Viva')
+        : el('h1',{className:'t-hero'},el('em',null,'Debate'),' AI'),
+      el('p',{className:'t-sub'},
+        isCounterExt
+          ? 'Type your thesis or paste a passage. The examiner will probe it.'
+          : 'Choose your format, opponent, and go.'),
+      // Setup / Saved tabs are debate-flavored (round history, win-rate
+      // card, "how I think as a debater" analysis). Counter mode has
+      // no equivalent yet, so the tab strip is dead chrome here.
+      !isCounterExt && setupTabBar,
       // First-round welcome card. Renders once for new users and points
       // them at the one-tap Quick Clash so they finish a round before
       // they decide. soul.md flagged 2% W1 retention as the biggest
       // problem; everything else is downstream of users not finishing
       // a first round. Dismiss persists in localStorage so it doesn't
       // re-appear after the user has run a round.
-      !daOnboarded && el('div',{
+      // Counter mode hides this — it points at Quick Clash (a debate
+      // round), and the Counter brand bar already onboards viva users.
+      !isCounterExt && !daOnboarded && el('div',{
         className:'recovery-banner',
         style:{
           background:'linear-gradient(135deg,rgba(239,68,68,.10),rgba(245,158,11,.06))',
@@ -5953,12 +5999,16 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       // One-tap quick start. picks a random motion, Quick Clash format
       // (shortest round), default side. Everything else (traits, brain,
       // voice, background) uses sensible defaults. Mobile-crucial.
-      el('button',{
+      // Counter mode hides this CTA + the "or customize below" caption:
+      // Quick Clash is a debate format (Pro/Con, two short speeches each),
+      // not a viva. The viva user's "quick start" is just hitting Start
+      // with no motion typed (Dr. Iyer opens with the mic).
+      !isCounterExt && el('button',{
         className:'cta',
         onClick:quickStart,
         style:{marginTop:18,background:'linear-gradient(135deg,#f59e0b,#ef4444)',boxShadow:'0 6px 24px rgba(239,68,68,.35)',fontWeight:800,letterSpacing:'.04em'}
       }, '\u26A1 Quick tap for Quick Clash'),
-      el('div',{style:{fontSize:'.7rem',color:'var(--c-dim)',marginTop:6,marginBottom:8}},'or customize below \u2193'),
+      !isCounterExt && el('div',{style:{fontSize:'.7rem',color:'var(--c-dim)',marginTop:6,marginBottom:8}},'or customize below \u2193'),
 
       // Session recovery banner. Stale window is 24h so users who close
       // the tab mid-round (commute, sleep, dinner) can pick up where they
@@ -5984,9 +6034,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         ),
       ),
 
-      // Format. Quick Clash listed first and tagged "Easy" so non-debaters start here
-      el('div',{className:'t-label',style:{marginTop:8}},'Format'),
-      el('div',{className:'pills'},
+      // Format. Quick Clash listed first and tagged "Easy" so non-debaters start here.
+      // Counter mode locks the format to 'viva' (set by the ext bridge
+      // useEffect when the panel posts text in), so the picker is dead
+      // chrome here — showing 11 debate formats would dilute the
+      // single-purpose viva framing the Counter brand promises.
+      !isCounterExt && el('div',{className:'t-label',style:{marginTop:8}},'Format'),
+      !isCounterExt && el('div',{className:'pills'},
         Object.entries(FORMATS).map(([k,v])=>
           el('button',{key:k,className:'pill'+(format===k?' on':''),onClick:()=>setFormat(k),title:v.desc,
             style:(v.entry==='easy'||v.entry==='oral')?{position:'relative'}:undefined},
@@ -6011,13 +6065,17 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         'AI will write and speak in ',el('strong',null,LANGUAGES[aiLanguage].nativeName),'. Voice timbre stays the same; only the language of delivery changes.'
       ),
       // Helper line under the format picker for brand-new users
-      format==='quick'&&el('div',{style:{fontSize:'.74rem',color:'var(--c-dim)',marginTop:6,maxWidth:520}},
+      !isCounterExt && format==='quick'&&el('div',{style:{fontSize:'.74rem',color:'var(--c-dim)',marginTop:6,maxWidth:520}},
         'New to debate? Stay on Quick Clash. It\'s Pro vs. Con, two short speeches each, no jargon.'
       ),
 
-      // Motion
-      el('div',{className:'t-label',style:{marginTop:24}},'Motion'),
-      el('textarea',{className:'float-input',rows:2,placeholder:'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
+      // Motion (reframed as "Topic" / "Your thesis" in Counter mode —
+      // the underlying state and AI pipeline are unchanged, just the
+      // label and placeholder swap to viva vocabulary).
+      el('div',{className:'t-label',style:{marginTop:24}}, isCounterExt ? 'Your thesis or passage' : 'Motion'),
+      el('textarea',{className:'float-input',rows:2,placeholder: isCounterExt
+        ? 'Paste your essay’s thesis, project claim, or main argument you’ll defend…'
+        : 'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
       // Starred motions, chip row under the motion textarea. Only renders when
       // the user has at least one pinned motion. Click fills the motion;
       // × unstars without touching the active motion.
@@ -6043,8 +6101,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       // the round" workflow stays in one vertical region. Background was
       // previously buried near the bottom of the setup screen, which made
       // it feel like an afterthought even though the AI uses it heavily.
+      // Action row: Random Motion + Generate Background. Counter mode
+      // hides Random Motion (rolls debate motions like "THBT social
+      // media does more harm…" — not viva material) and keeps Generate
+      // Background, which is genuinely useful for a viva user wanting
+      // factual context on their topic.
       el('div',{style:{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center',marginTop:8,marginBottom:4}},
-        el('button',{className:'cta-ghost',onClick:()=>setMotion(randomMotionFor(format)),style:{marginTop:0}},'Random Motion'),
+        !isCounterExt && el('button',{className:'cta-ghost',onClick:()=>setMotion(randomMotionFor(format)),style:{marginTop:0}},'Random Motion'),
         el('button',{
           className:'cta-ghost',
           disabled:!motion.trim(),
@@ -6058,7 +6121,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             setGeneratedBackground('');
             ensureBackground(motion);
           },
-          title:!motion.trim()?'Type or pick a motion first':'Pull factual context for this motion (curated if available, else AI-generated)',
+          title:!motion.trim()?(isCounterExt?'Type or paste your thesis first':'Type or pick a motion first'):'Pull factual context for this motion (curated if available, else AI-generated)',
           style:{marginTop:0},
         },'Generate background'),
       ),
@@ -6070,7 +6133,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       // actually applies). Per-format overlays in voice-guidelines.mjs
       // shift the register so a BP user gets BP slang, an Asian user
       // gets Asian-specific reply-speech weighing notes, etc.
-      triageEligible && el('div',{style:{marginTop:10}},
+      !isCounterExt && triageEligible && el('div',{style:{marginTop:10}},
         el('div',{style:{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center'}},
           el('button',{
             className:'cta-ghost',
@@ -6134,7 +6197,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       el('textarea',{
         className:'float-input',
         rows:2,
-        placeholder:motion.trim()?'Add your own context, country, actor, constraints, time period. Or click Generate background.':'Pick a motion first, then add context.',
+        placeholder:motion.trim()
+          ? (isCounterExt
+              ? 'Add your own context. Source, course, framework, where this thesis sits in the syllabus. Or click Generate background.'
+              : 'Add your own context, country, actor, constraints, time period. Or click Generate background.')
+          : (isCounterExt
+              ? 'Paste your thesis above, then add any context here.'
+              : 'Pick a motion first, then add context.'),
         value:background,
         onChange:e=>setBackground(e.target.value),
         style:{minHeight:54,fontSize:'.86rem',marginTop:4},
@@ -6150,7 +6219,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       // Daily streak. Counts consecutive calendar days the user has
       // saved at least one round. Breaking days zeros the streak; the
       // current day counts once the first round is saved.
-      (()=>{
+      // Counter mode: streaks count debate-round history, not viva runs.
+      !isCounterExt && (()=>{
         if(!Array.isArray(historyRounds)||!historyRounds.length) return null;
         const dayKey=(d)=>{try{const x=new Date(d);return x.getFullYear()+'-'+(x.getMonth()+1)+'-'+x.getDate();}catch{return null;}};
         const days=new Set();
@@ -6179,26 +6249,29 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
       // Judge Paradigm, shape the AI opponent's strategy to the judge
       // you're training against. Ballot voice matches too.
-      el('div',{className:'t-label',style:{marginTop:24}},'Judge Paradigm'),
-      el('div',{className:'pills',style:{flexWrap:'wrap',justifyContent:'center'}},
+      // Counter mode: vivas don't have judge paradigms — the examiner
+      // is the judge — so the whole paradigm picker + custom textarea
+      // + saved judge pool block hides.
+      !isCounterExt && el('div',{className:'t-label',style:{marginTop:24}},'Judge Paradigm'),
+      !isCounterExt && el('div',{className:'pills',style:{flexWrap:'wrap',justifyContent:'center'}},
         Object.entries(JUDGE_PARADIGMS).map(([k,v])=>
           el('button',{key:k,className:'pill'+(judgeParadigm===k?' on':''),onClick:()=>saveJudgeParadigm(k),title:v.short},v.label)
         )
       ),
-      JUDGE_PARADIGMS[judgeParadigm] && !customParadigm.trim() && el('div',{style:{textAlign:'center',marginTop:8,fontSize:'.72rem',color:'var(--c-text)',lineHeight:1.4,maxWidth:420,margin:'8px auto 0'}},
+      !isCounterExt && JUDGE_PARADIGMS[judgeParadigm] && !customParadigm.trim() && el('div',{style:{textAlign:'center',marginTop:8,fontSize:'.72rem',color:'var(--c-text)',lineHeight:1.4,maxWidth:420,margin:'8px auto 0'}},
         JUDGE_PARADIGMS[judgeParadigm].short
       ),
       // Custom paradigm toggle + textarea. Paste a Tabroom paradigm, a
       // judge bio, or coach notes on a known judge. When present, it
       // overrides the preset picker for BOTH the AI opponent and the RFD.
-      el('div',{style:{textAlign:'center',marginTop:10}},
+      !isCounterExt && el('div',{style:{textAlign:'center',marginTop:10}},
         el('button',{
           className:'transcript-btn',
           style:{fontSize:'.68rem',letterSpacing:'.08em',textTransform:'uppercase'},
           onClick:()=>setShowCustomParadigm(!showCustomParadigm),
         },showCustomParadigm||customParadigm.trim()?'▼ Custom judge paradigm':'▶ Paste a specific judge\'s paradigm'),
       ),
-      (showCustomParadigm||customParadigm.trim()) && el('div',{style:{maxWidth:560,margin:'10px auto 0',textAlign:'center'}},
+      !isCounterExt && (showCustomParadigm||customParadigm.trim()) && el('div',{style:{maxWidth:560,margin:'10px auto 0',textAlign:'center'}},
         el('textarea',{
           value:customParadigm,
           onChange:e=>saveCustomParadigm(e.target.value),
@@ -6247,9 +6320,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         ),
       ),
 
-      // Side
-      el('div',{className:'t-label',style:{marginTop:24}},'Your Side'),
-      el('div',{className:'pills'},
+      // Side. Counter mode: a viva doesn't have Gov/Opp — you defend
+      // your work — so the picker is dead chrome here.
+      !isCounterExt && el('div',{className:'t-label',style:{marginTop:24}},'Your Side'),
+      !isCounterExt && el('div',{className:'pills'},
         fmt.sides.map(s=>
           el('button',{key:s,className:'pill'+(side===s?' on':''),onClick:()=>setSide(s)},fmt.sideLabels[s])
         ),
@@ -6394,14 +6468,18 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       !isPro()&&el('div',{style:{fontSize:'.72rem',color:'var(--c-dim)',marginTop:4}},'Free tier: Claude only · ',el('a',{href:'/#pricing',style:{color:'rgba(239,68,68,.5)',textDecoration:'underline'}},'Upgrade for all 4 brains')),
 
       // ── Advanced Settings Toggle ──
-      el('button',{onClick:()=>setShowAdvanced(!showAdvanced),style:{marginTop:24,background:'none',border:'1px solid var(--c-border2)',borderRadius:10,padding:'10px 20px',color:'var(--c-text)',fontSize:'.78rem',cursor:'pointer',display:'flex',alignItems:'center',gap:8,margin:'24px auto 0',transition:'all .2s'}},
+      // Counter mode: the Advanced section is debate-skill trait
+      // pickers (strengths like "aggression / impact calculus",
+      // weaknesses like "noExamples / abstract"). All meaningful only
+      // for a debate round, not a viva probe.
+      !isCounterExt && el('button',{onClick:()=>setShowAdvanced(!showAdvanced),style:{marginTop:24,background:'none',border:'1px solid var(--c-border2)',borderRadius:10,padding:'10px 20px',color:'var(--c-text)',fontSize:'.78rem',cursor:'pointer',display:'flex',alignItems:'center',gap:8,margin:'24px auto 0',transition:'all .2s'}},
         el('span',{style:{transform:showAdvanced?'rotate(90deg)':'rotate(0deg)',transition:'transform .2s',display:'inline-block'}},'▸'),
         'Advanced Settings',
         (oppStrengths.length>0||oppWeaknesses.length>0||background)&&el('span',{style:{width:6,height:6,borderRadius:'50%',background:'#ef4444',display:'inline-block',marginLeft:4}}),
       ),
 
       // ── Advanced Section (collapsible) ──
-      showAdvanced&&el('div',{style:{marginTop:16,padding:'20px 0',borderTop:'1px solid var(--c-border)',animation:'fadeIn .3s ease'}},
+      !isCounterExt && showAdvanced&&el('div',{style:{marginTop:16,padding:'20px 0',borderTop:'1px solid var(--c-border)',animation:'fadeIn .3s ease'}},
 
         // Opponent Traits
         el('div',{className:'t-label',style:{marginTop:24}},'Opponent Style'),
@@ -6451,7 +6529,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       // Judge count picker — one Tab/flow judge (fast) or a 3-judge APDA
       // panel that deliberates after the round. Sits right above Start
       // Round so the choice is the last thing the user sets.
-      el('div',{style:{margin:'18px auto 0',maxWidth:520}},
+      // Counter mode: vivas have one examiner, not a judge panel.
+      !isCounterExt && el('div',{style:{margin:'18px auto 0',maxWidth:520}},
         el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--c-muted)',textAlign:'center',marginBottom:8}},'Judges'),
         el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
           el('button',{
@@ -6488,13 +6567,18 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         ),
       ),
 
-      // Summary line
+      // Summary line. Counter mode reframes around viva vocabulary
+      // (no "speeches", "prep", or "judge panel" — there's an examiner
+      // and a topic). Falls through to the debate-flavored summary for
+      // the public path.
       el('div',{className:'t-dim',style:{marginTop:16}},
-        fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' voice · '+(judgeCount===3?'3-judge panel':'1 judge')+(oppStrengths.length||oppWeaknesses.length?' · Custom opponent':'')
-
+        isCounterExt
+          ? ('Examiner · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' voice')
+          : (fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' voice · '+(judgeCount===3?'3-judge panel':'1 judge')+(oppStrengths.length||oppWeaknesses.length?' · Custom opponent':''))
       ),
 
-      el('button',{className:'cta cta-setup-sticky',disabled:!motion.trim(),onClick:startDebate},'Start Round'),
+      el('button',{className:'cta cta-setup-sticky',disabled:!motion.trim() && !isCounterExt,onClick:startDebate},
+        isCounterExt ? 'Start Viva' : 'Start Round'),
 
       // Generation counter + soft CTA. Surfaces remaining quota under
       // Start Round so users see the gate before they hit it. At ≤1 left
