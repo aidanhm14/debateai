@@ -64,8 +64,10 @@ const STORAGE_KEYS = {
   mode: 'counter:mode',
   persona: 'counter:persona',
   recent: 'counter:recent',
-  examDate: 'counter:examDate',
 };
+// examDate lives in chrome.storage.local (not localStorage) so the
+// background SW can read it for badge / notification logic — see
+// readExamDate / writeExamDate below.
 const SFX_MUTED_KEY = 'da-sfx-muted'; // shared with the host app's SFX module
 
 // Mode keys MUST match MODES in voice-debate.html. Labels + descriptions
@@ -668,11 +670,24 @@ function escapeHtml(s) {
 }
 
 // ── Exam countdown ─────────────────────────────────────────────────
-function refreshExamline() {
+// Exam date lives in chrome.storage.local so background.js can read it
+// for badge logic + notifications. The sidepanel mirrors it locally for
+// instant render, but the source of truth is chrome.storage.
+async function readExamDate() {
+  try {
+    const { examDate = '' } = await chrome.storage.local.get(['examDate']);
+    return String(examDate || '');
+  } catch (_) { return ''; }
+}
+async function writeExamDate(val) {
+  try { await chrome.storage.local.set({ examDate: String(val || '') }); } catch (_) {}
+}
+
+async function refreshExamline() {
   const banner = els.examline;
   const text = els.examlineText;
   if (!banner || !text) return;
-  const raw = readLocal(STORAGE_KEYS.examDate);
+  const raw = await readExamDate();
   if (!raw) {
     banner.classList.remove('is-shown', 'is-urgent');
     return;
@@ -683,8 +698,9 @@ function refreshExamline() {
   const today = ymd(new Date());
   const days = ymdDiff(today, raw);
   if (days < 0) {
-    // Stale exam date — silently clear.
-    saveLocal(STORAGE_KEYS.examDate, '');
+    // Stale exam date — silently clear and let background know.
+    await writeExamDate('');
+    try { chrome.runtime.sendMessage({ type: 'refresh-badge' }); } catch (_) {}
     banner.classList.remove('is-shown', 'is-urgent');
     return;
   }
@@ -705,12 +721,12 @@ function ymdDiff(today, target) {
 }
 
 // ── Settings sheet ─────────────────────────────────────────────────
-function openSettings() {
+async function openSettings() {
   if (!els.settingsShade) return;
   // Refresh dynamic values right before showing so the user sees
   // current state, not stale snapshots from the previous open.
   if (els.examDateInput) {
-    els.examDateInput.value = readLocal(STORAGE_KEYS.examDate) || '';
+    els.examDateInput.value = await readExamDate();
   }
   refreshMuteToggle();
   refreshSettingsStats();
@@ -769,15 +785,19 @@ document.addEventListener('keydown', (ev) => {
   }
 });
 
-els.examDateInput?.addEventListener('change', (ev) => {
+els.examDateInput?.addEventListener('change', async (ev) => {
   const val = ev.target.value || '';
-  saveLocal(STORAGE_KEYS.examDate, val);
+  await writeExamDate(val);
   refreshExamline();
+  // Background owns badge + nudge — re-prime both as soon as the
+  // user commits a new date.
+  try { chrome.runtime.sendMessage({ type: 'refresh-badge' }); } catch (_) {}
 });
-els.examClearBtn?.addEventListener('click', () => {
-  saveLocal(STORAGE_KEYS.examDate, '');
+els.examClearBtn?.addEventListener('click', async () => {
+  await writeExamDate('');
   if (els.examDateInput) els.examDateInput.value = '';
   refreshExamline();
+  try { chrome.runtime.sendMessage({ type: 'refresh-badge' }); } catch (_) {}
 });
 
 els.muteToggle?.addEventListener('click', () => {

@@ -114,11 +114,37 @@ async function recordDrill() {
 async function refreshBadge() {
   try {
     if (!chrome.action?.setBadgeText) return;
-    const { streakDays = 0, lastDrillDate = '' } = await chrome.storage.local.get([
-      'streakDays', 'lastDrillDate',
+    const {
+      streakDays = 0,
+      lastDrillDate = '',
+      examDate = '',
+    } = await chrome.storage.local.get([
+      'streakDays', 'lastDrillDate', 'examDate',
     ]);
     const today = ymd(new Date());
     const days = Number(streakDays) || 0;
+
+    // Exam takeover: when an exam is within 14 days, the badge counts
+    // down to the exam instead of the streak. The exam is the user's
+    // actual goal; the streak is just a proxy that supports it.
+    if (examDate) {
+      const examDays = ymdDiff(today, String(examDate));
+      if (examDays >= 0 && examDays <= 14) {
+        const text = examDays === 0 ? 'D-0' : `D-${examDays}`;
+        // Crimson inside the last week, amber otherwise so the
+        // toolbar reads as gradually-warming pressure.
+        chrome.action.setBadgeBackgroundColor({
+          color: examDays <= 7 ? '#e54545' : '#f59e0b',
+        });
+        chrome.action.setBadgeText({ text });
+        return;
+      }
+      if (examDays < 0) {
+        // Stale exam — clear so we don't keep showing D-(-3).
+        await chrome.storage.local.set({ examDate: '' });
+      }
+    }
+
     if (days <= 0) {
       chrome.action.setBadgeText({ text: '' });
       return;
@@ -140,12 +166,105 @@ async function refreshBadge() {
   }
 }
 
+function ymdDiff(today, target) {
+  // YYYY-MM-DD diff in days. Mirrors the helper in sidepanel.js but
+  // duplicated here so the SW doesn't need to round-trip.
+  const parse = (s) => {
+    const [y, m, d] = String(s).split('-').map(Number);
+    return Date.UTC(y || 1970, (m || 1) - 1, d || 1);
+  };
+  return Math.round((parse(target) - parse(today)) / 86_400_000);
+}
+
+// ── Daily nudge notification ──────────────────────────────────────
+// Fires at most once per day if EITHER:
+//   - an exam is set within 14 days AND the user hasn't drilled today, OR
+//   - the user has a 3+ day streak that's about to break (overdue today)
+// Suppressed if the user has chrome.notifications disabled at the OS
+// level (chrome.notifications.create silently no-ops).
+
+async function maybeNudge() {
+  try {
+    if (!chrome.notifications?.create) return;
+    const today = ymd(new Date());
+    const {
+      streakDays = 0,
+      lastDrillDate = '',
+      examDate = '',
+      lastNudgeDate = '',
+    } = await chrome.storage.local.get([
+      'streakDays', 'lastDrillDate', 'examDate', 'lastNudgeDate',
+    ]);
+    // One nudge per day, max.
+    if (lastNudgeDate === today) return;
+    // Already drilled today — nothing to push.
+    if (lastDrillDate === today) return;
+
+    let title = '';
+    let body = '';
+    if (examDate) {
+      const examDays = ymdDiff(today, String(examDate));
+      if (examDays >= 0 && examDays <= 14) {
+        title = examDays === 0
+          ? 'Exam today. One last drill.'
+          : `Exam in ${examDays} ${examDays === 1 ? 'day' : 'days'}.`;
+        body = examDays <= 3
+          ? 'Open Counter and run a viva. Even one round helps.'
+          : 'A quick viva today keeps the muscle warm.';
+      }
+    }
+    // If no exam (or it's far out), fall back to streak-protection.
+    if (!title) {
+      const d = Number(streakDays) || 0;
+      if (d >= 3) {
+        title = `${d}-day streak about to break.`;
+        body = 'One drill today keeps it alive.';
+      }
+    }
+    if (!title) return;
+
+    await chrome.storage.local.set({ lastNudgeDate: today });
+    try {
+      chrome.notifications.create('counter-daily-nudge', {
+        type: 'basic',
+        iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
+        title,
+        message: body,
+        priority: 1,
+        silent: false,
+      });
+    } catch (_) {
+      // Notifications can fail (permission, OS-level mute) — silent OK.
+    }
+  } catch (e) {
+    console.warn('[debateai-ext] maybeNudge', e);
+  }
+}
+
+// Clicking the notification should land the user inside a side panel
+// ready to drill, not just open a random tab.
+chrome.notifications?.onClicked?.addListener?.(async (notificationId) => {
+  if (notificationId !== 'counter-daily-nudge') return;
+  try { chrome.notifications.clear(notificationId); } catch (_) {}
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tab?.windowId) await chrome.sidePanel.open({ windowId: tab.windowId });
+  } catch (e) {
+    console.warn('[debateai-ext] notification click open', e);
+  }
+});
+
 // Daily wake-up so the badge flips to "!" the moment a streak day ends
-// — even if the user hasn't opened the panel.
+// — even if the user hasn't opened the panel. The same tick also drives
+// the once-per-day nudge notification (rate-limited via lastNudgeDate).
 try {
   chrome.alarms?.create('debateai-badge-refresh', { periodInMinutes: 30 });
+  // Separate alarm for the nudge so we can space it differently from
+  // the badge tick. Fires every 4h; maybeNudge() dedupes per day.
+  chrome.alarms?.create('debateai-daily-nudge', { periodInMinutes: 240 });
   chrome.alarms?.onAlarm?.addListener?.((alarm) => {
     if (alarm?.name === 'debateai-badge-refresh') refreshBadge().catch(() => {});
+    if (alarm?.name === 'debateai-daily-nudge') maybeNudge().catch(() => {});
   });
 } catch (_) {}
 
@@ -397,6 +516,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       refreshBadge();
       sendResponse({ ok: true });
     }).catch((e) => sendResponse({ error: String(e?.message || e) }));
+    return true;
+  }
+  if (msg?.type === 'refresh-badge') {
+    // Side panel just edited examDate (or another badge input). Re-prime
+    // the toolbar without waiting for the 30-min alarm.
+    refreshBadge()
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ error: String(e?.message || e) }));
     return true;
   }
   return false;
