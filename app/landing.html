@@ -3598,17 +3598,6 @@ section.ui-section .ui-lede{
         </div>
 
         <!-- Slide 2: typed sparring -->
-        <div class="hero-rotor-slide" data-slide="2" aria-label="Typed sparring preview">
-          <a class="hrs-card" href="/debate-ai">
-            <div class="hrs-eyebrow"><span class="hrs-dot"></span>Typed sparring · 10 formats</div>
-            <div class="hrs-img"><img src="/landing-shot-debate-ai.png" alt="Debate AI typed clash with format chips for APDA, BP, Asian Parli, WSDC, LD, PF, Policy, Congress, MUN." loading="eager" decoding="sync" width="1600" height="900" /></div>
-            <div class="hrs-meta">
-              <strong>Format-accurate AI opponent.</strong>
-              <span>Policy spreads. PF citations. APDA impromptu. The judge knows the difference.</span>
-            </div>
-          </a>
-        </div>
-
         <!-- Slide 3: leaderboard -->
         <div class="hero-rotor-slide" data-slide="3" aria-label="Leaderboard preview">
           <a class="hrs-card" href="/leaderboard">
@@ -3651,10 +3640,9 @@ section.ui-section .ui-lede{
         <div class="hero-rotor-controls" role="tablist" aria-label="Hero spotlight">
           <button class="hrr-dot is-active" data-go="0" type="button" aria-label="Show live rebuttal"></button>
           <button class="hrr-dot" data-go="1" type="button" aria-label="Show voice round"></button>
-          <button class="hrr-dot" data-go="2" type="button" aria-label="Show typed sparring"></button>
-          <button class="hrr-dot" data-go="3" type="button" aria-label="Show leaderboard"></button>
-          <button class="hrr-dot" data-go="4" type="button" aria-label="Show community"></button>
-          <button class="hrr-dot" data-go="5" type="button" aria-label="Show smartness levels"></button>
+          <button class="hrr-dot" data-go="2" type="button" aria-label="Show leaderboard"></button>
+          <button class="hrr-dot" data-go="3" type="button" aria-label="Show community"></button>
+          <button class="hrr-dot" data-go="4" type="button" aria-label="Show smartness levels"></button>
         </div>
         <div class="hero-rotor-bar"><div class="hero-rotor-bar-fill" id="heroRotorBar"></div></div>
       </div>
@@ -4031,11 +4019,12 @@ section.ui-section .ui-lede{
       }
     })();
 
-    /* Hero rotor. Cycles through the rebuttal demo, the globe, and
-       four product screenshots. On each visit, advances the start
-       index in localStorage so returning users see a new slide
-       first. Auto-advances every 8s with a progress bar; clicks on
-       the dot indicators jump to a specific slide. */
+    /* Hero rotor — manual only. Auto-advance + progress bar removed
+       2026-05-13: the auto-cycling carousel pattern reads as
+       AI-template-builder output. Dots stay as clickable nav so a
+       curious visitor can still browse, but the hero doesn't move on
+       its own. Stage height is pinned to the tallest slide (measured
+       after images decode) so the typing rebuttal can't push it. */
     (function(){
       var rotor = document.getElementById('heroRotor');
       if (!rotor) return;
@@ -4046,17 +4035,13 @@ section.ui-section .ui-lede{
       var count = slides.length;
       if (count < 2) return;
 
-      var INTERVAL_MS = 14000;
-      var STORAGE_KEY = 'da-rotor-idx';
-
-      // Pin the stage to the tallest slide's natural height so the
-      // rotor doesn't visibly grow/shrink between transitions. Each
-      // slide is briefly given is-active to measure its real height,
-      // then the max wins. Re-runs after images decode + on resize.
+      // Pin actual height (not just min-height) to the tallest slide.
+      // The typing rebuttal on slide 0 grows live as text streams; if
+      // we only pinned min-height, that growth would push the stage
+      // and bump every section below — the "expands / goes down" feel.
       function pinStageHeight(){
         if (!stage || !slides.length) return;
         var maxH = 0;
-        var prev = current;
         slides.forEach(function(s){
           var wasActive = s.classList.contains('is-active');
           s.style.visibility = 'hidden';
@@ -4068,61 +4053,31 @@ section.ui-section .ui-lede{
           s.style.visibility = '';
           s.style.opacity = '';
         });
-        if (maxH > 0) stage.style.minHeight = maxH + 'px';
+        if (maxH > 0) {
+          stage.style.height = maxH + 'px';
+          stage.style.minHeight = maxH + 'px';
+          stage.style.overflow = 'hidden';
+        }
       }
-      // Re-pin after images decode so the measurement uses their
-      // final rendered heights, not the placeholder zero-height.
       window.addEventListener('load', pinStageHeight);
       window.addEventListener('resize', pinStageHeight);
-      // Initial pin from JS in case 'load' already fired
       setTimeout(pinStageHeight, 0);
 
-      // Advance the starting slide on each visit. First load reads
-      // null → starts at 0. Second visit advances to 1. Sixth visit
-      // wraps back to 0. This way returning users see a different
-      // panel first on each session.
-      var startIdx = 0;
-      try {
-        var saved = parseInt(localStorage.getItem(STORAGE_KEY) || '-1', 10);
-        if (!isNaN(saved)) startIdx = (saved + 1) % count;
-      } catch(e) {}
+      // Hide the progress bar — there's no auto-advance to fill it.
+      if (bar && bar.parentElement) bar.parentElement.style.display = 'none';
 
       var current = -1;
-      var timer = null;
-      var barStart = 0;
-      var rafId = 0;
-      var paused = false;
 
       function setActive(i){
         if (i === current) return;
-        // Update slides
-        slides.forEach(function(s, idx){
-          s.classList.toggle('is-active', idx === i);
-        });
-        // Update dots
+        slides.forEach(function(s, idx){ s.classList.toggle('is-active', idx === i); });
         dots.forEach(function(d, idx){
           d.classList.toggle('is-active', idx === i);
           d.setAttribute('aria-selected', idx === i ? 'true' : 'false');
         });
         current = i;
-        // Persist so the NEXT visit advances past this one.
-        try { localStorage.setItem(STORAGE_KEY, String(i)); } catch(e) {}
-        // Reset progress bar
-        barStart = performance.now();
       }
 
-      function tick(){
-        if (paused) { rafId = requestAnimationFrame(tick); return; }
-        var elapsed = performance.now() - barStart;
-        var pct = Math.min(100, (elapsed / INTERVAL_MS) * 100);
-        if (bar) bar.style.width = pct + '%';
-        if (elapsed >= INTERVAL_MS) {
-          setActive((current + 1) % count);
-        }
-        rafId = requestAnimationFrame(tick);
-      }
-
-      // Dot clicks
       dots.forEach(function(dot){
         dot.addEventListener('click', function(){
           var go = parseInt(dot.getAttribute('data-go') || '0', 10);
@@ -4130,24 +4085,11 @@ section.ui-section .ui-lede{
         });
       });
 
-      // Pause on hover so users can read a slide they're interested in
-      rotor.addEventListener('mouseenter', function(){ paused = true; });
-      rotor.addEventListener('mouseleave', function(){
-        // Reset the progress bar so they get a full INTERVAL on the
-        // current slide after unhover (no jarring instant advance).
-        barStart = performance.now();
-        paused = false;
-      });
-
-      // Pause when tab is hidden so we don't burn cycles for nobody
-      document.addEventListener('visibilitychange', function(){
-        paused = document.hidden;
-        if (!paused) barStart = performance.now();
-      });
-
-      // Start
-      setActive(startIdx);
-      rafId = requestAnimationFrame(tick);
+      // Always start on the live rebuttal — the typing demo is the
+      // most engaging slide and the only one that earns the hero spot
+      // by default. No localStorage "remember last index" trick:
+      // returning visitors land on the same first impression.
+      setActive(0);
     })();
 
     /* Inline "Sign in with Google" link + hero CTA both delegate to the
