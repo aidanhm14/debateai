@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your dashboard · Debate AI</title>
+<meta name="description" content="Your Debate AI dashboard. Level, streak, format mastery, achievements, and recent rounds — all judged on the same AI ballot the leaderboard uses." />
+<meta name="robots" content="noindex,follow">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/profile">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+
+<script defer src="/js/track.js"></script>
+<script defer src="/js/sfx.js"></script>
+
+<link rel="stylesheet" href="/css/ui.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;overflow-x:hidden}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 24px 64px}
+
+/* ─── Loading + signed-out + error states ─── */
+.state{
+  padding:64px 24px;text-align:center;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:18px;
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
+}
+.state .spinner{
+  display:inline-block;width:26px;height:26px;
+  border:2.5px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite;
+}
+.state h3{font-size:1.15rem;font-weight:800;margin:0 0 8px}
+.state p{font-size:.92rem;color:var(--text-dim);max-width:440px;margin:0 auto 18px;line-height:1.55}
+.state .cta{
+  display:inline-block;margin-top:6px;
+  padding:11px 22px;background:var(--accent);color:#fff;
+  border-radius:999px;font-size:.82rem;font-weight:800;letter-spacing:.04em;
+  text-decoration:none;
+  transition:transform .15s, box-shadow .15s;
+}
+.state .cta:hover{transform:translateY(-1px);box-shadow:0 8px 24px var(--accent-glow)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── Hero strip ─── */
+.hero{
+  display:grid;grid-template-columns:96px 1fr auto;gap:22px;align-items:center;
+  padding:22px 26px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
+  margin-bottom:18px;
+}
+.avatar{
+  width:96px;height:96px;border-radius:50%;
+  border:2px solid var(--accent);
+  background:var(--bg-elev);
+  display:flex;align-items:center;justify-content:center;
+  font-size:2.2rem;font-weight:900;color:var(--accent);
+  letter-spacing:-.02em;
+  overflow:hidden;
+}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.hero-meta .name{
+  font-size:1.6rem;font-weight:900;letter-spacing:-.02em;line-height:1.1;
+  margin:0 0 4px;
+}
+.hero-meta .sub{
+  font-size:.82rem;color:var(--text-dim);font-weight:500;
+}
+.hero-meta .title-pill{
+  display:inline-block;margin-top:10px;
+  padding:5px 12px;font-size:.7rem;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--accent);
+  background:var(--accent-soft);border:1px solid var(--accent-border);
+  border-radius:999px;
+}
+.hero-side{
+  display:flex;flex-direction:column;align-items:flex-end;gap:8px;
+  text-align:right;
+}
+.streak-chip{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 14px;border-radius:999px;
+  background:linear-gradient(135deg, rgba(251,191,36,.16), rgba(239,68,68,.12));
+  border:1px solid rgba(251,191,36,.34);
+  font-size:.78rem;font-weight:800;letter-spacing:-.01em;color:#fbbf24;
+}
+.streak-chip.cold{
+  background:var(--bg-elev);border-color:var(--border);color:var(--text-dim);
+}
+.streak-chip .dot{
+  width:8px;height:8px;border-radius:50%;
+  background:#fbbf24;box-shadow:0 0 8px rgba(251,191,36,.7);
+}
+.streak-chip.cold .dot{background:var(--text-ghost);box-shadow:none}
+.hero-side .small{font-size:.72rem;color:var(--text-ghost)}
+@media(max-width:680px){
+  .hero{grid-template-columns:72px 1fr;gap:14px;padding:18px}
+  .avatar{width:72px;height:72px;font-size:1.6rem}
+  .hero-side{grid-column:1 / -1;flex-direction:row;justify-content:space-between;align-items:center;width:100%;text-align:left}
+  .hero-meta .name{font-size:1.3rem}
+}
+
+/* ─── Level / XP bar ─── */
+.xp-card{
+  padding:20px 24px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
+  margin-bottom:18px;
+}
+.xp-row{
+  display:flex;align-items:baseline;justify-content:space-between;
+  font-size:.78rem;color:var(--text-dim);font-weight:600;letter-spacing:.02em;
+}
+.xp-row .lvl-now{color:var(--text);font-weight:800;letter-spacing:-.01em;font-size:.92rem}
+.xp-bar{
+  position:relative;margin-top:10px;height:10px;
+  background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:999px;overflow:hidden;
+}
+.xp-fill{
+  position:absolute;left:0;top:0;height:100%;
+  background:linear-gradient(90deg, var(--accent), #fbbf24);
+  box-shadow:0 0 14px var(--accent-glow);
+  transition:width .8s cubic-bezier(.2,.7,.2,1);
+}
+.xp-foot{
+  display:flex;justify-content:space-between;margin-top:8px;
+  font-size:.7rem;color:var(--text-ghost);
+}
+
+/* ─── Stat tiles ─── */
+.stat-grid{
+  display:grid;grid-template-columns:repeat(4, 1fr);gap:12px;
+  margin-bottom:18px;
+}
+.stat{
+  padding:18px 18px 16px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  text-align:left;
+}
+.stat .label{
+  font-size:.66rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--text-ghost);margin-bottom:8px;
+}
+.stat .val{
+  font-size:1.7rem;font-weight:900;letter-spacing:-.02em;color:var(--text);
+  font-variant-numeric:tabular-nums;line-height:1;
+}
+.stat .val.accent{color:var(--accent)}
+.stat .sub{
+  margin-top:4px;font-size:.7rem;color:var(--text-dim);font-weight:500;
+}
+@media(max-width:680px){
+  .stat-grid{grid-template-columns:repeat(2, 1fr)}
+}
+
+/* ─── Section header ─── */
+.section{margin:24px 0 10px;display:flex;align-items:baseline;justify-content:space-between;gap:14px}
+.section h2{
+  font-size:1.05rem;font-weight:900;letter-spacing:-.01em;margin:0;
+}
+.section .right{
+  font-size:.72rem;color:var(--text-dim);font-weight:600;
+}
+.section .right a{color:var(--accent);text-decoration:none}
+.section .right a:hover{text-decoration:underline}
+
+/* ─── Format mastery ─── */
+.format-grid{
+  display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:12px;
+}
+.fmt-card{
+  padding:16px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  position:relative;overflow:hidden;
+}
+.fmt-card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--fmt-color, var(--accent));
+}
+.fmt-card .fname{
+  font-size:.92rem;font-weight:800;letter-spacing:-.01em;margin:0 0 8px;
+}
+.fmt-card .fmeta{
+  display:flex;align-items:baseline;justify-content:space-between;
+  font-size:.72rem;color:var(--text-dim);font-weight:600;
+}
+.fmt-card .fmeta b{color:var(--text);font-weight:800;font-variant-numeric:tabular-nums}
+.fmt-bar{
+  margin-top:10px;height:6px;background:var(--bg-elev);
+  border-radius:999px;overflow:hidden;
+}
+.fmt-bar .fill{
+  height:100%;background:var(--fmt-color, var(--accent));
+  border-radius:999px;
+}
+
+/* ─── Achievements ─── */
+.ach-grid{
+  display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:10px;
+}
+.ach{
+  padding:14px 14px 12px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+  position:relative;
+  transition:transform .12s, border-color .15s;
+}
+.ach.unlocked{border-color:var(--accent-border)}
+.ach.unlocked:hover{transform:translateY(-1px);border-color:var(--accent)}
+.ach .ach-tier{
+  position:absolute;top:8px;right:10px;
+  font-size:.56rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--text-ghost);
+}
+.ach.unlocked.tier-rare .ach-tier{color:#3b82f6}
+.ach.unlocked.tier-legendary .ach-tier{color:#fbbf24}
+.ach .ach-name{
+  font-size:.84rem;font-weight:800;letter-spacing:-.01em;margin:0 0 4px;color:var(--text);
+}
+.ach.locked .ach-name{color:var(--text-ghost)}
+.ach .ach-desc{
+  font-size:.68rem;color:var(--text-dim);line-height:1.4;
+}
+.ach.locked .ach-desc{color:var(--text-ghost)}
+
+/* ─── Recent rounds ─── */
+.recent{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;
+}
+.r-row{
+  display:grid;grid-template-columns:1fr 90px 80px 90px;align-items:center;
+  gap:14px;padding:13px 18px;border-bottom:1px solid var(--border);
+  font-size:.82rem;
+}
+.r-row:last-child{border-bottom:none}
+.r-row.head{
+  background:var(--bg-elev);font-size:.62rem;text-transform:uppercase;
+  letter-spacing:.10em;font-weight:800;color:var(--text-ghost);
+}
+.r-motion{font-weight:600;letter-spacing:-.01em;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r-motion .fmt{
+  display:inline-block;margin-left:8px;padding:1px 7px;font-size:.62rem;
+  font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-dim);background:var(--bg-elev);
+  border:1px solid var(--border);border-radius:4px;vertical-align:1px;
+}
+.r-score{font-weight:800;font-variant-numeric:tabular-nums;color:var(--accent)}
+.r-side{font-size:.72rem;color:var(--text-dim);font-weight:600}
+.r-when{font-size:.7rem;color:var(--text-ghost);text-align:right;font-variant-numeric:tabular-nums}
+.r-row .badge-w{
+  display:inline-block;margin-left:6px;padding:1px 6px;
+  font-size:.58rem;font-weight:800;letter-spacing:.06em;
+  color:var(--green, #22c55e);background:rgba(34,197,94,.14);
+  border:1px solid rgba(34,197,94,.36);border-radius:4px;
+}
+@media(max-width:680px){
+  .r-row{grid-template-columns:1fr 60px 70px;gap:8px;padding:12px 14px}
+  .r-side{display:none}
+  .r-row.head .r-side{display:none}
+}
+
+/* ─── CTA strip ─── */
+.cta-strip{
+  display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-top:22px;
+}
+.cta-strip a{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:18px 18px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:14px;text-decoration:none;color:var(--text);
+  transition:transform .15s, border-color .15s, box-shadow .15s;
+}
+.cta-strip a:hover{
+  transform:translateY(-1px);
+  border-color:var(--accent);box-shadow:0 8px 24px var(--accent-glow);
+}
+.cta-strip a .cl{font-size:.62rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:6px}
+.cta-strip a .ct{font-size:.96rem;font-weight:800;letter-spacing:-.01em}
+.cta-strip a .cs{font-size:.72rem;color:var(--text-dim);margin-top:3px}
+@media(max-width:680px){
+  .cta-strip{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="daTopbar"></div>
+<script defer src="/js/topbar.js"></script>
+
+<main class="wrap">
+
+  <!-- Loading state. Replaced by either the signed-out CTA or the
+       full dashboard once auth resolves and the Firestore query
+       returns. -->
+  <div id="mount">
+    <div class="state">
+      <div class="spinner" aria-label="Loading"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  measurementId: "G-0V4R5MY3BT"
+};
+
+let db=null;
+let auth=null;
+try{
+  if(typeof firebase!=='undefined'){
+    const app=firebase.apps&&firebase.apps.length?firebase.apps[0]:firebase.initializeApp(FIREBASE_CONFIG);
+    db=firebase.firestore();
+    if(firebase.auth) auth=firebase.auth();
+  }
+}catch(e){
+  console.warn('[profile] firebase init failed:', e);
+}
+
+const mount=document.getElementById('mount');
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Levels. XP is the simple sum of every AI-judged speaker score the
+// user has logged. A typical round scores 24–28, so 10 rounds at 27
+// avg = 270 XP. The thresholds below put a casual practitioner at
+// "Speaker" and an active circuit debater at "Closer" or above. Names
+// borrow BP/parli terminology because that's the register the AI judge
+// uses and the audience that retains.
+const LEVELS = [
+  { min:0,    name:'Novice' },
+  { min:80,   name:'Walk-on' },
+  { min:200,  name:'Speaker' },
+  { min:400,  name:'Member' },
+  { min:700,  name:'Whip' },
+  { min:1100, name:'Leader of Opp' },
+  { min:1600, name:'Prime Minister' },
+  { min:2200, name:'Closer' },
+  { min:3000, name:'Veteran' },
+  { min:4000, name:'National Champion' },
+];
+
+// Format display colors. Matches the per-format accent the audience
+// pages and topic SEO pages already use, so the mastery panel reads
+// consistently with the rest of the site.
+const FMT_COLOR = {
+  'APDA':'#ef4444',
+  'British Parliamentary':'#fbbf24',
+  'Public Forum':'#3b82f6',
+  'Lincoln-Douglas':'#a855f7',
+  'Policy':'#22c55e',
+  'World Schools':'#06b6d4',
+  'Asian Parliamentary':'#f97316',
+  'Congress':'#64748b',
+  'MUN':'#0ea5e9',
+  'Quick Clash':'#ec4899',
+  'Viva':'#14b8a6',
+};
+
+function fmtAgo(ts){
+  if(!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff/60000);
+  if(mins<1) return 'just now';
+  if(mins<60) return mins+'m';
+  const hrs = Math.floor(mins/60);
+  if(hrs<24) return hrs+'h';
+  const days = Math.floor(hrs/24);
+  if(days<7) return days+'d';
+  const wks = Math.floor(days/7);
+  if(wks<5) return wks+'w';
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+
+function fmtScore(s){
+  if(typeof s!=='number' || isNaN(s)) return '—';
+  return s.toFixed(1);
+}
+
+function computeLevel(xp){
+  let cur = LEVELS[0], nxt = LEVELS[1];
+  for(let i=0;i<LEVELS.length;i++){
+    if(xp >= LEVELS[i].min){
+      cur = LEVELS[i];
+      nxt = LEVELS[i+1] || null;
+    }
+  }
+  const span = nxt ? (nxt.min - cur.min) : 1;
+  const into = nxt ? (xp - cur.min) : 1;
+  const pct  = nxt ? Math.min(100, Math.max(0, (into/span)*100)) : 100;
+  return { cur, nxt, pct, into, span };
+}
+
+function dayKey(d){
+  return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+}
+
+function computeStreak(daySet){
+  if(!daySet.size) return 0;
+  const today = new Date();
+  // Allow today to be a rest day: start counting from yesterday if
+  // today is missing. This way users don't lose their streak just
+  // because they haven't trained yet that day.
+  let cursor = 0;
+  let streak = 0;
+  let allowMiss = true;
+  while(cursor < 365){
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - cursor);
+    if(daySet.has(dayKey(d))){
+      streak++;
+      allowMiss = false;
+    } else {
+      if(allowMiss){ allowMiss = false; cursor++; continue; }
+      break;
+    }
+    cursor++;
+  }
+  return streak;
+}
+
+function compute(rows){
+  const scores = rows.map(r => r.score).filter(s => typeof s === 'number');
+  const total = rows.length;
+  const sum = scores.reduce((a,b)=>a+b, 0);
+  const avg = scores.length ? sum/scores.length : 0;
+  const best = scores.length ? Math.max(...scores) : 0;
+  const lowest = scores.length ? Math.min(...scores) : 0;
+  const wins = rows.filter(r => r.won === true && r.kind === 'ai').length;
+  const live = rows.filter(r => r.kind === 'live').length;
+  const days = new Set();
+  rows.forEach(r => {
+    const t = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate() : null;
+    if(t) days.add(dayKey(t));
+  });
+  const streak = computeStreak(days);
+
+  const formats = {};
+  rows.forEach(r => {
+    const key = r.formatName || r.format || 'Unknown';
+    if(!formats[key]) formats[key] = { count:0, sum:0, best:0 };
+    formats[key].count++;
+    if(typeof r.score === 'number'){
+      formats[key].sum += r.score;
+      if(r.score > formats[key].best) formats[key].best = r.score;
+    }
+  });
+
+  const xp = Math.round(sum);
+  const level = computeLevel(xp);
+
+  return { total, avg, best, lowest, wins, live, formats, xp, level, streak, days: days.size, scores: scores.length };
+}
+
+function computeAchievements(s){
+  const A = (id, title, desc, unlocked, tier) => ({ id, title, desc, unlocked, tier: tier||'common' });
+  const fmtCount = Object.keys(s.formats).length;
+  return [
+    A('first_round',    'First Round',    'Finish one debate.',                          s.total >= 1,             'common'),
+    A('five_alive',     'Five & Alive',   'Five rounds in the books.',                   s.total >= 5,             'common'),
+    A('marathon',       'Marathon',       'Twenty-five rounds completed.',               s.total >= 25,            'rare'),
+    A('centurion',      'Centurion',      'One hundred rounds. Real circuit volume.',    s.total >= 100,           'legendary'),
+    A('cross_format',   'Cross-format',   'Rounds in three different formats.',          fmtCount >= 3,            'rare'),
+    A('polyglot',       'Polyglot',       'Rounds in five different formats.',           fmtCount >= 5,            'legendary'),
+    A('on_fire',        'On Fire',        'Three-day practice streak.',                  s.streak >= 3,            'common'),
+    A('inferno',        'Inferno',        'Seven-day practice streak.',                  s.streak >= 7,            'rare'),
+    A('high_scorer',    'High Scorer',    'Score 28.5 or higher in any round.',          s.best >= 28.5,           'rare'),
+    A('perfect_speech', 'Perfect Speech', 'A 30.0 ballot from the AI judge.',            s.best >= 30,             'legendary'),
+    A('underdog',       'Underdog',       'Beat the AI once.',                           s.wins >= 1,              'common'),
+    A('closer_ach',     'Closer',         'Beat the AI five times.',                     s.wins >= 5,              'rare'),
+    A('live_wire',      'Live Wire',      'Run a human-vs-human live round.',            s.live >= 1,              'common'),
+    A('comeback',       'Comeback',       'Climb three points from your worst.',         s.scores >= 5 && (s.best - s.lowest) >= 3, 'rare'),
+  ];
+}
+
+// Avatar: prefer the Google profile photo, fall back to the user's
+// initial inside an accent circle. Wrapped in a try/catch because
+// some Google photos 403 on direct hotlink under strict referrer
+// policies — the initial fallback always renders.
+function renderAvatar(user){
+  const name = (user.displayName || user.email || '').trim();
+  const initial = (name[0] || '?').toUpperCase();
+  if(user.photoURL){
+    return `<div class="avatar"><img src="${escapeHtml(user.photoURL)}" alt="" onerror="this.parentNode.innerHTML='${escapeHtml(initial)}'" referrerpolicy="no-referrer"/></div>`;
+  }
+  return `<div class="avatar">${escapeHtml(initial)}</div>`;
+}
+
+function renderSignedOut(){
+  mount.innerHTML = `
+    <div class="state">
+      <h3>Sign in to see your dashboard</h3>
+      <p>Your level, streak, format mastery, and achievements all live behind a free Google sign-in. The same account powers the leaderboard.</p>
+      <button class="cta" id="signinBtn" type="button">Sign in with Google</button>
+    </div>
+  `;
+  const btn = document.getElementById('signinBtn');
+  if(btn) btn.addEventListener('click', () => {
+    if(!auth || !firebase.auth.GoogleAuthProvider){
+      mount.innerHTML = `<div class="state"><h3>Couldn't load auth</h3><p>Your browser blocked the Firebase sign-in script. Try a different browser, or open this page outside an in-app browser like Instagram or TikTok.</p><a class="cta" href="/debate-ai">Open the app</a></div>`;
+      return;
+    }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(e => {
+      console.warn('[profile] sign-in failed:', e && e.message);
+    });
+  });
+}
+
+function renderError(msg){
+  mount.innerHTML = `
+    <div class="state">
+      <h3>Couldn't load your dashboard</h3>
+      <p>${escapeHtml(msg||'Something went sideways pulling your rounds.')} Try a refresh; if it sticks, head into a round and the dashboard will populate from there.</p>
+      <a class="cta" href="/debate-ai">Start a round</a>
+    </div>
+  `;
+}
+
+function renderEmpty(user){
+  const avatar = renderAvatar(user);
+  const first  = (user.displayName || user.email || 'Friend').split(/\s+/)[0];
+  mount.innerHTML = `
+    <section class="hero">
+      ${avatar}
+      <div class="hero-meta">
+        <h1 class="name">${escapeHtml(first)}</h1>
+        <div class="sub">${escapeHtml(user.email || '')}</div>
+        <span class="title-pill">Novice</span>
+      </div>
+      <div class="hero-side">
+        <span class="streak-chip cold"><span class="dot"></span> No streak yet</span>
+        <span class="small">0 rounds logged</span>
+      </div>
+    </section>
+
+    <div class="state">
+      <h3>Run your first round to unlock the board</h3>
+      <p>Every AI-judged round adds XP, level progress, format mastery, and achievement progress. The dashboard fills in as soon as a single round is in the books.</p>
+      <a class="cta" href="/debate-ai">Start a round</a>
+    </div>
+  `;
+}
+
+function renderDashboard(user, rows){
+  const s = compute(rows);
+  const ach = computeAchievements(s);
+  const avatar = renderAvatar(user);
+  const first = (user.displayName || user.email || 'Friend').split(/\s+/)[0];
+
+  // XP-bar copy. When the user has hit the top tier, we collapse the
+  // "to next" line into a brag instead of a confusing 100%/100% number.
+  const nxtCopy = s.level.nxt
+    ? `${s.level.nxt.min - s.xp} XP to <b>${escapeHtml(s.level.nxt.name)}</b>`
+    : `Top tier reached. The cabinet is yours.`;
+
+  // Streak chip. Cold (grey) if 0 — warm (gold) if active.
+  const streakChip = s.streak > 0
+    ? `<span class="streak-chip"><span class="dot"></span> ${s.streak}-day streak</span>`
+    : `<span class="streak-chip cold"><span class="dot"></span> No streak yet</span>`;
+
+  // Format mastery. Sort by round count desc so the user's strongest
+  // surface leads, but cap at 8 cards to keep the panel scannable.
+  const fmtRows = Object.entries(s.formats)
+    .map(([name, f]) => ({
+      name,
+      count: f.count,
+      avg: f.count ? f.sum/f.count : 0,
+      best: f.best,
+      color: FMT_COLOR[name] || 'var(--accent)',
+    }))
+    .sort((a,b) => b.count - a.count)
+    .slice(0, 8);
+
+  // Format mastery bar = avg score normalized against 30 (perfect ballot).
+  // Caps the floor at 10% so the bar reads as "present" even after a
+  // single low-scoring round.
+  const fmtBars = fmtRows.map(f => {
+    const pct = Math.max(10, Math.min(100, (f.avg / 30) * 100));
+    return `
+      <div class="fmt-card" style="--fmt-color:${f.color}">
+        <div class="fname">${escapeHtml(f.name)}</div>
+        <div class="fmeta"><span>${f.count} round${f.count===1?'':'s'}</span><b>${fmtScore(f.avg)} avg</b></div>
+        <div class="fmt-bar"><div class="fill" style="width:${pct.toFixed(1)}%"></div></div>
+        <div class="fmeta" style="margin-top:8px"><span>Best</span><b>${fmtScore(f.best)}</b></div>
+      </div>
+    `;
+  }).join('');
+
+  // Achievement cards. Sort unlocked first (so the user immediately
+  // sees what they've earned), within each group preserve definition
+  // order so legendaries don't all clump together.
+  const achSorted = [...ach].sort((a,b) => (b.unlocked?1:0) - (a.unlocked?1:0));
+  const achCards = achSorted.map(a => `
+    <div class="ach ${a.unlocked?'unlocked':'locked'} tier-${a.tier}">
+      <div class="ach-tier">${a.unlocked?a.tier:'Locked'}</div>
+      <div class="ach-name">${escapeHtml(a.title)}</div>
+      <div class="ach-desc">${escapeHtml(a.desc)}</div>
+    </div>
+  `).join('');
+
+  // Recent rounds (8 most recent). Truncates the motion so it doesn't
+  // wrap into a paragraph — full motion is still in the user's saved
+  // round inside /debate-ai history.
+  const recent = rows.slice(0, 8).map(r => {
+    const motion = (r.motion || '(no motion saved)').slice(0, 90);
+    const fmt = r.formatName || r.format || '—';
+    const side = r.sideLabel || r.side || '';
+    const wonBadge = (r.won === true && r.kind === 'ai') ? '<span class="badge-w">W</span>' : '';
+    return `
+      <div class="r-row">
+        <div class="r-motion">${escapeHtml(motion)}${wonBadge}<span class="fmt">${escapeHtml(fmt)}</span></div>
+        <div class="r-score">${fmtScore(r.score)}</div>
+        <div class="r-side">${escapeHtml(side)}</div>
+        <div class="r-when">${fmtAgo(r.completedAt)}</div>
+      </div>
+    `;
+  }).join('');
+
+  mount.innerHTML = `
+    <section class="hero">
+      ${avatar}
+      <div class="hero-meta">
+        <h1 class="name">${escapeHtml(first)}</h1>
+        <div class="sub">${escapeHtml(user.email || '')}</div>
+        <span class="title-pill">${escapeHtml(s.level.cur.name)}</span>
+      </div>
+      <div class="hero-side">
+        ${streakChip}
+        <span class="small">${s.total} round${s.total===1?'':'s'} logged</span>
+      </div>
+    </section>
+
+    <section class="xp-card">
+      <div class="xp-row">
+        <span class="lvl-now">${escapeHtml(s.level.cur.name)}</span>
+        <span>${nxtCopy}</span>
+      </div>
+      <div class="xp-bar"><div class="xp-fill" style="width:${s.level.pct.toFixed(1)}%"></div></div>
+      <div class="xp-foot">
+        <span>${s.xp} XP total</span>
+        <span>${s.level.nxt ? `${s.level.cur.min} → ${s.level.nxt.min} XP` : 'Max tier'}</span>
+      </div>
+    </section>
+
+    <section class="stat-grid">
+      <div class="stat"><div class="label">Total rounds</div><div class="val">${s.total}</div><div class="sub">${s.days} active day${s.days===1?'':'s'}</div></div>
+      <div class="stat"><div class="label">Avg speaker</div><div class="val accent">${fmtScore(s.avg)}</div><div class="sub">across all formats</div></div>
+      <div class="stat"><div class="label">Best ballot</div><div class="val">${fmtScore(s.best)}</div><div class="sub">your ceiling so far</div></div>
+      <div class="stat"><div class="label">Wins vs AI</div><div class="val">${s.wins}</div><div class="sub">${s.live} live round${s.live===1?'':'s'}</div></div>
+    </section>
+
+    <div class="section"><h2>Format mastery</h2><div class="right">${fmtRows.length} format${fmtRows.length===1?'':'s'} touched</div></div>
+    <div class="format-grid">${fmtBars || `<div class="state" style="grid-column:1/-1"><h3>No format data yet</h3><p>Run a round and your strongest formats will surface here, ranked by reps.</p></div>`}</div>
+
+    <div class="section"><h2>Achievements</h2><div class="right">${ach.filter(a=>a.unlocked).length} of ${ach.length} unlocked</div></div>
+    <div class="ach-grid">${achCards}</div>
+
+    <div class="section"><h2>Recent rounds</h2><div class="right"><a href="/leaderboard">See the full leaderboard →</a></div></div>
+    <div class="recent">
+      <div class="r-row head">
+        <div>Motion</div>
+        <div>Score</div>
+        <div>Side</div>
+        <div style="text-align:right">When</div>
+      </div>
+      ${recent || `<div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">Nothing yet. Your last eight rounds will appear here.</div></div>`}
+    </div>
+
+    <div class="cta-strip">
+      <a href="/debate-ai"><span class="cl">Typed</span><span class="ct">Beat the AI</span><span class="cs">Full round, AI judge, ballot at the end.</span></a>
+      <a href="/voice-debate"><span class="cl">Voice</span><span class="ct">Talk it out</span><span class="cs">Live speech, interruptions, a real timer.</span></a>
+      <a href="/live"><span class="cl">Human vs human</span><span class="ct">Go live</span><span class="cs">Real opponents, same AI ballot.</span></a>
+    </div>
+  `;
+}
+
+async function loadProfile(user){
+  if(!db){
+    renderError('Firestore did not load. Your browser may be blocking the database script.');
+    return;
+  }
+  try{
+    // Pull up to 200 of the user's most recent leaderboard entries.
+    // 200 is enough that the average / streak / mastery readouts are
+    // stable for anyone short of a heavy circuit user; for those folks
+    // the visible recent-list still surfaces the latest activity. A
+    // future v2 can paginate or aggregate into a `user_stats` doc, but
+    // not before we have a user who feels this limit.
+    const snap = await db.collection('leaderboard_entries')
+      .where('uid', '==', user.uid)
+      .orderBy('completedAt', 'desc')
+      .limit(200)
+      .get();
+    const rows = snap.docs.map(d => d.data());
+    if(!rows.length){
+      renderEmpty(user);
+      return;
+    }
+    renderDashboard(user, rows);
+    // First-paint chime: fires once per page session when the
+    // dashboard actually has data to celebrate. Honors the shared
+    // mute toggle in the topbar via window.SFX.
+    try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){}
+  } catch(e){
+    console.warn('[profile] query failed:', e && e.message);
+    // Fall back to the empty state on a missing-index race so the user
+    // still sees their hero card while we wait for the index to deploy.
+    if(/index|FAILED_PRECONDITION/i.test(e.message||'')){
+      renderEmpty(user);
+      return;
+    }
+    renderError(e && e.message);
+  }
+}
+
+if(auth){
+  auth.onAuthStateChanged(u => {
+    if(!u){ renderSignedOut(); return; }
+    loadProfile(u);
+  });
+} else {
+  renderSignedOut();
+}
+</script>
+
+</body>
+</html>
