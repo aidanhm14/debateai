@@ -77,6 +77,8 @@
     { href: '/live',          label: 'Live', live: true },
     { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
+    { href: '/pricing',       label: 'Pricing'      },
+    { href: '/india',         label: 'India'        },
   ];
 
   function el(tag, attrs, children){
