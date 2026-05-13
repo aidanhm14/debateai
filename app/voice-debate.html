@@ -2310,7 +2310,49 @@ function App(){
     const realUserTurns = turnsRef.current.filter(
       t => t.who === 'you' && (t.text || '').trim().length > 4
     ).length;
+
+    // Training-data capture for voice rounds. callAnyAI/callClaude in
+    // index.html log every typed AI turn; this is the symmetric flush
+    // for the Realtime voice path (which never touches our server during
+    // the round). Same /api/log-generation endpoint, kind:'voice_round'.
+    // Fire-and-forget; anon users skip silently because the server
+    // requires a Firebase ID token.
     if (realUserTurns >= 1) {
+      try {
+        const t = (turnsRef.current || []).filter(x => x && x.who !== 'system' && (x.text || '').trim());
+        if (t.length >= 2 && typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+          const transcript = t.map(x => (x.who === 'you' ? 'USER' : 'AI') + ': ' + (x.text || '').trim()).join('\n\n');
+          const userTurnsText = t.filter(x => x.who === 'you').map(x => (x.text || '').trim()).join('\n\n');
+          const aiTurnsText = t.filter(x => x.who === 'ai').map(x => (x.text || '').trim()).join('\n\n');
+          firebase.auth().currentUser.getIdToken().then(tok => {
+            if (!tok) return;
+            fetch('/api/log-generation', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+              body: JSON.stringify({
+                action: 'generation',
+                kind: 'voice_round',
+                motion: (motion || '').slice(0, 2000),
+                side: side || '',
+                format: mode || '',
+                depth: '',
+                model: 'gpt-realtime',
+                promptId: 'voice-' + (personaKey || 'unknown'),
+                systemPrompt: '',  // resolved server-side in realtime-session.mjs
+                userPrompt: userTurnsText.slice(0, 7800),
+                output: aiTurnsText.slice(0, 39000),
+                context: {
+                  persona: personaKey || '',
+                  turnCount: t.length,
+                  userTurnCount: realUserTurns,
+                  fullTranscript: transcript.slice(0, 39000),
+                },
+              }),
+            }).catch(()=>{});
+          }).catch(()=>{});
+        }
+      } catch (e) { console.warn('[voice-log]', e.message); }
+
       const beforeLevel = bondInfo(getBond(personaKey), personaKey).label;
       const after = incrementBond(personaKey);
       const afterLevel = bondInfo(after, personaKey).label;
