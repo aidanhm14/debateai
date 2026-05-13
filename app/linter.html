@@ -586,6 +586,19 @@
         document.documentElement.setAttribute('data-ext', '1');
       } catch (e) {}
 
+      // Counter is a viva-first surface. The Format dropdown defaults
+      // to "General" outside the extension, but inside the extension
+      // the right default is "Viva / oral exam" — that's why the user
+      // is here. Only applies if they haven't been routed in with a
+      // ?format=... override (the standalone prefill block reads that
+      // later, but here we set the default before it runs).
+      try {
+        if (formatEl && !qs.get('format')) {
+          const vivaOpt = Array.from(formatEl.options).find((o) => /viva|oral/i.test(o.value));
+          if (vivaOpt) formatEl.value = vivaOpt.value;
+        }
+      } catch (e) {}
+
       window.addEventListener('message', (ev) => {
         if (!ev || !ev.data) return;
         if (ev.data.type !== 'debateai-ext') return;

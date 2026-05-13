@@ -6330,19 +6330,26 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         el('button',{className:'cta-ghost',onClick:()=>setSide(fmt.sides[Math.floor(Math.random()*fmt.sides.length)]),style:{padding:'6px 14px',fontSize:'.72rem'}},'Random'),
       ),
 
-      // AI Voice
-      el('div',{className:'t-label',style:{marginTop:24}},'AI Voice',isPro()&&el('span',{style:{marginLeft:8,fontSize:'.55rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4,verticalAlign:'middle'}},'HD VOICE')),
+      // AI Voice. The 16 voices are named after debate archetypes
+      // (The Closer, The Prosecutor, The Heckler, The Disruptor, etc.)
+      // which read wrong for a viva user — an examiner isn't a Closer.
+      // Counter mode hides the whole picker. The default voice (onyx /
+      // "The Professor") happens to fit examiner register, so the TTS
+      // pipeline still gets a voice; the user just doesn't see the
+      // debate-named pills. They can change it in non-extension mode
+      // and it will stick (state persists in localStorage).
+      !isCounterExt && el('div',{className:'t-label',style:{marginTop:24}},'AI Voice',isPro()&&el('span',{style:{marginLeft:8,fontSize:'.55rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4,verticalAlign:'middle'}},'HD VOICE')),
       // Provider clarity. Personas are characters; the engine that
       // speaks them depends on tier. Spelling this out so users don't
       // have to guess what "HD VOICE" / persona pills actually map to.
-      el('div',{style:{textAlign:'center',marginTop:-4,marginBottom:6,fontSize:'.66rem',color:'var(--c-subtle)',lineHeight:1.45,maxWidth:480,margin:'-4px auto 6px'}},
+      !isCounterExt && el('div',{style:{textAlign:'center',marginTop:-4,marginBottom:6,fontSize:'.66rem',color:'var(--c-subtle)',lineHeight:1.45,maxWidth:480,margin:'-4px auto 6px'}},
         isPro()
           ? (ttsProvider==='inworld'
               ? 'Speaking via Inworld (Pro · expressive AI voices). Switch in Account → Voice provider.'
               : 'Speaking via ElevenLabs Turbo v2.5 (Pro · 16 expressive voices). Switch in Account → Voice provider.')
           : 'Speaking via OpenAI gpt-4o-mini-tts (free tier · steered per persona for tone, pacing, and emotion). Pro unlocks ElevenLabs (the same 16 personas, even more expressive).'
       ),
-      el('div',{className:'pills',style:{flexWrap:'wrap',justifyContent:'center'}},
+      !isCounterExt && el('div',{className:'pills',style:{flexWrap:'wrap',justifyContent:'center'}},
         Object.entries(VOICES).map(([k,v])=>
           el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>setVoice(k),style:{minWidth:voice===k?'auto':undefined}},
             v.name,
@@ -6351,13 +6358,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         )
       ),
       // Selected voice description + rivalry pill
-      VOICES[voice]&&el('div',{style:{textAlign:'center',marginTop:8,fontSize:'.72rem',color:'var(--c-text)',lineHeight:1.4,maxWidth:360,margin:'8px auto 0'}},
+      !isCounterExt && VOICES[voice]&&el('div',{style:{textAlign:'center',marginTop:8,fontSize:'.72rem',color:'var(--c-text)',lineHeight:1.4,maxWidth:360,margin:'8px auto 0'}},
         VOICES[voice].desc
       ),
       // Rivalry stats, shows prior W/L vs this specific voice so the user
       // feels the recurring-opponent loop. Gated at ≥3 rounds vs the same
       // voice, a single prior round read as noise, not a rivalry.
-      (function(){
+      !isCounterExt && (function(){
         const prior = (historyRounds||[]).filter(r => r && r.voice === voice);
         if (prior.length < 3) return null;
         const wins = prior.filter(r => r.userWon === true).length;
