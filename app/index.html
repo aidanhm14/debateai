@@ -6866,13 +6866,19 @@ function Casual() {
         const isLastAssistant = m.role==='assistant' && i===messages.length-1;
         const isStreamingMsg = loading && isLastAssistant;
         const isEmptyStreaming = isStreamingMsg && !(m.text && m.text.trim());
-        // While the assistant bubble is empty + streaming, render the
-        // LoadingBar INSIDE the bubble instead of as a separate card
-        // below the list. Stops the duplicated "blank assistant + extra
-        // Thinking card" pattern that read as broken formatting.
-        const childContent = isEmptyStreaming
-          ? React.createElement(LoadingBar, { label: 'Thinking...' })
-          : null;
+        // Empty + streaming assistant: render the LoadingBar bare and
+        // full-width, NOT wrapped in the rc-ai bubble. The bubble had
+        // maxWidth:80% + its own padding/border which collapsed around
+        // the LoadingBar (itself an already-styled card), producing a
+        // tiny card-in-card stub with a big empty rail next to it.
+        // Letting the LoadingBar fill the row removes the goofy
+        // narrow-stub look during the AI's compose gap.
+        if (isEmptyStreaming) {
+          return React.createElement('div', {
+            key: i,
+            style: { width: '100%', alignSelf: 'stretch' },
+          }, React.createElement(LoadingBar, { label: 'Thinking...' }));
+        }
         const props = {
           key: i,
           className:(m.role==='user'?'rc-user':'rc-ai') + (isStreamingMsg?' output streaming-active':''),
@@ -6884,9 +6890,6 @@ function Casual() {
             maxWidth:'80%', fontSize:'.92rem', lineHeight:1.45, whiteSpace:'pre-line'
           },
         };
-        if (childContent) {
-          return React.createElement('div', props, childContent);
-        }
         return React.createElement('div', Object.assign({}, props, {
           dangerouslySetInnerHTML:{__html:cleanOutput(m.text, true)}
         }));
