@@ -115,8 +115,12 @@ export default async (request, context) => {
     // Exemplar injection (learning-loop runtime): prepends 1–3 admin-weighted
     // reference rounds matching motion+format. Must run before
     // applyVoiceGuidelines, which strips _voiceFeature/_voiceFormat.
-    await applyExemplars(body);
-    await applyDistillations(body);
+    // Parallel: both hit Firestore independently on cache miss. See
+    // claude.mjs for the full rationale.
+    await Promise.all([
+      applyExemplars(body),
+      applyDistillations(body),
+    ]);
     applyVoiceGuidelines(body);
 
     // Client sends Claude-style: { system, messages, model, max_tokens, stream }

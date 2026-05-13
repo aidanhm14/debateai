@@ -307,18 +307,18 @@ export default async (request, context) => {
     // _promptId (+ optional _promptVars for {{var}} substitution). Shared
     // helper so gemini.mjs and grok.mjs resolve the same way.
     applyPromptLibrary(body);
-    // Exemplar injection: pulls 1–3 admin-weighted past rounds matching this
-    // motion + format and prepends them as reference speeches. The runtime
-    // half of the learning loop — strong rounds raise the floor of future
-    // rounds. No-op for chat/judge/casual; only fires on case-gen-style
-    // features. MUST run before applyVoiceGuidelines, which strips
-    // _voiceFeature / _voiceFormat after reading them.
-    await applyExemplars(body);
-    // Distillation injection (learning-loop compounding): appends the
-    // nightly-computed "PATTERNS THAT WORK" block for this format. Must
-    // also run before applyVoiceGuidelines for the same _voiceFeature/
-    // _voiceFormat reason. Cached 1hr in memory; near-zero per-request cost.
-    await applyDistillations(body);
+    // Exemplars + distillations both hit Firestore on a cache miss and are
+    // independent of each other. Run them in parallel so the warmup cost
+    // is max(exemplar, distillation) instead of their sum — saves 300-800ms
+    // on cold caches before the upstream LLM even starts. Both mutate
+    // body.system; the order they finish in doesn't matter because they
+    // prepend / append at distinct fixed positions. MUST resolve before
+    // applyVoiceGuidelines, which strips the _voiceFeature/_voiceFormat
+    // meta fields both readers depend on.
+    await Promise.all([
+      applyExemplars(body),
+      applyDistillations(body),
+    ]);
     // Voice guidelines: client sends `_voiceFeature` (e.g. "case", "bot",
     // "debateChat", "judge"). Server resolves the matching voice block and
     // appends it to body.system so the debater-voice bank never ships to
