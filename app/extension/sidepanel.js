@@ -265,13 +265,29 @@ function resetFrame() {
 }
 
 // Surface a recovery shade if the iframe never reports ready.
+// 15s is generous on purpose: voice-debate.html ships as a single
+// ~3000-line text/babel script and the first-load transpile by
+// babel-standalone can run 6-10s on a cold CPU before any useEffect
+// fires. We want the shade to mean "this isn't loading" not "this is
+// slow", so the timeout has to comfortably clear the babel pass.
 let readyDeadline = null;
 els.frame?.addEventListener('load', () => {
   state.frameReady = false;
   if (readyDeadline) clearTimeout(readyDeadline);
   readyDeadline = setTimeout(() => {
-    if (!state.frameReady) els.errShade?.classList.add('is-shown');
-  }, 7000);
+    if (!state.frameReady) {
+      console.warn('[counter] iframe loaded but no debateai-ext-ready ping in 15s. To debug: right-click the side panel → Inspect → in the top-left frame dropdown of DevTools, switch from "top" to the voice-debate.html frame → check Console for errors.');
+      els.errShade?.classList.add('is-shown');
+    }
+  }, 15000);
+});
+
+// Diagnostic: log every postMessage from the iframe origin so the
+// user can confirm in DevTools whether the bridge is firing.
+window.addEventListener('message', (ev) => {
+  if (ev.origin === APP_ORIGIN && ev.data && ev.data.type) {
+    console.log('[counter] iframe →', ev.data.type);
+  }
 });
 
 els.reloadBtn?.addEventListener('click', () => resetFrame());
