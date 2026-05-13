@@ -274,6 +274,18 @@
     try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!saved) saved = document.documentElement.getAttribute('data-theme') || 'crimson';
     document.documentElement.setAttribute('data-theme', saved);
+    // Auto-sync data-lighting from data-theme on every page load. Fixes
+    // the legacy out-of-sync state where /debate-ai set data-lighting
+    // independently of data-theme and a user-toggled `da-theme=light`
+    // wasn't reflected as `debateos-lighting=light`. Without this, the
+    // topbar text picked up the [data-theme="light"] dark-text rule
+    // from ui.css while the body kept the dark bg — unreadable nav.
+    // Pages that explicitly want a different lighting (e.g. debate-ai's
+    // React `lighting` state) can still override after this runs; the
+    // attribute is just no longer left stale on first paint.
+    var lighting = (saved === 'light') ? 'light' : 'dark';
+    try { localStorage.setItem('debateos-lighting', lighting); } catch(e){}
+    document.documentElement.setAttribute('data-lighting', lighting);
     syncBtn(saved);
 
     var btn = document.querySelector('.ui-topbar .theme-toggle');
@@ -281,8 +293,20 @@
     btn.addEventListener('click', function(){
       var prev = document.documentElement.getAttribute('data-theme') || 'crimson';
       var next = (prev === 'light') ? 'crimson' : 'light';
-      try { localStorage.setItem('da-theme', next); } catch(e){}
+      // Mirror the choice into `debateos-lighting` too. /debate-ai has
+      // its own page-local "lighting" attribute that controls body bg
+      // + bar-links color; without this mirror, flipping the topbar to
+      // light on /landing then opening /debate-ai gave data-theme=light
+      // (so ui.css colored topbar text dark) but data-lighting=dark
+      // (so debate-ai kept the body dark). Dark text on dark bg = the
+      // unreadable nav contrast bug. Keep both attrs in lockstep here.
+      var lighting = (next === 'light') ? 'light' : 'dark';
+      try {
+        localStorage.setItem('da-theme', next);
+        localStorage.setItem('debateos-lighting', lighting);
+      } catch(e){}
       document.documentElement.setAttribute('data-theme', next);
+      document.documentElement.setAttribute('data-lighting', lighting);
       window.location.reload();
     });
 

@@ -165,6 +165,18 @@ body:not(.has-beta-strip) .ui-topbar{top:0}
 }
 [data-theme="light"] .ui-topbar-link{color:rgba(0,0,0,.78)}
 html[data-lighting="light"] .ui-topbar-link{color:rgba(0,0,0,.78)}
+/* Safety net: if data-theme says light but data-lighting still says
+   dark (out-of-sync state from before the topbar↔/debate-ai sync
+   landed), the body bg stays dark — so force the link text back to
+   light-on-dark. data-lighting wins because it's what actually paints
+   the page background. !important here because debate-ai.html's
+   inline <style> block re-declares the lighting overrides with their
+   own specificity that fights pure-cascade resolution; the bang
+   guarantees readability regardless of which inline block parses last.
+   Without this, users who toggled light on /landing then visited
+   /debate-ai got dark text on dark bg. */
+html[data-lighting="dark"][data-theme="light"] .ui-topbar-link{color:rgba(255,255,255,.86) !important}
+html[data-lighting="dark"][data-theme="light"] .ui-topbar-pill{color:rgba(255,255,255,.86) !important}
 .ui-topbar-link:hover{color:var(--text)}
 .ui-topbar-link.accent{color:var(--accent)}
 .ui-topbar-link.accent:hover{color:var(--accent-hover)}
