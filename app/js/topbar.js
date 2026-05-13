@@ -80,6 +80,12 @@
   // pricing data moved into the FAQ + JSON-LD.
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
+    // YouTube demo. external:true → opens in a new tab + adds
+    // rel=noopener so the popup can't reach back through window.opener.
+    // Points at the DebateAI channel landing for now; swap the href to
+    // a specific video URL (https://youtu.be/XXXX) once the canonical
+    // demo is recorded.
+    { href: 'https://www.youtube.com/@debateai', label: 'Demo', external: true },
     { href: '/live',          label: 'Live', live: true },
     { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
@@ -125,12 +131,20 @@
 
     var right = el('div', { class: 'ui-topbar-right' });
     LINKS.forEach(function(L){
-      var active = pathMatches(L.href);
-      var a = el('a', {
+      var active = !L.external && pathMatches(L.href);
+      var attrs = {
         href: L.href,
         class: 'ui-topbar-link' + (active ? ' is-active' : ''),
         title: L.label,
-      });
+      };
+      // External links (YouTube demo, etc.) open in a new tab so the
+      // user doesn't lose the page; rel=noopener prevents the popup
+      // from reaching back through window.opener.
+      if (L.external){
+        attrs.target = '_blank';
+        attrs.rel = 'noopener noreferrer';
+      }
+      var a = el('a', attrs);
       if (L.live){
         a.style.display = 'inline-flex';
         a.style.alignItems = 'center';
