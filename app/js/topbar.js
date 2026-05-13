@@ -159,16 +159,30 @@
       '</svg>';
     right.appendChild(sfxBtn);
 
-    // Theme-dot tray removed 2026-05-10 per brand consolidation. The
-    // crimson/grey/light picker was diluting the brand wall and adding
-    // noise to a topbar that already has 7 links + SFX + a CTA + auth
-    // slot. Existing users with `da-theme=light` saved in localStorage
-    // keep their preference (wireThemeDots still applies it on load);
-    // they just can't toggle anymore. The CSS rules + per-page
-    // <button.theme-dot> markup that still ship in older pages are
-    // inert now (no element exists for them in the topbar). Per-page
-    // inline trays in /live, /live-round, /leaderboard were removed in
-    // the same pass.
+    // Theme toggle. Single sun/moon button (not the old 3-dot tray)
+    // so the topbar stays uncluttered while users can still flip to
+    // the light token set. Cycles dark (crimson) ↔ light. Anyone
+    // with `da-theme=grey` saved in localStorage keeps grey applied
+    // on load but the toggle treats it as "dark family" — click goes
+    // to light, click again goes to crimson. Inline SVG (no emoji per
+    // 2026-05-10 sweep); CSS lives in /css/ui.css under .theme-toggle.
+    var themeBtn = el('button', {
+      class: 'theme-toggle',
+      type: 'button',
+      'aria-label': 'Toggle light theme',
+      title: 'Switch to light theme',
+    });
+    themeBtn.innerHTML =
+      // Sun (shown when in dark theme → click goes light)
+      '<svg class="ti-sun" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<circle cx="12" cy="12" r="4"/>' +
+        '<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>' +
+      '</svg>' +
+      // Moon (shown when in light theme → click goes dark)
+      '<svg class="ti-moon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>' +
+      '</svg>';
+    right.appendChild(themeBtn);
 
     // Primary CTA is now Voice AI everywhere — voice is the moat
     // against ChatGPT (real-time, sub-200ms, full interruption) and
@@ -207,7 +221,7 @@
     nav.appendChild(right);
     mount.replaceChildren(nav);
 
-    wireThemeDots();
+    wireThemeToggle();
     wireSfxToggle();
     hydrateUser(userSlot);
   }
@@ -235,54 +249,38 @@
     });
   }
 
-  // Theme picker — three dots, syncs with [data-theme] on <html> and
-  // localStorage `da-theme`. Reads the current theme once on mount so
-  // the active dot lights up correctly across page loads.
-  //
-  // Per-page lock: if the page sets `window.daLockTheme = 'crimson'`
-  // (or any theme) before topbar.js runs, we honor it: don't read
-  // localStorage, don't override the html attribute, hide the dots.
-  // Landing uses this because the orb + casual-chat panel + sparring
-  // CTAs were designed for crimson tokens only and break on the light
-  // token set. Other pages are unaffected.
-  function wireThemeDots(){
-    if (window.daLockTheme){
-      var locked = window.daLockTheme;
-      document.documentElement.setAttribute('data-theme', locked);
-      // Hide the dots — they exist in markup but mean nothing here.
-      document.querySelectorAll('.ui-topbar .theme-dots').forEach(function(host){
-        host.style.display = 'none';
-      });
-      return;
-    }
-    var current = '';
-    try { current = localStorage.getItem('da-theme') || ''; } catch(e){}
-    if (!current) current = document.documentElement.getAttribute('data-theme') || 'crimson';
-    document.documentElement.setAttribute('data-theme', current);
-    sync(current);
-    document.querySelectorAll('.ui-topbar .theme-dot').forEach(function(d){
-      d.addEventListener('click', function(){
-        var t = d.getAttribute('data-t');
-        var prev = document.documentElement.getAttribute('data-theme') || '';
-        try { localStorage.setItem('da-theme', t); } catch(e){}
-        // Hard reload on theme change so token cascade, ui.css
-        // body-class rebinds, and any per-section <style> blocks
-        // settle from scratch. Avoids half-flipped pages when
-        // switching grey ↔ light ↔ crimson on surfaces with
-        // section-scoped style blocks.
-        if (prev !== t) {
-          document.documentElement.setAttribute('data-theme', t);
-          window.location.reload();
-          return;
-        }
-        document.documentElement.setAttribute('data-theme', t);
-        sync(t);
-      });
+  // Theme toggle — applies the saved theme on mount and wires the
+  // sun/moon button. Cycle is dark (crimson) ↔ light. Treats grey
+  // (legacy) as part of the "dark family": click from grey goes to
+  // light, click again to crimson; grey is no longer reachable from
+  // the toggle but still honored if saved in localStorage by an older
+  // session. Hard reload on change so the token cascade and any
+  // per-section <style> blocks settle from a clean slate.
+  function wireThemeToggle(){
+    var saved = '';
+    try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
+    if (!saved) saved = document.documentElement.getAttribute('data-theme') || 'crimson';
+    document.documentElement.setAttribute('data-theme', saved);
+    syncBtn(saved);
+
+    var btn = document.querySelector('.ui-topbar .theme-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', function(){
+      var prev = document.documentElement.getAttribute('data-theme') || 'crimson';
+      var next = (prev === 'light') ? 'crimson' : 'light';
+      try { localStorage.setItem('da-theme', next); } catch(e){}
+      document.documentElement.setAttribute('data-theme', next);
+      window.location.reload();
     });
-    function sync(t){
-      document.querySelectorAll('.ui-topbar .theme-dot').forEach(function(x){
-        x.classList.toggle('active', x.getAttribute('data-t') === t);
-      });
+
+    function syncBtn(t){
+      var b = document.querySelector('.ui-topbar .theme-toggle');
+      if (!b) return;
+      var isLight = (t === 'light');
+      b.setAttribute('aria-label', isLight ? 'Switch to dark theme' : 'Switch to light theme');
+      b.title = isLight ? 'Switch to dark theme' : 'Switch to light theme';
+      // Sun/moon visibility flips via CSS attribute selector on the
+      // <html> data-theme so we don't have to do anything else here.
     }
   }
 
