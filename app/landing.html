@@ -3361,13 +3361,13 @@ section.ui-section .ui-lede{
     <div class="editorial-hero">
       <div class="editorial-eyebrow">
         <span class="ee-dot" aria-hidden="true"></span>
-        Live · Voice + text sparring
+        Live · Asian Parli · WSDC · BP · APDA · more
       </div>
       <h1 class="hero-headline">
         The AI that <span class="hh-accent">argues back.</span>
       </h1>
       <p class="hero-sub">
-        Practice debates. Pressure-test essays. Sharpen ideas against an opponent that doesn't just agree.
+        Voice rounds across Asian Parliamentary, WSDC, British Parliamentary, APDA, and every other format you debate. The AI cuts in mid-speech, takes your POIs, writes a judge ballot in your tournament's structure.
       </p>
       <div class="hero-ctas">
         <a href="/debate-ai" class="btn-editorial btn-editorial-primary" data-cta="hero-primary">
@@ -6111,6 +6111,30 @@ window.addEventListener('load', function(){
     if (status !== 'success' && status !== 'canceled') return;
     var plan = (params.get('plan') || '').toLowerCase();
     var planLabel = ({lifetime:'Lifetime',individual:'Pro',team:'Team',byok:'BYOK'}[plan]) || 'Plan';
+    var sessionId = params.get('session_id') || '';
+
+    // Fire the GA4 purchase event BEFORE the URL params are stripped.
+    // Without this, GA4 has no signal that the Stripe webhook closed a
+    // sale — soul.md §8 ("Paid conversions: 0 tracked") was caused by
+    // this gap. Stripe → Firestore was always wired; GA4 was not.
+    if (status === 'success') {
+      try {
+        var planValue = ({lifetime:14.99, individual:5, team:30, byok:1}[plan]) || 0;
+        if (window.gtag) {
+          gtag('event', 'purchase', {
+            transaction_id: sessionId || ('da-' + Date.now()),
+            value: planValue,
+            currency: 'USD',
+            items: [{ item_id: plan || 'unknown', item_name: planLabel + ' plan', price: planValue, quantity: 1 }],
+          });
+        }
+        if (window.dosTrack) {
+          window.dosTrack('billing_purchase_completed', { plan: plan, value: planValue, session_id: sessionId });
+        }
+      } catch(e) { console.warn('[billing-banner] gtag purchase failed:', e); }
+    } else if (status === 'canceled') {
+      try { if (window.dosTrack) window.dosTrack('billing_purchase_canceled', { plan: plan }); } catch(e){}
+    }
 
     // Strip params so refresh doesn't re-show the banner.
     try {
