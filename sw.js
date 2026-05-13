@@ -1,9 +1,5 @@
 // Bumped to v10 — see app/sw.js for detail.
-<<<<<<< HEAD
-const CACHE_NAME = 'debateos-v153';
-=======
-const CACHE_NAME = 'debateos-v150';
->>>>>>> dec320e (landing: India-first hero + fire GA4 purchase event from billing banner)
+const CACHE_NAME = 'debateos-v155';
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
