@@ -2,25 +2,34 @@
 """Generate the 1200x630 OG card at app/og-image.png.
 
 Twitter/X, LinkedIn, Slack, iMessage all expect 1.91:1 (≈1200x630) for the
-big "summary_large_image" preview. The previous 512x512 logo got rendered
-as the small grey-padded thumbnail, which is what shipping links looked
-like. Re-run this script when the wordmark or tagline needs to change.
+big "summary_large_image" preview. Square logos render as the small
+grey-padded thumbnail.
+
+The card mirrors the voice-debate orb visualizer — same crimson aurora,
+sine-modulated waveform ring, pulsing core, hot white center — frozen
+at a phase that looks organic rather than perfectly circular. The orb
+IS the brand surface; the wordmark and URL just identify it.
+
+Re-run when the visual needs to change:
 
     python3 scripts/generate-og-image.py
 """
 
+import math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 W, H = 1200, 630
 OUT = "app/og-image.png"
 
+# Match the crimson page background — same gradient family as
+# data-theme="crimson" in landing.html so the OG card and the landing
+# read as one continuous surface.
 BG_TOP = (15, 4, 6)
 BG_BOT = (28, 10, 14)
 RED = (239, 68, 68)
-RED_SOFT = (239, 68, 68, 90)
 WHITE = (255, 255, 255)
-DIM = (255, 255, 255, 180)
-GHOST = (255, 255, 255, 110)
+DIM = (255, 255, 255, 200)
+GHOST = (255, 255, 255, 130)
 
 SF = "/System/Library/Fonts/SFNS.ttf"
 HELV = "/System/Library/Fonts/HelveticaNeue.ttc"
@@ -39,68 +48,138 @@ def font(size, weight="bold"):
         return ImageFont.truetype(HELV, size)
 
 
-img = Image.new("RGB", (W, H), BG_TOP)
-px = img.load()
-for y in range(H):
-    t = y / (H - 1)
-    r = int(BG_TOP[0] + (BG_BOT[0] - BG_TOP[0]) * t)
-    g = int(BG_TOP[1] + (BG_BOT[1] - BG_TOP[1]) * t)
-    b = int(BG_TOP[2] + (BG_BOT[2] - BG_TOP[2]) * t)
-    for x in range(W):
-        px[x, y] = (r, g, b)
+def vertical_gradient():
+    img = Image.new("RGB", (W, H), BG_TOP)
+    px = img.load()
+    for y in range(H):
+        t = y / (H - 1)
+        r = int(BG_TOP[0] + (BG_BOT[0] - BG_TOP[0]) * t)
+        g = int(BG_TOP[1] + (BG_BOT[1] - BG_TOP[1]) * t)
+        b = int(BG_TOP[2] + (BG_BOT[2] - BG_TOP[2]) * t)
+        for x in range(W):
+            px[x, y] = (r, g, b)
+    return img
 
-glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-gd = ImageDraw.Draw(glow)
-gd.ellipse((-220, -260, 520, 420), fill=(239, 68, 68, 70))
-gd.ellipse((760, 320, 1480, 940), fill=(239, 68, 68, 50))
-glow = glow.filter(ImageFilter.GaussianBlur(80))
-img.paste(glow, (0, 0), glow)
 
-draw = ImageDraw.Draw(img, "RGBA")
+def radial_glow(size, color_rgb, peak_alpha=180, falloff_pow=1.6):
+    """Pixel-accurate radial gradient disk centered in a `size x size` square.
 
-draw.rounded_rectangle((72, 72, 184, 184), radius=26, fill=(20, 8, 12, 255), outline=(239, 68, 68, 220), width=3)
-mark_font = font(120, "black")
-mb = draw.textbbox((0, 0), "D", font=mark_font)
-mw, mh = mb[2] - mb[0], mb[3] - mb[1]
-draw.text((72 + (112 - mw) / 2 - mb[0], 72 + (112 - mh) / 2 - mb[1] - 6), "D", font=mark_font, fill=RED)
+    Alpha drops from `peak_alpha` at the center to 0 at the edge, with a
+    power-curve falloff so the glow has a soft halo instead of a hard
+    linear ramp. Used for the aurora and the pulsing core.
+    """
+    cx = cy = size / 2
+    R = size / 2
+    pixels = bytearray()
+    r0, g0, b0 = color_rgb
+    for y in range(size):
+        dy = y - cy
+        for x in range(size):
+            dx = x - cx
+            d = math.hypot(dx, dy)
+            t = max(0.0, 1.0 - d / R)
+            a = int(peak_alpha * (t ** falloff_pow))
+            pixels.extend([r0, g0, b0, a])
+    return Image.frombytes("RGBA", (size, size), bytes(pixels))
 
-brand = font(46, "black")
-brand_w = draw.textbbox((0, 0), "Debate ", font=brand)[2]
-draw.text((72, 232), "Debate ", font=brand, fill=WHITE)
-draw.text((72 + brand_w, 232), "AI", font=brand, fill=RED)
 
-tagline = font(76, "black")
-draw.text((72, 296), "Find your weakness.", font=tagline, fill=WHITE)
-line2_y = 380
-before_w = draw.textbbox((0, 0), "Before ", font=tagline)[2]
-they_w = draw.textbbox((0, 0), "they", font=tagline)[2]
-draw.text((72, line2_y), "Before ", font=tagline, fill=WHITE)
-draw.text((72 + before_w, line2_y), "they", font=tagline, fill=RED)
-draw.text((72 + before_w + they_w, line2_y), " do.", font=tagline, fill=WHITE)
+def draw_orb(img, cx, cy, R, accent=RED, smooth_level=0.55, phase=2.7):
+    """Port of voice-debate.html's startOrbAnimation, frozen mid-frame.
 
-sub = font(30, "bold")
-draw.text((72, 484), "Lay the bait. Eat their time. Take the ballot.", font=sub, fill=DIM)
+    smooth_level controls organic distortion — 0 is a clean circle, 0.7+
+    is chaotic. phase rotates the waveform; a non-zero value avoids the
+    symmetric pose at phase=0 that looks accidental.
+    """
+    # ── Aurora outer glow ─────────────────────────────────────────
+    # Two stacked glows — a tight inner halo and a wide atmospheric
+    # wash — so the orb reads bright at the ring AND has a presence
+    # bleeding into the corners of the card.
+    inner_r = int(R * 1.7)
+    inner = radial_glow(inner_r * 2, accent, peak_alpha=int(190 + smooth_level * 50), falloff_pow=1.4)
+    img.alpha_composite(inner, (cx - inner_r, cy - inner_r))
 
-chip_font = font(22, "bold")
-chips = ["WSDC", "BP", "APDA", "Policy", "LD", "PF", "Congress", "MUN"]
-x = 76
-y = 522
-gap = 12
-pad_x = 16
-pad_y = 9
-for c in chips:
-    tb = draw.textbbox((0, 0), c, font=chip_font)
-    tw, th = tb[2] - tb[0], tb[3] - tb[1]
-    bw = tw + pad_x * 2
-    bh = th + pad_y * 2 + 4
-    draw.rounded_rectangle((x, y, x + bw, y + bh), radius=bh / 2, outline=(239, 68, 68, 140), width=2, fill=(239, 68, 68, 28))
-    draw.text((x + pad_x - tb[0], y + pad_y - tb[1]), c, font=chip_font, fill=WHITE)
-    x += bw + gap
+    outer_r = int(R * 3.2)
+    outer = radial_glow(outer_r * 2, accent, peak_alpha=int(110 + smooth_level * 40), falloff_pow=2.2)
+    img.alpha_composite(outer, (cx - outer_r, cy - outer_r))
 
-url_font = font(26, "bold")
-ub = draw.textbbox((0, 0), "debateai.com", font=url_font)
-uw = ub[2] - ub[0]
-draw.text((W - 76 - uw, 96), "debateai.com", font=url_font, fill=RED)
+    # ── Inner ring waveform ───────────────────────────────────────
+    segments = 360
+    points = []
+    for i in range(segments + 1):
+        t = i / segments
+        a = t * math.pi * 2
+        r = (R * (1 + smooth_level * 0.55)
+             + math.sin(a * 6 + phase * 2) * (3 + smooth_level * 14)
+             + math.sin(a * 11 - phase * 3) * (2 + smooth_level * 9)
+             + math.cos(a * 3 + phase) * (4 + smooth_level * 6))
+        points.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
 
-img.save(OUT, "PNG", optimize=True)
-print(f"wrote {OUT} ({W}x{H})")
+    ring = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    rd = ImageDraw.Draw(ring)
+    fill_alpha = int(255 * (0.12 + smooth_level * 0.08))
+    rd.polygon(points, fill=(accent[0], accent[1], accent[2], fill_alpha))
+    stroke_alpha = int(255 * (0.78 + smooth_level * 0.2))
+    rd.line(points + [points[0]], fill=(accent[0], accent[1], accent[2], stroke_alpha), width=5, joint="curve")
+    img.alpha_composite(ring)
+
+    # ── Inner pulsing core ────────────────────────────────────────
+    core_r = int(R * (0.7 + smooth_level * 0.25))
+    core_size = core_r * 2
+    core = radial_glow(core_size, accent, peak_alpha=int(230 + smooth_level * 25), falloff_pow=1.0)
+    img.alpha_composite(core, (cx - core_r, cy - core_r))
+
+    # Soft white inner glow under the hot center so the bright spot
+    # reads as plasma, not a single dot.
+    soft_r = int(R * 0.32)
+    soft = radial_glow(soft_r * 2, (255, 255, 255), peak_alpha=int(140 + smooth_level * 60), falloff_pow=1.4)
+    img.alpha_composite(soft, (cx - soft_r, cy - soft_r))
+
+    # ── Bright hot center ─────────────────────────────────────────
+    hot_r = int(12 + smooth_level * 18)
+    hot = radial_glow(hot_r * 2, (255, 255, 255), peak_alpha=255, falloff_pow=0.9)
+    img.alpha_composite(hot, (cx - hot_r, cy - hot_r))
+
+
+def main():
+    base = vertical_gradient()
+
+    # A pair of broad radial reds at opposing corners — same trick as the
+    # landing's crimson theme — so the dark background reads as alive,
+    # not flat. Blurred to soften any concentric banding.
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    gd.ellipse((-260, -280, 540, 440), fill=(239, 68, 68, 55))
+    gd.ellipse((760, 320, 1480, 940), fill=(239, 68, 68, 42))
+    glow = glow.filter(ImageFilter.GaussianBlur(90))
+    base.paste(glow, (0, 0), glow)
+
+    img = base.convert("RGBA")
+
+    # Orb — slightly above geometric center so the wordmark below it has
+    # breathing room without crowding the chip-free bottom edge.
+    draw_orb(img, cx=600, cy=275, R=200, accent=RED, smooth_level=0.55, phase=2.7)
+
+    draw = ImageDraw.Draw(img, "RGBA")
+
+    # Wordmark below the orb, centered. Small enough that the orb keeps
+    # visual dominance — the orb IS the logo, this is just identification.
+    brand = font(72, "black")
+    debate_w = draw.textbbox((0, 0), "Debate ", font=brand)[2]
+    ai_w = draw.textbbox((0, 0), "AI", font=brand)[2]
+    total = debate_w + ai_w
+    bx = (W - total) / 2
+    by = 510
+    draw.text((bx, by), "Debate ", font=brand, fill=WHITE)
+    draw.text((bx + debate_w, by), "AI", font=brand, fill=RED)
+
+    # Small URL stamp, top-right corner.
+    url_font = font(26, "bold")
+    ub = draw.textbbox((0, 0), "debateai.com", font=url_font)
+    draw.text((W - 72 - (ub[2] - ub[0]), 60), "debateai.com", font=url_font, fill=RED)
+
+    img.convert("RGB").save(OUT, "PNG", optimize=True)
+    print(f"wrote {OUT} ({W}x{H})")
+
+
+if __name__ == "__main__":
+    main()
