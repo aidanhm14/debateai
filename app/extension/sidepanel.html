@@ -665,6 +665,175 @@
   }
   .toast.is-shown { transform: translateY(0); opacity: 1; }
 
+  /* ── Settings sheet ──────────────────────────────────────── */
+  .settings-shade {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: none;
+    align-items: flex-end;
+    z-index: 12;
+    animation: settings-fade 160ms ease-out;
+  }
+  .settings-shade.is-shown { display: flex; }
+  @keyframes settings-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .settings-sheet {
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: var(--bg-elev);
+    border-top: 1px solid var(--line);
+    border-radius: 14px 14px 0 0;
+    padding: 14px 14px 18px;
+    box-shadow: var(--shadow-lift);
+    animation: settings-rise 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @keyframes settings-rise {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .settings-sheet__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .settings-sheet__title {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .settings-sheet__row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .settings-sheet__row:first-of-type { border-top: 0; padding-top: 0; }
+  .settings-sheet__row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .settings-sheet__label {
+    font-size: 12.5px;
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .settings-sheet__hint {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .settings-sheet__input {
+    width: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: 12px/1 -apple-system, system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  .settings-sheet__input:focus {
+    outline: none;
+    border-color: rgba(229, 69, 69, 0.55);
+  }
+  .settings-sheet__btn {
+    appearance: none;
+    background: var(--chip);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 11px;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+  }
+  .settings-sheet__btn:hover {
+    background: var(--chip-hover);
+    border-color: var(--line);
+  }
+  .settings-sheet__btn--danger {
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+  .settings-sheet__btn--danger:hover {
+    background: rgba(239, 68, 68, 0.12);
+    color: #fff;
+  }
+  .settings-sheet__toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--chip);
+    border: 1px solid var(--line);
+    cursor: pointer;
+    transition: background 140ms ease;
+    flex: 0 0 auto;
+  }
+  .settings-sheet__toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: transform 160ms ease, background 160ms ease;
+  }
+  .settings-sheet__toggle.is-on { background: rgba(229, 69, 69, 0.4); }
+  .settings-sheet__toggle.is-on::after {
+    transform: translateX(16px);
+    background: #fff;
+  }
+  .settings-sheet__close {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 6px;
+  }
+  .settings-sheet__close:hover { background: var(--chip-hover); color: var(--fg); }
+  .settings-sheet__stat {
+    color: var(--muted-2);
+    font-size: 10.5px;
+    padding-top: 4px;
+  }
+
+  /* Exam countdown line in the brand sub-row when an exam date is set. */
+  .examline {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.08), transparent);
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 11px;
+    color: #fde68a;
+  }
+  .examline.is-shown { display: flex; }
+  .examline.is-urgent { color: #fca5a5; }
+  .examline__dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--amber);
+  }
+  .examline.is-urgent .examline__dot { background: var(--crimson); }
+
   /* ── Error shade ─────────────────────────────────────────── */
   .err-shade {
     position: absolute;
@@ -710,8 +879,14 @@
     </div>
     <span class="brandbar__spacer"></span>
     <button class="streak-chip" id="streakChip" type="button" title="Drill streak">Start a streak</button>
+    <button class="iconbtn" id="settingsBtn" type="button" aria-label="Settings" title="Settings">⚙</button>
     <button class="iconbtn" id="reload" type="button" aria-label="Reload" title="Reload Counter">↻</button>
   </header>
+
+  <div class="examline" id="examline" role="status">
+    <span class="examline__dot" aria-hidden="true"></span>
+    <span id="examlineText">Exam in 14 days</span>
+  </div>
 
   <main class="stage" id="stage" data-state="setup">
     <!-- Setup view: visible until a drill goes live -->
@@ -831,6 +1006,53 @@
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Settings sheet. Slide-up from bottom. Closes on backdrop click,
+       Escape, or the × in the header. -->
+  <div class="settings-shade" id="settingsShade" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
+    <div class="settings-sheet" id="settingsSheet">
+      <div class="settings-sheet__head">
+        <span class="settings-sheet__title" id="settingsTitle">Settings</span>
+        <button class="settings-sheet__close" id="settingsClose" type="button" aria-label="Close">×</button>
+      </div>
+
+      <div class="settings-sheet__row">
+        <div class="settings-sheet__row-head">
+          <span class="settings-sheet__label">Exam date</span>
+          <button class="settings-sheet__btn" id="examClear" type="button">Clear</button>
+        </div>
+        <span class="settings-sheet__hint">Counter shows a countdown above the panel when set. Used only locally — never sent anywhere.</span>
+        <input class="settings-sheet__input" id="examDate" type="date" />
+      </div>
+
+      <div class="settings-sheet__row">
+        <div class="settings-sheet__row-head">
+          <span class="settings-sheet__label">Mute sounds</span>
+          <button class="settings-sheet__toggle" id="muteToggle" type="button" role="switch" aria-checked="false" aria-label="Mute Counter sounds"></button>
+        </div>
+        <span class="settings-sheet__hint">Silences the highlight tick and drill-end chime. Shared with the host app's mute setting.</span>
+      </div>
+
+      <div class="settings-sheet__row">
+        <div class="settings-sheet__row-head">
+          <span class="settings-sheet__label">Reset streak</span>
+          <button class="settings-sheet__btn settings-sheet__btn--danger" id="resetStreakBtn" type="button">Reset</button>
+        </div>
+        <span class="settings-sheet__hint" id="streakStat">No drills yet.</span>
+      </div>
+
+      <div class="settings-sheet__row">
+        <div class="settings-sheet__row-head">
+          <span class="settings-sheet__label">Clear recent drills</span>
+          <button class="settings-sheet__btn settings-sheet__btn--danger" id="clearRecentBtn" type="button">Clear</button>
+        </div>
+        <span class="settings-sheet__hint" id="recentStat">No saved drills.</span>
+      </div>
+
+      <div class="settings-sheet__stat" id="versionStat"></div>
+    </div>
+  </div>
+
   <script src="sidepanel.js"></script>
 </body>
 </html>

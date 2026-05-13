@@ -385,5 +385,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }).catch(() => sendResponse({ streakDays: 0, lastDrillDate: '', totalDrills: 0 }));
     return true;
   }
+  if (msg?.type === 'reset-streak') {
+    // Power-user reset from the settings sheet. Wipes the streak +
+    // total-drills counters and refreshes the badge so the toolbar
+    // matches the zero-state immediately.
+    chrome.storage.local.set({
+      streakDays: 0,
+      lastDrillDate: '',
+      totalDrills: 0,
+    }).then(() => {
+      refreshBadge();
+      sendResponse({ ok: true });
+    }).catch((e) => sendResponse({ error: String(e?.message || e) }));
+    return true;
+  }
   return false;
 });

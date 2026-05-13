@@ -64,7 +64,9 @@ const STORAGE_KEYS = {
   mode: 'counter:mode',
   persona: 'counter:persona',
   recent: 'counter:recent',
+  examDate: 'counter:examDate',
 };
+const SFX_MUTED_KEY = 'da-sfx-muted'; // shared with the host app's SFX module
 
 // Mode keys MUST match MODES in voice-debate.html. Labels + descriptions
 // are panel-side copy. Order is the chip render order.
@@ -127,6 +129,20 @@ const els = {
   retryStripMsg: document.getElementById('retryStripMsg'),
   retryStripBtn: document.getElementById('retryStripBtn'),
   retryStripClose: document.getElementById('retryStripClose'),
+  examline: document.getElementById('examline'),
+  examlineText: document.getElementById('examlineText'),
+  settingsBtn: document.getElementById('settingsBtn'),
+  settingsShade: document.getElementById('settingsShade'),
+  settingsSheet: document.getElementById('settingsSheet'),
+  settingsClose: document.getElementById('settingsClose'),
+  examDateInput: document.getElementById('examDate'),
+  examClearBtn: document.getElementById('examClear'),
+  muteToggle: document.getElementById('muteToggle'),
+  resetStreakBtn: document.getElementById('resetStreakBtn'),
+  clearRecentBtn: document.getElementById('clearRecentBtn'),
+  streakStat: document.getElementById('streakStat'),
+  recentStat: document.getElementById('recentStat'),
+  versionStat: document.getElementById('versionStat'),
 };
 
 // Quick-start prompts. Mixed slate so a first-time user sees both
@@ -651,6 +667,170 @@ function escapeHtml(s) {
   }[c]));
 }
 
+// ── Exam countdown ─────────────────────────────────────────────────
+function refreshExamline() {
+  const banner = els.examline;
+  const text = els.examlineText;
+  if (!banner || !text) return;
+  const raw = readLocal(STORAGE_KEYS.examDate);
+  if (!raw) {
+    banner.classList.remove('is-shown', 'is-urgent');
+    return;
+  }
+  // Compare YYYY-MM-DD strings to avoid timezone drift. Days = today's
+  // ymd diff vs the saved ymd. Negative means the exam was yesterday or
+  // earlier (auto-clear).
+  const today = ymd(new Date());
+  const days = ymdDiff(today, raw);
+  if (days < 0) {
+    // Stale exam date — silently clear.
+    saveLocal(STORAGE_KEYS.examDate, '');
+    banner.classList.remove('is-shown', 'is-urgent');
+    return;
+  }
+  banner.classList.add('is-shown');
+  banner.classList.toggle('is-urgent', days <= 7);
+  if (days === 0) text.textContent = 'Exam is today. Last drill — make it count.';
+  else if (days === 1) text.textContent = 'Exam is tomorrow.';
+  else text.textContent = `Exam in ${days} ${days === 1 ? 'day' : 'days'}.`;
+}
+
+function ymdDiff(today, target) {
+  // Both args are YYYY-MM-DD. Returns target - today in days.
+  const parse = (s) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return Date.UTC(y, (m || 1) - 1, d || 1);
+  };
+  return Math.round((parse(target) - parse(today)) / 86_400_000);
+}
+
+// ── Settings sheet ─────────────────────────────────────────────────
+function openSettings() {
+  if (!els.settingsShade) return;
+  // Refresh dynamic values right before showing so the user sees
+  // current state, not stale snapshots from the previous open.
+  if (els.examDateInput) {
+    els.examDateInput.value = readLocal(STORAGE_KEYS.examDate) || '';
+  }
+  refreshMuteToggle();
+  refreshSettingsStats();
+  if (els.versionStat) {
+    const v = (chrome?.runtime?.getManifest?.() || {}).version || '';
+    els.versionStat.textContent = v ? `Counter v${v}` : '';
+  }
+  els.settingsShade.classList.add('is-shown');
+}
+function closeSettings() {
+  els.settingsShade?.classList.remove('is-shown');
+}
+function refreshMuteToggle() {
+  if (!els.muteToggle) return;
+  const muted = readLocal(SFX_MUTED_KEY) === '1';
+  els.muteToggle.classList.toggle('is-on', muted);
+  els.muteToggle.setAttribute('aria-checked', muted ? 'true' : 'false');
+}
+function refreshSettingsStats() {
+  // Streak stat
+  if (els.streakStat) {
+    chrome.runtime.sendMessage({ type: 'streak-state' }, (res) => {
+      if (!els.streakStat) return;
+      if (chrome.runtime.lastError || !res) {
+        els.streakStat.textContent = 'Streak state unavailable.';
+        return;
+      }
+      const days = Number(res.streakDays || 0);
+      const total = Number(res.totalDrills || 0);
+      if (days === 0 && total === 0) {
+        els.streakStat.textContent = 'No drills yet.';
+      } else {
+        els.streakStat.textContent =
+          `${days}-day streak. ${total} drill${total === 1 ? '' : 's'} total.`;
+      }
+    });
+  }
+  // Recent stat
+  if (els.recentStat) {
+    const n = readRecent().length;
+    els.recentStat.textContent = n === 0
+      ? 'No saved drills.'
+      : `${n} saved drill${n === 1 ? '' : 's'}.`;
+  }
+}
+
+els.settingsBtn?.addEventListener('click', openSettings);
+els.settingsClose?.addEventListener('click', closeSettings);
+els.settingsShade?.addEventListener('click', (ev) => {
+  // Close on backdrop click but not on clicks inside the sheet itself.
+  if (ev.target === els.settingsShade) closeSettings();
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && els.settingsShade?.classList.contains('is-shown')) {
+    closeSettings();
+  }
+});
+
+els.examDateInput?.addEventListener('change', (ev) => {
+  const val = ev.target.value || '';
+  saveLocal(STORAGE_KEYS.examDate, val);
+  refreshExamline();
+});
+els.examClearBtn?.addEventListener('click', () => {
+  saveLocal(STORAGE_KEYS.examDate, '');
+  if (els.examDateInput) els.examDateInput.value = '';
+  refreshExamline();
+});
+
+els.muteToggle?.addEventListener('click', () => {
+  const muted = readLocal(SFX_MUTED_KEY) === '1';
+  saveLocal(SFX_MUTED_KEY, muted ? '0' : '1');
+  refreshMuteToggle();
+});
+
+els.resetStreakBtn?.addEventListener('click', () => {
+  // No browser confirm() — too obtrusive in a side panel. Two-step
+  // affordance: first click arms the button, second click commits.
+  const btn = els.resetStreakBtn;
+  if (btn.dataset.armed === '1') {
+    chrome.runtime.sendMessage({ type: 'reset-streak' }, () => {
+      btn.dataset.armed = '0';
+      btn.textContent = 'Reset';
+      refreshStreakChip();
+      refreshSettingsStats();
+      showToast('Streak reset.');
+    });
+    return;
+  }
+  btn.dataset.armed = '1';
+  btn.textContent = 'Confirm reset';
+  setTimeout(() => {
+    if (btn.dataset.armed === '1') {
+      btn.dataset.armed = '0';
+      btn.textContent = 'Reset';
+    }
+  }, 4000);
+});
+
+els.clearRecentBtn?.addEventListener('click', () => {
+  const btn = els.clearRecentBtn;
+  if (btn.dataset.armed === '1') {
+    try { localStorage.removeItem(STORAGE_KEYS.recent); } catch (_) {}
+    btn.dataset.armed = '0';
+    btn.textContent = 'Clear';
+    renderRecent();
+    refreshSettingsStats();
+    showToast('Recent drills cleared.');
+    return;
+  }
+  btn.dataset.armed = '1';
+  btn.textContent = 'Confirm clear';
+  setTimeout(() => {
+    if (btn.dataset.armed === '1') {
+      btn.dataset.armed = '0';
+      btn.textContent = 'Clear';
+    }
+  }, 4000);
+});
+
 // ── Bootstrap ──────────────────────────────────────────────────────
 (function init() {
   // Restore persisted prefs (mode + persona) before chip render.
@@ -666,6 +846,7 @@ function escapeHtml(s) {
   updateStartButton();
   renderRecent();
   refreshStreakChip();
+  refreshExamline();
   // Platform-correct shortcut in the onboarding card.
   const kbd = document.getElementById('onboardKbd');
   if (kbd) {
