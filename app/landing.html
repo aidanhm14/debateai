@@ -5844,6 +5844,50 @@ try{
   },2800);
 })();
 
+// Section-reveal chimes. As major sections scroll into view, fire a
+// subtle SFX.receive() once per section per page load. Adds a sense
+// of momentum to the scroll without spamming — the IntersectionObserver
+// disconnects each entry after firing so re-scrolling is silent.
+// Skips the hero/proof-strip (above the fold on load, would chime
+// immediately and feel weird). Skips on first call too so a user who
+// reloads mid-page doesn't get a chime stack from the initial layout
+// pass. Honors the global SFX mute via the standard SFX module.
+(function(){
+  if (!('IntersectionObserver' in window)) return;
+  var targets = [
+    '#spar', '#debate-ai', '#topics', '#tools',
+    '#leaderboard-preview', '#faq', '#why',
+  ];
+  // Use a flag we set AFTER the first observer pass so the initial
+  // page-load callback (which fires synchronously for already-visible
+  // elements) doesn't trigger sound. Real scroll-into-view events fire
+  // later and DO chime.
+  var armed = false;
+  setTimeout(function(){ armed = true; }, 600);
+
+  var fired = Object.create(null);
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (!entry.isIntersecting) return;
+      var id = entry.target.id;
+      if (fired[id]) return;
+      fired[id] = true;
+      obs.unobserve(entry.target);
+      if (!armed) return;
+      try {
+        if (window.SFX && typeof window.SFX.receive === 'function') {
+          window.SFX.receive();
+        }
+      } catch(_){}
+    });
+  }, { threshold: 0.25 });
+
+  targets.forEach(function(sel){
+    var el = document.querySelector(sel);
+    if (el) obs.observe(el);
+  });
+})();
+
 // Hero audio-timer live countdown. loops 7:11 → 0:00 → resets. Pure theatre.
 (function(){
   var el=document.getElementById('heroTimerReadout');
