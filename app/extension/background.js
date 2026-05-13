@@ -56,7 +56,98 @@ chrome.runtime.onInstalled.addListener(() => {
       }
     });
   }
+  // Pin the badge color so refreshBadge() never has to set it on every
+  // refresh. The first refresh paints text on this background.
+  try {
+    chrome.action.setBadgeBackgroundColor({ color: '#e54545' });
+    if (chrome.action.setBadgeTextColor) {
+      chrome.action.setBadgeTextColor({ color: '#ffffff' });
+    }
+  } catch (_) {}
+  refreshBadge().catch(() => {});
 });
+
+// Refresh the badge whenever the service worker boots — MV3 kills the SW
+// aggressively, and the badge state is the user-facing memory of their
+// streak.
+refreshBadge().catch(() => {});
+
+// ── Streak tracking ────────────────────────────────────────────────
+// One row per day the user actually drilled. Persisted in
+// chrome.storage.local so it survives SW recycling. The badge surfaces
+// the streak count; an amber "!" replaces the count once the user has
+// missed today (i.e. a streak is at risk).
+
+function ymd(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+async function recordDrill() {
+  try {
+    const now = new Date();
+    const today = ymd(now);
+    const yesterday = ymd(new Date(now.getTime() - 86_400_000));
+    const stored = await chrome.storage.local.get([
+      'streakDays', 'lastDrillDate', 'totalDrills',
+    ]);
+    const prev = Number(stored.streakDays || 0);
+    const last = String(stored.lastDrillDate || '');
+    const total = Number(stored.totalDrills || 0);
+    let nextStreak;
+    if (last === today) nextStreak = prev || 1;
+    else if (last === yesterday) nextStreak = prev + 1;
+    else nextStreak = 1;
+    await chrome.storage.local.set({
+      streakDays: nextStreak,
+      lastDrillDate: today,
+      totalDrills: total + 1,
+    });
+    await refreshBadge();
+  } catch (e) {
+    console.warn('[debateai-ext] recordDrill', e);
+  }
+}
+
+async function refreshBadge() {
+  try {
+    if (!chrome.action?.setBadgeText) return;
+    const { streakDays = 0, lastDrillDate = '' } = await chrome.storage.local.get([
+      'streakDays', 'lastDrillDate',
+    ]);
+    const today = ymd(new Date());
+    const days = Number(streakDays) || 0;
+    if (days <= 0) {
+      chrome.action.setBadgeText({ text: '' });
+      return;
+    }
+    const overdue = lastDrillDate !== today;
+    if (overdue) {
+      // Streak in jeopardy — switch badge to amber + "!" so the user
+      // sees it in their toolbar without having to open the panel.
+      chrome.action.setBadgeBackgroundColor({ color: '#f59e0b' });
+      chrome.action.setBadgeText({ text: '!' });
+    } else {
+      chrome.action.setBadgeBackgroundColor({ color: '#e54545' });
+      // Two-digit cap is a Chrome limit anyway; clamp to keep the badge
+      // readable for the 99+ case.
+      chrome.action.setBadgeText({ text: days > 99 ? '99' : String(days) });
+    }
+  } catch (e) {
+    console.warn('[debateai-ext] refreshBadge', e);
+  }
+}
+
+// Daily wake-up so the badge flips to "!" the moment a streak day ends
+// — even if the user hasn't opened the panel.
+try {
+  chrome.alarms?.create('debateai-badge-refresh', { periodInMinutes: 30 });
+  chrome.alarms?.onAlarm?.addListener?.((alarm) => {
+    if (alarm?.name === 'debateai-badge-refresh') refreshBadge().catch(() => {});
+  });
+} catch (_) {}
 
 async function queueAction(payload) {
   await chrome.storage.session.set({ pendingAction: { ...payload, queuedAt: Date.now() } });
@@ -279,6 +370,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type && msg.type.startsWith('docs-')) {
     handleDocsMessage(msg).then((res) => sendResponse(res || { error: 'unknown docs message' }));
     return true; // async sendResponse
+  }
+  if (msg?.type === 'drill-started') {
+    recordDrill().then(() => sendResponse({ ok: true })).catch((e) => sendResponse({ error: String(e?.message || e) }));
+    return true;
+  }
+  if (msg?.type === 'streak-state') {
+    chrome.storage.local.get(['streakDays', 'lastDrillDate', 'totalDrills']).then((s) => {
+      sendResponse({
+        streakDays: Number(s.streakDays || 0),
+        lastDrillDate: String(s.lastDrillDate || ''),
+        totalDrills: Number(s.totalDrills || 0),
+      });
+    }).catch(() => sendResponse({ streakDays: 0, lastDrillDate: '', totalDrills: 0 }));
+    return true;
   }
   return false;
 });

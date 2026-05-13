@@ -127,4 +127,160 @@
       pillTimer = null;
     }
   }
+
+  // ── 3. Universal selection chip ────────────────────────────────
+  // Non-Docs pages don't have the canvas-copy problem, but they also
+  // don't have any visible affordance — the user has to remember the
+  // context menu or Cmd+Shift+D. A small anchored chip appears after a
+  // long selection has idled ~800ms, gives a one-tap "Quiz me" path,
+  // and disappears the moment the user starts typing / clicks away /
+  // selects something different. Suppressed inside form fields so we
+  // don't fight the user's own selection toolbar while they compose.
+
+  if (isDocsLike) return; // Docs is already handled by section 2.
+
+  const MIN_SELECTION_CHARS = 40;
+  const SELECTION_IDLE_MS = 800;
+  const CHIP_DISMISS_COOLDOWN_MS = 30_000;
+
+  let chipEl = null;
+  let chipIdleTimer = null;
+  let chipDismissedUntil = 0;
+  let chipCurrentText = '';
+
+  function isEditableTarget(node) {
+    if (!node) return false;
+    const n = node.nodeType === Node.TEXT_NODE ? node.parentNode : node;
+    if (!n || !n.closest) return false;
+    return !!n.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
+  }
+
+  function ensureChip() {
+    if (chipEl && document.body.contains(chipEl)) return chipEl;
+    const wrap = document.createElement('div');
+    wrap.id = 'debateai-sel-chip';
+    wrap.className = 'is-hidden';
+    wrap.setAttribute('role', 'button');
+    wrap.setAttribute('aria-label', 'Quiz me on the selected passage');
+    const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+    const hotkey = isMac ? '⌘⇧D' : 'Ctrl+Shift+D';
+    wrap.innerHTML = `
+      <span class="debateai-sel-chip__dot" aria-hidden="true"></span>
+      <span class="debateai-sel-chip__label">Quiz me</span>
+      <span class="debateai-sel-chip__hotkey">${hotkey}</span>
+      <button type="button" class="debateai-sel-chip__close" aria-label="Dismiss" data-action="dismiss">×</button>
+    `;
+    document.documentElement.appendChild(wrap);
+    wrap.addEventListener('mousedown', (ev) => {
+      ev.stopPropagation();
+    });
+    wrap.addEventListener('click', (ev) => {
+      const closeBtn = ev.target.closest('[data-action="dismiss"]');
+      if (closeBtn) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        chipDismissedUntil = Date.now() + CHIP_DISMISS_COOLDOWN_MS;
+        hideChip();
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (!chipCurrentText) {
+        hideChip();
+        return;
+      }
+      chrome.runtime.sendMessage({
+        type: 'open-panel-with-text',
+        action: 'quiz-me',
+        text: chipCurrentText,
+      });
+      hideChip();
+    });
+    chipEl = wrap;
+    return wrap;
+  }
+
+  function positionChip(rect) {
+    if (!chipEl) return;
+    const margin = 8;
+    const chipW = chipEl.offsetWidth || 160;
+    const chipH = chipEl.offsetHeight || 28;
+    // Anchor: top-right of the selection rect by default. If that
+    // overflows the viewport top, flip to bottom-right of the rect.
+    let top = rect.top - chipH - margin;
+    let left = rect.right - chipW;
+    if (top < margin) top = rect.bottom + margin;
+    // Clamp horizontally.
+    left = Math.max(margin, Math.min(left, window.innerWidth - chipW - margin));
+    // If the resulting bottom would go offscreen, clamp.
+    if (top + chipH > window.innerHeight - margin) {
+      top = window.innerHeight - chipH - margin;
+    }
+    chipEl.style.top = `${Math.round(top)}px`;
+    chipEl.style.left = `${Math.round(left)}px`;
+  }
+
+  function showChip(text, rect) {
+    if (Date.now() < chipDismissedUntil) return;
+    chipCurrentText = text;
+    const el = ensureChip();
+    positionChip(rect);
+    el.classList.remove('is-hidden');
+  }
+
+  function hideChip() {
+    if (!chipEl) return;
+    chipEl.classList.add('is-hidden');
+  }
+
+  function evaluateSelection() {
+    const sel = window.getSelection?.();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+      hideChip();
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    if (isEditableTarget(range.commonAncestorContainer)) {
+      hideChip();
+      return;
+    }
+    const text = String(sel).trim();
+    if (text.length < MIN_SELECTION_CHARS) {
+      hideChip();
+      return;
+    }
+    const rect = range.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+      hideChip();
+      return;
+    }
+    showChip(text, rect);
+  }
+
+  function scheduleEvaluate() {
+    if (chipIdleTimer) clearTimeout(chipIdleTimer);
+    chipIdleTimer = setTimeout(evaluateSelection, SELECTION_IDLE_MS);
+  }
+
+  // Selection changes fire on every keystroke / drag tick. Debounce.
+  document.addEventListener('selectionchange', scheduleEvaluate, true);
+  // The user is actively dragging a selection — chip would jitter, hide it.
+  document.addEventListener('mousedown', (ev) => {
+    if (chipEl && chipEl.contains(ev.target)) return;
+    hideChip();
+  }, true);
+  // Scroll invalidates the anchored position. Cheaper to hide than
+  // recompute on every scroll tick; the chip will return when the user
+  // stops scrolling and the selection is still live.
+  document.addEventListener('scroll', () => {
+    if (chipEl && !chipEl.classList.contains('is-hidden')) hideChip();
+    scheduleEvaluate();
+  }, { capture: true, passive: true });
+  // Hide on Escape — standard dismiss affordance.
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') {
+      hideChip();
+      chipDismissedUntil = Date.now() + CHIP_DISMISS_COOLDOWN_MS;
+    }
+  }, true);
 })();

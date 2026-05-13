@@ -3,52 +3,70 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Counter: oral exam trainer</title>
+<title>Counter — DebateAI</title>
 <style>
   :root {
     color-scheme: dark;
     --bg: #0a0a0c;
-    --fg: #e8e8ea;
+    --bg-elev: #14141a;
+    --bg-elev-2: #1c1c23;
+    --fg: #f5f5f7;
+    --fg-soft: #d6d6dc;
     --muted: #8a8a92;
+    --muted-2: #5a5a62;
     --line: #232328;
+    --line-soft: #1a1a20;
+    --crimson: #e54545;
+    --crimson-deep: #c83232;
+    --amber: #f59e0b;
+    --green: #22c55e;
     --chip: #15151a;
     --chip-hover: #1f1f25;
-    --crimson: #e54545;
+    --chip-on: #2a1416;
+    --chip-on-border: rgba(229, 69, 69, 0.55);
+    --shadow-lift: 0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25);
   }
+  *, *::before, *::after { box-sizing: border-box; }
   html, body {
     height: 100%;
     margin: 0;
     padding: 0;
     background: var(--bg);
     color: var(--fg);
-    font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
   }
-  .bar {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    height: 38px;
+  body { display: flex; flex-direction: column; }
+  button { font: inherit; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: #2a2a32; border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ── Brand bar ───────────────────────────────────────────── */
+  .brandbar {
+    flex: 0 0 auto;
+    height: 44px;
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 0 12px;
-    background: linear-gradient(180deg, rgba(14,14,18,0.96), rgba(10,10,12,0.92));
+    background: linear-gradient(180deg, rgba(16,16,20,0.96), rgba(10,10,12,0.92));
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line);
+    position: relative;
+    z-index: 6;
   }
-  .bar__brand {
+  .brandbar__brand {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     color: #fff;
     font-weight: 800;
     font-size: 11.5px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
+    letter-spacing: 0.18em;
   }
-  .bar__brand::before {
-    content: '';
+  .brandbar__dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
@@ -61,213 +79,433 @@
     70%  { box-shadow: 0 0 0 8px rgba(229, 69, 69, 0); }
     100% { box-shadow: 0 0 0 0   rgba(229, 69, 69, 0); }
   }
-  .bar__hint {
+  .brandbar__name {
+    background: linear-gradient(180deg, #fff, #cfcfd4);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .brandbar__sub {
+    color: var(--muted-2);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    margin-left: 1px;
+    border-left: 1px solid var(--line);
+    padding-left: 8px;
+  }
+  .brandbar__spacer { flex: 1; }
+
+  /* Streak chip */
+  .streak-chip {
+    appearance: none;
+    background: var(--chip);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+    transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  }
+  .streak-chip.is-active {
+    background: linear-gradient(180deg, #2a1416, #1a0e10);
+    border-color: rgba(229, 69, 69, 0.45);
+    color: var(--fg);
+  }
+  .streak-chip.is-overdue {
+    background: linear-gradient(180deg, #2a1f10, #1c160a);
+    border-color: rgba(245, 158, 11, 0.55);
+    color: #fde68a;
+  }
+  .streak-chip__flame { font-size: 12px; }
+  .streak-chip__num { font-weight: 700; }
+  .streak-chip__unit { color: inherit; opacity: 0.75; font-weight: 500; }
+
+  /* Icon button */
+  .iconbtn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--muted);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .iconbtn:hover {
+    background: var(--chip-hover);
+    color: var(--fg);
+  }
+
+  /* ── Stage ───────────────────────────────────────────────── */
+  .stage {
+    flex: 1 1 auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Setup view ──────────────────────────────────────────── */
+  .setup {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 14px 12px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .stage.is-drilling .setup { display: none; }
+  .stage.is-drilling .frame-shell { display: flex; flex: 1 1 auto; }
+
+  .row { display: flex; flex-direction: column; gap: 7px; }
+  .row__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .row__label {
+    font-size: 10.5px;
+    color: var(--muted);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .row__hint {
+    font-size: 10.5px;
+    color: var(--muted-2);
+  }
+
+  /* Chips */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    appearance: none;
+    background: var(--chip);
+    border: 1px solid var(--line);
+    color: var(--fg-soft);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 140ms ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .chip:hover { background: var(--chip-hover); color: var(--fg); }
+  .chip.is-on {
+    background: var(--chip-on);
+    border-color: var(--chip-on-border);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(229, 69, 69, 0.2);
+  }
+  .chip__sub {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 1px;
+  }
+  .chip.is-on .chip__sub { color: rgba(255,255,255,0.7); }
+
+  /* Topic field */
+  .topic-wrap {
+    position: relative;
+    border-radius: 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    transition: border-color 140ms ease;
+  }
+  .topic-wrap:focus-within { border-color: rgba(229, 69, 69, 0.6); }
+  .topic {
+    width: 100%;
+    background: transparent;
+    color: var(--fg);
+    border: 0;
+    padding: 10px 12px 26px;
+    font: 13px/1.5 -apple-system, system-ui, sans-serif;
+    resize: none;
+    outline: none;
+    min-height: 78px;
+    max-height: 180px;
+  }
+  .topic::placeholder { color: var(--muted-2); }
+  .topic-meta {
+    position: absolute;
+    bottom: 6px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10.5px;
+    color: var(--muted-2);
+    pointer-events: none;
+  }
+  .topic-meta__count { font-variant-numeric: tabular-nums; }
+  .topic-actions {
+    pointer-events: auto;
+    display: flex;
+    gap: 6px;
+  }
+  .textbtn {
+    appearance: none;
+    background: transparent;
+    border: 0;
     color: var(--muted);
     font-size: 11px;
+    padding: 2px 4px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 120ms ease, background 120ms ease;
+  }
+  .textbtn:hover { color: var(--fg); background: var(--chip-hover); }
+  .textbtn--danger:hover { color: #fca5a5; }
+
+  /* Primary CTA */
+  .cta {
+    appearance: none;
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(180deg, #e54545 0%, #c83232 100%);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 8px 22px rgba(229, 69, 69, 0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    transition: filter 140ms ease, transform 140ms ease;
+    text-align: left;
+  }
+  .cta:hover { filter: brightness(1.06); }
+  .cta:active { transform: translateY(1px); }
+  .cta:disabled {
+    background: var(--chip);
+    color: var(--muted);
+    box-shadow: none;
+    cursor: not-allowed;
+    filter: none;
+  }
+  .cta__arrow {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    margin-left: 2px;
+  }
+  .cta__label {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  .cta__sub {
+    font-size: 10.5px;
+    color: rgba(255,255,255,0.75);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    justify-self: end;
+  }
+
+  /* Recent drills */
+  .recent { display: flex; flex-direction: column; gap: 8px; }
+  .recent__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .recent__item {
+    background: var(--bg-elev);
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 8px;
+    cursor: pointer;
+    transition: border-color 140ms ease, background 140ms ease;
+  }
+  .recent__item:hover {
+    background: var(--bg-elev-2);
+    border-color: var(--line);
+  }
+  .recent__topic {
+    font-size: 12px;
+    color: var(--fg);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .bar__spacer { flex: 1; }
-  .btn {
-    appearance: none;
-    background: var(--chip);
-    color: var(--fg);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 4px 8px;
-    cursor: pointer;
-    font: 11px/1 -apple-system, system-ui, sans-serif;
+  .recent__meta {
+    grid-column: 1 / -1;
+    font-size: 10.5px;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
   }
-  .btn:hover { background: var(--chip-hover); }
+  .recent__when { margin-left: auto; }
+  .recent__empty {
+    color: var(--muted-2);
+    font-size: 11px;
+    padding: 6px 2px;
+  }
+
+  /* Footnote */
+  .footnote {
+    font-size: 10.5px;
+    color: var(--muted-2);
+    padding: 0 2px;
+    line-height: 1.5;
+  }
+
+  /* ── Frame shell (drill canvas) ──────────────────────────── */
+  .frame-shell {
+    display: none;
+    flex-direction: column;
+    flex: 1 1 auto;
+    position: relative;
+    min-height: 0;
+  }
   iframe#frame {
     display: block;
     width: 100%;
-    height: calc(100% - 36px);
+    height: 100%;
     border: 0;
     background: var(--bg);
   }
-  /* ── Google Docs agent strip (Stage 1: read-only) ──
-     Sits between the top brand bar and the iframe. Hidden by default;
-     toggled via the "Docs" button in the brand bar. Compact — single
-     row when collapsed, grows to ~120px when an active doc is read.   */
-  .docs {
+
+  /* Live drill status pill (top of frame when live) */
+  .livepill {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    background: rgba(20,20,26,0.86);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 6px 5px 12px;
     display: none;
-    border-bottom: 1px solid var(--line);
-    background: #0d0d11;
-    padding: 8px 10px;
-    font-size: 12px;
-    color: var(--fg);
-    gap: 8px;
-    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 5;
+    box-shadow: var(--shadow-lift);
   }
-  .docs.is-open { display: flex; }
-  .docs__row { display: flex; align-items: center; gap: 8px; min-height: 24px; }
-  .docs__status {
-    display: inline-flex; align-items: center; gap: 6px;
-    color: var(--muted); font-size: 11px; flex: 1; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .docs__dot {
+  .stage.is-drilling .livepill { display: flex; }
+  .livepill__dot {
     width: 7px; height: 7px; border-radius: 50%;
-    background: #6a6a72; flex: 0 0 auto;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+    animation: live-pulse 1.8s ease-out infinite;
   }
-  .docs.is-connected .docs__dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
-  .docs__btn {
-    appearance: none; border: 1px solid var(--line);
-    background: var(--chip); color: var(--fg);
-    border-radius: 6px; padding: 4px 9px; cursor: pointer;
-    font: 11px/1 -apple-system, system-ui, sans-serif;
+  @keyframes live-pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(34, 197, 94, 0.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0   rgba(34, 197, 94, 0); }
   }
-  .docs__btn:hover { background: var(--chip-hover); }
-  .docs__btn--primary {
-    background: linear-gradient(180deg,#e54545,#c83232);
-    border-color: rgba(229,69,69,.6); color:#fff; font-weight:600;
-  }
-  .docs__btn--primary:hover { filter: brightness(1.06); }
-  .docs__panel {
-    background: #14141a; border: 1px solid var(--line);
-    border-radius: 8px; padding: 8px 10px; font-size: 11px;
-    color: var(--fg); max-height: 140px; overflow: auto;
-    line-height: 1.45; white-space: pre-wrap; word-break: break-word;
-  }
-  .docs__panel--meta {
-    color: var(--muted); font-size: 10.5px;
-    border: 0; background: transparent; padding: 2px 0; max-height: none;
-  }
-  .docs__error {
-    background: rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.4);
-    color: #fca5a5; padding: 7px 9px; border-radius: 6px; font-size: 11px;
-  }
-  .docs__hint { color: var(--muted); font-size: 10.5px; margin-top: 2px; }
-  .docs__title { color: var(--fg); font-weight: 600; }
-  /* ── Agent block (Stage 2) ── */
-  .agent {
-    display: none;
-    border-top: 1px dashed var(--line);
-    padding-top: 8px;
-    margin-top: 4px;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .docs.is-doc-loaded .agent { display: flex; }
-  .agent__row { display: flex; gap: 6px; }
-  .agent__input {
-    flex: 1; min-width: 0;
-    background: #14141a;
-    color: var(--fg);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 6px 9px;
-    font: 11.5px/1.3 -apple-system, system-ui, sans-serif;
-    outline: none;
-  }
-  .agent__input:focus { border-color: rgba(229,69,69,.55); }
-  .agent__input::placeholder { color: var(--muted); }
-  .agent__hint {
-    color: var(--muted);
-    font-size: 10px;
-    line-height: 1.3;
-  }
-  .agent__proposal {
-    background: #11111a;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    font-size: 11.5px;
-  }
-  .agent__reason {
-    color: #c4b5fd;
-    line-height: 1.4;
-  }
-  .agent__diff {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  .livepill__label {
     font-size: 11px;
-    line-height: 1.45;
+    color: var(--fg);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .agent__old {
-    background: rgba(239,68,68,.10);
-    border-left: 2px solid rgba(239,68,68,.55);
+  .livepill__end {
+    appearance: none;
+    background: rgba(229, 69, 69, 0.15);
+    border: 1px solid rgba(229, 69, 69, 0.4);
     color: #fca5a5;
-    text-decoration: line-through;
-    padding: 5px 8px;
-    border-radius: 0 4px 4px 0;
-    word-break: break-word;
-    white-space: pre-wrap;
-    max-height: 120px;
-    overflow: auto;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 10.5px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.04em;
   }
-  .agent__new {
-    background: rgba(74,222,128,.10);
-    border-left: 2px solid rgba(74,222,128,.55);
-    color: #86efac;
-    padding: 5px 8px;
-    border-radius: 0 4px 4px 0;
-    word-break: break-word;
-    white-space: pre-wrap;
-    max-height: 160px;
-    overflow: auto;
+  .livepill__end:hover {
+    background: rgba(229, 69, 69, 0.22);
+    color: #fff;
   }
-  .agent__actions { display: flex; gap: 6px; justify-content: flex-end; }
-  iframe#frame.is-shorter { height: calc(100% - 36px - var(--docs-h, 56px)); }
-  /* Warm-up shade. Sits above the iframe while voice-debate.html is still
-     mounting its React tree, so the cold-start gap is a clear "loading"
-     state instead of a black panel that reads as broken. Hidden the
-     instant the iframe posts "debateai-ext-ready". */
+
+  /* ── Warm-up shade ───────────────────────────────────────── */
   .warmup {
     position: absolute;
-    inset: 36px 0 0 0;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     pointer-events: none;
     color: var(--muted);
-    font-size: 13px;
-    letter-spacing: 0.02em;
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
     background: var(--bg);
     z-index: 3;
     transition: opacity 240ms ease;
   }
   .warmup__dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
+    width: 7px; height: 7px; border-radius: 50%;
     background: var(--crimson);
     margin-right: 9px;
     box-shadow: 0 0 0 0 rgba(229, 69, 69, 0.55);
     animation: counter-pulse 2.4s ease-out infinite;
   }
   .warmup.is-hidden { opacity: 0; }
+
+  /* ── Toast ───────────────────────────────────────────────── */
   .toast {
     position: fixed;
     left: 12px;
     right: 12px;
     bottom: 12px;
-    background: #1a1a1f;
+    background: rgba(20,20,26,0.96);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--line);
     color: #fff;
     padding: 10px 12px;
     border-radius: 10px;
     font-size: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--shadow-lift);
     transform: translateY(8px);
     opacity: 0;
     pointer-events: none;
     transition: transform 180ms ease, opacity 160ms ease;
     z-index: 10;
   }
-  .toast.is-shown {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  .toast.is-shown { transform: translateY(0); opacity: 1; }
+
+  /* ── Error shade ─────────────────────────────────────────── */
   .err-shade {
     position: absolute;
-    inset: 36px 0 0 0;
+    inset: 0;
     display: none;
     align-items: center;
     justify-content: center;
@@ -285,67 +523,121 @@
     font-weight: 600;
     margin-bottom: 6px;
   }
+  .err-shade__cta {
+    margin-top: 12px;
+    appearance: none;
+    background: var(--chip);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font: 12px/1 -apple-system, system-ui, sans-serif;
+  }
+  .err-shade__cta:hover { background: var(--chip-hover); }
   a { color: #f0a0a0; }
 </style>
 </head>
 <body>
-  <div class="bar">
-    <span class="bar__brand">Counter</span>
-    <span class="bar__hint" id="hint">Defend your work out loud. The AI grills you.</span>
-    <span class="bar__spacer"></span>
-    <button class="btn" id="docsToggle" title="Connect to Google Docs">Docs</button>
-    <button class="btn" id="mode" title="Cycle voice / typed / lint">Typed</button>
-    <button class="btn" id="paste" title="Paste from clipboard">Paste</button>
-    <button class="btn" id="reload" title="Reload the panel">↻</button>
-  </div>
-  <!-- Google Docs agent strip. Stage 1 = read-only proof-of-life:
-       OAuth, then read the active Doc and surface title + snippet.
-       Stage 2 will turn the snippet into actionable Suggestions. -->
-  <div class="docs" id="docs">
-    <div class="docs__row">
-      <span class="docs__dot" aria-hidden="true"></span>
-      <span class="docs__status" id="docsStatus">Not connected to Google Docs</span>
-      <button class="docs__btn docs__btn--primary" id="docsConnect">Connect</button>
-      <button class="docs__btn" id="docsDisconnect" style="display:none">Disconnect</button>
-      <button class="docs__btn" id="docsRead" style="display:none">Read active doc</button>
+  <header class="brandbar">
+    <div class="brandbar__brand">
+      <span class="brandbar__dot" aria-hidden="true"></span>
+      <span class="brandbar__name">COUNTER</span>
+      <span class="brandbar__sub">by DEBATEAI</span>
     </div>
-    <div id="docsBody"></div>
-    <!-- Stage 2 agent block. Hidden until a doc is loaded; appears
-         below the snippet so the user can sharpen what they just read. -->
-    <div class="agent" id="agent">
-      <div class="agent__row">
-        <input
-          class="agent__input"
-          id="agentInput"
-          type="text"
-          placeholder="Sharpen this. e.g. ‘make the thesis more direct’"
-          maxlength="240"
-          aria-label="What should the agent sharpen in your doc?"
-        />
-        <button class="docs__btn docs__btn--primary" id="agentPropose">Propose</button>
+    <span class="brandbar__spacer"></span>
+    <button class="streak-chip" id="streakChip" type="button" title="Drill streak">Start a streak</button>
+    <button class="iconbtn" id="reload" type="button" aria-label="Reload" title="Reload Counter">↻</button>
+  </header>
+
+  <main class="stage" id="stage" data-state="setup">
+    <!-- Setup view: visible until a drill goes live -->
+    <section class="setup" id="setup">
+      <div class="row">
+        <div class="row__head">
+          <span class="row__label">Mode</span>
+          <span class="row__hint">Drill style</span>
+        </div>
+        <div class="chips" id="modeChips" role="tablist" aria-label="Drill mode"></div>
       </div>
-      <div class="agent__hint">Counter proposes one edit at a time. You confirm before anything writes to your Doc.</div>
-      <div id="agentProposal"></div>
+
+      <div class="row">
+        <div class="row__head">
+          <span class="row__label">Examiner</span>
+          <span class="row__hint">Persona</span>
+        </div>
+        <div class="chips" id="personaChips" role="tablist" aria-label="Examiner persona"></div>
+      </div>
+
+      <div class="row">
+        <div class="row__head">
+          <span class="row__label">Topic</span>
+          <span class="row__hint" id="hint">Or highlight any passage and pick Quiz me</span>
+        </div>
+        <div class="topic-wrap">
+          <textarea
+            id="topicField"
+            class="topic"
+            placeholder="Paste a passage, type a motion, or highlight text on any page."
+            maxlength="900"
+            rows="3"
+            aria-label="Topic or passage"
+          ></textarea>
+          <div class="topic-meta">
+            <div class="topic-actions">
+              <button class="textbtn" id="paste" type="button" title="Paste from clipboard">Paste</button>
+              <button class="textbtn textbtn--danger" id="clearTopic" type="button">Clear</button>
+            </div>
+            <span class="topic-meta__count" id="topicCount">0 / 900</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="cta" id="startBtn" type="button" disabled>
+        <span class="cta__arrow" aria-hidden="true">▶</span>
+        <span class="cta__label">Start drill</span>
+        <span class="cta__sub" id="startSub">Pick a mode and topic</span>
+      </button>
+
+      <div class="recent" id="recentBlock" hidden>
+        <span class="row__label">Recent</span>
+        <ul class="recent__list" id="recentList"></ul>
+      </div>
+
+      <div class="footnote">
+        Mic prompt appears once. Streak counts only sessions that go live.
+      </div>
+    </section>
+
+    <!-- Drill canvas: hidden until is-drilling. Iframe loads at boot so
+         the warm-up shade has something to overlay. -->
+    <div class="frame-shell" id="frameShell">
+      <iframe
+        id="frame"
+        title="Counter drill"
+        src="https://debateai.com/voice-debate.html?ext=1&amp;mode=counter"
+        allow="microphone; camera; autoplay; clipboard-read; clipboard-write; display-capture"
+        referrerpolicy="origin"
+      ></iframe>
+      <div class="livepill" id="livepill">
+        <span class="livepill__dot" aria-hidden="true"></span>
+        <span class="livepill__label" id="livepillLabel">Live drill · cross-exam</span>
+        <button class="livepill__end" id="endDrillBtn" type="button">End</button>
+      </div>
+      <div class="warmup" id="warmup">
+        <span class="warmup__dot" aria-hidden="true"></span>
+        Warming up Counter…
+      </div>
+      <div class="err-shade" id="errShade">
+        <div class="err-shade__inner">
+          <div class="err-shade__title">Couldn't load Counter</div>
+          <p>Check your connection, or open the full app at <a href="https://debateai.com" target="_blank" rel="noopener">debateai.com</a>.</p>
+          <button class="err-shade__cta" id="retry" type="button">Retry</button>
+        </div>
+      </div>
     </div>
-  </div>
-  <iframe
-    id="frame"
-    title="Counter: oral exam trainer"
-    src="https://debateai.com/voice-debate.html?ext=1&amp;mode=counter"
-    allow="microphone; camera; autoplay; clipboard-read; clipboard-write; display-capture"
-    referrerpolicy="origin"
-  ></iframe>
-  <div class="warmup" id="warmup">
-    <span class="warmup__dot" aria-hidden="true"></span>
-    Warming up Counter…
-  </div>
-  <div class="err-shade" id="errShade">
-    <div class="err-shade__inner">
-      <div class="err-shade__title">Couldn't load Counter</div>
-      <p>Check your connection, or open the full app at <a href="https://debateai.com" target="_blank" rel="noopener">debateai.com</a>.</p>
-      <button class="btn" id="retry">Retry</button>
-    </div>
-  </div>
+  </main>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="sidepanel.js"></script>
 </body>

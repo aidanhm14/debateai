@@ -1746,15 +1746,63 @@ function App(){
       // Trust only the extension panel as parent.
       if (!String(ev.origin || '').startsWith('chrome-extension://')) return;
       const text = String(ev.data.text || '').trim();
-      if (!text) return;
-      // For voice-debate the motion is the spoken topic. Long passages
-      // get their first sentence in the motion field; the rest is dropped
-      // here (the realtime model gets context from the system prompt
-      // separately, and the motion box has only one line of UI room).
-      const stem = text.length > SHORT
-        ? (text.match(/[^.!?]+[.!?]/) || [text])[0].trim().slice(0, SHORT)
-        : text;
-      setMotion(stem);
+      const autoStart = ev.data.autoStart === true;
+      const wantMode = String(ev.data.mode || '').trim();
+      const wantPersona = String(ev.data.persona || '').trim();
+      // Mode / persona are picked in the native side-panel UI. The bridge
+      // forwards the user's choice into voice-debate's own state so the
+      // realtime session opens with what they actually selected, not the
+      // ext-mode default.
+      if (wantMode) { try { setMode(wantMode); } catch (_) {} }
+      if (wantPersona) {
+        try {
+          const ok = typeof PERSONALITIES !== 'undefined'
+            && PERSONALITIES.some((p) => p.key === wantPersona);
+          if (ok) setPersonaKey(wantPersona);
+        } catch (_) {}
+      }
+      // Native panel asked us to abort the current session.
+      if (ev.data.stop === true) {
+        try { stopRef.current && stopRef.current(); } catch (_) {}
+        return;
+      }
+      if (text) {
+        // For voice-debate the motion is the spoken topic. Long passages
+        // get their first sentence in the motion field; the rest is dropped
+        // here (the realtime model gets context from the system prompt
+        // separately, and the motion box has only one line of UI room).
+        const stem = text.length > SHORT
+          ? (text.match(/[^.!?]+[.!?]/) || [text])[0].trim().slice(0, SHORT)
+          : text;
+        setMotion(stem);
+      }
+      // Zero-tap path: the side panel's native "Start drill" button asked
+      // us to connect straight away. Delay one tick so React commits the
+      // setMotion above before start() reads the motion from state. If
+      // the browser blocks getUserMedia for lack of a fresh user gesture
+      // in this frame, start() rolls back and the regular Connect button
+      // remains tappable — same recovery path as a manual click.
+      if (autoStart) {
+        // Mic pre-flight: kick off the prompt synchronously inside the
+        // postMessage handler so Chrome's user-activation transfer from
+        // the parent frame is honored. The prompt resolves in parallel
+        // with start()'s 220ms delay; by the time start() reaches its
+        // own getUserMedia call, the permission is already cached (or
+        // denied, in which case start() surfaces the error). Chrome
+        // dedupes overlapping permission requests, so the user only
+        // ever sees one prompt.
+        (async () => {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Stop immediately — start() will call getUserMedia again
+            // for the real session; we're just pre-warming the grant.
+            stream.getTracks().forEach((t) => { try { t.stop(); } catch (_) {} });
+          } catch (_) { /* start() will surface the error */ }
+        })();
+        setTimeout(() => {
+          try { startRef.current && startRef.current(); } catch (e) {}
+        }, 220);
+      }
     };
     window.addEventListener('message', handle);
     try { window.parent && window.parent.postMessage({ type: 'debateai-ext-ready' }, '*'); } catch (e) {}
@@ -1779,6 +1827,12 @@ function App(){
     try { setMode('apda'); } catch (e) {}
     try { setSmartness(1); } catch (e) {}
   }, []);
+
+  // Held in a ref so the bridge useEffect (mounted once, before `start`
+  // is defined) can still reach the latest start() implementation when
+  // the side panel posts autoStart later in the session lifecycle.
+  const startRef = useRef(null);
+  const stopRef = useRef(null);
 
   // Microphone permission state — checked on mount via the Permissions
   // API so we can render an accurate notice ("granted" / "needs prompt"
@@ -2679,6 +2733,37 @@ function App(){
     } catch(e){ console.warn('[start] gate refresh skipped:', e); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, motion, persona, side, userFirstName, bondCount, addSystem, handleEvent, cleanup]);
+
+  // Keep the bridge's ref to start() current. The bridge useEffect runs
+  // once on mount, before start is defined; without this, the autoStart
+  // postMessage path would only ever see the initial (null) ref.
+  useEffect(() => { startRef.current = start; }, [start]);
+
+  // Keep stop() reachable from the bridge useEffect — same pattern as
+  // startRef. Side panel's End-drill button posts {stop:true}.
+  useEffect(() => { stopRef.current = stop; });
+
+  // When running inside the Counter extension iframe, notify the parent
+  // panel each time a session actually transitions to live so the SW
+  // can record a drill for streak math, and again when it ends so the
+  // panel can return to its setup view.
+  const announcedLiveRef = useRef(false);
+  useEffect(() => {
+    if (status === 'live') {
+      if (announcedLiveRef.current) return;
+      announcedLiveRef.current = true;
+      try {
+        window.parent && window.parent.postMessage({ type: 'debateai-ext-live' }, '*');
+      } catch (_) {}
+    } else {
+      if (announcedLiveRef.current && (status === 'ended' || status === 'idle')) {
+        try {
+          window.parent && window.parent.postMessage({ type: 'debateai-ext-ended' }, '*');
+        } catch (_) {}
+      }
+      announcedLiveRef.current = false;
+    }
+  }, [status]);
 
   /* ── Orb bootstrap (after canvas mounts) ──────── */
 
