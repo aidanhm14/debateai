@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Debate AI · Product Report</title>
+<meta name="description" content="A walkthrough of what we've built, who it's for, the product surfaces, traction, pricing, and where this goes. Viewable in the browser; prints to a clean PDF for sending." />
+<meta name="robots" content="index,follow" />
+<link rel="canonical" href="https://debateai.com/report.html" />
+<meta property="og:title" content="Debate AI · Product Report" />
+<meta property="og:description" content="What we've built, who it's for, and where this goes. Read on the site or save as PDF." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://debateai.com/report.html" />
+<meta property="og:image" content="https://debateai.com/og-image.png" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Newsreader:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --paper:#fbfaf7;
+    --ink:#15110f;
+    --ink-soft:#3a3330;
+    --ink-faint:#6d635e;
+    --rule:#ddd5cc;
+    --rule-soft:#ece5db;
+    --crimson:#a31320;
+    --crimson-dim:#7a0e18;
+    --saffron:#d97706;
+    --tag-bg:#f3ede1;
+    --serif:'Newsreader',Georgia,'Times New Roman',serif;
+    --sans:'Inter','Helvetica Neue',Arial,sans-serif;
+  }
+  html,body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{max-width:820px;margin:0 auto;padding:56px 40px 80px}
+
+  /* ─── Print controls ─── */
+  .toolbar{position:sticky;top:0;background:var(--paper);border-bottom:1px solid var(--rule);padding:10px 0;margin-bottom:32px;display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:13px;z-index:5}
+  .toolbar a{color:var(--crimson);text-decoration:none;border-bottom:1px solid transparent;padding-bottom:1px}
+  .toolbar a:hover{border-bottom-color:var(--crimson)}
+  .toolbar .right{display:flex;gap:18px;align-items:center}
+  .btn-pdf{background:var(--ink);color:#fff;border:0;padding:7px 14px;border-radius:3px;font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.03em;cursor:pointer;text-transform:uppercase}
+  .btn-pdf:hover{background:var(--crimson)}
+
+  /* ─── Cover band ─── */
+  .cover{padding:48px 0 36px;border-bottom:2px solid var(--ink)}
+  .eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--crimson);font-weight:700;margin-bottom:18px}
+  .title{font-family:var(--serif);font-size:64px;line-height:1.02;font-weight:600;letter-spacing:-.02em;margin-bottom:18px}
+  .title em{font-style:italic;color:var(--crimson)}
+  .deck{font-family:var(--serif);font-size:22px;line-height:1.4;color:var(--ink-soft);max-width:640px;margin-bottom:32px}
+  .meta{display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:var(--ink-faint);padding-top:18px;border-top:1px solid var(--rule)}
+  .meta strong{color:var(--ink);font-weight:600}
+  .meta a{color:var(--crimson);text-decoration:none;font-weight:500}
+
+  /* ─── Stat strip ─── */
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);margin:32px 0 48px}
+  .stat{padding:18px 14px;border-right:1px solid var(--rule);text-align:left}
+  .stat:last-child{border-right:0}
+  .stat .num{font-family:var(--serif);font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1;display:block;margin-bottom:6px}
+  .stat .lab{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+  .stat.accent .num{color:var(--crimson)}
+
+  /* ─── Sections ─── */
+  section{padding:46px 0;border-bottom:1px solid var(--rule)}
+  section:last-of-type{border-bottom:0}
+  .sec-num{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--crimson);font-weight:700;margin-bottom:10px}
+  h2{font-family:var(--serif);font-size:38px;line-height:1.08;font-weight:600;letter-spacing:-.018em;margin-bottom:8px}
+  h3{font-family:var(--sans);font-size:14px;font-weight:700;letter-spacing:.03em;margin:24px 0 8px;color:var(--ink)}
+  .guide{font-family:var(--serif);font-style:italic;font-size:16px;line-height:1.45;color:var(--ink-faint);margin-bottom:28px;padding-left:14px;border-left:2px solid var(--crimson);max-width:620px}
+  p{margin-bottom:14px;color:var(--ink-soft);max-width:680px}
+  p strong{color:var(--ink);font-weight:600}
+  ul,ol{margin:8px 0 18px 22px;color:var(--ink-soft);max-width:680px}
+  li{margin-bottom:6px;padding-left:4px}
+  a{color:var(--crimson);text-decoration:none;border-bottom:1px solid rgba(163,19,32,.3)}
+  a:hover{border-bottom-color:var(--crimson)}
+
+  /* ─── Pull cards ─── */
+  .pull{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0 24px}
+  .card{border:1px solid var(--rule);background:#fff;padding:18px 20px;border-radius:2px}
+  .card h4{font-family:var(--sans);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--crimson);font-weight:700;margin-bottom:10px}
+  .card p{font-size:14.5px;line-height:1.5;margin:0}
+
+  /* ─── Feature list ─── */
+  .feat{margin:6px 0 6px;border-top:1px solid var(--rule)}
+  .feat .row{display:grid;grid-template-columns:160px 1fr;gap:24px;padding:14px 0;border-bottom:1px solid var(--rule)}
+  .feat .row .k{font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--ink);padding-top:2px}
+  .feat .row .k em{font-style:normal;color:var(--ink-faint);font-weight:500;display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+  .feat .row .v{font-size:14.5px;line-height:1.5;color:var(--ink-soft)}
+  .feat .row .v strong{color:var(--ink);font-weight:600}
+
+  /* ─── Pricing table ─── */
+  table.price{width:100%;border-collapse:collapse;margin:14px 0 24px;font-size:14px}
+  table.price th,table.price td{border-bottom:1px solid var(--rule);padding:11px 12px;text-align:left;vertical-align:top}
+  table.price thead th{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;border-bottom:1.5px solid var(--ink)}
+  table.price tbody tr:first-child td{padding-top:14px}
+  table.price td.tier{font-weight:700;color:var(--ink);width:130px;white-space:nowrap}
+  table.price td.amt{font-family:var(--serif);font-size:17px;font-weight:600;color:var(--crimson);width:120px;white-space:nowrap}
+
+  /* ─── Quote / callout ─── */
+  blockquote{font-family:var(--serif);font-size:21px;line-height:1.4;font-weight:400;font-style:italic;color:var(--ink);border-left:3px solid var(--crimson);padding:6px 0 6px 22px;margin:24px 0;max-width:660px}
+
+  /* ─── Tag pills ─── */
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+  .tag{background:var(--tag-bg);color:var(--ink);font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 9px;border-radius:99px;border:1px solid var(--rule-soft)}
+  .tag.crim{background:#fdf2f3;color:var(--crimson);border-color:#f7d0d4}
+
+  /* ─── Footer ─── */
+  footer{padding:36px 0 0;font-size:12.5px;color:var(--ink-faint);line-height:1.6}
+  footer .sig{font-family:var(--serif);font-size:16px;color:var(--ink);margin-bottom:6px}
+  footer a{color:var(--crimson)}
+
+  /* ─── Mobile ─── */
+  @media (max-width: 720px){
+    .wrap{padding:32px 22px 60px}
+    .title{font-size:44px}
+    .deck{font-size:18px}
+    h2{font-size:30px}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .stat{border-bottom:1px solid var(--rule)}
+    .pull{grid-template-columns:1fr}
+    .feat .row{grid-template-columns:1fr;gap:6px}
+    .meta{gap:14px}
+  }
+
+  /* ─── PRINT: clean, paginated PDF ─── */
+  @media print{
+    @page{size:Letter;margin:0.7in 0.65in}
+    html,body{background:#fff;color:#000;font-size:11pt}
+    .toolbar{display:none}
+    .wrap{max-width:none;padding:0;margin:0}
+    a{color:#000;border-bottom:0;text-decoration:none}
+    a[href^="http"]:after{content:" (" attr(href) ")";font-size:9pt;color:#555}
+    .toolbar a:after,.meta a:after,footer a:after{content:""}
+    .cover{padding:0 0 18pt;border-bottom:1.5pt solid #000;page-break-after:avoid}
+    .title{font-size:34pt;margin-bottom:10pt}
+    .deck{font-size:13pt;margin-bottom:14pt}
+    .stats{margin:14pt 0 0;border-top:0.75pt solid #000;border-bottom:0.75pt solid #000}
+    .stat{padding:8pt 6pt;border-right:0.5pt solid #999}
+    .stat .num{font-size:16pt}
+    .stat .lab{font-size:7.5pt}
+    .stat.accent .num{color:#a31320}
+    section{padding:18pt 0 14pt;border-bottom:0.5pt solid #bbb;page-break-inside:avoid}
+    h2{font-size:20pt;page-break-after:avoid}
+    h3{font-size:11pt;page-break-after:avoid;margin-top:12pt}
+    .guide{font-size:10.5pt;color:#555;border-left:1.5pt solid #a31320;page-break-after:avoid}
+    p,li{font-size:10.5pt;color:#222;max-width:none}
+    .card{border:0.5pt solid #999;background:#fff;padding:10pt 12pt}
+    .card h4{font-size:8pt;color:#a31320}
+    .feat .row{padding:7pt 0;border-bottom:0.5pt solid #ccc;grid-template-columns:130px 1fr;gap:16pt;page-break-inside:avoid}
+    .feat .row .v{font-size:10.5pt}
+    .feat .row .k{font-size:10pt}
+    .feat .row .k em{font-size:8pt}
+    table.price{font-size:10.5pt}
+    table.price td.amt{color:#a31320}
+    blockquote{font-size:13pt;color:#000;border-left:1.5pt solid #a31320;page-break-inside:avoid}
+    .sec-num,.eyebrow{color:#a31320}
+    .tag{background:#f3ede1;color:#000;border-color:#ccc}
+    .tag.crim{background:#fbe9eb;color:#a31320;border-color:#e4bfc4}
+    footer{border-top:0.5pt solid #999;padding-top:10pt;margin-top:14pt}
+    section,.cover{break-inside:avoid-page}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<div class="toolbar">
+  <a href="https://debateai.com">← debateai.com</a>
+  <div class="right">
+    <span style="color:var(--ink-faint)">Tip: this page is print-styled. Use <strong style="color:var(--ink)">Save as PDF</strong> in the print dialog.</span>
+    <button class="btn-pdf" onclick="window.print()">Print or Save PDF</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     COVER
+     ════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="eyebrow">Product Report · May 2026</div>
+  <h1 class="title">Debate <em>AI</em></h1>
+  <p class="deck">A voice-first sparring partner that argues against you in real time, scores you the way a debate judge would, and gets sharper every night.</p>
+  <div class="meta">
+    <span><strong>Live at</strong> <a href="https://debateai.com">debateai.com</a></span>
+    <span><strong>Founded by</strong> Aidan Hollinger-Miles</span>
+    <span><strong>Solo, since</strong> Sept 2025</span>
+    <span><strong>Updated</strong> 2026-05-13</span>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat accent">
+    <span class="num">7,074</span>
+    <span class="lab">Monthly active users</span>
+  </div>
+  <div class="stat">
+    <span class="num">115</span>
+    <span class="lab">Countries reached</span>
+  </div>
+  <div class="stat accent">
+    <span class="num">$0.09</span>
+    <span class="lab">Blended CAC</span>
+  </div>
+  <div class="stat">
+    <span class="num">11</span>
+    <span class="lab">Debate formats</span>
+  </div>
+  <div class="stat">
+    <span class="num">4</span>
+    <span class="lab">AI brains, 16 voices</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     1. WHAT THIS IS
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">01 · Product</div>
+  <h2>What this is.</h2>
+  <p class="guide">If you read nothing else, read this. One paragraph on the product, one block on what it isn't.</p>
+
+  <p><strong>Debate AI is a voice-first adversarial-argument trainer.</strong> You pick a motion, pick a format, and an AI opponent gives a real timed speech against you. You speak back. It interrupts you, takes points of information, and hits the next speech on the clock. When the round ends, the same engine writes you a judge's ballot: where you won, where you lost, what to fix.</p>
+
+  <p>The product is voice. The chat box exists for fallback. The moat is that the AI sounds <em>format-correct</em>: an APDA round sounds nothing like a Policy round, a WSDC bench sounds nothing like a Congress speech. That is the part every other AI debate tool has skipped, and the part that matters to the user who actually does this for sport.</p>
+
+  <div class="pull">
+    <div class="card">
+      <h4>Is</h4>
+      <p>An adversarial sparring partner. A round simulator with a clock. A judge that hands you a written RFD. A learning loop that compounds across rounds.</p>
+    </div>
+    <div class="card">
+      <h4>Isn't</h4>
+      <p>A chatbot. A grammar tool. A writing assistant. A research engine. Not built to agree with you; built to attack.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     2. THE WEDGE
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">02 · Wedge</div>
+  <h2>Why this exists.</h2>
+  <p class="guide">Five things, ranked by how hard they are to copy. The first one is the moat.</p>
+
+  <h3>1 · Format accuracy</h3>
+  <p>Policy gets tagged-card delivery and evidence rules. LD gets value and criterion. BP gets extensions and whip structure. APDA stays impromptu with no fabricated citations. WSDC gets reply speeches; Congress gets gavel-conscious decorum; MUN gets diplomatic register. Every other AI debate tool speaks generic "Harvard debate society" English. This requires actually knowing the formats, not just wrapping GPT.</p>
+
+  <h3>2 · Voice round + judge RFD</h3>
+  <p>Sub-200ms turn-taking. You can interrupt, take points of information, run out of time, get cut off. At the end of the round you get a written ballot with magnitude, probability, and timeframe weighing. That is the moat against ChatGPT: voice plus timer plus format-correct ballot.</p>
+
+  <h3>3 · Built by a national champion</h3>
+  <p>Most AI-product founders can say "I used AI to build this." Very few can say "I actually argued in this format at the top of the country." The voice prompts are extracted from real APDA notes, real cross-x patterns, real ballots.</p>
+
+  <h3>4 · Four brains, real voice</h3>
+  <p>Claude, GPT, Gemini, Grok. Streaming TTS on the paid tier through ElevenLabs, Inworld, and Cartesia, with OpenAI <code>gpt-4o-mini-tts</code> as the per-persona-steered free tier. BYOK lets power users bring their own Anthropic key for a dollar a month.</p>
+
+  <h3>5 · A learning loop that gets sharper every night</h3>
+  <p>Every typed AI turn and every voice-round transcript writes to Firestore. The next time a user picks the same motion in the same format, the system pulls the highest-rated past rounds into the prompt as reference exemplars. A nightly Haiku pass distills the top rounds per format into a "patterns that work" block injected on every subsequent generation. The AI on a given motion today is meaningfully different from the AI on that motion last month. (Section 5 explains the architecture.)</p>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     3. WHO IT'S FOR
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">03 · Audience</div>
+  <h2>Who uses it.</h2>
+  <p class="guide">The primary user is a competitive debater. The same engine extends to anyone whose job is arguing out loud. The geographic fact is that the product found a market in India before it found one in the US.</p>
+
+  <h3>Primary · competitive debaters</h3>
+  <p>High school through college, format-accurate across <strong>APDA, BP, Policy, LD, PF, World Schools (WSDC), Asian Parliamentary, Congress, MUN</strong>, plus a Quick Clash format for newcomers and a Viva format for oral exams. The 80% Indian skew shifted the product's center of gravity: copy now leads with <strong>Asian Parli, WSDC, and BP</strong>, which is what the Indian school and college circuits actually run.</p>
+
+  <h3>Secondary · same engine, different room</h3>
+  <ul>
+    <li><strong>Law students</strong> drilling cross-ex, opening, closing, and 1L moot court.</li>
+    <li><strong>Sales</strong> running objection drills and demo rehearsal.</li>
+    <li><strong>Founders</strong> pressure-testing a pitch before the meeting.</li>
+    <li><strong>Teams</strong> red-teaming a launch or running a pre-mortem.</li>
+    <li><strong>Students</strong> on interview prep, admissions essays, and thesis defense (this is the audience the Counter chrome extension is built for).</li>
+    <li><strong>Speakers</strong> on panel and media rehearsal.</li>
+  </ul>
+
+  <h3>The India fact</h3>
+  <p>68.5% of MAU is India. 8.3% is the US. The remaining 23% is spread across 113 other countries. India is where the product compounds at $0.09 per acquired user; the US is where ARPU multiplies on the $30 team tier. The product runs both at once.</p>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     4. PRODUCT SURFACES
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">04 · Surfaces</div>
+  <h2>What you actually do in it.</h2>
+  <p class="guide">Every distinct surface in the app, what it does, and where it lives. If you only have two minutes, the first three are the ones to know.</p>
+
+  <div class="feat">
+
+    <div class="row">
+      <div class="k">Voice debate <em>/voice-debate</em></div>
+      <div class="v">Live WebRTC round through OpenAI's Realtime API. Sub-200ms turns. Server-side voice activity detection means the AI cuts in when you slow down, the way a real opponent would. Five modes: full round, cross-examination only, POI drill, opening only, closing only. Five-mode selector + post-round RFD generated by the same engine. Six rounds per hour per IP, App Check gated.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Format library <em>/debate-ai</em></div>
+      <div class="v">Eleven formats with full speech-by-speech timings: <strong>Quick Clash, APDA, BP, Asian Parli, Worlds (WUDC), LD, PF, Policy, Congress, Viva, MUN</strong>. Each format carries its own evidence rules (Policy uses tagged cards; APDA forbids fabricated citations), structure, register, and timing. Selecting a format swaps the AI's system prompt to the format-specific voice block.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Sixteen AI personas <em>across the app</em></div>
+      <div class="v">The Professor, Closer, Surgeon, Veteran, Firebrand, Diplomat, Debater, Philosopher, Prosecutor, Storyteller, Statesman, Barrister, Upstart, Heckler, Disruptor, Tactician. The Counter extension adds Dr. Iyer, an Indian-English measured academic register for vivas. Each persona has its own voice (ElevenLabs / Inworld / Cartesia on Pro; OpenAI <code>gpt-4o-mini-tts</code> with per-persona instructions on Free) and its own argumentative tendencies in the system prompt.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Four AI brains <em>across the app</em></div>
+      <div class="v">Claude, GPT, Gemini, Grok, each routed through its own Netlify function (<code>claude.mjs</code>, <code>openai-chat.mjs</code>, <code>gemini.mjs</code>, <code>grok.mjs</code>). User can pick the brain or let the app default. Free tier runs the cheaper sibling models; Pro switches to the flagship. BYOK is Anthropic-only, labeled accordingly.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Judge RFD <em>any round</em></div>
+      <div class="v">After any round (voice or typed) the same engine writes you a debate-judge-style ballot. Magnitude, probability, timeframe. Specific drops cited. What to fix next. The ballot is the retention moment.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Devil's Advocate <em>/devils-advocate</em></div>
+      <div class="v">Single-AI sparring mode. Paste a claim, an essay, a pitch, a cold email; the AI returns the meanest honest counterargument a skeptical reader would make, ranks attacks by severity, and flags claims that won't survive scrutiny. Faster shape for users who don't want a full timed round.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Live human rounds <em>/live, /live-round</em></div>
+      <div class="v">Daily.co video rooms for human-vs-human debate, judged by the same AI ballot engine. Schedule-or-go-now flow, auto-mic toggle on the speaker panel, AI judge generates the RFD when the round ends. Solves the "I have no one to spar with at 11pm before a tournament" problem.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Topics Hub <em>+ Motions</em></div>
+      <div class="v">Rolling topic bank for the four formats that use one: PF, LD, Policy, Congress. APDA is impromptu so it routes to the random motion generator instead. Updated against current event cycles.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Disclosures <em>/disclosures</em></div>
+      <div class="v">Opencaselist-style community case board. Three privacy lanes (Private, Team, Public). Users publish their cases for any signed-in debater to read or import; vote up the strong ones. Quality floor on publish (length, profanity, link-spam). Content compounds without us writing copy.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Counter chrome extension <em>/extension</em></div>
+      <div class="v">A separate front door for the same engine, branded "Counter: Oral Exam Trainer (by Debate AI)." Students highlight a passage on any page, hit Connect, and defend it out loud against Dr. Iyer. Built for the viva use case across CBSE/ICSE board exams, IIT/NEET interviews, and dissertation defense; loads <code>voice-debate.html?ext=1&mode=counter</code> in the side panel.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Leaderboard <em>+ Vocab Quiz, Learn</em></div>
+      <div class="v">Public ranking with consent-gated opt-in (writers can flip only their own UID). A 52-term vocab quiz spanning debate flow, Policy theory, philosophy, and elevated vocabulary. Multiple-choice or flashcard mode, localStorage streak. <code>/learn</code> indexes the format guides and case-prep walkthroughs.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Profile dashboard <em>/profile</em></div>
+      <div class="v">Per-user XP, streak, format-mastery breakdown, achievements, and recent rounds, all judged on the same AI ballot the leaderboard uses. The retention surface; gives a returning user a reason to come back the next day rather than the next week.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Geo landings <em>/india, /us</em></div>
+      <div class="v">Audience-tuned entry pages for the two largest segments. <code>/india</code> leads with Asian Parli, WSDC, BP and India-coded palette. <code>/us</code> leads with PF, LD, Policy, Worlds, Congress and tournament names (TOC, Glenbrooks, Harvard, Berkeley, Greenhill, Emory). Same engine, different door.</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Per-user admin <em>/admin</em></div>
+      <div class="v">Pull any user's full activity timeline: sessions, page views, generations, conversions, every gtag event mirrored through the per-user app_event log. Profile header, KPI strip, event-mix table, 200-event scrollback. Support and debugging links resolve directly with <code>?uid=</code>.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     5. LEARNING LOOP
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">05 · Learning Loop</div>
+  <h2>The system gets sharper every night.</h2>
+  <p class="guide">This is the part most people miss in a one-glance demo. Three layers, all shipped, all running in production as of 2026-05-13.</p>
+
+  <h3>Layer 1 · Capture every turn</h3>
+  <p>Every typed AI turn (case, opp_attack, rebuttal, judge, debate-chat, casual, vision, resolution) writes the full prompt-to-output triple to the <code>generations</code> Firestore collection. Voice rounds flush the entire turn-by-turn transcript to <code>/api/log-generation</code> on session end. Signed-in usage only; anon users can't pollute the corpus.</p>
+
+  <h3>Layer 2 · Reference rounds injected at runtime</h3>
+  <p>When a user starts a round, the server pulls 1–3 admin-weighted past rounds matching the same <strong>motion + format + side</strong> and prepends them as REFERENCE ROUNDS to the system prompt. The four AI-brain functions all read this before applying voice guidelines. A 1-hour in-memory cache keeps per-request Firestore reads near zero.</p>
+
+  <h3>Layer 3 · Nightly distillation</h3>
+  <p>Every night at 04:00 UTC, a scheduled function runs Claude Haiku over the previous 30 days of top-rated generations per format (rating ≥ 4 or saved). It extracts a "patterns that work" block per format and writes it to <code>learning_distillations/{format}</code>. Every subsequent generation reads that doc and appends a LEARNED PATTERNS block to the system prompt.</p>
+
+  <p>Final system-prompt order at runtime: <strong>[reference rounds] + base system + [learned patterns] + [voice guidelines]</strong>. Voice rules come last so they always win conflicts.</p>
+
+  <blockquote>"This is the only way an AI debate product compounds. Generic LLMs forget every round. Ours remembers what won."</blockquote>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     6. ARCHITECTURE
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">06 · Architecture</div>
+  <h2>How it's built.</h2>
+  <p class="guide">For technical readers. Skip if you trust that it works. The short version: one repo, Netlify edge, four LLM providers, four TTS providers, Firebase for state.</p>
+
+  <div class="tags">
+    <span class="tag">Single-repo</span>
+    <span class="tag">React via CDN</span>
+    <span class="tag">Netlify Functions</span>
+    <span class="tag crim">Claude · GPT · Gemini · Grok</span>
+    <span class="tag crim">ElevenLabs · Inworld · Cartesia · OpenAI TTS</span>
+    <span class="tag">OpenAI Realtime · WebRTC</span>
+    <span class="tag">Firebase Auth + Firestore</span>
+    <span class="tag">Stripe + Razorpay</span>
+    <span class="tag">PWA · service worker</span>
+  </div>
+
+  <h3>Front end</h3>
+  <p>One large single-file React app (<code>app/debate-ai.html</code>) using React via CDN with a <code>el(tag, props, ...children)</code> alias for <code>React.createElement</code>. No JSX, no build step, intentional. The landing page, voice-debate page, live rooms, and extension iframe are sibling HTML pages sharing the same CSS tokens.</p>
+
+  <h3>Voice path</h3>
+  <p>For voice, the server mints an ephemeral OpenAI Realtime client secret (<code>POST /v1/realtime/client_secrets</code>), the browser exchanges WebRTC SDP directly with OpenAI (<code>POST /v1/realtime/calls</code>), and session config is pushed over the data channel. The server is never in the audio path, so latency is OpenAI-direct.</p>
+
+  <h3>Text path</h3>
+  <p>Each LLM provider has its own Netlify function (<code>claude.mjs</code>, <code>openai-chat.mjs</code>, <code>gemini.mjs</code>, <code>grok.mjs</code>) that prepends the format-specific voice block from <code>lib/voice-guidelines.mjs</code> (server-side so view-source can't scrape it), then layers reference rounds and learned-patterns blocks per Section 5.</p>
+
+  <h3>TTS</h3>
+  <p>The <code>tts.mjs</code> function routes by tier: ElevenLabs <code>eleven_turbo_v2_5</code> as Pro default, Inworld <code>inworld-tts-1.5-max</code> and Cartesia <code>sonic-2</code> as Pro opt-ins, OpenAI <code>gpt-4o-mini-tts</code> with per-persona instructions for Free and fallback. Intensity, premium flag, and persona key flow from the client.</p>
+
+  <h3>Data + payments</h3>
+  <p>Firebase Auth (Google only), Firestore for user state, App Check gated on the sensitive endpoints, rate-limited 6 rounds/hr/IP on Realtime. Payments via Stripe, with Razorpay landing for India before the next paid push.</p>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     7. PRICING
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">07 · Pricing</div>
+  <h2>Five tiers.</h2>
+  <p class="guide">$5/mo Individual is the conversion target. The other four tiers exist to funnel toward it or to capture an edge segment the $5 tier misses.</p>
+
+  <table class="price">
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th>Price</th>
+        <th>What you get · why it exists</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tier">Free</td>
+        <td class="amt">$0</td>
+        <td>5 anonymous requests + 5 more on sign-in. The appetizer that proves the wedge in 60 seconds.</td>
+      </tr>
+      <tr>
+        <td class="tier">BYOK</td>
+        <td class="amt">$1/mo</td>
+        <td>Unlimited Claude on the user's own Anthropic key. Inference-cost hedge for emerging markets; converts "love it, can't pay" into revenue without us bleeding.</td>
+      </tr>
+      <tr>
+        <td class="tier">Individual</td>
+        <td class="amt">$5/mo</td>
+        <td>250 requests/mo, all four brains, HD voice. The PPP-friendly tier that unlocks the 68% Indian base; the price every comparable consumer SaaS has converged on.</td>
+      </tr>
+      <tr>
+        <td class="tier">Lifetime</td>
+        <td class="amt">$14.99 once</td>
+        <td>Same 250 requests/mo forever, no recurring charge. For the impulse-buy converter who'd rather not think about it again.</td>
+      </tr>
+      <tr>
+        <td class="tier">Team</td>
+        <td class="amt">$30/mo</td>
+        <td>1,500 requests, 50 seats. Debate clubs, law-school clinics, sales teams. Phase 2 for the schools sales motion.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Blended gross margin at target mix is ~80%, comparable to Grammarly, Notion, early Duolingo. The $1 BYOK tier is the inference-cost hedge; the $5 Individual is the volume conversion; Lifetime collects upfront cash and seeds the reference class; Team is where school licensing lives.</p>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     8. TRACTION
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">08 · Traction</div>
+  <h2>Where we are, honestly.</h2>
+  <p class="guide">The acquisition curve is the headline. The funnel is the problem. Both are real, both are diagnosed, the relevant fixes are shipping. Numbers are from Firebase Analytics through 2026-04-19; the next traction refresh is due.</p>
+
+  <h3>Acquisition</h3>
+  <ul>
+    <li><strong>7,074 monthly active users</strong> across <strong>115 countries</strong> in the first 28 days of public availability.</li>
+    <li><strong>$0.09 blended CAC</strong> on $660 of paid social. Orders of magnitude below any paid-SaaS benchmark we've found.</li>
+    <li><strong>India 68.5%, US 8.3%, Philippines 3.6%, Brazil 1.9%</strong>, long tail across 111 other countries. The Indian skew is what you get when English-first, debate-heavy education meets a viral cross-border ad channel at $0.09 per user.</li>
+    <li>Primary acquisition channel: <strong>Reddit</strong> (~1,560 sessions / 28d), then paid social, then organic search (currently near zero, see Roadmap).</li>
+  </ul>
+
+  <h3>Retention</h3>
+  <ul>
+    <li><strong>D7 cohort retention: 3.5%.</strong> Small but real.</li>
+    <li><strong>D8: 6.4%</strong>, up from 2.1% the prior week.</li>
+    <li>Among users who actually signed in (not the anon population), DAU/MAU runs <strong>18–40%</strong>. The product retains once it gets past its own gate.</li>
+  </ul>
+
+  <h3>The funnel</h3>
+  <p>Two known leaks, both diagnosed, neither hidden.</p>
+  <ul>
+    <li><strong>Sign-in drop (62%)</strong>: caused by iOS Safari ITP, in-app browsers (Instagram, FB, TikTok), and strict ad blockers preventing Firebase from loading. Fixed by reversing the full-screen pricing gate to advise-only and detecting in-app browsers in-flow. Sign-in is now an upgrade, not a blocker.</li>
+    <li><strong>Round-complete drop (was 88%, now lower)</strong>: caused by a 30-second TTS warm-up countdown in a UX experiment that broke under slow Indian mobile latency. Patched 2026-05-06: when first audio chunks land and ≥2 are queued, the countdown is bypassed and playback fires immediately. Slow-network case unchanged.</li>
+  </ul>
+
+  <h3>Revenue</h3>
+  <p>MRR is $0 as of writing. Stripe is wired but the conversion-tracking allowlist was broken in three layers; all three patched this week, plus the <code>customer.subscription.created</code> webhook for billing-portal upgrades. Razorpay lands before the next paid push so India can convert in INR.</p>
+
+  <h3>Spend to date</h3>
+  <p>$877.60 total. $660 ads, the rest infrastructure. Solo-built, no payroll, no co-founder.</p>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     9. ROADMAP
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">09 · Roadmap</div>
+  <h2>Where this goes.</h2>
+  <p class="guide">Six-month view. Order matters. The first thing is the gate to everything else.</p>
+
+  <h3>Now → Month 2 · Monetize the existing base</h3>
+  <p>Razorpay for India. First paid conversions. Validate the $1 BYOK and $5 Individual tiers in the 80% of traffic that's already here. Floor MRR target before opening a pre-seed.</p>
+
+  <h3>Month 2 → Month 6 · US Pro tier + schools beachhead</h3>
+  <p>LinkedIn outbound to 1L/2L law students for the $30/mo tier (US ARPU multiplier). "Coach Pro Forever" free for any verified debate coach, no questions asked, gating the per-seat school sale. Pilot programs with the first 3 US Urban Debate Leagues and the first 18 UWC schools.</p>
+
+  <h3>Month 6 → Month 12 · Native mobile</h3>
+  <p>Capacitor wrap of the existing PWA. Six-week MVP. Structurally fixes the in-app-browser auth bug and unlocks push notifications, which is the missing retention lever.</p>
+
+  <h3>SEO + content engine, in parallel</h3>
+  <p>Organic search is currently near zero because the splash interstitial at root was indexing an empty page. Root now serves the full landing again. SoftwareApplication + FAQPage structured data is in. Search Console verification placeholder is wired; once verified, the queries this site already ranks for become visible. Distinct from this: a TikTok + Instagram content engine (5 pillars, 30 posts in 30 days) is the consumer-acquisition lever next to paid.</p>
+
+  <h3>The ESL line</h3>
+  <p>Core TAM is ~575,000 competitive debaters globally. Adjacent (forensics, MUN, mock trial, law students) is ~8M. The stretch is the 1.5 billion people learning English. Speak hit $20M ARR at ~2M MAU on the AI-English-tutor thesis; Duolingo did 100M MAU at $84/yr on grammar. "Practice speaking English by arguing with an AI" is the same thesis applied to argumentation. If the data supports it, the debate market becomes a rounding error.</p>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     10. FOUNDER
+     ════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-num">10 · Founder</div>
+  <h2>Who's building this.</h2>
+  <p class="guide">Investors want to know "why this person for this problem." Here.</p>
+
+  <p><strong>Aidan Hollinger-Miles.</strong> Sophomore at the University of Chicago, philosophy + business economics. Four-year parliamentary debater, national champion (AU ProAms). Built the first version of Debate AI as a sparring partner for himself, shared it with his circuit, and watched the first 100 users turn into 7,000 across 115 countries on $660 of ad spend.</p>
+
+  <p>Solo founder for eight months. Six weeks full-time since the public launch. UChicago leave of absence for autumn 2026 is the plan if the funding cycle requires it. UWC alum; that network is the warmest non-circuit channel for the schools track.</p>
+
+  <p>The reason the format-accuracy moat is hard to copy: every other AI debate tool was built by someone who can ship product but didn't argue at the top of the country. The voice prompts are extracted from real APDA notes, real ballots, real cross-x patterns. Vibes alone don't get you there.</p>
+
+  <blockquote>"The leverage in AI isn't in the model. It's in the workflow around it. Which prompt produces sharp critique, not generic hedging. When to let the agent push back versus defer. How to surface useful output in 30 seconds. That middle layer is where Debate AI lives."</blockquote>
+</section>
+
+<footer>
+  <div class="sig">Debate AI</div>
+  <p>
+    Live at <a href="https://debateai.com">debateai.com</a> ·
+    Founder contact <a href="mailto:aidandavidhollinger@gmail.com">aidandavidhollinger@gmail.com</a> ·
+    Report generated 2026-05-13. Numbers source: Firebase Analytics through 2026-04-19; next refresh due weekly. Pricing locked per AGENTS.md and soul.md.
+  </p>
+</footer>
+
+</div>
+
+</body>
+</html>
