@@ -219,9 +219,22 @@
      doesn't flash crimson before topbar.js / the bottom-of-body
      bootstrap reconcile. Defaults to crimson when no preference is
      set. Light/grey/crimson all have full token coverage on landing —
-     the toggle lives in the topbar (rendered by /js/topbar.js). -->
+     the toggle lives in the topbar (rendered by /js/topbar.js).
+     Migration v2026-05: dark is the brand default. Browsers carrying a
+     legacy `da-theme=light` from an early experiment get reset once
+     (gated by `da-theme-default-v2`) so the marketing front door is
+     unambiguously dark for everyone. Users who actively want light can
+     still re-toggle. -->
 <script>
   (function(){
+    try {
+      if (!localStorage.getItem('da-theme-default-v2')) {
+        if (localStorage.getItem('da-theme') === 'light') {
+          localStorage.removeItem('da-theme');
+        }
+        localStorage.setItem('da-theme-default-v2', '1');
+      }
+    } catch(e){}
     var t = '';
     try { t = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!t || t === 'day') t = 'crimson';

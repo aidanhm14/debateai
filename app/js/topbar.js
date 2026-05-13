@@ -270,6 +270,20 @@
   // session. Hard reload on change so the token cascade and any
   // per-section <style> blocks settle from a clean slate.
   function wireThemeToggle(){
+    // Migration v2026-05: dark is the brand default. One-time sweep
+    // clears a legacy `da-theme=light` so subpages match the marketing
+    // landing's dark front door. Gated by `da-theme-default-v2` so it
+    // only runs once per browser; users who explicitly re-toggle to
+    // light afterward keep their preference (the sentinel is already
+    // set, so the migration won't fire again).
+    try {
+      if (!localStorage.getItem('da-theme-default-v2')) {
+        if (localStorage.getItem('da-theme') === 'light') {
+          localStorage.removeItem('da-theme');
+        }
+        localStorage.setItem('da-theme-default-v2', '1');
+      }
+    } catch(e){}
     var saved = '';
     try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!saved) saved = document.documentElement.getAttribute('data-theme') || 'crimson';
