@@ -2992,7 +2992,16 @@ function useTimer(){
   const iRef=useRef(null);
   const cbRef=useRef(null);
 
-  const beep=(f,d)=>{try{const a=new(window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.value=.12;o.start();o.stop(a.currentTime+d/1000)}catch{}};
+  // Route warnings through the shared SFX module so the global mute
+  // toggle (topbar speaker icon, da-sfx-muted in localStorage) applies.
+  // Previously this used its own AudioContext + bare oscillator and
+  // ignored the mute state, which was the user-reported regression
+  // when the topbar mute was first introduced. Falls back to a tiny
+  // inline beep only if SFX hasn't loaded yet (e.g. very first paint
+  // on a fresh tab before /js/sfx.js parses).
+  const fallbackBeep=(f,d)=>{try{const a=new(window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.value=.12;o.start();o.stop(a.currentTime+d/1000)}catch{}};
+  const warn=(secondsLeft)=>{try{if(window.SFX&&typeof window.SFX.timeWarning==='function'){window.SFX.timeWarning(secondsLeft);return}}catch{} fallbackBeep(secondsLeft>=50?440:secondsLeft>=25?660:880, 160);};
+  const stop=()=>{try{if(window.SFX&&typeof window.SFX.timeUp==='function'){window.SFX.timeUp();return}}catch{} fallbackBeep(880, 400);};
 
   const go=(secs,onDone)=>{cbRef.current=onDone;setLeft(secs);setOn(true)};
   const halt=()=>{setOn(false)};
@@ -3004,10 +3013,10 @@ function useTimer(){
     if(!on){if(iRef.current)clearInterval(iRef.current);return}
     iRef.current=setInterval(()=>{
       setLeft(p=>{
-        if(p<=1){clearInterval(iRef.current);setOn(false);beep(880,400);if(cbRef.current)setTimeout(cbRef.current,300);return 0}
-        if(p===61)beep(440,200);  // 1 minute warning
-        if(p===31)beep(660,150);  // 30 second warning
-        if(p===16)beep(880,150);  // 15 second warning
+        if(p<=1){clearInterval(iRef.current);setOn(false);stop();if(cbRef.current)setTimeout(cbRef.current,300);return 0}
+        if(p===61)warn(60);  // 1 minute warning
+        if(p===31)warn(30);  // 30 second warning
+        if(p===16)warn(15);  // 15 second warning
         return p-1;
       });
     },1000);

@@ -2897,8 +2897,14 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         || data?.text
         || '';
       setRfd(text || '(No RFD returned.)');
+      // Verdict-lands sting. Distinct from the generic success/start
+      // chime: this is the "ballot opening" moment — the one beat in
+      // the session where the user finds out how they did. Honors the
+      // global mute via SFX.
+      try { window.SFX && SFX.rfdReveal && SFX.rfdReveal(); } catch (sfxErr) { console.warn('[generateRFD] SFX skipped:', sfxErr); }
     } catch (e) {
       setRfd('Could not generate RFD: ' + e.message);
+      try { window.SFX && SFX.error && SFX.error(); } catch (sfxErr) {}
     } finally {
       setRfdLoading(false);
     }

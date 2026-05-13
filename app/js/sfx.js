@@ -42,7 +42,16 @@
   var ctx = null;               // lazy AudioContext
 
   function isMuted(){
-    try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch(e){ return false; }
+    // Two ways to be muted: explicit user toggle, or system-level
+    // reduced-motion preference (we treat that as a strong signal that
+    // the user doesn't want UI flourish, sound included). Either wins.
+    try {
+      if (localStorage.getItem(STORAGE_KEY) === '1') return true;
+    } catch(e){}
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+    } catch(e){}
+    return false;
   }
   function setMuted(v){
     try { localStorage.setItem(STORAGE_KEY, v ? '1' : '0'); } catch(e){}
@@ -141,6 +150,44 @@
     tone({ freq: 700, dur: 0.16, peak: 0.16, type: 'sine' });
   }
 
+  // ── Round-clock sounds ─────────────────────────────────────────────
+  // The useTimer in debate-ai.html historically fired raw `beep()` calls
+  // against its own AudioContext, which (a) duplicated boilerplate and
+  // (b) bypassed the global mute. Both now route through SFX so the
+  // speaker toggle in the topbar actually silences the room. Pitches
+  // preserve the prior debate-ai mapping: lower for "still time," rising
+  // as the clock approaches zero (A4 → E5 → A5).
+  function timeWarning(secondsLeft){
+    // Auto-pick urgency by seconds remaining. Called from inside the
+    // timer's tick — caller passes the current remaining seconds and
+    // we choose the appropriate chime. Falls back to the mid-tier
+    // ping if no argument given.
+    var s = +secondsLeft;
+    if (s >= 50)       tone({ freq: 440, dur: 0.22, peak: 0.14, type: 'sine' });  // 1 min: A4
+    else if (s >= 25)  tone({ freq: 660, dur: 0.16, peak: 0.15, type: 'sine' });  // 30s:  E5
+    else               tone({ freq: 880, dur: 0.14, peak: 0.16, type: 'sine' });  // 15s:  A5
+  }
+
+  function timeUp(){
+    // End of speech. Firmer than a warning ping — debater has to know
+    // the round clock just hit zero. Triangle wave at low fundamental
+    // gives it a "buzzer" timbre without going full klaxon; a small
+    // upward sweep at the tail keeps it from sounding mournful.
+    tone({ freq: 220, freqEnd: 260, dur: 0.42, peak: 0.20, type: 'triangle' });
+    tone({ freq: 165, dur: 0.30, peak: 0.10, type: 'triangle', delayMs: 80 });
+  }
+
+  function rfdReveal(){
+    // Judge ballot lands. Bigger than success() — a deeper opening
+    // beat (the "envelope opening") followed by a wider four-note
+    // ascent (C-E-G-C) so it reads as a verdict, not just a milestone.
+    tone({ freq: 110, dur: 0.18, peak: 0.16, type: 'triangle', delayMs: 0 });  // A2 thump
+    tone({ freq: 523.25, dur: 0.18, peak: 0.16, type: 'sine', delayMs: 140 }); // C5
+    tone({ freq: 659.25, dur: 0.18, peak: 0.16, type: 'sine', delayMs: 240 }); // E5
+    tone({ freq: 783.99, dur: 0.18, peak: 0.17, type: 'sine', delayMs: 340 }); // G5
+    tone({ freq: 1046.5, dur: 0.42, peak: 0.18, type: 'sine', delayMs: 440 }); // C6
+  }
+
   // ── Public API ─────────────────────────────────────────────────────
   // Voice-debate semantic aliases. The shared SFX palette has six core
   // sounds; voice-debate calls additional verbs (start / interrupt /
@@ -175,6 +222,9 @@
     end: confirm,
     error: error,
     confirm: confirm,
+    timeWarning: timeWarning,
+    timeUp: timeUp,
+    rfdReveal: rfdReveal,
     isMuted: isMuted,
     mute: function(){ setMuted(true); },
     unmute: function(){ setMuted(false); },
