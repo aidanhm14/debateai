@@ -1772,6 +1772,11 @@ section.hero{
   .editorial-hero .hero-ctas{grid-area:ctas;margin-bottom:18px;justify-self:start}
   .editorial-hero .hero-pill-rail{grid-area:pills;margin-bottom:0;justify-self:start}
   .editorial-hero .rebuttal-card{
+    max-width:none;
+    width:100%;
+    margin:0;
+  }
+  .editorial-hero .hero-rotor{
     grid-area:card;
     align-self:center;
     max-width:none;
@@ -2147,6 +2152,140 @@ section.hero{
   color:rgba(0,0,0,.55);
 }
 [data-theme="light"] .rebuttal-foot:hover{color:#1a1a1f}
+
+/* ── Hero rotor ─────────────────────────────────────────────────
+   Carousel that takes the slot the rebuttal card used to occupy.
+   Six slides stacked absolutely, crossfade between them, auto-
+   advances every 8s. localStorage advances the start index on each
+   visit so returning users see fresh content first. */
+.hero-rotor{
+  position:relative;
+  width:100%;
+  display:flex;flex-direction:column;
+}
+.hero-rotor-slide{
+  position:absolute;inset:0;
+  opacity:0;visibility:hidden;
+  transition:opacity .55s ease, visibility 0s linear .55s;
+  pointer-events:none;
+}
+.hero-rotor-slide.is-active{
+  opacity:1;visibility:visible;
+  transition:opacity .55s ease, visibility 0s linear 0s;
+  pointer-events:auto;
+}
+/* The first slide sits in flow to set the container height —
+   absolute positioning otherwise would collapse the rotor to 0
+   height. JS keeps the rotor's min-height pinned to the tallest
+   slide so the height doesn't pop between transitions. */
+.hero-rotor-slide:first-child{position:relative}
+
+/* Generic slide card. Mirrors rebuttal-card aesthetic so the
+   visual switch between slides feels intentional, not jarring. */
+.hrs-card{
+  display:flex;flex-direction:column;
+  background:linear-gradient(180deg,rgba(20,20,24,.78) 0%,rgba(14,14,18,.92) 100%);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:18px;
+  padding:22px 22px 18px;
+  box-shadow:
+    0 30px 80px rgba(0,0,0,.5),
+    0 1px 0 rgba(255,255,255,.04) inset,
+    0 -1px 0 rgba(0,0,0,.4) inset;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  text-decoration:none;color:inherit;
+  height:100%;
+  transition:border-color .18s ease;
+}
+[data-theme="light"] .hrs-card{
+  background:linear-gradient(180deg,#fff 0%,#fafaf7 100%);
+  border-color:rgba(0,0,0,.08);
+  box-shadow:0 24px 60px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.04);
+}
+.hrs-card:hover{border-color:rgba(239,68,68,.45)}
+
+.hrs-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;align-self:flex-start;
+  font-size:.62rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);
+  padding:4px 10px;border-radius:999px;
+  background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.24);
+  margin-bottom:14px;
+}
+.hrs-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);
+  animation:rec-pulse 1.6s ease-in-out infinite;
+}
+.hrs-img{
+  flex:1;min-height:0;
+  border-radius:10px;overflow:hidden;
+  background:#000;
+  border:1px solid rgba(255,255,255,.06);
+  margin-bottom:14px;
+}
+[data-theme="light"] .hrs-img{border-color:rgba(0,0,0,.06)}
+.hrs-img img{
+  width:100%;height:100%;
+  object-fit:cover;object-position:top center;
+  display:block;
+}
+.hrs-globe-img{
+  flex:1;min-height:0;display:flex;justify-content:center;align-items:center;
+  margin-bottom:10px;
+}
+.hrs-globe-img img{
+  width:100%;height:100%;
+  object-fit:contain;
+  display:block;
+}
+.hrs-card-globe{
+  /* Globe slide: no rectangular image border, just the globe floating */
+  padding:22px 22px 20px;
+}
+.hrs-meta{display:flex;flex-direction:column;gap:4px}
+.hrs-meta strong{
+  font-size:.96rem;font-weight:700;color:var(--text);letter-spacing:-.005em;line-height:1.25;
+}
+.hrs-meta span{
+  font-size:.78rem;color:var(--text-dim);line-height:1.45;
+}
+
+/* Dot indicators + progress bar */
+.hero-rotor-controls{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-top:14px;
+}
+.hrr-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:rgba(255,255,255,.18);
+  border:0;padding:0;cursor:pointer;
+  transition:background .25s ease, transform .25s ease, width .25s ease;
+}
+[data-theme="light"] .hrr-dot{background:rgba(0,0,0,.18)}
+.hrr-dot:hover{background:rgba(255,255,255,.36);transform:scale(1.15)}
+[data-theme="light"] .hrr-dot:hover{background:rgba(0,0,0,.36)}
+.hrr-dot.is-active{
+  background:var(--accent);
+  width:22px;border-radius:4px;
+}
+.hero-rotor-bar{
+  margin-top:8px;height:2px;border-radius:2px;
+  background:rgba(255,255,255,.06);overflow:hidden;
+}
+[data-theme="light"] .hero-rotor-bar{background:rgba(0,0,0,.06)}
+.hero-rotor-bar-fill{
+  height:100%;width:0%;
+  background:var(--accent);
+  transition:width .12s linear;
+}
+
+@media(max-width:1100px){
+  .hero-rotor-slide{position:relative;inset:auto;opacity:1;visibility:visible}
+  .hero-rotor-slide:not(.is-active){display:none}
+  /* On mobile we still only show one at a time, but layout flows */
+}
 
 /* Proof strip — small caps stats, hairline dividers, no chips. */
 .proof-strip{
@@ -3411,28 +3550,113 @@ section.ui-section .ui-lede{
         <a href="https://discord.gg/2dcFV2frM" target="_blank" rel="noopener noreferrer" class="hero-pill" style="border-color:rgba(88,101,242,.45);color:#a5b4fc" title="Live Discord: rounds, judges, motion trading">Discord</a>
       </div>
 
-      <div class="rebuttal-card" id="editorialRebuttalCard">
-        <div class="rebuttal-head">
-          <span class="rebuttal-head-dot" aria-hidden="true"></span>
-          <span>Live rebuttal</span>
-          <span class="rebuttal-motion" id="editorialRebuttalMotion"></span>
+      <!-- Hero rotor. Cycles through the live rebuttal demo, a globe of
+           where users are, and four product-surface screenshots. Auto-
+           advances every 8s with a crossfade. localStorage tracks the
+           last-shown index so returning visitors see a different slide
+           first on each visit, surfacing more of the product on each
+           revisit. -->
+      <div class="hero-rotor" id="heroRotor" data-rotor-count="6">
+
+        <!-- Slide 0: live rebuttal demo (existing typing animation) -->
+        <div class="hero-rotor-slide is-active" data-slide="0" aria-label="Live rebuttal demo">
+          <div class="rebuttal-card" id="editorialRebuttalCard">
+            <div class="rebuttal-head">
+              <span class="rebuttal-head-dot" aria-hidden="true"></span>
+              <span>Live rebuttal</span>
+              <span class="rebuttal-motion" id="editorialRebuttalMotion"></span>
+            </div>
+            <div class="rebuttal-row rebuttal-row-you">
+              <div class="rebuttal-label">You</div>
+              <div class="rebuttal-body" id="editorialRebuttalYou"></div>
+            </div>
+            <div class="rebuttal-row rebuttal-row-ai">
+              <div class="rebuttal-label">Debate AI</div>
+              <div class="rebuttal-body" id="editorialRebuttalAi"></div>
+            </div>
+            <div class="rebuttal-row rebuttal-row-judge">
+              <div class="rebuttal-label">Judge note</div>
+              <div class="rebuttal-body" id="editorialRebuttalJudge"></div>
+            </div>
+            <a href="/app#casual" class="rebuttal-foot">
+              Open the full sparring room
+              <span class="rebuttal-foot-arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
         </div>
-        <div class="rebuttal-row rebuttal-row-you">
-          <div class="rebuttal-label">You</div>
-          <div class="rebuttal-body" id="editorialRebuttalYou"></div>
+
+        <!-- Slide 1: globe — debaters in 115 countries -->
+        <div class="hero-rotor-slide" data-slide="1" aria-label="Where debaters are using Debate AI">
+          <a class="hrs-card hrs-card-globe" href="#globe">
+            <div class="hrs-eyebrow"><span class="hrs-dot"></span>Live in 115 countries</div>
+            <div class="hrs-globe-img">
+              <img src="/landing-shot-globe.png" alt="Globe showing user concentrations in India, the US, Philippines, Brazil, and more." loading="lazy" width="640" height="540" />
+            </div>
+            <div class="hrs-meta">
+              <strong>Debaters in 115 countries.</strong>
+              <span>India · US · Philippines · Brazil · Pakistan · Turkey · and 109 more circuits.</span>
+            </div>
+          </a>
         </div>
-        <div class="rebuttal-row rebuttal-row-ai">
-          <div class="rebuttal-label">Debate AI</div>
-          <div class="rebuttal-body" id="editorialRebuttalAi"></div>
+
+        <!-- Slide 2: voice mode -->
+        <div class="hero-rotor-slide" data-slide="2" aria-label="Voice round preview">
+          <a class="hrs-card" href="/voice-debate">
+            <div class="hrs-eyebrow"><span class="hrs-dot"></span>Voice round · WebRTC</div>
+            <div class="hrs-img"><img src="/landing-shot-voice.png" alt="Voice debate page with red orb visualizer and AI persona picker." loading="lazy" width="1600" height="900" /></div>
+            <div class="hrs-meta">
+              <strong>Talk to a debater. Interrupt them.</strong>
+              <span>Sub-200ms voice. 16 personas. Cut in mid-sentence.</span>
+            </div>
+          </a>
         </div>
-        <div class="rebuttal-row rebuttal-row-judge">
-          <div class="rebuttal-label">Judge note</div>
-          <div class="rebuttal-body" id="editorialRebuttalJudge"></div>
+
+        <!-- Slide 3: typed sparring -->
+        <div class="hero-rotor-slide" data-slide="3" aria-label="Typed sparring preview">
+          <a class="hrs-card" href="/debate-ai">
+            <div class="hrs-eyebrow"><span class="hrs-dot"></span>Typed sparring · 10 formats</div>
+            <div class="hrs-img"><img src="/landing-shot-debate-ai.png" alt="Debate AI typed clash with format chips for APDA, BP, Asian Parli, WSDC, LD, PF, Policy, Congress, MUN." loading="lazy" width="1600" height="900" /></div>
+            <div class="hrs-meta">
+              <strong>Format-accurate AI opponent.</strong>
+              <span>Policy spreads. PF citations. APDA impromptu. The judge knows the difference.</span>
+            </div>
+          </a>
         </div>
-        <a href="/app#casual" class="rebuttal-foot">
-          Open the full sparring room
-          <span class="rebuttal-foot-arrow" aria-hidden="true">→</span>
-        </a>
+
+        <!-- Slide 4: leaderboard -->
+        <div class="hero-rotor-slide" data-slide="4" aria-label="Leaderboard preview">
+          <a class="hrs-card" href="/leaderboard">
+            <div class="hrs-eyebrow"><span class="hrs-dot"></span>Leaderboard · voice only</div>
+            <div class="hrs-img"><img src="/landing-shot-leaderboard.png" alt="Debate AI leaderboard with live voice and solo voice boards." loading="lazy" width="1600" height="900" /></div>
+            <div class="hrs-meta">
+              <strong>Two boards. Same AI ballot.</strong>
+              <span>Live voice rounds vs. solo voice rounds, ranked by speaker points.</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Slide 5: community cases -->
+        <div class="hero-rotor-slide" data-slide="5" aria-label="Community cases preview">
+          <a class="hrs-card" href="/community">
+            <div class="hrs-eyebrow"><span class="hrs-dot"></span>Community · real cases</div>
+            <div class="hrs-img"><img src="/landing-shot-community.png" alt="Debate AI community page with shared cases and motion search." loading="lazy" width="1600" height="900" /></div>
+            <div class="hrs-meta">
+              <strong>Read what other debaters argued.</strong>
+              <span>Steal. Fork. Rebut. Every case in the room you wish you had.</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Dot indicators + progress bar -->
+        <div class="hero-rotor-controls" role="tablist" aria-label="Hero spotlight">
+          <button class="hrr-dot is-active" data-go="0" type="button" aria-label="Show live rebuttal"></button>
+          <button class="hrr-dot" data-go="1" type="button" aria-label="Show globe"></button>
+          <button class="hrr-dot" data-go="2" type="button" aria-label="Show voice round"></button>
+          <button class="hrr-dot" data-go="3" type="button" aria-label="Show typed sparring"></button>
+          <button class="hrr-dot" data-go="4" type="button" aria-label="Show leaderboard"></button>
+          <button class="hrr-dot" data-go="5" type="button" aria-label="Show community"></button>
+        </div>
+        <div class="hero-rotor-bar"><div class="hero-rotor-bar-fill" id="heroRotorBar"></div></div>
       </div>
 
       <div class="editorial-signin-row">
@@ -3805,6 +4029,96 @@ section.ui-section .ui-lede{
       } else {
         started=true;loop();
       }
+    })();
+
+    /* Hero rotor. Cycles through the rebuttal demo, the globe, and
+       four product screenshots. On each visit, advances the start
+       index in localStorage so returning users see a new slide
+       first. Auto-advances every 8s with a progress bar; clicks on
+       the dot indicators jump to a specific slide. */
+    (function(){
+      var rotor = document.getElementById('heroRotor');
+      if (!rotor) return;
+      var slides = rotor.querySelectorAll('.hero-rotor-slide');
+      var dots = rotor.querySelectorAll('.hrr-dot');
+      var bar = document.getElementById('heroRotorBar');
+      var count = slides.length;
+      if (count < 2) return;
+
+      var INTERVAL_MS = 8000;
+      var STORAGE_KEY = 'da-rotor-idx';
+
+      // Advance the starting slide on each visit. First load reads
+      // null → starts at 0. Second visit advances to 1. Sixth visit
+      // wraps back to 0. This way returning users see a different
+      // panel first on each session.
+      var startIdx = 0;
+      try {
+        var saved = parseInt(localStorage.getItem(STORAGE_KEY) || '-1', 10);
+        if (!isNaN(saved)) startIdx = (saved + 1) % count;
+      } catch(e) {}
+
+      var current = -1;
+      var timer = null;
+      var barStart = 0;
+      var rafId = 0;
+      var paused = false;
+
+      function setActive(i){
+        if (i === current) return;
+        // Update slides
+        slides.forEach(function(s, idx){
+          s.classList.toggle('is-active', idx === i);
+        });
+        // Update dots
+        dots.forEach(function(d, idx){
+          d.classList.toggle('is-active', idx === i);
+          d.setAttribute('aria-selected', idx === i ? 'true' : 'false');
+        });
+        current = i;
+        // Persist so the NEXT visit advances past this one.
+        try { localStorage.setItem(STORAGE_KEY, String(i)); } catch(e) {}
+        // Reset progress bar
+        barStart = performance.now();
+      }
+
+      function tick(){
+        if (paused) { rafId = requestAnimationFrame(tick); return; }
+        var elapsed = performance.now() - barStart;
+        var pct = Math.min(100, (elapsed / INTERVAL_MS) * 100);
+        if (bar) bar.style.width = pct + '%';
+        if (elapsed >= INTERVAL_MS) {
+          setActive((current + 1) % count);
+        }
+        rafId = requestAnimationFrame(tick);
+      }
+
+      // Dot clicks
+      dots.forEach(function(dot){
+        dot.addEventListener('click', function(){
+          var go = parseInt(dot.getAttribute('data-go') || '0', 10);
+          setActive(go);
+        });
+      });
+
+      // Pause on hover so users can read a slide they're interested in
+      rotor.addEventListener('mouseenter', function(){ paused = true; });
+      rotor.addEventListener('mouseleave', function(){
+        // Reset the progress bar so they get a full INTERVAL on the
+        // current slide after unhover (no jarring instant advance).
+        barStart = performance.now();
+        paused = false;
+      });
+
+      // Pause when tab is hidden so we don't burn cycles for nobody
+      document.addEventListener('visibilitychange', function(){
+        paused = document.hidden;
+        if (!paused) barStart = performance.now();
+      });
+
+      // Start
+      setActive(startIdx);
+      rafId = requestAnimationFrame(tick);
     })();
 
     /* Inline "Sign in with Google" link + hero CTA both delegate to the
