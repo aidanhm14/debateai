@@ -6045,94 +6045,26 @@ try{
   },2800);
 })();
 
-// Section-reveal chimes. As major sections scroll into view, fire a
-// per-section chime once per page load. Each section gets its OWN
-// sound so scrolling feels like a journey through different moments
-// rather than a metronome on the same tone. Build-up curve: subtle
-// reveals early, triumph at the leaderboard, verdict-sting at the
-// final "why debate" payoff. IntersectionObserver unobserves each
-// entry after firing so re-scrolling is silent. A 600ms armed gate
-// suppresses the initial-pass chimes for already-visible elements.
-(function(){
-  if (!('IntersectionObserver' in window)) return;
-  // Map section → ambient pitch. Soft 1.2s sine pad with slow attack/
-  // release replaces the punchy arpeggio chimes that used to fire on
-  // every section boundary. The old chimes (success / send / receive /
-  // confirm / rfdReveal) read as "out of nowhere" because they have
-  // sharp note onsets and clear musical intervals — fine for a button
-  // click, wrong for passive scroll. Pad shimmer changes pitch by
-  // section so consecutive triggers don't feel like the same note.
-  // Even #why (the verdict moment) gets the smooth pad; the original
-  // rfdReveal arpeggio lives on for actual ballot-reveal events inside
-  // /debate-ai where it earns its weight.
-  var sectionPitches = {
-    'spar':                'low',
-    'debate-ai':           'mid',
-    'topics':              'low',
-    'tools':               'mid',
-    'philosophy':          'high',
-    'leaderboard-preview': 'mid',
-    'faq':                 'low',
-    'why':                 'high',
-  };
-
-  var armed = false;
-  setTimeout(function(){ armed = true; }, 600);
-
-  // Coalesce rapid triggers. If a user fast-scrolls through three
-  // sections in 300ms, we get three pad swells layering — sounds like
-  // chord-mush. Track the last-fired timestamp and skip any trigger
-  // less than 900ms after the previous one.
-  var lastFired = 0;
-  var fired = Object.create(null);
-  var obs = new IntersectionObserver(function(entries){
-    entries.forEach(function(entry){
-      if (!entry.isIntersecting) return;
-      var id = entry.target.id;
-      if (fired[id]) return;
-      fired[id] = true;
-      obs.unobserve(entry.target);
-      if (!armed) return;
-      var now = Date.now();
-      if (now - lastFired < 900) return;
-      lastFired = now;
-      var pitch = sectionPitches[id] || 'mid';
-      try {
-        if (window.SFX && typeof window.SFX.ambient === 'function') {
-          window.SFX.ambient({ pitch: pitch });
-        }
-      } catch(_){}
-    });
-  }, { threshold: 0.25 });
-
-  Object.keys(sectionChimes).forEach(function(id){
-    var el = document.getElementById(id);
-    if (el) obs.observe(el);
-  });
-})();
-
-// First-scroll welcome pad. Browser autoplay policy blocks audio
-// until a user gesture; scrolling counts as one. Plays a single soft
-// ambient swell (no arpeggio) so the user gets a quiet acoustic
-// confirmation of "you arrived" rather than a bright chime that feels
-// out of nowhere. The pad shape matches the section-scroll cues below
-// so the whole landing reads as one consistent ambient bed instead of
-// a chime parade.
-(function(){
-  function welcome(){
-    window.removeEventListener('scroll', welcome);
-    window.removeEventListener('wheel', welcome);
-    window.removeEventListener('touchstart', welcome);
-    try {
-      if (window.SFX && typeof window.SFX.ambient === 'function') {
-        window.SFX.ambient({ pitch: 'mid' });
-      }
-    } catch(_){}
-  }
-  window.addEventListener('scroll', welcome, { passive: true, once: true });
-  window.addEventListener('wheel', welcome, { passive: true, once: true });
-  window.addEventListener('touchstart', welcome, { passive: true, once: true });
-})();
+// ── Scroll-triggered audio: removed entirely (2026-05-13). ─────────
+// Prior versions fired audio on every section boundary as the user
+// scrolled — first as arpeggios (success/send/receive/confirm), then
+// as a "smooth" ambient pad. Both were wrong for the same root
+// reason: scroll is not consent for audio. A marketing landing fires
+// sound at people who are reading, often with headphones in another
+// app, often in quiet rooms (class, library, office, public space).
+// "Smooth and tasteful" doesn't fix the consent problem.
+//
+// Audio still fires for user-initiated actions inside the page (CTA
+// click chimes, the voice-orb tap demo). Those are deliberate gestures
+// where acoustic feedback is expected. The SFX mute toggle in the
+// topbar remains for users who want even those silenced.
+//
+// Reference for future contributors: Apple, Stripe, Linear, OpenAI,
+// Anthropic — every major product landing is silent by default. The
+// market has decided this question; don't relitigate it per release.
+// If a future contributor wants section-boundary audio back, it MUST
+// be opt-in (separate toggle defaulting to off), not opt-out via the
+// global SFX mute.
 
 // Hero audio-timer live countdown. loops 7:11 → 0:00 → resets. Pure theatre.
 (function(){
