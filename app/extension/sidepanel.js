@@ -551,6 +551,11 @@ chrome.runtime.onMessage?.addListener?.((msg) => {
 });
 
 // ── Streak chip ────────────────────────────────────────────────────
+// Last-seen streak across panel renders. Compared against the new
+// snapshot to fire chimes only on transitions (extended / broken),
+// not every refresh. Resets to null on first call so we don't chime
+// on the panel's initial open with a pre-existing streak.
+let _lastSeenStreak = null;
 function refreshStreakChip() {
   const chip = els.streakChip;
   if (!chip) return;
@@ -561,6 +566,22 @@ function refreshStreakChip() {
       const last = String(res.lastDrillDate || '');
       const today = ymd(new Date());
       const overdue = days > 0 && last !== today;
+
+      // Streak-transition chimes. Fire only on second+ refresh so the
+      // very first paint (panel open with existing streak) stays silent.
+      //   prev > 0 AND now > prev → streak extended (success)
+      //   prev > 0 AND now === 0  → streak broken (deflating tone)
+      // Tone-only fallback inline because the panel can't reach the
+      // host app's SFX module; same da-sfx-muted localStorage key.
+      if (_lastSeenStreak !== null) {
+        if (days > _lastSeenStreak) {
+          try { streakChime.extended(); } catch(_){}
+        } else if (_lastSeenStreak > 0 && days === 0) {
+          try { streakChime.broken(); } catch(_){}
+        }
+      }
+      _lastSeenStreak = days;
+
       if (days <= 0) {
         chip.classList.remove('is-active', 'is-overdue');
         chip.textContent = 'Start a streak';
@@ -579,6 +600,62 @@ function refreshStreakChip() {
     });
   } catch (_) {}
 }
+
+// Streak chimes. Use the same minimal SFX bridge pattern as the
+// captured/confirm tones — inline AudioContext so the extension can
+// sound without bundling /js/sfx.js. Mute respects da-sfx-muted +
+// prefers-reduced-motion via the existing SFX object's isMuted-style
+// check duplicated here.
+const streakChime = (() => {
+  function isMuted() {
+    try { if (localStorage.getItem('da-sfx-muted') === '1') return true; } catch(_){}
+    try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return true; } catch(_){}
+    return false;
+  }
+  let ctx = null;
+  function getCtx() {
+    if (ctx) return ctx;
+    try {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return null;
+      ctx = new Ctor();
+    } catch(_) { return null; }
+    return ctx;
+  }
+  function note(freq, dur, peak, type, delayMs) {
+    if (isMuted()) return;
+    const c = getCtx();
+    if (!c) return;
+    if (c.state === 'suspended') { try { c.resume(); } catch(_){} }
+    try {
+      const t0 = c.currentTime + (delayMs || 0) / 1000;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch(_){}
+  }
+  return {
+    // Streak extended: rising two-note (C5→G5), short. Celebratory but
+    // not overdone — the streak chip is a secondary surface.
+    extended: () => {
+      note(523.25, 0.16, 0.14, 'sine', 0);
+      note(783.99, 0.20, 0.16, 'sine', 100);
+    },
+    // Streak broken: descending minor pair (G4→C4), triangle for a
+    // slightly mournful timbre. Quick — the user already feels bad
+    // about losing the streak, no need to twist the knife.
+    broken: () => {
+      note(392.00, 0.22, 0.14, 'triangle', 0);
+      note(261.63, 0.30, 0.13, 'triangle', 140);
+    },
+  };
+})();
 
 // ── Recent drills (localStorage) ───────────────────────────────────
 function recordRecent(entry) {

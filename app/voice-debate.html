@@ -2015,6 +2015,10 @@ function App(){
   const currentAiTurnRef = useRef(null);
   const currentUserTurnRef = useRef(null);
   const isUserSpeakingRef = useRef(false);
+  // Thinking-ambience stop fn. Set when user finishes a turn so the
+  // user gets a low hum signaling "AI is composing"; cleared when the
+  // first AI audio delta lands. SFX.thinking() returns the stop fn.
+  const thinkingStopRef = useRef(null);
 
   // AnalyserNodes for the orb + mic meter
   const aiAnalyserRef = useRef(null);
@@ -2202,6 +2206,18 @@ function App(){
         lastSpeechTickRef.current = { ai: 0, user: 0, who: null };
         isUserSpeakingRef.current = false;
         if (speaking === 'user') setSpeaking('idle');
+        // Start the thinking ambience the moment the user stops talking.
+        // Realtime latency is sub-200ms typically, but the gap between
+        // server-VAD-stop and first AI audio chunk is usually 300-800ms
+        // — enough for the low hum to signal "AI heard you, composing."
+        // Cleared on the first AI audio delta below. Idempotent: if a
+        // prior thinking stream is still running, stop it first.
+        if (thinkingStopRef.current) { try { thinkingStopRef.current(); } catch(_){} thinkingStopRef.current = null; }
+        try {
+          if (window.SFX && typeof SFX.thinking === 'function') {
+            thinkingStopRef.current = SFX.thinking();
+          }
+        } catch (sfxErr) { console.warn('[speech_stopped] SFX.thinking skipped:', sfxErr); }
         break;
       }
 
@@ -2238,6 +2254,13 @@ function App(){
       // of silently dropping the chunk.
       case 'response.audio_transcript.delta':
       case 'response.output_audio_transcript.delta': {
+        // First AI chunk lands — AI is now speaking, kill the thinking
+        // ambience. Idempotent: ref is cleared after stop so subsequent
+        // deltas in the same turn don't re-attempt.
+        if (thinkingStopRef.current) {
+          try { thinkingStopRef.current(); } catch(_){}
+          thinkingStopRef.current = null;
+        }
         let cur = currentAiTurnRef.current;
         if (!cur) {
           cur = { id: 'ai-' + Date.now(), who: 'ai', text: '' };
@@ -2307,6 +2330,9 @@ function App(){
 
   function stop(systemMsg) {
     try { window.SFX && SFX.end && SFX.end(); } catch (sfxErr) { console.warn('[stop] SFX skipped:', sfxErr); }
+    // Kill any lingering thinking ambience so it doesn't drone after
+    // the session ends (e.g. user hits End-drill mid-thinking-gap).
+    if (thinkingStopRef.current) { try { thinkingStopRef.current(); } catch(_){} thinkingStopRef.current = null; }
     cleanup();
     setStatus('ended');
     if (systemMsg) addSystem(systemMsg);

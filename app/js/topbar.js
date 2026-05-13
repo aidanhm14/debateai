@@ -332,8 +332,23 @@
   // BYOK / API key / plan settings on /debate-ai.
   function hydrateUser(slot){
     if (typeof window.firebase === 'undefined' || !window.firebase.auth) return;
+    // Track the first auth event so we can distinguish "page loaded
+    // with an already-signed-in user" (no sound) from "user just
+    // completed the OAuth flow" (chime). Without this guard, every
+    // page navigation while signed in would re-fire the chime.
+    var seenAuth = false;
     try {
       window.firebase.auth().onAuthStateChanged(function(u){
+        var wasFirst = !seenAuth;
+        seenAuth = true;
+        // Fire SFX.success only on a genuine sign-in: the very FIRST
+        // auth event in this page session was a null user (or no event
+        // came before) and now we have a user. The pre-existing case
+        // (first event already has u set) means they were already
+        // signed in from a prior page — no chime.
+        if (u && !wasFirst) {
+          try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){}
+        }
         if (!u){ slot.style.display = 'none'; slot.innerHTML = ''; return; }
         if (typeof window.daTopbarUserSlot === 'function'){
           slot.style.display = 'inline-flex';
