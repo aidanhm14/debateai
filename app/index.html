@@ -1947,6 +1947,61 @@ async function logGenerationSignal(signal, value, meta) {
   } catch(e) { console.warn('[logGenerationSignal]', e.message); }
 }
 
+// Map a UI `feature` to a server-side `kind` accepted by log-generation.mjs.
+// Anything unknown falls through to 'other' so we never lose a training row
+// just because a new feature name hasn't been added here yet.
+const FEATURE_TO_KIND = {
+  case: 'case',
+  tightblock: 'tightblock',
+  sneaky: 'sneaky',
+  rebuttal: 'rebuttal',
+  opp_attack: 'opp_attack',
+  opponent: 'opponent',
+  poi: 'poi',
+  philosophy: 'philosophy',
+  judge_adapt: 'judge_adapt',
+  judge: 'judge',
+  debateChat: 'debate_chat',
+  casual: 'casual',
+  bot: 'bot',
+  vision: 'vision',
+  resolution: 'resolution',
+};
+function featureToKind(feature) {
+  if (!feature || feature === 'unknown') return null;
+  return FEATURE_TO_KIND[feature] || 'other';
+}
+
+// Single capture path for every AI turn (case generator, debate chat,
+// opponent rebuttals, judge feedback, casual mode, vision/resolution).
+// Called from inside callAnyAI + callClaude right before they return so
+// no call site has to remember to log. Fire-and-forget.
+function captureTurn(args) {
+  try {
+    if (!args || !args.output || args.output.length < 40) return;
+    const kind = featureToKind(args.feature);
+    if (!kind) return;
+    const lc = args.logContext || {};
+    const userPromptStr = (typeof args.userPrompt === 'string' && args.userPrompt)
+      ? args.userPrompt
+      : (args.messages ? JSON.stringify(args.messages).slice(0, 7000) : '');
+    logGeneration({
+      kind,
+      motion: lc.motion || '',
+      side: lc.side || '',
+      format: args.format || lc.format || '',
+      depth: lc.depth || '',
+      model: args.model || '',
+      promptId: args.promptId || '',
+      systemPrompt: args.systemPrompt || '',
+      userPrompt: userPromptStr,
+      output: args.output,
+      durationMs: typeof args.durationMs === 'number' ? args.durationMs : null,
+      context: lc,
+    });
+  } catch(e) { console.warn('[captureTurn]', e.message); }
+}
+
 function logBetaEvent(event, data) {
   try {
     const log = JSON.parse(localStorage.getItem('debateos-beta-log') || '[]');
@@ -3722,6 +3777,7 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
     }
   }
   logBetaEvent('generate', { feature: opts.feature || 'case', brain: brainKey });
+  const _aiStartTs = Date.now();
 
   const isPro = __currentTeam && (__currentTeam.plan === 'individual' || __currentTeam.plan === 'team' || __currentTeam.plan === 'lifetime');
   const model = isPro && brain.proModel ? brain.proModel : brain.model;
@@ -3811,6 +3867,19 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   // Count usage
   if (_isAnon) { incAnonUsage(); }
   else if (__currentTeam) { __currentTeam.usageThisPeriod = (__currentTeam.usageThisPeriod || 0) + 1; if (__refreshTeam) setTimeout(() => __refreshTeam(), 2000); }
+  // Training-data capture. Every meaningful AI turn (case gen, opponent,
+  // rebuttal, judge, chat) gets the full triple persisted to Firestore.
+  captureTurn({
+    feature,
+    model,
+    promptId: opts.promptId,
+    format: opts.format,
+    systemPrompt: fullSystemPrompt,
+    userPrompt,
+    output: fullText,
+    durationMs: Date.now() - _aiStartTs,
+    logContext: opts.logContext,
+  });
   maybeShowSupportNudge();
   return fullText;
 }
@@ -4119,6 +4188,20 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   }
   // Refresh team usage data in background
   if (__refreshTeam) setTimeout(() => __refreshTeam(), 1000);
+  // Training-data capture. Mirrors callAnyAI; ensures Claude turns (which
+  // bypass callAnyAI) are still persisted with the same schema.
+  captureTurn({
+    feature,
+    model: 'claude-sonnet-4-6',
+    promptId: opts.promptId,
+    format: opts.format,
+    systemPrompt: fullSystemPrompt,
+    userPrompt: (typeof userPrompt === 'string' && userPrompt) ? userPrompt : null,
+    messages: (typeof userPrompt === 'string' && userPrompt) ? null : messages,
+    output: fullText,
+    durationMs: Date.now() - startTime,
+    logContext: opts.logContext,
+  });
   maybeShowSupportNudge();
   return fullText;
 }
@@ -4596,7 +4679,26 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
       await callAnyAI(sysPrompt, userPrompt, (text) => {
         _finalOutput = text;
         throttle.update(text);
-      }, caseBrain, { thinkBudget: depthThinkBudget, maxTokens: depthMaxTokens, expectedWords, onProgress: (p) => setProgress(p), feature: 'case', format, promptId: 'caseBase' });
+      }, caseBrain, {
+        thinkBudget: depthThinkBudget,
+        maxTokens: depthMaxTokens,
+        expectedWords,
+        onProgress: (p) => setProgress(p),
+        feature: genMode === 'case' ? 'case' : 'tightblock',
+        format,
+        promptId: 'caseBase',
+        // Rich context flows through to captureTurn inside callAnyAI/callClaude
+        // so we get one log per turn (no double-log) with full provenance.
+        logContext: {
+          motion: motion.trim(),
+          side,
+          format,
+          depth,
+          background: background || '',
+          caseTone: caseTone || '',
+          isRegeneration: !!isRegeneration,
+        },
+      });
     } catch (err) {
       _genErrored = true;
       setError(err.message);
@@ -4606,29 +4708,8 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
     setStreaming(false);
     setProgress({ phase: 'idle', percent: 0 });
     if (window.__triggerLogoGen) window.__triggerLogoGen(false); if (window.__triggerDebaterAnim) window.__triggerDebaterAnim(false);
-
-    // Log the full prompt → output pair for training-data collection.
-    // Fire-and-forget; errors are swallowed inside logGeneration.
-    if (!_genErrored && _finalOutput && _finalOutput.length >= 40) {
-      logGeneration({
-        kind: genMode === 'case' ? 'case' : 'tightblock',
-        motion: motion.trim(),
-        side,
-        format,
-        depth,
-        model: caseBrain,
-        promptId: 'caseBase',
-        systemPrompt: sysPrompt,
-        userPrompt,
-        output: _finalOutput,
-        durationMs: Date.now() - _genStartTs,
-        context: {
-          background: background || '',
-          caseTone: caseTone || '',
-          isRegeneration: !!isRegeneration,
-        },
-      });
-    }
+    // (Capture moved inside callAnyAI/callClaude so every AI turn — opponent,
+    // rebuttal, judge, chat — is persisted, not just the case generator.)
   };
 
   const generateSneaky = async () => {

@@ -19,10 +19,18 @@ const VALID_KINDS = new Set([
   'tightblock',
   'sneaky',
   'opp_attack',
+  'opponent',
   'rebuttal',
   'poi',
   'philosophy',
   'judge_adapt',
+  'judge',
+  'debate_chat',
+  'casual',
+  'bot',
+  'vision',
+  'resolution',
+  'voice_round',
   'other',
 ]);
 
