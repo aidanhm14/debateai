@@ -4042,6 +4042,11 @@ function App(){
   const[notes,setNotes]=useState(()=>{try{return localStorage.getItem('debateos-prep-notes')||''}catch{return ''}});
   const[aiLoading,setAiLoading]=useState(false);
   const[aiText,setAiText]=useState('');
+  // Surfaced AI failure message. Drives the visible error banner during
+  // an AI speech and the "Wrapping up..." vs "AI failed" status text.
+  // Catch block in runSpeech sets this; clears at next runSpeech entry
+  // and on newRound.
+  const[aiError,setAiError]=useState('');
   const[aiPct,setAiPct]=useState(0);       // generation progress %
   const[voiceEta]=useState(0); // TTS timing display
   const[showTx,setShowTx]=useState(false);
@@ -4655,7 +4660,7 @@ function App(){
       }
     } else {
       // AI turn. overlapped: start fetching audio for first half while still generating text
-      orb.setMode('ai');setAiLoading(true);setAiText('');setAiPct(0);
+      orb.setMode('ai');setAiLoading(true);setAiText('');setAiError('');setAiPct(0);
       // Defensive: SFX.thinking() returns a stop function. If SFX is
       // missing the method (the historic /js/sfx.js collision bug),
       // fall back to a no-op so the AI turn still runs.
@@ -4827,8 +4832,15 @@ function App(){
           : /Failed to fetch|network|offline/i.test(raw) ? ' Network is flaky. Check your connection and tap retry.'
           : /500|server|backend/i.test(raw) ? ' AI backend hiccupped. Wait 10 seconds and retry, or paste a Claude API key in Settings for instant unlimited.'
           : ' Tap the orb to retry, or refresh if it sticks.';
-        setAiText('[AI request failed: ' + raw + '.' + hint + ']');
+        const msg = raw + '.' + hint;
+        setAiText('[AI request failed: ' + msg + ']');
+        setAiError(msg);
         orb.setMode('idle');
+        // Auto-advance to the next speech so the round doesn't hang on a
+        // dead screen. Without this the user is stuck at "AI SPEAKING / 0:00"
+        // forever — exactly the bug screenshot. Short delay so the banner
+        // is readable before the screen moves on.
+        setTimeout(()=>{ if(!endingRef.current) endSpeech(); }, 3500);
       }
     }
   };
@@ -4882,6 +4894,31 @@ function App(){
       setTimeout(()=>runSpeech(next,newLog),600);
     }
   };
+
+  // AI speech stuck-state watchdog. If the AI turn settles into a state
+  // where nothing is happening (no loading, no audio, no countdown gate,
+  // timer at 0) for more than 6 seconds, force-advance to the next speech.
+  // Covers silent failure modes (network died mid-stream, audio failed to
+  // play because of autoplay policy, TTS chunk fetch hung) that the catch
+  // block in runSpeech wouldn't catch — there the await resolved cleanly
+  // but the downstream audio/timer chain didn't fire onAudioStart/onEnd.
+  // Without this, the user sees "AI SPEAKING / LIVE. Timer running / 0:00"
+  // forever and has to refresh the round.
+  React.useEffect(()=>{
+    if(phase!=='speech') return;
+    if(isUser) return;
+    if(aiLoading) return;
+    if(aiCountdown!==null) return;
+    if(tts.speaking) return;
+    if(timer.left>0) return;
+    if(endingRef.current) return;
+    const id=setTimeout(()=>{
+      if(endingRef.current) return;
+      console.warn('[debate-ai] AI speech stuck. Auto-advancing.');
+      endSpeech();
+    },6000);
+    return ()=>clearTimeout(id);
+  },[phase,isUser,aiLoading,aiCountdown,tts.speaking,timer.left]);
 
   // Keyboard shortcuts help modal. Press `?` anywhere outside an input
   // to toggle. Documents the shortcuts that already exist so new users
@@ -5475,7 +5512,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   };
 
   // Reset
-  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null);setCaseSaved(false);setCasePublished(null)})};
+  const newRound=()=>{clearSession();transition('setup',()=>{setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setAiError('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null);setCaseSaved(false);setCasePublished(null)})};
 
   /* ─── RENDER ─────────────────────── */
 
@@ -6896,7 +6933,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
               isUser?(rec.micAvailable?'Speak now. your voice is being transcribed':rec.micError):
               aiLoading==='voice'?(tts.streamStatus||'Preparing HD voice...'):
               aiLoading?'Writing argument via '+(BRAINS[brain]||BRAINS.claude).name+(isPro()?' Pro':'')+' ... '+aiPct+'%':
-              tts.paused?'Paused':'LIVE. Timer running'
+              aiError?'AI couldn\'t respond. Advancing in a moment...':
+              tts.paused?'Paused':
+              (!isUser&&timer.left<=0&&!tts.speaking)?'Wrapping up...':
+              'LIVE. Timer running'
             ),
             // The orb. `interrupted` adds a 1.2s red-flash class so the
             // visual confirms the cut-off, without it, hitting Interrupt
@@ -6941,6 +6981,15 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
         // TTS error banner
         !isUser&&tts.ttsError&&el('div',{style:{padding:'8px 14px',background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.2)',borderRadius:10,maxWidth:400,margin:'0 auto 12px',fontSize:'.75rem',color:'#f59e0b',textAlign:'center'}},tts.ttsError),
+
+        // AI fetch error banner. Visible whenever the catch block in
+        // runSpeech tripped. The screen auto-advances 3.5s after the
+        // error; this surface tells the user why instead of leaving them
+        // wondering whether to refresh.
+        !isUser&&aiError&&el('div',{style:{padding:'10px 14px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.28)',borderRadius:10,maxWidth:460,margin:'0 auto 12px',fontSize:'.78rem',color:'#fca5a5',textAlign:'center',lineHeight:1.45}},
+          el('strong',{style:{display:'block',fontSize:'.66rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:4}},'AI couldn\'t respond'),
+          aiError,
+        ),
 
         // 30s countdown gate before AI begins speaking. Audio is generated and
         // ready to fire, clicking "Start" (or letting the counter hit 0)
