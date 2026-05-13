@@ -2008,6 +2008,32 @@ section.hero{
   background:rgba(0,0,0,.06);
   border-color:rgba(0,0,0,.28);
 }
+/* Google sign-up — white card with the colored G, sized to match the
+   primary "Start arguing" button so the two read as equal-weight
+   conversion paths. Stands out against the dark hero on purpose;
+   the brand convention for "Sign in with Google" is white-bg. */
+.btn-editorial-google{
+  background:#fff;
+  color:#1a1a1f;
+  border-color:rgba(255,255,255,.92);
+  box-shadow:0 8px 22px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.6);
+  font-weight:600;
+  letter-spacing:-.005em;
+}
+.btn-editorial-google:hover{
+  background:#f5f5f0;
+  transform:translateY(-1px);
+  box-shadow:0 12px 28px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.6);
+}
+.btn-editorial-google svg{flex-shrink:0}
+[data-theme="light"] .btn-editorial-google{
+  border-color:rgba(0,0,0,.14);
+  box-shadow:0 4px 12px rgba(0,0,0,.10);
+}
+[data-theme="light"] .btn-editorial-google:hover{
+  border-color:rgba(0,0,0,.24);
+  box-shadow:0 6px 16px rgba(0,0,0,.14);
+}
 @keyframes editorial-pulse{
   0%,100%{opacity:1;transform:scale(1)}
   50%{opacity:.55;transform:scale(.85)}
@@ -3344,12 +3370,15 @@ section.ui-section .ui-lede{
         <a href="/debate-ai" class="btn-editorial btn-editorial-primary" data-cta="hero-primary">
           Start arguing <span class="arrow" aria-hidden="true">→</span>
         </a>
-        <!-- Hero secondary slot reserved for the demo video. Disabled
-             until the video is recorded; flip back to an <a href="...">
-             with the real link once the video lands. -->
-        <span class="btn-editorial btn-editorial-secondary" role="button" aria-disabled="true" style="opacity:.55;cursor:not-allowed;pointer-events:none">
-          DEMO - COMING SOON
-        </span>
+        <!-- Second CTA slot is the Google sign-up button. Fills the
+             slot the demo-video placeholder used to hold. Click
+             delegates to the hidden #googleSignupBtn that the Firebase
+             IIFE wires below; if Firebase is blocked the script falls
+             back to /app#chat the same way the inline text link did. -->
+        <button type="button" class="btn-editorial btn-editorial-google" id="heroGoogleSignup">
+          <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+          Sign up with Google
+        </button>
         <a href="/debate-ai" class="btn-editorial btn-editorial-secondary" data-voice-cta-off hidden style="display:none">
           Try the typed round
         </a>
@@ -3399,13 +3428,14 @@ section.ui-section .ui-lede{
       </div>
 
       <div class="editorial-signin-row">
-        <span>Free to start.</span>
-        <!-- Real Google sign-in pill is rendered further down in the
-             legacy hidden subtree (#googleSignupBtn), wired by the
-             Firebase IIFE. This is a lightweight reroute so the
-             editorial layout still has a Google entry point inline. -->
-        <a href="#" id="editorialSignInLink" style="color:var(--text);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(220,38,38,.5)">Sign in with Google</a>
-        <span style="opacity:.6">to keep your rounds.</span>
+        <span>Free to start. No card.</span>
+        <span style="opacity:.6">Sign up keeps your rounds across devices and lifts the anon cap.</span>
+        <!-- Legacy #editorialSignInLink lives off-canvas so the
+             DOMContentLoaded wiring further down still finds it as a
+             fallback target. The hero CTA above is the primary entry
+             point; this is just a safety net for screenreaders and
+             anyone who scrolled past the button before clicking. -->
+        <a href="#" id="editorialSignInLink" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden">Sign in with Google</a>
       </div>
 
       <!-- Builder credit block removed 2026-05-13. Hero stays
@@ -3767,21 +3797,32 @@ section.ui-section .ui-lede{
       }
     })();
 
-    /* Inline "Sign in with Google" link in the editorial signin row.
-       Delegates to the hidden #googleSignupBtn that the Firebase IIFE
-       already wired — we don't have access to the closure-scoped
-       triggerGoogleSignIn(), so the cheapest reliable route is to
-       synthesize a click on the real button. Falls back to /app#chat
-       if the button isn't there (Firebase SDK blocked, etc.). */
+    /* Inline "Sign in with Google" link + hero CTA both delegate to the
+       hidden #googleSignupBtn that the Firebase IIFE already wired — we
+       don't have access to the closure-scoped triggerGoogleSignIn(), so
+       the cheapest reliable route is to synthesize a click on the real
+       button. Falls back to /app#chat if the button isn't there
+       (Firebase SDK blocked, etc.). */
     document.addEventListener('DOMContentLoaded',function(){
-      var link=document.getElementById('editorialSignInLink');
-      if(!link)return;
-      link.addEventListener('click',function(e){
-        e.preventDefault();
+      function go(){
         var realBtn=document.getElementById('googleSignupBtn');
         if(realBtn){realBtn.click();return}
         window.location.href='/app#chat';
-      });
+      }
+      var link=document.getElementById('editorialSignInLink');
+      if(link){
+        link.addEventListener('click',function(e){
+          e.preventDefault();
+          go();
+        });
+      }
+      var heroBtn=document.getElementById('heroGoogleSignup');
+      if(heroBtn){
+        heroBtn.addEventListener('click',function(e){
+          e.preventDefault();
+          go();
+        });
+      }
     });
     </script>
 
