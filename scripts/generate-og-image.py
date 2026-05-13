@@ -154,10 +154,14 @@ def main():
     img = base.convert("RGBA")
 
     # Orb sits on the right so the left half can carry the message.
-    # Smaller R than the text-free version (200 → 135) — the orb's
+    # Smaller R than the text-free version (200 → 125) — the orb's
     # outer aurora still reaches across the canvas, but the inner
     # bright structure is contained to the right third.
-    draw_orb(img, cx=950, cy=285, R=135, accent=RED, smooth_level=0.55, phase=2.7)
+    # cy bumped 285 → 360 + cx 950 → 970 so the orb's bright ring
+    # clears the top-right URL band (y≈88–112). Earlier placement
+    # had the inner ring's top at y≈76, which collided with the
+    # "debateai.com" text in Twitter/Discord/Slack embeds.
+    draw_orb(img, cx=970, cy=360, R=125, accent=RED, smooth_level=0.55, phase=2.7)
 
     draw = ImageDraw.Draw(img, "RGBA")
 
