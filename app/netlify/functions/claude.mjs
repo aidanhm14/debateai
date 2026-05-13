@@ -181,6 +181,12 @@ export default async (request, context) => {
     return new Response(null, { status: 204, headers: CORS });
   }
 
+  // Keep-alive ping from scheduled-keepalive.mjs. Module is now loaded
+  // and the container stays warm; return 204 without hitting Anthropic.
+  if (request.headers.get('X-Keepalive') === '1') {
+    return new Response(null, { status: 204, headers: CORS });
+  }
+
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -345,12 +351,50 @@ export default async (request, context) => {
     delete body.tools;
     delete body.tool_choice;
 
+    // Prompt-cache restructure. The original body.system is a single string
+    // with [REFERENCE ROUNDS (variable per motion)] prepended and
+    // [LEARNED PATTERNS (stable per format, daily)] + VOICE GUIDELINES
+    // (stable per feature/format) appended. To cache the stable suffix,
+    // we split out the reference-rounds block and reorder: stable parts
+    // first with a cache_control marker, then variable parts. Anthropic
+    // caches everything up through the cache_control breakpoint, so on
+    // repeated calls with the same format/feature, the model skips
+    // re-processing the stable ~thousands of tokens. Cuts TTFT 50-70%
+    // and price ~90% on cache hits (5min TTL). The reference rounds
+    // moving from system-prefix to system-suffix is intentional — the
+    // model has full attention across the system block either way; the
+    // anchoring penalty is negligible vs. the latency win.
+    if (typeof body.system === 'string' && body.system.length > 0) {
+      const refRoundsRe = /(?:\n*)(?:─── REFERENCE ROUNDS[\s\S]*?─── END REFERENCE ROUNDS ───)(?:\n*)/;
+      const m = body.system.match(refRoundsRe);
+      if (m) {
+        const variable = m[0].trim();
+        const stable = body.system.replace(refRoundsRe, '').trim();
+        body.system = [
+          { type: 'text', text: stable, cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: variable },
+        ];
+      } else if (body.system.length > 2048) {
+        // No exemplars in this request, but the system prompt is still
+        // big enough to be worth caching whole. Anthropic's minimum
+        // cacheable size is 1024 tokens (~4KB); 2KB chars gives us a
+        // comfortable margin.
+        body.system = [
+          { type: 'text', text: body.system, cache_control: { type: 'ephemeral' } },
+        ];
+      }
+      // else: small system prompt, not worth caching, leave as string.
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        // Prompt-caching is GA on most models but the header is still
+        // recommended to opt-in explicitly on older API versions.
+        'anthropic-beta': 'prompt-caching-2024-07-31',
       },
       body: JSON.stringify(body),
     });

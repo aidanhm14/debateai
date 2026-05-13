@@ -60,6 +60,11 @@ export default async (request, context) => {
     return new Response(null, { status: 204, headers: CORS });
   }
 
+  // Keep-alive ping — see claude.mjs.
+  if (request.headers.get('X-Keepalive') === '1') {
+    return new Response(null, { status: 204, headers: CORS });
+  }
+
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405, headers: { 'Content-Type': 'application/json', ...CORS },

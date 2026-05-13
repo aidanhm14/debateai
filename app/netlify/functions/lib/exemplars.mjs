@@ -13,8 +13,15 @@
 
 import { getDb } from './firestore.mjs';
 
-const MAX_EXEMPLARS = 3;
-const USER_SPEECH_CHAR_LIMIT = 900;
+// Tuned 2026-05-13 for latency: was 3 × 900 = 2700 chars of
+// reference-round text in every system prompt. That adds ~680 tokens
+// per call and roughly equivalent TTFT. 2 × 600 = 1200 chars (~300
+// tokens) cuts that in half while still giving the model two distinct
+// reference rounds to anchor on. The exemplars are also now in the
+// non-cached tail of the system prompt (see claude.mjs cache logic),
+// so every byte here costs latency on every cache-hit request.
+const MAX_EXEMPLARS = 2;
+const USER_SPEECH_CHAR_LIMIT = 600;
 
 // Cache admin uids for 5 min — tiny set (≤20 docs), no point hammering.
 let adminCache = { uids: null, weights: null, at: 0 };
