@@ -2802,9 +2802,23 @@ function App(){
                   transcription: { model: 'gpt-4o-transcribe', language: 'en' },
                   turn_detection: {
                     type: 'server_vad',
-                    threshold: 0.5,
+                    // Threshold raised from 0.5 → 0.7. The default was
+                    // too sensitive for debate rounds, where the AI
+                    // speaks for 30-60s at a stretch and any ambient
+                    // noise (typing, breathing, speaker bleed-through
+                    // even with echo cancellation on, fan hum) was
+                    // tripping speech_started and handing the turn
+                    // back to the user mid-AI-speech. 0.7 needs a
+                    // clearer "this is a person talking" signal before
+                    // it cancels the response.
+                    threshold: 0.7,
                     prefix_padding_ms: 300,
-                    silence_duration_ms: 500,
+                    // Silence duration raised 500 → 800ms. Debaters
+                    // pause to think mid-argument; the old value
+                    // treated those pauses as turn-end and auto-fired
+                    // a new AI response, which then got interrupted
+                    // again the moment they continued.
+                    silence_duration_ms: 800,
                     create_response: true,
                   },
                 },
