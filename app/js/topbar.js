@@ -244,8 +244,14 @@
     window.addEventListener('load', syncBtn, { once: true });
     btn.addEventListener('click', function(){
       if (!window.SFX || typeof window.SFX.toggleMute !== 'function') return;
-      window.SFX.toggleMute();
+      var nowMuted = window.SFX.toggleMute();
       syncBtn();
+      // Acoustic confirmation when sound comes BACK on. Going-to-muted
+      // is silent by construction (SFX.confirm() would no-op after the
+      // toggle). Without this, the user hits unmute and gets no signal
+      // that anything happened — they have to interact with something
+      // else to verify sound returned. confirm() is short + warm.
+      if (!nowMuted) { try { window.SFX.confirm && window.SFX.confirm(); } catch(_){} }
     });
   }
 

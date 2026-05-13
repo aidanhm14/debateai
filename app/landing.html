@@ -182,7 +182,11 @@
     var h=document.documentElement,sc=(h.scrollTop+window.innerHeight)/h.scrollHeight*100;
     depths.forEach(function(d){if(sc>=d&&!hit[d]){hit[d]=1;window.dosTrack('scroll_depth',{depth:d})}});
   },{passive:true});
-  /* Delegated click tracking for anchors and buttons */
+  /* Delegated click tracking + SFX feedback for anchors and buttons.
+     Piggy-backed on the existing tracker so every hero CTA / nav link
+     / pricing tap gets acoustic confirmation without per-button wiring.
+     Primary hero actions use SFX.confirm (warmer), secondary actions
+     use SFX.click (subtle). SFX honors the global mute toggle. */
   document.addEventListener('click',function(e){
     var t=e.target.closest('a,button');if(!t)return;
     var cls=(t.className||'')+'';
@@ -194,6 +198,15 @@
     else if(/pricing|plan/.test(cls))kind='pricing';
     else if(/google|sign.?in/i.test(cls)||/google|sign.?in/i.test(label))kind='signin';
     else if(/btn/.test(cls))kind='btn';
+    try {
+      if (window.SFX) {
+        if (kind === 'hero_cta' || kind === 'signin' || kind === 'pricing') {
+          window.SFX.confirm && window.SFX.confirm();
+        } else if (kind === 'nav' || kind === 'btn') {
+          window.SFX.click && window.SFX.click();
+        }
+      }
+    } catch(_){}
     window.dosTrack('cta_click',{kind:kind,label:label,href:href});
     if(kind==='hero_cta')window.dosTrackOnce('first_hero_cta',{label:label,href:href});
   },true);
