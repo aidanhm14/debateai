@@ -80,12 +80,6 @@
   // pricing data moved into the FAQ + JSON-LD.
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
-    // YouTube demo. external:true → opens in a new tab + adds
-    // rel=noopener so the popup can't reach back through window.opener.
-    // Points at the DebateAI channel landing for now; swap the href to
-    // a specific video URL (https://youtu.be/XXXX) once the canonical
-    // demo is recorded.
-    { href: 'https://www.youtube.com/@debateai', label: 'Demo', external: true },
     { href: '/live',          label: 'Live', live: true },
     { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
