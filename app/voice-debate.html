@@ -1733,7 +1733,7 @@ function App(){
   // above ~1.6 on Chrome and is mostly ignored on Safari. Layer 2
   // (pacing nudge) carries the real swing: ~150 wpm at 0.85× up to
   // ~450 wpm at 2.5× — the latter is roughly Policy-debate spread.
-  const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [playbackRate, setPlaybackRate] = useState(1.15);
   // Mute: disable the local mic track so the AI can't VAD-interrupt
   // itself when you breathe / cough / shuffle papers during its speech.
   const [muted, setMuted] = useState(false);
@@ -2423,10 +2423,18 @@ function App(){
         break;
       }
 
-      case 'error':
+      case 'error': {
+        const errMsg = evt.error?.message || 'unknown';
         console.error('[realtime event error]', evt.error);
-        addSystem('Error: ' + (evt.error?.message || 'unknown'));
+        // Suppress harmless cancel-of-nothing errors. When the user
+        // types a text-interject, we send response.cancel first, but
+        // if no response was in flight the server returns this. It's
+        // expected, not user-actionable, and pollutes the transcript.
+        if (!/no active response|nothing to cancel|cancellation failed/i.test(errMsg)) {
+          addSystem('Error: ' + errMsg);
+        }
         break;
+      }
 
       default:
         break;
@@ -2791,7 +2799,7 @@ function App(){
                   // Hindi viva path already set their own aiLanguage
                   // upstream — this default only applies to the
                   // standard English-debate flow.
-                  transcription: { model: 'gpt-4o-mini-transcribe', language: 'en' },
+                  transcription: { model: 'gpt-4o-transcribe', language: 'en' },
                   turn_detection: {
                     type: 'server_vad',
                     threshold: 0.5,
