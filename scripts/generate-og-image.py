@@ -69,16 +69,17 @@ brand_w = draw.textbbox((0, 0), "Debate ", font=brand)[2]
 draw.text((72, 232), "Debate ", font=brand, fill=WHITE)
 draw.text((72 + brand_w, 232), "AI", font=brand, fill=RED)
 
-tagline = font(78, "black")
-draw.text((72, 296), "Most AI agrees.", font=tagline, fill=WHITE)
-contrast_y = 384
-prefix = "This one "
-prefix_w = draw.textbbox((0, 0), prefix, font=tagline)[2]
-draw.text((72, contrast_y), prefix, font=tagline, fill=WHITE)
-draw.text((72 + prefix_w, contrast_y), "argues.", font=tagline, fill=RED)
+tagline = font(76, "black")
+draw.text((72, 296), "Find your weakness.", font=tagline, fill=WHITE)
+line2_y = 380
+before_w = draw.textbbox((0, 0), "Before ", font=tagline)[2]
+they_w = draw.textbbox((0, 0), "they", font=tagline)[2]
+draw.text((72, line2_y), "Before ", font=tagline, fill=WHITE)
+draw.text((72 + before_w, line2_y), "they", font=tagline, fill=RED)
+draw.text((72 + before_w + they_w, line2_y), " do.", font=tagline, fill=WHITE)
 
 sub = font(30, "bold")
-draw.text((72, 484), "Find the hole in your case before the round does.", font=sub, fill=DIM)
+draw.text((72, 484), "Lay the bait. Eat their time. Take the ballot.", font=sub, fill=DIM)
 
 chip_font = font(22, "bold")
 chips = ["WSDC", "BP", "APDA", "Policy", "LD", "PF", "Congress", "MUN"]
