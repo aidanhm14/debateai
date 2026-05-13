@@ -2163,6 +2163,17 @@ section.hero{
   width:100%;
   display:flex;flex-direction:column;
 }
+/* The slide stage is a fixed-height box that absolutely-positions
+   every slide on top of each other. Without a fixed height, the
+   rotor would size to whichever slide is currently active and the
+   whole right column would visibly grow/shrink between transitions
+   — especially jarring with the typing rebuttal that grows live.
+   JS measures the tallest slide once on load and pins this to it. */
+.hero-rotor-stage{
+  position:relative;
+  width:100%;
+  min-height:460px;
+}
 .hero-rotor-slide{
   position:absolute;inset:0;
   opacity:0;visibility:hidden;
@@ -2174,11 +2185,6 @@ section.hero{
   transition:opacity .22s ease, visibility 0s linear 0s;
   pointer-events:auto;
 }
-/* The first slide sits in flow to set the container height —
-   absolute positioning otherwise would collapse the rotor to 0
-   height. JS keeps the rotor's min-height pinned to the tallest
-   slide so the height doesn't pop between transitions. */
-.hero-rotor-slide:first-child{position:relative}
 
 /* Generic slide card. Mirrors rebuttal-card aesthetic so the
    visual switch between slides feels intentional, not jarring. */
@@ -3550,6 +3556,7 @@ section.ui-section .ui-lede{
            first on each visit, surfacing more of the product on each
            revisit. -->
       <div class="hero-rotor" id="heroRotor" data-rotor-count="7">
+       <div class="hero-rotor-stage" id="heroRotorStage">
 
         <!-- Slide 0: live rebuttal demo (existing typing animation) -->
         <div class="hero-rotor-slide is-active" data-slide="0" aria-label="Live rebuttal demo">
@@ -3649,6 +3656,8 @@ section.ui-section .ui-lede{
             </div>
           </a>
         </div>
+
+       </div>
 
         <!-- Dot indicators + progress bar -->
         <div class="hero-rotor-controls" role="tablist" aria-label="Hero spotlight">
@@ -4043,14 +4052,43 @@ section.ui-section .ui-lede{
     (function(){
       var rotor = document.getElementById('heroRotor');
       if (!rotor) return;
+      var stage = document.getElementById('heroRotorStage');
       var slides = rotor.querySelectorAll('.hero-rotor-slide');
       var dots = rotor.querySelectorAll('.hrr-dot');
       var bar = document.getElementById('heroRotorBar');
       var count = slides.length;
       if (count < 2) return;
 
-      var INTERVAL_MS = 8000;
+      var INTERVAL_MS = 14000;
       var STORAGE_KEY = 'da-rotor-idx';
+
+      // Pin the stage to the tallest slide's natural height so the
+      // rotor doesn't visibly grow/shrink between transitions. Each
+      // slide is briefly given is-active to measure its real height,
+      // then the max wins. Re-runs after images decode + on resize.
+      function pinStageHeight(){
+        if (!stage || !slides.length) return;
+        var maxH = 0;
+        var prev = current;
+        slides.forEach(function(s){
+          var wasActive = s.classList.contains('is-active');
+          s.style.visibility = 'hidden';
+          s.style.opacity = '0';
+          s.classList.add('is-active');
+          var h = s.offsetHeight;
+          if (h > maxH) maxH = h;
+          if (!wasActive) s.classList.remove('is-active');
+          s.style.visibility = '';
+          s.style.opacity = '';
+        });
+        if (maxH > 0) stage.style.minHeight = maxH + 'px';
+      }
+      // Re-pin after images decode so the measurement uses their
+      // final rendered heights, not the placeholder zero-height.
+      window.addEventListener('load', pinStageHeight);
+      window.addEventListener('resize', pinStageHeight);
+      // Initial pin from JS in case 'load' already fired
+      setTimeout(pinStageHeight, 0);
 
       // Advance the starting slide on each visit. First load reads
       // null → starts at 0. Second visit advances to 1. Sixth visit
@@ -4825,16 +4863,12 @@ section.ui-section .ui-lede{
     position:relative;
     border-radius:14px;overflow:hidden;
     background:#000;
-    border:1px solid rgba(255,255,255,.10);
-    box-shadow:
-      0 30px 70px rgba(0,0,0,.45),
-      0 1px 0 rgba(255,255,255,.05) inset;
+    box-shadow:0 30px 70px rgba(0,0,0,.45);
     line-height:0;
     aspect-ratio: 16 / 13;
   }
   [data-theme="light"] .live-proof-video{
-    border-color:rgba(0,0,0,.10);
-    box-shadow:0 20px 50px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.04);
+    box-shadow:0 20px 50px rgba(0,0,0,.12);
   }
   .live-proof-video img{
     width:100%;height:100%;object-fit:cover;object-position:top center;
