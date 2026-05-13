@@ -100,15 +100,14 @@
     return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
   }
 
-  // Score curve — kept similar to v2 but with shallower falloff since
-  // there are fewer rows. Top is rare, mid-board is dense, the floor is
-  // well above 25.
+  // Score curve. Top is rare, mid-board has visible spread (so adjacent
+  // rows in the 20s don't all stack at 27.x), the floor is well above 25.
   function scoreForRank(rank){
     if(rank<3)  return 29.4 - rank*0.18;            // 29.4 / 29.22 / 29.04
     if(rank<10) return 28.9 - (rank-3)*0.10;        // 28.9..28.2
-    if(rank<20) return 28.1 - (rank-10)*0.06;       // 28.1..27.5
-    if(rank<35) return 27.4 - (rank-20)*0.05;       // 27.4..26.7
-    return 26.7 - (rank-35)*0.04;                    // long tail
+    if(rank<20) return 28.1 - (rank-10)*0.07;       // 28.1..27.5
+    if(rank<35) return 27.4 - (rank-20)*0.10;       // 27.4..25.9
+    return 25.9 - (rank-35)*0.04;                    // long tail
   }
 
   // Age bucket distribution: skew strongly recent so the top of the
