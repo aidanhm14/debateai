@@ -38,6 +38,11 @@
      runs loadView() so the Firestore promise can merge against it. -->
 <script src="/js/community-seed.js"></script>
 
+<!-- Shared SFX module. Leaderboard fires SFX.success the first time a
+     user sees themselves in the top 10 of the visible view. Deferred
+     so it doesn't block first paint. Honors da-sfx-muted in localStorage. -->
+<script defer src="/js/sfx.js"></script>
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
 <script>
@@ -634,6 +639,17 @@ async function renderYourRank(){
       </div>
       <a class="your-rank-cta" href="${ctaHref}">${ctaText} →</a>
     </div>`;
+
+  // First time we paint a top-10 finish in this page session, fire a
+  // success chime. Filter changes that re-render the same top-10 don't
+  // re-fire. Goes silent if the user is outside the top 10 or rank
+  // wasn't found. The one-shot flag lives on state so it persists
+  // across renderYourRank calls but resets on page reload (sane: the
+  // user gets the chime once per visit when they confirm their spot).
+  if (rankInView >= 0 && rankInView <= 9 && !state._top10ChimeFired){
+    state._top10ChimeFired = true;
+    try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){}
+  }
 }
 
 function escapeHtml(s){

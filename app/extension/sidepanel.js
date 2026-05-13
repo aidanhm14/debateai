@@ -5,6 +5,58 @@
 // All persistent state lives in chrome.storage.local (streak via the
 // SW; ext-prefs via the local helpers in this file).
 
+// ── Minimal SFX bridge ─────────────────────────────────────────────
+// The sidepanel runs in the extension's own context (no DOM access to
+// the host page's /js/sfx.js). Rather than ship the full module, we
+// inline two tiny tones: a tick on highlight-captured and a warm
+// confirm on drill-ended. Mute state is stored under the same
+// localStorage key as the host app (da-sfx-muted) so toggling sound
+// off on debateai.com silences the panel too. Lazy AudioContext +
+// no-op on suspend (extension service-worker context can't resume
+// without a user gesture, and we get one when the user highlights /
+// clicks End-drill, so it's a fine default).
+const SFX = (() => {
+  const KEY = 'da-sfx-muted';
+  let ctx = null;
+  const isMuted = () => {
+    try { if (localStorage.getItem(KEY) === '1') return true; } catch(_){}
+    try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return true; } catch(_){}
+    return false;
+  };
+  const getCtx = () => {
+    if (ctx) return ctx;
+    try {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return null;
+      ctx = new Ctor();
+    } catch(_) { return null; }
+    return ctx;
+  };
+  const tone = (freq, freqEnd, dur, peak, type = 'sine') => {
+    if (isMuted()) return;
+    const c = getCtx();
+    if (!c) return;
+    if (c.state === 'suspended') { try { c.resume(); } catch(_){} }
+    try {
+      const t0 = c.currentTime;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t0);
+      if (freqEnd && freqEnd !== freq) o.frequency.exponentialRampToValueAtTime(freqEnd, t0 + dur * 0.85);
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + Math.min(0.012, dur * 0.15));
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch(_){}
+  };
+  return {
+    captured: () => tone(820, 720, 0.06, 0.10, 'sine'),  // light tick
+    confirm:  () => tone(700, null, 0.16, 0.16, 'sine'), // warm chime
+  };
+})();
+
 const APP_ORIGIN = 'https://debateai.com';
 const FRAME_URL = APP_ORIGIN + '/voice-debate.html?ext=1&mode=counter';
 
@@ -114,6 +166,11 @@ window.addEventListener('message', (ev) => {
   }
   if (t === 'debateai-ext-ended') {
     setDrilling(false);
+    // Warm confirm chime as the session wraps cleanly. Distinct from
+    // the iframe's own SFX.end (which fires inside voice-debate before
+    // the postMessage round-trip lands here) — this is the panel's
+    // "we received the end signal and the UI flipped back" beat.
+    try { SFX.confirm(); } catch(_){}
     return;
   }
 });
@@ -318,6 +375,10 @@ chrome.runtime.onMessage?.addListener?.((msg) => {
     const text = String(msg.text || '').trim();
     if (text) setTopic(text.slice(0, 900));
     setDrilling(true);
+    // Highlight-captured tick. Confirms the selection reached the panel
+    // before the iframe's heavier "session live" chime fires (SFX.start
+    // inside voice-debate). Silenced by the global da-sfx-muted toggle.
+    try { SFX.captured(); } catch(_){}
     sendToIframe({
       action: msg.action,
       text,
