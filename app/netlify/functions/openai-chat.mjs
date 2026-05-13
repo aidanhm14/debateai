@@ -3,6 +3,7 @@ import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
+import { applyDistillations } from './lib/distillations.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -115,6 +116,7 @@ export default async (request, context) => {
     // reference rounds matching motion+format. Must run before
     // applyVoiceGuidelines, which strips _voiceFeature/_voiceFormat.
     await applyExemplars(body);
+    await applyDistillations(body);
     applyVoiceGuidelines(body);
 
     // Client sends Claude-style: { system, messages, model, max_tokens, stream }

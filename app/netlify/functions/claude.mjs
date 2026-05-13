@@ -5,6 +5,7 @@ import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
+import { applyDistillations } from './lib/distillations.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -313,6 +314,11 @@ export default async (request, context) => {
     // features. MUST run before applyVoiceGuidelines, which strips
     // _voiceFeature / _voiceFormat after reading them.
     await applyExemplars(body);
+    // Distillation injection (learning-loop compounding): appends the
+    // nightly-computed "PATTERNS THAT WORK" block for this format. Must
+    // also run before applyVoiceGuidelines for the same _voiceFeature/
+    // _voiceFormat reason. Cached 1hr in memory; near-zero per-request cost.
+    await applyDistillations(body);
     // Voice guidelines: client sends `_voiceFeature` (e.g. "case", "bot",
     // "debateChat", "judge"). Server resolves the matching voice block and
     // appends it to body.system so the debater-voice bank never ships to

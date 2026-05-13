@@ -3,6 +3,7 @@ import { applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
+import { applyDistillations } from './lib/distillations.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -114,6 +115,7 @@ export default async (request, context) => {
     // reference rounds matching motion+format. Must run before
     // applyVoiceGuidelines, which strips _voiceFeature/_voiceFormat.
     await applyExemplars(body);
+    await applyDistillations(body);
     // Then inject the voice-guidelines block (strips _voiceFeature) so the
     // debater-voice bank stays server-side.
     applyVoiceGuidelines(body);
