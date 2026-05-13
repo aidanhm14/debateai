@@ -1169,6 +1169,25 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
   background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.4);
   color:#fecaca;
 }
+/* Auto-muted (AI is speaking) — softer than the manual-mute crimson
+   so the user reads it as "passively listening" not "I muted myself". */
+.mute-btn.listening{
+  background:rgba(168,85,247,.10);
+  border-color:rgba(168,85,247,.32);
+  color:#e9d5ff;
+}
+.mute-btn.listening::before{
+  content:'';
+  width:6px;height:6px;border-radius:50%;
+  background:#a855f7;
+  box-shadow:0 0 0 0 rgba(168,85,247,.5);
+  animation:listening-pulse 1.6s ease-out infinite;
+}
+@keyframes listening-pulse{
+  0%   { box-shadow: 0 0 0 0   rgba(168,85,247,.55); }
+  70%  { box-shadow: 0 0 0 6px rgba(168,85,247,0);   }
+  100% { box-shadow: 0 0 0 0   rgba(168,85,247,0);   }
+}
 
 /* Hide the theme-picker dots from the shared topbar on this page —
    they don't fit the voice-debate aesthetic and add visual noise. */
@@ -2113,6 +2132,9 @@ function App(){
     if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
     if (micPollRef.current) { clearInterval(micPollRef.current); micPollRef.current = null; }
     if (orbStopRef.current) { try{ orbStopRef.current(); }catch(e){} orbStopRef.current = null; }
+    // Drop auto-mute state on teardown so a session that ends while
+    // the AI is mid-speech doesn't strand the flag for the next round.
+    autoMutedRef.current = false;
     // Stop the recorder before tearing down audio sources so the
     // final chunk + onstop blob materialization happens cleanly.
     try {
@@ -2203,10 +2225,28 @@ function App(){
   // so the AI extends its turns (no more 15-45s clash beats while
   // the user has explicitly opted out of clash).
   const mutedRef = useRef(false);
+  // Auto-mute during the AI's turn — independent from the user's
+  // explicit `muted` state. The mic track is the AND of (!muted &&
+  // !autoMuted), so manual unmute mid-AI-turn is still possible (it
+  // wins), but the default while the AI speaks is "your mic is off so
+  // your breathing / typing / page sounds don't trigger server-VAD
+  // and cancel the AI mid-speech." Auto-mute does NOT send the AI a
+  // [Mode change] note — it's purely a local UX nicety, not a signal
+  // that the user has opted out of clash.
+  const autoMutedRef = useRef(false);
+  function setLocalTrackEnabled(enabled) {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    stream.getAudioTracks().forEach(t => { try { t.enabled = enabled; } catch(_) {} });
+  }
+  function applyTrackEnabledFromState() {
+    // Track is enabled only if BOTH conditions hold. The user's
+    // manual mute always wins (their intent is explicit).
+    setLocalTrackEnabled(!mutedRef.current && !autoMutedRef.current);
+  }
   useEffect(()=>{
     mutedRef.current = muted;
-    const stream = localStreamRef.current;
-    if (stream) stream.getAudioTracks().forEach(t => { try { t.enabled = !muted; } catch(e){} });
+    applyTrackEnabledFromState();
     const dc = dcRef.current;
     if (!dc || dc.readyState !== 'open') return;
     try {
@@ -2291,6 +2331,13 @@ function App(){
         upsertTurn(currentAiTurnRef.current);
         setSpeaking('ai');
         lastSpeechTickRef.current = { ai: Date.now(), user: 0, who: 'ai' };
+        // Auto-mute the mic for the AI's turn (silent — no [Mode change]
+        // sent). User can still type-to-interject, and manual unmute via
+        // the Mic button still wins.
+        if (!mutedRef.current && !autoMutedRef.current) {
+          autoMutedRef.current = true;
+          applyTrackEnabledFromState();
+        }
         break;
       }
 
@@ -2344,6 +2391,13 @@ function App(){
         }
         lastSpeechTickRef.current = { ai: 0, user: 0, who: null };
         if (speaking === 'ai') setSpeaking('idle');
+        // AI turn ended — release auto-mute so the user's mic comes back
+        // on (unless they manually muted in the interim, in which case
+        // manual still wins via applyTrackEnabledFromState).
+        if (autoMutedRef.current) {
+          autoMutedRef.current = false;
+          applyTrackEnabledFromState();
+        }
         currentAiTurnRef.current = null;
         // Muted-mode auto-continue. The user has opted out of clash,
         // so the AI shouldn't go silent waiting for input that won't
@@ -3765,13 +3819,27 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         // Live controls — speed, mute, model badge, recording badge.
         // All tweakable mid-session.
         el('div', { className:'live-controls' },
-          el('button', {
-            type:'button',
-            className: 'mute-btn' + (muted ? ' on' : ''),
-            onClick: ()=> setMuted(m => !m),
-            title: muted ? 'Unmute mic (back to clash mode)' : 'Mute mic (AI keeps speaking in continuous monologue mode)',
-            'aria-pressed': muted,
-          }, muted ? 'Muted' : 'Mic on'),
+          (() => {
+            const aiTalking = !muted && speaking === 'ai';
+            const cls = 'mute-btn'
+              + (muted ? ' on' : '')
+              + (aiTalking ? ' listening' : '');
+            const label = muted ? 'Muted'
+                        : aiTalking ? 'Listening'
+                        : 'Mic on';
+            const titleText = muted
+              ? 'Unmute mic (back to clash mode)'
+              : aiTalking
+                ? 'Auto-muted while AI speaks. Tap to override and force-unmute — server-VAD will then catch you and cut the AI off.'
+                : 'Mute mic (AI keeps speaking in continuous monologue mode)';
+            return el('button', {
+              type: 'button',
+              className: cls,
+              onClick: () => setMuted(m => !m),
+              title: titleText,
+              'aria-pressed': muted,
+            }, label);
+          })(),
           el('div', { className:'speed-ctl', title:'Adjusts AI delivery pace on the next turn (sends a pacing nudge to the model). Browser playback rate also nudges live audio where the OS allows it.' },
             el('span', { className:'lbl' }, 'speed'),
             el('button', {
