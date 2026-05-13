@@ -271,6 +271,61 @@
     };
   }
 
+  // ── Ambient pad (one-shot, smooth) ─────────────────────────────────
+  // Soft synth swell for passive scroll cues on /landing. Replaces the
+  // punchy arpeggio chimes that section-boundary triggers used to fire
+  // — those read as "linear, out of nowhere" because arpeggios have a
+  // sharp note onset and a clear musical interval. This is the inverse:
+  // ~1.2s sine pad with a 300ms gentle attack, slow release, no
+  // harmonic shimmer fast enough to read as melody. Brain-wave / focus
+  // ambience, not a chime. Caller can pass `pitch` ('low' | 'mid' |
+  // 'high') to vary the fundamental between section transitions so
+  // consecutive triggers don't feel like the same note repeating.
+  function ambient(opts){
+    opts = opts || {};
+    if (isMuted()) return;
+    var c = getCtx();
+    if (!c) return;
+    ensureRunning();
+    var t0 = c.currentTime;
+    var fund = opts.pitch === 'low' ? 88
+             : opts.pitch === 'high' ? 196
+             : 132;  // mid (C#3 territory)
+    var partial = fund * 2;  // octave above for shimmer
+    // Carrier: low sine. Attack 0.3s, sustain 0.4s, release 0.55s.
+    try {
+      var o = c.createOscillator();
+      var g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = 'sine';
+      o.frequency.value = fund;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.07 * MASTER_GAIN, t0 + 0.30);
+      g.gain.setValueAtTime(0.07 * MASTER_GAIN, t0 + 0.70);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.25);
+      o.start(t0); o.stop(t0 + 1.30);
+    } catch(e){}
+    // Octave shimmer with slow LFO so it doesn't read as a second note.
+    try {
+      var o2 = c.createOscillator();
+      var g2 = c.createGain();
+      var lfo = c.createOscillator();
+      var lfoG = c.createGain();
+      o2.connect(g2); g2.connect(c.destination);
+      o2.type = 'sine';
+      o2.frequency.value = partial;
+      lfo.connect(lfoG); lfoG.connect(g2.gain);
+      lfo.frequency.value = 0.8; lfo.type = 'sine';
+      lfoG.gain.value = 0.008 * MASTER_GAIN;
+      g2.gain.setValueAtTime(0, t0);
+      g2.gain.linearRampToValueAtTime(0.022 * MASTER_GAIN, t0 + 0.45);
+      g2.gain.setValueAtTime(0.022 * MASTER_GAIN, t0 + 0.70);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.25);
+      o2.start(t0); lfo.start(t0);
+      o2.stop(t0 + 1.30); lfo.stop(t0 + 1.30);
+    } catch(e){}
+  }
+
   // ── Public API ─────────────────────────────────────────────────────
   // Voice-debate semantic aliases. The shared SFX palette has six core
   // sounds; voice-debate calls additional verbs (start / interrupt /
@@ -309,6 +364,7 @@
     timeUp: timeUp,
     rfdReveal: rfdReveal,
     thinking: thinking,
+    ambient: ambient,
     isMuted: isMuted,
     mute: function(){ setMuted(true); },
     unmute: function(){ setMuted(false); },

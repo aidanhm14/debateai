@@ -128,6 +128,66 @@ body{
   .hero-meta .name{font-size:1.3rem}
 }
 
+/* ─── Daily quest ─── */
+/* Game-mechanic card sandwiched between hero and XP bar. One quest
+   per day, rotates deterministically off day-of-year so all users see
+   the same daily quest (lets future leaderboard / chat surfaces talk
+   about "did you hit today's quest yet"). Completed state celebrates;
+   pending state pulses subtly. */
+.quest-card{
+  display:grid;grid-template-columns:auto 1fr auto;gap:18px;
+  align-items:center;
+  padding:16px 22px;margin-bottom:18px;
+  background:linear-gradient(135deg, rgba(251,191,36,.10), rgba(239,68,68,.05));
+  border:1px solid rgba(251,191,36,.32);
+  border-radius:18px;
+  box-shadow:0 12px 36px rgba(251,191,36,.06);
+}
+.quest-card.done{
+  background:linear-gradient(135deg, rgba(34,197,94,.12), rgba(34,197,94,.04));
+  border-color:rgba(34,197,94,.42);
+}
+.quest-icon{
+  width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.4);
+  font-size:1.4rem;line-height:1;color:#fbbf24;font-weight:900;
+}
+.quest-card.done .quest-icon{background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.55);color:#22c55e}
+.quest-eyebrow{
+  font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:#fbbf24;margin-bottom:3px;
+}
+.quest-card.done .quest-eyebrow{color:#22c55e}
+.quest-title{
+  font-size:1.02rem;font-weight:800;letter-spacing:-.01em;color:var(--text);
+  margin-bottom:3px;
+}
+.quest-sub{
+  font-size:.78rem;color:var(--text-dim);line-height:1.4;
+}
+.quest-side{
+  display:flex;flex-direction:column;align-items:flex-end;gap:7px;
+}
+.quest-reward{
+  font-size:.7rem;font-weight:800;letter-spacing:.04em;color:#fbbf24;
+  padding:3px 10px;border:1px solid rgba(251,191,36,.36);border-radius:999px;
+}
+.quest-card.done .quest-reward{color:#22c55e;border-color:rgba(34,197,94,.45)}
+.quest-cta{
+  display:inline-block;padding:7px 16px;font-size:.72rem;font-weight:800;
+  letter-spacing:.04em;border-radius:999px;
+  background:var(--accent);color:#fff;border:1px solid var(--accent);
+  text-decoration:none;white-space:nowrap;
+  transition:transform .15s,box-shadow .15s;
+}
+.quest-cta:hover{transform:translateY(-1px);box-shadow:0 8px 24px var(--accent-glow)}
+.quest-card.done .quest-cta{background:#22c55e;border-color:#22c55e}
+@media(max-width:680px){
+  .quest-card{grid-template-columns:auto 1fr;gap:14px;padding:14px 16px}
+  .quest-side{grid-column:1 / -1;flex-direction:row;justify-content:space-between;width:100%;align-items:center}
+}
+
 /* ─── Level / XP bar ─── */
 .xp-card{
   padding:20px 24px;
@@ -781,6 +841,90 @@ function pickNextMilestone(s, ach){
   return { streakLine, achLine, ctaLabel, ctaHref };
 }
 
+// Daily quest. Deterministic rotation off the user's local day index
+// so each calendar day has one fixed quest. Five-quest rotation keeps
+// users from grinding the same task forever; the day-of-year mod 5
+// math means everyone sees the same quest globally on the same date,
+// which makes future chat / leaderboard cross-talk natural ("did you
+// hit today's quest yet?"). Completion check looks at rows from
+// today only — yesterday's wins don't carry over, which is the
+// "fresh start every day" feeling the streak system rewards.
+function renderDailyQuest(rows){
+  const QUESTS = [
+    {
+      id:'hot_start',
+      title:'Hot start',
+      sub:'Run one round in any format today.',
+      reward:25,
+      done:(today) => today.length >= 1,
+      cta:{ label:'Start a round', href:'/debate-ai' },
+    },
+    {
+      id:'high_scorer',
+      title:'High scorer',
+      sub:'Score 27.5 or higher on any round today.',
+      reward:50,
+      done:(today) => today.some(r => typeof r.score === 'number' && r.score >= 27.5),
+      cta:{ label:'Go for the ballot', href:'/debate-ai' },
+    },
+    {
+      id:'format_hopper',
+      title:'Format hopper',
+      sub:'Run rounds in two different formats today.',
+      reward:40,
+      done:(today) => new Set(today.map(r => r.formatName || r.format || '')).size >= 2,
+      cta:{ label:'Pick a new format', href:'/debate-ai' },
+    },
+    {
+      id:'voice_up',
+      title:'Voice up',
+      sub:'Run one live voice round today.',
+      reward:35,
+      done:(today) => today.some(r => r.kind === 'voice' || r.kind === 'live'),
+      cta:{ label:'Open voice', href:'/voice-debate' },
+    },
+    {
+      id:'cross_ai',
+      title:'Cross the AI',
+      sub:'Beat the AI on any round today.',
+      reward:60,
+      done:(today) => today.some(r => r.won === true && r.kind !== 'live'),
+      cta:{ label:'Take a shot', href:'/debate-ai' },
+    },
+  ];
+
+  // Local day index. Floor((days since epoch) % 5) — same for every
+  // user in the same timezone-day so the quest is universal.
+  const dayIndex = Math.floor(Date.now() / 86400000);
+  const quest = QUESTS[dayIndex % QUESTS.length];
+
+  // Today's rows: completedAt within the user's local "today" window.
+  const today = new Date();
+  const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const todayRows = rows.filter(r => {
+    const t = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate() : null;
+    return t && t.getTime() >= dayStart;
+  });
+  const isDone = quest.done(todayRows);
+
+  return `
+    <section class="quest-card ${isDone ? 'done' : ''}" aria-label="Today's quest">
+      <div class="quest-icon">${isDone ? '✓' : '◎'}</div>
+      <div>
+        <div class="quest-eyebrow">${isDone ? 'Quest complete' : "Today's quest"}</div>
+        <div class="quest-title">${escapeHtml(quest.title)}</div>
+        <div class="quest-sub">${escapeHtml(quest.sub)}</div>
+      </div>
+      <div class="quest-side">
+        <span class="quest-reward">+${quest.reward} XP</span>
+        ${isDone
+          ? '<span style="font-size:.7rem;color:var(--text-dim)">Tomorrow: fresh quest</span>'
+          : `<a class="quest-cta" href="${escapeHtml(quest.cta.href)}">${escapeHtml(quest.cta.label)} →</a>`}
+      </div>
+    </section>
+  `;
+}
+
 function renderMilestone(s, ach){
   const m = pickNextMilestone(s, ach);
   return `
@@ -1271,6 +1415,8 @@ function renderDashboard(user, rows, profileData){
         <span class="small">${s.total} round${s.total===1?'':'s'} logged</span>
       </div>
     </section>
+
+    ${renderDailyQuest(rows)}
 
     ${renderMilestone(s, ach)}
 
