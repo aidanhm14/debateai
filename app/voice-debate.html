@@ -1991,6 +1991,12 @@ function App(){
   // Post-session
   const [rfd, setRfd] = useState('');
   const [rfdLoading, setRfdLoading] = useState(false);
+  // Voice-round rating. Captured at session end and POSTed as a 'rate'
+  // signal on the generation logged from stop(). This is the supervised
+  // label the nightly distill (scheduled-distill.mjs) keys off — without
+  // it, voice rounds get logged but don't feed back into prompt tuning.
+  const [lastVoiceRoundId, setLastVoiceRoundId] = useState(null);
+  const [voiceRoundRating, setVoiceRoundRating] = useState(0);
 
   // Mic-meter (5 bars; ambient indicator that mic is alive)
   const [micBars, setMicBars] = useState([0,0,0,0,0]);
@@ -2348,6 +2354,11 @@ function App(){
                   fullTranscript: transcript.slice(0, 39000),
                 },
               }),
+            }).then(r => r.ok ? r.json() : null).then(d => {
+              // Stash the generation id so the rating widget below can
+              // attach a 'rate' signal to it. Without this we'd log the
+              // round but have no row to write the user's score onto.
+              if (d && d.id) setLastVoiceRoundId(d.id);
             }).catch(()=>{});
           }).catch(()=>{});
         }
@@ -2377,6 +2388,9 @@ function App(){
     setInterruptCount(0);
     setAiSpeakingMs(0);
     setUserSpeakingMs(0);
+    // Reset rating state — last round's id/score doesn't apply to a new session.
+    setLastVoiceRoundId(null);
+    setVoiceRoundRating(0);
     if (recordingUrl) { try { URL.revokeObjectURL(recordingUrl); } catch(e){} }
     setRecordingUrl('');
     setStatus('connecting');
@@ -3706,6 +3720,65 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             className:'download-btn',
             style:{ background:'rgba(37,211,102,.12)', borderColor:'rgba(37,211,102,.4)', color:'#5be584' },
           }, 'Share viva on WhatsApp'),
+        ),
+      ),
+
+      // Rate-this-round card. Only renders for signed-in users whose round
+      // got logged (lastVoiceRoundId set) and who haven't rated yet. The
+      // resulting 'rate' signal is the strongest supervised label the
+      // nightly distill (scheduled-distill.mjs) can use — "user marked
+      // this round 5/5" beats "user happened to save it" by a mile.
+      lastVoiceRoundId && el('div', {
+        className:'card',
+        style:{ marginTop:14, textAlign:'center' },
+      },
+        el('div', {
+          style:{ fontSize:'.78rem', color:'#9b9bab', letterSpacing:'.04em', textTransform:'uppercase', marginBottom:10 },
+        }, voiceRoundRating ? 'Thanks — logged' : 'Rate this round'),
+        el('div', {
+          style:{ display:'flex', gap:8, justifyContent:'center' },
+        },
+          [1,2,3,4,5].map(n => el('button', {
+            key:'star-'+n,
+            disabled: !!voiceRoundRating,
+            onClick: () => {
+              if (voiceRoundRating) return;
+              setVoiceRoundRating(n);
+              // Fire the rating signal. Same endpoint the typed flow uses
+              // via logGenerationSignal in index.html — kind:'signal',
+              // signal:'rate', value:n. Server denormalizes onto the
+              // generation doc as rating: n so the distill query picks it up.
+              try {
+                if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+                  firebase.auth().currentUser.getIdToken().then(tok => {
+                    if (!tok) return;
+                    fetch('/api/log-generation', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+                      body: JSON.stringify({
+                        action: 'signal',
+                        generationId: lastVoiceRoundId,
+                        signal: 'rate',
+                        value: n,
+                      }),
+                    }).catch(()=>{});
+                  }).catch(()=>{});
+                }
+              } catch(e) { console.warn('[voice-rate]', e.message); }
+            },
+            style:{
+              fontSize:'1.6rem',
+              width:42, height:42,
+              borderRadius:8,
+              border: '1px solid ' + (voiceRoundRating && n <= voiceRoundRating ? 'rgba(245,158,11,.55)' : 'rgba(255,255,255,.08)'),
+              background: voiceRoundRating && n <= voiceRoundRating ? 'rgba(245,158,11,.12)' : 'transparent',
+              color: voiceRoundRating && n <= voiceRoundRating ? '#fbbf24' : '#9b9bab',
+              cursor: voiceRoundRating ? 'default' : 'pointer',
+              fontFamily:'inherit',
+              padding:0,
+              lineHeight:1,
+            },
+          }, voiceRoundRating && n <= voiceRoundRating ? '★' : '☆')),
         ),
       ),
 
