@@ -135,6 +135,14 @@ export default async (request) => {
           displayName: nameByUid.get(c.ownerUid) || 'Anonymous',
           score: c.score,
           won: r.userWon === true,
+          // kind:'ai' tags this as a legacy typed-flow round. The
+          // voice-only leaderboard rule (2026-05-13) means /leaderboard
+          // ignores kind:'ai' on read — these rows are preserved for
+          // historical audit but no longer rank. Re-run this tool only
+          // if you're intentionally backfilling typed history; voice
+          // rounds write their own leaderboard_entries from
+          // voice-debate.html at RFD time.
+          kind: 'ai',
           motion: (r.motion || '').slice(0, 1024),
           format: r.format || 'apda',
           formatName: r.formatName || 'APDA',
