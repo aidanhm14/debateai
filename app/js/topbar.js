@@ -363,8 +363,22 @@
         slot.style.color = 'var(--text-dim)';
         var first = ((u.displayName || u.email || '').split(/\s+/)[0]) || 'Account';
         slot.innerHTML = '';
-        var name = document.createElement('span');
-        name.textContent = first;
+        // Name links to /profile so signed-in users have one obvious
+        // path to their dashboard (level / streak / achievements /
+        // settings). On the dashboard itself we collapse the link to
+        // a non-link span so we don't render "Profile → Profile".
+        var onProfile = /^\/profile/.test(here);
+        var name;
+        if (onProfile) {
+          name = document.createElement('span');
+          name.textContent = first;
+        } else {
+          name = document.createElement('a');
+          name.href = '/profile';
+          name.textContent = first;
+          name.style.cssText = 'color:var(--text);text-decoration:none;font-weight:700;border-bottom:1px dotted var(--text-ghost);padding-bottom:1px';
+          name.title = 'Open your dashboard';
+        }
         var out = document.createElement('button');
         out.type = 'button';
         out.textContent = 'Sign out';

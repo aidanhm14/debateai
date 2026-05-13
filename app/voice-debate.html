@@ -3031,36 +3031,57 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         const u = (typeof firebase !== 'undefined' && firebase.auth)
           ? firebase.auth().currentUser : null;
         if (u && score != null && typeof firebase.firestore === 'function') {
-          const fullName = (u.displayName || '').trim();
-          const parts = fullName.split(/\s+/).filter(Boolean);
-          const shortName = parts.length >= 2
-            ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
-            : (parts[0] || 'Anonymous');
-          const roundId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-          const entry = {
-            uid: u.uid,
-            displayName: shortName,
-            score,
-            won: userWon,
-            // kind = 'voice' is the new leaderboard source of truth.
-            // The legacy 'ai' kind (typed-flow writes) is no longer
-            // read by /leaderboard — see the 2026-05-13 rule.
-            kind: 'voice',
-            motion: (motion || '').slice(0, 240),
-            format: mode || '',
-            formatName: modeLabel,
-            side: side || '',
-            sideLabel: side === 'gov' ? 'Government'
-                     : side === 'opp' ? 'Opposition' : '',
-            persona: personaKey || '',
-            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            roundId,
-          };
-          firebase.firestore()
-            .collection('leaderboard_entries')
-            .doc(`${u.uid}_${roundId}`)
-            .set(entry)
-            .catch((err) => console.warn('[generateRFD] leaderboard write failed', err));
+          // Honor /profile settings: leaderboardOptOut skips the write
+          // entirely; displayNameOverride replaces the Google name on
+          // the public board. One Firestore read per voice round —
+          // negligible cost; defaults to public-board on read failure
+          // so a flaky network never silently disables the board.
+          let optedOut = false;
+          let nameOverride = '';
+          try {
+            const prof = await firebase.firestore()
+              .collection('user_profiles').doc(u.uid).get();
+            if (prof.exists) {
+              const d = prof.data();
+              optedOut = d.leaderboardOptOut === true;
+              nameOverride = (d.displayNameOverride || '').trim();
+            }
+          } catch (_) { /* keep public-board defaults on read failure */ }
+
+          if (optedOut) {
+            console.log('[generateRFD] leaderboard write skipped — user opted out');
+          } else {
+            const fullName = (nameOverride || u.displayName || '').trim();
+            const parts = fullName.split(/\s+/).filter(Boolean);
+            const shortName = parts.length >= 2
+              ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
+              : (parts[0] || 'Anonymous');
+            const roundId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const entry = {
+              uid: u.uid,
+              displayName: shortName,
+              score,
+              won: userWon,
+              // kind = 'voice' is the new leaderboard source of truth.
+              // The legacy 'ai' kind (typed-flow writes) is no longer
+              // read by /leaderboard — see the 2026-05-13 rule.
+              kind: 'voice',
+              motion: (motion || '').slice(0, 240),
+              format: mode || '',
+              formatName: modeLabel,
+              side: side || '',
+              sideLabel: side === 'gov' ? 'Government'
+                       : side === 'opp' ? 'Opposition' : '',
+              persona: personaKey || '',
+              completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              roundId,
+            };
+            firebase.firestore()
+              .collection('leaderboard_entries')
+              .doc(`${u.uid}_${roundId}`)
+              .set(entry)
+              .catch((err) => console.warn('[generateRFD] leaderboard write failed', err));
+          }
         }
       } catch (lbErr) {
         console.warn('[generateRFD] leaderboard parse/write skipped', lbErr);
