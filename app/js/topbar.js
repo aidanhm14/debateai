@@ -66,19 +66,24 @@
   }
 
   // Canonical link order. Keep tight — this is the bar, not a sitemap.
-  // The primary CTA on the right (Debate AI pill) is always present;
-  // it doubles as a back-to-app for visitors who landed on a marketing
-  // page mid-flow.
+  // The primary CTA on the right (Voice AI pill, set further down) is
+  // always present; it doubles as a back-to-app for visitors who landed
+  // on a marketing page mid-flow.
+  //
+  // 2026-05-13: trimmed from 9 → 5 links. College Prep, High School,
+  // Learn to Argue, and India were carrying second-tier audience
+  // entry points that landed on the topbar of every page on the site,
+  // pushing the bar's link list past the eye's scan budget. Those
+  // surfaces still exist; they just route via in-page CTAs + footer +
+  // the audience-page redirects rather than top-nav real estate.
+  // Pricing dropped because /pricing was unused after the canonical
+  // pricing data moved into the FAQ + JSON-LD.
   var LINKS = [
-    { href: '/app#case',      label: 'College Prep' },
-    { href: '/high-school',   label: 'High School'  },
-    { href: '/learn',         label: 'Learn to Argue' },
     { href: '/voice-debate',  label: 'Voice'        },
     { href: '/live',          label: 'Live', live: true },
     { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
-    { href: '/pricing',       label: 'Pricing'      },
-    { href: '/india',         label: 'India'        },
+    { href: '/#faq',          label: 'FAQ'          },
   ];
 
   function el(tag, attrs, children){
