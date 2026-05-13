@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Your dashboard · Debate AI</title>
-<meta name="description" content="Your Debate AI dashboard. Level, streak, format mastery, achievements, and recent rounds — all judged on the same AI ballot the leaderboard uses." />
+<meta name="description" content="Your Debate AI dashboard. Level, streak, format mastery, achievements, and recent rounds, judged on the same AI ballot the leaderboard uses." />
 <meta name="robots" content="noindex,follow">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://debateai.com/profile">
@@ -749,16 +749,16 @@ function pickNextMilestone(s, ach){
 
   let streakLine, ctaLabel = 'Start a round', ctaHref = '/voice-debate';
   if(s.total === 0){
-    streakLine = 'Run your first voice round to start a streak.';
+    streakLine = 'Run a voice round when you\'re ready. Dashboard fills in from there.';
   } else if(trainedToday){
-    streakLine = `Done for today. ${s.streak}-day streak holding.`;
+    streakLine = `Trained today. ${s.streak} day${s.streak===1?'':'s'} in a row.`;
     ctaLabel = 'One more?';
   } else if(s.streak > 0 && trainedYesterday){
-    streakLine = `Train today to extend your ${s.streak}-day streak.`;
+    streakLine = `${s.streak} day${s.streak===1?'':'s'} in a row. Today keeps it going.`;
   } else if(s.streak > 0){
-    streakLine = `Streak is cooling. One round today keeps it alive.`;
+    streakLine = `Skipped yesterday. One round today picks it back up.`;
   } else {
-    streakLine = 'No active streak. One round today starts a new one.';
+    streakLine = 'No streak going. Start one with a round.';
   }
 
   const candidates = ach
@@ -775,7 +775,7 @@ function pickNextMilestone(s, ach){
     const remStr = next.remaining < 1 ? '<1' : Math.ceil(next.remaining);
     achLine = `Next badge: <b>${escapeHtml(next.a.title)}</b> in ${remStr}.`;
   } else {
-    achLine = `All achievements unlocked. The cabinet is full.`;
+    achLine = `All achievements unlocked.`;
   }
 
   return { streakLine, achLine, ctaLabel, ctaHref };
@@ -786,7 +786,7 @@ function renderMilestone(s, ach){
   return `
     <section class="milestone">
       <div>
-        <div class="ms-eyebrow">Next up</div>
+        <div class="ms-eyebrow">Where you're at</div>
         <div class="ms-title">${escapeHtml(m.streakLine)}</div>
         <div class="ms-sub">${m.achLine}</div>
       </div>
@@ -1122,7 +1122,7 @@ function renderSignedOut(){
   mount.innerHTML = `
     <div class="state">
       <h3>Sign in to see your dashboard</h3>
-      <p>Your level, streak, format mastery, and achievements all live behind a free Google sign-in. The same account powers the leaderboard.</p>
+      <p>Level, streak, format mastery, achievements. All behind a free Google sign-in. Same account runs the leaderboard.</p>
       <button class="cta" id="signinBtn" type="button">Sign in with Google</button>
     </div>
   `;
@@ -1143,7 +1143,7 @@ function renderError(msg){
   mount.innerHTML = `
     <div class="state">
       <h3>Couldn't load your dashboard</h3>
-      <p>${escapeHtml(msg||'Something went sideways pulling your rounds.')} Try a refresh; if it sticks, head into a round and the dashboard will populate from there.</p>
+      <p>${escapeHtml(msg||"Couldn't pull your rounds.")} Refresh once. If it sticks, run a round and the dashboard fills in from there.</p>
       <a class="cta" href="/debate-ai">Start a round</a>
     </div>
   `;
@@ -1152,7 +1152,7 @@ function renderError(msg){
 function renderEmpty(user, profileData){
   const avatar = renderAvatar(user);
   const overrideName = (profileData && profileData.displayNameOverride) || '';
-  const headerName = overrideName || user.displayName || user.email || 'Friend';
+  const headerName = overrideName || user.displayName || user.email || 'Debater';
   const first = headerName.split(/\s+/)[0];
   mount.innerHTML = `
     <section class="hero">
@@ -1169,8 +1169,8 @@ function renderEmpty(user, profileData){
     </section>
 
     <div class="state">
-      <h3>Run your first round to unlock the board</h3>
-      <p>Every AI-judged round adds XP, level progress, format mastery, and achievement progress. The dashboard fills in as soon as a single round is in the books.</p>
+      <h3>Run a round and the dashboard fills in</h3>
+      <p>Every AI-judged round adds XP, level, format mastery, and achievements. One round is enough to start it moving.</p>
       <a class="cta" href="/voice-debate">Start a round</a>
     </div>
 
@@ -1186,14 +1186,14 @@ function renderDashboard(user, rows, profileData){
   // Display-name override wins over Google name on the dashboard hero
   // so users see the same name they'll appear under on the leaderboard.
   const overrideName = (profileData && profileData.displayNameOverride) || '';
-  const headerName = overrideName || user.displayName || user.email || 'Friend';
+  const headerName = overrideName || user.displayName || user.email || 'Debater';
   const first = headerName.split(/\s+/)[0];
 
   // XP-bar copy. When the user has hit the top tier, we collapse the
-  // "to next" line into a brag instead of a confusing 100%/100% number.
+  // "to next" line into a short tag instead of a confusing 100%/100%.
   const nxtCopy = s.level.nxt
     ? `${s.level.nxt.min - s.xp} XP to <b>${escapeHtml(s.level.nxt.name)}</b>`
-    : `Top tier reached. The cabinet is yours.`;
+    : `Top tier. Nothing left to climb.`;
 
   // Streak chip. Cold (grey) if 0 — warm (gold) if active.
   const streakChip = s.streak > 0
@@ -1289,7 +1289,7 @@ function renderDashboard(user, rows, profileData){
     <section class="stat-grid">
       <div class="stat"><div class="label">Total rounds</div><div class="val">${s.total}</div><div class="sub">${s.days} active day${s.days===1?'':'s'}</div></div>
       <div class="stat"><div class="label">Avg speaker</div><div class="val accent">${fmtScore(s.avg)}</div><div class="sub">across all formats</div></div>
-      <div class="stat"><div class="label">Best ballot</div><div class="val">${fmtScore(s.best)}</div><div class="sub">your ceiling so far</div></div>
+      <div class="stat"><div class="label">Best ballot</div><div class="val">${fmtScore(s.best)}</div><div class="sub">your high so far</div></div>
       <div class="stat"><div class="label">Wins vs AI</div><div class="val">${s.wins}</div><div class="sub">${s.live} live round${s.live===1?'':'s'}</div></div>
     </section>
 
