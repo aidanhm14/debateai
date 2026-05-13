@@ -67,7 +67,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-style: italic;
   }
   .bar__spacer { flex: 1; }
   .btn {
@@ -182,7 +181,6 @@
   }
   .agent__reason {
     color: #c4b5fd;
-    font-style: italic;
     line-height: 1.4;
   }
   .agent__diff {
@@ -218,6 +216,34 @@
   }
   .agent__actions { display: flex; gap: 6px; justify-content: flex-end; }
   iframe#frame.is-shorter { height: calc(100% - 36px - var(--docs-h, 56px)); }
+  /* Warm-up shade. Sits above the iframe while voice-debate.html is still
+     mounting its React tree, so the cold-start gap is a clear "loading"
+     state instead of a black panel that reads as broken. Hidden the
+     instant the iframe posts "debateai-ext-ready". */
+  .warmup {
+    position: absolute;
+    inset: 36px 0 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    background: var(--bg);
+    z-index: 3;
+    transition: opacity 240ms ease;
+  }
+  .warmup__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--crimson);
+    margin-right: 9px;
+    box-shadow: 0 0 0 0 rgba(229, 69, 69, 0.55);
+    animation: counter-pulse 2.4s ease-out infinite;
+  }
+  .warmup.is-hidden { opacity: 0; }
   .toast {
     position: fixed;
     left: 12px;
@@ -309,6 +335,10 @@
     allow="microphone; camera; autoplay; clipboard-read; clipboard-write; display-capture"
     referrerpolicy="origin"
   ></iframe>
+  <div class="warmup" id="warmup">
+    <span class="warmup__dot" aria-hidden="true"></span>
+    Warming up Counter…
+  </div>
   <div class="err-shade" id="errShade">
     <div class="err-shade__inner">
       <div class="err-shade__title">Couldn't load Counter</div>

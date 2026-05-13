@@ -29,6 +29,10 @@ const retryBtn = document.getElementById('retry');
 const errShade = document.getElementById('errShade');
 const hint = document.getElementById('hint');
 const toast = document.getElementById('toast');
+const warmupEl = document.getElementById('warmup');
+
+function showWarmup() { warmupEl?.classList.remove('is-hidden'); }
+function hideWarmup() { warmupEl?.classList.add('is-hidden'); }
 
 // Which surface is currently in the iframe. Drives the Mode button label
 // + which URL we swap to next.
@@ -42,6 +46,7 @@ function setMode(next) {
   const url = next === 'lint' ? LINT_URL : next === 'typed' ? TYPED_URL : VOICE_URL;
   if (frame.src === url) return;
   errShade.classList.remove('is-shown');
+  showWarmup();
   frame.src = url;
   updateModeButton();
 }
@@ -156,6 +161,7 @@ window.addEventListener('message', (ev) => {
   if (ev.origin !== APP_ORIGIN) return;
   if (ev.data?.type !== 'debateai-ext-ready') return;
   frameReady = true;
+  hideWarmup();
   while (queueWhileLoading.length) {
     sendToIframe(queueWhileLoading.shift());
   }
@@ -189,6 +195,7 @@ pasteBtn.addEventListener('click', async () => {
 
 reloadBtn.addEventListener('click', () => {
   errShade.classList.remove('is-shown');
+  showWarmup();
   frame.src = frame.src;
 });
 
@@ -212,6 +219,20 @@ updateModeButton();
 // just renders the result.
 const docsToggleBtn = document.getElementById('docsToggle');
 const docsEl = document.getElementById('docs');
+
+// Hide the Docs entry point until the manifest has a real OAuth client_id.
+// Shipping with the PASTE_ placeholder makes Connect throw a confusing
+// "OAuth2 not granted" error; better to hide the affordance entirely than
+// invite the user into a dead end.
+try {
+  const cid = chrome.runtime.getManifest()?.oauth2?.client_id || '';
+  if (!cid || cid.startsWith('PASTE_')) {
+    docsToggleBtn?.style.setProperty('display', 'none');
+  }
+} catch (_) {
+  // chrome.runtime.getManifest is sync + always available; the try is
+  // defensive against future MV3 changes.
+}
 const docsStatusEl = document.getElementById('docsStatus');
 const docsConnectBtn = document.getElementById('docsConnect');
 const docsDisconnectBtn = document.getElementById('docsDisconnect');
@@ -427,6 +448,7 @@ agentInputEl?.addEventListener('keydown', (ev) => {
 
 retryBtn?.addEventListener('click', () => {
   errShade.classList.remove('is-shown');
+  showWarmup();
   frame.src = frame.src;
 });
 
