@@ -3800,6 +3800,11 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   if (opts.format) body._voiceFormat = opts.format;
   if (opts.promptId) body._promptId = opts.promptId;
   if (opts.promptVars) body._promptVars = opts.promptVars;
+  // Pass motion + side so server-side applyExemplars can pull matching
+  // reference rounds. Stripped from the body before forwarding to the
+  // upstream model. Pulled from opts.logContext (same field captureTurn uses).
+  if (opts.logContext && opts.logContext.motion) body._motion = opts.logContext.motion;
+  if (opts.logContext && opts.logContext.side) body._side = opts.logContext.side;
 
   const headers = { 'Content-Type': 'application/json' };
   if (__getAuthToken) { try { const token = await __getAuthToken(); if (token) headers['Authorization'] = 'Bearer ' + token; } catch {} }
@@ -3975,6 +3980,10 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
       if (opts.format) serverBody._voiceFormat = opts.format;
       if (opts.promptId) serverBody._promptId = opts.promptId;
       if (opts.promptVars) serverBody._promptVars = opts.promptVars;
+      // Motion + side for server-side applyExemplars. Stripped before the
+      // body forwards to Anthropic. See callAnyAI for the matching block.
+      if (opts.logContext && opts.logContext.motion) serverBody._motion = opts.logContext.motion;
+      if (opts.logContext && opts.logContext.side) serverBody._side = opts.logContext.side;
       const headers = { 'Content-Type': 'application/json' };
       if (__getAuthToken) {
         try {

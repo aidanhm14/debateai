@@ -4,6 +4,7 @@ import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { applyExemplars } from './lib/exemplars.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -305,10 +306,17 @@ export default async (request, context) => {
     // _promptId (+ optional _promptVars for {{var}} substitution). Shared
     // helper so gemini.mjs and grok.mjs resolve the same way.
     applyPromptLibrary(body);
+    // Exemplar injection: pulls 1–3 admin-weighted past rounds matching this
+    // motion + format and prepends them as reference speeches. The runtime
+    // half of the learning loop — strong rounds raise the floor of future
+    // rounds. No-op for chat/judge/casual; only fires on case-gen-style
+    // features. MUST run before applyVoiceGuidelines, which strips
+    // _voiceFeature / _voiceFormat after reading them.
+    await applyExemplars(body);
     // Voice guidelines: client sends `_voiceFeature` (e.g. "case", "bot",
     // "debateChat", "judge"). Server resolves the matching voice block and
     // appends it to body.system so the debater-voice bank never ships to
-    // view-source.
+    // view-source. Also strips _voiceFeature/_voiceFormat from the body.
     applyVoiceGuidelines(body);
 
     // Validate model — only whitelisted models allowed

@@ -2,6 +2,7 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { applyExemplars } from './lib/exemplars.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -110,6 +111,10 @@ export default async (request, context) => {
     // Resolve server-side prompt library + voice guidelines before
     // translating. body.system holds the final text after these calls.
     applyPromptLibrary(body);
+    // Exemplar injection (learning-loop runtime): prepends 1–3 admin-weighted
+    // reference rounds matching motion+format. Must run before
+    // applyVoiceGuidelines, which strips _voiceFeature/_voiceFormat.
+    await applyExemplars(body);
     applyVoiceGuidelines(body);
 
     // Client sends Claude-style: { system, messages, model, max_tokens, stream }

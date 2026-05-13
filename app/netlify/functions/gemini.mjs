@@ -2,6 +2,7 @@
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { applyExemplars } from './lib/exemplars.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -113,6 +114,10 @@ export default async (request, context) => {
     // Resolve server-side prompt library references before building the
     // Gemini-shaped request. After this, body.system holds the full text.
     applyPromptLibrary(body);
+    // Exemplar injection (learning-loop runtime): prepends 1–3 admin-weighted
+    // reference rounds matching motion+format. Must run before
+    // applyVoiceGuidelines, which strips _voiceFeature/_voiceFormat.
+    await applyExemplars(body);
     // Then inject the voice-guidelines block (strips _voiceFeature, appends
     // to body.system) so the IP stays server-side.
     applyVoiceGuidelines(body);
