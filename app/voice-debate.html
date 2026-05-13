@@ -258,6 +258,59 @@ input[type=text]:focus,select:focus,textarea:focus{
   margin-top:14px;display:flex;align-items:center;justify-content:center;
   gap:14px;flex-wrap:wrap;font-size:.72rem;color:#a3a3b3;
 }
+
+/* Type-to-interject row. Sits between live-controls and the transcript
+   card. The send button is crimson-tinted to match other primary
+   affordances in the page, but understated so it doesn't compete with
+   the mic toggle. */
+.text-interject{
+  margin-top:14px;display:flex;align-items:center;gap:8px;
+  max-width:640px;margin-left:auto;margin-right:auto;width:100%;
+  padding:0 16px;
+}
+.text-interject__input{
+  flex:1;min-width:0;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  color:#fff;
+  border-radius:9px;
+  padding:9px 13px;
+  font:13.5px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  outline:none;
+  transition:border-color 140ms ease, background 140ms ease;
+}
+.text-interject__input:focus{
+  border-color:rgba(229,69,69,.55);
+  background:rgba(255,255,255,.06);
+}
+.text-interject__input::placeholder{
+  color:rgba(255,255,255,.34);
+}
+.text-interject__send{
+  appearance:none;
+  background:rgba(229,69,69,.16);
+  border:1px solid rgba(229,69,69,.4);
+  color:#fca5a5;
+  border-radius:9px;
+  padding:9px 16px;
+  font:12.5px/1 -apple-system,system-ui,sans-serif;
+  font-weight:600;
+  letter-spacing:.02em;
+  cursor:pointer;
+  transition:background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.text-interject__send:hover:not(:disabled){
+  background:rgba(229,69,69,.26);
+  color:#fff;
+  border-color:rgba(229,69,69,.6);
+}
+.text-interject__send:active:not(:disabled){
+  transform:translateY(1px);
+}
+.text-interject__send:disabled{
+  opacity:.38;
+  cursor:not-allowed;
+}
 .speed-ctl{
   display:flex;align-items:center;gap:6px;
   padding:4px 8px;border-radius:8px;
@@ -2948,6 +3001,52 @@ function App(){
   }, [motion, side, mode, persona]);
   const [copiedFlash, setCopiedFlash] = useState(false);
 
+  /* ── Text-to-AI interject (live mode) ──────────
+     Lets the user type a quick point while the AI is mid-speech.
+     Three data-channel events fire in order: response.cancel to
+     stop the AI's current turn, conversation.item.create to inject
+     the user's text as a real user message, response.create so the
+     AI immediately addresses it. The realtime API doesn't generate
+     an input_audio_transcription event for typed input, so we push
+     the user's line onto turnsRef manually with typed:true so the
+     transcript renderer can tag it visually if it wants to.        */
+  const [textInput, setTextInput] = useState('');
+  const sendTextMessage = useCallback((raw) => {
+    const t = String(raw || '').trim();
+    if (!t) return;
+    const dc = dcRef.current;
+    if (!dc || dc.readyState !== 'open') return;
+    try {
+      // Interrupt whatever the AI is saying. Safe to send even when
+      // there's no in-flight response — the server ignores it.
+      dc.send(JSON.stringify({ type: 'response.cancel' }));
+      // Inject the user's text as a real user-role message so the
+      // model treats it like spoken input (vs. a system steer).
+      dc.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [{ type: 'input_text', text: t }],
+        },
+      }));
+      // Kick off the AI's response to the typed point. GA Realtime
+      // pulls modalities from session.output_modalities now, so we
+      // don't need to repeat them here.
+      dc.send(JSON.stringify({ type: 'response.create' }));
+
+      // Local transcript echo — the API won't transcribe a typed
+      // input back at us the way it does for audio, so push it
+      // ourselves. typed:true lets a future renderer style it
+      // differently (e.g., a small keyboard glyph).
+      const turn = { who: 'you', text: t, ts: Date.now(), typed: true };
+      turnsRef.current = [...turnsRef.current, turn];
+      setTurns(turnsRef.current.slice());
+    } catch (e) {
+      console.warn('[text-interject] send failed:', e);
+    }
+  }, []);
+
   /* ── RFD generation ───────────────────────────── */
 
   const generateRFD = useCallback(async ()=>{
@@ -3694,6 +3793,36 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             el('span', { className:'rec-dot' }),
             'Recording'
           ),
+        ),
+        // Type-to-interject row. Sends the user's text as a real user
+        // message and cancels the AI's current turn so the AI addresses
+        // the typed point immediately. Useful in quiet spaces, when the
+        // user can't speak, or to drop a fast point without breaking
+        // their own delivery cadence.
+        el('div', { className:'text-interject' },
+          el('input', {
+            type:'text',
+            className:'text-interject__input',
+            value: textInput,
+            onChange: (e) => setTextInput(e.target.value),
+            onKeyDown: (e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendTextMessage(textInput);
+                setTextInput('');
+              }
+            },
+            placeholder: 'Type a point — Enter to interject the AI',
+            maxLength: 500,
+            'aria-label': 'Type a message to the AI',
+          }),
+          el('button', {
+            type:'button',
+            className:'text-interject__send',
+            onClick: () => { sendTextMessage(textInput); setTextInput(''); },
+            disabled: !textInput.trim(),
+            title: 'Send. Cancels the AI\'s current turn and makes it respond to your text.',
+          }, 'Send'),
         ),
       ),
 
