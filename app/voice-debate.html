@@ -1745,6 +1745,13 @@ function App(){
       if (!ev || !ev.data || ev.data.type !== 'debateai-ext') return;
       // Trust only the extension panel as parent.
       if (!String(ev.origin || '').startsWith('chrome-extension://')) return;
+      // Native panel asked us to abort the current session. Check this
+      // before mode/persona writes — a stop+mode payload would otherwise
+      // mutate state for a session that's about to be torn down.
+      if (ev.data.stop === true) {
+        try { stopRef.current && stopRef.current(); } catch (_) {}
+        return;
+      }
       const text = String(ev.data.text || '').trim();
       const autoStart = ev.data.autoStart === true;
       const wantMode = String(ev.data.mode || '').trim();
@@ -1760,11 +1767,6 @@ function App(){
             && PERSONALITIES.some((p) => p.key === wantPersona);
           if (ok) setPersonaKey(wantPersona);
         } catch (_) {}
-      }
-      // Native panel asked us to abort the current session.
-      if (ev.data.stop === true) {
-        try { stopRef.current && stopRef.current(); } catch (_) {}
-        return;
       }
       if (text) {
         // For voice-debate the motion is the spoken topic. Long passages
@@ -2800,24 +2802,39 @@ function App(){
   useEffect(() => { stopRef.current = stop; });
 
   // When running inside the Counter extension iframe, notify the parent
-  // panel each time a session actually transitions to live so the SW
-  // can record a drill for streak math, and again when it ends so the
-  // panel can return to its setup view.
+  // panel about session lifecycle so the side panel UI tracks the
+  // iframe's state:
+  //   'debateai-ext-live'  -> WebRTC negotiated, session is grilling
+  //                            (only fires once per session; drives streak)
+  //   'debateai-ext-ended' -> session is no longer running, regardless of
+  //                            whether it reached live or failed during
+  //                            connect. The panel uses this to flip back
+  //                            to setup view, so it MUST fire on every
+  //                            connecting -> idle transition (e.g. mic
+  //                            denied, network failure) — not just on
+  //                            live -> ended.
   const announcedLiveRef = useRef(false);
+  const sessionActiveRef = useRef(false);
   useEffect(() => {
-    if (status === 'live') {
-      if (announcedLiveRef.current) return;
-      announcedLiveRef.current = true;
-      try {
-        window.parent && window.parent.postMessage({ type: 'debateai-ext-live' }, '*');
-      } catch (_) {}
-    } else {
-      if (announcedLiveRef.current && (status === 'ended' || status === 'idle')) {
+    if (status === 'connecting' || status === 'live') {
+      sessionActiveRef.current = true;
+      if (status === 'live' && !announcedLiveRef.current) {
+        announcedLiveRef.current = true;
         try {
-          window.parent && window.parent.postMessage({ type: 'debateai-ext-ended' }, '*');
+          window.parent && window.parent.postMessage({ type: 'debateai-ext-live' }, '*');
         } catch (_) {}
       }
-      announcedLiveRef.current = false;
+    } else if (status === 'idle' || status === 'ended') {
+      if (sessionActiveRef.current) {
+        sessionActiveRef.current = false;
+        announcedLiveRef.current = false;
+        try {
+          window.parent && window.parent.postMessage({
+            type: 'debateai-ext-ended',
+            reachedLive: status === 'ended',
+          }, '*');
+        } catch (_) {}
+      }
     }
   }, [status]);
 

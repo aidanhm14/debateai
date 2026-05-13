@@ -165,12 +165,40 @@ window.addEventListener('message', (ev) => {
     return;
   }
   if (t === 'debateai-ext-ended') {
+    const reachedLive = ev.data?.reachedLive === true;
     setDrilling(false);
-    // Warm confirm chime as the session wraps cleanly. Distinct from
-    // the iframe's own SFX.end (which fires inside voice-debate before
-    // the postMessage round-trip lands here) — this is the panel's
-    // "we received the end signal and the UI flipped back" beat.
-    try { SFX.confirm(); } catch(_){}
+    if (reachedLive) {
+      // Warm confirm chime as the session wraps cleanly. Distinct from
+      // the iframe's own SFX.end (which fires inside voice-debate before
+      // the postMessage round-trip lands here) — this is the panel's
+      // "we received the end signal and the UI flipped back" beat.
+      try { SFX.confirm(); } catch (_) {}
+      // Visible moment for the streak increment. Pull fresh streak state
+      // so the toast reflects what background.js just recorded.
+      try {
+        chrome.runtime.sendMessage({ type: 'streak-state' }, (res) => {
+          if (chrome.runtime.lastError || !res) {
+            showToast('Drill ended.');
+            return;
+          }
+          const days = Number(res.streakDays || 0);
+          if (days > 1) {
+            showToast(`Drill ended. ${days}-day streak alive.`);
+          } else if (days === 1) {
+            showToast('Drill ended. Day-1 streak started.');
+          } else {
+            showToast('Drill ended.');
+          }
+        });
+      } catch (_) {
+        showToast('Drill ended.');
+      }
+    } else {
+      // Failed before going live — surface a friendlier nudge than the
+      // iframe's own raw error string. The iframe's error UI is still
+      // visible behind us if the user reopens the panel.
+      showToast('Drill didn\'t start. Check the mic prompt and try again.');
+    }
     return;
   }
 });
@@ -213,8 +241,16 @@ function setDrilling(on) {
   els.stage?.classList.toggle('is-drilling', state.drilling);
   if (state.drilling) {
     const m = MODES.find((x) => x.key === state.mode);
-    const label = m ? `Live · ${m.label.toLowerCase()}` : 'Live drill';
-    if (els.livepillLabel) els.livepillLabel.textContent = label;
+    const modeLabel = m ? m.label.toLowerCase() : 'drill';
+    const topic = (state.topic || '').trim();
+    // Topic in the live pill so the user sees what they're being grilled
+    // on without having to peek back at setup. Truncated so the End
+    // button never wraps off-screen.
+    const preview = topic.length > 38 ? topic.slice(0, 35) + '…' : topic;
+    const text = preview
+      ? `Live · ${modeLabel} · ${preview}`
+      : `Live · ${modeLabel}`;
+    if (els.livepillLabel) els.livepillLabel.textContent = text;
   }
 }
 
@@ -442,6 +478,11 @@ function renderRecent() {
   const block = els.recentBlock;
   if (!list || !block) return;
   const items = readRecent();
+  // Onboarding card is the mirror image of recent: visible only while
+  // the user has no drills under their belt yet. Once they drill once,
+  // the recent list replaces it.
+  const onboard = document.getElementById('onboardBlock');
+  if (onboard) onboard.hidden = items.length > 0;
   if (items.length === 0) { block.hidden = true; return; }
   block.hidden = false;
   list.innerHTML = '';
@@ -517,6 +558,12 @@ function escapeHtml(s) {
   updateStartButton();
   renderRecent();
   refreshStreakChip();
+  // Platform-correct shortcut in the onboarding card.
+  const kbd = document.getElementById('onboardKbd');
+  if (kbd) {
+    const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+    kbd.textContent = isMac ? '⌘⇧D' : 'Ctrl+Shift+D';
+  }
 
   // After the iframe handshake, push the user's saved choices so the
   // realtime session opens with what they actually picked, not just the
