@@ -1761,6 +1761,25 @@ function App(){
     return () => window.removeEventListener('message', handle);
   }, []);
 
+  // Landing "Try a 30s voice round" demo bridge. When voice-debate.html
+  // is loaded with ?demo=1 from the hero CTA, prefill a punchy motion
+  // and pin smartness to Quick so a first-time visitor is one tap from
+  // Connect. The voice usage gate still applies (anon gets 1 free voice
+  // session); this just strips the setup friction.
+  useEffect(() => {
+    let isDemo = false;
+    let isExt = false;
+    try {
+      const qs = new URLSearchParams(location.search);
+      isDemo = qs.get('demo') === '1';
+      isExt = qs.get('ext') === '1';
+    } catch (e) {}
+    if (!isDemo || isExt) return;
+    try { setMotion('Tax meat at the same rate as alcohol.'); } catch (e) {}
+    try { setMode('apda'); } catch (e) {}
+    try { setSmartness(1); } catch (e) {}
+  }, []);
+
   // Microphone permission state — checked on mount via the Permissions
   // API so we can render an accurate notice ("granted" / "needs prompt"
   // / "blocked"). Best-effort: Safari supports permissions.query for
