@@ -71,7 +71,7 @@ How it differs from "AI tutor" extensions
 • No debate jargon in oral mode. "Warrant" and "magnitude / probability / timeframe" stay silent in the examiner's head; the student gets plain academic English.
 
 Pricing
-• Free: 5 anonymous + 5 more on sign-in (10 total drills)
+• Free: 15 anonymous + 15 more on sign-in (30 total drills)
 • Individual at $5/month: 250 drills, four AI brains, premium voice
 • Lifetime at $14.99 once: 250 drills/month forever, no recurring charge
 • Bring-your-own-key (Anthropic Claude only) at $1/month for unlimited

@@ -92,9 +92,15 @@
     const isPaid = plan && plan !== 'trial';
 
     const sev = severityFor(used, limit);
-    // Hide entirely when comfortable (< 50% on paid, < 33% on free).
+    // Hide entirely when comfortable. Paid users see it past 50% (budget
+    // awareness is useful). Free users only see it once they're actually
+    // running low (75%+) — the constant pre-cap "X / N requests" banner
+    // signaled "this is a paid product" too aggressively. Softened 2026-05-14.
     if (!sev && isPaid) { root.innerHTML = ''; return; }
-    if (!sev && !isPaid && used < Math.max(1, Math.floor(limit / 3))) { root.innerHTML = ''; return; }
+    if (!isPaid) {
+      const pct = limit > 0 ? (used / limit) * 100 : 0;
+      if (pct < 75) { root.innerHTML = ''; return; }
+    }
 
     // Default palette when we decided to show without a hit-the-floor trigger.
     const palette = sev || { bg: '#3b82f618', border: '#3b82f644', text: '#60a5fa', label: 'used' };
@@ -161,7 +167,10 @@
         // 404 = user hasn't created a team yet; show a gentle nudge anyway
         // so they know the system uses teams + sees the settings entry.
         if (r.status === 404) {
-          render({ usageThisPeriod: 0, usageLimit: 3, plan: 'trial' });
+          // No team yet — pre-cap free user. Stay hidden (the in-app
+          // counter inside debate-ai.html already shows their quota; the
+          // global floating banner here would just double up the paid
+          // signal).
         }
         return;
       }

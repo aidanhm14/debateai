@@ -2078,11 +2078,11 @@ function useProTrial(feature) {
 }
 function canUseProFeature(team, user, feature) {
   if (isPro(team, user)) return { allowed: true, remaining: Infinity };
-  // Post-beta: free users get 1 trial per premium feature so they can taste
-  // the quality, then must upgrade. Dropping this from 5 → 1 was intentional , 
-  // 5 was enough to meet most casual usage needs without ever paying.
+  // Free users get 5 tries per premium feature before upgrade. Was 1 (the
+  // "force conversion" cut); bumped back to 5 on 2026-05-14 to stop spooking
+  // casual users in their first session. Server-side caps still apply.
   const used = getProTrials(feature);
-  const limit = 1;
+  const limit = 5;
   if (used >= limit) return { allowed: false, remaining: 0 };
   return { allowed: true, remaining: limit - used };
 }
@@ -3709,17 +3709,18 @@ function maybeShowSupportNudge() {
     setTimeout(() => { if (n.parentNode) n.remove(); }, 15000);
   } catch(e) {}
 }
-const ANON_BASE_LIMIT = 5;
+const ANON_BASE_LIMIT = 15;
 // Giving feedback unlocks UNLIMITED. matches the "unlock unlimited" copy in the beta strip
 function hasGivenFeedback() { try { return localStorage.getItem('debateos-feedback-given') === '1'; } catch { return false; } }
 function markFeedbackGiven() { try { localStorage.setItem('debateos-feedback-given', '1'); } catch {} }
-// FREE TIER: 5 total requests across the app before the $5/mo Individual
-// plan (or $1/mo BYOK) is required. This counter is localStorage-based and
-// therefore bypassable by a motivated user. the server-side per-account
-// cap in `canUseProFeature` is the hard limit. This client counter exists
-// to show the user an honest "X/5 free" pill and to trigger the paywall
-// at the expected boundary.
-function getAnonLimit() { return 3; }
+// FREE TIER: 15 total requests across the app before a paid plan is required.
+// Bumped from 3/5 → 15 on 2026-05-14 so casual users don't hit the paywall in
+// their first session. This counter is localStorage-based and therefore
+// bypassable by a motivated user. the server-side per-account cap in
+// `canUseProFeature` is the hard limit. This client counter exists to show
+// the user an honest "X left" pill and to trigger the paywall at the
+// expected boundary.
+function getAnonLimit() { return 15; }
 // Back-compat alias. existing code references ANON_LIMIT.
 // Must be `configurable: true` because Babel re-evaluates this script and
 // would otherwise throw "Cannot redefine property" on the second pass,
@@ -3769,12 +3770,12 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
     if (used >= getAnonLimit()) {
       if (shouldGateForFeedback()) {
         try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); markFeedbackGiven(); } catch(e) {}
-        throw new Error('You\'ve used your 3 free requests. We just opened our quick feedback form. Fill it out and you\'ll unlock 5 more (refresh after).');
+        throw new Error('You\'ve used your free rounds. We just opened our quick feedback form. Fill it out and you\'ll unlock more (refresh after).');
       }
       if (isCrossProvider) {
-        throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude for unlimited, or upgrade to Individual ($5/mo) to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 4 brains.');
+        throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude for unlimited, or pick a plan to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 4 brains.');
       }
-      throw new Error('You\'ve hit the 5-request free limit. Upgrade to Individual ($5/mo for 250 requests) or BYOK ($1/mo, unlimited Claude with your own API key).');
+      throw new Error('You\'ve used your free rounds. Pick a plan to keep going (starts at $1/mo BYOK or $5/mo for 250 rounds).');
     }
   } else if (__currentTeam) {
     const teamUsed = __currentTeam.usageThisPeriod || 0;
@@ -3903,14 +3904,14 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   // Enforce usage limits
   const _isAnon = !__getAuthToken;
   if (_isAnon) {
-    // Anonymous users: 5 total requests (localStorage)
+    // Anonymous users: 15 total requests (localStorage)
     const used = getAnonUsage();
     if (used >= getAnonLimit()) {
       if (shouldGateForFeedback()) {
         try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); markFeedbackGiven(); } catch(e) {}
-        throw new Error('You\'ve used your 3 free requests. We just opened our quick feedback form. Fill it out and you\'ll unlock 5 more (refresh after).');
+        throw new Error('You\'ve used your free rounds. We just opened our quick feedback form. Fill it out and you\'ll unlock more (refresh after).');
       }
-      throw new Error('You\'ve hit the 5-request free limit. Upgrade to Individual ($5/mo for 250 requests) or BYOK ($1/mo, unlimited Claude with your own API key).');
+      throw new Error('You\'ve used your free rounds. Pick a plan to keep going (starts at $1/mo BYOK or $5/mo for 250 rounds).');
     }
     // Don't increment here. increment after successful response below
   } else if (__currentTeam) {
@@ -10306,12 +10307,12 @@ function UpgradeModal({ feature, remaining, onClose, onUpgrade }) {
       ),
       exhausted
         ? el('p',{style:{color:'var(--text-secondary,#94a3b8)',fontSize:'.95rem',lineHeight:1.6,marginBottom:20}},
-            "You've used all 5 free tries of ", el('strong',null,fname), ". Individual ($5/mo) gets you 250 generations across all features, or BYOK ($1/mo) for unlimited Claude with your own key."
+            "You've used your free tries of ", el('strong',null,fname), ". Plans below if you want to keep going."
           )
         : el('p',{style:{color:'var(--text-secondary,#94a3b8)',fontSize:'.95rem',lineHeight:1.6,marginBottom:20}},
-            el('strong',null,fname), ' is a paid feature. You have ',
+            el('strong',null,fname), '. ',
             el('span',{style:{color:'#f59e0b',fontWeight:700}}, remaining + ' free ' + (remaining === 1 ? 'try' : 'tries')),
-            ' remaining. After that, pick a plan ($1 BYOK or $5 Individual).'
+            ' left on the house.'
           ),
       el('div',{style:{display:'flex',gap:10,justifyContent:'center',marginBottom:16,flexWrap:'wrap'}},
         (function(){
@@ -10356,7 +10357,7 @@ function AuthModal({ onSignIn, onClose }) {
   return React.createElement('div', {className:'auth-overlay', onClick:e=>{if(e.target===e.currentTarget && onClose) onClose();}},
     React.createElement('div', {className:'auth-modal',role:'dialog','aria-modal':true},
       React.createElement('h2', null, 'Welcome to Debate AI'),
-      React.createElement('p', null, 'Sign in with Google to unlock your 5 free requests, save your debate-style profile, and share cases with your team.'),
+      React.createElement('p', null, 'Sign in with Google to unlock more free rounds, save your debate-style profile, and share cases with your team.'),
       React.createElement('button', {className:'auth-google-btn', onClick:onSignIn},
         React.createElement('img', {src:'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg', width:20, height:20}),
         'Sign in with Google'
@@ -10391,7 +10392,7 @@ function SignUpNudgeModal({ onSignIn, onDismiss }) {
       el('ul',{style:{listStyle:'none',padding:0,margin:'0 0 20px'}},
         bullet('Your debate-style profile. the AI learns your voice, jargon level, and weighing preferences and matches them.'),
         bullet('Saved cases and rounds across devices.'),
-        bullet('5 free requests to try the app, then pick a plan that fits (BYOK $1, Individual $5, Team $30).'),
+        bullet('Plenty of free rounds before you ever hit a paywall.'),
         bullet('Your progress, streak, and stats survive browser resets.'),
       ),
       el('button',{className:'auth-google-btn', onClick:onSignIn, style:{marginBottom:10}},

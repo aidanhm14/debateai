@@ -176,15 +176,16 @@
   }
 
   async function checkPlan() {
+    // Pricing surface softened 2026-05-14: only render when the user has
+    // actually hit the cap, never as a persistent default-state ad. The
+    // earlier behavior had a gradient "Unlock everything for $5/mo" pill
+    // floating on every page for every signed-in free user — too much
+    // paid-signal for a product trying to feel approachable.
     if (!currentUser) { render('hidden'); return; }
     try {
       const token = await currentUser.getIdToken();
       const r = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + token } });
-      if (r.status === 404) {
-        // No team yet — definitely a free user. Show CTA.
-        render('default');
-        return;
-      }
+      if (r.status === 404) { render('hidden'); return; }
       if (!r.ok) return;
       const data = await r.json();
       const plan = data.plan;
@@ -193,7 +194,7 @@
       const used = data.usageThisPeriod || 0;
       const limit = data.usageLimit || 0;
       if (limit > 0 && used >= limit) render('capped');
-      else render('default');
+      else render('hidden');
     } catch (e) { /* silent */ }
   }
 
