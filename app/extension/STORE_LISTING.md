@@ -72,7 +72,7 @@ How it differs from "AI tutor" extensions
 
 Pricing
 • Free: 15 anonymous + 15 more on sign-in (30 total drills)
-• Individual at $5/month: 250 drills, four AI brains, premium voice
+• Individual at $5/year: 250 drills/month, four AI brains, premium voice
 • Lifetime at $14.99 once: 250 drills/month forever, no recurring charge
 • Bring-your-own-key (Anthropic Claude only) at $1/month for unlimited
 • Team at $30/month for school clubs and prep groups (1,500 drills, 50 seats)

@@ -175,7 +175,7 @@ export async function requirePaidPlan(request, featureName) {
     return {
       ok: false,
       status: 402, // Payment Required — semantically precise for this case.
-      error: (featureName || 'This model') + ' is a paid feature. Upgrade to Individual ($5/mo) to unlock Gemini, GPT, and Grok alongside Claude Sonnet.',
+      error: (featureName || 'This model') + ' is a paid feature. Upgrade to Individual ($5/year) to unlock Gemini, GPT, and Grok alongside Claude Sonnet.',
       code: 'PAYMENT_REQUIRED',
       currentPlan: plan || 'trial',
     };

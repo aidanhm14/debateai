@@ -3775,14 +3775,14 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
       if (isCrossProvider) {
         throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude for unlimited, or pick a plan to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 4 brains.');
       }
-      throw new Error('You\'ve used your free rounds. Pick a plan to keep going (starts at $1/mo BYOK or $5/mo for 250 rounds).');
+      throw new Error('You\'ve used your free rounds. Pick a plan to keep going ($5/year Individual for 250 rounds/mo, or $1/mo BYOK for unlimited Claude with your own key).');
     }
   } else if (__currentTeam) {
     const teamUsed = __currentTeam.usageThisPeriod || 0;
     const teamLimit = __currentTeam.usageLimit || 5;
     if (teamUsed >= teamLimit) {
       if (isCrossProvider && __currentTeam.plan === 'byok') {
-        throw new Error('Your BYOK plan covers Claude only (unlimited with your key). ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' runs through our server and you\u2019ve hit the ' + teamLimit + '-request cap. Switch to Claude, or upgrade to Individual ($5/mo) for all 4 brains.');
+        throw new Error('Your BYOK plan covers Claude only (unlimited with your key). ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' runs through our server and you\u2019ve hit the ' + teamLimit + '-request cap. Switch to Claude, or upgrade to Individual ($5/year) for all 4 brains.');
       }
       throw new Error('You\'ve hit your plan limit (' + teamLimit + ' requests/month). Upgrade your plan for more.');
     }
@@ -3911,7 +3911,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
         try { window.open('https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform', '_blank', 'noopener'); markFeedbackGiven(); } catch(e) {}
         throw new Error('You\'ve used your free rounds. We just opened our quick feedback form. Fill it out and you\'ll unlock more (refresh after).');
       }
-      throw new Error('You\'ve used your free rounds. Pick a plan to keep going (starts at $1/mo BYOK or $5/mo for 250 rounds).');
+      throw new Error('You\'ve used your free rounds. Pick a plan to keep going ($5/year Individual for 250 rounds/mo, or $1/mo BYOK for unlimited Claude with your own key).');
     }
     // Don't increment here. increment after successful response below
   } else if (__currentTeam) {
@@ -10321,8 +10321,8 @@ function UpgradeModal({ feature, remaining, onClose, onUpgrade }) {
             el('div',{style:{flex:1,minWidth:90,padding:'12px',background:'var(--card-bg,#303038)',border:'1px solid var(--card-border,#ffffff20)',borderRadius:10,textAlign:'center'}},
               el('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.5px',color:'#94a3b8',textTransform:'uppercase',marginBottom:4}},'Individual'),
               el('div',{style:{fontSize:'1.4rem',fontWeight:800,color:'var(--text-primary,#f1f5f9)'}}, ind.amount),
-              el('div',{style:{fontSize:'.75rem',color:'#94a3b8'}},'/month'),
-              el('div',{style:{fontSize:'.72rem',color:'#64748b',marginTop:4}},'250 requests'),
+              el('div',{style:{fontSize:'.75rem',color:'#94a3b8'}},'/year'),
+              el('div',{style:{fontSize:'.72rem',color:'#64748b',marginTop:4}},'250 requests/mo'),
               ind.note && el('div',{style:{fontSize:'.6rem',color:'#64748b',marginTop:2,fontStyle:'italic'}}, ind.note),
             ),
             el('div',{style:{flex:1,minWidth:90,padding:'12px',background:'#22c55e10',border:'1px solid #22c55e30',borderRadius:10,textAlign:'center'}},
@@ -12180,7 +12180,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
       ...[
         {name:'Free',price:'$0',requests:'5/mo',members:'10 members',highlight:false,desc:'Get started'},
         {name:'BYOK',price:'$1/mo',requests:'Unlimited*',members:'1 member',highlight:false,desc:'Bring your own API keys',badge:'Cheapest',badgeColor:'#f59e0b'},
-        {name:'Individual',price:'$5/mo',requests:'250/mo',members:'10 members',highlight:true,desc:'For serious competitors'},
+        {name:'Individual',price:'$5/yr',requests:'250/mo',members:'10 members',highlight:true,desc:'$5 for the whole year'},
         {name:'Lifetime',price:'$14.99',requests:'250/mo',members:'10 members',highlight:false,desc:'Pay once, use forever',badge:'Best Value',badgeColor:'#22c55e'},
         {name:'Team',price:'$30/mo',requests:'1,500/mo',members:'50 members',highlight:false,desc:'For clubs and programs'},
       ].map(p => el('div',{key:p.name,style:{padding:24,background:'var(--card-bg,#303038)',border:'1.5px solid '+(p.highlight?'#3b82f660':p.badgeColor?p.badgeColor+'40':'#ffffff15'),borderRadius:14,textAlign:'center',position:'relative',transition:'border-color .2s'}},
@@ -12209,7 +12209,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
     el('div', {style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(5,1fr)',gap:isMobile?10:16,marginTop:24}},
       ...[
         {name:'Free',price:'$0',requests:'5/mo',members:'10 members',highlight:false},
-        {name:'Individual',price:'$5/mo',requests:'250/mo',members:'10 members',highlight:true},
+        {name:'Individual',price:'$5/yr',requests:'250/mo',members:'10 members',highlight:true},
         {name:'Lifetime',price:'$14.99',requests:'250/mo',members:'10 members',highlight:false,badgeColor:'#22c55e',badge:'Best Value'},
         {name:'Team',price:'$30/mo',requests:'1,500/mo',members:'50 members',highlight:false},
       ].map(p => el('div',{key:p.name,style:{padding:24,background:'var(--card-bg,#303038)',border:'1.5px solid '+(p.highlight?'#3b82f660':p.badgeColor?p.badgeColor+'40':'#ffffff15'),borderRadius:14,textAlign:'center',position:'relative',transition:'border-color .2s'}},
@@ -12332,7 +12332,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
         el('div', {style:{color:'#fbbf24',fontSize:'.78rem',fontWeight:700,marginBottom:4}}, 'BYOK is one-provider only'),
         el('div', {style:{color:'#94a3b8',fontSize:'.74rem',lineHeight:1.55}},
           'Your key unlocks ', el('strong',{style:{color:'#fbbf24'}},'unlimited Claude'), ' requests. ',
-          el('strong',null,'GPT, Gemini, and Grok still count against your plan\u2019s request cap') , '. once you cross to another brain you\u2019ll see "you ran out of requests." Stay on Claude as your main engine, or upgrade to Individual ($5/mo) for all 4 brains.'
+          el('strong',null,'GPT, Gemini, and Grok still count against your plan\u2019s request cap') , '. once you cross to another brain you\u2019ll see "you ran out of requests." Stay on Claude as your main engine, or upgrade to Individual ($5/year) for all 4 brains.'
         ),
       ),
     ),

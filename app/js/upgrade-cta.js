@@ -122,7 +122,7 @@
     body.style.cssText = 'flex:1;min-width:0';
     const title = document.createElement('div');
     title.style.cssText = 'font-weight:800;font-size:.88rem;letter-spacing:.01em;margin-bottom:2px';
-    title.textContent = state === 'capped' ? "You've hit the free cap" : 'Unlock everything for $5/mo';
+    title.textContent = state === 'capped' ? "You've hit the free cap" : 'Unlock everything for $5/year';
     const sub = document.createElement('div');
     sub.style.cssText = 'font-size:.72rem;opacity:.85;font-weight:500';
     sub.textContent = state === 'capped'

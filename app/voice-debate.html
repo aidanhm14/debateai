@@ -1969,8 +1969,12 @@ function App(){
   //   • Pro: no client cap (server-side 6/hour/IP rate limit still applies)
   // Client-side gate is UX-only; the real enforcement lives in
   // realtime-session.mjs which checks Firestore on every mint.
-  const ANON_VOICE_LIMIT = 1;
-  const FREE_VOICE_LIMIT = 3;
+  // 2026-05-14: bumped from 1 / 3 → 3 / 8. Re-framed Voice from a
+  // "Pro feature" to a "New feature" — same engine, same OpenAI
+  // Realtime cost basis, but the previous cap was too stingy for
+  // users meeting Voice for the first time.
+  const ANON_VOICE_LIMIT = 3;
+  const FREE_VOICE_LIMIT = 8;
   const ANON_USAGE_KEY = 'da-voice-anon-used';
   // Owner allowlist — bypasses the voice cap on the client so the gate
   // never shows the upgrade card to these accounts. Server enforces the
@@ -3778,9 +3782,9 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         el('div', { className:'summary-cta' },
           voiceGate.state === 'sign-in' ? el('div', { className:'voice-gate' },
             el('div', { className:'vg-eyebrow' }, 'Free trial used'),
-            el('div', { className:'vg-h' }, 'Sign in for 3 more rounds'),
+            el('div', { className:'vg-h' }, 'Sign in for 8 more voice rounds'),
             el('p', { className:'vg-body' },
-              'You\'ve used your one anonymous voice round. Sign in with Google for 3 more — they save to your record so you can come back to them.',
+              'You\'ve used your free anonymous voice rounds. Sign in with Google for 8 more — they save to your record so you can come back to them.',
             ),
             el('button', {
               type:'button', className:'cta vg-cta',
@@ -3790,13 +3794,13 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           ) :
           voiceGate.state === 'upgrade' ? el('div', { className:'voice-gate' },
             el('div', { className:'vg-eyebrow' }, 'Free voice rounds used'),
-            el('div', { className:'vg-h' }, 'Upgrade to Pro for unlimited voice'),
+            el('div', { className:'vg-h' }, 'Keep going with a plan'),
             el('p', { className:'vg-body' },
-              'You\'ve hit the 3-session free cap. Voice runs on OpenAI\'s Realtime API, charged per audio minute, which is why it sits behind Pro. Typed mode stays unmetered for your account.',
+              'You\'ve used your 8 free voice rounds. Voice is new and runs on OpenAI\'s Realtime API (charged per audio minute), so the free tier is capped. Typed mode stays unmetered for your account.',
             ),
             el('a', {
               href:'/pricing', className:'cta vg-cta',
-            }, 'See Pro pricing →'),
+            }, 'See plans →'),
             el('a', { href:'/app#casual', className:'vg-fallback' }, 'or keep going in casual typed chat →'),
           ) :
           el(React.Fragment, null,
