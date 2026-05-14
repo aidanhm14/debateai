@@ -7,6 +7,14 @@
 // user_fingerprints/{uid} where the brain functions read it via
 // lib/user-fingerprints.mjs and inject it into every subsequent prompt.
 //
+// Also: when a user gets their FIRST fingerprint (no prior doc existed),
+// fire a one-time Resend email — "The AI just learned 5 things about
+// how you argue. Read it." Single highest-intent retention moment we
+// have: the AI has crossed a tangible threshold of personalization,
+// and the email previews the actual fingerprint text so the user has
+// a concrete reason to come back. Idempotent via user_profiles.
+// firstFingerprintEmailSentAt.
+//
 // Cost: ~$0.003 per user-pass via Haiku. At a cap of 60 users/night
 // that's ~$0.18/night, ~$5/month at current scale.
 //
@@ -18,6 +26,8 @@
 // Env vars:
 //   ANTHROPIC_API_KEY       — required
 //   GOOGLE_SERVICE_ACCOUNT  — for admin Firestore
+//   RESEND_API_KEY          — optional; missing = skip first-fingerprint emails
+//   FINGERPRINT_FROM        — email "from" header (default Aidan <hello@debateai.com>)
 //   FINGERPRINT_MAX_USERS   — cap per nightly run (default 60)
 //   FINGERPRINT_MIN_ROUNDS  — min generations to fingerprint (default 3)
 //   FINGERPRINT_FRESH_DAYS  — re-run if fingerprint older than this (default 7)
@@ -57,6 +67,117 @@ Rules:
 
 function safeText(s) {
   return (s || '').replace(/\s+/g, ' ').trim().slice(0, MAX_SAMPLE_CHARS);
+}
+
+const FROM_EMAIL = process.env.FINGERPRINT_FROM || 'Aidan <hello@debateai.com>';
+const REPLY_TO   = process.env.FINGERPRINT_REPLY_TO || 'aidandavidhollinger@gmail.com';
+const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
+
+function esc(s) {
+  return String(s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+}
+
+function buildFingerprintEmail({ firstName, fingerprint }) {
+  // Strip the fingerprint into the most-shareable bullets. The cron's
+  // strict output schema means we can splice deterministically.
+  const lines = String(fingerprint).split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const tryHref = `${SITE_URL}/debate-ai`;
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
+<div style="max-width:560px;margin:0 auto;padding:32px 24px">
+  <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;margin-bottom:24px">
+    <span style="color:#dc2626">Debate</span> AI
+  </div>
+  <h1 style="font-size:1.45rem;font-weight:800;letter-spacing:-.015em;line-height:1.2;color:#1a1a1f;margin:0 0 14px">
+    The AI just learned how you argue${firstName ? ', ' + firstName : ''}.
+  </h1>
+  <p style="font-size:.95rem;line-height:1.55;color:#3a3a44;margin:0 0 18px">
+    We ran a pass over your recent rounds. Here is the read it now carries into every round you run from this point on:
+  </p>
+  <div style="margin:0 0 22px;padding:18px 20px;border-left:3px solid #dc2626;background:rgba(220,38,38,.05);border-radius:0 10px 10px 0;font-size:.92rem;line-height:1.7;color:#1a1a1f;white-space:pre-line">${esc(lines.join('\n'))}</div>
+  <p style="font-size:.95rem;line-height:1.55;color:#3a3a44;margin:0 0 22px">
+    Your next round, the AI will push hardest on the weaknesses above and refuse to reward the moves it has already seen from you. The judge will call out the pattern by name if it shows up again. This is the part ChatGPT cannot do.
+  </p>
+  <a href="${tryHref}" style="display:inline-block;padding:13px 22px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;font-size:.92rem;border-radius:100px;letter-spacing:.02em">
+    Run a round against the sharper version →
+  </a>
+  <p style="font-size:.78rem;line-height:1.5;color:#6a6a74;margin:32px 0 0;border-top:1px solid #e8e8e0;padding-top:16px">
+    You are getting this because the AI just produced its first read of your style. We send this exactly once per signup, never again. Reply if you want to talk debate, the AI, or anything else.
+  </p>
+  <p style="font-size:.7rem;color:#8a8a94;margin:8px 0 0">
+    Debate AI · debateai.com · Built by an APDA national champion.
+  </p>
+</div>
+</body></html>`;
+}
+
+// Returns true on a successful Resend send, false on any skip
+// condition (no key, no email, already sent, send failure). Soft-fail:
+// the cron's other work continues regardless.
+async function sendFirstFingerprintEmail(db, uid) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) {
+    console.log('[fingerprint-email]', uid.slice(0, 6), 'skipped (RESEND_API_KEY missing)');
+    return false;
+  }
+
+  // Look up email + name + idempotency flag from user_profiles.
+  const profileRef = db.collection('user_profiles').doc(uid);
+  const profileSnap = await profileRef.get().catch(() => null);
+  if (!profileSnap || !profileSnap.exists) {
+    console.log('[fingerprint-email]', uid.slice(0, 6), 'no user_profiles doc, skip');
+    return false;
+  }
+  const profile = profileSnap.data();
+  if (profile.firstFingerprintEmailSentAt) {
+    // Defensive: should not happen since we gate on isFirst, but if
+    // somehow the cron re-runs on the same uid in the same window we
+    // shouldn't double-send.
+    return false;
+  }
+  const email = (profile.email || '').trim();
+  if (!email) {
+    console.log('[fingerprint-email]', uid.slice(0, 6), 'no email on profile, skip');
+    return false;
+  }
+
+  // Pull the fingerprint we just wrote.
+  const fpSnap = await db.collection('user_fingerprints').doc(uid).get().catch(() => null);
+  const fingerprint = (fpSnap && fpSnap.exists && fpSnap.data()?.fingerprint) || '';
+  if (!fingerprint) return false;
+
+  const firstName = (profile.displayName || '').trim().split(/\s+/)[0] || '';
+  const html = buildFingerprintEmail({ firstName, fingerprint });
+  const subject = 'The AI just learned how you argue';
+
+  const resp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${resendKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: FROM_EMAIL,
+      to: [email],
+      reply_to: REPLY_TO,
+      subject,
+      html,
+      tags: [{ name: 'category', value: 'first-fingerprint' }],
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    console.warn('[fingerprint-email]', uid.slice(0, 6), 'resend', resp.status, text.slice(0, 200));
+    return false;
+  }
+
+  // Mark sent so we never duplicate.
+  await profileRef.set({
+    firstFingerprintEmailSentAt: FieldValue.serverTimestamp(),
+  }, { merge: true }).catch(err => {
+    console.warn('[fingerprint-email]', uid.slice(0, 6), 'mark-sent failed:', err.message);
+  });
+  console.log('[fingerprint-email]', uid.slice(0, 6), '✓ sent to', email.slice(0, 3) + '***');
+  return true;
 }
 
 // Find users worth fingerprinting tonight. We can't query "users with
@@ -107,16 +228,21 @@ async function findCandidateUsers(db) {
   return candidates;
 }
 
-async function shouldFingerprint(db, uid) {
-  // Skip if fingerprint already fresh (within FRESH_DAYS).
+// Return whether this user is due for a fingerprint AND whether they
+// already have one (so the caller can decide whether to send the
+// first-fingerprint email).
+async function getFingerprintStatus(db, uid) {
   try {
     const fp = await db.collection('user_fingerprints').doc(uid).get();
-    if (!fp.exists) return true;
+    if (!fp.exists) return { needsRun: true, isFirst: true };
     const ts = fp.data()?.updatedAt?.toMillis?.() || 0;
     const ageMs = Date.now() - ts;
-    return ageMs > FRESH_DAYS * 24 * 60 * 60 * 1000;
+    return {
+      needsRun: ageMs > FRESH_DAYS * 24 * 60 * 60 * 1000,
+      isFirst: false,
+    };
   } catch {
-    return true;
+    return { needsRun: true, isFirst: true };
   }
 }
 
@@ -209,22 +335,37 @@ export default async () => {
   const candidates = await findCandidateUsers(db);
   console.log('[fingerprint] candidates:', candidates.length);
 
-  // Filter to users who actually need a refresh.
-  const needFresh = [];
+  // Filter to users who actually need a refresh + flag the new ones.
+  // first-fingerprint users get an email send after a successful run;
+  // refresh users just get a quiet update.
+  const queue = [];
   for (const uid of candidates) {
-    if (await shouldFingerprint(db, uid)) needFresh.push(uid);
+    const status = await getFingerprintStatus(db, uid);
+    if (status.needsRun) queue.push({ uid, isFirst: status.isFirst });
   }
-  console.log('[fingerprint] need refresh:', needFresh.length, 'of', candidates.length);
+  console.log('[fingerprint] need refresh:', queue.length, 'of', candidates.length, '(' + queue.filter(x => x.isFirst).length + ' new)');
 
   const results = [];
+  let emailsSent = 0;
   // Sequential — keeps Anthropic rate-limit pressure low, and lets us
   // cleanly bail on a single failure without stranding a bunch of
   // in-flight calls. 60 users × ~1.5s/call ~= 90s — fits comfortably
   // in the 10-min cron-function ceiling Netlify gives us.
-  for (const uid of needFresh) {
+  for (const { uid, isFirst } of queue) {
     try {
       const r = await fingerprintOne(db, uid);
       results.push(r);
+      // Fire the first-fingerprint email only on a successful first run.
+      // Email sender no-ops if RESEND_API_KEY isn't set or user has no
+      // email on user_profiles — neither should block the rest of the
+      // cron from finishing its writes.
+      if (isFirst && r.status === 'ok') {
+        const sent = await sendFirstFingerprintEmail(db, uid).catch(err => {
+          console.warn('[fingerprint-email]', uid.slice(0, 6), 'failed:', err.message);
+          return false;
+        });
+        if (sent) emailsSent += 1;
+      }
     } catch (err) {
       console.error('[fingerprint]', uid.slice(0, 6), 'crashed:', err.message);
       results.push({ uid: uid.slice(0, 6), status: 'crashed', error: err.message });
@@ -232,9 +373,9 @@ export default async () => {
   }
 
   const ok = results.filter(r => r.status === 'ok').length;
-  console.log('[fingerprint] done:', ok, '/', results.length);
+  console.log('[fingerprint] done:', ok, '/', results.length, '· emails:', emailsSent);
 
-  return new Response(JSON.stringify({ ok: true, processed: results.length, succeeded: ok, results }), {
+  return new Response(JSON.stringify({ ok: true, processed: results.length, succeeded: ok, emailsSent, results }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
