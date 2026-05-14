@@ -259,10 +259,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<!-- Shared UI primitives. source of truth for universal look-and-feel.
-     Loaded after fonts so tokens + primitives are available to inline styles below. -->
-<link rel="stylesheet" href="/css/ui.css">
+<!-- Non-blocking CSS via the media="print" onload swap. The browser
+     still downloads each file but does NOT block first paint while it
+     parses. Landing.html has its own inline theme tokens (see the
+     :root,[data-theme="grey"] block in the inline <style> below) so
+     above-the-fold renders correctly without these stylesheets.
+     PageSpeed mobile baseline 2026-05-14: FCP 4.9s LCP 8.8s on Slow 4G
+     — render-blocking CSS was the largest single contributor. Noscript
+     fallback covers the small slice of users with JS disabled. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"></noscript>
+<!-- Shared UI primitives. Topbar styles live here, but topbar.js
+     injects the nav post-parse so ui.css doesn't need to block the
+     hero render. -->
+<link rel="stylesheet" href="/css/ui.css" media="print" onload="this.media='all';this.onload=null">
+<noscript><link rel="stylesheet" href="/css/ui.css"></noscript>
 <!-- Firebase compat SDK for Google signup on landing.
      Deferred. saves ~200KB blocking on first paint, only matters when
      the user clicks the Google signup button (which runs after defer). -->
