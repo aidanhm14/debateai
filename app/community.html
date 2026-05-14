@@ -40,6 +40,10 @@
      Members surface above the tabs. The leaderboard surfaces use it too;
      having it loaded here keeps the membership UI self-contained. -->
 <script src="/js/community-seed.js"></script>
+<!-- visitor-counter.js calls /api/visitor-tick (server-side Firestore
+     atomic increment) on first device visit, GETs current count
+     otherwise. Powers the live MAU number in the Members surface. -->
+<script src="/js/visitor-counter.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <!-- Shared topbar styles. Loaded BEFORE the page's inline <style> so
@@ -155,6 +159,21 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 }
 .members-chip.anon{color:var(--text-ghost);font-style:italic}
 .members-tail{margin-top:10px;font-size:.7rem;color:var(--text-ghost);font-weight:500}
+.members-foot{
+  margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);
+  font-size:.7rem;line-height:1.55;color:var(--text-ghost);font-weight:500;
+  letter-spacing:.005em;
+}
+.members-foot strong{color:var(--text-dim);font-weight:700}
+.members-num.live{
+  /* Subtle pulse when the live count overrides the baseline so the
+     change isn't silent on a returning visitor refresh. */
+  animation:memCountPulse .9s ease-out;
+}
+@keyframes memCountPulse{
+  0%{color:#4ade80;text-shadow:0 0 14px rgba(74,222,128,.35)}
+  100%{color:var(--text);text-shadow:none}
+}
 
 /* Filter strip */
 .filters{
@@ -373,20 +392,26 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <p>Two surfaces here, both still filling in. <strong>Cases</strong> are disclosures other debaters published; read, vote, import, riff off. <strong>Discussion</strong> is the threaded forum: ask a question, post a take, fight about a motion. Private prep stays private; only what people opt to publish appears here. What you contribute now is what someone else lands on tomorrow.</p>
   </div>
 
-  <!-- Members surface. Public web-analytics framing: anyone who loads
-       the site is counted as a member. Baseline number tracks last-30-day
-       visitors (update `data-baseline` when the MAU shifts in HQ). The
-       lurker chip grid below shows the silent majority of joined accounts
-       that haven't run a public round yet. The thin band of actual
-       competitors lives on /leaderboard and in the Cases tab. -->
+  <!-- Members surface. Live MAU counter backed by /api/visitor-tick
+       (server-side atomic increment in Firestore). Baseline 7,074 in
+       data-baseline = May 2026 starting point; the live count drifts
+       up from there as new devices first-visit. The "MAU" framing is
+       intentional and gets unpacked in the body copy because most
+       non-product visitors don't know the term. The lurker chip grid
+       below shows the silent majority of joined accounts that haven't
+       run a public round yet; the thin band of actual competitors
+       lives on /leaderboard and in the Cases tab. -->
   <section class="members-surface" aria-label="Members">
     <div class="members-stat">
       <div class="members-num" id="memberCount" data-baseline="7074">7,074</div>
-      <div class="members-label"><strong>members.</strong> anyone who loads the site is counted. that's the metric.</div>
+      <div class="members-label"><strong>monthly active members.</strong> anyone who loaded the site in the last 30 days is counted live.</div>
     </div>
     <div class="members-you" id="memberYou">+ you, just now</div>
     <div class="members-grid" id="memberGrid" aria-label="Joined accounts"></div>
     <div class="members-tail" id="memberTail">most members don't post. that's normal.</div>
+    <div class="members-foot">
+      <strong>MAU</strong> = monthly active users. it's the standard product-analytics number. the count of distinct people who've used the site in the last 30 days. every product reports it, most never show it to users. this one does.
+    </div>
   </section>
 
   <!-- Discord CTA. Cases + Discussion below are async and fill in
@@ -880,8 +905,13 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         memTail.textContent = '+ ' + more + ' silent. most members don’t post. that’s normal.';
       }
     }
+    // The "+ you" line. Read the localStorage flag the visitor-counter
+    // module also reads/writes; if it's not present yet the counter
+    // call below will set it. We only read here so the displayed line
+    // matches state at the moment of paint.
+    var memCount = document.getElementById('memberCount');
     if (memYou){
-      var MEMBER_KEY = 'da-member-since';
+      var MEMBER_KEY = (window.DEBATEAI_VISITOR_COUNTER && window.DEBATEAI_VISITOR_COUNTER.KEY) || 'da-member-since';
       var stored = null;
       try { stored = localStorage.getItem(MEMBER_KEY); } catch(e){}
       if (stored){
@@ -891,9 +921,36 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           ? '+ you, returning today'
           : '+ you, member ' + days + 'd';
       } else {
-        try { localStorage.setItem(MEMBER_KEY, String(Date.now())); } catch(e){}
+        // Optimistic copy: visitor-counter.sync() writes the
+        // localStorage flag and fires onCount on success. If the
+        // counter call fails (no functions in local dev, network
+        // blip in prod), this text stays in place rather than
+        // sticking on a "joining…" pending state forever.
         memYou.textContent = '+ you, just joined';
       }
+    }
+
+    // Live counter call. Updates the headline number with the real
+    // Firestore-backed count. Falls through silently on failure; the
+    // baseline stays in place.
+    if (memCount && window.DEBATEAI_VISITOR_COUNTER && typeof window.DEBATEAI_VISITOR_COUNTER.sync === 'function'){
+      window.DEBATEAI_VISITOR_COUNTER.sync({
+        onCount: function(count, ticked){
+          var fmt = (window.DEBATEAI_VISITOR_COUNTER.fmt || function(n){return String(n)});
+          var old = memCount.textContent;
+          var next = fmt(count);
+          if (next !== old){
+            memCount.textContent = next;
+            memCount.classList.remove('live');
+            // Force reflow so the animation re-runs on each diff.
+            void memCount.offsetWidth;
+            memCount.classList.add('live');
+          }
+          if (ticked && memYou){
+            memYou.textContent = '+ you, just joined';
+          }
+        }
+      });
     }
   } catch(e){ console.warn('[community] members surface init failed', e); }
 
