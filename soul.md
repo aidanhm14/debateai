@@ -42,7 +42,7 @@ Five things, in order of importance:
 
 3. **Built by someone who won.** The creator is a national APDA champion. Most AI-product founders can say "I used AI to build this"; very few can say "I actually argued in this format at the top of the country." Surface this on the landing, not just the footer.
 
-4. **Four brains + HD voice on paid.** Claude, GPT, Gemini, Grok. The $5/mo tier is where users get the full engine. BYOK is Anthropic-only and labeled as such.
+4. **Four brains + HD voice on paid.** Claude, GPT, Gemini, Grok. The $5/year Individual tier is where users get the full engine. BYOK is Anthropic-only and labeled as such. (Currently in beta — every tier is $0 while we figure out pricing; see §7.)
 
 5. **A learning loop that gets sharper every night** (live as of 2026-05-13). Every typed AI turn and every voice-round transcript writes to `generations`. Admin-weighted past rounds get pulled back into the system prompt of future rounds matching the same motion + format. A nightly Haiku pass distills the top-rated rounds per format into a "PATTERNS THAT WORK" block that also feeds back into prompts. The AI on motion X today is meaningfully different from the AI on motion X last month — see decision log 2026-05-13.
 
