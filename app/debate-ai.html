@@ -5259,6 +5259,15 @@ function App(){
   const[panelText,setPanelText]=useState(''); // streaming 3-judge deliberation
   const[panelResult,setPanelResult]=useState(null); // parsed vote tally
   const[panelLoading,setPanelLoading]=useState(false);
+
+  // Second-opinion judge state. Single click pulls a parallel ballot
+  // from a different brain (Claude → GPT or vice versa) so the user
+  // gets a real two-judge read instead of one model talking to itself.
+  // Paid-tier only because GPT/Gemini are paid via requirePaidPlan.
+  const[secondOpinionText,setSecondOpinionText]=useState('');
+  const[secondOpinionLoading,setSecondOpinionLoading]=useState(false);
+  const[secondOpinionBrain,setSecondOpinionBrain]=useState('');
+  const[secondOpinionBallot,setSecondOpinionBallot]=useState(null);
   // Post-round auto flow sheet. AI reads the full round transcript and
   // produces a compact per-speech flow, arguments, warrants, drops,
   // extensions, turns, so the student can study the round the way a
@@ -5521,6 +5530,62 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       setPanelText('Could not generate panel deliberation: '+e.message);
     }
     setPanelLoading(false);
+  };
+
+  // Second-opinion judge: re-runs the single-judge ballot against a
+  // different brain so the user sees a real two-judge read. Useful
+  // when the first ballot feels off, or when the user wants to know
+  // whether the call is brain-specific. Mirrors genFeedback's prompt
+  // wiring (same paradigm note, same promptId, same body) so the
+  // only variable is the underlying model.
+  //
+  // Brain selection rule:
+  //   - current brain claude → second opinion from openai (GPT)
+  //   - current brain openai → second opinion from claude
+  //   - gemini / grok → second opinion from claude (stable default)
+  // Server-side requirePaidPlan blocks anon and free users on the
+  // non-claude paths, which is exactly the gate we want.
+  const genSecondOpinion=async(allLog)=>{
+    if (secondOpinionLoading) return;
+    const otherBrain = brain === 'claude' ? 'openai'
+                     : brain === 'openai' ? 'claude'
+                     : 'claude';
+    setSecondOpinionLoading(true);
+    setSecondOpinionText('');
+    setSecondOpinionBallot(null);
+    setSecondOpinionBrain(otherBrain);
+    const tx=allLog.map(l=>`[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
+    try{
+      let raw='';
+      const paradigmNote = (customParadigm && customParadigm.trim())
+        ? 'THIS ROUND IS IN FRONT OF A SPECIFIC REAL JUDGE. Their paradigm is below (verbatim). Your ballot MUST be written AS this judge, their voting priorities, their language, their vote. Do not water this down to a generic ballot.\n\n---JUDGE PARADIGM (VERBATIM)---\n'+customParadigm.trim()+'\n---END PARADIGM---\n\n'
+        : (judgeParadigm && JUDGE_PARADIGMS[judgeParadigm])
+          ? 'Judge paradigm the user selected for this round: '+JUDGE_PARADIGMS[judgeParadigm].label+'.\n'+JUDGE_PARADIGMS[judgeParadigm].prompt+'\nYour ballot MUST be written in the voice of this paradigm, weigh and decide the way this judge would.\n\n'
+          : '';
+      const ts=window.TypeStream&&window.TypeStream.create(setSecondOpinionText,{cps:120});
+      const fb=await callAI('',paradigmNote+'Full round transcript:\n\n'+tx,chunk=>{raw=chunk;if(ts)ts.feed(chunk);else setSecondOpinionText(chunk)},otherBrain,{
+        promptId:'singleJudgeBallot',
+        promptVars:{ fmtName:fmt.name, motion:motion, sideLabel:fmt.sideLabels[side]||side },
+      });
+      if(ts)ts.done();
+      setSecondOpinionText(fb);
+      // Parse structured ballot just like genFeedback does. The
+      // disagreement detection in the render uses the parsed winners.
+      try{
+        let cleaned=fb.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+        const firstBrace=cleaned.indexOf('{');
+        const lastBrace=cleaned.lastIndexOf('}');
+        if(firstBrace>=0 && lastBrace>firstBrace){
+          cleaned=cleaned.slice(firstBrace,lastBrace+1);
+        }
+        const parsed=JSON.parse(cleaned);
+        setSecondOpinionBallot(parsed);
+      }catch{ /* keep raw text only */ }
+      try{ window.gtag && gtag('event','second_opinion_pulled',{ first_brain:brain, second_brain:otherBrain }) }catch(e){}
+    }catch(e){
+      setSecondOpinionText('Could not pull a second opinion: '+e.message);
+    }
+    setSecondOpinionLoading(false);
   };
 
   const genFeedback=async(allLog)=>{
@@ -8400,6 +8465,50 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             ),
           ),
           drillPlan && drillPlan.error && el('div',{style:{marginTop:12,padding:'10px 14px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',borderRadius:10,fontSize:'.78rem',color:'#fca5a5',textAlign:'center',maxWidth:480,margin:'12px auto 0'}},drillPlan.error),
+        ),
+
+        // Second-opinion panel — paid-tier users can pull a parallel
+        // ballot from a different brain. Renders only when there is
+        // a primary ballot AND the user is on a paid plan (since
+        // GPT/Gemini are paid-only on the server). Shows the disagree
+        // banner when the two judges land on different winners — that's
+        // the moment that makes a "panel of judges" feel real.
+        user && team && ['individual','team','lifetime'].includes(team.plan) && ballot && !panelText && el('div',{style:{
+          marginTop:28,
+          padding:'18px 22px',
+          borderRadius:14,
+          background:'linear-gradient(135deg,rgba(96,165,250,.06),rgba(168,85,247,.04))',
+          border:'1px solid rgba(96,165,250,.22)',
+        }},
+          !secondOpinionText && !secondOpinionLoading && el('div',{style:{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}},
+            el('div',{style:{flex:1,minWidth:200}},
+              el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#93c5fd',marginBottom:4}},'Second opinion'),
+              el('div',{style:{fontSize:'.86rem',color:'var(--c-text)',lineHeight:1.45}},'Pull a parallel ballot from a different brain. The two judges sometimes disagree — that is the moment the panel feels real.'),
+            ),
+            el('button',{
+              onClick:()=>genSecondOpinion(log),
+              style:{
+                padding:'9px 18px',borderRadius:999,
+                background:'rgba(96,165,250,.18)',border:'1px solid rgba(96,165,250,.42)',
+                color:'#bfdbfe',fontSize:'.78rem',fontWeight:800,letterSpacing:'.02em',
+                cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0,
+              },
+            },'Get a second judge\'s read'),
+          ),
+          secondOpinionLoading && !secondOpinionText && el('div',{style:{fontSize:'.82rem',color:'var(--c-muted)',fontStyle:'italic'}},'Second judge deliberating...'),
+          secondOpinionText && el('div',{},
+            el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:8,flexWrap:'wrap',gap:8}},
+              el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#93c5fd'}},'Second opinion · '+(secondOpinionBrain==='openai'?'GPT':secondOpinionBrain==='claude'?'Claude':secondOpinionBrain)),
+              ballot && secondOpinionBallot && ballot.winner && secondOpinionBallot.winner && ballot.winner !== secondOpinionBallot.winner && el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'#fbbf24',padding:'3px 10px',borderRadius:999,background:'rgba(251,191,36,.10)',border:'1px solid rgba(251,191,36,.32)'}},'Judges disagree')
+            ),
+            secondOpinionBallot && secondOpinionBallot.winner && el('div',{style:{padding:'12px 16px',borderRadius:10,marginBottom:10,background:secondOpinionBallot.winner==='user'?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)',border:'1px solid '+(secondOpinionBallot.winner==='user'?'rgba(34,197,94,.28)':'rgba(239,68,68,.28)')}},
+              el('div',{style:{fontSize:'1.05rem',fontWeight:900,color:secondOpinionBallot.winner==='user'?'#22c55e':'#ef4444',marginBottom:4,letterSpacing:'-.01em'}},
+                secondOpinionBallot.winner==='user'?'You Win':'Opponent Wins'
+              ),
+              secondOpinionBallot.decision && el('div',{style:{fontSize:'.82rem',color:'var(--c-text4)',lineHeight:1.55}},secondOpinionBallot.decision),
+            ),
+            !secondOpinionBallot && el('div',{style:{fontSize:'.86rem',color:'var(--c-text)',lineHeight:1.6,whiteSpace:'pre-wrap'}},secondOpinionText)
+          ),
         ),
 
         el('div',{id:'fb-transcript',style:{scrollMarginTop:80}}),
