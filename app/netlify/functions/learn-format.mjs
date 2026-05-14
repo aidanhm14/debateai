@@ -229,5 +229,10 @@ export default async (request) => {
 };
 
 export const config = {
-  path: '/api/learn/formats/:slug',
+  // Wildcard then URL-parse the slug from request.url. Netlify v2's
+  // :param syntax has been flaky for deep paths in this codebase
+  // (4 segments: /api + /learn + /formats + /{slug}); the wildcard
+  // path is well-trodden by today.mjs and r.mjs so this pattern is
+  // proven to deploy.
+  path: '/api/learn/formats/*',
 };
