@@ -22,11 +22,15 @@ import { getDb } from './firestore.mjs';
 const cache = new Map();
 const CACHE_MS = 60 * 60 * 1000;
 
-// Same feature gate as exemplars + distillations: only debate-generation
-// features get user-style injection. Judge / philosophy / casual chat
-// shouldn't pull a fingerprint (they're not the user arguing).
+// Feature gate. Same as exemplars + distillations for the generation
+// path, PLUS 'judge' — the RFD writer benefits even more from knowing
+// the user's pattern history. A ballot that says "you dropped
+// counter-warrants again, same as last week" reads as coaching, not
+// just judging. Philosophy / casual / Vision stay excluded — those
+// aren't the user arguing or being judged.
 const FINGERPRINT_FEATURES = new Set([
   'case', 'tightblock', 'opp_attack', 'opponent', 'rebuttal', 'sneaky',
+  'judge',
 ]);
 
 async function getFingerprint(uid) {
@@ -68,11 +72,25 @@ export async function applyUserFingerprint(body, uid) {
     // "here's how THIS user argues" up front, then the format-specific
     // rules can reinforce or override on the way down. Format rules
     // still win conflicts because voice-guidelines.mjs appends last.
+    //
+    // Instruction varies by feature: opponents pressure-test the habits,
+    // judges reference recurring patterns by name in the ballot.
+    const isJudge = feature === 'judge';
+    const instruction = isJudge
+      ? [
+          'You are judging a round by this debater. When their CURRENT round',
+          'demonstrates one of the patterns above (a recurring strength or',
+          'weakness), call it out by name in the ballot. Coaching > judging.',
+          'Don\'t invent patterns the fingerprint doesn\'t name.',
+        ].join('\n')
+      : [
+          'Use this to pressure-test their habits — push back hardest where',
+          'they\'re weakest, don\'t reward moves the fingerprint flags as crutches.',
+        ].join('\n');
     const block = [
       '─── USER STYLE (this debater\'s patterns from prior rounds) ───',
       fingerprint,
-      'Use this to pressure-test their habits — push back hardest where',
-      'they\'re weakest, don\'t reward moves the fingerprint flags as crutches.',
+      instruction,
       '─── END USER STYLE ───',
       '',
     ].join('\n');

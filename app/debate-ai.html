@@ -6449,6 +6449,49 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           },'Continue without'),
         ),
       ),
+      // Drill target \u2014 visible side of the fingerprint loop. When the
+      // nightly user-fingerprint cron has produced a profile for this
+      // user, parse out the "Recurring weaknesses" line and surface it
+      // here as a pre-round briefing. Closes the visibility loop on the
+      // personalization system: server-side the AI now plays differently
+      // against each user; here the user finally SEES what's coming.
+      //
+      // Skipped silently when no fingerprint exists (anon users,
+      // sub-3-round users, or users awaiting their first nightly run).
+      // Counter mode also skips \u2014 it has its own onboarding.
+      (function(){
+        if (isCounterExt) return null;
+        if (!styleSummary || !styleSummary.fingerprint || !styleSummary.fingerprint.text) return null;
+        const text = styleSummary.fingerprint.text;
+        // Pull the "Recurring weaknesses" line. The fingerprint follows
+        // a strict schema set in scheduled-user-fingerprint.mjs, so a
+        // simple regex is enough \u2014 no LLM round-trip needed.
+        const weaknessMatch = text.match(/Recurring weaknesses?:\s*([^\n]+)/i);
+        const movesMatch = text.match(/Signature moves?:\s*([^\n]+)/i);
+        if (!weaknessMatch && !movesMatch) return null;
+        const weakness = weaknessMatch ? weaknessMatch[1].trim() : '';
+        const moves = movesMatch ? movesMatch[1].trim() : '';
+        return el('div',{style:{
+          marginTop:14, marginBottom:6,
+          padding:'12px 14px',
+          background:'linear-gradient(135deg,rgba(239,68,68,.07),rgba(245,158,11,.04))',
+          border:'1px solid rgba(239,68,68,.22)',
+          borderRadius:12,
+          textAlign:'left',
+        }},
+          el('div',{style:{fontSize:'.6rem',fontWeight:800,letterSpacing:'.16em',textTransform:'uppercase',color:'#fca5a5',marginBottom:6}},'\ud83c\udfaf Today\'s drill target'),
+          weakness && el('div',{style:{fontSize:'.86rem',color:'var(--c-text)',lineHeight:1.5,marginBottom:moves?6:0}},
+            'The AI is primed to push hardest on: ',
+            el('strong',{style:{color:'#fca5a5'}},weakness)
+          ),
+          moves && !weakness && el('div',{style:{fontSize:'.86rem',color:'var(--c-text)',lineHeight:1.5}},
+            'The AI knows your signature moves (',
+            el('em',{style:{color:'#fca5a5'}},moves),
+            '). Expect it to neutralize them early \u2014 bring something new.'
+          ),
+          el('div',{style:{fontSize:'.62rem',color:'var(--c-dim)',marginTop:6,fontStyle:'italic',lineHeight:1.45}},'From your last ',(styleSummary.fingerprint.sampleCount || 'few'),' rounds. The judge will also call out the pattern if you repeat it.')
+        );
+      })(),
       // Framing callout removed \u2014 read as a warning banner; the orb +
       // setup form already make it clear this is a speech simulator.
       // One-tap quick start. picks a random motion, Quick Clash format
