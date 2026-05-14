@@ -2796,6 +2796,13 @@ function useTTS(){
   // can pass `intensity: Math.min(1, Math.max(0, (speed-1.0)/1.0))`.
   // Default voice 'sage' (The Philosopher) is the calmest option; callers
   // override per-character.
+  // Per the funnel-fix scoping doc (Fix #2): same 5s timeout applies here
+  // so the single-shot `tts.speak` path (used by speakWithError below as
+  // the round-level fallback target) propagates TTS_TIMEOUT to its catch
+  // handler instead of hanging, which is what triggers the browser-TTS
+  // fallback. Without this timeout, the fallback's own HD attempt could
+  // hang and the user still ends up watching silence.
+  const TTS_SINGLE_TIMEOUT_MS = 5000;
   const fetchTTS=(text,speed,voiceName,intensity)=>{
     const i = typeof intensity === 'number' ? Math.min(1,Math.max(0,intensity)) : 0;
     // useTTS lives at module scope; can't close over App-level state.
@@ -2804,7 +2811,7 @@ function useTTS(){
     // without needing to thread state down through the hook.
     let providerPref;
     try{providerPref = localStorage.getItem('debateos-tts-provider')||'elevenlabs'}catch{providerPref='elevenlabs'}
-    return fetch('/api/tts',{
+    const fetchP = fetch('/api/tts',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({text:stripPlainMd(text).slice(0,4000),voice:voiceName||'sage',speed,premium:isPro(),intensity:i,provider:isPro()?providerPref:undefined}),
@@ -2812,6 +2819,8 @@ function useTTS(){
       if(!r.ok) throw new Error('TTS '+r.status);
       return r.blob();
     });
+    const timeoutP = new Promise((_,rej)=>setTimeout(()=>rej(new Error('TTS_TIMEOUT')),TTS_SINGLE_TIMEOUT_MS));
+    return Promise.race([fetchP, timeoutP]);
   };
 
   // Browser fallback
@@ -4987,13 +4996,22 @@ function App(){
         // peaks, but not tied to playback speed (the prior bug that made fast
         // speech also sound breathless and overcaffeinated).
         const ttsIntensity=0.45;
+        // Fix #2 from the funnel-fix scoping doc: 5-second per-chunk timeout.
+        // The previous behavior silently swallowed hung /api/tts requests
+        // (no timeout in fetch + .catch returns null but the promise never
+        // resolves at all), which meant the chunked TTS pipeline could stall
+        // the playback gate forever. With the timeout, a stuck chunk rejects
+        // after 5s, downstream sees null, the next chunk runs, and worst case
+        // the round-level browser-TTS fallback (audioActuallyPlayed check
+        // below) takes over.
+        const TTS_CHUNK_TIMEOUT_MS = 5000;
         const fetchTTSBlob=(text)=>{
           // Scrub markdown before TTS: ElevenLabs Turbo handles `**bold**`
           // gracefully (silently ignores) but tts-1 occasionally pronounces
           // stray asterisks or hash signs. Stripping defensively keeps the
           // delivery clean across providers.
           const input=stripPlainMd(text).slice(0,4000);
-          return fetch('/api/tts',{
+          const fetchP = fetch('/api/tts',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro(),intensity:ttsIntensity,provider:isPro()?ttsProvider:undefined}),
@@ -5001,6 +5019,8 @@ function App(){
             if(!r.ok) throw new Error('TTS '+r.status);
             return r.blob();
           });
+          const timeoutP = new Promise((_,rej)=>setTimeout(()=>rej(new Error('TTS_TIMEOUT')),TTS_CHUNK_TIMEOUT_MS));
+          return Promise.race([fetchP, timeoutP]);
         };
 
         // Strip <plan>/<thinking> tags from AI output. including incomplete open tags during streaming
@@ -5014,8 +5034,16 @@ function App(){
         const MIN_CHUNK_WORDS=25;
         const MAX_CHUNK_WORDS=200;
         let playbackStarted=false;
+        // Fix #2 round-level safety net: track whether any HD chunk actually
+        // played audio. If the pipeline finishes with this still false (all
+        // chunks timed out / 5xx'd / returned silent buffers), kick browser
+        // SpeechSynthesis on the final text so the user hears the AI before
+        // endSpeech fires. Silent rounds are the abandonment trigger this
+        // fix is targeting.
+        let audioActuallyPlayed=false;
 
         const onAudioStart=()=>{
+          audioActuallyPlayed=true;
           stopThinking();
           setAiLoading(false);
           timer.go(s.time);
@@ -5040,7 +5068,12 @@ function App(){
           }
           if(splitText.length<20) return;
           lastChunkEnd+=clean.slice(lastChunkEnd).indexOf(splitText)+splitText.length;
-          const blobP=fetchTTSBlob(splitText).catch(e=>{console.warn('[TTS] Chunk failed:',e);return null});
+          const blobP=fetchTTSBlob(splitText).catch(e=>{
+            const isTimeout = /TIMEOUT/.test(String(e&&e.message));
+            console.warn('[TTS] Chunk failed:', (e&&e.message)||e, isTimeout?'(timeout)':'');
+            try{ if(typeof gtag==='function') gtag('event','tts_chunk_failed',{reason: isTimeout?'timeout':'error'}); }catch{}
+            return null;
+          });
           blobPromises.push(blobP);
           console.log(`%c[TTS] Chunk ${blobPromises.length} queued (${splitText.split(/\s+/).length} words)`,'color:cyan');
 
@@ -5059,7 +5092,34 @@ function App(){
             // and we honor it for the rest of the session + future visits.
             let skipGate = false;
             try { skipGate = localStorage.getItem('debateos-skip-ai-countdown') === '1'; } catch(e){}
-            const startFn = () => tts.playChunks(blobPromises,()=>{orb.setMode('idle');setTimeout(()=>endSpeech(),800)},onAudioStart);
+            const onAudioEnd = async () => {
+              orb.setMode('idle');
+              if (!audioActuallyPlayed) {
+                // HD pipeline produced no audio (every chunk timed out or
+                // 5xx'd). Last-resort browser SpeechSynthesis on the final
+                // speech text so the round doesn't end in silence — the
+                // abandonment trigger this fix is targeting. tts.speak has
+                // its own HD→browser fallback inside it, and with the 5s
+                // timeout added to fetchTTS above it reaches the browser
+                // branch deterministically when /api/tts is hung.
+                try{ if(typeof gtag==='function') gtag('event','tts_fallback_browser',{reason:'no-hd-audio'}); }catch{}
+                try{
+                  // txt is the closure-captured const assigned after callAI
+                  // resolves; by the time playChunks fires this onEnd the
+                  // assignment has happened (blobPromises._done is set in
+                  // the same block right after `const txt = ...`). The
+                  // try/catch is defensive against the TDZ-throw edge case.
+                  if (txt && typeof txt === 'string') {
+                    stopThinking();
+                    setAiLoading(false);
+                    timer.go(s.time);
+                    await new Promise(res => tts.speak(txt, 200, res, voice));
+                  }
+                }catch{}
+              }
+              setTimeout(()=>endSpeech(),800);
+            };
+            const startFn = () => tts.playChunks(blobPromises, onAudioEnd, onAudioStart);
             aiStartRef.current = startFn;
             if (skipGate) {
               console.log('%c[TTS] Audio ready, skip-gate preference honored','color:lime;font-weight:bold');
