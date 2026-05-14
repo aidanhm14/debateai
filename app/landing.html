@@ -3740,6 +3740,8 @@ section.ui-section .ui-lede{
         <span class="hero-pill-sep" aria-hidden="true">·</span>
         <a href="/rounds" class="hero-pill" title="Browse recently published debate rounds">Rounds</a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
+        <a href="/champions" class="hero-pill" title="Friday Night Finals roll of honor — founder-judged live round each week">Champions</a>
+        <span class="hero-pill-sep" aria-hidden="true">·</span>
         <a href="/app#case" class="hero-pill">Prep</a>
       </div>
 
@@ -4785,6 +4787,82 @@ section.ui-section .ui-lede{
     </div>
   </div>
 </section>
+
+<!-- ── Round of the week ──
+     One curated /r/{id} per week pinned by the founder. Empty state
+     until the first pick lands; once ROUND_OF_WEEK.id is set in the
+     inline config below + the page redeploys, the card flips to the
+     pinned variant. Stale guard: if weekOf is more than 14 days old
+     we revert to the empty state so an unpinned week doesn't surface
+     a stale "this week" claim. -->
+<section class="row-section" aria-label="Round of the week">
+  <div class="row-wrap">
+    <div class="row-eyebrow">Round of the week</div>
+    <div class="row-empty-text">
+      One round each week, picked by the founder for the move worth studying. The first lands as soon as the bracket gives us one.
+    </div>
+    <a href="/rounds" class="row-empty-cta">Browse published rounds →</a>
+  </div>
+</section>
+<script>
+  // Edit ROUND_OF_WEEK weekly to pin a new round. Set id to a real
+  // published /r/{id}, fill motion + byline + note, stamp weekOf to
+  // the Monday of the week. Push + redeploy.
+  // Empty config = empty state renders. Stale config (weekOf > 14
+  // days old) = also reverts to empty state.
+  var ROUND_OF_WEEK = {
+    id: '',
+    motion: '',
+    byline: '',
+    note: '',
+    weekOf: '',
+  };
+  (function(){
+    if (!ROUND_OF_WEEK.id) return;
+    if (ROUND_OF_WEEK.weekOf) {
+      var w = new Date(ROUND_OF_WEEK.weekOf + 'T00:00:00Z');
+      if (!isNaN(w.getTime()) && Date.now() - w.getTime() > 14*86400000) return;
+    }
+    var wrap = document.querySelector('.row-section .row-wrap');
+    if (!wrap) return;
+    wrap.className = 'row-wrap row-wrap-pinned';
+    while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+    function add(cls, tag, text){
+      var n = document.createElement(tag || 'div');
+      if (cls) n.className = cls;
+      if (text) n.textContent = text;
+      wrap.appendChild(n);
+      return n;
+    }
+    add('row-eyebrow', 'div', 'Round of the week');
+    add('row-motion', 'div', '"' + (ROUND_OF_WEEK.motion || '') + '"');
+    if (ROUND_OF_WEEK.byline) add('row-byline', 'div', ROUND_OF_WEEK.byline);
+    if (ROUND_OF_WEEK.note) add('row-note', 'div', ROUND_OF_WEEK.note);
+    var cta = add('row-cta', 'a', 'Read the round →');
+    cta.href = '/r/' + encodeURIComponent(ROUND_OF_WEEK.id);
+  })();
+</script>
+<style>
+  .row-section{padding:24px 24px 12px;background:transparent}
+  .row-wrap{max-width:760px;margin:0 auto;padding:22px 26px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);text-align:center;transition:.2s}
+  .row-eyebrow{font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:10px}
+  .row-empty-text{font-size:.92rem;color:var(--text-dim);line-height:1.55;margin-bottom:14px;max-width:520px;margin-left:auto;margin-right:auto}
+  .row-empty-cta{display:inline-block;padding:9px 18px;border-radius:999px;background:transparent;border:1px solid var(--border);color:var(--text);font-size:.82rem;font-weight:600;letter-spacing:.02em;transition:.15s;text-decoration:none}
+  .row-empty-cta:hover{background:var(--bg-card);border-color:var(--text-ghost)}
+  .row-wrap-pinned{text-align:left;padding:24px 28px;border-color:rgba(239,68,68,.28)}
+  .row-wrap-pinned .row-eyebrow{color:var(--accent)}
+  .row-wrap-pinned .row-motion{font-family:'Playfair Display',serif;font-style:italic;font-weight:700;font-size:1.32rem;line-height:1.3;color:var(--text);margin-bottom:8px}
+  .row-wrap-pinned .row-byline{font-size:.74rem;color:var(--text-dim);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+  .row-wrap-pinned .row-note{font-size:.95rem;color:var(--text-dim);line-height:1.6;margin-bottom:16px;font-style:italic;padding:10px 14px;border-left:2px solid var(--accent);background:rgba(239,68,68,.04);border-radius:0 8px 8px 0}
+  .row-wrap-pinned .row-cta{display:inline-block;color:var(--accent);font-weight:700;font-size:.86rem;letter-spacing:.02em;text-decoration:none}
+  .row-wrap-pinned .row-cta:hover{text-decoration:underline}
+  @media(max-width:680px){
+    .row-section{padding:16px 16px 8px}
+    .row-wrap{padding:18px 18px}
+    .row-wrap-pinned{padding:20px}
+    .row-wrap-pinned .row-motion{font-size:1.15rem}
+  }
+</style>
 
 <!-- ── Live-round proof. A real screenshot from /live showing the AI
      judge having just written a ballot (anonymous wins, Pro over Con,

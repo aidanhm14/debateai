@@ -290,7 +290,7 @@ function renderPage(date, dateStr, motion, recentRounds) {
 
   <footer>
     <span>© 2026 Debate AI</span>
-    <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/learn">Learn</a></span>
+    <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/champions">Champions</a> · <a href="/learn">Learn</a></span>
   </footer>
 </main>
 ${isToday ? `<script>
