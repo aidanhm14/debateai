@@ -252,6 +252,13 @@
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
+<!-- Preconnect to font + Firebase CDNs. Saves ~150-300ms on mobile 4G
+     by overlapping the TLS handshake with the HTML parse. Without these
+     the browser doesn't start the connection until it parses the matching
+     <link rel="stylesheet"> or <script src> tag below. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <!-- Shared UI primitives. source of truth for universal look-and-feel.
      Loaded after fonts so tokens + primitives are available to inline styles below. -->
@@ -2129,7 +2136,24 @@ section.hero{
   font-size:1.02rem;line-height:1.55;
   color:rgba(255,255,255,.95);
   font-weight:400;
-  min-height:1.55em;
+  /* Reserve enough height for the longest typed-out body so the row
+     doesn't grow as the typing animation progresses. Was 1.55em (one
+     line) which let the card stretch from ~80px to ~480px on every
+     motion swap — measured CLS 0.857 on desktop, 0.215 mobile.
+     6em ≈ 4 lines of body at line-height 1.55, comfortably above the
+     normal "You" row length. AI + Judge rows get specific overrides
+     below since AI runs longer and Judge runs shorter. */
+  min-height:6em;
+}
+.rebuttal-row-ai .rebuttal-body{
+  /* AI rebuttal is the longest row in the rotation — reserve 6.5
+     lines so even the verbose motions don't push siblings down. */
+  min-height:8em;
+}
+.rebuttal-row-judge .rebuttal-body{
+  /* Judge note is always one short sentence. Don't reserve the same
+     dead space the AI row needs. */
+  min-height:2.2em;
 }
 [data-theme="light"] .rebuttal-body{color:rgba(0,0,0,.88)}
 .rebuttal-row-judge .rebuttal-body{
