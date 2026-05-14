@@ -21,6 +21,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@1,700;1,900&display=swap" rel="stylesheet">
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script defer src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
 <!-- A/B test scaffold. Assigns visitors to hero-copy variants
@@ -451,9 +452,13 @@
 <div id="status" class="status"></div>
 
 <script>
-  // Wire up the checkout buttons. Each CTA with data-checkout="<plan>" triggers
-  // the app's /api/billing/checkout flow. If the user isn't signed in, we
-  // bounce them to /app first with a querystring hint to resume the upgrade.
+  // Wire up the checkout buttons. Each CTA with data-checkout="<plan>"
+  // routes to one of two providers:
+  //   - Stripe (rest of world)      → /api/billing/checkout
+  //   - Razorpay (India, INR + UPI) → /api/billing/razorpay-order
+  // The branch is decided by /api/billing/region, which reads the
+  // Netlify-edge x-country header. India = 80% of traffic; UPI is the
+  // checkout-friction unlock there.
   const FIREBASE_CONFIG = {
     apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),
     authDomain: 'debateos-78ac5.firebaseapp.com',
@@ -477,25 +482,141 @@
     auth = firebase.auth();
   }
 
+  // Region info: { provider, currency, prices, country }.
+  // Populated on load; checkout falls back to Stripe if the fetch fails
+  // (worst case for an Indian user: they see USD prices and a Stripe
+  // checkout still works — Razorpay is a strict upgrade, not a gate).
+  let regionInfo = { provider: 'stripe', currency: 'USD', prices: null, country: null };
+
+  // Map of plan → cadence text in INR (Razorpay path).
+  // Stripe path keeps the existing in-DOM copy untouched.
+  function applyIndiaPricing(prices) {
+    if (!prices) return;
+    document.querySelectorAll('[data-plan]').forEach(card => {
+      const plan = card.getAttribute('data-plan');
+      const info = prices[plan];
+      if (!info) return;
+      const priceEl = card.querySelector('.price');
+      const cadenceEl = card.querySelector('.cadence');
+      if (priceEl) priceEl.textContent = info.display;
+      if (cadenceEl) {
+        cadenceEl.textContent = info.cadence === 'month' ? '/ month' : 'once';
+      }
+    });
+
+    // Surface the trust signal — UPI is THE reason this is here.
+    const eyebrow = document.getElementById('heroEyebrow');
+    if (eyebrow && !eyebrow.dataset.indianApplied) {
+      eyebrow.textContent = 'Pay with UPI · Indian pricing';
+      eyebrow.dataset.indianApplied = '1';
+    }
+  }
+
+  async function loadRegion() {
+    try {
+      const res = await fetch('/api/billing/region', { method: 'GET' });
+      if (!res.ok) return;
+      const data = await res.json();
+      regionInfo = Object.assign(regionInfo, data || {});
+      if (regionInfo.provider === 'razorpay' && regionInfo.prices) {
+        applyIndiaPricing(regionInfo.prices);
+      }
+    } catch (_) { /* keep Stripe defaults */ }
+  }
+
+  // Razorpay Checkout opens a hosted modal. On success it calls our
+  // handler with { razorpay_payment_id, razorpay_order_id,
+  // razorpay_signature } which we POST to /api/billing/razorpay-verify
+  // for server-side HMAC validation + immediate plan activation.
+  async function startRazorpayCheckout(plan, button, user, originalText) {
+    if (!window.Razorpay) {
+      showStatus('Payment widget is still loading. Try again in a moment.', true);
+      button.textContent = originalText;
+      button.disabled = false;
+      return;
+    }
+
+    const token = await user.getIdToken();
+    const res = await fetch('/api/billing/razorpay-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ plan }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 404 && data.error === 'NEEDS_TEAM') {
+      sessionStorage.setItem('intended_plan', plan);
+      location.href = '/app?upgrade=' + encodeURIComponent(plan) + '&needs_team=1';
+      return;
+    }
+    if (!res.ok) throw new Error(data.error || 'Checkout failed (' + res.status + ')');
+
+    const rzp = new window.Razorpay({
+      key: data.keyId,
+      order_id: data.orderId,
+      amount: data.amount,
+      currency: data.currency,
+      name: 'DebateAI',
+      description: data.planLabel + ' · ' + plan,
+      prefill: data.prefill || {},
+      theme: { color: '#ef4444' },
+      handler: async function (response) {
+        try {
+          const verifyRes = await fetch('/api/billing/razorpay-verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify(response),
+          });
+          const verifyData = await verifyRes.json().catch(() => ({}));
+          if (!verifyRes.ok || !verifyData.ok) {
+            throw new Error(verifyData.error || 'Could not confirm payment.');
+          }
+          // Match the Stripe success-url shape so /app's post-billing
+          // UI fires identically. The webhook is a backup in case the
+          // user closes the tab before we redirect.
+          location.href = '/?billing=success&plan=' + encodeURIComponent(plan) + '&provider=razorpay';
+        } catch (err) {
+          showStatus(err.message || 'Payment captured but activation failed. Refresh and check your plan.', true);
+          button.textContent = originalText;
+          button.disabled = false;
+        }
+      },
+      modal: {
+        ondismiss: function () {
+          button.textContent = originalText;
+          button.disabled = false;
+        },
+      },
+    });
+    rzp.on('payment.failed', function (resp) {
+      showStatus((resp?.error?.description) || 'Payment failed. Try a different method.', true);
+      button.textContent = originalText;
+      button.disabled = false;
+    });
+    rzp.open();
+  }
+
   async function startCheckout(plan, button) {
     initAuth();
     if (!auth) { showStatus('Could not load billing. Refresh and try again.', true); return; }
 
     const user = auth.currentUser;
     if (!user) {
-      // Not signed in yet, bounce to app with plan hint. The app's auth
-      // flow will pick up intended_plan from sessionStorage and resume
-      // checkout after sign-in.
       sessionStorage.setItem('intended_plan', plan);
       location.href = '/app?upgrade=' + encodeURIComponent(plan);
       return;
     }
 
     const originalText = button.textContent;
-    button.innerHTML = '<span class="spinner"></span>Opening Stripe…';
+    const isIndia = regionInfo.provider === 'razorpay';
+    button.innerHTML = '<span class="spinner"></span>' + (isIndia ? 'Opening Razorpay…' : 'Opening Stripe…');
     button.disabled = true;
 
     try {
+      if (isIndia) {
+        await startRazorpayCheckout(plan, button, user, originalText);
+        return;
+      }
+
       const token = await user.getIdToken();
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
@@ -504,8 +625,6 @@
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 404 && data.error === 'NEEDS_TEAM') {
-        // User signed in but no team, bounce them to the team-creation
-        // flow with intended-plan preserved so checkout resumes after.
         sessionStorage.setItem('intended_plan', plan);
         location.href = '/app?upgrade=' + encodeURIComponent(plan) + '&needs_team=1';
         return;
@@ -523,16 +642,16 @@
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       const plan = btn.getAttribute('data-checkout');
-      // Tactile feedback on plan-select. Checkout itself is async + may
-      // bounce to /app for sign-in, so the user gets immediate acoustic
-      // confirmation that the click registered before the page swaps.
       try { window.SFX && window.SFX.confirm && window.SFX.confirm(); } catch(_){}
       startCheckout(plan, btn);
     });
   });
 
   // Wait a tick for Firebase compat scripts to load, then init.
-  window.addEventListener('load', () => setTimeout(initAuth, 50));
+  window.addEventListener('load', () => {
+    setTimeout(initAuth, 50);
+    loadRegion();
+  });
 </script>
 
 <!-- Theme picker. Same red/grey/white set + same `da-theme` localStorage
