@@ -1619,7 +1619,14 @@ function fmtTime(sec){
   return m + ':' + (s<10?'0':'') + s;
 }
 
-const SESSION_HARD_CAP_SEC = 8 * 60;
+// Per-session cap. Sized to cover a full round in long-form formats
+// (BP whip cycle, Policy 1AC→2AR, PF flow + cross) rather than a single
+// speech. OpenAI Realtime sessions have their own server-side max
+// duration around this neighborhood, so 30 min is the practical ceiling.
+// A 60-sec soft warning fires before the cap so the user can wrap up
+// instead of getting clipped mid-sentence.
+const SESSION_HARD_CAP_SEC = 30 * 60;
+const SESSION_WARN_AT_SEC = 60; // remaining-time threshold to surface the wrap-up nudge
 
 /* ── Web Audio helpers ───────────────────────────── */
 
@@ -2152,6 +2159,9 @@ function App(){
   const currentAiTurnRef = useRef(null);
   const currentUserTurnRef = useRef(null);
   const isUserSpeakingRef = useRef(false);
+  // Fires once per session when the round crosses the wrap-up threshold
+  // so the system message doesn't spam every tick.
+  const capWarnedRef = useRef(false);
   // Thinking-ambience stop fn. Set when user finishes a turn so the
   // user gets a low hum signaling "AI is composing"; cleared when the
   // first AI audio delta lands. SFX.thinking() returns the stop fn.
@@ -2974,11 +2984,20 @@ function App(){
     //    (telemetry, UI chimes, gate refresh) are swallowed locally
     //    rather than thrown.
     startedAtRef.current = Date.now();
+    capWarnedRef.current = false;
     tickRef.current = setInterval(()=>{
       const t = (Date.now() - startedAtRef.current) / 1000;
       setElapsed(t);
+      // Soft wrap-up nudge so the cap stops blindsiding the user. Fires
+      // once when there's a minute left — they can finish the speech or
+      // hit End Session deliberately.
+      if (!capWarnedRef.current && t >= SESSION_HARD_CAP_SEC - SESSION_WARN_AT_SEC && t < SESSION_HARD_CAP_SEC) {
+        capWarnedRef.current = true;
+        addSystem('Heads up. About 60 seconds left in this round. Wrap your point or end the session yourself.');
+      }
       if (t >= SESSION_HARD_CAP_SEC) {
-        stop('Session ended (8-minute cap reached).');
+        const mins = Math.round(SESSION_HARD_CAP_SEC / 60);
+        stop('Session ended (' + mins + '-minute cap reached).');
       }
     }, 250);
 
@@ -3665,7 +3684,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           ),
           el('div', { className:'row' },
             el('div', { className:'k' }, 'Length'),
-            el('div', { className:'v' }, 'Up to 8 minutes'),
+            el('div', { className:'v' }, 'Up to ' + Math.round(SESSION_HARD_CAP_SEC / 60) + ' minutes'),
           ),
         ),
 
