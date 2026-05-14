@@ -1622,92 +1622,70 @@ button{font-family:inherit;cursor:pointer}
 .how-card h3{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.02em}
 .how-card p{font-size:.8rem;color:var(--text-dim);line-height:1.55}
 
-/* ── FAQ — bento layout ─────────────────────────────
-   2026-05-14 (fifth pass). 6 → 4 columns, big/wide → span 2.
-   Previous 6-col grid left big empty patches under shorter tiles
-   because no smaller tile could fit in the leftover 3-col-wide
-   space. With 4 cols + big/wide spanning 2, the leftover gap next
-   to a tall big tile is 2 cols wide — exactly enough for a default
-   + a circle to slot in via `grid-auto-flow: dense`.
-   Default tiles also get more room: at 1/4 viewport-width they hold
-   a one-line question comfortably, instead of wrapping to 4-5 lines
-   in a 1/6th column. */
+/* ── FAQ — plain accordion list ─────────────────────
+   2026-05-15: dropped the 6-col bento (big/wide/circle variants
+   produced an inconsistent rhythm — some tiles pre-revealed their
+   answer as inline cards, others were tiny circles, the page read
+   as a junk drawer). A 6→4 col bento iteration shipped in parallel
+   on main; both attempts are superseded by this single-column
+   accordion. The legacy variant classes in the markup are harmless
+   — overridden to plain .faq-item defaults below. */
 .faq-grid{
-  display:grid;
-  grid-template-columns:repeat(4, minmax(0, 1fr));
-  grid-auto-rows:auto;
-  grid-auto-flow:dense;
-  gap:14px;
-  align-items:start;
+  display:flex;flex-direction:column;gap:10px;
+  max-width:760px;margin:0 auto;
 }
 .faq-grid .faq-group-head{
-  grid-column:1 / -1;
-  margin:28px 0 0;
+  margin:28px 0 4px;
   padding-top:8px;
 }
 .faq-grid .faq-group-head:first-child{margin-top:0;padding-top:0}
-.faq-grid .faq-item{margin-bottom:0}
-.faq-item--big{grid-column:span 2}
-.faq-item--wide{grid-column:span 2}
+.faq-grid .faq-item{margin-bottom:0;width:100%}
+
+/* Neutralize the legacy bento variants so the existing markup
+   (faq-item--big / --wide / --circle) renders as plain accordion
+   rows. No special sizing, no pre-revealed answers, no aspect-ratio. */
+.faq-item--big,
+.faq-item--wide,
 .faq-item--circle{
-  grid-column:span 1;
-  aspect-ratio:1 / 1;
-  border-radius:50%;
-}
-.faq-item--circle .faq-q{
-  flex-direction:column;
-  text-align:center;
-  justify-content:center;
-  align-items:center;
-  height:100%;
-  gap:6px;
-  padding:14px;
-  font-size:.74rem;
-  letter-spacing:.04em;
-  line-height:1.2;
-}
-.faq-item--circle .faq-chev{margin-top:4px}
-.faq-item--circle .faq-a{padding:0 24px}
-.faq-item--circle.open{
+  grid-column:auto;
   aspect-ratio:auto;
-  border-radius:24px;
+  border-radius:var(--radius-lg);
+  border-color:var(--border);
 }
-.faq-item--circle.open .faq-q{
+.faq-item--big .faq-q,
+.faq-item--wide .faq-q,
+.faq-item--circle .faq-q{
   flex-direction:row;
   text-align:left;
-  align-items:center;
   justify-content:space-between;
+  align-items:center;
   height:auto;
   padding:18px 22px;
+  font-size:.88rem;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+  line-height:1.4;
+  cursor:pointer;
 }
-/* Big + wide tiles: pre-revealed answer. No chevron, no toggle UI —
-   click-to-collapse would feel surprising since the answer is the
-   tile's whole point. Use a slightly larger question font so the
-   hierarchy reads. */
-.faq-item--big .faq-q,
-.faq-item--wide .faq-q{
-  font-size:1rem;
-  letter-spacing:.01em;
-  text-transform:none;
-  font-weight:700;
-  cursor:default;
-  padding-bottom:14px;
-}
-.faq-item--big .faq-q{font-size:1.15rem;line-height:1.3}
-.faq-item--big .faq-q:hover,
-.faq-item--wide .faq-q:hover{color:var(--nav-link)}
 .faq-item--big .faq-chev,
-.faq-item--wide .faq-chev{display:none}
-.faq-item--big .faq-a,
-.faq-item--wide .faq-a{
-  padding:0 26px 20px;
-  max-height:none;
-  overflow:visible;
+.faq-item--wide .faq-chev,
+.faq-item--circle .faq-chev{
+  display:block;
+  margin-top:0;
 }
-/* Big/wide tiles keep their --accent border like an "open" item so the
-   visual weight matches the inline content. */
-.faq-item--big,
-.faq-item--wide{border-color:var(--accent-border)}
+.faq-item--big .faq-a,
+.faq-item--wide .faq-a,
+.faq-item--circle .faq-a{
+  max-height:0;overflow:hidden;
+  padding:0 22px;
+}
+.faq-item--big.open .faq-a,
+.faq-item--wide.open .faq-a,
+.faq-item--circle.open .faq-a{
+  max-height:1400px;
+  padding-bottom:20px;
+}
 
 /* Tablet — drop 4 → 3 cols. big becomes full-row, wide stays span-2,
    circles stay span 1. */
@@ -1718,11 +1696,10 @@ button{font-family:inherit;cursor:pointer}
 }
 /* Mobile — single column, kill aspect-ratio so circles become pills. */
 @media (max-width:680px){
-  .faq-grid{grid-template-columns:1fr}
-  .faq-item--big,
-  .faq-item--wide,
-  .faq-item--circle{grid-column:span 1; aspect-ratio:auto; border-radius:var(--radius-lg)}
-  .faq-item--circle .faq-q{flex-direction:row; text-align:left; height:auto; padding:18px 22px}
+  .faq-grid{padding:0 4px}
+  .faq-item--big .faq-q,
+  .faq-item--wide .faq-q,
+  .faq-item--circle .faq-q{padding:16px 18px;font-size:.84rem}
 }
 
 .faq-item{
@@ -3004,6 +2981,45 @@ section.ui-section .ui-lede{
 }
 [data-theme="light"] .story-sig{color:rgba(0,0,0,.78) !important}
 [data-theme="light"] .story-sig-meta{color:rgba(0,0,0,.5)}
+
+/* Careers list — single-column flowing layout. Each item gets a
+   colored left rule (per-item via --c) instead of a card border, so
+   the section reads as editorial prose with color cues rather than
+   a corporate tile grid. */
+.careers-list{
+  list-style:none;padding:0;margin:32px 0 0;
+  display:flex;flex-direction:column;gap:var(--gap, 22px);
+  counter-reset:careers;
+}
+.careers-item{
+  position:relative;
+  padding:2px 0 2px 22px;
+  border-left:3px solid var(--c, var(--accent));
+  counter-increment:careers;
+}
+.careers-name{
+  font-size:1.02rem;font-weight:800;letter-spacing:-.01em;
+  color:var(--c, var(--text));margin:0 0 6px;line-height:1.25;
+}
+.careers-item p{
+  margin:0;font-size:.94rem;line-height:1.65;
+  color:var(--text-dim);
+}
+[data-theme="light"] .careers-item p{color:rgba(0,0,0,.7)}
+.careers-claim{
+  margin-top:32px;font-size:.94rem;line-height:1.7;
+  color:var(--text-dim);
+  padding-top:20px;border-top:1px dashed var(--border);
+}
+.careers-claim strong{color:var(--text);font-weight:800}
+[data-theme="light"] .careers-claim{color:rgba(0,0,0,.7)}
+[data-theme="light"] .careers-claim strong{color:#1a1a1f}
+@media(max-width:680px){
+  .careers-list{--gap:18px}
+  .careers-item{padding-left:18px}
+  .careers-name{font-size:.96rem}
+  .careers-item p{font-size:.9rem}
+}
 
 /* Story pair — places #story (founder essay) and #build-with-me
    (founder ask) side-by-side as two columns instead of stacked. The
@@ -6382,57 +6398,49 @@ window.addEventListener('load', function(){
      story (#story) and the All-sections nav so the page closes on a
      "this prep compounds" beat before users hit the sitemap. -->
 <section id="careers" class="sec" style="padding:56px 24px 40px" aria-label="Where debaters end up">
-  <div class="wrap" style="max-width:1080px">
+  <div class="wrap" style="max-width:780px">
     <div class="sec-label">Career destinations</div>
     <h2 class="sec-title">The most overpowered prep skill <em class="hh-accent">few schools cash in on.</em></h2>
-    <p class="sec-sub">Competitive debate doesn't track to one career. It trains the substrate every analytical, client-facing job runs on: structured argument, evidence on a clock, handling pushback under pressure. Here's where high-school and college debaters disproportionately land, with the structural mapping for each.</p>
+    <p class="sec-sub" style="max-width:680px">Competitive debate doesn't track to one career. It trains the substrate every analytical, client-facing job runs on: structured argument, evidence on a clock, handling pushback under pressure. Here's where high-school and college debaters land, with the structural mapping for each.</p>
 
-    <div class="tools-grid" style="margin-top:32px">
-
-      <div class="tool-card" style="cursor:default;border-color:rgba(59,130,246,.22)">
-        <span class="tool-num" style="color:#60a5fa">01</span>
-        <h3>Law</h3>
-        <p>The canonical pipeline. A debate flow IS a legal brief. Cross-ex IS direct examination. Rebuttals are appellate work. Stephen Breyer was Stanford's debate ace before SCOTUS; Ted Cruz won the 1992 NSDA Extemporaneous Speaking nationals before Harvard Law. Most large-firm litigation associates trace their structured-argument skill back to high-school or college debate.</p>
-      </div>
-
-      <div class="tool-card" style="cursor:default;border-color:rgba(34,197,94,.22)">
-        <span class="tool-num" style="color:#4ade80">02</span>
-        <h3>Management consulting</h3>
-        <p>A McKinsey, BCG, or Bain case interview is a five-minute parli round. Identify the resolution, set the framework, give three impacts, take pushback, sharpen the conclusion. Top firms over-recruit from APDA, BP, and Worlds programs at Ivies and Oxbridge for exactly this reason: the case-interview pattern matches the round flow one-to-one.</p>
-      </div>
-
-      <div class="tool-card" style="cursor:default;border-color:rgba(168,85,247,.22)">
-        <span class="tool-num" style="color:#c084fc">03</span>
-        <h3>Politics & government</h3>
-        <p>The most visible pipeline. Bill Clinton (Georgetown), Barack Obama (Punahou and Occidental), Pete Buttigieg, and most modern US presidents debated. The Oxford Union president list reads like a UK Cabinet roster: Boris Johnson, William Hague, Michael Heseltine. State AGs, congressional staff, and campaign managers over-index for ex-debaters.</p>
-      </div>
-
-      <div class="tool-card" style="cursor:default;border-color:rgba(245,158,11,.22)">
-        <span class="tool-num" style="color:#fbbf24">04</span>
-        <h3>Investment banking & PE</h3>
+    <!-- 2026-05-15: Was a 6-card equal-grid (.tools-grid). Read as a
+         corporate tile wall — too rigid for what's effectively
+         editorial prose. Reflowed as a single-column list with a
+         colored left rule per pipeline; the bold name carries the
+         color cue and the body is plain prose. Less structure, more
+         intuitive scan-then-read rhythm. -->
+    <ol class="careers-list" style="--gap:24px">
+      <li class="careers-item" style="--c:#60a5fa">
+        <h3 class="careers-name">Law.</h3>
+        <p>A debate flow is a legal brief. Cross-ex is direct examination. Rebuttals are appellate work. Stephen Breyer was Stanford's debate ace before SCOTUS; Ted Cruz won the 1992 NSDA Extemporaneous Speaking nationals before Harvard Law. Large-firm litigation associates trace their structured-argument skill back to high-school or college debate.</p>
+      </li>
+      <li class="careers-item" style="--c:#4ade80">
+        <h3 class="careers-name">Management consulting.</h3>
+        <p>A McKinsey, BCG, or Bain case interview is a five-minute parli round. Identify the resolution, set the framework, give three impacts, take pushback, sharpen the conclusion. Top firms over-recruit from APDA, BP, and Worlds programs at Ivies and Oxbridge for exactly this reason. The case-interview pattern matches the round flow one-to-one.</p>
+      </li>
+      <li class="careers-item" style="--c:#c084fc">
+        <h3 class="careers-name">Politics &amp; government.</h3>
+        <p>The most visible pipeline. Bill Clinton (Georgetown), Barack Obama (Punahou and Occidental), Pete Buttigieg, and most modern US presidents debated. The Oxford Union president list reads like a UK Cabinet roster. State AGs, congressional staff, and campaign managers over-index for ex-debaters.</p>
+      </li>
+      <li class="careers-item" style="--c:#fbbf24">
+        <h3 class="careers-name">Investment banking &amp; PE.</h3>
         <p>Less direct than consulting; the value is in the pitch. The analyst-to-MD narrative is a structured argument with a clock. Goldman, Morgan Stanley, KKR, Blackstone associates increasingly come from debate programs because the LP call and the IC presentation are both adversarial argument under deadline.</p>
-      </div>
+      </li>
+      <li class="careers-item" style="--c:#fca5a5">
+        <h3 class="careers-name">Tech founders.</h3>
+        <p>Under-recognized but consistent. A seed pitch is a five-minute case. Investor Q&amp;A is cross-ex. Board meetings are whip speeches. YC partners over-index for ex-debater founders because conviction-under-pressure is the actual founder skill, not the slide design.</p>
+      </li>
+      <li class="careers-item" style="--c:#22d3ee">
+        <h3 class="careers-name">Journalism, policy, academia.</h3>
+        <p>Op-ed columnists, think-tank fellows, and academic philosophers disproportionately have debate backgrounds. Brookings, RAND, AEI, Cato, CFR hire heavily from this lane. The reason is identical to law: structured argument with sourced evidence plus handling pushback in real time is the job.</p>
+      </li>
+    </ol>
 
-      <div class="tool-card" style="cursor:default;border-color:rgba(239,68,68,.22)">
-        <span class="tool-num" style="color:#fca5a5">05</span>
-        <h3>Tech founders</h3>
-        <p>Under-recognized but consistent. A seed pitch IS a five-minute case. Investor Q&amp;A IS cross-ex. Board meetings are whip speeches. YC partners over-index for ex-debater founders because conviction-under-pressure is the actual founder skill, not the slide design.</p>
-      </div>
-
-      <div class="tool-card" style="cursor:default;border-color:rgba(6,182,212,.22)">
-        <span class="tool-num" style="color:#22d3ee">06</span>
-        <h3>Journalism, policy, academia</h3>
-        <p>Op-ed columnists, think-tank fellows, and academic philosophers disproportionately have debate backgrounds. Brookings, RAND, AEI, Cato, CFR hire heavily from this lane. The reason is identical to law: structured argument with sourced evidence + handling pushback in real time IS the job.</p>
-      </div>
-
-    </div>
-
-    <!-- The structural claim, plainly stated. This is the section's
-         takeaway — what the AI is building toward isn't an audience
-         it's a substrate. -->
-    <div style="margin-top:30px;padding:18px 22px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;font-size:.92rem;line-height:1.6;color:var(--text-dim)">
-      <strong style="color:var(--text)">The structural claim:</strong> the jobs above pay well because they reward the same five skills, in different uniforms. Structured argument. Evidence on a clock. Cross-examination. Adapting when the room pushes back. Closing under time pressure. Debate practices all five, every round. The AI that argues back lets you practice them in 15-minute blocks instead of two-hour tournaments.
-    </div>
+    <!-- The structural claim, kept inline so it reads as the closing
+         note rather than a boxed quote-block. -->
+    <p class="careers-claim">
+      <strong>The structural claim.</strong> These jobs pay well because they reward the same five skills in different uniforms. Structured argument. Evidence on a clock. Cross-examination. Adapting when the room pushes back. Closing under time pressure. Debate practices all five, every round. The AI that argues back lets you practice them in 15-minute blocks instead of two-hour tournaments.
+    </p>
   </div>
 </section>
 
@@ -6550,17 +6558,15 @@ window.addEventListener('load', function(){
 </footer>
 
 <script>
-// FAQ accordion — only applies to collapsible tiles. Big + wide tiles
-// show their answer inline by design (no toggle UI), so we skip them on
-// click and skip them in the "close all others" sweep too.
+// FAQ accordion. 2026-05-15 simplified: the bento variants
+// (--big / --wide / --circle) used to be pre-revealed inline cards
+// or aspect-1 circles; the section is now a uniform stacked
+// accordion so every .faq-q toggles the same way.
 document.querySelectorAll('.faq-q').forEach(function(b){
-  var item = b.closest('.faq-item');
-  if (item && (item.classList.contains('faq-item--big') || item.classList.contains('faq-item--wide'))) return;
   b.addEventListener('click', function(){
     var i = b.closest('.faq-item');
     var o = i.classList.contains('open');
     document.querySelectorAll('.faq-item.open').forEach(function(x){
-      if (x.classList.contains('faq-item--big') || x.classList.contains('faq-item--wide')) return;
       x.classList.remove('open');
     });
     if (!o) i.classList.add('open');
