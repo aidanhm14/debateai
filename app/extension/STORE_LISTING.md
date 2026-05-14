@@ -81,8 +81,8 @@ Counter is part of DebateAI. Same engine that powers debateai.com's
 voice round and four-brain panel; the chrome extension is a focused
 entry point for the student / oral-exam audience.
 
-Built by a national APDA debate champion. Not a chatbot pretending
-to be a tutor — a sparring partner that pushes back.
+Built by a national APDA debate champion. A sparring partner that
+asks the questions your examiner will actually ask.
 ```
 
 ---

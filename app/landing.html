@@ -576,13 +576,6 @@
 [data-theme="light"] .landing-jumpnav a.donate{color:#dc2626}
 [data-theme="light"] .landing-jumpnav a.donate:hover{background:rgba(220,38,38,.10) !important}
 
-/* Hero villain line ("The chatbot agrees with you. We don't.") has
-   inline color:rgba(255,255,255,.6) that doesn't flip in light theme,
-   leaving it near-invisible white-on-off-white. Override to a quiet
-   black-on-off-white at the same perceived dimness so the positioning
-   beat still reads as understated, not erased. */
-[data-theme="light"] .hero-villain{color:rgba(0,0,0,.55) !important}
-
 /* ── Light-theme: subtle Facebook-community feel on the founder
    story + "Help build this" surfaces. White feed-card framing,
    soft shadow with a hint of FB blue, FB-blue eyebrow + email
@@ -1629,40 +1622,107 @@ button{font-family:inherit;cursor:pointer}
 .how-card h3{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.02em}
 .how-card p{font-size:.8rem;color:var(--text-dim);line-height:1.55}
 
-/* ── FAQ ─────────────────────────────
-   Rounded card pattern. The previous design was just border-bottom rows
-   which read as sharp-edged on light backgrounds. Each item is now a
-   pill/card with its own soft border so the FAQ feels "circular" rather
-   than tabular. Hover/open states tint the border and lift slightly.
-   2026-05-14: switched the inner container to a 3-column CSS grid so the
-   FAQ uses the page width instead of a tall narrow rail. Group headings
-   span the full row; items wrap into the 3 columns. Collapses to 1 col
-   on narrow viewports. */
+/* ── FAQ — bento layout ─────────────────────────────
+   2026-05-14 (third pass). Replaced the uniform 3-column grid with a
+   6-column bento where every tile is sized by editorial weight:
+     • .faq-item--big   2col × 2row  → the question that defines the
+                                       wedge of the section
+     • .faq-item--wide  2col × 1row  → substantive secondary
+     • .faq-item--tall  1col × 2row  → visual rhythm break
+     • .faq-item--circle 1col × 1row, aspect 1/1, border-radius:50%
+                                     → short punchy answer, fits a disc
+     • (default)        1col × 1row  → everything else
+   `grid-auto-flow:dense` lets later items backfill gaps left by big
+   tiles, which is what gives the layout its "scattered but tight"
+   feel. Group heads span the full row.
+   Circle tiles need special handling: text centered, no chevron in
+   the rest state, and when opened they transition out of the
+   1/1 aspect ratio + 50% radius into a normal rounded card so the
+   answer panel actually fits.
+   Open-state max-height bumped from 900 → 1400px so big tiles with
+   table content (the pricing rows) can fully expand. */
 .faq-grid{
   display:grid;
-  grid-template-columns:repeat(3, minmax(0, 1fr));
-  gap:10px 16px;
-  align-items:start;
+  grid-template-columns:repeat(6, minmax(0, 1fr));
+  grid-auto-rows:minmax(120px, auto);
+  grid-auto-flow:dense;
+  gap:14px;
+  align-items:stretch;
 }
 .faq-grid .faq-group-head{
   grid-column:1 / -1;
-  margin:24px 0 4px;
+  margin:28px 0 0;
+  padding-top:8px;
 }
-.faq-grid .faq-group-head:first-child{margin-top:0}
+.faq-grid .faq-group-head:first-child{margin-top:0;padding-top:0}
 .faq-grid .faq-item{margin-bottom:0}
-@media (max-width:1024px){
-  .faq-grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
+.faq-item--big{grid-column:span 3; grid-row:span 2}
+.faq-item--wide{grid-column:span 3}
+.faq-item--tall{grid-row:span 2}
+.faq-item--circle{
+  grid-column:span 2;
+  aspect-ratio:1 / 1;
+  border-radius:50%;
 }
+.faq-item--circle .faq-q{
+  flex-direction:column;
+  text-align:center;
+  justify-content:center;
+  align-items:center;
+  height:100%;
+  gap:10px;
+  padding:24px;
+}
+.faq-item--circle .faq-chev{margin-top:4px}
+.faq-item--circle .faq-a{padding:0 24px}
+.faq-item--circle.open{
+  aspect-ratio:auto;
+  border-radius:24px;
+}
+.faq-item--circle.open .faq-q{
+  flex-direction:row;
+  text-align:left;
+  align-items:center;
+  justify-content:space-between;
+  height:auto;
+  padding:18px 22px;
+}
+.faq-item--big .faq-q,
+.faq-item--wide .faq-q{
+  font-size:1rem;
+  letter-spacing:.01em;
+  text-transform:none;
+  font-weight:700;
+}
+.faq-item--big .faq-q{font-size:1.15rem;line-height:1.3}
+.faq-item--big .faq-a,
+.faq-item--wide .faq-a{padding:0 26px}
+.faq-item--big.open .faq-a{padding-bottom:24px}
+
+/* Tablet — drop 6 → 4 cols. big becomes full-row, wide stays span-2,
+   circles still span 2 so they keep their disc proportions. */
+@media (max-width:1100px){
+  .faq-grid{grid-template-columns:repeat(4, minmax(0, 1fr))}
+  .faq-item--big{grid-column:span 4; grid-row:span 2}
+  .faq-item--wide{grid-column:span 2}
+}
+/* Mobile — single column, kill all aspect-ratio tricks so the circles
+   become regular pills (a circle in a 1-col stack is awful). */
 @media (max-width:680px){
   .faq-grid{grid-template-columns:1fr}
+  .faq-item--big,
+  .faq-item--wide,
+  .faq-item--tall,
+  .faq-item--circle{grid-column:span 1; grid-row:auto; aspect-ratio:auto; border-radius:var(--radius-lg)}
+  .faq-item--circle .faq-q{flex-direction:row; text-align:left; height:auto; padding:18px 22px}
 }
+
 .faq-item{
   border:1px solid var(--border);
   border-radius:var(--radius-lg);
   background:var(--bg-elev);
-  margin-bottom:10px;
   overflow:hidden;
-  transition:border-color .25s,box-shadow .25s,transform .25s;
+  transition:border-color .25s,box-shadow .25s,transform .25s,border-radius .35s,aspect-ratio .35s;
 }
 .faq-item:hover{border-color:var(--accent-border)}
 .faq-item.open{
@@ -1675,14 +1735,14 @@ button{font-family:inherit;cursor:pointer}
   color:var(--nav-link);font-size:.88rem;font-weight:600;
   text-align:left;font-family:inherit;transition:color .2s;
   text-transform:uppercase;letter-spacing:.02em;
-  border-radius:var(--radius-lg);
+  border-radius:inherit;
   cursor:pointer;
 }
 .faq-q:hover{color:var(--text)}
 .faq-chev{width:14px;height:14px;flex-shrink:0;color:var(--text-ghost);transition:transform .3s}
 .faq-item.open .faq-chev{transform:rotate(180deg);color:var(--accent)}
 .faq-a{max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.22,1,.36,1),padding .35s;padding:0 22px}
-.faq-item.open .faq-a{max-height:900px;padding-bottom:20px}
+.faq-item.open .faq-a{max-height:1400px;padding-bottom:20px}
 .faq-a p{margin-bottom:10px}
 .faq-a p:last-child{margin-bottom:0}
 .faq-a strong{color:var(--text);font-weight:700}
@@ -2717,7 +2777,7 @@ section.hero{
 .sec > .wrap{padding:0 clamp(20px,5vw,72px) !important}
 #spar > .wrap,
 #topics > .wrap{max-width:1180px !important}
-#faq > .wrap{max-width:1240px !important}
+#faq > .wrap{max-width:1480px !important}
 #why > .wrap{max-width:820px !important}
 @media(max-width:640px){.sec{padding:44px 0 !important}}
 
@@ -3047,16 +3107,16 @@ section.ui-section .ui-lede{
 .spar-card-pro{
   font-size:.58rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
   padding:3px 10px;border-radius:999px;
-  background:rgba(251,191,36,.16);
-  border:1px solid rgba(251,191,36,.45);
-  color:#fbbf24;
+  background:rgba(239,68,68,.16);
+  border:1px solid rgba(239,68,68,.50);
+  color:#fca5a5;
 }
 .spar-card-pro-free{
   background:rgba(34,197,94,.14);
   border-color:rgba(34,197,94,.42);
   color:#86efac;
 }
-[data-theme="light"] .spar-card-pro{background:rgba(217,119,6,.12);border-color:rgba(217,119,6,.42);color:#b45309}
+[data-theme="light"] .spar-card-pro{background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.42);color:#b91c1c}
 [data-theme="light"] .spar-card-pro-free{background:rgba(22,163,74,.12);border-color:rgba(22,163,74,.42);color:#15803d}
 
 .spar-card h3{
@@ -3646,13 +3706,6 @@ section.ui-section .ui-lede{
         </a>
       </div>
 
-      <!-- Villain line. Out-group contrast for the cult-build: the
-           reference is generic yes-man chatbots, not a named competitor.
-           Small + italic so it reads as a quiet positioning beat, not a
-           hero claim. Sits between the CTAs and the pill rail. -->
-      <p class="hero-villain" style="margin:18px 0 0;font-size:.82rem;line-height:1.5;color:rgba(255,255,255,.6);letter-spacing:.01em;font-style:italic">
-        The chatbot agrees with you. We don't.
-      </p>
 
       <!-- OG entry rail. Kept from the pre-redesign hero — three quieter
            pill links that surface the secondary surfaces (matchmaking,
@@ -4999,81 +5052,6 @@ section.ui-section .ui-lede{
   </div>
 </section>
 
-<!-- ── Why this is different from generic AI ──────────────────────
-     A specific, accurate differentiator: the engine is grounded in
-     real rounds. Every typed AI turn + voice-round transcript writes
-     to a private corpus. At runtime, applyExemplars retrieves the
-     top-rated past rounds matching motion/format/side. Nightly,
-     scheduled-distill.mjs runs a Haiku pass over the top-rated
-     rounds per format and writes a "patterns that work" block that
-     gets injected into every subsequent prompt. This is the wedge
-     against "but I can just use ChatGPT" — the FAQ already answers
-     it; this section makes the answer visible to scrollers. -->
-<style>
-  .why-different{
-    padding:40px clamp(20px,4vw,40px) 40px;
-    background:#000;position:relative;
-  }
-  [data-theme="light"] .why-different{background:#fafaf7}
-  .why-different-wrap{max-width:1080px;margin:0 auto}
-  .why-different-eyebrow{
-    display:inline-flex;align-items:center;gap:8px;
-    font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--accent);
-    padding:5px 12px;border-radius:999px;
-    background:rgba(239,68,68,.10);
-    border:1px solid rgba(239,68,68,.28);
-    margin-bottom:18px;
-  }
-  .why-different-headline{
-    font-size:clamp(1.7rem,3vw,2.4rem);font-weight:900;letter-spacing:-.025em;line-height:1.12;
-    margin:0 0 14px;color:var(--text);
-  }
-  .why-different-headline em{font-style:normal;color:var(--accent)}
-  .why-different-lead{
-    font-size:1rem;color:var(--text-dim);line-height:1.6;max-width:700px;margin:0;
-  }
-  .why-different-grid{
-    display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px;
-  }
-  .wd-card{
-    padding:22px 24px;border-radius:14px;
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(255,255,255,.02);
-  }
-  [data-theme="light"] .wd-card{background:#fff;border-color:rgba(0,0,0,.08)}
-  .wd-card.wd-them{opacity:.62}
-  .wd-label{
-    font-size:.62rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--text-dim);margin-bottom:10px;
-  }
-  .wd-card.wd-us .wd-label{color:var(--accent)}
-  .wd-card h3{
-    margin:0 0 10px;font-size:1.05rem;font-weight:700;color:var(--text);letter-spacing:-.01em;
-  }
-  .wd-card p{
-    margin:0;font-size:.92rem;color:var(--text-dim);line-height:1.55;
-  }
-  @media(max-width:680px){
-    .why-different-grid{grid-template-columns:1fr;gap:12px}
-    .why-different{padding:44px 18px 50px}
-  }
-</style>
-<section class="why-different" aria-label="Why Debate AI is different from generic AI">
-  <div class="why-different-wrap">
-    <div class="why-different-eyebrow">Why Debate AI, not ChatGPT</div>
-    <h2 class="why-different-headline">Grounded in real rounds. <em>Not just internet text.</em></h2>
-    <p class="why-different-lead">
-      ChatGPT learned about debate from books and forum threads. It's never been in a round.
-    </p>
-    <p class="why-different-lead" style="margin-top:14px">
-      Debate AI is built around real ones. Every voice session and typed clash on the site gets logged. The speeches that worked get used the next time someone runs that motion, across Asian Parli, WSDC, BP, APDA, LD, PF, and Policy. The opponent in your next round has read what won the last one.
-    </p>
-    <p class="why-different-lead" style="margin-top:14px">
-      ChatGPT doesn't have any of that. It also agrees with you. This doesn't.
-    </p>
-  </div>
-</section>
 
 <style>
   .live-proof-surfaces{margin-top:42px}
@@ -5734,7 +5712,7 @@ section.ui-section .ui-lede{
             <span class="spar-pulse" aria-hidden="true"></span>
             Voice AI · live sparring
           </span>
-          <span class="spar-card-pro">Pro</span>
+          <span class="spar-card-pro">New</span>
         </div>
         <h3>Talk to a debater. <span class="hh-accent">Interrupt them.</span></h3>
         <p>You deliver the speech, the AI delivers its own, and either side can interrupt mid-sentence. POIs land where they would in a real round. Closer to a real round than any text chat gets.</p>
@@ -6251,70 +6229,71 @@ window.addEventListener('load', function(){
 <!-- FAQ. grouped into four sections so readers can scan to what they actually care about.
      Newbie questions first; competitive-debate specifics last. -->
 <section id="faq" class="sec">
-  <div class="wrap" style="max-width:1240px">
+  <div class="wrap" style="max-width:1480px">
     <div class="sec-label">FAQ</div>
     <div class="faq-grid">
 
       <div class="faq-group-head">About Debate AI</div>
 
-      <div class="faq-item"><button class="faq-q">What is Debate AI?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+      <div class="faq-item faq-item--big"><button class="faq-q">What is Debate AI?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
         <p><strong>Debate AI</strong> is a voice-first AI debate trainer at <strong>debateai.com</strong>. You pick a motion and a side. An AI opponent argues the other side in real time across formats including Asian Parliamentary, WSDC, British Parliamentary, APDA, Public Forum, Lincoln-Douglas, Policy, Student Congress, and MUN. After the round you get a judge RFD with a ballot and feedback.</p>
         <p>It's built by a national APDA champion, used in 115 countries, and free to start.</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">Is Debate AI free?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Yes. Debate AI is free to start. You get 15 anonymous rounds, then 15 more on sign-in — 30 total before any paywall. If you ever want more, Individual is $5 a year for 250 requests/mo.</p>
+      <div class="faq-item faq-item--wide"><button class="faq-q">Is Debate AI free?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Yes — everything is free right now while we're in beta. The pricing tiers on /pricing are what the paid plans will look like once we exit beta, but no card is required today. If you have thoughts on what the prices should actually be, <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener">go to feedback for better pricing proposals</a>.</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">What debate formats does Debate AI support?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+      <div class="faq-item faq-item--circle"><button class="faq-q">Which debate formats?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
         <p>Debate AI supports <a href="/learn/formats/asian">Asian Parliamentary</a>, <a href="/learn/formats/worlds">WSDC</a>, <a href="/learn/formats/bp">British Parliamentary</a>, <a href="/learn/formats/apda">APDA</a>, <a href="/learn/formats/pf">Public Forum</a>, <a href="/learn/formats/ld">Lincoln-Douglas</a>, <a href="/learn/formats/policy">Policy</a>, <a href="/learn/formats/congress">Student Congress</a>, and <a href="/learn/formats/mun">MUN</a>. Plus Quick Clash for informal warm-ups. Each format is prompted differently. The AI knows POIs in WSDC and BP, framework-first in LD, tagged evidence in Policy, and a judge paradigm tuned to the format you pick.</p>
       </div></div>
 
       <div class="faq-group-head">Getting started</div>
+
+      <div class="faq-item faq-item--wide"><button class="faq-q">What would I actually use this for?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Real things real users do:</p>
+        <p>Argue better at work. Stress-test a pitch before a meeting. Catch the hole in your own thinking before a manager does. Prep for a tough conversation with a friend or partner. Practice defending a class presentation. Win (or honestly lose) an argument in a group chat. Think through a policy question you care about and find out where your position actually breaks.</p>
+        <p>If you do compete, the app also handles tournament prep. case gen, round sim, judge analysis, argument mapping, the full stack.</p>
+      </div></div>
 
       <div class="faq-item"><button class="faq-q">Do I need to know anything about debate?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
         <p>No. The default mode is called <strong>Quick Clash</strong>. Pro vs. Con on any topic, no rules, no jargon, no speech order. You type a topic, pick a side, the AI takes the other side, and you trade arguments turn by turn.</p>
         <p>If you've never debated before, that's the mode the app is built around. Competitive formats (WSDC, Asian Parli, BP, Public Forum, Policy, LD, APDA, and more) are available too, but they're opt-in. You won't be dropped into one by accident.</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">What would I actually use this for?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Real things real users do:</p>
-        <p>Argue better at work. stress-test a pitch before a meeting. Catch the hole in your own thinking before a manager does. Prep for a tough conversation with a friend or partner. Practice defending a class presentation. Win (or honestly lose) an argument in a group chat. Think through a policy question you care about and find out where your position actually breaks.</p>
-        <p>If you do compete, the app also handles tournament prep. case gen, round sim, judge analysis, argument mapping, the full stack.</p>
-      </div></div>
-
-      <div class="faq-item"><button class="faq-q">How do I get started in under a minute?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Click <strong>Debate Chat</strong> in the top nav. You'll see a "Random motion + background" button. one click fills in a topic and the context. Pick Pro or Con. Hit Start. Type your first argument. That's the whole setup.</p>
+      <div class="faq-item faq-item--circle"><button class="faq-q">Get started in 60 seconds<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Click <strong>Debate Chat</strong> in the top nav. You'll see a "Random motion + background" button. One click fills in a topic and the context. Pick Pro or Con. Hit Start. Type your first argument. That's the whole setup.</p>
         <p>If you want to learn the ropes before jumping in, the <strong>Guide</strong> tab has a 60-second intro for non-debaters, plus the deep version for people going to tournaments.</p>
       </div></div>
 
       <div class="faq-group-head">The AI</div>
 
-      <div class="faq-item"><button class="faq-q">How is this different from just using ChatGPT?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Two reasons. One, ChatGPT agrees with you. This is built to take the opposite side, find the weak link, and force you to defend or update your view. Two, ChatGPT learned from books, papers, and forum threads. Debate AI learns from real rounds. Every round you run feeds the next one. The strongest moves from each format get remembered and brought back. The opponent has actually been in the rounds.</p>
+      <div class="faq-item faq-item--big"><button class="faq-q">How is this different from a general-purpose AI?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Two reasons. First, this is built to take the opposite side, find the weak link, and force you to defend or update your view. The job is pushback, not assistance. Second, Debate AI learns from real rounds. Every round you run feeds the next one. The strongest moves from each format get remembered and brought back.</p>
         <p>The prompts also encode how actual competitive debaters argue: named historical anchors (not "studies show"), explicit concessions before attacks, multi-link warrant chains, weighing on time-frame and logical priority, and format-specific moves (two-voter PMR collapse in APDA, extension discipline in BP, etc.).</p>
-        <p>You're not getting a chatbot that happens to know about debate. You're getting a debater.</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">Which AI is actually running this?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+      <div class="faq-item faq-item--wide"><button class="faq-q">Can the AI remember how I like to debate?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Yes, if you sign in. Click <strong>Teach AI your style</strong> in the top bar and fill out an 8-question questionnaire: experience level, preferred format, argument style, jargon tolerance, debaters you admire, things you want to avoid. Plus the app quietly learns from how you actually write in Debate Chat (jargon level, sentence length, how often you concede, whether you cite named examples).</p>
+        <p>That profile gets mixed into every AI response so the AI matches your voice instead of forcing you to match its. If you stay anonymous, every session starts fresh. The style profile lives with your account.</p>
+      </div></div>
+
+      <div class="faq-item"><button class="faq-q">Which AI is running this?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
         <p>Four models, and you can pick: <strong>Claude</strong> (surgical and structured), <strong>GPT</strong> (creative and rhetorical), <strong>Gemini</strong> (fast and well-rounded), <strong>Grok</strong> (unfiltered and sharp). Each argues differently; the difference is noticeable after a few rounds.</p>
         <p>Some features default to a specific model because it's strongest at that task (e.g. case generation defaults to Claude). You can override in any feature with a model toggle.</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">Can the AI remember how I like to debate?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Yes, if you sign in. Click <strong>Teach AI your style</strong> in the top bar and fill out an 8-question questionnaire: experience level, preferred format, argument style, jargon tolerance, debaters you admire, things you want to avoid. Plus the app quietly learns from how you actually write in Debate Chat (jargon level, sentence length, how often you concede, whether you cite named examples).</p>
-        <p>That profile gets mixed into every AI response so the AI matches your voice instead of forcing you to match its. If you stay anonymous, every session starts fresh. the style profile lives with your account.</p>
-      </div></div>
-
       <div class="faq-item"><button class="faq-q">What if the AI says something wrong?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Push back. Seriously. the AI is a debate opponent, not an oracle. If it cites a fact that's wrong or makes a logical leap, call it out. That's exactly the kind of move a strong debater should be able to handle, and it makes you sharper.</p>
+        <p>Push back. Seriously. The AI is a debate opponent, not an oracle. If it cites a fact that's wrong or makes a logical leap, call it out. That's exactly the kind of move a strong debater should be able to handle, and it makes you sharper.</p>
         <p>If the AI's output is just bad (repetitive, off-topic, evasive), hit the feedback link in-app. That's how we tune the prompts. Every round of feedback has changed something in the system.</p>
       </div></div>
 
       <div class="faq-group-head">Pricing & practical stuff</div>
 
-      <div class="faq-item"><button class="faq-q">How much does it cost?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;background:var(--bg-card)">
+      <div class="faq-item faq-item--big"><button class="faq-q">How much does it cost?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p style="margin-bottom:14px"><strong style="color:var(--accent)">Beta — everything's free right now.</strong> No card required. The tiers below are the proposed pricing for when we exit beta; they're here so you know what's coming, not what you owe.</p>
+        <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;background:var(--bg-card);opacity:.78">
+          <div style="padding:8px 16px;font-size:.6rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border);background:rgba(239,68,68,.06)">Future pricing — currently $0 in beta</div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
             <div style="flex:0 0 auto;min-width:150px"><strong style="color:var(--text);font-weight:700;font-size:.92rem">Free</strong><span style="color:var(--text-dim);font-size:.82rem;font-weight:600;margin-left:10px">$0</span></div>
             <div style="flex:1 1 260px;color:var(--text-dim);font-size:.85rem;line-height:1.5">15 rounds anonymous, 15 more on sign-in. 30 total to actually feel out the engine.</div>
@@ -6336,41 +6315,41 @@ window.addEventListener('load', function(){
             <div style="flex:1 1 260px;color:var(--text-dim);font-size:.85rem;line-height:1.5">1,500 requests/mo across 50 seats. Shared cases and analytics.</div>
           </div>
         </div>
-        <p style="font-size:.85rem">Full comparison at <a href="/pricing" style="color:var(--accent);font-weight:600">/pricing</a>. Sign-in is Google only. Anyone subscribed at a given rate keeps it until a formal change is announced in-app.</p>
+        <p style="font-size:.85rem">Got opinions on what the actual prices should be? <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600">Go to feedback for better pricing proposals →</a></p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">Does it work on my phone?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Yes. It's a web app. works in any browser, nothing to install. On iOS and Android you can also add the site to your home screen for an app-like experience (offline shell, proper icon, full-screen).</p>
-        <p>Voice debate mode requires microphone access and works best with good headphones, especially for long rounds.</p>
-      </div></div>
-
-      <div class="faq-item"><button class="faq-q">What happens to my conversations and data?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Your Debate Chat rounds, saved cases, and style profile are stored in your browser's localStorage by default. nothing leaves your device unless you sign in.</p>
+      <div class="faq-item faq-item--wide"><button class="faq-q">What happens to my conversations and data?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Your Debate Chat rounds, saved cases, and style profile are stored in your browser's localStorage by default. Nothing leaves your device unless you sign in.</p>
         <p>If you sign in, your saved cases and style profile sync to your account so they follow you across devices. Message content is sent to the relevant AI provider (Claude/GPT/Gemini/Grok) to generate responses; we don't train models on your content and we don't sell data.</p>
         <p>You can delete any saved round from the <strong>My rounds</strong> library in Debate Chat at any time.</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">Can I use my own API key?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Yes. the BYOK (bring your own key) flow lets you paste an Anthropic API key into the app and run unlimited requests billed directly to your own account. Useful if you hit rate limits, want a specific model version, or just prefer not to rely on our infrastructure.</p>
+      <div class="faq-item"><button class="faq-q">Does it work on my phone?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Yes. It's a web app. Works in any browser, nothing to install. On iOS and Android you can also add the site to your home screen for an app-like experience (offline shell, proper icon, full-screen).</p>
+        <p>Voice debate mode requires microphone access and works best with good headphones, especially for long rounds.</p>
+      </div></div>
+
+      <div class="faq-item faq-item--circle"><button class="faq-q">Bring your own API key?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Yes. The BYOK (bring your own key) flow lets you paste an Anthropic API key into the app and run unlimited requests billed directly to your own account. Useful if you hit rate limits, want a specific model version, or just prefer not to rely on our infrastructure.</p>
         <p>Keys stay in your browser (localStorage) and are never sent to our servers. We don't see them.</p>
       </div></div>
 
       <div class="faq-group-head">For competitive debaters</div>
 
-      <div class="faq-item"><button class="faq-q">Which formats are supported?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Asian Parliamentary, World Schools, British Parliamentary, APDA Parliamentary, Public Forum, Lincoln-Douglas, Policy, Congressional Debate, plus Quick Clash for informal practice.</p>
-        <p>Each format gets proper speech order, timers, POIs, reply speeches where applicable, and a judge ballot at the end. Case Gen output is structured for the format you pick (PMR collapse for APDA, extension for BP, contention-based for PF, etc.). Prompts are format-scoped. the AI argues differently in NPDA vs. APDA.</p>
+      <div class="faq-item faq-item--big"><button class="faq-q">Is using this to prep cheating?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>No. It's a prep tool. Same category as reading an article, running a practice round with a teammate, asking a coach, or looking through old case lists. You're still the one speaking and thinking in the actual round.</p>
+        <p>No circuit we're aware of prohibits using AI tools in prep. Using AI during a live round is obviously different and would be cheating in any format. The app explicitly separates prep features (case gen, mapper, chat) from in-round features (none. by design).</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">What's the difference between Debate AI and Debate Chat?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p><strong>Debate AI</strong> is a full timed voice round. you deliver your speeches out loud, the AI delivers its speeches as a voice opponent, POIs happen mid-speech, and a judge ballot comes out at the end. It's the closest simulation of a real tournament round.</p>
+      <div class="faq-item faq-item--wide"><button class="faq-q">What's the difference between Debate AI and Debate Chat?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p><strong>Debate AI</strong> is a full timed voice round. You deliver your speeches out loud, the AI delivers its speeches as a voice opponent, POIs happen mid-speech, and a judge ballot comes out at the end. It's the closest simulation of a real tournament round.</p>
         <p><strong>Debate Chat</strong> is a text-based back-and-forth. No timer, no speech structure, just trade arguments until you type "end" for a verdict. Lower stakes, faster iteration, easier to study a specific clash without running the whole round.</p>
         <p>Most people use Chat for prep and Debate AI for simulation.</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">Is using this to prep cheating?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>No. It's a prep tool. same category as reading an article, running a practice round with a teammate, asking a coach, or looking through old case lists. You're still the one speaking and thinking in the actual round.</p>
-        <p>No circuit we're aware of prohibits using AI tools in prep. Using AI during a live round is obviously different and would be cheating in any format. The app explicitly separates prep features (case gen, mapper, chat) from in-round features (none. by design).</p>
+      <div class="faq-item"><button class="faq-q">Which formats are supported?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Asian Parliamentary, World Schools, British Parliamentary, APDA Parliamentary, Public Forum, Lincoln-Douglas, Policy, Congressional Debate, plus Quick Clash for informal practice.</p>
+        <p>Each format gets proper speech order, timers, POIs, reply speeches where applicable, and a judge ballot at the end. Case Gen output is structured for the format you pick (PMR collapse for APDA, extension for BP, contention-based for PF, etc.). Prompts are format-scoped. the AI argues differently in NPDA vs. APDA.</p>
       </div></div>
 
       <div class="faq-item"><button class="faq-q">How does the judge ballot work?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
@@ -6378,19 +6357,19 @@ window.addEventListener('load', function(){
         <p>The ballot is prompted to judge like a circuit judge, not like a kind teacher. expect honest feedback. You can override the brain used for judging (e.g. judge with Claude even if you debated with GPT) for a second opinion.</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">Can I share cases with my team?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
-        <p>Yes. Sign in, create a team, invite teammates by email. Your saved cases become shareable with the team from the <strong>Saved Cases</strong> library. team members can import any shared case into their own saved list.</p>
+      <div class="faq-item faq-item--circle"><button class="faq-q">Share cases with my team?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+        <p>Yes. Sign in, create a team, invite teammates by email. Your saved cases become shareable with the team from the <strong>Saved Cases</strong> library. Team members can import any shared case into their own saved list.</p>
         <p>Team plans also show shared analytics so you can see what your squad is working on, plus team-wide usage limits that don't eat into individual quotas.</p>
       </div></div>
 
       <div class="faq-group-head">About the project</div>
 
-      <div class="faq-item"><button class="faq-q">Is this still being built?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+      <div class="faq-item faq-item--wide"><button class="faq-q">Is this still being built?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
         <p>Yes. You're using something that's actively being shaped. The core engine (timed rounds, four AI brains, judge ballots, format-aware voice across nine formats) is solid and has run thousands of rounds. The community surfaces (Cases, Discussion, live human-vs-human sparring) are still filling in with their first wave of users; what you post is what someone else lands on tomorrow.</p>
         <p>The roadmap moves on user feedback more than my own plan. Most weeks something ships because someone wrote in. If you've used the tool and have a sharp critique or a feature you actually want, send it via the in-app feedback link or the buttons throughout the site.</p>
       </div></div>
 
-      <div class="faq-item"><button class="faq-q">Who's behind this?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
+      <div class="faq-item faq-item--circle"><button class="faq-q">Who's behind this?<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">
         <p>One person. I'm a national parliamentary debater and a UChicago undergrad (philosophy + business econ). I built this for myself first because I was tired of prepping alone. The fact that other debaters needed it too is what turned a personal tool into a public one.</p>
         <p>It's not a VC-backed studio. The "we" you'll see in some copy is the user community, not a team of engineers. That's a feature, not a bug: it means roadmap decisions go through one person who's used the product hundreds of times, and feedback gets read directly.</p>
       </div></div>

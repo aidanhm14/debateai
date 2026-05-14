@@ -21,7 +21,7 @@
     appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
   };
   const SDK_VERSION = '10.7.1';
-  const PRICING_URL = '/pricing';
+  const PRICING_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform';
   const REFRESH_MS = 120_000; // Re-check team plan every 2 min.
   const DISMISS_HOURS = 24;   // Respect a dismiss for a day.
 
@@ -122,19 +122,21 @@
     body.style.cssText = 'flex:1;min-width:0';
     const title = document.createElement('div');
     title.style.cssText = 'font-weight:800;font-size:.88rem;letter-spacing:.01em;margin-bottom:2px';
-    title.textContent = state === 'capped' ? "You've hit the free cap" : 'Unlock everything for $5/year';
+    title.textContent = state === 'capped' ? "You've hit the beta cap" : 'Help shape future pricing';
     const sub = document.createElement('div');
     sub.style.cssText = 'font-size:.72rem;opacity:.85;font-weight:500';
     sub.textContent = state === 'capped'
-      ? 'Resume unlimited drafts + all 4 brains.'
-      : '250 drafts/mo · Sneaky · Opp Attack · Live';
+      ? 'In beta — share what fair pricing looks like.'
+      : 'Beta is free. Pricing proposals welcome.';
     body.appendChild(title);
     body.appendChild(sub);
     card.appendChild(body);
 
     const cta = document.createElement('a');
     cta.href = PRICING_URL;
-    cta.textContent = 'See plans';
+    cta.target = '_blank';
+    cta.rel = 'noopener';
+    cta.textContent = 'Feedback';
     cta.style.cssText = [
       'background:#fff',
       'color:#dc2626',
