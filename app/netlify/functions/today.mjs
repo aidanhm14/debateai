@@ -214,14 +214,15 @@ function renderPage(date, dateStr, motion, recentRounds) {
   .winner-badge{display:inline-block;margin-top:8px;font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:2px 8px;border-radius:999px}
   .winner-badge.user{background:rgba(34,197,94,.14);color:#86efac;border:1px solid rgba(34,197,94,.32)}
   .winner-badge.ai{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.32)}
-  /* Streak bar — daily-ritual surface above the motion. Hydrated client-side
-     from localStorage so the SSR shell renders fine for crawlers + the
-     personalized "Day N streak" lands once JS boots. */
+  /* Day-run pill — daily-return surface above the motion. Hydrated
+     client-side from localStorage so the SSR shell renders fine for
+     crawlers + the personalized "Day N" lands once JS boots. Tone is
+     practice-log, not gamified — restrained color tokens, no emoji,
+     no "STREAK!" hype. */
   .streak-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;min-height:30px}
-  .streak-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:999px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.32);font-size:.78rem;color:rgba(255,255,255,.85);font-weight:600;letter-spacing:.01em}
-  .streak-pill.done{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:#86efac}
-  .streak-fire{font-size:.92rem;line-height:1}
-  .streak-share{padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.85);font-size:.72rem;font-weight:700;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;transition:.15s;font-family:inherit}
+  .streak-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.18);font-size:.78rem;color:rgba(255,255,255,.82);font-weight:500;letter-spacing:.01em}
+  .streak-pill.done{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.30);color:rgba(187,247,208,.95)}
+  .streak-share{padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.85);font-size:.72rem;font-weight:600;cursor:pointer;letter-spacing:.04em;transition:.15s;font-family:inherit}
   .streak-share:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.32)}
   footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
   footer a:hover{color:#fff}
@@ -234,8 +235,7 @@ function renderPage(date, dateStr, motion, recentRounds) {
 <main class="shell">
   ${isToday ? `<div class="streak-bar" data-today="${esc(dateStr)}" data-motion="${esc(motion.motion)}">
     <span class="streak-pill" data-streak-pill>
-      <span class="streak-fire">🔥</span>
-      <span class="streak-text">Start your streak. First round counts.</span>
+      <span class="streak-text">Day 1. Today's motion is the first.</span>
     </span>
     <button type="button" class="streak-share" data-streak-share hidden>Share</button>
   </div>` : ''}
@@ -263,9 +263,9 @@ function renderPage(date, dateStr, motion, recentRounds) {
   </div>
 
   <div class="cta-card">
-    <h2>Argue it. Against the AI.</h2>
-    <p>Pick a side. Three minutes per speech. The AI debates back in your chosen format. Judge ballot at the end.</p>
-    <a class="cta-button" href="${ctaHref}">Start this motion →</a>
+    <h2>Take it. Against the AI.</h2>
+    <p>Pick a side. Three minutes per speech. The AI takes the other side in your chosen format. Judge ballot at the end.</p>
+    <a class="cta-button" href="${ctaHref}">Open on this motion →</a>
   </div>
 
   <section class="archive">
@@ -298,7 +298,7 @@ ${isToday ? `<script>
   // Wordle-shape streak hydration. Reads localStorage written by
   // debate-ai.html's saveRound after the user completes today's motion,
   // then re-skins the pill + reveals the share button. SSR shell stays
-  // crawlable as a static "Start your streak" pill if JS never runs.
+  // crawlable as a static "Day 1" pill if JS never runs.
   var bar=document.querySelector('.streak-bar');
   if(!bar)return;
   var TODAY=bar.dataset.today;
@@ -314,15 +314,15 @@ ${isToday ? `<script>
   if(!txt)return;
   if(doneToday){
     pill.classList.add('done');
-    txt.textContent=s.streak<=1?'Done. Day 1 of your streak.':'Done. Day '+s.streak+' of your streak.';
+    txt.textContent=s.streak<=1?'Day 1. Today\\'s motion taken.':'Day '+s.streak+'. Today\\'s motion taken.';
     if(shareBtn)shareBtn.hidden=false;
   }else if(s.streak>0){
-    txt.textContent='Day '+s.streak+' streak. Argue today to keep it.';
+    txt.textContent='Day '+s.streak+'. Take today\\'s motion to keep the run.';
   }
   if(shareBtn){
     shareBtn.addEventListener('click',async function(){
       var n=s.streak||0;
-      var line=n>0?'🔥 Day '+n+' streak':'🔥 First daily motion done';
+      var line=n>0?'Day '+n+'. Today\\'s motion taken.':'Day 1. First motion taken.';
       var text='Debate AI · '+TODAY+'\\n"'+MOTION+'"\\n'+line+'\\nhttps://debateai.com/today';
       try{
         if(navigator.share){
