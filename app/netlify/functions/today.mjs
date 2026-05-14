@@ -167,9 +167,13 @@ function renderPage(date, dateStr, motion, recentRounds) {
   .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444;padding:5px 14px;border-radius:999px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.32);margin-bottom:14px}
   .eyebrow-dot{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 12px #ef4444}
   .date-line{font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:24px;letter-spacing:.02em}
-  h1{font-family:'Playfair Display',serif;font-style:italic;font-weight:900;font-size:clamp(1.95rem,4.5vw,3rem);line-height:1.1;letter-spacing:-.02em;margin-bottom:28px;color:#fff}
+  h1{font-family:'Inter',system-ui,-apple-system,sans-serif;font-weight:900;font-size:clamp(2rem,4.8vw,3.2rem);line-height:1.08;letter-spacing:-.025em;margin-bottom:28px;color:#fff}
   .domain-tag{display:inline-block;font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#fbbf24;padding:4px 10px;border-radius:999px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.28);margin-bottom:22px}
-  .frame{font-size:1.05rem;line-height:1.7;color:rgba(255,255,255,.85);margin:0 0 36px}
+  .frame{font-size:1.05rem;line-height:1.7;color:rgba(255,255,255,.85);margin:0 0 24px}
+  .background-block{margin:0 0 36px}
+  .background-block h2{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.55);margin:0 0 14px}
+  .background-block p{font-size:.98rem;line-height:1.7;color:rgba(255,255,255,.78);margin:0 0 14px}
+  .background-block p:last-child{margin-bottom:0}
   .side-grid{display:grid;grid-template-columns:1fr;gap:18px;margin:0 0 40px}
   @media(min-width:680px){.side-grid{grid-template-columns:1fr 1fr}}
   .side-card{padding:18px 22px;border-radius:14px;border:1px solid;background:rgba(255,255,255,.02)}
@@ -216,6 +220,11 @@ function renderPage(date, dateStr, motion, recentRounds) {
   <span class="domain-tag">${esc(motion.domain)}</span>
 
   <p class="frame">${esc(motion.frame)}</p>
+
+  ${motion.background ? `<section class="background-block">
+    <h2>Background</h2>
+    ${motion.background.split('\n\n').map(p => `<p>${esc(p)}</p>`).join('\n    ')}
+  </section>` : ''}
 
   <div class="side-grid">
     <div class="side-card gov">
