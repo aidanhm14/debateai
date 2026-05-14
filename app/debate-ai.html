@@ -2084,6 +2084,54 @@ function randomMotionFor(fmt){
   return arr[Math.floor(Math.random()*arr.length)];
 }
 
+// Lightweight tag inference for the Quick motion bank. Used by
+// smartQuickMotion to bias selection toward a domain the user's
+// fingerprint flagged as a weakness. Pure string-match heuristic so
+// no runtime cost vs the random picker.
+function classifyMotion(text) {
+  const m = (text || '').toLowerCase();
+  if (/\btax|wealth|tuition|loan|billion|economy|economic|jet|tip|deficit|inequality|capital|market/.test(m)) return 'econ';
+  if (/\bai\b|algorithm|tech|robot|self-driving|recognition|generative|art/.test(m)) return 'tech';
+  if (/school|college|homework|sat|grade|education|tuition|student/.test(m)) return 'edu';
+  if (/right|just\b|moral|punish|death\b|liberty|civil|consent/.test(m)) return 'ethics';
+  if (/vot|democracy|govern|union|election/.test(m)) return 'civic';
+  if (/plastic|climate|environment|carbon|jet/.test(m)) return 'env';
+  return 'general';
+}
+
+// Read the user's fingerprint (from styleSummary state) and return the
+// domain it flags as a weakness — used to target Quick Clash motions
+// at the user's actual rough edges. Returns null if no signal.
+function inferWeaknessDomain(fingerprintText) {
+  if (!fingerprintText) return null;
+  const m = String(fingerprintText).toLowerCase();
+  // Prefer the "Recurring weaknesses:" line; if not parseable, scan
+  // the whole fingerprint for a domain keyword (the AI sometimes flags
+  // a weak topic affinity in other sections too).
+  const weakLine = (m.match(/recurring weakness(?:es)?:\s*([^\n]+)/i) || [])[1] || '';
+  const scope = weakLine || m;
+  if (/econ|tax|wealth|capit|market|tariff|trade/.test(scope)) return 'econ';
+  if (/tech|\bai\b|algorithm|digital|data|cyber/.test(scope)) return 'tech';
+  if (/educ|school|college|student|admissions/.test(scope)) return 'edu';
+  if (/ethic|moral|right|justic|fair/.test(scope)) return 'ethics';
+  if (/civic|democracy|govern|vot|election/.test(scope)) return 'civic';
+  if (/environ|climate|carbon|emission/.test(scope)) return 'env';
+  return null;
+}
+
+// Quick-Clash motion picker that uses the user's fingerprint when
+// available. With a weakness domain signal, biases toward motions in
+// that domain so the round actually trains the user's rough edge.
+// Falls through to plain random when no fingerprint or no match.
+function smartQuickMotion(fingerprintText) {
+  const all = motionsFor('quick');
+  const target = inferWeaknessDomain(fingerprintText);
+  if (!target) return all[Math.floor(Math.random()*all.length)];
+  const matching = all.filter(m => classifyMotion(m) === target);
+  if (matching.length === 0) return all[Math.floor(Math.random()*all.length)];
+  return matching[Math.floor(Math.random()*matching.length)];
+}
+
 // ── Curated case files ─────────────────────────────────────────────
 // Hand-written background primers for high-leverage APDA / parli
 // motions. When the user picks a motion that has a case file, we skip
@@ -4828,7 +4876,17 @@ function App(){
     }
   },[quickStartPending,motion,format]);
   const quickStart=()=>{
-    const m = randomMotionFor('quick');
+    // Smart motion pick: when the user has a fingerprint flagging a
+    // weakness domain (econ / tech / ethics / etc.), bias toward a
+    // motion in that domain so Quick Clash actually drills the rough
+    // edge instead of throwing a random topic. Falls back to plain
+    // random when no fingerprint exists or no domain match.
+    const fpText = styleSummary && styleSummary.fingerprint && styleSummary.fingerprint.text;
+    const m = smartQuickMotion(fpText);
+    try {
+      const target = inferWeaknessDomain(fpText);
+      if (target) window.gtag && gtag('event','quick_clash_targeted',{ target });
+    } catch(_) {}
     setMotion(m);
     if(format!=='quick') setFormat('quick');
     const quickFmt = FORMATS.quick;
