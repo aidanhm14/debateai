@@ -5239,19 +5239,55 @@ function App(){
     return()=>window.removeEventListener('keydown',handler);
   },[phase,tts.speaking,showShortcuts]);
 
-  // Adaptive difficulty. check user's win rate against this opponent
+  // Adaptive difficulty. check user's win rate against this opponent.
+  // Per-format takes precedence: a user crushing APDA might still be
+  // struggling in Policy, so we want the difficulty curve to track the
+  // actual format they are about to run, not a global average.
   const getWinRate=()=>{
     if(historyRounds.length===0) return { wins:0, losses:0, total:0, rate:0.5 };
     const wins=historyRounds.filter(r=>r.userWon===true).length;
     const losses=historyRounds.filter(r=>r.userWon===false).length;
     return { wins, losses, total:historyRounds.length, rate: historyRounds.length>0 ? wins/historyRounds.length : 0.5 };
   };
+  // Per-format win rate. Falls back to global rate if the user has fewer
+  // than 3 rounds in this format (small-sample noise kills the signal).
+  const getFormatWinRate=(fmtKey)=>{
+    const f = fmtKey || format;
+    const inFormat = historyRounds.filter(r => r && r.format === f);
+    if (inFormat.length < 3) return null;
+    const wins = inFormat.filter(r => r.userWon === true).length;
+    return { wins, total: inFormat.length, rate: wins / inFormat.length, fmtKey: f };
+  };
   const getDifficultyNote=()=>{
+    // Try per-format first; fall back to global.
+    const fwr = getFormatWinRate();
+    if (fwr) {
+      const fmtName = (FORMATS[fwr.fmtKey] || {}).name || fwr.fmtKey;
+      if (fwr.rate >= 0.7) return 'The user has won '+fwr.wins+' of their last '+fwr.total+' rounds in '+fmtName+'. Debate at a SIGNIFICANTLY higher level for this format specifically. Exploit YOUR strengths more aggressively, give fewer openings, use more sophisticated arguments. Make them EARN the win.';
+      if (fwr.rate <= 0.3) return 'The user has won only '+fwr.wins+' of their last '+fwr.total+' rounds in '+fmtName+'. Debate well but leave slightly more exploitable openings in your weaker areas. Still argue to win, but give the user more chances to find your weaknesses.';
+      return '';
+    }
     const wr=getWinRate();
     if(wr.total<3) return '';
-    if(wr.rate>=0.7) return 'The user has been winning consistently ('+wr.wins+'/'+wr.total+' wins). Debate at a SIGNIFICANTLY higher level. exploit YOUR strengths more aggressively, give fewer openings, use more sophisticated arguments. Make them EARN the win.';
-    if(wr.rate<=0.3) return 'The user has been struggling ('+wr.wins+'/'+wr.total+' wins). Debate well but leave slightly more exploitable openings in your weaker areas. Still argue to win, but give the user more chances to find your weaknesses.';
+    if(wr.rate>=0.7) return 'The user has been winning consistently ('+wr.wins+'/'+wr.total+' wins overall). Debate at a SIGNIFICANTLY higher level. exploit YOUR strengths more aggressively, give fewer openings, use more sophisticated arguments. Make them EARN the win.';
+    if(wr.rate<=0.3) return 'The user has been struggling ('+wr.wins+'/'+wr.total+' wins overall). Debate well but leave slightly more exploitable openings in your weaker areas. Still argue to win, but give the user more chances to find your weaknesses.';
     return '';
+  };
+  // Visible label for the setup form so the user SEES the difficulty
+  // signal that's about to feed the AI, instead of it being silently
+  // applied. Empty string when no adjustment is active.
+  const getDifficultyLabel=()=>{
+    const fwr = getFormatWinRate();
+    if (fwr) {
+      if (fwr.rate >= 0.7) return { tier:'hard', text:'Hard mode · '+fwr.wins+'/'+fwr.total+' wins in '+(FORMATS[fwr.fmtKey]||{}).name };
+      if (fwr.rate <= 0.3) return { tier:'soft', text:'Easier opponent · '+fwr.wins+'/'+fwr.total+' wins in '+(FORMATS[fwr.fmtKey]||{}).name };
+      return null;
+    }
+    const wr = getWinRate();
+    if (wr.total < 3) return null;
+    if (wr.rate >= 0.7) return { tier:'hard', text:'Hard mode · '+wr.wins+'/'+wr.total+' wins overall' };
+    if (wr.rate <= 0.3) return { tier:'soft', text:'Easier opponent · '+wr.wins+'/'+wr.total+' wins overall' };
+    return null;
   };
 
   // Judge feedback. structured ballot
@@ -6613,6 +6649,33 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             '). Expect it to neutralize them early \u2014 bring something new.'
           ),
           el('div',{style:{fontSize:'.62rem',color:'var(--c-dim)',marginTop:6,fontStyle:'italic',lineHeight:1.45}},'From your last ',(styleSummary.fingerprint.sampleCount || 'few'),' rounds. The judge will also call out the pattern if you repeat it.')
+        );
+      })(),
+      // Difficulty badge \u2014 visible side of the adaptive-difficulty
+      // signal. When the user has 3+ rounds in the chosen format and
+      // their win rate is past either threshold, surface a one-line
+      // pill so they SEE that the AI is calibrating, instead of it
+      // being silent. The note that hits the AI prompt is unchanged;
+      // this is just the UI side of the same data.
+      !isCounterExt && (function(){
+        const lbl = getDifficultyLabel();
+        if (!lbl) return null;
+        const isHard = lbl.tier === 'hard';
+        return el('div',{style:{
+          marginTop:14, marginBottom:6,
+          padding:'10px 14px',
+          background: isHard
+            ? 'linear-gradient(135deg,rgba(239,68,68,.10),rgba(245,158,11,.04))'
+            : 'linear-gradient(135deg,rgba(34,197,94,.06),rgba(59,130,246,.04))',
+          border:'1px solid '+(isHard ? 'rgba(239,68,68,.32)' : 'rgba(34,197,94,.28)'),
+          borderRadius:12,
+          display:'flex',
+          alignItems:'center',
+          gap:10,
+          flexWrap:'wrap',
+        }},
+          el('div',{style:{fontSize:'.6rem',fontWeight:800,letterSpacing:'.16em',textTransform:'uppercase',color: isHard ? '#fca5a5' : '#86efac'}}, isHard ? '\u2694\ufe0e Hard mode' : '\u25d0 Easier opponent'),
+          el('div',{style:{fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.45,flex:1,minWidth:140}}, lbl.text.split(' \u00b7 ').slice(1).join(' \u00b7 '))
         );
       })(),
       // Framing callout removed \u2014 read as a warning banner; the orb +
