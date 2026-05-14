@@ -1589,26 +1589,21 @@ const JUDGE_PARADIGMS = {
 };
 
 /* ── AI VOICES ──────────────────────── */
-// Free users: OpenAI TTS voices. Pro users: ElevenLabs premium voices (same selector, upgraded quality).
+// Curated to four measured registers — no high-drama personas, no
+// regional accents. The TTS pipeline (tts.mjs) still carries the
+// broader voice-ID map server-side so legacy clients with stale keys
+// don't 500; the migration in the voice useState guard below snaps
+// any retired key (onyx, echo, alloy, nova, coral, ash, statesman,
+// barrister, upstart, heckler, disruptor, tactician) to 'sage' on
+// next render.
 const VOICES = {
-  onyx:    { name:'The Professor',   gender:'Male',   desc:'Deep & authoritative. Owns the room like a tenured lecturer.' },
-  echo:    { name:'The Closer',      gender:'Female', desc:'Confident & persuasive. Sounds like she\'s won this round before.' },
-  fable:   { name:'The Surgeon',     gender:'Male',   desc:'Calm & precise. Dissects arguments with surgical accuracy.' },
-  alloy:   { name:'The Veteran',     gender:'Male',   desc:'Rich baritone. 500 rounds deep, nothing surprises him.' },
-  nova:    { name:'The Firebrand',   gender:'Male',   desc:'High-energy & relentless. Every word drips with conviction.' },
-  shimmer: { name:'The Diplomat',    gender:'Female', desc:'Polished & composed. Makes devastating attacks sound reasonable.' },
-  coral:   { name:'The Debater',     gender:'Female', desc:'Quick-witted & sharp. Pure college circuit energy.' },
-  sage:    { name:'The Philosopher', gender:'Male',   desc:'Thoughtful & measured. The Socratic method in human form.' },
-  ash:     { name:'The Prosecutor',  gender:'Male',   desc:'Intense & relentless. Cross-examines every claim to death.' },
-  ballad:  { name:'The Storyteller', gender:'Female', desc:'Warm & compelling. Turns policy arguments into narratives.' },
-  // Expansion pack, broader range of debater archetypes:
-  statesman: { name:'The Statesman', gender:'Male',   desc:'Warm British gravitas. Sounds like the senior MP closing for the Crown.' },
-  barrister: { name:'The Barrister', gender:'Male',   desc:'British, courtroom-precise. Picks your case apart cross-examination style.' },
-  upstart:   { name:'The Upstart',   gender:'Female', desc:'Youthful British, hungry. The freshman who reads every paper before the round.' },
-  heckler:   { name:'The Heckler',   gender:'Male',   desc:'Gravelly, sardonic. The senior who\'s seen this argument fifty times and isn\'t hiding it.' },
-  disruptor: { name:'The Disruptor', gender:'Female', desc:'High-energy challenger. Thrives on chaos in the round.' },
-  tactician: { name:'The Tactician', gender:'Male',   desc:'Calm, measured strategist. Three moves ahead, never loud about it.' },
+  fable:   { name:'Male · Calm',       gender:'', desc:'Calm and precise.' },
+  sage:    { name:'Male · Measured',   gender:'', desc:'Thoughtful and patient.' },
+  shimmer: { name:'Female · Composed', gender:'', desc:'Polished and steady.' },
+  ballad:  { name:'Female · Warm',     gender:'', desc:'Warm and grounded.' },
 };
+const DEFAULT_VOICE = 'sage';
+function migrateVoice(v){ return (v && VOICES[v]) ? v : DEFAULT_VOICE; }
 
 /* ── USE-CASE PICKER (non-debater onramp) ────────
    The /debate-ai page assumes debate-format literacy by default: APDA,
@@ -1638,8 +1633,8 @@ const USE_CASES = {
     motion: 'A court should grant my motion to suppress evidence obtained without a warrant',
     format: 'quick',
     side: 'gov',
-    voice: 'ash',
-    sample: 'Argue your motion. The Prosecutor cross-examines.',
+    voice: 'fable',
+    sample: 'Argue your motion. The examiner cross-examines.',
   },
   sales: {
     label: 'Sales / objection handling',
@@ -1648,7 +1643,7 @@ const USE_CASES = {
     format: 'quick',
     side: 'gov',
     voice: 'shimmer',
-    sample: 'Open with your pitch. The Diplomat raises objections.',
+    sample: 'Open with your pitch. A composed buyer raises objections.',
   },
   pitch: {
     label: 'Pitch / interview prep',
@@ -1656,8 +1651,8 @@ const USE_CASES = {
     motion: 'Now is the right time to bet on my company',
     format: 'quick',
     side: 'gov',
-    voice: 'tactician',
-    sample: 'Make your case. The Tactician asks what investors will ask.',
+    voice: 'sage',
+    sample: 'Make your case. A measured panelist asks what investors will ask.',
   },
   explore: {
     label: 'Just curious / exploring',
@@ -1665,7 +1660,7 @@ const USE_CASES = {
     motion: 'Smartphones should be banned in middle schools',
     format: 'quick',
     side: 'gov',
-    voice: 'coral',
+    voice: 'ballad',
     sample: 'A friendly first round on an easy motion.',
   },
 };
@@ -2794,7 +2789,7 @@ function useTTS(){
   // coupled to playback speed. fast speech at zero intensity still sounds
   // composed rather than breathless. Callers that want the old behavior
   // can pass `intensity: Math.min(1, Math.max(0, (speed-1.0)/1.0))`.
-  // Default voice 'sage' (The Philosopher) is the calmest option; callers
+  // Default voice 'sage' (Male · Measured) is the calmest option; callers
   // override per-character.
   // Per the funnel-fix scoping doc (Fix #2): same 5s timeout applies here
   // so the single-shot `tts.speak` path (used by speakWithError below as
@@ -3125,7 +3120,7 @@ function useTTS(){
   const[ttsError,setTtsError]=useState('');
 
   // Wrap speak to surface errors
-  const speakWithError=(text,wpm=200,onEnd,voiceName='onyx',onStart)=>{
+  const speakWithError=(text,wpm=200,onEnd,voiceName=DEFAULT_VOICE,onStart)=>{
     cancelActive();
     setTtsError('');
     const token={cancelled:false};
@@ -4051,7 +4046,7 @@ function App(){
   const[oppStrengths,setOppStrengths]=useState([]);
   const[oppWeaknesses,setOppWeaknesses]=useState([]);
   const[brain,setBrain]=useState('claude');
-  const[voice,setVoice]=useState('onyx');
+  const[voice,setVoice]=useState(DEFAULT_VOICE);
   // Judge count picker. 1 = single Tab/flow judge (default, fast). 3 =
   // full APDA-style panel of Maya / Marcus / Dr. Chen who deliberate
   // and reach a 3-0 or 2-1 vote. Auto-fires the panel deliberation
@@ -4753,7 +4748,7 @@ function App(){
     if(u.motion) setMotion(u.motion);
     if(u.format) setFormat(u.format);
     if(u.side) setSide(u.side);
-    if(u.voice) setVoice(u.voice);
+    if(u.voice) setVoice(migrateVoice(u.voice));
     // Mark onboarded so the prior generic welcome banner doesn't ALSO
     // render on top of the picker confirmation.
     try{ localStorage.setItem('debateos-da-onboarded','1') }catch(e){}
@@ -4794,7 +4789,7 @@ function App(){
     setFormat(recoveryData.format||'apda');
     setSide(recoveryData.side||'gov');
     setBrain(recoveryData.brain||'claude');
-    setVoice(recoveryData.voice||'onyx');
+    setVoice(migrateVoice(recoveryData.voice));
     setWpm(recoveryData.wpm||200);
     setOppStrengths(recoveryData.oppStrengths||[]);
     setOppWeaknesses(recoveryData.oppWeaknesses||[]);
@@ -6219,7 +6214,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           text: 'This is a quick voice test. The motion is whether AI debaters should set the pace.',
-          voice: voice || 'onyx',
+          voice: voice || DEFAULT_VOICE,
           speed: 1.0,
           premium: isPro(),
           intensity: 0.4,
@@ -7239,14 +7234,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         el('button',{className:'cta-ghost',onClick:()=>setSide(fmt.sides[Math.floor(Math.random()*fmt.sides.length)]),style:{padding:'6px 14px',fontSize:'.72rem'}},'Random'),
       ),
 
-      // AI Voice. The 16 voices are named after debate archetypes
-      // (The Closer, The Prosecutor, The Heckler, The Disruptor, etc.)
-      // which read wrong for a viva user — an examiner isn't a Closer.
-      // Counter mode hides the whole picker. The default voice (onyx /
-      // "The Professor") happens to fit examiner register, so the TTS
-      // pipeline still gets a voice; the user just doesn't see the
-      // debate-named pills. They can change it in non-extension mode
-      // and it will stick (state persists in localStorage).
+      // AI Voice. Curated to four measured registers labeled by
+      // gender + tone (e.g., Male · Calm). Counter / viva mode hides
+      // the whole picker since none of these archetypes read as an
+      // examiner; the TTS pipeline still gets a voice via DEFAULT_VOICE.
+      // Free path uses OpenAI gpt-4o-mini-tts steered per voice; Pro
+      // upgrades the same keys to ElevenLabs (see tts.mjs).
       !isCounterExt && el('div',{className:'t-label',style:{marginTop:24}},'AI Voice',isPro()&&el('span',{style:{marginLeft:8,fontSize:'.55rem',color:'#ef4444',fontWeight:700,background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4,verticalAlign:'middle'}},'HD VOICE')),
       // Provider clarity. Personas are characters; the engine that
       // speaks them depends on tier. Spelling this out so users don't
@@ -7255,14 +7248,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         isPro()
           ? (ttsProvider==='inworld'
               ? 'Speaking via Inworld (Pro · expressive AI voices). Switch in Account → Voice provider.'
-              : 'Speaking via ElevenLabs Turbo v2.5 (Pro · 16 expressive voices). Switch in Account → Voice provider.')
-          : 'Speaking via OpenAI gpt-4o-mini-tts (free tier · steered per persona for tone, pacing, and emotion). Pro unlocks ElevenLabs (the same 16 personas, even more expressive).'
+              : 'Speaking via ElevenLabs Turbo v2.5 (Pro · curated voices). Switch in Account → Voice provider.')
+          : 'Speaking via OpenAI gpt-4o-mini-tts (free tier · steered per voice for tone and pacing). Pro unlocks ElevenLabs on the same set.'
       ),
       !isCounterExt && el('div',{className:'pills',style:{flexWrap:'wrap',justifyContent:'center'}},
         Object.entries(VOICES).map(([k,v])=>
           el('button',{key:k,className:'pill'+(voice===k?' on':''),onClick:()=>setVoice(k),style:{minWidth:voice===k?'auto':undefined}},
-            v.name,
-            voice===k&&el('span',{style:{marginLeft:6,fontSize:'.6rem',opacity:.6,fontWeight:400}},v.gender)
+            v.name
           )
         )
       ),
