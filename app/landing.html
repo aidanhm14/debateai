@@ -6944,14 +6944,33 @@ window.addEventListener('load', function(){
   // a back-nav and want the page out of their way, not another CTA.
   auth.onAuthStateChanged(function(user){
     renderUserChip(user);
+    // Signed-in users shouldn't see "Sign up with Google" CTAs sprinkled
+    // through the page. Three surfaces flip together:
+    //   #googleSignupBtn      — legacy hidden delegate (parent hides too)
+    //   #heroGoogleSignup     — visible hero button (was orphaned, fixed 2026-05-15)
+    //   #signupCtaBtn         — mid-page UI-section "Sign up with Google · free"
+    //                            swaps copy + href instead of hiding because
+    //                            it's the only CTA in that section.
+    var hero = document.getElementById('heroGoogleSignup');
+    var signupCta = document.getElementById('signupCtaBtn');
     if (user) {
       var wrap = btn.parentElement;
       if (wrap) wrap.style.display = 'none';
       else btn.style.display = 'none';
+      if (hero) hero.style.display = 'none';
+      if (signupCta) {
+        signupCta.textContent = 'Open the app →';
+        signupCta.setAttribute('href', '/debate-ai');
+      }
     } else {
       var wrap2 = btn.parentElement;
       if (wrap2) wrap2.style.display = '';
       else btn.style.display = '';
+      if (hero) hero.style.display = '';
+      if (signupCta) {
+        signupCta.textContent = 'Sign up with Google · free';
+        signupCta.setAttribute('href', '/app#chat');
+      }
     }
   });
 
