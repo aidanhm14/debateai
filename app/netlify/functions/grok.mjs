@@ -4,6 +4,7 @@ import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
 import { applyDistillations } from './lib/distillations.mjs';
+import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -124,6 +125,7 @@ export default async (request, context) => {
     await Promise.all([
       applyExemplars(body),
       applyDistillations(body),
+      applyUserFingerprint(body, paidCheck.uid),
     ]);
     // Then inject the voice-guidelines block (strips _voiceFeature) so the
     // debater-voice bank stays server-side.

@@ -6,6 +6,7 @@ import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
 import { applyDistillations } from './lib/distillations.mjs';
+import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -324,6 +325,10 @@ export default async (request, context) => {
     await Promise.all([
       applyExemplars(body),
       applyDistillations(body),
+      // Per-user style fingerprint (the personalization layer). Looks
+      // up user_fingerprints/{uid}, prepends a USER STYLE block ahead of
+      // the base system prompt. Silent no-op for anonymous traffic.
+      applyUserFingerprint(body, userId),
     ]);
     // Voice guidelines: client sends `_voiceFeature` (e.g. "case", "bot",
     // "debateChat", "judge"). Server resolves the matching voice block and

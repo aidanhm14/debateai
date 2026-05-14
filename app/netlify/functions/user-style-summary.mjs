@@ -50,13 +50,18 @@ export default async (request) => {
   const db = getDb();
   const col = db.collection('generations').where('uid', '==', uid);
 
-  // Two parallel reads:
-  //  1. count() aggregation — one Firestore op, gives the cross-device truth.
-  //  2. limit(30) most-recent — small read, fuel for the motion list.
+  // Three parallel reads:
+  //  1. count() aggregation — cross-device truth on round count.
+  //  2. limit(30) most-recent — fuel for the motion + format breakdown.
+  //  3. user_fingerprints/{uid} — the nightly Haiku-generated style
+  //     fingerprint (signature moves / strengths / weaknesses). May be
+  //     null for users who haven't been fingerprinted yet (≥3 rounds
+  //     required, FRESH_DAYS staleness window).
   let totalRounds = 0;
   let recentDocs = [];
+  let fingerprintData = null;
   try {
-    const [countSnap, recentSnap] = await Promise.all([
+    const [countSnap, recentSnap, fingerprintSnap] = await Promise.all([
       col.count().get().catch(err => {
         // count() requires Firestore Node SDK 7+; if it isn't available
         // we fall back to the recent-only query and use its size as a
@@ -65,9 +70,21 @@ export default async (request) => {
         return null;
       }),
       col.orderBy('createdAt', 'desc').limit(RECENT_LIMIT).get(),
+      db.collection('user_fingerprints').doc(uid).get().catch(err => {
+        console.warn('user-style-summary fingerprint read failed:', err.message);
+        return null;
+      }),
     ]);
     totalRounds = countSnap?.data?.()?.count ?? recentSnap.size;
     recentDocs = recentSnap.docs;
+    if (fingerprintSnap?.exists) {
+      const fd = fingerprintSnap.data();
+      fingerprintData = {
+        text: fd.fingerprint || null,
+        updatedAt: fd.updatedAt?.toDate?.()?.toISOString?.() || null,
+        sampleCount: fd.sampleCount || null,
+      };
+    }
   } catch (err) {
     console.error('user-style-summary query failed:', err.message);
     return errorResponse('Could not load style summary.', 500, request);
@@ -109,6 +126,7 @@ export default async (request) => {
     firstSeenAt,
     lastSeenAt,
     hasStyle: totalRounds >= 3, // 3 is the threshold below which we don't claim "tuning."
+    fingerprint: fingerprintData,  // null until scheduled-user-fingerprint.mjs runs for this uid.
   };
 
   cache.set(uid, { fetchedAt: Date.now(), data });
