@@ -242,9 +242,53 @@ function renderPage(champions) {
 
   footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
   footer a:hover{color:#fff}
+
+  /* Honest-status watermark. Pre-Final-#1 the page reads as a stub
+     (empty-state card + how-it-works rail), which is fine but doesn't
+     explain WHY it's empty. The watermark frames it directly: an
+     event needs people committed before it can run. Auto-removed via
+     server-render gate once the first champion lands. Gold to match
+     the page accent (#fbbf24); low alpha so it sits behind content
+     without fighting it. */
+  .page-watermark{
+    position:fixed;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;user-select:none;
+    z-index:0;
+    transform:rotate(-12deg);
+    text-align:center;
+    overflow:hidden;
+  }
+  .page-watermark span{
+    display:block;
+    font-family:'Playfair Display',serif;
+    font-weight:900;
+    font-size:clamp(2.4rem,8vw,5.6rem);
+    color:rgba(251,191,36,.07);
+    letter-spacing:-.025em;
+    line-height:1.04;
+    text-transform:lowercase;
+    white-space:nowrap;
+  }
+  /* Main content sits above the watermark so text stays readable. */
+  .shell{position:relative;z-index:1}
+  /* A sliver of honest copy above the empty card so the watermark is
+     reinforced by an in-flow line rather than only hovering as a
+     background mark. Same auto-remove gate as the watermark. */
+  .empty-honest{
+    margin:0 auto 18px;max-width:540px;text-align:center;
+    font-size:.8rem;line-height:1.55;color:rgba(251,191,36,.78);
+    font-weight:600;letter-spacing:.01em;
+  }
+  .empty-honest strong{color:#fbbf24;font-weight:800}
 </style>
 </head>
 <body>
+${hasAny ? '' : `<div class="page-watermark" aria-hidden="true">
+  <span>we need more users</span>
+  <span>to organize this event</span>
+</div>`}
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
 
@@ -258,7 +302,7 @@ function renderPage(champions) {
 
   ${hasAny ? `<div class="champ-grid">
     ${champions.map(renderChampionCard).join('\n')}
-  </div>` : renderEmptyState()}
+  </div>` : `<p class="empty-honest"><strong>Status:</strong> we need more users to organize this event. Final #1 happens when the room shows up.</p>${renderEmptyState()}`}
 
   <section class="how-rail" aria-label="How Friday Night Finals work">
     <h3>How it works</h3>
