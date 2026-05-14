@@ -285,6 +285,35 @@ input[type=text]:focus,select:focus,textarea:focus{
   font-size:.7rem;color:#8a8a9a;text-align:center;letter-spacing:.04em;
 }
 
+/* Motion banner — persistent reminder of what's being debated.
+   Sits above the orb so a user glancing back at the screen sees the
+   resolution at the top of their visual frame. Subtle so it doesn't
+   compete with the orb, but legible. Eyebrow label adapts to mode:
+   "MOTION" for debate, "DEFENDING" for counter (oral exam) mode. */
+.motion-banner{
+  max-width:760px;margin:0 auto 14px;
+  padding:12px 18px;
+  background:rgba(239,68,68,.05);
+  border:1px solid rgba(239,68,68,.18);
+  border-radius:12px;
+  display:flex;align-items:flex-start;gap:14px;
+}
+.motion-banner .eyebrow{
+  flex:0 0 auto;
+  font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  color:#fca5a5;line-height:1.6;padding-top:1px;
+  white-space:nowrap;
+}
+.motion-banner .text{
+  flex:1;min-width:0;
+  font-size:.94rem;line-height:1.5;color:#e6e6ee;
+  font-weight:500;letter-spacing:-.005em;
+}
+@media (max-width:600px){
+  .motion-banner{flex-direction:column;gap:6px;padding:10px 14px}
+  .motion-banner .text{font-size:.88rem}
+}
+
 /* live controls (speed + model badge) — sit just below the mic meter */
 .live-controls{
   margin-top:14px;display:flex;align-items:center;justify-content:center;
@@ -3849,6 +3878,16 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
 
     // LIVE — the showpiece
     isLive && el('div', null,
+      // Motion banner — persistent on-screen resolution. The user used
+      // to land in the live view with no visible reminder of what they
+      // were debating; mid-round it's easy to drift on what the
+      // resolution actually was. If motion is empty (the AI is going
+      // to ask via mic), skip the banner so it doesn't show "" with
+      // an eyebrow alone.
+      motion && motion.trim() && el('div', { className:'motion-banner' },
+        el('div', { className:'eyebrow' }, extMode === 'counter' ? 'Defending' : 'Motion'),
+        el('div', { className:'text' }, motion.trim()),
+      ),
       el('div', { className: stageClass },
         el('canvas', { className:'orb', ref: orbCanvasRef }),
         el('div', { className:'label' },
