@@ -83,6 +83,7 @@
     { href: '/today',         label: 'Today'        },
     { href: '/rounds',        label: 'Rounds'       },
     { href: '/live',          label: 'Live', live: true },
+    { href: '/champions',     label: 'Champions'    },
     { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
     { href: '/#faq',          label: 'FAQ'          },
@@ -178,16 +179,19 @@
 
     // Theme toggle. Single sun/moon button (not the old 3-dot tray)
     // so the topbar stays uncluttered while users can still flip to
-    // the light token set. Cycles dark (crimson) ↔ light. Anyone
-    // with `da-theme=grey` saved in localStorage keeps grey applied
-    // on load but the toggle treats it as "dark family" — click goes
-    // to light, click again goes to crimson. Inline SVG (no emoji per
-    // 2026-05-10 sweep); CSS lives in /css/ui.css under .theme-toggle.
+    // the light token set. Three-way cycle (2026-05-14): light →
+    // crimson → stone → light. Stone is the warm-graphite dark
+    // variant; crimson is the pure-black brand-red variant. Icon
+    // shows sun when current is any dark family (click goes light)
+    // and moon when current is light (click goes dark). Legacy
+    // `da-theme=grey` is honored on load and treated as dark-family
+    // for cycle purposes (click → light). CSS lives in /css/ui.css
+    // under .theme-toggle.
     var themeBtn = el('button', {
       class: 'theme-toggle',
       type: 'button',
-      'aria-label': 'Toggle light theme',
-      title: 'Switch to light theme',
+      'aria-label': 'Toggle theme',
+      title: 'Switch theme',
     });
     themeBtn.innerHTML =
       // Sun (shown when in dark theme → click goes light)
@@ -316,14 +320,18 @@
     if (!btn) return;
     btn.addEventListener('click', function(){
       var prev = document.documentElement.getAttribute('data-theme') || 'crimson';
-      var next = (prev === 'light') ? 'crimson' : 'light';
-      // Mirror the choice into `debateos-lighting` too. /debate-ai has
-      // its own page-local "lighting" attribute that controls body bg
-      // + bar-links color; without this mirror, flipping the topbar to
-      // light on /landing then opening /debate-ai gave data-theme=light
-      // (so ui.css colored topbar text dark) but data-lighting=dark
-      // (so debate-ai kept the body dark). Dark text on dark bg = the
-      // unreadable nav contrast bug. Keep both attrs in lockstep here.
+      // Three-way cycle: light → crimson → stone → light. Treat legacy
+      // `grey` as `crimson` for the purposes of this cycle so anyone
+      // landing on the page with grey saved still has a sensible next
+      // step. The cycle order is intentional: light is the most
+      // distinct departure, crimson is the brand-default dark, stone
+      // is the new warm-graphite variant. Clicking from light should
+      // land somewhere recognizably "the brand" (crimson) before
+      // surfacing the third option.
+      var next;
+      if (prev === 'light') next = 'crimson';
+      else if (prev === 'crimson' || prev === 'grey') next = 'stone';
+      else next = 'light';
       var lighting = (next === 'light') ? 'light' : 'dark';
       try {
         localStorage.setItem('da-theme', next);
@@ -338,10 +346,19 @@
       var b = document.querySelector('.ui-topbar .theme-toggle');
       if (!b) return;
       var isLight = (t === 'light');
-      b.setAttribute('aria-label', isLight ? 'Switch to dark theme' : 'Switch to light theme');
-      b.title = isLight ? 'Switch to dark theme' : 'Switch to light theme';
+      // Tooltip names the next variant in the 3-way cycle so the user
+      // knows what's coming — "Switch theme" alone leaves them guessing
+      // until reload. Mirrors the click handler's cycle order.
+      var nextLabel;
+      if (t === 'light') nextLabel = 'Dark (crimson)';
+      else if (t === 'crimson' || t === 'grey') nextLabel = 'Dark (stone)';
+      else nextLabel = 'Light';
+      b.setAttribute('aria-label', 'Switch to ' + nextLabel);
+      b.title = 'Switch to ' + nextLabel;
       // Sun/moon visibility flips via CSS attribute selector on the
       // <html> data-theme so we don't have to do anything else here.
+      // Stone is treated as a dark variant by the CSS, so the sun
+      // icon shows (click goes light).
     }
   }
 

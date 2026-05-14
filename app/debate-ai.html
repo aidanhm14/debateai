@@ -4514,6 +4514,28 @@ function App(){
     try{return new URLSearchParams(location.search).get('dm')||''}catch{return''}
   });
 
+  // Daily-streak surface state. Reads the same localStorage key the
+  // /today page reads + saveRound writes, normalizes "alive" vs "broken"
+  // streaks (yesterday's date keeps it alive, anything older zeroes it
+  // back to a fresh start). doneToday drives the green "argued today"
+  // chip vs the amber "argue today to keep it" chip on the setup screen.
+  const[dailyStreak]=useState(()=>{
+    try{
+      const raw=localStorage.getItem('debateos-daily-streak');
+      if(!raw)return{streak:0,doneToday:false,alive:false};
+      const s=JSON.parse(raw);
+      const todayStr=new Date().toISOString().slice(0,10);
+      const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
+      const doneToday=Array.isArray(s.allCompleted)&&s.allCompleted.indexOf(todayStr)!==-1;
+      const alive=doneToday||s.lastDate===yest||s.lastDate===todayStr;
+      return{
+        streak:alive?(s.streak||0):0,
+        doneToday,
+        alive,
+      };
+    }catch{return{streak:0,doneToday:false,alive:false}}
+  });
+
   // Server-truth style summary. historyRounds above is localStorage-only
   // so its count resets on a new device or storage clear. styleSummary
   // pulls from the generations collection (written via captureTurn since
@@ -6343,19 +6365,47 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   },'?');
 
   // ── SETUP ──
+  // Daily-streak pill — renders above the tab bar when the user has a
+  // live streak. Green "argued today" chip when today's motion is done,
+  // amber "argue today to keep it" with a link to /today when not. The
+  // /today CTA appends ?dm=<date> which the saveRound hook flips into
+  // the localStorage streak that this state reads, closing the loop.
+  // Suppressed for brand-new users (streak 0) so the surface isn't a nag.
+  const streakPill = dailyStreak.streak >= 1 ? el('div',{style:{
+    display:'inline-flex',alignItems:'center',gap:7,padding:'6px 14px',borderRadius:999,
+    background: dailyStreak.doneToday ? 'rgba(34,197,94,.10)' : 'rgba(251,191,36,.08)',
+    border:'1px solid '+(dailyStreak.doneToday ? 'rgba(34,197,94,.42)' : 'rgba(251,191,36,.36)'),
+    color: dailyStreak.doneToday ? '#86efac' : 'rgba(255,255,255,.88)',
+    fontSize:'.74rem',fontWeight:600,letterSpacing:'.02em',
+    marginBottom:10,
+  }},
+    el('span',{style:{fontSize:'.88rem',lineHeight:1}},'🔥'),
+    el('span',null,
+      dailyStreak.doneToday
+        ? 'Day '+dailyStreak.streak+' streak. Argued today.'
+        : 'Day '+dailyStreak.streak+' streak. '
+    ),
+    !dailyStreak.doneToday && el('a',{href:'/today',style:{color:'#fca5a5',textDecoration:'underline',marginLeft:4}},'Argue today to keep it →')
+  ) : null;
+
   // Tab bar for the setup screen. Shared between the Setup and Saved views.
-  const setupTabBar = el('div',{style:{display:'flex',gap:6,justifyContent:'center',marginBottom:18,marginTop:4}},
-    [['setup','Setup'],['saved','Saved']].map(([k,label])=>el('button',{
-      key:k,onClick:()=>setSetupTab(k),
-      style:{
-        padding:'8px 22px',borderRadius:999,
-        background:setupTab===k?'rgba(239,68,68,.16)':'transparent',
-        border:'1px solid '+(setupTab===k?'rgba(239,68,68,.55)':'var(--c-border2)'),
-        color:setupTab===k?'#fca5a5':'var(--c-text)',
-        fontSize:'.78rem',fontWeight:setupTab===k?700:500,letterSpacing:'.04em',
-        cursor:'pointer',fontFamily:'inherit',
-      },
-    },label,k==='saved'&&(savedCases.length+historyRounds.length)>0&&el('span',{style:{marginLeft:6,fontSize:'.62rem',opacity:.7}},'('+(savedCases.length+historyRounds.length)+')')))
+  // Wrapped in a center-aligned container so the streak pill above stacks
+  // naturally without a separate layout.
+  const setupTabBar = el('div',{style:{textAlign:'center',marginBottom:18,marginTop:4}},
+    streakPill,
+    el('div',{style:{display:'flex',gap:6,justifyContent:'center'}},
+      [['setup','Setup'],['saved','Saved']].map(([k,label])=>el('button',{
+        key:k,onClick:()=>setSetupTab(k),
+        style:{
+          padding:'8px 22px',borderRadius:999,
+          background:setupTab===k?'rgba(239,68,68,.16)':'transparent',
+          border:'1px solid '+(setupTab===k?'rgba(239,68,68,.55)':'var(--c-border2)'),
+          color:setupTab===k?'#fca5a5':'var(--c-text)',
+          fontSize:'.78rem',fontWeight:setupTab===k?700:500,letterSpacing:'.04em',
+          cursor:'pointer',fontFamily:'inherit',
+        },
+      },label,k==='saved'&&(savedCases.length+historyRounds.length)>0&&el('span',{style:{marginLeft:6,fontSize:'.62rem',opacity:.7}},'('+(savedCases.length+historyRounds.length)+')')))
+    )
   );
 
   // SAVED VIEW, saved cases + past rounds + "how I think as a debater"
