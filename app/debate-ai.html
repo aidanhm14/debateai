@@ -1572,6 +1572,66 @@ const VOICES = {
   tactician: { name:'The Tactician', gender:'Male',   desc:'Calm, measured strategist. Three moves ahead, never loud about it.' },
 };
 
+/* ── USE-CASE PICKER (non-debater onramp) ────────
+   The /debate-ai page assumes debate-format literacy by default: APDA,
+   BP, LD, PF, Policy, Worlds. soul.md §2 lists 6 secondary audiences
+   (lawyers, sales, founders, students, speakers, teams) who get hit
+   with that jargon and bounce. This table lets a first-visit picker
+   collapse the cold-start to one question: "What brings you here?"
+   Each choice pre-fills motion + format + side + voice so the user
+   is one tap from a real round. Saved in localStorage so the picker
+   never reappears for a user who has answered. Empty strings mean
+   "keep the existing default" (debater path keeps user-configured
+   format etc. intact).
+*/
+const USE_CASES = {
+  debater: {
+    label: 'I compete in debate',
+    desc: 'APDA, BP, Worlds, PF, LD, Policy, Asian Parli, Congress, MUN.',
+    motion: '',
+    format: '',
+    side: '',
+    voice: '',
+    sample: 'No pre-fill — pick your own format and motion.',
+  },
+  law: {
+    label: 'Law school / moot court / cold-call prep',
+    desc: 'Practice oral advocacy. A relentless examiner pushes on every claim.',
+    motion: 'A court should grant my motion to suppress evidence obtained without a warrant',
+    format: 'quick',
+    side: 'gov',
+    voice: 'ash',
+    sample: 'Argue your motion. The Prosecutor cross-examines.',
+  },
+  sales: {
+    label: 'Sales / objection handling',
+    desc: 'Pitch your offer, get pushback from a skeptical buyer.',
+    motion: 'Your team should switch to my product over the alternative you\'re using',
+    format: 'quick',
+    side: 'gov',
+    voice: 'shimmer',
+    sample: 'Open with your pitch. The Diplomat raises objections.',
+  },
+  pitch: {
+    label: 'Pitch / interview prep',
+    desc: 'VC questions, panel grilling, board pushback. Practice the room.',
+    motion: 'Now is the right time to bet on my company',
+    format: 'quick',
+    side: 'gov',
+    voice: 'tactician',
+    sample: 'Make your case. The Tactician asks what investors will ask.',
+  },
+  explore: {
+    label: 'Just curious / exploring',
+    desc: 'No use case in mind. Show me what this does in 60 seconds.',
+    motion: 'Smartphones should be banned in middle schools',
+    format: 'quick',
+    side: 'gov',
+    voice: 'coral',
+    sample: 'A friendly first round on an easy motion.',
+  },
+};
+
 /* ── AI OPPONENT TRAITS ─────────────── */
 const STRENGTHS = {
   framework:     { label:'Framework',      emoji:'', desc:'Airtight framework analysis and precise weighing mechanisms' },
@@ -4536,6 +4596,34 @@ function App(){
     try{ return localStorage.getItem('debateos-da-onboarded') === '1' }catch{ return true }
   });
 
+  // Use-case picker selection. null = picker is open (first-visit users).
+  // Once the user picks (or the legacy onboarded flag is set), we never
+  // surface the picker again. Persisted so the choice survives navs.
+  const[useCase,setUseCase]=useState(()=>{
+    try{ return localStorage.getItem('debateos-use-case') || null }catch{ return null }
+  });
+  // Dismissal flag for the post-pick confirmation banner — separate from
+  // useCase itself so we can show the banner once after the pick, then
+  // hide it forever once the user clicks Sign-in or Continue-without.
+  const[useCaseConfirmed,setUseCaseConfirmed]=useState(()=>{
+    try{ return localStorage.getItem('debateos-use-case-confirmed') === '1' }catch{ return true }
+  });
+  const pickUseCase=(key)=>{
+    const u = USE_CASES[key];
+    if(!u) return;
+    try{ localStorage.setItem('debateos-use-case', key) }catch(e){}
+    setUseCase(key);
+    if(u.motion) setMotion(u.motion);
+    if(u.format) setFormat(u.format);
+    if(u.side) setSide(u.side);
+    if(u.voice) setVoice(u.voice);
+    // Mark onboarded so the prior generic welcome banner doesn't ALSO
+    // render on top of the picker confirmation.
+    try{ localStorage.setItem('debateos-da-onboarded','1') }catch(e){}
+    setDaOnboarded(true);
+    try{ window.gtag && gtag('event','use_case_picked',{ choice: key, signed_in: !!user }) }catch(e){}
+  };
+
   // Auto-save round state every 30s during speech phase, plus on every
   // speech-boundary state change (idx/log.length deps), plus on tab-close
   // via beforeunload. The beforeunload listener is the safety net: React
@@ -6105,35 +6193,136 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       // card, "how I think as a debater" analysis). Counter mode has
       // no equivalent yet, so the tab strip is dead chrome here.
       !isCounterExt && setupTabBar,
-      // First-round welcome card. Renders once for new users and points
-      // them at the one-tap Quick Clash so they finish a round before
-      // they decide. soul.md flagged 2% W1 retention as the biggest
-      // problem; everything else is downstream of users not finishing
-      // a first round. Dismiss persists in localStorage so it doesn't
-      // re-appear after the user has run a round.
-      // Counter mode hides this — it points at Quick Clash (a debate
-      // round), and the Counter brand bar already onboards viva users.
-      !isCounterExt && !daOnboarded && el('div',{
+      // Use-case picker — the non-debater onramp. Replaces the old
+      // generic "30 seconds to your first speech" welcome card.
+      //
+      // soul.md §2 lists 6 secondary audiences (lawyers, sales,
+      // founders, students, speakers, teams) plus the primary debater
+      // audience. The old card spoke debate-only — "Quick Clash, motion,
+      // format, side, judge, landed, dropped." A non-debater landing
+      // for the first time saw jargon and bounced.
+      //
+      // This picker asks one question — "What brings you here?" — and
+      // pre-fills motion + format + opponent voice based on the answer.
+      // Each choice puts the user one tap from a real round.
+      // Counter mode (viva trainer) hides this: it has its own onboarding.
+      // The 'debater' choice no-ops the pre-fill so APDA/BP/PF setup
+      // works exactly as before for the primary audience.
+      !isCounterExt && !useCase && !daOnboarded && el('div',{
         className:'recovery-banner',
         style:{
           background:'linear-gradient(135deg,rgba(239,68,68,.10),rgba(245,158,11,.06))',
           border:'1px solid rgba(239,68,68,.32)',
           marginBottom:8,
+          textAlign:'left',
         },
       },
-        el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.16em',textTransform:'uppercase',color:'#fca5a5',marginBottom:8}},'Your first round'),
-        el('div',{style:{fontSize:'.92rem',fontWeight:700,color:'var(--c-bright)',marginBottom:6,lineHeight:1.3}},'30 seconds to your first speech.'),
-        el('div',{style:{fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.55,marginBottom:12}},
-          'Hit ',
-          el('strong',{style:{color:'#fca5a5'}},'Quick Clash'),
-          ' on the right. We\'ll pick the motion, format, and side. You give a short speech, the AI debates back, the judge tells you what landed and what dropped. That\'s the whole loop.',
+        el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.16em',textTransform:'uppercase',color:'#fca5a5',marginBottom:8,textAlign:'center'}},'Welcome'),
+        el('div',{style:{fontSize:'1.05rem',fontWeight:700,color:'var(--c-bright)',marginBottom:6,lineHeight:1.3,textAlign:'center'}},'What brings you here?'),
+        el('div',{style:{fontSize:'.78rem',color:'var(--c-dim)',lineHeight:1.5,marginBottom:14,textAlign:'center'}},'Pick one — we\'ll set up a first round for you.'),
+        el('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+          Object.keys(USE_CASES).map(function(key){
+            var u = USE_CASES[key];
+            return el('button',{
+              key:key,
+              onClick:function(){ pickUseCase(key); },
+              style:{
+                textAlign:'left',
+                padding:'12px 14px',
+                background:'rgba(255,255,255,.03)',
+                border:'1px solid var(--c-border2)',
+                borderRadius:10,
+                cursor:'pointer',
+                fontFamily:'inherit',
+                color:'var(--c-text)',
+                transition:'.15s',
+              },
+              onMouseOver:function(e){ e.currentTarget.style.borderColor='rgba(239,68,68,.5)'; e.currentTarget.style.background='rgba(239,68,68,.06)'; },
+              onMouseOut:function(e){ e.currentTarget.style.borderColor='var(--c-border2)'; e.currentTarget.style.background='rgba(255,255,255,.03)'; },
+            },
+              el('div',{style:{fontSize:'.88rem',fontWeight:700,color:'var(--c-bright)',marginBottom:2}},u.label),
+              el('div',{style:{fontSize:'.72rem',color:'var(--c-dim)',lineHeight:1.4}},u.desc),
+            );
+          })
         ),
-        el('div',{style:{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}},
+        el('div',{style:{display:'flex',justifyContent:'center',marginTop:14}},
           el('button',{
             className:'cta-ghost',
-            style:{marginTop:0,padding:'7px 14px',fontSize:'.72rem',opacity:.7},
-            onClick:()=>{ try{ localStorage.setItem('debateos-da-onboarded','1') }catch(e){}; setDaOnboarded(true); },
-          },'Skip the intro'),
+            style:{margin:0,padding:'6px 12px',fontSize:'.68rem',opacity:.55},
+            onClick:function(){
+              try{ localStorage.setItem('debateos-da-onboarded','1') }catch(e){}
+              setDaOnboarded(true);
+            },
+          },'Skip — I\'ll set it up myself'),
+        ),
+      ),
+      // Use-case confirmation banner. Shows after the picker is answered
+      // for an anonymous (not-signed-in) user. Tells them what we set up
+      // and offers Google sign-in as the save-your-work nudge — the most
+      // contextual sign-in moment we have. Hidden for signed-in users
+      // since the round-history + style-summary surfaces do that job.
+      // Dismissed permanently once either CTA fires (useCaseConfirmed).
+      !isCounterExt && useCase && !user && !useCaseConfirmed && USE_CASES[useCase] && el('div',{
+        style:{
+          marginBottom:8,
+          padding:'12px 14px',
+          background:'linear-gradient(180deg,rgba(34,197,94,.06),rgba(34,197,94,.02))',
+          border:'1px solid rgba(34,197,94,.22)',
+          borderRadius:12,
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'space-between',
+          gap:12,
+          flexWrap:'wrap',
+        },
+      },
+        el('div',{style:{flex:'1 1 240px',minWidth:0}},
+          el('div',{style:{fontSize:'.74rem',color:'#86efac',fontWeight:700,letterSpacing:'.06em',marginBottom:2}},'Set up for ' + (USE_CASES[useCase].label || useCase)),
+          el('div',{style:{fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.45}},USE_CASES[useCase].sample),
+        ),
+        el('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+          el('button',{
+            onClick:function(){
+              try{ window.gtag && gtag('event','sign_in_start',{ surface:'use_case_confirm', method:'popup' }) }catch(e){}
+              // Optimistically dismiss the banner — onAuthStateChanged will
+              // re-render once the popup/redirect resolves; if the user
+              // cancels mid-popup, they still won't see this banner again
+              // (intentional — they have the topbar pill if they change their mind).
+              try{ localStorage.setItem('debateos-use-case-confirmed','1') }catch(e){}
+              setUseCaseConfirmed(true);
+              try { signIn && signIn(); } catch(e){ console.warn('signIn failed',e); }
+            },
+            style:{
+              background:'#fff',
+              color:'#1a1a1f',
+              border:'1px solid #fff',
+              borderRadius:8,
+              padding:'8px 14px',
+              fontSize:'.78rem',
+              fontWeight:700,
+              cursor:'pointer',
+              fontFamily:'inherit',
+              display:'inline-flex',
+              alignItems:'center',
+              gap:6,
+            },
+          },
+            el('span',{style:{fontSize:'.95em'}},'G'),
+            'Sign in to save'
+          ),
+          el('button',{
+            onClick:function(){
+              try{ localStorage.setItem('debateos-da-onboarded','1') }catch(e){}
+              setDaOnboarded(true);
+              // Hide the confirmation banner once the user explicitly
+              // chooses to keep going anonymously, so they're not nagged
+              // every refresh.
+              try{ localStorage.setItem('debateos-use-case-confirmed','1') }catch(e){}
+              setUseCaseConfirmed(true);
+            },
+            className:'cta-ghost',
+            style:{margin:0,padding:'8px 12px',fontSize:'.74rem'},
+          },'Continue without'),
         ),
       ),
       // Framing callout removed \u2014 read as a warning banner; the orb +
@@ -6236,13 +6425,26 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         'New to debate? Stay on Quick Clash. It\'s Pro vs. Con, two short speeches each, no jargon.'
       ),
 
-      // Motion (reframed as "Topic" / "Your thesis" in Counter mode —
-      // the underlying state and AI pipeline are unchanged, just the
-      // label and placeholder swap to viva vocabulary).
-      el('div',{className:'t-label',style:{marginTop:24}}, isCounterExt ? 'Your thesis or passage' : 'Motion'),
-      el('textarea',{className:'float-input',rows:2,placeholder: isCounterExt
-        ? 'Paste your essay’s thesis, project claim, or main argument you’ll defend…'
-        : 'Enter a motion or topic...',value:motion,onChange:e=>setMotion(e.target.value)}),
+      // Motion label + placeholder — adapts to the picked use case so
+      // non-debaters see their own vocabulary (a salesperson sees "Your
+      // pitch", a law student sees "Motion / claim"). The underlying
+      // state + AI pipeline don't care what we call it client-side.
+      el('div',{className:'t-label',style:{marginTop:24}},
+        isCounterExt ? 'Your thesis or passage'
+        : useCase==='law' ? 'Motion / claim'
+        : useCase==='sales' ? 'Your pitch'
+        : useCase==='pitch' ? 'Your claim'
+        : useCase==='explore' ? 'Topic'
+        : 'Motion'
+      ),
+      el('textarea',{className:'float-input',rows:2,placeholder:
+        isCounterExt ? 'Paste your essay’s thesis, project claim, or main argument you’ll defend…'
+        : useCase==='law' ? 'What will you defend? E.g., "A court should grant my motion to suppress."'
+        : useCase==='sales' ? 'What are you pitching? E.g., "Your team should switch to my product."'
+        : useCase==='pitch' ? 'What\'s your claim? E.g., "Now is the right time to bet on my company."'
+        : useCase==='explore' ? 'Pick a topic. Try: "Smartphones should be banned in middle schools."'
+        : 'Enter a motion or topic...',
+        value:motion,onChange:e=>setMotion(e.target.value)}),
       // Starred motions, chip row under the motion textarea. Only renders when
       // the user has at least one pinned motion. Click fills the motion;
       // × unstars without touching the active motion.
