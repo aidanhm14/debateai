@@ -7237,5 +7237,153 @@ window.addEventListener('load', function(){
 })();
 </script>
 
+<!-- ── Scroll-triggered Google sign-in nudge ──────────────────────
+     Fires once per session after the visitor has scrolled past one
+     full viewport (or 800px, whichever is greater) — i.e., past the
+     hero and into the "Inside the App" section. Slides up from the
+     bottom-right with a soft cubic ease.
+
+     Sign-in is advised, not required (soul.md 2026-04-20). Already-
+     signed-in users never see it. Click delegates to the hidden
+     #googleSignupBtn so all four sign-in surfaces (hero CTA, footer
+     link, topbar, this nudge) share the same Firebase flow. Dismiss
+     state is session-scoped — if they come back tomorrow, fresh
+     chance to convert. 2026-05-14. -->
+<style>
+  .sign-in-nudge{
+    position:fixed;bottom:24px;right:24px;
+    max-width:360px;width:calc(100vw - 48px);
+    z-index:9999;
+    background:rgba(20,20,24,.96);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;
+    padding:18px 20px 18px;
+    box-shadow:0 14px 40px rgba(0,0,0,.55),0 2px 10px rgba(0,0,0,.35);
+    color:#fff;
+    font-family:'Inter',system-ui,sans-serif;
+    transform:translateY(140%);
+    opacity:0;
+    transition:transform .5s cubic-bezier(.22,.9,.32,1.18), opacity .35s ease;
+    pointer-events:none;
+    backdrop-filter:blur(8px);
+  }
+  .sign-in-nudge.show{
+    transform:translateY(0);
+    opacity:1;
+    pointer-events:auto;
+  }
+  [data-theme="light"] .sign-in-nudge{
+    background:#fff;color:#1a1a1f;
+    border-color:rgba(0,0,0,.10);
+    box-shadow:0 14px 40px rgba(0,0,0,.12),0 2px 10px rgba(0,0,0,.06);
+  }
+  .sign-in-nudge-close{
+    position:absolute;top:8px;right:10px;
+    background:transparent;border:none;
+    color:rgba(255,255,255,.5);
+    cursor:pointer;font-size:1.2rem;line-height:1;
+    padding:6px 8px;font-family:inherit;
+    transition:color .15s ease;
+  }
+  .sign-in-nudge-close:hover{color:rgba(255,255,255,.9)}
+  [data-theme="light"] .sign-in-nudge-close{color:rgba(0,0,0,.45)}
+  [data-theme="light"] .sign-in-nudge-close:hover{color:rgba(0,0,0,.85)}
+  .sign-in-nudge h4{
+    margin:0 0 6px;
+    font-size:.96rem;font-weight:700;letter-spacing:-.01em;
+    padding-right:24px;
+  }
+  .sign-in-nudge p{
+    margin:0 0 14px;
+    font-size:.78rem;line-height:1.5;
+    color:rgba(255,255,255,.7);
+  }
+  [data-theme="light"] .sign-in-nudge p{color:rgba(0,0,0,.65)}
+  .sign-in-nudge-btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;padding:11px 16px;
+    background:#fff;color:#1a1a1f;
+    border:1px solid rgba(0,0,0,.16);
+    border-radius:10px;
+    font-family:inherit;font-size:.84rem;font-weight:600;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .sign-in-nudge-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 4px 14px rgba(0,0,0,.18);
+    border-color:rgba(0,0,0,.28);
+  }
+  .sign-in-nudge-btn svg{width:18px;height:18px;flex:none}
+  @media(max-width:640px){
+    .sign-in-nudge{left:16px;right:16px;bottom:16px;width:auto;max-width:none}
+  }
+</style>
+<div class="sign-in-nudge" id="signInNudge" role="dialog" aria-labelledby="signInNudgeTitle" aria-hidden="true">
+  <button class="sign-in-nudge-close" id="signInNudgeClose" aria-label="Dismiss" type="button">×</button>
+  <h4 id="signInNudgeTitle">Save your rounds</h4>
+  <p>Sign in to keep your speeches, ratings, and progress across devices. Free, no credit card.</p>
+  <button class="sign-in-nudge-btn" id="signInNudgeBtn" type="button">
+    <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.12-.84 2.07-1.79 2.71v2.26h2.9c1.69-1.56 2.67-3.86 2.67-6.61z"/>
+      <path fill="#34A853" d="M9 18c2.43 0 4.46-.81 5.95-2.18l-2.9-2.26c-.81.54-1.83.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33C2.45 15.98 5.48 18 9 18z"/>
+      <path fill="#FBBC04" d="M3.96 10.71c-.18-.54-.28-1.12-.28-1.71s.1-1.17.28-1.71V4.96H.96C.35 6.18 0 7.55 0 9s.35 2.82.96 4.04l3-2.33z"/>
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.34l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.45 2.02.96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58z"/>
+    </svg>
+    Continue with Google
+  </button>
+</div>
+<script>
+(function(){
+  var KEY = 'dos-signin-nudge-dismissed-v1';
+  try { if (sessionStorage.getItem(KEY) === '1') return; } catch(e){}
+  var nudge = document.getElementById('signInNudge');
+  if (!nudge) return;
+  var fired = false;
+
+  function isSignedIn(){
+    try { return !!(window.firebase && firebase.auth && firebase.auth().currentUser); }
+    catch(e){ return false; }
+  }
+  function show(){
+    if (fired) return;
+    if (isSignedIn()) { cleanup(); return; }
+    fired = true;
+    nudge.classList.add('show');
+    nudge.setAttribute('aria-hidden','false');
+    try { window.dosTrack && window.dosTrack('signin_nudge_shown',{scroll:Math.round(window.scrollY)}); } catch(e){}
+    cleanup();
+  }
+  function dismiss(reason){
+    nudge.classList.remove('show');
+    nudge.setAttribute('aria-hidden','true');
+    try { sessionStorage.setItem(KEY,'1'); } catch(e){}
+    try { window.dosTrack && window.dosTrack('signin_nudge_dismissed',{reason:reason||'unknown'}); } catch(e){}
+  }
+  function cleanup(){
+    window.removeEventListener('scroll', onScroll);
+  }
+  function onScroll(){
+    if (fired) return;
+    var threshold = Math.max(800, window.innerHeight);
+    if (window.scrollY > threshold) show();
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  document.getElementById('signInNudgeClose').addEventListener('click', function(){ dismiss('close'); });
+  document.getElementById('signInNudgeBtn').addEventListener('click', function(){
+    try { window.dosTrack && window.dosTrack('signin_nudge_click'); } catch(e){}
+    var realBtn = document.getElementById('googleSignupBtn');
+    if (realBtn) realBtn.click();
+    else window.location.href = '/app#chat';
+    dismiss('clicked');
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && nudge.classList.contains('show')) dismiss('esc');
+  });
+})();
+</script>
+
 </body>
 </html>
