@@ -164,15 +164,97 @@
     };
   }
 
-  // Pool sizes deliberately reduced (was 160 / 130 in v2). Reads as
-  // "real growing community" rather than "fully seeded production."
+  // Pool sizes (v3: 30/18, v4: 9/5 = ~70% cut). The smaller "active"
+  // pool is the truth — most people who join lurk. Active competitors
+  // are a thin band on top. The lurker pool below carries the
+  // long-tail "joined an account but hasn't run a public round" feel.
   function buildPool(view){
     const day=dayKey();
-    const size = view==='ai' ? 18 : 30;
+    const size = view==='ai' ? 5 : 9;
     const out=[];
     for(let i=0;i<size;i++){
       out.push(buildPersona(i, view, day));
     }
+    return out;
+  }
+
+  // ── Lurker pool ──────────────────────────────────────────────────
+  // Profiles that signal "made an account, didn't run a public round
+  // yet." Most communities are this — visible bodies, no rounds on
+  // the leaderboard, a sliver of activity. They balance the trimmed
+  // active pool above so the community surface reads honest instead
+  // of empty.
+  //
+  // Handles skew toward the defaults a user gets when they don't
+  // bother customizing: lowercase first names, "user_NNNN", "guest_NNNN",
+  // bare "Anonymous", first-letter+last-initial. A few intentional
+  // empties ("?", "—") because those exist on real boards too.
+
+  const LURKER_FIRSTS = [
+    'aarav','priya','meera','tarun','diya','rohan','vihaan','anika',
+    'connor','olivia','sebastian','niharika','sara','akhil','pranav',
+    'ishaan','zara','arjun','kavya','dev','nikhil','ananya','riya',
+    'aditi','varun','ria','samar','kabir','isha','dhruv','tanvi',
+    'noah','liam','emma','ava','mason','ethan','sophia','amir',
+    'leila','omar','yusuf','fatima','hassan','aisha','jamal','khalid',
+    'maya','jonah','julia',
+  ];
+  const LURKER_LASTS = ['K.','S.','M.','T.','R.','P.','D.','B.','A.','N.','J.','C.','H.','L.'];
+  const LURKER_GENERIC_PREFIXES = ['user','guest','debater','member','anon'];
+
+  function lurkerHandle(r, idx){
+    const v = r();
+    if (v < 0.34) return pick(LURKER_FIRSTS, r);
+    if (v < 0.55) return pick(LURKER_FIRSTS, r) + ' ' + pick(LURKER_LASTS, r);
+    if (v < 0.85) return pick(LURKER_GENERIC_PREFIXES, r) + '_' + (1000 + Math.floor(r()*8999));
+    if (v < 0.93) return 'Anonymous';
+    if (v < 0.97) return '?';
+    return '—';
+  }
+
+  function buildLurker(index, day){
+    const stableSeed = 'da-lurk-' + SEED_VERSION + '-' + index;
+    const rs = prng(stableSeed);
+    const handle = lurkerHandle(rs, index);
+    // Joined-at distribution: skew across last 60d so it doesn't all
+    // bunch in one week. The "made an account two months ago and
+    // forgot" cohort is the largest in any community.
+    const dailySeed = stableSeed + '@' + day;
+    const rd = prng(dailySeed);
+    const v = rd();
+    let joinedMinAgo;
+    if (v < 0.05) joinedMinAgo = Math.floor(rd()*60);              // last hour
+    else if (v < 0.20) joinedMinAgo = 60 + Math.floor(rd()*23*60); // today
+    else if (v < 0.45) joinedMinAgo = 24*60 + Math.floor(rd()*6*24*60);    // this week
+    else if (v < 0.75) joinedMinAgo = 7*24*60 + Math.floor(rd()*23*24*60); // 1-4 weeks
+    else                joinedMinAgo = 30*24*60 + Math.floor(rd()*30*24*60); // 1-2 months
+    const joinedAt = tsLike(new Date(Date.now() - joinedMinAgo*60*1000));
+    return {
+      uid: stableSeed,
+      displayName: handle,
+      joinedAt,
+      kind: 'lurker',
+      seed: true,
+      seedV: SEED_VERSION,
+    };
+  }
+
+  // Default lurker pool size: ~80. Big enough to feel like the silent
+  // majority sitting under the small active core, small enough that
+  // the page still loads fast and the count doesn't read as inflated.
+  function buildLurkerPool(size){
+    const day = dayKey();
+    const n = Math.max(1, Math.min(200, size || 80));
+    const out = [];
+    for (let i = 0; i < n; i++){
+      out.push(buildLurker(i, day));
+    }
+    // Newest first.
+    out.sort((a, b) => {
+      const at = a.joinedAt && a.joinedAt.toDate ? a.joinedAt.toDate().getTime() : 0;
+      const bt = b.joinedAt && b.joinedAt.toDate ? b.joinedAt.toDate().getTime() : 0;
+      return bt - at;
+    });
     return out;
   }
 
@@ -209,5 +291,6 @@
     version: SEED_VERSION,
     merge,
     buildPool,
+    buildLurkerPool,
   };
 })();

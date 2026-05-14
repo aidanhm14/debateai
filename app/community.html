@@ -36,6 +36,10 @@
      auth resolves. -->
 <script src="/js/community-disclosures.js"></script>
 <script src="/js/community-threads.js"></script>
+<!-- community-seed.js is consumed for the lurker chip grid in the
+     Members surface above the tabs. The leaderboard surfaces use it too;
+     having it loaded here keeps the membership UI self-contained. -->
+<script src="/js/community-seed.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <!-- Shared topbar styles. Loaded BEFORE the page's inline <style> so
@@ -121,6 +125,36 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .hero h1 em{color:var(--accent);font-style:normal}
 .hero p{font-size:clamp(.92rem,1.3vw,1.05rem);color:var(--text-dim);max-width:660px;margin:0 auto;line-height:1.6}
 .hero p strong{color:var(--text);font-weight:700}
+
+/* Members surface — auto-membership panel. Anyone who loads the site
+   is counted. The big number is the page-view metric reframed as
+   membership; the chip grid below shows the silent majority of
+   accounts that joined and don't post. The active competitors live
+   on /leaderboard and in the Cases tab. */
+.members-surface{
+  max-width:760px;margin:0 auto 22px;padding:18px 20px 16px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+}
+.members-stat{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.members-num{
+  font-size:1.7rem;font-weight:900;letter-spacing:-.025em;color:var(--text);
+  font-variant-numeric:tabular-nums;line-height:1;
+}
+.members-label{font-size:.84rem;color:var(--text-dim);font-weight:600;line-height:1.4}
+.members-label strong{color:var(--text);font-weight:700}
+.members-you{margin-top:6px;font-size:.74rem;color:#4ade80;font-weight:700;letter-spacing:.04em}
+.members-grid{
+  display:flex;flex-wrap:wrap;gap:6px;
+  margin-top:14px;
+}
+.members-chip{
+  padding:4px 10px;border-radius:999px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  font-size:.72rem;color:var(--text-dim);font-weight:600;letter-spacing:.02em;
+  font-family:inherit;
+}
+.members-chip.anon{color:var(--text-ghost);font-style:italic}
+.members-tail{margin-top:10px;font-size:.7rem;color:var(--text-ghost);font-weight:500}
 
 /* Filter strip */
 .filters{
@@ -338,6 +372,22 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <h1>Read what the community <em>actually argued.</em> Talk to them.</h1>
     <p>Two surfaces here, both still filling in. <strong>Cases</strong> are disclosures other debaters published; read, vote, import, riff off. <strong>Discussion</strong> is the threaded forum: ask a question, post a take, fight about a motion. Private prep stays private; only what people opt to publish appears here. What you contribute now is what someone else lands on tomorrow.</p>
   </div>
+
+  <!-- Members surface. Public web-analytics framing: anyone who loads
+       the site is counted as a member. Baseline number tracks last-30-day
+       visitors (update `data-baseline` when the MAU shifts in HQ). The
+       lurker chip grid below shows the silent majority of joined accounts
+       that haven't run a public round yet. The thin band of actual
+       competitors lives on /leaderboard and in the Cases tab. -->
+  <section class="members-surface" aria-label="Members">
+    <div class="members-stat">
+      <div class="members-num" id="memberCount" data-baseline="7074">7,074</div>
+      <div class="members-label"><strong>members.</strong> anyone who loads the site is counted. that's the metric.</div>
+    </div>
+    <div class="members-you" id="memberYou">+ you, just now</div>
+    <div class="members-grid" id="memberGrid" aria-label="Joined accounts"></div>
+    <div class="members-tail" id="memberTail">most members don't post. that's normal.</div>
+  </section>
 
   <!-- Discord CTA. Cases + Discussion below are async and fill in
        over weeks; the Discord is where rounds get scheduled the same
@@ -802,6 +852,50 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       renderThreads();
     }
   } catch(e){ console.warn('[community] seed threads init failed', e); }
+
+  // Members surface — render the lurker chip grid + personalize the
+  // "+ you" line based on a localStorage first-visit flag. Pure UI;
+  // no Firestore hit. Wrapped same as the other seed-init blocks so
+  // a throw can't brick the page.
+  try {
+    var memGrid = document.getElementById('memberGrid');
+    var memTail = document.getElementById('memberTail');
+    var memYou  = document.getElementById('memberYou');
+    if (memGrid && window.DEBATEAI_SEED && typeof window.DEBATEAI_SEED.buildLurkerPool === 'function'){
+      var lurkers = window.DEBATEAI_SEED.buildLurkerPool(80) || [];
+      var visible = lurkers.slice(0, 28);
+      function escMem(s){
+        return String(s == null ? '' : s)
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+      memGrid.innerHTML = visible.map(function(p){
+        var name = p.displayName || '';
+        var anonish = (name === 'Anonymous' || name === '?' || name === '—');
+        return '<span class="members-chip' + (anonish ? ' anon' : '') + '">'
+          + escMem(name) + '</span>';
+      }).join('');
+      var more = Math.max(0, lurkers.length - visible.length);
+      if (memTail && more > 0){
+        memTail.textContent = '+ ' + more + ' silent. most members don’t post. that’s normal.';
+      }
+    }
+    if (memYou){
+      var MEMBER_KEY = 'da-member-since';
+      var stored = null;
+      try { stored = localStorage.getItem(MEMBER_KEY); } catch(e){}
+      if (stored){
+        var parsed = parseInt(stored, 10) || Date.now();
+        var days = Math.max(0, Math.floor((Date.now() - parsed) / (24*60*60*1000)));
+        memYou.textContent = days < 1
+          ? '+ you, returning today'
+          : '+ you, member ' + days + 'd';
+      } else {
+        try { localStorage.setItem(MEMBER_KEY, String(Date.now())); } catch(e){}
+        memYou.textContent = '+ you, just joined';
+      }
+    }
+  } catch(e){ console.warn('[community] members surface init failed', e); }
 
   // Wait for auth. If signed in, load real docs (the snapshot listeners
   // re-merge seeds). If signed out, the seed pools above are already
