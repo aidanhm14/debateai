@@ -6697,7 +6697,27 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         display:'flex',alignItems:'center',justifyContent:'flex-end',
         gap:12,marginTop:18,marginBottom:8,flexWrap:'wrap',
       }},
-        el('span',{style:{fontSize:'.7rem',color:'var(--c-dim)',letterSpacing:'.02em'}},'Customize below, or'),
+        // Caption changes to flag smart-picker mode. When a fingerprint
+        // exists AND inferWeaknessDomain returns a domain hit, Quick
+        // Clash routes the user to a motion in that domain — captioning
+        // it here so the user SEES that the button is targeted, not
+        // random. Falls back to the original "Customize below, or"
+        // when no fingerprint signal is available.
+        (function(){
+          var fpText = styleSummary && styleSummary.fingerprint && styleSummary.fingerprint.text;
+          var dom = fpText ? inferWeaknessDomain(fpText) : null;
+          var domLabel = dom === 'econ' ? 'economics'
+                       : dom === 'tech' ? 'tech'
+                       : dom === 'edu' ? 'education'
+                       : dom === 'ethics' ? 'ethics'
+                       : dom === 'civic' ? 'civic'
+                       : dom === 'env' ? 'environment'
+                       : null;
+          if (domLabel) {
+            return el('span',{style:{fontSize:'.7rem',color:'#fca5a5',letterSpacing:'.02em',fontWeight:600}},'Targeting your ' + domLabel + ' rough edge ↓');
+          }
+          return el('span',{style:{fontSize:'.7rem',color:'var(--c-dim)',letterSpacing:'.02em'}},'Customize below, or');
+        })(),
         el('button',{
           onClick:quickStart,
           title:'Random motion, Quick Clash format, default side. Skip straight to a speech.',

@@ -80,6 +80,7 @@
   // pricing data moved into the FAQ + JSON-LD.
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
+    { href: '/today',         label: 'Today'        },
     { href: '/live',          label: 'Live', live: true },
     { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
