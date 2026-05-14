@@ -24,7 +24,7 @@
         "highPrice": "20",
         "offerCount": 5,
         "offers": [
-          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "10 requests to start.", "url": "https://debateai.com/pricing" },
+          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "15 anonymous requests plus 15 more on sign-in.", "url": "https://debateai.com/pricing" },
           { "@type": "Offer", "name": "BYOK", "price": "1", "priceCurrency": "USD", "description": "Unlimited Claude with your own Anthropic key.", "url": "https://debateai.com/pricing" },
           { "@type": "Offer", "name": "Individual", "price": "5", "priceCurrency": "USD", "description": "$5/year for 250 requests per month, four LLM brains, HD voice.", "url": "https://debateai.com/pricing" },
           { "@type": "Offer", "name": "Lifetime", "price": "14.99", "priceCurrency": "USD", "description": "250 requests per month forever, one-time charge.", "url": "https://debateai.com/pricing" },
@@ -268,6 +268,22 @@
   /* FAQ */
   .faq{max-width:720px;margin:72px auto 0}
   .faq h2{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin-bottom:20px;text-align:center}
+  .faq-toolbar{margin:0 auto 18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  .faq-toolbar input[type=search]{
+    flex:1 1 260px;max-width:440px;
+    padding:11px 14px;font:inherit;font-size:.9rem;
+    background:rgba(255,255,255,.03);color:var(--fg);
+    border:1px solid var(--line);border-radius:10px;
+    transition:border-color .2s,box-shadow .2s;
+    -webkit-appearance:none;appearance:none;
+  }
+  .faq-toolbar input[type=search]::placeholder{color:var(--muted)}
+  .faq-toolbar input[type=search]:focus{
+    outline:none;border-color:rgba(239,68,68,.45);
+    box-shadow:0 0 0 3px rgba(239,68,68,.10);
+  }
+  .faq-toolbar-hint{color:var(--muted);font-size:.85rem}
+  .faq details[hidden]{display:none}
   details{border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:10px;transition:.2s;background:rgba(255,255,255,.02)}
   details[open]{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.03)}
   summary{font-weight:700;font-size:.95rem;cursor:pointer;outline:none;list-style:none;display:flex;justify-content:space-between;align-items:center}
@@ -310,7 +326,7 @@
 <section class="hero">
   <span class="eyebrow" id="heroEyebrow">In beta · everything's free right now</span>
   <h1 id="heroH1">Free in beta. <span class="accent">Future pricing</span> below.</h1>
-  <p class="lede" id="heroLede">Debate AI is in beta and every tier on this page is free to use today — no card required. The numbers below are what the paid plans <em>will</em> look like once we exit beta, posted here so nothing about pricing is hidden.</p>
+  <p class="lede" id="heroLede">Debate AI is in beta and every tier on this page is free to use today. No card required. The numbers below are what the paid plans <em>will</em> look like once we exit beta, posted here so nothing about pricing is hidden.</p>
   <p class="reassure"><strong>Got opinions on what these prices should actually be?</strong> <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700">Go to feedback for better pricing proposals →</a></p>
 </section>
 <script>
@@ -330,7 +346,7 @@
         var lede = document.getElementById('heroLede');
         if (eb) eb.textContent = 'In beta · everything’s free right now';
         if (h1) h1.innerHTML = 'Free in beta. <span class="accent">Future pricing</span> below.';
-        if (lede) lede.textContent = 'Every tier on this page is free to use today. The numbers are what the paid plans will look like once we exit beta — share thoughts via the feedback form below.';
+        if (lede) lede.textContent = 'Every tier on this page is free to use today. The numbers are what the paid plans will look like once we exit beta. Share thoughts via the feedback form below.';
       },
     });
   }
@@ -341,7 +357,7 @@
 <div style="max-width:900px;margin:0 auto 28px;padding:14px 22px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.32);border-radius:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;text-align:center">
   <span style="display:inline-flex;align-items:center;gap:8px;font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)">
     <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);display:inline-block"></span>
-    Beta — currently free
+    Beta. Currently free
   </span>
   <span style="font-size:.88rem;color:var(--text-dim);line-height:1.5">Every tier below is $0 today. The prices are future pricing for reference. <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700">Go to feedback for better pricing proposals →</a></span>
 </div>
@@ -451,9 +467,15 @@
 <section class="faq">
   <h2>The honest answers</h2>
 
+  <div class="faq-toolbar">
+    <input type="search" id="faqSearch" placeholder="Search the FAQ..." aria-label="Search the FAQ" aria-controls="faqList" autocomplete="off" />
+    <span class="faq-toolbar-hint" id="faqEmpty" hidden>No matches. Try a different word.</span>
+  </div>
+  <div id="faqList">
+
   <details>
     <summary>What happens if I cancel?</summary>
-    <p>You keep full paid access until the end of your current billing period, no lockout mid-tournament. After that, you drop back to the free plan (10 lifetime requests once signed in). One-click from the app's Team tab.</p>
+    <p>You keep full paid access until the end of your current billing period, no lockout mid-tournament. After that, you drop back to the free plan (15 anonymous requests plus 15 more on sign-in, 30 total). One-click from the app's Team tab.</p>
   </details>
 
   <details>
@@ -468,7 +490,7 @@
 
   <details>
     <summary>What if I don't use all 250 requests?</summary>
-    <p>They don't roll over, it resets monthly. At $5/year, Individual is priced to be a no-brainer even for occasional users — but if you'd rather pay once and forget, Lifetime at $14.99 covers the same caps.</p>
+    <p>They don't roll over, it resets monthly. At $5/year, Individual is priced to be a no-brainer even for occasional users. If you'd rather pay once and forget, Lifetime at $14.99 covers the same caps.</p>
   </details>
 
   <details>
@@ -480,6 +502,8 @@
     <summary>Is my data used to train models?</summary>
     <p>Your cases are stored in your account and used (anonymized) to make the AI sharper for everyone over time. They are not sent to third-party training. You can delete your data anytime from the Team tab.</p>
   </details>
+
+  </div>
 </section>
 
 <footer>
@@ -742,6 +766,44 @@
     <a href="/changelog" style="color:#94a3b8;text-decoration:none">Changelog</a>
   </div>
 </aside>
+
+<script>
+// FAQ search/filter. <details> handles open/close natively; we only own
+// the filter. Hide non-matching items via [hidden], auto-open matches
+// so the answer is in view, show the empty-state hint when nothing
+// matches. Escape clears.
+(function(){
+  var input = document.getElementById('faqSearch');
+  if (!input) return;
+  var list = document.getElementById('faqList');
+  if (!list) return;
+  var items = Array.from(list.querySelectorAll('details'));
+  var empty = document.getElementById('faqEmpty');
+  function filter(){
+    var q = input.value.trim().toLowerCase();
+    if (!q){
+      items.forEach(function(el){ el.hidden = false; });
+      if (empty) empty.hidden = true;
+      return;
+    }
+    var any = false;
+    items.forEach(function(el){
+      var t = (el.textContent || '').toLowerCase();
+      var m = t.indexOf(q) !== -1;
+      el.hidden = !m;
+      if (m){
+        any = true;
+        if (q.length >= 2) el.open = true;
+      }
+    });
+    if (empty) empty.hidden = any;
+  }
+  input.addEventListener('input', filter);
+  input.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && input.value){ input.value = ''; filter(); }
+  });
+})();
+</script>
 
 </body>
 </html>

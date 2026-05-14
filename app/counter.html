@@ -91,6 +91,19 @@
 
   /* ── FAQ ─────────────────────────────────────────────── */
   .faq { display: grid; gap: 10px; max-width: 760px; }
+  .faq-toolbar { margin: 0 0 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .faq-toolbar input[type=search] {
+    flex: 1 1 260px; max-width: 420px;
+    padding: 10px 14px; font: inherit; font-size: 0.9rem;
+    background: var(--bg-2); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 10px;
+    transition: border-color .2s, box-shadow .2s;
+    -webkit-appearance: none; appearance: none;
+  }
+  .faq-toolbar input[type=search]::placeholder { color: var(--muted); }
+  .faq-toolbar input[type=search]:focus { outline: none; border-color: rgba(239,68,68,.45); box-shadow: 0 0 0 3px rgba(239,68,68,.10); }
+  .faq-toolbar-hint { color: var(--muted); font-size: 0.85rem; }
+  .faq details[hidden] { display: none; }
   .faq details { background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; cursor: pointer; }
   .faq details[open] { background: #161620; }
   .faq summary { font-weight: 600; list-style: none; outline: none; }
@@ -132,7 +145,7 @@
       <a class="cta cta--primary" href="https://chrome.google.com/webstore/detail/counter" target="_blank" rel="noopener">Add Counter to Chrome</a>
       <a class="cta cta--ghost" href="https://debateai.com/voice-debate.html?ext=1&amp;mode=counter" target="_blank" rel="noopener">Try it in the browser</a>
     </div>
-    <div class="hero__pre-install">Free to install. Plenty of free drills before any paywall. Voice-first. No mic, no problem — typed flow available.</div>
+    <div class="hero__pre-install">Free to install. Plenty of free drills before any paywall. Voice-first. No mic, no problem, typed flow available.</div>
   </div>
 </section>
 
@@ -155,7 +168,7 @@
     <div class="pillar">
       <div class="pillar__icon">3</div>
       <div class="pillar__title">Examiner-voice oral feedback.</div>
-      <p class="pillar__body">Closes with what landed, what didn't, and where to tighten before the real panel. Not a debate ballot — a viva summary your teacher would recognize.</p>
+      <p class="pillar__body">Closes with what landed, what didn't, and where to tighten before the real panel. Not a debate ballot; a viva summary your teacher would recognize.</p>
     </div>
   </div>
 </section>
@@ -182,7 +195,7 @@
       <div class="who__item"><strong>CBSE / ICSE viva</strong><span>Class 10 + 12 practical and project orals across Bio, Physics, Chemistry, CS, History.</span></div>
       <div class="who__item"><strong>State board orals</strong><span>Maharashtra HSC, Karnataka PUC, Tamil Nadu state board, English and regional medium.</span></div>
       <div class="who__item"><strong>JEE / NEET interviews</strong><span>Counselling-round questioning, document interviews, viva-voce screening.</span></div>
-      <div class="who__item"><strong>College admission interviews</strong><span>IIT, IIM, NMIMS, NLU, school admissions — defending your essay, your portfolio, your story.</span></div>
+      <div class="who__item"><strong>College admission interviews</strong><span>IIT, IIM, NMIMS, NLU, school admissions. Defending your essay, your portfolio, your story.</span></div>
       <div class="who__item"><strong>University seminars</strong><span>Internal assessment vivas, paper presentations, seminar Q&amp;A, internship defenses.</span></div>
       <div class="who__item"><strong>Dissertation + thesis defenses</strong><span>Your committee will ask the question you don't want to answer. Practice it first.</span></div>
     </div>
@@ -193,10 +206,14 @@
 <section class="section" id="faq">
   <div class="section__eyebrow">Common questions</div>
   <h2 class="section__h2">Read this before you install.</h2>
-  <div class="faq">
+  <div class="faq-toolbar">
+    <input type="search" id="faqSearch" placeholder="Search the FAQ..." aria-label="Search the FAQ" aria-controls="faqList" autocomplete="off" />
+    <span class="faq-toolbar-hint" id="faqEmpty" hidden>No matches. Try a different word.</span>
+  </div>
+  <div class="faq" id="faqList">
     <details>
       <summary>How is this different from chatting with an AI tutor?</summary>
-      <p>Counter is voice-first. You speak; it asks. The AI is configured as an examiner — it pushes back instead of praising. The drill is talking under pressure, which is the only thing that matters in a real viva.</p>
+      <p>Counter is voice-first. You speak; it asks. The AI is configured as an examiner that pushes back instead of praising. The drill is talking under pressure, which is the only thing that matters in a real viva.</p>
     </details>
     <details>
       <summary>Does it actually edit my Google Doc?</summary>
@@ -241,6 +258,44 @@
   <a href="/landing">Main app</a>
   <div style="margin-top:8px">© Debate AI. The web app is debater-first; Counter is the focused entry point for students defending their own work.</div>
 </footer>
+
+<script>
+// FAQ search/filter. Browser owns open/close on <details>; we own the
+// filter only. Hide non-matches via [hidden], auto-open matches so the
+// answer is visible inline, surface a no-match hint when nothing fits.
+// Escape clears the field.
+(function(){
+  var input = document.getElementById('faqSearch');
+  if (!input) return;
+  var list = document.getElementById('faqList');
+  if (!list) return;
+  var items = Array.from(list.querySelectorAll('details'));
+  var empty = document.getElementById('faqEmpty');
+  function filter(){
+    var q = input.value.trim().toLowerCase();
+    if (!q){
+      items.forEach(function(el){ el.hidden = false; });
+      if (empty) empty.hidden = true;
+      return;
+    }
+    var any = false;
+    items.forEach(function(el){
+      var t = (el.textContent || '').toLowerCase();
+      var m = t.indexOf(q) !== -1;
+      el.hidden = !m;
+      if (m){
+        any = true;
+        if (q.length >= 2) el.open = true;
+      }
+    });
+    if (empty) empty.hidden = any;
+  }
+  input.addEventListener('input', filter);
+  input.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && input.value){ input.value = ''; filter(); }
+  });
+})();
+</script>
 
 </body>
 </html>
