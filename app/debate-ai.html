@@ -4494,6 +4494,14 @@ function App(){
   });
   const[viewingRound,setViewingRound]=useState(null);
 
+  // Daily-motion streak: captured from ?dm=YYYY-MM-DD when user lands from
+  // /today. saveRound checks if this matches today's UTC date and flips
+  // the streak counter in localStorage (read by /today on next render).
+  // Wordle-shape: same UTC day = same motion = one streak day.
+  const[dailyMotionDate]=useState(()=>{
+    try{return new URLSearchParams(location.search).get('dm')||''}catch{return''}
+  });
+
   // Server-truth style summary. historyRounds above is localStorage-only
   // so its count resets on a new device or storage clear. styleSummary
   // pulls from the generations collection (written via captureTurn since
@@ -5702,6 +5710,30 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     const updated=[round,...historyRounds].slice(0,50);
     setHistoryRounds(updated);
     try{localStorage.setItem('debateos-round-history',JSON.stringify(updated))}catch{}
+    // Daily-motion streak flip. Only counts if the round came in from
+    // /today's CTA (which appends ?dm=YYYY-MM-DD) AND that date is still
+    // "today" in UTC. The /today page reads this same key on render to
+    // show "Day N streak" + reveal the share card.
+    if(dailyMotionDate){
+      try{
+        const todayStr=new Date().toISOString().slice(0,10);
+        if(dailyMotionDate===todayStr){
+          const k='debateos-daily-streak';
+          let s={streak:0,lastDate:null,allCompleted:[]};
+          try{const raw=localStorage.getItem(k);if(raw)s=Object.assign(s,JSON.parse(raw))}catch{}
+          if(!Array.isArray(s.allCompleted))s.allCompleted=[];
+          if(s.allCompleted.indexOf(todayStr)===-1){
+            const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
+            s.streak=(s.lastDate===yest)?(s.streak||0)+1:1;
+            s.lastDate=todayStr;
+            s.allCompleted.push(todayStr);
+            s.allCompleted=s.allCompleted.slice(-365);
+            try{localStorage.setItem(k,JSON.stringify(s))}catch{}
+            try{if(typeof gtag==='function')gtag('event','daily_streak_advanced',{streak:s.streak})}catch{}
+          }
+        }
+      }catch{}
+    }
     // First-round retention email. Fires after the first AI round
     // completes — server-side gates on (a) email never sent before
     // for this uid, (b) round count == 1, so re-firing on subsequent
