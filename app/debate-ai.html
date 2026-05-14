@@ -4340,6 +4340,31 @@ function App(){
   });
   const[viewingRound,setViewingRound]=useState(null);
 
+  // Server-truth style summary. historyRounds above is localStorage-only
+  // so its count resets on a new device or storage clear. styleSummary
+  // pulls from the generations collection (written via captureTurn since
+  // 2026-05-13) so the "the AI has read your N rounds" claim is honest
+  // cross-device and survives storage wipes. Silent failure: if the
+  // endpoint 401s or the network blips, we render nothing and the
+  // existing Round-history block keeps doing its localStorage thing.
+  const[styleSummary,setStyleSummary]=useState(null);
+  useEffect(()=>{
+    if(!user) { setStyleSummary(null); return; }
+    let cancelled=false;
+    (async()=>{
+      try{
+        const token=await user.getIdToken();
+        const res=await fetch('/api/user/style-summary',{
+          headers:{Authorization:'Bearer '+token},
+        });
+        if(!res.ok) return;
+        const data=await res.json();
+        if(!cancelled) setStyleSummary(data);
+      } catch(_){}
+    })();
+    return ()=>{cancelled=true};
+  },[user]);
+
   // Saved cases library
   const[savedCases,setSavedCases]=useState(()=>{
     try{return JSON.parse(localStorage.getItem('debateos-saved-cases')||'[]')}catch{return[]}
@@ -5962,6 +5987,32 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
                 el('div',{style:{fontSize:'.68rem',color:'var(--c-dim)',marginTop:2}},c.formatName+' · '+c.sideLabel+' · '+new Date(c.date).toLocaleDateString())
               ))
             ),
+      ),
+
+      // Your Style — the visible surface of the 2026-05-13 learning loop.
+      // Only renders when the server has captured ≥3 rounds for this uid,
+      // so a brand-new user doesn't see a confusing "AI has read your 0
+      // rounds." Exemplars + per-format distillations work regardless of
+      // whether this card shows. The whole point is reflection: making
+      // the compounding visible is what gives the AI "gets sharper from
+      // your usage" claim its punch.
+      styleSummary && styleSummary.hasStyle && el('div',{style:{marginTop:18,padding:'18px 20px',background:'linear-gradient(180deg,rgba(239,68,68,.06),rgba(239,68,68,.02))',border:'1px solid rgba(239,68,68,.18)',borderRadius:14,textAlign:'left'}},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6,flexWrap:'wrap',gap:8}},
+          el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--c-bright)',letterSpacing:'.14em',textTransform:'uppercase'}},'Your style'),
+          styleSummary.firstSeenAt && el('div',{style:{fontSize:'.62rem',color:'var(--c-dim)',letterSpacing:'.06em'}},'tuning since '+new Date(styleSummary.firstSeenAt).toLocaleDateString())
+        ),
+        el('div',{style:{fontSize:'.95rem',color:'var(--c-text)',lineHeight:1.5,marginBottom:8}},
+          'The AI has read ',
+          el('strong',{style:{color:'#ef4444'}},styleSummary.totalRounds),
+          ' of your previous turns. It pulls the highest-rated ones in as reference rounds the next time you debate the same motion or format.'
+        ),
+        styleSummary.recentMotions && styleSummary.recentMotions.length>0 && el('div',{style:{fontSize:'.72rem',color:'var(--c-dim)',marginTop:8,lineHeight:1.6}},
+          el('span',{style:{fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',fontSize:'.62rem',marginRight:6}},'Recent motions'),
+          styleSummary.recentMotions.slice(0,3).map((m,i)=>el('span',{key:i,style:{display:'inline'}},
+            (m.motion||'').slice(0,70),
+            i<Math.min(styleSummary.recentMotions.length,3)-1?'  ·  ':''
+          ))
+        )
       ),
 
       // Past rounds

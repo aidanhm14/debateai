@@ -126,7 +126,41 @@
   // loads track.js automatically populate the per-user activity feed
   // — no code-level changes needed at each call site. We queue events
   // fired before the user resolves so we don't drop early page events.
+  //
+  // Special-case: sign_in_* events are diverted to the no-auth
+  // /api/log-signin-error endpoint. Sign-in errors happen precisely
+  // when the user has NO Firebase token, so the regular post() path
+  // (which requires currentUser) was silently dropping the very
+  // population we need to diagnose. The 62% sign-in drop in the
+  // Performance Report is downstream of this gap.
   var gtagQueue = [];
+
+  var ua = navigator.userAgent || '';
+  var IS_MOBILE = /iPhone|iPad|Android/i.test(ua);
+  var IS_INAPP = /(Instagram|FBAN|FBAV|FB_IAB|Twitter|LinkedIn|TikTok|MicroMessenger|Line[/])/i.test(ua);
+
+  function postSigninError(name, params) {
+    try {
+      var payload = {
+        event: name,
+        code: (params && params.code) || 'unknown',
+        message: (params && params.message) || '',
+        surface: (params && params.surface) || '',
+        method: (params && params.method) || '',
+        inApp: IS_INAPP,
+        isMobile: IS_MOBILE,
+        sessionId: sessionId,
+        path: location.pathname,
+      };
+      fetch('/api/log-signin-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(function(){ /* silent — telemetry must never break the app */ });
+    } catch(e){}
+  }
+
   function bridge(name, params) {
     var meta = { name: String(name).slice(0, 80) };
     if (params && typeof params === 'object'){
@@ -140,6 +174,14 @@
         }
       }
     }
+
+    // Sign-in family bypasses the auth-gated path. We still post to
+    // app_event when the user IS authed, since the per-user activity
+    // dashboard wants the timeline too.
+    if (name.indexOf('sign_in_') === 0) {
+      postSigninError(name, params);
+    }
+
     if (currentUser) post('app_event', baseMeta(meta));
     else gtagQueue.push(meta);
   }
