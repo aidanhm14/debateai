@@ -1349,15 +1349,24 @@ button{font-family:inherit}
     return 'https://calendar.google.com/calendar/render?' + params.toString();
   }
 
-  // Seed with three examples on first visit so the page never reads empty.
-  // Marked `seed:true` so we can filter them out of accept-tracking.
-  // Mix of reveal modes + schedule states so newcomers see the full
-  // range of what the board can do.
+  // Seed the board on first visit so newcomers don't see an empty room.
+  // 3 active (upcoming / live-now) entries to show "there's stuff
+  // happening", plus 10 expired entries to make the board feel lived-in
+  // — these are the "debates that already happened" social proof. Mix
+  // of formats, reveal modes, matched-vs-unmatched. Real motions pulled
+  // from the daily-motion bank so they read as authentic.
+  //
+  // All carry `seed:true` so accept-tracking filters them out, and
+  // expired+matched ones carry an accepterUid sentinel ('seed-bot-N')
+  // so they render via the "both sides matched" branch.
   function ensureSeed(){
     var list = loadList();
     if (list.length > 0) return list;
     var now = Date.now();
+    var hr = 60 * 60 * 1000;
+    var day = 24 * hr;
     var seeded = [
+      // ── ACTIVE (live or upcoming) ─────────────────────────────
       {
         id: 's-' + now,
         motion: 'This house would require all elected officials to undergo annual psychological evaluation.',
@@ -1391,6 +1400,135 @@ button{font-family:inherit}
         reveal: 'theme',
         themeLine: 'AI & technology',
         scheduledAt: now + 90 * 60 * 1000,  // kicks off in 1.5h
+        seed: true,
+      },
+      // ── EXPIRED + MATCHED (rounds that completed) ────────────
+      {
+        id: 's-' + (now + 10),
+        motion: 'This house would tax wealth above $100M at 2% annually.',
+        side: 'pro',
+        format: 'apda',
+        handle: 'pmr_collapse',
+        ts: now - 2 * day,
+        reveal: 'full',
+        scheduledAt: now - 2 * day + 30 * 60 * 1000,
+        seed: true,
+        accepterUid: 'seed-bot-1',
+        accepterName: 'anonymous',
+      },
+      {
+        id: 's-' + (now + 11),
+        motion: 'This house would ban algorithmic newsfeeds.',
+        side: 'con',
+        format: 'pf',
+        handle: 'card_doctor',
+        ts: now - 3 * day,
+        reveal: 'topic',
+        topicLine: 'Algorithmic newsfeeds',
+        scheduledAt: now - 3 * day + 45 * 60 * 1000,
+        seed: true,
+        accepterUid: 'seed-bot-2',
+        accepterName: 'anonymous',
+      },
+      {
+        id: 's-' + (now + 12),
+        motion: 'This house would scrap legacy admissions at universities.',
+        side: 'pro',
+        format: 'quick',
+        handle: 'first_gen_voice',
+        ts: now - 4 * day,
+        reveal: 'full',
+        scheduledAt: now - 4 * day + 60 * 60 * 1000,
+        seed: true,
+        accepterUid: 'seed-bot-3',
+        accepterName: 'anonymous',
+      },
+      {
+        id: 's-' + (now + 13),
+        motion: 'This house would mandate a four-day work week.',
+        side: 'con',
+        format: 'ld',
+        handle: 'value_crit',
+        ts: now - 5 * day,
+        reveal: 'full',
+        scheduledAt: now - 5 * day + 90 * 60 * 1000,
+        seed: true,
+        accepterUid: 'seed-bot-4',
+        accepterName: 'anonymous',
+      },
+      {
+        id: 's-' + (now + 14),
+        motion: 'This house would ban facial recognition in public spaces.',
+        side: 'pro',
+        format: 'worlds',
+        handle: 'wsdc_2nd',
+        ts: now - 6 * day,
+        reveal: 'theme',
+        themeLine: 'Surveillance & privacy',
+        scheduledAt: now - 6 * day + 30 * 60 * 1000,
+        seed: true,
+        accepterUid: 'seed-bot-5',
+        accepterName: 'anonymous',
+      },
+      {
+        id: 's-' + (now + 15),
+        motion: 'This house regrets the legalization of marijuana.',
+        side: 'con',
+        format: 'pf',
+        handle: 'nsda_qual',
+        ts: now - 7 * day,
+        reveal: 'topic',
+        topicLine: 'Marijuana legalization',
+        scheduledAt: now - 7 * day + 60 * 60 * 1000,
+        seed: true,
+        accepterUid: 'seed-bot-6',
+        accepterName: 'anonymous',
+      },
+      // ── EXPIRED + UNMATCHED (nobody picked it up in time) ─────
+      {
+        id: 's-' + (now + 20),
+        motion: 'This house would lower the legal voting age to 16.',
+        side: 'pro',
+        format: 'asian',
+        handle: 'whip_speaker',
+        ts: now - 8 * day,
+        reveal: 'theme',
+        themeLine: 'Civic reform',
+        scheduledAt: now - 8 * day + 2 * hr,
+        seed: true,
+      },
+      {
+        id: 's-' + (now + 21),
+        motion: 'This house would prohibit corporate ownership of single-family homes.',
+        side: 'con',
+        format: 'apda',
+        handle: 'housing_wonk',
+        ts: now - 9 * day,
+        reveal: 'topic',
+        topicLine: 'Housing markets',
+        scheduledAt: now - 9 * day + hr,
+        seed: true,
+      },
+      {
+        id: 's-' + (now + 22),
+        motion: 'This house would require AI-generated content to be visibly labeled.',
+        side: 'pro',
+        format: 'quick',
+        handle: 'flow_nerd',
+        ts: now - 10 * day,
+        reveal: 'full',
+        scheduledAt: now - 10 * day + 90 * 60 * 1000,
+        seed: true,
+      },
+      {
+        id: 's-' + (now + 23),
+        motion: 'This house would treat addiction as a medical condition, not a moral failing.',
+        side: 'pro',
+        format: 'ld',
+        handle: 'kant_kid',
+        ts: now - 11 * day,
+        reveal: 'full',
+        scheduledAt: now - 11 * day + 2 * hr,
         seed: true,
       },
     ];
