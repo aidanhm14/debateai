@@ -34,6 +34,7 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { writeJoinEvent } from './chat-feed.mjs';
 
 const COUNTER_DOC = 'metrics/visitor_counter';
 const BASELINE = 7074;
@@ -111,6 +112,19 @@ export default async (request) => {
     }
   }
 
+  // Optional: caller may pass a handle so the join event in the
+  // community chat feed shows the same name the visitor will use to
+  // post messages. Falls back to "Anonymous" when missing.
+  let joinHandle = 'Anonymous';
+  try {
+    if (request.headers.get('content-type')?.includes('application/json')){
+      const body = await request.clone().json().catch(() => null);
+      if (body && typeof body.handle === 'string' && body.handle.trim()){
+        joinHandle = body.handle.trim().slice(0, 32);
+      }
+    }
+  } catch {}
+
   try {
     // Seed on first write: if the doc doesn't exist yet, FieldValue.increment(1)
     // would land at 1, not BASELINE+1. Initialize via a transactional read first.
@@ -121,12 +135,16 @@ export default async (request) => {
         updatedAt: FieldValue.serverTimestamp(),
         baseline: BASELINE,
       });
+      // Fire-and-forget join event so the chat shows "X just joined!"
+      // alongside the counter tick. Failure here doesn't break the tick.
+      writeJoinEvent({ db, handle: joinHandle }).catch(() => {});
       return jsonResponse({ count: BASELINE + 1, ticked: true, seeded: true }, 200, request);
     }
     await docRef.update({
       count: FieldValue.increment(1),
       updatedAt: FieldValue.serverTimestamp(),
     });
+    writeJoinEvent({ db, handle: joinHandle }).catch(() => {});
     const count = await readCount(docRef);
     return jsonResponse({ count, ticked: true }, 200, request);
   } catch (err) {

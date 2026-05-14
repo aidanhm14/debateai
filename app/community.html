@@ -44,6 +44,10 @@
      atomic increment) on first device visit, GETs current count
      otherwise. Powers the live MAU number in the Members surface. -->
 <script src="/js/visitor-counter.js"></script>
+<!-- community-chat.js powers the Live tab: anonymous handle pinned in
+     localStorage, polled message feed via /api/chat-feed, "X just
+     joined!" lines tied to the same visitor-tick first-device event. -->
+<script src="/js/community-chat.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <!-- Shared topbar styles. Loaded BEFORE the page's inline <style> so
@@ -251,6 +255,121 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 }
 .tab:hover{color:var(--text)}
 .tab.on{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(239,68,68,.28)}
+.tab .tab-dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#22c55e;margin-left:6px;vertical-align:middle;
+  box-shadow:0 0 8px #22c55e;animation:pulse 1.6s ease-in-out infinite;
+}
+
+/* ── LIVE CHAT ─────────────────────────────────────────────── */
+.chat-shell{
+  display:flex;flex-direction:column;
+  height:min(640px, 70vh);
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;position:relative;
+}
+.chat-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 16px;border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.02);
+  font-size:.74rem;color:var(--text-dim);
+}
+.chat-head-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chat-head-dot{
+  width:7px;height:7px;border-radius:50%;background:#22c55e;
+  box-shadow:0 0 8px #22c55e;animation:pulse 1.6s ease-in-out infinite;
+}
+.chat-head-label{font-weight:800;color:var(--text);letter-spacing:.04em;text-transform:uppercase;font-size:.66rem}
+.chat-head-sep{color:var(--text-ghost)}
+.chat-head-handle strong{color:var(--text);font-weight:700}
+.chat-reroll{
+  margin-left:6px;padding:2px 8px;border-radius:999px;
+  border:1px solid var(--border);background:transparent;
+  color:var(--text-ghost);font-family:inherit;font-size:.66rem;font-weight:700;
+  letter-spacing:.04em;text-transform:lowercase;cursor:pointer;
+  transition:color .15s,border-color .15s;
+}
+.chat-reroll:hover{color:var(--text);border-color:var(--border-strong)}
+.chat-head-meta{font-size:.7rem;color:var(--text-ghost)}
+
+.chat-scroll{
+  flex:1;min-height:0;overflow-y:auto;
+  padding:14px 16px;display:flex;flex-direction:column;gap:10px;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+.chat-scroll::-webkit-scrollbar{width:8px}
+.chat-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px}
+
+.chat-empty{
+  margin:auto;padding:24px;text-align:center;
+  color:var(--text-ghost);font-size:.86rem;font-weight:500;line-height:1.5;
+}
+
+.chat-row{
+  display:flex;flex-direction:column;gap:3px;
+  font-size:.86rem;line-height:1.45;color:var(--text);
+}
+.chat-msg{}
+.chat-msg-head{display:flex;align-items:baseline;gap:8px}
+.chat-msg-handle{
+  font-weight:800;color:var(--text);font-size:.78rem;letter-spacing:-.005em;
+  word-break:break-all;
+}
+.chat-msg-time{font-size:.66rem;color:var(--text-ghost);font-variant-numeric:tabular-nums}
+.chat-msg-text{
+  color:var(--text-dim);word-wrap:break-word;overflow-wrap:anywhere;
+  white-space:pre-wrap;
+}
+.chat-msg-mine .chat-msg-handle{color:var(--accent)}
+.chat-msg-mine .chat-msg-text{color:var(--text)}
+
+.chat-join{
+  font-size:.74rem;color:var(--text-ghost);font-weight:600;letter-spacing:.005em;
+  padding:3px 0;display:flex;align-items:baseline;gap:6px;
+}
+.chat-join-name{color:#4ade80;font-weight:800}
+.chat-join-verb{color:var(--text-ghost);font-weight:500}
+
+.chat-new-pill{
+  position:absolute;left:50%;bottom:88px;transform:translate(-50%, 8px);
+  padding:6px 14px;border-radius:999px;
+  background:rgba(34,197,94,.16);border:1px solid rgba(34,197,94,.45);
+  color:#4ade80;font-family:inherit;font-size:.72rem;font-weight:800;
+  letter-spacing:.04em;cursor:pointer;
+  opacity:0;pointer-events:none;
+  transition:opacity .18s, transform .18s;
+}
+.chat-new-pill.on{opacity:1;pointer-events:auto;transform:translate(-50%, 0)}
+.chat-new-pill:hover{background:rgba(34,197,94,.24)}
+
+.chat-input-row{
+  display:flex;align-items:flex-end;gap:10px;
+  padding:11px 14px;border-top:1px solid var(--border);
+  background:rgba(255,255,255,.02);
+}
+.chat-input{
+  flex:1;min-height:38px;max-height:140px;
+  padding:9px 12px;border:1px solid var(--border);border-radius:10px;
+  background:rgba(0,0,0,.25);color:var(--text);
+  font-family:inherit;font-size:.88rem;line-height:1.45;
+  resize:none;outline:none;
+  scrollbar-width:thin;
+}
+.chat-input:focus{border-color:rgba(239,68,68,.45)}
+.chat-input::placeholder{color:var(--text-ghost)}
+.chat-input-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.chat-char-count{font-size:.64rem;color:var(--text-ghost);font-variant-numeric:tabular-nums}
+.chat-char-count.over{color:var(--accent);font-weight:700}
+.chat-send{
+  padding:9px 18px;border-radius:10px;border:none;
+  background:var(--accent);color:#fff;font-family:inherit;font-weight:800;
+  font-size:.78rem;letter-spacing:.04em;cursor:pointer;
+  transition:background .15s, transform .1s;
+}
+.chat-send:hover:not(:disabled){background:#dc2626}
+.chat-send:active{transform:translateY(1px)}
+.chat-send:disabled{opacity:.55;cursor:not-allowed}
+.chat-send.chat-send-fail{background:#fbbf24;color:#1a1a1f}
 
 /* Discussion threads — list of cards, similar shape to disclosure cards
    but vertically denser and with title-first hierarchy. */
@@ -442,12 +561,13 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <span style="font-weight:800;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:#5865F2;white-space:nowrap;padding:9px 14px;border:1px solid rgba(88,101,242,.5);border-radius:10px">Join &rarr;</span>
   </a>
 
-  <!-- Tab switcher: Cases (existing disclosures) vs Discussion
-       (new threaded forum). Both share the same auth gate; switching
-       tabs hides/shows the relevant sections. -->
+  <!-- Tab switcher: Cases (disclosures) · Discussion (threaded
+       forum) · Live (anonymous chat + join feed). All three share
+       the wrap; switching tabs hides/shows the relevant section. -->
   <div class="tabs">
     <button class="tab on" data-tab="cases">Cases</button>
     <button class="tab" data-tab="discussion">Discussion</button>
+    <button class="tab" data-tab="live">Live <span class="tab-dot"></span></button>
   </div>
 
   <!-- ── CASES TAB ────────────────────────────────────────────── -->
@@ -511,6 +631,49 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <div id="threadsEmpty" class="empty" style="display:none">
       <h3>No threads yet.</h3>
       <p style="margin-top:8px">Start the conversation. Hit <strong>+ New thread</strong> above. Ask a question, post a take, fight about a motion. Anything debate-adjacent is fair game.</p>
+    </div>
+  </div>
+
+  <!-- ── LIVE TAB ──────────────────────────────────────────────
+       Anonymous chat feed. Writes go through /api/chat-feed (server-
+       side rate limit, length cap, sanitization). Joins are written
+       by /api/visitor-tick on first device tick so the same handle
+       a user posts under is the handle that joined.
+
+       The chat is intentionally low-ceremony: handle + message,
+       240ish chars, polled every 8 seconds. No threads, no replies,
+       no votes. The Discussion tab carries the structured forum;
+       this is the back-of-the-room feel. -->
+  <div id="livePane" style="display:none">
+    <div class="chat-shell">
+      <div class="chat-head">
+        <div class="chat-head-left">
+          <span class="chat-head-dot"></span>
+          <span class="chat-head-label">Live</span>
+          <span class="chat-head-sep">·</span>
+          <span class="chat-head-handle">posting as <strong id="chatHandle">…</strong></span>
+          <button id="chatReroll" class="chat-reroll" title="Pick a new anonymous handle">re-roll</button>
+        </div>
+        <div class="chat-head-right">
+          <span class="chat-head-meta">no sign-in needed. anyone can post.</span>
+        </div>
+      </div>
+
+      <div id="chatScroll" class="chat-scroll" aria-live="polite" aria-label="Chat messages">
+        <div class="chat-empty">loading…</div>
+      </div>
+
+      <button id="chatNewPill" class="chat-new-pill" type="button">↓ new</button>
+
+      <div class="chat-input-row">
+        <textarea id="chatInput" class="chat-input" rows="1"
+          placeholder="say something. enter to send."
+          autocomplete="off" spellcheck="true"></textarea>
+        <div class="chat-input-meta">
+          <span id="chatCharCount" class="chat-char-count">0/280</span>
+          <button id="chatSend" class="chat-send" type="button">Send</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1035,24 +1198,42 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   // when the seed-init block calls it before flow reaches this point.
 
   function tabSwitch(tab){
-    var casesPane = $('casesPane'), discPane = $('discussionPane');
+    var casesPane = $('casesPane'), discPane = $('discussionPane'), livePane = $('livePane');
     document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
     var active = document.querySelector('.tab[data-tab="' + tab + '"]');
     if (active) active.classList.add('on');
-    if (tab === 'discussion'){
-      casesPane.style.display = 'none';
-      discPane.style.display = '';
-    } else {
-      casesPane.style.display = '';
-      discPane.style.display = 'none';
-    }
+    casesPane.style.display = (tab === 'cases') ? '' : 'none';
+    discPane.style.display  = (tab === 'discussion') ? '' : 'none';
+    if (livePane) livePane.style.display = (tab === 'live') ? '' : 'none';
     try { gtag('event','community_tab',{tab:tab}); } catch(e){}
   }
   document.querySelectorAll('.tab').forEach(function(b){
     b.addEventListener('click', function(){ tabSwitch(b.getAttribute('data-tab')); });
   });
-  // Anchor links: /community#discussion deep-links to the forum tab.
-  if ((location.hash || '').toLowerCase() === '#discussion') tabSwitch('discussion');
+  // Anchor links: /community#discussion deep-links to the forum tab,
+  // /community#live deep-links to the chat tab. Useful when sharing
+  // "come hang out" links from Discord or in-app nudges.
+  var hash = (location.hash || '').toLowerCase();
+  if (hash === '#discussion') tabSwitch('discussion');
+  else if (hash === '#live')  tabSwitch('live');
+
+  // Initialize the live chat once on page load (regardless of the
+  // active tab) so the polling starts and the join feed is fresh
+  // the moment the user clicks Live. Wrapped in try/catch so a failure
+  // here can't kill the page (same pattern as the seed-init blocks).
+  try {
+    if (window.DEBATEAI_CHAT && typeof window.DEBATEAI_CHAT.init === 'function'){
+      window.DEBATEAI_CHAT.init({
+        scroller:    $('chatScroll'),
+        handleEl:    $('chatHandle'),
+        inputEl:     $('chatInput'),
+        sendBtn:     $('chatSend'),
+        rerollBtn:   $('chatReroll'),
+        newPill:     $('chatNewPill'),
+        charCountEl: $('chatCharCount'),
+      });
+    }
+  } catch(e){ console.warn('[community] live chat init failed', e); }
 
   // ── Thread list rendering ─────────────────────────────────
   function renderThreads(){
