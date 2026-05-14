@@ -22,9 +22,49 @@ import {
   formatDailyDate,
   prettyDate,
 } from './lib/daily-motion-bank.mjs';
+import { getDb } from './lib/firestore.mjs';
 
 const SITE_ORIGIN = 'https://debateai.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
+
+// In-memory cache for the "recent public rounds" panel. Same content
+// for every /today render in any given minute, so caching keeps the
+// per-request Firestore reads negligible at scale.
+let recentRoundsCache = { fetchedAt: 0, rounds: [] };
+const RECENT_ROUNDS_TTL_MS = 5 * 60 * 1000;
+const RECENT_ROUNDS_LIMIT = 6;
+
+async function fetchRecentPublicRounds() {
+  const now = Date.now();
+  if (recentRoundsCache.rounds.length && now - recentRoundsCache.fetchedAt < RECENT_ROUNDS_TTL_MS) {
+    return recentRoundsCache.rounds;
+  }
+  try {
+    const db = getDb();
+    const snap = await db.collection('public_rounds')
+      .orderBy('publishedAt', 'desc')
+      .limit(RECENT_ROUNDS_LIMIT)
+      .get();
+    const rounds = (snap.docs || []).map(d => {
+      const data = d.data() || {};
+      return {
+        id: d.id,
+        motion: data.motion || '',
+        displayName: data.displayName || '',
+        formatName: data.formatName || data.format || '',
+        sideLabel: data.sideLabel || data.side || '',
+        winner: data.winner || null,
+      };
+    }).filter(r => r.motion && r.id);
+    recentRoundsCache = { fetchedAt: now, rounds };
+    return rounds;
+  } catch (err) {
+    console.warn('[today] recent public_rounds fetch failed:', err.message);
+    // Don't crash the page if the aggregator query blips. Return whatever
+    // we last cached (could be empty) and the panel just won't render.
+    return recentRoundsCache.rounds;
+  }
+}
 
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function esc(s) {
@@ -48,7 +88,28 @@ function extractDateFromUrl(url) {
   } catch { return null; }
 }
 
-function renderPage(date, dateStr, motion) {
+function renderRecentRoundsPanel(rounds) {
+  if (!rounds || rounds.length === 0) return '';
+  const cards = rounds.map(r => {
+    const winnerBadge = r.winner === 'user' ? '<span class="winner-badge user">Human wins</span>'
+                      : r.winner === 'ai' ? '<span class="winner-badge ai">AI wins</span>'
+                      : '';
+    const meta = [r.formatName, r.sideLabel].filter(Boolean).map(esc).join(' · ');
+    return `<a class="round-link" href="/r/${esc(r.id)}">
+      <div class="round-meta">${esc(r.displayName || 'A debater')}${meta ? ' · ' + meta : ''}</div>
+      <div class="round-motion">${esc((r.motion || '').slice(0, 140))}</div>
+      ${winnerBadge}
+    </a>`;
+  }).join('\n');
+  return `<section class="recent-rounds" aria-label="Recently argued on the platform">
+    <h3>Recently argued on the platform</h3>
+    <div class="round-grid">
+      ${cards}
+    </div>
+  </section>`;
+}
+
+function renderPage(date, dateStr, motion, recentRounds) {
   const titleCore = `${motion.motion} · Today's debate motion`;
   const title = titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore;
   const description = `${motion.motion} Debate it against the AI. ${motion.frame.slice(0, 100)}`;
@@ -130,6 +191,16 @@ function renderPage(date, dateStr, motion) {
   .archive-link:hover{border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.04)}
   .archive-date{font-size:.62rem;color:rgba(255,255,255,.4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
   .archive-motion{font-size:.82rem;color:rgba(255,255,255,.85);line-height:1.4}
+  .recent-rounds{margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,.08)}
+  .recent-rounds h3{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:14px}
+  .round-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+  .round-link{display:block;padding:12px 14px;border-radius:10px;border:1px solid rgba(139,92,246,.20);background:rgba(139,92,246,.04);transition:.15s;position:relative;text-decoration:none}
+  .round-link:hover{border-color:rgba(139,92,246,.5);background:rgba(139,92,246,.08)}
+  .round-meta{font-size:.62rem;color:rgba(255,255,255,.5);letter-spacing:.04em;margin-bottom:4px}
+  .round-motion{font-size:.85rem;color:rgba(255,255,255,.88);line-height:1.45}
+  .winner-badge{display:inline-block;margin-top:8px;font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:2px 8px;border-radius:999px}
+  .winner-badge.user{background:rgba(34,197,94,.14);color:#86efac;border:1px solid rgba(34,197,94,.32)}
+  .winner-badge.ai{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.32)}
   footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
   footer a:hover{color:#fff}
 </style>
@@ -181,6 +252,8 @@ function renderPage(date, dateStr, motion) {
     </div>
   </section>
 
+  ${renderRecentRoundsPanel(recentRounds)}
+
   <footer>
     <span>© 2026 Debate AI</span>
     <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/learn">Learn</a></span>
@@ -204,7 +277,10 @@ export default async (request) => {
   }
   const dateStr = formatDailyDate(date);
   const motion = dailyMotionFor(date);
-  const html = renderPage(date, dateStr, motion);
+  // Pull recent public rounds for the aggregator panel at the bottom
+  // of the page. Cached 5 min, soft-fail if Firestore is unavailable.
+  const recentRounds = await fetchRecentPublicRounds();
+  const html = renderPage(date, dateStr, motion, recentRounds);
   return new Response(html, {
     status: 200,
     headers: {
