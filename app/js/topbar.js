@@ -81,6 +81,7 @@
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
     { href: '/today',         label: 'Today'        },
+    { href: '/rounds',        label: 'Rounds'       },
     { href: '/live',          label: 'Live', live: true },
     { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
