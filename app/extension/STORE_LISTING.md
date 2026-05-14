@@ -75,7 +75,7 @@ Pricing
 • Individual at $5/year: 250 drills/month, four AI brains, premium voice
 • Lifetime at $14.99 once: 250 drills/month forever, no recurring charge
 • Bring-your-own-key (Anthropic Claude only) at $1/month for unlimited
-• Team at $30/month for school clubs and prep groups (1,500 drills, 50 seats)
+• Team at $20/year for school clubs and prep groups (1,500 drills/month, 50 seats)
 
 Counter is part of DebateAI. Same engine that powers debateai.com's
 voice round and four-brain panel; the chrome extension is a focused

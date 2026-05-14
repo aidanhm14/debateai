@@ -130,7 +130,7 @@ of ~10 minutes of work, not big PRs.
 - **Bump `CACHE_NAME` in BOTH `sw.js` files** when HTML/bundle changes. The `scripts/hooks/pre-commit` hook (installed via `bash scripts/install-hooks.sh`) does this automatically on every commit that touches client-side files. Only relevant if you skipped the hook install — in which case bump manually.
 - **Never precache `/` in the service worker** — it broke root routing.
 - **Never skip git hooks** (`--no-verify`).
-- **Pricing is locked**: Free $0, BYOK $1/mo, Individual $5/mo, Lifetime $14.99 once, Team $30/mo. (Lifetime added to canonical 2026-05-10 — same 250 requests/mo as Individual but a one-time charge instead of recurring; lives in `app/pricing.html` and the in-product paywall card.)
+- **Pricing is locked**: Free $0, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year. Currently in beta — every tier is $0 today; the table above is the post-beta plan and lives as JSON-LD/copy across pricing.html, debate-ai.html, landing.html. (Lifetime added to canonical 2026-05-10; Individual + Team flipped to annual 2026-05-14.)
 
 ## Voice rules for AI debater outputs
 
@@ -190,7 +190,7 @@ These pairs duplicate intentionally; if you edit one, edit the other:
 
 ## Things to ask before doing
 
-- New pricing tier (locked: Free, BYOK $1/mo, Individual $5/mo, Lifetime $14.99 once, Team $30/mo).
+- New pricing tier (locked: Free, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year — currently beta, all $0).
 - Stripe webhook / Firestore rules / App Check token changes.
 - New AI provider integration (currently 4 brains).
 - Mobile / TWA wrapping (path is Capacitor; deferred — see soul.md §9).
