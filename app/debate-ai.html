@@ -4169,6 +4169,14 @@ function App(){
   // Drives the button label/state on the feedback screen so the user gets
   // feedback when the canvas is generating or when fallback fired.
   const[shareStatus,setShareStatus]=useState('idle');
+
+  // Public-round publish state. 'idle' | 'publishing' | 'published' | 'error'.
+  // publishedRound holds { id, url, fullUrl } after a successful publish so
+  // the share dialog can persist the URL until the user navigates away.
+  // Backend: app/netlify/functions/round-publish.mjs (POST /api/round/publish).
+  const[publishStatus,setPublishStatus]=useState('idle');
+  const[publishedRound,setPublishedRound]=useState(null);
+  const[publishError,setPublishError]=useState('');
   const[notes,setNotes]=useState(()=>{try{return localStorage.getItem('debateos-prep-notes')||''}catch{return ''}});
   const[aiLoading,setAiLoading]=useState(false);
   const[aiText,setAiText]=useState('');
@@ -5545,6 +5553,62 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     setHistoryRounds(updated);
     try{localStorage.setItem('debateos-round-history',JSON.stringify(updated))}catch{}
     if(viewingRound&&viewingRound.id===id)setViewingRound(null);
+  };
+
+  // Publish current round to /r/{id} — the Quora/Genius play.
+  // Sends sanitized round data to /api/round/publish which writes to
+  // the public_rounds Firestore collection under a short URL-safe ID.
+  // Server-rendered HTML at /r/{id} carries OG meta + JSON-LD Article
+  // schema so Google indexes the motion as the H1. Every published
+  // round = one more indexable long-tail entry into the funnel.
+  const publishRound=async()=>{
+    if(publishStatus==='publishing') return;
+    if(!user){ setPublishError('Sign in first to publish.'); setPublishStatus('error'); return; }
+    setPublishStatus('publishing');
+    setPublishError('');
+    try{
+      const token=await user.getIdToken();
+      const speeches=(log||[])
+        .filter(l=>l && l.text && l.code !== 'POI')
+        .map(l=>({
+          who: l.who==='You' ? 'user' : 'ai',
+          speaker: l.code || '',
+          side: l.who==='You' ? side : ((fmt.sides||[]).find(s=>s!==side) || ''),
+          text: l.text,
+        }));
+      const payload={
+        motion,
+        format,
+        formatName: fmt && fmt.name,
+        side,
+        sideLabel: fmt && fmt.sideLabels && fmt.sideLabels[side],
+        voice,
+        voiceName: (VOICES[voice]||{}).name || '',
+        brain,
+        speeches,
+        rfd: feedback || '',
+        decision: (ballot && ballot.decision) || '',
+        winner: (ballot && ballot.winner) || null,
+        speakerPoints: (ballot && ballot.speakerPoints) || null,
+        displayName: (user.displayName || '').trim(),
+      };
+      const res=await fetch('/api/round/publish',{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body:JSON.stringify(payload),
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok){
+        throw new Error(data.error || ('Publish failed ('+res.status+')'));
+      }
+      setPublishedRound({ id:data.id, url:data.url, fullUrl:data.fullUrl });
+      setPublishStatus('published');
+      try{ window.gtag && gtag('event','round_published',{ format, has_score: !!(ballot && ballot.speakerPoints) }) }catch(e){}
+    }catch(err){
+      console.error('publishRound failed:', err);
+      setPublishError(err.message || 'Could not publish.');
+      setPublishStatus('error');
+    }
   };
 
   // Copy transcript
@@ -7737,16 +7801,21 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
               : '📤 Share your score'
             ),
           ),
-          // Contextual sign-in prompt — only fires post-round, only when
-          // not already signed in. The cold-call OAuth pill in the topbar
-          // is suppressed for first-time users (see render bar above);
-          // here is where we make the value-driven ask, after the user has
-          // a concrete score to save and a leaderboard spot to claim.
-          // Skipped silently when a numeric score isn't present.
-          !user && b.speakerPoints && typeof b.speakerPoints.user === 'number' && el('div',{style:{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',marginBottom:20,borderRadius:14,background:'linear-gradient(135deg,rgba(34,197,94,.06),rgba(59,130,246,.04))',border:'1px solid rgba(34,197,94,.22)',flexWrap:'wrap'}},
+          // Contextual sign-in prompt — fires post-round for any anonymous
+          // user with a delivered ballot. Previously gated on a numeric
+          // speakerPoints score; parse misses on some formats meant the
+          // nudge never fired for those users, leaving the highest-intent
+          // sign-in moment uncovered. Now: !user is enough, copy adapts
+          // between scored ("put 28 on the leaderboard") and unscored
+          // ("save this round across devices") variants.
+          !user && el('div',{style:{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',marginBottom:20,borderRadius:14,background:'linear-gradient(135deg,rgba(34,197,94,.06),rgba(59,130,246,.04))',border:'1px solid rgba(34,197,94,.22)',flexWrap:'wrap'}},
             el('div',{style:{flex:1,minWidth:200}},
               el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#22c55e',marginBottom:4}},'Save this round'),
-              el('div',{style:{fontSize:'.86rem',fontWeight:700,color:'var(--c-text)',lineHeight:1.4}},'Sign in once to put '+b.speakerPoints.user+' on the leaderboard and sync your record across devices.'),
+              el('div',{style:{fontSize:'.86rem',fontWeight:700,color:'var(--c-text)',lineHeight:1.4}},
+                b.speakerPoints && typeof b.speakerPoints.user === 'number'
+                  ? 'Sign in once to put '+b.speakerPoints.user+' on the leaderboard and sync your record across devices.'
+                  : 'Sign in to save this round, sync across devices, and let the AI learn your style for next time.'
+              ),
               el('div',{style:{fontSize:'.7rem',color:'var(--c-muted)',marginTop:4,lineHeight:1.45}},'Optional. Your round is already saved locally. Sign in only if you want it on the public board.'),
             ),
             el('button',{
@@ -7765,6 +7834,72 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
               el('span',{dangerouslySetInnerHTML:{__html:'<svg width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>'}}),
               'Continue with Google',
             ),
+          ),
+          // Publish-to-public panel — signed-in users only. Sends the
+          // round to /api/round/publish which writes a sanitized doc to
+          // public_rounds and returns a short URL like /r/abc12345. The
+          // server-rendered page at that URL carries OG meta + JSON-LD
+          // Article schema so Google indexes the motion as H1. Each
+          // published round = one more long-tail SEO entry. The share
+          // dialog (WhatsApp / Copy / X) covers the user-side
+          // distribution loop, especially crucial for the 80% of MAU in
+          // India where WhatsApp is the universal share channel.
+          user && el('div',{style:{
+            padding:'14px 18px', marginBottom:20, borderRadius:14,
+            background:'linear-gradient(135deg,rgba(139,92,246,.07),rgba(59,130,246,.04))',
+            border:'1px solid rgba(139,92,246,.22)',
+          }},
+            publishStatus === 'published' && publishedRound
+              ? el('div',{},
+                  el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#a78bfa',marginBottom:4}},'Published ✓'),
+                  el('div',{style:{fontSize:'.86rem',fontWeight:700,color:'var(--c-text)',lineHeight:1.45,marginBottom:4,wordBreak:'break-all'}},
+                    'Live at ',
+                    el('a',{href:publishedRound.url,target:'_blank',rel:'noopener',style:{color:'#a78bfa',textDecoration:'underline'}},publishedRound.fullUrl)
+                  ),
+                  el('div',{style:{fontSize:'.7rem',color:'var(--c-muted)',marginBottom:10,lineHeight:1.45}},'Anyone with the link can read this round. Indexed by Google over time.'),
+                  el('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+                    el('a',{
+                      href:publishedRound.url, target:'_blank', rel:'noopener',
+                      style:{ display:'inline-flex',alignItems:'center',gap:6, padding:'8px 14px',borderRadius:8, background:'rgba(255,255,255,.06)',border:'1px solid var(--c-border2)', color:'var(--c-text)', fontSize:'.76rem',fontWeight:700,textDecoration:'none', cursor:'pointer' },
+                    }, 'Open page →'),
+                    el('button',{
+                      onClick:async()=>{ try{ await navigator.clipboard.writeText(publishedRound.fullUrl); setPublishStatus('copied'); setTimeout(()=>setPublishStatus('published'),1500); }catch(e){} },
+                      style:{ padding:'8px 14px',borderRadius:8, background:'rgba(255,255,255,.06)',border:'1px solid var(--c-border2)', color:'var(--c-text)', fontSize:'.76rem',fontWeight:700,fontFamily:'inherit', cursor:'pointer' },
+                    }, publishStatus==='copied' ? '✓ Copied' : 'Copy link'),
+                    el('a',{
+                      href:'https://api.whatsapp.com/send?text='+encodeURIComponent('I just argued "'+(motion||'').slice(0,80)+'" against an AI. '+publishedRound.fullUrl),
+                      target:'_blank', rel:'noopener',
+                      style:{ display:'inline-flex',alignItems:'center',gap:6, padding:'8px 14px',borderRadius:8, background:'rgba(37,211,102,.12)',border:'1px solid rgba(37,211,102,.32)', color:'#25D366', fontSize:'.76rem',fontWeight:700,textDecoration:'none', cursor:'pointer' },
+                    }, 'WhatsApp'),
+                    el('a',{
+                      href:'https://twitter.com/intent/tweet?text='+encodeURIComponent('I just argued "'+(motion||'').slice(0,80)+'" against an AI. Try to beat it →')+'&url='+encodeURIComponent(publishedRound.fullUrl),
+                      target:'_blank', rel:'noopener',
+                      style:{ display:'inline-flex',alignItems:'center',gap:6, padding:'8px 14px',borderRadius:8, background:'rgba(255,255,255,.06)',border:'1px solid var(--c-border2)', color:'var(--c-text)', fontSize:'.76rem',fontWeight:700,textDecoration:'none', cursor:'pointer' },
+                    }, 'Post on X'),
+                  )
+                )
+              : el('div',{style:{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}},
+                  el('div',{style:{flex:1,minWidth:200}},
+                    el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#a78bfa',marginBottom:4}},'Share this round publicly'),
+                    el('div',{style:{fontSize:'.86rem',fontWeight:700,color:'var(--c-text)',lineHeight:1.4}},'Get a short link at /r/... Anyone can read the round. Your name shows as first-name + last-initial only.'),
+                    publishStatus === 'error' && publishError && el('div',{style:{fontSize:'.7rem',color:'#fca5a5',marginTop:4}}, publishError),
+                  ),
+                  el('button',{
+                    onClick:publishRound,
+                    disabled:publishStatus==='publishing',
+                    style:{
+                      display:'inline-flex',alignItems:'center',gap:6,
+                      padding:'9px 18px',borderRadius:999,
+                      background:'rgba(139,92,246,.18)',
+                      border:'1px solid rgba(139,92,246,.42)',
+                      color:'#c4b5fd', fontSize:'.78rem',fontWeight:800,letterSpacing:'.02em',
+                      cursor:publishStatus==='publishing'?'wait':'pointer',
+                      opacity:publishStatus==='publishing'?0.6:1,
+                      fontFamily:'inherit',
+                      whiteSpace:'nowrap',flexShrink:0,
+                    },
+                  }, publishStatus==='publishing' ? 'Publishing…' : 'Publish to /r/')
+                )
           ),
           // Lifetime upgrade CTA — fires only for signed-in users on the
           // free tier (or BYOK), gated behind a numeric score so the value

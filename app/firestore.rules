@@ -101,6 +101,23 @@ service cloud.firestore {
       }
     }
 
+    // ── public_rounds ────────────────────────────────────────────────
+    // Published debate rounds at /r/{id}. Render + publish both go
+    // through Netlify Functions using the admin SDK (which bypasses
+    // these rules), so client-side writes are explicitly denied here
+    // to prevent users from spoofing rounds onto the public corpus.
+    // Reads are open so that even a future client-side fetch (for an
+    // embed widget or a /disclosures-style listing) works without
+    // re-architecting.
+    //
+    // Authors can delete their own rounds to take a publication back.
+    match /public_rounds/{roundId} {
+      allow read:   if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.authorUid == request.auth.uid;
+    }
+
     // ── forum_posts ──────────────────────────────────────────────────
     // Threaded discussion under /community. Top-level threads have
     // parentId == null; replies have parentId == <thread doc id>.

@@ -28,6 +28,20 @@
 # that don't physically exist. Serve them from /icons/ via rewrite.
 # (Netlify analytics: /favicon.ico 138, apple-touch-icon variants 114.)
 # ──────────────────────────────────────────────────────────────────
+
+# Public round pages (/r/{id}). Each published round becomes its own
+# indexable page rendered server-side by app/netlify/functions/r.mjs.
+# The function path is /api/r/:id internally (consistent with every
+# other function in this repo); this rewrite (status=200, force=true)
+# lets the public URL stay short at /r/{id} without exposing the
+# function path. force=true so it wins against any later catch-all
+# rewrite that might claim /r/*.
+[[redirects]]
+  from = "/r/*"
+  to = "/api/r/:splat"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/favicon.ico"
   to = "/icons/icon-192.png"
