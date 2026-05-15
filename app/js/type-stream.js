@@ -22,12 +22,12 @@
 // buffer at the same pace, then drop the cursor.
 //
 // Usage (vanilla DOM target):
-//   const stream = window.TypeStream.create(targetEl, { cps: 90 });
+//   const stream = window.TypeStream.create(targetEl, { cps: 180 });
 //   await callClaude(sys, user, (text) => stream.feed(text));
 //   stream.done();
 //
 // Usage (React state setter target — pass a function instead of element):
-//   const stream = window.TypeStream.create((shown) => setOutput(shown), { cps: 90 });
+//   const stream = window.TypeStream.create((shown) => setOutput(shown), { cps: 180 });
 //   await callClaude(sys, user, (text) => stream.feed(text));
 //   stream.done();
 //
@@ -37,11 +37,11 @@
 // rendering a separate cursor span next to the text).
 
 (function (global) {
-  const DEFAULT_CPS = 90; // characters per second — matches the hero feel
-  const MAX_BURST_CHARS = 200; // catch up if the buffer races way ahead
+  const DEFAULT_CPS = 180; // characters per second — quick enough to feel responsive
+  const MAX_BURST_CHARS = 480; // catch up if the buffer races way ahead
 
   // Inject the cursor CSS once. Matches the landing hero's beta-msg-typing
-  // cursor (▋ block, accent color, 1s blink) so AI streaming text gets the
+  // cursor (▋ block, accent color, quick blink) so AI streaming text gets the
   // same visual signature everywhere it shows up. Idempotent: if the page
   // already has this style, do nothing.
   if (typeof document !== 'undefined' && !document.getElementById('type-stream-style')) {
@@ -50,7 +50,7 @@
       'display:inline-block;' +
       'margin-left:2px;' +
       'color:var(--accent,#ef4444);' +
-      'animation:type-stream-blink 1s step-end infinite;' +
+      'animation:type-stream-blink .55s step-end infinite;' +
       'vertical-align:baseline' +
       '}' +
       '@keyframes type-stream-blink{0%,100%{opacity:1}50%{opacity:0}}';

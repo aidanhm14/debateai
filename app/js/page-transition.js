@@ -24,8 +24,8 @@
   try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
   if (reduced) return;
 
-  var FADE_OUT_MS = 160;
-  var FADE_IN_MS  = 220;
+  var FADE_OUT_MS = 80;
+  var FADE_IN_MS  = 120;
 
   // Inject the transition styles. Doing this with a <style> instead of
   // a stylesheet so the script is fully self-contained — one drop-in
@@ -42,7 +42,7 @@
     '  position: fixed; top: 0; left: 0; right: 0; height: 2px;\n' +
     '  background: linear-gradient(90deg, transparent 0%, #ef4444 50%, transparent 100%);\n' +
     '  transform: translateX(-100%);\n' +
-    '  transition: transform ' + (FADE_OUT_MS + 80) + 'ms ease-in;\n' +
+    '  transition: transform ' + (FADE_OUT_MS + 40) + 'ms ease-in;\n' +
     '  z-index: 99999; pointer-events: none;\n' +
     '}\n' +
     '.pt-bar.pt-bar-active { transform: translateX(100%); }\n';
