@@ -49,8 +49,12 @@ export default async (req) => {
   );
 };
 
-// Every 5 minutes. Lambda warm-window on Netlify is typically ~10
-// minutes, so 5-minute pings stay comfortably inside.
+// Every 15 minutes. Dropped from 5-min on 2026-05-16 because the
+// 5-min cadence × 5 invocations per run (1 cron + 4 brain pings) =
+// ~43K invocations/month from keepalive alone — 35% of the Netlify
+// free-tier quota. 15-min still hits warm containers most of the
+// time (user traffic also keeps them warm), and the few extra cold
+// starts during off-peak hours are barely user-perceptible.
 export const config = {
-  schedule: '*/5 * * * *',
+  schedule: '*/15 * * * *',
 };
