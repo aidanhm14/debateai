@@ -3742,11 +3742,35 @@ function shouldGateForFeedback() {
    AI ENGINE CONFIG. same 4 brains as Debate AI
    ═══════════════════════════════════════════════════ */
 const CASE_BRAINS = {
-  claude: { name:'Claude', desc:'Structured, analytical', endpoint:'/api/claude', model:'claude-haiku-4-5-20251001', proModel:'claude-sonnet-4-6', color:'#D97757', supportsThinking:true },
-  gpt:    { name:'GPT',    desc:'Creative, conversational', endpoint:'/api/openai-chat', model:'gpt-4o-mini', proModel:'gpt-4o', color:'#10a37f', supportsThinking:false },
-  gemini: { name:'Gemini', desc:'Fast, well-rounded', endpoint:'/api/gemini', model:'gemini-2.0-flash', proModel:'gemini-2.5-pro-preview-05-06', color:'#4285F4', supportsThinking:false },
-  grok:   { name:'Grok',   desc:'Unfiltered, witty', endpoint:'/api/grok', model:'grok-3-mini', proModel:'grok-3', color:'#fff', supportsThinking:false },
+  claude:   { name:'Claude',   desc:'Structured, analytical', endpoint:'/api/claude', model:'claude-haiku-4-5-20251001', proModel:'claude-sonnet-4-6', color:'#D97757', supportsThinking:true },
+  gpt:      { name:'GPT',      desc:'Creative, conversational', endpoint:'/api/openai-chat', model:'gpt-4o-mini', proModel:'gpt-4o', color:'#10a37f', supportsThinking:false },
+  gemini:   { name:'Gemini',   desc:'Fast, well-rounded', endpoint:'/api/gemini', model:'gemini-2.0-flash', proModel:'gemini-2.5-pro-preview-05-06', color:'#4285F4', supportsThinking:false },
+  grok:     { name:'Grok',     desc:'Unfiltered, witty', endpoint:'/api/grok', model:'grok-3-mini', proModel:'grok-3', color:'#fff', supportsThinking:false },
+  deepseek: { name:'DeepSeek', desc:'Sharp, technical',  endpoint:'/api/deepseek', model:'deepseek-chat', proModel:'deepseek-chat', color:'#4D6BFE', supportsThinking:false },
 };
+
+/* Per-task brain routing. The system picks intelligently and shows its
+   reasoning. Each task maps to the brain that's structurally best at it,
+   plus a one-line "why" we surface as a recommendation badge under the
+   picker. Users can still override with a click; this just sets the
+   default and the reasoning string so people don't have to guess.
+   Source of truth — when adding a new task with a brain picker, add it
+   here so the recommendation propagates everywhere. */
+const BRAIN_TASKS = {
+  caseGen:   { brain:'claude',   why:'Structured outlines, clean warrant chains.' },
+  judge:     { brain:'deepseek', why:'Cheapest brain in the lineup, no house-style preference — most objective ballot.' },
+  rebuttal:  { brain:'grok',     why:'Sharper. Finds the crack faster than Claude.' },
+  current:   { brain:'gemini',   why:'Fastest grounding on current-events motions.' },
+  chat:      { brain:'gpt',      why:'Most conversational across casual back-and-forth.' },
+  philosophy:{ brain:'claude',   why:'Best at ethical-framework reasoning.' },
+  default:   { brain:'claude',   why:'Default brain.' },
+};
+function pickBrainForTask(task){
+  return (BRAIN_TASKS[task] || BRAIN_TASKS.default).brain;
+}
+function brainTaskReason(task){
+  return (BRAIN_TASKS[task] || BRAIN_TASKS.default).why;
+}
 
 /* Call any AI engine. for non-Claude engines, uses simple SSE streaming */
 async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {}) {
@@ -4535,7 +4559,7 @@ function CaseGenerator({ onSave, loadedCase, onClearLoaded, team, user, onNaviga
   const [ratingHover, setRatingHover] = useState(0);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [caseTone, setCaseTone] = useState('default');
-  const [caseBrain, setCaseBrain] = useState('claude');
+  const [caseBrain, setCaseBrain] = useState(()=>pickBrainForTask('caseGen'));
   const outputRef = useRef(null);
   const streamAreaRef = useRef(null);
   const smoothReveal = useSmoothProgress(
@@ -5036,6 +5060,25 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
             );
           })
         ),
+        // Routing recommendation badge — surfaces the system's brain choice
+        // and reasoning so people aren't picking blind. Renders as a small
+        // italic line under the brain row. If the user overrides, switches
+        // to a "back to recommended" link in the same slot.
+        (function(){
+          var rec = pickBrainForTask('caseGen');
+          var why = brainTaskReason('caseGen');
+          var recBrain = CASE_BRAINS[rec];
+          if (!recBrain) return null;
+          var matches = caseBrain === rec;
+          return React.createElement('div',{style:{marginTop:8,fontSize:'.7rem',color:'#94a3b8',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',lineHeight:1.4}},
+            React.createElement('span',{style:{color:recBrain.color,fontWeight:700}}, matches ? 'Routed to ' + recBrain.name : 'Recommended: ' + recBrain.name),
+            React.createElement('span',{style:{opacity:.78}}, why),
+            !matches && React.createElement('button',{
+              onClick:function(){ setCaseBrain(rec); },
+              style:{background:'none',border:'none',color:recBrain.color,fontFamily:'inherit',fontSize:'.7rem',textDecoration:'underline',cursor:'pointer',padding:0,fontWeight:600},
+            },'use it'),
+          );
+        })(),
       ),
 
       // Generate buttons
@@ -8593,7 +8636,7 @@ function JudgeAnalyzer({ team, user, onNavigateTab }) {
   const [analysis, setAnalysis] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
-  const [brain, setBrain] = useState('claude');
+  const [brain, setBrain] = useState(()=>pickBrainForTask('judge'));
   const userIsPro = isPro(team, user);
   const goUpgrade = () => { try { if (onNavigateTab) onNavigateTab('team'); else window.location.href='/pricing'; } catch(e){ window.location.href='/pricing'; } };
 
@@ -14486,7 +14529,7 @@ function FlowRebuttal() {
   const el = React.createElement;
   const [flow, setFlow] = useState('');
   const [side, setSide] = useState('MG');
-  const [brain, setBrain] = useState('claude');
+  const [brain, setBrain] = useState(()=>pickBrainForTask('rebuttal'));
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');

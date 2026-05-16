@@ -1760,7 +1760,115 @@ const BRAINS = {
     proModel: 'gemini-2.5-pro-preview-05-06', // pro tier
     color: '#4285F4',
   },
+  deepseek: {
+    name: 'DeepSeek',
+    desc: 'Sharp, technical. DeepSeek.',
+    endpoint: '/api/deepseek',
+    format: 'openai',                      // DeepSeek API is OpenAI-compatible
+    model: 'deepseek-chat',                // V3
+    proModel: 'deepseek-chat',             // same model, pro just unlocks access
+    color: '#4D6BFE',
+  },
 };
+
+/* Per-task brain routing for debate-ai. Mirror of the BRAIN_TASKS map in
+   index.html — kept duplicated because the two pages are separate React
+   IIFEs and don't share state. The default for the full-round opponent
+   is Claude (structured, format-aware); judges route to DeepSeek for
+   objectivity. When adding a new task with a brain picker, add here too. */
+const BRAIN_TASKS = {
+  opponent:  { brain:'claude',   why:'Structured rounds, format-aware speeches.' },
+  judge:     { brain:'deepseek', why:'Cheapest brain in the lineup, no house-style preference — most objective ballot.' },
+  rebuttal:  { brain:'grok',     why:'Sharper. Finds the crack faster than Claude.' },
+  current:   { brain:'gemini',   why:'Fastest grounding on current-events motions.' },
+  chat:      { brain:'gpt',      why:'Most conversational across casual back-and-forth.' },
+  philosophy:{ brain:'claude',   why:'Best at ethical-framework reasoning.' },
+  default:   { brain:'claude',   why:'Default brain.' },
+};
+function pickBrainForTask(task){
+  return (BRAIN_TASKS[task] || BRAIN_TASKS.default).brain;
+}
+function brainTaskReason(task){
+  return (BRAIN_TASKS[task] || BRAIN_TASKS.default).why;
+}
+
+/* ── Sparring Roster ────────────────────────────────────
+   Persistent named opponents that build a memory of the user over
+   time. Each partner has a base personality + a memorySummary that
+   updates after every round vs that partner (Haiku distills "what
+   to remember about how this debater fights" and the next round
+   prepends it to the opponent's system prompt). The texture is NOT
+   "the opponent gets harder over time" — it's "this specific
+   opponent knows YOU now."
+
+   v0.1 storage: localStorage only (key: 'debateai-sparring-roster').
+   v0.2: Firestore sync at sparring_partners/{uid}/{partnerId} so
+   the roster follows the user across devices. The sparringStore
+   interface below is shaped to make the swap a one-file change. */
+const SPARRING_BASES = {
+  philosopher: { label:'Philosopher', desc:'Frames every motion through ethical theory. Slow but devastating on weighing. Default to first-principle takes; cites Rawls, Sen, Nozick by name.' },
+  technician:  { label:'Technician',  desc:'Pure flow-judge bait. Tag-and-card delivery, line-by-line responses, no rhetoric. Wins on dropped arguments and clean extensions.' },
+  rhetorician: { label:'Rhetorician', desc:'Wins on narrative + image, not analysis. Strong impacts, weaker warranting. Powerful close, vulnerable to weighing critiques.' },
+  schoolyard:  { label:'Schoolyard',  desc:'Aggressive, fast, dismissive. Personal jabs, low patience for framework debates. Reads as "loud confidence." Punish them on warrants.' },
+  lay_parent:  { label:'Lay parent',  desc:'Common-sense voter. No debate jargon. Plain-English arguments only. Hard to spread, easy to lose against if you sound jargon-heavy.' },
+  squirrel:    { label:'Squirrel',    desc:'Always finds an obscure interp. Loves tight cases, A-spec, definitional debates. Watch the topicality / definitional clash.' },
+};
+const sparringStore = {
+  _KEY: 'debateai-sparring-roster',
+  list(){
+    try{ return JSON.parse(localStorage.getItem(this._KEY)||'[]') || []; }catch{ return []; }
+  },
+  _save(roster){
+    try{ localStorage.setItem(this._KEY, JSON.stringify(roster||[])); }catch{}
+  },
+  create(partial){
+    const list = this.list();
+    const id = 'sp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);
+    const partner = {
+      id,
+      name: (partial.name||'Sparring Partner').slice(0,40),
+      base: partial.base in SPARRING_BASES ? partial.base : 'technician',
+      formatPref: partial.formatPref || null,
+      memorySummary: '',
+      rivalryRecord: { wins:0, losses:0 },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    this._save([...list, partner]);
+    return partner;
+  },
+  update(id, patch){
+    const list = this.list().map(p => p.id===id ? {...p, ...patch, updatedAt:Date.now()} : p);
+    this._save(list);
+    return list.find(p=>p.id===id) || null;
+  },
+  remove(id){
+    this._save(this.list().filter(p=>p.id!==id));
+  },
+};
+/* Render the partner's persona + memory as a system-prompt prefix block.
+   This goes ahead of buildPrompt's output so the AI opponent's voice is
+   shaped by the partner first, then the format/round constraints. */
+function sparringPartnerBlock(partner){
+  if(!partner) return '';
+  const base = SPARRING_BASES[partner.base] || SPARRING_BASES.technician;
+  const recordLine = (partner.rivalryRecord && (partner.rivalryRecord.wins||partner.rivalryRecord.losses))
+    ? 'PRIOR HEAD-TO-HEAD: ' + partner.rivalryRecord.wins + ' wins for the user, ' + partner.rivalryRecord.losses + ' losses for the user (across ' + (partner.rivalryRecord.wins + partner.rivalryRecord.losses) + ' rounds).'
+    : 'PRIOR HEAD-TO-HEAD: This is your first round against this debater.';
+  const memoryLine = partner.memorySummary
+    ? 'WHAT YOU KNOW ABOUT THIS SPECIFIC DEBATER (from prior rounds):\n' + partner.memorySummary
+    : 'WHAT YOU KNOW ABOUT THIS SPECIFIC DEBATER: nothing yet — this is round one.';
+  return [
+    '────────────────────────────────────────────────────────',
+    'SPARRING PARTNER: ' + partner.name + ' (' + base.label + ')',
+    '────────────────────────────────────────────────────────',
+    'YOUR PERSONA: ' + base.desc,
+    recordLine,
+    memoryLine,
+    'Use the memory above to pre-empt this debater\'s favorite moves and exploit the weaknesses you\'ve seen before. Stay in character as ' + partner.name + '. Do NOT name the memory explicitly to the user; let it inform your strategy.',
+    '',
+  ].join('\n');
+}
 
 // ─── APDA (American Parliamentary) ──────────────────────────────────
 // THBT / THW / THR phrasing. Lean philosophical, values-oriented, often
@@ -4045,8 +4153,20 @@ function App(){
   const[format,setFormat]=useState('quick');
   const[oppStrengths,setOppStrengths]=useState([]);
   const[oppWeaknesses,setOppWeaknesses]=useState([]);
-  const[brain,setBrain]=useState('claude');
+  const[brain,setBrain]=useState(()=>pickBrainForTask('opponent'));
   const[voice,setVoice]=useState(DEFAULT_VOICE);
+  // Sparring Roster state. roster lives in localStorage (sparringStore);
+  // activePartner is the partner the user has picked for THIS round.
+  // When set, the partner's persona + memorySummary is prepended to
+  // every AI opponent speech so the opponent stays in character and
+  // exploits patterns learned in previous rounds against this user.
+  // Memory updates fire after each round via a Haiku call against the
+  // round transcript. See sparringPartnerBlock() for the prompt shape.
+  const[roster,setRoster]=useState(()=>sparringStore.list());
+  const[activePartner,setActivePartner]=useState(null);
+  const[showRosterPanel,setShowRosterPanel]=useState(false);
+  const[newPartnerName,setNewPartnerName]=useState('');
+  const[newPartnerBase,setNewPartnerBase]=useState('technician');
   // Judge count picker. 1 = single Tab/flow judge (default, fast). 3 =
   // full APDA-style panel of Maya / Marcus / Dr. Chen who deliberate
   // and reach a 3-0 or 2-1 vote. Auto-fires the panel deliberation
@@ -5176,7 +5296,12 @@ function App(){
         // Pass voiceFormat so server appends the format-specific voice block
         // (Policy spreads + evidence tags, PF lay-accessible, LD value/criterion,
         // BP whip structure, Congress "Mr. Speaker," etc).
-        const rawTxt=await callAI(buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords,voice,judgeParadigm,customParadigm,aiLanguage),`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
+        // Sparring partner prefix: if a partner is active, prepend their
+        // persona + memory of this user so the opponent stays in character
+        // and exploits patterns learned across prior rounds.
+        const _sparringPrefix = sparringPartnerBlock(activePartner);
+        const _basePrompt = buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords,voice,judgeParadigm,customParadigm,aiLanguage);
+        const rawTxt=await callAI(_sparringPrefix + _basePrompt,`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
           const clean=stripPlan(chunk);
           setAiText(clean);
           const words=clean.split(/\s+/).length;
@@ -5421,6 +5546,16 @@ function App(){
   const[secondOpinionLoading,setSecondOpinionLoading]=useState(false);
   const[secondOpinionBrain,setSecondOpinionBrain]=useState('');
   const[secondOpinionBallot,setSecondOpinionBallot]=useState(null);
+
+  // Multi-brain panel state. genSecondOpinion gives a two-judge read;
+  // this extends to a real panel — fan out the same singleJudgeBallot
+  // prompt to 3 brains in parallel, parse all three ballots, and show
+  // the spread. The interesting signal is disagreement: 3/3 = real
+  // verdict, 2/1 = the round to study. This is the feature that
+  // justifies five brains existing per the multi-model strategy. */
+  const[multiPanelBallots,setMultiPanelBallots]=useState([]); // [{brain, raw, ballot}]
+  const[multiPanelLoading,setMultiPanelLoading]=useState(false);
+  const[multiPanelError,setMultiPanelError]=useState('');
   // Post-round auto flow sheet. AI reads the full round transcript and
   // produces a compact per-speech flow, arguments, warrants, drops,
   // extensions, turns, so the student can study the round the way a
@@ -5741,6 +5876,67 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     setSecondOpinionLoading(false);
   };
 
+  // Multi-brain panel. Fans out the same singleJudgeBallot prompt to
+  // three different brains in parallel — the user's current brain plus
+  // two others — and surfaces the spread. The disagreement IS the
+  // signal: 3/3 agreement on a winner is a real verdict; 2/1 splits
+  // are the rounds to study. Brain selection rule: prefer brains we
+  // haven't already used in the primary ballot / second opinion so the
+  // panel actually adds new perspective. Paid-tier only (each
+  // non-Claude brain hits requirePaidPlan server-side).
+  const genMultiBrainPanel=async(allLog)=>{
+    if (multiPanelLoading) return;
+    setMultiPanelLoading(true);
+    setMultiPanelError('');
+    setMultiPanelBallots([]);
+    // Pick three brains for the panel. Anchor on DeepSeek (cheapest,
+    // most objective), Claude (structural), and GPT (rhetorical) so
+    // every panel gets one analyst, one structuralist, one rhetorician.
+    // If the user's main brain is one of these we keep the slate the
+    // same — the comparison still works because each call is independent.
+    const panelBrains = ['deepseek','claude','openai'];
+    const tx = allLog.map(l=>`[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
+    const paradigmNote = (customParadigm && customParadigm.trim())
+      ? 'THIS ROUND IS IN FRONT OF A SPECIFIC REAL JUDGE. Their paradigm is below (verbatim). Your ballot MUST be written AS this judge, their voting priorities, their language, their vote. Do not water this down to a generic ballot.\n\n---JUDGE PARADIGM (VERBATIM)---\n'+customParadigm.trim()+'\n---END PARADIGM---\n\n'
+      : (judgeParadigm && JUDGE_PARADIGMS[judgeParadigm])
+        ? 'Judge paradigm the user selected for this round: '+JUDGE_PARADIGMS[judgeParadigm].label+'.\n'+JUDGE_PARADIGMS[judgeParadigm].prompt+'\nYour ballot MUST be written in the voice of this paradigm, weigh and decide the way this judge would.\n\n'
+        : '';
+
+    const parseBallot = (raw)=>{
+      try{
+        let cleaned=raw.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+        const firstBrace=cleaned.indexOf('{');
+        const lastBrace=cleaned.lastIndexOf('}');
+        if(firstBrace>=0 && lastBrace>firstBrace){
+          cleaned=cleaned.slice(firstBrace,lastBrace+1);
+        }
+        return JSON.parse(cleaned);
+      }catch{ return null; }
+    };
+
+    const runOne = async (brainKey)=>{
+      try{
+        let raw='';
+        await callAI('',paradigmNote+'Full round transcript:\n\n'+tx, chunk=>{ raw=chunk; }, brainKey, {
+          promptId:'singleJudgeBallot',
+          promptVars:{ fmtName:fmt.name, motion:motion, sideLabel:fmt.sideLabels[side]||side },
+        });
+        return { brain:brainKey, raw, ballot:parseBallot(raw), error:null };
+      }catch(e){
+        return { brain:brainKey, raw:'', ballot:null, error:e.message||'request failed' };
+      }
+    };
+
+    try{
+      const results = await Promise.all(panelBrains.map(runOne));
+      setMultiPanelBallots(results);
+      try{ window.gtag && gtag('event','multi_brain_panel_run',{ brains: panelBrains.join(',') }) }catch(e){}
+    }catch(e){
+      setMultiPanelError('Panel failed: '+e.message);
+    }
+    setMultiPanelLoading(false);
+  };
+
   const genFeedback=async(allLog)=>{
     setFbLoading(true);setBallot(null);
     const tx=allLog.map(l=>`[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
@@ -5792,6 +5988,57 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   };
 
   // Save round to history
+  // Sparring memory update — fires after a round vs an active partner.
+  // Distills "what to remember about this debater's style" via Haiku
+  // and saves it to the partner's memorySummary so the next round
+  // knows. Best-effort: failure does not block the round.
+  const updateSparringMemory=async(partner,allLog,userWon)=>{
+    if(!partner) return;
+    const tx = allLog.map(l=>`[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
+    const winnerLine = userWon===true ? 'The user WON this round.'
+                    : userWon===false ? 'The opponent WON this round (user lost).'
+                    : 'Outcome unknown.';
+    const sys = 'You maintain a long-term memory file of how a specific debater fights against a specific opponent persona. The memory should be useful for that persona to exploit in future rounds — what the debater tends to do, where they have soft spots, what arguments they reach for, what they drop.';
+    const user = [
+      'OPPONENT PERSONA: ' + partner.name + ' (' + (SPARRING_BASES[partner.base]?.label || partner.base) + ').',
+      '',
+      'PRIOR MEMORY (from earlier rounds — may be empty):',
+      partner.memorySummary || '(no prior rounds — this is the first one)',
+      '',
+      'THIS ROUND:',
+      'Motion: ' + motion,
+      'Format: ' + (FORMATS[format]||FORMATS.apda).name,
+      'User\'s side: ' + ((FORMATS[format]||FORMATS.apda).sideLabels[side]||side),
+      winnerLine,
+      '',
+      'Round transcript:',
+      tx,
+      '',
+      'Now write the UPDATED memory. Keep it under 200 words. Focus on:',
+      '- Specific moves the user tends to make (warrants they reach for, frameworks they default to, examples they keep using).',
+      '- Specific weaknesses (arguments they consistently drop, places they get pinned, weighing they avoid).',
+      '- Patterns "' + partner.name + '" should exploit next round.',
+      'Return ONLY the updated memory text — no preamble, no header, no JSON.',
+    ].join('\n');
+    try{
+      let raw='';
+      await callAI(sys, user, chunk=>{ raw=chunk; }, 'claude', { promptId:null });
+      const summary = (raw||'').trim().slice(0, 2000);
+      if(summary){
+        const wins  = (partner.rivalryRecord?.wins||0)  + (userWon===false ? 1 : 0); // partner wins when user loses
+        const losses= (partner.rivalryRecord?.losses||0)+ (userWon===true  ? 1 : 0); // partner loses when user wins
+        // Note: rivalryRecord here is from the PARTNER'S point of view —
+        // wins/losses for the partner, not the user. Flip at render time
+        // if showing it from the user's perspective.
+        const updated = sparringStore.update(partner.id, { memorySummary: summary, rivalryRecord: { wins, losses } });
+        if (updated) {
+          setRoster(sparringStore.list());
+          if (activePartner && activePartner.id === partner.id) setActivePartner(updated);
+        }
+      }
+    }catch(e){ /* best-effort — failure does not block the round */ }
+  };
+
   const saveRound=(allLog,fb,userWon,speakerPoints)=>{
     // Coerce speakerPoints to {user, ai} numbers or null. The single-judge
     // ballot sometimes returns string values, sometimes {user, ai} objects
@@ -5803,13 +6050,17 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       const a=parseFloat(speakerPoints.ai);
       if(!isNaN(u)||!isNaN(a)) sp={user:isNaN(u)?null:u,ai:isNaN(a)?null:a};
     }
+    // Sparring memory update — fire-and-forget; updates partner's
+    // memorySummary + rivalry record. Failure does not block.
+    if (activePartner) { updateSparringMemory(activePartner, allLog, userWon); }
     const round={
       id:Date.now(),
       date:new Date().toISOString(),
       motion,format,side,voice,brain,
       oppStrengths,oppWeaknesses,
       formatName:(FORMATS[format]||FORMATS.apda).name,
-      opponentName:'AI',
+      opponentName: activePartner ? activePartner.name : 'AI',
+      sparringPartnerId: activePartner ? activePartner.id : null,
       sideLabel:(FORMATS[format]||FORMATS.apda).sideLabels[side]||side,
       log:allLog,
       feedback:fb||'',
@@ -7347,6 +7598,25 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             );
           })
         ),
+        // Routing recommendation badge — surfaces the system's brain choice
+        // and reasoning. Lives in the same wrapper as the picker so it sits
+        // right under the row of brain buttons. If the user has overridden,
+        // the recommendation flips to a "use it" link in the same slot.
+        (function(){
+          var rec = pickBrainForTask('opponent');
+          var why = brainTaskReason('opponent');
+          var recBrain = BRAINS[rec];
+          if (!recBrain) return null;
+          var matches = brain === rec;
+          return el('div',{style:{marginTop:8,fontSize:'.7rem',color:'#94a3b8',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',lineHeight:1.4}},
+            el('span',{style:{color:recBrain.color,fontWeight:700}}, matches ? 'Routed to ' + recBrain.name : 'Recommended: ' + recBrain.name),
+            el('span',{style:{opacity:.78}}, why),
+            !matches && el('button',{
+              onClick:function(){ setBrain(rec); },
+              style:{background:'none',border:'none',color:recBrain.color,fontFamily:'inherit',fontSize:'.7rem',textDecoration:'underline',cursor:'pointer',padding:0,fontWeight:600},
+            },'use it'),
+          );
+        })(),
         // GPT-specific cross-sell. The honest framing: OpenAI's Realtime
         // API powers actual mid-speech interruption — no other brain
         // currently does that for us. So when a user picks GPT here
@@ -7416,6 +7686,132 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
       // ── Advanced Section (collapsible) ──
       !isCounterExt && showAdvanced&&el('div',{style:{marginTop:16,padding:'20px 0',borderTop:'1px solid var(--c-border)',animation:'fadeIn .3s ease'}},
+
+        // ── Sparring Roster — persistent named opponents that remember
+        //    the user across rounds. The active partner's persona +
+        //    memorySummary is prepended to every AI opponent speech so
+        //    they stay in character and exploit patterns from prior
+        //    rounds against this user. localStorage-backed for v0.1;
+        //    Firestore sync queued for v0.2. ─────────────────────────
+        el('div',{className:'t-label',style:{marginTop:24,display:'flex',alignItems:'center',gap:8}},
+          'Sparring partner',
+          el('span',{style:{fontSize:'.55rem',padding:'2px 7px',borderRadius:999,background:'rgba(168,85,247,.18)',color:'#c084fc',fontWeight:800,letterSpacing:'.06em'}},'NEW'),
+          activePartner && el('span',{style:{fontSize:'.6rem',color:'#c084fc',opacity:.85,fontWeight:600,textTransform:'none',letterSpacing:0}}, '· ' + activePartner.name + ' in this round'),
+        ),
+        el('div',{style:{fontSize:'.7rem',color:'var(--c-text3)',marginBottom:10,lineHeight:1.4}},'Named opponents that remember your moves. Each round you debate them, they learn what you reach for and what you drop. Next round they pre-empt it.'),
+
+        // Roster list — each existing partner shown as a card. Click to
+        // toggle as active; trash icon removes.
+        roster.length > 0 && el('div',{style:{display:'flex',flexDirection:'column',gap:6,marginBottom:10}},
+          roster.map(p=>{
+            const isActive = activePartner && activePartner.id === p.id;
+            const baseLabel = SPARRING_BASES[p.base]?.label || p.base;
+            const userWins = p.rivalryRecord?.losses || 0;   // partner's losses = user wins
+            const userLosses = p.rivalryRecord?.wins || 0;    // partner's wins  = user losses
+            const totalRounds = userWins + userLosses;
+            const memTag = p.memorySummary
+              ? '· remembers you'
+              : '· no memory yet';
+            return el('div',{key:p.id,style:{
+              padding:'10px 14px',borderRadius:10,
+              background:isActive?'rgba(168,85,247,.10)':'var(--c-surface3)',
+              border:'1px solid '+(isActive?'rgba(168,85,247,.45)':'var(--c-border5)'),
+              display:'flex',alignItems:'center',gap:10,
+              cursor:'pointer',
+              transition:'.2s',
+            },onClick:()=>setActivePartner(isActive ? null : p)},
+              el('div',{style:{flex:1,minWidth:0}},
+                el('div',{style:{fontSize:'.84rem',fontWeight:700,color:'var(--c-text)',display:'flex',alignItems:'center',gap:6}},
+                  p.name,
+                  isActive && el('span',{style:{fontSize:'.55rem',fontWeight:800,padding:'1px 6px',borderRadius:4,background:'rgba(168,85,247,.22)',color:'#c084fc',letterSpacing:'.06em'}},'ACTIVE'),
+                ),
+                el('div',{style:{fontSize:'.68rem',color:'var(--c-text4)',marginTop:2}},
+                  baseLabel,
+                  totalRounds > 0 ? ' · You: ' + userWins + 'W-' + userLosses + 'L over ' + totalRounds + ' rounds' : ' · No rounds yet',
+                  ' ' + memTag,
+                ),
+              ),
+              el('button',{
+                onClick:(e)=>{ e.stopPropagation(); if(window.confirm('Remove '+p.name+'? Their memory will be lost.')){ sparringStore.remove(p.id); setRoster(sparringStore.list()); if(isActive) setActivePartner(null); } },
+                style:{background:'none',border:'none',color:'var(--c-text4)',cursor:'pointer',fontSize:'.85rem',padding:'4px 6px',fontFamily:'inherit'},
+                title:'Remove partner',
+              }, '×'),
+            );
+          })
+        ),
+
+        // Create-partner toggle / form
+        !showRosterPanel && roster.length < 5 && el('button',{
+          onClick:()=>setShowRosterPanel(true),
+          style:{
+            background:'rgba(168,85,247,.08)',border:'1px dashed rgba(168,85,247,.4)',
+            borderRadius:10,padding:'10px 14px',fontSize:'.78rem',fontWeight:700,
+            color:'#c084fc',cursor:'pointer',fontFamily:'inherit',width:'100%',marginBottom:8,letterSpacing:'.01em',
+          },
+        }, roster.length === 0 ? '+ Create your first sparring partner' : '+ Add another partner'),
+
+        roster.length >= 5 && el('div',{style:{fontSize:'.68rem',color:'var(--c-text4)',marginBottom:8,fontStyle:'italic'}},'Roster cap is 5. Remove one to add another.'),
+
+        showRosterPanel && el('div',{style:{
+          padding:'12px 14px',borderRadius:10,
+          background:'rgba(168,85,247,.04)',border:'1px solid rgba(168,85,247,.22)',
+          marginBottom:8,
+        }},
+          el('div',{style:{fontSize:'.7rem',fontWeight:700,letterSpacing:'.04em',color:'#c084fc',marginBottom:8,textTransform:'uppercase'}},'New partner'),
+          el('input',{
+            type:'text',
+            value:newPartnerName,
+            onChange:e=>setNewPartnerName(e.target.value.slice(0,40)),
+            placeholder:'Name (e.g. Priya, Coach Marcus, The Heckler)',
+            style:{
+              width:'100%',padding:'8px 12px',borderRadius:8,
+              background:'var(--c-surface3)',border:'1px solid var(--c-border5)',
+              color:'var(--c-text)',fontSize:'.82rem',fontFamily:'inherit',
+              marginBottom:8,
+            },
+          }),
+          el('div',{style:{fontSize:'.68rem',color:'var(--c-text4)',marginBottom:6,letterSpacing:'.04em',textTransform:'uppercase',fontWeight:700}},'Base personality'),
+          el('div',{style:{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}},
+            Object.entries(SPARRING_BASES).map(([k,v])=>el('button',{
+              key:k,
+              onClick:()=>setNewPartnerBase(k),
+              title:v.desc,
+              style:{
+                padding:'5px 11px',borderRadius:6,
+                fontSize:'.7rem',fontWeight:newPartnerBase===k?700:500,
+                background:newPartnerBase===k?'rgba(168,85,247,.18)':'var(--c-surface3)',
+                border:'1px solid '+(newPartnerBase===k?'rgba(168,85,247,.45)':'var(--c-border5)'),
+                color:newPartnerBase===k?'#c084fc':'#94a3b8',
+                cursor:'pointer',fontFamily:'inherit',
+              },
+            },v.label))
+          ),
+          el('div',{style:{fontSize:'.66rem',color:'var(--c-text4)',marginBottom:10,lineHeight:1.45,fontStyle:'italic'}}, SPARRING_BASES[newPartnerBase]?.desc),
+          el('div',{style:{display:'flex',gap:8,justifyContent:'flex-end'}},
+            el('button',{
+              onClick:()=>{ setShowRosterPanel(false); setNewPartnerName(''); setNewPartnerBase('technician'); },
+              style:{background:'none',border:'1px solid var(--c-border5)',padding:'6px 14px',borderRadius:6,fontSize:'.74rem',color:'var(--c-text4)',cursor:'pointer',fontFamily:'inherit'},
+            },'Cancel'),
+            el('button',{
+              onClick:()=>{
+                if(!newPartnerName.trim()) return;
+                const partner = sparringStore.create({ name:newPartnerName.trim(), base:newPartnerBase });
+                setRoster(sparringStore.list());
+                setActivePartner(partner);
+                setShowRosterPanel(false);
+                setNewPartnerName('');
+                setNewPartnerBase('technician');
+              },
+              disabled:!newPartnerName.trim(),
+              style:{
+                background:'rgba(168,85,247,.22)',border:'1px solid rgba(168,85,247,.55)',
+                padding:'6px 14px',borderRadius:6,fontSize:'.74rem',fontWeight:700,
+                color:'#ddd6fe',cursor:newPartnerName.trim()?'pointer':'not-allowed',
+                fontFamily:'inherit',opacity:newPartnerName.trim()?1:.5,
+              },
+            },'Create & activate'),
+          ),
+        ),
 
         // Opponent Traits
         el('div',{className:'t-label',style:{marginTop:24}},'Opponent Style'),
@@ -7495,10 +7891,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             }
           },
             el('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:2}},
-              el('span',{style:{fontSize:'.86rem',fontWeight:800}},'3-judge panel'),
+              el('span',{style:{fontSize:'.86rem',fontWeight:800}},'Three-judge deliberation'),
               el('span',{style:{fontSize:'.55rem',padding:'2px 6px',borderRadius:999,background:'rgba(168,85,247,.18)',color:'#c084fc',fontWeight:800,letterSpacing:'.06em'}},'APDA'),
             ),
-            el('div',{style:{fontSize:'.7rem',color:'var(--c-text3)',lineHeight:1.4}},'Maya · Marcus · Dr. Chen deliberate, then vote 3-0 or 2-1.'),
+            el('div',{style:{fontSize:'.7rem',color:'var(--c-text3)',lineHeight:1.4}},'Maya · Marcus · Dr. Chen deliberate via one brain, then vote 3-0 or 2-1. For a 3-brain ballot comparison, hit "Run a 3-brain panel" after the round.'),
           ),
         ),
       ),
@@ -7510,7 +7906,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       el('div',{className:'t-dim',style:{marginTop:16}},
         isCounterExt
           ? ('Examiner · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' voice')
-          : (fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' voice · '+(judgeCount===3?'3-judge panel':'1 judge')+(oppStrengths.length||oppWeaknesses.length?' · Custom opponent':''))
+          : (fmt.speeches.length+' speeches · '+Math.floor(fmt.prep/60)+'min prep · '+BRAINS[brain].name+' brain · '+VOICES[voice].name+' voice · '+(judgeCount===3?'three-judge deliberation':'1 judge')+(oppStrengths.length||oppWeaknesses.length?' · Custom opponent':''))
       ),
 
       el('button',{className:'cta cta-setup-sticky',disabled:!motion.trim() && !isCounterExt,onClick:startDebate},
@@ -8802,6 +9198,104 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             ),
             !secondOpinionBallot && el('div',{style:{fontSize:'.86rem',color:'var(--c-text)',lineHeight:1.6,whiteSpace:'pre-wrap'}},secondOpinionText)
           ),
+        ),
+
+        // Multi-brain panel — fan out the singleJudgeBallot prompt to 3
+        // brains in parallel and show the spread. Renders when there's a
+        // primary ballot AND the user is on a paid plan AND the second-
+        // opinion hasn't already opened (avoids stacking two judge-comparison
+        // surfaces). The interesting signal is disagreement: 3/3 agreement
+        // is a real verdict; 2/1 splits are the rounds to study. Brains:
+        // DeepSeek (objective), Claude (structural), GPT (rhetorical).
+        user && team && ['individual','team','lifetime'].includes(team.plan) && ballot && !panelText && el('div',{style:{
+          marginTop:18,
+          padding:'18px 22px',
+          borderRadius:14,
+          background:'linear-gradient(135deg,rgba(168,85,247,.06),rgba(239,68,68,.05))',
+          border:'1px solid rgba(168,85,247,.22)',
+        }},
+          multiPanelBallots.length === 0 && !multiPanelLoading && el('div',{style:{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}},
+            el('div',{style:{flex:1,minWidth:200}},
+              el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#c4b5fd',marginBottom:4}},'Multi-brain panel'),
+              el('div',{style:{fontSize:'.86rem',color:'var(--c-text)',lineHeight:1.45}},'Three different AI brains judge this round in parallel — DeepSeek, Claude, and GPT. The disagreement is the signal: 3/3 agreement is a real verdict, 2/1 splits are the round to study.'),
+            ),
+            el('button',{
+              onClick:()=>genMultiBrainPanel(log),
+              style:{
+                padding:'9px 18px',borderRadius:999,
+                background:'rgba(168,85,247,.18)',border:'1px solid rgba(168,85,247,.42)',
+                color:'#ddd6fe',fontSize:'.78rem',fontWeight:800,letterSpacing:'.02em',
+                cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0,
+              },
+            },'Run a 3-brain panel'),
+          ),
+          multiPanelLoading && el('div',{style:{fontSize:'.82rem',color:'var(--c-muted)',fontStyle:'italic',padding:'8px 0'}},'Three judges deliberating in parallel...'),
+          multiPanelError && el('div',{style:{fontSize:'.8rem',color:'#fca5a5',padding:'8px 0'}},multiPanelError),
+          multiPanelBallots.length > 0 && (function(){
+            // Consensus banner: count winners across the 3 ballots.
+            var winners = multiPanelBallots.map(function(b){return b.ballot && b.ballot.winner}).filter(Boolean);
+            var userWins = winners.filter(function(w){return w==='user'}).length;
+            var aiWins = winners.filter(function(w){return w==='ai'}).length;
+            var unanimous = winners.length===3 && (userWins===3 || aiWins===3);
+            var splitLabel = userWins+aiWins===3
+              ? (unanimous ? '3-0 agreement' : Math.max(userWins,aiWins)+'-'+Math.min(userWins,aiWins)+' split')
+              : (winners.length+'/3 returned a verdict');
+            var splitColor = unanimous ? (userWins===3?'#22c55e':'#ef4444') : '#fbbf24';
+            // Average speaker points across ballots where they exist.
+            var userPts = multiPanelBallots.map(function(b){return b.ballot && b.ballot.speakerPoints && b.ballot.speakerPoints.user}).filter(function(v){return typeof v==='number'});
+            var aiPts = multiPanelBallots.map(function(b){return b.ballot && b.ballot.speakerPoints && b.ballot.speakerPoints.ai}).filter(function(v){return typeof v==='number'});
+            var avgUser = userPts.length ? (userPts.reduce(function(a,b){return a+b},0)/userPts.length).toFixed(1) : null;
+            var avgAi = aiPts.length ? (aiPts.reduce(function(a,b){return a+b},0)/aiPts.length).toFixed(1) : null;
+            var spreadUser = userPts.length>1 ? (Math.max.apply(null,userPts)-Math.min.apply(null,userPts)).toFixed(1) : null;
+            var spreadAi = aiPts.length>1 ? (Math.max.apply(null,aiPts)-Math.min.apply(null,aiPts)).toFixed(1) : null;
+            return el('div',null,
+              el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:14,flexWrap:'wrap',gap:8}},
+                el('div',{style:{fontSize:'.62rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#c4b5fd'}},'Multi-brain panel · DeepSeek · Claude · GPT'),
+                el('div',{style:{fontSize:'.66rem',fontWeight:800,letterSpacing:'.10em',textTransform:'uppercase',color:splitColor,padding:'3px 11px',borderRadius:999,background:splitColor==='#fbbf24'?'rgba(251,191,36,.12)':splitColor==='#22c55e'?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)',border:'1px solid '+splitColor+'55'}},splitLabel),
+              ),
+              // Average speaker-points strip — sits between the consensus
+              // banner and the per-brain cards. Surfaces the spread (max-
+              // min) so the user sees not just the average but the
+              // calibration disagreement between brains.
+              (avgUser || avgAi) && el('div',{style:{fontSize:'.76rem',color:'var(--c-text4)',marginBottom:14,padding:'8px 12px',borderRadius:8,background:'rgba(255,255,255,.03)',display:'flex',gap:18,flexWrap:'wrap'}},
+                avgUser && el('span',null,el('strong',{style:{color:'var(--c-text)'}},'You: '),avgUser,spreadUser?el('span',{style:{opacity:.65,marginLeft:4}},'(±'+spreadUser+' across brains)'):null),
+                avgAi && el('span',null,el('strong',{style:{color:'var(--c-text)'}},'AI: '),avgAi,spreadAi?el('span',{style:{opacity:.65,marginLeft:4}},'(±'+spreadAi+')'):null),
+              ),
+              // Three brain cards. Each shows winner + decision + speaker
+              // points for that brain. Vertical stack so each card has
+              // room to breathe; comparing them is the whole point.
+              el('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+                multiPanelBallots.map(function(b,i){
+                  var brainName = b.brain==='openai'?'GPT':b.brain==='claude'?'Claude':b.brain==='deepseek'?'DeepSeek':b.brain;
+                  var brainColor = BRAINS[b.brain==='openai'?'gpt':b.brain]?.color||'#94a3b8';
+                  if(b.error){
+                    return el('div',{key:b.brain,style:{padding:'10px 14px',borderRadius:8,background:'rgba(239,68,68,.05)',border:'1px solid rgba(239,68,68,.18)',fontSize:'.78rem',color:'#fca5a5'}},
+                      el('strong',{style:{color:'#fca5a5'}},brainName+' · failed: '),b.error
+                    );
+                  }
+                  if(!b.ballot){
+                    return el('div',{key:b.brain,style:{padding:'10px 14px',borderRadius:8,background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',fontSize:'.78rem',color:'var(--c-muted)'}},
+                      el('strong',{style:{color:brainColor}},brainName+' · '),'returned a ballot but could not parse the JSON. Skipped from the spread.'
+                    );
+                  }
+                  var winColor = b.ballot.winner==='user'?'#22c55e':'#ef4444';
+                  return el('div',{key:b.brain,style:{padding:'12px 16px',borderRadius:10,background:b.ballot.winner==='user'?'rgba(34,197,94,.06)':'rgba(239,68,68,.06)',border:'1px solid '+(b.ballot.winner==='user'?'rgba(34,197,94,.22)':'rgba(239,68,68,.22)')}},
+                    el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6,flexWrap:'wrap',gap:8}},
+                      el('div',{style:{display:'flex',alignItems:'center',gap:8}},
+                        el('span',{style:{width:8,height:8,borderRadius:'50%',background:brainColor,display:'inline-block'}}),
+                        el('strong',{style:{fontSize:'.84rem',color:'var(--c-text)',fontWeight:800}},brainName),
+                        el('span',{style:{fontSize:'.74rem',fontWeight:800,color:winColor,letterSpacing:'.04em',textTransform:'uppercase'}},'→ '+(b.ballot.winner==='user'?'You':'Opponent')+' wins'),
+                      ),
+                      b.ballot.speakerPoints && el('div',{style:{fontSize:'.7rem',color:'var(--c-text4)',fontVariantNumeric:'tabular-nums'}},
+                        'You '+b.ballot.speakerPoints.user+' · AI '+b.ballot.speakerPoints.ai
+                      ),
+                    ),
+                    b.ballot.decision && el('div',{style:{fontSize:'.78rem',color:'var(--c-text4)',lineHeight:1.5}},b.ballot.decision),
+                  );
+                })
+              ),
+            );
+          })(),
         ),
 
         el('div',{id:'fb-transcript',style:{scrollMarginTop:80}}),
