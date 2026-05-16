@@ -40,7 +40,12 @@
     measurementId: 'G-0V4R5MY3BT',
   };
   const SDK_VERSION = '10.7.1';
-  const HEARTBEAT_MS = 60_000;
+  // 3-minute heartbeat. Was 60s but at ~7K MAU that's ~210K
+  // /api/log-event invocations/month from heartbeats alone — enough
+  // to push the Netlify free tier (125K/mo) into usage_exceeded.
+  // Session-length precision drops from ±60s to ±180s, which is
+  // invisible for retention curves and cohort math.
+  const HEARTBEAT_MS = 180_000;
 
   // ── Session identity (per browser tab, survives SPA nav) ─────────
   let sessionId = sessionStorage.getItem('_da_sid');

@@ -28,7 +28,14 @@
 
   const ENDPOINT = '/api/chat-feed';
   const HANDLE_KEY = 'da-chat-handle';
-  const POLL_MS = 8000;
+  // 20s poll. Was 8s but that burned ~450 invocations/hr/user, which on
+  // /community traffic put us at the Netlify usage cap. Chat is ambient,
+  // not realtime; a 12s extra delay is invisible to anyone not actively
+  // typing while watching for a reply.
+  const POLL_MS = 20000;
+  // When the tab is hidden, slow polling to 1 minute. Most "users on
+  // /community" are background tabs, not eyes-on-screen.
+  const POLL_MS_HIDDEN = 60000;
   const MSG_MAX = 280;
 
   function readHandle(){
@@ -252,7 +259,21 @@
 
     updateCharCount();
     fetchFeed();
-    setInterval(fetchFeed, POLL_MS);
+    // Adaptive polling: foreground at POLL_MS, background at POLL_MS_HIDDEN.
+    // Tab-visibility flips swap the interval so 20-tab users stop hammering.
+    let pollTimer = null;
+    function startPoll(){
+      if (pollTimer) clearInterval(pollTimer);
+      const interval = document.hidden ? POLL_MS_HIDDEN : POLL_MS;
+      pollTimer = setInterval(fetchFeed, interval);
+    }
+    startPoll();
+    document.addEventListener('visibilitychange', () => {
+      // Fetch once when returning to foreground so the user sees fresh msgs
+      // without waiting up to a full poll interval.
+      if (!document.hidden) fetchFeed();
+      startPoll();
+    });
   }
 
   window.DEBATEAI_CHAT = {

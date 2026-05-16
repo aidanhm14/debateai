@@ -158,6 +158,10 @@
 
   async function fetchUsage() {
     if (!currentUser) return;
+    // Skip polling when the tab is hidden — usage doesn't change for a
+    // user who isn't actively in the app, and idle tabs were hammering
+    // /api/teams/usage every 45s while their owner was somewhere else.
+    if (document.hidden) return;
     try {
       const token = await currentUser.getIdToken();
       const r = await fetch('/api/teams/usage', {

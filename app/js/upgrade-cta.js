@@ -184,6 +184,9 @@
     // floating on every page for every signed-in free user — too much
     // paid-signal for a product trying to feel approachable.
     if (!currentUser) { render('hidden'); return; }
+    // Background tabs don't need refreshed plan state — they're not
+    // about to surface the pill anyway. Saves /api/teams/usage hits.
+    if (document.hidden) return;
     try {
       const token = await currentUser.getIdToken();
       const r = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + token } });
