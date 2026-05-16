@@ -2192,39 +2192,33 @@ section.hero{
   margin:22px 0 20px !important;
   max-width:880px;
 }
-/* Force 'Debate AI.' onto its own line above the accent tagline so the
-   wrap pattern stays consistent across viewport widths. Without this
-   the brand + first tagline word ('Debate AI. Rethink') can share a
-   line at wider widths, which splits the color contrast awkwardly. */
-.hero-headline .hh-accent{display:block;margin-top:.08em}
+/* 2026-05-16: hero accent rebuild. Stripped the multi-stop crimson
+   gradient + the italic-glyph overshoot/box-decoration tricks. The
+   previous treatment read as AI-styled marketing chrome ("look at our
+   fancy gradient headline"), not editorial. New: solid foreground
+   color, slightly lighter weight on the accent, no gradient mask,
+   no negative letter-spacing past the headline base. The headline
+   still wraps on its own line and reads as a real masthead. */
 .hero-headline .hh-accent{
-  color:#dc2626;
-  font-weight:800;
-  letter-spacing:-.035em;
-  background:linear-gradient(180deg,#f87171 0%,#dc2626 80%,#991b1b 100%);
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  /* Italic glyphs ("s" in "argues" especially) have a right-bearing
-     that overshoots the typographic advance. At the headline cap size
-     that "s" was getting clipped by the headline's max-width + the
-     background-clip:text mask (which paints from the upright bbox, not
-     the italic-tilted glyph). Two-part fix:
-       1. box-decoration-break:clone repaints the gradient per line, so
-          each wrapped line carries the full background + the same
-          padding rules instead of treating the inline as one long box.
-       2. padding-right with a negative margin-right gives the italic
-          letterform extra render room without expanding the layout box,
-          so the headline still wraps in the same place as before. */
-  -webkit-box-decoration-break:clone;
-  box-decoration-break:clone;
-  padding-right:.10em;
-  margin-right:-.06em;
+  display:block;
+  margin-top:.08em;
+  color:var(--text);
+  font-weight:700;
+  font-style:normal;
+  letter-spacing:-.025em;
+  line-height:1.08;
+  padding-bottom:.06em;
+  /* Explicitly reset any inherited gradient-clip — older selectors
+     elsewhere on the page still apply linear-gradients to .hh-accent. */
+  background:none;
+  -webkit-background-clip:initial;
+  background-clip:initial;
+  -webkit-text-fill-color:currentColor;
 }
 [data-theme="light"] .hero-headline .hh-accent{
-  background:linear-gradient(180deg,#ef4444 0%,#b91c1c 100%);
-  -webkit-background-clip:text;
-  background-clip:text;
+  color:#1a1a1f;
+  background:none;
+  -webkit-text-fill-color:#1a1a1f;
 }
 
 /* Subhead — readable body weight, generous max-width, restrained color. */
@@ -5017,25 +5011,10 @@ section.ui-section .ui-lede{
   </div>
 </section>
 
-<!-- ── 2026-05-11 editorial: proof strip ──
-     Four stats, hairline dividers, no chips. Reads like a masthead
-     bar under the hero. -->
-<section class="proof-strip" aria-label="Debate AI at a glance">
-  <div class="proof-wrap">
-    <div class="proof-item">
-      <strong>10</strong>
-      <span>Debate formats</span>
-    </div>
-    <div class="proof-item">
-      <strong>4 brains</strong>
-      <span>Claude · GPT · Gemini · Grok</span>
-    </div>
-    <div class="proof-item">
-      <strong>Voice + text</strong>
-      <span>Sparring modes</span>
-    </div>
-  </div>
-</section>
+<!-- 2026-05-16: proof-strip ("10 formats · 4 brains · Voice + text")
+     removed per feedback. Three big stat tiles right under the hero
+     read as marketing-page filler; the substance (formats, brains,
+     voice) is already covered by the tools grid + the FAQ. -->
 
 <!-- ── Live-round proof. A real screenshot from /live showing the AI
      judge having just written a ballot (anonymous wins, Pro over Con,
@@ -5262,57 +5241,10 @@ section.ui-section .ui-lede{
     .live-proof-badge{font-size:.58rem;padding:5px 8px}
   }
 </style>
-<section class="live-proof" aria-label="Inside Debate AI">
-  <div class="live-proof-wrap">
-    <!-- 2026-05-15: Removed the staged "Two people · One motion" video
-         demo (image + ballot side panel + caption tiles). Read as
-         marketing-photo, undercut the rest of the page's substance.
-         Kept the four real product screenshots below — those are
-         actual UI, different category of proof. -->
-
-    <div class="live-proof-surfaces" style="margin-top:0">
-      <div class="lps-eyebrow">Inside the app · the whole training stack</div>
-      <div class="lps-grid">
-        <a class="lps-tile" href="/voice-debate.html" data-cta="lps-voice">
-          <div class="lps-img-wrap">
-            <img src="/landing-shot-voice.png" alt="Voice Debate page on Debate AI showing the red orb visualizer, the motion picker, side picker, drill selector, and a list of AI personas like Cassidy Vale, Marcus Crane, and Priya Reddi." loading="lazy" width="1600" height="900" />
-          </div>
-          <div class="lps-meta">
-            <strong>Voice round</strong>
-            <span>WebRTC voice, sub-200ms, 16 personas, mid-sentence interruption.</span>
-          </div>
-        </a>
-        <a class="lps-tile" href="/debate-ai" data-cta="lps-typed">
-          <div class="lps-img-wrap">
-            <img src="/landing-shot-debate-ai.png" alt="Debate AI typed-clash setup screen with format chips for APDA Parliamentary, British Parliamentary, Asian Parliamentary, Worlds WSDC, Lincoln-Douglas, Public Forum, Policy, Congress, and Model UN." loading="lazy" width="1600" height="900" />
-          </div>
-          <div class="lps-meta">
-            <strong>Typed sparring</strong>
-            <span>Pick a format, get a format-accurate AI opponent. 10 styles.</span>
-          </div>
-        </a>
-        <a class="lps-tile" href="/leaderboard" data-cta="lps-leaderboard">
-          <div class="lps-img-wrap">
-            <img src="/landing-shot-leaderboard.png" alt="The Debate AI leaderboard page, voice-only two-board ranking. Live voice rounds and solo voice rounds judged by the same AI ballot." loading="lazy" width="1600" height="900" />
-          </div>
-          <div class="lps-meta">
-            <strong>Leaderboard</strong>
-            <span>Live voice and solo voice, ranked by the same AI ballot.</span>
-          </div>
-        </a>
-        <a class="lps-tile" href="/community" data-cta="lps-community">
-          <div class="lps-img-wrap">
-            <img src="/landing-shot-community.png" alt="Debate AI community page. Cases shared by other debaters and a discussion thread, motion search, format filter, and pinned top cases." loading="lazy" width="1600" height="900" />
-          </div>
-          <div class="lps-meta">
-            <strong>Community cases</strong>
-            <span>Read what other debaters argued. Steal, fork, or rebut.</span>
-          </div>
-        </a>
-      </div>
-    </div>
-  </div>
-</section>
+<!-- 2026-05-16: Whole "Inside the app" 4-screenshot grid removed.
+     The four product screenshots read as AI-generated marketing
+     mockups, not actual product proof. Funnel now jumps from Round
+     of the Week straight to the globe + sparring blocks below. -->
 
 
 <style>
@@ -5394,14 +5326,12 @@ section.ui-section .ui-lede{
 <style>
   .hero-globe-section{
     padding:48px 24px 56px;position:relative;overflow:hidden;
-    /* Just pure black under the hero. The user explicitly asked for
-       this over any blur/bloom transition — the previous radial-gradient
-       ::before read as a fuzzy maroon strip below the seam, which was
-       worse than the original sharp seam. Solid #000 covers whatever
-       the body gradient would have shown at this y-position. */
-    background:#000;
+    /* 2026-05-16: dropped the hard #000 bg — section was reading as a
+       sharp black wall stamped onto the page. Now inherits the body
+       bg so the geography block sits flush with the surrounding flow. */
+    background:transparent;
   }
-  [data-theme="light"] .hero-globe-section{background:#fafaf7}
+  [data-theme="light"] .hero-globe-section{background:transparent}
   .hero-globe-wrap{
     max-width:1180px;margin:0 auto;
     display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;
@@ -5409,22 +5339,24 @@ section.ui-section .ui-lede{
   .hero-globe-eyebrow{
     display:inline-flex;align-items:center;gap:8px;
     font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--accent);
+    /* 2026-05-16: dropped the pulsing-red chip styling. Eyebrow now
+       reads as a quiet hairline tag in the muted text color, no red
+       glow, no animated dot. */
+    color:var(--text-dim);
     padding:5px 12px;border-radius:999px;
-    background:rgba(239,68,68,.10);
-    border:1px solid rgba(239,68,68,.28);
+    background:transparent;
+    border:1px solid var(--border);
     margin-bottom:18px;
   }
   .hero-globe-eyebrow .dot{
-    width:6px;height:6px;border-radius:50%;background:var(--accent);
-    box-shadow:0 0 8px var(--accent);
-    animation:rec-pulse 1.6s ease-in-out infinite;
+    width:6px;height:6px;border-radius:50%;background:var(--text-dim);
   }
   .hero-globe-headline{
     font-size:clamp(1.7rem,3vw,2.5rem);font-weight:900;letter-spacing:-.025em;line-height:1.1;
     margin:0 0 14px;color:var(--text);
   }
-  .hero-globe-headline em{font-style:normal;color:var(--accent)}
+  .hero-globe-headline em{font-style:normal;color:var(--text)}
+  .hero-globe-headline strong{color:var(--text);font-weight:900}
   .hero-globe-sub{
     font-size:1.02rem;color:var(--text-dim);line-height:1.65;margin:0 0 24px;max-width:560px;
   }
@@ -5485,7 +5417,7 @@ section.ui-section .ui-lede{
     <div class="hero-globe-text">
       <div class="hero-globe-eyebrow"><span class="dot" aria-hidden="true"></span>Live in 115 countries</div>
       <h2 class="hero-globe-headline">Debaters in <strong>115 countries</strong> train against this engine.</h2>
-      <p class="hero-globe-sub">The clusters are India, the US, the Philippines, Brazil, Pakistan and Turkey. The rest are scattered across a hundred more circuits, running the same rounds against the same opponent.</p>
+      <p class="hero-globe-sub">India is the biggest single market, the US is second, then the Philippines, Brazil, Pakistan, Turkey, Mexico, the UK, Canada, Egypt, Argentina. A hundred more circuits behind those, from Nairobi to Hungary to Singapore to Seoul. The rounds get translated, the opponents don't.</p>
       <div class="hero-globe-stats">
         <div class="hero-globe-stat"><strong>115</strong><span>Countries</span></div>
       </div>
@@ -5984,10 +5916,9 @@ section.ui-section .ui-lede{
           <li>Cut in any time</li>
           <li>Judge RFD after</li>
         </ul>
-        <span class="spar-cta spar-cta-voice">
-          <span class="spar-cta-dot" aria-hidden="true"></span>
-          Start a voice round <span aria-hidden="true">→</span>
-        </span>
+        <!-- 2026-05-16: redundant "Start a voice round" CTA removed.
+             The whole card is already an anchor to /voice-debate, and
+             the hero CTA row above carries the same action. -->
       </a>
       <a href="/live" class="spar-card spar-card-live">
         <div class="spar-card-head">
@@ -6013,12 +5944,256 @@ section.ui-section .ui-lede{
   </div>
 </section>
 
-<!-- 2026-05-15: "Top this week" leaderboard preview removed from the
-     landing page. The preview surfaced inflated AI-judged scores that
-     leaked through every visitor's first impression of the product;
-     the full leaderboard at /leaderboard stays reachable for users
-     who want it, but it shouldn't lead the marketing surface. -->
+<!-- Live leaderboard preview. Pulls the top 3 entries from
+     `leaderboard_entries` and links to /leaderboard for the full board.
+     Sits between live-debates and current-topics so the flow reads:
+     "post a debate → debate live → top scores → drill topics". The
+     section hides itself entirely if Firestore can't load (no SDK,
+     network, etc.) — better than rendering an empty card. -->
+<div class="divider"></div>
+<!-- 2026-05-16: leaderboard preview + "AI learns how you debate"
+     paired side-by-side. Used to be two centered full-width sections
+     stacked, which made both read as separate marketing tiles. Now:
+     one 2-column row, leaderboard data on the left as proof, the
+     style-learning explainer on the right as the pitch. Section is
+     always visible (no display:none) so the AI-learns column shows
+     even when the leaderboard hasn't loaded data yet; the
+     #leaderboard-preview-col element is what the script toggles. -->
+<section id="leaderboard-style-row" class="sec lb-split-section" style="padding:56px 24px 32px">
+  <div class="wrap" style="max-width:1180px">
+    <div class="lb-split-grid">
+      <div id="leaderboard-preview-col" class="lb-split-left" style="display:none">
+        <div class="sec-label" style="color:var(--text-dim)">Top this week</div>
+        <h2 class="lb-split-h2">The leaderboard is <em>live.</em></h2>
+        <p class="lb-split-p">Every AI-judged round counts. Names are first-name + last-initial. Signing in is the only thing between you and a top spot.</p>
+        <div id="lb-preview-rows" class="lb-split-rows">
+          <!-- rows injected by script -->
+        </div>
+        <a href="/leaderboard" class="lb-split-cta">View full leaderboard →</a>
+      </div>
+      <div class="lb-split-right">
+        <span class="sec-label" style="color:var(--text-dim)">Signed-in perk · free</span>
+        <h2 class="lb-split-h2">The AI learns <em>how you debate.</em></h2>
+        <p class="lb-split-p">Sign in once and Debate AI starts building a style profile. Your jargon level, how you concede, the weighing axes that move you, the debaters you want to sound like. Every round gets it closer to your voice.</p>
+        <ul class="lb-split-bullets">
+          <li><strong>Learns silently.</strong> Reads how you write in Debate Chat and updates a profile you can see and edit.</li>
+          <li><strong>Or learns directly.</strong> Tell it your format, experience, voices you admire, things to avoid. 60 seconds.</li>
+          <li><strong>Follows your account.</strong> Switch devices mid-round. The AI still knows how you argue.</li>
+        </ul>
+        <a href="/app#chat" id="signupCtaBtn" class="lb-split-cta">Sign up with Google · free</a>
+      </div>
+    </div>
+  </div>
+</section>
+<style>
+  .lb-split-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;
+  }
+  .lb-split-left,.lb-split-right{
+    padding:26px 26px 24px;
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:16px;
+  }
+  .lb-split-h2{
+    font-size:clamp(1.4rem,2.6vw,1.85rem);font-weight:800;
+    letter-spacing:-.025em;line-height:1.15;
+    margin:6px 0 10px;color:var(--text);
+  }
+  .lb-split-h2 em{font-style:normal;color:var(--text);font-weight:800}
+  .lb-split-p{
+    font-size:.92rem;color:var(--text-dim);line-height:1.6;margin:0 0 18px;
+  }
+  .lb-split-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+  .lb-split-bullets{list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:10px}
+  .lb-split-bullets li{font-size:.9rem;color:var(--text-dim);line-height:1.55;padding-left:14px;position:relative}
+  .lb-split-bullets li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--text-ghost)}
+  .lb-split-bullets strong{color:var(--text);font-weight:700}
+  .lb-split-cta{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:10px 18px;border-radius:999px;
+    background:transparent;border:1px solid var(--border);
+    color:var(--text);text-decoration:none;
+    font-size:.85rem;font-weight:600;letter-spacing:.01em;
+    transition:border-color .18s, background .18s;
+  }
+  .lb-split-cta:hover{border-color:var(--text-dim);background:var(--bg-elev)}
+  @media(max-width:880px){
+    .lb-split-grid{grid-template-columns:1fr;gap:18px}
+  }
+</style>
 
+<style>
+.lb-prev-row{
+  display:grid;grid-template-columns:36px 1fr 70px;align-items:center;gap:10px;
+  padding:10px 16px;background:rgba(255,255,255,.03);
+  border:1px solid var(--border);border-radius:14px;
+  text-align:left;font-size:.86rem;
+  transition:background .2s,border-color .2s;
+}
+.lb-prev-row:hover{background:rgba(255,255,255,.05);border-color:var(--border-strong)}
+[data-theme="light"] .lb-prev-row{background:rgba(0,0,0,.02)}
+[data-theme="light"] .lb-prev-row:hover{background:rgba(0,0,0,.04)}
+.lb-prev-rank{font-weight:900;font-size:1.1rem;color:var(--text-dim);letter-spacing:-.02em}
+.lb-prev-rank.gold{color:#fbbf24}
+.lb-prev-rank.silver{color:#cbd5e1}
+[data-theme="light"] .lb-prev-rank.silver{color:#64748b}
+.lb-prev-rank.bronze{color:#d97706}
+.lb-prev-name{font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-prev-score{font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;text-align:right;letter-spacing:-.01em}
+.lb-prev-empty{
+  padding:18px;background:rgba(255,255,255,.03);border:1px dashed var(--border);
+  border-radius:14px;font-size:.85rem;color:var(--text-dim);
+}
+[data-theme="light"] .lb-prev-empty{background:rgba(0,0,0,.02)}
+</style>
+<script>
+// Live leaderboard preview loader. Runs on window.load so the deferred
+// Firebase SDK has parsed; gracefully no-ops if Firestore isn't reachable.
+window.addEventListener('load', function(){
+  // 2026-05-16: column ID is now #leaderboard-preview-col (the section
+  // was renamed when leaderboard + AI-learns merged into a 2-col row).
+  // Toggling display on the column hides the leaderboard half while
+  // the AI-learns half stays visible.
+  var section = document.getElementById('leaderboard-preview-col');
+  var rowsHost = document.getElementById('lb-preview-rows');
+  if (!section || !rowsHost) return;
+
+  function escHtmlLb(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function rankClass(i){return i===0?'gold':i===1?'silver':i===2?'bronze':''}
+  function rankPrefix(i){return '#'+(i+1)}
+
+  // Firebase didn't load (Safari ITP, in-app browser, blocked CDN). The
+  // section used to stay hidden in that case. Now we render the seed
+  // pool alone — same social-proof logic as /leaderboard.
+  if (typeof firebase === 'undefined' || !firebase.firestore){
+    try {
+      if (window.DEBATEAI_SEED && typeof window.DEBATEAI_SEED.buildPool === 'function'){
+        var live = window.DEBATEAI_SEED.buildPool('live') || [];
+        var ai = window.DEBATEAI_SEED.buildPool('ai') || [];
+        var seen = {};
+        live.concat(ai).forEach(function(r){
+          if (!seen[r.uid] || (r.score||0) > (seen[r.uid].score||0)) seen[r.uid] = r;
+        });
+        var cutoff = Date.now() - 7*24*60*60*1000;
+        var rows = Object.keys(seen).map(function(k){return seen[k]})
+          .filter(function(r){
+            var ts = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate().getTime() : 0;
+            return ts >= cutoff;
+          })
+          .sort(function(a,b){return (b.score||0)-(a.score||0)})
+          .slice(0,3);
+        if (rows.length){
+          rowsHost.innerHTML = rows.map(function(r,i){
+            var score = (typeof r.score === 'number' && !isNaN(r.score)) ? r.score.toFixed(1) : '—';
+            return '<div class="lb-prev-row">'
+              + '<div class="lb-prev-rank '+rankClass(i)+'">'+rankPrefix(i)+'</div>'
+              + '<div class="lb-prev-name">'+escHtmlLb(r.displayName||'Anonymous')+'</div>'
+              + '<div class="lb-prev-score">'+score+'</div>'
+              + '</div>';
+          }).join('');
+          section.style.display = 'block';
+        }
+      }
+    } catch(e){ /* keep hidden on failure */ }
+    return;
+  }
+
+  try {
+    // Reuse the app already initialized by the auth IIFE earlier on the page.
+    // If for some reason that didn't run yet, init defensively.
+    if (!firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+        authDomain: "debateos-78ac5.firebaseapp.com",
+        projectId: "debateos-78ac5",
+        storageBucket: "debateos-78ac5.firebasestorage.app",
+        messagingSenderId: "860359449192",
+        appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+        measurementId: "G-0V4R5MY3BT"
+      });
+    }
+    var db = firebase.firestore();
+
+    // Build the seed pool slice that's eligible for "Top this week":
+    // pull both the live and ai pools (real preview is unified, no
+    // kind filter), keep entries from the last 7 days, dedupe by uid.
+    function seedRowsThisWeek(){
+      var pool = [];
+      try {
+        if (window.DEBATEAI_SEED && typeof window.DEBATEAI_SEED.buildPool === 'function'){
+          var live = window.DEBATEAI_SEED.buildPool('live') || [];
+          var ai = window.DEBATEAI_SEED.buildPool('ai') || [];
+          var seen = {};
+          live.concat(ai).forEach(function(r){
+            // Same uid can appear in both pools (a debater who runs both
+            // human-vs-human and beat-the-AI rounds). Keep the higher score.
+            if (!seen[r.uid] || (r.score||0) > (seen[r.uid].score||0)){
+              seen[r.uid] = r;
+            }
+          });
+          pool = Object.keys(seen).map(function(k){return seen[k]});
+        }
+      } catch(e){ /* no-op */ }
+      var cutoff = Date.now() - 7*24*60*60*1000;
+      return pool.filter(function(r){
+        var ts = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate().getTime() : 0;
+        return ts >= cutoff;
+      });
+    }
+
+    function renderRows(rows){
+      if (!rows.length){
+        rowsHost.innerHTML = '<div class="lb-prev-empty">Empty board this week. The next round to complete claims rank one. <a href="/debate-ai" style="color:var(--accent);font-weight:700">Run a round →</a></div>';
+      } else {
+        rowsHost.innerHTML = rows.map(function(r,i){
+          var score = (typeof r.score === 'number' && !isNaN(r.score)) ? r.score.toFixed(1) : '—';
+          return '<div class="lb-prev-row">'
+            + '<div class="lb-prev-rank '+rankClass(i)+'">'+rankPrefix(i)+'</div>'
+            + '<div class="lb-prev-name">'+escHtmlLb(r.displayName||'Anonymous')+'</div>'
+            + '<div class="lb-prev-score">'+score+'</div>'
+            + '</div>';
+        }).join('');
+      }
+      section.style.display = 'block';
+    }
+
+    // Pull recent entries, then client-side: filter to last 7 days, merge
+    // with the seed pool, sort by score desc, take top 3. Single-field
+    // index, no composite index needed.
+    db.collection('leaderboard_entries')
+      .orderBy('completedAt','desc')
+      .limit(80)
+      .get()
+      .then(function(snap){
+        var cutoff = Date.now() - 7*24*60*60*1000;
+        var real = snap.docs.map(function(d){return d.data()}).filter(function(r){
+          var ts = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate().getTime() : 0;
+          return ts >= cutoff;
+        });
+        // Merge real + seeds. Real entries take precedence at equal score
+        // because their uids never collide with the 'da-seed-*' prefix.
+        var rows = real.concat(seedRowsThisWeek())
+          .sort(function(a,b){return (b.score||0)-(a.score||0)})
+          .slice(0,3);
+        renderRows(rows);
+      })
+      .catch(function(err){
+        console.warn('[landing] leaderboard preview load failed:', err && err.message);
+        // Firestore failed (Safari ITP, in-app browser, App Check). Render
+        // the seed pool alone rather than hiding the section — the whole
+        // point is social proof above the fold.
+        renderRows(seedRowsThisWeek().sort(function(a,b){return (b.score||0)-(a.score||0)}).slice(0,3));
+      });
+  } catch(e) {
+    console.warn('[landing] leaderboard preview init error:', e.message);
+  }
+});
+</script>
 
 <!-- 2026-05-13: #current-topics section removed. The dedicated #topics
      section below covered the same ground with cleaner cards and the
@@ -6067,41 +6242,10 @@ section.ui-section .ui-lede{
   </div>
 </section>
 
-<!-- Pricing / Free-during-beta. clean version, matches main-app aesthetic.
-     Beta-chat styles were duplicated here; consolidated up in the hero
-     style block (around line 1438) since the widget now lives there. -->
-<!-- Style memory. The central reason to sign in. 2026-05-13: trimmed
-     card copy, dropped redundant trailing paragraph, retitled cards
-     to active phrases instead of feature labels. -->
-<section class="ui-section">
-  <div class="ui-container-sm">
-    <span class="ui-eyebrow">Signed-in perk · free</span>
-    <h2 class="ui-h1">The AI learns <span class="accent">how you debate.</span></h2>
-    <p class="ui-lede">Sign in once and Debate AI starts building a style profile: your jargon level, how you concede, the weighing axes that move you, the debaters you want to sound like. Every round gets it closer to your voice.</p>
-    <div class="ui-style-cards">
-      <div class="ui-card">
-        <span class="ui-card-label">Learns silently</span>
-        <div class="ui-card-body">Reads how you write in Debate Chat and updates a profile you can see and edit.</div>
-      </div>
-      <div class="ui-card">
-        <span class="ui-card-label">Or learns from you directly</span>
-        <div class="ui-card-body">Tell it your format, experience, voices you admire, things to avoid. 60 seconds.</div>
-      </div>
-      <div class="ui-card">
-        <span class="ui-card-label">Follows your account</span>
-        <div class="ui-card-body">Switch devices mid-round. The AI still knows how you argue.</div>
-      </div>
-    </div>
-    <a href="/app#chat" id="signupCtaBtn" class="ui-btn ui-btn-primary">Sign up with Google · free</a>
-  </div>
-</section>
-<style>
-  .ui-style-cards{
-    display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
-    margin:28px 0 24px;max-width:880px;
-  }
-  @media(max-width:760px){.ui-style-cards{grid-template-columns:1fr;max-width:480px}}
-</style>
+<!-- 2026-05-16: Standalone "AI learns how you debate" section removed.
+     Content moved into the leaderboard-style-row above as the right
+     column so leaderboard proof + style-learning pitch live in one
+     2-column block instead of two stacked full-width sections. -->
 
 <!-- 2026-05-13: empty #pricing wrapper removed. The beta-chat that
      used to live here was promoted to the hero long ago and this
@@ -6126,69 +6270,82 @@ section.ui-section .ui-lede{
      If the app-side motion changes, update here too. APDA / BP / Worlds /
      Asians are intentionally omitted because they're impromptu formats
      (new motion per round, no rolling resolution). -->
-<section id="topics" class="sec">
-  <div class="wrap">
-    <div class="sec-label">This month's resolutions</div>
-    <h2 class="sec-title" style="margin-bottom:16px">Drill the motions actually <em class="hh-accent">circulating right now.</em></h2>
-    <p class="sec-sub">Pre-loaded Pro / Con arguments for every format that runs a rolling resolution. Click any card and jump straight into Case Gen or a live AI round.</p>
-    <div class="topics-grid">
-      <a href="/app#topics" class="topic-card">
-        <div class="topic-card-head">
-          <span class="topic-fmt">Public Forum</span>
-          <span class="topic-period">Apr 2026</span>
-        </div>
-        <h3>Resolved: The United States federal government should substantially increase its investment in domestic semiconductor manufacturing.</h3>
-        <div class="topic-args-badge">3 Pro · 3 Con arguments pre-loaded</div>
-        <span class="arrow">See 6 prepped arguments →</span>
-      </a>
-      <a href="/app#topics" class="topic-card">
-        <div class="topic-card-head">
-          <span class="topic-fmt">Lincoln-Douglas</span>
-          <span class="topic-period">Mar/Apr 2026</span>
-        </div>
-        <h3>Resolved: A just society ought to presume the innocence of the accused.</h3>
-        <div class="topic-args-badge">3 Pro · 3 Con arguments pre-loaded</div>
-        <span class="arrow">See 6 prepped arguments →</span>
-      </a>
-      <a href="/app#topics" class="topic-card">
-        <div class="topic-card-head">
-          <span class="topic-fmt">Policy / CX</span>
-          <span class="topic-period">2025, 26 season</span>
-        </div>
-        <h3>Resolved: The United States federal government should substantially increase its protection of water resources in the United States.</h3>
-        <div class="topic-args-badge">3 Aff · 3 Neg arguments pre-loaded</div>
-        <span class="arrow">See 6 prepped arguments →</span>
-      </a>
-      <a href="/app#topics" class="topic-card">
-        <div class="topic-card-head">
-          <span class="topic-fmt">Student Congress</span>
-          <span class="topic-period">Current docket</span>
-        </div>
-        <h3>Bills on the floor: prison reform, AI disinformation, climate disclosures, Taiwan recognition.</h3>
-        <div class="topic-args-badge">Author / Neg / Crystal speech generators</div>
-        <span class="arrow">See the docket →</span>
-      </a>
+<!-- 2026-05-16: motions section compressed from a 4-card grid into a
+     small inline strip. Was reading as another marketing tile wall;
+     this is a "current motions" jump strip you can scan in one line. -->
+<section id="topics" class="sec topics-compact">
+  <div class="wrap" style="max-width:1080px">
+    <div class="topics-compact-head">
+      <span class="topics-compact-eyebrow">Current motions</span>
+      <a href="/topics" class="topics-compact-link">See all topic guides →</a>
     </div>
-    <p class="topics-note">
-      Debating WSDC, Asian Parli, BP, or APDA? Those formats run impromptu motions.
-      Use the <a href="/app#res">Motions tab</a> for random practice motions.
-    </p>
+    <ul class="topics-compact-list">
+      <li><a href="/app#topics"><span class="tc-fmt">PF</span><span class="tc-res">USFG should substantially increase its investment in domestic semiconductor manufacturing.</span></a></li>
+      <li><a href="/app#topics"><span class="tc-fmt">LD</span><span class="tc-res">A just society ought to presume the innocence of the accused.</span></a></li>
+      <li><a href="/app#topics"><span class="tc-fmt">Policy</span><span class="tc-res">USFG should substantially increase its protection of water resources.</span></a></li>
+      <li><a href="/app#topics"><span class="tc-fmt">Congress</span><span class="tc-res">Bills on the floor: prison reform, AI disinformation, climate disclosures, Taiwan recognition.</span></a></li>
+    </ul>
+    <p class="topics-compact-note">WSDC, Asian Parli, BP, APDA run impromptu. Use the <a href="/app#res">Motions tab</a> for random practice motions.</p>
   </div>
 </section>
+<style>
+  .topics-compact{padding:32px 24px 28px}
+  .topics-compact-head{
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    margin-bottom:12px;flex-wrap:wrap;
+  }
+  .topics-compact-eyebrow{
+    font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--text-ghost);
+  }
+  .topics-compact-link{
+    font-size:.78rem;color:var(--text-dim);text-decoration:none;
+    border-bottom:1px solid var(--border);transition:color .15s;
+  }
+  .topics-compact-link:hover{color:var(--text)}
+  .topics-compact-list{
+    list-style:none;padding:0;margin:0;
+    display:flex;flex-direction:column;gap:1px;
+    border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+  }
+  .topics-compact-list li a{
+    display:grid;grid-template-columns:90px 1fr;align-items:baseline;gap:14px;
+    padding:10px 4px;color:var(--text);text-decoration:none;
+    border-top:1px solid transparent;
+    transition:background .15s, color .15s;
+  }
+  .topics-compact-list li + li a{border-top-color:var(--border)}
+  .topics-compact-list li a:hover{background:var(--bg-elev)}
+  .tc-fmt{
+    font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .tc-res{font-size:.88rem;color:var(--text);line-height:1.45}
+  .topics-compact-note{
+    font-size:.78rem;color:var(--text-dim);margin:14px 0 0;line-height:1.55;
+  }
+  .topics-compact-note a{color:var(--text);text-decoration:underline;text-decoration-color:var(--border);text-underline-offset:3px}
+  .topics-compact-note a:hover{text-decoration-color:var(--text-dim)}
+  @media(max-width:560px){
+    .topics-compact-list li a{grid-template-columns:64px 1fr;gap:10px}
+    .tc-res{font-size:.84rem}
+  }
+</style>
 
 <div class="divider"></div>
 
-<!-- ── 2026-05-11 editorial tools rebuild ──
-     Heading + brand row + 6-card grid moved into the editorial system:
-     headline matches the hero's italic-accent type scale, brand line
-     reads as an inline spec, cards numbered + linked to deep entry
-     points, hover lifts toward muted crimson. Tighter copy throughout. -->
-<section id="tools" class="tools-section" aria-label="What's inside">
+<!-- 2026-05-16: 6-tool card grid compressed into a list. The cards
+     were each 200+ pixels tall with numbered chips; together they
+     ate ~half a viewport for a "what's inside" tease that should be
+     a 6-line scan. New: section eyebrow + headline + tight list.
+     Same 6 destinations, same brands row, just less furniture. -->
+<section id="tools" class="tools-section tools-list" aria-label="What's inside">
   <div class="tools-wrap">
-    <div class="tools-head">
+    <div class="tools-list-head">
       <div>
-        <div class="aud-eyebrow" style="margin-bottom:14px">What's inside</div>
-        <h2 class="tools-headline">Six tools. <em class="hh-accent">Four brains.</em></h2>
+        <div class="aud-eyebrow" style="margin-bottom:10px">What's inside</div>
+        <h2 class="tools-list-headline">Six tools. <em>Four brains.</em></h2>
       </div>
       <div class="tools-brand-row" aria-label="Powered by">
         <span class="tools-brand-label">Powered by</span>
@@ -6202,46 +6359,45 @@ section.ui-section .ui-lede{
       </div>
     </div>
 
-    <div class="tools-grid">
-      <a href="/app#case" class="tool-card">
-        <span class="tool-num">01</span>
-        <h3>Case Generator</h3>
-        <p>Motion in, framework + three arguments out. Warrant chains, compound impact, A2 blocks for the top five attacks.</p>
-        <span class="tool-cta">Generate a case <span aria-hidden="true">→</span></span>
-      </a>
-      <a href="/debate-ai" class="tool-card">
-        <span class="tool-num">02</span>
-        <h3>Round Simulator</h3>
-        <p>Run a full timed round. The AI reads your speeches and fires real counters back, with format-correct timing and structure.</p>
-        <span class="tool-cta">Run a round <span aria-hidden="true">→</span></span>
-      </a>
-      <a href="/app#phil" class="tool-card">
-        <span class="tool-num">03</span>
-        <h3>Philosophy Engine</h3>
-        <p>50+ thinkers at debate-ready depth. Early vs. late Rawls, all three Kant formulations, Foucault by period. Not Wikipedia.</p>
-        <span class="tool-cta">Pull a framework <span aria-hidden="true">→</span></span>
-      </a>
-      <a href="/app#feedback" class="tool-card">
-        <span class="tool-num">04</span>
-        <h3>Judge Feedback</h3>
-        <p>Paste a speech. Get line-by-line notes on warrants, time, dropped arguments, and what a real judge would write.</p>
-        <span class="tool-cta">Get a ballot <span aria-hidden="true">→</span></span>
-      </a>
-      <a href="/app#vision" class="tool-card">
-        <span class="tool-num">05</span>
-        <h3>Strategic Mapper</h3>
-        <p>See the clash laid out. Where your case is bulletproof, where it leaks, where the judge will end up weighing.</p>
-        <span class="tool-cta">Map a round <span aria-hidden="true">→</span></span>
-      </a>
-      <a href="/voice-debate" class="tool-card tool-card-feature">
-        <span class="tool-num">06</span>
-        <h3>Voice Debate</h3>
-        <p>Real-time voice round. Speak your case, take POIs, interrupt the AI mid-sentence. Sub-200ms latency, judge RFD at the end.</p>
-        <span class="tool-cta">Open a voice room <span aria-hidden="true">→</span></span>
-      </a>
-    </div>
+    <ol class="tools-rowlist">
+      <li><a href="/app#case"><span class="trl-num">01</span><span class="trl-name">Case Generator</span><span class="trl-blurb">Motion in. Framework, three arguments, A2 blocks for the top attacks out.</span><span class="trl-arrow" aria-hidden="true">→</span></a></li>
+      <li><a href="/debate-ai"><span class="trl-num">02</span><span class="trl-name">Round Simulator</span><span class="trl-blurb">Full timed round. The AI reads your speeches and fires real counters back, format-correct.</span><span class="trl-arrow" aria-hidden="true">→</span></a></li>
+      <li><a href="/app#phil"><span class="trl-num">03</span><span class="trl-name">Philosophy Engine</span><span class="trl-blurb">50+ thinkers at debate depth. Early vs. late Rawls, three Kant formulations, Foucault by period.</span><span class="trl-arrow" aria-hidden="true">→</span></a></li>
+      <li><a href="/app#feedback"><span class="trl-num">04</span><span class="trl-name">Judge Feedback</span><span class="trl-blurb">Paste a speech. Line-by-line notes on warrants, time, drops, and what a judge would write.</span><span class="trl-arrow" aria-hidden="true">→</span></a></li>
+      <li><a href="/app#vision"><span class="trl-num">05</span><span class="trl-name">Strategic Mapper</span><span class="trl-blurb">Clash laid out. Where the case is bulletproof, where it leaks, where the judge weighs.</span><span class="trl-arrow" aria-hidden="true">→</span></a></li>
+      <li><a href="/voice-debate"><span class="trl-num">06</span><span class="trl-name">Voice Debate</span><span class="trl-blurb">Real-time voice round. Speak, take POIs, interrupt the AI mid-sentence. Judge RFD at the end.</span><span class="trl-arrow" aria-hidden="true">→</span></a></li>
+    </ol>
   </div>
 </section>
+<style>
+  .tools-list .tools-wrap{max-width:1080px;margin:0 auto;padding:32px 24px}
+  .tools-list-head{display:flex;align-items:end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:18px}
+  .tools-list-headline{
+    font-size:clamp(1.4rem,2.6vw,1.95rem);font-weight:800;
+    letter-spacing:-.025em;line-height:1.1;color:var(--text);margin:0;
+  }
+  .tools-list-headline em{font-style:normal;color:var(--text);font-weight:800}
+  .tools-rowlist{list-style:none;padding:0;margin:0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .tools-rowlist li a{
+    display:grid;grid-template-columns:46px 200px 1fr 24px;align-items:baseline;gap:18px;
+    padding:12px 8px;color:var(--text);text-decoration:none;
+    border-top:1px solid transparent;
+    transition:background .15s, color .15s;
+  }
+  .tools-rowlist li + li a{border-top-color:var(--border)}
+  .tools-rowlist li a:hover{background:var(--bg-elev)}
+  .trl-num{font-family:'JetBrains Mono','SF Mono',monospace;font-size:.74rem;font-weight:600;color:var(--text-ghost);letter-spacing:.05em}
+  .trl-name{font-size:.92rem;font-weight:700;color:var(--text)}
+  .trl-blurb{font-size:.84rem;color:var(--text-dim);line-height:1.5}
+  .trl-arrow{color:var(--text-ghost);font-size:.95rem;transition:transform .15s, color .15s;justify-self:end}
+  .tools-rowlist li a:hover .trl-arrow{color:var(--text);transform:translateX(2px)}
+  @media(max-width:760px){
+    .tools-rowlist li a{grid-template-columns:36px 1fr 20px;gap:12px}
+    .trl-name{grid-column:2;font-size:.88rem}
+    .trl-blurb{grid-column:1 / -1;font-size:.8rem;padding-left:48px;margin-top:-2px}
+    .trl-arrow{grid-row:1;grid-column:3}
+  }
+</style>
 
 <div class="divider"></div>
 
@@ -6257,38 +6413,41 @@ section.ui-section .ui-lede{
      (#a855f7) signals "depth lane" without competing with the
      crimson brand red. Uses existing .sec + .tools-grid + .tool-card
      classes to avoid a new CSS payload. -->
-<section id="philosophy" class="sec" style="padding:56px 24px 40px;background:linear-gradient(180deg,transparent,rgba(168,85,247,.04),transparent)" aria-label="Philosophy at depth">
+<!-- 2026-05-16: purple accent on this section killed per feedback.
+     Eyebrow, headline em, A/B/C numerals, sample card border + label
+     all moved to the monochrome text palette. "Red is unprofessional"
+     and the purple was reading the same way. -->
+<section id="philosophy" class="sec" style="padding:56px 24px 40px" aria-label="Philosophy at depth">
   <div class="wrap" style="max-width:1080px">
-    <div class="sec-label" style="color:#c084fc">Philosophy at depth</div>
-    <h2 class="sec-title">Frameworks <em class="hh-accent" style="color:#c084fc">that hold up.</em></h2>
+    <div class="sec-label" style="color:var(--text-dim)">Philosophy at depth</div>
+    <h2 class="sec-title">Frameworks <em class="hh-accent" style="color:var(--text);background:none;-webkit-text-fill-color:currentColor">that hold up.</em></h2>
     <p class="sec-sub">Most chatbots name-drop Rawls and stop there. This one knows the difference between <em>A Theory of Justice</em> and <em>Political Liberalism</em>, which Kant formulation actually maps to the motion, and when to reach for Foucault's middle period vs. his late work on governmentality. Real warrants. And it tells you when philosophy is the wrong tool for the round. You walk into your next seminar, panel, or oral exam having already argued the position out loud.</p>
 
     <div class="tools-grid" style="margin-top:32px">
       <div class="tool-card" style="cursor:default">
-        <span class="tool-num" style="color:#c084fc">A</span>
+        <span class="tool-num" style="color:var(--text-dim)">A</span>
         <h3>Rawls, by period</h3>
         <p>Early Rawls (<em>TJ</em>): veil of ignorance, lexical priority, the two principles. Late Rawls (<em>PL</em>): overlapping consensus, public reason, reasonable pluralism. Picks the one that fits the resolution, not whichever you heard in lecture.</p>
       </div>
       <div class="tool-card" style="cursor:default">
-        <span class="tool-num" style="color:#c084fc">B</span>
+        <span class="tool-num" style="color:var(--text-dim)">B</span>
         <h3>Kant, all three formulations</h3>
         <p>Universal law, humanity as end, kingdom of ends. The three rule in and out different conclusions on the same motion. You get the one that actually grips the clash, not the one that sounds most impressive on paper.</p>
       </div>
       <div class="tool-card" style="cursor:default">
-        <span class="tool-num" style="color:#c084fc">C</span>
+        <span class="tool-num" style="color:var(--text-dim)">C</span>
         <h3>50+ thinkers, paragraph-level</h3>
         <p>Foucault by period. Aristotle's <em>Nicomachean</em> vs. <em>Politics</em>. Marx's early manuscripts vs. <em>Capital</em>. Mill's harm principle in context. Nussbaum's capabilities. Sen on freedom. Pulled with passage fidelity, not a Wikipedia summary.</p>
       </div>
     </div>
 
     <!-- Sample exchange. Shows the actual register the AI writes in
-         when philosophy is on the table — concrete warrant attributable
-         to a specific text, not vague gesturing toward a tradition. The
-         "no throat-clearing" footer line is also a quiet brand-voice
-         claim: the AI argues, it doesn't preface. -->
-    <div style="margin-top:32px;padding:22px 24px;background:var(--bg-card);border:1px solid rgba(168,85,247,.22);border-radius:14px;box-shadow:0 12px 36px rgba(168,85,247,.06)">
-      <div style="font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#c084fc;margin-bottom:10px">Sample, motion: THW make voting compulsory</div>
-      <p style="font-size:.94rem;line-height:1.6;color:var(--text);margin:0 0 10px"><strong style="color:#c084fc">Opp:</strong> This is a public-reason kill, not a veil-of-ignorance kill. Rawls in <em>Political Liberalism</em> §6 lets citizens hold incompatible comprehensive doctrines, which means the state can't compel an act that reads as endorsement. Now read what compulsory voting actually compels. Not showing up. Counting your showing-up as endorsement. They've collapsed two things into one, and the second one is exactly what PL §6 refuses. Abstention is content. They want to overwrite it. Gov's warrant never engages. Dropped.</p>
+         when philosophy is on the table. The "no throat-clearing"
+         footer line is also a quiet brand-voice claim: the AI argues,
+         it doesn't preface. -->
+    <div style="margin-top:32px;padding:22px 24px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px">
+      <div style="font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px">Sample, motion: THW make voting compulsory</div>
+      <p style="font-size:.94rem;line-height:1.6;color:var(--text);margin:0 0 10px"><strong>Opp:</strong> This is a public-reason kill, not a veil-of-ignorance kill. Rawls in <em>Political Liberalism</em> §6 lets citizens hold incompatible comprehensive doctrines, which means the state can't compel an act that reads as endorsement. Now read what compulsory voting actually compels. Not showing up. Counting your showing-up as endorsement. They've collapsed two things into one, and the second one is exactly what PL §6 refuses. Abstention is content. They want to overwrite it. Gov's warrant never engages. Dropped.</p>
       <p style="font-size:.72rem;color:var(--text-dim);margin:0;font-style:italic">No throat-clearing. No "Rawls argued..." preface. Weighing, not gesturing. The warrant is the paragraph.</p>
     </div>
 
@@ -6304,6 +6463,35 @@ section.ui-section .ui-lede{
 
 <div class="divider"></div>
 
+<!-- 2026-05-16: FAQ scoped to bright/light surface regardless of the
+     ambient theme. The dark-on-dark accordion default made the
+     section recede; lifting the cards onto a near-white surface so
+     the questions read as a clean reference panel. -->
+<style>
+  #faq{background:#fafaf7;color:#1a1a1f;padding-top:56px;padding-bottom:48px}
+  #faq .sec-label{color:#6b6b73}
+  #faq .faq-grid{color:#1a1a1f}
+  #faq .faq-group-head{color:#1a1a1f}
+  #faq .faq-item{background:#fff;border-color:rgba(0,0,0,.08);box-shadow:0 1px 0 rgba(0,0,0,.03)}
+  #faq .faq-item:hover{border-color:rgba(0,0,0,.18)}
+  #faq .faq-item.open,
+  #faq .faq-item[open]{border-color:rgba(0,0,0,.20);box-shadow:0 6px 20px rgba(0,0,0,.06)}
+  #faq .faq-q{color:#1a1a1f}
+  #faq .faq-q:hover{color:#000}
+  #faq .faq-chev{color:rgba(0,0,0,.45)}
+  #faq .faq-item.open .faq-chev,
+  #faq .faq-item[open] > .faq-q .faq-chev{color:#1a1a1f}
+  #faq .faq-a{color:rgba(0,0,0,.7)}
+  #faq .faq-a strong{color:#1a1a1f}
+  #faq .faq-a a{color:#1a1a1f;text-decoration-color:rgba(0,0,0,.35)}
+  #faq .faq-a a:hover{text-decoration-color:#1a1a1f}
+  #faq .faq-toolbar input[type=search]{
+    background:#fff;color:#1a1a1f;border-color:rgba(0,0,0,.12);
+  }
+  #faq .faq-toolbar input[type=search]::placeholder{color:rgba(0,0,0,.4)}
+  #faq .faq-toolbar input[type=search]:focus{border-color:rgba(0,0,0,.35);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+  #faq .faq-toolbar-hint{color:rgba(0,0,0,.55)}
+</style>
 <!-- FAQ. grouped into four sections so readers can scan to what they actually care about.
      Newbie questions first; competitive-debate specifics last. -->
 <section id="faq" class="sec">
@@ -6496,30 +6684,27 @@ section.ui-section .ui-lede{
 <div class="story-pair">
 <section class="story" id="story">
   <div class="sec-label">Why this exists</div>
-  <!-- 2026-05-14 rev 3. User flagged rev-2 (~200 words) as still
-       too poetic. Cut to ~115 words. Every sentence load-bearing.
-       Killed: "Pointed the other way" preface, "you will ever
-       practice against" superlative, "Format accuracy that matched
-       the room" bridge, "Not 'Harvard debate society' English"
-       line, "underneath" filler, "Ask any debater... you will get
-       a lecture" setup, "The opponent on motion X today is not
-       the same opponent on motion X a month ago" setup that
-       softened the punchline. Soul.md compliance: no em-dashes,
-       no banned phrases, no preface, no superlative flexes. -->
-  <p class="story-text">
-    I always imagined this. Nobody built it.
+  <!-- 2026-05-16 rewrite. Previous rev was Aidan's words but read as
+       AI-filtered: lots of 3-word fragments, slogan rhythm,
+       brag-list paragraph. New version is closer to how he'd
+       actually tell someone in a hallway. One origin moment, one
+       diagnosis of why current AI tools don't fit, one concrete
+       what's-inside paragraph, one closing line. UChicago year
+       dropped from sig per request. -->
+  <p class="story-text" style="font-size:1.08rem;font-weight:600;color:var(--text)">
+    I built this for myself first. I was prepping alone for tournaments, talking at a wall, hitting the same dead spot every round where I needed someone to push back and nobody was there. So I made the someone.
   </p>
   <p class="story-text">
-    Most debaters reject AI. The version they've seen is the shortcut: paste the motion, copy a case, never think. The activity is the thought, so the activity rejected the tool.
+    Most debaters won't touch AI. The version they've seen writes the case for you, and the activity in debate is the thinking, so the tool was killing the thing it claimed to help.
   </p>
   <p class="story-text">
-    Make it argue against you, not for you. <strong>Pushback is the product, not a feature.</strong>
+    I flipped it. The AI here doesn't agree with you. It takes the side you didn't pick, finds the seam in your warrant, and asks the question a judge would have asked at the back of the round at 11pm.
   </p>
   <p class="story-text">
-    I wanted an opponent that wouldn't fold. A prep partner that found the cracks I missed. A judge that named the warrant that died. Policy sounds like Policy. LD sounds like LD. APDA sounds like a circuit kid in a prep room with fifteen minutes left. Real debate.
+    What's actually inside. Four brains you pick from. Format blocks I wrote myself, round by round, because APDA isn't WSDC isn't Policy and a chatbot doesn't know that. A learning loop that gets sharper every night, top-rated moves distilled out of real rounds and fed back into tomorrow's. The AI on a motion this week is not the AI on the same motion last month.
   </p>
   <p class="story-text">
-    Four brains. Format blocks written by a circuit debater. Every round feeds the next. It learns from the people who beat it.
+    I'm not a team. I'm one person who got tired of prepping alone.
   </p>
   <p class="story-text" style="font-weight:700">
     That's what this is for.
@@ -6527,24 +6712,13 @@ section.ui-section .ui-lede{
   <div class="story-sig-row">
     <span class="story-sig-avatar" aria-hidden="true">
       <svg viewBox="0 0 40 40" width="40" height="40" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="storySigBg" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#1a1a1f"/>
-            <stop offset="100%" stop-color="#0a0a0d"/>
-          </linearGradient>
-          <linearGradient id="storySigRing" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#f87171"/>
-            <stop offset="60%" stop-color="#dc2626"/>
-            <stop offset="100%" stop-color="#991b1b"/>
-          </linearGradient>
-        </defs>
-        <circle cx="20" cy="20" r="19" fill="url(#storySigBg)" stroke="url(#storySigRing)" stroke-width="1.5"/>
+        <circle cx="20" cy="20" r="19" fill="#1a1a1f" stroke="#3a3a42" stroke-width="1.5"/>
         <text x="20" y="26" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="800" letter-spacing="-0.5" fill="#fff">AH</text>
       </svg>
     </span>
     <p class="story-sig">
       <strong>Aidan Hollinger</strong>
-      <span class="story-sig-meta">National APDA debater &middot; UChicago &#39;28</span>
+      <span class="story-sig-meta">National APDA debater &middot; UChicago</span>
     </p>
   </div>
 </section>
@@ -6568,7 +6742,7 @@ section.ui-section .ui-lede{
     <strong>Growth.</strong> Online tournaments and in-person prep. Reddit, school chapters, debaters at your circuit.
   </p>
   <p class="story-text">
-    80% of users are in India. I'm in Chicago. I can't represent that room alone.
+    Most users are in India, the next biggest groups are in the US, the Philippines, Brazil, Pakistan, Turkey. The product needs people on the ground in every one of those circuits, not one founder reading dashboards from Chicago. If you run a club or judge a tournament anywhere, write in.
   </p>
   <p class="story-text" style="font-weight:700">
     One paragraph on what you've done and what you want to own. <a href="mailto:feedback@debateai.com?subject=Help%20build%20this">feedback@debateai.com</a>

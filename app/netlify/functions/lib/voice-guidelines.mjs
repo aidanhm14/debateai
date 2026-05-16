@@ -1194,6 +1194,24 @@ function forFormat(format) {
   return FORMAT_VOICES[syn[key]] || '';
 }
 
+// 2026-05-16: voice-input awareness. The landing + debate-ai pages
+// now ship a Web Speech API mic button on every .float-input
+// textarea (see app/js/voice-input.js), so the user's typed turn
+// may actually be a transcript of them speaking it out loud. Live
+// transcription leaves artifacts the typed equivalent wouldn't:
+// missing terminal punctuation, run-on sentences, occasional
+// homophone slips ("there/their"), filler words ("um", "uh", "like"),
+// and sometimes a word the recognizer misheard entirely. Interpret
+// intent generously; do NOT correct the user's grammar back at them
+// or call out the transcription quirks. Argue the substance.
+const VOICE_INPUT_AWARENESS = `
+
+────────────────────────────────────────────────────────
+VOICE-INPUT TOLERANCE
+
+The user may dictate their turn instead of typing. When their input reads as a live speech transcript — no terminal punctuation, run-on syntax, an audible "um/uh/like", a homophone where typed text wouldn't have one, or a clearly misheard word — treat it as if they had typed it cleanly. Interpret intent, don't correct the form, don't comment on the transcription. The argument is the argument. Argue the substance, not the surface.
+`;
+
 // Mutates `body` in place: strips `_voiceFeature` + `_voiceFormat` and
 // appends the resolved voice block to body.system. Called after
 // applyPromptLibrary in each brain endpoint.
@@ -1230,6 +1248,9 @@ export function applyVoiceGuidelines(body) {
     const tp = forTopic(topic);
     if (tp) voice = voice + '\n' + tp;
   }
+  // Append the voice-input tolerance footer universally. Roughly 80
+  // tokens; applies on every brain call where a voice block resolves.
+  voice = voice + VOICE_INPUT_AWARENESS;
   if (typeof body.system === 'string') {
     body.system = body.system ? body.system + '\n\n' + voice : voice;
   } else if (Array.isArray(body.system)) {
