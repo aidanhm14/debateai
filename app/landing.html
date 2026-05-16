@@ -3937,7 +3937,7 @@ section.ui-section .ui-lede{
         Debate AI. <span class="hh-accent">Rethink argumentation.</span>
       </h1>
       <p class="hero-sub">
-        Embracing AI as an antagonist and tool, not messiah nor an arbitrary enemy. Debate AI is an opponent or partner that works via voice and text. It goes far beyond current AI tools, and helps you become a sharper communicator.
+        Pick a motion. Pick a side. The AI takes the other side and argues back, format-accurate, in real time. A judge writes the ballot when you're done. Voice or text. Free in beta.
       </p>
       <div class="hero-ctas">
         <a href="/debate-ai" class="btn-editorial btn-editorial-primary" data-cta="hero-primary">
@@ -3992,23 +3992,31 @@ section.ui-section .ui-lede{
            the hero. Three rows: user argument, AI rebuttal, judge note.
            Motions rotate; each turn types out live. The whole card is the
            anchor — JS in #editorialRebuttal* binds the typing loop. -->
-      <div class="rebuttal-card" id="editorialRebuttalCard">
+      <!-- Prepopulated with the lead motion (meat/alcohol) so the first
+           paint shows real content, not empty placeholder rows. The
+           typing loop below picks up the static text on its first
+           iteration and keeps it for ~5 seconds before swapping to a
+           random next motion — so the user sees a complete exchange
+           immediately, then watches the loop rotate. Without this, the
+           card sits with empty YOU / DEBATE AI / JUDGE NOTE labels for
+           the first ~1 second of every visit (looks broken). -->
+      <div class="rebuttal-card" id="editorialRebuttalCard" data-rebuttal-prepop="1">
         <div class="rebuttal-head">
           <span class="rebuttal-head-dot" aria-hidden="true"></span>
           <span>Live rebuttal</span>
-          <span class="rebuttal-motion" id="editorialRebuttalMotion"></span>
+          <span class="rebuttal-motion" id="editorialRebuttalMotion">Tax meat at the same rate as alcohol.</span>
         </div>
         <div class="rebuttal-row rebuttal-row-you">
           <div class="rebuttal-label">You</div>
-          <div class="rebuttal-body" id="editorialRebuttalYou"></div>
+          <div class="rebuttal-body" id="editorialRebuttalYou">Animal agriculture is the single largest avoidable source of methane. We tax alcohol for far smaller externalities.</div>
         </div>
         <div class="rebuttal-row rebuttal-row-ai">
           <div class="rebuttal-label">Debate AI</div>
-          <div class="rebuttal-body" id="editorialRebuttalAi"></div>
+          <div class="rebuttal-body" id="editorialRebuttalAi">That fails on substitution. Alcohol has cheap substitutes; meat is still a staple protein in many lower-income households. Your policy risks becoming regressive unless paired with subsidies.</div>
         </div>
         <div class="rebuttal-row rebuttal-row-judge">
           <div class="rebuttal-label">Judge note</div>
-          <div class="rebuttal-body" id="editorialRebuttalJudge"></div>
+          <div class="rebuttal-body" id="editorialRebuttalJudge" style="opacity:1">Weak point: distributive impact.</div>
         </div>
         <a href="/app#casual" class="rebuttal-foot">
           Open the full sparring room
@@ -4351,21 +4359,35 @@ section.ui-section .ui-lede{
       function pause(ms){return new Promise(function(r){setTimeout(r,ms)})}
       async function loop(){
         var useEditorialCursor=!!judgeEl;
+        /* If the card was server-rendered with the lead motion prepopulated
+           (data-rebuttal-prepop="1"), skip the type sequence on the first
+           iteration — the user already sees a complete exchange. Just hold
+           the static state for the dwell period, then start swapping. */
+        var skipFirstType = card && card.getAttribute('data-rebuttal-prepop') === '1';
+        var firstIteration = true;
         while(true){
           var cur=motions[idx%motions.length];
-          if(motionEl)motionEl.textContent=cur.m;
-          youEl.textContent='';aiEl.textContent='';
-          if(judgeEl){judgeEl.textContent='';setFade(judgeEl,false)}
-          await pause(280);
-          await type(youEl,cur.you,9,useEditorialCursor);
-          await pause(420);
-          await type(aiEl,cur.ai,8,useEditorialCursor);
-          if(judgeEl){
-            await pause(360);
-            setFade(judgeEl,true);
-            judgeEl.textContent=cur.judge||'';
+          if (skipFirstType && firstIteration) {
+            /* Holding the prepopulated state — don't touch DOM, just sleep
+               a bit longer than the normal dwell so visitors can actually
+               read it before it animates away. */
+            await pause(5500);
+            firstIteration = false;
+          } else {
+            if(motionEl)motionEl.textContent=cur.m;
+            youEl.textContent='';aiEl.textContent='';
+            if(judgeEl){judgeEl.textContent='';setFade(judgeEl,false)}
+            await pause(280);
+            await type(youEl,cur.you,9,useEditorialCursor);
+            await pause(420);
+            await type(aiEl,cur.ai,8,useEditorialCursor);
+            if(judgeEl){
+              await pause(360);
+              setFade(judgeEl,true);
+              judgeEl.textContent=cur.judge||'';
+            }
+            await pause(4200);
           }
-          await pause(4200);
           /* Random next motion, never repeat the one we just showed. */
           var next;do{next=Math.floor(Math.random()*motions.length)}while(motions.length>1&&next===idx%motions.length);
           idx=next;
