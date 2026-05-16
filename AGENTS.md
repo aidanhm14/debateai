@@ -192,7 +192,7 @@ These pairs duplicate intentionally; if you edit one, edit the other:
 
 - New pricing tier (locked: Free, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year — currently beta, all $0).
 - Stripe webhook / Firestore rules / App Check token changes.
-- New AI provider integration (currently 4 brains).
+- New AI provider integration (currently 6 brains: Claude, GPT, Gemini, Grok, DeepSeek, Open Lab — last two added 2026-05-15: DeepSeek direct, Open Lab OpenRouter-backed pool).
 - Mobile / TWA wrapping (path is Capacitor; deferred — see soul.md §9).
 - Anything that breaks the single-file structure of debate-ai.html.
 

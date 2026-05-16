@@ -3739,7 +3739,7 @@ function shouldGateForFeedback() {
 }
 
 /* ═══════════════════════════════════════════════════
-   AI ENGINE CONFIG. same 4 brains as Debate AI
+   AI ENGINE CONFIG. same 6 brains as Debate AI
    ═══════════════════════════════════════════════════ */
 const CASE_BRAINS = {
   claude:   { name:'Claude',   desc:'Structured, analytical', endpoint:'/api/claude', model:'claude-haiku-4-5-20251001', proModel:'claude-sonnet-4-6', color:'#D97757', supportsThinking:true },
@@ -3747,6 +3747,7 @@ const CASE_BRAINS = {
   gemini:   { name:'Gemini',   desc:'Fast, well-rounded', endpoint:'/api/gemini', model:'gemini-2.0-flash', proModel:'gemini-2.5-pro-preview-05-06', color:'#4285F4', supportsThinking:false },
   grok:     { name:'Grok',     desc:'Unfiltered, witty', endpoint:'/api/grok', model:'grok-3-mini', proModel:'grok-3', color:'#fff', supportsThinking:false },
   deepseek: { name:'DeepSeek', desc:'Sharp, technical',  endpoint:'/api/deepseek', model:'deepseek-chat', proModel:'deepseek-chat', color:'#4D6BFE', supportsThinking:false },
+  openlab:  { name:'Open Lab', desc:'Open-source heavyweight, human voice', endpoint:'/api/openlab', model:'nousresearch/hermes-4-405b', proModel:'nousresearch/hermes-4-405b', color:'#a78bfa', supportsThinking:false },
 };
 
 /* Per-task brain routing. The system picks intelligently and shows its
@@ -3797,7 +3798,7 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
         throw new Error('You\'ve used your free rounds. We just opened our quick feedback form. Fill it out and you\'ll unlock more (refresh after).');
       }
       if (isCrossProvider) {
-        throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude for unlimited, or pick a plan to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 4 brains.');
+        throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude for unlimited, or pick a plan to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 6 brains.');
       }
       throw new Error('You\'ve used your free rounds. Pick a plan to keep going ($5/year Individual for 250 rounds/mo, or $1/mo BYOK for unlimited Claude with your own key).');
     }
@@ -3806,7 +3807,7 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
     const teamLimit = __currentTeam.usageLimit || 5;
     if (teamUsed >= teamLimit) {
       if (isCrossProvider && __currentTeam.plan === 'byok') {
-        throw new Error('Your BYOK plan covers Claude only (unlimited with your key). ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' runs through our server and you\u2019ve hit the ' + teamLimit + '-request cap. Switch to Claude, or upgrade to Individual ($5/year) for all 4 brains.');
+        throw new Error('Your BYOK plan covers Claude only (unlimited with your key). ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' runs through our server and you\u2019ve hit the ' + teamLimit + '-request cap. Switch to Claude, or upgrade to Individual ($5/year) for all 6 brains.');
       }
       throw new Error('You\'ve hit your plan limit (' + teamLimit + ' requests/month). Upgrade your plan for more.');
     }
@@ -5039,7 +5040,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
               key:key,
               onClick:function() {
                 if (isLocked) {
-                  setMsg && setMsg('Upgrade to unlock ' + brain.name + '. $5/year unlocks all 4 AI brains plus the Sonnet/Pro tier of each.');
+                  setMsg && setMsg('Upgrade to unlock ' + brain.name + '. $5/year unlocks all 6 AI brains plus the Sonnet/Pro tier of each.');
                   return;
                 }
                 setCaseBrain(key);
@@ -12375,7 +12376,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
         el('div', {style:{color:'#fbbf24',fontSize:'.78rem',fontWeight:700,marginBottom:4}}, 'BYOK is one-provider only'),
         el('div', {style:{color:'#94a3b8',fontSize:'.74rem',lineHeight:1.55}},
           'Your key unlocks ', el('strong',{style:{color:'#fbbf24'}},'unlimited Claude'), ' requests. ',
-          el('strong',null,'GPT, Gemini, and Grok still count against your plan\u2019s request cap') , '. once you cross to another brain you\u2019ll see "you ran out of requests." Stay on Claude as your main engine, or upgrade to Individual ($5/year) for all 4 brains.'
+          el('strong',null,'GPT, Gemini, Grok, DeepSeek, and Open Lab still count against your plan\u2019s request cap') , '. once you cross to another brain you\u2019ll see "you ran out of requests." Stay on Claude as your main engine, or upgrade to Individual ($5/year) for all 6 brains.'
         ),
       ),
     ),

@@ -78,7 +78,7 @@ Pricing
 • Team at $20/year for school clubs and prep groups (1,500 drills/month, 50 seats)
 
 Counter is part of DebateAI. Same engine that powers debateai.com's
-voice round and four-brain panel; the chrome extension is a focused
+voice round and six-brain panel; the chrome extension is a focused
 entry point for the student / oral-exam audience.
 
 Built by a national APDA debate champion. A sparring partner that

@@ -35,7 +35,7 @@
       "offers": [
         { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "10 requests to start." },
         { "@type": "Offer", "name": "BYOK", "price": "1", "priceCurrency": "USD", "description": "Unlimited Claude with your own Anthropic key." },
-        { "@type": "Offer", "name": "Individual", "price": "5", "priceCurrency": "USD", "description": "$5/year for 250 requests per month, four brains, HD voice." },
+        { "@type": "Offer", "name": "Individual", "price": "5", "priceCurrency": "USD", "description": "$5/year for 250 requests per month, six brains, HD voice." },
         { "@type": "Offer", "name": "Lifetime", "price": "14.99", "priceCurrency": "USD", "description": "250 requests per month forever, one-time charge." },
         { "@type": "Offer", "name": "Team", "price": "20", "priceCurrency": "USD", "description": "$20/year for 1,500 requests/mo across 50 seats." }
       ]
@@ -1773,6 +1773,23 @@ const BRAINS = {
     model: 'deepseek-chat',                // V3
     proModel: 'deepseek-chat',             // same model, pro just unlocks access
     color: '#4D6BFE',
+  },
+  openlab: {
+    name: 'Open Lab',
+    desc: 'Open-source heavyweight. Human voice, no guardrail nags.',
+    endpoint: '/api/openlab',
+    format: 'openai',
+    // Default routes to Nous Hermes 4 405B via OpenRouter. Backend
+    // allow-list also covers Mistral Large, Qwen3-235B, and Llama 4
+    // Maverick/Scout — set OPENLAB_MODEL in Netlify env to swap the
+    // default without a deploy. Pro-tier only, same as the other paid
+    // brains. Separate from DeepSeek above (which routes direct to the
+    // DeepSeek API and pins to deepseek-chat); Open Lab is the
+    // OpenRouter pool — different vendor, different register, different
+    // model defaults.
+    model: 'nousresearch/hermes-4-405b',
+    proModel: 'nousresearch/hermes-4-405b',
+    color: '#a78bfa', // violet — visually distinct from the other five
   },
 };
 
@@ -6591,7 +6608,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       el('div',{style:{marginBottom:22}},
         el('label',{style:{display:'block',fontSize:'.62rem',fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--c-muted)',marginBottom:8}},'About the two voice modes'),
         el('p',{style:{margin:'0 0 8px',fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.55}},
-          'You are on the typed + TTS path. Type your speech, four brains can think (Claude, GPT, Gemini, Grok), and the response gets spoken via the TTS provider you pick below. Multi-brain and format-deep, but no live interruption.',
+          'You are on the typed + TTS path. Type your speech, six brains can think (Claude, GPT, Gemini, Grok, DeepSeek, Open Lab), and the response gets spoken via the TTS provider you pick below. Multi-brain and format-deep, but no live interruption.',
         ),
         el('p',{style:{margin:'0 0 8px',fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.55}},
           'The other path lives at ',
@@ -7667,7 +7684,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         },
           el('div',{style:{textAlign:'left',fontSize:'.78rem',color:'var(--c-text)',lineHeight:1.4}},
             el('strong',{style:{color:BRAINS[brainLock].color||'#fff'}},BRAINS[brainLock].name),
-            ', Pro unlocks all four brains plus HD voice.'
+            ', Pro unlocks all six brains plus HD voice.'
           ),
           el('div',{style:{display:'flex',gap:6,flexShrink:0}},
             el('a',{href:'/pricing',style:{padding:'6px 14px',background:'#ef4444',color:'#fff',borderRadius:999,fontSize:'.72rem',fontWeight:800,textDecoration:'none',letterSpacing:'.04em'}},'Upgrade →'),
@@ -7676,7 +7693,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         ),
       ),
       isPro()&&el('div',{style:{fontSize:'.72rem',color:'rgba(239,68,68,.6)',fontWeight:600,marginTop:4}},'Pro. using faster, smarter models'),
-      !isPro()&&el('div',{style:{fontSize:'.72rem',color:'var(--c-dim)',marginTop:4}},'Free tier: Claude only · ',el('a',{href:'/#pricing',style:{color:'rgba(239,68,68,.5)',textDecoration:'underline'}},'Upgrade for all 4 brains')),
+      !isPro()&&el('div',{style:{fontSize:'.72rem',color:'var(--c-dim)',marginTop:4}},'Free tier: Claude only · ',el('a',{href:'/#pricing',style:{color:'rgba(239,68,68,.5)',textDecoration:'underline'}},'Upgrade for all 6 brains')),
 
       // ── Advanced Settings Toggle ──
       // Counter mode: the Advanced section is debate-skill trait
