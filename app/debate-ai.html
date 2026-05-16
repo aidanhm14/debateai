@@ -1589,20 +1589,20 @@ const JUDGE_PARADIGMS = {
 };
 
 /* ── AI VOICES ──────────────────────── */
-// Curated to four measured registers — no high-drama personas, no
-// regional accents. The TTS pipeline (tts.mjs) still carries the
-// broader voice-ID map server-side so legacy clients with stale keys
-// don't 500; the migration in the voice useState guard below snaps
-// any retired key (onyx, echo, alloy, nova, coral, ash, statesman,
-// barrister, upstart, heckler, disruptor, tactician) to 'sage' on
-// next render.
+// Curated to four high-presence registers — voices with aura and
+// energy that read as a real person commanding the room, no regional
+// accents. The TTS pipeline (tts.mjs) still carries the broader
+// voice-ID map server-side so legacy clients with stale keys don't
+// 500; migrateVoice() below snaps any retired key (fable, sage,
+// ballad, alloy, coral, ash, statesman, barrister, upstart, heckler,
+// disruptor, tactician) to DEFAULT_VOICE on next render.
 const VOICES = {
-  fable:   { name:'Male · Calm',       gender:'', desc:'Calm and precise.' },
-  sage:    { name:'Male · Measured',   gender:'', desc:'Thoughtful and patient.' },
-  shimmer: { name:'Female · Composed', gender:'', desc:'Polished and steady.' },
-  ballad:  { name:'Female · Warm',     gender:'', desc:'Warm and grounded.' },
+  onyx:    { name:'Male · Commanding',  gender:'', desc:'Deep and authoritative. Owns the room.' },
+  echo:    { name:'Female · Confident', gender:'', desc:'Persuasive and self-assured. Sounds like she has already won.' },
+  nova:    { name:'Male · Energetic',   gender:'', desc:'High-energy and relentless. Every word carries conviction.' },
+  shimmer: { name:'Female · Polished',  gender:'', desc:'Polished and lethal. Devastating attacks sound entirely reasonable.' },
 };
-const DEFAULT_VOICE = 'sage';
+const DEFAULT_VOICE = 'onyx';
 function migrateVoice(v){ return (v && VOICES[v]) ? v : DEFAULT_VOICE; }
 
 /* ── USE-CASE PICKER (non-debater onramp) ────────
@@ -1633,8 +1633,8 @@ const USE_CASES = {
     motion: 'A court should grant my motion to suppress evidence obtained without a warrant',
     format: 'quick',
     side: 'gov',
-    voice: 'fable',
-    sample: 'Argue your motion. The examiner cross-examines.',
+    voice: 'onyx',
+    sample: 'Argue your motion. A commanding examiner cross-examines.',
   },
   sales: {
     label: 'Sales / objection handling',
@@ -1643,7 +1643,7 @@ const USE_CASES = {
     format: 'quick',
     side: 'gov',
     voice: 'shimmer',
-    sample: 'Open with your pitch. A composed buyer raises objections.',
+    sample: 'Open with your pitch. A polished buyer raises objections.',
   },
   pitch: {
     label: 'Pitch / interview prep',
@@ -1651,8 +1651,8 @@ const USE_CASES = {
     motion: 'Now is the right time to bet on my company',
     format: 'quick',
     side: 'gov',
-    voice: 'sage',
-    sample: 'Make your case. A measured panelist asks what investors will ask.',
+    voice: 'onyx',
+    sample: 'Make your case. A commanding panelist asks what investors will ask.',
   },
   explore: {
     label: 'Just curious / exploring',
@@ -1660,7 +1660,7 @@ const USE_CASES = {
     motion: 'Smartphones should be banned in middle schools',
     format: 'quick',
     side: 'gov',
-    voice: 'ballad',
+    voice: 'echo',
     sample: 'A friendly first round on an easy motion.',
   },
 };
@@ -2789,7 +2789,7 @@ function useTTS(){
   // coupled to playback speed. fast speech at zero intensity still sounds
   // composed rather than breathless. Callers that want the old behavior
   // can pass `intensity: Math.min(1, Math.max(0, (speed-1.0)/1.0))`.
-  // Default voice 'sage' (Male · Measured) is the calmest option; callers
+  // Default voice 'onyx' (Male · Commanding) — broad gravitas; callers
   // override per-character.
   // Per the funnel-fix scoping doc (Fix #2): same 5s timeout applies here
   // so the single-shot `tts.speak` path (used by speakWithError below as
@@ -2809,7 +2809,7 @@ function useTTS(){
     const fetchP = fetch('/api/tts',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:stripPlainMd(text).slice(0,4000),voice:voiceName||'sage',speed,premium:isPro(),intensity:i,provider:isPro()?providerPref:undefined}),
+      body:JSON.stringify({text:stripPlainMd(text).slice(0,4000),voice:voiceName||DEFAULT_VOICE,speed,premium:isPro(),intensity:i,provider:isPro()?providerPref:undefined}),
     }).then(r=>{
       if(!r.ok) throw new Error('TTS '+r.status);
       return r.blob();
@@ -7235,7 +7235,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       ),
 
       // AI Voice. Curated to four measured registers labeled by
-      // gender + tone (e.g., Male · Calm). Counter / viva mode hides
+      // gender + tone (e.g., Male · Commanding). Counter / viva mode hides
       // the whole picker since none of these archetypes read as an
       // examiner; the TTS pipeline still gets a voice via DEFAULT_VOICE.
       // Free path uses OpenAI gpt-4o-mini-tts steered per voice; Pro
