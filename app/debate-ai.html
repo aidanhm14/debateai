@@ -5296,6 +5296,34 @@ function App(){
     return ()=>clearTimeout(id);
   },[phase,isUser,aiLoading,aiCountdown,tts.speaking,timer.left]);
 
+  // Fix #3 — text-gen stuck-state recovery (per Funnel Fix Scoping doc
+  // 2026-05-04). The 6s watchdog above handles the post-timer-zero
+  // silent-failure case. This one handles the OTHER stuck state: the
+  // AI text generation itself hangs (Claude / OpenAI / Gemini request
+  // never resolves, or resolves but `.then(onChunk)` never fires).
+  // The user sees "Writing argument via Claude... 45%" indefinitely
+  // with no escape. After 60s of aiLoading still being the truthy
+  // text-gen sentinel (not 'voice', which means audio playback has
+  // already started), surface a banner with a skip option.
+  // Retry-with-temperature-bump is in the scoping doc as the second
+  // half of this fix; skipped here because it requires AbortController
+  // plumbing for the in-flight fetch to avoid double-pipeline races.
+  // Skip alone captures most of the expected 3-5% lift.
+  const[stuckSpeech,setStuckSpeech]=useState(false);
+  React.useEffect(()=>{
+    if(phase!=='speech'){ setStuckSpeech(false); return; }
+    if(isUser){ setStuckSpeech(false); return; }
+    if(!aiLoading || aiLoading==='voice'){ setStuckSpeech(false); return; }
+    if(endingRef.current) return;
+    setStuckSpeech(false);
+    const id=setTimeout(()=>{
+      if(endingRef.current) return;
+      setStuckSpeech(true);
+      try{ if(typeof gtag==='function') gtag('event','stuck_speech_shown',{format:fmt.name,speech:cur.code,brain}); }catch{}
+    },60000);
+    return ()=>clearTimeout(id);
+  },[phase,isUser,aiLoading]);
+
   // Keyboard shortcuts help modal. Press `?` anywhere outside an input
   // to toggle. Documents the shortcuts that already exist so new users
   // can discover them without digging through the code.
@@ -7968,6 +7996,29 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             detections.map((d,i)=>el('div',{key:i,style:{fontSize:'.72rem',color:'var(--c-text)'}},d))
           );
         })(),
+
+        // Fix #3 — stuck-speech escape hatch. 60s of text-gen with no
+        // voice transition fires this banner. Amber palette so it reads
+        // as advisory (vs. red brand alert). Tracked via gtag so we can
+        // measure how often this fires in prod and how often users skip
+        // (vs. just close the tab — the abandonment trigger this fix
+        // targets). Hidden the moment aiLoading flips to 'voice' (audio
+        // started) or the user clicks Skip.
+        stuckSpeech && !isUser && aiLoading && aiLoading!=='voice' && el('div',{
+          role:'alert',
+          style:{marginTop:12,padding:'14px 18px',background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.32)',borderRadius:12,maxWidth:460,margin:'12px auto',textAlign:'center'}
+        },
+          el('div',{style:{fontSize:'.78rem',color:'var(--c-text)',marginBottom:10,lineHeight:1.45}},'Generation is taking longer than usual. The AI may be stuck.'),
+          el('button',{
+            className:'cta-ghost',
+            onClick:()=>{
+              setStuckSpeech(false);
+              try{ if(typeof gtag==='function') gtag('event','stuck_speech_skipped',{format:fmt.name,speech:cur.code,brain}); }catch{}
+              endSpeech();
+            },
+            style:{padding:'8px 18px',fontSize:'.82rem',marginTop:0}
+          },'Skip to your turn →')
+        ),
 
         // POI: user can send a POI during AI speech (middle of speech only)
         !isUser&&fmt.poi&&timer.left<(cur.time-60)&&timer.left>60&&el('div',{style:{marginTop:12}},
