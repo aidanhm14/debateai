@@ -245,7 +245,7 @@
     } catch(e){}
     var t = '';
     try { t = localStorage.getItem('da-theme') || ''; } catch(e){}
-    if (!t || t === 'day') t = 'crimson';
+    if (!t || t === 'day') t = 'light';
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
@@ -2051,11 +2051,6 @@ section.hero{
   display:inline-block;flex-shrink:0;
 }
 .hero-still-built .hsb-arrow{font-size:.85rem;font-weight:700;color:var(--text-dim)}
-[data-theme="light"] .hero-still-built{
-  background:linear-gradient(135deg,#fef9c3 0%,#fcd34d 100%);
-  box-shadow:0 4px 10px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.08);
-}
-
 /* New headline — bigger, tighter, editorial. !important on
    text-transform to override legacy .hero h1{text-transform:uppercase}
    higher up in the file. */
@@ -2291,6 +2286,100 @@ section.hero{
 @keyframes editorial-pulse{
   0%,100%{opacity:1;transform:scale(1)}
   50%{opacity:.55;transform:scale(.85)}
+}
+
+/* Hero voice orb — the visual centerpiece, replacing the older typing
+   rebuttal-card. Static CSS sphere (no canvas, no JS dependency) that
+   reads as "live AI voice" via a radial-gradient sphere + soft pulsing
+   glow. Sits in the editorial hero right column; same shell as the
+   rebuttal-card so the grid layout stays unchanged. */
+.hero-orb-card{
+  background:linear-gradient(180deg,#fff 0%,#fafaf7 100%);
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:18px;
+  padding:48px 32px 36px;
+  max-width:880px;
+  box-shadow:0 24px 60px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.04);
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+[data-theme="grey"] .hero-orb-card,
+[data-theme="crimson"] .hero-orb-card{
+  background:linear-gradient(180deg,rgba(20,20,24,.72) 0%,rgba(14,14,18,.86) 100%);
+  border-color:rgba(255,255,255,.08);
+  box-shadow:0 30px 80px rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.04) inset;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+}
+.hero-orb-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.62rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--text-dim);
+  margin-bottom:36px;
+}
+.hero-orb-eyebrow-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 8px rgba(239,68,68,.55);
+}
+.hero-orb-sphere{
+  position:relative;
+  width:240px;height:240px;
+  margin:0 auto 32px;
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 38% 36%, #fff 0%, rgba(255,255,255,.55) 8%, rgba(239,68,68,.92) 22%, #b91c1c 55%, #7f1d1d 88%);
+  box-shadow:
+    0 0 64px rgba(239,68,68,.45),
+    0 0 22px rgba(239,68,68,.35),
+    inset 0 -18px 40px rgba(0,0,0,.45),
+    inset 0 8px 24px rgba(255,255,255,.18);
+  animation:hero-orb-breath 4s ease-in-out infinite;
+}
+.hero-orb-sphere::after{
+  content:'';position:absolute;inset:-18px;
+  border-radius:50%;
+  border:1px solid rgba(239,68,68,.22);
+  animation:hero-orb-ring 4s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes hero-orb-breath{
+  0%,100%{transform:scale(1);box-shadow:0 0 64px rgba(239,68,68,.45),0 0 22px rgba(239,68,68,.35),inset 0 -18px 40px rgba(0,0,0,.45),inset 0 8px 24px rgba(255,255,255,.18)}
+  50%{transform:scale(1.025);box-shadow:0 0 92px rgba(239,68,68,.6),0 0 28px rgba(239,68,68,.45),inset 0 -18px 40px rgba(0,0,0,.45),inset 0 8px 24px rgba(255,255,255,.22)}
+}
+@keyframes hero-orb-ring{
+  0%,100%{opacity:.35;transform:scale(1)}
+  50%{opacity:.7;transform:scale(1.04)}
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-orb-sphere,.hero-orb-sphere::after{animation:none}
+}
+.hero-orb-label{
+  font-size:1.05rem;font-weight:800;color:var(--text);
+  letter-spacing:-.01em;line-height:1.25;
+  margin:0 auto 8px;max-width:380px;
+}
+.hero-orb-sub{
+  font-size:.86rem;color:var(--text-dim);line-height:1.5;
+  margin:0 auto 22px;max-width:380px;
+}
+.hero-orb-cta{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 20px;border-radius:999px;
+  border:1px solid var(--border);
+  background:transparent;color:var(--text);
+  font-size:.88rem;font-weight:700;text-decoration:none;
+  transition:border-color .2s ease, background .2s ease;
+}
+.hero-orb-cta:hover{
+  border-color:var(--accent);
+  background:rgba(239,68,68,.06);
+}
+.hero-orb-cta-arrow{font-weight:800;color:var(--text-dim)}
+@media (max-width:760px){
+  .hero-orb-card{padding:36px 22px 28px;border-radius:14px}
+  .hero-orb-sphere{width:180px;height:180px;margin-bottom:24px}
+  .hero-orb-eyebrow{margin-bottom:24px}
 }
 
 /* The headline rebuttal demo — the visual centerpiece. Glassy dark
@@ -3797,27 +3886,21 @@ section.ui-section .ui-lede{
            immediately, then watches the loop rotate. Without this, the
            card sits with empty YOU / DEBATE AI / JUDGE NOTE labels for
            the first ~1 second of every visit (looks broken). -->
-      <div class="rebuttal-card" id="editorialRebuttalCard" data-rebuttal-prepop="1">
-        <div class="rebuttal-head">
-          <span class="rebuttal-head-dot" aria-hidden="true"></span>
-          <span>Live rebuttal</span>
-          <span class="rebuttal-motion" id="editorialRebuttalMotion">Tax meat at the same rate as alcohol.</span>
+      <!-- Hero voice orb — pulsing CSS sphere that suggests live AI
+           voice. Sits in the right column of the editorial hero,
+           replacing the older typing rebuttal-card. Links straight to
+           the voice round. -->
+      <div class="hero-orb-card" aria-label="Voice AI">
+        <div class="hero-orb-eyebrow">
+          <span class="hero-orb-eyebrow-dot" aria-hidden="true"></span>
+          Voice AI · Live
         </div>
-        <div class="rebuttal-row rebuttal-row-you">
-          <div class="rebuttal-label">You</div>
-          <div class="rebuttal-body" id="editorialRebuttalYou">Animal agriculture is the single largest avoidable source of methane. We tax alcohol for far smaller externalities.</div>
-        </div>
-        <div class="rebuttal-row rebuttal-row-ai">
-          <div class="rebuttal-label">Debate AI</div>
-          <div class="rebuttal-body" id="editorialRebuttalAi">That fails on substitution. Alcohol has cheap substitutes; meat is still a staple protein in many lower-income households. Your policy risks becoming regressive unless paired with subsidies.</div>
-        </div>
-        <div class="rebuttal-row rebuttal-row-judge">
-          <div class="rebuttal-label">Judge note</div>
-          <div class="rebuttal-body" id="editorialRebuttalJudge" style="opacity:1">Weak point: distributive impact.</div>
-        </div>
-        <a href="/app#casual" class="rebuttal-foot">
-          Open the full sparring room
-          <span class="rebuttal-foot-arrow" aria-hidden="true">→</span>
+        <div class="hero-orb-sphere" aria-hidden="true"></div>
+        <div class="hero-orb-label">Speak your case. The AI argues back.</div>
+        <div class="hero-orb-sub">Press to talk, hear the rebuttal in real time, get a judge ballot when you're done.</div>
+        <a href="/voice-debate" class="hero-orb-cta" data-cta="hero-orb">
+          Start a voice round
+          <span class="hero-orb-cta-arrow" aria-hidden="true">→</span>
         </a>
       </div>
 
@@ -6866,7 +6949,7 @@ try{
   } else {
     var saved=localStorage.getItem('da-theme');
     if(!saved || saved==='day') {
-      saved='crimson';
+      saved='light';
       try{localStorage.setItem('da-theme',saved);}catch(e){}
     }
     applyThemeClasses(saved);
