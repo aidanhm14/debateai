@@ -4814,9 +4814,31 @@ section.ui-section .ui-lede{
   .encyclopediaArticle .infoRow:last-child{border-bottom:none}
   .encyclopediaArticle .infoRow span{color:#555555}
   .encyclopediaArticle .infoRow strong{font-weight:500;color:#111111}
+  /* Wikipedia-style figure at the top of the infobox: the rotating
+     globe canvas with a small caption beneath. Overrides the standalone
+     globe section's sizing (which assumed a 520px-wide hero canvas) so
+     the canvas fits the ~256px infobox interior on all viewports. */
+  .encyclopediaArticle .articleInfobox .infobox-globe{
+    margin:0;padding:12px 12px 8px;
+    background:#ffffff;
+    border-bottom:1px solid #e1e1e1;
+  }
+  .encyclopediaArticle .articleInfobox .infobox-globe .hero-globe-canvas-wrap{
+    max-width:none;min-width:0;min-height:0;
+    width:100%;aspect-ratio:1;margin:0 auto;
+  }
+  .encyclopediaArticle .articleInfobox .infobox-globe figcaption{
+    margin:8px 0 0;
+    font-size:11px;line-height:1.4;color:#555555;
+    letter-spacing:.06em;text-transform:uppercase;
+    text-align:center;
+  }
   @media (max-width:800px){
     .encyclopediaArticle .articleGrid{grid-template-columns:1fr}
     .encyclopediaArticle .articleInfobox{max-width:none}
+    /* On mobile the infobox stacks under the body and goes full-width,
+       so the square globe would balloon. Cap it at 320px for sanity. */
+    .encyclopediaArticle .articleInfobox .infobox-globe .hero-globe-canvas-wrap{max-width:320px}
   }
 </style>
 <section class="encyclopediaSection" aria-label="Overview of Debate AI">
@@ -4899,6 +4921,12 @@ section.ui-section .ui-lede{
       </div>
 
       <aside class="articleInfobox" aria-label="Quick facts">
+        <figure class="infobox-globe">
+          <div class="hero-globe-canvas-wrap">
+            <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with markers on top user countries"></canvas>
+          </div>
+          <figcaption>Live user concentration · 115 countries</figcaption>
+        </figure>
         <h4>Debate AI</h4>
         <div class="infoRow"><span>Type</span><strong>Argumentation training platform</strong></div>
         <div class="infoRow"><span>Modes</span><strong>Voice and text debate</strong></div>
@@ -5321,21 +5349,10 @@ section.ui-section .ui-lede{
     .hero-globe-canvas{filter:none}
   }
 </style>
-<section class="hero-globe-section" aria-label="Where Debate AI is being used right now">
-  <div class="hero-globe-wrap">
-    <div class="hero-globe-text">
-      <div class="hero-globe-eyebrow"><span class="dot" aria-hidden="true"></span>Live in 115 countries</div>
-      <h2 class="hero-globe-headline">Debaters in <strong>115 countries</strong> train against this engine.</h2>
-      <p class="hero-globe-sub">India is the biggest single market, the US is second, then the Philippines, Brazil, Pakistan, Turkey, Mexico, the UK, Canada, Egypt, Argentina. A hundred more circuits behind those, from Nairobi to Hungary to Singapore to Seoul. The rounds get translated, the opponents don't.</p>
-      <div class="hero-globe-stats">
-        <div class="hero-globe-stat"><strong>115</strong><span>Countries</span></div>
-      </div>
-    </div>
-    <div class="hero-globe-canvas-wrap">
-      <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with markers on top user countries"></canvas>
-    </div>
-  </div>
-</section>
+<!-- Globe canvas moved into the encyclopedia infobox (2026-05-17). The
+     standalone section's headline + sub were redundant with the
+     encyclopedia's History paragraph; the script below still drives
+     the same #heroGlobeCanvas, now living inside .articleInfobox. -->
 <script>
   // 2D-CANVAS globe (no WebGL). Replaces the cobe/WebGL build because
   // cobe was silently producing zero pixels on a non-trivial slice of
