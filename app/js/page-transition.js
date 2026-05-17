@@ -72,18 +72,23 @@
     fadeIn();
   }
 
-  // ── Reset on bfcache restore ────────────────────────────────────
-  // When the user hits Back, browsers may serve the prior page from
-  // bfcache with the pt-out class still on body — making it invisible.
-  // pageshow fires for both fresh loads and bfcache restores; the
-  // persisted flag lets us tell them apart and clean up only when
-  // restoring.
-  window.addEventListener('pageshow', function (e) {
-    if (e.persisted) {
-      document.body.classList.remove('pt-out');
-      var bar = document.querySelector('.pt-bar');
-      if (bar) bar.parentNode && bar.parentNode.removeChild(bar);
-    }
+  // ── Reset on every page show, not just bfcache ──────────────────
+  // pt-out sets opacity:0 !important on body. If we ever land here
+  // with it still applied — bfcache restore, a navigation that ends
+  // up at the same document, a back-then-forward dance, or anything
+  // else — the page is invisible and there's no JS error to point
+  // at. Symptom: "the page is blank but the console is clean."
+  // Strip pt-out unconditionally on pageshow + on visibilitychange
+  // back to visible. The fade-out is purely cosmetic; losing it for
+  // one navigation is worth never trapping a user on a blank page.
+  function clearTransitionState(){
+    document.body.classList.remove('pt-out');
+    var bar = document.querySelector('.pt-bar');
+    if (bar) bar.parentNode && bar.parentNode.removeChild(bar);
+  }
+  window.addEventListener('pageshow', clearTransitionState);
+  window.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') clearTransitionState();
   });
 
   // ── Intercept clicks to internal links ──────────────────────────
