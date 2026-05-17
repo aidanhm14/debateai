@@ -1949,29 +1949,31 @@ button{font-family:inherit;cursor:pointer}
 }
 .hero-grain{opacity:.025 !important}
 
-/* Hero shell — back to a clean centered editorial layout.
-   Top padding gives the fixed topbar enough headroom (52px bar + a
-   bit of breathing room) without sinking the H1 below the fold. */
+/* Hero shell — centered editorial layout, vertically anchored to the
+   viewport so the headline + card stack share a single visual band.
+   The fixed 52px topbar is subtracted from 100svh so the hero fills
+   the remaining viewport without scrollbar overshoot. */
 section.hero{
-  padding:88px clamp(20px,5vw,72px) 48px !important;
+  min-height:calc(100svh - 52px) !important;
+  padding:clamp(56px,8vh,96px) clamp(20px,5vw,72px) clamp(40px,6vh,72px) !important;
   align-items:center !important;
-  min-height:auto !important;
+  justify-content:center !important;
 }
 @media (min-width:1100px){
-  section.hero{padding-left:clamp(40px,6vw,88px) !important;padding-right:clamp(40px,6vw,88px) !important}
+  section.hero{padding-left:clamp(40px,5vw,80px) !important;padding-right:clamp(40px,5vw,80px) !important}
 }
 
-/* 2-column hero on desktop: brand message left, live rebuttal demo right.
-   Uses grid-template-areas so the markup stays single-column-default
-   (eyebrow → headline → sub → ctas → pills → card → signin) and the
-   grid only kicks in at the breakpoint. Below the breakpoint everything
-   stacks vertically in document order, which is fine — the card just
-   sits below the CTAs on mobile/tablet. */
-@media (min-width:1100px){
+/* 2-column hero from 900px up. Left column flexes to fill the viewport
+   minus the right column; right column is capped at 380–520px so the
+   card stack never drifts uncomfortably wide. Above the breakpoint the
+   grid uses named areas so the card-stack can span all left-column rows.
+   Below 900px everything stacks vertically in document order (text →
+   card stack), no override needed. */
+@media (min-width:900px){
   .editorial-hero{
     display:grid;
-    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-    column-gap:clamp(36px,5vw,80px);
+    grid-template-columns:minmax(0,1fr) minmax(380px,520px);
+    column-gap:clamp(48px,7vw,112px);
     row-gap:0;
     grid-template-areas:
       "eyebrow  card"
@@ -1981,30 +1983,34 @@ section.hero{
       "ctas     card"
       "pills    card"
       "signin   card";
-    align-items:start;
+    align-items:center;
   }
-  /* Grid items default to justify-self:stretch and force inline-flex
-     elements to fill the cell width. Pin the pill-style elements to
-     start so they hug their content like inline-flex should. */
+  /* Pin the pill-style elements to start so they hug their content
+     like inline-flex should. */
   .editorial-hero .editorial-eyebrow{grid-area:eyebrow;margin-bottom:0;justify-self:start}
-  .editorial-hero .hero-headline{grid-area:headline;max-width:none;margin-top:22px}
+  .editorial-hero .hero-headline{grid-area:headline;max-width:none;margin-top:18px}
   .editorial-hero .hero-sub{grid-area:sub;max-width:none;margin-bottom:14px}
-  .editorial-hero .hero-creed{grid-area:creed;max-width:none;margin:0 0 28px}
+  .editorial-hero .hero-creed{grid-area:creed;max-width:none;margin:0 0 24px}
   .editorial-hero .hero-ctas{grid-area:ctas;margin-bottom:18px;justify-self:start}
   .editorial-hero .hero-pill-rail{grid-area:pills;margin-bottom:0;justify-self:start}
   .editorial-hero .hero-orb-card{
     grid-area:card;
     align-self:center;
-    max-width:none;
     width:100%;
-    margin:0;
+    max-width:520px;
+    margin:0 auto;
   }
   .editorial-hero .editorial-signin-row{grid-area:signin;margin-top:32px}
 }
 .hero-content{
-  max-width:1180px !important;
+  max-width:1240px !important;
   text-align:left !important;
   padding-top:0 !important;
+  width:100%;
+}
+.editorial-hero{
+  max-width:1240px;
+  margin-inline:auto;
   width:100%;
 }
 
@@ -2144,7 +2150,7 @@ section.hero{
    subtle hairline pills with a · separator. Voice gets a gold tag. */
 .hero-pill-rail{
   display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;
-  margin-bottom:48px;
+  margin-bottom:0;
   font-size:.84rem;
 }
 .hero-pill{
@@ -2318,7 +2324,9 @@ section.hero{
   border:1px solid rgba(0,0,0,.08);
   border-radius:18px;
   padding:48px 32px 36px;
-  max-width:880px;
+  width:100%;
+  max-width:520px;
+  margin:0 auto;
   box-shadow:0 24px 60px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.04);
   text-align:center;
   position:relative;
@@ -2391,8 +2399,10 @@ section.hero{
   background:linear-gradient(180deg,rgba(20,20,24,.72) 0%,rgba(14,14,18,.86) 100%);
   border:1px solid rgba(255,255,255,.08);
   border-radius:18px;
-  padding:28px 32px;
-  max-width:880px;
+  padding:24px 28px;
+  width:100%;
+  max-width:520px;
+  margin:0 auto;
   box-shadow:
     0 30px 80px rgba(0,0,0,.5),
     0 1px 0 rgba(255,255,255,.04) inset,
