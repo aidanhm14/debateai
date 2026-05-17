@@ -1,14 +1,28 @@
 import { Firestore, FieldValue } from '@google-cloud/firestore';
+import { PROJECT_ID as BAKED_PROJECT_ID, CLIENT_EMAIL as BAKED_CLIENT_EMAIL, PRIVATE_KEY_B64 as BAKED_PRIVATE_KEY_B64 } from './_firestore-creds.mjs';
 
 let db = null;
 
 export function getDb() {
   if (db) return db;
 
-  // Prefer split vars (GOOGLE_PROJECT_ID / GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY).
-  // The full-JSON GOOGLE_SERVICE_ACCOUNT blob pushed the total Lambda env over
-  // AWS's 4KB ceiling once OPENROUTER_API_KEY + DEEPSEEK_API_KEY landed, so the
-  // split form is the supported path. Falls back to the JSON blob for legacy.
+  // Preferred path: build-baked credentials. scripts/bake-firestore-creds.mjs
+  // reads GOOGLE_SERVICE_ACCOUNT at build time, extracts the 3 fields, writes
+  // them to _firestore-creds.mjs, esbuild inlines into the bundle. This lets
+  // GOOGLE_SERVICE_ACCOUNT be scoped to "Builds" only in the Netlify dashboard
+  // (out of the Lambda env block) so we stay under the AWS 4KB cap.
+  if (BAKED_PROJECT_ID && BAKED_CLIENT_EMAIL && BAKED_PRIVATE_KEY_B64) {
+    const privateKey = Buffer.from(BAKED_PRIVATE_KEY_B64, 'base64').toString('utf-8');
+    db = new Firestore({
+      projectId: BAKED_PROJECT_ID,
+      credentials: { client_email: BAKED_CLIENT_EMAIL, private_key: privateKey },
+    });
+    return db;
+  }
+
+  // Split-vars fallback (GOOGLE_PROJECT_ID / GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY).
+  // Same size win as the bake without bundling secrets, but requires three
+  // separate dashboard env vars instead of one scope change.
   const projectId = process.env.GOOGLE_PROJECT_ID;
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
   const rawKey = process.env.GOOGLE_PRIVATE_KEY;

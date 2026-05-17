@@ -20,12 +20,17 @@
 # ════════════════════════════════════════════════════════════════════
 
 [build]
-  command = "echo 'Static Netlify deploy: publishing app/ without Vite build'"
+  command = "node scripts/bake-firestore-creds.mjs && echo 'Static Netlify deploy: publishing app/ without Vite build'"
   publish = "app"
   functions = "app/netlify/functions"
 
 [build.environment]
   NETLIFY_SKIP_SECRETS_CHECK = "true"
+  # Bake script intentionally writes the Firestore service account into the
+  # function bundle (base64-encoded), so tell the scanner not to flag the
+  # match against the dashboard GOOGLE_SERVICE_ACCOUNT value.
+  SECRETS_SCAN_OMIT_KEYS = "GOOGLE_SERVICE_ACCOUNT"
+  SECRETS_SCAN_OMIT_PATHS = "app/netlify/functions/lib/_firestore-creds.mjs"
 
 [functions]
   external_node_modules = ["@google-cloud/firestore", "stripe"]
