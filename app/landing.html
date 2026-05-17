@@ -2012,8 +2012,7 @@ section.hero{
     display:flex;flex-direction:column;gap:18px;
     min-width:0;
   }
-  .editorial-hero .hero-card-stack > .hero-orb-card,
-  .editorial-hero .hero-card-stack > .rebuttal-card{
+  .editorial-hero .hero-card-stack > .hero-orb-card{
     width:100%;
     max-width:none;
     margin:0;
@@ -2333,11 +2332,9 @@ section.hero{
   50%{opacity:.55;transform:scale(.85)}
 }
 
-/* Hero voice orb — the visual centerpiece, replacing the older typing
-   rebuttal-card. Static CSS sphere (no canvas, no JS dependency) that
-   reads as "live AI voice" via a radial-gradient sphere + soft pulsing
-   glow. Sits in the editorial hero right column; same shell as the
-   rebuttal-card so the grid layout stays unchanged. */
+/* Hero voice orb — the visual centerpiece. Canvas-rendered pulsing
+   sphere that reads as "live AI voice." Sits in the editorial hero
+   right column. */
 .hero-orb-card{
   background:linear-gradient(180deg,#fff 0%,#fafaf7 100%);
   border:1px solid rgba(0,0,0,.08);
@@ -2410,139 +2407,6 @@ section.hero{
   .hero-orb-sphere{width:180px;height:180px;margin-bottom:24px}
   .hero-orb-eyebrow{margin-bottom:24px}
 }
-
-/* The headline rebuttal demo — the visual centerpiece. Glassy dark
-   card, hairline border, soft shadow, no red wash. Three rows: user
-   argument, AI rebuttal, judge note. */
-.rebuttal-card{
-  background:linear-gradient(180deg,rgba(20,20,24,.72) 0%,rgba(14,14,18,.86) 100%);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:18px;
-  padding:24px 28px;
-  width:100%;
-  max-width:520px;
-  margin:0 auto;
-  box-shadow:
-    0 30px 80px rgba(0,0,0,.5),
-    0 1px 0 rgba(255,255,255,.04) inset,
-    0 -1px 0 rgba(0,0,0,.4) inset;
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  text-align:left;
-  position:relative;
-  overflow:hidden;
-}
-[data-theme="light"] .rebuttal-card{
-  background:linear-gradient(180deg,#fff 0%,#fafaf7 100%);
-  border-color:rgba(0,0,0,.08);
-  box-shadow:0 24px 60px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.04);
-}
-.rebuttal-head{
-  display:flex;align-items:center;gap:12px;
-  padding-bottom:18px;margin-bottom:22px;
-  border-bottom:1px solid rgba(255,255,255,.10);
-  font-size:.62rem;font-weight:700;letter-spacing:.20em;text-transform:uppercase;
-  color:rgba(255,255,255,.78);
-}
-[data-theme="light"] .rebuttal-head{
-  border-bottom-color:rgba(0,0,0,.06);
-  color:rgba(0,0,0,.52);
-}
-.rebuttal-head-dot{
-  width:7px;height:7px;border-radius:50%;
-  background:#dc2626;
-  box-shadow:0 0 0 3px rgba(220,38,38,.18);
-  animation:editorial-pulse 2.4s ease-in-out infinite;
-}
-.rebuttal-motion{
-  margin-left:auto;
-  color:var(--text);font-weight:600;letter-spacing:0;text-transform:none;font-size:.78rem;
-  max-width:60%;text-align:right;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.rebuttal-row{
-  display:grid;grid-template-columns:72px minmax(0,1fr);gap:14px;
-  padding:14px 0;
-  align-items:start;
-}
-.rebuttal-row .rebuttal-body{
-  min-width:0;
-  overflow-wrap:anywhere;
-  word-break:break-word;
-}
-.rebuttal-row + .rebuttal-row{border-top:1px solid rgba(255,255,255,.07)}
-[data-theme="light"] .rebuttal-row + .rebuttal-row{border-top-color:rgba(0,0,0,.06)}
-.rebuttal-label{
-  font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
-  color:rgba(255,255,255,.72);
-  padding-top:4px;
-  line-height:1.4;
-}
-.rebuttal-row-you .rebuttal-label{color:rgba(255,255,255,.78)}
-.rebuttal-row-ai .rebuttal-label{color:#f87171}
-.rebuttal-row-judge .rebuttal-label{color:#fbbf24}
-[data-theme="light"] .rebuttal-label{color:rgba(0,0,0,.42)}
-[data-theme="light"] .rebuttal-row-you .rebuttal-label{color:rgba(0,0,0,.52)}
-[data-theme="light"] .rebuttal-row-ai .rebuttal-label{color:#b91c1c}
-[data-theme="light"] .rebuttal-row-judge .rebuttal-label{color:#b45309}
-.rebuttal-body{
-  font-size:1.02rem;line-height:1.55;
-  color:rgba(255,255,255,.95);
-  font-weight:400;
-  /* Reserve enough height for the longest typed-out body so the row
-     doesn't grow as the typing animation progresses. Was 1.55em (one
-     line) which let the card stretch from ~80px to ~480px on every
-     motion swap — measured CLS 0.857 on desktop, 0.215 mobile.
-     6em ≈ 4 lines of body at line-height 1.55, comfortably above the
-     normal "You" row length. AI + Judge rows get specific overrides
-     below since AI runs longer and Judge runs shorter. */
-  min-height:6em;
-}
-.rebuttal-row-ai .rebuttal-body{
-  /* AI rebuttal is the longest row in the rotation — reserve 6.5
-     lines so even the verbose motions don't push siblings down. */
-  min-height:8em;
-}
-.rebuttal-row-judge .rebuttal-body{
-  /* Judge note is always one short sentence. Don't reserve the same
-     dead space the AI row needs. */
-  min-height:2.2em;
-}
-[data-theme="light"] .rebuttal-body{color:rgba(0,0,0,.88)}
-.rebuttal-row-judge .rebuttal-body{
-  font-size:.92rem;
-  color:#fbbf24;
-  font-weight:500;
-}
-[data-theme="light"] .rebuttal-row-judge .rebuttal-body{color:#92400e}
-.rebuttal-typing::after{
-  /* Thin CSS-drawn cursor. The previous "▋" character rendered as a
-     chunky red block in most fonts and read as a corruption indicator
-     in screenshots. A 2px-wide bar at text-height is recognizable as
-     a caret without competing visually with the actual content. */
-  content:'';display:inline-block;
-  width:2px;height:1.05em;
-  margin-left:3px;vertical-align:-2px;
-  background:#dc2626;
-  animation:rebuttal-blink 1s step-end infinite;
-}
-@keyframes rebuttal-blink{0%,100%{opacity:1}50%{opacity:0}}
-.rebuttal-foot{
-  display:flex;align-items:center;gap:8px;
-  margin-top:18px;padding-top:18px;
-  border-top:1px solid rgba(255,255,255,.10);
-  font-size:.78rem;font-weight:700;
-  color:rgba(255,255,255,.82);
-  text-decoration:none;
-  transition:color .2s ease, gap .2s ease;
-}
-.rebuttal-foot:hover{color:#fff;gap:12px}
-.rebuttal-foot:hover .rebuttal-foot-arrow{transform:translateX(3px)}
-.rebuttal-foot-arrow{transition:transform .2s ease}
-[data-theme="light"] .rebuttal-foot{
-  border-top-color:rgba(0,0,0,.06);
-  color:rgba(0,0,0,.55);
-}
-[data-theme="light"] .rebuttal-foot:hover{color:#1a1a1f}
 
 /* Proof strip — small caps stats, hairline dividers, no chips. */
 .proof-strip{
@@ -3625,12 +3489,6 @@ section.ui-section .ui-lede{
   .hero-ctas{gap:10px;margin-bottom:40px}
   .btn-editorial{padding:13px 22px;font-size:.88rem}
   .btn-editorial:not(.btn-editorial-primary){flex:1 1 auto}
-  .rebuttal-card{padding:22px 20px;border-radius:14px}
-  .rebuttal-row{grid-template-columns:1fr;gap:6px;padding:14px 0}
-  .rebuttal-label{padding-top:0}
-  .rebuttal-body{font-size:.95rem}
-  .rebuttal-row-judge .rebuttal-body{font-size:.85rem}
-  .rebuttal-motion{display:none}
   .aud-section,.how-section{padding-left:20px;padding-right:20px}
   .final-cta{padding:80px 20px}
   .editorial-signin-row{font-size:.76rem}
@@ -3913,24 +3771,7 @@ section.ui-section .ui-lede{
         </a>
       </div>
 
-      <!-- Live typing-animation rebuttal card. The visual centerpiece of
-           the hero. Three rows: user argument, AI rebuttal, judge note.
-           Motions rotate; each turn types out live. The whole card is the
-           anchor — JS in #editorialRebuttal* binds the typing loop. -->
-      <!-- Prepopulated with the lead motion (meat/alcohol) so the first
-           paint shows real content, not empty placeholder rows. The
-           typing loop below picks up the static text on its first
-           iteration and keeps it for ~5 seconds before swapping to a
-           random next motion — so the user sees a complete exchange
-           immediately, then watches the loop rotate. Without this, the
-           card sits with empty YOU / DEBATE AI / JUDGE NOTE labels for
-           the first ~1 second of every visit (looks broken). -->
-      <!-- Right column of the editorial hero: voice orb on top, then
-           the live typing rebuttal demo below it. The orb is the visual
-           anchor (what voice mode looks like); the rebuttal card is the
-           proof-of-substance (what an actual AI exchange reads like).
-           The typing-loop script further down in this file rewires the
-           rebuttal IDs when present and self-no-ops when absent. -->
+      <!-- Right column of the editorial hero: voice orb card. -->
       <div class="hero-card-stack">
         <div class="hero-orb-card" aria-label="Voice AI">
           <div class="hero-orb-eyebrow">
@@ -3944,25 +3785,6 @@ section.ui-section .ui-lede{
             Start a voice round
             <span class="hero-orb-cta-arrow" aria-hidden="true">→</span>
           </a>
-        </div>
-        <div class="rebuttal-card" id="editorialRebuttalCard" data-rebuttal-prepop="1">
-          <div class="rebuttal-head">
-            <span class="rebuttal-head-dot" aria-hidden="true"></span>
-            <span>Live rebuttal</span>
-            <span class="rebuttal-motion" id="editorialRebuttalMotion">Tax meat at the same rate as alcohol.</span>
-          </div>
-          <div class="rebuttal-row rebuttal-row-you">
-            <div class="rebuttal-label">You</div>
-            <div class="rebuttal-body" id="editorialRebuttalYou">Animal agriculture is the single largest avoidable source of methane. We tax alcohol for far smaller externalities.</div>
-          </div>
-          <div class="rebuttal-row rebuttal-row-ai">
-            <div class="rebuttal-label">Debate AI</div>
-            <div class="rebuttal-body" id="editorialRebuttalAi">That fails on substitution. Alcohol has cheap substitutes; meat is still a staple protein in many lower-income households. Your policy risks becoming regressive unless paired with subsidies.</div>
-          </div>
-          <div class="rebuttal-row rebuttal-row-judge">
-            <div class="rebuttal-label">Judge note</div>
-            <div class="rebuttal-body" id="editorialRebuttalJudge" style="opacity:1">Weak point: distributive impact.</div>
-          </div>
         </div>
       </div>
 
@@ -4138,213 +3960,6 @@ section.ui-section .ui-lede{
     </style>
 
     <script>
-    /* Editorial rebuttal demo loop. Replaces the hidden hero-beta-chat
-       loop with one that targets the new #editorialRebuttal* nodes and
-       cycles a user / AI / judge-note triplet. The motions list has
-       a `judge` field per entry, named after the actual weighing axis
-       the rebuttal targets (distributive impact, accountability,
-       substitution, etc.) so the card reads like a flow page, not a
-       chat transcript. Lead with the meat/alcohol motion per the
-       2026-05-11 redesign brief — it's the cleanest "AI catches the
-       substitution flaw" example. */
-    (function(){
-      /* 100+ rebuttal exchanges. Lead with meat/alcohol (the 2026-05-11
-         redesign brief says it's the cleanest "AI catches the flaw"
-         demo); after that the loop picks a fresh random entry every
-         cycle without repeating the previous one. Density is the
-         point. Visitors who watch the card across 3-4 cycles need to
-         visibly see the demos don't repeat, which is the entire
-         credibility argument against the "AI demos are scripted"
-         objection. Topics rotate across economics, climate, tech,
-         justice, education, foreign policy, health, housing, war,
-         and emerging policy questions so the cycle never settles
-         into one register. Voice: every AI rebuttal names a
-         substantive flaw (substitution, leakage, counterfactual,
-         distribution, accountability, mechanism, enforcement,
-         scope, timing, etc.) the way a flow judge would. Judge
-         notes use the actual weighing axis. No em-dashes, no
-         banned phrases per soul.md / Aidan voice bank. */
-      var motions=[
-        {m:'Tax meat at the same rate as alcohol.',you:'Animal agriculture is the single largest avoidable source of methane. We tax alcohol for far smaller externalities.',ai:'That fails on substitution. Alcohol has cheap substitutes; meat is still a staple protein in many lower-income households. Your policy risks becoming regressive unless paired with subsidies.',judge:'Weak point: distributive impact.'},
-        {m:'This House would ban private schools.',you:'Private schools entrench class hierarchy. Once capital opts out of public education, per-pupil funding for everyone else collapses.',ai:'Ban them and the wealthy migrate to elite tutoring and overseas boarding. Same hierarchy, harder to tax. You\'re fighting the exit, not the cause.',judge:'Mechanism gap: substitution channel unaddressed.'},
-        {m:'AI should write the news.',you:'Human editors are bottlenecks. AI covers ten times the stories at the same factual accuracy.',ai:'Accuracy isn\'t accountability. Journalism needs a byline that can be sued, fired, or shamed. Strip that out and volume is all that\'s left.',judge:'Missing warrant: accountability channel.'},
-        {m:'Open borders.',you:'Free movement of labor grows aggregate output. Markets self-correct through wage signals.',ai:'GDP isn\'t distributed by signals, it\'s distributed by power. You get growth on top and collapsing wage floors at the bottom. The bottom quintile is exactly who votes against open borders next cycle.',judge:'Impact calculus: aggregate vs. distributed.'},
-        {m:'Tax billionaires out of existence.',you:'Concentrated wealth buys political outcomes. Democracy requires a ceiling.',ai:'A ceiling without an exit ban just relocates them. You lose the tax base and keep the capture, because lobbying scales with reputation, not net worth.',judge:'Capital flight not weighed against the harm.'},
-        {m:'Mandatory voting.',you:'Compulsory turnout eliminates the entire suppression attack surface in one move.',ai:'It also eliminates what low turnout signals about legitimacy. You get uninformed ballots tracking whatever was on TV last week. That\'s noise, not democracy.',judge:'Tradeoff: turnout vs. information quality.'},
-        {m:'Scrap legacy admissions at universities.',you:'Legacy preference is hereditary aristocracy in a hoodie. The class of 2050 should not be picked by the class of 1990.',ai:'You scrap legacy and donor ties and the endowment shrinks. The same diversity programs you want to protect are funded by exactly that pipeline. Kill the floor first and the ceiling falls with it.',judge:'Funding pipeline not in your case.'},
-        {m:'UBI of $1,000 a month.',you:'A flat thousand a month under the existing tax base lifts every household above the poverty line. It\'s cheaper than the welfare bureaucracy it replaces.',ai:'Cheaper only if you actually replace the bureaucracy. Politically you don\'t. You stack UBI on top of TANF, SNAP, housing assistance. The transfer adds, the bill triples.',judge:'Replacement assumption isn\'t politically held.'},
-        {m:'Wealth tax above $50M.',you:'Fifty million is the floor below which a wealth tax barely touches capital formation. France started at four hundred thousand. Ours starts a hundred and twenty times higher.',ai:'France\'s threshold wasn\'t the flaw. Valuation was. You can\'t tax a privately held company at fair-market without a sale or a number both sides argue about for a decade. Compliance eats the revenue.',judge:'Mechanism: valuation, not threshold.'},
-        {m:'Four-day work week, mandatory.',you:'Iceland ran the trial. Same output, less burnout, lower healthcare spend. Spain, the UK, Belgium followed.',ai:'Same output for knowledge workers. Mandate four days for nurses, line cooks, transit drivers, and the math breaks. You need a fifth of the labor force you can\'t find. The trials are biased by sector.',judge:'Sample composition flaw.'},
-        {m:'Cap CEO pay at 100x median worker.',you:'The ratio was twenty-to-one a generation ago. We have no evidence pushing it to three hundred bought us better executives.',ai:'No evidence either way. The cap forces compensation into channels harder to tax. Deferred equity, private vehicles, foreign domicile. You moved the line, not the number.',judge:'Channel substitution unaddressed.'},
-        {m:'Ban high-frequency trading.',you:'HFT extracts rents from slower participants without contributing price discovery. Two-thirds of US equity volume is now machines arbitraging milliseconds.',ai:'It also tightens spreads for retail. Pre-HFT, a Vanguard saver paid measurably more in bid-ask. Ban it and Joe-401k pays the bill instead of Citadel.',judge:'Beneficiary swap not weighed.'},
-        {m:'Replace income tax with land value tax.',you:'Land is fixed. You can\'t move Manhattan to Delaware. Taxing it has zero deadweight loss and the receipts replace every distortionary income tax in the system.',ai:'Zero deadweight, sure. Zero distribution problem, no. A retiree on a paid-off Berkeley home pays the same as the hedge fund downstairs. Cash-poor land-rich households get squeezed and the politics dies in two cycles.',judge:'Asset-rich, cash-poor blind spot.'},
-        {m:'Closed-shop unions, not opt-in.',you:'Right-to-work has tanked union density and median wages with it. Closed shop is how Germany still pays its working class.',ai:'Germany pays its working class through codetermination on the board, not closed-shop membership. You\'re copying the artifact, not the mechanism. Closed shop in the US gives you dues without the structural power.',judge:'Wrong mechanism imported.'},
-        {m:'Tax remote workers at office-city rate.',you:'Remote workers consume New York wages, Florida tax base. The shortfall has to come from somewhere. Usually the city that produced the salary.',ai:'The salary isn\'t produced by the city. It\'s produced by the firm, which chose to let the worker move. Tax the firm\'s payroll, not the worker\'s residence, and you skip the cross-state enforcement nightmare.',judge:'Wrong taxable entity.'},
-        {m:'Ban stock buybacks.',you:'Buybacks extract corporate cash to shareholders without taxable distribution. Three trillion in the last decade went to share repurchase instead of wages.',ai:'Ban them and the cash goes to special dividends, which trigger immediate tax. Same outflow, more revenue. The problem isn\'t buybacks. It\'s the rate on retained earnings.',judge:'Targeting symptom, not cause.'},
-        {m:'Mandatory profit-sharing for public companies.',you:'Every employee owns a stake. Performance tied to ownership produces measurable productivity gains. John Lewis, Mondragon, Publix all outperform their sectors.',ai:'Those examples are private. They became cooperatives by founder choice with mature culture. Mandating profit-sharing on publicly listed firms without restructuring governance gives you a dividend with extra steps.',judge:'Misapplied case study.'},
-        {m:'Ban TikTok in democracies.',you:'TikTok\'s algorithm reports to a Beijing-based parent ultimately accountable to the CCP under the 2017 National Intelligence Law. That\'s a national security exposure.',ai:'Sure, and Facebook reports to Delaware corporate law. If foreign-aligned algorithms are the threat, the vehicle isn\'t a ban. It\'s algorithmic transparency for every platform. Ban TikTok and a Russian-aligned clone is in the store by Q2.',judge:'Mechanism vs. surface.'},
-        {m:'Regulate large language models as utilities.',you:'GPT-class capability concentrates in three companies. The cost to train a frontier model is now beyond academia, beyond most states. We regulated railways for less concentration.',ai:'Railways had fixed track and natural monopolies on routes. Models don\'t. The barrier is data and chips, both of which decompose every six months as efficiency catches up. Regulate today\'s frontier and you\'re regulating yesterday\'s by 2027.',judge:'Static regulation on a moving target.'},
-        {m:'Outlaw targeted political advertising.',you:'Micro-targeted political ads make accountability impossible. The voter sees one message, the journalist sees another, the regulator sees none.',ai:'Outlaw them and campaigns shift the same targeting to mailers, texts, dark-PAC issue ads. Even less traceable. The disclosure problem is the disclosure regime, not the ad format.',judge:'Format substitution.'},
-        {m:'Ban facial recognition in public spaces.',you:'Police use of facial recognition has produced documented false arrests of Black men in Detroit, New Jersey, Louisiana. The false-positive rate isn\'t going to zero next year.',ai:'Ban it for public-sector use and the private sector keeps deploying. Retail, stadiums, building access. Police buy the data from Clearview without owning the camera. The ban moves the surveillance, not the surveilled.',judge:'Public/private end-run.'},
-        {m:'Age-verify every social media account.',you:'Suicide-related hospitalizations among 10-to-14-year-old girls are up 188% since the smartphone hit critical mass. Platforms self-police age and miss every kid with a parent\'s phone.',ai:'Age verification means face scans or government ID for every user, not just kids. You\'ve solved the kid problem by handing every adult\'s biometric to Meta. The externality on adults dwarfs the harm you\'re targeting.',judge:'Externality exceeds targeted harm.'},
-        {m:'Mandatory AI labels on generated images.',you:'Without provenance, the next election cycle is the last cycle where "I saw a video of them say it" means anything.',ai:'Labels assume bad actors comply. Open-source diffusion strips metadata in one function call. You put a sticker on the honest output and changed nothing about the dishonest. Provenance has to live in the camera, not the editor.',judge:'Compliance asymmetry.'},
-        {m:'Open-source models pose more risk than closed.',you:'Closed models can be audited by the regulator. Open weights leak to the worst actor who downloads them, and there\'s no recall.',ai:'Closed models can\'t be audited by anyone except the company that owns them. The regulator gets a marketing deck. Open weights get red-teamed by the entire research community in a week. Which one finds the jailbreak first?',judge:'Audit assumption is too generous.'},
-        {m:'Right to repair every consumer device.',you:'Apple owns the device after you bought it. iFixit pays Apple to read public documentation. The repair monopoly costs households about $40 a year per device.',ai:'Fine for laptops and tractors. Apply it to medical implants and the manufacturer\'s liability shield collapses. You either carve out a list of devices or accept someone modifies their own pacemaker firmware.',judge:'Scope unbounded.'},
-        {m:'Ban end-to-end encryption for kids\' apps.',you:'Predator networks operate inside encrypted DM channels. Snapchat\'s own transparency reports show the volume. Encryption is protecting the abuse.',ai:'Break it for kids and you\'ve broken it for everyone, because the same servers and protocols serve both. The "children\'s app" carve-out is technically incoherent. What you\'re proposing is no encryption.',judge:'Technical carve-out unworkable.'},
-        {m:'Make algorithmic feeds opt-in.',you:'Chronological feeds were the default for a decade. Switching everyone to engagement-optimized feeds was an unconsented experiment.',ai:'Opt-in and watch the platforms make every chronological feed unusable. Spam, scam, repost loops. The algorithm isn\'t a feature bolted on. It\'s the only thing keeping the feed legible at scale.',judge:'Counterfactual ignores spam dynamics.'},
-        {m:'Nuclear is the only viable climate baseline.',you:'France runs at 70% nuclear with the cheapest residential electricity in Western Europe. Germany swapped nuclear for coal and Russian gas and got worse climate outcomes and a war.',ai:'France took 40 years to build that fleet. You don\'t have 40 years. Solar plus storage delivers more carbon-displaced megawatt-hours per dollar by 2030 than any reactor breaking ground today. Nuclear is a great answer to the wrong decade.',judge:'Timeframe weighing.'},
-        {m:'Ban private jets.',you:'Private aviation is one percent of flights and ten percent of aviation emissions. There\'s no technological constraint forcing a single executive into a fourteen-seat jet they ride alone.',ai:'Ban them and the same passenger flies first-class commercial, which is only marginally cleaner per seat-mile. You\'ve optimized for symbolism, not carbon.',judge:'Counterfactual delta is small.'},
-        {m:'Plant-based meals default in public institutions.',you:'Schools, hospitals, and prisons feed thirty million Americans a day. Default-plant menus would cut their food-system emissions by 40% without a single private-choice intervention.',ai:'Hospitals and prisons feed populations with locked-in nutritional needs. Plant-by-default in a renal ward changes the medical risk profile. Schools work. The blanket policy doesn\'t.',judge:'Population heterogeneity.'},
-        {m:'Carbon tax with full dividend return.',you:'Tax at the source, rebate per capita. Income-progressive by construction, politically durable because every household gets a check.',ai:'Durable until the first quarter where the rebate is twenty dollars and the gas bill jumped a hundred. Voters experience the cost on the bill and the dividend as line-item invisible. British Columbia barely held the line.',judge:'Visibility asymmetry.'},
-        {m:'Block all new oil pipelines.',you:'Every pipeline locks in 40 years of throughput. You can\'t claim a net-zero target and approve infrastructure that only pays back at peak fossil consumption.',ai:'Block pipelines and you don\'t reduce throughput. You move it to rail. Rail is more carbon-intensive per barrel and an order of magnitude more accident-prone. Lac-Mégantic happened because the pipeline got blocked.',judge:'Substitute channel is dirtier.'},
-        {m:'Open research into solar geoengineering.',you:'Stratospheric aerosol injection costs about ten billion a year to offset a degree. Doing nothing locks in damages that dwarf that bill. Research is the cheap-option-of-last-resort.',ai:'Research-versus-deployment is the load-bearing distinction your case skips. Once SAI is deployment-ready, political pressure to use it instead of decarbonizing becomes the whole game. Moral hazard isn\'t a side effect. It\'s the main effect.',judge:'Moral hazard isn\'t priced in.'},
-        {m:'Mandate solar on every new home.',you:'California\'s mandate added about three percent to construction cost and cut residential grid load by a quarter. It paid back inside ten years on the homeowner\'s electric bill.',ai:'California has the sun. Mandate nationally and Minnesota homeowners eat a panel that produces a third the kilowatt-hours of a Phoenix install for the same upfront cost. The policy isn\'t national.',judge:'Geographic uniformity assumed.'},
-        {m:'Ban gas stoves in new construction.',you:'Indoor NO2 from gas cooking measurably raises childhood asthma. The fix is a wiring-code change. The objection is gas-industry talking points dressed up as kitchen preference.',ai:'The wiring change is for new builds. Existing homes still have gas appliances cycling for thirty more years. You\'ve solved the new-build margin while the legacy stock keeps cooking.',judge:'Stock vs. flow.'},
-        {m:'Phase out beef before 2040.',you:'Beef is the worst calorie-per-kilo of CO2 on the menu. A fifteen-year ramp is gentler than the climate timeline demands.',ai:'Phase out US beef and Brazil clears more Amazon to take the demand. You\'ve offshored the emission and made it worse, because grass-fed in Mato Grosso is a lot more carbon than feedlot in Nebraska.',judge:'Leakage to dirtier producer.'},
-        {m:'Legalize all drugs, regulate them.',you:'Portugal decriminalized in 2001. HIV transmission down 90%, overdose deaths halved, prison population dropped. We have the natural experiment.',ai:'Portugal decriminalized possession AND built treatment infrastructure that costs half its drug budget. The US has the legalization argument and zero appetite for the treatment-state half. Decouple them and you\'ve replicated Vancouver, not Lisbon.',judge:'Half the policy without the other half.'},
-        {m:'Universal single-payer healthcare.',you:'The US spends 17% of GDP for outcomes that lag every other rich country. Single-payer hands you the negotiating leverage to fix the pricing pathology.',ai:'Single-payer is one bargaining strategy. The UK has it and waits months for an MRI. Canada has it and exports its specialists. The cost story is real; the wait-list story doesn\'t fix itself by switching payers.',judge:'Quality dimension absent.'},
-        {m:'Ban direct-to-consumer pharma advertising.',you:'The US and New Zealand are the only countries that permit it. Prescriptions per capita don\'t track therapeutic need. They track ad spend.',ai:'Ban DTC and the marketing budget moves to physicians. Meals, conferences, sponsored CME. Same prescription drift, less consumer visibility. The honest fix is regulating physician-side influence, not muting the ads.',judge:'Ad spend will reallocate.'},
-        {m:'Mandatory annual mental health screening.',you:'Depression is undertreated because it\'s unscreened. A ninety-second PHQ-9 in your annual visit catches three quarters of major depressive episodes before crisis.',ai:'Catches them and routes them where? The wait for a non-cash-pay psychiatrist is six months. Screening without treatment capacity produces a population that knows it\'s depressed and can\'t get an appointment.',judge:'Detection without capacity.'},
-        {m:'Allow private insurance alongside a public system.',you:'Two-tier already exists everywhere. Banning private insurance just exports the rich to Mayo Singapore. Allow it and they pay twice.',ai:'They pay twice in theory. In practice they vote for the public system\'s defunding once they don\'t use it. Australia\'s Medicare popularity correlates inversely with private hospital uptake by suburb. The dual system erodes the public one over a generation.',judge:'Political erosion not priced.'},
-        {m:'Decriminalize sex work.',you:'Criminalization makes it impossible to report violence. New Zealand\'s 2003 decriminalization reduced workplace violence among sex workers by a measurable margin without increasing trafficking.',ai:'New Zealand\'s pre-existing welfare floor matters as much as the policy. Decriminalize without it and you\'ve removed the deterrent without giving anyone the option to leave. The country comparison is incomplete.',judge:'Welfare floor as confounder.'},
-        {m:'Ban tobacco for anyone born after 2010.',you:'New Zealand passed it. The progressive cohort ban is the only tobacco policy that actually phases the product out without punishing current addicts who can\'t quit on policy timing.',ai:'Two cohorts at the same counter is unenforceable. The 25-year-old and the 24-year-old standing in line don\'t pre-trigger the algorithm. New Zealand quietly repealed it for that reason. You\'ve imported the headline, not the outcome.',judge:'Enforcement model collapsed.'},
-        {m:'Calorie labels on alcohol.',you:'Every other consumer beverage discloses calories. Alcohol\'s exemption is a 1935 carve-out for the Treasury Department that never got updated.',ai:'Label them and the disclosure surface gets used by the producer to market low-calorie spirits as a health upgrade. The intervention raises consumption of the labeled product. UK trials replicated the effect.',judge:'Backfire from selective labeling.'},
-        {m:'Insurance must cover IVF.',you:'Infertility is a medical condition by the WHO definition. Twenty states cover IVF and their birth rates aren\'t anomalous. Their stress indicators are.',ai:'Coverage is a function of risk pool, not WHO definition. Add a high-cost low-utilization population to the average plan and median premiums rise about 0.5%. That\'s the trade. Worth taking; pretend it isn\'t and the policy loses credibility.',judge:'Cost shift not acknowledged.'},
-        {m:'Free university tuition.',you:'Germany, Norway, France. Free tuition with stronger outcome metrics on most college-completion measures than the US\'s debt-loaded system.',ai:'Germany funds it by tracking 60% of teenagers into vocational programs that aren\'t "university" at all. Copy the tuition without copying the tracking and you get every kid in a four-year program plus a debt bomb plus a shortage of welders.',judge:'Imported only the visible half.'},
-        {m:'Drop standardized tests from admissions.',you:'Tests measure tutoring access more than ability. Removing them widened the applicant pool and made composition more representative at the schools that piloted it.',ai:'Removed tests, the GPA arms race took over. Grade inflation at fee-paying private high schools climbed twice as fast as at public schools, restoring the same advantage. You moved the signal, the disparity follows it.',judge:'Signal substitution.'},
-        {m:'Mandatory civics test to vote.',you:'We require it of every new citizen. Asking the same of the existing electorate is consistent.',ai:'Consistent and immediately weaponized. Every literacy test in US history was "objective" on paper and selectively administered in practice. You can write the questions. You can\'t write the proctor.',judge:'Administration risk.'},
-        {m:'Replace homework with mastery exams.',you:'Homework completion correlates with parental help, not learning. Mastery checks measure what the student can do without backup at midnight.',ai:'Mastery checks measure what the student can do on test day, not what they can do over a sustained problem. You\'ve optimized for the artifact you can grade and lost the practice the homework was trying to build.',judge:'Measurement displaces practice.'},
-        {m:'Year-round school calendar.',you:'Summer learning loss is two to three months of math for kids without enrichment access. The agrarian calendar is a 19th-century artifact.',ai:'Year-round school assumes air-conditioned buildings. A third of US districts still don\'t have full AC. You\'ve kept poor districts in 95-degree classrooms in July to fix a learning loss caused by the wealth gap you didn\'t touch.',judge:'Infrastructure precondition.'},
-        {m:'Mandatory financial literacy before graduation.',you:'Households with a high school financial-lit course default on student loans at a measurably lower rate. The course is cheap. The cost of not running it is decades of bad compounding.',ai:'The studies don\'t control for selection. The kids whose districts adopted the course had stronger admin and better outcomes everywhere. The course is correlated with the school being functional, not with the curriculum. Roll it out alone and the effect attenuates.',judge:'Confounded by school quality.'},
-        {m:'Tie teacher pay to student outcomes.',you:'Every other profession ties compensation to performance. Education is the only labor market where the bottom-quartile producer and the top-quartile producer earn identical pay across a career.',ai:'Every other profession can measure output without it walking through the door each morning. Tie pay to outcomes and teachers compete to teach the easy kids. The kids who\'d most benefit from a good teacher become the kids no good teacher will accept.',judge:'Selection bias by educator.'},
-        {m:'Mandate one non-English language in schools.',you:'Bilingualism is statistically associated with stronger executive function and ten percent higher lifetime earnings. The cost is zero beyond the existing language teacher.',ai:'"Existing language teacher" is the load-bearing assumption. Rural districts don\'t have one. Mandate the requirement without funding the supply and you\'ve made certified bilingual teachers the most expensive labor market in the country, sourced from suburbs that already had it.',judge:'Supply-side ignored.'},
-        {m:'Abolish cash bail.',you:'Cash bail criminalizes poverty. New Jersey ran the experiment in 2017. Failure-to-appear rates didn\'t move; pre-trial detention dropped 40%.',ai:'New Jersey paired it with a state-funded risk-assessment infrastructure that costs thirty million a year. Abolish the bail without the assessment and you\'ve replaced money discretion with judicial gut. The discretion goes underground. The bias doesn\'t.',judge:'Missing replacement infrastructure.'},
-        {m:'Mandatory police body cameras nationwide.',you:'Independent body-cam studies show a 60% drop in use-of-force complaints. The cost is half a percent of the average department budget.',ai:'60% drop in complaints. Not in force. The drop is partly officer behavior change and partly civilian deterrence. The citizen knows the camera will show their part too. You\'ve measured the proxy, not the harm.',judge:'Wrong outcome measured.'},
-        {m:'End qualified immunity.',you:'Qualified immunity is a judge-made doctrine, not a constitutional one. It shields officers from civil suits for clearly avoidable harms. No other profession gets that shield.',ai:'Doctors get it through malpractice caps. Soldiers get it through Feres. The qualified immunity debate works only if you grant officers the comparative privilege you\'re denying. The comparison cases all have similar shields.',judge:'Frame undercut.'},
-        {m:'Decriminalize all simple possession.',you:'Possession-only arrests fill 20% of state prison admissions. None of those admissions correlate with reduced future use.',ai:'Decriminalize possession and you\'ve left the supply chain intact, which means the violence around supply doesn\'t move. Mexico and Honduras don\'t get safer. The consumer just doesn\'t get charged. The policy is a half-step.',judge:'Supply-side unaddressed.'},
-        {m:'Restore voting rights for incarcerated people.',you:'Maine and Vermont do it. There\'s no measurable corruption of their elections. The bar is a vague invocation of civic-trust that doesn\'t survive empirical contact.',ai:'Maine and Vermont have small, demographically homogeneous prison populations. Apply the rule to Texas or Florida and the politics of who runs prisons becomes the politics of who runs the state. Argument is fine. Replication is the hard part.',judge:'Sample size insufficient.'},
-        {m:'Cap police union political donations.',you:'Police unions are the largest single category of state-level donor to candidates who oppose oversight bills. The conflict of interest is structural.',ai:'Cap the union and the same dollars flow through individual officers, retired-officer PACs, or vendor PACs. You\'ve capped the wrapper, not the spend. The honest fix is donor transparency for public-safety-adjacent giving.',judge:'Vehicle, not volume.'},
-        {m:'Rehab over prison for non-violent offenses.',you:'Norway\'s recidivism is 20%. Ours is 70%. The Norwegian system is more expensive per inmate per year and cheaper per inmate over a lifetime.',ai:'Norway\'s incoming cohort is also a fundamentally different distribution. Adjusted for offense composition and pre-incarceration income, the rehab-vs-prison delta narrows considerably. The argument works; the magnitude is overstated.',judge:'Effect-size inflation.'},
-        {m:'Ranked-choice voting nationwide.',you:'Maine and Alaska adopted RCV and saw more moderate winners on average without third-party spoiler dynamics. Two-party lock dissolves where it\'s been tried.',ai:'Maine and Alaska are small. NYC tried RCV at the mayoral primary scale and produced ballot-error rates near 5% in the first cycle. RCV at federal scale runs straight into ballot literacy.',judge:'Scaling friction.'},
-        {m:'Lower the voting age to 16.',you:'16-year-olds work, pay taxes, drive. Austria, Scotland, Argentina lowered it and turnout among first-time voters rose.',ai:'Austria\'s turnout bump faded by the second election they were eligible for. Long-run engagement looks identical to 18-and-up cohorts. You\'ve imported the headline trial result; the steady state matches what we already have.',judge:'Short vs. long-run effect.'},
-        {m:'Mandatory paper ballots.',you:'Hand-marked paper is the only ballot format that survives a recount and a court challenge with full evidentiary weight.',ai:'Hand-marked also takes three weeks to count in a 50-million-vote state. The recount integrity you\'re buying is paid for in the legitimacy crisis between election night and the certified result. Both options have costs.',judge:'Tradeoff in timing.'},
-        {m:'Public funding for all federal campaigns.',you:'Public funding decouples a candidate from the donor class. The Senate today raises about half its money from out-of-state donors who can\'t even vote for the seat.',ai:'Public funding without donor caps doesn\'t decouple. The candidate takes the stipend and the dark-money PAC outspends them three to one anyway. The Citizens United era requires the cap and the funding; either alone is theater.',judge:'Half-policy.'},
-        {m:'18-year term limits for the Supreme Court.',you:'Eighteen-year terms with staggered appointments give every president exactly two seats. No more strategic retirements timed to the actuarial table.',ai:'Strategic retirement moves to strategic appointment timing. The president who knows their two seats are coming starts vetting at three. The pathology shifts upstream. The fix has to be a single-term mechanism, not a calendar trick.',judge:'Pathology shifts upstream.'},
-        {m:'Open primaries everywhere.',you:'Closed primaries elect candidates who cater to the base. The median voter never weighs in until November. Open the gate and the general election runner-up is competitive.',ai:'Open primaries also let opposition voters cross-vote to elect the weakest candidate of the other party. California\'s jungle primary has produced exactly that outcome in House races since 2012. Strategy doesn\'t disappear. It changes hands.',judge:'Strategic voting still possible.'},
-        {m:'A right to be forgotten online.',you:'The EU\'s right to delisting has resulted in millions of legitimate removals. Old debts, expunged records, retracted articles. The objection is convenience for search engines.',ai:'The same procedure delists journalism. Investigative pieces about corrupt officials. Public-figure malfeasance. Google adjudicates without a journalist in the room. You\'ve privatized the editorial decision to whoever filed the form.',judge:'Adjudication mechanism.'},
-        {m:'Ban anonymous social media accounts.',you:'Anonymity protects the harasser more than the dissident. The harassment volume on de-anonymized platforms is measurably lower.',ai:'Anonymity protects every dissident in a country that doesn\'t have the First Amendment. Ban it and US platforms become unusable for the Iranian, Russian, Chinese user. The downstream effect is them moving to platforms with weaker speech protections.',judge:'Externality on non-US users.'},
-        {m:'Recognize Taiwan officially.',you:'Strategic ambiguity has run its course. The PLA reads ambiguity as time, and time is what they need.',ai:'Strategic ambiguity is what\'s kept the Taiwan Strait at zero combat deaths for 50 years. Recognize Taiwan and Beijing\'s domestic political pricing of invasion drops because the cost has already been paid. You don\'t end ambiguity. You cash it in.',judge:'Deterrent value of the status quo.'},
-        {m:'Withdraw from NATO.',you:'European GDP is eleven times Russia\'s. Continental defense is not a budget question. It\'s a political one. US withdrawal forces the EU to solve the political one.',ai:'Forces the EU to solve it under the threat that bought us five decades of stability. The transition years are precisely when miscalculation happens. If you\'re going to test this proposition, you don\'t test it during a hot war in the theater.',judge:'Bad timing.'},
-        {m:'Make UN Security Council seats rotational.',you:'The 1945 settlement has zero claim on a 21st-century legitimacy floor. India isn\'t a member; Britain is. Either the legitimacy story is real or it\'s not.',ai:'Rotation gives the worst actor of the year a veto over the worst response. The current structure is broken. The alternative you\'re proposing is worse on the metric that matters when it matters.',judge:'Worst-case access matters more.'},
-        {m:'Lift all sanctions on Cuba.',you:'Sixty years of embargo has produced no measurable regime change and a permanent humanitarian floor. Vietnam, China, both running similar regimes, both unsanctioned, both wealthier.',ai:'Vietnam and China didn\'t lift sanctions and turn democratic. They liberalized economically and tightened politically. Lift Cuba\'s embargo and you get the Vietnam ending. A richer authoritarian state. Argue for it on its merits, not as a democracy lever.',judge:'Wrong theory of change.'},
-        {m:'Uncap high-skilled immigration.',you:'H-1B caps haven\'t risen since 2005. The US trains the world\'s best PhDs and watches them go home because we won\'t let them stay.',ai:'Uncap H-1B and the US wage floor for the affected occupations drops. Big Tech captures the surplus. The existing American engineer trains the replacement. The Indian engineer wins, the firm wins, the median US worker breaks even at best.',judge:'Distribution at home.'},
-        {m:'Ban dual citizenship for federal officials.',you:'Cabinet officials with second passports have, by definition, a competing loyalty in extremis. The bar can be set without it implying disloyalty.',ai:'Bar dual citizenship for cabinet and you\'ve excluded almost every Asian-American and Hispanic-American candidate whose home country doesn\'t allow renunciation without paperwork that takes a year. The bar is a sieve with national-origin holes.',judge:'Disparate impact.'},
-        {m:'Mandatory humanitarian intervention threshold.',you:'Rwanda happened because there was no rule. A 10,000-civilian-death threshold with mandatory UNSC action eliminates the political-courage gap.',ai:'Define 10,000 and you\'ve defined the floor that aggressors stay below. Russia in Chechnya, China in Xinjiang. None would trigger. The rule wouldn\'t have caught Rwanda either, because the speed of the killing outpaced verification.',judge:'Threshold weaponized.'},
-        {m:'Recognize Western Sahara as independent.',you:'Forty-five years of UN-mandated referendum, none held. Spain abandoned its colony. Morocco filled the vacuum. The international rule is consistent only if you apply it.',ai:'Recognition without a security guarantor is symbolic. The Polisario has run a refugee camp for two generations. Recognition doesn\'t put a road in. The substantive move is the referendum, which Morocco vetoes. Recognition skips that fight.',judge:'Symbolic vs. operational.'},
-        {m:'End single-family zoning nationally.',you:'Half of urban US residential land is single-family zoned by exclusionary ordinance. Repeal in Minneapolis dropped median rent growth in two years.',ai:'Minneapolis dropped construction approvals not just rent. The interventions confound. The clean experiments, Auckland and parts of Oregon, show zero to two percent median rent improvement over five years. The headline is real. The magnitude is small.',judge:'Effect size overstated.'},
-        {m:'Universal rent control.',you:'St. Paul, Berlin, Stockholm. Sitting tenants protected. The objection is a long-run argument made against an immediate harm.',ai:'Long-run is also when the kid born today rents their first apartment. Stockholm\'s wait list is twenty years. You haven\'t traded short for long. You\'ve traded today\'s tenant for tomorrow\'s, and tomorrow\'s tenant isn\'t in the room.',judge:'Intertemporal incidence.'},
-        {m:'Tax vacant homes at 10x the standard rate.',you:'Vancouver\'s vacancy tax produced 1,500 new listings in the first year. The mechanism works because holding cost outruns appreciation expectation.',ai:'Vancouver\'s 1,500 listings is also the number of homes whose owners filed false self-certifications, because the audit rate is two percent. The tax works on paper. The enforcement budget hasn\'t shipped.',judge:'Enforcement gap.'},
-        {m:'Ban short-term rentals in tight housing markets.',you:'Barcelona, Berlin, NYC all moved on STRs and saw measurable supply return to long-term lease within six months.',ai:'And measurable hotel-rate spikes simultaneously. The supply that returned was the marginal STR with the worst hotel substitution. The top end stayed on Airbnb illegally. You\'ve fixed half the market and made the tourist economy more expensive.',judge:'Substitute market priced up.'},
-        {m:'Missing-middle housing on every block.',you:'Duplexes, triplexes, fourplexes were the standard urban building type for a century before exclusionary zoning. The legal vehicle exists. It just needs to be turned back on.',ai:'Turning the legal vehicle back on doesn\'t build the buildings. The cost gap between a single-family teardown and a fourplex build is funded by lenders who currently won\'t lend on the second one. Zoning is necessary. Financing reform is the actual lever.',judge:'Capital pipeline missing.'},
-        {m:'Twelve months paid parental leave, split mandatory.',you:'Sweden\'s 60/40 split moved the household labor division measurably toward parity in the cohort that took it. Biology doesn\'t dictate the labor split. The leave structure does.',ai:'Sweden\'s split also raised the firing rate of female employees in the years before the leave was taken, because employers priced in the eventual interruption. The discrimination shifted earlier. The household equity gain came at a hiring-market cost.',judge:'Earlier-stage discrimination.'},
-        {m:'Cap childcare cost at 7% of household income.',you:'OECD recommended the 7% benchmark in 2010. Quebec\'s five-dollar-a-day daycare added a percent to female labor force participation and paid for itself in tax revenue.',ai:'Quebec\'s daycare quality is documented to be lower than the unsubsidized market average. Staffing ratios, turnover, language outcomes. Cheap and universal turned out to mean rationed quality. The cost objection is a quality objection.',judge:'Quality dimension.'},
-        {m:'Use-it-or-lose-it parental leave weeks.',you:'Tying leave to a parent\'s gender encodes the assumption it\'s trying to fix. Use-it-or-lose-it weeks for each parent doubles the policy effect.',ai:'Use-it-or-lose-it is what works. Pure neutrality without earmarks just lets the household optimize for whichever parent earns less, which is still the woman in most cases. The "neutral" policy reinforces the gap by silently choosing for them.',judge:'Default-revealing policy.'},
-        {m:'Mandatory dating-app age verification.',you:'Underage users on Tinder and Bumble account for a documented portion of grooming reports. ID verification is technically trivial.',ai:'Trivial in code, not in privacy. You\'ve handed Match Group every adult\'s government ID in a vertical with one of the highest sensitive-data breach rates in tech. The harm targeted is real. The data harvest from solving it scales worse.',judge:'Solution surface is the new harm.'},
-        {m:'Ban beauty filters on minors\' accounts.',you:'Filtered self-images correlate with body dysmorphia outcomes that didn\'t exist as a clinical category before the smartphone. The harm is well-mapped.',ai:'Account-level age is unreliable. Minors lie. The platform-side answer is detection, which requires biometric inference, which exceeds the consent model. The policy lands somewhere between unenforceable and intrusive.',judge:'Enforceability vs. intrusion.'},
-        {m:'Mandatory national service, any form.',you:'Switzerland, South Korea, Israel. Service builds civic cohesion and a labor surplus for low-margin public work that no market will price.',ai:'All three sit next to a live military threat. National service in the absence of that pressure becomes a make-work program with an army-shaped option, and most conscripts choose the non-military path, which is AmeriCorps with a draft notice.',judge:'Missing precondition.'},
-        {m:'Ban autonomous weapons.',you:'A machine targeting a human is a category we\'ve never released. Once we do, deniability scales. Accountability doesn\'t.',ai:'We released it in 1991 with cruise-missile inertial targeting. Every modern Tomahawk picks its terminal aim without a human in the loop. The autonomous-weapons treaty regime targets a category that already exists and arrived without the treaty.',judge:'Category already deployed.'},
-        {m:'Tax arms exports at 50%.',you:'Half the world\'s small arms come from a handful of NATO members. A high export tax internalizes the externality that ends up on the news in a different country.',ai:'Tax the export and the manufacturer offshores. Sig Sauer becomes Sig Sauer Czechia in three years, and the tax base is zero. You\'ve moved the production. The externality is identical.',judge:'Offshoring response.'},
-        {m:'Judicial approval for every drone strike.',you:'FISA-style oversight for kinetic actions catches the systematic mistake before it becomes the press release. The objection, slowness, was never the constraint on accuracy.',ai:'FISA approves 99% of applications. Wrapping drone strikes in the same process is procedural confidence theater. The real fix is a strike-by-strike Article III check, which the executive will not concede and the court will not accept.',judge:'Wrong oversight body modeled.'},
-        {m:'No troop deployment without a Congressional declaration.',you:'The 1973 War Powers Resolution is honored by no president of either party. Restating it isn\'t redundant. It\'s overdue.',ai:'Restating it isn\'t binding either. The constitutional fix is denying funding for the deployment, which Congress already has and won\'t use. The procedural rule maps the political failure. It doesn\'t fix it.',judge:'Wrong instrument.'},
-        {m:'Ban tackle football under 14.',you:'CTE markers correlate with cumulative subconcussive exposure, not concussion count. Every year of youth tackle is the highest-risk window the NIH has on the curve.',ai:'Ban youth tackle and the same kids show up for high school football having missed the technique-teaching years. The first hit they take at fourteen is from a teammate who started in eighth grade. The hazard moves. The population doesn\'t change.',judge:'Risk shift, not reduction.'},
-        {m:'Salary cap across every pro league.',you:'Caps in the NFL and NBA produce more competitive league outcomes than the unguarded payrolls of MLB or European football. The fan experience is better when the floor and ceiling are close.',ai:'Better in standings, worse in elite outcomes. The European model produces objectively higher-skill ceilings because it pays for them. Capping La Liga gives you NFL parity and an inferior product on the pitch.',judge:'Excellence dimension.'},
-        {m:'Public arts funding ahead of public sports funding.',you:'Public sports funding subsidizes franchise owners. Public arts funding hits artists. The ROI on community-impact metrics isn\'t close.',ai:'Public arts funding hits arts administrators first, artists second. The ratio of grant recipients to performing artists in NEA filings is roughly one to six. The infrastructure point of capture differs. The rent-seeking doesn\'t disappear.',judge:'Different capture, same problem.'},
-        {m:'Outlaw college athletic scholarships.',you:'Athletic scholarships have inflated higher-ed cost by funding the most expensive non-academic infrastructure on any campus. Remove them and the building footprint deflates.',ai:'The building footprint is funded by athletic-department revenue from football and basketball, not from instruction. Strip the scholarships and you\'ve removed the access point to college for a population that wasn\'t otherwise getting in.',judge:'Pipeline harm.'},
-        {m:'Pay NCAA athletes like employees.',you:'Eighty-billion-dollar industry. Player labor is the input that produces the revenue. Every other revenue-producing labor in the country has a wage.',ai:'Pay the football team like employees and you\'ve blown a hole in Title IX, because the volleyball team isn\'t producing equal revenue, and equal pay would crater both programs. The wage question and the access question are coupled in a way the case doesn\'t address.',judge:'Title IX coupling.'},
-        {m:'Tax space tourism.',you:'Suborbital tourism emits more carbon per passenger than a year of household electricity. The externality price for the launch isn\'t paid by the launcher.',ai:'Tax it and the marginal customer pays. The fixed cost per launch is dominant. SpaceX runs Starlink resupply on the same rocket. You\'ve taxed the entertainment use of a vehicle that\'s also the only path to satellite internet outside the OECD.',judge:'Joint-use externality.'},
-        {m:'Public ownership of GPT-class models.',you:'Frontier models are the most general-purpose technology since electricity. Three private firms shouldn\'t own the only access road.',ai:'Public ownership gets you the model the public sector can hire. The public sector can\'t hire frontier ML researchers at compensation parity. Britain\'s BritGPT pilot was abandoned for exactly that reason. You don\'t own the model. You own the empty datacenter.',judge:'Labor market constraint.'},
-        {m:'Mandatory pre-registration for grant-funded science.',you:'The reproducibility crisis is real. Mandatory pre-registration plus open data plus replication funding fixes the publication-side incentives that cause it.',ai:'Pre-registration was tried in psych and clinical trials. Practitioners ran the registered protocol and then published exploratory analyses separately. Compliance happened. The underlying behavior didn\'t move. The fix is the journal incentive, not the registration.',judge:'Compliance without behavior change.'},
-        {m:'Open-access laws for publicly funded research.',you:'Taxpayer-funded research locked behind paywalls is a closed-loop transfer to academic publishers. Plan S in Europe forced the change without breaking the field.',ai:'Plan S also shifted the cost from subscription to article-processing charges, paid by the author\'s grant. The publisher captures the same rent in a different invoice. Open access happened. The transfer didn\'t end.',judge:'Rent capture shifted upstream.'},
-        {m:'Pay people to have children.',you:'Hungary\'s fertility-incentive package raised the TFR by about 0.2 in ten years. Korea spent half that on housing and saw no movement. The lever is direct cash.',ai:'Hungary\'s gain was concentrated in cohorts that were going to have a third child anyway. The marginal kid the cash supposedly bought was the policy artifact. The kids who didn\'t get born weren\'t budget-constrained. The lever moved a number that wasn\'t the one you cared about.',judge:'Marginal vs. inframarginal.'},
-        {m:'Mandatory crypto-asset reporting.',you:'Every crypto trade is reportable as a capital event. The reporting infrastructure simply doesn\'t exist. The IRS gets a fraction of one percent of taxable transactions.',ai:'Mandate it and exchanges with US customers comply. Mixers and DeFi don\'t, because they have no entity to compel. You\'ve raised the cost of legal participation while leaving the evasion lane intact. The revenue closes by less than the compliance bill.',judge:'Targets compliant only.'},
-        {m:'Ban cosmetic surgery on minors.',you:'A Brazilian butt lift on a 17-year-old is a procedure undertaken on a brain that\'s not finished. The decision should not be available at that stage.',ai:'The "cosmetic" category is doing a lot of work. Reconstructive after burn injury, gender-affirming care, cleft-palate repair. All coded cosmetic in some jurisdictions. The ban without a definitional surgery is a pass-the-buck to the same surgeon under a different code.',judge:'Definitional surface too wide.'},
-        {m:'Right to delete data on every platform.',you:'GDPR\'s right to erasure works as intended in the EU. The technical objection, backups and archives, was solved in 2018 and hasn\'t blocked compliance.',ai:'Solved by the largest platforms with compliance teams. The bottom 90% of GDPR-eligible operators implement deletion by tombstoning the record, not removing it. The legal right exists. The technical implementation across the long tail is performative. Replicate it outside the EU and you multiply the long tail.',judge:'Implementation skew.'}
-      ];
-      var youEl=document.getElementById('editorialRebuttalYou');
-      var aiEl=document.getElementById('editorialRebuttalAi');
-      var motionEl=document.getElementById('editorialRebuttalMotion');
-      var judgeEl=document.getElementById('editorialRebuttalJudge');
-      var card=document.getElementById('editorialRebuttalCard');
-      if(!youEl||!aiEl||!card) return;
-      /* Always lead with the meat/alcohol motion on first render — it's
-         the cleanest illustration of "AI catches a flaw you didn't
-         spot." Subsequent cycles rotate randomly through the rest. */
-      var idx=0;
-      var fadeMs=260;
-      function setFade(el,on){
-        if(!el)return;
-        el.style.transition='opacity .26s ease';
-        el.style.opacity=on?'1':'0';
-      }
-      function type(el,text,speed,useEditorialCursor){
-        return new Promise(function(res){
-          if(!el){res();return}
-          el.textContent='';
-          el.classList.add(useEditorialCursor?'rebuttal-typing':'beta-msg-typing');
-          el.style.opacity='1';
-          var i=0;(function step(){
-            if(i<=text.length){el.textContent=text.slice(0,i);i++;setTimeout(step,speed)}
-            else{el.classList.remove(useEditorialCursor?'rebuttal-typing':'beta-msg-typing');res()}
-          })();
-        });
-      }
-      function pause(ms){return new Promise(function(r){setTimeout(r,ms)})}
-      async function loop(){
-        var useEditorialCursor=!!judgeEl;
-        /* If the card was server-rendered with the lead motion prepopulated
-           (data-rebuttal-prepop="1"), skip the type sequence on the first
-           iteration — the user already sees a complete exchange. Just hold
-           the static state for the dwell period, then start swapping. */
-        var skipFirstType = card && card.getAttribute('data-rebuttal-prepop') === '1';
-        var firstIteration = true;
-        while(true){
-          var cur=motions[idx%motions.length];
-          if (skipFirstType && firstIteration) {
-            /* Holding the prepopulated state — don't touch DOM, just sleep
-               a bit longer than the normal dwell so visitors can actually
-               read it before it animates away. */
-            await pause(5500);
-            firstIteration = false;
-          } else {
-            if(motionEl)motionEl.textContent=cur.m;
-            youEl.textContent='';aiEl.textContent='';
-            if(judgeEl){judgeEl.textContent='';setFade(judgeEl,false)}
-            await pause(280);
-            await type(youEl,cur.you,9,useEditorialCursor);
-            await pause(420);
-            await type(aiEl,cur.ai,8,useEditorialCursor);
-            if(judgeEl){
-              await pause(360);
-              setFade(judgeEl,true);
-              judgeEl.textContent=cur.judge||'';
-            }
-            await pause(4200);
-          }
-          /* Random next motion, never repeat the one we just showed. */
-          var next;do{next=Math.floor(Math.random()*motions.length)}while(motions.length>1&&next===idx%motions.length);
-          idx=next;
-        }
-      }
-      var started=false;
-      if(card&&window.IntersectionObserver){
-        var io=new IntersectionObserver(function(entries){
-          entries.forEach(function(e){if(e.isIntersecting&&!started){started=true;loop();io.disconnect()}});
-        },{threshold:.15});
-        io.observe(card);
-      } else {
-        started=true;loop();
-      }
-    })();
 
     /* Hero orb animation — ports the canvas waveform-aurora from
        voice-debate.html and feeds it a synthetic "breath" level loop
