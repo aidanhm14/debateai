@@ -5,8 +5,28 @@ let db = null;
 export function getDb() {
   if (db) return db;
 
+  // Prefer split vars (GOOGLE_PROJECT_ID / GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY).
+  // The full-JSON GOOGLE_SERVICE_ACCOUNT blob pushed the total Lambda env over
+  // AWS's 4KB ceiling once OPENROUTER_API_KEY + DEEPSEEK_API_KEY landed, so the
+  // split form is the supported path. Falls back to the JSON blob for legacy.
+  const projectId = process.env.GOOGLE_PROJECT_ID;
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  const rawKey = process.env.GOOGLE_PRIVATE_KEY;
+
+  if (projectId && clientEmail && rawKey) {
+    // Netlify dashboard turns literal newlines into `\n` on save — normalize.
+    const privateKey = rawKey.replace(/\\n/g, '\n');
+    db = new Firestore({
+      projectId,
+      credentials: { client_email: clientEmail, private_key: privateKey },
+    });
+    return db;
+  }
+
   const serviceAccount = process.env.GOOGLE_SERVICE_ACCOUNT;
-  if (!serviceAccount) throw new Error('GOOGLE_SERVICE_ACCOUNT not configured');
+  if (!serviceAccount) {
+    throw new Error('Firestore credentials not configured. Set GOOGLE_PROJECT_ID + GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY (preferred) or GOOGLE_SERVICE_ACCOUNT (legacy).');
+  }
 
   let creds;
   try {
