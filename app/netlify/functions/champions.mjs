@@ -1,7 +1,7 @@
 // /champions — Friday Night Finals roll of honor.
 //
 // Cult-build surface: every Friday Night Final winner pins here
-// permanently. Empty-state today (Final #1 = Fri 30 May 2026), grows
+// permanently. Empty-state today (Final #1 = Fri 26 Jun 2026), grows
 // as winners land. Same shape + SEO posture as /today and /rounds —
 // server-rendered, edge-cached, indexable.
 //
@@ -92,7 +92,7 @@ function prettyDate(d) {
 // the next bracket lands.
 const NEXT_FINAL = {
   number: 1,
-  date: 'Friday, May 30, 2026',
+  date: 'Friday, June 26, 2026',
   time: '8:30 PM ET / 5:30 AM IST Sat',
   format: 'APDA 1v1, impromptu, 8 minutes per side',
   discordUrl: 'https://discord.gg/2dcFV2frM',
