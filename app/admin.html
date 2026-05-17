@@ -143,6 +143,20 @@
     </div>
   </div>
 
+  <!-- Round-complete funnel + Fix #3 stuck-speech telemetry -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Round-complete funnel</span>
+        <div class="tabs" id="funnel-tabs">
+          <button class="tab" data-funnel-days="7" aria-pressed="true">7d</button>
+          <button class="tab" data-funnel-days="30" aria-pressed="false">30d</button>
+        </div>
+      </div>
+      <div id="funnel-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Event breakdown + top features -->
   <div class="grid-2 section">
     <div class="card">
@@ -376,9 +390,10 @@
       render(cachedData);
       loading.hidden = true;
       appEl.hidden = false;
-      // Fire-and-forget: subscribers load independently so analytics render
-      // isn't blocked if the email_signups pull is slow.
+      // Fire-and-forget: subscribers + funnel load independently so the
+      // main analytics render isn't blocked if either pull is slow.
       loadSubscribers().catch(err => console.warn('subscribers:', err.message));
+      loadFunnel(funnelDays).catch(err => console.warn('funnel:', err.message));
     } catch (e) {
       loading.hidden = true;
       appEl.hidden = false;
@@ -812,6 +827,51 @@
       document.querySelectorAll('#range-tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
       currentRange = t.dataset.range;
       if (cachedData) drawActivityChart(currentRange);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // Round-complete funnel + Fix #3 telemetry. Reads /api/admin/funnel.
+  // ─────────────────────────────────────────────────────────
+  let funnelDays = 7;
+  async function loadFunnel(days) {
+    funnelDays = days || funnelDays;
+    const body = $('funnel-body');
+    body.textContent = 'Loading…';
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch('/api/admin/funnel?days=' + funnelDays, {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!r.ok) throw new Error('API ' + r.status);
+      const d = await r.json();
+      const fmt3 = d.fix3StuckSpeech || {};
+      const fmtRows = (obj) => {
+        const entries = Object.entries(obj || {}).sort((a, b) => b[1] - a[1]);
+        return entries.length ? entries.map(([k, v]) => k + ' ' + fmt(v)).join(' · ') : '—';
+      };
+      body.innerHTML =
+        '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px">' +
+          '<div><strong style="font-size:18px;color:var(--fg)">' + (d.completionRatePct == null ? '—' : d.completionRatePct + '%') + '</strong>' +
+          '<div class="meta">round-complete (' + fmt(d.completes) + ' / ' + fmt(d.starts && d.starts.canonical) + ')</div></div>' +
+          '<div><strong style="font-size:18px;color:var(--fg)">' + (d.userCompletionRatePct == null ? '—' : d.userCompletionRatePct + '%') + '</strong>' +
+          '<div class="meta">user-weighted (' + fmt(d.uniqueCompleters) + ' / ' + fmt(d.uniqueStarters) + ' uids)</div></div>' +
+          '<div><strong style="font-size:18px;color:var(--fg)">' + fmt(fmt3.shown) + '</strong>' +
+          '<div class="meta">Fix #3 banner shown · ' + fmt(fmt3.skipped) + ' skipped (' + (fmt3.skipRatePct == null ? '—' : fmt3.skipRatePct + '%') + ')</div></div>' +
+        '</div>' +
+        '<div class="meta">starts: server ' + fmt(d.starts && d.starts.battleStartedServer) + ' · gtag ' + fmt(d.starts && d.starts.gtagRoundStart) +
+        (d.sampled ? ' · ⚠ sampled (capped at ' + fmt(d.sampleSize) + ' events, ratio is real, counts are floored)' : '') +
+        '</div>' +
+        '<div class="meta" style="margin-top:8px"><strong>by format · starts:</strong> ' + fmtRows(d.byFormat && d.byFormat.starts) + '</div>' +
+        '<div class="meta"><strong>by format · completes:</strong> ' + fmtRows(d.byFormat && d.byFormat.completes) + '</div>';
+    } catch (e) {
+      body.innerHTML = '<div class="err-box">Funnel load failed: ' + (e.message || e) + '</div>';
+    }
+  }
+  document.querySelectorAll('#funnel-tabs .tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('#funnel-tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
+      loadFunnel(parseInt(t.dataset.funnelDays, 10) || 7);
     });
   });
 
