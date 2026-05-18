@@ -3867,6 +3867,135 @@ section.ui-section .ui-lede{
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
 
+<!-- Floating page TOC. Fades in once the user scrolls past the hero,
+     fades out near the footer. Hidden on tablets and phones — the
+     left-rail TOC only earns its pixels when there's actual screen
+     real estate beside the editorial column. Active section is
+     highlighted via IntersectionObserver scrollspy. -->
+<style>
+  .page-toc{
+    position:fixed;
+    left:24px;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:40;
+    width:172px;
+    padding:14px 0 14px 14px;
+    border-left:1px solid rgba(0,0,0,.10);
+    font-family:'Inter', system-ui, -apple-system, sans-serif;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .35s ease;
+    user-select:none;
+  }
+  .page-toc.is-visible{
+    opacity:1 !important;
+    pointer-events:auto;
+  }
+  [data-theme="dark"] .page-toc{border-left-color:rgba(255,255,255,.10)}
+  .page-toc-eyebrow{
+    font-size:.58rem;
+    font-weight:800;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:rgba(0,0,0,.42);
+    margin:0 0 12px;
+  }
+  [data-theme="dark"] .page-toc-eyebrow{color:rgba(255,255,255,.42)}
+  .page-toc-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .page-toc-list a{
+    display:block;
+    font-size:.78rem;
+    line-height:1.35;
+    color:rgba(0,0,0,.55);
+    text-decoration:none;
+    padding:4px 0 4px 10px;
+    margin-left:-15px;
+    border-left:2px solid transparent;
+    transition:color .2s, border-color .2s, padding-left .2s;
+  }
+  [data-theme="dark"] .page-toc-list a{color:rgba(255,255,255,.5)}
+  .page-toc-list a:hover{
+    color:#1a1a1f;
+    border-left-color:#ef4444;
+    padding-left:14px;
+  }
+  [data-theme="dark"] .page-toc-list a:hover{color:#fff}
+  .page-toc-list a.is-active{
+    color:#1a1a1f;
+    font-weight:600;
+    border-left-color:#ef4444;
+  }
+  [data-theme="dark"] .page-toc-list a.is-active{color:#fff}
+  @media (max-width:1180px){
+    .page-toc{display:none}
+  }
+</style>
+<nav class="page-toc" aria-label="Page sections">
+  <p class="page-toc-eyebrow">On this page</p>
+  <ul class="page-toc-list">
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#live-proof">Voice round</a></li>
+    <li><a href="#spar">Spar</a></li>
+    <li><a href="#debate-ai">Engine</a></li>
+    <li><a href="#tools">Tools</a></li>
+    <li><a href="#philosophy">Philosophy</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#story">Why this exists</a></li>
+    <li><a href="#careers">Careers</a></li>
+  </ul>
+</nav>
+<script>
+(function(){
+  function init(){
+    var toc = document.querySelector('.page-toc');
+    if (!toc) return;
+    var links = Array.prototype.slice.call(toc.querySelectorAll('a'));
+    var sections = links.map(function(a){
+      try { return document.querySelector(a.getAttribute('href')); }
+      catch(e){ return null; }
+    }).filter(Boolean);
+
+    function updateVisibility(){
+      var y = window.scrollY || window.pageYOffset;
+      var h = window.innerHeight;
+      var doc = document.documentElement.scrollHeight;
+      var nearTop = y < h * 0.55;
+      var nearBottom = (y + h) > (doc - 240);
+      toc.classList.toggle('is-visible', !nearTop && !nearBottom);
+    }
+    window.addEventListener('scroll', updateVisibility, { passive:true });
+    window.addEventListener('resize', updateVisibility, { passive:true });
+    updateVisibility();
+
+    if ('IntersectionObserver' in window) {
+      var spy = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if (!e.isIntersecting) return;
+          var id = e.target.id;
+          links.forEach(function(a){
+            a.classList.toggle('is-active', a.getAttribute('href') === '#' + id);
+          });
+        });
+      }, { rootMargin: '-35% 0px -55% 0px', threshold: 0 });
+      sections.forEach(function(s){ spy.observe(s); });
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once:true });
+  } else {
+    init();
+  }
+})();
+</script>
+
 <!-- ── First-visit intro modal (2026-05-18). Page loads, the orb does
      a quiet breath animation for ~1.2s, then this overlay fades in
      with a sign-in-with-Google CTA + a 'continue as guest' bail-out.
@@ -5247,7 +5376,7 @@ section.ui-section .ui-lede{
     .encyclopediaArticle .articleInfobox .infobox-globe .hero-globe-canvas-wrap{max-width:320px}
   }
 </style>
-<section class="encyclopediaSection" aria-label="Overview of Debate AI">
+<section id="overview" class="encyclopediaSection" aria-label="Overview of Debate AI">
   <article class="encyclopediaArticle">
     <header class="articleHeader">
       <p class="articleKicker">Overview</p>
