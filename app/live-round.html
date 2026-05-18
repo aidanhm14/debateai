@@ -1210,9 +1210,62 @@ button{font-family:inherit}
     // already shown this index, so re-renders from snapshot updates
     // won't double-fire it.
     flashTurnOverlay();
+    // Auto-start countdown for turn handoffs. When the off-side becomes
+    // the active side mid-round (not the opener), count 3-2-1 then call
+    // startSpeechTimer which engages mic + clock — removes the dead-air
+    // beat between the previous End-speech and the new speaker actually
+    // being able to talk. Gated on: real two-player round (mySide set),
+    // not the first speech, autoMic pref on, mic supported, and ready
+    // state (the user hasn't already hit Start or paused). The token
+    // counter invalidates older countdowns when renderRound runs again.
+    scheduleAutoStart(myTurn, ms, spectator);
     // Sync the auto-mic toggle visibility/state — handles the case
     // where renderRound runs before the auto-mic init block.
     if (typeof syncAutoMicToggle === 'function') syncAutoMicToggle();
+  }
+
+  function scheduleAutoStart(myTurn, ms, spectator){
+    state.autoStartTokens = (state.autoStartTokens || 0) + 1;
+    var ok = state.phase === 'round'
+      && state.speechIdx > 0
+      && myTurn
+      && !!ms
+      && !spectator
+      && !!state.autoMic
+      && state.micSupport && state.micSupport.available
+      && state.timerState === 'ready';
+    if (!ok) return;
+    var myToken = state.autoStartTokens;
+    var hintEl = $('readyHint');
+    function tick(remaining){
+      if (state.autoStartTokens !== myToken) return;
+      if (state.phase !== 'round') return;
+      if (state.timerState !== 'ready') return;
+      if (!isMyTurn()) return;
+      if (remaining <= 0){
+        startSpeechTimer();
+        return;
+      }
+      if (hintEl){
+        hintEl.innerHTML =
+          '<strong>Your turn.</strong> Mic + clock engage in <strong>' +
+          remaining + '</strong>… ' +
+          '<button type="button" id="cancelAutoStartBtn" style="background:transparent;border:0;color:var(--amber);font-weight:700;font-size:.74rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:0 0 0 6px;text-decoration:underline;text-underline-offset:3px">Hold up</button>';
+        var cb = document.getElementById('cancelAutoStartBtn');
+        if (cb){
+          cb.addEventListener('click', function(){
+            state.autoStartTokens++;
+            if (hintEl){
+              hintEl.innerHTML = '<strong>Your turn.</strong> Hit <strong>▶ Start speech</strong> when you\'re ready.';
+            }
+          });
+        }
+      }
+      setTimeout(function(){ tick(remaining - 1); }, 1000);
+    }
+    // 800ms head-start so the turn-change overlay reveal doesn't step
+    // on the first countdown digit.
+    setTimeout(function(){ tick(3); }, 800);
   }
 
   function renderSequence(){
@@ -1228,6 +1281,46 @@ button{font-family:inherit}
     var txt = $('speechText').value.trim();
     var n = txt ? txt.split(/\s+/).length : 0;
     $('wordCount').textContent = n + ' word' + (n===1?'':'s');
+    // Active speaker also pushes the live transcript so the off-side
+    // (and any spectators) see the speech stream in as it's spoken,
+    // not just a static "their turn" hint. Debounced; only fires when
+    // the text actually changed so a 7-min speech caps at ~600 writes
+    // even with the mic chattering.
+    schedulePublishLiveTranscript();
+  }
+
+  // Debounced live-transcript publisher. Writes
+  // currentTranscript: { speechIdx, text, updatedAtMs } onto the round
+  // doc so the off-side snapshot listener can mirror it into the
+  // disabled textarea. Off-side gating lives in onRoundSnapshot — we
+  // always publish from the active side regardless of who's reading.
+  var _liveTranscriptTimer = null;
+  var _lastPublishedTranscript = '';
+  function schedulePublishLiveTranscript(){
+    if (_liveTranscriptTimer) return;
+    _liveTranscriptTimer = setTimeout(function(){
+      _liveTranscriptTimer = null;
+      publishLiveTranscript();
+    }, 750);
+  }
+  function publishLiveTranscript(){
+    if (isSpectator()) return;
+    if (!isMyTurn()) return;
+    if (state.phase !== 'round') return;
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    // Cap to 8000 chars. A 7-min speech is ~1000 words ≈ 6KB so this is
+    // generous; the cap exists only to defang a paste-bomb DOS.
+    var text = ($('speechText').value || '').slice(0, 8000);
+    if (text === _lastPublishedTranscript) return;
+    _lastPublishedTranscript = text;
+    ref.set({
+      currentTranscript: {
+        speechIdx: state.speechIdx,
+        text: text,
+        updatedAtMs: Date.now(),
+      },
+    }, { merge: true }).catch(function(){});
   }
 
   // ── Timer (ready → running ↔ paused → ended)
@@ -1594,11 +1687,17 @@ button{font-family:inherit}
     state.log.push(entry);
     state.speechIdx++;
     publishSpeech(entry);
-    // Clear the currentTimer mirror so the next speaker doesn't see
-    // the prior speech's elapsed value flash in for one snapshot tick
-    // before their own ready-state takes over.
+    // Clear the currentTimer + currentTranscript mirrors so the next
+    // speaker doesn't see the prior speech's elapsed value or transcript
+    // flash in for one snapshot tick before their own ready-state takes
+    // over.
     var ref = getRoundDocRef();
-    if (ref) ref.update({ currentTimer: firebase.firestore.FieldValue.delete() }).catch(function(){});
+    if (ref) ref.update({
+      currentTimer: firebase.firestore.FieldValue.delete(),
+      currentTranscript: firebase.firestore.FieldValue.delete(),
+    }).catch(function(){});
+    _lastPublishedTranscript = '';
+    if (_liveTranscriptTimer){ clearTimeout(_liveTranscriptTimer); _liveTranscriptTimer = null; }
     if (state.speechIdx >= f.speeches.length){
       finishRound();
     } else {
@@ -2606,6 +2705,26 @@ button{font-family:inherit}
     // active speaker owns its own timer locally.
     if (state.phase === 'round' && d.currentTimer && !isMyTurn()){
       applyRemoteTimer(d.currentTimer);
+    }
+
+    // Off-side live-transcript mirroring. The active speaker debounce-
+    // publishes their textarea contents; we paint it into our disabled
+    // textarea so the waiting side sees the speech stream in instead of
+    // staring at "Opponent is speaking." Gated on speechIdx match so a
+    // stale write from the prior speech can't land on our screen.
+    if (state.phase === 'round' && d.currentTranscript && !isMyTurn()
+        && d.currentTranscript.speechIdx === state.speechIdx){
+      var taMirror = $('speechText');
+      var remoteText = d.currentTranscript.text || '';
+      if (taMirror && taMirror.value !== remoteText){
+        taMirror.value = remoteText;
+        // updateWordCount also fires schedulePublishLiveTranscript, but
+        // publishLiveTranscript bails when !isMyTurn so the off-side
+        // can't echo it back into a loop.
+        var n = remoteText.trim() ? remoteText.trim().split(/\s+/).length : 0;
+        var wc = $('wordCount');
+        if (wc) wc.textContent = n + ' word' + (n===1?'':'s');
+      }
     }
 
     // Ballot pending — other side shows 'Ballot generating…' the
