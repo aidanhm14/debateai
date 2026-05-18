@@ -4208,14 +4208,28 @@ section.ui-section .ui-lede{
   [data-theme="light"] .fb-close:hover{background:rgba(0,0,0,.05)}
   .fb-iframe-wrap{
     flex:1 1 auto;
-    min-height:520px;
+    /* min-height tightened 520 → 460 so the modal doesn't render a
+       ~200px white void when the embedded Google Form has only a
+       few questions. Form scrolls internally if it grows. */
+    min-height:460px;
     background:#fff;
+    position:relative;
     overflow:hidden;
   }
   .fb-iframe-wrap iframe{
     width:100%;height:100%;
     border:0;display:block;
   }
+  /* Fallback shown below the iframe so users who hit an embed
+     failure (translated form, slow load, blocked third-party
+     cookies) always have a path to leave feedback. */
+  .fb-fallback{
+    padding:10px 18px;border-top:1px solid var(--border);
+    font-size:.74rem;color:var(--text-dim);text-align:center;
+  }
+  .fb-fallback a{color:var(--accent);font-weight:600;text-decoration:none}
+  .fb-fallback a:hover{text-decoration:underline;text-underline-offset:3px}
+  [data-theme="light"] .fb-fallback{color:rgba(0,0,0,.6)}
   .fb-foot{
     display:flex;justify-content:space-between;align-items:center;
     gap:14px;
@@ -4244,8 +4258,18 @@ section.ui-section .ui-lede{
     </div>
     <div class="fb-iframe-wrap">
       <!-- src is set on first open so we don't make a Google Forms
-           round-trip on every page load. -->
-      <iframe id="fbIframe" data-src="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform?embedded=true" title="Debate AI feedback form" loading="lazy"></iframe>
+           round-trip on every page load. hl=en forces the form's
+           Google chrome (the "sign in to save your progress"
+           notice, etc.) to render in English regardless of the
+           visitor's browser locale — without it, users with a
+           non-English Accept-Language header (~80% of our India
+           traffic in en-IN is fine, but es-* / pt-* / hi-IN
+           visitors got a Spanish/Portuguese/Hindi sign-in nag
+           that looked broken). -->
+      <iframe id="fbIframe" data-src="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform?embedded=true&hl=en" title="Debate AI feedback form" loading="lazy"></iframe>
+    </div>
+    <div class="fb-fallback">
+      Form not loading? Email <a href="mailto:feedback@debateai.com?subject=Debate%20AI%20feedback">feedback@debateai.com</a> directly, or <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform?hl=en" target="_blank" rel="noopener">open the form in a new tab</a>.
     </div>
     <div class="fb-foot">
       <span>Beta build. Every reply gets read.</span>
