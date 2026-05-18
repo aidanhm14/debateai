@@ -446,6 +446,445 @@ export const GUIDE_BANK = {
     ctaHref: '/voice-debate?mode=crossex&motion=Defend%20your%20methodology%20choices%20in%20your%20thesis.',
   },
 
+  'apda-opp-case': {
+    slug: 'apda-opp-case',
+    question: 'APDA opp case structure',
+    hook: 'The LOC is the round-defining speech for Opp. Concede one minor thing for credibility, attack the two strongest Gov contentions, build offense, set up your partner.',
+    format: 'apda',
+    formatName: 'APDA Parliamentary',
+    readTime: '6 min',
+    takeaways: [
+      "The LOC is not just rebuttal. It's case construction plus rebuttal, in 8 minutes.",
+      "Concede one trivial point in your first 20 seconds. It buys credibility for everything you attack next.",
+      "Pick two Gov contentions to actually fight. Trying to attack all four kills your time.",
+      "Build offense, not just defense. Pure negation cases lose more rounds than they win on APDA.",
+    ],
+    sections: [
+      {
+        heading: 'What the LOC actually does',
+        body: [
+          "The Leader of Opposition Constructive is the second speech in an APDA round. Eight minutes. You've heard the PMC and had its delivery time plus your own prep window to plan. The LOC has three jobs running in parallel: tear down what Gov built, build your own affirmative case, and pre-empt the rebuttal.",
+          "Most novice LOs run one of two bad strategies. Strategy one: pure rebuttal, no offense. You spend 8 minutes saying why Gov is wrong and the judge has no positive reason to vote Opp. Strategy two: pure counter-case, ignoring Gov. You spend 8 minutes building your own world and the PMC's case sits unattacked on the flow. Both lose.",
+          "The cleanest LOCs do both: 3-4 minutes of targeted attack on Gov's strongest 2 contentions, 3-4 minutes of Opp offense (counter-narrative, alternative actor analysis, or a counter-prop), and 30 seconds of weighing setup.",
+        ],
+      },
+      {
+        heading: 'The opening concession move',
+        body: [
+          "The strongest LOs start by conceding one trivial point from Gov's case in the first 20 seconds. It looks like this: \"We agree with Gov that political polarization is a real problem and worth caring about. That's not the question. The question is whether their proposed mechanism actually addresses it. We say no, for three reasons.\"",
+          "Why this works: judges are pattern-matching for credibility. A speaker who concedes nothing reads as a hack who'll oppose anything. A speaker who concedes one minor point reads as someone with a serious analytical position. The concession costs you nothing because you're going to attack the mechanism anyway, but you've banked trust for the attacks that follow.",
+          "Don't over-concede. One trivial point in 20 seconds. Two minor points start to feel like you're losing arguments before you start. The goal is calibration, not capitulation.",
+        ],
+      },
+      {
+        heading: 'Pick two contentions to actually fight',
+        body: [
+          "Gov gave you three or four contentions in the PMC. You cannot attack all of them in depth in 8 minutes. Trying makes every attack shallow. Pick two: the strongest one (because if you knock it out, the case collapses) and the second strongest (because if you knock both out, the case has no path to win).",
+          "What about the others? Group them. \"Gov also gave us their argument about implementation cost and their argument about democratic legitimacy. Both rest on the same flawed premise we just knocked out, so they fall with it. We don't need to address them individually.\" The judge follows.",
+          "Pick your attacks based on warrant quality, not impact size. If Gov's third contention has a huge impact but a paper-thin warrant, that's the one to attack. Impacts only matter if the warrant holds.",
+        ],
+      },
+      {
+        heading: 'Build offense: three ways',
+        body: [
+          'Offensive option 1: counter-narrative. Same actor, different theory of the problem. "Gov said the issue is X; we say the issue is Y, and their solution doesn\'t address Y at all." Cleanest for motions where the actor is constrained.',
+          'Offensive option 2: counter-prop. Different actor or different mechanism. "Instead of federal regulation, the better approach is state-level experimentation, which we defend because of A and B." Requires you to build a positive case Opp has to defend on the flow, but lets you out-bid Gov on impact.',
+          'Offensive option 3: K (critique). Attack the framing of the motion itself. "Gov is asking the wrong question. The real question is whether this category of intervention is legitimate at all." Risky in front of flow-based judges; powerful with policy-minded ones. Know your judge.',
+        ],
+      },
+      {
+        heading: 'Set up MGC',
+        body: [
+          "End the LOC with a 20-second handoff to your partner. \"MGC will extend on the counter-narrative I built around stakeholder analysis, respond to whatever Gov throws at our second contention in the MGC speech, and add the empirical evidence for the case study I previewed.\"",
+          "This does two things. It tells the judge there's a coherent two-speech strategy on Opp, not just two solo speeches stapled together. And it gives your partner explicit licensed turf so they don't accidentally retread your ground in their own constructive.",
+        ],
+      },
+      {
+        heading: 'Common LOC mistakes',
+        body: [
+          'Linear point-by-point rebuttal. The PMC has 4 contentions; you spend 90 seconds on each; you have 2 minutes left for offense. Bad time allocation. Group and prioritize.',
+          "Reading the PMC line by line for nuance. Judges flow the PMC; they don't need you to repeat it. Quote the warrant, attack, move on.",
+          "Forgetting weighing. Even in the constructive, plant the impact framework. \"If we win our counter-narrative, the case structurally cannot solve, and that's the round.\"",
+          'No pre-empt of the PMR. The PM rebuttal is the last speech of the round. If you build a strategy that depends on the LOR landing a particular hit, the PMR will respond. Anticipate it.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Opening 20 seconds of the LOC.',
+        line: '"We agree with Gov that political polarization is a real problem and worth caring about. That\'s not the question. The question is whether their proposed mechanism actually addresses it. We say no, for three reasons."',
+        why: 'Concession bought credibility. Refocused the round on mechanism (where Opp is strong) instead of problem (where Gov picked the framing).',
+      },
+      {
+        context: 'Grouping the contentions you won\'t attack.',
+        line: '"Gov also gave us their argument about implementation cost and their argument about democratic legitimacy. Both rest on the same flawed premise we just knocked out, so they fall with it. We don\'t need to address them individually."',
+        why: 'Saves 90+ seconds. Tells the judge those points are conceded as falling, not ignored. They flow it as a chain-attack, not a drop.',
+      },
+    ],
+    related: ['asian-parli-pm-opening', 'asian-parli-whip', 'bp-poi'],
+    keywords: [
+      'apda opp case structure',
+      'leader of opposition apda',
+      'loc speech apda',
+      'apda opposition strategy',
+      'how to give a loc',
+      'american parliamentary debate opp case',
+    ],
+    ctaLabel: 'Practice an APDA round on Opp',
+    ctaHref: '/debate-ai?format=apda&side=opp&motion=This%20house%20would%20scrap%20legacy%20admissions%20at%20universities.',
+  },
+
+  'policy-speed-reading': {
+    slug: 'policy-speed-reading',
+    question: 'Policy debate speed reading for beginners',
+    hook: 'Speed only helps if judges can flow you. Clean at 175 WPM beats unflowable at 350. Drill articulation first, breath second, speed third.',
+    format: 'policy',
+    formatName: 'Policy / CX',
+    readTime: '6 min',
+    takeaways: [
+      "Speed is a means, not an end. Judges who can't flow you flow you against.",
+      "Tags and cites get read at conversational pace. Card bodies get speed. Cross-ex and rebuttals stay clear.",
+      "Drill articulation before speed: tongue twisters, word lists, consonant clusters.",
+      "Build up gradually. 30 WPM increments over weeks, not overnight.",
+    ],
+    sections: [
+      {
+        heading: 'Why beginners go too fast too fast',
+        body: [
+          "Walk into any high school Policy round and the spreading sounds like a magic trick. New debaters assume speed itself is what wins, so they try to match the pace before they've built the articulation to handle it. The result is unflowable garbage that loses on the same flow speed it was trying to weaponize.",
+          "The actual hierarchy: clarity, then warrants, then speed. A debater reading 175 words per minute clean with tagged warrants beats one reading 350 unflowable WPM, every time, in front of any judge who isn't already a tech-debater themselves. The reason is simple: if the judge can't write it down, it didn't happen.",
+        ],
+      },
+      {
+        heading: 'The structure of a Policy card and how to pace it',
+        body: [
+          "A Policy card has four parts: a tag (the claim, in your own words), a cite (author, date, qualifications), a body (the evidence text), and an underlined/highlighted portion (the actual functional warrant). Each gets a different pace.",
+          "Tag: conversational. About 150 WPM. The tag is the argument; if the judge doesn't catch it, the card is wasted. Make it short and crisp.",
+          "Cite: slow. 120 WPM. Author and year only; qualifications can be faster. Adjudicators flow citations as proof of evidence quality.",
+          "Card body: fast. 250-300 WPM if you're solid. The judge isn't flowing every word; they're flowing the underlined portion.",
+          "Underlined portion: medium-fast. 200-220 WPM. Slow down slightly so the warrant lands.",
+          'Tagline summary after the card: back to 150 WPM. "So this evidence proves X, which means Y for our case." This is what the judge actually writes on the flow.',
+        ],
+      },
+      {
+        heading: 'Drills that actually build speed',
+        body: [
+          'Tongue twisters at full volume. "Red lorry yellow lorry" / "the sixth sick sheikh\'s sixth sheep\'s sick" / "she sells sea shells". Five minutes a day. The goal is clean articulation under load, not speed.',
+          "Word list reading. Take any random word list (most debate teams have one); read down it at increasing speed. Stop when you start slurring. Drill at the speed just below the slur point.",
+          "Breath control. Run a mile, then immediately try to read a card. The breath patterns you build under aerobic load translate to speech endurance.",
+          "Card-specific drills. Pick a card you'll actually use in a round. Read it three times at three speeds: conversational, fast, max. Notice which words you trip on at max. Drill those.",
+          "Recording playback. Record yourself spreading. Listen back. If you can't understand your own delivery, neither can the judge.",
+        ],
+      },
+      {
+        heading: 'When to slow down',
+        body: [
+          "Cross-examination. Speed in cross-ex makes you look defensive. CX is a conversation; have it at conversation pace.",
+          "Rebuttals. The 2NR and 2AR are about weighing, not card-dumping. Speed those at 150 WPM. Judges write the ballot from the rebuttal, so make it flowable.",
+          "Theory arguments. T-violations and condo-bad arguments depend on the judge catching every line. Slow them down.",
+          "When the judge stops flowing. Watch for it. If their pen stops moving, you're spreading past them. Drop pace until the pen comes back.",
+        ],
+      },
+      {
+        heading: 'The first three months of speed work',
+        body: [
+          "Month 1: articulation only. No timer. Five tongue-twister minutes daily, then read one card at deliberately slow pace, full enunciation. The goal is to make every consonant cluster crisp.",
+          "Month 2: gradual speed buildup. Add 30 WPM each week. Start at 150, end at 230. If you start slurring, drop back 10 WPM for a week, then climb again.",
+          "Month 3: integration. Practice spreading in mock rounds against a partner who's flowing. After each speech, have them tell you which arguments they couldn't flow. Those are your weak spots; drill them.",
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Tag for a uniqueness card on China-Taiwan tensions.',
+        line: '"Tensions are escalating now. PLA exercises near Taiwan have tripled in 2024, signaling intent for confrontation."',
+        why: 'Tag is short, claim-first, has a quantifier. Judge can flow it in 4 seconds. Body of the card will fill in mechanism.',
+      },
+      {
+        context: 'Slowing down at the warrant.',
+        line: '"...quote: \'continued PLA escalation creates a window in which miscalculation becomes likely.\' That\'s Glaser 2024."',
+        why: 'Voice drops 20 WPM on the underlined section. Cite gets named after the warrant lands. Adjudicator now has both flow and source.',
+      },
+    ],
+    related: ['ld-value-criterion', 'bp-poi', 'pf-crossfire-questions'],
+    keywords: [
+      'policy debate speed reading',
+      'how to spread debate',
+      'cx debate speed',
+      'policy debate spreading beginner',
+      'how to read fast in policy debate',
+      'cross examination debate speed tips',
+    ],
+    ctaLabel: 'Practice a Policy round',
+    ctaHref: '/debate-ai?format=policy&motion=Resolved%3A%20The%20United%20States%20federal%20government%20should%20substantially%20increase%20its%20military%20presence%20in%20the%20Indo-Pacific.',
+  },
+
+  'ld-value-criterion': {
+    slug: 'ld-value-criterion',
+    question: 'LD value and criterion examples',
+    hook: 'Value names what matters; criterion gives you the test. Pick a value that fits the resolution and a criterion you can actually warrant. Don\'t reach for Kant if your case is consequentialist.',
+    format: 'ld',
+    formatName: 'Lincoln-Douglas',
+    readTime: '5 min',
+    takeaways: [
+      "Value = the abstract concept the round is about (Justice, Morality, Liberty).",
+      "Criterion = the standard for measuring achievement of the value (Util, Cat. Imperative, Veil of Ignorance).",
+      "Pick the pair where your contentions actually link cleanly. Fancy framework + weak link is worse than basic framework + strong link.",
+      "Defending the framework is half the round. Have warrants for both the value and the criterion.",
+    ],
+    sections: [
+      {
+        heading: 'Value vs criterion: what they each do',
+        body: [
+          'The value premise is the abstract concept the round is about. Standard LD values: Justice, Morality, Liberty, Equality, Human Dignity, Wellbeing, Security, Democracy. You pick one that the resolution actually engages with. A resolution about criminal sentencing engages with Justice; a resolution about pandemic response engages with Wellbeing or Security; a resolution about speech regulation engages with Liberty.',
+          "The criterion (also called the standard or value criterion) is the test for measuring whether something achieves the value. If your value is Justice, your criterion might be the Rawlsian Veil of Ignorance (asking which institutions would be chosen behind ignorance of one's position) or the Categorical Imperative (asking whether the action could be universalized).",
+          "The structure works like this: I value X, achieved through Y, and my contentions prove the Aff/Neg side achieves Y better. The framework tells the judge what to measure; your contentions hit that measure.",
+        ],
+      },
+      {
+        heading: 'Classic value-criterion pairings',
+        body: [
+          "Value: Justice / Criterion: Rawlsian Veil of Ignorance. Use when the resolution is about institutional fairness, distribution, or unequal access. The veil asks which rules a rational person behind ignorance of their position would consent to. Pairs naturally with welfare-state, equal-access, and anti-discrimination cases.",
+          "Value: Morality / Criterion: Categorical Imperative (Kant). Use when the resolution involves the inherent permissibility of an act, not its consequences. The CI asks whether you could universalize the action without contradiction. Strong for cases against lying, exploitation, and using people as means.",
+          "Value: Wellbeing / Criterion: Utilitarianism (Mill / Bentham). Use when consequences and scale of impact are central. Util asks which choice maximizes net wellbeing. Best for policy-flavored resolutions, public health, harm reduction.",
+          "Value: Liberty / Criterion: Mill’s Harm Principle. Use when state intervention or restriction of action is at stake. The harm principle says government may only restrict action to prevent harm to others. Strong for autonomy, drug policy, free expression.",
+          "Value: Justice / Criterion: Lockean / Social Contract. Use when government legitimacy is in question. Locke argues legitimate government depends on consent and protection of natural rights. Pairs with cases about civil disobedience, revolution, governmental overreach.",
+          "Value: Equality / Criterion: Rawls' Difference Principle. Use when inequality of outcome is the issue. The DP allows inequality only when it benefits the worst-off. Strong for redistribution, affirmative action, progressive taxation.",
+        ],
+      },
+      {
+        heading: 'How to pick (and how to lose by picking badly)',
+        body: [
+          'Read the resolution. Ask: what is this resolution actually about? "Resolved: The United States ought to abolish capital punishment" is about justice, but more specifically about state-imposed irreversible harm. Justice + CI or Justice + the harm principle both fit. Wellbeing + Util feels off because the resolution centers on permissibility, not aggregate outcome.',
+          "Reach test: can you defend the criterion? If you pick Kantian ethics, you'll get attacked on edge cases (the murderer at the door, the categorical imperative formula). If you can't articulate the response, pick a different criterion. The Util defense is generally the most forgiving because it follows everyday moral reasoning.",
+          'Link test: do your contentions actually hit the criterion? If your value is Justice and your criterion is Util, but your contentions are about respecting individual rights, the framework and the case don\'t link. The judge picks up on this. A simpler framework (Justice / preventing exploitation) that your contentions actually warrant beats a fancy framework that doesn\'t fit.',
+        ],
+      },
+      {
+        heading: 'Defending the framework in cross-ex',
+        body: [
+          'Your opponent will attack one of three things: the value (why Justice and not Wellbeing?), the criterion (why Util and not Kantian?), or the link between your contentions and the criterion (your evidence doesn\'t prove what you say it proves).',
+          "For value attacks: have a clean two-sentence reason. \"Justice is the value because the resolution is about state action, and state action requires justification on Justice grounds before consequence grounds.\"",
+          'For criterion attacks: be ready with the standard objection-and-response. If you ran Kant, you should know the murderer-at-the-door objection and your Korsgaard-style response. If you ran Util, you should know the experience-machine objection.',
+          "For link attacks: this is where most LD rounds are actually won and lost. Make sure each contention explicitly says \"and this hits the criterion because X.\" Don't make the judge do the linking work.",
+        ],
+      },
+      {
+        heading: 'When to run a non-standard framework',
+        body: [
+          'Most rounds, run a standard framework. Standard frameworks are well-warranted by 200 years of philosophical literature; you don\'t need to invent.',
+          "Non-standard frameworks (Levinasian ethics, Foucauldian power analysis, capabilities approach) work when (a) the resolution genuinely engages the framework and (b) you've done the reading. Running Foucault on a death penalty round to sound smart, without being able to defend the framework, loses the round on framework debate before contentions even matter.",
+          'A solid intermediate: Capabilities approach (Sen / Nussbaum) for development and welfare resolutions, Care ethics (Gilligan / Noddings) for relational and dependency resolutions. Both have enough literature to defend and enough specificity to differentiate from generic Util.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Framework block opening, Justice / Veil of Ignorance.',
+        line: '"My value is Justice, because the resolution turns on the legitimacy of state action. My criterion is the Rawlsian Veil of Ignorance: which institutions would a rational person consent to from behind ignorance of their own position. My contentions show that the Aff position fails this test."',
+        why: 'Names value and criterion, warrants both in one sentence, signposts that the case will return to the framework. Three sentences, no wasted words.',
+      },
+      {
+        context: 'Linking a contention to the criterion.',
+        line: '"This is my second contention: the policy disproportionately harms low-income communities. Under the Veil of Ignorance, a rational person doesn\'t know whether they\'ll land in a low-income community, so they\'d reject institutions that load harm onto the worst-off. My contention hits the criterion."',
+        why: 'Explicit link work. Judge doesn\'t have to guess how the contention connects to the framework. This is the move that wins close rounds.',
+      },
+    ],
+    related: ['apda-opp-case', 'pf-crossfire-questions', 'policy-speed-reading'],
+    keywords: [
+      'ld value criterion examples',
+      'lincoln douglas value criterion',
+      'ld framework examples',
+      'how to pick ld framework',
+      'ld value premise',
+      'lincoln douglas debate framework',
+    ],
+    ctaLabel: 'Practice an LD round',
+    ctaHref: '/debate-ai?format=ld&motion=Resolved%3A%20The%20United%20States%20ought%20to%20abolish%20capital%20punishment.',
+  },
+
+  'asian-parli-whip': {
+    slug: 'asian-parli-whip',
+    question: 'Asian Parli whip speech tips',
+    hook: 'The whip is not a 3rd constructive. Pick 2-3 issues that the round actually clashed on, walk each one, weigh, close. No new arguments, new weighing only.',
+    format: 'asian',
+    formatName: 'Asian Parliamentary',
+    readTime: '5 min',
+    takeaways: [
+      "Whip speeches are 8 minutes, no new arguments, given by the 3rd speaker on each side.",
+      "Structure: 2-3 issues, not point-by-point rebuttal of every contention.",
+      "Weighing is most of the job: magnitude, probability, reversibility, link strength.",
+      "End on one image the adjudicator writes on the flow.",
+    ],
+    sections: [
+      {
+        heading: 'What the whip actually does',
+        body: [
+          "In Asian Parliamentary, the 3rd speaker on each side (Government Whip, Opposition Whip) gives the closing speech of the constructive phase. Eight minutes. No new arguments allowed; new comparisons, new weighing, new examples illustrating existing arguments are fine.",
+          "The whip's job is not to give a 3rd constructive. It's to make the round legible to the adjudicator. Identify the 2-3 issues the round actually clashed on, walk each one, and tell the adjudicator how to resolve them in your side's favor.",
+          "The single most common novice mistake is treating the whip like a third speaker on the case. Going through your team's three contentions, restating them louder, and then doing a quick rebuttal. The adjudicator already flowed those. They want the round resolved, not re-delivered.",
+        ],
+      },
+      {
+        heading: 'The two-issue or three-issue structure',
+        body: [
+          "Strongest whips open by naming the issues. \"This round turned on two issues. One: whether the policy actually solves the harm Gov identified. Two: whether the costs Opp brought are proportionate to the gain.\"",
+          "An issue is bigger than a single argument. It's a thematic axis that multiple arguments fed into. Issue 1 might collect Gov's mechanism contention plus Opp's circumvention rebuttal plus the cross-ex exchange where mechanism got pressure-tested.",
+          "Walking an issue: state the issue, summarize the strongest version of each side's position, weigh, declare who won and why. Repeat for the next issue.",
+        ],
+      },
+      {
+        heading: 'Weighing is most of the speech',
+        body: [
+          "Once you've named an issue and summarized both positions, the bulk of the whip is weighing. Why does your side's argument outweigh theirs?",
+          "Four standard weighing axes: magnitude (how much harm or benefit), probability (how likely is the impact), reversibility (can it be undone), link strength (does the warrant actually connect to the impact).",
+          'Concrete example: "Opp argued the policy creates a brain drain in source countries. We argued it raises individual wellbeing for migrants. Weighing: their impact is speculative and reversible (countries can recover; brain drain is also empirically contested in the literature). Our impact is concrete and ongoing (individual welfare gains start day one). Magnitude favors us because we\'re counting actual people; theirs is a system-level argument that depends on chained empirical claims. We win this issue."',
+        ],
+      },
+      {
+        heading: 'New weighing is legal; new arguments are not',
+        body: [
+          'Adjudicators allow you to bring up a new comparison or a new way of framing an existing argument. They strike new contentions.',
+          'Legal: "Building on our first speaker\'s argument about institutional trust, the new framing is this: any policy that erodes trust faster than it solves the immediate harm has negative net welfare." (New framing of an existing argument; argument was already on the flow.)',
+          "Not legal: \"Here's a fourth reason Gov fails: civil society backlash, which we haven't mentioned yet.\" (New argument, not on the flow.) The chair will visibly cross it out and the adjudicator won't weight it.",
+          "If you find yourself reaching for new arguments in the whip, your team had a hole in the constructives. The whip can't fix that; it can only minimize the damage with framing.",
+        ],
+      },
+      {
+        heading: 'Closing the whip',
+        body: [
+          'Last 30 seconds: one memorable image or line that captures why your side wins. Not a recap.',
+          'Example: "If you adopt our side and we\'re wrong, the policy reverts in a year and the harm is small. If you adopt their side and they\'re wrong, the harm compounds and there\'s no remedy. That\'s the asymmetry. Vote Gov."',
+          "Don't end with a recap of your case. Don't end with \"and that's why we propose.\" End with the image. The adjudicator writes it on the flow and carries it into the ballot."
+,
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Opening the whip by naming the issues.',
+        line: '"This round turned on two issues. One: whether the policy actually solves the harm Gov identified. Two: whether the costs Opp brought are proportionate to the gain. I\'ll walk each."',
+        why: 'Adjudicator now knows what to flow for the next 8 minutes. Issue-driven, not contention-driven.',
+      },
+      {
+        context: 'Closing image.',
+        line: '"If you adopt our side and we\'re wrong, the policy reverts in a year and the harm is small. If you adopt their side and they\'re wrong, the harm compounds and there\'s no remedy. Vote Gov."',
+        why: 'Frames the round as a risk asymmetry the adjudicator can resolve in one line. No new argument, just new weighing.',
+      },
+    ],
+    related: ['asian-parli-pm-opening', 'wsdc-reply-speech', 'bp-closing-extension'],
+    keywords: [
+      'asian parli whip speech',
+      'government whip asian parliamentary',
+      'opposition whip asian parli',
+      'how to give a whip speech',
+      'asian parli 3rd speaker',
+      'asian parliamentary closing speech',
+    ],
+    ctaLabel: 'Practice the whip speech',
+    ctaHref: '/debate-ai?format=asian&motion=This%20house%20would%20open%20borders%20to%20skilled%20migration%20without%20quota.',
+  },
+
+  'bp-closing-extension': {
+    slug: 'bp-closing-extension',
+    question: 'BP closing extension how-to',
+    hook: 'Your extension has to be substantively new, not louder. New mechanism, new actor, new impact axis, or new stakeholder. If Opening could have said it, you didn\'t extend.',
+    format: 'bp',
+    formatName: 'British Parliamentary',
+    readTime: '6 min',
+    takeaways: [
+      "The extension is what differentiates Closing from Opening on the same bench. Without it, Closing comes 4th.",
+      "Four extension types that work: new mechanism, new actor, new impact axis, new stakeholder analysis.",
+      "Don't 'knife' Opening (contradict them) unless Opening's case is structurally broken. Even then, redirect, don't betray.",
+      "POI strategy in BP closing matters: take 1-2, refuse the rest, and use the answer to plant your extension hook.",
+    ],
+    sections: [
+      {
+        heading: 'What the extension is and why it matters',
+        body: [
+          "In British Parliamentary, four teams compete: Opening Government, Opening Opposition, Closing Government, Closing Opposition. Each pair shares a side. The Closing team's job is to extend the case beyond what their Opening team already established. Without a real extension, the adjudicators have no reason to rank Closing above Opening on the same bench, and Closing typically finishes 3rd or 4th.",
+          "A real extension is substantively new material the Opening could not have said. It's not a louder version of Opening's contentions. It's not a more polished version of the same argument. It's a separate analytical contribution that, if Opening had run it themselves, would have been their next contention.",
+          "Adjudicators specifically write 'Closing extension' on the bench and look for it. If they can't find one, the team drops down the rank.",
+        ],
+      },
+      {
+        heading: 'Extension type 1: new mechanism',
+        body: [
+          'Opening said the policy works because of mechanism A. You add mechanism B that operates independently.',
+          'Example, motion = "This house would impose a carbon tax." Opening Gov argued that price signals shift consumer demand toward low-carbon alternatives (Pigovian mechanism). Closing Gov extension: revenue recycling. The tax revenue funds R&D and just-transition payments, creating a second pathway to decarbonization that doesn\'t depend on consumer behavior at all.',
+          "Two independent mechanisms make the case more robust: even if Opp knocks out one, the other still solves. Adjudicators read this as analytical depth and bench Closing Gov above Opening Gov."
+,
+        ],
+      },
+      {
+        heading: 'Extension type 2: new actor or new actor analysis',
+        body: [
+          'Opening discussed the policy from the national-government level. You shift to international, sub-national, or corporate actors and analyze the policy from there.',
+          'Example, motion = "TH would make tech companies liable for misinformation." Opening Opp argued chilling effects on free speech (state-actor framing). Closing Opp extension: analyze the actor incentives of platforms themselves. Under liability, they over-moderate, which then incentivizes consolidation around the largest platforms that can afford the compliance overhead, which then entrenches the exact monopoly problem Gov said they wanted to fight.',
+          "Notice the extension introduces actor analysis Opening never touched. The platforms-as-actors angle is independently warranted, doesn't depend on Opening's free-speech argument to work.",
+        ],
+      },
+      {
+        heading: 'Extension type 3: new impact axis',
+        body: [
+          "Opening's case landed on impact category X (economic). You extend on impact category Y (social, political, security, equity) that Opening did not run.",
+          "Example, motion = \"TH would scrap legacy admissions.\" Opening Gov argued meritocracy and economic mobility (economic equity frame). Closing Gov extension: institutional legitimacy. Universities that maintain legacy preferences face declining public trust and political vulnerability (PR and state-funding angles), which is a separate impact axis from individual mobility.",
+          "The extension is impact-level, not contention-level. Doesn't have to add a new argument; can add a new way to count what matters.",
+        ],
+      },
+      {
+        heading: 'Extension type 4: new stakeholder',
+        body: [
+          'Opening discussed how the policy affects stakeholder A. You bring in stakeholder B that Opening ignored.',
+          'Example, motion = "TH would require employer-sponsored therapy." Opening Gov argued benefits for employees with mental health needs. Closing Gov extension: the labor-market signaling effects on people who don\'t need therapy. They read company sponsorship as a strong workplace-culture signal, which improves hiring and retention. New stakeholder (the broader workforce), new mechanism (signaling), separate from Opening\'s case.',
+          "Stakeholder extensions are forgiving because they rarely contradict Opening. They just enlarge the set of people the case helps, which the adjudicator reads as case strength."
+,
+        ],
+      },
+      {
+        heading: 'Don\'t knife Opening',
+        body: [
+          "Knifing = your extension implicitly contradicts your Opening's argument. Common when Closing teams reach for a fancy extension without checking compatibility.",
+          'Example knife: Opening Gov argued the carbon tax works because demand is price-elastic. Closing Gov "extends" by arguing the tax works even if demand is inelastic, because revenue recycling drives the outcome. Sounds fine in isolation; but the Closing argument implicitly grants that the price-signal mechanism (Opening\'s case) is weak. Adjudicators notice and dock both teams.',
+          "Safer pattern: build the extension as a parallel pathway, not a replacement. \"Even if Opp succeeds in knocking out the price-signal mechanism Opening argued, revenue recycling provides an independent route. Both mechanisms work; we\'re adding the second.\" Now you've reinforced Opening rather than undermining them.",
+          "Sometimes knifing is unavoidable because Opening's case is structurally broken. If that happens, redirect rather than betray: \"Building on Opening's intuition that revenue matters, the strongest version of this argument is...\" Reframe rather than reject.",
+        ],
+      },
+      {
+        heading: 'POIs in BP closing: plant the extension early',
+        body: [
+          "The Member of the closing team speaks 3rd or 4th in the round (after both Opening speakers and Opening's response). You have 7 minutes; the first minute is protected. POIs are legal for minutes 2-6.",
+          "Take 1-2 POIs. When you take one, use the response to plant the extension hook before you've explicitly delivered it. \"That's a fair question; what you're missing is the stakeholder-signaling effect, which I'll come back to.\" Now the adjudicator is primed for the extension when you deliver it.",
+          "Refuse the rest cleanly: hand wave or 'not at this time.' Don't engage with attempts to derail you onto Opening's territory.",
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Setting up a new-mechanism extension.',
+        line: '"Opening Gov ran the price-signal mechanism. We extend on a second, independent mechanism: revenue recycling. Even if Opp knocks out demand elasticity entirely, this pathway still solves."',
+        why: 'Names the extension explicitly. Tells the adjudicator this is a Closing contribution, not a restatement. Frames it as additive, not a knife.',
+      },
+      {
+        context: 'Using a POI to plant the extension.',
+        line: '"That\'s a fair question; what you\'re missing is the stakeholder-signaling effect, which I\'ll come back to in 90 seconds."',
+        why: 'Refuses to fight on Opening\'s territory. Pre-loads the extension into the adjudicator\'s flow before delivering it.',
+      },
+    ],
+    related: ['bp-poi', 'asian-parli-whip', 'wsdc-reply-speech'],
+    keywords: [
+      'bp closing extension',
+      'british parliamentary closing team',
+      'closing government extension',
+      'closing opposition extension',
+      'bp extension examples',
+      'how to extend in bp debate',
+      'wudc closing strategy',
+    ],
+    ctaLabel: 'Practice a BP round on Closing',
+    ctaHref: '/debate-ai?format=bp&motion=This%20house%20would%20impose%20a%20carbon%20tax%20on%20heavy%20industry.',
+  },
+
 };
 
 export function getGuide(slug) {
