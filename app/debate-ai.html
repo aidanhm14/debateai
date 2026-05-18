@@ -91,23 +91,12 @@
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
 <script src="/js/type-stream.js"></script>
-<!-- 2026-05-16: voice-input was attaching a mic button to every
-     <textarea class="float-input"> by WRAPPING the textarea in a
-     <span class="voice-input-host">. The wrap moves the textarea
-     out of React's direct child slot under .center; on the next
-     phase change (e.g. Start Round → prep) React tries to remove
-     the textarea from .center and throws
-       "Failed to execute 'removeChild' on 'Node': The node to be
-        removed is not a child of this node"
-     in the commit phase. No JS error visible above the throw
-     because it's inside React's internal try; the page just goes
-     blank on every Start Round. Disabling this script restores the
-     setup → prep transition. Dictation feature can return as a
-     non-DOM-mutating implementation (mic button rendered inside
-     the React JSX, or position:fixed against the textarea rect
-     from a non-React container) — but the page WORKING beats the
-     feature shipping in this state. -->
-<!-- <script defer src="/js/voice-input.js"></script> -->
+<!-- voice-input.js: floating speech-to-text mic on any focused textarea
+     or qualifying text input. The button lives at document.body level
+     (outside React's tree) and positions over the focused field via JS,
+     so it never mutates React-owned DOM. Replaces the 2026-05-16
+     wrapping implementation that broke setup → prep transitions. -->
+<script defer src="/js/voice-input.js"></script>
 
 <script src="/js/voice-guidelines.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
