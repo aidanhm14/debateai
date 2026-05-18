@@ -1,6 +1,6 @@
 // Bumped to v10 — see app/sw.js for detail.
 
-const CACHE_NAME = 'debateos-v331';
+const CACHE_NAME = 'debateos-v332';
 
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
