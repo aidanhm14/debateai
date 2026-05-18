@@ -101,7 +101,11 @@
 
 /* ── Theme Variables (matches landing.html exactly) ─────────────── */
 :root,[data-theme="grey"]{
-  --bg:#111;--bg-card:rgba(255,255,255,.03);--border:rgba(255,255,255,.08);
+  /* 2026-05-18: shifted base from cold flat #111 to warm-leaning #161318.
+     Pair with the layered radial wash on body{} below — the two together
+     give the dark theme a brand-red ambient rather than reading as a
+     pure greyscale dashboard. */
+  --bg:#161318;--bg-card:rgba(255,255,255,.03);--border:rgba(255,255,255,.08);
   --text:#fff;--text-dim:rgba(255,255,255,.65);--text-ghost:rgba(255,255,255,.35);
   --accent:#ef4444;--accent-glow:rgba(200,30,30,.35);--accent-glow2:rgba(80,20,20,.25);
   --hero-grad:linear-gradient(135deg,#1a1a1a 0%,#111 25%,#181818 50%,#111 75%,#1a1a1a 100%);
@@ -127,8 +131,18 @@
 html{height:100%;width:100%;overflow-x:hidden}body{min-height:100%;height:100%;width:100%;overflow-x:hidden;margin:0}#root{min-height:100%;width:100%;position:relative;z-index:1}
 /* App bg matches landing.html (#111 instead of the old #2b2b30 washed-out grey).
    This + the bg-canvas gradient below + the hidden decorative shapes are what
-   make the app read as the same product as the marketing site. */
-body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeSpeed;background:var(--bg,#111);color:var(--text,#e8ecf4);font-size:18px;transition:background .4s,color .4s}
+   make the app read as the same product as the marketing site.
+   2026-05-18: warmed the default-dark theme. The flat #111 read as cold
+   and dead in the SAVED CASES / empty-state areas where there's no
+   content carrying its own color. Added a layered radial wash:
+     • soft brand-red glow from the top (around the topbar)
+     • cooler violet hint from the bottom-left (anchors the foot)
+     • lifted base from #111 to #161318 (warm-leaning near-black)
+   The light-theme override below this rule wipes these out cleanly via
+   `.light-theme` selectors that already set background:#f5f5f7. The
+   crimson-theme override does the same with `.app{background:#151518}`
+   so it stays in charge of its own palette. */
+body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeSpeed;background:radial-gradient(ellipse 90% 60% at 50% -8%,rgba(220,38,38,.10),transparent 62%),radial-gradient(ellipse 50% 60% at 8% 100%,rgba(120,90,180,.05),transparent 65%),var(--bg,#161318);background-attachment:fixed;color:var(--text,#e8ecf4);font-size:18px;transition:background .4s,color .4s}
 
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes arrowBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
@@ -1063,7 +1077,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .guide-close:hover{transform:translateY(-2px);box-shadow:0 8px 28px #ef444440}
 .guide-trigger{position:fixed;bottom:24px;right:24px;z-index:50;width:44px;height:44px;border-radius:50%;background:#363638cc;border:1px solid #ffffff18;display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#94a3b8;cursor:pointer;backdrop-filter:blur(8px);transition:.2s;text-decoration:none}
 .guide-trigger:hover{background:#ffffff22;transform:scale(1.05);color:#e4e8f0}
-.feedback-trigger{position:fixed;bottom:76px;right:24px;z-index:50;height:32px;padding:0 14px;border-radius:16px;background:#363638cc;border:1px solid #ffffff18;display:flex;align-items:center;justify-content:center;gap:6px;font-size:.68rem;font-weight:600;color:#94a3b8;cursor:pointer;backdrop-filter:blur(8px);transition:.2s;font-family:inherit;letter-spacing:.3px;text-decoration:none}
+.feedback-trigger{position:fixed;bottom:92px;right:24px;z-index:50;height:32px;padding:0 14px;border-radius:16px;background:#363638cc;border:1px solid #ffffff18;display:flex;align-items:center;justify-content:center;gap:6px;font-size:.68rem;font-weight:600;color:#94a3b8;cursor:pointer;backdrop-filter:blur(8px);transition:.2s;font-family:inherit;letter-spacing:.3px;text-decoration:none}
 .feedback-trigger:hover{background:#ffffff22;transform:scale(1.03);color:#e4e8f0;text-decoration:none}
 .light-theme .feedback-trigger{background:#f1f5f9dd;color:#64748b;border-color:#d4d4d8}
 .feedback-modal-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
@@ -1399,7 +1413,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
   .live-cal-header{font-size:.65rem!important}
   /* Mobile: fixed buttons reposition */
   .guide-trigger{bottom:16px!important;right:16px!important;width:36px!important;height:36px!important;font-size:.8rem!important}
-  .feedback-trigger{bottom:60px!important;right:16px!important;font-size:.65rem!important;padding:6px 10px!important}
+  .feedback-trigger{bottom:72px!important;right:16px!important;font-size:.65rem!important;padding:6px 10px!important}
   /* Mobile: modals fit screen */
   .guide-modal{padding:24px 18px!important;max-height:85vh!important}
   .feedback-modal{padding:20px 16px!important}
@@ -12828,22 +12842,35 @@ function SharedCases({ user, team }) {
     el('p', {style:{color:'#94a3b8',fontSize:'.92rem'}}, t('sharedCases.signInDesc','Sign in and join a team to share cases.')),
   );
 
-  if (!team) return el('div', {className:'panel', style:{textAlign:'center',padding:60}},
-    el('h2', {style:{fontSize:'1.4rem',color:'#e4e8f0',marginBottom:12}}, t('sharedCases.title','Team Case Library')),
-    el('p', {style:{color:'#94a3b8',fontSize:'.92rem'}}, t('sharedCases.noTeamDesc','Create or join a team to share cases with teammates.')),
-  );
+  // 2026-05-18: dropped the `if (!team) return ...` empty-state. It used
+  // to render "Team Case Library / Create or join a team..." with nothing
+  // else, while the user's own saved cases sat hidden in the side
+  // drawer. SAVED CASES is where users come to find their own past work
+  // first, sharing-with-a-team second. Now: header + copy go user-first
+  // when there's no team; the team-sharing UI is gated below; a small
+  // "want to share?" footer hint still surfaces the team path.
 
   return el('div', {className:'panel'},
     el('div', {style:{marginBottom:20}},
-      el('h2', {style:{fontSize:'1.4rem',fontWeight:800,color:'#e4e8f0',marginBottom:4}}, t('sharedCases.title','Team Case Library')),
-      el('p', {style:{color:'#94a3b8',fontSize:'.92rem'}}, t('sharedCases.desc','Share and access cases across your team.')),
+      el('h2', {style:{fontSize:'1.4rem',fontWeight:800,color:'#e4e8f0',marginBottom:4}},
+        team ? t('sharedCases.title','Team Case Library') : 'Your saved cases'),
+      el('p', {style:{color:'#94a3b8',fontSize:'.92rem'}},
+        team
+          ? t('sharedCases.desc','Share and access cases across your team.')
+          : (myCases.length === 0
+              ? 'Nothing here yet. Save a case from any tab and it lands here.'
+              : myCases.length + ' case' + (myCases.length===1?'':'s') + ' saved to this device. Click any card to open and edit.')
+      ),
     ),
     myCases.length > 0 && el('div', {style:{marginBottom:24}},
       // Privacy/visibility chooser. Teammates-only is the default
       // because that matches the existing flow + the principle of
       // least surprise (sharing != publishing). Public flips the doc
       // visibility flag so it shows up on /disclosures community board.
-      el('div', {style:{display:'flex',gap:8,marginBottom:10,padding:'4px',background:'#ffffff04',borderRadius:10,border:'1px solid #ffffff10',flexWrap:'wrap'}},
+      // 2026-05-18: only renders for users on a team. Pre-team users
+      // see "Your saved cases" first; team-sharing UI surfaces once
+      // they actually have a team to share into.
+      team && el('div', {style:{display:'flex',gap:8,marginBottom:10,padding:'4px',background:'#ffffff04',borderRadius:10,border:'1px solid #ffffff10',flexWrap:'wrap'}},
         el('button', {
           onClick:()=>setShareVisibility('team'),
           style:{flex:1,minWidth:180,padding:'10px 14px',borderRadius:8,fontSize:'.8rem',fontWeight:600,cursor:'pointer',border:'1px solid '+(shareVisibility==='team'?'#3b82f660':'transparent'),background:shareVisibility==='team'?'#3b82f620':'transparent',color:shareVisibility==='team'?'#60a5fa':'#94a3b8',textAlign:'left',transition:'all .15s'},
@@ -12868,7 +12895,7 @@ function SharedCases({ user, team }) {
       // `selectedCase` id so the share button below stays unchanged.
       el('div', {style:{marginBottom:10}},
         el('div', {style:{fontSize:'.7rem',fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'#94a3b8',marginBottom:8}},
-          'Pick a case to share (' + myCases.length + ')',
+          (team ? 'Pick a case to share' : 'Saved cases') + ' (' + myCases.length + ')',
         ),
         el('div', {style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:8,maxHeight:340,overflowY:'auto',padding:'2px',scrollbarWidth:'thin'}},
           myCases.map(c => {
@@ -12893,13 +12920,16 @@ function SharedCases({ user, team }) {
                 minWidth:0,
               },
             },
-              // Select / deselect — fills the body of the card so click-anywhere
-              // still selects, matching the original UX.
+              // Card body click. On a team: toggles share-selection so
+              // the user can fan-select cases before hitting Share.
+              // Without a team: opens the editor straight away — the
+              // sharing flow doesn't apply, so the cards become a
+              // browse-and-open library.
               el('button', {
-                onClick: ()=>setSelectedCase(isSel ? '' : c.id),
+                onClick: ()=> team ? setSelectedCase(isSel ? '' : c.id) : openCaseEditor(c),
                 type: 'button',
-                'aria-pressed': isSel,
-                title: isSel ? 'Deselect this case' : 'Select for sharing',
+                'aria-pressed': team ? isSel : undefined,
+                title: team ? (isSel ? 'Deselect this case' : 'Select for sharing') : 'Open this case',
                 style: {
                   display:'flex',flexDirection:'column',gap:6,
                   width:'100%',textAlign:'left',
@@ -12944,7 +12974,7 @@ function SharedCases({ user, team }) {
           }),
         ),
       ),
-      el('div', {style:{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'flex-end'}},
+      team && el('div', {style:{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'flex-end'}},
         selectedCase && el('button', {
           onClick:()=>setSelectedCase(''),
           type:'button',
@@ -12956,8 +12986,16 @@ function SharedCases({ user, team }) {
         ),
       ),
     ),
+    // Empty-state when the user has zero saved cases — only matters in
+    // the !team path because the team path always shows the shared-cases
+    // section below regardless.
+    !team && myCases.length === 0 && el('div', {style:{textAlign:'center',color:'#64748b',padding:'40px 24px',background:'#ffffff04',border:'1px dashed #ffffff10',borderRadius:12}},
+      el('div', {style:{fontSize:'.92rem',color:'#94a3b8',marginBottom:6}}, 'No saved cases yet.'),
+      el('div', {style:{fontSize:'.82rem'}}, 'Run a round or generate a case in any tab, hit Save, and it lands here.'),
+    ),
     msg && el('div', {style:{marginBottom:16,padding:'10px 16px',borderRadius:8,background:msg.startsWith('Error')?'#ef444420':'#22c55e20',color:msg.startsWith('Error')?'#f87171':'#4ade80',fontSize:'.85rem'}}, msg),
-    loading ? el('div',{style:{textAlign:'center',color:'#64748b',padding:20}},t('sharedCases.loadingShared','Loading shared cases...')) :
+    // Team-shared cases list — only renders when the user is on a team.
+    team && (loading ? el('div',{style:{textAlign:'center',color:'#64748b',padding:20}},t('sharedCases.loadingShared','Loading shared cases...')) :
     sharedCases.length === 0 ? el('div',{style:{textAlign:'center',color:'#64748b',padding:40,background:'#ffffff04',borderRadius:12}},t('sharedCases.noSharedYet','No shared cases yet. Share your first case above!')) :
     sharedCases.map(c => el('div', {key:c.id, style:{padding:16,background:'#ffffff04',border:'1px solid #ffffff08',borderRadius:10,marginBottom:8}},
       el('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8,gap:10}},
@@ -12977,7 +13015,13 @@ function SharedCases({ user, team }) {
         ),
       ),
       c.output && el('div', {style:{color:'#94a3b8',fontSize:'.82rem',lineHeight:1.6,maxHeight:80,overflow:'hidden',maskImage:'linear-gradient(to bottom, black 60%, transparent)'}}, c.output.substring(0,300) + '...'),
-    )),
+    ))),
+    // Footer hint surfaces team-sharing as a next step when the user
+    // doesn't have a team yet. Quiet copy, low-emphasis link.
+    !team && myCases.length > 0 && el('div', {style:{marginTop:18,padding:'14px 18px',background:'#ffffff03',border:'1px solid #ffffff0a',borderRadius:10,fontSize:'.78rem',color:'#94a3b8',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}},
+      el('span', null, 'Want to share with teammates?'),
+      el('a', {href:'#team', style:{color:'#60a5fa',fontWeight:600,textDecoration:'underline',textDecorationColor:'#3b82f655',textUnderlineOffset:3}}, 'Create or join a team →'),
+    ),
 
     // ── Edit-case modal ────────────────────────────────────────────────
     // Renders only when the user has clicked the ✎ pencil on a saved
@@ -15519,26 +15563,12 @@ function App() {
       tabPane('live', React.createElement(LiveDebates, { user: user, team: team, onNavigateTab: navigateTab })),
       // Keyboard shortcuts help overlay, mirrors the debate-ai modal.
       // Documents the new `?`, `/`, and gmail-style `g → x` shortcuts.
-      // Floating help button, persistent discoverability for the
-      // shortcuts modal. Hides while the modal is open.
-      !showAppShortcuts && React.createElement('button', {
-        onClick: () => setShowAppShortcuts(true),
-        'aria-label': 'Keyboard shortcuts',
-        title: 'Keyboard shortcuts (?)',
-        style: {
-          position:'fixed',right:16,bottom:16,zIndex:99997,
-          width:36,height:36,borderRadius:'50%',
-          background:'rgba(239,68,68,.14)',border:'1px solid rgba(239,68,68,.35)',
-          color:'#fca5a5',fontSize:'1rem',fontWeight:800,lineHeight:1,
-          cursor:'pointer',fontFamily:'inherit',padding:0,
-          display:'flex',alignItems:'center',justifyContent:'center',
-          backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',
-          boxShadow:'0 6px 20px rgba(0,0,0,.35)',
-          transition:'transform .15s ease, background .15s ease, border-color .15s ease',
-        },
-        onMouseEnter: (e) => { e.currentTarget.style.transform='scale(1.08)'; e.currentTarget.style.background='rgba(239,68,68,.22)'; e.currentTarget.style.borderColor='rgba(239,68,68,.55)'; },
-        onMouseLeave: (e) => { e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.background='rgba(239,68,68,.14)'; e.currentTarget.style.borderColor='rgba(239,68,68,.35)'; },
-      }, '?'),
+      // The floating "?" trigger here was removed 2026-05-18 — it
+      // collided with `.guide-trigger` at the same corner (both 36-44px
+      // circles, both labeled "?"); two help buttons stacked in the
+      // bottom-right corner read as one fuzzy element. The `?`
+      // keyboard shortcut still opens this modal; discoverability now
+      // routes through guide-trigger + the help text on the modal itself.
       showAppShortcuts && React.createElement('div', {
         onClick: () => setShowAppShortcuts(false),
         style:{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',zIndex:99998,display:'flex',alignItems:'center',justifyContent:'center',padding:20},
