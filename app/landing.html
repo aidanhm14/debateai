@@ -5424,6 +5424,37 @@ section.ui-section .ui-lede{
             <a href="/video/founder-intro.mp4?v=4">Download the video</a>.
           </video>
         </div>
+        <!-- Founder-video analytics. Fires once-per-session on first
+             play + at 25/50/75/complete quartiles. Routes through
+             window.track (track.js bridges to both the per-user
+             activity feed AND the gtag pipe), so the events land in
+             whichever analytics backend is wired. sessionStorage gates
+             stop a single visitor from double-counting if they scrub
+             or replay. -->
+        <script>
+        (function(){
+          var v = document.querySelector('.founder-video');
+          if (!v) return;
+          var fired = {};
+          function fire(name){
+            if (fired[name]) return;
+            try { if (sessionStorage.getItem('fv_' + name)) { fired[name] = 1; return; } } catch(e){}
+            fired[name] = 1;
+            try { sessionStorage.setItem('fv_' + name, '1'); } catch(e){}
+            if (typeof window.track === 'function') window.track('founder_video_' + name, { src: 'landing' });
+            if (typeof window.gtag === 'function') window.gtag('event', 'founder_video_' + name, { src: 'landing' });
+          }
+          v.addEventListener('play', function(){ fire('play'); });
+          v.addEventListener('timeupdate', function(){
+            var d = v.duration; if (!d || !isFinite(d)) return;
+            var p = v.currentTime / d;
+            if (p >= 0.25) fire('25');
+            if (p >= 0.50) fire('50');
+            if (p >= 0.75) fire('75');
+          });
+          v.addEventListener('ended', function(){ fire('complete'); });
+        })();
+        </script>
         <!-- "See it in action" row: three feature preview cards under
              the founder video. Trimmed 5 → 3 on 2026-05-18 so the row
              reads as three distinct doing-experiences (voice / typed /
