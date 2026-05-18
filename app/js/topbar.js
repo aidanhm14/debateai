@@ -316,18 +316,13 @@
     if (!btn) return;
     btn.addEventListener('click', function(){
       var prev = document.documentElement.getAttribute('data-theme') || 'crimson';
-      // Three-way cycle: light → crimson → stone → light. Treat legacy
-      // `grey` as `crimson` for the purposes of this cycle so anyone
-      // landing on the page with grey saved still has a sensible next
-      // step. The cycle order is intentional: light is the most
-      // distinct departure, crimson is the brand-default dark, stone
-      // is the new warm-graphite variant. Clicking from light should
-      // land somewhere recognizably "the brand" (crimson) before
-      // surfacing the third option.
-      var next;
-      if (prev === 'light') next = 'crimson';
-      else if (prev === 'crimson' || prev === 'grey') next = 'stone';
-      else next = 'light';
+      // Binary toggle (2026-05-18): user wants only dark + light, no
+      // middle grey/stone variant. Anything that isn't `light` flips to
+      // light; light flips back to crimson. Legacy values (grey, stone)
+      // are treated as dark for the purpose of "next click goes light",
+      // so users who had those saved get a sensible one-click escape
+      // hatch without us having to migrate localStorage.
+      var next = (prev === 'light') ? 'crimson' : 'light';
       var lighting = (next === 'light') ? 'light' : 'dark';
       try {
         localStorage.setItem('da-theme', next);
@@ -342,19 +337,14 @@
       var b = document.querySelector('.ui-topbar .theme-toggle');
       if (!b) return;
       var isLight = (t === 'light');
-      // Tooltip names the next variant in the 3-way cycle so the user
-      // knows what's coming — "Switch theme" alone leaves them guessing
-      // until reload. Mirrors the click handler's cycle order.
-      var nextLabel;
-      if (t === 'light') nextLabel = 'Dark (crimson)';
-      else if (t === 'crimson' || t === 'grey') nextLabel = 'Dark (stone)';
-      else nextLabel = 'Light';
+      // Tooltip names the only other state since the cycle is now
+      // binary. Legacy grey/stone values are treated as dark — next
+      // click goes light.
+      var nextLabel = isLight ? 'Dark' : 'Light';
       b.setAttribute('aria-label', 'Switch to ' + nextLabel);
       b.title = 'Switch to ' + nextLabel;
       // Sun/moon visibility flips via CSS attribute selector on the
       // <html> data-theme so we don't have to do anything else here.
-      // Stone is treated as a dark variant by the CSS, so the sun
-      // icon shows (click goes light).
     }
   }
 
