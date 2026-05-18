@@ -1127,7 +1127,28 @@ function useAuth() {
     // picks up the result on return.
     const ua = navigator.userAgent || '';
     const isMobile = /iPhone|iPad|Android/i.test(ua);
-    const isInApp = /(Instagram|FBAN|FBAV|FB_IAB|Twitter|LinkedIn|TikTok|MicroMessenger|Line[/])/i.test(ua);
+    // Reddit added 2026-05-19: its Android webview ships "Reddit/2024.XX.X" so
+    // the literal token is a safe match, and Reddit is the #1 traffic source.
+    const isInApp = /(Instagram|FBAN|FBAV|FB_IAB|Twitter|LinkedIn|TikTok|MicroMessenger|Line[/]|Reddit|Snapchat)/i.test(ua);
+    const inAppName = (function(){
+      if (/Instagram/i.test(ua)) return 'Instagram';
+      if (/FBAN|FBAV|FB_IAB/i.test(ua)) return 'Facebook';
+      if (/TikTok|Musical_ly|BytedanceWebview/i.test(ua)) return 'TikTok';
+      if (/LinkedIn/i.test(ua)) return 'LinkedIn';
+      if (/Twitter/i.test(ua)) return 'X';
+      if (/Reddit/i.test(ua)) return 'Reddit';
+      if (/Snapchat/i.test(ua)) return 'Snapchat';
+      return null;
+    })();
+    // Short-circuit BEFORE we kick off OAuth: in these webviews Google returns
+    // "disallowed_useragent" and the user lands on an opaque error page (or
+    // worse: nothing visibly happens). Tell them how to escape the webview
+    // instead of letting Google deliver the bad news.
+    if (inAppName) {
+      if (window.gtag) gtag('event', 'sign_in_blocked_inapp', { app: inAppName, surface: 'debate-ai' });
+      alert('Google sign-in is blocked inside ' + inAppName + '. Tap the menu (⋯ or ⋮) and choose "Open in Browser" or "Open in Safari", then sign in there.');
+      return;
+    }
     try {
       if (isMobile || isInApp) {
         await firebaseAuth.signInWithRedirect(provider);

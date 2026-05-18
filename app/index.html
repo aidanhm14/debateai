@@ -10805,9 +10805,12 @@ function detectInAppBrowser() {
     if (/LinkedInApp/i.test(ua)) return 'LinkedIn';
     if (/Twitter|TwitterAndroid/i.test(ua)) return 'X';
     if (/Snapchat/i.test(ua)) return 'Snapchat';
-    // Reddit Android app uses a WebView with no distinctive UA. detect via
-    // generic "wv" (Android WebView) only as a last resort, since legit Chrome
-    // on some Androids also matches. Keep this conservative.
+    // Reddit's Android app webview reliably ships "Reddit/2024.XX.X" in the UA.
+    // The literal token "Reddit" only collides with the official app, not with
+    // generic Android Chrome, so this match is safe. Reddit is the #1 traffic
+    // source for debateai.com so leaving it undetected was the largest single
+    // gap in the sign-in funnel.
+    if (/Reddit/i.test(ua)) return 'Reddit';
     return null;
   } catch (e) { return null; }
 }
@@ -10842,10 +10845,21 @@ function useAuth() {
     if (!firebaseAuth) {
       const inApp = typeof detectInAppBrowser === 'function' ? detectInAppBrowser() : null;
       if (inApp) {
+        try { if (window.gtag) gtag('event', 'sign_in_blocked_inapp', { app: inApp, surface: 'index_firebase_unavailable' }); } catch(e){}
         alert('Google sign-in doesn\u2019t work inside ' + inApp + '\u2019s browser. Tap the menu (\u22EF or \u22EE) and choose Open in Safari/Chrome.');
       } else {
         alert('Sign-in is temporarily unavailable in this browser. Try: (1) reload the page (Cmd+Shift+R), (2) disable ad blockers for debateai.com, or (3) open in Chrome/Safari if you\u2019re in an in-app browser.');
       }
+      return;
+    }
+    // Short-circuit BEFORE we kick off OAuth: inside Instagram/FB/TikTok/etc.
+    // Google returns disallowed_useragent and the user lands on an opaque error
+    // page (or nothing visibly happens). Tell them how to escape the webview
+    // instead of letting Google deliver the bad news silently.
+    const inAppEarly = typeof detectInAppBrowser === 'function' ? detectInAppBrowser() : null;
+    if (inAppEarly) {
+      try { if (window.gtag) gtag('event', 'sign_in_blocked_inapp', { app: inAppEarly, surface: 'index_useauth' }); } catch(e){}
+      alert('Google sign-in is blocked inside ' + inAppEarly + '. Tap the menu (\u22EF or \u22EE) and choose "Open in Browser" or "Open in Safari", then sign in there.');
       return;
     }
     const provider = new firebase.auth.GoogleAuthProvider();
