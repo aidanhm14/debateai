@@ -21,7 +21,7 @@
     appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
   };
   const SDK_VERSION = '10.7.1';
-  const PRICING_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform';
+  const PRICING_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform';
   const REFRESH_MS = 120_000; // Re-check team plan every 2 min.
   const DISMISS_HOURS = 24;   // Respect a dismiss for a day.
 
