@@ -6,7 +6,7 @@
 //
 // The original voice bank (CORE / STRATEGY / CHARACTER / CASE_CONSTRUCTION /
 // LANGUAGE_CONSTRUCTION) was publicly readable via view-source and was the
-// core of DebateOS's voice IP — now it stays on the server.
+// core of Debate AI's voice IP — now it stays on the server.
 //
 // Known tradeoff: BYOK (bring-your-own-key) requests bypass the Netlify
 // proxy and go straight to Anthropic, so they get no voice injection. BYOK

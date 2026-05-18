@@ -1,4 +1,4 @@
-// DebateOS voice guidelines — SERVER-ONLY.
+// Debate AI voice guidelines — SERVER-ONLY.
 //
 // Moved here from /js/voice-guidelines.js so the voice bank doesn't ship
 // to every visitor via view-source. The client now sends `_voiceFeature`
