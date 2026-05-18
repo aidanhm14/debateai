@@ -125,16 +125,11 @@
         title: 'Back to home',
         html: '<span>Debate</span> AI.<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>',
       }),
-      // Beta status chip — single source of truth for the "still in beta,
-      // shipping daily" message across every page that mounts the shared
-      // topbar (landing, pricing, learn, debate-ai, voice-debate, schools,
-      // /pro, etc.). Tooltip carries the same context for screen readers.
-      el('span', {
-        class: 'ui-topbar-beta',
-        title: 'Debate AI is in public beta. New features and fixes ship daily.',
-        'aria-label': 'Beta. Updating daily.',
-        html: '<span class="ui-topbar-beta-dot" aria-hidden="true"></span><span class="ui-topbar-beta-text">Beta <span class="ui-topbar-beta-sep" aria-hidden="true">·</span> Updating daily</span>',
-      }),
+      // 2026-05-18: the "Beta · Updating daily" chip used to sit next to
+      // the wordmark on every page. It read as crowded chrome that
+      // pushed the nav links rightward without earning the pixels.
+      // Beta state still lives in the /pricing FAQ and the floating
+      // upgrade-cta pill; the topbar doesn't need to also pin it.
     ]);
 
     var right = el('div', { class: 'ui-topbar-right' });

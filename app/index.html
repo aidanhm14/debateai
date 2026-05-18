@@ -142,7 +142,7 @@ html{height:100%;width:100%;overflow-x:hidden}body{min-height:100%;height:100%;w
    `.light-theme` selectors that already set background:#f5f5f7. The
    crimson-theme override does the same with `.app{background:#151518}`
    so it stays in charge of its own palette. */
-body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeSpeed;background:radial-gradient(ellipse 90% 60% at 50% -8%,rgba(220,38,38,.10),transparent 62%),radial-gradient(ellipse 50% 60% at 8% 100%,rgba(120,90,180,.05),transparent 65%),var(--bg,#161318);background-attachment:fixed;color:var(--text,#e8ecf4);font-size:18px;transition:background .4s,color .4s}
+body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeSpeed;background:radial-gradient(ellipse 90% 60% at 50% -8%,rgba(220,38,38,.04),transparent 62%),radial-gradient(ellipse 50% 60% at 8% 100%,rgba(120,90,180,.02),transparent 65%),var(--bg,#161318);background-attachment:fixed;color:var(--text,#e8ecf4);font-size:18px;transition:background .4s,color .4s}
 
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes arrowBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
@@ -171,7 +171,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .bg-canvas::before{
   content:'';position:absolute;
   top:-20%;right:-10%;width:80%;height:120%;
-  background:radial-gradient(ellipse at center,var(--accent-glow,rgba(239,68,68,.12)) 0%,transparent 70%);
+  background:radial-gradient(ellipse at center,var(--accent-glow,rgba(239,68,68,.05)) 0%,transparent 70%);
   filter:blur(100px);
   pointer-events:none;
   animation:bgDrift 12s ease-in-out infinite alternate;
@@ -179,7 +179,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .bg-canvas::after{
   content:'';position:absolute;
   bottom:-10%;left:-10%;width:60%;height:80%;
-  background:radial-gradient(ellipse at center,var(--accent-glow2,rgba(239,68,68,.07)) 0%,transparent 70%);
+  background:radial-gradient(ellipse at center,var(--accent-glow2,rgba(239,68,68,.03)) 0%,transparent 70%);
   filter:blur(80px);
   pointer-events:none;
   animation:bgDrift2 14s ease-in-out infinite alternate;
@@ -215,7 +215,15 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .light-theme .geo-debater.gen-active{opacity:.18}
 
 /* ── App Shell ────────────────────────────────── */
-.app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;width:100%;max-width:100vw;overflow-x:hidden;padding-top:8px;padding-left:200px}
+/* padding-top clears the 52px fixed .app-topbar across every tab. The
+   prior 8px value let the topbar overlap the first ~44px of every
+   tab-hero (the eyebrow chip was clipped under the topbar's blurred
+   glass on Case Gen / Philosophy / Casual / Judge / Mapper / etc.).
+   60px = 52px topbar + 8px breathing room. Mobile keeps its own
+   padding-top:76px in the @max-width:640px rule below since the
+   topbar collapses to 46px there but the content benefits from
+   a slightly wider gap. */
+.app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;width:100%;max-width:100vw;overflow-x:hidden;padding-top:60px;padding-left:200px}
 @media (max-width:1100px){.app{padding-left:182px}}
 @media (max-width:900px){.app{padding-left:168px}}
 /* Old centered header. hidden, replaced by .app-topbar */
@@ -235,18 +243,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
   transition:top .2s ease, background .4s, border-color .4s;
 }
 .app-topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0}
-/* Beta status chip. Sits next to the in-app logo, mirroring the shared
-   topbar.js chip on /landing, /pricing, etc. so the still-in-beta +
-   shipping-daily message reads consistently across the site. */
-.ui-topbar-beta{display:inline-flex;align-items:center;gap:6px;margin-left:12px;padding:3px 9px;border:1px solid rgba(239,68,68,.32);border-radius:999px;background:rgba(239,68,68,.10);font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent,#ef4444);line-height:1;white-space:nowrap;font-family:inherit;cursor:default}
-.ui-topbar-beta-dot{width:6px;height:6px;border-radius:50%;background:var(--accent,#ef4444);box-shadow:0 0 8px var(--accent,#ef4444);display:inline-block;animation:uiTopbarBetaPulse 2.2s ease-in-out infinite}
-.ui-topbar-beta-sep{opacity:.55;margin:0 2px;font-weight:400}
-@keyframes uiTopbarBetaPulse{0%,100%{opacity:.55;transform:scale(.92)}50%{opacity:1;transform:scale(1.05)}}
-.light-theme .ui-topbar-beta{color:#b91c1c;border-color:rgba(185,28,28,.32);background:rgba(185,28,28,.06)}
-.light-theme .ui-topbar-beta-dot{background:#b91c1c;box-shadow:0 0 8px rgba(185,28,28,.5)}
-@media(max-width:640px){.ui-topbar-beta{margin-left:8px;padding:2px 7px;font-size:.52rem;letter-spacing:.08em;gap:5px}.ui-topbar-beta-dot{width:5px;height:5px}}
-@media(max-width:420px){.ui-topbar-beta{display:none}}
-@media(prefers-reduced-motion:reduce){.ui-topbar-beta-dot{animation:none}}
+/* 2026-05-18: .ui-topbar-beta chip CSS removed alongside the element. */
 .app-topbar-logo{
   font-size:1.15rem;font-weight:900;letter-spacing:-.02em;
   color:var(--text,#fff);cursor:pointer;white-space:nowrap;line-height:1;
@@ -1840,6 +1837,253 @@ body.crimson-theme{background:#151518!important;color:#f5f0f0!important}
   }
   .orb-ring.pulse,.nav-btn-feature{animation:none!important}
 }
+
+/* ── DebateAI revised construction (2026-05-18) ────────────────────────
+   Semantic theme tokens + Case Generator cockpit shell. Layers on top of
+   the existing :root tokens. New components (cockpit-grid, cockpit-rail,
+   motion-chips, cockpit-actions, compact stepper) use only these tokens
+   so the same component renders correctly in dark + light without
+   per-theme overrides scattered through the file. */
+:root,
+[data-theme="grey"],
+[data-theme="crimson"]{
+  --bg-app:#0d0e10;
+  --bg-header:#101114;
+  --bg-sidebar:#101114;
+  --surface-1:rgba(20,21,24,.92);
+  --surface-2:rgba(26,20,23,.86);
+  --text-primary:#f5f2ec;
+  --text-secondary:#b9b4ad;
+  --text-muted:#77736d;
+  --accent-red:#ff4652;
+  --accent-orange:#ff8a16;
+  --border-subtle:rgba(255,255,255,.11);
+  --border-strong:rgba(255,70,82,.55);
+  --shadow-soft:0 18px 60px rgba(0,0,0,.34);
+  --page-glow:radial-gradient(circle at 78% 24%,rgba(112,24,28,.55),transparent 42%);
+}
+[data-theme="day"],
+[data-theme="light"],
+body.light-theme{
+  --bg-app:#f7f1e8;
+  --bg-header:#fff9ef;
+  --bg-sidebar:#fffaf3;
+  --surface-1:rgba(255,250,243,.94);
+  --surface-2:rgba(255,245,235,.9);
+  --text-primary:#191a1d;
+  --text-secondary:#6e675e;
+  --text-muted:#91877b;
+  --accent-red:#df3441;
+  --accent-orange:#f6781d;
+  --border-subtle:rgba(40,32,24,.14);
+  --border-strong:rgba(223,52,65,.52);
+  --shadow-soft:0 18px 50px rgba(89,54,23,.13);
+  --page-glow:radial-gradient(circle at 78% 24%,rgba(255,114,78,.18),transparent 44%);
+}
+
+/* ── Cockpit grid: form column + context rail ─────────────────────── */
+.cockpit-grid{
+  display:grid;
+  grid-template-columns:minmax(0,2fr) minmax(280px,1fr);
+  gap:28px;align-items:start;margin-top:6px;
+}
+@media (max-width:1100px){.cockpit-grid{grid-template-columns:1fr;gap:18px}}
+.cockpit-form{min-width:0}
+.cockpit-rail{
+  position:sticky;top:72px;align-self:start;
+  display:flex;flex-direction:column;gap:10px;
+  padding:18px 18px 16px;
+  background:var(--surface-1);
+  border:1px solid var(--border-subtle);
+  border-radius:20px;
+  box-shadow:var(--shadow-soft);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+}
+@media (max-width:1100px){.cockpit-rail{position:static}}
+.cockpit-rail-title{
+  font-size:.6rem;font-weight:800;color:var(--accent-red);
+  letter-spacing:.16em;text-transform:uppercase;
+  padding-bottom:10px;border-bottom:1px solid var(--border-subtle);
+  margin-bottom:2px;
+}
+.cockpit-rail-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:.82rem;color:var(--text-secondary);
+  padding:5px 0;
+}
+.cockpit-rail-row .crr-label{color:var(--text-muted);font-weight:600;letter-spacing:.02em}
+.cockpit-rail-row .crr-value{color:var(--text-primary);font-weight:700}
+.cockpit-rail-row .crr-value.crr-accent{color:var(--accent-red)}
+.cockpit-rail-divider{height:1px;background:var(--border-subtle);margin:6px 0}
+.cockpit-rail-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;padding:10px 14px;border-radius:14px;
+  background:transparent;color:var(--text-primary);
+  border:1px solid var(--border-subtle);
+  cursor:pointer;font-family:inherit;font-weight:700;
+  font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;
+  transition:.15s ease;
+}
+.cockpit-rail-btn:hover{background:var(--surface-2);border-color:var(--border-strong);color:var(--text-primary)}
+.cockpit-rail-btn.primary{
+  background:var(--accent-red);color:#fff;border-color:transparent;
+}
+.cockpit-rail-btn.primary:hover{background:#e7384a;box-shadow:0 8px 20px rgba(223,52,65,.25)}
+
+/* ── Motion example chips ─────────────────────────────────────────── */
+.motion-chips{
+  display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;
+}
+.motion-chip{
+  font-family:inherit;font-size:.72rem;font-weight:600;letter-spacing:.04em;
+  padding:6px 13px;border-radius:999px;
+  background:var(--surface-2);color:var(--text-secondary);
+  border:1px solid var(--border-subtle);
+  cursor:pointer;transition:.15s ease;
+}
+.motion-chip:hover{color:var(--text-primary);border-color:var(--border-strong);background:var(--surface-1)}
+.motion-chip:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(223,52,65,.28)}
+.motion-chips-label{
+  font-size:.58rem;font-weight:700;color:var(--text-muted);
+  letter-spacing:.14em;text-transform:uppercase;
+  margin-right:6px;align-self:center;
+}
+
+/* ── Sticky action row: Generate Case / Save draft ────────────────── */
+.cockpit-actions{
+  position:sticky;bottom:0;z-index:5;
+  display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+  padding:14px 16px;margin:18px -6px 0;
+  background:linear-gradient(180deg,transparent 0%,var(--bg-app) 28%,var(--bg-app) 100%);
+  border-top:1px solid var(--border-subtle);
+  border-radius:0 0 18px 18px;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+.cockpit-actions .ca-spacer{flex:1;min-width:8px}
+.cockpit-actions .ca-hint{
+  font-size:.66rem;color:var(--text-muted);letter-spacing:.04em;
+  display:inline-flex;align-items:center;gap:6px;text-transform:uppercase;font-weight:600;
+}
+.cockpit-actions .ca-hint kbd{
+  font-family:'Inter',system-ui,sans-serif;font-size:.62rem;font-weight:700;
+  padding:2px 6px;border-radius:5px;background:var(--surface-2);
+  border:1px solid var(--border-subtle);color:var(--text-secondary);
+}
+.cockpit-action-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:11px 24px;border-radius:999px;border:none;cursor:pointer;
+  font-family:inherit;font-weight:700;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;
+  transition:.18s ease;
+}
+.cockpit-action-btn.primary{
+  background:linear-gradient(135deg,var(--accent-orange),var(--accent-red));
+  color:#fff;box-shadow:0 8px 24px rgba(223,52,65,.32);
+}
+.cockpit-action-btn.primary:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(223,52,65,.42)}
+.cockpit-action-btn.primary:disabled{opacity:.65;cursor:not-allowed;transform:none;box-shadow:none}
+.cockpit-action-btn.secondary{
+  background:var(--surface-2);color:var(--text-primary);
+  border:1px solid var(--border-subtle);
+}
+.cockpit-action-btn.secondary:hover{background:var(--surface-1);border-color:var(--border-strong)}
+.cockpit-action-btn.secondary.is-saved{color:var(--accent-red);border-color:var(--border-strong);background:var(--surface-1)}
+
+/* ── Compact how-to stepper variant ───────────────────────────────── */
+.tab-hero-howto.compact{
+  margin-top:14px;padding:12px 16px;
+  background:var(--surface-2);border:1px solid var(--border-subtle);
+  border-radius:14px;max-width:none;
+}
+.tab-hero-howto.compact .thh-title{font-size:.54rem;letter-spacing:.16em;margin-bottom:8px;color:var(--text-muted)}
+.tab-hero-howto.compact .thh-steps{flex-direction:row;flex-wrap:wrap;gap:6px 18px;display:flex}
+.tab-hero-howto.compact .thh-steps li{font-size:.82rem;color:var(--text-secondary);line-height:1.35;gap:8px}
+.tab-hero-howto.compact .thh-step-num{
+  width:18px;height:18px;background:rgba(255,70,82,.16);
+  color:var(--accent-red);font-size:.65rem;margin-top:0;
+}
+.tab-hero-howto.compact a.thh-step-em{color:var(--text-primary);text-decoration-color:var(--border-strong)}
+@media (max-width:680px){
+  .tab-hero-howto.compact .thh-steps{flex-direction:column;gap:8px}
+}
+
+/* ── Case-shell cockpit tinting (uses new tokens, opt-in via class) ── */
+.case-shell.cockpit-themed{padding:8px 32px!important}
+.case-shell.cockpit-themed .field-label{
+  color:var(--accent-red)!important;font-size:.62rem!important;letter-spacing:.16em!important;
+}
+.case-shell.cockpit-themed .field-label.green{color:var(--accent-red)!important}
+.case-shell.cockpit-themed select,
+.case-shell.cockpit-themed textarea,
+.case-shell.cockpit-themed input{
+  background:var(--surface-2)!important;color:var(--text-primary)!important;
+  border:1px solid var(--border-subtle)!important;
+  border-radius:16px!important;
+}
+.case-shell.cockpit-themed select::placeholder,
+.case-shell.cockpit-themed textarea::placeholder,
+.case-shell.cockpit-themed input::placeholder{color:var(--text-muted)!important}
+.case-shell.cockpit-themed select:focus,
+.case-shell.cockpit-themed textarea:focus,
+.case-shell.cockpit-themed input:focus{
+  border-color:var(--border-strong)!important;
+  box-shadow:0 0 0 3px rgba(223,52,65,.12)!important;
+}
+.light-theme .case-shell.cockpit-themed{background:transparent!important;color:var(--text-primary)!important}
+.light-theme .case-shell.cockpit-themed .depth-card{
+  background:var(--surface-2)!important;border-color:var(--border-subtle)!important;color:var(--text-primary)!important;
+}
+.light-theme .case-shell.cockpit-themed .depth-card.active{
+  background:rgba(223,52,65,.06)!important;border-color:var(--border-strong)!important;
+}
+.light-theme .case-shell.cockpit-themed .depth-card .depth-title{color:var(--text-primary)!important}
+.light-theme .case-shell.cockpit-themed .depth-card .depth-desc{color:var(--text-secondary)!important}
+.light-theme .case-shell.cockpit-themed .depth-card .depth-words{color:var(--text-muted)!important}
+
+/* ── Quieter inactive sidebar tabs (scoped to .nav) ──────────────── */
+.nav .nav-btn:not(.active):not(.active-orange):not(.nav-btn-feature){
+  background:transparent!important;
+  border-color:var(--border-subtle)!important;
+  box-shadow:none!important;
+  color:var(--text-secondary)!important;
+}
+.nav .nav-btn:not(.active):not(.active-orange):not(.nav-btn-feature):hover{
+  background:var(--surface-2)!important;
+  border-color:var(--border-strong)!important;
+  color:var(--text-primary)!important;
+  box-shadow:none!important;
+  transform:none;
+}
+body.light-theme .nav .nav-btn:not(.active):not(.active-orange):not(.nav-btn-feature){color:var(--text-secondary)!important}
+
+/* ── Embedded dictation button on textareas ───────────────────────
+   The host wraps a textarea + <VoiceDictate>. position:relative on
+   the host, position:absolute on the button so the textarea itself
+   is NOT wrapped in a DOM node (which broke /js/voice-input.js on
+   2026-05-16). React owns the button as a sibling of the textarea
+   inside the host div. */
+.dictate-host{position:relative}
+.dictate-host textarea{padding-right:54px!important}
+.dictate-btn{
+  position:absolute;bottom:12px;right:12px;z-index:2;
+  width:34px;height:34px;border-radius:50%;
+  background:var(--surface-2);color:var(--text-secondary);
+  border:1px solid var(--border-subtle);
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+  font-family:inherit;font-size:.95rem;line-height:1;
+  transition:transform .15s ease, background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.dictate-btn:hover{color:var(--accent-red);border-color:var(--border-strong);background:var(--surface-1);transform:translateY(-1px)}
+.dictate-btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(223,52,65,.32)}
+.dictate-btn.recording{
+  background:var(--accent-red);color:#fff;border-color:var(--accent-red);
+  animation:dictatePulse 1.6s ease-in-out infinite;
+}
+@keyframes dictatePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,70,82,.45)}
+  50%{box-shadow:0 0 0 10px rgba(255,70,82,0)}
+}
+@media (prefers-reduced-motion:reduce){.dictate-btn.recording{animation:none}}
 </style>
 <script data-goatcounter="https://aidanhm31.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 <script>
@@ -3526,6 +3770,62 @@ async function loadCasesFromFirestore(uid) {
 
 const CASE_TAG_SUGGESTIONS = ['tournament','practice','gov','opp','politics','philosophy','economics','social','international','strong','needs-work'];
 
+/* ── VoiceDictate ─────────────────────────────────────────────────────
+ * Embedded mic-button dictation for any textarea. Web Speech API
+ * (browser-native, free, no server endpoint). Renders the mic INSIDE
+ * the React tree as an absolutely-positioned <button> sibling of the
+ * textarea — does NOT wrap the textarea in another node, which is the
+ * regression that disabled /js/voice-input.js on 2026-05-16 (the
+ * wrapper moved the textarea out of React's expected child slot and
+ * crashed the next reconciliation on Start Round). Stop on unmount
+ * via cleanup ref. Silent no-op on Firefox / browsers that lack
+ * SpeechRecognition (we don't show the button at all there). */
+function VoiceDictate({ onAppend, lang }) {
+  const [recording, setRecording] = useState(false);
+  const [supported, setSupported] = useState(false);
+  const recRef = useRef(null);
+  useEffect(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    setSupported(!!SR);
+    return () => { try { recRef.current && recRef.current.stop(); } catch(e){} };
+  }, []);
+  if (!supported) return null;
+  const toggle = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (recording) {
+      try { recRef.current && recRef.current.stop(); } catch(err){}
+      setRecording(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = false; // only final segments get appended; interim creates duplication
+    rec.lang = lang || (navigator.language || 'en-US');
+    rec.onresult = (ev) => {
+      let chunk = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) chunk += ev.results[i][0].transcript;
+      }
+      if (chunk && onAppend) onAppend(chunk);
+    };
+    rec.onerror = () => { setRecording(false); };
+    rec.onend = () => { setRecording(false); };
+    try { rec.start(); recRef.current = rec; setRecording(true); }
+    catch(err){ setRecording(false); }
+  };
+  return React.createElement('button', {
+    type:'button',
+    className: 'dictate-btn' + (recording ? ' recording' : ''),
+    onClick: toggle,
+    onMouseDown: (e) => e.preventDefault(), // don't steal focus from textarea
+    title: recording ? 'Stop dictation' : 'Dictate (browser speech-to-text)',
+    'aria-label': recording ? 'Stop dictation' : 'Start dictation',
+    'aria-pressed': recording,
+  }, recording ? '◼' : '🎤');
+}
+
 function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExport, activeId, onUpdateCase }) {
   const { t } = React.useContext(I18nContext);
   const [search, setSearch] = useState('');
@@ -4630,6 +4930,42 @@ function CaseGenerator({ onSave, loadedCase, onClearLoaded, team, user, onNaviga
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [caseTone, setCaseTone] = useState('default');
   const [caseBrain, setCaseBrain] = useState(()=>pickBrainForTask('caseGen'));
+  // Draft persistence. Save the current form inputs to localStorage so users
+  // who close the tab mid-prep don't lose the motion + background + side +
+  // format + depth combo. Auto-load on mount when no case is loaded; manual
+  // save via the Save draft button on the sticky action row.
+  const [draftSaved, setDraftSaved] = useState(false);
+  const draftSavedTimer = useRef(null);
+  const saveDraft = () => {
+    try {
+      const draft = { motion, background, side, format, depth, caseTone, caseBrain, ts: Date.now() };
+      localStorage.setItem('cg-draft-v1', JSON.stringify(draft));
+      setDraftSaved(true);
+      if (draftSavedTimer.current) clearTimeout(draftSavedTimer.current);
+      draftSavedTimer.current = setTimeout(() => setDraftSaved(false), 1800);
+    } catch(e) { /* localStorage full or blocked; silent */ }
+  };
+  // Auto-load any saved draft once on mount, only if the user hasn't
+  // already loaded a saved case AND the motion field is empty (so we
+  // don't clobber the topic-hub deep-link pre-fill).
+  useEffect(() => {
+    if (loadedCase || (motion && motion.trim())) return;
+    try {
+      const raw = localStorage.getItem('cg-draft-v1');
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (d && d.motion) {
+        if (d.motion) setMotion(d.motion);
+        if (d.background) setBackground(d.background);
+        if (d.side) setSide(d.side);
+        if (d.format) setFormat(d.format);
+        if (d.depth) setDepth(d.depth);
+        if (d.caseTone) setCaseTone(d.caseTone);
+        if (d.caseBrain) setCaseBrain(d.caseBrain);
+      }
+    } catch(e) { /* corrupt draft; ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const outputRef = useRef(null);
   const streamAreaRef = useRef(null);
   const smoothReveal = useSmoothProgress(
@@ -4924,14 +5260,14 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
     return () => { cancelled = true; };
   }, [output, loading, streaming]);
 
-  return React.createElement('div',{className:'panel case-shell'+(output?' panel-expanded':'')},
+  return React.createElement('div',{className:'panel case-shell cockpit-themed'+(output?' panel-expanded':'')},
 
     // Hero-style tab header. lands user in a "this is its own page" feel
     // instead of dumping them straight into form fields. Matches landing's
     // typographic scale so the transition from /landing to /app feels
     // continuous. Hidden when the form is collapsed (post-generation).
-    // The .tab-hero-howto block underneath is the entry orientation for
-    // users arriving via the topbar's Prep tab (2026-05-18). Three steps,
+    // The .tab-hero-howto.compact block underneath is the entry orientation
+    // for users arriving via the topbar's Prep tab. Three inline steps,
     // always visible, no dismiss-state. Returning users skim it; new
     // users get the mental model before they touch a form field.
     !formCollapsed && React.createElement('div', { className: 'tab-hero' },
@@ -4943,7 +5279,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
       React.createElement('p', { className: 'tab-hero-lede' },
         'Give me the motion and which side you want. I\'ll build the case. with warrants, impacts, and pre-loaded blocks ready for the round.'
       ),
-      React.createElement('div', { className: 'tab-hero-howto' },
+      React.createElement('div', { className: 'tab-hero-howto compact' },
         React.createElement('div', { className: 'thh-title' }, 'How to use'),
         React.createElement('ol', { className: 'thh-steps' },
           React.createElement('li', null,
@@ -4995,22 +5331,62 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
       opacity: formCollapsed && (loading || streaming || output) ? 0 : 1,
       transition: 'max-height .4s ease, opacity .3s ease',
     }},
+      // Cockpit grid: form column + context rail. Right rail summarizes
+      // the current selection + offers Voice-next / pull-motion hooks so
+      // the form stops stretching into oblivion on wide screens. Drops to
+      // a single column under 1100px (handled in CSS).
+      React.createElement('div',{className:'cockpit-grid'},
+        React.createElement('div',{className:'cockpit-form'},
       // Motion
       React.createElement('label',{className:'field-label'},t('caseGen.motion','Motion')),
-      React.createElement('textarea',{
-        placeholder:t('caseGen.motionPlaceholder','This house would ban private education...'),
-        value:motion, onChange:e=>setMotion(e.target.value),
-        rows:3, maxLength:3000
-      }),
+      React.createElement('div',{className:'dictate-host'},
+        React.createElement('textarea',{
+          placeholder:t('caseGen.motionPlaceholder','This house would ban private education...'),
+          value:motion, onChange:e=>setMotion(e.target.value),
+          rows:3, maxLength:3000
+        }),
+        React.createElement(VoiceDictate,{
+          onAppend: (chunk) => setMotion(prev => {
+            const sep = prev && !/[\s]$/.test(prev) ? ' ' : '';
+            return (prev || '') + sep + chunk.trim();
+          })
+        })
+      ),
+      // Motion example chips. seed clicks for common motion themes so the
+      // user has a one-tap starter instead of staring at an empty box.
+      React.createElement('div',{className:'motion-chips'},
+        React.createElement('span',{className:'motion-chips-label'},t('caseGen.examples','Examples')),
+        [
+          { label: t('caseGen.exEducation','Education'), text:'This house would ban private education.' },
+          { label: t('caseGen.exAI','AI regulation'), text:'This house would treat frontier AI labs as systemically important institutions and regulate them like banks.' },
+          { label: t('caseGen.exClimate','Climate'), text:'This house would prioritize adaptation over mitigation in climate policy.' },
+          { label: t('caseGen.exJustice','Justice'), text:'This house, as a just society, would abolish life sentences without parole.' },
+          { label: t('caseGen.exIR','International relations'), text:'This house believes the US should withdraw all military forces from East Asia within five years.' },
+        ].map(function(ex){
+          return React.createElement('button',{
+            key:ex.label, type:'button', className:'motion-chip',
+            onClick:function(){ setMotion(ex.text); },
+            'aria-label': 'Use example motion: ' + ex.label,
+          }, ex.label);
+        })
+      ),
       React.createElement('div',{style:{marginTop:20}}),
 
       // Background
       React.createElement('label',{className:'field-label'},t('caseGen.background','Background')),
-      React.createElement('textarea',{
-        placeholder:t('caseGen.backgroundPlaceholder','Give instructions for the AI to develop background, or write your own. E.g. country context, actor details, constraints, time period. Leave blank to skip, or type brief notes and the AI will expand them.'),
-        value:background, onChange:e=>setBackground(e.target.value),
-        rows:2, maxLength:2000
-      }),
+      React.createElement('div',{className:'dictate-host'},
+        React.createElement('textarea',{
+          placeholder:t('caseGen.backgroundPlaceholder','Give instructions for the AI to develop background, or write your own. E.g. country context, actor details, constraints, time period. Leave blank to skip, or type brief notes and the AI will expand them.'),
+          value:background, onChange:e=>setBackground(e.target.value),
+          rows:2, maxLength:2000
+        }),
+        React.createElement(VoiceDictate,{
+          onAppend: (chunk) => setBackground(prev => {
+            const sep = prev && !/[\s]$/.test(prev) ? ' ' : '';
+            return (prev || '') + sep + chunk.trim();
+          })
+        })
+      ),
       // Background need indicator
       (bgNeed || bgNeedLoading) && React.createElement('div',{style:{
         display:'flex',alignItems:'center',gap:10,marginTop:8,padding:'10px 18px',
@@ -5178,10 +5554,14 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
         })(),
       ),
 
-      // Generate buttons
-      React.createElement('div',{className:'btn-row'},
+      // Generate buttons. cockpit-actions makes the row sticky to the
+      // bottom of the form column so the primary CTA stays visible while
+      // scrolling through tone / brain / context-hint sections. Adds a
+      // Save Draft button + keyboard hint alongside the existing
+      // Generate Case + Generate Opposition (Pro) buttons.
+      React.createElement('div',{className:'btn-row cockpit-actions'},
         React.createElement('button',{
-          className:'btn btn-orange',
+          className:'cockpit-action-btn primary',
           onClick:()=>{ checkContext('case'); setSaved(false); },
           disabled:loading || checkingContext
         }, checkingContext ?
@@ -5190,6 +5570,16 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
           React.createElement('span',null,React.createElement('span',{className:'spinner'}),t('caseGen.generatingCase','Generating via '+(CASE_BRAINS[caseBrain]?.name||'Claude')+'...')) :
           t('caseGen.generateCase','Generate Case')
         ),
+        // Save draft. Persists current form inputs to localStorage so users
+        // who close the tab mid-prep don't lose the motion + background +
+        // side + format + depth combo. Auto-loads on next mount.
+        React.createElement('button',{
+          className:'cockpit-action-btn secondary' + (draftSaved ? ' is-saved' : ''),
+          type:'button',
+          onClick: saveDraft,
+          disabled: !(motion && motion.trim()),
+          'aria-label': 'Save current motion as draft',
+        }, draftSaved ? t('caseGen.draftSaved','Saved') : t('caseGen.saveDraft','Save draft')),
         // Generate Opposition, Pro-only. Non-subscribers see a blurred
         // button with a lock overlay; the overlay intercepts clicks and
         // routes them to the billing tab (where they can upgrade).
@@ -5264,6 +5654,54 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
           },checkingContext ? t('caseGen.generating','Generating...') : t('caseGen.aiGenerateBg','\u2728 Have AI generate background')),
         )
       ),
+        ), // end cockpit-form column
+        // Context rail: summarizes the current selection + Voice-next /
+        // pull-motion hooks. Sticky at top:72 on desktop, falls below the
+        // form on tablet/mobile (CSS breakpoint at 1100px).
+        React.createElement('div',{className:'cockpit-rail'},
+          React.createElement('div',{className:'cockpit-rail-title'},t('caseGen.rightRail','Right rail')),
+          React.createElement('div',{className:'cockpit-rail-row'},
+            React.createElement('span',{className:'crr-label'},t('caseGen.freshMotions','Fresh motions')),
+            React.createElement('span',{className:'crr-value crr-accent'},'3 today')
+          ),
+          React.createElement('div',{className:'cockpit-rail-row'},
+            React.createElement('span',{className:'crr-label'},t('caseGen.side','Side')),
+            React.createElement('span',{className:'crr-value'},side)
+          ),
+          React.createElement('div',{className:'cockpit-rail-row'},
+            React.createElement('span',{className:'crr-label'},t('caseGen.format','Format')),
+            React.createElement('span',{className:'crr-value'},format)
+          ),
+          React.createElement('div',{className:'cockpit-rail-row'},
+            React.createElement('span',{className:'crr-label'},t('caseGen.depth','Depth')),
+            React.createElement('span',{className:'crr-value'},(getDepthConfigs(format)[depth] && getDepthConfigs(format)[depth].label) || depth)
+          ),
+          React.createElement('div',{className:'cockpit-rail-row'},
+            React.createElement('span',{className:'crr-label'},t('caseGen.blocks','Blocks')),
+            React.createElement('span',{className:'crr-value'},depth === 'light' ? 'Off' : 'On')
+          ),
+          React.createElement('div',{className:'cockpit-rail-divider'}),
+          React.createElement('div',{className:'cockpit-rail-row'},
+            React.createElement('span',{className:'crr-label'},t('caseGen.voiceNext','Voice next')),
+            React.createElement('span',{className:'crr-value crr-accent'},'Ready')
+          ),
+          React.createElement('button',{
+            className:'cockpit-rail-btn primary',
+            type:'button',
+            onClick:function(){
+              try { if (motion && motion.trim()) localStorage.setItem('voice-prefill-motion', motion.trim()); } catch(e){}
+              window.location.href = '/voice-debate';
+            },
+          },t('caseGen.runInVoice','Run in Voice \u2192')),
+          React.createElement('button',{
+            className:'cockpit-rail-btn',
+            type:'button',
+            onClick:function(){
+              try { if (window.__navigateTab) window.__navigateTab('res'); else window.location.href = '/#/res'; } catch(e){ window.location.href = '/#/res'; }
+            },
+          },t('caseGen.pullMotion','Pull a motion')),
+        )
+      ), // end cockpit-grid
     ), // end collapsible form wrapper
 
     // Error
@@ -14455,9 +14893,12 @@ const TABS_COMPETITIVE = [
   {id:'team',label:'Team',i18n:'nav.team'},
   {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
 ];
-// Everything else: live debates, saved work, support link.
+// Everything else: saved work + support link. Live Debates removed
+// from the sidebar 2026-05-18 — the in-app live calendar surface was
+// underused and adds noise. /live.html still serves the standalone
+// tournament-rooms page if needed; the React view component is
+// orphaned but harmless (no entry point).
 const TABS_OTHER = [
-  {id:'live',label:'Live Debates',i18n:'nav.live'},
   {id:'shared',label:'Saved Cases',i18n:'nav.cases'},
   {id:'donate',label:'Donate',i18n:'nav.donate',href:'https://buymeacoffee.com/8idanhm'},
 ];
@@ -15364,21 +15805,10 @@ function App() {
             React.createElement('span',null,"Debate"),
             '\u00A0AI'
           ),
-          // Beta status chip. Mirrors the shared topbar.js chip on /landing,
-          // /pricing, /debate-ai, /voice-debate so the still-in-beta +
-          // shipping-daily message reads consistently everywhere.
-          React.createElement('span',{
-            className:'ui-topbar-beta',
-            title:'Debate AI is in public beta. New features and fixes ship daily.',
-            'aria-label':'Beta. Updating daily.',
-          },
-            React.createElement('span',{className:'ui-topbar-beta-dot','aria-hidden':true}),
-            React.createElement('span',{className:'ui-topbar-beta-text'},
-              'Beta ',
-              React.createElement('span',{className:'ui-topbar-beta-sep','aria-hidden':true},'\u00B7'),
-              ' Updating daily'
-            )
-          ),
+          // 2026-05-18: in-app Beta chip removed in step with the shared
+          // topbar.js change. The chip crammed against the wordmark and
+          // read as crowded chrome. Beta state still lives in /pricing
+          // FAQ + the floating upgrade-cta.
         ),
         // Right: streak + usage + saved-cases toggle + clean nav links + user
         React.createElement('div',{className:'app-topbar-right'},
