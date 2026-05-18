@@ -1,9 +1,9 @@
 // Bumped to v10 — see app/sw.js for detail.
 
 <<<<<<< HEAD
-const CACHE_NAME = 'debateos-v369';
+const CACHE_NAME = 'debateos-v370';
 =======
-const CACHE_NAME = 'debateos-v367';
+const CACHE_NAME = 'debateos-v370';
 >>>>>>> f15dbfa (topics: add /topics/apda pillar page (closes the home-format gap))
 
 

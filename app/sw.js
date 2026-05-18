@@ -5,9 +5,9 @@
 // 8 items and the old 3-card pricing panel.
 
 <<<<<<< HEAD
-const CACHE_NAME = 'debateos-v369';
+const CACHE_NAME = 'debateos-v370';
 =======
-const CACHE_NAME = 'debateos-v367';
+const CACHE_NAME = 'debateos-v370';
 >>>>>>> f15dbfa (topics: add /topics/apda pillar page (closes the home-format gap))
 
 

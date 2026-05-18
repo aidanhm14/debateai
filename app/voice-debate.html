@@ -3410,24 +3410,38 @@ function App(){
                   // standard English-debate flow.
                   transcription: { model: 'gpt-4o-transcribe', language: 'en' },
                   turn_detection: {
-                    type: 'server_vad',
-                    // Threshold raised from 0.5 → 0.7. The default was
-                    // too sensitive for debate rounds, where the AI
-                    // speaks for 30-60s at a stretch and any ambient
-                    // noise (typing, breathing, speaker bleed-through
-                    // even with echo cancellation on, fan hum) was
-                    // tripping speech_started and handing the turn
-                    // back to the user mid-AI-speech. 0.7 needs a
-                    // clearer "this is a person talking" signal before
-                    // it cancels the response.
-                    threshold: 0.7,
+                    // semantic_vad replaces the previous server_vad
+                    // (threshold 0.7, silence 800ms) which still felt
+                    // "punchy" — the fixed-silence detector fires turn-end
+                    // every time the user takes a breath, even mid-thought,
+                    // and the AI was barging in on extended speeches.
+                    //
+                    // semantic_vad uses a turn-detection model on top of
+                    // the audio VAD. When the user's audio trails off
+                    // with an "uhhm" or an incomplete clause, the model
+                    // scores a LOW probability of turn-end and waits
+                    // longer; when the user clearly finishes a sentence
+                    // ("...and that's why I urge a Gov ballot."), it
+                    // scores HIGH and fires the response promptly. The
+                    // dynamic timeout matches debate cadence (long
+                    // monologues with mid-thought pauses) much better
+                    // than the static silence_duration_ms approach.
+                    //
+                    // eagerness:'low' is the most patient setting —
+                    // optimized for long-form speech where the user
+                    // routinely talks for 30-60+ seconds with internal
+                    // pauses. 'medium' (the default 'auto') is tuned
+                    // for chat-style turn-taking and would still trip
+                    // mid-speech. 'high' is for transcription-style
+                    // apps where you want fast turn detection.
+                    //
+                    // Net effect: AI responses feel considered rather
+                    // than punchy. No barge-ins mid-sentence. Latency
+                    // adds ~100-200ms over the previous config but the
+                    // qualitative feel improvement is dramatic.
+                    type: 'semantic_vad',
+                    eagerness: 'low',
                     prefix_padding_ms: 300,
-                    // Silence duration raised 500 → 800ms. Debaters
-                    // pause to think mid-argument; the old value
-                    // treated those pauses as turn-end and auto-fired
-                    // a new AI response, which then got interrupted
-                    // again the moment they continued.
-                    silence_duration_ms: 800,
                     create_response: true,
                   },
                 },
