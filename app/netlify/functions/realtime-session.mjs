@@ -204,19 +204,34 @@ function getCorsHeaders(request) {
 // Realtime sessions are EXPENSIVE (audio in + audio out, both billed).
 // Cap aggressively per IP. A real Pro-gating story will land later;
 // this is the floor that protects the OpenAI bill on day one.
-const rateLimitMap = new Map();
-const RATE_LIMIT_WINDOW = 60 * 60_000; // 1 hour
-const RATE_LIMIT_MAX = 6;              // 6 mints / hour / IP
+//
+// Layered: hour cap stops bursts, day cap stops sustained abuse.
+// 6/hour was the only gate until 2026-05-18; added 10/day on the
+// credit-burn audit because 6×24 = 144 voice mints/day per IP was
+// hypothetical-bot territory and each mint is billed per-minute of
+// audio. 10/day comfortably covers any real human's daily practice.
+const VOICE_LAYERS = [
+  { window: 60 * 60_000,    max: 6,  label: 'hour' },
+  { window: 86_400_000,     max: 10, label: 'day'  },
+];
+const rateLimitHistory = new Map(); // key → array of request timestamps
 
 function checkRateLimit(key) {
   const now = Date.now();
-  const entry = rateLimitMap.get(key);
-  if (!entry || now - entry.start > RATE_LIMIT_WINDOW) {
-    rateLimitMap.set(key, { start: now, count: 1 });
-    return true;
+  const maxWindow = Math.max(...VOICE_LAYERS.map(l => l.window));
+  const history = (rateLimitHistory.get(key) || []).filter(t => now - t < maxWindow);
+  for (const layer of VOICE_LAYERS) {
+    const count = history.filter(t => now - t < layer.window).length;
+    if (count >= layer.max) return { ok: false, layer: layer.label };
   }
-  entry.count++;
-  return entry.count <= RATE_LIMIT_MAX;
+  history.push(now);
+  rateLimitHistory.set(key, history);
+  if (rateLimitHistory.size > 5000) {
+    const entries = Array.from(rateLimitHistory.entries());
+    rateLimitHistory.clear();
+    entries.slice(-2500).forEach(([k, v]) => rateLimitHistory.set(k, v));
+  }
+  return { ok: true };
 }
 
 // CHARACTER preamble prepended to every mode prompt. Powers the
@@ -458,9 +473,13 @@ export default async (request, context) => {
   const ip = request.headers.get('x-forwarded-for')
     || request.headers.get('x-nf-client-connection-ip')
     || 'anon';
-  if (!checkRateLimit('rt_' + ip)) {
+  const rtCheck = checkRateLimit('rt_' + ip);
+  if (!rtCheck.ok) {
+    const msg = rtCheck.layer === 'hour'
+      ? 'Too many live debate sessions started. Wait an hour.'
+      : 'Daily voice-debate cap reached on this IP. Come back tomorrow.';
     return new Response(JSON.stringify({
-      error: 'RATE_LIMIT: Too many live debate sessions started. Wait an hour.',
+      error: 'RATE_LIMIT_' + rtCheck.layer.toUpperCase() + ': ' + msg,
     }), { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 

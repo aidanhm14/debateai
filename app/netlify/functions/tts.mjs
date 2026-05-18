@@ -37,19 +37,33 @@ function getCorsHeaders(request) {
   };
 }
 
-const rateLimitMap = new Map();
-const RATE_LIMIT_WINDOW = 60_000;
-const RATE_LIMIT_MAX = 60;
+// Layered per-IP caps. The minute cap was the only gate until 2026-05-18;
+// added a day layer on the credit-burn audit because a bot hammering at
+// 60/min under the threshold could rack up 60×60 = 3,600 TTS calls/hour =
+// 86K/day per IP, which is meaningful ElevenLabs/OpenAI spend. 100/day
+// reflects realistic legit use (a heavy human session is ~30-50 TTS calls).
+const TTS_LAYERS = [
+  { window: 60_000,    max: 60,  label: 'minute' },
+  { window: 86_400_000,max: 100, label: 'day'    },
+];
+const rateLimitHistory = new Map(); // key → array of request timestamps
 
 function checkRateLimit(key) {
   const now = Date.now();
-  const entry = rateLimitMap.get(key);
-  if (!entry || now - entry.start > RATE_LIMIT_WINDOW) {
-    rateLimitMap.set(key, { start: now, count: 1 });
-    return true;
+  const maxWindow = Math.max(...TTS_LAYERS.map(l => l.window));
+  const history = (rateLimitHistory.get(key) || []).filter(t => now - t < maxWindow);
+  for (const layer of TTS_LAYERS) {
+    const count = history.filter(t => now - t < layer.window).length;
+    if (count >= layer.max) return { ok: false, layer: layer.label };
   }
-  entry.count++;
-  return entry.count <= RATE_LIMIT_MAX;
+  history.push(now);
+  rateLimitHistory.set(key, history);
+  if (rateLimitHistory.size > 5000) {
+    const entries = Array.from(rateLimitHistory.entries());
+    rateLimitHistory.clear();
+    entries.slice(-2500).forEach(([k, v]) => rateLimitHistory.set(k, v));
+  }
+  return { ok: true };
 }
 
 const MAX_TEXT_LENGTH = 5000;
@@ -438,9 +452,13 @@ export default async (request, context) => {
   }
 
   const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
-  if (!checkRateLimit('tts_' + ip)) {
+  const ttsCheck = checkRateLimit('tts_' + ip);
+  if (!ttsCheck.ok) {
+    const msg = ttsCheck.layer === 'minute'
+      ? 'Too many TTS requests, wait a moment.'
+      : 'Daily TTS cap reached on this IP. Come back tomorrow or sign in for higher limits.';
     return new Response(
-      JSON.stringify({ error: 'RATE_LIMIT: Too many TTS requests. Wait a moment.' }),
+      JSON.stringify({ error: 'RATE_LIMIT_' + ttsCheck.layer.toUpperCase() + ': ' + msg }),
       { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
     );
   }
