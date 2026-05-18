@@ -103,14 +103,14 @@ const RATE_LIMIT_MAX_ANON = 5; // unauthenticated callers (per minute)
 // Layered anon caps. One attacker rotating through requests on a single IP
 // can't hit more than these in each window. Authed users skip these (their
 // usage is metered + billed through Stripe).
-// Tightened 2026-05-18 (40/hr → 25/hr, 150/day → 60/day) on a credit-burn
-// audit. The user-facing soft cap is 15/anon and 30/signed-in, so legit
-// users hit the friendly paywall well before these layers fire; the hour
-// + day caps exist only to throttle bot abuse rotating on a single IP.
+// Tightened 2026-05-18 in two passes (150/day → 60 → 30 same day) on a
+// credit-burn audit. The user-facing soft cap is 5/anon and 10/signed-in,
+// so legit users hit the friendly paywall well before these layers fire;
+// the hour + day caps exist only to throttle bot abuse rotating on a single IP.
 const ANON_LAYERS = [
   { window: 60_000,    max: 5,   label: 'minute' },
-  { window: 3_600_000, max: 25,  label: 'hour'   },
-  { window: 86_400_000,max: 60,  label: 'day'    },
+  { window: 3_600_000, max: 15,  label: 'hour'   },
+  { window: 86_400_000,max: 30,  label: 'day'    },
 ];
 const anonHistory = new Map(); // ip → array of request timestamps
 

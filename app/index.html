@@ -2078,11 +2078,12 @@ function useProTrial(feature) {
 }
 function canUseProFeature(team, user, feature) {
   if (isPro(team, user)) return { allowed: true, remaining: Infinity };
-  // Free users get 5 tries per premium feature before upgrade. Was 1 (the
-  // "force conversion" cut); bumped back to 5 on 2026-05-14 to stop spooking
-  // casual users in their first session. Server-side caps still apply.
+  // Free users get 1 try per premium feature before upgrade. Bumped to 5 on
+  // 2026-05-14 then reverted to 1 on 2026-05-18 on a credit-burn audit —
+  // the per-feature trial was a meaningful chunk of pro-brain spend on
+  // unconverted users. Server-side caps still apply.
   const used = getProTrials(feature);
-  const limit = 5;
+  const limit = 1;
   if (used >= limit) return { allowed: false, remaining: 0 };
   return { allowed: true, remaining: limit - used };
 }
@@ -3709,18 +3710,19 @@ function maybeShowSupportNudge() {
     setTimeout(() => { if (n.parentNode) n.remove(); }, 15000);
   } catch(e) {}
 }
-const ANON_BASE_LIMIT = 15;
+const ANON_BASE_LIMIT = 5;
 // Giving feedback unlocks UNLIMITED. matches the "unlock unlimited" copy in the beta strip
 function hasGivenFeedback() { try { return localStorage.getItem('debateos-feedback-given') === '1'; } catch { return false; } }
 function markFeedbackGiven() { try { localStorage.setItem('debateos-feedback-given', '1'); } catch {} }
-// FREE TIER: 15 total requests across the app before a paid plan is required.
-// Bumped from 3/5 → 15 on 2026-05-14 so casual users don't hit the paywall in
-// their first session. This counter is localStorage-based and therefore
-// bypassable by a motivated user. the server-side per-account cap in
-// `canUseProFeature` is the hard limit. This client counter exists to show
-// the user an honest "X left" pill and to trigger the paywall at the
+// FREE TIER: 5 total requests across the app before a paid plan is required.
+// Reverted from 15 → 5 on 2026-05-18 on a credit-burn audit (briefly bumped
+// to 15 on 2026-05-14 for casual-user conversion; the drain plus bot abuse
+// made it untenable while still in beta). This counter is localStorage-based
+// and therefore bypassable by a motivated user. the server-side per-account
+// cap in `canUseProFeature` is the hard limit. This client counter exists to
+// show the user an honest "X left" pill and trigger the paywall at the
 // expected boundary.
-function getAnonLimit() { return 15; }
+function getAnonLimit() { return 5; }
 // Back-compat alias. existing code references ANON_LIMIT.
 // Must be `configurable: true` because Babel re-evaluates this script and
 // would otherwise throw "Cannot redefine property" on the second pass,
@@ -13361,7 +13363,7 @@ function AdBanner({ team, user, onNavigate }) {
     const remaining = getAnonLimit() - used;
     if (remaining <= 0) {
       return el('div', {style:{maxWidth:900,width:'94%',margin:'8px auto 0',padding:'10px 18px',background:'linear-gradient(135deg,#ef444418,#ef44440a)',border:'1px solid #ef444440',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,boxShadow:'0 2px 16px #ef444415'}},
-        el('span', {style:{color:'#fca5a5',fontSize:'.82rem',flex:1,fontWeight:500}}, 'Free generations used up. sign in for 15 more requests this month, or upgrade.'),
+        el('span', {style:{color:'#fca5a5',fontSize:'.82rem',flex:1,fontWeight:500}}, 'Free generations used up. sign in for 5 more requests, or upgrade.'),
         el('button', {onClick:()=>{ if(onNavigate) onNavigate('team'); }, style:{padding:'6px 18px',background:'linear-gradient(135deg,#ef4444,#ef4444cc)',border:'none',borderRadius:8,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:'.78rem',whiteSpace:'nowrap',fontFamily:'inherit'}}, 'Sign In'),
       );
     }

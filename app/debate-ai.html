@@ -33,7 +33,7 @@
         "16 TTS personas across ElevenLabs, Inworld, Cartesia, OpenAI"
       ],
       "offers": [
-        { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "15 anonymous requests plus 15 more on sign-in." },
+        { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 anonymous requests plus 5 more on sign-in." },
         { "@type": "Offer", "name": "BYOK", "price": "1", "priceCurrency": "USD", "description": "Unlimited Claude with your own Anthropic key." },
         { "@type": "Offer", "name": "Individual", "price": "5", "priceCurrency": "USD", "description": "$5/year for 250 requests per month, six brains, HD voice." },
         { "@type": "Offer", "name": "Lifetime", "price": "14.99", "priceCurrency": "USD", "description": "250 requests per month forever, one-time charge." },
@@ -2384,15 +2384,15 @@ function stripPlainMd(s){
    API
    ═══════════════════════════════════════════════════ */
 
-// Generation gate. Anonymous users get 15 free requests lifetime; signing
-// in with Google bumps the cap to 30 (15 base + 15 bonus). Pro tier bypasses
+// Generation gate. Anonymous users get 5 free requests lifetime; signing
+// in with Google bumps the cap to 10 (5 base + 5 bonus). Pro tier bypasses
 // this entirely. The counter lives in localStorage so it survives reloads;
-// signing in doesn't reset usage, just raises the ceiling. Limits were
-// generous-bumped 2026-05-14 (from 5/10) so casual users don't hit the
-// paywall in their first session — supersedes the "5-request free tier"
-// principle in soul.md §4.
-const ANON_LIMIT = 15;
-const SIGNED_IN_LIMIT = 30;
+// signing in doesn't reset usage, just raises the ceiling. Reverted to the
+// pre-2026-05-14 strict caps on 2026-05-18 on a credit-burn audit — the
+// 15/30 bump made the product feel like a real free tier but the legit-user
+// drain plus bot abuse made it untenable while still in beta.
+const ANON_LIMIT = 5;
+const SIGNED_IN_LIMIT = 10;
 function getUsage(){ try{return parseInt(localStorage.getItem('debateos-anon-usage')||'0',10)}catch{return 0} }
 function incUsage(){ try{localStorage.setItem('debateos-anon-usage',String(getUsage()+1))}catch{} }
 function getEffectiveLimit(){
@@ -2499,7 +2499,7 @@ async function callAI(sys, user, onChunk, brainKey, opts){
   // the upgrade CTA instead of a generic failure. Pro tier (Infinity limit)
   // and BYOK (bring your own Anthropic key) both bypass this.
   if (!isPro() && !getStoredKey() && getUsage() >= getEffectiveLimit()) {
-    var err = new Error(isSignedIn() ? 'Free quota used. Upgrade to keep going.' : 'Free quota used. Sign in for 15 more.');
+    var err = new Error(isSignedIn() ? 'Free quota used. Upgrade to keep going.' : 'Free quota used. Sign in for 5 more.');
     err.code = isSignedIn() ? 'QUOTA_PRO' : 'QUOTA_SIGNIN';
     if (typeof window !== 'undefined') {
       try { window.dispatchEvent(new CustomEvent('debateos-quota-hit', { detail: { code: err.code } })); } catch(e){}
@@ -6537,8 +6537,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   };
 
   // Quota CTA modal, fires when callAI() throws QUOTA_SIGNIN or
-  // QUOTA_PRO. Two flavors: anon-hit-15 (sign in for 15 more) and
-  // signed-in-hit-30 (upgrade for unlimited). position:fixed so it lands
+  // QUOTA_PRO. Two flavors: anon-hit-5 (sign in for 5 more) and
+  // signed-in-hit-10 (upgrade for unlimited). position:fixed so it lands
   // at the viewport root regardless of which phase rendered it.
   const quotaCtaOverlay = quotaCTA && el('div',{
     onClick:()=>setQuotaCTA(null),
@@ -6551,11 +6551,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     },
       el('div',{style:{fontSize:'.6rem',fontWeight:800,letterSpacing:'.18em',textTransform:'uppercase',color:'#fca5a5',marginBottom:10}},quotaCTA==='signin'?'Free quota used':'Beta cap reached'),
       el('div',{style:{fontSize:'1.3rem',fontWeight:800,color:'var(--c-bright)',lineHeight:1.25,marginBottom:8}},
-        quotaCTA==='signin' ? 'Get 15 more rounds' : 'You hit the beta cap'
+        quotaCTA==='signin' ? 'Get 5 more rounds' : 'You hit the beta cap'
       ),
       el('div',{style:{fontSize:'.86rem',color:'var(--c-text)',lineHeight:1.5,marginBottom:20}},
         quotaCTA==='signin'
-          ? 'Sign in with Google to unlock 15 more rounds on the house, and the AI starts learning your debate style.'
+          ? 'Sign in with Google to unlock 5 more rounds on the house, and the AI starts learning your debate style.'
           : "Debate AI is in beta — every tier is free right now. The future pricing tiers are on /pricing if you want to see what plans will look like later. Got opinions on price? Send them via feedback."
       ),
       el('div',{style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
@@ -8111,7 +8111,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         if (oneLeft) {
           var softMsg = isSignedIn()
             ? 'Last round on the house. Plans start at $1 if you want to keep going.'
-            : 'Last round on the house. Sign in with Google for 15 more.';
+            : 'Last round on the house. Sign in with Google for 5 more.';
           var softCta = isSignedIn()
             ? el('a',{href:'/pricing',style:{display:'inline-flex',alignItems:'center',gap:6,marginTop:8,padding:'8px 18px',background:'#ef4444',color:'#fff',borderRadius:999,fontSize:'.78rem',fontWeight:800,textDecoration:'none',letterSpacing:'.04em'}},'See plans →')
             : el('button',{onClick:()=>{try{signIn()}catch(e){}},style:{display:'inline-flex',alignItems:'center',gap:6,marginTop:8,padding:'8px 18px',background:'#fff',color:'#1f1f1f',border:'none',borderRadius:999,fontSize:'.78rem',fontWeight:800,cursor:'pointer',fontFamily:'inherit',letterSpacing:'.04em'}},'Sign up with Google →');
@@ -8125,11 +8125,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           atLimit
             ? (isSignedIn()
                 ? el(React.Fragment,null,'Free quota used · ',el('a',{href:'/pricing',style:{color:'#fca5a5',fontWeight:700,textDecoration:'underline'}},'See plans'))
-                : el(React.Fragment,null,'Free quota used · ',el('button',{onClick:()=>{try{signIn()}catch(e){}},style:{background:'none',border:'none',color:'#fca5a5',fontWeight:700,textDecoration:'underline',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',padding:0}},'Sign in for 15 more'))
+                : el(React.Fragment,null,'Free quota used · ',el('button',{onClick:()=>{try{signIn()}catch(e){}},style:{background:'none',border:'none',color:'#fca5a5',fontWeight:700,textDecoration:'underline',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',padding:0}},'Sign in for 5 more'))
               )
             : (isSignedIn()
                 ? left+' rounds left'
-                : el(React.Fragment,null,left+' rounds left · ',el('button',{onClick:()=>{try{signIn()}catch(e){}},style:{background:'none',border:'none',color:'var(--c-bright)',fontWeight:700,textDecoration:'underline',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',padding:0}},'sign in for 15 more'))
+                : el(React.Fragment,null,left+' rounds left · ',el('button',{onClick:()=>{try{signIn()}catch(e){}},style:{background:'none',border:'none',color:'var(--c-bright)',fontWeight:700,textDecoration:'underline',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',padding:0}},'sign in for 5 more'))
               )
         );
       })(),
