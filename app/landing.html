@@ -4129,11 +4129,11 @@ section.ui-section .ui-lede{
       <div class="intro-orb-core"></div>
     </div>
     <h2 class="intro-title" id="introTitle">Listen. Question. Respond.</h2>
-    <p class="intro-sub"><strong>Debate AI is in beta</strong> and still being built. Sign in to keep your rounds, ballots, and style profile across sessions. Or jump in as a guest.</p>
+    <p class="intro-sub"><strong>Debate AI is in beta</strong> and still being built. Sign up to keep your rounds, ballots, and style profile across sessions. Or jump in as a guest.</p>
     <div class="intro-ctas">
       <button type="button" class="intro-google" id="introGoogle">
         <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-        Sign in with Google
+        Sign up with Google
       </button>
       <button type="button" class="intro-guest" id="introGuest">Continue as a guest</button>
     </div>
@@ -4505,7 +4505,7 @@ section.ui-section .ui-lede{
            visible entry point; the "Free to start. No card / Sign up keeps
            your rounds..." microcopy that lived here was filler and was
            removed 2026-05-13 to keep the hero crisp. -->
-      <a href="#" id="editorialSignInLink" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden">Sign in with Google</a>
+      <a href="#" id="editorialSignInLink" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden">Sign up with Google</a>
 
       <!-- Builder credit block removed 2026-05-13. Hero stays
            product-first; founder context lives in #story below. -->
@@ -7179,7 +7179,7 @@ section.ui-section .ui-lede{
         </div>
         <h3>Your style. <span class="hh-accent">Saved.</span></h3>
         <p>One sign-in builds a style profile that follows your account. The AI argues against the same you across devices.</p>
-        <span class="spar-cta-link">Sign in with Google <span aria-hidden="true">→</span></span>
+        <span class="spar-cta-link">Sign up with Google <span aria-hidden="true">→</span></span>
       </a>
     </div>
   </div>
@@ -8386,9 +8386,125 @@ window.addEventListener('load', function(){
       }
     });
   }
+
+  // ── Unsigned-user sign-up reminder ──────────────────────────────
+  // Soft nudge for visitors who scrolled past the hero CTAs without
+  // signing in. Fires 18s after page load (long enough that we don't
+  // pop up while they're still reading the hero) and only if:
+  //   - Firebase loaded and user is NOT signed in
+  //   - They haven't dismissed this banner before (localStorage)
+  //   - The intro modal isn't currently up
+  // Bottom-right pill, brand red, with a "Sign up" action that
+  // reuses the existing triggerGoogleSignIn flow and a × dismiss.
+  (function(){
+    try {
+      var dismissed = localStorage.getItem('debateos-signup-reminder-dismissed') === '1';
+      if (dismissed) return;
+    } catch(e){}
+    var mounted = false;
+    function mount(){
+      if (mounted) return;
+      mounted = true;
+      var bar = document.createElement('div');
+      bar.className = 'signup-nudge';
+      bar.setAttribute('role','dialog');
+      bar.setAttribute('aria-label','Sign up to save your rounds');
+      bar.innerHTML =
+        '<span class="su-line"><strong>Sign up to keep your rounds.</strong> Style profile + ballot history follow your account.</span>' +
+        '<button type="button" class="su-cta" id="suNudgeCta">' +
+          '<svg width="14" height="14" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
+          'Sign up with Google' +
+        '</button>' +
+        '<button type="button" class="su-close" id="suNudgeClose" aria-label="Dismiss">×</button>';
+      document.body.appendChild(bar);
+      requestAnimationFrame(function(){ bar.classList.add('is-in'); });
+      document.getElementById('suNudgeCta').addEventListener('click', function(){
+        try { if (typeof triggerGoogleSignIn === 'function') triggerGoogleSignIn('signup_nudge'); } catch(e){}
+      });
+      document.getElementById('suNudgeClose').addEventListener('click', function(){
+        try { localStorage.setItem('debateos-signup-reminder-dismissed','1'); } catch(e){}
+        bar.classList.remove('is-in');
+        setTimeout(function(){ bar.remove(); }, 260);
+      });
+    }
+    function unmount(){
+      if (!mounted) return;
+      var bar = document.querySelector('.signup-nudge');
+      if (bar) bar.remove();
+      mounted = false;
+    }
+    // Wait for auth state. If still unsigned after 18s, mount.
+    setTimeout(function(){
+      try {
+        if (!firebase || !firebase.auth) return;
+        var u = firebase.auth().currentUser;
+        if (!u) mount();
+        // If they sign in later, take the banner away.
+        firebase.auth().onAuthStateChanged(function(user){
+          if (user) unmount();
+        });
+      } catch(e){}
+    }, 18000);
+  })();
 })();
 });
 </script>
+<style>
+  /* Bottom-right sign-up reminder for unsigned visitors. Same shape
+     as the Hindi banner shipped earlier (familiar pattern) but uses
+     brand red so it reads as a primary action prompt, not a
+     dismissible info notice. */
+  .signup-nudge{
+    position:fixed;right:18px;bottom:18px;z-index:9999;
+    display:flex;align-items:center;gap:10px;
+    padding:10px 12px 10px 16px;border-radius:14px;
+    background:rgba(20,10,12,.94);color:#fff;
+    border:1px solid rgba(220,38,38,.42);
+    box-shadow:0 14px 36px rgba(0,0,0,.32);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-size:.82rem;line-height:1.35;
+    max-width:calc(100vw - 36px);
+    backdrop-filter:blur(10px);
+    transform:translateY(14px);opacity:0;
+    transition:transform .26s ease, opacity .26s ease;
+  }
+  .signup-nudge.is-in{transform:translateY(0);opacity:1}
+  .signup-nudge .su-line{flex:1;color:rgba(255,255,255,.82)}
+  .signup-nudge .su-line strong{color:#fff;font-weight:700}
+  .signup-nudge .su-cta{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:7px 12px;border:none;border-radius:999px;cursor:pointer;
+    background:#fff;color:#1a1a1f;
+    font-family:inherit;font-size:.76rem;font-weight:700;letter-spacing:.01em;
+    white-space:nowrap;
+  }
+  .signup-nudge .su-cta:hover{background:#f3f3f0}
+  .signup-nudge .su-close{
+    border:none;background:transparent;color:rgba(255,255,255,.55);
+    cursor:pointer;font-size:1.1rem;line-height:1;padding:2px 6px;font-family:inherit;
+  }
+  .signup-nudge .su-close:hover{color:#fff}
+  [data-theme="light"] .signup-nudge{
+    background:#fff;color:#1a1a1f;
+    border-color:rgba(220,38,38,.32);
+    box-shadow:0 14px 36px rgba(0,0,0,.10);
+  }
+  [data-theme="light"] .signup-nudge .su-line{color:rgba(0,0,0,.7)}
+  [data-theme="light"] .signup-nudge .su-line strong{color:#1a1a1f}
+  [data-theme="light"] .signup-nudge .su-cta{background:#dc2626;color:#fff}
+  [data-theme="light"] .signup-nudge .su-cta:hover{background:#b91c1c}
+  [data-theme="light"] .signup-nudge .su-close{color:rgba(0,0,0,.45)}
+  [data-theme="light"] .signup-nudge .su-close:hover{color:#1a1a1f}
+  @media (max-width:520px){
+    .signup-nudge{
+      right:8px;left:8px;bottom:8px;
+      flex-wrap:wrap;font-size:.78rem;padding:10px 10px 10px 12px;
+    }
+    .signup-nudge .su-line{flex:1 1 100%;order:1}
+    .signup-nudge .su-cta{order:2}
+    .signup-nudge .su-close{order:3;margin-left:auto}
+  }
+</style>
 
 <!-- Post-Stripe-Checkout success state. Stripe redirects back to / with
      ?billing=success&plan=... once the payment goes through. We render a
