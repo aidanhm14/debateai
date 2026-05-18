@@ -3430,23 +3430,42 @@ function useTTS(){
     onEndRef.current=onEnd;
     progressRef.current={elapsed:0,total:0};
 
-    // Web Audio path is opt-in for now. The HTMLMedia path has slightly
-    // larger gaps between chunks on Chrome but is rock-solid across
-    // browsers + autoplay policies. The Web Audio rewrite hit silent
-    // failures on some devices (suspended AudioContext that never
-    // resumed after the gesture), so default behavior is the proven
-    // path until the WA branch is fully verified.
-    let useWebAudio=false;
-    try{useWebAudio=localStorage.getItem('debateos-tts-engine')==='webaudio'}catch{}
-    if(!useWebAudio){
+    // Engine selection. Web Audio is now the default (flipped from opt-in
+    // on 2026-05-19) because its sample-accurate chunk concatenation
+    // eliminates the audible gap between sentences that the HTMLMedia
+    // path produces — which lets us run smaller chunks without the user
+    // hearing the cuts, which is the main lever for faster time-to-first-
+    // audio. Falls back to HTMLMedia in three cases: (1) the page sets
+    // localStorage 'debateos-tts-engine'='html' (power-user opt-out for
+    // anyone who hit the historical silent-failure bug); (2) the browser
+    // has no AudioContext / decodeAudioData; (3) the AudioContext refuses
+    // to leave the 'suspended' state after we call resume() — that's the
+    // strict-autoplay case (iOS Safari with audio blocked, some Android
+    // browsers, autoplay-blocking extensions) where HTMLMedia is more
+    // permissive because it uses the page's own audio-grant token.
+    let engineOverride=null;
+    try{engineOverride=localStorage.getItem('debateos-tts-engine')}catch{}
+    const wantWebAudio = engineOverride !== 'html';
+    if(!wantWebAudio){
       return playChunksHTMLMedia(blobPromises,onEnd,onStart,token);
     }
     const ctx=getWebAudioCtx();
     if(!ctx||typeof ctx.decodeAudioData!=='function'){
       return playChunksHTMLMedia(blobPromises,onEnd,onStart,token);
     }
+    if(ctx.state==='suspended'){
+      // ctx.resume() returns a promise but state flips synchronously
+      // when the gesture has already been granted (which it has — the
+      // user clicked Start Round to reach the speech phase). If state
+      // is STILL suspended after the call, the browser is being strict
+      // and Web Audio won't play. Fall back transparently.
+      try{ctx.resume()}catch{}
+      if(ctx.state==='suspended'){
+        console.warn('[TTS] AudioContext stuck suspended — HTMLMedia fallback');
+        return playChunksHTMLMedia(blobPromises,onEnd,onStart,token);
+      }
+    }
     modeRef.current='webaudio';
-    if(ctx.state==='suspended'){try{ctx.resume()}catch{}}
 
     // Master gain, leaves room to add a fade-in/out later without
     // re-wiring the chain. Sources connect through this rather than
@@ -5658,15 +5677,18 @@ function App(){
         // while AI is still generating the rest of the speech.
         const blobPromises=[];  // grows as AI streams. playStream consumes them live
         let lastChunkEnd=0;
-        // First chunk fires sooner (7 words ≈ short opening clause) so
-        // audio starts ~half a second earlier on speech-1. Bumped down
-        // from 12 → 7 after timing the round: smaller first chunk = LLM
-        // produces it sooner AND ElevenLabs/OpenAI render it sooner, so
-        // the blob lands in the client's hands faster. Later chunks stay
-        // at 20+ for smoother delivery and fewer perceptible cuts. MAX
-        // kept at 200 so we never wait forever when the AI writes a long
-        // unbroken paragraph.
-        const MIN_CHUNK_WORDS_FIRST=7;
+        // First chunk fires sooner (5 words ≈ ~1.5s of audio = the opening
+        // claim of a debate speech, "Three reasons they're wrong:" type
+        // beat) so audio starts ~700ms earlier than at the previous floor.
+        // Bumped down 12 → 7 → 5 over a couple of iterations. The reason
+        // 5 is now viable: Web Audio playback became the default on
+        // 2026-05-19, which concatenates chunks with sample-accurate
+        // precision (zero audible gap between sentence-1 and sentence-2),
+        // so a tiny first chunk no longer sounds like a hiccup before
+        // the rest of the speech lands. Later chunks stay at 20+ for
+        // smoother delivery; MAX kept at 200 so we never wait forever
+        // on a long unbroken paragraph.
+        const MIN_CHUNK_WORDS_FIRST=5;
         const MIN_CHUNK_WORDS=20;
         const MAX_CHUNK_WORDS=200;
         let playbackStarted=false;
