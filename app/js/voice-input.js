@@ -75,10 +75,31 @@
     // mic button can absolute-position to its bottom-right corner
     // without affecting page layout. If the textarea is already in
     // a positioned wrapper, reuse it.
+    //
+    // CAREFUL: never restructure the DOM on a React-controlled
+    // element. React tracks its own parent → child links via its
+    // fiber tree; inserting a new wrapper between the React-mounted
+    // textarea and its React-mounted parent makes the next React
+    // unmount call `parent.removeChild(textarea)` against a parent
+    // that no longer contains the textarea (the wrapper does). The
+    // resulting NotFoundError crashes the entire React root. For
+    // React-controlled inputs, callers should pre-wrap the element
+    // in a <span class="voice-input-host"> inside their JSX — we'll
+    // detect that and fall through to the else branch.
     var host = el.parentElement;
     if (!host) return;
+    var reactControlled = false;
+    try {
+      for (var k in el) {
+        if (k.indexOf('__reactFiber') === 0 || k.indexOf('__reactProps') === 0) {
+          reactControlled = true;
+          break;
+        }
+      }
+    } catch (e) {}
     var needsWrap = !host.classList.contains('voice-input-host')
-                 && getComputedStyle(host).position === 'static';
+                 && getComputedStyle(host).position === 'static'
+                 && !reactControlled;
     var wrap;
     if (needsWrap) {
       wrap = document.createElement('span');

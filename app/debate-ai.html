@@ -7292,14 +7292,22 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         : useCase==='explore' ? 'Topic'
         : 'Motion'
       ),
-      el('textarea',{className:'float-input',rows:2,placeholder:
-        isCounterExt ? 'Paste your essay’s thesis, project claim, or main argument you’ll defend…'
-        : useCase==='law' ? 'What will you defend? E.g., "A court should grant my motion to suppress."'
-        : useCase==='sales' ? 'What are you pitching? E.g., "Your team should switch to my product."'
-        : useCase==='pitch' ? 'What\'s your claim? E.g., "Now is the right time to bet on my company."'
-        : useCase==='explore' ? 'Pick a topic. Try: "Smartphones should be banned in middle schools."'
-        : 'Enter a motion or topic...',
-        value:motion,onChange:e=>setMotion(e.target.value)}),
+      // The textarea is wrapped in a <span class="voice-input-host"> so
+      // voice-input.js can append a dictation mic button at the bottom-
+      // right without having to restructure the DOM after React mounts.
+      // The previous behavior was voice-input.js wrapping the textarea
+      // post-mount, which broke React's parent → child link and crashed
+      // the entire root on phase transition (Quick Clash → prep).
+      el('span',{className:'voice-input-host',style:{position:'relative',display:'block',width:'100%',maxWidth:480}},
+        el('textarea',{className:'float-input',rows:2,placeholder:
+          isCounterExt ? 'Paste your essay’s thesis, project claim, or main argument you’ll defend…'
+          : useCase==='law' ? 'What will you defend? E.g., "A court should grant my motion to suppress."'
+          : useCase==='sales' ? 'What are you pitching? E.g., "Your team should switch to my product."'
+          : useCase==='pitch' ? 'What\'s your claim? E.g., "Now is the right time to bet on my company."'
+          : useCase==='explore' ? 'Pick a topic. Try: "Smartphones should be banned in middle schools."'
+          : 'Enter a motion or topic...',
+          value:motion,onChange:e=>setMotion(e.target.value)})
+      ),
       // Starred motions, chip row under the motion textarea. Only renders when
       // the user has at least one pinned motion. Click fills the motion;
       // × unstars without touching the active motion.
@@ -7418,20 +7426,27 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       // the resolved background populates generatedBackground (shown in
       // a subtle box below) and the user can still type their own
       // override into the textarea.
-      el('textarea',{
-        className:'float-input',
-        rows:2,
-        placeholder:motion.trim()
-          ? (isCounterExt
-              ? 'Add your own context. Source, course, framework, where this thesis sits in the syllabus. Or click Generate background.'
-              : 'Add your own context, country, actor, constraints, time period. Or click Generate background.')
-          : (isCounterExt
-              ? 'Paste your thesis above, then add any context here.'
-              : 'Pick a motion first, then add context.'),
-        value:background,
-        onChange:e=>setBackground(e.target.value),
-        style:{minHeight:54,fontSize:'.86rem',marginTop:4},
-      }),
+      // Wrapped in <span class="voice-input-host"> so voice-input.js
+      // can anchor its dictation mic to the textarea's bottom-right.
+      // Without the wrap voice-input.js applies the class to .center
+      // (the prepRoute container) and the button orphans at the page
+      // edge.
+      el('span',{className:'voice-input-host',style:{position:'relative',display:'block',width:'100%',maxWidth:480}},
+        el('textarea',{
+          className:'float-input',
+          rows:2,
+          placeholder:motion.trim()
+            ? (isCounterExt
+                ? 'Add your own context. Source, course, framework, where this thesis sits in the syllabus. Or click Generate background.'
+                : 'Add your own context, country, actor, constraints, time period. Or click Generate background.')
+            : (isCounterExt
+                ? 'Paste your thesis above, then add any context here.'
+                : 'Pick a motion first, then add context.'),
+          value:background,
+          onChange:e=>setBackground(e.target.value),
+          style:{minHeight:54,fontSize:'.86rem',marginTop:4},
+        })
+      ),
       // Generated-background preview. Renders only when the AI-generated
       // (or curated) background is available AND the user hasn't typed
       // their own override. The user's manual entry takes precedence.
