@@ -33,6 +33,7 @@
   .change .page { color: #8a92ad; font-size: 10px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
   .change .old { color: #ef9a9a; margin-bottom: 4px; word-break: break-word; line-height: 1.5; text-decoration: line-through; opacity: 0.7; }
   .change .new { color: #a5d6a7; word-break: break-word; line-height: 1.5; }
+  .change .style-diff { color: #b6d4ff; font-size: 11px; margin-top: 6px; font-family: ui-monospace, SFMono-Regular, monospace; word-break: break-all; padding: 6px 8px; background: rgba(70,120,200,0.08); border-left: 2px solid #4f78c8; border-radius: 0 4px 4px 0; }
   .change .ctx { color: #5a6280; font-size: 10px; margin-top: 6px; font-family: ui-monospace, SFMono-Regular, monospace; word-break: break-all; }
   .change .remove { position: absolute; top: 6px; right: 8px; background: none; border: 0; color: #5a6280; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px; }
   .change .remove:hover { color: #ef9a9a; }
@@ -51,6 +52,7 @@
   <select id=page>
     <option value=/landing.html>landing.html</option>
     <option value=/debate-ai.html>debate-ai.html</option>
+    <option value=/story.html>story.html (about)</option>
     <option value=/pricing.html>pricing.html</option>
     <option value=/voice-debate.html>voice-debate.html</option>
     <option value=/devils-advocate.html>devils-advocate.html (spar)</option>
@@ -83,7 +85,7 @@
     </div>
     <div class=changes id=changes></div>
     <div class=footer>
-      <div class=hint>Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (use Shift+Enter for a line break).</div>
+      <div class=hint>Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (use Shift+Enter for a line break). A floating style toolbar appears at the bottom of the iframe when an element is active: font size, bold, alignment, color.</div>
       <div style="margin-top:8px;color:#6b7290">When you're done: <strong style="color:#c9cee1">Export</strong> &rarr; paste the JSON into chat &rarr; I'll apply + push.</div>
     </div>
   </aside>
@@ -143,6 +145,13 @@
 
   function htmlEscape(s) { return String(s).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]); }
 
+  function styleDiffText(stylesObj) {
+    if (!stylesObj) return '';
+    const pairs = Object.entries(stylesObj).filter(([,v]) => v !== undefined);
+    if (!pairs.length) return '';
+    return pairs.map(([k,v]) => `${k}: ${v === '' ? '(removed)' : v}`).join('; ');
+  }
+
   function render() {
     countEl.textContent = changes.length;
     exportBtn.disabled = !changes.length;
@@ -154,11 +163,15 @@
     changes.forEach((c, i) => {
       const d = document.createElement('div');
       d.className = 'change';
+      const showOld = c.old && c.old !== c.new;
+      const showNew = c.new && c.new !== c.old;
+      const styleStr = styleDiffText(c.styles);
       d.innerHTML =
         '<button class=remove data-i="' + i + '" title="Remove">&times;</button>' +
         '<div class=page>' + htmlEscape(c.page) + '</div>' +
-        '<div class=old>' + htmlEscape(c.old) + '</div>' +
-        '<div class=new>' + htmlEscape(c.new) + '</div>' +
+        (showOld ? '<div class=old>' + htmlEscape(c.old) + '</div>' : '') +
+        (showNew ? '<div class=new>' + htmlEscape(c.new) + '</div>' : (c.old ? '<div class=new style="opacity:.6">' + htmlEscape(c.old) + ' <span style="font-size:10px">(text unchanged)</span></div>' : '')) +
+        (styleStr ? '<div class=style-diff>' + htmlEscape(styleStr) + '</div>' : '') +
         (c.ctx ? '<div class=ctx>' + htmlEscape(c.ctx) + '</div>' : '');
       changesEl.appendChild(d);
     });
@@ -169,7 +182,12 @@
   }
 
   function buildPayload() {
-    return changes.map(c => ({ page: c.page, old: c.old, new: c.new, ctx: c.ctx }));
+    return changes.map(c => {
+      const out = { page: c.page, old: c.old, new: c.new, ctx: c.ctx };
+      if (c.styles && Object.keys(c.styles).length) out.styles = c.styles;
+      if (c.outerHTML) out.outerHTML = c.outerHTML;
+      return out;
+    });
   }
 
   async function exportToClipboard() {
@@ -190,10 +208,13 @@
   }
   exportBtn.addEventListener('click', exportToClipboard);
 
-  // editing
+  // ─── style / text editing ─────────────────────────────────────────────
   const HANDLED = new WeakSet();
   let active = null;
-  let activeOriginal = '';
+  let activeOriginalText = '';
+  let activeOriginalStyleAttr = '';
+  let activeDoc = null;
+  let toolbarPickingColor = false;
 
   function pageOf(doc) {
     try {
@@ -219,6 +240,7 @@
   function isEditable(el) {
     if (!el || el.nodeType !== 1) return false;
     if (SKIP_TAGS.has(el.tagName)) return false;
+    if (el.id === '__copyedit_toolbar' || (el.closest && el.closest('#__copyedit_toolbar'))) return false;
     if (el.isContentEditable && !el.hasAttribute('data-copyedit')) return false;
     if (el.closest && el.closest('[contenteditable=true]') && !el.hasAttribute('data-copyedit')) return false;
     let hasText = false;
@@ -228,6 +250,7 @@
     }
     return hasText;
   }
+
   function setStyle(doc, on) {
     let s = doc.getElementById('__copyedit_style');
     if (on) {
@@ -237,13 +260,128 @@
         s.textContent =
           '[data-copyedit] { transition: outline-color 0.1s, background-color 0.1s; }\n' +
           '[data-copyedit]:hover { outline: 2px dashed #e23847 !important; outline-offset: 1px !important; cursor: text !important; }\n' +
-          '[data-copyedit][contenteditable=true] { outline: 2px solid #e23847 !important; outline-offset: 1px !important; background: rgba(226,56,71,0.08) !important; box-shadow: 0 0 0 4px rgba(226,56,71,0.12) !important; }\n';
+          '[data-copyedit][contenteditable=true] { outline: 2px solid #e23847 !important; outline-offset: 1px !important; background: rgba(226,56,71,0.08) !important; box-shadow: 0 0 0 4px rgba(226,56,71,0.12) !important; }\n' +
+          '#__copyedit_toolbar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: #0f1422; color: #e8eaf0; border: 1px solid #2a3050; border-radius: 10px; padding: 8px 10px; z-index: 2147483647; box-shadow: 0 12px 32px rgba(0,0,0,0.5); display: none; gap: 6px; align-items: center; font: 12px/1.2 ui-sans-serif, system-ui, sans-serif; user-select: none; }\n' +
+          '#__copyedit_toolbar.on { display: flex; }\n' +
+          '#__copyedit_toolbar .label { color: #8a92ad; padding: 0 6px 0 4px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
+          '#__copyedit_toolbar .sep { width: 1px; height: 18px; background: #2a3050; }\n' +
+          '#__copyedit_toolbar button { background: #1a1f33; color: #e8eaf0; border: 1px solid #2a3050; padding: 5px 9px; border-radius: 5px; font: inherit; cursor: pointer; min-width: 28px; }\n' +
+          '#__copyedit_toolbar button:hover { background: #232842; }\n' +
+          '#__copyedit_toolbar button.on { background: #e23847; border-color: #e23847; color: #fff; }\n' +
+          '#__copyedit_toolbar .val { color: #c9cee1; min-width: 36px; text-align: center; }\n' +
+          '#__copyedit_toolbar input[type=color] { width: 28px; height: 28px; padding: 0; border: 1px solid #2a3050; background: transparent; border-radius: 5px; cursor: pointer; }\n';
         doc.head.appendChild(s);
       }
-    } else if (s) {
-      s.remove();
+      if (!doc.getElementById('__copyedit_toolbar')) injectToolbar(doc);
+    } else {
+      if (s) s.remove();
+      const t = doc.getElementById('__copyedit_toolbar');
+      if (t) t.remove();
     }
   }
+
+  function injectToolbar(doc) {
+    const t = doc.createElement('div');
+    t.id = '__copyedit_toolbar';
+    t.innerHTML =
+      '<span class=label data-role=label>—</span>' +
+      '<span class=sep></span>' +
+      '<button data-action="size-down" title="Smaller">A−</button>' +
+      '<span class=val data-role=size>—</span>' +
+      '<button data-action="size-up" title="Larger">A+</button>' +
+      '<span class=sep></span>' +
+      '<button data-action="bold" title="Bold" data-role=bold style="font-weight:800">B</button>' +
+      '<span class=sep></span>' +
+      '<button data-action="align-left" title="Left" data-role=al>L</button>' +
+      '<button data-action="align-center" title="Center" data-role=ac>C</button>' +
+      '<button data-action="align-right" title="Right" data-role=ar>R</button>' +
+      '<span class=sep></span>' +
+      '<input type=color data-action="color" title="Text color">' +
+      '<span class=sep></span>' +
+      '<button data-action="reset" title="Reset all inline styles">Reset</button>';
+    doc.body.appendChild(t);
+
+    // Keep focus on the active element when buttons are clicked
+    t.addEventListener('mousedown', e => {
+      if (e.target.tagName !== 'INPUT') e.preventDefault();
+    });
+    t.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn || !active) return;
+      const a = btn.dataset.action;
+      handleAction(a, btn);
+    });
+    const colorInput = t.querySelector('input[type=color]');
+    colorInput.addEventListener('focus', () => { toolbarPickingColor = true; });
+    colorInput.addEventListener('blur', () => {
+      toolbarPickingColor = false;
+      if (active) setTimeout(() => { try { active.focus(); } catch {} }, 0);
+    });
+    colorInput.addEventListener('input', () => {
+      if (!active) return;
+      active.style.color = colorInput.value;
+      syncToolbar(active);
+    });
+  }
+
+  function handleAction(a, btn) {
+    if (!active) return;
+    const cs = activeDoc.defaultView.getComputedStyle(active);
+    if (a === 'size-up' || a === 'size-down') {
+      const cur = parseFloat(active.style.fontSize || cs.fontSize) || 16;
+      const step = a === 'size-up' ? +1 : -1;
+      const next = Math.max(8, Math.min(160, Math.round(cur + step)));
+      active.style.fontSize = next + 'px';
+    } else if (a === 'bold') {
+      const fw = parseInt(active.style.fontWeight || cs.fontWeight) || 400;
+      active.style.fontWeight = fw >= 600 ? '400' : '700';
+    } else if (a === 'align-left') {
+      active.style.textAlign = 'left';
+    } else if (a === 'align-center') {
+      active.style.textAlign = 'center';
+    } else if (a === 'align-right') {
+      active.style.textAlign = 'right';
+    } else if (a === 'reset') {
+      active.removeAttribute('style');
+    }
+    syncToolbar(active);
+  }
+
+  function syncToolbar(el) {
+    if (!activeDoc) return;
+    const t = activeDoc.getElementById('__copyedit_toolbar');
+    if (!t) return;
+    const cs = activeDoc.defaultView.getComputedStyle(el);
+    const label = (el.tagName.toLowerCase()) + ' · "' + (el.textContent || '').trim().slice(0, 26).replace(/\s+/g, ' ') + '"';
+    t.querySelector('[data-role=label]').textContent = label;
+    t.querySelector('[data-role=size]').textContent = Math.round(parseFloat(cs.fontSize)) + 'px';
+    const fw = parseInt(cs.fontWeight) || 400;
+    t.querySelector('[data-role=bold]').classList.toggle('on', fw >= 600);
+    const al = cs.textAlign;
+    t.querySelector('[data-role=al]').classList.toggle('on', al === 'left' || al === 'start');
+    t.querySelector('[data-role=ac]').classList.toggle('on', al === 'center');
+    t.querySelector('[data-role=ar]').classList.toggle('on', al === 'right' || al === 'end');
+    try {
+      const m = cs.color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (m) {
+        const hex = '#' + [m[1],m[2],m[3]].map(n => Number(n).toString(16).padStart(2,'0')).join('');
+        t.querySelector('input[type=color]').value = hex;
+      }
+    } catch {}
+  }
+  function showToolbar(el) {
+    if (!activeDoc) return;
+    const t = activeDoc.getElementById('__copyedit_toolbar');
+    if (!t) return;
+    t.classList.add('on');
+    syncToolbar(el);
+  }
+  function hideToolbar() {
+    if (!activeDoc) return;
+    const t = activeDoc.getElementById('__copyedit_toolbar');
+    if (t) t.classList.remove('on');
+  }
+
   function wireAll(root) {
     if (!root) return;
     if (root.nodeType === 1 && isEditable(root) && !HANDLED.has(root)) wire(root);
@@ -254,6 +392,7 @@
       }
     }
   }
+
   function wire(el) {
     HANDLED.add(el);
     el.setAttribute('data-copyedit', '');
@@ -264,24 +403,37 @@
       e.stopPropagation();
       if (active) commit();
       active = el;
-      activeOriginal = el.textContent;
+      activeDoc = el.ownerDocument;
+      activeOriginalText = el.textContent;
+      activeOriginalStyleAttr = el.getAttribute('style') || '';
       el.setAttribute('contenteditable', 'true');
       el.focus();
       try {
-        const r = el.ownerDocument.createRange();
+        const r = activeDoc.createRange();
         r.selectNodeContents(el);
-        const sel = el.ownerDocument.defaultView.getSelection();
+        const sel = activeDoc.defaultView.getSelection();
         sel.removeAllRanges();
         sel.addRange(r);
       } catch {}
+      showToolbar(el);
     }, true);
-    el.addEventListener('blur', () => commit());
+    el.addEventListener('blur', () => {
+      // Toolbar buttons use mousedown.preventDefault to keep focus, so a real
+      // blur here means the user clicked truly outside, or pressed Tab/Enter/Esc.
+      // Only the native color picker legitimately steals focus — guard that.
+      if (toolbarPickingColor) return;
+      if (active === el) commit();
+    });
     el.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
-        el.textContent = activeOriginal;
-        activeOriginal = '';
+        el.textContent = activeOriginalText;
+        if (activeOriginalStyleAttr) el.setAttribute('style', activeOriginalStyleAttr);
+        else el.removeAttribute('style');
+        activeOriginalText = '';
+        activeOriginalStyleAttr = '';
         active = null;
         el.removeAttribute('contenteditable');
+        hideToolbar();
         el.blur();
       } else if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -289,27 +441,65 @@
       }
     });
   }
+
+  function parseStyleAttr(s) {
+    const out = {};
+    if (!s) return out;
+    for (const part of s.split(';')) {
+      const i = part.indexOf(':');
+      if (i < 0) continue;
+      const k = part.slice(0, i).trim();
+      const v = part.slice(i + 1).trim();
+      if (k) out[k] = v;
+    }
+    return out;
+  }
+  function styleDiff(oldAttr, newAttr) {
+    const a = parseStyleAttr(oldAttr);
+    const b = parseStyleAttr(newAttr);
+    const out = {};
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const k of keys) {
+      if (a[k] !== b[k]) out[k] = b[k] !== undefined ? b[k] : '';
+    }
+    return out;
+  }
+
   function commit() {
     if (!active) return;
     const el = active;
-    const oldText = activeOriginal;
+    const oldText = activeOriginalText;
     const newText = el.textContent;
+    const oldStyleAttr = activeOriginalStyleAttr;
+    const newStyleAttr = el.getAttribute('style') || '';
     el.removeAttribute('contenteditable');
+    const wasActive = active;
     active = null;
-    activeOriginal = '';
+    activeOriginalText = '';
+    activeOriginalStyleAttr = '';
+    hideToolbar();
+
     const oldTrim = oldText.replace(/\s+/g, ' ').trim();
     const newTrim = newText.replace(/\s+/g, ' ').trim();
-    if (newTrim && newTrim !== oldTrim) {
+    const styles = styleDiff(oldStyleAttr, newStyleAttr);
+    const textChanged = newTrim !== oldTrim && newTrim.length > 0;
+    const styleChanged = Object.keys(styles).length > 0;
+
+    if (textChanged || styleChanged) {
       changes.push({
-        page: pageOf(el.ownerDocument),
+        page: pageOf(wasActive.ownerDocument),
         old: oldTrim,
-        new: newTrim,
-        ctx: ctxOf(el),
+        new: textChanged ? newTrim : oldTrim,
+        ctx: ctxOf(wasActive),
+        styles: styleChanged ? styles : undefined,
+        outerHTML: styleChanged ? wasActive.outerHTML.slice(0, 400) : undefined,
         ts: Date.now()
       });
       render();
-      showToast('Captured edit · ' + changes.length + ' pending', 'ok', 1500);
+      const what = textChanged && styleChanged ? 'text + style' : (styleChanged ? 'style' : 'text');
+      showToast('Captured ' + what + ' · ' + changes.length + ' pending', 'ok', 1500);
     }
+    activeDoc = null;
   }
 
   function install(doc) {
@@ -340,7 +530,6 @@
     setTimeout(() => install(doc), 1200);
   });
 
-  // keyboard shortcut to export
   document.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
