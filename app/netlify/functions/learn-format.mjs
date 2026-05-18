@@ -80,11 +80,34 @@ function renderRelatedLinks(currentSlug) {
   </a>`).join('');
 }
 
+// Each format-bank slug maps to a hand-curated /topics/{slug} pillar page
+// with substantially more content (FAQ schema, motion archive, Indian-circuit
+// emphasis). Google was seeing two separate URLs targeting the same queries
+// — both with self-canonicals — and splitting authority. By pointing the
+// /learn/formats/ canonical at the corresponding /topics/ URL we consolidate
+// SEO weight into the deeper page while keeping /learn/formats accessible
+// as a tighter mechanics reference (and as the link target from /learn).
+//
+// APDA intentionally has no /topics/apda page yet — falls back to self-canonical.
+const TOPICS_CANONICAL = {
+  bp: 'british-parliamentary',
+  worlds: 'world-schools',
+  asian: 'asian-parliamentary',
+  pf: 'public-forum',
+  ld: 'lincoln-douglas',
+  policy: 'policy',
+  congress: 'congress',
+  mun: 'mun',
+};
+
 function renderPage(format) {
   const titleCore = `${format.name} debate format · Structure, judging, sample motions`;
   const title = titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore;
   const description = `${format.name} (${format.alias}): ${format.pitch} Speech structure, judging criteria, sample motions, what wins and what fails.`;
-  const canonical = `${SITE_ORIGIN}/learn/formats/${format.slug}`;
+  const topicsSlug = TOPICS_CANONICAL[format.slug];
+  const canonical = topicsSlug
+    ? `${SITE_ORIGIN}/topics/${topicsSlug}`
+    : `${SITE_ORIGIN}/learn/formats/${format.slug}`;
 
   const ldCourse = {
     '@context': 'https://schema.org',
