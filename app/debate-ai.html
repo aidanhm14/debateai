@@ -3249,6 +3249,26 @@ function useTTS(){
     return webAudioCtxRef.current;
   };
 
+  // Eager-prep the audio engine. Called from the prep phase so by the
+  // time the user clicks Start Round and the first AI speech needs to
+  // play, the AudioContext already exists and is in the 'running'
+  // state. Without this, playChunks creates+resumes the context at
+  // speech-start, which adds ~10-50ms latency PLUS pays the cost of
+  // a state-transition race that occasionally leaves the context
+  // suspended on iOS Safari. Idempotent; safe to call repeatedly.
+  const prewarmAudio=()=>{
+    try{
+      const ctx=getWebAudioCtx();
+      if(ctx && ctx.state==='suspended'){
+        // resume() returns a promise; state flips synchronously when
+        // the page has already received a user gesture (clicking
+        // through to /debate-ai counts). Failure is silently OK —
+        // playChunks will retry + fall back to HTMLMedia if needed.
+        ctx.resume().catch(()=>{});
+      }
+    }catch{}
+  };
+
   const stopWebAudio=()=>{
     for(const s of webAudioSourcesRef.current){
       try{s.stop()}catch{}
@@ -3708,7 +3728,7 @@ function useTTS(){
     })();
   };
 
-  return{speak:speakWithError,playChunks,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime,streamStatus,ttsError};
+  return{speak:speakWithError,playChunks,stop,speaking,paused,togglePause,getProgress,setRate,getAudioTime,streamStatus,ttsError,prewarmAudio};
 }
 
 function useRecognition(){
@@ -5470,6 +5490,10 @@ function App(){
         }).catch(()=>{});
       }catch{}
     });
+    // Also eager-prep the Web Audio context so it's already 'running'
+    // by speech-start instead of going through the suspend→resume
+    // dance at the moment audio actually needs to play.
+    try{ if(tts.prewarmAudio) tts.prewarmAudio(); }catch{}
   },[phase,brain]);
 
   // Phase transition helper. Fades the page out (vis=false → opacity:0),
