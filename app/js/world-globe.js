@@ -156,6 +156,12 @@
     var highlightCity = (opts.highlightCity || '').toLowerCase();
 
     var showScanSweep = opts.showScanSweep === true;
+    // When true, skip the opaque dark sphere body (and its inner-shadow
+    // vignette + specular highlight) so the disc reads as a soft glass
+    // orb defined by the CSS radial-gradient + the rim glow + the pins.
+    // The page bg (light or dark) bleeds through. Compositing flips to
+    // source-over since 'lighter' blows out on light themes.
+    var transparent = opts.transparent === true;
 
     var ctx = canvas.getContext('2d');
     var dpr = global.devicePixelRatio || 1;
@@ -292,44 +298,46 @@
 
       ctx.clearRect(0, 0, W, H);
 
-      // ── Sphere body — radial gradient with light from upper-left ──
-      var sphereGrad = ctx.createRadialGradient(
-        cx - R * 0.32, cy - R * 0.34, R * 0.04,
-        cx, cy, R
-      );
-      sphereGrad.addColorStop(0, palette.sphereInner);
-      sphereGrad.addColorStop(1, palette.sphereOuter);
-      ctx.fillStyle = sphereGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.fill();
+      if (!transparent) {
+        // ── Sphere body — radial gradient with light from upper-left ──
+        var sphereGrad = ctx.createRadialGradient(
+          cx - R * 0.32, cy - R * 0.34, R * 0.04,
+          cx, cy, R
+        );
+        sphereGrad.addColorStop(0, palette.sphereInner);
+        sphereGrad.addColorStop(1, palette.sphereOuter);
+        ctx.fillStyle = sphereGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.fill();
 
-      // ── Inner shadow (vignette) — depth so the sphere reads round,
-      //    not flat. Pushes the rim into shadow under a top-left light. ──
-      var innerShadow = ctx.createRadialGradient(
-        cx - R * 0.30, cy - R * 0.34, R * 0.58,
-        cx, cy, R * 1.02
-      );
-      innerShadow.addColorStop(0, 'rgba(0,0,0,0)');
-      innerShadow.addColorStop(1, 'rgba(0,0,0,0.55)');
-      ctx.fillStyle = innerShadow;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.fill();
+        // ── Inner shadow (vignette) — depth so the sphere reads round,
+        //    not flat. Pushes the rim into shadow under a top-left light. ──
+        var innerShadow = ctx.createRadialGradient(
+          cx - R * 0.30, cy - R * 0.34, R * 0.58,
+          cx, cy, R * 1.02
+        );
+        innerShadow.addColorStop(0, 'rgba(0,0,0,0)');
+        innerShadow.addColorStop(1, 'rgba(0,0,0,0.55)');
+        ctx.fillStyle = innerShadow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.fill();
 
-      // ── Specular highlight — soft bright spot upper-left. Gives the
-      //    sphere a liquid/glass feel rather than a matte ball. ──
-      var spec = ctx.createRadialGradient(
-        cx - R * 0.42, cy - R * 0.44, 0,
-        cx - R * 0.42, cy - R * 0.44, R * 0.55
-      );
-      spec.addColorStop(0, 'rgba(255,255,255,0.10)');
-      spec.addColorStop(0.5, 'rgba(255,255,255,0.03)');
-      spec.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = spec;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.fill();
+        // ── Specular highlight — soft bright spot upper-left. Gives the
+        //    sphere a liquid/glass feel rather than a matte ball. ──
+        var spec = ctx.createRadialGradient(
+          cx - R * 0.42, cy - R * 0.44, 0,
+          cx - R * 0.42, cy - R * 0.44, R * 0.55
+        );
+        spec.addColorStop(0, 'rgba(255,255,255,0.10)');
+        spec.addColorStop(0.5, 'rgba(255,255,255,0.03)');
+        spec.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = spec;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       // ── Outer atmospheric glow ring ──
       ctx.save();
@@ -350,14 +358,21 @@
       ctx.clip();
 
       // ── Land dots — subtle topography under the network ──
+      // In transparent mode we tint with the brand color at low alpha so
+      // dots stay visible on both light and dark page backgrounds (white
+      // land dots vanish on a light theme).
       var landR = Math.max(0.9, R * 0.0050);
+      var landFill = transparent
+        ? 'rgba(' + palette.pin + ',0.55)'
+        : 'rgba(' + palette.land + ',0.55)';
+      var landAlphaScale = transparent ? 0.42 : 0.32;
       for (var i = 0; i < data.land.length; i++) {
         var lp = data.land[i];
         var pp = project(lp.lng, lp.lat, lngOffset);
         if (pp.z <= 0.04) continue;
         var lalpha = Math.min(1, (pp.z - 0.04) / 0.30);
-        ctx.globalAlpha = 0.32 * lalpha;
-        ctx.fillStyle = 'rgba(' + palette.land + ',0.55)';
+        ctx.globalAlpha = landAlphaScale * lalpha;
+        ctx.fillStyle = landFill;
         ctx.beginPath();
         ctx.arc(cx + pp.x * R, cy + pp.y * R, landR, 0, Math.PI * 2);
         ctx.fill();
@@ -365,8 +380,10 @@
       ctx.globalAlpha = 1;
 
       // ── Arcs — additive blending so overlapping arcs brighten into
-      //    a hotspot instead of muddying into a darker red. ──
-      ctx.globalCompositeOperation = 'lighter';
+      //    a hotspot instead of muddying into a darker red. On transparent
+      //    mode we stay on source-over since 'lighter' over a light page
+      //    bg blows out to white. ──
+      ctx.globalCompositeOperation = transparent ? 'source-over' : 'lighter';
       if (showArcs) {
         for (var ai = 0; ai < data.arcs.length; ai++) {
           var arc = data.arcs[ai];

@@ -119,16 +119,32 @@ h1 em{color:var(--accent);font-style:normal}
 /* Globe — the centerpiece of this page. Replaces the prior static red
    orb with a live rotating sphere of pinned debaters. Mounts via
    /js/world-globe.js into the inner <canvas>. Aspect-ratio:1 keeps
-   the canvas square; the globe is inscribed inside the radial halo. */
+   the canvas square; the globe is inscribed inside the radial halo.
+   .globe-frame paints the soft red disc glow + atmospheric ring; the
+   canvas overlays the live pins/arcs in transparent mode (see
+   world-globe.js opts.transparent). */
 .globe-wrap{
   position:relative;width:300px;max-width:84vw;margin:0 auto 22px;
   aspect-ratio:1 / 1;
 }
 .globe-frame{
   position:relative;width:100%;height:100%;border-radius:50%;
-  background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.18) 0%, rgba(239,68,68,.04) 45%, transparent 72%);
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(239,68,68,.22) 0%,
+      rgba(239,68,68,.10) 36%,
+      rgba(239,68,68,.03) 62%,
+      transparent 78%);
+  box-shadow:
+    inset 0 0 70px rgba(239,68,68,.12),
+    0 0 90px rgba(239,68,68,.16);
+  animation:globe-breathe 5.5s ease-in-out infinite;
 }
-.globe-frame canvas{display:block;width:100%;height:100%}
+@keyframes globe-breathe{
+  0%,100%{box-shadow:inset 0 0 70px rgba(239,68,68,.12), 0 0 90px rgba(239,68,68,.16)}
+  50%    {box-shadow:inset 0 0 90px rgba(239,68,68,.18), 0 0 110px rgba(239,68,68,.22)}
+}
+.globe-frame canvas{display:block;width:100%;height:100%;position:relative;z-index:1}
 
 /* Legacy orb — still used by renderMatched() and renderFallback() as
    brief transition states. Kept for those two short-lived screens. */
@@ -499,6 +515,11 @@ h1 em{color:var(--accent);font-style:normal}
         rotateDegPerSec: 5,
         showArcs: true,
         showScanSweep: true,
+        // Skip the opaque dark sphere body. The disc becomes a soft
+        // red glow defined by .globe-frame's radial-gradient + box-shadow
+        // + the canvas rim glow + pins. Reads sexy on light AND dark
+        // themes; the old black disc looked demonic on /light/.
+        transparent: true,
       });
     }
     tryMount(40);
