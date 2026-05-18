@@ -2046,6 +2046,36 @@ body.light-theme{
   transform:none;
 }
 body.light-theme .nav .nav-btn:not(.active):not(.active-orange):not(.nav-btn-feature){color:var(--text-secondary)!important}
+
+/* ── Embedded dictation button on textareas ───────────────────────
+   The host wraps a textarea + <VoiceDictate>. position:relative on
+   the host, position:absolute on the button so the textarea itself
+   is NOT wrapped in a DOM node (which broke /js/voice-input.js on
+   2026-05-16). React owns the button as a sibling of the textarea
+   inside the host div. */
+.dictate-host{position:relative}
+.dictate-host textarea{padding-right:54px!important}
+.dictate-btn{
+  position:absolute;bottom:12px;right:12px;z-index:2;
+  width:34px;height:34px;border-radius:50%;
+  background:var(--surface-2);color:var(--text-secondary);
+  border:1px solid var(--border-subtle);
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+  font-family:inherit;font-size:.95rem;line-height:1;
+  transition:transform .15s ease, background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.dictate-btn:hover{color:var(--accent-red);border-color:var(--border-strong);background:var(--surface-1);transform:translateY(-1px)}
+.dictate-btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(223,52,65,.32)}
+.dictate-btn.recording{
+  background:var(--accent-red);color:#fff;border-color:var(--accent-red);
+  animation:dictatePulse 1.6s ease-in-out infinite;
+}
+@keyframes dictatePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,70,82,.45)}
+  50%{box-shadow:0 0 0 10px rgba(255,70,82,0)}
+}
+@media (prefers-reduced-motion:reduce){.dictate-btn.recording{animation:none}}
 </style>
 <script data-goatcounter="https://aidanhm31.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 <script>
@@ -3732,6 +3762,62 @@ async function loadCasesFromFirestore(uid) {
 
 const CASE_TAG_SUGGESTIONS = ['tournament','practice','gov','opp','politics','philosophy','economics','social','international','strong','needs-work'];
 
+/* ── VoiceDictate ─────────────────────────────────────────────────────
+ * Embedded mic-button dictation for any textarea. Web Speech API
+ * (browser-native, free, no server endpoint). Renders the mic INSIDE
+ * the React tree as an absolutely-positioned <button> sibling of the
+ * textarea — does NOT wrap the textarea in another node, which is the
+ * regression that disabled /js/voice-input.js on 2026-05-16 (the
+ * wrapper moved the textarea out of React's expected child slot and
+ * crashed the next reconciliation on Start Round). Stop on unmount
+ * via cleanup ref. Silent no-op on Firefox / browsers that lack
+ * SpeechRecognition (we don't show the button at all there). */
+function VoiceDictate({ onAppend, lang }) {
+  const [recording, setRecording] = useState(false);
+  const [supported, setSupported] = useState(false);
+  const recRef = useRef(null);
+  useEffect(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    setSupported(!!SR);
+    return () => { try { recRef.current && recRef.current.stop(); } catch(e){} };
+  }, []);
+  if (!supported) return null;
+  const toggle = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (recording) {
+      try { recRef.current && recRef.current.stop(); } catch(err){}
+      setRecording(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = false; // only final segments get appended; interim creates duplication
+    rec.lang = lang || (navigator.language || 'en-US');
+    rec.onresult = (ev) => {
+      let chunk = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) chunk += ev.results[i][0].transcript;
+      }
+      if (chunk && onAppend) onAppend(chunk);
+    };
+    rec.onerror = () => { setRecording(false); };
+    rec.onend = () => { setRecording(false); };
+    try { rec.start(); recRef.current = rec; setRecording(true); }
+    catch(err){ setRecording(false); }
+  };
+  return React.createElement('button', {
+    type:'button',
+    className: 'dictate-btn' + (recording ? ' recording' : ''),
+    onClick: toggle,
+    onMouseDown: (e) => e.preventDefault(), // don't steal focus from textarea
+    title: recording ? 'Stop dictation' : 'Dictate (browser speech-to-text)',
+    'aria-label': recording ? 'Stop dictation' : 'Start dictation',
+    'aria-pressed': recording,
+  }, recording ? '◼' : '🎤');
+}
+
 function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExport, activeId, onUpdateCase }) {
   const { t } = React.useContext(I18nContext);
   const [search, setSearch] = useState('');
@@ -5245,11 +5331,19 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
         React.createElement('div',{className:'cockpit-form'},
       // Motion
       React.createElement('label',{className:'field-label'},t('caseGen.motion','Motion')),
-      React.createElement('textarea',{
-        placeholder:t('caseGen.motionPlaceholder','This house would ban private education...'),
-        value:motion, onChange:e=>setMotion(e.target.value),
-        rows:3, maxLength:3000
-      }),
+      React.createElement('div',{className:'dictate-host'},
+        React.createElement('textarea',{
+          placeholder:t('caseGen.motionPlaceholder','This house would ban private education...'),
+          value:motion, onChange:e=>setMotion(e.target.value),
+          rows:3, maxLength:3000
+        }),
+        React.createElement(VoiceDictate,{
+          onAppend: (chunk) => setMotion(prev => {
+            const sep = prev && !/[\s]$/.test(prev) ? ' ' : '';
+            return (prev || '') + sep + chunk.trim();
+          })
+        })
+      ),
       // Motion example chips. seed clicks for common motion themes so the
       // user has a one-tap starter instead of staring at an empty box.
       React.createElement('div',{className:'motion-chips'},
@@ -5272,11 +5366,19 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
 
       // Background
       React.createElement('label',{className:'field-label'},t('caseGen.background','Background')),
-      React.createElement('textarea',{
-        placeholder:t('caseGen.backgroundPlaceholder','Give instructions for the AI to develop background, or write your own. E.g. country context, actor details, constraints, time period. Leave blank to skip, or type brief notes and the AI will expand them.'),
-        value:background, onChange:e=>setBackground(e.target.value),
-        rows:2, maxLength:2000
-      }),
+      React.createElement('div',{className:'dictate-host'},
+        React.createElement('textarea',{
+          placeholder:t('caseGen.backgroundPlaceholder','Give instructions for the AI to develop background, or write your own. E.g. country context, actor details, constraints, time period. Leave blank to skip, or type brief notes and the AI will expand them.'),
+          value:background, onChange:e=>setBackground(e.target.value),
+          rows:2, maxLength:2000
+        }),
+        React.createElement(VoiceDictate,{
+          onAppend: (chunk) => setBackground(prev => {
+            const sep = prev && !/[\s]$/.test(prev) ? ' ' : '';
+            return (prev || '') + sep + chunk.trim();
+          })
+        })
+      ),
       // Background need indicator
       (bgNeed || bgNeedLoading) && React.createElement('div',{style:{
         display:'flex',alignItems:'center',gap:10,marginTop:8,padding:'10px 18px',
@@ -14783,9 +14885,12 @@ const TABS_COMPETITIVE = [
   {id:'team',label:'Team',i18n:'nav.team'},
   {id:'analytics',label:'Analytics',i18n:'nav.analytics'},
 ];
-// Everything else: live debates, saved work, support link.
+// Everything else: saved work + support link. Live Debates removed
+// from the sidebar 2026-05-18 — the in-app live calendar surface was
+// underused and adds noise. /live.html still serves the standalone
+// tournament-rooms page if needed; the React view component is
+// orphaned but harmless (no entry point).
 const TABS_OTHER = [
-  {id:'live',label:'Live Debates',i18n:'nav.live'},
   {id:'shared',label:'Saved Cases',i18n:'nav.cases'},
   {id:'donate',label:'Donate',i18n:'nav.donate',href:'https://buymeacoffee.com/8idanhm'},
 ];
