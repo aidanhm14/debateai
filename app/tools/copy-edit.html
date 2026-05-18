@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang=en>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=robots content="noindex,nofollow">
+<title>Copy editor — DebateAI</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", sans-serif; background: #0a0e16; color: #e8eaf0; display: flex; flex-direction: column; }
+  .topbar { display: flex; gap: 8px; padding: 10px 12px; background: #0f1422; border-bottom: 1px solid #1f2435; align-items: center; flex-wrap: wrap; }
+  .topbar h1 { font-size: 13px; margin: 0 12px 0 0; color: #c9cee1; font-weight: 600; letter-spacing: 0.01em; }
+  .topbar h1 .dim { color: #5a6280; font-weight: 400; }
+  select, input[type=text], button { background: #1a1f33; color: #e8eaf0; border: 1px solid #2a3050; padding: 7px 10px; border-radius: 6px; font-size: 13px; font-family: inherit; line-height: 1.2; }
+  input[type=text] { min-width: 220px; flex: 0 1 320px; }
+  button { cursor: pointer; }
+  button:hover { background: #232842; }
+  button.primary { background: #e23847; border-color: #e23847; color: white; }
+  button.primary:hover { background: #cf2735; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: #c9cee1; padding-left: 4px; user-select: none; cursor: pointer; }
+  .badge { background: rgba(255,255,255,0.18); color: white; padding: 1px 8px; border-radius: 999px; font-size: 11px; margin-left: 6px; font-weight: 600; min-width: 22px; display: inline-block; text-align: center; }
+  main { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+  iframe { flex: 1; border: 0; background: white; }
+  aside { width: 380px; background: #0f1422; border-left: 1px solid #1f2435; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  aside .panel-head { padding: 10px 12px; border-bottom: 1px solid #1f2435; font-weight: 600; font-size: 12px; color: #c9cee1; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.04em; }
+  aside .panel-head .clear { background: none; border: 0; color: #8a92ad; cursor: pointer; font-size: 11px; padding: 2px 6px; text-transform: none; letter-spacing: 0; }
+  aside .panel-head .clear:hover { color: #ef9a9a; }
+  .changes { flex: 1; overflow-y: auto; padding: 8px; }
+  .empty { color: #5a6280; padding: 32px 16px; text-align: center; font-size: 12px; line-height: 1.6; }
+  .change { background: #181d2e; border: 1px solid #2a3050; border-radius: 7px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; position: relative; }
+  .change .page { color: #8a92ad; font-size: 10px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .change .old { color: #ef9a9a; margin-bottom: 4px; word-break: break-word; line-height: 1.5; text-decoration: line-through; opacity: 0.7; }
+  .change .new { color: #a5d6a7; word-break: break-word; line-height: 1.5; }
+  .change .ctx { color: #5a6280; font-size: 10px; margin-top: 6px; font-family: ui-monospace, SFMono-Regular, monospace; word-break: break-all; }
+  .change .remove { position: absolute; top: 6px; right: 8px; background: none; border: 0; color: #5a6280; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px; }
+  .change .remove:hover { color: #ef9a9a; }
+  .footer { padding: 12px; border-top: 1px solid #1f2435; font-size: 11px; color: #8a92ad; line-height: 1.55; }
+  .footer .hint kbd { background: #232842; padding: 1px 6px; border-radius: 3px; font-size: 10px; color: #c9cee1; border: 1px solid #2a3050; font-family: inherit; }
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #1a1f33; color: #c9cee1; padding: 10px 16px; border: 1px solid #2a3050; border-radius: 8px; font-size: 12px; z-index: 9999; box-shadow: 0 8px 24px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.18s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.ok { border-color: #4fa971; color: #d6f0de; }
+  .toast.warn { border-color: #b48a3a; color: #f0e2c4; }
+  .fallback-ta { position: fixed; inset: 5vh 10vw; z-index: 99999; background: #0a0e16; color: #e8eaf0; border: 1px solid #2a3050; padding: 12px; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 12px; resize: none; box-shadow: 0 24px 60px rgba(0,0,0,0.6); }
+</style>
+</head>
+<body>
+<div class=topbar>
+  <h1>Copy editor <span class=dim>· DebateAI</span></h1>
+  <select id=page>
+    <option value=/landing.html>landing.html</option>
+    <option value=/debate-ai.html>debate-ai.html</option>
+    <option value=/pricing.html>pricing.html</option>
+    <option value=/voice-debate.html>voice-debate.html</option>
+    <option value=/devils-advocate.html>devils-advocate.html (spar)</option>
+    <option value=/spar.html>spar.html</option>
+    <option value=/learn.html>learn.html</option>
+    <option value=/counter.html>counter.html</option>
+    <option value=/schools.html>schools.html</option>
+    <option value=/high-school.html>high-school.html</option>
+    <option value=/india.html>india.html</option>
+    <option value=/us.html>us.html</option>
+    <option value=/report.html>report.html</option>
+    <option value=/community.html>community.html</option>
+    <option value=/leaderboard.html>leaderboard.html</option>
+    <option value=/changelog.html>changelog.html</option>
+    <option value=/splash.html>splash.html</option>
+    <option value=/index.html>index.html</option>
+  </select>
+  <input type=text id=urlinput placeholder="or paste any path under app/ (e.g. /pro.html)" autocomplete=off spellcheck=false>
+  <button id=load>Load</button>
+  <button id=reload title="Reload current iframe">↻</button>
+  <label class=toggle><input type=checkbox id=editmode checked> Edit mode</label>
+  <button class=primary id=export style="margin-left:auto">Export to clipboard<span class=badge id=count>0</span></button>
+</div>
+<main>
+  <iframe id=frame title="Preview"></iframe>
+  <aside>
+    <div class=panel-head>
+      <span>Pending edits</span>
+      <button class=clear id=clear>clear all</button>
+    </div>
+    <div class=changes id=changes></div>
+    <div class=footer>
+      <div class=hint>Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (use Shift+Enter for a line break).</div>
+      <div style="margin-top:8px;color:#6b7290">When you're done: <strong style="color:#c9cee1">Export</strong> &rarr; paste the JSON into chat &rarr; I'll apply + push.</div>
+    </div>
+  </aside>
+</main>
+<div class=toast id=toast></div>
+<script>
+(() => {
+  const frame = document.getElementById('frame');
+  const pageSelect = document.getElementById('page');
+  const urlInput = document.getElementById('urlinput');
+  const loadBtn = document.getElementById('load');
+  const reloadBtn = document.getElementById('reload');
+  const editMode = document.getElementById('editmode');
+  const exportBtn = document.getElementById('export');
+  const countEl = document.getElementById('count');
+  const changesEl = document.getElementById('changes');
+  const clearBtn = document.getElementById('clear');
+  const toast = document.getElementById('toast');
+
+  const changes = [];
+
+  function showToast(msg, kind, ms) {
+    toast.textContent = msg;
+    toast.className = 'toast show ' + (kind || '');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => { toast.className = 'toast ' + (kind || ''); }, ms || 2400);
+  }
+
+  function withCacheBust(u) {
+    if (!u) return u;
+    const sep = u.includes('?') ? '&' : '?';
+    return u + sep + '_t=' + Date.now();
+  }
+
+  function loadUrl(u) {
+    const raw = (u || pageSelect.value).trim();
+    if (!raw) return;
+    const url = raw.startsWith('http') || raw.startsWith('/') ? raw : '/' + raw;
+    urlInput.value = url;
+    frame.src = withCacheBust(url);
+  }
+
+  loadBtn.addEventListener('click', () => loadUrl(urlInput.value || pageSelect.value));
+  reloadBtn.addEventListener('click', () => loadUrl(urlInput.value || pageSelect.value));
+  pageSelect.addEventListener('change', () => loadUrl(pageSelect.value));
+  urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadUrl(urlInput.value); });
+
+  editMode.addEventListener('change', () => {
+    const doc = frame.contentDocument;
+    if (doc) setStyle(doc, editMode.checked);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    if (!changes.length) return;
+    if (confirm('Discard all ' + changes.length + ' pending edits?')) { changes.length = 0; render(); }
+  });
+
+  function htmlEscape(s) { return String(s).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]); }
+
+  function render() {
+    countEl.textContent = changes.length;
+    exportBtn.disabled = !changes.length;
+    if (!changes.length) {
+      changesEl.innerHTML = '<div class=empty>No edits yet.<br>Click any text in the iframe to start.</div>';
+      return;
+    }
+    changesEl.innerHTML = '';
+    changes.forEach((c, i) => {
+      const d = document.createElement('div');
+      d.className = 'change';
+      d.innerHTML =
+        '<button class=remove data-i="' + i + '" title="Remove">&times;</button>' +
+        '<div class=page>' + htmlEscape(c.page) + '</div>' +
+        '<div class=old>' + htmlEscape(c.old) + '</div>' +
+        '<div class=new>' + htmlEscape(c.new) + '</div>' +
+        (c.ctx ? '<div class=ctx>' + htmlEscape(c.ctx) + '</div>' : '');
+      changesEl.appendChild(d);
+    });
+    changesEl.querySelectorAll('.remove').forEach(b => b.addEventListener('click', e => {
+      changes.splice(+e.currentTarget.dataset.i, 1);
+      render();
+    }));
+  }
+
+  function buildPayload() {
+    return changes.map(c => ({ page: c.page, old: c.old, new: c.new, ctx: c.ctx }));
+  }
+
+  async function exportToClipboard() {
+    if (!changes.length) return;
+    const json = JSON.stringify(buildPayload(), null, 2);
+    try {
+      await navigator.clipboard.writeText(json);
+      showToast('Copied ' + changes.length + ' edit(s) to clipboard. Paste in chat.', 'ok', 3200);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.className = 'fallback-ta';
+      ta.value = json;
+      document.body.appendChild(ta);
+      ta.select();
+      showToast('Clipboard blocked. Select the textarea text and copy manually.', 'warn', 4500);
+      ta.addEventListener('blur', () => ta.remove());
+    }
+  }
+  exportBtn.addEventListener('click', exportToClipboard);
+
+  // editing
+  const HANDLED = new WeakSet();
+  let active = null;
+  let activeOriginal = '';
+
+  function pageOf(doc) {
+    try {
+      const u = new URL(doc.location.href);
+      return u.pathname.replace(/^\//, '') || 'index.html';
+    } catch { return '?'; }
+  }
+  function ctxOf(el) {
+    const path = [];
+    let n = el;
+    for (let i = 0; n && i < 4; i++, n = n.parentElement) {
+      let s = n.tagName ? n.tagName.toLowerCase() : '?';
+      if (n.id) s += '#' + n.id;
+      else if (n.className && typeof n.className === 'string' && n.className.trim()) {
+        const c = n.className.trim().split(/\s+/).slice(0,2).join('.');
+        if (c) s += '.' + c;
+      }
+      path.push(s);
+    }
+    return path.reverse().join(' > ');
+  }
+  const SKIP_TAGS = new Set(['SCRIPT','STYLE','SVG','PATH','IMG','VIDEO','IFRAME','INPUT','TEXTAREA','SELECT','OPTION','META','LINK','HTML','HEAD','BODY','BR','HR','CANVAS','PICTURE','SOURCE','OBJECT','EMBED','DEFS','USE','G','CIRCLE','RECT','LINE','POLYGON','POLYLINE','ELLIPSE','TEXT','TSPAN','NOSCRIPT','TEMPLATE','HEADER','FOOTER','MAIN','NAV','SECTION','ARTICLE','ASIDE','UL','OL','DL','TABLE','TBODY','THEAD','TFOOT','TR','FORM','FIELDSET','DETAILS','SUMMARY','DIALOG']);
+  function isEditable(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (SKIP_TAGS.has(el.tagName)) return false;
+    if (el.isContentEditable && !el.hasAttribute('data-copyedit')) return false;
+    if (el.closest && el.closest('[contenteditable=true]') && !el.hasAttribute('data-copyedit')) return false;
+    let hasText = false;
+    for (const n of el.childNodes) {
+      if (n.nodeType === 1) return false;
+      if (n.nodeType === 3 && n.nodeValue.trim()) hasText = true;
+    }
+    return hasText;
+  }
+  function setStyle(doc, on) {
+    let s = doc.getElementById('__copyedit_style');
+    if (on) {
+      if (!s) {
+        s = doc.createElement('style');
+        s.id = '__copyedit_style';
+        s.textContent =
+          '[data-copyedit] { transition: outline-color 0.1s, background-color 0.1s; }\n' +
+          '[data-copyedit]:hover { outline: 2px dashed #e23847 !important; outline-offset: 1px !important; cursor: text !important; }\n' +
+          '[data-copyedit][contenteditable=true] { outline: 2px solid #e23847 !important; outline-offset: 1px !important; background: rgba(226,56,71,0.08) !important; box-shadow: 0 0 0 4px rgba(226,56,71,0.12) !important; }\n';
+        doc.head.appendChild(s);
+      }
+    } else if (s) {
+      s.remove();
+    }
+  }
+  function wireAll(root) {
+    if (!root) return;
+    if (root.nodeType === 1 && isEditable(root) && !HANDLED.has(root)) wire(root);
+    if (root.nodeType === 1 || root.nodeType === 9) {
+      const all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+      for (const el of all) {
+        if (!HANDLED.has(el) && isEditable(el)) wire(el);
+      }
+    }
+  }
+  function wire(el) {
+    HANDLED.add(el);
+    el.setAttribute('data-copyedit', '');
+    el.addEventListener('click', e => {
+      if (!editMode.checked) return;
+      if (active === el) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (active) commit();
+      active = el;
+      activeOriginal = el.textContent;
+      el.setAttribute('contenteditable', 'true');
+      el.focus();
+      try {
+        const r = el.ownerDocument.createRange();
+        r.selectNodeContents(el);
+        const sel = el.ownerDocument.defaultView.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+      } catch {}
+    }, true);
+    el.addEventListener('blur', () => commit());
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        el.textContent = activeOriginal;
+        activeOriginal = '';
+        active = null;
+        el.removeAttribute('contenteditable');
+        el.blur();
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        el.blur();
+      }
+    });
+  }
+  function commit() {
+    if (!active) return;
+    const el = active;
+    const oldText = activeOriginal;
+    const newText = el.textContent;
+    el.removeAttribute('contenteditable');
+    active = null;
+    activeOriginal = '';
+    const oldTrim = oldText.replace(/\s+/g, ' ').trim();
+    const newTrim = newText.replace(/\s+/g, ' ').trim();
+    if (newTrim && newTrim !== oldTrim) {
+      changes.push({
+        page: pageOf(el.ownerDocument),
+        old: oldTrim,
+        new: newTrim,
+        ctx: ctxOf(el),
+        ts: Date.now()
+      });
+      render();
+      showToast('Captured edit · ' + changes.length + ' pending', 'ok', 1500);
+    }
+  }
+
+  function install(doc) {
+    if (!doc || !doc.body) return;
+    setStyle(doc, editMode.checked);
+    wireAll(doc.body);
+    if (!doc.__copyeditMO) {
+      const mo = new MutationObserver(muts => {
+        for (const m of muts) {
+          for (const n of m.addedNodes) {
+            if (n.nodeType === 1) wireAll(n);
+          }
+        }
+      });
+      mo.observe(doc.body, { childList: true, subtree: true });
+      doc.__copyeditMO = mo;
+    }
+  }
+
+  frame.addEventListener('load', () => {
+    let doc = null;
+    try { doc = frame.contentDocument; } catch {}
+    if (!doc) {
+      showToast('Cross-origin iframe blocked. Use same-origin paths only.', 'warn', 4000);
+      return;
+    }
+    setTimeout(() => install(doc), 250);
+    setTimeout(() => install(doc), 1200);
+  });
+
+  // keyboard shortcut to export
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      exportToClipboard();
+    }
+  });
+
+  render();
+  loadUrl(pageSelect.value);
+})();
+</script>
+</body>
+</html>
