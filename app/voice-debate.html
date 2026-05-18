@@ -3194,6 +3194,21 @@ function App(){
       const effectivePersonaStyle = isExaminerOnboarding
         ? persona.style + ' VIVA OPENER — your first words this session, EXACTLY: "What\'s your name, and what are you preparing for today?" Then stop and wait. After the student answers, identify the topic from what they said (a chapter, a concept, a paper, a viva subject) and run a brief 2-3 question oral exam on it. Do NOT use the debate greeting; do NOT ask "what are we debating today."'
         : persona.style;
+      // Pull the user's UI locale so the realtime session can switch the
+      // AI's spoken language. debate-ai.html stores aiLanguage under its
+      // own key when the user overrides it on the setup screen; fall back
+      // to the shared debateos-locale (set by the landing-page picker and
+      // the /app topbar picker) when the override isn't set.
+      let aiLanguage = 'en';
+      try {
+        aiLanguage = localStorage.getItem('debateos-ai-lang')
+          || localStorage.getItem('debateos-locale')
+          || 'en';
+      } catch(e) {}
+      // Mirror onto window so the dc.onopen session.update (which fires
+      // in a different closure further below) can pin the transcription
+      // model to the same language without re-reading localStorage.
+      try { window.__aiLanguage = aiLanguage; } catch(e) {}
       const mintRes = await fetch('/api/realtime-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
@@ -3207,6 +3222,7 @@ function App(){
           userName: userFirstName,
           bondCount,
           smartness,
+          aiLanguage,
         }),
       });
       if (!mintRes.ok) {
@@ -3399,17 +3415,20 @@ function App(){
                   // account doesn't have access — server can override
                   // via OPENAI_REALTIME_TRANSCRIBE_MODEL.
                   //
-                  // language:'en' kills the most famous Whisper-family
-                  // failure mode: on silence or low-energy noise the
-                  // model with no language hint hallucinates "Sampai
-                  // jumpa di video selanjutnya" and similar Indonesian
-                  // / Spanish YouTube outro phrases (the training set
-                  // was full of them). Pinning English cuts that off.
-                  // Multilingual users on the Counter extension's
-                  // Hindi viva path already set their own aiLanguage
-                  // upstream — this default only applies to the
+                  // Whisper-family models with no language hint
+                  // hallucinate "Sampai jumpa di video selanjutnya" and
+                  // similar Indonesian/Spanish YouTube outros on silence.
+                  // Pinning the language cuts that off. We pin to the
+                  // user's actual aiLanguage (read from localStorage and
+                  // mirrored into the closure via window.__aiLanguage
+                  // when /api/realtime-session is minted) so a Hindi
+                  // viva path transcribes Hindi audio as Hindi instead
+                  // of English-shaped noise. Falls back to 'en' for the
                   // standard English-debate flow.
-                  transcription: { model: 'gpt-4o-transcribe', language: 'en' },
+                  transcription: {
+                    model: 'gpt-4o-transcribe',
+                    language: (window.__aiLanguage || 'en'),
+                  },
                   turn_detection: {
                     // semantic_vad replaces the previous server_vad
                     // (threshold 0.7, silence 800ms) which still felt

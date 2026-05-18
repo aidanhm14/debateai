@@ -617,7 +617,27 @@ export default async (request, context) => {
       ? `MOTION BACKGROUND (factual context the user provided for this round — treat as ground truth, do not contradict it):\n${rawBg}\n\n`
       : '';
 
+    // Language directive. When the user has picked a non-English locale
+    // (UI translation in /app, or the aiLanguage override on the debate
+    // setup screen), pin the AI to speak in that language. We pin it at
+    // the very top of the instruction stack because long voice rounds
+    // sometimes regress to English mid-round if the directive is buried.
+    // gpt-4o-transcribe pin on the client uses the same code so the
+    // transcription path matches the synthesis path.
+    const REALTIME_LANG_NAMES = {
+      en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian',
+      pt: 'Portuguese', zh: 'Mandarin Chinese', ja: 'Japanese', ko: 'Korean',
+      hi: 'Hindi', ar: 'Arabic', ru: 'Russian', tr: 'Turkish', nl: 'Dutch',
+    };
+    const aiLangRaw = String(body.aiLanguage || 'en').toLowerCase().slice(0, 5);
+    const aiLangCode = REALTIME_LANG_NAMES[aiLangRaw] ? aiLangRaw : 'en';
+    const aiLangName = REALTIME_LANG_NAMES[aiLangCode];
+    const languageBlock = (aiLangCode !== 'en')
+      ? `LANGUAGE: Speak the entire round in ${aiLangName}. This is non-negotiable — do not switch to English even briefly. Names of real people and proper nouns can stay in their native form. The user's motion is the ground truth; do not translate it back to English when restating it.\n\n`
+      : '';
+
     const instructions =
+      languageBlock +
       (councilResearch ? councilResearch + '\n\n' : '') +
       (voiceBank ? voiceBank + '\n\n' : '') +
       backgroundBlock +

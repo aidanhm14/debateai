@@ -2972,10 +2972,15 @@ function useTTS(){
     // without needing to thread state down through the hook.
     let providerPref;
     try{providerPref = localStorage.getItem('debateos-tts-provider')||'elevenlabs'}catch{providerPref='elevenlabs'}
+    // Language hint for Cartesia (the only provider that requires one).
+    // ElevenLabs + OpenAI auto-detect, so the extra field is harmless
+    // on those paths and load-bearing on the Cartesia A/B path.
+    let ttsLang='en';
+    try{ttsLang = localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale') || 'en'}catch{}
     const fetchP = fetch('/api/tts',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:stripPlainMd(text).slice(0,4000),voice:voiceName||DEFAULT_VOICE,speed,premium:isPro(),intensity:i,provider:isPro()?providerPref:undefined}),
+      body:JSON.stringify({text:stripPlainMd(text).slice(0,4000),voice:voiceName||DEFAULT_VOICE,speed,premium:isPro(),intensity:i,provider:isPro()?providerPref:undefined,language:ttsLang}),
     }).then(r=>{
       if(!r.ok) throw new Error('TTS '+r.status);
       return r.blob();
@@ -5258,7 +5263,7 @@ function App(){
           const fetchP = fetch('/api/tts',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro(),intensity:ttsIntensity,provider:isPro()?ttsProvider:undefined}),
+            body:JSON.stringify({text:input,voice,speed:ttsSpeed,premium:isPro(),intensity:ttsIntensity,provider:isPro()?ttsProvider:undefined,language:aiLanguage||'en'}),
           }).then(r=>{
             if(!r.ok) throw new Error('TTS '+r.status);
             return r.blob();

@@ -203,7 +203,10 @@ async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0) {
 }
 
 // Cartesia Sonic — opt-in via body.provider === 'cartesia'
-async function cartesiaTTS(text, voice, speed, apiKey, intensity = 0) {
+// `language` is required by Cartesia's sonic-2 endpoint. We pass through
+// the caller's language code so non-English text synthesizes correctly;
+// defaults to 'en' when nothing's specified.
+async function cartesiaTTS(text, voice, speed, apiKey, intensity = 0, language = 'en') {
   const personality = OPENAI_TO_PERSONALITY[voice] || voice;
   const voiceId = CARTESIA_VOICES[personality] || CARTESIA_VOICES.professor;
 
@@ -233,7 +236,7 @@ async function cartesiaTTS(text, voice, speed, apiKey, intensity = 0) {
         sample_rate: 44100,
         bit_rate: 128000,
       },
-      language: 'en',
+      language,
     }),
   });
 
@@ -478,6 +481,12 @@ export default async (request, context) => {
     const intensity = Math.max(0, Math.min(1, humanized.intensity || 0));
     const premium = !!body.premium;
     const provider = (body.provider || '').toLowerCase(); // 'cartesia' opts into the A/B flag
+    // Language hint. ElevenLabs (turbo_v2_5) and OpenAI (gpt-4o-mini-tts)
+    // auto-detect from the input text, so language is only load-bearing
+    // for Cartesia (sonic-2 requires the field). Accept BCP-47 short
+    // codes; fall back to 'en' on anything unrecognized.
+    const rawLang = String(body.language || 'en').toLowerCase().slice(0, 5);
+    const language = /^[a-z]{2}(-[a-z]{2})?$/.test(rawLang) ? rawLang : 'en';
 
     if (!text.trim()) {
       return new Response(
@@ -491,7 +500,7 @@ export default async (request, context) => {
     // Premium + explicit opt-in → Cartesia Sonic (A/B flag, not default)
     if (premium && provider === 'cartesia' && cartesiaKey) {
       try {
-        response = await cartesiaTTS(text, voice, speed, cartesiaKey, intensity);
+        response = await cartesiaTTS(text, voice, speed, cartesiaKey, intensity, language);
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           console.error('Cartesia TTS error:', response.status, errText);
