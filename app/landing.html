@@ -7841,6 +7841,14 @@ section.ui-section .ui-lede{
 <style>
   #faq{background:#fafaf7;color:#1a1a1f;padding-top:56px;padding-bottom:48px}
   #faq .sec-label{color:#6b6b73}
+  /* Heading block locked to dark-on-cream — these inherit var(--text)
+     / var(--text-dim) by default, which resolve to white on the
+     dark page theme and disappeared against the forced-light FAQ
+     surface. Fixed 2026-05-18 alongside the new .faq-stack pills. */
+  #faq .faq-eyebrow{color:rgba(0,0,0,.55)}
+  #faq .faq-title,
+  #faq .faq-title em{color:#1a1a1f}
+  #faq .faq-sub{color:rgba(0,0,0,.66)}
   #faq .faq-grid{color:#1a1a1f}
   #faq .faq-group-head{color:#1a1a1f}
   #faq .faq-item{background:#fff;border-color:rgba(0,0,0,.08);box-shadow:0 1px 0 rgba(0,0,0,.03)}
@@ -7862,6 +7870,12 @@ section.ui-section .ui-lede{
   #faq .faq-toolbar input[type=search]::placeholder{color:rgba(0,0,0,.4)}
   #faq .faq-toolbar input[type=search]:focus{border-color:rgba(0,0,0,.35);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
   #faq .faq-toolbar-hint{color:rgba(0,0,0,.55)}
+  /* Feedback tail sits inside the FAQ section — same dark-on-cream
+     treatment as the rest of the panel. */
+  #faq .faq-feedback-tail{border-top-color:rgba(0,0,0,.10)}
+  #faq .faq-feedback-tail .ffft-line{color:rgba(0,0,0,.66)}
+  #faq .faq-feedback-tail .ffft-link{color:#dc2626;text-decoration-color:rgba(220,38,38,.45)}
+  #faq .faq-feedback-tail .ffft-link:hover{text-decoration-color:#dc2626}
 </style>
 <!-- FAQ. grouped into four sections so readers can scan to what they actually care about.
      Newbie questions first; competitive-debate specifics last. -->
@@ -7885,38 +7899,51 @@ section.ui-section .ui-lede{
         display:flex;flex-direction:column;align-items:flex-start;
         gap:10px;max-width:920px;margin:36px auto 0;
       }
+      /* 2026-05-18: the FAQ surface is forced to the cream
+         (#fafaf7) background by the override below regardless of
+         the ambient page theme (decision: 2026-05-16). All stack-row
+         colors below are therefore dark-on-cream UNCONDITIONALLY —
+         the previous defaults used var(--text) (=#fff in dark mode)
+         which rendered as white text on cream = invisible. */
       #faq .faq-stack-row{
-        border:1px solid var(--border);background:rgba(255,255,255,.02);
+        border:1px solid rgba(0,0,0,.10);background:#fff;
         border-radius:14px;overflow:hidden;
-        transition:border-color .2s ease,background .2s ease;
+        box-shadow:0 1px 0 rgba(0,0,0,.03);
+        transition:border-color .2s ease,background .2s ease,box-shadow .2s ease;
       }
-      [data-theme="light"] #faq .faq-stack-row{background:#fff;border-color:rgba(0,0,0,.08)}
-      #faq .faq-stack-row:hover{border-color:var(--accent-border,rgba(229,69,69,.35))}
+      #faq .faq-stack-row:hover{
+        border-color:rgba(0,0,0,.22);
+        box-shadow:0 4px 14px rgba(0,0,0,.06);
+      }
       #faq .faq-stack-row[open]{
-        border-color:var(--accent-border,rgba(229,69,69,.5));
+        border-color:rgba(220,38,38,.45);
+        box-shadow:0 6px 22px rgba(220,38,38,.10);
         align-self:stretch;
       }
       #faq .faq-stack-q{
         list-style:none;cursor:pointer;
         padding:14px 22px;
         display:flex;align-items:center;gap:14px;
-        font-size:.98rem;font-weight:600;color:var(--text);
+        font-size:.98rem;font-weight:600;color:#1a1a1f;
         letter-spacing:-.003em;user-select:none;
       }
       #faq .faq-stack-q::-webkit-details-marker{display:none}
       #faq .faq-stack-q::marker{content:''}
-      #faq .faq-stack-q:hover{color:var(--accent)}
+      #faq .faq-stack-q:hover{color:#dc2626}
       #faq .faq-stack-chev{
-        width:14px;height:14px;flex-shrink:0;opacity:.55;
+        width:14px;height:14px;flex-shrink:0;opacity:.55;color:#1a1a1f;
         transition:transform .3s ease,opacity .2s ease;
         margin-left:auto;
       }
-      #faq .faq-stack-row[open] .faq-stack-chev{transform:rotate(180deg);opacity:1}
+      #faq .faq-stack-row[open] .faq-stack-chev{transform:rotate(180deg);opacity:1;color:#dc2626}
       #faq .faq-stack-a{
-        padding:14px 22px 18px;color:var(--text-dim);
+        padding:14px 22px 18px;color:rgba(0,0,0,.72);
         font-size:.9rem;line-height:1.7;max-width:760px;
-        border-top:1px solid var(--border);
+        border-top:1px solid rgba(0,0,0,.08);
       }
+      #faq .faq-stack-a strong{color:#1a1a1f}
+      #faq .faq-stack-a a{color:#dc2626;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(220,38,38,.45)}
+      #faq .faq-stack-a a:hover{text-decoration-color:#dc2626}
       #faq .faq-stack-a p{margin:0 0 10px}
       #faq .faq-stack-a p:last-child{margin-bottom:0}
       #faq .faq-stack-a a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
@@ -7946,6 +7973,8 @@ section.ui-section .ui-lede{
            to the FAQ heading row, not floating below it */
         margin-top:-28px;
       }
+      /* Debater illustration sits on the same cream FAQ surface in
+         every theme, so the dark line-art color is fine unconditionally. */
       #faq .faq-debater-svg{
         width:100%;max-width:420px;height:auto;
         color:#2a2a32;opacity:.78;
