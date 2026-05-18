@@ -106,6 +106,62 @@
   status = 200
   force = true
 
+# Education sub-hub under /learn (the "Learn to Argue" surface).
+# Substantive-subject primers (finance, feminist theory, IR, climate
+# policy) plus a self-check quiz per topic. One function serves both
+# the index (/learn/education) and each per-topic primer page
+# (/learn/education/{slug}).
+[[redirects]]
+  from = "/learn/education"
+  to = "/api/learn/education"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/learn/education/*"
+  to = "/api/learn/education/:splat"
+  status = 200
+  force = true
+
+# Backwards compat. /education and /education/{slug} were the original
+# paths before nesting under /learn. Keep them 301-able so any external
+# link (Reddit comment, screenshot, share) still lands.
+[[redirects]]
+  from = "/education"
+  to = "/learn/education"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/education/*"
+  to = "/learn/education/:splat"
+  status = 301
+  force = true
+
+# Dynamic sitemaps. Each sub-sitemap is server-rendered. /sitemap.xml
+# itself is now a function (see app/netlify/functions/sitemap.mjs) so
+# lastmod dates can move with content instead of freezing whenever the
+# file was last hand-edited. /sitemap-index.xml stays a static file
+# that lists all three URLs. force=true so the rewrite wins over any
+# chance of a stale static .xml shadow at the same path.
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/api/sitemap"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap-rounds.xml"
+  to = "/api/sitemap-rounds"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap-motions.xml"
+  to = "/api/sitemap-motions"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/favicon.ico"
   to = "/icons/icon-192.png"
