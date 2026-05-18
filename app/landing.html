@@ -3367,6 +3367,72 @@ section.ui-section .ui-lede{
 }
 [data-theme="light"] .tools-brand-sep{color:rgba(0,0,0,.30)}
 
+/* 2026-05-18: animated brain-logo discs inside the "Powered by" pill.
+   Six circles, each holding a brand mark; staggered float so the row
+   feels alive without competing with the headline. */
+.tools-brand-row--logos{padding:6px 12px}
+.tb-logos{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tb-logo{
+  width:34px;height:34px;border-radius:50%;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.08);
+  display:inline-flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 2px rgba(0,0,0,.05), inset 0 0 0 1px rgba(255,255,255,.6);
+  transition:transform .2s ease, box-shadow .2s ease;
+  animation: tb-float 5.5s ease-in-out infinite;
+  will-change: transform;
+}
+.tb-logo img{
+  width:62%;height:62%;object-fit:contain;display:block;
+  -webkit-user-drag:none;user-select:none;pointer-events:none;
+}
+.tb-logo[data-brain="grok"] img{width:54%;height:54%}
+.tb-logo[data-brain="gemini"] img{width:64%;height:64%}
+.tb-logo[data-brain="deepseek"] img{width:70%;height:70%}
+.tb-logo[data-brain="claude"] img{width:60%;height:60%}
+.tb-logo[data-brain="gpt"] img{width:80%;height:80%;border-radius:50%}
+.tb-logo:nth-child(1){animation-delay:0s}
+.tb-logo:nth-child(2){animation-delay:.45s}
+.tb-logo:nth-child(3){animation-delay:.9s}
+.tb-logo:nth-child(4){animation-delay:1.35s}
+.tb-logo:nth-child(5){animation-delay:1.8s}
+.tb-logo:nth-child(6){animation-delay:2.25s}
+.tb-logo:hover{
+  transform:translateY(-3px) scale(1.08);
+  box-shadow:0 6px 14px rgba(0,0,0,.12), inset 0 0 0 1px rgba(255,255,255,.6);
+}
+.tb-logo--ol{
+  background:linear-gradient(135deg,#a78bfa 0%,#7c5ce8 100%);
+  border-color:rgba(124,92,232,.35);
+  color:#fff;
+  font-family:'Sohne','Inter',system-ui,sans-serif;
+  font-weight:800;font-size:.72rem;letter-spacing:.04em;
+  text-shadow:0 1px 0 rgba(0,0,0,.12);
+}
+[data-theme="light"] .tb-logo{
+  background:#fff;
+  border-color:rgba(0,0,0,.10);
+  box-shadow:0 1px 2px rgba(0,0,0,.06);
+}
+/* Re-apply the OL gradient at light-theme specificity so the
+   generic light-theme white background doesn't win the cascade. */
+[data-theme="light"] .tb-logo--ol{
+  background:linear-gradient(135deg,#a78bfa 0%,#7c5ce8 100%);
+  border-color:rgba(124,92,232,.35);
+}
+@keyframes tb-float{
+  0%,100%{transform:translateY(0)}
+  50%    {transform:translateY(-3px)}
+}
+@media (prefers-reduced-motion: reduce){
+  .tb-logo{animation:none}
+}
+@media(max-width:640px){
+  .tb-logo{width:30px;height:30px}
+  .tb-logos{gap:6px}
+  .tb-logo--ol{font-size:.66rem}
+}
+
 /* Cards: numbered, hover lifts toward muted crimson without a wash. */
 .tools-grid{
   display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
@@ -7628,19 +7694,22 @@ section.ui-section .ui-lede{
         <div class="aud-eyebrow" style="margin-bottom:10px">What's inside</div>
         <h2 class="tools-list-headline">Six tools. <em>Six brains.</em></h2>
       </div>
-      <div class="tools-brand-row" aria-label="Powered by">
+      <!-- 2026-05-18: replaced the plain "Powered by Claude · GPT · …"
+           text strip with actual brand discs. Same six brains, same
+           order; each disc floats on a staggered 5.5s ease-in-out
+           loop so the row reads as alive without competing with the
+           headline. Open Lab has no public mark, so it ships as a
+           purple "OL" monogram (brand color from soul.md §3 / openlab.mjs). -->
+      <div class="tools-brand-row tools-brand-row--logos" aria-label="Powered by Claude, GPT, Gemini, Grok, DeepSeek, Open Lab">
         <span class="tools-brand-label">Powered by</span>
-        <span class="tools-brand">Claude</span>
-        <span class="tools-brand-sep">·</span>
-        <span class="tools-brand">GPT</span>
-        <span class="tools-brand-sep">·</span>
-        <span class="tools-brand">Gemini</span>
-        <span class="tools-brand-sep">·</span>
-        <span class="tools-brand">Grok</span>
-        <span class="tools-brand-sep">·</span>
-        <span class="tools-brand">DeepSeek</span>
-        <span class="tools-brand-sep">·</span>
-        <span class="tools-brand">Open Lab</span>
+        <div class="tb-logos">
+          <span class="tb-logo" data-brain="claude"   aria-label="Claude (Anthropic)" title="Claude · Anthropic"><img src="/assets/brands/claude.svg"   alt="" loading="lazy" decoding="async" /></span>
+          <span class="tb-logo" data-brain="gpt"      aria-label="GPT (OpenAI)"        title="GPT · OpenAI"><img src="/assets/brands/openai.png"     alt="" loading="lazy" decoding="async" /></span>
+          <span class="tb-logo" data-brain="gemini"   aria-label="Gemini (Google)"     title="Gemini · Google"><img src="/assets/brands/gemini.webp"  alt="" loading="lazy" decoding="async" /></span>
+          <span class="tb-logo" data-brain="grok"     aria-label="Grok (xAI)"          title="Grok · xAI"><img src="/assets/brands/grok.svg"       alt="" loading="lazy" decoding="async" /></span>
+          <span class="tb-logo" data-brain="deepseek" aria-label="DeepSeek"            title="DeepSeek"><img src="/assets/brands/deepseek.png"  alt="" loading="lazy" decoding="async" /></span>
+          <span class="tb-logo tb-logo--ol" data-brain="openlab" aria-label="Open Lab (OpenRouter)" title="Open Lab · Hermes 4 / Mistral / Qwen / Llama">OL</span>
+        </div>
       </div>
     </div>
 
