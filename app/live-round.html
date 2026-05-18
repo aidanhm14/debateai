@@ -467,6 +467,67 @@ button{font-family:inherit}
 .points-card .pts{font-size:1.6rem;font-weight:900;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
 .points-card .pts-label{font-size:.62rem;color:var(--text-ghost);margin-top:4px;letter-spacing:.06em;text-transform:uppercase}
 
+/* Ballot reveal interstitial — lands between "ballot generated" and the
+   actual verdict so the room can pick instant / dramatic / read-aloud
+   instead of getting the result dumped on them. */
+.ballot-interstitial{
+  padding:48px 28px 36px;text-align:center;
+  background:linear-gradient(180deg, rgba(239,68,68,.06) 0%, rgba(255,255,255,0) 60%);
+}
+.ballot-interstitial .bi-eyebrow{
+  font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:14px;
+}
+.ballot-interstitial .bi-eyebrow::before{
+  content:'';display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 10px rgba(34,197,94,.7);
+  margin-right:8px;vertical-align:middle;
+  animation:pulse 1.6s ease-in-out infinite;
+}
+.ballot-interstitial .bi-headline{
+  font-size:1.7rem;font-weight:900;letter-spacing:-.01em;color:var(--text);
+  margin-bottom:8px;line-height:1.15;
+}
+.ballot-interstitial .bi-sub{
+  font-size:.86rem;color:var(--text-dim);line-height:1.55;
+  max-width:520px;margin:0 auto 26px;
+}
+.ballot-interstitial .bi-actions{
+  display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+}
+.ballot-interstitial .bi-actions .btn{
+  padding:13px 22px;font-size:.82rem;
+}
+.ballot-interstitial .bi-actions .btn-primary{
+  box-shadow:0 6px 24px rgba(239,68,68,.32);
+}
+.ballot-interstitial .bi-ghost{
+  margin-top:14px;font-size:.7rem;color:var(--text-ghost);letter-spacing:.04em;
+}
+.ballot-interstitial .bi-ghost button{
+  background:transparent;border:0;color:var(--text-dim);font-family:inherit;
+  font-size:inherit;letter-spacing:inherit;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px;padding:0;
+}
+.ballot-interstitial .bi-ghost button:hover{color:var(--text)}
+
+/* Staged reveal — when the user picks the dramatic-reveal mode, each
+   block slides up and fades in on a stagger so the room reads the
+   verdict beat-by-beat. Instant mode skips the .ballot-staged class
+   and the sections inherit no animation (default opacity:1). */
+.ballot-staged .ballot-section{
+  opacity:0;transform:translateY(10px);
+  animation:ballot-reveal-in .8s cubic-bezier(.2,.7,.2,1) forwards;
+}
+.ballot-staged .ballot-section[data-stage="0"]{animation-delay:.1s}
+.ballot-staged .ballot-section[data-stage="1"]{animation-delay:1.6s}
+.ballot-staged .ballot-section[data-stage="2"]{animation-delay:3.1s}
+.ballot-staged .ballot-section[data-stage="3"]{animation-delay:4.4s}
+@keyframes ballot-reveal-in{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
 .rfd{padding:0 22px 24px;font-size:.92rem;line-height:1.7;color:var(--text)}
 .rfd h3{font-size:.7rem;font-weight:800;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
 .rfd p{margin-bottom:10px}
@@ -2027,11 +2088,190 @@ button{font-family:inherit}
     else s.textContent = '';
   }
 
+  // Build the script the AI judge reads aloud. Keeps it tight — verdict
+  // + two-sentence frame + the RFD. We deliberately drop the per-speaker
+  // feedback so the audio doesn't run 4 minutes; readers can scroll for
+  // the rest.
+  function buildBallotReadAloudScript(b){
+    var f = FORMATS[state.formatKey];
+    var winnerName = b.winner === 'pro' ? state.proName : state.conName;
+    var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
+    var rfd = (b.rfd || '').trim();
+    var lines = [
+      'Ballot.',
+      'After hearing both sides, the round goes to ' + (winnerName || winnerSide) + ' on ' + winnerSide + '.',
+    ];
+    if (rfd) lines.push('Reason for decision. ' + rfd);
+    return lines.join(' ');
+  }
+
+  // Stream the verdict + RFD through /api/tts and play it back. Uses
+  // the professor persona (closest match to a measured tournament-
+  // judge cadence). Free-tier OpenAI gpt-4o-mini-tts by default; the
+  // server picks ElevenLabs automatically for paid users via the
+  // shared TTS routing.
+  function startBallotReadAloud(b){
+    // Tear down any prior audio so re-entering this function never
+    // stacks two judge voices.
+    stopBallotReadAloud();
+    var text = buildBallotReadAloudScript(b);
+    if (!text || text.length < 4){ console.warn('[read-aloud] empty script'); return; }
+    fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text,
+        voice: 'professor',
+        intensity: 0.35,
+        speed: 1,
+        // No premium flag — the TTS function defaults to the free
+        // OpenAI path which is fine here. Paid users get ElevenLabs
+        // routing automatically server-side.
+      }),
+    }).then(function(r){
+      if (!r.ok) return r.text().then(function(t){
+        throw new Error('TTS ' + r.status + ': ' + (t || '').slice(0, 200));
+      });
+      return r.blob();
+    }).then(function(blob){
+      if (!blob) return;
+      var url = URL.createObjectURL(blob);
+      var audio = new Audio(url);
+      audio.preload = 'auto';
+      audio.addEventListener('ended', function(){
+        try { URL.revokeObjectURL(url); } catch(e){}
+        state.ballotAudio = null;
+        renderBallotAudioControl();
+      });
+      state.ballotAudio = audio;
+      state.ballotAudioUrl = url;
+      // Play in the same tick the blob lands so the audio starts
+      // near the stage-0 verdict reveal. Browsers may block autoplay
+      // without a recent gesture — but the user just clicked
+      // "Read aloud" so we have a fresh gesture.
+      audio.play().catch(function(err){
+        console.warn('[read-aloud] autoplay blocked', err);
+        toast('Tap the speaker icon to play the verdict.');
+      });
+      renderBallotAudioControl();
+      try { gtag('event', 'ballot_read_aloud_play', { format: state.formatKey }); } catch(e){}
+    }).catch(function(err){
+      console.warn('[read-aloud] tts failed', err);
+      toast('Read-aloud failed. The verdict is below.');
+    });
+  }
+
+  function stopBallotReadAloud(){
+    var a = state.ballotAudio;
+    if (a){ try { a.pause(); } catch(e){} }
+    if (state.ballotAudioUrl){ try { URL.revokeObjectURL(state.ballotAudioUrl); } catch(e){} }
+    state.ballotAudio = null;
+    state.ballotAudioUrl = null;
+    renderBallotAudioControl();
+  }
+
+  // Floating audio control while the verdict plays. Lets the user
+  // pause or skip the read-aloud — important for re-listens (the
+  // ballot stays visible after audio ends), and for users whose
+  // device doesn't allow autoplay.
+  function renderBallotAudioControl(){
+    var existing = document.getElementById('ballotAudioCtrl');
+    if (existing) existing.remove();
+    if (!state.ballotAudio) return;
+    var el = document.createElement('div');
+    el.id = 'ballotAudioCtrl';
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:200;background:rgba(20,20,22,.94);border:1px solid var(--border-strong);border-radius:999px;padding:10px 16px 10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 16px 48px rgba(0,0,0,.55);font-size:.78rem;font-weight:700;letter-spacing:.04em;color:var(--text);backdrop-filter:blur(8px)';
+    el.innerHTML =
+      '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(239,68,68,.7);animation:pulse 1.4s ease-in-out infinite"></span>Judge reading</span>' +
+      '<button type="button" id="ballotAudioStop" style="background:transparent;border:1px solid var(--border-strong);border-radius:999px;padding:5px 12px;color:var(--text);font-family:inherit;font-weight:700;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Stop</button>';
+    document.body.appendChild(el);
+    var stop = document.getElementById('ballotAudioStop');
+    if (stop) stop.addEventListener('click', stopBallotReadAloud);
+  }
+
+  // Reveal entry point. The first time a ballot lands we gate behind
+  // an interstitial so the user can pick instant vs dramatic staged
+  // reveal vs read-aloud (TTS); after the user picks, this same
+  // function is called recursively with mode set and renders the real
+  // ballot DOM. Re-entries from Firestore snapshots fall straight
+  // through with state.ballotRevealMode preserved so a re-render
+  // doesn't yank the user back to the interstitial.
   function renderBallot(b){
+    state.lastBallot = b;
+    // Pin phase so the Firestore snapshot guard (state.phase ===
+    // 'ballot-rendered') stops re-firing renderBallot. Without this,
+    // generateBallot's success path enters renderBallot first while
+    // state.phase is still 'ballot'; the snapshot then re-triggers
+    // and restarts staged-reveal animations or clobbers a user who
+    // is mid-interstitial.
+    state.phase = 'ballot-rendered';
+    if (!state.ballotRevealMode){
+      showBallotInterstitial(b);
+      return;
+    }
+    renderBallotBody(b, state.ballotRevealMode);
+  }
+
+  function showBallotInterstitial(b){
     $('ballotLoading').classList.add('hidden');
     var result = $('ballotResult');
     result.classList.remove('hidden');
-    state.lastBallot = b; // stash for the snapshot-driven leaderboard write
+    result.classList.remove('ballot-staged');
+    // Spectators get a slimmer interstitial since the dramatic-reveal
+    // controls are most useful to the speakers themselves. Spectators
+    // still get the choice so they can sync their watch to whoever
+    // shouts "reveal" first.
+    result.innerHTML =
+      '<div class="ballot-interstitial">' +
+        '<div class="bi-eyebrow">Ballot ready</div>' +
+        '<div class="bi-headline">The judge has decided.</div>' +
+        '<div class="bi-sub">Pick how you want to see it. Dramatic reveals the verdict beat-by-beat; read-aloud has the AI judge say it out loud.</div>' +
+        '<div class="bi-actions">' +
+          '<button class="btn btn-primary" id="biRevealBtn" type="button">🎙️ Read aloud</button>' +
+          '<button class="btn" id="biDramaticBtn" type="button">👀 Dramatic reveal</button>' +
+        '</div>' +
+        '<div class="bi-ghost"><button id="biInstantBtn" type="button">or skip the suspense — show me now</button></div>' +
+      '</div>';
+    var dramaticBtn = $('biDramaticBtn');
+    var revealBtn = $('biRevealBtn');
+    var instantBtn = $('biInstantBtn');
+    if (dramaticBtn) dramaticBtn.addEventListener('click', function(){
+      state.ballotRevealMode = 'staged';
+      try { gtag('event', 'ballot_reveal_mode', { mode: 'staged', format: state.formatKey }); } catch(e){}
+      renderBallotBody(b, 'staged');
+    });
+    if (revealBtn) revealBtn.addEventListener('click', function(){
+      state.ballotRevealMode = 'read-aloud';
+      try { gtag('event', 'ballot_reveal_mode', { mode: 'read-aloud', format: state.formatKey }); } catch(e){}
+      renderBallotBody(b, 'read-aloud');
+    });
+    if (instantBtn) instantBtn.addEventListener('click', function(){
+      state.ballotRevealMode = 'instant';
+      try { gtag('event', 'ballot_reveal_mode', { mode: 'instant', format: state.formatKey }); } catch(e){}
+      renderBallotBody(b, 'instant');
+    });
+  }
+
+  // Render the actual ballot DOM. Mode controls whether the sections
+  // get .ballot-section[data-stage] wrappers (CSS staggers their
+  // reveal). 'instant' = no animation; 'staged' / 'read-aloud' = staged
+  // CSS animation. Read-aloud additionally streams the verdict + RFD
+  // through /api/tts (professor persona) so the AI judge "reads out"
+  // the ballot while the text fades in.
+  function renderBallotBody(b, mode){
+    var staged = mode === 'staged' || mode === 'read-aloud';
+    $('ballotLoading').classList.add('hidden');
+    var result = $('ballotResult');
+    result.classList.remove('hidden');
+    if (staged) result.classList.add('ballot-staged');
+    else result.classList.remove('ballot-staged');
+    // Fire-and-forget TTS request. Starts in parallel with the staged
+    // CSS animations so the voice usually catches the verdict reveal
+    // around stage 0–1. Failure is silent (toast), the staged reveal
+    // still plays.
+    if (mode === 'read-aloud'){
+      try { startBallotReadAloud(b); } catch(e){ console.warn('[read-aloud]', e); }
+    }
     var f = FORMATS[state.formatKey];
     var winnerName = b.winner === 'pro' ? state.proName : state.conName;
     var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
@@ -2061,11 +2301,11 @@ button{font-family:inherit}
         '</label>';
     }
     result.innerHTML =
-      '<div class="verdict ' + (b.winner === 'pro' ? 'pro' : 'con') + '">' +
+      '<div class="verdict ballot-section ' + (b.winner === 'pro' ? 'pro' : 'con') + '" data-stage="0">' +
         '<div class="verdict-headline">' + escHtml(winnerName) + ' wins</div>' +
         '<div class="verdict-sub">' + escHtml(winnerSide) + ' over ' + escHtml(loserSide) + ' (' + escHtml(loserName) + ')</div>' +
       '</div>' +
-      '<div class="points-grid">' +
+      '<div class="points-grid ballot-section" data-stage="1">' +
         '<div class="points-card">' +
           '<div class="name">' + escHtml(state.proName) + ' · ' + escHtml(f.sideLabels[f.sides[0]]) + '</div>' +
           '<div class="pts">' + (b.proPoints != null ? escHtml(String(b.proPoints)) : ', ') + '</div>' +
@@ -2077,12 +2317,13 @@ button{font-family:inherit}
           '<div class="pts-label">Speaker points</div>' +
         '</div>' +
       '</div>' +
-      '<div class="rfd">' +
+      '<div class="rfd ballot-section" data-stage="2">' +
         '<h3>Reason for decision</h3>' +
         '<p>' + escHtml(b.rfd || '(no RFD generated)') + '</p>' +
         (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + escHtml(b.proFeedback) + '</p>' : '') +
         (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + escHtml(b.conFeedback) + '</p>' : '') +
       '</div>' +
+      '<div class="ballot-section" data-stage="3">' +
       lbBlock +
       '<div class="rfd-actions">' +
         '<button class="btn btn-primary" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
@@ -2102,7 +2343,8 @@ button{font-family:inherit}
           ? '<a class="btn btn-primary" href="/spar?format=' + encodeURIComponent(state.formatKey) + '" id="nextOpponentBtn" style="background:var(--green);border-color:var(--green);box-shadow:0 6px 24px rgba(34,197,94,.32)">Next opponent →</a>'
           : '<a class="btn" href="/live">Back to board</a>'
         ) +
-      '</div>';
+      '</div>' + // .rfd-actions
+      '</div>'; // .ballot-section[data-stage="3"]
     // Spectators don't get the save-to-record button — the round is
     // not theirs to log against their personal speaker history. Same
     // applies to the leaderboard consent checkbox + the publish-to-
