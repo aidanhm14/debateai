@@ -5426,25 +5426,32 @@ function App(){
   // Init orb in speech phase
   useEffect(()=>{if(phase==='speech'){orb.init()}return()=>orb.kill()},[phase]);
 
-  // Pre-warm /api/tts when prep loads. Netlify functions cold-start
-  // around 1-3s on first hit; if that hit is the first AI speech the
-  // user sits through silent dead air before the round actually
-  // starts. Firing a `warm:true` ping during prep makes the TTS
-  // function instance hot before the user even clicks Start Round.
-  // Server short-circuits to a 200 OK without calling any TTS
-  // provider, so no credits burned, no rate-limit consumed beyond
-  // the per-IP cap. Fire-and-forget; failures are silently OK.
+  // Pre-warm Netlify functions when prep loads. Cold-start is 1-3s
+  // on first hit; on speech-1 that's silent dead air after the user
+  // hits Start Round. Firing a `warm:true` ping at prep time makes
+  // the function instances hot before they're actually needed. Each
+  // endpoint short-circuits to 200 OK without calling its upstream
+  // provider, so no credits burned and no rate-limit consumed
+  // beyond the per-IP cap. Fire-and-forget; failures silently OK.
+  // Warms /api/tts (always — every round uses TTS) and the brain
+  // function for whichever LLM the user has selected (claude / gpt /
+  // grok / gemini / deepseek / openlab).
   useEffect(()=>{
     if(phase!=='prep') return;
-    try{
-      fetch('/api/tts',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({warm:true}),
-        keepalive:true,
-      }).catch(()=>{});
-    }catch{}
-  },[phase]);
+    const endpoints = ['/api/tts'];
+    const brainEndpoint = (BRAINS[brain] && BRAINS[brain].endpoint) || '/api/claude';
+    if(!endpoints.includes(brainEndpoint)) endpoints.push(brainEndpoint);
+    endpoints.forEach(ep => {
+      try{
+        fetch(ep,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({warm:true}),
+          keepalive:true,
+        }).catch(()=>{});
+      }catch{}
+    });
+  },[phase,brain]);
 
   // Phase transition helper. Fades the page out (vis=false → opacity:0),
   // runs the supplied callback, swaps phase, fades back in.

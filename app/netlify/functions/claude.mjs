@@ -298,6 +298,19 @@ export default async (request, context) => {
   try {
     const body = await request.json();
 
+    // Warm-up handshake (mirrors tts.mjs): client fires `warm:true`
+    // when the prep phase loads so the Netlify function instance is
+    // hot before the first AI speech actually needs the LLM. Short-
+    // circuits before any Anthropic call, exemplar lookup, or
+    // distillation read — no provider credit burned, no Firestore
+    // read consumed. Saves the ~1-3s cold-start penalty on speech-1.
+    if (body && body.warm === true) {
+      return new Response(JSON.stringify({ ok: true, warm: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
     // Input validation — reject suspiciously large payloads
     const bodyStr = JSON.stringify(body);
     if (bodyStr.length > 200_000) {

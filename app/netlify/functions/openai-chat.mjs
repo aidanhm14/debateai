@@ -105,6 +105,14 @@ export default async (request, context) => {
   try {
     const body = await request.json();
 
+    // Warm-up handshake — see claude.mjs for the full rationale.
+    if (body && body.warm === true) {
+      return new Response(JSON.stringify({ ok: true, warm: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
     if (JSON.stringify(body).length > 200_000) {
       return new Response(
         JSON.stringify({ error: 'Request too large.' }),

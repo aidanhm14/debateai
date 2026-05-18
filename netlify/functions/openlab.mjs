@@ -128,6 +128,18 @@ export default async (request, context) => {
   try {
     const body = await request.json();
 
+    // Warm-up handshake — see claude.mjs for the full rationale.
+    // (Note: openlab also runs a paid-plan check above this block, so
+    // free users prewarming this endpoint get a 402 instead of the
+    // 200/warm response — that's fine, they wouldn't be able to
+    // generate via openlab anyway.)
+    if (body && body.warm === true) {
+      return new Response(JSON.stringify({ ok: true, warm: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
     if (JSON.stringify(body).length > 200_000) {
       return new Response(
         JSON.stringify({ error: 'Request too large.' }),
