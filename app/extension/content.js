@@ -74,12 +74,15 @@
     const wrap = document.createElement('div');
     wrap.id = 'debateai-ext-pill';
     wrap.className = 'debateai-ext-pill debateai-ext-pill--hidden';
+    // 2026-05-18: viva mode is now the primary action on Docs (was
+    // 'Quiz me'). The oral-exam wedge surfaced on the landing today
+    // is exactly the surface this pill should default to.
     wrap.innerHTML = `
-      <button type="button" class="debateai-ext-pill__btn" data-debateai-action="quiz-me">
+      <button type="button" class="debateai-ext-pill__btn" data-debateai-action="defend-this">
         <span class="debateai-ext-pill__dot"></span>
-        <span class="debateai-ext-pill__label">Quiz me</span>
+        <span class="debateai-ext-pill__label">Defend this out loud</span>
       </button>
-      <button type="button" class="debateai-ext-pill__btn debateai-ext-pill__btn--ghost" data-debateai-action="defend-this">Defend</button>
+      <button type="button" class="debateai-ext-pill__btn debateai-ext-pill__btn--ghost" data-debateai-action="quiz-me">Quiz me</button>
       <button type="button" class="debateai-ext-pill__close" data-debateai-action="dismiss" aria-label="Dismiss">×</button>
     `;
     document.documentElement.appendChild(wrap);
@@ -113,7 +116,7 @@
     const el = ensurePill();
     const preview = text.length > 60 ? text.slice(0, 57) + '…' : text;
     const label = el.querySelector('.debateai-ext-pill__label');
-    if (label) label.textContent = `Quiz me: "${preview}"`;
+    if (label) label.textContent = `Defend: "${preview}"`;
     el.classList.remove('debateai-ext-pill--hidden');
     if (pillTimer) clearTimeout(pillTimer);
     pillTimer = setTimeout(hidePill, 9000);
@@ -127,6 +130,87 @@
       pillTimer = null;
     }
   }
+
+  // ── 2b. Persistent floating action button on Docs ──────────────
+  // The copy-event pill (section 2) only appears after the user
+  // presses Cmd-C. That's three steps and an unfamiliar gesture for
+  // first-time users. A persistent bottom-right anchor button gives
+  // them a visible affordance the moment the extension loads on a
+  // Docs page. Click flow: if the user has copied something in the
+  // last 5 minutes, fire the same defend-this action straight into
+  // the panel; otherwise show a 4-second toast telling them to copy
+  // their paragraph first.
+
+  const FAB_COPY_FRESHNESS_MS = 5 * 60_000;
+  let fabEl = null;
+  let fabToastEl = null;
+  let fabToastTimer = null;
+
+  function ensureFab() {
+    if (fabEl && document.body.contains(fabEl)) return fabEl;
+    const wrap = document.createElement('div');
+    wrap.id = 'debateai-ext-fab';
+    wrap.className = 'debateai-ext-fab';
+    wrap.setAttribute('role', 'button');
+    wrap.setAttribute('aria-label', 'Defend the selected passage out loud (Counter)');
+    wrap.setAttribute('tabindex', '0');
+    wrap.innerHTML = `
+      <span class="debateai-ext-fab__dot" aria-hidden="true"></span>
+      <span class="debateai-ext-fab__label">Defend this out loud</span>
+      <span class="debateai-ext-fab__hint">Counter</span>
+    `;
+    document.documentElement.appendChild(wrap);
+    function trigger() {
+      const fresh = lastCopiedText && Date.now() - lastCopiedAt < FAB_COPY_FRESHNESS_MS;
+      if (fresh) {
+        chrome.runtime.sendMessage({
+          type: 'open-panel-with-text',
+          action: 'defend-this',
+          text: lastCopiedText,
+        });
+      } else {
+        showFabToast('Highlight your paragraph + press ⌘C (or Ctrl-C), then click again.');
+      }
+    }
+    wrap.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      trigger();
+    });
+    wrap.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        trigger();
+      }
+    });
+    fabEl = wrap;
+    return wrap;
+  }
+
+  function showFabToast(message) {
+    if (!fabEl) return;
+    if (!fabToastEl) {
+      fabToastEl = document.createElement('div');
+      fabToastEl.className = 'debateai-ext-fab__toast';
+      fabEl.appendChild(fabToastEl);
+    }
+    fabToastEl.textContent = message;
+    fabToastEl.classList.add('is-visible');
+    if (fabToastTimer) clearTimeout(fabToastTimer);
+    fabToastTimer = setTimeout(() => {
+      fabToastEl?.classList.remove('is-visible');
+    }, 4200);
+  }
+
+  // Wait for body to exist (Docs ships its DOM lazily) before mounting.
+  function mountFabWhenReady() {
+    if (document.body) {
+      ensureFab();
+    } else {
+      window.addEventListener('DOMContentLoaded', ensureFab, { once: true });
+    }
+  }
+  mountFabWhenReady();
 
   // ── 3. Universal selection chip ────────────────────────────────
   // Non-Docs pages don't have the canvas-copy problem, but they also
