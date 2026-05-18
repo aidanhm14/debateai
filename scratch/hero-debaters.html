@@ -1,0 +1,154 @@
+<!doctype html>
+<!--
+  scratch/hero-debaters.html
+  ──────────────────────────
+  Saved 2026-05-18. Built as a hero-bookend animation for the landing
+  page, pulled out the same day per "those animations look dumb" — but
+  the motion and silhouette code is worth keeping for future use cases.
+
+  Live ideas to reuse this for:
+    - voice-debate.html idle state (subtle podium decor under the orb)
+    - /spar matchmaking screen while waiting for a partner
+    - /live tournament lobby idle/empty state
+    - any per-format card that wants a small format-specific avatar
+
+  This file is fully self-contained: open it in a browser and the two
+  figures animate side by side against the brand-dark background.
+  The CSS is structured exactly as it would slot back into the hero
+  (class names hero-debaters / hero-debater / deb-*), so copy-paste
+  recovery is a single grep-and-port if it ever gets used again.
+
+  Theme tokens used: --accent (head + halo), --deb-ink (everything else).
+  Keep --deb-ink scoped — the production theme system has two parallel
+  triggers ([data-theme="light"] on html + .light-theme on body) and
+  both re-bind --text, which is why the stroke uses its own variable.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Hero debaters · scratch</title>
+<style>
+  :root{
+    --bg:#0c0c10;
+    --accent:#ef4444;
+    --text:#fff;
+  }
+  body{
+    margin:0;
+    min-height:100vh;
+    background:radial-gradient(ellipse at top right, rgba(239,68,68,.18), transparent 60%), var(--bg);
+    color:var(--text);
+    font-family:'Inter','Helvetica Neue',Arial,sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  h1{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:clamp(2rem,5vw,3.5rem);text-align:center;margin:0;letter-spacing:-.02em}
+  .stage{
+    position:relative;
+    width:min(1280px,100vw);
+    height:min(720px,80vh);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .hero-debaters{
+    position:absolute;inset:0;
+    z-index:1;
+    pointer-events:none;
+  }
+  .hero-debater{
+    position:absolute;
+    bottom:clamp(40px,7vh,90px);
+    width:clamp(150px,11vw,210px);
+    height:auto;
+    opacity:.62;
+    filter:drop-shadow(0 6px 16px rgba(0,0,0,.35));
+    --deb-ink:rgba(255,255,255,.78);
+  }
+  .hero-debater-left{left:clamp(24px,3vw,72px)}
+  .hero-debater-right{right:clamp(24px,3vw,72px);transform:scaleX(-1)}
+  .hero-debater .deb-head{fill:var(--accent)}
+  .hero-debater .deb-halo{stroke:var(--accent);stroke-width:1;fill:none;opacity:.32}
+  .hero-debater .deb-stroke{stroke:var(--deb-ink);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .hero-debater .deb-podium{stroke:var(--deb-ink);stroke-width:1.4;fill:none;opacity:.6}
+  .hero-debater .deb-label{fill:var(--deb-ink);font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:9px;font-weight:700;letter-spacing:.22em;opacity:.62}
+  /* Light-theme path. Left here for reference even though scratch is
+     dark-only — paste back into prod and it just works. */
+  [data-theme="light"] .hero-debater,
+  body.light-theme .hero-debater{--deb-ink:rgba(20,20,28,.7);opacity:.5}
+  @media(prefers-reduced-motion: no-preference){
+    .hero-debater .deb-head{
+      transform-box:fill-box;transform-origin:center bottom;
+      animation:hd-nod 4.2s ease-in-out infinite;
+    }
+    .hero-debater .deb-arm{
+      transform-box:fill-box;transform-origin:0% 0%;
+      animation:hd-gesture 5.4s ease-in-out infinite alternate;
+    }
+    .hero-debater .deb-halo{animation:hd-halo 9s linear infinite}
+    .hero-debater-right .deb-head{animation-delay:-1.6s}
+    .hero-debater-right .deb-arm{animation-delay:-2.4s;animation-duration:6.2s}
+    .hero-debater-right .deb-halo{animation-direction:reverse;animation-duration:11s}
+  }
+  @keyframes hd-nod{
+    0%,100%{transform:translateY(0) rotate(0deg)}
+    35%{transform:translateY(-1.5px) rotate(-1.4deg)}
+    65%{transform:translateY(-2.5px) rotate(1.2deg)}
+  }
+  @keyframes hd-gesture{
+    0%{transform:rotate(-8deg)}
+    100%{transform:rotate(14deg)}
+  }
+  @keyframes hd-halo{
+    0%{transform:rotate(0deg)}
+    100%{transform:rotate(360deg)}
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <h1>Debate Smarter.<br/><em style="font-style:italic;color:#e6dbc3">Every Time.</em></h1>
+    <div class="hero-debaters" aria-hidden="true">
+      <svg class="hero-debater hero-debater-left" viewBox="0 0 160 320" xmlns="http://www.w3.org/2000/svg" role="presentation" focusable="false">
+        <g class="deb-halo" style="transform-origin:80px 60px">
+          <circle cx="80" cy="60" r="44"/>
+          <circle cx="80" cy="60" r="58" stroke-dasharray="2 6"/>
+        </g>
+        <circle class="deb-head" cx="80" cy="60" r="20"/>
+        <path class="deb-stroke" d="M58 96 Q80 90 102 96"/>
+        <line class="deb-stroke" x1="80" y1="92" x2="80" y2="186"/>
+        <path class="deb-stroke" d="M80 116 Q102 132 110 162"/>
+        <g class="deb-arm" style="transform-origin:80px 116px">
+          <path class="deb-stroke" d="M80 116 Q56 108 38 92"/>
+          <circle class="deb-head" cx="38" cy="92" r="4" opacity=".75"/>
+        </g>
+        <path class="deb-stroke" d="M68 240 L78 186 M92 240 L82 186"/>
+        <path class="deb-podium" d="M30 248 L130 248 L130 290 L30 290 Z"/>
+        <path class="deb-podium" d="M52 248 L52 232 M52 232 L60 226"/>
+        <circle class="deb-podium" cx="62" cy="224" r="3"/>
+        <line class="deb-stroke" x1="118" y1="60" x2="138" y2="60" opacity=".55"/>
+        <text class="deb-label" x="120" y="76">YOU</text>
+      </svg>
+      <svg class="hero-debater hero-debater-right" viewBox="0 0 160 320" xmlns="http://www.w3.org/2000/svg" role="presentation" focusable="false">
+        <g class="deb-halo" style="transform-origin:80px 60px">
+          <circle cx="80" cy="60" r="44"/>
+          <circle cx="80" cy="60" r="58" stroke-dasharray="2 6"/>
+        </g>
+        <circle class="deb-head" cx="80" cy="60" r="20"/>
+        <path class="deb-stroke" d="M58 96 Q80 90 102 96"/>
+        <line class="deb-stroke" x1="80" y1="92" x2="80" y2="186"/>
+        <path class="deb-stroke" d="M80 116 Q102 132 110 162"/>
+        <g class="deb-arm" style="transform-origin:80px 116px">
+          <path class="deb-stroke" d="M80 116 Q56 108 38 92"/>
+          <circle class="deb-head" cx="38" cy="92" r="4" opacity=".75"/>
+        </g>
+        <path class="deb-stroke" d="M68 240 L78 186 M92 240 L82 186"/>
+        <path class="deb-podium" d="M30 248 L130 248 L130 290 L30 290 Z"/>
+        <path class="deb-podium" d="M52 248 L52 232 M52 232 L60 226"/>
+        <circle class="deb-podium" cx="62" cy="224" r="3"/>
+        <line class="deb-stroke" x1="118" y1="60" x2="138" y2="60" opacity=".55"/>
+        <text class="deb-label" x="120" y="76" style="transform:scaleX(-1);transform-origin:130px 70px">AI</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
