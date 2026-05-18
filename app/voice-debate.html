@@ -255,6 +255,12 @@ input[type=text]:focus,select:focus,textarea:focus{
   padding:40px 18px 28px;
   background:radial-gradient(ellipse 80% 100% at 50% 50%, rgba(239,68,68,.06) 0%, transparent 70%);
   border-radius:18px;margin-bottom:14px;
+  /* Establish a stacking context so the stage-debater silhouettes
+     (z-index:-1) sit behind the orb + label stack but in front of
+     .stage's own background gradient. Without isolation:isolate the
+     negative z-index would escape and the silhouettes would paint
+     behind .shell. */
+  isolation:isolate;
 }
 .stage canvas.orb{
   width:280px;height:280px;
@@ -283,6 +289,92 @@ input[type=text]:focus,select:focus,textarea:focus{
 .stage .hint{
   position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
   font-size:.7rem;color:#8a8a9a;text-align:center;letter-spacing:.04em;
+}
+
+/* Live-state debaters — silhouette bookends flanking the orb that
+   reflect who has the floor. Left = user, right = AI. The active
+   side pops to full opacity with a colored glow (green for the user,
+   red for the AI, matching .stage.user's existing color language);
+   the other side desaturates so the eye lands on the speaker
+   immediately. Idle = both in the listening state. Hidden under
+   880px so they don't crowd the orb on mobile (the label + orb
+   glow already carry the signal). Ported from
+   scratch/hero-debaters.html on 2026-05-18; classes renamed
+   stage-debater* to scope them to /voice-debate. */
+.stage-debaters{
+  position:absolute;inset:0;
+  pointer-events:none;z-index:-1;
+}
+.stage-debater{
+  position:absolute;
+  bottom:clamp(28px,8%,72px);
+  width:clamp(120px,11vw,180px);
+  height:auto;
+  opacity:.42;
+  transition:opacity .35s ease, filter .35s ease;
+  --deb-ink:rgba(255,255,255,.7);
+  --deb-accent:rgba(239,68,68,.55);
+  --deb-glow:rgba(239,68,68,.32);
+}
+.stage-debater-left{left:clamp(8px,3vw,40px)}
+.stage-debater-right{right:clamp(8px,3vw,40px);transform:scaleX(-1)}
+.stage-debater .deb-head{fill:var(--deb-accent);transition:fill .25s}
+.stage-debater .deb-halo{stroke:var(--deb-accent);stroke-width:1;fill:none;opacity:.28;transition:opacity .25s, stroke .25s}
+.stage-debater .deb-stroke{stroke:var(--deb-ink);stroke-width:1.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.stage-debater .deb-podium{stroke:var(--deb-ink);stroke-width:1.2;fill:none;opacity:.55}
+
+/* Side-specific accent: left side gets green semantics (matches
+   .stage.user orb glow); right side stays red (default AI side). */
+.stage-debater-left{
+  --deb-accent:rgba(34,197,94,.7);
+  --deb-glow:rgba(34,197,94,.32);
+}
+.stage-debater-right{
+  --deb-accent:rgba(239,68,68,.78);
+  --deb-glow:rgba(239,68,68,.32);
+}
+
+/* Active speaker = full opacity + halo glow + brighter halo ring.
+   Listening = desaturated + dim. The two classes are mutually
+   exclusive on each silhouette so transitions always run between
+   one and the other. */
+.stage-debater.active{opacity:.88;filter:drop-shadow(0 0 18px var(--deb-glow))}
+.stage-debater.active .deb-halo{opacity:.55}
+.stage-debater.listening{opacity:.32;filter:grayscale(70%)}
+
+@media (max-width:880px){.stage-debaters{display:none}}
+
+/* Subtle idle motion: head nod + arm sway + slow halo rotation.
+   Active speaker animates a touch faster — they're the one
+   talking. Honors prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference){
+  .stage-debater .deb-head{
+    transform-box:fill-box;transform-origin:center bottom;
+    animation:sd-nod 4.6s ease-in-out infinite;
+  }
+  .stage-debater .deb-arm{
+    transform-box:fill-box;transform-origin:0% 0%;
+    animation:sd-gesture 5.8s ease-in-out infinite alternate;
+  }
+  .stage-debater .deb-halo{animation:sd-halo 11s linear infinite}
+  .stage-debater-right .deb-head{animation-delay:-1.6s}
+  .stage-debater-right .deb-arm{animation-delay:-2.4s;animation-duration:6.4s}
+  .stage-debater-right .deb-halo{animation-direction:reverse;animation-duration:13s}
+  .stage-debater.active .deb-head{animation-duration:3.2s}
+  .stage-debater.active .deb-arm{animation-duration:3.8s}
+}
+@keyframes sd-nod{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  35%{transform:translateY(-1.5px) rotate(-1.4deg)}
+  65%{transform:translateY(-2.5px) rotate(1.2deg)}
+}
+@keyframes sd-gesture{
+  0%{transform:rotate(-8deg)}
+  100%{transform:rotate(14deg)}
+}
+@keyframes sd-halo{
+  0%{transform:rotate(0deg)}
+  100%{transform:rotate(360deg)}
 }
 
 /* Motion banner — persistent reminder of what's being debated.
@@ -4292,6 +4384,64 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         el('div', { className:'text' }, motion.trim()),
       ),
       el('div', { className: stageClass },
+        // Silhouette bookends — visual cue for who has the floor.
+        // Left silhouette = user (lights up green when speaking ===
+        // 'user'); right = AI (lights up red when speaking === 'ai').
+        // When neither is speaking, both fall back to the listening
+        // state so the eye reads "everyone is paying attention" not
+        // "the round froze." Hidden under 880px via CSS — mobile
+        // already gets the same signal from the speaking label and
+        // orb glow. aria-hidden because they duplicate the
+        // already-spoken label for assistive tech. Ported from
+        // scratch/hero-debaters.html.
+        el('div', { className:'stage-debaters', 'aria-hidden':'true' },
+          el('svg', {
+            className: 'stage-debater stage-debater-left ' + (speaking === 'user' ? 'active' : 'listening'),
+            viewBox:'0 0 160 320',
+            role:'presentation',
+            focusable:'false',
+          },
+            el('g', { className:'deb-halo', style:{ transformOrigin:'80px 60px' } },
+              el('circle', { cx:'80', cy:'60', r:'44' }),
+              el('circle', { cx:'80', cy:'60', r:'58', strokeDasharray:'2 6' }),
+            ),
+            el('circle', { className:'deb-head', cx:'80', cy:'60', r:'20' }),
+            el('path', { className:'deb-stroke', d:'M58 96 Q80 90 102 96' }),
+            el('line', { className:'deb-stroke', x1:'80', y1:'92', x2:'80', y2:'186' }),
+            el('path', { className:'deb-stroke', d:'M80 116 Q102 132 110 162' }),
+            el('g', { className:'deb-arm', style:{ transformOrigin:'80px 116px' } },
+              el('path', { className:'deb-stroke', d:'M80 116 Q56 108 38 92' }),
+              el('circle', { className:'deb-head', cx:'38', cy:'92', r:'4', opacity:'.75' }),
+            ),
+            el('path', { className:'deb-stroke', d:'M68 240 L78 186 M92 240 L82 186' }),
+            el('path', { className:'deb-podium', d:'M30 248 L130 248 L130 290 L30 290 Z' }),
+            el('path', { className:'deb-podium', d:'M52 248 L52 232 M52 232 L60 226' }),
+            el('circle', { className:'deb-podium', cx:'62', cy:'224', r:'3' }),
+          ),
+          el('svg', {
+            className: 'stage-debater stage-debater-right ' + (speaking === 'ai' ? 'active' : 'listening'),
+            viewBox:'0 0 160 320',
+            role:'presentation',
+            focusable:'false',
+          },
+            el('g', { className:'deb-halo', style:{ transformOrigin:'80px 60px' } },
+              el('circle', { cx:'80', cy:'60', r:'44' }),
+              el('circle', { cx:'80', cy:'60', r:'58', strokeDasharray:'2 6' }),
+            ),
+            el('circle', { className:'deb-head', cx:'80', cy:'60', r:'20' }),
+            el('path', { className:'deb-stroke', d:'M58 96 Q80 90 102 96' }),
+            el('line', { className:'deb-stroke', x1:'80', y1:'92', x2:'80', y2:'186' }),
+            el('path', { className:'deb-stroke', d:'M80 116 Q102 132 110 162' }),
+            el('g', { className:'deb-arm', style:{ transformOrigin:'80px 116px' } },
+              el('path', { className:'deb-stroke', d:'M80 116 Q56 108 38 92' }),
+              el('circle', { className:'deb-head', cx:'38', cy:'92', r:'4', opacity:'.75' }),
+            ),
+            el('path', { className:'deb-stroke', d:'M68 240 L78 186 M92 240 L82 186' }),
+            el('path', { className:'deb-podium', d:'M30 248 L130 248 L130 290 L30 290 Z' }),
+            el('path', { className:'deb-podium', d:'M52 248 L52 232 M52 232 L60 226' }),
+            el('circle', { className:'deb-podium', cx:'62', cy:'224', r:'3' }),
+          ),
+        ),
         el('canvas', { className:'orb', ref: orbCanvasRef }),
         el('div', { className:'label' },
           el('span', { className:'who' },
