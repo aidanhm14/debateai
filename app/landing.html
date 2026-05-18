@@ -5310,29 +5310,38 @@ section.ui-section .ui-lede{
   </div>
 </section>
 
-<!-- Founder intro video. Self-hosted .mp4 — drop the file in
-     /app/video/founder-intro.mp4 and the poster image in
-     /app/video/founder-intro-poster.jpg. Click-to-play (no
-     autoplay) so iOS Safari behaves and the page doesn't pay an
-     ambient-motion cost on every visit. Landing-page personality,
-     not a feature demo: this is Aidan introducing the project.
-     Sits right under the hero so it's the first authored voice
-     anyone hits after the headline. -->
+<!-- Founder intro block. Was a <video> slot waiting on Aidan's
+     self-recorded mp4; until the file exists, the slot would render
+     as a black frame with a 404 poster. Replaced (per user) with a
+     self-running CSS motion-graphics intro: pulsing brand orb on the
+     left, five text reveals on the right, ~12s loop. Reads as a
+     designed intro the way an editorial brand bumper would, rather
+     than as a broken video player.
+
+     Swap back to the <video> tag when Aidan's mp4 is ready — the
+     surrounding section + frame styles are unchanged. -->
 <section id="founder-video" class="founder-video-section" aria-label="Introducing Debate AI">
   <div class="wrap" style="max-width:880px">
     <div class="founder-video-eyebrow">Introducing Debate AI</div>
     <div class="founder-video-frame">
-      <video
-        class="founder-video"
-        controls
-        preload="metadata"
-        playsinline
-        poster="/video/founder-intro-poster.jpg"
-      >
-        <source src="/video/founder-intro.mp4" type="video/mp4">
-        Your browser doesn't support embedded video.
-        <a href="/video/founder-intro.mp4">Download the video</a>.
-      </video>
+      <div class="founder-intro" aria-hidden="true">
+        <div class="founder-intro-orb"></div>
+        <div class="founder-intro-text">
+          <span class="fi-line fi-line-1">Built by a debater.</span>
+          <span class="fi-line fi-line-2">Voice-first.</span>
+          <span class="fi-line fi-line-3">Six brains. Ten formats.</span>
+          <span class="fi-line fi-line-4">Live judging. Real ballots.</span>
+          <span class="fi-line fi-line-5">Pick a side. Argue out loud.</span>
+        </div>
+        <div class="founder-intro-progress" aria-hidden="true">
+          <span class="fi-tick fi-tick-1"></span>
+          <span class="fi-tick fi-tick-2"></span>
+          <span class="fi-tick fi-tick-3"></span>
+          <span class="fi-tick fi-tick-4"></span>
+          <span class="fi-tick fi-tick-5"></span>
+        </div>
+      </div>
+      <span class="founder-intro-credit">Debate AI</span>
     </div>
   </div>
 </section>
@@ -5363,15 +5372,134 @@ section.ui-section .ui-lede{
     border-color:rgba(0,0,0,.22);
     box-shadow:0 14px 32px rgba(0,0,0,.10);
   }
-  .founder-video{
-    width:100%;height:100%;display:block;
-    object-fit:cover;
-    background:#0a0a0c;
+
+  /* Motion-graphics intro that lives inside the .founder-video-frame
+     until the real mp4 lands. Frame interior stays dark regardless of
+     page theme so the brand-red glow has somewhere to read. */
+  .founder-intro{
+    position:absolute;inset:0;
+    background:
+      radial-gradient(circle at 26% 50%, rgba(239,68,68,.22) 0%, transparent 55%),
+      radial-gradient(circle at 80% 50%, rgba(168,85,247,.08) 0%, transparent 60%),
+      #0a0a0c;
+    display:flex;align-items:center;justify-content:center;
+    gap:clamp(20px,5vw,56px);
+    padding:clamp(16px,3.5vw,40px);
+    overflow:hidden;
+  }
+  .founder-intro::before{
+    /* faint scanline-style grid for texture */
+    content:'';position:absolute;inset:0;
+    background:
+      linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px) 0 0/100% 32px,
+      linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px) 0 0/32px 100%;
+    pointer-events:none;
+  }
+  .founder-intro-orb{
+    flex:0 0 auto;
+    width:clamp(110px,18vw,180px);
+    aspect-ratio:1/1;
+    border-radius:50%;
+    background:
+      radial-gradient(circle, rgba(248,113,113,.95) 0%, rgba(220,38,38,.55) 38%, rgba(220,38,38,.18) 60%, transparent 76%);
+    filter:blur(1px);
+    animation:fiOrbPulse 2.4s ease-in-out infinite;
+    position:relative;
+  }
+  .founder-intro-orb::after{
+    /* inner highlight to give the orb a "lit core" */
+    content:'';position:absolute;inset:42% 42%;
+    border-radius:50%;
+    background:#ffe4e4;
+    box-shadow:0 0 12px rgba(255,255,255,.65);
+    opacity:.9;
+  }
+  @keyframes fiOrbPulse{
+    0%,100%{transform:scale(.98);opacity:.92}
+    50%{transform:scale(1.08);opacity:1}
+  }
+  .founder-intro-text{
+    position:relative;
+    flex:1 1 auto;
+    max-width:380px;
+    min-height:clamp(48px,7vw,68px);
+    font-family:'Fraunces','EB Garamond','Iowan Old Style','Times New Roman',serif;
+    font-size:clamp(1.15rem,2.4vw,1.8rem);
+    font-weight:600;
+    line-height:1.18;
+    letter-spacing:-.01em;
+    color:#fafaf7;
+  }
+  .fi-line{
+    position:absolute;top:0;left:0;width:100%;
+    opacity:0;
+    transform:translateY(8px);
+    animation:fiLineSwap 12s ease-in-out infinite;
+  }
+  .fi-line-1{animation-delay:0s}
+  .fi-line-2{animation-delay:2.4s}
+  .fi-line-3{animation-delay:4.8s}
+  .fi-line-4{animation-delay:7.2s}
+  .fi-line-5{animation-delay:9.6s}
+  /* Each line is visible for ~2.4s of the 12s loop. The 0-3% slot is
+     the fade-in, 17-20% is the fade-out, 20-100% it sits hidden until
+     the next loop. */
+  @keyframes fiLineSwap{
+    0%   {opacity:0;transform:translateY(8px)}
+    3%   {opacity:1;transform:translateY(0)}
+    17%  {opacity:1;transform:translateY(0)}
+    20%  {opacity:0;transform:translateY(-4px)}
+    100% {opacity:0;transform:translateY(8px)}
+  }
+  /* Bottom-edge tick row that advances through the 5 phrases, so the
+     loop reads as paced rather than ambient. */
+  .founder-intro-progress{
+    position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+    display:flex;gap:7px;
+    pointer-events:none;
+  }
+  .fi-tick{
+    width:18px;height:2px;border-radius:2px;
+    background:rgba(255,255,255,.18);
+    overflow:hidden;position:relative;
+  }
+  .fi-tick::after{
+    content:'';position:absolute;inset:0;
+    background:#f87171;
+    transform-origin:left center;transform:scaleX(0);
+    animation:fiTickFill 12s linear infinite;
+  }
+  .fi-tick-1::after{animation-delay:0s}
+  .fi-tick-2::after{animation-delay:2.4s}
+  .fi-tick-3::after{animation-delay:4.8s}
+  .fi-tick-4::after{animation-delay:7.2s}
+  .fi-tick-5::after{animation-delay:9.6s}
+  @keyframes fiTickFill{
+    0%   {transform:scaleX(0)}
+    20%  {transform:scaleX(1)}
+    100% {transform:scaleX(1)}
+  }
+  /* small brand wordmark in the corner, like a credit chyron */
+  .founder-intro-credit{
+    position:absolute;top:14px;right:16px;
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:.58rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+    color:rgba(255,255,255,.45);
+    pointer-events:none;
   }
   @media(max-width:680px){
     .founder-video-section{padding:24px 16px 16px}
     .founder-video-eyebrow{font-size:.55rem;letter-spacing:.16em}
     .founder-video-frame{border-radius:12px}
+    .founder-intro{flex-direction:column;gap:18px}
+    .founder-intro-text{text-align:center;max-width:none;min-height:48px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .founder-intro-orb,
+    .fi-line,
+    .fi-tick::after{animation:none}
+    .fi-line{opacity:1;transform:none;position:static;display:block;margin-bottom:6px}
+    .fi-line:not(:first-child){display:none}
   }
 </style>
 
