@@ -91,11 +91,24 @@
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
 <script src="/js/type-stream.js"></script>
-<!-- 2026-05-16: voice-input. Attaches a mic button to every
-     <textarea class="float-input"> (the motion input, the background
-     field, the typed-fallback speech textarea, prep notes, etc).
-     Uses Web Speech API; silently no-ops where unsupported. -->
-<script defer src="/js/voice-input.js"></script>
+<!-- 2026-05-16: voice-input was attaching a mic button to every
+     <textarea class="float-input"> by WRAPPING the textarea in a
+     <span class="voice-input-host">. The wrap moves the textarea
+     out of React's direct child slot under .center; on the next
+     phase change (e.g. Start Round → prep) React tries to remove
+     the textarea from .center and throws
+       "Failed to execute 'removeChild' on 'Node': The node to be
+        removed is not a child of this node"
+     in the commit phase. No JS error visible above the throw
+     because it's inside React's internal try; the page just goes
+     blank on every Start Round. Disabling this script restores the
+     setup → prep transition. Dictation feature can return as a
+     non-DOM-mutating implementation (mic button rendered inside
+     the React JSX, or position:fixed against the textarea rect
+     from a non-React container) — but the page WORKING beats the
+     feature shipping in this state. -->
+<!-- <script defer src="/js/voice-input.js"></script> -->
+
 <script src="/js/voice-guidelines.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -9383,7 +9396,73 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   return null;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(el(App));
+// Error boundary — wrapping the whole App so a single failure in
+// React's commit phase doesn't blank the entire page. Without this,
+// any DOM-reconciliation error (the classic React 18 removeChild
+// NotFoundError when a browser extension / Google Translate / a
+// stray imperative DOM mutation moves a node React was tracking)
+// nukes the root, the user sees a blank screen, and there's no
+// console message they can act on. With it, we catch the error,
+// log it for the user to share, force a fresh root mount (since
+// React's reconciler state is poisoned after the throw), and ship
+// a visible "tap to recover" fallback so the page is never silently
+// dead. Class-component form because hooks don't have a getDerivedStateFromError equivalent.
+class AppErrorBoundary extends React.Component {
+  constructor(props){
+    super(props);
+    this.state = { hasError: false, msg: '', remount: 0 };
+  }
+  static getDerivedStateFromError(err){
+    return { hasError: true, msg: (err && err.message) || String(err) };
+  }
+  componentDidCatch(err, info){
+    try { console.error('[AppErrorBoundary] caught', err, info && info.componentStack); } catch(_){}
+    try { if (typeof gtag === 'function') gtag('event','app_error_boundary',{ message: String((err && err.message) || err).slice(0,200) }); } catch(_){}
+  }
+  retry = () => {
+    // Bump remount key so React unmounts the current (poisoned) tree
+    // and re-mounts the App fresh. Same as a soft reload, faster than
+    // a full document refresh and keeps localStorage/auth alive.
+    this.setState(s => ({ hasError:false, msg:'', remount: s.remount + 1 }));
+  };
+  render(){
+    if (this.state.hasError){
+      return el('div', {
+        style:{
+          minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
+          padding:'40px 20px', textAlign:'center', color:'var(--c-text, #e6e6ee)',
+          fontFamily:'Inter, system-ui, sans-serif',
+        },
+      },
+        el('div', { style:{ maxWidth:480 } },
+          el('div', { style:{ fontSize:'.65rem', letterSpacing:'.18em', textTransform:'uppercase', fontWeight:800, color:'#ef4444', marginBottom:14 } }, 'Something went sideways'),
+          el('h1', { style:{ fontSize:'1.6rem', fontWeight:800, letterSpacing:'-.02em', lineHeight:1.15, marginBottom:14 } }, 'The page hit a render error.'),
+          el('p', { style:{ fontSize:'.9rem', lineHeight:1.5, color:'var(--c-mid, #9b9bab)', marginBottom:18 } }, 'Hit retry. Your work is saved. If this keeps happening, hard-reload (Cmd+Shift+R) so the latest build replaces any cached copy.'),
+          this.state.msg && el('pre', {
+            style:{ fontSize:'.7rem', color:'var(--c-text3, #a3a3b3)', background:'rgba(0,0,0,.25)', padding:'10px 12px', borderRadius:8, textAlign:'left', whiteSpace:'pre-wrap', wordBreak:'break-word', marginBottom:18 },
+          }, this.state.msg),
+          el('button', {
+            type:'button',
+            onClick: this.retry,
+            style:{
+              padding:'10px 22px', borderRadius:999, fontWeight:700,
+              background:'linear-gradient(135deg,#ef4444 0%,#7c2d12 120%)',
+              color:'#fff', border:'none', cursor:'pointer',
+              boxShadow:'0 6px 18px rgba(239,68,68,.32)',
+            },
+          }, 'Retry')
+        )
+      );
+    }
+    // remount key forces React to unmount/remount the child tree on retry,
+    // so a poisoned reconciler state from the previous render doesn't carry over.
+    return el('div', { key: 'app-mount-' + this.state.remount }, this.props.children);
+  }
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  el(AppErrorBoundary, null, el(App))
+);
 </script>
 
 <!-- Static crawler-visible navigation. The topbar (app/js/topbar.js) is
