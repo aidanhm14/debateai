@@ -2358,7 +2358,27 @@ function logBetaEvent(event, data) {
 function isDevPro() { return false; }
 function setDevPro() {}
 
+// Flip to false when pricing activates and the product exits beta. Single
+// source of truth — every per-feature gate (Generate Opposition, Sneaky
+// Strategies, Opp Attack, Competition depth, Conversational/Persuasive/
+// Accessible/Aggressive tone, GPT/Gemini/Grok/DeepSeek/Open Lab brains)
+// short-circuits through isPro, so flipping this re-enables every gate
+// at once. Paired with the soul.md §7 "all tiers free" framing.
+const BETA_PRO_UNLOCK = true;
+
 function isPro(team, user) {
+  // BETA OVERRIDE (2026-05-18): The product is in beta with every tier
+  // free. The per-feature PRO gates are stale legacy from the pre-beta
+  // pricing model — paying users were seeing "Upgrade to unlock" on
+  // features they already paid for because no one has an active Stripe
+  // team doc during the all-tiers-free period. Per soul.md §7, "share
+  // feedback for pricing proposals" is the framing; gating features
+  // contradicts that. Returns true unconditionally while BETA_PRO_UNLOCK
+  // is on. Flip BETA_PRO_UNLOCK (one line above) when pricing activates
+  // to restore the original team-doc-based check below.
+  if (BETA_PRO_UNLOCK) return true;
+
+  // ── Original gating, preserved for when beta ends ─────────────────
   // Pro = user has an active paid team. Trial plan is free-tier.
   // Lifetime is a one-time payment with no ongoing subscription status,
   // so it always unlocks once the team doc has plan='lifetime' — the
@@ -4206,7 +4226,11 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   logBetaEvent('generate', { feature: opts.feature || 'case', brain: brainKey });
   const _aiStartTs = Date.now();
 
-  const isPro = __currentTeam && (__currentTeam.plan === 'individual' || __currentTeam.plan === 'team' || __currentTeam.plan === 'lifetime');
+  // Pro-model picker (e.g. Claude Sonnet vs Haiku). Shadows the global
+  // isPro function on purpose since this scope already has __currentTeam.
+  // BETA: everyone runs the Pro model — matches the per-feature unlock
+  // logic above (BETA_PRO_UNLOCK).
+  const isPro = BETA_PRO_UNLOCK || (__currentTeam && (__currentTeam.plan === 'individual' || __currentTeam.plan === 'team' || __currentTeam.plan === 'lifetime'));
   const model = isPro && brain.proModel ? brain.proModel : brain.model;
   const maxTokens = opts.maxTokens || 16000;
 
