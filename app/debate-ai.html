@@ -502,15 +502,20 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 .prep-room{
   position:absolute;
   top:128px;bottom:48px;
-  width:190px;
+  width:248px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:12px;
+  gap:14px;
   pointer-events:none;z-index:1;
 }
-.prep-room-left { left:max(2vw,12px); }
-.prep-room-right{ right:max(2vw,12px); }
+/* Anchor each panel to viewport center, not the viewport edge —
+   keeps the chairs visually tied to the timer / textarea column
+   (max-width 480px, ±240px from center). Panels start ~280px out
+   from center so they hug the central stage instead of drifting
+   to the screen edges on wide monitors. */
+.prep-room-left { right:calc(50% + 280px); }
+.prep-room-right{ left: calc(50% + 280px); }
 .prep-room-eyebrow{
-  font-size:.58rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
   color:rgba(230,219,195,.4);
 }
 .prep-room-eyebrow.is-you{color:#ef4444}
@@ -532,7 +537,7 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 }
 .pseat-label{
   fill:rgba(230,219,195,.55);
-  font-size:13px;font-weight:700;letter-spacing:.04em;
+  font-size:17px;font-weight:700;letter-spacing:.04em;
   font-family:inherit;
   transition:fill .4s;
 }
@@ -556,7 +561,7 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 }
 .pseat-team{
   fill:rgba(230,219,195,.42);
-  font-size:9px;font-weight:800;letter-spacing:.18em;
+  font-size:11px;font-weight:800;letter-spacing:.18em;
   font-family:inherit;
 }
 .pseat-divider{
@@ -1691,11 +1696,11 @@ function renderPrepRoomPanel(layout, panelSide, userSide, sideLabels){
   const seats = panelSide === 'left' ? layout.left : layout.right;
   if(!seats || !seats.length) return null;
   const isLeft = panelSide === 'left';
-  const PANEL_W = 188;
-  const SEAT_H  = 78;
-  const SEAT_W  = 128;
-  const PAD_TOP = 22;
-  const TEAM_GAP = 22;
+  const PANEL_W = 248;
+  const SEAT_H  = 102;
+  const SEAT_W  = 180;
+  const PAD_TOP = 26;
+  const TEAM_GAP = 26;
   // Count team transitions to compute total SVG height
   let teamGaps = 0;
   for(let i=1;i<seats.length;i++){
@@ -1734,10 +1739,10 @@ function renderPrepRoomPanel(layout, panelSide, userSide, sideLabels){
       y += TEAM_GAP;
     }
     const active = seat.side === userSide;
-    const backX = isLeft ? 8 : PANEL_W-20;
-    const cushX = isLeft ? 24 : PANEL_W-24-SEAT_W;
+    const backX = isLeft ? 8 : PANEL_W-24;
+    const cushX = isLeft ? 28 : PANEL_W-28-SEAT_W;
     const labelX = cushX + SEAT_W/2;
-    const labelY = y + SEAT_H/2 + 4;
+    const labelY = y + SEAT_H/2 + 6;
     nodes.push(el('g',{
       key:'s'+i,
       className:'pseat'+(active?' pseat-active':''),
@@ -1745,17 +1750,17 @@ function renderPrepRoomPanel(layout, panelSide, userSide, sideLabels){
       // Floor halo (red glow under active seats; invisible otherwise)
       el('ellipse',{
         cx:cushX+SEAT_W/2, cy:y+SEAT_H-4,
-        rx:SEAT_W*.46, ry:7,
+        rx:SEAT_W*.46, ry:9,
         className:'pseat-floor',
       }),
       // Chair back on outer edge
       el('rect',{
-        x:backX, y:y+14, width:12, height:SEAT_H-28, rx:4,
+        x:backX, y:y+18, width:16, height:SEAT_H-36, rx:5,
         className:'pseat-back',
       }),
       // Cushion (main body)
       el('rect',{
-        x:cushX, y:y+8, width:SEAT_W, height:SEAT_H-16, rx:18,
+        x:cushX, y:y+10, width:SEAT_W, height:SEAT_H-20, rx:22,
         className:'pseat-cushion',
       }),
       // Position label
