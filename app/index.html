@@ -12511,7 +12511,7 @@ function WelcomeGuide({ onClose, onNavigate }) {
   const tools = [
     { name: 'Voice round', desc: 'Live voice AI. Sub-200ms. 16 personas. Cut in mid-sentence. Voice-only rounds rank on the leaderboard.' },
     { name: 'Debate AI', desc: 'Typed sparring across 10 formats \u2014 APDA, BP, WSDC, Asian Parli, LD, PF, Policy, Congress, MUN, Quick Clash.' },
-    { name: 'Live Debates', desc: 'Find a partner, pick a side, run the clock. The AI writes a real Reason for Decision when the round ends.' },
+    { name: 'Live', desc: 'Find a partner, pick a side, run the clock. The AI writes a real Reason for Decision when the round ends. Lives at /live now, not as an in-app tab.' },
     { name: 'Case Generator', desc: 'Enter any motion. Get a full structured case with contentions, warrants, and A2 blocks in under a minute.' },
     { name: 'Case Feedback', desc: 'Paste a case, get a judge-level critique. Weak warrants, missing impacts, specific fixes.' },
     { name: 'Community cases', desc: 'Read what other debaters argued on the same motions. Steal, fork, or rebut.' },
@@ -12540,8 +12540,8 @@ function WelcomeGuide({ onClose, onNavigate }) {
         el('div',{className:'guide-step-num'},'3'),
         el('div',{className:'guide-step-content'},
           el('h3',null,'Debate a real human, AI judges'),
-          el('p',null,'Live Debates pairs you with another debater. Video room, live transcript, same AI ballot the leaderboard uses \u2014 Reason for Decision and speaker points are written the moment the round ends.'),
-          onNavigate && el('button',{onClick:()=>{onNavigate('live');onClose()},style:{marginTop:8,padding:'6px 14px',background:'#ef444420',border:'1px solid #ef444440',borderRadius:6,color:'#f87171',fontSize:'.78rem',fontWeight:600,cursor:'pointer'}},'Open Live Debates \u2192'),
+          el('p',null,'Live pairs you with another debater. Video room, live transcript, same AI ballot the leaderboard uses \u2014 Reason for Decision and speaker points are written the moment the round ends.'),
+          el('button',{onClick:()=>{window.location.href='/live'},style:{marginTop:8,padding:'6px 14px',background:'#ef444420',border:'1px solid #ef444440',borderRadius:6,color:'#f87171',fontSize:'.78rem',fontWeight:600,cursor:'pointer'}},'Open Live \u2192'),
         ),
       ),
       el('div',{className:'guide-step'},
@@ -16099,7 +16099,11 @@ function App() {
       tabPane('shared', React.createElement(SharedCases, { user: user, team: team })),
       tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
       tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
-      tabPane('live', React.createElement(LiveDebates, { user: user, team: team, onNavigateTab: navigateTab })),
+      // 2026-05-18: tabPane('live', LiveDebates) removed. The in-app
+      // Live Debates tab was dropped from TABS_OTHER on 2026-05-18 as
+      // underused; this pane registration is the residual that the
+      // welcome-guide step 3 + keyboard shortcut `g  l` still pointed
+      // at. Replacement is the standalone /live schedule board.
       // Keyboard shortcuts help overlay, mirrors the debate-ai modal.
       // Documents the new `?`, `/`, and gmail-style `g → x` shortcuts.
       // The floating "?" trigger here was removed 2026-05-18 — it
@@ -16133,7 +16137,6 @@ function App() {
             ['g  j', 'go to Judge'],
             ['g  f', 'go to Case Feedback'],
             ['g  p', 'go to Philosophy'],
-            ['g  l', 'go to Live Debates'],
             ['g  b', 'go to Battle'],
           ].map(([k,v], i) => React.createElement('div', {key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,padding:'8px 0',borderTop:i===0?'none':'1px solid #ffffff10'}},
             React.createElement('kbd', {style:{fontFamily:'ui-monospace, Menlo, monospace',fontSize:'.72rem',fontWeight:700,padding:'3px 9px',background:'rgba(255,255,255,.06)',border:'1px solid #ffffff18',borderRadius:6,color:'#f1f5f9',minWidth:54,textAlign:'center',whiteSpace:'nowrap'}}, k),

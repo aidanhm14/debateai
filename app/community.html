@@ -562,6 +562,131 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <span style="font-weight:800;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:#5865F2;white-space:nowrap;padding:9px 14px;border:1px solid rgba(88,101,242,.5);border-radius:10px">Join &rarr;</span>
   </a>
 
+  <!-- 2026-05-18: 7-day calendar visual showing rounds the community
+       has scheduled. Sits above the Cases/Discussion/Live tabs because
+       "when is the next round?" is the question this section is really
+       answering. Seed data mirrors the open-board entries from
+       /live.html so the strip feels populated immediately; once
+       round-scheduling lands as a real Firestore source the strip
+       reads from it. -->
+  <section class="schedule-section" aria-labelledby="scheduleHead">
+    <style>
+      .schedule-section{max-width:1100px;margin:0 auto 32px;padding:22px 24px;border:1px solid var(--border);border-radius:18px;background:var(--bg-elev);box-shadow:0 1px 0 rgba(0,0,0,.03)}
+      [data-theme="grey"] .schedule-section,
+      [data-theme="crimson"] .schedule-section{background:rgba(255,255,255,.025);box-shadow:none}
+      .schedule-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+      .schedule-head-text{flex:1 1 auto;min-width:0}
+      .schedule-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+      .schedule-eyebrow .pip{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1.6s ease-in-out infinite}
+      @keyframes pulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+      #scheduleHead{font-size:1.05rem;font-weight:800;letter-spacing:-.012em;line-height:1.25;color:var(--text);margin:0 0 4px}
+      .schedule-sub{font-size:.82rem;color:var(--text-dim);line-height:1.5;margin:0;max-width:540px}
+      .schedule-cta{font-size:.78rem;font-weight:700;color:var(--accent);text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.4);white-space:nowrap}
+      [data-theme="light"] .schedule-cta{color:#dc2626;text-decoration-color:rgba(220,38,38,.4)}
+      .schedule-cta:hover{text-decoration-color:currentColor}
+      .schedule-grid{display:grid;grid-template-columns:repeat(7, minmax(0,1fr));gap:8px;margin-top:6px}
+      @media (max-width:920px){.schedule-grid{grid-template-columns:repeat(7, minmax(120px,1fr));overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}}
+      .schedule-day{display:flex;flex-direction:column;gap:6px;min-width:0}
+      .schedule-day-head{padding:6px 8px;border-radius:8px;text-align:center;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);background:transparent;border:1px solid transparent}
+      .schedule-day.today .schedule-day-head{color:var(--accent);background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25)}
+      [data-theme="light"] .schedule-day.today .schedule-day-head{color:#dc2626;background:rgba(220,38,38,.06);border-color:rgba(220,38,38,.22)}
+      .schedule-day-num{display:block;font-size:1.1rem;font-weight:800;letter-spacing:-.02em;color:var(--text);margin-top:2px;font-variant-numeric:tabular-nums}
+      .schedule-day.today .schedule-day-num{color:var(--accent)}
+      [data-theme="light"] .schedule-day.today .schedule-day-num{color:#dc2626}
+      .schedule-round{display:block;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card,rgba(255,255,255,.02));text-decoration:none;color:inherit;transition:border-color .15s ease,background .15s ease,transform .15s ease}
+      .schedule-round:hover{border-color:rgba(239,68,68,.4);transform:translateY(-1px)}
+      [data-theme="light"] .schedule-round{background:#fff}
+      [data-theme="light"] .schedule-round:hover{border-color:rgba(220,38,38,.4)}
+      .schedule-round.live{border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.06)}
+      .schedule-round.live:hover{border-color:#22c55e}
+      .schedule-round-meta{display:flex;align-items:center;gap:4px;font-size:.58rem;font-weight:700;letter-spacing:.04em;color:var(--text-ghost);font-variant-numeric:tabular-nums;margin-bottom:3px;text-transform:uppercase}
+      .schedule-round.live .schedule-round-meta{color:#22c55e}
+      .schedule-round-dot{width:5px;height:5px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;animation:pulse 1.4s ease-in-out infinite;display:inline-block}
+      .schedule-round-format{padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.06);font-size:.54rem;color:var(--text-dim)}
+      [data-theme="light"] .schedule-round-format{background:rgba(0,0,0,.05);color:rgba(0,0,0,.6)}
+      .schedule-round-motion{font-size:.72rem;font-weight:600;line-height:1.35;color:var(--text);margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+      .schedule-round-host{font-size:.62rem;color:var(--text-ghost);font-weight:500}
+      .schedule-empty{padding:8px;font-size:.66rem;color:var(--text-ghost);text-align:center;border:1px dashed var(--border);border-radius:8px;line-height:1.35}
+    </style>
+    <div class="schedule-head">
+      <div class="schedule-head-text">
+        <div class="schedule-eyebrow"><span class="pip"></span>Schedule · Next 7 days</div>
+        <h2 id="scheduleHead">Rounds the community is organizing</h2>
+        <p class="schedule-sub">Scrims, prep rounds, and tournament practice that members have posted. Tap a slot to join or watch. Add your own from /live.</p>
+      </div>
+      <a href="/live" class="schedule-cta">Open full schedule on /live &rarr;</a>
+    </div>
+    <div class="schedule-grid" id="scheduleGrid"></div>
+  </section>
+  <script>
+  // 7-day calendar visual. Static seed mirrors /live.html's open-board
+  // shape (motion, format, host, scheduledAt) so the strip looks alive
+  // before the real Firestore source lands. Each entry is anchored
+  // relative to "today" so the strip ages gracefully — t+25min reads
+  // as Today; t+1d2h reads as Tomorrow; etc.
+  (function(){
+    var grid = document.getElementById('scheduleGrid');
+    if (!grid) return;
+    var now = new Date();
+    var todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Seed: offsetMinutes from now, motion, format, host, live boolean
+    var SEED = [
+      { offMin:   25, motion: 'THBT social-credit systems are net positive.', format: 'BP',     host: '@redteam' },
+      { offMin:   45, motion: 'Resolved: ban AI in K-12 classrooms.',          format: 'PF',     host: '@firstround', live: true },
+      { offMin:  120, motion: 'THW require political candidates to debate AI doubles.', format: 'APDA', host: '@spar.nyc' },
+      { offMin: 60*22, motion: 'TH supports mandatory universal national service.', format: 'Worlds', host: '@oxfordU' },
+      { offMin: 60*25, motion: 'Resolved: USFG legalize organ markets.',       format: 'LD',     host: '@ldcurious' },
+      { offMin: 60*28, motion: 'THBT space exploration is a moral failure.',   format: 'BP',     host: '@iitb_debsoc' },
+      { offMin: 60*49, motion: 'TH would abolish standardized testing.',       format: 'APDA',   host: '@harvardapda' },
+      { offMin: 60*52, motion: 'Resolved: prohibit deepfake political ads.',   format: 'Policy', host: '@policy.club' },
+      { offMin: 60*76, motion: 'THBT meritocracy is a myth.',                  format: 'Worlds', host: '@worlds.kr' },
+      { offMin: 60*100,motion: 'THW tax wealth above 50M USD at 90%.',         format: 'Asian',  host: '@bombay.parli' },
+      { offMin: 60*125,motion: 'Resolved: ban single-use plastics federally.', format: 'PF',     host: '@nsdaprep' },
+      { offMin: 60*145,motion: 'THBT social media is a public utility.',       format: 'BP',     host: '@cambridge_un' },
+      { offMin: 60*160,motion: 'TH would let teens vote.',                     format: 'LD',     host: '@youthcircuit' },
+    ];
+    var DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var byDay = {};
+    SEED.forEach(function(e){
+      var when = new Date(now.getTime() + e.offMin * 60 * 1000);
+      var dayKey = new Date(when.getFullYear(), when.getMonth(), when.getDate()).getTime();
+      (byDay[dayKey] = byDay[dayKey] || []).push({ when: when, e: e });
+    });
+    var html = '';
+    for (var i = 0; i < 7; i++){
+      var dayMid = new Date(todayMid.getTime() + i * 24 * 60 * 60 * 1000);
+      var dayKey = dayMid.getTime();
+      var rounds = (byDay[dayKey] || []).sort(function(a,b){ return a.when - b.when; });
+      var isToday = i === 0;
+      html += '<div class="schedule-day' + (isToday ? ' today' : '') + '">';
+      html += '<div class="schedule-day-head">' + DAY_LABELS[dayMid.getDay()] + '<span class="schedule-day-num">' + dayMid.getDate() + '</span></div>';
+      if (rounds.length === 0){
+        html += '<div class="schedule-empty">No rounds yet. <a href="/live" style="color:var(--accent);text-decoration:underline;text-underline-offset:2px">Post one</a></div>';
+      } else {
+        rounds.slice(0, 2).forEach(function(r){
+          var hours = r.when.getHours();
+          var mins = r.when.getMinutes();
+          var ampm = hours >= 12 ? 'PM' : 'AM';
+          var h12 = ((hours + 11) % 12) + 1;
+          var timeStr = h12 + (mins ? ':' + (mins < 10 ? '0' : '') + mins : '') + ampm;
+          var isLiveNow = r.e.live || (r.when - now < 5*60*1000 && r.when - now > -15*60*1000);
+          html += '<a href="/live" class="schedule-round' + (isLiveNow ? ' live' : '') + '" aria-label="' + (isLiveNow ? 'Live now: ' : '') + r.e.motion.replace(/"/g,'&quot;') + '">';
+          html += '<div class="schedule-round-meta">' + (isLiveNow ? '<span class="schedule-round-dot"></span>LIVE' : timeStr) + '<span class="schedule-round-format">' + r.e.format + '</span></div>';
+          html += '<div class="schedule-round-motion">' + r.e.motion.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>';
+          html += '<div class="schedule-round-host">' + r.e.host + '</div>';
+          html += '</a>';
+        });
+        if (rounds.length > 2){
+          html += '<a href="/live" class="schedule-empty" style="color:var(--text-dim);text-decoration:none">+ ' + (rounds.length - 2) + ' more</a>';
+        }
+      }
+      html += '</div>';
+    }
+    grid.innerHTML = html;
+  })();
+  </script>
+
   <!-- Tab switcher: Cases (disclosures) · Discussion (threaded
        forum) · Live (anonymous chat + join feed). All three share
        the wrap; switching tabs hides/shows the relevant section. -->
