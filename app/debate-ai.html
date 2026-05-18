@@ -4226,7 +4226,19 @@ function App(){
   // Judge brain: which model writes the ballot. Defaults to the
   // BRAIN_TASKS routing for 'judge' (DeepSeek — cheap, no house-style
   // preference). User can override via the picker on the setup screen.
-  const[judgeBrain,setJudgeBrain]=useState(()=>pickBrainForTask('judge'));
+  // Persisted to localStorage so the choice survives reloads — once a
+  // user finds a judge voice they trust, they shouldn't have to re-pick
+  // it every visit.
+  const[judgeBrain,setJudgeBrain]=useState(()=>{
+    try {
+      const saved = localStorage.getItem('debateos-judgeBrain');
+      if (saved && BRAINS[saved]) return saved;
+    } catch(e){}
+    return pickBrainForTask('judge');
+  });
+  useEffect(()=>{
+    try { localStorage.setItem('debateos-judgeBrain', judgeBrain); } catch(e){}
+  }, [judgeBrain]);
   const[voice,setVoice]=useState(DEFAULT_VOICE);
   // Sparring Roster state. roster lives in localStorage (sparringStore);
   // activePartner is the partner the user has picked for THIS round.
