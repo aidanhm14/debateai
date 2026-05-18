@@ -8946,6 +8946,36 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
               : '📤 Share your score'
             ),
           ),
+          // Daily-motion retention CTA. Fires at peak engagement (just got
+          // the ballot) to push the user toward the daily-motion ritual on
+          // /today. If today's motion has already been taken, the same slot
+          // becomes a "come back tomorrow" reminder. Surfaces the streak
+          // value when one exists so the user reads it as continuing a
+          // streak, not starting from zero.
+          el('div',{style:{display:'flex',justifyContent:'center',marginBottom:20}},
+            el('a',{
+              href: dailyStreak.doneToday ? '/today' : '/today',
+              style:{
+                display:'inline-flex',alignItems:'center',gap:8,
+                padding:'10px 18px',borderRadius:999,
+                background: dailyStreak.doneToday ? 'rgba(34,197,94,.08)' : 'rgba(59,130,246,.10)',
+                border:'1px solid ' + (dailyStreak.doneToday ? 'rgba(34,197,94,.32)' : 'rgba(59,130,246,.32)'),
+                color: dailyStreak.doneToday ? '#86efac' : '#93c5fd',
+                fontSize:'.78rem',fontWeight:700,letterSpacing:'.02em',
+                textDecoration:'none',transition:'background .15s,border-color .15s',
+              },
+              onMouseOver:e=>{e.currentTarget.style.background = dailyStreak.doneToday ? 'rgba(34,197,94,.14)' : 'rgba(59,130,246,.18)'},
+              onMouseOut:e=>{e.currentTarget.style.background = dailyStreak.doneToday ? 'rgba(34,197,94,.08)' : 'rgba(59,130,246,.10)'},
+            },
+              dailyStreak.streak >= 1
+                ? (dailyStreak.doneToday
+                    ? 'Day ' + dailyStreak.streak + ' streak. New motion tomorrow →'
+                    : 'Day ' + dailyStreak.streak + ' streak. Take today’s motion →')
+                : (dailyStreak.doneToday
+                    ? 'New motion tomorrow at midnight UTC →'
+                    : 'Take today’s motion next →'),
+            ),
+          ),
           // Contextual sign-in prompt — fires post-round for any anonymous
           // user with a delivered ballot. Previously gated on a numeric
           // speakerPoints score; parse misses on some formats meant the
