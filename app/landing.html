@@ -4044,8 +4044,42 @@ section.ui-section .ui-lede{
       if (e.key === 'Escape' && !modal.hidden) dismiss();
     });
 
-    // Show after a short delay so the page renders behind first.
-    setTimeout(open, 1500);
+    // Wait for Firebase + auth state before deciding whether to show.
+    // If user is already signed in, mark intro as seen and skip — they
+    // don't need to be asked to sign in again. If Firebase never loads
+    // (extensions blocking, offline, etc.) fall through to showing the
+    // modal after a 1.6s timeout so we don't silently skip the prompt.
+    var FIRE_DELAY = 1500;     // delay before opening for unauthed users
+    var AUTH_WAIT_MAX = 1600;  // give Firebase up to 1.6s to resolve auth
+    var decided = false;
+    function decide(skip){
+      if (decided) return;
+      decided = true;
+      if (skip) { try { localStorage.setItem(KEY,'1'); } catch(e){} return; }
+      setTimeout(open, FIRE_DELAY);
+    }
+    function tryAuth(){
+      try {
+        if (window.firebase && firebase.auth) {
+          firebase.auth().onAuthStateChanged(function(user){
+            decide(!!user);
+          });
+          // Hard cap — if onAuthStateChanged never fires (rare), show anyway.
+          setTimeout(function(){ decide(false); }, AUTH_WAIT_MAX);
+          return true;
+        }
+      } catch(e){}
+      return false;
+    }
+    if (!tryAuth()) {
+      var pollStart = Date.now();
+      var poll = setInterval(function(){
+        if (tryAuth() || Date.now() - pollStart > AUTH_WAIT_MAX) {
+          clearInterval(poll);
+          if (!decided) decide(false);
+        }
+      }, 150);
+    }
   })();
 </script>
 
