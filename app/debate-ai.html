@@ -5018,8 +5018,27 @@ function App(){
   // Init orb in speech phase
   useEffect(()=>{if(phase==='speech'){orb.init()}return()=>orb.kill()},[phase]);
 
-  // Phase transition helper
-  const transition=(next,cb)=>{setVis(false);setTimeout(()=>{if(cb)cb();setPhase(next);setTimeout(()=>setVis(true),50)},350)};
+  // Phase transition helper. Fades the page out (vis=false → opacity:0),
+  // runs the supplied callback, swaps phase, fades back in.
+  //
+  // SAFETY: cb is wrapped in try/catch. Without it, any throw inside the
+  // callback (a stale timer call, a missing format key, a bad recovery
+  // payload from localStorage) would skip setPhase + the inner setVis(true),
+  // and the user got stuck on a fully invisible page with no JS error
+  // visible above the throw. Symptom: "press Start Round → page goes
+  // blank, console is clean." Catching here guarantees we ALWAYS finish
+  // the transition, even if the callback failed — the user lands on the
+  // next phase regardless, and the failure surfaces in the console
+  // instead of trapping the UI.
+  const transition=(next,cb)=>{
+    setVis(false);
+    setTimeout(()=>{
+      try { if(cb) cb(); }
+      catch(e) { console.error('[transition] callback threw, recovering:', e); }
+      setPhase(next);
+      setTimeout(()=>setVis(true),50);
+    },350);
+  };
 
   // Start debate
   const startDebate=()=>{
