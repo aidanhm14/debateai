@@ -12,13 +12,14 @@
 //   /learn/guides/{slug}       → individual guide
 // Both rewrite to /api/learn/guides/* via netlify.toml.
 //
-// Visual register (2026-05-18 redesign): editorial cream. Off-white
-// paper background, Georgia serif body, charcoal text, brand red
-// used only on inline links. No eyebrow chips, no gradient cards,
-// no shadowed CTA buttons. The previous version read like SaaS
-// marketing-page boilerplate; this reads like long-form writing.
-// Deliberate visual distance from the dark app surfaces — the
-// guides are deliberate prose, not dashboard components.
+// Visual register (2026-05-18 redesign, white): pure white paper,
+// Georgia serif body, charcoal text, brand red used only on inline
+// links. No eyebrow chips, no gradient cards, no shadowed CTA
+// buttons. The previous version read like SaaS marketing-page
+// boilerplate; this reads like long-form writing. Deliberate visual
+// distance from the dark app surfaces — the guides are deliberate
+// prose, not dashboard components. (Started cream #ffffff; user
+// asked for white the same day, swap was cosmetic only.)
 
 import { GUIDE_BANK, getGuide, listGuides } from './lib/guide-bank.mjs';
 import { FORMAT_BANK } from './lib/format-bank.mjs';
@@ -56,9 +57,9 @@ function notFoundResponse() {
 <title>Guide not found · Debate AI</title>
 <meta name="robots" content="noindex">
 <style>
-  body{background:#faf6ee;color:#1a1a1a;font:17px/1.7 Georgia,'Iowan Old Style','Constantia','Times New Roman',serif;margin:0;padding:64px 24px;text-align:center;-webkit-font-smoothing:antialiased}
+  body{background:#ffffff;color:#1a1a1a;font:17px/1.7 Georgia,'Iowan Old Style','Constantia','Times New Roman',serif;margin:0;padding:64px 24px;text-align:center;-webkit-font-smoothing:antialiased}
   h1{font:700 32px/1.2 Georgia,serif;margin-bottom:14px}
-  p{color:#3a3530;max-width:560px;margin:0 auto 14px;line-height:1.6}
+  p{color:#3a3a3a;max-width:560px;margin:0 auto 14px;line-height:1.6}
   a{color:#c12c1f;text-decoration:none;border-bottom:1px solid currentColor}
   a:hover{color:#1a1a1a}
 </style>
@@ -78,7 +79,7 @@ function notFoundResponse() {
 function commonStyles() {
   return `
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:#faf6ee}
+  html,body{background:#ffffff}
   body{
     color:#1a1a1a;
     font:17px/1.7 Georgia,'Iowan Old Style','Constantia','Times New Roman',serif;
@@ -95,20 +96,20 @@ function commonStyles() {
     display:flex;justify-content:space-between;align-items:center;
     margin-bottom:56px;
     font-family:Georgia,serif;font-size:14px;
-    color:#6e6a64;
+    color:#6b6b6b;
   }
-  .top-nav a{color:#6e6a64;border-bottom:none}
+  .top-nav a{color:#6b6b6b;border-bottom:none}
   .top-nav a:hover{color:#1a1a1a}
 
   /* Crumb line above H1. Quiet metadata, all-caps, tracked. */
   .crumb{
     font:600 11px/1.4 Georgia,serif;
-    color:#6e6a64;
+    color:#6b6b6b;
     letter-spacing:.14em;
     text-transform:uppercase;
     margin-bottom:18px;
   }
-  .crumb a{color:#6e6a64;border-bottom:none}
+  .crumb a{color:#6b6b6b;border-bottom:none}
   .crumb a:hover{color:#1a1a1a}
 
   h1{
@@ -120,18 +121,18 @@ function commonStyles() {
 
   .hook{
     font:italic 19px/1.55 Georgia,serif;
-    color:#3a3530;
+    color:#3a3a3a;
     margin:0 0 32px;
     max-width:600px;
   }
 
   .meta{
-    font-size:13px;color:#6e6a64;
+    font-size:13px;color:#6b6b6b;
     margin-bottom:44px;
     padding-bottom:28px;
-    border-bottom:1px solid #e6dfd0;
+    border-bottom:1px solid #eaeaea;
   }
-  .meta a{color:#6e6a64;border-bottom:1px dotted #b8b0a0}
+  .meta a{color:#6b6b6b;border-bottom:1px dotted #bbbbbb}
   .meta a:hover{color:#1a1a1a;border-bottom-color:#1a1a1a}
 
   /* In-short list: takeaways rendered as a tight em-dashed list, not
@@ -141,7 +142,7 @@ function commonStyles() {
   .insort-head{
     font:600 11px/1.4 Georgia,serif;
     letter-spacing:.14em;text-transform:uppercase;
-    color:#6e6a64;margin-bottom:12px;
+    color:#6b6b6b;margin-bottom:12px;
   }
   .insort ul{list-style:none;padding:0;margin:0}
   .insort li{
@@ -180,7 +181,7 @@ function commonStyles() {
   }
   .ex-context{
     font:italic 14px/1.5 Georgia,serif;
-    color:#6e6a64;
+    color:#6b6b6b;
     margin-bottom:8px;
   }
   .ex-line{
@@ -190,7 +191,7 @@ function commonStyles() {
   }
   .ex-why{
     font-size:15px;line-height:1.6;
-    color:#3a3530;
+    color:#3a3a3a;
   }
 
   /* CTA: a single inline link, not a button. Same visual weight as
@@ -198,7 +199,7 @@ function commonStyles() {
   .cta{
     margin:48px 0 36px;
     padding-top:32px;
-    border-top:1px solid #e6dfd0;
+    border-top:1px solid #eaeaea;
   }
   .cta-line{
     font-size:17px;line-height:1.6;
@@ -215,34 +216,34 @@ function commonStyles() {
   .related{
     margin-top:48px;
     padding-top:28px;
-    border-top:1px solid #e6dfd0;
+    border-top:1px solid #eaeaea;
   }
   .related-head{
     font:600 11px/1.4 Georgia,serif;
     letter-spacing:.14em;text-transform:uppercase;
-    color:#6e6a64;margin-bottom:12px;
+    color:#6b6b6b;margin-bottom:12px;
   }
   .related ul{list-style:none;padding:0;margin:0}
   .related li{padding:5px 0;font-size:16px;line-height:1.5}
-  .related li a{color:#1a1a1a;border-bottom:1px solid #d4cdbd}
+  .related li a{color:#1a1a1a;border-bottom:1px solid #d4d4d4}
   .related li a:hover{color:#c12c1f;border-bottom-color:#c12c1f}
 
   /* Footer: text links, no chrome. */
   footer.guide-footer{
     margin-top:64px;
     padding-top:24px;
-    border-top:1px solid #e6dfd0;
+    border-top:1px solid #eaeaea;
     display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;
-    font-size:13px;color:#6e6a64;
+    font-size:13px;color:#6b6b6b;
   }
-  footer.guide-footer a{color:#6e6a64;border-bottom:none}
+  footer.guide-footer a{color:#6b6b6b;border-bottom:none}
   footer.guide-footer a:hover{color:#1a1a1a}
 
   /* Hub page (listing) styles. */
   .hub-h1{font-size:44px}
   .hub-intro{
     font:italic 19px/1.55 Georgia,serif;
-    color:#3a3530;
+    color:#3a3a3a;
     margin:0 0 48px;
     max-width:620px;
   }
@@ -252,19 +253,19 @@ function commonStyles() {
     letter-spacing:-.006em;
     margin:0 0 14px;
     padding-bottom:8px;
-    border-bottom:1px solid #e6dfd0;
+    border-bottom:1px solid #eaeaea;
     display:flex;align-items:baseline;justify-content:space-between;gap:14px;
     flex-wrap:wrap;
   }
   .hub-group-head a{
     font:400 14px/1.4 Georgia,serif;
-    color:#6e6a64;border-bottom:1px dotted #b8b0a0;
+    color:#6b6b6b;border-bottom:1px dotted #bbbbbb;
   }
   .hub-group-head a:hover{color:#1a1a1a;border-bottom-color:#1a1a1a}
   .hub-list{list-style:none;padding:0;margin:0}
   .hub-li{
     padding:14px 0;
-    border-bottom:1px solid #e6dfd0;
+    border-bottom:1px solid #eaeaea;
   }
   .hub-li:last-child{border-bottom:none}
   .hub-q{
@@ -275,8 +276,8 @@ function commonStyles() {
     margin-bottom:4px;
   }
   .hub-q:hover{color:#c12c1f}
-  .hub-h{font-size:15px;line-height:1.55;color:#3a3530;margin-bottom:4px;font-style:italic}
-  .hub-read{font:11px/1 Georgia,serif;color:#8a847a;letter-spacing:.1em;text-transform:uppercase;margin-top:6px;display:inline-block}
+  .hub-h{font-size:15px;line-height:1.55;color:#3a3a3a;margin-bottom:4px;font-style:italic}
+  .hub-read{font:11px/1 Georgia,serif;color:#888888;letter-spacing:.1em;text-transform:uppercase;margin-top:6px;display:inline-block}
 
   @media (max-width:680px){
     .shell{padding:28px 18px 64px}
@@ -291,8 +292,13 @@ function commonStyles() {
 }
 
 function topNav() {
+  // Three text links so the user can navigate up to the parent
+  // (/learn) without going all the way back to the homepage. Matches
+  // the editorial nav pattern of /topics/{slug} but adds a middle
+  // link because /learn is the logical parent of /learn/guides.
   return `<nav class="top-nav">
     <a href="/">← Debate AI</a>
+    <a href="/learn">Learn</a>
     <a href="/debate-ai">Practice →</a>
   </nav>`;
 }
@@ -350,7 +356,7 @@ function renderGuidePage(guide) {
 <meta name="twitter:title" content="${esc(titleCore)}">
 <meta name="twitter:description" content="${esc(description)}">
 <meta name="twitter:image" content="${OG_IMAGE}">
-<meta name="theme-color" content="#faf6ee">
+<meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/icons/icon-192.png">
 <script defer src="/js/track.js"></script>
 <script type="application/ld+json">${jsonLd(ldArticle)}</script>
@@ -360,7 +366,7 @@ function renderGuidePage(guide) {
 <main class="shell">
   ${topNav()}
 
-  <div class="crumb"><a href="/learn/guides">Guides</a> · ${esc(guide.formatName)}</div>
+  <div class="crumb"><a href="/learn">Learn</a> · <a href="/learn/guides">Guides</a> · ${esc(guide.formatName)}</div>
 
   <h1>${esc(guide.question)}</h1>
 
@@ -449,7 +455,7 @@ function renderHubPage() {
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
 <meta name="twitter:image" content="${OG_IMAGE}">
-<meta name="theme-color" content="#faf6ee">
+<meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/icons/icon-192.png">
 <script defer src="/js/track.js"></script>
 <script type="application/ld+json">${jsonLd(ldCollection)}</script>
@@ -459,7 +465,7 @@ function renderHubPage() {
 <main class="shell">
   ${topNav()}
 
-  <div class="crumb">Debate AI · Guides</div>
+  <div class="crumb"><a href="/">Debate AI</a> · <a href="/learn">Learn</a> · Guides</div>
 
   <h1 class="hub-h1">Guides.</h1>
 
