@@ -1,6 +1,10 @@
 // Bumped to v10 — see app/sw.js for detail.
 
+<<<<<<< HEAD
 const CACHE_NAME = 'debateos-v369';
+=======
+const CACHE_NAME = 'debateos-v367';
+>>>>>>> f15dbfa (topics: add /topics/apda pillar page (closes the home-format gap))
 
 
 // NOTE: '/' was previously precached here. That's why routing changes to the

@@ -88,8 +88,8 @@ function renderRelatedLinks(currentSlug) {
 // SEO weight into the deeper page while keeping /learn/formats accessible
 // as a tighter mechanics reference (and as the link target from /learn).
 //
-// APDA intentionally has no /topics/apda page yet — falls back to self-canonical.
 const TOPICS_CANONICAL = {
+  apda: 'apda',
   bp: 'british-parliamentary',
   worlds: 'world-schools',
   asian: 'asian-parliamentary',

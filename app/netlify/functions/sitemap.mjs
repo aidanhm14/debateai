@@ -73,6 +73,7 @@ const URLS = [
   { path: '/topics/asian-parliamentary',  changefreq: 'monthly', priority: '0.85' },
   { path: '/topics/british-parliamentary',changefreq: 'monthly', priority: '0.85' },
   { path: '/topics/mun',                  changefreq: 'monthly', priority: '0.75' },
+  { path: '/topics/apda',                 changefreq: 'monthly', priority: '0.85' },
   { path: '/india',           changefreq: 'monthly', priority: '0.90' },
   { path: '/us',              changefreq: 'monthly', priority: '0.85' },
   { path: '/report',          changefreq: 'monthly', priority: '0.60' },
