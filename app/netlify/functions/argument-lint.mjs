@@ -25,11 +25,8 @@ const MAX_INPUT_CHARS = 6000;
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
-  'https://devilsadvocate1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
-  'https://debatethedevil.com',
-  'https://www.debatethedevil.com',
 ];
 
 const DEV_ORIGINS = [

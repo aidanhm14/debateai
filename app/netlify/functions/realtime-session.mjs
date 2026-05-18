@@ -174,11 +174,8 @@ async function gatherCouncil(motion, sideLabel, smartness) {
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
-  'https://devilsadvocate1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
-  'https://debatethedevil.com',
-  'https://www.debatethedevil.com',
   'https://debateai.com',
   'https://www.debateai.com',
 ];

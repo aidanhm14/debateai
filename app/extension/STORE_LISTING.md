@@ -134,7 +134,7 @@ Required to call chrome.identity.getAuthToken so the user can connect their Goog
 Required to read the URL of the user's active tab so the side panel can identify which Google Doc the user is currently viewing. Without this, the "Read active doc" button cannot resolve the document ID. The extension does not iterate other tabs, does not track tab-change events, and does not read tab content beyond what is required to extract the docId from the URL.
 ```
 
-**Host permission `https://debateai.com/*` and `https://debatethedevil.com/*`**
+**Host permission `https://debateai.com/*`**
 ```
 The Counter side panel renders an iframe of debateai.com's voice round and typed flow so the extension shares one engine, one billing surface, and one auth session with the web app. host_permissions on these origins is required for the iframe to load and for postMessage bridging between the panel and the iframe to work without origin-blocking. No other origins are accessed by the extension's own code.
 ```
@@ -232,7 +232,7 @@ Run this list before clicking "Submit for review":
 
 ## Common review-rejection reasons (and how Counter avoids them)
 
-1. **Broad host permissions without justification.** Counter's `host_permissions` are limited to debateai.com and debatethedevil.com. The `<all_urls>` content script is justified specifically by the Google Docs canvas-rendering case.
+1. **Broad host permissions without justification.** Counter's `host_permissions` are limited to debateai.com. The `<all_urls>` content script is justified specifically by the Google Docs canvas-rendering case.
 2. **Vague single-purpose statement.** Counter's is concrete: "let a user highlight study material and practice oral examination on it out loud."
 3. **Misleading screenshots.** All screenshots are real captures, not mockups.
 4. **Privacy policy contradicts manifest.** This file (`STORE_LISTING.md`), the privacy policy at `/privacy-extension.html`, and the manifest are written from the same data flow. If you change one, change the others — search the repo for "privacy-extension" to find the bindings.

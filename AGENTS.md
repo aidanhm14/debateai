@@ -8,8 +8,8 @@
 ## What this is
 
 DebateAI is a voice-first adversarial-argument trainer at
-**debateai.com** / debatethedevil.com. ~7K monthly active users as of
-May 2026. Solo-built. Ships to production many times per day.
+**debateai.com**. ~7K monthly active users as of May 2026. Solo-built.
+Ships to production many times per day.
 
 The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 
