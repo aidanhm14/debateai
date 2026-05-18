@@ -364,7 +364,22 @@ button{font-family:inherit}
 }
 .timer-num.warn{color:var(--amber)}
 .timer-num.over{color:var(--accent)}
-.timer-target{font-size:.74rem;color:var(--text-dim);font-weight:600}
+/* Auto-start handoff countdown — the big clock momentarily becomes the
+   3-2-1 readout so the back-and-forth feels like one continuous timing
+   experience instead of "small readyHint countdown → big clock starts."
+   Color flashes amber→red on each digit; no transform so the row
+   baseline doesn't jump while the digit changes. */
+.timer-num.countdown{
+  color:var(--accent);
+  animation:countdown-flash .9s ease-out;
+}
+@keyframes countdown-flash{
+  0%{color:var(--amber);text-shadow:0 0 24px rgba(245,158,11,.55),0 0 6px rgba(245,158,11,.4)}
+  60%{color:var(--accent);text-shadow:0 0 12px rgba(239,68,68,.35)}
+  100%{color:var(--accent);text-shadow:none}
+}
+.timer-target.dim{opacity:.3;transition:opacity .2s ease}
+.timer-target{font-size:.74rem;color:var(--text-dim);font-weight:600;transition:opacity .2s ease}
 .timer-progress{
   height:3px;background:rgba(255,255,255,.06);border-radius:2px;
   overflow:hidden;margin-top:8px;
@@ -1226,6 +1241,9 @@ button{font-family:inherit}
 
   function scheduleAutoStart(myTurn, ms, spectator){
     state.autoStartTokens = (state.autoStartTokens || 0) + 1;
+    // Clear any leftover countdown styling from a prior render so a
+    // ready-state speech doesn't carry over a flash class.
+    clearCountdownUi();
     var ok = state.phase === 'round'
       && state.speechIdx > 0
       && myTurn
@@ -1237,27 +1255,46 @@ button{font-family:inherit}
     if (!ok) return;
     var myToken = state.autoStartTokens;
     var hintEl = $('readyHint');
+    var numEl = $('timerNum');
+    var targetEl = $('timerTarget');
     function tick(remaining){
-      if (state.autoStartTokens !== myToken) return;
-      if (state.phase !== 'round') return;
-      if (state.timerState !== 'ready') return;
-      if (!isMyTurn()) return;
+      if (state.autoStartTokens !== myToken){ clearCountdownUi(); return; }
+      if (state.phase !== 'round'){ clearCountdownUi(); return; }
+      if (state.timerState !== 'ready'){ clearCountdownUi(); return; }
+      if (!isMyTurn()){ clearCountdownUi(); return; }
       if (remaining <= 0){
+        // Clear the flash before startSpeechTimer's drawTimer paints the
+        // real elapsed value back into the same element.
+        clearCountdownUi();
         startSpeechTimer();
         return;
       }
+      if (numEl){
+        // Force a reflow so the keyframe animation restarts cleanly on
+        // every digit change (otherwise the second/third tick reuses
+        // the prior animation cycle and looks static).
+        numEl.classList.remove('countdown');
+        // eslint-disable-next-line no-unused-expressions
+        void numEl.offsetWidth;
+        numEl.textContent = String(remaining);
+        numEl.classList.add('countdown');
+      }
+      if (targetEl) targetEl.classList.add('dim');
       if (hintEl){
         hintEl.innerHTML =
-          '<strong>Your turn.</strong> Mic + clock engage in <strong>' +
-          remaining + '</strong>… ' +
-          '<button type="button" id="cancelAutoStartBtn" style="background:transparent;border:0;color:var(--amber);font-weight:700;font-size:.74rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:0 0 0 6px;text-decoration:underline;text-underline-offset:3px">Hold up</button>';
+          '<strong>Your turn.</strong> Mic + clock engage on <strong>0</strong>. ' +
+          '<button type="button" id="cancelAutoStartBtn" style="background:transparent;border:0;color:var(--amber);font-weight:700;font-size:.74rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:0 0 0 4px;text-decoration:underline;text-underline-offset:3px">Hold up</button>';
         var cb = document.getElementById('cancelAutoStartBtn');
         if (cb){
           cb.addEventListener('click', function(){
             state.autoStartTokens++;
+            clearCountdownUi();
             if (hintEl){
               hintEl.innerHTML = '<strong>Your turn.</strong> Hit <strong>▶ Start speech</strong> when you\'re ready.';
             }
+            // Re-paint the static 0:00 / target readout that the
+            // countdown digits overwrote.
+            drawTimer();
           });
         }
       }
@@ -1266,6 +1303,16 @@ button{font-family:inherit}
     // 800ms head-start so the turn-change overlay reveal doesn't step
     // on the first countdown digit.
     setTimeout(function(){ tick(3); }, 800);
+  }
+
+  // Strip countdown styling off the big clock readout. Called from
+  // every countdown bail-out path so a cancelled/preempted countdown
+  // never leaves the timer-num stuck in a flash state.
+  function clearCountdownUi(){
+    var numEl = $('timerNum');
+    var targetEl = $('timerTarget');
+    if (numEl) numEl.classList.remove('countdown');
+    if (targetEl) targetEl.classList.remove('dim');
   }
 
   function renderSequence(){
