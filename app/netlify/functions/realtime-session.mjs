@@ -591,9 +591,20 @@ export default async (request, context) => {
       } catch(e) { console.error('Council assembly failed:', e); }
     }
 
+    // Optional user-provided factual background for the motion. The
+    // client generates this via Claude Haiku and the user can edit it
+    // before starting the round. Plain prose, no formatting. Plopped
+    // before the character preamble so the AI treats it as ground
+    // truth context rather than a debater's argument.
+    const rawBg = (body && typeof body.background === 'string') ? body.background.replace(/\s+/g, ' ').trim().slice(0, 1200) : '';
+    const backgroundBlock = rawBg
+      ? `MOTION BACKGROUND (factual context the user provided for this round — treat as ground truth, do not contradict it):\n${rawBg}\n\n`
+      : '';
+
     const instructions =
       (councilResearch ? councilResearch + '\n\n' : '') +
       (voiceBank ? voiceBank + '\n\n' : '') +
+      backgroundBlock +
       characterPreamble + modeBlock;
 
     // Model try-list. Default order (verified against OpenAI Realtime

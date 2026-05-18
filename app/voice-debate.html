@@ -1961,6 +1961,37 @@ function App(){
   // ("So what are we debating today, {name}?"), so users can either
   // pre-fill a motion or just speak it after the greeting.
   const [motion, setMotion] = useState('');
+  // Optional factual background for the motion. The user can either type
+  // their own or click Generate background to have Claude Haiku write a
+  // 2-3 sentence factual primer that gets piped into the AI's system
+  // prompt for the live round. Mirrors the same flow in debate-ai.html.
+  const [background, setBackground] = useState('');
+  const [generatedBackground, setGeneratedBackground] = useState('');
+  const [bgLoading, setBgLoading] = useState(false);
+  const generateBackground = useCallback(async () => {
+    const m = (motion || '').trim();
+    if (!m || bgLoading) return;
+    setBgLoading(true);
+    try {
+      const r = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 220,
+          system: 'You write debate background primers. Given a motion, output 2-3 plain sentences of factual context: who decides, what the current state of the issue is, and what is actually contested. No fluff, no opinion, no rhetoric, no "this house" framing. Plain prose only, never use markdown, headings, hash signs, asterisks, bullets, bold, italics, or any other formatting. Output is rendered as plain text directly to the screen.',
+          messages: [{ role:'user', content: `Motion: "${m}". Write the background.` }],
+          stream: false,
+          _feature: 'voice-debate-background-gen',
+        }),
+      });
+      if (!r.ok) return;
+      const d = await r.json();
+      const text = (d && d.content && d.content[0] && d.content[0].text || '').trim();
+      if (text) setGeneratedBackground(text);
+    } catch (e) { /* silent — button stays clickable for retry */ }
+    finally { setBgLoading(false); }
+  }, [motion, bgLoading]);
   // Persona persists across sessions for the gamified bond. Default to
   // whichever character the user picked last time.
   const [personaKey, setPersonaKey] = useState(() => getRememberedPersona());
@@ -2851,6 +2882,7 @@ function App(){
         headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({
           mode, motion, side, format: 'APDA',
+          background: (background || generatedBackground || '').slice(0, 1200),
           voice: persona.voice,
           personaName: persona.name,
           personaArchetype: persona.archetype,
@@ -3743,6 +3775,54 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
                 })
               );
             })(),
+            // Generate background row. Sits below the category chips so
+            // the vertical flow is: pick/roll motion → optionally pull
+            // factual context → move on to side / drill. Hidden in
+            // Counter (viva) mode — the user is defending their own
+            // material there and doesn't need an AI-generated primer.
+            extMode !== 'counter' && el('div', {
+              style:{ marginTop:14, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' },
+            },
+              el('button', {
+                type:'button',
+                className:'motion-chip',
+                disabled: !motion.trim() || bgLoading,
+                onClick: generateBackground,
+                title: !motion.trim() ? 'Type or roll a motion first' : 'Pull 2-3 sentences of factual context the AI will use this round',
+                style:{
+                  background: !motion.trim() ? 'rgba(255,255,255,.02)' : 'rgba(96,165,250,.10)',
+                  borderColor: !motion.trim() ? 'rgba(255,255,255,.12)' : 'rgba(96,165,250,.35)',
+                  color: !motion.trim() ? '#666' : '#93c5fd',
+                  fontWeight:700,
+                  cursor: !motion.trim() || bgLoading ? 'default' : 'pointer',
+                  opacity: !motion.trim() ? .55 : 1,
+                },
+              }, bgLoading ? 'Generating…' : 'Generate background'),
+              (background || generatedBackground) && el('button', {
+                type:'button',
+                className:'motion-chip',
+                onClick: () => { setBackground(''); setGeneratedBackground(''); },
+                title:'Clear the background',
+                style:{ background:'transparent', borderColor:'rgba(255,255,255,.12)', color:'#888', fontSize:'.7rem' },
+              }, 'Clear'),
+            ),
+            // Editable background field. Empty until the user clicks
+            // Generate background or types their own context. The AI
+            // sees whichever wins (manual override beats generated).
+            extMode !== 'counter' && (background || generatedBackground) && el('textarea', {
+              value: background || generatedBackground,
+              onChange: e => { setBackground(e.target.value); setGeneratedBackground(''); },
+              placeholder:'Factual context for the motion',
+              rows: 3,
+              style:{
+                marginTop:10, width:'100%', resize:'vertical',
+                padding:'10px 12px', borderRadius:8,
+                background:'rgba(96,165,250,.06)',
+                border:'1px solid rgba(96,165,250,.22)',
+                color:'var(--c-text, #e5e5ea)',
+                fontSize:'.82rem', lineHeight:1.55, fontFamily:'inherit',
+              },
+            }),
           ),
         ),
 
