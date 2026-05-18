@@ -85,7 +85,7 @@
     </div>
     <div class=changes id=changes></div>
     <div class=footer>
-      <div class=hint>Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (Shift+Enter for a line break). Toolbar at the bottom of the iframe controls font / size / weight / align / color / width / move.</div>
+      <div class=hint>Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (Shift+Enter for a line break). Toolbar at the bottom of the iframe controls font / size / weight / italic / align / color / width / move.</div>
       <div style="margin-top:8px;color:#6b7290"><strong style="color:#c9cee1">Multi-select</strong> Shift+click to add/remove. Drag in empty space to marquee-select. Drag any selected block to move the whole group; orange guides snap within 4px. Arrow keys nudge (Shift+arrow = 10px). One block selected = 8 resize handles. <kbd>Esc</kbd> clears selection.</div>
       <div style="margin-top:8px;color:#6b7290"><strong style="color:#c9cee1">Move</strong> toggles drag-to-reposition (applies <code>transform: translate(...)</code>). When you're done: <strong style="color:#c9cee1">Export</strong> &rarr; paste in chat.</div>
     </div>
@@ -217,6 +217,7 @@
   let activeDoc = null;
   let toolbarPickingColor = false;
   let toolbarPickingFont = false;
+  let toolbarPickingWeight = false;
   let moveMode = false;
   let dragState = null;
 
@@ -244,6 +245,17 @@
     { label: 'Caveat (handwritten)', value: 'Caveat, "Comic Sans MS", cursive' },
     { label: 'Courier (mono)', value: '"Courier New", Courier, ui-monospace, monospace' },
     { label: 'Menlo (mono)', value: 'Menlo, Monaco, ui-monospace, monospace' }
+  ];
+
+  const WEIGHTS = [
+    { label: 'Weight', value: '' },
+    { label: '300 Light', value: '300' },
+    { label: '400 Regular', value: '400' },
+    { label: '500 Medium', value: '500' },
+    { label: '600 Semibold', value: '600' },
+    { label: '700 Bold', value: '700' },
+    { label: '800 Extrabold', value: '800' },
+    { label: '900 Black', value: '900' }
   ];
 
   function pageOf(doc) {
@@ -329,6 +341,7 @@
     const t = doc.createElement('div');
     t.id = '__copyedit_toolbar';
     const fontOpts = FONTS.map(f => `<option value="${f.value.replace(/"/g, '&quot;')}">${f.label}</option>`).join('');
+    const weightOpts = WEIGHTS.map(w => `<option value="${w.value}">${w.label}</option>`).join('');
     t.innerHTML =
       '<span class=label data-role=label>—</span>' +
       '<span class=sep></span>' +
@@ -339,6 +352,8 @@
       '<button data-action="size-up" title="Larger">A+</button>' +
       '<span class=sep></span>' +
       '<button data-action="bold" title="Bold" data-role=bold style="font-weight:800">B</button>' +
+      '<button data-action="italic" title="Italic (toggle italic ↔ normal)" data-role=italic style="font-style:italic;font-family:Georgia,serif">I</button>' +
+      '<select data-action="weight" data-role=weight title="Font weight">' + weightOpts + '</select>' +
       '<span class=sep></span>' +
       '<button data-action="align-left" title="Left" data-role=al>L</button>' +
       '<button data-action="align-center" title="Center" data-role=ac>C</button>' +
@@ -391,6 +406,19 @@
       else active.style.fontFamily = '';
       syncToolbar(active);
     });
+
+    const weightSelect = t.querySelector('select[data-action=weight]');
+    weightSelect.addEventListener('focus', () => { toolbarPickingWeight = true; });
+    weightSelect.addEventListener('blur', () => {
+      toolbarPickingWeight = false;
+      if (active && !moveMode) setTimeout(() => { try { active.focus(); } catch {} }, 0);
+    });
+    weightSelect.addEventListener('change', () => {
+      if (!active) return;
+      if (weightSelect.value) active.style.fontWeight = weightSelect.value;
+      else active.style.fontWeight = '';
+      syncToolbar(active);
+    });
   }
 
   function handleAction(a, btn) {
@@ -404,6 +432,9 @@
     } else if (a === 'bold') {
       const fw = parseInt(active.style.fontWeight || cs.fontWeight) || 400;
       active.style.fontWeight = fw >= 600 ? '400' : '700';
+    } else if (a === 'italic') {
+      const fs = active.style.fontStyle || cs.fontStyle || 'normal';
+      active.style.fontStyle = (fs === 'italic' || fs === 'oblique') ? 'normal' : 'italic';
     } else if (a === 'align-left') {
       active.style.textAlign = 'left';
     } else if (a === 'align-center') {
@@ -905,6 +936,10 @@
     t.querySelector('[data-role=size]').textContent = Math.round(parseFloat(cs.fontSize)) + 'px';
     const fw = parseInt(cs.fontWeight) || 400;
     t.querySelector('[data-role=bold]').classList.toggle('on', fw >= 600);
+    const fs = el.style.fontStyle || cs.fontStyle || 'normal';
+    t.querySelector('[data-role=italic]').classList.toggle('on', fs === 'italic' || fs === 'oblique');
+    const weightSel = t.querySelector('select[data-role=weight]');
+    weightSel.value = String(Math.round(fw / 100) * 100);
     const al = cs.textAlign;
     t.querySelector('[data-role=al]').classList.toggle('on', al === 'left' || al === 'start');
     t.querySelector('[data-role=ac]').classList.toggle('on', al === 'center');
@@ -994,7 +1029,7 @@
       showToolbar(el);
     }, true);
     el.addEventListener('blur', () => {
-      if (toolbarPickingColor || toolbarPickingFont || moveMode) return;
+      if (toolbarPickingColor || toolbarPickingFont || toolbarPickingWeight || moveMode) return;
       if (active === el) commit();
     });
     el.addEventListener('keydown', e => {
