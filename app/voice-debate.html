@@ -1572,6 +1572,56 @@ html[data-theme="light"] .voice-gate .vg-eyebrow{color:#b91c1c}
 html[data-theme="light"] .voice-gate .vg-h{color:#1a1a1f}
 html[data-theme="light"] .voice-gate .vg-body,
 html[data-theme="light"] .voice-gate .vg-fallback{color:#5a5a64}
+
+/* Live-session controls — Muted / Listening pill, SPEED, model badge,
+   Recording, text-interject input + Send. Defaults are white-on-dark;
+   light mode needs explicit dark text on near-white pills so each
+   control reads instead of fading into the cream background. */
+html[data-theme="light"] .mute-btn{
+  background:#fff;border:1px solid rgba(0,0,0,.10);color:#1a1a1f;
+}
+html[data-theme="light"] .mute-btn:hover{background:#f3f3ef;border-color:rgba(0,0,0,.22)}
+html[data-theme="light"] .mute-btn.on{
+  background:rgba(220,38,38,.10);border-color:rgba(220,38,38,.40);color:#b91c1c;
+}
+html[data-theme="light"] .mute-btn.listening{
+  background:rgba(124,58,237,.10);border-color:rgba(124,58,237,.40);color:#6d28d9;
+}
+html[data-theme="light"] .speed-ctl{
+  background:#fff;border:1px solid rgba(0,0,0,.10);color:#1a1a1f;
+}
+html[data-theme="light"] .speed-ctl .lbl{color:#5a5a64}
+html[data-theme="light"] .speed-ctl .val{color:#1a1a1f}
+html[data-theme="light"] .speed-ctl .spd{background:rgba(0,0,0,.04);color:#5a5a64}
+html[data-theme="light"] .speed-ctl .spd:hover{background:rgba(220,38,38,.10);color:#b91c1c}
+html[data-theme="light"] .model-badge{
+  background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.25);color:#1d4ed8;
+}
+html[data-theme="light"] .rec-pill{
+  background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.30);color:#b91c1c;
+}
+html[data-theme="light"] .text-interject__input{
+  background:#fff;border:1px solid rgba(0,0,0,.12);color:#1a1a1f;
+}
+html[data-theme="light"] .text-interject__input::placeholder{color:rgba(0,0,0,.42)}
+html[data-theme="light"] .text-interject__input:focus{
+  border-color:rgba(220,38,38,.50);background:#fff;
+}
+html[data-theme="light"] .text-interject__send{
+  background:rgba(220,38,38,.10);border:1px solid rgba(220,38,38,.40);color:#b91c1c;
+}
+html[data-theme="light"] .text-interject__send:hover:not(:disabled){
+  background:rgba(220,38,38,.18);border-color:rgba(220,38,38,.55);color:#7f1d1d;
+}
+/* Live transcript bubbles + system note + headline strip */
+html[data-theme="light"] .turn.system{
+  background:rgba(0,0,0,.04);color:#5a5a64;border-left-color:rgba(0,0,0,.18);
+}
+html[data-theme="light"] .turn.ai .label{color:#b91c1c}
+html[data-theme="light"] .turn.you .label{color:#15803d}
+html[data-theme="light"] .interrupts-row,
+html[data-theme="light"] .live-clock,
+html[data-theme="light"] .live-speaker{color:#1a1a1f}
 </style>
 </head>
 <body>
@@ -3157,8 +3207,18 @@ function App(){
           // bans "Absolutely", "Let's get into it", etc. — we restate
           // the no-enthusiasm rule here because greetings are where the
           // model is most likely to slip into hype-man mode.
-          const greetingInstructions = motion.trim()
-            ? `Open in character. Under 8 seconds. Name the motion in one short clean line, name your side, then say "whenever you're ready${nameSuffix}". Do NOT say "Absolutely", "Let's get into it", "Sure", or any enthusiastic interjection. Dry and direct.`
+          // CRITICAL: pass the motion VERBATIM into the greeting so the
+          // AI can't hallucinate a different one. The server-side
+          // instructions already include the motion via the MODE_PROMPTS
+          // {motion} placeholder, but in some race conditions the model
+          // ignores it and invents a generic example ("This House Would
+          // Abolish Zoos") instead. Putting the motion text directly
+          // into the response.create.instructions kills that path.
+          const userSideLabel = side === 'gov' || side === 'pm' || side === 'mg' ? 'Government' : 'Opposition';
+          const aiSideLabel = userSideLabel === 'Government' ? 'Opposition' : 'Government';
+          const m = motion.trim();
+          const greetingInstructions = m
+            ? `Open in character. Under 8 seconds. The motion is verbatim: "${m}". You are on ${aiSideLabel}; the user is on ${userSideLabel}. Say the motion exactly as written, name your side, then say "whenever you're ready${nameSuffix}". Do NOT invent a different motion. Do NOT paraphrase. Do NOT say "Absolutely", "Let's get into it", "Sure", or any enthusiastic interjection. Dry and direct.`
             : `Open with exactly this line, in your character's voice and dry register: "what's up${nameSuffix}, what are we debating?" Then stop. Do not suggest motions. Do not list options. Do not say "Absolutely" or any enthusiastic filler. One short line, then silence.`;
           // GA Realtime response.create dropped `modalities` (it's
           // inherited from session.output_modalities now). Just send
