@@ -3836,13 +3836,16 @@ section.ui-section .ui-lede{
     padding:14px 0 14px 14px;
     border-left:1px solid rgba(0,0,0,.10);
     font-family:'Inter', system-ui, -apple-system, sans-serif;
+    /* No CSS transition on opacity: the browser was sometimes parking
+       the implicit CSSTransition in an idle/time:null state on first
+       paint, which froze opacity at 0 even when class + inline-style
+       both said 1. Visibility is toggled instantly from JS instead. */
     opacity:0;
     pointer-events:none;
-    transition:opacity .35s ease;
     user-select:none;
   }
   .page-toc.is-visible{
-    opacity:1 !important;
+    opacity:1;
     pointer-events:auto;
   }
   [data-theme="dark"] .page-toc{border-left-color:rgba(255,255,255,.10)}
@@ -3916,13 +3919,26 @@ section.ui-section .ui-lede{
       catch(e){ return null; }
     }).filter(Boolean);
 
+    // Direct-style fade so we don't depend on the CSS transition.
+    // The class-toggle + transition path got stuck on opacity:0 in
+    // testing — some other rule or animation was holding the
+    // transition at currentTime:0. Setting style.opacity inline beats
+    // any cascade-level rule and any frozen Web Animation queue.
+    var visible = false;
+    function setVisible(next){
+      if (next === visible) return;
+      visible = next;
+      toc.classList.toggle('is-visible', next);
+      toc.style.opacity = next ? '1' : '0';
+      toc.style.pointerEvents = next ? 'auto' : 'none';
+    }
     function updateVisibility(){
       var y = window.scrollY || window.pageYOffset;
       var h = window.innerHeight;
       var doc = document.documentElement.scrollHeight;
       var nearTop = y < h * 0.55;
       var nearBottom = (y + h) > (doc - 240);
-      toc.classList.toggle('is-visible', !nearTop && !nearBottom);
+      setVisible(!nearTop && !nearBottom);
     }
     window.addEventListener('scroll', updateVisibility, { passive:true });
     window.addEventListener('resize', updateVisibility, { passive:true });
