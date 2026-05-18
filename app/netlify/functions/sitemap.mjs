@@ -71,6 +71,15 @@ const URLS = [
   { path: '/learn/guides/ld-value-criterion',       changefreq: 'monthly', priority: '0.80' },
   { path: '/learn/guides/asian-parli-whip',         changefreq: 'monthly', priority: '0.80' },
   { path: '/learn/guides/bp-closing-extension',     changefreq: 'monthly', priority: '0.80' },
+  // Debate fundamentals deep-content surface. Each is the canonical
+  // ranking target for a foundational concept query.
+  { path: '/learn/fundamentals',                       changefreq: 'weekly',  priority: '0.88' },
+  { path: '/learn/fundamentals/claim-warrant-impact',  changefreq: 'monthly', priority: '0.84' },
+  { path: '/learn/fundamentals/weighing',              changefreq: 'monthly', priority: '0.84' },
+  { path: '/learn/fundamentals/rebuttal',              changefreq: 'monthly', priority: '0.84' },
+  { path: '/learn/fundamentals/signposting',           changefreq: 'monthly', priority: '0.82' },
+  { path: '/learn/fundamentals/cross-examination',     changefreq: 'monthly', priority: '0.82' },
+  { path: '/learn/fundamentals/register',              changefreq: 'monthly', priority: '0.80' },
   { path: '/community',       changefreq: 'daily',   priority: '0.88' },
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
