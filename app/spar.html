@@ -318,6 +318,7 @@ h1 em{color:var(--accent);font-style:normal}
     queueUnsub: null,
     queueWatchUnsub: null,
     matchTriggerPending: false,
+    pairInFlight: false,           // gate on the spar-pair POST so polling doesn't fan out duplicates
     joinedAtMs: 0,
     countdownInterval: null,
     matchPollInterval: null,
@@ -811,50 +812,54 @@ h1 em{color:var(--accent);font-style:normal}
     });
   }
 
-  function attemptMatch(peerUid, peerData){
-    if (state.cancelled || !state.user || !firebaseDb) return;
-    var queue = firebaseDb.collection('matchmaking_queue');
-    var myRef = queue.doc(state.user.uid);
-    var peerRef = queue.doc(peerUid);
-    // Deterministic room name from the lex-sorted UID pair so both
-    // clients converge on the same /live-round room when their
-    // snapshot listeners fire. SparMatch- prefix makes it filterable
-    // in the live_rounds collection later.
-    var pair = [state.user.uid, peerUid].sort();
-    var roomName = 'SparMatch-' + pair[0].slice(0,8) + '-' + pair[1].slice(0,8);
-    // Pro/Con assignment — pair[0] (lex-first UID) is Pro by
-    // convention. Stable + arbitrary; both clients agree.
-    var proUid = pair[0];
-    var conUid = pair[1];
-    var myShort = shortNameOf(state.user);
-    var peerShort = peerData.displayName || 'Opponent';
-
-    firebaseDb.runTransaction(function(tx){
-      return Promise.all([tx.get(myRef), tx.get(peerRef)]).then(function(snaps){
-        var mine = snaps[0].data();
-        var theirs = snaps[1].data();
-        if (!mine || !theirs) throw new Error('queue_doc_missing');
-        if (mine.status !== 'waiting' || theirs.status !== 'waiting') throw new Error('lost_race');
-        var commonUpdate = {
-          status: 'matched',
-          room: roomName,
-          matchedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          proUid: proUid,
-          conUid: conUid,
-          proName: proUid === state.user.uid ? myShort : peerShort,
-          conName: conUid === state.user.uid ? myShort : peerShort,
-        };
-        tx.update(myRef, Object.assign({ matchedWith: peerUid, matchedWithName: peerShort }, commonUpdate));
-        tx.update(peerRef, Object.assign({ matchedWith: state.user.uid, matchedWithName: myShort }, commonUpdate));
+  // 2026-05-18: moved off a client-side Firestore transaction (which
+  // silently failed because Firestore rules don't allow user A to
+  // write user B's queue doc — the transaction could update self but
+  // not the peer, leaving both stuck on "1 other debater in your
+  // queue") onto a Netlify function with admin-SDK credentials that
+  // updates both docs atomically. The client side just kicks the
+  // function and lets subscribeMyDoc's onSnapshot drive navigation.
+  function attemptMatch(peerUid /* peerData unused now */){
+    if (state.cancelled || !state.user || !firebaseAuth) return;
+    // Guard against re-firing while a pair attempt is in flight —
+    // tryMatch polls every 2s and the snapshot listener also pokes
+    // it; without this we'd fan out duplicate POSTs.
+    if (state.pairInFlight) return;
+    state.pairInFlight = true;
+    firebaseAuth.currentUser.getIdToken().then(function(idToken){
+      return fetch('/.netlify/functions/spar-pair', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + idToken,
+        },
+        body: JSON.stringify({
+          peerUid: peerUid,
+          format: formatParam,
+          broaden: !!state.broaden,
+        }),
       });
-    }).then(function(){
-      try { gtag('event', 'spar_match_made', { format: formatParam }); } catch(e){}
-      // The snapshot listener on my own doc will fire and navigate.
-    }).catch(function(err){
-      // Race lost or peer cancelled — keep polling, no UI change.
-      if (err && err.message !== 'lost_race') {
-        console.warn('[spar] match transaction failed', err);
+    }).then(function(res){
+      return res.json().then(function(j){ return { ok: res.ok, status: res.status, body: j }; });
+    }).then(function(r){
+      state.pairInFlight = false;
+      if (!r.ok || !r.body || !r.body.ok) {
+        // Soft-fail (lost race, format_mismatch, peer-cancelled) keeps
+        // polling running so the next tryMatch picks a different peer.
+        // Hard-fail (5xx, auth) we log + keep polling — AI fallback
+        // still kicks in at 60s as the safety net.
+        var reason = r.body && r.body.reason ? r.body.reason : 'http_' + r.status;
+        if (reason !== 'lost_race' && reason !== 'format_mismatch' && reason !== 'queue_doc_missing') {
+          console.warn('[spar] spar-pair function failed:', reason, r.body);
+        }
+        return;
       }
+      try { gtag('event', 'spar_match_made', { format: formatParam }); } catch(e){}
+      // The snapshot listener on my own doc will fire (the function
+      // updated it) and navigate via subscribeMyDoc → /live-round.
+    }).catch(function(err){
+      state.pairInFlight = false;
+      console.warn('[spar] spar-pair fetch failed', err);
     });
   }
 
@@ -889,6 +894,7 @@ h1 em{color:var(--accent);font-style:normal}
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
     if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} state.queueWatchUnsub = null; }
     state.matchTriggerPending = false;
+    state.pairInFlight = false;
   }
 
   // Tab close / nav away — drop our queue doc so we don't ghost.
