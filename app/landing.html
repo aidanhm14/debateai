@@ -5503,6 +5503,165 @@ section.ui-section .ui-lede{
   }
 </style>
 
+<!-- Demo videos. Three tabs: Voice AI / Prep / Community. Each
+     tab swaps the video shown in the frame below. Same self-hosted
+     .mp4 pattern as the founder intro — drop the files in
+     /app/video/ and the slots fill in:
+       /video/demo-voice.mp4         + demo-voice-poster.jpg
+       /video/demo-prep.mp4          + demo-prep-poster.jpg
+       /video/demo-community.mp4     + demo-community-poster.jpg
+     Click-to-play, no autoplay. Active panel renders; inactive
+     panels are hidden so the browser doesn't waste bytes pre-
+     fetching three video metadata blobs on every load. -->
+<section id="demos" class="demos-section" aria-label="Product demos">
+  <div class="wrap" style="max-width:880px">
+    <div class="demos-eyebrow">See it in action</div>
+    <div class="demos-tablist" role="tablist" aria-label="Demo videos">
+      <button type="button" role="tab" class="demos-tab is-active" aria-selected="true"  aria-controls="demo-panel-voice"     id="demo-tab-voice">Voice AI</button>
+      <button type="button" role="tab" class="demos-tab"           aria-selected="false" aria-controls="demo-panel-prep"      id="demo-tab-prep">Prep</button>
+      <button type="button" role="tab" class="demos-tab"           aria-selected="false" aria-controls="demo-panel-community" id="demo-tab-community">Community</button>
+    </div>
+    <div class="demos-frame">
+      <div role="tabpanel" id="demo-panel-voice"     aria-labelledby="demo-tab-voice"     class="demos-panel is-active">
+        <video class="demos-video" controls preload="metadata" playsinline poster="/video/demo-voice-poster.jpg">
+          <source src="/video/demo-voice.mp4" type="video/mp4">
+          Your browser doesn't support embedded video.
+        </video>
+        <div class="demos-caption">Live voice round. Talk, get cut off, take POIs, hear the judge ballot.</div>
+      </div>
+      <div role="tabpanel" id="demo-panel-prep"      aria-labelledby="demo-tab-prep"      class="demos-panel" hidden>
+        <video class="demos-video" controls preload="metadata" playsinline poster="/video/demo-prep-poster.jpg">
+          <source src="/video/demo-prep.mp4" type="video/mp4">
+          Your browser doesn't support embedded video.
+        </video>
+        <div class="demos-caption">Case gen, motion triage, background pulls. The prep flow before a round.</div>
+      </div>
+      <div role="tabpanel" id="demo-panel-community" aria-labelledby="demo-tab-community" class="demos-panel" hidden>
+        <video class="demos-video" controls preload="metadata" playsinline poster="/video/demo-community-poster.jpg">
+          <source src="/video/demo-community.mp4" type="video/mp4">
+          Your browser doesn't support embedded video.
+        </video>
+        <div class="demos-caption">Live rooms, the leaderboard, published rounds. Where the network lives.</div>
+      </div>
+    </div>
+  </div>
+</section>
+<style>
+  .demos-section{padding:32px 24px 36px}
+  .demos-eyebrow{
+    font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--text-dim);text-align:center;margin-bottom:14px;
+  }
+  .demos-tablist{
+    display:flex;justify-content:center;gap:8px;flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .demos-tab{
+    appearance:none;cursor:pointer;
+    padding:8px 16px;border-radius:999px;
+    font:inherit;font-size:.78rem;font-weight:600;letter-spacing:.01em;
+    color:var(--text-dim);
+    background:transparent;
+    border:1px solid var(--border);
+    transition:background .18s ease, border-color .18s ease, color .18s ease;
+  }
+  .demos-tab:hover{color:var(--text);border-color:var(--text-dim)}
+  .demos-tab.is-active,
+  .demos-tab[aria-selected="true"]{
+    background:rgba(239,68,68,.10);
+    border-color:rgba(239,68,68,.40);
+    color:#f87171;
+  }
+  [data-theme="light"] .demos-tab.is-active,
+  [data-theme="light"] .demos-tab[aria-selected="true"]{
+    background:rgba(220,38,38,.08);
+    border-color:rgba(220,38,38,.40);
+    color:#b91c1c;
+  }
+  .demos-frame{
+    position:relative;
+    border-radius:16px;overflow:hidden;
+    border:1px solid var(--border);
+    background:#0a0a0c;
+    aspect-ratio:16 / 9;
+    box-shadow:0 12px 32px rgba(0,0,0,.10);
+    transition:border-color .22s ease, box-shadow .22s ease;
+  }
+  .demos-frame:hover{
+    border-color:var(--border-strong, rgba(255,255,255,.18));
+    box-shadow:0 16px 40px rgba(0,0,0,.16);
+  }
+  [data-theme="light"] .demos-frame{
+    border-color:rgba(0,0,0,.10);
+    box-shadow:0 8px 24px rgba(0,0,0,.06);
+  }
+  .demos-panel{
+    position:absolute;inset:0;
+  }
+  .demos-panel[hidden]{display:none}
+  .demos-video{
+    width:100%;height:100%;display:block;
+    object-fit:cover;
+    background:#0a0a0c;
+  }
+  .demos-caption{
+    position:absolute;left:14px;right:14px;bottom:14px;
+    padding:8px 12px;
+    background:rgba(10,10,12,.78);
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:8px;
+    color:rgba(255,255,255,.82);
+    font-size:.74rem;line-height:1.4;
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    pointer-events:none;
+  }
+  @media(max-width:680px){
+    .demos-section{padding:24px 16px 28px}
+    .demos-tab{padding:7px 12px;font-size:.72rem}
+    .demos-frame{border-radius:12px}
+    .demos-caption{font-size:.7rem;left:10px;right:10px;bottom:10px}
+  }
+</style>
+<script>
+(function(){
+  var list = document.querySelector('.demos-tablist');
+  if (!list) return;
+  var tabs = Array.prototype.slice.call(list.querySelectorAll('.demos-tab'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.demos-panel'));
+  function activate(tab){
+    tabs.forEach(function(t){
+      var on = t === tab;
+      t.classList.toggle('is-active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    var targetId = tab.getAttribute('aria-controls');
+    panels.forEach(function(p){
+      var on = p.id === targetId;
+      p.classList.toggle('is-active', on);
+      if (on) p.removeAttribute('hidden');
+      else    p.setAttribute('hidden', '');
+      // Pause any video that just got hidden so audio from a
+      // background panel can't keep playing after a tab switch.
+      var v = p.querySelector('video');
+      if (v && !on) { try { v.pause(); } catch(e){} }
+    });
+  }
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ activate(t); });
+    // Arrow-key navigation per the ARIA tab pattern.
+    t.addEventListener('keydown', function(e){
+      var idx = tabs.indexOf(t);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+        e.preventDefault();
+        var next = e.key === 'ArrowRight' ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
+        tabs[next].focus();
+        activate(tabs[next]);
+      }
+    });
+  });
+})();
+</script>
+
 <!-- ── Encyclopedia overview. Wikipedia-inspired editorial block.
      White article panel on the page's dark wash, serif body type,
      two-column with an infobox on the right at desktop, single-
