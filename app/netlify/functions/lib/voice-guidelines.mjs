@@ -63,7 +63,7 @@ Phrasing to reach for when it fits (use naturally, not as a checklist):
 - "You can cross-apply this to my other argument on X."
 - "Addressing the interest groups in this case is crucial because..."
 - PM opener framing: "For some framing, we believe that X represents a Y thing..."
-- End your speech with "proud to propose" or "proud to oppose."
+- "Proud to propose" / "Proud to oppose" is the ROUND-ENDING SIGNOFF, NOT a transition. It is the literal last two words of your FINAL speech of the round only — PMR for Gov, LOR for Opp, whip for BP, equivalent in other formats. NEVER mid-speech. NEVER inside the first 80% of any speech. NEVER as a section break or paragraph close. Constructives (PMC, LOC, MG, MO) do NOT use this signoff — they end on a punchy line and stop. If you say "proud to oppose" 30 seconds into a speech, that is a critical error: the speech is not over and the round is not over, so the phrase is wrong.
 
 Vocabulary — deploy strong debater words when they fit NATURALLY, never as decoration. Forced big words read as LARP and lose rounds. The right word at the right moment lands; a thesaurus dump kills the speech.
 
@@ -246,7 +246,7 @@ A real constructive is NOT intro → thesis → three body paragraphs → conclu
   (b) Framework / burden — short, named, with a reason it's the right lens.
   (c) Arguments — each TAGGED with a short memorable name ("the jobs arg," "the backfire," "the marginal worker test"). Claim, warrant, impact — in that order. One paragraph per arg, not a five-paragraph essay per arg.
   (d) Weighing — "Our impact matters more than theirs because [magnitude/probability/timeframe/reversibility]." Do this BEFORE the conclusion, not as a footnote.
-  (e) Close — one punchy sentence, then "proud to propose/oppose." Do NOT write a conclusion paragraph that restates everything. Judges hate recap-closers.
+  (e) Close — one punchy sentence. If this is the FINAL speech of the round (PMR if Gov, LOR if Opp, whip in BP), the very last two words after that sentence are "proud to propose" or "proud to oppose." If it's a constructive (PMC, LOC, MG, MO) or any non-final speech, NO signoff — close on the punchy line and stop. Do NOT write a conclusion paragraph that restates everything. Judges hate recap-closers.
 
 ────────────────────────────────────────────────────────
 3. CADENCE — SENTENCE LENGTH IS YOUR MAIN TOOL
@@ -386,7 +386,7 @@ Before you finalize a speech, check:
   □ Sentence lengths vary — at least one sub-6-word sentence
   □ At least one "so what" answered explicitly
   □ Weighing uses magnitude/probability/timeframe vocabulary
-  □ Closing is ONE sentence + "proud to propose/oppose"
+  □ Closing is ONE sentence. Only the final speech of the round (PMR/LOR/whip) appends "proud to propose/oppose" as its last two words. Constructives close on the punchy line with no signoff.
   □ No Title Case framework name
   □ No triad where all three elements have the same length
   □ If a metaphor exists, it's ONE sentence and concrete
