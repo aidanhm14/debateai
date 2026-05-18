@@ -819,6 +819,18 @@ h1 em{color:var(--accent);font-style:normal}
   // queue") onto a Netlify function with admin-SDK credentials that
   // updates both docs atomically. The client side just kicks the
   // function and lets subscribeMyDoc's onSnapshot drive navigation.
+  //
+  // Soft-fail reason codes from spar-pair (keep polling silently):
+  //   lost_race        — another transaction beat us to one of the docs
+  //   format_mismatch  — peer was on a different format
+  //   queue_doc_missing— peer doc got deleted between query and txn
+  //   stale_peer       — peer's joinedAt is >3min old (ghost session);
+  //                      spar-pair just marked it cancelled, polling
+  //                      will sort to a fresher peer next tick
+  // Anything else (auth/5xx/network) is a hard fail; we surface it so
+  // the user knows pairing is having trouble rather than burning the
+  // full 60s clock in silence.
+  var PAIR_REQUEST_TIMEOUT_MS = 8000;
   function attemptMatch(peerUid /* peerData unused now */){
     if (state.cancelled || !state.user || !firebaseAuth) return;
     // Guard against re-firing while a pair attempt is in flight —
@@ -826,6 +838,18 @@ h1 em{color:var(--accent);font-style:normal}
     // it; without this we'd fan out duplicate POSTs.
     if (state.pairInFlight) return;
     state.pairInFlight = true;
+    // Self-heal: if the fetch never resolves (network limbo on mobile
+    // tethering, function cold-start that hangs), the pairInFlight
+    // flag would stick forever and the user would burn the full AI
+    // fallback timer with no further pair attempts. Reset after 8s no
+    // matter what so polling can try again.
+    var timeoutId = setTimeout(function(){
+      if (state.pairInFlight){
+        state.pairInFlight = false;
+        console.warn('[spar] spar-pair request timed out, retrying');
+        surfacePairError('timeout');
+      }
+    }, PAIR_REQUEST_TIMEOUT_MS);
     firebaseAuth.currentUser.getIdToken().then(function(idToken){
       return fetch('/.netlify/functions/spar-pair', {
         method: 'POST',
@@ -842,25 +866,50 @@ h1 em{color:var(--accent);font-style:normal}
     }).then(function(res){
       return res.json().then(function(j){ return { ok: res.ok, status: res.status, body: j }; });
     }).then(function(r){
+      clearTimeout(timeoutId);
       state.pairInFlight = false;
       if (!r.ok || !r.body || !r.body.ok) {
-        // Soft-fail (lost race, format_mismatch, peer-cancelled) keeps
-        // polling running so the next tryMatch picks a different peer.
-        // Hard-fail (5xx, auth) we log + keep polling — AI fallback
-        // still kicks in at 60s as the safety net.
         var reason = r.body && r.body.reason ? r.body.reason : 'http_' + r.status;
-        if (reason !== 'lost_race' && reason !== 'format_mismatch' && reason !== 'queue_doc_missing') {
+        var soft = (reason === 'lost_race' || reason === 'format_mismatch'
+                 || reason === 'queue_doc_missing' || reason === 'stale_peer');
+        if (!soft) {
           console.warn('[spar] spar-pair function failed:', reason, r.body);
+          surfacePairError(reason);
         }
         return;
       }
+      clearPairError();
       try { gtag('event', 'spar_match_made', { format: formatParam }); } catch(e){}
       // The snapshot listener on my own doc will fire (the function
       // updated it) and navigate via subscribeMyDoc → /live-round.
     }).catch(function(err){
+      clearTimeout(timeoutId);
       state.pairInFlight = false;
       console.warn('[spar] spar-pair fetch failed', err);
+      surfacePairError('network');
     });
+  }
+
+  // Render a small banner near the queue stats when pairing
+  // hard-fails. Auto-clears on next successful attempt. Without this,
+  // a misconfigured auth or function 5xx leaves the user staring at
+  // "Scanning the queue" with no feedback until the AI fallback at 60s.
+  function surfacePairError(reason){
+    var stats = document.getElementById('queueStats');
+    if (!stats) return;
+    var msg;
+    if (reason === 'timeout')      msg = 'Slow response from the matchmaker. Retrying…';
+    else if (reason === 'network') msg = 'Network blip reaching the matchmaker. Retrying…';
+    else if (/^http_5/.test(reason)) msg = 'Matchmaker hiccup (' + reason + '). Retrying…';
+    else if (/^http_4/.test(reason)) msg = 'Auth issue reaching the matchmaker (' + reason + '). Try signing out + in.';
+    else                            msg = 'Pairing error (' + reason + '). Retrying…';
+    stats.innerHTML = '<div style="padding:10px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.32);border-radius:10px;color:#fbbf24;font-size:.78rem;font-weight:600">' + escHtml(msg) + '</div>';
+  }
+  function clearPairError(){
+    // Touched by a successful pair attempt; the matched-state UI takes
+    // over the queue stats area within ~900ms via subscribeMyDoc's
+    // setTimeout navigation, so we don't bother re-rendering the
+    // "N other debaters" text in between.
   }
 
   function triggerAIFallback(){

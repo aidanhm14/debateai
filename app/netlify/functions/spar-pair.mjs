@@ -47,6 +47,66 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// Stale-doc thresholds. iOS Safari often doesn't fire `pagehide` when
+// the user backgrounds the tab, so phone sessions leave ghost
+// `status: 'waiting'` docs in the queue. The client polls oldest-first
+// (joinedAt ASC), so without a stale filter the user's pair attempts
+// would always target a ghost while the real peer sits behind it in
+// the queue. STALE_PEER_MS is the per-call peer-doc skip; REAPER_MS
+// is the broader sweep cutoff (more permissive — those docs are
+// definitely abandoned).
+const STALE_PEER_MS = 3 * 60 * 1000;   // 3 min: well past the 60s AI fallback
+const REAPER_MS     = 6 * 60 * 1000;   // 6 min: anything older is obviously dead
+const REAPER_THROTTLE_MS = 60 * 1000;  // run the sweep at most once a minute
+let lastReaperAt = 0;
+
+function joinedAtMs(data) {
+  if (!data) return 0;
+  const j = data.joinedAt;
+  if (!j) return 0;
+  if (typeof j.toMillis === 'function') return j.toMillis();
+  if (j._seconds != null) return j._seconds * 1000;
+  if (j.seconds != null) return j.seconds * 1000;
+  return 0;
+}
+
+// One-shot reaper sweep. Marks any waiting doc older than REAPER_MS
+// as cancelled so the next polling cycle stops seeing it. Throttled
+// to once per minute across the whole function instance — multiple
+// concurrent pair attempts share the rate-limit. Fails open (logs +
+// continues) so a reaper hiccup never blocks a real pair.
+async function reapStaleDocs(db) {
+  const now = Date.now();
+  if (now - lastReaperAt < REAPER_THROTTLE_MS) return;
+  lastReaperAt = now;
+  try {
+    const cutoffDate = new Date(now - REAPER_MS);
+    // Firestore Timestamp comparison: pass a JS Date and the SDK
+    // coerces both sides. limit(40) caps the burst so we don't
+    // accidentally write hundreds of docs on a cold queue.
+    const snap = await db.collection('matchmaking_queue')
+      .where('status', '==', 'waiting')
+      .where('joinedAt', '<', cutoffDate)
+      .limit(40)
+      .get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    snap.docs.forEach((doc) => {
+      batch.update(doc.ref, {
+        status: 'cancelled',
+        cancelledAt: FieldValue.serverTimestamp(),
+        cancelReason: 'stale_reaper',
+      });
+    });
+    await batch.commit();
+    console.log('[spar-pair] reaped', snap.size, 'stale queue docs');
+  } catch (err) {
+    // Most likely cause if this fails: missing composite index on
+    // (status, joinedAt). Log clearly so the build owner can add it.
+    console.warn('[spar-pair] reaper failed (likely missing composite index status+joinedAt):', err?.message || err);
+  }
+}
+
 function shortName(profile) {
   const full = String(profile?.displayName || profile?.name || '').trim();
   const parts = full.split(/\s+/).filter(Boolean);
@@ -107,6 +167,12 @@ export default async (request) => {
   const proUid = pair[0];
   const conUid = pair[1];
 
+  // Fire the stale-doc reaper on the side. We don't await because the
+  // user's polling loop will pick the cleaner queue on its next tick
+  // anyway, and we'd rather not stack reaper latency on top of the
+  // pair transaction's own round-trip.
+  reapStaleDocs(db);
+
   try {
     const result = await db.runTransaction(async (tx) => {
       const [mineSnap, theirsSnap] = await Promise.all([
@@ -121,6 +187,21 @@ export default async (request) => {
       const theirs = theirsSnap.data();
       if (mine.status !== 'waiting' || theirs.status !== 'waiting') {
         return { ok: false, reason: 'lost_race' };
+      }
+      // Stale-peer skip. The client's polling sorts oldest-first, so
+      // without this filter every pair attempt would target the oldest
+      // ghost in the queue (likely an iOS Safari session that didn't
+      // fire pagehide) while the real live peer sits behind it. Mark
+      // the ghost as cancelled and ask the client to retry; on the
+      // next tick its polling will sort to a fresher peer.
+      const peerAgeMs = Date.now() - joinedAtMs(theirs);
+      if (peerAgeMs > STALE_PEER_MS) {
+        tx.update(peerRef, {
+          status: 'cancelled',
+          cancelledAt: FieldValue.serverTimestamp(),
+          cancelReason: 'stale_peer_skip',
+        });
+        return { ok: false, reason: 'stale_peer' };
       }
       // Format-mismatch defense: same format OR both broadened.
       const formatMatches = mine.format === theirs.format;
