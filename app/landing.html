@@ -5323,27 +5323,80 @@ section.ui-section .ui-lede{
 <section id="founder-video" class="founder-video-section" aria-label="Introducing Debate AI">
   <div class="wrap" style="max-width:880px">
     <div class="founder-video-eyebrow">Introducing Debate AI</div>
+    <!-- Tabbed player. Intro = founder narration. Demo = product
+         walkthrough. Tabs swap which <video> is visible + pause the
+         other so audio never overlaps. The Demo asset will be
+         replaced once recorded; until then it points at the same
+         intro file as a placeholder so the section never renders a
+         broken right-tab. -->
+    <div class="founder-video-tabs" role="tablist" aria-label="Choose what to watch">
+      <button type="button" role="tab" id="ftab-intro" aria-selected="true" aria-controls="fpanel-intro" data-fv-tab="intro" class="founder-video-tab is-active">Intro</button>
+      <button type="button" role="tab" id="ftab-demo"  aria-selected="false" aria-controls="fpanel-demo" data-fv-tab="demo"  class="founder-video-tab">Demo</button>
+    </div>
     <div class="founder-video-frame">
-      <div class="founder-intro" aria-hidden="true">
-        <div class="founder-intro-orb"></div>
-        <div class="founder-intro-text">
-          <span class="fi-line fi-line-1">Built by a debater.</span>
-          <span class="fi-line fi-line-2">Voice-first.</span>
-          <span class="fi-line fi-line-3">Six brains. Ten formats.</span>
-          <span class="fi-line fi-line-4">Live judging. Real ballots.</span>
-          <span class="fi-line fi-line-5">Pick a side. Argue out loud.</span>
-        </div>
-        <div class="founder-intro-progress" aria-hidden="true">
-          <span class="fi-tick fi-tick-1"></span>
-          <span class="fi-tick fi-tick-2"></span>
-          <span class="fi-tick fi-tick-3"></span>
-          <span class="fi-tick fi-tick-4"></span>
-          <span class="fi-tick fi-tick-5"></span>
+      <div id="fpanel-intro" role="tabpanel" aria-labelledby="ftab-intro" data-fv-panel="intro" class="founder-video-panel is-active">
+        <video
+          class="founder-video"
+          controls
+          preload="metadata"
+          playsinline
+          poster="/video/founder-intro-poster.jpg"
+          data-fv-video="intro"
+        >
+          <source src="/video/founder-intro.mp4" type="video/mp4">
+          Your browser doesn't support embedded video.
+          <a href="/video/founder-intro.mp4">Download the video</a>.
+        </video>
+      </div>
+      <div id="fpanel-demo" role="tabpanel" aria-labelledby="ftab-demo" data-fv-panel="demo" class="founder-video-panel" hidden>
+        <video
+          class="founder-video"
+          controls
+          preload="none"
+          playsinline
+          poster="/video/founder-intro-poster.jpg"
+          data-fv-video="demo"
+        >
+          <!-- Placeholder source — replace /video/founder-demo.mp4
+               + /video/founder-demo-poster.jpg with the recorded
+               walkthrough when ready. The same path/structure as
+               the intro asset so the swap is a drop-in. -->
+          <source src="/video/founder-demo.mp4" type="video/mp4">
+          Your browser doesn't support embedded video.
+        </video>
+        <div class="founder-video-placeholder" aria-hidden="true">
+          <span class="fv-ph-eyebrow">Demo</span>
+          <span class="fv-ph-line">Product walkthrough — coming next.</span>
         </div>
       </div>
-      <span class="founder-intro-credit">Debate AI</span>
     </div>
   </div>
+  <script>
+  (function(){
+    var section = document.getElementById('founder-video');
+    if (!section) return;
+    var tabs = section.querySelectorAll('[data-fv-tab]');
+    var panels = section.querySelectorAll('[data-fv-panel]');
+    function select(key){
+      tabs.forEach(function(t){
+        var on = t.getAttribute('data-fv-tab') === key;
+        t.classList.toggle('is-active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      panels.forEach(function(p){
+        var on = p.getAttribute('data-fv-panel') === key;
+        p.classList.toggle('is-active', on);
+        if (on) p.removeAttribute('hidden'); else p.setAttribute('hidden', '');
+        // Pause the off-tab video so audio can't overlap.
+        var v = p.querySelector('video');
+        if (v && !on) { try { v.pause(); } catch(e){} }
+      });
+    }
+    tabs.forEach(function(t){
+      t.addEventListener('click', function(){ select(t.getAttribute('data-fv-tab')); });
+    });
+  })();
+  </script>
 </section>
 <style>
   .founder-video-section{padding:36px 24px 24px}
@@ -5351,6 +5404,61 @@ section.ui-section .ui-lede{
     font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
     color:var(--text-dim);text-align:center;margin-bottom:16px;
   }
+  /* Tabs above the player frame. Intro on the left, Demo on the
+     right. Sits flush against the frame's top edge so the active
+     tab reads as "this is the panel below me." */
+  .founder-video-tabs{
+    display:flex;justify-content:flex-end;gap:6px;
+    margin-bottom:10px;
+  }
+  .founder-video-tab{
+    appearance:none;border:1px solid var(--border);
+    background:rgba(255,255,255,.03);color:var(--text-dim);
+    font-family:inherit;font-size:.7rem;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;
+    padding:7px 16px;border-radius:999px;cursor:pointer;
+    transition:color .18s ease, background .18s ease, border-color .18s ease;
+  }
+  .founder-video-tab:hover{color:var(--text);border-color:var(--border-strong, rgba(255,255,255,.22))}
+  .founder-video-tab.is-active{
+    background:rgba(220,38,38,.10);border-color:rgba(220,38,38,.42);
+    color:#fca5a5;
+  }
+  [data-theme="light"] .founder-video-tab{
+    background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.10);color:rgba(0,0,0,.65);
+  }
+  [data-theme="light"] .founder-video-tab:hover{color:#1a1a1f;border-color:rgba(0,0,0,.22)}
+  [data-theme="light"] .founder-video-tab.is-active{
+    background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.42);color:#b91c1c;
+  }
+  /* Each tab panel fills the frame. Hidden via [hidden] attribute
+     from the JS toggle, no display:none on .is-active needed. */
+  .founder-video-panel{position:absolute;inset:0}
+  .founder-video-panel[hidden]{display:none}
+  /* Demo placeholder overlay — shows on top of the (missing) demo
+     video so the section never renders an empty black box. Stays
+     pointer-events:none so the underlying <video> controls remain
+     usable once the file is dropped in. */
+  .founder-video-placeholder{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;pointer-events:none;
+    color:rgba(255,255,255,.78);
+    background:linear-gradient(180deg,rgba(20,20,24,.85) 0%,rgba(8,8,12,.92) 100%);
+  }
+  .founder-video-placeholder .fv-ph-eyebrow{
+    font-size:.6rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
+    color:#fca5a5;margin-bottom:10px;
+  }
+  .founder-video-placeholder .fv-ph-line{
+    font-size:.95rem;color:rgba(255,255,255,.82);letter-spacing:-.005em;
+  }
+  [data-theme="light"] .founder-video-placeholder{
+    background:linear-gradient(180deg,rgba(245,245,242,.95) 0%,rgba(232,230,222,.96) 100%);
+    color:rgba(0,0,0,.7);
+  }
+  [data-theme="light"] .founder-video-placeholder .fv-ph-eyebrow{color:#b91c1c}
+  [data-theme="light"] .founder-video-placeholder .fv-ph-line{color:rgba(0,0,0,.78)}
   .founder-video-frame{
     position:relative;
     border-radius:16px;overflow:hidden;
