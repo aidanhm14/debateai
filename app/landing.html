@@ -614,7 +614,12 @@
    than the rendered content) falls back to the theme bg instead of the
    browser's default canvas color (which is dark in headless Chrome and
    on some dark-OS configurations). */
-html{background:var(--bg)}
+/* 2026-05-18: bumped root font-size 16px -> 20px (125%) so the page
+   reads at the larger scale by default. Every rem-based size (hero
+   headline, body copy, sec-titles, etc.) inherits the bump; layout
+   elements keep their proportional relationship. Was previously
+   requiring users to manually zoom to 125% to get a nice frame. */
+html{background:var(--bg);font-size:125%}
 /* Body uses hero-grad so the gradient bleeds behind the topbar and there
    isn't a visible seam where the hero starts. The shared ui-neural-canvas
    (fixed, 100vw×100vh) draws the constellation across the entire viewport,
@@ -3653,6 +3658,195 @@ section.ui-section .ui-lede{
      all share the same nav, link order, theme picker, and CTA. -->
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
+
+<!-- ── First-visit intro modal (2026-05-18). Page loads, the orb does
+     a quiet breath animation for ~1.2s, then this overlay fades in
+     with a sign-in-with-Google CTA + a 'continue as guest' bail-out.
+     localStorage flag `debateai-intro-seen` ensures it only appears
+     once per browser. Sign-in click delegates to the existing
+     #heroGoogleSignup button which fires the Firebase Google flow
+     wired further down the page. Guest click sets the flag and just
+     dismisses (no redirect). -->
+<style>
+  .intro-modal{
+    position:fixed;inset:0;z-index:9999;
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+    opacity:0;transition:opacity .35s ease;
+    pointer-events:none;
+  }
+  .intro-modal.is-open{opacity:1;pointer-events:auto}
+  .intro-backdrop{
+    position:absolute;inset:0;
+    background:rgba(0,0,0,.6);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+  }
+  [data-theme="light"] .intro-backdrop{background:rgba(0,0,0,.42)}
+  .intro-card{
+    position:relative;z-index:1;
+    width:min(440px,92vw);
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:36px 32px 28px;
+    text-align:center;
+    box-shadow:0 30px 80px rgba(0,0,0,.5);
+    transform:scale(.96);
+    transition:transform .35s cubic-bezier(.2,.7,.2,1);
+  }
+  [data-theme="light"] .intro-card{
+    background:#fff;
+    box-shadow:0 30px 80px rgba(0,0,0,.18);
+  }
+  .intro-modal.is-open .intro-card{transform:scale(1)}
+  .intro-close{
+    position:absolute;top:10px;right:14px;
+    background:transparent;border:none;cursor:pointer;
+    color:var(--text-dim);font-size:1.4rem;line-height:1;
+    width:32px;height:32px;border-radius:999px;
+    transition:background .15s,color .15s;
+  }
+  .intro-close:hover{background:rgba(255,255,255,.06);color:var(--text)}
+  [data-theme="light"] .intro-close:hover{background:rgba(0,0,0,.05)}
+  .intro-orb{
+    position:relative;
+    width:120px;height:120px;
+    margin:0 auto 20px;
+  }
+  .intro-orb-glow{
+    position:absolute;inset:-30px;
+    background:radial-gradient(circle at center, rgba(239,68,68,.5) 0%, rgba(239,68,68,.18) 30%, transparent 70%);
+    animation:intro-glow 2.6s ease-in-out infinite;
+  }
+  .intro-orb-ring{
+    position:absolute;inset:14px;
+    border:1px solid rgba(239,68,68,.45);
+    border-radius:50%;
+    animation:intro-ring 2.6s ease-in-out infinite;
+  }
+  .intro-orb-core{
+    position:absolute;left:50%;top:50%;
+    width:10px;height:10px;margin:-5px 0 0 -5px;
+    background:#fff;border-radius:50%;
+    box-shadow:0 0 24px 4px rgba(239,68,68,.7);
+    animation:intro-core 2.6s ease-in-out infinite;
+  }
+  @keyframes intro-glow{
+    0%,100%{opacity:.55;transform:scale(1)}
+    50%{opacity:1;transform:scale(1.08)}
+  }
+  @keyframes intro-ring{
+    0%,100%{transform:scale(1);opacity:.5}
+    50%{transform:scale(1.12);opacity:.85}
+  }
+  @keyframes intro-core{
+    0%,100%{box-shadow:0 0 20px 3px rgba(239,68,68,.6)}
+    50%{box-shadow:0 0 34px 7px rgba(239,68,68,.95)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .intro-orb-glow,.intro-orb-ring,.intro-orb-core{animation:none}
+  }
+  .intro-title{
+    font-family:'Fraunces',Georgia,serif;
+    font-size:1.6rem;font-weight:600;line-height:1.15;letter-spacing:-.02em;
+    color:var(--text);margin:0 0 10px;
+    font-variation-settings:"opsz" 144, "SOFT" 60;
+  }
+  .intro-sub{
+    font-size:.9rem;line-height:1.55;color:var(--text-dim);
+    margin:0 0 22px;
+  }
+  .intro-sub strong{color:var(--text);font-weight:700}
+  .intro-ctas{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+  .intro-google{
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    padding:12px 18px;border-radius:999px;
+    background:#fff;color:#1a1a1f;
+    border:1px solid rgba(0,0,0,.10);
+    font-family:inherit;font-weight:700;font-size:.95rem;
+    cursor:pointer;
+    box-shadow:0 6px 20px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.7);
+    transition:transform .15s, box-shadow .15s;
+  }
+  .intro-google:hover{
+    transform:translateY(-1px);
+    box-shadow:0 10px 28px rgba(220,38,38,.25), inset 0 1px 0 rgba(255,255,255,.9);
+  }
+  .intro-guest{
+    background:transparent;border:none;
+    font-family:inherit;
+    font-size:.84rem;color:var(--text-dim);
+    text-decoration:underline;text-underline-offset:4px;
+    cursor:pointer;padding:8px;
+  }
+  .intro-guest:hover{color:var(--text)}
+</style>
+<div id="introModal" class="intro-modal" hidden aria-hidden="true" role="dialog" aria-modal="false" aria-labelledby="introTitle">
+  <div class="intro-backdrop" id="introBackdrop"></div>
+  <div class="intro-card">
+    <button type="button" class="intro-close" id="introClose" aria-label="Dismiss">×</button>
+    <div class="intro-orb" aria-hidden="true">
+      <div class="intro-orb-glow"></div>
+      <div class="intro-orb-ring"></div>
+      <div class="intro-orb-core"></div>
+    </div>
+    <h2 class="intro-title" id="introTitle">Listen. Question. Respond.</h2>
+    <p class="intro-sub"><strong>Debate AI is in beta</strong> and still being built. Sign in to keep your rounds, ballots, and style profile across sessions. Or jump in as a guest.</p>
+    <div class="intro-ctas">
+      <button type="button" class="intro-google" id="introGoogle">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+        Sign in with Google
+      </button>
+      <button type="button" class="intro-guest" id="introGuest">Continue as a guest</button>
+    </div>
+  </div>
+</div>
+<script>
+  (function(){
+    var KEY = 'debateai-intro-seen';
+    try { if (localStorage.getItem(KEY)) return; } catch(e){}
+    var modal = document.getElementById('introModal');
+    if (!modal) return;
+    var google = document.getElementById('introGoogle');
+    var guest = document.getElementById('introGuest');
+    var close = document.getElementById('introClose');
+    var backdrop = document.getElementById('introBackdrop');
+
+    function open(){
+      modal.hidden = false;
+      modal.setAttribute('aria-hidden','false');
+      // Next frame so the transition runs
+      requestAnimationFrame(function(){ modal.classList.add('is-open'); });
+    }
+    function dismiss(){
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden','true');
+      try { localStorage.setItem(KEY,'1'); } catch(e){}
+      setTimeout(function(){ modal.hidden = true; }, 380);
+    }
+
+    google.addEventListener('click', function(){
+      dismiss();
+      // Delegate to the hero Google CTA (already wired to Firebase).
+      var heroBtn = document.getElementById('heroGoogleSignup');
+      if (heroBtn) heroBtn.click();
+      else {
+        var realBtn = document.getElementById('googleSignupBtn');
+        if (realBtn) realBtn.click();
+      }
+    });
+    guest.addEventListener('click', dismiss);
+    close.addEventListener('click', dismiss);
+    backdrop.addEventListener('click', dismiss);
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && !modal.hidden) dismiss();
+    });
+
+    // Show after a short delay so the page renders behind first.
+    setTimeout(open, 1500);
+  })();
+</script>
 
 <!-- Vertical side-nav: secondary links pulled out of the top bar so the logo can breathe. -->
 
