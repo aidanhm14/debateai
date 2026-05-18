@@ -4953,6 +4953,48 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         rfd,
       ),
 
+      // Daily-motion retention CTA. Mirrors the one on debate-ai.html's
+      // post-round screen. Fires right after the RFD lands so the user
+      // sees a "come back tomorrow" nudge at peak engagement instead of
+      // bouncing after one round. Reads the same localStorage streak
+      // key /today and debate-ai.html both write to, so a continuing
+      // streak surfaces here too.
+      rfd && (() => {
+        let streak = 0, doneToday = false;
+        try {
+          const raw = localStorage.getItem('debateos-daily-streak');
+          if (raw) {
+            const s = JSON.parse(raw);
+            const today = new Date().toISOString().slice(0,10);
+            const yest = new Date(Date.now() - 864e5).toISOString().slice(0,10);
+            const alive = s.lastDate === today || s.lastDate === yest;
+            streak = alive ? (s.streak || 0) : 0;
+            doneToday = s.lastDate === today;
+          }
+        } catch(e) {}
+        const greenish = doneToday;
+        return el('a', {
+          href: '/today',
+          style: {
+            display:'inline-flex',alignItems:'center',gap:8,
+            margin:'14px auto 0',padding:'10px 18px',borderRadius:999,
+            background: greenish ? 'rgba(34,197,94,.08)' : 'rgba(59,130,246,.10)',
+            border: '1px solid ' + (greenish ? 'rgba(34,197,94,.32)' : 'rgba(59,130,246,.32)'),
+            color: greenish ? '#86efac' : '#93c5fd',
+            fontSize:'.82rem',fontWeight:700,letterSpacing:'.02em',
+            textDecoration:'none',width:'fit-content',
+          },
+        },
+          streak >= 1
+            ? (doneToday
+                ? 'Day ' + streak + ' streak. New motion tomorrow at midnight UTC →'
+                : 'Day ' + streak + ' streak. Take today’s motion →')
+            : (doneToday
+                ? 'New motion tomorrow at midnight UTC →'
+                : 'Take today’s motion next →')
+        );
+      })(),
+
       el('div', { className:'card', style:{marginTop:14} },
         // Transcript card header — title on the left, action buttons on
         // the right. Copy / Download .txt let users capture the full
