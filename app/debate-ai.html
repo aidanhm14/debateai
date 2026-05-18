@@ -2562,22 +2562,32 @@ async function callAI(sys, user, onChunk, brainKey, opts){
       body:JSON.stringify(body),
     });
   }
-  // If Claude proxy itself returned an HTML error page, the backend is offline.
-  // Try BYOK direct-to-Anthropic as a last resort. Prompt for key if not stored.
+  // If Claude proxy itself returned an HTML error page, every server brain
+  // is effectively dead. Try BYOK direct-to-Anthropic ONLY if the user
+  // has previously stored a key — never pop a window.prompt() mid-debate.
+  // Popping the prompt every time the backend hiccupped was the regression
+  // the user flagged on 2026-05-18: they're trying to debate, a Realtime
+  // hiccup or rate limit hits, and a "Paste your Anthropic API key" modal
+  // shoves into their face. The friendly inline notice is the right
+  // failure mode; a hostile modal is not.
   const finalCt=r.headers.get('content-type')||'';
   if((!r.ok || finalCt.includes('text/html')) && currentEndpoint==='/api/claude'){
-    body.model=BRAINS.claude.model;
-    let direct=await callAnthropicDirect(body);
-    if(!direct || !direct.ok){
-      const key=await promptForKey();
-      if(!key) throw new Error('AI backend is offline and no API key provided. Try again later or get a free key at console.anthropic.com to unlock unlimited access right now.');
-      direct=await callAnthropicDirect(body);
+    const storedKey = getStoredKey();
+    if (storedKey){
+      body.model=BRAINS.claude.model;
+      const direct=await callAnthropicDirect(body);
       if(!direct || !direct.ok){
-        clearStoredKey();
-        throw new Error('That key didn\'t work. Double-check it on console.anthropic.com and try again.');
+        // Saved key is invalid OR Anthropic itself is having issues. Clear
+        // the bad key, but don't prompt — let the friendly error render.
+        if(direct && (direct.status===401 || direct.status===403)) clearStoredKey();
+        throw new Error('AI backend is offline. Try again in a moment, or pick a different brain in Settings.');
       }
+      r=direct;
+    } else {
+      // No key, every server brain down. Surface the friendly notice and
+      // let the UI's catch-block render it inline. No modal.
+      throw new Error('AI backend is offline. Try again in a moment, or pick a different brain in Settings.');
     }
-    r=direct;
   }
   if(!r.ok){
     const txt=await r.text().catch(()=>'');
