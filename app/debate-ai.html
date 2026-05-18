@@ -489,6 +489,98 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   border-radius:14px;max-width:480px;margin:0 auto 20px;text-align:center;
 }
 
+/* ── Prep Room (birds-eye seat chart) ─────────
+   Two side panels flank the prep timer + textarea. Each panel
+   shows one side of the debate room from above. Seats laid out
+   vertically; the user's seat(s) (matching the selected `side`)
+   get a red highlight + label, the rest stay ivory outlines so
+   the user can still see the full room shape and where the
+   opponent sits. Pseat = "prep seat" namespace; everything inside
+   the SVG carries that prefix to avoid colliding with other
+   .seat* / .room* classes elsewhere. Layouts driven by
+   SEAT_LAYOUTS keyed off the current format. */
+.prep-room{
+  position:absolute;
+  top:128px;bottom:48px;
+  width:190px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;
+  pointer-events:none;z-index:1;
+}
+.prep-room-left { left:max(2vw,12px); }
+.prep-room-right{ right:max(2vw,12px); }
+.prep-room-eyebrow{
+  font-size:.58rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(230,219,195,.4);
+}
+.prep-room-eyebrow.is-you{color:#ef4444}
+.prep-room-svg{
+  width:100%;height:auto;max-height:calc(100% - 32px);
+  filter:drop-shadow(0 4px 18px rgba(0,0,0,.4));
+}
+.pseat-back{
+  fill:rgba(230,219,195,.22);
+  stroke:rgba(230,219,195,.4);
+  stroke-width:.8;
+  transition:fill .4s, stroke .4s;
+}
+.pseat-cushion{
+  fill:rgba(230,219,195,.04);
+  stroke:rgba(230,219,195,.3);
+  stroke-width:1;
+  transition:fill .4s, stroke .4s;
+}
+.pseat-label{
+  fill:rgba(230,219,195,.55);
+  font-size:13px;font-weight:700;letter-spacing:.04em;
+  font-family:inherit;
+  transition:fill .4s;
+}
+.pseat-floor{
+  fill:#ef4444;opacity:0;
+  transition:opacity .55s;
+}
+.pseat-active .pseat-back{
+  fill:rgba(239,68,68,.6);
+  stroke:rgba(239,68,68,.85);
+}
+.pseat-active .pseat-cushion{
+  fill:rgba(239,68,68,.18);
+  stroke:rgba(239,68,68,.7);
+}
+.pseat-active .pseat-label{
+  fill:#fff;
+}
+.pseat-active .pseat-floor{
+  animation:pseat-pulse 2.6s ease-in-out infinite;
+}
+.pseat-team{
+  fill:rgba(230,219,195,.42);
+  font-size:9px;font-weight:800;letter-spacing:.18em;
+  font-family:inherit;
+}
+.pseat-divider{
+  stroke:rgba(230,219,195,.18);stroke-width:1;
+  stroke-dasharray:2,4;
+}
+.pseat-judge-edge{
+  stroke:rgba(230,219,195,.16);stroke-width:1;
+  stroke-dasharray:2,5;
+}
+@keyframes pseat-pulse{
+  0%,100% { opacity:.16; }
+  50%     { opacity:.42; }
+}
+@media(max-width:1180px){.prep-room{display:none}}
+[data-lighting="light"] .pseat-back{fill:rgba(0,0,0,.1);stroke:rgba(0,0,0,.2)}
+[data-lighting="light"] .pseat-cushion{fill:rgba(0,0,0,.02);stroke:rgba(0,0,0,.18)}
+[data-lighting="light"] .pseat-label{fill:rgba(0,0,0,.42)}
+[data-lighting="light"] .prep-room-eyebrow{color:rgba(0,0,0,.4)}
+[data-lighting="light"] .prep-room-eyebrow.is-you{color:#b91c1c}
+[data-lighting="light"] .pseat-team{fill:rgba(0,0,0,.42)}
+[data-lighting="light"] .pseat-divider{stroke:rgba(0,0,0,.16)}
+[data-lighting="light"] .pseat-judge-edge{stroke:rgba(0,0,0,.16)}
+
 /* ── Responsive ──────────────────────
    On mobile the 4 secondary nav links (Home / High School / Learn / About)
    + the lighting toggle wrap to 2 rows and collide with the sign-in button.
@@ -1506,6 +1598,191 @@ const FORMATS = {
     prep: 300,
   },
 };
+
+/* ── BIRDS-EYE SEAT LAYOUTS ────────────
+   Drives the two prep-page side panels that show the room from
+   above. Each layout splits seats into `left` and `right` arrays
+   keyed off the natural debate-room geometry (gov / aff / pro /
+   sponsor / student on the left; opp / neg / con / opponent /
+   examiner on the right). The `side` field on each seat is
+   matched against the user's selected side to drive the red
+   highlight, so the panels are correct regardless of which side
+   the user picked. `team` (BP / Worlds only) tags the two seats
+   that share an opening or closing half, so the renderer can
+   draw a dashed divider + "OG" / "CG" / "OO" / "CO" label
+   between them. */
+const SEAT_LAYOUTS = {
+  quick: {
+    left:  [{code:'PRO', label:'Pro', side:'pro'}],
+    right: [{code:'CON', label:'Con', side:'con'}],
+  },
+  apda: {
+    left:  [{code:'PM', label:'PM', side:'gov'}, {code:'MG', label:'MG', side:'gov'}],
+    right: [{code:'LO', label:'LO', side:'opp'}, {code:'MO', label:'MO', side:'opp'}],
+  },
+  bp: {
+    left:  [
+      {code:'PM',  label:'PM',  side:'og', team:'OG'},
+      {code:'DPM', label:'DPM', side:'og', team:'OG'},
+      {code:'MG',  label:'MG',  side:'og', team:'CG'},
+      {code:'GW',  label:'GW',  side:'og', team:'CG'},
+    ],
+    right: [
+      {code:'LO',  label:'LO',  side:'oo', team:'OO'},
+      {code:'DLO', label:'DLO', side:'oo', team:'OO'},
+      {code:'MO',  label:'MO',  side:'oo', team:'CO'},
+      {code:'OW',  label:'OW',  side:'oo', team:'CO'},
+    ],
+  },
+  asian: {
+    left:  [
+      {code:'PM',  label:'PM',  side:'gov'},
+      {code:'DPM', label:'DPM', side:'gov'},
+      {code:'GW',  label:'GW',  side:'gov'},
+    ],
+    right: [
+      {code:'LO',  label:'LO',  side:'opp'},
+      {code:'DLO', label:'DLO', side:'opp'},
+      {code:'OW',  label:'OW',  side:'opp'},
+    ],
+  },
+  ld: {
+    left:  [{code:'AFF', label:'Aff', side:'aff'}],
+    right: [{code:'NEG', label:'Neg', side:'neg'}],
+  },
+  pf: {
+    left:  [{code:'P1', label:'Pro 1', side:'pro'}, {code:'P2', label:'Pro 2', side:'pro'}],
+    right: [{code:'C1', label:'Con 1', side:'con'}, {code:'C2', label:'Con 2', side:'con'}],
+  },
+  policy: {
+    left:  [{code:'1A', label:'1A', side:'aff'}, {code:'2A', label:'2A', side:'aff'}],
+    right: [{code:'1N', label:'1N', side:'neg'}, {code:'2N', label:'2N', side:'neg'}],
+  },
+  congress: {
+    left:  [
+      {code:'P1', label:'Pro 1', side:'pro'},
+      {code:'P2', label:'Pro 2', side:'pro'},
+      {code:'P3', label:'Pro 3', side:'pro'},
+    ],
+    right: [
+      {code:'C1', label:'Con 1', side:'con'},
+      {code:'C2', label:'Con 2', side:'con'},
+      {code:'C3', label:'Con 3', side:'con'},
+    ],
+  },
+  viva: {
+    left:  [{code:'STU', label:'Student',  side:'student'}],
+    right: [{code:'EX',  label:'Examiner', side:'examiner'}],
+  },
+  mun: {
+    left:  [{code:'SP',  label:'Sponsor', side:'sponsor'}],
+    right: [{code:'OPP', label:'Opp',     side:'opponent'}],
+  },
+};
+SEAT_LAYOUTS.worlds = SEAT_LAYOUTS.bp;
+
+/* Renderer for one side panel. Builds a single SVG with seats
+   stacked vertically. Chair-back sits on the OUTER edge (away
+   from center of screen) so the figure reads as "facing the
+   judge" — i.e. facing the center where the user / textarea is.
+   Active seats (seat.side === userSide) get a red cushion + back
+   + label + floor-glow halo; inactive seats stay ivory outlines. */
+function renderPrepRoomPanel(layout, panelSide, userSide, sideLabels){
+  const seats = panelSide === 'left' ? layout.left : layout.right;
+  if(!seats || !seats.length) return null;
+  const isLeft = panelSide === 'left';
+  const PANEL_W = 188;
+  const SEAT_H  = 78;
+  const SEAT_W  = 128;
+  const PAD_TOP = 22;
+  const TEAM_GAP = 22;
+  // Count team transitions to compute total SVG height
+  let teamGaps = 0;
+  for(let i=1;i<seats.length;i++){
+    if(seats[i].team && seats[i-1].team && seats[i].team !== seats[i-1].team) teamGaps++;
+  }
+  const PANEL_H = PAD_TOP*2 + seats.length*SEAT_H + teamGaps*TEAM_GAP;
+  // Build seat nodes
+  const nodes = [];
+  // Judge edge — dashed line on the INNER edge of the panel
+  // (right edge for the left panel, left edge for the right
+  //  panel). Reads as "the table / judge sits here, just off
+  //  the panel toward the center of the page."
+  nodes.push(el('line',{
+    key:'je',
+    x1: isLeft ? PANEL_W-2 : 2,
+    x2: isLeft ? PANEL_W-2 : 2,
+    y1: 8, y2: PANEL_H-8,
+    className:'pseat-judge-edge',
+  }));
+  let y = PAD_TOP;
+  let prevTeam = null;
+  seats.forEach((seat,i)=>{
+    if(prevTeam !== null && seat.team && seat.team !== prevTeam){
+      const dividerY = y + TEAM_GAP/2 - 6;
+      nodes.push(el('line',{
+        key:'d'+i,
+        x1:14, x2:PANEL_W-14,
+        y1:dividerY, y2:dividerY,
+        className:'pseat-divider',
+      }));
+      nodes.push(el('text',{
+        key:'tl'+i,
+        x:PANEL_W/2, y:dividerY-4,
+        textAnchor:'middle', className:'pseat-team',
+      }, seat.team));
+      y += TEAM_GAP;
+    }
+    const active = seat.side === userSide;
+    const backX = isLeft ? 8 : PANEL_W-20;
+    const cushX = isLeft ? 24 : PANEL_W-24-SEAT_W;
+    const labelX = cushX + SEAT_W/2;
+    const labelY = y + SEAT_H/2 + 4;
+    nodes.push(el('g',{
+      key:'s'+i,
+      className:'pseat'+(active?' pseat-active':''),
+    },
+      // Floor halo (red glow under active seats; invisible otherwise)
+      el('ellipse',{
+        cx:cushX+SEAT_W/2, cy:y+SEAT_H-4,
+        rx:SEAT_W*.46, ry:7,
+        className:'pseat-floor',
+      }),
+      // Chair back on outer edge
+      el('rect',{
+        x:backX, y:y+14, width:12, height:SEAT_H-28, rx:4,
+        className:'pseat-back',
+      }),
+      // Cushion (main body)
+      el('rect',{
+        x:cushX, y:y+8, width:SEAT_W, height:SEAT_H-16, rx:18,
+        className:'pseat-cushion',
+      }),
+      // Position label
+      el('text',{
+        x:labelX, y:labelY,
+        textAnchor:'middle', className:'pseat-label',
+      }, seat.label),
+    ));
+    prevTeam = seat.team || prevTeam;
+    y += SEAT_H;
+  });
+  // Eyebrow above the panel — names the side. Goes red if it's
+  // the user's side (any seat in this panel has side===userSide).
+  const youHere = seats.some(s=>s.side===userSide);
+  const sideKey = seats[0].side;
+  const sideName = (sideLabels && sideLabels[sideKey]) || sideKey;
+  return el('div',{className:'prep-room prep-room-'+panelSide,'aria-hidden':'true'},
+    el('div',{className:'prep-room-eyebrow'+(youHere?' is-you':'')},
+      youHere ? ('You · '+sideName) : sideName,
+    ),
+    el('svg',{
+      className:'prep-room-svg',
+      viewBox:'0 0 '+PANEL_W+' '+PANEL_H,
+      preserveAspectRatio:'xMidYMid meet',
+    }, ...nodes),
+  );
+}
 
 /* ── JUDGE PARADIGMS ───────────────────
  * User picks the judge they want to train against. The AI opponent reads
@@ -8316,12 +8593,21 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   );
 
   // ── PREP ──
-  if(phase==='prep') return el('div',{className:'page'},
+  if(phase==='prep'){
+  const seatLayout = SEAT_LAYOUTS[format] || null;
+  return el('div',{className:'page'},
     shortcutsOverlay,
     accountOverlay,
     quotaCtaOverlay,
     helpFloatingButton,
     el('div',{className:'ambient'}),bar,
+    // Birds-eye side panels — left and right flank the prep stage.
+    // Show the room from above with the user's seat(s) highlighted.
+    // Hidden under 1180px via CSS so the centered stage breathes on
+    // narrower viewports. aria-hidden — purely decorative; the side
+    // chip in the stage already states "Pro · Quick Clash" etc.
+    seatLayout && renderPrepRoomPanel(seatLayout,'left', side, fmt.sideLabels),
+    seatLayout && renderPrepRoomPanel(seatLayout,'right',side, fmt.sideLabels),
     el('div',{className:stageClass},
       el('div',{className:'t-label'},'Prep Time'),
       el('div',{className:'t-time'+(prepTimer.left<=60?' danger':'')},prepTimer.fmt(prepTimer.left)),
@@ -8391,6 +8677,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       ),
     )
   );
+  }
 
   // ── SPEECH ──
   if(phase==='speech'){
