@@ -3658,6 +3658,109 @@ section.ui-section .ui-lede{
 })();
 </script>
 
+<!-- India-context layer. 80% of traffic is Indian; the landing was
+     showing them USD prices and never hinting that the UI flips to
+     Hindi with one click. Single inline IIFE so it ships with the
+     page (no extra request) and stays defensive (every API used has
+     a fallback for old browsers).
+
+     India detection — three independent signals OR'd:
+       1. Intl timezone === 'Asia/Calcutta' / 'Asia/Kolkata' (most reliable)
+       2. navigator.language matches /-IN$/ or /^hi/ (system locale)
+       3. The pre-set debateos-locale === 'hi' (user already picked it)
+     Any one truthy → user is in / coming from India.
+
+     Actions when true:
+       a. Swap every .da-price[data-inr] node to its INR amount so
+          ₹85/mo / ₹419/year / ₹1,249 / ₹1,675/year displays in the
+          pricing FAQ instead of $1/$5/$14.99/$20.
+       b. If the saved UI locale is English (default), inject a small
+          dismissable banner offering "हिन्दी में पढ़ें" — one tap
+          fires window.__setLang('hi') (defined above) which sets
+          the googtrans cookie and reloads in Hindi.
+     -->
+<script>
+(function(){
+  function isIndia(){
+    try {
+      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      if (tz === 'Asia/Calcutta' || tz === 'Asia/Kolkata') return true;
+    } catch(e){}
+    try {
+      var langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language||'']);
+      for (var i=0;i<langs.length;i++){
+        var L = String(langs[i]||'').toLowerCase();
+        if (/-in$/.test(L) || /^hi(\b|-)/.test(L)) return true;
+      }
+    } catch(e){}
+    try {
+      var locale = localStorage.getItem('debateos-locale') || '';
+      if (locale === 'hi') return true;
+    } catch(e){}
+    return false;
+  }
+  if (!isIndia()) return;
+  // ── Pricing swap: USD → INR ────────────────────────────────────
+  function swapPrices(){
+    var nodes = document.querySelectorAll('.da-price[data-inr]');
+    for (var i=0;i<nodes.length;i++){
+      var n = nodes[i];
+      var inr = n.getAttribute('data-inr');
+      if (inr) n.textContent = inr;
+    }
+  }
+  // ── Hindi UI banner ────────────────────────────────────────────
+  // One soft prompt, top-of-page, dismissable. Skipped if the user
+  // already picked Hindi (or already dismissed) so we don't nag.
+  function mountHindiBanner(){
+    try {
+      var locale = localStorage.getItem('debateos-locale') || '';
+      var dismissed = localStorage.getItem('debateos-hindi-prompt-dismissed') === '1';
+      if (locale === 'hi' || dismissed) return;
+    } catch(e){}
+    var bar = document.createElement('div');
+    bar.setAttribute('role','dialog');
+    bar.setAttribute('aria-label','Read the site in Hindi');
+    bar.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);' +
+      'z-index:9998;display:flex;align-items:center;gap:10px;' +
+      'padding:10px 14px 10px 16px;border-radius:999px;' +
+      'background:rgba(20,10,18,.92);color:#fff;font-family:Inter,system-ui,-apple-system,sans-serif;' +
+      'font-size:.82rem;line-height:1;backdrop-filter:blur(8px);' +
+      'box-shadow:0 8px 30px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08);max-width:calc(100vw - 24px);';
+    var msg = document.createElement('span');
+    msg.style.cssText = 'opacity:.85';
+    msg.textContent = 'हिन्दी में पढ़ें?  ·  Read in Hindi?';
+    var go = document.createElement('button');
+    go.type = 'button';
+    go.textContent = 'हिन्दी';
+    go.style.cssText = 'padding:6px 14px;border-radius:999px;border:none;cursor:pointer;' +
+      'background:#ef4444;color:#fff;font-weight:700;font-family:inherit;font-size:.78rem;letter-spacing:.02em;';
+    go.addEventListener('click', function(){
+      try { localStorage.setItem('debateos-hindi-prompt-dismissed','1'); } catch(e){}
+      if (window.__setLang) window.__setLang('hi');
+    });
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.setAttribute('aria-label','Dismiss');
+    close.textContent = '×';
+    close.style.cssText = 'padding:2px 8px;border:none;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;font-size:1.1rem;line-height:1;font-family:inherit;';
+    close.addEventListener('click', function(){
+      try { localStorage.setItem('debateos-hindi-prompt-dismissed','1'); } catch(e){}
+      bar.remove();
+    });
+    bar.appendChild(msg);
+    bar.appendChild(go);
+    bar.appendChild(close);
+    document.body.appendChild(bar);
+  }
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ swapPrices(); mountHindiBanner(); });
+  } else {
+    swapPrices(); mountHindiBanner();
+  }
+})();
+</script>
+
 <!-- Welcome card removed. First-visit popup was doing three jobs at once
      (description + guide + donate CTA) and stepping on the hero. The
      description lives in Tools/How sections; donate has its own section
@@ -3958,7 +4061,7 @@ section.ui-section .ui-lede{
     <div class="editorial-hero">
       <a class="editorial-eyebrow editorial-eyebrow-link" href="https://discord.gg/2dcFV2frM" target="_blank" rel="noopener" aria-label="Debate AI is in public beta — join the Discord to give feedback">
         <span class="ee-dot" aria-hidden="true"></span>
-        Public beta <span class="ee-sep">·</span> still being built <span class="ee-sep">·</span> feedback welcome
+        Live <span class="ee-sep">·</span> WSDC <span class="ee-sep">·</span> Asian Parli <span class="ee-sep">·</span> BP <span class="ee-sep">·</span> PF <span class="ee-sep">·</span> more
       </a>
       <h1 class="hero-headline">
         Debate AI. <span class="hh-accent">Rethink argumentation.</span>
@@ -7022,19 +7125,19 @@ window.addEventListener('load', function(){
             <div style="flex:1 1 260px;color:var(--text-dim);font-size:.85rem;line-height:1.5">15 rounds anonymous, 15 more on sign-in. 30 total to actually feel out the engine.</div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
-            <div style="flex:0 0 auto;min-width:150px"><strong style="color:var(--text);font-weight:700;font-size:.92rem">BYOK</strong><span style="display:inline-block;margin-left:8px;padding:2px 7px;border-radius:4px;background:rgba(220,38,38,.14);color:#f87171;font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle">Claude only</span><span style="color:var(--text-dim);font-size:.82rem;font-weight:600;margin-left:10px">$1/mo</span></div>
+            <div style="flex:0 0 auto;min-width:150px"><strong style="color:var(--text);font-weight:700;font-size:.92rem">BYOK</strong><span style="display:inline-block;margin-left:8px;padding:2px 7px;border-radius:4px;background:rgba(220,38,38,.14);color:#f87171;font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle">Claude only</span><span class="da-price" data-usd="$1/mo" data-inr="₹85/mo" style="color:var(--text-dim);font-size:.82rem;font-weight:600;margin-left:10px">$1/mo</span></div>
             <div style="flex:1 1 260px;color:var(--text-dim);font-size:.85rem;line-height:1.5">Unlimited Claude on your own Anthropic API key. Other brains are not covered on this tier.</div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
-            <div style="flex:0 0 auto;min-width:150px"><strong style="color:var(--text);font-weight:700;font-size:.92rem">Individual</strong><span style="color:var(--text-dim);font-size:.82rem;font-weight:600;margin-left:10px">$5/year</span></div>
+            <div style="flex:0 0 auto;min-width:150px"><strong style="color:var(--text);font-weight:700;font-size:.92rem">Individual</strong><span class="da-price" data-usd="$5/year" data-inr="₹419/year" style="color:var(--text-dim);font-size:.82rem;font-weight:600;margin-left:10px">$5/year</span></div>
             <div style="flex:1 1 260px;color:var(--text-dim);font-size:.85rem;line-height:1.5">250 requests/mo across all six brains (Claude, GPT, Gemini, Grok, DeepSeek, Open Lab). HD voice included. Billed once a year, not monthly.</div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
-            <div style="flex:0 0 auto;min-width:150px"><strong style="color:var(--text);font-weight:700;font-size:.92rem">Lifetime</strong><span style="color:var(--text-dim);font-size:.82rem;font-weight:600;margin-left:10px">$14.99 once</span></div>
+            <div style="flex:0 0 auto;min-width:150px"><strong style="color:var(--text);font-weight:700;font-size:.92rem">Lifetime</strong><span class="da-price" data-usd="$14.99 once" data-inr="₹1,249 once" style="color:var(--text-dim);font-size:.82rem;font-weight:600;margin-left:10px">$14.99 once</span></div>
             <div style="flex:1 1 260px;color:var(--text-dim);font-size:.85rem;line-height:1.5">Same 250 requests/mo as Individual, but a one-time charge. No recurring bill.</div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:12px 16px;flex-wrap:wrap">
-            <div style="flex:0 0 auto;min-width:150px"><strong style="color:var(--text);font-weight:700;font-size:.92rem">Team</strong><span style="color:var(--text-dim);font-size:.82rem;font-weight:600;margin-left:10px">$20/year</span></div>
+            <div style="flex:0 0 auto;min-width:150px"><strong style="color:var(--text);font-weight:700;font-size:.92rem">Team</strong><span class="da-price" data-usd="$20/year" data-inr="₹1,675/year" style="color:var(--text-dim);font-size:.82rem;font-weight:600;margin-left:10px">$20/year</span></div>
             <div style="flex:1 1 260px;color:var(--text-dim);font-size:.85rem;line-height:1.5">1,500 requests/mo across 50 seats. Shared cases and analytics.</div>
           </div>
         </div>
