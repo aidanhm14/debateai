@@ -195,7 +195,13 @@ async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0) {
         style,
         use_speaker_boost: true,
       },
-      optimize_streaming_latency: 3,
+      // Max-aggressive first-byte mode. ElevenLabs documents 4 as
+      // "max latency optimizations, including text normalizer turned off
+      // for the first chunk". For mid-round AI speeches where the user
+      // is already braced for the next debater to start talking, we
+      // care more about time-to-first-audio than the marginal prosody
+      // hit on the opening word. Was 3 prior to 2026-05-19.
+      optimize_streaming_latency: 4,
     }),
   });
 
@@ -465,6 +471,19 @@ export default async (request, context) => {
 
   try {
     const body = await request.json();
+    // Warm-up handshake: lets the client kick a request to this function
+    // when the prep phase loads so the Netlify instance is already hot
+    // by the time the first AI speech needs synthesis. Returns 200
+    // immediately without touching ElevenLabs / OpenAI / Cartesia /
+    // Inworld — no provider credit burned, no rate-limit consumed
+    // beyond the per-IP cap already enforced above. Saves the ~1-3s
+    // cold-start penalty on the first speech of a session.
+    if (body && body.warm === true) {
+      return new Response(JSON.stringify({ ok: true, warm: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
     const rawText = (body.text || '').slice(0, MAX_TEXT_LENGTH);
     const voice = body.voice || 'onyx';
     const speed = Math.max(0.75, Math.min(2.0, body.speed || 1.0));

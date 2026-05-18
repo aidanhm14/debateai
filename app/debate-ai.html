@@ -3289,6 +3289,7 @@ function useTTS(){
       if(token.cancelled) return resolve();
       const url=URL.createObjectURL(blob);
       const audio=new Audio(url);
+      audio.preload='auto';
       audioRef.current=audio;
       audio.playbackRate=rateRef.current;
       audio.onended=()=>{URL.revokeObjectURL(url);resolve()};
@@ -3391,6 +3392,7 @@ function useTTS(){
           if(!blob||blob.size<500){durations[i]=0;i++;continue}
           const url=URL.createObjectURL(blob);
           const audio=new Audio(url);
+          audio.preload='auto';
           if(tokenRef.current!==token){URL.revokeObjectURL(url);break}
           audioRef.current=audio;
           audio.playbackRate=rateRef.current;
@@ -3658,6 +3660,7 @@ function useTTS(){
         if(token.cancelled) return;
         if(onStart) onStart();
         const audio=new Audio(URL.createObjectURL(blob));
+        audio.preload='auto';
         if(tokenRef.current!==token) return;
         audioRef.current=audio;
         audio.playbackRate=rateRef.current;
@@ -5422,6 +5425,26 @@ function App(){
   // Init orb in speech phase
   useEffect(()=>{if(phase==='speech'){orb.init()}return()=>orb.kill()},[phase]);
 
+  // Pre-warm /api/tts when prep loads. Netlify functions cold-start
+  // around 1-3s on first hit; if that hit is the first AI speech the
+  // user sits through silent dead air before the round actually
+  // starts. Firing a `warm:true` ping during prep makes the TTS
+  // function instance hot before the user even clicks Start Round.
+  // Server short-circuits to a 200 OK without calling any TTS
+  // provider, so no credits burned, no rate-limit consumed beyond
+  // the per-IP cap. Fire-and-forget; failures are silently OK.
+  useEffect(()=>{
+    if(phase!=='prep') return;
+    try{
+      fetch('/api/tts',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({warm:true}),
+        keepalive:true,
+      }).catch(()=>{});
+    }catch{}
+  },[phase]);
+
   // Phase transition helper. Fades the page out (vis=false → opacity:0),
   // runs the supplied callback, swaps phase, fades back in.
   //
@@ -5627,11 +5650,15 @@ function App(){
         // while AI is still generating the rest of the speech.
         const blobPromises=[];  // grows as AI streams. playStream consumes them live
         let lastChunkEnd=0;
-        // First chunk fires sooner (12 words ≈ 1 sentence) so audio starts
-        // ~30% earlier on speech-1. Later chunks can be longer (smoother
-        // delivery, fewer cuts). MAX kept at 200 so we never wait forever
-        // when the AI writes a long unbroken paragraph.
-        const MIN_CHUNK_WORDS_FIRST=12;
+        // First chunk fires sooner (7 words ≈ short opening clause) so
+        // audio starts ~half a second earlier on speech-1. Bumped down
+        // from 12 → 7 after timing the round: smaller first chunk = LLM
+        // produces it sooner AND ElevenLabs/OpenAI render it sooner, so
+        // the blob lands in the client's hands faster. Later chunks stay
+        // at 20+ for smoother delivery and fewer perceptible cuts. MAX
+        // kept at 200 so we never wait forever when the AI writes a long
+        // unbroken paragraph.
+        const MIN_CHUNK_WORDS_FIRST=7;
         const MIN_CHUNK_WORDS=20;
         const MAX_CHUNK_WORDS=200;
         let playbackStarted=false;
