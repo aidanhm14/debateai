@@ -221,7 +221,7 @@ function renderPage(id, doc) {
 
   <footer>
     <span>© 2026 Debate AI</span>
-    <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/champions">Champions</a> · <a href="/rounds">Browse rounds</a></span>
+    <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/champions">Champions</a> · <a href="/community#rounds">Browse rounds</a></span>
   </footer>
 </main>
 </body></html>`;

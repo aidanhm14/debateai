@@ -4,7 +4,7 @@
 // uses lastmod as a freshness hint, and a hardcoded date that never
 // moves gets discounted over time. Moving this to a function lets us
 // emit today's UTC date for the entries that genuinely change daily
-// (today / rounds / community / live / champions / leaderboard) while
+// (today / community / live / champions / leaderboard) while
 // keeping stable historical dates on truly-static pages (/pricing,
 // /landing, format references) so the freshness signal stays honest.
 //
@@ -24,7 +24,7 @@ const SITE_ORIGIN = 'https://debateai.com';
 // whole sitemap's trustworthiness.
 const STABLE_DATE = '2026-05-18'; // bumped when meaningful content changes
 const DYNAMIC = new Set([
-  '/', '/today', '/rounds', '/community', '/live',
+  '/', '/today', '/community', '/live',
   '/champions', '/leaderboard', '/exhibition',
 ]);
 
@@ -33,7 +33,10 @@ const URLS = [
   { path: '/debate-ai',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
   { path: '/today',           changefreq: 'daily',   priority: '0.85' },
-  { path: '/rounds',          changefreq: 'hourly',  priority: '0.82' },
+  // /rounds retired 2026-05-18 — the published-rounds listing now
+  // lives as a tab inside /community (#rounds). Don't list it here;
+  // /community already carries the priority weight for that surface,
+  // and the individual round corpus is sitemap-rounds.xml.
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   { path: '/exhibition',      changefreq: 'weekly',  priority: '0.75' },
   { path: '/learn/formats/apda',     changefreq: 'monthly', priority: '0.78' },

@@ -82,7 +82,10 @@
     { href: '/voice-debate',  label: 'Voice'        },
     { href: '/app#case',      label: 'Prep'         },
     { href: '/today',         label: 'Today'        },
-    { href: '/rounds',        label: 'Rounds'       },
+    // 2026-05-18: /rounds standalone listing retired — the published-
+    // rounds tab now lives inside /community. The topbar already links
+    // to Community below, so a separate Rounds entry would just point
+    // to the same surface twice.
     { href: '/live',          label: 'Live', live: true },
     { href: '/champions',     label: 'Champions'    },
     { href: '/community',     label: 'Community'    },
