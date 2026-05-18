@@ -106,10 +106,12 @@ export default async (req) => {
   }
 
   const now = Date.now();
-  // Window: 5-15 min from now. The 5-min cron interval means a
-  // challenge scheduled exactly 10 min out lands in this window once.
+  // Window: 5-25 min from now. Paired with the 15-min cron cadence so
+  // every scheduled debate lands in exactly one run (reminderSent guard
+  // also dedupes if a challenge straddles two windows). Reminder fires
+  // 5-25 min before kickoff, median ~15 min.
   const windowStart = now + 5 * 60 * 1000;
-  const windowEnd   = now + 15 * 60 * 1000;
+  const windowEnd   = now + 25 * 60 * 1000;
 
   // Firestore stores scheduledAt as a number (epoch ms) per the
   // /live.html publishChallenge schema, so a numeric range query
@@ -182,10 +184,10 @@ export default async (req) => {
   });
 };
 
-// Netlify scheduled functions: runs every 5 minutes. The minimum
-// supported interval is 1 minute but 5 is plenty for a 10-min
-// reminder window — it just means the reminder fires anywhere from
-// 5 to 15 min before kickoff (median ~10 min).
+// Netlify scheduled functions: runs every 15 minutes. Dropped from
+// 5-min on 2026-05-18 to cut invocation count by ~70% (288/day →
+// 96/day). Window above widened to 5-25 min so coverage stays full
+// with no gaps. Reminder fires 5-25 min before kickoff, median ~15 min.
 export const config = {
-  schedule: '*/5 * * * *',
+  schedule: '*/15 * * * *',
 };

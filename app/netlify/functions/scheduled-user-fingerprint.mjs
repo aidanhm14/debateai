@@ -15,8 +15,8 @@
 // a concrete reason to come back. Idempotent via user_profiles.
 // firstFingerprintEmailSentAt.
 //
-// Cost: ~$0.003 per user-pass via Haiku. At a cap of 60 users/night
-// that's ~$0.18/night, ~$5/month at current scale.
+// Cost: ~$0.003 per user-pass via Haiku. At a cap of 30 users/night
+// that's ~$0.09/night, ~$2.70/month at current scale.
 //
 // Selection criteria:
 //   - User has ≥ MIN_ROUNDS generations total
@@ -37,9 +37,14 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.FINGERPRINT_MODEL || 'claude-haiku-4-5-20251001';
-const MAX_USERS = parseInt(process.env.FINGERPRINT_MAX_USERS || '60', 10);
+// Tightened 2026-05-18 (60 → 30 users/night, 7 → 14 days freshness) on a
+// credit-burn audit. Fingerprints describe an argumentative style and
+// don't drift fast enough to need weekly refresh — biweekly is plenty,
+// and capping the per-night pool halves the per-night Haiku spend.
+// Env overrides still let us re-tune without a redeploy.
+const MAX_USERS = parseInt(process.env.FINGERPRINT_MAX_USERS || '30', 10);
 const MIN_ROUNDS = parseInt(process.env.FINGERPRINT_MIN_ROUNDS || '3', 10);
-const FRESH_DAYS = parseInt(process.env.FINGERPRINT_FRESH_DAYS || '7', 10);
+const FRESH_DAYS = parseInt(process.env.FINGERPRINT_FRESH_DAYS || '14', 10);
 const SAMPLES_PER_USER = 6;        // last 6 generations per user
 const MAX_SAMPLE_CHARS = 900;      // per-sample truncation
 const RECENT_ACTIVITY_DAYS = 14;
