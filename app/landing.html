@@ -7627,7 +7627,60 @@ section.ui-section .ui-lede{
         #faq .faq-stack-q{font-size:.94rem;padding:13px 18px}
         #faq .faq-stack-a{font-size:.86rem;padding:14px 18px 16px}
       }
+
+      /* Two-column layout: FAQ stack left, animated debater right.
+         Sticky on desktop so the debater stays in view while the user
+         reads down the questions. Collapses to single column under
+         1080px (debater hides cleanly on tablet/mobile). */
+      #faq .faq-layout{
+        display:grid;
+        grid-template-columns:minmax(0,920px) minmax(0,360px);
+        gap:64px;align-items:start;
+        max-width:1360px;margin:36px auto 0;
+      }
+      #faq .faq-layout .faq-stack{margin:0;max-width:none}
+      #faq .faq-debater{
+        position:sticky;top:110px;align-self:start;
+        display:flex;align-items:center;justify-content:center;
+        padding:8px;
+      }
+      #faq .faq-debater-svg{
+        width:100%;max-width:340px;height:auto;
+        color:#2a2a32;opacity:.72;
+        transition:opacity .3s ease,color .3s ease;
+      }
+      #faq .faq-debater:hover .faq-debater-svg{opacity:.95;color:#1a1a1f}
+
+      /* Gesturing arm — vertical bob with slight rotation. */
+      @keyframes faq-debater-arm-bob{
+        0%,100%{transform:translateY(0) rotate(0deg)}
+        50%   {transform:translateY(-5px) rotate(-3deg)}
+      }
+      #faq .faq-debater-arm{
+        transform-box:fill-box;transform-origin:0% 50%;
+        animation:faq-debater-arm-bob 3.6s ease-in-out infinite;
+      }
+
+      /* Speech-indicator pulse near the mouth — accent color. */
+      @keyframes faq-debater-pulse{
+        0%,100%{opacity:.3;transform:scale(1)}
+        50%   {opacity:1;transform:scale(1.6)}
+      }
+      #faq .faq-debater-pulse{
+        transform-box:fill-box;transform-origin:50% 50%;
+        animation:faq-debater-pulse 1.5s ease-in-out infinite;
+      }
+
+      @media (prefers-reduced-motion:reduce){
+        #faq .faq-debater-arm,#faq .faq-debater-pulse{animation:none}
+      }
+      @media (max-width:1080px){
+        #faq .faq-layout{grid-template-columns:1fr;max-width:920px;gap:0}
+        #faq .faq-debater{display:none}
+      }
     </style>
+
+    <div class="faq-layout">
 
     <div class="faq-stack">
 
@@ -7697,7 +7750,53 @@ section.ui-section .ui-lede{
         </div>
       </details>
 
-    </div>
+    </div><!-- /.faq-stack -->
+
+    <aside class="faq-debater" aria-hidden="true">
+      <!-- ════════════════════════════════════════════════════════════════
+           ANIMATED DEBATER · FAQ right column
+
+           Placeholder SVG below. Replace with the ChatGPT-generated
+           animated debater when ready. The wrapping <aside class="faq-debater">
+           handles sticky right-column positioning, max-width, and the
+           responsive hide on tablet/mobile (under 1080px).
+
+           Replacement should:
+             • Keep aria-hidden="true" — illustration is decorative
+             • Use roughly a 3:4 portrait ratio (current viewBox is 320×420)
+             • Use stroke/fill = currentColor where possible so the dim/hover
+               states flow from the parent
+             • Wrap motion in @keyframes that respect prefers-reduced-motion
+               (see #faq .faq-debater-arm / .faq-debater-pulse for examples)
+             • Stay under ~8KB inline
+           ════════════════════════════════════════════════════════════════ -->
+      <svg class="faq-debater-svg" viewBox="0 0 320 420" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="faqd-glow" cx="50%" cy="32%" r="55%">
+            <stop offset="0%" stop-color="currentColor" stop-opacity="0.10"/>
+            <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="160" cy="150" r="150" fill="url(#faqd-glow)"/>
+        <g stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="160" cy="100" r="24"/>
+          <path d="M136 144 Q134 200 142 250 L178 250 Q186 200 184 144"/>
+          <path d="M138 156 Q118 200 128 245"/>
+          <g class="faq-debater-arm">
+            <path d="M182 156 Q210 175 235 160"/>
+            <circle cx="235" cy="160" r="3.5" fill="currentColor" stroke="none"/>
+          </g>
+          <path d="M92 250 L228 250 L218 340 L102 340 Z"/>
+          <line x1="92" y1="265" x2="228" y2="265"/>
+          <line x1="118" y1="285" x2="202" y2="285" stroke-width="1.6" opacity="0.55"/>
+          <line x1="118" y1="298" x2="182" y2="298" stroke-width="1.6" opacity="0.55"/>
+          <line x1="118" y1="311" x2="195" y2="311" stroke-width="1.6" opacity="0.55"/>
+        </g>
+        <circle class="faq-debater-pulse" cx="190" cy="100" r="3" fill="#e54545"/>
+      </svg>
+    </aside>
+
+    </div><!-- /.faq-layout -->
   </div>
 </section>
 
