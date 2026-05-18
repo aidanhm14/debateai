@@ -27,7 +27,7 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   │                            aliased to React.createElement.
 │   ├── landing.html           ~2700 lines, marketing entry. Same rules.
 │   ├── live.html              live tournament rooms (Daily.co video)
-│   ├── devils-advocate.html   single-AI sparring mode
+│   ├── spar.html              live-human sparring matchmaking + AI fallback
 │   ├── voice-debate.html      live voice debate via OpenAI Realtime
 │   │                            (WebRTC, server-side VAD = interruption,
 │   │                             5 modes, post-session RFD)
