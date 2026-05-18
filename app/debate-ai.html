@@ -5113,6 +5113,19 @@ function App(){
     try { if (SFX && typeof SFX.startRound === 'function') SFX.startRound(); } catch(e) { console.warn('[startDebate] SFX failed:', e); }
     try { warmUpTTS(); } catch(e) { console.warn('[startDebate] TTS warmup failed:', e); }
     if(typeof gtag==='function')gtag('event','round_start',{format:fmt.name,side,motion_length:motion.length});
+    // Direct server-side log alongside the gtag bridge. The bridge in
+    // /js/track.js mirrors gtag → /api/log-event as app_event, but if
+    // gtag is blocked (ad blockers, ITP, in-app browsers — non-trivial
+    // share of mobile-Indian traffic) the bridge never fires and the
+    // round_start signal disappears from the funnel. Calling
+    // window.track directly closes that gap: it's a separate fetch
+    // that doesn't depend on the gtag global existing, AND it routes
+    // through the anon path on /api/log-event for signed-out users.
+    try {
+      if (typeof window.track === 'function') {
+        window.track('battle_started', { format: fmt.name, side, motion_length: motion.length });
+      }
+    } catch(e) { /* telemetry must never break the round-start flow */ }
     // First-round prep cut. The default Quick Clash prep is 120s
     // which is fine for a returning debater warming up but is a
     // bounce-trap for first-timers — they hit Quick Clash expecting

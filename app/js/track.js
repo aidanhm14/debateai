@@ -90,16 +90,42 @@
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
   }
 
+  // Anon-allowed events. Mirrors VALID_EVENTS_ANON in log-event.mjs —
+  // anything outside this set is silently dropped when the user isn't
+  // signed in, since the server would reject it with a 401 anyway. We
+  // keep the auth gate for the sensitive events (conversion, forum_post,
+  // etc.) where an anon write would mean nothing.
+  const ANON_OK = {
+    battle_started: 1,
+    page_view: 1,
+    session_start: 1,
+    session_heartbeat: 1,
+    session_end: 1,
+    app_event: 1,
+  };
+
   async function post(event, metadata) {
-    if (!currentUser) return;
+    // Funnel events need to fire for anonymous users too — they're the
+    // cohort the round-complete metric is supposed to measure, and the
+    // pre-2026-05-18 version of this function silently dropped them.
+    // Sign-in events still bypass via postSigninError below.
+    const isAnon = !currentUser;
+    if (isAnon && !ANON_OK[event]) return;
     try {
-      const token = await currentUser.getIdToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (currentUser) {
+        try {
+          const token = await currentUser.getIdToken();
+          headers.Authorization = 'Bearer ' + token;
+        } catch (e) {
+          // Token fetch failed (revoked, network blip, etc.). Fall
+          // through to the anon path rather than dropping the event.
+          if (!ANON_OK[event]) return;
+        }
+      }
       await fetch('/api/log-event', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + token,
-        },
+        headers,
         body: JSON.stringify({ event: event, metadata: metadata || {} }),
         keepalive: true,
       });
@@ -138,8 +164,6 @@
   // (which requires currentUser) was silently dropping the very
   // population we need to diagnose. The 62% sign-in drop in the
   // Performance Report is downstream of this gap.
-  var gtagQueue = [];
-
   var ua = navigator.userAgent || '';
   var IS_MOBILE = /iPhone|iPad|Android/i.test(ua);
   var IS_INAPP = /(Instagram|FBAN|FBAV|FB_IAB|Twitter|LinkedIn|TikTok|MicroMessenger|Line[/])/i.test(ua);
@@ -187,13 +211,12 @@
       postSigninError(name, params);
     }
 
-    if (currentUser) post('app_event', baseMeta(meta));
-    else gtagQueue.push(meta);
-  }
-  function drainGtagQueue() {
-    if (!currentUser || !gtagQueue.length) return;
-    var batch = gtagQueue; gtagQueue = [];
-    for (var i = 0; i < batch.length; i++) post('app_event', baseMeta(batch[i]));
+    // Always send — anon path (added 2026-05-18) lets post() route the
+    // event under a synthetic anon:{sessionId} uid on the server when
+    // the user hasn't signed in. The pre-anon queue (drainGtagQueue,
+    // gtagQueue) is gone because the queue's purpose — hold events
+    // until auth resolves — is moot once anon is a valid auth state.
+    post('app_event', baseMeta(meta));
   }
   try {
     var origGtag = window.gtag;
@@ -249,10 +272,23 @@
     await ensureFirebase();
     firebase.auth().onAuthStateChanged(function (user) {
       currentUser = user || null;
+      // Signed-in lifecycle: session_start + page_view + heartbeat.
+      // Anon users get NEITHER lifecycle nor heartbeat — only the
+      // gtag-bridged app_event path is open to them (the post() gate
+      // + ANON_OK allowlist enforces this). Rationale: the existing
+      // 7K MAU × 3min heartbeat math sits ~70K/month against the
+      // Netlify 125K free-tier ceiling, with ~30K/month for signed-in
+      // session_start + page_view + bridged gtag. Opening lifecycle
+      // to anon (~62% of traffic) would add ~17K/month and push the
+      // total to ~117K, leaving no headroom for product growth before
+      // the next pricing tier kicks in. The funnel only needs
+      // round_start / round_complete (both gtag-bridged), so anon
+      // session_start / page_view are nice-to-have, not load-bearing.
+      // Today's (2026-05-18) credit-burn audit explicitly tightened
+      // this envelope — keeping anon to gtag-only is the cheap path.
       if (!user) return;
       fireSessionStart();
       firePageView();
-      drainGtagQueue();
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = setInterval(fireHeartbeat, HEARTBEAT_MS);
     });
