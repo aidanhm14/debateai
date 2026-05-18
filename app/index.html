@@ -250,15 +250,21 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
   text-decoration:none;display:inline-block;
 }
 .app-topbar-logo span{color:var(--accent,#ef4444)}
-.app-topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
-/* Pill links in top bar (Landing, HS Edition, theme toggle) */
+/* 2026-05-18: gap bumped 8 → 14 to match landing's .ui-topbar-right
+   so the link rhythm reads consistently when bouncing between /landing
+   and the /app tabs. */
+.app-topbar-right{display:flex;align-items:center;gap:14px;flex-shrink:0}
+/* Pill links in top bar. Color value matches landing's .ui-topbar-link
+   (rgba(255,255,255,.86)) — the prior var(--text-dim) resolved to 65-68%
+   white per theme which read as washed-out next to landing's bright nav. */
 .topbar-pill{
   font-size:.72rem;padding:0;border-radius:0;font-weight:500;
   line-height:18px;border:none;
-  background:transparent;color:var(--text-dim,rgba(255,255,255,.5));
+  background:transparent;color:rgba(255,255,255,.86);
   cursor:pointer;transition:.2s;text-decoration:none;letter-spacing:.04em;
   display:inline-block;white-space:nowrap;font-family:inherit;
 }
+[data-theme="light"] .topbar-pill,.light-theme .topbar-pill{color:rgba(0,0,0,.78)}
 .topbar-pill:hover{color:var(--text,#fff)}
 .topbar-pill.accent{border-color:rgba(239,68,68,.25);color:#f87171;background:rgba(239,68,68,.08)}
 .topbar-pill.accent:hover{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.15)}
@@ -272,8 +278,12 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 /* Sign in / user area in top bar */
 .topbar-user{display:flex;align-items:center;gap:6px}
 .topbar-user-name{font-size:.78rem;color:rgba(255,255,255,.45);font-weight:500}
-.topbar-signout{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:10px;color:#f87171;font-size:.65rem;font-weight:700;padding:3px 8px;cursor:pointer;font-family:inherit;letter-spacing:.3px;transition:.2s}
-.topbar-signout:hover{background:rgba(239,68,68,.22)}
+/* 2026-05-18: Sign Out softened to match landing's plain dim-text
+   "Sign out" treatment. The prior red-filled pill stole hierarchy
+   from the actual primary CTAs (Teach AI / MANAGE) and made the
+   whole right edge of the bar feel red-heavy. */
+.topbar-signout{background:transparent;border:none;color:var(--text-dim,rgba(255,255,255,.6));font-size:.68rem;font-weight:500;padding:0 0 0 4px;cursor:pointer;font-family:inherit;letter-spacing:.04em;transition:color .2s}
+.topbar-signout:hover{color:var(--text,#fff)}
 .topbar-signin{font-size:.75rem;font-weight:500;color:rgba(255,255,255,.35);cursor:pointer;padding:4px 8px;border-radius:10px;transition:.2s;background:none;border:none;font-family:inherit}
 .topbar-signin:hover{color:rgba(255,255,255,.7);background:rgba(255,255,255,.06)}
 /* Mobile density: shrink all rem-based sizing ~87.5% so more info fits per screen.
@@ -15910,7 +15920,10 @@ function App() {
             target:'_blank',
             rel:'noopener noreferrer',
             title:'Support Debate AI. it stays free because people chip in',
-            style:{color:'#fca5a5',borderColor:'rgba(239,68,68,.28)',background:'rgba(239,68,68,.08)',fontWeight:700},
+            // Red text only, no fill/border — matches landing's
+            // .ui-topbar-link.accent treatment so Donate sits in the
+            // nav as a colored link, not a competing button.
+            style:{color:'#fca5a5',fontWeight:600},
           },'Donate'),
           // Theme toggle
           React.createElement('span',{
