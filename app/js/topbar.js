@@ -205,12 +205,13 @@
       '</svg>';
     right.appendChild(themeBtn);
 
-    // Primary CTA is now Voice AI everywhere — voice is the moat
+    // Primary CTA is Voice AI everywhere — voice is the moat
     // against ChatGPT (real-time, sub-200ms, full interruption) and
-    // the user-flagged most-important surface. Gold-amber gradient
-    // makes it pop against the red brand wall. Falls back to
-    // "Debate AI" when already on /voice-debate so the bar still
-    // has a working CTA on every page.
+    // the user-flagged most-important surface. Brand red (same as
+    // the Debate AI pill on /voice-debate) keeps the topbar visually
+    // calm; the prior gold-amber gradient read as braggy and
+    // out-of-brand. Falls back to "Debate AI" when already on
+    // /voice-debate so the bar still has a working CTA on every page.
     var onVoiceDebate = /\/voice-debate(\b|\/)/.test(here);
     var cta;
     if (onVoiceDebate) {
@@ -222,15 +223,10 @@
     } else {
       cta = el('a', {
         href: '/voice-debate',
-        class: 'ui-btn ui-btn-sm ui-btn-voice',
+        class: 'ui-btn ui-btn-primary ui-btn-sm',
         title: 'Talk out loud. The AI cuts in.',
         style: { padding: '8px 18px' },
-      });
-      // Removed the red recording-dot pulse — it read as "live recording"
-      // which was misleading on a CTA that just routes to /voice-debate.
-      // Plain text label per the 2026-05-10 emoji sweep; the gold-amber
-      // gradient still does the visual identity work.
-      cta.appendChild(document.createTextNode('Voice AI'));
+      }, 'Voice AI');
     }
     right.appendChild(cta);
 

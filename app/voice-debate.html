@@ -792,13 +792,53 @@ input[type=text]:focus,select:focus,textarea:focus{
   .hero-status{justify-self:start}
 }
 
-/* Two-column setup grid */
+/* Orb-central setup. Orb sits at the top as a big focal element;
+   settings flow vertically below it on a narrow centered column.
+   No competing two-column layout — the orb is the visual anchor,
+   the form is the dialogue the user has with it.
+
+   Lighter card styling than the prior crimson-tinted right column:
+   borders dropped, gradients softer, more breathing room. Reads
+   light, not braggy. */
 .setup-grid{
-  display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;
-  align-items:start;
+  display:flex;flex-direction:column;align-items:stretch;gap:22px;
+  max-width:640px;margin:0 auto;
 }
-@media (max-width:920px){
-  .setup-grid{grid-template-columns:minmax(0,1fr)}
+.setup-grid .step{margin-bottom:0}
+.setup-grid .step .card,
+.setup-grid .summary-card,
+.setup-grid .smart-card{
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.04);
+  box-shadow:none;
+}
+.setup-grid .summary-card{background:rgba(255,255,255,.018);border-color:rgba(239,68,68,.10)}
+
+/* Side-by-side row for Side + Drill — the two narrow inputs sit
+   well together on desktop, stack on mobile. */
+.setup-row-2{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:16px;
+}
+@media (max-width:600px){.setup-row-2{grid-template-columns:1fr}}
+
+/* Orb hero — the centerpiece. Bigger than the prior right-column
+   orb (280px vs 180px), no card chrome, glow handled by canvas. */
+.setup-orb-hero{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:8px 0 4px;position:relative;
+}
+.setup-orb-hero canvas.setup-orb{
+  width:280px;height:280px;display:block;position:relative;z-index:1;
+}
+@media (max-width:600px){
+  .setup-orb-hero canvas.setup-orb{width:220px;height:220px}
+}
+.setup-orb-hero .setup-orb-label{
+  margin-top:18px;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;
+  font-weight:700;color:#fca5a5;
+}
+.setup-orb-hero .setup-orb-sub{
+  margin-top:8px;font-size:.86rem;color:#a3a3b3;line-height:1.5;max-width:400px;
 }
 
 /* Numbered step heading */
@@ -3412,10 +3452,31 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       ),
     ),
 
-    // Setup — two-column on desktop, numbered steps left, opponent + summary right.
+    // Setup — orb-central. Big orb at the top is the visual anchor;
+    // every setting flows vertically below it. The prior two-column
+    // layout (steps left, summary right) made the form feel like a
+    // tax return; the orb-led stack reads as "the AI is already in
+    // the room and you're configuring the round together."
     !isLive && !isConnecting && el('div', { className:'setup-grid' },
 
-      // ── LEFT COLUMN: numbered setup steps ───────────────────────
+      // Orb hero — same canvas + idle animation as the live round so
+      // the AI reads as present and waiting, not as a static graphic.
+      // Bigger than the prior right-column orb (280px vs 180px) so it
+      // owns the top of the page.
+      el('div', { className:'setup-orb-hero' },
+        el('canvas', { className:'setup-orb', ref: setupOrbCanvasRef, 'aria-hidden':'true' }),
+        el('div', { className:'setup-orb-label' },
+          '◉ ' + (persona && persona.name ? persona.name.split(' ')[0].toUpperCase() : 'OPPONENT') + ' · STANDING BY'
+        ),
+        el('div', { className:'setup-orb-sub' },
+          extMode === 'counter'
+            ? 'Ready when you are. Paste your thesis (or leave it blank), then hit Start.'
+            : 'Ready when you are. Pick the format, name the motion, hit Start.'
+        ),
+      ),
+
+      // Group A — the setup steps (motion, side, drill). Kept as a
+      // wrapper div so the column-stacking still applies cleanly.
       el('div', null,
 
         // Step 1: Motion (now first — natural flow is "what do I want to
@@ -3598,26 +3659,12 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         ),
       ),
 
-      // ── RIGHT COLUMN: opponent picker (top), sticky summary card (bottom) ───────
+      // Group B — opponent picker, summary, smartness, mic notice,
+      // start CTA. Orb moved to the top hero so the duplicate orb
+      // card that used to live here is gone.
       el('div', { className:'summary-col' },
 
-        // 'Standing by' orb — same visual language as the live round
-        // so the AI reads as already in the room, just waiting for the
-        // user to configure and hit Start. Uses the synthetic idle
-        // levels driven by the useEffect at status==='idle'.
-        el('div', { className:'setup-orb-card' },
-          el('canvas', { className:'setup-orb', ref: setupOrbCanvasRef, 'aria-hidden':'true' }),
-          el('div', { className:'setup-orb-label' },
-            '◉ ' + (persona && persona.name ? persona.name.split(' ')[0].toUpperCase() : 'OPPONENT') + ' · STANDING BY'
-          ),
-          el('div', { className:'setup-orb-sub' },
-            extMode === 'counter'
-              ? 'Ready when you are. Paste your thesis (or leave it blank), then hit Start.'
-              : 'Ready when you are. Pick the format, name the motion, hit Start.'
-          ),
-        ),
-
-        // Step 4 (visually right column): Opponent picker.
+        // Step 4: Opponent picker.
         // Counter mode is locked to Dr. Iyer (Examiner persona) by the
         // ext bridge; offering a choice between debate personalities
         // would dilute the viva framing the Counter brand promises.
