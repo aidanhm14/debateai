@@ -292,89 +292,217 @@ input[type=text]:focus,select:focus,textarea:focus{
 }
 
 /* Live-state debaters — silhouette bookends flanking the orb that
-   reflect who has the floor. Left = user, right = AI. The active
-   side pops to full opacity with a colored glow (green for the user,
-   red for the AI, matching .stage.user's existing color language);
-   the other side desaturates so the eye lands on the speaker
-   immediately. Idle = both in the listening state. Hidden under
-   880px so they don't crowd the orb on mobile (the label + orb
-   glow already carry the signal). Ported from
-   scratch/hero-debaters.html on 2026-05-18; classes renamed
-   stage-debater* to scope them to /voice-debate. */
+   reflect who has the floor. Left = user, right = AI. Drawn as
+   line-art portraits in warm ivory: head + hair sweep + neck, suit
+   silhouette with shoulder slope, lapel V, collar, tie diamond, one
+   arm in mid-gesture, the other at a curved lectern with a mic
+   gooseneck. Concentric sound-wave rings sit behind the head and
+   pulse outward only on the active side. Active speaker fully
+   opacity + side-accent glow (green for user, red for AI, matching
+   .stage.user's existing orb-glow color language); listening side
+   desaturates so the eye lands on the speaker. Hidden under 980px
+   (the label + orb glow already carry the same signal on mobile).
+   Ported + redrawn from scratch/hero-debaters.html. */
 .stage-debaters{
   position:absolute;inset:0;
   pointer-events:none;z-index:-1;
+  overflow:hidden;border-radius:18px;
 }
 .stage-debater{
   position:absolute;
-  bottom:clamp(28px,8%,72px);
-  width:clamp(120px,11vw,180px);
+  bottom:clamp(16px,4%,48px);
+  width:clamp(150px,14vw,220px);
   height:auto;
-  opacity:.42;
-  transition:opacity .35s ease, filter .35s ease;
-  --deb-ink:rgba(255,255,255,.7);
-  --deb-accent:rgba(239,68,68,.55);
-  --deb-glow:rgba(239,68,68,.32);
+  opacity:.5;
+  transition:opacity .55s ease, filter .55s ease;
+  --deb-ink:rgba(230,219,195,.72);     /* warm ivory body strokes */
+  --deb-ink-soft:rgba(230,219,195,.4); /* lighter accent strokes */
+  --deb-accent:rgba(239,68,68,.78);
+  --deb-glow:rgba(239,68,68,.34);
+  --deb-fill:rgba(230,219,195,.045);   /* faint suit/lectern fill */
 }
-.stage-debater-left{left:clamp(8px,3vw,40px)}
-.stage-debater-right{right:clamp(8px,3vw,40px);transform:scaleX(-1)}
-.stage-debater .deb-head{fill:var(--deb-accent);transition:fill .25s}
-.stage-debater .deb-halo{stroke:var(--deb-accent);stroke-width:1;fill:none;opacity:.28;transition:opacity .25s, stroke .25s}
-.stage-debater .deb-stroke{stroke:var(--deb-ink);stroke-width:1.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.stage-debater .deb-podium{stroke:var(--deb-ink);stroke-width:1.2;fill:none;opacity:.55}
-
-/* Side-specific accent: left side gets green semantics (matches
-   .stage.user orb glow); right side stays red (default AI side). */
 .stage-debater-left{
-  --deb-accent:rgba(34,197,94,.7);
-  --deb-glow:rgba(34,197,94,.32);
+  left:clamp(8px,3vw,56px);
+  --deb-accent:rgba(74,222,128,.86);   /* user = green semantics */
+  --deb-glow:rgba(34,197,94,.4);
 }
 .stage-debater-right{
-  --deb-accent:rgba(239,68,68,.78);
-  --deb-glow:rgba(239,68,68,.32);
+  right:clamp(8px,3vw,56px);
+  transform:scaleX(-1);
+  --deb-accent:rgba(251,113,113,.88);  /* AI = red semantics */
+  --deb-glow:rgba(239,68,68,.4);
 }
 
-/* Active speaker = full opacity + halo glow + brighter halo ring.
-   Listening = desaturated + dim. The two classes are mutually
-   exclusive on each silhouette so transitions always run between
-   one and the other. */
-.stage-debater.active{opacity:.88;filter:drop-shadow(0 0 18px var(--deb-glow))}
-.stage-debater.active .deb-halo{opacity:.55}
-.stage-debater.listening{opacity:.32;filter:grayscale(70%)}
+.stage-debater .deb-stroke{
+  stroke:var(--deb-ink);
+  stroke-width:1.3;
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+.stage-debater .deb-stroke-soft{
+  stroke:var(--deb-ink-soft);
+  stroke-width:1;
+}
 
-@media (max-width:880px){.stage-debaters{display:none}}
+/* Head fill ellipse — sits behind the head outline, takes on the
+   side-accent color so the active speaker's head pops. */
+.stage-debater .deb-head{
+  fill:var(--deb-accent);
+  opacity:.78;
+  transition:fill .35s ease, opacity .35s ease;
+}
 
-/* Subtle idle motion: head nod + arm sway + slow halo rotation.
-   Active speaker animates a touch faster — they're the one
-   talking. Honors prefers-reduced-motion. */
+/* Persistent halo — faint dashed ring around the head. Rotates
+   continuously via sd-halo; brightens when speaker is active. */
+.stage-debater .deb-halo{
+  stroke:var(--deb-accent);
+  stroke-width:1;
+  fill:none;
+  opacity:.22;
+  transition:opacity .35s ease, stroke .35s ease;
+}
+
+/* Sound-wave rings — three concentric circles, invisible while
+   listening, expand outward + fade when the speaker is active. */
+.stage-debater .deb-ring{
+  fill:none;
+  stroke:var(--deb-accent);
+  stroke-width:1;
+  opacity:0;
+  transform-origin:100px 80px;
+  transform-box:fill-box;
+}
+
+/* Lectern (podium) — outline with a faint ivory inner fill so the
+   front face reads as a solid shape rather than a wireframe. */
+.stage-debater .deb-lectern{
+  fill:var(--deb-fill);
+  stroke:var(--deb-ink);
+  stroke-width:1.3;
+  stroke-linejoin:round;
+}
+
+/* Microphone capsule head — small filled ellipse in the accent
+   color, sits at the end of the gooseneck arm. */
+.stage-debater .deb-mic-head{
+  fill:var(--deb-accent);
+  opacity:.72;
+  transition:fill .35s ease, opacity .35s ease;
+}
+
+/* Floor halo — soft elliptical glow beneath the lectern; only
+   visible on the active speaker. Grounds the figure so it doesn't
+   feel like it's floating, and lets the side accent color bleed
+   onto the imagined "floor." */
+.stage-debater .deb-floor{
+  fill:var(--deb-accent);
+  opacity:0;
+  transition:opacity .55s ease;
+}
+.stage-debater.active .deb-floor{
+  opacity:.22;
+}
+
+/* Lectern top — narrow band catching imagined stage light, sits
+   above the front face to give the podium a sense of depth (top
+   surface vs front face). Brightens slightly on active. */
+.stage-debater .deb-lectern-top{
+  fill:var(--deb-ink);
+  fill-opacity:.05;
+  stroke:none;
+  transition:fill-opacity .35s ease;
+}
+.stage-debater.active .deb-lectern-top{fill-opacity:.11}
+
+/* Hand silhouette at the end of the gesture arm — a small filled
+   oval that reads as a closed/gesturing palm without needing finger
+   detail at this scale. The accent fill at low opacity gives the
+   active gesture a tiny color note past the cuff. */
+.stage-debater .deb-hand{
+  fill:var(--deb-accent);
+  fill-opacity:.18;
+  stroke:var(--deb-ink);
+  stroke-width:1;
+  stroke-linejoin:round;
+  transition:fill-opacity .35s ease;
+}
+.stage-debater.active .deb-hand{fill-opacity:.42}
+
+/* Tie diamond — small filled shape at the lapel V's bottom; the
+   accent fill gives the silhouette a quiet color anchor below the
+   head. Brightens slightly on active. */
+.stage-debater .deb-tie{
+  fill:var(--deb-accent);
+  fill-opacity:.32;
+  stroke:var(--deb-ink);
+  stroke-width:1;
+  transition:fill-opacity .35s ease;
+}
+
+/* Active speaker — full opacity, layered drop-shadow for ambient
+   floor-glow + soft contact shadow, rings pulse, head/halo
+   brighten. Listening side stays desaturated and dim so the active
+   one wins the eye instantly. */
+.stage-debater.active{
+  opacity:.96;
+  filter:
+    drop-shadow(0 0 24px var(--deb-glow))
+    drop-shadow(0 14px 28px rgba(0,0,0,.45));
+}
+.stage-debater.active .deb-head{opacity:1}
+.stage-debater.active .deb-halo{opacity:.6}
+.stage-debater.active .deb-mic-head{opacity:1}
+.stage-debater.active .deb-tie{fill-opacity:.52}
+.stage-debater.listening{
+  opacity:.4;
+  filter:grayscale(55%) brightness(.85);
+}
+
+@media (max-width:980px){.stage-debaters{display:none}}
+
+/* Motion — gentle on listening (slow breathing nod, faint halo
+   rotation), more present on active (faster head, gesture sway,
+   rings pulsing outward). All gated on prefers-reduced-motion. */
 @media (prefers-reduced-motion: no-preference){
   .stage-debater .deb-head{
     transform-box:fill-box;transform-origin:center bottom;
-    animation:sd-nod 4.6s ease-in-out infinite;
+    animation:sd-nod 5.4s ease-in-out infinite;
   }
   .stage-debater .deb-arm{
-    transform-box:fill-box;transform-origin:0% 0%;
-    animation:sd-gesture 5.8s ease-in-out infinite alternate;
+    transform-box:fill-box;transform-origin:56px 152px;
+    animation:sd-gesture 6.2s ease-in-out infinite alternate;
   }
-  .stage-debater .deb-halo{animation:sd-halo 11s linear infinite}
-  .stage-debater-right .deb-head{animation-delay:-1.6s}
-  .stage-debater-right .deb-arm{animation-delay:-2.4s;animation-duration:6.4s}
-  .stage-debater-right .deb-halo{animation-direction:reverse;animation-duration:13s}
-  .stage-debater.active .deb-head{animation-duration:3.2s}
-  .stage-debater.active .deb-arm{animation-duration:3.8s}
+  .stage-debater .deb-halo{animation:sd-halo 14s linear infinite}
+  .stage-debater-right .deb-head{animation-delay:-1.8s}
+  .stage-debater-right .deb-arm{animation-delay:-2.6s;animation-duration:6.8s}
+  .stage-debater-right .deb-halo{animation-direction:reverse;animation-duration:16s}
+  .stage-debater.active .deb-head{animation-duration:3.6s}
+  .stage-debater.active .deb-arm{animation-duration:3.4s}
+  .stage-debater.active .deb-ring{
+    animation:sd-ring 2.6s cubic-bezier(.3,.7,.2,1) infinite;
+  }
+  .stage-debater.active .deb-ring:nth-of-type(2){animation-delay:.85s}
+  .stage-debater.active .deb-ring:nth-of-type(3){animation-delay:1.7s}
 }
 @keyframes sd-nod{
   0%,100%{transform:translateY(0) rotate(0deg)}
-  35%{transform:translateY(-1.5px) rotate(-1.4deg)}
-  65%{transform:translateY(-2.5px) rotate(1.2deg)}
+  32%{transform:translateY(-1.6px) rotate(-1.6deg)}
+  68%{transform:translateY(-2.4px) rotate(1.4deg)}
 }
 @keyframes sd-gesture{
-  0%{transform:rotate(-8deg)}
-  100%{transform:rotate(14deg)}
+  0%{transform:rotate(-6deg)}
+  100%{transform:rotate(10deg)}
 }
 @keyframes sd-halo{
   0%{transform:rotate(0deg)}
   100%{transform:rotate(360deg)}
+}
+@keyframes sd-ring{
+  0%{transform:scale(.55);opacity:.7}
+  55%{opacity:.32}
+  100%{transform:scale(1.55);opacity:0}
 }
 
 /* Motion banner — persistent reminder of what's being debated.
@@ -4395,51 +4523,94 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         // already-spoken label for assistive tech. Ported from
         // scratch/hero-debaters.html.
         el('div', { className:'stage-debaters', 'aria-hidden':'true' },
+          // Each silhouette is the same line-art figure (head + hair +
+          // neck + suit/lapel V + tie + shoulder + body sides + a
+          // gesturing arm + curved lectern + mic gooseneck). The right
+          // side is the same SVG mirrored via CSS scaleX(-1) so both
+          // figures face inward toward the orb. Sound-wave rings sit
+          // behind the head and only animate on the active speaker.
+          // Markup is duplicated rather than factored so React-via-CDN
+          // (no JSX, no fragments) stays readable. viewBox 200x460 →
+          // head:body ≈ 1:5.5 for a tall, elegant proportion.
           el('svg', {
             className: 'stage-debater stage-debater-left ' + (speaking === 'user' ? 'active' : 'listening'),
-            viewBox:'0 0 160 320',
+            viewBox:'0 0 200 460',
             role:'presentation',
             focusable:'false',
           },
-            el('g', { className:'deb-halo', style:{ transformOrigin:'80px 60px' } },
-              el('circle', { cx:'80', cy:'60', r:'44' }),
-              el('circle', { cx:'80', cy:'60', r:'58', strokeDasharray:'2 6' }),
+            // Sound rings — animate outward only on .active
+            el('circle', { className:'deb-ring', cx:'100', cy:'80', r:'40' }),
+            el('circle', { className:'deb-ring', cx:'100', cy:'80', r:'58' }),
+            el('circle', { className:'deb-ring', cx:'100', cy:'80', r:'78' }),
+            // Persistent halo — faint dashed ring, slow rotate
+            el('circle', { className:'deb-halo', cx:'100', cy:'80', r:'48', strokeDasharray:'2 7' }),
+            // Head group (fill ellipse + outline + hair sweep) — nods
+            // together via sd-nod
+            el('g', { className:'deb-head' },
+              el('ellipse', { cx:'100', cy:'80', rx:'20', ry:'26' }),
+              el('ellipse', { className:'deb-stroke', cx:'100', cy:'80', rx:'20', ry:'26', fill:'none' }),
+              el('path', { className:'deb-stroke', d:'M82 70 Q86 50 100 50 Q116 50 118 76' }),
             ),
-            el('circle', { className:'deb-head', cx:'80', cy:'60', r:'20' }),
-            el('path', { className:'deb-stroke', d:'M58 96 Q80 90 102 96' }),
-            el('line', { className:'deb-stroke', x1:'80', y1:'92', x2:'80', y2:'186' }),
-            el('path', { className:'deb-stroke', d:'M80 116 Q102 132 110 162' }),
-            el('g', { className:'deb-arm', style:{ transformOrigin:'80px 116px' } },
-              el('path', { className:'deb-stroke', d:'M80 116 Q56 108 38 92' }),
-              el('circle', { className:'deb-head', cx:'38', cy:'92', r:'4', opacity:'.75' }),
+            // Neck — two short parallel strokes from jaw to collar
+            el('path', { className:'deb-stroke', d:'M94 108 L92 124 M106 108 L108 124' }),
+            // Shoulder slope + body sides down to the lectern
+            el('path', { className:'deb-stroke', d:'M56 142 Q78 130 100 128 Q122 130 144 142' }),
+            el('path', { className:'deb-stroke', d:'M56 142 Q52 200 56 268 L60 308' }),
+            el('path', { className:'deb-stroke', d:'M144 142 Q148 200 144 268 L140 308' }),
+            // Lapel V
+            el('path', { className:'deb-stroke', d:'M78 142 L100 184 L122 142' }),
+            // Collar inner V (fainter)
+            el('path', { className:'deb-stroke deb-stroke-soft', d:'M86 138 L100 158 L114 138' }),
+            // Tie diamond — accent-filled, the silhouette's color anchor
+            el('path', { className:'deb-tie', d:'M100 184 L96 196 L100 248 L104 196 Z' }),
+            // Gesture arm — shoulder pivot, sweeps via sd-gesture
+            el('g', { className:'deb-arm' },
+              el('path', { className:'deb-stroke', d:'M56 152 Q38 188 30 222' }),
+              el('path', { className:'deb-stroke', d:'M30 222 Q24 250 36 266 Q50 276 66 270' }),
+              el('path', { className:'deb-hand', d:'M62 264 Q72 260 82 266 Q86 274 78 280 Q66 280 60 274 Z' }),
             ),
-            el('path', { className:'deb-stroke', d:'M68 240 L78 186 M92 240 L82 186' }),
-            el('path', { className:'deb-podium', d:'M30 248 L130 248 L130 290 L30 290 Z' }),
-            el('path', { className:'deb-podium', d:'M52 248 L52 232 M52 232 L60 226' }),
-            el('circle', { className:'deb-podium', cx:'62', cy:'224', r:'3' }),
+            // Lectern — filled silhouette with subtle inner ivory
+            el('ellipse', { className:'deb-floor', cx:'100', cy:'434', rx:'82', ry:'9' }),
+            el('path', { className:'deb-lectern', d:'M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z' }),
+            el('path', { className:'deb-lectern-top', d:'M30 314 Q100 308 170 314 L168 326 L32 326 Z' }),
+            el('path', { className:'deb-stroke deb-stroke-soft', d:'M32 326 Q100 320 168 326' }),
+            // Microphone — gooseneck + capsule head, angled toward face
+            el('path', { className:'deb-stroke deb-stroke-soft', d:'M138 310 Q134 290 124 282 Q118 278 120 270' }),
+            el('ellipse', { className:'deb-mic-head', cx:'120', cy:'264', rx:'4', ry:'6' }),
           ),
           el('svg', {
             className: 'stage-debater stage-debater-right ' + (speaking === 'ai' ? 'active' : 'listening'),
-            viewBox:'0 0 160 320',
+            viewBox:'0 0 200 460',
             role:'presentation',
             focusable:'false',
           },
-            el('g', { className:'deb-halo', style:{ transformOrigin:'80px 60px' } },
-              el('circle', { cx:'80', cy:'60', r:'44' }),
-              el('circle', { cx:'80', cy:'60', r:'58', strokeDasharray:'2 6' }),
+            el('circle', { className:'deb-ring', cx:'100', cy:'80', r:'40' }),
+            el('circle', { className:'deb-ring', cx:'100', cy:'80', r:'58' }),
+            el('circle', { className:'deb-ring', cx:'100', cy:'80', r:'78' }),
+            el('circle', { className:'deb-halo', cx:'100', cy:'80', r:'48', strokeDasharray:'2 7' }),
+            el('g', { className:'deb-head' },
+              el('ellipse', { cx:'100', cy:'80', rx:'20', ry:'26' }),
+              el('ellipse', { className:'deb-stroke', cx:'100', cy:'80', rx:'20', ry:'26', fill:'none' }),
+              el('path', { className:'deb-stroke', d:'M82 70 Q86 50 100 50 Q116 50 118 76' }),
             ),
-            el('circle', { className:'deb-head', cx:'80', cy:'60', r:'20' }),
-            el('path', { className:'deb-stroke', d:'M58 96 Q80 90 102 96' }),
-            el('line', { className:'deb-stroke', x1:'80', y1:'92', x2:'80', y2:'186' }),
-            el('path', { className:'deb-stroke', d:'M80 116 Q102 132 110 162' }),
-            el('g', { className:'deb-arm', style:{ transformOrigin:'80px 116px' } },
-              el('path', { className:'deb-stroke', d:'M80 116 Q56 108 38 92' }),
-              el('circle', { className:'deb-head', cx:'38', cy:'92', r:'4', opacity:'.75' }),
+            el('path', { className:'deb-stroke', d:'M94 108 L92 124 M106 108 L108 124' }),
+            el('path', { className:'deb-stroke', d:'M56 142 Q78 130 100 128 Q122 130 144 142' }),
+            el('path', { className:'deb-stroke', d:'M56 142 Q52 200 56 268 L60 308' }),
+            el('path', { className:'deb-stroke', d:'M144 142 Q148 200 144 268 L140 308' }),
+            el('path', { className:'deb-stroke', d:'M78 142 L100 184 L122 142' }),
+            el('path', { className:'deb-stroke deb-stroke-soft', d:'M86 138 L100 158 L114 138' }),
+            el('path', { className:'deb-tie', d:'M100 184 L96 196 L100 248 L104 196 Z' }),
+            el('g', { className:'deb-arm' },
+              el('path', { className:'deb-stroke', d:'M56 152 Q38 188 30 222' }),
+              el('path', { className:'deb-stroke', d:'M30 222 Q24 250 36 266 Q50 276 66 270' }),
+              el('path', { className:'deb-hand', d:'M62 264 Q72 260 82 266 Q86 274 78 280 Q66 280 60 274 Z' }),
             ),
-            el('path', { className:'deb-stroke', d:'M68 240 L78 186 M92 240 L82 186' }),
-            el('path', { className:'deb-podium', d:'M30 248 L130 248 L130 290 L30 290 Z' }),
-            el('path', { className:'deb-podium', d:'M52 248 L52 232 M52 232 L60 226' }),
-            el('circle', { className:'deb-podium', cx:'62', cy:'224', r:'3' }),
+            el('ellipse', { className:'deb-floor', cx:'100', cy:'434', rx:'82', ry:'9' }),
+            el('path', { className:'deb-lectern', d:'M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z' }),
+            el('path', { className:'deb-lectern-top', d:'M30 314 Q100 308 170 314 L168 326 L32 326 Z' }),
+            el('path', { className:'deb-stroke deb-stroke-soft', d:'M32 326 Q100 320 168 326' }),
+            el('path', { className:'deb-stroke deb-stroke-soft', d:'M138 310 Q134 290 124 282 Q118 278 120 270' }),
+            el('ellipse', { className:'deb-mic-head', cx:'120', cy:'264', rx:'4', ry:'6' }),
           ),
         ),
         el('canvas', { className:'orb', ref: orbCanvasRef }),
