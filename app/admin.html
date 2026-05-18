@@ -385,6 +385,20 @@
     </div>
   </div>
 
+  <!-- Founder-intro video drop-off -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Founder video</span>
+        <div class="tabs subtle" id="fv-tabs">
+          <button class="tab" data-fv-days="7" aria-pressed="true">7d</button>
+          <button class="tab" data-fv-days="30" aria-pressed="false">30d</button>
+        </div>
+      </div>
+      <div id="fv-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Event breakdown + top features -->
   <div class="grid-2 section">
     <div class="card">
@@ -550,6 +564,7 @@ let cachedHeatmap = null;
 let cachedPower = null;
 let currentRange = 'daily';
 let funnelDays = 7;
+let fvDays = 7;
 let cohortWeeks = 8;
 let puDays = 7;
 let autoRefresh = true;
@@ -644,6 +659,7 @@ async function loadAll(force){
     // Fire-and-forget pulls for legacy panels.
     loadSubscribers().catch(()=>{});
     loadFunnel(funnelDays).catch(()=>{});
+    loadFounderVideo(fvDays).catch(()=>{});
 
     if (autoRefresh) startAuto();
   } catch (e) {
@@ -1227,6 +1243,13 @@ document.querySelectorAll('#funnel-tabs .tab').forEach(t => {
   });
 });
 
+document.querySelectorAll('#fv-tabs .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#fv-tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
+    loadFounderVideo(parseInt(t.dataset.fvDays, 10) || 7);
+  });
+});
+
 document.querySelectorAll('#cohort-tabs .tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('#cohort-tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
@@ -1271,6 +1294,47 @@ async function loadFunnel(days){
       '<div class="meta"><strong>by format · completes:</strong> ' + fmtRows(d.byFormat && d.byFormat.completes) + '</div>';
   } catch (e) {
     body.innerHTML = '<div class="err-box">Funnel load failed: ' + esc(e.message || e) + '</div>';
+  }
+}
+
+// ── Founder video drop-off ────────────────────────────────────────
+async function loadFounderVideo(days){
+  fvDays = days || fvDays;
+  const body = $('fv-body');
+  body.textContent = 'Loading…';
+  try {
+    const d = await fetchJson('/api/admin/founder-video?days=' + fvDays);
+    const c = d.counts || {};
+    const u = d.uniqueUids || {};
+    const r = d.retentionPct || {};
+    // Render the 5 buckets as a horizontal strip. Each cell shows the
+    // event count + unique-uid count + retention% (cell / plays). The
+    // retention% on the play row is omitted — it'd always be 100% and
+    // the gap reads as "this is the denominator."
+    const cell = (label, key, opts) => {
+      opts = opts || {};
+      const ev = fmt(c[key] || 0);
+      const uniq = fmt(u[key] || 0);
+      const ret = (r[key] == null || opts.hideRetention) ? '' : ' · ' + r[key] + '%';
+      return '<div style="flex:1;min-width:90px">' +
+        '<strong style="font-size:18px;color:var(--fg)">' + ev + '</strong>' +
+        '<div class="meta">' + esc(label) + ' · ' + uniq + ' uids' + ret + '</div>' +
+      '</div>';
+    };
+    body.innerHTML =
+      '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px">' +
+        cell('play',        'play', { hideRetention: true }) +
+        cell('25%',         '25') +
+        cell('50%',         '50') +
+        cell('75%',         '75') +
+        cell('complete',    'complete') +
+      '</div>' +
+      '<div class="meta">retention% = bucket / plays · ' +
+        (d.sampled ? '⚠ sampled (capped at ' + fmt(d.sampleSize) + ' app_event docs in the window; ratio real, counts floored) · ' : '') +
+        'last ' + fvDays + 'd, since ' + esc((d.sinceISO || '').slice(0, 10)) +
+      '</div>';
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Founder-video load failed: ' + esc(e.message || e) + '</div>';
   }
 }
 

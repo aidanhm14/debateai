@@ -5423,12 +5423,15 @@ section.ui-section .ui-lede{
           </video>
         </div>
         <!-- Founder-video analytics. Fires once-per-session on first
-             play + at 25/50/75/complete quartiles. Routes through
-             window.track (track.js bridges to both the per-user
-             activity feed AND the gtag pipe), so the events land in
-             whichever analytics backend is wired. sessionStorage gates
-             stop a single visitor from double-counting if they scrub
-             or replay. -->
+             play + at 25/50/75/complete quartiles. Goes through
+             window.gtag — track.js's gtag→bridge mirrors each event
+             into the `events` Firestore collection as event='app_event'
+             with metadata.name='founder_video_<bucket>', which the
+             /admin "Founder video" block reads. sessionStorage gates
+             stop a single visitor from double-counting on scrub /
+             replay. (Don't call window.track directly here: founder_video_*
+             isn't in the /api/log-event allowlist; the gtag bridge is
+             the supported path.) -->
         <script>
         (function(){
           var v = document.querySelector('.founder-video');
@@ -5439,7 +5442,6 @@ section.ui-section .ui-lede{
             try { if (sessionStorage.getItem('fv_' + name)) { fired[name] = 1; return; } } catch(e){}
             fired[name] = 1;
             try { sessionStorage.setItem('fv_' + name, '1'); } catch(e){}
-            if (typeof window.track === 'function') window.track('founder_video_' + name, { src: 'landing' });
             if (typeof window.gtag === 'function') window.gtag('event', 'founder_video_' + name, { src: 'landing' });
           }
           v.addEventListener('play', function(){ fire('play'); });
