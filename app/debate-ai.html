@@ -1615,12 +1615,16 @@ const JUDGE_PARADIGMS = {
 // ballad, alloy, coral, ash, statesman, barrister, upstart, heckler,
 // disruptor, tactician) to DEFAULT_VOICE on next render.
 const VOICES = {
-  onyx:    { name:'Male · Commanding',  gender:'', desc:'Deep and authoritative. Owns the room.' },
+  // onyx removed 2026-05-18: it's OpenAI's stock "aggressive American male"
+  // voice that's saturated the internet — every AI demo, every YouTube
+  // explainer. Reads as cheap and recognizable, the opposite of what the
+  // debate opponent should sound like. Anyone with a saved voice='onyx'
+  // gets migrated to 'echo' via migrateVoice below.
   echo:    { name:'Female · Confident', gender:'', desc:'Persuasive and self-assured. Sounds like she has already won.' },
   nova:    { name:'Male · Energetic',   gender:'', desc:'High-energy and relentless. Every word carries conviction.' },
   shimmer: { name:'Female · Polished',  gender:'', desc:'Polished and lethal. Devastating attacks sound entirely reasonable.' },
 };
-const DEFAULT_VOICE = 'onyx';
+const DEFAULT_VOICE = 'echo';
 function migrateVoice(v){ return (v && VOICES[v]) ? v : DEFAULT_VOICE; }
 
 /* ── USE-CASE PICKER (non-debater onramp) ────────
@@ -2532,11 +2536,17 @@ async function callAI(sys, user, onChunk, brainKey, opts){
   if (opts && opts.promptId) body._promptId = opts.promptId;
   if (opts && opts.promptVars) body._promptVars = opts.promptVars;
   let currentEndpoint=brain.endpoint;
-  let r=await fetch(currentEndpoint,{
+  // Caller can pass an AbortSignal via opts.signal to cancel a stalled
+  // generation. Used by speech callsites with a watchdog that aborts
+  // if no chunk has arrived for >12s — the underlying fix for "the
+  // generation just stopped 30 seconds in" reports.
+  const fetchOpts = {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body),
-  });
+  };
+  if (opts && opts.signal) fetchOpts.signal = opts.signal;
+  let r=await fetch(currentEndpoint, fetchOpts);
   // Detect Netlify 404 page (force=200 redirect can serve HTML body when function missing)
   // OR actual 404 OR 500-when-key-missing. fall back to Claude for any non-Claude brain failure
   const contentType=r.headers.get('content-type')||'';
@@ -2580,7 +2590,21 @@ async function callAI(sys, user, onChunk, brainKey, opts){
   const reader=r.body.getReader(),dec=new TextDecoder();
   let full='',buf='';
   while(true){
-    const{done,value}=await reader.read();
+    let chunkRead;
+    try {
+      chunkRead = await reader.read();
+    } catch(streamErr) {
+      // AbortSignal fired (stall watchdog) or network dropped mid-stream.
+      // Return whatever we already streamed instead of throwing — the caller
+      // can play the partial speech and end cleanly. Without this, an abort
+      // mid-stream throws an AbortError up the chain and the round-start
+      // catch path renders a "[AI request failed]" banner instead of the
+      // good partial text the user already heard / saw.
+      const isAbort = streamErr && (streamErr.name === 'AbortError' || /abort/i.test(streamErr.message||''));
+      console.warn('[callAI] stream interrupted:', streamErr && streamErr.message, isAbort?'(aborted)':'(network)');
+      break;
+    }
+    const{done,value}=chunkRead;
     if(done)break;
     buf+=dec.decode(value,{stream:true});
     const lines=buf.split('\n');buf=lines.pop()||'';
@@ -5196,7 +5220,7 @@ function App(){
         // after 5s, downstream sees null, the next chunk runs, and worst case
         // the round-level browser-TTS fallback (audioActuallyPlayed check
         // below) takes over.
-        const TTS_CHUNK_TIMEOUT_MS = 5000;
+        const TTS_CHUNK_TIMEOUT_MS = 8000;
         const fetchTTSBlob=(text)=>{
           // Scrub markdown before TTS: ElevenLabs Turbo handles `**bold**`
           // gracefully (silently ignores) but tts-1 occasionally pronounces
@@ -5223,7 +5247,12 @@ function App(){
         // while AI is still generating the rest of the speech.
         const blobPromises=[];  // grows as AI streams. playStream consumes them live
         let lastChunkEnd=0;
-        const MIN_CHUNK_WORDS=25;
+        // First chunk fires sooner (12 words ≈ 1 sentence) so audio starts
+        // ~30% earlier on speech-1. Later chunks can be longer (smoother
+        // delivery, fewer cuts). MAX kept at 200 so we never wait forever
+        // when the AI writes a long unbroken paragraph.
+        const MIN_CHUNK_WORDS_FIRST=12;
+        const MIN_CHUNK_WORDS=20;
         const MAX_CHUNK_WORDS=200;
         let playbackStarted=false;
         // Fix #2 round-level safety net: track whether any HD chunk actually
@@ -5244,7 +5273,9 @@ function App(){
         const tryChunk=(clean,force)=>{
           const unchunked=clean.slice(lastChunkEnd).trim();
           const words=unchunked.split(/\s+/).filter(Boolean);
-          if(words.length<MIN_CHUNK_WORDS&&!force) return;
+          // First chunk uses a smaller floor so audio starts ASAP.
+          const floor = blobPromises.length === 0 ? MIN_CHUNK_WORDS_FIRST : MIN_CHUNK_WORDS;
+          if(words.length<floor&&!force) return;
           let splitText=unchunked;
           if(!force&&words.length>MAX_CHUNK_WORDS){
             const approxChar=unchunked.split(/\s+/).slice(0,MAX_CHUNK_WORDS).join(' ').length;
@@ -5355,13 +5386,37 @@ function App(){
         // and exploits patterns learned across prior rounds.
         const _sparringPrefix = sparringPartnerBlock(activePartner);
         const _basePrompt = buildPrompt(s,side,motion,hist,notes,format,oppStrengths,oppWeaknesses,getDifficultyNote(),background,currentLog,historyRounds,targetWords,voice,judgeParadigm,customParadigm,aiLanguage);
-        const rawTxt=await callAI(_sparringPrefix + _basePrompt,`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
-          const clean=stripPlan(chunk);
-          setAiText(clean);
-          const words=clean.split(/\s+/).length;
-          setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
-          tryChunk(clean,false);
-        },brain,{voiceFormat:format});
+        // Stall watchdog. The brain occasionally hangs mid-stream (Anthropic
+        // rate-pacing, a server idling). Without this, the reader sits there
+        // forever; the user sees "Writing argument via … 0%" frozen and the
+        // round never advances. We track last-chunk-arrival time and abort
+        // the fetch if no new chunk has arrived for STALL_MS — the partial
+        // text we already streamed plays through normally, and the round
+        // moves on.
+        const STALL_MS = 12000;
+        const streamAC = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        let lastChunkAt = Date.now();
+        const stallTimer = setInterval(() => {
+          if (Date.now() - lastChunkAt > STALL_MS) {
+            console.warn('[speech] stream stalled, aborting');
+            try{ if(typeof gtag==='function') gtag('event','speech_stream_stalled',{format:fmt.name,speech:s.code,brain}); }catch{}
+            try { streamAC && streamAC.abort(); } catch(_) {}
+            clearInterval(stallTimer);
+          }
+        }, 1500);
+        let rawTxt;
+        try {
+          rawTxt = await callAI(_sparringPrefix + _basePrompt,`Deliver your ${s.code} speech on: "${motion}"`,chunk=>{
+            lastChunkAt = Date.now();
+            const clean=stripPlan(chunk);
+            setAiText(clean);
+            const words=clean.split(/\s+/).length;
+            setAiPct(Math.min(99,Math.round((words/targetWords)*100)));
+            tryChunk(clean,false);
+          },brain,{voiceFormat:format, signal: streamAC ? streamAC.signal : undefined});
+        } finally {
+          clearInterval(stallTimer);
+        }
         const txt=stripPlan(rawTxt);
         setAiText(txt);setAiPct(100);
         // Final chunk: anything remaining
@@ -8446,15 +8501,46 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           'POIs are active. opponent may rise'
         ),
 
-        // Adaptive scouting report. show user what the AI detected
+        // Transcript toggle — render the AI's speech text inline so users
+        // who prefer to read along (or who lost audio) can follow what
+        // the AI is saying. Only renders during AI speech (not user turn)
+        // and only when there's text streamed.
+        !isUser && aiText && aiText.length > 20 && el('div', { style:{margin:'10px auto 0',maxWidth:560,textAlign:'center'} },
+          el('button', {
+            type:'button',
+            className:'cta-ghost',
+            onClick: () => setShowTx(v => !v),
+            style:{ padding:'6px 14px', fontSize:'.7rem', marginTop:0 },
+            'aria-expanded': showTx,
+          }, showTx ? '▼ Hide transcript' : '▶ Show transcript'),
+          showTx && el('div', {
+            style:{
+              marginTop:10, padding:'14px 16px', textAlign:'left',
+              background:'var(--c-surface, rgba(0,0,0,.04))',
+              border:'1px solid var(--c-border, rgba(0,0,0,.08))',
+              borderRadius:10, maxHeight:240, overflowY:'auto',
+              fontSize:'.82rem', lineHeight:1.55, color:'var(--c-text, #1a1a1f)',
+              whiteSpace:'pre-wrap',
+            },
+          }, aiText),
+        ),
+
+        // Adaptive scouting report. Only show POSITIVE-evidence detections
+        // ("Framework-heavy" because we counted 3+ framework words). The
+        // prior version also asserted ABSENCE claims ("No weighing detected",
+        // "No preemption", "Not tracking flow") based on keyword misses,
+        // which read as definitive judgments when they were really just
+        // "the user happened not to use these exact words." Telling a debater
+        // "no weighing detected" when they actually weighed via synonyms is a
+        // confidence-killing lie. Positive signals only — when we have actual
+        // evidence the pattern is there, say so; otherwise stay silent.
         !isUser&&aiLoading&&aiLoading!=='voice'&&log.filter(l=>l.who==='You').length>0&&(()=>{
           const userText=log.filter(l=>l.who==='You').map(l=>l.text).join(' ');
           const detections=[];
-          if(!userText.match(/weigh|outweigh|magnitude|probability/gi)) detections.push('No weighing detected');
-          if(!userText.match(/even if|grant|concede/gi)) detections.push('No preemption');
-          if(!userText.match(/drop|extend|pull through/gi)) detections.push('Not tracking flow');
           if(userText.match(/framework|standard|criterion/gi)?.length>2) detections.push('Framework-heavy');
           if(userText.match(/example|real.?world|instance/gi)?.length>2) detections.push('Example-heavy');
+          if(userText.match(/weigh|outweigh|magnitude|probability|timeframe/gi)?.length>1) detections.push('Weighing the impacts');
+          if(userText.match(/even if|grant|concede/gi)?.length>0) detections.push('Pre-empting their answers');
           if(detections.length===0) return null;
           return el('div',{style:{marginTop:8,padding:'8px 14px',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.12)',borderRadius:10,maxWidth:400,margin:'8px auto'}},
             el('div',{style:{fontSize:'.55rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.12em',color:'rgba(239,68,68,.5)',marginBottom:4}},'AI Scouting Your Style'),
