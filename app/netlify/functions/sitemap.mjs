@@ -22,7 +22,7 @@ const SITE_ORIGIN = 'https://debateai.com';
 // a stable last-edit date. Don't lie about static pages being "updated
 // today" — Google's lastmod heuristics catch that and discount the
 // whole sitemap's trustworthiness.
-const STABLE_DATE = '2026-05-14'; // bumped when meaningful content changes
+const STABLE_DATE = '2026-05-18'; // bumped when meaningful content changes
 const DYNAMIC = new Set([
   '/', '/today', '/rounds', '/community', '/live',
   '/champions', '/leaderboard', '/exhibition',
@@ -53,6 +53,16 @@ const URLS = [
   { path: '/learn/education/feminist-theory',       changefreq: 'monthly', priority: '0.78' },
   { path: '/learn/education/international-relations',changefreq: 'monthly', priority: '0.78' },
   { path: '/learn/education/climate-policy',        changefreq: 'monthly', priority: '0.78' },
+  // Long-tail question guides under /learn/guides. Each targets a
+  // specific question-style query that has higher commercial intent
+  // and lower competition than the generic /learn/formats entries.
+  // Add new slugs here when guide-bank.mjs grows.
+  { path: '/learn/guides',                          changefreq: 'weekly',  priority: '0.86' },
+  { path: '/learn/guides/asian-parli-pm-opening',   changefreq: 'monthly', priority: '0.82' },
+  { path: '/learn/guides/wsdc-reply-speech',        changefreq: 'monthly', priority: '0.82' },
+  { path: '/learn/guides/pf-crossfire-questions',   changefreq: 'monthly', priority: '0.82' },
+  { path: '/learn/guides/bp-poi',                   changefreq: 'monthly', priority: '0.82' },
+  { path: '/learn/guides/viva-exam-questions',      changefreq: 'monthly', priority: '0.84' },
   { path: '/community',       changefreq: 'daily',   priority: '0.88' },
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
