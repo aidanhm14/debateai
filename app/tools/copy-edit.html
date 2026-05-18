@@ -86,6 +86,7 @@
     <div class=changes id=changes></div>
     <div class=footer>
       <div class=hint>Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (Shift+Enter for a line break). Toolbar at the bottom of the iframe controls font / size / weight / align / color / width / move.</div>
+      <div style="margin-top:8px;color:#6b7290"><strong style="color:#c9cee1">Multi-select</strong> Shift+click to add/remove. Drag in empty space to marquee-select. Drag any selected block to move the whole group; orange guides snap within 4px. Arrow keys nudge (Shift+arrow = 10px). One block selected = 8 resize handles. <kbd>Esc</kbd> clears selection.</div>
       <div style="margin-top:8px;color:#6b7290"><strong style="color:#c9cee1">Move</strong> toggles drag-to-reposition (applies <code>transform: translate(...)</code>). When you're done: <strong style="color:#c9cee1">Export</strong> &rarr; paste in chat.</div>
     </div>
   </aside>
@@ -219,6 +220,20 @@
   let moveMode = false;
   let dragState = null;
 
+  // ─── multi-select / canva-like editing state ───
+  const selection = new Set();           // HTMLElements currently selected in iframe doc
+  let marqueeState = null;               // {startX,startY,pointerId,doc,didDrag,additive}
+  let groupDragState = null;             // see startGroupDrag
+  let resizeState = null;                // {el,handle,doc,startX,startY,startRect,origStyle,pointerId}
+  let suppressNextClick = false;         // a drag/marquee just resolved; eat the trailing click
+  const arrowBaseStyles = new Map();     // el -> style attr captured at start of an arrow-nudge burst
+  let arrowCommitTimer = null;
+  function setSuppressClick() {
+    suppressNextClick = true;
+    clearTimeout(setSuppressClick._t);
+    setSuppressClick._t = setTimeout(() => { suppressNextClick = false; }, 250);
+  }
+
   const FONTS = [
     { label: 'Default (page CSS)', value: '' },
     { label: 'System', value: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
@@ -282,6 +297,13 @@
           '[data-copyedit]:hover { outline: 2px dashed #e23847 !important; outline-offset: 1px !important; cursor: text !important; }\n' +
           '[data-copyedit][contenteditable=true] { outline: 2px solid #e23847 !important; outline-offset: 1px !important; background: rgba(226,56,71,0.08) !important; box-shadow: 0 0 0 4px rgba(226,56,71,0.12) !important; }\n' +
           '[data-copyedit][data-copyedit-moving] { outline: 2px dashed #38bdf8 !important; box-shadow: 0 0 0 4px rgba(56,189,248,0.18) !important; }\n' +
+          '[data-copyedit][data-copyedit-selected] { outline: 2px dashed #38bdf8 !important; outline-offset: 3px !important; }\n' +
+          '#__copyedit_selection_overlay { position: fixed; inset: 0; pointer-events: none; z-index: 2147483646; }\n' +
+          '.__copyedit_resize_handle { position: fixed; width: 10px; height: 10px; background: #fff; border: 1.5px solid #e23847; border-radius: 2px; pointer-events: auto; z-index: 2147483646; box-shadow: 0 0 0 1px rgba(0,0,0,0.18); }\n' +
+          '.__copyedit_corner_dot { position: fixed; width: 8px; height: 8px; background: #38bdf8; border: 1.5px solid #fff; border-radius: 2px; pointer-events: none; z-index: 2147483646; }\n' +
+          '#__copyedit_marquee_box { position: fixed; border: 1px dashed #38bdf8; background: rgba(56,189,248,0.10); pointer-events: none; z-index: 2147483645; display: none; }\n' +
+          '#__copyedit_guide_v { position: fixed; width: 1px; background: #f59e0b; z-index: 2147483646; pointer-events: none; display: none; box-shadow: 0 0 0 1px rgba(0,0,0,0.04); }\n' +
+          '#__copyedit_guide_h { position: fixed; height: 1px; background: #f59e0b; z-index: 2147483646; pointer-events: none; display: none; box-shadow: 0 0 0 1px rgba(0,0,0,0.04); }\n' +
           '#__copyedit_toolbar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: #0f1422; color: #e8eaf0; border: 1px solid #2a3050; border-radius: 10px; padding: 8px 10px; z-index: 2147483647; box-shadow: 0 12px 32px rgba(0,0,0,0.5); display: none; gap: 6px; align-items: center; font: 12px/1.2 ui-sans-serif, system-ui, sans-serif; user-select: none; max-width: calc(100vw - 32px); flex-wrap: wrap; }\n' +
           '#__copyedit_toolbar.on { display: flex; }\n' +
           '#__copyedit_toolbar .label { color: #8a92ad; padding: 0 6px 0 4px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
@@ -450,6 +472,429 @@
     dragState = null;
   }
 
+  // ─── multi-select / marquee / group drag / resize / nudge ─────────────
+
+  function addToSelection(el) {
+    selection.add(el);
+    el.setAttribute('data-copyedit-selected', '');
+  }
+  function removeFromSelection(el) {
+    selection.delete(el);
+    el.removeAttribute('data-copyedit-selected');
+  }
+  function toggleSelection(el) {
+    if (selection.has(el)) removeFromSelection(el);
+    else addToSelection(el);
+    updateSelectionOverlay(el.ownerDocument);
+  }
+  function clearSelection() {
+    for (const el of Array.from(selection)) el.removeAttribute('data-copyedit-selected');
+    selection.clear();
+    let doc = null;
+    try { doc = frame.contentDocument; } catch {}
+    if (doc) updateSelectionOverlay(doc);
+  }
+
+  function ensureOverlay(doc) {
+    let host = doc.getElementById('__copyedit_selection_overlay');
+    if (!host) {
+      host = doc.createElement('div');
+      host.id = '__copyedit_selection_overlay';
+      doc.body.appendChild(host);
+    }
+    return host;
+  }
+  function updateSelectionOverlay(doc) {
+    if (!doc || !doc.body) return;
+    const host = ensureOverlay(doc);
+    host.innerHTML = '';
+    // Prune stale (disconnected) elements
+    for (const el of Array.from(selection)) {
+      if (!el.isConnected) selection.delete(el);
+    }
+    if (!selection.size) return;
+    if (selection.size === 1 && !resizeState && !groupDragState) {
+      const el = Array.from(selection)[0];
+      addResizeHandles(host, el.getBoundingClientRect(), el, doc);
+    } else if (!groupDragState) {
+      for (const el of selection) addCornerDots(host, el.getBoundingClientRect(), doc);
+    }
+  }
+  function addCornerDots(host, r, doc) {
+    const pts = [[r.left, r.top], [r.right, r.top], [r.left, r.bottom], [r.right, r.bottom]];
+    for (const [x, y] of pts) {
+      const dot = doc.createElement('div');
+      dot.className = '__copyedit_corner_dot';
+      dot.style.left = (x - 4) + 'px';
+      dot.style.top = (y - 4) + 'px';
+      host.appendChild(dot);
+    }
+  }
+  function addResizeHandles(host, r, el, doc) {
+    const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
+    const hs = [
+      {k: 'nw', x: r.left,  y: r.top,    cur: 'nwse-resize'},
+      {k: 'n',  x: cx,      y: r.top,    cur: 'ns-resize'},
+      {k: 'ne', x: r.right, y: r.top,    cur: 'nesw-resize'},
+      {k: 'e',  x: r.right, y: cy,       cur: 'ew-resize'},
+      {k: 'se', x: r.right, y: r.bottom, cur: 'nwse-resize'},
+      {k: 's',  x: cx,      y: r.bottom, cur: 'ns-resize'},
+      {k: 'sw', x: r.left,  y: r.bottom, cur: 'nesw-resize'},
+      {k: 'w',  x: r.left,  y: cy,       cur: 'ew-resize'}
+    ];
+    for (const p of hs) {
+      const h = doc.createElement('div');
+      h.className = '__copyedit_resize_handle';
+      h.style.left = (p.x - 5) + 'px';
+      h.style.top = (p.y - 5) + 'px';
+      h.style.cursor = p.cur;
+      h.dataset.handle = p.k;
+      h.addEventListener('pointerdown', e => startResize(e, el, p.k, doc));
+      host.appendChild(h);
+    }
+  }
+
+  // Marquee
+  function ensureMarqueeBox(doc) {
+    let box = doc.getElementById('__copyedit_marquee_box');
+    if (!box) {
+      box = doc.createElement('div');
+      box.id = '__copyedit_marquee_box';
+      doc.body.appendChild(box);
+    }
+    return box;
+  }
+  function startMarquee(e, doc) {
+    marqueeState = {
+      startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
+      didDrag: false, doc, additive: e.shiftKey
+    };
+    doc.addEventListener('pointermove', onMarqueeMove);
+    doc.addEventListener('pointerup', onMarqueeUp);
+    doc.addEventListener('pointercancel', onMarqueeUp);
+  }
+  function onMarqueeMove(e) {
+    if (!marqueeState) return;
+    const x = Math.min(e.clientX, marqueeState.startX);
+    const y = Math.min(e.clientY, marqueeState.startY);
+    const w = Math.abs(e.clientX - marqueeState.startX);
+    const h = Math.abs(e.clientY - marqueeState.startY);
+    if (w > 3 || h > 3) marqueeState.didDrag = true;
+    const box = ensureMarqueeBox(marqueeState.doc);
+    box.style.display = 'block';
+    box.style.left = x + 'px';
+    box.style.top = y + 'px';
+    box.style.width = w + 'px';
+    box.style.height = h + 'px';
+  }
+  function onMarqueeUp(e) {
+    if (!marqueeState) return;
+    const doc = marqueeState.doc;
+    doc.removeEventListener('pointermove', onMarqueeMove);
+    doc.removeEventListener('pointerup', onMarqueeUp);
+    doc.removeEventListener('pointercancel', onMarqueeUp);
+    const box = doc.getElementById('__copyedit_marquee_box');
+    if (box) box.style.display = 'none';
+    const cancelled = e && e.type === 'pointercancel';
+    if (!cancelled && marqueeState.didDrag) {
+      const x1 = Math.min(e.clientX, marqueeState.startX);
+      const y1 = Math.min(e.clientY, marqueeState.startY);
+      const x2 = Math.max(e.clientX, marqueeState.startX);
+      const y2 = Math.max(e.clientY, marqueeState.startY);
+      selectInRect(doc, x1, y1, x2, y2, marqueeState.additive);
+      setSuppressClick();
+    } else if (!cancelled && !marqueeState.didDrag && !marqueeState.additive) {
+      // Plain click on empty area: drop selection (active edit is handled by its own blur)
+      if (selection.size) clearSelection();
+    }
+    marqueeState = null;
+  }
+  function selectInRect(doc, x1, y1, x2, y2, additive) {
+    if (!additive) {
+      for (const el of Array.from(selection)) el.removeAttribute('data-copyedit-selected');
+      selection.clear();
+    }
+    const all = doc.querySelectorAll('[data-copyedit]');
+    for (const el of all) {
+      const r = el.getBoundingClientRect();
+      if (r.right >= x1 && r.left <= x2 && r.bottom >= y1 && r.top <= y2 && r.width > 1 && r.height > 1) {
+        addToSelection(el);
+      }
+    }
+    updateSelectionOverlay(doc);
+    if (selection.size) {
+      showToast('Selected ' + selection.size + ' block' + (selection.size > 1 ? 's' : '') + ' · drag, arrows nudge (Shift+arrow = 10px)', 'ok', 1800);
+    }
+  }
+
+  // Group drag
+  function startGroupDrag(e, block, doc) {
+    if (active) commit();
+    groupDragState = {
+      startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
+      doc, didDrag: false,
+      base: new Map(), origStyle: new Map(), origRects: new Map()
+    };
+    for (const el of selection) {
+      groupDragState.base.set(el, parseTranslate(el.style.transform));
+      groupDragState.origStyle.set(el, el.getAttribute('style') || '');
+      groupDragState.origRects.set(el, el.getBoundingClientRect());
+    }
+    try { block.setPointerCapture(e.pointerId); } catch {}
+    doc.addEventListener('pointermove', onGroupDragMove);
+    doc.addEventListener('pointerup', onGroupDragUp);
+    doc.addEventListener('pointercancel', onGroupDragUp);
+  }
+  function onGroupDragMove(e) {
+    if (!groupDragState) return;
+    const rawDx = e.clientX - groupDragState.startX;
+    const rawDy = e.clientY - groupDragState.startY;
+    if (!groupDragState.didDrag && (Math.abs(rawDx) > 3 || Math.abs(rawDy) > 3)) {
+      groupDragState.didDrag = true;
+      setSuppressClick();
+      // Hide overlay during drag (corner dots are recomputed from origRects, not live rects)
+      const host = groupDragState.doc.getElementById('__copyedit_selection_overlay');
+      if (host) host.innerHTML = '';
+    }
+    if (!groupDragState.didDrag) return;
+    const snap = computeSnap(rawDx, rawDy, groupDragState.doc, groupDragState.origRects);
+    for (const el of selection) {
+      const b = groupDragState.base.get(el);
+      if (!b) continue;
+      el.style.transform = 'translate(' + Math.round(b.x + snap.dx) + 'px, ' + Math.round(b.y + snap.dy) + 'px)';
+    }
+    drawGuides(groupDragState.doc, snap.snapX, snap.snapY);
+  }
+  function onGroupDragUp(e) {
+    if (!groupDragState) return;
+    const doc = groupDragState.doc;
+    doc.removeEventListener('pointermove', onGroupDragMove);
+    doc.removeEventListener('pointerup', onGroupDragUp);
+    doc.removeEventListener('pointercancel', onGroupDragUp);
+    hideGuides(doc);
+    const cancelled = e && e.type === 'pointercancel';
+    if (cancelled) {
+      // Restore original styles
+      for (const el of selection) {
+        const oldS = groupDragState.origStyle.get(el);
+        if (oldS == null) continue;
+        if (oldS) el.setAttribute('style', oldS); else el.removeAttribute('style');
+      }
+    } else if (groupDragState.didDrag) {
+      let count = 0;
+      for (const el of selection) {
+        const oldS = groupDragState.origStyle.get(el) || '';
+        const newS = el.getAttribute('style') || '';
+        if (oldS !== newS) { recordStyleChange(el, oldS, newS); count++; }
+      }
+      if (count) { render(); showToast('Moved ' + count + ' block' + (count > 1 ? 's' : ''), 'ok', 1200); }
+    }
+    groupDragState = null;
+    updateSelectionOverlay(doc);
+  }
+
+  // Snap-to-edge + alignment guides. Returns adjusted {dx,dy} plus the snapped target lines (or null).
+  function computeSnap(rawDx, rawDy, doc, origRects) {
+    const SNAP = 4;
+    let snapDx = rawDx, snapDy = rawDy;
+    let snapX = null, snapY = null;
+    let bestX = SNAP + 1, bestY = SNAP + 1;
+    const all = doc.querySelectorAll('[data-copyedit]');
+    const otherRects = [];
+    for (const o of all) {
+      if (selection.has(o)) continue;
+      otherRects.push(o.getBoundingClientRect());
+    }
+    for (const el of selection) {
+      const orig = origRects.get(el);
+      if (!orig) continue;
+      const cxs = [orig.left + rawDx, orig.right + rawDx, (orig.left + orig.right) / 2 + rawDx];
+      const cys = [orig.top + rawDy, orig.bottom + rawDy, (orig.top + orig.bottom) / 2 + rawDy];
+      for (const or of otherRects) {
+        const tx = [or.left, or.right, (or.left + or.right) / 2];
+        const ty = [or.top, or.bottom, (or.top + or.bottom) / 2];
+        for (const v of cxs) for (const t of tx) {
+          const d = t - v;
+          if (Math.abs(d) < bestX) { bestX = Math.abs(d); snapDx = rawDx + d; snapX = t; }
+        }
+        for (const v of cys) for (const t of ty) {
+          const d = t - v;
+          if (Math.abs(d) < bestY) { bestY = Math.abs(d); snapDy = rawDy + d; snapY = t; }
+        }
+      }
+    }
+    return {
+      dx: snapDx,
+      dy: snapDy,
+      snapX: bestX <= SNAP ? snapX : null,
+      snapY: bestY <= SNAP ? snapY : null
+    };
+  }
+  function drawGuides(doc, snapX, snapY) {
+    let v = doc.getElementById('__copyedit_guide_v');
+    if (!v) { v = doc.createElement('div'); v.id = '__copyedit_guide_v'; doc.body.appendChild(v); }
+    let h = doc.getElementById('__copyedit_guide_h');
+    if (!h) { h = doc.createElement('div'); h.id = '__copyedit_guide_h'; doc.body.appendChild(h); }
+    const vh = doc.documentElement.clientHeight || 9999;
+    const vw = doc.documentElement.clientWidth || 9999;
+    if (snapX !== null) {
+      v.style.left = snapX + 'px'; v.style.top = '0';
+      v.style.height = vh + 'px'; v.style.display = 'block';
+    } else { v.style.display = 'none'; }
+    if (snapY !== null) {
+      h.style.top = snapY + 'px'; h.style.left = '0';
+      h.style.width = vw + 'px'; h.style.display = 'block';
+    } else { h.style.display = 'none'; }
+  }
+  function hideGuides(doc) {
+    const v = doc.getElementById('__copyedit_guide_v');
+    const h = doc.getElementById('__copyedit_guide_h');
+    if (v) v.style.display = 'none';
+    if (h) h.style.display = 'none';
+  }
+
+  // Resize (only when exactly one block is selected)
+  function startResize(e, el, handle, doc) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (active) commit();
+    resizeState = {
+      el, handle, doc,
+      startX: e.clientX, startY: e.clientY,
+      startRect: el.getBoundingClientRect(),
+      origStyle: el.getAttribute('style') || '',
+      pointerId: e.pointerId
+    };
+    try { e.target.setPointerCapture(e.pointerId); } catch {}
+    doc.addEventListener('pointermove', onResizeMove);
+    doc.addEventListener('pointerup', onResizeUp);
+    doc.addEventListener('pointercancel', onResizeUp);
+  }
+  function onResizeMove(e) {
+    if (!resizeState) return;
+    const dx = e.clientX - resizeState.startX;
+    const dy = e.clientY - resizeState.startY;
+    const r = resizeState.startRect;
+    const h = resizeState.handle;
+    let nw = r.width, nh = r.height;
+    if (h.includes('e')) nw = Math.max(20, r.width + dx);
+    if (h.includes('w')) nw = Math.max(20, r.width - dx);
+    if (h.includes('s')) nh = Math.max(20, r.height + dy);
+    if (h.includes('n')) nh = Math.max(20, r.height - dy);
+    resizeState.el.style.width = Math.round(nw) + 'px';
+    if (h.includes('n') || h.includes('s')) resizeState.el.style.height = Math.round(nh) + 'px';
+    updateSelectionOverlay(resizeState.doc);
+  }
+  function onResizeUp(e) {
+    if (!resizeState) return;
+    const doc = resizeState.doc;
+    doc.removeEventListener('pointermove', onResizeMove);
+    doc.removeEventListener('pointerup', onResizeUp);
+    doc.removeEventListener('pointercancel', onResizeUp);
+    const cancelled = e && e.type === 'pointercancel';
+    if (cancelled) {
+      const oldS = resizeState.origStyle;
+      if (oldS) resizeState.el.setAttribute('style', oldS); else resizeState.el.removeAttribute('style');
+    } else {
+      const oldS = resizeState.origStyle;
+      const newS = resizeState.el.getAttribute('style') || '';
+      if (oldS !== newS) {
+        recordStyleChange(resizeState.el, oldS, newS);
+        render();
+        showToast('Resized', 'ok', 1200);
+      }
+    }
+    resizeState = null;
+    setSuppressClick();
+    updateSelectionOverlay(doc);
+  }
+
+  function recordStyleChange(el, oldStyleAttr, newStyleAttr) {
+    const styles = styleDiff(oldStyleAttr, newStyleAttr);
+    if (!Object.keys(styles).length) return;
+    const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    changes.push({
+      page: pageOf(el.ownerDocument),
+      old: text,
+      new: text,
+      ctx: ctxOf(el),
+      styles,
+      outerHTML: el.outerHTML.slice(0, 400),
+      ts: Date.now()
+    });
+  }
+
+  // Arrow-key nudge with coalesced commit
+  function nudgeStart(el) {
+    if (!arrowBaseStyles.has(el)) arrowBaseStyles.set(el, el.getAttribute('style') || '');
+  }
+  function scheduleArrowCommit() {
+    if (arrowCommitTimer) clearTimeout(arrowCommitTimer);
+    arrowCommitTimer = setTimeout(() => {
+      let count = 0;
+      for (const [el, oldS] of arrowBaseStyles) {
+        const newS = el.getAttribute('style') || '';
+        if (oldS !== newS) { recordStyleChange(el, oldS, newS); count++; }
+      }
+      arrowBaseStyles.clear();
+      arrowCommitTimer = null;
+      if (count) { render(); showToast('Nudged ' + count + ' block' + (count > 1 ? 's' : ''), 'ok', 1200); }
+    }, 700);
+  }
+
+  // Doc-level pointerdown: triages between shift-marquee, group drag, plain marquee.
+  function onDocPointerDown(e) {
+    if (!editMode.checked) return;
+    if (e.button !== 0) return;
+    const tgt = e.target;
+    if (!tgt || !tgt.closest) return;
+    // Skip our own UI (toolbar, handles fire their own listeners)
+    if (tgt.closest('#__copyedit_toolbar')) return;
+    if (tgt.classList && tgt.classList.contains('__copyedit_resize_handle')) return;
+    const doc = tgt.ownerDocument;
+    const block = tgt.closest('[data-copyedit]');
+    if (e.shiftKey) {
+      // shift-click on editable: handled by wire(el) click toggle
+      // shift-drag on empty: additive marquee
+      if (!block) startMarquee(e, doc);
+      return;
+    }
+    if (block) {
+      if (selection.has(block)) {
+        // Initiate a potential group drag. If movement < 3px, the trailing
+        // click reaches wire(el) and enters edit (which clears selection).
+        startGroupDrag(e, block, doc);
+      }
+      // unselected block: let wire(el) click handle entry-to-edit
+      return;
+    }
+    // empty area: plain marquee (releases selection on no-drag click)
+    startMarquee(e, doc);
+  }
+
+  // Doc-level keydown: Escape clears, arrow keys nudge group.
+  function onDocKeyDown(e) {
+    if (!editMode.checked) return;
+    if (active) return;                // text edit owns the keyboard
+    if (!selection.size) return;
+    const k = e.key;
+    if (k === 'Escape') { e.preventDefault(); clearSelection(); return; }
+    if (k !== 'ArrowUp' && k !== 'ArrowDown' && k !== 'ArrowLeft' && k !== 'ArrowRight') return;
+    e.preventDefault();
+    const step = e.shiftKey ? 10 : 1;
+    const dx = k === 'ArrowLeft' ? -step : k === 'ArrowRight' ? step : 0;
+    const dy = k === 'ArrowUp' ? -step : k === 'ArrowDown' ? step : 0;
+    let doc = null;
+    for (const el of selection) {
+      nudgeStart(el);
+      const cur = parseTranslate(el.style.transform);
+      el.style.transform = 'translate(' + Math.round(cur.x + dx) + 'px, ' + Math.round(cur.y + dy) + 'px)';
+      doc = el.ownerDocument;
+    }
+    if (doc) updateSelectionOverlay(doc);
+    scheduleArrowCommit();
+  }
+
   function syncToolbar(el) {
     if (!activeDoc) return;
     const t = activeDoc.getElementById('__copyedit_toolbar');
@@ -517,11 +962,22 @@
     el.setAttribute('data-copyedit', '');
     el.addEventListener('click', e => {
       if (!editMode.checked) return;
-      if (active === el) return;
+      if (suppressNextClick) { suppressNextClick = false; return; }
       if (moveMode) return; // don't enter edit mid-drag-mode
+      // Shift-click toggles multi-selection without entering edit mode.
+      if (e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (active) commit();
+        toggleSelection(el);
+        return;
+      }
+      if (active === el) return;
       e.preventDefault();
       e.stopPropagation();
       if (active) commit();
+      // Plain click anywhere on a block clears any multi-selection and enters single-edit.
+      if (selection.size) clearSelection();
       active = el;
       activeDoc = el.ownerDocument;
       activeOriginalText = el.textContent;
@@ -636,6 +1092,18 @@
       mo.observe(doc.body, { childList: true, subtree: true });
       doc.__copyeditMO = mo;
     }
+    if (!doc.__copyeditMS) {
+      doc.addEventListener('pointerdown', onDocPointerDown, true);
+      doc.addEventListener('keydown', onDocKeyDown, true);
+      const win = doc.defaultView;
+      const onScrollOrResize = () => { if (selection.size) updateSelectionOverlay(doc); };
+      doc.addEventListener('scroll', onScrollOrResize, { capture: true, passive: true });
+      if (win) {
+        win.addEventListener('scroll', onScrollOrResize, { passive: true });
+        win.addEventListener('resize', onScrollOrResize);
+      }
+      doc.__copyeditMS = true;
+    }
   }
 
   frame.addEventListener('load', () => {
@@ -645,6 +1113,13 @@
       showToast('Cross-origin iframe blocked. Use same-origin paths only.', 'warn', 4000);
       return;
     }
+    // Reset cross-load state (the old doc's elements are gone, our refs would be stale)
+    selection.clear();
+    marqueeState = null;
+    groupDragState = null;
+    resizeState = null;
+    if (arrowCommitTimer) { clearTimeout(arrowCommitTimer); arrowCommitTimer = null; }
+    arrowBaseStyles.clear();
     setTimeout(() => install(doc), 250);
     setTimeout(() => install(doc), 1200);
   });
