@@ -3805,7 +3805,10 @@ section.ui-section .ui-lede{
     border-left-color:#ef4444;
   }
   [data-theme="dark"] .page-toc-list a.is-active{color:#fff}
-  @media (max-width:1180px){
+  /* Hidden under 1280px — at narrower viewports the FAQ grid can't
+     sit fully right of the fixed rail without overflow, so the rail
+     itself collapses below that breakpoint. */
+  @media (max-width:1280px){
     .page-toc{display:none}
   }
 </style>
@@ -7786,16 +7789,20 @@ section.ui-section .ui-lede{
         #faq .faq-stack-a{font-size:.86rem;padding:14px 18px 16px}
       }
 
-      /* Two-column layout: FAQ stack left, animated debater right.
-         Sticky on desktop so the debater stays in view while the user
-         reads down the questions. Collapses to single column under
-         1080px (debater hides cleanly on tablet/mobile). */
+      /* Two-column layout: debater LEFT (centered toward the page
+         middle), question stack RIGHT (clear of the fixed page-toc
+         sidebar at left:24/width:172). HTML keeps stack first for
+         semantic flow; .faq-debater uses order:-1 to flip visually.
+         Above 1280px (where page-toc is shown), the wrap shifts
+         rightward so neither column dives under the rail.
+         Collapses to single column under 1080px. */
       #faq .faq-layout{
         display:grid;
-        grid-template-columns:minmax(0,860px) minmax(0,440px);
-        gap:56px;align-items:start;
-        max-width:1400px;margin:36px auto 0;
+        grid-template-columns:minmax(0,340px) minmax(0,620px);
+        gap:48px;align-items:start;
+        max-width:1008px;margin:36px auto 0;
       }
+      #faq .faq-debater{order:-1}
       #faq .faq-layout .faq-stack{margin:0;max-width:none}
       #faq .faq-debater{
         position:sticky;top:84px;align-self:start;
@@ -7842,6 +7849,14 @@ section.ui-section .ui-lede{
       @media (max-width:1080px){
         #faq .faq-layout{grid-template-columns:1fr;max-width:920px;gap:0}
         #faq .faq-debater{display:none}
+      }
+      /* Above 1280px the fixed page-toc rail (left:24/width:172) shows
+         AND the FAQ has room to bias its grid rightward so the debater
+         sits more central and the question stack clears the rail
+         entirely. Below 1280px the rail hides (see .page-toc rule),
+         and the FAQ centers normally. */
+      @media (min-width:1281px){
+        #faq > .wrap{padding-left:220px !important}
       }
     </style>
 
