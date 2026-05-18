@@ -3092,6 +3092,17 @@ section.ui-section .ui-lede{
   max-width:1280px;margin:0 auto;padding:0 24px;
   align-items:start;
 }
+/* When the pair has only one section (after #story moved up next
+   to the founder video), collapse to a single centered column with
+   a narrower max-width and no vertical divider. */
+.story-pair:has(> .story:only-child){
+  grid-template-columns:1fr;
+  max-width:760px;
+}
+.story-pair:has(> .story:only-child) > .story:first-child{
+  border-right:none !important;
+  padding-right:0 !important;
+}
 .story-pair > .story{
   padding:48px 0 32px !important;
   width:100%;
@@ -5427,27 +5438,49 @@ section.ui-section .ui-lede{
      Swap back to the <video> tag when Aidan's mp4 is ready — the
      surrounding section + frame styles are unchanged. -->
 <section id="founder-video" class="founder-video-section" aria-label="Introducing Debate AI">
-  <div class="wrap" style="max-width:880px">
+  <div class="wrap" style="max-width:1180px">
     <div class="founder-video-eyebrow">Introducing Debate AI</div>
-    <!-- 2026-05-18 simplified back to a single player. The Demo tab
-         on top was redundant — the 3-up demos grid below (#demos)
-         already covers Voice AI / Prep / Community as separate
-         video panels. Keep the top slot exclusively for the
-         founder intro so the page hierarchy reads
-         "personal intro → product demos" instead of
-         "intro / demo / demo / demo / demo." -->
-    <div class="founder-video-frame">
-      <video
-        class="founder-video"
-        controls
-        preload="metadata"
-        playsinline
-        poster="/video/founder-intro-poster.jpg"
-      >
-        <source src="/video/founder-intro.mp4" type="video/mp4">
-        Your browser doesn't support embedded video.
-        <a href="/video/founder-intro.mp4">Download the video</a>.
-      </video>
+    <!-- 2026-05-18: condensed "Why this exists" copy moved next to the
+         video as a right-column sidebar. Lifted from the standalone
+         #story section that used to live below in .story-pair; the
+         video + author-voice context belong together visually.
+         id="story" is preserved on the side panel so the #story
+         jumpnav anchor still lands the user on this block. -->
+    <div class="founder-video-grid">
+      <div class="founder-video-frame">
+        <video
+          class="founder-video"
+          controls
+          preload="metadata"
+          playsinline
+          poster="/video/founder-intro-poster.jpg"
+        >
+          <source src="/video/founder-intro.mp4" type="video/mp4">
+          Your browser doesn't support embedded video.
+          <a href="/video/founder-intro.mp4">Download the video</a>.
+        </video>
+      </div>
+      <aside class="founder-video-side" id="story" aria-label="Why this exists">
+        <div class="fvs-eyebrow">Why this exists</div>
+        <p class="fvs-lead">
+          I compete in debate. I might not be the best, but this has been trained on the work of others (with consent) and my own. It's stood the examination of many elite debaters.
+        </p>
+        <p>
+          An AI adjudicator that cuts the middleman, no half-hour wait for an experienced judge's ballot. I want this to become the Omegle of debate. A motion drops, you get matched, the round runs, the AI judges. You walk away sharper.
+        </p>
+        <p>
+          Two utilities. The first is the community above. The second is oral-exam prep, school exams are shifting from written essays toward spoken defenses, and the <a href="/counter">Counter Chrome extension</a> drills exactly that.
+        </p>
+        <p>
+          Debate is the framework because it forces you to hold both sides at once. The AI plays three roles: judge, opponent, partner. Give it your ideas, get pushback.
+        </p>
+        <p>
+          Voice AI is fun, not there yet. Waiting on faster response times to match a real round.
+        </p>
+        <p class="fvs-outro">
+          Building this alone. I'd love a technical co-founder, <a href="mailto:contact@devilsadvocateteam.com?subject=Help%20build%20this">contact me</a> if you want in.
+        </p>
+      </aside>
     </div>
   </div>
 </section>
@@ -5457,6 +5490,53 @@ section.ui-section .ui-lede{
     font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
     color:var(--text-dim);text-align:center;margin-bottom:16px;
   }
+  /* Two-column grid: video on the left, condensed "Why this exists"
+     copy on the right. Drops to a single column below 880px so the
+     video stays full-width on mobile and the copy stacks under it. */
+  .founder-video-grid{
+    display:grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    gap:32px;
+    align-items:start;
+  }
+  @media (max-width:880px){
+    .founder-video-grid{grid-template-columns:1fr;gap:20px}
+  }
+  /* Side panel: smaller, denser type than the main story-text. The
+     fvs-eyebrow mirrors the section eyebrow's letterspacing so the
+     two read as a paired stack. fvs-lead is the credibility hook
+     and gets weight; fvs-outro is the co-founder ask and gets
+     weight too. Everything else sits in the calm middle. */
+  .founder-video-side{
+    font-size:.86rem;
+    line-height:1.55;
+    color:var(--text-dim);
+    align-self:stretch;
+    display:flex;flex-direction:column;
+  }
+  .founder-video-side .fvs-eyebrow{
+    font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--text-dim);margin-bottom:12px;
+  }
+  .founder-video-side p{margin:0 0 9px}
+  .founder-video-side p:last-child{margin-bottom:0}
+  .founder-video-side .fvs-lead{
+    font-size:.95rem;font-weight:600;color:var(--text);
+    margin-bottom:11px;letter-spacing:-.005em;
+  }
+  .founder-video-side .fvs-outro{
+    font-weight:700;color:var(--text);
+    margin-top:auto;padding-top:10px;
+  }
+  .founder-video-side a{
+    color:var(--accent);
+    text-decoration:underline;
+    text-underline-offset:2px;
+    text-decoration-thickness:1px;
+  }
+  [data-theme="light"] .founder-video-side{color:rgba(0,0,0,.66)}
+  [data-theme="light"] .founder-video-side .fvs-lead,
+  [data-theme="light"] .founder-video-side .fvs-outro{color:#1a1a1f}
   /* Without this rule the <video> rendered at its intrinsic 1280×720
      size, but the parent .founder-video-frame is sized by
      aspect-ratio:16/9 and a width that depends on viewport. Result:
@@ -7194,36 +7274,12 @@ section.ui-section .ui-lede{
      visible right next to it. -->
 <div class="divider"></div>
 
+<!-- 2026-05-18: #story (Why this exists) lifted out of this pair and
+     placed next to the founder video above as a right-column sidebar.
+     The .story-pair wrapper stays but with one child only; CSS below
+     collapses the grid to a single column when there's no second
+     story sibling. -->
 <div class="story-pair">
-<section class="story" id="story">
-  <div class="sec-label">Why this exists</div>
-  <!-- User-authored copy. Keep voice. Don't AI-polish on the next
-       pass; the unevenness is the point — it reads as someone
-       actually building this. Order: credibility → origin → two
-       utilities (debate community + oral-exam prep) → why debate
-       as a framework + AI as multi-role → honest gap on voice AI
-       → open call for a technical co-founder. -->
-  <p class="story-text" style="font-size:1.08rem;font-weight:600;color:var(--text)">
-    I compete in debate. I might not be the best, but this has been trained extensively on the work of others (with consent) and my own work. It's stood the examination of many elite debaters too.
-  </p>
-  <p class="story-text">
-    I was exploring with AI tools and thought this could be a fun application. An AI adjudicator that reduces the need for a middleman in debate (outside, experienced judges who wait half an hour after the round to think before delivering a ballot). I want this to become the Omegle of debate. A motion drops, you get matched, the round runs, the AI judges. You walk away sharper.
-  </p>
-  <p class="story-text">
-    Two utilities. The first is the community above. The second is oral-exam prep. School exams are shifting from written essays toward spoken defenses, and AI is going to keep accelerating that. The <a href="/counter" style="color:var(--accent)">Counter Chrome extension</a> drills exactly that.
-  </p>
-  <p class="story-text">
-    Debate is the framework because it forces you to hold both sides of an argument in your head at the same time. That's what makes you better at carrying a thesis through real pushback. The AI here plays three roles: judge, opponent, partner. Give it your ideas, get pushback. Or take an AI-written argument and tell it what to fix.
-  </p>
-  <p class="story-text">
-    Practicing back and forth with the voice AI feature is fun, but not there yet. Waiting on more advanced audio technology and faster response times to meet the real-time essence of an actual round.
-  </p>
-  <p class="story-text" style="font-weight:700">
-    I've been building and shipping this alone. I know it needs work, and I'd love a technical co-founder specifically. If anyone wants to help contribute, <a href="mailto:contact@devilsadvocateteam.com?subject=Help%20build%20this" style="color:var(--accent)">contact me</a>. This is more of an experiment than a business model. If a community builds out of it, great. If not, that's okay.
-  </p>
-</section>
-
-
 <section class="story" id="build-with-me" aria-label="Looking for help">
   <div class="sec-label">Help build this</div>
   <p class="story-text">
