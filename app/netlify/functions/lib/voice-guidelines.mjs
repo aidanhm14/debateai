@@ -1072,6 +1072,28 @@ WUDC / WORLDS-SPECIFIC VOICE (university-level BP with international register):
 - Weighing language is "reach, magnitude, probability, severity" — BP/Worlds vocabulary. "Magnitude, probability, timeframe, reversibility" is the American policy/PF/LD phrasing; don't mix.
 - Extensions on closing benches should genuinely SHIFT the debate's terrain: new actor (bring in an unstudied stakeholder), new time horizon (generational / decades-long effects), new comparator (what's the counterfactual world if motion fails?), or new lens (institutional / cultural / structural analysis the opening half didn't reach).
 - Avoid APDA-specific terms: no "squirrel," no "tight case," no "knife." Bad motions are "narrow" or "skewed."
+- Tournament context: 9 prelim rounds, top 48 break to elimination. Three speaker categories (Open / ESL / EFL) — ESL/EFL speakers are scored against peers in their language category, not penalized on register but rewarded for clarity over polish. If a round is in an ESL/EFL bracket, prefer cleaner sentence structures and fewer idiom-heavy turns of phrase.
+- Speaker scale: WUDC speaks in a 50-100 speaker-score range with a 75 median (an "average competent speech"). 80 = clearly strong. 85+ = breaking. 90+ rare. Inform the AI's self-modeling: a "decent" speech matches a 75; "good" matches 78; "great" matches 82.
+`,
+
+  wsdc: `
+WSDC-SPECIFIC VOICE (World Schools Debating Championships — high school 3v3 international, distinct from WUDC):
+- Research allowance: NONE for impromptu motions (1 hour prep); LIMITED for prepared motions (released days to weeks ahead, teams build case files but no live internet in-round). Even on prepared motions, the SOUND of the speech stays impromptu-feeling: no tagged citations, no "Smith 2022 finds," no read-aloud cards. Phrases like "research consistently shows," "we know from comparative studies that," "the Singapore housing case demonstrates" are the right register.
+- Scoring is Content (40%) + Style (40%) + Strategy (20%). This is the actual WSDC ballot breakdown. Tactical implication: a speech with strong content but poor delivery loses to a speech with merely good content and clean delivery. The AI must MATCH this weighting — clarity, cadence, and pacing matter as much as the strength of the argument.
+- "Matter / Manner / Method" is the older three-pillar phrasing of the same scoring split. Matter = content; Manner = style/delivery; Method = strategic engagement with the round. Modern WSDC ballots usually print "Content / Style / Strategy" but judges of either generation expect the same things.
+- Register is CONVERSATIONAL and MEASURED, not parliament-shouty. The strongest WSDC speakers sound like they are reasoning with the judge in real time, not declaiming from a podium. Avoid BP-style "Madam Speaker, my honourable colleague has..." theatrics — say what you mean, in fluent natural sentences, varying pace at key moments.
+- Three-speaker structure with explicit role split:
+  - 1st Prop / 1st Opp: establish framework + characterize the motion + deliver the PRINCIPLED argument (rights, dignity, legitimacy, autonomy). Set the comparison for the round.
+  - 2nd Prop / 2nd Opp: deliver the PRACTICAL argument (what actually happens on the ground, mechanisms, stakeholders, evidence base). Rebuild the 1st's principle under attack.
+  - 3rd Prop / 3rd Opp: NO new arguments. Engage clash-by-clash. Refute the opposing 2nd's practical argument. Weigh both team's principles against each other. Set up the reply.
+- Reply speech (4 minutes) is delivered by the 1st OR 2nd speaker (NOT the 3rd / whip). It is a BIASED ADJUDICATION — your team's case for why you won the round. Identify 2-3 "key issues," explain who won each, weigh globally. Opposition replies first, then Proposition. NO new arguments.
+- POIs allowed between minute 1 and minute 7 of every substantive speech. Take 1-2 per substantive (refusing all reads defensive; accepting more than 2 eats your own time). Offering POIs is itself scored — the judge tracks offers and notes which speakers stand for them.
+- Conferral adjudication (post-2023 WSDC standard): on most panels, the adjudicators briefly discuss the round before each judge writes their own ballot. Judges do not have to agree unanimously; conferral exists to make sure no judge missed a major beat. Implication for the AI: speeches that make their analytical moves obviously visible (signposting, named clashes, named impacts) survive conferral better than speeches that hide their best work inside dense prose.
+- Real WSDC schools the AI can name when culturally relevant: South Africa (Team SA), Australia (Team Australia, ESU NSW), Singapore (RI, HCI, NJC), India (DPS RKP, La Martiniere, Vasant Valley), Greece, Pakistan (LGS, Aitchison), Israel (IDC delegations), Canada, the US (Harvard-Westlake, Lakeside), Hong Kong, Indonesia. The 2025 WSDC Grand Final was India vs Australia.
+- WSDC vs WUDC vs Asian Parli quick guide for the AI: WSDC is 3v3 school-age with mixed prepared/impromptu motions and the reply speech; WUDC is 4-team university BP with all-impromptu motions and no reply; Asian Parli is 3v3 with reply but heavier on definitional debate and more aggressive POI culture. Don't blend conventions across them.
+- Address the judge as "judges" or "honourable judges" in formal moments. NEVER "Madam Speaker" (that's parliamentary). NEVER "ladies and gentlemen" (banned platform-wide). NEVER "proud to propose" — that's BP. WSDC closes with substantive weighing, often a callback to the round's named clashes: "We win on the dignity clash; we win on the practical clash; that's why you write the ballot for proposition."
+- Banned register flags specific to WSDC: do NOT preface ("Let me break this down" / "Here's why"), do NOT moralize ("This is fundamentally about..."), do NOT name-drop philosophers unless the motion is values-driven. Default is varsity debater on the international circuit, not philosophy seminar.
+- Prepared-motion convention: when a motion was released in advance, the AI should reference the team's "case prep" naturally — "we've structured the principle layer around X" — but still avoid the tagged-evidence register of Policy or PF. Prepared motions reward DEEP analysis on a small number of points, not a wide catalog of citations.
 `,
 
   asian: `
@@ -1110,19 +1132,84 @@ PUBLIC FORUM VOICE (NSDA, 2v2, lay-accessible, evidence-heavy):
 
   policy: `
 POLICY / CX DEBATE VOICE (2v2, evidence-heavy, fastest speech format — NSDA / NDT / CEDA):
-- RESEARCH IS THE GAME. This is the most research-intensive debate format in existence. Competitive teams cut hundreds of cards per topic. The AI should simulate this: USE CARDS. Tag every substantive claim with an author + year qualifier, and read "evidence" like a card. Example format: "Mearsheimer '14 — [short qualifier like 'political scientist at University of Chicago'] — writes: [2-3 sentences of evidence synthesized from real literature the model has priors on]." Use REAL scholars who actually publish in the relevant area; do NOT invent authors. If you don't have a real citation in mind for a claim, use a generic qualifier ("experts in the field generally find") instead of inventing one.
-- Evidence sources policy debaters actually use: academic journals (International Security, American Political Science Review, Journal of Conflict Resolution, Nature, Lancet, NEJM), think tanks (Brookings, CSIS, RAND, CFR, AEI, CNAS, ICG), government and IGO sources (CRS, GAO, CBO, IPCC, WHO, IAEA), major newspapers and magazines, open-source wikis (openCaselist, DebateUS, debatewikiarchive). The OpenDebateEvidence corpus has 3.5M+ cards — real debaters read from this pool.
-- Spreading (400-450 wpm) is common on circuit but tag clearly so the flow reads: "Contention 1: Inherency. A. Status quo fails. Meyer 23 —". When simulating written-out policy speeches, use "tag — cite — text" structure even though actual rounds deliver it at speed.
-- STOCK ISSUES the Aff must defend: Topicality (is the plan within the resolution?), Inherency (what's the status quo barrier?), Significance/Harms (why does the harm matter?), Solvency (does the plan actually fix it?), Advantages (what good things follow?).
-- OFF-CASE positions Neg runs in the 1NC:
-  - DA (Disadvantage): uniqueness + link + internal link + impact. Classic: "Econ DA — status quo econ is stable (Smith '23), plan triggers inflation (link), inflation crashes consumer spending (internal link), recession causes global instability (impact)."
-  - CP (Counterplan): must be competitive (mutually exclusive with plan or net-benefit-generating). Classic types: Consult CPs, Agent CPs (courts vs Congress), Process CPs, Delay CPs, PICs (plan-inclusive counterplans).
-  - K (Kritik): link + impact + alternative. Cap K, security K, biopower/Foucault, fem K, afropessimism, setcol, anthro. The alt is "reject the plan and embrace [X discourse]."
-  - T (Topicality): interpretation + violation + standards (limits, ground) + voters (education, fairness). Argued as an a-priori voter.
-- 2NR / 2AR "COLLAPSE." Pick 1-2 positions (usually ONE major off-case or the case debate) and go deep. Don't cover everything in the last speech; the judge can only evaluate so many pages of flow.
-- "Ballot story": the 15-second version of why the judge votes your way, delivered at the end of the 2NR / 2AR. "Judge, you vote neg because the econ DA turns their hege advantage — they can't access solvency without the economy their plan tanks."
-- Vocabulary (use naturally): card, cite, tag, cut, read (evidence), extend, flow, dropped, conceded, turn (link turn / impact turn), perm (aff's combo of plan + CP), net benefit, uniqueness, link, internal link, impact, solvency deficit, inherency overwhelm, topicality violation, competition deficit, alt doesn't solve, floating PIK.
-- No "proud to propose" — that's parli. Policy says "vote aff" / "vote neg" or "I urge an aff/neg ballot."
+
+═══ THE YEAR-LONG TOPIC CYCLE ═══
+- Policy uses ONE resolution for the entire competitive season. NFHS announces the high-school topic each August; teams research and debate it from September through nationals in June. College Policy (NDT/CEDA) uses the National Debate Topic on a parallel annual cycle. This is fundamentally different from PF (monthly) or LD (bi-monthly).
+- The year-long cycle is what enables Policy's research depth. Competitive teams cut hundreds of cards per topic across the season. They build block files (pre-written extensions to every common argument). They refine their 1AC across dozens of practice rounds. The AI should simulate a debater who has been working this resolution for months: deep familiarity with the live literature, ability to name specific authors who actually publish in the area, awareness of which Aff plans are "in" and which got out-debated this season.
+- Recent resolutions for the AI to know: 2025-26 NSDA HS = Arctic exploration / development. 2024-25 = intellectual property (including AI training data). 2023-24 = a federal jobs guarantee. 2022-23 = fiscal redistribution to Sub-Saharan Africa. 2021-22 = emerging adversaries' commercial activities. NDT topics run on a separate annual cycle (2024-25 NDT = clean energy decarbonization market-based instrument). Reference the SPECIFIC resolution context if the round's motion overlaps a recent topic.
+
+═══ RESEARCH IS THE GAME ═══
+- USE CARDS. Tag every substantive claim with an author + year qualifier. Read "evidence" like a card. Example format: "Mearsheimer '14 — political scientist at University of Chicago — writes: [2-3 sentences of evidence synthesized from real literature the model has priors on]."
+- Use REAL scholars who actually publish in the relevant area. Do NOT invent authors. If you don't have a real citation in mind, use a generic qualifier ("experts in the field generally find") instead of inventing one. Fake cites are worse than no cites; opposing teams have read the wiki and will call out fabricated authors.
+- Sources policy debaters actually pull from:
+  - Academic journals: International Security, American Political Science Review, Journal of Conflict Resolution, Nature, Lancet, NEJM, Foreign Affairs, Foreign Policy.
+  - Think tanks: Brookings, CSIS, RAND, CFR, AEI, CNAS, ICG, Heritage, Cato, Carnegie Endowment, Atlantic Council.
+  - Government / IGO: CRS, GAO, CBO, IPCC, WHO, IAEA, OECD, NATO publications, State Department reports.
+  - Open-source wiki / evidence pools: openCaselist (NDCA), DebateUS, debatewikiarchive, the OpenDebateEvidence corpus (3.5M+ cards).
+- Spreading (350-450 wpm) is standard on the national circuit. Tag clearly so the flow reads: "Contention 1: Inherency. A. Status quo fails. Meyer 23 —". When simulating written-out policy speeches, use the "tag — cite — text" structure even though actual rounds deliver it at speed.
+
+═══ DISCLOSURE NORMS ═══
+- The NDCA wiki (openCaselist) hosts disclosed Aff and Neg positions. Top teams disclose plan texts, 1AC contention names, and 1NC strategies. Disclosure-violation theory ("they didn't disclose their new K affirmative") is a common theory shell at circuit-level tournaments.
+- "30-minute disclo" norm: at most TOC-bid tournaments, teams must disclose changes to their case at least 30 minutes before the round if it's a new position. Failure to disclose is a theory voter.
+- "Round Robin" tournaments often have full open-source disclosure (whole 1AC text, blocks, frontlines all on the wiki).
+
+═══ AFF: 1AC STRUCTURE ═══
+- The 1AC is 8 minutes, pre-written, refined across the season. Standard structure:
+  1. Plan text (one sentence stating the specific policy action).
+  2. Inherency contention (status quo barriers: why the plan hasn't happened).
+  3. Advantage 1 (Harm scenario A: status quo bad → plan solves → impact). Each impact stacked: link, internal link, terminal impact (extinction, structural violence, dehumanization, etc.).
+  4. Advantage 2 (Harm scenario B: parallel structure).
+  5. Solvency (specific evidence that the plan resolves the harms).
+- 1ACs are READ verbatim at full speed. Cards are pre-cut. Highlighting is in bold/yellow on the doc. The Aff hands a "doc" to the Neg containing the cards being read so Neg can flow off the text.
+- Common 1AC archetypes: "soft-left" affs (link to structural violence, in-round solvency), "policy" affs (extinction-level impacts, hege/heg/heg, econ collapse), "K affs" (don't defend a topical plan; defend a critical discursive position).
+
+═══ NEG: 1NC STRUCTURE ═══
+- 1NC is 8 minutes. Standard layout: 4-6 off-case positions + 2-3 minutes on case.
+  - 1 T-shell (1 minute): interpretation, violation, standards (limits, ground), voters (education, fairness).
+  - 1-2 DAs (1-2 min each): uniqueness, link, internal link, impact.
+  - 0-1 CPs (1-2 min): counterplan text, solvency, net benefit.
+  - 0-1 Ks (1-2 min): link, impact, alternative.
+  - Case turns / case defense (the last 1-2 min): impact turns, no solvency, alt cause.
+- The 1NC reads cards on every position. The Neg block (2NC + 1NR back-to-back) is where Neg goes deep on the strategy they're collapsing to.
+
+═══ OFF-CASE TOOLKIT ═══
+- DA (Disadvantage): uniqueness + link + internal link + impact. Classic: "Econ DA — status quo econ is stable (Smith '23), plan triggers inflation (link), inflation crashes consumer spending (internal link), recession causes global instability (impact)." Common DAs: Politics DA (Congress agenda), Election DA, Economy DA, China DA, Heg DA, Spending DA.
+- CP (Counterplan): must be competitive (mutually exclusive with plan, or generate a net benefit so doing both is worse than CP alone). Classic types: Consult CPs, Agent CPs (courts vs Congress vs states), Process CPs, Delay CPs, PICs (plan-inclusive counterplans that solve the case but avoid the DA). Theory issues to flag if Aff: "PICs bad" / "Consult bad" / "Delay bad."
+- K (Kritik): link + impact + alternative. Common Ks: Cap K, security K, biopower/Foucault, fem K, afropessimism, setcol (settler colonialism), anthro (anthropocentrism), neolib K, queer K. The alt is "reject the plan and embrace [X discourse]." K affs often run with a "framework" shell that determines whether the K or the plan controls the round.
+- T (Topicality): interpretation + violation + standards (limits, ground, education, fairness) + voters. Argued as an a-priori voter — if the plan is non-topical, Aff loses regardless of substantive merit. Common T-shells track the resolution's keyword: T-substantially, T-development, T-Arctic (for the 2025-26 topic).
+
+═══ AFF: 2AC RESPONSE ARCHITECTURE ═══
+- The 2AC is 8 minutes. It must answer EVERY off-case position raised in the 1NC, plus rebuild on case. Pre-written 2AC "blocks" (frontlines) are essential — top teams have a 30-second to 1-minute pre-cut frontline for every common DA / CP / K they expect.
+- 2AC moves: defense (no link, no impact, alt cause), offense (link turn, impact turn, perm shields the link), theory (CP competition deficits, K framework, PICs bad, condo bad).
+- Perms (Aff's combo of plan + CP): "Perm do both," "Perm do the CP," "Perm do the plan AND [some part of the CP]." Perms must be functionally competitive and net-beneficial.
+
+═══ THE NEG BLOCK ═══
+- 2NC (8 min) + 1NR (5 min) run BACK-TO-BACK with only one Aff cross-ex in between. 13 minutes of Neg speech vs Aff's 5-minute 1AR. This is the structural pivot of the round. Top Negs use this block to bury Aff under deep development on 1-2 positions while the partner extends the rest.
+- Block strategy: split positions between 2NC and 1NR. Common split: 2NC takes the K + 1 DA + case; 1NR takes the CP + T. The Aff's 1AR has to cover all of it in 5 minutes.
+
+═══ COLLAPSE: 2NR / 2AR ═══
+- 2NR (5 min): pick 1-2 positions to GO FOR. Common collapses: just the DA + case, just the CP + DA (with DA as net benefit), just the K, just T. DON'T cover everything; the judge can only evaluate so many pages of flow.
+- 2AR (5 min): mirror the 2NR collapse. Pick the positions where Aff has the cleanest path and weigh them globally.
+- "Ballot story": the 15-second version of why the judge votes your way, delivered at the end of the 2NR / 2AR. "Judge, you vote neg because the econ DA turns their hege advantage — they can't access solvency without the economy their plan tanks." OR "Judge, you vote aff because the K can't solve case absent the plan, the alt doesn't have an in-round explanation, and our framework controls the role of the ballot."
+
+═══ THEORY SHELLS ═══
+- Condo bad (Aff theory against Neg running too many conditional positions in 1NC: usually triggered when Neg runs 3+ CPs or contradictory positions).
+- Severance perms bad (Neg theory: Aff's perm severs out of part of the plan, which is a moving target).
+- Intrinsicness bad (Aff/Neg theory: the perm/CP includes a step not in the original mandate).
+- RVI (Reverse Voter Issue: usually argued by Aff against T — "if I'm topical, I should win on T because they wasted a shell").
+- Disclosure theory (mentioned in §3 above).
+
+═══ VOCABULARY (use naturally) ═══
+- Card, cite, tag, cut, read (evidence), extend, flow, dropped, conceded, turn (link turn / impact turn), perm, net benefit, uniqueness, link, internal link, impact, solvency deficit, inherency overwhelm, topicality violation, competition deficit, alt doesn't solve, floating PIK, condo, severance, intrinsicness, voter, RVI, fiat, off-case, on-case, block, frontline, 2NR collapse, ballot story, role of the ballot, role of the judge.
+- Address: "Judge" or "the affirmative team" / "the negative team." Cross-ex: "I have a question for the [aff/neg]." NEVER "proud to propose" (that's parli). Policy says "vote aff" / "vote neg" or "I urge an aff/neg ballot."
+
+═══ COMMON FAILURE MODES TO AVOID ═══
+- Fabricating cards (top teams will call you on it; the wiki is searchable).
+- Running 4-off when you should be at 6-off (the K-heavy or DA-heavy strategies need critical mass).
+- 2NR going for "everything" — pick a position and collapse.
+- 1AR conceding the 2NC frontline by not extending offense.
+- Aff treating the 2AR like a fresh constructive — no new arguments past the 1AR's existing offense.
+- K affs that don't have a defensible role-of-the-ballot framework against framework presses.
 `,
 
   congress: `
@@ -1181,9 +1268,14 @@ function forFormat(format) {
   const key = String(format).toLowerCase().trim();
   if (FORMAT_VOICES[key] != null) return FORMAT_VOICES[key];
   // Synonym map — client passes may use display names or variants.
+  // NOTE: 'worlds' is reserved for WUDC (university BP) since that's what
+  // the client's FORMATS const labels "Worlds (WUDC)". WSDC (school 3v3)
+  // is a distinct format; route 'wsdc' / 'world schools' to the wsdc block.
   const syn = {
     'british parliamentary': 'bp', 'british': 'bp',
     'worlds (wudc)': 'worlds', 'wudc': 'worlds',
+    'wsdc': 'wsdc', 'world schools': 'wsdc', 'worlds schools': 'wsdc',
+    'world school': 'wsdc', 'school worlds': 'wsdc',
     'asian parliamentary': 'asian',
     'lincoln-douglas': 'ld', 'lincoln douglas': 'ld',
     'public forum': 'pf',
