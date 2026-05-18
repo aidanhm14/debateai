@@ -16,6 +16,7 @@
 //   /api/learn/formats/{slug} → direct function path
 
 import { FORMAT_BANK, getFormat } from './lib/format-bank.mjs';
+import { listGuides } from './lib/guide-bank.mjs';
 
 const SITE_ORIGIN = 'https://debateai.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
@@ -78,6 +79,21 @@ function renderRelatedLinks(currentSlug) {
     <div class="related-label">${esc(f.alias)}</div>
     <div class="related-name">${esc(f.name)}</div>
   </a>`).join('');
+}
+
+function renderFormatGuides(formatSlug) {
+  // Guides whose `format` field matches this format slug. These catch
+  // the question-style queries the format reference page itself can't
+  // rank for ("how to open as PM" vs the generic "Asian Parli format").
+  const guides = listGuides().filter(g => g.format === formatSlug);
+  if (!guides.length) return '';
+  return `<h2>Guides for this format</h2>
+  <div class="related-grid">
+    ${guides.map(g => `<a class="related-link" href="/learn/guides/${esc(g.slug)}">
+      <div class="related-label">Guide · ${esc(g.readTime)}</div>
+      <div class="related-name">${esc(g.question)}</div>
+    </a>`).join('')}
+  </div>`;
 }
 
 // Each format-bank slug maps to a hand-curated /topics/{slug} pillar page
@@ -213,6 +229,8 @@ function renderPage(format) {
 
   <h2>Sample motions</h2>
   <ul class="motion-list">${format.sampleMotions.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
+
+  ${renderFormatGuides(format.slug)}
 
   <div class="cta-card">
     <h3>Try a ${esc(format.alias)} round against the AI.</h3>
