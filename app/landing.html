@@ -4225,6 +4225,166 @@ section.ui-section .ui-lede{
   })();
 </script>
 
+<!-- ── In-page feedback modal (2026-05-18). Embeds the same Google
+     Form the pricing page links to, but inline so users can drop a
+     thought without leaving the page. Iframe src is lazy-set on
+     first open so the Form network round-trip doesn't load on every
+     page view. Any element with [data-open-feedback] opens it
+     (eyebrow chip + 'Still being built' pill are wired to it; the
+     intro modal's Google CTA still goes through Firebase). -->
+<style>
+  .fb-modal{
+    position:fixed;inset:0;z-index:10000;
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+    opacity:0;transition:opacity .3s ease;
+    pointer-events:none;
+  }
+  .fb-modal.is-open{opacity:1;pointer-events:auto}
+  .fb-backdrop{
+    position:absolute;inset:0;
+    background:rgba(0,0,0,.62);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+  }
+  [data-theme="light"] .fb-backdrop{background:rgba(0,0,0,.40)}
+  .fb-card{
+    position:relative;z-index:1;
+    width:min(720px,96vw);
+    max-height:min(880px,92vh);
+    display:flex;flex-direction:column;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,.5);
+    transform:scale(.96);
+    transition:transform .3s cubic-bezier(.2,.7,.2,1);
+  }
+  [data-theme="light"] .fb-card{
+    background:#fff;
+    box-shadow:0 30px 80px rgba(0,0,0,.18);
+  }
+  .fb-modal.is-open .fb-card{transform:scale(1)}
+  .fb-head{
+    display:flex;align-items:center;gap:12px;
+    padding:14px 18px;
+    border-bottom:1px solid var(--border);
+  }
+  .fb-eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);
+  }
+  .fb-eyebrow .dot{
+    width:6px;height:6px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+  }
+  .fb-title{
+    font-family:'Fraunces',Georgia,serif;
+    font-size:1rem;font-weight:600;color:var(--text);
+    margin-left:6px;
+  }
+  .fb-close{
+    margin-left:auto;
+    background:transparent;border:none;cursor:pointer;
+    color:var(--text-dim);font-size:1.4rem;line-height:1;
+    width:32px;height:32px;border-radius:999px;
+    transition:background .15s,color .15s;
+  }
+  .fb-close:hover{background:rgba(255,255,255,.06);color:var(--text)}
+  [data-theme="light"] .fb-close:hover{background:rgba(0,0,0,.05)}
+  .fb-iframe-wrap{
+    flex:1 1 auto;
+    min-height:520px;
+    background:#fff;
+    overflow:hidden;
+  }
+  .fb-iframe-wrap iframe{
+    width:100%;height:100%;
+    border:0;display:block;
+  }
+  .fb-foot{
+    display:flex;justify-content:space-between;align-items:center;
+    gap:14px;
+    padding:10px 18px;
+    border-top:1px solid var(--border);
+    font-size:.78rem;color:var(--text-dim);
+  }
+  .fb-foot a{color:var(--accent);font-weight:700;text-decoration:none}
+  .fb-foot a:hover{text-decoration:underline;text-underline-offset:3px}
+  @media (max-width:560px){
+    .fb-modal{padding:0}
+    .fb-card{
+      width:100%;height:100%;max-height:none;
+      border-radius:0;border:none;
+    }
+    .fb-iframe-wrap{min-height:0}
+  }
+</style>
+<div id="feedbackModal" class="fb-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="fbTitle">
+  <div class="fb-backdrop" id="fbBackdrop"></div>
+  <div class="fb-card">
+    <div class="fb-head">
+      <span class="fb-eyebrow"><span class="dot" aria-hidden="true"></span>Feedback</span>
+      <span class="fb-title" id="fbTitle">Help shape what gets built next</span>
+      <button type="button" class="fb-close" id="fbClose" aria-label="Close feedback">×</button>
+    </div>
+    <div class="fb-iframe-wrap">
+      <!-- src is set on first open so we don't make a Google Forms
+           round-trip on every page load. -->
+      <iframe id="fbIframe" data-src="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform?embedded=true" title="Debate AI feedback form" loading="lazy"></iframe>
+    </div>
+    <div class="fb-foot">
+      <span>Beta build. Every reply gets read.</span>
+      <a href="https://discord.gg/2dcFV2frM" target="_blank" rel="noopener">Or join the Discord →</a>
+    </div>
+  </div>
+</div>
+<script>
+  (function(){
+    var modal = document.getElementById('feedbackModal');
+    if (!modal) return;
+    var iframe = document.getElementById('fbIframe');
+    var close = document.getElementById('fbClose');
+    var backdrop = document.getElementById('fbBackdrop');
+    var loaded = false;
+
+    function open(){
+      if (!loaded) {
+        iframe.src = iframe.getAttribute('data-src');
+        loaded = true;
+      }
+      modal.hidden = false;
+      modal.setAttribute('aria-hidden','false');
+      requestAnimationFrame(function(){ modal.classList.add('is-open'); });
+      try { window.dosTrack && window.dosTrack('feedback_open'); } catch(e){}
+    }
+    function dismiss(){
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden','true');
+      setTimeout(function(){ modal.hidden = true; }, 320);
+    }
+
+    close.addEventListener('click', dismiss);
+    backdrop.addEventListener('click', dismiss);
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && !modal.hidden) dismiss();
+    });
+
+    // Delegated open: any [data-open-feedback] in the page (or added
+    // dynamically by topbar.js / other widgets) becomes a trigger.
+    document.addEventListener('click', function(e){
+      var el = e.target.closest && e.target.closest('[data-open-feedback]');
+      if (!el) return;
+      e.preventDefault();
+      open();
+    });
+
+    window.openFeedback = open;
+  })();
+</script>
+
 <!-- Vertical side-nav: secondary links pulled out of the top bar so the logo can breathe. -->
 
 <!-- Hero -->
@@ -4242,7 +4402,7 @@ section.ui-section .ui-lede{
          further down and reused as data nodes for the new rebuttal
          demo. Don't reorder these. -->
     <div class="editorial-hero">
-      <a class="editorial-eyebrow editorial-eyebrow-link" href="https://discord.gg/2dcFV2frM" target="_blank" rel="noopener" aria-label="Debate AI is in public beta — join the Discord to give feedback">
+      <a class="editorial-eyebrow editorial-eyebrow-link" href="https://discord.gg/2dcFV2frM" target="_blank" rel="noopener" data-open-feedback="1" aria-label="Debate AI is in public beta — click to give feedback">
         <span class="ee-dot" aria-hidden="true"></span>
         <span class="ee-beta">Public beta</span>
         <span class="ee-sep">·</span> WSDC <span class="ee-sep">·</span> Asian Parli <span class="ee-sep">·</span> BP <span class="ee-sep">·</span> PF <span class="ee-sep">·</span> more
@@ -4298,9 +4458,9 @@ section.ui-section .ui-lede{
         <a href="/rounds" class="hero-pill" title="Browse recently published debate rounds">Rounds</a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
         <a href="/app#case" class="hero-pill">Prep</a>
-        <a href="https://discord.gg/2dcFV2frM" target="_blank" rel="noopener" class="hero-still-built" aria-label="Join the DebateAI Discord — this product is still being built">
+        <a href="https://discord.gg/2dcFV2frM" target="_blank" rel="noopener" data-open-feedback="1" class="hero-still-built" aria-label="Still being built. Click to give feedback or join the Discord.">
           <span class="hsb-dot" aria-hidden="true"></span>
-          Still being built. Join the Discord
+          Still being built. Give feedback
           <span class="hsb-arrow" aria-hidden="true">→</span>
         </a>
       </div>
@@ -5679,39 +5839,47 @@ section.ui-section .ui-lede{
     .lpb-score-num{font-size:1.35rem}
   }
 
-  /* Caption row under the frame — three quick proof points. */
+  /* Caption row under the frame — three quick proof points. Each tile
+     gets a numbered editorial marker so it reads as an annotated proof
+     list (01 / 02 / 03) rather than three undifferentiated text blocks. */
   .live-proof-captions{
     display:grid;grid-template-columns:repeat(3,1fr);gap:0;
-    margin-top:18px;
-    border:1px solid rgba(255,255,255,.06);
-    border-radius:12px;
-    background:rgba(255,255,255,.02);
-    padding:14px 0;
+    margin-top:22px;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:14px;
+    background:rgba(255,255,255,.025);
+    padding:8px 0;
   }
   [data-theme="light"] .live-proof-captions{
     background:#fff;border-color:rgba(0,0,0,.08);
   }
   .live-proof-cap{
-    display:flex;flex-direction:column;gap:4px;
-    padding:4px 18px;
+    display:flex;flex-direction:column;gap:6px;
+    padding:18px 22px;
     border-right:1px solid rgba(255,255,255,.06);
     text-align:left;
   }
   .live-proof-cap:last-child{border-right:none}
   [data-theme="light"] .live-proof-cap{border-right-color:rgba(0,0,0,.06)}
+  .live-proof-cap .lpc-num{
+    font-size:.68rem;font-weight:800;letter-spacing:.20em;text-transform:uppercase;
+    color:var(--accent);
+    font-feature-settings:"tnum" on;
+  }
   .live-proof-cap strong{
-    font-size:.78rem;font-weight:800;color:var(--text);letter-spacing:0;
+    font-size:.98rem;font-weight:700;color:var(--text);letter-spacing:-.005em;
+    line-height:1.25;
   }
   .live-proof-cap span{
-    font-size:.74rem;color:var(--text-dim);line-height:1.45;
+    font-size:.84rem;color:var(--text-dim);line-height:1.55;
   }
 
   @media(max-width:680px){
-    .live-proof-captions{grid-template-columns:1fr;padding:6px 0}
+    .live-proof-captions{grid-template-columns:1fr;padding:4px 0}
     .live-proof-cap{
       border-right:none;
       border-bottom:1px solid rgba(255,255,255,.06);
-      padding:10px 16px;
+      padding:16px 18px;
     }
     .live-proof-cap:last-child{border-bottom:none}
     [data-theme="light"] .live-proof-cap{border-bottom-color:rgba(0,0,0,.06)}
@@ -6522,9 +6690,21 @@ section.ui-section .ui-lede{
     </div>
 
     <div class="live-proof-captions">
-      <div class="live-proof-cap"><strong>Real video room</strong><span>Two debaters, format-aware timers, POI hand-raise, judge silenced until the end.</span></div>
-      <div class="live-proof-cap"><strong>AI judge, not a chatbot</strong><span>Writes a ballot in the style a real circuit judge would. Clashes, weighing, RFD.</span></div>
-      <div class="live-proof-cap"><strong>Speaker points</strong><span>Calibrated against actual tournament scales. 24-25 is reachable for genuinely weak speeches.</span></div>
+      <div class="live-proof-cap">
+        <span class="lpc-num">01 · Video room</span>
+        <strong>Two debaters, real video</strong>
+        <span>Format-aware timers, POI hand-raise, judge silenced until the end of the round.</span>
+      </div>
+      <div class="live-proof-cap">
+        <span class="lpc-num">02 · AI judge</span>
+        <strong>Ballot in the style of a circuit judge</strong>
+        <span>Clashes, weighing axes, Reason for Decision. Not a chatbot summary.</span>
+      </div>
+      <div class="live-proof-cap">
+        <span class="lpc-num">03 · Speaker points</span>
+        <strong>Calibrated to tournament scales</strong>
+        <span>24 to 30 range, with 24-25 reachable for genuinely weak speeches.</span>
+      </div>
     </div>
   </div>
 </section>
