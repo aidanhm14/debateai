@@ -2908,6 +2908,22 @@ function App(){
     setVoiceRoundRating(0);
     if (recordingUrl) { try { URL.revokeObjectURL(recordingUrl); } catch(e){} }
     setRecordingUrl('');
+    // Tear down any stale prior peer connection / mic stream BEFORE we
+    // mint a fresh session. Without this, a user who clicks Start a
+    // second time (new motion, new side, new persona) without first
+    // ending the previous round keeps the old WebRTC data channel
+    // open — and the old session's `instructions` (with the old
+    // motion baked in) stays live in OpenAI's session context. Result:
+    // the AI's first speech announces the PRIOR round's motion
+    // ("Motion: This House Would Abolish Zoos") even though the
+    // user-visible motion bar is the new one. Close everything first.
+    try { if (pcRef.current) { pcRef.current.close(); } } catch(e){}
+    pcRef.current = null;
+    try { if (dcRef.current) { dcRef.current.close && dcRef.current.close(); } } catch(e){}
+    dcRef.current = null;
+    try { if (localStreamRef.current) { localStreamRef.current.getTracks().forEach(t => { try { t.stop(); } catch(_){} }); } } catch(e){}
+    localStreamRef.current = null;
+    try { if (recorderRef.current && recorderRef.current.state === 'recording') { recorderRef.current.stop(); } } catch(e){}
     setStatus('connecting');
     setConnectStep('Minting session…');
 
