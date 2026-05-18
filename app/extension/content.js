@@ -74,15 +74,16 @@
     const wrap = document.createElement('div');
     wrap.id = 'debateai-ext-pill';
     wrap.className = 'debateai-ext-pill debateai-ext-pill--hidden';
-    // 2026-05-18: viva mode is now the primary action on Docs (was
-    // 'Quiz me'). The oral-exam wedge surfaced on the landing today
-    // is exactly the surface this pill should default to.
+    // 2026-05-19: Counter-this is the primary action on Docs. The whole
+    // extension is now positioned as "DebateAI for Google Docs" — the
+    // floating pill should default to the same call to action as the
+    // right-click menu's top entry ("Counter this argument").
     wrap.innerHTML = `
-      <button type="button" class="debateai-ext-pill__btn" data-debateai-action="defend-this">
+      <button type="button" class="debateai-ext-pill__btn" data-debateai-action="counter-this">
         <span class="debateai-ext-pill__dot"></span>
-        <span class="debateai-ext-pill__label">Defend this out loud</span>
+        <span class="debateai-ext-pill__label">Counter this argument</span>
       </button>
-      <button type="button" class="debateai-ext-pill__btn debateai-ext-pill__btn--ghost" data-debateai-action="quiz-me">Quiz me</button>
+      <button type="button" class="debateai-ext-pill__btn debateai-ext-pill__btn--ghost" data-debateai-action="defend-this">Defend out loud</button>
       <button type="button" class="debateai-ext-pill__close" data-debateai-action="dismiss" aria-label="Dismiss">×</button>
     `;
     document.documentElement.appendChild(wrap);

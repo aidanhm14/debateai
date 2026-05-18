@@ -885,6 +885,50 @@
     padding: 0;
     overflow: hidden;
   }
+  /* Primary mode — Counter is the whole setup card, not a folded sidebar
+     teaser. Bigger header, no toggle chevron, body is always open. */
+  .counter-card.is-primary {
+    background: linear-gradient(180deg, rgba(229,69,69,0.06), rgba(229,69,69,0.012));
+    border: 1px solid rgba(229, 69, 69, 0.28);
+    border-radius: 12px;
+  }
+  .counter-card__primary-head {
+    padding: 16px 14px 4px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .counter-card__primary-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.005em;
+    background: linear-gradient(180deg, #fff, #d6d6dc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .counter-card__primary-sub {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  /* Setup container in counter-only mode — no other rows competing,
+     so give the card room. */
+  .setup--counter-only {
+    padding: 12px;
+    gap: 12px;
+  }
+  /* Larger textarea + CTA when Counter is the primary surface. */
+  .counter-card__textarea--lg {
+    min-height: 130px;
+    font-size: 13px;
+  }
+  .counter-card__cta--lg {
+    padding: 12px 14px;
+    font-size: 13.5px;
+  }
   .counter-card__head {
     appearance: none;
     background: transparent;
@@ -1220,7 +1264,7 @@
     <div class="brandbar__brand">
       <span class="brandbar__dot" aria-hidden="true"></span>
       <span class="brandbar__name">COUNTER</span>
-      <span class="brandbar__sub">by DEBATEAI</span>
+      <span class="brandbar__sub">DEBATEAI · DOCS</span>
     </div>
     <span class="brandbar__spacer"></span>
     <button class="streak-chip" id="streakChip" type="button" title="Drill streak">Start a streak</button>
@@ -1234,86 +1278,27 @@
   </div>
 
   <main class="stage" id="stage" data-state="setup">
-    <!-- Setup view: visible until a drill goes live -->
-    <section class="setup" id="setup">
-      <div class="row">
-        <div class="row__head">
-          <span class="row__label">Mode</span>
-          <span class="row__hint">Drill style</span>
-        </div>
-        <div class="chips" id="modeChips" role="tablist" aria-label="Drill mode"></div>
-      </div>
-
-      <div class="row">
-        <div class="row__head">
-          <span class="row__label">Examiner</span>
-          <span class="row__hint">Persona</span>
-        </div>
-        <div class="chips" id="personaChips" role="tablist" aria-label="Examiner persona"></div>
-      </div>
-
-      <div class="row">
-        <div class="row__head">
-          <span class="row__label">Topic</span>
-          <span class="row__hint" id="hint">Or highlight any passage and pick Quiz me</span>
-        </div>
-        <div class="topic-wrap">
-          <textarea
-            id="topicField"
-            class="topic"
-            placeholder="Paste a passage, type a motion, or highlight text on any page."
-            maxlength="900"
-            rows="3"
-            aria-label="Topic or passage"
-          ></textarea>
-          <div class="topic-meta">
-            <div class="topic-actions">
-              <button class="textbtn" id="paste" type="button" title="Paste from clipboard">Paste</button>
-              <button class="textbtn textbtn--danger" id="clearTopic" type="button">Clear</button>
-            </div>
-            <span class="topic-meta__count" id="topicCount">0 / 900</span>
-          </div>
-        </div>
-
-        <div class="quickstart" id="quickstartBlock">
-          <span class="quickstart__label">Try one</span>
-          <div class="quickstart__chips" id="quickstartChips"></div>
-        </div>
-
-        <div class="retry-strip" id="retryStrip" role="status">
-          <span class="retry-strip__msg" id="retryStripMsg">Last drill didn't start. Mic was likely blocked.</span>
-          <button class="retry-strip__cta" id="retryStripBtn" type="button">Try again</button>
-          <button class="retry-strip__close" id="retryStripClose" type="button" aria-label="Dismiss">×</button>
-        </div>
-      </div>
-
-      <button class="cta" id="startBtn" type="button" disabled>
-        <span class="cta__arrow" aria-hidden="true">▶</span>
-        <span class="cta__label">Start drill</span>
-        <span class="cta__sub" id="startSub">Pick a mode and topic</span>
-      </button>
-
-      <!-- Counter-your-draft: native debater. Reads a passage, returns
-           three structured rebuttals + the question your toughest reader
-           will ask first + a "Drill this" handoff into the voice round.
-           Collapsed by default so it doesn't steal the primary CTA. -->
-      <section class="counter-card" id="counterCard">
-        <button class="counter-card__head" id="counterToggle" type="button" aria-expanded="false" aria-controls="counterBody">
-          <span class="counter-card__icon" aria-hidden="true">⚔</span>
-          <span class="counter-card__title">Counter your draft <em>three rebuttals + the question you'll get</em></span>
-          <span class="counter-card__chev" aria-hidden="true">›</span>
-        </button>
-        <div class="counter-card__body" id="counterBody">
-          <p class="counter-card__hint">
-            Paste a paragraph from your essay, case file, or doc. The AI plays your toughest reader: finds the weakest claim, builds three rebuttals, and hands you the question to be ready for.
+    <!-- Setup view: one job, no chrome. Paste a paragraph from your Doc,
+         get rebuttals back. Voice round (modes, personas, etc.) is still
+         wired underneath; it surfaces only via the per-rebuttal "Drill
+         this in voice" CTA after a counter lands. -->
+    <section class="setup setup--counter-only" id="setup">
+      <section class="counter-card is-open is-primary" id="counterCard">
+        <div class="counter-card__primary-head">
+          <h2 class="counter-card__primary-title">Counter your draft</h2>
+          <p class="counter-card__primary-sub">
+            Paste a paragraph from your Google Doc, essay, or case file. The AI plays your toughest reader — finds the weakest claim, builds three rebuttals, and hands you the question you'll be asked first.
           </p>
+        </div>
+        <div class="counter-card__body" id="counterBody">
           <textarea
-            class="counter-card__textarea"
+            class="counter-card__textarea counter-card__textarea--lg"
             id="counterPassage"
             placeholder="Paste a paragraph of your argument…"
-            rows="4"
+            rows="7"
             maxlength="12000"
             aria-label="Passage to counter"
+            autofocus
           ></textarea>
           <div class="counter-card__row">
             <div class="counter-card__intensity" role="tablist" aria-label="Intensity">
@@ -1323,40 +1308,54 @@
             </div>
             <span class="counter-card__counts" id="counterCount">0 / 12000</span>
           </div>
-          <button class="counter-card__cta" id="counterRun" type="button" disabled>
+          <button class="counter-card__cta counter-card__cta--lg" id="counterRun" type="button" disabled>
             <span class="counter-card__spinner" aria-hidden="true"></span>
-            <span><span class="counter-card__cta-label">Build</span> rebuttals</span>
+            <span><span class="counter-card__cta-label">Counter</span> this argument</span>
           </button>
           <div class="counter-card__error" id="counterError" role="alert"></div>
           <div class="counter-results" id="counterResults" aria-live="polite"></div>
         </div>
       </section>
 
+      <!-- Docs-flavored discovery hints. Three real entry points, no
+           voice-drill noise. Hidden once the user has actually used
+           Counter once (see renderRecent in sidepanel.js). -->
       <div class="onboard" id="onboardBlock">
-        <span class="row__label">Quiz me from anywhere</span>
+        <span class="row__label">From any Google Doc</span>
         <ul class="onboard__list">
           <li class="onboard__row">
             <span class="onboard__num">1</span>
-            <span>Highlight any passage. A small chip appears near it.</span>
+            <span>Open a Doc. Select a paragraph.</span>
           </li>
           <li class="onboard__row">
             <span class="onboard__num">2</span>
-            <span>Right-click and pick "Quiz me on this passage".</span>
+            <span>Right-click → <em>Counter this argument</em>.</span>
           </li>
           <li class="onboard__row">
             <span class="onboard__num">3</span>
-            <span>Or hit <span class="onboard__kbd" id="onboardKbd">⌘⇧D</span> on any page.</span>
+            <span>Or hit <span class="onboard__kbd" id="onboardKbd">⌘⇧L</span> on any page.</span>
           </li>
         </ul>
       </div>
 
-      <div class="recent" id="recentBlock" hidden>
-        <span class="row__label">Recent</span>
-        <ul class="recent__list" id="recentList"></ul>
-      </div>
-
-      <div class="footnote">
-        Mic prompt appears once. Streak counts only sessions that go live.
+      <!-- Dormant containers for legacy voice-drill UI. The setup card no
+           longer renders Mode / Examiner / Topic / Quickstart / Recent /
+           Start-drill controls, but sidepanel.js still references their
+           els so renders are no-ops rather than null-derefs. Kept hidden
+           via [hidden] so they cost zero pixels but exist in the DOM. -->
+      <div hidden>
+        <div id="modeChips" role="tablist"></div>
+        <div id="personaChips" role="tablist"></div>
+        <textarea id="topicField" maxlength="900"></textarea>
+        <span id="topicCount"></span>
+        <button id="paste" type="button"></button>
+        <button id="clearTopic" type="button"></button>
+        <span id="hint"></span>
+        <button id="startBtn" type="button"></button>
+        <span id="startSub"></span>
+        <div id="quickstartBlock"><div id="quickstartChips"></div></div>
+        <div id="retryStrip"><span id="retryStripMsg"></span><button id="retryStripBtn"></button><button id="retryStripClose"></button></div>
+        <div id="recentBlock"><ul id="recentList"></ul></div>
       </div>
     </section>
 

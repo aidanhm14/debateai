@@ -932,12 +932,12 @@ function renderRecent() {
   const list = els.recentList;
   const block = els.recentBlock;
   if (!list || !block) return;
+  // Recent-drills list is dormant in the Counter-primary surface — the
+  // setup card no longer renders it. The function stays so legacy call
+  // sites (drainPending, init) don't trip, but we don't toggle the
+  // onboard visibility off based on recent count anymore. The onboard
+  // hints (Google-Docs entry points) are always relevant.
   const items = readRecent();
-  // Onboarding card is the mirror image of recent: visible only while
-  // the user has no drills under their belt yet. Once they drill once,
-  // the recent list replaces it.
-  const onboard = document.getElementById('onboardBlock');
-  if (onboard) onboard.hidden = items.length > 0;
   if (items.length === 0) { block.hidden = true; return; }
   block.hidden = false;
   list.innerHTML = '';
