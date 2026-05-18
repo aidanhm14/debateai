@@ -3877,6 +3877,7 @@ section.ui-section .ui-lede{
   <a href="#faq">FAQ</a>
   <a href="#story">Story</a>
   <a href="#more">More</a>
+  <a href="#" data-open-feedback="1" class="feedback-nav">Feedback</a>
   <a href="https://buymeacoffee.com/8idanhm" target="_blank" rel="noopener" class="donate">Donate</a>
 </nav>
 
@@ -4407,7 +4408,34 @@ section.ui-section .ui-lede{
     }
     .fb-iframe-wrap{min-height:0}
   }
+  /* Floating Feedback pill. Always visible on landing. Bottom-right of
+     the viewport, above the page TOC fade region. Opens the same modal
+     as every other [data-open-feedback] trigger. Mirrors the .feedback-trigger
+     on /app for surface parity. */
+  .fb-floating{
+    position:fixed;right:18px;bottom:18px;z-index:9999;
+    display:inline-flex;align-items:center;gap:8px;
+    padding:11px 18px;border-radius:999px;
+    background:linear-gradient(135deg,#dc2626,#b91c1c);
+    color:#fff;font-size:.82rem;font-weight:700;letter-spacing:.01em;
+    text-decoration:none;cursor:pointer;border:none;font-family:inherit;
+    box-shadow:0 6px 18px rgba(220,38,38,.32),0 2px 4px rgba(0,0,0,.18);
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .fb-floating:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 24px rgba(220,38,38,.42),0 3px 6px rgba(0,0,0,.22);
+  }
+  .fb-floating svg{width:14px;height:14px}
+  @media (max-width:560px){
+    .fb-floating{right:12px;bottom:12px;padding:9px 14px;font-size:.76rem}
+  }
+  @media print{ .fb-floating{display:none} }
 </style>
+<button type="button" class="fb-floating" data-open-feedback="1" aria-label="Send feedback">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+  Feedback
+</button>
 <div id="feedbackModal" class="fb-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="fbTitle">
   <div class="fb-backdrop" id="fbBackdrop"></div>
   <div class="fb-card">
@@ -5622,6 +5650,61 @@ section.ui-section .ui-lede{
     </div>
   </div>
 </section>
+
+<!-- Feedback CTA strip. Sits directly after the founder-video / "Why this
+     exists" block so the natural follow-on to "I'm building solo, looking
+     for input" is a single tap to give that input. Uses data-open-feedback
+     which the modal trigger system already wires up site-wide. -->
+<section class="feedback-strip" aria-label="Send feedback">
+  <div class="wrap" style="max-width:1180px">
+    <a href="#" data-open-feedback="1" class="feedback-strip-card">
+      <div class="fbs-eyebrow">Feedback shapes what ships next</div>
+      <div class="fbs-headline">Tell me what's broken. Tell me what's missing. Tell me what to build.</div>
+      <div class="fbs-sub">Two minutes. The form goes straight to me.</div>
+      <span class="fbs-cta">Give feedback <span aria-hidden="true">→</span></span>
+    </a>
+  </div>
+</section>
+<style>
+  .feedback-strip{padding:8px 24px 28px}
+  .feedback-strip-card{
+    display:block;text-decoration:none;color:inherit;
+    padding:22px 26px;border:1px solid var(--border);border-radius:16px;
+    background:linear-gradient(135deg,rgba(239,68,68,.07),rgba(239,68,68,.02));
+    transition:border-color .18s ease, background .18s ease, transform .18s ease;
+  }
+  .feedback-strip-card:hover{
+    border-color:rgba(239,68,68,.45);
+    background:linear-gradient(135deg,rgba(239,68,68,.10),rgba(239,68,68,.03));
+    transform:translateY(-1px);
+  }
+  .feedback-strip .fbs-eyebrow{
+    font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent,#ef4444);margin-bottom:8px;
+  }
+  .feedback-strip .fbs-headline{
+    font-size:clamp(1.05rem,2vw,1.35rem);font-weight:700;
+    color:var(--text);letter-spacing:-.01em;line-height:1.3;margin-bottom:6px;
+  }
+  .feedback-strip .fbs-sub{
+    font-size:.86rem;color:var(--text-dim);margin-bottom:14px;
+  }
+  .feedback-strip .fbs-cta{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:.82rem;font-weight:700;color:var(--accent,#ef4444);
+    letter-spacing:.01em;
+  }
+  [data-theme="light"] .feedback-strip-card{
+    background:linear-gradient(135deg,rgba(220,38,38,.05),rgba(220,38,38,.01));
+    border-color:rgba(220,38,38,.18);
+  }
+  [data-theme="light"] .feedback-strip-card:hover{
+    background:linear-gradient(135deg,rgba(220,38,38,.08),rgba(220,38,38,.02));
+    border-color:rgba(220,38,38,.42);
+  }
+  [data-theme="light"] .feedback-strip .fbs-headline{color:#1a1a1f}
+</style>
+
 <style>
   .founder-video-section{padding:36px 24px 24px}
   .founder-video-eyebrow{
@@ -8111,8 +8194,34 @@ section.ui-section .ui-lede{
     </aside>
 
     </div><!-- /.faq-layout -->
+
+    <!-- After the FAQ, the natural next move for a still-curious visitor
+         is "but I have my own question / thought." Send them straight to
+         the feedback form rather than emailing or hoping they find Discord. -->
+    <div class="faq-feedback-tail">
+      <span class="ffft-line">Have a question the FAQ didn't answer?</span>
+      <a href="#" data-open-feedback="1" class="ffft-link">Send it in feedback <span aria-hidden="true">→</span></a>
+    </div>
   </div>
 </section>
+<style>
+  .faq-feedback-tail{
+    max-width:1480px;margin:32px auto 0;padding:16px 22px;
+    display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+    text-align:center;
+    border-top:1px solid var(--border);
+  }
+  .faq-feedback-tail .ffft-line{
+    font-size:.92rem;color:var(--text-dim);
+  }
+  .faq-feedback-tail .ffft-link{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:.92rem;font-weight:700;color:var(--accent,#ef4444);
+    text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;
+    text-decoration-color:rgba(239,68,68,.4);
+  }
+  .faq-feedback-tail .ffft-link:hover{text-decoration-color:var(--accent,#ef4444)}
+</style>
 
 <!-- Story + Help build this. 2026-05-15: paired side-by-side. Both
      are first-person founder-voice essays with the same .story
