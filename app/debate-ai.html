@@ -514,6 +514,17 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
    to the screen edges on wide monitors. */
 .prep-room-left { right:calc(50% + 280px); }
 .prep-room-right{ left: calc(50% + 280px); }
+/* Speech variant — during speech the central stage is a 2-col
+   grid (motion+context left, orb+timer right) up to 1180px wide,
+   so center-anchored panels would land ON TOP of the orb on the
+   right and on the motion text on the left. Push the panels to
+   the viewport edges instead, outside the 1180px content grid,
+   so the seats stay visible without colliding with the round
+   itself. The active-speaker glow follows whichever seat (or
+   side) the current speech belongs to. */
+.prep-room-speech.prep-room-left { right:auto; left:max(2vw, 12px); }
+.prep-room-speech.prep-room-right{ left: auto; right:max(2vw, 12px); }
+@media(max-width:1340px){ .prep-room-speech{ display:none; } }
 .prep-room-eyebrow{
   font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
   color:rgba(230,219,195,.4);
@@ -1686,15 +1697,43 @@ const SEAT_LAYOUTS = {
 };
 SEAT_LAYOUTS.worlds = SEAT_LAYOUTS.bp;
 
+/* Map a speech code (e.g. 'PMR', '1AR', 'LO') to the seat code
+   it's delivered from. Direct match first (BP / APDA constructives
+   land here), then strip the trailing R / C (APDA PMR -> PM, LOR ->
+   LO, Policy 1AR -> 1A, 2NC -> 2N), then APDA-style Reply_O / Reply_G
+   route to the whip seat. Returns null if no match — caller falls
+   back to side-highlighting in that case. */
+function activeSeatCodeFor(speechCode, layout){
+  if(!speechCode || !layout) return null;
+  const seats = [...(layout.left||[]), ...(layout.right||[])];
+  const codes = seats.map(s=>s.code);
+  if(codes.includes(speechCode)) return speechCode;
+  const noR = speechCode.replace(/R$/,'');
+  if(noR !== speechCode && codes.includes(noR)) return noR;
+  const noC = speechCode.replace(/C$/,'');
+  if(noC !== speechCode && codes.includes(noC)) return noC;
+  if(speechCode === 'Reply_G' && codes.includes('GW')) return 'GW';
+  if(speechCode === 'Reply_O' && codes.includes('OW')) return 'OW';
+  return null;
+}
+
 /* Renderer for one side panel. Builds a single SVG with seats
    stacked vertically. Chair-back sits on the OUTER edge (away
    from center of screen) so the figure reads as "facing the
-   judge" — i.e. facing the center where the user / textarea is.
-   Active seats (seat.side === userSide) get a red cushion + back
-   + label + floor-glow halo; inactive seats stay ivory outlines. */
-function renderPrepRoomPanel(layout, panelSide, userSide, sideLabels){
+   judge" — i.e. facing the center where the user / textarea /
+   orb is. Highlight logic, by priority: (1) `activeSeatCode`
+   highlights one specific seat (used in the speech phase to
+   pulse whichever seat is currently speaking); (2) `activeSide`
+   highlights all seats on that side (fallback when the speech
+   code doesn't map cleanly — PF / Quick Clash / Congress); (3)
+   if neither passed, no highlight. Inactive seats stay ivory
+   outlines. `userSide` is used to color the eyebrow label red
+   on whichever panel the user picked, independent of who's
+   currently speaking. */
+function renderPrepRoomPanel(layout, panelSide, opts){
   const seats = panelSide === 'left' ? layout.left : layout.right;
   if(!seats || !seats.length) return null;
+  const { userSide, activeSide, activeSeatCode, sideLabels, variant } = opts || {};
   const isLeft = panelSide === 'left';
   const PANEL_W = 248;
   const SEAT_H  = 102;
@@ -1738,7 +1777,11 @@ function renderPrepRoomPanel(layout, panelSide, userSide, sideLabels){
       }, seat.team));
       y += TEAM_GAP;
     }
-    const active = seat.side === userSide;
+    const active = activeSeatCode
+      ? seat.code === activeSeatCode
+      : activeSide
+        ? seat.side === activeSide
+        : false;
     const backX = isLeft ? 8 : PANEL_W-24;
     const cushX = isLeft ? 28 : PANEL_W-28-SEAT_W;
     const labelX = cushX + SEAT_W/2;
@@ -1777,7 +1820,8 @@ function renderPrepRoomPanel(layout, panelSide, userSide, sideLabels){
   const youHere = seats.some(s=>s.side===userSide);
   const sideKey = seats[0].side;
   const sideName = (sideLabels && sideLabels[sideKey]) || sideKey;
-  return el('div',{className:'prep-room prep-room-'+panelSide,'aria-hidden':'true'},
+  const variantCls = variant ? ' prep-room-'+variant : '';
+  return el('div',{className:'prep-room prep-room-'+panelSide+variantCls,'aria-hidden':'true'},
     el('div',{className:'prep-room-eyebrow'+(youHere?' is-you':'')},
       youHere ? ('You · '+sideName) : sideName,
     ),
@@ -8611,8 +8655,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     // Hidden under 1180px via CSS so the centered stage breathes on
     // narrower viewports. aria-hidden — purely decorative; the side
     // chip in the stage already states "Pro · Quick Clash" etc.
-    seatLayout && renderPrepRoomPanel(seatLayout,'left', side, fmt.sideLabels),
-    seatLayout && renderPrepRoomPanel(seatLayout,'right',side, fmt.sideLabels),
+    seatLayout && renderPrepRoomPanel(seatLayout,'left', {activeSide:side, userSide:side, sideLabels:fmt.sideLabels}),
+    seatLayout && renderPrepRoomPanel(seatLayout,'right',{activeSide:side, userSide:side, sideLabels:fmt.sideLabels}),
     el('div',{className:stageClass},
       el('div',{className:'t-label'},'Prep Time'),
       el('div',{className:'t-time'+(prepTimer.left<=60?' danger':'')},prepTimer.fmt(prepTimer.left)),
@@ -8687,11 +8731,21 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // ── SPEECH ──
   if(phase==='speech'){
     const tc=timer.left<=15?'danger':timer.left<=30?'warn':'';
+    const seatLayout = SEAT_LAYOUTS[format] || null;
+    const activeSeatCode = seatLayout && cur ? activeSeatCodeFor(cur.code, seatLayout) : null;
     return el('div',{className:'page'},
       shortcutsOverlay,
     accountOverlay,
       helpFloatingButton,
       el('div',{className:'ambient'}),bar,
+      // Birds-eye seat panels (speech variant). The current speaker's
+      // seat pulses red; if cur.code doesn't map to a specific seat
+      // (PF, Quick Clash, Congress, MUN), fall back to glowing every
+      // seat on the speaking side. Hidden under 1340px so the orb +
+      // motion column has room to breathe; the active-speaker info
+      // is already in the phase header above the orb on narrow screens.
+      seatLayout && renderPrepRoomPanel(seatLayout,'left', {activeSeatCode, activeSide:activeSeatCode?null:cur&&cur.side, userSide:side, sideLabels:fmt.sideLabels, variant:'speech'}),
+      seatLayout && renderPrepRoomPanel(seatLayout,'right',{activeSeatCode, activeSide:activeSeatCode?null:cur&&cur.side, userSide:side, sideLabels:fmt.sideLabels, variant:'speech'}),
       el('div',{className:stageClass,key:'s'+idx},
 
         // Progress pips
