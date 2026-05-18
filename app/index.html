@@ -4024,6 +4024,28 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
   );
 }
 
+// Build a hard language directive when the user has picked a non-English
+// UI locale. Same pattern as debate-ai.html's buildPrompt: pin the
+// instruction at the head of the system prompt so the model writes the
+// entire output in that language. We pin it visibly (not as a comment)
+// because LLMs sometimes regress to English mid-stream on long generations.
+// Pulls from localStorage so it works on every brain caller without
+// threading state through every callsite.
+function buildLanguageBlock() {
+  try {
+    const code = localStorage.getItem('debateos-locale') || 'en';
+    if (!code || code === 'en') return '';
+    const meta = (typeof SUPPORTED_LOCALES !== 'undefined')
+      ? SUPPORTED_LOCALES.find(l => l.code === code) : null;
+    const name = meta ? meta.name : code;
+    return '\n\nLANGUAGE: WRITE THE ENTIRE OUTPUT IN ' + name.toUpperCase() + '. ' +
+      'This is non-negotiable. Do not slip into English even briefly. ' +
+      'Section headings, bullets, debate jargon, judge instructions, and any ' +
+      'quoted material in ' + name + '. Names of real people and proper nouns ' +
+      'can stay in their native form. The motion stays as-given by the user.\n';
+  } catch(e) { return ''; }
+}
+
 function buildStyleBlock() {
   const sp = window.__styleProfile;
   const parts = [];
@@ -4199,7 +4221,7 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   const teamBrief = (typeof __currentTeam !== 'undefined' && __currentTeam && __currentTeam.context)
     ? 'TEAM COACHING BRIEF (from '+(__currentTeam.teamName||'your team')+'):\n'+__currentTeam.context+'\n\nApply this guidance to your output.\n\n'
     : '';
-  const fullSystemPrompt = teamBrief + systemPrompt + buildStyleBlock() + voiceBlock;
+  const fullSystemPrompt = buildLanguageBlock() + teamBrief + systemPrompt + buildStyleBlock() + voiceBlock;
   const feature = opts.feature || 'case';
   const body = { model, max_tokens: maxTokens, stream: true, system: fullSystemPrompt, messages: [{ role:'user', content: userPrompt }], _feature: feature, _voiceFeature: feature };
   if (opts.format) body._voiceFormat = opts.format;
@@ -4335,7 +4357,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   const teamBrief = (typeof __currentTeam !== 'undefined' && __currentTeam && __currentTeam.context)
     ? 'TEAM COACHING BRIEF (from '+(__currentTeam.teamName||'your team')+'):\n'+__currentTeam.context+'\n\nApply this guidance to your output.\n\n'
     : '';
-  const fullSystemPrompt = teamBrief + systemPrompt + buildStyleBlock() + voiceBlock;
+  const fullSystemPrompt = buildLanguageBlock() + teamBrief + systemPrompt + buildStyleBlock() + voiceBlock;
 
   // Ensure budget_tokens < max_tokens and >= 1024 (API requirements)
   const safeBudget = Math.max(1024, Math.min(thinkBudget, maxTokens - 1024));
@@ -15872,6 +15894,29 @@ function App() {
             onClick:()=>setTheme(theme==='grey'?'light':theme==='light'?'dark':'grey'),
             style:{cursor:'pointer',padding:'4px 12px',borderRadius:999,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.05)'},
           }, theme==='grey'?'Light':theme==='light'?'Dark':'Grey'),
+          // Language picker. Overlays an invisible <select> on top of a
+          // visible flag/code pill so the styling matches the other topbar
+          // pills. Reads + writes localStorage 'debateos-locale' which
+          // (a) cascades to /i18n/{code}.json fetches for UI strings,
+          // (b) seeds debate-ai.html's aiLanguage on first visit, and
+          // (c) lets buildLanguageBlock() inject the AI-output directive
+          // on every brain call so the response language matches the UI.
+          React.createElement('span',{style:{position:'relative',display:'inline-flex',alignItems:'center'}},
+            React.createElement('span',{
+              className:'topbar-pill',
+              style:{cursor:'pointer',padding:'4px 12px',borderRadius:999,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.05)',display:'inline-block',pointerEvents:'none'},
+            },
+              ((SUPPORTED_LOCALES.find(l=>l.code===locale)||SUPPORTED_LOCALES[0]).flag) + ' ' +
+              ((SUPPORTED_LOCALES.find(l=>l.code===locale)||SUPPORTED_LOCALES[0]).code.toUpperCase())
+            ),
+            React.createElement('select',{
+              value:locale,
+              onChange:e=>setLocale(e.target.value),
+              'aria-label':'Change language',
+              title:'Change language',
+              style:{position:'absolute',inset:0,opacity:0,cursor:'pointer',width:'100%',height:'100%',border:'none',background:'transparent'},
+            }, SUPPORTED_LOCALES.map(l => React.createElement('option',{key:l.code,value:l.code}, l.flag + ' ' + l.name))),
+          ),
           // Style profile entry point. always visible, opens the questionnaire modal.
           // Wording shifts based on whether we've captured enough to show a real profile.
           React.createElement('button',{
