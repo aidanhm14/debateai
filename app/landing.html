@@ -5323,86 +5323,46 @@ section.ui-section .ui-lede{
 <section id="founder-video" class="founder-video-section" aria-label="Introducing Debate AI">
   <div class="wrap" style="max-width:880px">
     <div class="founder-video-eyebrow">Introducing Debate AI</div>
-    <!-- Tabbed player. Intro = founder narration. Demo = product
-         walkthrough. Tabs swap which <video> is visible + pause the
-         other so audio never overlaps. The Demo asset will be
-         replaced once recorded; until then it points at the same
-         intro file as a placeholder so the section never renders a
-         broken right-tab. -->
-    <div class="founder-video-tabs" role="tablist" aria-label="Choose what to watch">
-      <button type="button" role="tab" id="ftab-intro" aria-selected="true" aria-controls="fpanel-intro" data-fv-tab="intro" class="founder-video-tab is-active">Intro</button>
-      <button type="button" role="tab" id="ftab-demo"  aria-selected="false" aria-controls="fpanel-demo" data-fv-tab="demo"  class="founder-video-tab">Demo</button>
-    </div>
+    <!-- 2026-05-18 simplified back to a single player. The Demo tab
+         on top was redundant — the 3-up demos grid below (#demos)
+         already covers Voice AI / Prep / Community as separate
+         video panels. Keep the top slot exclusively for the
+         founder intro so the page hierarchy reads
+         "personal intro → product demos" instead of
+         "intro / demo / demo / demo / demo." -->
     <div class="founder-video-frame">
-      <div id="fpanel-intro" role="tabpanel" aria-labelledby="ftab-intro" data-fv-panel="intro" class="founder-video-panel is-active">
-        <video
-          class="founder-video"
-          controls
-          preload="metadata"
-          playsinline
-          poster="/video/founder-intro-poster.jpg"
-          data-fv-video="intro"
-        >
-          <source src="/video/founder-intro.mp4" type="video/mp4">
-          Your browser doesn't support embedded video.
-          <a href="/video/founder-intro.mp4">Download the video</a>.
-        </video>
-      </div>
-      <div id="fpanel-demo" role="tabpanel" aria-labelledby="ftab-demo" data-fv-panel="demo" class="founder-video-panel" hidden>
-        <video
-          class="founder-video"
-          controls
-          preload="none"
-          playsinline
-          poster="/video/founder-intro-poster.jpg"
-          data-fv-video="demo"
-        >
-          <!-- Placeholder source — replace /video/founder-demo.mp4
-               + /video/founder-demo-poster.jpg with the recorded
-               walkthrough when ready. The same path/structure as
-               the intro asset so the swap is a drop-in. -->
-          <source src="/video/founder-demo.mp4" type="video/mp4">
-          Your browser doesn't support embedded video.
-        </video>
-        <div class="founder-video-placeholder" aria-hidden="true">
-          <span class="fv-ph-eyebrow">Demo</span>
-          <span class="fv-ph-line">Product walkthrough — coming next.</span>
-        </div>
-      </div>
+      <video
+        class="founder-video"
+        controls
+        preload="metadata"
+        playsinline
+        poster="/video/founder-intro-poster.jpg"
+      >
+        <source src="/video/founder-intro.mp4" type="video/mp4">
+        Your browser doesn't support embedded video.
+        <a href="/video/founder-intro.mp4">Download the video</a>.
+      </video>
     </div>
   </div>
-  <script>
-  (function(){
-    var section = document.getElementById('founder-video');
-    if (!section) return;
-    var tabs = section.querySelectorAll('[data-fv-tab]');
-    var panels = section.querySelectorAll('[data-fv-panel]');
-    function select(key){
-      tabs.forEach(function(t){
-        var on = t.getAttribute('data-fv-tab') === key;
-        t.classList.toggle('is-active', on);
-        t.setAttribute('aria-selected', on ? 'true' : 'false');
-      });
-      panels.forEach(function(p){
-        var on = p.getAttribute('data-fv-panel') === key;
-        p.classList.toggle('is-active', on);
-        if (on) p.removeAttribute('hidden'); else p.setAttribute('hidden', '');
-        // Pause the off-tab video so audio can't overlap.
-        var v = p.querySelector('video');
-        if (v && !on) { try { v.pause(); } catch(e){} }
-      });
-    }
-    tabs.forEach(function(t){
-      t.addEventListener('click', function(){ select(t.getAttribute('data-fv-tab')); });
-    });
-  })();
-  </script>
 </section>
 <style>
   .founder-video-section{padding:36px 24px 24px}
   .founder-video-eyebrow{
     font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
     color:var(--text-dim);text-align:center;margin-bottom:16px;
+  }
+  /* Without this rule the <video> rendered at its intrinsic 1280×720
+     size, but the parent .founder-video-frame is sized by
+     aspect-ratio:16/9 and a width that depends on viewport. Result:
+     the video sat inside an oversized frame and looked "zoomed in
+     funny" because the visible portion was just the top-left of the
+     intrinsic 1280×720 raster while the frame stretched around it.
+     Filling 100% + object-fit:contain pins the whole video frame
+     to the container without crop. */
+  .founder-video{
+    width:100%;height:100%;display:block;
+    object-fit:contain;
+    background:#0a0a0c;
   }
   /* Tabs above the player frame. Intro on the left, Demo on the
      right. Sits flush against the frame's top edge so the active
@@ -5622,35 +5582,45 @@ section.ui-section .ui-lede{
      panels are hidden so the browser doesn't waste bytes pre-
      fetching three video metadata blobs on every load. -->
 <section id="demos" class="demos-section" aria-label="Product demos">
-  <div class="wrap" style="max-width:880px">
+  <div class="wrap" style="max-width:1180px">
     <div class="demos-eyebrow">See it in action</div>
-    <div class="demos-tablist" role="tablist" aria-label="Demo videos">
-      <button type="button" role="tab" class="demos-tab is-active" aria-selected="true"  aria-controls="demo-panel-voice"     id="demo-tab-voice">Voice AI</button>
-      <button type="button" role="tab" class="demos-tab"           aria-selected="false" aria-controls="demo-panel-prep"      id="demo-tab-prep">Prep</button>
-      <button type="button" role="tab" class="demos-tab"           aria-selected="false" aria-controls="demo-panel-community" id="demo-tab-community">Community</button>
-    </div>
-    <div class="demos-frame">
-      <div role="tabpanel" id="demo-panel-voice"     aria-labelledby="demo-tab-voice"     class="demos-panel is-active">
-        <video class="demos-video" controls preload="metadata" playsinline poster="/video/demo-voice-poster.jpg">
-          <source src="/video/demo-voice.mp4" type="video/mp4">
-          Your browser doesn't support embedded video.
-        </video>
-        <div class="demos-caption">Live voice round. Talk, get cut off, take POIs, hear the judge ballot.</div>
-      </div>
-      <div role="tabpanel" id="demo-panel-prep"      aria-labelledby="demo-tab-prep"      class="demos-panel" hidden>
-        <video class="demos-video" controls preload="metadata" playsinline poster="/video/demo-prep-poster.jpg">
-          <source src="/video/demo-prep.mp4" type="video/mp4">
-          Your browser doesn't support embedded video.
-        </video>
-        <div class="demos-caption">Case gen, motion triage, background pulls. The prep flow before a round.</div>
-      </div>
-      <div role="tabpanel" id="demo-panel-community" aria-labelledby="demo-tab-community" class="demos-panel" hidden>
-        <video class="demos-video" controls preload="metadata" playsinline poster="/video/demo-community-poster.jpg">
-          <source src="/video/demo-community.mp4" type="video/mp4">
-          Your browser doesn't support embedded video.
-        </video>
-        <div class="demos-caption">Live rooms, the leaderboard, published rounds. Where the network lives.</div>
-      </div>
+    <!-- 2026-05-18 reflow: was a tabbed player (one panel visible,
+         tabs above). User wanted all three demos visible at once,
+         laid out as three columns under the founder intro. Each
+         tile is its own self-contained player so visitors can scrub
+         any of them without flipping tabs. Drops to 1 column on
+         narrow viewports. -->
+    <div class="demos-grid">
+      <figure class="demo-tile">
+        <span class="demo-tile-label">Voice AI</span>
+        <div class="demo-tile-frame">
+          <video class="demos-video" controls preload="none" playsinline poster="/video/demo-voice-poster.jpg">
+            <source src="/video/demo-voice.mp4" type="video/mp4">
+            Your browser doesn't support embedded video.
+          </video>
+        </div>
+        <figcaption class="demos-caption">Live voice round. Talk, get cut off, take POIs, hear the judge ballot.</figcaption>
+      </figure>
+      <figure class="demo-tile">
+        <span class="demo-tile-label">Prep</span>
+        <div class="demo-tile-frame">
+          <video class="demos-video" controls preload="none" playsinline poster="/video/demo-prep-poster.jpg">
+            <source src="/video/demo-prep.mp4" type="video/mp4">
+            Your browser doesn't support embedded video.
+          </video>
+        </div>
+        <figcaption class="demos-caption">Case gen, motion triage, background pulls. The prep flow before a round.</figcaption>
+      </figure>
+      <figure class="demo-tile">
+        <span class="demo-tile-label">Community</span>
+        <div class="demo-tile-frame">
+          <video class="demos-video" controls preload="none" playsinline poster="/video/demo-community-poster.jpg">
+            <source src="/video/demo-community.mp4" type="video/mp4">
+            Your browser doesn't support embedded video.
+          </video>
+        </div>
+        <figcaption class="demos-caption">Live rooms, the leaderboard, published rounds. Where the network lives.</figcaption>
+      </figure>
     </div>
   </div>
 </section>
@@ -5658,117 +5628,71 @@ section.ui-section .ui-lede{
   .demos-section{padding:32px 24px 36px}
   .demos-eyebrow{
     font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--text-dim);text-align:center;margin-bottom:14px;
+    color:var(--text-dim);text-align:center;margin-bottom:18px;
   }
-  .demos-tablist{
-    display:flex;justify-content:center;gap:8px;flex-wrap:wrap;
-    margin-bottom:14px;
+  /* 3-up grid. Drops to 1 column below 720px so each tile is still
+     watchable on mobile rather than crushed into ~120px wide. */
+  .demos-grid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:18px;
   }
-  .demos-tab{
-    appearance:none;cursor:pointer;
-    padding:8px 16px;border-radius:999px;
-    font:inherit;font-size:.78rem;font-weight:600;letter-spacing:.01em;
-    color:var(--text-dim);
-    background:transparent;
-    border:1px solid var(--border);
-    transition:background .18s ease, border-color .18s ease, color .18s ease;
+  @media(max-width:880px){.demos-grid{grid-template-columns:1fr}}
+  .demo-tile{
+    display:flex;flex-direction:column;gap:10px;margin:0;
   }
-  .demos-tab:hover{color:var(--text);border-color:var(--text-dim)}
-  .demos-tab.is-active,
-  .demos-tab[aria-selected="true"]{
-    background:rgba(239,68,68,.10);
-    border-color:rgba(239,68,68,.40);
+  .demo-tile-label{
+    font-size:.6rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
     color:#f87171;
+    align-self:flex-start;
+    padding:4px 10px;border-radius:999px;
+    background:rgba(220,38,38,.10);
+    border:1px solid rgba(220,38,38,.32);
   }
-  [data-theme="light"] .demos-tab.is-active,
-  [data-theme="light"] .demos-tab[aria-selected="true"]{
-    background:rgba(220,38,38,.08);
-    border-color:rgba(220,38,38,.40);
+  [data-theme="light"] .demo-tile-label{
     color:#b91c1c;
+    background:rgba(220,38,38,.08);
+    border-color:rgba(220,38,38,.32);
   }
-  .demos-frame{
+  .demo-tile-frame{
     position:relative;
-    border-radius:16px;overflow:hidden;
+    border-radius:14px;overflow:hidden;
     border:1px solid var(--border);
     background:#0a0a0c;
     aspect-ratio:16 / 9;
-    box-shadow:0 12px 32px rgba(0,0,0,.10);
+    box-shadow:0 10px 28px rgba(0,0,0,.10);
     transition:border-color .22s ease, box-shadow .22s ease;
   }
-  .demos-frame:hover{
+  .demo-tile-frame:hover{
     border-color:var(--border-strong, rgba(255,255,255,.18));
-    box-shadow:0 16px 40px rgba(0,0,0,.16);
+    box-shadow:0 14px 36px rgba(0,0,0,.14);
   }
-  [data-theme="light"] .demos-frame{
+  [data-theme="light"] .demo-tile-frame{
     border-color:rgba(0,0,0,.10);
-    box-shadow:0 8px 24px rgba(0,0,0,.06);
+    box-shadow:0 6px 18px rgba(0,0,0,.06);
   }
-  .demos-panel{
-    position:absolute;inset:0;
-  }
-  .demos-panel[hidden]{display:none}
   .demos-video{
     width:100%;height:100%;display:block;
-    object-fit:cover;
+    /* contain rather than cover so the recorded screencaps show
+       their full frame — same fix as the founder intro above. */
+    object-fit:contain;
     background:#0a0a0c;
   }
   .demos-caption{
-    position:absolute;left:14px;right:14px;bottom:14px;
-    padding:8px 12px;
-    background:rgba(10,10,12,.78);
-    border:1px solid rgba(255,255,255,.10);
-    border-radius:8px;
-    color:rgba(255,255,255,.82);
-    font-size:.74rem;line-height:1.4;
-    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-    pointer-events:none;
+    font-size:.78rem;line-height:1.45;
+    color:var(--text-dim);
+    margin:0;padding:0 2px;
   }
   @media(max-width:680px){
     .demos-section{padding:24px 16px 28px}
-    .demos-tab{padding:7px 12px;font-size:.72rem}
-    .demos-frame{border-radius:12px}
-    .demos-caption{font-size:.7rem;left:10px;right:10px;bottom:10px}
+    .demo-tile-frame{border-radius:12px}
+    .demos-caption{font-size:.74rem}
   }
 </style>
-<script>
-(function(){
-  var list = document.querySelector('.demos-tablist');
-  if (!list) return;
-  var tabs = Array.prototype.slice.call(list.querySelectorAll('.demos-tab'));
-  var panels = Array.prototype.slice.call(document.querySelectorAll('.demos-panel'));
-  function activate(tab){
-    tabs.forEach(function(t){
-      var on = t === tab;
-      t.classList.toggle('is-active', on);
-      t.setAttribute('aria-selected', on ? 'true' : 'false');
-    });
-    var targetId = tab.getAttribute('aria-controls');
-    panels.forEach(function(p){
-      var on = p.id === targetId;
-      p.classList.toggle('is-active', on);
-      if (on) p.removeAttribute('hidden');
-      else    p.setAttribute('hidden', '');
-      // Pause any video that just got hidden so audio from a
-      // background panel can't keep playing after a tab switch.
-      var v = p.querySelector('video');
-      if (v && !on) { try { v.pause(); } catch(e){} }
-    });
-  }
-  tabs.forEach(function(t){
-    t.addEventListener('click', function(){ activate(t); });
-    // Arrow-key navigation per the ARIA tab pattern.
-    t.addEventListener('keydown', function(e){
-      var idx = tabs.indexOf(t);
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
-        e.preventDefault();
-        var next = e.key === 'ArrowRight' ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
-        tabs[next].focus();
-        activate(tabs[next]);
-      }
-    });
-  });
-})();
-</script>
+<!-- 2026-05-18: tab-activation script removed. Demos section is
+     now a 3-up grid (.demos-grid) — every tile is its own
+     independent <video>, so there's no tab state to manage. -->
+
 
 <!-- ── Encyclopedia overview. Wikipedia-inspired editorial block.
      White article panel on the page's dark wash, serif body type,
