@@ -1463,6 +1463,17 @@ html[data-theme="light"] textarea:focus{
 }
 html[data-theme="light"] .motion-input::placeholder{color:rgba(0,0,0,.42)}
 
+/* Generated-background textarea. Dark themes inherit a near-white text
+   color from the global `textarea` rule above, which lands fine on the
+   6%-blue tinted background. On light theme that same near-white text
+   disappears against the cream-tinted-with-blue surface; force a dark
+   ink + softer placeholder so the generated paragraph actually reads.
+   2026-05-18. */
+.bg-textarea{color:#e6e6ee}
+.bg-textarea::placeholder{color:rgba(255,255,255,.42)}
+html[data-theme="light"] .bg-textarea{color:#1a1a1f}
+html[data-theme="light"] .bg-textarea::placeholder{color:rgba(0,0,0,.42)}
+
 /* Motion-chip pills */
 html[data-theme="light"] .motion-chip{
   background:rgba(0,0,0,.02);color:#5a5a64;border-color:rgba(0,0,0,.08);
@@ -3814,12 +3825,17 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
               onChange: e => { setBackground(e.target.value); setGeneratedBackground(''); },
               placeholder:'Factual context for the motion',
               rows: 3,
+              // className lets the light-theme rule (added below this
+              // block) flip the color to a dark ink — the previous
+              // inline `var(--c-text, #e5e5ea)` was a pale near-white
+              // that disappeared on a light cream background tinted
+              // 6% blue. Inline color removed so the CSS rule wins.
+              className:'bg-textarea',
               style:{
                 marginTop:10, width:'100%', resize:'vertical',
                 padding:'10px 12px', borderRadius:8,
                 background:'rgba(96,165,250,.06)',
                 border:'1px solid rgba(96,165,250,.22)',
-                color:'var(--c-text, #e5e5ea)',
                 fontSize:'.82rem', lineHeight:1.55, fontFamily:'inherit',
               },
             }),
