@@ -64,6 +64,8 @@ const STORAGE_KEYS = {
   mode: 'counter:mode',
   persona: 'counter:persona',
   recent: 'counter:recent',
+  counterIntensity: 'counter:intensity',
+  counterCardOpen: 'counter:card-open',
 };
 // examDate lives in chrome.storage.local (not localStorage) so the
 // background SW can read it for badge / notification logic — see
@@ -118,6 +120,15 @@ const els = {
   streakChip: document.getElementById('streakChip'),
   reloadBtn: document.getElementById('reload'),
   frame: document.getElementById('frame'),
+  // Counter-your-draft section
+  counterCard: document.getElementById('counterCard'),
+  counterToggle: document.getElementById('counterToggle'),
+  counterBody: document.getElementById('counterBody'),
+  counterPassage: document.getElementById('counterPassage'),
+  counterCount: document.getElementById('counterCount'),
+  counterRun: document.getElementById('counterRun'),
+  counterError: document.getElementById('counterError'),
+  counterResults: document.getElementById('counterResults'),
   livepill: document.getElementById('livepill'),
   livepillLabel: document.getElementById('livepillLabel'),
   endDrillBtn: document.getElementById('endDrillBtn'),
@@ -170,6 +181,13 @@ const state = {
   // Last drill's failure mode — drives the sticky retry strip below
   // the topic field when a session bailed before going live.
   lastDrillFailed: false,
+  // Counter-your-draft sub-state. intensity persists via localStorage,
+  // pending is true while the agent is in flight, results holds the
+  // last successful response so re-opening the card mid-session doesn't
+  // wipe the rebuttals.
+  counterIntensity: 'firm',
+  counterPending: false,
+  counterResults: null,
 };
 
 // Anything we want to post before the iframe handshake completes.
@@ -509,6 +527,206 @@ els.startBtn?.addEventListener('click', () => {
   });
 });
 
+// ── Counter-your-draft (POST /api/counter-doc) ─────────────────────
+function setCounterOpen(open) {
+  const card = els.counterCard;
+  if (!card) return;
+  card.classList.toggle('is-open', !!open);
+  els.counterToggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  saveLocal(STORAGE_KEYS.counterCardOpen, open ? '1' : '0');
+  if (open) {
+    // Soft focus into the passage field, but only on user-initiated
+    // opens (skip the boot-time auto-restore that runs from localStorage).
+    if (els.counterPassage && document.activeElement !== els.counterPassage) {
+      // Defer so the chevron animation doesn't fight the focus ring.
+      setTimeout(() => els.counterPassage?.focus(), 160);
+    }
+  }
+}
+function updateCounterCount() {
+  const n = (els.counterPassage?.value || '').length;
+  if (els.counterCount) els.counterCount.textContent = `${n} / 12000`;
+  if (els.counterRun) {
+    els.counterRun.disabled = state.counterPending || (els.counterPassage?.value || '').trim().length < 40;
+  }
+}
+function setCounterIntensity(key) {
+  if (!['measured', 'firm', 'fierce'].includes(key)) return;
+  state.counterIntensity = key;
+  saveLocal(STORAGE_KEYS.counterIntensity, key);
+  if (!els.counterBody) return;
+  els.counterBody.querySelectorAll('.counter-card__intensity button').forEach((b) => {
+    const on = b.dataset.intensity === key;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+function showCounterError(msg) {
+  const el = els.counterError;
+  if (!el) return;
+  el.textContent = msg || '';
+  el.classList.toggle('is-shown', !!msg);
+}
+function setCounterLoading(loading) {
+  state.counterPending = !!loading;
+  els.counterCard?.classList.toggle('is-loading', state.counterPending);
+  if (els.counterRun) els.counterRun.disabled = state.counterPending;
+  updateCounterCount();
+}
+function renderCounterResults(data) {
+  const host = els.counterResults;
+  if (!host) return;
+  host.innerHTML = '';
+  if (!data) {
+    host.classList.remove('is-shown');
+    return;
+  }
+  host.classList.add('is-shown');
+
+  const thesis = document.createElement('div');
+  thesis.className = 'counter-results__thesis';
+  thesis.innerHTML = `<em>Your thesis, as I read it</em>${escapeHtml(data.thesis || '')}`;
+  host.appendChild(thesis);
+
+  const weakest = document.createElement('div');
+  weakest.className = 'counter-results__weakest';
+  weakest.innerHTML = `<em>Weakest load-bearing claim</em>${escapeHtml(data.weakestClaim || '')}`;
+  host.appendChild(weakest);
+
+  (data.rebuttals || []).forEach((r, idx) => {
+    const card = document.createElement('div');
+    card.className = 'rebuttal';
+    card.innerHTML =
+      `<span class="rebuttal__num">Rebuttal ${idx + 1}</span>` +
+      `<div class="rebuttal__claim">${escapeHtml(r.claim || '')}</div>` +
+      `<div class="rebuttal__line"><strong>Warrant</strong>${escapeHtml(r.warrant || '')}</div>` +
+      `<div class="rebuttal__line"><strong>Impact</strong>${escapeHtml(r.impact || '')}</div>` +
+      `<div class="rebuttal__actions">` +
+        `<button type="button" class="rebuttal__btn rebuttal__btn--primary" data-counter-drill="${idx}">Drill this in voice</button>` +
+        `<button type="button" class="rebuttal__btn" data-counter-copy="${idx}">Copy</button>` +
+      `</div>`;
+    host.appendChild(card);
+  });
+
+  if (data.examinersQuestion) {
+    const q = document.createElement('div');
+    q.className = 'counter-results__question';
+    q.innerHTML = `<em>The question to be ready for</em>${escapeHtml(data.examinersQuestion)}`;
+    host.appendChild(q);
+  }
+
+  if (data.drillTopic) {
+    const drill = document.createElement('div');
+    drill.className = 'counter-results__drill';
+    drill.innerHTML =
+      `<span class="counter-results__drill-topic" title="${escapeHtml(data.drillTopic)}">Drill: ${escapeHtml(data.drillTopic)}</span>` +
+      `<button type="button" class="counter-results__drill-cta" data-counter-drill="topic">Run as voice round</button>`;
+    host.appendChild(drill);
+  }
+
+  // Action delegation. Each "Drill this" sets the topic to the rebuttal's
+  // claim (or the drillTopic for the bottom CTA), flips the panel to
+  // drilling, and hands the iframe an autoStart payload. Each "Copy" puts
+  // the rebuttal text on the clipboard so the user can paste it into the
+  // doc as a comment.
+  host.querySelectorAll('[data-counter-drill]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-counter-drill');
+      let topicText = '';
+      if (target === 'topic') {
+        topicText = String(data.drillTopic || '').trim();
+      } else {
+        const idx = Number(target);
+        const r = (data.rebuttals || [])[idx];
+        if (r) topicText = String(r.claim || '').trim();
+      }
+      if (!topicText) return;
+      setTopic(topicText.slice(0, 900));
+      setDrilling(true);
+      sendToIframe({
+        action: 'defend-this',
+        text: topicText,
+        mode: state.mode,
+        persona: state.persona,
+        autoStart: true,
+      });
+    });
+  });
+  host.querySelectorAll('[data-counter-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const idx = Number(btn.getAttribute('data-counter-copy'));
+      const r = (data.rebuttals || [])[idx];
+      if (!r) return;
+      const text = `Claim: ${r.claim}\nWarrant: ${r.warrant}\nImpact: ${r.impact}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Rebuttal copied.');
+      } catch (_) {
+        showToast('Copy blocked. Select the text manually.');
+      }
+    });
+  });
+}
+async function runCounter() {
+  if (state.counterPending) return;
+  const passage = (els.counterPassage?.value || '').trim();
+  if (passage.length < 40) {
+    showCounterError('Paste a paragraph or longer.');
+    return;
+  }
+  showCounterError('');
+  setCounterLoading(true);
+  try {
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        type: 'counter-passage',
+        passage,
+        intensity: state.counterIntensity,
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve({ error: chrome.runtime.lastError.message });
+          return;
+        }
+        resolve(response || { error: 'no response' });
+      });
+    });
+    if (res?.error) {
+      const hint = res.assistantMessage ? ` (${String(res.assistantMessage).slice(0, 140)})` : '';
+      showCounterError(`${res.error}${hint}`);
+      return;
+    }
+    state.counterResults = res;
+    renderCounterResults(res);
+    try { SFX.captured(); } catch (_) {}
+  } finally {
+    setCounterLoading(false);
+  }
+}
+
+els.counterToggle?.addEventListener('click', () => {
+  const open = !els.counterCard?.classList.contains('is-open');
+  setCounterOpen(open);
+});
+els.counterPassage?.addEventListener('input', () => {
+  updateCounterCount();
+  showCounterError('');
+});
+els.counterRun?.addEventListener('click', runCounter);
+els.counterBody?.addEventListener('click', (ev) => {
+  const t = ev.target;
+  if (!(t instanceof HTMLButtonElement)) return;
+  const intensity = t.dataset.intensity;
+  if (intensity) setCounterIntensity(intensity);
+});
+// Cmd/Ctrl+Enter inside the textarea runs the counter — same shortcut as
+// many AI form patterns. Plain Enter inserts a newline (default behavior).
+els.counterPassage?.addEventListener('keydown', (ev) => {
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
+    ev.preventDefault();
+    runCounter();
+  }
+});
+
 // ── Pending action drain (from context menu / shortcut / pill) ─────
 async function drainPending() {
   try {
@@ -517,9 +735,28 @@ async function drainPending() {
     await chrome.storage.session.remove(['pendingAction']);
     const text = String(pendingAction.text || '').trim();
     const action = pendingAction.action || 'quiz-me';
-    // Hint + topic prefilled regardless. Lint actions are no longer
-    // supported in this panel rebuild (the linter surface was a stale
-    // mode swap); fall through to a normal Quiz me with the passage.
+    // The 'counter-this' action goes to the native Counter-your-draft
+    // card instead of the voice round — prefill the passage, open the
+    // card, kick off the agent call. Everything else falls through to
+    // the voice round with the topic prefilled.
+    if (action === 'counter-this') {
+      if (text && els.counterPassage) {
+        els.counterPassage.value = text.slice(0, 12000);
+        updateCounterCount();
+      }
+      setCounterOpen(true);
+      if (els.hint) {
+        const preview = text.length > 56 ? text.slice(0, 53) + '…' : text;
+        els.hint.textContent = `Countering: "${preview}"`;
+      }
+      // Auto-run the agent — the user already picked the action; no
+      // reason to make them click again. The card surfaces loading state.
+      if (text && text.length >= 40) {
+        runCounter();
+      }
+      return;
+    }
+    // Hint + topic prefilled regardless.
     if (text) {
       setTopic(text.slice(0, 900));
       if (els.hint) {
@@ -960,6 +1197,18 @@ els.clearRecentBtn?.addEventListener('click', () => {
   renderRecent();
   refreshStreakChip();
   refreshExamline();
+
+  // Counter-your-draft restore. Intensity persists; card-open does NOT
+  // auto-restore on every boot (would steal vertical space from the
+  // primary Start-drill flow) unless the user explicitly opened it.
+  const savedIntensity = readLocal(STORAGE_KEYS.counterIntensity);
+  if (savedIntensity && ['measured', 'firm', 'fierce'].includes(savedIntensity)) {
+    state.counterIntensity = savedIntensity;
+  }
+  setCounterIntensity(state.counterIntensity);
+  updateCounterCount();
+  const wasOpen = readLocal(STORAGE_KEYS.counterCardOpen) === '1';
+  if (wasOpen) setCounterOpen(true);
   // Platform-correct shortcut in the onboarding card.
   const kbd = document.getElementById('onboardKbd');
   if (kbd) {

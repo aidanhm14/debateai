@@ -39,9 +39,30 @@ one has the click order + the demo asset + the week-1 promo playbook.
 ./app/extension/build.sh
 ```
 
-Output: `app/extension/dist/counter-v0.9.2.zip` (version follows
+Output: `app/extension/dist/counter-v0.11.0.zip` (version follows
 `manifest.json`). Open the zip to confirm `manifest.json` sits at the
 root, not inside an `extension/` folder.
+
+### Pre-submission gotcha — OAuth client_id
+
+`manifest.json` ships with `oauth2.client_id` set to the placeholder
+`PASTE_YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com`.
+The v0.11 Counter-your-draft feature works without OAuth (paste-passage
+→ /api/counter-doc, no Google identity involved), but the Chrome Web
+Store reviewer WILL flag the placeholder. Two choices before submit:
+
+1. **Recommended for first ship**: strip the `oauth2` block + the
+   `identity` permission + the `docs.googleapis.com` / `www.googleapis.com`
+   host_permissions from `manifest.json`. The lib/docs-api.js +
+   background.js Stage-2 Docs-edit code goes dormant (no UI reaches it
+   anyway in v0.11). Re-add when you wire a Read-Active-Doc UI in the
+   side panel.
+
+2. **If you want OAuth from day one**: run through
+   `GOOGLE_CLOUD_SETUP.md` end-to-end. ~10 minutes in console.cloud.google.com
+   per the doc; the real OAuth client ID replaces the placeholder.
+   You'll also want to lock the extension `key` field first so the
+   client ID and extension ID stay tied across dev / store installs.
 
 ### Submit (the actual click order)
 

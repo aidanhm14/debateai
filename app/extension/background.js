@@ -20,8 +20,9 @@ import {
 // /api/docs-agent calls Claude with one tool (propose_edit) and returns
 // {tool, input:{containsText, replaceText, reason}}.
 const DOCS_AGENT_URL = 'https://debateai.com/api/docs-agent';
-
-const APP_URL = 'https://debateai.com/debate-ai.html?ext=1';
+// Debater endpoint — given a doc passage, returns structured rebuttals
+// the user can defend against. See app/netlify/functions/counter-doc.mjs.
+const COUNTER_DOC_URL = 'https://debateai.com/api/counter-doc';
 
 // Open side panel when user clicks the toolbar icon. Without this, the
 // click does nothing on most Chrome versions.
@@ -32,16 +33,16 @@ chrome.sidePanel
 chrome.runtime.onInstalled.addListener(() => {
   // Four context-menu entries for selected text. Each action signals a
   // different framing to the side panel:
-  //   lint-this   -> "Open the linter on this passage" (Grammarly-style
-  //                  structural critique — no voice round, no AI debater,
-  //                  just claim/warrant/impact + suggested rephrasings).
-  //   quiz-me     -> "AI, quiz me on this passage" (study-test framing)
-  //   cross-exam  -> "AI, defend the opposite; I'll cross-examine you back"
-  //   defend-this -> "I'll defend; AI cross-examines me" (oral-exam framing)
-  // Lint routes to /linter.html in the iframe; the other three route to
-  // the voice round (default) or typed flow.
+  //   counter-this -> "Counter my argument" (debater opens the selection
+  //                   in the side panel and returns three rebuttals + the
+  //                   examiner's first question + a drill-in-voice CTA)
+  //   quiz-me      -> "AI, quiz me on this passage" (study-test framing)
+  //   defend-this  -> "I'll defend; AI cross-examines me" (oral-exam framing)
+  //   cross-exam   -> "AI, defend the opposite; I'll cross-examine you back"
+  // The first three route to native side-panel surfaces; cross-exam routes
+  // to the voice round in the iframe (the existing flow).
   const items = [
-    { id: 'lint-this', title: 'Lint this argument (claim / warrant / impact)', contexts: ['selection'] },
+    { id: 'counter-this', title: 'Counter this argument (build rebuttals)', contexts: ['selection'] },
     { id: 'quiz-me', title: 'Quiz me on this passage', contexts: ['selection'] },
     { id: 'defend-this', title: 'Defend this out loud (cross-exam)', contexts: ['selection'] },
     { id: 'cross-exam', title: 'Cross-examine the AI on this', contexts: ['selection'] },
@@ -298,15 +299,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
-  if (command !== 'debate-selection' && command !== 'rebut-selection' && command !== 'lint-selection') return;
-  // debate-selection (Cmd+Shift+D) -> quiz-me framing (the default oral
+  if (command !== 'debate-selection' && command !== 'rebut-selection' && command !== 'counter-selection') return;
+  // debate-selection  (Cmd+Shift+D) -> quiz-me framing (the default oral
   // exam drill: AI grills the student on the highlighted passage)
-  // rebut-selection (Cmd+Shift+R) -> defend-this framing (student already
+  // rebut-selection   (Cmd+Shift+R) -> defend-this framing (student already
   // has a take, AI cross-examines them on it)
-  // lint-selection  (Cmd+Shift+L) -> lint-this framing (Grammarly-style
-  // structural critique in the linter pane — no voice round)
+  // counter-selection (Cmd+Shift+L) -> counter-this framing (debater
+  // builds three rebuttals against the selection in the side panel)
   const action =
-    command === 'lint-selection' ? 'lint-this'
+    command === 'counter-selection' ? 'counter-this'
     : command === 'rebut-selection' ? 'defend-this'
     : 'quiz-me';
   let text = '';
@@ -468,6 +469,34 @@ async function handleDocsMessage(msg) {
   }
 }
 
+// ── Counter-the-draft (passage → structured rebuttals) ─────────────
+// Side panel sends:
+//   {type:'counter-passage', passage, docTitle?, intensity?}
+// We forward to /api/counter-doc and pass through the structured response
+// (thesis, weakestClaim, rebuttals[], examinersQuestion, drillTopic).
+// docTitle is included separately so the user can both (a) paste a raw
+// passage AND (b) point at an open Google Doc that's already been read.
+async function handleCounterMessage(msg) {
+  try {
+    const passage = String(msg?.passage || '').trim();
+    const docTitle = String(msg?.docTitle || '').slice(0, 200);
+    const intensity = String(msg?.intensity || 'firm').toLowerCase();
+    if (!passage) return { error: 'Paste a passage first.' };
+    if (passage.length < 40) return { error: 'Paste a paragraph or longer — Counter needs more to work with.' };
+    const res = await fetch(COUNTER_DOC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passage: passage.slice(0, 12000), docTitle, intensity }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return { error: data?.error || `counter ${res.status}` };
+    if (data?.error) return { error: data.error, assistantMessage: data.assistantMessage || '' };
+    return data;
+  } catch (e) {
+    return { error: String(e?.message || e) };
+  }
+}
+
 // Content scripts can ask the SW to open the panel + queue text directly
 // (used by the Docs floating pill, where the content script already has
 // the freshly-copied text in hand from the copy event).
@@ -489,6 +518,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type && msg.type.startsWith('docs-')) {
     handleDocsMessage(msg).then((res) => sendResponse(res || { error: 'unknown docs message' }));
     return true; // async sendResponse
+  }
+  if (msg?.type === 'counter-passage') {
+    handleCounterMessage(msg).then((res) => sendResponse(res || { error: 'no response' }));
+    return true;
   }
   if (msg?.type === 'drill-started') {
     recordDrill().then(() => sendResponse({ ok: true })).catch((e) => sendResponse({ error: String(e?.message || e) }));

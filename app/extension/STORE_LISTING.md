@@ -13,9 +13,9 @@ it as the source-of-truth when you update the listing.
 Counter: Oral Exam Trainer
 ```
 
-**Short description** (≤132 chars, 112 used)
+**Short description** (≤132 chars, 130 used)
 ```
-Defend your work out loud. The AI grills you the way your panel will. Viva, oral exam, CBSE/ICSE, JEE/NEET prep.
+Counter your draft with three rebuttals and the question your toughest reader will ask. Defend it out loud. Viva and essay prep.
 ```
 
 **Category**
@@ -36,32 +36,47 @@ Defend your work out loud. The AI grills you the way your panel will. Viva, oral
 Counter is the AI you couldn't sit across from in school. You wrote
 the essay. You built the project. You drafted the paper. Now the
 panel wants you to defend it out loud, and "I think I get it" is not
-going to land. Counter is the sparring partner that grills you the
-way your teacher will, before your teacher gets the chance.
+going to land. Counter is the sparring partner that hits your draft
+the way your reader will, before your reader gets the chance.
 
-Highlight your own work in Google Docs, or paste it into the side
-panel, and an examiner-style AI cross-examines you out loud. You
-defend the claim; it asks the next question. After 3-5 probes it
-closes with examiner-voice oral feedback: what landed, what didn't,
-and where to tighten before the real panel.
+Two surfaces, one engine:
+
+1. **Counter your draft** (typed). Paste a paragraph of your essay or
+   case file into the side panel. Counter returns the weakest
+   load-bearing claim, three structured rebuttals with claim / warrant
+   / impact, and the single question your toughest reader will ask the
+   moment they sit down. Each rebuttal has a "Drill this in voice" CTA
+   that hands the claim to the voice round so you rehearse defending
+   it out loud.
+
+2. **Defend it out loud** (voice). Highlight your work in Google Docs,
+   or paste it into the side panel, and an examiner-style AI
+   cross-examines you out loud. You defend the claim; it asks the next
+   question. After 3-5 probes it closes with examiner-voice oral
+   feedback: what landed, what didn't, and where to tighten before the
+   real reader.
 
 Built for:
+• Essay prep: thesis writing, college application essays, opinion pieces — anything that has to survive a sharp reader
 • CBSE viva (Class 10 + 12 Physics, Chemistry, Biology, Computer Science practical and project orals)
 • ICSE oral practice (Hindi, English, History, Geography, Biology orals)
 • State board oral exams (Maharashtra HSC, Karnataka PUC, Tamil Nadu state board, etc.)
 • JEE Advanced + NEET counselling and interview prep
 • IIT / IIM / NMIMS / NLU / school-admission interview rehearsal
 • University seminars, internal assessment vivas, dissertation and thesis defenses
-• Any exam where you have to argue out loud, not just write — including English-medium and Hindi-medium
+• Competitive debate prep: APDA, BP, Policy, LD, PF, Worlds, Asian Parli, Congress
+• Any setting where you have to argue out loud, not just write — including English-medium and Hindi-medium
 
 What you get
-• Highlight + right-click → Quiz me on this passage
+• Counter-your-draft side-panel card: paste a passage, choose intensity (measured / firm / fierce), get three rebuttals + the examiner's first question + a drill-this-in-voice handoff
+• Right-click → "Counter this argument (build rebuttals)" on any selected text
+• Highlight + right-click → Quiz me on this passage (voice round)
 • Floating "Quiz me" pill in Google Docs (Docs canvas blocks the right-click; the pill catches your copy events instead)
 • Voice round powered by OpenAI Realtime: server-side voice activity detection means the AI actually waits for you to finish, then answers in under a second
 • Dr. Iyer, the Examiner persona: measured Indian-English, asks one precise question and lets you think, no piling on
 • A real "viva" format with structured speech list (opening defense → 3 examiner probes → closing defense) and per-format voice rules so the AI doesn't drift into debate-jargon mode
 • Hindi-language vivas via the in-app language picker
-• Keyboard shortcuts: Ctrl/Cmd+Shift+D to quiz, Ctrl/Cmd+Shift+R to defend, Ctrl/Cmd+Shift+Y to open the panel
+• Keyboard shortcuts: Ctrl/Cmd+Shift+D to quiz, Ctrl/Cmd+Shift+R to defend, Ctrl/Cmd+Shift+L to counter, Ctrl/Cmd+Shift+Y to open the panel
 
 How it differs from "AI tutor" extensions
 • Voice-first. The drill is talking, not chatting. Real oral examiners don't wait for a typed paragraph; this one doesn't either.
@@ -90,7 +105,7 @@ asks the questions your examiner will actually ask.
 ## Single-purpose statement
 
 ```
-Counter has one job: let a user highlight study material on a web page or in Google Docs and practice oral examination on it out loud, with the AI as the examiner.
+Counter has one job: let a user paste or highlight an argument and have an AI debater counter-point it — both as structured rebuttals in the side panel and as a live cross-examination voice round.
 ```
 
 ---
@@ -106,7 +121,7 @@ Required to render the Counter user interface in Chrome's side panel — the pan
 
 **`contextMenus`**
 ```
-Required to add the three "Quiz me on this passage", "Defend this out loud (cross-exam)", and "Cross-examine the AI on this" entries to the right-click menu over selected text. These are the primary entry points to the extension.
+Required to add four entries to the right-click menu over selected text: "Counter this argument (build rebuttals)", "Quiz me on this passage", "Defend this out loud (cross-exam)", and "Cross-examine the AI on this". These are the primary entry points to the extension.
 ```
 
 **`activeTab`**
