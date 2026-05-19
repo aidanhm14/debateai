@@ -2,12 +2,96 @@
 //
 // Moved here from /js/voice-guidelines.js so the voice bank doesn't ship
 // to every visitor via view-source. The client now sends `_voiceFeature`
-// on the request body; the brain endpoints (claude, gemini, grok, openai)
-// resolve the right voice block server-side and prepend it to body.system.
+// on the request body; the brain endpoints (claude, gemini, grok, openai,
+// deepseek, openlab) resolve the right voice block server-side and
+// prepend it to body.system.
 //
 // Keep parity with the original client API (CORE / STRATEGY / CHARACTER /
 // CASE_CONSTRUCTION / LANGUAGE_CONSTRUCTION / FULL / FEATURE_MAP /
 // forFeature) so future per-format work can slot straight in.
+//
+// ─────────────────────────────────────────────────────────────────────
+// PROMPT STACK — how a brain request gets composed at runtime
+// ─────────────────────────────────────────────────────────────────────
+// Every brain endpoint (claude.mjs et al) runs the following pipeline
+// in order. Each step prepends or appends to `body.system`. The model
+// reads the assembled stack top-to-bottom before generating.
+//
+//   1.  applyExemplars(body)
+//       Source: lib/exemplars.mjs.
+//       Pulls 1-2 reference speeches matching motion + format + side
+//       from `debate_rounds` (admin-authored) + `generations` (admin-
+//       rated >= 4 stars). PREPENDS as "REFERENCE ROUNDS" block.
+//       Strips body._motion / body._side.
+//
+//   2.  applyVoiceGuidelines(body) — this file's applyVoiceGuidelines.
+//       Resolves `body._voiceFeature` (case / bot / simulator /
+//       practice / judge / feedback / adaptive / casual / philosophy
+//       / debateChat / motionTriage / resolution / vision / unknown)
+//       to a feature-specific assembly:
+//         base = FEATURE_MAP[feature]            // CORE / STRATEGY / etc.
+//         base += spice (random 20%)              // SPICE_MAP
+//         base += REASONING_ALGORITHM             // speech-gen features only
+//         base += VOICE_REINFORCEMENT             // always last for recency
+//       Then APPENDS:
+//         forFormat(body._voiceFormat)            // FORMAT_VOICES block
+//         motionTriageOverlay(format)             // motionTriage only
+//         forTopic(inferTopicFromText(body))      // TOPIC_PRIMERS auto-fire
+//         VOICE_INPUT_AWARENESS                   // dictation tolerance
+//       Strips body._voiceFeature / _voiceFormat / _voiceTopic.
+//
+//   3.  applyDistillations(body) — lib/distillations.mjs.
+//       Reads `learning_distillations/{format}` (nightly Haiku output
+//       over top-rated rounds) and APPENDS a "LEARNED PATTERNS" block.
+//       1-hour in-memory cache, near-zero Firestore reads.
+//
+//   4.  applyUserFingerprint(body) — lib/user-fingerprints.mjs.
+//       Reads `user_fingerprints/{uid}` (~150-token summary of this
+//       user's signature moves / strengths / weaknesses / topic
+//       affinities) and APPENDS a "USER STYLE" block. Generated
+//       nightly by scheduled-user-fingerprint.mjs.
+//
+//   Final system-prompt order, top to bottom:
+//     [REFERENCE ROUNDS]                            ← step 1
+//     <existing body.system>                        ← caller's prompt
+//     <feature base + spice + REASONING_ALGORITHM>  ← step 2 forFeature
+//     <VOICE_REINFORCEMENT>                         ← step 2 (last in block)
+//     <format block>                                ← step 2 forFormat
+//     <topic primer>                                ← step 2 forTopic
+//     <VOICE_INPUT_AWARENESS>                       ← step 2 footer
+//     [LEARNED PATTERNS]                            ← step 3
+//     [USER STYLE]                                  ← step 4
+//
+// ─────────────────────────────────────────────────────────────────────
+// LEARNING LOOP — how user behavior shapes future prompts
+// ─────────────────────────────────────────────────────────────────────
+//   Write path  (every brain call):
+//     captureTurn → generations/{id}      // app/index.html
+//     saveRound  → debate_rounds/{id}     // app/debate-ai.html (post-round)
+//
+//   Rate path  (admin):
+//     POST /api/admin/rate-generation     // admin-rate.html
+//     → generations/{id}.rating + .boring
+//
+//   Compound paths  (nightly):
+//     scheduled-distill.mjs (04:00 UTC)
+//       → reads generations where rating >= 4 OR saved === true
+//       → Haiku distills to learning_distillations/{format}
+//       → injected via applyDistillations on every future call
+//     scheduled-user-fingerprint.mjs (04:30 UTC)
+//       → reads recent generations per user
+//       → Haiku writes user_fingerprints/{uid}
+//       → injected via applyUserFingerprint on every future call from that uid
+//
+//   Compound path  (runtime):
+//     getExemplars() in this pipeline's step 1
+//       → reads admin-authored rounds + rating>=4 generations
+//       → prepends as REFERENCE ROUNDS verbatim
+//
+// Net: each admin rating compounds in THREE places — runtime exemplars,
+// nightly distill, and the rated-generation pool the next fingerprint
+// pass can reference. /admin-rate throughput is the single biggest
+// lever on prompt-layer quality.
 
 const CORE = `
 PUNCH OVER POLISH — READ THIS FIRST, IT OVERRIDES EVERYTHING BELOW:
