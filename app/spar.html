@@ -129,7 +129,7 @@ h1 em{color:var(--accent);font-style:normal}
        in transparent mode. If world-globe.js fails to load, the orb still
        reads as a rich animated sphere instead of a flat gradient blob. */
 .globe-wrap{
-  position:relative;width:300px;max-width:84vw;margin:0 auto 22px;
+  position:relative;width:220px;max-width:62vw;margin:0 auto 18px;
   aspect-ratio:1 / 1;
 }
 /* Outer dashed orbit ring — slow forward rotation */
@@ -1241,6 +1241,23 @@ h1 em{color:var(--accent);font-style:normal}
         });
         setTimeout(function(){ location.href = '/live-round.html?' + params.toString(); }, 900);
       } else if (d.status === 'cancelled'){
+        // Distinguish a system cancel from a user cancel. The pair
+        // function's stale-peer skip and the reaper sweep both stamp a
+        // cancelReason; if WE didn't hit Cancel and the cancel came
+        // from one of those, re-join the queue instead of bouncing the
+        // user off the page. Without this, a single false stale-skip
+        // (e.g. an unresolved serverTimestamp on a fresh peer) ejected
+        // a live, waiting debater straight to the homepage.
+        var systemCancel = (d.cancelReason === 'stale_peer_skip'
+                         || d.cancelReason === 'stale_reaper');
+        if (systemCancel && !state.cancelled){
+          console.info('[spar] system cancel (' + d.cancelReason + '), re-queueing');
+          updateDiag({ last: 're-queue' });
+          teardownQueue();
+          // Fresh doc on re-join → fresh serverTimestamp → no repeat skip.
+          setTimeout(function(){ if (!state.cancelled) joinQueue(); }, 400);
+          return;
+        }
         teardownQueue();
         location.href = '/';
       }

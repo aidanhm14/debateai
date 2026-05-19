@@ -3886,17 +3886,23 @@ button{font-family:inherit}
         // motion + speechIdx and follows.
         if (prefill.source === 'spar' && !state.motion && state.proUid && state.conUid){
           var iAmFirst = state.user.uid === state.proUid; // proUid = lex-first by spar convention
-          if (iAmFirst){
-            // Tiny delay so both clients have time to subscribe before
-            // we publish — avoids a race where peer joins after we've
-            // already advanced past round init.
-            setTimeout(function(){
-              if (state.motion) return; // peer already wrote it
-              state.motion = pickSparMotion(state.room);
-              var md = $('motionDisplay'); if (md) md.textContent = state.motion;
-              startRound();
-            }, 600);
-          }
+          var kickoff = function(){
+            // Bail if the round already started (peer published) or we
+            // left setup. pickSparMotion is keyed on the room name, so
+            // if BOTH clients reach this the deterministic motion is
+            // identical and the round-doc reconciliation converges
+            // instead of diverging — a double-start is safe.
+            if (state.motion || state.phase !== 'setup') return;
+            state.motion = pickSparMotion(state.room);
+            var md = $('motionDisplay'); if (md) md.textContent = state.motion;
+            startRound();
+          };
+          // Lex-first kicks off promptly. The peer is a safety net: if
+          // the first client dropped between matching and loading (closed
+          // tab, dead connection), the round would otherwise never start
+          // and both sides sit on the setup screen forever. After 3s with
+          // no round, the peer starts it instead.
+          setTimeout(kickoff, iAmFirst ? 600 : 3000);
         }
       } else {
         showAuthGate();

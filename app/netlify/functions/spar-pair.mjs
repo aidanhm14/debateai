@@ -60,14 +60,23 @@ const REAPER_MS     = 6 * 60 * 1000;   // 6 min: anything older is obviously dea
 const REAPER_THROTTLE_MS = 60 * 1000;  // run the sweep at most once a minute
 let lastReaperAt = 0;
 
+// Returns the queue doc's joinedAt in epoch-ms. CRITICAL: an
+// unresolved/missing timestamp means "just written" (Firestore
+// serverTimestamp() lands as null on the local write and resolves a
+// beat later on the server), NOT "epoch 0". Returning 0 here was the
+// pairing bug: peerAgeMs = Date.now() - 0 ≈ 57 years > STALE_PEER_MS,
+// so a freshly-queued peer got judged a ghost and force-cancelled the
+// instant two users joined within ~1s of each other. Default to "now"
+// (age ≈ 0 = fresh) so we never cancel a peer we can't age. The reaper
+// query (joinedAt < cutoff) skips unresolved-timestamp docs anyway.
 function joinedAtMs(data) {
-  if (!data) return 0;
+  if (!data) return Date.now();
   const j = data.joinedAt;
-  if (!j) return 0;
+  if (!j) return Date.now();
   if (typeof j.toMillis === 'function') return j.toMillis();
   if (j._seconds != null) return j._seconds * 1000;
   if (j.seconds != null) return j.seconds * 1000;
-  return 0;
+  return Date.now();
 }
 
 // One-shot reaper sweep. Marks any waiting doc older than REAPER_MS
