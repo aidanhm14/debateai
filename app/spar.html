@@ -976,6 +976,12 @@ h1 em{color:var(--accent);font-style:normal}
       // feel like an active marketplace rather than dead air.
       '<div class="pairing-ticker" id="pairingTicker" aria-live="polite" style="margin-top:18px;font-size:.74rem;color:var(--text-ghost);text-align:center;min-height:18px;font-variant-numeric:tabular-nums;letter-spacing:.01em;opacity:.85;transition:opacity .35s ease"></div>' +
       '<div class="queue-stats" id="queueStats">' + renderWaitlist([], formatParam) + '</div>' +
+      // Live diagnostic line. Always visible during the search (unlike
+      // queueStats, which gets replaced by the broaden CTA at 45s).
+      // Shows: peer count from the last query, my uid tail (so two
+      // test windows confirm they're on different accounts), and the
+      // last spar-pair attempt outcome (success/soft-fail reason).
+      '<div class="diag" id="diagLine" aria-live="polite" style="margin-top:10px;font-size:.66rem;color:var(--text-ghost);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:.04em;text-transform:uppercase;opacity:.7"></div>' +
       '<div class="foot">Your camera + mic stay off until you accept the match. Match found = you both jump into a video room.</div>';
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
     startCountdown();
@@ -1318,6 +1324,7 @@ h1 em{color:var(--accent);font-style:normal}
       if (stats && !state.broadenOffered){
         stats.innerHTML = renderWaitlist(others, formatParam);
       }
+      updateDiag({ peers: others.length });
       if (others.length === 0) return;
       others.sort(function(a, b){
         var as = (a.data().joinedAt && a.data().joinedAt.seconds) || 0;
@@ -1365,6 +1372,7 @@ h1 em{color:var(--accent);font-style:normal}
       if (state.pairInFlight){
         state.pairInFlight = false;
         console.warn('[spar] spar-pair request timed out, retrying');
+        updateDiag({ last: 'timeout' });
         surfacePairError('timeout');
       }
     }, PAIR_REQUEST_TIMEOUT_MS);
@@ -1390,13 +1398,21 @@ h1 em{color:var(--accent);font-style:normal}
         var reason = r.body && r.body.reason ? r.body.reason : 'http_' + r.status;
         var soft = (reason === 'lost_race' || reason === 'format_mismatch'
                  || reason === 'queue_doc_missing' || reason === 'stale_peer');
+        // Soft fails are recoverable — keep polling. Surface them in
+        // the diag line so the user can see retries happening instead
+        // of staring at a silent countdown. Hard fails still get the
+        // banner via surfacePairError.
+        updateDiag({ last: reason });
         if (!soft) {
           console.warn('[spar] spar-pair function failed:', reason, r.body);
           surfacePairError(reason);
+        } else {
+          console.info('[spar] soft retry:', reason);
         }
         return;
       }
       clearPairError();
+      updateDiag({ last: 'matched' });
       try { gtag('event', 'spar_match_made', { format: formatParam }); } catch(e){}
       // The snapshot listener on my own doc will fire (the function
       // updated it) and navigate via subscribeMyDoc → /live-round.
@@ -1404,9 +1420,35 @@ h1 em{color:var(--accent);font-style:normal}
       clearTimeout(timeoutId);
       state.pairInFlight = false;
       console.warn('[spar] spar-pair fetch failed', err);
+      updateDiag({ last: 'network' });
       surfacePairError('network');
     });
   }
+
+  // Diag line state — mutates the small uppercase status under the
+  // queue card so the user can see what the matchmaker is doing even
+  // when the bigger UI elements get replaced (broaden CTA at 45s).
+  // Holds: peer count from the last query, last spar-pair outcome,
+  // and the tail of my own uid (debug-only — helps confirm two test
+  // windows are on different accounts).
+  var diagState = { peers: null, last: null };
+  function updateDiag(patch){
+    if (patch && typeof patch === 'object'){
+      if ('peers' in patch) diagState.peers = patch.peers;
+      if ('last' in patch) diagState.last = patch.last;
+    }
+    var el = document.getElementById('diagLine');
+    if (!el) return;
+    var uidTail = (state.user && state.user.uid) ? state.user.uid.slice(-6) : '----';
+    var parts = [];
+    parts.push('Queue: ' + (diagState.peers == null ? '…' : diagState.peers) + ' on ' + formatParam.toUpperCase());
+    parts.push('me ' + uidTail);
+    if (diagState.last) parts.push('last ' + diagState.last);
+    el.textContent = parts.join(' · ');
+  }
+  // Set the initial line so the user sees the diagnostic immediately,
+  // not blank until the first query resolves.
+  setTimeout(updateDiag, 50);
 
   // Render a small banner near the queue stats when pairing
   // hard-fails. Auto-clears on next successful attempt. Without this,
