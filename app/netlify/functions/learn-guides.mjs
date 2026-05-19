@@ -405,7 +405,7 @@ function renderGuidePage(guide) {
 
   <footer class="guide-footer">
     <span>© 2026 Debate AI</span>
-    <span><a href="/learn/guides">All guides</a> · <a href="/learn">Learn</a> · <a href="/debate-ai">New round</a></span>
+    <span><a href="/learn/guides">Guides</a> · <a href="/learn/fundamentals">Fundamentals</a> · <a href="/learn/glossary">Glossary</a> · <a href="/learn">Learn</a></span>
   </footer>
 </main>
 </body></html>`;
@@ -491,7 +491,7 @@ function renderHubPage() {
 
   <footer class="guide-footer">
     <span>© 2026 Debate AI</span>
-    <span><a href="/learn">Learn</a> · <a href="/learn/formats/apda">Format reference</a> · <a href="/debate-ai">New round</a></span>
+    <span><a href="/learn">Learn</a> · <a href="/learn/fundamentals">Fundamentals</a> · <a href="/learn/glossary">Glossary</a> · <a href="/learn/formats/apda">Format reference</a></span>
   </footer>
 </main>
 </body></html>`;

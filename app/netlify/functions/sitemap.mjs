@@ -83,6 +83,9 @@ const URLS = [
   { path: '/learn/fundamentals/signposting',           changefreq: 'monthly', priority: '0.82' },
   { path: '/learn/fundamentals/cross-examination',     changefreq: 'monthly', priority: '0.82' },
   { path: '/learn/fundamentals/register',              changefreq: 'monthly', priority: '0.80' },
+  // Single-page debate glossary. 65+ terms, anchor IDs, DefinedTermSet
+  // schema. Targets entity-level queries.
+  { path: '/learn/glossary',                            changefreq: 'weekly',  priority: '0.86' },
   { path: '/community',       changefreq: 'daily',   priority: '0.88' },
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
