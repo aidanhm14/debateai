@@ -621,7 +621,15 @@ async function fetchJson(url){
   const token = await getToken();
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
   if (r.status === 403) throw new Error('forbidden');
-  if (!r.ok) throw new Error('API ' + r.status);
+  if (!r.ok) {
+    // Read the response body so 500s aren't opaque. Functions return
+    // { error: '...' } JSON; fall through to raw text if that fails.
+    let detail = '';
+    try { const j = await r.clone().json(); detail = j.error || j.message || ''; }
+    catch { try { detail = (await r.text()).slice(0, 240); } catch {} }
+    console.error('admin fetch failed', url, r.status, detail);
+    throw new Error('API ' + r.status + (detail ? ' — ' + detail : '') + ' (' + url + ')');
+  }
   return r.json();
 }
 
@@ -653,6 +661,22 @@ async function loadAll(force){
     if (ch.status === 'fulfilled') { cachedCohorts = ch.value; renderCohorts(ch.value); }
     if (hm.status === 'fulfilled') { cachedHeatmap = hm.value; renderHeatmap(hm.value); }
     if (pu.status === 'fulfilled') { cachedPower = pu.value; renderPower(pu.value); }
+
+    // Per-endpoint rejection surfacing. Promise.allSettled hides failures
+    // so empty panels above used to be indistinguishable from "no data yet"
+    // vs "endpoint 500'd." Show a banner naming which endpoints failed and
+    // their error text so a regression in any one of them is debuggable.
+    const labels = ['analytics', 'realtime', 'cohorts', 'heatmap', 'power-users'];
+    const failures = results
+      .map((r, i) => r.status === 'rejected' ? { label: labels[i], msg: (r.reason && r.reason.message) || String(r.reason) } : null)
+      .filter(Boolean);
+    if (failures.length) {
+      errBox.innerHTML = '<div class="err-box">' +
+        '<strong>' + failures.length + ' endpoint' + (failures.length > 1 ? 's' : '') + ' failed</strong><br>' +
+        failures.map(f => '<code>' + f.label + '</code>: ' + esc(f.msg)).join('<br>') +
+        '</div>';
+      failures.forEach(f => console.error('[admin]', f.label, f.msg));
+    }
 
     loading.hidden = true;
     appEl.hidden = false;
