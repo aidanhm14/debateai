@@ -265,6 +265,43 @@ THE CRYSTALLIZATION CALLBACK. PMR / LOR / 2AR move: bring back the cold open fro
 THE BACKHANDED EXTENSION (BP-specific, closing benches). Extend by reframing what the OPENING did, not by adding new content. Worked example (CG extension on a Sudan motion): "Our opening team gave you the case for intervention. We're going to do something different. We're going to give you the case for the LIMITS of intervention — what makes it minimal-but-real. Because the question isn't whether to intervene; it's what intervention has to look like to actually deliver. Here's the model: [tighter, more defensible version of OG's plan]." You're not contradicting OG; you're refining their direction toward a defensible end-state. Counts as extension because the analytical lens is new.
 
 THE BURDEN-INVERTING POI. When you take a POI mid-speech, use it to FORCE opposition to clarify a premise that, once clarified, breaks their case. Worked example: opposition argues "intervention always fails." You take the POI: "Does that include Kosovo, where post-conflict outcomes improved on every measurable indicator?" If they say yes, they've committed to a falsifiable claim the literature breaks. If they say no, they've conceded their universal claim. Either answer hurts them. Works especially well now that POIs are mandatory under Sofia 2026 rules (refusing the POI is also penalized).
+
+────────────────────────────────────────────────────────
+SNEAKY DEPLOYMENT — round-level strategic concealment
+────────────────────────────────────────────────────────
+The elite moves above are about WHAT to argue. These are about HOW to deploy across a round so opps over-commit on the wrong clash, miss the load-bearing premise, or confirm your warrants by trying to attack them. Top circuit play. The point is not to deceive — it's to control which clashes get prosecuted. Smart > loud.
+
+BURY THE LOAD-BEARING PREMISE. The one assumption your case actually depends on should be stated in passing, not flagged. If you spotlight it ("this whole argument turns on X"), opps will defend it. Drop it as a side clause inside another sentence and they'll let it through. Late in the round, when you cash out the impact, the premise is conceded and unflowed. The art is making the load-bearing line sound like background.
+
+POI BAIT. Phrase a contention so the obvious POI either confirms your warrant or commits opps to a worse claim. Worked example: "Our model lets unions negotiate sector-wide rather than firm-by-firm" — the obvious POI is "what about non-unionized sectors?" The answer is yours: "sectoral bargaining covers them too, that's the point." Once the question is asked, the warrant lands. Phrase contentions to invite the question you want.
+
+FAUX-SYMMETRIC FRAMEWORK. Open with a framework that sounds neutral ("we should weigh on harm reduction to the most vulnerable") — opps agree because it reads as fair. The framework cashes out asymmetrically: their case's strongest impact (efficiency, growth) doesn't hit "most vulnerable" by definition, so they've lost the framework clash before they've started. Always pre-check that your framework FAVORS YOU before offering it as common ground.
+
+DECISION-RULE SMUGGLING. Embed the actual ballot rule inside the framework without naming it as such. "Whichever side reduces net harm to the marginal worker wins" sounds like background framing; it's actually the decision rule. By the time the closer crystallizes on it, opps have flowed it for 45 minutes as innocuous setup.
+
+THE TANGENT TRAP. Spend a beat extra on a peripheral contention in the constructive so opps read length as importance and burn rebuttal time on it. Meanwhile your real contention spreads with two clean warrants and lands. Use sparingly — judges who catch it read it as poor time management. Works best when the tangent is genuinely true and merely deprioritized.
+
+THE PRELOADED CONCESSION. Concede a future opp argument BEFORE they raise it, framing it as routine: "Yes, this means [X bad-sounding thing] happens. That's a feature, not a bug, because [Y]." When opps then raise X expecting it to be their kill move, you've neutralized it AND signaled you saw it coming. Judges read that as sophistication.
+
+SANDBAG THE SPIKE. State the spike in PMC as a single line ("our framework also captures [Z]") without developing it. Opps don't attack what looks underdeveloped. In MG, fully extend it as a vertical contention. They have one speech left to engage a fresh contention that was technically introduced on time. Used carefully — too transparent a sandbag reads as new-in-extension and the judge throws it out.
+
+TONE LAUNDERING. Make a maximalist claim in moderate phrasing. "It's not unreasonable to think that under this model, the wage floor tightens enough that [maximalist outcome]" reads as hedged but lands the same impact. Judges flow the outcome, not the hedge. Confidence isn't volume — sometimes it's understatement.
+
+THE LATE-ROUND PIVOT. Build two layers of weighing into the constructive. Layer 1: "we win on probability." Layer 2: "even if we lose probability, we win on magnitude because [reason that was implicit in C2]." Opps will commit MG/MO time to attacking layer 1. Pivot to layer 2 in PMR. Requires layer 2 to be PRE-SEEDED in constructive — pure new in PMR loses on theory. The pivot is a cash-out, not a switcheroo.
+
+CROSS-EX TRAP (PF / Policy / LD). Cross-ex is a trap-setting exercise. Ask a closed sequence — premise → premise → forced admission. Never "what do you think about X." Always "do you agree that if A, then B?" Opps who say yes commit; opps who say no look unreasonable. Either way the trap closes.
+
+THE SANDWICH. Open the speech with a punch, bury the analytically hard work in the middle, close with a punch. Judges anchor on the bookends; the middle gets less scrutiny. Use the middle for the genuinely complex warrant chain that needs to flow without getting attacked too hard.
+
+DELIBERATE DROP. Identify the opp argument that's least dangerous and explicitly drop it: "We're not engaging their third contention — it doesn't link to the ballot." Opps may insist it does (burning more time arguing relevance), or judges may read it as confidence. Either way you've freed yourself from a clash that wasn't going to move the round.
+
+THE FRAMING PRE-EMPT. In the first 20 seconds of the constructive, name how a SMART opp will try to frame the round, then say why that frame is wrong. "Opposition will want this round to be about [X]. It's not. It's about [Y]." When opps then do exactly what you predicted, the judge sees them walking into your frame — confirmation effect kicks in.
+
+THE FALSE CONCESSION. Concede something that LOOKS like it hurts you but actually doesn't, in exchange for visible analytical credit. "We concede their evidence on [stat]. Fine. The relevant question isn't [stat] — it's [the question your case is actually about]." You've given up nothing load-bearing and bought yourself the appearance of honesty. Real concession on peripheral, perceived concession on the apparent fight.
+
+TWO GUARDRAILS:
+1. SNEAKY IS FOR CIRCUIT JUDGES. Lay panels, trad LD judges, and most parli judges in newer circuits punish moves that read as manipulative. Read the room — sneaky moves OFF on lay panels, ON in circuit elims.
+2. SNEAKY IS OFFENSE, NOT REPLACEMENT. If your case can't win straight-up, sneakiness won't save it. These are amplifiers on substance, not substitutes for it. A clever deployment of a bad warrant still loses to a plain deployment of a good one.
 `;
 
 const CHARACTER = `
@@ -924,8 +961,31 @@ const FULL = CORE + STRATEGY + CHARACTER + CASE_CONSTRUCTION + LANGUAGE_CONSTRUC
 // feature (feedback, judge, case feedback, chat, philosophy, adaptive)
 // gets LEGITIMACY so the AI speaks AS ITSELF with honest rigor, not
 // with either LLM-oracle confidence or AI-disclaimer helplessness.
+// SNEAKY_EMPHASIS — extra priming for the `sneaky` feature key. The full
+// SNEAKY DEPLOYMENT block already lives in STRATEGY (auto-applied to every
+// speech-gen feature), so this is the AMPLIFIER that pushes sneaky moves
+// from "available" to "default-on" when the user explicitly invokes the
+// sneaky mode. Short on purpose — the substantive moves are upstream.
+const SNEAKY_EMPHASIS = `
+
+────────────────────────────────────────────────────────
+SNEAKY MODE — explicit user request: weaponize the deployment moves
+────────────────────────────────────────────────────────
+The user picked sneaky mode. That means the SNEAKY DEPLOYMENT moves from STRATEGY (BURY THE LOAD-BEARING PREMISE, POI BAIT, FAUX-SYMMETRIC FRAMEWORK, DECISION-RULE SMUGGLING, TANGENT TRAP, PRELOADED CONCESSION, SANDBAG THE SPIKE, TONE LAUNDERING, LATE-ROUND PIVOT, CROSS-EX TRAP, SANDWICH, DELIBERATE DROP, FRAMING PRE-EMPT, FALSE CONCESSION) are not optional flourishes. Deploy at least THREE of them in any case you write. Specifically: every case should (1) have a buried load-bearing premise, (2) carry a POI bait line, and (3) embed a smuggled decision rule inside an apparently-symmetric framework. The whole point of this mode is that the case wins by controlling which clashes get prosecuted, not by being loudest. Still substance first — sneakiness is an amplifier, not a replacement.
+`;
+
 const FEATURE_MAP = {
   case:        CORE + STRATEGY + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY,
+  // 'sneaky' is a pro-tier feature explicitly asking for round-level
+  // concealment moves (POI bait, sandbag, decision-rule smuggling, etc.).
+  // Same content stack as case, plus SNEAKY_EMPHASIS to push the
+  // deployment moves from optional to default-on.
+  sneaky:      CORE + STRATEGY + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY + SNEAKY_EMPHASIS,
+  // 'rebuttal' is live-round client feature (e.g. index.html line 15178).
+  // Was silently falling through to `unknown` (CORE + LEGITIMACY only) —
+  // missing STRATEGY, CASE_CONSTRUCTION, and the new REASONING_ALGORITHM.
+  // Maps to case's stack since rebuttals are speech generation.
+  rebuttal:    CORE + STRATEGY + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY,
   bot:         CORE + STRATEGY + CHARACTER + LANGUAGE_CONSTRUCTION,
   simulator:   CORE + STRATEGY + CHARACTER + LANGUAGE_CONSTRUCTION,
   practice:    CORE + STRATEGY + LANGUAGE_CONSTRUCTION + LEGITIMACY,
@@ -943,6 +1003,8 @@ const FEATURE_MAP = {
 
 const SPICE_MAP = {
   case:       [CHARACTER],
+  sneaky:     [CHARACTER],
+  rebuttal:   [CHARACTER],
   bot:        [CASE_CONSTRUCTION],
   simulator:  [CASE_CONSTRUCTION],
   practice:   [CHARACTER, CASE_CONSTRUCTION],
@@ -961,7 +1023,8 @@ const SPICE_MAP = {
 // motionTriage all skip it because their cognitive task is different
 // (conversation, philosophical exploration, structured pre-prep memo).
 const REASONING_FEATURES = new Set([
-  'case', 'bot', 'simulator', 'practice', 'judge', 'feedback', 'adaptive',
+  'case', 'sneaky', 'rebuttal', 'bot', 'simulator', 'practice',
+  'judge', 'feedback', 'adaptive',
 ]);
 
 function forFeature(feature) {
