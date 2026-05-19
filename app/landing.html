@@ -6573,10 +6573,254 @@ section.ui-section .ui-lede{
      read as marketing-page filler; the substance (formats, brains,
      voice) is already covered by the tools grid + the FAQ. -->
 
-<!-- 2026-05-19 PM: .live-proof and .live-proof-surfaces CSS blocks
-     removed (orphaned after the #live-proof section was deleted
-     in the same pass). The #live-room section now carries the
-     'video pane + transcript panel' job. -->
+<!-- 2026-05-19 PM (rev3): #live-proof section restored per user
+     ('bring back the original image we had with the other guy
+     and the RFD being given live'). Both the CSS and the HTML
+     are re-pulled verbatim from commit f2beada^ — same .lpv-*
+     CSS-mocked /live video tile + .lpb-* ballot panel with the
+     real-motion RFD. Sits below the #live-room composite so
+     the narrative reads: in the round (video + transcript) →
+     after the round (video + ballot). -->
+
+<!-- ── Live-round proof. A real screenshot from /live showing the AI
+     judge having just written a ballot (anonymous wins, Pro over Con,
+     Reason for Decision). The screenshot itself is the proof — video
+     of a real debater on the left, real AI-written RFD on the right.
+     Sits right after the proof-strip so the funnel reads:
+        stats  →  see it work  →  globe (where it's used)  →  spar. -->
+<style>
+  .live-proof{
+    padding:40px clamp(20px,4vw,40px) 44px;
+    background:#000;position:relative;
+  }
+  [data-theme="light"] .live-proof{background:#fafaf7}
+
+  .live-proof-wrap{max-width:1180px;margin:0 auto}
+
+  /* 2026-05-19: header de-marketed. Was a pink-filled pill eyebrow +
+     900-weight headline with a red em on the closer + a defensive
+     "arguably fairer" sub-claim — screamed against the editorial
+     register the rest of the page uses. Now: small-caps text eyebrow
+     (matches .founder-action-eyebrow / encyclopedia h3 weight), lighter
+     headline weight, no red splash, sub describes what the ballot
+     contains instead of arguing for it. */
+  .live-proof-header{text-align:center;margin-bottom:30px}
+  .live-proof-eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:14px;
+  }
+  .live-proof-eyebrow .dot{display:none}
+  .live-proof-headline{
+    font-size:clamp(1.55rem,2.6vw,2.05rem);font-weight:700;letter-spacing:-.02em;line-height:1.15;
+    margin:0 0 10px;color:var(--text);
+  }
+  .live-proof-headline em{font-style:normal;color:inherit}
+  .live-proof-sub{
+    font-size:.95rem;color:var(--text-dim);line-height:1.6;margin:0 auto;max-width:640px;
+  }
+
+  /* Two-column grid: video screenshot left, HTML ballot panel right.
+     The original full-screenshot approach broke on Safari (it choked on
+     the 2662×1518 PNG decoder) and was visually heavy. Splitting into
+     a smaller cropped video + crisp HTML ballot keeps the proof clear,
+     renders everywhere, and stays selectable for SEO. */
+  .live-proof-frame{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    align-items:start;
+  }
+  .live-proof-video{
+    position:relative;
+    border-radius:14px;overflow:hidden;
+    background:#0c0c10;
+    box-shadow:0 30px 70px rgba(0,0,0,.45);
+    line-height:0;
+    /* matches the cropped screenshot at app/landing-shot-live.jpg
+       (585x571 ~= 1:1) so the image fills the panel without
+       awkward top/bottom cropping that would clip the controls. */
+    aspect-ratio: 585 / 571;
+  }
+  [data-theme="light"] .live-proof-video{
+    box-shadow:0 20px 50px rgba(0,0,0,.12);
+  }
+  .live-proof-video img{
+    width:100%;height:100%;object-fit:cover;object-position:center;
+    display:block;
+    position:relative;z-index:2;
+  }
+
+  /* Floating recording badge anchored to the screenshot's top-left. */
+  .live-proof-badge{
+    position:absolute;top:12px;left:12px;
+    display:inline-flex;align-items:center;gap:7px;
+    background:rgba(0,0,0,.66);
+    color:#fff;font-size:.6rem;font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;
+    padding:5px 9px;border-radius:6px;
+    border:1px solid rgba(239,68,68,.4);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    pointer-events:none;
+  }
+  .live-proof-badge::before{
+    content:"";width:5px;height:5px;border-radius:50%;
+    background:#ef4444;box-shadow:0 0 8px #ef4444;
+    animation:rec-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* HTML ballot panel — mirrors what /live-round renders after a round.
+     Header strip, winner pill, two speaker-point cards, RFD body. */
+  .live-proof-ballot{
+    background:#faf8f3;
+    color:#1c1c1c;
+    border-radius:14px;
+    border:1px solid rgba(0,0,0,.10);
+    box-shadow:0 24px 60px rgba(0,0,0,.40);
+    display:flex;flex-direction:column;
+    overflow:hidden;
+    font-size:.86rem;
+  }
+  [data-theme="light"] .live-proof-ballot{
+    box-shadow:0 18px 44px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.04);
+  }
+  .lpb-strip{
+    display:flex;align-items:center;gap:10px;
+    background:#f3f0e8;
+    padding:10px 14px;
+    border-bottom:1px solid rgba(0,0,0,.06);
+    font-size:.74rem;
+    color:#666;
+  }
+  .lpb-strip-dots{display:inline-flex;gap:5px;align-items:center}
+  .lpb-strip-dots span{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .lpb-strip-dots .d1{background:#ef4444}
+  .lpb-strip-dots .d2{background:#222}
+  .lpb-strip-dots .d3{background:transparent;border:1.5px solid #222}
+  .lpb-strip-back{
+    margin-left:auto;
+    color:#444;font-weight:600;
+    border:1px solid rgba(0,0,0,.12);
+    padding:3px 10px;border-radius:999px;
+    font-size:.7rem;
+  }
+  .lpb-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:14px}
+  .lpb-winner{
+    background:#e9fbef;
+    border:1px solid rgba(34,197,94,.30);
+    border-radius:10px;
+    padding:14px 16px;text-align:center;
+  }
+  .lpb-winner-name{
+    font-size:1.4rem;font-weight:900;color:#16a34a;letter-spacing:-.015em;
+    line-height:1.1;
+  }
+  .lpb-winner-sub{
+    margin-top:4px;color:#555;font-size:.85rem;
+  }
+  .lpb-scores{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  }
+  .lpb-score{
+    background:#fff;
+    border:1px solid rgba(0,0,0,.08);
+    border-radius:10px;
+    padding:10px 12px;text-align:center;
+  }
+  .lpb-score-name{
+    font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:#666;margin-bottom:4px;
+  }
+  .lpb-score-num{
+    font-size:1.6rem;font-weight:900;color:#111;letter-spacing:-.01em;line-height:1;
+    font-variant-numeric:tabular-nums;
+  }
+  .lpb-score-lbl{
+    font-size:.58rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:#888;margin-top:4px;
+  }
+  .lpb-rfd-h{
+    font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:#666;
+  }
+  .lpb-rfd{
+    font-size:.84rem;color:#222;line-height:1.55;
+    max-height:240px;overflow:hidden;position:relative;
+  }
+  .lpb-rfd::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:48px;
+    background:linear-gradient(180deg,transparent,#faf8f3);
+    pointer-events:none;
+  }
+  .lpb-rfd p{margin:0 0 8px}
+  .lpb-rfd p:last-child{margin-bottom:0}
+
+  @media(max-width:760px){
+    .live-proof-frame{grid-template-columns:1fr;gap:14px}
+    /* keep the panel matching the actual screenshot ratio (585/571)
+       so the PiP at top and controls at bottom aren't cropped. */
+    .lpb-rfd{max-height:none}
+    .lpb-rfd::after{display:none}
+  }
+  @media(max-width:560px){
+    .live-proof{padding:40px 16px 48px}
+    .live-proof-headline{font-size:1.45rem}
+    .lpb-strip{padding:8px 12px;font-size:.68rem}
+    .lpb-strip-back{display:none}
+    .lpb-body{padding:14px}
+    .lpb-winner-name{font-size:1.2rem}
+    .lpb-score-num{font-size:1.35rem}
+  }
+
+  /* Caption row under the frame — three quick proof points. Each tile
+     gets a numbered editorial marker so it reads as an annotated proof
+     list (01 / 02 / 03) rather than three undifferentiated text blocks. */
+  .live-proof-captions{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:0;
+    margin-top:22px;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:14px;
+    background:rgba(255,255,255,.025);
+    padding:8px 0;
+  }
+  [data-theme="light"] .live-proof-captions{
+    background:#fff;border-color:rgba(0,0,0,.08);
+  }
+  .live-proof-cap{
+    display:flex;flex-direction:column;gap:6px;
+    padding:18px 22px;
+    border-right:1px solid rgba(255,255,255,.06);
+    text-align:left;
+  }
+  .live-proof-cap:last-child{border-right:none}
+  [data-theme="light"] .live-proof-cap{border-right-color:rgba(0,0,0,.06)}
+  .live-proof-cap .lpc-num{
+    font-size:.68rem;font-weight:800;letter-spacing:.20em;text-transform:uppercase;
+    color:var(--accent);
+    font-feature-settings:"tnum" on;
+  }
+  .live-proof-cap strong{
+    font-size:.98rem;font-weight:700;color:var(--text);letter-spacing:-.005em;
+    line-height:1.25;
+  }
+  .live-proof-cap span{
+    font-size:.84rem;color:var(--text-dim);line-height:1.55;
+  }
+
+  @media(max-width:680px){
+    .live-proof-captions{grid-template-columns:1fr;padding:4px 0}
+    .live-proof-cap{
+      border-right:none;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      padding:16px 18px;
+    }
+    .live-proof-cap:last-child{border-bottom:none}
+    [data-theme="light"] .live-proof-cap{border-bottom-color:rgba(0,0,0,.06)}
+    .live-proof-badge{font-size:.58rem;padding:5px 8px}
+  }
+</style>
+
 <!-- 2026-05-16: Whole "Inside the app" 4-screenshot grid removed.
      The four product screenshots read as AI-generated marketing
      mockups, not actual product proof. Funnel now jumps from Round
@@ -7306,17 +7550,191 @@ section.ui-section .ui-lede{
   }
 </style>
 
-<!-- 2026-05-19 PM: #live-proof section removed. Was a split panel
-     (real /live screenshot on the left + a CSS-mocked AI judge
-     ballot/RFD on the right) with the headline 'A full ballot,
-     written in seconds.' The #live-room section above now carries
-     the 'show what /live looks like' job with a single composite
-     (video pane + live transcript panel), per user direction to
-     pair the video with a transcript, not an RFD. The jumpnav
-     entry 'Voice round → #live-proof' was retargeted to
-     '#live-room' (now labeled 'Live round'). The /landing-shot-live.jpg
-     asset is left in /app/ unreferenced; the .lpb-* and .lpv-*
-     CSS lived only inside the deleted style block. -->
+<!-- 2026-05-19 PM (rev3): #live-proof section restored per user.
+     The HTML below is the verbatim pre-deletion block from
+     f2beada^ — split panel: real /live screenshot on the left,
+     CSS-mocked AI judge ballot/RFD on the right. Headline is
+     'A full ballot, written in seconds.' Sits below the
+     #live-room section (in-the-round video + transcript)
+     so the narrative reads: in the round → after the round. -->
+<!-- ── Live-round proof (2026-05-18). Split panel: left is the real
+     /live-round screenshot (cropped to just the video portion at
+     app/landing-shot-live.jpg, 585x571); right is the AI judge's
+     ballot, with a substantive RFD around a real motion. A CSS
+     mockup sits under the img as a fallback if the asset ever
+     disappears, so the proof never breaks. -->
+<div class="divider"></div>
+<section id="live-proof" class="live-proof" aria-label="Live round with an AI judge">
+  <div class="live-proof-wrap">
+    <div class="live-proof-header">
+      <span class="live-proof-eyebrow"><span class="dot" aria-hidden="true"></span>Live round · AI judge</span>
+      <h2 class="live-proof-headline">A full ballot, written in <em>seconds.</em></h2>
+      <p class="live-proof-sub">Speaker points, winner, and a full Reason for Decision.</p>
+    </div>
+
+    <div class="live-proof-frame">
+      <div class="live-proof-video">
+        <span class="live-proof-badge">Live · 2 debaters</span>
+        <!-- Real /live-round screenshot, cropped to the video panel.
+             585x571 source; covers the panel and hides the CSS mockup
+             behind it. If the asset ever 404s the onerror handler
+             hides the img and the mockup shows through. -->
+        <img src="/landing-shot-live.jpg" alt="Two debaters on a Debate AI Live Round video call" onerror="this.style.display='none'">
+        <div class="lpv-mock" aria-hidden="true">
+          <div class="lpv-topbar">
+            <span class="lpv-brand">Debate AI <span>· Live Round</span></span>
+            <span class="lpv-ballotin">Ballot in <span class="d1"></span><span class="d2"></span><span class="d3"></span></span>
+          </div>
+          <div class="lpv-pip">
+            <div class="lpv-pip-avatar">AH</div>
+            <div class="lpv-pip-name">You · Pro</div>
+          </div>
+          <div class="lpv-main">
+            <div class="lpv-main-avatar">TC</div>
+            <div class="lpv-main-name">Guest · Con</div>
+          </div>
+          <div class="lpv-controls">
+            <span class="lpv-ctl">Mute</span>
+            <span class="lpv-ctl">Cam</span>
+            <span class="lpv-ctl lpv-ctl-leave">Leave</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="live-proof-ballot">
+        <div class="lpb-strip">
+          <span class="lpb-strip-dots"><span class="d1"></span><span class="d2"></span><span class="d3"></span></span>
+          <span>Ballot · Round 1</span>
+          <span class="lpb-strip-back">← Back to board</span>
+        </div>
+        <div class="lpb-body">
+          <div class="lpb-winner">
+            <div class="lpb-winner-name">Pro wins</div>
+            <div class="lpb-winner-sub">THBT social media has done more harm than good</div>
+          </div>
+          <div class="lpb-scores">
+            <div class="lpb-score">
+              <div class="lpb-score-name">Pro · You</div>
+              <div class="lpb-score-num">28</div>
+              <div class="lpb-score-lbl">Speaker points</div>
+            </div>
+            <div class="lpb-score">
+              <div class="lpb-score-name">Con · Guest</div>
+              <div class="lpb-score-num">26</div>
+              <div class="lpb-score-lbl">Speaker points</div>
+            </div>
+          </div>
+          <div class="lpb-rfd-h">Reason for Decision</div>
+          <div class="lpb-rfd">
+            <p>The round turns on the clash between Pro's structural-harm framing and Con's network-value defense. Pro establishes three harms: measurable declines in adolescent mental health (NIH longitudinal data), algorithmic amplification of misinformation during election cycles, and the erosion of local community institutions as attention moves to platform feeds.</p>
+            <p>Con responds with the network case: crisis coordination in Ukraine, Iran, and Hong Kong; cross-border reach for diaspora and minority communities; small-business marketing access that traditional media never offered to anyone without a budget.</p>
+            <p>The judge weighs on three axes: reach, persistence, and counterfactual access. On reach, both sides land hits. On persistence, Pro wins clearly. Once attention infrastructure is captured, it doesn't return to local institutions. On counterfactual access, Con makes the strongest move of the round: the benefits have no real substitute (no print equivalent for a Tehran protestor), while many of the harms have substitutes (regulation, design changes, age-gating).</p>
+            <p>Pro wins because the mitigations Con leans on don't exist yet and the harms compound while we wait. The verdict is narrow. Pro's framing of 'structural' was largely conceded by Con, which is the only reason this isn't closer on the flow.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="live-proof-captions">
+      <div class="live-proof-cap">
+        <span class="lpc-num">01 · Video room</span>
+        <strong>Two debaters, real video</strong>
+        <span>Format-aware timers, POI hand-raise, judge silenced until the end of the round.</span>
+      </div>
+      <div class="live-proof-cap">
+        <span class="lpc-num">02 · AI judge</span>
+        <strong>Ballot in the style of a circuit judge</strong>
+        <span>Clashes, weighing axes, Reason for Decision. Not a chatbot summary.</span>
+      </div>
+      <div class="live-proof-cap">
+        <span class="lpc-num">03 · Speaker points</span>
+        <strong>Calibrated to tournament scales</strong>
+        <span>24 to 30 range, with 24-25 reachable for genuinely weak speeches.</span>
+      </div>
+    </div>
+  </div>
+</section>
+<style>
+  /* CSS-only mockup of the /live video room. Lives under the
+     optional <img>; the img sits above with object-fit:cover, so
+     when a real screenshot is dropped at /landing-shot-live.png it
+     takes over without disturbing the rest. */
+  .live-proof-video .lpv-mock{
+    position:absolute;inset:0;
+    background:linear-gradient(180deg,#fafaf7 0%,#fafaf7 64px,#0c0c10 64px,#0c0c10 100%);
+    display:flex;flex-direction:column;
+  }
+  .live-proof-video .lpv-topbar{
+    height:64px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 22px;
+    border-bottom:1px solid rgba(0,0,0,.06);
+  }
+  .live-proof-video .lpv-brand{
+    font-family:'Fraunces',Georgia,serif;
+    font-size:1rem;font-weight:700;color:#dc2626;
+    letter-spacing:-.01em;
+  }
+  .live-proof-video .lpv-brand span{color:#1a1a1f;font-weight:600}
+  .live-proof-video .lpv-ballotin{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.78rem;font-weight:700;color:#1a1a1f;
+  }
+  .live-proof-video .lpv-ballotin span{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .live-proof-video .lpv-ballotin .d1{background:#ef4444}
+  .live-proof-video .lpv-ballotin .d2{background:#1a1a1f}
+  .live-proof-video .lpv-ballotin .d3{background:transparent;border:1.5px solid #1a1a1f}
+  .live-proof-video .lpv-main{
+    position:absolute;left:18px;right:18px;bottom:80px;top:90px;
+    background:linear-gradient(180deg,#26262e 0%,#171720 100%);
+    border-radius:10px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    color:#fff;
+  }
+  .live-proof-video .lpv-main-avatar{
+    width:96px;height:96px;border-radius:50%;
+    background:linear-gradient(135deg,#4a4a55 0%,#2a2a30 100%);
+    border:2px solid rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.6rem;font-weight:700;letter-spacing:.02em;
+    box-shadow:0 12px 36px rgba(0,0,0,.4);
+  }
+  .live-proof-video .lpv-main-name{
+    font-size:.85rem;font-weight:600;color:rgba(255,255,255,.85);
+    background:rgba(0,0,0,.5);padding:5px 12px;border-radius:6px;
+  }
+  .live-proof-video .lpv-pip{
+    position:absolute;top:80px;right:24px;
+    width:140px;height:96px;
+    background:linear-gradient(180deg,#3a3a45 0%,#22222a 100%);
+    border-radius:8px;
+    border:2px solid rgba(239,68,68,.5);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    color:#fff;
+    box-shadow:0 8px 22px rgba(0,0,0,.4);
+  }
+  .live-proof-video .lpv-pip-avatar{
+    width:38px;height:38px;border-radius:50%;
+    background:linear-gradient(135deg,#dc2626 0%,#7c1414 100%);
+    display:flex;align-items:center;justify-content:center;
+    font-size:.78rem;font-weight:700;
+  }
+  .live-proof-video .lpv-pip-name{
+    font-size:.62rem;font-weight:700;color:#fff;
+    background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px;
+  }
+  .live-proof-video .lpv-controls{
+    position:absolute;left:0;right:0;bottom:18px;
+    display:flex;justify-content:center;gap:18px;
+  }
+  .live-proof-video .lpv-ctl{
+    font-size:.68rem;font-weight:700;color:rgba(255,255,255,.6);
+    padding:6px 14px;border-radius:999px;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.1);
+  }
+  .live-proof-video .lpv-ctl-leave{color:#ef4444;border-color:rgba(239,68,68,.4)}
+</style>
 
 <!-- 2026-05-18: #spar "Four ways in" section removed. Lived between the
      voice-round proof block and the founder origin/story pair; the four
