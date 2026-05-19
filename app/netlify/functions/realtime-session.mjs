@@ -345,24 +345,33 @@ first time.
 Top-circuit APDA debaters routinely sit 30-60 seconds under their
 cap on clean speeches. Match them. Going over is amateur.
 
-TIMER PROTOCOL — announce before EVERY speech (yours and the user's):
-Before any speech starts, say out loud the speech name and the exact
-length, and explicitly state that the timer starts on the speaker's
-first word. Then stop and wait. This is non-negotiable. Never start a
-speech (yours or theirs) without announcing the length and the "starts
-on first word" cue. No timer announcement is needed for POIs or short
-clash beats — only for full speeches.
+TIMER PROTOCOL — UI drives the clock; you drive the announcements:
+A visible per-speech timer on the user's screen handles the clock now.
+Each speech has its own cap (PMC 7:30, LOC 8:00, MG 8:00, MO 8:00,
+LOR 4:00, PMR 5:00), and there is a 45-second grace window between
+speeches. Pressing "Start Speech" begins the user's own clock; you
+do NOT need to start theirs. For your speeches, the UI will send a
+"[Speech start]" system note when your timer begins; just speak.
+
+You will receive these UI system notes mid-round — read them as
+silent context, never echo them aloud:
+  [Speech start]  — a speech timer just started.
+  [Next speech]   — previous speech ended; briefly announce the next.
+  [Prep nudge]    — user has been in prep too long; nudge them once,
+                    warmly, to press Start Speech when ready.
+  [Round end]     — the final speech is over; offer a brief RFD.
+
+Before every speech, do still SAY the speech name + length so the
+round feels like a real chair-driven round — just stop trying to
+"start the timer on the first word." The UI handles starting.
 
 Examples:
-- Before your PMC: "I'm taking Gov. PMC is seven minutes thirty
-  seconds, timer starts on my first word. Here we go."
-- Before the user's PMC: "You're up with the PMC. Seven minutes
-  thirty seconds, your timer starts on your first word. Whenever
-  you're ready."
-- Before the user's LOC: "Your LOC is eight minutes, starting on
-  your first word. Go when ready."
-- Before your LOR: "I have four minutes for the LOR, starting on
-  my first word."
+- Before your PMC: "I'm taking Gov. PMC is seven minutes thirty.
+  Here we go." Then begin speaking.
+- Before the user's PMC: "You're up with the PMC, seven minutes
+  thirty. Hit Start Speech whenever you're ready." Then wait.
+- Before the user's LOC: "Your LOC, eight minutes. Go when ready."
+- Before your LOR: "I have four for the LOR." Then begin speaking.
 
 ROUND DRIVER — you run the sequence, not the user:
 This is a STRUCTURED APDA round, not a free-form chat with the user.
@@ -628,6 +637,14 @@ export default async (request, context) => {
       ? body.mode.toLowerCase() : 'apda';
     const voice = ALLOWED_VOICES.has((body.voice || '').toLowerCase())
       ? body.voice.toLowerCase() : VOICE_DEFAULTS[mode];
+    // Server-side speed multiplier on the realtime model. Clamped to
+    // OpenAI's documented 0.25–4.0 range. The client passes whatever
+    // the user has set on the speed slider; default 1.4 if absent so
+    // the AI's first turn is at varsity-debater pace, not natural.
+    const rawSpeed = parseFloat(body.speed);
+    const speed = Number.isFinite(rawSpeed)
+      ? Math.max(0.25, Math.min(4.0, rawSpeed))
+      : 1.4;
     const motion = String(body.motion || '').slice(0, 500);
     const side = ['gov', 'opp', 'pm', 'lo', 'mg', 'mo', 'pmr', 'lor'].includes(
       (body.side || '').toLowerCase()
@@ -882,7 +899,7 @@ export default async (request, context) => {
       session: {
         type: 'realtime',
         model: m,
-        audio: { output: { voice } },
+        audio: { output: { voice, speed } },
         instructions,
       },
     });

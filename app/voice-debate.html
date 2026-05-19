@@ -325,6 +325,42 @@ input[type=text]:focus,select:focus,textarea:focus{
   font-variant-numeric:tabular-nums;
 }
 .stage .timer .total{color:#a3a3b3;font-size:.8rem;margin-left:4px}
+/* Speech-phase row — current speech name + phase pill above the timer.
+   Tight, no decoration; lets the timer below stay the visual anchor. */
+.stage .phase-row{
+  display:flex;align-items:center;gap:10px;justify-content:center;
+  margin-top:14px;font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;
+  color:#a3a3b3;font-weight:700;
+}
+.stage .phase-row .sp-name{color:#fecaca;font-weight:800}
+.stage .phase-row .phase-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 9px;border-radius:999px;font-size:.6rem;letter-spacing:.14em;
+  border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);
+  color:#cbcbd6;
+}
+.stage .phase-row .phase-pill.prep{color:#fde68a;border-color:rgba(251,191,36,.32);background:rgba(251,191,36,.08)}
+.stage .phase-row .phase-pill.speaking{color:#86efac;border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.08)}
+.stage .phase-row .phase-pill.done{color:#a3a3b3}
+/* Speech control row — Start Speech / End Speech buttons. */
+.stage .speech-ctrl{
+  display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap;
+}
+.stage .speech-ctrl button{
+  padding:9px 18px;border-radius:999px;
+  font-size:.78rem;font-weight:700;letter-spacing:.02em;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);
+  color:#e6e6ee;transition:all .15s;
+}
+.stage .speech-ctrl button:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22)}
+.stage .speech-ctrl button.primary{
+  background:#ef4444;border-color:#ef4444;color:#fff;
+}
+.stage .speech-ctrl button.primary:hover{background:#dc2626;border-color:#dc2626}
+.stage .speech-ctrl button.ghost{
+  background:transparent;color:#a3a3b3;border-color:rgba(255,255,255,.10);
+}
+.stage .speech-ctrl button.ghost:hover{color:#e6e6ee;border-color:rgba(255,255,255,.22)}
 .stage .stats{
   display:flex;gap:18px;margin-top:12px;
   font-size:.74rem;color:#c8c8d6;letter-spacing:.05em;font-weight:500;
@@ -2502,7 +2538,10 @@ function fmtTime(sec) {
 // duration around this neighborhood, so 30 min is the practical ceiling.
 // A 60-sec soft warning fires before the cap so the user can wrap up
 // instead of getting clipped mid-sentence.
-var SESSION_HARD_CAP_SEC = 30 * 60;
+// Full APDA round is 40:30 of speech + 5×45s grace windows ≈ 44:15.
+// Cap at 60 min so a clean round never trips the safety net, but the
+// session still terminates if the user walks away mid-round.
+var SESSION_HARD_CAP_SEC = 60 * 60;
 var SESSION_WARN_AT_SEC = 60; // remaining-time threshold to surface the wrap-up nudge
 
 /* ── Web Audio helpers ───────────────────────────── */
@@ -2729,22 +2768,23 @@ function App() {
   var [userFirstName, setUserFirstName] = useState(() => getUserFirstName());
   // Bond-up celebration card (end of session, if a level was reached).
   var [bondUp, setBondUp] = useState(null);
-  // Audio "speed" control. Two layers because the Realtime API has no
-  // server-side speed parameter and HTMLAudioElement.playbackRate is
-  // unreliable on a live WebRTC MediaStream (Chrome partially honors
-  // it; Safari ignores it). Layers:
-  //   1. playbackRate — best-effort browser-side acceleration. Does
-  //      something on Chrome at moderate rates, near nothing on Safari.
-  //   2. AI-side pacing nudge — a debounced conversation.item.create
-  //      with a `system` role + a WPM target. The AI sees this as
-  //      runtime context and adjusts its delivery on the NEXT response.
-  //      This is what actually moves the needle audibly.
-  // Range 0.85–2.5 spans conversational to Policy-spread territory.
-  // Layer 1 (browser playbackRate) gets noticeable pitch artifacts
-  // above ~1.6 on Chrome and is mostly ignored on Safari. Layer 2
-  // (pacing nudge) carries the real swing: ~150 wpm at 0.85× up to
-  // ~450 wpm at 2.5× — the latter is roughly Policy-debate spread.
-  var [playbackRate, setPlaybackRate] = useState(1.15);
+  // Audio "speed" control. Three layers because the live AI audio is
+  // a WebRTC MediaStream, which most browsers refuse to time-stretch
+  // reliably:
+  //   1. session.audio.output.speed — server-side speed multiplier on
+  //      the Realtime model itself (0.25–4.0). This is the real lever:
+  //      the AI generates audio at the requested pace, so the slider
+  //      audibly moves the needle. Pushed via session.update over the
+  //      data channel and also in the mint body so turn 1 honors it.
+  //   2. HTMLAudioElement.playbackRate — best-effort browser-side
+  //      acceleration on top of (1). preservesPitch keeps the voice
+  //      from chipmunk-ing.
+  //   3. AI-side pacing nudge — debounced conversation.item.create with
+  //      a wpm target. Kept as a belt-and-suspenders so the model also
+  //      reasons about pace, not just synthesizes it.
+  // Range 0.85–3.0. Default 1.4 — "varsity debater" pace; the prior
+  // 1.15 default was barely faster than natural and read as sluggish.
+  var [playbackRate, setPlaybackRate] = useState(1.4);
   // Mute: disable the local mic track so the AI can't VAD-interrupt
   // itself when you breathe / cough / shuffle papers during its speech.
   var [muted, setMuted] = useState(false);
@@ -3128,6 +3168,131 @@ function App() {
   var [aiSpeakingMs, setAiSpeakingMs] = useState(0);
   var [userSpeakingMs, setUserSpeakingMs] = useState(0);
 
+  // ── Speech-phase state machine (APDA round) ─────────────────────
+  // The voice round runs as a real APDA sequence with per-speech
+  // timers and a 45-second grace window between speeches. Pressing
+  // "Start speech" starts the speech timer; otherwise the grace
+  // window auto-elapses after 45s. The AI nudges the user once if
+  // they sit in prep too long without starting.
+  //
+  // APDA sequence: PMC → LOC → MG → MO → LOR → PMR.
+  // Side is resolved from the user's `side` state (gov/opp).
+  var APDA_SEQUENCE = [
+    { name: 'PMC', durSec: 450, side: 'gov' },
+    { name: 'LOC', durSec: 480, side: 'opp' },
+    { name: 'MG',  durSec: 480, side: 'gov' },
+    { name: 'MO',  durSec: 480, side: 'opp' },
+    { name: 'LOR', durSec: 240, side: 'opp' },
+    { name: 'PMR', durSec: 300, side: 'gov' },
+  ];
+  var GRACE_SEC = 45;
+  var PREP_NUDGE_SEC = 28; // when to ask AI to remind the user
+  var [speechIdx, setSpeechIdx] = useState(0);
+  var [phase, setPhase] = useState('prep'); // 'prep' | 'speaking' | 'done'
+  var [phaseElapsed, setPhaseElapsed] = useState(0);
+  var phaseStartedAtRef = useRef(0);
+  var prepNudgedRef = useRef(false);
+  // Mirror state into refs so the 250ms tick (set up once in start())
+  // can read live values without restarting the interval on every
+  // state change. Without these refs the tick's `speechIdx` / `phase`
+  // closure captures whatever was current when the interval was set
+  // up, and auto-advance never fires.
+  var speechIdxRef = useRef(0);
+  var phaseRef = useRef('prep');
+  useEffect(() => { speechIdxRef.current = speechIdx; }, [speechIdx]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  // Whose speech is the given entry? Maps the speech's intrinsic side
+  // (PMC=gov, LOC=opp, etc.) against the user's chosen side.
+  var isUserSpeech = (sp) => {
+    if (!sp) return false;
+    var userIsGov = (side === 'gov' || side === 'pm' || side === 'mg');
+    return userIsGov ? sp.side === 'gov' : sp.side === 'opp';
+  };
+
+  // Transition: prep → speaking. Called by the Start Speech button OR
+  // by the tick when the 45s grace window auto-elapses. Tells the AI a
+  // new speech timer just started so it can listen / drive POIs.
+  var startCurrentSpeech = () => {
+    var sp = APDA_SEQUENCE[speechIdxRef.current];
+    if (!sp) return;
+    phaseStartedAtRef.current = Date.now();
+    prepNudgedRef.current = false;
+    setPhase('speaking');
+    setPhaseElapsed(0);
+    try {
+      if (dcRef.current && dcRef.current.readyState === 'open') {
+        var whose = isUserSpeech(sp) ? 'The user is' : 'You are';
+        var mins = Math.floor(sp.durSec / 60);
+        var secs = sp.durSec % 60;
+        var dur = mins + ' minute' + (mins === 1 ? '' : 's') + (secs ? ' ' + secs + ' seconds' : '');
+        dcRef.current.send(JSON.stringify({
+          type: 'conversation.item.create',
+          item: {
+            type: 'message', role: 'system',
+            content: [{
+              type: 'input_text',
+              text: '[Speech start] The ' + sp.name + ' timer just started (' + dur + '). ' + whose + ' speaking now. Do NOT acknowledge this note. Do NOT re-announce the speech name or length. Just listen (if the user is up) or begin (if you are up).'
+            }]
+          }
+        }));
+      }
+    } catch (e) {/* dc closed */}
+  };
+
+  // Transition: speaking → next prep. Called by End Speech button OR
+  // by the tick when the speech cap expires.
+  var endCurrentSpeech = () => {
+    var nextIdx = speechIdxRef.current + 1;
+    if (nextIdx >= APDA_SEQUENCE.length) {
+      // Round is over. Hand off to the AI for the RFD.
+      setPhase('done');
+      phaseStartedAtRef.current = Date.now();
+      setPhaseElapsed(0);
+      try {
+        if (dcRef.current && dcRef.current.readyState === 'open') {
+          dcRef.current.send(JSON.stringify({
+            type: 'conversation.item.create',
+            item: {
+              type: 'message', role: 'system',
+              content: [{
+                type: 'input_text',
+                text: '[Round end] The final speech of the APDA round just ended. Offer a brief RFD: "want a quick ballot?" Then wait. Do not loop into another speech.'
+              }]
+            }
+          }));
+          try { dcRef.current.send(JSON.stringify({ type: 'response.create' })); } catch (e) {}
+        }
+      } catch (e) {/* dc closed */}
+      return;
+    }
+    var sp = APDA_SEQUENCE[nextIdx];
+    setSpeechIdx(nextIdx);
+    setPhase('prep');
+    phaseStartedAtRef.current = Date.now();
+    prepNudgedRef.current = false;
+    setPhaseElapsed(0);
+    try {
+      if (dcRef.current && dcRef.current.readyState === 'open') {
+        var whose = isUserSpeech(sp) ? 'the user' : 'you';
+        var mins = Math.floor(sp.durSec / 60);
+        var secs = sp.durSec % 60;
+        var dur = mins + ' minute' + (mins === 1 ? '' : 's') + (secs ? ' ' + secs + ' seconds' : '');
+        dcRef.current.send(JSON.stringify({
+          type: 'conversation.item.create',
+          item: {
+            type: 'message', role: 'system',
+            content: [{
+              type: 'input_text',
+              text: '[Next speech] Speech just ended. Up next is the ' + sp.name + ' (' + dur + ') for ' + whose + '. Briefly announce it. The user controls when their own speech timer starts via the Start Speech button — you do NOT need to count down or remind them yet.'
+            }]
+          }
+        }));
+        try { dcRef.current.send(JSON.stringify({ type: 'response.create' })); } catch (e) {}
+      }
+    } catch (e) {/* dc closed */}
+  };
+
   // Post-session
   var [rfd, setRfd] = useState('');
   var [rfdLoading, setRfdLoading] = useState(false);
@@ -3367,9 +3532,30 @@ function App() {
     if (Math.abs(playbackRate - lastPacingRateRef.current) < 0.01) return;
     var t = setTimeout(() => {
       try {
+        // (a) Push the server-side speed onto the live session. This is
+        // the lever that makes the slider audibly affect the AI's voice
+        // — the AI synthesizes its NEXT chunk at the new rate.
+        try {
+          dcRef.current.send(JSON.stringify({
+            type: 'session.update',
+            session: {
+              type: 'realtime',
+              audio: {
+                output: {
+                  speed: Math.max(0.25, Math.min(4.0, playbackRate))
+                }
+              }
+            }
+          }));
+        } catch (e) {/* ignore — pacing-nudge fallback below still fires */}
+
+        // (b) Soft pacing nudge — the model also reasons about wpm so
+        // its phrasing matches the synth speed (shorter clauses at high
+        // speed, longer at slow). Belt-and-suspenders on top of (a).
         var wpm = Math.round(180 * playbackRate);
         var pace = playbackRate < 0.95 ? 'slower and more deliberately' :
-        playbackRate > 1.05 ? 'faster, with brisk debater pacing' :
+        playbackRate > 1.4 ? 'fast — debate-circuit pace, crisp and energetic' :
+        playbackRate > 1.05 ? 'briskly, with confident debater pacing' :
         'at normal conversational pace';
         dcRef.current.send(JSON.stringify({
           type: 'conversation.item.create',
@@ -3384,7 +3570,7 @@ function App() {
         }));
         lastPacingRateRef.current = playbackRate;
       } catch (e) {/* dc closed mid-flight; ignore */}
-    }, 450);
+    }, 300);
     return () => clearTimeout(t);
   }, [playbackRate]);
 
@@ -3818,7 +4004,8 @@ function App() {
           userName: userFirstName,
           bondCount,
           smartness,
-          aiLanguage
+          aiLanguage,
+          speed: Math.max(0.25, Math.min(4.0, playbackRate))
         })
       });
       if (!mintRes.ok) {
@@ -4066,7 +4253,14 @@ function App() {
                     create_response: true
                   }
                 },
-                output: { voice: persona.voice }
+                output: {
+                  voice: persona.voice,
+                  // Server-side speed multiplier on the realtime model.
+                  // Clamped to OpenAI's documented 0.25–4.0 range. This
+                  // is the lever the user's slider actually moves — the
+                  // playbackRate / pacing-nudge layers are fallbacks.
+                  speed: Math.max(0.25, Math.min(4.0, playbackRate))
+                }
               }
             }
           }));
@@ -4115,7 +4309,8 @@ function App() {
           if (Math.abs(playbackRate - 1.0) > 0.01) {
             var initWpm = Math.round(180 * playbackRate);
             var initPace = playbackRate < 0.95 ? 'slower and more deliberately' :
-              playbackRate > 1.05 ? 'faster, with brisk debater pacing' :
+              playbackRate > 1.4 ? 'fast — debate-circuit pace, crisp and energetic' :
+              playbackRate > 1.05 ? 'briskly, with confident debater pacing' :
               'at normal conversational pace';
             dc.send(JSON.stringify({
               type: 'conversation.item.create',
@@ -4196,12 +4391,60 @@ function App() {
     //    rather than thrown.
     startedAtRef.current = Date.now();
     capWarnedRef.current = false;
+    // Kick the first prep phase. The AI's opener (from response.create
+    // above) is the "you're up with the PMC, X minutes" announcement;
+    // this clock measures how long the user sits before pressing Start.
+    phaseStartedAtRef.current = Date.now();
+    prepNudgedRef.current = false;
+    setSpeechIdx(0);
+    setPhase('prep');
+    setPhaseElapsed(0);
     tickRef.current = setInterval(() => {
       var t = (Date.now() - startedAtRef.current) / 1000;
       setElapsed(t);
+      // ── Speech-phase tick ────────────────────────────────────
+      var pT = (Date.now() - phaseStartedAtRef.current) / 1000;
+      setPhaseElapsed(pT);
+      var curIdx = speechIdxRef.current;
+      var curPhase = phaseRef.current;
+      var curSpeech = APDA_SEQUENCE[curIdx];
+      if (curSpeech && curPhase === 'prep') {
+        // Auto-nudge: ask the AI to gently remind the user to press
+        // Start when they're ready. Fires once per prep window.
+        if (!prepNudgedRef.current && pT >= PREP_NUDGE_SEC) {
+          prepNudgedRef.current = true;
+          try {
+            if (dcRef.current && dcRef.current.readyState === 'open') {
+              var whose = isUserSpeech(curSpeech) ? 'their' : 'your';
+              var nm = curSpeech.name;
+              dcRef.current.send(JSON.stringify({
+                type: 'conversation.item.create',
+                item: {
+                  type: 'message', role: 'system',
+                  content: [{
+                    type: 'input_text',
+                    text: '[Prep nudge] ' + Math.round(pT) + ' seconds into the grace window for ' + whose + ' ' + nm + ' and they haven\'t hit Start yet. Calmly remind them once, briefly and warmly, that they can press the Start Speech button whenever they\'re ready. One sentence. Then wait. Do not lecture. Do not repeat this reminder later in the round.'
+                  }]
+                }
+              }));
+              try {
+                dcRef.current.send(JSON.stringify({ type: 'response.create' }));
+              } catch (e) {}
+            }
+          } catch (e) {/* dc closed mid-flight */}
+        }
+        // Auto-advance prep → speaking when grace window elapses.
+        if (pT >= GRACE_SEC) {
+          startCurrentSpeech();
+        }
+      } else if (curSpeech && curPhase === 'speaking') {
+        if (pT >= curSpeech.durSec) {
+          endCurrentSpeech();
+        }
+      }
+      // ── Session hard cap (safety net) ────────────────────────
       // Soft wrap-up nudge so the cap stops blindsiding the user. Fires
-      // once when there's a minute left — they can finish the speech or
-      // hit End Session deliberately.
+      // once when there's a minute left.
       if (!capWarnedRef.current && t >= SESSION_HARD_CAP_SEC - SESSION_WARN_AT_SEC && t < SESSION_HARD_CAP_SEC) {
         capWarnedRef.current = true;
         addSystem('Heads up. About 60 seconds left in this round. Wrap your point or end the session yourself.');
@@ -5389,13 +5632,54 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   '○ LISTENING'
   )
   ),
-  el('div', { className: 'timer' },
-  fmtTime(elapsed),
-  el('span', { className: 'total' }, ' / ' + fmtTime(SESSION_HARD_CAP_SEC))
-  ),
+  // ── Speech-phase block ─────────────────────────────────
+  // Per-speech timer (PMC 7:30, LOC 8:00, etc.) + 45s grace window
+  // between speeches, driven by the speechIdx/phase state machine.
+  // Pressing Start Speech ends prep early; End Speech advances to
+  // the next speech. The cumulative session clock lives below as
+  // muted secondary info.
+  (() => {
+    var sp = APDA_SEQUENCE[speechIdx] || null;
+    var phaseDur = phase === 'prep' ? GRACE_SEC : (sp ? sp.durSec : 0);
+    var remaining = Math.max(0, Math.round(phaseDur - phaseElapsed));
+    var phaseLabel = phase === 'prep' ? 'PREP · 45s GRACE' :
+      phase === 'speaking' ? 'SPEAKING' :
+      'ROUND COMPLETE';
+    var whoseLabel = sp
+      ? (isUserSpeech(sp)
+        ? (userFirstName ? userFirstName.toUpperCase() : 'YOU')
+        : persona.name.split(' ')[0].toUpperCase())
+      : '';
+    return [
+      el('div', { className: 'phase-row', key: 'phase-row' },
+        sp && el('span', { className: 'sp-name' }, sp.name),
+        sp && el('span', null, ' · ' + whoseLabel),
+        el('span', { className: 'phase-pill ' + phase }, phaseLabel)
+      ),
+      el('div', { className: 'timer', key: 'timer' },
+        phase === 'done' ? '— —' : fmtTime(remaining),
+        el('span', { className: 'total' }, phase === 'done'
+          ? ''
+          : ' / ' + (phase === 'prep' ? fmtTime(GRACE_SEC) : (sp ? fmtTime(sp.durSec) : '')))
+      ),
+      el('div', { className: 'speech-ctrl', key: 'ctrl' },
+        phase === 'prep' && sp && el('button', {
+          className: 'primary',
+          onClick: startCurrentSpeech,
+          title: 'Start the ' + sp.name + ' timer now'
+        }, '▶  Start ' + sp.name),
+        phase === 'speaking' && sp && el('button', {
+          className: 'ghost',
+          onClick: endCurrentSpeech,
+          title: 'End the current speech and move to the next'
+        }, 'End speech →')
+      ),
+    ];
+  })(),
   el('div', { className: 'stats' },
   el('span', null, el('strong', null, interruptCount), ' interrupts'),
-  el('span', null, 'AI ', el('strong', null, aiSharePct + '%'), ' / You ', el('strong', null, userSharePct + '%'))
+  el('span', null, 'AI ', el('strong', null, aiSharePct + '%'), ' / You ', el('strong', null, userSharePct + '%')),
+  el('span', null, 'Round ', el('strong', null, fmtTime(elapsed)))
   ),
   el('div', { className: 'miclevel' },
   'mic',
@@ -5439,7 +5723,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   el('span', { className: 'val' }, (playbackRate < 0.99 || playbackRate > 1.01 ? playbackRate.toFixed(2) : '1.0') + '×'),
   el('button', {
     className: 'spd',
-    onClick: () => setPlaybackRate((r) => Math.min(2.5, Math.round((r + 0.05) * 100) / 100)),
+    onClick: () => setPlaybackRate((r) => Math.min(3.0, Math.round((r + 0.05) * 100) / 100)),
     title: 'Faster (next turn pace + live audio)'
   }, '+')
   ),
