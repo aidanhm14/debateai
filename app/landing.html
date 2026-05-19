@@ -9044,14 +9044,18 @@ window.addEventListener('load', function(){
     // what they perceived as the "College" page without any Google prompt.
     if (auth.currentUser) {
       try { window.dosTrack && window.dosTrack('sign_in_already',{source:source||'landing_hero'}) } catch(e){}
-      window.location.href = '/#chat';
+      window.location.href = '/app#chat';
       return;
     }
     auth.signInWithPopup(provider).then(function(result){
       try { if (window.gtag) gtag('event', 'sign_up', { method: 'Google' }); } catch(e){}
       try { window.dosTrack && window.dosTrack('sign_in_complete',{source:source||'landing_hero'}) } catch(e){}
       try { localStorage.setItem('debateos-feedback-given', '1'); } catch(e){}
-      window.location.href = '/#chat';
+      // Must be /app#chat, not /#chat. The root path is rewritten to
+      // /landing.html with force=true (see app/netlify.toml), so /#chat
+      // bounces the user back to the page they came from and the sign-in
+      // looks broken even though it succeeded.
+      window.location.href = '/app#chat';
     }).catch(function(err){
       var code = (err && err.code) || 'unknown';
       var msg = (err && err.message) || '';
@@ -9074,7 +9078,9 @@ window.addEventListener('load', function(){
     auth.getRedirectResult().then(function(result){
       if (result && result.user) {
         try { localStorage.setItem('debateos-feedback-given', '1'); } catch(e){}
-        window.location.href = '/#chat';
+        // /app#chat, not /#chat: the root rewrite (force=true → landing.html)
+        // would otherwise dump the user back on the page they signed in from.
+        window.location.href = '/app#chat';
       }
     }).catch(function(err){
       var code = (err && err.code) || 'unknown';
