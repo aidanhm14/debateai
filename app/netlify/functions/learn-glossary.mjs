@@ -306,9 +306,9 @@ function renderPage() {
   <footer class="gloss-footer">
     <span>© 2026 Debate AI</span>
     <span>
+      <a href="/learn">Learn</a> ·
       <a href="/learn/fundamentals">Fundamentals</a> ·
-      <a href="/learn/guides">Format guides</a> ·
-      <a href="/learn">Learn</a>
+      <a href="/learn/guides">Guides</a>
     </span>
   </footer>
 </main>

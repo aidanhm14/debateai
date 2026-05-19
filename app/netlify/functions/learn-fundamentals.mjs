@@ -344,7 +344,7 @@ function renderFundamentalPage(item) {
 
   <footer class="guide-footer">
     <span>© 2026 Debate AI</span>
-    <span><a href="/learn/fundamentals">Fundamentals</a> · <a href="/learn/guides">Guides</a> · <a href="/learn/glossary">Glossary</a> · <a href="/learn">Learn</a></span>
+    <span><a href="/learn">Learn</a> · <a href="/learn/fundamentals">Fundamentals</a> · <a href="/learn/guides">Guides</a> · <a href="/learn/glossary">Glossary</a></span>
   </footer>
 </main>
 </body></html>`;
@@ -413,7 +413,7 @@ function renderHubPage() {
 
   <footer class="guide-footer">
     <span>© 2026 Debate AI</span>
-    <span><a href="/learn/guides">Format guides</a> · <a href="/learn/glossary">Glossary</a> · <a href="/learn">Learn</a></span>
+    <span><a href="/learn">Learn</a> · <a href="/learn/guides">Guides</a> · <a href="/learn/glossary">Glossary</a></span>
   </footer>
 </main>
 </body></html>`;
