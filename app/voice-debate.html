@@ -2226,6 +2226,40 @@ var MODE_JUDGE_RULES = {
 };
 
 
+// Expand debate-motion acronyms so the AI speaks them in full.
+// Debaters write "THBT social media..." but the AI should say
+// "This House Believes That social media...". We expand client-side
+// before passing the motion to the AI (both as the system-prompt
+// motion and as the verbatim greeting motion) — the user's typed
+// input is left untouched, only the AI-facing copy is rewritten.
+//
+// Order matters: longer prefixes (THBT) must match before the
+// catch-all (TH ). Anchored at the start of the string + word
+// boundary so we don't mangle accidental matches inside text.
+function expandMotionAcronyms(s) {
+  if (!s || typeof s !== 'string') return s;
+  var trimmed = s.trim();
+  if (!trimmed) return s;
+  var replacements = [
+    [/^THBT\b\.?\s*/i, 'This House Believes That '],
+    [/^THBR\b\.?\s*/i, 'This House Believes Regret '],
+    [/^THW\b\.?\s*/i, 'This House Would '],
+    [/^THR\b\.?\s*/i, 'This House Regrets '],
+    [/^THS\b\.?\s*/i, 'This House Supports '],
+    [/^THO\b\.?\s*/i, 'This House Opposes '],
+    [/^THP\b\.?\s*/i, 'This House Prefers '],
+    [/^TH\b\.?\s*/i, 'This House '],
+    [/^This House,\s*/i, 'This House, ']
+  ];
+  for (var i = 0; i < replacements.length; i++) {
+    var pair = replacements[i];
+    if (pair[0].test(trimmed)) {
+      return trimmed.replace(pair[0], pair[1]);
+    }
+  }
+  return s;
+}
+
 // Named personalities — each maps to one Realtime voice but reads as
 // a CHARACTER, not a voice slider. The user picks one and "builds a
 // relationship" with them across rounds (see bond tracking below).
@@ -3735,11 +3769,16 @@ function App() {
       // in a different closure further below) can pin the transcription
       // model to the same language without re-reading localStorage.
       try {window.__aiLanguage = aiLanguage;} catch (e) {}
+      // Expand THBT/THW/THR/etc. so the AI speaks the motion in full
+      // ("This House Believes That…") instead of letter-spelling the
+      // shorthand. User's textbox stays as written; only the AI sees
+      // the expanded form.
+      var motionForAI = expandMotionAcronyms(motion || '');
       var mintRes = await fetch('/api/realtime-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({
-          mode, motion, side, format: 'APDA',
+          mode, motion: motionForAI, side, format: 'APDA',
           background: (background || generatedBackground || '').slice(0, 1200),
           voice: persona.voice,
           personaName: persona.name,
@@ -3986,8 +4025,13 @@ function App() {
                     // adds ~100-200ms over the previous config but the
                     // qualitative feel improvement is dramatic.
                     type: 'semantic_vad',
+                    // prefix_padding_ms is a server_vad-only param;
+                    // semantic_vad rejects it with "Unknown parameter:
+                    // 'session.audio.input.turn_detection.prefix_padding_ms'"
+                    // and the error surfaces in the live transcript.
+                    // Stripped — semantic_vad's eagerness/interrupt_response
+                    // controls cover the padding intent semantically.
                     eagerness: 'low',
-                    prefix_padding_ms: 300,
                     create_response: true
                   }
                 },
@@ -4012,9 +4056,12 @@ function App() {
           // into the response.create.instructions kills that path.
           var userSideLabel = side === 'gov' || side === 'pm' || side === 'mg' ? 'Government' : 'Opposition';
           var aiSideLabel = userSideLabel === 'Government' ? 'Opposition' : 'Government';
-          var m = motion.trim();
+          // Greeting reads the motion in full — THBT becomes "This
+          // House Believes That…" so the opener doesn't letter-spell
+          // shorthand.
+          var m = expandMotionAcronyms(motion.trim());
           var greetingInstructions = m ?
-          `Open in character. Under 8 seconds. The motion is verbatim: "${m}". You are on ${aiSideLabel}; the user is on ${userSideLabel}. Say the motion exactly as written, name your side, then say "whenever you're ready${nameSuffix}". Do NOT invent a different motion. Do NOT paraphrase. Do NOT say "Absolutely", "Let's get into it", "Sure", or any enthusiastic interjection. Dry and direct.` :
+          `Open in character. Under 8 seconds. The motion is verbatim: "${m}". You are on ${aiSideLabel}; the user is on ${userSideLabel}. Say the motion exactly as written. NEVER spell out "THBT" / "THW" / "THR" / "THS" / "THO" / "THP" — those abbreviations have already been expanded for you; read what is written. Name your side, then say "whenever you're ready${nameSuffix}". Do NOT invent a different motion. Do NOT paraphrase. Do NOT say "Absolutely", "Let's get into it", "Sure", or any enthusiastic interjection. Dry and direct.` :
           `Open with exactly this line, in your character's voice and dry register: "what's up${nameSuffix}, what are we debating?" Then stop. Do not suggest motions. Do not list options. Do not say "Absolutely" or any enthusiastic filler. One short line, then silence.`;
           // GA Realtime response.create dropped `modalities` (it's
           // inherited from session.output_modalities now). Just send
@@ -4695,7 +4742,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       onClick: rollAny,
       title: 'Roll a random motion from any category',
       style: { background: 'rgba(239,68,68,.10)', borderColor: 'rgba(239,68,68,.35)', color: '#fca5a5', fontWeight: 700 }
-    }, '🎲 Random'),
+    }, 'Random'),
     ...cats.map((tag) => {
       var count = SAMPLE_MOTIONS.filter((m) => m.tag === tag).length;
       return el('button', {

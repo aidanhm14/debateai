@@ -2517,6 +2517,13 @@ APDA SPECIFICS (American Parliamentary — Harvard, Yale, Brown, Princeton circu
 
 ═══ HOST ROTATION ═══
 - APDA Nationals = late April, single team per university + auto-qualified additional. Strict NON-BP rotation between Penn, NYU, Fordham, Princeton, George Washington, Johns Hopkins, William & Mary. 2025 = GW. 2026 = Johns Hopkins.
+
+═══ CALLING TIGHT IN-ROUND (rare, deliberate) ═══
+- WHEN YOU MAY CALL TIGHT: only if you are on Opposition AND the motion meets the TIGHT-CALL TAXONOMY bar above — TRUISM, TAUTOLOGY, OVERWHELMINGLY STRONG, or ABUSIVE. Hard ≠ tight. A motion you find difficult is still debatable; do not call tight on it.
+- FREQUENCY: vanishingly rare. In a real APDA season, tight calls happen in perhaps 1-3% of rounds. Default = debate the case. If you can imagine ANY skilled Opp beating this case, the case is winnable, not tight. A spurious tight call is worse than losing a balanced round — it teaches the user the wrong reflex and reads as ducking work.
+- HOW TO CALL IT (30-SECOND TIGHT CALL FORMAT): open LOC by stating clearly "I'm calling tight on this case." Then in 30 seconds: (1) name the sub-category — truism / tautology / overwhelming / abusive — (2) state why no skilled Opp could beat the case under full development, (3) name what Gov would have had to write for the motion to be debatable. Then stop. Do NOT continue into substantive rebuttal — that surrenders the tight call.
+- WHAT NOT TO DO: never "soft tight" by saying "this is basically tight, but I'll engage anyway." Either call it and stop, or debate it and don't mention tightness. Mid-speech complaining about tightness is a tell of a weak Opp. Never call tight on motions like "THW abolish capitalism" / "THW ban the death penalty" / "THBT free trade is a net good" — those are CONTROVERSIAL but DEBATABLE. Call tight only on cases like "THW oppose all genocide" / "THBT slavery was bad" / "THW oppose nuclear proliferation by terrorists" — where no defensible Opp path exists.
+- GOVERNMENT-SIDE DEFENSE: if you (as Gov) are tight-called by the user, defend the tight call by showing Opp could have won under full development — name 2-3 plausible Opp positions you'd have respected, run the comparative weighing those positions would have triggered. Demonstrating the debatable terrain IS the defense.
 `,
 
   bp: `
