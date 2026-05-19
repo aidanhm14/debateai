@@ -231,17 +231,31 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
 .logo{display:none}
 .subtitle{display:none}
 
-/* ── Fixed Top Nav Bar (matches landing.html .nav) ── */
+/* ── Fixed Top Nav Bar (matches landing.html .nav) ──
+   2026-05-19: removed the color-mix translucency + backdrop blur on
+   the default state. The radial-red glow at body{}'s top edge was
+   bleeding through the blur and washing the topbar lighter than the
+   page below, producing a visible cream-over-dark seam. Theme-locked
+   opaque backgrounds below keep the topbar in sync with --bg in every
+   theme. */
 .app-topbar{
   position:fixed;top:0;left:0;right:0;z-index:1000;
   padding:0 32px;height:52px;
   display:flex;align-items:center;justify-content:space-between;
-  background:rgba(17,17,17,.88);
-  background:color-mix(in srgb, var(--bg,#111) 88%, transparent);
+  background:var(--bg,#161318);
   border-bottom:1px solid var(--border,rgba(255,255,255,.07));
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   transition:top .2s ease, background .4s, border-color .4s;
 }
+/* Per-theme topbar fills — opaque, no color-mix, no blur. Locks the
+   bar to the page palette so a stale data-theme value can't leave it
+   light over a dark page (or vice versa). */
+[data-theme="grey"] .app-topbar,
+:root .app-topbar{background:#161318}
+[data-theme="crimson"] .app-topbar,
+.crimson-theme .app-topbar{background:#000}
+[data-theme="light"] .app-topbar,
+[data-theme="day"] .app-topbar,
+.light-theme .app-topbar{background:#fafaf7;border-bottom-color:rgba(0,0,0,.08)}
 .app-topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0}
 /* 2026-05-18: .ui-topbar-beta chip CSS removed alongside the element. */
 .app-topbar-logo{
