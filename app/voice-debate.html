@@ -2940,6 +2940,17 @@ function App() {
   // it, voice rounds get logged but don't feed back into prompt tuning.
   var [lastVoiceRoundId, setLastVoiceRoundId] = useState(null);
   var [voiceRoundRating, setVoiceRoundRating] = useState(0);
+  // Structured-feedback fields that ride alongside the star rating. The
+  // boring flag is the most actionable signal for the per-format
+  // cataloging commitment (HQ §brain-training in-flight) — any rating
+  // with boring=true filters into the "AI was generic on format X" pile
+  // that the next voice-guidelines.mjs edit pulls from. Notes are
+  // free-text but capped server-side at 600 chars. Both ride on the
+  // existing 'rate' signal via meta.{boring,notes}; log-generation.mjs
+  // denormalizes them onto the generation doc so distill picks them up.
+  var [voiceRoundBoring, setVoiceRoundBoring] = useState(false);
+  var [voiceRoundNotes, setVoiceRoundNotes] = useState('');
+  var voiceRoundNotesTimerRef = useRef(null);
 
   // Mic-meter (5 bars; ambient indicator that mic is alive)
   var [micBars, setMicBars] = useState([0, 0, 0, 0, 0]);
@@ -3418,6 +3429,12 @@ function App() {
     // Reset rating state — last round's id/score doesn't apply to a new session.
     setLastVoiceRoundId(null);
     setVoiceRoundRating(0);
+    setVoiceRoundBoring(false);
+    setVoiceRoundNotes('');
+    if (voiceRoundNotesTimerRef.current) {
+      clearTimeout(voiceRoundNotesTimerRef.current);
+      voiceRoundNotesTimerRef.current = null;
+    }
     if (recordingUrl) {try {URL.revokeObjectURL(recordingUrl);} catch (e) {}}
     setRecordingUrl('');
     // Tear down any stale prior peer connection / mic stream BEFORE we
@@ -5253,65 +5270,6 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   )
   ),
 
-  // Rate-this-round card. Only renders for signed-in users whose round
-  // got logged (lastVoiceRoundId set) and who haven't rated yet. The
-  // resulting 'rate' signal is the strongest supervised label the
-  // nightly distill (scheduled-distill.mjs) can use — "user marked
-  // this round 5/5" beats "user happened to save it" by a mile.
-  lastVoiceRoundId && el('div', {
-    className: 'card',
-    style: { marginTop: 14, textAlign: 'center' }
-  },
-  el('div', {
-    style: { fontSize: '.78rem', color: '#9b9bab', letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 10 }
-  }, voiceRoundRating ? 'Thanks — logged' : 'Rate this round'),
-  el('div', {
-    style: { display: 'flex', gap: 8, justifyContent: 'center' }
-  },
-  [1, 2, 3, 4, 5].map((n) => el('button', {
-    key: 'star-' + n,
-    disabled: !!voiceRoundRating,
-    onClick: () => {
-      if (voiceRoundRating) return;
-      setVoiceRoundRating(n);
-      // Fire the rating signal. Same endpoint the typed flow uses
-      // via logGenerationSignal in index.html — kind:'signal',
-      // signal:'rate', value:n. Server denormalizes onto the
-      // generation doc as rating: n so the distill query picks it up.
-      try {
-        if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
-          firebase.auth().currentUser.getIdToken().then((tok) => {
-            if (!tok) return;
-            fetch('/api/log-generation', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
-              body: JSON.stringify({
-                action: 'signal',
-                generationId: lastVoiceRoundId,
-                signal: 'rate',
-                value: n
-              })
-            }).catch(() => {});
-          }).catch(() => {});
-        }
-      } catch (e) {console.warn('[voice-rate]', e.message);}
-    },
-    style: {
-      fontSize: '1.6rem',
-      width: 42, height: 42,
-      borderRadius: 8,
-      border: '1px solid ' + (voiceRoundRating && n <= voiceRoundRating ? 'rgba(245,158,11,.55)' : 'rgba(255,255,255,.08)'),
-      background: voiceRoundRating && n <= voiceRoundRating ? 'rgba(245,158,11,.12)' : 'transparent',
-      color: voiceRoundRating && n <= voiceRoundRating ? '#fbbf24' : '#9b9bab',
-      cursor: voiceRoundRating ? 'default' : 'pointer',
-      fontFamily: 'inherit',
-      padding: 0,
-      lineHeight: 1
-    }
-  }, voiceRoundRating && n <= voiceRoundRating ? '★' : '☆'))
-  )
-  ),
-
   !rfd && el('button', {
     className: 'cta',
     onClick: generateRFD,
@@ -5322,6 +5280,145 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   el('h3', null, 'Reason for Decision'),
   rfd
   ),
+
+  // Rate-this-round widget. Renders ONLY after the RFD has landed (so
+  // the user has seen the judge's verdict before rating the round) and
+  // only for signed-in users whose round got logged (lastVoiceRoundId
+  // set; anon users skip silently because the server endpoint requires
+  // a Firebase ID token). The resulting 'rate' signal — plus the
+  // boring flag + optional notes that ride alongside in meta — is the
+  // strongest supervised label the nightly distill
+  // (scheduled-distill.mjs) can use. "User marked this round 5/5"
+  // beats "user happened to save it"; "user flagged it boring/generic
+  // on format X" is the cataloging primitive for per-format voice-
+  // guideline edits (HQ §brain-training in-flight). Three writes max
+  // (rate → boring toggle → notes), each re-fires the rate signal
+  // with the merged meta so the denormalized fields on the generation
+  // doc always reflect the user's latest state.
+  rfd && lastVoiceRoundId && (() => {
+    var postRate = (rating, boring, notes) => {
+      try {
+        if (typeof firebase === 'undefined' || !firebase.auth || !firebase.auth().currentUser) return;
+        firebase.auth().currentUser.getIdToken().then((tok) => {
+          if (!tok) return;
+          fetch('/api/log-generation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+            body: JSON.stringify({
+              action: 'signal',
+              generationId: lastVoiceRoundId,
+              signal: 'rate',
+              value: rating,
+              meta: { boring: !!boring, notes: (notes || '').slice(0, 600) }
+            })
+          }).catch(() => {});
+        }).catch(() => {});
+      } catch (e) {console.warn('[voice-rate]', e.message);}
+    };
+    var showNotes = voiceRoundRating > 0 && voiceRoundRating <= 2 || voiceRoundBoring;
+    return el('div', {
+      className: 'card',
+      style: { marginTop: 14, textAlign: 'center' }
+    },
+    el('div', {
+      style: { fontSize: '.78rem', color: '#9b9bab', letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 10 }
+    },
+    voiceRoundRating ?
+    'Rated ' + voiceRoundRating + '/5' + (voiceRoundBoring ? ' · flagged generic' : '') + ' — thanks' :
+    'How was that round?'
+    ),
+
+    // Stars row. Click submits the rating immediately with the current
+    // boring/notes state (both default false/empty so first-click is
+    // always just the raw rating).
+    el('div', {
+      style: { display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 12 }
+    },
+    [1, 2, 3, 4, 5].map((n) => el('button', {
+      key: 'star-' + n,
+      onClick: () => {
+        setVoiceRoundRating(n);
+        postRate(n, voiceRoundBoring, voiceRoundNotes);
+      },
+      style: {
+        fontSize: '1.6rem',
+        width: 42, height: 42,
+        borderRadius: 8,
+        border: '1px solid ' + (voiceRoundRating && n <= voiceRoundRating ? 'rgba(245,158,11,.55)' : 'rgba(255,255,255,.08)'),
+        background: voiceRoundRating && n <= voiceRoundRating ? 'rgba(245,158,11,.12)' : 'transparent',
+        color: voiceRoundRating && n <= voiceRoundRating ? '#fbbf24' : '#9b9bab',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        padding: 0,
+        lineHeight: 1,
+        transition: 'background .12s,border-color .12s,color .12s'
+      }
+    }, voiceRoundRating && n <= voiceRoundRating ? '★' : '☆'))
+    ),
+
+    // Boring/generic toggle. Always available. Clicking after a rating
+    // has landed re-fires the signal with the new boring state; clicking
+    // BEFORE rating just stages the flag for when the user clicks a star.
+    el('button', {
+      onClick: () => {
+        var next = !voiceRoundBoring;
+        setVoiceRoundBoring(next);
+        if (voiceRoundRating) postRate(voiceRoundRating, next, voiceRoundNotes);
+      },
+      style: {
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '6px 12px', borderRadius: 999,
+        border: '1px solid ' + (voiceRoundBoring ? 'rgba(239,68,68,.45)' : 'rgba(255,255,255,.10)'),
+        background: voiceRoundBoring ? 'rgba(239,68,68,.10)' : 'transparent',
+        color: voiceRoundBoring ? '#fca5a5' : '#7c7c87',
+        fontSize: '.72rem', fontWeight: 600, letterSpacing: '.04em',
+        cursor: 'pointer', fontFamily: 'inherit',
+        transition: 'background .12s,border-color .12s,color .12s'
+      }
+    },
+    el('span', { style: { fontSize: '.85rem' } }, voiceRoundBoring ? '✓' : '○'),
+    'Generic / boring'
+    ),
+
+    // Free-text notes. Only surfaces when the rating is low (1-2) OR
+    // the boring flag is on — otherwise the field is noise on a happy
+    // round. Debounced save: 1.2s after the last keystroke, the meta
+    // gets posted alongside the existing rating + boring values.
+    showNotes && el('div', { style: { marginTop: 12 } },
+    el('textarea', {
+      value: voiceRoundNotes,
+      placeholder: voiceRoundRating <= 2 ? 'What didn\'t land? (optional)' : 'What was generic about it? (optional)',
+      maxLength: 600,
+      onChange: (e) => {
+        var v = e.target.value;
+        setVoiceRoundNotes(v);
+        if (voiceRoundNotesTimerRef.current) clearTimeout(voiceRoundNotesTimerRef.current);
+        voiceRoundNotesTimerRef.current = setTimeout(() => {
+          if (voiceRoundRating) postRate(voiceRoundRating, voiceRoundBoring, v);
+        }, 1200);
+      },
+      style: {
+        width: '100%', minHeight: 60, padding: '8px 10px',
+        borderRadius: 8, border: '1px solid rgba(255,255,255,.10)',
+        background: 'rgba(255,255,255,.03)', color: '#d6d6dc',
+        fontSize: '.8rem', fontFamily: 'inherit', lineHeight: 1.5,
+        resize: 'vertical', outline: 'none', boxSizing: 'border-box'
+      },
+      onFocus: (e) => { e.target.style.borderColor = 'rgba(245,158,11,.45)'; },
+      onBlur: (e) => {
+        e.target.style.borderColor = 'rgba(255,255,255,.10)';
+        // Belt-and-suspenders flush on blur in case the debounce timer
+        // hasn't fired yet (user clicked away before 1.2s).
+        if (voiceRoundNotesTimerRef.current) {
+          clearTimeout(voiceRoundNotesTimerRef.current);
+          voiceRoundNotesTimerRef.current = null;
+        }
+        if (voiceRoundRating) postRate(voiceRoundRating, voiceRoundBoring, e.target.value);
+      }
+    })
+    )
+    );
+  })(),
 
   // Retention CTA row after the RFD lands. Two parallel paths:
   //  - Solo: take today's motion on /today (streak ritual)

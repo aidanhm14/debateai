@@ -192,7 +192,20 @@ export default async (request) => {
       // Denormalize the most-recent signal onto the generation doc so
       // downstream querying ("show me 5-star cases") doesn't require a join.
       const update = { lastSignal: signal, lastSignalAt: FieldValue.serverTimestamp() };
-      if (signal === 'rate' && typeof value === 'number') update.rating = value;
+      if (signal === 'rate' && typeof value === 'number') {
+        update.rating = value;
+        // Boring/generic flag + freeform notes ride along on the rate
+        // signal. Denormalized so the cataloging query
+        // (generations.where('boring', '==', true).where('format', '==', X))
+        // doesn't need to join generation_signals. Matches the admin
+        // rating tool's write shape — both surfaces feed the same field.
+        if (meta && typeof meta.boring === 'boolean') {
+          update.boring = meta.boring;
+        }
+        if (meta && typeof meta.notes === 'string' && meta.notes.trim()) {
+          update.userNotes = clamp(meta.notes, 600);
+        }
+      }
       if (signal === 'save') update.saved = true;
       if (signal === 'share') update.shared = true;
       if (signal === 'regenerate') update.regenerated = true;
