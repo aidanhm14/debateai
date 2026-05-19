@@ -2059,6 +2059,57 @@ var MODES = [
 { key: 'steelman', icon: '', title: 'Steelman Drill', desc: 'Defend the position you disagree with. Best version.' }];
 
 
+// MODE_JUDGE_RULES. Drill-specific lenses the AI judge applies when
+// writing the RFD. voice-debate's "mode" is a drill type, not a debate
+// format — Full Round is APDA-shaped but the others (cross-ex, rebuttal,
+// persuasion, sharp opponent, steelman) score different things. The
+// per-mode block is injected into the sys prompt in generateRFD so the
+// AI looks at the transcript through the right lens. Unknown keys fall
+// back silently (empty string) so an out-of-range mode never breaks the
+// ballot. Mirrors the per-format JUDGE_RULES pattern in
+// app/live-round.html.
+var MODE_JUDGE_RULES = {
+  apda: [
+    'This is an APDA-shaped full round. The user played PM+MG (gov) or LO+MO+LOR (opp) against the AI.',
+    'Evaluate: did the user run a clear case framework, extend their own offense across speeches, engage the AI\'s offense rather than just rebuilding, and collapse + weigh in the last speech (PMR for gov, LOR for opp)?',
+    'New arguments in closing speeches (PMR/LOR) are illegal — call it out if the user did it.',
+    'No fabricated citations expected — APDA is impromptu. "Studies generally show" is fine; "Smith 2022 finds" is a strike.',
+    'PMR/LOR is the last word. An unfocused last speech without explicit voting issues underperforms even when earlier speeches were strong.',
+  ],
+  crossex: [
+    'This is a cross-examination drill, not a full round. Score the user on QUESTION QUALITY, not speech construction.',
+    'Reward: closed-sequence questioning (premise → premise → forced admission), pinning the AI on concessions, controlling the clock, building chains that constrain the opposing case.',
+    'Penalize: monologuing inside CX, asking open-ended "what do you think about X" questions that hand the AI offense, conceding when the AI counter-questions, abandoning a thread before extracting the admission.',
+    'The user is asking AND answering across the drill — score each role separately and note which one was stronger.',
+    'Speaker scale skews toward strategic precision, not rhetorical polish.',
+  ],
+  rebuttal: [
+    'This is a rebuttal-sparring drill. Short alternating clash. The user must RESPOND to the AI\'s offense, not restart their own constructive.',
+    'Reward: engaging the AI\'s strongest argument (not its weakest), naming the specific weakness in the AI\'s warrant chain, turning the AI\'s impact, reducing the round rather than expanding it.',
+    'Penalize: pivoting to fresh constructive material, generic "you\'re wrong because" without an alternative warrant, dropping the AI\'s terminal impact, treating each exchange as a fresh case.',
+    'Each exchange should narrow the disagreement. If the user kept inflating the round, that\'s the costliest pattern.',
+  ],
+  layjudge: [
+    'This is a persuasion pitch to a smart non-expert. The judge is ALSO a smart non-expert — score the user the way a thoughtful outsider would, not the way a debate flow judge would.',
+    'Reward: plain English, named specifics, real-world stakes ("Linda in Dayton loses her job"), conversational warrant chains the listener can follow without training.',
+    'Penalize: debate jargon (impact calc, cross-apply, framework, ballot story, role of the ballot), tagged citations the lay listener can\'t verify, philosopher name-drops without context, rhetorical scaffolding that signals "I\'m a debater" instead of "I\'m persuading you."',
+    'Speaker scale rewards conversational charisma and clarity over technical precision.',
+  ],
+  aggressive: [
+    'This is a high-pressure adversarial drill. The AI tried to break the user; the user had to hold composure AND substance.',
+    'Reward: staying substantive under interruption, returning to the case after counter-attacks, refusing to take the bait into off-case territory, naming the AI\'s aggression strategically rather than matching it.',
+    'Penalize: matching the AI\'s heat instead of the AI\'s substance, getting drawn into personal pivot ("you said X earlier and now you\'re saying Y"), losing the thread of the original case, conceding too quickly under pressure.',
+    'Name specific moments where the user held under fire vs caved. Composure under pressure is the entire point of the drill.',
+  ],
+  steelman: [
+    'This is a steelman drill. The user defended the position they DISAGREE with; the AI argued the opposite (the user\'s actual view). Judge intellectual range, not surface persuasion.',
+    'Reward: best-case defenses of the disagreeable position (not strawmen), engaging the AI\'s actual objection rather than a sympathetic version of it, charity to the position even when conceding would be easier.',
+    'Penalize: secretly conceding ("the other side has a point"), arguing for the position the user actually believes, halfhearted advocacy, breaking character to acknowledge the drill.',
+    'The whole point is range — flag moments where the user broke character or pulled punches.',
+  ],
+};
+
+
 // Named personalities — each maps to one Realtime voice but reads as
 // a CHARACTER, not a voice slider. The user picks one and "builds a
 // relationship" with them across rounds (see bond tracking below).
@@ -3962,9 +4013,10 @@ function App() {
       map((t) => (t.who === 'you' ? 'YOU' : 'AI') + ': ' + (t.text || '').trim() + (t.interrupted ? ' [interrupted]' : '')).
       join('\n\n');
       var modeLabel = MODES.find((m) => m.key === mode)?.title || mode;
+      var modeLens = (MODE_JUDGE_RULES[mode] || []).map((b) => '- ' + b).join('\n');
       var sys = `You are a debate judge giving a Reason for Decision after a live voice debate. Mode: ${modeLabel}. Motion: "${motion}". Side the user took: ${side === 'gov' ? 'Government' : 'Opposition'}.
 
-Format the RFD exactly as:
+${modeLens ? 'MODE LENS — judge through this:\n' + modeLens + '\n\n' : ''}Format the RFD exactly as:
 
 SPEAKER POINTS: NN.N
 (a single number for the USER between 25.0 and 30.0 in 0.1 increments. 27.5 is a clean win. 28.5+ is national-circuit elite. 26.0 is below average. Never round to whole numbers — pick the tenth that fits. This score is the leaderboard rank; be honest, not generous.)
