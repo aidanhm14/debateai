@@ -38,6 +38,46 @@ SW_ROOT="$REPO_ROOT/sw.js"
 STAGED="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)"
 [ -z "$STAGED" ] && exit 0
 
+# ──────────────────────────────────────────────────────────────────
+# Precompile inline <script data-precompile="es5"> blocks before
+# anything else. Why first: the precompile may mutate staged HTML,
+# which downstream steps (sw.js cache bump) need to see.
+#
+# AGENTS.md context: index.html / debate-ai.html / etc. ship a 14k+
+# line inline React-via-CDN script. Loading babel-standalone at
+# runtime to parse it cost ~600MB of heap per tab. Now we pre-
+# transpile const/let → var (matches Babel's loose hoisting) at
+# commit time. Idempotent — re-running on already-var output is a
+# no-op.
+#
+# Only fires if the precompile script + Node toolchain exist; on
+# fresh clones without `npm install` in app/ this silently skips.
+# ──────────────────────────────────────────────────────────────────
+PRECOMPILE_SCRIPT="$REPO_ROOT/scripts/precompile-inline-babel.mjs"
+if [ -f "$PRECOMPILE_SCRIPT" ] && command -v node >/dev/null 2>&1 && [ -d "$REPO_ROOT/app/node_modules/@babel/core" ]; then
+  PRECOMPILE_TARGETS="$(
+    printf '%s\n' "$STAGED" \
+      | grep -E '^app/.+\.html$' \
+      | xargs -I{} grep -l 'data-precompile="es5"' "$REPO_ROOT/{}" 2>/dev/null \
+      || true
+  )"
+  if [ -n "$PRECOMPILE_TARGETS" ]; then
+    REL_TARGETS="$(printf '%s\n' "$PRECOMPILE_TARGETS" | sed "s|$REPO_ROOT/||")"
+    # shellcheck disable=SC2086
+    if (cd "$REPO_ROOT" && node scripts/precompile-inline-babel.mjs $REL_TARGETS >/tmp/precompile-hook.log 2>&1); then
+      # Re-stage any files the precompile mutated.
+      for f in $REL_TARGETS; do
+        if ! git diff --quiet -- "$f" 2>/dev/null; then
+          git add "$f" 2>/dev/null || true
+          echo "[precompile] re-staged $f"
+        fi
+      done
+    else
+      echo "[precompile] warn: precompile failed — see /tmp/precompile-hook.log" >&2
+    fi
+  fi
+fi
+
 # If the user is already touching sw.js in this commit, trust them.
 # They either bumped manually or are intentionally editing the SW
 # logic itself — we don't want to clobber their version choice.

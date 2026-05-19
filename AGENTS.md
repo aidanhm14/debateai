@@ -83,11 +83,47 @@ bash scripts/install-hooks.sh
 ```
 
 The canonical hook lives at `scripts/hooks/pre-commit` so it travels
-with the repo. The installer copies it into `.git/hooks/`. If you ever
-need to skip the auto-bump intentionally (e.g., docs-only commit that
-somehow touched a client file), stage `app/sw.js` or `sw.js` yourself
-in the same commit — the hook trusts manual SW edits and won't
-double-bump.
+with the repo. The installer copies it into `.git/hooks/`. The hook
+also runs `scripts/precompile-inline-babel.mjs` against any staged
+HTML files containing `<script data-precompile="es5">` blocks before
+the SW bump (see below). If you ever need to skip the auto-bump
+intentionally (e.g., docs-only commit that somehow touched a client
+file), stage `app/sw.js` or `sw.js` yourself in the same commit — the
+hook trusts manual SW edits and won't double-bump.
+
+## Inline React scripts: `<script data-precompile="es5">`
+
+Six pages (`index.html`, `debate-ai.html`, `voice-debate.html`,
+`learn.html`, `high-school.html`, `exhibition.html`) ship inline
+React-via-CDN blocks (index.html alone is 14k+ lines). We
+used to load `babel-standalone` in the browser to transpile that block
+at runtime — which cost **~1GB of heap per tab** because Babel-standalone
+builds a full AST of every inline script it processes.
+
+Now we precompile at commit time:
+
+- The inline script tag is `<script data-precompile="es5">…</script>`
+  (no `type="text/babel"`, no babel-standalone CDN tag).
+- The pre-commit hook runs `scripts/precompile-inline-babel.mjs`, which
+  uses `@babel/plugin-transform-block-scoping` to convert `const`/`let`
+  → `var`. This is the **only** transform — everything else stays
+  modern. The conversion matches the loose hoisting semantics
+  babel-standalone gave us at runtime, so existing forward-reference
+  patterns (useEffect deps referencing a useCallback declared later,
+  etc.) still work.
+- After precompile, the inline JS is all `var`. Surgical edits still
+  work; if you add a new `const`/`let`, the next commit retranspiles.
+- The hook is idempotent — running on already-`var` output is a no-op.
+
+If you ever need to run it manually:
+
+```bash
+node scripts/precompile-inline-babel.mjs                  # all six
+node scripts/precompile-inline-babel.mjs app/index.html   # one file
+```
+
+Requires `npm install` in `app/` (Babel + esbuild ride as devDeps).
+The runtime ships zero of this; it's all build-time.
 
 ## How to run / ship
 

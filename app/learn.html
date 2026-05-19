@@ -245,7 +245,6 @@
 <script defer src="/js/upgrade-cta.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow-x:hidden}
@@ -1121,51 +1120,51 @@ body{background:#fffaf7}
 </style>
 
 <div id="root"></div>
-<script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
-const el = React.createElement;
+<script data-precompile="es5">
+var { useState, useEffect, useRef, useCallback } = React;
+var el = React.createElement;
 
-let __learnByokKey = (function(){ try{ return sessionStorage.getItem('debateos-learn-byok')||null }catch{ return null } })();
+var __learnByokKey = function () {try {return sessionStorage.getItem('debateos-learn-byok') || null;} catch {return null;}}();
 
 // ─── Google sign-in unlock ───
 // Signed-in beta users get unlimited requests on the learn page. We piggyback
 // on the existing `debateos-feedback-given` localStorage flag (which already
 // flips getAnonLimit() to Infinity) so the rest of the gating code keeps working.
-let __learnUser = null;
-function isSignedIn(){ try{ return localStorage.getItem('debateos-signed-in')==='1' }catch{ return false } }
-function markSignedIn(){
-  try { localStorage.setItem('debateos-signed-in','1'); localStorage.setItem('debateos-feedback-given','1'); } catch(e){}
+var __learnUser = null;
+function isSignedIn() {try {return localStorage.getItem('debateos-signed-in') === '1';} catch {return false;}}
+function markSignedIn() {
+  try {localStorage.setItem('debateos-signed-in', '1');localStorage.setItem('debateos-feedback-given', '1');} catch (e) {}
 }
-window.addEventListener('load', function(){
+window.addEventListener('load', function () {
   try {
     if (typeof firebase === 'undefined') return;
     var CONFIG = {
-      apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+      apiKey: ["AIzaSyDDx", "TYlyWLOJnFP99", "e7XsLPb3FwIEijNNM"].join(""),
       authDomain: "debateos-78ac5.firebaseapp.com",
       projectId: "debateos-78ac5",
       storageBucket: "debateos-78ac5.firebasestorage.app",
       messagingSenderId: "860359449192",
-      appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+      appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
     };
     if (!firebase.apps.length) firebase.initializeApp(CONFIG);
-    firebase.auth().onAuthStateChanged(function(user){
+    firebase.auth().onAuthStateChanged(function (user) {
       __learnUser = user || null;
       if (user) markSignedIn();
     });
-  } catch(e) { console.warn('[learn] firebase init failed:', e.message); }
+  } catch (e) {console.warn('[learn] firebase init failed:', e.message);}
 });
-window.__learnSignIn = function(){
-  try { window.dosTrack && window.dosTrack('sign_in_start',{source:'learn'}) } catch(e){}
-  if (typeof firebase === 'undefined') { alert('Sign-in is loading. Try again in a moment.'); return; }
+window.__learnSignIn = function () {
+  try {window.dosTrack && window.dosTrack('sign_in_start', { source: 'learn' });} catch (e) {}
+  if (typeof firebase === 'undefined') {alert('Sign-in is loading. Try again in a moment.');return;}
   var provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  firebase.auth().signInWithPopup(provider).then(function(){
+  firebase.auth().signInWithPopup(provider).then(function () {
     markSignedIn();
-    try { if (window.gtag) gtag('event','sign_up',{method:'Google',source:'learn'}); } catch(e){}
-    try { window.dosTrack && window.dosTrack('sign_in_complete',{source:'learn'}) } catch(e){}
+    try {if (window.gtag) gtag('event', 'sign_up', { method: 'Google', source: 'learn' });} catch (e) {}
+    try {window.dosTrack && window.dosTrack('sign_in_complete', { source: 'learn' });} catch (e) {}
     location.reload();
-  }).catch(function(err){
-    try { if (window.gtag) gtag('event', 'sign_in_error', { code: (err && err.code) || 'unknown', message: ((err && err.message) || '').slice(0, 200), surface: 'learn', method: 'popup' }); } catch(_){}
+  }).catch(function (err) {
+    try {if (window.gtag) gtag('event', 'sign_in_error', { code: err && err.code || 'unknown', message: (err && err.message || '').slice(0, 200), surface: 'learn', method: 'popup' });} catch (_) {}
     if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
       alert('Sign-in failed: ' + (err.message || err.code));
     }
@@ -1176,60 +1175,60 @@ window.__learnSignIn = function(){
    API + USAGE (shared with debate-ai)
    ═══════════════════════════════════════════════════ */
 
-const ANON_BASE_LIMIT = 5;
-const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform';
-function getUsage(){ try{return parseInt(localStorage.getItem('debateos-anon-usage')||'0',10)}catch{return 0} }
-function incUsage(){ try{localStorage.setItem('debateos-anon-usage',String(getUsage()+1))}catch{} }
-function hasGivenFeedback(){ try{ return localStorage.getItem('debateos-feedback-given')==='1' }catch{ return false } }
-function markFeedbackGiven(){ try{ localStorage.setItem('debateos-feedback-given','1') }catch{} }
+var ANON_BASE_LIMIT = 5;
+var FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform';
+function getUsage() {try {return parseInt(localStorage.getItem('debateos-anon-usage') || '0', 10);} catch {return 0;}}
+function incUsage() {try {localStorage.setItem('debateos-anon-usage', String(getUsage() + 1));} catch {}}
+function hasGivenFeedback() {try {return localStorage.getItem('debateos-feedback-given') === '1';} catch {return false;}}
+function markFeedbackGiven() {try {localStorage.setItem('debateos-feedback-given', '1');} catch {}}
 // Feedback-givers get UNLIMITED access (matches the "unlock unlimited" copy in beta strip)
 // FREE TRIAL: unlimited for everyone (HS + adult). Feedback/sign-in still
 // tracked for the funnel, but no gating while we're growing the user base.
-function getAnonLimit(){ return Number.POSITIVE_INFINITY }
-function remaining(){ return Math.max(0, getAnonLimit()-getUsage()) }
-function canUse(){ return remaining()>0 || !!__learnByokKey }
-function shouldGateForFeedback(){ return !hasGivenFeedback() && getUsage() >= ANON_BASE_LIMIT }
-function handleLimitClick(){
+function getAnonLimit() {return Number.POSITIVE_INFINITY;}
+function remaining() {return Math.max(0, getAnonLimit() - getUsage());}
+function canUse() {return remaining() > 0 || !!__learnByokKey;}
+function shouldGateForFeedback() {return !hasGivenFeedback() && getUsage() >= ANON_BASE_LIMIT;}
+function handleLimitClick() {
   if (shouldGateForFeedback()) {
-    try { window.open(FEEDBACK_FORM_URL,'_blank','noopener'); markFeedbackGiven(); } catch(e){}
+    try {window.open(FEEDBACK_FORM_URL, '_blank', 'noopener');markFeedbackGiven();} catch (e) {}
     alert('You\'ve used your free requests. We just opened our quick feedback form. Fill it out and we\'ll unlock more. Refresh this page after submitting.');
   } else {
     alert('Free requests used up. Add your own Anthropic API key (BYOK $1/mo for unlimited Claude), pick a plan at /pricing, or come back tomorrow.');
   }
 }
 
-async function callClaude(sys, user, onChunk){
-  const byok = __learnByokKey;
-  const useProxy = !byok && remaining() > 0;
-  const useDirect = !!byok;
+async function callClaude(sys, user, onChunk) {
+  var byok = __learnByokKey;
+  var useProxy = !byok && remaining() > 0;
+  var useDirect = !!byok;
 
-  if (!useProxy && !useDirect) { try { window.dosTrack && window.dosTrack('limit_reached',{usage:getUsage()}) } catch(e){} throw new Error('LIMIT_REACHED'); }
-  try { window.dosTrackOnce && window.dosTrackOnce('first_ai_request',{source:byok?'byok':'proxy'}) } catch(e){}
+  if (!useProxy && !useDirect) {try {window.dosTrack && window.dosTrack('limit_reached', { usage: getUsage() });} catch (e) {}throw new Error('LIMIT_REACHED');}
+  try {window.dosTrackOnce && window.dosTrackOnce('first_ai_request', { source: byok ? 'byok' : 'proxy' });} catch (e) {}
 
-  let r;
-  let proxyFailed = false;
+  var r;
+  var proxyFailed = false;
 
   // Try proxy first if applicable
   if (useProxy) {
     try {
-      const body={
-        model:'claude-sonnet-4-6',
-        max_tokens:4000,
-        stream:true,
-        system:sys,
-        messages:[{role:'user',content:user}],
-        _feature:'learn',
+      var body = {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        stream: true,
+        system: sys,
+        messages: [{ role: 'user', content: user }],
+        _feature: 'learn'
       };
-      r=await fetch('/api/claude',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(body),
+      r = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
       });
-      if(!r.ok){
-        if(r.status===429) throw new Error('RATE_LIMITED');
+      if (!r.ok) {
+        if (r.status === 429) throw new Error('RATE_LIMITED');
         throw new Error('API_ERROR');
       }
-    } catch(e) {
+    } catch (e) {
       if (!byok) throw e;
       proxyFailed = true;
     }
@@ -1238,42 +1237,42 @@ async function callClaude(sys, user, onChunk){
   // Direct Anthropic API with BYOK
   if (useDirect || proxyFailed) {
     r = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
         'x-api-key': byok,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
       },
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:4000,
-        stream:true,
-        system:sys,
-        messages:[{role:'user',content:user}],
-      }),
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        stream: true,
+        system: sys,
+        messages: [{ role: 'user', content: user }]
+      })
     });
-    if(!r.ok){
-      const err = await r.text().catch(()=>'');
-      throw new Error('API '+r.status+': '+err);
+    if (!r.ok) {
+      var err = await r.text().catch(() => '');
+      throw new Error('API ' + r.status + ': ' + err);
     }
   }
 
-  const reader=r.body.getReader(),dec=new TextDecoder();
-  let full='',buf='';
-  while(true){
-    const{done,value}=await reader.read();
-    if(done)break;
-    buf+=dec.decode(value,{stream:true});
-    const lines=buf.split('\n');buf=lines.pop()||'';
-    for(const l of lines){
-      if(l.startsWith('data: ')){
-        const d=l.slice(6);if(d==='[DONE]')break;
-        try{const p=JSON.parse(d);if(p.type==='content_block_delta'&&p.delta?.text){full+=p.delta.text;if(onChunk)onChunk(full)}}catch{}
+  var reader = r.body.getReader(),dec = new TextDecoder();
+  var full = '',buf = '';
+  while (true) {
+    var { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    var lines = buf.split('\n');buf = lines.pop() || '';
+    for (var l of lines) {
+      if (l.startsWith('data: ')) {
+        var d = l.slice(6);if (d === '[DONE]') break;
+        try {var p = JSON.parse(d);if (p.type === 'content_block_delta' && p.delta?.text) {full += p.delta.text;if (onChunk) onChunk(full);}} catch {}
       }
     }
   }
-  if(useProxy && !proxyFailed) incUsage();
+  if (useProxy && !proxyFailed) incUsage();
   return full;
 }
 
@@ -1281,145 +1280,145 @@ async function callClaude(sys, user, onChunk){
    CONSTANTS
    ═══════════════════════════════════════════════════ */
 
-const MODES = [
-  { id:'debate',   label:'Quick Debate' },
-  { id:'news',     label:'Be Up to Date' },
-  { id:'builder',  label:'Arg Builder' },
-  { id:'fallacy',  label:'Fallacy Trainer' },
-  { id:'AI',       label:"Debate AI" },
-  { id:'persuade', label:'Persuasion Lab' },
-  { id:'rebuttal', label:'Rebuttal Drill' },
-  { id:'weighing', label:'Weighing Practice' },
-];
+var MODES = [
+{ id: 'debate', label: 'Quick Debate' },
+{ id: 'news', label: 'Be Up to Date' },
+{ id: 'builder', label: 'Arg Builder' },
+{ id: 'fallacy', label: 'Fallacy Trainer' },
+{ id: 'AI', label: "Debate AI" },
+{ id: 'persuade', label: 'Persuasion Lab' },
+{ id: 'rebuttal', label: 'Rebuttal Drill' },
+{ id: 'weighing', label: 'Weighing Practice' }];
 
-const DEBATE_TOPICS = [
-  // Everyday life
-  'Is remote work better than office work?',
-  'Should kids have smartphones?',
-  'Is college worth it?',
-  'Should tipping be abolished?',
-  'Should we ban homework?',
-  'Is it better to rent or buy a home?',
-  'Should the work week be 4 days?',
-  // Technology & AI
-  'Is social media making us lonelier?',
-  'Should AI art be considered real art?',
-  'Is privacy dead in the digital age?',
-  'Should social media have age verification?',
-  'Will AI replace more jobs than it creates?',
-  'Should algorithms be regulated like media?',
-  // Politics & society
-  'Should the voting age be lowered to 16?',
-  'Is cancel culture a good thing?',
-  'Should billionaires exist?',
-  'Is meritocracy a myth?',
-  'Should college athletes be paid?',
-  'Should the US have universal healthcare?',
-  'Is democracy the best system of government?',
-  'Should there be limits on free speech?',
-  // Ethics & philosophy
-  'Is it ethical to eat meat?',
-  'Are electric cars actually better for the environment?',
-  'Is it wrong to have children given climate change?',
-  'Should we colonize Mars?',
-  'Is it ethical to use animals in medical research?',
-  'Do people have a moral obligation to donate to charity?',
-  // Culture & identity
-  'Is cultural appropriation a real problem?',
-  'Should art be separated from the artist?',
-  'Is nostalgia making us worse at appreciating the present?',
-  'Should everyone learn to code?',
-  'Is competitive sports good for kids?',
-  'Should grades be abolished in schools?',
-];
 
-const PERSUASION_SCENARIOS = [
-  { id:'job',      icon:'\u{1F4BC}', label:'Job Interview',           desc:'Convince a hiring manager you\'re the right fit' },
-  { id:'nego',     icon:'\u{1F91D}', label:'Salary Negotiation',      desc:'Ask for a raise or better compensation' },
-  { id:'pitch',    icon:'\u{1F680}', label:'Startup Pitch',           desc:'Convince an investor your idea is worth funding' },
-  { id:'friend',   icon:'\u{1F4AC}', label:'Disagree with a Friend',  desc:'Navigate a real disagreement respectfully' },
-  { id:'parent',   icon:'\u{1F3E0}', label:'Convince a Parent',       desc:'Make a case for something you want' },
-  { id:'team',     icon:'\u{1F465}', label:'Lead a Team Decision',    desc:'Get a group to adopt your proposal' },
-  { id:'prof',     icon:'\u{1F393}', label:'Grade Appeal',            desc:'Convince a professor to reconsider your grade' },
-  { id:'landlord', icon:'\u{1F3E2}', label:'Negotiate Rent',          desc:'Talk your landlord into a better deal' },
-  { id:'customer', icon:'\u{1F6D2}', label:'Customer Complaint',      desc:'Get a company to resolve your issue' },
-];
+var DEBATE_TOPICS = [
+// Everyday life
+'Is remote work better than office work?',
+'Should kids have smartphones?',
+'Is college worth it?',
+'Should tipping be abolished?',
+'Should we ban homework?',
+'Is it better to rent or buy a home?',
+'Should the work week be 4 days?',
+// Technology & AI
+'Is social media making us lonelier?',
+'Should AI art be considered real art?',
+'Is privacy dead in the digital age?',
+'Should social media have age verification?',
+'Will AI replace more jobs than it creates?',
+'Should algorithms be regulated like media?',
+// Politics & society
+'Should the voting age be lowered to 16?',
+'Is cancel culture a good thing?',
+'Should billionaires exist?',
+'Is meritocracy a myth?',
+'Should college athletes be paid?',
+'Should the US have universal healthcare?',
+'Is democracy the best system of government?',
+'Should there be limits on free speech?',
+// Ethics & philosophy
+'Is it ethical to eat meat?',
+'Are electric cars actually better for the environment?',
+'Is it wrong to have children given climate change?',
+'Should we colonize Mars?',
+'Is it ethical to use animals in medical research?',
+'Do people have a moral obligation to donate to charity?',
+// Culture & identity
+'Is cultural appropriation a real problem?',
+'Should art be separated from the artist?',
+'Is nostalgia making us worse at appreciating the present?',
+'Should everyone learn to code?',
+'Is competitive sports good for kids?',
+'Should grades be abolished in schools?'];
 
-const FALLACIES = [
-  { name:'Ad Hominem', desc:'Attacking the person rather than the argument.' },
-  { name:'Straw Man', desc:'Misrepresenting someone\'s argument to make it easier to attack.' },
-  { name:'Appeal to Authority', desc:'Claiming something is true because an authority figure said so, without evidence.' },
-  { name:'False Dichotomy', desc:'Presenting only two options when more exist.' },
-  { name:'Slippery Slope', desc:'Claiming one event will inevitably lead to extreme consequences without justification.' },
-  { name:'Red Herring', desc:'Introducing an irrelevant point to distract from the real issue.' },
-  { name:'Circular Reasoning', desc:'Using the conclusion as a premise in the argument.' },
-  { name:'Appeal to Emotion', desc:'Using emotional manipulation instead of logical evidence.' },
-  { name:'Hasty Generalization', desc:'Drawing a broad conclusion from limited examples.' },
-  { name:'Tu Quoque', desc:'Deflecting criticism by pointing to the other person\'s similar behavior.' },
-  { name:'Bandwagon', desc:'Arguing something is true because many people believe it.' },
-  { name:'False Cause', desc:'Assuming one event caused another just because it came first.' },
-  { name:'Moving the Goalposts', desc:'Changing the criteria for proof after the original criteria have been met.' },
-  { name:'No True Scotsman', desc:'Redefining a group to exclude counterexamples rather than accepting them.' },
-  { name:'Equivocation', desc:'Using a word with multiple meanings in different parts of the argument.' },
-  { name:'Appeal to Nature', desc:'Arguing something is good because it\'s "natural" or bad because it\'s "unnatural."' },
-  { name:'Sunk Cost Fallacy', desc:'Continuing something because of past investment rather than future value.' },
-  { name:'Whataboutism', desc:'Responding to criticism by pointing to a different issue entirely.' },
-];
+
+var PERSUASION_SCENARIOS = [
+{ id: 'job', icon: '\u{1F4BC}', label: 'Job Interview', desc: 'Convince a hiring manager you\'re the right fit' },
+{ id: 'nego', icon: '\u{1F91D}', label: 'Salary Negotiation', desc: 'Ask for a raise or better compensation' },
+{ id: 'pitch', icon: '\u{1F680}', label: 'Startup Pitch', desc: 'Convince an investor your idea is worth funding' },
+{ id: 'friend', icon: '\u{1F4AC}', label: 'Disagree with a Friend', desc: 'Navigate a real disagreement respectfully' },
+{ id: 'parent', icon: '\u{1F3E0}', label: 'Convince a Parent', desc: 'Make a case for something you want' },
+{ id: 'team', icon: '\u{1F465}', label: 'Lead a Team Decision', desc: 'Get a group to adopt your proposal' },
+{ id: 'prof', icon: '\u{1F393}', label: 'Grade Appeal', desc: 'Convince a professor to reconsider your grade' },
+{ id: 'landlord', icon: '\u{1F3E2}', label: 'Negotiate Rent', desc: 'Talk your landlord into a better deal' },
+{ id: 'customer', icon: '\u{1F6D2}', label: 'Customer Complaint', desc: 'Get a company to resolve your issue' }];
+
+
+var FALLACIES = [
+{ name: 'Ad Hominem', desc: 'Attacking the person rather than the argument.' },
+{ name: 'Straw Man', desc: 'Misrepresenting someone\'s argument to make it easier to attack.' },
+{ name: 'Appeal to Authority', desc: 'Claiming something is true because an authority figure said so, without evidence.' },
+{ name: 'False Dichotomy', desc: 'Presenting only two options when more exist.' },
+{ name: 'Slippery Slope', desc: 'Claiming one event will inevitably lead to extreme consequences without justification.' },
+{ name: 'Red Herring', desc: 'Introducing an irrelevant point to distract from the real issue.' },
+{ name: 'Circular Reasoning', desc: 'Using the conclusion as a premise in the argument.' },
+{ name: 'Appeal to Emotion', desc: 'Using emotional manipulation instead of logical evidence.' },
+{ name: 'Hasty Generalization', desc: 'Drawing a broad conclusion from limited examples.' },
+{ name: 'Tu Quoque', desc: 'Deflecting criticism by pointing to the other person\'s similar behavior.' },
+{ name: 'Bandwagon', desc: 'Arguing something is true because many people believe it.' },
+{ name: 'False Cause', desc: 'Assuming one event caused another just because it came first.' },
+{ name: 'Moving the Goalposts', desc: 'Changing the criteria for proof after the original criteria have been met.' },
+{ name: 'No True Scotsman', desc: 'Redefining a group to exclude counterexamples rather than accepting them.' },
+{ name: 'Equivocation', desc: 'Using a word with multiple meanings in different parts of the argument.' },
+{ name: 'Appeal to Nature', desc: 'Arguing something is good because it\'s "natural" or bad because it\'s "unnatural."' },
+{ name: 'Sunk Cost Fallacy', desc: 'Continuing something because of past investment rather than future value.' },
+{ name: 'Whataboutism', desc: 'Responding to criticism by pointing to a different issue entirely.' }];
+
 
 /* ═══════════════════════════════════════════════════
    CHAT COMPONENT
    ═══════════════════════════════════════════════════ */
 
-function ChatView({ messages, input, setInput, onSend, loading, placeholder, children }){
-  const chatRef = useRef(null);
-  const prevAiCount = useRef(0);
-  useEffect(()=>{
-    if(chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  },[messages,loading]);
+function ChatView({ messages, input, setInput, onSend, loading, placeholder, children }) {
+  var chatRef = useRef(null);
+  var prevAiCount = useRef(0);
+  useEffect(() => {
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  }, [messages, loading]);
   // Audio cue when a new AI message lands. Counts AI messages and
   // fires SFX.receive() once on each increment. Skips the very first
   // render so a fresh page load with seeded conversation doesn't
   // play out-of-context. SFX.send() fires from the wrapped onSend
   // below so we don't depend on the user's textarea-keypress path.
-  useEffect(()=>{
-    const aiCount = messages.filter(m => m.role === 'ai' || m.role === 'assistant').length;
-    if (aiCount > prevAiCount.current && prevAiCount.current > 0){
-      try { window.SFX && window.SFX.receive(); } catch(e){}
+  useEffect(() => {
+    var aiCount = messages.filter((m) => m.role === 'ai' || m.role === 'assistant').length;
+    if (aiCount > prevAiCount.current && prevAiCount.current > 0) {
+      try {window.SFX && window.SFX.receive();} catch (e) {}
     }
     prevAiCount.current = aiCount;
-  },[messages]);
-  function handleSend(){
-    try { window.SFX && window.SFX.send(); } catch(e){}
+  }, [messages]);
+  function handleSend() {
+    try {window.SFX && window.SFX.send();} catch (e) {}
     onSend();
   }
 
-  return el(React.Fragment,null,
-    // Render chat-area whenever there are messages OR the AI is
-    // working. Without `|| loading`, the very first AI turn (Quick
-    // Debate's opening response, Persuasion Lab / Rebuttal Drill's
-    // first reply) had no visible "Thinking..." indicator — users saw
-    // an empty space + a textarea that wouldn't accept input (because
-    // disabled:loading is true). Felt like the page was broken.
-    (messages.length>0 || loading) && el('div',{className:'chat-area',ref:chatRef},
-      messages.map((m,i)=>el('div',{key:i,className:'chat-msg '+(m.role==='user'?'user':'ai')},
-        el('span',{className:'sender'},m.role==='user'?'You':'AI'),
-        m.text
-      )),
-      loading && el('div',{className:'chat-msg ai generating'},
-        el('span',{className:'sender'},'AI'),
-        'Generating argument',
-        el('span',{className:'typing-dots','aria-hidden':true},
-          el('span'),
-          el('span'),
-          el('span'),
-        ),
-      ),
-    ),
-    children,
-    el('div',{className:'input-row'},
-      el('textarea',{rows:2,placeholder:placeholder||'Type your response...',value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend()}},disabled:loading}),
-      el('button',{onClick:handleSend,disabled:loading||!input.trim()},loading?'Generating…':'Send'),
-    ),
+  return el(React.Fragment, null,
+  // Render chat-area whenever there are messages OR the AI is
+  // working. Without `|| loading`, the very first AI turn (Quick
+  // Debate's opening response, Persuasion Lab / Rebuttal Drill's
+  // first reply) had no visible "Thinking..." indicator — users saw
+  // an empty space + a textarea that wouldn't accept input (because
+  // disabled:loading is true). Felt like the page was broken.
+  (messages.length > 0 || loading) && el('div', { className: 'chat-area', ref: chatRef },
+  messages.map((m, i) => el('div', { key: i, className: 'chat-msg ' + (m.role === 'user' ? 'user' : 'ai') },
+  el('span', { className: 'sender' }, m.role === 'user' ? 'You' : 'AI'),
+  m.text
+  )),
+  loading && el('div', { className: 'chat-msg ai generating' },
+  el('span', { className: 'sender' }, 'AI'),
+  'Generating argument',
+  el('span', { className: 'typing-dots', 'aria-hidden': true },
+  el('span'),
+  el('span'),
+  el('span')
+  )
+  )
+  ),
+  children,
+  el('div', { className: 'input-row' },
+  el('textarea', { rows: 2, placeholder: placeholder || 'Type your response...', value: input, onChange: (e) => setInput(e.target.value), onKeyDown: (e) => {if (e.key === 'Enter' && !e.shiftKey) {e.preventDefault();handleSend();}}, disabled: loading }),
+  el('button', { onClick: handleSend, disabled: loading || !input.trim() }, loading ? 'Generating…' : 'Send')
+  )
   );
 }
 
@@ -1427,92 +1426,92 @@ function ChatView({ messages, input, setInput, onSend, loading, placeholder, chi
    QUICK DEBATE MODE
    ═══════════════════════════════════════════════════ */
 
-function QuickDebate(){
-  const[stage,setStage]=useState('pick'); // pick | chat | feedback
-  const[topic,setTopic]=useState('');
-  const[msgs,setMsgs]=useState([]);
-  const[input,setInput]=useState('');
-  const[loading,setLoading]=useState(false);
-  const[feedback,setFeedback]=useState('');
-  const[turn,setTurn]=useState(0); // user turns taken
-  const rem=remaining();
+function QuickDebate() {
+  var [stage, setStage] = useState('pick'); // pick | chat | feedback
+  var [topic, setTopic] = useState('');
+  var [msgs, setMsgs] = useState([]);
+  var [input, setInput] = useState('');
+  var [loading, setLoading] = useState(false);
+  var [feedback, setFeedback] = useState('');
+  var [turn, setTurn] = useState(0); // user turns taken
+  var rem = remaining();
 
-  const startDebate=async(t)=>{
+  var startDebate = async (t) => {
     setTopic(t);setStage('chat');setMsgs([]);setTurn(0);setFeedback('');
     setLoading(true);
-    try{
-      const sys=`You are having a casual but structured argument with someone on the topic: "${t}". You take the OPPOSITE side of whatever they argue. Keep responses to 2-3 short paragraphs. Be respectful but push back firmly. Don't use bullet points or headers. Speak naturally like you're having a real conversation. This is exchange 1 of 3.`;
-      const aiMsg=await callClaude(sys,`The topic is: "${t}". Start by briefly stating your position (the opposite of the common/popular view). Keep it conversational and short.`);
-      setMsgs([{role:'ai',text:aiMsg}]);
-    }catch(e){
-      setMsgs([{role:'ai',text:e.message==='LIMIT_REACHED'?'Free request limit reached. Subscribe to continue.':'Could not start debate.'}]);
+    try {
+      var sys = `You are having a casual but structured argument with someone on the topic: "${t}". You take the OPPOSITE side of whatever they argue. Keep responses to 2-3 short paragraphs. Be respectful but push back firmly. Don't use bullet points or headers. Speak naturally like you're having a real conversation. This is exchange 1 of 3.`;
+      var aiMsg = await callClaude(sys, `The topic is: "${t}". Start by briefly stating your position (the opposite of the common/popular view). Keep it conversational and short.`);
+      setMsgs([{ role: 'ai', text: aiMsg }]);
+    } catch (e) {
+      setMsgs([{ role: 'ai', text: e.message === 'LIMIT_REACHED' ? 'Free request limit reached. Subscribe to continue.' : 'Could not start debate.' }]);
     }
     setLoading(false);
   };
 
-  const send=async()=>{
-    if(!input.trim()||loading)return;
-    const userMsg=input.trim();
+  var send = async () => {
+    if (!input.trim() || loading) return;
+    var userMsg = input.trim();
     setInput('');
-    const newMsgs=[...msgs,{role:'user',text:userMsg}];
+    var newMsgs = [...msgs, { role: 'user', text: userMsg }];
     setMsgs(newMsgs);
-    const newTurn=turn+1;
+    var newTurn = turn + 1;
     setTurn(newTurn);
     setLoading(true);
 
-    if(newTurn>=3){
+    if (newTurn >= 3) {
       // Final: get feedback
-      try{
-        const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
-        const sys=`You just had a 3-exchange casual debate about "${topic}". Review the user's argumentation. Give: 1) What they did well (be specific), 2) What could improve, 3) A score out of 10 for persuasiveness. Be encouraging but honest. Keep it concise, 2-3 short paragraphs. No markdown headers, just natural text.`;
-        const fb=await callClaude(sys,'Here is the full exchange:\n\n'+hist);
+      try {
+        var hist = newMsgs.map((m) => (m.role === 'user' ? 'USER' : 'AI') + ': ' + m.text).join('\n\n');
+        var sys = `You just had a 3-exchange casual debate about "${topic}". Review the user's argumentation. Give: 1) What they did well (be specific), 2) What could improve, 3) A score out of 10 for persuasiveness. Be encouraging but honest. Keep it concise, 2-3 short paragraphs. No markdown headers, just natural text.`;
+        var fb = await callClaude(sys, 'Here is the full exchange:\n\n' + hist);
         setFeedback(fb);setStage('feedback');
-      }catch(e){setFeedback('Could not generate feedback.')}
+      } catch (e) {setFeedback('Could not generate feedback.');}
     } else {
-      try{
-        const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
-        const sys=`You are having a casual but structured argument about "${topic}". You take the opposite side. This is exchange ${newTurn+1} of 3. Respond directly to their latest point. Push back on weak reasoning, acknowledge strong points briefly, then make your counter-argument. 2-3 short paragraphs, conversational tone. No bullet points or headers.`;
-        const aiMsg=await callClaude(sys,hist);
-        setMsgs(prev=>[...prev,{role:'ai',text:aiMsg}]);
-      }catch(e){
-        setMsgs(prev=>[...prev,{role:'ai',text:'Could not respond.'}]);
+      try {
+        var _hist = newMsgs.map((m) => (m.role === 'user' ? 'USER' : 'AI') + ': ' + m.text).join('\n\n');
+        var _sys = `You are having a casual but structured argument about "${topic}". You take the opposite side. This is exchange ${newTurn + 1} of 3. Respond directly to their latest point. Push back on weak reasoning, acknowledge strong points briefly, then make your counter-argument. 2-3 short paragraphs, conversational tone. No bullet points or headers.`;
+        var aiMsg = await callClaude(_sys, _hist);
+        setMsgs((prev) => [...prev, { role: 'ai', text: aiMsg }]);
+      } catch (e) {
+        setMsgs((prev) => [...prev, { role: 'ai', text: 'Could not respond.' }]);
       }
     }
     setLoading(false);
   };
 
-  if(stage==='pick') return el(React.Fragment,null,
-    el('p',{className:'t-sub',style:{marginBottom:24}},'Pick a topic and go back-and-forth for 3 exchanges. Then get feedback on your argumentation.'),
-    el('div',{className:'topic-grid'},
-      DEBATE_TOPICS.map(t=>el('div',{key:t,className:'topic-card',onClick:()=>canUse()?startDebate(t):handleLimitClick()},t))
-    ),
-    el('div',{style:{marginTop:20,textAlign:'center'}},
-      el('div',{className:'input-row'},
-        el('textarea',{rows:1,placeholder:'Or type your own topic...',value:topic,onChange:e=>setTopic(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey&&topic.trim()){e.preventDefault();startDebate(topic.trim())}}}),
-        el('button',{onClick:()=>topic.trim()&&startDebate(topic.trim()),disabled:!topic.trim()||!canUse()},'Go'),
-      ),
-    ),
-    !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+  if (stage === 'pick') return el(React.Fragment, null,
+  el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'Pick a topic and go back-and-forth for 3 exchanges. Then get feedback on your argumentation.'),
+  el('div', { className: 'topic-grid' },
+  DEBATE_TOPICS.map((t) => el('div', { key: t, className: 'topic-card', onClick: () => canUse() ? startDebate(t) : handleLimitClick() }, t))
+  ),
+  el('div', { style: { marginTop: 20, textAlign: 'center' } },
+  el('div', { className: 'input-row' },
+  el('textarea', { rows: 1, placeholder: 'Or type your own topic...', value: topic, onChange: (e) => setTopic(e.target.value), onKeyDown: (e) => {if (e.key === 'Enter' && !e.shiftKey && topic.trim()) {e.preventDefault();startDebate(topic.trim());}} }),
+  el('button', { onClick: () => topic.trim() && startDebate(topic.trim()), disabled: !topic.trim() || !canUse() }, 'Go')
+  )
+  ),
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
   );
 
-  if(stage==='feedback') return el(React.Fragment,null,
-    el('div',{className:'t-label'},'Debate Complete'),
-    el('p',{style:{color:'rgba(255,255,255,.4)',fontSize:'.85rem',marginBottom:16}},'"'+topic+'"'),
-    el('div',{className:'card'},el('p',null,feedback)),
-    el('div',{className:'chat-area',style:{maxHeight:'30vh',marginTop:16}},
-      msgs.map((m,i)=>el('div',{key:i,className:'chat-msg '+(m.role==='user'?'user':'ai')},
-        el('span',{className:'sender'},m.role==='user'?'You':'AI'),m.text
-      ))
-    ),
-    el('button',{className:'cta',onClick:()=>{setStage('pick');setTopic('');setMsgs([]);setFeedback('')}},'New Debate'),
+  if (stage === 'feedback') return el(React.Fragment, null,
+  el('div', { className: 't-label' }, 'Debate Complete'),
+  el('p', { style: { color: 'rgba(255,255,255,.4)', fontSize: '.85rem', marginBottom: 16 } }, '"' + topic + '"'),
+  el('div', { className: 'card' }, el('p', null, feedback)),
+  el('div', { className: 'chat-area', style: { maxHeight: '30vh', marginTop: 16 } },
+  msgs.map((m, i) => el('div', { key: i, className: 'chat-msg ' + (m.role === 'user' ? 'user' : 'ai') },
+  el('span', { className: 'sender' }, m.role === 'user' ? 'You' : 'AI'), m.text
+  ))
+  ),
+  el('button', { className: 'cta', onClick: () => {setStage('pick');setTopic('');setMsgs([]);setFeedback('');} }, 'New Debate')
   );
 
   // chat stage
-  const remaining_turns=3-turn;
-  return el(React.Fragment,null,
-    el('div',{className:'t-label'},'"'+topic+'"'),
-    el('p',{className:'t-dim',style:{marginBottom:12}},remaining_turns+' exchange'+(remaining_turns!==1?'s':'')+' left'),
-    el(ChatView,{messages:msgs,input,setInput,onSend:send,loading,placeholder:'Make your argument...'}),
+  var remaining_turns = 3 - turn;
+  return el(React.Fragment, null,
+  el('div', { className: 't-label' }, '"' + topic + '"'),
+  el('p', { className: 't-dim', style: { marginBottom: 12 } }, remaining_turns + ' exchange' + (remaining_turns !== 1 ? 's' : '') + ' left'),
+  el(ChatView, { messages: msgs, input, setInput, onSend: send, loading, placeholder: 'Make your argument...' })
   );
 }
 
@@ -1520,112 +1519,112 @@ function QuickDebate(){
    ARGUMENT BUILDER MODE
    ═══════════════════════════════════════════════════ */
 
-function ArgBuilder(){
-  const STEPS=['claim','reason','evidence','impact'];
-  const STEP_LABELS={claim:'Your Claim',reason:'Your Reason',evidence:'Your Evidence',impact:'Your Impact'};
-  const STEP_PROMPTS={
-    claim:'What do you believe? State it in one clear sentence.',
-    reason:'Why do you believe this? Give your main reason.',
-    evidence:'What evidence supports your reason? A fact, example, or data point.',
-    impact:'Why does this matter? What are the consequences?',
+function ArgBuilder() {
+  var STEPS = ['claim', 'reason', 'evidence', 'impact'];
+  var STEP_LABELS = { claim: 'Your Claim', reason: 'Your Reason', evidence: 'Your Evidence', impact: 'Your Impact' };
+  var STEP_PROMPTS = {
+    claim: 'What do you believe? State it in one clear sentence.',
+    reason: 'Why do you believe this? Give your main reason.',
+    evidence: 'What evidence supports your reason? A fact, example, or data point.',
+    impact: 'Why does this matter? What are the consequences?'
   };
 
-  const[stage,setStage]=useState('start'); // start | building | done
-  const[claim,setClaim]=useState('');
-  const[stepIdx,setStepIdx]=useState(0);
-  const[answers,setAnswers]=useState({});
-  const[input,setInput]=useState('');
-  const[aiHint,setAiHint]=useState('');
-  const[loading,setLoading]=useState(false);
-  const[summary,setSummary]=useState('');
-  const rem=remaining();
+  var [stage, setStage] = useState('start'); // start | building | done
+  var [claim, setClaim] = useState('');
+  var [stepIdx, setStepIdx] = useState(0);
+  var [answers, setAnswers] = useState({});
+  var [input, setInput] = useState('');
+  var [aiHint, setAiHint] = useState('');
+  var [loading, setLoading] = useState(false);
+  var [summary, setSummary] = useState('');
+  var rem = remaining();
 
-  const begin=async()=>{
-    if(!claim.trim())return;
-    setStage('building');setStepIdx(0);setAnswers({claim:claim.trim()});setAiHint('');
+  var begin = async () => {
+    if (!claim.trim()) return;
+    setStage('building');setStepIdx(0);setAnswers({ claim: claim.trim() });setAiHint('');
     setLoading(true);
-    try{
-      const sys='You are a friendly argumentation coach helping someone build a structured argument. They made the claim: "'+claim.trim()+'". Now ask them WHY they believe this. One short question, conversational, encouraging. No bullet points. 1-2 sentences max.';
-      const hint=await callClaude(sys,'Help me figure out the reason behind my claim.');
+    try {
+      var sys = 'You are a friendly argumentation coach helping someone build a structured argument. They made the claim: "' + claim.trim() + '". Now ask them WHY they believe this. One short question, conversational, encouraging. No bullet points. 1-2 sentences max.';
+      var hint = await callClaude(sys, 'Help me figure out the reason behind my claim.');
       setAiHint(hint);
-    }catch{setAiHint('Great claim! Now tell me: why do you believe this? What\'s your main reason?')}
+    } catch {setAiHint('Great claim! Now tell me: why do you believe this? What\'s your main reason?');}
     setLoading(false);
   };
 
-  const submitStep=async()=>{
-    if(!input.trim()||loading)return;
-    const curStep=STEPS[stepIdx+1]; // +1 because claim is already done
-    const newAnswers={...answers,[curStep]:input.trim()};
+  var submitStep = async () => {
+    if (!input.trim() || loading) return;
+    var curStep = STEPS[stepIdx + 1]; // +1 because claim is already done
+    var newAnswers = { ...answers, [curStep]: input.trim() };
     setAnswers(newAnswers);setInput('');
 
-    const nextIdx=stepIdx+1;
-    if(nextIdx>=3){ // done (0=reason,1=evidence,2=impact)
+    var nextIdx = stepIdx + 1;
+    if (nextIdx >= 3) {// done (0=reason,1=evidence,2=impact)
       setLoading(true);
-      try{
-        const sys='You are an argumentation coach. The user built this argument:\nClaim: '+newAnswers.claim+'\nReason: '+newAnswers.reason+'\nEvidence: '+newAnswers.evidence+'\nImpact: '+newAnswers.impact+'\n\nGive brief feedback: rate the argument structure (strong/decent/needs work), highlight what\'s good, suggest one improvement. Then show the complete argument as one cohesive paragraph. Keep it encouraging and conversational. No markdown headers.';
-        const fb=await callClaude(sys,'Review my complete argument.');
+      try {
+        var sys = 'You are an argumentation coach. The user built this argument:\nClaim: ' + newAnswers.claim + '\nReason: ' + newAnswers.reason + '\nEvidence: ' + newAnswers.evidence + '\nImpact: ' + newAnswers.impact + '\n\nGive brief feedback: rate the argument structure (strong/decent/needs work), highlight what\'s good, suggest one improvement. Then show the complete argument as one cohesive paragraph. Keep it encouraging and conversational. No markdown headers.';
+        var fb = await callClaude(sys, 'Review my complete argument.');
         setSummary(fb);setStage('done');
-      }catch{setSummary('Great job building that argument!')}
+      } catch {setSummary('Great job building that argument!');}
       setLoading(false);
     } else {
       setStepIdx(nextIdx);setLoading(true);
-      const nextStep=STEPS[nextIdx+1];
-      const prompts={
-        evidence:`They said their reason is: "${input.trim()}". Now ask them for evidence that supports this reason. One short, encouraging question.`,
-        impact:`Their evidence is: "${input.trim()}". Now ask them why this matters. What's the real-world consequence? One short question.`,
+      var nextStep = STEPS[nextIdx + 1];
+      var prompts = {
+        evidence: `They said their reason is: "${input.trim()}". Now ask them for evidence that supports this reason. One short, encouraging question.`,
+        impact: `Their evidence is: "${input.trim()}". Now ask them why this matters. What's the real-world consequence? One short question.`
       };
-      try{
-        const sys='You are a friendly argumentation coach helping build a structured argument. Claim: "'+newAnswers.claim+'".';
-        const hint=await callClaude(sys,prompts[nextStep]||'Ask about the next step.');
+      try {
+        var _sys2 = 'You are a friendly argumentation coach helping build a structured argument. Claim: "' + newAnswers.claim + '".';
+        var hint = await callClaude(_sys2, prompts[nextStep] || 'Ask about the next step.');
         setAiHint(hint);
-      }catch{
-        const fallbacks={evidence:'What evidence supports this?',impact:'Why does this matter in the real world?'};
-        setAiHint(fallbacks[nextStep]||'Tell me more.');
+      } catch {
+        var fallbacks = { evidence: 'What evidence supports this?', impact: 'Why does this matter in the real world?' };
+        setAiHint(fallbacks[nextStep] || 'Tell me more.');
       }
       setLoading(false);
     }
   };
 
-  if(stage==='start') return el(React.Fragment,null,
-    el('p',{className:'t-sub',style:{marginBottom:24}},'Enter any claim and we\'ll walk you through building a complete argument: claim, reason, evidence, and impact.'),
-    el('div',{className:'input-row'},
-      el('textarea',{rows:2,placeholder:'e.g. "Pineapple belongs on pizza" or "Remote work is more productive"',value:claim,onChange:e=>setClaim(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();begin()}}}),
-      el('button',{onClick:begin,disabled:!claim.trim()||!canUse()},'Build'),
-    ),
-    !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+  if (stage === 'start') return el(React.Fragment, null,
+  el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'Enter any claim and we\'ll walk you through building a complete argument: claim, reason, evidence, and impact.'),
+  el('div', { className: 'input-row' },
+  el('textarea', { rows: 2, placeholder: 'e.g. "Pineapple belongs on pizza" or "Remote work is more productive"', value: claim, onChange: (e) => setClaim(e.target.value), onKeyDown: (e) => {if (e.key === 'Enter' && !e.shiftKey) {e.preventDefault();begin();}} }),
+  el('button', { onClick: begin, disabled: !claim.trim() || !canUse() }, 'Build')
+  ),
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
   );
 
-  if(stage==='done') return el(React.Fragment,null,
-    el('div',{className:'t-label'},'Argument Complete'),
-    STEPS.map(s=>el('div',{key:s,className:'arg-step done'},
-      el('div',{className:'arg-step-label'},s.toUpperCase()),
-      el('div',{className:'arg-step-content'},answers[s]||''),
-    )),
-    el('div',{className:'card',style:{marginTop:20}},
-      el('h3',null,'Coach Feedback'),
-      el('p',null,summary),
-    ),
-    el('button',{className:'cta',onClick:()=>{setStage('start');setClaim('');setStepIdx(0);setAnswers({});setSummary('');setAiHint('')}},'Build Another'),
+  if (stage === 'done') return el(React.Fragment, null,
+  el('div', { className: 't-label' }, 'Argument Complete'),
+  STEPS.map((s) => el('div', { key: s, className: 'arg-step done' },
+  el('div', { className: 'arg-step-label' }, s.toUpperCase()),
+  el('div', { className: 'arg-step-content' }, answers[s] || '')
+  )),
+  el('div', { className: 'card', style: { marginTop: 20 } },
+  el('h3', null, 'Coach Feedback'),
+  el('p', null, summary)
+  ),
+  el('button', { className: 'cta', onClick: () => {setStage('start');setClaim('');setStepIdx(0);setAnswers({});setSummary('');setAiHint('');} }, 'Build Another')
   );
 
   // building stage
-  const currentBuildStep=STEPS[stepIdx+1]; // reason, evidence, or impact
-  return el(React.Fragment,null,
-    STEPS.map((s,i)=>{
-      const isDone=answers[s]!==undefined;
-      const isActive=s===currentBuildStep;
-      return el('div',{key:s,className:'arg-step'+(isDone?' done':'')+(isActive?' active':'')},
-        el('div',{className:'arg-step-label'},s.toUpperCase()),
-        el('div',{className:'arg-step-content'},isDone?answers[s]:(isActive?STEP_PROMPTS[s]:'')),
-      );
-    }),
-    aiHint&&el('div',{className:'chat-msg ai',style:{maxWidth:600,margin:'16px auto',alignSelf:'center'}},
-      el('span',{className:'sender'},'Coach'),aiHint
-    ),
-    el('div',{className:'input-row'},
-      el('textarea',{rows:2,placeholder:STEP_PROMPTS[currentBuildStep],value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submitStep()}},disabled:loading}),
-      el('button',{onClick:submitStep,disabled:loading||!input.trim()},loading?'...':'Next'),
-    ),
+  var currentBuildStep = STEPS[stepIdx + 1]; // reason, evidence, or impact
+  return el(React.Fragment, null,
+  STEPS.map((s, i) => {
+    var isDone = answers[s] !== undefined;
+    var isActive = s === currentBuildStep;
+    return el('div', { key: s, className: 'arg-step' + (isDone ? ' done' : '') + (isActive ? ' active' : '') },
+    el('div', { className: 'arg-step-label' }, s.toUpperCase()),
+    el('div', { className: 'arg-step-content' }, isDone ? answers[s] : isActive ? STEP_PROMPTS[s] : '')
+    );
+  }),
+  aiHint && el('div', { className: 'chat-msg ai', style: { maxWidth: 600, margin: '16px auto', alignSelf: 'center' } },
+  el('span', { className: 'sender' }, 'Coach'), aiHint
+  ),
+  el('div', { className: 'input-row' },
+  el('textarea', { rows: 2, placeholder: STEP_PROMPTS[currentBuildStep], value: input, onChange: (e) => setInput(e.target.value), onKeyDown: (e) => {if (e.key === 'Enter' && !e.shiftKey) {e.preventDefault();submitStep();}}, disabled: loading }),
+  el('button', { onClick: submitStep, disabled: loading || !input.trim() }, loading ? '...' : 'Next')
+  )
   );
 }
 
@@ -1633,99 +1632,99 @@ function ArgBuilder(){
    FALLACY TRAINER MODE
    ═══════════════════════════════════════════════════ */
 
-function FallacyTrainer(){
-  const[stage,setStage]=useState('idle'); // idle | question | reveal
-  const[argument,setArgument]=useState('');
-  const[correctFallacy,setCorrectFallacy]=useState('');
-  const[options,setOptions]=useState([]);
-  const[chosen,setChosen]=useState(null);
-  const[explanation,setExplanation]=useState('');
-  const[loading,setLoading]=useState(false);
-  const[score,setScore]=useState(()=>{try{return JSON.parse(localStorage.getItem('learn-fallacy-score')||'{"correct":0,"total":0}')}catch{return{correct:0,total:0}}});
-  const rem=remaining();
+function FallacyTrainer() {
+  var [stage, setStage] = useState('idle'); // idle | question | reveal
+  var [argument, setArgument] = useState('');
+  var [correctFallacy, setCorrectFallacy] = useState('');
+  var [options, setOptions] = useState([]);
+  var [chosen, setChosen] = useState(null);
+  var [explanation, setExplanation] = useState('');
+  var [loading, setLoading] = useState(false);
+  var [score, setScore] = useState(() => {try {return JSON.parse(localStorage.getItem('learn-fallacy-score') || '{"correct":0,"total":0}');} catch {return { correct: 0, total: 0 };}});
+  var rem = remaining();
 
-  const saveScore=(s)=>{setScore(s);try{localStorage.setItem('learn-fallacy-score',JSON.stringify(s))}catch{}};
+  var saveScore = (s) => {setScore(s);try {localStorage.setItem('learn-fallacy-score', JSON.stringify(s));} catch {}};
 
-  const generate=async()=>{
+  var generate = async () => {
     setLoading(true);setChosen(null);setExplanation('');setStage('question');
-    try{
-      const fallacy=FALLACIES[Math.floor(Math.random()*FALLACIES.length)];
+    try {
+      var fallacy = FALLACIES[Math.floor(Math.random() * FALLACIES.length)];
       // Pick 3 wrong options
-      const wrong=FALLACIES.filter(f=>f.name!==fallacy.name).sort(()=>Math.random()-.5).slice(0,3);
-      const allOpts=[fallacy,...wrong].sort(()=>Math.random()-.5);
+      var wrong = FALLACIES.filter((f) => f.name !== fallacy.name).sort(() => Math.random() - .5).slice(0, 3);
+      var allOpts = [fallacy, ...wrong].sort(() => Math.random() - .5);
       setCorrectFallacy(fallacy.name);
-      setOptions(allOpts.map(f=>f.name));
+      setOptions(allOpts.map((f) => f.name));
 
-      const sys=`Generate a short argument (2-3 sentences) that contains the logical fallacy: ${fallacy.name}. The argument should sound plausible at first but contain a clear example of this fallacy. Make it about an everyday topic (politics, health, technology, culture). Don't mention the fallacy name. Just write the argument, nothing else.`;
-      const arg=await callClaude(sys,'Generate the fallacious argument.');
+      var sys = `Generate a short argument (2-3 sentences) that contains the logical fallacy: ${fallacy.name}. The argument should sound plausible at first but contain a clear example of this fallacy. Make it about an everyday topic (politics, health, technology, culture). Don't mention the fallacy name. Just write the argument, nothing else.`;
+      var arg = await callClaude(sys, 'Generate the fallacious argument.');
       setArgument(arg);
-    }catch(e){
-      setArgument(e.message==='LIMIT_REACHED'?'Free request limit reached.':'Could not generate. Try again.');
+    } catch (e) {
+      setArgument(e.message === 'LIMIT_REACHED' ? 'Free request limit reached.' : 'Could not generate. Try again.');
       setStage('idle');
     }
     setLoading(false);
   };
 
-  const choose=(opt)=>{
-    if(chosen!==null)return;
+  var choose = (opt) => {
+    if (chosen !== null) return;
     setChosen(opt);
-    const isCorrect=opt===correctFallacy;
-    const newScore={correct:score.correct+(isCorrect?1:0),total:score.total+1};
+    var isCorrect = opt === correctFallacy;
+    var newScore = { correct: score.correct + (isCorrect ? 1 : 0), total: score.total + 1 };
     saveScore(newScore);
 
-    const f=FALLACIES.find(x=>x.name===correctFallacy);
-    setExplanation(isCorrect
-      ? `Correct! This is ${correctFallacy}. ${f?.desc||''}`
-      : `Not quite. The answer is ${correctFallacy}. ${f?.desc||''} You picked "${opt}" which is a different type of reasoning error.`
+    var f = FALLACIES.find((x) => x.name === correctFallacy);
+    setExplanation(isCorrect ?
+    `Correct! This is ${correctFallacy}. ${f?.desc || ''}` :
+    `Not quite. The answer is ${correctFallacy}. ${f?.desc || ''} You picked "${opt}" which is a different type of reasoning error.`
     );
     setStage('reveal');
   };
 
-  return el(React.Fragment,null,
-    el('div',{className:'score-badge'},
-      'Score: ',el('strong',null,score.correct+'/'+score.total),
-      score.total>0&&el('span',null,' ('+Math.round(score.correct/score.total*100)+'%)'),
-    ),
+  return el(React.Fragment, null,
+  el('div', { className: 'score-badge' },
+  'Score: ', el('strong', null, score.correct + '/' + score.total),
+  score.total > 0 && el('span', null, ' (' + Math.round(score.correct / score.total * 100) + '%)')
+  ),
 
-    stage==='idle'&&el(React.Fragment,null,
-      el('p',{className:'t-sub',style:{marginBottom:24}},'Spot the logical fallacy in AI-generated arguments. Test your critical thinking.'),
-      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Generate Challenge'),
-      !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
-    ),
+  stage === 'idle' && el(React.Fragment, null,
+  el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'Spot the logical fallacy in AI-generated arguments. Test your critical thinking.'),
+  el('button', { className: 'cta', onClick: generate, disabled: !canUse() }, 'Generate Challenge'),
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  ),
 
-    stage==='question'&&el(React.Fragment,null,
-      loading?el('p',{className:'t-dim',style:{fontStyle:'italic'}},'Generating argument...')
-      :el(React.Fragment,null,
-        el('div',{className:'card',style:{marginBottom:20}},
-          el('h3',null,'What fallacy is this?'),
-          el('p',null,argument),
-        ),
-        el('div',{className:'mcq'},
-          options.map(opt=>el('button',{key:opt,className:'mcq-opt',onClick:()=>choose(opt)},opt)),
-        ),
-      ),
-    ),
+  stage === 'question' && el(React.Fragment, null,
+  loading ? el('p', { className: 't-dim', style: { fontStyle: 'italic' } }, 'Generating argument...') :
+  el(React.Fragment, null,
+  el('div', { className: 'card', style: { marginBottom: 20 } },
+  el('h3', null, 'What fallacy is this?'),
+  el('p', null, argument)
+  ),
+  el('div', { className: 'mcq' },
+  options.map((opt) => el('button', { key: opt, className: 'mcq-opt', onClick: () => choose(opt) }, opt))
+  )
+  )
+  ),
 
-    stage==='reveal'&&el(React.Fragment,null,
-      el('div',{className:'card',style:{marginBottom:16}},
-        el('h3',null,'The Argument'),
-        el('p',null,argument),
-      ),
-      el('div',{className:'mcq'},
-        options.map(opt=>{
-          let cls='mcq-opt';
-          if(opt===correctFallacy)cls+=' correct';
-          else if(opt===chosen&&opt!==correctFallacy)cls+=' wrong';
-          else cls+=' dimmed';
-          return el('button',{key:opt,className:cls},opt);
-        }),
-      ),
-      el('div',{className:'card',style:{marginTop:16}},
-        el('p',null,explanation),
-      ),
-      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Next Challenge'),
-      el('button',{className:'cta-ghost',onClick:()=>{saveScore({correct:0,total:0});setStage('idle')}},'Reset Score'),
-    ),
+  stage === 'reveal' && el(React.Fragment, null,
+  el('div', { className: 'card', style: { marginBottom: 16 } },
+  el('h3', null, 'The Argument'),
+  el('p', null, argument)
+  ),
+  el('div', { className: 'mcq' },
+  options.map((opt) => {
+    var cls = 'mcq-opt';
+    if (opt === correctFallacy) cls += ' correct';else
+    if (opt === chosen && opt !== correctFallacy) cls += ' wrong';else
+    cls += ' dimmed';
+    return el('button', { key: opt, className: cls }, opt);
+  })
+  ),
+  el('div', { className: 'card', style: { marginTop: 16 } },
+  el('p', null, explanation)
+  ),
+  el('button', { className: 'cta', onClick: generate, disabled: !canUse() }, 'Next Challenge'),
+  el('button', { className: 'cta-ghost', onClick: () => {saveScore({ correct: 0, total: 0 });setStage('idle');} }, 'Reset Score')
+  )
   );
 }
 
@@ -1733,56 +1732,56 @@ function FallacyTrainer(){
    DEBATE AI MODE
    ═══════════════════════════════════════════════════ */
 
-function SocraticChallenger(){
-  const[started,setStarted]=useState(false);
-  const[msgs,setMsgs]=useState([]);
-  const[input,setInput]=useState('');
-  const[loading,setLoading]=useState(false);
-  const[opinion,setOpinion]=useState('');
-  const rem=remaining();
+function SocraticChallenger() {
+  var [started, setStarted] = useState(false);
+  var [msgs, setMsgs] = useState([]);
+  var [input, setInput] = useState('');
+  var [loading, setLoading] = useState(false);
+  var [opinion, setOpinion] = useState('');
+  var rem = remaining();
 
-  const begin=async()=>{
-    if(!opinion.trim())return;
+  var begin = async () => {
+    if (!opinion.trim()) return;
     setStarted(true);setMsgs([]);setLoading(true);
-    try{
-      const sys=`You are a Socratic challenger. The user stated their belief: "${opinion.trim()}". Your job is to stress-test this belief by asking probing questions and presenting counterarguments. Use the Socratic method: ask questions that expose assumptions, push for deeper reasoning, present alternative perspectives. Be respectful but relentless. Don't agree easily. Start with one probing question that challenges the foundation of their belief. Keep responses to 1-2 short paragraphs. No bullet points.`;
-      const ai=await callClaude(sys,'Challenge my belief: "'+opinion.trim()+'"');
-      setMsgs([{role:'ai',text:ai}]);
-    }catch(e){
-      setMsgs([{role:'ai',text:e.message==='LIMIT_REACHED'?'Free request limit reached.':'Could not start. Try again.'}]);
+    try {
+      var sys = `You are a Socratic challenger. The user stated their belief: "${opinion.trim()}". Your job is to stress-test this belief by asking probing questions and presenting counterarguments. Use the Socratic method: ask questions that expose assumptions, push for deeper reasoning, present alternative perspectives. Be respectful but relentless. Don't agree easily. Start with one probing question that challenges the foundation of their belief. Keep responses to 1-2 short paragraphs. No bullet points.`;
+      var ai = await callClaude(sys, 'Challenge my belief: "' + opinion.trim() + '"');
+      setMsgs([{ role: 'ai', text: ai }]);
+    } catch (e) {
+      setMsgs([{ role: 'ai', text: e.message === 'LIMIT_REACHED' ? 'Free request limit reached.' : 'Could not start. Try again.' }]);
     }
     setLoading(false);
   };
 
-  const send=async()=>{
-    if(!input.trim()||loading)return;
-    const userMsg=input.trim();setInput('');
-    const newMsgs=[...msgs,{role:'user',text:userMsg}];
+  var send = async () => {
+    if (!input.trim() || loading) return;
+    var userMsg = input.trim();setInput('');
+    var newMsgs = [...msgs, { role: 'user', text: userMsg }];
     setMsgs(newMsgs);setLoading(true);
-    try{
-      const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
-      const sys=`You are a Socratic challenger stress-testing the user's belief: "${opinion}". Continue challenging their reasoning. Find weaknesses, present counterexamples, ask questions that force deeper thinking. Be respectful but don't let weak arguments slide. If they make a strong point, acknowledge it briefly then push from a different angle. 1-2 short paragraphs. No bullet points.`;
-      const ai=await callClaude(sys,hist);
-      setMsgs(prev=>[...prev,{role:'ai',text:ai}]);
-    }catch{
-      setMsgs(prev=>[...prev,{role:'ai',text:'Could not respond.'}]);
+    try {
+      var hist = newMsgs.map((m) => (m.role === 'user' ? 'USER' : 'AI') + ': ' + m.text).join('\n\n');
+      var sys = `You are a Socratic challenger stress-testing the user's belief: "${opinion}". Continue challenging their reasoning. Find weaknesses, present counterexamples, ask questions that force deeper thinking. Be respectful but don't let weak arguments slide. If they make a strong point, acknowledge it briefly then push from a different angle. 1-2 short paragraphs. No bullet points.`;
+      var ai = await callClaude(sys, hist);
+      setMsgs((prev) => [...prev, { role: 'ai', text: ai }]);
+    } catch {
+      setMsgs((prev) => [...prev, { role: 'ai', text: 'Could not respond.' }]);
     }
     setLoading(false);
   };
 
-  if(!started) return el(React.Fragment,null,
-    el('p',{className:'t-sub',style:{marginBottom:24}},'State any opinion and the AI will systematically challenge it from every angle. Strengthen your thinking by stress-testing your beliefs.'),
-    el('div',{className:'input-row'},
-      el('textarea',{rows:2,placeholder:'e.g. "I think everyone should go to college" or "Social media is bad for society"',value:opinion,onChange:e=>setOpinion(e.target.value),onKeyDown:e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();begin()}}}),
-      el('button',{onClick:begin,disabled:!opinion.trim()||!canUse()},'Challenge Me'),
-    ),
-    !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+  if (!started) return el(React.Fragment, null,
+  el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'State any opinion and the AI will systematically challenge it from every angle. Strengthen your thinking by stress-testing your beliefs.'),
+  el('div', { className: 'input-row' },
+  el('textarea', { rows: 2, placeholder: 'e.g. "I think everyone should go to college" or "Social media is bad for society"', value: opinion, onChange: (e) => setOpinion(e.target.value), onKeyDown: (e) => {if (e.key === 'Enter' && !e.shiftKey) {e.preventDefault();begin();}} }),
+  el('button', { onClick: begin, disabled: !opinion.trim() || !canUse() }, 'Challenge Me')
+  ),
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
   );
 
-  return el(React.Fragment,null,
-    el('div',{className:'t-label'},'"'+opinion+'"'),
-    el(ChatView,{messages:msgs,input,setInput,onSend:send,loading,placeholder:'Defend your position...'}),
-    el('button',{className:'cta-ghost',style:{marginTop:12},onClick:()=>{setStarted(false);setOpinion('');setMsgs([])}},'New Topic'),
+  return el(React.Fragment, null,
+  el('div', { className: 't-label' }, '"' + opinion + '"'),
+  el(ChatView, { messages: msgs, input, setInput, onSend: send, loading, placeholder: 'Defend your position...' }),
+  el('button', { className: 'cta-ghost', style: { marginTop: 12 }, onClick: () => {setStarted(false);setOpinion('');setMsgs([]);} }, 'New Topic')
   );
 }
 
@@ -1790,115 +1789,115 @@ function SocraticChallenger(){
    PERSUASION LAB MODE
    ═══════════════════════════════════════════════════ */
 
-function PersuasionLab(){
-  const[stage,setStage]=useState('pick'); // pick | chat | feedback
-  const[scenario,setScenario]=useState(null);
-  const[msgs,setMsgs]=useState([]);
-  const[input,setInput]=useState('');
-  const[loading,setLoading]=useState(false);
-  const[feedback,setFeedback]=useState('');
-  const[turn,setTurn]=useState(0);
-  const rem=remaining();
+function PersuasionLab() {
+  var [stage, setStage] = useState('pick'); // pick | chat | feedback
+  var [scenario, setScenario] = useState(null);
+  var [msgs, setMsgs] = useState([]);
+  var [input, setInput] = useState('');
+  var [loading, setLoading] = useState(false);
+  var [feedback, setFeedback] = useState('');
+  var [turn, setTurn] = useState(0);
+  var rem = remaining();
 
-  const startScenario=async(sc)=>{
+  var startScenario = async (sc) => {
     setScenario(sc);setStage('chat');setMsgs([]);setTurn(0);setFeedback('');setLoading(true);
-    const personas={
-      job:'You are a skeptical but fair hiring manager at a competitive company. The candidate is interviewing for a role they want. Be professional, ask follow-up questions, express mild doubts they need to overcome. You are NOT easily impressed.',
-      nego:'You are a reasonable but budget-conscious manager. The employee is asking for a raise. You like them but need to be convinced the raise is justified. Push back on weak arguments, acknowledge strong ones.',
-      pitch:'You are a seasoned VC investor who has heard thousands of pitches. Be interested but skeptical. Ask tough questions about market size, competition, revenue model. You have a short attention span.',
-      friend:'You are a friend who disagrees with the user about something. Be genuine, not combative. You have your own perspective and you are not easily swayed, but you are open to good arguments.',
-      parent:'You are a caring but cautious parent. You want what is best for your child but tend to be risk-averse. You need solid reasoning, not just enthusiasm.',
-      team:'You are a team member who prefers the current approach. You are not hostile but you need real reasons to change. You raise practical concerns.',
-      prof:'You are a university professor who gave the student a grade they disagree with. You are fair but have high standards. You need specific evidence about why the grade should change, not just complaints.',
-      landlord:'You are a landlord who set the rent at what you believe is fair market rate. You are not unreasonable but you need a compelling business case to lower rent. You mention market conditions.',
-      customer:'You are a customer service representative. You follow company policy but have some discretion. You are polite but need the customer to make a clear, reasonable case.',
+    var personas = {
+      job: 'You are a skeptical but fair hiring manager at a competitive company. The candidate is interviewing for a role they want. Be professional, ask follow-up questions, express mild doubts they need to overcome. You are NOT easily impressed.',
+      nego: 'You are a reasonable but budget-conscious manager. The employee is asking for a raise. You like them but need to be convinced the raise is justified. Push back on weak arguments, acknowledge strong ones.',
+      pitch: 'You are a seasoned VC investor who has heard thousands of pitches. Be interested but skeptical. Ask tough questions about market size, competition, revenue model. You have a short attention span.',
+      friend: 'You are a friend who disagrees with the user about something. Be genuine, not combative. You have your own perspective and you are not easily swayed, but you are open to good arguments.',
+      parent: 'You are a caring but cautious parent. You want what is best for your child but tend to be risk-averse. You need solid reasoning, not just enthusiasm.',
+      team: 'You are a team member who prefers the current approach. You are not hostile but you need real reasons to change. You raise practical concerns.',
+      prof: 'You are a university professor who gave the student a grade they disagree with. You are fair but have high standards. You need specific evidence about why the grade should change, not just complaints.',
+      landlord: 'You are a landlord who set the rent at what you believe is fair market rate. You are not unreasonable but you need a compelling business case to lower rent. You mention market conditions.',
+      customer: 'You are a customer service representative. You follow company policy but have some discretion. You are polite but need the customer to make a clear, reasonable case.'
     };
-    try{
-      const sys=personas[sc.id]+' Start the conversation. Set the scene briefly, then let the user make their case. Keep your opening to 2-3 sentences. Be natural.';
-      const ai=await callClaude(sys,'Begin the scenario: '+sc.desc);
-      setMsgs([{role:'ai',text:ai}]);
-    }catch(e){
-      setMsgs([{role:'ai',text:e.message==='LIMIT_REACHED'?'Free request limit reached.':'Could not start scenario.'}]);
+    try {
+      var sys = personas[sc.id] + ' Start the conversation. Set the scene briefly, then let the user make their case. Keep your opening to 2-3 sentences. Be natural.';
+      var ai = await callClaude(sys, 'Begin the scenario: ' + sc.desc);
+      setMsgs([{ role: 'ai', text: ai }]);
+    } catch (e) {
+      setMsgs([{ role: 'ai', text: e.message === 'LIMIT_REACHED' ? 'Free request limit reached.' : 'Could not start scenario.' }]);
     }
     setLoading(false);
   };
 
-  const send=async()=>{
-    if(!input.trim()||loading)return;
-    const userMsg=input.trim();setInput('');
-    const newMsgs=[...msgs,{role:'user',text:userMsg}];
+  var send = async () => {
+    if (!input.trim() || loading) return;
+    var userMsg = input.trim();setInput('');
+    var newMsgs = [...msgs, { role: 'user', text: userMsg }];
     setMsgs(newMsgs);
-    const newTurn=turn+1;setTurn(newTurn);setLoading(true);
+    var newTurn = turn + 1;setTurn(newTurn);setLoading(true);
 
-    if(newTurn>=4){
+    if (newTurn >= 4) {
       // Give feedback
-      try{
-        const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
-        const sys=`Analyze this persuasion attempt in a "${scenario.label}" scenario. Evaluate the user's persuasion techniques:
+      try {
+        var hist = newMsgs.map((m) => (m.role === 'user' ? 'USER' : 'AI') + ': ' + m.text).join('\n\n');
+        var sys = `Analyze this persuasion attempt in a "${scenario.label}" scenario. Evaluate the user's persuasion techniques:
 - Ethos (credibility/character)
 - Pathos (emotional appeal)
 - Logos (logic/evidence)
 - Framing (how they presented information)
 - Rapport (relationship building)
 Rate their overall persuasiveness 1-10 and give specific, actionable feedback. What techniques did they use well? What did they miss? One concrete tip for next time. Keep it conversational, 2-3 paragraphs. No markdown headers.`;
-        const fb=await callClaude(sys,'Full conversation:\n\n'+hist);
+        var fb = await callClaude(sys, 'Full conversation:\n\n' + hist);
         setFeedback(fb);setStage('feedback');
-      }catch{setFeedback('Could not generate feedback.')}
+      } catch {setFeedback('Could not generate feedback.');}
     } else {
-      try{
-        const hist=newMsgs.map(m=>(m.role==='user'?'USER':'AI')+': '+m.text).join('\n\n');
-        const personas={
-          job:'Continue as the hiring manager. Respond to what they said. Raise a concern or ask a follow-up.',
-          nego:'Continue as the manager. Respond to their argument. Push back where it is weak.',
-          pitch:'Continue as the investor. React to their pitch. Ask a tough follow-up question.',
-          friend:'Continue as the friend. Respond genuinely. Share your perspective.',
-          parent:'Continue as the parent. Respond with care but maintain your concerns.',
-          team:'Continue as the team member. Respond to their proposal. Raise a practical concern.',
-          prof:'Continue as the professor. Respond to their argument about the grade. Be fair but rigorous.',
-          landlord:'Continue as the landlord. Respond to their negotiation. Consider their points but protect your interests.',
-          customer:'Continue as customer service. Respond to their complaint. Follow policy but use judgment.',
+      try {
+        var _hist2 = newMsgs.map((m) => (m.role === 'user' ? 'USER' : 'AI') + ': ' + m.text).join('\n\n');
+        var personas = {
+          job: 'Continue as the hiring manager. Respond to what they said. Raise a concern or ask a follow-up.',
+          nego: 'Continue as the manager. Respond to their argument. Push back where it is weak.',
+          pitch: 'Continue as the investor. React to their pitch. Ask a tough follow-up question.',
+          friend: 'Continue as the friend. Respond genuinely. Share your perspective.',
+          parent: 'Continue as the parent. Respond with care but maintain your concerns.',
+          team: 'Continue as the team member. Respond to their proposal. Raise a practical concern.',
+          prof: 'Continue as the professor. Respond to their argument about the grade. Be fair but rigorous.',
+          landlord: 'Continue as the landlord. Respond to their negotiation. Consider their points but protect your interests.',
+          customer: 'Continue as customer service. Respond to their complaint. Follow policy but use judgment.'
         };
-        const sys=personas[scenario.id]+' Keep responses to 2-3 sentences. Be natural. Exchange '+(newTurn+1)+' of 4.';
-        const ai=await callClaude(sys,hist);
-        setMsgs(prev=>[...prev,{role:'ai',text:ai}]);
-      }catch{
-        setMsgs(prev=>[...prev,{role:'ai',text:'Could not respond.'}]);
+        var _sys3 = personas[scenario.id] + ' Keep responses to 2-3 sentences. Be natural. Exchange ' + (newTurn + 1) + ' of 4.';
+        var ai = await callClaude(_sys3, _hist2);
+        setMsgs((prev) => [...prev, { role: 'ai', text: ai }]);
+      } catch {
+        setMsgs((prev) => [...prev, { role: 'ai', text: 'Could not respond.' }]);
       }
     }
     setLoading(false);
   };
 
-  if(stage==='pick') return el(React.Fragment,null,
-    el('p',{className:'t-sub',style:{marginBottom:24}},'Pick a real-world scenario and practice persuading someone. Get feedback on your technique.'),
-    el('div',{className:'scenario-grid'},
-      PERSUASION_SCENARIOS.map(sc=>el('div',{key:sc.id,className:'scenario-card',onClick:()=>canUse()?startScenario(sc):handleLimitClick()},
-        el('div',{className:'icon'},sc.icon),
-        el('div',{className:'label'},sc.label),
-      ))
-    ),
-    rem<=0&&el('p',{className:'limit-warn',style:{marginTop:16}},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+  if (stage === 'pick') return el(React.Fragment, null,
+  el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'Pick a real-world scenario and practice persuading someone. Get feedback on your technique.'),
+  el('div', { className: 'scenario-grid' },
+  PERSUASION_SCENARIOS.map((sc) => el('div', { key: sc.id, className: 'scenario-card', onClick: () => canUse() ? startScenario(sc) : handleLimitClick() },
+  el('div', { className: 'icon' }, sc.icon),
+  el('div', { className: 'label' }, sc.label)
+  ))
+  ),
+  rem <= 0 && el('p', { className: 'limit-warn', style: { marginTop: 16 } }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
   );
 
-  if(stage==='feedback') return el(React.Fragment,null,
-    el('div',{className:'t-label'},'Feedback: '+scenario.label),
-    el('div',{className:'card'},
-      el('h3',null,'Persuasion Analysis'),
-      el('p',null,feedback),
-    ),
-    el('div',{className:'chat-area',style:{maxHeight:'30vh',marginTop:16}},
-      msgs.map((m,i)=>el('div',{key:i,className:'chat-msg '+(m.role==='user'?'user':'ai')},
-        el('span',{className:'sender'},m.role==='user'?'You':scenario.label),m.text
-      ))
-    ),
-    el('button',{className:'cta',onClick:()=>{setStage('pick');setScenario(null);setMsgs([]);setFeedback('')}},'Try Another'),
+  if (stage === 'feedback') return el(React.Fragment, null,
+  el('div', { className: 't-label' }, 'Feedback: ' + scenario.label),
+  el('div', { className: 'card' },
+  el('h3', null, 'Persuasion Analysis'),
+  el('p', null, feedback)
+  ),
+  el('div', { className: 'chat-area', style: { maxHeight: '30vh', marginTop: 16 } },
+  msgs.map((m, i) => el('div', { key: i, className: 'chat-msg ' + (m.role === 'user' ? 'user' : 'ai') },
+  el('span', { className: 'sender' }, m.role === 'user' ? 'You' : scenario.label), m.text
+  ))
+  ),
+  el('button', { className: 'cta', onClick: () => {setStage('pick');setScenario(null);setMsgs([]);setFeedback('');} }, 'Try Another')
   );
 
   // chat stage
-  const remaining_turns=4-turn;
-  return el(React.Fragment,null,
-    el('div',{className:'t-label'},scenario.label),
-    el('p',{className:'t-dim',style:{marginBottom:12}},remaining_turns+' exchange'+(remaining_turns!==1?'s':'')+' left'),
-    el(ChatView,{messages:msgs,input,setInput,onSend:send,loading,placeholder:'Make your case...'}),
+  var remaining_turns = 4 - turn;
+  return el(React.Fragment, null,
+  el('div', { className: 't-label' }, scenario.label),
+  el('p', { className: 't-dim', style: { marginBottom: 12 } }, remaining_turns + ' exchange' + (remaining_turns !== 1 ? 's' : '') + ' left'),
+  el(ChatView, { messages: msgs, input, setInput, onSend: send, loading, placeholder: 'Make your case...' })
   );
 }
 
@@ -1906,33 +1905,33 @@ Rate their overall persuasiveness 1-10 and give specific, actionable feedback. W
    REBUTTAL DRILL MODE
    ═══════════════════════════════════════════════════ */
 
-function RebuttalDrill(){
-  const[stage,setStage]=useState('idle'); // idle | argument | rebutting | feedback
-  const[topic,setTopic]=useState('');
-  const[argument,setArgument]=useState('');
-  const[rebuttal,setRebuttal]=useState('');
-  const[feedback,setFeedback]=useState('');
-  const[loading,setLoading]=useState(false);
-  const[score,setScore]=useState(()=>{try{return JSON.parse(localStorage.getItem('learn-rebuttal-score')||'{"total":0,"avg":0}')}catch{return{total:0,avg:0}}});
-  const rem=remaining();
+function RebuttalDrill() {
+  var [stage, setStage] = useState('idle'); // idle | argument | rebutting | feedback
+  var [topic, setTopic] = useState('');
+  var [argument, setArgument] = useState('');
+  var [rebuttal, setRebuttal] = useState('');
+  var [feedback, setFeedback] = useState('');
+  var [loading, setLoading] = useState(false);
+  var [score, setScore] = useState(() => {try {return JSON.parse(localStorage.getItem('learn-rebuttal-score') || '{"total":0,"avg":0}');} catch {return { total: 0, avg: 0 };}});
+  var rem = remaining();
 
-  const generate=async()=>{
+  var generate = async () => {
     setLoading(true);setArgument('');setRebuttal('');setFeedback('');setStage('argument');
-    const t=DEBATE_TOPICS[Math.floor(Math.random()*DEBATE_TOPICS.length)];
+    var t = DEBATE_TOPICS[Math.floor(Math.random() * DEBATE_TOPICS.length)];
     setTopic(t);
-    try{
-      const sys='You are a skilled debater. Present a strong, well-structured argument (3-4 sentences) on ONE side of this topic: "'+t+'". Include a clear claim, a mechanism/warrant, and an impact. Make it genuinely persuasive. this is meant to be hard to rebut. No headers or bullets, just a spoken-style paragraph.';
-      const arg=await callClaude(sys,'Present your argument on: "'+t+'"');
+    try {
+      var sys = 'You are a skilled debater. Present a strong, well-structured argument (3-4 sentences) on ONE side of this topic: "' + t + '". Include a clear claim, a mechanism/warrant, and an impact. Make it genuinely persuasive. this is meant to be hard to rebut. No headers or bullets, just a spoken-style paragraph.';
+      var arg = await callClaude(sys, 'Present your argument on: "' + t + '"');
       setArgument(arg);setStage('rebutting');
-    }catch{setArgument('Could not generate. Try again.');setStage('idle')}
+    } catch {setArgument('Could not generate. Try again.');setStage('idle');}
     setLoading(false);
   };
 
-  const submit=async()=>{
-    if(!rebuttal.trim()||loading)return;
+  var submit = async () => {
+    if (!rebuttal.trim() || loading) return;
     setLoading(true);setStage('feedback');
-    try{
-      const sys=`You are a debate coach evaluating a rebuttal. The topic was: "${topic}".
+    try {
+      var sys = `You are a debate coach evaluating a rebuttal. The topic was: "${topic}".
 
 The original argument was:
 "${argument}"
@@ -1947,64 +1946,64 @@ Evaluate their rebuttal on:
 4. Did they weigh. explain why their response matters more?
 
 Give a score out of 10, explain what worked, what didn't, and show what an ideal rebuttal would look like (2-3 sentences). Keep it conversational, encouraging but honest. No markdown headers.`;
-      const fb=await callClaude(sys,'Evaluate this rebuttal.');
+      var fb = await callClaude(sys, 'Evaluate this rebuttal.');
       setFeedback(fb);
       // Extract score
-      const match=fb.match(/(\d+)\s*(?:out of|\/)\s*10/);
-      if(match){
-        const s=parseInt(match[1]);
-        const newTotal=score.total+1;
-        const newAvg=((score.avg*(score.total))+s)/newTotal;
-        const ns={total:newTotal,avg:Math.round(newAvg*10)/10};
-        setScore(ns);try{localStorage.setItem('learn-rebuttal-score',JSON.stringify(ns))}catch{}
+      var match = fb.match(/(\d+)\s*(?:out of|\/)\s*10/);
+      if (match) {
+        var s = parseInt(match[1]);
+        var newTotal = score.total + 1;
+        var newAvg = (score.avg * score.total + s) / newTotal;
+        var ns = { total: newTotal, avg: Math.round(newAvg * 10) / 10 };
+        setScore(ns);try {localStorage.setItem('learn-rebuttal-score', JSON.stringify(ns));} catch {}
       }
-    }catch{setFeedback('Could not generate feedback.')}
+    } catch {setFeedback('Could not generate feedback.');}
     setLoading(false);
   };
 
-  return el(React.Fragment,null,
-    score.total>0&&el('div',{className:'score-badge'},'Avg Score: ',el('strong',null,score.avg+'/10'),' (',score.total,' drill'+(score.total!==1?'s':''),')'),
+  return el(React.Fragment, null,
+  score.total > 0 && el('div', { className: 'score-badge' }, 'Avg Score: ', el('strong', null, score.avg + '/10'), ' (', score.total, ' drill' + (score.total !== 1 ? 's' : ''), ')'),
 
-    stage==='idle'&&el(React.Fragment,null,
-      el('p',{className:'t-sub',style:{marginBottom:24}},'The AI presents an argument. Your job: tear it apart. Get scored on your rebuttal quality.'),
-      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Generate Argument'),
-      !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
-    ),
+  stage === 'idle' && el(React.Fragment, null,
+  el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'The AI presents an argument. Your job: tear it apart. Get scored on your rebuttal quality.'),
+  el('button', { className: 'cta', onClick: generate, disabled: !canUse() }, 'Generate Argument'),
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  ),
 
-    stage==='argument'&&el(React.Fragment,null,
-      el('p',{className:'t-dim',style:{fontStyle:'italic'}},'Generating argument...'),
-    ),
+  stage === 'argument' && el(React.Fragment, null,
+  el('p', { className: 't-dim', style: { fontStyle: 'italic' } }, 'Generating argument...')
+  ),
 
-    stage==='rebutting'&&el(React.Fragment,null,
-      el('div',{className:'t-label'},'"'+topic+'"'),
-      el('div',{className:'card',style:{marginBottom:20}},
-        el('h3',null,'Their Argument'),
-        el('p',null,argument),
-      ),
-      el('p',{className:'t-dim',style:{marginBottom:8}},'Now tear it apart. Attack the logic, the evidence, the mechanism. Whatever is weakest.'),
-      el('div',{className:'input-row'},
-        el('textarea',{rows:4,placeholder:'Write your rebuttal...',value:rebuttal,onChange:e=>setRebuttal(e.target.value)}),
-        el('button',{onClick:submit,disabled:loading||!rebuttal.trim()},'Submit Rebuttal'),
-      ),
-    ),
+  stage === 'rebutting' && el(React.Fragment, null,
+  el('div', { className: 't-label' }, '"' + topic + '"'),
+  el('div', { className: 'card', style: { marginBottom: 20 } },
+  el('h3', null, 'Their Argument'),
+  el('p', null, argument)
+  ),
+  el('p', { className: 't-dim', style: { marginBottom: 8 } }, 'Now tear it apart. Attack the logic, the evidence, the mechanism. Whatever is weakest.'),
+  el('div', { className: 'input-row' },
+  el('textarea', { rows: 4, placeholder: 'Write your rebuttal...', value: rebuttal, onChange: (e) => setRebuttal(e.target.value) }),
+  el('button', { onClick: submit, disabled: loading || !rebuttal.trim() }, 'Submit Rebuttal')
+  )
+  ),
 
-    stage==='feedback'&&el(React.Fragment,null,
-      el('div',{className:'t-label'},'"'+topic+'"'),
-      el('div',{className:'card',style:{marginBottom:12}},
-        el('h3',null,'Their Argument'),
-        el('p',null,argument),
-      ),
-      el('div',{className:'card',style:{marginBottom:12,borderLeft:'2px solid #ef4444'}},
-        el('h3',null,'Your Rebuttal'),
-        el('p',null,rebuttal),
-      ),
-      el('div',{className:'card',style:{marginBottom:16}},
-        el('h3',null,'Coach Feedback'),
-        loading?el('p',{style:{fontStyle:'italic'}},'Evaluating...'):el('p',null,feedback),
-      ),
-      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Next Drill'),
-      el('button',{className:'cta-ghost',style:{marginTop:8},onClick:()=>{setStage('idle');setScore({total:0,avg:0});try{localStorage.removeItem('learn-rebuttal-score')}catch{}}},'Reset Score'),
-    ),
+  stage === 'feedback' && el(React.Fragment, null,
+  el('div', { className: 't-label' }, '"' + topic + '"'),
+  el('div', { className: 'card', style: { marginBottom: 12 } },
+  el('h3', null, 'Their Argument'),
+  el('p', null, argument)
+  ),
+  el('div', { className: 'card', style: { marginBottom: 12, borderLeft: '2px solid #ef4444' } },
+  el('h3', null, 'Your Rebuttal'),
+  el('p', null, rebuttal)
+  ),
+  el('div', { className: 'card', style: { marginBottom: 16 } },
+  el('h3', null, 'Coach Feedback'),
+  loading ? el('p', { style: { fontStyle: 'italic' } }, 'Evaluating...') : el('p', null, feedback)
+  ),
+  el('button', { className: 'cta', onClick: generate, disabled: !canUse() }, 'Next Drill'),
+  el('button', { className: 'cta-ghost', style: { marginTop: 8 }, onClick: () => {setStage('idle');setScore({ total: 0, avg: 0 });try {localStorage.removeItem('learn-rebuttal-score');} catch {}} }, 'Reset Score')
+  )
   );
 }
 
@@ -2012,20 +2011,20 @@ Give a score out of 10, explain what worked, what didn't, and show what an ideal
    WEIGHING PRACTICE MODE
    ═══════════════════════════════════════════════════ */
 
-function WeighingPractice(){
-  const[stage,setStage]=useState('idle'); // idle | scenario | feedback
-  const[scenario,setScenario]=useState('');
-  const[sideA,setSideA]=useState('');
-  const[sideB,setSideB]=useState('');
-  const[answer,setAnswer]=useState('');
-  const[feedback,setFeedback]=useState('');
-  const[loading,setLoading]=useState(false);
-  const rem=remaining();
+function WeighingPractice() {
+  var [stage, setStage] = useState('idle'); // idle | scenario | feedback
+  var [scenario, setScenario] = useState('');
+  var [sideA, setSideA] = useState('');
+  var [sideB, setSideB] = useState('');
+  var [answer, setAnswer] = useState('');
+  var [feedback, setFeedback] = useState('');
+  var [loading, setLoading] = useState(false);
+  var rem = remaining();
 
-  const generate=async()=>{
+  var generate = async () => {
     setLoading(true);setScenario('');setSideA('');setSideB('');setAnswer('');setFeedback('');setStage('scenario');
-    try{
-      const sys=`Generate a debate weighing exercise. Create a motion/topic, then present two competing impacts. one from each side. Each impact should be 2-3 sentences with a clear mechanism and consequence. Make them genuinely difficult to weigh against each other (comparable magnitude, different dimensions like lives vs. rights, short-term vs. long-term, etc.).
+    try {
+      var sys = `Generate a debate weighing exercise. Create a motion/topic, then present two competing impacts. one from each side. Each impact should be 2-3 sentences with a clear mechanism and consequence. Make them genuinely difficult to weigh against each other (comparable magnitude, different dimensions like lives vs. rights, short-term vs. long-term, etc.).
 
 Format your response EXACTLY like this (including the labels):
 MOTION: [the motion]
@@ -2033,23 +2032,23 @@ SIDE A: [first impact with mechanism]
 SIDE B: [second impact with mechanism]
 
 Make it about a real policy debate topic. Both sides should be compelling.`;
-      const raw=await callClaude(sys,'Generate a weighing exercise.');
+      var raw = await callClaude(sys, 'Generate a weighing exercise.');
       // Parse the response
-      const motionMatch=raw.match(/MOTION:\s*(.+?)(?=\nSIDE)/s);
-      const sideAMatch=raw.match(/SIDE A:\s*(.+?)(?=\nSIDE B)/s);
-      const sideBMatch=raw.match(/SIDE B:\s*(.+?)$/s);
-      setScenario(motionMatch?motionMatch[1].trim():'Policy debate');
-      setSideA(sideAMatch?sideAMatch[1].trim():'Impact A');
-      setSideB(sideBMatch?sideBMatch[1].trim():'Impact B');
-    }catch{setScenario('Could not generate.');setStage('idle')}
+      var motionMatch = raw.match(/MOTION:\s*(.+?)(?=\nSIDE)/s);
+      var sideAMatch = raw.match(/SIDE A:\s*(.+?)(?=\nSIDE B)/s);
+      var sideBMatch = raw.match(/SIDE B:\s*(.+?)$/s);
+      setScenario(motionMatch ? motionMatch[1].trim() : 'Policy debate');
+      setSideA(sideAMatch ? sideAMatch[1].trim() : 'Impact A');
+      setSideB(sideBMatch ? sideBMatch[1].trim() : 'Impact B');
+    } catch {setScenario('Could not generate.');setStage('idle');}
     setLoading(false);
   };
 
-  const submit=async()=>{
-    if(!answer.trim()||loading)return;
+  var submit = async () => {
+    if (!answer.trim() || loading) return;
     setLoading(true);setStage('feedback');
-    try{
-      const sys=`You are a debate coach evaluating a student's weighing analysis.
+    try {
+      var sys = `You are a debate coach evaluating a student's weighing analysis.
 
 Motion: "${scenario}"
 Impact A: "${sideA}"
@@ -2064,52 +2063,52 @@ Evaluate whether they used proper weighing criteria:
 - SCOPE: Who specifically is affected?
 
 Did they compare the two impacts directly (not just describe each one)? Did they make a clear judgment call and justify it? Give a score out of 10 and brief feedback (2-3 paragraphs). Show what excellent weighing would look like. Be encouraging but rigorous. No markdown headers.`;
-      const fb=await callClaude(sys,'Evaluate this weighing analysis.');
+      var fb = await callClaude(sys, 'Evaluate this weighing analysis.');
       setFeedback(fb);
-    }catch{setFeedback('Could not generate feedback.')}
+    } catch {setFeedback('Could not generate feedback.');}
     setLoading(false);
   };
 
-  return el(React.Fragment,null,
-    stage==='idle'&&el(React.Fragment,null,
-      el('p',{className:'t-sub',style:{marginBottom:24}},'Two competing impacts. Which matters more and why? Practice the skill that wins close rounds.'),
-      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Generate Scenario'),
-      !canUse()&&el('p',{className:'limit-warn'},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
-    ),
+  return el(React.Fragment, null,
+  stage === 'idle' && el(React.Fragment, null,
+  el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'Two competing impacts. Which matters more and why? Practice the skill that wins close rounds.'),
+  el('button', { className: 'cta', onClick: generate, disabled: !canUse() }, 'Generate Scenario'),
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  ),
 
-    stage==='scenario'&&el(React.Fragment,null,
-      loading?el('p',{className:'t-dim',style:{fontStyle:'italic'}},'Generating weighing scenario...'):el(React.Fragment,null,
-        el('div',{className:'t-label'},scenario),
-        el('div',{style:{display:'flex',gap:12,flexWrap:'wrap',width:'100%',maxWidth:620,margin:'0 auto 20px'}},
-          el('div',{className:'card',style:{flex:1,minWidth:260,borderLeft:'3px solid #ef4444'}},
-            el('h3',{style:{color:'#ef4444',fontSize:'.75rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:6}},'Side A'),
-            el('p',null,sideA),
-          ),
-          el('div',{className:'card',style:{flex:1,minWidth:260,borderLeft:'3px solid #3b82f6'}},
-            el('h3',{style:{color:'#3b82f6',fontSize:'.75rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:6}},'Side B'),
-            el('p',null,sideB),
-          ),
-        ),
-        el('p',{className:'t-dim',style:{marginBottom:8}},'Which impact outweighs? Use magnitude, probability, timeframe, reversibility, and scope to justify your answer.'),
-        el('div',{className:'input-row'},
-          el('textarea',{rows:4,placeholder:'Side A outweighs because... OR Side B outweighs because...',value:answer,onChange:e=>setAnswer(e.target.value)}),
-          el('button',{onClick:submit,disabled:loading||!answer.trim()},'Submit'),
-        ),
-      ),
-    ),
+  stage === 'scenario' && el(React.Fragment, null,
+  loading ? el('p', { className: 't-dim', style: { fontStyle: 'italic' } }, 'Generating weighing scenario...') : el(React.Fragment, null,
+  el('div', { className: 't-label' }, scenario),
+  el('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap', width: '100%', maxWidth: 620, margin: '0 auto 20px' } },
+  el('div', { className: 'card', style: { flex: 1, minWidth: 260, borderLeft: '3px solid #ef4444' } },
+  el('h3', { style: { color: '#ef4444', fontSize: '.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 } }, 'Side A'),
+  el('p', null, sideA)
+  ),
+  el('div', { className: 'card', style: { flex: 1, minWidth: 260, borderLeft: '3px solid #3b82f6' } },
+  el('h3', { style: { color: '#3b82f6', fontSize: '.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 } }, 'Side B'),
+  el('p', null, sideB)
+  )
+  ),
+  el('p', { className: 't-dim', style: { marginBottom: 8 } }, 'Which impact outweighs? Use magnitude, probability, timeframe, reversibility, and scope to justify your answer.'),
+  el('div', { className: 'input-row' },
+  el('textarea', { rows: 4, placeholder: 'Side A outweighs because... OR Side B outweighs because...', value: answer, onChange: (e) => setAnswer(e.target.value) }),
+  el('button', { onClick: submit, disabled: loading || !answer.trim() }, 'Submit')
+  )
+  )
+  ),
 
-    stage==='feedback'&&el(React.Fragment,null,
-      el('div',{className:'t-label'},scenario),
-      el('div',{className:'card',style:{marginBottom:12,borderLeft:'2px solid #ef4444'}},
-        el('h3',null,'Your Weighing'),
-        el('p',null,answer),
-      ),
-      el('div',{className:'card',style:{marginBottom:16}},
-        el('h3',null,'Coach Feedback'),
-        loading?el('p',{style:{fontStyle:'italic'}},'Evaluating...'):el('p',null,feedback),
-      ),
-      el('button',{className:'cta',onClick:generate,disabled:!canUse()},'Next Scenario'),
-    ),
+  stage === 'feedback' && el(React.Fragment, null,
+  el('div', { className: 't-label' }, scenario),
+  el('div', { className: 'card', style: { marginBottom: 12, borderLeft: '2px solid #ef4444' } },
+  el('h3', null, 'Your Weighing'),
+  el('p', null, answer)
+  ),
+  el('div', { className: 'card', style: { marginBottom: 16 } },
+  el('h3', null, 'Coach Feedback'),
+  loading ? el('p', { style: { fontStyle: 'italic' } }, 'Evaluating...') : el('p', null, feedback)
+  ),
+  el('button', { className: 'cta', onClick: generate, disabled: !canUse() }, 'Next Scenario')
+  )
   );
 }
 
@@ -2121,134 +2120,134 @@ Did they compare the two impacts directly (not just describe each one)? Did they
 // stakes, and the competing logics. Clicking "Brief me" asks the AI
 // to expand the frame into a usable debate map. Keep this list
 // maintained, headlines decay fast.
-const NEWS_CARDS = [
-  {
-    id:'ai-export-controls',
-    region:'🌐 Global',
-    title:'US tightens AI chip export controls on China',
-    blurb:'New restrictions limit sales of frontier training chips and chip-making tools to Chinese firms. Allies pushed to align.',
-    pro:'National-security primacy, advanced compute is dual-use and slowing a geopolitical rival is a legitimate state interest.',
-    con:'Sanctions accelerate Chinese self-reliance, split the semiconductor market, and raise prices everywhere.',
-  },
-  {
-    id:'gaza-reconstruction',
-    region:'🌍 Middle East',
-    title:'Post-ceasefire Gaza reconstruction plan',
-    blurb:'Multi-state aid package tied to governance reform and demilitarization preconditions. Implementation contested.',
-    pro:'Conditionality is how aid avoids rebuilding the conditions that caused the war, money without reform just resets the clock.',
-    con:'Preconditions delay aid to civilians with no responsibility for the war and empower outside powers over local self-determination.',
-  },
-  {
-    id:'eu-migration-pact',
-    region:'🇪🇺 Europe',
-    title:'EU migration pact enforcement begins',
-    blurb:'Mandatory solidarity mechanism plus faster asylum processing at external borders. Hungary, Poland pushing back.',
-    pro:'Bloc-wide burden sharing is the only way to make asylum functional when frontline states carry disproportionate load.',
-    con:'Mandatory quotas override national sovereignty on who enters, a democratic legitimacy crisis, not a technical fix.',
-  },
-  {
-    id:'climate-loss-damage',
-    region:'🌏 Climate',
-    title:'Loss-and-damage fund payouts scaled up',
-    blurb:'Climate-vulnerable states draw first major disbursements. Donor countries debate basis of assessment.',
-    pro:'Polluter-pays is a settled moral principle; compensation for historical emissions is justice, not charity.',
-    con:'Framing it as "damages" rather than development aid creates open-ended liability and disincentivizes donor participation.',
-  },
-  {
-    id:'india-deepfake-bill',
-    region:'🇮🇳 India',
-    title:'India deepfake + synthetic-media bill moves to committee',
-    blurb:'Criminalizes unlabeled political deepfakes; platforms face take-down timelines. Free-speech groups warn of overreach.',
-    pro:'Elections rely on an information commons, unlabeled synthetic content breaks the baseline trust that makes voting meaningful.',
-    con:'Vague "synthetic media" definitions chill satire and dissent; enforcement discretion lets governments target critics.',
-  },
-  {
-    id:'ozempic-access',
-    region:'💊 Public Health',
-    title:'Public insurers debate covering GLP-1s for obesity',
-    blurb:'UK NHS, US Medicare weighing coverage beyond diabetes. Price negotiations with Novo / Lilly ongoing.',
-    pro:'Obesity drives cardiovascular disease, cancer, joint disease, covering GLP-1s is cheaper long-term than treating downstream illness.',
-    con:'Lifelong drug dependency for a condition with behavioral and environmental drivers entrenches pharma rent and ignores root causes.',
-  },
-  {
-    id:'nuclear-smr',
-    region:'Energy',
-    title:'Small modular reactors approved at first US commercial site',
-    blurb:'NRC clears design for grid connection. Tech firms signing offtake agreements for AI data-center power.',
-    pro:'Firm low-carbon power solves renewables\' intermittency problem. SMRs shrink capex risk that killed the last nuclear build-out.',
-    con:'Costs still unproven at scale, waste question unresolved, and grid-scale renewables + storage are falling faster on cost.',
-  },
-  {
-    id:'taiwan-semiconductors',
-    region:'🇹🇼 Taiwan',
-    title:'TSMC accelerates Arizona and Japan capacity',
-    blurb:'Multi-fab buildouts reshape global chip map. Domestic Taiwan politics fractures on "silicon shield" implications.',
-    pro:'Diversifying fabs reduces civilian-casualty risk of a Taiwan contingency by removing the "one facility, one world" single point of failure.',
-    con:'Diluting Taiwan\'s indispensability weakens the implicit US commitment to defend it, the silicon shield was the deterrent.',
-  },
-];
+var NEWS_CARDS = [
+{
+  id: 'ai-export-controls',
+  region: '🌐 Global',
+  title: 'US tightens AI chip export controls on China',
+  blurb: 'New restrictions limit sales of frontier training chips and chip-making tools to Chinese firms. Allies pushed to align.',
+  pro: 'National-security primacy, advanced compute is dual-use and slowing a geopolitical rival is a legitimate state interest.',
+  con: 'Sanctions accelerate Chinese self-reliance, split the semiconductor market, and raise prices everywhere.'
+},
+{
+  id: 'gaza-reconstruction',
+  region: '🌍 Middle East',
+  title: 'Post-ceasefire Gaza reconstruction plan',
+  blurb: 'Multi-state aid package tied to governance reform and demilitarization preconditions. Implementation contested.',
+  pro: 'Conditionality is how aid avoids rebuilding the conditions that caused the war, money without reform just resets the clock.',
+  con: 'Preconditions delay aid to civilians with no responsibility for the war and empower outside powers over local self-determination.'
+},
+{
+  id: 'eu-migration-pact',
+  region: '🇪🇺 Europe',
+  title: 'EU migration pact enforcement begins',
+  blurb: 'Mandatory solidarity mechanism plus faster asylum processing at external borders. Hungary, Poland pushing back.',
+  pro: 'Bloc-wide burden sharing is the only way to make asylum functional when frontline states carry disproportionate load.',
+  con: 'Mandatory quotas override national sovereignty on who enters, a democratic legitimacy crisis, not a technical fix.'
+},
+{
+  id: 'climate-loss-damage',
+  region: '🌏 Climate',
+  title: 'Loss-and-damage fund payouts scaled up',
+  blurb: 'Climate-vulnerable states draw first major disbursements. Donor countries debate basis of assessment.',
+  pro: 'Polluter-pays is a settled moral principle; compensation for historical emissions is justice, not charity.',
+  con: 'Framing it as "damages" rather than development aid creates open-ended liability and disincentivizes donor participation.'
+},
+{
+  id: 'india-deepfake-bill',
+  region: '🇮🇳 India',
+  title: 'India deepfake + synthetic-media bill moves to committee',
+  blurb: 'Criminalizes unlabeled political deepfakes; platforms face take-down timelines. Free-speech groups warn of overreach.',
+  pro: 'Elections rely on an information commons, unlabeled synthetic content breaks the baseline trust that makes voting meaningful.',
+  con: 'Vague "synthetic media" definitions chill satire and dissent; enforcement discretion lets governments target critics.'
+},
+{
+  id: 'ozempic-access',
+  region: '💊 Public Health',
+  title: 'Public insurers debate covering GLP-1s for obesity',
+  blurb: 'UK NHS, US Medicare weighing coverage beyond diabetes. Price negotiations with Novo / Lilly ongoing.',
+  pro: 'Obesity drives cardiovascular disease, cancer, joint disease, covering GLP-1s is cheaper long-term than treating downstream illness.',
+  con: 'Lifelong drug dependency for a condition with behavioral and environmental drivers entrenches pharma rent and ignores root causes.'
+},
+{
+  id: 'nuclear-smr',
+  region: 'Energy',
+  title: 'Small modular reactors approved at first US commercial site',
+  blurb: 'NRC clears design for grid connection. Tech firms signing offtake agreements for AI data-center power.',
+  pro: 'Firm low-carbon power solves renewables\' intermittency problem. SMRs shrink capex risk that killed the last nuclear build-out.',
+  con: 'Costs still unproven at scale, waste question unresolved, and grid-scale renewables + storage are falling faster on cost.'
+},
+{
+  id: 'taiwan-semiconductors',
+  region: '🇹🇼 Taiwan',
+  title: 'TSMC accelerates Arizona and Japan capacity',
+  blurb: 'Multi-fab buildouts reshape global chip map. Domestic Taiwan politics fractures on "silicon shield" implications.',
+  pro: 'Diversifying fabs reduces civilian-casualty risk of a Taiwan contingency by removing the "one facility, one world" single point of failure.',
+  con: 'Diluting Taiwan\'s indispensability weakens the implicit US commitment to defend it, the silicon shield was the deterrent.'
+}];
 
-function BeUpToDate(){
-  const[openId,setOpenId]=useState(null);
-  const[briefs,setBriefs]=useState({});     // id -> string
-  const[loading,setLoading]=useState(null); // id currently loading
-  const rem=remaining();
 
-  const openCard=async(c)=>{
+function BeUpToDate() {
+  var [openId, setOpenId] = useState(null);
+  var [briefs, setBriefs] = useState({}); // id -> string
+  var [loading, setLoading] = useState(null); // id currently loading
+  var rem = remaining();
+
+  var openCard = async (c) => {
     setOpenId(c.id);
-    if(briefs[c.id]||loading===c.id) return;
-    if(!canUse()){handleLimitClick();return;}
+    if (briefs[c.id] || loading === c.id) return;
+    if (!canUse()) {handleLimitClick();return;}
     setLoading(c.id);
-    try{
-      const sys='You are a current-events analyst who teaches debate. Given a news headline and two competing framings, write a ~150-word brief for a debater. Structure: (1) one-sentence "what happened", (2) the strongest single argument for each side with a named value or principle, (3) the decisive tension or tradeoff to pick at. Prose only, no headers or bullets. Be specific with named actors, numbers, and dates where possible. No hedging.';
-      const user='HEADLINE: '+c.title+'\nCONTEXT: '+c.blurb+'\nFRAME A: '+c.pro+'\nFRAME B: '+c.con+'\n\nWrite the brief.';
-      const out=await callClaude(sys,user);
-      setBriefs(b=>({...b,[c.id]:out}));
-    }catch(e){
-      setBriefs(b=>({...b,[c.id]:'Could not load brief right now. The frames above still give you the shape of the debate, pick a side and build from there.'}));
+    try {
+      var sys = 'You are a current-events analyst who teaches debate. Given a news headline and two competing framings, write a ~150-word brief for a debater. Structure: (1) one-sentence "what happened", (2) the strongest single argument for each side with a named value or principle, (3) the decisive tension or tradeoff to pick at. Prose only, no headers or bullets. Be specific with named actors, numbers, and dates where possible. No hedging.';
+      var user = 'HEADLINE: ' + c.title + '\nCONTEXT: ' + c.blurb + '\nFRAME A: ' + c.pro + '\nFRAME B: ' + c.con + '\n\nWrite the brief.';
+      var out = await callClaude(sys, user);
+      setBriefs((b) => ({ ...b, [c.id]: out }));
+    } catch (e) {
+      setBriefs((b) => ({ ...b, [c.id]: 'Could not load brief right now. The frames above still give you the shape of the debate, pick a side and build from there.' }));
     }
     setLoading(null);
   };
 
-  return el(React.Fragment,null,
-    el('p',{className:'t-sub',style:{marginBottom:20}},
-      'Eight running global stories, each with the competing logics underneath. Tap one to get an AI brief you can argue from either side.'
+  return el(React.Fragment, null,
+  el('p', { className: 't-sub', style: { marginBottom: 20 } },
+  'Eight running global stories, each with the competing logics underneath. Tap one to get an AI brief you can argue from either side.'
+  ),
+  el('div', { className: 'news-grid' },
+  NEWS_CARDS.map((c) => {
+    var isOpen = openId === c.id;
+    return el('div', { key: c.id, className: 'news-card' + (isOpen ? ' open' : '') },
+    el('button', { className: 'news-head', onClick: () => openCard(c) },
+    el('div', { className: 'news-region' }, c.region),
+    el('div', { className: 'news-title' }, c.title),
+    el('div', { className: 'news-blurb' }, c.blurb)
     ),
-    el('div',{className:'news-grid'},
-      NEWS_CARDS.map(c=>{
-        const isOpen=openId===c.id;
-        return el('div',{key:c.id,className:'news-card'+(isOpen?' open':'')},
-          el('button',{className:'news-head',onClick:()=>openCard(c)},
-            el('div',{className:'news-region'},c.region),
-            el('div',{className:'news-title'},c.title),
-            el('div',{className:'news-blurb'},c.blurb),
-          ),
-          isOpen&&el('div',{className:'news-body'},
-            el('div',{className:'news-frame'},
-              el('div',{className:'frame-label pro'},'FOR'),
-              el('p',null,c.pro),
-            ),
-            el('div',{className:'news-frame'},
-              el('div',{className:'frame-label con'},'AGAINST'),
-              el('p',null,c.con),
-            ),
-            loading===c.id
-              ? el('div',{className:'news-brief loading'},'Drafting your debate brief...')
-              : briefs[c.id]
-                ? el('div',{className:'news-brief'},
-                    el('div',{className:'brief-label'},'Brief'),
-                    el('p',null,briefs[c.id]),
-                    el('button',{className:'cta-ghost',style:{marginTop:12},onClick:()=>{
-                      if(window.location){window.location.hash='#debate';}
-                      if(window.parent&&window.parent.__loadMotion){window.parent.__loadMotion(c.title);}
-                    }},'Take this to Quick Debate →')
-                  )
-                : null
-          )
-        );
-      })
+    isOpen && el('div', { className: 'news-body' },
+    el('div', { className: 'news-frame' },
+    el('div', { className: 'frame-label pro' }, 'FOR'),
+    el('p', null, c.pro)
     ),
-    rem<=0&&el('p',{className:'limit-warn',style:{marginTop:16}},'Free requests used. ',el('a',{href:'/#team'},'Subscribe to continue.')),
+    el('div', { className: 'news-frame' },
+    el('div', { className: 'frame-label con' }, 'AGAINST'),
+    el('p', null, c.con)
+    ),
+    loading === c.id ?
+    el('div', { className: 'news-brief loading' }, 'Drafting your debate brief...') :
+    briefs[c.id] ?
+    el('div', { className: 'news-brief' },
+    el('div', { className: 'brief-label' }, 'Brief'),
+    el('p', null, briefs[c.id]),
+    el('button', { className: 'cta-ghost', style: { marginTop: 12 }, onClick: () => {
+        if (window.location) {window.location.hash = '#debate';}
+        if (window.parent && window.parent.__loadMotion) {window.parent.__loadMotion(c.title);}
+      } }, 'Take this to Quick Debate →')
+    ) :
+    null
+    )
+    );
+  })
+  ),
+  rem <= 0 && el('p', { className: 'limit-warn', style: { marginTop: 16 } }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
   );
 }
 
@@ -2256,133 +2255,133 @@ function BeUpToDate(){
    USAGE BANNER + BYOK
    ═══════════════════════════════════════════════════ */
 
-function UsageBanner(){
-  const[showKey,setShowKey]=useState(()=>!!__learnByokKey);
-  const[key,setKey]=useState(()=>__learnByokKey||'');
-  const[,forceUpdate]=useState(0);
+function UsageBanner() {
+  var [showKey, setShowKey] = useState(() => !!__learnByokKey);
+  var [key, setKey] = useState(() => __learnByokKey || '');
+  var [, forceUpdate] = useState(0);
 
-  const connected = !!key && key.startsWith('sk-ant-');
-  const rem = remaining();
-  const limitReached = rem <= 0 && !connected;
+  var connected = !!key && key.startsWith('sk-ant-');
+  var rem = remaining();
+  var limitReached = rem <= 0 && !connected;
 
-  const handleKey=(v)=>{
+  var handleKey = (v) => {
     setKey(v);
-    const trimmed=v.trim();
-    __learnByokKey=trimmed||null;
-    try{
-      if(trimmed) sessionStorage.setItem('debateos-learn-byok',trimmed);
-      else sessionStorage.removeItem('debateos-learn-byok');
-    }catch{}
-    forceUpdate(n=>n+1);
+    var trimmed = v.trim();
+    __learnByokKey = trimmed || null;
+    try {
+      if (trimmed) sessionStorage.setItem('debateos-learn-byok', trimmed);else
+      sessionStorage.removeItem('debateos-learn-byok');
+    } catch {}
+    forceUpdate((n) => n + 1);
   };
 
   // Compact banner when limit not reached
-  if(!limitReached){
-    return el('div',{className:'usage-banner'},
-      el('div',{className:'usage-banner-header'},
-        el('span',{className:'remaining'},
-          rem===Number.POSITIVE_INFINITY
-            ? el(React.Fragment,null,el('strong',null,'Unlimited'),' (BYOK key active)')
-            : el(React.Fragment,null,el('strong',null,rem),' rounds left')
-        ),
-        el('button',{className:'byok-toggle',onClick:()=>setShowKey(!showKey)},showKey?'Hide API key':'or use your own API key'),
-      ),
-      showKey && el('div',{className:'byok-row'},
-        el('input',{
-          type:'text',className:'byok-input',
-          placeholder:'sk-ant-...',
-          value:key,
-          onChange:e=>handleKey(e.target.value),
-        }),
-        el('span',{className:'byok-status '+(connected?'connected':'disconnected')},
-          el('span',{className:'dot'}),
-          connected?'Connected':'Not connected',
-        ),
-      ),
+  if (!limitReached) {
+    return el('div', { className: 'usage-banner' },
+    el('div', { className: 'usage-banner-header' },
+    el('span', { className: 'remaining' },
+    rem === Number.POSITIVE_INFINITY ?
+    el(React.Fragment, null, el('strong', null, 'Unlimited'), ' (BYOK key active)') :
+    el(React.Fragment, null, el('strong', null, rem), ' rounds left')
+    ),
+    el('button', { className: 'byok-toggle', onClick: () => setShowKey(!showKey) }, showKey ? 'Hide API key' : 'or use your own API key')
+    ),
+    showKey && el('div', { className: 'byok-row' },
+    el('input', {
+      type: 'text', className: 'byok-input',
+      placeholder: 'sk-ant-...',
+      value: key,
+      onChange: (e) => handleKey(e.target.value)
+    }),
+    el('span', { className: 'byok-status ' + (connected ? 'connected' : 'disconnected') },
+    el('span', { className: 'dot' }),
+    connected ? 'Connected' : 'Not connected'
+    )
+    )
     );
   }
 
   // Full banner when limit reached
-  return el('div',{className:'usage-banner',style:{background:'#fff',border:'1px solid rgba(239,68,68,.15)'}},
-    el('div',{style:{textAlign:'center',marginBottom:12}},
-      el('p',{style:{fontSize:'.88rem',fontWeight:600,color:'#1d1d1f',marginBottom:4}},'Free requests used up'),
-      el('p',{style:{fontSize:'.78rem',color:'rgba(0,0,0,.4)'}},'Sign in for 5 more free, or pick a plan below'),
-    ),
+  return el('div', { className: 'usage-banner', style: { background: '#fff', border: '1px solid rgba(239,68,68,.15)' } },
+  el('div', { style: { textAlign: 'center', marginBottom: 12 } },
+  el('p', { style: { fontSize: '.88rem', fontWeight: 600, color: '#1d1d1f', marginBottom: 4 } }, 'Free requests used up'),
+  el('p', { style: { fontSize: '.78rem', color: 'rgba(0,0,0,.4)' } }, 'Sign in for 5 more free, or pick a plan below')
+  ),
 
-    // Prominent Google sign-in button. primary CTA for the limit-reached state.
-    // Beta testers get unlimited requests just for signing in.
-    el('div',{style:{display:'flex',justifyContent:'center',marginBottom:20}},
-      el('button',{
-        type:'button',
-        onClick:function(){ if(window.__learnSignIn) window.__learnSignIn(); },
-        style:{
-          display:'inline-flex',alignItems:'center',gap:10,
-          padding:'14px 28px',
-          background:'#1d1d1f',color:'#fff',
-          border:'none',borderRadius:999,
-          fontWeight:700,fontSize:'.92rem',fontFamily:'inherit',
-          cursor:'pointer',
-          boxShadow:'0 6px 20px rgba(0,0,0,.18)',
-          transition:'transform .15s, box-shadow .15s',
-        },
-        onMouseOver:function(e){e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='0 10px 28px rgba(0,0,0,.24)'},
-        onMouseOut:function(e){e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 6px 20px rgba(0,0,0,.18)'},
-      },
-        el('svg',{width:18,height:18,viewBox:'0 0 48 48',xmlns:'http://www.w3.org/2000/svg'},
-          el('path',{fill:'#FFC107',d:'M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z'}),
-          el('path',{fill:'#FF3D00',d:'M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z'}),
-          el('path',{fill:'#4CAF50',d:'M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z'}),
-          el('path',{fill:'#1976D2',d:'M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z'}),
-        ),
-        'Sign in with Google → 5 more free',
-      ),
-    ),
+  // Prominent Google sign-in button. primary CTA for the limit-reached state.
+  // Beta testers get unlimited requests just for signing in.
+  el('div', { style: { display: 'flex', justifyContent: 'center', marginBottom: 20 } },
+  el('button', {
+    type: 'button',
+    onClick: function () {if (window.__learnSignIn) window.__learnSignIn();},
+    style: {
+      display: 'inline-flex', alignItems: 'center', gap: 10,
+      padding: '14px 28px',
+      background: '#1d1d1f', color: '#fff',
+      border: 'none', borderRadius: 999,
+      fontWeight: 700, fontSize: '.92rem', fontFamily: 'inherit',
+      cursor: 'pointer',
+      boxShadow: '0 6px 20px rgba(0,0,0,.18)',
+      transition: 'transform .15s, box-shadow .15s'
+    },
+    onMouseOver: function (e) {e.currentTarget.style.transform = 'translateY(-1px)';e.currentTarget.style.boxShadow = '0 10px 28px rgba(0,0,0,.24)';},
+    onMouseOut: function (e) {e.currentTarget.style.transform = 'translateY(0)';e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,.18)';}
+  },
+  el('svg', { width: 18, height: 18, viewBox: '0 0 48 48', xmlns: 'http://www.w3.org/2000/svg' },
+  el('path', { fill: '#FFC107', d: 'M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z' }),
+  el('path', { fill: '#FF3D00', d: 'M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z' }),
+  el('path', { fill: '#4CAF50', d: 'M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z' }),
+  el('path', { fill: '#1976D2', d: 'M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z' })
+  ),
+  'Sign in with Google → 5 more free'
+  )
+  ),
 
-    el('div',{className:'pricing-grid'},
-      el('div',{className:'pricing-card'},
-        el('div',{className:'tier-name'},'Free'),
-        el('div',{className:'tier-price'},'$0'),
-        el('div',{className:'tier-limit'},'5 / mo'),
-      ),
-      el('div',{className:'pricing-card'},
-        el('div',{className:'tier-name'},'BYOK'),
-        el('div',{className:'tier-price'},'$1'),
-        el('div',{className:'tier-limit'},'Unlimited* (Your API keys)'),
-        el('span',{className:'tier-badge amber'},'Cheapest'),
-      ),
-      el('div',{className:'pricing-card'},
-        el('div',{className:'tier-name'},'Individual'),
-        el('div',{className:'tier-price'},'$5'),
-        el('div',{className:'tier-limit'},'250 / mo'),
-        el('span',{className:'tier-badge blue'},'Most Popular'),
-      ),
-      el('div',{className:'pricing-card'},
-        el('div',{className:'tier-name'},'Lifetime'),
-        el('div',{className:'tier-price'},'$14.99'),
-        el('div',{className:'tier-limit'},'250 / mo'),
-        el('span',{className:'tier-badge green'},'Best Value'),
-      ),
-    ),
+  el('div', { className: 'pricing-grid' },
+  el('div', { className: 'pricing-card' },
+  el('div', { className: 'tier-name' }, 'Free'),
+  el('div', { className: 'tier-price' }, '$0'),
+  el('div', { className: 'tier-limit' }, '5 / mo')
+  ),
+  el('div', { className: 'pricing-card' },
+  el('div', { className: 'tier-name' }, 'BYOK'),
+  el('div', { className: 'tier-price' }, '$1'),
+  el('div', { className: 'tier-limit' }, 'Unlimited* (Your API keys)'),
+  el('span', { className: 'tier-badge amber' }, 'Cheapest')
+  ),
+  el('div', { className: 'pricing-card' },
+  el('div', { className: 'tier-name' }, 'Individual'),
+  el('div', { className: 'tier-price' }, '$5'),
+  el('div', { className: 'tier-limit' }, '250 / mo'),
+  el('span', { className: 'tier-badge blue' }, 'Most Popular')
+  ),
+  el('div', { className: 'pricing-card' },
+  el('div', { className: 'tier-name' }, 'Lifetime'),
+  el('div', { className: 'tier-price' }, '$14.99'),
+  el('div', { className: 'tier-limit' }, '250 / mo'),
+  el('span', { className: 'tier-badge green' }, 'Best Value')
+  )
+  ),
 
-    el('div',{style:{textAlign:'center'}},
-      el('a',{href:'/#team',className:'pricing-cta'},'View plans & subscribe'),
-    ),
+  el('div', { style: { textAlign: 'center' } },
+  el('a', { href: '/#team', className: 'pricing-cta' }, 'View plans & subscribe')
+  ),
 
-    el('div',{style:{marginTop:14,paddingTop:14,borderTop:'1px solid rgba(0,0,0,.06)'}},
-      el('p',{style:{fontSize:'.75rem',fontWeight:600,color:'rgba(0,0,0,.45)',marginBottom:8}},'Or enter your Anthropic API key:'),
-      el('div',{className:'byok-row'},
-        el('input',{
-          type:'text',className:'byok-input',
-          placeholder:'sk-ant-...',
-          value:key,
-          onChange:e=>handleKey(e.target.value),
-        }),
-        el('span',{className:'byok-status '+(connected?'connected':'disconnected')},
-          el('span',{className:'dot'}),
-          connected?'Connected':'Not connected',
-        ),
-      ),
-    ),
+  el('div', { style: { marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(0,0,0,.06)' } },
+  el('p', { style: { fontSize: '.75rem', fontWeight: 600, color: 'rgba(0,0,0,.45)', marginBottom: 8 } }, 'Or enter your Anthropic API key:'),
+  el('div', { className: 'byok-row' },
+  el('input', {
+    type: 'text', className: 'byok-input',
+    placeholder: 'sk-ant-...',
+    value: key,
+    onChange: (e) => handleKey(e.target.value)
+  }),
+  el('span', { className: 'byok-status ' + (connected ? 'connected' : 'disconnected') },
+  el('span', { className: 'dot' }),
+  connected ? 'Connected' : 'Not connected'
+  )
+  )
+  )
   );
 }
 
@@ -2390,114 +2389,113 @@ function UsageBanner(){
    MAIN APP
    ═══════════════════════════════════════════════════ */
 
-function App(){
-  const[mode,setMode]=useState(null); // null = guide view
-  const[vis,setVis]=useState(true);
+function App() {
+  var [mode, setMode] = useState(null); // null = guide view
+  var [vis, setVis] = useState(true);
 
-  const switchMode=(m)=>{
-    if(m===mode)return;
+  var switchMode = (m) => {
+    if (m === mode) return;
     setVis(false);
-    if(typeof gtag==='function')gtag('event','learn_mode_start',{mode:m});
-    setTimeout(()=>{setMode(m);setTimeout(()=>setVis(true),50);window.scrollTo({top:0,behavior:'smooth'})},250);
+    if (typeof gtag === 'function') gtag('event', 'learn_mode_start', { mode: m });
+    setTimeout(() => {setMode(m);setTimeout(() => setVis(true), 50);window.scrollTo({ top: 0, behavior: 'smooth' });}, 250);
   };
-  const backToGuide=()=>{
+  var backToGuide = () => {
     setVis(false);
-    setTimeout(()=>{setMode(null);setTimeout(()=>setVis(true),50);window.scrollTo({top:0,behavior:'smooth'})},250);
+    setTimeout(() => {setMode(null);setTimeout(() => setVis(true), 50);window.scrollTo({ top: 0, behavior: 'smooth' });}, 250);
   };
 
   // Topbar is now rendered outside React by /js/topbar.js. Keep an
   // empty fragment here so the existing `bar` reference doesn't break.
-  const bar=el(React.Fragment,null);
+  var bar = el(React.Fragment, null);
 
-  const modeContent={
-    debate:el(QuickDebate,{key:'debate'}),
-    news:el(BeUpToDate,{key:'news'}),
-    builder:el(ArgBuilder,{key:'builder'}),
-    fallacy:el(FallacyTrainer,{key:'fallacy'}),
-    AI:el(SocraticChallenger,{key:'AI'}),
-    persuade:el(PersuasionLab,{key:'persuade'}),
-    rebuttal:el(RebuttalDrill,{key:'rebuttal'}),
-    weighing:el(WeighingPractice,{key:'weighing'}),
+  var modeContent = {
+    debate: el(QuickDebate, { key: 'debate' }),
+    news: el(BeUpToDate, { key: 'news' }),
+    builder: el(ArgBuilder, { key: 'builder' }),
+    fallacy: el(FallacyTrainer, { key: 'fallacy' }),
+    AI: el(SocraticChallenger, { key: 'AI' }),
+    persuade: el(PersuasionLab, { key: 'persuade' }),
+    rebuttal: el(RebuttalDrill, { key: 'rebuttal' }),
+    weighing: el(WeighingPractice, { key: 'weighing' })
   };
 
-  const modeDesc={
-    debate:'Go back-and-forth on any topic. 3 exchanges, then feedback.',
-    news:'Quick briefs on current global news, with the debate logic beneath each story.',
-    builder:'Build a structured argument step by step.',
-    fallacy:'Spot logical fallacies in AI-generated arguments.',
-    AI:'Have your beliefs challenged from every angle.',
-    persuade:'Practice persuading someone in a real scenario.',
-    rebuttal:'AI argues, you tear it apart. Get scored on your rebuttal.',
-    weighing:'Two competing impacts. Which matters more and why?',
+  var modeDesc = {
+    debate: 'Go back-and-forth on any topic. 3 exchanges, then feedback.',
+    news: 'Quick briefs on current global news, with the debate logic beneath each story.',
+    builder: 'Build a structured argument step by step.',
+    fallacy: 'Spot logical fallacies in AI-generated arguments.',
+    AI: 'Have your beliefs challenged from every angle.',
+    persuade: 'Practice persuading someone in a real scenario.',
+    rebuttal: 'AI argues, you tear it apart. Get scored on your rebuttal.',
+    weighing: 'Two competing impacts. Which matters more and why?'
   };
 
-  const guideView = el('div',{className:'guide'},
-    el('div',{className:'tier-label'},el('span',{className:'num'},'1'),el('span',null,'Start Here')),
-    el('button',{className:'lesson-hero',onClick:()=>switchMode('debate')},
-      el('div',{className:'kicker'},'Your first lesson'),
-      el('h2',null,'Quick Debate'),
-      el('p',null,'Pick any topic. Go back-and-forth with an AI for 3 exchanges. Get honest feedback on what worked, what didn\'t, and a persuasiveness score. This is the fastest way to feel how an argument actually flows.'),
-      el('div',{className:'go'},'Begin →'),
-    ),
+  var guideView = el('div', { className: 'guide' },
+  el('div', { className: 'tier-label' }, el('span', { className: 'num' }, '1'), el('span', null, 'Start Here')),
+  el('button', { className: 'lesson-hero', onClick: () => switchMode('debate') },
+  el('div', { className: 'kicker' }, 'Your first lesson'),
+  el('h2', null, 'Quick Debate'),
+  el('p', null, 'Pick any topic. Go back-and-forth with an AI for 3 exchanges. Get honest feedback on what worked, what didn\'t, and a persuasiveness score. This is the fastest way to feel how an argument actually flows.'),
+  el('div', { className: 'go' }, 'Begin →')
+  ),
 
-    el('div',{className:'tier-label'},el('span',{className:'num'},'2'),el('span',null,'Build the Skills')),
-    el('div',{className:'lesson-row'},
-      el('button',{className:'lesson-card',onClick:()=>switchMode('builder')},
-        el('div',{className:'kicker'},'Structure'),
-        el('h3',null,'Argument Builder'),
-        el('p',null,'Learn the anatomy of a real argument: claim → warrant → impact. Build one step by step with guided prompts.'),
-      ),
-      el('button',{className:'lesson-card',onClick:()=>switchMode('fallacy')},
-        el('div',{className:'kicker'},'Detection'),
-        el('h3',null,'Fallacy Trainer'),
-        el('p',null,'Spot the logical traps: strawmen, slippery slopes, ad hominems, false dichotomies. Train your BS detector.'),
-      ),
-    ),
+  el('div', { className: 'tier-label' }, el('span', { className: 'num' }, '2'), el('span', null, 'Build the Skills')),
+  el('div', { className: 'lesson-row' },
+  el('button', { className: 'lesson-card', onClick: () => switchMode('builder') },
+  el('div', { className: 'kicker' }, 'Structure'),
+  el('h3', null, 'Argument Builder'),
+  el('p', null, 'Learn the anatomy of a real argument: claim → warrant → impact. Build one step by step with guided prompts.')
+  ),
+  el('button', { className: 'lesson-card', onClick: () => switchMode('fallacy') },
+  el('div', { className: 'kicker' }, 'Detection'),
+  el('h3', null, 'Fallacy Trainer'),
+  el('p', null, 'Spot the logical traps: strawmen, slippery slopes, ad hominems, false dichotomies. Train your BS detector.')
+  )
+  ),
 
-    el('div',{className:'tier-label'},el('span',{className:'num'},'3'),el('span',null,'Advanced Drills')),
-    el('div',{className:'lesson-chips'},
-      el('button',{className:'lesson-chip',onClick:()=>switchMode('AI')},
-        el('strong',null,"Debate AI"),
-        el('span',null,'Have your own beliefs challenged from every angle.'),
-      ),
-      el('button',{className:'lesson-chip',onClick:()=>switchMode('persuade')},
-        el('strong',null,'Persuasion Lab'),
-        el('span',null,'Real scenarios. Win over a skeptic with the right approach.'),
-      ),
-      el('button',{className:'lesson-chip',onClick:()=>switchMode('rebuttal')},
-        el('strong',null,'Rebuttal Drill'),
-        el('span',null,'AI argues. You tear it apart. Get scored on your rebuttal.'),
-      ),
-      el('button',{className:'lesson-chip',onClick:()=>switchMode('weighing')},
-        el('strong',null,'Weighing Practice'),
-        el('span',null,'Two impacts compete. Which matters more and why?'),
-      ),
-    ),
+  el('div', { className: 'tier-label' }, el('span', { className: 'num' }, '3'), el('span', null, 'Advanced Drills')),
+  el('div', { className: 'lesson-chips' },
+  el('button', { className: 'lesson-chip', onClick: () => switchMode('AI') },
+  el('strong', null, "Debate AI"),
+  el('span', null, 'Have your own beliefs challenged from every angle.')
+  ),
+  el('button', { className: 'lesson-chip', onClick: () => switchMode('persuade') },
+  el('strong', null, 'Persuasion Lab'),
+  el('span', null, 'Real scenarios. Win over a skeptic with the right approach.')
+  ),
+  el('button', { className: 'lesson-chip', onClick: () => switchMode('rebuttal') },
+  el('strong', null, 'Rebuttal Drill'),
+  el('span', null, 'AI argues. You tear it apart. Get scored on your rebuttal.')
+  ),
+  el('button', { className: 'lesson-chip', onClick: () => switchMode('weighing') },
+  el('strong', null, 'Weighing Practice'),
+  el('span', null, 'Two impacts compete. Which matters more and why?')
+  )
+  )
   );
 
-  const lessonView = mode && el(React.Fragment,null,
-    el('button',{className:'back-to-guide',onClick:backToGuide},'← Back to guide'),
-    el('div',{className:'pills',style:{marginBottom:24}},
-      MODES.map(m=>el('button',{key:m.id,className:'pill'+(mode===m.id?' on':''),onClick:()=>switchMode(m.id)},m.label))
-    ),
-    modeContent[mode],
+  var lessonView = mode && el(React.Fragment, null,
+  el('button', { className: 'back-to-guide', onClick: backToGuide }, '← Back to guide'),
+  el('div', { className: 'pills', style: { marginBottom: 24 } },
+  MODES.map((m) => el('button', { key: m.id, className: 'pill' + (mode === m.id ? ' on' : ''), onClick: () => switchMode(m.id) }, m.label))
+  ),
+  modeContent[mode]
   );
 
-  return el('div',{className:'page'},
-    el('div',{className:'ambient'}),
-    bar,
-    el('div',{className:'center '+(vis?'visible':'entering')},
-      el('h1',{className:'t-hero'},el('em',null,'Learn'),' to Argue'),
-      el('p',{className:'t-sub',style:{marginBottom:mode?24:36}},
-        mode ? 'You don\'t need to be a debater. You just need to think clearly.'
-             : 'A guided path from zero to sharp. Start with Lesson 1. It takes 5 minutes.'),
-      mode ? lessonView : guideView,
-    ),
+  return el('div', { className: 'page' },
+  el('div', { className: 'ambient' }),
+  bar,
+  el('div', { className: 'center ' + (vis ? 'visible' : 'entering') },
+  el('h1', { className: 't-hero' }, el('em', null, 'Learn'), ' to Argue'),
+  el('p', { className: 't-sub', style: { marginBottom: mode ? 24 : 36 } },
+  mode ? 'You don\'t need to be a debater. You just need to think clearly.' :
+  'A guided path from zero to sharp. Start with Lesson 1. It takes 5 minutes.'),
+  mode ? lessonView : guideView
+  )
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(el(App));
-</script>
+ReactDOM.createRoot(document.getElementById('root')).render(el(App));</script>
 
 <!-- Static crawler-visible navigation. /learn is a React SPA. -->
 <aside aria-label="Site navigation" style="max-width:780px;margin:48px auto 0;padding:32px 24px 64px;border-top:1px solid rgba(255,255,255,0.08);font:14px/1.6 system-ui,sans-serif;color:#94a3b8;text-align:center">
