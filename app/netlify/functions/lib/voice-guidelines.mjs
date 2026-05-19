@@ -1194,6 +1194,40 @@ APDA SPECIFICS (American Parliamentary — Harvard, Yale, Brown, Princeton circu
 - Speaker structure: PM sets up the case + framework + 2-3 args. LO disputes framework + rebuts + 2-3 counter-args. MG rebuilds + extends. MO extends opp + attacks MG. LOR collapses opp to voting issues (no new args). PMR is the last word for gov — collapses + weighs (no new args allowed, except responses to MO/LOR).
 - POIs allowed after the first minute and before the last minute of constructive speeches. Not during rebuttals. Take at least one per speech if offered — refusing all POIs reads as scared.
 - Vocabulary: "tight case," "squirrel" (too-narrow motion interpretation), "knife" (contradict your own side), "case-knife," "the PM's world," "burden of proof." Use these only when natural.
+
+═══ TIGHT-CALL TAXONOMY (full APDA canon) ═══
+- TIGHT CASE: no winnable, weighable path to victory for Opp.
+- Four sub-categories: TRUISMS (factually correct, only one defensible side — e.g., "Obama is the best Democratic president of the 21st century"), TAUTOLOGIES (premise = conclusion), OVERWHELMINGLY STRONG cases, ABUSIVE cases (forcing Opp to defend morally reprehensible positions).
+- TIGHT BLOCK: pre-written counter-arguments to your own case, run by Gov if Opp calls tight. Downsides — reads as "spec" (specific knowledge), signals Gov anticipated tightness.
+- 30-SECOND TIGHT CALL: Opp opens LOC with 30s declaring tight, denying Gov prep for engagement. Aggressive; sometimes backfires.
+- STRATEGIC TIGHT CALL: calling tight for tactical advantage rather than genuine belief. Legitimate but risky.
+- APDA-TIGHT: circuit-recognized "objectively undebatable" — controversial; varies by judge.
+- SPEC-TIGHT: case tight only because Opp needs specific knowledge to engage. Common in niche econ cases.
+- What Gov needs to defend a tight call: show that arguments COULD beat the case under full development.
+- TIGHT ≠ HARD. A hard motion that's still defensible is NOT tight. Calling tight on a balanced motion is worse than losing on a balanced motion.
+- APDA "TIGHT" ≠ BP "NARROW." In BP, a motion can be Gov-heavy without being tight; Opp still has ground. In APDA, "tight" means literally undebatable. Cross-format confusion (applying "tight" to a BP motion) is a tell.
+
+═══ ELITE SPEECH-POSITION PLAYBOOK ═══
+- PMC: 30s cold open (fact / image / framework name) → 45s case statement + framework with weighing axis named → 2-3 contentions with tagged short names ("the jobs arg," "the marginal worker test," "the institutional decay arg"), each with claim + warrant chain (named link / named actor / named consequence) + impact → 90s close with weighing setup + callback to cold open. NO signoff — PMC is constructive.
+- LOC: First 30s burden negotiation ("our burden is not to prove the case wrong; it's to show Gov's mechanism doesn't deliver"). Decide engagement — balanced case = engage substance; definitional leak = definitional pushback (or tight); asymmetric = framework counter. 4-5 min case rebuttal grouped by Gov contention + 2-3 min off-case (counter-case / framework counter / status-quo argument). Strategic concession early. Close: name the round's actual question.
+- MG (the most undertrained APDA speech in LLM outputs): First 60s rebuild PMC on whatever Opp attacked hardest — pick 1-2 contentions where Opp landed and reconstruct. Mid-speech: NEW developmental analysis that doesn't introduce a new burden (elaborates existing claim). Anticipate the MO, signal where Gov plans to collapse. Close: NAME the voters PMR will collapse to.
+- MO (canonically "the most flexible speech in the round"): Maintain TWO flows (on-case + off-case), cross-paper if needed. Group similar Gov material rather than line-by-line. Strategic concession early to consolidate on round-deciding clash. Hide new material inside what LO said so PMR has to attack two things at once. Weighing must be introduced HERE — don't leave to LOR. Last 60s: name voters for LOR.
+- LOR / PMR COLLAPSE: LOR 4 min, PMR 5 min. LOR no-new-args; PMR can ONLY respond to new args in MO. Both collapse to 2-3 VOTERS. Each voter: named issue + comparative weighing + link to ballot. 90s per voter MAX. Close on signoff: "Proud to propose" (PMR) / "Proud to oppose" (LOR). This is the ONLY place in APDA that uses BP-style signoff; APDA constructives have no signoff.
+
+═══ HACKS, SQUIRRELS, AND BURDEN NEGOTIATION ═══
+- HACK CASE: a case run repeatedly by a specific debater / partnership across multiple tournaments. 2024-25 meta featured recognizable hacks on UChicago HT / TP and Yale teams. Experienced opponents recognize a hack from the first 30 seconds.
+- SQUIRREL: narrow interpretation of a motion that benefits one side disproportionately.
+- BURDEN NEGOTIATION as a 30-second skill: Mac Hays's "On Victory" lecture / essay (APDA canonical reference) frames three "win conditions" approaches. Top APDA speakers spend the first 30 seconds explicitly negotiating burdens, not passively accepting them.
+
+═══ RECENT META (2024-26) ═══
+- Nationals 2024: Xiao-ke Lu + Rahul Kalavagunta (Princeton).
+- Nationals 2025: Ryan Lafferty + Maeve Goldman (Dartmouth). Lafferty also won WUDC Panama 2025 in BP three months earlier — extraordinary cross-format dominance. Lafferty passed in April 2026 at age 23; his matter-file methodology + shared casebook approach remain widely studied at Dartmouth.
+- Nationals 2026: Alexander Gerber + Joann Yu (William & Mary) — surprise first W&M win. Top speaker: Sophie Rukin (Brown) — first person to top-speak Nationals as a freshman ('28).
+- Team of the Year 2025-26: Yale SJ (Naz Soysal + Zander Jeinthanuttkanont) — 79 points. 2024-25: UChicago TP (Ale Perri + Roy Tiefer) — 87 points. Yale historically dominant (10+ Club of the Year wins); UChicago is the primary 2022-26 challenger.
+- Speaker of the Year 2025-26: Naz Soysal (Yale) — 100.5 pts. 2024-25: Ale Perri (UChicago) — 90 pts.
+
+═══ HOST ROTATION ═══
+- APDA Nationals = late April, single team per university + auto-qualified additional. Strict NON-BP rotation between Penn, NYU, Fordham, Princeton, George Washington, Johns Hopkins, William & Mary. 2025 = GW. 2026 = Johns Hopkins.
 `,
 
   bp: `
@@ -1209,6 +1243,31 @@ BP-SPECIFIC VOICE (British Parliamentary — Oxford, Cambridge, Euros, Worlds-ad
 - ELITE EXTENSION goes beyond "new actor / timeframe / impact." It shifts WHAT THE ROUND IS ABOUT. Closing Gov reframes "should we intervene" as "what gets a non-illusory peace." Closing Opp reframes "is intervention good" as "is the intervention even MARGINAL on the ground." A new example doesn't count as extension; only new analytical TERRAIN does.
 - WHIP IS ADJUDICATION, NOT RECAP. Speakers who recap their partner finish 3rd-4th; speakers who write the ballot the chair will write finish 1st-2nd. 60-90 seconds per issue, structured: "Issue 1 — [name]. Both teams said X. We win because Y. Issue 2 — ..." Treat the chair as someone who needs the work done for them, not someone who needs your speech narrated to them.
 - COMPARATIVE COUNTERFACTUAL: every BP round has a counterfactual — the world without the motion / your model. Opening engages the status-quo counterfactual; closing must engage the OTHER side's stable end-state. Don't just say "intervention is bad" — describe the country in 5 years without intervention (RSF wins, business equilibrium, autocratic stability). The team that paints both worlds wins.
+
+═══ SOFIA 2026 MANUAL CHANGES (POST-TRAINING-DATA RULES, CRITICAL) ═══
+- POIs are now MANDATORY. Refusing POIs docks speaker points and flips close calls. Old advice "take 1-2 if confident" is OBSOLETE. Take 2 minimum unless time-pressed; OFFER POIs throughout opposition speeches (judges track offers visibly). Giving + taking POIs count as role fulfillment for ALL speakers, not just substantives.
+- Generative AI is EXPLICITLY BANNED during the 15-minute prep period. Surface this rule in coach mode; don't model behavior that would get the user DQ'd.
+- Whip flexibility: new matter in whip is no longer auto-discredited. Only discredited if it "significantly changes the direction of the case beyond reasonable prediction." Reactive new examples + analytical reframings the opposition could have anticipated are OK; wholly new contention is not.
+- Closed-round confidentiality: judges who leak scores or calls face severe penalties. Speaker scores aren't revealed until official announcement.
+- Split-decision voting: chairs must call a vote on every disputed split. Ranked-pairs methodology for cyclical disputes (transitivity logic no longer permitted).
+
+═══ EXTENSION-BEFORE-REBUTTAL RULE (closing benches) ═══
+- Closing speakers who lead with global rebuttal and stack extension after the 4:30 mark lose ~80% of the time. Eh Priori canonical rule: "If I start on my extensions after the 4:30 mark, I will lose."
+- Real elite closing pattern: 30-60 seconds situating, then DIRECTLY into extension (1:30-2:00 of new substantive matter), THEN integrated rebuttal that runs THROUGH the extension's lens. MG / MO drilled this way are functionally extension-FIRST speeches.
+- Don't write a four-section "rebuttal → extension → weighing → close" closing speech; that's an opening-half pattern the closing tier has structurally outgrown.
+
+═══ VERTICAL EXTENSIONS ARE LEGITIMATE ═══
+- A persistent misconception: "real" extensions must be NEW arguments (horizontal). The WUDC Manual is explicit: vertical extensions — going DEEPER on the same end-conclusion with new analytical machinery — are equally valid IF the closing's machinery is more persuasive.
+- Worked example (Sudan motion): Opening Gov said intervention saves lives via reduced massacre frequency. Closing Gov's vertical extension: a named-actor causal chain showing WHICH actors (UAE, Egypt, SAF, RSF) shift behavior under intervention, with named incentives traced through five steps. Same conclusion as opening; new analytical terrain. Judges who only credit horizontal extensions are making the WUDC Manual's named judging mistake.
+
+═══ HALF-CALL VOCABULARY (use when discussing rounds in judge-room register) ═══
+- "Gov half" = OG + CG both beat OO + CO. "Opp half" = mirror. "Open" = each half splits. "Diagonals" = e.g., CG vs OO (closing vs opening on opposite sides), requires the closing team to engage the opposite-side opening's machinery even though that team spoke earlier. The Manual mandates judges compare on EVERY diagonal explicitly. A closing speech that engages only its bench's opening is judged structurally incomplete.
+
+═══ NAMED-ACTOR CHAINS BEAT GENERIC IMPACT TALK ═══
+- Rounds that flipped on closing benches at Vietnam 2024 / Panama 2025 / Sofia 2026 did so when closing named 4-5 specific actors with specific incentives and traced the chain. Generic "the international community will respond" loses to: "Russia surges weapons to RSF because its Wagner gold operation in Sudan funds the Sahel proxy operation, which is downstream of the Ukraine war's drain on Russian conventional capacity." Modern WUDC closing benches are functionally IR seminars compressed into 7 minutes.
+
+═══ FIVE-YEAR COUNTERFACTUAL HORIZON ═══
+- The Manual's role-fulfillment criteria reward closing benches that paint BOTH worlds (motion world AND status-quo world) at a 5-year horizon. "Without the motion, things stay as they are" loses to a closing that names what the status-quo equilibrium actually looks like in 2030 (RSF wins, business-as-usual genocide stabilizes, regional refugee crisis enters European politics, etc.). The team that paints BOTH stable end-states wins comparative.
 `,
 
   worlds: `
@@ -1221,7 +1280,41 @@ WUDC / WORLDS-SPECIFIC VOICE (university-level BP with international register):
 - Extensions on closing benches should genuinely SHIFT the debate's terrain: new actor (bring in an unstudied stakeholder), new time horizon (generational / decades-long effects), new comparator (what's the counterfactual world if motion fails?), or new lens (institutional / cultural / structural analysis the opening half didn't reach).
 - Avoid APDA-specific terms: no "squirrel," no "tight case," no "knife." Bad motions are "narrow" or "skewed."
 - Tournament context: 9 prelim rounds, top 48 break to elimination. Three speaker categories (Open / ESL / EFL) — ESL/EFL speakers are scored against peers in their language category, not penalized on register but rewarded for clarity over polish. If a round is in an ESL/EFL bracket, prefer cleaner sentence structures and fewer idiom-heavy turns of phrase.
-- Speaker scale: WUDC speaks in a 50-100 speaker-score range with a 75 median (an "average competent speech"). 80 = clearly strong. 85+ = breaking. 90+ rare. Inform the AI's self-modeling: a "decent" speech matches a 75; "good" matches 78; "great" matches 82.
+- ALL SOFIA 2026 MANUAL CHANGES apply (see the BP block above): POIs mandatory, AI banned in prep, whip flexibility for new analysis, closed-round confidentiality, ranked-pairs voting.
+
+═══ FULL SPEAKER SCALE BANDS (current Imperial calibration) ═══
+- 50-55: off-topic, no developed claims
+- 55-60: 1-2 marginally relevant points, minimal explanation
+- 61-66: relevant arguments with explanations, but significant logical gaps
+- 67-72: generally relevant, "significant logical gaps," sometimes hard to follow
+- 73-75: nearly all relevant, logical structure, "simplistic, vulnerable to competent rebuttals"
+- 76-78: almost exclusively relevant, addresses most core issues, occasional explanation deficits
+- 79-82: STRONG PRELIM SPEECH. Relevant args address core issues with solid explanations, no glaring logical problems
+- 83-85: BUBBLE / BREAK SPEECH. Strong args on core issues, demanding substantive rebuttals to defeat
+- 86-88: compelling engagement with core issues, no logical gaps, minor weaknesses only
+- 89-91: FINAL-ROUND LEVEL. "Brilliant arguments thoroughly engage main issues with excellent explanations, requiring extremely sophisticated responses to defeat"
+- 92-94: exceptional. "One of the best at the competition." Flawless argumentation demanding brilliant responses
+- 95-100: "one of the best debating speeches ever given"
+- AI's default speech-quality targets: "decent" = 76-78, "strong" = 79-82, "exceptional" = 83-85. Hitting 86+ requires moves LLMs rarely produce naturally (see ELITE MOVE PLAYBOOK in STRATEGY).
+
+═══ MOTION-SHAPE PLAYBOOK ═══
+- THBT (value/belief): often Gov-advantaged. Tight definitional work + clean principle layer. Recent: "THBT it is in the interests of the American people for the US government to acquire golden shares in strategically important firms" (Sofia 2026 R6).
+- THW (policy mandate): Gov constructs a model (who/what/when/funded-how/enforced-how). Mechanism-heavy. Recent: "THW militarily intervene in Sudan" (Panama 2025 SF), "THW ban vulture funds from suing countries whose debt they have purchased" (Hanoi 2024 SF).
+- THR (retrospective regret): lives or dies on the counterfactual. Gov must paint a coherent alternative past world. Recent: "THR the use of drastic state interventions to address the COVID-19 pandemic" (Sofia 2026 SF).
+- THS / THO (stance motion): like THW, looser on mechanism. Recent: "THO the development of AI systems to optimise for human influence" (Sofia 2026 GF), "THO the norm to prefer the natural to the artificial" (Hanoi 2024 GF), "THS the shift away from the traditional left-right spectrum in the politics of major democracies" (Panama 2025 GF).
+- As-actor ("This House, as X, would Y"): adopt the actor's specific institutional incentive structure. Recent: "THIS HOUSE, as the leadership of a major news organisation, would adopt moralised journalism as a stance" (Sofia 2026 R3). Don't argue from a generic agent's perspective.
+- Preference motions ("This House prefers A to B"): paint BOTH worlds in detail. Don't just argue "ours is better" — describe ours vs theirs at 5-year horizon.
+
+═══ 2024-26 WUDC TOURNAMENT META (verified) ═══
+- WUDC 2024 (Hanoi / Ho Chi Minh City): Champion Oxford A — Mark Rothery + Aniket Chakravorty. GF motion: "THO the norm to prefer the natural to the artificial." SF: "THW ban vulture funds from suing countries whose debt they have purchased." Octo: "THO the stigma against laziness."
+- WUDC 2025 (Panama City): Champion Dartmouth A — Ryan Lafferty + Madeleine Wu. First Dartmouth win, first U.S. win in 7 years. GF: "THS the shift away from the traditional left-right spectrum in the politics of major democracies." SF: "THW militarily intervene in Sudan." Lafferty's prep methodology: 647 pages of matter notes, daily phone-call drilling — drill-prep + matter-file approach. (Note: Ryan Lafferty passed in April 2026 at age 23; memorialized at Dartmouth.)
+- WUDC 2026 (Sofia, Bulgaria — Dec 27 2025 to Jan 4 2026): Champion Sydney A — Jack Story + Udai Kamath. GF: "THO the development of AI systems to optimise for human influence." SF: "THR the use of drastic state interventions to address the COVID-19 pandemic." QF: "THO the use of historical and religious narratives as justification for modern territorial claims."
+- WUDC 2027: Ottawa, Canada (announced).
+- IMPORTANT: WUDC 2026 was SOFIA, not Belgrade. Belgrade hosted the 2022 virtual edition. Don't confuse them in the AI's priors.
+
+═══ EUDC 2024-25 ═══
+- EUDC 2024 (Glasgow): Andy Cullinan + Martha McKinney-Perry, Trinity College Dublin (Hist) — first Hist win ever, first Irish woman to win EUDC.
+- EUDC 2025 (Copenhagen): Paula Djaković + Petar Žnidar (Zagreb). GF: "THBT capitalism enhances our sense of meaning in life." Zagreb has now won both WUDC 2021 and EUDC 2025.
 `,
 
   wsdc: `
