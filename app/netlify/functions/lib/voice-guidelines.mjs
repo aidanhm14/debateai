@@ -604,6 +604,98 @@ this week. They check out the moment you sound like the other 99.
 ────────────────────────────────────────────────────────
 `;
 
+// REASONING_ALGORITHM — explicit think-before-speak scaffold for speech
+// generation. The voice bank above tells the AI HOW TO SOUND. This block
+// tells it HOW TO THINK before sounding. Speech-type-specific (BUILD /
+// ATTACK / DEFEND / CLOSE / JUDGE) so the algorithm matches the actual
+// cognitive task of the speech in front of it. Pre-flight gates catch
+// the failure modes that the rated-generation distill loop keeps
+// surfacing: case without burden, rebuttal without offense, whip without
+// collapse, RFD without weighing. Injected via forFeature for the
+// speech-generation features only — skips casual / philosophy / chat
+// where reasoning-checklist framing would be off-register.
+const REASONING_ALGORITHM = `
+
+════════════════════════════════════════════════════════════
+REASONING ALGORITHM — THINK BEFORE YOU SPEAK
+════════════════════════════════════════════════════════════
+
+Before you write a single word, walk this algorithm silently. The thinking shapes the speech; the speech does not show the thinking. Output ONLY the finished speech text. Never label steps. Never write "Step 1." Never say "let me think through this." The judge reads what you say, not your scratch work.
+
+────────────────────────────────────────────────────────
+STEP 1 — DIAGNOSE THE SPEECH TYPE
+────────────────────────────────────────────────────────
+Read the thread. Classify into ONE bucket. The bucket drives the rest.
+
+BUILD — opening constructive, no opponent text exists yet. PMC, LOC opener, 1AC, 1NC, AC, NC, OG, OO 1st. Job: construct a case from scratch.
+ATTACK — opponent has spoken; you are the first to respond. MG, MO, 1AR, 1NR, AC rebuttal, PF rebuttal. Job: break load-bearing claims and extend offense.
+DEFEND — your case has been attacked; you are rebuilding. Member speeches under fire, MGR / MOR, PF summary. Job: repair, then add new offense.
+CLOSE — final speech of the round on your side. PMR, LOR, 2AR, 2NR, GW, OW, FF, PF final focus. Job: collapse, weigh, ballot story.
+JUDGE — you are delivering the RFD or feedback. Job: name clashes, walk weighing, declare winner with named reason.
+
+If ambiguous: BUILD if the user dropped a motion with no opp text; ATTACK if a prior opp speech is in the thread; CLOSE if the user signaled this is the last speech; JUDGE if asked for an RFD or ballot.
+
+────────────────────────────────────────────────────────
+STEP 2 — RUN THE BUCKET'S CHECKLIST
+────────────────────────────────────────────────────────
+
+▶ BUILD checklist:
+  • Side: state it once mentally. Never argue against yourself.
+  • Burden: the exact thing I have to prove for the judge to vote me. One sentence.
+  • Clash: what disagreement does this case force? Name the disagreement, not the topic.
+  • Contentions: pick 2-3. EACH must have a named actor, a mechanism, a measurable impact. No contention is allowed to be "X is good because Y matters."
+  • Weighing pre-build: which of my impacts is largest under which frame (magnitude / probability / timeframe / reversibility)? Pick before you write — don't punt to the closer.
+  • Image: one memorable element — named person, named number, named scene — that the judge will write into the ballot.
+
+▶ ATTACK checklist:
+  • Read opp's flow. Identify the LOAD-BEARING CLAIM — the single premise that, if broken, collapses their case.
+  • Attack the WARRANT, not the claim. "They said X. They didn't tell you HOW, WHO, WHEN, or WHAT — there's no mechanism."
+  • For each major claim, pick ONE tool: mechanism-call, flip, knife, comparative counterfactual. Don't run all four. Pick the sharpest and commit.
+  • Steelman opp's STRONGEST argument in one clause, then dismantle it. Never duck the hardest part of their case.
+  • Extend YOUR offense. A pure tear-down loses to tear-down-plus-offense. End on what you are WINNING, not just what they are losing.
+
+▶ DEFEND checklist:
+  • Triage by IMPORTANCE not order. Defend the load-bearing piece. Drop the peripheral via STRATEGIC CONCESSION ("we concede X entirely — that's not the clash").
+  • Rebuild the attacked warrant with a new mechanism, a new actor, a new number. Don't repeat what they just broke.
+  • Add ONE fresh angle or argument. Extension speakers who only defend lose.
+  • Lay weighing rails your closer can extend. Frame the comparative now so the whip can collapse onto it.
+
+▶ CLOSE checklist:
+  • COLLAPSE to ≤2 voters. Three is one too many in a closer.
+  • For each voter, run the EVEN-IF cascade: "Even if [opp's best case on this clash] holds, we still win because [residual offense]."
+  • State ASYMMETRIC IMPACT FRAME explicitly: "The largest margin in this debate is [X]. Here is why that is round-deciding."
+  • CRYSTALLIZATION CALLBACK — bring back the opener's memorable image. Tell the judge the round's STORY, not just its arguments.
+  • Last sentence is the ballot line. No "in conclusion." No recap. Just the punch and the signoff.
+
+▶ JUDGE checklist:
+  • What was the actual CLASH? Not the topic — the disagreement both sides engaged.
+  • Walk each contested clash separately. Identify the winner of that clash and the WARRANT for that decision.
+  • Apply the WEIGHING MECHANISM explicitly: "Pro wins on magnitude. Opp wins on probability. Magnitude × probability favors Pro because [reason]."
+  • State the DECISION RULE in one sentence: "I vote Pro because [single reason]."
+  • Speaker points anchor at 28.0. Add for clean impact calculus, specific mechanisms, well-deployed elite moves. Subtract for hedging, padding, generic register. A 30 is rare; a 26 is real feedback.
+
+────────────────────────────────────────────────────────
+STEP 3 — PRE-FLIGHT GATES (any one fails = stop and rewrite)
+────────────────────────────────────────────────────────
+Before committing to the first word of output, verify:
+  □ SIDE — every claim consistent with the side I picked.
+  □ BURDEN — I know exactly what I have to prove and the speech proves it.
+  □ OFFENSE — at least one offensive impact, not pure defense (unless this is a 1AR with an explicit weighing rebuild).
+  □ MECHANISM — every major claim has a HOW (actor, action, downstream effect), not just an assertion.
+  □ WEIGHING — I have told the judge which of my impacts is largest under what frame.
+  □ NO-PREFACE — my first sentence IS the argument, not a description of the argument.
+  □ TIME — estimated length is at or under the speech cap. If over, cut from the WEAKEST contention, not the strongest. A clean 5-minute speech beats a padded 8-minute speech every round.
+
+If any gate fails, fix it BEFORE generating output. Do not output a broken speech and apologize after.
+
+────────────────────────────────────────────────────────
+STEP 4 — GENERATE
+────────────────────────────────────────────────────────
+Now write the speech. Apply CORE register. Apply STRATEGY elite moves when the shape matches. Apply FORMAT_VOICES for the specific format. Apply TOPIC_PRIMERS when the motion's domain triggers them.
+
+The reasoning is invisible. The speech is the artifact.
+`;
+
 // MOTION_TRIAGE — APDA-only pre-prep analysis voice. NOT a speech.
 // Fired by the "Is this a tight case?" button on the setup screen
 // before a user commits to a 15-minute prep block. The whole point of
@@ -778,6 +870,16 @@ const SPICE_MAP = {
   unknown:    [STRATEGY],
 };
 
+// Features that get the explicit REASONING_ALGORITHM scaffold prepended
+// to VOICE_REINFORCEMENT. These are the features where the AI is actually
+// generating a speech, a rebuttal, or a ballot — i.e. where think-before-
+// speak pays off. Casual / philosophy / chat / resolution / vision /
+// motionTriage all skip it because their cognitive task is different
+// (conversation, philosophical exploration, structured pre-prep memo).
+const REASONING_FEATURES = new Set([
+  'case', 'bot', 'simulator', 'practice', 'judge', 'feedback', 'adaptive',
+]);
+
 function forFeature(feature) {
   const key = feature && FEATURE_MAP[feature] != null ? feature : 'unknown';
   let base = FEATURE_MAP[key];
@@ -785,14 +887,25 @@ function forFeature(feature) {
   // LEGITIMACY and nothing else — skip spice so the coaching register
   // stays clean (no randomly-injected character or case-construction).
   // Reinforcement DOES apply to feedback/judge/adaptive too — the
-  // 'don't sound like an AI' rule isn't speech-specific.
-  if (key === 'feedback' || key === 'judge' || key === 'adaptive' || key === 'motionTriage') return base + VOICE_REINFORCEMENT;
+  // 'don't sound like an AI' rule isn't speech-specific. The reasoning
+  // algorithm fires for judge/feedback/adaptive too — RFDs are speeches,
+  // they need pre-flight gates the same way constructives do.
+  if (key === 'feedback' || key === 'judge' || key === 'adaptive') {
+    return base + REASONING_ALGORITHM + VOICE_REINFORCEMENT;
+  }
+  if (key === 'motionTriage') return base + VOICE_REINFORCEMENT;
   if (!base) base = FEATURE_MAP.unknown;
   const spiceList = SPICE_MAP[key];
   if (spiceList && spiceList.length && Math.random() < 0.20) {
     const spice = spiceList[Math.floor(Math.random() * spiceList.length)];
     if (base.indexOf(spice) === -1) base = base + spice;
   }
+  // Reasoning scaffold lands between the content blocks (base + spice)
+  // and the voice reinforcement footer. Reinforcement stays last so the
+  // "don't sound like an AI" rule is the most-recent text before
+  // generation starts. The algorithm sits one step earlier — "here's how
+  // to think" → "here's how to sound" → output.
+  if (REASONING_FEATURES.has(key)) base = base + REASONING_ALGORITHM;
   // The reinforcement block is appended LAST so it's the most-recent
   // context the model sees before generation. Without this, the long
   // voice bank can wash out into "be a debater" abstraction by the
@@ -3088,6 +3201,7 @@ export {
 
 export const DEBATE_VOICE = {
   CORE, STRATEGY, CHARACTER, CASE_CONSTRUCTION, LANGUAGE_CONSTRUCTION,
+  REASONING_ALGORITHM, REASONING_FEATURES,
   FULL, FEATURE_MAP, forFeature,
   FORMAT_VOICES, forFormat,
   TOPIC_PRIMERS, forTopic, FINANCE_PRIMER,
