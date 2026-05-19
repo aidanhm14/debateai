@@ -481,12 +481,17 @@ async function handleCounterMessage(msg) {
     const passage = String(msg?.passage || '').trim();
     const docTitle = String(msg?.docTitle || '').slice(0, 200);
     const intensity = String(msg?.intensity || 'firm').toLowerCase();
+    const reader = String(msg?.reader || 'generic').toLowerCase();
+    const mode = String(msg?.mode || 'paragraph').toLowerCase();
     if (!passage) return { error: 'Paste a passage first.' };
     if (passage.length < 40) return { error: 'Paste a paragraph or longer — Counter needs more to work with.' };
+    // Hard cap mirrors the server side. Full-draft accepts 25k; paragraph
+    // mode stays at 12k.
+    const cap = mode === 'full-draft' ? 25000 : 12000;
     const res = await fetch(COUNTER_DOC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passage: passage.slice(0, 12000), docTitle, intensity }),
+      body: JSON.stringify({ passage: passage.slice(0, cap), docTitle, intensity, reader, mode }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) return { error: data?.error || `counter ${res.status}` };
@@ -521,6 +526,61 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg?.type === 'counter-passage') {
     handleCounterMessage(msg).then((res) => sendResponse(res || { error: 'no response' }));
+    return true;
+  }
+  if (msg?.type === 'docs-active-context') {
+    // Side panel asks: "what's the user looking at right now?"
+    // We answer: { isDoc, title, url, docId } if the active tab is a
+    // Google Doc, else { isDoc:false }. No API calls — just the tab
+    // metadata, which is enough to show a "Currently reading: <title>"
+    // strip in the panel without requiring OAuth.
+    (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        if (!tab) { sendResponse({ isDoc: false }); return; }
+        const docId = parseDocId(tab.url || '');
+        if (!docId) {
+          sendResponse({ isDoc: false, activeUrl: tab.url || '' });
+          return;
+        }
+        // Docs tab titles look like "My doc - Google Docs" — trim the suffix.
+        const rawTitle = String(tab.title || '').replace(/\s*-\s*Google Docs\s*$/, '').trim();
+        sendResponse({
+          isDoc: true,
+          title: rawTitle || 'Untitled doc',
+          url: tab.url || '',
+          docId,
+          tabId: tab.id || null,
+        });
+      } catch (e) {
+        sendResponse({ isDoc: false, error: String(e?.message || e) });
+      }
+    })();
+    return true;
+  }
+  if (msg?.type === 'pull-last-selection') {
+    // Side panel asks the active tab's content script for the last text
+    // the user selected/copied. The content script keeps a 5-minute
+    // window of last-copied text; we forward the query and pass back
+    // whatever it returns. If the tab has no content script (chrome://,
+    // store, PDF viewers), we resolve to { text:'' }.
+    (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        if (!tab?.id) { sendResponse({ text: '' }); return; }
+        let res = null;
+        try {
+          res = await chrome.tabs.sendMessage(tab.id, { type: 'getLastSelection' });
+        } catch (_) { res = null; }
+        sendResponse({
+          text: String(res?.text || '').trim(),
+          sourceUrl: tab.url || '',
+          sourceTitle: tab.title || '',
+        });
+      } catch (e) {
+        sendResponse({ text: '', error: String(e?.message || e) });
+      }
+    })();
     return true;
   }
   if (msg?.type === 'drill-started') {

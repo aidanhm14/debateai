@@ -34,13 +34,29 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg?.type !== 'getSelection') return false;
-    let text = readDomSelection();
-    if (!text && lastCopiedText && Date.now() - lastCopiedAt < 60_000) {
-      text = lastCopiedText;
+    if (msg?.type === 'getSelection') {
+      let text = readDomSelection();
+      if (!text && lastCopiedText && Date.now() - lastCopiedAt < 60_000) {
+        text = lastCopiedText;
+      }
+      sendResponse({ text });
+      return true;
     }
-    sendResponse({ text });
-    return true;
+    // Side-panel "Pull this Doc" CTA hits the SW which forwards here.
+    // We hand back whatever the user most recently selected or copied,
+    // within a 5-minute window (long enough that the user can switch to
+    // the panel without losing their selection). Docs canvas-rendered
+    // selection lives in lastCopiedText after any Cmd+C; in-DOM
+    // selections (most other sites) read via window.getSelection().
+    if (msg?.type === 'getLastSelection') {
+      let text = readDomSelection();
+      if (!text && lastCopiedText && Date.now() - lastCopiedAt < 300_000) {
+        text = lastCopiedText;
+      }
+      sendResponse({ text: String(text || '').trim() });
+      return true;
+    }
+    return false;
   });
 
   // Capture every copy event at the document level. Docs fires copy via a
@@ -120,7 +136,9 @@
     if (label) label.textContent = `Defend: "${preview}"`;
     el.classList.remove('debateai-ext-pill--hidden');
     if (pillTimer) clearTimeout(pillTimer);
-    pillTimer = setTimeout(hidePill, 9000);
+    // 18s timeout — 9s wasn't enough to context-switch from typing in
+    // Docs to noticing a chip in the bottom-right and clicking it.
+    pillTimer = setTimeout(hidePill, 18000);
   }
 
   function hidePill() {

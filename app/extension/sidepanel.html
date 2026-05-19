@@ -929,6 +929,139 @@
     padding: 12px 14px;
     font-size: 13.5px;
   }
+
+  /* Doc-context strip. Surfaces ONLY when the active tab is a Google
+     Doc. Compact horizontal pill with "Currently reading: <title>" on
+     the left and a "Pull selection ↓" button on the right. Hidden via
+     [hidden] when the active tab isn't a Doc. */
+  .doc-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(96, 165, 250, 0.06);
+    border: 1px solid rgba(96, 165, 250, 0.22);
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+  .doc-strip__head {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .doc-strip__icon { font-size: 13px; }
+  .doc-strip__label {
+    color: var(--muted-2);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    flex: 0 0 auto;
+  }
+  .doc-strip__title {
+    color: var(--fg);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .doc-strip__pull {
+    appearance: none;
+    background: rgba(96, 165, 250, 0.16);
+    border: 1px solid rgba(96, 165, 250, 0.4);
+    color: #bfdbfe;
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .doc-strip__pull:hover {
+    background: rgba(96, 165, 250, 0.28);
+    color: #fff;
+  }
+  .doc-strip__pull:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Mode tabs — segmented control between paragraph and full-draft. */
+  .mode-tabs {
+    display: flex;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .mode-tabs__btn {
+    appearance: none;
+    flex: 1;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .mode-tabs__btn.is-on {
+    background: var(--crimson);
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(229, 69, 69, 0.35);
+  }
+  .mode-tabs__btn:not(.is-on):hover {
+    background: var(--chip-hover);
+    color: var(--fg);
+  }
+
+  /* Reader row — full-width chip rail above intensity. The chips
+     scroll horizontally if they overflow the side-panel width. */
+  .reader-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .reader-row__label {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .reader-row__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .reader-row__chips button {
+    appearance: none;
+    background: var(--chip);
+    border: 1px solid var(--line);
+    color: var(--fg-soft);
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .reader-row__chips button:hover {
+    background: var(--chip-hover);
+    color: var(--fg);
+    border-color: rgba(229, 69, 69, 0.25);
+  }
+  .reader-row__chips button.is-on {
+    background: var(--chip-on);
+    border-color: var(--chip-on-border);
+    color: #fff;
+  }
   .counter-card__head {
     appearance: none;
     background: transparent;
@@ -1291,6 +1424,26 @@
           </p>
         </div>
         <div class="counter-card__body" id="counterBody">
+          <!-- Doc-context strip. Only shows when the active tab is a
+               Google Doc — gives Counter a felt sense of "I know what
+               you're reading." Pull button asks the content script for
+               the user's most recent selection/copy. -->
+          <div class="doc-strip" id="docStrip" hidden>
+            <div class="doc-strip__head">
+              <span class="doc-strip__icon" aria-hidden="true">📄</span>
+              <span class="doc-strip__label">Currently reading</span>
+              <span class="doc-strip__title" id="docStripTitle">—</span>
+            </div>
+            <button class="doc-strip__pull" id="docStripPull" type="button">Pull selection ↓</button>
+          </div>
+
+          <!-- Mode tabs: paragraph vs full-draft. Switches the size cap
+               (12k → 25k) and the prompt framing on the server. -->
+          <div class="mode-tabs" role="tablist" aria-label="Counter mode">
+            <button type="button" class="mode-tabs__btn is-on" role="tab" data-mode="paragraph" aria-selected="true">A claim</button>
+            <button type="button" class="mode-tabs__btn" role="tab" data-mode="full-draft" aria-selected="false">Whole draft</button>
+          </div>
+
           <textarea
             class="counter-card__textarea counter-card__textarea--lg"
             id="counterPassage"
@@ -1300,6 +1453,23 @@
             aria-label="Passage to counter"
             autofocus
           ></textarea>
+
+          <!-- Reader picker: who the AI plays when reading the user's
+               argument. Distinct from intensity (how harshly they push)
+               and from mode (paragraph vs whole-draft). -->
+          <div class="reader-row">
+            <span class="reader-row__label">Reader</span>
+            <div class="reader-row__chips" id="readerChips" role="tablist" aria-label="Reader persona">
+              <button type="button" role="tab" data-reader="generic" class="is-on" aria-selected="true">Skeptical reader</button>
+              <button type="button" role="tab" data-reader="admissions">Admissions officer</button>
+              <button type="button" role="tab" data-reader="oped">Op-ed editor</button>
+              <button type="button" role="tab" data-reader="committee">Thesis committee</button>
+              <button type="button" role="tab" data-reader="opposing">Opposing counsel</button>
+              <button type="button" role="tab" data-reader="vc">VC investor</button>
+              <button type="button" role="tab" data-reader="varsity">Varsity debater</button>
+            </div>
+          </div>
+
           <div class="counter-card__row">
             <div class="counter-card__intensity" role="tablist" aria-label="Intensity">
               <button type="button" role="tab" data-intensity="measured">Measured</button>

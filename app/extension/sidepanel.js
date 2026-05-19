@@ -66,6 +66,15 @@ const STORAGE_KEYS = {
   recent: 'counter:recent',
   counterIntensity: 'counter:intensity',
   counterCardOpen: 'counter:card-open',
+  counterReader: 'counter:reader',
+  counterScope: 'counter:scope', // 'paragraph' | 'full-draft' (avoid clash w/ legacy 'mode')
+};
+const VALID_READERS = new Set(['generic', 'admissions', 'oped', 'committee', 'opposing', 'vc', 'varsity']);
+const VALID_SCOPES = new Set(['paragraph', 'full-draft']);
+const COUNTER_CAPS = { paragraph: 12000, 'full-draft': 25000 };
+const COUNTER_PLACEHOLDERS = {
+  paragraph: 'Paste a paragraph of your argument…',
+  'full-draft': 'Paste the whole draft — Counter will find the weakest load-bearing claim across the entire thing.',
 };
 // examDate lives in chrome.storage.local (not localStorage) so the
 // background SW can read it for badge / notification logic — see
@@ -129,6 +138,10 @@ const els = {
   counterRun: document.getElementById('counterRun'),
   counterError: document.getElementById('counterError'),
   counterResults: document.getElementById('counterResults'),
+  readerChips: document.getElementById('readerChips'),
+  docStrip: document.getElementById('docStrip'),
+  docStripTitle: document.getElementById('docStripTitle'),
+  docStripPull: document.getElementById('docStripPull'),
   livepill: document.getElementById('livepill'),
   livepillLabel: document.getElementById('livepillLabel'),
   endDrillBtn: document.getElementById('endDrillBtn'),
@@ -181,11 +194,13 @@ const state = {
   // Last drill's failure mode — drives the sticky retry strip below
   // the topic field when a session bailed before going live.
   lastDrillFailed: false,
-  // Counter-your-draft sub-state. intensity persists via localStorage,
-  // pending is true while the agent is in flight, results holds the
-  // last successful response so re-opening the card mid-session doesn't
-  // wipe the rebuttals.
+  // Counter-your-draft sub-state. intensity / reader / scope persist via
+  // localStorage; pending is true while the agent is in flight; results
+  // holds the last successful response so re-opening the card mid-session
+  // doesn't wipe the rebuttals.
   counterIntensity: 'firm',
+  counterReader: 'generic',
+  counterScope: 'paragraph',
   counterPending: false,
   counterResults: null,
 };
@@ -545,9 +560,18 @@ function setCounterOpen(open) {
 }
 function updateCounterCount() {
   const n = (els.counterPassage?.value || '').length;
-  if (els.counterCount) els.counterCount.textContent = `${n} / 12000`;
+  const cap = COUNTER_CAPS[state.counterScope] || COUNTER_CAPS.paragraph;
+  if (els.counterCount) els.counterCount.textContent = `${n} / ${cap}`;
   if (els.counterRun) {
     els.counterRun.disabled = state.counterPending || (els.counterPassage?.value || '').trim().length < 40;
+  }
+  // Tighten the counter color as the user approaches the cap so an
+  // overlong full-draft paste doesn't silently fail at submit time.
+  if (els.counterCount) {
+    const pct = cap > 0 ? n / cap : 0;
+    els.counterCount.style.color = pct >= 0.95 ? '#fda4af'
+      : pct >= 0.8  ? '#f59e0b'
+      : '';
   }
 }
 function setCounterIntensity(key) {
@@ -560,6 +584,101 @@ function setCounterIntensity(key) {
     b.classList.toggle('is-on', on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
   });
+}
+function setCounterReader(key) {
+  if (!VALID_READERS.has(key)) return;
+  state.counterReader = key;
+  saveLocal(STORAGE_KEYS.counterReader, key);
+  if (!els.readerChips) return;
+  els.readerChips.querySelectorAll('button').forEach((b) => {
+    const on = b.dataset.reader === key;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+function setCounterScope(key) {
+  if (!VALID_SCOPES.has(key)) return;
+  state.counterScope = key;
+  saveLocal(STORAGE_KEYS.counterScope, key);
+  // Update the maxlength + placeholder so the user sees the cap shift.
+  if (els.counterPassage) {
+    const cap = COUNTER_CAPS[key];
+    els.counterPassage.maxLength = cap;
+    els.counterPassage.placeholder = COUNTER_PLACEHOLDERS[key];
+  }
+  // Re-render the tab states.
+  document.querySelectorAll('.mode-tabs__btn').forEach((b) => {
+    const on = b.dataset.mode === key;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  // CTA copy adapts so the verb matches the scope.
+  const ctaLabel = document.querySelector('.counter-card__cta-label');
+  if (ctaLabel) ctaLabel.textContent = key === 'full-draft' ? 'Stress-test' : 'Counter';
+  const ctaTail = document.querySelector('.counter-card__cta--lg span:last-child');
+  if (ctaTail) {
+    // The CTA template is "<label> this argument". Swap suffix for full-draft.
+    ctaTail.innerHTML = key === 'full-draft'
+      ? '<span class="counter-card__cta-label">Stress-test</span> the whole draft'
+      : '<span class="counter-card__cta-label">Counter</span> this argument';
+  }
+  updateCounterCount();
+}
+// Doc-context strip. Asks background for the active-tab metadata; if
+// the tab is a Google Doc, render the strip with the title + a Pull
+// CTA. Otherwise hide the strip entirely.
+async function refreshDocStrip() {
+  if (!els.docStrip) return;
+  try {
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'docs-active-context' }, (response) => {
+        if (chrome.runtime.lastError) { resolve(null); return; }
+        resolve(response);
+      });
+    });
+    if (res?.isDoc) {
+      els.docStrip.hidden = false;
+      if (els.docStripTitle) {
+        const title = String(res.title || 'Untitled doc').slice(0, 60);
+        els.docStripTitle.textContent = title;
+        els.docStripTitle.title = res.title || '';
+      }
+    } else {
+      els.docStrip.hidden = true;
+    }
+  } catch (_) {
+    els.docStrip.hidden = true;
+  }
+}
+async function pullSelectionIntoCounter() {
+  if (!els.counterPassage) return;
+  if (els.docStripPull) {
+    els.docStripPull.disabled = true;
+    els.docStripPull.textContent = 'Pulling…';
+  }
+  try {
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'pull-last-selection' }, (response) => {
+        if (chrome.runtime.lastError) { resolve(null); return; }
+        resolve(response);
+      });
+    });
+    const text = String(res?.text || '').trim();
+    if (!text) {
+      showToast('Nothing to pull. Copy or select a paragraph in your Doc first.');
+      return;
+    }
+    const cap = COUNTER_CAPS[state.counterScope] || COUNTER_CAPS.paragraph;
+    els.counterPassage.value = text.slice(0, cap);
+    updateCounterCount();
+    els.counterPassage.focus();
+    try { SFX.captured(); } catch (_) {}
+  } finally {
+    if (els.docStripPull) {
+      els.docStripPull.disabled = false;
+      els.docStripPull.textContent = 'Pull selection ↓';
+    }
+  }
 }
 function showCounterError(msg) {
   const el = els.counterError;
@@ -682,6 +801,8 @@ async function runCounter() {
         type: 'counter-passage',
         passage,
         intensity: state.counterIntensity,
+        reader: state.counterReader,
+        mode: state.counterScope,
       }, (response) => {
         if (chrome.runtime.lastError) {
           resolve({ error: chrome.runtime.lastError.message });
@@ -715,9 +836,12 @@ els.counterRun?.addEventListener('click', runCounter);
 els.counterBody?.addEventListener('click', (ev) => {
   const t = ev.target;
   if (!(t instanceof HTMLButtonElement)) return;
-  const intensity = t.dataset.intensity;
-  if (intensity) setCounterIntensity(intensity);
+  // Single delegated click handler for intensity / reader / mode chips.
+  if (t.dataset.intensity) { setCounterIntensity(t.dataset.intensity); return; }
+  if (t.dataset.reader)    { setCounterReader(t.dataset.reader);       return; }
+  if (t.dataset.mode)      { setCounterScope(t.dataset.mode);          return; }
 });
+els.docStripPull?.addEventListener('click', pullSelectionIntoCounter);
 // Cmd/Ctrl+Enter inside the textarea runs the counter — same shortcut as
 // many AI form patterns. Plain Enter inserts a newline (default behavior).
 els.counterPassage?.addEventListener('keydown', (ev) => {
@@ -1206,7 +1330,24 @@ els.clearRecentBtn?.addEventListener('click', () => {
     state.counterIntensity = savedIntensity;
   }
   setCounterIntensity(state.counterIntensity);
+  // Reader + scope restore. Reader defaults to 'generic'; scope to
+  // 'paragraph'. Both persist across panel sessions.
+  const savedReader = readLocal(STORAGE_KEYS.counterReader);
+  if (savedReader && VALID_READERS.has(savedReader)) {
+    state.counterReader = savedReader;
+  }
+  setCounterReader(state.counterReader);
+  const savedScope = readLocal(STORAGE_KEYS.counterScope);
+  if (savedScope && VALID_SCOPES.has(savedScope)) {
+    state.counterScope = savedScope;
+  }
+  setCounterScope(state.counterScope);
   updateCounterCount();
+  // Doc-context strip: ask the background SW whether the active tab is
+  // a Google Doc, render the title strip if so. Re-runs whenever the
+  // window regains focus so switching tabs picks up the new context.
+  refreshDocStrip();
+  window.addEventListener('focus', refreshDocStrip);
   const wasOpen = readLocal(STORAGE_KEYS.counterCardOpen) === '1';
   if (wasOpen) setCounterOpen(true);
   // Platform-correct shortcut in the onboarding card.
