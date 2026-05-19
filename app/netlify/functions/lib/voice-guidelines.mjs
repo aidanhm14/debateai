@@ -2161,6 +2161,30 @@ function inferTopicFromText(text) {
 // as "no knowledge" and producing a thin abstract speech with no named
 // examples. That kills speaker scores in every parli format.
 //
+// CALIBRATION for parli knowledge: the AI's deployable knowledge in parli
+// should match what a well-educated college student / circuit debater
+// would know WITHOUT looking it up. Concretely that's:
+//   - Named major cases (Bordenkircher, Navtej, Puttaswamy, Sabarimala,
+//     Bandung 1955, the Marshall Plan, the 2008 financial crisis)
+//   - Big-picture mechanisms (how the WTO works, why Janus mattered for
+//     public-sector unions, why the EU's Greek bailout shaped austerity
+//     politics, what the Lochner era was)
+//   - Well-known historical episodes (1990s Russian shock therapy, the
+//     Algerian war of independence, the Spanish Civil War, Japan's lost
+//     decade, the rise of BJP, the fall of Soviet-bloc regimes)
+//   - Real actors with their basic incentive structures (UAE in Sudan,
+//     China in BRI, France in West Africa, India re Quad, Gulf states re
+//     oil + Israel)
+//   - Broad ballpark numbers ("about half," "two-thirds," "the dominant
+//     share," "tens of millions," "the largest in Europe")
+// What it should NOT do: invent precise statistics ("exactly 73.4%"),
+// invent specific study findings ("the 2023 JAMA paper found..."),
+// invent named scholars' specific argument-titles, or do anything that
+// would require database access. The test: would a smart 22-year-old
+// debate-circuit alum know this off the top of their head? If yes,
+// deploy. If it'd need a Google check, hedge with "the literature on X
+// tends to find Y" instead.
+//
 // A note on anti-fabrication: when a format permits evidence, cite REAL
 // research the model has real priors on (Brookings / IPCC / BLS / NBER /
 // NEJM / peer-reviewed journals on topics you can actually reason about).
