@@ -71,6 +71,9 @@ const URLS = [
   { path: '/learn/guides/ld-value-criterion',       changefreq: 'monthly', priority: '0.80' },
   { path: '/learn/guides/asian-parli-whip',         changefreq: 'monthly', priority: '0.80' },
   { path: '/learn/guides/bp-closing-extension',     changefreq: 'monthly', priority: '0.80' },
+  { path: '/learn/guides/apda-pmr',                 changefreq: 'monthly', priority: '0.82' },
+  { path: '/learn/guides/wsdc-first-prop',          changefreq: 'monthly', priority: '0.82' },
+  { path: '/learn/guides/pf-summary-speech',        changefreq: 'monthly', priority: '0.82' },
   // Debate fundamentals deep-content surface. Each is the canonical
   // ranking target for a foundational concept query.
   { path: '/learn/fundamentals',                       changefreq: 'weekly',  priority: '0.88' },

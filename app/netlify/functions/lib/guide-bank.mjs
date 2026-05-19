@@ -885,6 +885,278 @@ export const GUIDE_BANK = {
     ctaHref: '/debate-ai?format=bp&motion=This%20house%20would%20impose%20a%20carbon%20tax%20on%20heavy%20industry.',
   },
 
+  'apda-pmr': {
+    slug: 'apda-pmr',
+    question: 'APDA Prime Minister Rebuttal: how to write the last speech',
+    hook: 'The PMR is 5 minutes, no new arguments, and the last word. Collapse to one voter, respond to the LOR cleanly, and write the judge\'s ballot for them.',
+    format: 'apda',
+    formatName: 'APDA Parliamentary',
+    readTime: '6 min',
+    takeaways: [
+      'PMR rule: no new arguments. Only direct responses to MOC and LOR are permitted.',
+      'Collapse to 1-2 voting issues. Trying to extend four contentions in five minutes is how PMRs lose.',
+      'Always respond to LOR\'s strongest attack first. Skipping it reads as concession.',
+      "End by writing the judge's ballot in one sentence. \"Vote government on contention two: magnitude, probability, irreversibility.\"",
+    ],
+    sections: [
+      {
+        heading: 'What the PMR actually is',
+        body: [
+          "Prime Minister Rebuttal. Five minutes. The last speech of the round, delivered by the same person who gave the PMC eight speeches and forty minutes earlier. By the time you stand for the PMR, the LOR has just landed (the opposition's structured collapse) and the MOC sits in your memory from earlier.",
+          "The PMR is the only speech in APDA where you do not get to introduce new arguments. The exception is narrow: you can respond directly to attacks in the MOC and LOR. You cannot add a third contention. You cannot bring a new framework. You cannot run a kritik. Adjudicators strike new arguments cleanly and dock the team for trying.",
+          'Most rounds are won or lost in the PMR. The LOR collapsed the opp case to its strongest voter; the PMR has to dismantle that voter, extend the strongest gov argument, and weigh the round in five minutes. There is no slack.',
+        ],
+      },
+      {
+        heading: 'Collapse to one voter',
+        body: [
+          'The PMR rule: pick one or two issues the round actually turns on and walk them. Trying to extend all four PMC contentions in five minutes is how rounds get lost. You spend 75 seconds per contention, none of them get developed, the judge has no clear ballot path.',
+          "Pick your voter by working backward from where you actually win. Look at the flow. Which argument did the LOR not attack cleanly? Which contention has both warrant and impact intact after MOC? That is your voter. Lead with it.",
+          'Concede the rest. "We grant the framework challenge from LOR. The round still comes down to contention two, and on contention two we win." Conceding minor points buys you time AND signals to the judge that you have a clear path to win.',
+        ],
+      },
+      {
+        heading: 'Respond to LOR first',
+        body: [
+          "The LOR just happened. The adjudicator's pen is hovering over their attacks. If you skip the LOR response and jump to your extension, the judge reads it as conceded.",
+          'Open the PMR with the LOR response. \"LOR made one strong attack: that our mechanism doesn\'t work in the post-2020 environment. Three responses.\" Then deliver three short responses. Each takes 20 seconds.',
+          'After the LOR is handled, move to MOC responses (briefer, since the LOR already filtered them) and then to your extension. Order matters: most-recent attacks get priority because that is what the judge has top-of-mind.',
+        ],
+      },
+      {
+        heading: 'Extend, do not introduce',
+        body: [
+          'After defense, extend your voter. Extension means deepening an argument that is already on the flow, not adding a new one.',
+          'Legal extension: "On contention two, the empirical evidence we cited still stands; LOR\'s rebuttal misread the methodology. Specifically, their counter-cite was a 2015 study; ours is a 2023 update. Our number is current."',
+          'Illegal: "Building on contention two, here\'s a new argument: institutional trust." Adding institutional trust as a new line of analysis is a new argument. The chair strikes it.',
+          'Adjudicators allow new comparisons and new weighing. A new example illustrating an existing argument is usually fine. New contentions are not.',
+        ],
+      },
+      {
+        heading: 'Write the ballot',
+        body: [
+          'Final 30 seconds of the PMR: write the judge\'s ballot in one sentence. "Vote government on contention two. Magnitude favors us because 50 million people are affected. Probability favors us because the Medicaid mechanism is empirically demonstrated in 38 states. Reversibility favors us because mortality is irreversible. That is the round."',
+          'The judge writes that sentence on their flow. When they sit down to fill out the ballot, your sentence is already in their notes. They may write a different ballot, but they have to actively reject yours to do it. Most adjudicators do not bother.',
+          "Do not end with \"and that's why we propose.\" Do not end with a recap. End with the ballot sentence and stop. The silence after a strong PMR is the moment the round is decided.",
+        ],
+      },
+      {
+        heading: 'Common PMR mistakes',
+        body: [
+          'Trying to extend everything. Four contentions in five minutes is 75 seconds each. None develop. Collapse to one or two.',
+          'Skipping the LOR. The LOR is the most-recent speech in the judge\'s memory. Skipping it reads as concession.',
+          'New arguments. Adjudicators strike them cleanly. Sometimes the chair will visibly cross them out on their flow. The team loses credibility.',
+          'Forgetting to weigh. If you extend your voter without weighing it against opp\'s strongest argument, the judge has no comparison to resolve the round on.',
+          'Reading the speech. The PMR is the only APDA speech where the speaker had no real prep time on the content (it depends entirely on LOR). Reading a pre-written PMR is impossible; tracking the LOR live and responding in real time is the actual skill.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Opening the PMR with LOR response.',
+        line: '"LOR made one strong attack: that our mechanism doesn\'t work in the post-2020 environment. Three responses. One: the mechanism is structural, not period-specific. Two: their counter-evidence is a 2015 study, ours is 2023. Three: even if attenuated, magnitude still favors us."',
+        why: 'Acknowledges LOR\'s best attack, dispatches it in 25 seconds, moves on. Judge sees the response on their flow before mental commitment to LOR has set.',
+      },
+      {
+        context: 'Writing the ballot in the last 30 seconds.',
+        line: '"Vote government on contention two. Magnitude: 50 million people. Probability: empirically demonstrated in 38 states. Reversibility: mortality is irreversible. That is the round."',
+        why: 'One sentence. Names the voter, names the weighing axes, gives the judge the ballot path. Pen-ready.',
+      },
+    ],
+    related: ['apda-opp-case', 'asian-parli-whip', 'wsdc-reply-speech'],
+    keywords: [
+      'apda pmr',
+      'prime minister rebuttal apda',
+      'how to give a pmr',
+      'apda last speech',
+      'apda rebuttal strategy',
+      'pm rebuttal debate',
+      'american parliamentary debate pmr',
+      'apda final speech',
+    ],
+    ctaLabel: 'Practice the PMR speech',
+    ctaHref: '/debate-ai?format=apda&motion=This%20house%20would%20fund%20universal%20healthcare%20by%20raising%20marginal%20income%20tax.',
+  },
+
+  'wsdc-first-prop': {
+    slug: 'wsdc-first-prop',
+    question: 'WSDC first proposition speech: how to open the round',
+    hook: 'The 1st Proposition speech in WSDC sets the entire round. Definition, burden, two substantive arguments, and a clean handoff to your partner.',
+    format: 'worlds',
+    formatName: 'World Schools',
+    readTime: '6 min',
+    takeaways: [
+      'The 1st Prop has 8 minutes to define the motion, set the burden, and present 2-3 substantive arguments.',
+      "Definitions in WSDC are looser than in Asian Parli. Reasonable interpretations are protected; squirrels lose on principle.",
+      'Build 2-3 arguments, not 5. Three substantive arguments develop; five thin ones die in cross.',
+      'End with a one-line handoff to your 2nd Prop so the bench has a coherent two-speech strategy on the flow.',
+    ],
+    sections: [
+      {
+        heading: 'What the 1st Prop does',
+        body: [
+          "The first proposition speech in World Schools Debate is eight minutes. You are the first speaker the panel hears, you set the definition the round will run on, you build the substantive case, and you hand it off to your 2nd speaker who extends.",
+          'The job has four parts: define the motion clearly, state the burden of proof both sides should meet, present 2-3 substantive arguments, and end with one line that sets up the rest of the prop case for the 2nd speaker. In that order.',
+          "WSDC panels are mixed: some are pure-flow adjudicators, some weight rhetoric and adaptation more heavily. The 1st Prop speech is where you signal you understand the format. Sloppy here and you spend the rest of the round digging out.",
+        ],
+      },
+      {
+        heading: 'Definition: be reasonable',
+        body: [
+          'WSDC definitions are looser than Asian Parli definitions. You do not need a statutory mechanism with named actors. You need a reasonable interpretation that gives the opposition genuine ground to attack and the proposition genuine ground to defend.',
+          'Squirrels (unreasonably narrow definitions) lose on principle in WSDC. Panels will rule against a proposition that defined the motion in a way no reasonable opposition could attack. So define generously: state what the motion would mean in plain reading, name the most contested interpretation, and move on.',
+          'Example, motion = "This house believes that social media has done more harm than good." Definition: "We interpret social media as the major platforms (Facebook, Instagram, TikTok, X, YouTube) and the 2010-present period. The harm-vs-good question is comparative: net welfare assessment across the population using these platforms." 20 seconds. Both sides have clear ground.',
+        ],
+      },
+      {
+        heading: 'Burden of proof',
+        body: [
+          'After the definition, state the burden: what does each side need to prove to win. This is more formal in WSDC than in APDA. Adjudicators expect it.',
+          'On comparative motions ("does more harm than good"), state that both sides need to show net effect, with examples representative of the affected population. On policy motions ("this house would..."), state that proposition shows the policy is preferable to the status quo on key axes.',
+          'Stating the burden does two things. It commits the opposition to the same standard. And it signals to the panel that you understand the structure of the round, which builds early credibility.',
+        ],
+      },
+      {
+        heading: 'Build 2-3 substantive arguments',
+        body: [
+          'After definition and burden (about 90 seconds combined), you have 6.5 minutes for substantive content. Build 2-3 arguments. Not 5.',
+          "Each argument should have: a clear claim, two or three warrants (mechanism + evidence), an impact, and a brief comparative note about why this argument matters more than the obvious opposition response.",
+          'Order the arguments by strength: lead with your most defensible argument (because the judge\'s attention is highest in the first 3 minutes), put your second-strongest second, and if you have a third, make it short.',
+          'In a motion about social media harm: argument 1 = mental health (strongest, most-cited evidence, biggest magnitude). Argument 2 = political polarization (substantive, well-warranted, harder to attack on warrant). Argument 3 (short) = attention economy externalities. Three arguments in 6 minutes, each gets 2 minutes, all develop.',
+        ],
+      },
+      {
+        heading: 'Pre-empt the obvious opposition attack',
+        body: [
+          'The strongest 1st Prop speeches pre-empt the obvious opp move. You know opp\'s 1st speaker will argue that social media also has connective benefits. Address it in your final argument: "Opp will argue connective benefits. We grant connective benefits exist. The burden, as we stated, is comparative net welfare. Three responses on why net welfare still favors prop..."',
+          'You have not won the connective-benefits fight. But you have planted a frame, and now opp 1 has to clear two arguments instead of one to make their lead stick.',
+          'Do not pre-empt every possible opp move. Pick the one you know they will lead with. One pre-empt is strategic; five is paranoid and eats your time.',
+        ],
+      },
+      {
+        heading: 'Hand off to your 2nd Prop',
+        body: [
+          'End the speech with 20 seconds reserved for partner handoff. \"2nd prop will extend on the mental-health argument with the new platform-specific data, respond to whatever opp 1 brings on the political-polarization piece, and add the third argument I previewed.\"',
+          'This does two things. It tells the panel there is a coherent two-speech strategy on prop, not just two solo speeches stapled together. And it gives your 2nd Prop explicit licensed turf so they do not retread your ground.',
+          'WSDC panels reward bench coordination. If 1st and 2nd Prop sound like they prepped together, the prop case feels more substantial than the opp case even when the content is similar.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Definition for a social-media motion.',
+        line: '"We interpret social media as the major platforms (Facebook, Instagram, TikTok, X, YouTube) over the 2010-present period. The harm-vs-good question is comparative: net welfare assessment across the population using these platforms."',
+        why: 'Concrete platform list, time-bounded, frames the burden as comparative. Opp gets attackable ground; prop gets defendable ground. No squirrel.',
+      },
+      {
+        context: 'Partner handoff line.',
+        line: '"2nd prop will extend on the mental-health argument with the new platform-specific data, respond to whatever opp 1 brings on political polarization, and add the third argument I previewed."',
+        why: 'Tells the panel there is a coherent two-speech strategy. Licenses turf for 2nd prop. Saves the bench from a panicked huddle between speeches.',
+      },
+    ],
+    related: ['wsdc-reply-speech', 'asian-parli-pm-opening', 'bp-poi'],
+    keywords: [
+      'wsdc first proposition',
+      'world schools 1st speaker prop',
+      'wsdc opening speech',
+      'how to give wsdc first proposition',
+      'world schools debate first speaker',
+      'wsdc proposition strategy',
+      'wsdc 1st prop structure',
+    ],
+    ctaLabel: 'Practice a WSDC opening',
+    ctaHref: '/debate-ai?format=worlds&motion=This%20house%20believes%20social%20media%20has%20done%20more%20harm%20than%20good.',
+  },
+
+  'pf-summary-speech': {
+    slug: 'pf-summary-speech',
+    question: 'PF summary speech structure: how to collapse the round in 3 minutes',
+    hook: 'The PF summary is not a 3rd rebuttal. It is the round\'s first collapse. Pick 2-3 voting issues, walk each, and start weighing.',
+    format: 'pf',
+    formatName: 'Public Forum',
+    readTime: '5 min',
+    takeaways: [
+      'PF summary is 3 minutes per speaker. It comes after both rebuttals and before final focus.',
+      'Collapse to 2-3 voting issues. Trying to walk every argument in the round is how summaries lose.',
+      'Reorganize by issue, not by speech. Issues are thematic axes that collect multiple arguments from both sides.',
+      'Start weighing in the summary. Full weighing comes in final focus, but plant the weighing axes here so final focus has roots.',
+    ],
+    sections: [
+      {
+        heading: 'What the PF summary does',
+        body: [
+          "Public Forum summaries are 3-minute speeches given by speaker 1 of each team (or speaker 2, depending on team strategy) after both rebuttal speeches. They are followed by 3 minutes of grand crossfire and then the 2-minute final focus.",
+          "The summary is the round's first collapse. The constructives built 4-5 contentions per side. The rebuttals attacked across the board. By the time the summary stands, there are 8-10 arguments still alive on the flow. The summary's job is to walk the panel through which 2-3 actually matter and which side wins each.",
+          "The most common novice mistake: treating the summary like a 3rd rebuttal. Going argument by argument through opp's case, knocking each one down, and never reorganizing the round. The summary is reorganization, not rebuttal.",
+        ],
+      },
+      {
+        heading: 'Collapse to 2-3 voting issues',
+        body: [
+          "Three minutes does not fit five issues. Pick two, maybe three, and walk them. Drop the rest.",
+          'How to pick: look at where the round actually clashed. Which contention does each team most need to win? Which response from your rebuttal landed cleanly? Those are voters.',
+          'Concede the rest. "We concede their first contention on consumer benefits. The round comes down to the second contention on supplier consolidation and the third on long-term innovation. Those are the voters." Conceding gives you 60 more seconds of speech time.',
+        ],
+      },
+      {
+        heading: 'Reorganize by issue, not by speech',
+        body: [
+          "Issues are not contentions. An issue is a thematic axis that collects arguments from both sides. The 'supplier consolidation' issue collects pro's contention 2, con's rebuttal response, the cross from grand crossfire, and any new evidence from the second rebuttal.",
+          "Walking an issue: name the issue, summarize pro's position, summarize con's position, weigh briefly, declare who wins. Repeat for the next issue.",
+          "Example: \"Issue one: supplier consolidation. We argued that the policy concentrates market power in three players. Con responded that consolidation is offset by entry incentives. Three reasons we still win: one, empirical evidence from the 2022 merger wave shows entry incentives don't materialize in this sector. Two, even if they did, the timeline is 5-7 years; consolidation harms hit year one. Three, magnitude favors us because consumer prices rise immediately. We win issue one.\"",
+        ],
+      },
+      {
+        heading: 'Start weighing in the summary',
+        body: [
+          'Full weighing happens in final focus, but you must plant the weighing axes in the summary. Without weighing in summary, your final focus has no roots; the panel did not see the weighing develop, only the conclusion.',
+          'Pick the weighing axis where you win and state it as part of each issue walk. "Issue one: supplier consolidation. We win on magnitude and probability." "Issue two: long-term innovation. We win on timeframe (impacts land in year one vs their year ten)."',
+          'By the time final focus stands, the panel has already seen "magnitude," "probability," "timeframe" written next to your issues. Final focus extends the weighing; summary plants it.',
+        ],
+      },
+      {
+        heading: "What to skip",
+        body: [
+          'New arguments are illegal in the summary. Same rule as the WSDC reply or APDA PMR. Adjudicators strike new contentions.',
+          "Skip the framework rehash. If your constructive set a comparative-cost framework, do not re-derive it in the summary. Use it as the lens you weigh through.",
+          'Skip extending arguments that the rebuttals already locked down. If con\'s rebuttal cleanly answered your first contention and you do not need it to win, drop it. Conceding shows confidence and saves time.',
+          'Skip cross-applies. If you need to reference an earlier argument, do it inline as part of an issue walk. "Pulling through our contention 2 evidence into this issue" is cleaner than a separate cross-apply block.',
+        ],
+      },
+      {
+        heading: 'Closing the summary',
+        body: [
+          "Final 20 seconds: signpost what final focus will do. \"In final focus, we'll extend on the consolidation issue, respond to whatever con brings on innovation timeline, and finish weighing on magnitude.\" The panel knows what to expect; they listen for those three pieces.",
+          "Do not end with 'and that is why we propose' or a recap. Recaps in a 3-minute speech are dead weight. End with the final-focus preview and stop.",
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Issue walk in the summary.',
+        line: '"Issue one: supplier consolidation. Three reasons we win. One: empirical evidence on the 2022 merger wave. Two: con\'s timeline argument is 5-7 years, ours is year one. Three: magnitude favors us because prices rise immediately. We win issue one on magnitude and timeframe."',
+        why: 'Names the issue, gives three responses, names the weighing axes. Panel writes "magnitude, timeframe" next to issue one on the flow. Final focus can pick it up.',
+      },
+      {
+        context: 'Final-focus preview at the close.',
+        line: '"In final focus, we will extend on the consolidation issue, respond to whatever con brings on innovation timeline, and finish weighing on magnitude."',
+        why: 'Panel knows the shape of the final focus. They flow against this preview. Speech ends with a forward-looking commitment, not a backward-looking recap.',
+      },
+    ],
+    related: ['pf-crossfire-questions', 'wsdc-reply-speech', 'apda-opp-case'],
+    keywords: [
+      'pf summary speech structure',
+      'public forum summary speech',
+      'pf 3 minute summary',
+      'how to write pf summary',
+      'public forum collapse speech',
+      'pf summary tips',
+      'pf summary vs final focus',
+    ],
+    ctaLabel: 'Practice a PF round',
+    ctaHref: '/debate-ai?format=pf&motion=Resolved%3A%20The%20benefits%20of%20regulating%20social%20media%20outweigh%20the%20harms.',
+  },
+
 };
 
 export function getGuide(slug) {

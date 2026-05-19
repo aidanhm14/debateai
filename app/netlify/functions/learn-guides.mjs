@@ -469,7 +469,7 @@ function renderHubPage() {
 
   <h1 class="hub-h1">Guides.</h1>
 
-  <p class="hub-intro">Short, format-accurate write-ups on the moves that win specific debate speeches. Ten published.</p>
+  <p class="hub-intro">Short, format-accurate write-ups on the moves that win specific debate speeches. ${guides.length} published.</p>
 
   ${Object.entries(byFormat).map(([formatName, formatGuides]) => `
     <section class="hub-group">
