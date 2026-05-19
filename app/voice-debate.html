@@ -4492,6 +4492,56 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       // global mute via SFX.
       try {window.SFX && SFX.rfdReveal && SFX.rfdReveal();} catch (sfxErr) {console.warn('[generateRFD] SFX skipped:', sfxErr);}
 
+      // ── Hand off to the dedicated /voice-rfd page.
+      // The inline rfd-card render below stays in place as a
+      // graceful fallback (back button, sessionStorage blocked,
+      // navigation aborted, etc), but the primary path now sends the
+      // user to a designed ballot page that reads MUCH better than
+      // the cramped in-panel block. Payload is the parsed RFD text +
+      // motion + mode + side + persona + round stats + the full
+      // turn-by-turn transcript so the new page can render the
+      // hero verdict, the four sections (best / costliest / fixes /
+      // full ballot), and an optional transcript block. Honors
+      // ?nohandoff=1 for testing the old inline view.
+      try {
+        var url = new URL(window.location.href);
+        if (url.searchParams.get('nohandoff') !== '1' && text){
+          var duration = (typeof elapsed === 'number' && elapsed >= 0) ? elapsed : null;
+          var yourMs = (typeof userSpeakingMs !== 'undefined') ? userSpeakingMs : 0;
+          var aiMs   = (typeof aiSpeakingMs   !== 'undefined') ? aiSpeakingMs   : 0;
+          var totalMs = yourMs + aiMs;
+          var youPct = totalMs > 0 ? Math.round((yourMs / totalMs) * 100) : null;
+          var personaObj = (typeof PERSONALITIES !== 'undefined') ? PERSONALITIES.find(function(p){ return p.key === personaKey; }) : null;
+          var payload = {
+            rfd: text,
+            motion: motion || '',
+            mode: mode || '',
+            modeLabel: modeLabel || mode || '',
+            side: side || '',
+            sideLabel: side === 'gov' ? 'Government' : side === 'opp' ? 'Opposition' : '',
+            personaKey: personaKey || '',
+            personaLabel: personaObj ? (personaObj.name + (personaObj.title ? ' · ' + personaObj.title : '')) : (personaKey || ''),
+            stats: {
+              duration: duration,
+              interrupts: (typeof interruptCount === 'number') ? interruptCount : null,
+              yourTurns: (turnsRef.current || []).filter(function(t){ return t.who === 'you'; }).length,
+              aiTurns:   (turnsRef.current || []).filter(function(t){ return t.who === 'ai'; }).length,
+              talkSplit: youPct != null ? { you: youPct, ai: 100 - youPct } : null,
+            },
+            transcript: (turnsRef.current || [])
+              .filter(function(t){ return t.who === 'you' || t.who === 'ai'; })
+              .map(function(t){ return { who: t.who, text: (t.text || '').trim(), interrupted: !!t.interrupted }; }),
+            ts: Date.now(),
+          };
+          try { sessionStorage.setItem('debateos-voice-rfd', JSON.stringify(payload)); } catch(e){}
+          try { gtag('event', 'voice_rfd_handoff', { format: mode || '', has_score: /SPEAKER\s*POINTS/i.test(text) }); } catch(e){}
+          // Small timeout so the rfd-card animation / SFX gets a beat
+          // before we navigate away; if the user hammers Back the
+          // inline render is still on the previous page.
+          setTimeout(function(){ try { window.location.href = '/voice-rfd'; } catch(e){} }, 350);
+        }
+      } catch(handoffErr){ console.warn('[generateRFD] handoff failed', handoffErr); }
+
       // ── Voice-only leaderboard write ──────────────────────────
       // Project rule (2026-05-13): the leaderboard ranks ONLY voice
       // rounds. Typed rounds (debate-ai.html) stay in the user's
