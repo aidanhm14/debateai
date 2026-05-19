@@ -157,7 +157,7 @@
           "name": "Is Debate AI free?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Every tier is $0 today because Debate AI is in beta. No card asked, no trial countdown. The post-beta plans live at debateai.com/pricing: Free stays $0 with 10 rounds (5 anonymous, 5 more on sign-in), BYOK is $1/mo for unlimited Claude via your own Anthropic key, Individual is $5/year for 250 requests/mo, Lifetime is $14.99 once, Team is $20/year for 50 seats."
+            "text": "Free in beta, with a daily usage cap so we don't burn through API credits: 5 rounds without an account, 10 once you sign in with Google. No card asked. Hit the cap and you wait for the reset; nothing is for sale yet. The post-beta plans live at debateai.com/pricing: Free stays $0 with 10 rounds (5 anonymous, 5 more on sign-in), BYOK is $1/mo for unlimited Claude via your own Anthropic key, Individual is $5/year for 250 requests/mo, Lifetime is $14.99 once, Team is $20/year for 50 seats."
           }
         },
         {
@@ -5629,211 +5629,12 @@ section.ui-section .ui-lede{
      belongs there: /live IS the place users go to pick a motion and
      post a challenge. Landing now has no daily-motion block. -->
 
-<!-- 2026-05-19: "Inside the product" image gallery. Inline thumb-swap
-     pattern (Zillow listing-card style): one moderate-size main image
-     with a row of 5 thumbnail buttons underneath. Clicking a thumb
-     swaps the main image + caption in place. No modal, no lightbox,
-     no swipe-up. Earlier rev opened into a full-screen overlay which
-     ballooned the screenshots past their native resolution and read
-     as too big/intense; keeping it inline and constrained lets the
-     images stay sharp and the section stay calm. -->
-<section id="product-gallery" class="product-gallery" aria-label="Inside the product">
-  <div class="wrap" style="max-width:820px">
-    <div class="pg-eyebrow">Inside the product</div>
-    <h2 class="pg-title">What it actually looks like.</h2>
-
-    <div class="pg-frame">
-      <a id="pgMainLink" class="pg-main-link" href="/voice-debate" aria-label="Open Voice round">
-        <img class="pg-main" id="pgMainImg" src="/landing-shot-voice.jpg?v=2" alt="Voice round · argue out loud, against a clock." loading="lazy">
-      </a>
-    </div>
-
-    <div class="pg-thumbs" id="pgThumbs" role="tablist" aria-label="Product screens"></div>
-
-    <div class="pg-caption">
-      <div class="pg-caption-eyebrow" id="pgCaptionEyebrow">Voice round</div>
-      <h3 class="pg-caption-title" id="pgCaptionTitle">Argue out loud, against a clock.</h3>
-      <p class="pg-caption-body" id="pgCaptionBody">Motion at the top, silhouettes for both sides, a red orb that breathes when the AI speaks and ripples when you do. POIs, interruptions, a transcript that tracks every cut-in.</p>
-      <a id="pgCaptionCta" class="pg-caption-cta" href="/voice-debate">Start a voice round <span aria-hidden="true">→</span></a>
-    </div>
-  </div>
-</section>
-
-<script>
-(function(){
-  var SHOTS = [
-    { src: '/landing-shot-voice.jpg?v=2',    eyebrow: 'Voice round',       title: 'Argue out loud, against a clock.',          body: 'Motion at the top, silhouettes for both sides, a red orb that breathes when the AI speaks and ripples when you do. POIs, interruptions, a transcript that tracks every cut-in.', href: '/voice-debate', cta: 'Start a voice round' },
-    { src: '/landing-shot-casegen.jpg',      eyebrow: 'Case generator',    title: 'A full case in 30 seconds.',                body: 'Drop a motion, pick a side, pick a format. The case comes back with framework, warrants, impacts, and A2 blocks ready for the top attacks.', href: '/debate-ai', cta: 'Open the case generator' },
-    { src: '/landing-shot-live-speech.jpg',  eyebrow: 'Round simulator',   title: 'Six speeches, real timer, real ballot.',    body: 'Curated case background on the left, speech counter and live timer in the middle. The AI argues the other side and writes the RFD.', href: '/debate-ai', cta: 'Open the round simulator' },
-    { src: '/landing-shot-disclosures.jpg',  eyebrow: 'Disclosures',       title: 'Read what other people ran.',               body: 'Cases published by users from every format. Sort by votes or recency, filter by side and format, import one straight into your own round.', href: '/disclosures', cta: 'Browse disclosures' },
-    { src: '/landing-shot-philosophy.jpg',   eyebrow: 'Philosophy engine', title: 'Deploy philosophy where it weighs.',        body: 'Pick up to three thinkers. Deep-dive, apply to a motion, run a head-to-head Venn, or get framing language ready for your PM.', href: '/app#phil', cta: 'Open the philosophy engine' },
-    { src: '/landing-shot-leaderboard.jpg',  eyebrow: 'Leaderboard',       title: 'Live ranks, AI-judged.',                    body: 'Two ranks: humans beating each other in live voice rounds, and solo speakers scored on speaker points. Same AI ballot judges both, filtered by format.', href: '/leaderboard', cta: 'See the leaderboard' }
-  ];
-
-  var mainEl = document.getElementById('pgMainImg');
-  var mainLinkEl = document.getElementById('pgMainLink');
-  var thumbsEl = document.getElementById('pgThumbs');
-  var eyebrowEl = document.getElementById('pgCaptionEyebrow');
-  var titleEl = document.getElementById('pgCaptionTitle');
-  var bodyEl = document.getElementById('pgCaptionBody');
-  var ctaEl = document.getElementById('pgCaptionCta');
-  if (!mainEl || !thumbsEl) return;
-
-  var idx = 0;
-
-  SHOTS.forEach(function(s, i){
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'pg-thumb';
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-label', s.eyebrow + ' · ' + s.title);
-    btn.dataset.idx = String(i);
-    var img = document.createElement('img');
-    img.src = s.src;
-    img.alt = s.eyebrow;
-    img.loading = 'lazy';
-    btn.appendChild(img);
-    btn.addEventListener('click', function(){ go(i); });
-    thumbsEl.appendChild(btn);
-  });
-
-  function render(){
-    var s = SHOTS[idx];
-    mainEl.src = s.src;
-    mainEl.alt = s.eyebrow + ' · ' + s.title;
-    eyebrowEl.textContent = s.eyebrow;
-    titleEl.textContent = s.title;
-    bodyEl.textContent = s.body;
-    if (mainLinkEl && s.href) {
-      mainLinkEl.href = s.href;
-      mainLinkEl.setAttribute('aria-label', 'Open ' + s.eyebrow);
-    }
-    if (ctaEl) {
-      if (s.href && s.cta) {
-        ctaEl.href = s.href;
-        ctaEl.firstChild.nodeValue = s.cta + ' ';
-        ctaEl.style.display = '';
-      } else {
-        ctaEl.style.display = 'none';
-      }
-    }
-    Array.prototype.forEach.call(thumbsEl.children, function(btn, i){
-      btn.classList.toggle('is-active', i === idx);
-      btn.setAttribute('aria-selected', i === idx ? 'true' : 'false');
-    });
-  }
-
-  function go(n){
-    if (n < 0) n = SHOTS.length - 1;
-    if (n >= SHOTS.length) n = 0;
-    idx = n;
-    render();
-    try { if (typeof window.gtag === 'function') window.gtag('event', 'product_gallery_select', { idx: idx }); } catch(e){}
-  }
-
-  render();
-})();
-</script>
-
-<style>
-  /* ── "Inside the product" inline gallery ── */
-  .product-gallery{padding:44px 24px 28px}
-  .pg-eyebrow{
-    font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--text-dim);text-align:center;margin-bottom:8px;
-  }
-  .pg-title{
-    font-family:'Fraunces',Georgia,"Times New Roman",serif;
-    font-size:clamp(1.35rem,2.2vw,1.8rem);
-    font-weight:600;letter-spacing:-.01em;line-height:1.15;
-    color:var(--text);text-align:center;
-    margin:0 0 22px;
-  }
-  /* Main preview pane. Constrained max-width so the screenshots
-     stay near their native rendering size; the modal-style giant
-     viewport was making compression artifacts visible. */
-  .pg-frame{
-    max-width:720px;margin:0 auto;
-    border-radius:14px;overflow:hidden;
-    background:#fafaf7;
-    box-shadow:0 14px 36px rgba(0,0,0,.10);
-  }
-  .pg-main-link{
-    display:block;width:100%;
-    text-decoration:none;color:inherit;
-    transition:transform .18s ease;
-  }
-  .pg-main-link:hover{transform:translateY(-1px)}
-  .pg-main-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:14px}
-  .pg-main{
-    display:block;width:100%;height:auto;
-    aspect-ratio:16/9;object-fit:cover;object-position:center 32%;
-    background:#fafaf7;
-  }
-  /* Thumb strip: even row of 5 buttons, evenly sized, sitting under
-     the main preview. Click a thumb to swap the main image in place. */
-  .pg-thumbs{
-    display:flex;justify-content:center;gap:8px;
-    max-width:720px;margin:12px auto 0;
-  }
-  .pg-thumb{
-    flex:1 1 0;min-width:0;
-    padding:0;border-radius:8px;overflow:hidden;cursor:pointer;
-    border:2px solid rgba(0,0,0,.08);
-    background:#fafaf7;
-    aspect-ratio:16/9;
-    transition:border-color .18s ease, transform .18s ease;
-  }
-  .pg-thumb img{
-    display:block;width:100%;height:100%;
-    object-fit:cover;object-position:center 32%;
-  }
-  .pg-thumb:hover{border-color:rgba(0,0,0,.25);transform:translateY(-1px)}
-  .pg-thumb:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent)}
-  .pg-thumb.is-active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(239,68,68,.22)}
-  /* Caption below: small editorial block describing the active screen. */
-  .pg-caption{
-    max-width:640px;margin:16px auto 0;
-    text-align:center;
-  }
-  .pg-caption-eyebrow{
-    font-size:.58rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
-    color:var(--accent);
-    margin-bottom:6px;
-  }
-  .pg-caption-title{
-    font-family:'Fraunces',Georgia,"Times New Roman",serif;
-    font-size:clamp(1rem,1.4vw,1.2rem);
-    font-weight:600;letter-spacing:-.01em;line-height:1.25;
-    color:var(--text);margin:0 0 6px;
-  }
-  .pg-caption-body{
-    font-size:.85rem;line-height:1.5;color:var(--text-dim);
-    margin:0;
-  }
-  /* "Try it on /live →" CTA below the caption body. Each gallery shot
-     points at the page it depicts; the Live round shot points at /live
-     so the screenshot of a real round IS the on-ramp to running one. */
-  .pg-caption-cta{
-    display:inline-flex;align-items:center;gap:6px;
-    margin-top:12px;
-    font-size:.78rem;font-weight:800;letter-spacing:.01em;
-    color:var(--accent);
-    text-decoration:none;
-    border-bottom:1px solid transparent;
-    transition:border-color .18s ease, transform .18s ease;
-  }
-  .pg-caption-cta:hover{border-bottom-color:currentColor;transform:translateX(2px)}
-  .pg-caption-cta:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
-  @media (max-width:560px){
-    .product-gallery{padding:32px 16px 20px}
-    .pg-title{margin-bottom:18px}
-    .pg-main{aspect-ratio:4/3}
-    .pg-thumbs{gap:5px}
-    .pg-caption-body{font-size:.8rem}
-    .pg-caption-cta{font-size:.74rem}
-  }
-</style>
+<!-- 2026-05-20: "Inside the product" screenshot gallery (#product-gallery)
+     removed entirely per user. The surfaces it showed (voice round, case
+     generator, disclosures, philosophy, leaderboard) are already covered
+     by the hero, the #live-proof split panel, the Demo Videos fa-cards,
+     and the Tools bento below; the carousel was a redundant fourth pass
+     at "here's what it looks like." -->
 
 <!-- 2026-05-19: feedback-strip removed. The Why-this-exists block above
      already includes a Contact-me link, and the topbar + hero pill rail
@@ -8753,7 +8554,7 @@ section.ui-section .ui-lede{
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Is it actually free?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
         <div class="faq-stack-a">
-          <p>Yes. Every tier is $0 today because we're in beta. No card asked, no trial countdown, no "upgrade now or lose access" trap.</p>
+          <p>Free in beta, with a daily cap so we don't burn through API credits. You get 5 rounds without an account and 10 once you sign in with Google. No card asked. Hit the cap and you wait for the reset — nothing's for sale yet, so there's no "pay now to keep going."</p>
           <p>The numbers on <a href="/pricing">/pricing</a> are the post-beta plan, sitting there in public so you know what's coming. Got a take on what they should actually be? <a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform" target="_blank" rel="noopener">Tell us in the feedback form.</a> We read everything.</p>
         </div>
       </details>
