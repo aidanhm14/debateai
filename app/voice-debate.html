@@ -2363,10 +2363,22 @@ function chime(freqs, opts) {
     osc.stop(start + dur + 0.02);
   });
 }
+// 2026-05-19: SFX chimes silenced per user — the interrupt cue
+// (50ms 1400Hz square wave) was firing whenever the semantic VAD
+// thought the user was speaking, which during long AI speeches
+// happened on breaths and ambient room noise. To the user that
+// sounded like a buzz in the background during AI delivery.
+// Object kept (with no-op methods) so existing call sites at
+// SFX.start / SFX.end / SFX.interrupt / SFX.thinking / SFX.rfdReveal /
+// SFX.error keep working without try/catch noise. Restore the
+// chime bodies if a future product call wants audio cues back.
 var SFX = {
-  start: () => chime([660, 880, 990], { dur: 0.22, gain: 0.045, stagger: 0.08 }),
-  end: () => chime([660, 440, 330], { dur: 0.32, gain: 0.04, stagger: 0.1, type: 'triangle' }),
-  interrupt: () => chime([1400], { dur: 0.05, gain: 0.025, type: 'square' })
+  start: () => {},
+  end: () => {},
+  interrupt: () => {},
+  thinking: () => () => {},
+  rfdReveal: () => {},
+  error: () => {}
 };
 
 /* ── Orb canvas — the showpiece visual ───────────── */
@@ -2979,9 +2991,21 @@ function App() {
   // guarantee playbackRate on a MediaStream-backed audio element. The
   // AI-side pacing nudge below is the layer that actually changes the
   // perceived speed.
+  //
+  // 2026-05-19: preservesPitch / mozPreservesPitch / webkitPreservesPitch
+  // pinned to true so 1.5x and 1.95x stop sounding chipmunk-pitched
+  // (the user heard this as a "buzz in the background"). Without
+  // this flag, raising playbackRate ALSO raises pitch by the same
+  // ratio; with it, the engine time-stretches and pitch holds.
   useEffect(() => {
     if (audioElRef.current) {
-      try {audioElRef.current.playbackRate = playbackRate;} catch (e) {}
+      try {
+        var a = audioElRef.current;
+        a.preservesPitch = true;
+        a.mozPreservesPitch = true;
+        a.webkitPreservesPitch = true;
+        a.playbackRate = playbackRate;
+      } catch (e) {}
     }
   }, [playbackRate]);
 
@@ -3715,6 +3739,35 @@ function App() {
             response: { instructions: greetingInstructions }
           }));
         } catch (e) {console.warn('[dc] greeting send failed:', e);}
+
+        // 2026-05-19: push the initial pacing nudge if the user picked
+        // a non-1.0× rate before clicking Start. Previously the pacing
+        // useEffect bailed because the data channel wasn't open yet at
+        // mount time, and never re-fired since playbackRate hadn't
+        // changed — so the AI ran at its natural pace regardless of
+        // where the slider sat. This send forces the initial pace into
+        // the AI's context so the slider is actually honored from
+        // turn 1. Skip if effectively 1.0× (no-op).
+        try {
+          if (Math.abs(playbackRate - 1.0) > 0.01) {
+            var initWpm = Math.round(180 * playbackRate);
+            var initPace = playbackRate < 0.95 ? 'slower and more deliberately' :
+              playbackRate > 1.05 ? 'faster, with brisk debater pacing' :
+              'at normal conversational pace';
+            dc.send(JSON.stringify({
+              type: 'conversation.item.create',
+              item: {
+                type: 'message',
+                role: 'system',
+                content: [{
+                  type: 'input_text',
+                  text: '[Pacing — initial] Speak ' + initPace + ' from your very first turn — target ~' + initWpm + ' words per minute. Hold this pace for the whole round unless told otherwise. Do NOT acknowledge this note in speech.'
+                }]
+              }
+            }));
+            lastPacingRateRef.current = playbackRate;
+          }
+        } catch (e) {console.warn('[dc] initial pacing send failed:', e);}
       };
 
       setConnectStep('Negotiating with OpenAI…');

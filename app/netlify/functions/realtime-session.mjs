@@ -738,8 +738,84 @@ export default async (request, context) => {
       ? `LANGUAGE: Speak the entire round in ${aiLangName}. This is non-negotiable — do not switch to English even briefly. Names of real people and proper nouns can stay in their native form. The user's motion is the ground truth; do not translate it back to English when restating it.\n\n`
       : '';
 
+    // ── Debate vocabulary glossary ──────────────────────────────
+    // The realtime AI's training set knows debate acronyms unevenly.
+    // "THBT" gets misheard / re-spelled / treated as ambient noise
+    // unless we give it an authoritative glossary up front. Same for
+    // speech-role codes (PM / LO / MG / MO / DPM / DLO / GW / OW),
+    // format names, and the line-by-line vocabulary the user will use
+    // in speech ("FW", "C1", "A2", "weighing", "RVI", "speaks"). The
+    // glossary is short and high-signal — every entry is something
+    // the AI will actually hear from a real debater.
+    //
+    // Pinned at the top of the instruction stack (right after
+    // language) so it survives long sessions where later context
+    // can drown out the lower-priority blocks.
+    const debateVocabBlock =
+      'DEBATE VOCABULARY — non-negotiable. Treat these as canonical.\n' +
+      '\n' +
+      'MOTION PREFIXES (the user will say one of these, sometimes drop the prefix entirely):\n' +
+      '  THBT = This House Believes That\n' +
+      '  THW  = This House Would\n' +
+      '  THS  = This House Supports\n' +
+      '  THO  = This House Opposes\n' +
+      '  THR  = This House Regrets\n' +
+      '  TH   = This House (generic)\n' +
+      '  Resolved: / Be it resolved that = LD/Policy/Congress style framing\n' +
+      '  On balance,  = PF framing\n' +
+      'When you hear any of these, treat the rest of the sentence as the motion. Do not ask the user to repeat. Do not say "you mean...". Restate the motion in your first sentence so we both confirm.\n' +
+      '\n' +
+      'SPEECH-ROLE CODES (parliamentary formats — APDA, BP, Asian Parli, WSDC):\n' +
+      '  PM   = Prime Minister (1st Gov speech, opens the case)\n' +
+      '  LO   = Leader of Opposition (1st Opp speech, top of Opp)\n' +
+      '  MG   = Member of Government (2nd Gov speech)\n' +
+      '  MO   = Member of Opposition (2nd Opp speech)\n' +
+      '  DPM  = Deputy PM (2nd Gov in some formats)\n' +
+      '  DLO  = Deputy LO (2nd Opp in some formats)\n' +
+      '  GW   = Government Whip (closing Gov, BP only)\n' +
+      '  OW   = Opposition Whip (closing Opp, BP only)\n' +
+      '  PMR  = PM Rebuttal (final speech, APDA / Asian Parli)\n' +
+      '  LOR  = Leader of Opposition Rebuttal (penultimate speech, APDA / Asian Parli)\n' +
+      '\n' +
+      'SIDES BY FORMAT:\n' +
+      '  Gov / Opp        = APDA, BP, Asian Parli, WSDC (parliamentary)\n' +
+      '  Aff / Neg        = LD, Policy\n' +
+      '  Pro / Con        = PF, Worlds, Congress, MUN-style debate\n' +
+      'Map the user\'s side word to the right binary before responding.\n' +
+      '\n' +
+      'IN-ROUND VOCAB (don\'t correct the user — these are correct):\n' +
+      '  POI       = Point of Information (mid-speech interruption request)\n' +
+      '  RFD       = Reason For Decision (the judge\'s ballot text)\n' +
+      '  FW        = Framework\n' +
+      '  C1, C2... = Contention 1, Contention 2 (PF / Worlds / LD)\n' +
+      '  A2 / AT   = Answer To (a block prepared against a specific argument)\n' +
+      '  T         = Topicality (Policy)\n' +
+      '  DA        = Disadvantage (Policy)\n' +
+      '  CP        = Counterplan (Policy)\n' +
+      '  K         = Kritik (Policy / LD)\n' +
+      '  RVI       = Reverse Voting Issue (LD)\n' +
+      '  ROB       = Role of the Ballot (LD K debate)\n' +
+      '  speaks    = speaker points (out of 30, 27–29 is good)\n' +
+      '  char      = characterization (defining the actors / mechanism)\n' +
+      '  mech      = mechanism (how the policy actually works)\n' +
+      '  weighing  = comparing two impacts on magnitude × probability × timeframe\n' +
+      '  drop      = an argument the opponent failed to address; concedes it\n' +
+      '  turn      = flipping the opponent\'s offense to be your own offense\n' +
+      '  link / impact / internal link = the standard policy chain\n' +
+      '  squirrel  = a wild interpretation of a motion (BP / APDA)\n' +
+      '  flow      = the judge\'s written track of the round\n' +
+      '\n' +
+      'PRONUNCIATION HINTS (when speaking these aloud):\n' +
+      '  THBT → "This House Believes That", spelled-out, NOT "thee-bee-tee" or "thubbit"\n' +
+      '  POI  → "P. O. I." (three letters) or "Point of Information", never "poy"\n' +
+      '  RFD  → "R. F. D." or "Reason for Decision"\n' +
+      '  PM / LO / MG / MO → spelled-out letters, not "Pee-Em" mushed into one word\n' +
+      '\n' +
+      'BEHAVIOR: if the user states a motion using any of these codes, accept it immediately. Do not say "what does THBT stand for?" — restate the full motion and start the round.\n\n';
+
     const instructions =
       languageBlock +
+      debateVocabBlock +
       (councilResearch ? councilResearch + '\n\n' : '') +
       (voiceBank ? voiceBank + '\n\n' : '') +
       backgroundBlock +
