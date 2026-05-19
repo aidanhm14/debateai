@@ -97,8 +97,19 @@ async function fetchTopGenerations(db, format) {
   for (const doc of ratedSnap.docs || []) byId.set(doc.id, doc.data());
   for (const doc of savedSnap.docs || []) if (!byId.has(doc.id)) byId.set(doc.id, doc.data());
 
+  // Drop boring/generic-flagged outputs from the exemplar pool. The
+  // /voice-debate post-RFD widget + the /admin/rate tool both write
+  // generations.boring=true when a rater calls an output generic. Even
+  // a 5-star round that someone separately flagged boring shouldn't
+  // ride into the "PATTERNS THAT WORK" distillation — it's high-rated
+  // but for some other reason (verdict was right, format was correct),
+  // and using it as a pattern would teach the AI the wrong thing.
+  // Firestore doesn't support `!=` on the same field-set as the range
+  // query above without an extra composite index, so the filter lives
+  // here in JS where it's free.
   return Array.from(byId.values())
     .filter(d => d && d.output && d.output.length >= 200)
+    .filter(d => d.boring !== true)
     .slice(0, MAX_EXAMPLES_PER_FORMAT);
 }
 

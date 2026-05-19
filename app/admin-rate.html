@@ -196,6 +196,7 @@
       <option value="bot">bot</option>
     </select></label>
     <label><input type="checkbox" id="filter-unrated" checked> only unrated</label>
+    <label title="Show only outputs flagged generic/boring by a rater. Closes the loop on the (b) cataloging commitment — this is where you act on the boring pile."><input type="checkbox" id="filter-boring"> boring catalog</label>
     <button id="load-btn" class="pill-btn primary">Load batch</button>
     <div class="stretch"></div>
     <div class="count" id="count">—</div>
@@ -267,7 +268,17 @@ async function loadBatch(append = false){
   const fmt = $('filter-format').value;
   const kind = $('filter-kind').value;
   const onlyUnrated = $('filter-unrated').checked;
-  const params = new URLSearchParams({ limit: '20', onlyUnrated: String(onlyUnrated) });
+  const onlyBoring = $('filter-boring').checked;
+  // Boring catalog mode overrides onlyUnrated — a boring-flagged doc is
+  // by definition already rated, so showing "only unrated" + "boring
+  // catalog" together returns nothing. Soft-coerce here so the UI
+  // doesn't strand the user with an empty result.
+  if (onlyBoring) $('filter-unrated').checked = false;
+  const params = new URLSearchParams({
+    limit: '20',
+    onlyUnrated: String(onlyBoring ? false : onlyUnrated),
+    onlyBoring: String(onlyBoring),
+  });
   if (fmt) params.set('format', fmt);
   if (kind) params.set('kind', kind);
   if (append && cursor) params.set('before', String(cursor));
@@ -315,6 +326,7 @@ $('load-btn').addEventListener('click', () => loadBatch(false));
 $('filter-format').addEventListener('change', () => loadBatch(false));
 $('filter-kind').addEventListener('change', () => loadBatch(false));
 $('filter-unrated').addEventListener('change', () => loadBatch(false));
+$('filter-boring').addEventListener('change', () => loadBatch(false));
 
 // ── Render ─────────────────────────────────────────────────────────
 function render(){
@@ -337,6 +349,16 @@ function render(){
 
   const outputHtml = escapeHtml(it.output || '(no output)');
   const showFade = (it.output || '').length > 3000;
+  // Rater's notes — surfaces inline above the output when present. This
+  // is the load-bearing field in boring-catalog mode: shows WHY a user
+  // (or admin) flagged the round generic, so the next voice-guidelines
+  // edit has the actual phrase that drove the rating, not just the bit.
+  const notesBlock = (it.userNotes && it.userNotes.trim()) ? `
+        <div style="margin:14px 0 16px;padding:10px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.28);border-radius:8px;color:#fde68a;font-size:13px;line-height:1.55">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#f59e0b;margin-bottom:4px">Rater's notes</div>
+          ${escapeHtml(it.userNotes)}
+        </div>
+      ` : '';
 
   list.innerHTML = `
     <div class="gen">
@@ -350,6 +372,7 @@ function render(){
       </div>
       ${it.motion ? `<h2 class="motion">${escapeHtml(it.motion)}</h2>` : ''}
       <div class="side">${escapeHtml(it.uid ? 'user ' + it.uid.slice(0,8) : '')} · ${it.outputLength.toLocaleString()} chars</div>
+      ${notesBlock}
       <div class="output${showFade ? ' faded' : ''}" id="output-body">${outputHtml}</div>
 
       <details class="context">

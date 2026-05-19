@@ -64,6 +64,13 @@ export default async (request) => {
   const format = (url.searchParams.get('format') || '').toLowerCase();
   const kind = (url.searchParams.get('kind') || '').toLowerCase();
   const onlyUnrated = url.searchParams.get('onlyUnrated') === 'true';
+  // Boring catalog filter — when on, only return generations the rater
+  // flagged generic/boring. Closes the loop on the (b) cataloging
+  // commitment: data is collected via the voice-debate post-RFD widget
+  // + the admin rate tool's boring toggle; this is the read surface that
+  // lets you act on the pile per-format. Client-side filter (no composite
+  // index needed) for the same reason as onlyUnrated.
+  const onlyBoring = url.searchParams.get('onlyBoring') === 'true';
   const limitRaw = parseInt(url.searchParams.get('limit') || '', 10);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(MAX_LIMIT, limitRaw)) : DEFAULT_LIMIT;
   const beforeRaw = parseInt(url.searchParams.get('before') || '', 10);
@@ -83,7 +90,10 @@ export default async (request) => {
       q = q.where('createdAt', '<', new Date(beforeRaw));
     }
     // Fetch 3x the requested limit to compensate for client-side filtering.
-    const fetchLimit = onlyUnrated || kind ? Math.min(MAX_LIMIT * 3, limit * 4) : limit;
+    // onlyBoring needs an even wider net since boring-flagged docs are a
+    // small fraction of total — 6x compensates without going wild.
+    const fetchLimit = onlyBoring ? Math.min(MAX_LIMIT * 6, limit * 8) :
+      (onlyUnrated || kind ? Math.min(MAX_LIMIT * 3, limit * 4) : limit);
     q = q.limit(fetchLimit);
 
     const snap = await q.get();
@@ -104,6 +114,7 @@ export default async (request) => {
         lastCreatedAtMs = createdAtMs;
         if (kind && data.kind !== kind) continue;
         if (onlyUnrated && typeof data.rating === 'number') continue;
+        if (onlyBoring && data.boring !== true) continue;
         const outputStr = safeStr(data.output);
         docs.push({
           id: d.id,
@@ -119,6 +130,12 @@ export default async (request) => {
           userPrompt: safeStr(data.userPrompt).slice(0, 2000),
           rating: typeof data.rating === 'number' ? data.rating : null,
           boring: data.boring === true,
+          // userNotes lands here when a low-rated round (or any boring-
+          // flagged round) gets a free-text "what didn't land" comment
+          // from the voice-debate widget, or when the admin rate tool
+          // adds adminNotes. Both feed the same field; the UI shows it
+          // inline so the cataloging view has the rater's actual reason.
+          userNotes: safeStr(data.userNotes || data.adminNotes).slice(0, 600),
           ratedAt: safeMs(data.ratedAt),
           createdAt: createdAtMs,
         });
