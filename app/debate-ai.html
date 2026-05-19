@@ -4787,6 +4787,36 @@ function App() {
   //   cross-exam  -> "I'll cross-examine the AI on this."
   // (Legacy debate-this/rebut-this still work, treated as quiz-me.)
   // We land on the setup screen so the user picks their format and brain.
+  // Top-level URL handoff (not the extension iframe). When the user
+  // clicks "See this on the typed flow" from the voice-round retention
+  // row, they land here with ?motion=X&format=apda&handoff=voice;
+  // prefill motion + format so they're one tap from Start on the same
+  // motion they just finished voicing. Distinct from the extension
+  // bridge below (which only fires when ?ext=1); this fires only when
+  // ?ext is NOT. See app/voice-debate.html retention-row for the
+  // outbound side.
+  useEffect(() => {
+    try {
+      var qs = new URLSearchParams(location.search);
+      if (qs.get('ext') === '1') return; // ext bridge owns prefill when in ext mode
+      var m = (qs.get('motion') || '').trim();
+      if (!m) return;
+      setMotion(m.slice(0, 600));
+      var wantFormat = (qs.get('format') || '').trim();
+      if (wantFormat && typeof FORMATS !== 'undefined' && FORMATS[wantFormat]) {
+        try { setFormat(wantFormat); } catch (_) {}
+      }
+      try {
+        if (typeof gtag === 'function') {
+          gtag('event', 'typed_handoff_received', {
+            from: qs.get('handoff') || 'unknown',
+            format: wantFormat || 'default',
+          });
+        }
+      } catch (_) {}
+    } catch (_) {}
+  }, []);
+
   useEffect(() => {
     var isExt = false;
     var extMode = 'counter';
@@ -9622,7 +9652,27 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       },
       onMouseOver: (e) => {e.currentTarget.style.background = 'rgba(88,101,242,.18)';e.currentTarget.style.borderColor = 'rgba(88,101,242,.5)';},
       onMouseOut: (e) => {e.currentTarget.style.background = 'rgba(88,101,242,.10)';e.currentTarget.style.borderColor = 'rgba(88,101,242,.32)';}
-    }, 'Find a scrim partner on Discord →')
+    }, 'Find a scrim partner on Discord →'),
+    // Cross-surface handoff. Same motion, voice round (Full Round
+    // mode). Users learn which surface they prefer by trying both —
+    // this pill makes the second try a 1-click move. Violet to
+    // distinguish from /today (blue) and Discord (indigo); reads as
+    // "alternative path," not "warning" (amber) or "win" (green).
+    el('a', {
+      href: '/voice-debate?motion=' + encodeURIComponent(motion || '') + '&mode=apda&handoff=typed',
+      onClick: () => { try { if (typeof gtag === 'function') gtag('event', 'voice_handoff_sent', { from: 'typed-feedback', format: format }); } catch (_) {} },
+      style: {
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '10px 18px', borderRadius: 999,
+        background: 'rgba(167,139,250,.10)',
+        border: '1px solid rgba(167,139,250,.32)',
+        color: '#c4b5fd',
+        fontSize: '.78rem', fontWeight: 700, letterSpacing: '.02em',
+        textDecoration: 'none', transition: 'background .15s,border-color .15s'
+      },
+      onMouseOver: (e) => {e.currentTarget.style.background = 'rgba(167,139,250,.18)';e.currentTarget.style.borderColor = 'rgba(167,139,250,.5)';},
+      onMouseOut: (e) => {e.currentTarget.style.background = 'rgba(167,139,250,.10)';e.currentTarget.style.borderColor = 'rgba(167,139,250,.32)';}
+    }, 'Voice round on this motion →')
     ),
     // Contextual sign-in prompt — fires post-round for any anonymous
     // user with a delivered ballot. Previously gated on a numeric

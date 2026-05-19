@@ -793,6 +793,20 @@ input[type=text]:focus,select:focus,textarea:focus{
   border-color:rgba(88,101,242,.48);
   color:#c7d2fe;
 }
+/* Cross-surface handoff: voice → typed. Violet to distinguish from
+   /today (blue) and Discord (indigo); reads as "alternative path"
+   without competing with the brand crimson. The outbound side is in
+   app/debate-ai.html feedback retention row. */
+.retention-pill--typed{
+  background:rgba(167,139,250,.10);
+  border:1px solid rgba(167,139,250,.32);
+  color:#c4b5fd;
+}
+.retention-pill--typed:hover{
+  background:rgba(167,139,250,.18);
+  border-color:rgba(167,139,250,.48);
+  color:#ddd6fe;
+}
 
 /* ── Personalities (gamified character picker) ───── */
 .persona-grid{
@@ -2584,6 +2598,36 @@ function App() {
   // prefill the motion field, auto-pick the Examiner persona, default
   // to crossex (closest match for an oral examination), and tell the
   // panel we're ready so it drains queued actions. The user is then
+  // Top-level URL handoff (not the extension iframe). When the user
+  // clicks "Voice round on this motion" from the typed feedback page,
+  // they land here with ?motion=X&mode=apda&handoff=typed; prefill the
+  // motion + mode so they're one tap from Connect on the same motion
+  // they just finished typed. Distinct from the extension bridge below
+  // (which only fires when ?ext=1 is present); this fires only when
+  // ?ext is NOT. See app/debate-ai.html post-feedback retention pills
+  // for the outbound side.
+  useEffect(() => {
+    try {
+      var qs = new URLSearchParams(location.search);
+      if (qs.get('ext') === '1') return; // ext bridge owns prefill when in ext mode
+      var m = (qs.get('motion') || '').trim();
+      if (!m) return;
+      setMotion(m.slice(0, 600));
+      var wantMode = (qs.get('mode') || '').trim();
+      if (wantMode && MODES.some((x) => x.key === wantMode)) {
+        try { setMode(wantMode); } catch (_) {}
+      }
+      try {
+        if (typeof gtag === 'function') {
+          gtag('event', 'voice_handoff_received', {
+            from: qs.get('handoff') || 'unknown',
+            mode: wantMode || 'default',
+          });
+        }
+      } catch (_) {}
+    } catch (_) {}
+  }, []);
+
   // one tap from hitting Connect.
   useEffect(() => {
     var isExt = false;
@@ -5311,7 +5355,19 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       target: '_blank',
       rel: 'noopener noreferrer',
       className: 'retention-pill retention-pill--discord'
-    }, 'Find a scrim partner on Discord →')
+    }, 'Find a scrim partner on Discord →'),
+    // Cross-surface handoff. Same motion, typed flow. Same idea as the
+    // typed-side "Voice round on this motion" pill: users learn which
+    // surface they prefer by trying both, this pill makes the second
+    // try a 1-click move. Default format=apda since voice modes are
+    // drill types, not formats — the typed setup screen lets the user
+    // change format if they want something else.
+    el('a', {
+      key: 'typed',
+      href: '/debate-ai?motion=' + encodeURIComponent(motion || '') + '&format=apda&handoff=voice',
+      onClick: () => { try { if (typeof gtag === 'function') gtag('event', 'typed_handoff_sent', { from: 'voice-rfd', mode: mode }); } catch (_) {} },
+      className: 'retention-pill retention-pill--typed'
+    }, 'See this on the typed flow →')
     );
   })(),
 
