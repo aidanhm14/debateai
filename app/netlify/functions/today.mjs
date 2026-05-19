@@ -66,6 +66,58 @@ async function fetchRecentPublicRounds() {
   }
 }
 
+// Daily leaderboard cache. Same date in any given minute renders the
+// same top-N entries, so caching keeps Firestore reads negligible at
+// peak (e.g. when someone shares /today on Reddit and 500 visitors hit
+// it in the same 60s).
+const dailyBoardCache = new Map(); // dateStr → { fetchedAt, entries }
+const DAILY_BOARD_TTL_MS = 60 * 1000;
+const DAILY_BOARD_LIMIT = 25;
+
+async function fetchDailyBoard(dateStr) {
+  const now = Date.now();
+  const hit = dailyBoardCache.get(dateStr);
+  if (hit && now - hit.fetchedAt < DAILY_BOARD_TTL_MS) {
+    return hit.entries;
+  }
+  try {
+    const db = getDb();
+    const snap = await db
+      .collection('daily_entries')
+      .doc(dateStr)
+      .collection('entries')
+      .orderBy('score', 'desc')
+      .limit(DAILY_BOARD_LIMIT)
+      .get();
+    const entries = (snap.docs || []).map((d) => {
+      const data = d.data() || {};
+      return {
+        uid: data.uid || d.id,
+        displayName: data.displayName || 'A debater',
+        photoURL: data.photoURL || '',
+        score: typeof data.score === 'number' ? data.score : null,
+        aiScore: typeof data.aiScore === 'number' ? data.aiScore : null,
+        sideLabel: data.sideLabel || data.side || '',
+        formatName: data.formatName || data.format || '',
+        decision: data.decision || '',
+        won: !!data.won,
+        submittedAt: data.submittedAt || 0,
+      };
+    }).filter((e) => e.score !== null);
+    dailyBoardCache.set(dateStr, { fetchedAt: now, entries });
+    // Cap cache size — if /today/ARCHIVE is hit a lot we don't want
+    // to grow forever. 30 most-recent dates is generous.
+    if (dailyBoardCache.size > 30) {
+      const oldest = [...dailyBoardCache.keys()].sort()[0];
+      dailyBoardCache.delete(oldest);
+    }
+    return entries;
+  } catch (err) {
+    console.warn('[today] daily-board fetch failed:', err.message);
+    return [];
+  }
+}
+
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function esc(s) {
   if (s === null || s === undefined) return '';
@@ -109,7 +161,53 @@ function renderRecentRoundsPanel(rounds) {
   </section>`;
 }
 
-function renderPage(date, dateStr, motion, recentRounds) {
+// Daily leaderboard panel — top scores from anyone who debated today's
+// motion via the /today CTA. The empty-state copy is the same shape
+// debaters see on a real round form ("be the first") so it doesn't
+// read as broken; the populated state ranks 1..N by speaker points.
+function renderDailyBoardPanel(entries, isToday) {
+  if (!isToday) return ''; // archive pages don't show a leaderboard
+  if (!entries || entries.length === 0) {
+    return `<section class="daily-board" aria-label="Today's leaderboard">
+      <h3>Today's leaderboard</h3>
+      <p class="daily-board-empty">Nobody has debated this motion yet today. Take it now and you're at #1 until someone bests you.</p>
+    </section>`;
+  }
+  const rows = entries.map((e, idx) => {
+    const rank = idx + 1;
+    const rankClass = rank <= 3 ? `rank-${rank}` : '';
+    const initials = (e.displayName || '?')
+      .split(/\s+/).map((s) => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+    const avatar = e.photoURL
+      ? `<img class="daily-row-avatar" src="${esc(e.photoURL)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : `<span class="daily-row-avatar daily-row-avatar--text">${esc(initials)}</span>`;
+    const meta = [e.formatName, e.sideLabel].filter(Boolean).map(esc).join(' · ');
+    const scoreLabel = Number.isInteger(e.score) ? String(e.score) : e.score.toFixed(1);
+    const wonBadge = e.won
+      ? '<span class="winner-badge user" style="margin:0">Won</span>'
+      : (e.won === false && typeof e.won === 'boolean'
+        ? '<span class="winner-badge ai" style="margin:0">Lost</span>'
+        : '');
+    return `<li class="daily-row ${rankClass}">
+      <span class="daily-rank">${rank}</span>
+      ${avatar}
+      <span class="daily-who">
+        <span class="daily-name">${esc(e.displayName || 'A debater')}</span>
+        ${meta ? `<span class="daily-meta">${meta}</span>` : ''}
+      </span>
+      <span class="daily-score">${esc(scoreLabel)}</span>
+      ${wonBadge}
+    </li>`;
+  }).join('\n');
+  return `<section class="daily-board" aria-label="Today's leaderboard">
+    <h3>Today's leaderboard</h3>
+    <ol class="daily-list">
+      ${rows}
+    </ol>
+  </section>`;
+}
+
+function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   const titleCore = `${motion.motion} · Today's debate motion`;
   const title = titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore;
   const description = `${motion.motion} Debate it against the AI. ${motion.frame.slice(0, 100)}`;
@@ -214,6 +312,34 @@ function renderPage(date, dateStr, motion, recentRounds) {
   .winner-badge{display:inline-block;margin-top:8px;font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:2px 8px;border-radius:999px}
   .winner-badge.user{background:rgba(34,197,94,.14);color:#86efac;border:1px solid rgba(34,197,94,.32)}
   .winner-badge.ai{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.32)}
+  /* Daily leaderboard — top scores from anyone who debated today's
+     motion. Lives between the CTA card and the recent-rounds panel.
+     Read-only here; submissions happen from debate-ai's saveRound
+     when ?dm=YYYY-MM-DD matches today's UTC date. */
+  .daily-board{margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,.08)}
+  .daily-board h3{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:14px}
+  .daily-board-empty{font-size:.92rem;color:rgba(255,255,255,.5);line-height:1.5;padding:14px 0}
+  .daily-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .daily-row{display:grid;grid-template-columns:34px 28px 1fr auto auto;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)}
+  .daily-row.rank-1{border-color:rgba(251,191,36,.32);background:rgba(251,191,36,.04)}
+  .daily-row.rank-2{border-color:rgba(203,213,225,.28);background:rgba(203,213,225,.04)}
+  .daily-row.rank-3{border-color:rgba(217,119,6,.28);background:rgba(217,119,6,.04)}
+  .daily-rank{font-size:.82rem;font-weight:800;color:rgba(255,255,255,.5);text-align:center}
+  .daily-row.rank-1 .daily-rank{color:#fbbf24}
+  .daily-row.rank-2 .daily-rank{color:#cbd5e1}
+  .daily-row.rank-3 .daily-rank{color:#d97706}
+  .daily-row-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);display:inline-flex;align-items:center;justify-content:center;font-size:.66rem;font-weight:800;color:rgba(255,255,255,.65);letter-spacing:.02em}
+  .daily-row-avatar--text{font-family:'Inter',sans-serif}
+  .daily-who{display:flex;flex-direction:column;min-width:0}
+  .daily-name{font-size:.92rem;font-weight:600;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .daily-meta{font-size:.66rem;color:rgba(255,255,255,.5);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .daily-score{font-size:1.05rem;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  @media(max-width:520px){
+    .daily-row{grid-template-columns:24px 24px 1fr auto;gap:8px;padding:8px 10px}
+    .daily-row-avatar{width:24px;height:24px}
+    .daily-name{font-size:.85rem}
+    .daily-row .winner-badge{display:none}
+  }
   /* Day-run pill — daily-return surface above the motion. Hydrated
      client-side from localStorage so the SSR shell renders fine for
      crawlers + the personalized "Day N" lands once JS boots. Tone is
@@ -286,6 +412,8 @@ function renderPage(date, dateStr, motion, recentRounds) {
     </div>
   </section>
 
+  ${renderDailyBoardPanel(dailyBoard, isToday)}
+
   ${renderRecentRoundsPanel(recentRounds)}
 
   <footer>
@@ -356,17 +484,26 @@ export default async (request) => {
   }
   const dateStr = formatDailyDate(date);
   const motion = dailyMotionFor(date);
-  // Pull recent public rounds for the aggregator panel at the bottom
-  // of the page. Cached 5 min, soft-fail if Firestore is unavailable.
-  const recentRounds = await fetchRecentPublicRounds();
-  const html = renderPage(date, dateStr, motion, recentRounds);
+  // Pull recent public rounds + today's daily leaderboard in parallel.
+  // Both soft-fail if Firestore is flaky; the page still renders.
+  const todayStr = formatDailyDate(new Date());
+  const isToday = dateStr === todayStr;
+  const [recentRounds, dailyBoard] = await Promise.all([
+    fetchRecentPublicRounds(),
+    isToday ? fetchDailyBoard(dateStr) : Promise.resolve([]),
+  ]);
+  const html = renderPage(date, dateStr, motion, recentRounds, dailyBoard);
   return new Response(html, {
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       // Cache aggressively at the edge — same date always renders the
       // same motion. 1 hour edge cache is more than enough margin
-      // against any clock drift between origin and edge.
+      // against any clock drift between origin and edge. The leader-
+      // board panel hydrates from a separate 60s-TTL in-memory cache,
+      // so edge-cached HTML can be stale by up to an hour — acceptable
+      // for a leaderboard that updates throughout the day; freshness
+      // returns when the edge TTL turns over.
       'Cache-Control': 'public, max-age=3600, s-maxage=3600',
     },
   });

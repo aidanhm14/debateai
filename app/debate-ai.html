@@ -6666,6 +6666,35 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             try{if(typeof gtag==='function')gtag('event','daily_streak_advanced',{streak:s.streak})}catch{}
           }
         }
+        // Public daily leaderboard. Same gating as the streak flip
+        // (came from /today, still today UTC) plus a signed-in +
+        // speakerPoints requirement (server rejects anon and missing
+        // score anyway). Fire-and-forget; failure silently OK — the
+        // ballot still saves locally, and the leaderboard absence is
+        // self-correcting (the next user's submit will repopulate).
+        const todayStr2=new Date().toISOString().slice(0,10);
+        if(user && dailyMotionDate===todayStr2 && sp && typeof sp.user==='number'){
+          user.getIdToken().then(token=>{
+            fetch('/api/daily-score',{
+              method:'POST',
+              headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+              body:JSON.stringify({
+                motion: round.motion,
+                score: sp.user,
+                aiScore: typeof sp.ai==='number' ? sp.ai : null,
+                side: round.side,
+                sideLabel: round.sideLabel,
+                format: round.format,
+                formatName: round.formatName,
+                decision: (ballot && ballot.decision) || '',
+                won: userWon === true,
+                displayName: (user.displayName||'').trim(),
+              }),
+              keepalive:true,
+            }).catch(()=>{});
+            try{if(typeof gtag==='function')gtag('event','daily_score_submitted',{format:round.format,score:sp.user})}catch{}
+          }).catch(()=>{});
+        }
       }catch{}
     }
     // First-round retention email. Fires after the first AI round
