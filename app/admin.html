@@ -605,9 +605,13 @@ $('auto-toggle').addEventListener('click', () => {
 
 function startAuto(){
   stopAuto();
-  // Analytics: every 30s. Realtime tail: every 8s.
-  autoTimer = setInterval(() => loadAnalytics().catch(()=>{}), 30_000);
-  tailTimer = setInterval(() => loadRealtime().catch(()=>{}), 8_000);
+  // 2026-05-19: cadence reduced after the Firestore quota was
+  // RESOURCE_EXHAUSTED by an idle /admin tab. Endpoints now have
+  // server-side caching (5 min on heavy, 30s on realtime); the client
+  // poll is paced to be the floor on freshness, not the request driver.
+  // Analytics: every 5 min (was 30s). Realtime tail: every 60s (was 8s).
+  autoTimer = setInterval(() => loadAnalytics().catch(()=>{}), 5 * 60_000);
+  tailTimer = setInterval(() => loadRealtime().catch(()=>{}), 60_000);
 }
 function stopAuto(){
   if (autoTimer) clearInterval(autoTimer);

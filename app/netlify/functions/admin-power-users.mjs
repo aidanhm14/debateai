@@ -17,8 +17,13 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
 
-const MAX_DOCS = 30_000;
+// 2026-05-19: MAX_DOCS cut 30K → 5K. Power-users is rank-based; the
+// top 15-20 users by engagement are reliably surfaced from a 5K event
+// sample. Combined with caching, this is what keeps /admin under
+// the Firestore quota.
+const MAX_DOCS = 5_000;
 const DEFAULT_DAYS = 30;
 const MAX_DAYS = 90;
 const TOP_K = 20;
@@ -35,6 +40,10 @@ export default async (request) => {
   const days = Math.max(1, Math.min(MAX_DAYS, parseInt(url.searchParams.get('days') || String(DEFAULT_DAYS), 10)));
   const k = Math.max(5, Math.min(50, parseInt(url.searchParams.get('limit') || String(TOP_K), 10)));
   const since = new Date(Date.now() - days * 86_400_000);
+
+  const cacheKey = 'power-users:' + days + ':' + k;
+  const cached = getCached(cacheKey);
+  if (cached) return jsonResponse(cached, 200, request);
 
   try {
     const snap = await db.collection('events')
@@ -120,7 +129,7 @@ export default async (request) => {
       };
     });
 
-    return jsonResponse({
+    const result = {
       windowDays: days,
       sinceISO: since.toISOString(),
       sampled,
@@ -128,7 +137,9 @@ export default async (request) => {
       uniqueUsers: acc.size,
       totalScored,
       topUsers: out,
-    }, 200, request);
+    };
+    setCached(cacheKey, result, TTL_HEAVY);
+    return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-power-users error:', err);
     return errorResponse('Failed to load power users: ' + (err.message || 'unknown'), 500, request);

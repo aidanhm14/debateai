@@ -21,8 +21,13 @@
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { parseUA, normalizePath } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
 
-const MAX_DOCS = 30_000;
+// 2026-05-19: MAX_DOCS cut 30K → 5K. The heatmap is a sample-based
+// visualization; 5K page_view events across 30 days still gives a
+// statistically meaningful 7×24 grid. Combined with the cache below,
+// this is what makes /admin survive on a tight Firestore budget.
+const MAX_DOCS = 5_000;
 const DEFAULT_DAYS = 30;
 const MAX_DAYS = 90;
 
@@ -37,6 +42,10 @@ export default async (request) => {
   const url = new URL(request.url);
   const days = Math.max(1, Math.min(MAX_DAYS, parseInt(url.searchParams.get('days') || String(DEFAULT_DAYS), 10)));
   const since = new Date(Date.now() - days * 86_400_000);
+
+  const cacheKey = 'heatmap:' + days;
+  const cached = getCached(cacheKey);
+  if (cached) return jsonResponse(cached, 200, request);
 
   try {
     const snap = await db.collection('events')
@@ -110,7 +119,7 @@ export default async (request) => {
       .slice(0, n)
       .map(([k, v]) => ({ key: k, count: v }));
 
-    return jsonResponse({
+    const result = {
       windowDays: days,
       sinceISO: since.toISOString(),
       sampled,
@@ -127,7 +136,9 @@ export default async (request) => {
       formatMix: topN(formatCounts, 12),
       personaMix: topN(personaCounts, 12),
       eventTypeCounts,
-    }, 200, request);
+    };
+    setCached(cacheKey, result, TTL_HEAVY);
+    return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-heatmap error:', err);
     return errorResponse('Failed to load heatmap: ' + (err.message || 'unknown'), 500, request);

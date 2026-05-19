@@ -12,6 +12,7 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { getCached, setCached, TTL_TAIL } from './lib/admin-cache.mjs';
 
 const MAX_TAIL = 80;
 const MAX_DOCS = 1200;
@@ -26,6 +27,13 @@ export default async (request) => {
 
   const url = new URL(request.url);
   const tailLimit = Math.max(10, Math.min(MAX_TAIL, parseInt(url.searchParams.get('limit') || '60', 10)));
+
+  // 30s cache prevents the realtime poll from hammering the events
+  // collection. Client-side poll is also being slowed 8s → 60s, so the
+  // dashboard still feels "live" (one real read per minute, max).
+  const cacheKey = 'realtime:' + tailLimit;
+  const cached = getCached(cacheKey);
+  if (cached) return jsonResponse(cached, 200, request);
 
   try {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -119,7 +127,7 @@ export default async (request) => {
     // as time-forward.
     const spark = buckets.slice().reverse();
 
-    return jsonResponse({
+    const result = {
       online5: onlineUids.size,
       active30: recentUids.size,
       hour: hourUids.size,
@@ -129,7 +137,9 @@ export default async (request) => {
       sampled: snap.size >= MAX_DOCS,
       sampleSize: snap.size,
       now: Date.now(),
-    }, 200, request);
+    };
+    setCached(cacheKey, result, TTL_TAIL);
+    return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-realtime error:', err);
     return errorResponse('Failed to load realtime: ' + (err.message || 'unknown'), 500, request);

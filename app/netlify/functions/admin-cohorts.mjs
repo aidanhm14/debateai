@@ -21,10 +21,14 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 16;
-const MAX_EVENT_DOCS = 50_000;
+// 2026-05-19: 50K → 10K. Cohort retention is robust to sampling at
+// 10K events across an 8-week window because uniqueness is per-uid-per-week,
+// not per-event. Paired with the cache below.
+const MAX_EVENT_DOCS = 10_000;
 
 // Sunday 00:00 in UTC at the start of the week containing `ms`.
 function weekStartUTC(ms) {
@@ -49,6 +53,10 @@ export default async (request) => {
 
   const url = new URL(request.url);
   const weeks = Math.max(2, Math.min(MAX_WEEKS, parseInt(url.searchParams.get('weeks') || String(DEFAULT_WEEKS), 10)));
+
+  const cacheKey = 'cohorts:' + weeks;
+  const cached = getCached(cacheKey);
+  if (cached) return jsonResponse(cached, 200, request);
 
   try {
     const now = Date.now();
@@ -175,7 +183,7 @@ export default async (request) => {
 
     const stickiness = mauSet.size > 0 ? +(dauSet.size / mauSet.size * 100).toFixed(1) : null;
 
-    return jsonResponse({
+    const result = {
       cohortRows,
       weeks,
       dau: dauSet.size,
@@ -185,7 +193,9 @@ export default async (request) => {
       dauSpark,
       eventsScanned,
       sampled,
-    }, 200, request);
+    };
+    setCached(cacheKey, result, TTL_HEAVY);
+    return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-cohorts error:', err);
     return errorResponse('Failed to load cohorts: ' + (err.message || 'unknown'), 500, request);
