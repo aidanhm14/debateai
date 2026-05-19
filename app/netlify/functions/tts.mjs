@@ -66,7 +66,10 @@ function checkRateLimit(key) {
 const MAX_TEXT_LENGTH = 5000;
 
 // ElevenLabs voice ID mapping — matched per-personality. Mix of American
-// and British accents now to widen the range of opponents users hear.
+// and British accents. Used as the English baseline AND as the final
+// fallback for non-English languages when no language-native voice is
+// curated yet (turbo_v2_5 is multilingual so they still synthesize the
+// target language — just with an English-influenced accent).
 const ELEVENLABS_VOICES = {
   professor:   'pNInz6obpgDQGcFmaJgB',  // Adam — dominant, firm, American male
   closer:      'EXAVITQu4vr4xnSDxMaL',  // Sarah — mature, confident, American female
@@ -94,6 +97,103 @@ const ELEVENLABS_VOICES = {
   // ElevenLabs swap given who's actually using oral exam mode.
   examiner:    process.env.ELEVENLABS_VOICE_EXAMINER || 'pqHfZKP75CvOlQylNhV4',
 };
+
+// ─────────────────────────────────────────────────────────────────────
+// PER-LANGUAGE VOICE RESOLUTION
+// ─────────────────────────────────────────────────────────────────────
+// The app supports 14 UI languages (see LANGUAGES in debate-ai.html:
+// en, es, fr, de, it, pt, zh, ja, ko, hi, ar, ru, tr, nl). When the
+// user picks a non-English language, we want the persona to speak
+// with a native accent of that language, not just English-with-Hindi-
+// words. ElevenLabs' multilingual model can do this — but only if we
+// pass it a voice whose owner natively speaks the target language.
+//
+// Resolution cascade (highest priority first):
+//   1. Env override:   ELEVENLABS_VOICE_<PERSONA>_<LANG> (e.g.
+//                       ELEVENLABS_VOICE_PROFESSOR_HI=xxx)
+//   2. Curated map:    LANGUAGE_VOICE_OVERRIDES[lang][persona]
+//   3. Gender pool env:ELEVENLABS_VOICE_POOL_<LANG>_<GENDER>
+//   4. Gender pool map:LANGUAGE_DEFAULT_VOICES[lang][gender]
+//   5. English voice:  ELEVENLABS_VOICES[persona] (existing default)
+//
+// The env-var paths exist so voice IDs can be curated and rotated
+// without a redeploy — just set them in Netlify dashboard and the
+// next request picks them up.
+//
+// To curate: open https://elevenlabs.io/voice-library, filter by
+// "Language" → target language, look for voices tagged "Turbo v2.5"
+// or "Multilingual v2" compatible, copy the voice ID, set the env var.
+//
+// Both maps below ship empty — the cascade safely falls back to the
+// existing English voices on every persona, so this change is a no-op
+// for non-English languages UNTIL voice IDs are populated.
+
+const PERSONA_GENDER = {
+  professor: 'male', closer: 'female', surgeon: 'male', veteran: 'male',
+  firebrand: 'male', diplomat: 'female', debater: 'female', philosopher: 'male',
+  prosecutor: 'male', storyteller: 'female', statesman: 'male', barrister: 'male',
+  upstart: 'female', heckler: 'male', disruptor: 'female', tactician: 'male',
+  examiner: 'male',
+};
+
+// Per-language gender pool. Used when a specific (persona × language)
+// voice isn't curated yet but a generic male/female native voice for
+// that language exists. Drop voice IDs in here or set the env vars.
+const LANGUAGE_DEFAULT_VOICES = {
+  // Example shape — populate when voices are curated:
+  // hi: { male: 'voice-id', female: 'voice-id' },
+  // es: { male: 'voice-id', female: 'voice-id' },
+  // fr: { male: 'voice-id', female: 'voice-id' },
+};
+
+// Per-persona × per-language overrides. Highest curated-map priority.
+// Use this when a specific persona has a curated language-native voice
+// (e.g., the "professor" persona in Spanish gets a Spanish-native deep
+// male voice with academic register, not just any Spanish male).
+const LANGUAGE_VOICE_OVERRIDES = {
+  // Example shape — populate when voices are curated:
+  // hi: { professor: 'voice-id', closer: 'voice-id' },
+  // es: { professor: 'voice-id' },
+};
+
+// Normalize a language code into the 2-letter primary subtag we use as
+// the cascade key (BCP-47 'hi-IN' → 'hi'; null/empty → 'en'). Anything
+// not in the 14-language set falls back to English so we don't try to
+// resolve voices for unsupported locales.
+const SUPPORTED_TTS_LANGS = new Set([
+  'en', 'es', 'fr', 'de', 'it', 'pt', 'zh', 'ja',
+  'ko', 'hi', 'ar', 'ru', 'tr', 'nl',
+]);
+function normalizeLang(language) {
+  const lang = String(language || 'en').toLowerCase().split('-')[0].slice(0, 2);
+  return SUPPORTED_TTS_LANGS.has(lang) ? lang : 'en';
+}
+
+function getElevenLabsVoice(personality, language) {
+  const lang = normalizeLang(language);
+  // English short-circuit: skip the language cascade entirely.
+  if (lang === 'en') {
+    return ELEVENLABS_VOICES[personality] || ELEVENLABS_VOICES.professor;
+  }
+  // 1. Env override per persona × language.
+  //    e.g., ELEVENLABS_VOICE_PROFESSOR_HI=xxx
+  const envKey = `ELEVENLABS_VOICE_${personality.toUpperCase()}_${lang.toUpperCase()}`;
+  if (process.env[envKey]) return process.env[envKey];
+  // 2. Curated per persona × language map.
+  const curated = LANGUAGE_VOICE_OVERRIDES[lang] && LANGUAGE_VOICE_OVERRIDES[lang][personality];
+  if (curated) return curated;
+  // 3. Gender-pool env. e.g., ELEVENLABS_VOICE_POOL_HI_MALE=xxx
+  const gender = PERSONA_GENDER[personality] || 'male';
+  const poolEnvKey = `ELEVENLABS_VOICE_POOL_${lang.toUpperCase()}_${gender.toUpperCase()}`;
+  if (process.env[poolEnvKey]) return process.env[poolEnvKey];
+  // 4. Gender-pool curated map.
+  const poolCurated = LANGUAGE_DEFAULT_VOICES[lang] && LANGUAGE_DEFAULT_VOICES[lang][gender];
+  if (poolCurated) return poolCurated;
+  // 5. Final fallback — the English voice for this persona. Multilingual
+  //    model still synthesizes the target language; the accent comes
+  //    from the voice's training data (English-influenced for now).
+  return ELEVENLABS_VOICES[personality] || ELEVENLABS_VOICES.professor;
+}
 
 // Free-tier fallback. OpenAI only ships 10 voices, so new personas reuse
 // the closest match. Keys here MUST mirror ELEVENLABS_VOICES — anything
@@ -145,6 +245,28 @@ const CARTESIA_VOICES = {
   examiner:    process.env.CARTESIA_VOICE_EXAMINER || 'a167e0f3-df7e-4d52-a9c3-f949145efdab',
 };
 
+// Per-language Cartesia voice maps. Same cascade shape as ElevenLabs;
+// see the comment above getElevenLabsVoice() for the curation guide.
+// Env-override pattern: CARTESIA_VOICE_<PERSONA>_<LANG>,
+//                       CARTESIA_VOICE_POOL_<LANG>_<GENDER>.
+const CARTESIA_LANGUAGE_VOICE_OVERRIDES = {};
+const CARTESIA_LANGUAGE_DEFAULT_VOICES = {};
+
+function getCartesiaVoice(personality, language) {
+  const lang = normalizeLang(language);
+  if (lang === 'en') return CARTESIA_VOICES[personality] || CARTESIA_VOICES.professor;
+  const envKey = `CARTESIA_VOICE_${personality.toUpperCase()}_${lang.toUpperCase()}`;
+  if (process.env[envKey]) return process.env[envKey];
+  const curated = CARTESIA_LANGUAGE_VOICE_OVERRIDES[lang] && CARTESIA_LANGUAGE_VOICE_OVERRIDES[lang][personality];
+  if (curated) return curated;
+  const gender = PERSONA_GENDER[personality] || 'male';
+  const poolEnvKey = `CARTESIA_VOICE_POOL_${lang.toUpperCase()}_${gender.toUpperCase()}`;
+  if (process.env[poolEnvKey]) return process.env[poolEnvKey];
+  const poolCurated = CARTESIA_LANGUAGE_DEFAULT_VOICES[lang] && CARTESIA_LANGUAGE_DEFAULT_VOICES[lang][gender];
+  if (poolCurated) return poolCurated;
+  return CARTESIA_VOICES[personality] || CARTESIA_VOICES.professor;
+}
+
 // Map OpenAI voice keys to personality keys
 const OPENAI_TO_PERSONALITY = {
   onyx: 'professor',
@@ -170,9 +292,14 @@ function resolveOpenAIVoice(voice){
 
 // ElevenLabs TTS with streaming for faster first-byte
 // intensity: 0 = calm deliberate delivery, 1 = breathless sprint (tournament speed)
-async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0) {
+// language: BCP-47 short code (en/es/fr/de/it/pt/zh/ja/ko/hi/ar/ru/tr/nl).
+//           Used to pick a language-native voice from the cascade in
+//           getElevenLabsVoice(). turbo_v2_5 is multilingual so it
+//           synthesizes the target language either way; the voice
+//           choice controls the accent.
+async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0, language = 'en') {
   const personality = OPENAI_TO_PERSONALITY[voice] || voice;
-  const voiceId = ELEVENLABS_VOICES[personality] || ELEVENLABS_VOICES.professor;
+  const voiceId = getElevenLabsVoice(personality, language);
 
   // At high intensity: lower stability → more variation/breathlessness, higher style → more expressive
   const stability = Math.max(0.15, Math.min(0.8, 0.7 - intensity * 0.55));
@@ -214,7 +341,11 @@ async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0) {
 // defaults to 'en' when nothing's specified.
 async function cartesiaTTS(text, voice, speed, apiKey, intensity = 0, language = 'en') {
   const personality = OPENAI_TO_PERSONALITY[voice] || voice;
-  const voiceId = CARTESIA_VOICES[personality] || CARTESIA_VOICES.professor;
+  // Cartesia parallel resolver: same cascade shape as ElevenLabs, just
+  // its own env-var namespace (CARTESIA_VOICE_<PERSONA>_<LANG> and
+  // CARTESIA_VOICE_POOL_<LANG>_<GENDER>). sonic-2 IDs aren't valid
+  // across providers, so this stays separate from getElevenLabsVoice.
+  const voiceId = getCartesiaVoice(personality, language);
 
   const speedParam = intensity > 0.6 ? 'fastest' : intensity > 0.3 ? 'fast' : 'normal';
   const emotionTags = intensity > 0.5 ? ['positivity:high', 'curiosity:high'] : [];
@@ -376,9 +507,35 @@ const INWORLD_VOICES = {
   // from the system prompt either way.
   examiner:    process.env.INWORLD_VOICE_EXAMINER || 'Bill',
 };
-async function inworldTTS(text, voice, speed, apiKey) {
+
+// Per-language Inworld voice maps. Inworld TTS 1.5 Max is multilingual
+// (per their docs) but, like ElevenLabs, the accent follows the voice's
+// training data. Same cascade.
+// Env-override pattern: INWORLD_VOICE_<PERSONA>_<LANG>,
+//                       INWORLD_VOICE_POOL_<LANG>_<GENDER>.
+const INWORLD_LANGUAGE_VOICE_OVERRIDES = {};
+const INWORLD_LANGUAGE_DEFAULT_VOICES = {};
+
+function getInworldVoice(personality, language) {
+  const lang = normalizeLang(language);
+  if (lang === 'en') return INWORLD_VOICES[personality] || INWORLD_VOICES.professor;
+  const envKey = `INWORLD_VOICE_${personality.toUpperCase()}_${lang.toUpperCase()}`;
+  if (process.env[envKey]) return process.env[envKey];
+  const curated = INWORLD_LANGUAGE_VOICE_OVERRIDES[lang] && INWORLD_LANGUAGE_VOICE_OVERRIDES[lang][personality];
+  if (curated) return curated;
+  const gender = PERSONA_GENDER[personality] || 'male';
+  const poolEnvKey = `INWORLD_VOICE_POOL_${lang.toUpperCase()}_${gender.toUpperCase()}`;
+  if (process.env[poolEnvKey]) return process.env[poolEnvKey];
+  const poolCurated = INWORLD_LANGUAGE_DEFAULT_VOICES[lang] && INWORLD_LANGUAGE_DEFAULT_VOICES[lang][gender];
+  if (poolCurated) return poolCurated;
+  return INWORLD_VOICES[personality] || INWORLD_VOICES.professor;
+}
+async function inworldTTS(text, voice, speed, apiKey, language = 'en') {
   const personality = OPENAI_TO_PERSONALITY[voice] || voice;
-  const voiceId = INWORLD_VOICES[personality] || 'Sarah';
+  // Inworld uses voice *names* (Sarah, Adam, Christopher), not opaque
+  // IDs. Same cascade — env override per persona × language, then per-
+  // language gender pool, then English persona name.
+  const voiceId = getInworldVoice(personality, language) || 'Sarah';
   // Inworld uses Basic auth with the raw key as the credential (no
   // base64 encoding). The "Basic " prefix is part of their format —
   // see the Make Your First API Call page on inworld.ai. If a future
@@ -534,7 +691,7 @@ export default async (request, context) => {
     // Premium + explicit opt-in → Inworld TTS 1.5 Max (Pro provider option)
     if (!response && premium && provider === 'inworld' && inworldKey) {
       try {
-        response = await inworldTTS(text, voice, speed, inworldKey);
+        response = await inworldTTS(text, voice, speed, inworldKey, language);
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           console.error('Inworld TTS error:', response.status, errText);
@@ -549,7 +706,7 @@ export default async (request, context) => {
     // Premium default → ElevenLabs turbo_v2_5
     if (!response && premium && elevenKey) {
       try {
-        response = await elevenLabsTTS(text, voice, speed, elevenKey, intensity);
+        response = await elevenLabsTTS(text, voice, speed, elevenKey, intensity, language);
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           console.error('ElevenLabs TTS error:', response.status, errText);
