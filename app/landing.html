@@ -2274,6 +2274,27 @@ section.hero{
   padding:0 2px;
 }
 [data-theme="light"] .hero-pill-sep{color:rgba(0,0,0,.22)}
+/* Live debates pill. Same shape as other hero pills but with a small
+   pulsing red dot so the "real humans live right now" signal is obvious
+   at a glance — matches the LIVE chip styling on the bento tool tile
+   and the .fa-thumb-tag dot on the demo-video card below. */
+.hero-pill-live{
+  display:inline-flex;align-items:center;gap:8px;
+}
+.hero-pill-live-dot{
+  width:7px;height:7px;border-radius:50%;background:#ef4444;
+  box-shadow:0 0 0 0 rgba(239,68,68,.55);
+  animation:hero-pill-live-pulse 1.7s ease-out infinite;
+  flex-shrink:0;
+}
+@keyframes hero-pill-live-pulse{
+  0%  {box-shadow:0 0 0 0 rgba(239,68,68,.55)}
+  70% {box-shadow:0 0 0 8px rgba(239,68,68,0)}
+  100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-pill-live-dot{animation:none}
+}
 @media(max-width:560px){
   .hero-pill-sep{display:none}
   .hero-pill-rail{gap:8px;font-size:.92rem}
@@ -4435,6 +4456,8 @@ section.ui-section .ui-lede{
           Voice at capacity
         </a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
+        <a href="/live" class="hero-pill hero-pill-live"><span class="hero-pill-live-dot" aria-hidden="true"></span>Live debates</a>
+        <span class="hero-pill-sep" aria-hidden="true">·</span>
         <a href="/spar" class="hero-pill">Find an online partner or opponent</a>
       </div>
 
@@ -5565,14 +5588,9 @@ section.ui-section .ui-lede{
           <div class="fa-card-caption">Cases on any motion. Pick a brain.</div>
         </a>
         <a class="fa-card" href="/live" aria-label="Live debates">
-          <div class="fa-card-thumb fa-thumb-comm">
-            <svg class="fa-thumb-icon" viewBox="0 0 80 50" aria-hidden="true">
-              <circle cx="30" cy="20" r="6" fill="currentColor"/>
-              <path d="M18 38 Q18 30 30 30 Q42 30 42 38" stroke="currentColor" stroke-width="1.6" fill="none"/>
-              <circle cx="52" cy="20" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/>
-              <path d="M40 38 Q40 30 52 30 Q64 30 64 38" stroke="currentColor" stroke-width="1.6" fill="none"/>
-            </svg>
-            <span class="fa-thumb-tag fa-thumb-tag--soon">Coming soon</span>
+          <div class="fa-card-thumb fa-thumb-img">
+            <img src="/landing-shot-live.jpg?v=1" alt="Two debaters on a Live Round video call with the AI judge" loading="lazy" decoding="async">
+            <span class="fa-thumb-tag"><span class="fa-thumb-dot" aria-hidden="true"></span>Live</span>
           </div>
           <div class="fa-card-label">Live debates</div>
           <div class="fa-card-caption">Match real debaters. AI judges.</div>
@@ -5631,7 +5649,9 @@ section.ui-section .ui-lede{
     <h2 class="pg-title">What it actually looks like.</h2>
 
     <div class="pg-frame">
-      <img class="pg-main" id="pgMainImg" src="/landing-shot-voice.jpg" alt="Voice round · argue out loud, against a clock." loading="lazy">
+      <a id="pgMainLink" class="pg-main-link" href="/voice-debate" aria-label="Open Voice round">
+        <img class="pg-main" id="pgMainImg" src="/landing-shot-voice.jpg" alt="Voice round · argue out loud, against a clock." loading="lazy">
+      </a>
     </div>
 
     <div class="pg-thumbs" id="pgThumbs" role="tablist" aria-label="Product screens"></div>
@@ -5640,6 +5660,7 @@ section.ui-section .ui-lede{
       <div class="pg-caption-eyebrow" id="pgCaptionEyebrow">Voice round</div>
       <h3 class="pg-caption-title" id="pgCaptionTitle">Argue out loud, against a clock.</h3>
       <p class="pg-caption-body" id="pgCaptionBody">Motion at the top, silhouettes for both sides, a red orb that breathes when the AI speaks and ripples when you do. POIs, interruptions, a transcript that tracks every cut-in.</p>
+      <a id="pgCaptionCta" class="pg-caption-cta" href="/voice-debate">Start a voice round <span aria-hidden="true">→</span></a>
     </div>
   </div>
 </section>
@@ -5647,18 +5668,20 @@ section.ui-section .ui-lede{
 <script>
 (function(){
   var SHOTS = [
-    { src: '/landing-shot-voice.jpg',        eyebrow: 'Voice round',       title: 'Argue out loud, against a clock.',          body: 'Motion at the top, silhouettes for both sides, a red orb that breathes when the AI speaks and ripples when you do. POIs, interruptions, a transcript that tracks every cut-in.' },
-    { src: '/landing-shot-casegen.jpg',      eyebrow: 'Case generator',    title: 'A full case in 30 seconds.',                body: 'Drop a motion, pick a side, pick a format. The case comes back with framework, warrants, impacts, and A2 blocks ready for the top attacks.' },
-    { src: '/landing-shot-live-speech.jpg',  eyebrow: 'Live round',        title: 'Six speeches, real timer, real ballot.',    body: 'Curated case background on the left, speech counter and live timer in the middle. The AI watches both sides and writes the RFD.' },
-    { src: '/landing-shot-disclosures.jpg',  eyebrow: 'Disclosures',       title: 'Read what other people ran.',               body: 'Cases published by users from every format. Sort by votes or recency, filter by side and format, import one straight into your own round.' },
-    { src: '/landing-shot-philosophy.jpg',   eyebrow: 'Philosophy engine', title: 'Deploy philosophy where it weighs.',        body: 'Pick up to three thinkers. Deep-dive, apply to a motion, run a head-to-head Venn, or get framing language ready for your PM.' }
+    { src: '/landing-shot-voice.jpg',        eyebrow: 'Voice round',       title: 'Argue out loud, against a clock.',          body: 'Motion at the top, silhouettes for both sides, a red orb that breathes when the AI speaks and ripples when you do. POIs, interruptions, a transcript that tracks every cut-in.', href: '/voice-debate', cta: 'Start a voice round' },
+    { src: '/landing-shot-casegen.jpg',      eyebrow: 'Case generator',    title: 'A full case in 30 seconds.',                body: 'Drop a motion, pick a side, pick a format. The case comes back with framework, warrants, impacts, and A2 blocks ready for the top attacks.', href: '/debate-ai', cta: 'Open the case generator' },
+    { src: '/landing-shot-live-speech.jpg',  eyebrow: 'Live round',        title: 'Six speeches, real timer, real ballot.',    body: 'Curated case background on the left, speech counter and live timer in the middle. The AI watches both sides and writes the RFD.', href: '/live', cta: 'Find a partner on Live Debates' },
+    { src: '/landing-shot-disclosures.jpg',  eyebrow: 'Disclosures',       title: 'Read what other people ran.',               body: 'Cases published by users from every format. Sort by votes or recency, filter by side and format, import one straight into your own round.', href: '/disclosures', cta: 'Browse disclosures' },
+    { src: '/landing-shot-philosophy.jpg',   eyebrow: 'Philosophy engine', title: 'Deploy philosophy where it weighs.',        body: 'Pick up to three thinkers. Deep-dive, apply to a motion, run a head-to-head Venn, or get framing language ready for your PM.', href: '/app#phil', cta: 'Open the philosophy engine' }
   ];
 
   var mainEl = document.getElementById('pgMainImg');
+  var mainLinkEl = document.getElementById('pgMainLink');
   var thumbsEl = document.getElementById('pgThumbs');
   var eyebrowEl = document.getElementById('pgCaptionEyebrow');
   var titleEl = document.getElementById('pgCaptionTitle');
   var bodyEl = document.getElementById('pgCaptionBody');
+  var ctaEl = document.getElementById('pgCaptionCta');
   if (!mainEl || !thumbsEl) return;
 
   var idx = 0;
@@ -5686,6 +5709,19 @@ section.ui-section .ui-lede{
     eyebrowEl.textContent = s.eyebrow;
     titleEl.textContent = s.title;
     bodyEl.textContent = s.body;
+    if (mainLinkEl && s.href) {
+      mainLinkEl.href = s.href;
+      mainLinkEl.setAttribute('aria-label', 'Open ' + s.eyebrow);
+    }
+    if (ctaEl) {
+      if (s.href && s.cta) {
+        ctaEl.href = s.href;
+        ctaEl.firstChild.nodeValue = s.cta + ' ';
+        ctaEl.style.display = '';
+      } else {
+        ctaEl.style.display = 'none';
+      }
+    }
     Array.prototype.forEach.call(thumbsEl.children, function(btn, i){
       btn.classList.toggle('is-active', i === idx);
       btn.setAttribute('aria-selected', i === idx ? 'true' : 'false');
@@ -5727,6 +5763,13 @@ section.ui-section .ui-lede{
     background:#fafaf7;
     box-shadow:0 14px 36px rgba(0,0,0,.10);
   }
+  .pg-main-link{
+    display:block;width:100%;
+    text-decoration:none;color:inherit;
+    transition:transform .18s ease;
+  }
+  .pg-main-link:hover{transform:translateY(-1px)}
+  .pg-main-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:14px}
   .pg-main{
     display:block;width:100%;height:auto;
     aspect-ratio:16/9;object-fit:cover;object-position:center 32%;
@@ -5773,12 +5816,27 @@ section.ui-section .ui-lede{
     font-size:.85rem;line-height:1.5;color:var(--text-dim);
     margin:0;
   }
+  /* "Try it on /live →" CTA below the caption body. Each gallery shot
+     points at the page it depicts; the Live round shot points at /live
+     so the screenshot of a real round IS the on-ramp to running one. */
+  .pg-caption-cta{
+    display:inline-flex;align-items:center;gap:6px;
+    margin-top:12px;
+    font-size:.78rem;font-weight:800;letter-spacing:.01em;
+    color:var(--accent);
+    text-decoration:none;
+    border-bottom:1px solid transparent;
+    transition:border-color .18s ease, transform .18s ease;
+  }
+  .pg-caption-cta:hover{border-bottom-color:currentColor;transform:translateX(2px)}
+  .pg-caption-cta:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
   @media (max-width:560px){
     .product-gallery{padding:32px 16px 20px}
     .pg-title{margin-bottom:18px}
     .pg-main{aspect-ratio:4/3}
     .pg-thumbs{gap:5px}
     .pg-caption-body{font-size:.8rem}
+    .pg-caption-cta{font-size:.74rem}
   }
 </style>
 
@@ -6630,7 +6688,7 @@ section.ui-section .ui-lede{
     align-items:start;
   }
   .live-proof-video{
-    position:relative;
+    position:relative;display:block;
     border-radius:14px;overflow:hidden;
     background:#0c0c10;
     box-shadow:0 30px 70px rgba(0,0,0,.45);
@@ -6639,6 +6697,36 @@ section.ui-section .ui-lede{
        (585x571 ~= 1:1) so the image fills the panel without
        awkward top/bottom cropping that would clip the controls. */
     aspect-ratio: 585 / 571;
+    cursor:pointer;text-decoration:none;color:inherit;
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .live-proof-video:hover{
+    transform:translateY(-2px);
+    box-shadow:0 36px 80px rgba(0,0,0,.50);
+  }
+  [data-theme="light"] .live-proof-video:hover{
+    box-shadow:0 24px 56px rgba(0,0,0,.14);
+  }
+  /* "Open Live Debates →" hint that fades up over the screenshot on hover.
+     Tells visitors the screenshot is the entry point, not just decoration. */
+  .live-proof-video::after{
+    content:"Open Live Debates →";
+    position:absolute;left:50%;bottom:14px;transform:translateX(-50%) translateY(8px);
+    background:#ef4444;color:#fff;
+    padding:8px 14px;border-radius:999px;
+    font-size:.75rem;font-weight:800;letter-spacing:.04em;line-height:1;
+    box-shadow:0 10px 24px rgba(239,68,68,.35);
+    opacity:0;pointer-events:none;
+    transition:opacity .18s ease, transform .18s ease;
+    z-index:3;
+  }
+  .live-proof-video:hover::after,
+  .live-proof-video:focus-visible::after{
+    opacity:1;transform:translateX(-50%) translateY(0);
+  }
+  @media (prefers-reduced-motion:reduce){
+    .live-proof-video,
+    .live-proof-video::after{transition:none}
   }
   [data-theme="light"] .live-proof-video{
     box-shadow:0 20px 50px rgba(0,0,0,.12);
@@ -6815,6 +6903,37 @@ section.ui-section .ui-lede{
     .live-proof-cap:last-child{border-bottom:none}
     [data-theme="light"] .live-proof-cap{border-bottom-color:rgba(0,0,0,.06)}
     .live-proof-badge{font-size:.58rem;padding:5px 8px}
+  }
+
+  /* "Post a motion or accept a challenge →" CTA strip under the proof.
+     Sits below the three caption tiles and tells the visitor that this
+     isn't just a feature mockup — the board is live and they can open
+     it in one tap. */
+  .live-proof-cta{
+    display:flex;flex-direction:column;align-items:center;
+    gap:10px;margin-top:24px;text-align:center;
+  }
+  .live-proof-cta-btn{
+    display:inline-flex;align-items:center;gap:8px;
+    background:#ef4444;color:#fff;
+    padding:13px 22px;border-radius:999px;
+    font-size:.95rem;font-weight:800;letter-spacing:-.005em;
+    text-decoration:none;
+    box-shadow:0 14px 32px rgba(239,68,68,.32);
+    transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
+  }
+  .live-proof-cta-btn:hover{
+    background:#dc2626;
+    transform:translateY(-2px);
+    box-shadow:0 20px 40px rgba(239,68,68,.40);
+  }
+  .live-proof-cta-sub{
+    font-size:.78rem;color:var(--text-dim);line-height:1.5;
+    max-width:560px;
+  }
+  @media(max-width:560px){
+    .live-proof-cta-btn{font-size:.86rem;padding:11px 18px}
+    .live-proof-cta-sub{font-size:.72rem}
   }
 </style>
 
@@ -7430,7 +7549,7 @@ section.ui-section .ui-lede{
     </div>
 
     <div class="live-proof-frame">
-      <div class="live-proof-video">
+      <a class="live-proof-video" href="/live" aria-label="Open Live Debates and post or accept a challenge">
         <span class="live-proof-badge">Live · 2 debaters</span>
         <!-- Real /live-round screenshot, cropped to the video panel.
              585x571 source; covers the panel and hides the CSS mockup
@@ -7456,7 +7575,7 @@ section.ui-section .ui-lede{
             <span class="lpv-ctl lpv-ctl-leave">Leave</span>
           </div>
         </div>
-      </div>
+      </a>
 
       <div class="live-proof-ballot">
         <div class="lpb-strip">
@@ -7508,6 +7627,16 @@ section.ui-section .ui-lede{
         <strong>Calibrated to tournament scales</strong>
         <span>24 to 30 range, with 24-25 reachable for genuinely weak speeches.</span>
       </div>
+    </div>
+
+    <!-- Explicit "where to actually do this" footer. The split panel above
+         shows what a round looks like; this row tells the visitor that the
+         board is live and lets them open it in one tap. -->
+    <div class="live-proof-cta">
+      <a class="live-proof-cta-btn" href="/live">
+        Post a motion or accept a challenge <span aria-hidden="true">→</span>
+      </a>
+      <span class="live-proof-cta-sub">Asian Parli · WSDC · BP · APDA · PF · LD · Policy · Congress · MUN. AI judge writes the ballot.</span>
     </div>
   </div>
 </section>
