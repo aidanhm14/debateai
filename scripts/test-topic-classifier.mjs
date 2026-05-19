@@ -80,6 +80,20 @@ const CASES = [
   ['critphil: settler colonialism',
     'THBT settler colonialism is a structure not an event. Tuck and Yang argue decolonization is not a metaphor; the logic of elimination persists.', 'critical_phil_k'],
 
+  // ── PF monthly-topic primers: SHOULD fire ───────────────────────
+  ['pf_uk_eu: rejoin EU',
+    'Motion: Resolved, the United Kingdom should rejoin the European Union. Bregret polling supports it; Article 49 TEU is the route.', 'pf_uk_eu'],
+  ['pf_encryption: lawful access',
+    'Motion: The federal government should require lawful access to end-to-end encrypted communications. The EARN IT Act + going dark debate.', 'pf_encryption'],
+  ['pf_china_extraction: china belt and road',
+    'Resolved: The Peoples Republic of China should substantially reduce its international extraction of natural resources via Belt and Road BRI rare earth mining.', 'pf_china_extraction'],
+  ['pf_sports_betting: FTC sports betting',
+    'Motion: The FTC should establish a federal regulatory framework for sports betting. Murphy v NCAA returned policy to states but addiction services overwhelmed; the SAFE Bet Act + AGA debate is live.', 'pf_sports_betting'],
+  ['pf_zoning: corporate SFH ban',
+    'Motion: The federal government should ban corporate acquisition of single-family residences. Invitation Homes / Pretium / Tricon REIT landlord harms.', 'pf_zoning'],
+  ['pf_war_powers: WPR',
+    'Motion: Eliminate the Presidents authority to deploy military forces abroad without Congressional approval. The War Powers Resolution + AUMF interpretation is the question.', 'pf_war_powers'],
+
   // ── finance: should NOT fire (true negatives) ─────────────────────
   ['skip: tiktok in schools', 'Motion: THW ban TikTok in US schools.', ''],
   ['skip: zoos', 'Motion: This House Would Abolish Zoos.', ''],

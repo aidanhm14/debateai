@@ -1219,6 +1219,164 @@ L. LEVINAS — anchor: Totality and Infinity, Otherwise Than Being. Ethics is fi
 When the AI runs a K, the LINK should be SPECIFIC to the AFF (not generic "the AFF reifies X"). The ALT should have a NAME and a LITERATURE BASE. The FRAMEWORK should explain why the K precedes the AFF (pre-fiat / role-of-the-ballot move).
 `;
 
+// ── 2025-26 PF monthly-topic primers ──────────────────────────────
+// Each PF topic runs for 1-2 months; firing the right primer on a
+// practice-round motion is high-value for users training on past
+// topics or for the Nationals practice cycle. Drafted from
+// VictoryBriefs / Champion Briefs / NSD / Bluebonnet / DebateUS topic
+// analyses verified May 2026.
+
+const PF_UK_EU_PRIMER = `
+PF TOPIC: "Resolved: The United Kingdom should rejoin the European Union." (Sept/Oct 2025)
+
+STATUS QUO ANCHORS:
+- OBR forecast: 4% productivity loss + 15% trade reduction from Brexit (vs counterfactual EU membership).
+- EU-UK SPS (Sanitary and Phytosanitary) agreement May 2025 — narrowest food-trade reopening since 2020.
+- Polling: ~64% of UK public think Brexit was a mistake (Bregret has stabilized as the majority view in 2024-25 polls).
+- Article 49 TEU is the accession route. Article 50 (departure) was used 2020; rejoining requires unanimous Council approval + qualified majority on terms.
+
+PRO ARGUMENTS (rejoin):
+- Economic data: real productivity hit; lost financial-services passporting; UK fishing exports collapse; SME export friction.
+- Freedom of movement restored (Erasmus, NHS staffing pipeline).
+- EU R&D access (Horizon Europe, Galileo).
+- Strategic relevance — UK as middle power needs EU bloc weight on China / Russia.
+
+CON ARGUMENTS (don't rejoin):
+- 2016 democratic mandate (52% Leave). Reopening = constitutional whiplash.
+- EU won't grant UK's old opt-outs back (no rebate, no euro carve-out, possibly Schengen pressure).
+- Brexit fatigue — both major UK parties have ruled out a re-referendum in this Parliament.
+- Identity / sovereignty arguments — fisheries, immigration control, regulatory autonomy.
+
+SOURCES: OBR Brexit analyses, UK in a Changing Europe (KCL think tank), Centre for European Reform, Politico EU, FT Brexit coverage, YouGov polling.
+`;
+
+const PF_ENCRYPTION_PRIMER = `
+PF TOPIC: "Resolved: The United States federal government should require technology companies to provide lawful access to encrypted communications." (Nov/Dec 2025)
+
+STATUS QUO ANCHORS:
+- "Going Dark" debate (Comey 2014 onward). FBI estimates 90%+ of wiretapped communications are now end-to-end encrypted.
+- Lawful Access to Encrypted Data Act (Graham-Cotton-Blackburn). EARN IT Act variants. STOP CSAM Act.
+- E2E platforms: WhatsApp, iMessage, Signal, Telegram (partial), Facebook Messenger (rolled out 2023-24).
+- UK Online Safety Act + EU Chat Control regulation (EU) are international parallels — both faced major civil-liberties pushback.
+
+PRO ARGUMENTS (require lawful access):
+- Child exploitation — NCMEC reports millions of CSAM tips, encryption blocks investigation.
+- Terrorism prevention — Pensacola NAS shooter case (FBI couldn't access locked phones).
+- Drug trafficking + organized crime — encrypted Sky ECC / EncroChat busts (when broken) yielded thousands of arrests.
+- Domestic terror — Jan 6 investigations relied on metadata; pure metadata is increasingly insufficient.
+
+CON ARGUMENTS (don't require):
+- "Math doesn't discriminate" — any backdoor will be exploited by adversaries (China hack of US wiretap systems Oct 2024 = canonical example).
+- DV victims + journalists + LGBTQ in oppressive regimes depend on E2E for safety.
+- Law enforcement has alternatives — metadata, lawful hacking (Vault 7-style), CSAM hashing (PhotoDNA), traditional investigation.
+- Innovation chill — US tech sector loses competitive edge if forced to weaken crypto vs offshore competitors.
+
+SOURCES: EFF, Stanford CIS, Berkman Klein Center, CRS report IF11769, CSIS Jim Lewis paper, Lawfare blog, GCHQ "Ghost Protocol" proposal.
+`;
+
+const PF_CHINA_EXTRACTION_PRIMER = `
+PF TOPIC: "Resolved: The People's Republic of China should substantially reduce its international extraction of natural resources." (Jan 2026)
+
+STATUS QUO ANCHORS:
+- ~30% of critical minerals come from Africa. China owned only 3% of African mining exploration funds in 2022 (Wilson Center) — Western firms still extract ~9x more than China.
+- China-Latin America trade reached $518.47B in 2024.
+- Belt and Road Initiative mining footprint: Indonesia (nickel), DRC (cobalt), Myanmar (REM + jade), Zambia (copper), Peru (copper / lithium).
+- Made in China 2025 and "dual circulation" frame natural resources as a strategic dependency to break (or reverse, as the inverse for Western competitors).
+
+PRO ARGUMENTS (China should reduce):
+- Resource curse + extraction-linked conflict (West Africa, eastern DRC, Myanmar Kachin / Rakhine).
+- Environmental damage — tailings pollution, deforestation, fisheries collapse.
+- Debt-trap diplomacy framing (Hambantota model — though heavily contested as overstated).
+- Indigenous + community displacement.
+
+CON ARGUMENTS (don't reduce):
+- Western firms extract 9x more than China — the framing of China-as-extractor is selective.
+- China fills financing gaps Western institutions won't (post-IMF-conditionality, post-Paris-Club-style restructuring).
+- Sudden Chinese withdrawal would crash multiple African + Latin American economies + fiscal stability.
+- South-South solidarity framing (Bandung 1955 legacy; Global South alignment with PRC vs Bretton Woods).
+
+SOURCES: Wilson Center China-Africa, AidData (William & Mary), Carnegie China, Brookings AGI, China-Latin America Finance Database (Boston University), Center for Strategic Studies.
+`;
+
+const PF_SPORTS_BETTING_PRIMER = `
+PF TOPIC: "Resolved: The Federal Trade Commission should establish a federal regulatory framework for sports betting." (Feb 2026 — DEEPEST evidence topic of the 2025-26 PF season)
+
+STATUS QUO ANCHORS:
+- Murphy v. NCAA (2018) 7-2 anti-commandeering ruling struck down PASPA, returning sports-betting policy to states. 38+ states have legalized as of 2026.
+- UCLA-USC bankruptcy study: 28% increase in personal bankruptcy in newly-legalized states within 3 years.
+- UCSD addiction-help-seeking spiked 61% post-legalization.
+- NCAA student data: 67% of college students bet on sports.
+- FTC §5(a) — "unfair or deceptive acts or practices" — is the authority a federal framework would rest on.
+- Pending federal bills: SAFE Bet Act (Tonko-Blumenthal), GRIT Act, ban on prop bets on college athletes.
+- American Gaming Association (industry group) opposes federal framework; favors state regulation.
+
+PRO ARGUMENTS (federal framework):
+- Consumer protection — deceptive advertising, "free bet" predatory marketing, no national age-verification.
+- Problem gambling epidemic — addiction services overwhelmed in legalized states.
+- Data privacy — sportsbooks collect betting behavior + can sell to advertisers / insurers.
+- Race-to-the-bottom — states compete on lax rules to capture revenue, regulatory floor needed.
+- Interstate consistency — odds, payouts, AML standards.
+
+CON ARGUMENTS (state-level only / no federal framework):
+- Murphy federalism + Tenth Amendment — Court explicitly said this is state turf.
+- FTC lacks gambling expertise; state regulators (Nevada Gaming, NJ DGE) have decades of accumulated competence.
+- State revenue dependency — sports-betting tax revenue is now ~$1.8B/yr FY23 across legalized states.
+- Tribal sovereignty + IGRA (Indian Gaming Regulatory Act) carve-outs.
+- Offshore migration risk — ~23% of US sports wagers already happen on offshore (Bovada, Bet365.com unregulated) sites; tighter regs would push more offshore.
+
+SOURCES: NCAA research, American Gaming Association, AGA Responsible Marketing Code, NCPG (National Council on Problem Gambling), UCLA Anderson study, FTC §5(a) jurisprudence, Murphy v. NCAA, Christiansen Capital Advisors offshore-wagering estimates.
+`;
+
+const PF_ZONING_PRIMER = `
+PF TOPIC: "Resolved: The United States federal government should ban corporate acquisition of single-family residences." (Mar 2026)
+
+STATUS QUO ANCHORS:
+- Trump executive order March 2026 (study + enforcement actions on corporate SFH ownership).
+- Bipartisan Senate "Stop Wall Street Landlords" bill with 350-home threshold (above which corporate ownership would be banned or punitively taxed).
+- Yonah Freemark (Urban Institute) research on upzoning + corporate ownership effects.
+- Freddie Mac filtering research — affordable housing supply trajectory under different ownership models.
+- American Institute for Boys and Men — housing-affordability-as-marriage-formation-barrier framing.
+
+PRO ARGUMENTS (ban corporate SFH):
+- Tenant harms from REIT-style landlords (algorithmic rent-setting, eviction-as-business-model — Invitation Homes, Pretium, Tricon).
+- Removes homes from for-sale market — corporate buyers outbid first-time buyers with cash offers.
+- Housing affordability + intergenerational wealth — homeownership is the median household's #1 wealth-building vehicle.
+- Concentration of landlord power → political-economy distortions in local zoning + housing policy.
+
+CON ARGUMENTS (don't ban):
+- LLC loophole — corporate ownership is functionally undefined; small LLCs (mom-and-pop landlords) get swept up.
+- Corporate landlords EXPAND rental supply where homeownership is unattainable.
+- Real bottleneck is ZONING, not buyers — restrictive zoning prevents supply growth; banning corporate buyers without zoning reform = displacement to rentals.
+- Constitutional / Tenth Amendment — housing policy is traditionally state/local.
+
+SOURCES: Urban Institute (Freemark), Freddie Mac filtering research, NMHC (National Multifamily Housing Council), Brookings Hamilton Project, Joint Center for Housing Studies (Harvard), Furman Center (NYU).
+`;
+
+const PF_WAR_POWERS_PRIMER = `
+PF TOPIC: "Resolved: The United States should eliminate the President's authority to deploy military forces abroad without Congressional approval." (Apr 2026)
+
+STATUS QUO ANCHORS:
+- April-May 2026 Iran conflict triggered the most active War Powers Resolution debate since Yemen 2019. Senate rejected war-powers resolutions 47-52 multiple times.
+- The 60-day WPR clock hit on May 1, 2026; Trump admin argued the ceasefire pauses the clock.
+- War Powers Resolution = Public Law 93-148 (1973), passed over Nixon's veto. 60-day deployment window without Congressional authorization, 30-day withdrawal extension.
+- 2001 AUMF + 2002 AUMF have been stretched to cover almost every post-9/11 military action.
+- Libya 2011, Syria, Yemen, Iran 2020 + 2026 — all military actions without explicit Congressional authorization.
+
+PRO ARGUMENTS (eliminate presidential authority):
+- Constitutional originalism — Article I §8 vests war declaration with Congress. WPR has been routinely ignored without consequence.
+- Democratic legitimacy — wars without authorization decouple foreign policy from electoral accountability.
+- Strategic clarity — adversaries can't read US resolve when Congress doesn't vote.
+- Drain on military readiness from "forever wars" (Iraq, Afghanistan, ongoing CENTCOM operations).
+
+CON ARGUMENTS (preserve presidential authority):
+- Speed / agility — modern threats (terrorism, cyber, hypersonics) don't wait for floor debate.
+- Article II Commander-in-Chief constitutional authority — repels imminent threats.
+- Congressional dysfunction — pre-authorization is unworkable when leadership can't pass appropriations on time.
+- Allies need credibility of US response — pre-authorization requirements signal restraint, reduce deterrent value.
+
+SOURCES: War Powers Resolution text (Public Law 93-148, 1973), Arthur Schlesinger "The Imperial Presidency," John Yoo executive-power scholarship, Congressional Research Service reports on AUMF interpretation, Brookings / Lawfare / Just Security on Iran 2026.
+`;
+
 // TOPIC_PRIMERS — registry. Add primers here as new transcripts arrive.
 const TOPIC_PRIMERS = {
   finance: FINANCE_PRIMER,
@@ -1227,6 +1385,12 @@ const TOPIC_PRIMERS = {
   hegemony: HEGEMONY_PRIMER,
   capitalism_k: CAPITALISM_K_PRIMER,
   critical_phil_k: CRITICAL_PHIL_K_PRIMER,
+  pf_uk_eu: PF_UK_EU_PRIMER,
+  pf_encryption: PF_ENCRYPTION_PRIMER,
+  pf_china_extraction: PF_CHINA_EXTRACTION_PRIMER,
+  pf_sports_betting: PF_SPORTS_BETTING_PRIMER,
+  pf_zoning: PF_ZONING_PRIMER,
+  pf_war_powers: PF_WAR_POWERS_PRIMER,
 };
 
 // forTopic — returns a topic primer if known, else ''. Normalizes synonyms.
@@ -1363,6 +1527,84 @@ const TOPIC_KEYWORDS = {
       'bataille', 'baudrillard', 'deleuze', 'guattari', 'heidegger',
       'levinas', 'edelman', 'munoz', 'spillers', 'hartman', 'sharpe',
       'critical race', 'postcolonial', 'decolonial',
+    ],
+  },
+  pf_uk_eu: {
+    strong: [
+      'rejoin the european union', 'rejoin the eu', 'uk rejoin', 'brexit',
+      'article 49 teu', 'article 50 teu', 'european union membership',
+      'eu accession', 'horizon europe', 'eu single market',
+    ],
+    medium: [
+      'united kingdom', 'european union', 'eu membership', 'obr',
+      'bregret', 'leave campaign', 'remain campaign', 'eu-uk',
+      'free movement', 'erasmus', 'schengen', 'galileo',
+    ],
+  },
+  pf_encryption: {
+    strong: [
+      'end-to-end encryption', 'encrypted communications', 'lawful access',
+      'going dark', 'earn it act', 'lawful access to encrypted data act',
+      'stop csam act', 'encryption backdoor', 'crypto backdoor',
+      'client-side scanning',
+    ],
+    medium: [
+      'encryption', 'whatsapp', 'signal', 'telegram', 'imessage',
+      'ncmec', 'photodna', 'wiretap', 'fbi access', 'doj access',
+      'pegasus', 'vault 7', 'metadata',
+    ],
+  },
+  pf_china_extraction: {
+    strong: [
+      'china extraction', 'natural resource extraction', 'belt and road',
+      'chinese mining', 'china-africa mining', 'rare earth extraction',
+      'made in china 2025', 'dual circulation', 'critical minerals from china',
+      'cobalt drc', 'china lithium',
+    ],
+    medium: [
+      'belt and road', 'bri', 'rare earth', 'cobalt', 'lithium mining',
+      'critical minerals', 'china africa', 'china latin america',
+      'resource curse', 'debt trap', 'hambantota',
+    ],
+  },
+  pf_sports_betting: {
+    strong: [
+      'sports betting', 'sports gambling', 'sportsbook', 'murphy v ncaa',
+      'paspa', 'safe bet act', 'grit act', 'prop bet', 'prop bets',
+      'sports betting regulation', 'fanduel', 'draftkings',
+      'national council on problem gambling', 'aga',
+    ],
+    medium: [
+      'gambling', 'wagering', 'betting', 'addiction', 'problem gambling',
+      'tribal gaming', 'iga', 'ftc section 5', 'tenth amendment',
+      'state gaming', 'nevada gaming',
+    ],
+  },
+  pf_zoning: {
+    strong: [
+      'corporate acquisition of single-family', 'corporate landlord',
+      'corporate landlords', 'single-family residences', 'invitation homes',
+      'reit landlord', 'stop wall street landlords', 'institutional investor housing',
+      'corporate sfh', 'wall street landlords',
+    ],
+    medium: [
+      'single family home', 'zoning', 'upzoning', 'housing supply',
+      'housing affordability', 'landlord', 'rental market', 'reit',
+      'first-time buyer', 'real estate investment trust',
+    ],
+  },
+  pf_war_powers: {
+    strong: [
+      'war powers resolution', 'war powers act', 'authorization for use of military force',
+      'aumf', 'commander in chief', 'presidential war powers',
+      'declaration of war', 'congressional war powers', 'imperial presidency',
+      'public law 93-148',
+    ],
+    medium: [
+      'war powers', 'military deployment', 'military intervention',
+      'iran strike', 'libya 2011', 'yemen authorization',
+      'article ii', 'congressional authorization', 'imminent threat',
+      'pentagon', 'centcom',
     ],
   },
 };
