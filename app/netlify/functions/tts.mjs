@@ -73,7 +73,7 @@ const MAX_TEXT_LENGTH = 5000;
 const ELEVENLABS_VOICES = {
   professor:   'pNInz6obpgDQGcFmaJgB',  // Adam — dominant, firm, American male
   closer:      'EXAVITQu4vr4xnSDxMaL',  // Sarah — mature, confident, American female
-  surgeon:     'cjVigY5qzO86Huf0OWal',   // Eric — smooth, trustworthy, American male
+  surgeon:     'mdBUSEWFjxcplnMt0rUf',   // Joe — confident, articulate male (your IVC)
   veteran:     'nPczCjzI2devNBz1zQrb',   // Brian — deep, resonant, American male
   firebrand:   'TX3LPaxmHKxFdv7VOQHJ',  // Liam — energetic, young, American male
   diplomat:    'XrExE9yKIg1WjnnlVkGX',   // Matilda — professional, American female
@@ -87,7 +87,7 @@ const ELEVENLABS_VOICES = {
   upstart:     'pFZP5JQG7iQjIQuC4Bku',   // Lily — youthful British female, sharp
   heckler:     'CwhRBWXzGAHq8TQ4Fs17',   // Roger — gravelly older male, sardonic
   disruptor:   'cgSgspJ2msm6clMCkdW9',   // Jessica — youthful female, high-energy
-  tactician:   'pqHfZKP75CvOlQylNhV4',   // Bill — calm narrator male, measured
+  tactician:   'HKsltWQPot5Fsrsvbq1g',   // Calm guy — calm debater male in his 20s (your IVC)
   // Counter (oral exam) extension default persona. Indian-English
   // examiner. ElevenLabs voice ID is a placeholder — falls back to the
   // measured-narrator voice until an Indian-English voice ID is dropped
