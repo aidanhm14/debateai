@@ -94,6 +94,20 @@ const CASES = [
   ['pf_war_powers: WPR',
     'Motion: Eliminate the Presidents authority to deploy military forces abroad without Congressional approval. The War Powers Resolution + AUMF interpretation is the question.', 'pf_war_powers'],
 
+  // ── LD topic-cycle primers: SHOULD fire ─────────────────────────
+  ['plea_bargaining: just',
+    'Motion: Resolved, in the United States criminal justice system, plea bargaining is just. Bordenkircher v Hayes set the standard; the trial penalty + 18% innocent-pleader rate matter.', 'plea_bargaining'],
+  ['plea_bargaining: mass incarceration',
+    'THBT plea bargaining causes mass incarceration. Alschuler and Pfaff argue prosecutorial discretion in plea deals drives the prison population, not crime rates.', 'plea_bargaining'],
+  ['rewilding: substantial tracts',
+    'Resolved: The United States ought to rewild substantial tracts of land. Half-Earth via E.O. Wilson, trophic cascade in Yellowstone wolves, 30 by 30 framework.', 'rewilding'],
+  ['rewilding: half earth indigenous',
+    'THBT rewilding without indigenous co-management replicates fortress conservation. Land Back + Red Deal vs Half-Earth in conservation biology.', 'rewilding'],
+  ['nuclear_weapons: possession immoral',
+    'Motion: The possession of nuclear weapons is immoral. Drummond conditional intent + NPT 1968 + TPNW 2017 + Walzer supreme emergency framing.', 'nuclear_weapons'],
+  ['nuclear_weapons: deterrence',
+    'THBT nuclear deterrence has prevented great-power war since 1945. The long peace + mutually assured destruction + no first use doctrine debate.', 'nuclear_weapons'],
+
   // ── finance: should NOT fire (true negatives) ─────────────────────
   ['skip: tiktok in schools', 'Motion: THW ban TikTok in US schools.', ''],
   ['skip: zoos', 'Motion: This House Would Abolish Zoos.', ''],

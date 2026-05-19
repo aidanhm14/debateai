@@ -1352,6 +1352,115 @@ CON ARGUMENTS (don't ban):
 SOURCES: Urban Institute (Freemark), Freddie Mac filtering research, NMHC (National Multifamily Housing Council), Brookings Hamilton Project, Joint Center for Housing Studies (Harvard), Furman Center (NYU).
 `;
 
+const PLEA_BARGAINING_PRIMER = `
+LD TOPIC: "Resolved: In the United States criminal justice system, plea bargaining is just." (Sept/Oct 2025)
+
+FACTUAL ANCHORS (load-bearing, don't drift):
+- ~95-97% of US criminal convictions are obtained by plea, not trial.
+- "Trial penalty": federal defendants who go to trial receive sentences ~3x longer than those who plead.
+- 18% of DNA-exoneration cases involved a guilty plea — meaning innocent people pled (Innocence Project).
+- Bordenkircher v. Hayes (1978): SCOTUS upheld prosecutor threatening life sentence to coerce a 5-year plea. The doctrinal touchstone.
+- Brady v. United States (1970): voluntary plea is constitutional even when motivated by avoiding a harsher trial penalty.
+- Missouri v. Frye / Lafler v. Cooper (2012): Sixth Amendment right to counsel applies during plea negotiations.
+- Santobello v. New York (1971): broken plea promises violate due process.
+
+AFF (just) AUTHOR LIBRARY:
+- Stephanos Bibas (3rd Circuit / Penn) — "Plea Bargaining Outside the Shadow of Trial" — moderate defender
+- Frank Easterbrook (7th Circuit)
+- Robert Scott & William Stuntz — "Plea Bargaining as Contract"
+- Justice Anthony Kennedy (Lafler / Frye opinions)
+
+NEG (unjust) AUTHOR LIBRARY:
+- Albert Alschuler (UChicago) — "Plea Bargaining and Mass Incarceration"
+- William Stuntz (late Harvard) — "The Collapse of American Criminal Justice"
+- John Pfaff (Fordham) — "Locked In" — prosecutor-led mass incarceration
+- Carissa Hessick (UNC) — "Punishment Without Trial"
+- Rachel Barkow (NYU) — "Prisoners of Politics"
+- Issa Kohler-Hausmann (Yale) — "Misdemeanorland"
+- Jed Rakoff (SDNY judge)
+- ABA Plea Bargaining Task Force 2023 report
+
+FRAMEWORK PAIRINGS:
+- AFF: Utilitarianism (system efficiency, lighter sentences, victim relief), Hobbesian (consensual contract under state authority), Pettit non-domination (formal plea offers regulate prosecutor power vs unrestrained discretion).
+- NEG: Kantian (Bordenkircher = literal state coercion violating autonomy), Structural Violence (95% conviction via plea embeds racial disparity), Rawlsian (no veil-of-ignorance agent would choose a system where 18% of pleaders are innocent), Contractualism (no reasonable agent accepts the lack of genuine option-to-refuse).
+
+CONTENTION ARCHETYPES:
+- AFF C1: consensual + beneficial (lighter sentences). AFF C2: system necessity (without pleas, courts collapse). AFF C3: prosecutorial discretion enables individualized justice.
+- NEG C1: trial penalty + coercion (Bordenkircher). NEG C2: innocent pleas (Innocence Project 18%). NEG C3: racial disparities (Sentencing Project / ACLU). NEG C4: mass incarceration causation (Alschuler / Pfaff).
+
+THE WORD "JUST" MATTERS. AFF can read justice as PROCEDURAL (consent + due process satisfied); NEG can read justice as DISTRIBUTIVE (outcome equity) or as DIGNITY (Kant-style). Naming the conception of justice early is the difference between two-ships-passing and actual clash.
+`;
+
+const REWILDING_PRIMER = `
+LD TOPIC: "Resolved: The United States ought to rewild substantial tracts of land." (Nov/Dec 2025)
+
+CORE CONCEPT: "Rewilding" originated in the 1990s US deep-ecology movement (Soulé, Noss) — return apex predators, restore ecological function, reduce human management. "Half-Earth" (E.O. Wilson 2016) is the maximalist version: set aside 50% of land/sea for nonhuman life. "Whole Earth" (Ellis et al.) is the counterposition: integrate humans into conservation. "Wildness" (Cronon, Plumwood) is a softer concept than "wilderness."
+
+FACTUAL ANCHORS:
+- ~13% of US land is federally protected (national parks, monuments, wilderness, national forests, BLM).
+- Yellowstone wolf reintroduction (1995) — most-cited rewilding success; trophic cascade documented (Beschta, Ripple).
+- 30 by 30 (Biden EO, 2021): protect 30% of US land + water by 2030 — partial movement in this direction.
+- Indigenous co-management precedents: Bears Ears National Monument; Bison restoration in Montana (Blackfeet Nation).
+- American Prairie Reserve (Montana) — large-scale private rewilding, controversial with ranchers.
+
+REAL AUTHOR LIBRARY:
+- Rewilding: George Monbiot "Feral"; Michael Soulé (founder); Reed Noss; Caroline Fraser "Rewilding the World"; David Foreman "Rewilding North America."
+- Half-Earth: E.O. Wilson "Half-Earth"; Eric Dinerstein; Wilson Biodiversity Foundation.
+- Critical perspectives: William Cronon "The Trouble with Wilderness"; Val Plumwood; Bram Büscher & Robert Fletcher "The Conservation Revolution" (convivial conservation); Erle Ellis (Half-Earth critic, "Used Planet").
+- Decolonial / Indigenous critique: Linde De Vroey & Arthur R. Obst (2025 "Wilderness values in rewilding"); Patrick Wolfe (settler colonialism); Tuck & Yang; Glen Coulthard; Audra Simpson; Nick Estes "Our History Is the Future" (Red Deal); Robin Wall Kimmerer "Braiding Sweetgrass."
+- Conservation biology: Beschta & Ripple (Yellowstone trophic cascade); Estes Brown.
+
+FRAMEWORK PAIRINGS:
+- AFF: Utilitarianism (biodiversity = wellbeing, carbon sequestration, extinction crisis), Land-Ethic (Aldo Leopold "Sand County Almanac" — "right when it tends to preserve the integrity, stability, and beauty of the biotic community"), Existential Risk (biodiversity collapse → ecosystem-services collapse → civilizational risk, Bostrom longtermism).
+- NEG: Structural Violence (rewilding displaces rural / Indigenous communities — historical national-parks model expelled Indigenous people), Decolonization K (rewilding presupposes the colonial wilderness frame; answer is rematriation), Anthropocentrism counter-K (Plumwood), Property Rights (Nozickian — rewilding requires eminent domain / liberty violations), Agrarian Pragmatism (rewilding is utopian; humans are part of working landscapes).
+
+CONTENTION ARCHETYPES:
+- AFF C1: Sixth Extinction / biodiversity (UN IPBES report, 1M species at risk). AFF C2: Climate / Carbon (Griscom 2017 Science paper — natural climate solutions = ~37% of mitigation needed). AFF C3: Ecosystem services (water, pollination, flood control). AFF C4: Indigenous co-stewardship (Red Deal, Land Back).
+- NEG C1: Displacement (Mark Dowie "Conservation Refugees"; historical NPS expelled Cherokee / Blackfeet / Miwok). NEG C2: Rural / agricultural communities (ranchers, farmers, timber towns). NEG C3: Wilderness-is-a-myth (Cronon-style — "pristine nature" was always populated). NEG C4: Half-Earth ≠ Whole Earth (Ellis — 75% of land already used).
+
+THE WORD "SUBSTANTIAL" MATTERS. AFF must defend large-scale; "substantial" is the topicality threshold both sides fight over. NEG can press "small-scale rewilding solves AFF's impacts without substantial commitment."
+`;
+
+const NUCLEAR_WEAPONS_PRIMER = `
+LD TOPIC: "Resolved: The possession of nuclear weapons is immoral." (Jan/Feb 2026)
+
+CRITICAL DISTINCTION: this topic is about POSSESSION, not USE. AFF must defend the immorality of MERELY HAVING nuclear weapons (independent of any actual launch). NEG must defend that possession can be morally permissible — usually via deterrence theory or conditional intent.
+
+FACTUAL ANCHORS:
+- ~12,500 nuclear warheads globally; Russia ~5,580, US ~5,225, China ~500 (growing rapidly per 2024 DOD estimate), France ~290, UK ~225, Pakistan ~170, India ~172, Israel ~90, North Korea ~50.
+- NPT (1968): five "recognized" nuclear states (US, Russia, UK, France, China); non-nuclear states forswear pursuit.
+- TPNW (Treaty on the Prohibition of Nuclear Weapons, 2017; entered into force 2021): 73 state parties; NO nuclear state has joined; NATO members generally oppose.
+- Nuclear winter modeling: even regional exchange (India-Pakistan, ~100 warheads) → 1-2°C global cooling, 8-15% precipitation reduction, 10-40 fewer frost-free days for 5-10 years (Robock et al.).
+- Uranium mining harms: ~20% of US uranium mines within 10km of Native American reservations (environmental justice frame).
+
+AFF (immoral) AUTHOR LIBRARY:
+- Jonathan Schell — "The Fate of the Earth"
+- Elaine Scarry — "Thermonuclear Monarchy" (democracy-incompatibility argument)
+- Brian Drummond — "Immoral Risks: A Deontological Critique of Nuclear Deterrence" (Cambridge) — conditional intent argument: deterrence requires credible willingness-to-use, which is itself an unlawful threat. The cleanest deontological AFF.
+- Joseph Nye — "Nuclear Ethics" (1986) — moral problems but use is greater evil (CAN be cited both ways)
+- ICAN coalition; Setsuko Thurlow (hibakusha testimony); Tony Erskine "Nuclear Ethics Revisited"
+- Robock, Toon, Turco (nuclear winter science)
+
+NEG (moral / permissible) AUTHOR LIBRARY:
+- Michael Walzer — "Just and Unjust Wars" — nuclear deterrence as "supreme emergency" doctrine
+- Joseph Nye (mixed); Albert Wohlstetter (deterrence theorist); Thomas Schelling — "Arms and Influence"; Henry Kissinger; Robert Jervis
+- Lawrence Freedman — "The Evolution of Nuclear Strategy"
+- Christopher Layne (restraint but argues deterrence is stable); Andrew Bacevich, Brendan Greeley
+
+FRAMEWORK PAIRINGS:
+- AFF: Kantian (deterrence requires intent-to-use → intending mass civilian death → CI violation), Just War Theory (jus in bello — discrimination + proportionality violated by any plausible use), Structural Violence (uranium colonialism; Indigenous bear extraction harms), Existential Risk Reframe (Bostrom/Ord longtermism — nuclear arsenal as current-existential-risk-tier threat).
+- NEG: Walzerian Supreme Emergency (deterrence prevents great-power war; possession-without-use is lesser evil), Utilitarianism (long peace since 1945), Realism (anarchic system requires self-help; unilateral disarmament = suicide), Conditional Intent Counter (Nye — intending deterrence ≠ intending use).
+
+CONTENTION ARCHETYPES:
+- AFF C1: deterrence requires immoral intent (Drummond / Kant). AFF C2: nuclear winter — regional exchange = global catastrophe (Robock). AFF C3: existential risk — NC3 cyber vulnerabilities, accidental launch history (Stanislav Petrov 1983, Cuban Missile Crisis near-misses). AFF C4: environmental justice — uranium mining destroys Indigenous land.
+- NEG C1: long peace — deterrence has prevented great-power war since 1945 (Gaddis). NEG C2: conditional intent — possession ≠ commitment-to-use (Walzer / Nye). NEG C3: proliferation prevention — recognized nuclear states stabilize the system (Waltz "more may be better" — controversial). NEG C4: counterfactual — without nuclear deterrence, conventional great-power war would be catastrophic on its own terms.
+
+CRITICAL READS / K-AFFS:
+- Hibakusha testimony (Setsuko Thurlow, Sumiteru Taniguchi) — performative AFFs centering the lived experience of nuclear violence.
+- Decolonial K-AFFs: nuclear sovereignty as the apex of settler-colonial / racialized state power (Indigenous land sacrifice; Marshall Islanders; Algeria French tests).
+- Settler-Capitalism K: nuclear deterrence as the ultimate "guarantee" of capitalist sovereignty.
+`;
+
 const PF_WAR_POWERS_PRIMER = `
 PF TOPIC: "Resolved: The United States should eliminate the President's authority to deploy military forces abroad without Congressional approval." (Apr 2026)
 
@@ -1391,6 +1500,9 @@ const TOPIC_PRIMERS = {
   pf_sports_betting: PF_SPORTS_BETTING_PRIMER,
   pf_zoning: PF_ZONING_PRIMER,
   pf_war_powers: PF_WAR_POWERS_PRIMER,
+  plea_bargaining: PLEA_BARGAINING_PRIMER,
+  rewilding: REWILDING_PRIMER,
+  nuclear_weapons: NUCLEAR_WEAPONS_PRIMER,
 };
 
 // forTopic — returns a topic primer if known, else ''. Normalizes synonyms.
@@ -1605,6 +1717,50 @@ const TOPIC_KEYWORDS = {
       'iran strike', 'libya 2011', 'yemen authorization',
       'article ii', 'congressional authorization', 'imminent threat',
       'pentagon', 'centcom',
+    ],
+  },
+  plea_bargaining: {
+    strong: [
+      'plea bargaining', 'plea bargain', 'plea deal', 'trial penalty',
+      'bordenkircher v hayes', 'brady v united states', 'lafler v cooper',
+      'missouri v frye', 'santobello v new york', 'prosecutorial discretion',
+      'innocence project plea', 'mass incarceration',
+    ],
+    medium: [
+      'guilty plea', 'criminal justice', 'prosecutor', 'defendant',
+      'sentencing', 'incarceration', 'public defender', 'plea',
+      'criminal procedure', 'sixth amendment', 'due process',
+      'wrongful conviction', 'exoneration',
+    ],
+  },
+  rewilding: {
+    strong: [
+      'rewilding', 'rewild', 'half-earth', 'half earth', 'whole earth',
+      'wilderness restoration', '30 by 30', 'land back',
+      'trophic cascade', 'apex predator reintroduction',
+      'yellowstone wolves', 'american prairie reserve', 'wildness',
+    ],
+    medium: [
+      'biodiversity', 'sixth extinction', 'ecosystem restoration',
+      'conservation biology', 'national park', 'wilderness area',
+      'public lands', 'land conservation', 'natural climate solutions',
+      'indigenous co-management', 'bears ears', 'aldo leopold',
+    ],
+  },
+  nuclear_weapons: {
+    strong: [
+      'nuclear weapons', 'nuclear deterrence', 'nuclear arsenal',
+      'nuclear umbrella', 'nuclear disarmament', 'tpnw',
+      'treaty on the prohibition of nuclear weapons',
+      'nuclear winter', 'nuclear proliferation', 'non-proliferation treaty',
+      'mutually assured destruction', 'mad doctrine',
+      'no first use', 'nuclear posture review',
+    ],
+    medium: [
+      'npt', 'nuclear', 'warhead', 'icbm', 'hibakusha',
+      'hiroshima', 'nagasaki', 'manhattan project', 'first strike',
+      'second strike', 'minuteman', 'trident', 'nc3',
+      'iaea safeguards', 'plutonium', 'enriched uranium',
     ],
   },
 };
