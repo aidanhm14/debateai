@@ -116,16 +116,41 @@ html,body{height:100%;overflow-x:hidden}
   --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(239,68,68,.18),transparent 60%),radial-gradient(ellipse 60% 50% at 100% 80%,rgba(239,68,68,.08),transparent 60%);
 }
 [data-theme="light"]{
-  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
-  --border:rgba(0,0,0,.08);--border-strong:rgba(0,0,0,.18);
-  --accent:#dc2626;--accent-glow:rgba(220,38,38,.18);
-  --text:#1a1a1f;--text-dim:rgba(0,0,0,.68);--text-ghost:rgba(0,0,0,.42);
+  /* Off-white body + true-white card surface gives the cards real
+     elevation in light mode. Stronger border + soft shadow stack
+     replaces the previous "white card on white BG with a 8% rgba
+     hairline" treatment that read as flat and confusing on the
+     screenshot the user shared. */
+  --bg:#f1eee8;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.22);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.14);
+  --text:#15151a;--text-dim:rgba(0,0,0,.62);--text-ghost:rgba(0,0,0,.36);
   --green:#16a34a;--amber:#d97706;--blue:#2563eb;
   --radius-lg:18px;--radius-md:12px;
-  --shadow-lg:0 18px 60px rgba(0,0,0,.10);
-  --bar-bg:rgba(250,250,247,.85);
-  --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(220,38,38,.06),transparent 60%),radial-gradient(ellipse 60% 50% at 100% 80%,rgba(37,99,235,.04),transparent 60%);
+  --shadow-lg:0 20px 60px rgba(0,0,0,.10);
+  --shadow-card:0 1px 2px rgba(15,15,25,.04),0 8px 24px rgba(15,15,25,.05);
+  --bar-bg:rgba(241,238,232,.88);
+  --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(220,38,38,.05),transparent 65%),radial-gradient(ellipse 60% 50% at 100% 80%,rgba(37,99,235,.03),transparent 70%);
 }
+/* Card elevation in light mode — solo .card rises off the body BG,
+   while .card-matched / .card-live keep their stronger borders. The
+   dark theme keeps the flat treatment because its dark BG already
+   gives cards contrast via the lighter --bg-card. */
+[data-theme="light"] .card{
+  box-shadow:var(--shadow-card);
+  border-color:rgba(0,0,0,.08);
+}
+[data-theme="light"] .card:hover{
+  border-color:rgba(0,0,0,.18);
+  box-shadow:0 2px 4px rgba(15,15,25,.05),0 14px 36px rgba(15,15,25,.10);
+}
+[data-theme="light"] .post-form{
+  box-shadow:var(--shadow-card);
+}
+[data-theme="light"] .slot{background:#fafaf7}
+[data-theme="light"] .slot.open{background:#f6f4ef}
+[data-theme="light"] .filter-chip{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+[data-theme="light"] .filter-chip:hover{background:#fafaf7}
 body{
   font-family:'Inter',system-ui,sans-serif;
   background:var(--bg);color:var(--text);
@@ -225,7 +250,11 @@ button{font-family:inherit}
   margin-top:8px;
 }
 @media(max-width:880px){
-  .layout{grid-template-columns:1fr;gap:24px}
+  /* minmax(0,1fr) — bare 1fr inherits min-content from children,
+     so a wide non-wrapping child (a long input, a non-breaking
+     date string, etc) was forcing the column wider than the viewport
+     and producing a horizontal scrollbar on mobile. */
+  .layout{grid-template-columns:minmax(0,1fr);gap:24px}
 }
 
 /* ─── Section heading ──────────────────────────────── */
@@ -458,6 +487,13 @@ button{font-family:inherit}
   display:flex;justify-content:center;gap:6px;
   max-width:1100px;margin:0 auto;padding:0 24px 18px;
   border-bottom:1px solid var(--border);
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tabs .tab{flex-shrink:0;white-space:nowrap}
+@media (max-width:560px){
+  .tabs{justify-content:flex-start;padding:0 14px 14px}
+  .tab{padding:10px 14px;font-size:.78rem}
 }
 .tab{
   padding:10px 20px;background:transparent;border:none;
@@ -477,31 +513,42 @@ button{font-family:inherit}
 }
 
 /* ─── Filter chips ─────────────────────────────────── */
-/* Horizontal scrolling chip row above the feed. Each chip is a one-tap
-   filter on top of the active tab (Browse / My / Archive / Watch). */
+/* Horizontal one-row chip strip above the feed. Was wrap:wrap on
+   the prior pass, which produced a 4-then-3 stagger on narrow
+   panels with the "Archived" chip sitting alone on row 2 looking
+   awkward. Now: single row, horizontal scroll on overflow. Smaller
+   chips, cleaner active state (subtle red tint, not an alarm). */
 .filter-row{
-  display:flex;gap:8px;flex-wrap:wrap;
-  margin:18px 0 14px;align-items:center;
+  display:flex;gap:6px;flex-wrap:nowrap;
+  margin:18px 0 14px;padding-bottom:6px;
+  align-items:center;
+  overflow-x:auto;scroll-snap-type:x proximity;
+  scrollbar-width:none;-ms-overflow-style:none;
 }
+.filter-row::-webkit-scrollbar{display:none}
 .filter-chip{
-  padding:7px 14px;border-radius:999px;
-  background:rgba(255,255,255,.04);border:1px solid var(--border);
-  color:var(--text-dim);font-family:inherit;font-size:.74rem;
-  font-weight:700;letter-spacing:.02em;cursor:pointer;
+  padding:6px 12px;border-radius:999px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  color:var(--text-dim);font-family:inherit;font-size:.72rem;
+  font-weight:700;letter-spacing:.01em;cursor:pointer;
   display:inline-flex;align-items:center;gap:6px;
+  flex-shrink:0;scroll-snap-align:start;white-space:nowrap;
   transition:background .15s,border-color .15s,color .15s;
 }
-.filter-chip:hover{color:var(--text);border-color:var(--border-strong)}
+.filter-chip:hover{color:var(--text);border-color:var(--border-strong);background:rgba(255,255,255,.06)}
 .filter-chip.active{
-  background:rgba(239,68,68,.12);border-color:var(--accent);color:#fca5a5;
+  background:var(--text);color:var(--bg);border-color:var(--text);
 }
+[data-theme="light"] .filter-chip.active{background:#15151a;color:#fff;border-color:#15151a}
 .filter-chip .chip-count{
   display:inline-flex;align-items:center;justify-content:center;
-  min-width:18px;height:18px;padding:0 5px;
-  border-radius:999px;background:rgba(255,255,255,.08);color:var(--text);
-  font-size:.62rem;font-weight:900;
+  min-width:17px;height:17px;padding:0 5px;
+  border-radius:999px;background:rgba(255,255,255,.07);color:var(--text);
+  font-size:.6rem;font-weight:900;
 }
-.filter-chip.active .chip-count{background:rgba(239,68,68,.25);color:#fff}
+[data-theme="light"] .filter-chip .chip-count{background:rgba(0,0,0,.06)}
+.filter-chip.active .chip-count{background:rgba(255,255,255,.18);color:#fff}
+[data-theme="light"] .filter-chip.active .chip-count{background:rgba(255,255,255,.22);color:#fff}
 .filter-chip .chip-dot{
   width:6px;height:6px;border-radius:50%;flex-shrink:0;
 }
@@ -550,6 +597,41 @@ button{font-family:inherit}
   border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.06);
 }
 .card-datechip.soon .dc-dow{color:#fbbf24}
+
+/* Compact left-edge "date chip + status pill" group on every card. */
+.card-headlead{
+  display:inline-flex;align-items:center;gap:10px;
+  margin-right:8px;
+  flex-shrink:0;
+}
+
+/* Overflow popover for secondary card actions. Replaces the previous
+   strip of 4+ ghost buttons (Google Cal, .ics, contact pill, etc) with
+   a single ghost trigger that opens a small menu. Keeps the primary
+   CTA prominent and stops the action row from wrapping awkwardly. */
+.overflow-actions{position:relative;display:inline-block}
+.overflow-toggle{cursor:pointer}
+.overflow-menu{
+  position:absolute;right:0;top:calc(100% + 6px);z-index:30;
+  display:flex;flex-direction:column;gap:4px;
+  padding:6px;min-width:200px;
+  background:var(--bg-card);
+  border:1px solid var(--border-strong);
+  border-radius:10px;
+  box-shadow:0 14px 40px rgba(0,0,0,.18);
+}
+.overflow-menu .overflow-item{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:7px;
+  background:transparent;border:1px solid transparent;
+  color:var(--text);font-family:inherit;font-size:.78rem;
+  font-weight:600;cursor:pointer;text-align:left;text-decoration:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.overflow-menu .overflow-item:hover{
+  background:rgba(255,255,255,.05);border-color:var(--border);
+}
+[data-theme="light"] .overflow-menu .overflow-item:hover{background:rgba(0,0,0,.04)}
 
 /* ─── Status pill (live / starting soon / needs / ready) ── */
 .status-pill{
@@ -603,9 +685,21 @@ button{font-family:inherit}
 .ptrack-pip.co{background:#fecaca}
 
 /* ─── Slot panel (the named seats list) ───────────── */
+/* 2-col baseline so a 4-slot format (APDA) lays out as 2x2 with no
+   orphan seats. Scales to 4 cols on wide cards (BP = 8 seats → 4x2).
+   The previous auto-fill minmax(170px,1fr) produced a 3-col layout
+   for APDA which left MO alone on a 2nd row, which looked broken. */
 .slots{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
   gap:8px;margin:10px 0 14px;
+}
+@media (min-width:760px){
+  .slots{grid-template-columns:repeat(4,minmax(0,1fr))}
+  /* 4-slot formats (APDA / PF / Policy) keep 2 cols on wide cards so
+     each seat row reads as "gov bench | opp bench". 8-slot (BP) jumps
+     to 4 cols so OG/OO/CG/CO each get their own column. */
+  .slots[data-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .slots[data-count="6"]{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 .slot{
   display:flex;align-items:center;gap:8px;
@@ -663,6 +757,32 @@ button{font-family:inherit}
 .role-btn.watch{border-color:rgba(168,85,247,.32);color:#c4b5fd;background:rgba(168,85,247,.06)}
 .role-btn.watch:hover:not(:disabled){background:rgba(168,85,247,.14);border-color:rgba(168,85,247,.55)}
 
+/* Post-form role toggles. Replaces the previous cramped horizontal
+   row where "NEED A JUDGE" wrapped onto two lines when "Allow
+   viewers" tried to fit alongside it. Now: 2-column stacked tiles,
+   each one a tappable label with a primary line + a one-line caption,
+   border lights up when checked. */
+.role-toggles{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+}
+.role-toggle{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 12px;border:1px solid var(--border);
+  border-radius:10px;background:rgba(255,255,255,.02);
+  cursor:pointer;font-size:.78rem;color:var(--text);
+  transition:border-color .15s,background .15s;
+}
+.role-toggle:hover{border-color:var(--border-strong)}
+.role-toggle input{margin-top:2px;flex-shrink:0;accent-color:var(--accent)}
+.role-toggle-text{display:flex;flex-direction:column;gap:1px;min-width:0}
+.role-toggle-text strong{font-weight:800;color:var(--text);font-size:.78rem;letter-spacing:0;text-transform:none}
+.role-toggle-text em{font-style:normal;color:var(--text-ghost);font-size:.66rem;font-weight:600;letter-spacing:0;text-transform:none}
+.role-toggle:has(input:checked){
+  border-color:var(--accent);
+  background:rgba(239,68,68,.06);
+}
+[data-theme="light"] .role-toggle:has(input:checked){background:rgba(220,38,38,.05)}
+
 /* Empty-state for tabs with no content */
 .tab-empty{
   padding:48px 22px;text-align:center;
@@ -681,13 +801,21 @@ button{font-family:inherit}
 /* Mobile: stack create-above-feed; keep the form discoverable but
    collapsible so it doesn't push the feed below the fold. */
 @media (max-width:880px){
-  .layout{grid-template-columns:1fr !important}
+  /* Same fix as the canonical .layout media query above — use
+     minmax(0,1fr) so children's intrinsic min-content can't force
+     the column wider than the viewport. The earlier `1fr` was
+     letting a wide post-form input balloon the right column to
+     849px on a 375px viewport. */
+  .layout{grid-template-columns:minmax(0,1fr) !important}
   .aside{position:static !important;order:-1}
   .post-form{padding:18px}
   .filter-row{gap:6px}
   .filter-chip{padding:6px 11px;font-size:.7rem}
   .slots{grid-template-columns:1fr 1fr}
   .card-datechip{width:46px}
+  /* Defensive — keep any rogue child from forcing horizontal scroll. */
+  .layout > *{min-width:0;max-width:100%}
+  .role-toggles{grid-template-columns:1fr 1fr;gap:6px}
 }
 
 /* ─── Day-of banner (sticky countdown) ──────────────── */
@@ -1364,17 +1492,17 @@ button{font-family:inherit}
 
         <div class="field">
           <label>Open roles</label>
-          <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:.8rem">
-            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+          <div class="role-toggles">
+            <label class="role-toggle">
               <input type="checkbox" id="needJudge" />
-              <span>Need a judge</span>
+              <span class="role-toggle-text"><strong>Need a judge</strong><em>RFD writer</em></span>
             </label>
-            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+            <label class="role-toggle">
               <input type="checkbox" id="allowViewers" checked />
-              <span>Allow viewers</span>
+              <span class="role-toggle-text"><strong>Allow viewers</strong><em>Read-only seats</em></span>
             </label>
           </div>
-          <p style="font-size:.7rem;color:var(--text-ghost);margin-top:6px;line-height:1.45">A judge writes the RFD. Viewers don’t occupy debater slots — they get a calendar invite and read-only access to the room.</p>
+          <p style="font-size:.7rem;color:var(--text-ghost);margin-top:8px;line-height:1.45">A judge writes the RFD. Viewers don’t occupy debater slots — they get a calendar invite and read-only access to the room.</p>
         </div>
         <div class="field">
           <label for="format">Format</label>
@@ -2513,7 +2641,7 @@ button{font-family:inherit}
       var s = slots[k];
       return s && ((uid && s.uid === uid) || (myHandle && s.handle && s.handle.toLowerCase() === myHandle));
     });
-    var html = '<div class="slots">';
+    var html = '<div class="slots" data-count="' + f.slotKeys.length + '">';
     f.slotKeys.forEach(function(k){
       var s = slots[k];
       var sideCls = f.slotSide[k] || '';
@@ -2590,15 +2718,36 @@ button{font-family:inherit}
   function enhanceCard(card, c){
     var info = classifyChallenge(c);
     var f = info.f;
-    // Skip the enhancement on the legacy "accepted-by-you" view since
-    // that one is already a detailed matched-state card. We still want
-    // to add the date chip to the head and the status pill.
     var head = card.querySelector('.card-head');
     if (head){
-      // Prepend date chip + status pill (left-side of head row).
+      // ── Dedupe pills from the legacy renderer ─────────────────
+      // The legacy markup emits a schedule chip + format tag +
+      // posted-at tag in the same row where the new status pill +
+      // date chip will live. Without dedupe the user sees the
+      // same thing twice (e.g., two EXPIRED chips, format name in
+      // both the pill row and the side-effect chip). Drop the
+      // schedule chip (status pill replaces it), the format-name
+      // tag when the status already conveys state, and the time
+      // tag (date chip is the authoritative timestamp).
+      Array.prototype.slice.call(head.querySelectorAll('.tag')).forEach(function(t){
+        var txt = (t.textContent || '').trim();
+        var cls = t.className;
+        // Schedule chips include the dot/⏱ glyph; status pill covers them.
+        if (/^(?:●|⏱)\s/.test(txt)) { t.remove(); return; }
+        if (/^(?:LIVE|EXPIRED|MATCHED)\b/i.test(txt) && cls.indexOf('tag-matched') < 0 && cls.indexOf('tag-side') < 0){ t.remove(); return; }
+        // "vs @handle" / posted-time chip — date chip + meta line carry this.
+        if (cls.indexOf('tag-time') >= 0) { t.remove(); return; }
+        // Format name tag — keep on legacy 1v1 cards where the slot
+        // grid is hidden, but drop on 4+ formats where the slot
+        // panel already shows the format implicitly. Easier read.
+        if (cls.indexOf('tag-format') >= 0 && f.slotKeys.length > 2){ t.remove(); return; }
+      });
+
+      // Prepend date chip + status pill so the head reads "WED May 22 ·
+      // [status] · [remaining tags]". A compact wrap so flex children
+      // don't break-line on narrow cards.
       var dpWrap = document.createElement('div');
-      dpWrap.style.display = 'flex'; dpWrap.style.alignItems = 'center'; dpWrap.style.gap = '12px';
-      dpWrap.style.marginRight = '6px';
+      dpWrap.className = 'card-headlead';
       dpWrap.innerHTML = dateChip(c, info) + statusPill(info);
       head.insertBefore(dpWrap, head.firstChild);
     }
@@ -2617,6 +2766,47 @@ button{font-family:inherit}
       var trk = document.createElement('div');
       trk.innerHTML = renderTracker(c, f, info);
       actions.parentNode.insertBefore(trk, actions);
+    }
+
+    // ── Collapse secondary actions into a single "Calendar ▾"
+    // overflow so the action row stops reading as a noisy seven-button
+    // strip (Join + Google Cal + .ics + email + Cancel match etc.).
+    // Primary CTA stays in place; calendar + ics + contact get
+    // grouped behind a single ghost button that toggles a popover
+    // with the three options. Tight DOM surgery — buttons keep their
+    // data-* attrs so the existing click handlers still fire.
+    if (actions){
+      var calBtns = Array.prototype.slice.call(actions.querySelectorAll('[data-gcal], [data-ical]'));
+      var contactBtn = actions.querySelector('[data-copy-contact]');
+      var collapsible = calBtns.slice();
+      if (contactBtn) collapsible.push(contactBtn);
+      if (collapsible.length >= 2){
+        var wrap = document.createElement('div');
+        wrap.className = 'overflow-actions';
+        wrap.innerHTML = '<button class="btn btn-ghost overflow-toggle" type="button" aria-expanded="false">Calendar &amp; share ▾</button><div class="overflow-menu" hidden></div>';
+        var menu = wrap.querySelector('.overflow-menu');
+        collapsible.forEach(function(b){
+          b.classList.remove('btn-ghost');
+          b.classList.add('overflow-item');
+          menu.appendChild(b);
+        });
+        // Insert in place of the first collapsible button so the
+        // overflow lives where the secondary actions used to.
+        actions.appendChild(wrap);
+        wrap.querySelector('.overflow-toggle').addEventListener('click', function(e){
+          e.stopPropagation();
+          var open = !menu.hasAttribute('hidden');
+          if (open){ menu.setAttribute('hidden',''); this.setAttribute('aria-expanded','false'); }
+          else     { menu.removeAttribute('hidden'); this.setAttribute('aria-expanded','true'); }
+        });
+        document.addEventListener('click', function once(e){
+          if (!wrap.contains(e.target)){
+            menu.setAttribute('hidden','');
+            var t = wrap.querySelector('.overflow-toggle');
+            if (t) t.setAttribute('aria-expanded','false');
+          }
+        });
+      }
     }
   }
 
