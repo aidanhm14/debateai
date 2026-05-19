@@ -949,6 +949,84 @@ button{font-family:inherit}
     ]},
   };
 
+  // ── JUDGE_RULES. Format-specific judging instincts the AI judge applies
+  // when writing the RFD. Mirrors the per-format authority in
+  // app/netlify/functions/lib/voice-guidelines.mjs, but viewed from the
+  // judge's chair rather than the debater's. Each block is 4-6 bullets of
+  // what is unique to THIS format — the generic "reward clash / penalize
+  // drops" block already lives in buildBallotPrompt and shouldn't be
+  // repeated here. If a format key is missing, buildBallotPrompt falls
+  // back to "<name> conventions apply" so an unknown key never breaks the
+  // ballot. Keep blocks terse and format-specific; this is the lens, not
+  // a textbook.
+  var JUDGE_RULES = {
+    apda: [
+      "- APDA is impromptu. Fabricated citations ('Smith 2022 finds...') are a strike against the debater, not a credit. General-knowledge claims ('studies generally show', 'the historical pattern') are the correct register.",
+      "- PMR is gov's last word: collapse + weigh, NO new arguments (except direct responses to MO/LOR). Penalize PMR that opens fresh offense.",
+      "- LOR is opp's last word: 3 voting issues, NO new arguments. Penalize new args in LOR.",
+      "- MG must spend the first 4 minutes ATTACKING LOC's off-case, not just defending PMC. A purely-defensive MG underperforms even when technically clean.",
+      "- Knifing your partner (contradicting their case) is a named, weighed penalty. Call it in the RFD if it happens.",
+      "- LOC structure: ~60s opp philosophy, 2-3 off-case arguments, then caseside responses. An LOC that ran only caseside responses is structurally incomplete; note it.",
+    ],
+    bp: [
+      "- Rank ALL FOUR teams 1-2-3-4. You are not just picking a winning side — you are ordering the teams on each bench.",
+      "- Closing teams (Closing Gov / Closing Opp) must EXTEND with new analytical terrain — new actor, new timeframe, new impact LAYER. A new example does not count as extension. Closing without extension auto-ranks below their opening counterpart.",
+      "- Whip speeches (GW / OW) are ADJUDICATION, not partner-recap. Global weighing structured by ISSUES ('Issue 1 — both teams said X, we win because Y'). A whip that narrates their partner's case loses to a whip that writes the ballot for the chair.",
+      "- Reward teams that paint BOTH counterfactual worlds — what happens if motion passes vs what happens if it fails. Single-world cases underperform.",
+      "- OG without a clear MODEL (who does what, when, funded how, enforced how) loses the first burden — name this in the RFD.",
+      "- New arguments in whip are illegal. Call them out.",
+    ],
+    worlds: [
+      "- All BP rules apply (4-team rank, extension, whip is adjudication, model in OG).",
+      "- US-default examples flag regional narrowness. Reward international grounding — Indian SC cases (Navtej, Puttaswamy), African Union, ASEAN, Brazilian / Scandinavian / Japanese / Korean policy.",
+      "- 'Principled vs practical' split is canonical. A team that ran only principle without practical landing (or vice versa) loses to a team that ran both registers.",
+      "- Weighing vocabulary is 'reach, magnitude, probability, severity' (Worlds register), not the American 'magnitude, probability, timeframe, reversibility'. Note mismatches.",
+      "- WUDC speaker scale is 50-100 with 75 median ('average competent speech'). 80 = clearly strong. 85+ = breaking. 90+ essentially never given. The live-round shell uses the parli 22-30 scale; map the round's quality onto that scale honestly.",
+    ],
+    asian: [
+      "- The REPLY speech is mandatory and biased — delivered by PM/DPM (gov) or LO/DLO (opp), NOT by the Whip. New arguments in reply are illegal.",
+      "- Whips do rebuttal + extension-blocking, NOT global summary — that's the Reply's job. This is the key structural difference from BP. Penalize whips that abandoned rebuttal to do reply work.",
+      "- Definitional debate is accepted. If opp challenges the definition as place-setting, squirrel, or truism, weigh the definition itself before substance. Squirrel motions are a loss for gov.",
+      "- Regional grounding (SG / PH / IN / HK / JP / KR / MY examples) is a positive scoring signal.",
+      "- 'Matter / manner / method' is the scoring lens. Don't reward substance alone if delivery and strategy collapsed.",
+    ],
+    ld: [
+      "- Framework debate (value/criterion clash) is where most rounds are decided. Resolve framework BEFORE contention-level wins. Whichever value/criterion you pick controls how contentions get weighed.",
+      "- 2AR is the last word. Only 2-3 voters survive. Penalize 2AR that tries to extend everything.",
+      "- If circuit-style (kritiks, theory shells, speed), evaluate on technical merit. If traditional / lay framing, prioritize values-clash wins and penalize jargon-dumping.",
+      "- Dropped arguments are CONCEDED — state explicitly which drops cost the round. NR drops in particular are decisive; the aff only has the 2AR after.",
+      "- Cross-ex concessions count if pulled forward in the next speech. Note the missed opportunity if a debater pinned the other in CX but never used it.",
+    ],
+    pf: [
+      "- Evidence retrievability is an NSDA rule. Power-tagging (claim went beyond what the source actually said) or fabricated authors is a strike — penalize.",
+      "- Summary is the pivot. What summary KEPT decides what Final Focus is allowed to argue. Penalize Final Focus that extends a contention the summary dropped.",
+      "- Lay-judge accessibility matters. Heavy jargon ('impact calc', 'cross-apply', 'framework', 'ballot story') underperforms in a format built for non-debate-trained judges.",
+      "- Crossfire concessions count if pulled forward. Name the missed opportunity if a debater pinned the other on a key claim in CX and never used it later.",
+      "- Final Focus weighing language is 'magnitude, probability, timeframe, scope'. A FF without explicit comparative weighing loses to one with it, all else equal.",
+    ],
+    policy: [
+      "- 2NR collapse is mandatory. Pick 1-2 positions and go deep; do not cover all 6-off. A 'go for everything' 2NR loses to a focused 2NR.",
+      "- Theory shells (condo bad, severance bad, T-violation) are a-priori voters when made and dropped — evaluate them BEFORE substance.",
+      "- Card tag accuracy matters. If a tag overclaimed what the evidence said, that's the team's loss on the flow.",
+      "- Drops are weighed only if the other team CALLED THEM. A dropped sub-point nobody extended is dead weight, not a voter.",
+      "- Speed and spread are NORMAL. Do not penalize delivery — penalize unclear tag-lines, cards that weren't warranted in the speech, or 1AR coverage failures.",
+      "- 'Ballot story' from 2NR/2AR — the 15-second 'why you vote our way' — should match the RFD. If neither team wrote a ballot story, build one and call out the absence.",
+    ],
+    congress: [
+      "- RANK ALL participants in the chamber by individual speaker quality. Pro/Con winner is secondary to speaker ranking.",
+      "- Late-round speeches (5th+) MUST bring new content or crystallize. Pure rehash of earlier speeches is a significant penalty.",
+      "- Questioning periods score separately. Sharp, advancing questions get credit; gotcha aggression hurts speaker points.",
+      "- Style is heavily weighted: clarity, vocabulary, presence, extemporaneous polish. Reading from a script in a monotone is a floor, not a ceiling.",
+      "- Authorship matters. Reps who clearly drafted the bill or did original research outperform reps who repeat surface analysis.",
+    ],
+    quick: [
+      "- Casual 2-speech format. Plain English only — no debate jargon to evaluate.",
+      "- Reward: punch, named specifics, clean engagement with the other side.",
+      "- Penalize: throat-clearing, recap, generic moralizing, jargon imports from other formats.",
+      "- Speaker scale is 1-10 effort, not a debate-speaks scale. 6-8 typical; 9-10 is rare clean clash.",
+    ],
+  };
+
   // ── URL params. /live-round.html?motion=X&format=apda&pro=Alex&con=Bob&room=DebateAI-c123
   // Both /live.html (after accept) and direct links share the same shape so
   // a posted-then-accepted challenge lands here with everything prefilled.
@@ -1877,6 +1955,7 @@ button{font-family:inherit}
       "",
       "FORMAT RULES — judge through this lens:",
       "- " + f.name + " conventions apply. The speech sequence is fixed and the speakers ran it.",
+      ...(JUDGE_RULES[state.formatKey] || []),
       "- Reward: clash, weighing, warranted analysis, format-appropriate strategic choices, clear ballot stories.",
       "- Penalize: dropped arguments, unweighed contradictions, abandoning offense, jargon without warrant, no engagement with the other side.",
       "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END — the leaderboard has been inflated because every AI defaults to 28+; recalibrate):",
