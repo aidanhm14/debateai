@@ -1352,6 +1352,184 @@ CON ARGUMENTS (don't ban):
 SOURCES: Urban Institute (Freemark), Freddie Mac filtering research, NMHC (National Multifamily Housing Council), Brookings Hamilton Project, Joint Center for Housing Studies (Harvard), Furman Center (NYU).
 `;
 
+const AI_GOVERNANCE_PRIMER = `
+AI GOVERNANCE / TECH POLICY PRIMER (cross-cutting — fires on motions about AI regulation, algorithmic governance, deepfakes, automation, content moderation)
+
+KEY FACTUAL ANCHORS:
+- EU AI Act (entered into force August 2024; phased application through 2027) — risk-tier framework: prohibited (social scoring, predictive policing in specific cases), high-risk (medical devices, critical infrastructure, employment, education, law enforcement), limited-risk (transparency requirements for chatbots, deepfakes), minimal-risk (most consumer AI).
+- US executive order on AI (Biden EO 14110 October 2023; partially rescinded / replaced under Trump 2025 — verify current state). NIST AI Risk Management Framework as voluntary standard.
+- UK approach: AI Safety Institute (formerly AISI, now part of Bletchley Park framework); pro-innovation regulatory stance.
+- China: 2023 Generative AI Measures requiring training data registration + content controls; algorithmic recommendation regulation (2022).
+- Brussels Effect / regulatory diffusion debate — does EU rulemaking become global de facto standard?
+- Compute concentration: training a frontier model costs $50M-$1B+ in 2025-26; only ~10 organizations globally can do it (OpenAI, Anthropic, Google DeepMind, Meta, Microsoft, xAI, Mistral, Alibaba, ByteDance, DeepSeek).
+
+KEY ARGUMENT FRAMES:
+- PRO regulation: capabilities outpacing alignment research; election misinformation (2024 cycle = canonical case); deepfake non-consensual imagery; job displacement; concentration of compute = concentration of political power; precautionary principle for catastrophic risk.
+- CON heavy regulation: innovation chill ceding leadership to PRC; regulatory capture by incumbents (Brussels Effect locks in OpenAI/Anthropic); definitional impossibility ("what is AI" keeps moving); open-source models can't be effectively regulated; opportunity cost of slowing beneficial applications (medical AI, scientific discovery, climate modeling).
+- THIRD WAY: open-source priors (Meta Llama, Mistral, DeepSeek release weights), competition-policy lens (FTC + DOJ antitrust), liability rules vs prescriptive rules, sectoral regulation (FDA for medical AI, NHTSA for self-driving, EEOC for hiring algorithms).
+
+REAL AUTHORS / VOICES the AI can cite (don't invent):
+- Stuart Russell (Berkeley) — "Human Compatible," AI safety
+- Yoshua Bengio (Mila) — AI safety + risk
+- Geoffrey Hinton — left Google over AI risk concerns
+- Gary Marcus — cognitive-AI skeptic, regulation advocate
+- Yann LeCun (Meta) — open-source advocate, downplays existential risk
+- Nick Bostrom — superintelligence + existential risk
+- Helen Toner (CSET) — AI policy
+- Jack Clark (Anthropic / former OpenAI) — policy + Anthropic's RSP framework
+- Timnit Gebru — algorithmic harms, "Stochastic Parrots" paper
+- Joy Buolamwini (Algorithmic Justice League) — facial recognition bias
+- Latanya Sweeney (Harvard) — data privacy, algorithmic discrimination
+- Kate Crawford (USC / Microsoft Research) — "Atlas of AI," materiality of AI
+- Marietje Schaake (Stanford CISAC) — global tech policy
+- Anu Bradford (Columbia Law) — "The Brussels Effect"
+
+REAL ORGANIZATIONS for sourcing:
+- CSET (Georgetown Center for Security and Emerging Technology)
+- AI Now Institute (NYU)
+- AI Policy Institute, AI Impacts (FRI)
+- METR (Model Evaluation & Threat Research)
+- Apollo Research; Redwood Research; ARC Evals
+- Brookings AI Equity Lab, Center for AI Safety
+- EU AI Office, NIST AI RMF, OECD AI Observatory, UK AI Safety Institute
+
+KEY CASES + EVENTS the AI should know:
+- ChatGPT release Nov 2022 = the inflection point most regulation traces to.
+- Bletchley Park AI Safety Summit (Nov 2023) → Seoul Summit (May 2024) → Paris Summit (Feb 2025).
+- OpenAI board crisis (Nov 2023) — governance failure case study.
+- Sora / video generation breakthroughs 2024-25.
+- DeepSeek R1 release (Jan 2025) — compute-efficient reasoning model destabilizing the "scale is all you need" narrative.
+- Anthropic's Responsible Scaling Policy (RSP) framework as industry-leading internal governance.
+
+WEIGHING TILTS:
+- PRO regulation weighs on irreversibility (deepfake non-consensual imagery, election misinformation, biosecurity risks) + concentration harms.
+- CON regulation weighs on opportunity cost (medical AI, scientific discovery, productivity) + geopolitical (PRC catches up if US/EU slow down).
+`;
+
+const CLIMATE_PRIMER = `
+CLIMATE / ENVIRONMENT PRIMER (cross-cutting — fires on motions about carbon policy, energy transition, climate finance, geoengineering, conservation, climate justice)
+
+KEY FACTUAL ANCHORS:
+- Paris Agreement (2015): keep warming "well below 2°C," aspire to 1.5°C. 1.5°C threshold reached on running 12-month average in 2024-25.
+- IPCC AR6 (2021-23 cycle): current policies put us on ~2.7-3.1°C path by 2100; 1.5°C requires net-zero CO2 by ~2050 globally with major reductions this decade.
+- Global CO2 emissions ~36-37 GtCO2/year + ~50 GtCO2-equivalent including non-CO2 GHGs.
+- Top emitters 2024: China (~30%), US (~14%), EU (~7%), India (~7%), Russia (~5%). Per capita: US + Canada + Australia + Gulf states top; India per capita ~1/8 of US.
+- Cost curves: solar PV down 90%+ since 2010, wind 60%+, battery storage 85%+. Solar is cheapest electricity source in most markets 2024-25.
+- Climate finance pledge: $100B/year from rich to developing countries (made 2009, hit ~2022); new collective goal at COP29 (2024) of $300B/year by 2035 (contested as inadequate).
+- Loss and Damage Fund operationalized at COP28 (2023), Dubai.
+
+KEY ARGUMENT FRAMES:
+- CARBON PRICING: economists' near-consensus tool (Pigouvian tax). Real-world examples: EU ETS (~$80-100/tCO2 in 2024-25), UK ETS, RGGI (Northeast US), California cap-and-trade, Canada federal carbon tax (politically toxic — Trudeau cabinet shake-up 2024). Border Carbon Adjustment Mechanism (CBAM, EU 2026 full-rollout) extends pricing to imports.
+- INDUSTRIAL POLICY: IRA (US Inflation Reduction Act 2022) $369B clean-energy investment; EU Green Deal Industrial Plan; China dominates solar manufacturing (~80%+) and EVs (BYD passed Tesla 2024); India PM-Surya Ghar rooftop solar program.
+- DEGROWTH vs GREEN GROWTH debate. Degrowth (Jason Hickel, Kate Raworth) argues GDP-decoupling is empirically inadequate; green growth defenders (Bill Gates "How to Avoid a Climate Disaster," ESI economists) argue tech innovation suffices.
+- GEOENGINEERING: solar radiation modification (stratospheric aerosol injection — Harvard's SCoPEx canceled 2024 amid Sami opposition), marine cloud brightening, carbon dioxide removal (direct air capture, BECCS, ocean alkalinity enhancement). Moral hazard vs technological imperative debate.
+- LOSS AND DAMAGE / CLIMATE JUSTICE: historical-emitter responsibility, "polluter pays," reparations framing. AOSIS (Small Island States) + V20 (Vulnerable Twenty) as moral pressure coalition.
+
+REAL AUTHORS / VOICES (don't invent):
+- Climate science: Michael Mann (Penn — hockey stick), Katharine Hayhoe (Nature Conservancy), Gavin Schmidt (NASA GISS), James Hansen (Columbia), Friederike Otto (Imperial — attribution).
+- Energy systems: Daniel Yergin (S&P, "The Prize"), Jesse Jenkins (Princeton ZERO Lab), Vaclav Smil (Manitoba — energy realist), Mark Z. Jacobson (Stanford — 100% renewables advocate, contested).
+- Climate economics: William Nordhaus (Yale, Nobel 2018 — DICE model), Nicholas Stern (LSE — Stern Review), Joseph Stiglitz (Columbia), Cameron Hepburn (Oxford).
+- Critical / degrowth: Naomi Klein "This Changes Everything," Jason Hickel "Less Is More," Kate Raworth "Doughnut Economics," Andreas Malm "How to Blow Up a Pipeline," Mike Davis (late) "Late Victorian Holocausts."
+- Climate justice: Mary Robinson (former Irish president), Tasneem Essop (Climate Action Network), Vanessa Nakate, Mohamed Adow (Power Shift Africa).
+- Climate denial / lukewarmism (for completeness): Bjorn Lomborg, Roger Pielke Jr. (Colorado).
+
+REAL ORGANIZATIONS:
+- IPCC (Intergovernmental Panel on Climate Change)
+- IEA (International Energy Agency)
+- IRENA (International Renewable Energy Agency)
+- UNFCCC (treaty body); COP annual conferences
+- Climate Action Tracker, Carbon Brief
+- World Resources Institute, World Bank Climate, Asian Development Bank Climate, AfDB
+- NRDC, EDF, Sierra Club; Sunrise Movement
+- ExxonKnew / Climate Investigations Center (denialism documentation)
+
+WEIGHING TILTS:
+- PRO ambitious action weighs on irreversibility (tipping points: AMOC slowdown, Amazon dieback, Greenland/West Antarctic ice sheet collapse), magnitude (billions of climate refugees, agricultural collapse), and timeframe (window closing).
+- CON aggressive action weighs on energy poverty (3 billion still lack reliable electricity), industrial competitiveness, political backlash (yellow vests 2018, Canadian carbon-tax revolt 2024-25), and substitution risks (rare-earth mining harms vs fossil fuel harms).
+`;
+
+const CRIMINAL_JUSTICE_PRIMER = `
+CRIMINAL JUSTICE PRIMER (cross-cutting — fires on motions about policing, prisons, sentencing, bail, drug policy, restorative justice; complements PLEA_BARGAINING_PRIMER)
+
+KEY FACTUAL ANCHORS:
+- US incarceration rate: ~530-580 per 100,000 (2024-25), highest in OECD. ~1.8 million people incarcerated. Racial disparities persistent (Black Americans incarcerated at ~5x white rate).
+- Prison population peaked ~2008 (~1.6M state + federal), declined ~25% by 2023, partially reversed in some states 2024-25.
+- 95-97% of US convictions via plea, not trial (see PLEA_BARGAINING_PRIMER).
+- ~70% of bail-released defendants in some jurisdictions are detained pretrial due to inability to pay; NJ + Illinois bail reforms 2017+ / 2023 SAFE-T Act as case studies.
+- Drug arrests still ~1.5M/year (FBI UCR); ~85% for possession not distribution.
+- Recidivism: ~44% rearrested within 1 year of release (BJS); ~68% within 3 years. Norway-comparison: ~20% 2-year recidivism under their model.
+- Police use of force: WAPO database tracks ~1,000-1,100 fatal shootings/year. Ferguson 2014 → BLM → George Floyd 2020 → 8-can't-wait → defund debates.
+
+KEY ARGUMENT FRAMES:
+- ABOLITION vs REFORM: Mariame Kaba ("We Do This 'Til We Free Us"), Ruth Wilson Gilmore ("Golden Gulag"), Angela Davis ("Are Prisons Obsolete?") on the abolitionist side. Bryan Stevenson (EJI), Michelle Alexander ("New Jim Crow") on structural-reform side. James Forman Jr. ("Locking Up Our Own") on within-community Black politics of carcerality.
+- DECARCERATION mechanisms: drug-policy reform (decriminalization, treatment-not-incarceration), mandatory-minimum repeal, parole / probation reform, geriatric release, sentencing-guideline reduction, prosecutor-led decarceration (Larry Krasner Philly, Chesa Boudin SF before recall, Pamela Price Alameda).
+- POLICING REFORM: 8 Can't Wait (ban chokeholds, require warnings, etc.), Campaign Zero, qualified-immunity repeal, civilian oversight, end-stop-and-frisk, end pretextual stops.
+- RESTORATIVE JUSTICE: New Zealand family group conferencing model, Norway / Halden Prison rehabilitative philosophy, US adoption in some juvenile + low-level adult contexts.
+- VICTIM RIGHTS frame: Marsy's Law (passed in 15+ states), victim notification, restitution. Sometimes in tension with reform agenda.
+
+REAL AUTHORS / VOICES (don't invent):
+- Reform / abolition: Michelle Alexander ("New Jim Crow"), Bryan Stevenson ("Just Mercy"), Angela Davis, Ruth Wilson Gilmore, Mariame Kaba, Patrisse Cullors, Alec Karakatsanis ("Usual Cruelty"), Paul Butler ("Chokehold").
+- Policy / empirical: Mark Kleiman (late, UCLA — "When Brute Force Fails"), John Pfaff (Fordham — "Locked In"), Rachel Barkow (NYU — "Prisoners of Politics"), Lawrence Sherman (Cambridge — hot-spots policing research), Franklin Zimring (Berkeley — gun policy + crime).
+- Conservative reform: Pat Nolan (former CA legislator turned right-on-crime), Right on Crime coalition (Heritage / ALEC), Newt Gingrich (Right on Crime signatory).
+- Criminologists: David Kennedy (John Jay — focused deterrence), Eric Cadora (Justice Mapping Center), Anne Milgram (former NJ AG).
+
+REAL DATA SOURCES:
+- BJS (Bureau of Justice Statistics) — federal data
+- Vera Institute — incarceration rates, jail populations
+- Sentencing Project — racial disparities, sentencing reform
+- The Marshall Project — investigative reporting on criminal justice
+- Prison Policy Initiative — visualizations, money-in-prison analyses
+- Pew Public Safety Performance Project
+- Brennan Center for Justice (NYU Law)
+
+WEIGHING TILTS:
+- PRO decarceration / reform: structural-violence frame (racial disparities baked into every step), opportunity cost ($80B/year on corrections), recidivism data (current system doesn't reduce reoffense), comparative (Norway, Germany).
+- CON aggressive reform: violent-crime victim harms, public-safety counterfactual, neighborhood-disorder externalities, "Ferguson effect" / depolicing debate, victim-rights frame.
+`;
+
+const IMMIGRATION_PRIMER = `
+IMMIGRATION PRIMER (cross-cutting — fires on motions about borders, asylum, citizenship, deportation, immigration enforcement, integration)
+
+KEY FACTUAL ANCHORS:
+- US foreign-born population: ~46-47 million (~14% of total), highest share since 1910.
+- US border encounters (CBP): peaked ~2.5M in FY2022, declined under Title 8 + Biden 2024 asylum restrictions, sharp further declines under Trump 2025 enforcement.
+- Asylum backlog: ~3M+ cases at EOIR (Executive Office for Immigration Review) by 2024-25; average wait time 4-5 years.
+- Deportations: Trump 2017-21 ~1.6M total; Biden 2021-24 similar volume but different composition; Trump 2025 explicit goal of mass deportation, ~2-4M/year claimed target.
+- DACA: ~600K active recipients as of 2025; legal status contested through ongoing litigation.
+- Global: UNHCR-tracked ~122M forcibly displaced (refugees + IDPs + asylum-seekers) end-2024 — highest ever recorded.
+- EU asylum: Dublin Regulation puts burden on first-arrival country (Greece, Italy, Spain); 2024 Pact on Migration and Asylum attempts redistribution. UK Rwanda scheme (canceled by Starmer government 2024).
+- Australia offshore-processing (Nauru, Manus) as a model some right-wing parties want to replicate.
+
+KEY ARGUMENT FRAMES:
+- ECONOMIC: pro-immigration economic consensus (Borjas dissent notwithstanding) — immigrants are net fiscal contributors over their lifetime, fill labor-market gaps, drive innovation (~25% of US patents). Wage-suppression debate (Card vs Borjas on Mariel boatlift) — high-skill suppresses native high-skill modestly; low-skill effects contested.
+- LABOR-MARKET: H1B + STEM visa expansion (tech industry advocacy) vs displacement concerns (IEEE-USA opposition). Agricultural worker dependency (~70% of US farmworkers undocumented). H2A / H2B seasonal worker programs.
+- HUMANITARIAN: 1951 Refugee Convention + 1967 Protocol — non-refoulement obligation. Asylum-as-right vs asylum-as-policy. Climate refugees (no current legal framework — UNHCR working group).
+- BORDER ENFORCEMENT: wall as symbol vs effective deterrent debate; E-Verify mandate; interior enforcement (workplace raids, ICE detainers); sanctuary cities + 287(g) cooperation refusals.
+- INTEGRATION: assimilation vs multiculturalism debate (Putnam "E Pluribus Unum" study); language acquisition; citizenship test reform; pathway-to-citizenship vs perpetual-status framings.
+
+REAL AUTHORS / VOICES (don't invent):
+- Pro-immigration economic: Giovanni Peri (UC Davis), Madeline Zavodny (UNF), Michael Clemens (Center for Global Development — open-borders argument; "Trillion-Dollar Bills on the Sidewalk"), Bryan Caplan ("Open Borders" comic book treatment of econ arguments).
+- Restrictionist: George Borjas (Harvard Kennedy — wage-suppression empirics), Mark Krikorian (Center for Immigration Studies), Steven Camarota (CIS), Robert Rector (Heritage).
+- Legal scholarship: Hiroshi Motomura (UCLA Law), Stephen Yale-Loehr (Cornell), David Martin (UVA), Cristina Rodríguez (Yale Law), Adam Cox (NYU Law), Lucas Guttentag (Stanford).
+- Refugee / asylum: Alexander Betts (Oxford Refugee Studies Centre), Susan Akram (BU Law), Jaya Ramji-Nogales (Temple Law).
+- Critical / postcolonial: Aviva Chomsky ("Undocumented"), Reece Jones ("Violent Borders"), Harsha Walia ("Border and Rule").
+
+REAL ORGANIZATIONS:
+- MPI (Migration Policy Institute)
+- Pew Hispanic / Pew Research immigration data
+- Niskanen Center (center-right pro-immigration)
+- American Immigration Council
+- CATO (libertarian pro-immigration)
+- CIS (Center for Immigration Studies — restrictionist; cite with awareness of advocacy stance)
+- FAIR (Federation for American Immigration Reform — restrictionist)
+- IRC (International Rescue Committee), USCRI, HIAS (refugee services)
+- UNHCR; IOM (International Organization for Migration)
+
+WEIGHING TILTS:
+- PRO immigration weighs on economic contribution (CBO + JCT scoring of immigration bills consistently shows net-positive fiscal), demographic necessity (US fertility 1.62 in 2023, immigration is the only path to population stability), and humanitarian framing.
+- CON immigration weighs on wage-suppression concerns at low-skill end, fiscal burden (state/local impacts pre-naturalization), cultural/integration concerns, and rule-of-law frame (orderly process vs uncontrolled flows).
+`;
+
 const PLEA_BARGAINING_PRIMER = `
 LD TOPIC: "Resolved: In the United States criminal justice system, plea bargaining is just." (Sept/Oct 2025)
 
@@ -1503,6 +1681,10 @@ const TOPIC_PRIMERS = {
   plea_bargaining: PLEA_BARGAINING_PRIMER,
   rewilding: REWILDING_PRIMER,
   nuclear_weapons: NUCLEAR_WEAPONS_PRIMER,
+  ai_governance: AI_GOVERNANCE_PRIMER,
+  climate: CLIMATE_PRIMER,
+  criminal_justice: CRIMINAL_JUSTICE_PRIMER,
+  immigration: IMMIGRATION_PRIMER,
 };
 
 // forTopic — returns a topic primer if known, else ''. Normalizes synonyms.
@@ -1761,6 +1943,75 @@ const TOPIC_KEYWORDS = {
       'hiroshima', 'nagasaki', 'manhattan project', 'first strike',
       'second strike', 'minuteman', 'trident', 'nc3',
       'iaea safeguards', 'plutonium', 'enriched uranium',
+    ],
+  },
+  ai_governance: {
+    strong: [
+      'ai regulation', 'ai governance', 'eu ai act', 'ai safety',
+      'algorithmic governance', 'algorithmic accountability',
+      'generative ai', 'large language model', 'foundation model',
+      'frontier model', 'ai alignment', 'agi', 'superintelligence',
+      'deepfake', 'content moderation', 'algorithmic bias',
+      'facial recognition', 'predictive policing', 'autonomous weapons',
+    ],
+    medium: [
+      'artificial intelligence', 'machine learning', 'chatgpt',
+      'openai', 'anthropic', 'deepmind', 'llm', 'chatbot',
+      'algorithm', 'algorithmic', 'automation', 'self-driving',
+      'autonomous vehicle', 'computer vision', 'natural language processing',
+      'transformer model', 'neural network',
+    ],
+  },
+  climate: {
+    strong: [
+      'climate change', 'global warming', 'carbon tax', 'cap and trade',
+      'paris agreement', 'ipcc', 'unfccc', 'net zero', 'net-zero',
+      'carbon neutral', 'emissions trading', 'carbon border adjustment',
+      'fossil fuel divestment', 'green new deal', 'climate finance',
+      'loss and damage', 'climate justice', 'geoengineering',
+      'solar radiation management', 'carbon dioxide removal',
+      'direct air capture', 'inflation reduction act',
+    ],
+    medium: [
+      'climate', 'greenhouse gas', 'carbon emissions', 'co2',
+      'renewable energy', 'solar power', 'wind power', 'fossil fuel',
+      'coal phase-out', 'oil and gas', 'natural gas', 'lng',
+      'cop28', 'cop29', 'cop30', 'tipping point',
+      'amoc', 'greenland ice', 'sea level rise', 'climate refugee',
+    ],
+  },
+  criminal_justice: {
+    strong: [
+      'mass incarceration', 'prison abolition', 'abolish prisons',
+      'police reform', 'defund the police', '8 cant wait',
+      'qualified immunity', 'cash bail', 'bail reform',
+      'mandatory minimums', 'three strikes', 'sentencing reform',
+      'restorative justice', 'parole reform', 'probation reform',
+      'recidivism', 'felony disenfranchisement', 'private prisons',
+    ],
+    medium: [
+      'incarceration', 'prison', 'jail', 'bail', 'sentencing',
+      'policing', 'police violence', 'mass arrests', 'racial disparities',
+      'criminal record', 'reentry', 'death penalty', 'capital punishment',
+      'juvenile justice', 'three-strikes', 'crack vs powder',
+    ],
+  },
+  immigration: {
+    strong: [
+      'immigration policy', 'border enforcement', 'asylum seekers',
+      'mass deportation', 'path to citizenship', 'pathway to citizenship',
+      'sanctuary city', 'sanctuary cities', 'daca', 'dreamers',
+      'h1b visa', 'h2a visa', 'h2b visa', 'border wall',
+      'family separation', 'refugee resettlement', 'open borders',
+      'rwanda scheme', 'title 42', 'mpp', 'remain in mexico',
+      'expedited removal',
+    ],
+    medium: [
+      'immigration', 'immigrant', 'migrant', 'border crossing',
+      'undocumented', 'illegal alien', 'naturalization',
+      'green card', 'permanent residency', 'visa overstay',
+      'ice raids', 'cbp', 'uscis', 'foreign born',
+      'refugee', 'asylum', 'unhcr', 'guest worker',
     ],
   },
 };

@@ -108,6 +108,24 @@ const CASES = [
   ['nuclear_weapons: deterrence',
     'THBT nuclear deterrence has prevented great-power war since 1945. The long peace + mutually assured destruction + no first use doctrine debate.', 'nuclear_weapons'],
 
+  // ── cross-cutting domain primers: SHOULD fire ───────────────────
+  ['ai_governance: EU AI Act',
+    'Motion: THBT the EU AI Act risk-tier framework should be the global standard for foundation models and frontier model labs. Algorithmic governance + deepfake regulation.', 'ai_governance'],
+  ['ai_governance: alignment',
+    'THW require frontier model labs (OpenAI, Anthropic, DeepMind) to delay deployment until AI alignment + AI safety benchmarks are met. Existential risk + superintelligence framing.', 'ai_governance'],
+  ['climate: carbon tax border',
+    'Motion: THBT carbon tax + carbon border adjustment mechanisms are the right tool to hit net zero emissions by 2050. IPCC + Paris Agreement framing.', 'climate'],
+  ['climate: geoengineering',
+    'THBT we should fund stratospheric aerosol injection research. Solar radiation management + carbon dioxide removal direct air capture as climate finance.', 'climate'],
+  ['criminal_justice: abolish prisons',
+    'Motion: This house would abolish prisons within a generation. Mass incarceration + qualified immunity + restorative justice as the policing reform agenda.', 'criminal_justice'],
+  ['criminal_justice: bail reform',
+    'THW eliminate cash bail nationwide. Bail reform + sentencing reform + mandatory minimums + recidivism in the criminal-justice frame.', 'criminal_justice'],
+  ['immigration: open borders',
+    'Motion: THBT the United States should move toward open borders for skilled migrants. H1B visa expansion + pathway to citizenship + DACA reform.', 'immigration'],
+  ['immigration: asylum',
+    'THBT mass deportation undermines refugee resettlement. Asylum seekers + sanctuary cities + ICE raids + border enforcement debate.', 'immigration'],
+
   // ── finance: should NOT fire (true negatives) ─────────────────────
   ['skip: tiktok in schools', 'Motion: THW ban TikTok in US schools.', ''],
   ['skip: zoos', 'Motion: This House Would Abolish Zoos.', ''],
@@ -115,7 +133,9 @@ const CASES = [
   ['skip: gun control', 'Motion: THW ban civilian ownership of semi-automatic rifles.', ''],
   ['skip: ICC jurisdiction', 'This house believes the ICC should exercise jurisdiction over heads of state.', ''],
   ['skip: drug decrim', 'Motion: THW decriminalize all drug possession for personal use, on the Portugal model.', ''],
-  ['skip: prison abolition', 'This house would abolish prisons within a generation.', ''],
+  // Now correctly matches criminal_justice primer (was a true-negative
+  // before the 2026-05-19 cross-cutting-domain primer additions).
+  ['was-skip-now-fire: prison abolition', 'This house would abolish prisons within a generation.', 'criminal_justice'],
   // Edge: a single weak finance keyword should NOT trip the threshold
   ['skip: World-Bank-only edge',
     'THBT the World Bank should require gender quotas in lending to recipient governments.', ''],
