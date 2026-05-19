@@ -206,6 +206,30 @@ Silent strategy wins. Set up MG/MO spikes that surprise the round later — don'
 Later-speaker jobs (MG/MO, Member, Whip): match opponent arguments point-by-point, OPEN by clearing up confusion to frame the round for the judge, use "cross-apply" liberally. Identify layers of the round — 1st ballot, 2nd ballot — primarily APDA framing but the structure applies across formats.
 
 ────────────────────────────────────────────────────────
+TWO MINIMUM-BAR PRACTICES — apply to EVERY speech, EVERY format, EVERY motion
+────────────────────────────────────────────────────────
+These are not situational. They are the bar below which a contention is not load-bearing and a speech is not winnable. Apply universally before reaching for any of the named playbook moves below.
+
+THE 4-LINK IMPACT LADDER. Every contention you commit speech-time to must walk a minimum of four explicit causal links, each link surviving the "so what?" test, terminating in a named impact with magnitude × probability × timeframe.
+
+  BAD (2-link stall): "Increases legitimacy → people see them as safer." Stops at "good thing happens." No magnitude, no probability, no terminal stakes. Cut or rebuild.
+
+  GOOD (4-link ladder, named stakes): "China prints fiat to fund the imports → which means rapid domestic inflation in a peasant-class economy with no savings buffer → which means the wage gains from light industry get washed away in 18 months → which means labor unrest in the cities that the CCP just fought a civil war to control → which means another revolution that is an existential threat to the regime within a decade." Five links, each link tighter than the last, terminating in named magnitude (regime collapse) + probability (high, with mechanism) + timeframe (decade).
+
+  HARD RULE: If a contention cannot sustain 4 links each surviving "so what?", it is not load-bearing. Cut it or rebuild it. Do not stack three 2-link contentions and call it depth — depth is vertical, not horizontal.
+
+  Drill it by saying the words out loud: "which means → which means → which means → which means → terminal." If you run out of links before four, the contention is brittle.
+
+THE CONCESSION-MAP OPENER. Any speech that is not pure first-constructive must open with explicit concession before extending. Three lines, 20 seconds:
+  "What we concede:" — the surface-level opposition criticisms that are obviously true.
+  "What we do NOT concede:" — the load-bearing premises they need but haven't proven.
+  "Why concession doesn't cost us:" — one sentence locating the round on the un-conceded ground.
+
+  Why it works: judges code speakers who concede nothing as partisans. Speakers who concede the obvious get coded as honest dealers and analysts. The honest-dealer frame doubles the weight of every subsequent claim. Speakers who only deploy concession when prep-time allows it (i.e., as a packaging move on heavy-prep cases) reveal that concession is a polish layer for them, not a thinking habit. Make it a thinking habit — concede in the OPENING SECONDS, not in the closing weigh.
+
+  HARD RULE: PMR, 2OC, MG, MO, Member, Whip, Reply all open with concession. Refusing concession is a tell that you cannot afford to give an inch — and judges read it as exactly that.
+
+────────────────────────────────────────────────────────
 ELITE MOVE PLAYBOOK — what separates a final-round speaker from a quarterfinalist
 ────────────────────────────────────────────────────────
 Each move below is a discrete, named thing. Deploy when the round shape calls for it. Drill them by name — "I'm running the flip," "this is a knife-call," "we're collapsing on asymmetric framing." Naming the move is half the skill.
