@@ -129,23 +129,25 @@ html,body{height:100%;overflow-x:hidden}
   --c-scrim:rgba(0,0,0,.6);--c-scrim2:rgba(0,0,0,.92);
 }
 [data-lighting="light"]{
-  /* Light-theme contrast pass. Was: text vars maxed at .7 alpha black
-     on cream — body text at .4 alpha was ~2.5:1 contrast against
-     #f5f5f0, well under WCAG AA's 4.5:1. The dark-theme values were
-     authored at the same alphas but white-on-black is much more
-     forgiving. Bumped each tier so the modal + every light-theme
-     surface reads cleanly. Borders also bumped so card edges show. */
+  /* Light-theme contrast pass — second iteration. The first pass bumped
+     text alphas but kept SURFACES as a thin black tint (rgba(0,0,0,.025))
+     on cream — which is invisible. Cards on cream should be BRIGHTER
+     than the bg (white-on-cream) with a clear border + soft shadow to
+     read as elevated. The dark-on-cream tint approach only works at
+     much higher alphas. So: surfaces flipped to solid white / near-white,
+     borders nudged up for definition, and dim/subtle text bumped so
+     dates + meta rows clear WCAG AA against the new fills. */
   --bg:#f5f5f0;--fg:#1a1a1e;
-  --c-faint:rgba(0,0,0,.18);--c-dim:rgba(0,0,0,.28);
-  --c-subtle:rgba(0,0,0,.42);--c-muted:rgba(0,0,0,.55);
-  --c-mid:rgba(0,0,0,.62);--c-text:rgba(0,0,0,.75);
-  --c-text2:rgba(0,0,0,.78);--c-text3:rgba(0,0,0,.82);
-  --c-text4:rgba(0,0,0,.86);--c-bright:rgba(0,0,0,.92);
-  --c-surface:rgba(0,0,0,.025);--c-surface2:rgba(0,0,0,.045);
-  --c-surface3:rgba(0,0,0,.07);--c-surface4:rgba(0,0,0,.09);
-  --c-border:rgba(0,0,0,.12);--c-border2:rgba(0,0,0,.16);
-  --c-border3:rgba(0,0,0,.2);--c-border4:rgba(0,0,0,.28);
-  --c-border5:rgba(0,0,0,.36);
+  --c-faint:rgba(0,0,0,.32);--c-dim:rgba(0,0,0,.48);
+  --c-subtle:rgba(0,0,0,.58);--c-muted:rgba(0,0,0,.62);
+  --c-mid:rgba(0,0,0,.68);--c-text:rgba(0,0,0,.78);
+  --c-text2:rgba(0,0,0,.82);--c-text3:rgba(0,0,0,.85);
+  --c-text4:rgba(0,0,0,.88);--c-bright:rgba(0,0,0,.94);
+  --c-surface:#ffffff;--c-surface2:#fbfaf5;
+  --c-surface3:rgba(0,0,0,.04);--c-surface4:rgba(0,0,0,.06);
+  --c-border:rgba(0,0,0,.10);--c-border2:rgba(0,0,0,.14);
+  --c-border3:rgba(0,0,0,.22);--c-border4:rgba(0,0,0,.32);
+  --c-border5:rgba(0,0,0,.40);
   --c-scrim:rgba(245,245,240,.7);--c-scrim2:rgba(245,245,240,.97);
 }
 body{
@@ -774,8 +776,75 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
 [data-lighting="light"] .pill{border-color:rgba(0,0,0,.28);color:rgba(0,0,0,.7);background:rgba(0,0,0,.02)}
 [data-lighting="light"] .pill:hover{border-color:rgba(0,0,0,.5);color:#0a0a0a;background:rgba(0,0,0,.06)}
 [data-lighting="light"] .pill.on{border-color:#ef4444;color:#fff;background:#ef4444;box-shadow:0 0 0 1px rgba(239,68,68,.4)}
-[data-lighting="light"] .cta-ghost{border-color:rgba(0,0,0,.1);color:rgba(0,0,0,.4)}
-[data-lighting="light"] .cta-ghost:hover{border-color:rgba(0,0,0,.25);color:rgba(0,0,0,.7)}
+[data-lighting="light"] .cta-ghost{border-color:rgba(0,0,0,.28);color:rgba(0,0,0,.72);background:rgba(255,255,255,.85)}
+[data-lighting="light"] .cta-ghost:hover{border-color:rgba(0,0,0,.45);color:rgba(0,0,0,.92);background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+
+/* Dashboard cards (Saved cases / Round history / How I think /
+   Practice drill / Record vs AI). Inline styles in the JSX set
+   background + border + radius + padding via CSS vars; this class
+   layers on the elevation + hover treatment that's hard to express
+   inline. Light theme needs a real shadow because the surfaces are
+   solid white on cream — without elevation cues, the cards float
+   and the page reads flat. */
+.dash-card{
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  box-shadow:0 1px 0 rgba(0,0,0,.04), 0 6px 18px rgba(0,0,0,.03);
+}
+.dash-card:hover{ box-shadow:0 1px 0 rgba(0,0,0,.06), 0 10px 26px rgba(0,0,0,.06) }
+[data-lighting="light"] .dash-card{
+  box-shadow:0 1px 0 rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.06);
+}
+[data-lighting="light"] .dash-card:hover{
+  box-shadow:0 1px 0 rgba(0,0,0,.07), 0 14px 34px rgba(0,0,0,.09);
+}
+/* Rows inside dashboard cards — the individual saved case / round
+   list items. Hover state nudges them right and lifts the border so
+   the affordance reads clearly. */
+.dash-row{
+  transition:background .12s ease, border-color .12s ease, transform .12s ease;
+}
+.dash-row:hover{
+  border-color:var(--c-border3) !important;
+  transform:translateX(2px);
+}
+[data-lighting="light"] .dash-row:hover{
+  background:#fff !important;
+}
+
+/* WIN / LOSS / TIE chips on the Round History rows. Authored as a
+   class so the colors can theme — dark theme leans on lighter shades
+   (readable on near-black tinted backgrounds), light theme uses
+   deeper shades (readable on light tinted backgrounds). */
+.dash-pill--win{
+  background:rgba(34,197,94,.18);
+  border:1px solid rgba(34,197,94,.42);
+  color:#86efac;
+}
+.dash-pill--loss{
+  background:rgba(239,68,68,.18);
+  border:1px solid rgba(239,68,68,.42);
+  color:#fca5a5;
+}
+.dash-pill--tie{
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.12);
+  color:var(--c-subtle);
+}
+[data-lighting="light"] .dash-pill--win{
+  background:rgba(34,197,94,.14);
+  border-color:rgba(22,163,74,.45);
+  color:#15803d;
+}
+[data-lighting="light"] .dash-pill--loss{
+  background:rgba(239,68,68,.12);
+  border-color:rgba(220,38,38,.42);
+  color:#b91c1c;
+}
+[data-lighting="light"] .dash-pill--tie{
+  background:rgba(0,0,0,.04);
+  border-color:rgba(0,0,0,.18);
+  color:var(--c-subtle);
+}
 [data-lighting="light"] .wpm span{color:rgba(0,0,0,.35)}
 [data-lighting="light"] .wpm strong{color:rgba(0,0,0,.6)}
 [data-lighting="light"] .orb-ring{border-color:rgba(0,0,0,.08)}
@@ -7508,22 +7577,22 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     }
     var streakColor = streakType === 'W' ? '#22c55e' : '#ef4444';
     var pctColor = winPct >= 60 ? '#22c55e' : winPct >= 40 ? '#f59e0b' : '#ef4444';
-    return el('div', { style: { marginTop: 24, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
+    return el('div', { className: 'dash-card', style: { marginTop: 24, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
     el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 12 } }, 'Record vs. AI'),
     el('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
-    el('div', { style: { flex: 1, minWidth: 78, padding: '10px 14px', background: 'rgba(255,255,255,.02)', border: '1px solid var(--c-border2)', borderRadius: 10, textAlign: 'center' } },
+    el('div', { style: { flex: 1, minWidth: 78, padding: '10px 14px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)', borderRadius: 10, textAlign: 'center' } },
     el('div', { style: { fontSize: '.55rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-subtle)', marginBottom: 4 } }, 'Win rate'),
     el('div', { style: { fontSize: '1.5rem', fontWeight: 900, color: pctColor, lineHeight: 1 } }, winPct + '%')
     ),
-    el('div', { style: { flex: 1, minWidth: 78, padding: '10px 14px', background: 'rgba(255,255,255,.02)', border: '1px solid var(--c-border2)', borderRadius: 10, textAlign: 'center' } },
+    el('div', { style: { flex: 1, minWidth: 78, padding: '10px 14px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)', borderRadius: 10, textAlign: 'center' } },
     el('div', { style: { fontSize: '.55rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-subtle)', marginBottom: 4 } }, 'Record'),
     el('div', { style: { fontSize: '1.1rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1 } }, wins + 'W · ' + losses + 'L' + (ties ? ' · ' + ties + 'T' : ''))
     ),
-    el('div', { style: { flex: 1, minWidth: 78, padding: '10px 14px', background: 'rgba(255,255,255,.02)', border: '1px solid var(--c-border2)', borderRadius: 10, textAlign: 'center' } },
+    el('div', { style: { flex: 1, minWidth: 78, padding: '10px 14px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)', borderRadius: 10, textAlign: 'center' } },
     el('div', { style: { fontSize: '.55rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-subtle)', marginBottom: 4 } }, 'Streak'),
     el('div', { style: { fontSize: '1.5rem', fontWeight: 900, color: streakColor, lineHeight: 1 } }, streak + streakType)
     ),
-    el('div', { style: { flex: 1, minWidth: 78, padding: '10px 14px', background: 'rgba(255,255,255,.02)', border: '1px solid var(--c-border2)', borderRadius: 10, textAlign: 'center' } },
+    el('div', { style: { flex: 1, minWidth: 78, padding: '10px 14px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)', borderRadius: 10, textAlign: 'center' } },
     el('div', { style: { fontSize: '.55rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-subtle)', marginBottom: 4 } }, 'Rounds'),
     el('div', { style: { fontSize: '1.5rem', fontWeight: 900, color: 'var(--c-text3)', lineHeight: 1 } }, adjudicated.length)
     )
@@ -7532,7 +7601,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   }(),
 
   // Saved cases
-  el('div', { style: { marginTop: 24, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
+  el('div', { className: 'dash-card', style: { marginTop: 24, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
   el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 } },
   el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'Saved cases (' + savedCases.length + ')'),
   savedCases.length > 0 && el('button', { className: 'cta-ghost', style: { margin: 0, padding: '4px 12px', fontSize: '.7rem' }, onClick: () => {setSetupTab('setup');setShowCases(true);} }, 'Open library')
@@ -7540,12 +7609,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   savedCases.length === 0 ?
   el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } }, 'After a round, hit "Save case" on the AI’s speeches to bank the best ones here.') :
   el('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
-  savedCases.slice(0, 5).map((c) => el('button', { key: c.id, onClick: () => {setSetupTab('setup');setShowCases(true);setViewingCase(c);}, style: {
-      textAlign: 'left', padding: '10px 12px', background: 'rgba(255,255,255,.02)', border: '1px solid var(--c-border2)',
+  savedCases.slice(0, 5).map((c) => el('button', { key: c.id, className: 'dash-row', onClick: () => {setSetupTab('setup');setShowCases(true);setViewingCase(c);}, style: {
+      textAlign: 'left', padding: '10px 12px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)',
       borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-text)'
     } },
-  el('div', { style: { fontSize: '.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, c.title),
-  el('div', { style: { fontSize: '.68rem', color: 'var(--c-dim)', marginTop: 2 } }, c.formatName + ' · ' + c.sideLabel + ' · ' + new Date(c.date).toLocaleDateString())
+  el('div', { style: { fontSize: '.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--c-bright)' } }, c.title),
+  el('div', { style: { fontSize: '.68rem', color: 'var(--c-subtle)', marginTop: 2 } }, c.formatName + ' · ' + c.sideLabel + ' · ' + new Date(c.date).toLocaleDateString())
   ))
   )
   ),
@@ -7590,7 +7659,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ),
 
   // Past rounds
-  el('div', { style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
+  el('div', { className: 'dash-card', style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
   el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 } },
   el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'Round history (' + historyRounds.length + ')'),
   historyRounds.length > 0 && el('button', { className: 'cta-ghost', style: { margin: 0, padding: '4px 12px', fontSize: '.7rem' }, onClick: () => {setSetupTab('setup');setShowHistory(true);} }, 'Open all')
@@ -7598,34 +7667,32 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   historyRounds.length === 0 ?
   el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } }, 'Finished rounds appear here with the judge ballot, score, and full transcript.') :
   el('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
-  historyRounds.slice(0, 5).map((r) => el('button', { key: r.id, onClick: () => {setSetupTab('setup');setShowHistory(true);setViewingRound && setViewingRound(r);}, style: {
-      textAlign: 'left', padding: '10px 12px', background: 'rgba(255,255,255,.02)', border: '1px solid var(--c-border2)',
+  historyRounds.slice(0, 5).map((r) => el('button', { key: r.id, className: 'dash-row', onClick: () => {setSetupTab('setup');setShowHistory(true);setViewingRound && setViewingRound(r);}, style: {
+      textAlign: 'left', padding: '10px 12px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)',
       borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-text)', display: 'flex', alignItems: 'center', gap: 10
     } },
-  el('span', { style: {
-      fontSize: '.6rem', fontWeight: 800, letterSpacing: '.08em', padding: '2px 8px', borderRadius: 4,
-      background: r.userWon === true ? 'rgba(34,197,94,.12)' : r.userWon === false ? 'rgba(239,68,68,.12)' : 'rgba(255,255,255,.05)',
-      color: r.userWon === true ? '#4ade80' : r.userWon === false ? '#fca5a5' : 'var(--c-dim)'
-    } }, r.userWon === true ? 'WIN' : r.userWon === false ? 'LOSS' : ', '),
+  el('span', { className: r.userWon === true ? 'dash-pill dash-pill--win' : r.userWon === false ? 'dash-pill dash-pill--loss' : 'dash-pill dash-pill--tie',
+    style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.08em', padding: '3px 8px', borderRadius: 4 }
+    }, r.userWon === true ? 'WIN' : r.userWon === false ? 'LOSS' : '—'),
   el('div', { style: { flex: 1, minWidth: 0 } },
-  el('div', { style: { fontSize: '.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, (r.motion || '').slice(0, 80)),
-  el('div', { style: { fontSize: '.68rem', color: 'var(--c-dim)', marginTop: 2 } }, (r.formatName || '') + ' · ' + new Date(r.date || r.id).toLocaleDateString())
+  el('div', { style: { fontSize: '.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--c-bright)' } }, (r.motion || '').slice(0, 80)),
+  el('div', { style: { fontSize: '.68rem', color: 'var(--c-subtle)', marginTop: 2 } }, (r.formatName || '') + ' · ' + new Date(r.date || r.id).toLocaleDateString())
   )
   ))
   )
   ),
 
   // How I think as a debater
-  el('div', { style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
+  el('div', { className: 'dash-card', style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
   el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 } },
   el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'How I think as a debater'),
   el('button', { className: 'cta-ghost', style: { margin: 0, padding: '4px 12px', fontSize: '.7rem' }, disabled: patternsLoading, onClick: genPatterns }, patternsLoading ? 'Analyzing…' : patterns ? 'Refresh' : 'Analyze')
   ),
   historyRounds.length < 3 ?
-  el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } }, 'After 3+ rounds, this surfaces the recurring strengths, weaknesses, and the single highest-leverage fix for your style. ' + (3 - historyRounds.length) + ' more to unlock.') :
+  el('div', { style: { fontSize: '.82rem', color: 'var(--c-subtle)', lineHeight: 1.55 } }, 'After 3+ rounds, this surfaces the recurring strengths, weaknesses, and the single highest-leverage fix for your style. ' + (3 - historyRounds.length) + ' more to unlock.') :
   !patterns ?
-  el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } }, 'Hit Analyze to read recurring patterns across your last ' + Math.min(historyRounds.length, 12) + ' rounds.') :
-  el('div', { style: { fontSize: '.85rem', lineHeight: 1.6, color: 'var(--c-text)', whiteSpace: 'pre-wrap' } }, patterns)
+  el('div', { style: { fontSize: '.82rem', color: 'var(--c-subtle)', lineHeight: 1.55 } }, 'Hit Analyze to read recurring patterns across your last ' + Math.min(historyRounds.length, 12) + ' rounds.') :
+  el('div', { style: { fontSize: '.88rem', lineHeight: 1.6, color: 'var(--c-text)', whiteSpace: 'pre-wrap' } }, patterns)
   ),
 
   // Practice drill, companion to "How I think". Only renders once
@@ -7633,7 +7700,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // generated drill applies a motion/side/traits combo specifically
   // designed to stress-test the user's #1 weakness, then drops them
   // on setup with everything pre-filled.
-  patterns && el('div', { style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
+  patterns && el('div', { className: 'dash-card', style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
   el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 } },
   el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'Practice drill'),
   el('button', { className: 'cta-ghost', style: { margin: 0, padding: '4px 12px', fontSize: '.7rem' }, disabled: drillLoading, onClick: genDrillPlan }, drillLoading ? 'Building…' : drillPlan && !drillPlan.error ? 'Re-roll' : 'Build drill')
