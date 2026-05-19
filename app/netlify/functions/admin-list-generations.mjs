@@ -90,30 +90,42 @@ export default async (request) => {
     const docs = [];
     let lastCreatedAtMs = null;
 
+    // Defensive: any single bad doc (non-string field, weird type from legacy
+    // writes, etc.) used to take down the whole batch with a 500. Now: coerce
+    // text fields via String(), and catch per-doc so one bad apple doesn't
+    // hide the rest.
+    const safeStr = (v) => (v == null ? '' : String(v));
+    const safeMs = (v) => (v && typeof v.toMillis === 'function' ? v.toMillis() : null);
+
     for (const d of snap.docs) {
-      const data = d.data();
-      const createdAtMs = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : null;
-      lastCreatedAtMs = createdAtMs;
-      if (kind && data.kind !== kind) continue;
-      if (onlyUnrated && typeof data.rating === 'number') continue;
-      docs.push({
-        id: d.id,
-        uid: data.uid || '',
-        kind: data.kind || '',
-        format: data.format || '',
-        motion: (data.motion || '').slice(0, 600),
-        side: data.side || '',
-        model: data.model || '',
-        output: (data.output || '').slice(0, 6000),
-        outputLength: data.outputLength || (data.output || '').length || 0,
-        systemPrompt: (data.systemPrompt || '').slice(0, 2000),
-        userPrompt: (data.userPrompt || '').slice(0, 2000),
-        rating: typeof data.rating === 'number' ? data.rating : null,
-        boring: data.boring === true,
-        ratedAt: data.ratedAt && data.ratedAt.toMillis ? data.ratedAt.toMillis() : null,
-        createdAt: createdAtMs,
-      });
-      if (docs.length >= limit) break;
+      try {
+        const data = d.data() || {};
+        const createdAtMs = safeMs(data.createdAt);
+        lastCreatedAtMs = createdAtMs;
+        if (kind && data.kind !== kind) continue;
+        if (onlyUnrated && typeof data.rating === 'number') continue;
+        const outputStr = safeStr(data.output);
+        docs.push({
+          id: d.id,
+          uid: safeStr(data.uid),
+          kind: safeStr(data.kind),
+          format: safeStr(data.format),
+          motion: safeStr(data.motion).slice(0, 600),
+          side: safeStr(data.side).slice(0, 40),
+          model: safeStr(data.model).slice(0, 100),
+          output: outputStr.slice(0, 6000),
+          outputLength: typeof data.outputLength === 'number' ? data.outputLength : outputStr.length,
+          systemPrompt: safeStr(data.systemPrompt).slice(0, 2000),
+          userPrompt: safeStr(data.userPrompt).slice(0, 2000),
+          rating: typeof data.rating === 'number' ? data.rating : null,
+          boring: data.boring === true,
+          ratedAt: safeMs(data.ratedAt),
+          createdAt: createdAtMs,
+        });
+        if (docs.length >= limit) break;
+      } catch (perDocErr) {
+        console.error('admin-list-generations: skipping bad doc', d.id, perDocErr.message);
+      }
     }
 
     return jsonResponse({
