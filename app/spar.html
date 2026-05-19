@@ -118,35 +118,126 @@ h1 em{color:var(--accent);font-style:normal}
 
 .lede{font-size:1rem;color:var(--text-dim);line-height:1.55;max-width:480px;margin:0 auto 32px;font-weight:500}
 
-/* Globe — the centerpiece of this page. Replaces the prior static red
-   orb with a live rotating sphere of pinned debaters. Mounts via
-   /js/world-globe.js into the inner <canvas>. Aspect-ratio:1 keeps
-   the canvas square; the globe is inscribed inside the radial halo.
-   .globe-frame paints the soft red disc glow + atmospheric ring; the
-   canvas overlays the live pins/arcs in transparent mode (see
-   world-globe.js opts.transparent). */
+/* Globe — the centerpiece of this page. Layered visual:
+     • two slow-rotating outer orbit rings (dashed + dotted) on .globe-wrap
+     • multi-stop radial gradient on .globe-frame for 3D-sphere look
+       (specular highlight top-left, dark shadow bottom-right, red atmosphere)
+     • two staggered expanding ring pulses (::before, ::after on frame)
+     • a conic radar sweep inside the frame
+     • three orbit containers with satellite dots at different radii/speeds
+     • <canvas id="sparGlobe"> on top draws live pins/arcs via world-globe.js
+       in transparent mode. If world-globe.js fails to load, the orb still
+       reads as a rich animated sphere instead of a flat gradient blob. */
 .globe-wrap{
   position:relative;width:300px;max-width:84vw;margin:0 auto 22px;
   aspect-ratio:1 / 1;
 }
+/* Outer dashed orbit ring — slow forward rotation */
+.globe-wrap::before{
+  content:''; position:absolute; inset:-6%;
+  border-radius:50%;
+  border:1px dashed rgba(239,68,68,.28);
+  pointer-events:none;
+  animation:globe-orbit-slow 32s linear infinite;
+}
+/* Wider dotted orbit ring — slower reverse rotation */
+.globe-wrap::after{
+  content:''; position:absolute; inset:-14%;
+  border-radius:50%;
+  border:1px dotted rgba(239,68,68,.18);
+  pointer-events:none;
+  animation:globe-orbit-slow 50s linear infinite reverse;
+}
+@keyframes globe-orbit-slow{ to{ transform:rotate(360deg) } }
+
 .globe-frame{
   position:relative;width:100%;height:100%;border-radius:50%;
   background:
+    /* Specular highlight top-left for sphere depth */
+    radial-gradient(circle at 32% 28%,
+      rgba(255,210,210,.20) 0%,
+      rgba(255,170,170,.06) 18%,
+      transparent 40%),
+    /* Bottom-right shadow gives the orb 3D shape */
+    radial-gradient(circle at 70% 78%,
+      rgba(0,0,0,.55) 0%,
+      transparent 48%),
+    /* Red atmosphere — center bright, fades to halo */
     radial-gradient(circle at 50% 50%,
-      rgba(239,68,68,.22) 0%,
-      rgba(239,68,68,.10) 36%,
-      rgba(239,68,68,.03) 62%,
+      rgba(239,68,68,.32) 0%,
+      rgba(239,68,68,.16) 34%,
+      rgba(239,68,68,.04) 62%,
       transparent 78%);
   box-shadow:
-    inset 0 0 70px rgba(239,68,68,.12),
-    0 0 90px rgba(239,68,68,.16);
+    inset 0 0 70px rgba(239,68,68,.20),
+    inset 0 -14px 40px rgba(0,0,0,.5),
+    0 0 110px rgba(239,68,68,.28);
   animation:globe-breathe 5.5s ease-in-out infinite;
+  overflow:hidden;
+}
+/* Two ring pulses staggered for continuous expand-and-fade. */
+.globe-frame::before, .globe-frame::after{
+  content:''; position:absolute; inset:14%;
+  border-radius:50%;
+  border:1.5px solid rgba(239,68,68,.55);
+  pointer-events:none; opacity:0;
+  animation:globe-ring-pulse 3.8s cubic-bezier(.35,0,.25,1) infinite;
+  z-index:1;
+}
+.globe-frame::after{ animation-delay:1.9s }
+@keyframes globe-ring-pulse{
+  0%{ transform:scale(.55); opacity:.75; border-width:2px }
+  60%{ opacity:.18; border-width:1px }
+  100%{ transform:scale(1.55); opacity:0; border-width:.5px }
 }
 @keyframes globe-breathe{
-  0%,100%{box-shadow:inset 0 0 70px rgba(239,68,68,.12), 0 0 90px rgba(239,68,68,.16)}
-  50%    {box-shadow:inset 0 0 90px rgba(239,68,68,.18), 0 0 110px rgba(239,68,68,.22)}
+  0%,100%{box-shadow:inset 0 0 70px rgba(239,68,68,.20), inset 0 -14px 40px rgba(0,0,0,.5), 0 0 110px rgba(239,68,68,.28)}
+  50%    {box-shadow:inset 0 0 95px rgba(239,68,68,.28), inset 0 -14px 40px rgba(0,0,0,.5), 0 0 145px rgba(239,68,68,.36)}
 }
-.globe-frame canvas{display:block;width:100%;height:100%;position:relative;z-index:1}
+.globe-frame canvas{display:block;width:100%;height:100%;position:relative;z-index:3}
+
+/* Radar sweep arc — conic gradient rotating inside the orb. Below the
+   canvas so live pins draw on top. Subtle so it doesn't overpower. */
+.globe-sweep{
+  position:absolute; inset:10%;
+  border-radius:50%; pointer-events:none; z-index:2;
+  background:conic-gradient(from 0deg,
+    transparent 0deg,
+    rgba(239,68,68,.22) 38deg,
+    rgba(239,68,68,.08) 60deg,
+    transparent 78deg);
+  animation:globe-sweep-rot 6s linear infinite;
+  mix-blend-mode:screen;
+}
+@keyframes globe-sweep-rot{ to{ transform:rotate(360deg) } }
+
+/* Orbit containers — child <span> is the satellite dot positioned at the
+   top of the orbit. Rotating the container moves the dot around the rim.
+   Different `inset` values give each orbit a distinct radius. */
+.globe-orbit{
+  position:absolute; inset:-2%;
+  border-radius:50%; pointer-events:none; z-index:4;
+}
+.globe-orbit > .globe-dot{
+  position:absolute; left:50%; top:0;
+  width:7px; height:7px; margin:-3.5px 0 0 -3.5px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 0 8px var(--accent), 0 0 16px rgba(239,68,68,.7);
+}
+.globe-orbit > .globe-dot--small{
+  width:5px; height:5px; margin:-2.5px 0 0 -2.5px;
+  background:#ffd5d5;
+  box-shadow:0 0 6px var(--accent), 0 0 12px rgba(239,68,68,.6);
+}
+.globe-orbit > .globe-dot--bright{
+  background:#fff;
+  box-shadow:0 0 10px #fff, 0 0 18px var(--accent), 0 0 28px rgba(239,68,68,.6);
+}
+.globe-orbit--a{ animation:globe-orbit-spin 9s linear infinite }
+.globe-orbit--b{ inset:8%; animation:globe-orbit-spin 14s linear infinite reverse }
+.globe-orbit--c{ inset:18%; animation:globe-orbit-spin 22s linear infinite }
+@keyframes globe-orbit-spin{ to{ transform:rotate(360deg) } }
 
 /* Legacy orb — still used by renderMatched() and renderFallback() as
    brief transition states. Kept for those two short-lived screens. */
@@ -317,6 +408,324 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .foot a{color:var(--text-dim);text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)}
 .foot a:hover{color:var(--text)}
+
+/* ── Waitlist sidebar (left rail) ─────────────────────────
+   Posts persist in Firestore (waitlist_posts collection) so users
+   can find each other for organized debates while the matchmaker
+   keeps running in the center. DMs go through dm_threads. Both
+   collections need rules + an index — see the comment block in the
+   JS section below. */
+/* `[hidden]` defaults to display:none in the UA stylesheet, but our
+   inbox button + badge have explicit display:flex / inline-flex below
+   that beats specificity. Force-respect [hidden] for these elements
+   so the JS toggle (inboxBtn.hidden = true/false) actually hides
+   them on signed-out + zero-unread states. */
+.waitlist-rail__inbox[hidden], .waitlist-rail__inbox .badge[hidden],
+.waitlist-fab[hidden], .waitlist-fab .fab-badge[hidden]{display:none !important}
+.waitlist-rail{
+  position:fixed; top:90px; left:24px; bottom:24px;
+  width:320px; max-width:calc(100vw - 48px);
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  z-index:30;
+  box-shadow:var(--shadow-lg);
+}
+.waitlist-rail__head{
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px;
+}
+.waitlist-rail__title{
+  font-size:.82rem; font-weight:800; letter-spacing:.01em;
+  color:var(--text);
+  display:flex; align-items:center; gap:8px;
+}
+.waitlist-rail__title .live-dot{
+  width:6px; height:6px; border-radius:50%;
+  background:var(--accent); box-shadow:0 0 8px var(--accent);
+  animation:pulse 1.6s ease-in-out infinite;
+}
+.waitlist-rail__sub{
+  font-size:.72rem; color:var(--text-ghost); font-weight:500;
+  padding:10px 16px 0; line-height:1.5;
+}
+.waitlist-rail__inbox{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 10px; border-radius:999px;
+  background:transparent; border:1px solid var(--border);
+  color:var(--text-dim); font-size:.7rem; font-weight:700; cursor:pointer;
+  transition:color .15s, border-color .15s;
+  font-family:inherit;
+}
+.waitlist-rail__inbox:hover{color:var(--text); border-color:var(--border-strong)}
+.waitlist-rail__inbox .badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:16px; height:16px; padding:0 5px; border-radius:999px;
+  background:var(--accent); color:#fff; font-size:.62rem; font-weight:800;
+}
+.waitlist-rail__list{
+  flex:1; overflow-y:auto; padding:8px 12px 12px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.waitlist-rail__empty{
+  font-size:.78rem; color:var(--text-ghost); padding:18px 8px;
+  text-align:center; line-height:1.55;
+}
+.waitlist-card{
+  display:flex; flex-direction:column; gap:8px;
+  padding:12px 12px;
+  background:var(--bg-elev); border:1px solid var(--border);
+  border-radius:12px;
+  transition:border-color .15s, transform .15s;
+}
+.waitlist-card:hover{ border-color:var(--border-strong); transform:translateY(-1px) }
+.waitlist-card__head{ display:flex; align-items:center; gap:10px }
+.waitlist-card__avatar{
+  width:32px; height:32px; border-radius:50%;
+  background:linear-gradient(135deg,#444,#222);
+  flex-shrink:0; object-fit:cover;
+}
+.waitlist-card__who{ flex:1; min-width:0; display:flex; flex-direction:column }
+.waitlist-card__name{
+  font-size:.82rem; font-weight:700; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.waitlist-card__meta{
+  font-size:.62rem; color:var(--text-ghost); font-weight:700;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+.waitlist-card__note{
+  font-size:.78rem; color:var(--text-dim); line-height:1.5;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+  white-space:pre-wrap; word-wrap:break-word;
+}
+.waitlist-card__actions{
+  display:flex; align-items:center; justify-content:flex-end; gap:8px;
+}
+.waitlist-card__dm{
+  padding:6px 14px; border-radius:999px;
+  background:var(--accent); color:#fff; border:none;
+  font-size:.72rem; font-weight:700; cursor:pointer;
+  transition:background .15s; font-family:inherit;
+}
+.waitlist-card__dm:hover{background:#dc2626}
+.waitlist-card__dm[disabled]{opacity:.45;cursor:not-allowed}
+.waitlist-card__delete{
+  padding:6px 12px; border-radius:999px;
+  background:transparent; color:var(--text-ghost);
+  border:1px solid var(--border); font-size:.66rem; font-weight:600; cursor:pointer;
+  font-family:inherit;
+}
+.waitlist-card__delete:hover{color:var(--text); border-color:var(--border-strong)}
+
+.waitlist-rail__post-slot{ padding:12px }
+.waitlist-rail__post-btn{
+  width:100%; padding:11px 14px;
+  border-radius:12px; border:none;
+  background:var(--accent); color:#fff;
+  font-size:.84rem; font-weight:700; cursor:pointer;
+  transition:background .15s, transform .15s;
+  font-family:inherit;
+}
+.waitlist-rail__post-btn:hover{background:#dc2626; transform:translateY(-1px)}
+.waitlist-rail__post-btn[disabled]{opacity:.5;cursor:not-allowed}
+
+.waitlist-rail__signin-overlay{
+  padding:14px;
+  background:rgba(239,68,68,.06);
+  border:1px dashed rgba(239,68,68,.32);
+  border-radius:12px;
+  font-size:.76rem; color:var(--text-dim); line-height:1.55;
+  text-align:center;
+}
+.waitlist-rail__signin-overlay button{
+  display:inline-block; margin-top:8px;
+  font-weight:700; color:var(--accent);
+  background:none; border:none; cursor:pointer;
+  font-size:.78rem; font-family:inherit;
+  text-decoration:underline; text-underline-offset:3px;
+}
+
+.waitlist-rail__close{
+  display:flex; align-items:center; justify-content:center;
+  width:26px; height:26px; border-radius:50%;
+  background:transparent; border:1px solid var(--border); color:var(--text-dim);
+  cursor:pointer; font-size:1.1rem; line-height:1;
+  font-family:inherit;
+}
+.waitlist-fab{
+  position:fixed; left:14px; bottom:14px; z-index:25;
+  padding:10px 16px; border-radius:999px;
+  background:var(--accent); color:#fff;
+  font-size:.78rem; font-weight:700; cursor:pointer; border:none;
+  box-shadow:0 8px 24px var(--accent-glow);
+  display:none; align-items:center; gap:8px;
+  font-family:inherit;
+}
+.waitlist-fab .fab-badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:16px; height:16px; padding:0 5px; border-radius:999px;
+  background:#fff; color:var(--accent); font-size:.62rem; font-weight:800;
+}
+
+/* Mobile: rail slides off-screen, FAB toggles it. */
+@media (max-width: 1100px){
+  .waitlist-rail{
+    transform:translateX(-110%); transition:transform .25s ease;
+  }
+  .waitlist-rail.open{ transform:translateX(0) }
+  .waitlist-fab{ display:inline-flex }
+}
+@media (min-width: 1101px){
+  .waitlist-rail__close{ display:none }
+}
+
+/* ── Modal scaffold (post composer + DM thread + inbox) ─── */
+.wl-modal-backdrop{
+  position:fixed; inset:0; z-index:100;
+  background:rgba(0,0,0,.65); backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  animation:wl-fade-in .18s ease;
+}
+@keyframes wl-fade-in{from{opacity:0}to{opacity:1}}
+.wl-modal{
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:18px; box-shadow:var(--shadow-lg);
+  width:100%; max-width:480px; max-height:88vh;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.wl-modal__head{
+  padding:14px 18px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+}
+.wl-modal__title{
+  font-size:1rem; font-weight:800; color:var(--text);
+  display:flex; align-items:center; gap:10px; min-width:0; flex:1;
+}
+.wl-modal__avatar{
+  width:30px; height:30px; border-radius:50%;
+  flex-shrink:0; object-fit:cover;
+  background:linear-gradient(135deg,#444,#222);
+}
+.wl-modal__close{
+  width:30px; height:30px; border-radius:50%;
+  background:transparent; border:1px solid var(--border);
+  color:var(--text-dim); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.2rem; line-height:1; flex-shrink:0;
+  font-family:inherit;
+}
+.wl-modal__close:hover{color:var(--text); border-color:var(--border-strong)}
+.wl-modal__body{
+  padding:16px 18px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:12px;
+  flex:1;
+}
+.wl-modal__foot{
+  padding:12px 18px; border-top:1px solid var(--border);
+  display:flex; gap:8px; align-items:center;
+}
+
+.wl-field{display:flex; flex-direction:column; gap:6px}
+.wl-field label{
+  font-size:.68rem; font-weight:700; color:var(--text-ghost);
+  letter-spacing:.08em; text-transform:uppercase;
+}
+.wl-input, .wl-textarea, .wl-select{
+  width:100%; padding:10px 12px;
+  background:var(--bg-elev); border:1px solid var(--border);
+  border-radius:10px; color:var(--text);
+  font-family:inherit; font-size:.88rem;
+  resize:none;
+}
+.wl-textarea{min-height:96px}
+.wl-input:focus, .wl-textarea:focus, .wl-select:focus{
+  outline:none; border-color:var(--accent);
+}
+.wl-count{
+  font-size:.66rem; color:var(--text-ghost); text-align:right;
+}
+.wl-modal__error{
+  color:#fca5a5; font-size:.78rem; min-height:1em;
+}
+
+.wl-btn{
+  padding:10px 18px; border-radius:999px;
+  font-family:inherit; font-weight:700; font-size:.82rem;
+  cursor:pointer; transition:background .15s, border-color .15s;
+}
+.wl-btn.primary{
+  background:var(--accent); color:#fff; border:1px solid var(--accent);
+}
+.wl-btn.primary:hover{background:#dc2626; border-color:#dc2626}
+.wl-btn.primary[disabled]{opacity:.5;cursor:not-allowed}
+.wl-btn.ghost{
+  background:transparent; color:var(--text-dim); border:1px solid var(--border);
+}
+.wl-btn.ghost:hover{color:var(--text); border-color:var(--border-strong)}
+
+/* DM thread */
+.wl-thread{
+  display:flex; flex-direction:column; gap:8px;
+  min-height:240px; max-height:50vh; overflow-y:auto;
+}
+.wl-msg{
+  max-width:78%; padding:8px 12px;
+  border-radius:14px;
+  font-size:.86rem; line-height:1.4;
+  word-wrap:break-word; white-space:pre-wrap;
+}
+.wl-msg.mine{
+  align-self:flex-end;
+  background:var(--accent); color:#fff;
+  border-bottom-right-radius:4px;
+}
+.wl-msg.theirs{
+  align-self:flex-start;
+  background:var(--bg-elev); color:var(--text);
+  border:1px solid var(--border);
+  border-bottom-left-radius:4px;
+}
+.wl-msg__time{
+  font-size:.6rem; opacity:.75; margin-top:3px;
+}
+.wl-msg.mine .wl-msg__time{text-align:right}
+.wl-msg.theirs .wl-msg__time{text-align:left; color:var(--text-ghost); opacity:1}
+.wl-msg__empty{
+  text-align:center; color:var(--text-ghost);
+  font-size:.82rem; padding:30px 16px; line-height:1.6;
+}
+.wl-send-input{flex:1}
+
+/* Inbox list */
+.wl-inbox-list{ display:flex; flex-direction:column; gap:6px }
+.wl-inbox-row{
+  padding:10px 12px; border-radius:10px;
+  background:var(--bg-elev); border:1px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+  cursor:pointer; transition:border-color .15s;
+}
+.wl-inbox-row:hover{border-color:var(--border-strong)}
+.wl-inbox-row__main{flex:1; min-width:0}
+.wl-inbox-row__name{
+  font-size:.84rem; font-weight:700; color:var(--text); margin-bottom:2px;
+  display:flex; align-items:center; gap:6px;
+}
+.wl-inbox-row__preview{
+  font-size:.74rem; color:var(--text-ghost);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.wl-inbox-row__time{font-size:.66rem; color:var(--text-ghost); flex-shrink:0}
+.wl-inbox-row.unread .wl-inbox-row__name::after{
+  content:''; width:7px; height:7px; border-radius:50%;
+  background:var(--accent); flex-shrink:0;
+}
 </style>
 </head>
 <body>
@@ -458,7 +867,13 @@ h1 em{color:var(--accent);font-style:normal}
     shell.innerHTML =
       '<div class="gate">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
-        '<div class="globe-wrap"><div class="globe-frame"><canvas id="sparGlobe" aria-label="Live network of debaters"></canvas></div></div>' +
+        '<div class="globe-wrap"><div class="globe-frame">' +
+          '<div class="globe-sweep" aria-hidden="true"></div>' +
+          '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
+          '<div class="globe-orbit globe-orbit--a" aria-hidden="true"><span class="globe-dot globe-dot--bright"></span></div>' +
+          '<div class="globe-orbit globe-orbit--b" aria-hidden="true"><span class="globe-dot globe-dot--small"></span></div>' +
+          '<div class="globe-orbit globe-orbit--c" aria-hidden="true"><span class="globe-dot"></span></div>' +
+        '</div></div>' +
         '<h2>Sign in to spar with another debater.</h2>' +
         '<p>Live human-vs-human is signed-in only. Keeps the queue free of bots and gives you a profile your opponent can see. AI sparring stays anonymous if you\'d rather skip the sign-in.</p>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
@@ -533,7 +948,13 @@ h1 em{color:var(--accent);font-style:normal}
       // the wait feel like joining a real network instead of staring at
       // a loading spinner. Mounts via /js/world-globe.js after this
       // innerHTML lands.
-      '<div class="globe-wrap"><div class="globe-frame"><canvas id="sparGlobe" aria-label="Live network of debaters"></canvas></div></div>' +
+      '<div class="globe-wrap"><div class="globe-frame">' +
+          '<div class="globe-sweep" aria-hidden="true"></div>' +
+          '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
+          '<div class="globe-orbit globe-orbit--a" aria-hidden="true"><span class="globe-dot globe-dot--bright"></span></div>' +
+          '<div class="globe-orbit globe-orbit--b" aria-hidden="true"><span class="globe-dot globe-dot--small"></span></div>' +
+          '<div class="globe-orbit globe-orbit--c" aria-hidden="true"><span class="globe-dot"></span></div>' +
+        '</div></div>' +
       '<div class="status" id="statusText"><span id="statusMain">Scanning the queue</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Looking across active debaters in your format.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
       '<div class="btn-row">' +
@@ -1050,12 +1471,544 @@ h1 em{color:var(--accent);font-style:normal}
     }
   });
 
+  // ╭───────────────────────────────────────────────────────╮
+  // │  WAITLIST + DMs (left rail)                          │
+  // ╰───────────────────────────────────────────────────────╯
+  // Two new Firestore collections back this surface:
+  //   waitlist_posts/{postId}
+  //     { uid, displayName, photoURL, format, note, createdAt }
+  //     Listed in the left rail. 24h client-side TTL filter; posts
+  //     stay in Firestore until the author deletes them.
+  //   dm_threads/{threadId}/messages/{msgId}
+  //     threadId = sorted([uidA, uidB]).join('_')
+  //     Thread doc: { participants:[uidA,uidB], participantInfo, lastMessage,
+  //                   lastMessageAt, lastMessageFrom, unread:{uidA:n,uidB:n} }
+  //     Message doc: { fromUid, text, createdAt }
+  //
+  // REQUIRED Firestore rules — paste into Firebase console alongside
+  // the existing matchmaking_queue rule:
+  //
+  //   match /waitlist_posts/{postId} {
+  //     allow read: if request.auth != null;
+  //     allow create: if request.auth != null
+  //       && request.auth.uid == request.resource.data.uid
+  //       && request.resource.data.note is string
+  //       && request.resource.data.note.size() <= 240;
+  //     allow update, delete: if request.auth != null
+  //       && request.auth.uid == resource.data.uid;
+  //   }
+  //
+  //   match /dm_threads/{threadId} {
+  //     allow read, create, update: if request.auth != null
+  //       && (
+  //         (resource == null && request.auth.uid in request.resource.data.participants)
+  //         || (resource != null && request.auth.uid in resource.data.participants)
+  //       );
+  //     match /messages/{msgId} {
+  //       allow read: if request.auth != null
+  //         && request.auth.uid in
+  //           get(/databases/$(database)/documents/dm_threads/$(threadId))
+  //             .data.participants;
+  //       allow create: if request.auth != null
+  //         && request.auth.uid == request.resource.data.fromUid
+  //         && request.resource.data.text is string
+  //         && request.resource.data.text.size() <= 1000;
+  //     }
+  //   }
+  //
+  // REQUIRED composite index (Firebase console → Firestore → Indexes):
+  //   collection: dm_threads
+  //   fields:     participants ARRAY-CONTAINS, lastMessageAt DESC
+  // Without this, the inbox query (used for the unread badge + inbox
+  // modal) returns an error with a clickable "create index" link.
+
+  var WL_POST_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+  var WL_NOTE_MAX = 240;
+  var WL_MSG_MAX = 1000;
+  var WL_FORMATS = [
+    { v: 'any',    label: 'Any format' },
+    { v: 'quick',  label: 'Quick Clash' },
+    { v: 'apda',   label: 'APDA' },
+    { v: 'bp',     label: 'BP / WUDC' },
+    { v: 'worlds', label: 'Worlds (WUDC)' },
+    { v: 'asian',  label: 'Asian Parli' },
+    { v: 'ld',     label: 'LD' },
+    { v: 'pf',     label: 'Public Forum' },
+    { v: 'policy', label: 'Policy' },
+  ];
+
+  var wl = {
+    posts: [],
+    postsUnsub: null,
+    threads: [],
+    threadsUnsub: null,
+    unreadThreads: 0,
+    activeThreadUnsub: null,
+  };
+
+  function relTime(ms){
+    var diff = Date.now() - ms;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+    return Math.floor(diff/86400000) + 'd ago';
+  }
+
+  function buildWaitlistRail(){
+    if (document.getElementById('waitlistRail')) return;
+    var rail = document.createElement('aside');
+    rail.id = 'waitlistRail';
+    rail.className = 'waitlist-rail';
+    rail.setAttribute('aria-label', 'Open invites');
+    rail.innerHTML =
+      '<div class="waitlist-rail__head">' +
+        '<div class="waitlist-rail__title"><span class="live-dot"></span>Open invites</div>' +
+        '<div style="display:flex;gap:6px;align-items:center">' +
+          '<button class="waitlist-rail__inbox" id="wlInboxBtn" type="button" hidden>Inbox<span class="badge" id="wlInboxBadge" hidden>0</span></button>' +
+          '<button class="waitlist-rail__close" id="wlCloseBtn" type="button" aria-label="Close">×</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="waitlist-rail__sub">Debaters looking for a round right now. Post one yourself, or DM someone directly to set up a time.</div>' +
+      '<div class="waitlist-rail__post-slot" id="wlPostSlot"></div>' +
+      '<div class="waitlist-rail__list" id="wlList">' +
+        '<div class="waitlist-rail__empty">Loading…</div>' +
+      '</div>';
+    document.body.appendChild(rail);
+
+    var fab = document.createElement('button');
+    fab.className = 'waitlist-fab';
+    fab.id = 'wlFab';
+    fab.type = 'button';
+    fab.innerHTML = 'Open invites<span class="fab-badge" id="wlFabBadge" hidden>0</span>';
+    document.body.appendChild(fab);
+    fab.addEventListener('click', function(){
+      document.getElementById('waitlistRail').classList.toggle('open');
+    });
+    document.getElementById('wlCloseBtn').addEventListener('click', function(){
+      document.getElementById('waitlistRail').classList.remove('open');
+    });
+    document.getElementById('wlInboxBtn').addEventListener('click', openInboxModal);
+  }
+
+  function renderWaitlistContent(){
+    var slot = document.getElementById('wlPostSlot');
+    var inboxBtn = document.getElementById('wlInboxBtn');
+    if (!slot) return;
+    if (state.user){
+      slot.innerHTML = '<button class="waitlist-rail__post-btn" id="wlPostBtn" type="button">+ Post an invite</button>';
+      document.getElementById('wlPostBtn').addEventListener('click', openPostComposer);
+      if (inboxBtn) inboxBtn.hidden = false;
+    } else {
+      slot.innerHTML =
+        '<div class="waitlist-rail__signin-overlay">' +
+          'Sign in to post your own invite or DM other debaters.' +
+          '<br><button type="button" id="wlSignInLink">Sign in with Google →</button>' +
+        '</div>';
+      var link = document.getElementById('wlSignInLink');
+      if (link) link.addEventListener('click', doGoogleSignIn);
+      if (inboxBtn) inboxBtn.hidden = true;
+    }
+    // Repaint cards so DM buttons reflect new auth state.
+    paintWaitlist();
+  }
+
+  function startWaitlistFeed(){
+    if (!firebaseDb) return;
+    if (wl.postsUnsub){ try { wl.postsUnsub(); } catch(e){} }
+    wl.postsUnsub = firebaseDb.collection('waitlist_posts')
+      .orderBy('createdAt', 'desc')
+      .limit(40)
+      .onSnapshot(function(snap){
+        var now = Date.now();
+        var rows = [];
+        snap.forEach(function(d){
+          var data = d.data() || {};
+          var createdMs = (data.createdAt && data.createdAt.toMillis) ? data.createdAt.toMillis() : 0;
+          if (createdMs && now - createdMs > WL_POST_TTL_MS) return;
+          rows.push({ id: d.id, data: data, createdMs: createdMs || now });
+        });
+        wl.posts = rows;
+        paintWaitlist();
+      }, function(err){
+        console.warn('[waitlist] feed snapshot error', err);
+        var list = document.getElementById('wlList');
+        if (list) list.innerHTML = '<div class="waitlist-rail__empty">Couldn\'t load invites. Refresh to retry.</div>';
+      });
+  }
+
+  function paintWaitlist(){
+    var list = document.getElementById('wlList');
+    if (!list) return;
+    if (!wl.posts.length){
+      list.innerHTML = '<div class="waitlist-rail__empty">No open invites right now.' +
+        (state.user ? ' Be the first — post yours above.' : ' Sign in to post one.') +
+      '</div>';
+      return;
+    }
+    var myUid = state.user && state.user.uid;
+    list.innerHTML = wl.posts.map(function(p){
+      var d = p.data;
+      var name = escHtml(d.displayName || 'Anonymous');
+      var format = escHtml((d.format || 'any').toUpperCase());
+      var note = escHtml(d.note || '');
+      var time = relTime(p.createdMs);
+      var avatar = d.photoURL
+        ? '<img class="waitlist-card__avatar" src="' + escHtml(d.photoURL) + '" alt="">'
+        : '<div class="waitlist-card__avatar" aria-hidden="true"></div>';
+      var isMine = (d.uid === myUid);
+      var action = isMine
+        ? '<button class="waitlist-card__delete" data-postid="' + escHtml(p.id) + '">Remove</button>'
+        : '<button class="waitlist-card__dm" ' +
+            'data-peer-uid="' + escHtml(d.uid || '') + '" ' +
+            'data-peer-name="' + escHtml(d.displayName || '') + '" ' +
+            'data-peer-photo="' + escHtml(d.photoURL || '') + '"' +
+          '>' + (state.user ? 'DM →' : 'Sign in to DM') + '</button>';
+      return '<div class="waitlist-card">' +
+        '<div class="waitlist-card__head">' +
+          avatar +
+          '<div class="waitlist-card__who">' +
+            '<div class="waitlist-card__name">' + name + (isMine ? ' <span style="color:var(--accent);font-weight:600">(you)</span>' : '') + '</div>' +
+            '<div class="waitlist-card__meta">' + format + ' · ' + time + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="waitlist-card__note">' + note + '</div>' +
+        '<div class="waitlist-card__actions">' + action + '</div>' +
+      '</div>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.waitlist-card__dm'), function(btn){
+      btn.addEventListener('click', function(){
+        if (!state.user){ doGoogleSignIn(); return; }
+        openDMThread(btn.dataset.peerUid, btn.dataset.peerName, btn.dataset.peerPhoto);
+      });
+    });
+    Array.prototype.forEach.call(list.querySelectorAll('.waitlist-card__delete'), function(btn){
+      btn.addEventListener('click', function(){
+        var pid = btn.dataset.postid;
+        if (!pid) return;
+        firebaseDb.collection('waitlist_posts').doc(pid).delete().catch(function(e){
+          console.warn('[waitlist] delete failed', e);
+        });
+      });
+    });
+  }
+
+  function openPostComposer(){
+    if (!state.user){ doGoogleSignIn(); return; }
+    var preselect = formatParam;
+    var optionsHtml = WL_FORMATS.map(function(f){
+      return '<option value="' + escHtml(f.v) + '"' + (f.v === preselect ? ' selected' : '') + '>' + escHtml(f.label) + '</option>';
+    }).join('');
+    openModal('Post an invite',
+      '<div class="wl-field">' +
+        '<label for="wlComposerFormat">Format</label>' +
+        '<select class="wl-select" id="wlComposerFormat">' + optionsHtml + '</select>' +
+      '</div>' +
+      '<div class="wl-field">' +
+        '<label for="wlComposerNote">What do you want to debate?</label>' +
+        '<textarea class="wl-textarea" id="wlComposerNote" maxlength="' + WL_NOTE_MAX + '" placeholder="Looking for an APDA round tonight 8pm EST. Open on motion, neutral side."></textarea>' +
+        '<div class="wl-count"><span id="wlComposerCount">0</span>/' + WL_NOTE_MAX + '</div>' +
+      '</div>' +
+      '<div class="wl-modal__error" id="wlComposerError"></div>',
+      [
+        { label: 'Cancel', kind: 'ghost', onClick: closeModal },
+        { label: 'Post invite', kind: 'primary', id: 'wlComposerSubmit', onClick: submitPost },
+      ]
+    );
+    var ta = document.getElementById('wlComposerNote');
+    var count = document.getElementById('wlComposerCount');
+    ta.addEventListener('input', function(){ count.textContent = String(ta.value.length); });
+    setTimeout(function(){ ta.focus(); }, 50);
+  }
+
+  function submitPost(){
+    if (!state.user || !firebaseDb) return;
+    var noteEl = document.getElementById('wlComposerNote');
+    var fmtEl = document.getElementById('wlComposerFormat');
+    var errEl = document.getElementById('wlComposerError');
+    var btn = document.getElementById('wlComposerSubmit');
+    if (!noteEl || !fmtEl) return;
+    var note = (noteEl.value || '').trim();
+    if (!note){ errEl.textContent = 'Add a short note so people know what you want.'; return; }
+    if (note.length > WL_NOTE_MAX){ errEl.textContent = 'Note too long (' + note.length + '/' + WL_NOTE_MAX + ').'; return; }
+    if (btn) btn.disabled = true;
+    errEl.textContent = '';
+    firebaseDb.collection('waitlist_posts').add({
+      uid: state.user.uid,
+      displayName: shortNameOf(state.user),
+      photoURL: state.user.photoURL || '',
+      format: fmtEl.value,
+      note: note,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).then(function(){
+      try { gtag('event', 'waitlist_post', { format: fmtEl.value }); } catch(e){}
+      closeModal();
+    }).catch(function(e){
+      if (btn) btn.disabled = false;
+      errEl.textContent = 'Couldn\'t post: ' + (e.message || e.code || 'unknown');
+    });
+  }
+
+  function dmThreadId(uidA, uidB){
+    return [uidA, uidB].sort().join('_');
+  }
+
+  function openDMThread(peerUid, peerName, peerPhoto){
+    if (!state.user || !firebaseDb || !peerUid) return;
+    if (peerUid === state.user.uid) return;
+    var threadId = dmThreadId(state.user.uid, peerUid);
+    var titleHtml =
+      (peerPhoto
+        ? '<img class="wl-modal__avatar" src="' + escHtml(peerPhoto) + '" alt="">'
+        : '<div class="wl-modal__avatar"></div>') +
+      '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(peerName || 'Debater') + '</span>';
+    openModal(titleHtml,
+      '<div class="wl-thread" id="wlThread"><div class="wl-msg__empty">Loading messages…</div></div>',
+      [
+        { html: '<input class="wl-input wl-send-input" id="wlSendInput" placeholder="Set a time, propose a motion, etc." maxlength="' + WL_MSG_MAX + '">' },
+        { label: 'Send', kind: 'primary', id: 'wlSendBtn', onClick: function(){ sendDMMessage(threadId, peerUid, peerName, peerPhoto); } },
+      ]
+    );
+    if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} }
+    wl.activeThreadUnsub = firebaseDb
+      .collection('dm_threads').doc(threadId).collection('messages')
+      .orderBy('createdAt', 'asc').limitToLast(200)
+      .onSnapshot(function(snap){
+        paintDMThread(snap);
+      }, function(err){
+        console.warn('[dm] thread snapshot error', err);
+        var t = document.getElementById('wlThread');
+        if (t) t.innerHTML = '<div class="wl-msg__empty">No messages yet.<br>Send one to start the thread.</div>';
+      });
+    markThreadRead(threadId).catch(function(){});
+    setTimeout(function(){
+      var input = document.getElementById('wlSendInput');
+      if (input){
+        input.focus();
+        input.addEventListener('keydown', function(e){
+          if (e.key === 'Enter' && !e.shiftKey){
+            e.preventDefault();
+            sendDMMessage(threadId, peerUid, peerName, peerPhoto);
+          }
+        });
+      }
+    }, 50);
+  }
+
+  function paintDMThread(snap){
+    var t = document.getElementById('wlThread');
+    if (!t) return;
+    if (snap.empty){
+      t.innerHTML = '<div class="wl-msg__empty">No messages yet.<br>Say hi and set up a round.</div>';
+      return;
+    }
+    var myUid = state.user.uid;
+    t.innerHTML = '';
+    snap.forEach(function(d){
+      var m = d.data();
+      var mine = (m.fromUid === myUid);
+      var when = m.createdAt && m.createdAt.toMillis ? relTime(m.createdAt.toMillis()) : '';
+      var div = document.createElement('div');
+      div.className = 'wl-msg ' + (mine ? 'mine' : 'theirs');
+      div.innerHTML = escHtml(m.text || '') + (when ? '<div class="wl-msg__time">' + escHtml(when) + '</div>' : '');
+      t.appendChild(div);
+    });
+    t.scrollTop = t.scrollHeight;
+  }
+
+  function sendDMMessage(threadId, peerUid, peerName, peerPhoto){
+    var input = document.getElementById('wlSendInput');
+    var sendBtn = document.getElementById('wlSendBtn');
+    if (!input || !state.user) return;
+    var text = (input.value || '').trim();
+    if (!text) return;
+    if (text.length > WL_MSG_MAX) text = text.slice(0, WL_MSG_MAX);
+    if (sendBtn) sendBtn.disabled = true;
+    var threadRef = firebaseDb.collection('dm_threads').doc(threadId);
+    var msgsRef = threadRef.collection('messages');
+    var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
+    var participantInfo = {};
+    participantInfo[state.user.uid] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
+    participantInfo[peerUid] = { name: peerName || 'Debater', photo: peerPhoto || '' };
+    var unread = {};
+    unread[state.user.uid] = 0;
+    unread[peerUid] = firebase.firestore.FieldValue.increment(1);
+    threadRef.set({
+      participants: [state.user.uid, peerUid],
+      participantInfo: participantInfo,
+      lastMessage: preview,
+      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessageFrom: state.user.uid,
+      unread: unread,
+    }, { merge: true }).then(function(){
+      return msgsRef.add({
+        fromUid: state.user.uid,
+        text: text,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }).then(function(){
+      input.value = '';
+      if (sendBtn) sendBtn.disabled = false;
+      input.focus();
+      try { gtag('event', 'dm_send', {}); } catch(e){}
+    }).catch(function(e){
+      if (sendBtn) sendBtn.disabled = false;
+      console.warn('[dm] send failed', e);
+    });
+  }
+
+  function markThreadRead(threadId){
+    if (!state.user) return Promise.resolve();
+    var update = {};
+    update['unread.' + state.user.uid] = 0;
+    return firebaseDb.collection('dm_threads').doc(threadId).update(update);
+  }
+
+  function startInboxFeed(){
+    if (!firebaseDb || !state.user) return;
+    if (wl.threadsUnsub){ try { wl.threadsUnsub(); } catch(e){} }
+    wl.threadsUnsub = firebaseDb.collection('dm_threads')
+      .where('participants', 'array-contains', state.user.uid)
+      .orderBy('lastMessageAt', 'desc')
+      .limit(30)
+      .onSnapshot(function(snap){
+        var rows = [];
+        var unreadCount = 0;
+        var myUid = state.user.uid;
+        snap.forEach(function(d){
+          var data = d.data() || {};
+          var unread = (data.unread && data.unread[myUid]) || 0;
+          if (unread > 0) unreadCount++;
+          rows.push({ id: d.id, data: data, unread: unread });
+        });
+        wl.threads = rows;
+        wl.unreadThreads = unreadCount;
+        var badge = document.getElementById('wlInboxBadge');
+        var fabBadge = document.getElementById('wlFabBadge');
+        [badge, fabBadge].forEach(function(b){
+          if (!b) return;
+          if (unreadCount > 0){ b.hidden = false; b.textContent = String(unreadCount); }
+          else b.hidden = true;
+        });
+        if (document.getElementById('wlInboxList')) paintInboxList();
+      }, function(err){
+        // Most likely cause: missing composite index on
+        // (participants array-contains, lastMessageAt desc). Firestore
+        // logs a clickable "create index" link in the console error.
+        console.warn('[dm] inbox snapshot error (likely missing index — see comment block above):', err);
+      });
+  }
+
+  function openInboxModal(){
+    if (!state.user){ doGoogleSignIn(); return; }
+    openModal('Your messages',
+      '<div class="wl-inbox-list" id="wlInboxList"><div class="wl-msg__empty">Loading…</div></div>',
+      [{ label: 'Close', kind: 'ghost', onClick: closeModal }]
+    );
+    paintInboxList();
+  }
+
+  function paintInboxList(){
+    var list = document.getElementById('wlInboxList');
+    if (!list) return;
+    if (!wl.threads.length){
+      list.innerHTML = '<div class="wl-msg__empty">No messages yet. DM someone from the waitlist to start a thread.</div>';
+      return;
+    }
+    var myUid = state.user.uid;
+    list.innerHTML = wl.threads.map(function(t){
+      var others = (t.data.participants || []).filter(function(p){ return p !== myUid; });
+      var peerUid = others[0] || '';
+      var info = (t.data.participantInfo && t.data.participantInfo[peerUid]) || {};
+      var name = escHtml(info.name || 'Debater');
+      var preview = escHtml(t.data.lastMessage || '');
+      var when = t.data.lastMessageAt && t.data.lastMessageAt.toMillis ? relTime(t.data.lastMessageAt.toMillis()) : '';
+      var photo = info.photo
+        ? '<img class="wl-modal__avatar" src="' + escHtml(info.photo) + '" alt="">'
+        : '<div class="wl-modal__avatar"></div>';
+      return '<div class="wl-inbox-row' + (t.unread > 0 ? ' unread' : '') + '" ' +
+        'data-peer-uid="' + escHtml(peerUid) + '" ' +
+        'data-peer-name="' + escHtml(info.name || '') + '" ' +
+        'data-peer-photo="' + escHtml(info.photo || '') + '">' +
+        photo +
+        '<div class="wl-inbox-row__main">' +
+          '<div class="wl-inbox-row__name">' + name + '</div>' +
+          '<div class="wl-inbox-row__preview">' + preview + '</div>' +
+        '</div>' +
+        '<div class="wl-inbox-row__time">' + escHtml(when) + '</div>' +
+      '</div>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.wl-inbox-row'), function(row){
+      row.addEventListener('click', function(){
+        openDMThread(row.dataset.peerUid, row.dataset.peerName, row.dataset.peerPhoto);
+      });
+    });
+  }
+
+  // Generic modal helpers ────────────────────────────────
+  function openModal(titleHtml, bodyHtml, footButtons){
+    closeModal();
+    var backdrop = document.createElement('div');
+    backdrop.className = 'wl-modal-backdrop';
+    backdrop.id = 'wlModalBackdrop';
+    var footHtml = (footButtons || []).map(function(b, i){
+      if (b.html) return b.html;
+      var cls = b.kind === 'primary' ? 'wl-btn primary' : 'wl-btn ghost';
+      var idAttr = b.id ? ' id="' + b.id + '"' : ' data-foot-idx="' + i + '"';
+      return '<button class="' + cls + '"' + idAttr + ' type="button">' + escHtml(b.label) + '</button>';
+    }).join('');
+    backdrop.innerHTML =
+      '<div class="wl-modal" role="dialog" aria-modal="true">' +
+        '<div class="wl-modal__head">' +
+          '<div class="wl-modal__title">' + titleHtml + '</div>' +
+          '<button class="wl-modal__close" id="wlModalClose" aria-label="Close">×</button>' +
+        '</div>' +
+        '<div class="wl-modal__body">' + bodyHtml + '</div>' +
+        (footButtons && footButtons.length ? '<div class="wl-modal__foot">' + footHtml + '</div>' : '') +
+      '</div>';
+    document.body.appendChild(backdrop);
+    document.getElementById('wlModalClose').addEventListener('click', closeModal);
+    backdrop.addEventListener('click', function(e){
+      if (e.target === backdrop) closeModal();
+    });
+    (footButtons || []).forEach(function(b, i){
+      if (!b.onClick) return;
+      var el = b.id ? document.getElementById(b.id) : backdrop.querySelector('[data-foot-idx="' + i + '"]');
+      if (el) el.addEventListener('click', b.onClick);
+    });
+    document.addEventListener('keydown', wlEscClose);
+  }
+  function wlEscClose(e){ if (e.key === 'Escape') closeModal(); }
+  function closeModal(){
+    var b = document.getElementById('wlModalBackdrop');
+    if (b) b.remove();
+    document.removeEventListener('keydown', wlEscClose);
+    if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} wl.activeThreadUnsub = null; }
+  }
+
   // ── Boot ─────────────────────────────────────────────
+  // Sidebar mounts immediately. Posts feed is public-read so we can
+  // populate it before auth resolves; renderWaitlistContent swaps the
+  // post-button / sign-in-overlay slot when the auth state lands.
+  buildWaitlistRail();
+  renderWaitlistContent();
+  if (firebaseDb) startWaitlistFeed();
+
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
       state.user = user || null;
-      if (user) joinQueue();
-      else renderGate();
+      renderWaitlistContent();
+      if (user){
+        startInboxFeed();
+        joinQueue();
+      } else {
+        if (wl.threadsUnsub){ try { wl.threadsUnsub(); } catch(e){} wl.threadsUnsub = null; }
+        wl.threads = []; wl.unreadThreads = 0;
+        var badge = document.getElementById('wlInboxBadge');
+        if (badge) badge.hidden = true;
+        var fabBadge = document.getElementById('wlFabBadge');
+        if (fabBadge) fabBadge.hidden = true;
+        renderGate();
+      }
     });
   } else {
     renderGate();
