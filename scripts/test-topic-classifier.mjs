@@ -1,0 +1,154 @@
+#!/usr/bin/env node
+// Test harness for the server-side topic auto-classifier in
+// app/netlify/functions/lib/voice-guidelines.mjs.
+//
+// Run: `node scripts/test-topic-classifier.mjs`
+// Run with --verbose to print every case (default prints only failures).
+//
+// Why this exists: TOPIC_PRIMERS auto-injection is now load-bearing
+// infrastructure (every new primer the format-research workstream
+// produces lands here). The classifier scores keywords against motion
+// text and fires only above a strict threshold. If the threshold or
+// keyword list drifts wrong, the primer either over-fires (wrong
+// primer on unrelated motions, polluting the system prompt) or
+// under-fires (right primer never reaches the LLM despite the motion
+// clearly matching). Both failure modes are silent in production —
+// the user just sees worse AI output without knowing why.
+//
+// Each CASE is a tuple [motion-text, expected-primer-or-empty-string].
+// Add new entries when adding a new TOPIC_PRIMER so we never regress.
+
+import {
+  inferTopicFromText,
+  extractUserTextFromBody,
+  MIN_TOPIC_SCORE,
+  TOPIC_KEYWORDS,
+} from '../app/netlify/functions/lib/voice-guidelines.mjs';
+
+const verbose = process.argv.includes('--verbose');
+
+// ── Cases ─────────────────────────────────────────────────────────
+// Format: [label, motion-text, expected-topic ('' = should not fire)]
+const CASES = [
+  // ── finance: SHOULD fire ────────────────────────────────────────
+  ['fin: central-bank asset targeting',
+    'Motion: THBT central banks should target asset prices, not just inflation.', 'finance'],
+  ['fin: abolish Fed + FDIC',
+    'Motion: THW abolish the Federal Reserve and the FDIC. Replace with free banking.', 'finance'],
+  ['fin: ban PE healthcare',
+    'THBT private equity ownership of healthcare providers should be banned. Leveraged buyout creates moral hazard.', 'finance'],
+  ['fin: shadow banking',
+    'This house believes systemic risk in shadow banking justifies Basel III-style capital requirements on hedge funds.', 'finance'],
+  ['fin: sovereign debt',
+    'THBT IMF conditionality on sovereign debt restructuring does more harm than good. Consider the lender of last resort framing.', 'finance'],
+  ['fin: repo market',
+    'This house would impose hard leverage caps on repo market participants and securitization vehicles.', 'finance'],
+  ['fin: dodd-frank rollback',
+    'THBT Dodd-Frank should be rolled back. Bank consolidation is killing community banking.', 'finance'],
+
+  // ── finance: should NOT fire (true negatives) ─────────────────────
+  ['skip: tiktok in schools', 'Motion: THW ban TikTok in US schools.', ''],
+  ['skip: zoos', 'Motion: This House Would Abolish Zoos.', ''],
+  ['skip: climate carbon tax UBI', 'THBT carbon taxes should fund a universal basic income.', ''],
+  ['skip: housing zoning', 'THW eliminate single-family zoning in all American cities.', ''],
+  ['skip: gun control', 'Motion: THW ban civilian ownership of semi-automatic rifles.', ''],
+  ['skip: ICC jurisdiction', 'This house believes the ICC should exercise jurisdiction over heads of state.', ''],
+  ['skip: drug decrim', 'Motion: THW decriminalize all drug possession for personal use, on the Portugal model.', ''],
+  ['skip: prison abolition', 'This house would abolish prisons within a generation.', ''],
+  // Edge: a single weak finance keyword should NOT trip the threshold
+  ['skip: World-Bank-only edge',
+    'THBT the World Bank should require gender quotas in lending to recipient governments.', ''],
+  // Edge: "bank" appears but not the finance-domain sense
+  ['skip: river-bank metaphor (no fin terms)',
+    'Motion: THBT erosion of the river bank along major flood plains is the canary in the coal mine for climate adaptation policy.', ''],
+
+  // ── extraction: body shapes ───────────────────────────────────────
+  // These don't test the classifier directly; they test extractUserTextFromBody
+  // and then run through the same scorer.
+];
+
+// Test body-shape extraction with a runtime assertion separate from the
+// CASES table (since the input is structured).
+const BODY_SHAPE_TESTS = [
+  {
+    label: 'extract: Claude string-content',
+    body: { messages: [{ role: 'user', content: 'Motion: THBT central banks should regulate hedge funds. Brief me.' }] },
+    expected: 'finance',
+  },
+  {
+    label: 'extract: OpenAI parts-array content',
+    body: { messages: [{ role: 'user', content: [{ type: 'text', text: 'Argue against the Basel III framework. Hedge funds and shadow banks slip through.' }] }] },
+    expected: 'finance',
+  },
+  {
+    label: 'extract: Gemini contents/parts',
+    body: { contents: [{ role: 'user', parts: [{ text: 'THBT we should ban private credit. Systemic risk is the load-bearing argument.' }] }] },
+    expected: 'finance',
+  },
+  {
+    label: 'extract: system-only finance words ignored',
+    body: { system: 'You are a debater. Vocabulary includes central bank, monetary policy, derivative, hedge fund.', messages: [{ role: 'user', content: 'Argue this motion about zoos.' }] },
+    expected: '',
+  },
+  {
+    label: 'extract: mixed assistant + user (only user scored)',
+    body: { messages: [
+      { role: 'assistant', content: 'Central banks should regulate hedge funds.' },
+      { role: 'user', content: 'Talk about zoos.' },
+    ] },
+    expected: '',
+  },
+];
+
+// ── Runner ────────────────────────────────────────────────────────
+let pass = 0;
+let fail = 0;
+const failures = [];
+
+console.log(`Topic classifier test — MIN_TOPIC_SCORE = ${MIN_TOPIC_SCORE}`);
+console.log(`Known topics: ${Object.keys(TOPIC_KEYWORDS).join(', ')}`);
+console.log('---');
+
+for (const [label, motionText, expected] of CASES) {
+  const got = inferTopicFromText(motionText);
+  const ok = got === expected;
+  if (ok) {
+    pass++;
+    if (verbose) console.log(`  PASS  ${label.padEnd(38)} → ${got || '(no fire)'}`);
+  } else {
+    fail++;
+    failures.push({ label, expected, got, motionText });
+    console.log(`  FAIL  ${label.padEnd(38)} → got=${got || '(no fire)'} expected=${expected || '(no fire)'}`);
+  }
+}
+
+for (const { label, body, expected } of BODY_SHAPE_TESTS) {
+  const extracted = extractUserTextFromBody(body);
+  const got = inferTopicFromText(extracted);
+  const ok = got === expected;
+  if (ok) {
+    pass++;
+    if (verbose) console.log(`  PASS  ${label.padEnd(38)} → ${got || '(no fire)'}`);
+  } else {
+    fail++;
+    failures.push({ label, expected, got, extracted });
+    console.log(`  FAIL  ${label.padEnd(38)} → got=${got || '(no fire)'} expected=${expected || '(no fire)'}`);
+  }
+}
+
+console.log('---');
+console.log(`${pass} pass / ${fail} fail (${pass + fail} total)`);
+
+if (fail > 0) {
+  console.log('\nFailures:');
+  for (const f of failures) {
+    console.log(`  ${f.label}`);
+    console.log(`    expected: ${f.expected || '(no fire)'}`);
+    console.log(`    got:      ${f.got || '(no fire)'}`);
+    if (f.motionText) console.log(`    motion:   ${f.motionText}`);
+    if (f.extracted != null) console.log(`    extracted: "${f.extracted}"`);
+  }
+  process.exit(1);
+}
+
+process.exit(0);

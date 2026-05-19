@@ -1041,9 +1041,9 @@ const TOPIC_KEYWORDS = {
       'too big to fail', 'lender of last resort', 'moral hazard',
     ],
     medium: [
-      ' bank ', ' banks ', 'banking', 'interest rate', 'mortgage', 'leverage',
-      'liquidity', 'insolvency', 'bailout', ' treasury ', 'capital market',
-      ' imf ', 'world bank', ' fed ', ' bond ', ' fdic ', 'collateral',
+      'bank', 'banking', 'interest rate', 'mortgage', 'leverage',
+      'liquidity', 'insolvency', 'bailout', 'treasury', 'capital market',
+      'imf', 'world bank', 'fed', 'bond', 'fdic', 'collateral',
       'subprime', 'fractional reserve', 'consumer credit',
     ],
   },
@@ -1088,27 +1088,73 @@ function extractUserTextFromBody(body) {
 // two strong keyword hits, OR one strong + one medium, OR four mediums.
 // One stray keyword is never enough; that's the whole point of the floor.
 const MIN_TOPIC_SCORE = 4;
-function inferTopicFromText(text) {
-  if (!text || typeof text !== 'string') return '';
-  // Lowercase + collapse non-alphanumeric to spaces so word-boundary
-  // matches via includes() are sound. Pad with spaces so " fed " and
-  // " bank " don't false-match "federalize" or "embankment".
-  const haystack = ' ' + text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
-  let bestTopic = '';
-  let bestScore = 0;
+
+// Build a word-boundary regex from a keyword. Three jobs at once:
+//   1. Internal punctuation (hyphens, slashes, etc.) collapses to \s+ so
+//      "dodd-frank" in the keyword matches "dodd-frank" / "Dodd Frank" /
+//      "Dodd—Frank" in motion text equally.
+//   2. \b on both ends so "bank" doesn't false-match "embankment".
+//   3. Optional plural/gerund suffix (s|es|ing) so "central bank" matches
+//      "central banks" and "hedge fund" matches "hedge funds" — the
+//      single biggest false-negative class on real motion text. The
+//      suffix only attaches to the FINAL token of multi-word keywords
+//      (the rest are treated as fixed lemmas).
+// Regex (not includes()) because string-includes can't express word
+// boundaries without the leading/trailing-space hack, which over-tightens
+// when the haystack has a different inflection of the same word.
+function makeKeywordRegex(keyword) {
+  const norm = String(keyword).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!norm) return null;
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tokens = norm.split(' ').filter(Boolean).map(escape);
+  if (!tokens.length) return null;
+  const last = tokens.pop();
+  const pattern = (tokens.length ? tokens.join('\\s+') + '\\s+' : '') + last + '(s|es|ing)?';
+  return new RegExp('\\b' + pattern + '\\b', 'i');
+}
+
+// Cache compiled regexes per topic so we don't rebuild on every request.
+let _cachedTopicRegexes = null;
+function getCachedTopicRegexes() {
+  if (_cachedTopicRegexes) return _cachedTopicRegexes;
+  const out = {};
   for (const topic of Object.keys(TOPIC_KEYWORDS)) {
     const kw = TOPIC_KEYWORDS[topic];
+    out[topic] = {
+      strong: (kw.strong || []).map(makeKeywordRegex).filter(Boolean),
+      medium: (kw.medium || []).map(makeKeywordRegex).filter(Boolean),
+    };
+  }
+  _cachedTopicRegexes = out;
+  return out;
+}
+
+function inferTopicFromText(text) {
+  if (!text || typeof text !== 'string') return '';
+  // Normalize: lowercase + collapse any punctuation (hyphens, slashes,
+  // em-dashes, newlines) to single spaces. The makeKeywordRegex call uses
+  // \s+ between tokens; without this normalization "dodd-frank" in real
+  // motion text wouldn't match the same keyword stored with a hyphen
+  // (which the keyword normalizer correctly converts to a space-token
+  // boundary). Belt-and-suspenders for hyphenated-name and stylized
+  // punctuation cases.
+  const haystack = text.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+  const regexes = getCachedTopicRegexes();
+  let bestTopic = '';
+  let bestScore = 0;
+  for (const topic of Object.keys(regexes)) {
+    const { strong, medium } = regexes[topic];
     let score = 0;
     const seen = new Set();
-    for (const k of (kw.strong || [])) {
-      const norm = k.toLowerCase();
-      if (seen.has(norm)) continue;
-      if (haystack.includes(norm)) { seen.add(norm); score += 3; }
+    for (const rx of strong) {
+      const src = rx.source;
+      if (seen.has(src)) continue;
+      if (rx.test(haystack)) { seen.add(src); score += 3; }
     }
-    for (const k of (kw.medium || [])) {
-      const norm = k.toLowerCase();
-      if (seen.has(norm)) continue;
-      if (haystack.includes(norm)) { seen.add(norm); score += 1; }
+    for (const rx of medium) {
+      const src = rx.source;
+      if (seen.has(src)) continue;
+      if (rx.test(haystack)) { seen.add(src); score += 1; }
     }
     if (score >= MIN_TOPIC_SCORE && score > bestScore) {
       bestScore = score;
