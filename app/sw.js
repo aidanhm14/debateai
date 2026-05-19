@@ -4,7 +4,9 @@
 // Without this bump, users on v9 kept seeing the old dropdown with only
 // 8 items and the old 3-card pricing panel.
 
-const CACHE_NAME = 'debateos-v432';
+
+const CACHE_NAME = 'debateos-v433';
+
 
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
