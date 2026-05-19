@@ -2137,15 +2137,29 @@ function inferTopicFromText(text) {
 // from drifting into APDA vocabulary when the user is running Policy / PF /
 // LD / BP / Worlds / Asians / Congress / MUN.
 //
-// RESEARCH ALLOWANCE is a real distinction these formats draw, and the AI
-// must respect it — prepared evidence is the GAME in Policy / PF / Congress
-// / MUN, is PARTIAL in LD (philosophical lit + empirics), and is EXPLICITLY
-// DISALLOWED in parli formats (BP / WUDC / Asians / APDA) where only
-// general knowledge + short impromptu prep is permitted. The AI should
-// simulate what a competitor in that format would actually say — cite real
-// authors/years where research is allowed, and NOT fabricate tagged
-// citations in parli formats (which would be immediately clocked as
-// non-format-accurate and also as a fabrication).
+// RESEARCH ALLOWANCE — the real distinction is CITATION FORM, not knowledge
+// depth. Every format allows research; every format expects the speaker to
+// bring grounded knowledge. The difference:
+//   - Policy / PF / Congress / MUN: tagged in-round citations are THE GAME.
+//     "Mearsheimer '14 writes..." / "According to a 2024 Brookings report..."
+//     Cite real authors + years; never invent.
+//   - LD: PARTIAL — philosophical work cited by name ("Kant in Groundwork
+//     argues..."), empirics cited author + year.
+//   - Parli formats (BP / WUDC / Asian / APDA / WSDC impromptu): NO tagged
+//     citations IN-ROUND (no laptops at the table, no read-aloud cards) —
+//     but DEEP grounded knowledge is REQUIRED. Parli debaters research
+//     hard across the season (matter files, case archives, named-actor
+//     incentive databases). Deploy that knowledge via: named real cases,
+//     named real actors with real incentives, named real historical
+//     episodes, named real institutional dynamics, named real recent events.
+//     The right register: "the well-known literature on X tends to find Y" /
+//     "empirically when Country Z tried this in [year]" / "as the EU's
+//     experience with Greece in 2015 demonstrates" / "as we saw with the
+//     Singapore HDB model." Knowledge depth = strong; tagged-citation form
+//     = wrong.
+// Common failure mode the AI must avoid: reading "no in-round citations"
+// as "no knowledge" and producing a thin abstract speech with no named
+// examples. That kills speaker scores in every parli format.
 //
 // A note on anti-fabrication: when a format permits evidence, cite REAL
 // research the model has real priors on (Brookings / IPCC / BLS / NBER /
@@ -2156,7 +2170,7 @@ function inferTopicFromText(text) {
 const FORMAT_VOICES = {
   apda: `
 APDA SPECIFICS (American Parliamentary — Harvard, Yale, Brown, Princeton circuit):
-- Research allowance: NONE. APDA is an impromptu format. Prep is 15 minutes; no prepared cases, no prepared cards, no laptops at the table. Arguments rest on general knowledge, current events, history, econ theory, and philosophy the debater already knows. Do NOT fabricate specific studies with author + year — that's not how APDA sounds. "Studies generally show" or "there's a well-known literature on..." is acceptable; "Smith 22 writes..." is not.
+- Research allowance — DEPLOY KNOWLEDGE, NOT CARDS. APDA is an impromptu IN-ROUND format (15-min prep, no laptops at the table, no prepared cards passed during the round) — but APDA debaters research HARD across the season: matter files, case archives, drilled examples, deep priors on econ / IR / philosophy / current events / named historical cases. The AI should bring that whole research base to bear; the constraint is only on the CITATION FORM, not on the depth of knowledge. Concretely: do NAME specific real cases ("Bordenkircher v Hayes"), real actors ("Indira during the Emergency"), real historical episodes ("the 1990s Russian shock therapy"), real economic facts ("Singapore's HDB is ~90% public housing with ethnic quotas"), real political-economy mechanisms, real philosophical traditions. Do NOT fabricate tagged "Smith 22 writes..." style citations — that's not how APDA sounds. The right register: "the well-known literature on X tends to find Y" / "empirically, when Country Z tried this in [year], the result was..." / "as a matter of historical record" / "the standard economic view is..." Knowledge depth = strong; tagged-citation form = wrong.
 - Cases often come in three flavors: tight-case (specific, narrow actor framing — "This house, as [actor], would [action]"), policy case (standard proposition), and analytical/philosophical case (framework-driven). The Opp is expected to engage whichever the Gov presents; counter-cases are rare.
 - Speaker structure: PM sets up the case + framework + 2-3 args. LO disputes framework + rebuts + 2-3 counter-args. MG rebuilds + extends. MO extends opp + attacks MG. LOR collapses opp to voting issues (no new args). PMR is the last word for gov — collapses + weighs (no new args allowed, except responses to MO/LOR).
 - POIs allowed after the first minute and before the last minute of constructive speeches. Not during rebuttals. Take at least one per speech if offered — refusing all POIs reads as scared.
@@ -2199,7 +2213,7 @@ APDA SPECIFICS (American Parliamentary — Harvard, Yale, Brown, Princeton circu
 
   bp: `
 BP-SPECIFIC VOICE (British Parliamentary — Oxford, Cambridge, Euros, Worlds-adjacent):
-- Research allowance: NONE. BP is 15-minute impromptu prep with no electronic devices, no prepared notes brought in. Arguments must flow from general knowledge. Do NOT use tagged citations ("Smith 2022 finds...") — BP judges penalize fabricated evidence and will simply not credit it. Phrases like "most economists would agree," "the historical pattern shows," or "empirically we've seen this in [known example]" are the correct register.
+- Research allowance — KNOWLEDGE BASE YES, IN-ROUND CITATIONS NO. BP is 15-min impromptu prep, no electronic devices, no prepared notes brought to the table. But BP debaters research RELENTLESSLY across the season: matter files on every IR theatre, named-actor incentive databases, economic-mechanism libraries, recent-history priors. Deploy that whole base. Concretely: NAME real actors with real incentive structures ("UAE funds the RSF because it wants post-conflict gold extraction + suppression of political Islam"), real historical episodes ("the 2008 Georgia war"), real institutional dynamics ("the IMF's structural adjustment record"), real recent events ("post-Galwan India-China LAC stand-off"). Don't use tagged citations ("Smith 2022 finds...") — BP judges penalize fabricated evidence. The right register: "most economists would agree," "the historical pattern shows," "empirically we've seen this in [named country in named year]," "as the EU's experience with Greece demonstrates." Depth of named-actor + named-mechanism analysis is what separates 80s from 75s on the speaker scale.
 - Refer to "the motion" not "the resolution." Opening half (OG/OO) should define and characterize the motion's key terms in the first 45 seconds.
 - "Model" / "mechanism" / "characterization" are load-bearing. Opening Gov without a clear model loses to even mediocre opposition — say explicitly: "Our model is [who does what, when, funded how, enforced how]."
 - The four-team structure forces a specific game: OG sets the burden, OO contests it, Closing Gov (MG) must EXTEND with NEW material that is consistent with OG but adds a new actor / timeframe / impact layer, Closing Opp (MO) does the same for the opposition side. "Extension" is the word — name it: "Our extension is [X]."
@@ -2239,7 +2253,7 @@ BP-SPECIFIC VOICE (British Parliamentary — Oxford, Cambridge, Euros, Worlds-ad
 
   worlds: `
 WUDC / WORLDS-SPECIFIC VOICE (university-level BP with international register):
-- Research allowance: NONE (same as BP). 15-minute impromptu prep, no prepared materials.
+- Research allowance — same as BP: KNOWLEDGE BASE YES, IN-ROUND TAGGED CITATIONS NO. 15-min impromptu prep, no electronic devices, no prepared cards. But WUDC debaters bring deep research priors across IR theatres, regional histories, named-actor incentive structures, recent international events. Deploy them. NAME real WUDC-relevant cases (Indian SC Navtej / Puttaswamy, EU Competition Law, ASEAN positions, AU mediation history, Brazilian favela policy, Scandinavian welfare models, Japanese economic stagnation, Chinese BRI, Middle Eastern autocracy dynamics) — that's what beats the regional-narrowness penalty. The constraint is citation FORM (don't say "Mearsheimer 14 writes..."); knowledge depth = required.
 - All BP conventions apply: motion, model, extension, whip structure, POIs, "proud to propose."
 - INTERNATIONALIZE examples. WUDC draws from every continent — avoid US-default framing. Reach for: EU Competition Law cases, Indian Supreme Court (e.g., Navtej, Puttaswamy), African Union positions, ASEAN, Brazilian favela policy, Scandinavian welfare models, Japanese economic stagnation, Chinese Belt and Road, Middle Eastern autocracy dynamics. A UK-or-US-only example set flags you as regionally narrow.
 - "Principled vs practical" split is explicit: one argument on principle (rights, justice, dignity, legitimacy), one on practice (what actually happens when the policy runs). The combination is more robust than either alone.
@@ -2286,7 +2300,7 @@ WUDC / WORLDS-SPECIFIC VOICE (university-level BP with international register):
 
   wsdc: `
 WSDC-SPECIFIC VOICE (World Schools Debating Championships — high school 3v3 international, distinct from WUDC):
-- Research allowance: NONE for impromptu motions (1 hour prep); LIMITED for prepared motions (released days to weeks ahead, teams build case files but no live internet in-round). Even on prepared motions, the SOUND of the speech stays impromptu-feeling: no tagged citations, no "Smith 2022 finds," no read-aloud cards. Phrases like "research consistently shows," "we know from comparative studies that," "the Singapore housing case demonstrates" are the right register.
+- Research allowance — KNOWLEDGE BASE DEEP, IN-ROUND CARDS NO. Impromptu motions: 1 hour prep, no live internet. Prepared motions: released days to weeks ahead — teams build full case files including specific examples, mechanism libraries, refutation banks, comparative-case studies. Both should sound IMPROMPTU in delivery (no tagged "Smith 2022 finds," no read-aloud cards) but BOTH should NAME specific real examples and real actors confidently. WSDC speakers who run only abstract claims lose to ones who say "the Singapore housing case demonstrates...," "as we saw with Yugoslavia's transition," "South Africa's TRC model shows," "the EU's failure on Greek debt in 2015." Knowledge depth + named-case fluency = the WSDC content score; tagged-citation form = wrong format.
 - Scoring is Content (40%) + Style (40%) + Strategy (20%). This is the actual WSDC ballot breakdown. Tactical implication: a speech with strong content but poor delivery loses to a speech with merely good content and clean delivery. The AI must MATCH this weighting — clarity, cadence, and pacing matter as much as the strength of the argument.
 - "Matter / Manner / Method" is the older three-pillar phrasing of the same scoring split. Matter = content; Manner = style/delivery; Method = strategic engagement with the round. Modern WSDC ballots usually print "Content / Style / Strategy" but judges of either generation expect the same things.
 - Register is CONVERSATIONAL and MEASURED, not parliament-shouty. The strongest WSDC speakers sound like they are reasoning with the judge in real time, not declaiming from a podium. Avoid BP-style "Madam Speaker, my honourable colleague has..." theatrics — say what you mean, in fluent natural sentences, varying pace at key moments.
@@ -2347,7 +2361,7 @@ WSDC-SPECIFIC VOICE (World Schools Debating Championships — high school 3v3 in
 
   asian: `
 ASIAN PARLIAMENTARY VOICE (3v3, UADC-style, common across SG/MY/PH/IN/HK/JP/KR circuits):
-- Research allowance: NONE. Impromptu prep (usually 30 minutes), general knowledge only. Do NOT fabricate studies.
+- Research allowance — KNOWLEDGE BASE YES, IN-ROUND TAGGED CITATIONS NO. Impromptu IN-ROUND (30-min prep, no laptops at table) but UADC debaters research hard across the season: regional-policy databases, named-actor incentive maps, Asia + global history. Deploy that. NAME real regional cases: Singapore HDB / GRC / Speak Mandarin Campaign, Philippines Maharlika Fund / drug war, Indonesia closed voting, Malaysia ethnic quotas, HK NSL aftermath, Korea chaebol regulation, Japan shūshin koyō / Article 9, India Navtej / Puttaswamy / Article 370 / farm laws / Agnipath / NEP 2020. Don't fabricate tagged "Smith 2022 finds..." citations — UADC adjudicators ignore them at best, lower your Matter score at worst. The Asian Parli register: deep + grounded + regional-specific examples, never a fake card.
 - 3v3 structure adds the REPLY speech — a BIASED round summary from a junior speaker (PM or DPM / LO or DLO, not the Whip). Reply identifies "key issues," explains who won each, weighs globally. NO new arguments. Reply length is shorter (typically 4-5 min).
 - Definitional debate is more accepted than in BP — opening Gov sometimes narrows a motion and Opp may challenge the definition itself as unreasonable. If challenging, argue the definition is either "place-setting" (too narrow, no clash), "squirrel" (unreasonable interpretation), or "truism" (uncontestable).
 - Whip speeches do REBUTTAL + extension-blocking, not global summary — that's the Reply's job. This is the key structural difference from BP.
