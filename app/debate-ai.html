@@ -375,6 +375,11 @@ body{
 .orb-ring.pulse{animation:orbPulse 2s ease-in-out infinite}
 @keyframes orbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.7}}
 @keyframes live-dot-pulse{0%,100%{opacity:.55;transform:scale(.92)}50%{opacity:1;transform:scale(1.18)}}
+/* POI hand-raise: small wave on the ✋ icon so the offer reads as a physical
+   gesture, not a notification badge. Subtle tempo, low arc. */
+@keyframes poiHandWave{0%,100%{transform:rotate(-6deg)}25%{transform:rotate(14deg)}50%{transform:rotate(-4deg)}75%{transform:rotate(12deg)}}
+.poi-hand-wave{display:inline-block;animation:poiHandWave 1.4s ease-in-out infinite;transform-origin:70% 90%}
+@media (prefers-reduced-motion:reduce){.poi-hand-wave{animation:none}}
 /* Speech-stage split layout, when there is a background/context for
    the motion, the orb moves to the right column and the
    resolution+context block sits on the left so the user can see both
@@ -5137,12 +5142,18 @@ function App(){
   const[showRoundPanel,setShowRoundPanel]=useState(null); // null | 'notes' | 'cases' | 'flow'
   // revealIdx removed. transcript is plain text now
 
-  // POI (Points of Information) state
-  const[poiActive,setPoiActive]=useState(false);
+  // POI (Points of Information) state.
+  // poiActive flow during AI speech (user wants to give a POI):
+  //   null       — neutral, "Point of Information" button shows
+  //   'asking'   — user raised hand, AI deciding (brief simulated beat)
+  //   'accepted' — AI accepted, user types + sends
+  //   'denied'   — AI waved off, brief feedback, auto-reset to null
+  const[poiActive,setPoiActive]=useState(null);
   const[poiText,setPoiText]=useState('');
-  const[poiOffer,setPoiOffer]=useState(false); // AI is offering a POI
-  const poiCountRef=useRef(0); // POIs offered this speech
+  const[poiOffer,setPoiOffer]=useState(false); // AI is raising its hand
+  const poiCountRef=useRef(0); // POIs the AI has offered this speech
   const poiTimeoutRef=useRef(null); // timeout for AI POI offers
+  const poiAcceptsRef=useRef(0); // POIs AI has accepted FROM the user this speech (decays accept rate)
 
   // Round history
   const[showHistory,setShowHistory]=useState(false);
@@ -5480,10 +5491,33 @@ function App(){
   };
   const dismissRecovery=()=>{setRecoveryData(null);clearSession()};
 
-  // POI: user sends a POI during AI speech
+  // POI: user raises hand; AI decides accept or deny (heuristic, no LLM call).
+  // Accept rate starts ~80% and decays with each accepted POI this speech, so
+  // a speaker doesn't get hammered with 4 consecutive accepts. Floor at 20% so
+  // there's always a real chance even late in a long speech.
+  const requestPOI=()=>{
+    if(poiActive)return; // already in flight, ignore double-clicks
+    setPoiActive('asking');
+    // Brief beat so it feels like the AI is "looking up" from its flow.
+    setTimeout(()=>{
+      const accepts=poiAcceptsRef.current||0;
+      const base=0.8 - accepts*0.25;
+      const accept=Math.random() < Math.max(0.2, base);
+      if(accept){
+        poiAcceptsRef.current=accepts+1;
+        setPoiActive('accepted');
+      } else {
+        setLog(prev=>[...prev,{code:'POI',who:'POI',text:'You rose. AI waved you off and kept going.'}]);
+        setPoiActive('denied');
+        setTimeout(()=>setPoiActive(null), 1400);
+      }
+    }, 900 + Math.random()*600);
+  };
+
+  // POI: user sends a POI during AI speech (after AI accepted)
   const sendPOI=async()=>{
     if(!poiText.trim())return;
-    setPoiActive(false);
+    setPoiActive(null);
     tts.stop();
     try{
       const poiResponse=await callAI(
@@ -5683,7 +5717,8 @@ function App(){
       // POI: AI may offer POIs during user speech (only in POI-enabled formats)
       if(fmt.poi){
         poiCountRef.current=0;
-        setPoiOffer(false);setPoiActive(false);setPoiText('');
+        poiAcceptsRef.current=0;
+        setPoiOffer(false);setPoiActive(null);setPoiText('');
         // Offer first POI after 60-90s, second after another 60-90s
         const offerPOI=()=>{
           if(poiCountRef.current<2){
@@ -5992,7 +6027,8 @@ function App(){
     endingRef.current=true;
     timer.reset();
     // Clean up POI state
-    setPoiActive(false);setPoiText('');setPoiOffer(false);
+    setPoiActive(null);setPoiText('');setPoiOffer(false);
+    poiAcceptsRef.current=0;
     if(poiTimeoutRef.current){clearTimeout(poiTimeoutRef.current);poiTimeoutRef.current=null}
     const userTurn=cur.side===side;
     const interrupted = !!opts.interrupted && !userTurn;
@@ -9194,21 +9230,35 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           },'Skip to your turn →')
         ),
 
-        // POI: user can send a POI during AI speech (middle of speech only)
+        // POI: user can offer a POI during AI speech (middle of speech only).
+        // Flow: raise hand → AI accepts/denies → if accepted, type and send.
         !isUser&&fmt.poi&&timer.left<(cur.time-60)&&timer.left>60&&el('div',{style:{marginTop:12}},
           !poiActive
-            ?el('button',{className:'cta-ghost',onClick:()=>setPoiActive(true),style:{fontSize:'.8rem',padding:'10px 20px'}},'Point of Information')
+            ?el('button',{className:'cta-ghost',onClick:requestPOI,style:{fontSize:'.8rem',padding:'10px 20px'}},'✋ Point of Information')
+            :poiActive==='asking'
+            ?el('div',{style:{display:'flex',gap:10,alignItems:'center',justifyContent:'center',padding:'10px 18px',background:'rgba(239,68,68,.06)',border:'1px dashed rgba(239,68,68,.32)',borderRadius:10,maxWidth:360,margin:'0 auto'}},
+                el('span',{className:'poi-hand-wave','aria-hidden':'true',style:{fontSize:'1.35rem'}},'✋'),
+                el('span',{style:{fontSize:'.78rem',color:'var(--c-text3)',letterSpacing:'.02em'}},'Hand raised. waiting on the AI…'),
+              )
+            :poiActive==='denied'
+            ?el('div',{style:{padding:'10px 18px',background:'rgba(120,120,120,.05)',border:'1px solid rgba(120,120,120,.18)',borderRadius:10,maxWidth:360,margin:'0 auto',textAlign:'center',fontSize:'.78rem',color:'var(--c-subtle)'}},'AI waved you off. try again in a beat.')
             :el('div',{style:{display:'flex',gap:8,maxWidth:400,margin:'0 auto'}},
-              el('input',{value:poiText,onChange:e=>setPoiText(e.target.value),placeholder:'Your POI...',style:{flex:1,padding:'10px 14px',background:'var(--c-surface3)',border:'1px solid var(--c-border4)',borderRadius:8,color:'var(--fg)',fontSize:'.85rem',fontFamily:'inherit'},onKeyDown:e=>{if(e.key==='Enter')sendPOI()}}),
+              el('input',{value:poiText,onChange:e=>setPoiText(e.target.value),placeholder:'Your POI...',autoFocus:true,style:{flex:1,padding:'10px 14px',background:'var(--c-surface3)',border:'1px solid var(--c-border4)',borderRadius:8,color:'var(--fg)',fontSize:'.85rem',fontFamily:'inherit'},onKeyDown:e=>{if(e.key==='Enter')sendPOI()}}),
               el('button',{className:'cta-ghost',onClick:sendPOI,style:{padding:'10px 16px',fontSize:'.8rem',marginTop:0}},'Send'),
             )
         ),
 
-        // POI: AI offers a POI during user speech
-        isUser&&poiOffer&&el('div',{style:{position:'fixed',bottom:120,left:'50%',transform:'translateX(-50%)',background:'var(--c-scrim2)',border:'1px solid rgba(239,68,68,.3)',borderRadius:14,padding:'16px 24px',display:'flex',gap:12,alignItems:'center',zIndex:100}},
-          el('span',{style:{fontSize:'.85rem',color:'var(--c-bright)'}},'AI offers a Point of Information'),
+        // POI: AI raises its hand during user speech. ✋ pulses so the
+        // offer reads as a physical gesture (the opponent rising on a
+        // point), not a notification badge.
+        isUser&&poiOffer&&el('div',{style:{position:'fixed',bottom:120,left:'50%',transform:'translateX(-50%)',background:'var(--c-scrim2)',border:'1px solid rgba(239,68,68,.3)',borderRadius:14,padding:'14px 22px',display:'flex',gap:14,alignItems:'center',zIndex:100,boxShadow:'0 12px 32px rgba(0,0,0,.35)'}},
+          el('span',{className:'poi-hand-wave','aria-hidden':'true',style:{fontSize:'1.5rem'}},'✋'),
+          el('div',{style:{display:'flex',flexDirection:'column',gap:2,minWidth:0}},
+            el('span',{style:{fontSize:'.85rem',color:'var(--c-bright)',fontWeight:600,letterSpacing:'.01em'}},'Point of Information'),
+            el('span',{style:{fontSize:'.62rem',color:'var(--c-subtle)',letterSpacing:'.08em',textTransform:'uppercase'}},'AI is on its feet'),
+          ),
           el('button',{className:'cta-ghost',onClick:()=>{setPoiOffer(false);acceptAIPOI()},style:{padding:'8px 16px',fontSize:'.78rem',marginTop:0}},'Accept'),
-          el('button',{className:'cta-ghost',onClick:()=>{setPoiOffer(false);setLog(prev=>[...prev,{code:'POI',who:'POI',text:'AI offered POI. declined'}])},style:{padding:'8px 16px',fontSize:'.78rem',opacity:.5,marginTop:0}},'Decline'),
+          el('button',{className:'cta-ghost',onClick:()=>{setPoiOffer(false);setLog(prev=>[...prev,{code:'POI',who:'POI',text:'AI rose. you waved them off.'}])},style:{padding:'8px 16px',fontSize:'.78rem',opacity:.5,marginTop:0}},'Decline'),
         ),
 
         // Live speed control during AI speech. Continuous WPM slider
