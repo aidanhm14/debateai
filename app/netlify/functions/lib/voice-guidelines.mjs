@@ -1536,6 +1536,52 @@ LINCOLN-DOUGLAS VOICE (1v1, value/criterion philosophical debate — NSDA / circ
 - Cross-ex is a trap-setting exercise. Ask a closed sequence: premise → premise → forced admission. Never "what do you think about X"; always "do you agree that if [A], then [B]?"
 - 2AR crystallizes 2-3 "voters" the judge writes on the ballot: "Voter 1 — framework. Voter 2 — the [contention name] outweighs on [dimension]. Voter 3 — they dropped [X]."
 - Every dropped argument is conceded. Say "cross-apply" and "extend" liberally.
+
+═══ TRAD vs CIRCUIT — THE AUDIENCE SPLIT THAT DEFINES EVERY LD ROUND ═══
+- LD has two parallel cultures sharing a resolution but almost nothing else.
+- TRADITIONAL ("trad" / lay): lay/parent judges, slower pace (200-260 wpm max — actually conversational), value/criterion framework, contention-level clash, NO theory, NO Ks, NO speed, NO acronym jargon. Plain English. Real-world examples. DOMINANT at state circuits, novice tournaments, NSDA Nationals OUTSIDE the TOC track. **AI default should be TRAD unless a circuit signal is present.**
+- CIRCUIT ("progressive"): TOC-bid tournaments (Greenhill, Glenbrooks, Bronx RR, Harvard RR, Berkeley, Apple Valley, Valley, Emory Pre-TOC). Flow judges who often coach the format. Speed (250-310 wpm — slower than policy but real spreading exists). Theory shells. Kritiks. Framework debate as voter. Non-topical K-affs. Disclosure norms via openCaselist wiki.
+- The single biggest LD-quality gap in any AI debater: defaults to circuit jargon at a trad tournament OR defaults to flowery values-talk at a circuit tournament. Match the round context.
+
+═══ REAL CIRCUIT-LD FRAMEWORK BANK (use ONE; don't blend) ═══
+A. KANTIAN ETHICS — value: morality. Criterion: categorical imperative / respecting humanity-as-ends. Anchors: Kant Groundwork / Critique of Practical Reason; Korsgaard Sources of Normativity / Self-Constitution; O'Neill; Wood; Herman. Common spike: skepticism take-out — "if skepticism is true, presume aff because permissibility requires action."
+B. UTILITARIANISM — value: morality OR wellbeing. Criterion: maximize expected wellbeing. Authors: Bentham; Mill; Sidgwick; Singer; Derek Parfit Reasons and Persons; Railton; Broome.
+C. CONTRACTUALISM (Scanlonian) — Scanlon What We Owe to Each Other; Parfit On What Matters.
+D. CONTRACTUALISM (Rawlsian) — Rawls A Theory of Justice / Political Liberalism. Veil of ignorance / difference principle.
+E. VIRTUE ETHICS — Aristotle Nicomachean Ethics; MacIntyre After Virtue; Foot; Hursthouse.
+F. HOBBESIAN — Hobbes Leviathan. State legitimacy + social contract.
+G. PETTIT / NON-DOMINATION — Pettit Republicanism / On the People's Terms.
+H. STRUCTURAL VIOLENCE — Galtung; Iris Marion Young; Nixon "slow violence." Works on any motion with a vulnerable-population link.
+I. MODERATE DEONTOLOGY — Pummer The Rules of Rescue: Cost, Distance, and Effective Altruism / Impermissible yet Praiseworthy.
+J. EXISTENTIAL-RISK / LONGTERMISM — Bostrom Existential Risk Prevention as Global Priority; Toby Ord The Precipice; MacAskill What We Owe the Future.
+K. MORAL SKEPTICISM ("skep") — Mackie Inventing Right and Wrong; Joyce. Read sparingly — circuit hates Nietzsche misuse.
+
+DON'T name-drop philosophers you can't anchor in a real claim. "Drawing from Rawls" without articulating the original position is the academic equivalent of a fake card. Say "Kant in Groundwork argues..." or "Korsgaard in Sources of Normativity..."
+
+═══ CIRCUIT LD THEORY MECHANICS ═══
+- THEORY SHELL structure: INTERPRETATION ("AFF must X") + VIOLATION ("they did Y") + STANDARDS ("X promotes fairness / education / disclosure / predictability") + VOTERS ("fairness is a voting issue because debate is competitive; education because we're here to learn").
+- DISCLOSURE THEORY: "AFF/NEG must disclose case on the wiki ≥30 min before round." Standard at TOC-bid tournaments. Non-disclosure = theory voter for opposing side. Exception: small-school / first-tournament debaters get an informal pass.
+- 1AR THEORY: theory introduced for the first time in the 1AR (4 min speech). Controversial because it compresses the round but accepted on circuit when justified.
+- RVI (Reverse Voting Issue): defeating a theory shell wins on the shell (not just neutralize). Common AFF move vs T-FW or vs frivolous shells.
+- Common shells: PICs bad, Severance bad, Multiple actor fiat bad, Condo bad, RVI bad, T is not an RVI.
+
+═══ 2025-26 LD TOPIC CYCLE (full season) ═══
+- Sept/Oct 2025: "In the United States criminal justice system, plea bargaining is just."
+- Nov/Dec 2025: "The United States ought to rewild substantial tracts of land."
+- Jan/Feb 2026: "The possession of nuclear weapons is immoral."
+- Mar/Apr 2026 (releases Feb 1): candidates were economic sanctions immoral OR military non-intervention. TBD when generating; check NSDA topic page.
+- Nationals 2026 (releases May 1): candidates were wealthy countries development assistance moral obligation OR civil-liberties-over-national-security.
+
+═══ KEY LD FAILURE MODES ═══
+- Naming philosopher without the work — "drawing from Kant" must be "Kant in Groundwork argues..."
+- Mismatching value and criterion. "I value justice. Criterion is maximizing utility" needs philosophical work to link.
+- Treating the criterion as decorative — every contention must explicitly link back.
+- Wrong speech times. LD = 6/3/7/4/6/3. 1AR is 4 min (the most compressed speech in any debate format). NEG block (NC+NR) = 7+6 = 13 min vs AFF 4-min 1AR — structural inverse of policy's neg block.
+- Using "cross-apply" / "extend" with no opponent argument to apply.
+- Generic K alt ("vote NEG to reject capitalism" parodies real alts). Real alts have NAMES.
+- Mixing trad and circuit registers in the same speech.
+- Misusing "skep" — moral skepticism in LD is a TECHNICAL claim about meta-ethics + presumption, not vague "I'm not sure what's right."
+- Calling everything an RVI.
 `,
 
   pf: `
@@ -1675,6 +1721,57 @@ POLICY / CX DEBATE VOICE (2v2, evidence-heavy, fastest speech format — NSDA / 
 - 1AR conceding the 2NC frontline by not extending offense.
 - Aff treating the 2AR like a fresh constructive — no new arguments past the 1AR's existing offense.
 - K affs that don't have a defensible role-of-the-ballot framework against framework presses.
+
+═══ ACTUAL SPEAKING SPEED (correct the 350-450 wpm myth) ═══
+- The "350-450 wpm" number gets quoted in every novice guide. It's the Verbatim software's speed-tag chart, NOT a measurement. A 2021 The 3NR study of NDT-final speakers found "fast" college debaters actually clock 260-320 wpm — and elite speakers have hovered there since the 1980s.
+- When simulating written-out policy speeches, do NOT brag about "350 wpm spreading." The competent register is "I'm reading at 290." A speech that says "I'm spreading at 450 wpm" outs the AI as having read the meme, not the round.
+- Top speakers compress more cards in 290 wpm than middling speakers do at 320 because of clearer tagging, not raw speed. Pace varies WITHIN a speech: slow on tags, fast on body, slow on the analytic between cards. Monotone full-speed throughout is the novice tell.
+
+═══ READ-A-CARD SHAPE (don't paraphrase, perform) ═══
+- Format: TAG (one sentence, debater's words) → CITE (author + year + qualifier in one beat) → BODY (highlighted excerpt, in the author's voice, not yours). Three beats. Don't smear them into one. The judge flows the TAG; the cite establishes authority; the body is what the card actually says.
+- BAD: "Mearsheimer says heg is bad because multipolarity is more stable."
+- GOOD: "And, US heg collapses when challenged — multipolarity is stable. Mearsheimer 14 — Wendell Harrison Distinguished Service Professor of Political Science at the University of Chicago. The Tragedy of Great Power Politics: '[evidence body in the author's actual register]'"
+- The qualifier matters MORE in Policy than in any other format. "Mearsheimer 14, IR theorist at UChicago, author of Great Delusion and Tragedy" is what wins comparative-evidence debates.
+- Real terminology: cut cards have YELLOW highlighting (read) and UNDERLINING (flowed as analytic). Don't say "I'm reading the yellow part" — the right phrase is "the highlighted text reads."
+
+═══ THE 2025-26 ARCTIC META (current HS topic) ═══
+- Dominant AFF taxonomy: FOUR tracks — Military/Deterrence (icebreakers, Arctic Joint Command, quantum-sensing fiber cable, autonomous weapons, hypersonic missile defense, Alaska/Greenland basing), Cooperation (US-Russia Arctic Council reengagement, Japan-Arctic security, US-India science cooperation, search-and-rescue), Indigenous/Environmental (Alaska Native climate adaptation, land trusts, benefit-sharing on REM extraction, Traditional Ecological Knowledge integration), Energy/Mining (REM mining, geothermal, floating SMR nuclear, Greenland minerals, Arctic LNG pipeline, marine cloud brightening).
+- Load-bearing factoid for icebreaker AFFs: US has 2 operational heavy icebreakers (Polar Star + Polar Sea, latter functionally retired) vs Russia's 40+. October 2025 White House EO "Construction of Arctic Security Cutters" + November 2025 DHS ICE Pact ministerial squo out a lot of inherency on icebreaker plans.
+- K-aff scene: Decolonial Fugitivity (Tuck and Yang; "disrupt settler cartographies, foreground Indigenous relationalities"), Red Deal (Estes / Red Nation), Cartography K (Arctic itself as Eurocentric construct), Baudrillard "moment of rupture," Feminism-K reads of "Arctic hysteria."
+- T-shells specific to this topic: T-Substantial (50%+ threshold), T-Exploration (must target resources — not pure research, not military), T-Development (not sustainable / environmental), T-Its (federal-only; excludes private actors), T-Not-Military (military plans = effects-topical). T-Substantial most-read at camps; T-Its sleeper that catches "public-private partnership" AFFs.
+- Dominant DAs: Trump Politics (CR / GENIUS Act / CLARITY Act key), Russia-Pressure (Arctic Council withdrawal, arms control collapse, Baltic invasion link, regime stability), China Soft Power Good, Indo-Pacific Trade-off, Hegemony Bad (multipolarity), Coast Guard Trade-off, Allied Prolif (Japan / South Korea), Russia Economy.
+- Dominant CPs: Reengage Arctic Council, Consult NATO, Native Consultation / Devolve to tribes, Canada-does-it / Norway-does-it (international actor CPs solving without heg link), Privates / Public-Private Partnership, Advantage CPs (Law of the Sea ratification, Jones Act repeal, India REMS sharing).
+- Real-world uniqueness anchors: Trump's 2025 Greenland gambit, ICE Pact (US-Finland-Canada icebreaker collab), China's "near-Arctic state" designation, Polar Silk Road BRI framing.
+
+═══ THE 2025-26 LABOR META (NDT/CEDA collective bargaining) ═══
+- 2026 NDT meta: "topic-area variety on AFF, K dominance on NEG." 56 distinct teams cleared at majors.
+- Top AFFs: Federal Workers (restoring rights stripped by EO 14251), Bankruptcy (good-faith bargaining on debtor employers), Sectoral/Automation, Gig Workers, Agricultural Cooperatives (Packers/Stockyards Act extension), NRC Workers, Religious Exemption narrowing, Pre-Hire Construction CBAs, Foreign Service Workers, Federal Whistleblowers, Data Privacy/Algorithmic Governance. Niche creative: "Moon workers" (Georgetown — CBA rights for moon-stationed workers), Professional baseball players, Journalism.
+- AFF win rate in 2026 elims was 37% (10 of 27). NEG dominates QF + finals.
+- K dominance: Capitalism, Buddhism (yes, back), Security, Psychoanalysis, Bataille. Bataille is K-of-the-moment per Dartmouth RR '26.
+- T-FW vs K-aff: Topicality in 8 of 21 NEG blocks at Dartmouth RR. T-FW alive but losing favor among smartest negs (prefer Court Politics process CPs + specific K links).
+- Real names from meta: Emory GS won NDT 2026. Michigan BP, Georgetown AC (Bataille-heavy), Berkeley (data/workers), MSU (Foreign Service), Northwestern (Bankruptcy), Dartmouth (ag co-ops), UTD PR.
+
+═══ K-AFF VS T-FW (the 2NR pivot that wins half of all elim rounds) ═══
+- T-FW (also called T-USFG): Neg argues AFF must defend the resolution's hypothetical USFG action (TVA = topical version of the aff). Standards: LIMITS, GROUND, CLASH, FAIRNESS-AS-INTRINSIC-GOOD.
+- K-AFF answers: (1) counter-interpretation ("we engage the topic on critical terms"), (2) IMPACT TURNS — fairness is itself violent (Reed-Veal, Spillers, Wilderson) / topicality is colonial, (3) TVA fails (doesn't access our ROB), (4) education turn.
+- K-aff lit bases: Afropessimism (Wilderson, Sexton, Sharpe), Settler colonialism (Tuck and Yang, Wolfe, Coulthard, Rifkin), Queer Pessimism (Edelman — contested, smart teams source-attack), Bifo / psychoanalysis K, Bataille, Baudrillard, Deleuze, Heidegger / managerialism, Foucault / biopower.
+- The AI on K-AFF should make ONE big move per speech, not five.
+
+═══ PERSONAL NARRATIVE K-AFFS (the Binghamton wedge) ═══
+- College + increasingly HS K-AFFs incorporate PERSONAL NARRATIVE alongside theory. Binghamton (2025 NDT champion) explicitly: "my strategies are not evidentiary in a traditional sense at all, but more personal narrative."
+- When AI argues against a personal-narrative K-AFF, do NOT try to "card-down" the narrative — that's the confused-policy-team tell. The competent NEG move is to engage the THEORETICAL CLAIM the narrative supports.
+- When AI IS reading a personal-narrative K-AFF, the speech should sound like a person speaking, not a speech being read. Slow down. Vary cadence. Pause. Anger and grief are legible registers; emotional flatness reads as inauthentic.
+
+═══ CALENDAR / TOURNAMENT TEXTURE ═══
+- Greenhill Fall Classic (Sept; Dallas): early-season barometer. TOC-bid octafinals. Texas judging — policy-tech leans, K depth in elims.
+- Glenbrooks (Nov; Chicago suburbs): late-season anchor. Octafinals bid. National pool. Notorious 2 AM finishes.
+- Bronx Round Robin (Dec/Jan; NYC): elite invitational; top 14-16 teams. K-friendly judging.
+- Harvard Round Robin (Feb; Cambridge): policy-tech leans stronger than Bronx.
+- Berkeley (Feb; CNDI hosts): West Coast majors. CNDI-staff-heavy judging.
+- Emory Pre-TOC + Harvard-Westlake (March): TOC tune-ups.
+- TOC (April; Lexington): two qualified bids needed. 2025 HS Policy final: Greenhill (Liu/Chamarthy) beat Northview 2-1 on indigenous IP AFF.
+- NSDA Nationals (June): bigger judge pool, more lay, fewer K hacks. Generic 4-off NEGs with one K + one policy collapse work better here.
+- NDT (college, April): 2025 final Binghamton (Turner-Louis + Cohn) over Kansas 3-2 (2 AM finish). 2026 final Emory GS over CSU Long Beach MO 3-2.
 `,
 
   congress: `
