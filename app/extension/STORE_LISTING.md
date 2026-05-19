@@ -8,14 +8,14 @@ it as the source-of-truth when you update the listing.
 
 ## Identity
 
-**Name** (≤45 chars, 26 used)
+**Name** (≤45 chars, 34 used)
 ```
-Counter: Oral Exam Trainer
+Counter — DebateAI for Google Docs
 ```
 
-**Short description** (≤132 chars, 130 used)
+**Short description** (≤132 chars, 128 used)
 ```
-Counter your draft with three rebuttals and the question your toughest reader will ask. Defend it out loud. Viva and essay prep.
+Counter your draft. The AI plays your toughest reader — admissions, op-ed, thesis, opposing counsel — and finds the weak link.
 ```
 
 **Category**
@@ -33,28 +33,40 @@ Counter your draft with three rebuttals and the question your toughest reader wi
 ## Detailed description (≤16,000 chars)
 
 ```
-Counter is the AI you couldn't sit across from in school. You wrote
-the essay. You built the project. You drafted the paper. Now the
-panel wants you to defend it out loud, and "I think I get it" is not
-going to land. Counter is the sparring partner that hits your draft
-the way your reader will, before your reader gets the chance.
+Counter lives in your Google Docs sidebar and plays the toughest
+reader you'll meet. Highlight a paragraph. Counter reads it the way
+an admissions officer, an op-ed editor, a thesis committee, an
+opposing counsel, or a VC investor would. It finds the weakest
+load-bearing claim, builds three structured rebuttals, and hands you
+the question your reader will ask first.
+
+This is not a writing assistant. Counter does not suggest edits,
+autocomplete, or smooth your prose. It pressure-tests what you wrote,
+so the smartest reader in the room is not the first one to notice the
+weak link.
 
 Two surfaces, one engine:
 
-1. **Counter your draft** (typed). Paste a paragraph of your essay or
-   case file into the side panel. Counter returns the weakest
-   load-bearing claim, three structured rebuttals with claim / warrant
-   / impact, and the single question your toughest reader will ask the
-   moment they sit down. Each rebuttal has a "Drill this in voice" CTA
-   that hands the claim to the voice round so you rehearse defending
-   it out loud.
+1. **Counter your draft** (typed). Paste a paragraph into the side
+   panel — or right-click it in Docs. Counter returns the weakest
+   load-bearing claim, three structured rebuttals with claim /
+   warrant / impact, and the single question your toughest reader
+   will ask. Pick a reader persona (Skeptical reader, Admissions
+   officer, Op-ed editor, Thesis committee, Opposing counsel, VC
+   investor, Varsity debater) and an intensity (measured / firm /
+   fierce). Each rebuttal has a "Drill this in voice" CTA that hands
+   the claim to the voice round.
 
-2. **Defend it out loud** (voice). Highlight your work in Google Docs,
-   or paste it into the side panel, and an examiner-style AI
-   cross-examines you out loud. You defend the claim; it asks the next
-   question. After 3-5 probes it closes with examiner-voice oral
-   feedback: what landed, what didn't, and where to tighten before the
-   real reader.
+2. **Defend it out loud** (voice). An examiner-style AI cross-
+   examines you out loud. You defend; it asks the next question.
+   After 3-5 probes it closes with examiner-voice oral feedback:
+   what landed, what didn't, where to tighten.
+
+3. **Drop it back into your Doc.** "Copy as comment" formats the
+   weakest claim + the three rebuttals + the examiner's question
+   into a single Docs-comment-shaped block. Press ⌘⌥M (Ctrl+Alt+M
+   on Windows) in your Doc to paste it as a comment thread anchored
+   to the paragraph you countered.
 
 Built for:
 • Essay prep: thesis writing, college application essays, opinion pieces — anything that has to survive a sharp reader
@@ -68,18 +80,23 @@ Built for:
 • Any setting where you have to argue out loud, not just write — including English-medium and Hindi-medium
 
 What you get
-• Counter-your-draft side-panel card: paste a passage, choose intensity (measured / firm / fierce), get three rebuttals + the examiner's first question + a drill-this-in-voice handoff
+• Side-panel "Counter your draft" card: paste or pull a passage, pick from 7 reader personas, pick intensity (measured / firm / fierce), pick scope (A claim / Whole draft up to 25k chars), get three rebuttals + the examiner's first question + a drill-this-in-voice handoff
+• First-use sample paragraph button: no draft handy? Load one of three real-shape samples (admissions essay, op-ed thesis, debate case) and see Counter work before bringing your own
+• "Copy as comment" close-the-loop CTA: formats the whole counter as a Docs-comment-shaped payload + shows the ⌘⌥M / Ctrl+Alt+M paste-as-comment hotkey
 • Right-click → "Counter this argument (build rebuttals)" on any selected text
-• Highlight + right-click → Quiz me on this passage (voice round)
-• Floating "Quiz me" pill in Google Docs (Docs canvas blocks the right-click; the pill catches your copy events instead)
-• Voice round powered by OpenAI Realtime: server-side voice activity detection means the AI actually waits for you to finish, then answers in under a second
+• Highlight + right-click → "Quiz me on this passage" or "Defend this out loud (cross-exam)" or "Cross-examine the AI on this"
+• Floating "Defend this out loud" action button in Google Docs (Docs canvas blocks right-click; the button catches your copy events instead)
+• Voice round powered by OpenAI Realtime: server-side voice activity detection means the AI waits for you to finish, then answers in under a second
 • Dr. Iyer, the Examiner persona: measured Indian-English, asks one precise question and lets you think, no piling on
 • A real "viva" format with structured speech list (opening defense → 3 examiner probes → closing defense) and per-format voice rules so the AI doesn't drift into debate-jargon mode
 • Hindi-language vivas via the in-app language picker
+• Streak badge in your toolbar (Chrome action badge counts consecutive drill days) + exam-date countdown (set a date in Settings → countdown takes over the badge in the final 14 days)
+• Friendly error messages — when the AI hiccups, you see "AI is having a moment. Try again in a few seconds." instead of "anthropic upstream unreachable: TypeError: fetch failed"
 • Keyboard shortcuts: Ctrl/Cmd+Shift+D to quiz, Ctrl/Cmd+Shift+R to defend, Ctrl/Cmd+Shift+L to counter, Ctrl/Cmd+Shift+Y to open the panel
 
-How it differs from "AI tutor" extensions
-• Voice-first. The drill is talking, not chatting. Real oral examiners don't wait for a typed paragraph; this one doesn't either.
+How it differs from "AI assistant" extensions
+• Adversarial, not assistive. Counter is the reader that pushes back, not the writer that smooths your prose. No autocomplete, no rewrites, no "make this clearer" — pressure-test only.
+• Voice-first defense. The follow-up to a counter is a spoken cross-exam, not a typed conversation. Real oral examiners don't wait for a typed paragraph; this one doesn't either.
 • One question at a time. Counter doesn't dump three questions, two follow-ups, and a summary in a single beat. It asks, it stops, you think.
 • Indian-English by default. The senior-academic register your panel will actually use.
 • No fabricated citations. The AI works from the passage you highlighted, not invented "Smith 2022" quotes.
@@ -87,17 +104,18 @@ How it differs from "AI tutor" extensions
 
 Pricing
 • Free: 5 anonymous + 5 more on sign-in (10 total drills)
-• Individual at $5/year: 250 drills/month, four AI brains, premium voice
+• Individual at $5/year: 250 drills/month, six AI brains (Claude / GPT / Gemini / Grok / DeepSeek / Open Lab), premium voice
 • Lifetime at $14.99 once: 250 drills/month forever, no recurring charge
 • Bring-your-own-key (Anthropic Claude only) at $1/month for unlimited
 • Team at $20/year for school clubs and prep groups (1,500 drills/month, 50 seats)
 
 Counter is part of DebateAI. Same engine that powers debateai.com's
 voice round and six-brain panel; the chrome extension is a focused
-entry point for the student / oral-exam audience.
+entry point for the writing-defense audience — students, essayists,
+case-builders, and anyone whose draft has to survive a sharp reader.
 
 Built by a national APDA debate champion. A sparring partner that
-asks the questions your examiner will actually ask.
+asks the questions your reader will actually ask.
 ```
 
 ---
@@ -204,17 +222,17 @@ https://debateai.com/privacy-extension
 Capture these on a high-DPI monitor at 1280×800 effective. Each one
 gets a 1-line caption.
 
-1. **`01-context-menu.png`** — Highlighted paragraph in a Wikipedia article on photosynthesis, with the Chrome right-click menu open and the three Counter entries visible ("Quiz me on this passage", "Defend this out loud (cross-exam)", "Cross-examine the AI on this"). Caption: "Highlight any passage. Right-click. Counter quizzes you on it."
+1. **`01-context-menu.png`** — Highlighted paragraph in a Wikipedia article on photosynthesis, Chrome right-click menu open with all four Counter entries visible ("Counter this argument (build rebuttals)", "Quiz me on this passage", "Defend this out loud (cross-exam)", "Cross-examine the AI on this"). Caption: "Highlight any passage. Right-click. Counter pushes back."
 
-2. **`02-docs-pill.png`** — Google Docs page with a paragraph selected, Cmd+C just pressed, the floating "Quiz me" pill visible bottom-right. Caption: "Inside Google Docs, copy → the Quiz me pill appears."
+2. **`02-docs-pill.png`** — Google Docs page with a paragraph selected, Cmd+C just pressed, the floating "Counter this argument" + "Defend out loud" pill visible bottom-right (or the persistent "Defend this out loud" FAB anchor). Caption: "Inside Google Docs, copy → the counter pill appears."
 
-3. **`03-side-panel-setup.png`** — Side panel open showing voice-debate.html?ext=1&mode=counter with the motion field prefilled, Dr. Iyer persona selected, viva mode selected, and the big Connect button visible. Caption: "One tap from Connect. Examiner persona, viva mode, motion prefilled."
+3. **`03-side-panel-counter.png`** — Side panel "Counter your draft" card with a paragraph pasted in, "Op-ed editor" reader chip selected, "Firm" intensity selected, "Counter this argument" CTA primed. Caption: "Pick a reader. Pick an intensity. Counter finds the weak link."
 
-4. **`04-voice-round.png`** — Side panel mid-round: waveform visualization, Dr. Iyer's avatar pulsing, transcript showing one examiner question and one student answer. Caption: "Live voice round. The examiner asks one precise question and waits."
+4. **`04-rebuttals.png`** — Side panel showing the three rebuttal cards (Claim / Warrant / Impact each), the examiner's question card at the bottom, the green "Copy as comment" CTA, the "Drill this in voice" CTA. Caption: "Three structured rebuttals, the question your reader will ask, and one-click drop into your Doc."
 
-5. **`05-feedback.png`** — End-of-session ballot card showing the 30-second oral-feedback verdict from Dr. Iyer, plus the round count for the bond progression. Caption: "Closes with examiner-voice oral feedback. No debate ballot — viva-style."
+5. **`05-voice-round.png`** — Side panel mid-voice-round: waveform visualization, Dr. Iyer's avatar, transcript showing one examiner question and one student answer. Caption: "Defend it out loud. The examiner asks one precise question and waits."
 
-(Optional 6: "Hindi-language viva" — same as 4 with aiLanguage='hi'
+(Optional 6: "Hindi-language viva" — same as 5 with aiLanguage='hi'
 selected. Captures the Indian-market story directly.)
 
 ---
@@ -248,7 +266,7 @@ Run this list before clicking "Submit for review":
 ## Common review-rejection reasons (and how Counter avoids them)
 
 1. **Broad host permissions without justification.** Counter's `host_permissions` are limited to debateai.com. The `<all_urls>` content script is justified specifically by the Google Docs canvas-rendering case.
-2. **Vague single-purpose statement.** Counter's is concrete: "let a user highlight study material and practice oral examination on it out loud."
+2. **Vague single-purpose statement.** Counter's is concrete: "let a user paste or highlight an argument and have an AI debater counter-point it — both as structured rebuttals in the side panel and as a live cross-examination voice round."
 3. **Misleading screenshots.** All screenshots are real captures, not mockups.
 4. **Privacy policy contradicts manifest.** This file (`STORE_LISTING.md`), the privacy policy at `/privacy-extension.html`, and the manifest are written from the same data flow. If you change one, change the others — search the repo for "privacy-extension" to find the bindings.
 5. **Inactive extension.** Don't sit on the listing for months without an update; bump the version and ship a small improvement at least quarterly.
