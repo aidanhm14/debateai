@@ -5452,83 +5452,22 @@ section.ui-section .ui-lede{
      replaced it lives below the founder video at #todays-motion —
      content-led (a real motion + side pick) instead of product-led. -->
 
-<!-- Founder intro block. Was a <video> slot waiting on Aidan's
-     self-recorded mp4; until the file exists, the slot would render
-     as a black frame with a 404 poster. Replaced (per user) with a
-     self-running CSS motion-graphics intro: pulsing brand orb on the
-     left, five text reveals on the right, ~12s loop. Reads as a
-     designed intro the way an editorial brand bumper would, rather
-     than as a broken video player.
-
-     Swap back to the <video> tag when Aidan's mp4 is ready — the
-     surrounding section + frame styles are unchanged. -->
-<section id="founder-video" class="founder-video-section" aria-label="Introducing Debate AI">
+<!-- "Why this exists" prose block. Originally hosted the founder
+     intro <video>; the video was taken down 2026-05-19 PM (see inline
+     note below). The section id stays "founder-video" for git history
+     continuity, but the aria-label now reflects its actual role. -->
+<section id="founder-video" class="founder-video-section" aria-label="Why this exists">
   <div class="wrap" style="max-width:1180px">
-    <div class="founder-video-eyebrow">Intro and Guidance</div>
-    <h2 class="founder-video-title">Founder short intro</h2>
-    <!-- 2026-05-18: condensed "Why this exists" copy moved next to the
-         video as a right-column sidebar. Lifted from the standalone
-         #story section that used to live below in .story-pair; the
-         video + author-voice context belong together visually.
-         id="story" is preserved on the side panel so the #story
-         jumpnav anchor still lands the user on this block. -->
-    <div class="founder-video-grid">
-      <div class="founder-video-left">
-        <div class="founder-video-frame" aria-label="Founder intro coming soon">
-          <!-- 2026-05-19 PM: founder mp4 pulled. The take we had was a
-               mirrored selfie-cam shot mid-sentence with a Spanish
-               office door behind — wrong register for a landing-page
-               first impression. Reverted to a calm "Coming soon" card
-               inside the same frame until a properly shot intro lands.
-               Swap back to a <video controls poster> block when the
-               new file is ready; the analytics IIFE below already
-               no-ops when .founder-video isn't in the DOM. -->
-          <div class="founder-video-placeholder">
-            <div class="fv-ph-eyebrow">Coming soon</div>
-            <div class="fv-ph-line">A founder intro is on the way.</div>
-          </div>
-        </div>
-        <!-- 2026-05-19: 3-card "See it in action" row moved OUT of this
-             left column to span full width below the grid. Was inside
-             .founder-video-left, which forced the right-side
-             "Why this exists" panel to stretch to match the combined
-             height (video + cards) and left the description column
-             feeling oversized. Now the top row is just video | aside,
-             and the 3 video cards sit underneath at full width. -->
-        <!-- Founder-video analytics. Fires once-per-session on first
-             play + at 25/50/75/complete quartiles. Goes through
-             window.gtag — track.js's gtag→bridge mirrors each event
-             into the `events` Firestore collection as event='app_event'
-             with metadata.name='founder_video_<bucket>', which the
-             /admin "Founder video" block reads. sessionStorage gates
-             stop a single visitor from double-counting on scrub /
-             replay. (Don't call window.track directly here: founder_video_*
-             isn't in the /api/log-event allowlist; the gtag bridge is
-             the supported path.) -->
-        <script>
-        (function(){
-          var v = document.querySelector('.founder-video');
-          if (!v) return;
-          var fired = {};
-          function fire(name){
-            if (fired[name]) return;
-            try { if (sessionStorage.getItem('fv_' + name)) { fired[name] = 1; return; } } catch(e){}
-            fired[name] = 1;
-            try { sessionStorage.setItem('fv_' + name, '1'); } catch(e){}
-            if (typeof window.gtag === 'function') window.gtag('event', 'founder_video_' + name, { src: 'landing' });
-          }
-          v.addEventListener('play', function(){ fire('play'); });
-          v.addEventListener('timeupdate', function(){
-            var d = v.duration; if (!d || !isFinite(d)) return;
-            var p = v.currentTime / d;
-            if (p >= 0.25) fire('25');
-            if (p >= 0.50) fire('50');
-            if (p >= 0.75) fire('75');
-          });
-          v.addEventListener('ended', function(){ fire('complete'); });
-        })();
-        </script>
-      </div>
+    <!-- 2026-05-19 PM: founder video block taken down entirely (frame
+         + coming-soon card + analytics IIFE). The take we had was a
+         mirrored selfie-cam shot that read wrong as a first impression,
+         and a "Coming soon" card for a video the user wasn't committed
+         to shooting felt like dead chrome. The section keeps its id
+         (#founder-video) and the aside keeps id="story" so the #story
+         jumpnav anchor still lands here. To bring a video back, drop
+         a new <div class="founder-video-grid"> with a .founder-video-frame
+         inside, above this aside; the .founder-video-* CSS rules are
+         untouched and ready to host one again. -->
       <aside class="founder-video-side" id="story" aria-label="Why this exists">
         <p class="fvs-lead">
           An AI adjudicator that eliminates the middleman. No half-hour wait for a judge's ballot.
@@ -5546,7 +5485,6 @@ section.ui-section .ui-lede{
           If you run a club, judge tournaments, or want to own a key part of this, <a href="mailto:feedback@debateai.com?subject=Help%20build%20this">write me</a>. One paragraph: what you've done and what you want to own.
         </p>
       </aside>
-    </div>
     <!-- "Demo videos" row: three feature preview cards. 2026-05-19:
          lifted out of the left grid column to span the full width below
          video + aside. Renamed from "See it in action" 2026-05-19 PM. -->
