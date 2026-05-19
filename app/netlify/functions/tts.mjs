@@ -136,24 +136,180 @@ const PERSONA_GENDER = {
   examiner: 'male',
 };
 
-// Per-language gender pool. Used when a specific (persona × language)
-// voice isn't curated yet but a generic male/female native voice for
-// that language exists. Drop voice IDs in here or set the env vars.
-const LANGUAGE_DEFAULT_VOICES = {
-  // Example shape — populate when voices are curated:
-  // hi: { male: 'voice-id', female: 'voice-id' },
-  // es: { male: 'voice-id', female: 'voice-id' },
-  // fr: { male: 'voice-id', female: 'voice-id' },
+// One extra public-library voice we use only for cross-language pools.
+// Antoni is the warm-narrative Polish-American voice in ElevenLabs'
+// stable default library. Voice ID is documented and stable. He
+// crosses to Slavic and Germanic languages noticeably better than the
+// American defaults — slower attack, more open vowels, less rhotic R.
+// Available everywhere ELEVENLABS_VOICES is, but not surfaced as a
+// persona in the app — strictly a pool default.
+const EXTRA_VOICES = {
+  antoni:  'ErXwobaYiN019PkySvjV',
+  rachel:  '21m00Tcm4TlvDq8ikWAM',  // warm conversational American female (default library)
 };
 
-// Per-persona × per-language overrides. Highest curated-map priority.
-// Use this when a specific persona has a curated language-native voice
-// (e.g., the "professor" persona in Spanish gets a Spanish-native deep
-// male voice with academic register, not just any Spanish male).
+// Per-language gender pool. Until language-native voices are curated
+// from voice.elevenlabs.io, these are best-fit picks from the existing
+// English-multilingual bank. The picks aren't random — each one is the
+// voice whose prosody (rhythm, vowel openness, rhotic-R behavior)
+// crosses the target language with the least English coloring.
+// `eleven_turbo_v2_5` IS multilingual, so these voices DO speak the
+// target language; the choice controls how native the accent reads.
+//
+// Replace any entry with a native-speaker voice ID when one is curated.
+// Per-persona overrides below the pool can override these on a per-
+// persona basis without losing the pool fallback for unmapped personas.
+const LANGUAGE_DEFAULT_VOICES = {
+  // Hindi — Indian English / Hindi prosody is rhythmic and stretched.
+  // Deep, slow male voices cross better than energetic/clipped ones.
+  // Mature professional female register matches Hindi formal speech.
+  hi: { male: ELEVENLABS_VOICES.veteran,     female: ELEVENLABS_VOICES.closer },        // Brian + Sarah
+  // Spanish — warm/expressive crosses Castilian best; British smoothness
+  // crosses Latin Spanish formal register without sounding flat.
+  es: { male: ELEVENLABS_VOICES.statesman,   female: ELEVENLABS_VOICES.storyteller },   // George + Laura
+  // French — French rhetorical cadence is melodic and rounded. British
+  // smoothness + youthful sharp female cross better than American hard-R.
+  fr: { male: ELEVENLABS_VOICES.statesman,   female: ELEVENLABS_VOICES.upstart },       // George + Lily
+  // German — measured, deep, deliberate. Adam (deep firm American) is
+  // already close to German formal register; Sarah's mature stability
+  // crosses better than energetic voices.
+  de: { male: ELEVENLABS_VOICES.professor,   female: ELEVENLABS_VOICES.closer },        // Adam + Sarah
+  // Italian — warm and expressive. Liam's energetic forward-leaning
+  // delivery crosses Italian's emphatic prosody; Laura's narrative
+  // warmth matches.
+  it: { male: ELEVENLABS_VOICES.firebrand,   female: ELEVENLABS_VOICES.storyteller },   // Liam + Laura
+  // Portuguese — Brazilian/European Portuguese both have rounded vowels.
+  // Charlie (Australian thoughtful) crosses better than American defaults;
+  // Matilda's professional register fits both variants.
+  pt: { male: ELEVENLABS_VOICES.philosopher, female: ELEVENLABS_VOICES.diplomat },      // Charlie + Matilda
+  // Mandarin Chinese — tonal language, voices with stable controlled
+  // pitch cross better than energetic. Brian's resonance + Sarah's
+  // stability both anchor well.
+  zh: { male: ELEVENLABS_VOICES.veteran,     female: ELEVENLABS_VOICES.closer },        // Brian + Sarah
+  // Japanese — pitch accent + subtle prosody. Calm thoughtful voices
+  // are essential; energetic American voices sound jarring in Japanese.
+  ja: { male: ELEVENLABS_VOICES.philosopher, female: ELEVENLABS_VOICES.diplomat },      // Charlie + Matilda
+  // Korean — similar prosodic profile to Japanese. Slightly deeper male
+  // matches Korean formal speech (-습니다 register).
+  ko: { male: ELEVENLABS_VOICES.veteran,     female: ELEVENLABS_VOICES.closer },        // Brian + Sarah
+  // Arabic — Modern Standard Arabic is formal and deep-toned. Deep
+  // resonant voices match the register expected of public/academic
+  // speech in Arabic.
+  ar: { male: ELEVENLABS_VOICES.veteran,     female: ELEVENLABS_VOICES.closer },        // Brian + Sarah
+  // Russian — sustained vowels, deep masculine register expected in
+  // formal speech. Antoni's Polish-American base crosses Russian
+  // noticeably better than American defaults.
+  ru: { male: EXTRA_VOICES.antoni,           female: ELEVENLABS_VOICES.closer },        // Antoni + Sarah
+  // Turkish — vowel-harmony language, melodic. Warm thoughtful voices
+  // cross better than clipped/deep.
+  tr: { male: ELEVENLABS_VOICES.philosopher, female: ELEVENLABS_VOICES.storyteller },   // Charlie + Laura
+  // Dutch — Germanic with English-adjacent vowels. British voices cross
+  // better than American (Dutch has British-influenced English imports).
+  nl: { male: ELEVENLABS_VOICES.statesman,   female: ELEVENLABS_VOICES.upstart },       // George + Lily
+};
+
+// Per-persona × per-language overrides. Use when a specific persona +
+// language pairing has a better match than the gender pool default
+// would produce. Sparse on purpose — every entry below is a deliberate
+// upgrade over the pool fallback, not a duplicate of it. Unmapped
+// personas in any language fall through to LANGUAGE_DEFAULT_VOICES
+// then to ELEVENLABS_VOICES.
 const LANGUAGE_VOICE_OVERRIDES = {
-  // Example shape — populate when voices are curated:
-  // hi: { professor: 'voice-id', closer: 'voice-id' },
-  // es: { professor: 'voice-id' },
+  hi: {
+    // Indian academic register favors gravitas + measured pace over
+    // American firmness. Brian (veteran) over Adam (professor) is the
+    // standard call for Hindi professor delivery.
+    professor:   ELEVENLABS_VOICES.veteran,
+    // Indian-English barrister register has colonial/Raj-English
+    // texture — Daniel's British authoritative voice crosses
+    // exceptionally well to Indian courtroom debate.
+    barrister:   ELEVENLABS_VOICES.barrister,
+    // Examiner persona is Indian-English by design (see examiner
+    // persona spec in soul.md 2026-05-10). Daniel's measured British
+    // delivery is the closest in the bank to Indian-English academic
+    // examiner cadence until a native voice is wired in.
+    examiner:    ELEVENLABS_VOICES.barrister,
+    // Hindi philosophy / Sanskrit-adjacent contemplation register —
+    // Charlie's thoughtful Australian calm crosses better than
+    // American philosopher voices.
+    philosopher: ELEVENLABS_VOICES.philosopher,
+  },
+  es: {
+    // Spanish académico register matches George's warm British gravitas
+    // better than American firmness. Charlie crosses Latin American
+    // Spanish smoothly.
+    professor:   ELEVENLABS_VOICES.statesman,
+    philosopher: ELEVENLABS_VOICES.philosopher,
+    // Spanish/Latin storytelling is emphatic + warm — Laura's narrative
+    // tone fits without sounding flat the way the American defaults can.
+    storyteller: ELEVENLABS_VOICES.storyteller,
+  },
+  fr: {
+    // French rhetorical tradition favors smoothness + measured cadence.
+    // George (British) + Charlie (Australian) cross better than American
+    // firm-R voices.
+    professor:   ELEVENLABS_VOICES.statesman,
+    philosopher: ELEVENLABS_VOICES.philosopher,
+    diplomat:    ELEVENLABS_VOICES.diplomat,
+  },
+  de: {
+    // German formal register is deep and measured. Adam crosses German
+    // academic speech cleanly; Daniel (British) handles measured
+    // bureaucratic German register.
+    professor:   ELEVENLABS_VOICES.professor,
+    barrister:   ELEVENLABS_VOICES.barrister,
+    tactician:   ELEVENLABS_VOICES.tactician,
+  },
+  it: {
+    // Italian is warm + emphatic — Liam's forward-leaning energy + Laura's
+    // narrative warmth are already the right picks.
+    professor:   ELEVENLABS_VOICES.philosopher,
+    firebrand:   ELEVENLABS_VOICES.firebrand,
+    storyteller: ELEVENLABS_VOICES.storyteller,
+  },
+  pt: {
+    professor:   ELEVENLABS_VOICES.statesman,
+    philosopher: ELEVENLABS_VOICES.philosopher,
+  },
+  zh: {
+    // Mandarin formal register favors stable measured deep voices.
+    professor:   ELEVENLABS_VOICES.professor,
+    surgeon:     ELEVENLABS_VOICES.surgeon,
+    philosopher: ELEVENLABS_VOICES.philosopher,
+  },
+  ja: {
+    // Japanese pitch-accent + politeness register reward calm voices.
+    professor:   ELEVENLABS_VOICES.veteran,
+    philosopher: ELEVENLABS_VOICES.philosopher,
+    diplomat:    ELEVENLABS_VOICES.diplomat,
+  },
+  ko: {
+    professor:   ELEVENLABS_VOICES.veteran,
+    philosopher: ELEVENLABS_VOICES.philosopher,
+  },
+  ar: {
+    // MSA formal register expects deep + resonant voices in public speech.
+    professor:   ELEVENLABS_VOICES.veteran,
+    statesman:   ELEVENLABS_VOICES.statesman,
+  },
+  ru: {
+    // Russian formal speech is sustained and deep. Antoni's
+    // Polish-American base crosses better than American firm voices.
+    professor:   EXTRA_VOICES.antoni,
+    philosopher: ELEVENLABS_VOICES.philosopher,
+    barrister:   ELEVENLABS_VOICES.barrister,
+  },
+  tr: {
+    // Turkish is melodic + vowel-harmonious — warm/calm voices cross best.
+    professor:   ELEVENLABS_VOICES.philosopher,
+    storyteller: ELEVENLABS_VOICES.storyteller,
+  },
+  nl: {
+    // Dutch has British-influenced English imports; British voices
+    // cross better than American.
+    professor:   ELEVENLABS_VOICES.statesman,
+    barrister:   ELEVENLABS_VOICES.barrister,
+  },
 };
 
 // Normalize a language code into the 2-letter primary subtag we use as
