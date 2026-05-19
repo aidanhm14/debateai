@@ -743,6 +743,25 @@ function renderCounterResults(data) {
     host.appendChild(drill);
   }
 
+  // "Drop all into your Doc" — closes the loop back to the page. Copies
+  // the whole rebuttal block (weakest claim + 3 rebuttals + the question)
+  // as one Docs-comment-shaped payload, then flashes the platform-aware
+  // shortcut so the user knows how to actually paste it as a comment
+  // (Docs: ⌘⌥M on Mac / Ctrl+Alt+M on Win). Without this CTA, the user
+  // had to manually copy each rebuttal one at a time (3+ clicks) then
+  // remember the comment-shortcut themselves. Three round-trips → one.
+  if ((data.rebuttals || []).length || data.examinersQuestion || data.weakestClaim) {
+    const drop = document.createElement('div');
+    drop.className = 'counter-results__drop';
+    drop.innerHTML =
+      `<span class="counter-results__drop-copy">` +
+        `<em>Take it back to your Doc</em>` +
+        `Drop the whole counter as a Docs comment.` +
+      `</span>` +
+      `<button type="button" class="counter-results__drop-cta" data-counter-drop="all">Copy as comment</button>`;
+    host.appendChild(drop);
+  }
+
   // Action delegation. Each "Drill this" sets the topic to the rebuttal's
   // claim (or the drillTopic for the bottom CTA), flips the panel to
   // drilling, and hands the iframe an autoStart payload. Each "Copy" puts
@@ -785,6 +804,53 @@ function renderCounterResults(data) {
       }
     });
   });
+  host.querySelectorAll('[data-counter-drop="all"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const text = formatCounterAsDocComment(data);
+      const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+      const hotkey = isMac ? '⌘ + Option + M' : 'Ctrl + Alt + M';
+      try {
+        await navigator.clipboard.writeText(text);
+        // Long toast — the keyboard hint is the whole point. 5.5s gives the
+        // user time to read it AND switch to the Docs tab before it fades.
+        showToast(`Copied. In your Doc, select the paragraph and press ${hotkey} to paste as a comment.`, 5500);
+        btn.textContent = '✓ Copied';
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.textContent = 'Copy as comment';
+          btn.disabled = false;
+        }, 4000);
+      } catch (_) {
+        showToast('Copy blocked. Select a rebuttal manually and ' + (isMac ? '⌘C' : 'Ctrl+C') + ' instead.', 5000);
+      }
+    });
+  });
+}
+
+// Build the all-rebuttals-in-one payload the "Copy as comment" CTA pastes
+// into a Google Docs comment. Docs comments display plain text with line
+// breaks honored; no real markdown rendering, so this is shaped to read
+// cleanly as plain text. Footer credits the extension so anyone viewing
+// the comment knows what produced it.
+function formatCounterAsDocComment(data) {
+  const lines = ['COUNTER · DEBATEAI'];
+  if (data.thesis) {
+    lines.push('', 'Your thesis as the AI read it:', data.thesis);
+  }
+  if (data.weakestClaim) {
+    lines.push('', 'Weakest load-bearing claim:', data.weakestClaim);
+  }
+  (data.rebuttals || []).forEach((r, idx) => {
+    lines.push('', `Rebuttal ${idx + 1}`);
+    if (r.claim) lines.push(`Claim: ${r.claim}`);
+    if (r.warrant) lines.push(`Warrant: ${r.warrant}`);
+    if (r.impact) lines.push(`Impact: ${r.impact}`);
+  });
+  if (data.examinersQuestion) {
+    lines.push('', 'The question to be ready for:', data.examinersQuestion);
+  }
+  lines.push('', '— via Counter for Google Docs (debateai.com/counter)');
+  return lines.join('\n');
 }
 async function runCounter() {
   if (state.counterPending) return;

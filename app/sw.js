@@ -5,7 +5,7 @@
 // 8 items and the old 3-card pricing panel.
 
 
-const CACHE_NAME = 'debateos-v456';
+const CACHE_NAME = 'debateos-v457';
 
 
 
