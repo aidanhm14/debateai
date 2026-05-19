@@ -792,6 +792,13 @@ button{font-family:inherit;cursor:pointer}
   position:absolute;inset:0;z-index:0;
   background:var(--hero-grad);
   overflow:hidden;
+  /* 2026-05-19: soft fade-out at the bottom of the hero so the red
+     ambient glow (.hero-bg::before/::after) doesn't terminate at a
+     hard horizontal edge against the founder-video section below.
+     The base hero-grad shows through underneath since body bg is the
+     same variable, so masking is safe. */
+  -webkit-mask-image:linear-gradient(180deg,black 0%, black 78%, transparent 100%);
+  mask-image:linear-gradient(180deg,black 0%, black 78%, transparent 100%);
 }
 /* Hero ambient glows. Previously used filter:blur(64px)/blur(48px) on
    animated pseudo-elements, Chrome's large-radius blur runs on the
@@ -2439,9 +2446,13 @@ section.hero{
   .hero-orb-canvas{width:260px;height:260px;margin-bottom:22px}
 }
 .hero-orb-label{
-  font-size:1.05rem;font-weight:800;color:var(--text);
-  letter-spacing:-.01em;line-height:1.25;
-  margin:0 auto 8px;max-width:380px;
+  /* 2026-05-19: was 800 weight + 1.05rem reading as a heavy competing
+     headline under the orb. Dropped to 500 weight + slightly smaller
+     so it sits as a quiet caption, not a second masthead. Top margin
+     pulled negative to tighten against the orb's bottom edge. */
+  font-size:.95rem;font-weight:500;color:var(--text);
+  letter-spacing:-.005em;line-height:1.4;
+  margin:-6px auto 14px;max-width:340px;
 }
 .hero-orb-cta{
   display:inline-flex;align-items:center;gap:8px;
@@ -3755,7 +3766,11 @@ section.ui-section .ui-lede{
     z-index:40;
     width:172px;
     padding:14px 0 14px 14px;
-    border-left:1px solid rgba(0,0,0,.10);
+    /* 2026-05-19: contrast fix — was hardcoded rgba(0,0,0,.10) which
+       reads as black on dark themes (grey / crimson / stone) and
+       made the rail nearly invisible. Switched all colors to theme
+       variables so the TOC adapts to whatever palette is active. */
+    border-left:1px solid var(--border);
     font-family:'Inter', system-ui, -apple-system, sans-serif;
     /* No CSS transition on opacity: the browser was sometimes parking
        the implicit CSSTransition in an idle/time:null state on first
@@ -3769,16 +3784,14 @@ section.ui-section .ui-lede{
     opacity:1;
     pointer-events:auto;
   }
-  [data-theme="dark"] .page-toc{border-left-color:rgba(255,255,255,.10)}
   .page-toc-eyebrow{
     font-size:.58rem;
     font-weight:800;
     letter-spacing:.18em;
     text-transform:uppercase;
-    color:rgba(0,0,0,.42);
+    color:var(--text-dim);
     margin:0 0 12px;
   }
-  [data-theme="dark"] .page-toc-eyebrow{color:rgba(255,255,255,.42)}
   .page-toc-list{
     list-style:none;
     margin:0;
@@ -3791,26 +3804,23 @@ section.ui-section .ui-lede{
     display:block;
     font-size:.78rem;
     line-height:1.35;
-    color:rgba(0,0,0,.55);
+    color:var(--text-dim);
     text-decoration:none;
     padding:4px 0 4px 10px;
     margin-left:-15px;
     border-left:2px solid transparent;
     transition:color .2s, border-color .2s, padding-left .2s;
   }
-  [data-theme="dark"] .page-toc-list a{color:rgba(255,255,255,.5)}
   .page-toc-list a:hover{
-    color:#1a1a1f;
-    border-left-color:#ef4444;
+    color:var(--text);
+    border-left-color:var(--accent);
     padding-left:14px;
   }
-  [data-theme="dark"] .page-toc-list a:hover{color:#fff}
   .page-toc-list a.is-active{
-    color:#1a1a1f;
+    color:var(--text);
     font-weight:600;
-    border-left-color:#ef4444;
+    border-left-color:var(--accent);
   }
-  [data-theme="dark"] .page-toc-list a.is-active{color:#fff}
   /* Hidden under 1280px — at narrower viewports the FAQ grid can't
      sit fully right of the fixed rail without overflow, so the rail
      itself collapses below that breakpoint. */
@@ -4452,10 +4462,6 @@ section.ui-section .ui-lede{
       <!-- Right column of the editorial hero: voice orb card. -->
       <div class="hero-card-stack">
         <div class="hero-orb-card" aria-label="Voice AI">
-          <div class="hero-orb-eyebrow">
-            <span class="hero-orb-eyebrow-dot" aria-hidden="true"></span>
-            Voice AI · Live
-          </div>
           <canvas class="hero-orb-canvas" id="heroOrbCanvas" aria-hidden="true"></canvas>
           <div class="hero-orb-label">The AI listens, questions, and responds.</div>
           <a href="/voice-debate" class="hero-orb-cta" data-cta="hero-orb">
@@ -8265,6 +8271,14 @@ section.ui-section .ui-lede{
     <div class="faq-layout">
 
     <div class="faq-stack">
+
+      <details class="faq-stack-row" open>
+        <summary class="faq-stack-q">so wtf is this website??!<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+        <div class="faq-stack-a">
+          <p>Fair question. Debate AI is a voice-first sparring partner for competitive debaters. Pick a motion, pick a side, the AI takes the other one. You argue out loud against a clock. When the round ends, an AI judge writes a ballot with speaker points and a Reason for Decision.</p>
+          <p>Ten formats, six brains under the hood, fourteen languages. Built by a national APDA champion. Free in beta. That's it.</p>
+        </div>
+      </details>
 
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Is it actually free?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
