@@ -7049,7 +7049,11 @@ section.ui-section .ui-lede{
         // physically larger. fade also shrinks the pin as it
         // approaches the limb — small + dim = a real 3D recede.
         var pinR = m.size * r * 1.15 * (0.75 + depth * 0.35) * (0.5 + fade * 0.5);
-        var glowR = pinR * 2.8;
+        // Clamp halo so it never extends past the canvas edge. Without
+        // this, the big India marker (size 0.20) rotating to the visible
+        // limb gets its halo clipped square at the canvas border.
+        var distEdge = Math.min(m.x, m.y, W - m.x, H - m.y) - 1;
+        var glowR = Math.min(pinR * 2.8, Math.max(pinR * 1.2, distEdge));
         var glow = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, glowR);
         glow.addColorStop(0,   'rgba(' + c.markerCore + ',' + (0.55 * depth * fade) + ')');
         glow.addColorStop(0.4, 'rgba(' + c.markerCore + ',' + (0.22 * depth * fade) + ')');
