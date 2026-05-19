@@ -5777,64 +5777,35 @@ section.ui-section .ui-lede{
   }
 </style>
 
-<!-- 2026-05-19: "Inside the product" image gallery. Single
-     thumbnail trigger in-section; click opens a lightbox modal
-     with all 5 product screens (voice round, case generator,
-     live round, community disclosures, philosophy engine).
-     Thumb is visually cropped via object-fit:cover + a fixed
-     16:9 aspect-ratio so it shows a tight slice rather than
-     the whole UI in miniature. Source images are uncropped
-     on disk; modal stage shows them full. -->
+<!-- 2026-05-19: "Inside the product" image gallery. Inline thumb-swap
+     pattern (Zillow listing-card style): one moderate-size main image
+     with a row of 5 thumbnail buttons underneath. Clicking a thumb
+     swaps the main image + caption in place. No modal, no lightbox,
+     no swipe-up. Earlier rev opened into a full-screen overlay which
+     ballooned the screenshots past their native resolution and read
+     as too big/intense; keeping it inline and constrained lets the
+     images stay sharp and the section stay calm. -->
 <section id="product-gallery" class="product-gallery" aria-label="Inside the product">
-  <div class="wrap" style="max-width:1180px">
+  <div class="wrap" style="max-width:820px">
     <div class="pg-eyebrow">Inside the product</div>
     <h2 class="pg-title">What it actually looks like.</h2>
 
-    <button class="pg-trigger" type="button" data-gallery-open aria-haspopup="dialog" aria-controls="pgModal">
-      <img class="pg-trigger-thumb" src="/landing-shot-voice.jpg" alt="Voice round screen — opens a gallery of five product screens" loading="lazy">
-      <div class="pg-trigger-overlay">
-        <div class="pg-trigger-eyebrow">Gallery · 5 screens</div>
-        <div class="pg-trigger-label">View the product
-          <span class="pg-trigger-arrow" aria-hidden="true">→</span>
-        </div>
-        <div class="pg-trigger-meta">Voice round · Case prep · Live debate · Disclosures · Philosophy</div>
-      </div>
-    </button>
+    <div class="pg-frame">
+      <img class="pg-main" id="pgMainImg" src="/landing-shot-voice.jpg" alt="Voice round · argue out loud, against a clock." loading="lazy">
+    </div>
+
+    <div class="pg-thumbs" id="pgThumbs" role="tablist" aria-label="Product screens"></div>
+
+    <div class="pg-caption">
+      <div class="pg-caption-eyebrow" id="pgCaptionEyebrow">Voice round</div>
+      <h3 class="pg-caption-title" id="pgCaptionTitle">Argue out loud, against a clock.</h3>
+      <p class="pg-caption-body" id="pgCaptionBody">Motion at the top, silhouettes for both sides, a red orb that breathes when the AI speaks and ripples when you do. POIs, interruptions, a transcript that tracks every cut-in.</p>
+    </div>
   </div>
 </section>
 
-<!-- Lightbox modal: fixed overlay, hidden by default. JS below
-     toggles .pg-modal-open + sets focus, handles prev/next/ESC.
-     Lives outside the section so it floats above everything when
-     opened. -->
-<div class="pg-modal" id="pgModal" role="dialog" aria-modal="true" aria-label="Product screens gallery" hidden>
-  <div class="pg-modal-backdrop" data-gallery-close></div>
-  <div class="pg-modal-frame">
-    <button class="pg-modal-close" type="button" aria-label="Close gallery" data-gallery-close>
-      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
-    </button>
-    <div class="pg-modal-stage">
-      <button class="pg-modal-arrow pg-modal-arrow-prev" type="button" aria-label="Previous screen" data-gallery-prev>
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-      </button>
-      <img class="pg-modal-img" id="pgModalImg" src="" alt="">
-      <button class="pg-modal-arrow pg-modal-arrow-next" type="button" aria-label="Next screen" data-gallery-next>
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-      </button>
-    </div>
-    <div class="pg-modal-caption">
-      <div class="pg-modal-caption-eyebrow" id="pgModalEyebrow"></div>
-      <h3 class="pg-modal-caption-title" id="pgModalTitle"></h3>
-      <p class="pg-modal-caption-body" id="pgModalBody"></p>
-    </div>
-    <div class="pg-modal-thumbs" id="pgModalThumbs" role="tablist" aria-label="Gallery navigation"></div>
-  </div>
-</div>
-
 <script>
 (function(){
-  // Gallery shots + captions. Single source of truth — the trigger
-  // thumbnail uses entry 0, the modal pulls everything from here.
   var SHOTS = [
     { src: '/landing-shot-voice.jpg',        eyebrow: 'Voice round',       title: 'Argue out loud, against a clock.',          body: 'Motion at the top, silhouettes for both sides, a red orb that breathes when the AI speaks and ripples when you do. POIs, interruptions, a transcript that tracks every cut-in.' },
     { src: '/landing-shot-casegen.jpg',      eyebrow: 'Case generator',    title: 'A full case in 30 seconds.',                body: 'Drop a motion, pick a side, pick a format. The case comes back with framework, warrants, impacts, and A2 blocks ready for the top attacks.' },
@@ -5843,24 +5814,21 @@ section.ui-section .ui-lede{
     { src: '/landing-shot-philosophy.jpg',   eyebrow: 'Philosophy engine', title: 'Deploy philosophy where it weighs.',        body: 'Pick up to three thinkers. Deep-dive, apply to a motion, run a head-to-head Venn, or get framing language ready for your PM.' }
   ];
 
-  var modal = document.getElementById('pgModal');
-  var imgEl = document.getElementById('pgModalImg');
-  var eyebrowEl = document.getElementById('pgModalEyebrow');
-  var titleEl = document.getElementById('pgModalTitle');
-  var bodyEl = document.getElementById('pgModalBody');
-  var thumbsEl = document.getElementById('pgModalThumbs');
-  if (!modal || !imgEl || !thumbsEl) return;
+  var mainEl = document.getElementById('pgMainImg');
+  var thumbsEl = document.getElementById('pgThumbs');
+  var eyebrowEl = document.getElementById('pgCaptionEyebrow');
+  var titleEl = document.getElementById('pgCaptionTitle');
+  var bodyEl = document.getElementById('pgCaptionBody');
+  if (!mainEl || !thumbsEl) return;
 
   var idx = 0;
-  var lastFocus = null;
 
-  // Build the thumbnail nav strip once.
   SHOTS.forEach(function(s, i){
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'pg-modal-thumb';
+    btn.className = 'pg-thumb';
     btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-label', s.eyebrow + ' — ' + s.title);
+    btn.setAttribute('aria-label', s.eyebrow + ' · ' + s.title);
     btn.dataset.idx = String(i);
     var img = document.createElement('img');
     img.src = s.src;
@@ -5873,8 +5841,8 @@ section.ui-section .ui-lede{
 
   function render(){
     var s = SHOTS[idx];
-    imgEl.src = s.src;
-    imgEl.alt = s.eyebrow + ' — ' + s.title;
+    mainEl.src = s.src;
+    mainEl.alt = s.eyebrow + ' · ' + s.title;
     eyebrowEl.textContent = s.eyebrow;
     titleEl.textContent = s.title;
     bodyEl.textContent = s.body;
@@ -5884,247 +5852,93 @@ section.ui-section .ui-lede{
     });
   }
 
-  function open(startIdx){
-    idx = (typeof startIdx === 'number') ? startIdx : 0;
-    lastFocus = document.activeElement;
-    modal.hidden = false;
-    document.body.classList.add('pg-modal-open');
-    render();
-    // Defer focus so the modal is painted first.
-    requestAnimationFrame(function(){
-      var closeBtn = modal.querySelector('.pg-modal-close');
-      if (closeBtn) closeBtn.focus();
-    });
-    try { if (typeof window.gtag === 'function') window.gtag('event', 'product_gallery_open', { idx: idx }); } catch(e){}
-  }
-  function close(){
-    modal.hidden = true;
-    document.body.classList.remove('pg-modal-open');
-    if (lastFocus && lastFocus.focus) lastFocus.focus();
-  }
   function go(n){
     if (n < 0) n = SHOTS.length - 1;
     if (n >= SHOTS.length) n = 0;
     idx = n;
     render();
+    try { if (typeof window.gtag === 'function') window.gtag('event', 'product_gallery_select', { idx: idx }); } catch(e){}
   }
 
-  // Wire up open / close / prev / next via delegation.
-  document.addEventListener('click', function(e){
-    var t = e.target.closest('[data-gallery-open]');
-    if (t) { e.preventDefault(); open(0); return; }
-    if (e.target.closest('[data-gallery-close]')) { close(); return; }
-    if (e.target.closest('[data-gallery-prev]')) { go(idx - 1); return; }
-    if (e.target.closest('[data-gallery-next]')) { go(idx + 1); return; }
-  });
-  document.addEventListener('keydown', function(e){
-    if (modal.hidden) return;
-    if (e.key === 'Escape') { close(); return; }
-    if (e.key === 'ArrowLeft') { go(idx - 1); return; }
-    if (e.key === 'ArrowRight') { go(idx + 1); return; }
-  });
-
-  // Swipe gestures on touch devices.
-  var touchStartX = null;
-  modal.addEventListener('touchstart', function(e){
-    if (!e.touches[0]) return;
-    touchStartX = e.touches[0].clientX;
-  }, { passive: true });
-  modal.addEventListener('touchend', function(e){
-    if (touchStartX == null) return;
-    var touchEndX = (e.changedTouches[0] || {}).clientX;
-    if (typeof touchEndX !== 'number') return;
-    var dx = touchEndX - touchStartX;
-    if (Math.abs(dx) > 50) go(idx + (dx < 0 ? 1 : -1));
-    touchStartX = null;
-  });
+  render();
 })();
 </script>
 
 <style>
-  /* ── "Inside the product" gallery — section + trigger thumbnail ── */
-  .product-gallery{padding:56px 24px 32px}
+  /* ── "Inside the product" inline gallery ── */
+  .product-gallery{padding:44px 24px 28px}
   .pg-eyebrow{
     font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
     color:var(--text-dim);text-align:center;margin-bottom:8px;
   }
   .pg-title{
     font-family:'Fraunces',Georgia,"Times New Roman",serif;
-    font-size:clamp(1.45rem,2.4vw,2rem);
+    font-size:clamp(1.35rem,2.2vw,1.8rem);
     font-weight:600;letter-spacing:-.01em;line-height:1.15;
     color:var(--text);text-align:center;
-    margin:0 0 32px;
+    margin:0 0 22px;
   }
-  /* Trigger thumbnail. Renders as a "click me" card with a tight
-     16:9 crop of the voice-round shot + an overlay label. Whole
-     card is one button so any tap anywhere opens the modal. */
-  .pg-trigger{
-    display:block;width:100%;
-    max-width:980px;margin:0 auto;
-    position:relative;
-    padding:0;border:0;background:transparent;cursor:pointer;
-    border-radius:18px;overflow:hidden;
-    box-shadow:0 18px 44px rgba(0,0,0,.14);
-    transition:transform .25s ease, box-shadow .25s ease;
+  /* Main preview pane. Constrained max-width so the screenshots
+     stay near their native rendering size; the modal-style giant
+     viewport was making compression artifacts visible. */
+  .pg-frame{
+    max-width:720px;margin:0 auto;
+    border-radius:14px;overflow:hidden;
+    background:#fafaf7;
+    box-shadow:0 14px 36px rgba(0,0,0,.10);
   }
-  .pg-trigger:hover, .pg-trigger:focus-visible{
-    transform:translateY(-4px);
-    box-shadow:0 24px 56px rgba(0,0,0,.18);
-    outline:none;
-  }
-  .pg-trigger:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-  .pg-trigger-thumb{
+  .pg-main{
     display:block;width:100%;height:auto;
     aspect-ratio:16/9;object-fit:cover;object-position:center 32%;
     background:#fafaf7;
   }
-  .pg-trigger-overlay{
-    position:absolute;left:0;right:0;bottom:0;
-    padding:48px 28px 22px;
-    background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.55) 60%, rgba(0,0,0,.78) 100%);
-    color:#fff;
-    text-align:left;
-    pointer-events:none;
-  }
-  .pg-trigger-eyebrow{
-    font-size:.58rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
-    color:rgba(255,255,255,.78);
-    margin-bottom:6px;
-  }
-  .pg-trigger-label{
-    font-family:'Fraunces',Georgia,"Times New Roman",serif;
-    font-size:clamp(1.15rem,1.8vw,1.5rem);
-    font-weight:600;letter-spacing:-.01em;line-height:1.15;
-    display:inline-flex;align-items:center;gap:10px;
-    color:#fff;
-  }
-  .pg-trigger-arrow{
-    display:inline-block;font-size:.9em;
-    transition:transform .25s ease;
-  }
-  .pg-trigger:hover .pg-trigger-arrow,
-  .pg-trigger:focus-visible .pg-trigger-arrow{transform:translateX(4px)}
-  .pg-trigger-meta{
-    margin-top:8px;
-    font-size:.78rem;color:rgba(255,255,255,.78);
-    line-height:1.4;
-  }
-  @media (max-width:760px){
-    .product-gallery{padding:40px 16px 24px}
-    .pg-title{margin-bottom:24px}
-    .pg-trigger-thumb{aspect-ratio:4/3}
-    .pg-trigger-overlay{padding:40px 18px 18px}
-    .pg-trigger-meta{font-size:.7rem}
-  }
-
-  /* ── Lightbox modal ── */
-  body.pg-modal-open{overflow:hidden}
-  .pg-modal{
-    position:fixed;inset:0;z-index:9999;
-    display:flex;align-items:center;justify-content:center;
-    padding:32px 24px;
-    animation:pgModalFadeIn .22s ease both;
-  }
-  .pg-modal[hidden]{display:none}
-  @keyframes pgModalFadeIn{from{opacity:0}to{opacity:1}}
-  .pg-modal-backdrop{
-    position:absolute;inset:0;
-    background:rgba(8,8,12,.78);
-    backdrop-filter:blur(14px) saturate(110%);
-    -webkit-backdrop-filter:blur(14px) saturate(110%);
-  }
-  .pg-modal-frame{
-    position:relative;
-    width:100%;max-width:1120px;max-height:100%;
-    display:flex;flex-direction:column;
-    gap:14px;
-    pointer-events:none;
-  }
-  .pg-modal-frame > *{pointer-events:auto}
-  .pg-modal-close{
-    position:absolute;top:-6px;right:-6px;
-    width:40px;height:40px;border-radius:50%;
-    border:0;background:rgba(255,255,255,.12);color:#fff;
-    display:flex;align-items:center;justify-content:center;cursor:pointer;
-    transition:background .2s ease, transform .2s ease;
-    z-index:2;
-  }
-  .pg-modal-close:hover{background:rgba(255,255,255,.22);transform:rotate(90deg)}
-  .pg-modal-stage{
-    position:relative;
-    display:flex;align-items:center;justify-content:center;
-    background:#0a0a0c;
-    border-radius:14px;
-    overflow:hidden;
-    box-shadow:0 30px 80px rgba(0,0,0,.5);
-    max-height:64vh;
-  }
-  .pg-modal-img{
-    display:block;
-    max-width:100%;max-height:64vh;height:auto;
-    object-fit:contain;
-    background:#0a0a0c;
-  }
-  .pg-modal-arrow{
-    position:absolute;top:50%;transform:translateY(-50%);
-    width:44px;height:44px;border-radius:50%;
-    border:0;background:rgba(0,0,0,.45);color:#fff;
-    display:flex;align-items:center;justify-content:center;cursor:pointer;
-    transition:background .2s ease, transform .2s ease;
-  }
-  .pg-modal-arrow:hover{background:rgba(0,0,0,.7)}
-  .pg-modal-arrow-prev{left:14px}
-  .pg-modal-arrow-next{right:14px}
-  .pg-modal-arrow:hover.pg-modal-arrow-prev{transform:translateY(-50%) translateX(-2px)}
-  .pg-modal-arrow:hover.pg-modal-arrow-next{transform:translateY(-50%) translateX(2px)}
-  .pg-modal-caption{
-    text-align:center;color:#fff;
-    max-width:720px;margin:0 auto;
-    padding:0 8px;
-  }
-  .pg-modal-caption-eyebrow{
-    font-size:.58rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
-    color:rgba(255,255,255,.7);
-    margin-bottom:6px;
-  }
-  .pg-modal-caption-title{
-    font-family:'Fraunces',Georgia,"Times New Roman",serif;
-    font-size:clamp(1.1rem,1.6vw,1.35rem);
-    font-weight:600;letter-spacing:-.01em;line-height:1.25;
-    color:#fff;margin:0 0 6px;
-  }
-  .pg-modal-caption-body{
-    font-size:.86rem;line-height:1.5;color:rgba(255,255,255,.78);
-    margin:0;
-  }
-  .pg-modal-thumbs{
+  /* Thumb strip: even row of 5 buttons, evenly sized, sitting under
+     the main preview. Click a thumb to swap the main image in place. */
+  .pg-thumbs{
     display:flex;justify-content:center;gap:8px;
-    overflow-x:auto;
-    padding:0 8px 4px;
-    -webkit-overflow-scrolling:touch;
+    max-width:720px;margin:12px auto 0;
   }
-  .pg-modal-thumb{
-    flex:0 0 auto;width:84px;height:50px;
-    padding:0;border-radius:7px;overflow:hidden;cursor:pointer;
-    border:2px solid rgba(255,255,255,.18);
-    background:#0a0a0c;
+  .pg-thumb{
+    flex:1 1 0;min-width:0;
+    padding:0;border-radius:8px;overflow:hidden;cursor:pointer;
+    border:2px solid rgba(0,0,0,.08);
+    background:#fafaf7;
+    aspect-ratio:16/9;
     transition:border-color .18s ease, transform .18s ease;
   }
-  .pg-modal-thumb img{
+  .pg-thumb img{
     display:block;width:100%;height:100%;
-    object-fit:cover;object-position:center 35%;
+    object-fit:cover;object-position:center 32%;
   }
-  .pg-modal-thumb:hover{border-color:rgba(255,255,255,.45);transform:translateY(-1px)}
-  .pg-modal-thumb.is-active{border-color:var(--accent);box-shadow:0 0 0 1px rgba(239,68,68,.4)}
+  .pg-thumb:hover{border-color:rgba(0,0,0,.25);transform:translateY(-1px)}
+  .pg-thumb:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent)}
+  .pg-thumb.is-active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(239,68,68,.22)}
+  /* Caption below: small editorial block describing the active screen. */
+  .pg-caption{
+    max-width:640px;margin:16px auto 0;
+    text-align:center;
+  }
+  .pg-caption-eyebrow{
+    font-size:.58rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:6px;
+  }
+  .pg-caption-title{
+    font-family:'Fraunces',Georgia,"Times New Roman",serif;
+    font-size:clamp(1rem,1.4vw,1.2rem);
+    font-weight:600;letter-spacing:-.01em;line-height:1.25;
+    color:var(--text);margin:0 0 6px;
+  }
+  .pg-caption-body{
+    font-size:.85rem;line-height:1.5;color:var(--text-dim);
+    margin:0;
+  }
   @media (max-width:560px){
-    .pg-modal{padding:18px 12px}
-    .pg-modal-stage{max-height:54vh}
-    .pg-modal-img{max-height:54vh}
-    .pg-modal-arrow{width:36px;height:36px}
-    .pg-modal-arrow-prev{left:6px}
-    .pg-modal-arrow-next{right:6px}
-    .pg-modal-thumb{width:64px;height:38px}
-    .pg-modal-close{top:-4px;right:-4px;width:34px;height:34px}
+    .product-gallery{padding:32px 16px 20px}
+    .pg-title{margin-bottom:18px}
+    .pg-main{aspect-ratio:4/3}
+    .pg-thumbs{gap:5px}
+    .pg-caption-body{font-size:.8rem}
   }
 </style>
 
