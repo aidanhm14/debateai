@@ -362,9 +362,38 @@ button{font-family:inherit}
 }
 .speech-header .speaker-name{font-size:1.3rem;font-weight:900;letter-spacing:-.01em}
 .speech-header .speech-name{font-size:.86rem;color:var(--text-dim);font-weight:600}
+.speech-header .now-speaking-label{
+  font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-ghost);margin-right:4px;
+}
 .speech-header .speech-code{
   font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
   padding:3px 9px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--text);
+}
+/* Persistent "you're on [SIDE]" banner so each viewer always knows
+   which side they're representing, independent of whose turn it is.
+   Sits above the current-speech header. Color matches the side
+   (green for first side / red for second side / neutral for
+   spectators). Hidden when mySide is unknown AND user isn't a
+   spectator (legacy direct-link rounds, no signal to show). */
+.you-are-banner{
+  display:none;align-items:center;gap:10px;
+  padding:8px 14px;margin-bottom:12px;
+  border-radius:8px;border:1px solid var(--border);
+  font-size:.74rem;font-weight:700;letter-spacing:.04em;
+}
+.you-are-banner .yab-eyebrow{
+  font-size:.58rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--text-ghost);
+}
+.you-are-banner.is-pro{
+  background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.32);color:#4ade80;
+}
+.you-are-banner.is-con{
+  background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.34);color:#fca5a5;
+}
+.you-are-banner.is-spec{
+  background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim);
 }
 
 .timer-row{
@@ -786,12 +815,17 @@ button{font-family:inherit}
     <!-- ── ROUND (active speech) ── -->
     <div id="roundView" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
       <div class="speech-header">
+        <div class="you-are-banner" id="youAreBanner">
+          <span class="yab-eyebrow">You are</span>
+          <span id="youAreSide">—</span>
+        </div>
         <div class="speech-progress" id="speechProgress" style="font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim);opacity:.8;margin-bottom:6px">Speech 1 of 4 · then ballot</div>
         <div class="speaker-line">
           <span class="speech-code" id="speechCode">PM</span>
           <span class="speech-name" id="speechName">Speech</span>
         </div>
         <div class="speaker-line" style="margin-bottom:0">
+          <span class="now-speaking-label">Now speaking</span>
           <span class="speaker-name" id="speakerName">, </span>
           <span class="tag" id="speakerSide">, </span>
         </div>
@@ -1039,6 +1073,11 @@ button{font-family:inherit}
     con:    qs.get('con')    || '',
     proUid: qs.get('proUid') || '',
     conUid: qs.get('conUid') || '',
+    // Explicit side hint from /live.html — survives anonymous users
+    // (no Firebase UID) and same-account-two-tabs testing where UID
+    // matching collapses both viewers onto one side. Empty string for
+    // spectators / direct-entry rounds; mySide() falls back to UID.
+    mySide: (qs.get('mySide') === 'pro' || qs.get('mySide') === 'con') ? qs.get('mySide') : '',
     room:   qs.get('room')   || ('DebateAI-Round-' + Math.random().toString(36).slice(2,10)),
     source: qs.get('source') || '',
   };
@@ -1112,6 +1151,7 @@ button{font-family:inherit}
     conName: prefill.con,
     proUid: prefill.proUid,
     conUid: prefill.conUid,
+    mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
     room: prefill.room,
     speechIdx: 0,
     log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, overran }
@@ -1187,11 +1227,23 @@ button{font-family:inherit}
   }
 
   // ── Round view rendering
-  // Identify which side this signed-in user is on. Uses proUid/conUid
-  // URL params (which /live.html populates from the challenge doc).
-  // null = unknown (e.g., direct entry from 'Debate a friend now'
-  // without a challenge backing) — turn gating disabled in that case.
+  // Identify which side this user is on. Prefers the explicit
+  // ?mySide=pro|con URL hint from /live.html (which knows who is
+  // poster vs accepter), then falls back to UID matching for legacy
+  // links. URL-hint path survives anonymous users and same-account
+  // two-tabs testing where UID matching collapses both viewers
+  // onto one side. null = unknown — turn gating disabled.
   function mySide(){
+    // Signed-in user whose UID matches a participant slot wins —
+    // covers the case where a shared participant URL is opened by
+    // someone NOT in the round (their hint says pro/con but their
+    // UID matches neither, so they're really a spectator).
+    if (state.user && state.proUid && state.conUid){
+      if (state.proUid === state.user.uid) return 'pro';
+      if (state.conUid === state.user.uid) return 'con';
+      return null; // signed in but in neither slot → spectator
+    }
+    if (state.mySideHint === 'pro' || state.mySideHint === 'con') return state.mySideHint;
     if (!state.user) return null;
     if (state.proUid && state.proUid === state.user.uid) return 'pro';
     if (state.conUid && state.conUid === state.user.uid) return 'con';
@@ -1299,6 +1351,26 @@ button{font-family:inherit}
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
     sideTag.className = 'tag ' + (isFirstSide ? 'tag-pro' : 'tag-con');
+
+    // "You are on [SIDE]" banner — always-visible identity chip so
+    // each viewer can tell which side they're representing without
+    // having to wait for their turn. Hidden when there's no signal
+    // (direct-entry round, no UID + no mySide hint).
+    var yab = $('youAreBanner');
+    if (yab){
+      if (spectator){
+        yab.style.display = 'flex';
+        yab.className = 'you-are-banner is-spec';
+        $('youAreSide').textContent = 'spectating';
+      } else if (ms){
+        var myLabel = ms === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
+        yab.style.display = 'flex';
+        yab.className = 'you-are-banner ' + (ms === 'pro' ? 'is-pro' : 'is-con');
+        $('youAreSide').textContent = myLabel + (myTurn ? ' · your turn' : '');
+      } else {
+        yab.style.display = 'none';
+      }
+    }
     $('timerTarget').textContent = '/ ' + fmtTime(sp.time);
     $('speechText').value = '';
     state.micFinal = '';
