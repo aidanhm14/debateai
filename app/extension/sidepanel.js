@@ -68,7 +68,25 @@ const STORAGE_KEYS = {
   counterCardOpen: 'counter:card-open',
   counterReader: 'counter:reader',
   counterScope: 'counter:scope', // 'paragraph' | 'full-draft' (avoid clash w/ legacy 'mode')
+  counterTried: 'da-counter-tried', // '1' after first successful Counter run
 };
+
+// Sample passages for the first-use "Try with a sample" pill. Each one
+// is a real-shape paragraph the AI can produce a meaningful counter on.
+// Rotating through three keeps repeat first-use sessions from feeling
+// canned. Picked to span three of the reader-chip personas (admissions,
+// op-ed, debate case) so the user can also play with the reader picker.
+const SAMPLE_PASSAGES = [
+  // Admissions-essay-shaped paragraph. Common weak link: causation claim
+  // ("debate made me a better person") that's a correlation at best.
+  'Debate is what turned me into the kind of person who can lead. Before I started, I was the quiet kid in the back of the room. Now I can walk into any environment and make my case. That skill, more than anything else I learned in high school, is what I want to bring to college. It is the reason I can promise that I will contribute to seminars, dorm conversations, and student government from my first week on campus.',
+  // Op-ed-shaped paragraph. Weak link: the policy mechanism is hand-waved,
+  // and the counterfactual (what happens without the proposal) isn\'t drawn.
+  'The four-day work week is no longer a fringe idea. Iceland\'s trial showed productivity holding steady when hours dropped, and dozens of UK firms reported the same after the 2022 study. The case for adopting it nationally is now overwhelming: workers are healthier, families function better, and businesses find that focused work beats stretched-out work every time. The remaining holdouts are not defending a model that works; they are defending an attachment to the way things have always been done.',
+  // Debate-case-shaped paragraph (THBT motion style). Weak link: the
+  // burden ("most" / "in the long run") is doing a lot of unwarranted lift.
+  'This house believes that social media has done more harm than good. Our case rests on three pillars: it has destroyed teenage mental health, it has poisoned political discourse, and it has hollowed out local journalism. On each of these, the harm is structural and the benefit, where it exists, is individual and reversible. A teenager can quit Instagram; a generation cannot un-rewire its dopamine system. A reader can ignore Twitter; a democracy cannot un-radicalize itself once the algorithmic feedback loop has done its work.',
+];
 const VALID_READERS = new Set(['generic', 'admissions', 'oped', 'committee', 'opposing', 'vc', 'varsity']);
 const VALID_SCOPES = new Set(['paragraph', 'full-draft']);
 const COUNTER_CAPS = { paragraph: 12000, 'full-draft': 25000 };
@@ -138,6 +156,7 @@ const els = {
   counterRun: document.getElementById('counterRun'),
   counterError: document.getElementById('counterError'),
   counterResults: document.getElementById('counterResults'),
+  counterSample: document.getElementById('counterSample'),
   readerChips: document.getElementById('readerChips'),
   docStrip: document.getElementById('docStrip'),
   docStripTitle: document.getElementById('docStripTitle'),
@@ -878,17 +897,96 @@ async function runCounter() {
       });
     });
     if (res?.error) {
-      const hint = res.assistantMessage ? ` (${String(res.assistantMessage).slice(0, 140)})` : '';
-      showCounterError(`${res.error}${hint}`);
+      showCounterError(friendlyCounterError(res.error, res.assistantMessage));
       return;
     }
     state.counterResults = res;
     renderCounterResults(res);
+    // Mark the user as "has tried Counter" so the first-use sample pill
+    // stops showing. Only on success — a failed first attempt should
+    // keep the sample affordance visible.
+    try { localStorage.setItem(STORAGE_KEYS.counterTried, '1'); } catch (_) {}
+    renderSampleButton();
     try { SFX.captured(); } catch (_) {}
   } finally {
     setCounterLoading(false);
   }
 }
+
+// Map raw backend error strings to actionable user-facing copy. Common
+// failure shapes from /api/counter-doc + the background SW:
+//   "anthropic upstream unreachable" / "anthropic 5xx"  -> AI flaky, retry
+//   "anthropic 401" / "auth"                            -> not signed in
+//   "anthropic 429" / "rate limit"                      -> slow down
+//   "passage too long"                                  -> switch mode / trim
+//   "app-check-failed"                                  -> reload Counter
+//   "Could not establish connection"                    -> network down
+//   "model returned"/"structured"/"unexpected shape"    -> AI hiccup, retry
+//   anything else                                       -> pass through, prefixed
+// `assistantMessage` is the bonus context the agent sometimes emits;
+// preserved in parens if friendly mapping kicked in, so power users
+// can still see the underlying signal.
+function friendlyCounterError(rawError, assistantMessage) {
+  const raw = String(rawError || '').toLowerCase();
+  const tail = assistantMessage ? ` (${String(assistantMessage).slice(0, 140)})` : '';
+  if (/passage is too short/i.test(rawError)) {
+    return 'Paste a paragraph or longer — Counter needs more to work with.';
+  }
+  if (/passage too long|trim to the relevant section/i.test(rawError)) {
+    return 'That\'s a long draft. Switch to "Whole draft" mode or trim to just the section you want countered.';
+  }
+  if (/app-check-failed/.test(raw)) {
+    return 'Browser security check failed. Hit ↻ at the top of Counter to reload, then try again.';
+  }
+  if (/anthropic 401|auth|sign[- ]?in|unauthor/.test(raw)) {
+    return 'Sign in at debateai.com first, then come back and hit Counter again.';
+  }
+  if (/anthropic 429|rate.?limit|too many/.test(raw)) {
+    return 'Slow down — Counter is rate-limited. Wait a minute and hit it again.';
+  }
+  if (/anthropic 5\d\d|upstream unreachable|anthropic timeout/.test(raw)) {
+    return 'AI is having a moment. Try again in a few seconds.' + tail;
+  }
+  if (/could not establish connection|network|failed to fetch|err_network/.test(raw)) {
+    return 'Can\'t reach DebateAI. Check your connection, then hit Counter again.';
+  }
+  if (/model returned|unexpected shape|incomplete counter|malformed|structured/.test(raw)) {
+    return 'AI returned an unexpected response. Try a slightly different paragraph, or hit Counter again.' + tail;
+  }
+  if (/missing anthropic_api_key/i.test(rawError)) {
+    return 'Server is missing the AI key — this is on us, not you. Try again later or ping feedback@debateai.com.';
+  }
+  // Fall through: surface the raw error with a calm framing so it doesn't
+  // look like the extension crashed.
+  return `Counter ran into: ${rawError}.${tail} Try again or paste a different paragraph.`;
+}
+
+// Show / hide the first-use sample pill based on whether the user has
+// already run Counter at least once. Called from init + after a
+// successful run. The pill loads a random sample passage into the
+// textarea so first-timers can see Counter work without bringing their
+// own draft.
+function renderSampleButton() {
+  const btn = els.counterSample;
+  if (!btn) return;
+  let tried = false;
+  try { tried = localStorage.getItem(STORAGE_KEYS.counterTried) === '1'; } catch (_) {}
+  btn.hidden = tried;
+}
+els.counterSample?.addEventListener('click', () => {
+  if (!els.counterPassage) return;
+  const sample = SAMPLE_PASSAGES[Math.floor(Math.random() * SAMPLE_PASSAGES.length)];
+  els.counterPassage.value = sample;
+  els.counterPassage.focus();
+  // Move caret to end so the next keystroke appends rather than
+  // overwrites a selected block.
+  els.counterPassage.setSelectionRange(sample.length, sample.length);
+  updateCounterCount();
+  showCounterError('');
+  // Don't auto-run — let the user read the sample first + pick their
+  // reader/intensity. Just a gentle nudge.
+  showToast('Sample loaded. Tweak the reader/intensity, then hit "Counter this argument."', 4200);
+});
 
 els.counterToggle?.addEventListener('click', () => {
   const open = !els.counterCard?.classList.contains('is-open');
@@ -1409,6 +1507,8 @@ els.clearRecentBtn?.addEventListener('click', () => {
   }
   setCounterScope(state.counterScope);
   updateCounterCount();
+  // First-use sample pill — hidden once the user has run Counter once.
+  renderSampleButton();
   // Doc-context strip: ask the background SW whether the active tab is
   // a Google Doc, render the title strip if so. Re-runs whenever the
   // window regains focus so switching tabs picks up the new context.
