@@ -477,6 +477,7 @@ async function handleDocsMessage(msg) {
 // docTitle is included separately so the user can both (a) paste a raw
 // passage AND (b) point at an open Google Doc that's already been read.
 async function handleCounterMessage(msg) {
+  const startedAt = Date.now();
   try {
     const passage = String(msg?.passage || '').trim();
     const docTitle = String(msg?.docTitle || '').slice(0, 200);
@@ -488,16 +489,44 @@ async function handleCounterMessage(msg) {
     // Hard cap mirrors the server side. Full-draft accepts 25k; paragraph
     // mode stays at 12k.
     const cap = mode === 'full-draft' ? 25000 : 12000;
-    const res = await fetch(COUNTER_DOC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passage: passage.slice(0, cap), docTitle, intensity, reader, mode }),
-    });
+    console.log('[counter SW] fetching /api/counter-doc', { passageLen: passage.length, mode, reader, intensity });
+    // 40s upstream timeout: shorter than the sidepanel's 45s outer timeout
+    // so if the fetch itself hangs, the SW resolves with a clear error
+    // rather than the sidepanel hitting its own timeout first (which would
+    // leave us guessing at where in the stack the hang was).
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 40_000);
+    let res;
+    try {
+      res = await fetch(COUNTER_DOC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passage: passage.slice(0, cap), docTitle, intensity, reader, mode }),
+        signal: ac.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    console.log('[counter SW] /api/counter-doc responded in', Date.now() - startedAt, 'ms · status', res.status);
     const data = await res.json().catch(() => null);
-    if (!res.ok) return { error: data?.error || `counter ${res.status}` };
-    if (data?.error) return { error: data.error, assistantMessage: data.assistantMessage || '' };
+    if (!res.ok) {
+      console.warn('[counter SW] error response', res.status, data);
+      return { error: data?.error || `counter ${res.status}` };
+    }
+    if (data?.error) {
+      console.warn('[counter SW] data.error', data.error);
+      return { error: data.error, assistantMessage: data.assistantMessage || '' };
+    }
     return data;
   } catch (e) {
+    const elapsed = Date.now() - startedAt;
+    console.warn('[counter SW] threw after', elapsed, 'ms:', e?.name || '', e?.message || e);
+    // AbortError from our own timeout → friendly upstream message that
+    // the sidepanel's friendlyCounterError already maps to "AI is having
+    // a moment. Try again in a few seconds."
+    if (e?.name === 'AbortError') {
+      return { error: 'anthropic upstream timeout after ' + Math.round(elapsed / 1000) + 's' };
+    }
     return { error: String(e?.message || e) };
   }
 }

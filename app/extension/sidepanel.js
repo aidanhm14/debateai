@@ -871,6 +871,14 @@ function formatCounterAsDocComment(data) {
   lines.push('', '— via Counter for Google Docs (debateai.com/counter)');
   return lines.join('\n');
 }
+// Timeout for the whole runCounter round-trip. Caps how long the spinner
+// can spin before we forcibly resolve + reset state. Long enough to let
+// Sonnet do real work (the upstream Anthropic call is ~6-15s typical,
+// up to 25s when slow), short enough that a silent hang doesn't trap
+// the user with a non-responsive button forever. Hitting this surfaces
+// the friendly "AI is having a moment" error so the user can retry.
+const COUNTER_TIMEOUT_MS = 45_000;
+
 async function runCounter() {
   if (state.counterPending) return;
   const passage = (els.counterPassage?.value || '').trim();
@@ -880,8 +888,15 @@ async function runCounter() {
   }
   showCounterError('');
   setCounterLoading(true);
+  const startedAt = Date.now();
+  console.log('[counter] runCounter start', { passageLen: passage.length, mode: state.counterScope, reader: state.counterReader, intensity: state.counterIntensity });
   try {
-    const res = await new Promise((resolve) => {
+    // Race the SW round-trip against a hard timeout. Whichever resolves
+    // first wins. Without this race, a SW that gets killed mid-fetch or
+    // a backend that hangs forever leaves the spinner spinning + state
+    // .counterPending stuck at true — every subsequent click becomes a
+    // silent no-op because of the early-return at the top of this fn.
+    const swPromise = new Promise((resolve) => {
       chrome.runtime.sendMessage({
         type: 'counter-passage',
         passage,
@@ -890,13 +905,23 @@ async function runCounter() {
         mode: state.counterScope,
       }, (response) => {
         if (chrome.runtime.lastError) {
+          console.warn('[counter] chrome.runtime error:', chrome.runtime.lastError.message);
           resolve({ error: chrome.runtime.lastError.message });
           return;
         }
+        console.log('[counter] SW responded in', Date.now() - startedAt, 'ms');
         resolve(response || { error: 'no response' });
       });
     });
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => {
+        console.warn('[counter] timed out after', COUNTER_TIMEOUT_MS, 'ms');
+        resolve({ error: 'counter timeout: no response in ' + Math.round(COUNTER_TIMEOUT_MS / 1000) + 's' });
+      }, COUNTER_TIMEOUT_MS);
+    });
+    const res = await Promise.race([swPromise, timeoutPromise]);
     if (res?.error) {
+      console.warn('[counter] error:', res.error, res.assistantMessage || '');
       showCounterError(friendlyCounterError(res.error, res.assistantMessage));
       return;
     }
@@ -908,6 +933,12 @@ async function runCounter() {
     try { localStorage.setItem(STORAGE_KEYS.counterTried, '1'); } catch (_) {}
     renderSampleButton();
     try { SFX.captured(); } catch (_) {}
+  } catch (e) {
+    // Unexpected throw — shouldn't normally hit this since the Promise
+    // resolves rather than rejects, but the catch is a final safety net
+    // so state.counterPending always gets cleared via finally.
+    console.error('[counter] unexpected throw:', e);
+    showCounterError(friendlyCounterError(String(e?.message || e), ''));
   } finally {
     setCounterLoading(false);
   }
@@ -946,6 +977,9 @@ function friendlyCounterError(rawError, assistantMessage) {
   }
   if (/anthropic 5\d\d|upstream unreachable|anthropic timeout/.test(raw)) {
     return 'AI is having a moment. Try again in a few seconds.' + tail;
+  }
+  if (/counter timeout|no response in/.test(raw)) {
+    return 'Counter took too long to respond. The AI may be slow right now — hit Counter again, or try a shorter paragraph.';
   }
   if (/could not establish connection|network|failed to fetch|err_network/.test(raw)) {
     return 'Can\'t reach DebateAI. Check your connection, then hit Counter again.';
