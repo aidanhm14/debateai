@@ -828,6 +828,9 @@ button{font-family:inherit}
       </div>
       <div class="panel-section">
         <div class="label">Speakers</div>
+        <!-- 2-side default. BP / Worlds rounds also expose four
+             team-name inputs (cgName / coName) which the setup logic
+             reveals when state.formatKey is a 4-team format. -->
         <div class="field">
           <label for="proName" id="proLabel">Pro speaker</label>
           <input id="proName" type="text" maxlength="40" placeholder="Name on the Pro/Aff side" />
@@ -835,6 +838,14 @@ button{font-family:inherit}
         <div class="field">
           <label for="conName" id="conLabel">Con speaker</label>
           <input id="conName" type="text" maxlength="40" placeholder="Name on the Con/Neg side" />
+        </div>
+        <div class="field" id="cgField" style="display:none">
+          <label for="cgName">Closing Government team</label>
+          <input id="cgName" type="text" maxlength="40" placeholder="MG + GW team" />
+        </div>
+        <div class="field" id="coField" style="display:none">
+          <label for="coName">Closing Opposition team</label>
+          <input id="coName" type="text" maxlength="40" placeholder="MO + OW team" />
         </div>
       </div>
       <div class="panel-section">
@@ -970,25 +981,29 @@ button{font-family:inherit}
       { code:'LOR', name:'LO Rebuttal',        side:'opp', time:270 },
       { code:'PMR', name:'PM Rebuttal',        side:'gov', time:330 },
     ]},
-    bp: { name:'British Parliamentary', sides:['og','oo'], sideLabels:{og:'Opening Government',oo:'Opening Opposition'}, speeches:[
+    // BP / Worlds are 4-TEAM, not 2-side. MG/GW belong to Closing
+    // Government (CG), MO/OW belong to Closing Opposition (CO).
+    // Mis-tagging them as og/oo silently collapsed the format into a
+    // 1v1 — the judge could never separate OG from CG on the ballot.
+    bp: { name:'British Parliamentary', sides:['og','oo','cg','co'], sideLabels:{og:'Opening Government',oo:'Opening Opposition',cg:'Closing Government',co:'Closing Opposition'}, speeches:[
       { code:'PM',  name:'Prime Minister',           side:'og', time:420 },
       { code:'LO',  name:'Leader of Opposition',     side:'oo', time:420 },
       { code:'DPM', name:'Deputy Prime Minister',    side:'og', time:420 },
       { code:'DLO', name:'Deputy Leader of Opp',     side:'oo', time:420 },
-      { code:'MG',  name:'Member of Government',     side:'og', time:420 },
-      { code:'MO',  name:'Member of Opposition',     side:'oo', time:420 },
-      { code:'GW',  name:'Government Whip',          side:'og', time:420 },
-      { code:'OW',  name:'Opposition Whip',          side:'oo', time:420 },
+      { code:'MG',  name:'Member of Government',     side:'cg', time:420 },
+      { code:'MO',  name:'Member of Opposition',     side:'co', time:420 },
+      { code:'GW',  name:'Government Whip',          side:'cg', time:420 },
+      { code:'OW',  name:'Opposition Whip',          side:'co', time:420 },
     ]},
-    worlds: { name:'Worlds (WUDC)', sides:['og','oo'], sideLabels:{og:'Opening Government',oo:'Opening Opposition'}, speeches:[
+    worlds: { name:'Worlds (WUDC)', sides:['og','oo','cg','co'], sideLabels:{og:'Opening Government',oo:'Opening Opposition',cg:'Closing Government',co:'Closing Opposition'}, speeches:[
       { code:'PM',  name:'Prime Minister',           side:'og', time:420 },
       { code:'LO',  name:'Leader of Opposition',     side:'oo', time:420 },
       { code:'DPM', name:'Deputy Prime Minister',    side:'og', time:420 },
       { code:'DLO', name:'Deputy Leader of Opp',     side:'oo', time:420 },
-      { code:'MG',  name:'Member of Government',     side:'og', time:420 },
-      { code:'MO',  name:'Member of Opposition',     side:'oo', time:420 },
-      { code:'GW',  name:'Government Whip',          side:'og', time:420 },
-      { code:'OW',  name:'Opposition Whip',          side:'oo', time:420 },
+      { code:'MG',  name:'Member of Government',     side:'cg', time:420 },
+      { code:'MO',  name:'Member of Opposition',     side:'co', time:420 },
+      { code:'GW',  name:'Government Whip',          side:'cg', time:420 },
+      { code:'OW',  name:'Opposition Whip',          side:'co', time:420 },
     ]},
     asian: { name:'Asian Parliamentary', sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'}, speeches:[
       { code:'PM',  name:'Prime Minister',     side:'gov', time:420 },
@@ -1049,6 +1064,23 @@ button{font-family:inherit}
       { code:'S6',  name:'Third Con Speech',          side:'con', time:180 },
     ]},
   };
+
+  // ── Bench projection. BP / Worlds have 4 sides (og/oo/cg/co) but the
+  // legacy UI is shaped around 2 (pro/con). sideBench maps any side
+  // key to the "gov bench" or "opp bench" so existing speaker-name
+  // routing keeps working. New 4-team ballot logic uses f.sides
+  // directly. govBench / oppBench return the list of sides on each
+  // bench — for a 2-side format that's just [side[0]] / [side[1]].
+  function sideBench(f, sideKey){
+    if (!f || !sideKey) return null;
+    if (['og','cg','gov','pro','aff'].indexOf(sideKey) >= 0) return 'gov';
+    if (['oo','co','opp','con','neg'].indexOf(sideKey) >= 0) return 'opp';
+    // Fallback: side[0] is gov bench, anything else is opp.
+    return sideBench(f, sideKey) === 'gov' ? 'gov' : 'opp';
+  }
+  function isFourTeam(f){ return f && Array.isArray(f.sides) && f.sides.length >= 4; }
+  function govSides(f){ return f.sides.filter(function(s){ return sideBench(f, s) === 'gov'; }); }
+  function oppSides(f){ return f.sides.filter(function(s){ return sideBench(f, s) === 'opp'; }); }
 
   // ── JUDGE_RULES. Format-specific judging instincts the AI judge applies
   // when writing the RFD. Mirrors the per-format authority in
@@ -1259,6 +1291,10 @@ button{font-family:inherit}
     motion: prefill.motion,
     proName: prefill.pro,
     conName: prefill.con,
+    // 4-team formats (BP / Worlds) carry team names for Closing Gov +
+    // Closing Opp. The 2-side path leaves these blank; the BP UI
+    // reveals two extra inputs and writes them in.
+    teamNames: { og: '', oo: '', cg: '', co: '' },
     proUid: prefill.proUid,
     conUid: prefill.conUid,
     mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
@@ -1306,13 +1342,35 @@ button{font-family:inherit}
   function renderSetup(){
     var f = FORMATS[state.formatKey];
     $('motionDisplay').textContent = state.motion || '(no motion provided, paste one in via the URL or set it now)';
+    // For 4-team formats, render a chip per team (OG / OO / CG / CO).
+    // The 2-side formats keep the original pro/con chip pair.
+    var sideChips = isFourTeam(f)
+      ? f.sides.map(function(s){
+          var cls = sideBench(f, s) === 'gov' ? 'tag-pro' : 'tag-con';
+          return '<span class="tag ' + cls + '">' + escHtml(f.sideLabels[s]) + '</span>';
+        }).join('')
+      : '<span class="tag tag-pro">' + escHtml(f.sideLabels[f.sides[0]]) + '</span>'
+        + '<span class="tag tag-con">' + escHtml(f.sideLabels[f.sides[1]]) + '</span>';
     $('formatDisplay').innerHTML =
       '<span class="tag">' + escHtml(f.name) + '</span>' +
-      '<span class="tag tag-pro">' + escHtml(f.sideLabels[f.sides[0]]) + '</span>' +
-      '<span class="tag tag-con">' + escHtml(f.sideLabels[f.sides[1]]) + '</span>' +
+      sideChips +
       '<span class="tag">' + f.speeches.length + ' speech' + (f.speeches.length===1?'':'es') + '</span>';
-    $('proLabel').textContent = f.sideLabels[f.sides[0]] + ' speaker';
-    $('conLabel').textContent = f.sideLabels[f.sides[1]] + ' speaker';
+    // For 4-team formats, the existing pro/con inputs are repurposed
+    // as OG + OO; the CG / CO inputs below them are revealed via the
+    // styled fields. For 2-side formats, those fields stay hidden.
+    if (isFourTeam(f)){
+      $('proLabel').textContent = f.sideLabels.og + ' team';
+      $('conLabel').textContent = f.sideLabels.oo + ' team';
+      var cgF = $('cgField'), coF = $('coField');
+      if (cgF) cgF.style.display = '';
+      if (coF) coF.style.display = '';
+    } else {
+      $('proLabel').textContent = f.sideLabels[f.sides[0]] + ' speaker';
+      $('conLabel').textContent = f.sideLabels[f.sides[1]] + ' speaker';
+      var cgF2 = $('cgField'), coF2 = $('coField');
+      if (cgF2) cgF2.style.display = 'none';
+      if (coF2) coF2.style.display = 'none';
+    }
     $('proName').value = state.proName;
     $('conName').value = state.conName;
     $('formatSel').value = state.formatKey;
@@ -1321,7 +1379,7 @@ button{font-family:inherit}
     // Speech sequence preview
     var totalMin = Math.round(f.speeches.reduce(function(s,sp){return s+sp.time;},0)/60);
     var seq = f.speeches.map(function(sp){
-      var who = sp.side === f.sides[0] ? 'pro' : 'con';
+      var who = sideBench(f, sp.side) === 'gov' ? 'pro' : 'con';
       return '<span class="tag tag-' + who + '" style="margin:2px 4px 2px 0">' + escHtml(sp.code) + ' · ' + Math.round(sp.time/60*10)/10 + 'm</span>';
     }).join('');
     $('sequencePreview').innerHTML = seq + '<div style="margin-top:8px;color:var(--text-ghost)">Total: ~' + totalMin + ' minutes</div>';
@@ -1330,9 +1388,15 @@ button{font-family:inherit}
   }
 
   function updateStartBtn(){
+    var f = FORMATS[state.formatKey];
     var ok = state.motion.trim().length > 5
           && $('proName').value.trim().length > 0
           && $('conName').value.trim().length > 0;
+    // 4-team formats need all four team names before the round can start.
+    if (isFourTeam(f)){
+      var cg = $('cgName'), co = $('coName');
+      if (!cg || !cg.value.trim().length || !co || !co.value.trim().length) ok = false;
+    }
     $('startBtn').disabled = !ok;
   }
 
@@ -1383,7 +1447,7 @@ button{font-family:inherit}
     if (isSpectator()) return false;
     var ms = mySide();
     if (!ms) return true; // no UID mapping → don't gate
-    var spIsFirstSide = sp.side === f.sides[0];
+    var spIsFirstSide = sideBench(f, sp.side) === 'gov';
     return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
   }
 
@@ -1398,7 +1462,7 @@ button{font-family:inherit}
     var f = FORMATS[state.formatKey];
     var sp = f && f.speeches[state.speechIdx];
     if (!sp) return;
-    var isFirstSide = sp.side === f.sides[0];
+    var isFirstSide = sideBench(f, sp.side) === 'gov';
     var speakerName = isFirstSide ? state.proName : state.conName;
     var sideLabel = f.sideLabels[sp.side];
     var ms = mySide();
@@ -1435,7 +1499,7 @@ button{font-family:inherit}
     var sp = f.speeches[state.speechIdx];
     if (!sp){ finishRound(); return; }
     var sideKey = sp.side;
-    var isFirstSide = sideKey === f.sides[0];
+    var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = isFirstSide ? state.proName : state.conName;
     var sideLabel = f.sideLabels[sideKey];
 
@@ -1479,7 +1543,7 @@ button{font-family:inherit}
       var secondLabel = f.sideLabels[f.sides[1]];
       var proName = state.proName || 'anonymous';
       var conName = state.conName || 'anonymous';
-      var spIsFirstSide = sp.side === f.sides[0];
+      var spIsFirstSide = sideBench(f, sp.side) === 'gov';
       var rYouEy = $('rosterYouEyebrow');
       var rYouNm = $('rosterYouName');
       var rYouSd = $('rosterYouSide');
@@ -2079,6 +2143,12 @@ button{font-family:inherit}
     }
     state.proName = $('proName').value.trim();
     state.conName = $('conName').value.trim();
+    if (!state.teamNames) state.teamNames = {};
+    state.teamNames.og = state.proName;
+    state.teamNames.oo = state.conName;
+    var cgEl = $('cgName'), coEl = $('coName');
+    state.teamNames.cg = cgEl ? cgEl.value.trim() : '';
+    state.teamNames.co = coEl ? coEl.value.trim() : '';
     state.formatKey = $('formatSel').value;
     state.speechIdx = 0;
     state.log = [];
@@ -2107,7 +2177,7 @@ button{font-family:inherit}
     stopTimer();
     setMicActive(false);
     var sideKey = sp.side;
-    var isFirstSide = sideKey === f.sides[0];
+    var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = isFirstSide ? state.proName : state.conName;
     var entry = {
       code: sp.code,
@@ -2170,14 +2240,86 @@ button{font-family:inherit}
   // schema-locked prompt asking for a JSON ballot keyed by speaker name.
   // Streamed because the upstream endpoint streams; we collect the chunks
   // and parse the JSON at the end.
+  // ── 4-team ballot prompt (BP / Worlds). Replaces the pro/con shape
+  // with a full 4-team ranking + per-seat speaker scores + per-team
+  // feedback. Bench-aware so MG/GW are correctly attributed to CG
+  // (not lumped with OG) and MO/OW to CO. The judge schema returns
+  // teamRanking[] (positions 1-4), speakerScores{} (one per speech
+  // code: PM/LO/DPM/DLO/MG/MO/GW/OW), winningBench (gov/opp), and
+  // teamFeedback{} keyed by side. parseBallot accepts both shapes.
+  function buildBpBallotPrompt(f, transcript){
+    var teamNamesLine = f.sides.map(function(s){
+      var label = f.sideLabels[s];
+      var nm = (state.teamNames && state.teamNames[s]) || (s === 'og' ? state.proName : s === 'oo' ? state.conName : '');
+      return label + (nm ? ' = ' + nm : '');
+    }).join('\n');
+
+    var system = [
+      "You are a tournament-grade " + f.name + " judge adjudicating a FOUR-TEAM round. Eight speakers across four teams just finished. You are not picking a winning side — you are ORDERING THE TEAMS 1-2-3-4. Be honest, specific, rigorous, and DEEP — these are real debaters paying for tournament-grade adjudication.",
+      "",
+      "BP/WUDC JUDGING APPROACH:",
+      "- Rank all four teams 1-2-3-4 by total contribution to the debate. The top team had the most persuasive case + extensions + engagement; the bottom team did the least.",
+      "- Closing teams (CG and CO) had to EXTEND with new analytical terrain — new actor, new timeframe, or new impact LAYER (not a new example, not just a recap of their opening). Vertical extensions (going deeper on the same end-conclusion via new analytical machinery) are LEGITIMATE per the WUDC Manual.",
+      "- Whip speeches (GW / OW) are ADJUDICATION, not partner-recap. Global weighing by ISSUE. A whip that narrates their partner's case loses to a whip that writes the ballot for the chair.",
+      "- HALF-CALL diagonal comparison: judge OG vs CO and CG vs OO, not just within each bench. A closing speech that engaged only its opening underperforms.",
+      "- SOFIA 2026 MANUAL: POIs are MANDATORY. 0 POIs taken in a 7-min speech is an automatic role-fulfillment dock. Whip-flexibility: new analytical reframings are now OK, wholly new contentions are not.",
+      "- OG without a clear MODEL (who does what, when, funded how, enforced how) loses the first burden — name this in the RFD.",
+      "",
+      "FORMAT RULES — judge through this lens:",
+      ...(JUDGE_RULES[state.formatKey] || []),
+      "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END): WUDC Imperial 50-100 — 60-65 incoherent, 67 struggling, 70 below average, 73 average (no weighing), 75 good (real warrants), 77-78 excellent (would break at most tournaments), 80 top-of-field, 85+ essentially never given. DEFAULT TO 73-76. If a speaker dropped a contention, gave 0 POIs, used generic LLM phrasing, or never warranted a key claim, score them 71 or below. Do NOT cluster speakers at 78+ to be encouraging.",
+      "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
+      "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
+      "",
+      "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
+      "{",
+      '  "format": "bp",',
+      '  "teamRanking": [',
+      '    { "rank": 1, "side": "og" | "oo" | "cg" | "co", "label": "<Opening Government | …>", "summary": "<one sentence on why they took 1st>" },',
+      '    { "rank": 2, "side": "...", "label": "...", "summary": "..." },',
+      '    { "rank": 3, "side": "...", "label": "...", "summary": "..." },',
+      '    { "rank": 4, "side": "...", "label": "...", "summary": "..." }',
+      '  ],',
+      '  "speakerScores": { "PM": <num>, "LO": <num>, "DPM": <num>, "DLO": <num>, "MG": <num>, "MO": <num>, "GW": <num>, "OW": <num> },',
+      '  "winningBench": "gov" | "opp",',
+      '  "rfd": "<10–18 sentence RFD. Lead with the 1st-place team and why. Walk OG-vs-CG (gov bench order) and OO-vs-CO (opp bench order) explicitly — explain whether each closing extended legitimately or got under-cut. Do half-call diagonal comparison (CG vs OO; CO vs OG). Name dropped arguments. Do weighing: magnitude vs probability vs timeframe. Quote specific lines from the transcript.>",',
+      '  "teamFeedback": {',
+      '    "og": "<3–5 sentences for Opening Government: what their model + opening case did right, what they could have done to beat CG, one concrete fix.>",',
+      '    "oo": "<same for Opening Opposition>",',
+      '    "cg": "<same for Closing Government: did the extension land? Was the GW global weighing or partner-recap?>",',
+      '    "co": "<same for Closing Opposition>"',
+      '  }',
+      "}",
+      "",
+      "Be specific to what was said. Quote-style references are great. Do not be sycophantic — call out drops, missed weighing, weak extensions, and failed whips. If a closing team had no real extension, drop them below their opening regardless of skill differential.",
+    ].join('\n');
+
+    var user = "MOTION: " + state.motion + "\n\nFORMAT: " + f.name + "\n\nTEAMS:\n" + teamNamesLine
+      + "\n\nFULL ROUND TRANSCRIPT:\n\n" + transcript
+      + "\n\nReturn the JSON ballot now. The teamRanking array MUST contain exactly 4 entries with ranks 1, 2, 3, 4 and unique side values from og/oo/cg/co.";
+
+    return { system: system, user: user };
+  }
+
   function buildBallotPrompt(){
     var f = FORMATS[state.formatKey];
     var transcript = state.log.map(function(l){
+      // For 4-team formats the side label IS the team identifier
+      // ("Closing Government" vs "Opening Government") so MG/GW don't
+      // get mis-tagged as OG speeches in the judge's transcript.
       return '[' + l.code + ' · ' + l.speakerName + ' (' + f.sideLabels[l.side] + ')]'
         + (l.overran ? ' [OVERRAN]' : '')
         + (l.skipped ? ' [SKIPPED]' : '')
         + '\n' + l.text;
     }).join('\n\n');
+
+    // 4-team formats (BP / Worlds) take a totally different ballot
+    // shape: rank ALL FOUR teams 1-2-3-4, speaker scores per seat,
+    // per-team feedback. The 2-side path below is left untouched for
+    // APDA / PF / LD / Policy / Congress / Quick.
+    if (isFourTeam(f)){
+      return buildBpBallotPrompt(f, transcript);
+    }
 
     var system = [
       "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP — these are real debaters paying for tournament-grade adjudication. A shallow ballot wastes their round.",
@@ -2318,6 +2460,18 @@ button{font-family:inherit}
     if (first < 0 || last <= first) return null;
     try {
       var obj = JSON.parse(inner.slice(first, last + 1));
+      // 4-team (BP/Worlds) ballot. Validate the shape; derive a synthetic
+      // `winner` (gov|opp) from the top-ranked team so downstream code
+      // that wants a "did pro win?" answer still has something.
+      if (Array.isArray(obj.teamRanking) && obj.teamRanking.length === 4){
+        obj.format = obj.format || 'bp';
+        var top = obj.teamRanking[0] || {};
+        var topSide = String(top.side || '').toLowerCase();
+        obj.winningBench = String(obj.winningBench || sideBench({sides:['og','oo','cg','co']}, topSide) || 'gov').toLowerCase();
+        obj.winner = obj.winningBench === 'gov' ? 'pro' : 'con';
+        return obj;
+      }
+      // Legacy 2-side ballot.
       obj.winner = String(obj.winner || '').toLowerCase();
       if (obj.winner !== 'pro' && obj.winner !== 'con') return null;
       return obj;
@@ -2586,6 +2740,95 @@ button{font-family:inherit}
   // CSS animation. Read-aloud additionally streams the verdict + RFD
   // through /api/tts (professor persona) so the AI judge "reads out"
   // the ballot while the text fades in.
+  // ── 4-team ballot body (BP / Worlds). Renders rank 1-2-3-4 with
+  // per-seat speaker scores, per-team feedback, and the full RFD.
+  // Called from renderBallotBody when the ballot shape carries a
+  // teamRanking[] array.
+  function renderBpBallotBody(b, f, result, mode, staged){
+    var SIDE_KEYS = ['og','oo','cg','co'];
+    var SIDE_SHORT = { og:'OG', oo:'OO', cg:'CG', co:'CO' };
+    var SIDE_COLOR = { og:'#4ade80', oo:'#fca5a5', cg:'#86efac', co:'#fecaca' };
+    var SPEECH_OF_SIDE = { og:['PM','DPM'], oo:['LO','DLO'], cg:['MG','GW'], co:['MO','OW'] };
+    function teamName(side){
+      if (state.teamNames && state.teamNames[side]) return state.teamNames[side];
+      if (side === 'og') return state.proName || 'OG';
+      if (side === 'oo') return state.conName || 'OO';
+      return f.sideLabels[side] || (SIDE_SHORT[side] || side);
+    }
+    var ranking = b.teamRanking.slice().sort(function(a, c){ return (a.rank||9) - (c.rank||9); });
+    var scores = b.speakerScores || {};
+    var feedback = b.teamFeedback || {};
+    var topTeam = ranking[0] || {};
+    var topSide = String(topTeam.side || '').toLowerCase();
+
+    var rankRows = ranking.map(function(r){
+      var side = String(r.side || '').toLowerCase();
+      var seats = SPEECH_OF_SIDE[side] || [];
+      var seatScores = seats.map(function(code){
+        var s = scores[code];
+        return '<span class="bp-seat"><span class="bp-seat-code">' + escHtml(code) + '</span><span class="bp-seat-score">' + (typeof s === 'number' ? s.toFixed(1) : '—') + '</span></span>';
+      }).join('');
+      return '<div class="bp-rank-row bp-rank-' + r.rank + '" style="border-left-color:' + SIDE_COLOR[side] + '">'
+        + '<div class="bp-rank-num">' + r.rank + '</div>'
+        + '<div class="bp-rank-body">'
+          + '<div class="bp-rank-team">' + escHtml(r.label || f.sideLabels[side] || side) + ' <span class="bp-rank-team-name">' + escHtml(teamName(side)) + '</span></div>'
+          + '<div class="bp-rank-summary">' + escHtml(r.summary || '') + '</div>'
+          + '<div class="bp-rank-seats">' + seatScores + '</div>'
+        + '</div>'
+      + '</div>';
+    }).join('');
+
+    var feedbackRows = SIDE_KEYS.map(function(side){
+      var fb = feedback[side];
+      if (!fb) return '';
+      return '<div class="bp-fb"><div class="bp-fb-head" style="color:' + SIDE_COLOR[side] + '">' + escHtml(f.sideLabels[side] || SIDE_SHORT[side]) + ' <span style="color:var(--text-dim);font-weight:600">· ' + escHtml(teamName(side)) + '</span></div><div class="bp-fb-body">' + escHtml(fb) + '</div></div>';
+    }).join('');
+
+    result.innerHTML =
+      '<style>'
+        + '.bp-result{padding:8px 0}'
+        + '.bp-verdict{display:flex;align-items:center;gap:14px;padding:18px 22px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.02));border:1px solid rgba(34,197,94,.32);border-radius:14px;margin-bottom:18px}'
+        + '.bp-verdict-eyebrow{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#4ade80}'
+        + '.bp-verdict-headline{font-size:1.4rem;font-weight:900;color:var(--text);line-height:1.2;margin-top:4px}'
+        + '.bp-verdict-headline em{font-style:normal;color:#4ade80}'
+        + '.bp-rank-row{display:flex;gap:14px;align-items:flex-start;padding:14px 18px;border:1px solid var(--border);border-left:4px solid;border-radius:10px;background:rgba(255,255,255,.02);margin-bottom:10px}'
+        + '.bp-rank-num{font-size:2.4rem;font-weight:900;line-height:1;width:50px;text-align:center;color:var(--text);flex-shrink:0}'
+        + '.bp-rank-1 .bp-rank-num{color:#fde68a;text-shadow:0 0 18px rgba(253,224,71,.45)}'
+        + '.bp-rank-body{flex:1;min-width:0}'
+        + '.bp-rank-team{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:4px}'
+        + '.bp-rank-team-name{font-weight:600;color:var(--text-dim);font-size:.84rem}'
+        + '.bp-rank-summary{font-size:.84rem;color:var(--text-dim);line-height:1.5;margin-bottom:8px}'
+        + '.bp-rank-seats{display:flex;gap:10px;flex-wrap:wrap}'
+        + '.bp-seat{display:inline-flex;align-items:baseline;gap:4px;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--border)}'
+        + '.bp-seat-code{font-size:.6rem;font-weight:800;letter-spacing:.08em;color:var(--text-dim)}'
+        + '.bp-seat-score{font-size:.78rem;font-weight:800;color:var(--text)}'
+        + '.bp-rfd{padding:18px 22px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;margin:18px 0;font-size:.92rem;line-height:1.65;color:var(--text);white-space:pre-wrap}'
+        + '.bp-fb{padding:14px 18px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card);margin-bottom:10px}'
+        + '.bp-fb-head{font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}'
+        + '.bp-fb-body{font-size:.86rem;color:var(--text);line-height:1.55}'
+      + '</style>'
+      + '<div class="bp-result">'
+        + '<div class="bp-verdict"' + (staged ? ' data-stage="0"' : '') + '>'
+          + '<div style="flex:1">'
+            + '<div class="bp-verdict-eyebrow">Ballot · ' + escHtml(f.name) + '</div>'
+            + '<div class="bp-verdict-headline"><em>' + escHtml(f.sideLabels[topSide] || SIDE_SHORT[topSide]) + '</em> takes the round</div>'
+          + '</div>'
+        + '</div>'
+        + '<div class="ballot-section"' + (staged ? ' data-stage="1"' : '') + '>'
+          + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px">Team ranking</h3>'
+          + rankRows
+        + '</div>'
+        + '<div class="ballot-section"' + (staged ? ' data-stage="2"' : '') + '>'
+          + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Reason for decision</h3>'
+          + '<div class="bp-rfd">' + escHtml(b.rfd || '(no RFD)') + '</div>'
+        + '</div>'
+        + (feedbackRows ? '<div class="ballot-section"' + (staged ? ' data-stage="3"' : '') + '>'
+            + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Team feedback</h3>'
+            + feedbackRows
+          + '</div>' : '')
+      + '</div>';
+  }
+
   function renderBallotBody(b, mode){
     var staged = mode === 'staged' || mode === 'read-aloud';
     $('ballotLoading').classList.add('hidden');
@@ -2601,6 +2844,14 @@ button{font-family:inherit}
       try { startBallotReadAloud(b); } catch(e){ console.warn('[read-aloud]', e); }
     }
     var f = FORMATS[state.formatKey];
+    // 4-team ballot path. Render the 1-2-3-4 ranking + per-seat
+    // speaker scores + per-team feedback. Falls back to the 2-side
+    // body if the ballot didn't actually come back as 4-team-shaped
+    // (e.g., the model returned the old schema by mistake).
+    if (isFourTeam(f) && Array.isArray(b.teamRanking) && b.teamRanking.length === 4){
+      renderBpBallotBody(b, f, result, mode, staged);
+      return;
+    }
     var winnerName = b.winner === 'pro' ? state.proName : state.conName;
     var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
     var loserName  = b.winner === 'pro' ? state.conName : state.proName;
@@ -2702,7 +2953,7 @@ button{font-family:inherit}
       // publisher's own arguments.
       var mine = (state.log || []).filter(function(e){
         if (!ms) return true;
-        var spIsFirstSide = e.side === f.sides[0];
+        var spIsFirstSide = sideBench(f, e.side) === 'gov';
         return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
       });
       var fullText = mine.map(function(e){ return '[' + (e.code || '') + ']\n' + (e.text || ''); }).join('\n\n');
@@ -2853,8 +3104,13 @@ button{font-family:inherit}
   }
 
   // ── Wire setup form
-  $('proName').addEventListener('input', function(){ state.proName = this.value; updateStartBtn(); });
-  $('conName').addEventListener('input', function(){ state.conName = this.value; updateStartBtn(); });
+  $('proName').addEventListener('input', function(){ state.proName = this.value; if (!state.teamNames) state.teamNames = {}; state.teamNames.og = this.value; updateStartBtn(); });
+  $('conName').addEventListener('input', function(){ state.conName = this.value; if (!state.teamNames) state.teamNames = {}; state.teamNames.oo = this.value; updateStartBtn(); });
+  (function(){
+    var cg = $('cgName'), co = $('coName');
+    if (cg) cg.addEventListener('input', function(){ if (!state.teamNames) state.teamNames = {}; state.teamNames.cg = this.value; updateStartBtn(); });
+    if (co) co.addEventListener('input', function(){ if (!state.teamNames) state.teamNames = {}; state.teamNames.co = this.value; updateStartBtn(); });
+  })();
   $('formatSel').addEventListener('change', function(){
     state.formatKey = this.value;
     renderSetup();
@@ -2892,7 +3148,7 @@ button{font-family:inherit}
     var ms = mySide();
     var log = state.log || [];
     var mine = ms ? log.filter(function(e){
-      var spIsFirstSide = e.side === f.sides[0];
+      var spIsFirstSide = sideBench(f, e.side) === 'gov';
       return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
     }) : log;
     var pool = mine.length ? mine : log;
