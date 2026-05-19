@@ -365,6 +365,8 @@
       '<span class=sep></span>' +
       '<input type=color data-action="color" title="Text color">' +
       '<span class=sep></span>' +
+      '<button data-action="parent" title="Select this element’s container (walk up the DOM). Auto-enters Move mode so you can drag the whole block.">↑ Parent</button>' +
+      '<span class=sep></span>' +
       '<button data-action="move" data-role=move title="Toggle drag-to-reposition (uses transform: translate)">⇄ Move</button>' +
       '<span class=sep></span>' +
       '<button data-action="reset" title="Reset all inline styles on this element">Reset</button>';
@@ -451,6 +453,30 @@
       active.style.width = newPct + '%';
     } else if (a === 'move') {
       setMoveMode(!moveMode);
+    } else if (a === 'parent') {
+      // Walk active up to its parentElement so the user can grab a whole
+      // container/card/section and drag it. The default click-to-activate
+      // only picks text leaves (h1/p/span) per isEditable's "no element
+      // children" rule, so this is the escape hatch for moving whole blocks.
+      const par = active && active.parentElement;
+      if (!par) return;
+      if (par.tagName === 'BODY' || par.tagName === 'HTML') return;
+      // Exit move mode + commit any pending text edit on the current active
+      // so we don't carry contenteditable state up to the parent.
+      if (moveMode) setMoveMode(false);
+      active.removeAttribute('contenteditable');
+      // Promote parent to active. Mark it so styles apply and so setMoveMode
+      // knows not to re-enable contenteditable on a container.
+      active = par;
+      activeDoc = par.ownerDocument;
+      activeOriginalText = par.textContent;
+      activeOriginalStyleAttr = par.getAttribute('style') || '';
+      par.setAttribute('data-copyedit', '');
+      par.setAttribute('data-copyedit-container', '');
+      // Auto-enter Move mode — containers aren't meant for text editing,
+      // and moving is the whole point of walking up.
+      setMoveMode(true);
+      showToolbar(par);
     } else if (a === 'reset') {
       if (moveMode) setMoveMode(false);
       active.removeAttribute('style');
@@ -470,8 +496,13 @@
       active.removeEventListener('pointerdown', onDragDown);
       active.removeAttribute('data-copyedit-moving');
       active.style.cursor = '';
-      active.setAttribute('contenteditable', 'true');
-      try { active.focus(); } catch {}
+      // Don't re-enable contenteditable on container blocks promoted via the
+      // ↑ Parent button — they have element children and would become an
+      // editing minefield (one keystroke could wipe a whole card).
+      if (!active.hasAttribute('data-copyedit-container')) {
+        active.setAttribute('contenteditable', 'true');
+        try { active.focus(); } catch {}
+      }
     }
   }
 
@@ -1083,6 +1114,9 @@
     const oldStyleAttr = activeOriginalStyleAttr;
     const newStyleAttr = el.getAttribute('style') || '';
     el.removeAttribute('contenteditable');
+    // Drop the container flag from ↑ Parent so subsequent clicks on this
+    // element behave like a normal text-leaf activation again.
+    el.removeAttribute('data-copyedit-container');
     const wasActive = active;
     active = null;
     activeOriginalText = '';
