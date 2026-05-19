@@ -1018,6 +1018,106 @@ function forTopic(topic) {
   return TOPIC_PRIMERS[syn[key]] || '';
 }
 
+// ── Topic auto-classifier ──────────────────────────────────────────
+// Why this exists: the client never passes `_voiceTopic` — there's no UI
+// where the user labels their motion's domain. Without inference, the
+// entire TOPIC_PRIMERS system would sit dormant. This map + scoring lets
+// the server auto-fire the right primer when the motion text strongly
+// matches a domain. Conservative threshold (score ≥ 4, strong=3 / medium=1)
+// so we don't inject a finance primer onto a motion about agricultural
+// subsidies just because the word "market" appeared once.
+//
+// Adding a new primer is a TWO-PLACE EDIT:
+//   1. Add `XYZ_PRIMER` const + `TOPIC_PRIMERS.xyz = XYZ_PRIMER`
+//   2. Add `xyz: { strong: [...], medium: [...] }` to TOPIC_KEYWORDS below
+// Both halves are required for the primer to actually fire on real traffic.
+const TOPIC_KEYWORDS = {
+  finance: {
+    strong: [
+      'central bank', 'federal reserve', 'basel iii', 'dodd-frank', 'glass-steagall',
+      'securitization', 'securitize', 'derivative', 'hedge fund', 'private equity',
+      'private credit', 'systemic risk', 'sovereign debt', 'repo market',
+      'monetary policy', 'quantitative easing', 'shadow bank',
+      'too big to fail', 'lender of last resort', 'moral hazard',
+    ],
+    medium: [
+      ' bank ', ' banks ', 'banking', 'interest rate', 'mortgage', 'leverage',
+      'liquidity', 'insolvency', 'bailout', ' treasury ', 'capital market',
+      ' imf ', 'world bank', ' fed ', ' bond ', ' fdic ', 'collateral',
+      'subprime', 'fractional reserve', 'consumer credit',
+    ],
+  },
+};
+
+// Pull all user-role text out of a brain request body. Handles both the
+// Claude/OpenAI shape (body.messages: [{role, content: string|array}]) and
+// the Gemini shape (body.contents: [{role, parts: [{text}]}]). Returns a
+// single concatenated string; "" if nothing extractable. Deliberately
+// SKIPS body.system because the system already contains injected voice
+// guidelines (including TOPIC_PRIMERS from a prior pass on the same
+// request flow), which would create false positives.
+function extractUserTextFromBody(body) {
+  if (!body || typeof body !== 'object') return '';
+  const out = [];
+  if (Array.isArray(body.messages)) {
+    for (const m of body.messages) {
+      if (!m || m.role !== 'user') continue;
+      if (typeof m.content === 'string') { out.push(m.content); continue; }
+      if (Array.isArray(m.content)) {
+        for (const p of m.content) {
+          if (p && p.type === 'text' && typeof p.text === 'string') out.push(p.text);
+        }
+      }
+    }
+  }
+  if (Array.isArray(body.contents)) {
+    for (const c of body.contents) {
+      if (!c || (c.role && c.role !== 'user')) continue;
+      if (Array.isArray(c.parts)) {
+        for (const p of c.parts) {
+          if (p && typeof p.text === 'string') out.push(p.text);
+        }
+      }
+    }
+  }
+  return out.join(' ');
+}
+
+// Conservative keyword scorer. Returns the highest-scoring topic key whose
+// score clears MIN_TOPIC_SCORE, else "". A topic must score 4+ — e.g.,
+// two strong keyword hits, OR one strong + one medium, OR four mediums.
+// One stray keyword is never enough; that's the whole point of the floor.
+const MIN_TOPIC_SCORE = 4;
+function inferTopicFromText(text) {
+  if (!text || typeof text !== 'string') return '';
+  // Lowercase + collapse non-alphanumeric to spaces so word-boundary
+  // matches via includes() are sound. Pad with spaces so " fed " and
+  // " bank " don't false-match "federalize" or "embankment".
+  const haystack = ' ' + text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
+  let bestTopic = '';
+  let bestScore = 0;
+  for (const topic of Object.keys(TOPIC_KEYWORDS)) {
+    const kw = TOPIC_KEYWORDS[topic];
+    let score = 0;
+    const seen = new Set();
+    for (const k of (kw.strong || [])) {
+      const norm = k.toLowerCase();
+      if (seen.has(norm)) continue;
+      if (haystack.includes(norm)) { seen.add(norm); score += 3; }
+    }
+    for (const k of (kw.medium || [])) {
+      const norm = k.toLowerCase();
+      if (seen.has(norm)) continue;
+      if (haystack.includes(norm)) { seen.add(norm); score += 1; }
+    }
+    if (score >= MIN_TOPIC_SCORE && score > bestScore) {
+      bestScore = score;
+      bestTopic = topic;
+    }
+  }
+  return bestTopic;
+}
+
 // Per-format voice subsections. The core bank above is APDA-heavy (as noted
 // in project_debateai_style_research.md). For non-APDA formats, injecting
 // the format-specific conventions on top of the base voice stops the AI
@@ -1334,13 +1434,23 @@ export function applyVoiceGuidelines(body) {
     const overlay = motionTriageOverlay(format);
     if (overlay) voice = voice + '\n' + overlay;
   }
-  // Append the topic primer if the client passed one (e.g., 'finance' for
-  // motions about banks / markets / regulation). Skip for judge/feedback/
-  // adaptive — those evaluate across topics. Topic primer is reference
-  // domain knowledge, separate from format and from voice register.
-  if (topic && feature !== 'judge' && feature !== 'feedback' && feature !== 'adaptive') {
-    const tp = forTopic(topic);
-    if (tp) voice = voice + '\n' + tp;
+  // Append the topic primer. Two paths:
+  //   (1) Client passed an explicit `_voiceTopic` (e.g., the user picked
+  //       "Finance" from a future motion-domain picker) — wins by default.
+  //   (2) Otherwise, infer from the motion text in body.messages via
+  //       inferTopicFromText. Conservative threshold (score ≥ 4) means the
+  //       primer only fires when the motion CLEARLY belongs to the domain.
+  // Skip for judge/feedback/adaptive — those evaluate across topics, so
+  // injecting a domain-specific primer would bias the evaluation.
+  if (feature !== 'judge' && feature !== 'feedback' && feature !== 'adaptive') {
+    let resolvedTopic = topic;
+    if (!resolvedTopic) {
+      resolvedTopic = inferTopicFromText(extractUserTextFromBody(body));
+    }
+    if (resolvedTopic) {
+      const tp = forTopic(resolvedTopic);
+      if (tp) voice = voice + '\n' + tp;
+    }
   }
   // Append the voice-input tolerance footer universally. Roughly 80
   // tokens; applies on every brain call where a voice block resolves.
@@ -1354,9 +1464,14 @@ export function applyVoiceGuidelines(body) {
   }
 }
 
+export {
+  TOPIC_KEYWORDS, MIN_TOPIC_SCORE, inferTopicFromText, extractUserTextFromBody,
+};
+
 export const DEBATE_VOICE = {
   CORE, STRATEGY, CHARACTER, CASE_CONSTRUCTION, LANGUAGE_CONSTRUCTION,
   FULL, FEATURE_MAP, forFeature,
   FORMAT_VOICES, forFormat,
   TOPIC_PRIMERS, forTopic, FINANCE_PRIMER,
+  TOPIC_KEYWORDS, inferTopicFromText, extractUserTextFromBody,
 };
