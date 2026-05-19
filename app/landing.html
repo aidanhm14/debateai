@@ -5670,7 +5670,7 @@ section.ui-section .ui-lede{
   var SHOTS = [
     { src: '/landing-shot-voice.jpg',        eyebrow: 'Voice round',       title: 'Argue out loud, against a clock.',          body: 'Motion at the top, silhouettes for both sides, a red orb that breathes when the AI speaks and ripples when you do. POIs, interruptions, a transcript that tracks every cut-in.', href: '/voice-debate', cta: 'Start a voice round' },
     { src: '/landing-shot-casegen.jpg',      eyebrow: 'Case generator',    title: 'A full case in 30 seconds.',                body: 'Drop a motion, pick a side, pick a format. The case comes back with framework, warrants, impacts, and A2 blocks ready for the top attacks.', href: '/debate-ai', cta: 'Open the case generator' },
-    { src: '/landing-shot-live-speech.jpg',  eyebrow: 'Live round',        title: 'Six speeches, real timer, real ballot.',    body: 'Curated case background on the left, speech counter and live timer in the middle. The AI watches both sides and writes the RFD.', href: '/live', cta: 'Find a partner on Live Debates' },
+    { src: '/landing-shot-live-speech.jpg',  eyebrow: 'Round simulator',   title: 'Six speeches, real timer, real ballot.',    body: 'Curated case background on the left, speech counter and live timer in the middle. The AI argues the other side and writes the RFD.', href: '/debate-ai', cta: 'Open the round simulator' },
     { src: '/landing-shot-disclosures.jpg',  eyebrow: 'Disclosures',       title: 'Read what other people ran.',               body: 'Cases published by users from every format. Sort by votes or recency, filter by side and format, import one straight into your own round.', href: '/disclosures', cta: 'Browse disclosures' },
     { src: '/landing-shot-philosophy.jpg',   eyebrow: 'Philosophy engine', title: 'Deploy philosophy where it weighs.',        body: 'Pick up to three thinkers. Deep-dive, apply to a motion, run a head-to-head Venn, or get framing language ready for your PM.', href: '/app#phil', cta: 'Open the philosophy engine' }
   ];
@@ -6756,7 +6756,10 @@ section.ui-section .ui-lede{
   }
 
   /* HTML ballot panel — mirrors what /live-round renders after a round.
-     Header strip, winner pill, two speaker-point cards, RFD body. */
+     Header strip, winner pill, two speaker-point cards, RFD body.
+     Height-locked to the video panel beside it via aspect-ratio so the
+     two columns end at the same baseline; RFD overflow gets clipped
+     with a fade so the panel still feels like a real screenshot. */
   .live-proof-ballot{
     background:#faf8f3;
     color:#1c1c1c;
@@ -6766,6 +6769,10 @@ section.ui-section .ui-lede{
     display:flex;flex-direction:column;
     overflow:hidden;
     font-size:.86rem;
+    /* match the video panel's aspect-ratio so both columns are the
+       exact same height. The RFD body inside flexes and clips with a
+       fade gradient at the bottom (.lpb-rfd::after). */
+    aspect-ratio: 585 / 571;
   }
   [data-theme="light"] .live-proof-ballot{
     box-shadow:0 18px 44px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.04);
@@ -6790,7 +6797,7 @@ section.ui-section .ui-lede{
     padding:3px 10px;border-radius:999px;
     font-size:.7rem;
   }
-  .lpb-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:14px}
+  .lpb-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
   .lpb-winner{
     background:#e9fbef;
     border:1px solid rgba(34,197,94,.30);
@@ -6831,7 +6838,8 @@ section.ui-section .ui-lede{
   }
   .lpb-rfd{
     font-size:.84rem;color:#222;line-height:1.55;
-    max-height:240px;overflow:hidden;position:relative;
+    flex:1;min-height:0;
+    overflow:hidden;position:relative;
   }
   .lpb-rfd::after{
     content:"";position:absolute;left:0;right:0;bottom:0;height:48px;
@@ -6843,9 +6851,11 @@ section.ui-section .ui-lede{
 
   @media(max-width:760px){
     .live-proof-frame{grid-template-columns:1fr;gap:14px}
-    /* keep the panel matching the actual screenshot ratio (585/571)
-       so the PiP at top and controls at bottom aren't cropped. */
-    .lpb-rfd{max-height:none}
+    /* On mobile the ballot stacks below the video — drop the strict
+       aspect-ratio cap so the RFD can breathe at its natural length
+       instead of clipping in a tall narrow box. */
+    .live-proof-ballot{aspect-ratio:auto}
+    .lpb-rfd{flex:none}
     .lpb-rfd::after{display:none}
   }
   @media(max-width:560px){
@@ -6908,10 +6918,14 @@ section.ui-section .ui-lede{
   /* "Post a motion or accept a challenge →" CTA strip under the proof.
      Sits below the three caption tiles and tells the visitor that this
      isn't just a feature mockup — the board is live and they can open
-     it in one tap. */
+     it in one tap. Mirrors the primary/ghost pair on /live's hero. */
   .live-proof-cta{
     display:flex;flex-direction:column;align-items:center;
     gap:10px;margin-top:24px;text-align:center;
+  }
+  .live-proof-cta-row{
+    display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;
+    justify-content:center;
   }
   .live-proof-cta-btn{
     display:inline-flex;align-items:center;gap:8px;
@@ -6927,12 +6941,28 @@ section.ui-section .ui-lede{
     transform:translateY(-2px);
     box-shadow:0 20px 40px rgba(239,68,68,.40);
   }
+  .live-proof-cta-ghost{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:13px 20px;border-radius:999px;
+    font-size:.88rem;font-weight:700;letter-spacing:-.005em;
+    color:var(--text-dim);
+    background:transparent;
+    border:1px solid var(--border);
+    text-decoration:none;
+    transition:color .18s ease, border-color .18s ease, transform .18s ease;
+  }
+  .live-proof-cta-ghost:hover{
+    color:var(--text);
+    border-color:var(--text-dim);
+    transform:translateY(-1px);
+  }
   .live-proof-cta-sub{
     font-size:.78rem;color:var(--text-dim);line-height:1.5;
     max-width:560px;
   }
   @media(max-width:560px){
     .live-proof-cta-btn{font-size:.86rem;padding:11px 18px}
+    .live-proof-cta-ghost{font-size:.8rem;padding:11px 16px}
     .live-proof-cta-sub{font-size:.72rem}
   }
 </style>
@@ -7631,11 +7661,18 @@ section.ui-section .ui-lede{
 
     <!-- Explicit "where to actually do this" footer. The split panel above
          shows what a round looks like; this row tells the visitor that the
-         board is live and lets them open it in one tap. -->
+         board is live and lets them open it in one tap. Mirrors the
+         primary/ghost pair on the /live hero so the on-ramp pattern is
+         consistent across the two surfaces. -->
     <div class="live-proof-cta">
-      <a class="live-proof-cta-btn" href="/live">
-        Post a motion or accept a challenge <span aria-hidden="true">→</span>
-      </a>
+      <div class="live-proof-cta-row">
+        <a class="live-proof-cta-btn" href="/live">
+          Post a motion or accept a challenge <span aria-hidden="true">→</span>
+        </a>
+        <a class="live-proof-cta-ghost" href="/live#how">
+          How it works <span aria-hidden="true">↓</span>
+        </a>
+      </div>
       <span class="live-proof-cta-sub">Asian Parli · WSDC · BP · APDA · PF · LD · Policy · Congress · MUN. AI judge writes the ballot.</span>
     </div>
   </div>
@@ -8174,7 +8211,12 @@ section.ui-section .ui-lede{
      pricing data still lives in the FAQ + the SoftwareApplication
      JSON-LD in <head>; an in-product paywall handles conversion. -->
 
-<div class="divider"></div>
+<!-- 2026-05-19 PM: removed the two stacked <div class="divider"> rules
+     that lived here. Both pre-dated the For-Professionals section that
+     used to sit between them; once the section was deleted the dividers
+     stayed and stacked with the disclosure's own top border, reading
+     as a dead horizontal band on the page. The disclosure below now
+     stands as a single styled tile, no extra dividers. -->
 
 <!-- Live Debates section was moved up directly under the hero so it
      reads as the headline feature. The original placement (deep in
@@ -8184,7 +8226,6 @@ section.ui-section .ui-lede{
      core audience and the Pro overflow page diluted that focus. The
      /pro page itself is also being retired. -->
 
-<div class="divider"></div>
 
 <!-- Current topics across formats. mirrors CURRENT_TOPICS in app/index.html.
      If the app-side motion changes, update here too. APDA / BP / Worlds /
@@ -8366,20 +8407,38 @@ section.ui-section .ui-lede{
      small + toggle on the right. Default-closed so the page above
      stays scannable until the user asks for depth. */
   .cd-learn-disclosure{
-    max-width:1080px;margin:0 auto;
+    max-width:840px;margin:32px auto;
     padding:0 24px;
   }
   .cd-learn-summary{
     list-style:none;
     cursor:pointer;
-    padding:18px 0;
+    padding:18px 22px;
     display:flex;align-items:center;gap:20px;
     justify-content:space-between;
-    border-top:1px solid var(--border);
-    transition:opacity .18s ease;
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease, background .18s ease;
+  }
+  [data-theme="light"] .cd-learn-summary{
+    background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.03);
+  }
+  .cd-learn-disclosure[open] .cd-learn-summary{
+    border-radius:14px 14px 0 0;
+    border-bottom-color:transparent;
   }
   .cd-learn-summary::-webkit-details-marker{display:none}
-  .cd-learn-summary:hover{opacity:.75}
+  .cd-learn-summary:hover{
+    border-color:rgba(220,38,38,.40);
+    transform:translateY(-1px);
+    box-shadow:0 12px 28px -18px rgba(220,38,38,.30);
+  }
+  [data-theme="light"] .cd-learn-summary:hover{
+    border-color:rgba(220,38,38,.45);
+    box-shadow:0 10px 24px rgba(220,38,38,.08);
+  }
   .cd-learn-text{
     display:flex;flex-direction:column;gap:6px;min-width:0;flex:1;
   }
