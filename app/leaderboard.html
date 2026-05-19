@@ -373,12 +373,11 @@ button{font-family:inherit}
 .pod-avatar{
   width:46px;height:46px;flex-shrink:0;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  font-family:'Fraunces',serif;font-weight:900;font-size:1.1rem;
-  letter-spacing:-.02em;color:var(--text);
+  overflow:hidden;
   background:var(--bg-card-2);
   border:1px solid var(--border-strong);
-  font-variant-numeric:tabular-nums;
 }
+.pod-avatar svg,.deb-av svg{width:100%;height:100%;display:block}
 .pod--1 .pod-avatar{
   background:radial-gradient(circle at 35% 30%,rgba(251,191,36,.28),rgba(251,191,36,.08));
   border-color:rgba(251,191,36,.48);color:var(--amber);
@@ -501,9 +500,8 @@ button{font-family:inherit}
 .deb-av{
   width:30px;height:30px;flex-shrink:0;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  font-size:.74rem;font-weight:800;letter-spacing:-.01em;
+  overflow:hidden;
   background:var(--bg-card-2);border:1px solid var(--border);
-  color:var(--text-dim);
 }
 .deb-id{min-width:0}
 .deb-name{
@@ -973,22 +971,44 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function initials(name){
-  if(!name) return '?';
-  const trimmed=String(name).trim();
-  if(!trimmed) return '?';
-  if(trimmed==='?'||trimmed==='—') return '·';
-  // Handle-style usernames (lowercase, underscores) → first two letters.
-  if(/^[a-z0-9_.]+$/.test(trimmed)){
-    const letters=trimmed.replace(/[^a-z0-9]/gi,'');
-    return (letters.slice(0,2) || '?').toUpperCase();
-  }
-  // Space-separated names → first letter of first + first letter of last.
-  const parts=trimmed.split(/\s+/).filter(Boolean);
-  if(parts.length>=2){
-    return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
-  }
-  return parts[0].slice(0,2).toUpperCase();
+// ── generated profile avatars ──────────────────────────────────────
+// Deterministic "marble" avatar per username so the board never reads
+// as a wall of gray initials. No static assets; seeded off the same
+// hashStr used for the rest of the synthetic texture. Same seed → same
+// avatar forever, so a debater's face is stable across sessions.
+const AV_PALETTE=['#ef4444','#f59e0b','#fbbf24','#dc2626','#fb7185','#d97706','#b45309','#f43f5e','#a855f7','#6366f1','#0ea5e9','#14b8a6'];
+function avDigit(n,p){return Math.floor((n/Math.pow(10,p))%10);}
+function avUnit(n,range,idx){
+  let v=n%range;
+  if(idx&&avDigit(n,idx)%2===0)v=-v;
+  return v;
+}
+function avHash(seed){return hashStr(String(seed||'anon'));}
+function marbleAvatar(seed){
+  const num=avHash(seed);
+  const size=80;
+  const uid=(num>>>0).toString(36);
+  const props=[0,1,2].map(function(i){
+    const k=num*(i+1);
+    return {
+      color:AV_PALETTE[(num+i)%AV_PALETTE.length],
+      tx:avUnit(k,size/10,1),
+      ty:avUnit(k,size/10,2),
+      rot:avUnit(k,360,1),
+      scale:1.2+avUnit(k,size/20)/10
+    };
+  });
+  const tf=function(p){return 'translate('+p.tx+' '+p.ty+') rotate('+p.rot+' '+(size/2)+' '+(size/2)+') scale('+p.scale+')';};
+  return ''
+    +'<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">'
+    +'<mask id="m'+uid+'" maskUnits="userSpaceOnUse" x="0" y="0" width="80" height="80"><rect width="80" height="80" rx="160" fill="#fff"/></mask>'
+    +'<g mask="url(#m'+uid+')">'
+    +'<rect width="80" height="80" fill="'+props[0].color+'"/>'
+    +'<path filter="url(#f'+uid+')" d="M32.414 59.35L50.376 70.5H72.5v-71H33.728L26.5 13.381l19.057 27.08L32.414 59.35z" fill="'+props[1].color+'" transform="'+tf(props[1])+'"/>'
+    +'<path filter="url(#f'+uid+')" style="mix-blend-mode:overlay" d="M22.216 24L0 46.75l14.108 38.129L78 86l-3.081-59.276-22.378 4.005 12.972 20.186-23.35 27.395L22.215 24z" fill="'+props[2].color+'" transform="'+tf(props[2])+'"/>'
+    +'</g>'
+    +'<defs><filter id="f'+uid+'" x="-10" y="-10" width="100" height="100"><feGaussianBlur stdDeviation="7"/></filter></defs>'
+    +'</svg>';
 }
 
 function applyFormatFilter(rows){
@@ -1126,7 +1146,7 @@ function podHTML(row, place){
   const score=fmtScore(row.score);
   const fmt=escapeHtml(row.formatName||row.format||'—');
   const name=escapeHtml(row.displayName||'Anonymous');
-  const av=escapeHtml(initials(row.displayName));
+  const av=marbleAvatar(row.uid||row.displayName);
   const wins=row._wins||(row.won?1:0);
   const losses=row._losses||(row.won?0:1);
   const streak=row._streak||0;
@@ -1240,7 +1260,7 @@ function renderTable(rows){
           ${moveBadge(uid, idx)}
         </div>
         <div class="deb">
-          <div class="deb-av" aria-hidden="true">${escapeHtml(initials(r.displayName))}</div>
+          <div class="deb-av" aria-hidden="true">${marbleAvatar(uid||r.displayName)}</div>
           <div class="deb-id">
             <div class="deb-name">${escapeHtml(r.displayName||'Anonymous')}</div>
             <div class="deb-sub">
