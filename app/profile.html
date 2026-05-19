@@ -1514,10 +1514,13 @@ async function loadProfile(user){
     try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){}
   } catch(e){
     console.warn('[profile] query failed:', e && e.message);
-    if(/index|FAILED_PRECONDITION/i.test(e.message||'')){
-      renderEmpty(user, null);
-      return;
-    }
+    // 2026-05-19: an index-missing failure used to fall through to
+    // renderEmpty() — but that lied to the user ("0 rounds logged")
+    // when the actual cause was a missing (uid, completedAt) composite
+    // index on leaderboard_entries. Surface the real cause via
+    // renderError instead. If the user genuinely has zero rounds, the
+    // entriesSnap is empty (no exception thrown) and renderEmpty() above
+    // handles that path correctly.
     renderError(e && e.message);
   }
 }
