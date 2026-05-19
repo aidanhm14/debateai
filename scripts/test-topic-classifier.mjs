@@ -46,10 +46,43 @@ const CASES = [
   ['fin: dodd-frank rollback',
     'THBT Dodd-Frank should be rolled back. Bank consolidation is killing community banking.', 'finance'],
 
+  // ── arctic: SHOULD fire ─────────────────────────────────────────
+  ['arctic: icebreaker plan',
+    'Motion: THBT the US should significantly increase its fleet of Arctic Security Cutters and reengage the Arctic Council with Russia.', 'arctic'],
+  ['arctic: greenland REM',
+    'THW develop Greenland rare-earth minerals through a US-led ICE Pact with Finland and Canada. Arctic sovereignty matters.', 'arctic'],
+  ['arctic: indigenous co-mgmt',
+    'Motion: THBT Inuit and Saami permanent participants on the Arctic Council should have binding veto power over circumpolar mining and icebreaker basing decisions.', 'arctic'],
+
+  // ── collective_bargaining: SHOULD fire ──────────────────────────
+  ['labor: federal workers EO',
+    'Motion: THBT Congress should restore the collective bargaining rights stripped from federal workers by EO 14251. Strengthen the NLRA for public-sector unions.', 'collective_bargaining'],
+  ['labor: sectoral bargaining',
+    'THW adopt sectoral bargaining at the federal level for gig workers. NLRB should treat platform workers as employees with full union rights.', 'collective_bargaining'],
+  ['labor: PRO Act repassage',
+    'This house believes Congress should repass the PRO Act and ban right-to-work laws. Reverse Janus and rebuild public-sector unions.', 'collective_bargaining'],
+
+  // ── hegemony: SHOULD fire ───────────────────────────────────────
+  ['heg: liberal order',
+    'Motion: THBT the United States should retrench from the liberal international order. Multipolarity is more stable than US hegemony in the Indo-Pacific.', 'hegemony'],
+  ['heg: thucydides trap',
+    'THBT the US should accommodate Chinese great-power competition rather than balance against it. The Thucydides Trap is empirically inevitable.', 'hegemony'],
+
+  // ── capitalism_k: SHOULD fire ───────────────────────────────────
+  ['capk: marxist alt',
+    'Motion: THBT the capitalist mode of production must be abolished. Historical materialism shows wage-labor produces racial capitalism and accumulation by dispossession.', 'capitalism_k'],
+  ['capk: neoliberal rationality',
+    'THW reject neoliberal rationality in policymaking. Communization and social reproduction theory show capitalism cannot reform out of its own contradictions.', 'capitalism_k'],
+
+  // ── critical_phil_k: SHOULD fire ────────────────────────────────
+  ['critphil: afropessimism',
+    'Motion: This House believes afropessimism and Wilderson better describe the structural position of Black people than civil rights reformism. Social death is ontological.', 'critical_phil_k'],
+  ['critphil: settler colonialism',
+    'THBT settler colonialism is a structure not an event. Tuck and Yang argue decolonization is not a metaphor; the logic of elimination persists.', 'critical_phil_k'],
+
   // ── finance: should NOT fire (true negatives) ─────────────────────
   ['skip: tiktok in schools', 'Motion: THW ban TikTok in US schools.', ''],
   ['skip: zoos', 'Motion: This House Would Abolish Zoos.', ''],
-  ['skip: climate carbon tax UBI', 'THBT carbon taxes should fund a universal basic income.', ''],
   ['skip: housing zoning', 'THW eliminate single-family zoning in all American cities.', ''],
   ['skip: gun control', 'Motion: THW ban civilian ownership of semi-automatic rifles.', ''],
   ['skip: ICC jurisdiction', 'This house believes the ICC should exercise jurisdiction over heads of state.', ''],

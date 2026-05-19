@@ -997,9 +997,207 @@ The system has not been TESTED through a major shock. Every other major debt mar
 KEY STANCE: don't moralize. Finance debates reward analytical clarity over outrage. "Banks bad" loses to "banks have these incentives, here's the systemic effect, here's the transmission to households." The more you sound like you understand the mechanism, the more the judge trusts your conclusions.
 `;
 
+// ── 2026-05-19 TOPIC_PRIMER ADDITIONS ─────────────────────────────
+// Five new domain primers added from the format-research workstream.
+// Each is auto-injected when motion text matches the corresponding
+// TOPIC_KEYWORDS entry below. Shorter than FINANCE_PRIMER (which is
+// the canonical reference) but each gives the LLM enough domain
+// scaffolding to skip the "vague generalities" failure mode.
+
+const ARCTIC_PRIMER = `
+ARCTIC TOPIC PRIMER (2025-26 NSDA HS Policy resolution; also general framing for any Arctic / circumpolar motion)
+
+Resolution: "Resolved: The United States federal government should significantly increase its exploration and/or development of the Arctic."
+
+STATUS QUO ANCHORS (uniqueness — what's true now that AFFs depart from):
+- US has 2 operational heavy icebreakers (Polar Star + Polar Sea, latter functionally retired) vs Russia's 40+. October 2025 White House EO ordered Arctic Security Cutter construction; November 2025 ICE Pact ministerial began US-Finland-Canada icebreaker collaboration.
+- Trump's 2025 Greenland gambit is the elephant in every Arctic debate; "Trump political capital" / "Greenland diplomacy" DAs flow from it.
+- Arctic Council suspended Russia post-2022; Russia formally withdrew major participation 2023. "Reengage Arctic Council" AFFs presume restarting that channel.
+- China declared "near-Arctic state" 2018; Polar Silk Road announced as part of BRI.
+
+KEY ACTORS (don't invent):
+- Arctic Council members: US, Canada, Russia, Norway, Sweden, Finland, Denmark (via Greenland), Iceland.
+- Permanent Participants: Inuit Circumpolar Council, Saami Council, Aleut International Association, Arctic Athabaskan Council, Gwich'in Council International.
+- US agencies: USCG (icebreakers), NOAA, NSF (research), DOI/BLM (ANWR), State (Arctic Coordinator), DOD (Northern Command). Alaska actors: Governor Dunleavy, Alaska Federation of Natives, North Slope Borough.
+
+REAL AUTHOR LIBRARY (cite from this list, don't fabricate):
+- Strategy/heg: Mearsheimer (UChicago — offensive realism), Posen (MIT — restraint), Ikenberry (Princeton — liberal order), Friedberg (Princeton — China), Brands (SAIS), Walt (Harvard — balance-of-threat).
+- Arctic-specific: Heather Conley (CSIS / German Marshall), Sherri Goodman (Wilson Center — climate + security), Rebecca Pincus (Wilson Polar — icebreakers), Iris Ferguson (former DOD Arctic), Mathieu Boulègue (Chatham House — Russia/Arctic), Marc Lanteigne (Arctic Yearbook), Lassi Heininen, Klaus Dodds (Royal Holloway), Anne-Marie Brady (Canterbury — China-Arctic).
+- Climate: Mark Serreze (NSIDC), James Overland (NOAA PMEL), Peter Wadhams (Cambridge).
+- Indigenous: Sheila Watt-Cloutier (Inuit climate activist), Dalee Sambo Dorough (ICC), Glen Coulthard (Indigenous political theory).
+- Decolonial K-aff: Tuck & Yang ("Decolonization is Not a Metaphor"), Patrick Wolfe ("logic of elimination"), Audra Simpson (refusal), Nick Estes (Red Deal).
+- Russia/China: Andrei Kortunov (RIAC), Pavel Baev (PRIO).
+
+THINK TANKS: Arctic Institute, CSIS Arctic Program, Wilson Center Polar Institute, Brookings (Arctic-relevant), RAND (icebreaker analysis), Atlantic Council (Scowcroft Center), Quincy Institute (restraint variant), CFR backgrounders.
+
+THE TOPIC IS STRUCTURALLY THREE DEBATES STACKED:
+1. Should US militarize the Arctic to deter Russia/China? — yes (icebreakers, basing, command); no (security dilemma, alienates Russia).
+2. Should US develop Arctic resources (REM, oil, LNG)? — yes (China rivalry, energy security); no (environment, Indigenous, climate).
+3. Should US engage the Arctic on its own terms? — K-affs say "the Arctic" itself is a settler-colonial / Eurocentric / cartographic move.
+Smartest 1ACs pick ONE of these three frames and commit; AFFs that try to be all three lose to perm-based CPs.
+`;
+
+const COLLECTIVE_BARGAINING_PRIMER = `
+COLLECTIVE BARGAINING TOPIC PRIMER (2025-26 NDT/CEDA college resolution; also general framing for any labor / unionization motion)
+
+Resolution: "Resolved: The United States Federal Government should substantially strengthen collective bargaining rights for workers in the United States."
+
+STATUS QUO ANCHORS:
+- Trump's EO 14251 (early 2025) stripped collective bargaining rights from large swaths of federal workers. The dominant uniqueness anchor for Federal Workers AFFs.
+- Janus v. AFSCME (2018) eliminated mandatory union fees for public-sector workers; treated as the inflection point in current labor lit.
+- NLRA covers most private-sector workers; agricultural workers, domestic workers, independent contractors largely excluded. California's AB5 (gig workers) is the state-level analog.
+- Union membership: ~10% of US workforce, ~6% private sector, ~33% public sector (declining).
+
+KEY AFF ARCHETYPES (the 2026 NDT meta):
+1. Federal Workers — restore CBA rights stripped by EO 14251.
+2. Bankruptcy — extend good-faith bargaining requirements to debtor employers (8 U.S.C. § 1113 reforms).
+3. Sectoral / Automation — sectoral bargaining model (Germany / Nordic); algorithmic-management protections.
+4. Gig Workers — extend NLRA to gig/platform workers (Uber / DoorDash / Instacart).
+5. Agricultural Cooperatives — Packers/Stockyards Act extension (Dartmouth's case).
+6. NRC / Federal Whistleblowers restoration.
+7. Religious Exemption narrowing (limit Bostock-style carve-outs).
+8. Pre-hire Construction CBAs (UTD's case that beat Kansas going for "ban unions").
+9. Foreign Service Workers (MSU's prelim AFF).
+10. Niche: Moon workers (Georgetown — Outer Space Treaty + CBA novelty), professional baseball players, journalism, data privacy / algorithmic governance.
+
+REAL AUTHOR LIBRARY:
+- Labor law/policy: Cynthia Estlund (NYU), Kate Andrias (Yale), Benjamin Sachs (Harvard, OnLabor blog), Sharon Block (Harvard), Mark Barenberg (Columbia), Wilma Liebman (former NLRB chair), William Gould IV (Stanford).
+- Economics: Suresh Naidu (Columbia), Anna Stansbury (MIT), Larry Mishel + Heidi Shierholz (EPI), David Autor (MIT — automation), Daron Acemoglu (MIT — inequality).
+- Sectoral / German model: Brishen Rogers (Georgetown), Thomas Kochan (MIT).
+- Strikes / movements: Alex Gourevitch (Brown), Erik Loomis (URI), Jane McAlevey (organizer-scholar).
+
+KEY NEG positions:
+- DAs: Court Politics (preferred over old Court DA), Election DA, Inflation DA, Manufacturing competitiveness DA, Right-to-Work backlash DA.
+- CPs: State action CP, Sectoral-without-NLRA CP, Worker Cooperatives CP, UBI CP (preempts wages adv).
+- Ks: Cap K, Buddhism K (back), Security K, Psychoanalysis / Bifo, Bataille (general economy), historical-materialism K (workerism is itself a category mistake).
+
+JUDGE WARNING: 2026 AFF win rate in elims was 37%. NEG dominates. AFFs that win this year have SPECIFIC link-turn case construction, not generic perms.
+
+THINK TANKS: EPI (pro-labor), Heritage / Cato (anti-mandate), Brookings (Hamilton Project), Roosevelt Institute, Aspen Institute (Future of Work), New America (Better Life Lab).
+
+Real-world hooks: UAW Stand-Up Strike (2023), Hollywood writers/actors strikes (2023), Amazon Labor Union (Staten Island 2022), Starbucks Workers United, Cornell higher-ed organizing, the death of the PRO Act.
+`;
+
+const HEGEMONY_PRIMER = `
+HEGEMONY / GREAT-POWER-COMPETITION PRIMER (generic, applies across topics where US power projection or international order is the lens)
+
+THE CORE FRAMES (pick one; don't blend):
+1. Liberal hegemony (Ikenberry, Brands): US-led rules-based order is the source of post-1945 peace; collapse = systemic war risk.
+2. Offensive realism (Mearsheimer): great powers MAXIMIZE power; bipolar / multipolar systems are unstable; predicts US-China conflict.
+3. Defensive realism / restraint (Posen, Walt, Wertheim, Quincy Institute): liberal hegemony is overextension; pullback (Europe, Middle East) increases security.
+4. Power transition theory (Allison "Thucydides Trap"): rising powers + declining hegemons → war 12 of 16 historical cases.
+5. Hegemonic stability theory (Gilpin, Kindleberger): an economic hegemon provides public goods (open trade, security); without it, the system fragments.
+
+REAL AUTHORS for hege cards:
+- Mearsheimer (UChicago) — Tragedy of Great Power Politics / The Great Delusion
+- Posen (MIT) — Restraint: A New Foundation for U.S. Grand Strategy
+- Ikenberry (Princeton) — After Victory / Liberal Leviathan / A World Safe for Democracy
+- Hal Brands (SAIS) — Twilight Struggle / Danger Zone (with Beckley)
+- Michael Beckley (Tufts) — Unrivaled
+- Aaron Friedberg (Princeton) — Getting China Wrong
+- Stephen Walt (Harvard) — The Origins of Alliances, balance-of-threat theory
+- Graham Allison (Harvard Belfer) — Destined for War
+- Stephen Wertheim (CEIP) — Tomorrow, the World
+- Daniel Drezner (Tufts) — The Sanctions Paradox
+- Jennifer Lind (Dartmouth) — Japan / Korea security
+- Robert Kagan (Brookings) — neoconservative
+- Christopher Layne (Texas A&M) — restraint
+- Stacie Goddard (Wellesley) — When Right Makes Might
+
+K-OF-HEG authors:
+- Patrick Porter (Birmingham) — The False Promise of Liberal Order
+- Stephen Wertheim — useful both ways
+- Vijay Prashad — The Darker Nations
+
+When writing a "heg good" card, use: "X solves great-power war / extended deterrence prevents proliferation / open trade prevents mercantile spirals / liberal order locks in democratic peace." Don't say "heg good" as a standalone tag — judges flow that as an admission you can't make the argument.
+
+When writing a "heg bad" / multipolarity card: "X causes encirclement / triggers balancing / Goldilocks-Hubris hypothesis — heg breeds adventurism, see Iraq / Vietnam / Afghanistan."
+`;
+
+const CAPITALISM_K_PRIMER = `
+CAPITALISM K PRIMER (most-read NEG K in policy and circuit LD)
+
+LINK STRATEGIES (specific is better than generic):
+- "Plan reifies the wage-labor relation by treating workers as units of production."
+- "Plan uses capitalist legal forms (contracts, property) to redress capitalist harms — band-aid."
+- "Plan's solvency mechanism (markets, incentives, growth) is the disease."
+- "Plan disciplines workers / consumers / Indigenous people into capitalist subjectivity."
+- "Plan resolves a contradiction the system needs to keep producing surplus — reform extends crisis."
+
+IMPACT (pick one register; don't smear):
+- Marxist / historical-materialist: capitalism causes war (Lenin), causes climate (Malm, Klein), causes alienation (Marx 1844), causes nature / social-reproduction crises (Fraser, Federici).
+- Frankfurt school: instrumental reason / one-dimensionality (Marcuse, Adorno).
+- Postcolonial Marxism: capitalism is racial from the start (Robinson Black Marxism), accumulation by dispossession (Harvey).
+- Bifo / autonomist: semiocapitalism causes psychic exhaustion, depression, suicide.
+- Bataille: general economy — system's repressed expenditure returns as catastrophic sacrifice (war, ecocide).
+
+ALT (real options, not vague "reject"):
+- "Vote NEG to embrace [specific praxis] — communization (Endnotes), commoning (Federici), Red Deal (Estes), Black anarchism (Anderson)."
+- Marxist-Leninist alts (dictatorship of the proletariat / democratic centralism — rare, but read).
+- "The alt is the K itself — making the link visible is the praxis."
+
+REAL CAPITALISM-K AUTHORS:
+- Marx; Engels; Lenin (imperialism)
+- David Harvey (CUNY) — neoliberalism, A Brief History of Neoliberalism, accumulation by dispossession
+- Andreas Malm (Lund) — Fossil Capital, climate communism
+- Naomi Klein — This Changes Everything
+- Silvia Federici — Caliban and the Witch, social reproduction
+- Nancy Fraser — Cannibal Capitalism
+- Slavoj Žižek
+- Mark Fisher — Capitalist Realism (very debate-friendly)
+- Franco "Bifo" Berardi — semiocapitalism, exhaustion
+- Cedric Robinson — Black Marxism
+- Wendy Brown — Undoing the Demos, neoliberal rationality
+- Antonio Negri / Michael Hardt — Empire / Multitude, autonomism
+- Aaron Benanav — Automation and the Future of Work (good for labor-topic cap-K links)
+- Kim Moody — On New Terrain
+
+ANSWERS TO PERM-DO-BOTH:
+- "Perm severs the link — they have to defend the cap-reifying step of the plan."
+- "Perm is a co-option DA — incorporating critical content into a capitalist policy delays the revolutionary moment."
+- "Reformism / managerialism turn — the perm is exactly the gradualism that kept capitalism alive past every previous crisis."
+`;
+
+const CRITICAL_PHIL_K_PRIMER = `
+CRITICAL PHILOSOPHY K PRIMER (circuit LD + Policy K-aff lit base)
+
+Anchor in ONE school. Don't mix without justification.
+
+A. AFROPESSIMISM — anchor: Frank Wilderson III, Red, White & Black; Afropessimism. Thesis: Blackness occupies the structural position of the Slave in a Master/Slave/Human triangulated world; anti-Blackness is ontological, not contingent; reformism is impossible because civil society is constituted BY anti-Blackness. Other authors: Jared Sexton, Christina Sharpe (In the Wake), Saidiya Hartman, Hortense Spillers, Calvin Warren. Common K-aff: "The ballot for AFF as a moment of refusal that disrupts the libidinal economy of anti-Blackness."
+
+B. SETTLER COLONIALISM — anchor: Patrick Wolfe "Settler Colonialism and the Elimination of the Native"; Tuck & Yang "Decolonization is Not a Metaphor." Thesis: settler colonialism is a STRUCTURE, not an event; "logic of elimination" replaces Indigenous people with settlers. Other authors: Glen Coulthard (Red Skin, White Masks), Audra Simpson (Mohawk Interruptus), Mark Rifkin, Aileen Moreton-Robinson, Leanne Betasamosake Simpson, Nick Estes (Red Deal).
+
+C. CAPITALISM K — see CAPITALISM_K_PRIMER for the full author list and link strategies.
+
+D. QUEER PESSIMISM ("QueerPess") — anchor: Lee Edelman "No Future." Thesis: politics is structured around "reproductive futurity" — protection of the Child as figure of the future; queerness is structural negation. Note: Edelman is contested in the community as transphobic and/or racist; smart teams source-attack OR draw from Calvin Warren / C. Riley Snorton / Tavia Nyong'o for queer-of-color reformulations. Counter-tradition: José Esteban Muñoz "Cruising Utopia" — queer futurity as utopian alternative.
+
+E. SETTLER-CAPITALIST / RED DEAL — anchor: Nick Estes / Red Nation. Synthesizes settler colonialism + capitalism + climate. Common K-aff: AFF presupposes the settler-capitalist state; alt is Indigenous-led climate justice.
+
+F. PSYCHOANALYSIS / BIFO — anchor: Lacan (less so directly), Žižek, Berardi, Tiqqun, the Invisible Committee. Thesis: late capitalism produces psychic exhaustion, depression, neoliberal-self-as-enterprise; the answer is desertion, refusal of work, the commune.
+
+G. BIOPOWER / NECROPOLITICS — anchor: Foucault Discipline and Punish, History of Sexuality Vol I; Roberto Esposito (immunitas / communitas); Giorgio Agamben (state of exception, homo sacer); Achille Mbembe Necropolitics. Common K: AFF extends biopolitical governance over a vulnerable population; alt is to refuse the management frame.
+
+H. DELEUZE / GUATTARI — anchor: A Thousand Plateaus, Anti-Oedipus. State thought is arborescent; resistance is rhizomatic; subjectivity is in flux ("becoming"). Common K-aff: AFF deterritorializes; alt is lines of flight.
+
+I. BATAILLE — anchor: The Accursed Share. Society has more energy than it can productively absorb; the surplus must be expended (potlatch, sacrifice, war, art); "general economy" reveals what restricted-economy (utility, growth) hides. Common K: AFF tries to make the surplus useful, which produces catastrophic involuntary expenditure.
+
+J. BAUDRILLARD — anchor: Simulacra and Simulation, Symbolic Exchange and Death. In the hyperreal, the sign has no referent; reversibility is the only remaining critical move. Common K-aff: affirmative as "moment of rupture" — a symbolic gesture exposing simulation. Very performance-friendly.
+
+K. HEIDEGGER / MANAGERIALISM — anchor: The Question Concerning Technology. Modernity reduces Being to standing-reserve (Bestand); calculative thinking forecloses meditative thinking; AFF is an instance of enframing (Gestell). Alt: dwelling-poetically, meditative thinking, releasement (Gelassenheit).
+
+L. LEVINAS — anchor: Totality and Infinity, Otherwise Than Being. Ethics is first philosophy; the face of the Other is an infinite demand prior to ontology; totalization is violent. Common K: AFF totalizes the Other; alt is the asymmetric ethical encounter.
+
+When the AI runs a K, the LINK should be SPECIFIC to the AFF (not generic "the AFF reifies X"). The ALT should have a NAME and a LITERATURE BASE. The FRAMEWORK should explain why the K precedes the AFF (pre-fiat / role-of-the-ballot move).
+`;
+
 // TOPIC_PRIMERS — registry. Add primers here as new transcripts arrive.
 const TOPIC_PRIMERS = {
   finance: FINANCE_PRIMER,
+  arctic: ARCTIC_PRIMER,
+  collective_bargaining: COLLECTIVE_BARGAINING_PRIMER,
+  hegemony: HEGEMONY_PRIMER,
+  capitalism_k: CAPITALISM_K_PRIMER,
+  critical_phil_k: CRITICAL_PHIL_K_PRIMER,
 };
 
 // forTopic — returns a topic primer if known, else ''. Normalizes synonyms.
@@ -1014,6 +1212,18 @@ function forTopic(topic) {
     'monetary policy': 'finance', 'central banking': 'finance',
     'private equity': 'finance', 'private credit': 'finance',
     'hedge funds': 'finance', 'pe': 'finance', 'pc': 'finance',
+    // 2026-05-19 additions
+    'arctic exploration': 'arctic', 'arctic development': 'arctic',
+    'icebreaker': 'arctic', 'greenland': 'arctic', 'arctic council': 'arctic',
+    'labor': 'collective_bargaining', 'unions': 'collective_bargaining',
+    'unionization': 'collective_bargaining', 'nlra': 'collective_bargaining',
+    'workers': 'collective_bargaining', 'wages': 'collective_bargaining',
+    'heg': 'hegemony', 'great power': 'hegemony', 'great-power competition': 'hegemony',
+    'us-china': 'hegemony', 'china-us': 'hegemony', 'thucydides': 'hegemony',
+    'liberal order': 'hegemony', 'multipolarity': 'hegemony',
+    'cap k': 'capitalism_k', 'capk': 'capitalism_k',
+    'kritik': 'critical_phil_k', 'critical theory': 'critical_phil_k',
+    'afropessimism': 'critical_phil_k', 'settler colonialism': 'critical_phil_k',
   };
   return TOPIC_PRIMERS[syn[key]] || '';
 }
@@ -1045,6 +1255,85 @@ const TOPIC_KEYWORDS = {
       'liquidity', 'insolvency', 'bailout', 'treasury', 'capital market',
       'imf', 'world bank', 'fed', 'bond', 'fdic', 'collateral',
       'subprime', 'fractional reserve', 'consumer credit',
+    ],
+  },
+  arctic: {
+    strong: [
+      'arctic council', 'arctic ocean', 'arctic security', 'arctic policy',
+      'icebreaker', 'polar silk road', 'greenland', 'arctic sovereignty',
+      'northern sea route', 'arctic militarization', 'arctic indigenous',
+      'arctic exploration', 'arctic development', 'polar star', 'arctic security cutter',
+      'ice pact', 'circumpolar', 'arctic rare earth',
+    ],
+    medium: [
+      'arctic', 'alaska', 'nunavut', 'iceland', 'svalbard', 'inuit',
+      'permafrost', 'sea ice', 'tundra', 'rem mining', 'rare earth minerals',
+      'polar', 'usns', 'coast guard', 'norway', 'finland', 'sweden',
+    ],
+  },
+  collective_bargaining: {
+    strong: [
+      'collective bargaining', 'labor union', 'labor unions', 'right to work',
+      'card check', 'union dues', 'agency fees', 'nlra', 'nlrb',
+      'sectoral bargaining', 'gig worker', 'gig workers', 'pro act',
+      'taft-hartley', 'wagner act', 'eo 14251', 'right-to-work',
+      'janus v afscme', 'public sector union',
+    ],
+    medium: [
+      'union', 'unions', 'unionization', 'unionize', 'wages', 'workers',
+      'minimum wage', 'overtime', 'labor', 'employer', 'employee',
+      'strike', 'picket', 'lockout', 'arbitration', 'mediation',
+      'osha', 'workplace', 'collective action',
+    ],
+  },
+  hegemony: {
+    strong: [
+      'us hegemony', 'american hegemony', 'liberal hegemony', 'liberal international order',
+      'great power competition', 'great-power competition', 'thucydides trap',
+      'rules-based order', 'us-china rivalry', 'china-us', 'sino-american',
+      'extended deterrence', 'nuclear umbrella', 'forward presence',
+      'balance of threat', 'hegemonic stability', 'unipolarity', 'multipolarity',
+      'restraint grand strategy', 'offshore balancing',
+    ],
+    medium: [
+      'hegemony', 'hegemon', 'superpower', 'great power', 'grand strategy',
+      'alliance', 'alliances', 'nato', 'taiwan', 'south china sea',
+      'indo-pacific', 'aukus', 'quad', 'belt and road', 'bri',
+      'rising power', 'declining power', 'us military',
+    ],
+  },
+  capitalism_k: {
+    strong: [
+      'cap k', 'capitalism kritik', 'capitalism k', 'communization',
+      'accumulation by dispossession', 'commodity fetishism', 'wage labor',
+      'wage-labor', 'surplus value', 'class consciousness', 'historical materialism',
+      'social reproduction', 'cannibal capitalism', 'fossil capital',
+      'capitalist realism', 'semiocapitalism', 'neoliberal rationality',
+      'racial capitalism',
+    ],
+    medium: [
+      'marxism', 'marxist', 'marx', 'engels', 'communism', 'socialism',
+      'proletariat', 'bourgeoisie', 'neoliberal', 'neoliberalism',
+      'commodification', 'class struggle', 'austerity', 'inequality',
+      'wealth concentration', 'corporate power', 'globalization',
+    ],
+  },
+  critical_phil_k: {
+    strong: [
+      'afropessimism', 'settler colonialism', 'decoloniality', 'biopower',
+      'necropolitics', 'queer pessimism', 'queer futurity',
+      'logic of elimination', 'social death', 'libidinal economy',
+      'role of the ballot', 'pre-fiat', 'rhizomatic', 'arborescent',
+      'state of exception', 'homo sacer', 'general economy',
+      'simulacrum', 'hyperreal', 'standing reserve', 'enframing',
+      'kritik', 'kritiks',
+    ],
+    medium: [
+      'wilderson', 'tuck and yang', 'patrick wolfe', 'coulthard',
+      'fanon', 'mbembe', 'foucault', 'agamben', 'esposito',
+      'bataille', 'baudrillard', 'deleuze', 'guattari', 'heidegger',
+      'levinas', 'edelman', 'munoz', 'spillers', 'hartman', 'sharpe',
+      'critical race', 'postcolonial', 'decolonial',
     ],
   },
 };
