@@ -1547,6 +1547,52 @@ PUBLIC FORUM VOICE (NSDA, 2v2, lay-accessible, evidence-heavy):
 - Crossfire is conversational, pointed, 3 minutes. Pin on concessions: "So you agree that [X]?" / "Can you cite one study showing [Y]?" Don't monologue; let them dig their own hole.
 - NSDA topic changes monthly. Reference the current topic wording literally — PF judges expect topic language verbatim, not paraphrase.
 - Common PF evidence traps to exploit: power-tagging (they claimed more than the source actually said — pull the quote), outdated data (pre-COVID on economic args is shaky), conflicting studies (meta-analysis beats single study).
+
+═══ FULL SPEECH ORDER + TIMES ═══
+- Constructive 4 / Constructive 4 / CF 3 / Rebuttal 4 / Rebuttal 4 / CF 3 / Summary 3 / Summary 3 / Grand CF 3 / Final Focus 2 / Final Focus 2. Two prep periods of 3 minutes per team.
+- Coin flip determines side AND speaking order.
+
+═══ FIRST-vs-SECOND SPEAKER ASYMMETRY (THE structural feature of modern PF) ═══
+- 1st REBUTTAL (speaks first): pure attack on opponent's case. Does NOT frontline own case — there are no responses to defend against yet. Sets up as many "paths to the ballot" as possible to force the second team to thin-spread their response.
+- 2nd REBUTTAL (speaks second): MUST frontline own case (defend against attacks just made) AND attack opponent's case. Typically 1-2 minutes frontlining, 2-3 minutes attacking. The "block" — pre-cut 30-45-second frontline files for every common attack — separates national-circuit teams from local teams.
+- 1st SUMMARY (the squeeze speech): must defend EVERYTHING from 2nd rebuttal in 3 minutes AND extend offense AND start weighing. Structurally the hardest speech in PF. Top teams treat 2nd rebuttal more like 1st summary (start weighing early) so 1st summary isn't drowning.
+- 2nd SUMMARY: collapse to 1-2 issues max, full weighing, frontline what your case needs.
+- 1st FINAL FOCUS: can introduce NEW weighing (not new offense). Extend + frontline + weigh.
+- 2nd FINAL FOCUS: NO new arguments, NO new weighing. Pure collapse + comparative.
+
+═══ ISSUE SUMMARY COLLAPSE (modern circuit standard) ═══
+- Modern circuit summaries use the ISSUE format, not the argument-by-argument format. Group arguments into 2-3 categorical buckets ("the economic question," "the rights question," "the timeframe question") rather than going in flow order. Saves time, lay-accessible, lets you weigh issue-vs-issue.
+
+═══ THE 10 WEIGHING MECHANISMS (full canonical list, not just 4) ═══
+Use the named vocabulary out loud — judges flow these words:
+1. Scope (how many people / things affected) — "our impact hits 320 million Americans, theirs hits a few thousand"
+2. Severity (impact per person) — "a job lost is recoverable, a life lost is not"
+3. Reversibility — "their harm reverses by next budget cycle, ours locks in for generations"
+4. Magnitude (scope × severity)
+5. Probability — "ours is empirical and conceded, theirs requires three contingent steps"
+6. Timeframe — "our impact triggers in 6 months, theirs takes 20 years"
+7. Urgency — "right now is the moment, not 2030"
+8. Prerequisite — "you can't access their advantage without solving our framework first"
+9. Link-in — "our impact also captures their advantage"
+10. Short-circuit — "ours triggers first and stops theirs from happening"
+
+═══ JUDGE-PARADIGM SPECTRUM (4-point continuum) ═══
+- LAY (parent judge, ~70% of local rounds): no debate vocab. "Magnitude" → "more important." "Frontline" → "let me defend our case." "Drop" → "they didn't respond." Speak 180-200 wpm max. Lead with a story, not a card.
+- FLAY (some experience, judges casually): basic vocab OK ("uniqueness," "delink"), avoid theory / kritiks / progressive args.
+- FLOW (former debater / coach): can handle 220-250 wpm, expects line-by-line on the flow, expects explicit weighing words.
+- TECH (TOC-bid round): tech > truth. Theory, framework presses, dropped-argument extensions all in play. 250+ wpm. Expects collapse + weighing + judge-instruction at summary.
+
+═══ 2025-26 NSDA PF MONTHLY TOPICS (full season for reference) ═══
+- Sept/Oct 2025: "The United Kingdom should rejoin the European Union."
+- Nov/Dec 2025: "The United States federal government should require technology companies to provide lawful access to encrypted communications."
+- Jan 2026: "The People's Republic of China should substantially reduce its international extraction of natural resources."
+- Feb 2026: "The Federal Trade Commission should establish a federal regulatory framework for sports betting."
+- Mar 2026: "The United States federal government should ban corporate acquisition of single-family residences."
+- Apr 2026: "The United States should eliminate the President's authority to deploy military forces abroad without Congressional approval."
+
+═══ SPEAKER POINTS ═══
+- Scale: 24.0-30.0. Norm: 26.0-30.0. Below 25 = "obnoxious or rude." 30.0 = "the best speaker you'll see in your lifetime."
+- Reward: clarity, weighing, evidence quality, smooth crossfire, no verbal tics, polished delivery.
 `,
 
   policy: `
@@ -1642,6 +1688,67 @@ CONGRESSIONAL DEBATE VOICE (NSDA legislative format — speeches on bills/resolu
 - Oratorical delivery: 150-180 wpm, polished but NOT read verbatim. Extemporaneous style — notes are allowed but reading from a script hurts speaker points. Vary cadence. Use rhetorical pauses.
 - Call to action close: "I urge an aye vote on this legislation" or "I urge the body to reject this bill." NEVER "proud to propose."
 - STYLE scores heavily. Speaker points reward clarity, presence, vocabulary, originality of analysis, and engagement with prior speakers. Don't spread. Don't mumble. Don't read from a podium in a monotone.
+
+═══ THE SEVEN SPEECH POSITIONS — DIFFERENT JOBS ═══
+- AUTHORSHIP — only if the bill's writer is in chamber. First speech on the bill. 3 min + 2 min Q&A (4 blocks of 30s). Sets the frame.
+- SPONSORSHIP — any debater if no authorship. Functionally identical time / structure but at a disadvantage (you didn't write it). Sponsorship is the ONLY speech where reading from a manuscript is acceptable; every other speech must be extemporaneous.
+- FIRST NEGATION — first speech against. 3 min + 1 min Q&A (2 blocks). Establishes the principal opposition framework.
+- SECOND AFF / SECOND NEG — REQUIRED to bring NEW content. Do NOT repeat the first speaker. New evidence, new angle, new constituency affected.
+- MID-CYCLE (3rd, 4th, 5th) — clash-and-extend. MUST reference prior speakers by name and respond to specific arguments. Add depth, don't rehash.
+- CRYSTALLIZATION — late-round summary speech. Weighs major points across the cycle, identifies what's "clashed and unresolved," adds ONE fresh angle. RESOLVES the debate; does NOT introduce the bill. Crystallization speeches that just summarize without weighing lose to ones that pick 2-3 voting issues and explain why aff / neg wins.
+- REBUTTAL / CLOSING — sometimes the last speech before the vote; combines weighing + call to action.
+
+═══ PRECEDENCE + RECENCY (PO recognition logic) ═══
+- The PO recognizes speakers using PRECEDENCE (who hasn't spoken on this legislation) and RECENCY (who spoke most recently). Determines when to raise placard.
+- A debater who hasn't spoken on the current legislation outranks one who has. Tied precedence breaks on recency (least-recent-spoken gets the floor).
+
+═══ DIRECT vs INDIRECT QUESTIONING ═══
+- DIRECT (national circuit standard): 30-second blocks of back-and-forth with minimal moderation from the chair. Can ask 2-3 follow-ups in one block.
+- INDIRECT (local standard): one question per person, more formal.
+- Use "the gentleman / gentlelady from [state / school]" or "the representative who just spoke." Avoid first names.
+
+═══ THE PRESIDING OFFICER ═══
+- The PO is elected by the chamber at the start of the session. PO runs the round — manages recognition, times speeches, rules on motions, maintains decorum.
+- PO scoring: 1-6 per hour of presiding. Judges evaluate parliamentary knowledge, fair recognition (no playing favorites), control, demeanor, communication.
+- POs are also debaters in their own right when not presiding; many top Congress competitors rotate PO sessions.
+
+═══ PARLIAMENTARY MOTIONS TO KNOW ═══
+- Move the previous question (2/3 vote): ends debate, moves to vote.
+- Move to extend questioning (majority): adds 30s to questioning period.
+- Motion to table (majority): kills the bill without a final vote. Aggressive.
+- Motion to recess (majority): break time, usually 5-10 min.
+- Point of order (PO decision): challenges a procedural violation.
+- Point of personal privilege (PO decision): "the AC is too loud" / "can the speaker repeat that?"
+- Point of parliamentary inquiry (PO decision): "what would I do to motion for X?"
+
+═══ EVIDENCE CONVENTIONS ═══
+- Oral cite minimum: primary author last name + year. "Per Smith 2024..." / "A 2023 Brookings study..." / "The Congressional Budget Office estimates..."
+- DO NOT invent bill numbers. If no real one in mind, hedge ("a recent fed-style appropriations bill on X") or use real ones: H.R. 5376 = Inflation Reduction Act 2022; H.R. 4521 = US Innovation and Competition Act.
+- DO NOT invent statistics. Round to make memorable ("nearly half of Americans") if the stat is real.
+- NSDA evidence rules: falsification = suspension.
+
+═══ 2026 DOCKET CATEGORIES (real bills the AI may encounter) ═══
+- Economic / fiscal: carbon tax, sectoral bargaining, ban congressional stock trading, paid maternity leave, remittance fees, rent control.
+- Criminal justice: abolish plea bargaining, abolish bail, eliminate squatter laws, public defender caseloads.
+- Tech / AI: ban deepfakes, military AI integration, AI data centers / energy, phone voting.
+- Healthcare: ban pharma TV ads, rural clinics, school mental health, psychedelic medical, price transparency.
+- Foreign policy: Indo-Pacific alliance, end UN membership, military AI.
+- Education: four-day school week, defund for-profit charters.
+- Energy / climate: carbon tax, nuclear expansion, EV infrastructure.
+- Constitutional: Puerto Rico statehood, abolish federal income tax, national ID card, national firearm registry.
+
+═══ COMMON FAILURE MODES ═══
+- Inventing bill numbers.
+- Inventing statistics.
+- "We" instead of "I" — Congress is individual; PF is team.
+- Skipping the chair address at the start.
+- Crystallization that doesn't weigh.
+- 2nd aff / neg rehashing 1st.
+- Aggressive questioning — judges penalize the gotcha tone.
+- Reading from a manuscript on non-sponsorship speeches.
+- Spreading — wrong format.
+- Parli vocab leaking in ("proud to propose," "POI").
+- Calling someone by first name.
 `,
 
   mun: `
@@ -1654,6 +1761,84 @@ MODEL UN VOICE (committee simulation — GA / SC / specialized bodies):
 - Sovereignty language is central: "This delegation cannot support measures that infringe on state sovereignty" / "The principle of non-interference, enshrined in the UN Charter Article 2(7)..."
 - Address the dais: "Honorable Chair" / "Distinguished delegates" — formal register throughout.
 - Amendment strategy: friendly amendments improve a resolution you can vote for; unfriendly amendments redirect it toward your preferred outcome. Name them: "My delegation proposes an unfriendly amendment to Operative Clause 3..."
+
+═══ COMMITTEE TYPES — basically different formats ═══
+- GA / STANDARD (DISEC, ECOFIN, SOCHUM, SPECPOL, LEGAL, ECOSOC functionals): 50-300 delegates, slow pace, resolution-heavy. THIRD PERSON: "The delegate of France believes..." Goal: pass draft resolution(s) over 3-5 days. Bloc work critical.
+- CRISIS (continuous): 15-40 delegates, fast pace, directive-heavy. FIRST PERSON as character: "I will mobilize the second division." Public directives voted on by committee (~1/5 as signatories typical), pass on simple majority. Crisis notes (private personal directives) — SECRET messages to crisis staff. Need who/what/where/when/why/how. Build a CRISIS ARC over multiple notes — a storyline that builds to climax. Establish personal protection + funding early. JPDs (Joint Personal Directives) — 2+ delegates pool portfolio powers.
+- SPECIALIZED (UNHCR, WHO, IAEA, IMO, ITU, WTO): domain expertise required. WHO needs epidemiology vocab; UNHCR needs refugee law (1951 Convention, 1967 Protocol); IAEA needs safeguards / Additional Protocol vocab. Citation depth matters more than in GA.
+- JCC (Joint Crisis Committee): 2+ rival rooms (e.g., NATO vs Warsaw Pact, North vs South Korea). Each room runs as standalone crisis but actions in one affect the other. Espionage, sabotage, military planning. Private notes between rooms enable secret diplomacy.
+
+═══ POSITION PAPERS (graded — Best Position Paper award exists at most major conferences) ═══
+- BMUN format: 12pt TNR, single-spaced, 3 pages max per topic, MLA citations, 1-inch margins, header with committee + country + topic (NO name / school). Four sections: Past & Current International Action (20%) / Country Position (20%) / Proposed Solutions (40%) / Questions to Consider (15%).
+- HMUN format: 1 page single-spaced per topic. Three sections: National Interests / National Policies / Opinion on Resolution Components.
+- Strong PPs cite real UN voting records, real treaties, real specific data. Show motivation analysis (WHY does your country hold this position, not just WHAT). Propose concrete solutions aligned with country values.
+- DO NOT invent treaty articles or resolution numbers. Use verified ones.
+
+═══ AWARD HIERARCHY ═══
+- Most committees: 1 BEST DELEGATE / 1-2 OUTSTANDING / 1-3 HONORABLE MENTION / 1-2 BEST POSITION PAPER. Some also give Best Delegation (school-level).
+- BEST DELEGATE goes to: best-researched + ran effective bloc + wrote substantive clauses + spoke compellingly multiple times + drove resolution forward + represented country accurately. NOT the loudest delegate.
+- IIMUN award system: Best Delegate (15 pts), High Commendation (10), Special Mention (5).
+- "Power dels" (aggression > substance) get downranked. Diplomacy and bridge-building matter.
+
+═══ SPEECH MECHANICS ═══
+- General Speakers' List (GSL): 60-90 sec opening per delegate. Sets position. Brief, substantive, memorable.
+- Moderated Caucus: 30-90 sec on focused topic. Three-part: HOOK (statistic, anecdote, framing question) → SUBSTANCE (2-3 specific points, ideally with data) → CLOSE (call to action, merger pitch, or "send me a note if you want to discuss").
+- Unmoderated Caucus: 15-30 min open floor. NOT scored speeches but THIS is where alliances form, papers get drafted, blocs solidify. Most Best Delegate work happens here.
+
+═══ BLOC DYNAMICS (the 3-ring model) ═══
+- INNER RING: writers, negotiators, idea creators. Bloc leaders.
+- SECOND RING: strong supporters invested in specific clauses.
+- THIRD RING: less-committed voters. Need to feel valued or get poached.
+- UNDECIDEDS: available for recruitment.
+- Real-world blocs: Western (US, UK, France, Germany, Canada, Australia, Japan), G77 (developing-world coalition), NAM (Non-Aligned Movement), P5 on security, EU on most topics, AU on Africa-specific, ASEAN on SE Asia, GCC on Middle East.
+
+═══ COUNTRY POSITION CONSTRAINTS ═══
+- North Korea cannot strongly argue for human-rights enforcement. Saudi Arabia cannot strongly argue for domestic women's rights. China cannot vote for Taiwan recognition. P5 (US/UK/France/Russia/China) on SC topics: invoke veto threat explicitly.
+- Best Delegates make CREATIVE moves within real constraints.
+
+═══ REAL UN RESOLUTIONS TO KNOW (verified, high-utility) ═══
+- UNSC 1325 (2000) — women, peace, and security
+- UNSC 2231 (2015) — JCPOA / Iran nuclear deal
+- UNGA 2758 (1971) — PRC seating; Taiwan question
+- UNSC 1373 (2001) — counter-terrorism post-9/11
+- UNSC 1540 (2004) — WMD non-proliferation
+- UNSC 1701 (2006) — Lebanon
+- UNSC 2118 (2013) — Syria chemical weapons
+- UN Charter Article 2(4) (use of force prohibition)
+- UN Charter Article 2(7) (non-interference in domestic affairs)
+- UN Charter Article 51 (self-defense)
+- UN Charter Chapter VI (peaceful settlement) vs Chapter VII (enforcement / sanctions / military)
+- 1951 Refugee Convention + 1967 Protocol
+- ICCPR / ICESCR
+- 1968 NPT (Non-Proliferation Treaty)
+
+═══ DRAFT RESOLUTION LANGUAGE ═══
+- Preambulatory (present participle, italicized, comma at end): Acknowledging / Affirming / Alarmed by / Bearing in mind / Cognizant of / Concerned / Deeply convinced / Emphasizing / Expressing concern / Noting / Reaffirming / Recalling / Recognizing / Welcoming.
+- Operative (active verb, italicized, numbered, comma except last with period): Accepts / Adopts / Affirms / Authorizes / Calls upon / Condemns / Decides / Demands / Encourages / Endorses / Establishes / Reaffirms / Recommends / Requests / Urges.
+- ONLY the Security Council can "decides" with binding force (Chapter VII). GA committees only "urges" / "calls upon" / "recommends" — non-binding.
+
+═══ THE INDIA CIRCUIT (largest MUN circuit globally by volume) ═══
+- IIMUN: 150,000+ schools. National conference annually.
+- Conference hierarchy: HMUN India (Harvard-branded, August in Bengaluru + Jaipur) > national-level (IIMUN National, DAIMUN Mumbai, Delhi MUN) > regional > school.
+- DAIMUN (Dhirubhai Ambani International School, Mumbai): India's largest THIMUN-affiliated (~500 delegates / 11 committees).
+- Cultural register tilts MORE FORMAL than American MUN. "Honorable Chair, the delegate of [country] would like to bring to the attention of the august committee..." is the norm.
+- THIMUN-affiliated (DAIMUN) uses STRICTER parliamentary procedure than American Harvard-style.
+- IIMUN emphasizes "inclusive diplomacy and bridge-building over aggressive tactics" — "power-dels" downranked harder than in American MUN.
+
+═══ COMMON FAILURE MODES ═══
+- 1st person in GA committees (GA = 3rd person, Crisis = 1st person as character).
+- Arguing positions your country can't actually hold.
+- Inventing UN resolution numbers or treaty articles.
+- "Power-del" aggression — dominating airtime instead of leading substantively.
+- Skipping unmoderated caucus to keep speaking — most Best Delegate work happens off-mic.
+- Treating preambulatory clauses as throwaway — they're cited in defending operative clauses.
+- "We" — you're a state, not a team.
+- Forgetting to address the dais.
+- Crisis: writing crisis notes without who/what/where/when/why/how — staff returns them.
+- Crisis: revealing your arc publicly — opponents derail you.
+- JCC: ignoring the other room — what happens there affects you.
+- Specialized superficiality: WHO without epidemiology vocab, UNHCR without 1951 Convention vocab.
+- Confusing "decides" with "urges" — only SC Chapter VII actions have binding force.
 `,
 
   viva: `
