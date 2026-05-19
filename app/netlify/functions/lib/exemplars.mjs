@@ -82,6 +82,18 @@ function hashStr(s) {
   return h.toString(36);
 }
 
+// Rating multiplier — folds admin-rated quality into the exemplar score
+// so 5-star generations outrank unrated admin rounds on the same motion.
+// Unrated docs default to 3 (neutral); 1-2 stars actively de-rank; the
+// `boring` flag zeroes the score entirely (we don't want generic outputs
+// taught back to the model as exemplars).
+function ratingMultiplier({ rating, boring }) {
+  if (boring === true) return 0;
+  const r = typeof rating === 'number' && rating >= 1 && rating <= 5 ? rating : 3;
+  // 5-star = 1.67x, 4-star = 1.33x, 3-star = 1.0x, 2-star = 0.67x, 1-star = 0.33x.
+  return r / 3;
+}
+
 export async function getExemplars({ motion, format, side }) {
   const m = (motion || '').trim();
   const f = (format || '').trim();
@@ -94,41 +106,106 @@ export async function getExemplars({ motion, format, side }) {
   try {
     const db = getDb();
     const { uids, weights } = await getAdminUids(db);
-    if (!uids || !uids.length) {
-      exemplarCache.set(cacheKey, { data: [], at: Date.now() });
-      return [];
-    }
+    const haveAdmins = uids && uids.length > 0;
 
-    // Firestore `in` cap is 10. Admin list is small, but guard anyway.
-    const batch = uids.slice(0, 10);
-    const snap = await db.collection('debate_rounds')
-      .where('userId', 'in', batch)
-      .where('format', '==', f)
-      .limit(40)
-      .get();
+    // Two parallel sources:
+    //   (a) debate_rounds authored BY admin users — the original "strong
+    //       debater wrote this round themselves" signal.
+    //   (b) generations rated >= 4 by an admin (any user's AI output that
+    //       an admin gave 4-5 stars). This is the wire that connects the
+    //       /admin-rate tool to the exemplar layer; before this query, a
+    //       5-star rating only fed the nightly distill but didn't surface
+    //       as a concrete reference speech the model could anchor on.
+    // Both queries return at most ~20-40 docs; firestore indexes already
+    // exist for both (admin-uids list is small; format+rating+createdAt is
+    // the same composite used by scheduled-distill.mjs).
+    const queries = [];
+    if (haveAdmins) {
+      // Firestore `in` cap is 10. Admin list is small, but guard anyway.
+      const batch = uids.slice(0, 10);
+      queries.push(
+        db.collection('debate_rounds')
+          .where('userId', 'in', batch)
+          .where('format', '==', f)
+          .limit(40)
+          .get()
+          .then(snap => ({ source: 'rounds', snap }))
+          .catch(err => { console.warn('[exemplars] rounds query failed:', err.message); return { source: 'rounds', snap: null }; })
+      );
+    }
+    queries.push(
+      db.collection('generations')
+        .where('format', '==', f)
+        .where('rating', '>=', 4)
+        .orderBy('rating', 'desc')
+        .limit(20)
+        .get()
+        .then(snap => ({ source: 'generations', snap }))
+        .catch(err => { console.warn('[exemplars] rated-gen query failed:', err.message); return { source: 'generations', snap: null }; })
+    );
+
+    const results = await Promise.all(queries);
 
     const motionTokens = tokens(m);
     const candidates = [];
-    snap.forEach(doc => {
-      const r = doc.data();
-      if (!r || !Array.isArray(r.log)) return;
-      const userTurns = r.log.filter(e => e && e.who === 'You' && e.text && e.text.length > 80);
-      if (!userTurns.length) return;
-      const userSpeech = userTurns[0].text.slice(0, USER_SPEECH_CHAR_LIMIT);
-      const overlapScore = overlap(motionTokens, tokens(r.motion));
-      const weight = weights[r.userId] || 1;
-      const recency = r.date ? (Date.now() - new Date(r.date).getTime()) / (1000 * 60 * 60 * 24) : 90;
-      const sideBonus = side && r.side === side ? 0.15 : 0;
-      const score = weight * (overlapScore + Math.max(0, 1 - recency / 90) * 0.2 + sideBonus);
-      candidates.push({
-        score,
-        motion: r.motion || '',
-        side: r.side || '',
-        sideLabel: r.sideLabel || r.side || '',
-        formatName: r.formatName || r.format || '',
-        userSpeech,
+
+    for (const { source, snap } of results) {
+      if (!snap) continue;
+      snap.forEach(doc => {
+        const r = doc.data();
+        if (!r) return;
+
+        let userSpeech = '';
+        let docMotion = '';
+        let docSide = '';
+        let docSideLabel = '';
+        let docFormatName = '';
+        let baseWeight = 1;
+        let dateMs = null;
+
+        if (source === 'rounds') {
+          if (!Array.isArray(r.log)) return;
+          const userTurns = r.log.filter(e => e && e.who === 'You' && e.text && e.text.length > 80);
+          if (!userTurns.length) return;
+          userSpeech = userTurns[0].text.slice(0, USER_SPEECH_CHAR_LIMIT);
+          docMotion = r.motion || '';
+          docSide = r.side || '';
+          docSideLabel = r.sideLabel || r.side || '';
+          docFormatName = r.formatName || r.format || '';
+          baseWeight = weights[r.userId] || 1;
+          dateMs = r.date ? new Date(r.date).getTime() : null;
+        } else {
+          // generations: a single AI turn that was admin-rated. The output
+          // text IS the speech; no log to walk.
+          if (!r.output || typeof r.output !== 'string' || r.output.length < 80) return;
+          userSpeech = r.output.slice(0, USER_SPEECH_CHAR_LIMIT);
+          docMotion = r.motion || '';
+          docSide = r.side || '';
+          docSideLabel = r.sideLabel || r.side || '';
+          docFormatName = r.formatName || r.format || '';
+          // Rated generations get baseWeight=2 (between a normal user=1 and
+          // a super-admin=3) — the admin rating itself is the quality signal
+          // we trust, layered on top via ratingMultiplier below.
+          baseWeight = 2;
+          dateMs = r.createdAt && r.createdAt.toMillis ? r.createdAt.toMillis() : null;
+        }
+
+        const overlapScore = overlap(motionTokens, tokens(docMotion));
+        const recency = dateMs ? (Date.now() - dateMs) / (1000 * 60 * 60 * 24) : 90;
+        const sideBonus = side && docSide === side ? 0.15 : 0;
+        const rMult = ratingMultiplier({ rating: r.rating, boring: r.boring });
+        if (rMult === 0) return; // boring=true excludes
+        const score = baseWeight * rMult * (overlapScore + Math.max(0, 1 - recency / 90) * 0.2 + sideBonus);
+        candidates.push({
+          score,
+          motion: docMotion,
+          side: docSide,
+          sideLabel: docSideLabel,
+          formatName: docFormatName,
+          userSpeech,
+        });
       });
-    });
+    }
 
     candidates.sort((a, b) => b.score - a.score);
     const out = candidates.slice(0, MAX_EXEMPLARS).map(({ score, ...rest }) => rest);
