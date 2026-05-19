@@ -4443,7 +4443,7 @@ function shareCardWrapText(ctx, text, maxWidth){
   if (line) lines.push(line);
   return lines;
 }
-async function buildShareCard({score, motion, displayName, formatName, won}){
+async function buildShareCard({score, aiScore, motion, displayName, formatName, won, decision}){
   const canvas = document.createElement('canvas');
   canvas.width = 1200; canvas.height = 630;
   const ctx = canvas.getContext('2d');
@@ -4503,13 +4503,28 @@ async function buildShareCard({score, motion, displayName, formatName, won}){
   ctx.fillStyle = 'rgba(239,68,68,0.85)';
   ctx.fillText('· ' + (formatName || 'APDA'), 60 + sW + 22, 312);
 
-  // Motion (wrapped, max 3 lines)
+  // AI score (smaller, below) — turns the card from solo-score to
+  // ballot-shape ("you 28.5 · AI 24.3"). Only renders if caller
+  // passed a numeric aiScore — older callsites still get the
+  // single-score layout. The opponent number is what makes the
+  // card feel like a real judge's ballot instead of a leaderboard
+  // bug, which is the part friends actually engage with on social.
+  if (typeof aiScore === 'number' && !isNaN(aiScore)){
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = '500 22px Inter, system-ui, sans-serif';
+    ctx.fillText('AI scored ' + aiScore.toFixed(1), 60 + sW + 22, 348);
+  }
+
+  // Motion (wrapped). With an aiScore + decision present we tighten
+  // the motion to 2 lines so the decision blurb has room below; with
+  // neither, the motion expands to 3 lines as before.
   ctx.fillStyle = '#fff';
   ctx.font = '500 32px Inter, system-ui, sans-serif';
   const motionStr = '"' + (motion || '').trim() + '"';
   const lines = shareCardWrapText(ctx, motionStr, 1080);
+  const hasDecision = decision && typeof decision === 'string' && decision.trim().length > 0;
   const motionTop = 410;
-  const maxLines = 3;
+  const maxLines = hasDecision ? 2 : 3;
   for (let i = 0; i < Math.min(lines.length, maxLines); i++){
     let ln = lines[i];
     if (i === maxLines - 1 && lines.length > maxLines){
@@ -4519,6 +4534,29 @@ async function buildShareCard({score, motion, displayName, formatName, won}){
       ln = ln + '…"';
     }
     ctx.fillText(ln, 60, motionTop + i * 44);
+  }
+
+  // Decision blurb — the judge's one-line "why" under the motion.
+  // Renders only when a decision string is present. Keeps the card
+  // ballot-shaped (motion + reasoning + verdict) instead of just a
+  // big number. Capped at 2 wrapped lines so the byline always fits.
+  if (hasDecision){
+    const decisionTop = motionTop + maxLines * 44 + 18;
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.font = 'italic 500 22px Inter, system-ui, sans-serif';
+    const decisionStr = decision.trim().replace(/\s+/g, ' ');
+    const dLines = shareCardWrapText(ctx, decisionStr, 1080);
+    const dMaxLines = 2;
+    for (let i = 0; i < Math.min(dLines.length, dMaxLines); i++){
+      let ln = dLines[i];
+      if (i === dMaxLines - 1 && dLines.length > dMaxLines){
+        while (ctx.measureText(ln + '…').width > 1080 && ln.length > 0){
+          ln = ln.slice(0, -1);
+        }
+        ln = ln + '…';
+      }
+      ctx.fillText(ln, 60, decisionTop + i * 30);
+    }
   }
 
   // Footer divider + byline
@@ -4542,7 +4580,18 @@ async function shareScoreCard(data){
 
   const filename = 'debateai-' + (typeof data.score === 'number' ? data.score.toFixed(1).replace('.','_') : 'score') + '.png';
   const file = new File([blob], filename, { type:'image/png' });
-  const text = `I scored ${typeof data.score==='number'?data.score.toFixed(1):data.score} on Debate AI. Try it: debateai.com`;
+  // Build the social copy so it carries the ballot shape — score,
+  // verdict, motion — not just the bare number. People share what
+  // looks like a real judge's ballot, not a leaderboard rank.
+  const scoreStr = typeof data.score === 'number' ? data.score.toFixed(1) : String(data.score);
+  const aiStr = typeof data.aiScore === 'number' ? data.aiScore.toFixed(1) : '';
+  const verdict = data.won === true ? 'Won' : data.won === false ? 'Lost' : '';
+  const motionQuote = (data.motion || '').trim().slice(0, 110);
+  const parts = [];
+  if (verdict) parts.push(verdict);
+  parts.push(`${scoreStr}${aiStr ? ' vs AI ' + aiStr : ''}`);
+  if (motionQuote) parts.push(`"${motionQuote}"`);
+  const text = `Debate AI ballot · ${parts.join(' · ')} · debateai.com`;
   const url = 'https://debateai.com/leaderboard';
 
   // Modern share path: native share sheet with file attached.
@@ -9382,6 +9431,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
                 try{
                   const res=await shareScoreCard({
                     score:b.speakerPoints.user,
+                    aiScore: typeof b.speakerPoints.ai === 'number' ? b.speakerPoints.ai : null,
                     motion:motion||'',
                     displayName:(()=>{
                       const fn=((user&&user.displayName)||'').trim();
@@ -9390,6 +9440,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
                     })(),
                     formatName:fmt.name,
                     won:b.winner==='user'?true:b.winner==='ai'?false:null,
+                    decision: (b.decision||'').toString().trim(),
                   });
                   if(res.method==='share') setShareStatus('shared');
                   else if(res.method==='download') setShareStatus('downloaded');
