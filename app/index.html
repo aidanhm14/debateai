@@ -1849,8 +1849,8 @@ body.crimson-theme{background:#151518!important;color:#f5f0f0!important}
 
 /* ── DebateAI revised construction (2026-05-18) ────────────────────────
    Semantic theme tokens + Case Generator cockpit shell. Layers on top of
-   the existing :root tokens. New components (cockpit-grid, cockpit-rail,
-   motion-chips, cockpit-actions, compact stepper) use only these tokens
+   the existing :root tokens. New components (cockpit-grid, motion-chips,
+   cockpit-actions, compact stepper) use only these tokens
    so the same component renders correctly in dark + light without
    per-theme overrides scattered through the file. */
 :root,
@@ -1890,54 +1890,13 @@ body.light-theme{
   --page-glow:radial-gradient(circle at 78% 24%,rgba(255,114,78,.18),transparent 44%);
 }
 
-/* ── Cockpit grid: form column + context rail ─────────────────────── */
+/* ── Cockpit grid: form column ────────────────────────────────────── */
 .cockpit-grid{
-  display:grid;
-  grid-template-columns:minmax(0,2fr) minmax(280px,1fr);
+  display:grid;grid-template-columns:1fr;
   gap:28px;align-items:start;margin-top:6px;
 }
-@media (max-width:1100px){.cockpit-grid{grid-template-columns:1fr;gap:18px}}
+@media (max-width:1100px){.cockpit-grid{gap:18px}}
 .cockpit-form{min-width:0}
-.cockpit-rail{
-  position:sticky;top:72px;align-self:start;
-  display:flex;flex-direction:column;gap:10px;
-  padding:18px 18px 16px;
-  background:var(--surface-1);
-  border:1px solid var(--border-subtle);
-  border-radius:20px;
-  box-shadow:var(--shadow-soft);
-  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-}
-@media (max-width:1100px){.cockpit-rail{position:static}}
-.cockpit-rail-title{
-  font-size:.6rem;font-weight:800;color:var(--accent-red);
-  letter-spacing:.16em;text-transform:uppercase;
-  padding-bottom:10px;border-bottom:1px solid var(--border-subtle);
-  margin-bottom:2px;
-}
-.cockpit-rail-row{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  font-size:.82rem;color:var(--text-secondary);
-  padding:5px 0;
-}
-.cockpit-rail-row .crr-label{color:var(--text-muted);font-weight:600;letter-spacing:.02em}
-.cockpit-rail-row .crr-value{color:var(--text-primary);font-weight:700}
-.cockpit-rail-row .crr-value.crr-accent{color:var(--accent-red)}
-.cockpit-rail-divider{height:1px;background:var(--border-subtle);margin:6px 0}
-.cockpit-rail-btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  width:100%;padding:10px 14px;border-radius:14px;
-  background:transparent;color:var(--text-primary);
-  border:1px solid var(--border-subtle);
-  cursor:pointer;font-family:inherit;font-weight:700;
-  font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;
-  transition:.15s ease;
-}
-.cockpit-rail-btn:hover{background:var(--surface-2);border-color:var(--border-strong);color:var(--text-primary)}
-.cockpit-rail-btn.primary{
-  background:var(--accent-red);color:#fff;border-color:transparent;
-}
-.cockpit-rail-btn.primary:hover{background:#e7384a;box-shadow:0 8px 20px rgba(223,52,65,.25)}
 
 /* ── Motion example chips ─────────────────────────────────────────── */
 .motion-chips{
@@ -5709,53 +5668,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
   }, checkingContext ? t('caseGen.generating', 'Generating...') : t('caseGen.aiGenerateBg', '\u2728 Have AI generate background'))
   )
   )
-  ), // end cockpit-form column
-  // Context rail: summarizes the current selection + Voice-next /
-  // pull-motion hooks. Sticky at top:72 on desktop, falls below the
-  // form on tablet/mobile (CSS breakpoint at 1100px).
-  React.createElement('div', { className: 'cockpit-rail' },
-  React.createElement('div', { className: 'cockpit-rail-title' }, t('caseGen.rightRail', 'Right rail')),
-  React.createElement('div', { className: 'cockpit-rail-row' },
-  React.createElement('span', { className: 'crr-label' }, t('caseGen.freshMotions', 'Fresh motions')),
-  React.createElement('span', { className: 'crr-value crr-accent' }, '3 today')
-  ),
-  React.createElement('div', { className: 'cockpit-rail-row' },
-  React.createElement('span', { className: 'crr-label' }, t('caseGen.side', 'Side')),
-  React.createElement('span', { className: 'crr-value' }, side)
-  ),
-  React.createElement('div', { className: 'cockpit-rail-row' },
-  React.createElement('span', { className: 'crr-label' }, t('caseGen.format', 'Format')),
-  React.createElement('span', { className: 'crr-value' }, format)
-  ),
-  React.createElement('div', { className: 'cockpit-rail-row' },
-  React.createElement('span', { className: 'crr-label' }, t('caseGen.depth', 'Depth')),
-  React.createElement('span', { className: 'crr-value' }, getDepthConfigs(format)[depth] && getDepthConfigs(format)[depth].label || depth)
-  ),
-  React.createElement('div', { className: 'cockpit-rail-row' },
-  React.createElement('span', { className: 'crr-label' }, t('caseGen.blocks', 'Blocks')),
-  React.createElement('span', { className: 'crr-value' }, depth === 'light' ? 'Off' : 'On')
-  ),
-  React.createElement('div', { className: 'cockpit-rail-divider' }),
-  React.createElement('div', { className: 'cockpit-rail-row' },
-  React.createElement('span', { className: 'crr-label' }, t('caseGen.voiceNext', 'Voice next')),
-  React.createElement('span', { className: 'crr-value crr-accent' }, 'Ready')
-  ),
-  React.createElement('button', {
-    className: 'cockpit-rail-btn primary',
-    type: 'button',
-    onClick: function () {
-      try {if (motion && motion.trim()) localStorage.setItem('voice-prefill-motion', motion.trim());} catch (e) {}
-      window.location.href = '/voice-debate';
-    }
-  }, t('caseGen.runInVoice', 'Run in Voice \u2192')),
-  React.createElement('button', {
-    className: 'cockpit-rail-btn',
-    type: 'button',
-    onClick: function () {
-      try {if (window.__navigateTab) window.__navigateTab('res');else window.location.href = '/#/res';} catch (e) {window.location.href = '/#/res';}
-    }
-  }, t('caseGen.pullMotion', 'Pull a motion'))
-  )
+  ) // end cockpit-form column
   ) // end cockpit-grid
   ), // end collapsible form wrapper
 
