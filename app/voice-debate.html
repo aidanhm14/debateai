@@ -2431,14 +2431,20 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
     // Color palette — green for user-active, crimson otherwise.
     var accent = isUser ? [34, 197, 94] : [239, 68, 68];
 
-    // Outer aurora glow
-    var auroraR = R * (1.4 + smoothLevel * 0.7);
+    // Outer aurora glow. Paint into a circular arc bounded by the
+    // canvas's inscribed circle so the gradient never tints the
+    // square edges/corners asymmetrically (which used to leak a
+    // faint box outline the drop-shadow filter then bloomed).
+    var inscribedR = Math.min(W, H) * 0.5;
+    var auroraR = Math.min(R * (1.4 + smoothLevel * 0.7), inscribedR);
     var grad = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, auroraR);
     grad.addColorStop(0, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.35 + smoothLevel * 0.3})`);
     grad.addColorStop(0.4, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.12 + smoothLevel * 0.15})`);
     grad.addColorStop(1, `rgba(${accent[0]},${accent[1]},${accent[2]},0)`);
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.arc(cx, cy, inscribedR, 0, Math.PI * 2);
+    ctx.fill();
 
     // Inner ring waveform
     phase += 0.012 + smoothLevel * 0.02;
