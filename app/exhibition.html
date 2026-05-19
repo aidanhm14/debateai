@@ -215,22 +215,32 @@ var FORMATS = {
     { code: 'Prop Reply', side: 'prop', title: 'Proposition Reply', dur: 4 }]
 
   },
+  // BP is a FOUR-TEAM format. MG/GW are Closing Government (cg),
+  // MO/OW are Closing Opposition (co) — distinct teams from OG/OO
+  // with opposing incentives (the closing half has to out-flank the
+  // opening half with an extension). Tagging all gov speeches 'gov'
+  // collapsed the round into a 2-brain debate where OG and CG were
+  // the same AI, which is not BP. Four sides + a brain per team.
   bp: {
     name: 'British Parliamentary (BP)',
-    sides: ['gov', 'opp'],
-    sideLabels: { gov: 'Government', opp: 'Opposition' },
+    sides: ['og', 'oo', 'cg', 'co'],
+    sideLabels: { og: 'Opening Gov', oo: 'Opening Opp', cg: 'Closing Gov', co: 'Closing Opp' },
     speeches: [
-    { code: 'PM', side: 'gov', title: 'Prime Minister (OG)', dur: 7 },
-    { code: 'LO', side: 'opp', title: 'Leader of Opposition (OO)', dur: 7 },
-    { code: 'DPM', side: 'gov', title: 'Deputy Prime Minister (OG)', dur: 7 },
-    { code: 'DLO', side: 'opp', title: 'Deputy Leader of Opposition (OO)', dur: 7 },
-    { code: 'MG', side: 'gov', title: 'Member of Government (CG)', dur: 7 },
-    { code: 'MO', side: 'opp', title: 'Member of Opposition (CO)', dur: 7 },
-    { code: 'GW', side: 'gov', title: 'Government Whip (CG)', dur: 7 },
-    { code: 'OW', side: 'opp', title: 'Opposition Whip (CO)', dur: 7 }]
+    { code: 'PM', side: 'og', title: 'Prime Minister (OG)', dur: 7 },
+    { code: 'LO', side: 'oo', title: 'Leader of Opposition (OO)', dur: 7 },
+    { code: 'DPM', side: 'og', title: 'Deputy Prime Minister (OG)', dur: 7 },
+    { code: 'DLO', side: 'oo', title: 'Deputy Leader of Opposition (OO)', dur: 7 },
+    { code: 'MG', side: 'cg', title: 'Member of Government (CG)', dur: 7 },
+    { code: 'MO', side: 'co', title: 'Member of Opposition (CO)', dur: 7 },
+    { code: 'GW', side: 'cg', title: 'Government Whip (CG)', dur: 7 },
+    { code: 'OW', side: 'co', title: 'Opposition Whip (CO)', dur: 7 }]
 
   }
 };
+
+// A format is "four-team" when it has more than two sides. Drives the
+// 4-brain picker + per-team dispatch below.
+function isFourTeam(fmt){ return fmt && Array.isArray(fmt.sides) && fmt.sides.length >= 4; }
 
 // Role-prompt builder for each speech. Kept small but format-aware: the
 // system prompt sets up persona + format expectations; the user prompt
@@ -239,16 +249,35 @@ var FORMATS = {
 // server-side voice-guidelines pipeline (passed through _voiceFeature).
 function buildSpeechPrompt(speech, fmt, motion, transcript) {
   var sideLabel = fmt.sideLabels[speech.side] || speech.side;
+  var fourTeam = isFourTeam(fmt);
+  // In a 4-team round, the closing half (CG / CO) is a SEPARATE team
+  // from its opening half and is scored against it. Tell the brain to
+  // extend, not echo, or the exhibition reads as one side talking to
+  // itself. Whips (GW/OW) adjudicate the round, they don't rebuild.
+  var bpRoleNote = '';
+  if (fourTeam){
+    var isClosing = speech.side === 'cg' || speech.side === 'co';
+    var isWhip = speech.code === 'GW' || speech.code === 'OW';
+    var bench = speech.side === 'og' || speech.side === 'cg' ? 'Government' : 'Opposition';
+    if (isWhip){
+      bpRoleNote = 'You are the WHIP for ' + sideLabel + '. NO new arguments. Give a global, issue-by-issue summary that explains why YOUR team (' + sideLabel + ') wins the whole debate. Compare your extension against the opening half on your own bench AND against both teams on the other bench.';
+    } else if (isClosing){
+      bpRoleNote = 'You are the substantive for ' + sideLabel + ', a CLOSING team. You MUST bring a clear EXTENSION — a new actor, timeframe, mechanism, or impact layer that the opening ' + bench + ' team did not run. Your team is scored against your own opening half, so out-flank them: be the most persuasive ' + bench + ' team in the room. Acknowledge the opening case once, then move past it.';
+    } else {
+      bpRoleNote = 'You are the OPENING ' + bench + ' team. Set the debate up well, but know two more teams speak after you — leave the bench in a strong position and stake the ground a closing team would want.';
+    }
+  }
   var sys = [
   'You are an experienced competitive debater in a ' + fmt.name + ' round.',
   'You are arguing for ' + sideLabel + '.',
   'Motion: "' + motion + '"',
-  'This is an exhibition round — two AI brains are debating each other in proper format. Stay strictly in role.',
+  'This is an exhibition round — ' + (fourTeam ? 'four AI brains, one per team,' : 'two AI brains') + ' debating each other in proper format. Stay strictly in role.',
   '',
   'Your speech is: ' + speech.code + ' (' + speech.title + '). Aim for ' + speech.dur + ' minutes (~' + speech.dur * 165 + ' words).',
+  bpRoleNote ? '\n' + bpRoleNote : '',
   '',
   'RULES:',
-  '- Stay in format. ' + fmt.name + ' conventions apply: speech order, role-specific duties (constructives build, rebuttals weigh).',
+  '- Stay in format. ' + fmt.name + ' conventions apply: speech order, role-specific duties (constructives build, rebuttals weigh' + (fourTeam ? ', closing teams extend, whips adjudicate' : '') + ').',
   '- Engage with what was actually said in prior speeches. Reference specific arguments by name.',
   '- No preamble, no "thank you, judge." Open with substance.',
   '- Real warrants with named mechanisms. No generic "this harms the economy" — name the actor, the year, the link.',
@@ -308,16 +337,33 @@ function App() {
   var [brainA, setBrainA] = useState('claude');
   var [brainB, setBrainB] = useState('grok');
   var [sideA, setSideA] = useState('gov');
+  // 4-team formats (BP) assign one brain per team (og/oo/cg/co). The
+  // 2-side path keeps brainA/brainB; this object only matters when
+  // isFourTeam(fmt) is true. Defaults spread the four big brains so a
+  // first run is interesting out of the box.
+  var [teamBrains, setTeamBrains] = useState({ og: 'claude', oo: 'grok', cg: 'gpt', co: 'deepseek' });
   var [speeches, setSpeeches] = useState([]); // [{code, side, brainKey, text, status, error}]
   var [currentIdx, setCurrentIdx] = useState(-1);
   var abortRef = useRef(false);
 
   var fmt = FORMATS[format];
+  var fourTeam = isFourTeam(fmt);
   var sideAOption = fmt.sides[0];
   var sideBOption = fmt.sides[1];
   // When the format changes we may have stale sideA referencing a side
   // the new format doesn't have. Snap to the first side.
   React.useEffect(() => {if (!fmt.sides.includes(sideA)) setSideA(fmt.sides[0]);}, [format]);
+  // Ensure teamBrains has a valid brain for every side of a 4-team
+  // format (defends against a brain key that isn't in BRAINS).
+  React.useEffect(() => {
+    if (!fourTeam) return;
+    setTeamBrains((prev) => {
+      var next = { ...prev };
+      var fallback = Object.keys(BRAINS);
+      fmt.sides.forEach((s, i) => { if (!next[s] || !BRAINS[next[s]]) next[s] = fallback[i % fallback.length]; });
+      return next;
+    });
+  }, [format]);
 
   var start = async () => {
     if (!motion.trim()) return;
@@ -329,7 +375,9 @@ function App() {
       // Same brain on both sides isn't useful for the disagreement signal,
       // but allow it — user might be testing self-consistency.
     }setStage('running');abortRef.current = false;var queue = fmt.speeches.map((s) => ({ code: s.code, side: s.side, title: s.title, dur: s.dur,
-        brainKey: s.side === sideA ? brainA : brainB,
+        // 4-team: dispatch by the team's brain. 2-side: the side that
+        // matches sideA gets brainA, the other gets brainB.
+        brainKey: fourTeam ? (teamBrains[s.side] || brainA) : (s.side === sideA ? brainA : brainB),
         text: '', status: 'queued', error: null
       }));
     setSpeeches(queue);
@@ -360,6 +408,7 @@ function App() {
     try {
       var round = {
         id: Date.now(), motion, format, brainA, brainB, sideA,
+        teamBrains: fourTeam ? { ...teamBrains } : null,
         speeches: queue.map((s) => ({ code: s.code, side: s.side, brainKey: s.brainKey, text: s.text, error: s.error })),
         date: new Date().toISOString()
       };
@@ -373,8 +422,10 @@ function App() {
   if (stage === 'setup') {
     return el('div', { className: 'exh-wrap' },
     el('div', { className: 'exh-eyebrow' }, 'New · exhibition mode'),
-    el('h1', { className: 'exh-title' }, 'Two AI brains. ', el('em', null, 'One motion.')),
-    el('p', { className: 'exh-sub' }, 'Pick a motion, pick two brains, pick which side each plays. The orchestrator runs the format\'s speech sequence in proper order. You flow it like a real round.'),
+    el('h1', { className: 'exh-title' }, fourTeam ? 'Four AI brains. ' : 'Two AI brains. ', el('em', null, 'One motion.')),
+    el('p', { className: 'exh-sub' }, fourTeam ?
+      'Pick a motion, then a brain for each of the four teams. The orchestrator runs the eight-speech BP sequence in proper order — closing teams have to extend past their own opening half. You flow it like a real round.' :
+      'Pick a motion, pick two brains, pick which side each plays. The orchestrator runs the format\'s speech sequence in proper order. You flow it like a real round.'),
     el('div', { className: 'setup-card' },
     el('div', { className: 'setup-row' },
     el('label', null, 'Motion'),
@@ -386,7 +437,27 @@ function App() {
     Object.entries(FORMATS).map(([k, v]) => el('option', { key: k, value: k }, v.name))
     )
     ),
+    // ── 4-team picker (BP): one brain per team so OG/OO/CG/CO are
+    // each a different AI. ── 2-side picker: Brain A / Brain B + side.
+    fourTeam ?
     el('div', { className: 'setup-row' },
+    el('label', null, 'Brain per team'),
+    el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
+    fmt.sides.map((s) => el('div', { key: s, style: { border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 12px', background: 'rgba(255,255,255,.02)' } },
+    el('div', { style: { fontSize: '.64rem', fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.62)', marginBottom: 8 } }, fmt.sideLabels[s]),
+    el('div', { className: 'brain-row' },
+    Object.entries(BRAINS).map(([k, b]) => el('button', {
+      key: k, type: 'button', className: 'brain-btn' + (teamBrains[s] === k ? ' on' : ''),
+      style: { color: teamBrains[s] === k ? b.color : undefined, borderColor: teamBrains[s] === k ? b.color + '66' : undefined, background: teamBrains[s] === k ? b.color + '14' : undefined },
+      onClick: () => setTeamBrains((prev) => ({ ...prev, [s]: k }))
+    }, el('span', { className: 'dot', style: { background: b.color } }), b.name))
+    )
+    ))
+    ),
+    el('div', { style: { fontSize: '.7rem', color: 'rgba(255,255,255,.5)', marginTop: 8, lineHeight: 1.5 } }, 'Four teams, four brains. Closing teams (CG / CO) are scored against their own opening half, so they must extend, not echo.')
+    ) :
+    [
+    el('div', { className: 'setup-row', key: 'ba' },
     el('label', null, 'Brain A'),
     el('div', { className: 'brain-row' },
     Object.entries(BRAINS).map(([k, b]) => el('button', {
@@ -396,7 +467,7 @@ function App() {
     }, el('span', { className: 'dot', style: { background: b.color } }), b.name))
     )
     ),
-    el('div', { className: 'setup-row' },
+    el('div', { className: 'setup-row', key: 'bb' },
     el('label', null, 'Brain B'),
     el('div', { className: 'brain-row' },
     Object.entries(BRAINS).map(([k, b]) => el('button', {
@@ -406,7 +477,7 @@ function App() {
     }, el('span', { className: 'dot', style: { background: b.color } }), b.name))
     )
     ),
-    el('div', { className: 'setup-row' },
+    el('div', { className: 'setup-row', key: 'plays' },
     el('label', null, 'Brain A plays'),
     el('div', { className: 'side-row' },
     fmt.sides.map((s) => el('button', {
@@ -415,10 +486,11 @@ function App() {
     }, fmt.sideLabels[s]))
     ),
     el('div', { style: { fontSize: '.7rem', color: 'rgba(255,255,255,.5)', marginTop: 6 } }, 'Brain B plays ' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + '.')
-    ),
+    )
+    ],
     el('div', { className: 'go-row' },
     el('button', { className: 'go-btn', onClick: start, disabled: !motion.trim() }, 'Run exhibition →'),
-    el('span', { className: 'go-meta' }, fmt.speeches.length + ' speeches · ' + BRAINS[brainA].name + ' vs ' + BRAINS[brainB].name)
+    el('span', { className: 'go-meta' }, fmt.speeches.length + ' speeches · ' + (fourTeam ? fmt.sides.map((s) => BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?').join(' · ') : BRAINS[brainA].name + ' vs ' + BRAINS[brainB].name))
     )
     ),
     el('div', { style: { fontSize: '.72rem', color: 'rgba(255,255,255,.42)', marginTop: 18, lineHeight: 1.55, maxWidth: 580 } },
@@ -431,11 +503,13 @@ function App() {
   return el('div', { className: 'exh-wrap' },
   el('div', { className: 'exh-eyebrow' }, stage === 'done' ? 'Round complete' : 'Round in progress'),
   el('h1', { className: 'exh-title', style: { fontSize: '1.6rem', marginBottom: 8 } }, motion),
-  el('p', { className: 'exh-sub' }, fmt.name + ' · ' + BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + ')'),
+  el('p', { className: 'exh-sub' }, fourTeam ?
+    fmt.name + ' · ' + fmt.sides.map((s) => (BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?') + ' ' + fmt.sideLabels[s]).join(' · ') :
+    fmt.name + ' · ' + BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + ')'),
   speeches.map((sp, i) => el('div', { key: i, className: 'speech-card' + (i === currentIdx ? ' active' : '') },
   el('div', { className: 'speech-head' },
   el('span', { className: 'speech-code' }, sp.code),
-  el('span', { className: 'speech-side', style: { color: sp.side === sideA ? BRAINS[brainA].color : BRAINS[brainB].color } }, fmt.sideLabels[sp.side]),
+  el('span', { className: 'speech-side', style: { color: (BRAINS[sp.brainKey] ? BRAINS[sp.brainKey].color : undefined) } }, fmt.sideLabels[sp.side]),
   el('span', { className: 'speech-brain' },
   el('span', { className: 'dot', style: { background: BRAINS[sp.brainKey].color } }),
   BRAINS[sp.brainKey].name
