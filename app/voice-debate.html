@@ -2420,6 +2420,18 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
 
   var draw = () => {
     var W = canvas.width,H = canvas.height,cx = W / 2,cy = H / 2;
+    // The canvas is square but the orb is round. We carve out a
+    // transparent buffer at the perimeter so:
+    //   • the aurora gradient can fade fully to 0 inside the canvas
+    //     (otherwise it kisses the cardinal edges at non-zero alpha
+    //     and the eye reads that one-pixel alpha cliff as a square)
+    //   • the ring waveform's wide-amplitude peaks never reach the
+    //     edge and clip into flat horizontal/vertical segments
+    //   • any CSS drop-shadow filter on the canvas blurs an isolated
+    //     circle instead of a circle pressed against the canvas box
+    var inscribedR = Math.min(W, H) * 0.5;
+    var paintMaxR = inscribedR - 16 * dpr;
+    var ringMaxR = paintMaxR - 3 * dpr;
     var R = Math.min(W, H) * 0.32;
     var { ai, user } = getLevels();
     var isUser = !!isUserSpeakingRef.current;
@@ -2428,25 +2440,27 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
 
     ctx.clearRect(0, 0, W, H);
 
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, paintMaxR, 0, Math.PI * 2);
+    ctx.clip();
+
     // Color palette — green for user-active, crimson otherwise.
     var accent = isUser ? [34, 197, 94] : [239, 68, 68];
 
-    // Outer aurora glow. Paint into a circular arc bounded by the
-    // canvas's inscribed circle so the gradient never tints the
-    // square edges/corners asymmetrically (which used to leak a
-    // faint box outline the drop-shadow filter then bloomed).
-    var inscribedR = Math.min(W, H) * 0.5;
-    var auroraR = Math.min(R * (1.4 + smoothLevel * 0.7), inscribedR);
+    // Outer aurora glow.
+    var auroraR = Math.min(R * (1.4 + smoothLevel * 0.7), paintMaxR);
     var grad = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, auroraR);
     grad.addColorStop(0, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.35 + smoothLevel * 0.3})`);
     grad.addColorStop(0.4, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.12 + smoothLevel * 0.15})`);
     grad.addColorStop(1, `rgba(${accent[0]},${accent[1]},${accent[2]},0)`);
     ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(cx, cy, inscribedR, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(0, 0, W, H);
 
-    // Inner ring waveform
+    // Inner ring waveform — `r` is clamped to `ringMaxR` so the wave
+    // never extends past the inscribed circle. Without this clamp,
+    // amplitude peaks at smoothLevel≈1 could reach ~R*1.71, past the
+    // canvas edges, and clip into horizontal/vertical flat segments.
     phase += 0.012 + smoothLevel * 0.02;
     var segments = 96;
     ctx.beginPath();
@@ -2458,6 +2472,7 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
       Math.sin(a * 6 + phase * 2) * (3 + smoothLevel * 14) +
       Math.sin(a * 11 - phase * 3) * (2 + smoothLevel * 9) +
       Math.cos(a * 3 + phase) * (4 + smoothLevel * 6);
+      if (r > ringMaxR) r = ringMaxR;
       var x = cx + Math.cos(a) * r;
       var y = cy + Math.sin(a) * r;
       if (i === 0) ctx.moveTo(x, y);else ctx.lineTo(x, y);
@@ -2484,6 +2499,8 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
     ctx.beginPath();
     ctx.arc(cx, cy, 4 * dpr + smoothLevel * 8, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.restore();
 
     raf = requestAnimationFrame(draw);
   };
