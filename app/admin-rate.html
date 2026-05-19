@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Rate Outputs · Admin · Debate AI</title>
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  :root {
+    --bg:#070912;
+    --bg-soft:#0d111d;
+    --fg:#e8eef7;
+    --muted:#94a3b8;
+    --dim:#64748b;
+    --accent:#ef4444;
+    --accent-2:#dc2626;
+    --good:#22c55e;
+    --warn:#f59e0b;
+    --card:rgba(255,255,255,.03);
+    --card-2:rgba(255,255,255,.05);
+    --line:rgba(255,255,255,.08);
+    --line-strong:rgba(255,255,255,.14);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;background:radial-gradient(1100px 700px at 14% -10%, rgba(239,68,68,.10), transparent 60%),radial-gradient(900px 600px at 95% 5%, rgba(139,92,246,.06), transparent 55%);pointer-events:none;z-index:0}
+  body>*{position:relative;z-index:1}
+  a{color:var(--fg);text-decoration:none}
+  button{font:inherit;background:none;border:none;color:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 22px 120px}
+  header.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:14px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand-mark{width:36px;height:36px;border-radius:11px;background:#ef4444;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;letter-spacing:-0.02em;color:#fff;box-shadow:0 8px 24px -8px rgba(239,68,68,.5)}
+  h1{font:700 22px/1.1 "SF Pro Display",system-ui,sans-serif;margin:0;letter-spacing:-0.02em}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .pill-btn{padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+  .pill-btn:hover{border-color:var(--line-strong);color:var(--fg);background:var(--card-2)}
+  .pill-btn.primary{background:#ef4444;border-color:transparent;color:#fff}
+  .pill-btn.primary:hover{filter:brightness(1.1)}
+
+  /* gate */
+  .gate{max-width:420px;margin:120px auto;text-align:center;padding:36px;border:1px solid var(--line);border-radius:18px;background:var(--card);backdrop-filter:blur(12px)}
+  .gate h2{margin:0 0 8px;font:600 22px/1.2 "SF Pro Display",system-ui,sans-serif}
+  .gate p{color:var(--muted);margin:0 0 20px;font-size:13px;line-height:1.5}
+  .gate button{width:100%;padding:11px 16px;border-radius:10px;border:none;background:#ef4444;color:#fff;font-weight:600;cursor:pointer;font-size:14px}
+  .gate .err{color:var(--accent);margin-top:12px;font-size:12px;line-height:1.4}
+  .gate .signed{color:var(--muted);margin-top:14px;font-size:11px;word-break:break-all}
+
+  /* loading */
+  .loading{text-align:center;padding:80px 20px;color:var(--muted);font-size:14px}
+
+  /* filters */
+  .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  .filters label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .filters select{min-width:110px}
+  .filters .stretch{flex:1}
+  .filters .count{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+
+  /* gen card */
+  .gen{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:14px}
+  .gen .meta-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+  .gen .meta-row .chip{padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--card-2);color:var(--fg);text-transform:none;letter-spacing:0;font-weight:600;font-size:11px}
+  .gen .meta-row .chip.fmt{background:#ef4444;border-color:transparent;color:#fff}
+  .gen .meta-row .chip.kind{background:rgba(139,92,246,.18);border-color:rgba(139,92,246,.30);color:#c4b5fd}
+  .gen .meta-row .chip.rated{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.30);color:#86efac}
+  .gen .motion{font:600 18px/1.35 "SF Pro Display",system-ui,sans-serif;color:var(--fg);margin:0 0 6px;letter-spacing:-0.01em}
+  .gen .side{color:var(--muted);font-size:12px;margin-bottom:18px}
+  .gen .output{font:14px/1.65 -apple-system,system-ui,sans-serif;color:var(--fg);background:rgba(0,0,0,.20);border:1px solid var(--line);border-radius:10px;padding:18px;white-space:pre-wrap;word-break:break-word;max-height:520px;overflow-y:auto;font-feature-settings:"liga"}
+  .gen .output.faded{position:relative}
+  .gen .output.faded::after{content:"";position:absolute;left:0;right:0;bottom:0;height:60px;background:linear-gradient(transparent, rgba(7,9,18,.95));pointer-events:none;border-radius:0 0 10px 10px}
+  .gen .expand{margin-top:8px;color:var(--muted);font-size:12px;cursor:pointer;border:none;background:transparent;padding:6px 0}
+  .gen .expand:hover{color:var(--fg)}
+
+  /* prompt-context accordion */
+  details.context{margin-top:14px;background:rgba(0,0,0,.15);border:1px solid var(--line);border-radius:8px;padding:0}
+  details.context summary{padding:10px 14px;color:var(--muted);font-size:12px;cursor:pointer;list-style:none;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  details.context summary::-webkit-details-marker{display:none}
+  details.context summary::after{content:" ▾";color:var(--dim)}
+  details.context[open] summary::after{content:" ▴"}
+  details.context .ctx-body{padding:12px 14px 14px;font:12px/1.55 ui-monospace,Menlo,monospace;color:var(--muted);white-space:pre-wrap;word-break:break-word;border-top:1px solid var(--line);max-height:360px;overflow-y:auto}
+  details.context .ctx-body h4{margin:0 0 4px;color:var(--fg);font:600 11px/1 system-ui;text-transform:uppercase;letter-spacing:.06em}
+  details.context .ctx-body + .ctx-body{margin-top:10px}
+
+  /* rating row */
+  .rate-row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+  .stars{display:flex;gap:4px}
+  .star{width:38px;height:38px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+  .star:hover{border-color:var(--line-strong);color:var(--fg)}
+  .star.active{background:#ef4444;border-color:transparent;color:#fff}
+  .star.active.hi{background:#22c55e}
+  .boring-toggle{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);font-size:12px;font-weight:600}
+  .boring-toggle:hover{border-color:var(--line-strong);color:var(--fg)}
+  .boring-toggle.on{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.30);color:#fbbf24}
+  .boring-toggle .checkbox{width:14px;height:14px;border:1.5px solid currentColor;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+  .boring-toggle.on .checkbox::after{content:"✓"}
+  .notes-input{flex:1;min-width:200px}
+  .submit-btn{padding:9px 16px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-weight:600;cursor:pointer;font-size:13px}
+  .submit-btn:hover{filter:brightness(1.1)}
+  .submit-btn:disabled{background:var(--card-2);color:var(--dim);cursor:not-allowed;filter:none}
+
+  /* nav */
+  .nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:var(--muted);font-size:12px}
+  .nav-btn{padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-size:12px;font-weight:600}
+  .nav-btn:hover{border-color:var(--line-strong);color:var(--fg)}
+  .nav-btn:disabled{opacity:.3;cursor:not-allowed}
+  .position{font-variant-numeric:tabular-nums}
+
+  /* keyboard hints */
+  .keys{margin-top:24px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:11px;line-height:1.7}
+  .keys kbd{font-family:ui-monospace,Menlo,monospace;font-size:10px;background:var(--card-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--fg)}
+
+  .empty{text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty h3{color:var(--fg);font-weight:600;margin:0 0 8px}
+
+  .err{color:var(--accent);margin:14px 0;font-size:13px}
+
+  .flash{position:fixed;top:18px;right:18px;background:#22c55e;color:#04230d;padding:10px 16px;border-radius:10px;font-weight:600;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  .flash.show{opacity:1}
+  .flash.err{background:var(--accent);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- Firebase SDK (compat — matches /admin) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+
+<div id="flash" class="flash">Saved</div>
+
+<!-- Auth gate -->
+<div id="gate" class="gate" hidden>
+  <h2>Admin · Rate outputs</h2>
+  <p>Sign in to rate AI generations. The ratings feed the nightly distill so the AI gets sharper at the formats it scores below 4.</p>
+  <button id="signin-btn">Sign in with Google</button>
+  <div id="gate-err" class="err"></div>
+  <div id="gate-signed" class="signed"></div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading" hidden>Loading…</div>
+
+<!-- App -->
+<div id="app" class="wrap" hidden>
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark">D</div>
+      <div>
+        <h1>Rate outputs</h1>
+        <div class="sub">Score recent AI generations 1-5. Ratings ≥ 4 feed the nightly distill.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <a href="/admin" class="pill-btn">← Admin</a>
+      <button id="signout" class="pill-btn">Sign out</button>
+    </div>
+  </header>
+
+  <div class="filters">
+    <label>Format <select id="filter-format">
+      <option value="">all</option>
+      <option value="apda">APDA</option>
+      <option value="bp">BP</option>
+      <option value="worlds">Worlds</option>
+      <option value="asian">Asian Parli</option>
+      <option value="wsdc">WSDC</option>
+      <option value="ld">LD</option>
+      <option value="pf">PF</option>
+      <option value="policy">Policy</option>
+      <option value="congress">Congress</option>
+      <option value="mun">MUN</option>
+      <option value="quick">Quick Clash</option>
+      <option value="viva">Viva</option>
+    </select></label>
+    <label>Kind <select id="filter-kind">
+      <option value="">all</option>
+      <option value="case">case</option>
+      <option value="opp_attack">opp_attack</option>
+      <option value="rebuttal">rebuttal</option>
+      <option value="opponent">opponent</option>
+      <option value="judge">judge</option>
+      <option value="judge_adapt">judge_adapt</option>
+      <option value="poi">poi</option>
+      <option value="philosophy">philosophy</option>
+      <option value="debate_chat">debate_chat</option>
+      <option value="casual">casual</option>
+      <option value="voice_round">voice_round</option>
+      <option value="vision">vision</option>
+      <option value="resolution">resolution</option>
+      <option value="tightblock">tightblock</option>
+      <option value="sneaky">sneaky</option>
+      <option value="bot">bot</option>
+    </select></label>
+    <label><input type="checkbox" id="filter-unrated" checked> only unrated</label>
+    <button id="load-btn" class="pill-btn primary">Load batch</button>
+    <div class="stretch"></div>
+    <div class="count" id="count">—</div>
+  </div>
+
+  <div id="err" class="err" hidden></div>
+  <div id="list"></div>
+
+  <div class="keys">
+    <strong>Keyboard:</strong>
+    <kbd>1</kbd>-<kbd>5</kbd> rate + submit + next ·
+    <kbd>B</kbd> toggle boring ·
+    <kbd>N</kbd> or <kbd>→</kbd> skip next ·
+    <kbd>P</kbd> or <kbd>←</kbd> previous ·
+    <kbd>L</kbd> load next batch
+  </div>
+</div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),
+  authDomain: 'debateos-78ac5.firebaseapp.com',
+  projectId: 'debateos-78ac5',
+  storageBucket: 'debateos-78ac5.firebasestorage.app',
+  messagingSenderId: '860359449192',
+  appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
+  measurementId: 'G-0V4R5MY3BT',
+};
+const app = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+
+const $ = id => document.getElementById(id);
+const gate = $('gate');
+const loading = $('loading');
+const appEl = $('app');
+
+// ── State ──────────────────────────────────────────────────────────
+let items = [];
+let cursor = null;
+let activeIdx = 0;
+let activeRating = 0;
+let activeBoring = false;
+
+// ── Auth ───────────────────────────────────────────────────────────
+auth.onAuthStateChanged(user => {
+  if (!user) {
+    loading.hidden = true;
+    gate.hidden = false;
+    appEl.hidden = true;
+    return;
+  }
+  gate.hidden = true;
+  $('gate-signed').textContent = 'Signed in: ' + user.email;
+  appEl.hidden = false;
+  loadBatch();
+});
+
+$('signin-btn').addEventListener('click', async () => {
+  $('gate-err').textContent = '';
+  try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+  catch (e) { $('gate-err').textContent = e.message || 'Sign-in failed'; }
+});
+$('signout').addEventListener('click', () => auth.signOut());
+
+async function getToken(){ return auth.currentUser.getIdToken(); }
+
+// ── Fetch ──────────────────────────────────────────────────────────
+async function loadBatch(append = false){
+  const fmt = $('filter-format').value;
+  const kind = $('filter-kind').value;
+  const onlyUnrated = $('filter-unrated').checked;
+  const params = new URLSearchParams({ limit: '20', onlyUnrated: String(onlyUnrated) });
+  if (fmt) params.set('format', fmt);
+  if (kind) params.set('kind', kind);
+  if (append && cursor) params.set('before', String(cursor));
+  $('err').hidden = true;
+  $('count').textContent = 'Loading…';
+  try {
+    const token = await getToken();
+    const r = await fetch('/api/admin/list-generations?' + params.toString(), {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    if (r.status === 403) {
+      gate.hidden = false;
+      appEl.hidden = true;
+      $('gate-err').innerHTML = "Your account isn't marked as admin. Set <code>ADMIN_UID</code> in Netlify env, or <code>isAdmin: true</code> on your user_profiles doc. UID: <code>" + (auth.currentUser?.uid || '?') + "</code>";
+      return;
+    }
+    if (!r.ok) throw new Error('API ' + r.status);
+    const data = await r.json();
+    if (append) {
+      items = items.concat(data.items || []);
+    } else {
+      items = data.items || [];
+      activeIdx = 0;
+    }
+    cursor = data.cursor || null;
+    render();
+    if (items.length === 0) $('count').textContent = '0 results';
+  } catch (e) {
+    $('err').hidden = false;
+    $('err').textContent = 'Load failed: ' + (e.message || e);
+    $('count').textContent = '—';
+  }
+}
+
+$('load-btn').addEventListener('click', () => loadBatch(false));
+$('filter-format').addEventListener('change', () => loadBatch(false));
+$('filter-kind').addEventListener('change', () => loadBatch(false));
+$('filter-unrated').addEventListener('change', () => loadBatch(false));
+
+// ── Render ─────────────────────────────────────────────────────────
+function render(){
+  const list = $('list');
+  if (items.length === 0) {
+    list.innerHTML = '<div class="empty"><h3>Nothing to rate</h3><p>Try a different filter or set onlyUnrated to false.</p></div>';
+    $('count').textContent = '0 of 0';
+    return;
+  }
+  if (activeIdx >= items.length) activeIdx = items.length - 1;
+  if (activeIdx < 0) activeIdx = 0;
+  const it = items[activeIdx];
+  activeRating = typeof it.rating === 'number' ? it.rating : 0;
+  activeBoring = it.boring === true;
+  $('count').textContent = (activeIdx + 1) + ' of ' + items.length;
+
+  const ratedChip = activeRating ? `<span class="chip rated">rated ${activeRating}/5${it.boring ? ' · boring' : ''}</span>` : '';
+  const ageDays = it.createdAt ? Math.round((Date.now() - it.createdAt) / 86400000) : null;
+  const ageText = ageDays != null ? (ageDays === 0 ? 'today' : ageDays + 'd ago') : '';
+
+  const outputHtml = escapeHtml(it.output || '(no output)');
+  const showFade = (it.output || '').length > 3000;
+
+  list.innerHTML = `
+    <div class="gen">
+      <div class="meta-row">
+        ${it.format ? `<span class="chip fmt">${escapeHtml(it.format)}</span>` : ''}
+        ${it.kind ? `<span class="chip kind">${escapeHtml(it.kind)}</span>` : ''}
+        ${it.model ? `<span class="chip">${escapeHtml(it.model)}</span>` : ''}
+        ${it.side ? `<span class="chip">${escapeHtml(it.side)}</span>` : ''}
+        ${ageText ? `<span class="chip">${ageText}</span>` : ''}
+        ${ratedChip}
+      </div>
+      ${it.motion ? `<h2 class="motion">${escapeHtml(it.motion)}</h2>` : ''}
+      <div class="side">${escapeHtml(it.uid ? 'user ' + it.uid.slice(0,8) : '')} · ${it.outputLength.toLocaleString()} chars</div>
+      <div class="output${showFade ? ' faded' : ''}" id="output-body">${outputHtml}</div>
+
+      <details class="context">
+        <summary>Prompt context (system + user)</summary>
+        <div class="ctx-body">
+          ${it.systemPrompt ? '<h4>System prompt</h4>' + escapeHtml(it.systemPrompt) : '<em>(no system prompt captured)</em>'}
+        </div>
+        <div class="ctx-body">
+          ${it.userPrompt ? '<h4>User prompt</h4>' + escapeHtml(it.userPrompt) : '<em>(no user prompt captured)</em>'}
+        </div>
+      </details>
+
+      <div class="rate-row">
+        <div class="stars" id="stars">
+          ${[1,2,3,4,5].map(n => `<button class="star${n <= activeRating ? ' active' + (n >= 4 ? ' hi' : '') : ''}" data-n="${n}">${n}</button>`).join('')}
+        </div>
+        <button class="boring-toggle${activeBoring ? ' on' : ''}" id="boring-toggle">
+          <span class="checkbox"></span> Boring / generic
+        </button>
+        <input type="text" id="notes-input" class="notes-input" placeholder="Notes (optional)" maxlength="600">
+        <button id="submit-btn" class="submit-btn"${activeRating ? '' : ' disabled'}>Submit + next</button>
+      </div>
+
+      <div class="nav-row">
+        <button class="nav-btn" id="prev-btn"${activeIdx === 0 ? ' disabled' : ''}>← Previous</button>
+        <span class="position">${activeIdx + 1} / ${items.length}${cursor ? ' (more available)' : ''}</span>
+        <button class="nav-btn" id="next-btn">Skip ${activeIdx === items.length - 1 && cursor ? '+ load' : '→'}</button>
+      </div>
+    </div>
+  `;
+
+  // Wire star buttons
+  document.querySelectorAll('#stars .star').forEach(btn => {
+    btn.addEventListener('click', () => setRating(parseInt(btn.dataset.n, 10), true));
+  });
+  $('boring-toggle').addEventListener('click', toggleBoring);
+  $('submit-btn').addEventListener('click', submitAndNext);
+  $('prev-btn').addEventListener('click', goPrev);
+  $('next-btn').addEventListener('click', goNext);
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setRating(n, autoSubmit){
+  activeRating = n;
+  document.querySelectorAll('#stars .star').forEach(btn => {
+    const v = parseInt(btn.dataset.n, 10);
+    btn.classList.toggle('active', v <= n);
+    btn.classList.toggle('hi', v <= n && v >= 4);
+  });
+  const sb = $('submit-btn');
+  if (sb) sb.disabled = false;
+  if (autoSubmit) submitAndNext();
+}
+
+function toggleBoring(){
+  activeBoring = !activeBoring;
+  const bt = $('boring-toggle');
+  if (bt) bt.classList.toggle('on', activeBoring);
+}
+
+async function submitAndNext(){
+  if (!activeRating) return;
+  const it = items[activeIdx];
+  const notes = $('notes-input') ? $('notes-input').value.trim() : '';
+  $('submit-btn').disabled = true;
+  $('submit-btn').textContent = 'Saving…';
+  try {
+    const token = await getToken();
+    const r = await fetch('/api/admin/rate-generation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({
+        generationId: it.id,
+        rating: activeRating,
+        boring: activeBoring,
+        notes,
+      }),
+    });
+    if (!r.ok) {
+      const txt = await r.text();
+      throw new Error(r.status + ' ' + txt.slice(0, 140));
+    }
+    // Mark locally so the UI shows "rated" state if user navigates back.
+    items[activeIdx] = { ...it, rating: activeRating, boring: activeBoring };
+    flash('Saved · ' + activeRating + '/5' + (activeBoring ? ' · boring' : ''));
+    goNext();
+  } catch (e) {
+    flash('Save failed: ' + (e.message || e), true);
+    $('submit-btn').disabled = false;
+    $('submit-btn').textContent = 'Submit + next';
+  }
+}
+
+function goNext(){
+  if (activeIdx < items.length - 1) {
+    activeIdx += 1;
+    render();
+  } else if (cursor) {
+    loadBatch(true).then(() => {
+      if (activeIdx < items.length - 1) {
+        activeIdx += 1;
+        render();
+      }
+    });
+  } else {
+    flash('End of batch — load a different filter');
+  }
+}
+
+function goPrev(){
+  if (activeIdx > 0) {
+    activeIdx -= 1;
+    render();
+  }
+}
+
+function flash(msg, isErr){
+  const f = $('flash');
+  f.textContent = msg;
+  f.classList.toggle('err', !!isErr);
+  f.classList.add('show');
+  clearTimeout(flash._t);
+  flash._t = setTimeout(() => f.classList.remove('show'), 1600);
+}
+
+// ── Keyboard ───────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (appEl.hidden) return;
+  // Don't capture when typing in the notes field.
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key >= '1' && e.key <= '5') {
+    e.preventDefault();
+    setRating(parseInt(e.key, 10), true);
+  } else if (e.key === 'b' || e.key === 'B') {
+    e.preventDefault();
+    toggleBoring();
+  } else if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowRight') {
+    e.preventDefault();
+    goNext();
+  } else if (e.key === 'p' || e.key === 'P' || e.key === 'ArrowLeft') {
+    e.preventDefault();
+    goPrev();
+  } else if (e.key === 'l' || e.key === 'L') {
+    e.preventDefault();
+    loadBatch(true);
+  }
+});
+</script>
+</body>
+</html>
