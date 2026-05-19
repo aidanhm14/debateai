@@ -468,6 +468,73 @@ body{
   padding:14px 20px;margin-bottom:18px;
   background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
 }
+
+/* Style profile card. Renders the nightly-Haiku-generated fingerprint
+   (or an empty state if the user hasn't been fingerprinted yet) plus
+   an edit affordance. Same card chrome as heat-card / rank-card so it
+   reads as part of the dashboard, not a marketing bolt-on. */
+.style-card{
+  padding:18px 22px;margin-bottom:18px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  position:relative;
+}
+.style-card .sc-eyebrow{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:.66rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--text-ghost);margin-bottom:14px;
+}
+.style-card .sc-eyebrow-tag{
+  font-size:.58rem;letter-spacing:.14em;color:var(--accent);
+}
+.style-card .sc-body{
+  font-size:.94rem;line-height:1.6;color:var(--text);white-space:pre-wrap;
+  font-family:'Inter',system-ui,sans-serif;
+}
+.style-card .sc-empty{
+  font-size:.92rem;line-height:1.6;color:var(--text-dim);
+}
+.style-card .sc-empty strong{color:var(--text)}
+.style-card .sc-meta{
+  margin-top:14px;font-size:.7rem;color:var(--text-ghost);
+  display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+}
+.style-card .sc-meta-dot{color:var(--border)}
+.style-card .sc-actions{
+  margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;
+}
+.style-card .sc-btn{
+  border:1px solid var(--border);background:transparent;color:var(--text);
+  font:600 .76rem/1 system-ui,sans-serif;letter-spacing:.04em;
+  padding:9px 14px;border-radius:8px;cursor:pointer;transition:.15s;
+  font-family:inherit;
+}
+.style-card .sc-btn:hover{border-color:var(--text-dim);background:var(--bg-elev)}
+.style-card .sc-btn.primary{
+  background:var(--accent);color:#fff;border-color:var(--accent);
+}
+.style-card .sc-btn.primary:hover{background:#dc2626;border-color:#dc2626}
+.style-card .sc-btn.ghost{color:var(--text-dim)}
+.style-card .sc-btn:disabled{opacity:.5;cursor:not-allowed}
+.style-card textarea.sc-edit{
+  width:100%;min-height:160px;
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;
+  color:var(--text);font:.92rem/1.55 'Inter',system-ui,sans-serif;
+  padding:14px 16px;resize:vertical;
+}
+.style-card textarea.sc-edit:focus{outline:none;border-color:var(--accent)}
+.style-card .sc-edit-hint{
+  margin-top:8px;font-size:.7rem;color:var(--text-ghost);line-height:1.5;
+}
+.style-card .sc-status{
+  margin-top:10px;font-size:.74rem;color:var(--text-dim);
+}
+.style-card .sc-status.err{color:#fca5a5}
+.style-card .sc-status.ok{color:#86efac}
+.style-card .sc-edited-flag{
+  display:inline-block;padding:2px 8px;border-radius:6px;
+  background:rgba(239,68,68,.12);color:#fca5a5;
+  font-size:.62rem;font-weight:800;letter-spacing:.12em;margin-left:8px;
+}
 .rank-card .badge{
   width:46px;height:46px;border-radius:50%;
   background:linear-gradient(135deg, #fbbf24, var(--accent));
@@ -1450,6 +1517,19 @@ function renderDashboard(user, rows, profileData){
 
     ${renderRankSkeleton(s)}
 
+    <!-- Style profile card. Hydrated post-mount by hydrateStyleProfile()
+         which fetches /api/user/style-summary and renders the
+         nightly-Haiku-generated fingerprint (or empty/loading states).
+         Surfaces the learning loop wired 2026-05-13 and lets users edit
+         their fingerprint via /api/user/style-update (2026-05-19). -->
+    <div id="styleProfileSlot" class="style-card">
+      <div class="sc-eyebrow">
+        <span>Your style profile</span>
+        <span class="sc-eyebrow-tag">Loading</span>
+      </div>
+      <div class="sc-body" style="color:var(--text-dim)">The AI is checking how it has been reading you. One moment.</div>
+    </div>
+
     <div class="section"><h2>Format mastery</h2><div class="right">${fmtRows.length} format${fmtRows.length===1?'':'s'} touched</div></div>
     <div class="format-grid">${fmtBars || `<div class="state" style="grid-column:1/-1"><h3>No format data yet</h3><p>Run a round and your strongest formats will surface here, ranked by reps.</p></div>`}</div>
 
@@ -1481,6 +1561,208 @@ function renderDashboard(user, rows, profileData){
   // best-effort and never block first paint.
   try { wireSettings(user, rows); } catch(e){ console.warn('[profile] wireSettings failed:', e && e.message); }
   fillRank(s);
+  hydrateStyleProfile(user, s);
+}
+
+// Style profile hydration. Fetches /api/user/style-summary with the
+// user's Firebase ID token, renders the appropriate state into the
+// #styleProfileSlot, and wires the edit / save / reset affordances.
+async function hydrateStyleProfile(user, stats){
+  const slot = document.getElementById('styleProfileSlot');
+  if (!slot) return;
+
+  let token;
+  try { token = await user.getIdToken(); }
+  catch (err) {
+    console.warn('[style-profile] token failed:', err && err.message);
+    renderStyleEmpty(slot, stats, 'Sign-in token failed. Refresh and try again.');
+    return;
+  }
+
+  let data;
+  try {
+    const resp = await fetch('/api/user/style-summary', {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    data = await resp.json();
+  } catch (err) {
+    console.warn('[style-profile] fetch failed:', err && err.message);
+    renderStyleEmpty(slot, stats, 'Could not load your style profile.');
+    return;
+  }
+
+  if (!data || !data.fingerprint || !data.fingerprint.text) {
+    renderStyleEmpty(slot, stats, null, data);
+    return;
+  }
+  renderStyleProfileFilled(slot, user, data);
+}
+
+function renderStyleEmpty(slot, stats, errMsg, data){
+  const have = (data && typeof data.totalRounds === 'number') ? data.totalRounds : (stats && stats.total) || 0;
+  const need = Math.max(0, 3 - have);
+  const sub = errMsg
+    ? `<div class="sc-status err">${escapeHtml(errMsg)}</div>`
+    : need > 0
+      ? `<div class="sc-meta"><span>You have <strong style="color:var(--text)">${have}</strong> round${have===1?'':'s'} logged.</span><span class="sc-meta-dot">·</span><span>${need} more and the nightly pass will build your fingerprint.</span></div>`
+      : `<div class="sc-meta"><span>${have} rounds logged.</span><span class="sc-meta-dot">·</span><span>Your fingerprint will appear after tonight's pass (runs around 04:00 UTC).</span></div>`;
+  slot.innerHTML = `
+    <div class="sc-eyebrow">
+      <span>Your style profile</span>
+      <span class="sc-eyebrow-tag">Coming soon</span>
+    </div>
+    <div class="sc-empty">The AI hasn't built your profile yet. Once you have enough rounds, it'll surface <strong>signature moves</strong>, <strong>recurring strengths</strong>, <strong>weaknesses to fix</strong>, and <strong>topic affinities</strong>, then inject that fingerprint into every future round.</div>
+    ${sub}
+  `;
+}
+
+function renderStyleProfileFilled(slot, user, data){
+  const fp = data.fingerprint || {};
+  const text = fp.text || '';
+  const sample = fp.sampleCount ? String(fp.sampleCount) : '';
+  const updated = fp.updatedAt ? fmtAgo(new Date(fp.updatedAt)) : null;
+  const userEdited = fp.userEdited === true;
+  const editedFlag = userEdited
+    ? `<span class="sc-edited-flag">Edited by you</span>`
+    : '';
+  const metaParts = [];
+  if (updated) metaParts.push(`Updated ${escapeHtml(updated)}`);
+  if (!userEdited && sample) metaParts.push(`Built from ${escapeHtml(sample)} round${sample === '1' ? '' : 's'}`);
+  if (userEdited) metaParts.push(`Auto-regeneration paused`);
+  const metaHtml = metaParts.length
+    ? `<div class="sc-meta">${metaParts.map((m,i) => i ? `<span class="sc-meta-dot">·</span><span>${m}</span>` : `<span>${m}</span>`).join('')}</div>`
+    : '';
+
+  slot.innerHTML = `
+    <div class="sc-eyebrow">
+      <span>Your style profile${editedFlag}</span>
+      <span class="sc-eyebrow-tag">Used in every round</span>
+    </div>
+    <div class="sc-body">${escapeHtml(text)}</div>
+    ${metaHtml}
+    <div class="sc-actions">
+      <button type="button" class="sc-btn primary" id="scEditBtn">Edit how the AI reads you</button>
+      ${userEdited ? `<button type="button" class="sc-btn ghost" id="scResetBtn">Regenerate from rounds</button>` : ''}
+    </div>
+    <div class="sc-status" id="scStatus"></div>
+  `;
+
+  const editBtn = document.getElementById('scEditBtn');
+  if (editBtn) editBtn.addEventListener('click', () => enterStyleEditMode(slot, user, data));
+  const resetBtn = document.getElementById('scResetBtn');
+  if (resetBtn) resetBtn.addEventListener('click', () => resetStyleProfile(slot, user, data));
+}
+
+function enterStyleEditMode(slot, user, data){
+  const fp = data.fingerprint || {};
+  const text = fp.text || '';
+  const userEdited = fp.userEdited === true;
+  slot.innerHTML = `
+    <div class="sc-eyebrow">
+      <span>Your style profile</span>
+      <span class="sc-eyebrow-tag">Editing</span>
+    </div>
+    <textarea class="sc-edit" id="scEditTextarea" maxlength="2000">${escapeHtml(text)}</textarea>
+    <div class="sc-edit-hint">Free-form. The AI reads this verbatim into every brain call. Useful for correcting habits the auto-generated read got wrong, or naming a move you want the AI to pressure-test. Saving pauses the nightly auto-regenerate until you reset.</div>
+    <div class="sc-actions">
+      <button type="button" class="sc-btn primary" id="scSaveBtn">Save changes</button>
+      <button type="button" class="sc-btn ghost" id="scCancelBtn">Cancel</button>
+    </div>
+    <div class="sc-status" id="scStatus"></div>
+  `;
+  const saveBtn = document.getElementById('scSaveBtn');
+  const cancelBtn = document.getElementById('scCancelBtn');
+  if (saveBtn) saveBtn.addEventListener('click', () => saveStyleProfile(slot, user, data));
+  if (cancelBtn) cancelBtn.addEventListener('click', () => renderStyleProfileFilled(slot, user, data));
+  setTimeout(() => {
+    const ta = document.getElementById('scEditTextarea');
+    if (ta) ta.focus();
+  }, 50);
+}
+
+async function saveStyleProfile(slot, user, data){
+  const ta = document.getElementById('scEditTextarea');
+  const status = document.getElementById('scStatus');
+  const saveBtn = document.getElementById('scSaveBtn');
+  if (!ta || !status) return;
+  const text = ta.value.trim();
+  if (text.length < 30) {
+    status.className = 'sc-status err';
+    status.textContent = 'A style profile that short would be ignored. Add more detail.';
+    return;
+  }
+  if (saveBtn) saveBtn.disabled = true;
+  status.className = 'sc-status';
+  status.textContent = 'Saving…';
+  let token;
+  try { token = await user.getIdToken(); }
+  catch (err) {
+    status.className = 'sc-status err';
+    status.textContent = 'Could not authenticate. Refresh and try again.';
+    if (saveBtn) saveBtn.disabled = false;
+    return;
+  }
+  try {
+    const resp = await fetch('/api/user/style-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ fingerprint: text }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || ('HTTP ' + resp.status));
+    }
+    // Local refresh: update the data in place + re-render filled state.
+    data.fingerprint = Object.assign({}, data.fingerprint, {
+      text,
+      userEdited: true,
+      updatedAt: new Date().toISOString(),
+    });
+    renderStyleProfileFilled(slot, user, data);
+    const newStatus = document.getElementById('scStatus');
+    if (newStatus) {
+      newStatus.className = 'sc-status ok';
+      newStatus.textContent = 'Saved. The AI uses this on your next round.';
+    }
+  } catch (err) {
+    status.className = 'sc-status err';
+    status.textContent = (err && err.message) || 'Could not save.';
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+async function resetStyleProfile(slot, user, data){
+  const status = document.getElementById('scStatus');
+  const resetBtn = document.getElementById('scResetBtn');
+  if (!confirm('Regenerate from your last 6 rounds tonight? Your current edits will be replaced after the nightly pass runs.')) return;
+  if (resetBtn) resetBtn.disabled = true;
+  if (status) { status.className = 'sc-status'; status.textContent = 'Resetting…'; }
+  let token;
+  try { token = await user.getIdToken(); }
+  catch (err) {
+    if (status) { status.className = 'sc-status err'; status.textContent = 'Could not authenticate.'; }
+    if (resetBtn) resetBtn.disabled = false;
+    return;
+  }
+  try {
+    const resp = await fetch('/api/user/style-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ reset: true }),
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    data.fingerprint = Object.assign({}, data.fingerprint, { userEdited: false });
+    renderStyleProfileFilled(slot, user, data);
+    const newStatus = document.getElementById('scStatus');
+    if (newStatus) {
+      newStatus.className = 'sc-status ok';
+      newStatus.textContent = 'Reset. Tonight\'s pass will regenerate your fingerprint from your latest rounds.';
+    }
+  } catch (err) {
+    if (status) { status.className = 'sc-status err'; status.textContent = (err && err.message) || 'Could not reset.'; }
+    if (resetBtn) resetBtn.disabled = false;
+  }
 }
 
 async function loadProfile(user){
