@@ -16,7 +16,7 @@ Re-run when the visual needs to change:
 """
 
 import math
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
 W, H = 1200, 630
 OUT = "app/og-image.png"
@@ -126,76 +126,27 @@ def draw_orb(img, cx, cy, R, accent=RED):
 
 
 def main():
-    base = vertical_gradient()
+    # Minimal, iconic card: a single centered orb above the "Debate AI"
+    # wordmark. Nothing else — no headline, sub-copy, chips, or URL. The
+    # orb is the brand surface; the wordmark identifies it.
+    img = vertical_gradient().convert("RGBA")
 
-    # A subtle ambient red at the left so the dark background reads as
-    # alive without competing with the orb's aurora on the right.
-    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    gd.ellipse((-280, -200, 380, 460), fill=(239, 68, 68, 40))
-    glow = glow.filter(ImageFilter.GaussianBlur(100))
-    base.paste(glow, (0, 0), glow)
-
-    img = base.convert("RGBA")
-
-    # Orb sits on the right so the left half can carry the message.
-    # Smaller R than the text-free version (200 → 125) — the orb's
-    # outer aurora still reaches across the canvas, but the inner
-    # bright structure is contained to the right third.
-    # cy bumped 285 → 360 + cx 950 → 970 so the orb's bright ring
-    # clears the top-right URL band (y≈88–112). Earlier placement
-    # had the inner ring's top at y≈76, which collided with the
-    # "debateai.com" text in Twitter/Discord/Slack embeds.
-    draw_orb(img, cx=970, cy=355, R=132, accent=RED)
+    # Orb centered, sitting in the upper-middle so the wordmark has room
+    # beneath it. Larger R than the text version — it's the hero now.
+    orb_cx, orb_cy, orb_R = W // 2, 248, 156
+    draw_orb(img, cx=orb_cx, cy=orb_cy, R=orb_R, accent=RED)
 
     draw = ImageDraw.Draw(img, "RGBA")
 
-    # ── Brand strip (top-left) + URL (top-right) ──────────────────
-    brand = font(40, "black")
+    # ── "Debate AI" wordmark, centered under the orb ──────────────
+    brand = font(92, "black")
     debate_w = draw.textbbox((0, 0), "Debate ", font=brand)[2]
-    draw.text((72, 78), "Debate ", font=brand, fill=WHITE)
-    draw.text((72 + debate_w, 78), "AI", font=brand, fill=RED)
-
-    url_font = font(24, "bold")
-    ub = draw.textbbox((0, 0), "debateai.com", font=url_font)
-    draw.text((W - 72 - (ub[2] - ub[0]), 88), "debateai.com", font=url_font, fill=RED)
-
-    # ── Headline (two lines, left-aligned) ────────────────────────
-    headline = font(68, "black")
-    draw.text((72, 200), "Find your weakness.", font=headline, fill=WHITE)
-    before_w = draw.textbbox((0, 0), "Before ", font=headline)[2]
-    they_w = draw.textbbox((0, 0), "they", font=headline)[2]
-    y2 = 278
-    draw.text((72, y2), "Before ", font=headline, fill=WHITE)
-    draw.text((72 + before_w, y2), "they", font=headline, fill=RED)
-    draw.text((72 + before_w + they_w, y2), " do.", font=headline, fill=WHITE)
-
-    # ── Sub copy ──────────────────────────────────────────────────
-    sub = font(26, "bold")
-    draw.text((72, 372), "Pick a motion. Argue out loud. Get a real ballot.", font=sub, fill=DIM)
-
-    # ── Format chips across the bottom ────────────────────────────
-    chip_font = font(20, "bold")
-    chips = ["WSDC", "BP", "APDA", "Policy", "LD", "PF", "Congress", "MUN"]
-    x = 72
-    y = 510
-    gap = 10
-    pad_x = 14
-    pad_y = 8
-    for c in chips:
-        tb = draw.textbbox((0, 0), c, font=chip_font)
-        tw, th = tb[2] - tb[0], tb[3] - tb[1]
-        bw = tw + pad_x * 2
-        bh = th + pad_y * 2 + 4
-        draw.rounded_rectangle(
-            (x, y, x + bw, y + bh),
-            radius=bh / 2,
-            outline=(239, 68, 68, 150),
-            width=2,
-            fill=(239, 68, 68, 28),
-        )
-        draw.text((x + pad_x - tb[0], y + pad_y - tb[1]), c, font=chip_font, fill=WHITE)
-        x += bw + gap
+    ai_w = draw.textbbox((0, 0), "AI", font=brand)[2]
+    total_w = debate_w + ai_w
+    wx = (W - total_w) // 2
+    wy = 470
+    draw.text((wx, wy), "Debate ", font=brand, fill=WHITE)
+    draw.text((wx + debate_w, wy), "AI", font=brand, fill=RED)
 
     img.convert("RGB").save(OUT, "PNG", optimize=True)
     print(f"wrote {OUT} ({W}x{H})")
