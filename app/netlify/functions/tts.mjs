@@ -446,6 +446,47 @@ function resolveOpenAIVoice(voice){
   return PERSONA_TO_OPENAI[voice] || 'onyx';
 }
 
+// Per-persona voice_settings character tuning for ElevenLabs. The
+// intensity dial sets the BASE stability/style; these offsets shift each
+// persona toward its own delivery signature on top of that base, then the
+// result is clamped to [0, 1]. Positive stabilityOffset = steadier/flatter;
+// positive styleOffset = more expressive/dramatic. Personas not listed
+// here fall through to a zero offset (pure intensity curve).
+//
+// NOTE: keys that are not in the active 17-persona roster (contrarian,
+// empiricist, advocate, realist, idealist) are reserved for future
+// personas and are inert no-ops today — nothing resolves to them. The
+// active roster is professor/closer/surgeon/veteran/firebrand/diplomat/
+// debater/philosopher/prosecutor/storyteller/statesman/barrister/upstart/
+// heckler/disruptor/tactician/examiner.
+const PER_PERSONA_TUNING = {
+  professor:   { stabilityOffset: +0.10, styleOffset: -0.10 },  // measured, steady
+  closer:      { stabilityOffset: -0.05, styleOffset: +0.15 },  // punchy, emphatic
+  surgeon:     { stabilityOffset: +0.05, styleOffset: +0.05 },  // precise, clinical
+  veteran:     { stabilityOffset: +0.05, styleOffset: +0.00 },  // calm authority
+  firebrand:   { stabilityOffset: -0.15, styleOffset: +0.20 },  // wild, expressive, passionate
+  diplomat:    { stabilityOffset: +0.10, styleOffset: -0.05 },  // smooth, controlled
+  debater:     { stabilityOffset: -0.05, styleOffset: +0.10 },  // dynamic, conversational
+  philosopher: { stabilityOffset: +0.15, styleOffset: -0.15 },  // slow, thoughtful, even
+  prosecutor:  { stabilityOffset: +0.00, styleOffset: +0.10 },  // sharp, assertive
+  storyteller: { stabilityOffset: -0.10, styleOffset: +0.15 },  // expressive, varied cadence
+  // Expansion-pack roster (real personas the user's list omitted) — tuned
+  // to match each archetype's register so the offset table covers all 17.
+  statesman:   { stabilityOffset: +0.12, styleOffset: -0.05 },  // parliamentary gravitas, measured
+  barrister:   { stabilityOffset: +0.10, styleOffset: +0.00 },  // exacting courtroom precision
+  upstart:     { stabilityOffset: -0.12, styleOffset: +0.15 },  // hungry, quick, sharp
+  heckler:     { stabilityOffset: -0.05, styleOffset: +0.12 },  // sardonic, world-weary swing
+  disruptor:   { stabilityOffset: -0.15, styleOffset: +0.18 },  // interruptive, high-energy
+  tactician:   { stabilityOffset: +0.05, styleOffset: +0.05 },  // strategic, measured
+  examiner:    { stabilityOffset: +0.10, styleOffset: -0.10 },  // Socratic, probing, even
+  // Reserved for future personas (inert until they exist in the roster):
+  contrarian:  { stabilityOffset: -0.10, styleOffset: +0.10 },
+  empiricist:  { stabilityOffset: +0.10, styleOffset: -0.05 },
+  advocate:    { stabilityOffset: -0.05, styleOffset: +0.10 },
+  realist:     { stabilityOffset: +0.05, styleOffset: +0.00 },
+  idealist:    { stabilityOffset: -0.05, styleOffset: +0.10 },
+};
+
 // ElevenLabs TTS with streaming for faster first-byte
 // intensity: 0 = calm deliberate delivery, 1 = breathless sprint (tournament speed)
 // language: BCP-47 short code (en/es/fr/de/it/pt/zh/ja/ko/hi/ar/ru/tr/nl).
@@ -457,10 +498,20 @@ async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0, language
   const personality = OPENAI_TO_PERSONALITY[voice] || voice;
   const voiceId = getElevenLabsVoice(personality, language);
 
-  // At high intensity: lower stability → more variation/breathlessness, higher style → more expressive
-  const stability = Math.max(0.15, Math.min(0.8, 0.7 - intensity * 0.55));
-  const style = Math.min(1.0, 0.3 + intensity * 0.5);
+  // At high intensity: lower stability → more variation/breathlessness,
+  // higher style → more expressive. Per-persona offsets then shift the
+  // base toward each character's delivery signature; clamp final to [0, 1].
+  const tuning = PER_PERSONA_TUNING[personality] || { stabilityOffset: 0, styleOffset: 0 };
+  const stability = Math.max(0, Math.min(1, (0.7 - intensity * 0.55) + tuning.stabilityOffset));
+  const style = Math.max(0, Math.min(1, (0.3 + intensity * 0.5) + tuning.styleOffset));
   const similarityBoost = Math.max(0.55, 0.75 - intensity * 0.2);
+
+  // ElevenLabs turbo_v2_5 honors a `speed` voice_setting; valid range is
+  // 0.7–1.2 (outside that the API rejects or clamps). The caller's speed
+  // arrives already clamped to 0.75–2.0, so re-clamp into the model's
+  // window here. Default 1.0 when unset. If the model ever ignores it,
+  // there's no harm — it's a no-op field.
+  const elevenSpeed = Math.max(0.7, Math.min(1.2, speed || 1.0));
 
   const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
     method: 'POST',
@@ -477,6 +528,7 @@ async function elevenLabsTTS(text, voice, speed, apiKey, intensity = 0, language
         similarity_boost: similarityBoost,
         style,
         use_speaker_boost: true,
+        speed: elevenSpeed,
       },
       // Max-aggressive first-byte mode. ElevenLabs documents 4 as
       // "max latency optimizations, including text normalizer turned off
@@ -538,28 +590,30 @@ async function cartesiaTTS(text, voice, speed, apiKey, intensity = 0, language =
 
 // Per-persona delivery direction — passed as the `instructions` field to
 // gpt-4o-mini-tts. The model honors free-form natural-language steering
-// (tone, cadence, emotional weight, accent hints), which is what closes
-// the perceived gap to ElevenLabs without changing the voice list.
-// Keep these tight: 1–2 sentences max. The model takes vivid, concrete
-// direction better than long taxonomies.
+// (tone, cadence, emphasis, vocabulary register, breathing), which is what
+// closes the perceived gap to ElevenLabs without changing the voice list.
+// These are intentionally detailed: the model takes vivid, concrete
+// direction about WHERE to pause, WHAT to emphasize, and HOW to breathe far
+// better than a one-line vibe. Each persona below should sound genuinely
+// distinct in cadence, register, and energy.
 const OPENAI_PERSONA_INSTRUCTIONS = {
-  professor:   'Speak like a tenured lecturer commanding a hall — deep, deliberate, every word weighted. No hesitation, no hedging.',
-  closer:      'Speak with the calm confidence of a closer who already knows she has won the round. Smooth, persuasive, slightly satisfied.',
-  surgeon:     'Speak with cold surgical precision — measured pauses between clauses, dissecting each claim with care.',
-  veteran:     'Speak in the rich baritone of a 500-round veteran. Unhurried, unsurprised, dryly authoritative.',
-  firebrand:   'Speak with relentless conviction — emphatic, forward-leaning, every claim hot to the touch. Build pressure beat by beat.',
-  diplomat:    'Speak with polished diplomatic poise — warm, composed, making sharp attacks sound entirely reasonable.',
-  debater:     'Speak fast and sharp like a college circuit debater — quick wit, crisp consonants, slight upward energy on impact lines.',
-  philosopher: 'Speak slowly and reflectively, like leading a Socratic seminar. Long internal pauses, gentle emphasis on key terms.',
-  prosecutor:  'Speak with prosecutorial intensity — clipped, accusatory, building toward each conclusion like a closing argument.',
-  storyteller: 'Speak warmly and narratively, like opening a documentary. Land emotional beats softly; let the story do the persuasion.',
-  statesman:   'Speak with British parliamentary gravitas — warm baritone, measured cadence, the senior MP closing for the Crown.',
-  barrister:   'Speak with crisp British courtroom precision — exacting, deliberate, picking apart claims one by one.',
-  upstart:     'Speak with hungry youthful British energy — quick, sharp, like the freshman who read every paper before the round.',
-  heckler:     'Speak gravelly and sardonic — older, world-weary, like you have heard this argument fifty times and stopped pretending otherwise.',
-  disruptor:   'Speak with high-energy challenger cadence — interruptive, slightly irreverent, thriving on chaos in the round.',
-  tactician:   'Speak quietly and three moves ahead — calm, tactical, never raising the voice but always landing the point.',
-  examiner:    'Speak in measured Indian-English with senior-academic cadence. Even pacing, slight musical lift on probe questions, no theatrics. Patient between question and answer, warm but not eager. The register of a senior school panel examiner conducting a viva. No rhotic American R, no British clipping; standard Indian-English vowels.',
+  professor:   'Speak with deliberate authority. Pause before key terms. Use a slightly lower register and let definitions and distinctions land with weight. Occasional "now, here is where it gets interesting" transitions. Never hurry, never hedge.',
+  closer:      'Confident, punchy delivery. Land hard on the last word of each sentence. Brief pauses for effect between arguments. Sound like you are delivering a verdict, not exploring an idea. Calm, certain, slightly satisfied.',
+  surgeon:     'Clinical precision. Every word serves a purpose. Flat affect with occasional sharp emphasis on the one devastating detail. Measured pauses between clauses. No filler words, no hedging, no wasted breath.',
+  veteran:     'Speak in a rich, unhurried baritone, the voice of someone who has done five hundred rounds and is surprised by none of it. Dry, low-energy authority. Let silences sit. Emphasis comes from slowing down, never from volume.',
+  firebrand:   'Speak with urgency and conviction. Speed up during warrant chains. Raise volume and intensity on impact claims. Short punchy sentences, then longer passionate explanations. Audible breath on the big beats. Never sound neutral.',
+  diplomat:    'Polished, warm, composed. Make even sharp attacks sound entirely reasonable. Smooth transitions, gentle downward inflection at the end of points so they feel settled. Velvet over steel: pleasant on the surface, unyielding underneath.',
+  debater:     'Fast and sharp, like a college circuit debater mid-flow. Crisp consonants, quick wit, slight upward energy on impact lines. Tight clauses stacked quickly. Conversational but relentless, always pressing forward.',
+  philosopher: 'Speak slowly and thoughtfully. Long pauses between ideas. Measured, contemplative tone. Treat each word as if choosing it carefully. Lower energy but deep resonance. Let the hard question hang in the air before you answer it.',
+  prosecutor:  'Prosecutorial intensity. Clipped, accusatory cadence that builds toward each conclusion like a closing argument. Hammer the verbs. Short declaratives, then a pointed question. Tighten the screws point by point, no warmth.',
+  storyteller: 'Warm and narrative, like opening a documentary. Land emotional beats softly and let them breathe. Vary the cadence: slow into the human detail, quicken through the stakes. Let the story do the persuasion, not the volume.',
+  statesman:   'British parliamentary gravitas. A warm, resonant baritone with measured cadence, the senior member closing for the Crown. Rounded vowels, generous pauses, rhetorical build toward a dignified peak. Authority worn lightly, never shouted.',
+  barrister:   'Crisp British courtroom precision. Exacting and deliberate, picking apart claims one by one. Slight pause before the decisive word. Cool, controlled, faintly dry. Each sentence closes like a door.',
+  upstart:     'Hungry, youthful British energy. Quick and sharp, like the first-year who read every paper before the round and cannot wait to use it. Bright, forward-leaning, a touch irreverent, accelerating into the clever point.',
+  heckler:     'Gravelly and sardonic. Older, world-weary, like you have heard this argument fifty times and stopped pretending otherwise. Dry emphasis, sceptical downturns, the occasional amused exhale before dismantling the claim.',
+  disruptor:   'High-energy challenger cadence. Interruptive, slightly irreverent, thriving on chaos in the round. Punchy bursts, sudden changes of pace, emphatic stress on the line that flips the framing. Restless, never settled.',
+  tactician:   'Quiet and three moves ahead. Calm, even, tactical. Never raise the voice. Let the pause before the key point do the work. Soft-spoken but precise, so the listener leans in to catch the move that already won.',
+  examiner:    'Speak in measured Indian-English with senior-academic cadence. Even pacing, a slight musical lift on probe questions, no theatrics. Pause patiently between the question and the answer; warm but not eager. The register of a senior school panel examiner conducting a viva: probing, fair, unhurried. No rhotic American R, no British clipping; standard Indian-English vowels.',
 };
 
 function buildOpenAIInstructions(voice, intensity) {

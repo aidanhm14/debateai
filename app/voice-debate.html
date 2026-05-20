@@ -3695,6 +3695,34 @@ function App() {
   // Skipped on initial mount (== 1.0×) so we don't spam the channel
   // with a no-op on session start.
   var lastPacingRateRef = useRef(1.0);
+
+  // Build the rich pacing-nudge text for a given slider rate. Richer than a
+  // bare WPM target: it also tells the model how to handle pauses, rhythm,
+  // and urgency at this speed so its phrasing matches the synth pace
+  // (short clauses + compressed pauses when fast, room to breathe when
+  // slow). `initial` flips the framing for the connect-time send (first
+  // turn / hold for the whole round). Hoisted function declaration so both
+  // the debounced effect below and the connect handler later can call it.
+  function buildPacingNudge(rate, initial) {
+    var wpm = Math.round(180 * rate);
+    var when = initial ? 'from your very first turn' : 'from your next turn onward';
+    var hold = initial
+      ? 'Hold this pace for the whole round unless told otherwise.'
+      : 'Hold this pace until told otherwise.';
+    var bodyText;
+    if (rate < 0.95) {
+      bodyText = 'Speak deliberately ' + when + ', at approximately ' + wpm + ' words per minute. Take your time with each warrant. Pause for emphasis after impact claims. Let the argument breathe.';
+    } else if (rate > 1.3) {
+      bodyText = 'Speak briskly ' + when + ', at approximately ' + wpm + ' words per minute. Maintain clarity but increase urgency. Compress the pauses between sentences. This is a timed speech and every second counts.';
+    } else if (rate > 1.05) {
+      bodyText = 'Speak ' + when + ' at a confident debater pace, approximately ' + wpm + ' words per minute. Tighten the gaps between sentences and keep the energy moving forward.';
+    } else {
+      bodyText = 'Speak at a natural conversational pace ' + when + ', approximately ' + wpm + ' words per minute. Use rhetorical pauses after key claims. Vary your rhythm: short punchy assertions followed by longer warranted explanations.';
+    }
+    var tag = initial ? '[Pacing — initial] ' : '[Pacing update] ';
+    return tag + bodyText + ' ' + hold + ' Do NOT acknowledge this note in speech.';
+  }
+
   useEffect(() => {
     if (!dcRef.current || dcRef.current.readyState !== 'open') return;
     if (Math.abs(playbackRate - lastPacingRateRef.current) < 0.01) return;
@@ -3720,11 +3748,6 @@ function App() {
         // (b) Soft pacing nudge — the model also reasons about wpm so
         // its phrasing matches the synth speed (shorter clauses at high
         // speed, longer at slow). Belt-and-suspenders on top of (a).
-        var wpm = Math.round(180 * playbackRate);
-        var pace = playbackRate < 0.95 ? 'slower and more deliberately' :
-        playbackRate > 1.4 ? 'fast — debate-circuit pace, crisp and energetic' :
-        playbackRate > 1.05 ? 'briskly, with confident debater pacing' :
-        'at normal conversational pace';
         dcRef.current.send(JSON.stringify({
           type: 'conversation.item.create',
           item: {
@@ -3732,7 +3755,7 @@ function App() {
             role: 'system',
             content: [{
               type: 'input_text',
-              text: '[Pacing update] Speak ' + pace + ' from your next turn onward — target ~' + wpm + ' words per minute. Hold this pace until told otherwise. Do NOT acknowledge this note in speech.'
+              text: buildPacingNudge(playbackRate, false)
             }]
           }
         }));
@@ -4504,11 +4527,6 @@ function App() {
         // turn 1. Skip if effectively 1.0× (no-op).
         try {
           if (Math.abs(playbackRate - 1.0) > 0.01) {
-            var initWpm = Math.round(180 * playbackRate);
-            var initPace = playbackRate < 0.95 ? 'slower and more deliberately' :
-              playbackRate > 1.4 ? 'fast — debate-circuit pace, crisp and energetic' :
-              playbackRate > 1.05 ? 'briskly, with confident debater pacing' :
-              'at normal conversational pace';
             dc.send(JSON.stringify({
               type: 'conversation.item.create',
               item: {
@@ -4516,7 +4534,7 @@ function App() {
                 role: 'system',
                 content: [{
                   type: 'input_text',
-                  text: '[Pacing — initial] Speak ' + initPace + ' from your very first turn — target ~' + initWpm + ' words per minute. Hold this pace for the whole round unless told otherwise. Do NOT acknowledge this note in speech.'
+                  text: buildPacingNudge(playbackRate, true)
                 }]
               }
             }));
