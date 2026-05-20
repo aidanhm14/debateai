@@ -1353,10 +1353,15 @@ function renderSignedOut(){
 }
 
 function renderError(msg){
+  // Defense-in-depth: never let a raw URL (e.g. a Firestore console
+  // index-creation link embedded in a 'failed-precondition' message)
+  // render in the user-facing card, regardless of what caller passes.
+  let clean = (msg || "Couldn't pull your rounds.").replace(/https?:\/\/\S+/gi, '').replace(/\s{2,}/g, ' ').trim();
+  if (!clean) clean = "Couldn't pull your rounds.";
   mount.innerHTML = `
     <div class="state">
       <h3>Couldn't load your dashboard</h3>
-      <p>${escapeHtml(msg||"Couldn't pull your rounds.")} Refresh once. If it sticks, run a round and the dashboard fills in from there.</p>
+      <p>${escapeHtml(clean)} Refresh once. If it sticks, run a round and the dashboard fills in from there.</p>
       <a class="cta" href="/debate-ai">Start a round</a>
     </div>
   `;
@@ -1799,11 +1804,19 @@ async function loadProfile(user){
     // 2026-05-19: an index-missing failure used to fall through to
     // renderEmpty() — but that lied to the user ("0 rounds logged")
     // when the actual cause was a missing (uid, completedAt) composite
-    // index on leaderboard_entries. Surface the real cause via
-    // renderError instead. If the user genuinely has zero rounds, the
-    // entriesSnap is empty (no exception thrown) and renderEmpty() above
-    // handles that path correctly.
-    renderError(e && e.message);
+    // index on leaderboard_entries. Surface that something went wrong
+    // via renderError instead. If the user genuinely has zero rounds,
+    // entriesSnap is empty (no exception) and renderEmpty() handles it.
+    // 2026-05-20: do NOT pass the raw Firestore error to renderError —
+    // a missing/ building index throws a 'failed-precondition' whose
+    // message embeds the private Firebase console index-creation URL.
+    // That dev-only link was rendering verbatim in the user-facing card.
+    // Map it to friendly copy; the technical detail stays in console.
+    const raw = (e && e.message) || '';
+    const isIndex = (e && e.code === 'failed-precondition') || /requires an index|index.*building|currently building/i.test(raw);
+    renderError(isIndex
+      ? "Your stats are still warming up on our end. Give it a minute and refresh."
+      : "Couldn't pull your rounds right now.");
   }
 }
 
