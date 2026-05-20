@@ -147,10 +147,13 @@
     var right = el('div', { class: 'ui-topbar-right' });
     LINKS.forEach(function(L){
       var active = !L.external && pathMatches(L.href);
+      // No `title` on text links — the label is already visible, and the
+      // native tooltip just renders a dark box that floats over page
+      // content on hover (e.g. the "Live" chip overlapping the hero).
+      // Icon-only controls (SFX/theme/bell/CTA) keep their titles.
       var attrs = {
         href: L.href,
         class: 'ui-topbar-link' + (active ? ' is-active' : ''),
-        title: L.label,
       };
       // External links (YouTube demo, etc.) open in a new tab so the
       // user doesn't lose the page; rel=noopener prevents the popup
