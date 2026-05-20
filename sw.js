@@ -1,7 +1,7 @@
 // Bumped to v10 — see app/sw.js for detail.
 
 
-const CACHE_NAME = 'debateos-v579';
+const CACHE_NAME = 'debateos-v580';
 
 
 
