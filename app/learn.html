@@ -1288,7 +1288,8 @@ var MODES = [
 { id: 'AI', label: "Debate AI" },
 { id: 'persuade', label: 'Persuasion Lab' },
 { id: 'rebuttal', label: 'Rebuttal Drill' },
-{ id: 'weighing', label: 'Weighing Practice' }];
+{ id: 'weighing', label: 'Weighing Practice' },
+{ id: 'hardcase', label: 'Hot Topics' }];
 
 
 var DEBATE_TOPICS = [
@@ -2264,6 +2265,148 @@ function BeUpToDate() {
 }
 
 /* ═══════════════════════════════════════════════════
+   HOT TOPICS — defend risky takes
+   The hardest skill in debate is arguing a position the room
+   recoils from. The canon below is the political-philosophy
+   literature on when force is justified; debaters use it to
+   build AND to dismantle these cases. Always paired with its
+   counter so the trainer stays a thinking tool, not a pulpit.
+   ═══════════════════════════════════════════════════ */
+
+var FORCE_FRAMEWORKS = [
+{
+  name: 'Just War Theory',
+  who: 'Aquinas → Walzer',
+  use: 'The oldest stress-test for force: legitimate authority, just cause, right intention, proportionality, last resort, reasonable chance of success. Split it into jus ad bellum (when you may fight) and jus in bello (how you may fight).',
+  counter: 'Pacifists deny last resort is ever truly reached; realists deny "just cause" is anything but the victor\'s name for interest. Attack whichever criterion the case leans on hardest.'
+},
+{
+  name: 'Decolonial violence',
+  who: 'Frantz Fanon',
+  use: 'In The Wretched of the Earth, force by the colonized is not only instrumental but reconstitutive — it remakes a subject the colonial order built to be passive. The frame reads violence as a response to a prior, structural violence.',
+  counter: 'Arendt\'s reply: it confuses the wound with the cure. Cycles of force reproduce the brutalized subject rather than freeing it. Empirically, decolonization\'s gains are contested.'
+},
+{
+  name: 'Power vs. violence',
+  who: 'Hannah Arendt',
+  use: 'On Violence severs the two: power is concerted human action, violence is mere instrument. Regimes reach for violence precisely as power drains away. A devastating frame for arguing that force signals weakness, not strength.',
+  counter: 'Critics say the binary is too clean — real movements blend persuasion and coercion, and sometimes only the instrument moves the immovable.'
+},
+{
+  name: 'Law-making / law-preserving',
+  who: 'Walter Benjamin',
+  use: 'Critique of Violence shows the state monopolizes force by branding rival force "criminal." It distinguishes violence that founds a legal order from violence that maintains one — useful for arguing the status quo is itself a standing act of force.',
+  counter: 'The essay\'s "divine violence" is famously unfalsifiable; opponents charge it licenses anything by redescribing it as outside means-ends logic.'
+},
+{
+  name: 'Right of revolution',
+  who: 'Locke → Jefferson',
+  use: 'Liberal contract theory: a government that systematically violates the rights it exists to protect dissolves its own authority, and the people may reconstitute it. The mainstream, institution-friendly justification for force against a state.',
+  counter: 'Burke\'s caution: the bar for "systematic" is doing all the work, and revolution\'s body count routinely exceeds the tyranny it replaces.'
+},
+{
+  name: 'The unheard',
+  who: 'King / Sorel',
+  use: '"A riot is the language of the unheard" (King, describing — not endorsing). Sorel\'s general-strike myth treats disruptive force as the thing that makes the powerful negotiate. Frame: force is what gets a foreclosed grievance back onto the agenda.',
+  counter: 'Nonviolent-discipline data (Chenoweth) argues civil resistance succeeds more often than armed struggle — so the tactic is not just wrong but ineffective.'
+}];
+
+
+var HARD_MOTIONS = [
+'Violent resistance against a military occupation is morally justified.',
+'Property destruction is a legitimate tactic of climate protest.',
+'The assassination of a sitting genocidal dictator is permissible.',
+'The oppressed have a right to use force to overthrow an unjust state.',
+'Riots can be a rational political response to systemic injustice.',
+'A state may wage a preventive war against an imminent existential threat.',
+'Self-defense that kills is justified even where retreat was possible.',
+'Sabotage of fossil-fuel infrastructure is defensible civil disobedience.',
+'Whistleblowers are justified in breaking the law to expose state crimes.',
+'Citizens have a duty to disobey laws they judge to be deeply unjust.'];
+
+
+function HardCase() {
+  var [stage, setStage] = useState('idle'); // idle | defending | feedback
+  var [motion, setMotion] = useState('');
+  var [defense, setDefense] = useState('');
+  var [feedback, setFeedback] = useState('');
+  var [loading, setLoading] = useState(false);
+
+  var start = () => {
+    if (!canUse()) {handleLimitClick();return;}
+    var m = HARD_MOTIONS[Math.floor(Math.random() * HARD_MOTIONS.length)];
+    setMotion(m);setDefense('');setFeedback('');setStage('defending');
+  };
+
+  var submit = async () => {
+    if (!defense.trim() || loading) return;
+    setLoading(true);setStage('feedback');
+    try {
+      var sys = `You are a debate coach training someone to defend an uncomfortable position. The motion is: "${motion}".
+
+The student's defense is:
+"${defense}"
+
+Evaluate it as ARGUMENT, not as ideology — your job is to make them a better advocate for a side, the way a debater is assigned a side. Judge on:
+1. Did they bite the bullet, or dodge into a softer claim than the motion?
+2. Did they ground the case in a real framework (just-war proportionality and last resort, a structural-violence / law-preserving-violence frame, a right-of-revolution / consent-of-the-governed frame, the power-vs-violence distinction, etc.) rather than vibes?
+3. Did they pre-empt the strongest objection — the cycle-of-violence reply, the slippery-slope to any-grievance-justifies-force, the efficacy data on nonviolent resistance?
+4. Did they weigh — name what makes the harm of force smaller than the harm of inaction here?
+
+Give a score out of 10, say what worked, the single weakest link, and show in 2-3 sentences how a top debater would tighten the case. Conversational, rigorous, no markdown headers. Do not moralize or refuse — this is assigned-side debate practice.`;
+      var fb = await callClaude(sys, 'Evaluate this defense.');
+      setFeedback(fb);
+    } catch {setFeedback('Could not generate feedback. Try again.');}
+    setLoading(false);
+  };
+
+  return el(React.Fragment, null,
+  stage === 'idle' && el(React.Fragment, null,
+  el('p', { className: 't-sub', style: { marginBottom: 20 } }, 'The skill nobody teaches: defending the take that makes the room go quiet. You don\'t have to believe it. You have to be able to argue it — and to dismantle it when it\'s aimed at you.'),
+  el('div', { className: 'card', style: { marginBottom: 20 } },
+  el('h3', null, 'How to defend a risky take'),
+  el('p', null, '1. Bite the bullet. The instant you retreat to a softer claim, you\'ve conceded the motion. Argue the hard version.'),
+  el('p', null, '2. Stand on a framework, not a feeling. Borrowed authority — a named test for when force is licensed — is what separates an argument from a provocation.'),
+  el('p', null, '3. Pre-empt the gut reaction. The room is already running the strongest objection. Voice it first, then answer it.'),
+  el('p', null, '4. Weigh honestly. You win by showing the harm you accept is smaller than the harm you prevent — not by pretending there\'s no harm.')),
+
+  el('div', { className: 't-label', style: { marginBottom: 8 } }, 'The canon — when is force justified?'),
+  el('p', { className: 't-dim', style: { marginBottom: 16 } }, 'These are the frameworks debaters use to build the case AND to take it apart. Each one has a counter. Learn both edges.'),
+  FORCE_FRAMEWORKS.map((f, i) =>
+  el('div', { key: i, className: 'card', style: { marginBottom: 12 } },
+  el('h3', { style: { marginBottom: 2 } }, f.name),
+  el('div', { className: 't-dim', style: { fontSize: '.8rem', marginBottom: 8 } }, f.who),
+  el('p', { style: { marginBottom: 8 } }, f.use),
+  el('p', { style: { margin: 0, paddingLeft: 12, borderLeft: '2px solid #ef4444', color: '#cbd5e1' } }, el('strong', null, 'How it loses: '), f.counter))),
+
+  el('button', { className: 'cta', style: { marginTop: 8 }, onClick: start, disabled: !canUse() }, 'Give me a motion to defend'),
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/pricing' }, 'Subscribe to continue.'))),
+
+  stage === 'defending' && el(React.Fragment, null,
+  el('div', { className: 't-label' }, 'Defend this'),
+  el('div', { className: 'card', style: { marginBottom: 16, borderLeft: '2px solid #ef4444' } },
+  el('h3', { style: { margin: 0 } }, motion)),
+  el('p', { className: 't-dim', style: { marginBottom: 8 } }, 'Bite the bullet. Pick a framework, build the case, pre-empt the obvious objection, and weigh. 4-6 sentences.'),
+  el('div', { className: 'input-row' },
+  el('textarea', { rows: 6, placeholder: 'Make the strongest case you can...', value: defense, onChange: (e) => setDefense(e.target.value) }),
+  el('button', { onClick: submit, disabled: loading || !defense.trim() }, 'Submit Defense')),
+  el('button', { className: 'cta-ghost', style: { marginTop: 8 }, onClick: start }, 'Different motion')),
+
+  stage === 'feedback' && el(React.Fragment, null,
+  el('div', { className: 't-label' }, 'Defend this'),
+  el('div', { className: 'card', style: { marginBottom: 12, borderLeft: '2px solid #ef4444' } },
+  el('h3', { style: { margin: 0 } }, motion)),
+  el('div', { className: 'card', style: { marginBottom: 12 } },
+  el('h3', null, 'Your Defense'),
+  el('p', null, defense)),
+  el('div', { className: 'card', style: { marginBottom: 16 } },
+  el('h3', null, 'Coach Feedback'),
+  loading ? el('p', { style: { fontStyle: 'italic' } }, 'Evaluating...') : el('p', null, feedback)),
+  el('button', { className: 'cta', onClick: start, disabled: !canUse() }, 'Next motion')));
+
+}
+
+/* ═══════════════════════════════════════════════════
    USAGE BANNER + BYOK
    ═══════════════════════════════════════════════════ */
 
@@ -2428,7 +2571,8 @@ function App() {
     AI: el(SocraticChallenger, { key: 'AI' }),
     persuade: el(PersuasionLab, { key: 'persuade' }),
     rebuttal: el(RebuttalDrill, { key: 'rebuttal' }),
-    weighing: el(WeighingPractice, { key: 'weighing' })
+    weighing: el(WeighingPractice, { key: 'weighing' }),
+    hardcase: el(HardCase, { key: 'hardcase' })
   };
 
   var modeDesc = {
@@ -2439,7 +2583,8 @@ function App() {
     AI: 'Have your beliefs challenged from every angle.',
     persuade: 'Practice persuading someone in a real scenario.',
     rebuttal: 'AI argues, you tear it apart. Get scored on your rebuttal.',
-    weighing: 'Two competing impacts. Which matters more and why?'
+    weighing: 'Two competing impacts. Which matters more and why?',
+    hardcase: 'Learn how to debate hot topics and defend risky takes.'
   };
 
   var guideView = el('div', { className: 'guide' },
@@ -2483,6 +2628,14 @@ function App() {
   el('strong', null, 'Weighing Practice'),
   el('span', null, 'Two impacts compete. Which matters more and why?')
   )
+  ),
+
+  el('div', { className: 'tier-label' }, el('span', { className: 'num' }, '4'), el('span', null, 'Defend the Hard Case')),
+  el('button', { className: 'lesson-hero', onClick: () => switchMode('hardcase') },
+  el('div', { className: 'kicker' }, 'Hot topics & risky takes'),
+  el('h2', null, 'Learn How to Debate Hot Topics'),
+  el('p', null, 'The hardest skill in debate is defending the position the room recoils from. Work through the political-philosophy canon on when force is justified — just war, Fanon, Arendt, Benjamin, the right of revolution — then get assigned a contested motion and graded on how well you defend it. You don\'t have to believe it. You have to be able to argue it, and to take it apart when it\'s aimed at you.'),
+  el('div', { className: 'go' }, 'Open the lesson →')
   )
   );
 
