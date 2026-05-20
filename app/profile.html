@@ -1163,14 +1163,29 @@ async function fillRank(s){
   const node = document.getElementById('rankCard');
   if(!node) return;
   try{
-    const top = await db.collection('leaderboard_entries')
-      .where('kind','==','voice')
-      .orderBy('score','desc')
-      .limit(500)
-      .get();
-    const scores = top.docs.map(d => d.data().score).filter(x => typeof x === 'number');
-    const ahead = scores.filter(x => x > s.bestVoice).length;
-    const total = Math.max(scores.length, 1);
+    // Read-thrift (2026-05-20 quota fix): this used to fetch up to 500
+    // leaderboard docs on EVERY profile load just to compute a rank
+    // percentile — 500 reads a pop on a high-traffic page, a real
+    // contributor to blowing the daily Firestore quota. Replaced with
+    // two count() aggregations: each is billed ~1 read per 1000 index
+    // entries scanned (min 1), so this is ~2 reads instead of 500.
+    // Falls back to a SMALL (100-doc) fetch if count() isn't available
+    // (older SDK) — still 5x lighter than the old 500.
+    const base = db.collection('leaderboard_entries').where('kind','==','voice');
+    let ahead, total;
+    if (typeof base.count === 'function') {
+      const [aheadSnap, totalSnap] = await Promise.all([
+        base.where('score','>', s.bestVoice).count().get(),
+        base.count().get(),
+      ]);
+      ahead = aheadSnap.data().count;
+      total = Math.max(totalSnap.data().count, 1);
+    } else {
+      const top = await base.orderBy('score','desc').limit(100).get();
+      const scores = top.docs.map(d => d.data().score).filter(x => typeof x === 'number');
+      ahead = scores.filter(x => x > s.bestVoice).length;
+      total = Math.max(scores.length, 1);
+    }
     const rank = ahead + 1;
     let pct = Math.round((rank / total) * 100);
     pct = Math.max(1, Math.min(99, pct));
