@@ -611,6 +611,7 @@ button{font-family:inherit}
    CTA prominent and stops the action row from wrapping awkwardly. */
 .overflow-actions{position:relative;display:inline-block}
 .overflow-toggle{cursor:pointer}
+.overflow-menu[hidden]{display:none}
 .overflow-menu{
   position:absolute;right:0;top:calc(100% + 6px);z-index:30;
   display:flex;flex-direction:column;gap:4px;
@@ -2799,15 +2800,25 @@ button{font-family:inherit}
           if (open){ menu.setAttribute('hidden',''); this.setAttribute('aria-expanded','false'); }
           else     { menu.removeAttribute('hidden'); this.setAttribute('aria-expanded','true'); }
         });
-        document.addEventListener('click', function once(e){
-          if (!wrap.contains(e.target)){
-            menu.setAttribute('hidden','');
-            var t = wrap.querySelector('.overflow-toggle');
-            if (t) t.setAttribute('aria-expanded','false');
-          }
-        });
       }
     }
+  }
+
+  // Single delegated outside-click closer for every overflow menu. Installed
+  // once — render() runs on every Firestore snapshot, so a per-card listener
+  // here would leak a new document handler on each re-render.
+  if (!window.__overflowMenuCloserInstalled){
+    window.__overflowMenuCloserInstalled = true;
+    document.addEventListener('click', function(e){
+      var openWrap = e.target.closest && e.target.closest('.overflow-actions');
+      document.querySelectorAll('.overflow-menu:not([hidden])').forEach(function(menu){
+        var wrap = menu.closest('.overflow-actions');
+        if (wrap === openWrap) return;
+        menu.setAttribute('hidden','');
+        var t = wrap && wrap.querySelector('.overflow-toggle');
+        if (t) t.setAttribute('aria-expanded','false');
+      });
+    });
   }
 
   // ── Render the open-challenges list
