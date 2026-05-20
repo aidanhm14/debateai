@@ -2260,29 +2260,10 @@ section.hero{
   border-color:rgba(0,0,0,.22);
   color:#1a1a1f;
 }
-/* Voice "New" pill. Was hero-pill-pro / gold-on-amber when Voice
-   was framed as a paid upsell; recolored to brand red 2026-05-14 so
-   it reads as a fresh-feature highlight, not a "locked" paid tier. */
-.hero-pill-new{
-  background:rgba(239,68,68,.12);
-  border-color:rgba(239,68,68,.55);
-  color:#fca5a5;
-}
-.hero-pill-new:hover{
-  background:rgba(239,68,68,.20);
-  border-color:rgba(239,68,68,.78);
-  color:#fecaca;
-}
-[data-theme="light"] .hero-pill-new{
-  background:rgba(220,38,38,.08);
-  border-color:rgba(220,38,38,.32);
-  color:#b91c1c;
-}
-[data-theme="light"] .hero-pill-new:hover{
-  background:rgba(220,38,38,.14);
-  border-color:rgba(220,38,38,.50);
-  color:#991b1b;
-}
+/* Voice "New" pill matches the default .hero-pill styling now; only the
+   small .hero-pill-tag badge below carries the accent. The pill was
+   previously red-highlighted (hero-pill-new) to flag Voice as new, but
+   that made it shout louder than its peer pills. */
 .hero-pill-tag{
   font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
   padding:3px 8px;border-radius:999px;
@@ -4470,9 +4451,43 @@ section.ui-section .ui-lede{
            eyebrow was reading as crowded chrome above the headline.
            Removed per user feedback; beta state still surfaces in the
            pricing FAQ and the floating upgrade-cta. -->
-      <h1 class="hero-headline">
+      <!-- 2026-05-20: hero headline rotates per page load across three
+           taglines. The static markup keeps the canonical "Debate an AI
+           opponent / out loud." copy as the SEO + no-JS fallback (it is
+           also one of the three rotation variants, so nothing contradicts).
+           The inline script below runs synchronously right after the <h1>
+           so the swap lands before first paint, the same flash-free pattern
+           as the early-paint theme script. Each load fires a
+           hero_headline_view GA event so the variants stay segmentable
+           (which tagline a converting session saw). Per-load random, NOT
+           sticky per-visitor: the ask is rotation on every load. -->
+      <h1 class="hero-headline" id="heroHeadline">
         Debate an AI opponent <span class="hh-accent">out loud.</span>
       </h1>
+      <script>
+        (function(){
+          var VARIANTS=[
+            {key:'out_loud', lead:'Debate an AI opponent', accent:'out loud.'},
+            {key:'rethink',  lead:'Rethink',               accent:'argumentation.'},
+            {key:'filling',  lead:'Filling the',           accent:'gap.'}
+          ];
+          try{
+            var h=document.getElementById('heroHeadline');
+            if(!h)return;
+            var v=VARIANTS[Math.floor(Math.random()*VARIANTS.length)];
+            // textContent (not innerHTML) keeps this injection-proof; the
+            // accent span is rebuilt so .hh-accent (display:block line break
+            // + Fraunces styling) carries over to every variant.
+            var span=document.createElement('span');
+            span.className='hh-accent';
+            span.textContent=v.accent;
+            h.textContent=v.lead+' ';
+            h.appendChild(span);
+            window.__heroHeadline=v.key;
+            if(window.dosTrack)window.dosTrack('hero_headline_view',{variant:v.key});
+          }catch(e){}
+        })();
+      </script>
       <p class="hero-creed">
         AI as antagonist and tool. Not the Messiah, nor an arbitrary enemy.
       </p>
@@ -4502,7 +4517,7 @@ section.ui-section .ui-lede{
       <div class="hero-pill-rail" role="navigation" aria-label="Other ways to debate">
         <a href="/app#case" class="hero-pill">Prep</a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
-        <a href="/voice-debate" class="hero-pill hero-pill-new" data-voice-cta-on>Adaptive voice <span class="hero-pill-tag">New</span></a>
+        <a href="/voice-debate" class="hero-pill" data-voice-cta-on>Adaptive voice <span class="hero-pill-tag">New</span></a>
         <a href="/debate-ai" class="hero-pill" data-voice-cta-off hidden style="display:none">
           Voice at capacity
         </a>
