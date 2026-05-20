@@ -31,11 +31,14 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 60;
-const MAX_DOCS = 20000;
+// 2026-05-20: was 20000. Missed by the 2026-05-19 admin-cache pass —
+// see admin-funnel.mjs. Cap lowered + 5-min cache added below.
+const MAX_DOCS = 5000;
 
 const BUCKETS = ['play', '25', '50', '75', 'complete'];
 
@@ -74,6 +77,10 @@ export default async (request) => {
   const daysRaw = parseInt(url.searchParams.get('days') || '', 10);
   const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(MAX_DAYS, daysRaw)) : DEFAULT_DAYS;
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const cacheKey = 'founder-video:' + days;
+  const cached = getCached(cacheKey);
+  if (cached) return jsonResponse(cached, 200, request);
 
   try {
     // app_event-only query keeps the scan tight — funnel doesn't need
@@ -115,7 +122,7 @@ export default async (request) => {
       retention[b] = plays > 0 ? +(counts[b] / plays * 100).toFixed(1) : null;
     }
 
-    return jsonResponse({
+    const result = {
       windowDays: days,
       sinceISO: since.toISOString(),
       sampled,
@@ -124,7 +131,9 @@ export default async (request) => {
       uniqueUids: Object.fromEntries(BUCKETS.map(b => [b, uidsByBucket[b].size])),
       retentionPct: retention,
       timestamp: new Date().toISOString(),
-    }, 200, request);
+    };
+    setCached(cacheKey, result, TTL_HEAVY);
+    return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-founder-video error:', err);
     return errorResponse('Something went wrong. Please try again.', 500, request);
