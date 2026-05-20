@@ -375,6 +375,8 @@ body{
 .orb-ring.active{border-color:rgba(239,68,68,.3);box-shadow:0 0 60px rgba(239,68,68,.1)}
 .orb-ring.pulse{animation:orbPulse 2s ease-in-out infinite}
 @keyframes orbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.7}}
+@keyframes patienceFadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes patiencePulse{0%,100%{opacity:.3;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}
 @keyframes live-dot-pulse{0%,100%{opacity:.55;transform:scale(.92)}50%{opacity:1;transform:scale(1.18)}}
 /* POI hand-raise: small wave on the ✋ icon so the offer reads as a physical
    gesture, not a notification badge. Subtle tempo, low arc. */
@@ -6256,6 +6258,31 @@ function App() {
     return () => clearTimeout(id);
   }, [phase, isUser, aiLoading]);
 
+  // Patience cue. The round-complete drop concentrates in the silent
+  // 5-30s wait while the AI reads the user's speech and writes a real
+  // rebuttal — users read "still loading" as "broken" and close the tab
+  // long before the 60s stuck-banner fires. Surface a calm "worth the
+  // wait" line ~5s into any AI turn and rotate it every 7s so a longer
+  // wait reads as alive, not frozen. Plain statement of what the AI is
+  // doing, no gamification. Hidden once the stuck banner takes over.
+  var PATIENCE_MSGS = [
+  'Reading your full speech and writing a real rebuttal, not a canned reply.',
+  'Working through your logic line by line to find the weakest link.',
+  'Building its strongest case against your best point. Worth the few seconds.'];
+
+  var [patienceIdx, setPatienceIdx] = useState(-1);
+  React.useEffect(() => {
+    if (phase !== 'speech' || isUser || !aiLoading) {setPatienceIdx(-1);return;}
+    if (endingRef.current) {setPatienceIdx(-1);return;}
+    setPatienceIdx(-1);
+    var start = setTimeout(() => {
+      setPatienceIdx(0);
+      try {if (typeof gtag === 'function') gtag('event', 'patience_cue_shown', { format: fmt.name, speech: cur.code, brain });} catch {}
+    }, 5000);
+    var rot = setInterval(() => setPatienceIdx((i) => i < 0 ? i : (i + 1) % PATIENCE_MSGS.length), 7000);
+    return () => {clearTimeout(start);clearInterval(rot);};
+  }, [phase, isUser, aiLoading]);
+
   // Keyboard shortcuts help modal. Press `?` anywhere outside an input
   // to toggle. Documents the shortcuts that already exist so new users
   // can discover them without digging through the code.
@@ -9325,6 +9352,21 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       detections.map((d, i) => el('div', { key: i, style: { fontSize: '.72rem', color: 'var(--c-text)' } }, d))
       );
     })(),
+
+    // Patience cue — fades in ~5s into the AI turn, rotates every 7s,
+    // and steps aside once the stuck banner fires at 60s. Quiet, calm
+    // register: reassures the user the wait is the AI doing real work so
+    // they don't read silence as "broken" and bail mid-round.
+    patienceIdx >= 0 && !stuckSpeech && !isUser && aiLoading && el('div', {
+      style: { padding: '10px 18px', maxWidth: 440, margin: '12px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--c-surface, rgba(0,0,0,.03))', border: '1px solid var(--c-border, rgba(0,0,0,.07))', borderRadius: 12, animation: 'patienceFadeIn .4s ease' }
+    },
+    el('div', { 'aria-hidden': 'true', style: { display: 'flex', gap: 4, flex: '0 0 auto' } },
+    el('span', { style: { width: 5, height: 5, borderRadius: '50%', background: 'var(--c-dim)', animation: 'patiencePulse 1.2s ease-in-out infinite' } }),
+    el('span', { style: { width: 5, height: 5, borderRadius: '50%', background: 'var(--c-dim)', animation: 'patiencePulse 1.2s ease-in-out .2s infinite' } }),
+    el('span', { style: { width: 5, height: 5, borderRadius: '50%', background: 'var(--c-dim)', animation: 'patiencePulse 1.2s ease-in-out .4s infinite' } })
+    ),
+    el('div', { style: { fontSize: '.76rem', color: 'var(--c-text-dim, var(--c-dim))', lineHeight: 1.4, textAlign: 'left' } }, PATIENCE_MSGS[patienceIdx])
+    ),
 
     // Fix #3 — stuck-speech escape hatch. 60s of text-gen with no
     // voice transition fires this banner. Amber palette so it reads
