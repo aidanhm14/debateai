@@ -3149,6 +3149,39 @@ function App() {
   // Connection state machine: idle → connecting → live → ended
   var [status, setStatus] = useState('idle');
   var [connectStep, setConnectStep] = useState('');
+
+  // ── Round funnel telemetry ───────────────────────────────────────
+  // The round-complete rate sits at ~12% but the drop-off was totally
+  // invisible: the only events that fired were sign-in errors + the
+  // RFD handoff. You can't fix a leak you can't see. This fires a
+  // single `voice_funnel` event with a `step` dimension at each
+  // lifecycle stage, ONCE per session, so GA4 can compute the drop
+  // between consecutive steps:
+  //   start → mic_ok → connected → first_ai_turn → first_user_turn
+  //         → end → rfd
+  // Whichever step→step transition has the biggest cliff is the next
+  // thing to fix. funnelFiredRef is reset at the top of start() so
+  // every fresh round is its own funnel. Non-gated steps (mic_denied,
+  // connect_fail) are allowed to fire even mid-session because they're
+  // terminal error signals, not progress milestones.
+  var funnelFiredRef = useRef({});
+  function funnel(step, extra, allowRepeat) {
+    try {
+      if (!allowRepeat) {
+        if (funnelFiredRef.current[step]) return;
+        funnelFiredRef.current[step] = true;
+      }
+      if (typeof gtag !== 'function') return;
+      var signedIn = false;
+      try { signedIn = !!(typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser); } catch (_) {}
+      gtag('event', 'voice_funnel', Object.assign({
+        step: step,
+        mode: mode || '',
+        persona: personaKey || '',
+        signed_in: signedIn
+      }, extra || {}));
+    } catch (e) {}
+  }
   // End-session two-step confirm. First click arms the button (label
   // swaps to "End for real?"); a second click within 4s actually calls
   // stop(). Auto-disarms after the timeout. Matches the resetStreakBtn
@@ -3646,6 +3679,10 @@ function App() {
           }
           setSpeaking('user');
           isUserSpeakingRef.current = true;
+          // First time the user actually speaks — the single most
+          // important engagement milestone. A connected session where
+          // the user never speaks is a silent bail.
+          funnel('first_user_turn');
           var id = 'you-' + Date.now();
           currentUserTurnRef.current = { id, who: 'you', text: '…' };
           upsertTurn(currentUserTurnRef.current);
@@ -3688,6 +3725,11 @@ function App() {
 
       case 'response.created':{
           var _id2 = 'ai-' + Date.now();
+          // AI's first turn — confirms the round is actually producing
+          // speech, not just a connected-but-silent socket. The gap
+          // between `connected` and `first_ai_turn` isolates Realtime
+          // session-config / response.create failures.
+          funnel('first_ai_turn');
           currentAiTurnRef.current = { id: _id2, who: 'ai', text: '' };
           upsertTurn(currentAiTurnRef.current);
           setSpeaking('ai');
@@ -3821,6 +3863,17 @@ function App() {
       (t) => t.who === 'you' && (t.text || '').trim().length > 4
     ).length;
 
+    // Round end. Carry the engagement shape so the dashboard can split
+    // "ended after real participation" from "started and bailed with 0
+    // turns." duration + turn counts make the histogram. Repeat-allowed
+    // because a user can start→end→start again in one page session.
+    funnel('end', {
+      user_turns: realUserTurns,
+      ai_turns: turnsRef.current.filter((t) => t.who === 'ai').length,
+      duration_s: startedAtRef.current ? Math.round((Date.now() - startedAtRef.current) / 1000) : 0,
+      engaged: realUserTurns >= 1
+    }, true);
+
     // Training-data capture for voice rounds. callAnyAI/callClaude in
     // index.html log every typed AI turn; this is the symmetric flush
     // for the Realtime voice path (which never touches our server during
@@ -3924,6 +3977,10 @@ function App() {
     try {if (recorderRef.current && recorderRef.current.state === 'recording') {recorderRef.current.stop();}} catch (e) {}
     setStatus('connecting');
     setConnectStep('Minting session…');
+    // Fresh funnel for this round. Fire `start` — the denominator for
+    // every downstream completion rate.
+    funnelFiredRef.current = {};
+    funnel('start', { smartness: smartness || 1 });
 
     try {
       // Resume audio context now (we have a user gesture). Crucial on
@@ -4096,8 +4153,13 @@ function App() {
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         });
       } catch (e) {
+        // Mic denial is a known first-touch killer. Tag it as a
+        // terminal funnel signal (allowRepeat: it's an error, not a
+        // milestone) so the dashboard shows how many starts die here.
+        funnel('mic_denied', { err: (e && e.name) || 'unknown' }, true);
         throw new Error('Microphone permission denied. Allow mic access in your browser settings, then reload.');
       }
+      funnel('mic_ok');
       localStreamRef.current = stream;
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
 
@@ -4378,6 +4440,10 @@ function App() {
       // itself had failed. Post-connection code now lives below the
       // try/catch so it can't trigger a false rollback.
       console.error('[start] failed:', e);
+      // Terminal connect failure (mint / WebRTC / SDP handshake). Tag
+      // the reason so the dashboard separates "OpenAI at capacity"
+      // (quota) from genuine handshake breakage.
+      funnel('connect_fail', { kind: e.kind || 'handshake' }, true);
       setError(e.message || String(e));
       setErrorKind(e.kind || '');
       setStatus('idle');
@@ -4391,6 +4457,7 @@ function App() {
     //    rather than thrown.
     startedAtRef.current = Date.now();
     capWarnedRef.current = false;
+    funnel('connected');
     // Kick the first prep phase. The AI's opener (from response.create
     // above) is the "you're up with the PMC, X minutes" announcement;
     // this clock measures how long the user sits before pressing Start.
@@ -4778,6 +4845,10 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           };
           try { sessionStorage.setItem('debateos-voice-rfd', JSON.stringify(payload)); } catch(e){}
           try { gtag('event', 'voice_rfd_handoff', { format: mode || '', has_score: /SPEAKER\s*POINTS/i.test(text) }); } catch(e){}
+          // Funnel terminal: the user reached the ballot. This is the
+          // true "round complete" numerator — generating the RFD is the
+          // payoff the whole funnel exists to deliver.
+          funnel('rfd', { has_score: /SPEAKER\s*POINTS/i.test(text) }, true);
           // Small timeout so the rfd-card animation / SFX gets a beat
           // before we navigate away; if the user hammers Back the
           // inline render is still on the previous page.
