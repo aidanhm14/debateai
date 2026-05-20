@@ -1273,6 +1273,44 @@ input[type=text]:focus,select:focus,textarea:focus{
   margin-top:8px;font-size:.86rem;color:#a3a3b3;line-height:1.5;max-width:400px;
 }
 
+/* Standby waiting figures — reuse the live .stage-debater line-art +
+   its idle breathing/halo motion, shown faintly behind the standby
+   orb so the empty setup stage reads as "both debaters are here,
+   waiting to begin." isolate keeps the z-index:-1 figures contained
+   to this hero rather than slipping behind the page. Hidden on
+   narrow screens where the orb already fills the frame. */
+.setup-orb-hero{isolation:isolate}
+.setup-orb-hero .standby-figures{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-44%);
+  width:min(640px,94vw);height:340px;
+  pointer-events:none;z-index:-1;
+}
+.standby-figures .stage-debater{
+  position:absolute;bottom:0;top:auto;
+  width:clamp(116px,15vw,166px);height:auto;
+  opacity:.2;filter:none;
+}
+.standby-figures .sf-left{
+  left:0;
+  --deb-accent:rgba(74,222,128,.7);
+  --deb-glow:rgba(34,197,94,.3);
+}
+.standby-figures .sf-right{
+  right:0;transform:scaleX(-1);
+  --deb-accent:rgba(251,113,113,.72);
+  --deb-glow:rgba(239,68,68,.3);
+}
+@media (prefers-reduced-motion:no-preference){
+  /* desync the two figures and slow the arm to a near-still drift so
+     they read as waiting, not gesturing mid-speech */
+  .standby-figures .sf-right .deb-head{animation-delay:-2.1s}
+  .standby-figures .sf-right .deb-halo{animation-direction:reverse;animation-duration:17s}
+  .standby-figures .deb-arm{animation-duration:11s}
+  .standby-figures .sf-right .deb-arm{animation-delay:-3.4s;animation-duration:12.5s}
+}
+@media (max-width:760px){.setup-orb-hero .standby-figures{display:none}}
+
 /* Numbered step heading */
 .step{margin-bottom:18px}
 .step-h{
@@ -2770,6 +2808,45 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
 }
 
 /* ─────────────────────────────────────────────────── */
+
+/* Line-art debater figure — head + hair + neck + suit/lapel + tie +
+   shoulders + body + a resting arm + curved lectern + mic. Same
+   drawing as the live-round silhouette bookends (kept in sync by
+   hand), reused for the standby "waiting" figures behind the setup
+   orb. sideClass positions/colors the figure (sf-left / sf-right). */
+function debaterFigure(sideClass) {
+  return el('svg', {
+    className: 'stage-debater ' + sideClass,
+    viewBox: '0 0 200 460',
+    role: 'presentation',
+    focusable: 'false'
+  },
+  el('circle', { className: 'deb-halo', cx: '100', cy: '80', r: '48', strokeDasharray: '2 7' }),
+  el('g', { className: 'deb-head' },
+  el('ellipse', { cx: '100', cy: '80', rx: '20', ry: '26' }),
+  el('ellipse', { className: 'deb-stroke', cx: '100', cy: '80', rx: '20', ry: '26', fill: 'none' }),
+  el('path', { className: 'deb-stroke', d: 'M82 70 Q86 50 100 50 Q116 50 118 76' })
+  ),
+  el('path', { className: 'deb-stroke', d: 'M94 108 L92 124 M106 108 L108 124' }),
+  el('path', { className: 'deb-stroke', d: 'M56 142 Q78 130 100 128 Q122 130 144 142' }),
+  el('path', { className: 'deb-stroke', d: 'M56 142 Q52 200 56 268 L60 308' }),
+  el('path', { className: 'deb-stroke', d: 'M144 142 Q148 200 144 268 L140 308' }),
+  el('path', { className: 'deb-stroke', d: 'M78 142 L100 184 L122 142' }),
+  el('path', { className: 'deb-stroke deb-stroke-soft', d: 'M86 138 L100 158 L114 138' }),
+  el('path', { className: 'deb-tie', d: 'M100 184 L96 196 L100 248 L104 196 Z' }),
+  el('g', { className: 'deb-arm' },
+  el('path', { className: 'deb-stroke', d: 'M56 152 Q38 188 30 222' }),
+  el('path', { className: 'deb-stroke', d: 'M30 222 Q24 250 36 266 Q50 276 66 270' }),
+  el('path', { className: 'deb-hand', d: 'M62 264 Q72 260 82 266 Q86 274 78 280 Q66 280 60 274 Z' })
+  ),
+  el('ellipse', { className: 'deb-floor', cx: '100', cy: '434', rx: '82', ry: '9' }),
+  el('path', { className: 'deb-lectern', d: 'M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z' }),
+  el('path', { className: 'deb-lectern-top', d: 'M30 314 Q100 308 170 314 L168 326 L32 326 Z' }),
+  el('path', { className: 'deb-stroke deb-stroke-soft', d: 'M32 326 Q100 320 168 326' }),
+  el('path', { className: 'deb-stroke deb-stroke-soft', d: 'M138 310 Q134 290 124 282 Q118 278 120 270' }),
+  el('ellipse', { className: 'deb-mic-head', cx: '120', cy: '264', rx: '4', ry: '6' })
+  );
+}
 
 function App() {
   var [mode, setMode] = useState('apda');
@@ -5077,6 +5154,15 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   // Bigger than the prior right-column orb (280px vs 180px) so it
   // owns the top of the page.
   el('div', { className: 'setup-orb-hero' },
+  // Waiting figures — the two debaters stand faintly at their podiums
+  // flanking the standby orb, so the setup screen reads as "the room
+  // is set, both sides are here waiting to begin" instead of an empty
+  // stage. Left = you (green), right = the AI (red). Behind the orb
+  // and labels; hidden on small screens.
+  el('div', { className: 'standby-figures', 'aria-hidden': 'true' },
+  debaterFigure('sf-left'),
+  debaterFigure('sf-right')
+  ),
   el('canvas', { className: 'setup-orb', ref: setupOrbCanvasRef, 'aria-hidden': 'true' }),
   el('div', { className: 'setup-orb-label' },
   '◉ ' + (persona && persona.name ? persona.name.split(' ')[0].toUpperCase() : 'OPPONENT') + ' · STANDING BY'
