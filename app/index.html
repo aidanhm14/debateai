@@ -14013,6 +14013,16 @@ function RoundTimer() {
   var totalTime = currentSpeech ? parseTime(currentSpeech.time) : 0;
 
   var beep = (freq = 800, dur = 200) => {
+    // Stay silent when the tab is backgrounded (so a forgotten running timer
+    // can't beep from another tab), when the user has muted sounds (shared
+    // `da-sfx-muted` key — the same one the topbar speaker toggle and sfx.js
+    // use), or under prefers-reduced-motion. Gates on the key directly because
+    // sfx.js (window.SFX.isMuted) isn't loaded on this page.
+    try {
+      if (document.hidden) return;
+      if (localStorage.getItem('da-sfx-muted') === '1') return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    } catch (e) {}
     try {
       if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
       var osc = audioCtx.current.createOscillator();
@@ -14181,6 +14191,16 @@ function PrepRoom({ onNavigateTab }) {
   var audioCtx = useRef(null);
 
   var beep = (freq = 800, dur = 200) => {
+    // Stay silent when the tab is backgrounded (so a forgotten running timer
+    // can't beep from another tab), when the user has muted sounds (shared
+    // `da-sfx-muted` key — the same one the topbar speaker toggle and sfx.js
+    // use), or under prefers-reduced-motion. Gates on the key directly because
+    // sfx.js (window.SFX.isMuted) isn't loaded on this page.
+    try {
+      if (document.hidden) return;
+      if (localStorage.getItem('da-sfx-muted') === '1') return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    } catch (e) {}
     try {
       if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
       var osc = audioCtx.current.createOscillator();
