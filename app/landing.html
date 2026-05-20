@@ -2498,6 +2498,44 @@ section.hero{
   .hero-orb-eyebrow{margin-bottom:24px}
 }
 
+/* ── Ambient community: faint profile discs that ring the orb, fading
+   in and out so the page feels lived-in without claiming a live user
+   count. Built + positioned by the inline script near </body> (it
+   overlays the orb canvas exactly and scales with it). Deliberately
+   sparse: only ~2 of the pool show at once. Abstract silhouettes, not
+   named/photographed people — so this reads as ambiance, not a
+   fabricated roster. pointer-events:none so the orb stays clickable. */
+.hero-orb-people{position:absolute;pointer-events:none;z-index:2}
+.hero-orb-person{
+  position:absolute;width:34px;height:34px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;
+  border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 2px 12px rgba(0,0,0,.28);
+  color:rgba(255,255,255,.82);
+  animation:heroPersonCycle var(--dur,12s) ease-in-out infinite;
+  animation-delay:var(--delay,0s);
+  will-change:opacity,transform;
+}
+.hero-orb-person svg{width:15px;height:15px;display:block;opacity:.9}
+@keyframes heroPersonCycle{
+  0%   {opacity:0;transform:translate(-50%,-50%) translateY(7px) scale(.86)}
+  10%  {opacity:var(--peak,.8);transform:translate(-50%,-50%) translateY(0) scale(1)}
+  26%  {opacity:var(--peak,.8);transform:translate(-50%,-50%) translateY(-3px) scale(1)}
+  36%  {opacity:0;transform:translate(-50%,-50%) translateY(-7px) scale(.9)}
+  100% {opacity:0;transform:translate(-50%,-50%) translateY(7px) scale(.86)}
+}
+[data-theme="light"] .hero-orb-person{
+  border-color:rgba(0,0,0,.1);
+  box-shadow:0 2px 12px rgba(0,0,0,.12);
+  color:rgba(20,20,30,.7);
+}
+@media (prefers-reduced-motion:reduce){
+  /* No fade loop for motion-sensitive users — the script renders a
+     couple at a low static opacity instead (see data-static handling). */
+  .hero-orb-person{animation:none}
+}
+
 /* Proof strip — small caps stats, hairline dividers, no chips. */
 .proof-strip{
   border-top:1px solid rgba(255,255,255,.06);
@@ -9798,6 +9836,95 @@ window.addEventListener('load', function(){
 
   // Tab close / nav away: kill audio so it never lingers.
   window.addEventListener('pagehide', function(){ if(audio) audio.stop(); });
+})();
+</script>
+
+<!-- ── Ambient community discs ringing the hero orb ──────────────────
+     Sparse, fading profile silhouettes that orbit the orb so the page
+     reads as lived-in. Abstract on purpose: no names, no faces, no live
+     count — ambiance, not a fabricated roster (see the CSS note above).
+     The layer overlays the orb canvas exactly and rescales with it. -->
+<script>
+(function(){
+  var card = document.querySelector('.editorial-hero .hero-orb-card') || document.querySelector('.hero-orb-card');
+  var canvas = document.getElementById('heroOrbCanvas');
+  if (!card || !canvas) return;
+
+  var reduce = false;
+  try { reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches; } catch(e){}
+
+  var layer = document.createElement('div');
+  layer.className = 'hero-orb-people';
+  layer.setAttribute('aria-hidden','true');
+  card.appendChild(layer);
+
+  // Generic head-and-shoulders glyph — reads as "a person" without
+  // implying a specific identity.
+  var GLYPH = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
+    + '<circle cx="12" cy="8" r="4"/>'
+    + '<path d="M4 20c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>'
+    + '</svg>';
+  // Muted, low-sat gradients so the discs harmonize with the page
+  // instead of shouting. A spread of hues reads as "different people."
+  var TINTS = [
+    'linear-gradient(135deg,#7f1d2e,#b04250)',
+    'linear-gradient(135deg,#3b3f52,#5b6178)',
+    'linear-gradient(135deg,#4a3a5e,#6f5a8a)',
+    'linear-gradient(135deg,#5a4632,#897053)',
+    'linear-gradient(135deg,#2f4a47,#4c736d)',
+    'linear-gradient(135deg,#444a36,#6d7553)',
+    'linear-gradient(135deg,#5a3340,#8a5566)'
+  ];
+
+  // Ring positions: spread around the circle with jitter, skipping a
+  // wedge at the very bottom (where the orb label sits) so discs never
+  // collide with text.
+  var N = reduce ? 3 : 7;
+  var people = [];
+  for (var i = 0; i < N; i++){
+    var base = (i / N) * Math.PI * 2;
+    var jitter = (Math.random() - 0.5) * (Math.PI / N);
+    var ang = base + jitter - Math.PI/2;          // start at top, go round
+    var sinB = Math.sin(ang);
+    if (sinB > 0.78) ang -= 0.5;                   // nudge off the bottom label
+    var p = document.createElement('div');
+    p.className = 'hero-orb-person';
+    p.style.background = TINTS[i % TINTS.length];
+    p.innerHTML = GLYPH;
+    if (reduce){
+      p.style.opacity = '0.5';
+    } else {
+      p.style.setProperty('--dur',  (11 + Math.random()*6).toFixed(1) + 's');
+      // Negative, spread delays so they're already mid-cycle on load and
+      // never all bunch up. ~30% duty per disc => ~2 visible at a time.
+      p.style.setProperty('--delay', (-Math.random()*16).toFixed(1) + 's');
+      p.style.setProperty('--peak', (0.62 + Math.random()*0.26).toFixed(2));
+    }
+    layer.appendChild(p);
+    people.push({ el: p, ang: ang, r: 0.86 + Math.random()*0.1 });
+  }
+
+  // Overlay the layer onto the canvas box and lay the discs on the ring.
+  function place(){
+    var w = canvas.offsetWidth, h = canvas.offsetHeight;
+    layer.style.left = canvas.offsetLeft + 'px';
+    layer.style.top  = canvas.offsetTop + 'px';
+    layer.style.width = w + 'px';
+    layer.style.height = h + 'px';
+    var cx = w/2, cy = h/2, rad = Math.min(w,h)/2;
+    people.forEach(function(o){
+      o.el.style.left = (cx + Math.cos(o.ang) * rad * o.r) + 'px';
+      o.el.style.top  = (cy + Math.sin(o.ang) * rad * o.r) + 'px';
+    });
+  }
+  // Canvas size is set by its own init script; place after layout settles
+  // and on resize. rAF a couple of frames to catch the late canvas sizing.
+  place();
+  requestAnimationFrame(place);
+  setTimeout(place, 300);
+  setTimeout(place, 1200);
+  var rt;
+  window.addEventListener('resize', function(){ clearTimeout(rt); rt = setTimeout(place, 120); }, {passive:true});
 })();
 </script>
 </body>
