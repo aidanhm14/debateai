@@ -5574,6 +5574,23 @@ function App() {
     setDaOnboarded(true);
     try {window.gtag && gtag('event', 'use_case_picked', { choice: key, signed_in: !!user });} catch (e) {}
   };
+  // Format picker handler. Picking a competitive debate format means the
+  // user is setting up a real debate, not a VC pitch / interview. The
+  // 'pitch' use case is sticky in localStorage and is otherwise never
+  // cleared (pickUseCase is the only writer, and the welcome picker only
+  // shows pre-onboarding), so without this the "company & the raise ·
+  // required" field — and the startDebate block that depends on it — would
+  // follow a one-time pitch picker forever into every normal debate setup.
+  // Quick Clash is excluded: it's pitch's own native format, so staying on
+  // it isn't "leaving" the pitch path.
+  var chooseFormat = (k) => {
+    setFormat(k);
+    if (useCase === 'pitch' && k !== 'quick') {
+      setUseCase('debater');
+      try { localStorage.setItem('debateos-use-case', 'debater'); } catch (e) {}
+      if (pitchBgMissing) setPitchBgMissing(false);
+    }
+  };
 
   // Auto-save round state every 30s during speech phase, plus on every
   // speech-boundary state change (idx/log.length deps), plus on tab-close
@@ -5810,7 +5827,7 @@ function App() {
     if (!motion.trim()) return;
     // Pitch / interview prep needs the company + the ask before the panel
     // can grill realistically. Block start and surface the inline nudge.
-    if (useCase === 'pitch' && !background.trim()) {
+    if (useCase === 'pitch' && format === 'quick' && !background.trim()) {
       setPitchBgMissing(true);
       try { var bgEl = document.querySelector('.float-input[data-bg-field]'); if (bgEl) bgEl.focus(); } catch (e) {}
       return;
@@ -8139,7 +8156,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   !isCounterExt && el('div', { className: 'pills' },
   ['quick', 'asian', 'worlds', 'bp', 'apda', 'ld', 'pf', 'policy', 'congress', 'viva', 'mun'].
   filter((k) => FORMATS[k]).
-  map((k) => {var v = FORMATS[k];return el('button', { key: k, className: 'pill' + (format === k ? ' on' : ''), onClick: () => setFormat(k), title: v.desc,
+  map((k) => {var v = FORMATS[k];return el('button', { key: k, className: 'pill' + (format === k ? ' on' : ''), onClick: () => chooseFormat(k), title: v.desc,
       style: v.entry === 'easy' || v.entry === 'oral' ? { position: 'relative' } : undefined },
     v.name,
     v.entry === 'easy' && el('span', { style: { marginLeft: 8, fontSize: '.58rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: 999, background: 'rgba(34,197,94,.14)', color: '#4ade80', border: '1px solid rgba(34,197,94,.3)', verticalAlign: 'middle' } }, 'Easy'),
@@ -8327,7 +8344,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // edge.
   // Pitch / interview mode makes this field required and explicit: the
   // panel needs the company + the raise to ask real investor questions.
-  useCase === 'pitch' && el('div', { className: 't-label', style: { marginTop: 24 } },
+  // Gated on format==='quick' too (pitch's own format) so a stale 'pitch'
+  // use-case reached via session-restore / drill-plan can't surface this
+  // field inside a competitive debate format like APDA — only chooseFormat
+  // catches the pill-click path, this catches every other path.
+  useCase === 'pitch' && format === 'quick' && el('div', { className: 't-label', style: { marginTop: 24 } },
   'Your company & the raise ',
   el('span', { style: { color: '#f87171', fontWeight: 700 } }, '· required')
   ),
@@ -8337,8 +8358,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     'data-bg-field': true,
     rows: 2,
     placeholder:
-    useCase === 'pitch' ?
-    'Required. What does your company do, and what are you raising? E.g. "B2B inventory SaaS for restaurants — raising a $1.5M seed at an $8M cap to fund go-to-market."' :
+    (useCase === 'pitch' && format === 'quick') ?
+    'Required. What does your company do, and what are you raising? E.g. "B2B inventory SaaS for restaurants, raising a $1.5M seed at an $8M cap to fund go-to-market."' :
     motion.trim() ?
     isCounterExt ?
     'Add your own context. Source, course, framework, where this thesis sits in the syllabus. Or click Generate background.' :
@@ -8351,8 +8372,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     style: { minHeight: 54, fontSize: '.86rem', marginTop: 4 }
   })
   ),
-  pitchBgMissing && useCase === 'pitch' && el('div', { style: { marginTop: 6, fontSize: '.74rem', color: '#f87171', lineHeight: 1.45, maxWidth: 480 } },
-  'Add a line on what your company does and what you\'re raising — the panel needs it to ask real investor questions.'
+  pitchBgMissing && useCase === 'pitch' && format === 'quick' && el('div', { style: { marginTop: 6, fontSize: '.74rem', color: '#f87171', lineHeight: 1.45, maxWidth: 480 } },
+  'Add a line on what your company does and what you\'re raising, the panel needs it to ask real investor questions.'
   ),
   // Generated-background preview. Renders only when the AI-generated
   // (or curated) background is available AND the user hasn't typed
