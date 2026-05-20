@@ -289,8 +289,8 @@ button{font-family:inherit}
   font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
   border:1px solid;
 }
-.tag-side{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.32);color:#4ade80}
-.tag-side.opp{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.32);color:#fca5a5}
+.tag-side{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim)}
+.tag-side.opp{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim)}
 .tag-format{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim)}
 .tag-time{margin-left:auto;background:transparent;border-color:transparent;color:var(--text-ghost);text-transform:none;font-weight:600;letter-spacing:0;font-size:.66rem}
 /* Matched state, challenge user accepted but live voice hasn't shipped yet.
@@ -301,8 +301,7 @@ button{font-family:inherit}
 /* Live state, scheduled time has arrived. Glowing green border so it
    pops above the rest of the board; pulsing dot in the schedule chip
    carries the same "you're up" cue as the topbar Live link. */
-.card-live{border-color:rgba(34,197,94,.55);box-shadow:0 0 0 1px rgba(34,197,94,.18),0 8px 32px rgba(34,197,94,.10);animation:card-live-pulse 2.4s ease-in-out infinite}
-@keyframes card-live-pulse{0%,100%{box-shadow:0 0 0 1px rgba(34,197,94,.18),0 8px 32px rgba(34,197,94,.10)}50%{box-shadow:0 0 0 1px rgba(34,197,94,.32),0 12px 38px rgba(34,197,94,.18)}}
+.card-live{border-color:rgba(34,197,94,.38);box-shadow:inset 4px 0 0 0 #22c55e,0 6px 22px rgba(34,197,94,.07)}
 .card-motion{
   font-size:1.02rem;font-weight:700;line-height:1.4;
   margin-bottom:6px;
@@ -311,6 +310,16 @@ button{font-family:inherit}
   font-size:.74rem;color:var(--text-dim);margin-bottom:14px;
 }
 .card-actions{display:flex;gap:8px;flex-wrap:wrap}
+/* Browse "load more" — a quiet full-width control under the card stack.
+   Reads as a continuation affordance, not a competing CTA. */
+.load-more{
+  width:100%;margin-top:4px;padding:12px;
+  background:transparent;border:1px dashed var(--border-strong);border-radius:var(--radius-md);
+  color:var(--text-dim);font-family:inherit;font-size:.74rem;font-weight:700;
+  letter-spacing:.02em;cursor:pointer;transition:border-color .15s,color .15s,background .15s;
+}
+.load-more:hover{border-color:var(--accent);color:var(--text);background:rgba(255,255,255,.02)}
+[data-theme="light"] .load-more:hover{background:rgba(0,0,0,.02)}
 .btn{
   padding:8px 16px;border-radius:999px;
   font-size:.74rem;font-weight:800;letter-spacing:.04em;
@@ -625,6 +634,7 @@ button{font-family:inherit}
    CTA prominent and stops the action row from wrapping awkwardly. */
 .overflow-actions{position:relative;display:inline-block}
 .overflow-toggle{cursor:pointer}
+.overflow-menu[hidden]{display:none}
 .overflow-menu{
   position:absolute;right:0;top:calc(100% + 6px);z-index:30;
   display:flex;flex-direction:column;gap:4px;
@@ -634,6 +644,13 @@ button{font-family:inherit}
   border-radius:10px;
   box-shadow:0 14px 40px rgba(0,0,0,.18);
 }
+/* The `hidden` attribute sets display:none via the UA stylesheet, but
+   `.overflow-menu{display:flex}` above outranks it (class vs attribute
+   are equal specificity, and the page rule is declared later) — so
+   without this every card's menu rendered OPEN at once, overlapping
+   the cards below. Same footgun the .dayof-banner[hidden] rule fixes.
+   Restore the collapsed default; the toggle removes [hidden] to open. */
+.overflow-menu[hidden]{display:none}
 .overflow-menu .overflow-item{
   display:flex;align-items:center;gap:8px;
   padding:8px 10px;border-radius:7px;
@@ -656,8 +673,8 @@ button{font-family:inherit}
 }
 .status-live{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.45);color:#4ade80}
 .status-soon{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.4);color:#fbbf24}
-.status-needs-d{background:rgba(168,85,247,.10);border-color:rgba(168,85,247,.32);color:#c4b5fd}
-.status-needs-j{background:rgba(59,130,246,.10);border-color:rgba(59,130,246,.32);color:#93c5fd}
+.status-needs-d{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim)}
+.status-needs-j{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim)}
 .status-ready{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.36);color:#86efac}
 .status-completed{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--text-dim)}
 .status-ballot{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.32);color:#86efac}
@@ -684,7 +701,7 @@ button{font-family:inherit}
 .ptrack-row strong{
   color:var(--text);font-weight:800;
 }
-.ptrack-row.needs strong{color:#fbbf24}
+.ptrack-row.needs strong{color:var(--text)}
 .ptrack-row.full strong{color:#4ade80}
 .ptrack-bar{
   display:inline-flex;align-items:center;gap:3px;
@@ -2562,6 +2579,14 @@ button{font-family:inherit}
   var activeTab = 'browse';
   var activeFilter = 'all';
 
+  // ── Browse pagination. The board can hold dozens of open challenges;
+  // showing them all at once is the main source of "wall of cards"
+  // overwhelm. Render a page at a time and reveal more on demand.
+  // browseVisible resets to one page whenever the filter or the
+  // expired toggle changes (those are intent changes — start at the top).
+  var BROWSE_PAGE = 6;
+  var browseVisible = BROWSE_PAGE;
+
   function classifyChallenge(c){
     var f = FORMATS[c.format] || FORMATS.quick;
     var sched = fmtSchedule(c.scheduledAt);
@@ -2797,15 +2822,25 @@ button{font-family:inherit}
           if (open){ menu.setAttribute('hidden',''); this.setAttribute('aria-expanded','false'); }
           else     { menu.removeAttribute('hidden'); this.setAttribute('aria-expanded','true'); }
         });
-        document.addEventListener('click', function once(e){
-          if (!wrap.contains(e.target)){
-            menu.setAttribute('hidden','');
-            var t = wrap.querySelector('.overflow-toggle');
-            if (t) t.setAttribute('aria-expanded','false');
-          }
-        });
       }
     }
+  }
+
+  // Single delegated outside-click closer for every overflow menu. Installed
+  // once — render() runs on every Firestore snapshot, so a per-card listener
+  // here would leak a new document handler on each re-render.
+  if (!window.__overflowMenuCloserInstalled){
+    window.__overflowMenuCloserInstalled = true;
+    document.addEventListener('click', function(e){
+      var openWrap = e.target.closest && e.target.closest('.overflow-actions');
+      document.querySelectorAll('.overflow-menu:not([hidden])').forEach(function(menu){
+        var wrap = menu.closest('.overflow-actions');
+        if (wrap === openWrap) return;
+        menu.setAttribute('hidden','');
+        var t = wrap && wrap.querySelector('.overflow-toggle');
+        if (t) t.setAttribute('aria-expanded','false');
+      });
+    });
   }
 
   // ── Render the open-challenges list
@@ -2843,7 +2878,11 @@ button{font-family:inherit}
     }
     empty.style.display = 'none';
     count.textContent = list.length + (list.length === 1 ? ' waiting' : ' waiting');
-    list.forEach(function(c){
+    // Clamp the visible window to the current list length so a shrinking
+    // board (accepts, bails) can never strand the counter past the end.
+    if (browseVisible > list.length) browseVisible = Math.max(BROWSE_PAGE, Math.ceil(list.length / BROWSE_PAGE) * BROWSE_PAGE);
+    var shown = list.slice(0, browseVisible);
+    shown.forEach(function(c){
       var f = FORMATS[c.format] || FORMATS.quick;
       var theirSideLabel = f.sideLabel[c.side];
       var yourSide = c.side === 'pro' ? 'con' : 'pro';
@@ -3055,6 +3094,20 @@ button{font-family:inherit}
       try { enhanceCard(card, c); } catch(e){ console.warn('[enhance]', e); }
       host.appendChild(card);
     });
+    // Load-more control. Only when the list outruns the visible window;
+    // reveals the next page and keeps focus on the board (no scroll jump).
+    var remaining = list.length - shown.length;
+    if (remaining > 0){
+      var more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'load-more';
+      more.textContent = 'Load ' + Math.min(BROWSE_PAGE, remaining) + ' more · ' + remaining + ' hidden';
+      more.addEventListener('click', function(){
+        browseVisible += BROWSE_PAGE;
+        render();
+      });
+      host.appendChild(more);
+    }
     pruneRoomSubscriptions(activeRooms);
 
     // Also paint Mine / Watch / Archive into their own panes off the
@@ -3733,6 +3786,7 @@ button{font-family:inherit}
   document.querySelectorAll('.filter-chip').forEach(function(b){
     b.addEventListener('click', function(){
       activeFilter = b.getAttribute('data-filter') || 'all';
+      browseVisible = BROWSE_PAGE;
       document.querySelectorAll('.filter-chip').forEach(function(x){
         x.classList.toggle('active', x === b);
       });

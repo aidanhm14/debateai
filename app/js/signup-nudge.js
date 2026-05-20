@@ -114,7 +114,14 @@
       '[data-theme="light"] .signup-nudge .su-cta:hover{background:#b91c1c}' +
       '[data-theme="light"] .signup-nudge .su-close{color:rgba(0,0,0,.45)}' +
       '[data-theme="light"] .signup-nudge .su-close:hover{color:#1a1a1f}' +
-      '@media (max-width:520px){.signup-nudge{right:8px;left:8px;bottom:8px;flex-wrap:wrap;font-size:.78rem;padding:10px 10px 10px 12px}.signup-nudge .su-line{flex:1 1 100%;order:1}.signup-nudge .su-cta{order:2}.signup-nudge .su-close{order:3;margin-left:auto}}';
+      // 2026-05-20: this nudge pins to right:18/bottom:18 — the exact spot
+      // as the floating Feedback pill (.fb-floating). They were stacking
+      // in the same corner, the dark nudge sitting hidden behind Feedback.
+      // While the nudge is in, lift the Feedback pill above it so both are
+      // visible. Scoped to .is-in so the lift animates in/out with the
+      // nudge and reverts the moment it's dismissed.
+      'body:has(.signup-nudge.is-in) .fb-floating{bottom:86px !important;transition:bottom .26s ease}' +
+      '@media (max-width:520px){.signup-nudge{right:8px;left:8px;bottom:8px;flex-wrap:wrap;font-size:.78rem;padding:10px 10px 10px 12px}.signup-nudge .su-line{flex:1 1 100%;order:1}.signup-nudge .su-cta{order:2}.signup-nudge .su-close{order:3;margin-left:auto}body:has(.signup-nudge.is-in) .fb-floating{bottom:128px !important}}';
     document.head.appendChild(s);
   }
 

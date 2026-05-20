@@ -848,6 +848,57 @@ input[type=text]:focus,select:focus,textarea:focus{
   margin-bottom:14px;font-weight:700;
 }
 
+/* ── RFD handoff transition ──────────────────────────────────────
+   Full-screen "judge is deliberating" cover shown while the ballot
+   is generated, then we navigate to /voice-rfd. Covers the page so
+   the inline rfd-card never flashes at the bottom, and replaces the
+   jarring white-flash hard reload with a designed beat. */
+.rfd-handoff{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+  padding:24px;text-align:center;
+  background:#070205;
+  background-image:radial-gradient(ellipse 70% 50% at 50% 38%,rgba(239,68,68,.22),transparent 60%);
+  animation:rfdHandoffIn .4s ease both;
+}
+html[data-theme="light"] .rfd-handoff{
+  background:#fafaf7;
+  background-image:radial-gradient(ellipse 70% 50% at 50% 38%,rgba(220,38,38,.12),transparent 60%);
+}
+@keyframes rfdHandoffIn{from{opacity:0}to{opacity:1}}
+.rfd-handoff__orb{
+  width:118px;height:118px;border-radius:50%;position:relative;
+  background:radial-gradient(circle at 50% 45%,rgba(239,68,68,.62),rgba(239,68,68,.14) 58%,transparent 72%);
+  animation:rfdOrbPulse 1.7s ease-in-out infinite;
+}
+.rfd-handoff__orb::before,.rfd-handoff__orb::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(239,68,68,.45);
+  animation:rfdOrbRing 2.4s ease-out infinite;
+}
+.rfd-handoff__orb::after{animation-delay:1.2s}
+@keyframes rfdOrbPulse{0%,100%{transform:scale(.92);opacity:.85}50%{transform:scale(1.06);opacity:1}}
+@keyframes rfdOrbRing{0%{transform:scale(.7);opacity:.6}100%{transform:scale(1.7);opacity:0}}
+.rfd-handoff__title{font-size:1.24rem;font-weight:800;letter-spacing:-.01em;color:#fff}
+html[data-theme="light"] .rfd-handoff__title{color:#1a1a1f}
+.rfd-handoff__sub{font-size:.92rem;color:rgba(255,255,255,.6);min-height:1.3em}
+html[data-theme="light"] .rfd-handoff__sub{color:rgba(26,26,31,.6)}
+.rfd-handoff__sub::after{content:'';animation:rfdDots 1.4s steps(4,end) infinite}
+@keyframes rfdDots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+.rfd-handoff__bar{
+  width:200px;height:3px;border-radius:3px;overflow:hidden;
+  background:rgba(239,68,68,.16);
+}
+.rfd-handoff__bar span{
+  display:block;height:100%;width:42%;border-radius:3px;
+  background:linear-gradient(90deg,transparent,#ef4444,transparent);
+  animation:rfdBar 1.25s ease-in-out infinite;
+}
+@keyframes rfdBar{0%{transform:translateX(-120%)}100%{transform:translateX(360%)}}
+@media(prefers-reduced-motion:reduce){
+  .rfd-handoff,.rfd-handoff__orb,.rfd-handoff__orb::before,.rfd-handoff__orb::after,.rfd-handoff__bar span{animation:none}
+}
+
 /* Retention CTA row (after RFD lands). Themable so the pills read on
    both cream and dark backgrounds. */
 .retention-row{
@@ -3329,6 +3380,10 @@ function App() {
   // Post-session
   var [rfd, setRfd] = useState('');
   var [rfdLoading, setRfdLoading] = useState(false);
+  // True while the ballot is generating + we're about to hand off to
+  // /voice-rfd. Drives the full-screen deliberation overlay so the
+  // inline rfd-card never flashes and the navigation isn't a raw reload.
+  var [handingOff, setHandingOff] = useState(false);
   // Voice-round rating. Captured at session end and POSTed as a 'rate'
   // signal on the generation logged from stop(). This is the supervised
   // label the nightly distill (scheduled-distill.mjs) keys off — without
@@ -4733,6 +4788,11 @@ function App() {
   var generateRFD = useCallback(async () => {
     setRfdLoading(true);
     setRfd('');
+    // Show the deliberation overlay immediately (covers the whole API
+    // wait), unless the user opted out of the /voice-rfd handoff.
+    var willHandoff = false;
+    try { willHandoff = new URL(window.location.href).searchParams.get('nohandoff') !== '1'; } catch (_) {}
+    if (willHandoff) setHandingOff(true);
     try {
       var transcriptText = turnsRef.current.
       filter((t) => t.who === 'you' || t.who === 'ai').
@@ -4938,6 +4998,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         console.warn('[generateRFD] leaderboard parse/write skipped', lbErr);
       }
     } catch (e) {
+      setHandingOff(false); // drop the overlay so the error is visible
       setRfd('Could not generate RFD: ' + e.message);
       try {window.SFX && SFX.error && SFX.error();} catch (sfxErr) {}
     } finally {
@@ -6020,6 +6081,16 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     style: { background: 'rgba(37,211,102,.12)', borderColor: 'rgba(37,211,102,.4)', color: '#5be584' }
   }, 'Share viva on WhatsApp')
   )
+  ),
+
+  // Full-screen deliberation overlay during ballot generation + handoff.
+  // Fixed-position, so it covers the inline rfd-card flash and bridges
+  // into /voice-rfd without a raw page-reload flash.
+  handingOff && el('div', { className: 'rfd-handoff', key: 'rfd-handoff' },
+    el('div', { className: 'rfd-handoff__orb', 'aria-hidden': 'true' }),
+    el('div', { className: 'rfd-handoff__title' }, 'The judge is deliberating'),
+    el('div', { className: 'rfd-handoff__sub' }, 'Reading the flow'),
+    el('div', { className: 'rfd-handoff__bar' }, el('span', null))
   ),
 
   !rfd && el('button', {

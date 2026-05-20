@@ -309,7 +309,10 @@ body{
 
 .loading{
   margin-top:32px;padding:64px 24px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:18px;
+  transition:opacity .35s ease;
 }
+.loading.out{opacity:0}
 .loading-spinner{
   width:48px;height:48px;margin:0 auto 18px;
   border:3px solid rgba(239,68,68,.18);
@@ -319,6 +322,28 @@ body{
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:1rem;color:var(--text-dim)}
+/* Intro orb — visually continuous with /voice-debate's deliberation
+   overlay so the cross-page handoff doesn't read as a hard reload. */
+.intro-orb{
+  width:104px;height:104px;border-radius:50%;position:relative;
+  background:radial-gradient(circle at 50% 45%,rgba(239,68,68,.6),rgba(239,68,68,.14) 58%,transparent 72%);
+  animation:introPulse 1.6s ease-in-out infinite;
+}
+.intro-orb::before,.intro-orb::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(239,68,68,.45);animation:introRing 2.2s ease-out infinite;
+}
+.intro-orb::after{animation-delay:1.1s}
+@keyframes introPulse{0%,100%{transform:scale(.92);opacity:.85}50%{transform:scale(1.06);opacity:1}}
+@keyframes introRing{0%{transform:scale(.7);opacity:.6}100%{transform:scale(1.7);opacity:0}}
+
+/* Staggered content reveal — applied per top-level block after render. */
+.reveal{opacity:0;transform:translateY(20px);animation:rfdReveal .6s cubic-bezier(.2,.72,.2,1) forwards}
+@keyframes rfdReveal{to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  .reveal{animation:none;opacity:1;transform:none}
+  .intro-orb,.intro-orb::before,.intro-orb::after{animation:none}
+}
 
 /* Mobile polish */
 @media (max-width:680px){
@@ -350,8 +375,8 @@ body{
 
 <main id="root" class="wrap">
   <div class="loading" id="loadingBlock">
-    <div class="loading-spinner"></div>
-    <div class="loading-text">Loading your ballot…</div>
+    <div class="intro-orb" aria-hidden="true"></div>
+    <div class="loading-text">Tallying the ballot…</div>
   </div>
 </main>
 
@@ -491,7 +516,7 @@ body{
         + '<h1 class="verdict-headline">' + (winner ? '<span class="winner ' + winnerClass + '">' + escHtml(winnerLabel) + '.</span>' : escHtml(winnerLabel) + '.') + '</h1>'
         + (payload.motion ? '<p class="verdict-sub">On the motion: <em style="font-style:italic;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
         + '<div class="verdict-stats">'
-          + '<div class="verdict-stat"><div class="verdict-stat-label">Speaker points</div><div class="verdict-stat-value">' + (sp || '—') + (sp ? '<span class="unit">/ 30</span>' : '') + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Speaker points</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ 30</span>' : '') + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Round time</div><div class="verdict-stat-value">' + fmtDuration(stats.duration) + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Your turns</div><div class="verdict-stat-value">' + (stats.yourTurns != null ? stats.yourTurns : '—') + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Talk-time</div><div class="verdict-stat-value">' + (talkYou != null ? talkYou + '%<span class="unit">/ ' + talkAI + '% AI</span>' : '—') + '</div></div>'
@@ -548,6 +573,15 @@ body{
 
     root.innerHTML = html;
 
+    // Staggered entrance: each top-level block slides up in sequence.
+    var blocks = root.querySelectorAll('.eyebrow, .verdict, .section, .cta-row, .foot');
+    Array.prototype.forEach.call(blocks, function(b, i){
+      b.classList.add('reveal');
+      b.style.animationDelay = (i * 90) + 'ms';
+    });
+    // Speaker-points count-up once the verdict has settled in.
+    setTimeout(countUpSP, 260);
+
     // Copy + share wiring.
     var copyBtn = document.getElementById('copyBallot');
     if (copyBtn) copyBtn.addEventListener('click', function(){
@@ -574,17 +608,41 @@ body{
     });
   }
 
+  // Count the speaker-points stat up from a few tenths below to the
+  // final score — a small "the number is being decided" beat that
+  // makes the verdict feel earned rather than dumped.
+  function countUpSP(){
+    var elv = document.getElementById('spValue');
+    if (!elv) return;
+    var target = parseFloat(elv.getAttribute('data-target'));
+    if (isNaN(target)) return;
+    var textNode = elv.firstChild; // the number; the /30 unit is a sibling span
+    if (!textNode) return;
+    var start = Math.max(20, target - 3);
+    var t0 = performance.now(), dur = 850;
+    function frame(now){
+      var p = Math.min(1, (now - t0) / dur);
+      var ease = 1 - Math.pow(1 - p, 3);
+      textNode.nodeValue = (start + (target - start) * ease).toFixed(1);
+      if (p < 1) requestAnimationFrame(frame);
+      else textNode.nodeValue = target.toFixed(1);
+    }
+    requestAnimationFrame(frame);
+  }
+
   // ── Boot.
-  // Small delay so the spinner doesn't flash when the payload is in
-  // sessionStorage and the page is fast. Otherwise the spinner is
-  // visible for the dramatic-reveal interval the user already paid
-  // for during the upstream judge call.
+  // Hold the intro orb briefly so the cross-page handoff from
+  // /voice-debate reads as a continuous beat (its deliberation overlay
+  // dissolves into this one), then fade it out and reveal the ballot.
   setTimeout(function(){
     var payload = loadPayload();
-    if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
-    render(payload);
-    try { gtag('event', 'voice_rfd_view', { has_payload: !!(payload && payload.rfd) }); } catch(e){}
-  }, 160);
+    if (loading) loading.classList.add('out');
+    setTimeout(function(){
+      if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+      render(payload);
+      try { gtag('event', 'voice_rfd_view', { has_payload: !!(payload && payload.rfd) }); } catch(e){}
+    }, 340);
+  }, 480);
 })();
 </script>
 <script defer src="/js/notifications.js"></script>
