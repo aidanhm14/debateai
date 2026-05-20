@@ -259,8 +259,8 @@
 
 <!-- Early-paint theme: read the user's saved preference so the page
      doesn't flash crimson before topbar.js / the bottom-of-body
-     bootstrap reconcile. Defaults to crimson when no preference is
-     set. Light/grey/crimson all have full token coverage on landing —
+     bootstrap reconcile. New visitors are A/B-bucketed 70% light /
+     30% crimson by the script below; saved prefs are kept as-is. Light/grey/crimson all have full token coverage on landing —
      the toggle lives in the topbar (rendered by /js/topbar.js).
      Migration v2026-05: dark is the brand default. Browsers carrying a
      legacy `da-theme=light` from an early experiment get reset once
@@ -279,8 +279,29 @@
     } catch(e){}
     var t = '';
     try { t = localStorage.getItem('da-theme') || ''; } catch(e){}
-    if (!t || t === 'day') t = 'light';
+    if (!t || t === 'day') {
+      // Landing A/B: bucket new visitors 70% light (white) / 30% crimson
+      // (dark) to test which front door is more attractive. Persist to
+      // da-theme so it sticks and the topbar toggle still overrides it;
+      // mirror to da-theme-ab so sign-up rate stays segmentable in GA.
+      try {
+        t = (Math.random() < 0.70) ? 'light' : 'crimson';
+        localStorage.setItem('da-theme', t);
+        if (!localStorage.getItem('da-theme-ab')) {
+          localStorage.setItem('da-theme-ab', t);
+          window.__themeAbAssigned = t;
+        }
+      } catch(e){ t = 'light'; }
+    }
     document.documentElement.setAttribute('data-theme', t);
+    try {
+      var ab = (localStorage.getItem('da-theme-ab') || t);
+      window.__themeAb = ab;
+      if (window.gtag) {
+        gtag('set', 'user_properties', { theme_ab: ab });
+        gtag('event', 'theme_ab_view', { variant: ab, assigned: !!window.__themeAbAssigned });
+      }
+    } catch(e){}
   })();
 </script>
 
@@ -4146,14 +4167,42 @@ section.ui-section .ui-lede{
     // don't need to be asked to sign in again. If Firebase never loads
     // (extensions blocking, offline, etc.) fall through to showing the
     // modal after a 1.6s timeout so we don't silently skip the prompt.
-    var FIRE_DELAY = 1500;     // delay before opening for unauthed users
-    var AUTH_WAIT_MAX = 1600;  // give Firebase up to 1.6s to resolve auth
-    var decided = false;
+    var AUTH_WAIT_MAX = 1600;       // give Firebase up to 1.6s to resolve auth
+    var SHOW_AFTER_SCROLL = 10000;  // open 10s after the visitor's first real scroll
+    var decided = false, openArmed = false;
     function decide(skip){
       if (decided) return;
       decided = true;
       if (skip) { try { localStorage.setItem(KEY,'1'); } catch(e){} return; }
-      setTimeout(open, FIRE_DELAY);
+      // Don't interrupt on load. Wait until the visitor engages by
+      // scrolling, then 10s, before asking them to sign in — more of the
+      // page gets seen (fewer instant bounces) and the prompt lands on
+      // people actually reading. Pages too short to scroll fall back to a
+      // plain 10s timer so the prompt still surfaces.
+      if ((document.documentElement.scrollHeight - window.innerHeight) > 120) {
+        window.addEventListener('scroll', onScrollShow, { passive: true });
+      } else {
+        setTimeout(reallyOpen, SHOW_AFTER_SCROLL);
+      }
+    }
+    function onScrollShow(){
+      if ((window.scrollY || window.pageYOffset || 0) > 60) armShow();
+    }
+    function armShow(){
+      if (openArmed) return;
+      openArmed = true;
+      window.removeEventListener('scroll', onScrollShow);
+      setTimeout(reallyOpen, SHOW_AFTER_SCROLL);
+    }
+    function reallyOpen(){
+      // Re-check auth in case they signed in during the wait.
+      try {
+        if (window.firebase && firebase.auth && firebase.auth().currentUser) {
+          try { localStorage.setItem(KEY,'1'); } catch(e){}
+          return;
+        }
+      } catch(e){}
+      open();
     }
     function tryAuth(){
       try {
