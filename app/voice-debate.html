@@ -4275,6 +4275,16 @@ function App() {
       var audioEl = document.createElement('audio');
       audioEl.autoplay = true;
       audioEl.playsInline = true;
+      // Pitch-correct from creation. The default rate is 1.4x, but the
+      // slider-sync effect only fires on a rate *change* and the element
+      // doesn't exist at mount — so without setting these here, the very
+      // first playback runs chipmunk-pitched until the user nudges the
+      // slider. preservesPitch (+ vendor-prefixed fallbacks) makes the
+      // engine time-stretch instead of resampling. Chrome 86+, FF 101+,
+      // Safari 15.4+ support the unprefixed property.
+      audioEl.preservesPitch = true;
+      audioEl.mozPreservesPitch = true;
+      audioEl.webkitPreservesPitch = true;
       audioEl.playbackRate = playbackRate; // honor whatever the user set
       document.body.appendChild(audioEl);
       audioElRef.current = audioEl;
