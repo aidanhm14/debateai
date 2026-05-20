@@ -990,18 +990,6 @@ button{font-family:inherit}
   .di-cta{grid-column:1 / -1;text-align:center}
 }
 
-/* ─── Expired toggle on the Open Challenges header ──── */
-.exp-toggle{
-  background:transparent;border:1px solid var(--border);
-  color:var(--text-dim);font-family:inherit;
-  padding:5px 12px;border-radius:999px;font-size:.62rem;
-  font-weight:800;letter-spacing:.06em;text-transform:uppercase;
-  cursor:pointer;
-  transition:color .15s,border-color .15s,background .15s;
-}
-.exp-toggle:hover{color:var(--text);border-color:var(--border-strong)}
-.exp-toggle.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-
 /* ─── Modals (accept-confirm, bail) ────────────────── */
 .modal-backdrop{
   position:fixed;inset:0;
@@ -1376,10 +1364,6 @@ button{font-family:inherit}
       <div class="sec-head">
         <h2>Open challenges</h2>
         <span id="challengeCount" class="count">0 waiting</span>
-        <!-- Hide-expired toggle. Default is hidden (board reads clean);
-             toggle on to surface old challenges with their ballots.
-             Label updates with the actual expired count for clarity. -->
-        <button id="expToggle" class="exp-toggle" type="button" aria-pressed="false" hidden>Show expired</button>
       </div>
 
       <!-- Filter chips. Stack on top of the active tab to narrow the
@@ -2813,14 +2797,14 @@ button{font-family:inherit}
   // ── Render the open-challenges list
   function render(){
     var fullList = loadList();
-    // Day-of: hide expired challenges by default so the board doesn't
-    // get dominated by old matches the user never followed through on.
-    // The "Show expired" toggle next to the count lets users surface
-    // them when they want to recover a ballot or audit history.
-    var expiredCount = 0;
+    // Day-of: hide expired challenges from the open queue so the board
+    // doesn't get dominated by old matches the user never followed
+    // through on. They're not gone — the "Archived" filter chip is the
+    // single place to surface them (with their ballots) when you want
+    // to recover a ballot or audit history.
     var list = fullList.filter(function(c){
       var s = fmtSchedule(c.scheduledAt);
-      if (s && s.expired){ expiredCount++; return showExpired; }
+      if (s && s.expired) return activeFilter === 'archived';
       return true;
     });
     // Apply the active filter chip (All / Live / Soon / Needs-D / etc).
@@ -2830,7 +2814,6 @@ button{font-family:inherit}
         return matchesFilter(c, info, activeFilter);
       });
     }
-    updateExpiredToggle(expiredCount);
     var host = document.getElementById('cards');
     var empty = document.getElementById('empty');
     var count = document.getElementById('challengeCount');
@@ -4507,8 +4490,6 @@ button{font-family:inherit}
   //      pulse), live (T≤0, green pulse + JOIN NOW CTA).
   //   2. todayPanel — calendar-style block above the open queue,
   //      grouped by Live / Soon (≤60m) / Today / This week / Later.
-  //   3. expToggle — hides expired challenges from the open queue by
-  //      default; toggle to surface them.
   //
   // No new Firestore collections; all reads are over the existing
   // challenges list. Tickers: 1s for the banner clock (lightweight
@@ -4516,7 +4497,6 @@ button{font-family:inherit}
   // there's nothing relevant on screen.
   // ════════════════════════════════════════════════════════════════
 
-  var showExpired = false;
   // Per-session dismiss set for the day-of banner. Keyed by challenge
   // id so dismissing one match doesn't suppress the next imminent
   // match. Cleared on reload, which is the right scope for a banner.
@@ -4776,30 +4756,8 @@ button{font-family:inherit}
     host.hidden = false;
   }
 
-  // Toggle for expired challenges. Hidden by default; appears with a
-  // count once we know how many are actually filtered.
-  function updateExpiredToggle(expiredCount){
-    var btn = document.getElementById('expToggle');
-    if (!btn) return;
-    if (expiredCount <= 0){
-      btn.hidden = true;
-      return;
-    }
-    btn.hidden = false;
-    btn.textContent = showExpired
-      ? 'Hide expired (' + expiredCount + ')'
-      : 'Show expired (' + expiredCount + ')';
-    btn.classList.toggle('on', showExpired);
-    btn.setAttribute('aria-pressed', showExpired ? 'true' : 'false');
-  }
-
   document.addEventListener('click', function(e){
     var t = e.target;
-    if (t && t.id === 'expToggle'){
-      showExpired = !showExpired;
-      render();
-      return;
-    }
     if (t && t.matches && t.matches('[data-dayof-dismiss]')){
       var id = t.getAttribute('data-dayof-dismiss');
       if (id) dayofDismissed[id] = true;
