@@ -4199,6 +4199,19 @@ button{font-family:inherit}
               accepterUid: d.accepterUid || null,
               accepterName: d.accepterName || null,
               accepterContact: d.accepterContact || null,
+              // N-slot fields — carry them back off the synced doc so
+              // the board renders the real cross-user seat roster /
+              // viewer list / judge slot instead of falling back to
+              // the legacy 2-person posterUid/accepterUid projection.
+              slots: d.slots || null,
+              viewers: Array.isArray(d.viewers) ? d.viewers : [],
+              judges: Array.isArray(d.judges) ? d.judges : [],
+              posterSlot: d.posterSlot || null,
+              needJudge: !!d.needJudge,
+              allowViewers: d.allowViewers !== false,
+              requiredDebaters: d.requiredDebaters || null,
+              maxDebaters: d.maxDebaters || null,
+              category: d.category || 'any',
             });
           });
           firstChallengeSnapshot = false;
@@ -4230,6 +4243,14 @@ button{font-family:inherit}
       toast('Not signed in, challenge saved locally only.');
       return;
     }
+    // Preserve the ORIGINAL poster identity. publishChallenge is also
+    // called by the join/viewer/judge handlers (with the challenge the
+    // joiner pulled from the board), so stamping currentUser.uid here
+    // would overwrite posterUid with the joiner's uid and hijack the
+    // post. Use the entry's own posterUid when present; only fall back
+    // to currentUser for a brand-new post (where the poster IS the
+    // current user and entry.posterUid isn't set yet).
+    var posterUid = entry.posterUid || currentUser.uid;
     var fsEntry = {
       motion: entry.motion,
       side: entry.side,
@@ -4239,10 +4260,30 @@ button{font-family:inherit}
       topicLine: entry.topicLine || '',
       themeLine: entry.themeLine || '',
       scheduledAt: entry.scheduledAt || null,
-      posterUid: currentUser.uid,
-      posterName: currentUser.displayName || '',
-      posterPhoto: currentUser.photoURL || '',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      posterUid: posterUid,
+      posterName: entry.posterName || (entry.posterUid ? '' : currentUser.displayName) || '',
+      posterPhoto: entry.posterPhoto || (entry.posterUid ? '' : currentUser.photoURL) || '',
+      // ── N-slot fields (BP/APDA/etc). Without these the new
+      // matchmaking model only round-tripped through localStorage +
+      // the legacy accepterUid projection — slots/viewers/judges never
+      // synced across users. Persist them so a second debater on
+      // another device sees the same seat roster, viewer list, and
+      // judge slot. slots is a map keyed by slotKey → {uid,name,handle}.
+      slots: entry.slots || null,
+      viewers: Array.isArray(entry.viewers) ? entry.viewers : [],
+      judges: Array.isArray(entry.judges) ? entry.judges : [],
+      posterSlot: entry.posterSlot || null,
+      needJudge: !!entry.needJudge,
+      allowViewers: entry.allowViewers !== false,
+      requiredDebaters: entry.requiredDebaters || null,
+      maxDebaters: entry.maxDebaters || null,
+      category: entry.category || 'any',
+      // Legacy accept fields preserved on merge so a slot-join write
+      // doesn't blow away an accept that happened through the old path.
+      accepterUid: entry.accepterUid || null,
+      accepterName: entry.accepterName || null,
+      createdAt: entry.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
     // posterEmail used to live on this doc, but live_challenges is
     // readable by every signed-in user (the board lists challenges
@@ -4250,7 +4291,11 @@ button{font-family:inherit}
     // a private companion doc whose rule restricts read/write to
     // posterUid + accepterUid. Same for accepterEmail/accepterContact
     // when the accept happens.
-    firebaseDb.collection('live_challenges').doc(entry.id).set(fsEntry).catch(function(e){
+    //
+    // merge:true so the join/viewer/judge handlers (which re-publish
+    // the whole challenge) update only the fields they changed and
+    // don't clobber a concurrent edit from another participant.
+    firebaseDb.collection('live_challenges').doc(entry.id).set(fsEntry, { merge: true }).catch(function(e){
       console.warn('[Live] publish challenge failed', e);
       var msg = (e && e.code === 'permission-denied')
         ? 'Posted locally only. Firestore rules need deploying. Open Firebase Console → Firestore → Rules and paste from app/firestore.rules.'
@@ -4262,16 +4307,24 @@ button{font-family:inherit}
     // profile (loadProfile().contact). It's optional but, when set, gives
     // the accepter something to copy alongside posterEmail so they can
     // coordinate via whatever channel the poster prefers.
-    var pp = loadProfile();
-    firebaseDb.collection('live_challenge_contacts').doc(entry.id).set({
-      challengeId: entry.id,
-      posterUid: currentUser.uid,
-      posterEmail: currentUser.email || '',
-      posterContact: pp.contact || '',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }).catch(function(e){
-      console.warn('[Live] publish contact companion failed', e && e.message);
-    });
+    // Only the actual poster writes the contact companion. When a
+    // joiner re-publishes the challenge (slot/viewer/judge update),
+    // currentUser is NOT the poster — writing the companion here would
+    // both stamp the wrong posterUid and trip the create rule
+    // (posterUid must equal request.auth.uid). Skip it for joiners.
+    var isPosterPublishing = !entry.posterUid || entry.posterUid === currentUser.uid;
+    if (isPosterPublishing) {
+      var pp = loadProfile();
+      firebaseDb.collection('live_challenge_contacts').doc(entry.id).set({
+        challengeId: entry.id,
+        posterUid: currentUser.uid,
+        posterEmail: currentUser.email || '',
+        posterContact: pp.contact || '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true }).catch(function(e){
+        console.warn('[Live] publish contact companion failed', e && e.message);
+      });
+    }
   }
 
   // Fire both sides an email via /api/notify-accepted. Falls through
