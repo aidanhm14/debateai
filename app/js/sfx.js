@@ -253,6 +253,17 @@
     tone({ freq: 700, dur: 0.16, peak: 0.16, type: 'sine' });
   }
 
+  function notify(){
+    preload();
+    if (playMP3('notify')) return;
+    // Inbound DM / group message. A soft two-note rising "ding-dong"
+    // (E6 → A6, perfect fourth) — lighter and quicker than success()'s
+    // three-note arpeggio so a chat ping never reads as a milestone.
+    // Low peaks so a notification mid-task isn't startling.
+    tone({ freq: 1318.51, dur: 0.14, peak: 0.12, type: 'sine', delayMs: 0 });   // E6
+    tone({ freq: 1760.00, dur: 0.22, peak: 0.13, type: 'sine', delayMs: 110 }); // A6
+  }
+
   // ── Round-clock sounds ─────────────────────────────────────────────
   // The useTimer in debate-ai.html historically fired raw `beep()` calls
   // against its own AudioContext, which (a) duplicated boilerplate and
@@ -463,6 +474,7 @@
     end: confirm,
     error: error,
     confirm: confirm,
+    notify: notify,
     timeWarning: timeWarning,
     timeUp: timeUp,
     rfdReveal: rfdReveal,

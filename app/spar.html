@@ -613,6 +613,38 @@ h1 em{color:var(--accent);font-style:normal}
   flex-shrink:0; object-fit:cover;
   background:linear-gradient(135deg,#444,#222);
 }
+.wl-modal__avatar--group{
+  display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 35% 30%,rgba(239,68,68,.3),rgba(239,68,68,.08));
+  border:1px solid var(--border-strong); color:var(--accent);
+}
+/* Sender label inside a group message bubble */
+.wl-msg__sender{
+  font-size:.62rem; font-weight:800; letter-spacing:.04em;
+  color:var(--accent); margin-bottom:3px;
+}
+.wl-msg.mine .wl-msg__sender{display:none}
+/* Inbox member-count chip on group rows */
+.wl-inbox-row__count{
+  display:inline-block; margin-left:6px; padding:0 6px;
+  border-radius:999px; background:var(--bg-elev);
+  border:1px solid var(--border); color:var(--text-dim);
+  font-size:.6rem; font-weight:800; vertical-align:1px;
+}
+/* Group-composer member picker */
+.wl-pick-list{
+  display:flex; flex-direction:column; gap:4px;
+  max-height:240px; overflow-y:auto;
+  border:1px solid var(--border); border-radius:10px; padding:6px;
+}
+.wl-pick{
+  display:flex; align-items:center; gap:10px;
+  padding:7px 8px; border-radius:8px; cursor:pointer;
+  transition:background .12s;
+}
+.wl-pick:hover{background:var(--bg-elev)}
+.wl-pick__cb{accent-color:var(--accent); width:16px; height:16px; flex-shrink:0; cursor:pointer}
+.wl-pick__name{font-size:.84rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .wl-modal__close{
   width:30px; height:30px; border-radius:50%;
   background:transparent; border:1px solid var(--border);
@@ -1603,7 +1635,14 @@ h1 em{color:var(--accent);font-style:normal}
     threadsUnsub: null,
     unreadThreads: 0,
     activeThreadUnsub: null,
+    // The thread currently open in the modal. Holds enough to send +
+    // render without re-reading the doc: { id, participants:[uids],
+    // participantInfo:{uid:{name,photo}}, isGroup, groupName }.
+    activeThread: null,
   };
+
+  var WL_GROUP_NAME_MAX = 60;
+  var WL_GROUP_MAX_MEMBERS = 12; // including you
 
   function relTime(ms){
     var diff = Date.now() - ms;
@@ -1811,25 +1850,82 @@ h1 em{color:var(--accent);font-style:normal}
     return [uidA, uidB].sort().join('_');
   }
 
+  // Open a 1:1 DM. Sets up wl.activeThread (participants known up-front
+  // even before the doc exists, so the first send can create it) and
+  // hands off to the shared renderer.
   function openDMThread(peerUid, peerName, peerPhoto){
     if (!state.user || !firebaseDb || !peerUid) return;
     if (peerUid === state.user.uid) return;
-    var threadId = dmThreadId(state.user.uid, peerUid);
-    var titleHtml =
-      (peerPhoto
-        ? '<img class="wl-modal__avatar" src="' + escHtml(peerPhoto) + '" alt="">'
-        : '<div class="wl-modal__avatar"></div>') +
-      '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(peerName || 'Debater') + '</span>';
+    var me = state.user.uid;
+    var pInfo = {};
+    pInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
+    pInfo[peerUid] = { name: peerName || 'Debater', photo: peerPhoto || '' };
+    wl.activeThread = {
+      id: dmThreadId(me, peerUid),
+      participants: [me, peerUid],
+      participantInfo: pInfo,
+      isGroup: false,
+      groupName: '',
+    };
+    renderThreadModal();
+  }
+
+  // Open a group (or any) thread by its doc id. Fetches the thread doc
+  // for participants + name, then renders. Used by the inbox list and
+  // the ?thread= deep link from a notification.
+  function openGroupThread(threadId){
+    if (!state.user || !firebaseDb || !threadId) return;
+    firebaseDb.collection('dm_threads').doc(threadId).get().then(function(doc){
+      if (!doc.exists){ return; }
+      var d = doc.data() || {};
+      if (!(d.participants || []).some(function(u){ return u === state.user.uid; })) return; // not a member
+      wl.activeThread = {
+        id: threadId,
+        participants: d.participants || [],
+        participantInfo: d.participantInfo || {},
+        isGroup: !!d.isGroup || (d.participants || []).length > 2,
+        groupName: d.groupName || '',
+      };
+      renderThreadModal();
+    }).catch(function(e){ console.warn('[dm] open group thread failed', e && e.message); });
+  }
+
+  // Shared thread modal renderer. Drives both 1:1 and group threads off
+  // wl.activeThread. Group threads get a member-count subtitle and
+  // per-message sender labels (handled in paintDMThread).
+  function renderThreadModal(){
+    var at = wl.activeThread;
+    if (!at) return;
+    var titleHtml;
+    if (at.isGroup){
+      var count = at.participants.length;
+      titleHtml =
+        '<div class="wl-modal__avatar wl-modal__avatar--group" aria-hidden="true">' +
+          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+        '</div>' +
+        '<span style="display:flex;flex-direction:column;min-width:0">' +
+          '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(at.groupName || 'Group') + '</span>' +
+          '<span style="font-size:.66rem;color:var(--text-dim);font-weight:500">' + count + ' members</span>' +
+        '</span>';
+    } else {
+      var peerUid = at.participants.filter(function(u){ return u !== state.user.uid; })[0] || '';
+      var info = at.participantInfo[peerUid] || {};
+      titleHtml =
+        (info.photo
+          ? '<img class="wl-modal__avatar" src="' + escHtml(info.photo) + '" alt="">'
+          : '<div class="wl-modal__avatar"></div>') +
+        '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(info.name || 'Debater') + '</span>';
+    }
     openModal(titleHtml,
       '<div class="wl-thread" id="wlThread"><div class="wl-msg__empty">Loading messages…</div></div>',
       [
-        { html: '<input class="wl-input wl-send-input" id="wlSendInput" placeholder="Set a time, propose a motion, etc." maxlength="' + WL_MSG_MAX + '">' },
-        { label: 'Send', kind: 'primary', id: 'wlSendBtn', onClick: function(){ sendDMMessage(threadId, peerUid, peerName, peerPhoto); } },
+        { html: '<input class="wl-input wl-send-input" id="wlSendInput" placeholder="' + (at.isGroup ? 'Message the group…' : 'Set a time, propose a motion, etc.') + '" maxlength="' + WL_MSG_MAX + '">' },
+        { label: 'Send', kind: 'primary', id: 'wlSendBtn', onClick: sendThreadMessage },
       ]
     );
     if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} }
     wl.activeThreadUnsub = firebaseDb
-      .collection('dm_threads').doc(threadId).collection('messages')
+      .collection('dm_threads').doc(at.id).collection('messages')
       .orderBy('createdAt', 'asc').limitToLast(200)
       .onSnapshot(function(snap){
         paintDMThread(snap);
@@ -1838,16 +1934,13 @@ h1 em{color:var(--accent);font-style:normal}
         var t = document.getElementById('wlThread');
         if (t) t.innerHTML = '<div class="wl-msg__empty">No messages yet.<br>Send one to start the thread.</div>';
       });
-    markThreadRead(threadId).catch(function(){});
+    markThreadRead(at.id).catch(function(){});
     setTimeout(function(){
       var input = document.getElementById('wlSendInput');
       if (input){
         input.focus();
         input.addEventListener('keydown', function(e){
-          if (e.key === 'Enter' && !e.shiftKey){
-            e.preventDefault();
-            sendDMMessage(threadId, peerUid, peerName, peerPhoto);
-          }
+          if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendThreadMessage(); }
         });
       }
     }, 50);
@@ -1857,10 +1950,17 @@ h1 em{color:var(--accent);font-style:normal}
     var t = document.getElementById('wlThread');
     if (!t) return;
     if (snap.empty){
-      t.innerHTML = '<div class="wl-msg__empty">No messages yet.<br>Say hi and set up a round.</div>';
+      var emptyMsg = (wl.activeThread && wl.activeThread.isGroup)
+        ? 'No messages yet.<br>Kick off the group — propose a time or a practice motion.'
+        : 'No messages yet.<br>Say hi and set up a round.';
+      t.innerHTML = '<div class="wl-msg__empty">' + emptyMsg + '</div>';
       return;
     }
     var myUid = state.user.uid;
+    var at = wl.activeThread || {};
+    var isGroup = !!at.isGroup;
+    var pInfo = at.participantInfo || {};
+    var lastSender = null;
     t.innerHTML = '';
     snap.forEach(function(d){
       var m = d.data();
@@ -1868,39 +1968,57 @@ h1 em{color:var(--accent);font-style:normal}
       var when = m.createdAt && m.createdAt.toMillis ? relTime(m.createdAt.toMillis()) : '';
       var div = document.createElement('div');
       div.className = 'wl-msg ' + (mine ? 'mine' : 'theirs');
-      div.innerHTML = escHtml(m.text || '') + (when ? '<div class="wl-msg__time">' + escHtml(when) + '</div>' : '');
+      // In groups, label each incoming message with the sender's name
+      // (collapsed when the same person sends consecutively) so it's
+      // clear who's talking. 1:1 threads stay clean — the title says who.
+      var senderLabel = '';
+      if (isGroup && !mine && m.fromUid !== lastSender){
+        var nm = (m.fromName) || (pInfo[m.fromUid] && pInfo[m.fromUid].name) || 'Debater';
+        senderLabel = '<div class="wl-msg__sender">' + escHtml(nm) + '</div>';
+      }
+      lastSender = m.fromUid;
+      div.innerHTML = senderLabel + escHtml(m.text || '') + (when ? '<div class="wl-msg__time">' + escHtml(when) + '</div>' : '');
       t.appendChild(div);
     });
     t.scrollTop = t.scrollHeight;
   }
 
-  function sendDMMessage(threadId, peerUid, peerName, peerPhoto){
+  // Generalized send: works for 1:1 and group threads. Reads
+  // wl.activeThread for participants, bumps unread for everyone except
+  // the sender, and stamps fromName so group messages can be labeled.
+  function sendThreadMessage(){
+    var at = wl.activeThread;
     var input = document.getElementById('wlSendInput');
     var sendBtn = document.getElementById('wlSendBtn');
-    if (!input || !state.user) return;
+    if (!at || !input || !state.user) return;
     var text = (input.value || '').trim();
     if (!text) return;
     if (text.length > WL_MSG_MAX) text = text.slice(0, WL_MSG_MAX);
     if (sendBtn) sendBtn.disabled = true;
-    var threadRef = firebaseDb.collection('dm_threads').doc(threadId);
+    var me = state.user.uid;
+    var threadRef = firebaseDb.collection('dm_threads').doc(at.id);
     var msgsRef = threadRef.collection('messages');
     var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
-    var participantInfo = {};
-    participantInfo[state.user.uid] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
-    participantInfo[peerUid] = { name: peerName || 'Debater', photo: peerPhoto || '' };
+    // Make sure my own info is current in participantInfo.
+    var participantInfo = Object.assign({}, at.participantInfo);
+    participantInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
     var unread = {};
-    unread[state.user.uid] = 0;
-    unread[peerUid] = firebase.firestore.FieldValue.increment(1);
-    threadRef.set({
-      participants: [state.user.uid, peerUid],
+    at.participants.forEach(function(uid){
+      unread[uid] = (uid === me) ? 0 : firebase.firestore.FieldValue.increment(1);
+    });
+    var threadDoc = {
+      participants: at.participants,
       participantInfo: participantInfo,
       lastMessage: preview,
       lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-      lastMessageFrom: state.user.uid,
+      lastMessageFrom: me,
       unread: unread,
-    }, { merge: true }).then(function(){
+    };
+    if (at.isGroup){ threadDoc.isGroup = true; threadDoc.groupName = at.groupName || 'Group'; }
+    threadRef.set(threadDoc, { merge: true }).then(function(){
       return msgsRef.add({
-        fromUid: state.user.uid,
+        fromUid: me,
+        fromName: shortNameOf(state.user),
         text: text,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
@@ -1908,7 +2026,7 @@ h1 em{color:var(--accent);font-style:normal}
       input.value = '';
       if (sendBtn) sendBtn.disabled = false;
       input.focus();
-      try { gtag('event', 'dm_send', {}); } catch(e){}
+      try { gtag('event', at.isGroup ? 'group_send' : 'dm_send', {}); } catch(e){}
     }).catch(function(e){
       if (sendBtn) sendBtn.disabled = false;
       console.warn('[dm] send failed', e);
@@ -1961,7 +2079,10 @@ h1 em{color:var(--accent);font-style:normal}
     if (!state.user){ doGoogleSignIn(); return; }
     openModal('Your messages',
       '<div class="wl-inbox-list" id="wlInboxList"><div class="wl-msg__empty">Loading…</div></div>',
-      [{ label: 'Close', kind: 'ghost', onClick: closeModal }]
+      [
+        { label: 'New group', kind: 'ghost', id: 'wlNewGroupBtn', onClick: openGroupComposer },
+        { label: 'Close', kind: 'ghost', onClick: closeModal },
+      ]
     );
     paintInboxList();
   }
@@ -1970,25 +2091,34 @@ h1 em{color:var(--accent);font-style:normal}
     var list = document.getElementById('wlInboxList');
     if (!list) return;
     if (!wl.threads.length){
-      list.innerHTML = '<div class="wl-msg__empty">No messages yet. DM someone from the waitlist to start a thread.</div>';
+      list.innerHTML = '<div class="wl-msg__empty">No messages yet. DM someone from the waitlist, or start a group.</div>';
       return;
     }
     var myUid = state.user.uid;
     list.innerHTML = wl.threads.map(function(t){
-      var others = (t.data.participants || []).filter(function(p){ return p !== myUid; });
-      var peerUid = others[0] || '';
-      var info = (t.data.participantInfo && t.data.participantInfo[peerUid]) || {};
-      var name = escHtml(info.name || 'Debater');
-      var preview = escHtml(t.data.lastMessage || '');
-      var when = t.data.lastMessageAt && t.data.lastMessageAt.toMillis ? relTime(t.data.lastMessageAt.toMillis()) : '';
-      var photo = info.photo
-        ? '<img class="wl-modal__avatar" src="' + escHtml(info.photo) + '" alt="">'
-        : '<div class="wl-modal__avatar"></div>';
-      return '<div class="wl-inbox-row' + (t.unread > 0 ? ' unread' : '') + '" ' +
-        'data-peer-uid="' + escHtml(peerUid) + '" ' +
-        'data-peer-name="' + escHtml(info.name || '') + '" ' +
-        'data-peer-photo="' + escHtml(info.photo || '') + '">' +
-        photo +
+      var d = t.data || {};
+      var isGroup = !!d.isGroup || (d.participants || []).length > 2;
+      var preview = escHtml(d.lastMessage || '');
+      var when = d.lastMessageAt && d.lastMessageAt.toMillis ? relTime(d.lastMessageAt.toMillis()) : '';
+      var name, avatar, attrs;
+      if (isGroup){
+        var count = (d.participants || []).length;
+        name = escHtml(d.groupName || 'Group') + ' <span class="wl-inbox-row__count">' + count + '</span>';
+        avatar = '<div class="wl-modal__avatar wl-modal__avatar--group" aria-hidden="true">' +
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+          '</div>';
+        attrs = 'data-thread-id="' + escHtml(t.id) + '" data-is-group="1"';
+      } else {
+        var peerUid = (d.participants || []).filter(function(p){ return p !== myUid; })[0] || '';
+        var info = (d.participantInfo && d.participantInfo[peerUid]) || {};
+        name = escHtml(info.name || 'Debater');
+        avatar = info.photo
+          ? '<img class="wl-modal__avatar" src="' + escHtml(info.photo) + '" alt="">'
+          : '<div class="wl-modal__avatar"></div>';
+        attrs = 'data-peer-uid="' + escHtml(peerUid) + '" data-peer-name="' + escHtml(info.name || '') + '" data-peer-photo="' + escHtml(info.photo || '') + '"';
+      }
+      return '<div class="wl-inbox-row' + (t.unread > 0 ? ' unread' : '') + '" ' + attrs + '>' +
+        avatar +
         '<div class="wl-inbox-row__main">' +
           '<div class="wl-inbox-row__name">' + name + '</div>' +
           '<div class="wl-inbox-row__preview">' + preview + '</div>' +
@@ -1998,8 +2128,111 @@ h1 em{color:var(--accent);font-style:normal}
     }).join('');
     Array.prototype.forEach.call(list.querySelectorAll('.wl-inbox-row'), function(row){
       row.addEventListener('click', function(){
-        openDMThread(row.dataset.peerUid, row.dataset.peerName, row.dataset.peerPhoto);
+        if (row.dataset.isGroup){ openGroupThread(row.dataset.threadId); }
+        else { openDMThread(row.dataset.peerUid, row.dataset.peerName, row.dataset.peerPhoto); }
       });
+    });
+  }
+
+  // ── Group creation ───────────────────────────────────────────────
+  // Candidates = everyone you can reach right now: open-invite posters
+  // + people you already have a thread with. Deduped, you excluded.
+  function groupCandidates(){
+    var me = state.user && state.user.uid;
+    var seen = {}; var out = [];
+    function add(uid, name, photo){
+      if (!uid || uid === me || seen[uid]) return;
+      seen[uid] = true;
+      out.push({ uid: uid, name: name || 'Debater', photo: photo || '' });
+    }
+    (wl.posts || []).forEach(function(p){ var d = p.data || {}; add(d.uid, d.displayName, d.photoURL); });
+    (wl.threads || []).forEach(function(t){
+      var d = t.data || {};
+      (d.participants || []).forEach(function(uid){
+        var info = (d.participantInfo && d.participantInfo[uid]) || {};
+        add(uid, info.name, info.photo);
+      });
+    });
+    return out;
+  }
+
+  function openGroupComposer(){
+    if (!state.user){ doGoogleSignIn(); return; }
+    var cands = groupCandidates();
+    var listHtml = cands.length
+      ? cands.map(function(c){
+          var av = c.photo
+            ? '<img class="wl-modal__avatar" src="' + escHtml(c.photo) + '" alt="">'
+            : '<div class="wl-modal__avatar"></div>';
+          return '<label class="wl-pick">' +
+            '<input type="checkbox" class="wl-pick__cb" value="' + escHtml(c.uid) + '" ' +
+              'data-name="' + escHtml(c.name) + '" data-photo="' + escHtml(c.photo) + '">' +
+            av +
+            '<span class="wl-pick__name">' + escHtml(c.name) + '</span>' +
+          '</label>';
+        }).join('')
+      : '<div class="wl-msg__empty">No one to add yet. When debaters post open invites or you DM someone, they show up here.</div>';
+    openModal('New group',
+      '<div class="wl-field">' +
+        '<label for="wlGroupName">Group name</label>' +
+        '<input class="wl-input" id="wlGroupName" placeholder="e.g. Friday BP practice" maxlength="' + WL_GROUP_NAME_MAX + '">' +
+      '</div>' +
+      '<div class="wl-field"><label>Add members</label>' +
+        '<div class="wl-pick-list">' + listHtml + '</div>' +
+      '</div>' +
+      '<div class="wl-modal__error" id="wlGroupError"></div>',
+      [
+        { label: 'Cancel', kind: 'ghost', onClick: closeModal },
+        { label: 'Create group', kind: 'primary', id: 'wlGroupCreate', onClick: submitGroup },
+      ]
+    );
+    setTimeout(function(){ var n = document.getElementById('wlGroupName'); if (n) n.focus(); }, 50);
+  }
+
+  function submitGroup(){
+    if (!state.user || !firebaseDb) return;
+    var nameEl = document.getElementById('wlGroupName');
+    var errEl = document.getElementById('wlGroupError');
+    var btn = document.getElementById('wlGroupCreate');
+    var name = (nameEl && nameEl.value || '').trim();
+    var picks = Array.prototype.slice.call(document.querySelectorAll('.wl-pick__cb:checked'));
+    if (!name){ if (errEl) errEl.textContent = 'Give the group a name.'; return; }
+    if (picks.length < 2){ if (errEl) errEl.textContent = 'Pick at least 2 people for a group (use a DM for one).'; return; }
+    if (picks.length + 1 > WL_GROUP_MAX_MEMBERS){ if (errEl) errEl.textContent = 'Groups cap at ' + WL_GROUP_MAX_MEMBERS + ' members.'; return; }
+    if (btn) btn.disabled = true;
+    if (errEl) errEl.textContent = '';
+    var me = state.user.uid;
+    var participants = [me];
+    var participantInfo = {};
+    participantInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
+    var unread = {}; unread[me] = 0;
+    picks.forEach(function(cb){
+      var uid = cb.value;
+      if (participants.indexOf(uid) >= 0) return;
+      participants.push(uid);
+      participantInfo[uid] = { name: cb.getAttribute('data-name') || 'Debater', photo: cb.getAttribute('data-photo') || '' };
+      // Seed unread:1 for added members so "you were added to a group"
+      // surfaces as a notification (bell badge + toast) for anyone online.
+      unread[uid] = 1;
+    });
+    var threadId = 'grp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    firebaseDb.collection('dm_threads').doc(threadId).set({
+      isGroup: true,
+      groupName: name.slice(0, WL_GROUP_NAME_MAX),
+      participants: participants,
+      participantInfo: participantInfo,
+      createdBy: me,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessage: shortNameOf(state.user) + ' started the group',
+      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessageFrom: me,
+      unread: unread,
+    }).then(function(){
+      try { gtag('event', 'group_create', { members: participants.length }); } catch(e){}
+      openGroupThread(threadId);
+    }).catch(function(e){
+      if (btn) btn.disabled = false;
+      if (errEl) errEl.textContent = 'Couldn\'t create group: ' + (e.message || e.code || 'unknown');
     });
   }
 
@@ -2104,7 +2337,11 @@ h1 em{color:var(--accent);font-style:normal}
         // of dumping the user straight into the matchmaking queue —
         // they came to read a message, not to start a live round.
         var dmPeer = qs.get('dm');
-        if (dmPeer && dmPeer !== user.uid){
+        var dmThread = qs.get('thread');
+        if (dmThread){
+          renderInboxLanding();
+          openGroupThread(dmThread);
+        } else if (dmPeer && dmPeer !== user.uid){
           renderInboxLanding();
           openDmFromUid(dmPeer);
         } else {

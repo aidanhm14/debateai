@@ -62,6 +62,27 @@
     var info = (data && data.participantInfo && data.participantInfo[uid]) || {};
     return { uid: uid, name: info.name || 'Debater', photo: info.photo || '' };
   }
+  // Unified display for a thread row (1:1 or group). Groups show the
+  // group name + a deep link by thread id; 1:1 shows the peer.
+  function threadDisplay(data, myUid, threadId) {
+    var isGroup = !!(data && data.isGroup) || ((data && data.participants) || []).length > 2;
+    if (isGroup) {
+      return {
+        isGroup: true,
+        name: (data && data.groupName) || 'Group',
+        photo: '',
+        count: ((data && data.participants) || []).length,
+        href: '/spar?thread=' + encodeURIComponent(threadId),
+      };
+    }
+    var p = peerInfo(data, myUid);
+    return { isGroup: false, name: p.name, photo: p.photo, count: 2, href: '/spar?dm=' + encodeURIComponent(p.uid) };
+  }
+  function groupAvatarSvg() {
+    return '<span class="ui-bell-av ui-bell-av--blank">' +
+      '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+      '</span>';
+  }
 
   function ensureFirestore(cb) {
     if (typeof window.firebase === 'undefined') return;
@@ -234,7 +255,7 @@
         if (unread > 0) unreadCount++;
         var prev = prevUnread[d.id] || 0;
         if (!firstSnap && unread > prev && data.lastMessageFrom && data.lastMessageFrom !== myUid) {
-          newest = data;
+          newest = { data: data, id: d.id };
         }
         prevUnread[d.id] = unread;
         rows.push({ id: d.id, data: data, unread: unread });
@@ -243,7 +264,7 @@
       renderBadge(unreadCount);
       if (panel) paintPanel();
       if (!firstSnap && newest) {
-        announce(peerInfo(newest, myUid), newest.lastMessage || 'sent you a message');
+        announce(threadDisplay(newest.data, myUid, newest.id), newest.data.lastMessage || 'sent a message');
       }
       firstSnap = false;
     }
@@ -278,17 +299,19 @@
         return;
       }
       var body = rowsCache.map(function (t) {
-        var p = peerInfo(t.data, myUid);
+        var disp = threadDisplay(t.data, myUid, t.id);
         var when = t.data.lastMessageAt && t.data.lastMessageAt.toMillis ? relTime(t.data.lastMessageAt.toMillis()) : '';
         var fromMe = t.data.lastMessageFrom === myUid;
         var preview = (fromMe ? 'You: ' : '') + (t.data.lastMessage || '');
-        var avatar = p.photo
-          ? '<img class="ui-bell-av" src="' + escHtml(p.photo) + '" alt="" referrerpolicy="no-referrer">'
-          : '<span class="ui-bell-av ui-bell-av--blank">' + escHtml((p.name[0] || '?').toUpperCase()) + '</span>';
-        return '<a class="ui-bell-row' + (t.unread > 0 ? ' is-unread' : '') + '" href="/spar?dm=' + encodeURIComponent(p.uid) + '">' +
+        var avatar = disp.isGroup
+          ? groupAvatarSvg()
+          : (disp.photo
+            ? '<img class="ui-bell-av" src="' + escHtml(disp.photo) + '" alt="" referrerpolicy="no-referrer">'
+            : '<span class="ui-bell-av ui-bell-av--blank">' + escHtml((disp.name[0] || '?').toUpperCase()) + '</span>');
+        return '<a class="ui-bell-row' + (t.unread > 0 ? ' is-unread' : '') + '" href="' + disp.href + '">' +
           avatar +
           '<span class="ui-bell-row__main">' +
-            '<span class="ui-bell-row__name">' + escHtml(p.name) + (t.unread > 0 ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
+            '<span class="ui-bell-row__name">' + escHtml(disp.name) + (t.unread > 0 ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
             '<span class="ui-bell-row__preview">' + escHtml(preview) + '</span>' +
           '</span>' +
           '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
@@ -298,32 +321,35 @@
         '<a class="ui-bell-foot" href="/spar">Open all messages</a>';
     }
 
-    function announce(peer, preview) {
-      showToast(peer, preview);
+    function announce(disp, preview) {
+      showToast(disp, preview);
       try { window.SFX && (window.SFX.notify ? window.SFX.notify() : (window.SFX.success && window.SFX.success())); } catch (_) {}
       try {
         if (window.Notification && Notification.permission === 'granted' && document.hidden) {
-          var n = new Notification('New message from ' + peer.name, {
+          var title = disp.isGroup ? disp.name : ('New message from ' + disp.name);
+          var n = new Notification(title, {
             body: preview,
             icon: '/favicon.svg',
-            tag: 'da-dm-' + peer.uid,
+            tag: 'da-thread-' + disp.href,
           });
-          n.onclick = function () { window.focus(); location.href = '/spar?dm=' + encodeURIComponent(peer.uid); n.close(); };
+          n.onclick = function () { window.focus(); location.href = disp.href; n.close(); };
         }
       } catch (_) {}
     }
-    function showToast(peer, preview) {
+    function showToast(disp, preview) {
       var host = document.getElementById('da-bell-toasts');
       if (!host) { host = document.createElement('div'); host.id = 'da-bell-toasts'; document.body.appendChild(host); }
       var t = document.createElement('a');
       t.className = 'da-bell-toast';
-      t.href = '/spar?dm=' + encodeURIComponent(peer.uid);
-      var avatar = peer.photo
-        ? '<img src="' + escHtml(peer.photo) + '" alt="" referrerpolicy="no-referrer">'
-        : '<span class="da-bell-toast__blank">' + escHtml((peer.name[0] || '?').toUpperCase()) + '</span>';
+      t.href = disp.href;
+      var avatar = disp.isGroup
+        ? '<span class="da-bell-toast__blank"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>'
+        : (disp.photo
+          ? '<img src="' + escHtml(disp.photo) + '" alt="" referrerpolicy="no-referrer">'
+          : '<span class="da-bell-toast__blank">' + escHtml((disp.name[0] || '?').toUpperCase()) + '</span>');
       t.innerHTML = avatar +
         '<span class="da-bell-toast__main">' +
-          '<span class="da-bell-toast__name">' + escHtml(peer.name) + '</span>' +
+          '<span class="da-bell-toast__name">' + escHtml(disp.name) + '</span>' +
           '<span class="da-bell-toast__preview">' + escHtml(preview) + '</span>' +
         '</span>';
       host.appendChild(t);
