@@ -4793,6 +4793,7 @@ function App() {
   var [triage, setTriage] = useState('');
   var [triageBusy, setTriageBusy] = useState(false);
   var [triageError, setTriageError] = useState('');
+  var [triageExpanded, setTriageExpanded] = useState(false);
   var [format, setFormat] = useState('quick');
   var [oppStrengths, setOppStrengths] = useState([]);
   var [oppWeaknesses, setOppWeaknesses] = useState([]);
@@ -5193,10 +5194,12 @@ function App() {
     if (cached) {
       setTriage(cached);
       setTriageError('');
+      setTriageExpanded(false);
       return;
     }
     setTriage('');
     setTriageError('');
+    setTriageExpanded(false);
     setTriageBusy(true);
     try {
       var r = await fetch('/api/claude', {
@@ -8216,14 +8219,24 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ((FORMATS[format] || {}).name || 'Parli') + ' pre-prep read. ', el('strong', { style: { color: 'var(--c-text)', fontStyle: 'normal' } }, 'Tight'), ' = motion gives one side an unfair lock. ', el('strong', { style: { color: 'var(--c-text)', fontStyle: 'normal' } }, 'Hard ≠ tight.'), ' Returns a verdict, where it leaks, ground for both sides, an empirical knockout, and tighter rewrites.'
   ),
   triageError && el('div', { style: { marginTop: 8, padding: '8px 12px', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.28)', borderRadius: 8, fontSize: '.74rem', color: '#fca5a5', textAlign: 'center' } }, triageError),
-  triage && el('div', { style: { marginTop: 12, padding: '14px 16px', background: 'rgba(168,85,247,.05)', border: '1px solid rgba(168,85,247,.22)', borderRadius: 10, fontSize: '.84rem', color: 'var(--c-text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', textAlign: 'left' } },
-  el('div', { style: { fontSize: '.55rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#c084fc', marginBottom: 8 } }, '★ Pre-prep read'),
+  triage && el('div', { style: { marginTop: 12, padding: '14px 16px', background: 'rgba(168,85,247,.05)', border: '1px solid rgba(168,85,247,.22)', borderRadius: 10, fontSize: '.84rem', color: 'var(--c-text)', lineHeight: 1.6, textAlign: 'left' } },
+  el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 } },
+    el('div', { style: { fontSize: '.55rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#c084fc' } }, '★ Pre-prep read'),
+    el('button', {
+      onClick: () => setTriageExpanded(!triageExpanded),
+      style: { background: 'rgba(168,85,247,.12)', border: '1px solid rgba(168,85,247,.3)', borderRadius: 6, color: '#c084fc', fontSize: '.65rem', fontWeight: 700, letterSpacing: '.06em', padding: '3px 9px', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase' }
+    }, triageExpanded ? 'Collapse' : 'Extrapolate')
+  ),
+  // Collapsed: just the Verdict line
+  !triageExpanded && el('div', { style: { fontSize: '.84rem', color: 'var(--c-text)', lineHeight: 1.6 } },
+    (() => {
+      var verdictLine = (triage.split('\n').find(function(l) { return /verdict/i.test(l); }) || triage.split('\n')[0] || '').replace(/^\*+|\*+$/g, '').trim();
+      return el('span', null, verdictLine);
+    })()
+  ),
+  // Expanded: full analysis
+  triageExpanded && el('div', { style: { whiteSpace: 'pre-wrap' } },
   renderTriageMd(triage),
-  // Clickable tighter-rewrite buttons. Parsed from the AI's
-  // "Tighter rewrites." section. Click swaps the new motion
-  // into the textarea AND auto-reruns the triage on it (the
-  // override path bypasses the async setMotion flush). Cache
-  // hit on a previously seen rewrite returns instantly.
   (() => {
     var rewrites = parseTighterRewrites(triage);
     if (!rewrites.length) return null;
@@ -8235,8 +8248,6 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       onClick: () => {
         setMotion(r);
         runTriage(r);
-        // Reset background so it regenerates against the
-        // new motion when the user starts the round.
         try {bgRequestedFor.current = '';} catch {}
         setBackground('');
         setGeneratedBackground('');
@@ -8255,6 +8266,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     )
     );
   })()
+  )
   )
   ),
   // Background field (optional manual entry / shows auto-gen output).
