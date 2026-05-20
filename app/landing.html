@@ -4469,20 +4469,27 @@ section.ui-section .ui-lede{
           var VARIANTS=[
             {key:'out_loud', lead:'Debate an AI opponent', accent:'out loud.'},
             {key:'rethink',  lead:'Rethink',               accent:'argumentation.'},
-            {key:'filling',  lead:'Filling the',           accent:'gap.'}
+            // 'filling' carries no accent: .hh-accent is display:block, which
+            // on a ~375px screen forced "gap." onto its own line with an ugly
+            // gap above two short words. As one flowing string it wraps
+            // naturally instead.
+            {key:'filling',  lead:'Filling the gap.',      accent:''}
           ];
           try{
             var h=document.getElementById('heroHeadline');
             if(!h)return;
             var v=VARIANTS[Math.floor(Math.random()*VARIANTS.length)];
-            // textContent (not innerHTML) keeps this injection-proof; the
-            // accent span is rebuilt so .hh-accent (display:block line break
-            // + Fraunces styling) carries over to every variant.
-            var span=document.createElement('span');
-            span.className='hh-accent';
-            span.textContent=v.accent;
-            h.textContent=v.lead+' ';
-            h.appendChild(span);
+            // textContent (not innerHTML) keeps this injection-proof. When a
+            // variant has an accent, it's rebuilt as a .hh-accent span so the
+            // display:block line break + Fraunces styling carry over; variants
+            // with no accent render as a single flowing headline.
+            h.textContent = v.accent ? v.lead+' ' : v.lead;
+            if(v.accent){
+              var span=document.createElement('span');
+              span.className='hh-accent';
+              span.textContent=v.accent;
+              h.appendChild(span);
+            }
             window.__heroHeadline=v.key;
             if(window.dosTrack)window.dosTrack('hero_headline_view',{variant:v.key});
           }catch(e){}
@@ -9445,14 +9452,14 @@ window.addEventListener('load', function(){
     });
   }
 
-  // Sign-up nudge for unsigned visitors lives in /js/signup-nudge.js
-  // now so /debate-ai, /voice-debate, /learn, etc. all share the
-  // same pattern. The shared module picks contextual copy based on
-  // location.pathname.
+  // Sign-up nudge intentionally NOT mounted on /landing (removed
+  // 2026-05-20 per user request — the sticky bottom banner was cut from
+  // the marketing front door). The shared /js/signup-nudge.js module is
+  // still used on /debate-ai, /voice-debate, /learn, etc.; it's just not
+  // loaded here.
 })();
 });
 </script>
-<script defer src="/js/signup-nudge.js"></script>
 
 <!-- Post-Stripe-Checkout success state. Stripe redirects back to / with
      ?billing=success&plan=... once the payment goes through. We render a
