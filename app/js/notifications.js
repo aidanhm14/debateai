@@ -326,7 +326,30 @@
       panel = document.createElement('div');
       panel.className = 'ui-bell-panel';
       panel.addEventListener('click', function (e) { e.stopPropagation(); });
-      bell.appendChild(panel);
+      // On phones the bell sits mid-bar (lang flag + Voice AI CTA are to
+      // its right), so a panel right-aligned to the bell extends off the
+      // LEFT edge of the screen and clips "WHAT'S NEW" + the card titles.
+      // Mount it on <body> as a fixed, full-width-with-gutters sheet
+      // instead. Body-mounted (not bell-mounted) because the topbar's
+      // backdrop-filter creates a containing block that would otherwise
+      // trap a position:fixed descendant. Top is measured off the live
+      // bar so it clears whatever height the bar is (with/without the
+      // beta strip). Desktop keeps the absolute, bell-anchored dropdown.
+      if (window.matchMedia('(max-width:560px)').matches) {
+        document.body.appendChild(panel);
+        var bar = document.querySelector('.ui-topbar');
+        var topPx = bar ? Math.round(bar.getBoundingClientRect().bottom + 8) : 60;
+        panel.style.position = 'fixed';
+        panel.style.top = topPx + 'px';
+        panel.style.left = '12px';
+        panel.style.right = '12px';
+        panel.style.width = 'auto';
+        panel.style.maxWidth = 'none';
+        panel.style.maxHeight = (window.innerHeight - topPx - 16) + 'px';
+        panel.style.overflowY = 'auto';
+      } else {
+        bell.appendChild(panel);
+      }
       bell.setAttribute('aria-expanded', 'true');
       markUpdatesSeen();            // opening the panel clears the updates side of the badge
       renderBadge();
