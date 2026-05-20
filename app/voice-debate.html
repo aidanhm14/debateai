@@ -5505,7 +5505,24 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     style: { alignSelf: 'stretch', textAlign: 'center', textDecoration: 'none', padding: '10px 18px' }
   }, 'Switch to typed chat →')
   ) :
-  el('div', { className: 'notice error' }, error)),
+  // Generic (non-quota) connect failures — handshake, network, SDP,
+  // mic. This path used to be a dead end: print the error, no way
+  // out. A failed voice connect is a guaranteed 0% round, so always
+  // offer the typed-mode escape hatch + a retry. Pure funnel-recovery
+  // upside; the user who bounced off WebRTC can still complete a round.
+  el('div', { className: 'notice error', style: { display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' } },
+  el('div', { style: { fontWeight: 700 } }, error),
+  el('div', { style: { display: 'flex', gap: '8px', alignSelf: 'stretch', flexWrap: 'wrap' } },
+  el('button', {
+    type: 'button', className: 'cta', onClick: start,
+    style: { flex: '1 1 140px', textAlign: 'center', padding: '10px 18px' }
+  }, 'Try again'),
+  el('a', {
+    href: '/app#casual', className: 'cta',
+    style: { flex: '1 1 140px', textAlign: 'center', textDecoration: 'none', padding: '10px 18px', background: 'transparent', border: '1px solid var(--border-strong, rgba(255,255,255,.2))' }
+  }, 'Switch to typed chat →')
+  )
+  )),
 
 
   // Start CTA — gated by voice usage tier. Anon: 1 lifetime test.
