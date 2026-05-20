@@ -292,8 +292,29 @@ html[data-lighting="light"] .ui-topbar-pill{color:rgba(0,0,0,.78)}
   /* Secondary category links (College / High School / Adults) drop off
      the topbar below 560px. Phone users land on content-first; the same
      routes are reachable from the footer and body sections. Keeps logo
-     + primary Debate AI CTA thumb-reachable without overflow. */
-  .ui-topbar-right .ui-topbar-link{display:none}
+     + primary Debate AI CTA thumb-reachable without overflow.
+     !important is load-bearing: the "Live" link gets an inline
+     display:inline-flex from topbar.js (so its red dot sits inline),
+     which would otherwise beat this rule and leave Live leaking onto
+     the bar — pushing the Voice AI CTA off the right edge. */
+  .ui-topbar-right .ui-topbar-link{display:none !important}
+  /* Tighten the icon cluster so the bell + lang flag + CTA never clip
+     against the right edge once the links are gone. */
+  .ui-topbar-right{gap:7px}
+  /* Trim the CTA's inline 8px/18px padding (set in topbar.js) so the
+     "Voice AI" pill clears the right edge on ~360px phones instead of
+     getting sliced to "VOICE". !important beats the inline style. */
+  .ui-topbar-right .ui-btn-primary{padding:8px 13px !important;letter-spacing:.02em}
+}
+@media(max-width:359px){
+  /* Smallest phones (iPhone SE 1/2, older Androids): even with the
+     trimmed cluster there isn't room for the sound + theme toggles
+     alongside the bell, language flag, and the primary CTA. Drop the
+     two utility toggles here only — bell (unread DMs), the language
+     flag (≈80% of traffic is India), and the Voice AI CTA are the
+     load-bearing controls. Both toggles stay on 360px+ phones. */
+  .ui-topbar .sfx-toggle,
+  .ui-topbar .theme-toggle{display:none}
 }
 @media(max-width:380px){
   /* Tightest phones (iPhone SE, small Android): trim padding + hide the
