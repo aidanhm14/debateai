@@ -310,6 +310,16 @@ button{font-family:inherit}
   font-size:.74rem;color:var(--text-dim);margin-bottom:14px;
 }
 .card-actions{display:flex;gap:8px;flex-wrap:wrap}
+/* Browse "load more" — a quiet full-width control under the card stack.
+   Reads as a continuation affordance, not a competing CTA. */
+.load-more{
+  width:100%;margin-top:4px;padding:12px;
+  background:transparent;border:1px dashed var(--border-strong);border-radius:var(--radius-md);
+  color:var(--text-dim);font-family:inherit;font-size:.74rem;font-weight:700;
+  letter-spacing:.02em;cursor:pointer;transition:border-color .15s,color .15s,background .15s;
+}
+.load-more:hover{border-color:var(--accent);color:var(--text);background:rgba(255,255,255,.02)}
+[data-theme="light"] .load-more:hover{background:rgba(0,0,0,.02)}
 .btn{
   padding:8px 16px;border-radius:999px;
   font-size:.74rem;font-weight:800;letter-spacing:.04em;
@@ -2564,6 +2574,14 @@ button{font-family:inherit}
   var activeTab = 'browse';
   var activeFilter = 'all';
 
+  // ── Browse pagination. The board can hold dozens of open challenges;
+  // showing them all at once is the main source of "wall of cards"
+  // overwhelm. Render a page at a time and reveal more on demand.
+  // browseVisible resets to one page whenever the filter or the
+  // expired toggle changes (those are intent changes — start at the top).
+  var BROWSE_PAGE = 6;
+  var browseVisible = BROWSE_PAGE;
+
   function classifyChallenge(c){
     var f = FORMATS[c.format] || FORMATS.quick;
     var sched = fmtSchedule(c.scheduledAt);
@@ -2856,7 +2874,11 @@ button{font-family:inherit}
     }
     empty.style.display = 'none';
     count.textContent = list.length + (list.length === 1 ? ' waiting' : ' waiting');
-    list.forEach(function(c){
+    // Clamp the visible window to the current list length so a shrinking
+    // board (accepts, bails) can never strand the counter past the end.
+    if (browseVisible > list.length) browseVisible = Math.max(BROWSE_PAGE, Math.ceil(list.length / BROWSE_PAGE) * BROWSE_PAGE);
+    var shown = list.slice(0, browseVisible);
+    shown.forEach(function(c){
       var f = FORMATS[c.format] || FORMATS.quick;
       var theirSideLabel = f.sideLabel[c.side];
       var yourSide = c.side === 'pro' ? 'con' : 'pro';
@@ -3068,6 +3090,20 @@ button{font-family:inherit}
       try { enhanceCard(card, c); } catch(e){ console.warn('[enhance]', e); }
       host.appendChild(card);
     });
+    // Load-more control. Only when the list outruns the visible window;
+    // reveals the next page and keeps focus on the board (no scroll jump).
+    var remaining = list.length - shown.length;
+    if (remaining > 0){
+      var more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'load-more';
+      more.textContent = 'Load ' + Math.min(BROWSE_PAGE, remaining) + ' more · ' + remaining + ' hidden';
+      more.addEventListener('click', function(){
+        browseVisible += BROWSE_PAGE;
+        render();
+      });
+      host.appendChild(more);
+    }
     pruneRoomSubscriptions(activeRooms);
 
     // Also paint Mine / Watch / Archive into their own panes off the
@@ -3746,6 +3782,7 @@ button{font-family:inherit}
   document.querySelectorAll('.filter-chip').forEach(function(b){
     b.addEventListener('click', function(){
       activeFilter = b.getAttribute('data-filter') || 'all';
+      browseVisible = BROWSE_PAGE;
       document.querySelectorAll('.filter-chip').forEach(function(x){
         x.classList.toggle('active', x === b);
       });
@@ -4807,6 +4844,7 @@ button{font-family:inherit}
     var t = e.target;
     if (t && t.id === 'expToggle'){
       showExpired = !showExpired;
+      browseVisible = BROWSE_PAGE;
       render();
       return;
     }
