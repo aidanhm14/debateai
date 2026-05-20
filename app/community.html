@@ -414,6 +414,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .reply{padding:14px 16px;border-top:1px solid var(--border);font-size:.88rem;line-height:1.55;color:var(--text)}
 .reply:first-child{border-top:none}
 .reply .reply-meta{font-size:.7rem;color:var(--text-ghost);font-weight:600;margin-bottom:6px}
+.verified-badge{display:inline-flex;align-items:center;gap:2px;font-size:.55rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#ef4444;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.28);border-radius:999px;padding:1px 5px;margin-left:5px;vertical-align:middle;line-height:1.4}
 .reply .reply-body{white-space:pre-wrap;word-break:break-word}
 .reply-form{
   padding:14px 16px;border-top:1px solid var(--border);
@@ -906,6 +907,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   var threadFilter = '';
   var myThreadVotes = {};
   var openThreadUnsub = null;
+  var currentUserVerified = false; // set from /users/{uid} Firestore doc on sign-in
+
+  function verifiedBadge(v){ return v ? '<span class="verified-badge">✓ verified</span>' : ''; }
 
   function applyFilters(){
     var host = $('cards');
@@ -1270,7 +1274,14 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
       currentUser = user || null;
+      currentUserVerified = false;
       if (user){
+        // Fetch verified status from /users/{uid} doc (admin-set field).
+        try {
+          firebaseDb.collection('users').doc(user.uid).get().then(function(d){
+            currentUserVerified = !!(d.exists && d.data() && d.data().verified);
+          }).catch(function(){});
+        } catch(e){}
         loadDisclosures();
         loadMyVotes();
         loadThreads();
@@ -1505,7 +1516,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
             (preview ? '<div class="thread-preview">' + escHtml(preview) + '</div>' : '') +
             '<div class="thread-meta">' +
               '<span class="cat-tag">' + escHtml(cat) + '</span>' +
-              '<span>' + escHtml(t.authorName || 'Anonymous') + (date ? ' · ' + date : '') + '</span>' +
+              '<span>' + escHtml(t.authorName || 'Anonymous') + verifiedBadge(t.authorVerified) + (date ? ' · ' + date : '') + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="thread-stats">' +
@@ -1670,6 +1681,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         authorUid: currentUser.uid,
         authorName: shortName,
         authorPhoto: currentUser.photoURL || '',
+        authorVerified: currentUserVerified || false,
         title: title.slice(0, 200),
         content: content,
         parentId: null,
@@ -1705,7 +1717,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
               '<h2>' + escHtml(t.title || 'Untitled') + '</h2>' +
               '<div class="meta">' +
                 '<span class="cat-tag" style="margin-right:6px;padding:2px 8px;border-radius:999px;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.32);color:#93c5fd;text-transform:uppercase;font-weight:700;letter-spacing:.06em;font-size:.62rem">' + escHtml(t.category || 'general') + '</span>' +
-                escHtml(t.authorName || 'Anonymous') +
+                escHtml(t.authorName || 'Anonymous') + verifiedBadge(t.authorVerified) +
               '</div>' +
             '</div>' +
             '<button class="modal-close" id="modalClose" type="button" aria-label="Close">✕</button>' +
@@ -1757,7 +1769,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           ? new Date(r.createdAt.seconds * 1000).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
           : '';
         return '<div class="reply">' +
-          '<div class="reply-meta">' + escHtml(r.authorName || 'Anonymous') + (date ? ' · ' + date : '') + '</div>' +
+          '<div class="reply-meta">' + escHtml(r.authorName || 'Anonymous') + verifiedBadge(r.authorVerified) + (date ? ' · ' + date : '') + '</div>' +
           '<div class="reply-body">' + escHtml(r.content || '') + '</div>' +
         '</div>';
       }).join('');
@@ -1822,6 +1834,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         authorUid: currentUser.uid,
         authorName: shortName,
         authorPhoto: currentUser.photoURL || '',
+        authorVerified: currentUserVerified || false,
         title: '',
         content: body,
         parentId: threadId,
