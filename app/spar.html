@@ -550,6 +550,37 @@ h1 em{color:var(--accent);font-style:normal}
   text-decoration:underline; text-underline-offset:3px;
 }
 
+/* "You're on the waitlist" confirmation state — replaces the join
+   button once the user has an active post. Green to read as an
+   active/available status. */
+.waitlist-rail__joined{
+  padding:14px;
+  background:rgba(34,197,94,.07);
+  border:1px solid rgba(34,197,94,.3);
+  border-radius:12px;
+}
+.waitlist-rail__joined-txt{
+  display:flex; align-items:center; gap:8px;
+  font-size:.84rem; font-weight:700; color:var(--text);
+}
+.waitlist-rail__joined-txt .dot{
+  width:7px; height:7px; border-radius:50%; background:var(--green);
+  box-shadow:0 0 8px var(--green); flex-shrink:0;
+}
+.waitlist-rail__joined-sub{
+  font-size:.74rem; color:var(--text-dim); line-height:1.45; margin-top:5px;
+}
+.waitlist-rail__joined-actions{ margin-top:10px }
+.waitlist-rail__leave{
+  padding:6px 14px; border-radius:999px;
+  background:transparent; border:1px solid var(--border);
+  color:var(--text-dim); font-size:.72rem; font-weight:700; cursor:pointer;
+  font-family:inherit; transition:color .15s, border-color .15s;
+}
+.waitlist-rail__leave:hover{ color:var(--text); border-color:var(--border-strong) }
+/* Default note line when a waitlister joined without writing one. */
+.waitlist-card__note--default{ font-style:italic; color:var(--text-ghost) }
+
 .waitlist-rail__close{
   display:flex; align-items:center; justify-content:center;
   width:26px; height:26px; border-radius:50%;
@@ -1666,7 +1697,7 @@ h1 em{color:var(--accent);font-style:normal}
           '<button class="waitlist-rail__close" id="wlCloseBtn" type="button" aria-label="Close">×</button>' +
         '</div>' +
       '</div>' +
-      '<div class="waitlist-rail__sub">Debaters looking for a round right now. Post one yourself, or DM someone directly to set up a time.</div>' +
+      '<div class="waitlist-rail__sub">Debaters available to debate online right now. Join the waitlist to show up here, or DM anyone directly to organize a round.</div>' +
       '<div class="waitlist-rail__post-slot" id="wlPostSlot"></div>' +
       '<div class="waitlist-rail__list" id="wlList">' +
         '<div class="waitlist-rail__empty">Loading…</div>' +
@@ -1688,24 +1719,66 @@ h1 em{color:var(--accent);font-style:normal}
     document.getElementById('wlInboxBtn').addEventListener('click', openInboxModal);
   }
 
-  function renderWaitlistContent(){
+  // Returns the current user's active waitlist post (if they've signed
+  // up), else null. Drives the join-button state so a user can't post
+  // duplicates and can leave the list.
+  function myWaitlistPost(){
+    if (!state.user) return null;
+    for (var i = 0; i < wl.posts.length; i++){
+      if (wl.posts[i].data && wl.posts[i].data.uid === state.user.uid) return wl.posts[i];
+    }
+    return null;
+  }
+
+  // Renders just the action slot at the top of the rail. Three states:
+  //   signed-out  → sign-in nudge
+  //   on waitlist → "You're on the waitlist" + Leave
+  //   available   → "Join the waitlist" button
+  // Called both on auth change AND whenever the posts feed updates, so
+  // the button reflects the latest membership without a full re-render.
+  function renderJoinButton(){
     var slot = document.getElementById('wlPostSlot');
     var inboxBtn = document.getElementById('wlInboxBtn');
     if (!slot) return;
-    if (state.user){
-      slot.innerHTML = '<button class="waitlist-rail__post-btn" id="wlPostBtn" type="button">+ Post an invite</button>';
-      document.getElementById('wlPostBtn').addEventListener('click', openPostComposer);
-      if (inboxBtn) inboxBtn.hidden = false;
-    } else {
+    if (!state.user){
       slot.innerHTML =
         '<div class="waitlist-rail__signin-overlay">' +
-          'Sign in to post your own invite or DM other debaters.' +
+          'Sign in to join the waitlist or DM other debaters.' +
           '<br><button type="button" id="wlSignInLink">Sign in with Google →</button>' +
         '</div>';
       var link = document.getElementById('wlSignInLink');
       if (link) link.addEventListener('click', doGoogleSignIn);
       if (inboxBtn) inboxBtn.hidden = true;
+      return;
     }
+    if (inboxBtn) inboxBtn.hidden = false;
+    var mine = myWaitlistPost();
+    if (mine){
+      slot.innerHTML =
+        '<div class="waitlist-rail__joined">' +
+          '<div class="waitlist-rail__joined-txt"><span class="dot"></span>You\'re on the waitlist</div>' +
+          '<div class="waitlist-rail__joined-sub">Debaters can DM you to organize a round. Check your inbox.</div>' +
+          '<div class="waitlist-rail__joined-actions">' +
+            '<button class="waitlist-rail__leave" id="wlLeaveBtn" type="button">Leave waitlist</button>' +
+          '</div>' +
+        '</div>';
+      var lb = document.getElementById('wlLeaveBtn');
+      if (lb) lb.addEventListener('click', function(){ leaveWaitlist(mine.id); });
+    } else {
+      slot.innerHTML = '<button class="waitlist-rail__post-btn" id="wlPostBtn" type="button">Join the waitlist</button>';
+      document.getElementById('wlPostBtn').addEventListener('click', openPostComposer);
+    }
+  }
+
+  function leaveWaitlist(postId){
+    if (!firebaseDb || !postId) return;
+    firebaseDb.collection('waitlist_posts').doc(postId).delete().then(function(){
+      try { gtag('event', 'waitlist_leave', {}); } catch(e){}
+    }).catch(function(e){ console.warn('[waitlist] leave failed', e); });
+  }
+
+  function renderWaitlistContent(){
+    renderJoinButton();
     // Repaint cards so DM buttons reflect new auth state.
     paintWaitlist();
   }
@@ -1726,11 +1799,14 @@ h1 em{color:var(--accent);font-style:normal}
           rows.push({ id: d.id, data: data, createdMs: createdMs || now });
         });
         wl.posts = rows;
+        // Refresh the join button too — the user may have just joined
+        // or left, and membership is derived from the posts feed.
+        renderJoinButton();
         paintWaitlist();
       }, function(err){
         console.warn('[waitlist] feed snapshot error', err);
         var list = document.getElementById('wlList');
-        if (list) list.innerHTML = '<div class="waitlist-rail__empty">Couldn\'t load invites. Refresh to retry.</div>';
+        if (list) list.innerHTML = '<div class="waitlist-rail__empty">Couldn\'t load the waitlist. Refresh to retry.</div>';
       });
   }
 
@@ -1738,8 +1814,8 @@ h1 em{color:var(--accent);font-style:normal}
     var list = document.getElementById('wlList');
     if (!list) return;
     if (!wl.posts.length){
-      list.innerHTML = '<div class="waitlist-rail__empty">No open invites right now.' +
-        (state.user ? ' Be the first — post yours above.' : ' Sign in to post one.') +
+      list.innerHTML = '<div class="waitlist-rail__empty">No one on the waitlist right now.' +
+        (state.user ? ' Be the first — join above.' : ' Sign in to join.') +
       '</div>';
       return;
     }
@@ -1748,7 +1824,10 @@ h1 em{color:var(--accent);font-style:normal}
       var d = p.data;
       var name = escHtml(d.displayName || 'Anonymous');
       var format = escHtml((d.format || 'any').toUpperCase());
-      var note = escHtml(d.note || '');
+      var hasNote = !!(d.note && d.note.trim());
+      var noteHtml = hasNote
+        ? '<div class="waitlist-card__note">' + escHtml(d.note) + '</div>'
+        : '<div class="waitlist-card__note waitlist-card__note--default">Open to a round. DM to organize.</div>';
       var time = relTime(p.createdMs);
       var avatar = d.photoURL
         ? '<img class="waitlist-card__avatar" src="' + escHtml(d.photoURL) + '" alt="">'
@@ -1769,7 +1848,7 @@ h1 em{color:var(--accent);font-style:normal}
             '<div class="waitlist-card__meta">' + format + ' · ' + time + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="waitlist-card__note">' + note + '</div>' +
+        noteHtml +
         '<div class="waitlist-card__actions">' + action + '</div>' +
       '</div>';
     }).join('');
@@ -1796,20 +1875,21 @@ h1 em{color:var(--accent);font-style:normal}
     var optionsHtml = WL_FORMATS.map(function(f){
       return '<option value="' + escHtml(f.v) + '"' + (f.v === preselect ? ' selected' : '') + '>' + escHtml(f.label) + '</option>';
     }).join('');
-    openModal('Post an invite',
+    openModal('Join the waitlist',
+      '<div style="font-size:.82rem;color:var(--text-dim);line-height:1.5">You\'ll show up as available to debate. Other signed-in debaters can DM you to set up a round on your own time.</div>' +
       '<div class="wl-field">' +
         '<label for="wlComposerFormat">Format</label>' +
         '<select class="wl-select" id="wlComposerFormat">' + optionsHtml + '</select>' +
       '</div>' +
       '<div class="wl-field">' +
-        '<label for="wlComposerNote">What do you want to debate?</label>' +
-        '<textarea class="wl-textarea" id="wlComposerNote" maxlength="' + WL_NOTE_MAX + '" placeholder="Looking for an APDA round tonight 8pm EST. Open on motion, neutral side."></textarea>' +
+        '<label for="wlComposerNote">Add a note <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-ghost)">(optional)</span></label>' +
+        '<textarea class="wl-textarea" id="wlComposerNote" maxlength="' + WL_NOTE_MAX + '" placeholder="e.g. Free tonight 8pm EST, open on motion, happy to take either side."></textarea>' +
         '<div class="wl-count"><span id="wlComposerCount">0</span>/' + WL_NOTE_MAX + '</div>' +
       '</div>' +
       '<div class="wl-modal__error" id="wlComposerError"></div>',
       [
         { label: 'Cancel', kind: 'ghost', onClick: closeModal },
-        { label: 'Post invite', kind: 'primary', id: 'wlComposerSubmit', onClick: submitPost },
+        { label: 'Join waitlist', kind: 'primary', id: 'wlComposerSubmit', onClick: submitPost },
       ]
     );
     var ta = document.getElementById('wlComposerNote');
@@ -1824,12 +1904,14 @@ h1 em{color:var(--accent);font-style:normal}
     var fmtEl = document.getElementById('wlComposerFormat');
     var errEl = document.getElementById('wlComposerError');
     var btn = document.getElementById('wlComposerSubmit');
-    if (!noteEl || !fmtEl) return;
-    var note = (noteEl.value || '').trim();
-    if (!note){ errEl.textContent = 'Add a short note so people know what you want.'; return; }
-    if (note.length > WL_NOTE_MAX){ errEl.textContent = 'Note too long (' + note.length + '/' + WL_NOTE_MAX + ').'; return; }
+    if (!fmtEl) return;
+    // Note is OPTIONAL — joining the waitlist is a one-tap signup; a
+    // note just adds color. Firestore rule requires note be a string
+    // <=240 chars, and '' satisfies that.
+    var note = ((noteEl && noteEl.value) || '').trim();
+    if (note.length > WL_NOTE_MAX){ if (errEl) errEl.textContent = 'Note too long (' + note.length + '/' + WL_NOTE_MAX + ').'; return; }
     if (btn) btn.disabled = true;
-    errEl.textContent = '';
+    if (errEl) errEl.textContent = '';
     firebaseDb.collection('waitlist_posts').add({
       uid: state.user.uid,
       displayName: shortNameOf(state.user),
@@ -1838,11 +1920,11 @@ h1 em{color:var(--accent);font-style:normal}
       note: note,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).then(function(){
-      try { gtag('event', 'waitlist_post', { format: fmtEl.value }); } catch(e){}
+      try { gtag('event', 'waitlist_join', { format: fmtEl.value }); } catch(e){}
       closeModal();
     }).catch(function(e){
       if (btn) btn.disabled = false;
-      errEl.textContent = 'Couldn\'t post: ' + (e.message || e.code || 'unknown');
+      if (errEl) errEl.textContent = 'Couldn\'t join: ' + (e.message || e.code || 'unknown');
     });
   }
 
