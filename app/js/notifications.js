@@ -120,6 +120,7 @@
       '.ui-bell-panel{position:absolute;top:calc(100% + 10px);right:0;width:320px;max-width:86vw;background:var(--bg-card,#15151a);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.5);overflow:hidden;z-index:200;text-align:left;cursor:default;animation:daBellIn .16s ease-out}' +
       '@keyframes daBellIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}' +
       '.ui-bell-head{padding:12px 14px 10px;font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-ghost,#888);border-bottom:1px solid var(--border,rgba(255,255,255,.08))}' +
+      '.ui-bell-head--mid{border-top:1px solid var(--border,rgba(255,255,255,.08))}' +
       '.ui-bell-empty{padding:22px 16px;text-align:center;font-size:.8rem;color:var(--text-dim,#9aa);line-height:1.5}' +
       '.ui-bell-list{max-height:340px;overflow-y:auto}' +
       '.ui-bell-row{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border,rgba(255,255,255,.06));text-decoration:none;color:inherit;transition:background .12s}' +
@@ -154,10 +155,10 @@
     var bell = document.createElement('button');
     bell.className = 'ui-bell';
     bell.type = 'button';
-    bell.setAttribute('aria-label', 'Messages');
+    bell.setAttribute('aria-label', 'Notifications');
     bell.setAttribute('aria-haspopup', 'true');
     bell.setAttribute('aria-expanded', 'false');
-    bell.title = 'Messages';
+    bell.title = 'Notifications';
     bell.style.display = 'none'; // shown once auth resolves with a user
     bell.innerHTML =
       '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -203,11 +204,23 @@
     }, 100);
   }
 
-  // ── wiring (auth + firestore listen + UI) ────────────────────────
-  function wire(bell) {
-    var panel = null, threadsUnsub = null, prevUnread = {}, firstSnap = true;
-    var rowsCache = [], myUid = null;
+  // ── controller: badge + panel shared by two feeds ────────────────
+  // The bell now carries two things: a "What's new" updates feed (the
+  // changelog — loads for every visitor, no auth) and the DM inbox
+  // (wires up only once a user is signed in). One combined unread badge.
+  function controller(bell) {
     var badge = bell.querySelector('.ui-bell-badge');
+    var panel = null, seenSnapshot = 0;
+
+    // updates feed state
+    var updates = [], updatesSeen = 0;
+    try { updatesSeen = parseInt(localStorage.getItem('da-updates-seen') || '0', 10) || 0; } catch (_) {}
+
+    // DM state
+    var myUid = null, dmRows = [], dmUnread = 0;
+    var threadsUnsub = null, prevUnread = {}, firstSnap = true;
+
+    bell.style.display = 'inline-flex'; // visible to everyone for updates, not just signed-in users
 
     bell.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -220,16 +233,53 @@
     });
     document.addEventListener('click', function () { if (panel) closePanel(); });
 
-    window.firebase.auth().onAuthStateChanged(function (u) {
-      if (!u) {
-        if (threadsUnsub) { try { threadsUnsub(); } catch (e) {} threadsUnsub = null; }
-        bell.style.display = 'none';
-        firstSnap = true; prevUnread = {}; rowsCache = [];
-        return;
+    // ── updates feed (no auth required) ──────────────────────────────
+    loadUpdates();
+    function loadUpdates() {
+      fetch('/changelog.json', { cache: 'no-cache' })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (list) {
+          updates = (Array.isArray(list) ? list : []).slice()
+            .sort(function (a, b) { return (b.id || 0) - (a.id || 0); });
+          if (panel) { markUpdatesSeen(); paintPanel(); } // open while loading: count as read
+          renderBadge();
+        })
+        .catch(function () { /* offline / missing file — updates stay empty */ });
+    }
+    function updatesUnreadCount() {
+      var n = 0;
+      for (var i = 0; i < updates.length; i++) if ((updates[i].id || 0) > updatesSeen) n++;
+      return n;
+    }
+    function markUpdatesSeen() {
+      var max = updatesSeen;
+      for (var i = 0; i < updates.length; i++) max = Math.max(max, updates[i].id || 0);
+      if (max > updatesSeen) {
+        updatesSeen = max;
+        try { localStorage.setItem('da-updates-seen', String(max)); } catch (_) {}
       }
-      myUid = u.uid;
-      bell.style.display = 'inline-flex';
-      ensureFirestore(subscribe);
+    }
+
+    // ── combined unread badge (DMs + new updates) ────────────────────
+    function renderBadge() {
+      if (!badge) return;
+      var n = dmUnread + updatesUnreadCount();
+      if (n > 0) { badge.hidden = false; badge.textContent = n > 9 ? '9+' : String(n); bell.classList.add('has-unread'); }
+      else { badge.hidden = true; bell.classList.remove('has-unread'); }
+    }
+
+    // ── DM layer (auth + firestore) ──────────────────────────────────
+    whenFirebaseReady(function () {
+      window.firebase.auth().onAuthStateChanged(function (u) {
+        if (!u) {
+          if (threadsUnsub) { try { threadsUnsub(); } catch (e) {} threadsUnsub = null; }
+          myUid = null; dmRows = []; dmUnread = 0; prevUnread = {}; firstSnap = true;
+          renderBadge(); if (panel) paintPanel();
+          return;
+        }
+        myUid = u.uid;
+        ensureFirestore(subscribe);
+      });
     });
 
     function subscribe() {
@@ -260,8 +310,8 @@
         prevUnread[d.id] = unread;
         rows.push({ id: d.id, data: data, unread: unread });
       });
-      rowsCache = rows;
-      renderBadge(unreadCount);
+      dmRows = rows; dmUnread = unreadCount;
+      renderBadge();
       if (panel) paintPanel();
       if (!firstSnap && newest) {
         announce(threadDisplay(newest.data, myUid, newest.id), newest.data.lastMessage || 'sent a message');
@@ -269,19 +319,17 @@
       firstSnap = false;
     }
 
-    function renderBadge(n) {
-      if (!badge) return;
-      if (n > 0) { badge.hidden = false; badge.textContent = n > 9 ? '9+' : String(n); bell.classList.add('has-unread'); }
-      else { badge.hidden = true; bell.classList.remove('has-unread'); }
-    }
-
+    // ── panel ────────────────────────────────────────────────────────
     function togglePanel() { panel ? closePanel() : openPanel(); }
     function openPanel() {
+      seenSnapshot = updatesSeen;   // snapshot before marking, so the new ones still get a dot
       panel = document.createElement('div');
       panel.className = 'ui-bell-panel';
       panel.addEventListener('click', function (e) { e.stopPropagation(); });
       bell.appendChild(panel);
       bell.setAttribute('aria-expanded', 'true');
+      markUpdatesSeen();            // opening the panel clears the updates side of the badge
+      renderBadge();
       paintPanel();
     }
     function closePanel() {
@@ -289,36 +337,62 @@
       panel = null;
       bell.setAttribute('aria-expanded', 'false');
     }
+
+    function updateRowHtml(u) {
+      var isNew = (u.id || 0) > seenSnapshot;
+      var inner =
+        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--accent,#ef4444)">' +
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>' +
+        '</span>' +
+        '<span class="ui-bell-row__main">' +
+          '<span class="ui-bell-row__name">' + escHtml(u.title || 'Update') + (isNew ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
+          '<span class="ui-bell-row__preview" style="white-space:normal">' + escHtml(u.body || '') + '</span>' +
+        '</span>' +
+        '<span class="ui-bell-row__time">' + escHtml(u.date || '') + '</span>';
+      var cls = 'ui-bell-row' + (isNew ? ' is-unread' : '');
+      return u.href
+        ? '<a class="' + cls + '" href="' + escHtml(u.href) + '">' + inner + '</a>'
+        : '<div class="' + cls + '" style="cursor:default">' + inner + '</div>';
+    }
+
+    function dmRowHtml(t) {
+      var disp = threadDisplay(t.data, myUid, t.id);
+      var when = t.data.lastMessageAt && t.data.lastMessageAt.toMillis ? relTime(t.data.lastMessageAt.toMillis()) : '';
+      var fromMe = t.data.lastMessageFrom === myUid;
+      var preview = (fromMe ? 'You: ' : '') + (t.data.lastMessage || '');
+      var avatar = disp.isGroup
+        ? groupAvatarSvg()
+        : (disp.photo
+          ? '<img class="ui-bell-av" src="' + escHtml(disp.photo) + '" alt="" referrerpolicy="no-referrer">'
+          : '<span class="ui-bell-av ui-bell-av--blank">' + escHtml((disp.name[0] || '?').toUpperCase()) + '</span>');
+      return '<a class="ui-bell-row' + (t.unread > 0 ? ' is-unread' : '') + '" href="' + disp.href + '">' +
+        avatar +
+        '<span class="ui-bell-row__main">' +
+          '<span class="ui-bell-row__name">' + escHtml(disp.name) + (t.unread > 0 ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
+          '<span class="ui-bell-row__preview">' + escHtml(preview) + '</span>' +
+        '</span>' +
+        '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
+      '</a>';
+    }
+
     function paintPanel() {
       if (!panel) return;
-      var head = '<div class="ui-bell-head">Messages</div>';
-      if (!rowsCache.length) {
-        panel.innerHTML = head +
-          '<div class="ui-bell-empty">No messages yet.<br>Find a sparring partner and DM them from the live board.</div>' +
-          '<a class="ui-bell-foot" href="/spar">Open the live board</a>';
-        return;
+      var html = '<div class="ui-bell-head">What’s new</div>';
+      if (!updates.length) {
+        html += '<div class="ui-bell-empty">No updates yet.</div>';
+      } else {
+        html += '<div class="ui-bell-list">' + updates.slice(0, 6).map(updateRowHtml).join('') + '</div>';
       }
-      var body = rowsCache.map(function (t) {
-        var disp = threadDisplay(t.data, myUid, t.id);
-        var when = t.data.lastMessageAt && t.data.lastMessageAt.toMillis ? relTime(t.data.lastMessageAt.toMillis()) : '';
-        var fromMe = t.data.lastMessageFrom === myUid;
-        var preview = (fromMe ? 'You: ' : '') + (t.data.lastMessage || '');
-        var avatar = disp.isGroup
-          ? groupAvatarSvg()
-          : (disp.photo
-            ? '<img class="ui-bell-av" src="' + escHtml(disp.photo) + '" alt="" referrerpolicy="no-referrer">'
-            : '<span class="ui-bell-av ui-bell-av--blank">' + escHtml((disp.name[0] || '?').toUpperCase()) + '</span>');
-        return '<a class="ui-bell-row' + (t.unread > 0 ? ' is-unread' : '') + '" href="' + disp.href + '">' +
-          avatar +
-          '<span class="ui-bell-row__main">' +
-            '<span class="ui-bell-row__name">' + escHtml(disp.name) + (t.unread > 0 ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
-            '<span class="ui-bell-row__preview">' + escHtml(preview) + '</span>' +
-          '</span>' +
-          '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
-        '</a>';
-      }).join('');
-      panel.innerHTML = head + '<div class="ui-bell-list">' + body + '</div>' +
-        '<a class="ui-bell-foot" href="/spar">Open all messages</a>';
+      if (myUid) {
+        html += '<div class="ui-bell-head ui-bell-head--mid">Messages</div>';
+        if (!dmRows.length) {
+          html += '<div class="ui-bell-empty">No messages yet.<br>Find a sparring partner and DM them from the live board.</div>';
+        } else {
+          html += '<div class="ui-bell-list">' + dmRows.map(dmRowHtml).join('') + '</div>';
+        }
+        html += '<a class="ui-bell-foot" href="/spar">Open all messages</a>';
+      }
+      panel.innerHTML = html;
     }
 
     function announce(disp, preview) {
@@ -366,7 +440,7 @@
     injectStyles();
     var bell = createBell();
     placeBell(bell);
-    whenFirebaseReady(function () { wire(bell); });
+    controller(bell);
   }
 
   if (document.readyState === 'loading') {
