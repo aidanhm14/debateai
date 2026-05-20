@@ -83,61 +83,46 @@ def radial_glow(size, color_rgb, peak_alpha=180, falloff_pow=1.6):
     return Image.frombytes("RGBA", (size, size), bytes(pixels))
 
 
-def draw_orb(img, cx, cy, R, accent=RED, smooth_level=0.55, phase=2.7):
-    """Port of voice-debate.html's startOrbAnimation, frozen mid-frame.
+def draw_orb(img, cx, cy, R, accent=RED):
+    """A clean crimson orb: layered glows, a crisp circular rim, and a hot
+    plasma center.
 
-    smooth_level controls organic distortion — 0 is a clean circle, 0.7+
-    is chaotic. phase rotates the waveform; a non-zero value avoids the
-    symmetric pose at phase=0 that looks accidental.
+    The earlier version froze voice-debate's sine-modulated waveform ring,
+    which at OG-thumbnail scale rendered as a jagged red blob (the "really
+    bad" image). A smooth, supersampled circle reads as intentional and
+    premium while keeping the same aurora-orb identity.
     """
-    # ── Aurora outer glow ─────────────────────────────────────────
-    # Two stacked glows — a tight inner halo and a wide atmospheric
-    # wash — so the orb reads bright at the ring AND has a presence
-    # bleeding into the corners of the card.
-    inner_r = int(R * 1.7)
-    inner = radial_glow(inner_r * 2, accent, peak_alpha=int(190 + smooth_level * 50), falloff_pow=1.4)
-    img.alpha_composite(inner, (cx - inner_r, cy - inner_r))
+    a = accent
 
-    outer_r = int(R * 3.2)
-    outer = radial_glow(outer_r * 2, accent, peak_alpha=int(110 + smooth_level * 40), falloff_pow=2.2)
-    img.alpha_composite(outer, (cx - outer_r, cy - outer_r))
+    # ── Aurora — wide atmospheric wash + tight inner halo ─────────
+    outer_r = int(R * 3.4)
+    img.alpha_composite(radial_glow(outer_r * 2, a, peak_alpha=115, falloff_pow=2.4), (cx - outer_r, cy - outer_r))
+    inner_r = int(R * 1.85)
+    img.alpha_composite(radial_glow(inner_r * 2, a, peak_alpha=205, falloff_pow=1.5), (cx - inner_r, cy - inner_r))
 
-    # ── Inner ring waveform ───────────────────────────────────────
-    segments = 360
-    points = []
-    for i in range(segments + 1):
-        t = i / segments
-        a = t * math.pi * 2
-        r = (R * (1 + smooth_level * 0.55)
-             + math.sin(a * 6 + phase * 2) * (3 + smooth_level * 14)
-             + math.sin(a * 11 - phase * 3) * (2 + smooth_level * 9)
-             + math.cos(a * 3 + phase) * (4 + smooth_level * 6))
-        points.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+    # ── Filled core glow (soft red disk inside the rim) ───────────
+    core_r = int(R * 1.02)
+    img.alpha_composite(radial_glow(core_r * 2, a, peak_alpha=210, falloff_pow=1.15), (cx - core_r, cy - core_r))
 
-    ring = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    # ── Crisp circular rim ────────────────────────────────────────
+    # Drawn 4x oversize then downscaled with LANCZOS so the edge is
+    # smoothly antialiased (PIL's ellipse stroke aliases badly at 1x).
+    SS = 4
+    box = int(R * 2.5)
+    rs = box * SS
+    ring = Image.new("RGBA", (rs, rs), (0, 0, 0, 0))
     rd = ImageDraw.Draw(ring)
-    fill_alpha = int(255 * (0.12 + smooth_level * 0.08))
-    rd.polygon(points, fill=(accent[0], accent[1], accent[2], fill_alpha))
-    stroke_alpha = int(255 * (0.78 + smooth_level * 0.2))
-    rd.line(points + [points[0]], fill=(accent[0], accent[1], accent[2], stroke_alpha), width=5, joint="curve")
-    img.alpha_composite(ring)
+    c = rs / 2
+    rr = R * SS
+    rd.ellipse((c - rr, c - rr, c + rr, c + rr), outline=(a[0], a[1], a[2], 240), width=3 * SS)
+    ring = ring.resize((box, box), Image.LANCZOS)
+    img.alpha_composite(ring, (cx - box // 2, cy - box // 2))
 
-    # ── Inner pulsing core ────────────────────────────────────────
-    core_r = int(R * (0.7 + smooth_level * 0.25))
-    core_size = core_r * 2
-    core = radial_glow(core_size, accent, peak_alpha=int(230 + smooth_level * 25), falloff_pow=1.0)
-    img.alpha_composite(core, (cx - core_r, cy - core_r))
-
-    # Soft white inner glow under the hot center so the bright spot
-    # reads as plasma, not a single dot.
-    soft_r = int(R * 0.32)
-    soft = radial_glow(soft_r * 2, (255, 255, 255), peak_alpha=int(140 + smooth_level * 60), falloff_pow=1.4)
-    img.alpha_composite(soft, (cx - soft_r, cy - soft_r))
-
-    # ── Bright hot center ─────────────────────────────────────────
-    hot_r = int(12 + smooth_level * 18)
-    hot = radial_glow(hot_r * 2, (255, 255, 255), peak_alpha=255, falloff_pow=0.9)
-    img.alpha_composite(hot, (cx - hot_r, cy - hot_r))
+    # ── Soft white plasma + hot center ────────────────────────────
+    soft_r = int(R * 0.5)
+    img.alpha_composite(radial_glow(soft_r * 2, (255, 255, 255), peak_alpha=150, falloff_pow=1.5), (cx - soft_r, cy - soft_r))
+    hot_r = int(R * 0.2)
+    img.alpha_composite(radial_glow(hot_r * 2, (255, 255, 255), peak_alpha=255, falloff_pow=0.9), (cx - hot_r, cy - hot_r))
 
 
 def main():
@@ -161,7 +146,7 @@ def main():
     # clears the top-right URL band (y≈88–112). Earlier placement
     # had the inner ring's top at y≈76, which collided with the
     # "debateai.com" text in Twitter/Discord/Slack embeds.
-    draw_orb(img, cx=970, cy=360, R=125, accent=RED, smooth_level=0.55, phase=2.7)
+    draw_orb(img, cx=970, cy=355, R=132, accent=RED)
 
     draw = ImageDraw.Draw(img, "RGBA")
 
@@ -187,7 +172,7 @@ def main():
 
     # ── Sub copy ──────────────────────────────────────────────────
     sub = font(26, "bold")
-    draw.text((72, 372), "Lay the bait. Eat their time. Take the ballot.", font=sub, fill=DIM)
+    draw.text((72, 372), "Pick a motion. Argue out loud. Get a real ballot.", font=sub, fill=DIM)
 
     # ── Format chips across the bottom ────────────────────────────
     chip_font = font(20, "bold")
