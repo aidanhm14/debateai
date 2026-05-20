@@ -358,6 +358,16 @@ button{font-family:inherit}
 .field input:focus, .field textarea:focus, .field select:focus{
   border-color:rgba(239,68,68,.5);
 }
+/* Style the native select chrome away — appearance:none + a custom
+   caret so the dropdowns match the rest of the form instead of
+   showing the OS-default arrow. Grey caret reads on every theme. */
+.field select{
+  -webkit-appearance:none;-moz-appearance:none;appearance:none;
+  cursor:pointer;padding-right:34px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23999' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5l3-3'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:12px;
+}
+.field select::-ms-expand{display:none}
 .side-row{display:flex;gap:8px}
 .side-row .pill{
   flex:1;padding:10px 14px;
@@ -549,6 +559,10 @@ button{font-family:inherit}
 [data-theme="light"] .filter-chip .chip-count{background:rgba(0,0,0,.06)}
 .filter-chip.active .chip-count{background:rgba(255,255,255,.18);color:#fff}
 [data-theme="light"] .filter-chip.active .chip-count{background:rgba(255,255,255,.22);color:#fff}
+/* The display:inline-flex above out-specifies the UA [hidden] rule, so
+   a zero badge wouldn't actually hide — leaving a board full of "0"s.
+   Restore hidden behaviour so empty counts drop out cleanly. */
+.tab .tab-badge[hidden], .filter-chip .chip-count[hidden]{display:none}
 .filter-chip .chip-dot{
   width:6px;height:6px;border-radius:50%;flex-shrink:0;
 }
@@ -1210,8 +1224,8 @@ button{font-family:inherit}
   <h1>Debate humans online with <em>AI judges.</em></h1>
   <p class="hero-sub">Post a motion, pick your side, hop on the in-page video room, and let the same format-aware AI judge that scores your AI rounds adjudicate the live human-vs-human debate. Tournament-grade ballots, no entry fee.</p>
   <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-    <a href="#postForm" id="organizeBtn" class="bar-cta" style="padding:11px 22px;font-size:.82rem">▶ Organize a debate with a friend</a>
-    <a href="#how" class="btn btn-ghost" style="padding:11px 18px;font-size:.78rem;border:1px solid var(--border);border-radius:999px;color:var(--text-dim);background:transparent">How it works ↓</a>
+    <a href="#postForm" id="organizeBtn" class="bar-cta" style="padding:11px 22px;font-size:.82rem;display:inline-flex;align-items:center;gap:8px"><svg width="11" height="11" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><path d="M1.3.5a.5.5 0 0 0-.8.42v8.16a.5.5 0 0 0 .8.42l6.1-4.08a.5.5 0 0 0 0-.84z"/></svg>Organize a debate with a friend</a>
+    <a href="#how" class="btn btn-ghost" style="padding:11px 18px;font-size:.78rem;border:1px solid var(--border);border-radius:999px;color:var(--text-dim);background:transparent;display:inline-flex;align-items:center;gap:7px">How it works<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5 6 7.5l3-3"/></svg></a>
   </div>
 </section>
 
@@ -1372,13 +1386,13 @@ button{font-family:inherit}
            etc. The "All" chip is the default for Browse; Live Now and
            Starting Soon are the most clickable in a busy session. -->
       <div id="filterRow" class="filter-row" role="tablist" aria-label="Filter challenges">
-        <button class="filter-chip active" data-filter="all" type="button">All <span class="chip-count" data-count="all">0</span></button>
-        <button class="filter-chip" data-filter="live" type="button"><span class="chip-dot" style="background:#22c55e"></span>Live now <span class="chip-count" data-count="live">0</span></button>
-        <button class="filter-chip" data-filter="soon" type="button"><span class="chip-dot" style="background:#fbbf24"></span>Starting soon <span class="chip-count" data-count="soon">0</span></button>
-        <button class="filter-chip" data-filter="needs-d" type="button"><span class="chip-dot" style="background:#c4b5fd"></span>Needs debaters <span class="chip-count" data-count="needs-d">0</span></button>
-        <button class="filter-chip" data-filter="needs-j" type="button"><span class="chip-dot" style="background:#93c5fd"></span>Needs judge <span class="chip-count" data-count="needs-j">0</span></button>
-        <button class="filter-chip" data-filter="has-viewers" type="button"><span class="chip-dot" style="background:#c4b5fd"></span>Has viewers <span class="chip-count" data-count="has-viewers">0</span></button>
-        <button class="filter-chip" data-filter="archived" type="button">Archived <span class="chip-count" data-count="archived">0</span></button>
+        <button class="filter-chip active" data-filter="all" type="button">All <span class="chip-count" hidden data-count="all">0</span></button>
+        <button class="filter-chip" data-filter="live" type="button"><span class="chip-dot" style="background:#22c55e"></span>Live now <span class="chip-count" hidden data-count="live">0</span></button>
+        <button class="filter-chip" data-filter="soon" type="button"><span class="chip-dot" style="background:#fbbf24"></span>Starting soon <span class="chip-count" hidden data-count="soon">0</span></button>
+        <button class="filter-chip" data-filter="needs-d" type="button"><span class="chip-dot" style="background:#c4b5fd"></span>Needs debaters <span class="chip-count" hidden data-count="needs-d">0</span></button>
+        <button class="filter-chip" data-filter="needs-j" type="button"><span class="chip-dot" style="background:#93c5fd"></span>Needs judge <span class="chip-count" hidden data-count="needs-j">0</span></button>
+        <button class="filter-chip" data-filter="has-viewers" type="button"><span class="chip-dot" style="background:#c4b5fd"></span>Has viewers <span class="chip-count" hidden data-count="has-viewers">0</span></button>
+        <button class="filter-chip" data-filter="archived" type="button">Archived <span class="chip-count" hidden data-count="archived">0</span></button>
       </div>
 
       <div id="cards" class="cards">
@@ -1399,13 +1413,13 @@ button{font-family:inherit}
         <div class="field">
           <label for="motion" style="display:flex;align-items:center;justify-content:space-between">
             <span>Motion</span>
-            <button type="button" id="randomMotionBtn" class="btn btn-ghost" style="padding:4px 10px;font-size:.62rem;letter-spacing:.06em">🎲 Random motion</button>
+            <button type="button" id="randomMotionBtn" class="btn btn-ghost" style="padding:4px 10px;font-size:.62rem;letter-spacing:.06em;display:inline-flex;align-items:center;gap:5px"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7a5 5 0 1 1-1.46-3.54"/><path d="M12 1.6V4H9.6"/></svg>Random motion</button>
           </label>
           <textarea id="motion" rows="2" placeholder="e.g. This house would ban legacy admissions" maxlength="320" required></textarea>
           <p style="font-size:.7rem;color:var(--text-ghost);margin-top:4px;line-height:1.45">Don’t like the random one? Hit reroll. <span id="motionCatHint" hidden>Category: <strong id="motionCatLabel" style="color:var(--text-dim);font-weight:700"></strong></span></p>
         </div>
         <div class="field">
-          <label for="motionCategory">Category <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">(seeds the random motion)</span></label>
+          <label for="motionCategory">Category</label>
           <select id="motionCategory">
             <option value="any">Any category</option>
             <option value="politics">Politics</option>
@@ -1426,7 +1440,7 @@ button{font-family:inherit}
              like a tournament where you don't always know what's
              coming. -->
         <div class="field">
-          <label>Reveal <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">(what the public board sees)</span></label>
+          <label>Reveal</label>
           <div class="side-row" id="revealRow">
             <button type="button" class="pill" data-reveal="full">Full motion</button>
             <button type="button" class="pill" data-reveal="topic">Topic only</button>
@@ -3288,7 +3302,7 @@ button{font-family:inherit}
       });
       slotPickerEl.appendChild(b);
     });
-    slotHintEl.textContent = '(' + f.requiredDebaters + ' debaters total, pick which seat is yours)';
+    slotHintEl.textContent = f.requiredDebaters + ' debaters';
     if (formatHintEl){
       formatHintEl.textContent = f.name + ' · ' + f.requiredDebaters
         + (f.maxDebaters > f.requiredDebaters ? '–' + f.maxDebaters : '')
@@ -3876,6 +3890,7 @@ button{font-family:inherit}
     Object.keys(counts).forEach(function(k){
       document.querySelectorAll('[data-count="' + k + '"]').forEach(function(el){
         el.textContent = counts[k];
+        el.hidden = counts[k] === 0;
       });
     });
   }
