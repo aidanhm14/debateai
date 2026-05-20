@@ -280,12 +280,13 @@
     var t = '';
     try { t = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!t || t === 'day') {
-      // Landing A/B: bucket new visitors 70% light (white) / 30% crimson
-      // (dark) to test which front door is more attractive. Persist to
-      // da-theme so it sticks and the topbar toggle still overrides it;
-      // mirror to da-theme-ab so sign-up rate stays segmentable in GA.
+      // Landing A/B: first-time visitors get a true coin flip between
+      // light (white) and crimson (red/dark) so neither front door is
+      // privileged. Persist to da-theme so it sticks and the topbar toggle
+      // still overrides it; mirror to da-theme-ab so sign-up rate stays
+      // segmentable in GA.
       try {
-        t = (Math.random() < 0.70) ? 'light' : 'crimson';
+        t = (Math.random() < 0.50) ? 'light' : 'crimson';
         localStorage.setItem('da-theme', t);
         if (!localStorage.getItem('da-theme-ab')) {
           localStorage.setItem('da-theme-ab', t);
@@ -9643,5 +9644,161 @@ window.addEventListener('load', function(){
 </script>
 
 <script defer src="/js/notifications.js"></script>
+
+<!-- ── Ambient nudges: lighting swap (~45s) + brainwave focus tones (~90s) ──
+     Two calm, dismissible toasts. The focus audio is synthesized live in
+     the browser via the Web Audio API (binaural beat: two slightly detuned
+     oscillators panned L/R, ~14 Hz beta for focus). No audio files, no
+     external generation, no licensing. Headphones recommended for the beat
+     to land, but it degrades gracefully on speakers. -->
+<script>
+(function(){
+  var ss; try{ ss = window.sessionStorage; }catch(e){ ss = null; }
+  function seen(k){ try{ return ss && ss.getItem(k); }catch(e){ return false; } }
+  function mark(k){ try{ ss && ss.setItem(k,'1'); }catch(e){} }
+  function track(ev,p){ try{ if(window.dosTrack) window.dosTrack(ev,p); }catch(e){} }
+
+  // Has the visitor actually engaged (scrolled past the fold)?
+  var scrolled = false;
+  window.addEventListener('scroll', function(){
+    if (window.scrollY > 200) scrolled = true;
+  }, {passive:true});
+
+  /* ---- toast UI ---- */
+  function toast(opts){
+    var t = document.createElement('div');
+    t.setAttribute('role','status');
+    t.style.cssText = [
+      'position:fixed','right:20px','bottom:20px','z-index:9000',
+      'max-width:320px','padding:14px 16px','border-radius:14px',
+      'background:rgba(20,18,20,.92)','color:#fff',
+      'border:1px solid rgba(255,255,255,.12)',
+      'box-shadow:0 10px 40px rgba(0,0,0,.45)',
+      'backdrop-filter:blur(10px)','-webkit-backdrop-filter:blur(10px)',
+      'font:500 14px/1.45 Inter,system-ui,sans-serif',
+      'opacity:0','transform:translateY(10px)',
+      'transition:opacity .35s ease,transform .35s ease'
+    ].join(';');
+    var msg = document.createElement('div');
+    msg.textContent = opts.message;
+    msg.style.cssText = 'margin-bottom:10px';
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;align-items:center';
+    var act = document.createElement('button');
+    act.textContent = opts.action;
+    act.style.cssText = [
+      'flex:1','cursor:pointer','border:0','border-radius:9px',
+      'padding:8px 12px','font:700 13px Inter,system-ui,sans-serif',
+      'background:#ef4444','color:#fff'
+    ].join(';');
+    var dismiss = document.createElement('button');
+    dismiss.textContent = 'Not now';
+    dismiss.setAttribute('aria-label','Dismiss');
+    dismiss.style.cssText = [
+      'cursor:pointer','border:0','border-radius:9px','padding:8px 10px',
+      'font:600 13px Inter,system-ui,sans-serif',
+      'background:rgba(255,255,255,.08)','color:rgba(255,255,255,.75)'
+    ].join(';');
+    row.appendChild(act); row.appendChild(dismiss);
+    t.appendChild(msg); t.appendChild(row);
+    document.body.appendChild(t);
+    requestAnimationFrame(function(){ t.style.opacity='1'; t.style.transform='translateY(0)'; });
+    var killed = false, autodie;
+    function close(reason){
+      if (killed) return; killed = true;
+      clearTimeout(autodie);
+      t.style.opacity='0'; t.style.transform='translateY(10px)';
+      setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 380);
+      if (reason) track(opts.event+'_dismiss',{reason:reason});
+    }
+    act.addEventListener('click', function(){ track(opts.event+'_accept'); opts.onAccept(); close(); });
+    dismiss.addEventListener('click', function(){ close('manual'); });
+    autodie = setTimeout(function(){ close('timeout'); }, 11000);
+    track(opts.event+'_show');
+    return close;
+  }
+
+  /* ---- 1) lighting swap at ~45s ---- */
+  setTimeout(function(){
+    if (seen('nudge-light') || !scrolled) return;
+    mark('nudge-light');
+    var cur = document.documentElement.getAttribute('data-theme') || 'crimson';
+    var goLight = (cur !== 'light');
+    toast({
+      message: goLight ? 'Reading in the dark? Try the lighter look.'
+                       : 'Want to switch to the dark surface?',
+      action: goLight ? 'Switch to light' : 'Switch to dark',
+      event: 'nudge_lighting',
+      onAccept: function(){
+        var next = goLight ? 'light' : 'crimson';
+        document.documentElement.setAttribute('data-theme', next);
+        try{ localStorage.setItem('da-theme', next); }catch(e){}
+      }
+    });
+  }, 45000);
+
+  /* ---- 2) brainwave focus tones at ~90s ---- */
+  var audio = null; // {ctx, stop()}
+  function startTones(){
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx();
+      var master = ctx.createGain();
+      master.gain.setValueAtTime(0.0001, ctx.currentTime);
+      master.gain.exponentialRampToValueAtTime(0.045, ctx.currentTime + 1.6);
+      master.connect(ctx.destination);
+      // Binaural beat: carrier ~180 Hz, +14 Hz on the right ear (beta = focus).
+      function ear(freq, pan){
+        var osc = ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = freq;
+        var p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (p){ p.pan.value = pan; osc.connect(p); p.connect(master); }
+        else { osc.connect(master); }
+        osc.start();
+        return osc;
+      }
+      var l = ear(180, -1), r = ear(194, 1);
+      audio = { ctx: ctx, stop: function(){
+        try {
+          master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.8);
+          setTimeout(function(){ try{ l.stop(); r.stop(); ctx.close(); }catch(e){} }, 900);
+        } catch(e){}
+        audio = null; if (ctrl) ctrl.remove();
+      }};
+    } catch(e){}
+  }
+  var ctrl = null;
+  function showControl(){
+    ctrl = document.createElement('button');
+    ctrl.textContent = 'Focus tones on ✕';
+    ctrl.title = 'Stop focus tones';
+    ctrl.style.cssText = [
+      'position:fixed','right:20px','bottom:20px','z-index:9000',
+      'cursor:pointer','border:0','border-radius:999px','padding:9px 14px',
+      'font:700 12px Inter,system-ui,sans-serif',
+      'background:rgba(20,18,20,.92)','color:#fff',
+      'border:1px solid rgba(255,255,255,.14)',
+      'box-shadow:0 8px 28px rgba(0,0,0,.4)'
+    ].join(';');
+    ctrl.remove = function(){ if(ctrl && ctrl.parentNode) ctrl.parentNode.removeChild(ctrl); ctrl=null; };
+    ctrl.addEventListener('click', function(){ if(audio) audio.stop(); track('focus_tones_stop'); });
+    document.body.appendChild(ctrl);
+  }
+  setTimeout(function(){
+    if (seen('nudge-focus')) return;
+    mark('nudge-focus');
+    toast({
+      message: 'Brainwave music for focus? Headphones recommended.',
+      action: 'Play focus tones',
+      event: 'nudge_focus',
+      onAccept: function(){ startTones(); if(audio) showControl(); }
+    });
+  }, 90000);
+
+  // Tab close / nav away: kill audio so it never lingers.
+  window.addEventListener('pagehide', function(){ if(audio) audio.stop(); });
+})();
+</script>
 </body>
 </html>
