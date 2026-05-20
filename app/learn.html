@@ -1491,7 +1491,7 @@ function QuickDebate() {
   el('button', { onClick: () => topic.trim() && startDebate(topic.trim()), disabled: !topic.trim() || !canUse() }, 'Go')
   )
   ),
-  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/pricing' }, 'Subscribe to continue.'))
   );
 
   if (stage === 'feedback') return el(React.Fragment, null,
@@ -1503,7 +1503,13 @@ function QuickDebate() {
   el('span', { className: 'sender' }, m.role === 'user' ? 'You' : 'AI'), m.text
   ))
   ),
-  el('button', { className: 'cta', onClick: () => {setStage('pick');setTopic('');setMsgs([]);setFeedback('');} }, 'New Debate')
+  // 2026-05-20: forward CTA so the lesson isn't a self-loop. After a
+  // guided mini-debate the intuitive next step is the real product, with
+  // this topic prefilled. New Debate stays as a secondary reset.
+  el('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 20 } },
+  el('a', { className: 'cta', href: '/debate-ai?motion=' + encodeURIComponent(topic), style: { textDecoration: 'none', marginTop: 0 } }, 'Take it to a full round →'),
+  el('button', { className: 'cta-ghost', style: { marginTop: 0 }, onClick: () => {setStage('pick');setTopic('');setMsgs([]);setFeedback('');} }, 'New debate')
+  )
   );
 
   // chat stage
@@ -1591,7 +1597,7 @@ function ArgBuilder() {
   el('textarea', { rows: 2, placeholder: 'e.g. "Pineapple belongs on pizza" or "Remote work is more productive"', value: claim, onChange: (e) => setClaim(e.target.value), onKeyDown: (e) => {if (e.key === 'Enter' && !e.shiftKey) {e.preventDefault();begin();}} }),
   el('button', { onClick: begin, disabled: !claim.trim() || !canUse() }, 'Build')
   ),
-  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/pricing' }, 'Subscribe to continue.'))
   );
 
   if (stage === 'done') return el(React.Fragment, null,
@@ -1604,7 +1610,13 @@ function ArgBuilder() {
   el('h3', null, 'Coach Feedback'),
   el('p', null, summary)
   ),
-  el('button', { className: 'cta', onClick: () => {setStage('start');setClaim('');setStepIdx(0);setAnswers({});setSummary('');setAiHint('');} }, 'Build Another')
+  // 2026-05-20: forward CTA — after building a full claim/warrant/impact
+  // the next step is defending it live, with the claim prefilled. Build
+  // Another stays as the secondary reset.
+  el('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 20 } },
+  el('a', { className: 'cta', href: '/debate-ai?motion=' + encodeURIComponent(claim || (answers && answers[STEPS[0]]) || ''), style: { textDecoration: 'none', marginTop: 0 } }, 'Now defend it against an AI →'),
+  el('button', { className: 'cta-ghost', style: { marginTop: 0 }, onClick: () => {setStage('start');setClaim('');setStepIdx(0);setAnswers({});setSummary('');setAiHint('');} }, 'Build another')
+  )
   );
 
   // building stage
@@ -1689,7 +1701,7 @@ function FallacyTrainer() {
   stage === 'idle' && el(React.Fragment, null,
   el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'Spot the logical fallacy in AI-generated arguments. Test your critical thinking.'),
   el('button', { className: 'cta', onClick: generate, disabled: !canUse() }, 'Generate Challenge'),
-  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/pricing' }, 'Subscribe to continue.'))
   ),
 
   stage === 'question' && el(React.Fragment, null,
@@ -1775,7 +1787,7 @@ function SocraticChallenger() {
   el('textarea', { rows: 2, placeholder: 'e.g. "I think everyone should go to college" or "Social media is bad for society"', value: opinion, onChange: (e) => setOpinion(e.target.value), onKeyDown: (e) => {if (e.key === 'Enter' && !e.shiftKey) {e.preventDefault();begin();}} }),
   el('button', { onClick: begin, disabled: !opinion.trim() || !canUse() }, 'Challenge Me')
   ),
-  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/pricing' }, 'Subscribe to continue.'))
   );
 
   return el(React.Fragment, null,
@@ -1875,7 +1887,7 @@ Rate their overall persuasiveness 1-10 and give specific, actionable feedback. W
   el('div', { className: 'label' }, sc.label)
   ))
   ),
-  rem <= 0 && el('p', { className: 'limit-warn', style: { marginTop: 16 } }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  rem <= 0 && el('p', { className: 'limit-warn', style: { marginTop: 16 } }, 'Free requests used. ', el('a', { href: '/pricing' }, 'Subscribe to continue.'))
   );
 
   if (stage === 'feedback') return el(React.Fragment, null,
@@ -1967,7 +1979,7 @@ Give a score out of 10, explain what worked, what didn't, and show what an ideal
   stage === 'idle' && el(React.Fragment, null,
   el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'The AI presents an argument. Your job: tear it apart. Get scored on your rebuttal quality.'),
   el('button', { className: 'cta', onClick: generate, disabled: !canUse() }, 'Generate Argument'),
-  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/pricing' }, 'Subscribe to continue.'))
   ),
 
   stage === 'argument' && el(React.Fragment, null,
@@ -2073,7 +2085,7 @@ Did they compare the two impacts directly (not just describe each one)? Did they
   stage === 'idle' && el(React.Fragment, null,
   el('p', { className: 't-sub', style: { marginBottom: 24 } }, 'Two competing impacts. Which matters more and why? Practice the skill that wins close rounds.'),
   el('button', { className: 'cta', onClick: generate, disabled: !canUse() }, 'Generate Scenario'),
-  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  !canUse() && el('p', { className: 'limit-warn' }, 'Free requests used. ', el('a', { href: '/pricing' }, 'Subscribe to continue.'))
   ),
 
   stage === 'scenario' && el(React.Fragment, null,
@@ -2247,7 +2259,7 @@ function BeUpToDate() {
     );
   })
   ),
-  rem <= 0 && el('p', { className: 'limit-warn', style: { marginTop: 16 } }, 'Free requests used. ', el('a', { href: '/#team' }, 'Subscribe to continue.'))
+  rem <= 0 && el('p', { className: 'limit-warn', style: { marginTop: 16 } }, 'Free requests used. ', el('a', { href: '/pricing' }, 'Subscribe to continue.'))
   );
 }
 
@@ -2364,7 +2376,7 @@ function UsageBanner() {
   ),
 
   el('div', { style: { textAlign: 'center' } },
-  el('a', { href: '/#team', className: 'pricing-cta' }, 'View plans & subscribe')
+  el('a', { href: '/pricing', className: 'pricing-cta' }, 'View plans & subscribe')
   ),
 
   el('div', { style: { marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(0,0,0,.06)' } },

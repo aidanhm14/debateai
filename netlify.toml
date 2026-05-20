@@ -86,6 +86,30 @@
   status = 200
   force = true
 
+# 2026-05-20: clean-route rewrites for the daily-motion + champions
+# function pages. today.mjs / champions.mjs only declare /api/* paths;
+# the shared topbar (js/topbar.js) + several in-app links point at the
+# bare /today + /champions. app/netlify.toml (the publish-dir config)
+# already had these rewrites, but this root mirror was missing them —
+# adding for parity so the two files stay in sync. Matches /learn/*.
+[[redirects]]
+  from = "/today"
+  to = "/api/today"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/today/*"
+  to = "/api/today/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/champions"
+  to = "/api/champions"
+  status = 200
+  force = true
+
 # Backwards-compat 301s from the pre-nest paths.
 [[redirects]]
   from = "/education"
@@ -269,35 +293,39 @@
   to = "/profile.html"
   status = 200
 
+# 2026-05-20: these six SEO landing routes used to rewrite (200) to
+# standalone .html files that no longer exist — every one was a 404
+# dead end. Repointed each to the closest live page as a 301 so any
+# external/indexed link lands somewhere intuitive instead of erroring.
 [[redirects]]
   from = "/debate-ai-tools"
-  to = "/debate-ai-tools.html"
-  status = 200
+  to = "/debate-ai"
+  status = 301
 
 [[redirects]]
   from = "/professional-home"
-  to = "/debateai-professional-home.html"
-  status = 200
+  to = "/pro"
+  status = 301
 
 [[redirects]]
   from = "/ai-debate-practice"
-  to = "/ai-debate-practice.html"
-  status = 200
+  to = "/debate-ai"
+  status = 301
 
 [[redirects]]
   from = "/debate-topic-generator"
-  to = "/debate-topic-generator.html"
-  status = 200
+  to = "/topics"
+  status = 301
 
 [[redirects]]
   from = "/debate-case-generator"
-  to = "/debate-case-generator.html"
-  status = 200
+  to = "/debate-ai"
+  status = 301
 
 [[redirects]]
   from = "/prediction-market-debate"
-  to = "/prediction-market-debate.html"
-  status = 200
+  to = "/landing"
+  status = 301
 
 [[redirects]]
   from = "/learn"
@@ -346,11 +374,10 @@
   to = "/terms.html"
   status = 200
 
-[[redirects]]
-  from = "/me"
-  to = "/me.html"
-  status = 200
-
+# 2026-05-20: removed the /me → /me.html rewrite. me.html doesn't exist,
+# and because this rule sat ABOVE the /me → /debate-ai redirect lower in
+# the file, Netlify matched it first and served a 404. Dropping it lets
+# the intended /me → /debate-ai (301) win.
 [[redirects]]
   from = "/admin-runner"
   to = "/admin-runner.html"
