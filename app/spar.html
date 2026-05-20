@@ -2003,6 +2003,47 @@ h1 em{color:var(--accent);font-style:normal}
     });
   }
 
+  // Open a DM thread given only the peer's uid (from a ?dm= deep link).
+  // Fetches the thread doc to recover the peer's display name + photo
+  // from participantInfo; falls back to a generic label if the thread
+  // doesn't exist yet or the read fails.
+  function openDmFromUid(peerUid){
+    if (!firebaseDb || !state.user || !peerUid) return;
+    var threadId = dmThreadId(state.user.uid, peerUid);
+    firebaseDb.collection('dm_threads').doc(threadId).get().then(function(doc){
+      var info = {};
+      if (doc.exists){
+        var d = doc.data() || {};
+        info = (d.participantInfo && d.participantInfo[peerUid]) || {};
+      }
+      openDMThread(peerUid, info.name || 'Debater', info.photo || '');
+    }).catch(function(){
+      openDMThread(peerUid, 'Debater', '');
+    });
+  }
+
+  // Calm center state for inbox deep-links: the user arrived to read a
+  // DM, so we show their messages + an explicit opt-in to matchmaking
+  // rather than auto-queueing them into a live round.
+  function renderInboxLanding(){
+    shell.innerHTML =
+      '<div class="gate">' +
+        '<div class="eyebrow"><span class="pip"></span>Sparring · Messages</div>' +
+        '<h2>Your messages</h2>' +
+        '<p>Pick up where you left off, or jump back into the matchmaking queue when you\'re ready to spar.</p>' +
+        '<button class="gate-google" id="inboxOpenBtn" type="button" style="margin-top:6px">Open inbox</button>' +
+        '<button class="ai-alt" id="inboxQueueBtn" type="button" style="background:none;border:none;cursor:pointer;font-family:inherit">Or find a sparring partner now →</button>' +
+      '</div>';
+    var openBtn = document.getElementById('inboxOpenBtn');
+    if (openBtn) openBtn.addEventListener('click', openInboxModal);
+    var queueBtn = document.getElementById('inboxQueueBtn');
+    if (queueBtn) queueBtn.addEventListener('click', function(){
+      // Strip ?dm so a refresh / re-auth doesn't bounce back to inbox.
+      try { history.replaceState(null, '', '/spar' + (formatParam ? ('?format=' + encodeURIComponent(formatParam)) : '')); } catch(e){}
+      joinQueue();
+    });
+  }
+
   // Generic modal helpers ────────────────────────────────
   function openModal(titleHtml, bodyHtml, footButtons){
     closeModal();
@@ -2058,7 +2099,17 @@ h1 em{color:var(--accent);font-style:normal}
       renderWaitlistContent();
       if (user){
         startInboxFeed();
-        joinQueue();
+        // Deep link from a DM notification (topbar bell / toast / OS
+        // notification → /spar?dm=<peerUid>). Open that thread instead
+        // of dumping the user straight into the matchmaking queue —
+        // they came to read a message, not to start a live round.
+        var dmPeer = qs.get('dm');
+        if (dmPeer && dmPeer !== user.uid){
+          renderInboxLanding();
+          openDmFromUid(dmPeer);
+        } else {
+          joinQueue();
+        }
       } else {
         if (wl.threadsUnsub){ try { wl.threadsUnsub(); } catch(e){} wl.threadsUnsub = null; }
         wl.threads = []; wl.unreadThreads = 0;
