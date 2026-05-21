@@ -169,7 +169,7 @@ function renderPage(champions) {
   };
 
   return `<!doctype html>
-<html lang="en"><head>
+<html lang="en" data-force-theme="crimson"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
