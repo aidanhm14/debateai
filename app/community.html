@@ -135,11 +135,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .hero p{font-size:clamp(.92rem,1.3vw,1.05rem);color:var(--text-dim);max-width:660px;margin:0 auto;line-height:1.6}
 .hero p strong{color:var(--text);font-weight:700}
 
-/* Members surface — auto-membership panel. Anyone who loads the site
-   is counted. The big number is the page-view metric reframed as
-   membership; the chip grid below shows the silent majority of
-   accounts that joined and don't post. The active competitors live
-   on /leaderboard and in the Cases tab. */
+/* Members surface — honest, dead-internet-framed panel. The big number
+   is the real site-open count from visitor-tick, labeled as traffic
+   (not members). The seeded human-name chip grid was removed 2026-05-21;
+   the panel now states the honest small community size + that anything
+   synthetic is labeled. See the strategy doc "Community & Dead Internet". */
 .members-surface{
   max-width:760px;margin:0 auto 22px;padding:18px 20px 16px;
   background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
@@ -170,6 +170,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   letter-spacing:.005em;
 }
 .members-foot strong{color:var(--text-dim);font-weight:700}
+.members-honest{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.members-honest p{margin:0;font-size:.8rem;line-height:1.55;color:var(--text-dim);font-weight:500}
+.members-honest strong{color:var(--text);font-weight:700}
+.ai-tag{display:inline-block;padding:1px 6px;border-radius:5px;background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.42);color:#f87171;font-size:.62rem;font-weight:800;letter-spacing:.06em;vertical-align:middle;text-transform:uppercase}
 .members-num.live{
   /* Subtle pulse when the live count overrides the baseline so the
      change isn't silent on a returning visitor refresh. */
@@ -513,25 +517,27 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <p>Two surfaces here, both still filling in. <strong>Cases</strong> are disclosures other debaters published; read, vote, import, riff off. <strong>Discussion</strong> is the threaded forum: ask a question, post a take, fight about a motion. Private prep stays private; only what people opt to publish appears here. What you contribute now is what someone else lands on tomorrow.</p>
   </div>
 
-  <!-- Members surface. Live MAU counter backed by /api/visitor-tick
-       (server-side atomic increment in Firestore). Baseline 7,074 in
-       data-baseline = May 2026 starting point; the live count drifts
-       up from there as new devices first-visit. The "MAU" framing is
-       intentional and gets unpacked in the body copy because most
-       non-product visitors don't know the term. The lurker chip grid
-       below shows the silent majority of joined accounts that haven't
-       run a public round yet; the thin band of actual competitors
-       lives on /leaderboard and in the Cases tab. -->
-  <section class="members-surface" aria-label="Members">
+  <!-- Members surface. Honest, dead-internet-framed panel (rewritten
+       2026-05-21). The live counter is /api/visitor-tick (server-side
+       atomic increment in Firestore) and is labeled for what it really
+       is: site-opens in 30 days, mostly a one-time ad burst, NOT members.
+       The old "monthly active members" headline + the seeded human-name
+       lurker grid were removed: presenting a traffic spike as members and
+       seeded handles as people is the exact dishonesty the community-
+       honesty strategy rules out. Copy follows that strategy doc's §6/§7:
+       honest counts, label the AI, explain why on a dead internet. -->
+  <section class="members-surface" aria-label="Who is actually here">
     <div class="members-stat">
       <div class="members-num" id="memberCount" data-baseline="7074">7,074</div>
-      <div class="members-label"><strong>monthly active members.</strong> anyone who loaded the site in the last 30 days is counted live.</div>
+      <div class="members-label"><strong>people opened the site in the last 30 days.</strong> that is a traffic number, not a crowd. a lot of it came from one ad burst, and most never came back.</div>
     </div>
-    <div class="members-you" id="memberYou">+ you, just now</div>
-    <div class="members-grid" id="memberGrid" aria-label="Joined accounts"></div>
-    <div class="members-tail" id="memberTail">most members don't post. that's normal.</div>
+    <div class="members-you" id="memberYou">+ you, here today</div>
+    <div class="members-honest">
+      <p><strong>The honest version.</strong> the community that actually sticks around is small and early. a few people a day, a few dozen a month. we would rather show you a half-built room with the lights on than fake a crowd.</p>
+      <p><strong>Some of what fills this place is AI, and we label it.</strong> to keep the boards from being an empty room while this is new, the AI seeds some cases and starts some threads. every one of those carries an <span class="ai-tag">AI</span> tag. the rest is real people. as more debaters show up, the AI steps back.</p>
+    </div>
     <div class="members-foot">
-      <strong>MAU</strong> = monthly active users. it's the standard product-analytics number. the count of distinct people who've used the site in the last 30 days. every product reports it, most never show it to users. this one does.
+      <strong>Why tell you any of this?</strong> over half of web traffic is bots now, and roughly a third of new web pages are machine-written. the scarce thing online isn't content, it's knowing who's real. so the rule here is simple: the numbers you see are the real ones, and anything synthetic is labeled. on a dead internet, that's the only honest way to build a living one.
     </div>
   </section>
 
@@ -1197,28 +1203,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   // no Firestore hit. Wrapped same as the other seed-init blocks so
   // a throw can't brick the page.
   try {
-    var memGrid = document.getElementById('memberGrid');
-    var memTail = document.getElementById('memberTail');
     var memYou  = document.getElementById('memberYou');
-    if (memGrid && window.DEBATEAI_SEED && typeof window.DEBATEAI_SEED.buildLurkerPool === 'function'){
-      var lurkers = window.DEBATEAI_SEED.buildLurkerPool(80) || [];
-      var visible = lurkers.slice(0, 28);
-      function escMem(s){
-        return String(s == null ? '' : s)
-          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-      }
-      memGrid.innerHTML = visible.map(function(p){
-        var name = p.displayName || '';
-        var anonish = (name === 'Anonymous' || name === '?' || name === '—');
-        return '<span class="members-chip' + (anonish ? ' anon' : '') + '">'
-          + escMem(name) + '</span>';
-      }).join('');
-      var more = Math.max(0, lurkers.length - visible.length);
-      if (memTail && more > 0){
-        memTail.textContent = '+ ' + more + ' silent. most members don’t post. that’s normal.';
-      }
-    }
+    // The seeded lurker-name grid + "N silent" tail were removed
+    // 2026-05-21: rendering synthetic human-passing handles as members is
+    // the exact dead-internet dishonesty the community-honesty strategy
+    // rules out. The panel now keeps only the real live counter + "+ you".
     // The "+ you" line. Read the localStorage flag the visitor-counter
     // module also reads/writes; if it's not present yet the counter
     // call below will set it. We only read here so the displayed line
@@ -1232,15 +1221,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         var parsed = parseInt(stored, 10) || Date.now();
         var days = Math.max(0, Math.floor((Date.now() - parsed) / (24*60*60*1000)));
         memYou.textContent = days < 1
-          ? '+ you, returning today'
-          : '+ you, member ' + days + 'd';
+          ? '+ you, back today'
+          : '+ you, ' + days + ' days in';
       } else {
         // Optimistic copy: visitor-counter.sync() writes the
         // localStorage flag and fires onCount on success. If the
         // counter call fails (no functions in local dev, network
         // blip in prod), this text stays in place rather than
         // sticking on a "joining…" pending state forever.
-        memYou.textContent = '+ you, just joined';
+        memYou.textContent = '+ you, here today';
       }
     }
 
@@ -1261,7 +1250,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
             memCount.classList.add('live');
           }
           if (ticked && memYou){
-            memYou.textContent = '+ you, just joined';
+            memYou.textContent = '+ you, here today';
           }
         }
       });
