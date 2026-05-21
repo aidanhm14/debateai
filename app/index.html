@@ -12446,64 +12446,6 @@ function FeedbackModal({ onClose, currentTab }) {
   );
 }
 
-function WelcomeGuide({ onClose, onNavigate }) {
-  var el = React.createElement;
-  var tools = [
-  { name: 'Voice round', desc: 'Live voice AI. Sub-200ms. 16 personas. Cut in mid-sentence. Voice-only rounds rank on the leaderboard.' },
-  { name: 'Debate AI', desc: 'Typed sparring across 10 formats \u2014 APDA, BP, WSDC, Asian Parli, LD, PF, Policy, Congress, MUN, Quick Clash.' },
-  { name: 'Live', desc: 'Find a partner, pick a side, run the clock. The AI writes a real Reason for Decision when the round ends. Lives at /live now, not as an in-app tab.' },
-  { name: 'Case Generator', desc: 'Enter any motion. Get a full structured case with contentions, warrants, and A2 blocks in under a minute.' },
-  { name: 'Case Feedback', desc: 'Paste a case, get a judge-level critique. Weak warrants, missing impacts, specific fixes.' },
-  { name: 'Community cases', desc: 'Read what other debaters argued on the same motions. Steal, fork, or rebut.' }];
-
-  return el('div', { className: 'guide-overlay', onClick: (e) => {if (e.target === e.currentTarget) onClose();} },
-  el('div', { className: 'guide-modal', role: 'dialog', 'aria-modal': true },
-  el('h2', null, 'Welcome to ', el('span', { className: 'accent' }, 'Debate AI')),
-  el('p', { className: 'guide-sub' }, 'A voice-first sparring partner with a judge that grades like a tournament. Four ways in:'),
-  el('div', { className: 'guide-step' },
-  el('div', { className: 'guide-step-num' }, '1'),
-  el('div', { className: 'guide-step-content' },
-  el('h3', null, 'Spar against the AI, typed'),
-  el('p', null, 'Open Debate AI, pick a format and motion, take a side. The AI argues the other side, format-accurate to APDA, BP, WSDC, LD, PF, Policy, and the rest. Get a judge ballot when the round ends.'),
-  onNavigate && el('button', { onClick: () => {onNavigate('battle');onClose();}, style: { marginTop: 8, padding: '6px 14px', background: '#ef444420', border: '1px solid #ef444440', borderRadius: 6, color: '#f87171', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer' } }, 'Open Debate AI \u2192')
-  )
-  ),
-  el('div', { className: 'guide-step' },
-  el('div', { className: 'guide-step-num' }, '2'),
-  el('div', { className: 'guide-step-content' },
-  el('h3', null, 'Or argue out loud'),
-  el('p', null, 'Voice Round runs over WebRTC at sub-200ms. Pick from 16 AI personas, cut in mid-sentence, take POIs in real time. Voice-only rounds are the ones that count for the leaderboard.'),
-  el('button', { onClick: () => {window.location.href = '/voice-debate';}, style: { marginTop: 8, padding: '6px 14px', background: '#ef444420', border: '1px solid #ef444440', borderRadius: 6, color: '#f87171', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer' } }, 'Open Voice \u2192')
-  )
-  ),
-  el('div', { className: 'guide-step' },
-  el('div', { className: 'guide-step-num' }, '3'),
-  el('div', { className: 'guide-step-content' },
-  el('h3', null, 'Debate a real human, AI judges'),
-  el('p', null, 'Live pairs you with another debater. Video room, live transcript, same AI ballot the leaderboard uses \u2014 Reason for Decision and speaker points are written the moment the round ends.'),
-  el('button', { onClick: () => {window.location.href = '/live';}, style: { marginTop: 8, padding: '6px 14px', background: '#ef444420', border: '1px solid #ef444440', borderRadius: 6, color: '#f87171', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer' } }, 'Open Live \u2192')
-  )
-  ),
-  el('div', { className: 'guide-step' },
-  el('div', { className: 'guide-step-num' }, '4'),
-  el('div', { className: 'guide-step-content' },
-  el('h3', null, 'Prep a case in 60 seconds'),
-  el('p', null, 'Type any motion, pick a side and depth, hit generate. You get a full structured case with contentions, warrants, and A2 blocks. Save it, then paste into Case Feedback for a critique before the round.'),
-  onNavigate && el('button', { onClick: () => {onNavigate('case');onClose();}, style: { marginTop: 8, padding: '6px 14px', background: '#ef444420', border: '1px solid #ef444440', borderRadius: 6, color: '#f87171', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer' } }, 'Open Case Gen \u2192')
-  )
-  ),
-  el('h3', { style: { color: '#e4e8f0', fontSize: '1rem', fontWeight: 700, marginBottom: '12px', marginTop: '8px' } }, 'Your toolkit'),
-  el('div', { className: 'guide-tools' },
-  tools.map((t, i) => el('div', { key: i, className: 'guide-tool' },
-  el('div', { className: 'gt-name' }, t.name),
-  el('div', { className: 'gt-desc' }, t.desc)
-  ))
-  ),
-  el('button', { className: 'guide-close', onClick: onClose }, 'Start debating')
-  )
-  );
-}
-
 /* ═══════════════════════════════════════════════════
    TEAM DASHBOARD. team management, billing, usage
    ═══════════════════════════════════════════════════ */
@@ -15504,9 +15446,6 @@ function App() {
   var [showAuth, setShowAuth] = useState(false);
   var [showStyleProfile, setShowStyleProfile] = useState(false);
   var [showSignUpNudge, setShowSignUpNudge] = useState(false);
-  var [showGuide, setShowGuide] = useState(() => {
-    try {return !localStorage.getItem('debateos-welcomed');} catch (e) {return true;}
-  });
   var [toast, setToast] = useState('');
   var [showFeedback, setShowFeedback] = useState(false);
   var [billingSuccess, setBillingSuccess] = useState(false);
@@ -15641,11 +15580,6 @@ function App() {
     });
     return () => unsub();
   }, [user]);
-
-  var closeGuide = useCallback(() => {
-    setShowGuide(false);
-    try {localStorage.setItem('debateos-welcomed', '1');} catch (e) {}
-  }, []);
 
   // Shared-case viewer (from ?share=<base64>)
   var [sharedCase, setSharedCase] = useState(() => {
@@ -15785,8 +15719,6 @@ function App() {
   // blocking anon use entirely, which made Firebase failures in Safari /
   // in-app browsers lock people out. Copy stays in git history if we ever
   // want to restore it.
-  showGuide && React.createElement(WelcomeGuide, { onClose: closeGuide, onNavigate: navigateTab }),
-  !showGuide && React.createElement('button', { className: 'guide-trigger', onClick: () => setShowGuide(true), title: 'How to use Debate AI', 'aria-label': 'Help guide' }, '?'),
   React.createElement('a', { className: 'feedback-trigger', href: 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', target: '_blank', rel: 'noopener noreferrer', title: 'Send feedback', 'aria-label': 'Send feedback' },
   React.createElement('span', { dangerouslySetInnerHTML: { __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>' } }),
   'Feedback'
