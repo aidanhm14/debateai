@@ -107,6 +107,21 @@ const URLS = [
   { path: '/topics/british-parliamentary',changefreq: 'monthly', priority: '0.85' },
   { path: '/topics/mun',                  changefreq: 'monthly', priority: '0.75' },
   { path: '/topics/apda',                 changefreq: 'monthly', priority: '0.85' },
+  // Issue-debate pages (/debate/{slug}). Two-sided sample AI debates on
+  // high-search-volume questions at the debate × AI/tech intersection.
+  // Each is an indexable, off-nav SEO landing whose only job is to rank
+  // for the question and funnel the reader into /debate-ai. Kept out of
+  // the topbar nav on purpose; discoverability is sitemap + the /debate
+  // hub's internal cross-links. Add new slugs here as the cluster grows.
+  { path: '/debate',                                          changefreq: 'weekly',  priority: '0.86' },
+  { path: '/debate/should-ai-be-regulated',                   changefreq: 'monthly', priority: '0.82' },
+  { path: '/debate/will-ai-replace-human-jobs',               changefreq: 'monthly', priority: '0.82' },
+  { path: '/debate/should-students-be-allowed-to-use-ai',     changefreq: 'monthly', priority: '0.82' },
+  { path: '/debate/should-ai-generated-art-be-copyrighted',   changefreq: 'monthly', priority: '0.82' },
+  { path: '/debate/should-the-us-ban-tiktok',                 changefreq: 'monthly', priority: '0.82' },
+  { path: '/debate/should-social-media-be-banned-for-minors', changefreq: 'monthly', priority: '0.80' },
+  { path: '/debate/universal-basic-income',                   changefreq: 'monthly', priority: '0.80' },
+  { path: '/debate/is-nuclear-energy-worth-it',               changefreq: 'monthly', priority: '0.80' },
   { path: '/india',           changefreq: 'monthly', priority: '0.90' },
   { path: '/us',              changefreq: 'monthly', priority: '0.85' },
   { path: '/report',          changefreq: 'monthly', priority: '0.60' },
