@@ -78,10 +78,23 @@
   // the audience-page redirects rather than top-nav real estate.
   // Pricing dropped because /pricing was unused after the canonical
   // pricing data moved into the FAQ + JSON-LD.
+  //
+  // 2026-05-18: Learn restored. The /learn surface has grown into a
+  // real educational hub (fundamentals + format references + 10
+  // long-tail guides + 4 education primers). It's now one of the
+  // strongest SEO surfaces on the site and needs first-class
+  // navigation, not footer-only access. Positioned between Prep
+  // (where users build cases) and Today (the daily motion) so it
+  // reads as the natural "before you compete, learn" entry point.
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
+    { href: '/app#case',      label: 'Prep'         },
+    { href: '/learn',         label: 'Learn'        },
     { href: '/today',         label: 'Today'        },
-    { href: '/rounds',        label: 'Rounds'       },
+    // 2026-05-18: /rounds standalone listing retired — the published-
+    // rounds tab now lives inside /community. The topbar already links
+    // to Community below, so a separate Rounds entry would just point
+    // to the same surface twice.
     { href: '/live',          label: 'Live', live: true },
     { href: '/champions',     label: 'Champions'    },
     { href: '/community',     label: 'Community'    },
@@ -124,15 +137,23 @@
         title: 'Back to home',
         html: '<span>Debate</span> AI.<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>',
       }),
+      // 2026-05-18: the "Beta · Updating daily" chip used to sit next to
+      // the wordmark on every page. It read as crowded chrome that
+      // pushed the nav links rightward without earning the pixels.
+      // Beta state still lives in the /pricing FAQ and the floating
+      // upgrade-cta pill; the topbar doesn't need to also pin it.
     ]);
 
     var right = el('div', { class: 'ui-topbar-right' });
     LINKS.forEach(function(L){
       var active = !L.external && pathMatches(L.href);
+      // No `title` on text links — the label is already visible, and the
+      // native tooltip just renders a dark box that floats over page
+      // content on hover (e.g. the "Live" chip overlapping the hero).
+      // Icon-only controls (SFX/theme/bell/CTA) keep their titles.
       var attrs = {
         href: L.href,
         class: 'ui-topbar-link' + (active ? ' is-active' : ''),
-        title: L.label,
       };
       // External links (YouTube demo, etc.) open in a new tab so the
       // user doesn't lose the page; rel=noopener prevents the popup
@@ -204,6 +225,12 @@
         '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>' +
       '</svg>';
     right.appendChild(themeBtn);
+
+    // DM notification bell is mounted by /js/notifications.js (a
+    // standalone module included site-wide, including on pages without
+    // this topbar). It inserts itself into .ui-topbar-right before the
+    // primary CTA. Kept out of here so there's a single source of truth
+    // for notifications and no risk of a duplicate bell.
 
     // Primary CTA is Voice AI everywhere — voice is the moat
     // against ChatGPT (real-time, sub-200ms, full interruption) and

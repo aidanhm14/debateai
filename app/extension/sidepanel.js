@@ -64,6 +64,35 @@ const STORAGE_KEYS = {
   mode: 'counter:mode',
   persona: 'counter:persona',
   recent: 'counter:recent',
+  counterIntensity: 'counter:intensity',
+  counterCardOpen: 'counter:card-open',
+  counterReader: 'counter:reader',
+  counterScope: 'counter:scope', // 'paragraph' | 'full-draft' (avoid clash w/ legacy 'mode')
+  counterTried: 'da-counter-tried', // '1' after first successful Counter run
+};
+
+// Sample passages for the first-use "Try with a sample" pill. Each one
+// is a real-shape paragraph the AI can produce a meaningful counter on.
+// Rotating through three keeps repeat first-use sessions from feeling
+// canned. Picked to span three of the reader-chip personas (admissions,
+// op-ed, debate case) so the user can also play with the reader picker.
+const SAMPLE_PASSAGES = [
+  // Admissions-essay-shaped paragraph. Common weak link: causation claim
+  // ("debate made me a better person") that's a correlation at best.
+  'Debate is what turned me into the kind of person who can lead. Before I started, I was the quiet kid in the back of the room. Now I can walk into any environment and make my case. That skill, more than anything else I learned in high school, is what I want to bring to college. It is the reason I can promise that I will contribute to seminars, dorm conversations, and student government from my first week on campus.',
+  // Op-ed-shaped paragraph. Weak link: the policy mechanism is hand-waved,
+  // and the counterfactual (what happens without the proposal) isn\'t drawn.
+  'The four-day work week is no longer a fringe idea. Iceland\'s trial showed productivity holding steady when hours dropped, and dozens of UK firms reported the same after the 2022 study. The case for adopting it nationally is now overwhelming: workers are healthier, families function better, and businesses find that focused work beats stretched-out work every time. The remaining holdouts are not defending a model that works; they are defending an attachment to the way things have always been done.',
+  // Debate-case-shaped paragraph (THBT motion style). Weak link: the
+  // burden ("most" / "in the long run") is doing a lot of unwarranted lift.
+  'This house believes that social media has done more harm than good. Our case rests on three pillars: it has destroyed teenage mental health, it has poisoned political discourse, and it has hollowed out local journalism. On each of these, the harm is structural and the benefit, where it exists, is individual and reversible. A teenager can quit Instagram; a generation cannot un-rewire its dopamine system. A reader can ignore Twitter; a democracy cannot un-radicalize itself once the algorithmic feedback loop has done its work.',
+];
+const VALID_READERS = new Set(['generic', 'admissions', 'oped', 'committee', 'opposing', 'vc', 'varsity']);
+const VALID_SCOPES = new Set(['paragraph', 'full-draft']);
+const COUNTER_CAPS = { paragraph: 12000, 'full-draft': 25000 };
+const COUNTER_PLACEHOLDERS = {
+  paragraph: 'Paste a paragraph of your argument…',
+  'full-draft': 'Paste the whole draft — Counter will find the weakest load-bearing claim across the entire thing.',
 };
 // examDate lives in chrome.storage.local (not localStorage) so the
 // background SW can read it for badge / notification logic — see
@@ -118,6 +147,20 @@ const els = {
   streakChip: document.getElementById('streakChip'),
   reloadBtn: document.getElementById('reload'),
   frame: document.getElementById('frame'),
+  // Counter-your-draft section
+  counterCard: document.getElementById('counterCard'),
+  counterToggle: document.getElementById('counterToggle'),
+  counterBody: document.getElementById('counterBody'),
+  counterPassage: document.getElementById('counterPassage'),
+  counterCount: document.getElementById('counterCount'),
+  counterRun: document.getElementById('counterRun'),
+  counterError: document.getElementById('counterError'),
+  counterResults: document.getElementById('counterResults'),
+  counterSample: document.getElementById('counterSample'),
+  readerChips: document.getElementById('readerChips'),
+  docStrip: document.getElementById('docStrip'),
+  docStripTitle: document.getElementById('docStripTitle'),
+  docStripPull: document.getElementById('docStripPull'),
   livepill: document.getElementById('livepill'),
   livepillLabel: document.getElementById('livepillLabel'),
   endDrillBtn: document.getElementById('endDrillBtn'),
@@ -170,6 +213,15 @@ const state = {
   // Last drill's failure mode — drives the sticky retry strip below
   // the topic field when a session bailed before going live.
   lastDrillFailed: false,
+  // Counter-your-draft sub-state. intensity / reader / scope persist via
+  // localStorage; pending is true while the agent is in flight; results
+  // holds the last successful response so re-opening the card mid-session
+  // doesn't wipe the rebuttals.
+  counterIntensity: 'firm',
+  counterReader: 'generic',
+  counterScope: 'paragraph',
+  counterPending: false,
+  counterResults: null,
 };
 
 // Anything we want to post before the iframe handshake completes.
@@ -509,6 +561,494 @@ els.startBtn?.addEventListener('click', () => {
   });
 });
 
+// ── Counter-your-draft (POST /api/counter-doc) ─────────────────────
+function setCounterOpen(open) {
+  const card = els.counterCard;
+  if (!card) return;
+  card.classList.toggle('is-open', !!open);
+  els.counterToggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  saveLocal(STORAGE_KEYS.counterCardOpen, open ? '1' : '0');
+  if (open) {
+    // Soft focus into the passage field, but only on user-initiated
+    // opens (skip the boot-time auto-restore that runs from localStorage).
+    if (els.counterPassage && document.activeElement !== els.counterPassage) {
+      // Defer so the chevron animation doesn't fight the focus ring.
+      setTimeout(() => els.counterPassage?.focus(), 160);
+    }
+  }
+}
+function updateCounterCount() {
+  const n = (els.counterPassage?.value || '').length;
+  const cap = COUNTER_CAPS[state.counterScope] || COUNTER_CAPS.paragraph;
+  if (els.counterCount) els.counterCount.textContent = `${n} / ${cap}`;
+  if (els.counterRun) {
+    els.counterRun.disabled = state.counterPending || (els.counterPassage?.value || '').trim().length < 40;
+  }
+  // Tighten the counter color as the user approaches the cap so an
+  // overlong full-draft paste doesn't silently fail at submit time.
+  if (els.counterCount) {
+    const pct = cap > 0 ? n / cap : 0;
+    els.counterCount.style.color = pct >= 0.95 ? '#fda4af'
+      : pct >= 0.8  ? '#f59e0b'
+      : '';
+  }
+}
+function setCounterIntensity(key) {
+  if (!['measured', 'firm', 'fierce'].includes(key)) return;
+  state.counterIntensity = key;
+  saveLocal(STORAGE_KEYS.counterIntensity, key);
+  if (!els.counterBody) return;
+  els.counterBody.querySelectorAll('.counter-card__intensity button').forEach((b) => {
+    const on = b.dataset.intensity === key;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+function setCounterReader(key) {
+  if (!VALID_READERS.has(key)) return;
+  state.counterReader = key;
+  saveLocal(STORAGE_KEYS.counterReader, key);
+  if (!els.readerChips) return;
+  els.readerChips.querySelectorAll('button').forEach((b) => {
+    const on = b.dataset.reader === key;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+function setCounterScope(key) {
+  if (!VALID_SCOPES.has(key)) return;
+  state.counterScope = key;
+  saveLocal(STORAGE_KEYS.counterScope, key);
+  // Update the maxlength + placeholder so the user sees the cap shift.
+  if (els.counterPassage) {
+    const cap = COUNTER_CAPS[key];
+    els.counterPassage.maxLength = cap;
+    els.counterPassage.placeholder = COUNTER_PLACEHOLDERS[key];
+  }
+  // Re-render the tab states.
+  document.querySelectorAll('.mode-tabs__btn').forEach((b) => {
+    const on = b.dataset.mode === key;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  // CTA copy adapts so the verb matches the scope.
+  const ctaLabel = document.querySelector('.counter-card__cta-label');
+  if (ctaLabel) ctaLabel.textContent = key === 'full-draft' ? 'Stress-test' : 'Counter';
+  const ctaTail = document.querySelector('.counter-card__cta--lg span:last-child');
+  if (ctaTail) {
+    // The CTA template is "<label> this argument". Swap suffix for full-draft.
+    ctaTail.innerHTML = key === 'full-draft'
+      ? '<span class="counter-card__cta-label">Stress-test</span> the whole draft'
+      : '<span class="counter-card__cta-label">Counter</span> this argument';
+  }
+  updateCounterCount();
+}
+// Doc-context strip. Asks background for the active-tab metadata; if
+// the tab is a Google Doc, render the strip with the title + a Pull
+// CTA. Otherwise hide the strip entirely.
+async function refreshDocStrip() {
+  if (!els.docStrip) return;
+  try {
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'docs-active-context' }, (response) => {
+        if (chrome.runtime.lastError) { resolve(null); return; }
+        resolve(response);
+      });
+    });
+    if (res?.isDoc) {
+      els.docStrip.hidden = false;
+      if (els.docStripTitle) {
+        const title = String(res.title || 'Untitled doc').slice(0, 60);
+        els.docStripTitle.textContent = title;
+        els.docStripTitle.title = res.title || '';
+      }
+    } else {
+      els.docStrip.hidden = true;
+    }
+  } catch (_) {
+    els.docStrip.hidden = true;
+  }
+}
+async function pullSelectionIntoCounter() {
+  if (!els.counterPassage) return;
+  if (els.docStripPull) {
+    els.docStripPull.disabled = true;
+    els.docStripPull.textContent = 'Pulling…';
+  }
+  try {
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'pull-last-selection' }, (response) => {
+        if (chrome.runtime.lastError) { resolve(null); return; }
+        resolve(response);
+      });
+    });
+    const text = String(res?.text || '').trim();
+    if (!text) {
+      showToast('Nothing to pull. Copy or select a paragraph in your Doc first.');
+      return;
+    }
+    const cap = COUNTER_CAPS[state.counterScope] || COUNTER_CAPS.paragraph;
+    els.counterPassage.value = text.slice(0, cap);
+    updateCounterCount();
+    els.counterPassage.focus();
+    try { SFX.captured(); } catch (_) {}
+  } finally {
+    if (els.docStripPull) {
+      els.docStripPull.disabled = false;
+      els.docStripPull.textContent = 'Pull selection ↓';
+    }
+  }
+}
+function showCounterError(msg) {
+  const el = els.counterError;
+  if (!el) return;
+  el.textContent = msg || '';
+  el.classList.toggle('is-shown', !!msg);
+}
+function setCounterLoading(loading) {
+  state.counterPending = !!loading;
+  els.counterCard?.classList.toggle('is-loading', state.counterPending);
+  if (els.counterRun) els.counterRun.disabled = state.counterPending;
+  updateCounterCount();
+}
+function renderCounterResults(data) {
+  const host = els.counterResults;
+  if (!host) return;
+  host.innerHTML = '';
+  if (!data) {
+    host.classList.remove('is-shown');
+    return;
+  }
+  host.classList.add('is-shown');
+
+  const thesis = document.createElement('div');
+  thesis.className = 'counter-results__thesis';
+  thesis.innerHTML = `<em>Your thesis, as I read it</em>${escapeHtml(data.thesis || '')}`;
+  host.appendChild(thesis);
+
+  const weakest = document.createElement('div');
+  weakest.className = 'counter-results__weakest';
+  weakest.innerHTML = `<em>Weakest load-bearing claim</em>${escapeHtml(data.weakestClaim || '')}`;
+  host.appendChild(weakest);
+
+  (data.rebuttals || []).forEach((r, idx) => {
+    const card = document.createElement('div');
+    card.className = 'rebuttal';
+    card.innerHTML =
+      `<span class="rebuttal__num">Rebuttal ${idx + 1}</span>` +
+      `<div class="rebuttal__claim">${escapeHtml(r.claim || '')}</div>` +
+      `<div class="rebuttal__line"><strong>Warrant</strong>${escapeHtml(r.warrant || '')}</div>` +
+      `<div class="rebuttal__line"><strong>Impact</strong>${escapeHtml(r.impact || '')}</div>` +
+      `<div class="rebuttal__actions">` +
+        `<button type="button" class="rebuttal__btn rebuttal__btn--primary" data-counter-drill="${idx}">Drill this in voice</button>` +
+        `<button type="button" class="rebuttal__btn" data-counter-copy="${idx}">Copy</button>` +
+      `</div>`;
+    host.appendChild(card);
+  });
+
+  if (data.examinersQuestion) {
+    const q = document.createElement('div');
+    q.className = 'counter-results__question';
+    q.innerHTML = `<em>The question to be ready for</em>${escapeHtml(data.examinersQuestion)}`;
+    host.appendChild(q);
+  }
+
+  if (data.drillTopic) {
+    const drill = document.createElement('div');
+    drill.className = 'counter-results__drill';
+    drill.innerHTML =
+      `<span class="counter-results__drill-topic" title="${escapeHtml(data.drillTopic)}">Drill: ${escapeHtml(data.drillTopic)}</span>` +
+      `<button type="button" class="counter-results__drill-cta" data-counter-drill="topic">Run as voice round</button>`;
+    host.appendChild(drill);
+  }
+
+  // "Drop all into your Doc" — closes the loop back to the page. Copies
+  // the whole rebuttal block (weakest claim + 3 rebuttals + the question)
+  // as one Docs-comment-shaped payload, then flashes the platform-aware
+  // shortcut so the user knows how to actually paste it as a comment
+  // (Docs: ⌘⌥M on Mac / Ctrl+Alt+M on Win). Without this CTA, the user
+  // had to manually copy each rebuttal one at a time (3+ clicks) then
+  // remember the comment-shortcut themselves. Three round-trips → one.
+  if ((data.rebuttals || []).length || data.examinersQuestion || data.weakestClaim) {
+    const drop = document.createElement('div');
+    drop.className = 'counter-results__drop';
+    drop.innerHTML =
+      `<span class="counter-results__drop-copy">` +
+        `<em>Take it back to your Doc</em>` +
+        `Drop the whole counter as a Docs comment.` +
+      `</span>` +
+      `<button type="button" class="counter-results__drop-cta" data-counter-drop="all">Copy as comment</button>`;
+    host.appendChild(drop);
+  }
+
+  // Action delegation. Each "Drill this" sets the topic to the rebuttal's
+  // claim (or the drillTopic for the bottom CTA), flips the panel to
+  // drilling, and hands the iframe an autoStart payload. Each "Copy" puts
+  // the rebuttal text on the clipboard so the user can paste it into the
+  // doc as a comment.
+  host.querySelectorAll('[data-counter-drill]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-counter-drill');
+      let topicText = '';
+      if (target === 'topic') {
+        topicText = String(data.drillTopic || '').trim();
+      } else {
+        const idx = Number(target);
+        const r = (data.rebuttals || [])[idx];
+        if (r) topicText = String(r.claim || '').trim();
+      }
+      if (!topicText) return;
+      setTopic(topicText.slice(0, 900));
+      setDrilling(true);
+      sendToIframe({
+        action: 'defend-this',
+        text: topicText,
+        mode: state.mode,
+        persona: state.persona,
+        autoStart: true,
+      });
+    });
+  });
+  host.querySelectorAll('[data-counter-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const idx = Number(btn.getAttribute('data-counter-copy'));
+      const r = (data.rebuttals || [])[idx];
+      if (!r) return;
+      const text = `Claim: ${r.claim}\nWarrant: ${r.warrant}\nImpact: ${r.impact}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Rebuttal copied.');
+      } catch (_) {
+        showToast('Copy blocked. Select the text manually.');
+      }
+    });
+  });
+  host.querySelectorAll('[data-counter-drop="all"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const text = formatCounterAsDocComment(data);
+      const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+      const hotkey = isMac ? '⌘ + Option + M' : 'Ctrl + Alt + M';
+      try {
+        await navigator.clipboard.writeText(text);
+        // Long toast — the keyboard hint is the whole point. 5.5s gives the
+        // user time to read it AND switch to the Docs tab before it fades.
+        showToast(`Copied. In your Doc, select the paragraph and press ${hotkey} to paste as a comment.`, 5500);
+        btn.textContent = '✓ Copied';
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.textContent = 'Copy as comment';
+          btn.disabled = false;
+        }, 4000);
+      } catch (_) {
+        showToast('Copy blocked. Select a rebuttal manually and ' + (isMac ? '⌘C' : 'Ctrl+C') + ' instead.', 5000);
+      }
+    });
+  });
+}
+
+// Build the all-rebuttals-in-one payload the "Copy as comment" CTA pastes
+// into a Google Docs comment. Docs comments display plain text with line
+// breaks honored; no real markdown rendering, so this is shaped to read
+// cleanly as plain text. Footer credits the extension so anyone viewing
+// the comment knows what produced it.
+function formatCounterAsDocComment(data) {
+  const lines = ['COUNTER · DEBATEAI'];
+  if (data.thesis) {
+    lines.push('', 'Your thesis as the AI read it:', data.thesis);
+  }
+  if (data.weakestClaim) {
+    lines.push('', 'Weakest load-bearing claim:', data.weakestClaim);
+  }
+  (data.rebuttals || []).forEach((r, idx) => {
+    lines.push('', `Rebuttal ${idx + 1}`);
+    if (r.claim) lines.push(`Claim: ${r.claim}`);
+    if (r.warrant) lines.push(`Warrant: ${r.warrant}`);
+    if (r.impact) lines.push(`Impact: ${r.impact}`);
+  });
+  if (data.examinersQuestion) {
+    lines.push('', 'The question to be ready for:', data.examinersQuestion);
+  }
+  lines.push('', '— via Counter for Google Docs (debateai.com/counter)');
+  return lines.join('\n');
+}
+// Timeout for the whole runCounter round-trip. Caps how long the spinner
+// can spin before we forcibly resolve + reset state. Long enough to let
+// Sonnet do real work (the upstream Anthropic call is ~6-15s typical,
+// up to 25s when slow), short enough that a silent hang doesn't trap
+// the user with a non-responsive button forever. Hitting this surfaces
+// the friendly "AI is having a moment" error so the user can retry.
+const COUNTER_TIMEOUT_MS = 45_000;
+
+async function runCounter() {
+  if (state.counterPending) return;
+  const passage = (els.counterPassage?.value || '').trim();
+  if (passage.length < 40) {
+    showCounterError('Paste a paragraph or longer.');
+    return;
+  }
+  showCounterError('');
+  setCounterLoading(true);
+  const startedAt = Date.now();
+  console.log('[counter] runCounter start', { passageLen: passage.length, mode: state.counterScope, reader: state.counterReader, intensity: state.counterIntensity });
+  try {
+    // Race the SW round-trip against a hard timeout. Whichever resolves
+    // first wins. Without this race, a SW that gets killed mid-fetch or
+    // a backend that hangs forever leaves the spinner spinning + state
+    // .counterPending stuck at true — every subsequent click becomes a
+    // silent no-op because of the early-return at the top of this fn.
+    const swPromise = new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        type: 'counter-passage',
+        passage,
+        intensity: state.counterIntensity,
+        reader: state.counterReader,
+        mode: state.counterScope,
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('[counter] chrome.runtime error:', chrome.runtime.lastError.message);
+          resolve({ error: chrome.runtime.lastError.message });
+          return;
+        }
+        console.log('[counter] SW responded in', Date.now() - startedAt, 'ms');
+        resolve(response || { error: 'no response' });
+      });
+    });
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => {
+        console.warn('[counter] timed out after', COUNTER_TIMEOUT_MS, 'ms');
+        resolve({ error: 'counter timeout: no response in ' + Math.round(COUNTER_TIMEOUT_MS / 1000) + 's' });
+      }, COUNTER_TIMEOUT_MS);
+    });
+    const res = await Promise.race([swPromise, timeoutPromise]);
+    if (res?.error) {
+      console.warn('[counter] error:', res.error, res.assistantMessage || '');
+      showCounterError(friendlyCounterError(res.error, res.assistantMessage));
+      return;
+    }
+    state.counterResults = res;
+    renderCounterResults(res);
+    // Mark the user as "has tried Counter" so the first-use sample pill
+    // stops showing. Only on success — a failed first attempt should
+    // keep the sample affordance visible.
+    try { localStorage.setItem(STORAGE_KEYS.counterTried, '1'); } catch (_) {}
+    renderSampleButton();
+    try { SFX.captured(); } catch (_) {}
+  } catch (e) {
+    // Unexpected throw — shouldn't normally hit this since the Promise
+    // resolves rather than rejects, but the catch is a final safety net
+    // so state.counterPending always gets cleared via finally.
+    console.error('[counter] unexpected throw:', e);
+    showCounterError(friendlyCounterError(String(e?.message || e), ''));
+  } finally {
+    setCounterLoading(false);
+  }
+}
+
+// Map raw backend error strings to actionable user-facing copy. Common
+// failure shapes from /api/counter-doc + the background SW:
+//   "anthropic upstream unreachable" / "anthropic 5xx"  -> AI flaky, retry
+//   "anthropic 401" / "auth"                            -> not signed in
+//   "anthropic 429" / "rate limit"                      -> slow down
+//   "passage too long"                                  -> switch mode / trim
+//   "app-check-failed"                                  -> reload Counter
+//   "Could not establish connection"                    -> network down
+//   "model returned"/"structured"/"unexpected shape"    -> AI hiccup, retry
+//   anything else                                       -> pass through, prefixed
+// `assistantMessage` is the bonus context the agent sometimes emits;
+// preserved in parens if friendly mapping kicked in, so power users
+// can still see the underlying signal.
+function friendlyCounterError(rawError, assistantMessage) {
+  const raw = String(rawError || '').toLowerCase();
+  const tail = assistantMessage ? ` (${String(assistantMessage).slice(0, 140)})` : '';
+  if (/passage is too short/i.test(rawError)) {
+    return 'Paste a paragraph or longer — Counter needs more to work with.';
+  }
+  if (/passage too long|trim to the relevant section/i.test(rawError)) {
+    return 'That\'s a long draft. Switch to "Whole draft" mode or trim to just the section you want countered.';
+  }
+  if (/app-check-failed/.test(raw)) {
+    return 'Browser security check failed. Hit ↻ at the top of Counter to reload, then try again.';
+  }
+  if (/anthropic 401|auth|sign[- ]?in|unauthor/.test(raw)) {
+    return 'Sign in at debateai.com first, then come back and hit Counter again.';
+  }
+  if (/anthropic 429|rate.?limit|too many/.test(raw)) {
+    return 'Slow down — Counter is rate-limited. Wait a minute and hit it again.';
+  }
+  if (/anthropic 5\d\d|upstream unreachable|anthropic timeout/.test(raw)) {
+    return 'AI is having a moment. Try again in a few seconds.' + tail;
+  }
+  if (/counter timeout|no response in/.test(raw)) {
+    return 'Counter took too long to respond. The AI may be slow right now — hit Counter again, or try a shorter paragraph.';
+  }
+  if (/could not establish connection|network|failed to fetch|err_network/.test(raw)) {
+    return 'Can\'t reach DebateAI. Check your connection, then hit Counter again.';
+  }
+  if (/model returned|unexpected shape|incomplete counter|malformed|structured/.test(raw)) {
+    return 'AI returned an unexpected response. Try a slightly different paragraph, or hit Counter again.' + tail;
+  }
+  if (/missing anthropic_api_key/i.test(rawError)) {
+    return 'Server is missing the AI key — this is on us, not you. Try again later or ping feedback@debateai.com.';
+  }
+  // Fall through: surface the raw error with a calm framing so it doesn't
+  // look like the extension crashed.
+  return `Counter ran into: ${rawError}.${tail} Try again or paste a different paragraph.`;
+}
+
+// Show / hide the first-use sample pill based on whether the user has
+// already run Counter at least once. Called from init + after a
+// successful run. The pill loads a random sample passage into the
+// textarea so first-timers can see Counter work without bringing their
+// own draft.
+function renderSampleButton() {
+  const btn = els.counterSample;
+  if (!btn) return;
+  let tried = false;
+  try { tried = localStorage.getItem(STORAGE_KEYS.counterTried) === '1'; } catch (_) {}
+  btn.hidden = tried;
+}
+els.counterSample?.addEventListener('click', () => {
+  if (!els.counterPassage) return;
+  const sample = SAMPLE_PASSAGES[Math.floor(Math.random() * SAMPLE_PASSAGES.length)];
+  els.counterPassage.value = sample;
+  els.counterPassage.focus();
+  // Move caret to end so the next keystroke appends rather than
+  // overwrites a selected block.
+  els.counterPassage.setSelectionRange(sample.length, sample.length);
+  updateCounterCount();
+  showCounterError('');
+  // Don't auto-run — let the user read the sample first + pick their
+  // reader/intensity. Just a gentle nudge.
+  showToast('Sample loaded. Tweak the reader/intensity, then hit "Counter this argument."', 4200);
+});
+
+els.counterToggle?.addEventListener('click', () => {
+  const open = !els.counterCard?.classList.contains('is-open');
+  setCounterOpen(open);
+});
+els.counterPassage?.addEventListener('input', () => {
+  updateCounterCount();
+  showCounterError('');
+});
+els.counterRun?.addEventListener('click', runCounter);
+els.counterBody?.addEventListener('click', (ev) => {
+  const t = ev.target;
+  if (!(t instanceof HTMLButtonElement)) return;
+  // Single delegated click handler for intensity / reader / mode chips.
+  if (t.dataset.intensity) { setCounterIntensity(t.dataset.intensity); return; }
+  if (t.dataset.reader)    { setCounterReader(t.dataset.reader);       return; }
+  if (t.dataset.mode)      { setCounterScope(t.dataset.mode);          return; }
+});
+els.docStripPull?.addEventListener('click', pullSelectionIntoCounter);
+// Cmd/Ctrl+Enter inside the textarea runs the counter — same shortcut as
+// many AI form patterns. Plain Enter inserts a newline (default behavior).
+els.counterPassage?.addEventListener('keydown', (ev) => {
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
+    ev.preventDefault();
+    runCounter();
+  }
+});
+
 // ── Pending action drain (from context menu / shortcut / pill) ─────
 async function drainPending() {
   try {
@@ -517,9 +1057,28 @@ async function drainPending() {
     await chrome.storage.session.remove(['pendingAction']);
     const text = String(pendingAction.text || '').trim();
     const action = pendingAction.action || 'quiz-me';
-    // Hint + topic prefilled regardless. Lint actions are no longer
-    // supported in this panel rebuild (the linter surface was a stale
-    // mode swap); fall through to a normal Quiz me with the passage.
+    // The 'counter-this' action goes to the native Counter-your-draft
+    // card instead of the voice round — prefill the passage, open the
+    // card, kick off the agent call. Everything else falls through to
+    // the voice round with the topic prefilled.
+    if (action === 'counter-this') {
+      if (text && els.counterPassage) {
+        els.counterPassage.value = text.slice(0, 12000);
+        updateCounterCount();
+      }
+      setCounterOpen(true);
+      if (els.hint) {
+        const preview = text.length > 56 ? text.slice(0, 53) + '…' : text;
+        els.hint.textContent = `Countering: "${preview}"`;
+      }
+      // Auto-run the agent — the user already picked the action; no
+      // reason to make them click again. The card surfaces loading state.
+      if (text && text.length >= 40) {
+        runCounter();
+      }
+      return;
+    }
+    // Hint + topic prefilled regardless.
     if (text) {
       setTopic(text.slice(0, 900));
       if (els.hint) {
@@ -695,12 +1254,12 @@ function renderRecent() {
   const list = els.recentList;
   const block = els.recentBlock;
   if (!list || !block) return;
+  // Recent-drills list is dormant in the Counter-primary surface — the
+  // setup card no longer renders it. The function stays so legacy call
+  // sites (drainPending, init) don't trip, but we don't toggle the
+  // onboard visibility off based on recent count anymore. The onboard
+  // hints (Google-Docs entry points) are always relevant.
   const items = readRecent();
-  // Onboarding card is the mirror image of recent: visible only while
-  // the user has no drills under their belt yet. Once they drill once,
-  // the recent list replaces it.
-  const onboard = document.getElementById('onboardBlock');
-  if (onboard) onboard.hidden = items.length > 0;
   if (items.length === 0) { block.hidden = true; return; }
   block.hidden = false;
   list.innerHTML = '';
@@ -960,6 +1519,37 @@ els.clearRecentBtn?.addEventListener('click', () => {
   renderRecent();
   refreshStreakChip();
   refreshExamline();
+
+  // Counter-your-draft restore. Intensity persists; card-open does NOT
+  // auto-restore on every boot (would steal vertical space from the
+  // primary Start-drill flow) unless the user explicitly opened it.
+  const savedIntensity = readLocal(STORAGE_KEYS.counterIntensity);
+  if (savedIntensity && ['measured', 'firm', 'fierce'].includes(savedIntensity)) {
+    state.counterIntensity = savedIntensity;
+  }
+  setCounterIntensity(state.counterIntensity);
+  // Reader + scope restore. Reader defaults to 'generic'; scope to
+  // 'paragraph'. Both persist across panel sessions.
+  const savedReader = readLocal(STORAGE_KEYS.counterReader);
+  if (savedReader && VALID_READERS.has(savedReader)) {
+    state.counterReader = savedReader;
+  }
+  setCounterReader(state.counterReader);
+  const savedScope = readLocal(STORAGE_KEYS.counterScope);
+  if (savedScope && VALID_SCOPES.has(savedScope)) {
+    state.counterScope = savedScope;
+  }
+  setCounterScope(state.counterScope);
+  updateCounterCount();
+  // First-use sample pill — hidden once the user has run Counter once.
+  renderSampleButton();
+  // Doc-context strip: ask the background SW whether the active tab is
+  // a Google Doc, render the title strip if so. Re-runs whenever the
+  // window regains focus so switching tabs picks up the new context.
+  refreshDocStrip();
+  window.addEventListener('focus', refreshDocStrip);
+  const wasOpen = readLocal(STORAGE_KEYS.counterCardOpen) === '1';
+  if (wasOpen) setCounterOpen(true);
   // Platform-correct shortcut in the onboarding card.
   const kbd = document.getElementById('onboardKbd');
   if (kbd) {

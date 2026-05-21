@@ -21,7 +21,7 @@
     appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
   };
   const SDK_VERSION = '10.7.1';
-  const PRICING_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform';
+  const PRICING_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform';
   const REFRESH_MS = 120_000; // Re-check team plan every 2 min.
   const DISMISS_HOURS = 24;   // Respect a dismiss for a day.
 
@@ -208,6 +208,15 @@
     const path = location.pathname;
     if (path === '/pricing' || path.endsWith('/pricing.html')) return;
     if (path === '/admin' || path.endsWith('/admin.html')) return;
+    // 2026-05-20: skip pages that already ship an inline floating Feedback
+    // button (.fb-floating / [data-open-feedback]). Post the 2026-05-14
+    // rename this pill's CTA is just "Feedback" → the Google form, i.e. a
+    // literal duplicate of that button, stacked in the same bottom-right
+    // corner. On debate-ai/high-school/landing/learn the inline button is
+    // the canonical one (it opens the in-page modal), so the pill is pure
+    // redundancy there. Pages without an inline Feedback button (changelog,
+    // /app index) still get this as their sole cap/feedback surface.
+    if (document.querySelector('.fb-floating, [data-open-feedback]')) return;
 
     await ensureFirebase();
     firebase.auth().onAuthStateChanged((user) => {

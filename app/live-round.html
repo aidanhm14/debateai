@@ -193,9 +193,17 @@ button{font-family:inherit}
   min-height:0;
 }
 @media(max-width:1000px){
-  .split{grid-template-columns:1fr;grid-template-rows:50% 50%}
+  /* 2026-05-18: was 50% 50% which fought with body{height:auto} and
+     ended up giving the video pane half the page and squishing the
+     speech UI into the bottom half (worse on phones where the
+     keyboard takes another 40% of the viewport mid-speech). New
+     ratio: video tile is a fixed compact pane up top, speech UI
+     flows naturally below and gets all the room it needs. */
+  .split{grid-template-columns:1fr;grid-template-rows:auto auto}
   body{height:auto;overflow:auto}
   html,body{height:auto;overflow:auto}
+  .jitsi-pane{height:34vh;max-height:320px;min-height:200px;padding:0}
+  .daily-frame{height:100%}
 }
 @media(max-width:560px){
   /* Trim the topbar padding + theme picker so the logo (which holds
@@ -205,6 +213,10 @@ button{font-family:inherit}
   .bar-meta{gap:8px}
   .theme-dots{padding:0 2px;gap:4px}
   .theme-dot{width:12px;height:12px;border-width:1px}
+  /* Phones get an even more compact video tile so the speech
+     transcript + Start/End buttons are visible without scrolling
+     past the iframe every time the user wants to act. */
+  .jitsi-pane{height:28vh;max-height:240px;min-height:170px}
 }
 @media(max-width:380px){
   /* Tightest phones: theme picker disappears so the bar fits cleanly.
@@ -350,9 +362,87 @@ button{font-family:inherit}
 }
 .speech-header .speaker-name{font-size:1.3rem;font-weight:900;letter-spacing:-.01em}
 .speech-header .speech-name{font-size:.86rem;color:var(--text-dim);font-weight:600}
+.speech-header .now-speaking-label{
+  font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-ghost);margin-right:4px;
+}
 .speech-header .speech-code{
   font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
   padding:3px 9px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--text);
+}
+/* In-round resolution + roster bar. Sits above the speech-header
+   so the motion stays visible while the speaker delivers, and the
+   two-card roster makes it unambiguous WHO is on WHICH side and
+   whose turn it is right now. */
+.round-motion-bar{
+  padding:14px 22px 12px;background:rgba(239,68,68,.04);
+  border-bottom:1px solid var(--border);
+}
+.round-motion-bar .rmb-eyebrow{
+  font-size:.55rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--text-ghost);
+  margin-bottom:4px;display:block;
+}
+.round-motion-bar .rmb-motion{
+  font-size:.96rem;font-weight:700;line-height:1.4;color:var(--text);
+}
+.round-roster{
+  display:flex;gap:10px;padding:12px 22px;
+  border-bottom:1px solid var(--border);
+}
+.roster-card{
+  flex:1;display:flex;align-items:center;gap:12px;
+  padding:10px 14px;border-radius:10px;
+  border:1px solid var(--border);background:rgba(255,255,255,.02);
+  transition:background .25s,border-color .25s,box-shadow .25s;
+  min-width:0;
+}
+.roster-card .rc-meta{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.roster-card .rc-eyebrow{
+  font-size:.55rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--text-ghost);
+}
+.roster-card .rc-name{
+  font-size:.86rem;font-weight:800;color:var(--text);line-height:1.2;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.roster-card .rc-side{
+  flex-shrink:0;
+  font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 10px;border-radius:999px;
+  background:rgba(255,255,255,.06);color:var(--text-dim);
+  border:1px solid var(--border);
+}
+.roster-card .rc-side.is-first-side{
+  background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.34);color:#4ade80;
+}
+.roster-card .rc-side.is-second-side{
+  background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.36);color:#fca5a5;
+}
+.roster-card .rc-active-dot{
+  flex-shrink:0;width:8px;height:8px;border-radius:50%;
+  background:transparent;transition:background .2s,box-shadow .2s;
+}
+.roster-card.is-active{
+  background:rgba(34,197,94,.06);border-color:rgba(34,197,94,.36);
+  box-shadow:0 0 0 1px rgba(34,197,94,.16);
+}
+.roster-card.is-active .rc-active-dot{
+  background:#22c55e;box-shadow:0 0 10px rgba(34,197,94,.6);
+  animation:rec-pulse 1.6s ease-in-out infinite;
+}
+.roster-card.is-you{
+  border-left:3px solid var(--accent);
+}
+.roster-card.is-you.is-active{
+  background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.40);
+  box-shadow:0 0 0 1px rgba(239,68,68,.20);
+}
+.roster-card.is-you.is-active .rc-active-dot{
+  background:var(--accent);box-shadow:0 0 10px rgba(239,68,68,.6);
+}
+@media (max-width:540px){
+  .round-roster{flex-direction:column;gap:8px}
 }
 
 .timer-row{
@@ -364,7 +454,22 @@ button{font-family:inherit}
 }
 .timer-num.warn{color:var(--amber)}
 .timer-num.over{color:var(--accent)}
-.timer-target{font-size:.74rem;color:var(--text-dim);font-weight:600}
+/* Auto-start handoff countdown — the big clock momentarily becomes the
+   3-2-1 readout so the back-and-forth feels like one continuous timing
+   experience instead of "small readyHint countdown → big clock starts."
+   Color flashes amber→red on each digit; no transform so the row
+   baseline doesn't jump while the digit changes. */
+.timer-num.countdown{
+  color:var(--accent);
+  animation:countdown-flash .9s ease-out;
+}
+@keyframes countdown-flash{
+  0%{color:var(--amber);text-shadow:0 0 24px rgba(245,158,11,.55),0 0 6px rgba(245,158,11,.4)}
+  60%{color:var(--accent);text-shadow:0 0 12px rgba(239,68,68,.35)}
+  100%{color:var(--accent);text-shadow:none}
+}
+.timer-target.dim{opacity:.3;transition:opacity .2s ease}
+.timer-target{font-size:.74rem;color:var(--text-dim);font-weight:600;transition:opacity .2s ease}
 .timer-progress{
   height:3px;background:rgba(255,255,255,.06);border-radius:2px;
   overflow:hidden;margin-top:8px;
@@ -451,6 +556,67 @@ button{font-family:inherit}
 .points-card .name{font-size:.7rem;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
 .points-card .pts{font-size:1.6rem;font-weight:900;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
 .points-card .pts-label{font-size:.62rem;color:var(--text-ghost);margin-top:4px;letter-spacing:.06em;text-transform:uppercase}
+
+/* Ballot reveal interstitial — lands between "ballot generated" and the
+   actual verdict so the room can pick instant / dramatic / read-aloud
+   instead of getting the result dumped on them. */
+.ballot-interstitial{
+  padding:48px 28px 36px;text-align:center;
+  background:linear-gradient(180deg, rgba(239,68,68,.06) 0%, rgba(255,255,255,0) 60%);
+}
+.ballot-interstitial .bi-eyebrow{
+  font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:14px;
+}
+.ballot-interstitial .bi-eyebrow::before{
+  content:'';display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 10px rgba(34,197,94,.7);
+  margin-right:8px;vertical-align:middle;
+  animation:pulse 1.6s ease-in-out infinite;
+}
+.ballot-interstitial .bi-headline{
+  font-size:1.7rem;font-weight:900;letter-spacing:-.01em;color:var(--text);
+  margin-bottom:8px;line-height:1.15;
+}
+.ballot-interstitial .bi-sub{
+  font-size:.86rem;color:var(--text-dim);line-height:1.55;
+  max-width:520px;margin:0 auto 26px;
+}
+.ballot-interstitial .bi-actions{
+  display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+}
+.ballot-interstitial .bi-actions .btn{
+  padding:13px 22px;font-size:.82rem;
+}
+.ballot-interstitial .bi-actions .btn-primary{
+  box-shadow:0 6px 24px rgba(239,68,68,.32);
+}
+.ballot-interstitial .bi-ghost{
+  margin-top:14px;font-size:.7rem;color:var(--text-ghost);letter-spacing:.04em;
+}
+.ballot-interstitial .bi-ghost button{
+  background:transparent;border:0;color:var(--text-dim);font-family:inherit;
+  font-size:inherit;letter-spacing:inherit;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px;padding:0;
+}
+.ballot-interstitial .bi-ghost button:hover{color:var(--text)}
+
+/* Staged reveal — when the user picks the dramatic-reveal mode, each
+   block slides up and fades in on a stagger so the room reads the
+   verdict beat-by-beat. Instant mode skips the .ballot-staged class
+   and the sections inherit no animation (default opacity:1). */
+.ballot-staged .ballot-section{
+  opacity:0;transform:translateY(10px);
+  animation:ballot-reveal-in .8s cubic-bezier(.2,.7,.2,1) forwards;
+}
+.ballot-staged .ballot-section[data-stage="0"]{animation-delay:.1s}
+.ballot-staged .ballot-section[data-stage="1"]{animation-delay:1.6s}
+.ballot-staged .ballot-section[data-stage="2"]{animation-delay:3.1s}
+.ballot-staged .ballot-section[data-stage="3"]{animation-delay:4.4s}
+@keyframes ballot-reveal-in{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
 
 .rfd{padding:0 22px 24px;font-size:.92rem;line-height:1.7;color:var(--text)}
 .rfd h3{font-size:.7rem;font-weight:800;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
@@ -630,7 +796,7 @@ button{font-family:inherit}
        vars missing). -->
   <div class="jitsi-pane" id="jitsiPane">
     <div class="call-card" id="callCard">
-      <div class="call-icon">📹</div>
+      <div class="call-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
       <div>
         <h2>Video room</h2>
         <div class="call-sub" id="callSub">Click <strong style="color:var(--text)">Start round</strong> in the panel to launch the embedded video room. Share this page's URL with your opponent, they'll land here too and join the same room.</div>
@@ -662,6 +828,9 @@ button{font-family:inherit}
       </div>
       <div class="panel-section">
         <div class="label">Speakers</div>
+        <!-- 2-side default. BP / Worlds rounds also expose four
+             team-name inputs (cgName / coName) which the setup logic
+             reveals when state.formatKey is a 4-team format. -->
         <div class="field">
           <label for="proName" id="proLabel">Pro speaker</label>
           <input id="proName" type="text" maxlength="40" placeholder="Name on the Pro/Aff side" />
@@ -669,6 +838,14 @@ button{font-family:inherit}
         <div class="field">
           <label for="conName" id="conLabel">Con speaker</label>
           <input id="conName" type="text" maxlength="40" placeholder="Name on the Con/Neg side" />
+        </div>
+        <div class="field" id="cgField" style="display:none">
+          <label for="cgName">Closing Government team</label>
+          <input id="cgName" type="text" maxlength="40" placeholder="MG + GW team" />
+        </div>
+        <div class="field" id="coField" style="display:none">
+          <label for="coName">Closing Opposition team</label>
+          <input id="coName" type="text" maxlength="40" placeholder="MO + OW team" />
         </div>
       </div>
       <div class="panel-section">
@@ -697,6 +874,28 @@ button{font-family:inherit}
 
     <!-- ── ROUND (active speech) ── -->
     <div id="roundView" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div class="round-motion-bar" id="roundMotionBar">
+        <span class="rmb-eyebrow">Resolution</span>
+        <div class="rmb-motion" id="rmbMotion">—</div>
+      </div>
+      <div class="round-roster" id="roundRoster">
+        <div class="roster-card" id="rosterYou">
+          <span class="rc-active-dot"></span>
+          <div class="rc-meta">
+            <span class="rc-eyebrow" id="rosterYouEyebrow">You</span>
+            <span class="rc-name" id="rosterYouName">—</span>
+          </div>
+          <span class="rc-side" id="rosterYouSide">—</span>
+        </div>
+        <div class="roster-card" id="rosterOpp">
+          <span class="rc-active-dot"></span>
+          <div class="rc-meta">
+            <span class="rc-eyebrow" id="rosterOppEyebrow">Opponent</span>
+            <span class="rc-name" id="rosterOppName">—</span>
+          </div>
+          <span class="rc-side" id="rosterOppSide">—</span>
+        </div>
+      </div>
       <div class="speech-header">
         <div class="speech-progress" id="speechProgress" style="font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim);opacity:.8;margin-bottom:6px">Speech 1 of 4 · then ballot</div>
         <div class="speaker-line">
@@ -704,6 +903,7 @@ button{font-family:inherit}
           <span class="speech-name" id="speechName">Speech</span>
         </div>
         <div class="speaker-line" style="margin-bottom:0">
+          <span class="now-speaking-label">Now speaking</span>
           <span class="speaker-name" id="speakerName">, </span>
           <span class="tag" id="speakerSide">, </span>
         </div>
@@ -781,25 +981,29 @@ button{font-family:inherit}
       { code:'LOR', name:'LO Rebuttal',        side:'opp', time:270 },
       { code:'PMR', name:'PM Rebuttal',        side:'gov', time:330 },
     ]},
-    bp: { name:'British Parliamentary', sides:['og','oo'], sideLabels:{og:'Opening Government',oo:'Opening Opposition'}, speeches:[
+    // BP / Worlds are 4-TEAM, not 2-side. MG/GW belong to Closing
+    // Government (CG), MO/OW belong to Closing Opposition (CO).
+    // Mis-tagging them as og/oo silently collapsed the format into a
+    // 1v1 — the judge could never separate OG from CG on the ballot.
+    bp: { name:'British Parliamentary', sides:['og','oo','cg','co'], sideLabels:{og:'Opening Government',oo:'Opening Opposition',cg:'Closing Government',co:'Closing Opposition'}, speeches:[
       { code:'PM',  name:'Prime Minister',           side:'og', time:420 },
       { code:'LO',  name:'Leader of Opposition',     side:'oo', time:420 },
       { code:'DPM', name:'Deputy Prime Minister',    side:'og', time:420 },
       { code:'DLO', name:'Deputy Leader of Opp',     side:'oo', time:420 },
-      { code:'MG',  name:'Member of Government',     side:'og', time:420 },
-      { code:'MO',  name:'Member of Opposition',     side:'oo', time:420 },
-      { code:'GW',  name:'Government Whip',          side:'og', time:420 },
-      { code:'OW',  name:'Opposition Whip',          side:'oo', time:420 },
+      { code:'MG',  name:'Member of Government',     side:'cg', time:420 },
+      { code:'MO',  name:'Member of Opposition',     side:'co', time:420 },
+      { code:'GW',  name:'Government Whip',          side:'cg', time:420 },
+      { code:'OW',  name:'Opposition Whip',          side:'co', time:420 },
     ]},
-    worlds: { name:'Worlds (WUDC)', sides:['og','oo'], sideLabels:{og:'Opening Government',oo:'Opening Opposition'}, speeches:[
+    worlds: { name:'Worlds (WUDC)', sides:['og','oo','cg','co'], sideLabels:{og:'Opening Government',oo:'Opening Opposition',cg:'Closing Government',co:'Closing Opposition'}, speeches:[
       { code:'PM',  name:'Prime Minister',           side:'og', time:420 },
       { code:'LO',  name:'Leader of Opposition',     side:'oo', time:420 },
       { code:'DPM', name:'Deputy Prime Minister',    side:'og', time:420 },
       { code:'DLO', name:'Deputy Leader of Opp',     side:'oo', time:420 },
-      { code:'MG',  name:'Member of Government',     side:'og', time:420 },
-      { code:'MO',  name:'Member of Opposition',     side:'oo', time:420 },
-      { code:'GW',  name:'Government Whip',          side:'og', time:420 },
-      { code:'OW',  name:'Opposition Whip',          side:'oo', time:420 },
+      { code:'MG',  name:'Member of Government',     side:'cg', time:420 },
+      { code:'MO',  name:'Member of Opposition',     side:'co', time:420 },
+      { code:'GW',  name:'Government Whip',          side:'cg', time:420 },
+      { code:'OW',  name:'Opposition Whip',          side:'co', time:420 },
     ]},
     asian: { name:'Asian Parliamentary', sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'}, speeches:[
       { code:'PM',  name:'Prime Minister',     side:'gov', time:420 },
@@ -861,6 +1065,144 @@ button{font-family:inherit}
     ]},
   };
 
+  // ── Bench projection. BP / Worlds have 4 sides (og/oo/cg/co) but the
+  // legacy UI is shaped around 2 (pro/con). sideBench maps any side
+  // key to the "gov bench" or "opp bench" so existing speaker-name
+  // routing keeps working. New 4-team ballot logic uses f.sides
+  // directly. govBench / oppBench return the list of sides on each
+  // bench — for a 2-side format that's just [side[0]] / [side[1]].
+  function sideBench(f, sideKey){
+    if (!f || !sideKey) return null;
+    if (['og','cg','gov','pro','aff'].indexOf(sideKey) >= 0) return 'gov';
+    if (['oo','co','opp','con','neg'].indexOf(sideKey) >= 0) return 'opp';
+    // Fallback: side[0] is gov bench, anything else is opp.
+    return sideBench(f, sideKey) === 'gov' ? 'gov' : 'opp';
+  }
+  function isFourTeam(f){ return f && Array.isArray(f.sides) && f.sides.length >= 4; }
+  function govSides(f){ return f.sides.filter(function(s){ return sideBench(f, s) === 'gov'; }); }
+  function oppSides(f){ return f.sides.filter(function(s){ return sideBench(f, s) === 'opp'; }); }
+
+  // ── JUDGE_RULES. Format-specific judging instincts the AI judge applies
+  // when writing the RFD. Mirrors the per-format authority in
+  // app/netlify/functions/lib/voice-guidelines.mjs, but viewed from the
+  // judge's chair rather than the debater's. Each block is 4-6 bullets of
+  // what is unique to THIS format — the generic "reward clash / penalize
+  // drops" block already lives in buildBallotPrompt and shouldn't be
+  // repeated here. If a format key is missing, buildBallotPrompt falls
+  // back to "<name> conventions apply" so an unknown key never breaks the
+  // ballot. Keep blocks terse and format-specific; this is the lens, not
+  // a textbook.
+  var JUDGE_RULES = {
+    apda: [
+      "- APDA is impromptu. Fabricated citations ('Smith 2022 finds...') are a strike against the debater, not a credit. General-knowledge claims ('studies generally show', 'the historical pattern') are the correct register.",
+      "- PMR is gov's last word: collapse + weigh, NO new arguments (except direct responses to MO/LOR). Penalize PMR that opens fresh offense.",
+      "- LOR is opp's last word: 3 voting issues, NO new arguments. Penalize new args in LOR.",
+      "- MG must spend the first 4 minutes ATTACKING LOC's off-case, not just defending PMC. A purely-defensive MG underperforms even when technically clean.",
+      "- Knifing your partner (contradicting their case) is a named, weighed penalty. Call it in the RFD if it happens.",
+      "- LOC structure: ~60s opp philosophy, 2-3 off-case arguments, then caseside responses. An LOC that ran only caseside responses is structurally incomplete; note it.",
+      "- TIGHT CALL ADJUDICATION (2026 canon): a tight case has no winnable, weighable path for Opp. Four sub-categories — truism / tautology / overwhelmingly strong / abusive. TIGHT ≠ HARD. If Opp called tight on a balanced motion they couldn't actually beat, penalize Opp for the lazy call. If Gov ran a genuinely tight case, drop Gov regardless of skill differential — that's the structural penalty.",
+      "- Final-speech signoff ('Proud to propose' / 'Proud to oppose') belongs ONLY in PMR / LOR. A constructive (PMC, LOC, MG, MO) closing on that phrase is a tell that the debater is mis-trained on APDA. Note in RFD.",
+    ],
+    bp: [
+      "- Rank ALL FOUR teams 1-2-3-4. You are not just picking a winning side — you are ordering the teams on each bench.",
+      "- Closing teams (Closing Gov / Closing Opp) must EXTEND with new analytical terrain — new actor, new timeframe, new impact LAYER. A new example does not count as extension. Closing without extension auto-ranks below their opening counterpart.",
+      "- VERTICAL EXTENSIONS are legitimate per the WUDC Manual: going DEEPER on the same end-conclusion with new analytical machinery (e.g., named-actor causal chain) counts as extension if it's more persuasive. Don't penalize a closing for not inventing a new actor.",
+      "- Whip speeches (GW / OW) are ADJUDICATION, not partner-recap. Global weighing structured by ISSUES ('Issue 1 — both teams said X, we win because Y'). A whip that narrates their partner's case loses to a whip that writes the ballot for the chair.",
+      "- Reward teams that paint BOTH counterfactual worlds — what happens if motion passes vs what happens if it fails (5-year horizon). Single-world cases underperform.",
+      "- OG without a clear MODEL (who does what, when, funded how, enforced how) loses the first burden — name this in the RFD.",
+      "- SOFIA 2026 MANUAL POI MANDATE: refusing POIs now docks speaker points and flips close calls. Giving + taking POIs count as role fulfillment for ALL speakers, not just substantives. A 7-min speech with 0 POIs taken is an automatic role-fulfillment dock unless time-pressed.",
+      "- SOFIA 2026 WHIP FLEXIBILITY: new matter in whip is no longer auto-discredited. Only discredit if the whip's new content 'significantly changes the direction of the case beyond reasonable prediction.' Reactive analytical reframings are now OK; wholly new contention is not.",
+      "- HALF-CALL diagonal comparison: judge must compare on every diagonal (CG vs OO; CO vs OG), not just within each bench. A closing speech that engages only its own opening is structurally incomplete.",
+    ],
+    worlds: [
+      "- All BP rules apply (4-team rank, extension, whip is adjudication, model in OG, Sofia 2026 POI mandate, vertical extensions valid).",
+      "- US-default examples flag regional narrowness. Reward international grounding — Indian SC cases (Navtej, Puttaswamy), African Union, ASEAN, Brazilian / Scandinavian / Japanese / Korean policy.",
+      "- 'Principled vs practical' split is canonical. A team that ran only principle without practical landing (or vice versa) loses to a team that ran both registers.",
+      "- Weighing vocabulary is 'reach, magnitude, probability, severity' (Worlds register), not the American 'magnitude, probability, timeframe, reversibility'. Note mismatches.",
+      "- FULL SPEAKER SCALE (Imperial calibration): 73-75 = simplistic but vulnerable; 76-78 = decent prelim; 79-82 = strong prelim / breaking-likely; 83-85 = bubble / break speech; 86-88 = clearly best in room; 89-91 = final-round level; 92+ = exceptional. Map the live-round 22-30 scale honestly. A '90+' on the parli scale should be reserved for the genuinely exceptional speech, not the merely-strong one.",
+      "- 2024-26 verified champions: Oxford A won Hanoi 2024, Dartmouth A (Lafferty + Wu) won Panama 2025, Sydney A (Story + Kamath) won Sofia 2026. Use these as benchmarks when calibrating elite-speech quality. (NOTE: WUDC 2026 was Sofia, NOT Belgrade — Belgrade was the 2022 virtual edition; don't confuse them.)",
+      "- MOTION-SHAPE specifics: THBT (value claim, often Gov-advantaged), THW (policy mandate, mechanism-heavy), THR (retrospective — lives or dies on the counterfactual painting), THS/THO (stance, looser mechanism), as-actor motions (require adopting the actor's institutional incentive structure — generic-agent argumentation underperforms).",
+    ],
+    wsdc: [
+      "- WSDC ≠ WUDC. WSDC is 3v3 school-age with mixed prepared/impromptu motions + a 4-min REPLY speech delivered by 1st OR 2nd speaker (NEVER 3rd / Whip). Opposition Reply first, Proposition Reply last.",
+      "- Scoring is 40 / 40 / 20 — Content (40%) + Style (40%) + Strategy (20%). Reading 'Content / Style / Strategy' on modern ballots, 'Matter / Manner / Method' on older Australian/British ballots — same 40/40/20 split. A speech with strong content but poor delivery LOSES to one with merely good content + clean delivery.",
+      "- 3rd speaker (Prop / Opp): NO new arguments. Engage clash-by-clash. Refute the opposing 2nd's practical argument. Penalize 3rd speakers who introduce fresh offense.",
+      "- Reply speech (4 min): BIASED ADJUDICATION. Identify 2-3 'key issues,' explain who won each, weigh globally. NO new arguments. A reply that recaps instead of adjudicating loses on Strategy score.",
+      "- POIs allowed between minute 1 and minute 7. Refusing all reads defensive; accepting more than 2 eats own time. Offering POIs is itself scored — judge tracks offers.",
+      "- CONFERRAL ADJUDICATION (post-2023 standard): judges briefly confer ~10-20 min after the round before each writes their own ballot. Splits are common (2024 GF was 7-2 Scotland vs Bulgaria; 2025 GF was 9-0 unanimous India vs Australia). Conferral exists to surface things one judge missed, NOT to force consensus.",
+      "- 2024-26 verified champions: Scotland won Belgrade 2024 (GF motion 'THR the glorification of champions'), INDIA won Panama 2025 9-0 over Australia — first India title since 2019. WSDC 2026 = Nairobi, Kenya (first African WSDC).",
+      "- Per-country house prints to recognize: Australia (dry, structurally clean, calm-legalistic), Singapore (BP-influenced, high-WPM tight mechanism), South Africa (rhetorically gorgeous, principle-heavy), India (novel framing + team coordination), Pakistan (tactical aggression on POIs), Scotland (methodical, ESU-trained).",
+      "- Speaker-score calibration: average competent = 70, good = 75, breaking = 78, best-speaker territory = 80+. Reply speeches: 35 average, 38 good, 40 ceiling. ESL/EFL scored on same scale but break computed within category.",
+    ],
+    asian: [
+      "- The REPLY speech is mandatory and biased — delivered by PM/DPM (gov) or LO/DLO (opp), NOT by the Whip. New arguments in reply are illegal. Opposition Reply goes FIRST, then Government Reply closes.",
+      "- Whips do rebuttal + extension-blocking, NOT global summary — that's the Reply's job. This is the key structural difference from BP. Penalize whips that abandoned rebuttal to do reply work.",
+      "- DEFINITIONAL DEBATE is accepted. ONLY the LO can challenge a definition. Required form: (1) explicit 'we are challenging the definition,' (2) name the basis — truistic / tautological / squirrel / unreasonable time-place set, (3) propose a reasonable counter-definition. If LO doesn't challenge in first 60s, PM's definition STANDS — DLO / OW cannot reopen it.",
+      "- Regional grounding (SG / PH / IN / HK / JP / KR / MY / BD examples) is a positive scoring signal.",
+      "- MATTER / MANNER / METHOD scoring split is 40 / 40 / 20 out of 100 for substantives, 20 / 20 / 10 out of 50 for replies. 75 = average competent; 80 = clearly strong; 83+ = breaking. Method specifically rewards 'winning exchanges' — naming and resolving the clashes the other side raised.",
+      "- UADC champions (2010-25) have come from Ateneo de Manila (5x), NUS (4x), NTU (3x). India has NEVER won UADC Open. Use these as elite-speech benchmarks; the 'Ateneo style' is dense paragraph-level analysis spending 60-90s on a single mechanism.",
+    ],
+    ld: [
+      "- Framework debate (value/criterion clash) is where most rounds are decided. Resolve framework BEFORE contention-level wins. Whichever value/criterion you pick controls how contentions get weighed.",
+      "- 2AR is the last word. Only 2-3 voters survive. Penalize 2AR that tries to extend everything.",
+      "- TRAD vs CIRCUIT — read the round context. If circuit-style (kritiks, theory shells, speed, openCaselist disclosure norms), evaluate on technical merit. If traditional / lay framing, prioritize values-clash wins, penalize jargon-dumping, and don't credit theory shells at all.",
+      "- Dropped arguments are CONCEDED — state explicitly which drops cost the round. NR drops in particular are decisive; the aff only has the 2AR after.",
+      "- Cross-ex concessions count if pulled forward in the next speech. Note the missed opportunity if a debater pinned the other in CX but never used it.",
+      "- THEORY SHELLS in circuit LD: interpretation + violation + standards (fairness / education / disclosure / predictability) + voters. Evaluate as a-priori when made and dropped. RVI claims are technical — if AFF/NEG defeats a shell, they win on the shell only when explicitly arguing RVI; otherwise they just neutralize it.",
+      "- LD SPEECH-TIME math is 6 / 3 / 7 / 4 / 6 / 3 (AC, CX, NC, CX, 1AR, NR, 2AR with the second CX at 3). 1AR is 4 minutes — the most compressed speech in any debate format. NEG block (NC + NR) = 7 + 6 = 13 min vs AFF 4-min 1AR. The structural inverse of policy's neg block. Calibrate expectations: a thin 1AR is structural, not lazy.",
+      "- PHILOSOPHER NAME-DROP without the work is the AC fingerprint of a confused debater. Reward 'Kant in Groundwork argues...' or 'Korsgaard in Sources of Normativity...'; penalize 'drawing from Rawls' with no specific text reference.",
+    ],
+    pf: [
+      "- Evidence retrievability is an NSDA rule. Power-tagging (claim went beyond what the source actually said) or fabricated authors is a strike — penalize.",
+      "- Summary is the pivot. What summary KEPT decides what Final Focus is allowed to argue. Penalize Final Focus that extends a contention the summary dropped.",
+      "- Lay-judge accessibility matters. Heavy jargon ('impact calc', 'cross-apply', 'framework', 'ballot story') underperforms in a format built for non-debate-trained judges. The 4-point judge spectrum is Lay → Flay → Flow → Tech; match jargon tolerance to the round context.",
+      "- Crossfire concessions count if pulled forward. Name the missed opportunity if a debater pinned the other on a key claim in CX and never used it later.",
+      "- Final Focus weighing language uses any of the 10 canonical mechanisms — scope, severity, reversibility, magnitude, probability, timeframe, urgency, prerequisite, link-in, short-circuit. A FF without explicit comparative weighing (named mechanism) loses to one with it, all else equal.",
+      "- FIRST-vs-SECOND ASYMMETRY: 1st rebuttal that frontlines its own case is structurally wrong — there's nothing to defend against yet. 1st rebuttal is pure attack; 2nd rebuttal MUST frontline + attack. 1st summary is the 'squeeze speech' (defend everything from 2nd rebuttal + extend offense + start weighing in 3 min). 1st final focus can introduce NEW weighing; 2nd FF cannot (and cannot introduce any new content). Penalize all violations.",
+      "- ISSUE SUMMARY format (modern circuit standard): group arguments into 2-3 categorical buckets ('the economic question,' 'the rights question'). Reward; penalize argument-by-argument summary that runs out of time.",
+      "- SPEAKER POINTS: 24.0-30.0 scale, norm 26-30. Below 25 = 'obnoxious or rude.' 30.0 reserved for 'best speaker you'll see in your lifetime.' Don't inflate.",
+    ],
+    policy: [
+      "- 2NR collapse is mandatory. Pick 1-2 positions and go deep; do not cover all 6-off. A 'go for everything' 2NR loses to a focused 2NR.",
+      "- Theory shells (condo bad, severance bad, T-violation) are a-priori voters when made and dropped — evaluate them BEFORE substance.",
+      "- Card tag accuracy matters. If a tag overclaimed what the evidence said, that's the team's loss on the flow.",
+      "- Drops are weighed only if the other team CALLED THEM. A dropped sub-point nobody extended is dead weight, not a voter.",
+      "- Speed and spread are NORMAL — but the '350-450 wpm' figure is a software-chart myth. Real fast college policy is 260-320 wpm (The 3NR 2021 study of NDT-final speakers). Don't penalize delivery; penalize unclear tag-lines, cards that weren't warranted in the speech, or 1AR coverage failures. A 290-wpm speaker with clear tagging beats a 320-wpm speaker who blurs tag-cite-body together.",
+      "- 'Ballot story' from 2NR/2AR — the 15-second 'why you vote our way' — should match the RFD. If neither team wrote a ballot story, build one and call out the absence.",
+      "- K-AFF vs T-FW: T-FW arguments turn on Limits / Ground / Clash / Fairness-as-intrinsic-good standards. K-aff answers include counter-interpretation, impact turns (fairness as violent — Reed-Veal / Spillers / Wilderson), TVA-fails, education turns. Evaluate the framework debate BEFORE the substantive K. A K-aff without a ROB framework loses to a T-FW press.",
+      "- ARCTIC topic (2025-26 HS) T-shells: T-Substantial (50%+ threshold), T-Exploration (target resources not pure research / military), T-Development (not sustainable / env), T-Its (federal-only — catches public-private partnership AFFs), T-Not-Military (military plans = effects-topical). T-Substantial is the most-read; T-Its is the sleeper.",
+      "- PERSONAL NARRATIVE K-AFFs (Binghamton 2025 NDT wedge): don't try to 'card-down' the narrative — that's the confused-policy-team tell. Engage the THEORETICAL CLAIM the narrative supports. Speakers who deliver personal narrative should sound like a person speaking, not a speech being read.",
+    ],
+    congress: [
+      "- RANK ALL participants in the chamber by individual speaker quality. Pro/Con winner is secondary to speaker ranking.",
+      "- THE SEVEN SPEECH POSITIONS are different jobs. Authorship / Sponsorship (introduces bill, manuscript reading OK), First Negation (opposition framework), Second Aff / Neg (REQUIRED new content), Mid-cycle (clash-and-extend referencing prior speakers by name), Crystallization (RESOLVES the debate by weighing — does NOT just summarize), Rebuttal/Closing. Penalize crystallization that summarizes without weighing.",
+      "- Late-round speeches (5th+) MUST bring new content or crystallize. Pure rehash of earlier speeches is a significant penalty.",
+      "- PRECEDENCE + RECENCY: the PO recognizes based on who hasn't spoken (precedence) and who spoke most recently (recency). A debater who games this well gets more speeches and ranks higher.",
+      "- Questioning periods score separately. Sharp, advancing questions get credit; gotcha aggression hurts speaker points.",
+      "- Style is heavily weighted: clarity, vocabulary, presence, extemporaneous polish. Reading from a script in a monotone is a floor, not a ceiling. Manuscript reading is ONLY acceptable on sponsorship.",
+      "- Authorship matters. Reps who clearly drafted the bill or did original research outperform reps who repeat surface analysis.",
+      "- PRESIDING OFFICER is RANKABLE alongside speakers. PO scoring rewards parliamentary knowledge, fair recognition (no favorites), control of the chamber, demeanor, communication. A good PO at NSDA Nationals gets 3-9 per hour and can rank #1 in the chamber if polished.",
+      "- DON'T fabricate bill numbers or statistics. Penalize fabrication if caught; reward verifiable real legislation references (H.R. 5376 = IRA 2022, H.R. 4521 = USICA).",
+    ],
+    mun: [
+      "- COMMITTEE TYPE determines the entire evaluation framework. GA / Standard committees (DISEC, ECOFIN, SOCHUM, SPECPOL, LEGAL, ECOSOC functionals) are slow + resolution-heavy, third-person speech, bloc work primary. Crisis committees (continuous, historical, future-set) are fast + directive-heavy, FIRST-person as assigned character, scored on directives + crisis-note arc + portfolio play. Specialized (UNHCR, WHO, IAEA, IMO, ITU, WTO) reward domain expertise and treaty-specific vocabulary. JCC (Joint Crisis) is two rival rooms — judge both inter-room diplomacy and intra-room politics.",
+      "- AWARD HIERARCHY: 1 Best Delegate / 1-2 Outstanding / 1-3 Honorable Mention / 1-2 Best Position Paper per committee. Best Delegate goes to the delegate who is best-researched + ran an effective bloc + wrote substantive clauses + spoke compellingly multiple times + drove the resolution forward + represented country accurately. NOT the loudest delegate. 'Power-dels' (aggression > substance) get downranked.",
+      "- POSITION PAPERS are graded at most major conferences (BMUN, HMUN, NHSMUN, NMUN, DAIMUN). Evaluate quality of country-position analysis + concrete proposed solutions + real treaty/resolution citations. Penalize invented UN resolution numbers or treaty articles.",
+      "- COUNTRY POSITION CONSTRAINTS: a North Korea delegate cannot strongly argue for human-rights enforcement; a Saudi delegate cannot strongly argue for domestic women's rights; a China delegate cannot vote for Taiwan recognition. Reward creative moves WITHIN real constraints; penalize delegates who abandon their assigned position.",
+      "- GA committees use 3rd person ('the delegate of France believes'); Crisis uses 1st person as character ('I will mobilize the second division'). Penalize 1st person in GA, 3rd person in Crisis — both break the simulation.",
+      "- Only the Security Council can 'decides' with binding force (Chapter VII). GA committees can only 'urges' / 'calls upon' / 'recommends.' Penalize delegates who treat GA resolutions as binding.",
+      "- UNMODERATED CAUCUS is where most Best Delegate work happens. Speeches alone don't win — bloc leadership, paper drafting, signatory recruitment do.",
+      "- Crisis specifics: crisis notes need who / what / where / when / why / how. Build a CRISIS ARC over multiple notes. Reward delegates who establish protection + funding early; penalize delegates who reveal their arc publicly (that's how opponents derail them). In JCC, ignoring the other room is fatal — penalize.",
+      "- The INDIA CIRCUIT (IIMUN, HMUN India, DAIMUN, Delhi MUN) uses a MORE FORMAL register than American MUN. 'Honorable Chair, the delegate of [country] would like to bring to the attention of the august committee...' is the norm. Calibrate accordingly.",
+    ],
+    quick: [
+      "- Casual 2-speech format. Plain English only — no debate jargon to evaluate.",
+      "- Reward: punch, named specifics, clean engagement with the other side.",
+      "- Penalize: throat-clearing, recap, generic moralizing, jargon imports from other formats.",
+      "- Speaker scale is 1-10 effort, not a debate-speaks scale. 6-8 typical; 9-10 is rare clean clash.",
+    ],
+  };
+
   // ── URL params. /live-round.html?motion=X&format=apda&pro=Alex&con=Bob&room=DebateAI-c123
   // Both /live.html (after accept) and direct links share the same shape so
   // a posted-then-accepted challenge lands here with everything prefilled.
@@ -873,6 +1215,11 @@ button{font-family:inherit}
     con:    qs.get('con')    || '',
     proUid: qs.get('proUid') || '',
     conUid: qs.get('conUid') || '',
+    // Explicit side hint from /live.html — survives anonymous users
+    // (no Firebase UID) and same-account-two-tabs testing where UID
+    // matching collapses both viewers onto one side. Empty string for
+    // spectators / direct-entry rounds; mySide() falls back to UID.
+    mySide: (qs.get('mySide') === 'pro' || qs.get('mySide') === 'con') ? qs.get('mySide') : '',
     room:   qs.get('room')   || ('DebateAI-Round-' + Math.random().toString(36).slice(2,10)),
     source: qs.get('source') || '',
   };
@@ -944,8 +1291,13 @@ button{font-family:inherit}
     motion: prefill.motion,
     proName: prefill.pro,
     conName: prefill.con,
+    // 4-team formats (BP / Worlds) carry team names for Closing Gov +
+    // Closing Opp. The 2-side path leaves these blank; the BP UI
+    // reveals two extra inputs and writes them in.
+    teamNames: { og: '', oo: '', cg: '', co: '' },
     proUid: prefill.proUid,
     conUid: prefill.conUid,
+    mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
     room: prefill.room,
     speechIdx: 0,
     log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, overran }
@@ -990,13 +1342,35 @@ button{font-family:inherit}
   function renderSetup(){
     var f = FORMATS[state.formatKey];
     $('motionDisplay').textContent = state.motion || '(no motion provided, paste one in via the URL or set it now)';
+    // For 4-team formats, render a chip per team (OG / OO / CG / CO).
+    // The 2-side formats keep the original pro/con chip pair.
+    var sideChips = isFourTeam(f)
+      ? f.sides.map(function(s){
+          var cls = sideBench(f, s) === 'gov' ? 'tag-pro' : 'tag-con';
+          return '<span class="tag ' + cls + '">' + escHtml(f.sideLabels[s]) + '</span>';
+        }).join('')
+      : '<span class="tag tag-pro">' + escHtml(f.sideLabels[f.sides[0]]) + '</span>'
+        + '<span class="tag tag-con">' + escHtml(f.sideLabels[f.sides[1]]) + '</span>';
     $('formatDisplay').innerHTML =
       '<span class="tag">' + escHtml(f.name) + '</span>' +
-      '<span class="tag tag-pro">' + escHtml(f.sideLabels[f.sides[0]]) + '</span>' +
-      '<span class="tag tag-con">' + escHtml(f.sideLabels[f.sides[1]]) + '</span>' +
+      sideChips +
       '<span class="tag">' + f.speeches.length + ' speech' + (f.speeches.length===1?'':'es') + '</span>';
-    $('proLabel').textContent = f.sideLabels[f.sides[0]] + ' speaker';
-    $('conLabel').textContent = f.sideLabels[f.sides[1]] + ' speaker';
+    // For 4-team formats, the existing pro/con inputs are repurposed
+    // as OG + OO; the CG / CO inputs below them are revealed via the
+    // styled fields. For 2-side formats, those fields stay hidden.
+    if (isFourTeam(f)){
+      $('proLabel').textContent = f.sideLabels.og + ' team';
+      $('conLabel').textContent = f.sideLabels.oo + ' team';
+      var cgF = $('cgField'), coF = $('coField');
+      if (cgF) cgF.style.display = '';
+      if (coF) coF.style.display = '';
+    } else {
+      $('proLabel').textContent = f.sideLabels[f.sides[0]] + ' speaker';
+      $('conLabel').textContent = f.sideLabels[f.sides[1]] + ' speaker';
+      var cgF2 = $('cgField'), coF2 = $('coField');
+      if (cgF2) cgF2.style.display = 'none';
+      if (coF2) coF2.style.display = 'none';
+    }
     $('proName').value = state.proName;
     $('conName').value = state.conName;
     $('formatSel').value = state.formatKey;
@@ -1005,7 +1379,7 @@ button{font-family:inherit}
     // Speech sequence preview
     var totalMin = Math.round(f.speeches.reduce(function(s,sp){return s+sp.time;},0)/60);
     var seq = f.speeches.map(function(sp){
-      var who = sp.side === f.sides[0] ? 'pro' : 'con';
+      var who = sideBench(f, sp.side) === 'gov' ? 'pro' : 'con';
       return '<span class="tag tag-' + who + '" style="margin:2px 4px 2px 0">' + escHtml(sp.code) + ' · ' + Math.round(sp.time/60*10)/10 + 'm</span>';
     }).join('');
     $('sequencePreview').innerHTML = seq + '<div style="margin-top:8px;color:var(--text-ghost)">Total: ~' + totalMin + ' minutes</div>';
@@ -1014,18 +1388,36 @@ button{font-family:inherit}
   }
 
   function updateStartBtn(){
+    var f = FORMATS[state.formatKey];
     var ok = state.motion.trim().length > 5
           && $('proName').value.trim().length > 0
           && $('conName').value.trim().length > 0;
+    // 4-team formats need all four team names before the round can start.
+    if (isFourTeam(f)){
+      var cg = $('cgName'), co = $('coName');
+      if (!cg || !cg.value.trim().length || !co || !co.value.trim().length) ok = false;
+    }
     $('startBtn').disabled = !ok;
   }
 
   // ── Round view rendering
-  // Identify which side this signed-in user is on. Uses proUid/conUid
-  // URL params (which /live.html populates from the challenge doc).
-  // null = unknown (e.g., direct entry from 'Debate a friend now'
-  // without a challenge backing) — turn gating disabled in that case.
+  // Identify which side this user is on. Prefers the explicit
+  // ?mySide=pro|con URL hint from /live.html (which knows who is
+  // poster vs accepter), then falls back to UID matching for legacy
+  // links. URL-hint path survives anonymous users and same-account
+  // two-tabs testing where UID matching collapses both viewers
+  // onto one side. null = unknown — turn gating disabled.
   function mySide(){
+    // Signed-in user whose UID matches a participant slot wins —
+    // covers the case where a shared participant URL is opened by
+    // someone NOT in the round (their hint says pro/con but their
+    // UID matches neither, so they're really a spectator).
+    if (state.user && state.proUid && state.conUid){
+      if (state.proUid === state.user.uid) return 'pro';
+      if (state.conUid === state.user.uid) return 'con';
+      return null; // signed in but in neither slot → spectator
+    }
+    if (state.mySideHint === 'pro' || state.mySideHint === 'con') return state.mySideHint;
     if (!state.user) return null;
     if (state.proUid && state.proUid === state.user.uid) return 'pro';
     if (state.conUid && state.conUid === state.user.uid) return 'con';
@@ -1055,7 +1447,7 @@ button{font-family:inherit}
     if (isSpectator()) return false;
     var ms = mySide();
     if (!ms) return true; // no UID mapping → don't gate
-    var spIsFirstSide = sp.side === f.sides[0];
+    var spIsFirstSide = sideBench(f, sp.side) === 'gov';
     return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
   }
 
@@ -1070,7 +1462,7 @@ button{font-family:inherit}
     var f = FORMATS[state.formatKey];
     var sp = f && f.speeches[state.speechIdx];
     if (!sp) return;
-    var isFirstSide = sp.side === f.sides[0];
+    var isFirstSide = sideBench(f, sp.side) === 'gov';
     var speakerName = isFirstSide ? state.proName : state.conName;
     var sideLabel = f.sideLabels[sp.side];
     var ms = mySide();
@@ -1107,7 +1499,7 @@ button{font-family:inherit}
     var sp = f.speeches[state.speechIdx];
     if (!sp){ finishRound(); return; }
     var sideKey = sp.side;
-    var isFirstSide = sideKey === f.sides[0];
+    var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = isFirstSide ? state.proName : state.conName;
     var sideLabel = f.sideLabels[sideKey];
 
@@ -1133,6 +1525,81 @@ button{font-family:inherit}
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
     sideTag.className = 'tag ' + (isFirstSide ? 'tag-pro' : 'tag-con');
+
+    // Motion bar — keep the resolution glance-visible during the
+    // round so the speaker doesn't have to leave the page to recall it.
+    var rmb = $('rmbMotion');
+    if (rmb) rmb.textContent = state.motion || '(motion not set)';
+
+    // Roster bar — left card is YOU, right card is OPPONENT, each
+    // tagged with their side. The currently-speaking card gets the
+    // pulsing dot + active highlight. For spectators / no-side-info
+    // rounds, the cards default to the format's first-side / second-side
+    // labels (no 'You'/'Opponent' framing).
+    var rYou = $('rosterYou');
+    var rOpp = $('rosterOpp');
+    if (rYou && rOpp){
+      var firstLabel = f.sideLabels[f.sides[0]];
+      var secondLabel = f.sideLabels[f.sides[1]];
+      var proName = state.proName || 'anonymous';
+      var conName = state.conName || 'anonymous';
+      var spIsFirstSide = sideBench(f, sp.side) === 'gov';
+      var rYouEy = $('rosterYouEyebrow');
+      var rYouNm = $('rosterYouName');
+      var rYouSd = $('rosterYouSide');
+      var rOppEy = $('rosterOppEyebrow');
+      var rOppNm = $('rosterOppName');
+      var rOppSd = $('rosterOppSide');
+
+      // Figure out which roster card represents the active speech's
+      // speaker, and which one represents the viewer (if any).
+      var youIsFirstSide; // is the left card on the first/pro side?
+      if (ms === 'pro' || (!ms && !spectator)){
+        // mySide=pro OR no side info at all → put first-side on the left
+        youIsFirstSide = true;
+        rYouEy.textContent = ms ? ('You · ' + firstLabel) : firstLabel;
+        rYouNm.textContent = proName;
+        rYouSd.textContent = firstLabel;
+        rYouSd.className = 'rc-side is-first-side';
+        rOppEy.textContent = ms ? ('Opponent · ' + secondLabel) : secondLabel;
+        rOppNm.textContent = conName;
+        rOppSd.textContent = secondLabel;
+        rOppSd.className = 'rc-side is-second-side';
+      } else if (ms === 'con'){
+        // mySide=con → put your side (second/con) on the left
+        youIsFirstSide = false;
+        rYouEy.textContent = 'You · ' + secondLabel;
+        rYouNm.textContent = conName;
+        rYouSd.textContent = secondLabel;
+        rYouSd.className = 'rc-side is-second-side';
+        rOppEy.textContent = 'Opponent · ' + firstLabel;
+        rOppNm.textContent = proName;
+        rOppSd.textContent = firstLabel;
+        rOppSd.className = 'rc-side is-first-side';
+      } else {
+        // Spectator — neutral roster, first-side on the left, no
+        // "You/Opponent" framing
+        youIsFirstSide = true;
+        rYouEy.textContent = firstLabel;
+        rYouNm.textContent = proName;
+        rYouSd.textContent = firstLabel;
+        rYouSd.className = 'rc-side is-first-side';
+        rOppEy.textContent = secondLabel;
+        rOppNm.textContent = conName;
+        rOppSd.textContent = secondLabel;
+        rOppSd.className = 'rc-side is-second-side';
+      }
+
+      // The left card represents the side that matches `youIsFirstSide`.
+      // Active card = whichever side the current speech belongs to.
+      var leftIsActive = (youIsFirstSide && spIsFirstSide) || (!youIsFirstSide && !spIsFirstSide);
+      rYou.classList.toggle('is-active', leftIsActive);
+      rOpp.classList.toggle('is-active', !leftIsActive);
+      // Only show the "is-you" emphasis when we actually know which
+      // card is the viewer's (i.e. mySide is set and not spectator).
+      rYou.classList.toggle('is-you', !!ms && !spectator);
+      rOpp.classList.remove('is-you'); // opponent card never gets the "is-you" emphasis
+    }
     $('timerTarget').textContent = '/ ' + fmtTime(sp.time);
     $('speechText').value = '';
     state.micFinal = '';
@@ -1210,9 +1677,94 @@ button{font-family:inherit}
     // already shown this index, so re-renders from snapshot updates
     // won't double-fire it.
     flashTurnOverlay();
+    // Auto-start countdown for turn handoffs. When the off-side becomes
+    // the active side mid-round (not the opener), count 3-2-1 then call
+    // startSpeechTimer which engages mic + clock — removes the dead-air
+    // beat between the previous End-speech and the new speaker actually
+    // being able to talk. Gated on: real two-player round (mySide set),
+    // not the first speech, autoMic pref on, mic supported, and ready
+    // state (the user hasn't already hit Start or paused). The token
+    // counter invalidates older countdowns when renderRound runs again.
+    scheduleAutoStart(myTurn, ms, spectator);
     // Sync the auto-mic toggle visibility/state — handles the case
     // where renderRound runs before the auto-mic init block.
     if (typeof syncAutoMicToggle === 'function') syncAutoMicToggle();
+  }
+
+  function scheduleAutoStart(myTurn, ms, spectator){
+    state.autoStartTokens = (state.autoStartTokens || 0) + 1;
+    // Clear any leftover countdown styling from a prior render so a
+    // ready-state speech doesn't carry over a flash class.
+    clearCountdownUi();
+    var ok = state.phase === 'round'
+      && state.speechIdx > 0
+      && myTurn
+      && !!ms
+      && !spectator
+      && !!state.autoMic
+      && state.micSupport && state.micSupport.available
+      && state.timerState === 'ready';
+    if (!ok) return;
+    var myToken = state.autoStartTokens;
+    var hintEl = $('readyHint');
+    var numEl = $('timerNum');
+    var targetEl = $('timerTarget');
+    function tick(remaining){
+      if (state.autoStartTokens !== myToken){ clearCountdownUi(); return; }
+      if (state.phase !== 'round'){ clearCountdownUi(); return; }
+      if (state.timerState !== 'ready'){ clearCountdownUi(); return; }
+      if (!isMyTurn()){ clearCountdownUi(); return; }
+      if (remaining <= 0){
+        // Clear the flash before startSpeechTimer's drawTimer paints the
+        // real elapsed value back into the same element.
+        clearCountdownUi();
+        startSpeechTimer();
+        return;
+      }
+      if (numEl){
+        // Force a reflow so the keyframe animation restarts cleanly on
+        // every digit change (otherwise the second/third tick reuses
+        // the prior animation cycle and looks static).
+        numEl.classList.remove('countdown');
+        // eslint-disable-next-line no-unused-expressions
+        void numEl.offsetWidth;
+        numEl.textContent = String(remaining);
+        numEl.classList.add('countdown');
+      }
+      if (targetEl) targetEl.classList.add('dim');
+      if (hintEl){
+        hintEl.innerHTML =
+          '<strong>Your turn.</strong> Mic + clock engage on <strong>0</strong>. ' +
+          '<button type="button" id="cancelAutoStartBtn" style="background:transparent;border:0;color:var(--amber);font-weight:700;font-size:.74rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:0 0 0 4px;text-decoration:underline;text-underline-offset:3px">Hold up</button>';
+        var cb = document.getElementById('cancelAutoStartBtn');
+        if (cb){
+          cb.addEventListener('click', function(){
+            state.autoStartTokens++;
+            clearCountdownUi();
+            if (hintEl){
+              hintEl.innerHTML = '<strong>Your turn.</strong> Hit <strong>▶ Start speech</strong> when you\'re ready.';
+            }
+            // Re-paint the static 0:00 / target readout that the
+            // countdown digits overwrote.
+            drawTimer();
+          });
+        }
+      }
+      setTimeout(function(){ tick(remaining - 1); }, 1000);
+    }
+    // 800ms head-start so the turn-change overlay reveal doesn't step
+    // on the first countdown digit.
+    setTimeout(function(){ tick(3); }, 800);
+  }
+
+  // Strip countdown styling off the big clock readout. Called from
+  // every countdown bail-out path so a cancelled/preempted countdown
+  // never leaves the timer-num stuck in a flash state.
+  function clearCountdownUi(){
+    var numEl = $('timerNum');
+    var targetEl = $('timerTarget');
+    if (numEl) numEl.classList.remove('countdown');
+    if (targetEl) targetEl.classList.remove('dim');
   }
 
   function renderSequence(){
@@ -1228,6 +1780,46 @@ button{font-family:inherit}
     var txt = $('speechText').value.trim();
     var n = txt ? txt.split(/\s+/).length : 0;
     $('wordCount').textContent = n + ' word' + (n===1?'':'s');
+    // Active speaker also pushes the live transcript so the off-side
+    // (and any spectators) see the speech stream in as it's spoken,
+    // not just a static "their turn" hint. Debounced; only fires when
+    // the text actually changed so a 7-min speech caps at ~600 writes
+    // even with the mic chattering.
+    schedulePublishLiveTranscript();
+  }
+
+  // Debounced live-transcript publisher. Writes
+  // currentTranscript: { speechIdx, text, updatedAtMs } onto the round
+  // doc so the off-side snapshot listener can mirror it into the
+  // disabled textarea. Off-side gating lives in onRoundSnapshot — we
+  // always publish from the active side regardless of who's reading.
+  var _liveTranscriptTimer = null;
+  var _lastPublishedTranscript = '';
+  function schedulePublishLiveTranscript(){
+    if (_liveTranscriptTimer) return;
+    _liveTranscriptTimer = setTimeout(function(){
+      _liveTranscriptTimer = null;
+      publishLiveTranscript();
+    }, 750);
+  }
+  function publishLiveTranscript(){
+    if (isSpectator()) return;
+    if (!isMyTurn()) return;
+    if (state.phase !== 'round') return;
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    // Cap to 8000 chars. A 7-min speech is ~1000 words ≈ 6KB so this is
+    // generous; the cap exists only to defang a paste-bomb DOS.
+    var text = ($('speechText').value || '').slice(0, 8000);
+    if (text === _lastPublishedTranscript) return;
+    _lastPublishedTranscript = text;
+    ref.set({
+      currentTranscript: {
+        speechIdx: state.speechIdx,
+        text: text,
+        updatedAtMs: Date.now(),
+      },
+    }, { merge: true }).catch(function(){});
   }
 
   // ── Timer (ready → running ↔ paused → ended)
@@ -1551,6 +2143,12 @@ button{font-family:inherit}
     }
     state.proName = $('proName').value.trim();
     state.conName = $('conName').value.trim();
+    if (!state.teamNames) state.teamNames = {};
+    state.teamNames.og = state.proName;
+    state.teamNames.oo = state.conName;
+    var cgEl = $('cgName'), coEl = $('coName');
+    state.teamNames.cg = cgEl ? cgEl.value.trim() : '';
+    state.teamNames.co = coEl ? coEl.value.trim() : '';
     state.formatKey = $('formatSel').value;
     state.speechIdx = 0;
     state.log = [];
@@ -1579,7 +2177,7 @@ button{font-family:inherit}
     stopTimer();
     setMicActive(false);
     var sideKey = sp.side;
-    var isFirstSide = sideKey === f.sides[0];
+    var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = isFirstSide ? state.proName : state.conName;
     var entry = {
       code: sp.code,
@@ -1594,11 +2192,17 @@ button{font-family:inherit}
     state.log.push(entry);
     state.speechIdx++;
     publishSpeech(entry);
-    // Clear the currentTimer mirror so the next speaker doesn't see
-    // the prior speech's elapsed value flash in for one snapshot tick
-    // before their own ready-state takes over.
+    // Clear the currentTimer + currentTranscript mirrors so the next
+    // speaker doesn't see the prior speech's elapsed value or transcript
+    // flash in for one snapshot tick before their own ready-state takes
+    // over.
     var ref = getRoundDocRef();
-    if (ref) ref.update({ currentTimer: firebase.firestore.FieldValue.delete() }).catch(function(){});
+    if (ref) ref.update({
+      currentTimer: firebase.firestore.FieldValue.delete(),
+      currentTranscript: firebase.firestore.FieldValue.delete(),
+    }).catch(function(){});
+    _lastPublishedTranscript = '';
+    if (_liveTranscriptTimer){ clearTimeout(_liveTranscriptTimer); _liveTranscriptTimer = null; }
     if (state.speechIdx >= f.speeches.length){
       finishRound();
     } else {
@@ -1636,14 +2240,86 @@ button{font-family:inherit}
   // schema-locked prompt asking for a JSON ballot keyed by speaker name.
   // Streamed because the upstream endpoint streams; we collect the chunks
   // and parse the JSON at the end.
+  // ── 4-team ballot prompt (BP / Worlds). Replaces the pro/con shape
+  // with a full 4-team ranking + per-seat speaker scores + per-team
+  // feedback. Bench-aware so MG/GW are correctly attributed to CG
+  // (not lumped with OG) and MO/OW to CO. The judge schema returns
+  // teamRanking[] (positions 1-4), speakerScores{} (one per speech
+  // code: PM/LO/DPM/DLO/MG/MO/GW/OW), winningBench (gov/opp), and
+  // teamFeedback{} keyed by side. parseBallot accepts both shapes.
+  function buildBpBallotPrompt(f, transcript){
+    var teamNamesLine = f.sides.map(function(s){
+      var label = f.sideLabels[s];
+      var nm = (state.teamNames && state.teamNames[s]) || (s === 'og' ? state.proName : s === 'oo' ? state.conName : '');
+      return label + (nm ? ' = ' + nm : '');
+    }).join('\n');
+
+    var system = [
+      "You are a tournament-grade " + f.name + " judge adjudicating a FOUR-TEAM round. Eight speakers across four teams just finished. You are not picking a winning side — you are ORDERING THE TEAMS 1-2-3-4. Be honest, specific, rigorous, and DEEP — these are real debaters paying for tournament-grade adjudication.",
+      "",
+      "BP/WUDC JUDGING APPROACH:",
+      "- Rank all four teams 1-2-3-4 by total contribution to the debate. The top team had the most persuasive case + extensions + engagement; the bottom team did the least.",
+      "- Closing teams (CG and CO) had to EXTEND with new analytical terrain — new actor, new timeframe, or new impact LAYER (not a new example, not just a recap of their opening). Vertical extensions (going deeper on the same end-conclusion via new analytical machinery) are LEGITIMATE per the WUDC Manual.",
+      "- Whip speeches (GW / OW) are ADJUDICATION, not partner-recap. Global weighing by ISSUE. A whip that narrates their partner's case loses to a whip that writes the ballot for the chair.",
+      "- HALF-CALL diagonal comparison: judge OG vs CO and CG vs OO, not just within each bench. A closing speech that engaged only its opening underperforms.",
+      "- SOFIA 2026 MANUAL: POIs are MANDATORY. 0 POIs taken in a 7-min speech is an automatic role-fulfillment dock. Whip-flexibility: new analytical reframings are now OK, wholly new contentions are not.",
+      "- OG without a clear MODEL (who does what, when, funded how, enforced how) loses the first burden — name this in the RFD.",
+      "",
+      "FORMAT RULES — judge through this lens:",
+      ...(JUDGE_RULES[state.formatKey] || []),
+      "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END): WUDC Imperial 50-100 — 60-65 incoherent, 67 struggling, 70 below average, 73 average (no weighing), 75 good (real warrants), 77-78 excellent (would break at most tournaments), 80 top-of-field, 85+ essentially never given. DEFAULT TO 73-76. If a speaker dropped a contention, gave 0 POIs, used generic LLM phrasing, or never warranted a key claim, score them 71 or below. Do NOT cluster speakers at 78+ to be encouraging.",
+      "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
+      "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
+      "",
+      "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
+      "{",
+      '  "format": "bp",',
+      '  "teamRanking": [',
+      '    { "rank": 1, "side": "og" | "oo" | "cg" | "co", "label": "<Opening Government | …>", "summary": "<one sentence on why they took 1st>" },',
+      '    { "rank": 2, "side": "...", "label": "...", "summary": "..." },',
+      '    { "rank": 3, "side": "...", "label": "...", "summary": "..." },',
+      '    { "rank": 4, "side": "...", "label": "...", "summary": "..." }',
+      '  ],',
+      '  "speakerScores": { "PM": <num>, "LO": <num>, "DPM": <num>, "DLO": <num>, "MG": <num>, "MO": <num>, "GW": <num>, "OW": <num> },',
+      '  "winningBench": "gov" | "opp",',
+      '  "rfd": "<10–18 sentence RFD. Lead with the 1st-place team and why. Walk OG-vs-CG (gov bench order) and OO-vs-CO (opp bench order) explicitly — explain whether each closing extended legitimately or got under-cut. Do half-call diagonal comparison (CG vs OO; CO vs OG). Name dropped arguments. Do weighing: magnitude vs probability vs timeframe. Quote specific lines from the transcript.>",',
+      '  "teamFeedback": {',
+      '    "og": "<3–5 sentences for Opening Government: what their model + opening case did right, what they could have done to beat CG, one concrete fix.>",',
+      '    "oo": "<same for Opening Opposition>",',
+      '    "cg": "<same for Closing Government: did the extension land? Was the GW global weighing or partner-recap?>",',
+      '    "co": "<same for Closing Opposition>"',
+      '  }',
+      "}",
+      "",
+      "Be specific to what was said. Quote-style references are great. Do not be sycophantic — call out drops, missed weighing, weak extensions, and failed whips. If a closing team had no real extension, drop them below their opening regardless of skill differential.",
+    ].join('\n');
+
+    var user = "MOTION: " + state.motion + "\n\nFORMAT: " + f.name + "\n\nTEAMS:\n" + teamNamesLine
+      + "\n\nFULL ROUND TRANSCRIPT:\n\n" + transcript
+      + "\n\nReturn the JSON ballot now. The teamRanking array MUST contain exactly 4 entries with ranks 1, 2, 3, 4 and unique side values from og/oo/cg/co.";
+
+    return { system: system, user: user };
+  }
+
   function buildBallotPrompt(){
     var f = FORMATS[state.formatKey];
     var transcript = state.log.map(function(l){
+      // For 4-team formats the side label IS the team identifier
+      // ("Closing Government" vs "Opening Government") so MG/GW don't
+      // get mis-tagged as OG speeches in the judge's transcript.
       return '[' + l.code + ' · ' + l.speakerName + ' (' + f.sideLabels[l.side] + ')]'
         + (l.overran ? ' [OVERRAN]' : '')
         + (l.skipped ? ' [SKIPPED]' : '')
         + '\n' + l.text;
     }).join('\n\n');
+
+    // 4-team formats (BP / Worlds) take a totally different ballot
+    // shape: rank ALL FOUR teams 1-2-3-4, speaker scores per seat,
+    // per-team feedback. The 2-side path below is left untouched for
+    // APDA / PF / LD / Policy / Congress / Quick.
+    if (isFourTeam(f)){
+      return buildBpBallotPrompt(f, transcript);
+    }
 
     var system = [
       "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP — these are real debaters paying for tournament-grade adjudication. A shallow ballot wastes their round.",
@@ -1658,6 +2334,7 @@ button{font-family:inherit}
       "",
       "FORMAT RULES — judge through this lens:",
       "- " + f.name + " conventions apply. The speech sequence is fixed and the speakers ran it.",
+      ...(JUDGE_RULES[state.formatKey] || []),
       "- Reward: clash, weighing, warranted analysis, format-appropriate strategic choices, clear ballot stories.",
       "- Penalize: dropped arguments, unweighed contradictions, abandoning offense, jargon without warrant, no engagement with the other side.",
       "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END — the leaderboard has been inflated because every AI defaults to 28+; recalibrate):",
@@ -1783,6 +2460,18 @@ button{font-family:inherit}
     if (first < 0 || last <= first) return null;
     try {
       var obj = JSON.parse(inner.slice(first, last + 1));
+      // 4-team (BP/Worlds) ballot. Validate the shape; derive a synthetic
+      // `winner` (gov|opp) from the top-ranked team so downstream code
+      // that wants a "did pro win?" answer still has something.
+      if (Array.isArray(obj.teamRanking) && obj.teamRanking.length === 4){
+        obj.format = obj.format || 'bp';
+        var top = obj.teamRanking[0] || {};
+        var topSide = String(top.side || '').toLowerCase();
+        obj.winningBench = String(obj.winningBench || sideBench({sides:['og','oo','cg','co']}, topSide) || 'gov').toLowerCase();
+        obj.winner = obj.winningBench === 'gov' ? 'pro' : 'con';
+        return obj;
+      }
+      // Legacy 2-side ballot.
       obj.winner = String(obj.winner || '').toLowerCase();
       if (obj.winner !== 'pro' && obj.winner !== 'con') return null;
       return obj;
@@ -1881,12 +2570,288 @@ button{font-family:inherit}
     else s.textContent = '';
   }
 
+  // Build the script the AI judge reads aloud. Keeps it tight — verdict
+  // + two-sentence frame + the RFD. We deliberately drop the per-speaker
+  // feedback so the audio doesn't run 4 minutes; readers can scroll for
+  // the rest.
+  function buildBallotReadAloudScript(b){
+    var f = FORMATS[state.formatKey];
+    var winnerName = b.winner === 'pro' ? state.proName : state.conName;
+    var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
+    var rfd = (b.rfd || '').trim();
+    var lines = [
+      'Ballot.',
+      'After hearing both sides, the round goes to ' + (winnerName || winnerSide) + ' on ' + winnerSide + '.',
+    ];
+    if (rfd) lines.push('Reason for decision. ' + rfd);
+    return lines.join(' ');
+  }
+
+  // Stream the verdict + RFD through /api/tts and play it back. Uses
+  // the professor persona (closest match to a measured tournament-
+  // judge cadence). Free-tier OpenAI gpt-4o-mini-tts by default; the
+  // server picks ElevenLabs automatically for paid users via the
+  // shared TTS routing.
+  function startBallotReadAloud(b){
+    // Tear down any prior audio so re-entering this function never
+    // stacks two judge voices.
+    stopBallotReadAloud();
+    var text = buildBallotReadAloudScript(b);
+    if (!text || text.length < 4){ console.warn('[read-aloud] empty script'); return; }
+    fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text,
+        voice: 'professor',
+        intensity: 0.35,
+        speed: 1,
+        // No premium flag — the TTS function defaults to the free
+        // OpenAI path which is fine here. Paid users get ElevenLabs
+        // routing automatically server-side.
+      }),
+    }).then(function(r){
+      if (!r.ok) return r.text().then(function(t){
+        throw new Error('TTS ' + r.status + ': ' + (t || '').slice(0, 200));
+      });
+      return r.blob();
+    }).then(function(blob){
+      if (!blob) return;
+      var url = URL.createObjectURL(blob);
+      var audio = new Audio(url);
+      audio.preload = 'auto';
+      audio.addEventListener('ended', function(){
+        try { URL.revokeObjectURL(url); } catch(e){}
+        state.ballotAudio = null;
+        renderBallotAudioControl();
+      });
+      state.ballotAudio = audio;
+      state.ballotAudioUrl = url;
+      // Play in the same tick the blob lands so the audio starts
+      // near the stage-0 verdict reveal. Browsers may block autoplay
+      // without a recent gesture — but the user just clicked
+      // "Read aloud" so we have a fresh gesture.
+      audio.play().catch(function(err){
+        console.warn('[read-aloud] autoplay blocked', err);
+        toast('Tap the speaker icon to play the verdict.');
+      });
+      renderBallotAudioControl();
+      try { gtag('event', 'ballot_read_aloud_play', { format: state.formatKey }); } catch(e){}
+    }).catch(function(err){
+      console.warn('[read-aloud] tts failed', err);
+      toast('Read-aloud failed. The verdict is below.');
+    });
+  }
+
+  function stopBallotReadAloud(){
+    var a = state.ballotAudio;
+    if (a){ try { a.pause(); } catch(e){} }
+    if (state.ballotAudioUrl){ try { URL.revokeObjectURL(state.ballotAudioUrl); } catch(e){} }
+    state.ballotAudio = null;
+    state.ballotAudioUrl = null;
+    renderBallotAudioControl();
+  }
+
+  // Floating audio control while the verdict plays. Lets the user
+  // pause or skip the read-aloud — important for re-listens (the
+  // ballot stays visible after audio ends), and for users whose
+  // device doesn't allow autoplay.
+  function renderBallotAudioControl(){
+    var existing = document.getElementById('ballotAudioCtrl');
+    if (existing) existing.remove();
+    if (!state.ballotAudio) return;
+    var el = document.createElement('div');
+    el.id = 'ballotAudioCtrl';
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:200;background:rgba(20,20,22,.94);border:1px solid var(--border-strong);border-radius:999px;padding:10px 16px 10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 16px 48px rgba(0,0,0,.55);font-size:.78rem;font-weight:700;letter-spacing:.04em;color:var(--text);backdrop-filter:blur(8px)';
+    el.innerHTML =
+      '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(239,68,68,.7);animation:pulse 1.4s ease-in-out infinite"></span>Judge reading</span>' +
+      '<button type="button" id="ballotAudioStop" style="background:transparent;border:1px solid var(--border-strong);border-radius:999px;padding:5px 12px;color:var(--text);font-family:inherit;font-weight:700;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Stop</button>';
+    document.body.appendChild(el);
+    var stop = document.getElementById('ballotAudioStop');
+    if (stop) stop.addEventListener('click', stopBallotReadAloud);
+  }
+
+  // Reveal entry point. The first time a ballot lands we gate behind
+  // an interstitial so the user can pick instant vs dramatic staged
+  // reveal vs read-aloud (TTS); after the user picks, this same
+  // function is called recursively with mode set and renders the real
+  // ballot DOM. Re-entries from Firestore snapshots fall straight
+  // through with state.ballotRevealMode preserved so a re-render
+  // doesn't yank the user back to the interstitial.
   function renderBallot(b){
+    state.lastBallot = b;
+    // Pin phase so the Firestore snapshot guard (state.phase ===
+    // 'ballot-rendered') stops re-firing renderBallot. Without this,
+    // generateBallot's success path enters renderBallot first while
+    // state.phase is still 'ballot'; the snapshot then re-triggers
+    // and restarts staged-reveal animations or clobbers a user who
+    // is mid-interstitial.
+    state.phase = 'ballot-rendered';
+    if (!state.ballotRevealMode){
+      showBallotInterstitial(b);
+      return;
+    }
+    renderBallotBody(b, state.ballotRevealMode);
+  }
+
+  function showBallotInterstitial(b){
     $('ballotLoading').classList.add('hidden');
     var result = $('ballotResult');
     result.classList.remove('hidden');
-    state.lastBallot = b; // stash for the snapshot-driven leaderboard write
+    result.classList.remove('ballot-staged');
+    // Spectators get a slimmer interstitial since the dramatic-reveal
+    // controls are most useful to the speakers themselves. Spectators
+    // still get the choice so they can sync their watch to whoever
+    // shouts "reveal" first.
+    result.innerHTML =
+      '<div class="ballot-interstitial">' +
+        '<div class="bi-eyebrow">Ballot ready</div>' +
+        '<div class="bi-headline">The judge has decided.</div>' +
+        '<div class="bi-sub">Pick how you want to see it. Dramatic reveals the verdict beat-by-beat; read-aloud has the AI judge say it out loud.</div>' +
+        '<div class="bi-actions">' +
+          '<button class="btn btn-primary" id="biRevealBtn" type="button">Read aloud</button>' +
+          '<button class="btn" id="biDramaticBtn" type="button">Dramatic reveal</button>' +
+        '</div>' +
+        '<div class="bi-ghost"><button id="biInstantBtn" type="button">or skip the suspense — show me now</button></div>' +
+      '</div>';
+    var dramaticBtn = $('biDramaticBtn');
+    var revealBtn = $('biRevealBtn');
+    var instantBtn = $('biInstantBtn');
+    if (dramaticBtn) dramaticBtn.addEventListener('click', function(){
+      state.ballotRevealMode = 'staged';
+      try { gtag('event', 'ballot_reveal_mode', { mode: 'staged', format: state.formatKey }); } catch(e){}
+      renderBallotBody(b, 'staged');
+    });
+    if (revealBtn) revealBtn.addEventListener('click', function(){
+      state.ballotRevealMode = 'read-aloud';
+      try { gtag('event', 'ballot_reveal_mode', { mode: 'read-aloud', format: state.formatKey }); } catch(e){}
+      renderBallotBody(b, 'read-aloud');
+    });
+    if (instantBtn) instantBtn.addEventListener('click', function(){
+      state.ballotRevealMode = 'instant';
+      try { gtag('event', 'ballot_reveal_mode', { mode: 'instant', format: state.formatKey }); } catch(e){}
+      renderBallotBody(b, 'instant');
+    });
+  }
+
+  // Render the actual ballot DOM. Mode controls whether the sections
+  // get .ballot-section[data-stage] wrappers (CSS staggers their
+  // reveal). 'instant' = no animation; 'staged' / 'read-aloud' = staged
+  // CSS animation. Read-aloud additionally streams the verdict + RFD
+  // through /api/tts (professor persona) so the AI judge "reads out"
+  // the ballot while the text fades in.
+  // ── 4-team ballot body (BP / Worlds). Renders rank 1-2-3-4 with
+  // per-seat speaker scores, per-team feedback, and the full RFD.
+  // Called from renderBallotBody when the ballot shape carries a
+  // teamRanking[] array.
+  function renderBpBallotBody(b, f, result, mode, staged){
+    var SIDE_KEYS = ['og','oo','cg','co'];
+    var SIDE_SHORT = { og:'OG', oo:'OO', cg:'CG', co:'CO' };
+    var SIDE_COLOR = { og:'#4ade80', oo:'#fca5a5', cg:'#86efac', co:'#fecaca' };
+    var SPEECH_OF_SIDE = { og:['PM','DPM'], oo:['LO','DLO'], cg:['MG','GW'], co:['MO','OW'] };
+    function teamName(side){
+      if (state.teamNames && state.teamNames[side]) return state.teamNames[side];
+      if (side === 'og') return state.proName || 'OG';
+      if (side === 'oo') return state.conName || 'OO';
+      return f.sideLabels[side] || (SIDE_SHORT[side] || side);
+    }
+    var ranking = b.teamRanking.slice().sort(function(a, c){ return (a.rank||9) - (c.rank||9); });
+    var scores = b.speakerScores || {};
+    var feedback = b.teamFeedback || {};
+    var topTeam = ranking[0] || {};
+    var topSide = String(topTeam.side || '').toLowerCase();
+
+    var rankRows = ranking.map(function(r){
+      var side = String(r.side || '').toLowerCase();
+      var seats = SPEECH_OF_SIDE[side] || [];
+      var seatScores = seats.map(function(code){
+        var s = scores[code];
+        return '<span class="bp-seat"><span class="bp-seat-code">' + escHtml(code) + '</span><span class="bp-seat-score">' + (typeof s === 'number' ? s.toFixed(1) : '—') + '</span></span>';
+      }).join('');
+      return '<div class="bp-rank-row bp-rank-' + r.rank + '" style="border-left-color:' + SIDE_COLOR[side] + '">'
+        + '<div class="bp-rank-num">' + r.rank + '</div>'
+        + '<div class="bp-rank-body">'
+          + '<div class="bp-rank-team">' + escHtml(r.label || f.sideLabels[side] || side) + ' <span class="bp-rank-team-name">' + escHtml(teamName(side)) + '</span></div>'
+          + '<div class="bp-rank-summary">' + escHtml(r.summary || '') + '</div>'
+          + '<div class="bp-rank-seats">' + seatScores + '</div>'
+        + '</div>'
+      + '</div>';
+    }).join('');
+
+    var feedbackRows = SIDE_KEYS.map(function(side){
+      var fb = feedback[side];
+      if (!fb) return '';
+      return '<div class="bp-fb"><div class="bp-fb-head" style="color:' + SIDE_COLOR[side] + '">' + escHtml(f.sideLabels[side] || SIDE_SHORT[side]) + ' <span style="color:var(--text-dim);font-weight:600">· ' + escHtml(teamName(side)) + '</span></div><div class="bp-fb-body">' + escHtml(fb) + '</div></div>';
+    }).join('');
+
+    result.innerHTML =
+      '<style>'
+        + '.bp-result{padding:8px 0}'
+        + '.bp-verdict{display:flex;align-items:center;gap:14px;padding:18px 22px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.02));border:1px solid rgba(34,197,94,.32);border-radius:14px;margin-bottom:18px}'
+        + '.bp-verdict-eyebrow{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#4ade80}'
+        + '.bp-verdict-headline{font-size:1.4rem;font-weight:900;color:var(--text);line-height:1.2;margin-top:4px}'
+        + '.bp-verdict-headline em{font-style:normal;color:#4ade80}'
+        + '.bp-rank-row{display:flex;gap:14px;align-items:flex-start;padding:14px 18px;border:1px solid var(--border);border-left:4px solid;border-radius:10px;background:rgba(255,255,255,.02);margin-bottom:10px}'
+        + '.bp-rank-num{font-size:2.4rem;font-weight:900;line-height:1;width:50px;text-align:center;color:var(--text);flex-shrink:0}'
+        + '.bp-rank-1 .bp-rank-num{color:#fde68a;text-shadow:0 0 18px rgba(253,224,71,.45)}'
+        + '.bp-rank-body{flex:1;min-width:0}'
+        + '.bp-rank-team{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:4px}'
+        + '.bp-rank-team-name{font-weight:600;color:var(--text-dim);font-size:.84rem}'
+        + '.bp-rank-summary{font-size:.84rem;color:var(--text-dim);line-height:1.5;margin-bottom:8px}'
+        + '.bp-rank-seats{display:flex;gap:10px;flex-wrap:wrap}'
+        + '.bp-seat{display:inline-flex;align-items:baseline;gap:4px;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--border)}'
+        + '.bp-seat-code{font-size:.6rem;font-weight:800;letter-spacing:.08em;color:var(--text-dim)}'
+        + '.bp-seat-score{font-size:.78rem;font-weight:800;color:var(--text)}'
+        + '.bp-rfd{padding:18px 22px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;margin:18px 0;font-size:.92rem;line-height:1.65;color:var(--text);white-space:pre-wrap}'
+        + '.bp-fb{padding:14px 18px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card);margin-bottom:10px}'
+        + '.bp-fb-head{font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}'
+        + '.bp-fb-body{font-size:.86rem;color:var(--text);line-height:1.55}'
+      + '</style>'
+      + '<div class="bp-result">'
+        + '<div class="bp-verdict"' + (staged ? ' data-stage="0"' : '') + '>'
+          + '<div style="flex:1">'
+            + '<div class="bp-verdict-eyebrow">Ballot · ' + escHtml(f.name) + '</div>'
+            + '<div class="bp-verdict-headline"><em>' + escHtml(f.sideLabels[topSide] || SIDE_SHORT[topSide]) + '</em> takes the round</div>'
+          + '</div>'
+        + '</div>'
+        + '<div class="ballot-section"' + (staged ? ' data-stage="1"' : '') + '>'
+          + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px">Team ranking</h3>'
+          + rankRows
+        + '</div>'
+        + '<div class="ballot-section"' + (staged ? ' data-stage="2"' : '') + '>'
+          + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Reason for decision</h3>'
+          + '<div class="bp-rfd">' + escHtml(b.rfd || '(no RFD)') + '</div>'
+        + '</div>'
+        + (feedbackRows ? '<div class="ballot-section"' + (staged ? ' data-stage="3"' : '') + '>'
+            + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Team feedback</h3>'
+            + feedbackRows
+          + '</div>' : '')
+      + '</div>';
+  }
+
+  function renderBallotBody(b, mode){
+    var staged = mode === 'staged' || mode === 'read-aloud';
+    $('ballotLoading').classList.add('hidden');
+    var result = $('ballotResult');
+    result.classList.remove('hidden');
+    if (staged) result.classList.add('ballot-staged');
+    else result.classList.remove('ballot-staged');
+    // Fire-and-forget TTS request. Starts in parallel with the staged
+    // CSS animations so the voice usually catches the verdict reveal
+    // around stage 0–1. Failure is silent (toast), the staged reveal
+    // still plays.
+    if (mode === 'read-aloud'){
+      try { startBallotReadAloud(b); } catch(e){ console.warn('[read-aloud]', e); }
+    }
     var f = FORMATS[state.formatKey];
+    // 4-team ballot path. Render the 1-2-3-4 ranking + per-seat
+    // speaker scores + per-team feedback. Falls back to the 2-side
+    // body if the ballot didn't actually come back as 4-team-shaped
+    // (e.g., the model returned the old schema by mistake).
+    if (isFourTeam(f) && Array.isArray(b.teamRanking) && b.teamRanking.length === 4){
+      renderBpBallotBody(b, f, result, mode, staged);
+      return;
+    }
     var winnerName = b.winner === 'pro' ? state.proName : state.conName;
     var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
     var loserName  = b.winner === 'pro' ? state.conName : state.proName;
@@ -1915,11 +2880,11 @@ button{font-family:inherit}
         '</label>';
     }
     result.innerHTML =
-      '<div class="verdict ' + (b.winner === 'pro' ? 'pro' : 'con') + '">' +
+      '<div class="verdict ballot-section ' + (b.winner === 'pro' ? 'pro' : 'con') + '" data-stage="0">' +
         '<div class="verdict-headline">' + escHtml(winnerName) + ' wins</div>' +
         '<div class="verdict-sub">' + escHtml(winnerSide) + ' over ' + escHtml(loserSide) + ' (' + escHtml(loserName) + ')</div>' +
       '</div>' +
-      '<div class="points-grid">' +
+      '<div class="points-grid ballot-section" data-stage="1">' +
         '<div class="points-card">' +
           '<div class="name">' + escHtml(state.proName) + ' · ' + escHtml(f.sideLabels[f.sides[0]]) + '</div>' +
           '<div class="pts">' + (b.proPoints != null ? escHtml(String(b.proPoints)) : ', ') + '</div>' +
@@ -1931,12 +2896,13 @@ button{font-family:inherit}
           '<div class="pts-label">Speaker points</div>' +
         '</div>' +
       '</div>' +
-      '<div class="rfd">' +
+      '<div class="rfd ballot-section" data-stage="2">' +
         '<h3>Reason for decision</h3>' +
         '<p>' + escHtml(b.rfd || '(no RFD generated)') + '</p>' +
         (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + escHtml(b.proFeedback) + '</p>' : '') +
         (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + escHtml(b.conFeedback) + '</p>' : '') +
       '</div>' +
+      '<div class="ballot-section" data-stage="3">' +
       lbBlock +
       '<div class="rfd-actions">' +
         '<button class="btn btn-primary" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
@@ -1956,7 +2922,8 @@ button{font-family:inherit}
           ? '<a class="btn btn-primary" href="/spar?format=' + encodeURIComponent(state.formatKey) + '" id="nextOpponentBtn" style="background:var(--green);border-color:var(--green);box-shadow:0 6px 24px rgba(34,197,94,.32)">Next opponent →</a>'
           : '<a class="btn" href="/live">Back to board</a>'
         ) +
-      '</div>';
+      '</div>' + // .rfd-actions
+      '</div>'; // .ballot-section[data-stage="3"]
     // Spectators don't get the save-to-record button — the round is
     // not theirs to log against their personal speaker history. Same
     // applies to the leaderboard consent checkbox + the publish-to-
@@ -1986,7 +2953,7 @@ button{font-family:inherit}
       // publisher's own arguments.
       var mine = (state.log || []).filter(function(e){
         if (!ms) return true;
-        var spIsFirstSide = e.side === f.sides[0];
+        var spIsFirstSide = sideBench(f, e.side) === 'gov';
         return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
       });
       var fullText = mine.map(function(e){ return '[' + (e.code || '') + ']\n' + (e.text || ''); }).join('\n\n');
@@ -2137,8 +3104,13 @@ button{font-family:inherit}
   }
 
   // ── Wire setup form
-  $('proName').addEventListener('input', function(){ state.proName = this.value; updateStartBtn(); });
-  $('conName').addEventListener('input', function(){ state.conName = this.value; updateStartBtn(); });
+  $('proName').addEventListener('input', function(){ state.proName = this.value; if (!state.teamNames) state.teamNames = {}; state.teamNames.og = this.value; updateStartBtn(); });
+  $('conName').addEventListener('input', function(){ state.conName = this.value; if (!state.teamNames) state.teamNames = {}; state.teamNames.oo = this.value; updateStartBtn(); });
+  (function(){
+    var cg = $('cgName'), co = $('coName');
+    if (cg) cg.addEventListener('input', function(){ if (!state.teamNames) state.teamNames = {}; state.teamNames.cg = this.value; updateStartBtn(); });
+    if (co) co.addEventListener('input', function(){ if (!state.teamNames) state.teamNames = {}; state.teamNames.co = this.value; updateStartBtn(); });
+  })();
   $('formatSel').addEventListener('change', function(){
     state.formatKey = this.value;
     renderSetup();
@@ -2176,7 +3148,7 @@ button{font-family:inherit}
     var ms = mySide();
     var log = state.log || [];
     var mine = ms ? log.filter(function(e){
-      var spIsFirstSide = e.side === f.sides[0];
+      var spIsFirstSide = sideBench(f, e.side) === 'gov';
       return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
     }) : log;
     var pool = mine.length ? mine : log;
@@ -2608,6 +3580,26 @@ button{font-family:inherit}
       applyRemoteTimer(d.currentTimer);
     }
 
+    // Off-side live-transcript mirroring. The active speaker debounce-
+    // publishes their textarea contents; we paint it into our disabled
+    // textarea so the waiting side sees the speech stream in instead of
+    // staring at "Opponent is speaking." Gated on speechIdx match so a
+    // stale write from the prior speech can't land on our screen.
+    if (state.phase === 'round' && d.currentTranscript && !isMyTurn()
+        && d.currentTranscript.speechIdx === state.speechIdx){
+      var taMirror = $('speechText');
+      var remoteText = d.currentTranscript.text || '';
+      if (taMirror && taMirror.value !== remoteText){
+        taMirror.value = remoteText;
+        // updateWordCount also fires schedulePublishLiveTranscript, but
+        // publishLiveTranscript bails when !isMyTurn so the off-side
+        // can't echo it back into a loop.
+        var n = remoteText.trim() ? remoteText.trim().split(/\s+/).length : 0;
+        var wc = $('wordCount');
+        if (wc) wc.textContent = n + ' word' + (n===1?'':'s');
+      }
+    }
+
     // Ballot pending — other side shows 'Ballot generating…' the
     // moment the active speaker hits End on the last speech, instead
     // of waiting until the final ballot lands.
@@ -2894,17 +3886,23 @@ button{font-family:inherit}
         // motion + speechIdx and follows.
         if (prefill.source === 'spar' && !state.motion && state.proUid && state.conUid){
           var iAmFirst = state.user.uid === state.proUid; // proUid = lex-first by spar convention
-          if (iAmFirst){
-            // Tiny delay so both clients have time to subscribe before
-            // we publish — avoids a race where peer joins after we've
-            // already advanced past round init.
-            setTimeout(function(){
-              if (state.motion) return; // peer already wrote it
-              state.motion = pickSparMotion(state.room);
-              var md = $('motionDisplay'); if (md) md.textContent = state.motion;
-              startRound();
-            }, 600);
-          }
+          var kickoff = function(){
+            // Bail if the round already started (peer published) or we
+            // left setup. pickSparMotion is keyed on the room name, so
+            // if BOTH clients reach this the deterministic motion is
+            // identical and the round-doc reconciliation converges
+            // instead of diverging — a double-start is safe.
+            if (state.motion || state.phase !== 'setup') return;
+            state.motion = pickSparMotion(state.room);
+            var md = $('motionDisplay'); if (md) md.textContent = state.motion;
+            startRound();
+          };
+          // Lex-first kicks off promptly. The peer is a safety net: if
+          // the first client dropped between matching and loading (closed
+          // tab, dead connection), the round would otherwise never start
+          // and both sides sit on the setup screen forever. After 3s with
+          // no round, the peer starts it instead.
+          setTimeout(kickoff, iAmFirst ? 600 : 3000);
         }
       } else {
         showAuthGate();
@@ -2949,5 +3947,7 @@ button{font-family:inherit}
   });
 })();
 </script>
+<script defer src="/js/signup-nudge.js"></script>
+<script defer src="/js/notifications.js"></script>
 </body>
 </html>

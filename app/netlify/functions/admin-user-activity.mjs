@@ -1,49 +1,26 @@
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
-import { getDb } from './lib/firestore.mjs';
+import { requireAdmin, parseUA, normalizePath } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 // Per-user activity timeline endpoint. Reads the events/ collection
 // (populated by /js/track.js — page_view, session_*, app_event, plus
 // the per-feature events like generate / battle_started / conversion)
-// scoped to a single uid and returns a chronological feed for the
-// /admin dashboard's user-activity panel.
+// scoped to a single uid and returns:
+//   - chronological feed for the /admin per-user panel
+//   - sessions[] grouped by metadata.session_id with each session's
+//     path-by-path journey, duration, action density, device/browser
+//   - aggregate engagement counts
 //
-// Same admin gate as admin-analytics: hardcoded ADMIN_UID env var or
-// user_profiles/{uid}.isAdmin === true.
+// Same admin gate as the rest of /api/admin/*.
 
-const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
-const MAX_EVENTS = 500;
+const MAX_EVENTS = 800;
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
 
-  const token = extractBearerToken(request);
-  if (!token) return errorResponse('Authorization required', 401, request);
-
-  let decoded;
-  try {
-    decoded = await verifyIdToken(token);
-  } catch (err) {
-    console.error('admin-user-activity auth error:', err.message);
-    return errorResponse('Authentication failed. Please sign in again.', 401, request);
-  }
-
-  const callerUid = decoded.sub;
-  const db = getDb();
-
-  let isAdmin = callerUid === ADMIN_UID;
-  if (!isAdmin) {
-    try {
-      const profileDoc = await db.collection('user_profiles').doc(callerUid).get();
-      if (profileDoc.exists && profileDoc.data().isAdmin === true) {
-        isAdmin = true;
-      }
-    } catch (err) {
-      console.error('admin-user-activity profile check error:', err.message);
-    }
-  }
-  if (!isAdmin) return errorResponse('Forbidden: admin access required', 403, request);
+  const auth = await requireAdmin(request);
+  if (auth.error) return auth.error;
+  const { db } = auth;
 
   // Target uid — either passed via ?uid= or ?email= (we look up the
   // email in user_profiles and translate). Email lookup is convenient
@@ -147,15 +124,118 @@ export default async (request) => {
     const eventCounts = {};
     let firstSeen = null, lastSeen = null;
     let pageViews = 0, sessions = 0, generations = 0, conversions = 0;
+    let rounds = 0, completes = 0;
     for (const e of events) {
-      eventCounts[e.event] = (eventCounts[e.event] || 0) + 1;
+      const evName = e.event === 'app_event' && e.metadata && e.metadata.name ? e.metadata.name : e.event;
+      eventCounts[evName] = (eventCounts[evName] || 0) + 1;
       if (!lastSeen || e.ts > lastSeen) lastSeen = e.ts;
       if (!firstSeen || e.ts < firstSeen) firstSeen = e.ts;
       if (e.event === 'page_view') pageViews++;
       if (e.event === 'session_start') sessions++;
       if (e.event === 'case_generated') generations++;
       if (e.event === 'conversion') conversions++;
+      if (e.event === 'battle_started' || evName === 'round_start') rounds++;
+      if (evName === 'round_complete') completes++;
     }
+
+    // ── Build session-grouped journey view ────────────────────────
+    // Events fired by /js/track.js carry metadata.session_id (per-tab,
+    // survives SPA nav). Group by that. Within each session preserve
+    // chronological order and collapse consecutive duplicate paths so
+    // the "journey" reads as a path-by-path flow rather than a noisy
+    // event firehose.
+    const sessionMap = new Map();
+    // Reverse so events are oldest→newest inside each session.
+    const chrono = [...events].sort((a, b) => a.ts - b.ts);
+    for (const e of chrono) {
+      const meta = e.metadata || {};
+      const sid = meta.session_id || ('no-sid-' + e.id);
+      let row = sessionMap.get(sid);
+      if (!row) {
+        row = {
+          sessionId: sid,
+          startTs: e.ts,
+          endTs: e.ts,
+          events: 0,
+          pageViews: 0,
+          actions: 0,
+          journey: [],
+          path: [],
+          actionMix: {},
+          device: null,
+          browser: null,
+          os: null,
+          surface: null,
+          referrer: '',
+          entryPath: '',
+          exitPath: '',
+        };
+        sessionMap.set(sid, row);
+      }
+      row.events++;
+      if (e.ts < row.startTs) row.startTs = e.ts;
+      if (e.ts > row.endTs) row.endTs = e.ts;
+
+      if (e.event === 'session_start' && meta.user_agent) {
+        const ua = parseUA(meta.user_agent);
+        row.device = ua.device;
+        row.browser = ua.browser;
+        row.os = ua.os;
+        row.surface = ua.surface;
+      }
+      if (e.event === 'page_view') {
+        row.pageViews++;
+        const path = normalizePath(meta.path);
+        const last = row.journey[row.journey.length - 1];
+        if (!last || last.path !== path) {
+          row.journey.push({ ts: e.ts, type: 'page', label: path, path });
+        }
+        row.path.push(path);
+        if (!row.entryPath) row.entryPath = path;
+        row.exitPath = path;
+        if (meta.referrer && !row.referrer) {
+          try { row.referrer = new URL(meta.referrer).hostname || meta.referrer; }
+          catch { row.referrer = meta.referrer; }
+        }
+      } else if (e.event === 'session_start' || e.event === 'session_heartbeat' || e.event === 'session_end') {
+        // session lifecycle markers — implicit in start/end timestamps
+      } else {
+        // Real action — surface in journey + count in mix.
+        const name = e.event === 'app_event' && meta.name ? meta.name : e.event;
+        row.actions++;
+        row.actionMix[name] = (row.actionMix[name] || 0) + 1;
+        row.journey.push({
+          ts: e.ts,
+          type: 'action',
+          label: name,
+          path: normalizePath(meta.path || ''),
+          meta: pickAtomic(meta),
+        });
+      }
+    }
+
+    const sessionsList = [...sessionMap.values()]
+      .sort((a, b) => b.endTs - a.endTs)
+      .map(s => ({
+        sessionId: s.sessionId,
+        startTs: s.startTs,
+        endTs: s.endTs,
+        durationMs: Math.max(0, s.endTs - s.startTs),
+        events: s.events,
+        pageViews: s.pageViews,
+        actions: s.actions,
+        entryPath: s.entryPath || (s.path[0] || ''),
+        exitPath: s.exitPath || (s.path[s.path.length - 1] || ''),
+        pathCount: s.path.length,
+        uniqueLandings: [...new Set(s.path)].length,
+        device: s.device,
+        browser: s.browser,
+        os: s.os,
+        surface: s.surface,
+        referrer: s.referrer,
+        journey: s.journey,
+        actionMix: Object.entries(s.actionMix).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => ({ name: k, count: v })),
+      }));
 
     return jsonResponse({
       uid: targetUid,
@@ -177,7 +257,11 @@ export default async (request) => {
         sessions,
         generations,
         conversions,
+        rounds,
+        completes,
+        sessionCount: sessionsList.length,
       },
+      sessions: sessionsList,
       events,
     }, 200, request);
   } catch (err) {
@@ -185,6 +269,22 @@ export default async (request) => {
     return errorResponse('Failed to fetch activity: ' + (err.message || 'unknown'), 500, request);
   }
 };
+
+// Strip metadata down to atomic value fields, dropping the structural
+// ones the journey view shouldn't surface (session_id, ua, path —
+// already represented by their own UI element).
+function pickAtomic(meta) {
+  const out = {};
+  const skip = new Set(['session_id', 'path', 'user_agent', 'screen', 'lang', 'referrer', 'title']);
+  for (const k of Object.keys(meta || {})) {
+    if (skip.has(k)) continue;
+    const v = meta[k];
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+      out[k] = typeof v === 'string' ? v.slice(0, 80) : v;
+    }
+  }
+  return out;
+}
 
 export const config = {
   path: '/api/admin/user-activity',

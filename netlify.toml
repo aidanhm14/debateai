@@ -36,13 +36,137 @@
   external_node_modules = ["@google-cloud/firestore", "stripe"]
   node_bundler = "esbuild"
 
+# Education sub-hub under /learn. Mirrors app/netlify.toml.
+# /learn/education (index) + /learn/education/{slug} primers with quiz.
+[[redirects]]
+  from = "/learn/education"
+  to = "/api/learn/education"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/learn/education/*"
+  to = "/api/learn/education/:splat"
+  status = 200
+  force = true
+
+# Long-tail guides (/learn/guides{/slug?}). Question-style SEO content
+# sister to /learn/formats. Mirrors app/netlify.toml.
+[[redirects]]
+  from = "/learn/guides"
+  to = "/api/learn/guides"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/learn/guides/*"
+  to = "/api/learn/guides/:splat"
+  status = 200
+  force = true
+
+# Debate fundamentals (/learn/fundamentals{/slug?}). Deep-content
+# SEO targets for the six core concepts. Mirrors app/netlify.toml.
+[[redirects]]
+  from = "/learn/fundamentals"
+  to = "/api/learn/fundamentals"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/learn/fundamentals/*"
+  to = "/api/learn/fundamentals/:splat"
+  status = 200
+  force = true
+
+# Debate glossary (/learn/glossary). 65+ terms on a single canonical
+# page. Mirrors app/netlify.toml.
+[[redirects]]
+  from = "/learn/glossary"
+  to = "/api/learn/glossary"
+  status = 200
+  force = true
+
+# 2026-05-20: clean-route rewrites for the daily-motion + champions
+# function pages. today.mjs / champions.mjs only declare /api/* paths;
+# the shared topbar (js/topbar.js) + several in-app links point at the
+# bare /today + /champions. app/netlify.toml (the publish-dir config)
+# already had these rewrites, but this root mirror was missing them —
+# adding for parity so the two files stay in sync. Matches /learn/*.
+[[redirects]]
+  from = "/today"
+  to = "/api/today"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/today/*"
+  to = "/api/today/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/champions"
+  to = "/api/champions"
+  status = 200
+  force = true
+
+# Backwards-compat 301s from the pre-nest paths.
+[[redirects]]
+  from = "/education"
+  to = "/learn/education"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/education/*"
+  to = "/learn/education/:splat"
+  status = 301
+  force = true
+
+# Debate dossiers (/debate, /debate/{slug}). Mirrors app/netlify.toml.
+# Server-rendered by app/netlify/functions/debate.mjs from
+# lib/debate-bank.mjs; replaced the old static app/debate/*.html pages.
+[[redirects]]
+  from = "/debate"
+  to = "/api/debate"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/debate/*"
+  to = "/api/debate/:splat"
+  status = 200
+  force = true
+
+# Dynamic sitemaps. Mirrors app/netlify.toml. See that file's matching
+# block for the design rationale (function-served sitemap so lastmod
+# stays fresh + per-collection sub-sitemaps for /r/{id} and /today).
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/api/sitemap"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap-rounds.xml"
+  to = "/api/sitemap-rounds"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap-motions.xml"
+  to = "/api/sitemap-motions"
+  status = 200
+  force = true
+
 # Icon 404 patches — browsers and PWAs request canonical icon paths
 # that don't physically exist. Serve them from /icons/ via rewrite.
-[[redirects]]
-  from = "/favicon.ico"
-  to = "/icons/icon-192.png"
-  status = 200
-
+# /favicon.ico now physically exists at the root as a real multi-resolution
+# .ico (16/32/48/64), so it bypasses these rules and serves directly.
+# Google's favicon crawler explicitly prefers a real .ico — the prior
+# PNG-served-at-.ico-URL was triggering the auto-generated letter-avatar
+# fallback in search results. (Note: the apple-touch and android icons
+# below stay as rewrites because no real files exist for those paths.)
 [[redirects]]
   from = "/apple-touch-icon.png"
   to = "/icons/icon-192.png"
@@ -89,6 +213,14 @@
   to = "/index.html"
   status = 200
 
+# Public profile pages (/users/{handle}). 200-rewrite so the handle stays
+# in the URL; users.html parses it client-side. Mirrors app/netlify.toml.
+# (Community identity + honesty redesign, 2026-05-21.)
+[[redirects]]
+  from = "/users/*"
+  to = "/users.html"
+  status = 200
+
 # Named pages
 [[redirects]]
   from = "/high-school"
@@ -99,6 +231,14 @@
 [[redirects]]
   from = "/schools"
   to = "/schools.html"
+  status = 200
+
+# For-professionals page. Distinct from /pro (which serves /landing.html
+# per the 2026-04-20 audience consolidation); /professionals is its own
+# page with per-category anchor sections deep-linked from the landing footer.
+[[redirects]]
+  from = "/professionals"
+  to = "/professionals.html"
   status = 200
 
 # /debaters consolidated into /landing — the page was a debater-specific
@@ -153,6 +293,14 @@
   to = "/voice-debate.html"
   status = 200
 
+# Dedicated voice-round RFD ballot page (target of the handoff from
+# /voice-debate's Generate Judge RFD button — reads payload from
+# sessionStorage or ?p=base64).
+[[redirects]]
+  from = "/voice-rfd"
+  to = "/voice-rfd.html"
+  status = 200
+
 # Live debates (human vs human)
 [[redirects]]
   from = "/live"
@@ -176,35 +324,39 @@
   to = "/profile.html"
   status = 200
 
+# 2026-05-20: these six SEO landing routes used to rewrite (200) to
+# standalone .html files that no longer exist — every one was a 404
+# dead end. Repointed each to the closest live page as a 301 so any
+# external/indexed link lands somewhere intuitive instead of erroring.
 [[redirects]]
   from = "/debate-ai-tools"
-  to = "/debate-ai-tools.html"
-  status = 200
+  to = "/debate-ai"
+  status = 301
 
 [[redirects]]
   from = "/professional-home"
-  to = "/debateai-professional-home.html"
-  status = 200
+  to = "/pro"
+  status = 301
 
 [[redirects]]
   from = "/ai-debate-practice"
-  to = "/ai-debate-practice.html"
-  status = 200
+  to = "/debate-ai"
+  status = 301
 
 [[redirects]]
   from = "/debate-topic-generator"
-  to = "/debate-topic-generator.html"
-  status = 200
+  to = "/topics"
+  status = 301
 
 [[redirects]]
   from = "/debate-case-generator"
-  to = "/debate-case-generator.html"
-  status = 200
+  to = "/debate-ai"
+  status = 301
 
 [[redirects]]
   from = "/prediction-market-debate"
-  to = "/prediction-market-debate.html"
-  status = 200
+  to = "/landing"
+  status = 301
 
 [[redirects]]
   from = "/learn"
@@ -253,14 +405,23 @@
   to = "/terms.html"
   status = 200
 
-[[redirects]]
-  from = "/me"
-  to = "/me.html"
-  status = 200
-
+# 2026-05-20: removed the /me → /me.html rewrite. me.html doesn't exist,
+# and because this rule sat ABOVE the /me → /debate-ai redirect lower in
+# the file, Netlify matched it first and served a 404. Dropping it lets
+# the intended /me → /debate-ai (301) win.
 [[redirects]]
   from = "/admin-runner"
   to = "/admin-runner.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/rate"
+  to = "/admin-rate.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin-rate"
+  to = "/admin-rate.html"
   status = 200
 
 # Topic SEO pages — one per format. Each page has the current resolution
@@ -364,6 +525,15 @@
 [[redirects]]
   from = "/disclosures"
   to = "/community"
+  status = 301
+
+# /devils-advocate was the single-AI sparring mode (paste-a-claim flow).
+# File sunset; the live sparring product is now /spar (live-human
+# matchmaking with AI fallback). 301 catches stale bookmarks and SEO
+# links from the debatethedevil.com era.
+[[redirects]]
+  from = "/devils-advocate"
+  to = "/spar"
   status = 301
 
 # ──────────────────────────────────────────────────────────────────

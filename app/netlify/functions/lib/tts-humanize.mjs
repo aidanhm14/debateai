@@ -82,6 +82,63 @@ function padListEnumerators(s) {
   return s.replace(LIST_ENUMERATOR_RE, (_m, word, sep) => word + (sep === '—' ? ' — ' : ', '));
 }
 
+// Insert a small set of breath/emphasis pauses where spoken debate
+// naturally beats. ElevenLabs/OpenAI both treat "..." as a short pause, so
+// dropping ellipses at contrastive pivots and rhetorical hinges makes the
+// delivery sound like a debater thinking, not a TTS engine reading.
+//
+// Capped at MAX_PAUSES per paragraph (split on newlines) so a long speech
+// gets a few well-placed beats per block instead of turning into Morse
+// code. We never touch a spot that already has an ellipsis or em-dash
+// right there, so this composes cleanly after the dash/ellipsis passes.
+const PAUSE_BEFORE_CONTRAST_RE = /(,\s*)(but|however|yet|and critically|and crucially)\b/gi;
+const HOWEVER_LEAD_RE = /(?<![.…\-]\s?)\b(however|and critically|and crucially)\b/gi;
+const THIS_IS_WHY_RE = /\bThis is why\b/g;
+const CRITICAL_MOVE_RE = /\b(here(?:'s| is) the critical move)\b(?![.…])/gi;
+const RHETORICAL_Q_RE = /\?(\s+)(?=[A-Z])/g;
+
+function addEmphasisPauses(s) {
+  const MAX_PAUSES = 4;
+  return s.split('\n').map((para) => {
+    let count = 0;
+    let out = para;
+    const guard = (fn) => { if (count >= MAX_PAUSES) return; out = fn(out); };
+
+    // 1. Contrastive pivot after a comma: ", but" → ", ...but"
+    guard(() => out.replace(PAUSE_BEFORE_CONTRAST_RE, (m, comma, word) => {
+      if (count >= MAX_PAUSES) return m;
+      count++;
+      return comma + '...' + word;
+    }));
+    // 2. Sentence-leading "However," / "And critically," → "...however"
+    //    (skip if already preceded by a pause mark).
+    guard(() => out.replace(HOWEVER_LEAD_RE, (m, word) => {
+      if (count >= MAX_PAUSES) return m;
+      count++;
+      return '...' + word;
+    }));
+    // 3. "This is why" → "This... is why" — a beat of suspense before the payoff.
+    guard(() => out.replace(THIS_IS_WHY_RE, (m) => {
+      if (count >= MAX_PAUSES) return m;
+      count++;
+      return 'This... is why';
+    }));
+    // 4. "Here is the critical move" → trailing beat before the move lands.
+    guard(() => out.replace(CRITICAL_MOVE_RE, (m) => {
+      if (count >= MAX_PAUSES) return m;
+      count++;
+      return m + '...';
+    }));
+    // 5. Brief beat after a rhetorical question that's followed by more text.
+    guard(() => out.replace(RHETORICAL_Q_RE, (m, sp) => {
+      if (count >= MAX_PAUSES) return m;
+      count++;
+      return '?...' + sp;
+    }));
+    return out;
+  }).join('\n');
+}
+
 // Intensity heuristic — returns a float in [0, 1].
 // Count-based (not per-word) because per-word normalization pathologically
 // inflates on short utterances where a single `?` ended up reading as max
@@ -123,6 +180,7 @@ export function humanizeForTTS(rawText, opts = {}) {
   t = convertAllCapsEmphasis(t);
   t = expandEmphasisLeaders(t);
   t = padListEnumerators(t);
+  t = addEmphasisPauses(t);
 
   // Collapse runs of whitespace introduced by the edits.
   t = t.replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').trim();
@@ -137,5 +195,6 @@ export const __test = {
   convertAllCapsEmphasis,
   expandEmphasisLeaders,
   padListEnumerators,
+  addEmphasisPauses,
   detectIntensity,
 };

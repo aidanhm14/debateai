@@ -5,11 +5,20 @@
 // different dates show different motions. No cron, no Firestore writes,
 // no scheduled job needed; the page renders pure-function from date.
 //
-// The bank is intentionally diverse across debate domains (econ, tech,
-// ethics, civic, edu, env, global). Each entry carries a short framing
-// blurb that gives the /today page enough unique body content to be
-// indexable, plus the gov/opp side hints so the CTA can pre-fill the
-// debate-ai setup form.
+// The bank is intentionally diverse across 8 debate domains: econ,
+// tech, ethics, civic, edu, env, global. Each entry carries a short
+// framing blurb that gives the /today page enough unique body content
+// to be indexable, plus the gov/opp side hints so the CTA can pre-fill
+// the debate-ai setup form.
+//
+// IMPORTANT: dailyMotionFor() picks a motion via `((days * MULT) + 7)
+// % bank.length`. For the walk to visit every entry before repeating,
+// MULT must be coprime with bank.length — gcd(MULT, bank.length) === 1.
+// When changing the bank size, recheck this. The expansion 20 → 39 on
+// 2026-05-14 left the old MULT=13 in place; with bank.length=39 (which
+// is 3×13) the picker rotated among only 3 motions for 5 days before
+// the bug was caught. Current bank is 38; MULT=17 is coprime ✓ and
+// gives well-spread domain coverage across consecutive days.
 
 export const DAILY_MOTIONS = [
   {
@@ -150,7 +159,7 @@ export const DAILY_MOTIONS = [
   },
   {
     motion: 'This House would ban targeted political advertising online.',
-    domain: 'tech',
+    domain: 'civic',
     frame: 'The EU restricts cross-context behavioral ads for political content; the U.S. does not. Defenders of restriction cite Cambridge Analytica; opponents cite incumbent protection.',
     background: 'The EU\'s 2024 Transparency and Targeting of Political Advertising regulation requires platforms to allow micro-targeting only on data the user has explicitly consented to share for political purposes; effectively shutting down behavioral ads. Brazil banned political micro-targeting for the 2022 election. US campaigns spent roughly $9 billion on digital ads in 2024 per AdImpact, with the targeting capacity that built the Facebook 2016 controversy still largely intact. A ban would compress political spending toward broadcast and small-donor email, both of which currently favor incumbents.',
     govHint: 'Micro-targeted ads atomize public discourse into millions of private conversations no one can audit.',
@@ -198,7 +207,7 @@ export const DAILY_MOTIONS = [
   },
   {
     motion: 'This House would phase out the United Nations Security Council veto.',
-    domain: 'civic',
+    domain: 'global',
     frame: 'Russia\'s 2022 invasion of Ukraine and the 2023 Gaza war both produced UNSC paralysis. The veto was the price of getting the great powers into the UN in 1945. Whether it\'s still the price in 2026 is the live question.',
     background: 'The P5 veto has been used 320+ times since 1945, with Russia (formerly USSR) accounting for over half. The 2022 General Assembly Resolution 76/262 (the "veto initiative") requires automatic GA debate within 10 working days of any veto; a transparency mechanism that does not remove the veto itself. The Uniting for Consensus group (Italy, Pakistan, Mexico, others) supports veto-elimination; the G4 (Germany, Japan, India, Brazil) want UNSC expansion with veto rights for new permanent members. The institutional question of who actually loses if the UNSC becomes irrelevant: every power except the P5.',
     govHint: 'The veto turns the UNSC into a forum that ratifies what the great powers were going to do anyway.',
@@ -221,16 +230,8 @@ export const DAILY_MOTIONS = [
     oppHint: 'A ban shifts the research to less-regulated jurisdictions and forfeits the scientific dividend.',
   },
   {
-    motion: 'This House would lower the legal voting age in U.S. national elections to 16.',
-    domain: 'civic',
-    frame: 'Austria, Scotland, and Brazil already do this. Empirical turnout data is mixed; civic-engagement researchers are split. The U.S. debate has moved from academic to actual ballot measures.',
-    background: 'Note: this motion overlaps with the broader "extend voting rights to 16-year-olds" motion in the bank. The narrower framing here (US national elections specifically) raises a 26th-Amendment question; the amendment set the floor at 18, not the ceiling. Congress could in theory pass a statute lowering the federal voting age, but the constitutional path is unclear after Oregon v. Mitchell (1970). Practically, every recent expansion has happened at the municipal level: Takoma Park MD (2013), Berkeley CA (2016 for school board only), Oakland CA (2022).',
-    govHint: 'Voting habits form in adolescence; voting earlier creates a more durable voter.',
-    oppHint: 'We bar 16-year-olds from contracts, juries, and the draft for related reasons.',
-  },
-  {
     motion: 'This House would replace national militaries with a standing UN force.',
-    domain: 'civic',
+    domain: 'global',
     frame: 'Classic IR motion that keeps re-emerging because the underlying tension never resolves: nation-state sovereignty vs. collective-security efficiency.',
     background: 'The UN currently fields about 70,000 peacekeepers across 11 missions, contributed by member states under blue-helmet rotation. There is no standing UN military force; the Military Staff Committee envisioned in Article 47 of the UN Charter has never functioned as designed. Brian Urquhart proposed a UN rapid-reaction force in the 1990s; the recommendation died in the Security Council. The structural problem is recursive: a standing force needs funding from member states, and those member states want their own military or none at all.',
     govHint: 'National militaries are duplicative, escalatory, and politically captured by domestic factions.',
@@ -327,15 +328,20 @@ export const DAILY_MOTIONS = [
 ];
 
 // Deterministic per-date picker. Same date → same motion, every render.
-// Different dates → different motion. Spreads across the bank by hashing
-// year+day-of-year so consecutive days don't cluster in the same domain.
+// Different dates → different motion. Walks every entry in the bank
+// before repeating — see the coprime constraint in the file header.
 export function dailyMotionFor(date) {
   const d = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(d.getTime())) return DAILY_MOTIONS[0];
   // Days-since-epoch hash for a clean linear walk through the bank with
-  // a small offset so we don't start at index 0 on Jan 1.
+  // a small offset so we don't start at index 0 on Jan 1. Multiplier 17
+  // is coprime with bank.length=38 (gcd 1), so the walk visits every
+  // motion exactly once in 38 days before cycling. Was 13 historically,
+  // which silently broke when the bank expanded from 20 to 39 entries
+  // (gcd(13, 39)=13, so the picker rotated among only 3 motions). Any
+  // future bank-size change MUST recheck this.
   const days = Math.floor(d.getTime() / (24 * 60 * 60 * 1000));
-  const idx = ((days * 13) + 7) % DAILY_MOTIONS.length;
+  const idx = ((days * 17) + 7) % DAILY_MOTIONS.length;
   return DAILY_MOTIONS[idx];
 }
 

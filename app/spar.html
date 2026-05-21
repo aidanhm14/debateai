@@ -6,6 +6,7 @@
 <title>Find a sparring partner · Debate AI</title>
 <meta name="description" content="Match into a live debate round with another human in 30 seconds. AI fallback if nobody pairs in 60s. Sub-200ms voice, AI-judged at the end." />
 <meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://debateai.com/spar">
 <!-- Share-preview metadata. /spar URLs get pasted into Discord, WhatsApp,
@@ -15,11 +16,11 @@
 <meta property="og:url" content="https://debateai.com/spar">
 <meta property="og:title" content="Spar live with another debater · Debate AI">
 <meta property="og:description" content="Match into a live voice debate in 30 seconds. AI judges at the end. Anonymous AI fallback if nobody pairs in 60s.">
-<meta property="og:image" content="https://debateai.com/og-image.png">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=orb4">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Spar live with another debater · Debate AI">
 <meta name="twitter:description" content="Live voice debate in 30 seconds. AI fallback if no human pairs.">
-<meta name="twitter:image" content="https://debateai.com/og-image.png">
+<meta name="twitter:image" content="https://debateai.com/og-image.png?v=orb4">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
@@ -29,6 +30,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
 
 <script defer src="/js/track.js"></script>
+<script defer src="/js/voice-input.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -116,19 +118,126 @@ h1 em{color:var(--accent);font-style:normal}
 
 .lede{font-size:1rem;color:var(--text-dim);line-height:1.55;max-width:480px;margin:0 auto 32px;font-weight:500}
 
-/* Globe — the centerpiece of this page. Replaces the prior static red
-   orb with a live rotating sphere of pinned debaters. Mounts via
-   /js/world-globe.js into the inner <canvas>. Aspect-ratio:1 keeps
-   the canvas square; the globe is inscribed inside the radial halo. */
+/* Globe — the centerpiece of this page. Layered visual:
+     • two slow-rotating outer orbit rings (dashed + dotted) on .globe-wrap
+     • multi-stop radial gradient on .globe-frame for 3D-sphere look
+       (specular highlight top-left, dark shadow bottom-right, red atmosphere)
+     • two staggered expanding ring pulses (::before, ::after on frame)
+     • a conic radar sweep inside the frame
+     • three orbit containers with satellite dots at different radii/speeds
+     • <canvas id="sparGlobe"> on top draws live pins/arcs via world-globe.js
+       in transparent mode. If world-globe.js fails to load, the orb still
+       reads as a rich animated sphere instead of a flat gradient blob. */
 .globe-wrap{
-  position:relative;width:300px;max-width:84vw;margin:0 auto 22px;
+  position:relative;width:220px;max-width:62vw;margin:0 auto 18px;
   aspect-ratio:1 / 1;
 }
+/* Outer dashed orbit ring — slow forward rotation */
+.globe-wrap::before{
+  content:''; position:absolute; inset:-6%;
+  border-radius:50%;
+  border:1px dashed rgba(239,68,68,.28);
+  pointer-events:none;
+  animation:globe-orbit-slow 32s linear infinite;
+}
+/* Wider dotted orbit ring — slower reverse rotation */
+.globe-wrap::after{
+  content:''; position:absolute; inset:-14%;
+  border-radius:50%;
+  border:1px dotted rgba(239,68,68,.18);
+  pointer-events:none;
+  animation:globe-orbit-slow 50s linear infinite reverse;
+}
+@keyframes globe-orbit-slow{ to{ transform:rotate(360deg) } }
+
 .globe-frame{
   position:relative;width:100%;height:100%;border-radius:50%;
-  background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.18) 0%, rgba(239,68,68,.04) 45%, transparent 72%);
+  background:
+    /* Specular highlight top-left for sphere depth */
+    radial-gradient(circle at 32% 28%,
+      rgba(255,210,210,.20) 0%,
+      rgba(255,170,170,.06) 18%,
+      transparent 40%),
+    /* Bottom-right shadow gives the orb 3D shape */
+    radial-gradient(circle at 70% 78%,
+      rgba(0,0,0,.55) 0%,
+      transparent 48%),
+    /* Red atmosphere — center bright, fades to halo */
+    radial-gradient(circle at 50% 50%,
+      rgba(239,68,68,.32) 0%,
+      rgba(239,68,68,.16) 34%,
+      rgba(239,68,68,.04) 62%,
+      transparent 78%);
+  box-shadow:
+    inset 0 0 70px rgba(239,68,68,.20),
+    inset 0 -14px 40px rgba(0,0,0,.5),
+    0 0 110px rgba(239,68,68,.28);
+  animation:globe-breathe 5.5s ease-in-out infinite;
+  overflow:hidden;
 }
-.globe-frame canvas{display:block;width:100%;height:100%}
+/* Two ring pulses staggered for continuous expand-and-fade. */
+.globe-frame::before, .globe-frame::after{
+  content:''; position:absolute; inset:14%;
+  border-radius:50%;
+  border:1.5px solid rgba(239,68,68,.55);
+  pointer-events:none; opacity:0;
+  animation:globe-ring-pulse 3.8s cubic-bezier(.35,0,.25,1) infinite;
+  z-index:1;
+}
+.globe-frame::after{ animation-delay:1.9s }
+@keyframes globe-ring-pulse{
+  0%{ transform:scale(.55); opacity:.75; border-width:2px }
+  60%{ opacity:.18; border-width:1px }
+  100%{ transform:scale(1.55); opacity:0; border-width:.5px }
+}
+@keyframes globe-breathe{
+  0%,100%{box-shadow:inset 0 0 70px rgba(239,68,68,.20), inset 0 -14px 40px rgba(0,0,0,.5), 0 0 110px rgba(239,68,68,.28)}
+  50%    {box-shadow:inset 0 0 95px rgba(239,68,68,.28), inset 0 -14px 40px rgba(0,0,0,.5), 0 0 145px rgba(239,68,68,.36)}
+}
+.globe-frame canvas{display:block;width:100%;height:100%;position:relative;z-index:3}
+
+/* Radar sweep arc — conic gradient rotating inside the orb. Below the
+   canvas so live pins draw on top. Subtle so it doesn't overpower. */
+.globe-sweep{
+  position:absolute; inset:10%;
+  border-radius:50%; pointer-events:none; z-index:2;
+  background:conic-gradient(from 0deg,
+    transparent 0deg,
+    rgba(239,68,68,.22) 38deg,
+    rgba(239,68,68,.08) 60deg,
+    transparent 78deg);
+  animation:globe-sweep-rot 6s linear infinite;
+  mix-blend-mode:screen;
+}
+@keyframes globe-sweep-rot{ to{ transform:rotate(360deg) } }
+
+/* Orbit containers — child <span> is the satellite dot positioned at the
+   top of the orbit. Rotating the container moves the dot around the rim.
+   Different `inset` values give each orbit a distinct radius. */
+.globe-orbit{
+  position:absolute; inset:-2%;
+  border-radius:50%; pointer-events:none; z-index:4;
+}
+.globe-orbit > .globe-dot{
+  position:absolute; left:50%; top:0;
+  width:7px; height:7px; margin:-3.5px 0 0 -3.5px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 0 8px var(--accent), 0 0 16px rgba(239,68,68,.7);
+}
+.globe-orbit > .globe-dot--small{
+  width:5px; height:5px; margin:-2.5px 0 0 -2.5px;
+  background:#ffd5d5;
+  box-shadow:0 0 6px var(--accent), 0 0 12px rgba(239,68,68,.6);
+}
+.globe-orbit > .globe-dot--bright{
+  background:#fff;
+  box-shadow:0 0 10px #fff, 0 0 18px var(--accent), 0 0 28px rgba(239,68,68,.6);
+}
+.globe-orbit--a{ animation:globe-orbit-spin 9s linear infinite }
+.globe-orbit--b{ inset:8%; animation:globe-orbit-spin 14s linear infinite reverse }
+.globe-orbit--c{ inset:18%; animation:globe-orbit-spin 22s linear infinite }
+@keyframes globe-orbit-spin{ to{ transform:rotate(360deg) } }
 
 /* Legacy orb — still used by renderMatched() and renderFallback() as
    brief transition states. Kept for those two short-lived screens. */
@@ -200,10 +309,67 @@ h1 em{color:var(--accent);font-style:normal}
 }
 
 .queue-stats{
-  font-size:.7rem;color:var(--text-ghost);font-weight:600;letter-spacing:.06em;
-  margin-top:8px;
+  margin-top:16px;
 }
-.queue-stats strong{color:var(--text-dim);font-variant-numeric:tabular-nums}
+.queue-stats strong{color:var(--text);font-variant-numeric:tabular-nums}
+
+/* Live waitlist tile — shows other debaters currently queued in the
+   same format, with avatars, short names, and how long they've been
+   waiting. Replaces the older single-line "X in your queue" text. */
+.waitlist{
+  max-width:420px;margin:0 auto;
+  padding:14px 16px 12px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  text-align:left;
+}
+.waitlist-head{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-ghost);
+  margin-bottom:10px;
+}
+.waitlist-head strong{color:var(--text);font-size:.78rem;letter-spacing:.04em;text-transform:none;font-weight:800}
+.waitlist-head .wl-fmt{color:var(--text-dim);font-size:.62rem}
+.wl-list{
+  list-style:none;padding:0;margin:0;
+  display:flex;flex-direction:column;gap:2px;
+}
+.wl-row{
+  display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:10px;
+  padding:6px 4px;border-radius:6px;
+}
+.wl-row + .wl-row{border-top:1px solid var(--border)}
+.wl-avi{
+  width:24px;height:24px;border-radius:50%;
+  background:rgba(239,68,68,.12);
+  display:inline-flex;align-items:center;justify-content:center;
+  overflow:hidden;flex-shrink:0;
+  font-size:.66rem;font-weight:800;color:#fca5a5;
+}
+.wl-avi img{width:100%;height:100%;object-fit:cover;display:block}
+.wl-name{
+  font-size:.82rem;color:var(--text);font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.wl-time{
+  font-size:.7rem;color:var(--text-ghost);font-weight:600;
+  font-variant-numeric:tabular-nums;
+}
+.wl-more{
+  margin-top:8px;
+  font-size:.7rem;color:var(--text-dim);text-align:center;
+}
+.waitlist-empty{
+  max-width:420px;margin:0 auto;
+  padding:12px 16px;
+  background:var(--bg-card);
+  border:1px dashed var(--border);
+  border-radius:12px;
+  font-size:.78rem;color:var(--text-dim);text-align:center;line-height:1.5;
+}
+.waitlist-empty strong{color:var(--text);font-weight:700}
 
 /* Sign-in gate. We REQUIRE auth for human-vs-human (anti-abuse) but
    gate softly: explain why, offer Google sign-in, AND offer the AI
@@ -242,6 +408,387 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .foot a{color:var(--text-dim);text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)}
 .foot a:hover{color:var(--text)}
+
+/* ── Waitlist sidebar (left rail) ─────────────────────────
+   Posts persist in Firestore (waitlist_posts collection) so users
+   can find each other for organized debates while the matchmaker
+   keeps running in the center. DMs go through dm_threads. Both
+   collections need rules + an index — see the comment block in the
+   JS section below. */
+/* `[hidden]` defaults to display:none in the UA stylesheet, but our
+   inbox button + badge have explicit display:flex / inline-flex below
+   that beats specificity. Force-respect [hidden] for these elements
+   so the JS toggle (inboxBtn.hidden = true/false) actually hides
+   them on signed-out + zero-unread states. */
+.waitlist-rail__inbox[hidden], .waitlist-rail__inbox .badge[hidden],
+.waitlist-fab[hidden], .waitlist-fab .fab-badge[hidden]{display:none !important}
+.waitlist-rail{
+  position:fixed; top:90px; left:24px; bottom:24px;
+  width:320px; max-width:calc(100vw - 48px);
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  z-index:30;
+  box-shadow:var(--shadow-lg);
+}
+.waitlist-rail__head{
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px;
+}
+.waitlist-rail__title{
+  font-size:.82rem; font-weight:800; letter-spacing:.01em;
+  color:var(--text);
+  display:flex; align-items:center; gap:8px;
+}
+.waitlist-rail__title .live-dot{
+  width:6px; height:6px; border-radius:50%;
+  background:var(--accent); box-shadow:0 0 8px var(--accent);
+  animation:pulse 1.6s ease-in-out infinite;
+}
+.waitlist-rail__sub{
+  font-size:.72rem; color:var(--text-ghost); font-weight:500;
+  padding:10px 16px 0; line-height:1.5;
+}
+.waitlist-rail__inbox{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 10px; border-radius:999px;
+  background:transparent; border:1px solid var(--border);
+  color:var(--text-dim); font-size:.7rem; font-weight:700; cursor:pointer;
+  transition:color .15s, border-color .15s;
+  font-family:inherit;
+}
+.waitlist-rail__inbox:hover{color:var(--text); border-color:var(--border-strong)}
+.waitlist-rail__inbox .badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:16px; height:16px; padding:0 5px; border-radius:999px;
+  background:var(--accent); color:#fff; font-size:.62rem; font-weight:800;
+}
+.waitlist-rail__list{
+  flex:1; overflow-y:auto; padding:8px 12px 12px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.waitlist-rail__empty{
+  font-size:.78rem; color:var(--text-ghost); padding:18px 8px;
+  text-align:center; line-height:1.55;
+}
+.waitlist-card{
+  display:flex; flex-direction:column; gap:8px;
+  padding:12px 12px;
+  background:var(--bg-elev); border:1px solid var(--border);
+  border-radius:12px;
+  transition:border-color .15s, transform .15s;
+}
+.waitlist-card:hover{ border-color:var(--border-strong); transform:translateY(-1px) }
+.waitlist-card__head{ display:flex; align-items:center; gap:10px }
+.waitlist-card__avatar{
+  width:32px; height:32px; border-radius:50%;
+  background:linear-gradient(135deg,#444,#222);
+  flex-shrink:0; object-fit:cover;
+}
+.waitlist-card__who{ flex:1; min-width:0; display:flex; flex-direction:column }
+.waitlist-card__name{
+  font-size:.82rem; font-weight:700; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.waitlist-card__meta{
+  font-size:.62rem; color:var(--text-ghost); font-weight:700;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+.waitlist-card__note{
+  font-size:.78rem; color:var(--text-dim); line-height:1.5;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+  white-space:pre-wrap; word-wrap:break-word;
+}
+.waitlist-card__actions{
+  display:flex; align-items:center; justify-content:flex-end; gap:8px;
+}
+.waitlist-card__dm{
+  padding:6px 14px; border-radius:999px;
+  background:var(--accent); color:#fff; border:none;
+  font-size:.72rem; font-weight:700; cursor:pointer;
+  transition:background .15s; font-family:inherit;
+}
+.waitlist-card__dm:hover{background:#dc2626}
+.waitlist-card__dm[disabled]{opacity:.45;cursor:not-allowed}
+.waitlist-card__delete{
+  padding:6px 12px; border-radius:999px;
+  background:transparent; color:var(--text-ghost);
+  border:1px solid var(--border); font-size:.66rem; font-weight:600; cursor:pointer;
+  font-family:inherit;
+}
+.waitlist-card__delete:hover{color:var(--text); border-color:var(--border-strong)}
+
+.waitlist-rail__post-slot{ padding:12px }
+.waitlist-rail__post-btn{
+  width:100%; padding:11px 14px;
+  border-radius:12px; border:none;
+  background:var(--accent); color:#fff;
+  font-size:.84rem; font-weight:700; cursor:pointer;
+  transition:background .15s, transform .15s;
+  font-family:inherit;
+}
+.waitlist-rail__post-btn:hover{background:#dc2626; transform:translateY(-1px)}
+.waitlist-rail__post-btn[disabled]{opacity:.5;cursor:not-allowed}
+
+.waitlist-rail__signin-overlay{
+  padding:14px;
+  background:rgba(239,68,68,.06);
+  border:1px dashed rgba(239,68,68,.32);
+  border-radius:12px;
+  font-size:.76rem; color:var(--text-dim); line-height:1.55;
+  text-align:center;
+}
+.waitlist-rail__signin-overlay button{
+  display:inline-block; margin-top:8px;
+  font-weight:700; color:var(--accent);
+  background:none; border:none; cursor:pointer;
+  font-size:.78rem; font-family:inherit;
+  text-decoration:underline; text-underline-offset:3px;
+}
+
+/* "You're on the waitlist" confirmation state — replaces the join
+   button once the user has an active post. Green to read as an
+   active/available status. */
+.waitlist-rail__joined{
+  padding:14px;
+  background:rgba(34,197,94,.07);
+  border:1px solid rgba(34,197,94,.3);
+  border-radius:12px;
+}
+.waitlist-rail__joined-txt{
+  display:flex; align-items:center; gap:8px;
+  font-size:.84rem; font-weight:700; color:var(--text);
+}
+.waitlist-rail__joined-txt .dot{
+  width:7px; height:7px; border-radius:50%; background:var(--green);
+  box-shadow:0 0 8px var(--green); flex-shrink:0;
+}
+.waitlist-rail__joined-sub{
+  font-size:.74rem; color:var(--text-dim); line-height:1.45; margin-top:5px;
+}
+.waitlist-rail__joined-actions{ margin-top:10px }
+.waitlist-rail__leave{
+  padding:6px 14px; border-radius:999px;
+  background:transparent; border:1px solid var(--border);
+  color:var(--text-dim); font-size:.72rem; font-weight:700; cursor:pointer;
+  font-family:inherit; transition:color .15s, border-color .15s;
+}
+.waitlist-rail__leave:hover{ color:var(--text); border-color:var(--border-strong) }
+/* Default note line when a waitlister joined without writing one. */
+.waitlist-card__note--default{ font-style:italic; color:var(--text-ghost) }
+
+.waitlist-rail__close{
+  display:flex; align-items:center; justify-content:center;
+  width:26px; height:26px; border-radius:50%;
+  background:transparent; border:1px solid var(--border); color:var(--text-dim);
+  cursor:pointer; font-size:1.1rem; line-height:1;
+  font-family:inherit;
+}
+.waitlist-fab{
+  position:fixed; left:14px; bottom:14px; z-index:25;
+  padding:10px 16px; border-radius:999px;
+  background:var(--accent); color:#fff;
+  font-size:.78rem; font-weight:700; cursor:pointer; border:none;
+  box-shadow:0 8px 24px var(--accent-glow);
+  display:none; align-items:center; gap:8px;
+  font-family:inherit;
+}
+.waitlist-fab .fab-badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:16px; height:16px; padding:0 5px; border-radius:999px;
+  background:#fff; color:var(--accent); font-size:.62rem; font-weight:800;
+}
+
+/* Mobile: rail slides off-screen, FAB toggles it. */
+@media (max-width: 1100px){
+  .waitlist-rail{
+    transform:translateX(-110%); transition:transform .25s ease;
+  }
+  .waitlist-rail.open{ transform:translateX(0) }
+  .waitlist-fab{ display:inline-flex }
+}
+@media (min-width: 1101px){
+  .waitlist-rail__close{ display:none }
+}
+
+/* ── Modal scaffold (post composer + DM thread + inbox) ─── */
+.wl-modal-backdrop{
+  position:fixed; inset:0; z-index:100;
+  background:rgba(0,0,0,.65); backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  animation:wl-fade-in .18s ease;
+}
+@keyframes wl-fade-in{from{opacity:0}to{opacity:1}}
+.wl-modal{
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:18px; box-shadow:var(--shadow-lg);
+  width:100%; max-width:480px; max-height:88vh;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.wl-modal__head{
+  padding:14px 18px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+}
+.wl-modal__title{
+  font-size:1rem; font-weight:800; color:var(--text);
+  display:flex; align-items:center; gap:10px; min-width:0; flex:1;
+}
+.wl-modal__avatar{
+  width:30px; height:30px; border-radius:50%;
+  flex-shrink:0; object-fit:cover;
+  background:linear-gradient(135deg,#444,#222);
+}
+.wl-modal__avatar--group{
+  display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 35% 30%,rgba(239,68,68,.3),rgba(239,68,68,.08));
+  border:1px solid var(--border-strong); color:var(--accent);
+}
+/* Sender label inside a group message bubble */
+.wl-msg__sender{
+  font-size:.62rem; font-weight:800; letter-spacing:.04em;
+  color:var(--accent); margin-bottom:3px;
+}
+.wl-msg.mine .wl-msg__sender{display:none}
+/* Inbox member-count chip on group rows */
+.wl-inbox-row__count{
+  display:inline-block; margin-left:6px; padding:0 6px;
+  border-radius:999px; background:var(--bg-elev);
+  border:1px solid var(--border); color:var(--text-dim);
+  font-size:.6rem; font-weight:800; vertical-align:1px;
+}
+/* Group-composer member picker */
+.wl-pick-list{
+  display:flex; flex-direction:column; gap:4px;
+  max-height:240px; overflow-y:auto;
+  border:1px solid var(--border); border-radius:10px; padding:6px;
+}
+.wl-pick{
+  display:flex; align-items:center; gap:10px;
+  padding:7px 8px; border-radius:8px; cursor:pointer;
+  transition:background .12s;
+}
+.wl-pick:hover{background:var(--bg-elev)}
+.wl-pick__cb{accent-color:var(--accent); width:16px; height:16px; flex-shrink:0; cursor:pointer}
+.wl-pick__name{font-size:.84rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.wl-modal__close{
+  width:30px; height:30px; border-radius:50%;
+  background:transparent; border:1px solid var(--border);
+  color:var(--text-dim); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.2rem; line-height:1; flex-shrink:0;
+  font-family:inherit;
+}
+.wl-modal__close:hover{color:var(--text); border-color:var(--border-strong)}
+.wl-modal__body{
+  padding:16px 18px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:12px;
+  flex:1;
+}
+.wl-modal__foot{
+  padding:12px 18px; border-top:1px solid var(--border);
+  display:flex; gap:8px; align-items:center;
+}
+
+.wl-field{display:flex; flex-direction:column; gap:6px}
+.wl-field label{
+  font-size:.68rem; font-weight:700; color:var(--text-ghost);
+  letter-spacing:.08em; text-transform:uppercase;
+}
+.wl-input, .wl-textarea, .wl-select{
+  width:100%; padding:10px 12px;
+  background:var(--bg-elev); border:1px solid var(--border);
+  border-radius:10px; color:var(--text);
+  font-family:inherit; font-size:.88rem;
+  resize:none;
+}
+.wl-textarea{min-height:96px}
+.wl-input:focus, .wl-textarea:focus, .wl-select:focus{
+  outline:none; border-color:var(--accent);
+}
+.wl-count{
+  font-size:.66rem; color:var(--text-ghost); text-align:right;
+}
+.wl-modal__error{
+  color:#fca5a5; font-size:.78rem; min-height:1em;
+}
+
+.wl-btn{
+  padding:10px 18px; border-radius:999px;
+  font-family:inherit; font-weight:700; font-size:.82rem;
+  cursor:pointer; transition:background .15s, border-color .15s;
+}
+.wl-btn.primary{
+  background:var(--accent); color:#fff; border:1px solid var(--accent);
+}
+.wl-btn.primary:hover{background:#dc2626; border-color:#dc2626}
+.wl-btn.primary[disabled]{opacity:.5;cursor:not-allowed}
+.wl-btn.ghost{
+  background:transparent; color:var(--text-dim); border:1px solid var(--border);
+}
+.wl-btn.ghost:hover{color:var(--text); border-color:var(--border-strong)}
+
+/* DM thread */
+.wl-thread{
+  display:flex; flex-direction:column; gap:8px;
+  min-height:240px; max-height:50vh; overflow-y:auto;
+}
+.wl-msg{
+  max-width:78%; padding:8px 12px;
+  border-radius:14px;
+  font-size:.86rem; line-height:1.4;
+  word-wrap:break-word; white-space:pre-wrap;
+}
+.wl-msg.mine{
+  align-self:flex-end;
+  background:var(--accent); color:#fff;
+  border-bottom-right-radius:4px;
+}
+.wl-msg.theirs{
+  align-self:flex-start;
+  background:var(--bg-elev); color:var(--text);
+  border:1px solid var(--border);
+  border-bottom-left-radius:4px;
+}
+.wl-msg__time{
+  font-size:.6rem; opacity:.75; margin-top:3px;
+}
+.wl-msg.mine .wl-msg__time{text-align:right}
+.wl-msg.theirs .wl-msg__time{text-align:left; color:var(--text-ghost); opacity:1}
+.wl-msg__empty{
+  text-align:center; color:var(--text-ghost);
+  font-size:.82rem; padding:30px 16px; line-height:1.6;
+}
+.wl-send-input{flex:1}
+
+/* Inbox list */
+.wl-inbox-list{ display:flex; flex-direction:column; gap:6px }
+.wl-inbox-row{
+  padding:10px 12px; border-radius:10px;
+  background:var(--bg-elev); border:1px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+  cursor:pointer; transition:border-color .15s;
+}
+.wl-inbox-row:hover{border-color:var(--border-strong)}
+.wl-inbox-row__main{flex:1; min-width:0}
+.wl-inbox-row__name{
+  font-size:.84rem; font-weight:700; color:var(--text); margin-bottom:2px;
+  display:flex; align-items:center; gap:6px;
+}
+.wl-inbox-row__preview{
+  font-size:.74rem; color:var(--text-ghost);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.wl-inbox-row__time{font-size:.66rem; color:var(--text-ghost); flex-shrink:0}
+.wl-inbox-row.unread .wl-inbox-row__name::after{
+  content:''; width:7px; height:7px; border-radius:50%;
+  background:var(--accent); flex-shrink:0;
+}
 </style>
 </head>
 <body>
@@ -301,6 +848,7 @@ h1 em{color:var(--accent);font-style:normal}
     queueUnsub: null,
     queueWatchUnsub: null,
     matchTriggerPending: false,
+    pairInFlight: false,           // gate on the spar-pair POST so polling doesn't fan out duplicates
     joinedAtMs: 0,
     countdownInterval: null,
     matchPollInterval: null,
@@ -330,6 +878,47 @@ h1 em{color:var(--accent);font-style:normal}
     });
   }
 
+  // Render the live waitlist tile shown under the globe. `others` is an
+  // array of Firestore docs for queued peers (excluding self), `format`
+  // is the current format string. Empty state has its own friendly
+  // framing — "You're first in line" — instead of a dead "0 in queue".
+  function renderWaitlist(others, format){
+    var fmt = escHtml(String(format||'').toUpperCase());
+    if (!others || others.length === 0){
+      return '<div class="waitlist-empty">' +
+        "<strong>You're first in line.</strong> Waiting on the next debater to join the " + fmt + ' queue.' +
+        '</div>';
+    }
+    var now = Math.floor(Date.now() / 1000);
+    var rows = others.slice(0, 6).map(function(d){
+      var data = d.data ? d.data() : d;
+      var name = escHtml(data.displayName || 'Anonymous');
+      var initial = (name.replace(/&[^;]+;/g,'').charAt(0) || '?').toUpperCase();
+      var avi = data.photoURL
+        ? '<img src="' + escHtml(data.photoURL) + '" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'' + initial + '\'}))" />'
+        : initial;
+      var sec = (data.joinedAt && data.joinedAt.seconds)
+        ? Math.max(0, now - data.joinedAt.seconds)
+        : 0;
+      return '<li class="wl-row">' +
+        '<span class="wl-avi">' + avi + '</span>' +
+        '<span class="wl-name">' + name + '</span>' +
+        '<span class="wl-time">' + sec + 's</span>' +
+        '</li>';
+    }).join('');
+    var more = others.length > 6
+      ? '<div class="wl-more">+' + (others.length - 6) + ' more queued</div>'
+      : '';
+    return '<div class="waitlist">' +
+      '<div class="waitlist-head">' +
+        '<span><strong>' + others.length + '</strong> in queue</span>' +
+        '<span class="wl-fmt">' + fmt + '</span>' +
+      '</div>' +
+      '<ul class="wl-list">' + rows + '</ul>' +
+      more +
+      '</div>';
+  }
+
   // ── Render: signed-out gate ──────────────────────────
   // Anti-abuse posture: human-vs-human REQUIRES sign-in. The AI side
   // doesn't, and that's the alternative we surface explicitly so the
@@ -341,7 +930,13 @@ h1 em{color:var(--accent);font-style:normal}
     shell.innerHTML =
       '<div class="gate">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
-        '<div class="globe-wrap"><div class="globe-frame"><canvas id="sparGlobe" aria-label="Live network of debaters"></canvas></div></div>' +
+        '<div class="globe-wrap"><div class="globe-frame">' +
+          '<div class="globe-sweep" aria-hidden="true"></div>' +
+          '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
+          '<div class="globe-orbit globe-orbit--a" aria-hidden="true"><span class="globe-dot globe-dot--bright"></span></div>' +
+          '<div class="globe-orbit globe-orbit--b" aria-hidden="true"><span class="globe-dot globe-dot--small"></span></div>' +
+          '<div class="globe-orbit globe-orbit--c" aria-hidden="true"><span class="globe-dot"></span></div>' +
+        '</div></div>' +
         '<h2>Sign in to spar with another debater.</h2>' +
         '<p>Live human-vs-human is signed-in only. Keeps the queue free of bots and gives you a profile your opponent can see. AI sparring stays anonymous if you\'d rather skip the sign-in.</p>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
@@ -416,18 +1011,40 @@ h1 em{color:var(--accent);font-style:normal}
       // the wait feel like joining a real network instead of staring at
       // a loading spinner. Mounts via /js/world-globe.js after this
       // innerHTML lands.
-      '<div class="globe-wrap"><div class="globe-frame"><canvas id="sparGlobe" aria-label="Live network of debaters"></canvas></div></div>' +
+      '<div class="globe-wrap"><div class="globe-frame">' +
+          '<div class="globe-sweep" aria-hidden="true"></div>' +
+          '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
+          '<div class="globe-orbit globe-orbit--a" aria-hidden="true"><span class="globe-dot globe-dot--bright"></span></div>' +
+          '<div class="globe-orbit globe-orbit--b" aria-hidden="true"><span class="globe-dot globe-dot--small"></span></div>' +
+          '<div class="globe-orbit globe-orbit--c" aria-hidden="true"><span class="globe-dot"></span></div>' +
+        '</div></div>' +
       '<div class="status" id="statusText"><span id="statusMain">Scanning the queue</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Looking across active debaters in your format.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" id="cancelBtn">Cancel & go home</button>' +
         '<a class="btn" href="/debate-ai">Skip to AI now</a>' +
       '</div>' +
+      // 2026-05-18: while the user is waiting on the random matchmaker,
+      // give them a clear pivot to /live (the schedule board with
+      // upcoming + live-now scheduled rounds, "what's on my schedule"
+      // block, RSVP-style sign-ups) so a slow queue doesn't dead-end
+      // them with just "cancel" or "skip to AI". /community is the
+      // chat/forum surface — wrong tool for "find a scheduled debate".
+      '<div class="organized-pivot" style="margin-top:14px;font-size:.78rem;color:var(--text-dim);text-align:center;line-height:1.55">' +
+        'Or skip the random match — ' +
+        '<a href="/live" style="color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.45)">browse scheduled debates on the live board →</a>' +
+      '</div>' +
       // Social-proof ticker. Cycles fake recent pairings every 3s.
       // Real-feeling handles, realistic pair times. Helps the wait
       // feel like an active marketplace rather than dead air.
       '<div class="pairing-ticker" id="pairingTicker" aria-live="polite" style="margin-top:18px;font-size:.74rem;color:var(--text-ghost);text-align:center;min-height:18px;font-variant-numeric:tabular-nums;letter-spacing:.01em;opacity:.85;transition:opacity .35s ease"></div>' +
-      '<div class="queue-stats" id="queueStats"></div>' +
+      '<div class="queue-stats" id="queueStats">' + renderWaitlist([], formatParam) + '</div>' +
+      // Live diagnostic line. Always visible during the search (unlike
+      // queueStats, which gets replaced by the broaden CTA at 45s).
+      // Shows: peer count from the last query, my uid tail (so two
+      // test windows confirm they're on different accounts), and the
+      // last spar-pair attempt outcome (success/soft-fail reason).
+      '<div class="diag" id="diagLine" aria-live="polite" style="margin-top:10px;font-size:.66rem;color:var(--text-ghost);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:.04em;text-transform:uppercase;opacity:.7"></div>' +
       '<div class="foot">Your camera + mic stay off until you accept the match. Match found = you both jump into a video room.</div>';
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
     startCountdown();
@@ -498,6 +1115,12 @@ h1 em{color:var(--accent);font-style:normal}
         palette: 'accent',
         rotateDegPerSec: 5,
         showArcs: true,
+        showScanSweep: true,
+        // Skip the opaque dark sphere body. The disc becomes a soft
+        // red glow defined by .globe-frame's radial-gradient + box-shadow
+        // + the canvas rim glow + pins. Reads sexy on light AND dark
+        // themes; the old black disc looked demonic on /light/.
+        transparent: true,
       });
     }
     tryMount(40);
@@ -681,6 +1304,23 @@ h1 em{color:var(--accent);font-style:normal}
         });
         setTimeout(function(){ location.href = '/live-round.html?' + params.toString(); }, 900);
       } else if (d.status === 'cancelled'){
+        // Distinguish a system cancel from a user cancel. The pair
+        // function's stale-peer skip and the reaper sweep both stamp a
+        // cancelReason; if WE didn't hit Cancel and the cancel came
+        // from one of those, re-join the queue instead of bouncing the
+        // user off the page. Without this, a single false stale-skip
+        // (e.g. an unresolved serverTimestamp on a fresh peer) ejected
+        // a live, waiting debater straight to the homepage.
+        var systemCancel = (d.cancelReason === 'stale_peer_skip'
+                         || d.cancelReason === 'stale_reaper');
+        if (systemCancel && !state.cancelled){
+          console.info('[spar] system cancel (' + d.cancelReason + '), re-queueing');
+          updateDiag({ last: 're-queue' });
+          teardownQueue();
+          // Fresh doc on re-join → fresh serverTimestamp → no repeat skip.
+          setTimeout(function(){ if (!state.cancelled) joinQueue(); }, 400);
+          return;
+        }
         teardownQueue();
         location.href = '/';
       }
@@ -762,10 +1402,9 @@ h1 em{color:var(--accent);font-style:normal}
       state.waitingPeers = others.length;
       var stats = document.getElementById('queueStats');
       if (stats && !state.broadenOffered){
-        stats.innerHTML = others.length === 0
-          ? 'No other debaters in your queue right now.'
-          : '<strong>' + others.length + '</strong> other debater' + (others.length === 1 ? '' : 's') + ' in your queue.';
+        stats.innerHTML = renderWaitlist(others, formatParam);
       }
+      updateDiag({ peers: others.length });
       if (others.length === 0) return;
       others.sort(function(a, b){
         var as = (a.data().joinedAt && a.data().joinedAt.seconds) || 0;
@@ -778,51 +1417,139 @@ h1 em{color:var(--accent);font-style:normal}
     });
   }
 
-  function attemptMatch(peerUid, peerData){
-    if (state.cancelled || !state.user || !firebaseDb) return;
-    var queue = firebaseDb.collection('matchmaking_queue');
-    var myRef = queue.doc(state.user.uid);
-    var peerRef = queue.doc(peerUid);
-    // Deterministic room name from the lex-sorted UID pair so both
-    // clients converge on the same /live-round room when their
-    // snapshot listeners fire. SparMatch- prefix makes it filterable
-    // in the live_rounds collection later.
-    var pair = [state.user.uid, peerUid].sort();
-    var roomName = 'SparMatch-' + pair[0].slice(0,8) + '-' + pair[1].slice(0,8);
-    // Pro/Con assignment — pair[0] (lex-first UID) is Pro by
-    // convention. Stable + arbitrary; both clients agree.
-    var proUid = pair[0];
-    var conUid = pair[1];
-    var myShort = shortNameOf(state.user);
-    var peerShort = peerData.displayName || 'Opponent';
-
-    firebaseDb.runTransaction(function(tx){
-      return Promise.all([tx.get(myRef), tx.get(peerRef)]).then(function(snaps){
-        var mine = snaps[0].data();
-        var theirs = snaps[1].data();
-        if (!mine || !theirs) throw new Error('queue_doc_missing');
-        if (mine.status !== 'waiting' || theirs.status !== 'waiting') throw new Error('lost_race');
-        var commonUpdate = {
-          status: 'matched',
-          room: roomName,
-          matchedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          proUid: proUid,
-          conUid: conUid,
-          proName: proUid === state.user.uid ? myShort : peerShort,
-          conName: conUid === state.user.uid ? myShort : peerShort,
-        };
-        tx.update(myRef, Object.assign({ matchedWith: peerUid, matchedWithName: peerShort }, commonUpdate));
-        tx.update(peerRef, Object.assign({ matchedWith: state.user.uid, matchedWithName: myShort }, commonUpdate));
-      });
-    }).then(function(){
-      try { gtag('event', 'spar_match_made', { format: formatParam }); } catch(e){}
-      // The snapshot listener on my own doc will fire and navigate.
-    }).catch(function(err){
-      // Race lost or peer cancelled — keep polling, no UI change.
-      if (err && err.message !== 'lost_race') {
-        console.warn('[spar] match transaction failed', err);
+  // 2026-05-18: moved off a client-side Firestore transaction (which
+  // silently failed because Firestore rules don't allow user A to
+  // write user B's queue doc — the transaction could update self but
+  // not the peer, leaving both stuck on "1 other debater in your
+  // queue") onto a Netlify function with admin-SDK credentials that
+  // updates both docs atomically. The client side just kicks the
+  // function and lets subscribeMyDoc's onSnapshot drive navigation.
+  //
+  // Soft-fail reason codes from spar-pair (keep polling silently):
+  //   lost_race        — another transaction beat us to one of the docs
+  //   format_mismatch  — peer was on a different format
+  //   queue_doc_missing— peer doc got deleted between query and txn
+  //   stale_peer       — peer's joinedAt is >3min old (ghost session);
+  //                      spar-pair just marked it cancelled, polling
+  //                      will sort to a fresher peer next tick
+  // Anything else (auth/5xx/network) is a hard fail; we surface it so
+  // the user knows pairing is having trouble rather than burning the
+  // full 60s clock in silence.
+  var PAIR_REQUEST_TIMEOUT_MS = 8000;
+  function attemptMatch(peerUid /* peerData unused now */){
+    if (state.cancelled || !state.user || !firebaseAuth) return;
+    // Guard against re-firing while a pair attempt is in flight —
+    // tryMatch polls every 2s and the snapshot listener also pokes
+    // it; without this we'd fan out duplicate POSTs.
+    if (state.pairInFlight) return;
+    state.pairInFlight = true;
+    // Self-heal: if the fetch never resolves (network limbo on mobile
+    // tethering, function cold-start that hangs), the pairInFlight
+    // flag would stick forever and the user would burn the full AI
+    // fallback timer with no further pair attempts. Reset after 8s no
+    // matter what so polling can try again.
+    var timeoutId = setTimeout(function(){
+      if (state.pairInFlight){
+        state.pairInFlight = false;
+        console.warn('[spar] spar-pair request timed out, retrying');
+        updateDiag({ last: 'timeout' });
+        surfacePairError('timeout');
       }
+    }, PAIR_REQUEST_TIMEOUT_MS);
+    firebaseAuth.currentUser.getIdToken().then(function(idToken){
+      return fetch('/.netlify/functions/spar-pair', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + idToken,
+        },
+        body: JSON.stringify({
+          peerUid: peerUid,
+          format: formatParam,
+          broaden: !!state.broaden,
+        }),
+      });
+    }).then(function(res){
+      return res.json().then(function(j){ return { ok: res.ok, status: res.status, body: j }; });
+    }).then(function(r){
+      clearTimeout(timeoutId);
+      state.pairInFlight = false;
+      if (!r.ok || !r.body || !r.body.ok) {
+        var reason = r.body && r.body.reason ? r.body.reason : 'http_' + r.status;
+        var soft = (reason === 'lost_race' || reason === 'format_mismatch'
+                 || reason === 'queue_doc_missing' || reason === 'stale_peer');
+        // Soft fails are recoverable — keep polling. Surface them in
+        // the diag line so the user can see retries happening instead
+        // of staring at a silent countdown. Hard fails still get the
+        // banner via surfacePairError.
+        updateDiag({ last: reason });
+        if (!soft) {
+          console.warn('[spar] spar-pair function failed:', reason, r.body);
+          surfacePairError(reason);
+        } else {
+          console.info('[spar] soft retry:', reason);
+        }
+        return;
+      }
+      clearPairError();
+      updateDiag({ last: 'matched' });
+      try { gtag('event', 'spar_match_made', { format: formatParam }); } catch(e){}
+      // The snapshot listener on my own doc will fire (the function
+      // updated it) and navigate via subscribeMyDoc → /live-round.
+    }).catch(function(err){
+      clearTimeout(timeoutId);
+      state.pairInFlight = false;
+      console.warn('[spar] spar-pair fetch failed', err);
+      updateDiag({ last: 'network' });
+      surfacePairError('network');
     });
+  }
+
+  // Diag line state — mutates the small uppercase status under the
+  // queue card so the user can see what the matchmaker is doing even
+  // when the bigger UI elements get replaced (broaden CTA at 45s).
+  // Holds: peer count from the last query, last spar-pair outcome,
+  // and the tail of my own uid (debug-only — helps confirm two test
+  // windows are on different accounts).
+  var diagState = { peers: null, last: null };
+  function updateDiag(patch){
+    if (patch && typeof patch === 'object'){
+      if ('peers' in patch) diagState.peers = patch.peers;
+      if ('last' in patch) diagState.last = patch.last;
+    }
+    var el = document.getElementById('diagLine');
+    if (!el) return;
+    var uidTail = (state.user && state.user.uid) ? state.user.uid.slice(-6) : '----';
+    var parts = [];
+    parts.push('Queue: ' + (diagState.peers == null ? '…' : diagState.peers) + ' on ' + formatParam.toUpperCase());
+    parts.push('me ' + uidTail);
+    if (diagState.last) parts.push('last ' + diagState.last);
+    el.textContent = parts.join(' · ');
+  }
+  // Set the initial line so the user sees the diagnostic immediately,
+  // not blank until the first query resolves.
+  setTimeout(updateDiag, 50);
+
+  // Render a small banner near the queue stats when pairing
+  // hard-fails. Auto-clears on next successful attempt. Without this,
+  // a misconfigured auth or function 5xx leaves the user staring at
+  // "Scanning the queue" with no feedback until the AI fallback at 60s.
+  function surfacePairError(reason){
+    var stats = document.getElementById('queueStats');
+    if (!stats) return;
+    var msg;
+    if (reason === 'timeout')      msg = 'Slow response from the matchmaker. Retrying…';
+    else if (reason === 'network') msg = 'Network blip reaching the matchmaker. Retrying…';
+    else if (/^http_5/.test(reason)) msg = 'Matchmaker hiccup (' + reason + '). Retrying…';
+    else if (/^http_4/.test(reason)) msg = 'Auth issue reaching the matchmaker (' + reason + '). Try signing out + in.';
+    else                            msg = 'Pairing error (' + reason + '). Retrying…';
+    stats.innerHTML = '<div style="padding:10px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.32);border-radius:10px;color:#fbbf24;font-size:.78rem;font-weight:600">' + escHtml(msg) + '</div>';
+  }
+  function clearPairError(){
+    // Touched by a successful pair attempt; the matched-state UI takes
+    // over the queue stats area within ~900ms via subscribeMyDoc's
+    // setTimeout navigation, so we don't bother re-rendering the
+    // "N other debaters" text in between.
   }
 
   function triggerAIFallback(){
@@ -856,6 +1583,7 @@ h1 em{color:var(--accent);font-style:normal}
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
     if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} state.queueWatchUnsub = null; }
     state.matchTriggerPending = false;
+    state.pairInFlight = false;
   }
 
   // Tab close / nav away — drop our queue doc so we don't ghost.
@@ -865,12 +1593,851 @@ h1 em{color:var(--accent);font-style:normal}
     }
   });
 
+  // ╭───────────────────────────────────────────────────────╮
+  // │  WAITLIST + DMs (left rail)                          │
+  // ╰───────────────────────────────────────────────────────╯
+  // Two new Firestore collections back this surface:
+  //   waitlist_posts/{postId}
+  //     { uid, displayName, photoURL, format, note, createdAt }
+  //     Listed in the left rail. 24h client-side TTL filter; posts
+  //     stay in Firestore until the author deletes them.
+  //   dm_threads/{threadId}/messages/{msgId}
+  //     threadId = sorted([uidA, uidB]).join('_')
+  //     Thread doc: { participants:[uidA,uidB], participantInfo, lastMessage,
+  //                   lastMessageAt, lastMessageFrom, unread:{uidA:n,uidB:n} }
+  //     Message doc: { fromUid, text, createdAt }
+  //
+  // REQUIRED Firestore rules — paste into Firebase console alongside
+  // the existing matchmaking_queue rule:
+  //
+  //   match /waitlist_posts/{postId} {
+  //     allow read: if request.auth != null;
+  //     allow create: if request.auth != null
+  //       && request.auth.uid == request.resource.data.uid
+  //       && request.resource.data.note is string
+  //       && request.resource.data.note.size() <= 240;
+  //     allow update, delete: if request.auth != null
+  //       && request.auth.uid == resource.data.uid;
+  //   }
+  //
+  //   match /dm_threads/{threadId} {
+  //     allow read, create, update: if request.auth != null
+  //       && (
+  //         (resource == null && request.auth.uid in request.resource.data.participants)
+  //         || (resource != null && request.auth.uid in resource.data.participants)
+  //       );
+  //     match /messages/{msgId} {
+  //       allow read: if request.auth != null
+  //         && request.auth.uid in
+  //           get(/databases/$(database)/documents/dm_threads/$(threadId))
+  //             .data.participants;
+  //       allow create: if request.auth != null
+  //         && request.auth.uid == request.resource.data.fromUid
+  //         && request.resource.data.text is string
+  //         && request.resource.data.text.size() <= 1000;
+  //     }
+  //   }
+  //
+  // REQUIRED composite index (Firebase console → Firestore → Indexes):
+  //   collection: dm_threads
+  //   fields:     participants ARRAY-CONTAINS, lastMessageAt DESC
+  // Without this, the inbox query (used for the unread badge + inbox
+  // modal) returns an error with a clickable "create index" link.
+
+  var WL_POST_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+  var WL_NOTE_MAX = 240;
+  var WL_MSG_MAX = 1000;
+  var WL_FORMATS = [
+    { v: 'any',    label: 'Any format' },
+    { v: 'quick',  label: 'Quick Clash' },
+    { v: 'apda',   label: 'APDA' },
+    { v: 'bp',     label: 'BP / WUDC' },
+    { v: 'worlds', label: 'Worlds (WUDC)' },
+    { v: 'asian',  label: 'Asian Parli' },
+    { v: 'ld',     label: 'LD' },
+    { v: 'pf',     label: 'Public Forum' },
+    { v: 'policy', label: 'Policy' },
+  ];
+
+  var wl = {
+    posts: [],
+    postsUnsub: null,
+    threads: [],
+    threadsUnsub: null,
+    unreadThreads: 0,
+    activeThreadUnsub: null,
+    // The thread currently open in the modal. Holds enough to send +
+    // render without re-reading the doc: { id, participants:[uids],
+    // participantInfo:{uid:{name,photo}}, isGroup, groupName }.
+    activeThread: null,
+  };
+
+  var WL_GROUP_NAME_MAX = 60;
+  var WL_GROUP_MAX_MEMBERS = 12; // including you
+
+  function relTime(ms){
+    var diff = Date.now() - ms;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+    return Math.floor(diff/86400000) + 'd ago';
+  }
+
+  function buildWaitlistRail(){
+    if (document.getElementById('waitlistRail')) return;
+    var rail = document.createElement('aside');
+    rail.id = 'waitlistRail';
+    rail.className = 'waitlist-rail';
+    rail.setAttribute('aria-label', 'Open invites');
+    rail.innerHTML =
+      '<div class="waitlist-rail__head">' +
+        '<div class="waitlist-rail__title"><span class="live-dot"></span>Open invites</div>' +
+        '<div style="display:flex;gap:6px;align-items:center">' +
+          '<button class="waitlist-rail__inbox" id="wlInboxBtn" type="button" hidden>Inbox<span class="badge" id="wlInboxBadge" hidden>0</span></button>' +
+          '<button class="waitlist-rail__close" id="wlCloseBtn" type="button" aria-label="Close">×</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="waitlist-rail__sub">Debaters available to debate online right now. Join the waitlist to show up here, or DM anyone directly to organize a round.</div>' +
+      '<div class="waitlist-rail__post-slot" id="wlPostSlot"></div>' +
+      '<div class="waitlist-rail__list" id="wlList">' +
+        '<div class="waitlist-rail__empty">Loading…</div>' +
+      '</div>';
+    document.body.appendChild(rail);
+
+    var fab = document.createElement('button');
+    fab.className = 'waitlist-fab';
+    fab.id = 'wlFab';
+    fab.type = 'button';
+    fab.innerHTML = 'Open invites<span class="fab-badge" id="wlFabBadge" hidden>0</span>';
+    document.body.appendChild(fab);
+    fab.addEventListener('click', function(){
+      document.getElementById('waitlistRail').classList.toggle('open');
+    });
+    document.getElementById('wlCloseBtn').addEventListener('click', function(){
+      document.getElementById('waitlistRail').classList.remove('open');
+    });
+    document.getElementById('wlInboxBtn').addEventListener('click', openInboxModal);
+  }
+
+  // Returns the current user's active waitlist post (if they've signed
+  // up), else null. Drives the join-button state so a user can't post
+  // duplicates and can leave the list.
+  function myWaitlistPost(){
+    if (!state.user) return null;
+    for (var i = 0; i < wl.posts.length; i++){
+      if (wl.posts[i].data && wl.posts[i].data.uid === state.user.uid) return wl.posts[i];
+    }
+    return null;
+  }
+
+  // Renders just the action slot at the top of the rail. Three states:
+  //   signed-out  → sign-in nudge
+  //   on waitlist → "You're on the waitlist" + Leave
+  //   available   → "Join the waitlist" button
+  // Called both on auth change AND whenever the posts feed updates, so
+  // the button reflects the latest membership without a full re-render.
+  function renderJoinButton(){
+    var slot = document.getElementById('wlPostSlot');
+    var inboxBtn = document.getElementById('wlInboxBtn');
+    if (!slot) return;
+    if (!state.user){
+      slot.innerHTML =
+        '<div class="waitlist-rail__signin-overlay">' +
+          'Sign in to join the waitlist or DM other debaters.' +
+          '<br><button type="button" id="wlSignInLink">Sign in with Google →</button>' +
+        '</div>';
+      var link = document.getElementById('wlSignInLink');
+      if (link) link.addEventListener('click', doGoogleSignIn);
+      if (inboxBtn) inboxBtn.hidden = true;
+      return;
+    }
+    if (inboxBtn) inboxBtn.hidden = false;
+    var mine = myWaitlistPost();
+    if (mine){
+      slot.innerHTML =
+        '<div class="waitlist-rail__joined">' +
+          '<div class="waitlist-rail__joined-txt"><span class="dot"></span>You\'re on the waitlist</div>' +
+          '<div class="waitlist-rail__joined-sub">Debaters can DM you to organize a round. Check your inbox.</div>' +
+          '<div class="waitlist-rail__joined-actions">' +
+            '<button class="waitlist-rail__leave" id="wlLeaveBtn" type="button">Leave waitlist</button>' +
+          '</div>' +
+        '</div>';
+      var lb = document.getElementById('wlLeaveBtn');
+      if (lb) lb.addEventListener('click', function(){ leaveWaitlist(mine.id); });
+    } else {
+      slot.innerHTML = '<button class="waitlist-rail__post-btn" id="wlPostBtn" type="button">Join the waitlist</button>';
+      document.getElementById('wlPostBtn').addEventListener('click', openPostComposer);
+    }
+  }
+
+  function leaveWaitlist(postId){
+    if (!firebaseDb || !postId) return;
+    firebaseDb.collection('waitlist_posts').doc(postId).delete().then(function(){
+      try { gtag('event', 'waitlist_leave', {}); } catch(e){}
+    }).catch(function(e){ console.warn('[waitlist] leave failed', e); });
+  }
+
+  function renderWaitlistContent(){
+    renderJoinButton();
+    // Repaint cards so DM buttons reflect new auth state.
+    paintWaitlist();
+  }
+
+  function startWaitlistFeed(){
+    if (!firebaseDb) return;
+    if (wl.postsUnsub){ try { wl.postsUnsub(); } catch(e){} }
+    wl.postsUnsub = firebaseDb.collection('waitlist_posts')
+      .orderBy('createdAt', 'desc')
+      .limit(40)
+      .onSnapshot(function(snap){
+        var now = Date.now();
+        var rows = [];
+        snap.forEach(function(d){
+          var data = d.data() || {};
+          var createdMs = (data.createdAt && data.createdAt.toMillis) ? data.createdAt.toMillis() : 0;
+          if (createdMs && now - createdMs > WL_POST_TTL_MS) return;
+          rows.push({ id: d.id, data: data, createdMs: createdMs || now });
+        });
+        wl.posts = rows;
+        // Refresh the join button too — the user may have just joined
+        // or left, and membership is derived from the posts feed.
+        renderJoinButton();
+        paintWaitlist();
+      }, function(err){
+        console.warn('[waitlist] feed snapshot error', err);
+        var list = document.getElementById('wlList');
+        if (list) list.innerHTML = '<div class="waitlist-rail__empty">Couldn\'t load the waitlist. Refresh to retry.</div>';
+      });
+  }
+
+  function paintWaitlist(){
+    var list = document.getElementById('wlList');
+    if (!list) return;
+    if (!wl.posts.length){
+      list.innerHTML = '<div class="waitlist-rail__empty">No one on the waitlist right now.' +
+        (state.user ? ' Be the first — join above.' : ' Sign in to join.') +
+      '</div>';
+      return;
+    }
+    var myUid = state.user && state.user.uid;
+    list.innerHTML = wl.posts.map(function(p){
+      var d = p.data;
+      var name = escHtml(d.displayName || 'Anonymous');
+      var format = escHtml((d.format || 'any').toUpperCase());
+      var hasNote = !!(d.note && d.note.trim());
+      var noteHtml = hasNote
+        ? '<div class="waitlist-card__note">' + escHtml(d.note) + '</div>'
+        : '<div class="waitlist-card__note waitlist-card__note--default">Open to a round. DM to organize.</div>';
+      var time = relTime(p.createdMs);
+      var avatar = d.photoURL
+        ? '<img class="waitlist-card__avatar" src="' + escHtml(d.photoURL) + '" alt="">'
+        : '<div class="waitlist-card__avatar" aria-hidden="true"></div>';
+      var isMine = (d.uid === myUid);
+      var action = isMine
+        ? '<button class="waitlist-card__delete" data-postid="' + escHtml(p.id) + '">Remove</button>'
+        : '<button class="waitlist-card__dm" ' +
+            'data-peer-uid="' + escHtml(d.uid || '') + '" ' +
+            'data-peer-name="' + escHtml(d.displayName || '') + '" ' +
+            'data-peer-photo="' + escHtml(d.photoURL || '') + '"' +
+          '>' + (state.user ? 'DM →' : 'Sign in to DM') + '</button>';
+      return '<div class="waitlist-card">' +
+        '<div class="waitlist-card__head">' +
+          avatar +
+          '<div class="waitlist-card__who">' +
+            '<div class="waitlist-card__name">' + name + (isMine ? ' <span style="color:var(--accent);font-weight:600">(you)</span>' : '') + '</div>' +
+            '<div class="waitlist-card__meta">' + format + ' · ' + time + '</div>' +
+          '</div>' +
+        '</div>' +
+        noteHtml +
+        '<div class="waitlist-card__actions">' + action + '</div>' +
+      '</div>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.waitlist-card__dm'), function(btn){
+      btn.addEventListener('click', function(){
+        if (!state.user){ doGoogleSignIn(); return; }
+        openDMThread(btn.dataset.peerUid, btn.dataset.peerName, btn.dataset.peerPhoto);
+      });
+    });
+    Array.prototype.forEach.call(list.querySelectorAll('.waitlist-card__delete'), function(btn){
+      btn.addEventListener('click', function(){
+        var pid = btn.dataset.postid;
+        if (!pid) return;
+        firebaseDb.collection('waitlist_posts').doc(pid).delete().catch(function(e){
+          console.warn('[waitlist] delete failed', e);
+        });
+      });
+    });
+  }
+
+  function openPostComposer(){
+    if (!state.user){ doGoogleSignIn(); return; }
+    var preselect = formatParam;
+    var optionsHtml = WL_FORMATS.map(function(f){
+      return '<option value="' + escHtml(f.v) + '"' + (f.v === preselect ? ' selected' : '') + '>' + escHtml(f.label) + '</option>';
+    }).join('');
+    openModal('Join the waitlist',
+      '<div style="font-size:.82rem;color:var(--text-dim);line-height:1.5">You\'ll show up as available to debate. Other signed-in debaters can DM you to set up a round on your own time.</div>' +
+      '<div class="wl-field">' +
+        '<label for="wlComposerFormat">Format</label>' +
+        '<select class="wl-select" id="wlComposerFormat">' + optionsHtml + '</select>' +
+      '</div>' +
+      '<div class="wl-field">' +
+        '<label for="wlComposerNote">Add a note <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-ghost)">(optional)</span></label>' +
+        '<textarea class="wl-textarea" id="wlComposerNote" maxlength="' + WL_NOTE_MAX + '" placeholder="e.g. Free tonight 8pm EST, open on motion, happy to take either side."></textarea>' +
+        '<div class="wl-count"><span id="wlComposerCount">0</span>/' + WL_NOTE_MAX + '</div>' +
+      '</div>' +
+      '<div class="wl-modal__error" id="wlComposerError"></div>',
+      [
+        { label: 'Cancel', kind: 'ghost', onClick: closeModal },
+        { label: 'Join waitlist', kind: 'primary', id: 'wlComposerSubmit', onClick: submitPost },
+      ]
+    );
+    var ta = document.getElementById('wlComposerNote');
+    var count = document.getElementById('wlComposerCount');
+    ta.addEventListener('input', function(){ count.textContent = String(ta.value.length); });
+    setTimeout(function(){ ta.focus(); }, 50);
+  }
+
+  function submitPost(){
+    if (!state.user || !firebaseDb) return;
+    var noteEl = document.getElementById('wlComposerNote');
+    var fmtEl = document.getElementById('wlComposerFormat');
+    var errEl = document.getElementById('wlComposerError');
+    var btn = document.getElementById('wlComposerSubmit');
+    if (!fmtEl) return;
+    // Note is OPTIONAL — joining the waitlist is a one-tap signup; a
+    // note just adds color. Firestore rule requires note be a string
+    // <=240 chars, and '' satisfies that.
+    var note = ((noteEl && noteEl.value) || '').trim();
+    if (note.length > WL_NOTE_MAX){ if (errEl) errEl.textContent = 'Note too long (' + note.length + '/' + WL_NOTE_MAX + ').'; return; }
+    if (btn) btn.disabled = true;
+    if (errEl) errEl.textContent = '';
+    firebaseDb.collection('waitlist_posts').add({
+      uid: state.user.uid,
+      displayName: shortNameOf(state.user),
+      photoURL: state.user.photoURL || '',
+      format: fmtEl.value,
+      note: note,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).then(function(){
+      try { gtag('event', 'waitlist_join', { format: fmtEl.value }); } catch(e){}
+      closeModal();
+    }).catch(function(e){
+      if (btn) btn.disabled = false;
+      if (errEl) errEl.textContent = 'Couldn\'t join: ' + (e.message || e.code || 'unknown');
+    });
+  }
+
+  function dmThreadId(uidA, uidB){
+    return [uidA, uidB].sort().join('_');
+  }
+
+  // Open a 1:1 DM. Sets up wl.activeThread (participants known up-front
+  // even before the doc exists, so the first send can create it) and
+  // hands off to the shared renderer.
+  function openDMThread(peerUid, peerName, peerPhoto){
+    if (!state.user || !firebaseDb || !peerUid) return;
+    if (peerUid === state.user.uid) return;
+    var me = state.user.uid;
+    var pInfo = {};
+    pInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
+    pInfo[peerUid] = { name: peerName || 'Debater', photo: peerPhoto || '' };
+    wl.activeThread = {
+      id: dmThreadId(me, peerUid),
+      participants: [me, peerUid],
+      participantInfo: pInfo,
+      isGroup: false,
+      groupName: '',
+    };
+    renderThreadModal();
+  }
+
+  // Open a group (or any) thread by its doc id. Fetches the thread doc
+  // for participants + name, then renders. Used by the inbox list and
+  // the ?thread= deep link from a notification.
+  function openGroupThread(threadId){
+    if (!state.user || !firebaseDb || !threadId) return;
+    firebaseDb.collection('dm_threads').doc(threadId).get().then(function(doc){
+      if (!doc.exists){ return; }
+      var d = doc.data() || {};
+      if (!(d.participants || []).some(function(u){ return u === state.user.uid; })) return; // not a member
+      wl.activeThread = {
+        id: threadId,
+        participants: d.participants || [],
+        participantInfo: d.participantInfo || {},
+        isGroup: !!d.isGroup || (d.participants || []).length > 2,
+        groupName: d.groupName || '',
+      };
+      renderThreadModal();
+    }).catch(function(e){ console.warn('[dm] open group thread failed', e && e.message); });
+  }
+
+  // Shared thread modal renderer. Drives both 1:1 and group threads off
+  // wl.activeThread. Group threads get a member-count subtitle and
+  // per-message sender labels (handled in paintDMThread).
+  function renderThreadModal(){
+    var at = wl.activeThread;
+    if (!at) return;
+    var titleHtml;
+    if (at.isGroup){
+      var count = at.participants.length;
+      titleHtml =
+        '<div class="wl-modal__avatar wl-modal__avatar--group" aria-hidden="true">' +
+          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+        '</div>' +
+        '<span style="display:flex;flex-direction:column;min-width:0">' +
+          '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(at.groupName || 'Group') + '</span>' +
+          '<span style="font-size:.66rem;color:var(--text-dim);font-weight:500">' + count + ' members</span>' +
+        '</span>';
+    } else {
+      var peerUid = at.participants.filter(function(u){ return u !== state.user.uid; })[0] || '';
+      var info = at.participantInfo[peerUid] || {};
+      titleHtml =
+        (info.photo
+          ? '<img class="wl-modal__avatar" src="' + escHtml(info.photo) + '" alt="">'
+          : '<div class="wl-modal__avatar"></div>') +
+        '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(info.name || 'Debater') + '</span>';
+    }
+    openModal(titleHtml,
+      '<div class="wl-thread" id="wlThread"><div class="wl-msg__empty">Loading messages…</div></div>',
+      [
+        { html: '<input class="wl-input wl-send-input" id="wlSendInput" placeholder="' + (at.isGroup ? 'Message the group…' : 'Set a time, propose a motion, etc.') + '" maxlength="' + WL_MSG_MAX + '">' },
+        { label: 'Send', kind: 'primary', id: 'wlSendBtn', onClick: sendThreadMessage },
+      ]
+    );
+    if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} }
+    wl.activeThreadUnsub = firebaseDb
+      .collection('dm_threads').doc(at.id).collection('messages')
+      .orderBy('createdAt', 'asc').limitToLast(200)
+      .onSnapshot(function(snap){
+        paintDMThread(snap);
+      }, function(err){
+        console.warn('[dm] thread snapshot error', err);
+        var t = document.getElementById('wlThread');
+        if (t) t.innerHTML = '<div class="wl-msg__empty">No messages yet.<br>Send one to start the thread.</div>';
+      });
+    markThreadRead(at.id).catch(function(){});
+    setTimeout(function(){
+      var input = document.getElementById('wlSendInput');
+      if (input){
+        input.focus();
+        input.addEventListener('keydown', function(e){
+          if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendThreadMessage(); }
+        });
+      }
+    }, 50);
+  }
+
+  function paintDMThread(snap){
+    var t = document.getElementById('wlThread');
+    if (!t) return;
+    if (snap.empty){
+      var emptyMsg = (wl.activeThread && wl.activeThread.isGroup)
+        ? 'No messages yet.<br>Kick off the group — propose a time or a practice motion.'
+        : 'No messages yet.<br>Say hi and set up a round.';
+      t.innerHTML = '<div class="wl-msg__empty">' + emptyMsg + '</div>';
+      return;
+    }
+    var myUid = state.user.uid;
+    var at = wl.activeThread || {};
+    var isGroup = !!at.isGroup;
+    var pInfo = at.participantInfo || {};
+    var lastSender = null;
+    t.innerHTML = '';
+    snap.forEach(function(d){
+      var m = d.data();
+      var mine = (m.fromUid === myUid);
+      var when = m.createdAt && m.createdAt.toMillis ? relTime(m.createdAt.toMillis()) : '';
+      var div = document.createElement('div');
+      div.className = 'wl-msg ' + (mine ? 'mine' : 'theirs');
+      // In groups, label each incoming message with the sender's name
+      // (collapsed when the same person sends consecutively) so it's
+      // clear who's talking. 1:1 threads stay clean — the title says who.
+      var senderLabel = '';
+      if (isGroup && !mine && m.fromUid !== lastSender){
+        var nm = (m.fromName) || (pInfo[m.fromUid] && pInfo[m.fromUid].name) || 'Debater';
+        senderLabel = '<div class="wl-msg__sender">' + escHtml(nm) + '</div>';
+      }
+      lastSender = m.fromUid;
+      div.innerHTML = senderLabel + escHtml(m.text || '') + (when ? '<div class="wl-msg__time">' + escHtml(when) + '</div>' : '');
+      t.appendChild(div);
+    });
+    t.scrollTop = t.scrollHeight;
+  }
+
+  // Generalized send: works for 1:1 and group threads. Reads
+  // wl.activeThread for participants, bumps unread for everyone except
+  // the sender, and stamps fromName so group messages can be labeled.
+  function sendThreadMessage(){
+    var at = wl.activeThread;
+    var input = document.getElementById('wlSendInput');
+    var sendBtn = document.getElementById('wlSendBtn');
+    if (!at || !input || !state.user) return;
+    var text = (input.value || '').trim();
+    if (!text) return;
+    if (text.length > WL_MSG_MAX) text = text.slice(0, WL_MSG_MAX);
+    if (sendBtn) sendBtn.disabled = true;
+    var me = state.user.uid;
+    var threadRef = firebaseDb.collection('dm_threads').doc(at.id);
+    var msgsRef = threadRef.collection('messages');
+    var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
+    // Make sure my own info is current in participantInfo.
+    var participantInfo = Object.assign({}, at.participantInfo);
+    participantInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
+    var unread = {};
+    at.participants.forEach(function(uid){
+      unread[uid] = (uid === me) ? 0 : firebase.firestore.FieldValue.increment(1);
+    });
+    var threadDoc = {
+      participants: at.participants,
+      participantInfo: participantInfo,
+      lastMessage: preview,
+      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessageFrom: me,
+      unread: unread,
+    };
+    if (at.isGroup){ threadDoc.isGroup = true; threadDoc.groupName = at.groupName || 'Group'; }
+    threadRef.set(threadDoc, { merge: true }).then(function(){
+      return msgsRef.add({
+        fromUid: me,
+        fromName: shortNameOf(state.user),
+        text: text,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }).then(function(){
+      input.value = '';
+      if (sendBtn) sendBtn.disabled = false;
+      input.focus();
+      try { gtag('event', at.isGroup ? 'group_send' : 'dm_send', {}); } catch(e){}
+    }).catch(function(e){
+      if (sendBtn) sendBtn.disabled = false;
+      console.warn('[dm] send failed', e);
+    });
+  }
+
+  function markThreadRead(threadId){
+    if (!state.user) return Promise.resolve();
+    var update = {};
+    update['unread.' + state.user.uid] = 0;
+    return firebaseDb.collection('dm_threads').doc(threadId).update(update);
+  }
+
+  function startInboxFeed(){
+    if (!firebaseDb || !state.user) return;
+    if (wl.threadsUnsub){ try { wl.threadsUnsub(); } catch(e){} }
+    wl.threadsUnsub = firebaseDb.collection('dm_threads')
+      .where('participants', 'array-contains', state.user.uid)
+      .orderBy('lastMessageAt', 'desc')
+      .limit(30)
+      .onSnapshot(function(snap){
+        var rows = [];
+        var unreadCount = 0;
+        var myUid = state.user.uid;
+        snap.forEach(function(d){
+          var data = d.data() || {};
+          var unread = (data.unread && data.unread[myUid]) || 0;
+          if (unread > 0) unreadCount++;
+          rows.push({ id: d.id, data: data, unread: unread });
+        });
+        wl.threads = rows;
+        wl.unreadThreads = unreadCount;
+        var badge = document.getElementById('wlInboxBadge');
+        var fabBadge = document.getElementById('wlFabBadge');
+        [badge, fabBadge].forEach(function(b){
+          if (!b) return;
+          if (unreadCount > 0){ b.hidden = false; b.textContent = String(unreadCount); }
+          else b.hidden = true;
+        });
+        if (document.getElementById('wlInboxList')) paintInboxList();
+      }, function(err){
+        // Most likely cause: missing composite index on
+        // (participants array-contains, lastMessageAt desc). Firestore
+        // logs a clickable "create index" link in the console error.
+        console.warn('[dm] inbox snapshot error (likely missing index — see comment block above):', err);
+      });
+  }
+
+  function openInboxModal(){
+    if (!state.user){ doGoogleSignIn(); return; }
+    openModal('Your messages',
+      '<div class="wl-inbox-list" id="wlInboxList"><div class="wl-msg__empty">Loading…</div></div>',
+      [
+        { label: 'New group', kind: 'ghost', id: 'wlNewGroupBtn', onClick: openGroupComposer },
+        { label: 'Close', kind: 'ghost', onClick: closeModal },
+      ]
+    );
+    paintInboxList();
+  }
+
+  function paintInboxList(){
+    var list = document.getElementById('wlInboxList');
+    if (!list) return;
+    if (!wl.threads.length){
+      list.innerHTML = '<div class="wl-msg__empty">No messages yet. DM someone from the waitlist, or start a group.</div>';
+      return;
+    }
+    var myUid = state.user.uid;
+    list.innerHTML = wl.threads.map(function(t){
+      var d = t.data || {};
+      var isGroup = !!d.isGroup || (d.participants || []).length > 2;
+      var preview = escHtml(d.lastMessage || '');
+      var when = d.lastMessageAt && d.lastMessageAt.toMillis ? relTime(d.lastMessageAt.toMillis()) : '';
+      var name, avatar, attrs;
+      if (isGroup){
+        var count = (d.participants || []).length;
+        name = escHtml(d.groupName || 'Group') + ' <span class="wl-inbox-row__count">' + count + '</span>';
+        avatar = '<div class="wl-modal__avatar wl-modal__avatar--group" aria-hidden="true">' +
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+          '</div>';
+        attrs = 'data-thread-id="' + escHtml(t.id) + '" data-is-group="1"';
+      } else {
+        var peerUid = (d.participants || []).filter(function(p){ return p !== myUid; })[0] || '';
+        var info = (d.participantInfo && d.participantInfo[peerUid]) || {};
+        name = escHtml(info.name || 'Debater');
+        avatar = info.photo
+          ? '<img class="wl-modal__avatar" src="' + escHtml(info.photo) + '" alt="">'
+          : '<div class="wl-modal__avatar"></div>';
+        attrs = 'data-peer-uid="' + escHtml(peerUid) + '" data-peer-name="' + escHtml(info.name || '') + '" data-peer-photo="' + escHtml(info.photo || '') + '"';
+      }
+      return '<div class="wl-inbox-row' + (t.unread > 0 ? ' unread' : '') + '" ' + attrs + '>' +
+        avatar +
+        '<div class="wl-inbox-row__main">' +
+          '<div class="wl-inbox-row__name">' + name + '</div>' +
+          '<div class="wl-inbox-row__preview">' + preview + '</div>' +
+        '</div>' +
+        '<div class="wl-inbox-row__time">' + escHtml(when) + '</div>' +
+      '</div>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.wl-inbox-row'), function(row){
+      row.addEventListener('click', function(){
+        if (row.dataset.isGroup){ openGroupThread(row.dataset.threadId); }
+        else { openDMThread(row.dataset.peerUid, row.dataset.peerName, row.dataset.peerPhoto); }
+      });
+    });
+  }
+
+  // ── Group creation ───────────────────────────────────────────────
+  // Candidates = everyone you can reach right now: open-invite posters
+  // + people you already have a thread with. Deduped, you excluded.
+  function groupCandidates(){
+    var me = state.user && state.user.uid;
+    var seen = {}; var out = [];
+    function add(uid, name, photo){
+      if (!uid || uid === me || seen[uid]) return;
+      seen[uid] = true;
+      out.push({ uid: uid, name: name || 'Debater', photo: photo || '' });
+    }
+    (wl.posts || []).forEach(function(p){ var d = p.data || {}; add(d.uid, d.displayName, d.photoURL); });
+    (wl.threads || []).forEach(function(t){
+      var d = t.data || {};
+      (d.participants || []).forEach(function(uid){
+        var info = (d.participantInfo && d.participantInfo[uid]) || {};
+        add(uid, info.name, info.photo);
+      });
+    });
+    return out;
+  }
+
+  function openGroupComposer(){
+    if (!state.user){ doGoogleSignIn(); return; }
+    var cands = groupCandidates();
+    var listHtml = cands.length
+      ? cands.map(function(c){
+          var av = c.photo
+            ? '<img class="wl-modal__avatar" src="' + escHtml(c.photo) + '" alt="">'
+            : '<div class="wl-modal__avatar"></div>';
+          return '<label class="wl-pick">' +
+            '<input type="checkbox" class="wl-pick__cb" value="' + escHtml(c.uid) + '" ' +
+              'data-name="' + escHtml(c.name) + '" data-photo="' + escHtml(c.photo) + '">' +
+            av +
+            '<span class="wl-pick__name">' + escHtml(c.name) + '</span>' +
+          '</label>';
+        }).join('')
+      : '<div class="wl-msg__empty">No one to add yet. When debaters post open invites or you DM someone, they show up here.</div>';
+    openModal('New group',
+      '<div class="wl-field">' +
+        '<label for="wlGroupName">Group name</label>' +
+        '<input class="wl-input" id="wlGroupName" placeholder="e.g. Friday BP practice" maxlength="' + WL_GROUP_NAME_MAX + '">' +
+      '</div>' +
+      '<div class="wl-field"><label>Add members</label>' +
+        '<div class="wl-pick-list">' + listHtml + '</div>' +
+      '</div>' +
+      '<div class="wl-modal__error" id="wlGroupError"></div>',
+      [
+        { label: 'Cancel', kind: 'ghost', onClick: closeModal },
+        { label: 'Create group', kind: 'primary', id: 'wlGroupCreate', onClick: submitGroup },
+      ]
+    );
+    setTimeout(function(){ var n = document.getElementById('wlGroupName'); if (n) n.focus(); }, 50);
+  }
+
+  function submitGroup(){
+    if (!state.user || !firebaseDb) return;
+    var nameEl = document.getElementById('wlGroupName');
+    var errEl = document.getElementById('wlGroupError');
+    var btn = document.getElementById('wlGroupCreate');
+    var name = (nameEl && nameEl.value || '').trim();
+    var picks = Array.prototype.slice.call(document.querySelectorAll('.wl-pick__cb:checked'));
+    if (!name){ if (errEl) errEl.textContent = 'Give the group a name.'; return; }
+    if (picks.length < 2){ if (errEl) errEl.textContent = 'Pick at least 2 people for a group (use a DM for one).'; return; }
+    if (picks.length + 1 > WL_GROUP_MAX_MEMBERS){ if (errEl) errEl.textContent = 'Groups cap at ' + WL_GROUP_MAX_MEMBERS + ' members.'; return; }
+    if (btn) btn.disabled = true;
+    if (errEl) errEl.textContent = '';
+    var me = state.user.uid;
+    var participants = [me];
+    var participantInfo = {};
+    participantInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
+    var unread = {}; unread[me] = 0;
+    picks.forEach(function(cb){
+      var uid = cb.value;
+      if (participants.indexOf(uid) >= 0) return;
+      participants.push(uid);
+      participantInfo[uid] = { name: cb.getAttribute('data-name') || 'Debater', photo: cb.getAttribute('data-photo') || '' };
+      // Seed unread:1 for added members so "you were added to a group"
+      // surfaces as a notification (bell badge + toast) for anyone online.
+      unread[uid] = 1;
+    });
+    var threadId = 'grp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    firebaseDb.collection('dm_threads').doc(threadId).set({
+      isGroup: true,
+      groupName: name.slice(0, WL_GROUP_NAME_MAX),
+      participants: participants,
+      participantInfo: participantInfo,
+      createdBy: me,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessage: shortNameOf(state.user) + ' started the group',
+      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessageFrom: me,
+      unread: unread,
+    }).then(function(){
+      try { gtag('event', 'group_create', { members: participants.length }); } catch(e){}
+      openGroupThread(threadId);
+    }).catch(function(e){
+      if (btn) btn.disabled = false;
+      if (errEl) errEl.textContent = 'Couldn\'t create group: ' + (e.message || e.code || 'unknown');
+    });
+  }
+
+  // Open a DM thread given only the peer's uid (from a ?dm= deep link).
+  // Fetches the thread doc to recover the peer's display name + photo
+  // from participantInfo; falls back to a generic label if the thread
+  // doesn't exist yet or the read fails.
+  function openDmFromUid(peerUid){
+    if (!firebaseDb || !state.user || !peerUid) return;
+    var threadId = dmThreadId(state.user.uid, peerUid);
+    firebaseDb.collection('dm_threads').doc(threadId).get().then(function(doc){
+      var info = {};
+      if (doc.exists){
+        var d = doc.data() || {};
+        info = (d.participantInfo && d.participantInfo[peerUid]) || {};
+      }
+      openDMThread(peerUid, info.name || 'Debater', info.photo || '');
+    }).catch(function(){
+      openDMThread(peerUid, 'Debater', '');
+    });
+  }
+
+  // Calm center state for inbox deep-links: the user arrived to read a
+  // DM, so we show their messages + an explicit opt-in to matchmaking
+  // rather than auto-queueing them into a live round.
+  function renderInboxLanding(){
+    shell.innerHTML =
+      '<div class="gate">' +
+        '<div class="eyebrow"><span class="pip"></span>Sparring · Messages</div>' +
+        '<h2>Your messages</h2>' +
+        '<p>Pick up where you left off, or jump back into the matchmaking queue when you\'re ready to spar.</p>' +
+        '<button class="gate-google" id="inboxOpenBtn" type="button" style="margin-top:6px">Open inbox</button>' +
+        '<button class="ai-alt" id="inboxQueueBtn" type="button" style="background:none;border:none;cursor:pointer;font-family:inherit">Or find a sparring partner now →</button>' +
+      '</div>';
+    var openBtn = document.getElementById('inboxOpenBtn');
+    if (openBtn) openBtn.addEventListener('click', openInboxModal);
+    var queueBtn = document.getElementById('inboxQueueBtn');
+    if (queueBtn) queueBtn.addEventListener('click', function(){
+      // Strip ?dm so a refresh / re-auth doesn't bounce back to inbox.
+      try { history.replaceState(null, '', '/spar' + (formatParam ? ('?format=' + encodeURIComponent(formatParam)) : '')); } catch(e){}
+      joinQueue();
+    });
+  }
+
+  // Generic modal helpers ────────────────────────────────
+  function openModal(titleHtml, bodyHtml, footButtons){
+    closeModal();
+    var backdrop = document.createElement('div');
+    backdrop.className = 'wl-modal-backdrop';
+    backdrop.id = 'wlModalBackdrop';
+    var footHtml = (footButtons || []).map(function(b, i){
+      if (b.html) return b.html;
+      var cls = b.kind === 'primary' ? 'wl-btn primary' : 'wl-btn ghost';
+      var idAttr = b.id ? ' id="' + b.id + '"' : ' data-foot-idx="' + i + '"';
+      return '<button class="' + cls + '"' + idAttr + ' type="button">' + escHtml(b.label) + '</button>';
+    }).join('');
+    backdrop.innerHTML =
+      '<div class="wl-modal" role="dialog" aria-modal="true">' +
+        '<div class="wl-modal__head">' +
+          '<div class="wl-modal__title">' + titleHtml + '</div>' +
+          '<button class="wl-modal__close" id="wlModalClose" aria-label="Close">×</button>' +
+        '</div>' +
+        '<div class="wl-modal__body">' + bodyHtml + '</div>' +
+        (footButtons && footButtons.length ? '<div class="wl-modal__foot">' + footHtml + '</div>' : '') +
+      '</div>';
+    document.body.appendChild(backdrop);
+    document.getElementById('wlModalClose').addEventListener('click', closeModal);
+    backdrop.addEventListener('click', function(e){
+      if (e.target === backdrop) closeModal();
+    });
+    (footButtons || []).forEach(function(b, i){
+      if (!b.onClick) return;
+      var el = b.id ? document.getElementById(b.id) : backdrop.querySelector('[data-foot-idx="' + i + '"]');
+      if (el) el.addEventListener('click', b.onClick);
+    });
+    document.addEventListener('keydown', wlEscClose);
+  }
+  function wlEscClose(e){ if (e.key === 'Escape') closeModal(); }
+  function closeModal(){
+    var b = document.getElementById('wlModalBackdrop');
+    if (b) b.remove();
+    document.removeEventListener('keydown', wlEscClose);
+    if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} wl.activeThreadUnsub = null; }
+  }
+
   // ── Boot ─────────────────────────────────────────────
+  // Sidebar mounts immediately. Posts feed is public-read so we can
+  // populate it before auth resolves; renderWaitlistContent swaps the
+  // post-button / sign-in-overlay slot when the auth state lands.
+  buildWaitlistRail();
+  renderWaitlistContent();
+  if (firebaseDb) startWaitlistFeed();
+
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
       state.user = user || null;
-      if (user) joinQueue();
-      else renderGate();
+      renderWaitlistContent();
+      if (user){
+        startInboxFeed();
+        // Deep link from a DM notification (topbar bell / toast / OS
+        // notification → /spar?dm=<peerUid>). Open that thread instead
+        // of dumping the user straight into the matchmaking queue —
+        // they came to read a message, not to start a live round.
+        var dmPeer = qs.get('dm');
+        var dmThread = qs.get('thread');
+        if (dmThread){
+          renderInboxLanding();
+          openGroupThread(dmThread);
+        } else if (dmPeer && dmPeer !== user.uid){
+          renderInboxLanding();
+          openDmFromUid(dmPeer);
+        } else {
+          joinQueue();
+        }
+      } else {
+        if (wl.threadsUnsub){ try { wl.threadsUnsub(); } catch(e){} wl.threadsUnsub = null; }
+        wl.threads = []; wl.unreadThreads = 0;
+        var badge = document.getElementById('wlInboxBadge');
+        if (badge) badge.hidden = true;
+        var fabBadge = document.getElementById('wlFabBadge');
+        if (fabBadge) fabBadge.hidden = true;
+        renderGate();
+      }
     });
   } else {
     renderGate();
@@ -878,5 +2445,7 @@ h1 em{color:var(--accent);font-style:normal}
 })();
 </script>
 
+<script defer src="/js/signup-nudge.js"></script>
+<script defer src="/js/notifications.js"></script>
 </body>
 </html>

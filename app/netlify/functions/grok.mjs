@@ -9,11 +9,8 @@ import { requirePaidPlan } from './lib/auth.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
-  'https://devilsadvocate1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
-  'https://debatethedevil.com',
-  'https://www.debatethedevil.com',
 ];
 const DEV_ORIGINS = [
   'http://localhost:8888',
@@ -106,6 +103,14 @@ export default async (request, context) => {
 
   try {
     const body = await request.json();
+
+    // Warm-up handshake — see claude.mjs for the full rationale.
+    if (body && body.warm === true) {
+      return new Response(JSON.stringify({ ok: true, warm: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
 
     if (JSON.stringify(body).length > 200_000) {
       return new Response(

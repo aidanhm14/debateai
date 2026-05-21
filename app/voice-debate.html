@@ -45,11 +45,11 @@
 <meta property="og:url" content="https://debateai.com/voice-debate">
 <meta property="og:title" content="Voice AI · DebateAI.com">
 <meta property="og:description" content="Talk to a debater. Interrupt them. Get an RFD. Sub-200ms voice debate via OpenAI Realtime. 16 personas, format-aware judging.">
-<meta property="og:image" content="https://debateai.com/og-image.png">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=orb4">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Voice AI · DebateAI.com">
 <meta name="twitter:description" content="Talk to a debater. Interrupt them. Get an RFD. Sub-200ms voice debate via OpenAI Realtime.">
-<meta name="twitter:image" content="https://debateai.com/og-image.png">
+<meta name="twitter:image" content="https://debateai.com/og-image.png?v=orb4">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -2991,6 +2991,17 @@ function App() {
       if (wantMode && MODES.some((x) => x.key === wantMode)) {
         try { setMode(wantMode); } catch (_) {}
       }
+      // Side prefill (e.g. from a /debate dossier "Take Pro/Con" button).
+      // Government == Pro/Prop side, Opposition == Con/Neg side.
+      var wantSide = (qs.get('side') || '').trim().toLowerCase();
+      if (wantSide) {
+        if (/^(gov|pro|prop|pm|mg|aff|gw)/.test(wantSide)) { try { setSide('gov'); } catch (_) {} }
+        else if (/^(opp|con|neg|lo|mo|ow)/.test(wantSide)) { try { setSide('opp'); } catch (_) {} }
+      }
+      // Background prefill — a factual primer piped into the live round's
+      // system prompt, so a dossier handoff lands ready to argue.
+      var bg = (qs.get('background') || qs.get('bg') || '').trim();
+      if (bg) { try { setBackground(bg.slice(0, 1200)); } catch (_) {} }
       try {
         if (typeof gtag === 'function') {
           gtag('event', 'voice_handoff_received', {
@@ -3695,6 +3706,34 @@ function App() {
   // Skipped on initial mount (== 1.0×) so we don't spam the channel
   // with a no-op on session start.
   var lastPacingRateRef = useRef(1.0);
+
+  // Build the rich pacing-nudge text for a given slider rate. Richer than a
+  // bare WPM target: it also tells the model how to handle pauses, rhythm,
+  // and urgency at this speed so its phrasing matches the synth pace
+  // (short clauses + compressed pauses when fast, room to breathe when
+  // slow). `initial` flips the framing for the connect-time send (first
+  // turn / hold for the whole round). Hoisted function declaration so both
+  // the debounced effect below and the connect handler later can call it.
+  function buildPacingNudge(rate, initial) {
+    var wpm = Math.round(180 * rate);
+    var when = initial ? 'from your very first turn' : 'from your next turn onward';
+    var hold = initial
+      ? 'Hold this pace for the whole round unless told otherwise.'
+      : 'Hold this pace until told otherwise.';
+    var bodyText;
+    if (rate < 0.95) {
+      bodyText = 'Speak deliberately ' + when + ', at approximately ' + wpm + ' words per minute. Take your time with each warrant. Pause for emphasis after impact claims. Let the argument breathe.';
+    } else if (rate > 1.3) {
+      bodyText = 'Speak briskly ' + when + ', at approximately ' + wpm + ' words per minute. Maintain clarity but increase urgency. Compress the pauses between sentences. This is a timed speech and every second counts.';
+    } else if (rate > 1.05) {
+      bodyText = 'Speak ' + when + ' at a confident debater pace, approximately ' + wpm + ' words per minute. Tighten the gaps between sentences and keep the energy moving forward.';
+    } else {
+      bodyText = 'Speak at a natural conversational pace ' + when + ', approximately ' + wpm + ' words per minute. Use rhetorical pauses after key claims. Vary your rhythm: short punchy assertions followed by longer warranted explanations.';
+    }
+    var tag = initial ? '[Pacing — initial] ' : '[Pacing update] ';
+    return tag + bodyText + ' ' + hold + ' Do NOT acknowledge this note in speech.';
+  }
+
   useEffect(() => {
     if (!dcRef.current || dcRef.current.readyState !== 'open') return;
     if (Math.abs(playbackRate - lastPacingRateRef.current) < 0.01) return;
@@ -3720,11 +3759,6 @@ function App() {
         // (b) Soft pacing nudge — the model also reasons about wpm so
         // its phrasing matches the synth speed (shorter clauses at high
         // speed, longer at slow). Belt-and-suspenders on top of (a).
-        var wpm = Math.round(180 * playbackRate);
-        var pace = playbackRate < 0.95 ? 'slower and more deliberately' :
-        playbackRate > 1.4 ? 'fast, debate-circuit pace, crisp and energetic' :
-        playbackRate > 1.05 ? 'briskly, with confident debater pacing' :
-        'at normal conversational pace';
         dcRef.current.send(JSON.stringify({
           type: 'conversation.item.create',
           item: {
@@ -3732,7 +3766,7 @@ function App() {
             role: 'system',
             content: [{
               type: 'input_text',
-              text: '[Pacing update] Speak ' + pace + ' from your next turn onward — target ~' + wpm + ' words per minute. Hold this pace until told otherwise. Do NOT acknowledge this note in speech.'
+              text: buildPacingNudge(playbackRate, false)
             }]
           }
         }));
@@ -4252,6 +4286,16 @@ function App() {
       var audioEl = document.createElement('audio');
       audioEl.autoplay = true;
       audioEl.playsInline = true;
+      // Pitch-correct from creation. The default rate is 1.4x, but the
+      // slider-sync effect only fires on a rate *change* and the element
+      // doesn't exist at mount — so without setting these here, the very
+      // first playback runs chipmunk-pitched until the user nudges the
+      // slider. preservesPitch (+ vendor-prefixed fallbacks) makes the
+      // engine time-stretch instead of resampling. Chrome 86+, FF 101+,
+      // Safari 15.4+ support the unprefixed property.
+      audioEl.preservesPitch = true;
+      audioEl.mozPreservesPitch = true;
+      audioEl.webkitPreservesPitch = true;
       audioEl.playbackRate = playbackRate; // honor whatever the user set
       document.body.appendChild(audioEl);
       audioElRef.current = audioEl;
@@ -4504,11 +4548,6 @@ function App() {
         // turn 1. Skip if effectively 1.0× (no-op).
         try {
           if (Math.abs(playbackRate - 1.0) > 0.01) {
-            var initWpm = Math.round(180 * playbackRate);
-            var initPace = playbackRate < 0.95 ? 'slower and more deliberately' :
-              playbackRate > 1.4 ? 'fast, debate-circuit pace, crisp and energetic' :
-              playbackRate > 1.05 ? 'briskly, with confident debater pacing' :
-              'at normal conversational pace';
             dc.send(JSON.stringify({
               type: 'conversation.item.create',
               item: {
@@ -4516,7 +4555,7 @@ function App() {
                 role: 'system',
                 content: [{
                   type: 'input_text',
-                  text: '[Pacing — initial] Speak ' + initPace + ' from your very first turn — target ~' + initWpm + ' words per minute. Hold this pace for the whole round unless told otherwise. Do NOT acknowledge this note in speech.'
+                  text: buildPacingNudge(playbackRate, true)
                 }]
               }
             }));

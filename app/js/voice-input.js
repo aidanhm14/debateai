@@ -1,273 +1,282 @@
 // voice-input.js
 //
-// Adds a mic button to every <textarea class="float-input"> on the page
-// (and any element opted in with data-voice-input). Press the mic, talk,
-// the transcript fills the textarea live. Press again to stop.
+// Speech-to-text affordance for text inputs and textareas across the
+// site. A single floating mic button is appended to <body> (outside
+// any React root) and re-positions itself over whichever eligible
+// field is currently focused. Click the mic, talk, the transcript
+// fills the field live. Click again to stop.
 //
-// Uses the browser's Web Speech API (window.SpeechRecognition /
-// webkitSpeechRecognition). If unsupported (Firefox, locked-down
-// in-app browsers), the button stays hidden so users never see a
-// broken affordance. Same recognizer the in-round speech transcription
-// uses in debate-ai.html. No backend, no API keys, no audio leaves
-// the device.
+// Why floating + outside React: the earlier implementation wrapped
+// each textarea in a <span> so the mic could absolute-position to it.
+// That moved the textarea out of the slot React rendered it into;
+// React's next commit phase called removeChild on the original parent,
+// the textarea wasn't there anymore, and the page silently blanked
+// (commit 97d3fe0). Floating-against-rect avoids any DOM mutation of
+// React-owned subtrees.
 //
-// Lives at /js/voice-input.js. Loaded by debate-ai.html so the motion
-// textarea + the typed-fallback speech textarea get the affordance.
-// Cheap enough to load on any page; can be added to other surfaces
-// (landing chat preview, voice-debate side panel, learn pages) later
-// without changes here.
+// Uses the Web Speech API (window.SpeechRecognition /
+// webkitSpeechRecognition). Silently no-ops on browsers without it
+// (Firefox, some in-app browsers) so users never see a broken mic.
+//
+// Opt out per-field with data-no-voice-input or data-voice-input="off".
+// Eligibility: textareas, contentEditable, and text/search/url inputs
+// at least 220px wide. The width gate keeps the button off small
+// inline / toolbar fields where it would collide with submit buttons.
 
-(function(){
+(function () {
   'use strict';
 
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    // No Web Speech API — silently no-op. We don't show a broken mic
-    // icon to users on Firefox / in-app browsers.
-    return;
-  }
+  if (!SR) return;
 
-  // React stores controlled-input values on its internal fiber; just
-  // assigning `textarea.value = 'foo'` does not trigger onChange. The
-  // canonical workaround: use the native value setter, then dispatch
-  // a synthetic `input` event so React's bubble listener picks it up.
-  var nativeTextareaValueSetter = (function(){
-    try {
-      var d = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
-      return d && d.set;
-    } catch (e) { return null; }
+  // React stores controlled-input values on its private fiber; plain
+  // .value assignment doesn't trip onChange. Canonical workaround:
+  // use the prototype setter + dispatch a synthetic input event.
+  var nativeTextareaValueSetter = (function () {
+    try { var d = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value'); return d && d.set; } catch (_) { return null; }
   })();
-  var nativeInputValueSetter = (function(){
-    try {
-      var d = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-      return d && d.set;
-    } catch (e) { return null; }
+  var nativeInputValueSetter = (function () {
+    try { var d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value'); return d && d.set; } catch (_) { return null; }
   })();
-
-  function setReactValue(el, value){
+  function setControlledValue(el, value) {
     var setter = el.tagName === 'TEXTAREA' ? nativeTextareaValueSetter : nativeInputValueSetter;
-    if (setter) {
-      setter.call(el, value);
-    } else {
-      el.value = value;
-    }
+    if (setter) setter.call(el, value); else el.value = value;
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  // SVG mic glyphs. Two states: idle (filled outline) and recording
-  // (filled with a pulsing dot). Stored as inline SVG so no extra
-  // network request and so the icon inherits currentColor.
-  var SVG_MIC = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>';
-  var SVG_STOP = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+  // Inject CSS once. Scoped under .vi-mic so it can't bleed onto anything.
+  if (!document.getElementById('voice-input-style')) {
+    var style = document.createElement('style');
+    style.id = 'voice-input-style';
+    style.textContent = [
+      '.vi-mic{position:fixed;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:rgba(20,18,16,.78);border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.78);cursor:pointer;padding:0;z-index:2147483646;opacity:0;pointer-events:none;transition:opacity .14s ease,background .14s ease,color .14s ease,border-color .14s ease,transform .14s ease;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 4px 14px rgba(0,0,0,.22);font:inherit;-webkit-appearance:none;appearance:none}',
+      '.vi-mic.vi-on{opacity:1;pointer-events:auto}',
+      '.vi-mic:hover{background:rgba(20,18,16,.92);color:#fff;border-color:rgba(255,255,255,.30);transform:scale(1.06)}',
+      '.vi-mic:focus-visible{outline:2px solid rgba(239,68,68,.55);outline-offset:2px}',
+      '.vi-mic.vi-rec{background:rgba(220,38,38,.95);color:#fff;border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18),0 4px 14px rgba(220,38,38,.32);animation:vi-mic-pulse 1.3s ease-in-out infinite}',
+      '.vi-mic.vi-rec:hover{background:#dc2626;transform:scale(1.06)}',
+      '@keyframes vi-mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55),0 4px 14px rgba(220,38,38,.30)}50%{box-shadow:0 0 0 10px rgba(220,38,38,0),0 4px 14px rgba(220,38,38,.30)}}',
+      '.vi-mic svg{width:15px;height:15px}',
+      '[data-theme="light"] .vi-mic,[data-lighting="light"] .vi-mic{background:rgba(255,255,255,.94);color:#3a3a3a;border-color:rgba(0,0,0,.14)}',
+      '[data-theme="light"] .vi-mic:hover,[data-lighting="light"] .vi-mic:hover{background:#fff;color:#1a1a1f;border-color:rgba(0,0,0,.24)}',
+      '[data-theme="light"] .vi-mic.vi-rec,[data-lighting="light"] .vi-mic.vi-rec{background:#dc2626;color:#fff;border-color:#dc2626}',
+      '@media (prefers-reduced-motion:reduce){.vi-mic,.vi-mic:hover,.vi-mic.vi-rec{transform:none;animation:none}}'
+    ].join('');
+    document.head.appendChild(style);
+  }
 
-  // Per-textarea controller. Holds the recognizer instance, tracks
-  // active state, and exposes start/stop. We keep the original (typed)
-  // text in `baseText` so live interim transcripts can be appended
-  // without clobbering what the user already had in the field.
-  function attach(el){
-    if (el.__voiceInputAttached) return;
-    el.__voiceInputAttached = true;
+  var SVG_MIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>';
+  var SVG_STOP = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
 
-    // Skip pickers we explicitly opt out of.
-    if (el.dataset && el.dataset.voiceInput === 'off') return;
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'vi-mic';
+  btn.setAttribute('aria-label', 'Speak instead of typing');
+  btn.title = 'Speak (Web Speech)';
+  btn.innerHTML = SVG_MIC;
 
-    // Wrap the textarea in a relative-positioned container so the
-    // mic button can absolute-position to its bottom-right corner
-    // without affecting page layout. If the textarea is already in
-    // a positioned wrapper, reuse it.
-    //
-    // CAREFUL: never restructure the DOM on a React-controlled
-    // element. React tracks its own parent → child links via its
-    // fiber tree; inserting a new wrapper between the React-mounted
-    // textarea and its React-mounted parent makes the next React
-    // unmount call `parent.removeChild(textarea)` against a parent
-    // that no longer contains the textarea (the wrapper does). The
-    // resulting NotFoundError crashes the entire React root. For
-    // React-controlled inputs, callers should pre-wrap the element
-    // in a <span class="voice-input-host"> inside their JSX — we'll
-    // detect that and fall through to the else branch.
-    var host = el.parentElement;
-    if (!host) return;
-    var reactControlled = false;
-    try {
-      for (var k in el) {
-        if (k.indexOf('__reactFiber') === 0 || k.indexOf('__reactProps') === 0) {
-          reactControlled = true;
-          break;
-        }
-      }
-    } catch (e) {}
-    var needsWrap = !host.classList.contains('voice-input-host')
-                 && getComputedStyle(host).position === 'static'
-                 && !reactControlled;
-    var wrap;
-    if (needsWrap) {
-      wrap = document.createElement('span');
-      wrap.className = 'voice-input-host';
-      wrap.style.position = 'relative';
-      wrap.style.display = 'block';
-      el.parentElement.insertBefore(wrap, el);
-      wrap.appendChild(el);
+  function appendBtn() {
+    if (!document.body || document.body.contains(btn)) return;
+    document.body.appendChild(btn);
+  }
+  if (document.body) appendBtn();
+  else document.addEventListener('DOMContentLoaded', appendBtn, { once: true });
+
+  // Eligibility — what counts as a dictatable field.
+  function isEligible(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (el.disabled || el.readOnly) return false;
+    var ds = el.dataset || {};
+    if (ds.voiceInput === 'off' || 'noVoiceInput' in ds) return false;
+    // Skip the mic button itself
+    if (el === btn) return false;
+    var tag = el.tagName;
+    if (tag === 'TEXTAREA') return true;
+    if (tag === 'INPUT') {
+      var t = (el.type || 'text').toLowerCase();
+      if (t !== 'text' && t !== 'search' && t !== 'url') return false;
+      // Don't overlay on tiny inputs (toolbars, inline edit fields).
+      var r = el.getBoundingClientRect();
+      if (r.width < 220) return false;
+      return true;
+    }
+    if (el.isContentEditable) {
+      var r2 = el.getBoundingClientRect();
+      if (r2.width < 220) return false;
+      return true;
+    }
+    return false;
+  }
+
+  function isVisible(el) {
+    if (!el || !document.body.contains(el)) return false;
+    var r = el.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4) return false;
+    var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    var vw = window.innerWidth || document.documentElement.clientWidth || 0;
+    // Only enforce off-screen culling when we actually know the viewport
+    if (vh > 0 && (r.bottom < 0 || r.top > vh)) return false;
+    if (vw > 0 && (r.right < 0 || r.left > vw)) return false;
+    var cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) return false;
+    return true;
+  }
+
+  var target = null;
+  var rec = null;
+  var recording = false;
+  var baseText = '';
+  var finalAccum = '';
+
+  function setState(on) {
+    recording = on;
+    btn.classList.toggle('vi-rec', on);
+    btn.innerHTML = on ? SVG_STOP : SVG_MIC;
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.title = on ? 'Stop dictation' : 'Speak (Web Speech)';
+  }
+
+  function positionBtn() {
+    if (!target || !isVisible(target)) { btn.classList.remove('vi-on'); return; }
+    var r = target.getBoundingClientRect();
+    var size = 32;
+    var pad = 8;
+    var top, left;
+    if (target.tagName === 'INPUT') {
+      // Single-line: vertically center, right-aligned inside the field.
+      top = r.top + r.height / 2 - size / 2;
+      left = r.right - size - pad;
     } else {
-      wrap = host;
-      wrap.classList.add('voice-input-host');
-      if (getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
+      // Textarea / contentEditable: bottom-right inside the field.
+      top = r.bottom - size - pad;
+      left = r.right - size - pad;
     }
+    // Clamp to viewport so the button never floats off-screen
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    var vw = window.innerWidth || document.documentElement.clientWidth;
+    top = Math.max(8, Math.min(top, vh - size - 8));
+    left = Math.max(8, Math.min(left, vw - size - 8));
+    btn.style.top = Math.round(top) + 'px';
+    btn.style.left = Math.round(left) + 'px';
+    btn.classList.add('vi-on');
+  }
 
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'voice-input-btn';
-    btn.setAttribute('aria-label', 'Dictate with mic');
-    btn.title = 'Dictate (Web Speech API)';
-    btn.innerHTML = SVG_MIC;
-    wrap.appendChild(btn);
+  function show(el) {
+    if (target === el) { positionBtn(); return; }
+    if (recording) stopRec();
+    target = el;
+    positionBtn();
+  }
+  function hide() {
+    if (recording) stopRec();
+    target = null;
+    btn.classList.remove('vi-on');
+  }
 
-    var rec = null;
-    var active = false;
-    var baseText = '';
-    var lastInterim = '';
+  // Focus-driven visibility. Hover would be noisier; focus matches the
+  // moment the user is about to type anyway.
+  document.addEventListener('focusin', function (e) {
+    if (isEligible(e.target)) show(e.target);
+  }, true);
+  document.addEventListener('focusout', function (e) {
+    // Defer so a click on the mic button (which steals focus briefly)
+    // doesn't immediately hide it. If focus lands on another eligible
+    // field, follow it.
+    setTimeout(function () {
+      var a = document.activeElement;
+      if (a === btn) return;
+      if (a && isEligible(a)) { show(a); return; }
+      hide();
+    }, 50);
+  }, true);
 
-    function setState(on){
-      active = on;
-      btn.classList.toggle('voice-input-btn-on', on);
-      btn.innerHTML = on ? SVG_STOP : SVG_MIC;
-      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-      btn.title = on ? 'Stop dictating' : 'Dictate (Web Speech API)';
-    }
+  // Reposition on layout changes
+  function relayout() { if (target) positionBtn(); }
+  window.addEventListener('scroll', relayout, true);
+  window.addEventListener('resize', relayout);
+  if (window.ResizeObserver) {
+    try { new ResizeObserver(relayout).observe(document.documentElement); } catch (_) {}
+  }
 
-    function flushTranscript(finalText, interimText){
-      // baseText is whatever the user had typed before they hit the
-      // mic. We append finalText (locked-in transcript) + interimText
-      // (still-being-recognized words) so the field reflects live state.
-      var joiner = baseText && !/\s$/.test(baseText) ? ' ' : '';
-      var combined = baseText + joiner + finalText + (interimText ? (finalText && !/\s$/.test(finalText) ? ' ' : '') + interimText : '');
-      setReactValue(el, combined);
-    }
+  function startRec() {
+    if (recording || !target) return;
+    baseText = (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
+      ? (target.value || '')
+      : (target.isContentEditable ? (target.innerText || '') : '');
+    finalAccum = '';
+    try { rec = new SR(); } catch (_) { return; }
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = (document.documentElement.getAttribute('lang') || navigator.language || 'en-US');
 
-    function start(){
-      if (active) return;
-      // Capture whatever the user has typed. Live results append from
-      // this anchor.
-      baseText = el.value || '';
-      lastInterim = '';
-      try {
-        rec = new SR();
-      } catch (e) { return; }
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = (document.documentElement.getAttribute('lang') || 'en-US');
-      var finalText = '';
-      rec.onresult = function(e){
-        var interim = '';
-        for (var i = e.resultIndex; i < e.results.length; i++) {
-          var r = e.results[i];
-          if (r.isFinal) finalText += r[0].transcript + ' ';
-          else interim += r[0].transcript;
-        }
-        lastInterim = interim;
-        flushTranscript(finalText.trim(), interim.trim());
-      };
-      rec.onerror = function(ev){
-        if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
-          // User denied mic permission. Bail and hide the button so
-          // the field still functions as a plain textarea.
-          setState(false);
-          btn.style.display = 'none';
-        }
-      };
-      rec.onend = function(){
-        if (active) {
-          // Some browsers stop after a silence. Restart so long-form
-          // dictation keeps flowing until the user explicitly stops.
-          try { rec.start(); } catch(e){ setState(false); }
-        }
-      };
-      try {
-        rec.start();
-        setState(true);
-      } catch (e) {
-        setState(false);
+    rec.onresult = function (e) {
+      if (!target || !document.body.contains(target)) { stopRec(); return; }
+      var interim = '';
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        var r = e.results[i];
+        if (r.isFinal) finalAccum += r[0].transcript + ' ';
+        else interim += r[0].transcript;
       }
-    }
-
-    function stop(){
-      if (!active) return;
+      var joiner = baseText && !/\s$/.test(baseText) ? ' ' : '';
+      var f = finalAccum.trim();
+      var n = interim.trim();
+      var inter = n ? ((f && !/\s$/.test(f)) ? ' ' : '') + n : '';
+      var combined = baseText + joiner + f + inter;
+      if (target.isContentEditable) {
+        target.innerText = combined;
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        setControlledValue(target, combined);
+      }
+    };
+    rec.onerror = function (ev) {
+      if (ev && (ev.error === 'not-allowed' || ev.error === 'service-not-allowed')) {
+        setState(false);
+        // Hide for the rest of the session so a denied user doesn't keep
+        // re-prompting on every focus.
+        btn.style.display = 'none';
+      }
+    };
+    rec.onend = function () {
+      // Web Speech auto-stops after silence; restart for continuous
+      // dictation until the user explicitly clicks stop.
+      if (recording) {
+        try { rec.start(); } catch (_) { setState(false); }
+      }
+    };
+    try {
+      rec.start();
+      setState(true);
+    } catch (_) {
       setState(false);
-      try { if (rec) rec.stop(); } catch (e){}
-      // Final flush. baseText + finalText is already in the textarea
-      // value via the last flushTranscript call; nothing extra to do.
-      rec = null;
-    }
-
-    btn.addEventListener('click', function(ev){
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (active) stop(); else start();
-    });
-
-    // If the textarea is detached from the DOM (React unmount), the
-    // observer below cleans up. No-op here.
-  }
-
-  // Selectors we attach to by default. `.float-input` covers the
-  // main motion + background textareas in debate-ai.html and the
-  // typed-fallback speech textarea. Add `data-voice-input` to any
-  // input/textarea elsewhere on a page to opt in.
-  var SELECTOR = 'textarea.float-input, textarea[data-voice-input="on"], input[data-voice-input="on"]';
-
-  function scan(root){
-    var nodes = (root || document).querySelectorAll(SELECTOR);
-    for (var i = 0; i < nodes.length; i++) attach(nodes[i]);
-  }
-
-  function ready(){
-    // Inject the minimal CSS once. Scoped to .voice-input-btn so it
-    // can't bleed onto anything else.
-    if (!document.getElementById('voice-input-style')) {
-      var s = document.createElement('style');
-      s.id = 'voice-input-style';
-      s.textContent = [
-        '.voice-input-host{position:relative}',
-        '.voice-input-btn{position:absolute;right:8px;bottom:8px;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.65);cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;z-index:2}',
-        '.voice-input-btn:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.28);color:#fff}',
-        '.voice-input-btn:focus-visible{outline:2px solid rgba(239,68,68,.5);outline-offset:2px}',
-        '.voice-input-btn-on{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.55);color:#fca5a5;box-shadow:0 0 0 2px rgba(239,68,68,.08), 0 0 12px rgba(239,68,68,.22)}',
-        '.voice-input-btn-on:hover{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.7);color:#fda4af}',
-        '.voice-input-btn-on::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;animation:voice-input-pulse 1.2s ease-in-out infinite}',
-        '@keyframes voice-input-pulse{0%,100%{opacity:.95;transform:scale(1)}50%{opacity:.5;transform:scale(1.25)}}',
-        '[data-theme="light"] .voice-input-btn{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.10);color:rgba(0,0,0,.55)}',
-        '[data-theme="light"] .voice-input-btn:hover{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.22);color:#1a1a1f}',
-        '[data-theme="light"] .voice-input-btn-on{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.45);color:#b91c1c;box-shadow:0 0 0 2px rgba(220,38,38,.06)}',
-        // When dropped onto an `input` (not a textarea), the field is
-        // single-line so the mic button positions right-aligned vertically.
-        'input.voice-input-target + .voice-input-btn,.voice-input-host > input + .voice-input-btn{top:50%;bottom:auto;transform:translateY(-50%)}'
-      ].join('\n');
-      document.head.appendChild(s);
-    }
-
-    scan(document);
-
-    // React renders the textareas after this script parses, so
-    // observe the body for added nodes and re-scan.
-    if (window.MutationObserver) {
-      var mo = new MutationObserver(function(mutations){
-        for (var i = 0; i < mutations.length; i++) {
-          var m = mutations[i];
-          for (var j = 0; j < m.addedNodes.length; j++) {
-            var n = m.addedNodes[j];
-            if (n.nodeType !== 1) continue;
-            if (n.matches && n.matches(SELECTOR)) attach(n);
-            scan(n);
-          }
-        }
-      });
-      mo.observe(document.body, { childList: true, subtree: true });
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ready, { once: true });
-  } else {
-    ready();
+  function stopRec() {
+    if (!recording) return;
+    setState(false);
+    try { if (rec) rec.stop(); } catch (_) {}
+    rec = null;
   }
+
+  // Don't steal focus from the field when the user clicks the mic
+  btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+  btn.addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    if (!target) return;
+    if (recording) { stopRec(); return; }
+    try { target.focus(); } catch (_) {}
+    startRec();
+  });
+
+  // Keyboard: Escape stops dictation
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && recording) stopRec();
+  });
+
+  // Stop recording if the tab is hidden so the recognizer doesn't
+  // keep running in the background.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && recording) stopRec();
+  });
 })();

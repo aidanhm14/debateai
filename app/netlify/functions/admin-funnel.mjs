@@ -31,11 +31,18 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 60;
-const MAX_DOCS = 20000;
+// 2026-05-20: was 20000. This endpoint was one of three (with
+// founder-video + subscribers) missed by the 2026-05-19 admin-cache
+// pass, so each load could scan up to 20K raw event docs uncached —
+// enough to exhaust the free-tier Firestore read quota and 500 every
+// admin endpoint (incl. the cached ones, on a cache miss). Cap lowered
+// + 5-min cache added below to match the rest of the dashboard.
+const MAX_DOCS = 5000;
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -72,6 +79,10 @@ export default async (request) => {
   const daysRaw = parseInt(url.searchParams.get('days') || '', 10);
   const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(MAX_DAYS, daysRaw)) : DEFAULT_DAYS;
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const cacheKey = 'funnel:' + days;
+  const cached = getCached(cacheKey);
+  if (cached) return jsonResponse(cached, 200, request);
 
   try {
     const snap = await db.collection('events')
@@ -148,7 +159,7 @@ export default async (request) => {
       ? +(stuckSkipped / stuckShown * 100).toFixed(1)
       : null;
 
-    return jsonResponse({
+    const result = {
       windowDays: days,
       sinceISO: since.toISOString(),
       sampled,
@@ -177,7 +188,9 @@ export default async (request) => {
       },
 
       timestamp: new Date().toISOString(),
-    }, 200, request);
+    };
+    setCached(cacheKey, result, TTL_HEAVY);
+    return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-funnel error:', err);
     return errorResponse('Something went wrong. Please try again.', 500, request);

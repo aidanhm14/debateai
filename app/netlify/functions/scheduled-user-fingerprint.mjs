@@ -235,12 +235,19 @@ async function findCandidateUsers(db) {
 
 // Return whether this user is due for a fingerprint AND whether they
 // already have one (so the caller can decide whether to send the
-// first-fingerprint email).
+// first-fingerprint email). Also respects the userEdited flag set
+// when a user manually edits their style profile on /profile via
+// /api/user/style-update — those edits must not be overwritten by
+// the nightly Haiku pass, otherwise the editing surface is theater.
 async function getFingerprintStatus(db, uid) {
   try {
     const fp = await db.collection('user_fingerprints').doc(uid).get();
     if (!fp.exists) return { needsRun: true, isFirst: true };
-    const ts = fp.data()?.updatedAt?.toMillis?.() || 0;
+    const data = fp.data() || {};
+    // User manually edited their profile → leave it alone until they
+    // reset (POST /api/user/style-update { reset: true }).
+    if (data.userEdited === true) return { needsRun: false, isFirst: false };
+    const ts = data.updatedAt?.toMillis?.() || 0;
     const ageMs = Date.now() - ts;
     return {
       needsRun: ageMs > FRESH_DAYS * 24 * 60 * 60 * 1000,

@@ -31,16 +31,15 @@ export default async (request) => {
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  // Prefer the actual request's origin over a hardcoded env var so we return
-  // users to the domain they came from (debatethedevil.com) rather than the
-  // old debateos.com fallback that the return-button could otherwise send
-  // them to. Fall back to env var + final hardcoded fallback.
+  // Prefer the actual request's origin so the Stripe return-button sends users
+  // back to whichever domain they came from. Fall back to env var, then
+  // debateai.com.
   let siteUrl;
   try {
     const origin = request.headers.get('origin') || request.headers.get('referer');
     if (origin) siteUrl = new URL(origin).origin;
   } catch (e) { /* fall through */ }
-  if (!siteUrl) siteUrl = process.env.SITE_URL || 'https://debatethedevil.com';
+  if (!siteUrl) siteUrl = process.env.SITE_URL || 'https://debateai.com';
 
   try {
     const session = await stripe.billingPortal.sessions.create({

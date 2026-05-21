@@ -110,7 +110,7 @@ a{color:inherit}
   padding:6px 36px 6px 14px;text-align:center;
   font-size:.72rem;color:#fff;font-weight:600;letter-spacing:.02em;
   /* Fully opaque — earlier alpha of `dd` let hero content bleed through when it scrolled under */
-  background:linear-gradient(90deg,#ef4444,#f59e0b);
+  background:#ef4444;
   border-bottom:1px solid #00000040;
   font-family:'Inter',system-ui,sans-serif;line-height:1.4;
   box-shadow:0 2px 8px rgba(0,0,0,.35);
@@ -149,6 +149,7 @@ body.light-theme .ui-neural-canvas{opacity:.35}
 }
 body:not(.has-beta-strip) .ui-topbar{top:0}
 .ui-topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0}
+/* 2026-05-18: .ui-topbar-beta chip CSS removed alongside the element. */
 .ui-topbar-logo{
   font-size:1.15rem;font-weight:900;letter-spacing:-.02em;
   color:var(--text);cursor:pointer;white-space:nowrap;line-height:1;
@@ -291,8 +292,29 @@ html[data-lighting="light"] .ui-topbar-pill{color:rgba(0,0,0,.78)}
   /* Secondary category links (College / High School / Adults) drop off
      the topbar below 560px. Phone users land on content-first; the same
      routes are reachable from the footer and body sections. Keeps logo
-     + primary Debate AI CTA thumb-reachable without overflow. */
-  .ui-topbar-right .ui-topbar-link{display:none}
+     + primary Debate AI CTA thumb-reachable without overflow.
+     !important is load-bearing: the "Live" link gets an inline
+     display:inline-flex from topbar.js (so its red dot sits inline),
+     which would otherwise beat this rule and leave Live leaking onto
+     the bar — pushing the Voice AI CTA off the right edge. */
+  .ui-topbar-right .ui-topbar-link{display:none !important}
+  /* Tighten the icon cluster so the bell + lang flag + CTA never clip
+     against the right edge once the links are gone. */
+  .ui-topbar-right{gap:7px}
+  /* Trim the CTA's inline 8px/18px padding (set in topbar.js) so the
+     "Voice AI" pill clears the right edge on ~360px phones instead of
+     getting sliced to "VOICE". !important beats the inline style. */
+  .ui-topbar-right .ui-btn-primary{padding:8px 13px !important;letter-spacing:.02em}
+}
+@media(max-width:359px){
+  /* Smallest phones (iPhone SE 1/2, older Androids): even with the
+     trimmed cluster there isn't room for the sound + theme toggles
+     alongside the bell, language flag, and the primary CTA. Drop the
+     two utility toggles here only — bell (unread DMs), the language
+     flag (≈80% of traffic is India), and the Voice AI CTA are the
+     load-bearing controls. Both toggles stay on 360px+ phones. */
+  .ui-topbar .sfx-toggle,
+  .ui-topbar .theme-toggle{display:none}
 }
 @media(max-width:380px){
   /* Tightest phones (iPhone SE, small Android): trim padding + hide the
@@ -401,24 +423,25 @@ body:not(.has-beta-strip) .ui-shell{padding-top:64px}
 .ui-btn-ghost:hover{color:var(--text);border-color:var(--border-strong)}
 .ui-btn-sm{padding:10px 20px;font-size:.72rem}
 
-/* Voice AI primary CTA. Promoted ahead of Debate AI as the main
-   topbar pill — the moat against ChatGPT. Gold-amber gradient stands
-   out against the red brand wall; pulsing dot signals "live, talk
-   right now." Same shape as ui-btn-primary so layout doesn't shift. */
+/* Voice AI primary CTA. Solid brand red with a brighter halo so it
+   still reads as "primary action" without the gold-amber gradient
+   that drifted off-palette. 2026-05-19: orange stripped per user
+   feedback. Pulsing white dot inside still signals "live, talk
+   right now"; the white ring around the dot pops it against the red. */
 .ui-btn-voice{
   display:inline-flex;align-items:center;gap:8px;
-  background:linear-gradient(135deg,#fbbf24 0%,#f59e0b 50%,#dc2626 100%);
-  color:#1a1a1f;border:1px solid rgba(251,191,36,.55);
+  background:#ef4444;
+  color:#fff;border:1px solid rgba(255,255,255,.18);
   font-weight:800;letter-spacing:.06em;text-transform:uppercase;
-  box-shadow:0 6px 22px rgba(245,158,11,.42),0 0 0 1px rgba(255,255,255,.08) inset;
+  box-shadow:0 6px 22px rgba(239,68,68,.48),0 0 0 1px rgba(255,255,255,.08) inset;
   text-decoration:none;white-space:nowrap;
   transition:transform .2s var(--ease),box-shadow .2s,background .2s;
 }
 .ui-btn-voice:hover{
   transform:translateY(-1px);
-  background:linear-gradient(135deg,#fcd34d 0%,#f59e0b 45%,#ef4444 100%);
-  box-shadow:0 10px 32px rgba(245,158,11,.6),0 0 0 1px rgba(255,255,255,.14) inset;
-  color:#0b0b0f;
+  background:#dc2626;
+  box-shadow:0 10px 32px rgba(239,68,68,.6),0 0 0 1px rgba(255,255,255,.18) inset;
+  color:#fff;
 }
 .ui-btn-voice-dot{
   width:7px;height:7px;border-radius:50%;

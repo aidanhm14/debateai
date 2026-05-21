@@ -95,7 +95,7 @@ const NEXT_FINAL = {
   date: 'Friday, June 26, 2026',
   time: '8:30 PM ET / 5:30 AM IST Sat',
   format: 'APDA 1v1, impromptu, 8 minutes per side',
-  discordUrl: 'https://discord.gg/2dcFV2frM',
+  discordUrl: 'https://discord.gg/WMHZW9BKvJ',
 };
 
 function renderChampionCard(c) {
@@ -169,7 +169,7 @@ function renderPage(champions) {
   };
 
   return `<!doctype html>
-<html lang="en"><head>
+<html lang="en" data-force-theme="crimson"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>

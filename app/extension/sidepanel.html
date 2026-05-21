@@ -868,6 +868,629 @@
   }
   .err-shade__cta:hover { background: var(--chip-hover); }
   a { color: #f0a0a0; }
+
+  /* ── Counter-your-draft card ─────────────────────────────────
+     Native section that surfaces the debater agent (POST /api/counter-doc).
+     Lives between the topic field and the onboarding card. Collapsed by
+     default so it doesn't crowd the primary "Start drill" flow; expands
+     on click. Result block renders rebuttals as stacked cards, each with
+     a "Drill this" CTA that hands the rebuttal claim to the iframe. */
+  .counter-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: linear-gradient(180deg, rgba(229,69,69,0.05), rgba(229,69,69,0.015));
+    border: 1px solid rgba(229, 69, 69, 0.22);
+    border-radius: 10px;
+    padding: 0;
+    overflow: hidden;
+  }
+  /* Primary mode — Counter is the whole setup card, not a folded sidebar
+     teaser. Bigger header, no toggle chevron, body is always open. */
+  .counter-card.is-primary {
+    background: linear-gradient(180deg, rgba(229,69,69,0.06), rgba(229,69,69,0.012));
+    border: 1px solid rgba(229, 69, 69, 0.28);
+    border-radius: 12px;
+  }
+  .counter-card__primary-head {
+    padding: 16px 14px 4px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .counter-card__primary-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.005em;
+    background: linear-gradient(180deg, #fff, #d6d6dc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .counter-card__primary-sub {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  /* Setup container in counter-only mode — no other rows competing,
+     so give the card room. */
+  .setup--counter-only {
+    padding: 12px;
+    gap: 12px;
+  }
+  /* Larger textarea + CTA when Counter is the primary surface. */
+  .counter-card__textarea--lg {
+    min-height: 130px;
+    font-size: 13px;
+  }
+  .counter-card__cta--lg {
+    padding: 12px 14px;
+    font-size: 13.5px;
+  }
+
+  /* Doc-context strip. Surfaces ONLY when the active tab is a Google
+     Doc. Compact horizontal pill with "Currently reading: <title>" on
+     the left and a "Pull selection ↓" button on the right. Hidden via
+     [hidden] when the active tab isn't a Doc. */
+  .doc-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(96, 165, 250, 0.06);
+    border: 1px solid rgba(96, 165, 250, 0.22);
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+  .doc-strip__head {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .doc-strip__icon { font-size: 13px; }
+  .doc-strip__label {
+    color: var(--muted-2);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    flex: 0 0 auto;
+  }
+  .doc-strip__title {
+    color: var(--fg);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .doc-strip__pull {
+    appearance: none;
+    background: rgba(96, 165, 250, 0.16);
+    border: 1px solid rgba(96, 165, 250, 0.4);
+    color: #bfdbfe;
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .doc-strip__pull:hover {
+    background: rgba(96, 165, 250, 0.28);
+    color: #fff;
+  }
+  .doc-strip__pull:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Mode tabs — segmented control between paragraph and full-draft. */
+  .mode-tabs {
+    display: flex;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .mode-tabs__btn {
+    appearance: none;
+    flex: 1;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .mode-tabs__btn.is-on {
+    background: var(--crimson);
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(229, 69, 69, 0.35);
+  }
+  .mode-tabs__btn:not(.is-on):hover {
+    background: var(--chip-hover);
+    color: var(--fg);
+  }
+
+  /* Reader row — full-width chip rail above intensity. The chips
+     scroll horizontally if they overflow the side-panel width. */
+  .reader-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .reader-row__label {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .reader-row__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .reader-row__chips button {
+    appearance: none;
+    background: var(--chip);
+    border: 1px solid var(--line);
+    color: var(--fg-soft);
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .reader-row__chips button:hover {
+    background: var(--chip-hover);
+    color: var(--fg);
+    border-color: rgba(229, 69, 69, 0.25);
+  }
+  .reader-row__chips button.is-on {
+    background: var(--chip-on);
+    border-color: var(--chip-on-border);
+    color: #fff;
+  }
+  .counter-card__head {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--fg);
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    gap: 9px;
+    align-items: center;
+    padding: 10px 12px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+  }
+  .counter-card__icon {
+    color: var(--crimson);
+    font-weight: 800;
+    font-size: 11px;
+    background: rgba(229, 69, 69, 0.16);
+    border-radius: 5px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+  }
+  .counter-card__title {
+    color: var(--fg);
+    font-weight: 700;
+    font-size: 12.5px;
+    letter-spacing: 0.01em;
+  }
+  .counter-card__title em {
+    color: var(--muted);
+    font-style: normal;
+    font-weight: 500;
+    margin-left: 6px;
+  }
+  .counter-card__chev {
+    color: var(--muted);
+    font-size: 11px;
+    transition: transform 160ms ease;
+  }
+  .counter-card.is-open .counter-card__chev { transform: rotate(90deg); }
+  .counter-card__body {
+    display: none;
+    flex-direction: column;
+    gap: 9px;
+    padding: 4px 12px 12px 12px;
+  }
+  .counter-card.is-open .counter-card__body { display: flex; }
+  .counter-card__hint {
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+  .counter-card__textarea {
+    appearance: none;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--fg);
+    padding: 8px 10px;
+    font: 12.5px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    resize: vertical;
+    min-height: 78px;
+  }
+  .counter-card__textarea:focus {
+    outline: none;
+    border-color: rgba(229, 69, 69, 0.5);
+    box-shadow: 0 0 0 3px rgba(229, 69, 69, 0.12);
+  }
+  .counter-card__row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .counter-card__intensity {
+    display: inline-flex;
+    background: var(--chip);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .counter-card__intensity button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .counter-card__intensity button.is-on {
+    background: rgba(229, 69, 69, 0.18);
+    color: var(--fg);
+  }
+  .counter-card__counts {
+    margin-left: auto;
+    color: var(--muted-2);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .counter-card__cta {
+    appearance: none;
+    background: linear-gradient(180deg, var(--crimson), var(--crimson-deep));
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-weight: 700;
+    font-size: 12.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+  }
+  .counter-card__cta:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .counter-card__cta:not(:disabled):hover {
+    filter: brightness(1.08);
+  }
+  .counter-card__cta .counter-card__spinner {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    animation: counter-spin 0.8s linear infinite;
+    display: none;
+  }
+  .counter-card.is-loading .counter-card__cta .counter-card__spinner {
+    display: inline-block;
+  }
+  .counter-card.is-loading .counter-card__cta .counter-card__cta-label::after {
+    content: 'ing rebuttals…';
+  }
+  .counter-card.is-loading .counter-card__cta .counter-card__cta-label {
+    color: #fff;
+  }
+  @keyframes counter-spin {
+    to { transform: rotate(360deg); }
+  }
+  .counter-card__error {
+    display: none;
+    color: #fda4af;
+    font-size: 11.5px;
+    background: rgba(229, 69, 69, 0.08);
+    border: 1px solid rgba(229, 69, 69, 0.25);
+    border-radius: 7px;
+    padding: 7px 9px;
+    line-height: 1.45;
+  }
+  .counter-card__error.is-shown { display: block; }
+
+  .counter-results {
+    display: none;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 4px;
+  }
+  .counter-results.is-shown { display: flex; }
+  .counter-results__thesis {
+    color: var(--fg-soft);
+    font-size: 11.5px;
+    line-height: 1.5;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .counter-results__thesis em {
+    color: var(--muted);
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 9.5px;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .counter-results__weakest {
+    color: #fde68a;
+    font-size: 11.5px;
+    line-height: 1.5;
+    background: rgba(245, 158, 11, 0.07);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .counter-results__weakest em {
+    color: #f59e0b;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 9.5px;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .rebuttal {
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 10px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rebuttal__num {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--crimson);
+    font-weight: 800;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .rebuttal__num::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--crimson);
+  }
+  .rebuttal__claim {
+    color: var(--fg);
+    font-weight: 600;
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+  .rebuttal__line {
+    color: var(--fg-soft);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+  .rebuttal__line strong {
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 9.5px;
+    margin-right: 6px;
+  }
+  .rebuttal__actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+  .rebuttal__btn {
+    appearance: none;
+    background: var(--chip);
+    border: 1px solid var(--line);
+    color: var(--fg-soft);
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .rebuttal__btn:hover {
+    background: var(--chip-hover);
+    color: var(--fg);
+  }
+  .rebuttal__btn--primary {
+    background: rgba(229, 69, 69, 0.16);
+    border-color: rgba(229, 69, 69, 0.4);
+    color: #ffd0d0;
+  }
+  .rebuttal__btn--primary:hover {
+    background: rgba(229, 69, 69, 0.26);
+    color: #fff;
+  }
+  .counter-results__question {
+    color: var(--fg);
+    font-size: 12px;
+    line-height: 1.5;
+    background: rgba(229, 69, 69, 0.07);
+    border: 1px solid rgba(229, 69, 69, 0.3);
+    border-radius: 8px;
+    padding: 9px 11px;
+  }
+  .counter-results__question em {
+    color: var(--crimson);
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 9.5px;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .counter-results__drill {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding-top: 2px;
+    flex-wrap: wrap;
+  }
+  .counter-results__drill-topic {
+    flex: 1;
+    color: var(--fg-soft);
+    font-size: 11.5px;
+    font-style: italic;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .counter-results__drill-cta {
+    appearance: none;
+    background: var(--crimson);
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    padding: 6px 11px;
+    font-weight: 700;
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .counter-results__drill-cta:hover { filter: brightness(1.08); }
+
+  /* "Copy as comment" — close-the-loop CTA that takes the AI's pushback
+     back to the Doc. Uses the same low-alpha crimson treatment as the
+     examiner's-question card + the drill row so it reads as a sibling,
+     not a different-app overlay. The button itself uses the
+     rebuttal__btn--primary mid-tint pattern so it's clearly secondary
+     to the solid Drill CTA (drill = primary advance, drop = utility). */
+  .counter-results__drop {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 2px;
+    padding: 9px 11px;
+    background: rgba(229, 69, 69, 0.05);
+    border: 1px solid rgba(229, 69, 69, 0.22);
+    border-radius: 8px;
+    flex-wrap: wrap;
+  }
+  .counter-results__drop-copy {
+    color: var(--fg-soft);
+    font-size: 11.5px;
+    flex: 1;
+    min-width: 140px;
+    line-height: 1.45;
+  }
+  .counter-results__drop-copy em {
+    color: var(--crimson);
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 9.5px;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .counter-results__drop-cta {
+    appearance: none;
+    background: rgba(229, 69, 69, 0.16);
+    border: 1px solid rgba(229, 69, 69, 0.4);
+    color: #ffd0d0;
+    border-radius: 6px;
+    padding: 6px 11px;
+    font-weight: 600;
+    font-size: 11.5px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .counter-results__drop-cta:hover {
+    background: rgba(229, 69, 69, 0.26);
+    color: #fff;
+  }
+  .counter-results__drop-cta:disabled {
+    background: var(--chip);
+    border-color: var(--line);
+    color: var(--muted);
+    cursor: default;
+  }
+
+  /* First-use sample pill. Hidden once the user has run Counter once.
+     Uses the neutral chip palette so it reads as a quiet hint, not a
+     competing CTA — the textarea is still the primary focus. */
+  .counter-card__sample {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 11px;
+    background: var(--chip);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 11.5px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+  .counter-card__sample:hover {
+    background: var(--chip-hover);
+    border-color: rgba(229, 69, 69, 0.30);
+    color: var(--fg-soft);
+  }
+  .counter-card__sample[hidden] { display: none; }
+  .counter-card__sample-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--muted-2);
+    flex-shrink: 0;
+    transition: background 120ms ease;
+  }
+  .counter-card__sample:hover .counter-card__sample-dot { background: var(--crimson); }
+  .counter-card__sample-label { flex: 1; min-width: 0; }
+  .counter-card__sample-hint {
+    color: var(--muted-2);
+    font-weight: 600;
+    transition: color 120ms ease;
+  }
+  .counter-card__sample:hover .counter-card__sample-hint { color: var(--crimson); }
 </style>
 </head>
 <body>
@@ -875,7 +1498,7 @@
     <div class="brandbar__brand">
       <span class="brandbar__dot" aria-hidden="true"></span>
       <span class="brandbar__name">COUNTER</span>
-      <span class="brandbar__sub">by DEBATEAI</span>
+      <span class="brandbar__sub">DEBATEAI · DOCS</span>
     </div>
     <span class="brandbar__spacer"></span>
     <button class="streak-chip" id="streakChip" type="button" title="Drill streak">Start a streak</button>
@@ -889,90 +1512,131 @@
   </div>
 
   <main class="stage" id="stage" data-state="setup">
-    <!-- Setup view: visible until a drill goes live -->
-    <section class="setup" id="setup">
-      <div class="row">
-        <div class="row__head">
-          <span class="row__label">Mode</span>
-          <span class="row__hint">Drill style</span>
+    <!-- Setup view: one job, no chrome. Paste a paragraph from your Doc,
+         get rebuttals back. Voice round (modes, personas, etc.) is still
+         wired underneath; it surfaces only via the per-rebuttal "Drill
+         this in voice" CTA after a counter lands. -->
+    <section class="setup setup--counter-only" id="setup">
+      <section class="counter-card is-open is-primary" id="counterCard">
+        <div class="counter-card__primary-head">
+          <h2 class="counter-card__primary-title">Counter your draft</h2>
+          <p class="counter-card__primary-sub">
+            Paste a paragraph from your Google Doc, essay, or case file. The AI plays your toughest reader — finds the weakest claim, builds three rebuttals, and hands you the question you'll be asked first.
+          </p>
         </div>
-        <div class="chips" id="modeChips" role="tablist" aria-label="Drill mode"></div>
-      </div>
-
-      <div class="row">
-        <div class="row__head">
-          <span class="row__label">Examiner</span>
-          <span class="row__hint">Persona</span>
-        </div>
-        <div class="chips" id="personaChips" role="tablist" aria-label="Examiner persona"></div>
-      </div>
-
-      <div class="row">
-        <div class="row__head">
-          <span class="row__label">Topic</span>
-          <span class="row__hint" id="hint">Or highlight any passage and pick Quiz me</span>
-        </div>
-        <div class="topic-wrap">
-          <textarea
-            id="topicField"
-            class="topic"
-            placeholder="Paste a passage, type a motion, or highlight text on any page."
-            maxlength="900"
-            rows="3"
-            aria-label="Topic or passage"
-          ></textarea>
-          <div class="topic-meta">
-            <div class="topic-actions">
-              <button class="textbtn" id="paste" type="button" title="Paste from clipboard">Paste</button>
-              <button class="textbtn textbtn--danger" id="clearTopic" type="button">Clear</button>
+        <div class="counter-card__body" id="counterBody">
+          <!-- Doc-context strip. Only shows when the active tab is a
+               Google Doc — gives Counter a felt sense of "I know what
+               you're reading." Pull button asks the content script for
+               the user's most recent selection/copy. -->
+          <div class="doc-strip" id="docStrip" hidden>
+            <div class="doc-strip__head">
+              <span class="doc-strip__icon" aria-hidden="true">📄</span>
+              <span class="doc-strip__label">Currently reading</span>
+              <span class="doc-strip__title" id="docStripTitle">—</span>
             </div>
-            <span class="topic-meta__count" id="topicCount">0 / 900</span>
+            <button class="doc-strip__pull" id="docStripPull" type="button">Pull selection ↓</button>
           </div>
+
+          <!-- Mode tabs: paragraph vs full-draft. Switches the size cap
+               (12k → 25k) and the prompt framing on the server. -->
+          <div class="mode-tabs" role="tablist" aria-label="Counter mode">
+            <button type="button" class="mode-tabs__btn is-on" role="tab" data-mode="paragraph" aria-selected="true">A claim</button>
+            <button type="button" class="mode-tabs__btn" role="tab" data-mode="full-draft" aria-selected="false">Whole draft</button>
+          </div>
+
+          <textarea
+            class="counter-card__textarea counter-card__textarea--lg"
+            id="counterPassage"
+            placeholder="Paste a paragraph of your argument…"
+            rows="7"
+            maxlength="12000"
+            aria-label="Passage to counter"
+            autofocus
+          ></textarea>
+
+          <!-- First-use sample shortcut. Hidden once the user has run
+               Counter at least once (localStorage flag 'da-counter-tried').
+               Loads a random sample passage so first-time users can see
+               what the AI does without having to bring their own draft. -->
+          <button type="button" class="counter-card__sample" id="counterSample" hidden>
+            <span class="counter-card__sample-dot" aria-hidden="true"></span>
+            <span class="counter-card__sample-label">No draft handy? Try with a sample paragraph</span>
+            <span class="counter-card__sample-hint">→</span>
+          </button>
+
+          <!-- Reader picker: who the AI plays when reading the user's
+               argument. Distinct from intensity (how harshly they push)
+               and from mode (paragraph vs whole-draft). -->
+          <div class="reader-row">
+            <span class="reader-row__label">Reader</span>
+            <div class="reader-row__chips" id="readerChips" role="tablist" aria-label="Reader persona">
+              <button type="button" role="tab" data-reader="generic" class="is-on" aria-selected="true">Skeptical reader</button>
+              <button type="button" role="tab" data-reader="admissions">Admissions officer</button>
+              <button type="button" role="tab" data-reader="oped">Op-ed editor</button>
+              <button type="button" role="tab" data-reader="committee">Thesis committee</button>
+              <button type="button" role="tab" data-reader="opposing">Opposing counsel</button>
+              <button type="button" role="tab" data-reader="vc">VC investor</button>
+              <button type="button" role="tab" data-reader="varsity">Varsity debater</button>
+            </div>
+          </div>
+
+          <div class="counter-card__row">
+            <div class="counter-card__intensity" role="tablist" aria-label="Intensity">
+              <button type="button" role="tab" data-intensity="measured">Measured</button>
+              <button type="button" role="tab" data-intensity="firm" class="is-on" aria-selected="true">Firm</button>
+              <button type="button" role="tab" data-intensity="fierce">Fierce</button>
+            </div>
+            <span class="counter-card__counts" id="counterCount">0 / 12000</span>
+          </div>
+          <button class="counter-card__cta counter-card__cta--lg" id="counterRun" type="button" disabled>
+            <span class="counter-card__spinner" aria-hidden="true"></span>
+            <span><span class="counter-card__cta-label">Counter</span> this argument</span>
+          </button>
+          <div class="counter-card__error" id="counterError" role="alert"></div>
+          <div class="counter-results" id="counterResults" aria-live="polite"></div>
         </div>
+      </section>
 
-        <div class="quickstart" id="quickstartBlock">
-          <span class="quickstart__label">Try one</span>
-          <div class="quickstart__chips" id="quickstartChips"></div>
-        </div>
-
-        <div class="retry-strip" id="retryStrip" role="status">
-          <span class="retry-strip__msg" id="retryStripMsg">Last drill didn't start. Mic was likely blocked.</span>
-          <button class="retry-strip__cta" id="retryStripBtn" type="button">Try again</button>
-          <button class="retry-strip__close" id="retryStripClose" type="button" aria-label="Dismiss">×</button>
-        </div>
-      </div>
-
-      <button class="cta" id="startBtn" type="button" disabled>
-        <span class="cta__arrow" aria-hidden="true">▶</span>
-        <span class="cta__label">Start drill</span>
-        <span class="cta__sub" id="startSub">Pick a mode and topic</span>
-      </button>
-
+      <!-- Docs-flavored discovery hints. Three real entry points, no
+           voice-drill noise. Hidden once the user has actually used
+           Counter once (see renderRecent in sidepanel.js). -->
       <div class="onboard" id="onboardBlock">
-        <span class="row__label">Quiz me from anywhere</span>
+        <span class="row__label">From any Google Doc</span>
         <ul class="onboard__list">
           <li class="onboard__row">
             <span class="onboard__num">1</span>
-            <span>Highlight any passage. A small chip appears near it.</span>
+            <span>Open a Doc. Select a paragraph.</span>
           </li>
           <li class="onboard__row">
             <span class="onboard__num">2</span>
-            <span>Right-click and pick "Quiz me on this passage".</span>
+            <span>Right-click → <em>Counter this argument</em>.</span>
           </li>
           <li class="onboard__row">
             <span class="onboard__num">3</span>
-            <span>Or hit <span class="onboard__kbd" id="onboardKbd">⌘⇧D</span> on any page.</span>
+            <span>Or hit <span class="onboard__kbd" id="onboardKbd">⌘⇧L</span> on any page.</span>
           </li>
         </ul>
       </div>
 
-      <div class="recent" id="recentBlock" hidden>
-        <span class="row__label">Recent</span>
-        <ul class="recent__list" id="recentList"></ul>
-      </div>
-
-      <div class="footnote">
-        Mic prompt appears once. Streak counts only sessions that go live.
+      <!-- Dormant containers for legacy voice-drill UI. The setup card no
+           longer renders Mode / Examiner / Topic / Quickstart / Recent /
+           Start-drill controls, but sidepanel.js still references their
+           els so renders are no-ops rather than null-derefs. Kept hidden
+           via [hidden] so they cost zero pixels but exist in the DOM. -->
+      <div hidden>
+        <div id="modeChips" role="tablist"></div>
+        <div id="personaChips" role="tablist"></div>
+        <textarea id="topicField" maxlength="900"></textarea>
+        <span id="topicCount"></span>
+        <button id="paste" type="button"></button>
+        <button id="clearTopic" type="button"></button>
+        <span id="hint"></span>
+        <button id="startBtn" type="button"></button>
+        <span id="startSub"></span>
+        <div id="quickstartBlock"><div id="quickstartChips"></div></div>
+        <div id="retryStrip"><span id="retryStripMsg"></span><button id="retryStripBtn"></button><button id="retryStripClose"></button></div>
+        <div id="recentBlock"><ul id="recentList"></ul></div>
       </div>
     </section>
 

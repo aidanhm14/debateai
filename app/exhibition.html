@@ -14,7 +14,6 @@
 <meta property="og:description" content="Watch two AI brains debate a motion in proper format. Five brains: Claude, GPT, Grok, DeepSeek, Gemini.">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/ui.css">
@@ -34,6 +33,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/topbar.js"></script>
+<script defer src="/js/voice-input.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{min-height:100%;width:100%}
@@ -159,9 +159,9 @@ try {
 } catch (e) { console.warn('[exhibition] firebase init skipped:', e.message); }
 </script>
 
-<script type="text/babel">
-const { useState, useRef } = React;
-const el = React.createElement;
+<script data-precompile="es5">
+var { useState, useRef } = React;
+var el = React.createElement;
 
 /* ──────────────────────────────────────────────────────────
    EXHIBITION ROUND — two AI brains debate each other in
@@ -177,60 +177,70 @@ const el = React.createElement;
    localStorage save. v0.2: streaming, transcript export,
    per-brain voice playback. */
 
-const BRAINS = {
-  claude:   { name:'Claude',   endpoint:'/api/claude',      model:'claude-haiku-4-5-20251001', color:'#D97757' },
-  gpt:      { name:'GPT',      endpoint:'/api/openai-chat', model:'gpt-4o-mini',               color:'#10a37f' },
-  grok:     { name:'Grok',     endpoint:'/api/grok',        model:'grok-3-mini',               color:'#cbd5e1' },
-  deepseek: { name:'DeepSeek', endpoint:'/api/deepseek',    model:'deepseek-chat',             color:'#4D6BFE' },
+var BRAINS = {
+  claude: { name: 'Claude', endpoint: '/api/claude', model: 'claude-haiku-4-5-20251001', color: '#D97757' },
+  gpt: { name: 'GPT', endpoint: '/api/openai-chat', model: 'gpt-4o-mini', color: '#10a37f' },
+  grok: { name: 'Grok', endpoint: '/api/grok', model: 'grok-3-mini', color: '#cbd5e1' },
+  deepseek: { name: 'DeepSeek', endpoint: '/api/deepseek', model: 'deepseek-chat', color: '#4D6BFE' }
 };
 
 // Minimal format objects. Each speech: code, side, title, durationMin
 // (used only in summary text — no live timer in v0.1).
-const FORMATS = {
+var FORMATS = {
   apda: {
     name: 'APDA (American Parliamentary)',
-    sides: ['gov','opp'],
-    sideLabels: { gov:'Government', opp:'Opposition' },
+    sides: ['gov', 'opp'],
+    sideLabels: { gov: 'Government', opp: 'Opposition' },
     speeches: [
-      { code:'PMC', side:'gov', title:'Prime Minister Constructive', dur:7 },
-      { code:'LOC', side:'opp', title:'Leader of Opposition Constructive', dur:8 },
-      { code:'MG',  side:'gov', title:'Member of Government', dur:8 },
-      { code:'MO',  side:'opp', title:'Member of Opposition', dur:8 },
-      { code:'LOR', side:'opp', title:'Leader of Opposition Rebuttal', dur:4 },
-      { code:'PMR', side:'gov', title:'Prime Minister Rebuttal', dur:5 },
-    ],
+    { code: 'PMC', side: 'gov', title: 'Prime Minister Constructive', dur: 7 },
+    { code: 'LOC', side: 'opp', title: 'Leader of Opposition Constructive', dur: 8 },
+    { code: 'MG', side: 'gov', title: 'Member of Government', dur: 8 },
+    { code: 'MO', side: 'opp', title: 'Member of Opposition', dur: 8 },
+    { code: 'LOR', side: 'opp', title: 'Leader of Opposition Rebuttal', dur: 4 },
+    { code: 'PMR', side: 'gov', title: 'Prime Minister Rebuttal', dur: 5 }]
+
   },
   wsdc: {
     name: 'World Schools (WSDC)',
-    sides: ['prop','opp'],
-    sideLabels: { prop:'Proposition', opp:'Opposition' },
+    sides: ['prop', 'opp'],
+    sideLabels: { prop: 'Proposition', opp: 'Opposition' },
     speeches: [
-      { code:'1st Prop', side:'prop', title:'1st Proposition', dur:8 },
-      { code:'1st Opp',  side:'opp',  title:'1st Opposition',  dur:8 },
-      { code:'2nd Prop', side:'prop', title:'2nd Proposition', dur:8 },
-      { code:'2nd Opp',  side:'opp',  title:'2nd Opposition',  dur:8 },
-      { code:'3rd Prop', side:'prop', title:'3rd Proposition', dur:8 },
-      { code:'3rd Opp',  side:'opp',  title:'3rd Opposition',  dur:8 },
-      { code:'Opp Reply', side:'opp', title:'Opposition Reply', dur:4 },
-      { code:'Prop Reply',side:'prop',title:'Proposition Reply', dur:4 },
-    ],
+    { code: '1st Prop', side: 'prop', title: '1st Proposition', dur: 8 },
+    { code: '1st Opp', side: 'opp', title: '1st Opposition', dur: 8 },
+    { code: '2nd Prop', side: 'prop', title: '2nd Proposition', dur: 8 },
+    { code: '2nd Opp', side: 'opp', title: '2nd Opposition', dur: 8 },
+    { code: '3rd Prop', side: 'prop', title: '3rd Proposition', dur: 8 },
+    { code: '3rd Opp', side: 'opp', title: '3rd Opposition', dur: 8 },
+    { code: 'Opp Reply', side: 'opp', title: 'Opposition Reply', dur: 4 },
+    { code: 'Prop Reply', side: 'prop', title: 'Proposition Reply', dur: 4 }]
+
   },
+  // BP is a FOUR-TEAM format. MG/GW are Closing Government (cg),
+  // MO/OW are Closing Opposition (co) — distinct teams from OG/OO
+  // with opposing incentives (the closing half has to out-flank the
+  // opening half with an extension). Tagging all gov speeches 'gov'
+  // collapsed the round into a 2-brain debate where OG and CG were
+  // the same AI, which is not BP. Four sides + a brain per team.
   bp: {
     name: 'British Parliamentary (BP)',
-    sides: ['gov','opp'],
-    sideLabels: { gov:'Government', opp:'Opposition' },
+    sides: ['og', 'oo', 'cg', 'co'],
+    sideLabels: { og: 'Opening Gov', oo: 'Opening Opp', cg: 'Closing Gov', co: 'Closing Opp' },
     speeches: [
-      { code:'PM',  side:'gov', title:'Prime Minister (OG)', dur:7 },
-      { code:'LO',  side:'opp', title:'Leader of Opposition (OO)', dur:7 },
-      { code:'DPM', side:'gov', title:'Deputy Prime Minister (OG)', dur:7 },
-      { code:'DLO', side:'opp', title:'Deputy Leader of Opposition (OO)', dur:7 },
-      { code:'MG',  side:'gov', title:'Member of Government (CG)', dur:7 },
-      { code:'MO',  side:'opp', title:'Member of Opposition (CO)', dur:7 },
-      { code:'GW',  side:'gov', title:'Government Whip (CG)', dur:7 },
-      { code:'OW',  side:'opp', title:'Opposition Whip (CO)', dur:7 },
-    ],
-  },
+    { code: 'PM', side: 'og', title: 'Prime Minister (OG)', dur: 7 },
+    { code: 'LO', side: 'oo', title: 'Leader of Opposition (OO)', dur: 7 },
+    { code: 'DPM', side: 'og', title: 'Deputy Prime Minister (OG)', dur: 7 },
+    { code: 'DLO', side: 'oo', title: 'Deputy Leader of Opposition (OO)', dur: 7 },
+    { code: 'MG', side: 'cg', title: 'Member of Government (CG)', dur: 7 },
+    { code: 'MO', side: 'co', title: 'Member of Opposition (CO)', dur: 7 },
+    { code: 'GW', side: 'cg', title: 'Government Whip (CG)', dur: 7 },
+    { code: 'OW', side: 'co', title: 'Opposition Whip (CO)', dur: 7 }]
+
+  }
 };
+
+// A format is "four-team" when it has more than two sides. Drives the
+// 4-brain picker + per-team dispatch below.
+function isFourTeam(fmt){ return fmt && Array.isArray(fmt.sides) && fmt.sides.length >= 4; }
 
 // Role-prompt builder for each speech. Kept small but format-aware: the
 // system prompt sets up persona + format expectations; the user prompt
@@ -238,113 +248,151 @@ const FORMATS = {
 // can build on what was said. Reuses the canonical voice rules via the
 // server-side voice-guidelines pipeline (passed through _voiceFeature).
 function buildSpeechPrompt(speech, fmt, motion, transcript) {
-  const sideLabel = fmt.sideLabels[speech.side] || speech.side;
-  const sys = [
-    'You are an experienced competitive debater in a ' + fmt.name + ' round.',
-    'You are arguing for ' + sideLabel + '.',
-    'Motion: "' + motion + '"',
-    'This is an exhibition round — two AI brains are debating each other in proper format. Stay strictly in role.',
-    '',
-    'Your speech is: ' + speech.code + ' (' + speech.title + '). Aim for ' + speech.dur + ' minutes (~' + (speech.dur * 165) + ' words).',
-    '',
-    'RULES:',
-    '- Stay in format. ' + fmt.name + ' conventions apply: speech order, role-specific duties (constructives build, rebuttals weigh).',
-    '- Engage with what was actually said in prior speeches. Reference specific arguments by name.',
-    '- No preamble, no "thank you, judge." Open with substance.',
-    '- Real warrants with named mechanisms. No generic "this harms the economy" — name the actor, the year, the link.',
-    '- No em-dashes. Periods, commas, semicolons only.',
-    '- Stay under ' + (speech.dur * 200) + ' words.',
-  ].join('\n');
-  const userPrompt = transcript
-    ? 'Prior speeches in the round:\n\n' + transcript + '\n\nNow deliver your ' + speech.code + ' speech. Begin immediately.'
-    : 'You are the first speaker. Deliver your ' + speech.code + ' speech. Begin immediately.';
+  var sideLabel = fmt.sideLabels[speech.side] || speech.side;
+  var fourTeam = isFourTeam(fmt);
+  // In a 4-team round, the closing half (CG / CO) is a SEPARATE team
+  // from its opening half and is scored against it. Tell the brain to
+  // extend, not echo, or the exhibition reads as one side talking to
+  // itself. Whips (GW/OW) adjudicate the round, they don't rebuild.
+  var bpRoleNote = '';
+  if (fourTeam){
+    var isClosing = speech.side === 'cg' || speech.side === 'co';
+    var isWhip = speech.code === 'GW' || speech.code === 'OW';
+    var bench = speech.side === 'og' || speech.side === 'cg' ? 'Government' : 'Opposition';
+    if (isWhip){
+      bpRoleNote = 'You are the WHIP for ' + sideLabel + '. NO new arguments. Give a global, issue-by-issue summary that explains why YOUR team (' + sideLabel + ') wins the whole debate. Compare your extension against the opening half on your own bench AND against both teams on the other bench.';
+    } else if (isClosing){
+      bpRoleNote = 'You are the substantive for ' + sideLabel + ', a CLOSING team. You MUST bring a clear EXTENSION — a new actor, timeframe, mechanism, or impact layer that the opening ' + bench + ' team did not run. Your team is scored against your own opening half, so out-flank them: be the most persuasive ' + bench + ' team in the room. Acknowledge the opening case once, then move past it.';
+    } else {
+      bpRoleNote = 'You are the OPENING ' + bench + ' team. Set the debate up well, but know two more teams speak after you — leave the bench in a strong position and stake the ground a closing team would want.';
+    }
+  }
+  var sys = [
+  'You are an experienced competitive debater in a ' + fmt.name + ' round.',
+  'You are arguing for ' + sideLabel + '.',
+  'Motion: "' + motion + '"',
+  'This is an exhibition round — ' + (fourTeam ? 'four AI brains, one per team,' : 'two AI brains') + ' debating each other in proper format. Stay strictly in role.',
+  '',
+  'Your speech is: ' + speech.code + ' (' + speech.title + '). Aim for ' + speech.dur + ' minutes (~' + speech.dur * 165 + ' words).',
+  bpRoleNote ? '\n' + bpRoleNote : '',
+  '',
+  'RULES:',
+  '- Stay in format. ' + fmt.name + ' conventions apply: speech order, role-specific duties (constructives build, rebuttals weigh' + (fourTeam ? ', closing teams extend, whips adjudicate' : '') + ').',
+  '- Engage with what was actually said in prior speeches. Reference specific arguments by name.',
+  '- No preamble, no "thank you, judge." Open with substance.',
+  '- Real warrants with named mechanisms. No generic "this harms the economy" — name the actor, the year, the link.',
+  '- No em-dashes. Periods, commas, semicolons only.',
+  '- Stay under ' + speech.dur * 200 + ' words.'].
+  join('\n');
+  var userPrompt = transcript ?
+  'Prior speeches in the round:\n\n' + transcript + '\n\nNow deliver your ' + speech.code + ' speech. Begin immediately.' :
+  'You are the first speaker. Deliver your ' + speech.code + ' speech. Begin immediately.';
   return { sys, userPrompt };
 }
 
-function extractText(json){
+function extractText(json) {
   if (!json || typeof json !== 'object') return '';
   // Anthropic native
   if (Array.isArray(json.content)) {
-    return json.content.filter(c=>c.type==='text').map(c=>c.text||'').join('').trim();
+    return json.content.filter((c) => c.type === 'text').map((c) => c.text || '').join('').trim();
   }
   // OpenAI / Grok / DeepSeek (also routed through openai-chat-shape proxies)
   if (Array.isArray(json.choices) && json.choices[0]) {
-    return ((json.choices[0].message && json.choices[0].message.content) || json.choices[0].text || '').trim();
+    return (json.choices[0].message && json.choices[0].message.content || json.choices[0].text || '').trim();
   }
   if (typeof json.text === 'string') return json.text.trim();
   return '';
 }
 
 async function callBrain(brainKey, sys, user) {
-  const brain = BRAINS[brainKey];
+  var brain = BRAINS[brainKey];
   if (!brain) throw new Error('Unknown brain: ' + brainKey);
-  const body = {
+  var body = {
     system: sys,
-    messages: [{ role:'user', content: user }],
+    messages: [{ role: 'user', content: user }],
     model: brain.model,
     max_tokens: 2200,
     stream: false,
-    _feature: 'exhibition',
+    _feature: 'exhibition'
   };
-  const headers = { 'Content-Type':'application/json' };
+  var headers = { 'Content-Type': 'application/json' };
   // Anthropic version header for /api/claude.
   if (brainKey === 'claude') headers['anthropic-version'] = '2023-06-01';
-  const res = await fetch(brain.endpoint, { method:'POST', headers, body: JSON.stringify(body) });
+  var res = await fetch(brain.endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
   if (!res.ok) {
-    let msg = 'request failed (' + res.status + ')';
-    try { const j = await res.json(); if (j && j.error) msg = j.error; } catch {}
+    var msg = 'request failed (' + res.status + ')';
+    try {var j = await res.json();if (j && j.error) msg = j.error;} catch {}
     throw new Error(msg);
   }
-  const json = await res.json();
-  const text = extractText(json);
+  var json = await res.json();
+  var text = extractText(json);
   if (!text) throw new Error('empty response');
   return text;
 }
 
 function App() {
-  const [stage, setStage] = useState('setup'); // setup | running | done
-  const [motion, setMotion] = useState('This house would ban targeted political advertising.');
-  const [format, setFormat] = useState('apda');
-  const [brainA, setBrainA] = useState('claude');
-  const [brainB, setBrainB] = useState('grok');
-  const [sideA, setSideA]   = useState('gov');
-  const [speeches, setSpeeches] = useState([]); // [{code, side, brainKey, text, status, error}]
-  const [currentIdx, setCurrentIdx] = useState(-1);
-  const abortRef = useRef(false);
+  var [stage, setStage] = useState('setup'); // setup | running | done
+  var [motion, setMotion] = useState('This house would ban targeted political advertising.');
+  var [format, setFormat] = useState('apda');
+  var [brainA, setBrainA] = useState('claude');
+  var [brainB, setBrainB] = useState('grok');
+  var [sideA, setSideA] = useState('gov');
+  // 4-team formats (BP) assign one brain per team (og/oo/cg/co). The
+  // 2-side path keeps brainA/brainB; this object only matters when
+  // isFourTeam(fmt) is true. Defaults spread the four big brains so a
+  // first run is interesting out of the box.
+  var [teamBrains, setTeamBrains] = useState({ og: 'claude', oo: 'grok', cg: 'gpt', co: 'deepseek' });
+  var [speeches, setSpeeches] = useState([]); // [{code, side, brainKey, text, status, error}]
+  var [currentIdx, setCurrentIdx] = useState(-1);
+  var abortRef = useRef(false);
 
-  const fmt = FORMATS[format];
-  const sideAOption = fmt.sides[0];
-  const sideBOption = fmt.sides[1];
+  var fmt = FORMATS[format];
+  var fourTeam = isFourTeam(fmt);
+  var sideAOption = fmt.sides[0];
+  var sideBOption = fmt.sides[1];
   // When the format changes we may have stale sideA referencing a side
   // the new format doesn't have. Snap to the first side.
-  React.useEffect(()=>{ if (!fmt.sides.includes(sideA)) setSideA(fmt.sides[0]); }, [format]);
+  React.useEffect(() => {if (!fmt.sides.includes(sideA)) setSideA(fmt.sides[0]);}, [format]);
+  // Ensure teamBrains has a valid brain for every side of a 4-team
+  // format (defends against a brain key that isn't in BRAINS).
+  React.useEffect(() => {
+    if (!fourTeam) return;
+    setTeamBrains((prev) => {
+      var next = { ...prev };
+      var fallback = Object.keys(BRAINS);
+      fmt.sides.forEach((s, i) => { if (!next[s] || !BRAINS[next[s]]) next[s] = fallback[i % fallback.length]; });
+      return next;
+    });
+  }, [format]);
 
-  const start = async () => {
+  var start = async () => {
     if (!motion.trim()) return;
     if (brainA === brainB) {
+
+
+
+
       // Same brain on both sides isn't useful for the disagreement signal,
       // but allow it — user might be testing self-consistency.
-    }
-    setStage('running');
-    abortRef.current = false;
-    const queue = fmt.speeches.map(s => ({
-      code: s.code, side: s.side, title: s.title, dur: s.dur,
-      brainKey: s.side === sideA ? brainA : brainB,
-      text: '', status: 'queued', error: null,
-    }));
+    }setStage('running');abortRef.current = false;var queue = fmt.speeches.map((s) => ({ code: s.code, side: s.side, title: s.title, dur: s.dur,
+        // 4-team: dispatch by the team's brain. 2-side: the side that
+        // matches sideA gets brainA, the other gets brainB.
+        brainKey: fourTeam ? (teamBrains[s.side] || brainA) : (s.side === sideA ? brainA : brainB),
+        text: '', status: 'queued', error: null
+      }));
     setSpeeches(queue);
-    let transcript = '';
-    for (let i = 0; i < queue.length; i++) {
-      if (abortRef.current) break;
+    var transcript = '';var _loop = async function (i)
+    {
+      if (abortRef.current) return 1; // break
       setCurrentIdx(i);
-      setSpeeches(prev => prev.map((s, idx) => idx === i ? { ...s, status:'running' } : s));
-      const sp = queue[i];
-      const { sys, userPrompt } = buildSpeechPrompt(sp, fmt, motion, transcript);
+      setSpeeches((prev) => prev.map((s, idx) => idx === i ? { ...s, status: 'running' } : s));
+      var sp = queue[i];
+      var { sys, userPrompt } = buildSpeechPrompt(sp, fmt, motion, transcript);
       try {
-        const text = await callBrain(sp.brainKey, sys, userPrompt);
+        var text = await callBrain(sp.brainKey, sys, userPrompt);
         queue[i].text = text;
         queue[i].status = 'done';
-        transcript += (transcript ? '\n\n' : '') + '[' + sp.code + ' · ' + (fmt.sideLabels[sp.side]||sp.side) + ' · ' + BRAINS[sp.brainKey].name + ']:\n' + text;
+        transcript += (transcript ? '\n\n' : '') + '[' + sp.code + ' · ' + (fmt.sideLabels[sp.side] || sp.side) + ' · ' + BRAINS[sp.brainKey].name + ']:\n' + text;
         setSpeeches([...queue]);
       } catch (e) {
         queue[i].status = 'error';
@@ -353,111 +401,146 @@ function App() {
         // Continue with the remaining speeches — one brain failing
         // shouldn't kill the whole exhibition.
       }
-    }
+    };for (var i = 0; i < queue.length; i++) {if (await _loop(i)) break;}
     setCurrentIdx(-1);
     setStage('done');
     // Best-effort save to localStorage.
     try {
-      const round = {
+      var round = {
         id: Date.now(), motion, format, brainA, brainB, sideA,
-        speeches: queue.map(s => ({ code:s.code, side:s.side, brainKey:s.brainKey, text:s.text, error:s.error })),
-        date: new Date().toISOString(),
+        teamBrains: fourTeam ? { ...teamBrains } : null,
+        speeches: queue.map((s) => ({ code: s.code, side: s.side, brainKey: s.brainKey, text: s.text, error: s.error })),
+        date: new Date().toISOString()
       };
-      const list = JSON.parse(localStorage.getItem('debateai-exhibition-rounds') || '[]');
+      var list = JSON.parse(localStorage.getItem('debateai-exhibition-rounds') || '[]');
       localStorage.setItem('debateai-exhibition-rounds', JSON.stringify([round, ...list].slice(0, 20)));
     } catch {}
   };
 
-  const reset = () => { abortRef.current = true; setStage('setup'); setSpeeches([]); setCurrentIdx(-1); };
+  var reset = () => {abortRef.current = true;setStage('setup');setSpeeches([]);setCurrentIdx(-1);};
 
   if (stage === 'setup') {
-    return el('div',{className:'exh-wrap'},
-      el('div',{className:'exh-eyebrow'},'New · exhibition mode'),
-      el('h1',{className:'exh-title'},'Two AI brains. ',el('em',null,'One motion.')),
-      el('p',{className:'exh-sub'},'Pick a motion, pick two brains, pick which side each plays. The orchestrator runs the format\'s speech sequence in proper order. You flow it like a real round.'),
-      el('div',{className:'setup-card'},
-        el('div',{className:'setup-row'},
-          el('label',null,'Motion'),
-          el('textarea',{ value:motion, onChange:e=>setMotion(e.target.value.slice(0,400)), placeholder:'This house would ban …' }),
-        ),
-        el('div',{className:'setup-row'},
-          el('label',null,'Format'),
-          el('select',{ value:format, onChange:e=>setFormat(e.target.value) },
-            Object.entries(FORMATS).map(([k,v])=>el('option',{key:k,value:k},v.name))
-          ),
-        ),
-        el('div',{className:'setup-row'},
-          el('label',null,'Brain A'),
-          el('div',{className:'brain-row'},
-            Object.entries(BRAINS).map(([k,b])=>el('button',{
-              key:k, type:'button', className:'brain-btn'+(brainA===k?' on':''),
-              style:{color:brainA===k?b.color:undefined,borderColor:brainA===k?b.color+'66':undefined,background:brainA===k?b.color+'14':undefined},
-              onClick:()=>setBrainA(k),
-            }, el('span',{className:'dot',style:{background:b.color}}), b.name))
-          ),
-        ),
-        el('div',{className:'setup-row'},
-          el('label',null,'Brain B'),
-          el('div',{className:'brain-row'},
-            Object.entries(BRAINS).map(([k,b])=>el('button',{
-              key:k, type:'button', className:'brain-btn'+(brainB===k?' on':''),
-              style:{color:brainB===k?b.color:undefined,borderColor:brainB===k?b.color+'66':undefined,background:brainB===k?b.color+'14':undefined},
-              onClick:()=>setBrainB(k),
-            }, el('span',{className:'dot',style:{background:b.color}}), b.name))
-          ),
-        ),
-        el('div',{className:'setup-row'},
-          el('label',null,'Brain A plays'),
-          el('div',{className:'side-row'},
-            fmt.sides.map(s=>el('button',{
-              key:s, type:'button', className:'side-btn'+(sideA===s?' on':''),
-              onClick:()=>setSideA(s),
-            }, fmt.sideLabels[s]))
-          ),
-          el('div',{style:{fontSize:'.7rem',color:'rgba(255,255,255,.5)',marginTop:6}}, 'Brain B plays ' + fmt.sideLabels[fmt.sides.find(x=>x!==sideA)] + '.'),
-        ),
-        el('div',{className:'go-row'},
-          el('button',{className:'go-btn', onClick:start, disabled:!motion.trim()}, 'Run exhibition →'),
-          el('span',{className:'go-meta'}, fmt.speeches.length + ' speeches · ' + BRAINS[brainA].name + ' vs ' + BRAINS[brainB].name),
-        ),
-      ),
-      el('div',{style:{fontSize:'.72rem',color:'rgba(255,255,255,.42)',marginTop:18,lineHeight:1.55,maxWidth:580}},
-        'v0.1: each speech generates fully before the next starts (non-streamed). One failed speech does not kill the round — the next one still fires with whatever transcript exists. Costs scale with format length: APDA = 6 calls, WSDC = 8, BP = 8.'
-      ),
+    return el('div', { className: 'exh-wrap' },
+    el('div', { className: 'exh-eyebrow' }, 'New · exhibition mode'),
+    el('h1', { className: 'exh-title' }, fourTeam ? 'Four AI brains. ' : 'Two AI brains. ', el('em', null, 'One motion.')),
+    el('p', { className: 'exh-sub' }, fourTeam ?
+      'Pick a motion, then a brain for each of the four teams. The orchestrator runs the eight-speech BP sequence in proper order — closing teams have to extend past their own opening half. You flow it like a real round.' :
+      'Pick a motion, pick two brains, pick which side each plays. The orchestrator runs the format\'s speech sequence in proper order. You flow it like a real round.'),
+    el('div', { className: 'setup-card' },
+    el('div', { className: 'setup-row' },
+    el('label', null, 'Motion'),
+    el('textarea', { value: motion, onChange: (e) => setMotion(e.target.value.slice(0, 400)), placeholder: 'This house would ban …' })
+    ),
+    el('div', { className: 'setup-row' },
+    el('label', null, 'Format'),
+    el('select', { value: format, onChange: (e) => setFormat(e.target.value) },
+    Object.entries(FORMATS).map(([k, v]) => el('option', { key: k, value: k }, v.name))
+    )
+    ),
+    // ── 4-team picker (BP): one brain per team so OG/OO/CG/CO are
+    // each a different AI. ── 2-side picker: Brain A / Brain B + side.
+    fourTeam ?
+    el('div', { className: 'setup-row' },
+    el('label', null, 'Brain per team'),
+    el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
+    fmt.sides.map((s) => el('div', { key: s, style: { border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 12px', background: 'rgba(255,255,255,.02)' } },
+    el('div', { style: { fontSize: '.64rem', fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.62)', marginBottom: 8 } }, fmt.sideLabels[s]),
+    el('div', { className: 'brain-row' },
+    Object.entries(BRAINS).map(([k, b]) => el('button', {
+      key: k, type: 'button', className: 'brain-btn' + (teamBrains[s] === k ? ' on' : ''),
+      style: { color: teamBrains[s] === k ? b.color : undefined, borderColor: teamBrains[s] === k ? b.color + '66' : undefined, background: teamBrains[s] === k ? b.color + '14' : undefined },
+      onClick: () => setTeamBrains((prev) => ({ ...prev, [s]: k }))
+    }, el('span', { className: 'dot', style: { background: b.color } }), b.name))
+    )
+    ))
+    ),
+    el('div', { style: { fontSize: '.7rem', color: 'rgba(255,255,255,.5)', marginTop: 8, lineHeight: 1.5 } }, 'Four teams, four brains. Closing teams (CG / CO) are scored against their own opening half, so they must extend, not echo.')
+    ) :
+    [
+    el('div', { className: 'setup-row', key: 'ba' },
+    el('label', null, 'Brain A'),
+    el('div', { className: 'brain-row' },
+    Object.entries(BRAINS).map(([k, b]) => el('button', {
+      key: k, type: 'button', className: 'brain-btn' + (brainA === k ? ' on' : ''),
+      style: { color: brainA === k ? b.color : undefined, borderColor: brainA === k ? b.color + '66' : undefined, background: brainA === k ? b.color + '14' : undefined },
+      onClick: () => setBrainA(k)
+    }, el('span', { className: 'dot', style: { background: b.color } }), b.name))
+    )
+    ),
+    el('div', { className: 'setup-row', key: 'bb' },
+    el('label', null, 'Brain B'),
+    el('div', { className: 'brain-row' },
+    Object.entries(BRAINS).map(([k, b]) => el('button', {
+      key: k, type: 'button', className: 'brain-btn' + (brainB === k ? ' on' : ''),
+      style: { color: brainB === k ? b.color : undefined, borderColor: brainB === k ? b.color + '66' : undefined, background: brainB === k ? b.color + '14' : undefined },
+      onClick: () => setBrainB(k)
+    }, el('span', { className: 'dot', style: { background: b.color } }), b.name))
+    )
+    ),
+    el('div', { className: 'setup-row', key: 'plays' },
+    el('label', null, 'Brain A plays'),
+    el('div', { className: 'side-row' },
+    fmt.sides.map((s) => el('button', {
+      key: s, type: 'button', className: 'side-btn' + (sideA === s ? ' on' : ''),
+      onClick: () => setSideA(s)
+    }, fmt.sideLabels[s]))
+    ),
+    el('div', { style: { fontSize: '.7rem', color: 'rgba(255,255,255,.5)', marginTop: 6 } }, 'Brain B plays ' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + '.')
+    )
+    ],
+    el('div', { className: 'go-row' },
+    el('button', { className: 'go-btn', onClick: start, disabled: !motion.trim() }, 'Run exhibition →'),
+    el('span', { className: 'go-meta' }, fmt.speeches.length + ' speeches · ' + (fourTeam ? fmt.sides.map((s) => BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?').join(' · ') : BRAINS[brainA].name + ' vs ' + BRAINS[brainB].name))
+    )
+    ),
+    el('div', { style: { fontSize: '.72rem', color: 'rgba(255,255,255,.42)', marginTop: 18, lineHeight: 1.55, maxWidth: 580 } },
+    'v0.1: each speech generates fully before the next starts (non-streamed). One failed speech does not kill the round — the next one still fires with whatever transcript exists. Costs scale with format length: APDA = 6 calls, WSDC = 8, BP = 8.'
+    )
     );
   }
 
   // Running / done — render the speech cards
-  return el('div',{className:'exh-wrap'},
-    el('div',{className:'exh-eyebrow'}, stage==='done' ? 'Round complete' : 'Round in progress'),
-    el('h1',{className:'exh-title',style:{fontSize:'1.6rem',marginBottom:8}}, motion),
-    el('p',{className:'exh-sub'}, fmt.name + ' · ' + BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find(x=>x!==sideA)] + ')'),
-    speeches.map((sp, i) => el('div',{key:i,className:'speech-card'+(i===currentIdx?' active':'')},
-      el('div',{className:'speech-head'},
-        el('span',{className:'speech-code'}, sp.code),
-        el('span',{className:'speech-side',style:{color:sp.side===sideA?BRAINS[brainA].color:BRAINS[brainB].color}}, fmt.sideLabels[sp.side]),
-        el('span',{className:'speech-brain'},
-          el('span',{className:'dot',style:{background:BRAINS[sp.brainKey].color}}),
-          BRAINS[sp.brainKey].name
-        ),
-        sp.status === 'running' && el('span',{className:'speech-status',style:{color:'#c084fc'}}, 'speaking…'),
-        sp.status === 'queued' && el('span',{className:'speech-status'}, 'queued'),
-        sp.status === 'error' && el('span',{className:'speech-status',style:{color:'#fca5a5'}}, 'failed'),
-        sp.status === 'done' && el('span',{className:'speech-status',style:{color:'#86efac'}}, 'done'),
-      ),
-      sp.error && el('div',{className:'speech-error'}, sp.error),
-      !sp.error && sp.text && el('div',{className:'speech-body'}, sp.text),
-      !sp.error && !sp.text && sp.status === 'queued' && el('div',{className:'empty-speech'}, 'Waiting for prior speeches.'),
-      !sp.error && !sp.text && sp.status === 'running' && el('div',{className:'empty-speech'}, BRAINS[sp.brainKey].name + ' is writing…'),
-    )),
-    stage === 'done' && el('div',null,
-      el('div',{className:'done-banner'}, 'All ' + speeches.length + ' speeches complete. Flow this round in your notebook, then run another with different brains to see how the matchup shifts.'),
-      el('button',{className:'reset-link', onClick:reset}, '← New exhibition'),
-    ),
+  return el('div', { className: 'exh-wrap' },
+  el('div', { className: 'exh-eyebrow' }, stage === 'done' ? 'Round complete' : 'Round in progress'),
+  el('h1', { className: 'exh-title', style: { fontSize: '1.6rem', marginBottom: 8 } }, motion),
+  el('p', { className: 'exh-sub' }, fourTeam ?
+    fmt.name + ' · ' + fmt.sides.map((s) => (BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?') + ' ' + fmt.sideLabels[s]).join(' · ') :
+    fmt.name + ' · ' + BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + ')'),
+  speeches.map((sp, i) => el('div', { key: i, className: 'speech-card' + (i === currentIdx ? ' active' : '') },
+  el('div', { className: 'speech-head' },
+  el('span', { className: 'speech-code' }, sp.code),
+  el('span', { className: 'speech-side', style: { color: (BRAINS[sp.brainKey] ? BRAINS[sp.brainKey].color : undefined) } }, fmt.sideLabels[sp.side]),
+  el('span', { className: 'speech-brain' },
+  el('span', { className: 'dot', style: { background: BRAINS[sp.brainKey].color } }),
+  BRAINS[sp.brainKey].name
+  ),
+  sp.status === 'running' && el('span', { className: 'speech-status', style: { color: '#c084fc' } }, 'speaking…'),
+  sp.status === 'queued' && el('span', { className: 'speech-status' }, 'queued'),
+  sp.status === 'error' && el('span', { className: 'speech-status', style: { color: '#fca5a5' } }, 'failed'),
+  sp.status === 'done' && el('span', { className: 'speech-status', style: { color: '#86efac' } }, 'done')
+  ),
+  sp.error && el('div', { className: 'speech-error' }, sp.error),
+  !sp.error && sp.text && el('div', { className: 'speech-body' }, sp.text),
+  !sp.error && !sp.text && sp.status === 'queued' && el('div', { className: 'empty-speech' }, 'Waiting for prior speeches.'),
+  !sp.error && !sp.text && sp.status === 'running' && el('div', { className: 'empty-speech' }, BRAINS[sp.brainKey].name + ' is writing…')
+  )),
+  stage === 'done' && el('div', null,
+  el('div', { className: 'done-banner' }, 'All ' + speeches.length + ' speeches complete. Flow this round in your notebook, then run another with different brains to see how the matchup shifts.'),
+  // 2026-05-20: forward CTAs so the finished round isn't a dead end.
+  // Watching two AIs argue is the hook; the next intuitive step is to
+  // argue the same motion yourself. Motion is prefilled into the round
+  // simulator via ?motion=, with voice + leaderboard as alternates.
+  el('div', { style: { marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' } },
+  el('a', { href: '/debate-ai?motion=' + encodeURIComponent(motion), className: 'go-btn', style: { textDecoration: 'none', display: 'inline-block' } }, 'Now argue it yourself →'),
+  el('a', { href: '/voice-debate', style: { color: '#c084fc', fontSize: '.84rem', textDecoration: 'none', fontWeight: 700 } }, 'Or out loud, in a voice round'),
+  el('a', { href: '/leaderboard', style: { color: 'rgba(255,255,255,.55)', fontSize: '.84rem', textDecoration: 'none' } }, 'See the leaderboard')
+  ),
+  el('button', { className: 'reset-link', onClick: reset }, '← New exhibition')
+  )
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(el(App));
-</script>
+ReactDOM.createRoot(document.getElementById('root')).render(el(App));</script>
+<script defer src="/js/notifications.js"></script>
 </body>
 </html>

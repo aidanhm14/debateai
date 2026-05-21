@@ -16,6 +16,7 @@
 //   /api/learn/formats/{slug} → direct function path
 
 import { FORMAT_BANK, getFormat } from './lib/format-bank.mjs';
+import { listGuides } from './lib/guide-bank.mjs';
 
 const SITE_ORIGIN = 'https://debateai.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
@@ -80,11 +81,49 @@ function renderRelatedLinks(currentSlug) {
   </a>`).join('');
 }
 
+function renderFormatGuides(formatSlug) {
+  // Guides whose `format` field matches this format slug. These catch
+  // the question-style queries the format reference page itself can't
+  // rank for ("how to open as PM" vs the generic "Asian Parli format").
+  const guides = listGuides().filter(g => g.format === formatSlug);
+  if (!guides.length) return '';
+  return `<h2>Guides for this format</h2>
+  <div class="related-grid">
+    ${guides.map(g => `<a class="related-link" href="/learn/guides/${esc(g.slug)}">
+      <div class="related-label">Guide · ${esc(g.readTime)}</div>
+      <div class="related-name">${esc(g.question)}</div>
+    </a>`).join('')}
+  </div>`;
+}
+
+// Each format-bank slug maps to a hand-curated /topics/{slug} pillar page
+// with substantially more content (FAQ schema, motion archive, Indian-circuit
+// emphasis). Google was seeing two separate URLs targeting the same queries
+// — both with self-canonicals — and splitting authority. By pointing the
+// /learn/formats/ canonical at the corresponding /topics/ URL we consolidate
+// SEO weight into the deeper page while keeping /learn/formats accessible
+// as a tighter mechanics reference (and as the link target from /learn).
+//
+const TOPICS_CANONICAL = {
+  apda: 'apda',
+  bp: 'british-parliamentary',
+  worlds: 'world-schools',
+  asian: 'asian-parliamentary',
+  pf: 'public-forum',
+  ld: 'lincoln-douglas',
+  policy: 'policy',
+  congress: 'congress',
+  mun: 'mun',
+};
+
 function renderPage(format) {
   const titleCore = `${format.name} debate format · Structure, judging, sample motions`;
   const title = titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore;
   const description = `${format.name} (${format.alias}): ${format.pitch} Speech structure, judging criteria, sample motions, what wins and what fails.`;
-  const canonical = `${SITE_ORIGIN}/learn/formats/${format.slug}`;
+  const topicsSlug = TOPICS_CANONICAL[format.slug];
+  const canonical = topicsSlug
+    ? `${SITE_ORIGIN}/topics/${topicsSlug}`
+    : `${SITE_ORIGIN}/learn/formats/${format.slug}`;
 
   const ldCourse = {
     '@context': 'https://schema.org',
@@ -190,6 +229,8 @@ function renderPage(format) {
 
   <h2>Sample motions</h2>
   <ul class="motion-list">${format.sampleMotions.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
+
+  ${renderFormatGuides(format.slug)}
 
   <div class="cta-card">
     <h3>Try a ${esc(format.alias)} round against the AI.</h3>

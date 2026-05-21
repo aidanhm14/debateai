@@ -23,6 +23,10 @@
  *   rotateDegPerSec — rotation speed (default 4 → ~90s per full spin)
  *   showArcs        — boolean (default true). spar.html uses false to
  *                     keep the orb less busy.
+ *   showScanSweep   — boolean (default false). When true, draws an
+ *                     expanding ring pulse from the sphere center every
+ *                     ~2.6s. spar.html uses true to communicate
+ *                     "actively scanning the queue" while matchmaking.
  *   palette         — 'accent' (default red/coral) | 'cool' (blue tones)
  *
  * The data (continents land mask + city list + arcs) lives in
@@ -150,6 +154,14 @@
     var focusOnHover = opts.focusOnHover !== false;
     var showArcs = opts.showArcs !== false;
     var highlightCity = (opts.highlightCity || '').toLowerCase();
+
+    var showScanSweep = opts.showScanSweep === true;
+    // When true, skip the opaque dark sphere body (and its inner-shadow
+    // vignette + specular highlight) so the disc reads as a soft glass
+    // orb defined by the CSS radial-gradient + the rim glow + the pins.
+    // The page bg (light or dark) bleeds through. Compositing flips to
+    // source-over since 'lighter' blows out on light themes.
+    var transparent = opts.transparent === true;
 
     var ctx = canvas.getContext('2d');
     var dpr = global.devicePixelRatio || 1;
@@ -282,25 +294,55 @@
       var W = rect.width, H = rect.height;
       var cx = W / 2, cy = H / 2;
       var R = Math.min(W, H) * 0.42;
+      var now = ts || performance.now();
 
       ctx.clearRect(0, 0, W, H);
 
-      // ── Sphere body — radial gradient with light from upper-left ──
-      var sphereGrad = ctx.createRadialGradient(
-        cx - R * 0.32, cy - R * 0.34, R * 0.04,
-        cx, cy, R
-      );
-      sphereGrad.addColorStop(0, palette.sphereInner);
-      sphereGrad.addColorStop(1, palette.sphereOuter);
-      ctx.fillStyle = sphereGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.fill();
+      if (!transparent) {
+        // ── Sphere body — radial gradient with light from upper-left ──
+        var sphereGrad = ctx.createRadialGradient(
+          cx - R * 0.32, cy - R * 0.34, R * 0.04,
+          cx, cy, R
+        );
+        sphereGrad.addColorStop(0, palette.sphereInner);
+        sphereGrad.addColorStop(1, palette.sphereOuter);
+        ctx.fillStyle = sphereGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Subtle outer atmospheric glow ring.
+        // ── Inner shadow (vignette) — depth so the sphere reads round,
+        //    not flat. Pushes the rim into shadow under a top-left light. ──
+        var innerShadow = ctx.createRadialGradient(
+          cx - R * 0.30, cy - R * 0.34, R * 0.58,
+          cx, cy, R * 1.02
+        );
+        innerShadow.addColorStop(0, 'rgba(0,0,0,0)');
+        innerShadow.addColorStop(1, 'rgba(0,0,0,0.55)');
+        ctx.fillStyle = innerShadow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Specular highlight — soft bright spot upper-left. Gives the
+        //    sphere a liquid/glass feel rather than a matte ball. ──
+        var spec = ctx.createRadialGradient(
+          cx - R * 0.42, cy - R * 0.44, 0,
+          cx - R * 0.42, cy - R * 0.44, R * 0.55
+        );
+        spec.addColorStop(0, 'rgba(255,255,255,0.10)');
+        spec.addColorStop(0.5, 'rgba(255,255,255,0.03)');
+        spec.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = spec;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // ── Outer atmospheric glow ring ──
       ctx.save();
       ctx.shadowColor = palette.sphereRimBlur;
-      ctx.shadowBlur  = 22;
+      ctx.shadowBlur  = 28;
       ctx.strokeStyle = palette.sphereRim;
       ctx.lineWidth = 1.4;
       ctx.beginPath();
@@ -308,33 +350,47 @@
       ctx.stroke();
       ctx.restore();
 
-      // ── Land dots — only the visible hemisphere ──
-      // Edge-fade them with z so they ease into the rim instead of
-      // popping in/out.
-      ctx.fillStyle = 'rgba(' + palette.land + ',0.16)';
-      var landR = Math.max(0.9, R * 0.0042);
+      // ── Clip subsequent layers to the sphere disc so arc pulses and
+      //    scan-sweep rings can't bleed off the sphere edge ──
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.clip();
+
+      // ── Land dots — subtle topography under the network ──
+      // In transparent mode we tint with the brand color at low alpha so
+      // dots stay visible on both light and dark page backgrounds (white
+      // land dots vanish on a light theme).
+      var landR = Math.max(0.9, R * 0.0050);
+      var landFill = transparent
+        ? 'rgba(' + palette.pin + ',0.55)'
+        : 'rgba(' + palette.land + ',0.55)';
+      var landAlphaScale = transparent ? 0.42 : 0.32;
       for (var i = 0; i < data.land.length; i++) {
         var lp = data.land[i];
         var pp = project(lp.lng, lp.lat, lngOffset);
         if (pp.z <= 0.04) continue;
-        var alpha = Math.min(1, (pp.z - 0.04) / 0.30);
-        ctx.globalAlpha = 0.18 * alpha;
+        var lalpha = Math.min(1, (pp.z - 0.04) / 0.30);
+        ctx.globalAlpha = landAlphaScale * lalpha;
+        ctx.fillStyle = landFill;
         ctx.beginPath();
         ctx.arc(cx + pp.x * R, cy + pp.y * R, landR, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
 
-      // ── Arcs — slerp along the sphere surface ──
+      // ── Arcs — additive blending so overlapping arcs brighten into
+      //    a hotspot instead of muddying into a darker red. On transparent
+      //    mode we stay on source-over since 'lighter' over a light page
+      //    bg blows out to white. ──
+      ctx.globalCompositeOperation = transparent ? 'source-over' : 'lighter';
       if (showArcs) {
         for (var ai = 0; ai < data.arcs.length; ai++) {
           var arc = data.arcs[ai];
           var a = byName[arc.a], b = byName[arc.b];
           if (!a || !b) continue;
-          var pts = arcPoints(a, b, lngOffset, 28);
-          // If the arc spans the back side, we still draw the visible
-          // segments — split by visibility transitions.
-          ctx.lineWidth = arc.major ? 1.5 : 1.0;
+          var pts = arcPoints(a, b, lngOffset, 36);
+          ctx.lineWidth = arc.major ? 1.8 : 1.2;
           var col = arc.major ? palette.arcMajor : palette.arc;
           var path = false;
           for (var pi = 0; pi < pts.length; pi++) {
@@ -343,10 +399,10 @@
               if (path) { ctx.stroke(); path = false; }
               continue;
             }
-            var alpha = Math.min(1, pt.z * 1.6) * (arc.major ? 0.55 : 0.35);
+            var aalpha = Math.min(1, pt.z * 1.6) * (arc.major ? 0.85 : 0.55);
             if (!path) {
               ctx.beginPath();
-              ctx.strokeStyle = 'rgba(' + col + ',' + alpha.toFixed(3) + ')';
+              ctx.strokeStyle = 'rgba(' + col + ',' + aalpha.toFixed(3) + ')';
               ctx.moveTo(cx + pt.x * R, cy + pt.y * R);
               path = true;
             } else {
@@ -354,11 +410,54 @@
             }
           }
           if (path) ctx.stroke();
+
+          // Travelling pulse along the arc — sells the "live network"
+          // feel. Phase offset by ai so they don't all flow in lockstep.
+          var pulseT = ((now / 3200) + ai * 0.137) % 1;
+          var pulseIdx = Math.floor(pulseT * (pts.length - 1));
+          var pulsePt = pts[pulseIdx];
+          if (pulsePt && pulsePt.z > 0.05) {
+            var pulseX = cx + pulsePt.x * R;
+            var pulseY = cy + pulsePt.y * R;
+            var trailAlpha = Math.min(1, pulsePt.z * 1.4);
+            ctx.fillStyle = 'rgba(' + col + ',' + (0.55 * trailAlpha).toFixed(3) + ')';
+            ctx.beginPath();
+            ctx.arc(pulseX, pulseY, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,' + (0.85 * trailAlpha).toFixed(3) + ')';
+            ctx.beginPath();
+            ctx.arc(pulseX, pulseY, 1.6, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
       }
 
-      // ── Pins ──
-      var now = ts || performance.now();
+      // ── Scan-sweep rings (opt-in) — concentric pulses expanding from
+      //    the center every ~2.6s. Communicates "actively searching"
+      //    on the spar matchmaking page. Off by default. ──
+      if (showScanSweep) {
+        var sweepT = (now / 2600) % 1;
+        var sweepR = R * (0.05 + sweepT * 1.0);
+        var sweepAlpha = Math.pow(1 - sweepT, 1.4) * 0.42;
+        ctx.strokeStyle = 'rgba(' + palette.pinHalo + ',' + sweepAlpha.toFixed(3) + ')';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(cx, cy, sweepR, 0, Math.PI * 2);
+        ctx.stroke();
+        // Offset second ring so the sweep feels layered, not single.
+        var sweepT2 = ((now / 2600) + 0.5) % 1;
+        var sweepR2 = R * (0.05 + sweepT2 * 1.0);
+        var sweepAlpha2 = Math.pow(1 - sweepT2, 1.4) * 0.22;
+        ctx.strokeStyle = 'rgba(' + palette.pinHalo + ',' + sweepAlpha2.toFixed(3) + ')';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.arc(cx, cy, sweepR2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // ── Pin halos (additive) + cores (normal). Two passes so the
+      //    soft glow of dense clusters brightens to a hotspot, but the
+      //    core dots stay distinct and don't melt into one blob. ──
       for (var ci = 0; ci < data.cities.length; ci++) {
         var city = data.cities[ci];
         var p = project(city.lng, city.lat, lngOffset);
@@ -368,40 +467,56 @@
         var y = cy + p.y * R;
         var pr = pinRadius(city.count);
         var isHi = highlightCity && city.name.toLowerCase() === highlightCity;
-        var isMajor = !!city.major;
 
-        // Pulse halo — phase offset by index so they don't all blink together.
         var phase = (now / 700 + ci * 0.42) % (Math.PI * 2);
         var pulse = (Math.sin(phase) + 1) / 2;
-        var pulseR = pr + 1 + pulse * (isHi ? 7 : 4);
-        var pulseAlpha = (1 - pulse) * (isHi ? 0.55 : 0.32) * fade;
+        var pulseR = pr + 1 + pulse * (isHi ? 6 : 3.5);
+        var pulseAlpha = (1 - pulse) * (isHi ? 0.45 : 0.26) * fade;
         ctx.fillStyle = 'rgba(' + (isHi ? palette.highlight : palette.pinHalo) + ',' + pulseAlpha.toFixed(3) + ')';
         ctx.beginPath();
         ctx.arc(x, y, pulseR, 0, Math.PI * 2);
         ctx.fill();
 
-        // Soft glow halo (constant).
-        ctx.fillStyle = 'rgba(' + (isHi ? palette.highlight : palette.pinHalo) + ',' + (0.22 * fade).toFixed(3) + ')';
+        ctx.fillStyle = 'rgba(' + (isHi ? palette.highlight : palette.pinHalo) + ',' + (0.16 * fade).toFixed(3) + ')';
         ctx.beginPath();
-        ctx.arc(x, y, pr * 2.4, 0, Math.PI * 2);
+        ctx.arc(x, y, pr * 1.9, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.globalCompositeOperation = 'source-over';
+      for (var ci2 = 0; ci2 < data.cities.length; ci2++) {
+        var city2 = data.cities[ci2];
+        var p2 = project(city2.lng, city2.lat, lngOffset);
+        if (p2.z <= 0) continue;
+        var fade2 = Math.min(1, (p2.z - 0) / 0.18);
+        var x2 = cx + p2.x * R;
+        var y2 = cy + p2.y * R;
+        var pr2 = pinRadius(city2.count);
+        var isHi2 = highlightCity && city2.name.toLowerCase() === highlightCity;
+        var isMajor2 = !!city2.major;
+
+        var coreCol = isHi2 ? palette.highlight : (isMajor2 ? palette.pinMajor : palette.pin);
+        ctx.fillStyle = 'rgba(' + coreCol + ',' + fade2.toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(x2, y2, pr2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Core pin.
-        var coreCol = isHi ? palette.highlight : (isMajor ? palette.pinMajor : palette.pin);
-        ctx.fillStyle = 'rgba(' + coreCol + ',' + fade.toFixed(3) + ')';
+        // Inner bright dot for liveliness (catchlight).
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.55 * fade2).toFixed(3) + ')';
         ctx.beginPath();
-        ctx.arc(x, y, pr, 0, Math.PI * 2);
+        ctx.arc(x2 - pr2 * 0.25, y2 - pr2 * 0.30, pr2 * 0.35, 0, Math.PI * 2);
         ctx.fill();
 
-        // Hovered pin gets a thin white ring for confirmation.
-        if (hovered === city) {
-          ctx.strokeStyle = 'rgba(255,255,255,' + (0.85 * fade).toFixed(3) + ')';
+        if (hovered === city2) {
+          ctx.strokeStyle = 'rgba(255,255,255,' + (0.85 * fade2).toFixed(3) + ')';
           ctx.lineWidth = 1.4;
           ctx.beginPath();
-          ctx.arc(x, y, pr + 3, 0, Math.PI * 2);
+          ctx.arc(x2, y2, pr2 + 3, 0, Math.PI * 2);
           ctx.stroke();
         }
       }
+
+      ctx.restore();  // unclip + reset composite to default
     }
 
     whenDataReady(function(d){

@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Judge RFD · Debate AI</title>
+<meta name="description" content="The judge's verdict on your voice round — speaker points, best moment, costliest moment, two fixes for next round." />
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/voice-rfd">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/voice-rfd">
+<meta property="og:title" content="Judge RFD · Debate AI">
+<meta property="og:description" content="The judge's verdict on your voice round.">
+<meta name="twitter:card" content="summary_large_image">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+
+<!-- Restore theme BEFORE first paint so the page never flashes the
+     wrong palette when arriving from /voice-debate. Mirrors the theme
+     persistence pattern used across /live, /landing, /voice-debate. -->
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700;800&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
+
+:root,[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.14);--border-strong:rgba(239,68,68,.32);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --text:#fff;--text-dim:rgba(255,255,255,.7);--text-ghost:rgba(239,68,68,.45);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;--violet:#a78bfa;
+  --radius-lg:18px;--radius-md:12px;
+  --serif:'Fraunces',Georgia,serif;
+  --shadow-lg:0 22px 60px rgba(239,68,68,.18);
+  --body-grad:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(239,68,68,.22),transparent 65%),
+              radial-gradient(ellipse 60% 50% at 100% 80%,rgba(239,68,68,.08),transparent 60%);
+}
+[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.16);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.18);
+  --text:#fff;--text-dim:rgba(255,255,255,.68);--text-ghost:rgba(255,255,255,.38);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;--violet:#a78bfa;
+  --radius-lg:18px;--radius-md:12px;
+  --serif:'Fraunces',Georgia,serif;
+  --shadow-lg:0 18px 60px rgba(0,0,0,.45);
+  --body-grad:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(239,68,68,.10),transparent 60%);
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.08);--border-strong:rgba(0,0,0,.18);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.14);
+  --text:#0a0a0a;--text-dim:rgba(10,10,10,.62);--text-ghost:rgba(10,10,10,.36);
+  --green:#16a34a;--amber:#d97706;--blue:#2563eb;--violet:#7c3aed;
+  --radius-lg:18px;--radius-md:12px;
+  --serif:'Fraunces',Georgia,serif;
+  --shadow-lg:0 20px 60px rgba(0,0,0,.10);
+  --body-grad:radial-gradient(ellipse 70% 40% at 50% 0%,rgba(220,38,38,.06),transparent 70%);
+}
+
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  font-weight:400;line-height:1.55;
+  background-image:var(--body-grad);
+  background-repeat:no-repeat;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── Topbar ──────────────────────────── */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:14px;
+  padding:14px clamp(16px,4vw,28px);
+  background:rgba(0,0,0,.7);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+}
+[data-theme="light"] .topbar{background:rgba(255,255,255,.85)}
+.brand{
+  display:inline-flex;align-items:center;gap:8px;
+  font-weight:900;font-size:1.04rem;letter-spacing:-.02em;
+  color:var(--text);text-decoration:none;
+}
+.brand .b-mark{
+  width:7px;height:7px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 12px var(--accent-glow);
+}
+.spacer{flex:1}
+.bar-cta, .bar-ghost{
+  font-family:inherit;font-size:.76rem;font-weight:800;
+  letter-spacing:.04em;cursor:pointer;border-radius:999px;
+  padding:8px 16px;text-decoration:none;
+  transition:transform .15s,background .15s,border-color .15s;
+}
+.bar-cta{background:var(--accent);color:#fff;border:1px solid var(--accent)}
+.bar-cta:hover{transform:translateY(-1px);background:#dc2626}
+.bar-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--border)}
+.bar-ghost:hover{color:var(--text);border-color:var(--border-strong)}
+
+/* ── Hero verdict block ──────────────── */
+.wrap{max-width:980px;margin:0 auto;padding:48px clamp(16px,4vw,28px) 80px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:5px 12px;border-radius:999px;
+  background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.32);
+  color:var(--accent);font-size:.66rem;font-weight:800;
+  letter-spacing:.16em;text-transform:uppercase;
+}
+.eyebrow::before{
+  content:'';width:6px;height:6px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 10px var(--accent-glow);
+}
+
+.verdict{
+  margin-top:18px;padding:42px clamp(22px,4vw,48px) 38px;
+  background:linear-gradient(180deg,rgba(239,68,68,.10),rgba(239,68,68,.02));
+  border:1px solid var(--border-strong);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-lg);
+  position:relative;overflow:hidden;
+}
+.verdict::before{
+  content:'';position:absolute;inset:-40% -20% auto auto;
+  width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(circle at center,rgba(239,68,68,.18),transparent 60%);
+  pointer-events:none;z-index:0;
+}
+.verdict-inner{position:relative;z-index:1}
+.verdict-row{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  font-size:.7rem;color:var(--text-dim);font-weight:600;
+  letter-spacing:.04em;margin-bottom:14px;
+}
+.verdict-row .dot{
+  width:4px;height:4px;border-radius:50%;background:var(--text-ghost);
+}
+.verdict-headline{
+  font-family:var(--serif);font-weight:800;
+  font-size:clamp(2.2rem,5.6vw,3.6rem);
+  line-height:1.04;letter-spacing:-.018em;
+  margin-bottom:14px;color:var(--text);
+}
+.verdict-headline .winner{
+  color:var(--accent);
+  text-shadow:0 0 36px rgba(239,68,68,.32);
+}
+.verdict-headline .winner.user{color:#4ade80;text-shadow:0 0 36px rgba(34,197,94,.32)}
+.verdict-sub{
+  font-size:1.04rem;color:var(--text-dim);line-height:1.55;
+  max-width:640px;margin-bottom:24px;
+}
+.verdict-stats{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:12px;
+}
+.verdict-stat{
+  padding:14px 18px;
+  background:rgba(0,0,0,.32);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+}
+[data-theme="light"] .verdict-stat{background:rgba(0,0,0,.04)}
+.verdict-stat-label{
+  font-size:.62rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;
+}
+.verdict-stat-value{
+  font-size:1.42rem;font-weight:900;color:var(--text);
+  letter-spacing:-.012em;line-height:1;
+}
+.verdict-stat-value .unit{font-size:.7rem;color:var(--text-dim);font-weight:600;margin-left:4px;letter-spacing:0}
+
+/* ── Section cards (Best / Costliest / Fixes / Full RFD) ── */
+.section{
+  margin-top:24px;padding:28px clamp(20px,3vw,34px);
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  transition:border-color .2s;
+}
+.section:hover{border-color:var(--border-strong)}
+.section-head{
+  display:flex;align-items:center;gap:12px;margin-bottom:16px;
+}
+.section-head .icon{
+  width:38px;height:38px;border-radius:12px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:1.1rem;font-weight:900;flex-shrink:0;
+}
+.section-head h2{
+  font-family:var(--serif);font-weight:700;
+  font-size:1.34rem;letter-spacing:-.012em;color:var(--text);
+}
+.section-head .sub{
+  margin-left:auto;font-size:.66rem;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--text-ghost);
+}
+.section-body{
+  font-size:1.02rem;line-height:1.7;color:var(--text);
+  white-space:pre-wrap;
+}
+.section-body em{font-style:normal;color:var(--accent);font-weight:600}
+
+.section--best{border-color:rgba(34,197,94,.22)}
+.section--best:hover{border-color:rgba(34,197,94,.4)}
+.section--best .icon{background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.3)}
+.section--costliest{border-color:rgba(239,68,68,.18)}
+.section--costliest:hover{border-color:rgba(239,68,68,.34)}
+.section--costliest .icon{background:rgba(239,68,68,.10);color:#fca5a5;border:1px solid rgba(239,68,68,.28)}
+.section--fixes{border-color:rgba(59,130,246,.20)}
+.section--fixes:hover{border-color:rgba(59,130,246,.36)}
+.section--fixes .icon{background:rgba(59,130,246,.10);color:#93c5fd;border:1px solid rgba(59,130,246,.28)}
+.section--full{border-color:rgba(168,85,247,.18)}
+.section--full:hover{border-color:rgba(168,85,247,.32)}
+.section--full .icon{background:rgba(168,85,247,.10);color:#c4b5fd;border:1px solid rgba(168,85,247,.28)}
+.section--transcript{border-color:var(--border)}
+.section--transcript .icon{background:rgba(255,255,255,.04);color:var(--text-dim);border:1px solid var(--border)}
+
+.fixes-list{
+  list-style:none;padding:0;margin:0;
+  display:flex;flex-direction:column;gap:14px;
+}
+.fixes-list li{
+  padding:18px 20px 18px 56px;
+  background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.18);
+  border-radius:var(--radius-md);
+  font-size:1rem;line-height:1.6;color:var(--text);
+  position:relative;
+}
+.fixes-list li::before{
+  content:counter(fixn);counter-increment:fixn;
+  position:absolute;left:18px;top:50%;transform:translateY(-50%);
+  width:28px;height:28px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.36);
+  color:#93c5fd;font-size:.84rem;font-weight:900;
+}
+.fixes-list{counter-reset:fixn}
+
+/* Transcript turns */
+.transcript-turn{
+  padding:14px 16px;border-radius:10px;
+  margin-bottom:10px;border:1px solid var(--border);
+  background:rgba(255,255,255,.02);
+}
+.transcript-who{
+  font-size:.62rem;font-weight:900;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;
+}
+.transcript-turn.you{border-color:rgba(239,68,68,.2)}
+.transcript-turn.you .transcript-who{color:#fca5a5}
+.transcript-turn.ai .transcript-who{color:var(--text-dim)}
+.transcript-body{font-size:.94rem;line-height:1.6;color:var(--text);white-space:pre-wrap}
+
+/* ── CTA row ─────────────────────── */
+.cta-row{
+  margin-top:28px;padding:24px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center;
+}
+.cta-row .cta-text{
+  font-size:.94rem;color:var(--text-dim);font-weight:600;
+  margin-right:8px;
+}
+.cta-row .cta-text strong{color:var(--text);font-weight:800}
+.cta-btn{
+  font-family:inherit;font-size:.82rem;font-weight:800;letter-spacing:.04em;
+  padding:11px 22px;border-radius:999px;cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:transform .15s,background .15s,border-color .15s;
+}
+.cta-btn.primary{background:var(--accent);color:#fff;border:1px solid var(--accent)}
+.cta-btn.primary:hover{background:#dc2626;transform:translateY(-1px)}
+.cta-btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.cta-btn.ghost:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+
+/* ── Empty / loading states ─────────── */
+.empty{
+  margin-top:32px;padding:54px 24px;text-align:center;
+  background:var(--bg-card);border:1px dashed var(--border);
+  border-radius:var(--radius-lg);
+}
+.empty h2{
+  font-family:var(--serif);font-size:1.8rem;font-weight:700;
+  color:var(--text);margin-bottom:10px;letter-spacing:-.01em;
+}
+.empty p{font-size:1rem;color:var(--text-dim);line-height:1.55;max-width:520px;margin:0 auto 22px}
+
+.loading{
+  margin-top:32px;padding:64px 24px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:18px;
+  transition:opacity .35s ease;
+}
+.loading.out{opacity:0}
+.loading-spinner{
+  width:48px;height:48px;margin:0 auto 18px;
+  border:3px solid rgba(239,68,68,.18);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:1rem;color:var(--text-dim)}
+/* Intro orb — visually continuous with /voice-debate's deliberation
+   overlay so the cross-page handoff doesn't read as a hard reload. */
+.intro-orb{
+  width:104px;height:104px;border-radius:50%;position:relative;
+  background:radial-gradient(circle at 50% 45%,rgba(239,68,68,.6),rgba(239,68,68,.14) 58%,transparent 72%);
+  animation:introPulse 1.6s ease-in-out infinite;
+}
+.intro-orb::before,.intro-orb::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(239,68,68,.45);animation:introRing 2.2s ease-out infinite;
+}
+.intro-orb::after{animation-delay:1.1s}
+@keyframes introPulse{0%,100%{transform:scale(.92);opacity:.85}50%{transform:scale(1.06);opacity:1}}
+@keyframes introRing{0%{transform:scale(.7);opacity:.6}100%{transform:scale(1.7);opacity:0}}
+
+/* Staggered content reveal — applied per top-level block after render. */
+.reveal{opacity:0;transform:translateY(20px);animation:rfdReveal .6s cubic-bezier(.2,.72,.2,1) forwards}
+@keyframes rfdReveal{to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  .reveal{animation:none;opacity:1;transform:none}
+  .intro-orb,.intro-orb::before,.intro-orb::after{animation:none}
+}
+
+/* Mobile polish */
+@media (max-width:680px){
+  .wrap{padding:28px 16px 60px}
+  .verdict{padding:28px 22px 26px}
+  .verdict-stats{grid-template-columns:1fr 1fr}
+  .section{padding:22px 18px}
+  .section-head .sub{display:none}
+  .cta-row{flex-direction:column;align-items:stretch}
+  .cta-btn{justify-content:center}
+}
+
+/* Footnote */
+.foot{
+  margin-top:36px;padding-top:24px;border-top:1px solid var(--border);
+  text-align:center;font-size:.74rem;color:var(--text-ghost);
+}
+.foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px solid var(--border)}
+.foot a:hover{color:var(--text)}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="/" class="brand"><span class="b-mark"></span>Debate AI</a>
+  <div class="spacer"></div>
+  <a href="/voice-debate" class="bar-ghost">← Back to round</a>
+  <a href="/voice-debate" class="bar-cta">Run another</a>
+</header>
+
+<main id="root" class="wrap">
+  <div class="loading" id="loadingBlock">
+    <div class="intro-orb" aria-hidden="true"></div>
+    <div class="loading-text">Tallying the ballot…</div>
+  </div>
+</main>
+
+<script>
+(function(){
+  var root = document.getElementById('root');
+  var loading = document.getElementById('loadingBlock');
+
+  function escHtml(s){
+    return String(s||'').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  // ── Payload resolution.
+  // voice-debate.html writes the RFD payload to sessionStorage under
+  // 'debateos-voice-rfd' right before navigating here. Fall back to a
+  // URL-passed payload (?p=base64-json) so a copy-share link round-
+  // trips on a fresh tab, and to a sample-mode (?demo=1) so the page
+  // can be linted in isolation.
+  function loadPayload(){
+    try {
+      var url = new URL(window.location.href);
+      if (url.searchParams.get('demo') === '1') return demoPayload();
+      var p = url.searchParams.get('p');
+      if (p){
+        try {
+          var json = atob(p.replace(/-/g,'+').replace(/_/g,'/'));
+          return JSON.parse(decodeURIComponent(escape(json)));
+        } catch(e){ console.warn('[rfd] bad ?p=', e); }
+      }
+      var raw = sessionStorage.getItem('debateos-voice-rfd');
+      if (raw) return JSON.parse(raw);
+    } catch(e){ console.warn('[rfd] payload load failed', e); }
+    return null;
+  }
+
+  function demoPayload(){
+    return {
+      rfd: 'SPEAKER POINTS: 27.8\n\nDECISION\nUSER wins on the flow.\n\nBEST MOMENT\nWhen you pinned the AI on the reversibility test in your second turn — they conceded that irreversible coercion is the bright line, which collapsed half their case.\n\nCOSTLIEST MOMENT\nYou dropped the legitimacy framing in your third turn and never picked it back up. The AI re-extended on it twice without engagement; in a tight round that\'s an easy win for them.\n\nTWO FIXES FOR NEXT ROUND\n1. Carry your framework explicitly into every turn — even a single sentence reminding the judge "this is why reversibility outweighs" keeps the offense alive.\n2. After you pin a concession, name it in the next turn ("they conceded reversibility") so the judge writes it on the flow.',
+      motion: 'This house, given the choice, would prefer a world that prioritizes individual freedom over collective security.',
+      modeLabel: 'Full Round',
+      sideLabel: 'Government',
+      personaLabel: 'Theo · Closer',
+      stats: { duration: 143, interrupts: 1, yourTurns: 8, aiTurns: 13, talkSplit: { you: 42, ai: 58 } },
+      transcript: [
+        { who: 'ai', text: 'So the decision point is sharp. Pick the model that treats power as dangerous even when well-intentioned, that makes coercion justify itself in public, and that preserves the capacity to change course without upheaval.' },
+        { who: 'you', text: 'I agree the bright line is irreversibility. But you concede that some constraints — antitrust, environmental — are non-reversible by design. Why exempt them?' },
+        { who: 'ai', text: 'Because those constraints are conditional on continued legislative consent, not absolute. Removable by a future majority.' },
+      ],
+    };
+  }
+
+  // ── RFD section parser.
+  // The voice-debate Haiku prompt asks for: SPEAKER POINTS, DECISION,
+  // BEST MOMENT, COSTLIEST MOMENT, TWO FIXES FOR NEXT ROUND. Each
+  // header is on its own line; the body is the lines until the next
+  // header. We grab everything between known headers and trim. If a
+  // section is missing the page shows "—" rather than collapsing.
+  function parseRfd(raw){
+    var text = String(raw || '');
+    var sections = { speakerPoints:'', decision:'', best:'', costliest:'', fixes:[] };
+    var spMatch = text.match(/SPEAKER\s*POINTS?\s*[:\-]?\s*([0-9]{2}(?:\.[0-9])?)/i);
+    if (spMatch) sections.speakerPoints = spMatch[1];
+    function grab(label, nextLabels){
+      // Match the header on its own line, then capture body up to the
+      // next known header (also on its own line) or end-of-string. The
+      // trailing newline guard sits OUTSIDE the alternation group so
+      // headers like "TWO FIXES FOR NEXT ROUND" still match — the
+      // earlier version required \s*\n directly after TWO\s*FIXES,
+      // which the literal "FOR NEXT ROUND" suffix broke and led
+      // costliest-moment to swallow the fixes block.
+      var pattern = new RegExp(label + '\\b[^\\n]*\\n+([\\s\\S]*?)(?=\\n\\s*(?:' + nextLabels.join('|') + ')\\b|$)', 'i');
+      var m = text.match(pattern);
+      return m ? m[1].trim() : '';
+    }
+    sections.decision  = grab('DECISION',            ['BEST\\s*MOMENT', 'COSTLIEST\\s*MOMENT', 'TWO\\s*FIXES']);
+    sections.best      = grab('BEST\\s*MOMENT',      ['COSTLIEST\\s*MOMENT', 'TWO\\s*FIXES']);
+    sections.costliest = grab('COSTLIEST\\s*MOMENT', ['TWO\\s*FIXES', 'BEST\\s*MOMENT']);
+    var fixesBlock = grab('TWO\\s*FIXES', ['__never__']);
+    if (fixesBlock){
+      sections.fixes = fixesBlock.split(/\n+/)
+        .map(function(l){ return l.replace(/^\s*\d+[\.\)]\s*/, '').trim(); })
+        .filter(function(l){ return l.length > 2; });
+    }
+    return sections;
+  }
+
+  function detectWinner(decisionLine){
+    var d = String(decisionLine || '');
+    var userIdx = d.search(/\bUSER\b|\bYOU\b/i);
+    var aiIdx   = d.search(/\bAI\b/i);
+    if (userIdx >= 0 && (aiIdx < 0 || userIdx < aiIdx)) return 'user';
+    if (aiIdx   >= 0) return 'ai';
+    return null;
+  }
+
+  function fmtDuration(sec){
+    if (!sec || sec < 0) return '—';
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function render(payload){
+    if (!payload || !payload.rfd){
+      root.innerHTML =
+        '<div class="empty">'
+          + '<h2>No ballot to show yet</h2>'
+          + '<p>Run a voice round at /voice-debate and click <strong>Generate Judge RFD</strong> — the judge\'s verdict will land here.</p>'
+          + '<div style="margin-top:18px"><a href="/voice-debate" class="cta-btn primary">Start a voice round →</a></div>'
+        + '</div>';
+      return;
+    }
+    var sections = parseRfd(payload.rfd);
+    var winner = detectWinner(sections.decision);
+    var winnerLabel = winner === 'user' ? 'You take the round' :
+                      winner === 'ai'   ? 'The AI takes the round' :
+                                          'The judge calls it close';
+    var winnerClass = winner === 'user' ? 'user' : '';
+    var stats = payload.stats || {};
+    var talkYou = stats.talkSplit && typeof stats.talkSplit.you === 'number' ? Math.round(stats.talkSplit.you) : null;
+    var talkAI  = stats.talkSplit && typeof stats.talkSplit.ai  === 'number' ? Math.round(stats.talkSplit.ai)  : null;
+    var sp = sections.speakerPoints;
+    var spClass = sp && parseFloat(sp) >= 28 ? 'good' : sp && parseFloat(sp) < 26 ? 'low' : '';
+
+    var rowParts = [];
+    if (payload.modeLabel) rowParts.push(escHtml(payload.modeLabel));
+    if (payload.sideLabel) rowParts.push(escHtml(payload.sideLabel));
+    if (payload.personaLabel) rowParts.push('vs ' + escHtml(payload.personaLabel));
+
+    var html =
+      '<div class="eyebrow">Ballot · Reason for decision</div>'
+      + '<section class="verdict"><div class="verdict-inner">'
+        + '<div class="verdict-row">' + rowParts.map(function(p, i){
+            return (i > 0 ? '<span class="dot"></span>' : '') + '<span>' + p + '</span>';
+          }).join('') + '</div>'
+        + '<h1 class="verdict-headline">' + (winner ? '<span class="winner ' + winnerClass + '">' + escHtml(winnerLabel) + '.</span>' : escHtml(winnerLabel) + '.') + '</h1>'
+        + (payload.motion ? '<p class="verdict-sub">On the motion: <em style="font-style:italic;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
+        + '<div class="verdict-stats">'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Speaker points</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ 30</span>' : '') + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Round time</div><div class="verdict-stat-value">' + fmtDuration(stats.duration) + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Your turns</div><div class="verdict-stat-value">' + (stats.yourTurns != null ? stats.yourTurns : '—') + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Talk-time</div><div class="verdict-stat-value">' + (talkYou != null ? talkYou + '%<span class="unit">/ ' + talkAI + '% AI</span>' : '—') + '</div></div>'
+        + '</div>'
+      + '</div></section>';
+
+    if (sections.best) html +=
+      '<section class="section section--best">'
+        + '<div class="section-head"><div class="icon">✓</div><h2>Best moment</h2><div class="sub">What landed</div></div>'
+        + '<div class="section-body">' + escHtml(sections.best) + '</div>'
+      + '</section>';
+
+    if (sections.costliest) html +=
+      '<section class="section section--costliest">'
+        + '<div class="section-head"><div class="icon">!</div><h2>Costliest moment</h2><div class="sub">What slipped</div></div>'
+        + '<div class="section-body">' + escHtml(sections.costliest) + '</div>'
+      + '</section>';
+
+    if (sections.fixes && sections.fixes.length) html +=
+      '<section class="section section--fixes">'
+        + '<div class="section-head"><div class="icon">↗</div><h2>Two fixes for next round</h2><div class="sub">Actionable</div></div>'
+        + '<ol class="fixes-list">' + sections.fixes.map(function(f){ return '<li>' + escHtml(f) + '</li>'; }).join('') + '</ol>'
+      + '</section>';
+
+    html +=
+      '<section class="section section--full">'
+        + '<div class="section-head"><div class="icon">§</div><h2>Full ballot</h2><div class="sub">Verbatim</div></div>'
+        + '<div class="section-body">' + escHtml(payload.rfd) + '</div>'
+      + '</section>';
+
+    if (Array.isArray(payload.transcript) && payload.transcript.length){
+      var turnsHtml = payload.transcript.map(function(t){
+        var who = t.who === 'you' ? 'You' : t.who === 'ai' ? 'AI' : (t.who || '');
+        return '<div class="transcript-turn ' + escHtml(t.who||'') + '">'
+          + '<div class="transcript-who">' + escHtml(who) + (t.interrupted ? ' · interrupted' : '') + '</div>'
+          + '<div class="transcript-body">' + escHtml(t.text || '') + '</div>'
+        + '</div>';
+      }).join('');
+      html +=
+        '<section class="section section--transcript">'
+          + '<div class="section-head"><div class="icon">¶</div><h2>Transcript</h2><div class="sub">' + payload.transcript.length + ' turns</div></div>'
+          + '<div>' + turnsHtml + '</div>'
+        + '</section>';
+    }
+
+    html +=
+      '<div class="cta-row">'
+        + '<div class="cta-text">Ballot saved. <strong>Run it back</strong> — the second round is always the better one.</div>'
+        + '<a href="/voice-debate" class="cta-btn primary">Run another round →</a>'
+        + '<button class="cta-btn ghost" id="copyBallot" type="button">Copy ballot</button>'
+        + '<button class="cta-btn ghost" id="shareBallot" type="button">Share link</button>'
+      + '</div>'
+      + '<div class="foot">All ballots are written by Claude Haiku per Debate AI\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/leaderboard">Leaderboard</a></div>';
+
+    root.innerHTML = html;
+
+    // Staggered entrance: each top-level block slides up in sequence.
+    var blocks = root.querySelectorAll('.eyebrow, .verdict, .section, .cta-row, .foot');
+    Array.prototype.forEach.call(blocks, function(b, i){
+      b.classList.add('reveal');
+      b.style.animationDelay = (i * 90) + 'ms';
+    });
+    // Speaker-points count-up once the verdict has settled in.
+    setTimeout(countUpSP, 260);
+
+    // Copy + share wiring.
+    var copyBtn = document.getElementById('copyBallot');
+    if (copyBtn) copyBtn.addEventListener('click', function(){
+      try {
+        navigator.clipboard.writeText(payload.rfd || '');
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(function(){ copyBtn.textContent = 'Copy ballot'; }, 1800);
+        try { gtag('event', 'voice_rfd_copy'); } catch(e){}
+      } catch(e){ copyBtn.textContent = 'Couldn\'t copy'; }
+    });
+    var shareBtn = document.getElementById('shareBallot');
+    if (shareBtn) shareBtn.addEventListener('click', function(){
+      try {
+        // Encode the payload as a URL-safe base64 string so /voice-rfd?p=...
+        // round-trips on a fresh tab. ~3-6 KB typical.
+        var json = JSON.stringify(payload);
+        var b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_');
+        var url = window.location.origin + '/voice-rfd?p=' + b64;
+        navigator.clipboard.writeText(url);
+        shareBtn.textContent = '✓ Link copied';
+        setTimeout(function(){ shareBtn.textContent = 'Share link'; }, 1800);
+        try { gtag('event', 'voice_rfd_share'); } catch(e){}
+      } catch(e){ shareBtn.textContent = 'Couldn\'t share'; }
+    });
+  }
+
+  // Count the speaker-points stat up from a few tenths below to the
+  // final score — a small "the number is being decided" beat that
+  // makes the verdict feel earned rather than dumped.
+  function countUpSP(){
+    var elv = document.getElementById('spValue');
+    if (!elv) return;
+    var target = parseFloat(elv.getAttribute('data-target'));
+    if (isNaN(target)) return;
+    var textNode = elv.firstChild; // the number; the /30 unit is a sibling span
+    if (!textNode) return;
+    var start = Math.max(20, target - 3);
+    var t0 = performance.now(), dur = 850;
+    function frame(now){
+      var p = Math.min(1, (now - t0) / dur);
+      var ease = 1 - Math.pow(1 - p, 3);
+      textNode.nodeValue = (start + (target - start) * ease).toFixed(1);
+      if (p < 1) requestAnimationFrame(frame);
+      else textNode.nodeValue = target.toFixed(1);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ── Boot.
+  // Hold the intro orb briefly so the cross-page handoff from
+  // /voice-debate reads as a continuous beat (its deliberation overlay
+  // dissolves into this one), then fade it out and reveal the ballot.
+  setTimeout(function(){
+    var payload = loadPayload();
+    if (loading) loading.classList.add('out');
+    setTimeout(function(){
+      if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+      render(payload);
+      try { gtag('event', 'voice_rfd_view', { has_payload: !!(payload && payload.rfd) }); } catch(e){}
+    }, 340);
+  }, 480);
+})();
+</script>
+<script defer src="/js/notifications.js"></script>
+</body>
+</html>

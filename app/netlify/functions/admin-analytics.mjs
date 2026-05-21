@@ -1,9 +1,12 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 // Hardcoded admin UID — the app owner's Firebase UID
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
+
+const CACHE_KEY = 'analytics';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -36,6 +39,12 @@ export default async (request) => {
   }
 
   if (!isAdmin) return errorResponse('Forbidden: admin access required', 403, request);
+
+  // Cache check — this endpoint runs ~210 count queries on a miss.
+  // 5-min cache means an auto-refreshing /admin tab gets one real
+  // pull per 5-min window, not one per 30s.
+  const cached = getCached(CACHE_KEY);
+  if (cached) return jsonResponse(cached, 200, request);
 
   try {
     // Run all collection counts in parallel
@@ -216,7 +225,7 @@ export default async (request) => {
       }
     }
 
-    return jsonResponse({
+    const result = {
       // Totals
       totalUsers,
       totalCases,
@@ -246,7 +255,9 @@ export default async (request) => {
       recentFeedback,
 
       timestamp: new Date().toISOString(),
-    }, 200, request);
+    };
+    setCached(CACHE_KEY, result, TTL_HEAVY);
+    return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-analytics error:', err);
     return errorResponse('Something went wrong. Please try again.', 500, request);
