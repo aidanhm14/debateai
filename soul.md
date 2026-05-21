@@ -15,7 +15,7 @@ Not a chatbot. Not a writing assistant. Not a research tool. A **live sparring p
 **Primary (where the product is sharpest):**
 - Competitive debaters, HS through college
 - Format-accurate across APDA, BP, Policy, LD, PF, Worlds (WUDC), Asian Parli, Congress, MUN, and Quick Clash
-- As of Apr 2026: traffic is ~80% Indian. The dominant school/college circuits here run **Asian Parli, WSDC, and BP**. Copy should lead with those, not APDA-first.
+- Audience is **global** competitive debaters. The "~80% Indian" traffic figure (Apr 2026) was an ad-driven anonymous spike, not a durable base — see §8. Don't hard-code copy to one geography. Lead with the formats themselves: **Asian Parli, WSDC, and BP** are the highest-volume school circuits worldwide and APDA / Policy / LD / PF anchor the US college and HS scenes, so a format-first hero reads right everywhere. Direction is a broad global-community framing, not an India-targeted one.
 
 **Secondary (same engine, different room):**
 - Lawyers. opening / closing / cross-ex / motion practice
@@ -111,20 +111,19 @@ Five tiers. Lifetime added to canonical list 2026-05-10. Individual repriced fro
 
 Target conversion tier: **Individual at $5/year**. Everything else exists to funnel toward it. The annual price isn't a discount strategy — it's a framing one. At $5 for the whole year, the decision stops being "is this worth a recurring monthly charge" (where the user is weighing it against Netflix) and starts being "is this worth a single tournament entry fee" (where the answer is obviously yes for anyone who debates). BYOK is for the power users who'd otherwise leave on cost; Lifetime is for the impulse-buy converter who wants out of even the annual renewal cycle; Team is for debate clubs and later sales motion.
 
-## 8. Current state (updated Apr 2026)
+## 8. Current state (updated 2026-05-20, live admin read)
 
 - Live at debateai.com
-- ~6,980 active users in the last 28 days (per Firebase)
-- ~80% Indian traffic (top cities: Bengaluru, Delhi, Mumbai, Hyderabad, Chennai)
-- Reddit is the primary acquisition channel (~1,560 sessions / 28d)
-- Organic search is near zero. SEO is an open investment.
-- **Retention is ~2% Week 1.** Biggest known product problem. Everything else is downstream of this.
-- **Paid conversions: 0 tracked.** Either tracking is broken or the funnel is. Verify Stripe → Firebase event firing before assuming the pricing gate works.
+- **The ad-era headline numbers were a one-time spike, not a base. Treat as historical.** The old "~6,980 MAU / ~80% Indian / top-cities-Bengaluru" figures came from a single paid push (~$660 / ~7,593 clicks ~Apr 19) plus Reddit inflow — anonymous traffic that didn't stick. The "India 68.5%" geo-concentration stat is from that same anonymous spike; it describes who clicked an ad or a Reddit link, not who stays. Do not plan copy or strategy off it.
+- **True engaged usage (live admin dashboard, 2026-05-20):** signed-in sessions ~197 / 30d, ~50 rounds run / 30d (Quick Clash 56%, APDA 24%, BP 8%), DAU/WAU/MAU ~10 / 99 / 101. New signed-in retention cohorts have been **0 every week from Apr 26 → May 17**.
+- Acquisition was Reddit + paid ads; with ads off, inflow is thin. Organic search is near zero (SEO is an open investment — see the `/debate` + `/topics` SEO clusters in the decision log).
+- **Retention is the biggest problem.** ~2% W1 on the ad cohort, and 0 new signed-in cohorts recently. Everything else is downstream of this. Aidan's steer (2026-05-20): move to distribution soon.
+- **Paid conversions: 0** — expected, since the product is in beta with all tiers $0. Stripe → Firebase event firing is still unverified, so don't assume the funnel works when billing turns back on.
 
 ## 9. Open strategic questions
 
 1. ~~Is this a debate tool that happens to extend to professionals, or a professional-argument tool that happens to have a debate niche?~~ **CLOSED 2026-04-20.** Committed to debate-first. Six audience pages consolidated into one `/pro` page. The moat (format accuracy, built by a champion) points at debaters; professionals ride on the same engine as a secondary revenue stream.
-2. **Indian market.** 80% of your traffic is in India. Your copy is US-debate-centric. Either (a) lean into India hard (rewrite hero, reorder format list, partner with school circuits) or (b) accept that a huge share of traffic won't retain. Pick one.
+2. ~~**Indian market.** 80% of traffic is in India — lean in hard or accept the churn?~~ **REFRAMED 2026-05-21.** The "80% India" was an ad-spike artifact, not a loyal base (see §8), so "lean into India hard" was betting on a mirage. Direction: don't hard-code copy to one geography; build a genuine **global community / mission framing** over time. India-specific *paid* infra (₹ pricing, Razorpay/UPI) stays — it's cheap insurance and invisible to a general visitor. The *loud* India-targeting copy is being dialed down (globe-map India-dominance weighting flattened, "For Indian debaters" / "India circuit" footer anchors removed, the Hindi-specific FAQ reframed to a language-neutral global one). Still open: actually write the global mission statement.
 3. **App Store packaging.** User said defer until the web app is tighter. When it's ready, path is Capacitor wrapping the existing PWA.
 4. ~~**Learning loop.** User-input → style profile → re-injected into prompts.~~ **CLOSED 2026-05-13.** Loop is wired end-to-end. Every typed AI turn (case, opp_attack, rebuttal, judge, debate-chat, etc.) and every voice-round transcript writes to the `generations` collection via `captureTurn` inside `callAnyAI` / `callClaude`. Server-side `applyExemplars` (lib/exemplars.mjs) pulls 1–3 admin-weighted past rounds into the system prompt at runtime. Nightly `scheduled-distill.mjs` runs Haiku over top-rated outputs per format and writes a "PATTERNS THAT WORK" block to `learning_distillations/{format}`, which `applyDistillations` injects on every subsequent generation. Open follow-ups: session-end rating prompts on voice rounds (so distill has stronger labels) and exposing distillation freshness on /admin.
 5. **Community features.** Live Debates / calendar / scheduled-judge sign-ups. Mentioned in Reddit post but thinly implemented. (2026-05-20: first real async community surface shipped — the /spar waitlist + DM marketplace, see decision log. Lets debaters advertise "looking for a round" and DM to organize, instead of only the synchronous random matchmaker. Still thin on the scheduled-judge / calendar side.)
