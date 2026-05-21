@@ -2991,6 +2991,17 @@ function App() {
       if (wantMode && MODES.some((x) => x.key === wantMode)) {
         try { setMode(wantMode); } catch (_) {}
       }
+      // Side prefill (e.g. from a /debate dossier "Take Pro/Con" button).
+      // Government == Pro/Prop side, Opposition == Con/Neg side.
+      var wantSide = (qs.get('side') || '').trim().toLowerCase();
+      if (wantSide) {
+        if (/^(gov|pro|prop|pm|mg|aff|gw)/.test(wantSide)) { try { setSide('gov'); } catch (_) {} }
+        else if (/^(opp|con|neg|lo|mo|ow)/.test(wantSide)) { try { setSide('opp'); } catch (_) {} }
+      }
+      // Background prefill — a factual primer piped into the live round's
+      // system prompt, so a dossier handoff lands ready to argue.
+      var bg = (qs.get('background') || qs.get('bg') || '').trim();
+      if (bg) { try { setBackground(bg.slice(0, 1200)); } catch (_) {} }
       try {
         if (typeof gtag === 'function') {
           gtag('event', 'voice_handoff_received', {

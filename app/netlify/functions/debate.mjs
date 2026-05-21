@@ -33,7 +33,15 @@ function jsonLd(obj) {
 function trainerHref(motion, side) {
   const m = encodeURIComponent(motion.title);
   const s = side ? `&side=${side}` : '';
-  return `/debate-ai?motion=${m}${s}&handoff=debate`;
+  // Hand off to the live voice round (voice-debate.html), prefilled so the
+  // user is one tap from Connect. Background = the dossier's own framing +
+  // central clash, piped into the AI's system prompt for the live round.
+  // Drills pass a bare { title } object, so subtitle/clash may be absent.
+  const bgParts = [];
+  if (motion.subtitle) bgParts.push(motion.subtitle);
+  if (motion.clash && motion.clash.question) bgParts.push(`The round turns on this: ${motion.clash.question}`);
+  const bg = bgParts.length ? `&background=${encodeURIComponent(bgParts.join(' '))}` : '';
+  return `/voice-debate?motion=${m}${s}${bg}&handoff=dossier`;
 }
 
 function extractFromUrl(url) {
@@ -106,9 +114,16 @@ function commonStyles() {
   a:hover{text-decoration:underline}
   .shell{max-width:1180px;margin:0 auto;padding:34px 40px 140px;position:relative;z-index:1}
 
-  .topnav{display:flex;justify-content:space-between;align-items:center;margin-bottom:46px;font-size:13.5px;color:var(--dim);letter-spacing:.01em}
-  .topnav a{color:var(--dim)}
-  .topnav a:hover{color:var(--ink);text-decoration:none}
+  .topnav{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:46px}
+  .topnav .nav-group{display:flex;align-items:center;gap:8px}
+  .topnav a{display:inline-flex;align-items:center;gap:7px;font:700 13px/1 system-ui;letter-spacing:.01em;color:var(--dim);border:1px solid var(--line);background:var(--card);padding:9px 14px;border-radius:11px;transition:color .14s,border-color .14s,background .14s,transform .14s}
+  .topnav a:hover{color:var(--ink);border-color:var(--line-2);background:rgba(255,255,255,.07);text-decoration:none;transform:translateY(-1px)}
+  .topnav a .ar{color:var(--ghost);font-size:14px;transition:color .14s}
+  .topnav a:hover .ar{color:var(--ink)}
+  .topnav a.nav-cta{color:#fff;border-color:var(--con-line);background:linear-gradient(180deg,rgba(239,68,68,.16),rgba(239,68,68,.06))}
+  .topnav a.nav-cta .ar{color:rgba(255,255,255,.7)}
+  .topnav a.nav-cta:hover{border-color:var(--red);background:linear-gradient(180deg,rgba(239,68,68,.26),rgba(239,68,68,.1))}
+  .topnav a.nav-cta:hover .ar{color:#fff}
 
   .label{font:800 11px/1 system-ui;letter-spacing:.16em;text-transform:uppercase}
   .stamp{display:inline-flex;align-items:center;gap:8px;font:800 10.5px/1 system-ui;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);
@@ -308,9 +323,11 @@ function commonStyles() {
 
 function topNav() {
   return `<nav class="topnav">
-    <a href="/">← Debate AI</a>
-    <a href="/debate">All motions</a>
-    <a href="/debate-ai">Practice →</a>
+    <a class="nav-home" href="/"><span class="ar">←</span> Debate AI</a>
+    <span class="nav-group">
+      <a href="/debate">All motions</a>
+      <a class="nav-cta" href="/debate-ai">Practice <span class="ar">→</span></a>
+    </span>
   </nav>`;
 }
 
