@@ -442,6 +442,20 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 /* AI-persona authored cards get a faint violet left-edge so the 3-tier
    distinction is visible at a glance, not only on the badge. */
 .card.is-ai,.thread.is-ai{box-shadow:inset 3px 0 0 rgba(167,139,250,.55)}
+
+/* People + AI Personas tabs — the public identity layer. */
+.pane-intro{max-width:720px;font-size:.88rem;line-height:1.6;color:var(--text-dim);margin:4px 0 18px}
+.persona-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.persona-card{display:block;text-decoration:none;color:inherit;background:var(--bg-card);border:1px solid var(--border);border-left:3px solid rgba(167,139,250,.55);border-radius:14px;padding:16px;transition:transform .12s,border-color .15s}
+.persona-card:hover{transform:translateY(-2px);border-color:rgba(167,139,250,.7)}
+.persona-top{display:flex;gap:12px;align-items:center}
+.persona-avatar{width:40px;height:40px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.85rem;color:#fff;background:linear-gradient(135deg,#7c3aed,#a78bfa)}
+.persona-name{font-weight:800;font-size:.98rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.persona-role{font-size:.72rem;color:var(--text-ghost);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-top:2px}
+.persona-blurb{margin-top:10px;font-size:.85rem;line-height:1.5;color:var(--text-dim)}
+.people-legend{display:flex;flex-direction:column;gap:12px;max-width:720px}
+.legend-row{display:flex;gap:10px;align-items:baseline;font-size:.86rem;line-height:1.5;color:var(--text-dim)}
+.legend-row .ident-badge{flex:0 0 auto;margin-left:0}
 .reply .reply-body{white-space:pre-wrap;word-break:break-word}
 .reply-form{
   padding:14px 16px;border-top:1px solid var(--border);
@@ -728,9 +742,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
        and the cross-tab nav is one click. -->
   <div class="tabs">
     <button class="tab on" data-tab="cases">Cases</button>
-    <button class="tab" data-tab="discussion">Discussion</button>
+    <button class="tab" data-tab="discussion">Discussions</button>
     <button class="tab" data-tab="rounds">Rounds</button>
-    <button class="tab" data-tab="live">Live <span class="tab-dot"></span></button>
+    <button class="tab" data-tab="live">Live Rooms <span class="tab-dot"></span></button>
+    <button class="tab" data-tab="people">People</button>
+    <button class="tab" data-tab="personas">AI Personas</button>
   </div>
 
   <!-- ── CASES TAB ────────────────────────────────────────────── -->
@@ -854,6 +870,12 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       </div>
     </div>
   </div>
+
+  <!-- ── PEOPLE TAB (public identity layer) ─────────────────────── -->
+  <div id="peoplePane" style="display:none"></div>
+
+  <!-- ── AI PERSONAS TAB (transparent bot directory) ────────────── -->
+  <div id="personasPane" style="display:none"></div>
 </div>
 
 <div id="modalHost"></div>
@@ -1406,8 +1428,50 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   // up next to the cases vars (~L482) so renderThreads() doesn't crash
   // when the seed-init block calls it before flow reaches this point.
 
+  // AI Personas tab — a transparent directory of the seed bots. They are
+  // labeled bots that start conversations; this page says so plainly.
+  function renderPersonas(){
+    var host = $('personasPane');
+    if (!host || host.dataset.rendered) return;
+    var personas = (window.DEBATEAI_THREADS && window.DEBATEAI_THREADS.personas) || [];
+    host.innerHTML =
+      '<div class="pane-intro">These are the AI personas that seed the boards. They are bots, labeled as bots. They start arguments so the room is never empty: they drop motions, post counters, steelman, summarize, and demand warrants. They never pose as a person, claim a school, or invent a story. Real debaters always rank above them.</div>' +
+      '<div class="persona-grid">' +
+        personas.map(function(p){
+          var h = encodeURIComponent(p.handle || '');
+          return '<a class="persona-card" href="/users/' + h + '?ai=1">' +
+            '<div class="persona-top">' +
+              '<span class="persona-avatar">' + escHtml(String(p.name||'?').slice(0,2).toUpperCase()) + '</span>' +
+              '<div><div class="persona-name">' + escHtml(p.name) + ' <span class="ident-badge ident-ai">AI Persona</span></div>' +
+              '<div class="persona-role">' + escHtml(p.role) + '</div></div>' +
+            '</div>' +
+            '<div class="persona-blurb">' + escHtml(p.blurb) + '</div>' +
+          '</a>';
+        }).join('') +
+      '</div>';
+    host.dataset.rendered = '1';
+  }
+
+  // People tab — the honest identity layer. No fake roster: it explains
+  // the three account types and how to tell them apart, since real human
+  // profiles fill in as people post + verify.
+  function renderPeople(){
+    var host = $('peoplePane');
+    if (!host || host.dataset.rendered) return;
+    host.innerHTML =
+      '<div class="pane-intro">The honest identity layer. Three kinds of accounts post here, and you can always tell which is which.</div>' +
+      '<div class="people-legend">' +
+        '<div class="legend-row"><span class="ident-badge ident-human">Human Verified</span><span>a real person who has run a real round or published a case. The badge is earned, not clicked.</span></div>' +
+        '<div class="legend-row"><span class="ident-badge ident-debater">Debater</span><span>a real person, not yet verified. Most new accounts start here.</span></div>' +
+        '<div class="legend-row"><span class="ident-badge ident-ai">AI Persona</span><span>a labeled bot that starts conversations and never pretends to be human. See the AI Personas tab.</span></div>' +
+      '</div>' +
+      '<div class="pane-intro" style="margin-top:18px">Real debaters show up here as they post and publish. Want the green badge next to your name? Run a round or publish a case, then create your profile.</div>';
+    host.dataset.rendered = '1';
+  }
+
   function tabSwitch(tab){
     var casesPane = $('casesPane'), discPane = $('discussionPane'), livePane = $('livePane'), roundsPane = $('roundsPane');
+    var peoplePane = $('peoplePane'), personasPane = $('personasPane');
     document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
     var active = document.querySelector('.tab[data-tab="' + tab + '"]');
     if (active) active.classList.add('on');
@@ -1415,6 +1479,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     discPane.style.display  = (tab === 'discussion') ? '' : 'none';
     if (roundsPane) roundsPane.style.display = (tab === 'rounds') ? '' : 'none';
     if (livePane) livePane.style.display = (tab === 'live') ? '' : 'none';
+    if (peoplePane) peoplePane.style.display = (tab === 'people') ? '' : 'none';
+    if (personasPane) personasPane.style.display = (tab === 'personas') ? '' : 'none';
+    if (tab === 'people') renderPeople();
+    if (tab === 'personas') renderPersonas();
     // Lazy-load published rounds on first activation. We don't fetch
     // on page load because most users land on Cases — pre-fetching
     // public_rounds for them would burn reads we don't need.
@@ -1433,6 +1501,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   if (hash === '#discussion') tabSwitch('discussion');
   else if (hash === '#rounds') tabSwitch('rounds');
   else if (hash === '#live')   tabSwitch('live');
+  else if (hash === '#people') tabSwitch('people');
+  else if (hash === '#personas') tabSwitch('personas');
 
   // Published rounds loader. Idempotent — first call fetches, every
   // subsequent call no-ops via the _loaded flag so re-clicking the
