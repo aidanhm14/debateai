@@ -3,10 +3,10 @@ import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs'
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
-import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
-import { applyExemplars } from './lib/exemplars.mjs';
-import { applyDistillations } from './lib/distillations.mjs';
-import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
+import { buildVoiceSegments, pickSpice } from './lib/voice-guidelines.mjs';
+import { getExemplarBlock } from './lib/exemplars.mjs';
+import { getDistillationBlock } from './lib/distillations.mjs';
+import { getFingerprintBlock } from './lib/user-fingerprints.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -328,27 +328,72 @@ export default async (request, context) => {
     // _promptId (+ optional _promptVars for {{var}} substitution). Shared
     // helper so gemini.mjs and grok.mjs resolve the same way.
     applyPromptLibrary(body);
-    // Exemplars + distillations both hit Firestore on a cache miss and are
-    // independent of each other. Run them in parallel so the warmup cost
-    // is max(exemplar, distillation) instead of their sum — saves 300-800ms
-    // on cold caches before the upstream LLM even starts. Both mutate
-    // body.system; the order they finish in doesn't matter because they
-    // prepend / append at distinct fixed positions. MUST resolve before
-    // applyVoiceGuidelines, which strips the _voiceFeature/_voiceFormat
-    // meta fields both readers depend on.
-    await Promise.all([
-      applyExemplars(body),
-      applyDistillations(body),
-      // Per-user style fingerprint (the personalization layer). Looks
-      // up user_fingerprints/{uid}, prepends a USER STYLE block ahead of
-      // the base system prompt. Silent no-op for anonymous traffic.
-      applyUserFingerprint(body, userId),
+    // ── System-prompt assembly + prompt caching ─────────────────────────
+    // The voice bank for a feature is enormous (the `case` block alone is
+    // ~12K tokens) and IDENTICAL for every user on the same
+    // (feature, format, topic). Distillations are shared per format. Those
+    // two are the only genuinely shared, stable content, so they form the
+    // CACHED prefix. Everything else is volatile and goes in the UNCACHED
+    // tail: the client's base system (per round), reference rounds (per
+    // motion), the user-style fingerprint (per user), and the random spice.
+    //
+    // This inversion is the whole fix. The old code prepended the per-user
+    // fingerprint and per-motion exemplars and then cached "everything but
+    // reference rounds" — so the cached prefix was unique per user and the
+    // 20% random spice mutated it 1-in-5 calls. Net hit-rate was ~0; we paid
+    // full input price on a 10K+ token system prompt nearly every call.
+    //
+    // The voice "VOICE CHECK" reinforcement is appended dead-last in the
+    // tail so it stays the most-recent context the model reads, preserving
+    // the prior voice-wins-conflicts intent even though the bulk of the
+    // voice bank now leads.
+    const vFeature = body._voiceFeature || ''; // matches old gate (body._feature was already deleted)
+    const vFormat = body._voiceFormat || '';
+    const vTopic = body._voiceTopic || '';
+    const vMotion = body._motion || '';
+    const vSide = body._side || '';
+    const baseSystem = typeof body.system === 'string' ? body.system : '';
+
+    const voiceSeg = buildVoiceSegments(vFeature, vFormat, vTopic);
+    // Independent Firestore-backed reads, run in parallel (each is cached
+    // 1hr/10min internally, so this is near-zero cost on warm caches).
+    const [distillBlock, fingerprintBlock, exemplarBlock] = await Promise.all([
+      getDistillationBlock(vFormat, vFeature),
+      getFingerprintBlock(userId, vFeature),
+      getExemplarBlock({ feature: vFeature, motion: vMotion, format: vFormat, side: vSide }),
     ]);
-    // Voice guidelines: client sends `_voiceFeature` (e.g. "case", "bot",
-    // "debateChat", "judge"). Server resolves the matching voice block and
-    // appends it to body.system so the debater-voice bank never ships to
-    // view-source. Also strips _voiceFeature/_voiceFormat from the body.
-    applyVoiceGuidelines(body);
+    let spice = voiceSeg ? pickSpice(vFeature) : '';
+    // Don't double-inject a section the stable block already contains.
+    if (spice && voiceSeg && voiceSeg.stable.indexOf(spice) !== -1) spice = '';
+
+    // Strip all voice/exemplar meta now that we've read it — Anthropic
+    // rejects unknown top-level keys, and these must never leave the proxy.
+    delete body._voiceFeature;
+    delete body._voiceFormat;
+    delete body._voiceTopic;
+    delete body._motion;
+    delete body._side;
+
+    // CACHED prefix — shared per (feature, format, topic): voice bank + nightly distillation.
+    const cachedPrefix = [voiceSeg && voiceSeg.stable, distillBlock].filter(Boolean).join('\n');
+    // UNCACHED tail — per-round base system, per-motion reference rounds,
+    // per-user style, random spice, then the voice-check reinforcement LAST.
+    const tail = [baseSystem, exemplarBlock, fingerprintBlock, spice, voiceSeg && voiceSeg.reinforcement]
+      .filter(Boolean).join('\n\n');
+
+    // Anthropic's minimum cacheable size is 1024 tokens (~4KB). Only mark a
+    // cache breakpoint when the shared prefix clears that; otherwise ship a
+    // single plain string. The big debate features clear it by ~10x.
+    if (cachedPrefix && cachedPrefix.length > 4096) {
+      body.system = [
+        { type: 'text', text: cachedPrefix, cache_control: { type: 'ephemeral' } },
+      ];
+      if (tail) body.system.push({ type: 'text', text: tail });
+    } else {
+      const joined = [cachedPrefix, tail].filter(Boolean).join('\n\n');
+      if (joined) body.system = joined;
+      else delete body.system;
+    }
 
     // Validate model — only whitelisted models allowed
     if (!body.model || !ALLOWED_MODELS.includes(body.model)) {
@@ -370,40 +415,9 @@ export default async (request, context) => {
     delete body.tools;
     delete body.tool_choice;
 
-    // Prompt-cache restructure. The original body.system is a single string
-    // with [REFERENCE ROUNDS (variable per motion)] prepended and
-    // [LEARNED PATTERNS (stable per format, daily)] + VOICE GUIDELINES
-    // (stable per feature/format) appended. To cache the stable suffix,
-    // we split out the reference-rounds block and reorder: stable parts
-    // first with a cache_control marker, then variable parts. Anthropic
-    // caches everything up through the cache_control breakpoint, so on
-    // repeated calls with the same format/feature, the model skips
-    // re-processing the stable ~thousands of tokens. Cuts TTFT 50-70%
-    // and price ~90% on cache hits (5min TTL). The reference rounds
-    // moving from system-prefix to system-suffix is intentional — the
-    // model has full attention across the system block either way; the
-    // anchoring penalty is negligible vs. the latency win.
-    if (typeof body.system === 'string' && body.system.length > 0) {
-      const refRoundsRe = /(?:\n*)(?:─── REFERENCE ROUNDS[\s\S]*?─── END REFERENCE ROUNDS ───)(?:\n*)/;
-      const m = body.system.match(refRoundsRe);
-      if (m) {
-        const variable = m[0].trim();
-        const stable = body.system.replace(refRoundsRe, '').trim();
-        body.system = [
-          { type: 'text', text: stable, cache_control: { type: 'ephemeral' } },
-          { type: 'text', text: variable },
-        ];
-      } else if (body.system.length > 2048) {
-        // No exemplars in this request, but the system prompt is still
-        // big enough to be worth caching whole. Anthropic's minimum
-        // cacheable size is 1024 tokens (~4KB); 2KB chars gives us a
-        // comfortable margin.
-        body.system = [
-          { type: 'text', text: body.system, cache_control: { type: 'ephemeral' } },
-        ];
-      }
-      // else: small system prompt, not worth caching, leave as string.
-    }
+    // (Prompt-cache structuring already happened above, in the system-prompt
+    // assembly step — body.system is a [cached prefix, uncached tail] array
+    // when there's enough shared content, otherwise a plain string.)
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -423,8 +437,48 @@ export default async (request, context) => {
       logUsage(teamId, userId, feature).catch(err => console.error('logUsage failed:', err));
     }
 
+    // Opt-in cache observability. Default prod path is byte-identical to
+    // before (return response.body untouched). Set LOG_CACHE_USAGE=1 in the
+    // Netlify env to tee the stream and log the Anthropic usage from the
+    // first `message_start` event: input_tokens vs cache_read_input_tokens
+    // vs cache_creation_input_tokens. When the cache works, cache_read climbs
+    // and billed input collapses. Flip it off once confirmed. Fully wrapped +
+    // fire-and-forget so it can never break or stall the client stream.
+    let clientBody = response.body;
+    if (clientBody && response.ok && process.env.LOG_CACHE_USAGE === '1') {
+      try {
+        const [forClient, forLog] = clientBody.tee();
+        clientBody = forClient;
+        (async () => {
+          try {
+            const reader = forLog.getReader();
+            const dec = new TextDecoder();
+            let buf = '';
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buf += dec.decode(value, { stream: true });
+              const m = buf.match(/"usage"\s*:\s*\{[^}]*\}/);
+              if (m) {
+                try {
+                  const u = JSON.parse('{' + m[0] + '}').usage || {};
+                  const read = u.cache_read_input_tokens || 0;
+                  const create = u.cache_creation_input_tokens || 0;
+                  const hit = read > 0 ? 'HIT' : (create > 0 ? 'MISS(write)' : 'none');
+                  console.log(`[cache] ${feature}/${vFormat || '-'} ${hit} read=${read} create=${create} input=${u.input_tokens || 0}`);
+                } catch {}
+                break;
+              }
+              if (buf.length > 65536) break; // message_start is early; bail if unseen
+            }
+            reader.cancel().catch(() => {});
+          } catch {}
+        })();
+      } catch {}
+    }
+
     // Stream the response through to the client
-    return new Response(response.body, {
+    return new Response(clientBody, {
       status: response.status,
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
