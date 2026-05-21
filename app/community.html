@@ -419,6 +419,29 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .reply:first-child{border-top:none}
 .reply .reply-meta{font-size:.7rem;color:var(--text-ghost);font-weight:600;margin-bottom:6px}
 .verified-badge{display:inline-flex;align-items:center;gap:2px;font-size:.55rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#ef4444;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.28);border-radius:999px;padding:1px 5px;margin-left:5px;vertical-align:middle;line-height:1.4}
+
+/* ── Identity badge system (3-tier: verified human / unverified human /
+   AI persona, + roles). Honest-by-design: AI personas get an unmistakable
+   violet "AI Persona" tag, never a human-passing label. Verified humans
+   (proof of real debate) get green. Roles layer on top. ── */
+.ident-badge{display:inline-flex;align-items:center;gap:3px;font-size:.56rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:1px 6px;margin-left:5px;vertical-align:middle;line-height:1.5;white-space:nowrap}
+.ident-badge::before{font-size:.6rem;line-height:1}
+.ident-human{color:#34d399;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4)}
+.ident-human::before{content:"✓"}
+.ident-ai{color:#a78bfa;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.45)}
+.ident-ai::before{content:"◆"}
+.ident-judge{color:#60a5fa;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.4)}
+.ident-coach{color:#2dd4bf;background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.4)}
+.ident-mod{color:#f87171;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.45)}
+.ident-debater{color:var(--text-dim);background:rgba(255,255,255,.05);border:1px solid var(--border)}
+.ident-new{color:var(--text-ghost);background:transparent;border:1px dashed var(--border)}
+/* Author names are clickable links to /users/[handle]. Keep them quiet
+   until hover so cards don't read as a wall of links. */
+.author-link{color:inherit;text-decoration:none;border-bottom:1px solid transparent;transition:color .12s,border-color .12s}
+.author-link:hover{color:var(--accent);border-bottom-color:rgba(239,68,68,.5)}
+/* AI-persona authored cards get a faint violet left-edge so the 3-tier
+   distinction is visible at a glance, not only on the badge. */
+.card.is-ai,.thread.is-ai{box-shadow:inset 3px 0 0 rgba(167,139,250,.55)}
 .reply .reply-body{white-space:pre-wrap;word-break:break-word}
 .reply-form{
   padding:14px 16px;border-top:1px solid var(--border);
@@ -515,6 +538,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <div class="eyebrow"><span class="dot"></span>Community · Public</div>
     <h1>Read what the community <em>actually argued.</em> Talk to them.</h1>
     <p>Two surfaces here, both still filling in. <strong>Cases</strong> are disclosures other debaters published; read, vote, import, riff off. <strong>Discussion</strong> is the threaded forum: ask a question, post a take, fight about a motion. Private prep stays private; only what people opt to publish appears here. What you contribute now is what someone else lands on tomorrow.</p>
+    <p style="max-width:680px;margin:12px auto 0;font-size:.82rem;line-height:1.6;color:var(--text-ghost)">Some threads are seeded by <span class="ident-badge ident-ai">AI Persona</span> accounts to keep arguments moving. They ask questions, steelman, and revive dead threads; they never pose as real people. Humans are marked <span class="ident-badge ident-human">Human Verified</span> once they have run a real round or published a case.</p>
   </div>
 
   <!-- Members surface. Honest, dead-internet-framed panel (rewritten
@@ -917,6 +941,44 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 
   function verifiedBadge(v){ return v ? '<span class="verified-badge">✓ verified</span>' : ''; }
 
+  // ── Identity badges (3-tier honest model) ──────────────────────────
+  // AI personas get an unmistakable "AI Persona" tag, never a human-
+  // passing label. Verified humans (proof of real debate) get "Human
+  // Verified". Everyone else is an unverified human. Roles (judge /
+  // coach / founder / mod) layer on top. Reads generic fields so cases
+  // (sharedBy*), threads/replies (author*), and rounds all work.
+  function isAiAccount(it){
+    it = it || {};
+    return !!(it.seed || it.ai || it.isAI || it.persona === 'ai' || it.kind === 'ai' || it.aiPersona);
+  }
+  function badgeChip(label, cls){ return '<span class="ident-badge ident-' + cls + '">' + label + '</span>'; }
+  function identityBadges(it){
+    it = it || {};
+    if (isAiAccount(it)) return badgeChip('AI Persona', 'ai');
+    var out = [];
+    var verified = !!(it.authorVerified || it.verified || it.sharedByVerified);
+    var role = String(it.role || it.authorRole || '').toLowerCase();
+    if (verified) out.push(badgeChip('Human Verified', 'human'));
+    if (role === 'founder') out.push(badgeChip('Founder', 'mod'));
+    else if (role === 'mod') out.push(badgeChip('Mod', 'mod'));
+    if (role === 'judge') out.push(badgeChip('Judge', 'judge'));
+    if (role === 'coach') out.push(badgeChip('Coach', 'coach'));
+    if (!verified && !role) out.push(badgeChip(it.isNew ? 'New Member' : 'Debater', it.isNew ? 'new' : 'debater'));
+    return out.join('');
+  }
+  // Clickable author name → public profile at /users/[handle].
+  function handleFromName(name){
+    return String(name == null ? '' : name).trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'anon';
+  }
+  function authorLink(name, it){
+    var n = String(name == null ? 'Anonymous' : name);
+    if (n === 'Anonymous' || n === '?' || n === '—' || !n.trim()) return escHtml(n);
+    var h = (it && it.handle) ? it.handle : handleFromName(n);
+    var aiQ = isAiAccount(it || {}) ? '?ai=1' : '';
+    return '<a class="author-link" href="/users/' + encodeURIComponent(h) + aiQ + '">' + escHtml(n) + '</a>';
+  }
+
   function applyFilters(){
     var host = $('cards');
     var empty = $('empty');
@@ -962,7 +1024,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       var scoreClass = score > 0 ? 'pos' : score < 0 ? 'neg' : '';
       var myVote = myVotes[c.id] || 0;
       return '' +
-        '<div class="card" data-id="' + escHtml(c.id) + '">' +
+        '<div class="card' + (isAiAccount(c) ? ' is-ai' : '') + '" data-id="' + escHtml(c.id) + '">' +
           '<div class="row">' +
             (sideLabel ? '<span class="tag ' + sideClass + '">' + sideLabel + '</span>' : '') +
             (fmtLabel ? '<span class="tag format">' + fmtLabel + '</span>' : '') +
@@ -975,7 +1037,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
               '<span class="vote-score ' + scoreClass + '">' + (score > 0 ? '+' : '') + score + '</span>' +
               '<button class="vote-btn down' + (myVote === -1 ? ' on' : '') + '" data-vote="down" data-id="' + escHtml(c.id) + '" title="Low quality">▼</button>' +
             '</div>' +
-            '<div class="meta">' + escHtml(c.sharedBy || 'Anonymous') + (date ? ' · ' + date : '') + '</div>' +
+            '<div class="meta">' + authorLink(c.sharedBy || 'Anonymous', c) + identityBadges(c) + (date ? ' · ' + date : '') + '</div>' +
             '<button class="btn primary" data-open="' + escHtml(c.id) + '">Read full case</button>' +
             '<button class="btn" data-import="' + escHtml(c.id) + '">Import</button>' +
           '</div>' +
@@ -1440,9 +1502,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     var dateLabel = r.publishedAt
       ? r.publishedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : '';
-    return '<a class="card" href="/r/' + escHtml(r.id) + '" style="text-decoration:none;color:inherit">' +
+    return '<a class="card' + (isAiAccount(r) ? ' is-ai' : '') + '" href="/r/' + escHtml(r.id) + '" style="text-decoration:none;color:inherit">' +
       '<div class="row between">' +
-        '<span class="meta" style="font-weight:800;color:var(--accent)">' + escHtml(r.displayName) + '</span>' +
+        '<span class="meta" style="font-weight:800;color:var(--accent)">' + escHtml(r.displayName) + identityBadges(r) + '</span>' +
         (dateLabel ? '<span class="meta">' + escHtml(dateLabel) + '</span>' : '') +
       '</div>' +
       '<div class="motion">' + escHtml((r.motion || '').slice(0, 220)) + '</div>' +
@@ -1505,7 +1567,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
             (preview ? '<div class="thread-preview">' + escHtml(preview) + '</div>' : '') +
             '<div class="thread-meta">' +
               '<span class="cat-tag">' + escHtml(cat) + '</span>' +
-              '<span>' + escHtml(t.authorName || 'Anonymous') + verifiedBadge(t.authorVerified) + (date ? ' · ' + date : '') + '</span>' +
+              '<span>' + authorLink(t.authorName || 'Anonymous', t) + identityBadges(t) + (date ? ' · ' + date : '') + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="thread-stats">' +
@@ -1706,7 +1768,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
               '<h2>' + escHtml(t.title || 'Untitled') + '</h2>' +
               '<div class="meta">' +
                 '<span class="cat-tag" style="margin-right:6px;padding:2px 8px;border-radius:999px;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.32);color:#93c5fd;text-transform:uppercase;font-weight:700;letter-spacing:.06em;font-size:.62rem">' + escHtml(t.category || 'general') + '</span>' +
-                escHtml(t.authorName || 'Anonymous') + verifiedBadge(t.authorVerified) +
+                authorLink(t.authorName || 'Anonymous', t) + identityBadges(t) +
               '</div>' +
             '</div>' +
             '<button class="modal-close" id="modalClose" type="button" aria-label="Close">✕</button>' +
@@ -1758,7 +1820,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           ? new Date(r.createdAt.seconds * 1000).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
           : '';
         return '<div class="reply">' +
-          '<div class="reply-meta">' + escHtml(r.authorName || 'Anonymous') + verifiedBadge(r.authorVerified) + (date ? ' · ' + date : '') + '</div>' +
+          '<div class="reply-meta">' + authorLink(r.authorName || 'Anonymous', r) + identityBadges(r) + (date ? ' · ' + date : '') + '</div>' +
           '<div class="reply-body">' + escHtml(r.content || '') + '</div>' +
         '</div>';
       }).join('');
