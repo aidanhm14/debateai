@@ -44,6 +44,25 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/icons/icon-192.png">
 <script defer src="/js/track.js"></script>
+<!-- Shared product chrome: same topbar + tokens as /landing, /app,
+     /debate-ai so a visitor landing here from Google reads it as the
+     product, not a detached SEO article. ui.css is loaded BEFORE the
+     page's inline <style> so the inline :root (the US palette below)
+     still wins for --bg/--accent; ui.css only supplies the topbar's
+     own tokens (--text, --border, radii). -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/ui.css">
+<script>
+/* This page's body palette is hardcoded dark (#0b0f17) below, so the
+   shared topbar must always render its DARK token set. Force the
+   crimson (black-red) theme unconditionally — do NOT read the user's
+   da-theme preference, or a visitor carrying da-theme=light from the
+   app would get dark-on-dark, near-invisible topbar text. The
+   data-force-theme attr tells the shared topbar.js to honor this and
+   skip its localStorage read. */
+document.documentElement.setAttribute('data-theme','crimson');
+document.documentElement.setAttribute('data-force-theme','crimson');
+</script>
 <style>
   :root {
     --bg:#0b0f17; --fg:#e8eef7; --muted:#94a3b8; --line:#1f2937;
@@ -65,7 +84,9 @@
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
   a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
-  .wrap{max-width:920px;margin:0 auto;padding:40px 24px 56px}
+  /* top padding clears the fixed shared topbar (52px tall, pinned to
+     top:0 on these no-beta-strip pages) so the eyebrow isn't hidden. */
+  .wrap{max-width:920px;margin:0 auto;padding:76px 24px 56px}
   .nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;font-size:14px;color:var(--muted)}
   .nav a{color:var(--muted)}
   .crumbs{font-size:13px;color:var(--muted);margin-bottom:16px;letter-spacing:.04em;text-transform:uppercase;font-weight:700}
@@ -97,6 +118,14 @@
   .grid .item a{display:inline-block;margin-top:10px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--strip,var(--accent))}
   .cta{display:inline-block;background:var(--accent);color:#fff;padding:14px 28px;border-radius:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:14px;margin-top:12px}
   .cta:hover{text-decoration:none;background:#dc2626}
+  /* Above-the-fold entry row. The whole point of this page is to send
+     Google traffic straight into the product — primary = a round,
+     secondary = voice + learn — instead of burying the only CTA at
+     the bottom of the article. */
+  .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin:6px 0 4px}
+  .hero-actions .cta{margin-top:0}
+  .cta-ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
+  .cta-ghost:hover{background:var(--card);border-color:var(--muted)}
   .practice{background:linear-gradient(135deg,#1a0e0e,#121826);border:1px solid var(--line);border-radius:14px;padding:32px;margin:56px 0 0;text-align:center}
   .practice h3{margin:0 0 10px;font-size:24px}
   .practice p{color:var(--muted);margin:0 0 20px;font-size:16px}
@@ -211,12 +240,18 @@
 </style>
 </head>
 <body>
+<div id="daTopbar"></div>
 <div class="wrap">
-  <div class="nav"><a href="/">← Debate AI</a><a href="/debate-ai">Practice →</a></div>
   <div class="crumbs">For US debaters</div>
 
   <h1>An AI debate partner <span class="accent">for the US circuit</span></h1>
   <p class="lede">Most AI debate tools are generic. They don't know what TOC means, they mix up PF and LD, they call a constructive an "opening statement," and they quote British case studies when the motion is about US federalism. <strong>Debate AI is built differently.</strong> The AI plays Public Forum, Lincoln-Douglas, Policy, Worlds, Big Questions, and Congress properly. Right speech times, right paradigms, the actual motion areas your circuit runs. From your local NSDA chapter to the TOC bid round, the formats match what the judges in front of you expect.</p>
+
+  <div class="hero-actions">
+    <a href="/debate-ai" class="cta">Start a round →</a>
+    <a href="/voice-debate" class="cta cta-ghost">Argue out loud</a>
+    <a href="/learn" class="cta cta-ghost">Learn the basics</a>
+  </div>
 
   <!-- ── Circuit map ─────────────────────────────────────────
        Geographic anchor for the page. Shows the major US debate-
@@ -373,7 +408,7 @@
 
   <h2>Pricing</h2>
   <div class="price">
-    Free = no card, 30 rounds total. <strong>$1/month</strong> (BYOK) with your own Anthropic key for unlimited Claude. <strong>$5 for the year</strong> (Individual) for 250 requests/month across six AI brains plus HD voice. <strong>$14.99 once</strong> (Lifetime) for the same 250 requests/mo with no recurring charge. Team plans are $20/year for fifty seats and 1,500 requests/month pooled.
+    Free = no card, 5 rounds anonymous plus 5 more on sign-in. <strong>$1/month</strong> (BYOK) with your own Anthropic key for unlimited Claude. <strong>$5 for the year</strong> (Individual) for 250 requests/month across six AI brains plus HD voice. <strong>$14.99 once</strong> (Lifetime) for the same 250 requests/mo with no recurring charge. Team plans are $20/year for fifty seats and 1,500 requests/month pooled.
   </div>
 
   <h2>Why the formats actually matter</h2>
@@ -411,5 +446,6 @@
     </div>
   </aside>
 </div>
+<script defer src="/js/topbar.js"></script>
 </body>
 </html>

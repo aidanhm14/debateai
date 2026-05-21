@@ -280,6 +280,21 @@
   // session. Hard reload on change so the token cascade and any
   // per-section <style> blocks settle from a clean slate.
   function wireThemeToggle(){
+    // Page-level opt-out: pages whose <body> palette is hardcoded (e.g.
+    // /us, /india) set <html data-force-theme="crimson"> so the shared
+    // topbar always renders its matching DARK token set regardless of
+    // the visitor's saved da-theme. Without this, a visitor carrying
+    // da-theme=light from the app gets dark-on-dark, unreadable nav on
+    // a body that can't go light. Pin the theme, hide the (meaningless
+    // here) toggle, and skip the localStorage read + toggle wiring.
+    var forced = document.documentElement.getAttribute('data-force-theme');
+    if (forced) {
+      document.documentElement.setAttribute('data-theme', forced);
+      document.documentElement.setAttribute('data-lighting', forced === 'light' ? 'light' : 'dark');
+      var ft = document.querySelector('.ui-topbar .theme-toggle');
+      if (ft) ft.style.display = 'none';
+      return;
+    }
     // Migration v2026-05: dark is the brand default. One-time sweep
     // clears a legacy `da-theme=light` so subpages match the marketing
     // landing's dark front door. Gated by `da-theme-default-v2` so it
