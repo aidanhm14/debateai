@@ -567,13 +567,14 @@ body::before{
        the eye lands on the forum (right column) first. A single honest
        paragraph in the founder's voice covers the AI labeling, the ad
        spend, and the growth state. #memberCount keeps the live counter
-       wiring (visitor-counter.js writes the real count minus 5,000);
-       #memberYou is personalized from the first-visit localStorage flag.
+       wiring (visitor-counter.js writes count30d — real 30-day rolling sum
+       from daily Firestore buckets); #memberYou is personalized from the
+       first-visit localStorage flag.
        The intro is sticky on desktop so the forum reads as the main act. -->
   <div class="hero intro">
     <div class="eyebrow"><span class="dot"></span>Community · Public · Still early</div>
     <h1>Read what people <em>actually argued.</em> Then argue back.</h1>
-    <p class="intro-lede">Straight version: about <strong id="memberCount" data-baseline="2074">2,074</strong> people opened DebateAI in the last 30 days, mostly from one ad burst I paid for, and most did not come back. That is traffic, not a crowd. To keep the boards from looking empty while the real room fills in, some threads are seeded by AI personas, and they are always labeled. I am funding this myself and trying to raise money to build it properly. The fastest way to help is to use it: publish a case, reply, run a round, and tell me what is broken.</p>
+    <p class="intro-lede">Straight version: about <strong id="memberCount" data-baseline="101">101</strong> people opened DebateAI in the last 30 days, mostly from one ad burst I paid for, and most did not come back. That is traffic, not a crowd. To keep the boards from looking empty while the real room fills in, some threads are seeded by AI personas, and they are always labeled. I am funding this myself and trying to raise money to build it properly. The fastest way to help is to use it: publish a case, reply, run a round, and tell me what is broken.</p>
     <div class="intro-you" id="memberYou">+ you, here today</div>
     <div class="cta-row">
       <a class="cta primary" href="/debate-ai">Publish a case</a>
@@ -1239,13 +1240,14 @@ body::before{
     // baseline stays in place.
     if (memCount && window.DEBATEAI_VISITOR_COUNTER && typeof window.DEBATEAI_VISITOR_COUNTER.sync === 'function'){
       window.DEBATEAI_VISITOR_COUNTER.sync({
-        onCount: function(count, ticked){
+        onCount: function(count, ticked, data){
           var fmt = (window.DEBATEAI_VISITOR_COUNTER.fmt || function(n){return String(n)});
           var old = memCount.textContent;
-          // Discount the one-time ad-spike inflation (see soul.md §8) so the
-          // "honest numbers" card reflects durable reach, while still tracking
-          // live: display the real count minus a fixed 5,000, floored at 0.
-          var next = fmt(Math.max(0, count - 5000));
+          // Use the real 30-day rolling window (count30d) returned by the
+          // updated /api/visitor-tick. Falls back to count when count30d is
+          // absent (old function deploy) so the page degrades gracefully.
+          var display = (data && typeof data.count30d === 'number') ? data.count30d : count;
+          var next = fmt(Math.max(0, display));
           if (next !== old){
             memCount.textContent = next;
             memCount.classList.remove('live');
