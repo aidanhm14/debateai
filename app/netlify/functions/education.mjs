@@ -196,7 +196,7 @@ function renderIndex() {
       '@type': 'Organization',
       name: 'Debate AI',
       url: SITE_ORIGIN,
-      logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png` },
+      logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` },
     },
     hasPart: EDUCATION_SLUGS.map(slug => {
       const t = EDUCATION_BANK[slug];
@@ -279,7 +279,7 @@ function renderPrimer(slug) {
       '@type': 'Organization',
       name: 'Debate AI',
       url: SITE_ORIGIN,
-      logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png` },
+      logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` },
     },
     mainEntityOfPage: canonical,
     url: canonical,

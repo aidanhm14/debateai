@@ -368,7 +368,7 @@ function renderMotionPage(m) {
         about: m.category,
         keywords: m.keywords.join(', '),
         author: { '@type': 'Organization', name: 'Debate AI', url: SITE_ORIGIN },
-        publisher: { '@type': 'Organization', name: 'Debate AI', logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png` } },
+        publisher: { '@type': 'Organization', name: 'Debate AI', logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` } },
         url: canonical, mainEntityOfPage: canonical, inLanguage: 'en', image: OG_IMAGE,
       },
       {
