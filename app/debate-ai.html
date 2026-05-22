@@ -4835,15 +4835,43 @@ function App() {
       if (wantFormat && typeof FORMATS !== 'undefined' && FORMATS[wantFormat]) {
         try { setFormat(wantFormat); } catch (_) {}
       }
+      // challenge=1: pre-select the specified side so the friend runs
+      // the other side of the motion their challenger already argued.
+      var wantSide = (qs.get('side') || '').trim();
+      if (wantSide === 'prop' || wantSide === 'opp' || wantSide === 'gov' || wantSide === 'neg') {
+        try { setSide(wantSide); } catch (_) {}
+      }
       try {
         if (typeof gtag === 'function') {
           gtag('event', 'typed_handoff_received', {
-            from: qs.get('handoff') || 'unknown',
+            from: qs.get('challenge') === '1' ? 'challenge-link' : (qs.get('handoff') || 'unknown'),
             format: wantFormat || 'default',
           });
         }
       } catch (_) {}
     } catch (_) {}
+  }, []);
+
+  // Debate of the week: fetch from /api/debate-of-week once on mount.
+  // Failure is silent — the banner just won't appear.
+  useEffect(() => {
+    fetch('/api/debate-of-week')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ if (d && d.motion) setDebateOfWeek(d); })
+      .catch(function(){});
+  }, []);
+
+  // Spaced-rep: check localStorage for a drill hint from a previous round
+  // that's 2-7 days old and surface it as a banner in the setup view.
+  useEffect(() => {
+    try {
+      var raw = localStorage.getItem('da-last-drill');
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      if (!d || !d.text || !d.savedAt) return;
+      var daysAgo = Math.floor((Date.now() - d.savedAt) / 86400000);
+      if (daysAgo >= 2 && daysAgo <= 7) setDrillReminder(d);
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -4953,6 +4981,12 @@ function App() {
     persistStarred(exists ? starredMotions.filter((m) => m !== t) : [t, ...starredMotions].slice(0, 12));
   };
   var isStarred = (text) => !!(text && starredMotions.some((m) => m === text.trim()));
+  // Debate of the week — fetched from /api/debate-of-week on mount.
+  var [debateOfWeek, setDebateOfWeek] = useState(null);
+  // Spaced-rep drill reminder: set when the stored drill is 2-7 days old.
+  var [drillReminder, setDrillReminder] = useState(null);
+  // Challenge-a-friend copy confirmation flash.
+  var [challengeCopied, setChallengeCopied] = useState(false);
   var [customParadigm, setCustomParadigm] = useState(() => {
     try {return localStorage.getItem('debateos-judge-paradigm-custom') || '';} catch {return '';}
   });
@@ -7019,6 +7053,25 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         });
       } catch {}
     }
+    // Spaced-rep: persist a drill hint so the setup screen can surface it
+    // 2-7 days later as a "pick up where you left off" nudge.
+    try {
+      var drillHintText = '';
+      var drillPat = (fb || '').match(/(?:drill|practice|work on|next round|try)[:\s]+([^\n]{20,200})/i);
+      if (drillPat && drillPat[1]) {
+        drillHintText = drillPat[1].trim();
+      } else {
+        drillHintText = (fb || '').slice(0, 140).trim();
+      }
+      if (drillHintText) {
+        localStorage.setItem('da-last-drill', JSON.stringify({
+          text: drillHintText,
+          motion: round.motion || '',
+          format: round.formatName || '',
+          savedAt: Date.now()
+        }));
+      }
+    } catch {}
     // Also save to Firestore if signed in
     if (user && firebaseDb) {
       user.getIdToken().then((token) => {
@@ -8175,6 +8228,69 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ))
   )
   ),
+  // Debate of the week banner. Renders below starred motions if a
+  // featured motion is loaded. One click fills the motion field.
+  debateOfWeek && !motion && el('div', {
+    style: {
+      marginTop: 10, padding: '11px 14px',
+      background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.22)',
+      borderRadius: 10, textAlign: 'left', cursor: 'pointer'
+    },
+    onClick: function() {
+      setMotion(debateOfWeek.motion);
+      if (debateOfWeek.format && typeof FORMATS !== 'undefined' && FORMATS[debateOfWeek.format]) {
+        try { setFormat(debateOfWeek.format); } catch (_) {}
+      }
+    }
+  },
+  el('div', { style: { fontSize: '.58rem', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: '#ef4444', marginBottom: 6 } }, '🗓 Debate of the week'),
+  el('div', { style: { fontSize: '.78rem', fontWeight: 600, color: 'var(--c-text)', lineHeight: 1.4, marginBottom: debateOfWeek.context ? 6 : 0 } }, debateOfWeek.motion),
+  debateOfWeek.context && el('div', { style: { fontSize: '.7rem', color: 'var(--c-dim)', lineHeight: 1.4 } }, debateOfWeek.context)
+  ),
+
+  // Spaced-rep drill reminder. Shows 2-7 days after a round if we stored
+  // a drill hint. Dismisses with × and clears localStorage so it doesn't
+  // repeat until after the next completed round.
+  drillReminder && !motion && el('div', {
+    style: {
+      marginTop: 10, padding: '10px 14px',
+      background: 'rgba(99,102,241,.07)', border: '1px solid rgba(99,102,241,.22)',
+      borderRadius: 10, textAlign: 'left', position: 'relative'
+    }
+  },
+  el('div', { style: { fontSize: '.58rem', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: '#818cf8', marginBottom: 5 } }, '📋 From your last round'),
+  el('div', { style: { fontSize: '.78rem', color: 'var(--c-text)', lineHeight: 1.4, paddingRight: 20 } },
+    drillReminder.text.length > 130 ? drillReminder.text.slice(0, 130) + '…' : drillReminder.text
+  ),
+  drillReminder.motion && el('button', {
+    onClick: function() {
+      setMotion(drillReminder.motion);
+      if (drillReminder.format && typeof FORMATS !== 'undefined') {
+        var fmtKey = Object.keys(FORMATS).find(function(k){ return (FORMATS[k].name || '').toLowerCase() === (drillReminder.format || '').toLowerCase(); });
+        if (fmtKey) try { setFormat(fmtKey); } catch (_) {}
+      }
+    },
+    style: {
+      marginTop: 8, padding: '4px 12px', borderRadius: 999,
+      background: 'rgba(99,102,241,.12)', border: '1px solid rgba(99,102,241,.3)',
+      color: '#a5b4fc', fontSize: '.7rem', fontWeight: 700, cursor: 'pointer',
+      fontFamily: 'inherit'
+    }
+  }, 'Re-run this motion →'),
+  el('button', {
+    onClick: function() {
+      setDrillReminder(null);
+      try { localStorage.removeItem('da-last-drill'); } catch {}
+    },
+    'aria-label': 'Dismiss drill reminder',
+    style: {
+      position: 'absolute', top: 8, right: 10,
+      background: 'transparent', border: 'none',
+      color: 'var(--c-dim)', fontSize: '.9rem', cursor: 'pointer', lineHeight: 1
+    }
+  }, '×')
+  ),
+
   // Action row: Random Motion + Generate Background. Sit side-by-side
   // directly under the motion textarea so the user's whole "fill out
   // the round" workflow stays in one vertical region. Background was
@@ -10402,6 +10518,22 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('button', { className: 'cta-ghost', onClick: copyAll }, 'Copy'),
     el('button', { className: 'cta-ghost', onClick: () => downloadRound(motion, format, side, log, feedback, ballot) }, '⬇ Download .txt'),
     el('button', { className: 'cta-ghost', onClick: genShareCard, disabled: shareBusy, title: 'Generate a shareable PNG of this round' }, shareBusy ? 'Rendering…' : '📸 Share card'),
+    el('button', {
+      className: 'cta-ghost',
+      title: 'Copy a link that pre-loads this motion so a friend can run the other side',
+      onClick: function() {
+        var oppSide = side === 'prop' ? 'opp' : 'prop';
+        var url = (location.origin || 'https://debateai.com') + '/debate-ai?motion=' + encodeURIComponent(motion || '') + '&format=' + encodeURIComponent(format || '') + '&side=' + oppSide + '&challenge=1';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(function(){
+            setChallengeCopied(true);
+            setTimeout(function(){ setChallengeCopied(false); }, 2200);
+          }).catch(function(){ try { prompt('Copy this challenge link:', url); } catch {} });
+        } else {
+          try { prompt('Copy this challenge link:', url); } catch {}
+        }
+      }
+    }, challengeCopied ? '✓ Link copied!' : '🔗 Challenge a friend'),
     el('button', { className: 'cta-ghost', onClick: () => saveCase(), style: caseSaved ? { background: 'rgba(34,197,94,.15)', borderColor: '#22c55e', color: '#22c55e' } : {} }, caseSaved ? 'Case Saved' : 'Save Case'),
     // Publish-to-/disclosures button. Only enabled for signed-in
     // users; pending shows a spinner-style label; published flips

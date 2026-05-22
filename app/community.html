@@ -932,18 +932,43 @@ body::before{
       }
       return true;
     });
-    // Apply sort. 'recent' is the default snapshot order. 'top' sorts
-    // by voteScore desc; ties broken by recency so a 0-vote brand-new
-    // disclosure outranks a 0-vote stale one.
+    // Apply sort. 'recent' is the default snapshot order but real human
+    // cases always float above AI seed content so cold-start visitors see
+    // real activity first. 'top' sorts by voteScore desc (same real-first
+    // bias on ties so upvoted real cases beat unvoted seed cases).
+    var realFirst = function(a, b){
+      var aAI = isAiAccount(a) ? 1 : 0, bAI = isAiAccount(b) ? 1 : 0;
+      return aAI - bAI;
+    };
     if (sortMode === 'top'){
       matched.sort(function(a, b){
+        var aAI = isAiAccount(a) ? 1 : 0, bAI = isAiAccount(b) ? 1 : 0;
+        if (aAI !== bAI) return aAI - bAI; // real cases first regardless of vote score
         var va = a.voteScore || 0, vb = b.voteScore || 0;
         if (va !== vb) return vb - va;
         var as = (a.sharedAt && a.sharedAt.seconds) || 0;
         var bs = (b.sharedAt && b.sharedAt.seconds) || 0;
         return bs - as;
       });
+    } else {
+      // 'recent': sort by recency but keep real cases above seed.
+      matched.sort(function(a, b){
+        var aAI = isAiAccount(a) ? 1 : 0, bAI = isAiAccount(b) ? 1 : 0;
+        if (aAI !== bAI) return aAI - bAI;
+        var as = (a.sharedAt && a.sharedAt.seconds) || 0;
+        var bs = (b.sharedAt && b.sharedAt.seconds) || 0;
+        return bs - as;
+      });
     }
+    // Cold-start notice: when there are no real cases visible, prepend a
+    // small explainer so the visitor knows what they're looking at.
+    var realCount = matched.filter(function(c){ return !isAiAccount(c); }).length;
+    var coldStartNotice = realCount === 0
+      ? '<div style="padding:14px 16px;margin-bottom:12px;background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.25);border-radius:10px;font-size:.8rem;line-height:1.5;color:var(--text-dim)">' +
+        '<strong style="color:#a78bfa">◆ All seeded by AI personas</strong> — no human cases yet for this filter. ' +
+        '<a href="/debate-ai" style="color:#a78bfa">Run a round</a> and click "Publish to Community" to be the first.' +
+        '</div>'
+      : '';
     if (matched.length === 0){
       host.innerHTML = '';
       host.style.display = 'none';
@@ -952,7 +977,7 @@ body::before{
     }
     host.style.display = '';
     empty.style.display = 'none';
-    host.innerHTML = matched.map(function(c){
+    host.innerHTML = coldStartNotice + matched.map(function(c){
       var sideClass = normalizeSide(c.side);
       var sideLabel = c.side ? escHtml(c.side) : '';
       var fmtLabel = c.format ? escHtml(c.format) : '';
