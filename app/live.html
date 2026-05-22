@@ -3976,6 +3976,58 @@ button{font-family:inherit}
   // bad network, degraded but functional.
   function showAuthGate(){ var g=document.getElementById('authGate'); if (g) g.style.display='flex'; }
   function hideAuthGate(){ var g=document.getElementById('authGate'); if (g) g.style.display='none'; }
+
+  // ── Guest sign-in reminder. Non-blocking, dismissible bar shown to
+  // visitors who land on the public board without signing in. They can
+  // browse + read the archive freely; this nudges them to sign in so
+  // they can post, accept, and save a record. Dismissal sticks for the
+  // browser session so it doesn't re-nag.
+  var signinReminderEl = null;
+  function hideSignInReminder(){
+    if (signinReminderEl && signinReminderEl.parentNode) signinReminderEl.parentNode.removeChild(signinReminderEl);
+    signinReminderEl = null;
+  }
+  function showSignInReminder(){
+    if (currentUser || signinReminderEl) return;
+    try { if (window.sessionStorage && sessionStorage.getItem('live-signin-reminder-x')) return; } catch(e){}
+    var bar = document.createElement('div');
+    bar.id = 'signInReminder';
+    bar.setAttribute('role','status');
+    bar.style.cssText = [
+      'position:fixed','left:50%','bottom:18px','transform:translateX(-50%) translateY(8px)',
+      'z-index:9000','display:flex','align-items:center','gap:12px','flex-wrap:wrap',
+      'justify-content:center','max-width:min(560px,calc(100vw - 28px))',
+      'padding:11px 14px','border-radius:14px',
+      'background:rgba(20,18,20,.94)','color:#fff',
+      'border:1px solid rgba(255,255,255,.14)',
+      'box-shadow:0 12px 44px rgba(0,0,0,.5)',
+      'backdrop-filter:blur(10px)','-webkit-backdrop-filter:blur(10px)',
+      'font:500 13.5px/1.4 Inter,system-ui,sans-serif',
+      'opacity:0','transition:opacity .35s ease,transform .35s ease'
+    ].join(';');
+    var msg = document.createElement('span');
+    msg.textContent = 'Browsing as a guest. Sign in to post challenges, accept debates, and save your record.';
+    msg.style.cssText = 'flex:1 1 240px;min-width:200px';
+    var sin = document.createElement('button');
+    sin.type = 'button';
+    sin.textContent = 'Sign in';
+    sin.style.cssText = 'cursor:pointer;border:0;border-radius:999px;padding:8px 16px;font:700 13px Inter,system-ui,sans-serif;background:#ef4444;color:#fff';
+    var no = document.createElement('button');
+    no.type = 'button';
+    no.textContent = 'Not now';
+    no.setAttribute('aria-label','Dismiss');
+    no.style.cssText = 'cursor:pointer;border:0;border-radius:999px;padding:8px 12px;font:600 13px Inter,system-ui,sans-serif;background:rgba(255,255,255,.08);color:rgba(255,255,255,.75)';
+    sin.addEventListener('click', function(){ try { gtag('event','live_guest_reminder_signin'); } catch(e){} doGoogleSignIn(); });
+    no.addEventListener('click', function(){
+      try { sessionStorage.setItem('live-signin-reminder-x','1'); } catch(e){}
+      hideSignInReminder();
+    });
+    bar.appendChild(msg); bar.appendChild(sin); bar.appendChild(no);
+    document.body.appendChild(bar);
+    signinReminderEl = bar;
+    requestAnimationFrame(function(){ bar.style.opacity='1'; bar.style.transform='translateX(-50%) translateY(0)'; });
+    try { gtag('event','live_guest_reminder_show'); } catch(e){}
+  }
   function renderUserChip(){
     var host = document.getElementById('barUser');
     if (!host) return;
@@ -4014,7 +4066,14 @@ button{font-family:inherit}
     });
   }
   if (firebaseAuth){
-    showAuthGate();
+    // Public board. Don't wall the page behind sign-in: load the
+    // cross-user feed immediately so anyone (signed in or not) can
+    // browse open challenges and read the archive of past rounds.
+    // Writes (post / accept / claim a seat) still gate on sign-in and
+    // pop the auth card on demand. The full-screen gate is no longer
+    // shown on load — guests get a dismissible reminder instead.
+    hideAuthGate();
+    subscribeChallenges();
     var gBtn = document.getElementById('signInGoogleBtn');
     if (gBtn) gBtn.addEventListener('click', doGoogleSignIn);
     firebaseAuth.onAuthStateChanged(function(user){
@@ -4027,13 +4086,16 @@ button{font-family:inherit}
         if (!p.avatar && user.photoURL){ p.avatar = user.photoURL; dirty = true; }
         if (dirty) saveProfile(p);
         hideAuthGate();
+        hideSignInReminder();
         renderUserChip();
         // Subscribe to the cross-user Firestore challenge feed.
         // Re-renders board live whenever any user posts/accepts/bails.
         subscribeChallenges();
       } else {
-        showAuthGate();
+        hideAuthGate();
         renderUserChip();
+        // Gentle, dismissible nudge — they can look first, sign in to act.
+        showSignInReminder();
       }
     });
   } else {

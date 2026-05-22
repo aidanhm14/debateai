@@ -189,7 +189,11 @@ service cloud.firestore {
     // the same URL. Tighten to participant-only writes once we wire
     // the server-side challenge accept flow.
     match /live_rounds/{roomId} {
-      allow read:   if isSignedIn();
+      // Public read: anyone (signed in or not) can watch a round and
+      // read its ballot/RFD. Round docs hold motion, speeches, and the
+      // AI ballot — no PII (emails live in live_challenge_contacts).
+      // Writes still require sign-in (and participant checks below).
+      allow read:   if true;
       allow create: if isSignedIn()
                     && stringUnder('motion', 4096);
 
@@ -266,7 +270,11 @@ service cloud.firestore {
     // (so the board lists challenges across users). Only the poster
     // can delete their own challenge.
     match /live_challenges/{challengeId} {
-      allow read:   if isSignedIn();
+      // Public read: the board + archive of past rounds are viewable by
+      // anyone, signed in or not. Challenge docs hold no PII (poster
+      // email moved to live_challenge_contacts). Posting/accepting are
+      // writes and still require sign-in.
+      allow read:   if true;
       allow create: if isSignedIn()
                     && request.resource.data.posterUid == request.auth.uid
                     && stringUnder('motion', 1024);
