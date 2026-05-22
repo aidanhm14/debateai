@@ -98,7 +98,8 @@
     // to Community below, so a separate Rounds entry would just point
     // to the same surface twice.
     { href: '/live',          label: 'Live', live: true },
-    { href: '/champions',     label: 'Champions'    },
+    // 2026-05-22: /champions removed from the topbar nav per user ask.
+    // The page stays live + crawlable; just not surfaced in the bar.
     { href: '/community',     label: 'Community'    },
     { href: '/leaderboard',   label: 'Leaderboard'  },
     { href: '/#faq',          label: 'FAQ'          },
