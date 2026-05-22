@@ -8085,13 +8085,19 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // hatch, and a collapsible 3-step flow. Reuses the same underlying
   // state setters + handlers as the advanced form, so a round
   // started here is identical to one configured in advanced mode.
-  !isCounterExt && setupMode === 'simple' && simpleSetupTree,
-  !isCounterExt && setupMode === 'simple' && simpleSetupModals,
+  // typeof guards: the simple trees are forward-declared vars assigned
+  // just above the setup return. The bare references are crash-proofed
+  // with typeof so no build/cache/timing edge can ever surface a
+  // "simpleSetupTree is not defined" ReferenceError to the error
+  // boundary; if the tree is somehow absent, the advanced gate below
+  // fires instead and the proven dense UI renders.
+  !isCounterExt && setupMode === 'simple' && (typeof simpleSetupTree !== 'undefined') && simpleSetupTree && simpleSetupTree,
+  !isCounterExt && setupMode === 'simple' && (typeof simpleSetupModals !== 'undefined') && simpleSetupModals && simpleSetupModals,
   // ── Advanced control panel (the original dense page) ──────────
   // Preserved verbatim behind the advanced gate. Counter/viva mode
   // always uses this tree (it has its own specialized onboarding and
   // never wants the debate-flavored simple onramp).
-  (setupMode === 'advanced' || isCounterExt) && el(React.Fragment, null,
+  (isCounterExt || setupMode !== 'simple' || typeof simpleSetupTree === 'undefined' || !simpleSetupTree) && el(React.Fragment, null,
   // Back-to-simple escape hatch. Hidden in Counter mode (no simple
   // equivalent). Sticks the choice so the user stays in whichever
   // mode they last picked.
