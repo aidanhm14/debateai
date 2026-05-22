@@ -5372,6 +5372,65 @@ function App() {
   // (the genPatterns analyzer). One landing screen for everything historical.
   var [setupTab, setSetupTab] = useState('setup');
 
+  // ── Setup density mode ─────────────────────────────────────────
+  // 'simple' = the guided 3-step onramp (default for first-timers).
+  // 'advanced' = the full dense control panel (competitive debaters).
+  // An explicit user choice ('da-setup-mode') sticks across visits so a
+  // power user who opened advanced once lands there next time. Absent a
+  // choice, new visitors are bucketed 50/50 into a GA4-tagged A/B
+  // ('da-setup-ab') so we can measure round-start lift from the simpler
+  // default vs the current page. The bucket is the experiment arm; the
+  // sticky choice overrides it for returning power users.
+  var [setupMode, setSetupMode] = useState(() => {
+    try {
+      var choice = localStorage.getItem('da-setup-mode');
+      if (choice === 'simple' || choice === 'advanced') return choice;
+      var ab = localStorage.getItem('da-setup-ab');
+      if (ab !== 'simple' && ab !== 'advanced') {
+        ab = Math.random() < 0.5 ? 'simple' : 'advanced';
+        localStorage.setItem('da-setup-ab', ab);
+      }
+      return ab;
+    } catch (e) { return 'simple'; }
+  });
+  var [showCustomize, setShowCustomize] = useState(false);
+  var [simpleModal, setSimpleModal] = useState(null); // 'format' | 'judge' | 'language'
+  var [simpleBgOpen, setSimpleBgOpen] = useState(false);
+  // Simple-mode Start: if the user never typed a motion, fall back to
+  // the Debate of the Week (or a random motion) before firing. Setting
+  // motion then calling startDebate in the same tick won't see the new
+  // value, so we stage a pending flag and let the effect fire once the
+  // state has committed (same pattern as quickStart).
+  var [simpleStartPending, setSimpleStartPending] = useState(false);
+  useEffect(() => {
+    if (simpleStartPending && motion.trim()) {
+      setSimpleStartPending(false);
+      startDebate();
+    }
+  }, [simpleStartPending, motion]);
+  var goAdvanced = () => {
+    setSetupMode('advanced');
+    try { localStorage.setItem('da-setup-mode', 'advanced'); } catch (e) {}
+    try { window.gtag && gtag('event', 'setup_mode_switch', { to: 'advanced' }); } catch (e) {}
+    try { if (typeof window.track === 'function') window.track('setup_mode_switch', { to: 'advanced' }); } catch (e) {}
+  };
+  var goSimple = () => {
+    setSetupMode('simple');
+    try { localStorage.setItem('da-setup-mode', 'simple'); } catch (e) {}
+    try { window.gtag && gtag('event', 'setup_mode_switch', { to: 'simple' }); } catch (e) {}
+    try { if (typeof window.track === 'function') window.track('setup_mode_switch', { to: 'simple' }); } catch (e) {}
+  };
+  // Fire the A/B impression once per mount so GA4 can attribute the
+  // round-start funnel to the arm the visitor actually saw.
+  useEffect(() => {
+    try {
+      var ab = localStorage.getItem('da-setup-ab') || setupMode;
+      var choice = localStorage.getItem('da-setup-mode') || '';
+      window.gtag && gtag('event', 'setup_mode_impression', { variant: setupMode, ab_bucket: ab, sticky_choice: choice });
+      if (typeof window.track === 'function') window.track('setup_mode_impression', { variant: setupMode, ab_bucket: ab });
+    } catch (e) {}
+  }, []);
+
   // Inline brain-lock popover. Clicking GPT/Grok/Gemini on free tier used
   // to hard-navigate to /#pricing; users lost their setup context. Now we
   // surface a small popover near the brain row instead, same upgrade CTA
@@ -7818,6 +7877,182 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
   );
 
+  // ── Simple Mode render trees ──────────────────────────────────
+  // Defined just before the setup return so every state value +
+  // handler they close over is already initialized. Only consumed by
+  // the setup return below (gated on setupMode === 'simple'); for
+  // other phases the earlier returns fire and these go unused.
+  var SIMPLE_PARLI_KEYS = ['asian', 'worlds', 'bp', 'apda'];
+  var simpleFmtLabel = format === 'quick' ? 'Quick Clash' :
+    format === 'viva' ? 'Oral Exam (Viva)' :
+    (FORMATS[format] || {}).name || 'Custom';
+  var simpleCardStyle = (on) => ({
+    textAlign: 'left', padding: '15px 16px', borderRadius: 16, cursor: 'pointer',
+    fontFamily: 'inherit', color: 'var(--c-text)',
+    background: on ? 'rgba(239,68,68,.06)' : 'var(--c-surface)',
+    border: '1px solid ' + (on ? 'rgba(239,68,68,.5)' : 'var(--c-border2)'),
+    transition: 'border-color .15s, background .15s',
+    display: 'flex', flexDirection: 'column', gap: 6, minHeight: 92
+  });
+  var simpleModalPill = (on) => ({
+    padding: '9px 16px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
+    fontSize: '.82rem', fontWeight: on ? 700 : 500,
+    background: on ? 'rgba(239,68,68,.10)' : 'var(--c-surface3)',
+    border: '1px solid ' + (on ? 'rgba(239,68,68,.5)' : 'var(--c-border3)'),
+    color: on ? '#ef4444' : 'var(--c-text)'
+  });
+  var simplePracticeCards = [
+    { icon: '⚡', title: 'Quick Clash', desc: 'Pro vs. Con. Two short speeches each. No jargon.', on: format === 'quick', go: () => chooseFormat('quick') },
+    { icon: '🏛', title: 'Parliamentary Debate', desc: 'Asian Parli, WSDC, BP, APDA. Gov vs. Opp.', on: SIMPLE_PARLI_KEYS.indexOf(format) !== -1, go: () => chooseFormat('asian') },
+    { icon: '🎤', title: 'Public Speaking / Oral Exam', desc: 'Defend a thesis out loud. An examiner probes you.', on: format === 'viva', go: () => chooseFormat('viva') },
+    { icon: '✎', title: 'Custom Topic', desc: 'Any format, any motion. Pick exactly what you want.', on: format !== 'quick' && format !== 'viva' && SIMPLE_PARLI_KEYS.indexOf(format) === -1, go: () => setSimpleModal('format') }
+  ];
+  var simpleJudgeCards = [
+    { key: 'hs_coach', icon: '🧑‍🏫', title: 'Friendly Coach', desc: 'Encouraging. Former debater. Meets you in the middle.' },
+    { key: 'flow', icon: '⚖', title: 'Tough Judge', desc: 'Votes on the flow. Every dropped argument is fatal.' },
+    { key: 'apda_alum', icon: '🎓', title: 'Competitive Debater', desc: 'College parli voice. Rewards creative framing.' }
+  ];
+  var simpleStepHead = (n, label) => el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 } },
+    el('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', background: 'rgba(239,68,68,.10)', border: '1px solid rgba(239,68,68,.32)', color: '#ef4444', fontSize: '.78rem', fontWeight: 800, flexShrink: 0 } }, String(n)),
+    el('span', { style: { fontSize: '.96rem', fontWeight: 700, color: 'var(--c-bright)' } }, label)
+  );
+  var simpleStart = () => {
+    if (motion.trim()) { startDebate(); return; }
+    var m = (debateOfWeek && debateOfWeek.motion) || randomMotionFor(format);
+    setMotion(m);
+    setSimpleStartPending(true);
+  };
+  var simpleSetupTree = el('div', { style: { maxWidth: 720, width: '100%', margin: '0 auto' } },
+    el('div', { style: { textAlign: 'center', marginTop: 6, marginBottom: 22 } },
+      el('h2', { style: { fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--c-bright)', lineHeight: 1.2, margin: 0 } }, 'Start a debate in under 30 seconds.'),
+      el('p', { style: { fontSize: '.95rem', color: 'var(--c-text)', lineHeight: 1.5, margin: '8px auto 0', maxWidth: 460 } }, 'Pick a topic, choose your side, and spar with an AI opponent.')
+    ),
+    el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+      el('button', { className: 'cta', style: { marginTop: 0, padding: '13px 30px', fontSize: '.92rem', display: 'inline-flex', alignItems: 'center', gap: 8 }, onClick: quickStart },
+        el('span', { 'aria-hidden': true }, '⚡'), 'Quick Clash'
+      ),
+      el('button', { className: 'cta-ghost', style: { marginTop: 0, padding: '13px 24px', fontSize: '.86rem' }, onClick: () => setShowCustomize(!showCustomize) },
+        showCustomize ? 'Hide setup' : 'Customize round'
+      )
+    ),
+    el('div', { style: { textAlign: 'center', marginTop: 10, fontSize: '.72rem', color: 'var(--c-dim)', lineHeight: 1.45, maxWidth: 460, margin: '10px auto 0' } }, 'Quick Clash uses an easy opponent, English, and a balanced judge. Customize to change any of it.'),
+    el('div', { style: { textAlign: 'center', marginTop: 16 } },
+      el('button', { onClick: goAdvanced, style: { background: 'none', border: 'none', color: 'var(--c-subtle)', fontFamily: 'inherit', fontSize: '.74rem', cursor: 'pointer', textDecoration: 'underline', letterSpacing: '.02em' } }, 'Competitive debaters: advanced options →')
+    ),
+    showCustomize && el('div', { style: { marginTop: 26, textAlign: 'left', animation: 'fadeIn .25s ease' } },
+      el('div', { style: { marginBottom: 26 } },
+        simpleStepHead(1, 'What do you want to practice?'),
+        el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 } },
+          simplePracticeCards.map((c, i) => el('button', { key: i, onClick: c.go, style: simpleCardStyle(c.on) },
+            el('div', { style: { fontSize: '1.3rem', lineHeight: 1 }, 'aria-hidden': true }, c.icon),
+            el('div', { style: { fontSize: '.92rem', fontWeight: 700, color: 'var(--c-bright)' } }, c.title),
+            el('div', { style: { fontSize: '.74rem', color: 'var(--c-dim)', lineHeight: 1.4 } }, c.desc)
+          ))
+        ),
+        el('div', { style: { marginTop: 10, fontSize: '.76rem', color: 'var(--c-text)' } },
+          'Format: ', el('strong', { style: { color: 'var(--c-bright)' } }, simpleFmtLabel), '   ',
+          el('button', { onClick: () => setSimpleModal('format'), style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'Change format')
+        )
+      ),
+      el('div', { style: { marginBottom: 26 } },
+        simpleStepHead(2, 'Choose a topic'),
+        debateOfWeek && el('button', {
+          onClick: () => { setMotion(debateOfWeek.motion); if (debateOfWeek.format && FORMATS[debateOfWeek.format]) { try { chooseFormat(debateOfWeek.format); } catch (e) {} } },
+          style: { textAlign: 'left', width: '100%', cursor: 'pointer', fontFamily: 'inherit', padding: '13px 15px', borderRadius: 14, background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.28)', marginBottom: 10, color: 'var(--c-text)' }
+        },
+          el('div', { style: { fontSize: '.56rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#ef4444', marginBottom: 6 } }, '🗓 Debate of the week · tap to use'),
+          el('div', { style: { fontSize: '.86rem', fontWeight: 600, color: 'var(--c-bright)', lineHeight: 1.4 } }, debateOfWeek.motion)
+        ),
+        el('span', { className: 'voice-input-host', style: { position: 'relative', display: 'block', width: '100%' } },
+          el('textarea', { className: 'float-input', rows: 2, placeholder: 'Type a motion or topic…  e.g. "Social media does more harm than good."', value: motion, onChange: (e) => setMotion(e.target.value), style: { maxWidth: '100%', width: '100%' } })
+        ),
+        el('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 } },
+          el('button', { className: 'cta-ghost', style: { marginTop: 0 }, onClick: () => setMotion(randomMotionFor(format)) }, '🎲 Random motion'),
+          el('button', { className: 'cta-ghost', style: { marginTop: 0 }, onClick: () => setSimpleBgOpen(!simpleBgOpen) }, (simpleBgOpen ? '▾ ' : '▸ ') + 'Add background / context')
+        ),
+        simpleBgOpen && el('div', { style: { marginTop: 10 } },
+          el('span', { className: 'voice-input-host', style: { position: 'relative', display: 'block', width: '100%' } },
+            el('textarea', { className: 'float-input', 'data-bg-field': true, rows: 2, placeholder: 'Optional. Country, actor, constraints, time period — or click Generate background.', value: background, onChange: (e) => setBackground(e.target.value), style: { maxWidth: '100%', width: '100%', minHeight: 54, fontSize: '.86rem' } })
+          ),
+          el('button', { className: 'cta-ghost', disabled: !motion.trim(), style: { marginTop: 8 }, onClick: () => { if (!motion.trim()) return; try { bgRequestedFor.current = ''; } catch (e) {} setBackground(''); setGeneratedBackground(''); ensureBackground(motion); } }, 'Generate background'),
+          !background && generatedBackground && el('div', { style: { marginTop: 8, padding: '10px 14px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)', borderRadius: 10, fontSize: '.78rem', color: 'var(--c-text3)', lineHeight: 1.5 } }, stripPlainMd(generatedBackground))
+        )
+      ),
+      el('div', { style: { marginBottom: 22 } },
+        simpleStepHead(3, 'Choose your judge'),
+        el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 } },
+          simpleJudgeCards.map((j) => {
+            var on = judgeParadigm === j.key && !customParadigm.trim();
+            return el('button', { key: j.key, onClick: () => { saveJudgeParadigm(j.key); saveCustomParadigm(''); }, style: simpleCardStyle(on) },
+              el('div', { style: { fontSize: '1.2rem', lineHeight: 1 }, 'aria-hidden': true }, j.icon),
+              el('div', { style: { fontSize: '.88rem', fontWeight: 700, color: 'var(--c-bright)' } }, j.title),
+              el('div', { style: { fontSize: '.72rem', color: 'var(--c-dim)', lineHeight: 1.4 } }, j.desc)
+            );
+          })
+        ),
+        el('div', { style: { marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' } },
+          el('button', { onClick: () => setSimpleModal('judge'), style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'More judge styles'),
+          el('span', { style: { fontSize: '.74rem', color: 'var(--c-text)' } }, 'Language: ', el('strong', { style: { color: 'var(--c-bright)' } }, (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName)),
+          el('button', { onClick: () => setSimpleModal('language'), style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'Change language'),
+          customParadigm.trim() && el('span', { style: { fontSize: '.7rem', color: '#fca5a5', fontWeight: 600 } }, '· custom judge paradigm active')
+        )
+      ),
+      el('button', { className: 'cta cta-setup-sticky', style: { width: '100%' }, onClick: simpleStart }, 'Start round'),
+      !motion.trim() && el('div', { style: { textAlign: 'center', marginTop: 8, fontSize: '.72rem', color: 'var(--c-dim)' } }, 'No topic yet? Start uses the Debate of the Week or a random motion.')
+    )
+  );
+  var simpleModalShell = (title, bodyChildren) => el('div', {
+    style: { position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6vh 16px 24px', overflowY: 'auto' },
+    onClick: () => setSimpleModal(null)
+  },
+    el('div', {
+      onClick: (e) => e.stopPropagation(),
+      style: { background: 'var(--bg)', border: '1px solid var(--c-border2)', borderRadius: 18, padding: '22px 22px 24px', maxWidth: 560, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }
+    },
+      el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } },
+        el('div', { style: { fontSize: '1.05rem', fontWeight: 800, color: 'var(--c-bright)' } }, title),
+        el('button', { onClick: () => setSimpleModal(null), 'aria-label': 'Close', style: { background: 'none', border: 'none', color: 'var(--c-dim)', fontSize: '1.4rem', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 } }, '×')
+      ),
+      bodyChildren
+    )
+  );
+  var simpleSetupModals = el(React.Fragment, null,
+    simpleModal === 'format' && simpleModalShell('Choose a format',
+      el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } },
+        ['quick', 'asian', 'worlds', 'bp', 'apda', 'ld', 'pf', 'policy', 'congress', 'viva', 'mun'].filter((k) => FORMATS[k]).map((k) => {
+          var v = FORMATS[k]; var on = format === k;
+          return el('button', { key: k, onClick: () => { chooseFormat(k); setSimpleModal(null); }, title: v.desc, style: simpleModalPill(on) }, v.name);
+        })
+      )
+    ),
+    simpleModal === 'judge' && simpleModalShell('Judge style',
+      el('div', null,
+        el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 } },
+          Object.entries(JUDGE_PARADIGMS).map(([k, v]) => {
+            var on = judgeParadigm === k && !customParadigm.trim();
+            return el('button', { key: k, onClick: () => { saveJudgeParadigm(k); saveCustomParadigm(''); setSimpleModal(null); }, title: v.short, style: simpleModalPill(on) }, v.label);
+          })
+        ),
+        el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-muted)', marginBottom: 8 } }, "Or paste a specific judge's paradigm"),
+        el('textarea', { value: customParadigm, onChange: (e) => saveCustomParadigm(e.target.value), rows: 4, placeholder: 'Paste a Tabroom paradigm, judge bio, or coach notes. Overrides the preset above for both the AI opponent and the ballot.', style: { width: '100%', padding: '12px 14px', background: 'var(--c-surface3)', border: '1px solid ' + (customParadigm.trim() ? 'rgba(239,68,68,.4)' : 'var(--c-border3)'), borderRadius: 10, color: 'var(--c-text)', fontSize: '.82rem', fontFamily: 'inherit', lineHeight: 1.55, resize: 'vertical', outline: 'none' } }),
+        el('div', { style: { marginTop: 12, textAlign: 'right' } },
+          el('button', { onClick: () => setSimpleModal(null), className: 'cta', style: { marginTop: 0, padding: '8px 20px', fontSize: '.82rem' } }, 'Done')
+        )
+      )
+    ),
+    simpleModal === 'language' && simpleModalShell('AI speaking language',
+      el('div', null,
+        el('p', { style: { fontSize: '.78rem', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 14 } }, 'The AI writes and speaks in this language. Voice timbre stays the same; only the language of delivery changes.'),
+        el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } },
+          Object.values(LANGUAGES).map((L) => {
+            var on = aiLanguage === L.code;
+            return el('button', { key: L.code, onClick: () => { setAiLanguage(L.code); setSimpleModal(null); }, title: L.nativeName, style: simpleModalPill(on) }, L.label);
+          })
+        )
+      )
+    )
+  );
+
   if (phase === 'setup') return el('div', { className: 'page' },
   shortcutsOverlay,
   accountOverlay,
@@ -7833,7 +8068,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   isCounterExt ?
   el('h1', { className: 't-hero' }, el('em', null, 'Counter'), ' · Viva') :
   el('h1', { className: 't-hero' }, el('em', null, 'Debate'), ' AI'),
-  el('p', { className: 't-sub' },
+  // Simple mode supplies its own headline + subheadline below, so the
+  // generic t-sub is suppressed there to avoid a double-tagline.
+  !(setupMode === 'simple' && !isCounterExt) && el('p', { className: 't-sub' },
   isCounterExt ?
   'Type your thesis or paste a passage. The examiner will probe it.' :
   'Choose your format, opponent, and go.'),
@@ -7841,6 +8078,30 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // card, "how I think as a debater" analysis). Counter mode has
   // no equivalent yet, so the tab strip is dead chrome here.
   !isCounterExt && setupTabBar,
+  // ── Simple Mode + its modals ──────────────────────────────────
+  // The guided onramp. Rendered instead of the dense control panel
+  // when setupMode === 'simple'. Self-contained: headline, two CTAs
+  // (Quick Clash + Customize round), an advanced-options escape
+  // hatch, and a collapsible 3-step flow. Reuses the same underlying
+  // state setters + handlers as the advanced form, so a round
+  // started here is identical to one configured in advanced mode.
+  !isCounterExt && setupMode === 'simple' && simpleSetupTree,
+  !isCounterExt && setupMode === 'simple' && simpleSetupModals,
+  // ── Advanced control panel (the original dense page) ──────────
+  // Preserved verbatim behind the advanced gate. Counter/viva mode
+  // always uses this tree (it has its own specialized onboarding and
+  // never wants the debate-flavored simple onramp).
+  (setupMode === 'advanced' || isCounterExt) && el(React.Fragment, null,
+  // Back-to-simple escape hatch. Hidden in Counter mode (no simple
+  // equivalent). Sticks the choice so the user stays in whichever
+  // mode they last picked.
+  !isCounterExt && el('div', { style: { textAlign: 'center', marginBottom: 4 } },
+  el('button', {
+    onClick: goSimple,
+    className: 'transcript-btn',
+    style: { fontSize: '.68rem', letterSpacing: '.06em', textTransform: 'uppercase' }
+  }, '← Back to simple setup')
+  ),
   // Use-case picker — the non-debater onramp. Replaces the old
   // generic "30 seconds to your first speech" welcome card.
   //
@@ -9045,6 +9306,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ),
   savedCases.length > 0 && el('button', { className: 'cta-ghost', onClick: () => setShowCases(true) },
   'Saved Cases (' + savedCases.length + ')'
+  )
   )
   )
   ),
