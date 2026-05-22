@@ -18,6 +18,7 @@
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 // 2026-05-19: MAX_DOCS cut 30K → 5K. Power-users is rank-based; the
 // top 15-20 users by engagement are reliably surfaced from a 5K event
@@ -52,6 +53,9 @@ export default async (request) => {
       .limit(MAX_DOCS)
       .get();
 
+    // Drop the founder's own usage so the leaderboard is real users.
+    const excludeUids = await getExcludedUids(db);
+
     // uid → aggregate
     const acc = new Map();
     let totalScored = 0;
@@ -61,6 +65,7 @@ export default async (request) => {
       const data = d.data();
       const uid = data.uid;
       if (!uid) continue;
+      if (excludeUids.has(uid)) continue;
       const t = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0;
       const meta = data.metadata || {};
       const ev = data.event;

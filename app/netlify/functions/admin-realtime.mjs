@@ -13,6 +13,7 @@
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCached, setCached, TTL_TAIL } from './lib/admin-cache.mjs';
+import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 const MAX_TAIL = 80;
 const MAX_DOCS = 1200;
@@ -47,6 +48,9 @@ export default async (request) => {
       .limit(MAX_DOCS)
       .get();
 
+    // Drop the founder's own usage so "right now" reflects real users.
+    const excludeUids = await getExcludedUids(db);
+
     const now = Date.now();
     const FIVE_MIN = 5 * 60 * 1000;
     const THIRTY_MIN = 30 * 60 * 1000;
@@ -60,6 +64,7 @@ export default async (request) => {
     const raw = [];
     for (const d of snap.docs) {
       const data = d.data();
+      if (data.uid && excludeUids.has(data.uid)) continue;
       const ts = data.createdAt && data.createdAt.toMillis
         ? data.createdAt.toMillis()
         : (data.createdAt && data.createdAt.seconds ? data.createdAt.seconds * 1000 : 0);
