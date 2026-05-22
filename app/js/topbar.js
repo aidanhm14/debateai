@@ -84,13 +84,15 @@
   // long-tail guides + 4 education primers). It's now one of the
   // strongest SEO surfaces on the site and needs first-class
   // navigation, not footer-only access. Positioned between Prep
-  // (where users build cases) and Today (the daily motion) so it
-  // reads as the natural "before you compete, learn" entry point.
+  // (where users build cases) and Live so it reads as the natural
+  // "before you compete, learn" entry point.
+  // 2026-05-22: /today removed from the topbar nav. The daily-motion
+  // pages stay live + crawlable for SEO, but the weekly motion in /app
+  // (the "Debate of the week" card) is the front-and-center surface now.
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
     { href: '/app#case',      label: 'Prep'         },
     { href: '/learn',         label: 'Learn'        },
-    { href: '/today',         label: 'Today'        },
     // 2026-05-18: /rounds standalone listing retired — the published-
     // rounds tab now lives inside /community. The topbar already links
     // to Community below, so a separate Rounds entry would just point
