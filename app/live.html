@@ -328,6 +328,20 @@ button{font-family:inherit}
   border-radius:var(--radius-md);
   color:var(--text-dim);font-size:.88rem;line-height:1.55;
 }
+.seed-banner{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 14px;margin-bottom:12px;
+  background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.22);
+  border-radius:var(--radius-md);
+}
+.seed-banner[hidden]{display:none}
+.seed-banner-tag{
+  flex-shrink:0;font-size:.56rem;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;color:#ef4444;
+  background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);
+  padding:3px 8px;border-radius:999px;
+}
+.seed-banner-text{font-size:.76rem;color:var(--text-dim);line-height:1.45}
 
 /* ─── Post form ────────────────────────────────────── */
 .aside{
@@ -1282,6 +1296,16 @@ button{font-family:inherit}
         <button class="filter-chip" data-filter="needs-j" type="button"><span class="chip-dot" style="background:#93c5fd"></span>Needs judge <span class="chip-count" hidden data-count="needs-j">0</span></button>
         <button class="filter-chip" data-filter="has-viewers" type="button"><span class="chip-dot" style="background:#c4b5fd"></span>Has viewers <span class="chip-count" hidden data-count="has-viewers">0</span></button>
         <button class="filter-chip" data-filter="archived" type="button">Archived <span class="chip-count" hidden data-count="archived">0</span></button>
+      </div>
+
+      <!-- Honest demo label. The board seeds AI-generated example
+           debates on first visit so a newcomer (or an investor) sees an
+           active-looking room instead of an empty one. We say so plainly:
+           it's a preview of what the community looks like once it fills,
+           and a real posted challenge replaces the samples at the top. -->
+      <div id="seedBanner" class="seed-banner" hidden>
+        <span class="seed-banner-tag">AI-generated preview</span>
+        <span class="seed-banner-text">These rounds are examples of what an active board looks like. Post a real challenge and yours leads the board.</span>
       </div>
 
       <div id="cards" class="cards">
@@ -2957,6 +2981,15 @@ button{font-family:inherit}
     updateFilterCounts(list);
     updateTabBadges(fullList);
 
+    // Show the "AI-generated preview" banner whenever the board is still
+    // running on seeded example debates (no real challenge posted yet).
+    // Honest social proof: it reads as an active room but never pretends
+    // the sample rounds are real user activity.
+    try {
+      var seedBanner = document.getElementById('seedBanner');
+      if (seedBanner) seedBanner.hidden = !fullList.some(function(c){ return c && c.seed; });
+    } catch(e){}
+
     // Accept flow. Routes through the confirmation modal so the user
     // explicitly opts in + provides contact info before we mark the
     // challenge accepted. The Jitsi room URL is generated up-front so
@@ -3789,10 +3822,10 @@ button{font-family:inherit}
     var mine = tabSource('mine', fullList).length;
     var watch = tabSource('watch', fullList).length;
     var arch = tabSource('archive', fullList).length;
-    function setBadge(id, n){
+    function setBadge(id, n, always){
       var el = document.getElementById(id);
       if (!el) return;
-      if (n > 0){ el.textContent = n; el.hidden = false; }
+      if (n > 0 || always){ el.textContent = n; el.hidden = false; }
       else { el.hidden = true; }
     }
     setBadge('tabBadgeBrowse', fullList.filter(function(c){
@@ -3801,7 +3834,9 @@ button{font-family:inherit}
     }).length);
     setBadge('tabBadgeMine', mine);
     setBadge('tabBadgeWatch', watch);
-    setBadge('tabBadgeArchive', arch);
+    // Archive count is always shown — even at 0 — so the board always
+    // surfaces how many rounds have been completed/archived on load.
+    setBadge('tabBadgeArchive', arch, true);
   }
 
   // ── Join / Viewer / Judge actions.
