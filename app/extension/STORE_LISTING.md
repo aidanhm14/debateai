@@ -114,7 +114,7 @@ voice round and six-brain panel; the chrome extension is a focused
 entry point for the writing-defense audience — students, essayists,
 case-builders, and anyone whose draft has to survive a sharp reader.
 
-Built by a national APDA debate champion. A sparring partner that
+Built by an APDA Pro-Ams debate champion. A sparring partner that
 asks the questions your reader will actually ask.
 ```
 
