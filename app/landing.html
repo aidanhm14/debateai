@@ -4491,6 +4491,39 @@ section.ui-section .ui-lede{
 
 <!-- Vertical side-nav: secondary links pulled out of the top bar so the logo can breathe. -->
 
+<!-- ── Audience tabs ──────────────────────────────────────────────
+     Two-room top-level split surfaced for investors + first-time
+     visitors: "Competition prep" (the debater wedge, default) and
+     "Professional usages" (the same engine for lawyers, sales,
+     founders, students, speakers, teams — soul.md §2 secondary
+     audiences). Comp is default; clicking Pro reveals the Pro panel
+     below the hero and scrolls to it. Tab choice is sticky in
+     localStorage so a returning pro visitor lands back in their
+     room. Hero stays universal (the headline is true for both).
+     Fires audience_tab gtag for measurement. -->
+<style>
+  .aud-tabs{display:flex;justify-content:center;gap:8px;padding:18px 16px 0;position:relative;z-index:5}
+  .aud-tab{background:transparent;border:1px solid var(--border,rgba(255,255,255,.16));color:var(--text-dim,rgba(255,255,255,.66));padding:9px 18px;border-radius:999px;font-family:inherit;font-size:.78rem;font-weight:700;letter-spacing:.02em;cursor:pointer;transition:.15s}
+  .aud-tab:hover{border-color:rgba(239,68,68,.5);color:#fff}
+  .aud-tab.active{background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.55);color:#ef4444}
+  #proPanel{display:none;padding:48px 16px 56px;background:linear-gradient(180deg,transparent,rgba(239,68,68,.04))}
+  body.aud-pro #proPanel{display:block}
+  .pro-wrap{max-width:1080px;margin:0 auto}
+  .pro-eyebrow{font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ef4444;margin-bottom:10px}
+  .pro-title{font-family:Fraunces,Georgia,serif;font-size:2rem;font-weight:700;letter-spacing:-.02em;line-height:1.1;margin-bottom:8px}
+  .pro-sub{color:var(--text-dim,rgba(255,255,255,.66));font-size:1rem;line-height:1.55;max-width:580px;margin-bottom:28px}
+  .pro-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .pro-card{background:var(--bg-card,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.12));border-radius:16px;padding:18px 18px 16px;transition:.18s}
+  .pro-card:hover{border-color:rgba(239,68,68,.4);transform:translateY(-2px)}
+  .pro-card-tag{font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#ef4444;margin-bottom:10px}
+  .pro-card-title{font-size:1.05rem;font-weight:700;line-height:1.25;margin-bottom:6px}
+  .pro-card-body{font-size:.84rem;color:var(--text-dim,rgba(255,255,255,.66));line-height:1.5}
+</style>
+<nav class="aud-tabs" role="tablist" aria-label="What you're here for">
+  <button class="aud-tab active" data-aud="comp" type="button" role="tab" aria-selected="true">Competition prep</button>
+  <button class="aud-tab" data-aud="pro" type="button" role="tab" aria-selected="false">Professional usages</button>
+</nav>
+
 <!-- Hero -->
 <section class="hero">
   <div class="hero-bg"></div>
@@ -5623,6 +5656,80 @@ section.ui-section .ui-lede{
     </div><!-- /.legacy-hero-subtree -->
   </div>
 </section>
+
+<!-- Pro panel — hidden by default; revealed when the Professional
+     usages tab is active. Six rooms drawn from soul.md §2 secondary
+     audiences. Same engine across all of them: voice round, pushback,
+     timed delivery, AI judge / panel. Cards are deliberately not
+     CTAs — each one is "here is what your room looks like." -->
+<section id="proPanel" aria-label="Professional usages">
+  <div class="pro-wrap">
+    <div class="pro-eyebrow">Same engine. Different room.</div>
+    <h2 class="pro-title">Where pros use it.</h2>
+    <p class="pro-sub">If your job is winning an argument out loud, the drill is the same. Pick the room that matches the work.</p>
+    <div class="pro-grid">
+      <article class="pro-card">
+        <div class="pro-card-tag">Lawyers</div>
+        <div class="pro-card-title">Opening, closing, cross.</div>
+        <div class="pro-card-body">Run motion practice against an opposing counsel that pushes on the weak link until you stop hedging. Get a judge-voiced read on what landed.</div>
+      </article>
+      <article class="pro-card">
+        <div class="pro-card-tag">Sales</div>
+        <div class="pro-card-title">Objection drills.</div>
+        <div class="pro-card-body">A prospect that asks the hard question, not the polite one. Rehearse the demo, the pricing pushback, the "send me a deck" stall.</div>
+      </article>
+      <article class="pro-card">
+        <div class="pro-card-tag">Founders</div>
+        <div class="pro-card-title">Pitch + board prep.</div>
+        <div class="pro-card-body">A VC panel that actually probes the moat, the unit economics, the team risk. Practice the no, then the no after the no.</div>
+      </article>
+      <article class="pro-card">
+        <div class="pro-card-tag">Teams</div>
+        <div class="pro-card-title">Red-team + pre-mortem.</div>
+        <div class="pro-card-body">Argue the strategy memo against an AI opposition before the room does. Stakeholder rehearsal with the toughest questions surfaced first.</div>
+      </article>
+      <article class="pro-card">
+        <div class="pro-card-tag">Students</div>
+        <div class="pro-card-title">Interview + thesis defense.</div>
+        <div class="pro-card-body">Admissions, internships, oral exams, viva. Defend your reasoning out loud against an examiner that pushes until the timer ends.</div>
+      </article>
+      <article class="pro-card">
+        <div class="pro-card-tag">Speakers</div>
+        <div class="pro-card-title">Debate, panel, media.</div>
+        <div class="pro-card-body">TV hits, conference panels, public debates. Hostile interlocutor on demand. Get the cut-down, the soundbite, the recovery.</div>
+      </article>
+    </div>
+  </div>
+</section>
+<script>
+  // Audience-tab toggle. Default = comp. Sticky in localStorage so a
+  // returning pro visitor lands back in their room. Fires audience_tab
+  // gtag for measurement.
+  (function(){
+    var KEY='debateai-audience-tab';
+    function set(aud, scroll){
+      document.body.classList.toggle('aud-pro', aud==='pro');
+      document.body.classList.toggle('aud-comp', aud!=='pro');
+      Array.prototype.forEach.call(document.querySelectorAll('.aud-tab'), function(b){
+        var on = b.dataset.aud === aud;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on?'true':'false');
+      });
+      try{ localStorage.setItem(KEY, aud); }catch(e){}
+      try{ window.gtag && gtag('event','audience_tab',{tab:aud}); }catch(e){}
+      if(scroll && aud==='pro'){
+        var p = document.getElementById('proPanel');
+        if(p) p.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+    }
+    var initial='comp';
+    try{ var saved=localStorage.getItem(KEY); if(saved==='pro'||saved==='comp') initial=saved; }catch(e){}
+    set(initial, false);
+    Array.prototype.forEach.call(document.querySelectorAll('.aud-tab'), function(b){
+      b.addEventListener('click', function(){ set(b.dataset.aud, true); });
+    });
+  })();
+</script>
 
 <!-- 2026-05-19: Three-answer trust block removed (Why different · Try
      now · Trust). The "Used in 115 countries" stat in particular was a
