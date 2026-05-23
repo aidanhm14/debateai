@@ -37,34 +37,38 @@
   // Per-path config. First match wins. Generic fallback at the end.
   // Delay is biased longer on tool pages because the user is mid-
   // flow and doesn't want a prompt while they're typing or speaking.
+  // Stakes-driven copy. The vibe: signing in is when the AI starts
+  // becoming yours. Loss aversion on patterns the user actually
+  // built, not a generic "keep your rounds" pitch. Founder-voice
+  // first-person where it fits.
   var pageConfig = [
     { match: /^\/(landing|index)?($|\?)/,
       delay: 18,
-      msg: 'Sign up to keep your rounds. Style profile and ballot history follow your account.' },
+      msg: 'Sign in and the AI starts learning how you argue.' },
     { match: /^\/debate-ai/,
       delay: 60,
-      msg: 'Sign up to save this case and the judge ballot. Your style profile follows you across rounds.' },
+      msg: 'The AI is recognizing your patterns. Sign in to keep them.' },
     { match: /^\/voice-debate/,
       delay: 60,
-      msg: 'Sign up to keep your voice rounds and transcripts. They follow your account across devices.' },
+      msg: 'Sign in and the voice round becomes part of your style profile.' },
     { match: /^\/learn/,
       delay: 30,
-      msg: 'Sign up to track which formats you have practiced and what you still need to drill.' },
+      msg: "Sign in and I'll track which formats you've drilled, so the AI knows what to push you on." },
     { match: /^\/today/,
       delay: 25,
-      msg: "Sign up to bookmark today's motion and get notified when tomorrow's lands." },
+      msg: "Sign in to bookmark today's motion. Tomorrow's lands in your inbox-less feed, not your email." },
     { match: /^\/leaderboard/,
       delay: 25,
-      msg: 'Sign up to claim a leaderboard spot. Your rounds become rated.' },
+      msg: 'Sign in and your rounds become rated. The rank is real, not anonymous.' },
     { match: /^\/spar|\/live|\/community|\/rounds/,
       delay: 25,
-      msg: 'Sign up to join the community side. Post motions, accept matches, save published rounds.' },
+      msg: 'Sign in to join the side that argues back. Post motions, accept matches, get on the board.' },
     { match: /^\/pricing/,
       delay: 25,
-      msg: 'Sign up first — every paid plan attaches to a Google account.' },
+      msg: "Beta is free for everyone. Sign in to keep your rounds when pricing turns on." },
     { match: /.*/,
       delay: 25,
-      msg: 'Sign up to keep your rounds, ballots, and style profile across sessions.' },
+      msg: 'Sign in and the AI starts learning how you argue. Rounds, ballots, style profile follow you.' },
   ];
 
   function getConfig(){
@@ -164,8 +168,8 @@
     bar.setAttribute('role', 'dialog');
     bar.setAttribute('aria-label', 'Sign up to save your work');
     bar.innerHTML =
-      '<span class="su-line">' + cfg.msg.replace(/^(Sign up[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
-      '<button type="button" class="su-cta">' + googleSvg() + 'Sign up with Google</button>' +
+      '<span class="su-line">' + cfg.msg.replace(/^(Sign in[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
+      '<button type="button" class="su-cta">' + googleSvg() + 'Continue with Google</button>' +
       '<button type="button" class="su-close" aria-label="Dismiss">×</button>';
     document.body.appendChild(bar);
     requestAnimationFrame(function(){ bar.classList.add('is-in'); });
