@@ -1272,7 +1272,12 @@ body::before{
           // updated /api/visitor-tick. Falls back to count when count30d is
           // absent (old function deploy) so the page degrades gracefully.
           var display = (data && typeof data.count30d === 'number') ? data.count30d : count;
-          var next = fmt(Math.max(0, display));
+          // Never write a value below the data-baseline. If the function
+          // returns 0 (cold start, no docs in window, dev/local) the
+          // baseline stays — "about 0 people" is the wrong copy.
+          var baseline = parseInt(memCount.getAttribute('data-baseline'), 10) || 0;
+          if (!(typeof display === 'number') || display < baseline) display = baseline;
+          var next = fmt(display);
           if (next !== old){
             memCount.textContent = next;
             memCount.classList.remove('live');
