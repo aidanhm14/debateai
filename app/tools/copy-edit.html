@@ -283,15 +283,23 @@
           '[data-copyedit] { transition: outline-color 0.1s, background-color 0.1s; }\n' +
           '[data-copyedit]:hover { outline: 2px dashed #e23847 !important; outline-offset: 1px !important; cursor: text !important; }\n' +
           '[data-copyedit][contenteditable=true] { outline: 2px solid #e23847 !important; outline-offset: 1px !important; background: rgba(226,56,71,0.08) !important; box-shadow: 0 0 0 4px rgba(226,56,71,0.12) !important; }\n' +
-          '#__copyedit_toolbar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: #0f1422; color: #e8eaf0; border: 1px solid #2a3050; border-radius: 10px; padding: 8px 10px; z-index: 2147483647; box-shadow: 0 12px 32px rgba(0,0,0,0.5); display: none; gap: 6px; align-items: center; font: 12px/1.2 ui-sans-serif, system-ui, sans-serif; user-select: none; }\n' +
+          '[data-copyedit-group] { outline: 2px solid #4f8df8 !important; outline-offset: 2px !important; box-shadow: 0 0 0 4px rgba(79,141,248,0.12) !important; }\n' +
+          '#__copyedit_toolbar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: #0f1422; color: #e8eaf0; border: 1px solid #2a3050; border-radius: 10px; padding: 8px 10px; z-index: 2147483647; box-shadow: 0 12px 32px rgba(0,0,0,0.5); display: none; flex-direction: column; gap: 6px; font: 12px/1.2 ui-sans-serif, system-ui, sans-serif; user-select: none; max-width: calc(100vw - 24px); }\n' +
           '#__copyedit_toolbar.on { display: flex; }\n' +
-          '#__copyedit_toolbar .label { color: #8a92ad; padding: 0 6px 0 4px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
+          '#__copyedit_toolbar .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }\n' +
+          '#__copyedit_toolbar .label { color: #8a92ad; padding: 0 6px 0 4px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
           '#__copyedit_toolbar .sep { width: 1px; height: 18px; background: #2a3050; }\n' +
+          '#__copyedit_toolbar .mini { color: #8a92ad; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 0 2px 0 6px; }\n' +
           '#__copyedit_toolbar button { background: #1a1f33; color: #e8eaf0; border: 1px solid #2a3050; padding: 5px 9px; border-radius: 5px; font: inherit; cursor: pointer; min-width: 28px; }\n' +
           '#__copyedit_toolbar button:hover { background: #232842; }\n' +
           '#__copyedit_toolbar button.on { background: #e23847; border-color: #e23847; color: #fff; }\n' +
           '#__copyedit_toolbar .val { color: #c9cee1; min-width: 36px; text-align: center; }\n' +
-          '#__copyedit_toolbar input[type=color] { width: 28px; height: 28px; padding: 0; border: 1px solid #2a3050; background: transparent; border-radius: 5px; cursor: pointer; }\n';
+          '#__copyedit_toolbar input[type=color] { width: 28px; height: 28px; padding: 0; border: 1px solid #2a3050; background: transparent; border-radius: 5px; cursor: pointer; }\n' +
+          '#__copyedit_toolbar input[type=range] { width: 90px; accent-color: #e23847; }\n' +
+          '#__copyedit_toolbar select { background: #1a1f33; color: #e8eaf0; border: 1px solid #2a3050; padding: 4px 6px; border-radius: 5px; font: inherit; cursor: pointer; max-width: 130px; }\n' +
+          '#__copyedit_toolbar .crumb { display: flex; gap: 3px; align-items: center; }\n' +
+          '#__copyedit_toolbar .crumb-step { background: #1a1f33; color: #8a92ad; border: 1px solid #2a3050; padding: 3px 7px; border-radius: 4px; font-size: 10px; cursor: pointer; }\n' +
+          '#__copyedit_toolbar .crumb-step.on { background: #e23847; border-color: #e23847; color: #fff; }\n';
         doc.head.appendChild(s);
       }
       if (!doc.getElementById('__copyedit_toolbar')) injectToolbar(doc);
@@ -306,26 +314,80 @@
     const t = doc.createElement('div');
     t.id = '__copyedit_toolbar';
     t.innerHTML =
-      '<span class=label data-role=label>-</span>' +
-      '<span class=sep></span>' +
-      '<button data-action="size-down" title="Smaller">A−</button>' +
-      '<span class=val data-role=size>-</span>' +
-      '<button data-action="size-up" title="Larger">A+</button>' +
-      '<span class=sep></span>' +
-      '<button data-action="bold" title="Bold" data-role=bold style="font-weight:800">B</button>' +
-      '<span class=sep></span>' +
-      '<button data-action="align-left" title="Left" data-role=al>L</button>' +
-      '<button data-action="align-center" title="Center" data-role=ac>C</button>' +
-      '<button data-action="align-right" title="Right" data-role=ar>R</button>' +
-      '<span class=sep></span>' +
-      '<input type=color data-action="color" title="Text color">' +
-      '<span class=sep></span>' +
-      '<button data-action="reset" title="Reset all inline styles">Reset</button>';
+      // Row 1: text basics + breadcrumb of ancestors (smart group selection)
+      '<div class=row>' +
+        '<span class=label data-role=label>-</span>' +
+        '<span class=crumb data-role=crumb></span>' +
+        '<span class=sep></span>' +
+        '<button data-action="size-down" title="Smaller">A−</button>' +
+        '<span class=val data-role=size>-</span>' +
+        '<button data-action="size-up" title="Larger">A+</button>' +
+        '<span class=sep></span>' +
+        '<button data-action="bold" data-role=bold title="Bold" style="font-weight:800">B</button>' +
+        '<span class=sep></span>' +
+        '<button data-action="align-left" data-role=al title="Left">L</button>' +
+        '<button data-action="align-center" data-role=ac title="Center">C</button>' +
+        '<button data-action="align-right" data-role=ar title="Right">R</button>' +
+        '<span class=sep></span>' +
+        '<input type=color data-action="color" data-role=color title="Text color">' +
+        '<span class=sep></span>' +
+        '<button data-action="more" data-role=more title="More controls">More ▾</button>' +
+        '<button data-action="reset" title="Reset all inline styles on this element">Reset</button>' +
+      '</div>' +
+      // Row 2: composition — font family, padding, radius, opacity, rotate, BG
+      '<div class=row data-role=more-row style="display:none">' +
+        '<span class=mini>Font</span>' +
+        '<select data-action="font-family" data-role=font title="Font family">' +
+          '<option value="">Inherit</option>' +
+          '<option value="Inter, system-ui, -apple-system, sans-serif">Inter (sans)</option>' +
+          '<option value="Fraunces, Georgia, serif">Fraunces (serif)</option>' +
+          '<option value="Caveat, cursive">Caveat (handwritten)</option>' +
+          '<option value="Georgia, serif">Georgia</option>' +
+          '<option value="ui-monospace, SFMono-Regular, Menlo, monospace">Monospace</option>' +
+        '</select>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Tracking</span>' +
+        '<button data-action="ls-down" title="Tighter letter-spacing">−</button>' +
+        '<span class=val data-role=ls>0</span>' +
+        '<button data-action="ls-up" title="Looser letter-spacing">+</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Leading</span>' +
+        '<button data-action="lh-down" title="Tighter line-height">−</button>' +
+        '<span class=val data-role=lh>-</span>' +
+        '<button data-action="lh-up" title="Looser line-height">+</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Pad</span>' +
+        '<button data-action="pad-down" title="Less padding">−</button>' +
+        '<span class=val data-role=pad>-</span>' +
+        '<button data-action="pad-up" title="More padding">+</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Radius</span>' +
+        '<button data-action="radius-down" title="Less radius">−</button>' +
+        '<span class=val data-role=radius>-</span>' +
+        '<button data-action="radius-up" title="More radius">+</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Opacity</span>' +
+        '<input type=range min=10 max=100 step=5 data-action="opacity" data-role=opacity title="Opacity">' +
+        '<span class=sep></span>' +
+        '<span class=mini>Rotate</span>' +
+        '<input type=range min=-180 max=180 step=1 data-action="rotate" data-role=rotate title="Rotation (deg)">' +
+        '<span class=val data-role=rotate-val>0°</span>' +
+        '<button data-action="rotate-zero" title="Reset rotation">·</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Scale</span>' +
+        '<input type=range min=50 max=200 step=5 data-action="scale" data-role=scale title="Scale">' +
+        '<span class=val data-role=scale-val>100%</span>' +
+        '<span class=sep></span>' +
+        '<span class=mini>BG</span>' +
+        '<input type=color data-action="bg-color" data-role=bg title="Background color">' +
+        '<button data-action="bg-clear" title="Clear background">×</button>' +
+      '</div>';
     doc.body.appendChild(t);
 
     // Keep focus on the active element when buttons are clicked
     t.addEventListener('mousedown', e => {
-      if (e.target.tagName !== 'INPUT') e.preventDefault();
+      const tag = e.target.tagName;
+      if (tag !== 'INPUT' && tag !== 'SELECT') e.preventDefault();
     });
     t.addEventListener('click', e => {
       const btn = e.target.closest('[data-action]');
@@ -333,7 +395,29 @@
       const a = btn.dataset.action;
       handleAction(a, btn);
     });
-    const colorInput = t.querySelector('input[type=color]');
+    // Range / select inputs need 'input' handlers to update live
+    t.addEventListener('input', e => {
+      const el = e.target.closest('[data-action]');
+      if (!el || !active) return;
+      const a = el.dataset.action;
+      if (a === 'opacity' || a === 'rotate' || a === 'scale' || a === 'font-family' || a === 'color' || a === 'bg-color') {
+        handleAction(a, el);
+      }
+    });
+    // Crumb (breadcrumb of ancestors) — click to climb up the tree
+    t.querySelector('[data-role=crumb]').addEventListener('click', e => {
+      const step = e.target.closest('.crumb-step');
+      if (!step || !active) return;
+      const levels = parseInt(step.dataset.level || '0', 10);
+      let target = active;
+      for (let i = 0; i < levels; i++) {
+        if (target.parentElement) target = target.parentElement;
+      }
+      if (target && target !== active && target !== activeDoc.body) {
+        selectParent(target);
+      }
+    });
+    const colorInput = t.querySelector('input[data-role=color]');
     colorInput.addEventListener('focus', () => { toolbarPickingColor = true; });
     colorInput.addEventListener('blur', () => {
       toolbarPickingColor = false;
@@ -344,6 +428,47 @@
       active.style.color = colorInput.value;
       syncToolbar(active);
     });
+    const bgInput = t.querySelector('input[data-role=bg]');
+    bgInput.addEventListener('focus', () => { toolbarPickingColor = true; });
+    bgInput.addEventListener('blur', () => {
+      toolbarPickingColor = false;
+      if (active) setTimeout(() => { try { active.focus(); } catch {} }, 0);
+    });
+  }
+
+  // Promote the active element up the DOM to its parent — the "smart group"
+  // primitive. Lets the user act on the card/section that contains the text
+  // they clicked, not just the leaf text node. Triggered by the breadcrumb
+  // chips. Tags the new active with [data-copyedit-group] for the blue outline.
+  function selectParent(parentEl) {
+    if (!active || !activeDoc) return;
+    // Strip any prior group outlines
+    activeDoc.querySelectorAll('[data-copyedit-group]').forEach(n => n.removeAttribute('data-copyedit-group'));
+    // Move active up
+    try { active.removeAttribute('contenteditable'); } catch {}
+    active = parentEl;
+    activeOriginalStyleAttr = parentEl.getAttribute('style') || '';
+    activeOriginalText = parentEl.textContent;
+    parentEl.setAttribute('data-copyedit-group', 'true');
+    showToolbar(parentEl);
+  }
+
+  // Build the ancestor breadcrumb so the user can climb the DOM one level
+  // at a time to find the right "group" (card, section, whole hero).
+  function renderCrumb(el) {
+    if (!activeDoc) return '';
+    const out = [];
+    let n = el.parentElement;
+    let levels = 1;
+    while (n && n !== activeDoc.body && levels <= 5) {
+      const tag = n.tagName.toLowerCase();
+      const cls = (n.className && typeof n.className === 'string') ? n.className.split(/\s+/)[0] : '';
+      const label = cls ? '.' + cls.slice(0, 10) : tag;
+      out.push('<span class=crumb-step data-level="' + levels + '" title="Select ' + tag + (cls ? ' .' + cls : '') + '">↑ ' + label + '</span>');
+      n = n.parentElement;
+      levels++;
+    }
+    return out.join('');
   }
 
   function handleAction(a, btn) {
@@ -365,6 +490,56 @@
       active.style.textAlign = 'right';
     } else if (a === 'reset') {
       active.removeAttribute('style');
+    } else if (a === 'more') {
+      const row = activeDoc.getElementById('__copyedit_toolbar').querySelector('[data-role=more-row]');
+      const open = row.style.display === 'flex';
+      row.style.display = open ? 'none' : 'flex';
+      btn.textContent = open ? 'More ▾' : 'Less ▴';
+    } else if (a === 'font-family') {
+      active.style.fontFamily = btn.value || '';
+    } else if (a === 'ls-up' || a === 'ls-down') {
+      const cur = parseFloat(active.style.letterSpacing || cs.letterSpacing) || 0;
+      const step = a === 'ls-up' ? 0.02 : -0.02;
+      const next = Math.round((cur + step) * 100) / 100;
+      active.style.letterSpacing = next + 'em';
+    } else if (a === 'lh-up' || a === 'lh-down') {
+      const cur = parseFloat(active.style.lineHeight || cs.lineHeight) / parseFloat(cs.fontSize) || 1.4;
+      const step = a === 'lh-up' ? 0.1 : -0.1;
+      const next = Math.max(0.8, Math.min(3, Math.round((cur + step) * 10) / 10));
+      active.style.lineHeight = String(next);
+    } else if (a === 'pad-up' || a === 'pad-down') {
+      const cur = parseFloat(active.style.padding || cs.paddingTop) || 0;
+      const step = a === 'pad-up' ? +4 : -4;
+      const next = Math.max(0, Math.min(120, cur + step));
+      active.style.padding = next + 'px';
+    } else if (a === 'radius-up' || a === 'radius-down') {
+      const cur = parseFloat(active.style.borderRadius || cs.borderTopLeftRadius) || 0;
+      const step = a === 'radius-up' ? +4 : -4;
+      const next = Math.max(0, Math.min(999, cur + step));
+      active.style.borderRadius = next + 'px';
+    } else if (a === 'opacity') {
+      active.style.opacity = (parseInt(btn.value, 10) / 100).toString();
+    } else if (a === 'rotate' || a === 'scale') {
+      const tb = activeDoc.getElementById('__copyedit_toolbar');
+      const rotDeg = parseInt(tb.querySelector('[data-role=rotate]').value || '0', 10);
+      const sclPct = parseInt(tb.querySelector('[data-role=scale]').value || '100', 10);
+      // Preserve any existing translate() from drag; replace rotate/scale.
+      const cur = active.style.transform || '';
+      const translateMatch = cur.match(/translate\([^)]+\)/);
+      const parts = [];
+      if (translateMatch) parts.push(translateMatch[0]);
+      if (rotDeg !== 0) parts.push('rotate(' + rotDeg + 'deg)');
+      if (sclPct !== 100) parts.push('scale(' + (sclPct / 100) + ')');
+      active.style.transform = parts.join(' ');
+      active.style.transformOrigin = '50% 50%';
+    } else if (a === 'rotate-zero') {
+      const tb = activeDoc.getElementById('__copyedit_toolbar');
+      tb.querySelector('[data-role=rotate]').value = '0';
+      handleAction('rotate', tb.querySelector('[data-role=rotate]'));
+    } else if (a === 'bg-color') {
+      active.style.background = btn.value;
+    } else if (a === 'bg-clear') {
+      active.style.background = '';
     }
     syncToolbar(active);
   }
@@ -374,8 +549,11 @@
     const t = activeDoc.getElementById('__copyedit_toolbar');
     if (!t) return;
     const cs = activeDoc.defaultView.getComputedStyle(el);
-    const label = (el.tagName.toLowerCase()) + ' · "' + (el.textContent || '').trim().slice(0, 26).replace(/\s+/g, ' ') + '"';
+    const isGroup = el.hasAttribute('data-copyedit-group');
+    const tagPrefix = isGroup ? '⬚ ' : '';
+    const label = tagPrefix + (el.tagName.toLowerCase()) + ' · "' + (el.textContent || '').trim().slice(0, 26).replace(/\s+/g, ' ') + '"';
     t.querySelector('[data-role=label]').textContent = label;
+    t.querySelector('[data-role=crumb]').innerHTML = renderCrumb(el);
     t.querySelector('[data-role=size]').textContent = Math.round(parseFloat(cs.fontSize)) + 'px';
     const fw = parseInt(cs.fontWeight) || 400;
     t.querySelector('[data-role=bold]').classList.toggle('on', fw >= 600);
@@ -387,7 +565,42 @@
       const m = cs.color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
       if (m) {
         const hex = '#' + [m[1],m[2],m[3]].map(n => Number(n).toString(16).padStart(2,'0')).join('');
-        t.querySelector('input[type=color]').value = hex;
+        t.querySelector('input[data-role=color]').value = hex;
+      }
+    } catch {}
+    // ── Row 2 sync ──
+    const ls = parseFloat(cs.letterSpacing) || 0;
+    t.querySelector('[data-role=ls]').textContent = (Math.round(ls * 100) / 100) + 'em';
+    const lh = parseFloat(cs.lineHeight) / parseFloat(cs.fontSize) || 1.4;
+    t.querySelector('[data-role=lh]').textContent = (Math.round(lh * 10) / 10).toString();
+    t.querySelector('[data-role=pad]').textContent = Math.round(parseFloat(cs.paddingTop) || 0) + 'px';
+    t.querySelector('[data-role=radius]').textContent = Math.round(parseFloat(cs.borderTopLeftRadius) || 0) + 'px';
+    const op = Math.round((parseFloat(cs.opacity) || 1) * 100);
+    t.querySelector('[data-role=opacity]').value = String(op);
+    // Parse current transform for rotate + scale
+    const tf = el.style.transform || '';
+    const rotM = tf.match(/rotate\((-?\d+(?:\.\d+)?)deg\)/);
+    const sclM = tf.match(/scale\((-?\d+(?:\.\d+)?)\)/);
+    const rotDeg = rotM ? Math.round(parseFloat(rotM[1])) : 0;
+    const sclPct = sclM ? Math.round(parseFloat(sclM[1]) * 100) : 100;
+    t.querySelector('[data-role=rotate]').value = String(rotDeg);
+    t.querySelector('[data-role=rotate-val]').textContent = rotDeg + '°';
+    t.querySelector('[data-role=scale]').value = String(sclPct);
+    t.querySelector('[data-role=scale-val]').textContent = sclPct + '%';
+    // Font family — match against options or leave blank
+    const fontSel = t.querySelector('[data-role=font]');
+    const curFont = (el.style.fontFamily || '').trim();
+    let matched = false;
+    Array.from(fontSel.options).forEach(opt => {
+      if (opt.value === curFont) { fontSel.value = opt.value; matched = true; }
+    });
+    if (!matched) fontSel.value = '';
+    // BG color
+    try {
+      const bm = cs.backgroundColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (bm) {
+        const hex = '#' + [bm[1],bm[2],bm[3]].map(n => Number(n).toString(16).padStart(2,'0')).join('');
+        t.querySelector('input[data-role=bg]').value = hex;
       }
     } catch {}
   }
