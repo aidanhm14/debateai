@@ -109,7 +109,7 @@ function buildFingerprintEmail({ firstName, fingerprint }) {
     You are getting this because the AI just produced its first read of your style. We send this exactly once per signup, never again. Reply if you want to talk debate, the AI, or anything else.
   </p>
   <p style="font-size:.7rem;color:#8a8a94;margin:8px 0 0">
-    Debate AI · debateai.com · Built by an APDA national champion.
+    Debate AI · debateai.com · Built by a UChicago parliamentary debater.
   </p>
 </div>
 </body></html>`;
