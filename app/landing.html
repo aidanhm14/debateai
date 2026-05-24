@@ -354,6 +354,42 @@
   })();
 </script>
 
+<!-- Landing A/B (2026-05-24): scroll-linked hero-to-founder transition.
+     Variant B re-renders the seam between the hero and the founder
+     section as one continuous scene (left podium figure travels into the
+     founder essay, right podium fades, compact pricing comparison appears
+     above the essay). Variant A keeps the existing layout. Sticky 50/50
+     assignment in localStorage so each visitor stays in the same arm.
+     URL ?v=A or ?v=B forces an arm for local testing. -->
+<script>
+  (function(){
+    var v = '';
+    try {
+      var qp = (location.search || '').toLowerCase();
+      if (/[?&]v=a(?:&|$)/.test(qp)) v = 'A';
+      else if (/[?&]v=b(?:&|$)/.test(qp)) v = 'B';
+      else if (/[?&]v=legacy(?:&|$)/.test(qp)) v = 'A';
+    } catch(e){}
+    var assigned = false;
+    if (v !== 'A' && v !== 'B') {
+      try { v = localStorage.getItem('da-landing-ab') || ''; } catch(e){}
+      if (v !== 'A' && v !== 'B') {
+        v = (Math.random() < 0.50) ? 'A' : 'B';
+        assigned = true;
+        try { localStorage.setItem('da-landing-ab', v); } catch(e){}
+      }
+    }
+    document.documentElement.setAttribute('data-landing-variant', v);
+    window.__landingAb = v;
+    try {
+      if (window.gtag) {
+        gtag('set', 'user_properties', { landing_ab: v });
+        gtag('event', 'landing_ab_view', { variant: v, assigned: assigned });
+      }
+    } catch(e){}
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -5126,6 +5162,56 @@ section.ui-section .ui-lede{
      Philosophy, before FAQ). -->
 
 <!-- Hero -->
+<!-- 2026-05-24: .hero-founder-frame wraps hero + founder so a single
+     scroll-progress engine can drive the .sf-travel-figure from the hero's
+     left-podium position into a slot beside the founder essay (variant B).
+     Variant A ignores the frame; CSS for the frame is non-positional in A. -->
+<div class="hero-founder-frame">
+  <!-- Travel layer: cloned left-podium silhouette, fixed-positioned during
+       in-flight scroll, absolute-anchored once landed beside the founder
+       essay. Hidden under variant A and under prefers-reduced-motion.
+       aria-hidden because it's a decorative duplicate; the canonical figure
+       inside the hero orb card remains the accessible/SEO copy.
+
+       The SVG is wrapped in an HTML <div.sf-travel-figure> because CSS
+       transforms applied directly to an <svg> root element are inconsistent
+       across browsers (the SVG ignored translate3d in WebKit/Chromium in
+       testing). Wrapping in a div lets us drive transforms reliably while
+       the SVG inside paints normally. -->
+  <div class="sf-travel-layer" aria-hidden="true" data-state="pre">
+   <div class="sf-travel-figure">
+    <svg class="sf-travel-svg stage-debater" viewBox="0 0 200 460" role="presentation" focusable="false">
+      <circle class="deb-halo" cx="100" cy="80" r="48" stroke-dasharray="2 7"/>
+      <g class="deb-head">
+        <ellipse cx="100" cy="80" rx="20" ry="26"/>
+        <ellipse class="deb-stroke" cx="100" cy="80" rx="20" ry="26" fill="none"/>
+        <path class="deb-stroke" d="M82 70 Q86 50 100 50 Q116 50 118 76"/>
+      </g>
+      <path class="deb-stroke" d="M94 108 L92 124 M106 108 L108 124"/>
+      <path class="deb-stroke" d="M54 144 Q76 129 100 127 Q124 129 146 144"/>
+      <path class="deb-stroke" d="M54 144 Q49 198 56 262 L60 308"/>
+      <path class="deb-stroke" d="M146 144 Q151 198 144 262 L140 308"/>
+      <path class="deb-stroke" d="M78 144 L100 186 L122 144"/>
+      <path class="deb-stroke deb-stroke-soft" d="M86 140 L100 160 L114 140"/>
+      <path class="deb-tie" d="M100 186 L96 198 L100 250 L104 198 Z"/>
+      <path class="deb-stroke" d="M144 154 Q160 196 153 246"/>
+      <path class="deb-stroke" d="M153 246 Q150 284 142 308"/>
+      <path class="deb-hand" d="M130 304 Q142 300 152 306 Q156 313 147 317 Q137 318 129 311 Z"/>
+      <g class="deb-arm">
+        <path class="deb-stroke" d="M58 152 Q50 184 47 214"/>
+        <path class="deb-stroke" d="M47 214 Q49 188 60 168"/>
+        <path class="deb-hand" d="M54 165 Q64 159 75 165 Q79 173 70 177 Q60 178 54 172 Z"/>
+      </g>
+      <ellipse class="deb-floor" cx="100" cy="434" rx="82" ry="9"/>
+      <path class="deb-lectern" d="M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z"/>
+      <path class="deb-lectern-top" d="M30 314 Q100 308 170 314 L168 326 L32 326 Z"/>
+      <path class="deb-stroke deb-stroke-soft" d="M32 326 Q100 320 168 326"/>
+      <path class="deb-stroke deb-stroke-soft" d="M118 310 Q114 288 106 281 Q100 277 102 269"/>
+      <ellipse class="deb-mic-head" cx="102" cy="263" rx="4" ry="6"/>
+    </svg>
+   </div><!-- /.sf-travel-figure -->
+  </div><!-- /.sf-travel-layer -->
+
 <section class="hero">
   <div class="hero-bg"></div>
   <div class="hero-grain"></div>
@@ -6853,12 +6939,53 @@ section.ui-section .ui-lede{
       </a>
     </nav>
 
+    <!-- ── Variant B only ── "Note from the founder" eyebrow + compact
+         pricing comparison module. The CSS rule
+         html:not([data-landing-variant="B"]) .lab-only-b{display:none}
+         hides both blocks under variant A so the existing layout is
+         unchanged for the control arm. -->
+    <div class="lab-only-b founder-eyebrow-row">
+      <span class="founder-eyebrow-mark" aria-hidden="true"></span>
+      <span class="founder-eyebrow-label">Note from the founder</span>
+    </div>
+
+    <div class="lab-only-b pricing-pulse" aria-label="Pricing at a glance">
+      <div class="pp-cards">
+        <div class="pp-card pp-card--generic">
+          <div class="pp-card-label">Generic AI Pro</div>
+          <div class="pp-card-price">$9.99<span class="pp-card-cadence">/mo</span></div>
+        </div>
+        <div class="pp-versus" aria-hidden="true">vs</div>
+        <div class="pp-card pp-card--us">
+          <div class="pp-card-label">DebateAI</div>
+          <div class="pp-card-price pp-card-price--free">Free<span class="pp-card-cadence"> during beta</span></div>
+        </div>
+      </div>
+      <p class="pp-line">
+        General AI gives you a chatbot. DebateAI gives you opponents, judges, formats, and rounds.
+      </p>
+    </div>
+
     <div class="story-row">
-      <div class="story-globe" aria-hidden="false">
+      <!-- .story-globe is moved out of .story-row in variant B by the
+           landing-variant move script (see end of section). In A it stays
+           inline as the left column; in B it lands in the
+           .story-globe-below-slot under the founder essay at a smaller
+           size with a "globe — secondary" treatment. Single canvas in the
+           DOM, so the init script's ID lookup stays unambiguous. -->
+      <div class="story-globe" id="storyGlobeBlock" aria-hidden="false">
         <div class="hero-globe-canvas-wrap">
           <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with markers on top user countries"></canvas>
         </div>
         <div class="story-globe-caption">Where users argue from.</div>
+      </div>
+      <!-- Variant B figure-slot: the .sf-travel-figure lands here at the end
+           of the scroll arc. Empty in the DOM; the travel layer positions
+           the figure visually over this slot when progress reaches 1. The
+           sized .figure-slot-inner reserves vertical space so the founder
+           prose doesn't reflow when the figure lands. -->
+      <div class="figure-slot lab-only-b" aria-hidden="true" id="founderFigureSlot">
+        <div class="figure-slot-inner"></div>
       </div>
       <aside class="founder-video-side" id="story" aria-label="Why this exists">
         <p class="fvs-lead">
@@ -6878,6 +7005,31 @@ section.ui-section .ui-lede{
         </p>
       </aside>
     </div>
+
+    <!-- Variant B: globe lands here under the essay at a smaller size.
+         Empty slot in the DOM; the inline script below moves
+         #storyGlobeBlock into this slot when data-landing-variant="B".
+         Hidden under variant A so the slot doesn't reserve space. -->
+    <div class="lab-only-b story-globe-below-slot" id="storyGlobeBelowSlot" aria-hidden="false"></div>
+
+    <script>
+      // Variant B globe relocation. Runs synchronously at parse so the
+      // globe canvas is in its final position before the canvas init IIFE
+      // (further down the page) does its getElementById('heroGlobeCanvas').
+      // No DOM-ready wait needed; we're past the elements we touch.
+      (function(){
+        try{
+          var v = document.documentElement.getAttribute('data-landing-variant');
+          if (v !== 'B') return;
+          var globe = document.getElementById('storyGlobeBlock');
+          var slot  = document.getElementById('storyGlobeBelowSlot');
+          if (!globe || !slot) return;
+          slot.appendChild(globe);
+          globe.classList.add('story-globe--secondary');
+        }catch(e){}
+      })();
+    </script>
+
     <!-- "Demo videos" row: three feature preview cards. 2026-05-19:
          lifted out of the left grid column to span the full width below
          video + aside. Renamed from "See it in action" 2026-05-19 PM. -->
@@ -6975,6 +7127,7 @@ section.ui-section .ui-lede{
     </div>
   </div>
 </section>
+</div><!-- /.hero-founder-frame -->
 
 <!-- 2026-05-19 PM: Today's-motion disclosure tab moved from here to
      the top of /live (above the Browse/Manage tabs). It thematically
@@ -6999,6 +7152,251 @@ section.ui-section .ui-lede{
      (min-height:100svh) so this frame already sits below the fold; this
      padding is just spacing for when the user scrolls to it. */
   .founder-video-section{padding:clamp(44px,5vh,80px) 24px 24px}
+
+  /* ─────────────────────────────────────────────────────────────────────
+     Landing A/B (2026-05-24): variant-B-only chrome.
+     .lab-only-b / .lab-only-a are simple visibility gates keyed off
+     documentElement[data-landing-variant]. The split lets us ship both
+     layouts in one DOM and let the early-paint script pick.
+     ───────────────────────────────────────────────────────────────────── */
+  html:not([data-landing-variant="B"]) .lab-only-b{display:none !important}
+  html:not([data-landing-variant="A"]) .lab-only-a{display:none !important}
+  .hero-founder-frame{position:relative}
+
+  /* ── Travel layer (variant B only) ──
+     Cloned left-podium silhouette, fixed-positioned during in-flight
+     scroll, absolute-anchored once landed beside the founder essay.
+     CSS transforms on SVG roots are inconsistent across browsers, so
+     the SVG sits inside an HTML div wrapper that takes the transform. */
+  .sf-travel-layer{
+    position:fixed;
+    top:0;left:0;width:0;height:0;
+    pointer-events:none;
+    z-index:5;
+  }
+  html:not([data-landing-variant="B"]) .sf-travel-layer{display:none !important}
+  .sf-travel-figure{
+    position:absolute;
+    /* Explicit top/left:0 so the layer's 0×0 fixed-positioned containing
+       block doesn't shift the static origin. */
+    top:0;
+    left:0;
+    /* Match the source podium's clamp so the visual swap is seamless. */
+    width:clamp(110px, 13vw, 150px);
+    height:auto;
+    aspect-ratio:200 / 460;
+    /* Source podium runs at opacity .46; the clone runs a touch sharper
+       since it becomes the focal element during the journey and lands
+       as the founder companion. */
+    opacity:.62;
+    transform-origin:50% 65%;
+    /* No transform transition — the rAF scroll loop already supplies a
+       fresh transform every frame. A CSS transition lagged the rendered
+       transform behind the scroll position. Opacity transitions still
+       fire on state changes (pre/flying/landed), not per frame. */
+    transition:opacity .25s ease;
+    will-change:transform, opacity;
+  }
+  .sf-travel-figure > .sf-travel-svg{display:block;width:100%;height:100%}
+  /* State-driven opacity. "pre" hides the clone (source podium owns the
+     pre-scroll view); "flying" and "landed" reveal it. */
+  .sf-travel-layer[data-state="pre"] .sf-travel-figure{opacity:0}
+  [data-theme="light"] .sf-travel-figure,
+  [data-theme="stone"] .sf-travel-figure{opacity:.72}
+  /* Match the hero LEFT-podium palette (green accent / cream ink in
+     dark theme). The base .standby-figures CSS is scoped to that
+     parent, so the un-scoped clone needs the .deb-* tokens re-declared
+     here on the SVG inside. */
+  .sf-travel-svg{
+    --deb-ink:rgba(230,219,195,.92);
+    --deb-ink-soft:rgba(230,219,195,.6);
+    --deb-fill:rgba(230,219,195,.1);
+    --deb-accent:rgba(74,222,128,.88);
+    --deb-glow:rgba(34,197,94,.42);
+  }
+  .sf-travel-svg .deb-stroke{stroke:var(--deb-ink);stroke-width:1.3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .sf-travel-svg .deb-stroke-soft{stroke:var(--deb-ink-soft);stroke-width:1;opacity:.55;fill:none}
+  .sf-travel-svg .deb-head ellipse:first-of-type{fill:var(--deb-fill)}
+  .sf-travel-svg .deb-halo{stroke:var(--deb-accent);stroke-width:.8;fill:none;opacity:.5}
+  .sf-travel-svg .deb-tie{fill:var(--deb-accent);opacity:.55}
+  .sf-travel-svg .deb-hand{fill:var(--deb-ink);opacity:.6}
+  .sf-travel-svg .deb-lectern{fill:var(--deb-fill);stroke:var(--deb-ink);stroke-width:1.2;opacity:.85}
+  .sf-travel-svg .deb-lectern-top{fill:var(--deb-fill)}
+  .sf-travel-svg .deb-mic-head{fill:var(--deb-ink);opacity:.8}
+  .sf-travel-svg .deb-floor{fill:rgba(0,0,0,.18)}
+  [data-theme="light"] .sf-travel-svg,
+  [data-theme="stone"] .sf-travel-svg{
+    --deb-ink:rgba(26,26,31,.78);
+    --deb-ink-soft:rgba(26,26,31,.5);
+    --deb-fill:rgba(26,26,31,.06);
+  }
+  [data-theme="light"] .sf-travel-svg .deb-floor,
+  [data-theme="stone"] .sf-travel-svg .deb-floor{fill:rgba(0,0,0,.08)}
+
+  /* Right-podium figure fade — driven by the same scroll progress.
+     The original .sf-right SVG stays in place; only its opacity, blur,
+     and scale change. JS sets CSS vars on it. */
+  html[data-landing-variant="B"] .standby-figures .sf-right{
+    opacity:var(--sfr-opacity, 1);
+    filter:blur(var(--sfr-blur, 0px));
+    transform:translateY(0) scale(var(--sfr-scale, 1));
+    transition:opacity .25s ease, filter .25s ease, transform .25s ease;
+    will-change:opacity, filter, transform;
+  }
+  /* Source LEFT figure fades out as the travel clone takes over, so we
+     don't paint two debaters during the journey. */
+  html[data-landing-variant="B"] .standby-figures .sf-left{
+    opacity:var(--sfl-opacity, 1);
+    transition:opacity .2s ease;
+  }
+
+  /* ── "Note from the founder" eyebrow (variant B) ── */
+  .founder-eyebrow-row{
+    display:flex;align-items:center;gap:12px;
+    margin:clamp(24px,3vw,40px) auto 14px;
+    max-width:1120px;
+  }
+  .founder-eyebrow-mark{
+    display:inline-block;width:28px;height:2px;background:var(--accent,#ef4444);
+    flex:0 0 auto;
+  }
+  .founder-eyebrow-label{
+    font-size:.62rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--text);
+  }
+  [data-theme="light"] .founder-eyebrow-label{color:#1a1a1f}
+
+  /* ── Compact pricing comparison module ──
+     Two side-by-side cards (Generic AI Pro · $9.99/mo vs DebateAI · Free
+     during beta) with a sharp tagline below. Reads as a strategic point,
+     not a plan-grid. Red/green accents kept minimal: only the price
+     colors carry semantic meaning. */
+  .pricing-pulse{
+    margin:18px auto clamp(32px,4vw,56px);
+    max-width:920px;
+    padding:18px clamp(16px,2vw,24px);
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.025) 0%, rgba(255,255,255,.01) 100%);
+  }
+  [data-theme="light"] .pricing-pulse{
+    background:#fff;
+    border-color:rgba(0,0,0,.08);
+    box-shadow:0 4px 18px rgba(0,0,0,.04);
+  }
+  .pp-cards{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:stretch;
+    gap:clamp(14px,2vw,22px);
+  }
+  .pp-card{
+    display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+    padding:14px 16px;border-radius:10px;
+    border:1px solid transparent;
+    background:rgba(255,255,255,.02);
+  }
+  [data-theme="light"] .pp-card{background:rgba(0,0,0,.025)}
+  .pp-card-label{
+    font-size:.58rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .pp-card-price{
+    font-family:'Fraunces',Georgia,"Times New Roman",serif;
+    font-size:clamp(1.65rem,3vw,2.1rem);
+    font-weight:600;letter-spacing:-.015em;line-height:1;
+    color:var(--text);
+  }
+  .pp-card-cadence{
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:.78rem;font-weight:500;color:var(--text-dim);letter-spacing:0;
+    margin-left:4px;
+  }
+  /* Generic card reads neutral — minor grey-out so the DebateAI card
+     visually wins the side-by-side without sneering at the comp. */
+  .pp-card--generic{opacity:.78}
+  .pp-card--generic .pp-card-price{color:var(--text-dim)}
+  .pp-card--us{
+    border-color:rgba(220,38,38,.32);
+    background:rgba(220,38,38,.05);
+  }
+  [data-theme="light"] .pp-card--us{
+    background:rgba(220,38,38,.04);
+    border-color:rgba(220,38,38,.22);
+  }
+  .pp-card-price--free{color:#34d399}
+  [data-theme="light"] .pp-card-price--free{color:#15803d}
+  .pp-versus{
+    display:flex;align-items:center;justify-content:center;
+    font-size:.66rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--text-dim);
+    padding:0 4px;
+  }
+  .pp-line{
+    margin:14px 0 0;
+    font-family:'Fraunces',Georgia,"Times New Roman",serif;
+    font-size:clamp(1.02rem,1.55vw,1.18rem);
+    font-weight:500;letter-spacing:-.005em;line-height:1.45;
+    color:var(--text);text-align:center;
+  }
+  [data-theme="light"] .pp-line{color:#1a1a1f}
+  @media (max-width:640px){
+    .pp-cards{grid-template-columns:1fr;gap:10px}
+    .pp-versus{padding:2px 0}
+    .pp-line{font-size:.98rem}
+  }
+
+  /* ── Figure-slot (variant B, replaces .story-globe in .story-row) ──
+     .figure-slot-inner reserves the figure footprint so the essay column
+     keeps its layout while the travel figure is mid-flight. */
+  .figure-slot{
+    display:flex;align-items:flex-end;justify-content:center;
+    width:100%;
+    min-height:340px;
+    position:relative;
+  }
+  .figure-slot-inner{
+    position:relative;
+    width:200px;
+    height:340px;
+  }
+  @media (max-width:880px){
+    .figure-slot{min-height:280px}
+    .figure-slot-inner{width:170px;height:280px}
+  }
+
+  /* ── Secondary globe slot (variant B, below the essay) ──
+     The .story-globe is appended into this slot by the inline script
+     above. Smaller footprint, centered, slim divider above. */
+  .story-globe-below-slot{
+    margin:clamp(24px,3vw,40px) auto 0;
+    max-width:1120px;
+    padding-top:clamp(20px,2.5vw,32px);
+    border-top:1px solid var(--border);
+    display:flex;justify-content:center;
+  }
+  [data-theme="light"] .story-globe-below-slot{border-top-color:rgba(0,0,0,.08)}
+  .story-globe--secondary{
+    transform:scale(.78);
+    transform-origin:top center;
+    margin-bottom:-60px;
+  }
+  .story-globe--secondary .hero-globe-canvas-wrap{max-width:340px}
+  .story-globe--secondary .story-globe-caption{font-size:.74rem;max-width:300px}
+  @media (max-width:760px){
+    .story-globe--secondary{transform:scale(.86);margin-bottom:-30px}
+    .story-globe--secondary .hero-globe-canvas-wrap{max-width:300px}
+  }
+
+  /* Reduced motion: skip the scroll engine entirely. */
+  @media (prefers-reduced-motion: reduce){
+    html[data-landing-variant="B"] .sf-travel-figure,
+    html[data-landing-variant="B"] .standby-figures .sf-right,
+    html[data-landing-variant="B"] .standby-figures .sf-left{
+      transition:none !important;
+      animation:none !important;
+    }
+  }
   .founder-video-eyebrow{
     font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
     color:var(--text-dim);text-align:center;margin-bottom:8px;
@@ -11239,5 +11637,172 @@ window.addEventListener('load', function(){
 })();
 </script>
 
+<!-- ─────────────────────────────────────────────────────────────────────
+     Landing A/B variant B: scroll-linked debate-stage → founder-memo
+     transition engine. Active only when documentElement carries
+     data-landing-variant="B". Computes scroll progress 0..1 from the
+     hero left-podium to the founder figure-slot, drives a quadratic
+     Bezier path for the travel figure, fades the right-podium silhouette
+     out, and parks the figure inside the slot once landed. rAF-throttled
+     scroll listener; no work in variant A or under prefers-reduced-motion.
+     ───────────────────────────────────────────────────────────────────── -->
+<script>
+(function(){
+  if (document.documentElement.getAttribute('data-landing-variant') !== 'B') return;
+
+  var reduced = false;
+  try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+  function $id(id){ return document.getElementById(id); }
+
+  function init(){
+    var layer        = document.querySelector('.sf-travel-layer');
+    var figure       = layer && layer.querySelector('.sf-travel-figure');
+    var slot         = $id('founderFigureSlot');
+    var slotInner    = slot && slot.querySelector('.figure-slot-inner');
+    var sourceLeft   = document.querySelector('.standby-figures .sf-left');
+    var sourceRight  = document.querySelector('.standby-figures .sf-right');
+    if (!layer || !figure || !slot || !slotInner) return;
+
+    // Reduced-motion shortcut: park the figure statically inside the slot
+    // and stop. Right podium stays visible; source left podium stays
+    // visible. No scroll engine attached.
+    if (reduced){
+      figure.style.position = 'absolute';
+      figure.style.left = '0';
+      figure.style.top  = '0';
+      figure.style.transform = 'none';
+      slotInner.appendChild(figure);
+      layer.setAttribute('data-state','landed');
+      layer.style.position = 'static';
+      return;
+    }
+
+    var raf = 0;
+    function clamp(n, lo, hi){ return n < lo ? lo : (n > hi ? hi : n); }
+    function easeInOutCubic(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
+
+    function tick(){
+      raf = 0;
+      if (!sourceLeft || !slot || !figure) return;
+
+      var srcRect  = sourceLeft.getBoundingClientRect();
+      var slotRect = slotInner.getBoundingClientRect();
+      var vh = window.innerHeight || document.documentElement.clientHeight;
+
+      // Narrow-viewport fallback. The source podium silhouettes hide
+      // under 760px, so a "travel" arc has no visible origin. Park the
+      // figure statically inside the slot and skip the rAF math.
+      if (srcRect.width === 0 || srcRect.height === 0){
+        if (layer.getAttribute('data-state') !== 'landed'){
+          figure.style.transform = '';
+          figure.style.position = 'absolute';
+          figure.style.left = '0';
+          figure.style.top  = '0';
+          if (figure.parentElement !== slotInner) slotInner.appendChild(figure);
+          layer.setAttribute('data-state','landed');
+          layer.style.position = 'static';
+        }
+        return;
+      }
+
+      // Wake when the slot enters the bottom 85% of the viewport;
+      // land when the slot crosses the 32% mark.
+      var wake = vh * 0.85;
+      var land = vh * 0.32;
+      var p = clamp((wake - slotRect.top) / (wake - land), 0, 1);
+      var eased = easeInOutCubic(p);
+
+      var figureW = figure.offsetWidth  || 200;
+      var figureH = figure.offsetHeight || 460;
+
+      var startX = srcRect.left;
+      var startY = srcRect.top;
+      // Land the figure horizontally centered in the slot, base at
+      // the slot's bottom edge.
+      var endX   = slotRect.left + (slotRect.width  - figureW) / 2;
+      var endY   = slotRect.top  + (slotRect.height - figureH);
+
+      // Quadratic Bezier control point — dropped below the linear path
+      // for a smooth downward arc. Magnitude scales with travel distance.
+      var dx = endX - startX;
+      var dy = endY - startY;
+      var dist = Math.sqrt(dx*dx + dy*dy);
+      var arc = clamp(dist * 0.18, 40, 160);
+      var cpX = (startX + endX) / 2;
+      var cpY = Math.max(startY, endY) + arc;
+
+      var t = eased;
+      var mt = 1 - t;
+      var x = mt*mt*startX + 2*mt*t*cpX + t*t*endX;
+      var y = mt*mt*startY + 2*mt*t*cpY + t*t*endY;
+
+      // Slight 0 → -4deg → 0 wobble, peaks at p=0.5.
+      var rot = -4 * Math.sin(Math.PI * p);
+      var scale = 1 - p * 0.08;
+
+      // Set the full transform string inline. The HTML div wrapper
+      // takes the transform reliably (SVG roots ignored it in testing).
+      figure.style.transform =
+        'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0)' +
+        ' rotate(' + rot.toFixed(2) + 'deg)' +
+        ' scale(' + scale.toFixed(3) + ')';
+
+      if (sourceRight){
+        sourceRight.style.setProperty('--sfr-opacity', String(1 - p));
+        sourceRight.style.setProperty('--sfr-blur',    (p * 6).toFixed(2) + 'px');
+        sourceRight.style.setProperty('--sfr-scale',   String(1 - p * 0.06));
+      }
+      if (sourceLeft){
+        var srcFade = clamp(p * 3, 0, 1);
+        sourceLeft.style.setProperty('--sfl-opacity', String(1 - srcFade));
+      }
+
+      var state = 'flying';
+      if (p <= 0.001) state = 'pre';
+      else if (p >= 0.999) state = 'landed';
+      if (layer.getAttribute('data-state') !== state){
+        layer.setAttribute('data-state', state);
+      }
+    }
+
+    function schedule(){
+      if (raf) return;
+      raf = window.requestAnimationFrame(tick);
+    }
+
+    schedule();
+
+    window.addEventListener('scroll', schedule, { passive:true });
+    window.addEventListener('resize', schedule, { passive:true });
+    window.addEventListener('load', schedule, { once:true });
+    if (document.fonts && document.fonts.ready){
+      try { document.fonts.ready.then(schedule).catch(function(){}); } catch(e){}
+    }
+
+    // GA event the first time the user actually triggers the transition,
+    // so we can attribute drop-off per arm.
+    var firedEntry = false;
+    function entryWatcher(){
+      if (firedEntry || !slot) return;
+      var r = slot.getBoundingClientRect();
+      var vh2 = window.innerHeight || document.documentElement.clientHeight;
+      if (r.top < vh2 * 0.85){
+        firedEntry = true;
+        try { if (window.gtag) window.gtag('event', 'landing_founder_scroll_view', { variant: 'B' }); } catch(e){}
+        window.removeEventListener('scroll', entryWatcher);
+      }
+    }
+    window.addEventListener('scroll', entryWatcher, { passive:true });
+    entryWatcher();
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init, { once:true });
+  } else {
+    init();
+  }
+})();
+</script>
 </body>
 </html>
