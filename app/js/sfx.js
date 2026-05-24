@@ -312,10 +312,82 @@
   // the user an immediate "starting" cue (the bare ambience is so quiet
   // some users couldn't tell anything was happening).
   function thinking(){
-    // Brain-wave / drone "thinking" ambience removed 2026-05-21 per user
-    // request (no ambient background audio anywhere in the app). Kept as
-    // a no-op that still returns a stop fn so callers don't break.
-    return function(){};
+    // RESTORED 2026-05-24 per user request ("i miss the sound effect on
+    // the orb when it was loading for debate AI page"). Scoped revert
+    // of the 2026-05-21 blanket "no ambient audio" removal: the
+    // thinking ambience is contextual (gated to AI generation), unlike
+    // the uninvited landing-scroll ambient() swells which stay no-op'd.
+    if (isMuted()) return function(){};
+    var c = getCtx();
+    if (!c) return function(){};
+    ensureRunning();
+    var t0 = c.currentTime;
+    var nodes = [];
+
+    // Starter chime — 620→880Hz brief sweep so the user gets an
+    // immediate "thinking has started" cue. Standalone, doesn't loop.
+    try {
+      var cO = c.createOscillator();
+      var cG = c.createGain();
+      cO.connect(cG); cG.connect(c.destination);
+      cO.type = 'sine';
+      cO.frequency.setValueAtTime(620, t0);
+      cO.frequency.exponentialRampToValueAtTime(880, t0 + 0.18);
+      cG.gain.setValueAtTime(0, t0);
+      cG.gain.linearRampToValueAtTime(0.08 * MASTER_GAIN, t0 + 0.03);
+      cG.gain.exponentialRampToValueAtTime(0.001, t0 + 0.32);
+      cO.start(t0); cO.stop(t0 + 0.34);
+    } catch(e){}
+
+    // Low carrier — 80Hz sine with 2Hz LFO modulation on gain = heartbeat.
+    try {
+      var o = c.createOscillator();
+      var g = c.createGain();
+      var lfo = c.createOscillator();
+      var lfoG = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.frequency.value = 80; o.type = 'sine';
+      lfo.connect(lfoG); lfoG.connect(g.gain);
+      lfo.frequency.value = 2; lfo.type = 'sine';
+      lfoG.gain.value = 0.05 * MASTER_GAIN;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.08 * MASTER_GAIN, t0 + 0.25);
+      o.start(t0); lfo.start(t0);
+      nodes.push(o, lfo, g);
+    } catch(e){}
+
+    // Mid pad — 240Hz sine with slower 0.6Hz LFO = warm shimmer.
+    try {
+      var o2 = c.createOscillator();
+      var g2 = c.createGain();
+      var lfo2 = c.createOscillator();
+      var lfo2G = c.createGain();
+      o2.connect(g2); g2.connect(c.destination);
+      o2.frequency.value = 240; o2.type = 'sine';
+      lfo2.connect(lfo2G); lfo2G.connect(g2.gain);
+      lfo2.frequency.value = 0.6; lfo2.type = 'sine';
+      lfo2G.gain.value = 0.015 * MASTER_GAIN;
+      g2.gain.setValueAtTime(0, t0);
+      g2.gain.linearRampToValueAtTime(0.04 * MASTER_GAIN, t0 + 0.4);
+      o2.start(t0); lfo2.start(t0);
+      nodes.push(o2, lfo2, g2);
+    } catch(e){}
+
+    return function stop(){
+      try {
+        var tEnd = c.currentTime;
+        nodes.forEach(function(n){
+          if (n.gain) {
+            try { n.gain.exponentialRampToValueAtTime(0.0001, tEnd + 0.3); } catch(e){}
+          }
+        });
+        nodes.forEach(function(n){
+          if (n.stop) {
+            try { n.stop(tEnd + 0.4); } catch(e){}
+          }
+        });
+      } catch(e){}
+    };
   }
 
   // ── Ambient pad (one-shot, smooth) ─────────────────────────────────
