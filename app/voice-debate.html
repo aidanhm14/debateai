@@ -73,6 +73,10 @@
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
+<!-- Credential v1.0 lipsync capture. Module is inert (zero CPU, zero
+     network) unless voice-debate.html flips CERT_V1_ENABLED on, which is
+     gated by a feature flag default off in phase A. See module header. -->
+<script defer src="/js/lipsync-capture.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{min-height:100%;width:100%}
@@ -3656,6 +3660,12 @@ function App() {
   var dcRef = useRef(null);
   var localStreamRef = useRef(null);
   var audioElRef = useRef(null);
+  // Credential v1 lipsync capture. Hidden <video> element fed from the
+  // local cam stream so phase B can run FaceMesh on it; LipSyncCapture
+  // instance owns the audio-envelope + mouth-aperture sample timer.
+  // Both null on non-cert-v1 rounds (the common case in phase A).
+  var lipsyncVideoRef   = useRef(null);
+  var lipsyncCaptureRef = useRef(null);
   var startedAtRef = useRef(0);
   var tickRef = useRef(null);
   var lastSpeechTickRef = useRef({ ai: 0, user: 0, who: null });
@@ -4400,22 +4410,71 @@ function App() {
         }
       };
 
-      // Local mic
+      // Local mic (+ optional camera for credential v1 lipsync verification).
+      // CERT_V1_ENABLED is the kill-switch for the entire v1 anti-cheat
+      // pipeline. Default OFF in phase A — see lipsync-capture.js header.
+      // Flip via the ?certv1=1 URL query param for local testing, or set
+      // window.CERT_V1_ENABLED=true in console before connecting.
+      var CERT_V1_ENABLED = (function(){
+        try {
+          if (window.CERT_V1_ENABLED === true) return true;
+          var qp = new URLSearchParams(window.location.search);
+          return qp.get('certv1') === '1';
+        } catch(e) { return false; }
+      })();
+      var wantVideo = CERT_V1_ENABLED && extMode !== 'counter';
+
       var stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        var mediaConstraints = {
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        });
+        };
+        if (wantVideo) {
+          mediaConstraints.video = { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } };
+        }
+        stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
       } catch (e) {
         // Mic denial is a known first-touch killer. Tag it as a
         // terminal funnel signal (allowRepeat: it's an error, not a
         // milestone) so the dashboard shows how many starts die here.
         funnel('mic_denied', { err: (e && e.name) || 'unknown' }, true);
-        throw new Error('Microphone permission denied. Allow mic access in your browser settings, then reload.');
+        // If we asked for video and the browser refused, retry with audio
+        // only — losing the credential is recoverable; losing the round is
+        // not. The cert layer is opt-in; the practice round is the product.
+        if (wantVideo) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            });
+            wantVideo = false; // downgrade cert eligibility silently
+          } catch (e2) {
+            throw new Error('Microphone permission denied. Allow mic access in your browser settings, then reload.');
+          }
+        } else {
+          throw new Error('Microphone permission denied. Allow mic access in your browser settings, then reload.');
+        }
       }
       funnel('mic_ok');
       localStreamRef.current = stream;
-      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+      // Only add audio tracks to the RTC peer connection — video stays
+      // local for FaceMesh sampling. Sending video to OpenAI Realtime is
+      // not part of the cert flow; the Realtime endpoint is voice-only.
+      stream.getAudioTracks().forEach(function(t){ pc.addTrack(t, stream); });
+
+      // Stash a hidden <video> element to feed FaceMesh in phase B. The
+      // element is muted + playsInline so iOS doesn't try to upgrade it
+      // to fullscreen. Display:none keeps it off the layout. Phase A
+      // does not actually read frames from it — see lipsync-capture.js.
+      if (wantVideo && stream.getVideoTracks().length) {
+        try {
+          var v = document.createElement('video');
+          v.muted = true; v.autoplay = true; v.playsInline = true;
+          v.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none';
+          v.srcObject = stream;
+          document.body.appendChild(v);
+          lipsyncVideoRef.current = v;
+        } catch(e) { console.warn('[cert-v1] video element setup failed:', e); }
+      }
 
       // Tap mic for level meter + orb (user-side amplitude).
       try {
@@ -4430,6 +4489,27 @@ function App() {
           userBufRef.current = new Uint8Array(an.frequencyBinCount);
         }
       } catch (e) {console.warn('[orb] mic analyser tap failed:', e);}
+
+      // Credential v1 lipsync capture — starts only when the v1 flag is on
+      // AND the camera + mic both granted. Reads from the already-tapped
+      // userAnalyser so we don't double-tap the mic stream. The video
+      // element (if any) is what FaceMesh will subscribe to in phase B.
+      // Stop is wired into the round-end path below; if start fails the
+      // round still runs, the cert just won't carry a verification block.
+      if (wantVideo && typeof LipSyncCapture !== 'undefined' && userAnalyserRef.current) {
+        try {
+          var lsc = LipSyncCapture.create({
+            audioAnalyser: userAnalyserRef.current,
+            videoEl:       lipsyncVideoRef.current,
+            sampleHz:      4,
+          });
+          lsc.start();
+          lipsyncCaptureRef.current = lsc;
+          console.log('[cert-v1] lipsync capture started, phase A (audio envelope + stub mouth)');
+        } catch(e) {
+          console.warn('[cert-v1] lipsync capture start failed:', e);
+        }
+      }
 
       // Recording: mix both sides into a single MediaStream and feed
       // MediaRecorder. Best-effort — if the browser doesn't support
@@ -5084,6 +5164,23 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           var sideLabelC = side === 'gov' ? 'Government' : side === 'opp' ? 'Opposition' : '';
           var langC = '';
           try { langC = localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale') || 'en'; } catch(e){ langC = 'en'; }
+
+          // Credential v1 verification payload. Stop the lipsync capture
+          // and ship the raw envelope arrays to the server, which will
+          // compute Pearson r and store the verification block on the
+          // cert doc. Phase A ships the audio array real + mouth array
+          // stubbed; create-cert.mjs is lenient (doesn't gate on r yet).
+          // When phase B lands and the mouth array carries real values,
+          // create-cert flips to threshold-gating without a client change.
+          var verificationPayload = null;
+          try {
+            if (lipsyncCaptureRef.current) {
+              var lscPayload = lipsyncCaptureRef.current.stop();
+              lipsyncCaptureRef.current = null;
+              if (lscPayload) verificationPayload = { lipSync: lscPayload };
+            }
+          } catch(e) { console.warn('[cert-v1] lipsync stop failed:', e); }
+
           certPromise = uCert.getIdToken().then(function(tk){
             return fetch('/api/create-cert', {
               method: 'POST',
@@ -5102,6 +5199,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
                 roundId: 'voice-' + Date.now(),
                 won: false,
                 displayName: uCert.displayName || '',
+                verification: verificationPayload,
               }),
             }).then(function(r){ return r.json(); });
           }).catch(function(err){
