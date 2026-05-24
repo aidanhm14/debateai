@@ -1706,6 +1706,52 @@ button{font-family:inherit;cursor:pointer}
 .more-start-card:hover .more-start-thumb img{
   transform:scale(1.04);filter:saturate(1.05);
 }
+
+/* ── Animated orb tile ── replaces the voice-debate screenshot in the
+   "First voice round" slot (Start-here 01 + Play column primary) with
+   the live brand orb. Pure CSS, no JS, prefers-reduced-motion respected. */
+.more-orb-tile{
+  position:absolute;inset:0;
+  background:radial-gradient(120% 110% at 50% 55%, #1a0a0e 0%, #0a0306 65%, #050203 100%);
+  overflow:hidden;
+}
+[data-theme="light"] .more-orb-tile{
+  background:radial-gradient(120% 110% at 50% 55%, #2a1014 0%, #1a0a0e 60%, #0e0608 100%);
+}
+.more-orb-tile::before{
+  content:"";position:absolute;left:50%;top:55%;
+  width:140%;aspect-ratio:1;transform:translate(-50%,-50%);
+  background:radial-gradient(circle, rgba(239,68,68,.42) 0%, rgba(239,68,68,0) 58%);
+  filter:blur(14px);
+  animation:moreOrbHalo 4.2s ease-in-out infinite;
+  pointer-events:none;
+}
+.more-orb-tile::after{
+  content:"";position:absolute;left:50%;top:55%;
+  width:46%;aspect-ratio:1;transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:radial-gradient(circle at 38% 36%, #ff8a8a 0%, #ef4444 32%, #8a1414 92%);
+  box-shadow:
+    0 0 30px rgba(239,68,68,.55),
+    0 0 70px rgba(239,68,68,.32),
+    inset -6px -10px 20px rgba(0,0,0,.5),
+    inset 6px 8px 18px rgba(255,200,200,.18);
+  animation:moreOrbPulse 3.4s ease-in-out infinite;
+}
+@keyframes moreOrbHalo{
+  0%,100%{opacity:.7;transform:translate(-50%,-50%) scale(.92)}
+  50%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}
+}
+@keyframes moreOrbPulse{
+  0%,100%{transform:translate(-50%,-50%) scale(1);filter:saturate(1)}
+  50%{transform:translate(-50%,-50%) scale(1.05);filter:saturate(1.15)}
+}
+.more-start-card:hover .more-orb-tile::after{animation-duration:2s}
+.more-start-card:hover .more-orb-tile::before{animation-duration:2.6s}
+.more-col a[data-primary]:hover .more-orb-tile::after{animation-duration:2s}
+@media (prefers-reduced-motion: reduce){
+  .more-orb-tile::before,.more-orb-tile::after{animation:none}
+}
 .more-start-meta{
   display:flex;flex-direction:column;gap:4px;
   padding:13px 15px 15px;
@@ -10255,7 +10301,7 @@ section.ui-section .ui-lede{
       <div class="more-start-label">Start here</div>
       <div class="more-start-grid">
         <a href="/voice-debate?demo=1" class="more-start-card">
-          <span class="more-start-thumb"><img src="/_more-thumbs/voice-debate.jpg" alt="" loading="lazy" decoding="async" width="360" height="225"></span>
+          <span class="more-start-thumb"><span class="more-orb-tile" aria-hidden="true"></span></span>
           <span class="more-start-meta">
             <span class="more-start-num">01</span>
             <span class="more-start-title">First voice round</span>
@@ -10294,7 +10340,7 @@ section.ui-section .ui-lede{
         <div class="more-col-head">Play</div>
         <ul>
           <li><a href="/voice-debate?demo=1" data-primary>
-            <span class="more-col-thumb"><img src="/_more-thumbs/voice-debate.jpg" alt="" loading="lazy" decoding="async" width="120" height="75"></span>
+            <span class="more-col-thumb"><span class="more-orb-tile" aria-hidden="true"></span></span>
             <span class="more-col-body">
               <span class="more-col-title">Voice debate</span>
               <span class="more-desc">Real-time adversarial rounds.</span>
