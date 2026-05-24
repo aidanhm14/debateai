@@ -1003,7 +1003,10 @@ footer.foot a{color:var(--text-dim)}
         matchedName.textContent = d.matchedWithName || 'a debater';
         try { gtag('event', 'debate_chat_matched', {}); } catch(e){}
         var params = new URLSearchParams({
-          motion: state.currentMotion || selectedMotion() || '',
+          // Prefer pairedMotion (server-chosen older-joiner's motion)
+          // so both sides of the pair see the SAME banner. Falls back
+          // to local state for non-casual pairings.
+          motion: d.pairedMotion || state.currentMotion || selectedMotion() || '',
           format: 'casual',
           pro: d.proName || shortName(state.user),
           con: d.conName || (d.matchedWithName || 'Opponent'),

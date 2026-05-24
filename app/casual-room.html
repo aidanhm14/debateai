@@ -14,6 +14,12 @@
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
 
+<!-- Daily.co JS SDK for participant-joined / participant-left events.
+     Lets us show "opponent left" or "opponent didn't show" banners
+     instead of leaving the user staring at an empty Daily room.
+     Falls back to raw <iframe> in mountDaily if this script fails. -->
+<script src="https://unpkg.com/@daily-co/daily-js"></script>
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
 <script>
@@ -168,6 +174,49 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   color:var(--text);border-color:var(--border-strong);
 }
 
+/* ─── Opponent banner (left / no-show) ─── */
+/* Overlays the Daily iframe when the OTHER user leaves, or when they
+   never join within OPPONENT_TIMEOUT_MS. Two-button card: Find a new
+   opponent (→ /debate-chat?autoqueue=1) or Leave (→ /debate-chat). */
+.opponent-banner{
+  position:absolute;inset:0;z-index:10;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  animation:opp-fade-in .25s ease-out;
+  padding:28px;
+}
+@keyframes opp-fade-in{from{opacity:0}to{opacity:1}}
+.opponent-card{
+  background:var(--bg-card);
+  border:1px solid var(--border-strong);
+  border-radius:18px;
+  padding:26px 30px;text-align:center;max-width:440px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+.opponent-headline{
+  font-size:1.28rem;font-weight:800;color:var(--text);
+  letter-spacing:-.012em;margin-bottom:8px;line-height:1.25;
+}
+.opponent-sub{
+  font-size:.92rem;color:var(--text-dim);margin-bottom:20px;line-height:1.5;
+}
+.opponent-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.opponent-actions button{
+  padding:11px 20px;border-radius:999px;
+  font-size:.86rem;font-weight:800;letter-spacing:.005em;
+  transition:transform .15s,box-shadow .15s,filter .15s;
+}
+.opponent-actions button:hover{transform:translateY(-1px)}
+.opponent-actions .opponent-find{
+  background:var(--accent);color:#fff;
+  box-shadow:0 8px 22px var(--accent-glow);
+}
+.opponent-actions .opponent-leave{
+  border:1px solid var(--border-strong);color:var(--text-dim);
+  background:transparent;
+}
+.opponent-actions .opponent-leave:hover{color:var(--text)}
+
 /* ─── Bottom foot ─── */
 .room-foot{
   padding:8px 20px;
@@ -272,12 +321,46 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   tickElapsed();
 
   // ── Daily.co mount ────────────────────────────────────
-  // Mirrors /live-round.html's mountDaily(). POSTs to
-  // /api/create-daily-room with {name}; the function idempotently
-  // creates or fetches the room and returns {url}. We iframe-embed
-  // the URL with camera + mic permission. Room name is whatever
-  // /debate-chat passed (deterministic on the UID pair via
-  // spar-pair.mjs so both sides converge on the same room).
+  // Two-tier: try the daily-js SDK first so we get participant-join /
+  // participant-left events (powers the "opponent left" banner). If
+  // the SDK didn't load (CDN blocked, ad-blocker), fall back to a raw
+  // <iframe> with the bare Daily URL. The user can still video chat
+  // in fallback mode; they just don't get a banner if the opponent
+  // bails.
+
+  var callFrame = null;        // daily-js handle (null if fallback)
+  var sawOpponent = false;     // true once any remote participant joins
+  var bannerShown = false;     // ensures we only show one banner ever
+  var opponentTimer = null;    // "didn't show" countdown
+  var OPPONENT_TIMEOUT_MS = 60 * 1000;
+
+  function showOpponentBanner(headline, sub){
+    if (bannerShown) return;
+    bannerShown = true;
+    var b = document.createElement('div');
+    b.className = 'opponent-banner';
+    b.innerHTML =
+      '<div class="opponent-card">' +
+        '<div class="opponent-headline">' + escHtml(headline) + '</div>' +
+        (sub ? '<div class="opponent-sub">' + escHtml(sub) + '</div>' : '') +
+        '<div class="opponent-actions">' +
+          '<button class="opponent-find" id="oppFindBtn" type="button">Find a new opponent →</button>' +
+          '<button class="opponent-leave" id="oppLeaveBtn" type="button">Leave</button>' +
+        '</div>' +
+      '</div>';
+    stage.appendChild(b);
+    document.getElementById('oppFindBtn').addEventListener('click', function(){
+      destroyRoom();
+      try { gtag('event', 'casual_room_banner_find', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
+      location.href = '/debate-chat?autoqueue=1';
+    });
+    document.getElementById('oppLeaveBtn').addEventListener('click', function(){
+      destroyRoom();
+      try { gtag('event', 'casual_room_banner_leave', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
+      location.href = '/debate-chat';
+    });
+  }
+
   function mountDaily(){
     if (!roomName){
       setStatus(
@@ -309,15 +392,79 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         console.warn('[casual-room] daily room failed', res);
         return;
       }
+      var url = res.body.url;
+
+      // Preferred path: daily-js with participant events.
+      if (window.DailyIframe && typeof window.DailyIframe.createFrame === 'function'){
+        try {
+          var displayName = pro || con || 'Guest';
+          callFrame = window.DailyIframe.createFrame(stage, {
+            iframeStyle: {
+              position: 'absolute', top: '0', left: '0',
+              width: '100%', height: '100%', border: '0',
+            },
+            showLeaveButton: false,
+            showFullscreenButton: true,
+          });
+          callFrame.on('participant-joined', function(){
+            sawOpponent = true;
+            if (opponentTimer){ clearTimeout(opponentTimer); opponentTimer = null; }
+          });
+          callFrame.on('participant-left', function(ev){
+            // Don't fire the banner if WE already left (the "Leave" /
+            // "Next" buttons set bannerShown via destroyRoom flag-free
+            // navigation, but a double-event from Daily could still
+            // race; bannerShown gate handles it).
+            if (bannerShown) return;
+            // Only signal if the leaver was the OPPONENT (remote).
+            // Daily's docs say participant-left only fires for remote
+            // participants, so any event here is the other side.
+            showOpponentBanner(
+              'Your opponent left the room.',
+              'Find a new partner, or call it a round.'
+            );
+            try { gtag('event', 'casual_room_opponent_left', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
+          });
+          callFrame.join({ url: url, userName: displayName }).then(function(){
+            clearStatus();
+            // Start the "opponent never showed" timer. Resets whenever
+            // participant-joined fires.
+            opponentTimer = setTimeout(function(){
+              if (!sawOpponent && !bannerShown){
+                showOpponentBanner(
+                  'Your opponent did not arrive.',
+                  'They may have dropped on their side. Find another debater?'
+                );
+                try { gtag('event', 'casual_room_opponent_no_show', { source: source }); } catch(e){}
+              }
+            }, OPPONENT_TIMEOUT_MS);
+            try { gtag('event', 'casual_room_daily_mount', { source: source, mode: 'sdk' }); } catch(e){}
+          }).catch(function(e){
+            console.warn('[casual-room] daily-js join failed', e);
+            setStatus(
+              '<h2>Could not join the video room.</h2>' +
+              '<p>The room exists but the connection failed.</p>' +
+              '<div class="error-detail">' + escHtml(e && e.message || 'join failed') + '</div>' +
+              '<div class="row"><button onclick="location.reload()">Retry</button><a class="ghost" href="/debate-chat">← Back to debate chat</a></div>'
+            );
+          });
+          return;
+        } catch(e){
+          console.warn('[casual-room] daily-js createFrame failed; falling back to raw iframe', e);
+          callFrame = null;
+          // Fall through to raw iframe path.
+        }
+      }
+
+      // Fallback path: raw <iframe>. No participant events; user
+      // won't see the "opponent left" banner. Still functional.
       var iframe = document.createElement('iframe');
-      iframe.src = res.body.url;
+      iframe.src = url;
       iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
       iframe.title = 'Casual debate video room';
-      // Pre-clear status so the iframe doesn't appear behind a loading
-      // overlay. The Daily.co page itself shows a brief connecting state.
       clearStatus();
       stage.appendChild(iframe);
-      try { gtag('event', 'casual_room_daily_mount', { source: source }); } catch(e){}
+      try { gtag('event', 'casual_room_daily_mount', { source: source, mode: 'iframe_fallback' }); } catch(e){}
     }).catch(function(e){
       setStatus(
         '<h2>Network error reaching the room service.</h2>' +
@@ -335,8 +482,19 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 
   // ── Leave + Next opponent ─────────────────────────────
   function destroyRoom(){
+    // Daily-js path: clean leave + destroy so the mic/cam release.
+    if (callFrame){
+      try { callFrame.leave(); } catch(e){}
+      try { callFrame.destroy(); } catch(e){}
+      callFrame = null;
+    }
+    // Raw-iframe fallback path: just rip the iframe out.
     var f = stage.querySelector('iframe');
     if (f) f.remove();
+    // Remove any opponent banner that's currently overlaid.
+    var b = stage.querySelector('.opponent-banner');
+    if (b) b.remove();
+    if (opponentTimer){ clearTimeout(opponentTimer); opponentTimer = null; }
   }
   leaveBtn.addEventListener('click', function(){
     destroyRoom();
