@@ -8494,27 +8494,36 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ))
   )
   ),
-  // Debate of the week banner. Renders below starred motions if a
-  // featured motion is loaded. One click fills the motion field.
+  // Debate of the week chip. Compact right-aligned pill — was a full-width
+  // banner with eyebrow + motion + context + background that read as a
+  // heavy slab below the textarea. Now: tiny chip pinned to the right
+  // with just the truncated motion and a "tap to use" affordance. One
+  // click still fills motion + format. Context/background are dropped
+  // from this surface (they were duplicative of the auto-generated
+  // background block downstream).
   debateOfWeek && !motion && el('div', {
     style: {
-      marginTop: 10, padding: '11px 14px',
-      background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.22)',
-      borderRadius: 10, textAlign: 'left', cursor: 'pointer'
-    },
+      marginTop: 8, display: 'flex', justifyContent: 'flex-end'
+    }
+  },
+  el('button', {
     onClick: function() {
       setMotion(debateOfWeek.motion);
       if (debateOfWeek.format && typeof FORMATS !== 'undefined' && FORMATS[debateOfWeek.format]) {
         try { setFormat(debateOfWeek.format); } catch (_) {}
       }
+    },
+    title: debateOfWeek.motion,
+    style: {
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      maxWidth: 340, padding: '6px 12px',
+      background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.26)',
+      borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
+      color: 'var(--c-text)'
     }
   },
-  el('div', { style: { fontSize: '.58rem', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: '#ef4444', marginBottom: 6 } }, '🗓 Debate of the week'),
-  el('div', { style: { fontSize: '.78rem', fontWeight: 600, color: 'var(--c-text)', lineHeight: 1.4, marginBottom: debateOfWeek.context ? 6 : 0 } }, debateOfWeek.motion),
-  debateOfWeek.context && el('div', { style: { fontSize: '.7rem', color: 'var(--c-dim)', lineHeight: 1.45 } }, debateOfWeek.context),
-  debateOfWeek.background && el('div', { style: { fontSize: '.68rem', color: 'var(--c-dim)', lineHeight: 1.5, marginTop: 7, paddingTop: 7, borderTop: '1px solid rgba(239,68,68,.16)' } },
-    el('span', { style: { fontWeight: 700, color: 'var(--c-text)', opacity: .85 } }, 'Background. '),
-    debateOfWeek.background
+    el('span', { style: { fontSize: '.56rem', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: '#ef4444', flexShrink: 0 } }, '🗓 Of the week'),
+    el('span', { style: { fontSize: '.74rem', color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, debateOfWeek.motion)
   )
   ),
 
