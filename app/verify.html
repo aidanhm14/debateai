@@ -127,6 +127,27 @@ body{
   color:#000;font-weight:900;font-size:.7rem;
 }
 
+/* Pre-v1 protocol disclosure. Renders only when the cert doc has no
+   verification block. Honest framing that the credential is real, the
+   round happened, the score is server-validated, but live-video liveness
+   checks were not yet part of the issuance protocol. */
+.protocol-banner{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:14px 16px;margin-bottom:24px;
+  background:var(--gold-tint, rgba(212,175,55,.08));
+  border:1px solid var(--gold-soft, rgba(212,175,55,.32));
+  border-radius:12px;font-size:.86rem;line-height:1.5;color:var(--text-dim);
+}
+.protocol-banner .pb-mark{
+  width:18px;height:18px;flex:none;border-radius:50%;
+  background:var(--gold,#d4af37);
+  display:inline-flex;align-items:center;justify-content:center;
+  color:#000;font-weight:900;font-size:.72rem;line-height:1;margin-top:1px;
+}
+.protocol-banner b{color:var(--text);font-weight:700}
+.protocol-banner a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent);}
+.protocol-banner a:hover{opacity:.8}
+
 /* The certificate card itself */
 .cert{
   position:relative;
@@ -388,6 +409,19 @@ body{
       <span>Verified credential · Issued by DebateAI · This page is the proof of authenticity.</span>
     </div>
 
+    <!-- Pre-v1 protocol disclosure. Renders only when the cert doc lacks a
+         `verification` block (i.e., issued before the live-video liveness
+         layer landed). Honest disclosure of what the v0 protocol does and
+         does not verify. Hidden by default; renderCert() flips display:flex
+         when c.verification is absent. -->
+    <div class="protocol-banner" id="protocolBanner" style="display:none">
+      <span class="pb-mark">v0</span>
+      <div>
+        <b>Issued under v0 protocol.</b>
+        The round happened, the transcript is real, the score was re-validated server-side, and the verify URL is bound to a credential document on debateai.com that we control. Live-video liveness checks (camera required, lip-sync verification, face identity lock) were not yet part of the issuance protocol when this credential was minted. Credentials issued under the upcoming v1 protocol will surface those checks on this page. <a href="/credentials#faq">Read more about the protocol.</a>
+      </div>
+    </div>
+
     <article class="cert" id="certCard">
       <div class="cert-eyebrow">Debate AI · Certificate of Argumentation</div>
 
@@ -555,6 +589,16 @@ body{
   function renderCert(c){
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
+
+    // Surface the v0 protocol disclosure if this cert was issued before the
+    // live-video liveness layer landed. The check is "no verification block"
+    // not "verification block says failed" — failed-verification certs
+    // shouldn't have been minted at all under v1.
+    try {
+      var hasV1 = c && c.verification && typeof c.verification === 'object';
+      var pb = document.getElementById('protocolBanner');
+      if (pb) pb.style.display = hasV1 ? 'none' : 'flex';
+    } catch(e) { /* render forward */ }
 
     var tierName = c.tierName || (c.tier && c.tier.charAt(0).toUpperCase() + c.tier.slice(1)) || 'Novice';
     var tierBlurbs = {
