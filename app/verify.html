@@ -148,6 +148,52 @@ body{
 .protocol-banner a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent);}
 .protocol-banner a:hover{opacity:.8}
 
+/* v1 verification block. Gold-tinted callout listing the anti-cheat
+   checks the round passed. Each .vb-check is one ✓+label+detail row.
+   Layout mirrors the credential PDF mockup so the verify URL feels
+   like the canonical version of the credential. */
+.verification-block{
+  margin:24px 0;padding:18px 20px;
+  background:var(--gold-tint, rgba(212,175,55,.08));
+  border:1px solid var(--gold-soft, rgba(212,175,55,.32));
+  border-radius:14px;
+}
+.verification-block .vb-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:12px;margin-bottom:6px;
+}
+.verification-block .vb-eyebrow{
+  font-size:.7rem;letter-spacing:.18em;font-weight:700;
+  color:var(--gold,#d4af37);
+}
+.verification-block .vb-method{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:.7rem;color:var(--text-dim);letter-spacing:.04em;
+}
+.verification-block .vb-sub{
+  font-size:.84rem;color:var(--text-dim);font-style:italic;margin-bottom:12px;
+}
+.verification-block .vb-list{
+  list-style:none;padding:0;margin:0 0 12px 0;
+  display:flex;flex-direction:column;gap:8px;
+}
+.verification-block .vb-check{
+  display:flex;align-items:flex-start;gap:10px;font-size:.92rem;line-height:1.5;
+}
+.verification-block .vb-check .vb-mark{
+  width:16px;height:16px;flex:none;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:.66rem;margin-top:2px;
+}
+.verification-block .vb-check.vb-pass .vb-mark{ background:var(--gold,#d4af37);color:#000; }
+.verification-block .vb-check.vb-info .vb-mark{ background:transparent;border:1px solid var(--text-dim);color:var(--text-dim); }
+.verification-block .vb-check b{color:var(--text);font-weight:700;margin-right:4px;}
+.verification-block .vb-check span{color:var(--text-dim);}
+.verification-block .vb-foot{
+  font-size:.78rem;color:var(--text-dim);font-style:italic;
+  padding-top:10px;border-top:1px solid var(--gold-soft, rgba(212,175,55,.22));
+}
+
 /* The certificate card itself */
 .cert{
   position:relative;
@@ -422,6 +468,23 @@ body{
       </div>
     </div>
 
+    <!-- v1 verification block. Renders when the cert doc carries a
+         `verification` object. Conditionally shows each check based on
+         the data available — audio sample count, lip-sync r, mouth signal,
+         etc. Phase A: only the "live audio captured" line and a phase-A
+         method footer; phase B fills in lip-sync r when the mouth array
+         is real. Each row is a span; checks rendered green if passed,
+         neutral if informational (phase A). -->
+    <div class="verification-block" id="verificationBlock" style="display:none">
+      <div class="vb-head">
+        <span class="vb-eyebrow">VERIFICATION</span>
+        <span class="vb-method" id="vbMethod">—</span>
+      </div>
+      <div class="vb-sub" id="vbSub"></div>
+      <ul class="vb-list" id="vbList"></ul>
+      <div class="vb-foot">Full sealed record available on request from the credential holder.</div>
+    </div>
+
     <article class="cert" id="certCard">
       <div class="cert-eyebrow">Debate AI · Certificate of Argumentation</div>
 
@@ -586,6 +649,65 @@ body{
     return map[(key||'').toLowerCase()] || (key ? key.toUpperCase() : '—');
   }
 
+  // Render the v1 anti-cheat checks. Only renders rows for checks we
+  // actually have data for — phase A typically just gives us "live audio
+  // captured" + an info row noting the lip-sync check is pending. Phase
+  // B adds the lip-sync r line; later phases add face-lock, liveness
+  // challenges, and audio watermark rows. The block is honest by
+  // omission: a check that didn't happen doesn't get a green ✓.
+  function renderVerificationBlock(v){
+    if (!v || typeof v !== 'object') return;
+    var method = v.method || 'lipsync-v1';
+    var phaseB = method.indexOf('phaseB') >= 0;
+    document.getElementById('vbMethod').textContent =
+      'METHOD ' + method.toUpperCase().replace('-', ' · ');
+    document.getElementById('vbSub').textContent = phaseB
+      ? 'Anti-cheat checks passed at round close.'
+      : 'Partial anti-cheat verification. Full lip-sync gating ships with v1.0 phase B.';
+    var list = document.getElementById('vbList');
+    list.innerHTML = '';
+    function row(passed, key, detail){
+      var li = document.createElement('li');
+      li.className = 'vb-check ' + (passed ? 'vb-pass' : 'vb-info');
+      var mark = document.createElement('span'); mark.className = 'vb-mark';
+      mark.textContent = passed ? '✓' : '–';
+      li.appendChild(mark);
+      var body = document.createElement('span');
+      var b = document.createElement('b'); b.textContent = key + '.';
+      body.appendChild(b);
+      var s = document.createElement('span'); s.textContent = ' ' + detail;
+      body.appendChild(s);
+      li.appendChild(body);
+      list.appendChild(li);
+    }
+    // Live audio captured — passes if we received any audio samples at all
+    if ((v.audioSamples || 0) > 0) {
+      var secs = Math.round(((v.durationMs || 0) / 1000));
+      row(true, 'Live audio captured',
+          'mic envelope sampled at ' + (v.sampleHz || 4) + 'Hz for ' + secs + 's of round.');
+    }
+    // Lip-sync verification — only real in phase B
+    if (phaseB && v.lipSyncR != null) {
+      var rStr = (v.lipSyncR >= 0 ? '+' : '') + v.lipSyncR.toFixed(2);
+      row(!!v.lipSyncPassed, 'Lip-sync verified',
+          'mouth motion matched audio envelope, r = ' + rStr +
+          (v.lipSyncPassed ? ' (threshold 0.60).' : ' (below 0.60 threshold).'));
+    } else {
+      row(false, 'Lip-sync verification',
+          'pending phase B (mouth-landmark tracking integration).');
+    }
+    // The remaining v1 layers — not shipping in phase A or B, listed as
+    // upcoming so the verify page sets the right expectation.
+    if (phaseB) {
+      // In phase B these stay marked as upcoming until the respective
+      // layers ship. The honest UI never claims a check ran when it didn't.
+    } else {
+      row(false, 'Face identity lock',     'pending v1.1.');
+      row(false, 'Liveness challenges',    'pending v1.2.');
+      row(false, 'Audio watermark integrity', 'pending v1.3.');
+    }
+  }
+
   function renderCert(c){
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
@@ -598,6 +720,15 @@ body{
       var hasV1 = c && c.verification && typeof c.verification === 'object';
       var pb = document.getElementById('protocolBanner');
       if (pb) pb.style.display = hasV1 ? 'none' : 'flex';
+      var vb = document.getElementById('verificationBlock');
+      if (vb) {
+        if (hasV1) {
+          renderVerificationBlock(c.verification);
+          vb.style.display = 'block';
+        } else {
+          vb.style.display = 'none';
+        }
+      }
     } catch(e) { /* render forward */ }
 
     var tierName = c.tierName || (c.tier && c.tier.charAt(0).toUpperCase() + c.tier.slice(1)) || 'Novice';
