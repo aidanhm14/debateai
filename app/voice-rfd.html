@@ -236,6 +236,38 @@ body{
 .section--transcript{border-color:var(--border)}
 .section--transcript .icon{background:rgba(255,255,255,.04);color:var(--text-dim);border:1px solid var(--border)}
 
+/* Cert award banner — sits between verdict + Best moment. Gold so it
+   reads as a credential, not another feedback section. */
+.section--cert{
+  border-color:rgba(212,175,55,.40);
+  background:linear-gradient(180deg, rgba(212,175,55,.08), rgba(212,175,55,.02));
+}
+.section--cert:hover{border-color:rgba(212,175,55,.56)}
+.section--cert .icon{background:rgba(212,175,55,.14);color:#d4af37;border:1px solid rgba(212,175,55,.40)}
+.cert-banner{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.cert-banner-text{flex:1;min-width:240px}
+.cert-banner-tier{
+  font-family:var(--serif);font-weight:800;font-style:italic;
+  font-size:clamp(1.6rem, 4vw, 2.2rem);line-height:1.05;color:var(--text);margin-bottom:6px;
+}
+.cert-banner-tier .gold{color:#d4af37}
+.cert-banner-blurb{font-size:.96rem;color:var(--text-dim);line-height:1.5}
+.cert-banner-actions{display:flex;gap:10px;flex-wrap:wrap}
+.cert-banner-actions a, .cert-banner-actions button{
+  font-family:inherit;font-size:.82rem;font-weight:700;
+  padding:10px 16px;border-radius:999px;cursor:pointer;
+  text-decoration:none;border:1px solid transparent;
+  transition:transform .15s,background .15s,border-color .15s;
+}
+.cert-banner-actions .cert-cta{
+  background:#d4af37;color:#0a0a0a;border-color:#d4af37;
+}
+.cert-banner-actions .cert-cta:hover{transform:translateY(-1px);background:#c79c2a}
+.cert-banner-actions .cert-ghost{
+  background:transparent;color:var(--text-dim);border-color:var(--border-strong);
+}
+.cert-banner-actions .cert-ghost:hover{color:var(--text);border-color:var(--text-dim)}
+
 .fixes-list{
   list-style:none;padding:0;margin:0;
   display:flex;flex-direction:column;gap:14px;
@@ -569,6 +601,31 @@ body{
         + '</div>'
       + '</div></section>';
 
+    // Cert award banner — only when voice-debate.html attached a
+    // freshly-issued cert to the payload (signed-in user, score >= 26).
+    // Sits between the verdict and the best-moment section so the
+    // reward beat lands right after the user reads they won/lost.
+    if (payload.cert && payload.cert.certId){
+      var ct = payload.cert;
+      var tierName = escHtml(ct.tierName || 'Novice');
+      var tierBlurb = escHtml(ct.tierBlurb || 'You cleared the bar. Nice round.');
+      var verifyUrl = '/verify/' + escHtml(ct.certId);
+      html +=
+        '<section class="section section--cert">'
+          + '<div class="section-head"><div class="icon">★</div><h2>Certificate earned</h2><div class="sub">Verifiable · shareable</div></div>'
+          + '<div class="cert-banner">'
+            + '<div class="cert-banner-text">'
+              + '<div class="cert-banner-tier">DebateAI <span class="gold">' + tierName + '</span></div>'
+              + '<div class="cert-banner-blurb">' + tierBlurb + ' Add it to your resume or LinkedIn — anyone can verify it at debateai.com.</div>'
+            + '</div>'
+            + '<div class="cert-banner-actions">'
+              + '<a class="cert-cta" href="' + verifyUrl + '">View certificate →</a>'
+              + '<button class="cert-ghost" id="certCopyLink">Copy verify link</button>'
+            + '</div>'
+          + '</div>'
+        + '</section>';
+    }
+
     if (sections.best) html +=
       '<section class="section section--best">'
         + '<div class="section-head"><div class="icon">✓</div><h2>Best moment</h2><div class="sub">What landed</div></div>'
@@ -658,6 +715,20 @@ body{
         try { gtag('event', 'voice_rfd_copy'); } catch(e){}
       } catch(e){ copyBtn.textContent = 'Couldn\'t copy'; }
     });
+    // Cert copy-link wiring (only present when payload.cert exists).
+    var certCopyBtn = document.getElementById('certCopyLink');
+    if (certCopyBtn && payload.cert && payload.cert.certId){
+      certCopyBtn.addEventListener('click', function(){
+        try {
+          var verifyAbs = (payload.cert.verifyUrl) || (window.location.origin + '/verify/' + payload.cert.certId);
+          navigator.clipboard.writeText(verifyAbs);
+          certCopyBtn.textContent = '✓ Copied';
+          setTimeout(function(){ certCopyBtn.textContent = 'Copy verify link'; }, 1800);
+          try { gtag('event', 'cert_link_copy', { tier: payload.cert.tier || 'unknown' }); } catch(e){}
+        } catch(e){ certCopyBtn.textContent = 'Couldn\'t copy'; }
+      });
+    }
+
     var shareBtn = document.getElementById('shareBallot');
     if (shareBtn) shareBtn.addEventListener('click', function(){
       try {
