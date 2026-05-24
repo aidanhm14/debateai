@@ -1920,6 +1920,98 @@ button{font-family:inherit}
   // All carry `seed:true` so accept-tracking filters them out, and
   // expired+matched ones carry an accepterUid sentinel ('seed-bot-N')
   // so they render via the "both sides matched" branch.
+  // ── Archive seed pool ────────────────────────────────────────────
+  // Always-available list of completed rounds with full ballot data
+  // (winner, margin, RFD, speaker points) so the Archive tab reads
+  // like an active community results page even when the user has no
+  // real past rounds yet. Carries seed:true so the "AI-generated
+  // preview" banner fires and never pretends to be real activity.
+  // Merged into the natural archive when it's sparse (<8 real items).
+  function getArchiveSeed(){
+    var now = Date.now();
+    var day = 24 * 60 * 60 * 1000;
+    function entry(off, hr, motion, format, side, poster, opp, winner, margin, rfd, sp){
+      var sched = now - off * day + hr * 60 * 60 * 1000;
+      var who = winner === side ? poster : opp;
+      return {
+        id: 'arc-' + off + '-' + hr,
+        motion: motion, format: format, side: side,
+        handle: poster, ts: sched - 30 * 60 * 1000,
+        scheduledAt: sched, reveal: 'full',
+        accepterUid: 'seed-arc-' + off, accepterName: opp,
+        ballot: {
+          winner: winner, winnerSide: winner,
+          margin: margin, rfd: rfd,
+          speakerPoints: sp || { pro: 27.5, con: 27.0 },
+          judgedBy: 'AI judge', winnerName: who
+        },
+        seed: true
+      };
+    }
+    return [
+      entry(1, 9,  'This house would tax wealth above $100M at 2% annually.',
+        'apda', 'pro', 'pmr_collapse', 'flow_assassin', 'pro', 'Narrow (2.5pt)',
+        'Pro carries the comparative on revenue scale and earmarking; Con\'s capital-flight argument is fast-money rhetoric without a country-comparison study. Speaks were close, ballot was not.',
+        { pro: 28.0, con: 27.5 }),
+      entry(1, 14, 'This house would ban algorithmic newsfeeds.',
+        'pf', 'con', 'card_doctor', 'second_speaker', 'con', 'Comfortable',
+        'Con wins on the chronological-feed counterfactual. Pro\'s "engagement = harm" link chain depended on a study Con cleanly impact-turned with the same author\'s follow-up.',
+        { pro: 27.0, con: 28.5 }),
+      entry(2, 11, 'This house would scrap legacy admissions at universities.',
+        'quick', 'pro', 'first_gen_voice', 'devil_advocate', 'pro', 'Wide',
+        'Pro\'s fairness frame is uncontested by the end of the round. Con concedes the principle and only contests implementation, which Pro absorbs by narrowing the model to top-25 schools.',
+        { pro: 29.0, con: 26.5 }),
+      entry(2, 16, 'This house would mandate a four-day work week.',
+        'ld', 'con', 'value_crit', 'ld_purist', 'con', 'Narrow',
+        'Value-criterion debate. Con\'s autonomy framework outweighs Pro\'s wellbeing framework on the ballot because Pro never wins the metric-level link from hours to wellbeing under modern remote work.',
+        { pro: 27.5, con: 28.0 }),
+      entry(3, 10, 'This house would ban facial recognition in public spaces.',
+        'worlds', 'pro', 'wsdc_2nd', 'oo_whip', 'pro', 'Split',
+        'Wins on the chilling-effect-on-protest impact. The bench characterization of Opposition is shaky; "we\'d only use it for terror" is the case Gov was waiting for.',
+        { pro: 78.0, con: 76.5 }),
+      entry(3, 19, 'This house regrets the legalization of marijuana.',
+        'pf', 'con', 'nsda_qual', 'evidence_pull', 'con', 'Wide',
+        'Con\'s public-health weighing is comparative and warranted. Pro never engages the criminal-justice impact and the round turns on it.',
+        { pro: 26.5, con: 28.5 }),
+      entry(4, 13, 'This house would adopt a universal basic income.',
+        'apda', 'pro', 'pm_strong', 'lo_sharp', 'con', 'Narrow',
+        'Pro\'s case is principled but the funding mechanism breaks under cross. Con wins the floor-vs-ceiling distinction and converts it into a clean ballot frame.',
+        { pro: 27.0, con: 28.0 }),
+      entry(4, 18, 'This house would ban political donations from corporations.',
+        'pf', 'pro', 'reform_voice', 'free_speech_first', 'pro', 'Comfortable',
+        'Capture argument lands. Con\'s "speech is speech" frame is principled but never engages the systemic-distortion impact Pro extends through the rebuttal.',
+        { pro: 28.5, con: 27.0 }),
+      entry(5, 12, 'This house would abolish the Electoral College.',
+        'quick', 'pro', 'majority_rule', 'federalism_first', 'con', 'Split',
+        'A close one. Con\'s federalism-by-design argument survives Pro\'s NPVIC pivot because Pro effectively concedes the constitutional level of the motion.',
+        { pro: 27.0, con: 27.5 }),
+      entry(5, 20, 'This house regrets the rise of remote work.',
+        'pf', 'con', 'office_culture', 'flexibility_first', 'con', 'Narrow',
+        'Con turns the productivity argument with the right meta-analysis. Pro\'s mentorship-and-belonging case is strong but never quantified.',
+        { pro: 27.5, con: 28.0 }),
+      entry(6, 15, 'This house would impose a global carbon tax.',
+        'worlds', 'pro', 'climate_voice', 'developing_first', 'pro', 'Comfortable',
+        'Pro wins the comparative on tractability vs cap-and-trade and successfully narrows Con\'s "hurts the global south" attack with a per-capita adjustment Con never engages.',
+        { pro: 78.5, con: 76.0 }),
+      entry(7, 11, 'This house would require ID to use social media.',
+        'pf', 'con', 'privacy_first', 'safety_first', 'con', 'Wide',
+        'Privacy and chilling-effect impacts outweigh the youth-safety case. Pro never specifies a mechanism that survives the deanonymization attack.',
+        { pro: 26.0, con: 28.5 }),
+      entry(8, 14, 'This house would ban single-use plastics.',
+        'apda', 'pro', 'opp_collapse', 'pmr_calm', 'pro', 'Wide',
+        'Pro\'s alternatives-exist case is well-grounded; Con\'s industry-cost defense never reaches the impact comparison and collapses in the PMR.',
+        { pro: 28.5, con: 26.5 }),
+      entry(9, 17, 'This house would abolish standardized testing for college admissions.',
+        'pf', 'con', 'least_bad_signal', 'holistic_first', 'con', 'Narrow',
+        'Con wins comparative validity: every alternative signal correlates more with wealth than the tests do. Pro hedges into a "holistic plus" model that effectively concedes the burden.',
+        { pro: 27.0, con: 27.5 }),
+      entry(11, 13, 'This house would significantly increase regulation of large language models.',
+        'bp', 'pro', 'frontier_alarm', 'innovation_first', 'pro', 'Split',
+        'Tight BP. Opening Gov wins the structural-harm framing; Opening Opp lands the incumbent-capture attack; Closing Gov\'s narrow risk-tiering extension is what tips the room.',
+        { pro: 78.0, con: 77.0 })
+    ];
+  }
+
   function ensureSeed(){
     var list = loadList();
     if (list.length > 0) return list;
@@ -3826,12 +3918,30 @@ button{font-family:inherit}
     var cnt = document.getElementById('archiveCount');
     if (!host) return;
     var src = tabSource('archive', fullList).slice();
+    // Always merge in the archive seed pool so the panel reads like an
+    // active community results page even when the user has no real
+    // completed rounds. Seeded entries carry seed:true and are labeled
+    // honestly via the .seed-banner pattern shown on Browse.
+    var natural = src.length;
+    var seedPool = getArchiveSeed();
+    var have = {};
+    src.forEach(function(c){ have[c.id] = true; });
+    seedPool.forEach(function(c){ if (!have[c.id]) src.push(c); });
     // Sort newest first by kickoff (fallback to post ts).
     src.sort(function(a, b){
       return (b.scheduledAt || b.ts || 0) - (a.scheduledAt || a.ts || 0);
     });
     host.innerHTML = '';
-    if (cnt) cnt.textContent = src.length + ' completed';
+    if (cnt) cnt.textContent = src.length + ' completed' + (natural === 0 ? ' (samples)' : (natural < src.length ? ' (' + natural + ' yours + samples)' : ''));
+    // Inline AI-generated preview note when seeded entries are present.
+    if (seedPool.length > 0) {
+      var note = document.createElement('div');
+      note.className = 'seed-banner';
+      note.style.marginBottom = '12px';
+      note.innerHTML = '<span class="seed-banner-tag">AI-generated preview</span>' +
+        '<span class="seed-banner-text">These completed rounds are examples of what an active archive looks like. Your real rounds will appear here once you finish one.</span>';
+      host.appendChild(note);
+    }
     if (src.length === 0){
       if (empty) empty.style.display = 'block';
       return;
@@ -3884,7 +3994,10 @@ button{font-family:inherit}
   function updateTabBadges(fullList){
     var mine = tabSource('mine', fullList).length;
     var watch = tabSource('watch', fullList).length;
-    var arch = tabSource('archive', fullList).length;
+    // Archive count includes the seed pool so the badge matches what
+    // the user actually sees when they open the panel.
+    var natArch = tabSource('archive', fullList).length;
+    var arch = natArch + getArchiveSeed().length;
     function setBadge(id, n, always){
       var el = document.getElementById(id);
       if (!el) return;
