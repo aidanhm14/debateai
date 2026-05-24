@@ -2615,6 +2615,110 @@ section.hero{
   letter-spacing:-.005em;line-height:1.35;
   margin:2px auto 14px;max-width:320px;
 }
+/* 2026-05-24: "AI · STANDING BY" label + helper sub-line. Lifts the
+   voice-debate setup scene onto the landing so a first-time visitor
+   sees the same "room is set, both sides waiting to begin" frame
+   they'll meet when they click into Voice. */
+.hero-orb-standby{
+  display:inline-flex;align-items:center;gap:8px;justify-content:center;
+  font-size:.74rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+  color:#dc2626;
+  margin:6px auto 10px;
+}
+.hero-orb-standby-dot{
+  width:9px;height:9px;border-radius:50%;
+  background:#dc2626;
+  box-shadow:0 0 10px rgba(220,38,38,.55);
+}
+.hero-orb-sub{
+  font-size:1rem;font-weight:500;color:var(--text-dim);
+  letter-spacing:-.005em;line-height:1.4;
+  margin:0 auto 6px;max-width:340px;
+}
+[data-theme="light"] .hero-orb-standby,
+[data-theme="stone"] .hero-orb-standby{color:#b91c1c}
+[data-theme="light"] .hero-orb-standby-dot,
+[data-theme="stone"] .hero-orb-standby-dot{background:#b91c1c}
+
+/* Standby debaters — silhouette bookends flanking the orb so the
+   landing scene reads as "the room is set, both sides are here
+   waiting to begin." Behind the orb (z-index -1, pointer-events
+   none). Container width hugs the orb card so figures stay close
+   to the orb instead of bleeding into the headline column or past
+   the right edge. Hidden under 760px so the orb owns the frame on
+   mobile. */
+.hero-orb-card{isolation:isolate}
+.hero-orb-card .standby-figures{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-44%);
+  width:min(560px,calc(100% + 80px));height:300px;
+  pointer-events:none;z-index:-1;
+}
+.standby-figures .stage-debater{
+  position:absolute;bottom:0;top:auto;
+  width:clamp(110px,13vw,150px);height:auto;
+  opacity:.46;
+  transition:opacity .35s ease;
+  --deb-ink:rgba(230,219,195,.92);
+  --deb-ink-soft:rgba(230,219,195,.6);
+  --deb-fill:rgba(230,219,195,.1);
+}
+.standby-figures .sf-left{
+  left:0;
+  --deb-accent:rgba(74,222,128,.88);
+  --deb-glow:rgba(34,197,94,.42);
+}
+.standby-figures .sf-right{
+  right:0;transform:scaleX(-1);
+  --deb-accent:rgba(251,113,113,.92);
+  --deb-glow:rgba(239,68,68,.42);
+}
+[data-theme="light"] .standby-figures .stage-debater,
+[data-theme="stone"] .standby-figures .stage-debater{
+  opacity:.56;
+  --deb-ink:rgba(26,26,31,.78);
+  --deb-ink-soft:rgba(26,26,31,.5);
+  --deb-fill:rgba(26,26,31,.06);
+}
+.standby-figures .stage-debater .deb-stroke{
+  stroke:var(--deb-ink);
+  stroke-width:1.3;
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+.standby-figures .stage-debater .deb-stroke-soft{
+  stroke:var(--deb-ink-soft);
+  stroke-width:1;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-stroke,
+[data-theme="stone"] .standby-figures .stage-debater .deb-stroke{stroke-width:1.7}
+[data-theme="light"] .standby-figures .stage-debater .deb-stroke-soft,
+[data-theme="stone"] .standby-figures .stage-debater .deb-stroke-soft{stroke-width:1.3}
+.standby-figures .stage-debater .deb-head{
+  fill:var(--deb-accent);opacity:.78;
+}
+.standby-figures .stage-debater .deb-halo{
+  stroke:var(--deb-accent);stroke-width:1;fill:none;opacity:.22;
+}
+.standby-figures .stage-debater .deb-tie{fill:var(--deb-accent);opacity:.55}
+.standby-figures .stage-debater .deb-hand{fill:var(--deb-ink);opacity:.6}
+.standby-figures .stage-debater .deb-lectern{
+  fill:var(--deb-fill);stroke:var(--deb-ink);stroke-width:1.3;stroke-linejoin:round;
+}
+.standby-figures .stage-debater .deb-lectern-top{
+  fill:var(--deb-fill);stroke:var(--deb-ink-soft);stroke-width:1;
+}
+.standby-figures .stage-debater .deb-mic-head{
+  fill:var(--deb-ink);opacity:.7;
+}
+.standby-figures .stage-debater .deb-floor{
+  fill:var(--deb-glow);opacity:.18;
+}
+@media (max-width:760px){
+  .hero-orb-card .standby-figures{display:none}
+}
 .hero-orb-cta{
   display:inline-flex;align-items:center;gap:8px;
   padding:10px 20px;border-radius:999px;
@@ -4757,8 +4861,76 @@ section.ui-section .ui-lede{
              headline. -->
         <a class="hero-orb-card" href="/voice-debate.html" aria-label="Start a voice round with the AI" data-gtag="hero_orb_voice">
           <span class="hero-orb-live" aria-hidden="true">Live voice</span>
+          <!-- 2026-05-24: silhouette debaters flank the orb so the landing
+               scene matches the voice-debate setup screen — left = you
+               (green head), right = AI (red head). Behind the canvas at
+               z-index -1; hidden under 760px. -->
+          <div class="standby-figures" aria-hidden="true">
+            <svg class="stage-debater sf-left" viewBox="0 0 200 460" role="presentation" focusable="false">
+              <circle class="deb-halo" cx="100" cy="80" r="48" stroke-dasharray="2 7"/>
+              <g class="deb-head">
+                <ellipse cx="100" cy="80" rx="20" ry="26"/>
+                <ellipse class="deb-stroke" cx="100" cy="80" rx="20" ry="26" fill="none"/>
+                <path class="deb-stroke" d="M82 70 Q86 50 100 50 Q116 50 118 76"/>
+              </g>
+              <path class="deb-stroke" d="M94 108 L92 124 M106 108 L108 124"/>
+              <path class="deb-stroke" d="M54 144 Q76 129 100 127 Q124 129 146 144"/>
+              <path class="deb-stroke" d="M54 144 Q49 198 56 262 L60 308"/>
+              <path class="deb-stroke" d="M146 144 Q151 198 144 262 L140 308"/>
+              <path class="deb-stroke" d="M78 144 L100 186 L122 144"/>
+              <path class="deb-stroke deb-stroke-soft" d="M86 140 L100 160 L114 140"/>
+              <path class="deb-tie" d="M100 186 L96 198 L100 250 L104 198 Z"/>
+              <path class="deb-stroke" d="M144 154 Q160 196 153 246"/>
+              <path class="deb-stroke" d="M153 246 Q150 284 142 308"/>
+              <path class="deb-hand" d="M130 304 Q142 300 152 306 Q156 313 147 317 Q137 318 129 311 Z"/>
+              <g class="deb-arm">
+                <path class="deb-stroke" d="M58 152 Q50 184 47 214"/>
+                <path class="deb-stroke" d="M47 214 Q49 188 60 168"/>
+                <path class="deb-hand" d="M54 165 Q64 159 75 165 Q79 173 70 177 Q60 178 54 172 Z"/>
+              </g>
+              <ellipse class="deb-floor" cx="100" cy="434" rx="82" ry="9"/>
+              <path class="deb-lectern" d="M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z"/>
+              <path class="deb-lectern-top" d="M30 314 Q100 308 170 314 L168 326 L32 326 Z"/>
+              <path class="deb-stroke deb-stroke-soft" d="M32 326 Q100 320 168 326"/>
+              <path class="deb-stroke deb-stroke-soft" d="M118 310 Q114 288 106 281 Q100 277 102 269"/>
+              <ellipse class="deb-mic-head" cx="102" cy="263" rx="4" ry="6"/>
+            </svg>
+            <svg class="stage-debater sf-right" viewBox="0 0 200 460" role="presentation" focusable="false">
+              <circle class="deb-halo" cx="100" cy="80" r="48" stroke-dasharray="2 7"/>
+              <g class="deb-head">
+                <ellipse cx="100" cy="80" rx="20" ry="26"/>
+                <ellipse class="deb-stroke" cx="100" cy="80" rx="20" ry="26" fill="none"/>
+                <path class="deb-stroke" d="M82 70 Q86 50 100 50 Q116 50 118 76"/>
+              </g>
+              <path class="deb-stroke" d="M94 108 L92 124 M106 108 L108 124"/>
+              <path class="deb-stroke" d="M54 144 Q76 129 100 127 Q124 129 146 144"/>
+              <path class="deb-stroke" d="M54 144 Q49 198 56 262 L60 308"/>
+              <path class="deb-stroke" d="M146 144 Q151 198 144 262 L140 308"/>
+              <path class="deb-stroke" d="M78 144 L100 186 L122 144"/>
+              <path class="deb-stroke deb-stroke-soft" d="M86 140 L100 160 L114 140"/>
+              <path class="deb-tie" d="M100 186 L96 198 L100 250 L104 198 Z"/>
+              <path class="deb-stroke" d="M144 154 Q160 196 153 246"/>
+              <path class="deb-stroke" d="M153 246 Q150 284 142 308"/>
+              <path class="deb-hand" d="M130 304 Q142 300 152 306 Q156 313 147 317 Q137 318 129 311 Z"/>
+              <g class="deb-arm">
+                <path class="deb-stroke" d="M58 152 Q50 184 47 214"/>
+                <path class="deb-stroke" d="M47 214 Q49 188 60 168"/>
+                <path class="deb-hand" d="M54 165 Q64 159 75 165 Q79 173 70 177 Q60 178 54 172 Z"/>
+              </g>
+              <ellipse class="deb-floor" cx="100" cy="434" rx="82" ry="9"/>
+              <path class="deb-lectern" d="M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z"/>
+              <path class="deb-lectern-top" d="M30 314 Q100 308 170 314 L168 326 L32 326 Z"/>
+              <path class="deb-stroke deb-stroke-soft" d="M32 326 Q100 320 168 326"/>
+              <path class="deb-stroke deb-stroke-soft" d="M118 310 Q114 288 106 281 Q100 277 102 269"/>
+              <ellipse class="deb-mic-head" cx="102" cy="263" rx="4" ry="6"/>
+            </svg>
+          </div>
           <canvas class="hero-orb-canvas" id="heroOrbCanvas" aria-hidden="true"></canvas>
-          <div class="hero-orb-label">The AI listens, questions, and responds.</div>
+          <div class="hero-orb-standby">
+            <span class="hero-orb-standby-dot" aria-hidden="true"></span>
+            <span>AI · Standing by</span>
+          </div>
+          <div class="hero-orb-sub">Ready when you are. Pick the format, name the motion, hit Start.</div>
           <span class="hero-orb-cta">Start a voice round</span>
         </a>
       </div>
