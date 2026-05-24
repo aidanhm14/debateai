@@ -111,7 +111,13 @@
     // rounds tab now lives inside /community. The topbar already links
     // to Community below, so a separate Rounds entry would just point
     // to the same surface twice.
-    { href: '/live',          label: 'Live', live: true },
+    // 2026-05-24: /live and /spar split into two distinct topbar entries
+    // so the scheduled-tournament path and the instant-spawn path stop
+    // collapsing into one ambiguous "Live" link. Schedule = scheduled
+    // rooms + tournament calendar; Spar = match me with a human RIGHT
+    // NOW (queue + waitlist + AI fallback).
+    { href: '/live',          label: 'Schedule', live: true },
+    { href: '/spar',          label: 'Spar'         },
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
     { href: '/community',     label: 'Community'    },
