@@ -4942,6 +4942,12 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             transcript: (turnsRef.current || [])
               .filter(function(t){ return t.who === 'you' || t.who === 'ai'; })
               .map(function(t){ return { who: t.who, text: (t.text || '').trim(), interrupted: !!t.interrupted }; }),
+            // Generation id from the log-generation flush at stop(). The
+            // /voice-rfd page reads this to attach a 'rate' signal to the
+            // right Firestore doc; null for anon users or when logging
+            // failed (rating widget hides itself in that case).
+            generationId: lastVoiceRoundId || null,
+            format: mode || '',
             ts: Date.now(),
           };
           try { sessionStorage.setItem('debateos-voice-rfd', JSON.stringify(payload)); } catch(e){}

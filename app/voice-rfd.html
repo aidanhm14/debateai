@@ -363,6 +363,52 @@ body{
 }
 .foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px solid var(--border)}
 .foot a:hover{color:var(--text)}
+
+/* Rate-this-round widget. Only renders if the payload carries a
+   generationId (signed-in users whose voice-debate log-generation flush
+   succeeded). The 'rate' signal fired here is the strongest supervised
+   label the nightly distill (scheduled-distill.mjs) can use — the rest
+   of the loop is wired but starves without these stars getting clicked. */
+.rate-card{
+  margin-top:28px;padding:22px 24px;border-radius:14px;
+  background:rgba(255,255,255,.025);border:1px solid var(--border);
+  text-align:center;
+}
+.rate-eyebrow{
+  font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:14px;font-weight:600;
+}
+.rate-stars{display:inline-flex;gap:8px;margin-bottom:12px}
+.rate-star{
+  width:44px;height:44px;border-radius:9px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-ghost);font-size:1.5rem;line-height:1;
+  cursor:pointer;font-family:inherit;padding:0;
+  display:grid;place-items:center;
+  transition:background .14s,border-color .14s,color .14s,transform .14s;
+}
+.rate-star:hover{border-color:var(--border-strong);color:var(--text-dim);transform:translateY(-1px)}
+.rate-star.on{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.55);color:#fbbf24}
+.rate-boring{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 13px;border-radius:999px;margin-top:4px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-ghost);font-size:.74rem;font-weight:600;
+  letter-spacing:.04em;cursor:pointer;font-family:inherit;
+  transition:background .14s,border-color .14s,color .14s;
+}
+.rate-boring:hover{border-color:var(--border-strong);color:var(--text-dim)}
+.rate-boring.on{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.45);color:#fca5a5}
+.rate-notes{
+  margin-top:14px;width:100%;min-height:64px;
+  padding:9px 11px;border-radius:8px;
+  background:rgba(255,255,255,.025);border:1px solid var(--border);
+  color:var(--text);font-size:.82rem;font-family:inherit;line-height:1.5;
+  resize:vertical;outline:none;box-sizing:border-box;
+  transition:border-color .14s;
+}
+.rate-notes:focus{border-color:rgba(245,158,11,.45)}
+.rate-done{color:var(--text-dim)}
 </style>
 </head>
 <body>
@@ -562,6 +608,26 @@ body{
         + '</section>';
     }
 
+    // Rating widget shell. Hidden by default; the auth-check IIFE below
+    // (after innerHTML lands) shows it only when payload.generationId is
+    // set AND Firebase has a signed-in user. Stars / boring / notes all
+    // route to the same /api/log-generation 'rate' signal that the
+    // nightly distill in scheduled-distill.mjs reads to pick which
+    // rounds become PATTERNS-THAT-WORK reference material.
+    if (payload.generationId){
+      html +=
+        '<section class="rate-card" id="rateCard" style="display:none">'
+          + '<div class="rate-eyebrow" id="rateEyebrow">How was that round?</div>'
+          + '<div class="rate-stars" id="rateStars" role="radiogroup" aria-label="Rate this round 1 to 5">'
+            + [1,2,3,4,5].map(function(n){
+                return '<button class="rate-star" type="button" data-rate="' + n + '" aria-label="' + n + ' star' + (n>1?'s':'') + '">☆</button>';
+              }).join('')
+          + '</div>'
+          + '<div><button class="rate-boring" id="rateBoring" type="button"><span aria-hidden="true">○</span>Generic / boring</button></div>'
+          + '<textarea class="rate-notes" id="rateNotes" placeholder="What didn\'t land? (optional)" maxlength="600" style="display:none"></textarea>'
+        + '</section>';
+    }
+
     html +=
       '<div class="cta-row">'
         + '<div class="cta-text">Ballot saved. <strong>Run it back</strong> — the second round is always the better one.</div>'
@@ -605,6 +671,118 @@ body{
         setTimeout(function(){ shareBtn.textContent = 'Share link'; }, 1800);
         try { gtag('event', 'voice_rfd_share'); } catch(e){}
       } catch(e){ shareBtn.textContent = 'Couldn\'t share'; }
+    });
+
+    // Rating widget wiring. Only fires when we have BOTH a generationId
+    // on the payload AND a signed-in Firebase user (the rate endpoint
+    // requires a Firebase ID token). Firebase loads async, so we wait
+    // up to ~2.5s for onAuthStateChanged to settle before giving up.
+    if (payload.generationId) wireRatingWidget(payload);
+  }
+
+  function wireRatingWidget(payload){
+    var card = document.getElementById('rateCard');
+    if (!card) return;
+    var eyebrow = document.getElementById('rateEyebrow');
+    var starsRow = document.getElementById('rateStars');
+    var boringBtn = document.getElementById('rateBoring');
+    var notesEl = document.getElementById('rateNotes');
+    var state = { rating: 0, boring: false, notes: '', notesTimer: null };
+
+    function showIfAuthed(){
+      try {
+        if (typeof firebase === 'undefined' || !firebase.auth) return;
+        // If a user is already attached (e.g. cached session), reveal
+        // immediately. Otherwise subscribe for one auth event.
+        var u = firebase.auth().currentUser;
+        if (u) { card.style.display = ''; return; }
+        var unsub = firebase.auth().onAuthStateChanged(function(user){
+          if (user) card.style.display = '';
+          try { unsub && unsub(); } catch(e){}
+        });
+        // Hard timeout — anon visitors never get this widget. Keep the
+        // page from holding the listener forever.
+        setTimeout(function(){ try { unsub && unsub(); } catch(e){} }, 2500);
+      } catch(e){ /* firebase load failed; just leave it hidden */ }
+    }
+    showIfAuthed();
+
+    function postRate(){
+      try {
+        var u = firebase.auth().currentUser;
+        if (!u) return;
+        u.getIdToken().then(function(tok){
+          if (!tok) return;
+          fetch('/api/log-generation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+            body: JSON.stringify({
+              action: 'signal',
+              generationId: payload.generationId,
+              signal: 'rate',
+              value: state.rating,
+              meta: { boring: !!state.boring, notes: (state.notes || '').slice(0, 600) },
+            }),
+          }).catch(function(){});
+          try { gtag('event', 'voice_rfd_rate', { value: state.rating, boring: !!state.boring, format: payload.format || '' }); } catch(e){}
+        }).catch(function(){});
+      } catch(e){ /* swallow — rating is best-effort */ }
+    }
+
+    function paintStars(){
+      Array.prototype.forEach.call(starsRow.querySelectorAll('.rate-star'), function(btn){
+        var n = parseInt(btn.getAttribute('data-rate'), 10) || 0;
+        if (state.rating && n <= state.rating) {
+          btn.classList.add('on');
+          btn.textContent = '★';
+        } else {
+          btn.classList.remove('on');
+          btn.textContent = '☆';
+        }
+      });
+      var showNotes = (state.rating > 0 && state.rating <= 2) || state.boring;
+      notesEl.style.display = showNotes ? '' : 'none';
+      if (showNotes) {
+        notesEl.placeholder = state.rating > 0 && state.rating <= 2
+          ? 'What didn\'t land? (optional)'
+          : 'What was generic about it? (optional)';
+      }
+      if (state.rating) {
+        eyebrow.textContent = 'Rated ' + state.rating + '/5'
+          + (state.boring ? ' · flagged generic' : '') + ' — thanks';
+        eyebrow.classList.add('rate-done');
+      }
+    }
+
+    Array.prototype.forEach.call(starsRow.querySelectorAll('.rate-star'), function(btn){
+      btn.addEventListener('click', function(){
+        state.rating = parseInt(btn.getAttribute('data-rate'), 10) || 0;
+        paintStars();
+        postRate();
+      });
+    });
+    boringBtn.addEventListener('click', function(){
+      state.boring = !state.boring;
+      if (state.boring) {
+        boringBtn.classList.add('on');
+        boringBtn.firstChild.textContent = '✓';
+      } else {
+        boringBtn.classList.remove('on');
+        boringBtn.firstChild.textContent = '○';
+      }
+      paintStars();
+      if (state.rating) postRate();
+    });
+    notesEl.addEventListener('input', function(e){
+      state.notes = e.target.value;
+      if (state.notesTimer) clearTimeout(state.notesTimer);
+      state.notesTimer = setTimeout(function(){
+        if (state.rating) postRate();
+      }, 1200);
+    });
+    notesEl.addEventListener('blur', function(e){
+      if (state.notesTimer) { clearTimeout(state.notesTimer); state.notesTimer = null; }
+      if (state.rating) postRate();
     });
   }
 
