@@ -66,13 +66,15 @@ function dayKeysOldestFirst(n){
   return keys;
 }
 
-function emptyPayload(){
-  return {
+function emptyPayload(error){
+  const out = {
     since: null,
     now: ymd(new Date()),
     totals: { visits: 0, members: 0, google: 0 },
     milestones: [],
   };
+  if (error) out.error = String(error).slice(0, 400);
+  return out;
 }
 
 export default async (request) => {
@@ -86,7 +88,7 @@ export default async (request) => {
   try { db = getDb(); }
   catch (err) {
     console.error('public-join-history getDb failed:', err.message);
-    return jsonResponse(emptyPayload(), 200, request);
+    return jsonResponse(emptyPayload('getDb: ' + err.message), 200, request);
   }
 
   try {
@@ -225,8 +227,8 @@ export default async (request) => {
     setCached(CACHE_KEY, payload, CACHE_TTL);
     return jsonResponse(payload, 200, request);
   } catch (err) {
-    console.error('public-join-history failed:', err.message);
-    return jsonResponse(emptyPayload(), 200, request);
+    console.error('public-join-history failed:', err.message, err.stack);
+    return jsonResponse(emptyPayload('outer: ' + err.message), 200, request);
   }
 };
 
