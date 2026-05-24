@@ -189,7 +189,15 @@ body{
 /* ── Center Stage ──────────────────── */
 .center{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:100px 24px 60px;text-align:center;
+  /* 2026-05-24: top padding 100→160px. The .bar topbar is position:fixed
+     and renders ~110px tall once the avatar + VOICE AI pill are in. The
+     old 100px barely cleared it, and justify-content:center only shifts
+     content by half the padding-top delta, so the prep stage (motion
+     banner + brainstorm + start CTA) read as flush against the topbar.
+     160px gives a clean visual band above the motion banner without
+     pushing the start CTA off the fold. Bottom 60→80 keeps roughly the
+     same vertical rhythm. */
+  padding:160px 24px 80px;text-align:center;
   transition:opacity .4s ease,transform .4s ease;
 }
 .center.entering{opacity:0;transform:scale(.97) translateY(12px)}
@@ -642,7 +650,7 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   .bar-links{gap:12px}
   .bar-links button,.bar-links .sign-btn,.bar-links a{min-height:44px;display:inline-flex;align-items:center}
   .bar-links button.bar-link-secondary{min-width:44px}
-  .center{padding:80px 16px 112px}  /* bottom padding reserves space for sticky CTA */
+  .center{padding:120px 16px 112px}  /* top:120 clears the mobile fixed topbar; bottom padding reserves space for sticky CTA */
   .orb-wrap{width:200px;height:200px}
   canvas.orb{width:160px;height:160px}
   .float-input{padding:16px}
@@ -672,7 +680,7 @@ canvas.orb{width:220px;height:220px;border-radius:50%}
   .bar-links{gap:8px}
   .bar-links a{font-size:.65rem}
   .orb-wrap{width:160px;height:160px}
-  .center{padding-top:70px}
+  .center{padding-top:100px}
   .speech-btn{min-height:56px;min-width:100%;font-size:1rem !important;padding:18px 32px !important}
 }
 /* ── Round History ────────────────── */
@@ -1343,10 +1351,55 @@ var SFX = {
   // being intrusive over the orb visualization. Returns a stop fn that
   // ramps everything down cleanly.
   thinking() {
-    // Background "thinking" drone ambience removed 2026-05-21 per user
-    // request (no ambient background audio anywhere in the app). No-op
-    // that still returns a stop fn so callers don't break.
-    return () => {};
+    // RESTORED 2026-05-24 per user request ("i miss the sound effect on
+    // the orb when it was loading for debate AI page"). The 2026-05-21
+    // removal was a blanket "no ambient audio anywhere" call; this is a
+    // scoped revert because the orb-loading drone is CONTEXTUAL: it
+    // starts only when AI generation begins and stops the moment text
+    // arrives. Different shape from the uninvited scroll-cue ambient()
+    // swells on /landing, which stay no-op'd.
+    try {var c = this._getCtx();
+      if (c.state === 'suspended') {try {c.resume();} catch (e) {}}
+      var t0 = c.currentTime;
+      // Starter chime, brief 620→880Hz pitch sweep so the user gets
+      // immediate "thinking has started" feedback. Standalone, doesn't loop.
+      try {
+        var cO = c.createOscillator();var cG = c.createGain();
+        cO.connect(cG);cG.connect(c.destination);
+        cO.type = 'sine';cO.frequency.setValueAtTime(620, t0);
+        cO.frequency.exponentialRampToValueAtTime(880, t0 + 0.18);
+        cG.gain.setValueAtTime(0, t0);
+        cG.gain.linearRampToValueAtTime(0.10, t0 + 0.03);
+        cG.gain.exponentialRampToValueAtTime(0.001, t0 + 0.32);
+        cO.start(t0);cO.stop(t0 + 0.34);
+      } catch {}
+      // Low carrier, 80Hz w/ 2Hz LFO modulation = heartbeat.
+      var o = c.createOscillator();var g = c.createGain();
+      var lfo = c.createOscillator();var lfoG = c.createGain();
+      o.connect(g);g.connect(c.destination);o.frequency.value = 80;o.type = 'sine';
+      lfo.connect(lfoG);lfoG.connect(g.gain);lfo.frequency.value = 2;lfo.type = 'sine';
+      lfoG.gain.value = 0.06;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.10, t0 + 0.25);
+      o.start(t0);lfo.start(t0);
+      // Mid pad, 240Hz with slower 0.6Hz LFO = warm shimmer.
+      var o2 = c.createOscillator();var g2 = c.createGain();
+      var lfo2 = c.createOscillator();var lfo2G = c.createGain();
+      o2.connect(g2);g2.connect(c.destination);
+      o2.frequency.value = 240;o2.type = 'sine';
+      lfo2.connect(lfo2G);lfo2G.connect(g2.gain);
+      lfo2.frequency.value = 0.6;lfo2.type = 'sine';lfo2G.gain.value = 0.018;
+      g2.gain.setValueAtTime(0, t0);
+      g2.gain.linearRampToValueAtTime(0.05, t0 + 0.4);
+      o2.start(t0);lfo2.start(t0);
+      return () => {try {
+          var tEnd = c.currentTime;
+          g.gain.exponentialRampToValueAtTime(0.001, tEnd + 0.3);
+          g2.gain.exponentialRampToValueAtTime(0.001, tEnd + 0.3);
+          o.stop(tEnd + 0.4);lfo.stop(tEnd + 0.4);
+          o2.stop(tEnd + 0.4);lfo2.stop(tEnd + 0.4);
+        } catch {}};
+    } catch {return () => {};}
   },
 
   // Speech ready. bright ping
@@ -10011,7 +10064,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     accountOverlay,
     helpFloatingButton,
     el('div', { className: 'ambient' }), bar,
-    el('div', { className: stageClass, style: { justifyContent: 'flex-start', paddingTop: 90, maxWidth: 640, margin: '0 auto', textAlign: 'left' } },
+    el('div', { className: stageClass, style: { justifyContent: 'flex-start', paddingTop: 140, maxWidth: 640, margin: '0 auto', textAlign: 'left' } },
     // Sticky section nav. Long-scroll feedback page had Ballot →
     // Flow → Patterns → Drill → Transcript with no way to scan back.
     // Pills jump to each section and light up once the section has

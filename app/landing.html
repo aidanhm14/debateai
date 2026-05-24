@@ -1630,24 +1630,255 @@ button{font-family:inherit;cursor:pointer}
   .voice-anim-dot{animation:none}
 }
 
-/* ── "More" sitemap section ── grouped link grid placed right before the
-   footer, anchored by #more. Catches every secondary page so nothing is
-   forced through URL guessing. */
+/* ── "More" sitemap section ── editorial sitemap with a lifted
+   warm-paper panel and image-forward Start-here cards.
+   2026-05-24 redesign (v2): swapped the dark-on-dark card stack
+   for a lighter parchment panel so the section reads as a calmer
+   curated index instead of another dark slab. Each Start-here
+   card now leads with a thumbnail of the destination page (saved
+   under /_more-thumbs/), borrowing the magazine-issue-cover
+   register. Goal: Criterion-menu / literary-journal feel,
+   scannable, intentional, not a sitemap dump. */
+#more .wrap{
+  padding:44px 40px 36px;
+  background:linear-gradient(180deg,
+    rgba(255,247,236,.055) 0%,
+    rgba(255,247,236,.02) 60%,
+    rgba(255,247,236,.04) 100%);
+  border:1px solid rgba(255,247,236,.10);
+  border-radius:20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,247,236,.05),
+    0 24px 60px -28px rgba(0,0,0,.55);
+}
+[data-theme="light"] #more .wrap{
+  background:linear-gradient(180deg, #ffffff 0%, #faf8f1 100%);
+  border-color:rgba(0,0,0,.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.6),
+    0 18px 44px -22px rgba(0,0,0,.14);
+}
+
+.more-start{margin-top:24px;margin-bottom:40px}
+.more-start-label,
+.more-formats-label{
+  font-size:.6rem;font-weight:700;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--text-dim);margin-bottom:14px;
+}
+.more-start-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+}
+.more-start-card{
+  display:flex;flex-direction:column;
+  text-decoration:none;overflow:hidden;
+  border:1px solid rgba(255,247,236,.10);border-radius:14px;
+  background:rgba(255,247,236,.05);
+  transition:border-color .2s,background .2s,transform .2s,box-shadow .2s;
+}
+[data-theme="light"] .more-start-card{
+  background:#ffffff;
+  border-color:rgba(0,0,0,.07);
+  box-shadow:0 1px 2px rgba(0,0,0,.03);
+}
+.more-start-card:hover{
+  border-color:rgba(239,68,68,.45);
+  background:rgba(239,68,68,.06);
+  transform:translateY(-2px);
+  box-shadow:0 14px 32px -18px rgba(0,0,0,.5);
+}
+[data-theme="light"] .more-start-card:hover{
+  background:#fff;
+  box-shadow:0 12px 28px -14px rgba(0,0,0,.18);
+}
+.more-start-thumb{
+  display:block;aspect-ratio:16/10;overflow:hidden;
+  background:rgba(0,0,0,.32);position:relative;
+  border-bottom:1px solid rgba(255,247,236,.06);
+}
+[data-theme="light"] .more-start-thumb{
+  background:#f0ece2;border-bottom-color:rgba(0,0,0,.06);
+}
+.more-start-thumb img{
+  width:100%;height:100%;object-fit:cover;object-position:top center;
+  display:block;transition:transform .35s ease, filter .25s;
+  filter:saturate(.92);
+}
+.more-start-card:hover .more-start-thumb img{
+  transform:scale(1.04);filter:saturate(1.05);
+}
+
+/* ── Animated orb tile ── replaces the voice-debate screenshot in the
+   "First voice round" slot (Start-here 01 + Play column primary) with
+   the live brand orb. Pure CSS, no JS, prefers-reduced-motion respected. */
+.more-orb-tile{
+  position:absolute;inset:0;
+  background:radial-gradient(120% 110% at 50% 55%, #1a0a0e 0%, #0a0306 65%, #050203 100%);
+  overflow:hidden;
+}
+[data-theme="light"] .more-orb-tile{
+  background:radial-gradient(120% 110% at 50% 55%, #2a1014 0%, #1a0a0e 60%, #0e0608 100%);
+}
+.more-orb-tile::before{
+  content:"";position:absolute;left:50%;top:55%;
+  width:140%;aspect-ratio:1;transform:translate(-50%,-50%);
+  background:radial-gradient(circle, rgba(239,68,68,.42) 0%, rgba(239,68,68,0) 58%);
+  filter:blur(14px);
+  animation:moreOrbHalo 4.2s ease-in-out infinite;
+  pointer-events:none;
+}
+.more-orb-tile::after{
+  content:"";position:absolute;left:50%;top:55%;
+  width:46%;aspect-ratio:1;transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:radial-gradient(circle at 38% 36%, #ff8a8a 0%, #ef4444 32%, #8a1414 92%);
+  box-shadow:
+    0 0 30px rgba(239,68,68,.55),
+    0 0 70px rgba(239,68,68,.32),
+    inset -6px -10px 20px rgba(0,0,0,.5),
+    inset 6px 8px 18px rgba(255,200,200,.18);
+  animation:moreOrbPulse 3.4s ease-in-out infinite;
+}
+@keyframes moreOrbHalo{
+  0%,100%{opacity:.7;transform:translate(-50%,-50%) scale(.92)}
+  50%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}
+}
+@keyframes moreOrbPulse{
+  0%,100%{transform:translate(-50%,-50%) scale(1);filter:saturate(1)}
+  50%{transform:translate(-50%,-50%) scale(1.05);filter:saturate(1.15)}
+}
+.more-start-card:hover .more-orb-tile::after{animation-duration:2s}
+.more-start-card:hover .more-orb-tile::before{animation-duration:2.6s}
+.more-col a[data-primary]:hover .more-orb-tile::after{animation-duration:2s}
+@media (prefers-reduced-motion: reduce){
+  .more-orb-tile::before,.more-orb-tile::after{animation:none}
+}
+.more-start-meta{
+  display:flex;flex-direction:column;gap:4px;
+  padding:13px 15px 15px;
+}
+.more-start-num{
+  font-size:.56rem;font-weight:600;letter-spacing:.2em;
+  color:var(--accent);opacity:.7;
+}
+.more-start-title{
+  font-size:.92rem;font-weight:600;color:var(--text);
+  letter-spacing:-.005em;line-height:1.25;
+}
+.more-start-desc{
+  font-size:.72rem;color:var(--text-dim);line-height:1.45;font-weight:400;
+}
+
 .more-grid{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-  gap:32px 28px;margin-top:24px;
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:32px 24px;margin-top:8px;
+}
+.more-col{position:relative}
+.more-col + .more-col::before{
+  content:"";position:absolute;left:-12px;top:6px;bottom:6px;width:1px;
+  background:var(--border);opacity:.55;
 }
 .more-col-head{
-  font-size:.66rem;font-weight:800;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--accent);margin-bottom:14px;
+  font-size:.6rem;font-weight:700;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--text-dim);
+  margin-bottom:18px;padding-bottom:12px;
+  border-bottom:1px solid var(--border);
 }
-.more-col ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.more-col ul{
+  list-style:none;padding:0;margin:0;
+  display:flex;flex-direction:column;gap:11px;
+}
 .more-col a{
-  color:var(--text);text-decoration:none;font-size:.88rem;font-weight:500;
-  border-bottom:1px solid transparent;transition:color .2s,border-color .2s;
+  position:relative;display:block;
+  color:var(--text-dim);text-decoration:none;
+  font-size:.84rem;font-weight:400;line-height:1.4;
+  transition:color .18s;
 }
-.more-col a:hover{color:var(--accent);border-bottom-color:var(--accent)}
-.more-col a span{color:var(--text-dim);font-size:.78rem;margin-left:6px;font-weight:400}
+.more-col a:hover{color:var(--text)}
+.more-col a[data-primary]{
+  display:flex;align-items:flex-start;gap:11px;
+  color:var(--text);font-weight:600;font-size:.92rem;
+  letter-spacing:-.005em;margin-bottom:6px;
+}
+.more-col a[data-primary]:hover{color:var(--accent)}
+.more-col-thumb{
+  flex:0 0 56px;aspect-ratio:16/10;
+  border-radius:6px;overflow:hidden;
+  border:1px solid rgba(255,247,236,.08);
+  background:rgba(0,0,0,.32);
+}
+.more-col-thumb img{
+  width:100%;height:100%;object-fit:cover;object-position:top center;
+  display:block;filter:saturate(.88) brightness(.92);
+  transition:transform .3s ease, filter .25s;
+}
+[data-theme="light"] .more-col-thumb{background:#f0ece2;border-color:rgba(0,0,0,.07)}
+.more-col a[data-primary]:hover .more-col-thumb img{
+  transform:scale(1.06);filter:saturate(1) brightness(1);
+}
+.more-col-body{
+  display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;
+}
+.more-col-title{
+  font-weight:600;color:var(--text);font-size:.92rem;
+  line-height:1.3;letter-spacing:-.005em;
+}
+.more-col a[data-primary]:hover .more-col-title{color:var(--accent)}
+.more-col a[data-primary]:hover .more-col-title::after{opacity:1;transform:translateX(0)}
+.more-col-title::after{
+  content:" →";display:inline-block;color:var(--accent);
+  opacity:0;margin-left:2px;font-weight:500;
+  transform:translateX(-3px);
+  transition:opacity .18s, transform .18s;
+}
+.more-col a:hover .more-desc{color:var(--text)}
+.more-meta{
+  display:inline;color:var(--text-ghost);font-size:.7rem;font-weight:400;
+  margin-left:6px;letter-spacing:.01em;
+}
+.more-desc{
+  display:block;font-size:.72rem;color:var(--text-dim);font-weight:400;
+  line-height:1.45;margin-top:2px;letter-spacing:0;
+}
+
+.more-formats{
+  margin-top:44px;padding-top:28px;
+  border-top:1px solid var(--border);
+}
+.more-formats-list{display:flex;flex-wrap:wrap;gap:6px 4px}
+.more-formats-list a{
+  padding:6px 12px;font-size:.78rem;color:var(--text-dim);
+  text-decoration:none;border:1px solid var(--border);
+  border-radius:999px;font-weight:400;letter-spacing:.005em;
+  transition:color .18s,border-color .18s,background .18s;
+}
+.more-formats-list a:hover{
+  color:var(--text);border-color:var(--text-dim);
+  background:rgba(255,255,255,.02);
+}
+[data-theme="light"] .more-formats-list a:hover{background:rgba(0,0,0,.025)}
+.more-formats-list a em{
+  font-style:normal;color:var(--text-dim);opacity:.5;
+  font-size:.66rem;font-weight:400;margin-left:5px;letter-spacing:.04em;
+}
+
+@media (max-width:980px){
+  .more-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 20px}
+  .more-start-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .more-col + .more-col::before{display:none}
+}
+@media (max-width:680px){
+  .more-grid{display:flex;flex-direction:column;gap:0}
+  .more-col{
+    border-top:1px solid var(--border);
+    padding:18px 0 6px;
+  }
+  .more-col:first-child{border-top:none;padding-top:0}
+  .more-col-head{
+    margin-bottom:12px;padding-bottom:0;border-bottom:none;
+  }
+  .more-start-grid{grid-template-columns:1fr;gap:8px}
+  .more-start-card{padding:14px 16px}
+}
 
 .adults-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
 .adult-card{
@@ -6065,11 +6296,25 @@ section.ui-section .ui-lede{
   .pc-grid{
     display:grid;
     grid-template-columns:minmax(0,2fr) minmax(0,5fr);
-    gap:18px;max-width:1180px;margin:0 auto;align-items:stretch;
+    grid-template-areas:
+      "price    founder"
+      "cofound  founder";
+    gap:18px;max-width:1180px;margin:0 auto;
+    align-items:start;
     text-align:left;
   }
+  .pc-grid > .pc-card{grid-area:price}
+  .pc-grid > .cofounder-card{grid-area:cofound}
+  .pc-grid > .founder-letter{grid-area:founder}
   @media (max-width:720px){
-    .pc-grid{grid-template-columns:1fr;max-width:560px}
+    .pc-grid{
+      grid-template-columns:1fr;
+      grid-template-areas:
+        "price"
+        "cofound"
+        "founder";
+      max-width:560px;
+    }
   }
 
   /* Pricing comparison card — softer chrome than the prior pink slab,
@@ -6099,7 +6344,6 @@ section.ui-section .ui-lede{
      Same chrome family as pc-card but with a single short-form
      message. Honest, plain, founder-voice. */
   .cofounder-card{
-    margin-top:14px;
     padding:18px 18px;
     background:rgba(239,68,68,.05);
     border:1px dashed rgba(239,68,68,.36);
@@ -10045,71 +10289,155 @@ section.ui-section .ui-lede{
      duplicate that also added ~250 lines of CSS for cards that
      stopped earning the screen space they took. -->
 
-<!-- "More" — flat sitemap so every secondary page is one tap from the
-     landing. Linked from the jumpnav (#more). Groups pages by intent
-     so visitors can find them without URL guessing. -->
+<!-- "More" — curated sitemap so every secondary page is one tap from
+     the landing. Linked from the jumpnav (#more). 2026-05-24 redesign:
+     wrapped in a lifted warm-paper panel (lighter than the surrounding
+     hero so the section reads as a calm curated index, not another
+     dark slab); a "Start here" rail above gives newcomers a guided
+     entry with thumbnails of the destination pages; five intent-
+     grouped columns each carry one marquee item (data-primary) with
+     a 56px thumbnail + one-line description; the eight format-guide
+     pages drop to a pill rail at the foot so the sitemap reads as a
+     curated ecosystem instead of a wall of equal-weight links. Page
+     thumbnails captured into /_more-thumbs/ via headless Chrome. -->
 <div class="divider"></div>
-<section id="more" class="sec" style="padding:48px 24px 32px">
-  <div class="wrap" style="max-width:1080px">
+<section id="more" class="sec" style="padding:56px 24px 40px">
+  <div class="wrap" style="max-width:940px">
     <div class="sec-label">All sections</div>
-    <h2 style="font-size:clamp(1.4rem,3vw,2rem);font-weight:800;letter-spacing:-.02em;margin-bottom:6px;color:var(--text)">Everything else.</h2>
-    <p style="font-size:.88rem;color:var(--text-dim);line-height:1.6;margin-bottom:8px;max-width:560px">Every page on the site, one tap away.</p>
+    <h2 style="font-size:clamp(1.4rem,3vw,2rem);font-weight:800;letter-spacing:-.02em;margin-bottom:6px;color:var(--text)">Everywhere else.</h2>
+    <p style="font-size:.88rem;color:var(--text-dim);line-height:1.6;margin-bottom:28px;max-width:560px">Every page on the site, grouped by where you'd actually go next.</p>
+
+    <!-- START HERE rail. Image-forward onboarding strip for newcomers.
+         Each card opens with a thumbnail of the destination page so
+         the numbered tile reads as a magazine-cover entry. -->
+    <div class="more-start">
+      <div class="more-start-label">Start here</div>
+      <div class="more-start-grid">
+        <a href="/voice-debate?demo=1" class="more-start-card">
+          <span class="more-start-thumb"><span class="more-orb-tile" aria-hidden="true"></span></span>
+          <span class="more-start-meta">
+            <span class="more-start-num">01</span>
+            <span class="more-start-title">First voice round</span>
+            <span class="more-start-desc">Three minutes, one motion, AI opponent.</span>
+          </span>
+        </a>
+        <a href="/app#case" class="more-start-card">
+          <span class="more-start-thumb"><img src="/_more-thumbs/app.jpg" alt="" loading="lazy" decoding="async" width="360" height="225"></span>
+          <span class="more-start-meta">
+            <span class="more-start-num">02</span>
+            <span class="more-start-title">Generate a case</span>
+            <span class="more-start-desc">Full case on any motion, both sides.</span>
+          </span>
+        </a>
+        <a href="/learn" class="more-start-card">
+          <span class="more-start-thumb"><img src="/_more-thumbs/learn.jpg" alt="" loading="lazy" decoding="async" width="360" height="225"></span>
+          <span class="more-start-meta">
+            <span class="more-start-num">03</span>
+            <span class="more-start-title">Learn the basics</span>
+            <span class="more-start-desc">Drills, theory, judge-grade feedback.</span>
+          </span>
+        </a>
+        <a href="/live" class="more-start-card">
+          <span class="more-start-thumb"><img src="/_more-thumbs/live.jpg" alt="" loading="lazy" decoding="async" width="360" height="225"></span>
+          <span class="more-start-meta">
+            <span class="more-start-num">04</span>
+            <span class="more-start-title">Watch a live round</span>
+            <span class="more-start-desc">Open tournaments, real debaters.</span>
+          </span>
+        </a>
+      </div>
+    </div>
+
     <div class="more-grid">
       <div class="more-col">
-        <div class="more-col-head">Practice</div>
+        <div class="more-col-head">Play</div>
         <ul>
-          <li><a href="/debate-ai">Debate AI <span>typed</span></a></li>
-          <li><a href="/voice-debate?demo=1">Voice debate</a></li>
-          <li><a href="/debate">Debate dossiers <span>both sides</span></a></li>
-          <li><a href="/spar">Find a sparring partner</a></li>
+          <li><a href="/voice-debate?demo=1" data-primary>
+            <span class="more-col-thumb"><span class="more-orb-tile" aria-hidden="true"></span></span>
+            <span class="more-col-body">
+              <span class="more-col-title">Voice debate</span>
+              <span class="more-desc">Real-time adversarial rounds.</span>
+            </span>
+          </a></li>
+          <li><a href="/debate-ai">Debate AI<span class="more-meta">typed</span></a></li>
+          <li><a href="/spar">Sparring partner</a></li>
           <li><a href="/live">Live human debates</a></li>
           <li><a href="/leaderboard">Leaderboard</a></li>
         </ul>
       </div>
       <div class="more-col">
-        <div class="more-col-head">Learn</div>
+        <div class="more-col-head">Train</div>
         <ul>
-          <li><a href="/learn">Learn to debate</a></li>
+          <li><a href="/learn" data-primary>
+            <span class="more-col-thumb"><img src="/_more-thumbs/learn.jpg" alt="" loading="lazy" decoding="async" width="120" height="75"></span>
+            <span class="more-col-body">
+              <span class="more-col-title">Learn to debate</span>
+              <span class="more-desc">Drills, theory, RFDs.</span>
+            </span>
+          </a></li>
           <li><a href="/high-school">High school edition</a></li>
-          <li><a href="/topics">All topic guides</a></li>
-        </ul>
-      </div>
-      <div class="more-col">
-        <div class="more-col-head">Format guides</div>
-        <ul>
-          <li><a href="/topics/asian-parliamentary">Asian Parliamentary</a></li>
-          <li><a href="/topics/world-schools">World Schools <span>WSDC</span></a></li>
-          <li><a href="/topics/british-parliamentary">British Parliamentary</a></li>
-          <li><a href="/topics/public-forum">Public Forum</a></li>
-          <li><a href="/topics/lincoln-douglas">Lincoln-Douglas</a></li>
-          <li><a href="/topics/policy">Policy</a></li>
-          <li><a href="/topics/congress">Student Congress</a></li>
-          <li><a href="/topics/big-questions">Big Questions</a></li>
+          <li><a href="/topics">Topic guides</a></li>
+          <li><a href="/debate">Debate dossiers<span class="more-meta">both sides</span></a></li>
         </ul>
       </div>
       <div class="more-col">
         <div class="more-col-head">Tools</div>
         <ul>
+          <li><a href="/app#phil" data-primary>
+            <span class="more-col-thumb"><img src="/_more-thumbs/app.jpg" alt="" loading="lazy" decoding="async" width="120" height="75"></span>
+            <span class="more-col-body">
+              <span class="more-col-title">Argument map</span>
+              <span class="more-desc">Visualize clash and rebuttal.</span>
+            </span>
+          </a></li>
           <li><a href="/app#case">Case generator</a></li>
-          <li><a href="/app#phil">Argument map</a></li>
           <li><a href="/app#feedback">Judge feedback</a></li>
           <li><a href="/app#vision">Vision</a></li>
-          <li><a href="/disclosures">Disclosures</a></li>
         </ul>
       </div>
       <div class="more-col">
-        <div class="more-col-head">About &amp; support</div>
+        <div class="more-col-head">Community</div>
         <ul>
-          <li><a href="/profile">Your dashboard</a></li>
-          <li><a href="/leaderboard">Leaderboard</a></li>
-          <li><a href="/pricing">Pricing</a></li>
+          <li><a href="/schools" data-primary>
+            <span class="more-col-thumb"><img src="/_more-thumbs/schools.jpg" alt="" loading="lazy" decoding="async" width="120" height="75"></span>
+            <span class="more-col-body">
+              <span class="more-col-title">For schools</span>
+              <span class="more-desc">Team infra and classroom tools.</span>
+            </span>
+          </a></li>
           <li><a href="/community">Community</a></li>
-          <li><a href="https://discord.gg/WMHZW9BKvJ" target="_blank" rel="noopener noreferrer">Discord <span>Live chat</span></a></li>
+          <li><a href="https://discord.gg/WMHZW9BKvJ" target="_blank" rel="noopener noreferrer">Discord<span class="more-meta">live chat</span></a></li>
           <li><a href="/changelog">Changelog</a></li>
-          <li><a href="/schools">For schools</a></li>
           <li><a href="mailto:feedback@debateai.com">Contact</a></li>
+        </ul>
+      </div>
+      <div class="more-col">
+        <div class="more-col-head">About</div>
+        <ul>
+          <li><a href="/story">Founder note</a></li>
+          <li><a href="/profile">Your dashboard</a></li>
+          <li><a href="/pricing">Pricing</a></li>
+          <li><a href="/disclosures">Disclosures</a></li>
           <li><a href="https://buymeacoffee.com/8idanhm" target="_blank" rel="noopener">Donate</a></li>
         </ul>
+      </div>
+    </div>
+
+    <!-- Format guides — eight pages compressed into a quiet pill rail
+         so a long list of nearly-identical link rows stops dominating
+         the grid above. Each pill still links to its own /topics
+         page so SEO link-equity is preserved. -->
+    <div class="more-formats">
+      <div class="more-formats-label">Format guides</div>
+      <div class="more-formats-list">
+        <a href="/topics/asian-parliamentary">Asian Parliamentary</a>
+        <a href="/topics/world-schools">World Schools <em>WSDC</em></a>
+        <a href="/topics/british-parliamentary">British Parliamentary</a>
+        <a href="/topics/public-forum">Public Forum</a>
+        <a href="/topics/lincoln-douglas">Lincoln-Douglas</a>
+        <a href="/topics/policy">Policy</a>
+        <a href="/topics/congress">Student Congress</a>
+        <a href="/topics/big-questions">Big Questions</a>
       </div>
     </div>
   </div>
@@ -10768,6 +11096,182 @@ window.addEventListener('load', function(){
       }
     });
   }, 45000);
+})();
+</script>
+
+<!-- ── Vibes widget (landing-only music player) ──────────────────────
+     Bottom-right floating chip. Closed by default; click to expand a
+     Spotify iframe playing Daphni — "Poly" (Joli Mai, 2017). Per the
+     dismissed-music-on-product-pages decision: this lives ONLY on
+     landing.html. Voice surfaces (/voice-debate, /casual-room) need
+     a clean audio path and would be ruined by background music.
+
+     Iframe is lazy-loaded — not added to the DOM until first click —
+     so the landing page's perf score isn't hit by a 200KB+ embed for
+     visitors who never engage. localStorage caches dismissal for 7
+     days so the chip stops nagging users who already said no.
+
+     The Spotify embed uses Spotify's official iframe widget, which
+     is the legal way to play a copyrighted track on a third-party
+     site (Spotify holds the licensing; we hold a thin player).
+
+     Swap track: change SPOTIFY_TRACK_ID below. Track URL format on
+     Spotify is open.spotify.com/track/{id}. Copy after Share → Copy
+     Spotify URI / Copy Link. -->
+<style>
+  .vibes-widget{
+    position:fixed;bottom:18px;right:18px;z-index:200;
+    font-family:'Inter',system-ui,sans-serif;
+  }
+  .vibes-toggle{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:9px 16px 9px 13px;border:1px solid rgba(239,68,68,.45);
+    background:rgba(0,0,0,.88);color:#fff;border-radius:999px;
+    font-size:.78rem;font-weight:700;letter-spacing:.015em;
+    cursor:pointer;
+    box-shadow:0 12px 32px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.05) inset;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+  }
+  .vibes-toggle:hover{
+    transform:translateY(-2px);
+    border-color:#ef4444;
+    box-shadow:0 18px 40px rgba(0,0,0,.55),0 0 24px rgba(239,68,68,.22);
+  }
+  .vibes-toggle .vibes-note{
+    display:inline-flex;width:18px;height:18px;align-items:center;justify-content:center;
+    font-size:.95rem;color:#ef4444;
+    animation:vibes-bob 2.4s ease-in-out infinite;
+  }
+  @keyframes vibes-bob{
+    0%,100%{transform:translateY(0)}
+    50%   {transform:translateY(-2px)}
+  }
+  .vibes-toggle .vibes-track{color:rgba(255,255,255,.62);font-weight:500;font-size:.7rem;letter-spacing:.02em}
+  .vibes-player{
+    position:relative;
+    width:300px;
+    border-radius:14px;overflow:hidden;
+    background:#000;
+    border:1px solid rgba(239,68,68,.4);
+    box-shadow:0 18px 44px rgba(0,0,0,.55),0 0 26px rgba(239,68,68,.18);
+    animation:vibes-pop .22s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes vibes-pop{
+    from{opacity:0;transform:translateY(8px) scale(.96)}
+    to  {opacity:1;transform:translateY(0)   scale(1)}
+  }
+  .vibes-player iframe{
+    display:block;width:100%;height:80px;border:0;
+  }
+  .vibes-close{
+    position:absolute;top:6px;right:6px;z-index:2;
+    width:22px;height:22px;border-radius:50%;
+    background:rgba(0,0,0,.75);color:rgba(255,255,255,.78);
+    border:1px solid rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;
+    font-size:.78rem;font-weight:700;line-height:1;
+    cursor:pointer;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    transition:color .15s,border-color .15s,background .15s;
+  }
+  .vibes-close:hover{color:#fff;border-color:#ef4444;background:rgba(239,68,68,.32)}
+  .vibes-credit{
+    margin:0;padding:6px 12px 9px;
+    font-size:.66rem;color:rgba(255,255,255,.55);
+    letter-spacing:.04em;text-align:center;
+    background:rgba(0,0,0,.92);
+  }
+  .vibes-credit strong{color:rgba(255,255,255,.82);font-weight:600}
+  /* Mobile: keep the widget but shrink the player so it fits next to
+     other fixed-position chrome (the floating upgrade pill, etc.). */
+  @media (max-width:560px){
+    .vibes-widget{bottom:14px;right:14px}
+    .vibes-toggle{padding:8px 13px 8px 11px;font-size:.74rem}
+    .vibes-toggle .vibes-track{display:none}
+    .vibes-player{width:260px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .vibes-toggle .vibes-note{animation:none}
+    .vibes-player{animation:none}
+  }
+</style>
+<div id="vibesWidget" class="vibes-widget" hidden>
+  <button id="vibesToggle" class="vibes-toggle" type="button" aria-label="Open music player">
+    <span class="vibes-note" aria-hidden="true">♫</span>
+    <span>Vibes</span>
+    <span class="vibes-track" aria-hidden="true">· Daphni</span>
+  </button>
+  <div id="vibesPlayer" class="vibes-player" hidden>
+    <button id="vibesClose" class="vibes-close" type="button" aria-label="Close music player">×</button>
+    <div id="vibesIframeHost"></div>
+    <p class="vibes-credit"><strong>Daphni</strong> · Poly · click ▶ inside the player to start</p>
+  </div>
+</div>
+<script>
+(function(){
+  // Track ID confirmed via Spotify oEmbed lookup on 2026-05-24:
+  // open.spotify.com/track/70GeFg0Hy8uvIoujccyWgz → title "Poly".
+  // Swap for a different vibe by replacing this string; the iframe
+  // src is built from it at click time.
+  var SPOTIFY_TRACK_ID = '70GeFg0Hy8uvIoujccyWgz';
+  var DISMISS_KEY = 'da-vibes-dismissed-at';
+  var DISMISS_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+  var widget  = document.getElementById('vibesWidget');
+  var toggle  = document.getElementById('vibesToggle');
+  var player  = document.getElementById('vibesPlayer');
+  var iframeHost = document.getElementById('vibesIframeHost');
+  var closeBtn = document.getElementById('vibesClose');
+  if (!widget || !toggle || !player) return;
+
+  // Honor a recent dismissal so the chip doesn't keep appearing for
+  // users who already said no. Stored as an epoch-ms timestamp.
+  try {
+    var dismissedAt = parseInt(localStorage.getItem(DISMISS_KEY) || '0', 10);
+    if (dismissedAt && (Date.now() - dismissedAt) < DISMISS_TTL_MS) {
+      return; // widget stays hidden; nothing rendered, no iframe loaded
+    }
+  } catch(e) { /* localStorage blocked → show widget */ }
+
+  widget.hidden = false;
+
+  var iframeMounted = false;
+  function mountIframe(){
+    if (iframeMounted) return;
+    iframeMounted = true;
+    var iframe = document.createElement('iframe');
+    iframe.title = 'Daphni — Poly (Spotify player)';
+    iframe.src   = 'https://open.spotify.com/embed/track/' + SPOTIFY_TRACK_ID +
+                   '?utm_source=generator&theme=0';
+    iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+    iframe.loading = 'lazy';
+    iframe.setAttribute('frameborder', '0');
+    iframeHost.appendChild(iframe);
+  }
+
+  toggle.addEventListener('click', function(){
+    mountIframe();
+    toggle.hidden = true;
+    player.hidden = false;
+    try { gtag('event', 'vibes_open', { track: 'daphni_poly' }); } catch(e){}
+  });
+
+  closeBtn.addEventListener('click', function(){
+    player.hidden = true;
+    toggle.hidden = false;
+    // Pause the iframe by reloading its src (Spotify embed has no
+    // postMessage pause API exposed publicly). Cheap and reliable.
+    var ifr = iframeHost.querySelector('iframe');
+    if (ifr) {
+      var s = ifr.src; ifr.src = ''; ifr.src = s;
+    }
+    try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch(e){}
+    try { gtag('event', 'vibes_dismiss', {}); } catch(e){}
+    // Hide the whole widget after dismiss; the 7-day TTL keeps it
+    // gone until next week.
+    widget.hidden = true;
+  });
 })();
 </script>
 </body>
