@@ -104,41 +104,61 @@ export default async (request) => {
       }
     }
 
-    // ── 2. Members per day, from user_profiles.createdAt ──────────
+    // ── 2. Members per day, from user_profiles ────────────────────
+    // NO createdAt cutoff — we want ALL historical signups, including
+    // ones from before metrics/daily tracking began. Two timestamp
+    // sources, in order of preference:
+    //   1. data.createdAt  — explicit field set by save-profile and
+    //      most write paths
+    //   2. doc.createTime  — Firestore-internal write timestamp;
+    //      always present, covers legacy profile docs that predate
+    //      the explicit createdAt field
+    // Anything missing both is skipped with a warn (shouldn't happen).
     const membersByDay = Object.create(null);
     let totalMembers = 0;
-    if (firstVisitDay){
-      const cutoff = new Date(firstVisitDay + 'T00:00:00Z');
-      const profSnap = await db.collection('user_profiles')
-        .where('createdAt', '>=', cutoff)
-        .limit(MAX_PROFILES)
-        .get()
-        .catch(err => {
-          console.warn('public-join-history user_profiles scan failed:', err.message);
-          return { docs: [] };
-        });
+    let firstMemberDay = null;
+    let skippedNoTs = 0;
 
-      profSnap.docs.forEach(d => {
-        const data = d.data();
-        const t = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : null;
-        if (!t) return;
-        const k = ymd(new Date(startOfDayUTC(t)));
-        membersByDay[k] = (membersByDay[k] || 0) + 1;
-        totalMembers += 1;
+    const profSnap = await db.collection('user_profiles')
+      .limit(MAX_PROFILES)
+      .get()
+      .catch(err => {
+        console.warn('public-join-history user_profiles scan failed:', err.message);
+        return { docs: [] };
       });
-    }
+
+    profSnap.docs.forEach(d => {
+      const data = d.data();
+      let t = null;
+      if (data.createdAt && typeof data.createdAt.toMillis === 'function') {
+        t = data.createdAt.toMillis();
+      } else if (d.createTime && typeof d.createTime.toMillis === 'function') {
+        t = d.createTime.toMillis();
+      }
+      if (!t) { skippedNoTs++; return; }
+      const k = ymd(new Date(startOfDayUTC(t)));
+      membersByDay[k] = (membersByDay[k] || 0) + 1;
+      totalMembers += 1;
+      if (!firstMemberDay || k < firstMemberDay) firstMemberDay = k;
+    });
+    if (skippedNoTs) console.warn('public-join-history: skipped', skippedNoTs, 'user_profiles with no timestamp');
 
     // ── 3. Walk forward, emit milestone dates ─────────────────────
+    // Iterate over each source's OWN sorted day-keys (not the shared
+    // metrics/daily window) so historical members from before visit
+    // tracking began aren't dropped. The earliest of any source
+    // becomes the timeline's "since".
     const milestones = [];
-    const since = firstVisitDay || ymd(new Date());
+    const visitDays  = Object.keys(visitsByDay).sort();
+    const memberDays = Object.keys(membersByDay).sort();
+
+    const candidates = [firstVisitDay, firstMemberDay].filter(Boolean).sort();
+    const since = candidates[0] || ymd(new Date());
 
     let runVisits = 0;
     let nextV = 0;
-    for (let i = 0; i < keys.length; i++){
-      const k = keys[i];
-      const c = visitsByDay[k] || 0;
-      if (!c && runVisits === 0) continue;
-      runVisits += c;
+    for (const k of visitDays){
+      runVisits += visitsByDay[k] || 0;
       while (nextV < VISITOR_THRESHOLDS.length && runVisits >= VISITOR_THRESHOLDS[nextV]){
         milestones.push({ kind: 'visitor', n: VISITOR_THRESHOLDS[nextV], date: k });
         nextV++;
@@ -147,11 +167,8 @@ export default async (request) => {
 
     let runMembers = 0;
     let nextM = 0;
-    for (let i = 0; i < keys.length; i++){
-      const k = keys[i];
-      const c = membersByDay[k] || 0;
-      if (!c && runMembers === 0) continue;
-      runMembers += c;
+    for (const k of memberDays){
+      runMembers += membersByDay[k] || 0;
       while (nextM < MEMBER_THRESHOLDS.length && runMembers >= MEMBER_THRESHOLDS[nextM]){
         milestones.push({ kind: 'member', n: MEMBER_THRESHOLDS[nextM], date: k });
         nextM++;
