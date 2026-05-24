@@ -8,14 +8,19 @@
 // Two sources:
 //   - metrics/daily/{YYYY-MM-DD}.count → anonymous visits per UTC day
 //     (written by visitor-tick on every first-device tick)
-//   - user_profiles where createdAt >= sinceCutoff → signed-in members
-//     per UTC day, bucketed by their createdAt timestamp
+//   - Firebase Auth listUsers() → every real sign-up (Google,
+//     email/password, ...). This is the authoritative source — the
+//     user_profiles Firestore collection only holds docs for users
+//     who took a profile-writing action, so ~most Google sign-ins
+//     never make it there. The Auth account is created on first
+//     sign-in regardless. Falls back to user_profiles if the Admin
+//     SDK is unavailable.
 //
 // Response shape (intentionally tiny — public surface, no PII leak):
 //   {
 //     since: 'YYYY-MM-DD',          // earliest tracked day, or null
 //     now:   'YYYY-MM-DD',
-//     totals: { visits, members },
+//     totals: { visits, members, google },
 //     milestones: [
 //       { kind: 'visitor' | 'member', n: 1|10|100|..., date: 'YYYY-MM-DD' }
 //     ]
@@ -23,9 +28,10 @@
 //
 // Cached 1 hour (public surface, staleness is fine and the cache also
 // caps Firestore read amplification — every uncached call does ~MAX_DAYS
-// metrics/daily gets + one user_profiles range scan capped at MAX_PROFILES).
+// metrics/daily gets + one Auth listUsers pagination).
 
 import { getDb } from './lib/firestore.mjs';
+import { listAllAuthUsers } from './lib/auth-admin.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCached, setCached } from './lib/admin-cache.mjs';
 
@@ -64,7 +70,7 @@ function emptyPayload(){
   return {
     since: null,
     now: ymd(new Date()),
-    totals: { visits: 0, members: 0 },
+    totals: { visits: 0, members: 0, google: 0 },
     milestones: [],
   };
 }
@@ -104,44 +110,71 @@ export default async (request) => {
       }
     }
 
-    // ── 2. Members per day, from user_profiles ────────────────────
-    // NO createdAt cutoff — we want ALL historical signups, including
-    // ones from before metrics/daily tracking began. Two timestamp
-    // sources, in order of preference:
-    //   1. data.createdAt  — explicit field set by save-profile and
-    //      most write paths
-    //   2. doc.createTime  — Firestore-internal write timestamp;
-    //      always present, covers legacy profile docs that predate
-    //      the explicit createdAt field
-    // Anything missing both is skipped with a warn (shouldn't happen).
+    // ── 2. Members per day, from Firebase Auth ────────────────────
+    // The Auth user list is authoritative: every sign-in creates an
+    // Auth account regardless of whether the user ever wrote a
+    // user_profiles doc. Pure-anonymous accounts (no providerData)
+    // are excluded — those are the visitor side of the page and
+    // would double-count.
+    //
+    // metadata.creationTime is an ISO string set by Firebase on
+    // account creation. We bucket by UTC day.
+    //
+    // Fallback: if the Admin SDK fails (credentials, network), fall
+    // back to user_profiles scan with both data.createdAt and
+    // Firestore doc.createTime as timestamp sources. Will undercount
+    // (only users who saved a profile), but keeps the section from
+    // going totally blank.
     const membersByDay = Object.create(null);
     let totalMembers = 0;
+    let totalGoogleMembers = 0;
     let firstMemberDay = null;
-    let skippedNoTs = 0;
+    let memberSource = 'auth';
 
-    const profSnap = await db.collection('user_profiles')
-      .limit(MAX_PROFILES)
-      .get()
-      .catch(err => {
-        console.warn('public-join-history user_profiles scan failed:', err.message);
-        return { docs: [] };
-      });
+    let authUsers = null;
+    try {
+      authUsers = await listAllAuthUsers();
+    } catch (err) {
+      console.warn('public-join-history listAllAuthUsers failed, falling back to user_profiles:', err.message);
+      memberSource = 'user_profiles_fallback';
+    }
 
-    profSnap.docs.forEach(d => {
-      const data = d.data();
-      let t = null;
-      if (data.createdAt && typeof data.createdAt.toMillis === 'function') {
-        t = data.createdAt.toMillis();
-      } else if (d.createTime && typeof d.createTime.toMillis === 'function') {
-        t = d.createTime.toMillis();
+    if (authUsers) {
+      for (const u of authUsers) {
+        const providers = (u.providerData || []).map(p => p.providerId);
+        if (providers.length === 0) continue; // pure anonymous
+        const tStr = u.metadata && u.metadata.creationTime;
+        const t = tStr ? Date.parse(tStr) : null;
+        if (!t) continue;
+        const k = ymd(new Date(startOfDayUTC(t)));
+        membersByDay[k] = (membersByDay[k] || 0) + 1;
+        totalMembers += 1;
+        if (providers.includes('google.com')) totalGoogleMembers += 1;
+        if (!firstMemberDay || k < firstMemberDay) firstMemberDay = k;
       }
-      if (!t) { skippedNoTs++; return; }
-      const k = ymd(new Date(startOfDayUTC(t)));
-      membersByDay[k] = (membersByDay[k] || 0) + 1;
-      totalMembers += 1;
-      if (!firstMemberDay || k < firstMemberDay) firstMemberDay = k;
-    });
-    if (skippedNoTs) console.warn('public-join-history: skipped', skippedNoTs, 'user_profiles with no timestamp');
+    } else {
+      // Fallback path — user_profiles scan.
+      let skippedNoTs = 0;
+      const profSnap = await db.collection('user_profiles')
+        .limit(MAX_PROFILES)
+        .get()
+        .catch(err => {
+          console.warn('public-join-history user_profiles fallback failed too:', err.message);
+          return { docs: [] };
+        });
+      profSnap.docs.forEach(d => {
+        const data = d.data();
+        let t = null;
+        if (data.createdAt && typeof data.createdAt.toMillis === 'function') t = data.createdAt.toMillis();
+        else if (d.createTime && typeof d.createTime.toMillis === 'function') t = d.createTime.toMillis();
+        if (!t) { skippedNoTs++; return; }
+        const k = ymd(new Date(startOfDayUTC(t)));
+        membersByDay[k] = (membersByDay[k] || 0) + 1;
+        totalMembers += 1;
+        if (!firstMemberDay || k < firstMemberDay) firstMemberDay = k;
+      });
+      if (skippedNoTs) console.warn('public-join-history fallback: skipped', skippedNoTs, 'profile docs with no timestamp');
+    }
 
     // ── 3. Walk forward, emit milestone dates ─────────────────────
     // Iterate over each source's OWN sorted day-keys (not the shared
@@ -185,7 +218,8 @@ export default async (request) => {
     const payload = {
       since,
       now: ymd(new Date()),
-      totals: { visits: totalVisits, members: totalMembers },
+      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers },
+      memberSource,
       milestones,
     };
     setCached(CACHE_KEY, payload, CACHE_TTL);
