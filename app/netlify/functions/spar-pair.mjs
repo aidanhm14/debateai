@@ -24,7 +24,7 @@ import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 // Body only supplies peerUid + format (for format-mismatch defense).
 
 const VALID_FORMATS = new Set([
-  'quick','apda','bp','worlds','asian','ld','pf','policy',
+  'quick','apda','bp','worlds','asian','ld','pf','policy','casual',
 ]);
 
 // Per-uid throttle so a misbehaving client can't fan out pair attempts.
