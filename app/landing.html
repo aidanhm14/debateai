@@ -2046,6 +2046,7 @@ section.hero{
       "headline card"
       "ctas     card"
       "pills    card"
+      "founder  card"
       "signin   card";
     align-items:center;
   }
@@ -2079,6 +2080,7 @@ section.hero{
     min-width:0;
   }
   .editorial-hero .editorial-signin-row{grid-area:signin;margin-top:32px}
+  .editorial-hero .hero-founder-cue{grid-area:founder;justify-self:start;margin:28px 0 0}
 }
 .hero-content{
   max-width:1240px !important;
@@ -2090,6 +2092,134 @@ section.hero{
   max-width:1240px;
   margin-inline:auto;
   width:100%;
+}
+
+/* ── Orbital decoration (2026-05-24) ──────────────────────────────
+   Editorial backdrop behind the hero text: a soft glowing center
+   point, 2-3 irregular orbit lines, tiny glow dots on the paths, a
+   large tilted ellipse top-right, and a curved arrow sweeping down
+   toward the founder-story cue. Sits between .hero-grain (z:1) and
+   .hero-content (z:2), pointer-events disabled so nothing here
+   intercepts clicks. Stays subtle by design — readability of the
+   headline + CTAs is non-negotiable. */
+.hero-orbital{
+  position:absolute;inset:0;z-index:1;
+  pointer-events:none;
+  overflow:hidden;
+}
+.hero-orbital .ho-planet{
+  position:absolute;
+  top:-90px;right:-140px;
+  width:620px;height:340px;
+  border-radius:50%;
+  background:radial-gradient(ellipse at 35% 38%,
+    rgba(255,140,90,.55) 0%,
+    rgba(239,68,68,.42) 38%,
+    rgba(127,29,29,.22) 72%,
+    transparent 100%);
+  transform:rotate(-16deg);
+  filter:blur(3px);
+  opacity:.78;
+  animation:hoPlanetPulse 14s ease-in-out infinite;
+}
+@keyframes hoPlanetPulse{
+  0%,100%{opacity:.74;transform:rotate(-16deg) scale(1)}
+  50%    {opacity:.86;transform:rotate(-16deg) scale(1.025)}
+}
+.hero-orbital .ho-svg{
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  overflow:visible;
+}
+.hero-orbital .ho-orbit{
+  fill:none;
+  stroke:rgba(239,68,68,.26);
+  stroke-linecap:round;
+  vector-effect:non-scaling-stroke;
+}
+.hero-orbital .ho-orbit--2{stroke:rgba(239,68,68,.19)}
+.hero-orbital .ho-orbit--3{stroke:rgba(239,68,68,.13)}
+.hero-orbital .ho-orbit-group{
+  transform-origin:370px 380px;
+  animation:hoOrbitDrift 38s ease-in-out infinite;
+}
+@keyframes hoOrbitDrift{
+  0%,100%{transform:rotate(-1.4deg)}
+  50%    {transform:rotate(1.4deg)}
+}
+.hero-orbital .ho-core{
+  fill:rgba(255,210,190,.95);
+  filter:url(#hoDotGlow);
+}
+.hero-orbital .ho-dot{filter:url(#hoDotGlow)}
+.hero-orbital .ho-arrow{
+  fill:none;
+  stroke:rgba(239,68,68,.5);
+  stroke-width:2;
+  stroke-linecap:round;
+}
+[data-theme="light"] .hero-orbital .ho-planet{
+  background:radial-gradient(ellipse at 35% 38%,
+    rgba(239,68,68,.30) 0%,
+    rgba(220,38,38,.20) 40%,
+    rgba(127,29,29,.10) 72%,
+    transparent 100%);
+  opacity:.55;
+}
+[data-theme="light"] .hero-orbital .ho-orbit{stroke:rgba(220,38,38,.22)}
+[data-theme="light"] .hero-orbital .ho-orbit--2{stroke:rgba(220,38,38,.16)}
+[data-theme="light"] .hero-orbital .ho-orbit--3{stroke:rgba(220,38,38,.11)}
+[data-theme="light"] .hero-orbital .ho-core{fill:rgba(220,38,38,.85)}
+[data-theme="light"] .hero-orbital .ho-arrow{stroke:rgba(220,38,38,.5)}
+@media (max-width:900px){
+  .hero-orbital .ho-planet{
+    top:-50px;right:-110px;
+    width:380px;height:220px;
+    opacity:.6;
+  }
+}
+@media (max-width:520px){
+  .hero-orbital .ho-planet{
+    top:-30px;right:-90px;
+    width:260px;height:160px;
+    opacity:.5;
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-orbital .ho-planet,
+  .hero-orbital .ho-orbit-group{animation:none}
+}
+
+/* "Founder story" scroll cue — small text + downward arrow under
+   the pill rail. Anchors to #founder-story; html{scroll-behavior:
+   smooth} already gives us the smooth scroll for free. */
+.hero-founder-cue{
+  display:inline-flex;align-items:center;gap:8px;
+  margin-top:28px;
+  padding:8px 4px 8px 2px;
+  color:rgba(255,255,255,.62);
+  font-size:.78rem;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;
+  text-decoration:none;
+  cursor:pointer;
+  transition:color .2s ease, transform .2s ease;
+}
+.hero-founder-cue:hover{color:#fff;transform:translateY(1px)}
+.hero-founder-cue .hfc-arrow{
+  width:14px;height:14px;
+  color:rgba(239,68,68,.85);
+  animation:hfcBob 2.6s ease-in-out infinite;
+}
+.hero-founder-cue:hover .hfc-arrow{color:#ef4444}
+@keyframes hfcBob{
+  0%,100%{transform:translateY(0)}
+  50%    {transform:translateY(3px)}
+}
+[data-theme="light"] .hero-founder-cue{color:rgba(0,0,0,.55)}
+[data-theme="light"] .hero-founder-cue:hover{color:#1a1a1f}
+[data-theme="light"] .hero-founder-cue .hfc-arrow{color:rgba(220,38,38,.85)}
+@media (prefers-reduced-motion:reduce){
+  .hero-founder-cue .hfc-arrow{animation:none}
 }
 
 /* Editorial eyebrow — small caps, hairline border, no glow.
@@ -4538,6 +4668,68 @@ section.ui-section .ui-lede{
   <div class="hero-bg"></div>
   <div class="hero-grain"></div>
 
+  <!-- 2026-05-24: orbital backdrop. Editorial decoration that sits
+       behind .hero-content. Soft glowing center anchor at ~30% from
+       the left so it tracks behind the headline + CTA column on
+       desktop; large tilted ellipse top-right plays the bold-planet
+       role above (and behind) the orb card; three hand-drawn-looking
+       orbits sweep across the headline area; a curved arrow at the
+       bottom-right gestures down toward the founder story. The .ho-svg
+       uses viewBox 0 0 1200 800 with preserveAspectRatio="xMidYMid
+       slice" so it covers the hero on any aspect ratio without
+       distorting the orbit curves. -->
+  <div class="hero-orbital" aria-hidden="true">
+    <div class="ho-planet"></div>
+    <svg class="ho-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" focusable="false">
+      <defs>
+        <radialGradient id="hoCoreGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="rgba(255,160,130,.55)"/>
+          <stop offset="38%"  stop-color="rgba(239,68,68,.20)"/>
+          <stop offset="100%" stop-color="rgba(239,68,68,0)"/>
+        </radialGradient>
+        <filter id="hoSoft" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="26"/>
+        </filter>
+        <filter id="hoDotGlow" x="-300%" y="-300%" width="700%" height="700%">
+          <feGaussianBlur stdDeviation="3"/>
+        </filter>
+        <marker id="hoArrowHead" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="rgba(239,68,68,.85)"/>
+        </marker>
+      </defs>
+
+      <!-- Glowing center point behind the headline column -->
+      <circle cx="370" cy="380" r="260" fill="url(#hoCoreGlow)" filter="url(#hoSoft)"/>
+      <circle class="ho-core" cx="370" cy="380" r="2.6"/>
+
+      <!-- 3 irregular orbits, slightly hand-drawn (cubic curves not
+           ellipses so the shape is asymmetric and feels sketched) -->
+      <g class="ho-orbit-group">
+        <path class="ho-orbit"
+              d="M 120,378 C 165,255 580,238 622,382 C 582,508 158,512 120,378 Z"
+              stroke-width="1.1"/>
+        <path class="ho-orbit ho-orbit--2"
+              d="M 78,374 C 152,176 665,158 705,386 C 660,584 128,604 78,374 Z"
+              stroke-width="1"/>
+        <path class="ho-orbit ho-orbit--3"
+              d="M 36,372 C 168,114 762,86 778,390 C 752,656 108,696 36,372 Z"
+              stroke-width=".85"/>
+
+        <!-- Tiny glow dots riding the orbit paths -->
+        <circle class="ho-dot" cx="610" cy="397" r="3"   fill="#ff5050"/>
+        <circle class="ho-dot" cx="138" cy="348" r="2.5" fill="#ff7a59"/>
+        <circle class="ho-dot" cx="690" cy="200" r="2.5" fill="#ff8866"/>
+        <circle class="ho-dot" cx="162" cy="600" r="2"   fill="#ef4444"/>
+        <circle class="ho-dot" cx="48"  cy="498" r="1.8" fill="#ff6a4a"/>
+      </g>
+
+      <!-- Curved sweep arrow toward next section -->
+      <path class="ho-arrow"
+            d="M 470,680 C 540,724 720,742 830,766"
+            marker-end="url(#hoArrowHead)"/>
+    </svg>
+  </div>
+
   <div class="hero-content">
     <!-- ── 2026-05-11 editorial redesign ──
          New centerpiece: editorial headline, two CTAs, large user / AI /
@@ -4655,6 +4847,18 @@ section.ui-section .ui-lede{
         <span class="hero-pill-sep" aria-hidden="true">·</span>
         <a href="/spar" class="hero-pill">Find an online partner or opponent</a>
       </div>
+
+      <!-- 2026-05-24: small scroll cue toward the founder story. Anchors
+           to #founder-story (an alias on the existing #founder-video
+           section below); html{scroll-behavior:smooth} handles the
+           smooth-scroll. Sits in its own "founder" grid area on
+           desktop, flows naturally on mobile. -->
+      <a href="#founder-story" class="hero-founder-cue" data-cta="hero-founder-cue" aria-label="Scroll to founder story">
+        <span class="hfc-label">Founder story</span>
+        <svg class="hfc-arrow" viewBox="0 0 14 14" aria-hidden="true">
+          <path d="M7 2 L7 11 M3 8 L7 12 L11 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
 
       <!-- Right column of the editorial hero: voice orb card. -->
       <div class="hero-card-stack">
@@ -5874,7 +6078,12 @@ section.ui-section .ui-lede{
 <!-- "Why this exists" prose block. Originally hosted the founder
      intro <video>; the video was taken down 2026-05-19 PM (see inline
      note below). The section id stays "founder-video" for git history
-     continuity, but the aria-label now reflects its actual role. -->
+     continuity, but the aria-label now reflects its actual role.
+     2026-05-24: added an empty #founder-story anchor immediately
+     above the section so the hero "Founder story" scroll cue lands
+     here without renaming the existing id (which other links + scripts
+     reference). -->
+<span id="founder-story" aria-hidden="true" style="display:block;height:0;scroll-margin-top:84px"></span>
 <section id="founder-video" class="founder-video-section" aria-label="Why this exists">
   <div class="wrap" style="max-width:1180px">
     <!-- 2026-05-19 PM (rev2): page repositioned per user's layout
