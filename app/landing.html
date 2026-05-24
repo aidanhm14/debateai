@@ -5796,63 +5796,177 @@ section.ui-section .ui-lede{
   .pc-eyebrow{font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ef4444;margin-bottom:10px}
   .pc-title{font-family:Fraunces,Georgia,serif;font-size:2rem;font-weight:700;letter-spacing:-.02em;line-height:1.15;margin-bottom:8px}
   .pc-sub{color:var(--text-dim,rgba(255,255,255,.66));font-size:1rem;line-height:1.55;max-width:620px;margin:0 auto 28px}
-  /* 2026-05-24: widened on X. Was 760px max with 1fr 1fr cards; the
-     DebateAI card stacks video + 2 paragraphs + 2 link tiles which
-     made it taller than DeepAI's two prices + one note. New layout
-     gives DebateAI 2/3 of the row and pairs the video with the
-     founder text horizontally so the card stays short. */
-  .pc-grid{display:grid;grid-template-columns:1fr 2fr;gap:18px;max-width:1180px;margin:0 auto;align-items:start}
-  @media (max-width:900px){.pc-grid{grid-template-columns:1fr 1.4fr}}
-  @media (max-width:640px){.pc-grid{grid-template-columns:1fr;max-width:520px}}
-  .pc-card{background:var(--bg-card,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.14));border-radius:18px;padding:22px 22px 20px;text-align:left}
-  .pc-card--us{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.06);box-shadow:0 1px 0 rgba(239,68,68,.16),0 22px 60px rgba(239,68,68,.10)}
-  .pc-card-tag{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.66));margin-bottom:14px}
-  .pc-card--us .pc-card-tag{color:#ef4444}
-  .pc-card-row{display:flex;align-items:baseline;gap:6px;margin-bottom:4px}
-  .pc-price{font-size:1.9rem;font-weight:800;color:var(--text,#fff);letter-spacing:-.02em;line-height:1}
-  .pc-card--us .pc-price{color:#ef4444}
-  .pc-cadence{font-size:.82rem;color:var(--text-dim,rgba(255,255,255,.66))}
-  .pc-card-note{margin-top:12px;font-size:.78rem;color:var(--text-dim,rgba(255,255,255,.66));line-height:1.5}
-  .pc-card-note--accent{color:#fca5a5}
-  .pc-footnote{margin-top:20px;font-size:.86rem;color:var(--text-dim,rgba(255,255,255,.66));line-height:1.55}
-  .pc-footnote a{color:#ef4444;text-decoration:none;font-weight:700}
-  .pc-footnote a:hover{text-decoration:underline}
-  .pc-beta-chip{display:inline-block;font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:rgba(34,197,94,.14);color:#22c55e;border:1px solid rgba(34,197,94,.32);margin-left:6px;vertical-align:middle}
-  .pc-personalize{max-width:760px;margin:18px auto 0}
+  /* 2026-05-24 (rev3): editorial 3-column grid replaces the prior
+     1fr/2fr "DeepAI card | DebateAI card" layout. The DebateAI card
+     was stacking 2 paragraphs + 2 link tiles into a narrow column
+     and leaving ~5 columns of dead air to its right, which read as
+     "content failed to load." New shape: a compact pricing card on
+     the left (vertical "vs." comparison so both sides live in one
+     card), the founder letter as the load-bearing middle column
+     with modular sub-heads + a real CTA row, and a trust-signal
+     rail on the right (formats / brains / use-cases) so the page
+     reads as a growing platform, not a personal blog.
+     12-col proportions: 3 / 5 / 4. Stacks to 2-col under 1080px,
+     1-col under 720px. */
+  .pc-grid{
+    display:grid;
+    grid-template-columns:minmax(0,3fr) minmax(0,5fr) minmax(0,4fr);
+    gap:18px;max-width:1240px;margin:0 auto;align-items:stretch;
+    text-align:left;
+  }
+  @media (max-width:1080px){
+    .pc-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)}
+    .pc-grid .trust-rail{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap}
+    .pc-grid .trust-rail .tr-card{flex:1 1 220px}
+  }
+  @media (max-width:720px){
+    .pc-grid{grid-template-columns:1fr;max-width:560px}
+    .pc-grid .trust-rail{flex-direction:column}
+  }
+
+  /* Pricing comparison card — softer chrome than the prior pink slab,
+     and now holds BOTH sides in one card with a "vs." divider. Reads
+     as a deliberate compare table, not a placeholder. */
+  .pc-card{
+    background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.012));
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:16px;padding:22px 22px 20px;
+    display:flex;flex-direction:column;gap:6px;
+    box-shadow:0 1px 0 rgba(255,255,255,.02);
+  }
+  .pc-card-section + .pc-card-section{margin-top:6px}
+  .pc-card-tag{font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.66));display:flex;align-items:center;gap:6px;margin-bottom:2px}
+  .pc-card-tag--us{color:#ef4444}
+  .pc-card-row{display:flex;align-items:baseline;gap:6px;margin-bottom:2px}
+  .pc-price{font-size:1.55rem;font-weight:800;color:var(--text,#fff);letter-spacing:-.02em;line-height:1}
+  .pc-price--us{color:#ef4444;font-size:1.7rem}
+  .pc-cadence{font-size:.74rem;color:var(--text-dim,rgba(255,255,255,.66))}
+  .pc-card-note{margin-top:8px;font-size:.74rem;color:var(--text-dim,rgba(255,255,255,.7));line-height:1.5}
+  .pc-card-rule{border:none;border-top:1px dashed rgba(255,255,255,.10);margin:14px 0 6px;width:100%}
+  .pc-vs{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.55));font-weight:800;margin-bottom:6px}
+  .pc-beta-chip{display:inline-block;font-size:.56rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:rgba(34,197,94,.14);color:#22c55e;border:1px solid rgba(34,197,94,.32);vertical-align:middle}
+
+  /* Founder letter — load-bearing middle column. Subtle radial
+     accent in the top-left replaces the flat pink fill; the modular
+     sub-heads break a 600-word wall into 5 readable beats. Reading
+     measure sits at ~58–66 ch on desktop. */
+  .founder-letter{
+    position:relative;overflow:hidden;
+    background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));
+    border:1px solid rgba(239,68,68,.18);
+    border-radius:20px;
+    padding:28px 30px 26px;
+    display:flex;flex-direction:column;gap:16px;
+  }
+  .founder-letter::before{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(600px 280px at 20% -10%,rgba(239,68,68,.10),transparent 62%);
+    z-index:0;
+  }
+  .founder-letter::after{
+    /* Faint grain so the panel doesn't read as a flat slab. */
+    content:'';position:absolute;inset:0;pointer-events:none;opacity:.45;mix-blend-mode:overlay;
+    background-image:radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px);
+    background-size:3px 3px;z-index:0;
+  }
+  .founder-letter > *{position:relative;z-index:1}
+  .fl-head{display:flex;flex-direction:column;gap:3px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .fl-eyebrow{font-size:.6rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444}
+  .fl-byline{font-family:Fraunces,Georgia,serif;font-size:1.05rem;font-weight:700;color:var(--text,#fff);letter-spacing:-.005em;margin:0}
+  .fl-byline-meta{font-size:.74rem;color:var(--text-dim,rgba(255,255,255,.66));margin-top:2px}
+  .fl-module{display:flex;flex-direction:column;gap:6px}
+  .fl-mod-h{font-size:.82rem;font-weight:700;color:var(--text,#fff);letter-spacing:-.005em;margin:0;display:flex;align-items:baseline;gap:8px}
+  .fl-mod-num{font-size:.62rem;font-weight:800;letter-spacing:.12em;color:#ef4444;opacity:.85;font-variant-numeric:tabular-nums}
+  .fl-module p{font-size:.93rem;line-height:1.6;color:rgba(255,255,255,.86);margin:0}
+  .fl-module p em{color:#fca5a5;font-style:italic}
+  .fl-cta{display:flex;flex-wrap:wrap;gap:10px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07);margin-top:4px}
+  .fl-cta-primary,.fl-cta-secondary{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:10px 16px;border-radius:999px;
+    font-size:.78rem;font-weight:700;text-decoration:none;
+    transition:.15s ease;
+  }
+  .fl-cta-primary{background:#ef4444;color:#fff;border:1px solid #ef4444}
+  .fl-cta-primary:hover{background:#dc2626;border-color:#dc2626;transform:translateY(-1px)}
+  .fl-cta-secondary{background:rgba(255,255,255,.04);color:var(--text,#fff);border:1px solid rgba(255,255,255,.14)}
+  .fl-cta-secondary:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.22)}
+
+  /* Trust rail — fills the right column with concrete, verifiable
+     signal so the section reads as "a growing platform" rather than
+     "personal blog page." Three cards stacked on desktop, row-flex
+     on tablet, single column on mobile. */
+  .trust-rail{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .tr-card{
+    background:rgba(255,255,255,.025);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:14px;padding:16px 18px;
+    display:flex;flex-direction:column;gap:10px;min-width:0;
+  }
+  .tr-card-eyebrow{
+    font-size:.66rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;
+    color:var(--text,#fff);display:flex;align-items:baseline;gap:6px;
+  }
+  .tr-card-eyebrow-num{color:#ef4444;font-variant-numeric:tabular-nums}
+  .tr-card-foot{font-size:.72rem;color:var(--text-dim,rgba(255,255,255,.65));line-height:1.5;margin:0}
+  .tr-chips{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:5px}
+  .tr-chips li{
+    font-size:.66rem;font-weight:700;letter-spacing:.005em;
+    padding:4px 9px;border-radius:999px;
+    background:rgba(239,68,68,.08);color:#fca5a5;
+    border:1px solid rgba(239,68,68,.20);
+  }
+  .tr-chips--neutral li{background:rgba(255,255,255,.04);color:var(--text,#fff);border-color:rgba(255,255,255,.12)}
+  .tr-uses{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+  .tr-uses li{font-size:.78rem;color:var(--text,#fff);display:flex;align-items:flex-start;gap:8px;line-height:1.45}
+  .tr-uses li::before{content:'';width:5px;height:5px;border-radius:50%;background:#ef4444;flex-shrink:0;margin-top:7px}
+  .tr-uses li strong{font-weight:700}
+  .tr-uses li span{display:block;color:var(--text-dim,rgba(255,255,255,.65));font-size:.72rem;line-height:1.45}
+
+  /* Personalize compare (existing block, kept as the section closer
+     under the new editorial grid). Slightly tighter top margin so
+     it reads as a follow-on beat, not a separate section. */
+  .pc-personalize{max-width:1240px;margin:22px auto 0}
   .pc-personalize-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media (max-width:640px){.pc-personalize-grid{grid-template-columns:1fr}}
-  .pc-personalize-cell{background:var(--bg-card,rgba(255,255,255,.03));border:1px solid var(--border,rgba(255,255,255,.10));border-radius:14px;padding:14px 16px;text-align:left}
-  .pc-personalize-cell--us{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.05)}
+  .pc-personalize-cell{background:var(--bg-card,rgba(255,255,255,.025));border:1px solid var(--border,rgba(255,255,255,.08));border-radius:14px;padding:14px 16px;text-align:left}
+  .pc-personalize-cell--us{border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.04)}
   .pc-cell-tag{font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.6));margin-bottom:6px}
   .pc-personalize-cell--us .pc-cell-tag{color:#ef4444}
   .pc-cell-body{font-size:.84rem;color:var(--text,rgba(255,255,255,.86));line-height:1.55}
   .pc-cell-body em{font-style:italic;color:#fca5a5}
-  /* 2026-05-24: media card laid out as a 2-col grid on desktop so
-     video sits next to founder text, not above it. Tag spans full
-     width. Collapses to single column under 720px. */
-  .pc-card--media{display:grid;grid-template-columns:240px 1fr;column-gap:20px;row-gap:14px;align-items:start}
-  .pc-card--media .pc-card-tag{grid-column:1 / -1}
-  .pc-card--media .pc-video{align-self:stretch}
-  .pc-card--media .pc-video-frame{height:100%}
-  .pc-card-body{display:flex;flex-direction:column;gap:12px}
-  @media (max-width:720px){
-    .pc-card--media{grid-template-columns:1fr}
+
+  /* Light + stone themes: cream bg needs darker text + slightly
+     stronger borders on the new chrome. */
+  [data-theme="light"] .pc-card,
+  [data-theme="stone"] .pc-card,
+  [data-theme="light"] .tr-card,
+  [data-theme="stone"] .tr-card,
+  [data-theme="light"] .founder-letter,
+  [data-theme="stone"] .founder-letter,
+  [data-theme="light"] .pc-personalize-cell,
+  [data-theme="stone"] .pc-personalize-cell{
+    background:#ffffff;border-color:rgba(0,0,0,.08);
   }
-  .pc-video{display:block;text-decoration:none;color:inherit}
-  .pc-video-frame{position:relative;aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(0,0,0,.4));border:1px solid rgba(239,68,68,.32);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:18px;transition:transform .15s,border-color .15s}
-  .pc-video:hover .pc-video-frame{border-color:rgba(239,68,68,.6);transform:translateY(-2px)}
-  .pc-video-eyebrow{font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ef4444}
-  .pc-video-label{font-family:Fraunces,Georgia,serif;font-size:1.4rem;font-weight:700;color:var(--text,#fff)}
-  .pc-video-cta{font-size:.72rem;color:var(--text-dim,rgba(255,255,255,.66));margin-top:4px}
-  .pc-founder-note{font-size:.82rem;color:var(--text,rgba(255,255,255,.86));line-height:1.55;margin:0}
-  /* 2026-05-24: tiles now ride side-by-side at desktop since the
-     body column has horizontal room. Collapses under 720px. */
-  .pc-founder-links{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
-  @media (max-width:720px){.pc-founder-links{grid-template-columns:1fr}}
-  .pc-founder-link{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid rgba(239,68,68,.28);border-radius:10px;text-decoration:none;color:inherit;background:rgba(239,68,68,.04);transition:.15s}
-  .pc-founder-link:hover{border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.08)}
-  .pcfl-label{font-size:.82rem;font-weight:700;color:var(--text,#fff)}
-  .pcfl-sub{font-size:.7rem;color:var(--text-dim,rgba(255,255,255,.66))}
+  [data-theme="light"] .founder-letter,
+  [data-theme="stone"] .founder-letter{border-color:rgba(239,68,68,.30)}
+  [data-theme="light"] .fl-module p,
+  [data-theme="stone"] .fl-module p,
+  [data-theme="light"] .tr-uses li,
+  [data-theme="stone"] .tr-uses li,
+  [data-theme="light"] .pc-cell-body,
+  [data-theme="stone"] .pc-cell-body{color:#1a1a1f}
+  [data-theme="light"] .tr-card-foot,
+  [data-theme="stone"] .tr-card-foot,
+  [data-theme="light"] .tr-uses li span,
+  [data-theme="stone"] .tr-uses li span,
+  [data-theme="light"] .pc-card-note,
+  [data-theme="stone"] .pc-card-note{color:#5a5a64}
+  [data-theme="light"] .fl-cta-secondary,
+  [data-theme="stone"] .fl-cta-secondary{background:rgba(0,0,0,.04);color:#1a1a1f;border-color:rgba(0,0,0,.12)}
+  [data-theme="light"] .tr-chips--neutral li,
+  [data-theme="stone"] .tr-chips--neutral li{background:rgba(0,0,0,.05);color:#1a1a1f;border-color:rgba(0,0,0,.10)}
+  [data-theme="light"] .pc-card-rule,
+  [data-theme="stone"] .pc-card-rule{border-top-color:rgba(0,0,0,.10)}
 </style>
 <section class="price-compare" aria-label="Different game">
   <div class="pc-wrap">
@@ -5860,40 +5974,102 @@ section.ui-section .ui-lede{
     <h2 class="pc-title">They're monetizing. We're growing.</h2>
     <p class="pc-sub">DeepAI Pro is a general AI bundle that ships a debate tool. DebateAI is debate, all the way down — and right now we're growing the room, not the revenue.</p>
     <div class="pc-grid">
+      <!-- LEFT: pricing comparison card. Holds BOTH sides in one
+           card with a "vs." divider so the comparison reads as a
+           deliberate compare, not two floating rectangles. -->
       <article class="pc-card">
-        <div class="pc-card-tag">DeepAI Pro</div>
-        <div class="pc-card-row"><span class="pc-price">$9.99</span><span class="pc-cadence">/month</span></div>
-        <div class="pc-card-row"><span class="pc-price">$89.99</span><span class="pc-cadence">/year</span></div>
-        <div class="pc-card-note">General AI bundle. Debate is one tool among many.</div>
-      </article>
-      <article class="pc-card pc-card--us">
-        <div class="pc-card-tag">DebateAI<span class="pc-beta-chip">Free during beta</span></div>
-        <!-- 2026-05-24: "Founder intro · Coming June" placeholder
-             removed at user request. The full founder essay below
-             (#founder-video) carries the same intent without the
-             coming-soon card. Dropped pc-card--media at the same time —
-             it set grid-template-columns:240px 1fr to host the video
-             in slot 1, which after the video removal collapsed the
-             founder essay into the empty 240px column (text wrapping
-             every 4-6 words, looked like garbled bionic-reading).
-             CSS rules for .pc-video* and the .pc-card--media grid
-             are intentionally left in place — cheap, harmless, ready
-             if a real video take lands. -->
-        <div class="pc-card-body">
-          <p class="pc-founder-note">I'm a UChicago sophomore and an APDA Pro-Ams champion. I built this because the thing I wanted as a debater didn't exist: the Samantha from <em>Her</em>. Not to fall in love with. To challenge me. Something that argues format-accurately, writes a real judge ballot, and lets you drill without needing four other people in a room. I also want to grow an online community for debaters at every level, including people new to it.</p>
-          <p class="pc-founder-note">Free during beta. Weekly limits keep the API bill sane. The goal this year is users, not revenue.</p>
-          <div class="pc-founder-links">
-            <a class="pc-founder-link" href="/future">
-              <span class="pcfl-label">Philosophy &amp; future outlook</span>
-              <span class="pcfl-sub">My values, commitment, and strategy →</span>
-            </a>
-            <a class="pc-founder-link" href="#founder-video">
-              <span class="pcfl-label">Why this exists</span>
-              <span class="pcfl-sub">Full founder essay + the build plan →</span>
-            </a>
-          </div>
+        <div class="pc-card-section">
+          <div class="pc-card-tag">Current alternative · DeepAI Pro</div>
+          <div class="pc-card-row"><span class="pc-price">$9.99</span><span class="pc-cadence">/month</span></div>
+          <div class="pc-card-row"><span class="pc-price">$89.99</span><span class="pc-cadence">/year</span></div>
+          <div class="pc-card-note">A general AI bundle where debate is one tab among many.</div>
+        </div>
+        <hr class="pc-card-rule" />
+        <div class="pc-card-section">
+          <div class="pc-vs">vs.</div>
+          <div class="pc-card-tag pc-card-tag--us">DebateAI <span class="pc-beta-chip">Beta</span></div>
+          <div class="pc-card-row"><span class="pc-price pc-price--us">$0</span><span class="pc-cadence">while we grow the room</span></div>
+          <div class="pc-card-note">Debate, all the way down. Format-accurate, judge-grade, voice-first.</div>
         </div>
       </article>
+
+      <!-- MIDDLE: founder letter. The wall-of-text version split
+           into 5 modular beats so the page reads as a deliberate
+           founder memo, not a paragraph that ran on. Each beat sits
+           on its own with a numbered sub-head; the closing CTA row
+           gives readers a real next move. -->
+      <article class="founder-letter">
+        <header class="fl-head">
+          <div class="fl-eyebrow">From the builder</div>
+          <p class="fl-byline">A letter from the founder</p>
+          <div class="fl-byline-meta">National APDA Pro-Ams champion · UChicago sophomore</div>
+        </header>
+
+        <div class="fl-module">
+          <h4 class="fl-mod-h"><span class="fl-mod-num">01</span> Why I built this</h4>
+          <p>The thing I wanted as a debater didn't exist: the <em>Samantha from Her</em>. Not to fall in love with — to challenge me. Something that argues format-accurately, holds the clock, and writes a real judge ballot when the round ends.</p>
+        </div>
+
+        <div class="fl-module">
+          <h4 class="fl-mod-h"><span class="fl-mod-num">02</span> What general AI gets wrong</h4>
+          <p>Ask a chat tool to "debate" you and it hedges, agrees, and reaches for Wikipedia. It doesn't know that Policy spreads tagged cards, that APDA bans them, or what a whip speech is supposed to do. It performs reasonableness instead of running the format.</p>
+        </div>
+
+        <div class="fl-module">
+          <h4 class="fl-mod-h"><span class="fl-mod-num">03</span> Why debate matters</h4>
+          <p>Arguing out loud, against a clock, against someone who wants to win — that's where thinking actually sharpens. Not just for debaters: lawyers prep crosses, founders rehearse Q&amp;A, anyone who has to be coherent under pressure benefits from a partner who pushes back instead of nodding.</p>
+        </div>
+
+        <div class="fl-module">
+          <h4 class="fl-mod-h"><span class="fl-mod-num">04</span> Why free during beta</h4>
+          <p>I'd rather have ten thousand debaters drilling rounds than ten paying customers. The goal this year is users, not revenue. Weekly limits exist to keep the API bill from eating the runway — that's it.</p>
+        </div>
+
+        <div class="fl-module">
+          <h4 class="fl-mod-h"><span class="fl-mod-num">05</span> Where this is going</h4>
+          <p>An online community for debaters at every level — from first-time tab-shoppers to circuit champions. AI rounds when no one's around; human rounds through the spar board when they are; tournaments hosted on-platform; a public RFD library so the best ballots become teaching material instead of dying in a Google Doc.</p>
+        </div>
+
+        <div class="fl-cta">
+          <a class="fl-cta-primary" href="/voice-debate">Take a voice round →</a>
+          <a class="fl-cta-secondary" href="/spar">Find a human partner</a>
+          <a class="fl-cta-secondary" href="/future">Read the full philosophy</a>
+        </div>
+      </article>
+
+      <!-- RIGHT: trust-signal rail. Concrete, verifiable facts so
+           the section reads as growing infrastructure, not a
+           personal blog. Three cards: formats, brains, use-cases.
+           No vanity stats — only things grep-able in the repo. -->
+      <aside class="trust-rail" aria-label="What's behind the engine">
+        <div class="tr-card">
+          <div class="tr-card-eyebrow">Formats <span class="tr-card-eyebrow-num">· 10</span></div>
+          <ul class="tr-chips">
+            <li>APDA</li><li>BP</li><li>WSDC</li><li>Asian Parli</li>
+            <li>Policy</li><li>LD</li><li>PF</li><li>Congress</li>
+            <li>MUN</li><li>Quick Clash</li>
+          </ul>
+          <p class="tr-card-foot">Each format has its own voice block, judging rubric, and speaker scale. The engine doesn't blur them.</p>
+        </div>
+        <div class="tr-card">
+          <div class="tr-card-eyebrow">AI brains <span class="tr-card-eyebrow-num">· 6</span></div>
+          <ul class="tr-chips tr-chips--neutral">
+            <li>Claude</li><li>GPT</li><li>Gemini</li>
+            <li>Grok</li><li>DeepSeek</li><li>Open Lab</li>
+          </ul>
+          <p class="tr-card-foot">Pick one or mix them. Each plays the motion differently — learning from how different brains argue is itself the drill.</p>
+        </div>
+        <div class="tr-card">
+          <div class="tr-card-eyebrow">What people drill</div>
+          <ul class="tr-uses">
+            <li><strong>Pre-tournament prep</strong><span>Run the motion both sides before round one.</span></li>
+            <li><strong>Coach-as-judge</strong><span>AI ballot in the format your coach actually flows.</span></li>
+            <li><strong>Mock cross-ex</strong><span>Lawyers prep with a witness that won't fold.</span></li>
+            <li><strong>Pitch + Q&amp;A rehearsal</strong><span>Founders run hostile-investor sims.</span></li>
+            <li><strong>Club practice</strong><span>Members drill without needing four other people in a room.</span></li>
+          </ul>
+        </div>
+      </aside>
     </div>
     <!-- Personalization callout. The pivot in this block from price to
          growth keeps personalization where it belongs: as the actual
