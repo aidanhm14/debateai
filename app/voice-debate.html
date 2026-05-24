@@ -1240,6 +1240,102 @@ input[type=text]:focus,select:focus,textarea:focus{
   .hero-status{justify-self:start}
 }
 
+/* Instructions strip — slim "How it works" toggle that replaces the
+   marketing headline in default mode. Collapsed by default so the
+   setup orb + steps own the page; expands to a numbered explainer
+   when the user wants context. Sits above the setup-grid like the
+   old hero did, so the page height stays similar when collapsed. */
+.instructions-strip{
+  display:flex;flex-direction:column;align-items:center;gap:0;
+  margin-bottom:20px;
+}
+.instructions-toggle{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:8px 16px 8px 12px;border-radius:999px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.10);
+  color:#d6d6e0;font-size:.78rem;font-weight:600;letter-spacing:-.005em;
+  cursor:pointer;transition:background .18s ease, border-color .18s ease, color .18s ease;
+  font-family:inherit;
+}
+.instructions-toggle:hover{
+  background:rgba(239,68,68,.10);
+  border-color:rgba(239,68,68,.35);
+  color:#fff;
+}
+.instructions-toggle[aria-expanded="true"]{
+  background:rgba(239,68,68,.12);
+  border-color:rgba(239,68,68,.40);
+  color:#fff;
+}
+.instructions-toggle-icon{
+  width:18px;height:18px;border-radius:50%;
+  background:rgba(239,68,68,.22);color:#fecaca;
+  display:grid;place-items:center;
+  font-size:.7rem;font-weight:800;
+  border:1px solid rgba(239,68,68,.42);
+}
+.instructions-toggle-caret{font-size:.6rem;opacity:.7}
+
+.instructions-panel{
+  margin-top:14px;width:min(640px,100%);
+  padding:18px 22px;border-radius:14px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.08);
+  animation:instructions-in .22s ease-out;
+}
+@keyframes instructions-in{
+  from{opacity:0;transform:translateY(-4px)}
+  to{opacity:1;transform:none}
+}
+.instructions-list{
+  margin:0;padding-left:1.25em;
+  color:#c4c4d0;font-size:.88rem;line-height:1.6;
+}
+.instructions-list li{margin-bottom:6px}
+.instructions-list li:last-child{margin-bottom:0}
+.instructions-list strong{color:#f0f0f5;font-weight:600}
+.instructions-meta{
+  margin-top:14px;padding-top:12px;
+  border-top:1px solid rgba(255,255,255,.06);
+  display:flex;align-items:center;gap:9px;
+  font-size:.7rem;color:#8a8a9a;letter-spacing:.01em;
+}
+.instructions-pip{
+  width:6px;height:6px;border-radius:50%;background:#22c55e;
+  box-shadow:0 0 6px rgba(34,197,94,.55);
+  animation:pip 2.4s ease-in-out infinite;
+  flex-shrink:0;
+}
+
+/* Light + stone themes: ivory-on-dark contrast doesn't survive, so
+   re-tint the strip + panel for the cream bg. Borders stay quiet,
+   text picks up the dark-on-cream theme tokens. */
+[data-theme="light"] .instructions-toggle,
+[data-theme="stone"] .instructions-toggle{
+  background:rgba(0,0,0,.04);
+  border-color:rgba(0,0,0,.10);
+  color:#2a2a30;
+}
+[data-theme="light"] .instructions-toggle:hover,
+[data-theme="stone"] .instructions-toggle:hover{
+  background:rgba(239,68,68,.10);
+  border-color:rgba(239,68,68,.40);
+  color:#1a1a1f;
+}
+[data-theme="light"] .instructions-panel,
+[data-theme="stone"] .instructions-panel{
+  background:#ffffff;
+  border-color:rgba(0,0,0,.08);
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+[data-theme="light"] .instructions-list,
+[data-theme="stone"] .instructions-list{color:#3a3a42}
+[data-theme="light"] .instructions-list strong,
+[data-theme="stone"] .instructions-list strong{color:#0f0f12}
+[data-theme="light"] .instructions-meta,
+[data-theme="stone"] .instructions-meta{color:#6a6a72;border-top-color:rgba(0,0,0,.08)}
+
 /* Orb-central setup. Orb sits at the top as a big focal element;
    settings flow vertically below it on a narrow centered column.
    No competing two-column layout — the orb is the visual anchor,
@@ -1301,26 +1397,53 @@ input[type=text]:focus,select:focus,textarea:focus{
    to this hero rather than slipping behind the page. Hidden on
    narrow screens where the orb already fills the frame. */
 .setup-orb-hero{isolation:isolate}
+/* 2026-05-24: figures pushed further to the sides (640 → 880px
+   container) so the orb breathes in the middle instead of being
+   pinched by ghost silhouettes. Opacity bumped .2 → .42 + accent
+   alphas bumped so the figures actually read as debaters on the
+   black bg without competing with the orb. */
 .setup-orb-hero .standby-figures{
   position:absolute;left:50%;top:50%;
   transform:translate(-50%,-44%);
-  width:min(640px,94vw);height:340px;
+  width:min(880px,98vw);height:340px;
   pointer-events:none;z-index:-1;
 }
 .standby-figures .stage-debater{
   position:absolute;bottom:0;top:auto;
-  width:clamp(116px,15vw,166px);height:auto;
-  opacity:.2;filter:none;
+  width:clamp(128px,16vw,178px);height:auto;
+  opacity:.42;filter:none;
+  transition:opacity .35s ease;
 }
 .standby-figures .sf-left{
   left:0;
-  --deb-accent:rgba(74,222,128,.7);
-  --deb-glow:rgba(34,197,94,.3);
+  --deb-ink:rgba(230,219,195,.92);
+  --deb-ink-soft:rgba(230,219,195,.62);
+  --deb-accent:rgba(74,222,128,.88);
+  --deb-glow:rgba(34,197,94,.42);
+  --deb-fill:rgba(230,219,195,.10);
 }
 .standby-figures .sf-right{
   right:0;transform:scaleX(-1);
-  --deb-accent:rgba(251,113,113,.72);
-  --deb-glow:rgba(239,68,68,.3);
+  --deb-ink:rgba(230,219,195,.92);
+  --deb-ink-soft:rgba(230,219,195,.62);
+  --deb-accent:rgba(251,113,113,.92);
+  --deb-glow:rgba(239,68,68,.42);
+  --deb-fill:rgba(230,219,195,.10);
+}
+/* Light + stone themes: ivory strokes vanish on cream; swap to dark
+   ink + a slightly higher opacity so the silhouettes read as real
+   figures and not faded watermarks. */
+[data-theme="light"] .standby-figures .stage-debater,
+[data-theme="stone"] .standby-figures .stage-debater{
+  opacity:.5;
+}
+[data-theme="light"] .standby-figures .sf-left,
+[data-theme="stone"] .standby-figures .sf-left,
+[data-theme="light"] .standby-figures .sf-right,
+[data-theme="stone"] .standby-figures .sf-right{
+  --deb-ink:rgba(26,26,31,.78);
+  --deb-ink-soft:rgba(26,26,31,.5);
+  --deb-fill:rgba(26,26,31,.06);
 }
 @media (prefers-reduced-motion:no-preference){
   /* desync the two figures and slow the arm to a near-still drift so
@@ -2944,6 +3067,12 @@ function App() {
   var recordedChunksRef = useRef([]);
   // Show 3 featured opponents by default; user can expand to all 8.
   var [showAllOpponents, setShowAllOpponents] = useState(false);
+
+  // Instructions panel — collapsed by default so the setup page reads
+  // simple. Toggled by the "How it works" pill that sits where the old
+  // marketing headline used to be. Persists per-session so a returning
+  // user doesn't have to re-collapse on every page load.
+  var [showInstructions, setShowInstructions] = useState(false);
 
   // Persona click-to-preview removed 2026-05-24: the per-card sample
   // was a fresh /api/tts fetch on every tap, which read as laggy and
@@ -5087,34 +5216,58 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   el('a', { className: 'back', href: '/debate-ai' }, '← text mode')
   ),
 
-  // Hero — left headline + right status pill (per redesign brief).
-  // Counter (oral-exam) mode rewrites the headline + lede so the
-  // surface reads as "Dr. Iyer is going to grill you on your work"
-  // rather than "live voice debate over WebRTC". Same engine, just
-  // framed for the audience that arrived through the Counter
-  // extension instead of debateai.com/voice-debate.html.
-  !isLive && !isConnecting && el('div', { className: 'hero' },
-  el('div', null,
-  // 2026-05-24: removed the "The AI talks back. And listens." h1 on
-  // the main debateai.com voice-debate surface — the lede + the orb +
-  // the bookend silhouettes already carry the meaning, and the h1 was
-  // taking visual weight that competed with the orb. Counter extension
-  // keeps its h1 since that's the user-facing identity of the side panel.
-  extMode === 'counter' ?
-  el('h1', null, 'Defend your work. ', el('span', { className: 'accent' }, 'Out loud.')) :
-  null,
-  el('p', { className: 'lede' },
-  extMode === 'counter' ?
-  'Dr. Iyer asks one question at a time, waits, then probes the soft spot. Paste your thesis, hit Start, talk.' :
-  'Speak your case, ask questions mid-speech. It\'s adaptable.'
-  )
-  ),
-  el('div', { className: 'hero-status' },
-  el('span', { className: 'pip' }),
-  el('div', { className: 'meta' },
-  el('strong', null, 'Live'), ' · 8-min cap · 6 sessions/hr · ', el('strong', null, '~300ms'), ' latency'
-  )
-  )
+  // Header strip — slim Instructions toggle replaces the old marketing
+  // headline + lede + status pill in default mode so the page reads
+  // simpler on first load (the orb + setup steps below carry the
+  // actual product surface). Counter (oral-exam) mode keeps its own
+  // headline because the Counter extension is a distinct distribution
+  // surface where users arrive without context — they need the
+  // "Dr. Iyer will grill you" framing to know what they walked into.
+  !isLive && !isConnecting && (
+    extMode === 'counter' ?
+    el('div', { className: 'hero' },
+      el('div', null,
+        el('h1', null, 'Defend your work. ', el('span', { className: 'accent' }, 'Out loud.')),
+        el('p', { className: 'lede' }, 'Dr. Iyer asks one question at a time, waits, then probes the soft spot. Paste your thesis, hit Start, talk.')
+      ),
+      el('div', { className: 'hero-status' },
+        el('span', { className: 'pip' }),
+        el('div', { className: 'meta' },
+          el('strong', null, 'Live'), ' · 8-min cap · 6 sessions/hr · ', el('strong', null, '~300ms'), ' latency'
+        )
+      )
+    ) :
+    el('div', { className: 'instructions-strip' },
+      el('button', {
+        type: 'button',
+        className: 'instructions-toggle',
+        'aria-expanded': showInstructions ? 'true' : 'false',
+        'aria-controls': 'voice-instructions-panel',
+        onClick: () => setShowInstructions((v) => !v)
+      },
+        el('span', { className: 'instructions-toggle-icon', 'aria-hidden': 'true' }, showInstructions ? '–' : '?'),
+        el('span', null, showInstructions ? 'Hide instructions' : 'How it works'),
+        el('span', { className: 'instructions-toggle-caret', 'aria-hidden': 'true' }, showInstructions ? '▴' : '▾')
+      ),
+      showInstructions && el('div', {
+        id: 'voice-instructions-panel',
+        className: 'instructions-panel',
+        role: 'region',
+        'aria-label': 'How to use the voice round'
+      },
+        el('ol', { className: 'instructions-list' },
+          el('li', null, el('strong', null, 'Pick a motion'), ' — type your own, click a category, or leave blank and the AI asks you on the mic.'),
+          el('li', null, el('strong', null, 'Pick a side'), ' — Prop defends the motion, Opp tears it down.'),
+          el('li', null, el('strong', null, 'Hit Start'), ' — your browser asks for mic permission, then the round begins.'),
+          el('li', null, el('strong', null, 'Talk over the AI'), ' to interrupt mid-speech — server-side VAD picks you up under ~300 ms. Take POIs the same way.'),
+          el('li', null, el('strong', null, 'Tap the mic'), ' to listen — the AI keeps building its argument until you unmute.'),
+          el('li', null, el('strong', null, 'Time runs out → RFD'), ' — the AI hands you a judge ballot, then you can rate the round.')
+        ),
+        el('div', { className: 'instructions-meta' },
+          el('span', { className: 'instructions-pip' }), ' Live · 8-min cap · 6 sessions/hour · ~300 ms latency · WebRTC via OpenAI Realtime'
+        )
+      )
+    )
   ),
 
   // Setup — orb-central. Big orb at the top is the visual anchor;

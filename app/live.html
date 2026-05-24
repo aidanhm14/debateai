@@ -2447,6 +2447,68 @@ button{font-family:inherit}
     if (_modalKeyHandler){ document.removeEventListener('keydown', _modalKeyHandler); _modalKeyHandler = null; }
   }
 
+  // Community-standards gate. Before anyone posts or accepts a live
+  // round (which puts a human in a Jitsi video room with another
+  // person), require a one-time acknowledgement of the safety + privacy
+  // rules. Persisted in localStorage with a versioned key so we can
+  // re-prompt if the rules materially change. Calls onAccept() either
+  // immediately (returning user) or after the user clicks "I agree".
+  var LIVE_STANDARDS_KEY = 'debateai-live-standards-v1';
+  function hasAcceptedStandards(){
+    try { return localStorage.getItem(LIVE_STANDARDS_KEY) === '1'; }
+    catch(e){ return false; }
+  }
+  function requireCommunityStandards(onAccept){
+    if (hasAcceptedStandards()){ onAccept(); return; }
+    var node = document.createElement('div');
+    node.innerHTML =
+      '<div class="modal-head">' +
+        '<div class="modal-title">Before you go live</div>' +
+        '<button class="modal-close" type="button" aria-label="Close">×</button>' +
+      '</div>' +
+      '<div class="modal-body">' +
+        '<div class="modal-explain" style="margin-bottom:12px">' +
+          'Live debate puts you in a video room with another debater. Quick read before the room opens.' +
+        '</div>' +
+        '<ul style="margin:0 0 14px;padding-left:1.15em;font-size:.86rem;line-height:1.55;color:var(--text)">' +
+          '<li style="margin-bottom:6px"><strong>Argue the motion, not the person.</strong> No harassment, slurs, threats, or hate. Strong disagreement is welcome; targeted attacks aren\'t.</li>' +
+          '<li style="margin-bottom:6px"><strong>No doxxing.</strong> Don\'t share another debater\'s real name, address, school, workplace, or photo outside this round without their say-so.</li>' +
+          '<li style="margin-bottom:6px"><strong>13+ only.</strong> Live human rooms aren\'t for under-13. If you\'re a minor, debate at your parent or coach\'s discretion.</li>' +
+          '<li style="margin-bottom:6px"><strong>Treat rooms as observable.</strong> Other debaters can spectate when the post allows it. Don\'t share anything you\'d want kept private.</li>' +
+          '<li style="margin-bottom:6px"><strong>Recording.</strong> We don\'t record live rooms by default. If you or another participant chooses to record, get explicit consent first.</li>' +
+          '<li><strong>Report and bail.</strong> Leave the room if someone breaks these rules, and email <a href="mailto:feedback@debateai.com" style="color:var(--accent)">feedback@debateai.com</a> so we can act.</li>' +
+        '</ul>' +
+        '<div style="font-size:.78rem;color:var(--text-dim);line-height:1.5;margin-bottom:14px">' +
+          'Full ' +
+          '<a href="/privacy" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;text-underline-offset:2px">privacy policy</a>' +
+          ' and ' +
+          '<a href="/terms" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;text-underline-offset:2px">terms</a>' +
+          '. Repeat violations cost you posting access.' +
+        '</div>' +
+        '<label style="display:flex;gap:10px;align-items:flex-start;font-size:.82rem;color:var(--text-dim);line-height:1.45;cursor:pointer">' +
+          '<input type="checkbox" id="standardsOptIn" style="margin-top:3px;flex-shrink:0" />' +
+          '<span>I\'ve read the community standards and will follow them in live rounds.</span>' +
+        '</label>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn" type="button" data-cancel>Cancel</button>' +
+        '<button class="btn btn-primary" type="button" data-agree disabled>Agree & continue</button>' +
+      '</div>';
+    var optEl = node.querySelector('#standardsOptIn');
+    var agreeBtn = node.querySelector('[data-agree]');
+    optEl.addEventListener('change', function(){ agreeBtn.disabled = !optEl.checked; });
+    node.querySelector('[data-cancel]').addEventListener('click', closeModal);
+    node.querySelector('.modal-close').addEventListener('click', closeModal);
+    agreeBtn.addEventListener('click', function(){
+      try { localStorage.setItem(LIVE_STANDARDS_KEY, '1'); } catch(e){}
+      try { gtag('event', 'live_standards_accept', {}); } catch(e){}
+      closeModal();
+      onAccept();
+    });
+    showModal(node);
+    try { gtag('event', 'live_standards_view', {}); } catch(e){}
+  }
+
   // Accept-confirmation modal. Explains the commitment in plain English,
   // collects/confirms contact info (so the poster can reach the accepter
   // to coordinate), and gates Confirm behind an explicit opt-in checkbox.
@@ -3155,16 +3217,18 @@ button{font-family:inherit}
         var id = btn.getAttribute('data-accept');
         var c = loadList().find(function(x){ return x.id === id; });
         if (!c) return;
-        showAcceptConfirm(c, function(payload){
-          markAccepted(id, payload);
-          publishAcceptance(id, payload);
-          notifyAccepted(c, payload);
-          try { gtag('event', 'live_accept', { format: c.format, side: c.side === 'pro' ? 'con' : 'pro' }); } catch(e){}
-          // Match-confirmed milestone cue. Louder than a tick — both
-          // parties just locked in.
-          try { window.SFX && window.SFX.success(); } catch(e){}
-          toast('Accepted. Both sides emailed; meeting room is on the card.');
-          render();
+        requireCommunityStandards(function(){
+          showAcceptConfirm(c, function(payload){
+            markAccepted(id, payload);
+            publishAcceptance(id, payload);
+            notifyAccepted(c, payload);
+            try { gtag('event', 'live_accept', { format: c.format, side: c.side === 'pro' ? 'con' : 'pro' }); } catch(e){}
+            // Match-confirmed milestone cue. Louder than a tick — both
+            // parties just locked in.
+            try { window.SFX && window.SFX.success(); } catch(e){}
+            toast('Accepted. Both sides emailed; meeting room is on the card.');
+            render();
+          });
         });
       });
     });
@@ -3565,6 +3629,9 @@ button{font-family:inherit}
       toast(errors.join(' '));
       return;
     }
+    requireCommunityStandards(function(){ doPostSubmit(); });
+  });
+  function doPostSubmit(){
     var list = loadList();
     var fmt = FORMATS[formatEl.value] || FORMATS.quick;
     var profile = loadProfile();
@@ -3625,7 +3692,7 @@ button{font-family:inherit}
     try { gtag('event', 'live_post', { format: entry.format, side: entry.side, reveal: entry.reveal, scheduled: entry.scheduledAt > entry.ts + 60_000 }); } catch(e){}
     toast(entry.scheduledAt > Date.now() + 60_000 ? 'Challenge scheduled.' : 'Challenge posted.');
     render();
-  });
+  }
 
   // ── Manage tab: profile editor + activity feed
   // Profile is local-only for now; on first save we mirror the handle

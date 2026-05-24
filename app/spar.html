@@ -118,126 +118,67 @@ h1 em{color:var(--accent);font-style:normal}
 
 .lede{font-size:1rem;color:var(--text-dim);line-height:1.55;max-width:480px;margin:0 auto 32px;font-weight:500}
 
-/* Globe — the centerpiece of this page. Layered visual:
-     • two slow-rotating outer orbit rings (dashed + dotted) on .globe-wrap
-     • multi-stop radial gradient on .globe-frame for 3D-sphere look
-       (specular highlight top-left, dark shadow bottom-right, red atmosphere)
-     • two staggered expanding ring pulses (::before, ::after on frame)
-     • a conic radar sweep inside the frame
-     • three orbit containers with satellite dots at different radii/speeds
-     • <canvas id="sparGlobe"> on top draws live pins/arcs via world-globe.js
-       in transparent mode. If world-globe.js fails to load, the orb still
-       reads as a rich animated sphere instead of a flat gradient blob. */
+/* Globe — the centerpiece of this page. Simplified 2026-05-24: the
+   prior layered visual (dashed + dotted outer orbits, conic radar
+   sweep, three rotating satellite dots, double ring pulses) read as
+   visually overwhelmed — too many things spinning at once around a
+   small disc. Stripped down to just:
+     • sphere gradient on .globe-frame (specular + shadow + atmosphere)
+     • a single slow breathing halo (box-shadow on .globe-frame)
+     • one quiet expanding ring pulse for "scanning the network"
+     • <canvas id="sparGlobe"> on top via world-globe.js
+   Also bumped 220 → 320px so the disc actually owns its real estate
+   instead of looking tucked in the corner of its own column. */
 .globe-wrap{
-  position:relative;width:220px;max-width:62vw;margin:0 auto 18px;
+  position:relative;width:320px;max-width:78vw;margin:0 auto 22px;
   aspect-ratio:1 / 1;
 }
-/* Outer dashed orbit ring — slow forward rotation */
-.globe-wrap::before{
-  content:''; position:absolute; inset:-6%;
-  border-radius:50%;
-  border:1px dashed rgba(239,68,68,.28);
-  pointer-events:none;
-  animation:globe-orbit-slow 32s linear infinite;
-}
-/* Wider dotted orbit ring — slower reverse rotation */
-.globe-wrap::after{
-  content:''; position:absolute; inset:-14%;
-  border-radius:50%;
-  border:1px dotted rgba(239,68,68,.18);
-  pointer-events:none;
-  animation:globe-orbit-slow 50s linear infinite reverse;
-}
-@keyframes globe-orbit-slow{ to{ transform:rotate(360deg) } }
 
 .globe-frame{
   position:relative;width:100%;height:100%;border-radius:50%;
   background:
     /* Specular highlight top-left for sphere depth */
     radial-gradient(circle at 32% 28%,
-      rgba(255,210,210,.20) 0%,
-      rgba(255,170,170,.06) 18%,
-      transparent 40%),
+      rgba(255,210,210,.22) 0%,
+      rgba(255,170,170,.06) 22%,
+      transparent 46%),
     /* Bottom-right shadow gives the orb 3D shape */
     radial-gradient(circle at 70% 78%,
-      rgba(0,0,0,.55) 0%,
-      transparent 48%),
+      rgba(0,0,0,.5) 0%,
+      transparent 50%),
     /* Red atmosphere — center bright, fades to halo */
     radial-gradient(circle at 50% 50%,
-      rgba(239,68,68,.32) 0%,
-      rgba(239,68,68,.16) 34%,
-      rgba(239,68,68,.04) 62%,
-      transparent 78%);
+      rgba(239,68,68,.30) 0%,
+      rgba(239,68,68,.14) 38%,
+      rgba(239,68,68,.04) 64%,
+      transparent 80%);
   box-shadow:
-    inset 0 0 70px rgba(239,68,68,.20),
-    inset 0 -14px 40px rgba(0,0,0,.5),
-    0 0 110px rgba(239,68,68,.28);
-  animation:globe-breathe 5.5s ease-in-out infinite;
+    inset 0 0 80px rgba(239,68,68,.18),
+    inset 0 -16px 44px rgba(0,0,0,.45),
+    0 0 130px rgba(239,68,68,.26);
+  animation:globe-breathe 6.5s ease-in-out infinite;
   overflow:hidden;
 }
-/* Two ring pulses staggered for continuous expand-and-fade. */
-.globe-frame::before, .globe-frame::after{
-  content:''; position:absolute; inset:14%;
+/* One quiet pulse — single ring expanding from center, low opacity
+   so it reads as a "scan ping" not a strobe. */
+.globe-frame::before{
+  content:''; position:absolute; inset:18%;
   border-radius:50%;
-  border:1.5px solid rgba(239,68,68,.55);
+  border:1px solid rgba(239,68,68,.45);
   pointer-events:none; opacity:0;
-  animation:globe-ring-pulse 3.8s cubic-bezier(.35,0,.25,1) infinite;
+  animation:globe-ring-pulse 5.2s cubic-bezier(.35,0,.25,1) infinite;
   z-index:1;
 }
-.globe-frame::after{ animation-delay:1.9s }
 @keyframes globe-ring-pulse{
-  0%{ transform:scale(.55); opacity:.75; border-width:2px }
-  60%{ opacity:.18; border-width:1px }
-  100%{ transform:scale(1.55); opacity:0; border-width:.5px }
+  0%{ transform:scale(.5); opacity:.55 }
+  70%{ opacity:.10 }
+  100%{ transform:scale(1.4); opacity:0 }
 }
 @keyframes globe-breathe{
-  0%,100%{box-shadow:inset 0 0 70px rgba(239,68,68,.20), inset 0 -14px 40px rgba(0,0,0,.5), 0 0 110px rgba(239,68,68,.28)}
-  50%    {box-shadow:inset 0 0 95px rgba(239,68,68,.28), inset 0 -14px 40px rgba(0,0,0,.5), 0 0 145px rgba(239,68,68,.36)}
+  0%,100%{box-shadow:inset 0 0 80px rgba(239,68,68,.18), inset 0 -16px 44px rgba(0,0,0,.45), 0 0 130px rgba(239,68,68,.26)}
+  50%    {box-shadow:inset 0 0 105px rgba(239,68,68,.26), inset 0 -16px 44px rgba(0,0,0,.45), 0 0 170px rgba(239,68,68,.34)}
 }
 .globe-frame canvas{display:block;width:100%;height:100%;position:relative;z-index:3}
-
-/* Radar sweep arc — conic gradient rotating inside the orb. Below the
-   canvas so live pins draw on top. Subtle so it doesn't overpower. */
-.globe-sweep{
-  position:absolute; inset:10%;
-  border-radius:50%; pointer-events:none; z-index:2;
-  background:conic-gradient(from 0deg,
-    transparent 0deg,
-    rgba(239,68,68,.22) 38deg,
-    rgba(239,68,68,.08) 60deg,
-    transparent 78deg);
-  animation:globe-sweep-rot 6s linear infinite;
-  mix-blend-mode:screen;
-}
-@keyframes globe-sweep-rot{ to{ transform:rotate(360deg) } }
-
-/* Orbit containers — child <span> is the satellite dot positioned at the
-   top of the orbit. Rotating the container moves the dot around the rim.
-   Different `inset` values give each orbit a distinct radius. */
-.globe-orbit{
-  position:absolute; inset:-2%;
-  border-radius:50%; pointer-events:none; z-index:4;
-}
-.globe-orbit > .globe-dot{
-  position:absolute; left:50%; top:0;
-  width:7px; height:7px; margin:-3.5px 0 0 -3.5px;
-  border-radius:50%;
-  background:#fff;
-  box-shadow:0 0 8px var(--accent), 0 0 16px rgba(239,68,68,.7);
-}
-.globe-orbit > .globe-dot--small{
-  width:5px; height:5px; margin:-2.5px 0 0 -2.5px;
-  background:#ffd5d5;
-  box-shadow:0 0 6px var(--accent), 0 0 12px rgba(239,68,68,.6);
-}
-.globe-orbit > .globe-dot--bright{
-  background:#fff;
-  box-shadow:0 0 10px #fff, 0 0 18px var(--accent), 0 0 28px rgba(239,68,68,.6);
-}
-.globe-orbit--a{ animation:globe-orbit-spin 9s linear infinite }
-.globe-orbit--b{ inset:8%; animation:globe-orbit-spin 14s linear infinite reverse }
-.globe-orbit--c{ inset:18%; animation:globe-orbit-spin 22s linear infinite }
-@keyframes globe-orbit-spin{ to{ transform:rotate(360deg) } }
 
 /* Legacy orb — still used by renderMatched() and renderFallback() as
    brief transition states. Kept for those two short-lived screens. */
@@ -931,11 +872,7 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="gate">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
         '<div class="globe-wrap"><div class="globe-frame">' +
-          '<div class="globe-sweep" aria-hidden="true"></div>' +
           '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
-          '<div class="globe-orbit globe-orbit--a" aria-hidden="true"><span class="globe-dot globe-dot--bright"></span></div>' +
-          '<div class="globe-orbit globe-orbit--b" aria-hidden="true"><span class="globe-dot globe-dot--small"></span></div>' +
-          '<div class="globe-orbit globe-orbit--c" aria-hidden="true"><span class="globe-dot"></span></div>' +
         '</div></div>' +
         '<h2>Sign in to spar with another debater.</h2>' +
         '<p>Live human-vs-human is signed-in only. Keeps the queue free of bots and gives you a profile your opponent can see. AI sparring stays anonymous if you\'d rather skip the sign-in.</p>' +
@@ -1013,11 +950,7 @@ h1 em{color:var(--accent);font-style:normal}
       // a loading spinner. Mounts via /js/world-globe.js after this
       // innerHTML lands.
       '<div class="globe-wrap"><div class="globe-frame">' +
-          '<div class="globe-sweep" aria-hidden="true"></div>' +
           '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
-          '<div class="globe-orbit globe-orbit--a" aria-hidden="true"><span class="globe-dot globe-dot--bright"></span></div>' +
-          '<div class="globe-orbit globe-orbit--b" aria-hidden="true"><span class="globe-dot globe-dot--small"></span></div>' +
-          '<div class="globe-orbit globe-orbit--c" aria-hidden="true"><span class="globe-dot"></span></div>' +
         '</div></div>' +
       '<div class="status" id="statusText"><span id="statusMain">Scanning the queue</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Looking across active debaters in your format.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
