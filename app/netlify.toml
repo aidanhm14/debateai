@@ -4,6 +4,14 @@
   functions = "netlify/functions"
 
 [build.environment]
+  # 2026-05-24: every deploy has been failing with "Build script
+  # returned non-zero exit code: 2" since the debate-chat.html commit
+  # landed. Root cause: debate-chat.html inlines a Firebase web API
+  # key whose value matches a Netlify-dashboard env var, and Netlify's
+  # secrets scanner flags the match. The legacy NETLIFY_SKIP_SECRETS_CHECK
+  # toggle below no longer disables the scanner — Netlify renamed it
+  # to SECRETS_SCAN_ENABLED, so we set both.
+  SECRETS_SCAN_ENABLED = "false"
   NETLIFY_SKIP_SECRETS_CHECK = "true"
   # Bake script intentionally writes the Firestore service account into the
   # function bundle (base64-encoded), so tell the scanner not to flag the
