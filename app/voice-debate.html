@@ -5194,6 +5194,43 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     if (node) node.scrollTop = node.scrollHeight;
   }, [turns]);
 
+  /* ── Auto-fire RFD generation on round-end (2026-05-24) ──
+     Per user: the post-round summary (stats / talk-time / transcript
+     / "Generate Judge RFD" button) shouldn't sit inline on this
+     page. It should live on /voice-rfd, like /debate-ai → ballot.
+     So when the round transitions to 'ended', fire generateRFD()
+     immediately — which already shows the full-screen "judge is
+     deliberating" overlay during the API call and then navigates
+     to /voice-rfd with the verdict + stats + transcript payload.
+
+     Guards:
+     - Only fire if we have at least 2 real turns to judge (filters
+       out accidental Start → End with nothing said).
+     - Only fire once per round (autoRfdFiredRef).
+     - Respect ?nohandoff=1 so power-user testing of the inline
+       summary still works.
+     - Skip if rfd or rfdLoading is already set (manual click won
+       the race). */
+  var autoRfdFiredRef = useRef(false);
+  useEffect(() => {
+    if (status !== 'ended') {
+      autoRfdFiredRef.current = false;
+      return;
+    }
+    if (autoRfdFiredRef.current) return;
+    if (rfd || rfdLoading) return;
+    var realTurns = (turnsRef.current || []).filter(function (t) {return (t.who === 'you' || t.who === 'ai') && (t.text || '').trim().length > 0;});
+    if (realTurns.length < 2) return;
+    var skip = false;
+    try {skip = new URL(window.location.href).searchParams.get('nohandoff') === '1';} catch (_) {}
+    if (skip) return;
+    autoRfdFiredRef.current = true;
+    // Small delay so the bond-up card + stop() SFX get a beat to
+    // register before the deliberation overlay covers the screen.
+    var t = setTimeout(function () {try {generateRFD();} catch (e) {console.warn('[auto-rfd] failed', e);}}, 600);
+    return function () {clearTimeout(t);};
+  }, [status, rfd, rfdLoading, generateRFD]);
+
   /* ── Derived ──────────────────────────────────── */
 
   var isLive = status === 'live';
