@@ -1483,67 +1483,46 @@ input[type=text]:focus,select:focus,textarea:focus{
 }
 .voice-gate .vg-fallback:hover{color:#fff;text-decoration:underline}
 
-/* Compact opponent picker (right column) */
-.opps{display:flex;flex-direction:column;gap:6px}
+/* Compact opponent picker — horizontal scroll row so personas read on
+   one X-axis line, not stacked vertically. Each card is a fixed-width
+   tile; the row scrolls if the lineup overflows. Clicking a card just
+   picks it (no async preview — that was network-bound and felt laggy). */
+.opps{
+  display:flex;flex-direction:row;gap:8px;
+  overflow-x:auto;overflow-y:hidden;
+  padding:2px 2px 8px;
+  scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+}
+.opps::-webkit-scrollbar{height:6px}
+.opps::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
 .opp{
-  display:flex;align-items:center;gap:11px;
-  padding:10px 12px;border-radius:9px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:12px 10px;border-radius:10px;
   background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
-  text-align:left;transition:all .15s;cursor:pointer;
-  width:100%;
+  text-align:center;transition:all .15s;cursor:pointer;
+  flex:0 0 112px;min-width:112px;
+  scroll-snap-align:start;
 }
 .opp:hover{border-color:rgba(239,68,68,.22);background:rgba(239,68,68,.04)}
 .opp[aria-pressed="true"]{
   border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.07);
 }
 .opp .av{
-  width:32px;height:32px;border-radius:50%;flex-shrink:0;
+  width:42px;height:42px;border-radius:50%;flex-shrink:0;
   display:grid;place-items:center;color:#fff;
-  font-size:.72rem;font-weight:800;background:#3a3a44;
+  font-size:.82rem;font-weight:800;background:#3a3a44;
   letter-spacing:0;
 }
 .opp[aria-pressed="true"] .av{background:#ef4444}
-.opp .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.opp .nm{font-size:.84rem;font-weight:600;color:#e6e6ee;line-height:1.2}
-.opp .role{font-size:.66rem;color:#8a8a9a;letter-spacing:.04em}
+.opp .info{display:flex;flex-direction:column;gap:2px;width:100%;min-width:0}
+.opp .nm{font-size:.76rem;font-weight:600;color:#e6e6ee;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opp .role{font-size:.6rem;color:#8a8a9a;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .opp .meta{
-  font-size:.65rem;color:#7a7a8a;font-variant-numeric:tabular-nums;
+  font-size:.58rem;color:#7a7a8a;font-variant-numeric:tabular-nums;
   white-space:nowrap;letter-spacing:.04em;
 }
-/* Speaker icon on each persona card. Always present so the user
-   learns "click = hear voice"; activates while previewing. */
-.opp-speaker{
-  flex-shrink:0;display:grid;place-items:center;
-  width:24px;height:24px;border-radius:50%;
-  color:#6a6a78;background:transparent;
-  transition:color .15s, background .15s, transform .15s;
-}
-.opp:hover .opp-speaker{color:#c0c0cc}
-.opp-speaker.on{
-  color:#fff;background:rgba(239,68,68,.85);
-  animation:opp-speaker-pulse 1.2s ease-in-out infinite;
-}
-.opp-speaker.loading{color:#9c9caa}
-@keyframes opp-speaker-pulse{
-  0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.45)}
-  50%{box-shadow:0 0 0 6px rgba(239,68,68,0)}
-}
-.opp-speaker-dots{display:inline-flex;gap:2px;align-items:center}
-.opp-speaker-dots span{
-  display:block;width:3px;height:3px;border-radius:50%;
-  background:currentColor;opacity:.4;
-  animation:opp-speaker-dot 1s ease-in-out infinite;
-}
-.opp-speaker-dots span:nth-child(2){animation-delay:.15s}
-.opp-speaker-dots span:nth-child(3){animation-delay:.3s}
-@keyframes opp-speaker-dot{
-  0%,80%,100%{opacity:.25;transform:translateY(0)}
-  40%{opacity:1;transform:translateY(-2px)}
-}
-.opp.previewing{border-color:rgba(239,68,68,.45)}
-html[data-theme="light"] .opp-speaker{color:#9a9aa3}
-html[data-theme="light"] .opp:hover .opp-speaker{color:#1a1a1f}
-html[data-theme="light"] .opp-speaker.on{color:#fff;background:#dc2626}
 .opp-toggle{
   margin-top:6px;padding:9px 12px;font-size:.74rem;
   border:1px solid rgba(255,255,255,.08);border-radius:8px;
@@ -2431,7 +2410,13 @@ var PERSONALITIES = [
   style: 'Clipped, accusatory cadence. Names dropped arguments by exact phrase. Builds toward a verdict.',
   avatarBg: 'linear-gradient(135deg,#dc2626 0%,#450a0a 100%)',
   accentBorder: 'rgba(220,38,38,.35)', accentStrong: 'rgba(220,38,38,.65)', accentGlow: 'rgba(220,38,38,.18)' },
-{ key: 'coral', voice: 'coral',
+// Priya: voice swapped coral → marin (2026-05-24). coral was the
+// sharpest, most clipped female voice — read as theatrical, the
+// thing the user called out as "dramatic annoying". marin is the
+// young + clear + natural conversational voice; quick-wit sharpness
+// now comes from the style prompt, not voice timbre.
+// Key stays 'coral' to preserve localStorage bond progression.
+{ key: 'coral', voice: 'marin',
   name: 'Priya Reddi', initials: 'PR', archetype: 'The Quick Wit',
   bio: 'College-circuit champion. Reads every paper before the round and remembers it.',
   style: 'Fast, sharp, dryly funny. Counter-intuitive frames. Lands one-liners on impact beats.',
@@ -2460,7 +2445,11 @@ var PERSONALITIES = [
 // it with Priya is the cleanest path. Aisha's diplomatic warmth vs
 // Priya's quick-wit sharpness comes from the style prompt, not the
 // voice timbre. Key stays 'shimmer' to preserve bond progression.
-{ key: 'shimmer', voice: 'coral',
+// Aisha: voice swapped coral → marin (2026-05-24, same reason as
+// Priya above). Diplomat polish is steered by the style prompt; the
+// voice itself just needs to be calm and natural, not sharp.
+// Key stays 'shimmer' to preserve localStorage bond progression.
+{ key: 'shimmer', voice: 'marin',
   name: 'Aisha Khan', initials: 'AK', archetype: 'The Diplomat',
   bio: 'Polished and devastating. Makes the cruelest attack sound entirely reasonable.',
   style: 'Composed, gracious, lethal. Concedes ground that doesn\'t matter so the ground that does matters more.',
@@ -2956,18 +2945,10 @@ function App() {
   // Show 3 featured opponents by default; user can expand to all 8.
   var [showAllOpponents, setShowAllOpponents] = useState(false);
 
-  // Opponent voice-preview. previewAudioRef holds the active
-  // HTMLAudioElement so we can stop it before starting another — the
-  // global lock: audio NEVER overlaps. previewUrlRef holds the blob
-  // URL so we can revoke it cleanly on stop. previewingKey drives
-  // the speaker-icon visual on whichever persona card is currently
-  // sampling. previewLoadingKey shows a quiet "fetching" state while
-  // /api/tts is still in flight (OpenAI gpt-4o-mini-tts is fast but
-  // not instant; the user clicked and deserves immediate feedback).
-  var previewAudioRef = useRef(null);
-  var previewUrlRef = useRef('');
-  var [previewingKey, setPreviewingKey] = useState('');
-  var [previewLoadingKey, setPreviewLoadingKey] = useState('');
+  // Persona click-to-preview removed 2026-05-24: the per-card sample
+  // was a fresh /api/tts fetch on every tap, which read as laggy and
+  // turned picking a voice into a wait. Picking is now instant; users
+  // hear the persona for real in the round.
 
   // Smartness slider — 1 = solo gpt-realtime (fastest start), 5 = full
   // council (Claude + Gemini + Grok + GPT-5 consult before first speech).
@@ -3609,88 +3590,10 @@ function App() {
 
   useEffect(() => {return cleanup;}, [cleanup]);
 
-  // ── Opponent voice-preview ───────────────────────────────────
-  // Single-slot HTMLAudioElement so only one persona sample plays at
-  // a time. Hitting another persona stops the prior one before the
-  // new one starts — this is the audio-lock the user explicitly
-  // asked for (no overlap when audio matters). The lock is also
-  // exposed on window so other surfaces (orb player on landing,
-  // future founder-clip, etc.) can call into the same slot.
-  var stopPreview = useCallback(() => {
-    try {
-      if (previewAudioRef.current) {
-        previewAudioRef.current.pause();
-        previewAudioRef.current.onended = null;
-        previewAudioRef.current.onerror = null;
-        previewAudioRef.current.src = '';
-      }
-    } catch (e) {/* element already detached */}
-    previewAudioRef.current = null;
-    if (previewUrlRef.current) {
-      try {URL.revokeObjectURL(previewUrlRef.current);} catch (e) {}
-      previewUrlRef.current = '';
-    }
-    setPreviewingKey('');
-    setPreviewLoadingKey('');
-  }, []);
-
-  // Expose the lock so other audio surfaces never overlap with the
-  // persona preview, and so a teardown elsewhere can cut us off too.
-  useEffect(() => {
-    try {
-      window.__audioLock = window.__audioLock || {};
-      window.__audioLock.stop = stopPreview;
-    } catch (e) {}
-    return () => {
-      try {
-        if (window.__audioLock && window.__audioLock.stop === stopPreview) {
-          delete window.__audioLock.stop;
-        }
-      } catch (e) {}
-    };
-  }, [stopPreview]);
-
-  var playPersonaPreview = useCallback(async (persona) => {
-    if (!persona) return;
-    // Stop any prior preview (audio NEVER overlaps).
-    stopPreview();
-    setPreviewLoadingKey(persona.key);
-    try {
-      // Resume audio context — needed on iOS Safari, same reason the
-      // start() flow does this. Cheap and idempotent.
-      try {
-        var ctx = getAudioCtx && getAudioCtx();
-        if (ctx && ctx.state === 'suspended') {try {await ctx.resume();} catch (e) {}}
-      } catch (e) {}
-      var sampleText = persona.bio || (persona.name + ': ' + persona.archetype + '.');
-      var res = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: sampleText,
-          voice: persona.voice,
-          speed: 1.0,
-          intensity: 0.25,
-          premium: false
-        })
-      });
-      if (!res.ok) {setPreviewLoadingKey('');return;}
-      var blob = await res.blob();
-      var url = URL.createObjectURL(blob);
-      previewUrlRef.current = url;
-      var a = new Audio(url);
-      previewAudioRef.current = a;
-      a.preload = 'auto';
-      a.onended = function () {stopPreview();};
-      a.onerror = function () {stopPreview();};
-      setPreviewLoadingKey('');
-      setPreviewingKey(persona.key);
-      try {await a.play();} catch (e) {stopPreview();}
-    } catch (e) {
-      console.warn('[preview] persona TTS failed:', e && e.message);
-      stopPreview();
-    }
-  }, [stopPreview]);
+  // Persona click-to-preview was removed 2026-05-24 (each tap fetched
+  // a fresh /api/tts blob, which read as laggy and turned picking a
+  // voice into a wait). The window.__audioLock surface went with it
+  // since there's no overlapping audio left on this page to coordinate.
 
   // Push playback rate to the live audio element whenever the user
   // adjusts the slider during a session. Best-effort: browsers don't
@@ -4146,9 +4049,7 @@ function App() {
     }
     if (recordingUrl) {try {URL.revokeObjectURL(recordingUrl);} catch (e) {}}
     setRecordingUrl('');
-    // Kill any persona preview that's still playing — the live AI
-    // is about to speak and audio must never overlap.
-    try {stopPreview();} catch (e) {}
+    // (Persona preview removed; no audio to stop here.)
     // Tear down any stale prior peer connection / mic stream BEFORE we
     // mint a fresh session. Without this, a user who clicks Start a
     // second time (new motion, new side, new persona) without first
@@ -5499,19 +5400,15 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   (showAllOpponents ? PERSONALITIES : PERSONALITIES.slice(0, 3)).map((p) => {
     var r = getBond(p.key);
     var b = bondInfo(r, p.key);
-    var isPreviewing = previewingKey === p.key;
-    var isLoading = previewLoadingKey === p.key;
     return el('button', {
       key: p.key,
       type: 'button',
-      className: 'opp' + (isPreviewing ? ' previewing' : ''),
+      className: 'opp',
       'aria-pressed': personaKey === p.key,
-      title: p.bio + ' · ' + p.style + ' (click to hear voice)',
+      title: p.bio + ' · ' + p.style,
       onClick: () => {
         setPersonaKey(p.key);
         rememberPersona(p.key);
-        if (isPreviewing) {stopPreview();}
-        else {playPersonaPreview(p);}
       }
     },
     el('div', { className: 'av' }, p.initials),
@@ -5519,33 +5416,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     el('div', { className: 'nm' }, p.name),
     el('div', { className: 'role' }, p.archetype)
     ),
-    // Speaker icon — signals "this card has a voice sample". Pulses
-    // while playing, spins quietly while the /api/tts request is
-    // still in flight. Sits in the meta column so the bond/new label
-    // can move out from under it on play.
-    el('div', {
-      className: 'opp-speaker' + (isPreviewing ? ' on' : '') + (isLoading ? ' loading' : ''),
-      'aria-hidden': 'true'
-    },
-    isLoading ?
-    // Three-dot fetch indicator
-    el('span', { className: 'opp-speaker-dots' },
-    el('span', null), el('span', null), el('span', null)
-    ) :
-    // Speaker svg — fills when playing
-    el('svg', {
-      viewBox: '0 0 24 24', width: 14, height: 14,
-      fill: 'none', stroke: 'currentColor',
-      strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round'
-    },
-    el('polygon', { points: '11 5 6 9 2 9 2 15 6 15 11 19 11 5' }),
-    isPreviewing && el('path', { d: 'M15.54 8.46a5 5 0 0 1 0 7.07' }),
-    isPreviewing && el('path', { d: 'M19.07 4.93a10 10 0 0 1 0 14.14' })
-    )
-    ),
     el('div', { className: 'meta' },
-    isPreviewing ? 'playing…' :
-    isLoading ? 'loading…' :
     r > 0 ? b.label.toLowerCase() + ' · ' + r : 'new'
     )
     );

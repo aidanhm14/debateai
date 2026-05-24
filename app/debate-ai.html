@@ -3393,6 +3393,8 @@ function useTTS() {
       var audio = new Audio(url);
       audio.preload = 'auto';
       audioRef.current = audio;
+      // preservesPitch keeps voice timbre when playbackRate ≠ 1 (no chipmunk).
+      try { audio.preservesPitch = true; audio.mozPreservesPitch = true; audio.webkitPreservesPitch = true; } catch {}
       audio.playbackRate = rateRef.current;
       audio.onended = () => {URL.revokeObjectURL(url);resolve();};
       audio.onerror = () => {URL.revokeObjectURL(url);reject(new Error('Audio error'));};
@@ -3497,6 +3499,7 @@ function useTTS() {
             audio.preload = 'auto';
             if (tokenRef.current !== token) {URL.revokeObjectURL(url);return 0; // break
             }audioRef.current = audio;
+            try { audio.preservesPitch = true; audio.mozPreservesPitch = true; audio.webkitPreservesPitch = true; } catch {}
             audio.playbackRate = rateRef.current;
             var ci = i;
             audio.onloadedmetadata = () => {durations[ci] = audio.duration || 0;progressRef.current.total = durations.reduce((a, b) => a + (b || 0), 0);};
@@ -3546,7 +3549,12 @@ function useTTS() {
     // permissive because it uses the page's own audio-grant token.
     var engineOverride = null;
     try {engineOverride = localStorage.getItem('debateos-tts-engine');} catch {}
-    var wantWebAudio = engineOverride !== 'html';
+    // Auto-route by rate: AudioBufferSourceNode.playbackRate is a resampler
+    // (raises pitch with rate — chipmunk effect). HTMLMediaElement supports
+    // preservesPitch which time-stretches without pitch shift. So any rate
+    // ≠ 1.0 forces the HTMLMedia path; rate = 1.0 keeps the gapless Web
+    // Audio engine.
+    var wantWebAudio = engineOverride !== 'html' && Math.abs((rateRef.current || 1) - 1) < 0.001;
     if (!wantWebAudio) {
       return playChunksHTMLMedia(blobPromises, onEnd, onStart, token);
     }
@@ -3727,7 +3735,10 @@ function useTTS() {
 
   var setRate = (rate) => {
     rateRef.current = rate;
-    if (audioRef.current) audioRef.current.playbackRate = rate;
+    if (audioRef.current) {
+      try { audioRef.current.preservesPitch = true; audioRef.current.mozPreservesPitch = true; audioRef.current.webkitPreservesPitch = true; } catch {}
+      audioRef.current.playbackRate = rate;
+    }
     // Web Audio: update the playbackRate on every currently-scheduled
     // source so the change applies to whatever's playing right now AND
     // the chunks already queued behind it. Note that this leaves a
@@ -3784,6 +3795,7 @@ function useTTS() {
         audio.preload = 'auto';
         if (tokenRef.current !== token) return;
         audioRef.current = audio;
+        try { audio.preservesPitch = true; audio.mozPreservesPitch = true; audio.webkitPreservesPitch = true; } catch {}
         audio.playbackRate = rateRef.current;
         audio.ontimeupdate = () => {
           progressRef.current.elapsed = audio.currentTime || 0;
