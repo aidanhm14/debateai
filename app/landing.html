@@ -2332,6 +2332,32 @@ section.hero{
 [data-theme="light"] .hero-bookmark-note kbd{
   border-color:rgba(0,0,0,.18);background:rgba(0,0,0,.04);color:rgba(0,0,0,.74);
 }
+
+/* ─── Signed-in hero tightening ───────────────────────────────────
+   When the user is signed in (body.signed-in set by the Firebase
+   onAuthStateChanged handler), the hidden Google sign-up button +
+   creed bottom margin + pill-rail top margin stack into a ~170px
+   empty band between the H1 and "still building" / "76 debaters"
+   notes. Pull everything closer so the eye flows.
+
+   Order between H1 and pill rail (signed-in, after Sign in btn hidden):
+     headline → creed (tighter bottom) → ctas (Start round only)
+     → pill rail (tighter top)
+
+   .legacy-hero-subtree (which wraps the OLD #googleSignupBtn + the
+   "Catches the holes..." 4-dim list) is already display:none, so
+   we don't need to hide it again here. */
+body.signed-in .editorial-hero .hero-creed{margin-bottom:14px}
+body.signed-in .editorial-hero .hero-ctas{margin-bottom:0}
+body.signed-in .editorial-hero .hero-pill-rail{margin-top:14px}
+body.signed-in .hero-creed{margin-bottom:14px}
+body.signed-in .hero-ctas{margin-bottom:14px}
+body.signed-in .hero-pill-rail{margin-top:14px}
+/* When the only visible CTA in .hero-ctas is "Start a round" (Sign
+   in button is hidden), drop the cta-row gap entirely so the row's
+   intrinsic height is just the mega-button height with no padding
+   stretching it. */
+body.signed-in .hero-ctas{gap:8px}
 .hero-pill-rail{
   display:flex;align-items:center;gap:14px 15px;flex-wrap:wrap;
   margin:20px 0 0;
@@ -10235,6 +10261,12 @@ window.addEventListener('load', function(){
     // back to /app#chat), so hide it and let the topbar user chip stand.
     var heroSignin = document.getElementById('heroGoogleSignup');
     if (heroSignin) heroSignin.style.display = user ? 'none' : '';
+    // Body class drives the signed-in-tighten CSS block: pulls the
+    // hero pill rail + "still building" / "76 debaters" notes closer
+    // to the headline once the Google sign-up CTA disappears. Without
+    // this the creed + (now-hidden) sign-in row + ctas leave a ~170px
+    // empty band between the H1 and the pill rail.
+    try { document.body.classList.toggle('signed-in', !!user); } catch(e){}
   });
 
   // Shared sign-in action. reused by the main button AND the hero timer animation.

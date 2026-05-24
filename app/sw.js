@@ -6,7 +6,11 @@
 
 
 
+<<<<<<< HEAD
 const CACHE_NAME = 'debateos-v689';
+=======
+const CACHE_NAME = 'debateos-v685';
+>>>>>>> b42fa5f (landing(hero): tighten H1 → notes gap when signed in)
 
 
 
