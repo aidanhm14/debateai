@@ -170,6 +170,26 @@ a{color:inherit}
 .hero .meta .pip{width:5px;height:5px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pip 2.4s ease-in-out infinite}
 @keyframes pip{0%,100%{opacity:.4}50%{opacity:1}}
 
+/* Pre-round credential banner — small gold strip on the setup screen
+   telling the user there's a credential on the line. Builds anticipation
+   without dominating the orb. */
+.cred-prebanner{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  margin:0 auto 22px;max-width:560px;padding:9px 16px;
+  background:rgba(212,175,55,.07);border:1px solid rgba(212,175,55,.30);
+  border-radius:999px;
+  font-size:.78rem;color:#d4af37;text-decoration:none;
+  font-weight:600;letter-spacing:.01em;line-height:1.4;
+  transition:background .15s,border-color .15s,transform .15s;
+}
+.cred-prebanner:hover{background:rgba(212,175,55,.12);border-color:rgba(212,175,55,.50);transform:translateY(-1px)}
+.cred-prebanner-dot{width:6px;height:6px;border-radius:50%;background:#d4af37;flex:none;box-shadow:0 0 8px rgba(212,175,55,.50)}
+.cred-prebanner b{color:#fff;font-weight:700}
+.cred-prebanner-arrow{font-size:.86rem;color:rgba(212,175,55,.72);margin-left:2px}
+@media (max-width:520px){
+  .cred-prebanner{font-size:.72rem;max-width:none}
+}
+
 /* ── Cards ────────────────────────────────────────── */
 .card{
   background:linear-gradient(180deg, rgba(255,255,255,.035) 0%, rgba(255,255,255,.01) 100%);
@@ -5047,6 +5067,49 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       // hero verdict, the four sections (best / costliest / fixes /
       // full ballot), and an optional transcript block. Honors
       // ?nohandoff=1 for testing the old inline view.
+      //
+      // Cert issuance runs in parallel here so the handoff payload
+      // can carry the freshly-minted certId — /voice-rfd renders an
+      // award banner above the RFD if payload.cert is present. We
+      // race the cert call against a 3s timeout so a slow Firestore
+      // write never blocks the user from seeing their ballot.
+      var certPromise = null;
+      try {
+        var sm = (text || '').match(/SPEAKER\s*POINTS\s*[:\-]?\s*([0-9]{2}(?:\.[0-9])?)/i);
+        var sScore = sm ? parseFloat(sm[1]) : NaN;
+        var uCert = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        if (uCert && Number.isFinite(sScore) && sScore >= 27 && sScore <= 30) {
+          var personaObjC = (typeof PERSONALITIES !== 'undefined') ? PERSONALITIES.find(function(p){ return p.key === personaKey; }) : null;
+          var personaLabelC = personaObjC ? (personaObjC.name + (personaObjC.title ? ' · ' + personaObjC.title : '')) : (personaKey || '');
+          var sideLabelC = side === 'gov' ? 'Government' : side === 'opp' ? 'Opposition' : '';
+          var langC = '';
+          try { langC = localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale') || 'en'; } catch(e){ langC = 'en'; }
+          certPromise = uCert.getIdToken().then(function(tk){
+            return fetch('/api/create-cert', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tk },
+              body: JSON.stringify({
+                score: Math.round(sScore * 10) / 10,
+                motion: motion || '',
+                side: side || '',
+                sideLabel: sideLabelC,
+                format: mode || '',
+                formatLabel: modeLabel || mode || '',
+                personaKey: personaKey || '',
+                personaLabel: personaLabelC,
+                rfd: text || '',
+                aiLanguage: langC,
+                roundId: 'voice-' + Date.now(),
+                won: false,
+                displayName: uCert.displayName || '',
+              }),
+            }).then(function(r){ return r.json(); });
+          }).catch(function(err){
+            console.warn('[generateRFD] cert call failed', err); return null;
+          });
+        }
+      } catch(certSetupErr){ console.warn('[generateRFD] cert setup skipped', certSetupErr); }
+
       try {
         var url = new URL(window.location.href);
         if (url.searchParams.get('nohandoff') !== '1' && text){
@@ -5083,6 +5146,30 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             format: mode || '',
             ts: Date.now(),
           };
+          // Race the cert promise against a 3s ceiling so a slow
+          // write never blocks the handoff. If it finishes in time
+          // the payload carries the certId + tier; if not, the cert
+          // is still being issued and the user finds it later on
+          // /profile.
+          if (certPromise) {
+            try {
+              var certInfo = await Promise.race([
+                certPromise,
+                new Promise(function(res){ setTimeout(function(){ res(null); }, 3000); })
+              ]);
+              if (certInfo && certInfo.ok) {
+                payload.cert = {
+                  certId: certInfo.certId,
+                  tier: certInfo.tier,
+                  tierName: certInfo.tierName,
+                  tierBlurb: certInfo.tierBlurb,
+                  score: certInfo.score,
+                  verifyUrl: certInfo.verifyUrl,
+                };
+                try { gtag('event', 'cert_issued', { tier: certInfo.tier }); } catch(e){}
+              }
+            } catch(certWaitErr){ console.warn('[generateRFD] cert wait failed', certWaitErr); }
+          }
           try { sessionStorage.setItem('debateos-voice-rfd', JSON.stringify(payload)); } catch(e){}
           try { gtag('event', 'voice_rfd_handoff', { format: mode || '', has_score: /SPEAKER\s*POINTS/i.test(text) }); } catch(e){}
           // Funnel terminal: the user reached the ballot. This is the
@@ -5309,6 +5396,23 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         )
       )
     )
+  ),
+
+  // Pre-round credential banner — sits between the hero and the setup
+  // grid. Sets the stake BEFORE the round: "score 27+ and you walk
+  // out with something verifiable on a resume." Hidden in Counter
+  // (viva) mode because that surface has its own oral-exam framing
+  // and credentials are debate-specific. Also hidden once the round
+  // is live or connecting (the setup screen as a whole disappears).
+  !isLive && !isConnecting && extMode !== 'counter' && el('a', {
+    className: 'cred-prebanner',
+    href: '/credentials',
+    'data-cta': 'voice-debate-cred-prebanner',
+    'aria-label': 'Learn about DebateAI credentials',
+  },
+  el('span', { className: 'cred-prebanner-dot', 'aria-hidden': 'true' }),
+  el('span', null, 'Score ', el('b', null, '27+'), ' and earn a verifiable DebateAI credential. Free, public verify URL.'),
+  el('span', { className: 'cred-prebanner-arrow', 'aria-hidden': 'true' }, '→')
   ),
 
   // Setup — orb-central. Big orb at the top is the visual anchor;
