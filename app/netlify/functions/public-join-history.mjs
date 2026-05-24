@@ -91,15 +91,26 @@ export default async (request) => {
     return jsonResponse(emptyPayload('getDb: ' + err.message), 200, request);
   }
 
+  // ── 1. Per-day anonymous visits ───────────────────────────────
+  // Isolated try-catch so a failure here (e.g. the
+  // `metrics/daily/{date}` path being a 3-segment collection ref,
+  // not a 2-segment doc ref — see lib note below) doesn't take
+  // down the much more useful members read in section 2.
+  //
+  // TODO: visitor-tick.mjs writes daily counters at the same
+  // 3-segment path and has been silently throwing for months;
+  // its source string `metrics/daily/{date}` is not a valid
+  // Firestore document path. Real fix: either flatten to a
+  // 2-segment collection (`metrics_daily/{date}`) or nest into
+  // a true subcollection (`metrics/daily/days/{date}`). Until
+  // that lands, totalVisits stays at 0 here.
+  const visitsByDay = Object.create(null);
+  let firstVisitDay = null;
+  let totalVisits = 0;
   try {
-    // ── 1. Per-day anonymous visits (last MAX_DAYS UTC days) ──────
     const keys = dayKeysOldestFirst(MAX_DAYS);
     const refs = keys.map(k => db.doc(`metrics/daily/${k}`));
     const snaps = await Promise.all(refs.map(r => r.get().catch(() => null)));
-
-    const visitsByDay = Object.create(null);
-    let firstVisitDay = null;
-    let totalVisits = 0;
     for (let i = 0; i < snaps.length; i++){
       const snap = snaps[i];
       if (snap && snap.exists){
@@ -111,6 +122,12 @@ export default async (request) => {
         }
       }
     }
+  } catch (err) {
+    console.warn('public-join-history daily-visit read failed:', err.message);
+    // visit data stays empty; members section still runs.
+  }
+
+  try {
 
     // ── 2. Members per day, from Firebase Auth ────────────────────
     // The Auth user list is authoritative: every sign-in creates an
