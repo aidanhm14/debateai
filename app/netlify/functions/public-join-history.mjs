@@ -1,0 +1,182 @@
+// /api/public-join-history → public, anonymized history of who has
+// shown up since tracking began. Renders on the /community page as a
+// numbered milestone timeline ("Visitor #1 arrived Apr 3", "Visitor
+// #1,000 arrived May 8", ...). No UIDs, no emails, no per-user data —
+// only per-day aggregate counts and the dates we crossed each
+// round-number milestone.
+//
+// Two sources:
+//   - metrics/daily/{YYYY-MM-DD}.count → anonymous visits per UTC day
+//     (written by visitor-tick on every first-device tick)
+//   - user_profiles where createdAt >= sinceCutoff → signed-in members
+//     per UTC day, bucketed by their createdAt timestamp
+//
+// Response shape (intentionally tiny — public surface, no PII leak):
+//   {
+//     since: 'YYYY-MM-DD',          // earliest tracked day, or null
+//     now:   'YYYY-MM-DD',
+//     totals: { visits, members },
+//     milestones: [
+//       { kind: 'visitor' | 'member', n: 1|10|100|..., date: 'YYYY-MM-DD' }
+//     ]
+//   }
+//
+// Cached 1 hour (public surface, staleness is fine and the cache also
+// caps Firestore read amplification — every uncached call does ~MAX_DAYS
+// metrics/daily gets + one user_profiles range scan capped at MAX_PROFILES).
+
+import { getDb } from './lib/firestore.mjs';
+import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { getCached, setCached } from './lib/admin-cache.mjs';
+
+const CACHE_KEY = 'public-join-history';
+const CACHE_TTL = 60 * 60 * 1000;  // 1 hour
+
+const MAX_DAYS = 400;
+const MAX_PROFILES = 20_000;
+
+// Round-number milestones we surface. Walking forward in time, the
+// first day the running cumulative crosses each threshold is the
+// milestone date. The lists stay narrow on purpose — the rendered
+// timeline reads as 6-10 punctuating moments, not a wall.
+const VISITOR_THRESHOLDS = [1, 10, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000];
+const MEMBER_THRESHOLDS  = [1, 5, 10, 25, 50, 100, 250, 500, 1000];
+
+function ymd(d){
+  return d.toISOString().slice(0, 10);
+}
+function startOfDayUTC(ms){
+  const d = new Date(ms);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+function dayKeysOldestFirst(n){
+  const keys = [];
+  const now = new Date();
+  for (let i = n - 1; i >= 0; i--){
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - i);
+    keys.push(d.toISOString().slice(0, 10));
+  }
+  return keys;
+}
+
+function emptyPayload(){
+  return {
+    since: null,
+    now: ymd(new Date()),
+    totals: { visits: 0, members: 0 },
+    milestones: [],
+  };
+}
+
+export default async (request) => {
+  if (request.method === 'OPTIONS') return corsResponse(request);
+  if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
+
+  const cached = getCached(CACHE_KEY);
+  if (cached) return jsonResponse(cached, 200, request);
+
+  let db;
+  try { db = getDb(); }
+  catch (err) {
+    console.error('public-join-history getDb failed:', err.message);
+    return jsonResponse(emptyPayload(), 200, request);
+  }
+
+  try {
+    // ── 1. Per-day anonymous visits (last MAX_DAYS UTC days) ──────
+    const keys = dayKeysOldestFirst(MAX_DAYS);
+    const refs = keys.map(k => db.doc(`metrics/daily/${k}`));
+    const snaps = await Promise.all(refs.map(r => r.get().catch(() => null)));
+
+    const visitsByDay = Object.create(null);
+    let firstVisitDay = null;
+    let totalVisits = 0;
+    for (let i = 0; i < snaps.length; i++){
+      const snap = snaps[i];
+      if (snap && snap.exists){
+        const c = snap.data().count;
+        if (typeof c === 'number' && c > 0){
+          visitsByDay[keys[i]] = c;
+          totalVisits += c;
+          if (!firstVisitDay) firstVisitDay = keys[i];
+        }
+      }
+    }
+
+    // ── 2. Members per day, from user_profiles.createdAt ──────────
+    const membersByDay = Object.create(null);
+    let totalMembers = 0;
+    if (firstVisitDay){
+      const cutoff = new Date(firstVisitDay + 'T00:00:00Z');
+      const profSnap = await db.collection('user_profiles')
+        .where('createdAt', '>=', cutoff)
+        .limit(MAX_PROFILES)
+        .get()
+        .catch(err => {
+          console.warn('public-join-history user_profiles scan failed:', err.message);
+          return { docs: [] };
+        });
+
+      profSnap.docs.forEach(d => {
+        const data = d.data();
+        const t = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : null;
+        if (!t) return;
+        const k = ymd(new Date(startOfDayUTC(t)));
+        membersByDay[k] = (membersByDay[k] || 0) + 1;
+        totalMembers += 1;
+      });
+    }
+
+    // ── 3. Walk forward, emit milestone dates ─────────────────────
+    const milestones = [];
+    const since = firstVisitDay || ymd(new Date());
+
+    let runVisits = 0;
+    let nextV = 0;
+    for (let i = 0; i < keys.length; i++){
+      const k = keys[i];
+      const c = visitsByDay[k] || 0;
+      if (!c && runVisits === 0) continue;
+      runVisits += c;
+      while (nextV < VISITOR_THRESHOLDS.length && runVisits >= VISITOR_THRESHOLDS[nextV]){
+        milestones.push({ kind: 'visitor', n: VISITOR_THRESHOLDS[nextV], date: k });
+        nextV++;
+      }
+    }
+
+    let runMembers = 0;
+    let nextM = 0;
+    for (let i = 0; i < keys.length; i++){
+      const k = keys[i];
+      const c = membersByDay[k] || 0;
+      if (!c && runMembers === 0) continue;
+      runMembers += c;
+      while (nextM < MEMBER_THRESHOLDS.length && runMembers >= MEMBER_THRESHOLDS[nextM]){
+        milestones.push({ kind: 'member', n: MEMBER_THRESHOLDS[nextM], date: k });
+        nextM++;
+      }
+    }
+
+    // Sort by date ascending; ties → visitor before member, smaller n first.
+    milestones.sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      if (a.kind !== b.kind) return a.kind === 'visitor' ? -1 : 1;
+      return a.n - b.n;
+    });
+
+    const payload = {
+      since,
+      now: ymd(new Date()),
+      totals: { visits: totalVisits, members: totalMembers },
+      milestones,
+    };
+    setCached(CACHE_KEY, payload, CACHE_TTL);
+    return jsonResponse(payload, 200, request);
+  } catch (err) {
+    console.error('public-join-history failed:', err.message);
+    return jsonResponse(emptyPayload(), 200, request);
+  }
+};
+
+export const config = { path: '/api/public-join-history' };
