@@ -2509,6 +2509,60 @@ section.hero{
   text-align:center;
   position:relative;
   overflow:visible;
+  /* 2026-05-24: orb card is now an <a> wrapping the canvas + label
+     pointing to /voice-debate. Defaults below reset link styling so
+     existing layout doesn't shift; hover state lifts and intensifies
+     the drop-shadow on the canvas underneath. */
+  text-decoration:none;
+  color:inherit;
+  cursor:pointer;
+  transition:transform .25s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.hero-orb-card:hover{transform:translateY(-3px)}
+.hero-orb-card:hover .hero-orb-canvas{filter:drop-shadow(0 0 68px rgba(239,68,68,.42))}
+.hero-orb-card:hover .hero-orb-cta{background:#ef4444;color:#fff;transform:translateY(0)}
+.hero-orb-card:focus-visible{outline:2px solid #ef4444;outline-offset:6px;border-radius:18px}
+.hero-orb-live{
+  position:absolute;top:18px;left:50%;transform:translateX(-50%);
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.6rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:#ef4444;
+  padding:4px 12px;
+  border:1px solid rgba(239,68,68,.32);
+  border-radius:999px;
+  background:rgba(239,68,68,.06);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.hero-orb-live::before{
+  content:'';width:7px;height:7px;border-radius:50%;
+  background:#ef4444;box-shadow:0 0 10px rgba(239,68,68,.85);
+  animation:heroOrbPulse 1.8s ease-in-out infinite;
+}
+@keyframes heroOrbPulse{
+  0%,100%{opacity:.55;transform:scale(.9)}
+  50%    {opacity:1;transform:scale(1.15)}
+}
+.hero-orb-cta{
+  display:inline-flex;align-items:center;gap:8px;
+  margin-top:14px;
+  padding:8px 16px;
+  font-size:.78rem;font-weight:700;letter-spacing:.02em;
+  color:#ef4444;
+  background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.32);
+  border-radius:999px;
+  transition:background .2s ease,color .2s ease,transform .2s ease;
+}
+.hero-orb-cta::after{
+  content:'→';font-size:.9em;transition:transform .25s ease;
+}
+.hero-orb-card:hover .hero-orb-cta::after{transform:translateX(4px)}
+[data-theme="light"] .hero-orb-live,
+[data-theme="stone"] .hero-orb-live{background:rgba(239,68,68,.08)}
+@media (prefers-reduced-motion:reduce){
+  .hero-orb-card,.hero-orb-card:hover{transform:none}
+  .hero-orb-live::before{animation:none}
 }
 [data-theme="grey"] .hero-orb-card,
 [data-theme="crimson"] .hero-orb-card,
@@ -4695,16 +4749,19 @@ section.ui-section .ui-lede{
 
       <!-- Right column of the editorial hero: voice orb card. -->
       <div class="hero-card-stack">
-        <div class="hero-orb-card" aria-label="Voice AI">
+        <!-- 2026-05-24: orb card converted from <div> to <a> pointing
+             at /voice-debate.html so clicking the orb starts a voice
+             round. Per user: put more weight on Voice AI. A "LIVE
+             VOICE" pulse pill rides at the top of the card and a
+             "Start a voice round" pill sits under the caption, both
+             reinforcing the interaction without competing with the
+             headline. -->
+        <a class="hero-orb-card" href="/voice-debate.html" aria-label="Start a voice round with the AI" data-gtag="hero_orb_voice">
+          <span class="hero-orb-live" aria-hidden="true">Live voice</span>
           <canvas class="hero-orb-canvas" id="heroOrbCanvas" aria-hidden="true"></canvas>
           <div class="hero-orb-label">The AI listens, questions, and responds.</div>
-          <!-- 2026-05-19 PM: "Start a voice round →" CTA below the orb
-               removed per user. The whole orb card is wrapped in the
-               same /voice-debate link below; the redundant pill was
-               adding visual weight without a different destination.
-               Pill-rail "Adaptive voice" upstream remains the canonical
-               labeled entry. -->
-        </div>
+          <span class="hero-orb-cta">Start a voice round</span>
+        </a>
       </div>
 
       <!-- Legacy #editorialSignInLink kept off-canvas as a screenreader +
