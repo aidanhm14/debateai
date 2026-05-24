@@ -31,6 +31,16 @@
   # match against the dashboard GOOGLE_SERVICE_ACCOUNT value.
   SECRETS_SCAN_OMIT_KEYS = "GOOGLE_SERVICE_ACCOUNT"
   SECRETS_SCAN_OMIT_PATHS = "app/netlify/functions/lib/_firestore-creds.mjs"
+  # Firebase web API keys are public by Firebase's own design — they
+  # identify the project, not authenticate the user. Real auth is
+  # enforced via Firestore Security Rules + App Check. The key is
+  # inline in every HTML page (debate-ai, voice-debate, landing, etc.)
+  # and visible in view-source. Netlify's smart-detection scanner
+  # started flagging it on 2026-05-24 after debate-chat.html landed
+  # with a more recognizable `apiKey: "AIza..."` pattern, which
+  # bricked every deploy. Whitelist the specific value so the scan
+  # keeps running for actual secrets. Mirror of app/netlify.toml.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDqHa-AHzx-K9MeBaIv9TY4WPdfV5ECgrU"
 
 [functions]
   external_node_modules = ["@google-cloud/firestore", "stripe"]
