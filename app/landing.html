@@ -2039,7 +2039,14 @@ section.hero{
   .editorial-hero{
     display:grid;
     grid-template-columns:minmax(0,1fr) minmax(360px,470px);
-    column-gap:clamp(48px,5vw,76px);
+    /* 2026-05-24: bumped min column-gap 48 → 88px. At narrower
+       desktop widths the orb card's absolutely-positioned LIVE VOICE
+       pulse pill (top:18px, centered on the card) was visually
+       overlapping with the "FOUNDING STORY ↓" founder cue on the
+       left column's bottom row. 88px guarantees clear separation
+       between the cue's right edge + the LIVE pill's left edge at
+       all viewport widths above the mobile breakpoint. */
+    column-gap:clamp(88px,6vw,96px);
     row-gap:0;
     grid-template-areas:
       "eyebrow  card"
@@ -4877,7 +4884,7 @@ section.ui-section .ui-lede{
       <div class="hero-pill-rail" role="navigation" aria-label="Other ways to debate">
       <p class="hero-building-note">still building. updating website every day.</p>
       <p class="hero-bookmark-note">
-        <span class="hero-bookmark-count">76</span> debaters signed in with Google so far. Goal is many thousands. Bookmark this page (<kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>) and come back as the room fills in.
+        <span class="hero-bookmark-count" id="heroBookmarkCount">76</span> debaters signed in with Google so far. Goal is many thousands. Bookmark this page (<kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>) and come back as the room fills in.
       </p>
         <a href="/app#case" class="hero-pill">Prep</a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
@@ -4894,6 +4901,27 @@ section.ui-section .ui-lede{
         <span class="hero-pill-sep" aria-hidden="true">·</span>
         <a href="/credentials" class="hero-pill" data-cta="hero-credentials">Earn a credential</a>
       </div>
+      <script>
+        // Live Google sign-in count for #heroBookmarkCount. Pulls
+        // /api/public-join-history (1h-cached server-side, no PII,
+        // returns totals.google = Auth-listed Google sign-ins). The
+        // hardcoded "76" in markup is the fallback if the fetch fails
+        // or hasn't returned by render — never shows nothing. Updates
+        // in-place with a small comma format for >999.
+        (function(){
+          var el = document.getElementById('heroBookmarkCount');
+          if (!el) return;
+          fetch('/api/public-join-history', { credentials: 'omit' })
+            .then(function(r){ return r.ok ? r.json() : null; })
+            .then(function(j){
+              if (!j || !j.totals) return;
+              var n = Math.max(0, parseInt(j.totals.google, 10) || 0);
+              if (!n) return; // keep fallback if zero
+              el.textContent = n.toLocaleString();
+            })
+            .catch(function(){ /* keep fallback */ });
+        })();
+      </script>
 
       <!-- 2026-05-24: small scroll cue toward the founder story. Anchors
            to #founder-story (an alias on the existing #founder-video
@@ -6059,6 +6087,51 @@ section.ui-section .ui-lede{
   .pc-cadence{font-size:.74rem;color:var(--text-dim,rgba(255,255,255,.66))}
   .pc-card-note{margin-top:8px;font-size:.74rem;color:var(--text-dim,rgba(255,255,255,.7));line-height:1.5}
   .pc-card-rule{border:none;border-top:1px dashed rgba(255,255,255,.10);margin:14px 0 6px;width:100%}
+
+  /* ── Co-founder ask card ─────────────────────────────────
+     Sits in the left column of .pc-grid right under the $0
+     comparison card so the empty band under it (the founder-letter
+     in the right column is much taller) finally has a purpose.
+     Same chrome family as pc-card but with a single short-form
+     message. Honest, plain, founder-voice. */
+  .cofounder-card{
+    margin-top:14px;
+    padding:18px 18px;
+    background:rgba(239,68,68,.05);
+    border:1px dashed rgba(239,68,68,.36);
+    border-radius:14px;
+    text-align:left;
+  }
+  .cofounder-card .cc-eyebrow{
+    font-size:.6rem;font-weight:800;letter-spacing:.14em;
+    text-transform:uppercase;color:#ef4444;margin-bottom:8px;
+  }
+  .cofounder-card .cc-h{
+    font-family:Fraunces,Georgia,serif;
+    font-size:1.32rem;font-weight:700;letter-spacing:-.012em;
+    line-height:1.15;margin:0 0 8px;color:var(--text,#fff);
+  }
+  .cofounder-card .cc-body{
+    font-size:.84rem;color:var(--text-dim,rgba(255,255,255,.72));
+    line-height:1.55;margin:0 0 12px;
+  }
+  .cofounder-card .cc-cta{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:.78rem;font-weight:700;color:#ef4444;
+    text-decoration:none;border-bottom:1px solid rgba(239,68,68,.45);
+    padding-bottom:1px;transition:border-color .15s,color .15s;
+  }
+  .cofounder-card .cc-cta:hover{
+    color:#dc2626;border-color:#dc2626;
+  }
+  [data-theme="light"] .cofounder-card,
+  [data-theme="stone"] .cofounder-card{
+    background:rgba(220,38,38,.06);border-color:rgba(220,38,38,.34);
+  }
+  [data-theme="light"] .cofounder-card .cc-h,
+  [data-theme="stone"] .cofounder-card .cc-h{color:#1a1a1f}
+  [data-theme="light"] .cofounder-card .cc-body,
+  [data-theme="stone"] .cofounder-card .cc-body{color:#5a5a64}
   .pc-vs{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.55));font-weight:800;margin-bottom:6px}
   .pc-beta-chip{display:inline-block;font-size:.56rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:rgba(34,197,94,.14);color:#22c55e;border:1px solid rgba(34,197,94,.32);vertical-align:middle}
 
@@ -6216,6 +6289,17 @@ section.ui-section .ui-lede{
           <div class="pc-card-row"><span class="pc-price pc-price--us">$0</span><span class="pc-cadence">while we grow the room</span></div>
           <div class="pc-card-note">Debate, all the way down. Format-accurate, judge-grade, voice-first.</div>
         </div>
+      </article>
+
+      <!-- Co-founder ask. Sits in the same left grid column as the
+           pricing card so the previously-empty band under $0 carries
+           a real message. Honest founder voice; routes to the same
+           feedback inbox so replies land in one place. -->
+      <article class="cofounder-card" aria-label="Co-founders wanted">
+        <div class="cc-eyebrow">Co-founders wanted</div>
+        <h3 class="cc-h">Solo built. Want a co-founder.</h3>
+        <p class="cc-body">Engineer who debates, designer who debates, growth person who debates. If that's you and you'd ship every day, hit me up.</p>
+        <a class="cc-cta" href="mailto:feedback@debateai.com?subject=Co-founder%20interest">feedback@debateai.com →</a>
       </article>
 
       <!-- MIDDLE: founder letter. The wall-of-text version split
