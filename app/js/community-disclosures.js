@@ -49,8 +49,8 @@
       format: 'APDA',
       sharedBy: 'parli_pilgrim',
       ageDays: 2,
-      voteScore: 14,
-      voteCount: 16,
+      voteScore: 1,
+      voteCount: 2,
       output:
 `Char. Section 230 in the US, equivalent safe-harbor regimes abroad. Model: platforms 1M+ MAU lose blanket immunity for content their recommendation algo actively pushes. NOT content a user finds via direct search. Civil liability only, no criminal.
 
@@ -69,8 +69,8 @@ Pre-empt: opp will say "kills small platforms." Our threshold is 1M MAU and immu
       format: 'APDA',
       sharedBy: 'frontlinekid',
       ageDays: 1,
-      voteScore: 19,
-      voteCount: 21,
+      voteScore: 2,
+      voteCount: 3,
       output:
 `Characterization isn't where we want to fight. Whatever Gov's threshold is (1M, 10M, whatever), the legal regime they're proposing hands a private actor (a Meta lawyer) the power to decide what counts as "misinformation." That's the entire opp case in one sentence.
 
@@ -92,8 +92,8 @@ Why we win. Gov shifts the cost of liability onto the people Gov claims to prote
       format: 'PF',
       sharedBy: 'cite_or_die',
       ageDays: 4,
-      voteScore: 8,
-      voteCount: 10,
+      voteScore: 0,
+      voteCount: 1,
       output:
 `FW: weigh on harm to the info ecosystem.
 
@@ -119,8 +119,8 @@ Weighing. Magnitude: 232K dead vs unverified speculation about chilled speech. P
       format: 'Asian Parliamentary',
       sharedBy: 'delhi_circuit',
       ageDays: 5,
-      voteScore: 22,
-      voteCount: 26,
+      voteScore: 3,
+      voteCount: 4,
       output:
 `Model. In countries with GDP/capita under $5K (PPP), suspend NEW environmental regulations on industrial output for 15 years. Existing regs remain. Enforcement of pollution caps stays on the books for the largest emitters. What we suspend is the next round of tightening.
 
@@ -144,8 +144,8 @@ Pre-empt. Opp will say "they'll lock in dirty infrastructure." Our suspension is
       format: 'Asian Parliamentary',
       sharedBy: 'wsdcbound',
       ageDays: 5,
-      voteScore: 17,
-      voteCount: 20,
+      voteScore: 2,
+      voteCount: 3,
       output:
 `Stake: same as Gov's. The 3B people on under $5/day. Opp argues those people are the FIRST victims of the deregulation Gov is proposing.
 
@@ -169,8 +169,8 @@ Vote Opp. The 3B get more growth, more health, AND more political agency under m
       format: 'Lincoln-Douglas',
       sharedBy: 'criterionkid',
       ageDays: 7,
-      voteScore: 13,
-      voteCount: 15,
+      voteScore: 1,
+      voteCount: 2,
       output:
 `Value: justice as fairness in opportunity allocation.
 Criterion: minimizing the role of factors causally tied to wealth in admissions outcomes.
@@ -203,8 +203,8 @@ I'm aff every round on this one. vote me.`
       format: 'Lincoln-Douglas',
       sharedBy: 'tabover_truth',
       ageDays: 6,
-      voteScore: 16,
-      voteCount: 18,
+      voteScore: 2,
+      voteCount: 3,
       output:
 `Value: educational justice.
 Criterion: maximizing the accuracy of admissions for low-income students with high academic potential.
@@ -233,8 +233,8 @@ Vote Neg. Aff's mechanism harms its own protected class.`
       format: 'Worlds (WUDC)',
       sharedBy: 'octas_or_bust',
       ageDays: 6,
-      voteScore: 21,
-      voteCount: 25,
+      voteScore: 3,
+      voteCount: 4,
       output:
 `Char. "Next decade" = 2026 through 2036. Frontier AI = systems within one order of magnitude of GPT-5 / Claude 4.x scale. We weigh aggregate net welfare effects globally, not just the US tech labor market.
 
@@ -256,8 +256,8 @@ CG extension space: either (a) governance failure modes (no working internationa
       format: 'Worlds (WUDC)',
       sharedBy: 'closingoo',
       ageDays: 6,
-      voteScore: 18,
-      voteCount: 22,
+      voteScore: 2,
+      voteCount: 3,
       output:
 `We accept Gov's characterization (2026-2036, frontier AI, global net welfare). We reject the framing.
 
@@ -281,8 +281,8 @@ CO has room: governance, military stability, education leapfrogging, distributio
       format: 'British Parliamentary',
       sharedBy: 'mgextension',
       ageDays: 11,
-      voteScore: 7,
-      voteCount: 9,
+      voteScore: 0,
+      voteCount: 1,
       output:
 `Model. National data sovereignty regimes that (a) require domestic storage of citizen data above a threshold (analogous to India's RBI 2018 payment-data rule, generalized), (b) require local processing for sensitive categories (health, biometric, financial), (c) condition cross-border transfer on adequacy assessments.
 
@@ -305,8 +305,8 @@ DPM extension hint: carry into international cooperation. Sovereignty is the FOU
       format: 'British Parliamentary',
       sharedBy: 'oo_bench',
       ageDays: 10,
-      voteScore: 12,
-      voteCount: 14,
+      voteScore: 1,
+      voteCount: 2,
       output:
 `We engage Gov's model directly: storage mandates + processing mandates + adequacy-conditioned transfer. Opp argues the model fails on its own terms.
 
@@ -330,8 +330,8 @@ CO extension space: (a) the digital trade chilling effect on developing-world ex
       format: 'PF',
       sharedBy: 'pfdrops',
       ageDays: 14,
-      voteScore: 9,
-      voteCount: 11,
+      voteScore: 0,
+      voteCount: 1,
       output:
 `FW: stability and freedom in Europe.
 
@@ -356,8 +356,8 @@ Vote Pro. Empirically, expansion delivered the goods on the metric the resolutio
       format: 'PF',
       sharedBy: 'crystallize',
       ageDays: 14,
-      voteScore: 13,
-      voteCount: 16,
+      voteScore: 1,
+      voteCount: 2,
       output:
 `FW: weigh against the global cost, not just the European member-state cost.
 
@@ -385,8 +385,8 @@ Vote Con. The harm is global and ongoing. The benefit is intra-alliance and part
       format: 'British Parliamentary',
       sharedBy: 'closing_half',
       ageDays: 3,
-      voteScore: 4,
-      voteCount: 7,
+      voteScore: 0,
+      voteCount: 1,
       output:
 `quick LO sketch, will flesh out before saturday.
 
@@ -407,8 +407,8 @@ todo: extension space?? need to talk to dpm. maybe go on capture theory but it's
       format: 'PF',
       sharedBy: 'kshell',
       ageDays: 8,
-      voteScore: 6,
-      voteCount: 9,
+      voteScore: 0,
+      voteCount: 1,
       output:
 `idk if this is the version we're running. here's the skeleton. fix in practice.
 
@@ -437,8 +437,8 @@ weighing: probability of Taiwan disruption x magnitude of GDP hit > cost of subs
       format: 'APDA',
       sharedBy: 'linkturn',
       ageDays: 1,
-      voteScore: 2,
-      voteCount: 5,
+      voteScore: 0,
+      voteCount: 1,
       output:
 `saving this so i remember. motion was something about banning algorithmic recommendation for users under 18.
 
@@ -457,8 +457,8 @@ didn't get to weighing. it was a 2am team practice.`
       format: 'Lincoln-Douglas',
       sharedBy: 'theory_pls',
       ageDays: 2,
-      voteScore: 1,
-      voteCount: 3,
+      voteScore: 0,
+      voteCount: 1,
       output:
 `interp: aff must specify which version of "ought" they're using.
 violation: they didnt.
