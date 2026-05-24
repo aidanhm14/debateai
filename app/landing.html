@@ -5796,15 +5796,15 @@ section.ui-section .ui-lede{
   .pc-eyebrow{font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ef4444;margin-bottom:10px}
   .pc-title{font-family:Fraunces,Georgia,serif;font-size:2rem;font-weight:700;letter-spacing:-.02em;line-height:1.15;margin-bottom:8px}
   .pc-sub{color:var(--text-dim,rgba(255,255,255,.66));font-size:1rem;line-height:1.55;max-width:620px;margin:0 auto 28px}
-  /* 2026-05-24: widened on X. Was 760px max with 1fr 1fr cards; the
-     DebateAI card stacks video + 2 paragraphs + 2 link tiles which
-     made it taller than DeepAI's two prices + one note. New layout
-     gives DebateAI 2/3 of the row and pairs the video with the
-     founder text horizontally so the card stays short. */
-  .pc-grid{display:grid;grid-template-columns:1fr 2fr;gap:18px;max-width:1180px;margin:0 auto;align-items:start}
-  @media (max-width:900px){.pc-grid{grid-template-columns:1fr 1.4fr}}
+  /* 2026-05-24 (rev2): widened DebateAI to ~80% (1fr:4fr) and DeepAI
+     to ~20% per user direction — DeepAI's content is just a tag + two
+     prices + one short note, so it doesn't need a third of the row.
+     The reclaimed width lets DebateAI's internal layout go 3-col
+     (video | founder text | link tiles) so the row is shorter on Y. */
+  .pc-grid{display:grid;grid-template-columns:1fr 4fr;gap:18px;max-width:1240px;margin:0 auto;align-items:stretch}
+  @media (max-width:900px){.pc-grid{grid-template-columns:1fr 3fr}}
   @media (max-width:640px){.pc-grid{grid-template-columns:1fr;max-width:520px}}
-  .pc-card{background:var(--bg-card,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.14));border-radius:18px;padding:22px 22px 20px;text-align:left}
+  .pc-card{background:var(--bg-card,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.14));border-radius:18px;padding:20px 22px 18px;text-align:left}
   .pc-card--us{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.06);box-shadow:0 1px 0 rgba(239,68,68,.16),0 22px 60px rgba(239,68,68,.10)}
   .pc-card-tag{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.66));margin-bottom:14px}
   .pc-card--us .pc-card-tag{color:#ef4444}
@@ -5827,28 +5827,39 @@ section.ui-section .ui-lede{
   .pc-personalize-cell--us .pc-cell-tag{color:#ef4444}
   .pc-cell-body{font-size:.84rem;color:var(--text,rgba(255,255,255,.86));line-height:1.55}
   .pc-cell-body em{font-style:italic;color:#fca5a5}
-  /* 2026-05-24: media card laid out as a 2-col grid on desktop so
-     video sits next to founder text, not above it. Tag spans full
-     width. Collapses to single column under 720px. */
-  .pc-card--media{display:grid;grid-template-columns:240px 1fr;column-gap:20px;row-gap:14px;align-items:start}
-  .pc-card--media .pc-card-tag{grid-column:1 / -1}
-  .pc-card--media .pc-video{align-self:stretch}
+  /* 2026-05-24 (rev2): 3-col internal layout — video | founder body |
+     link tiles. Tag spans the row. The wider parent (80% of pc-grid)
+     gives each col real room: ~200px / 1fr / ~240px. Result: founder
+     paragraphs wrap in 3 lines instead of 6, link tiles stack
+     vertically on the right rather than below the text, total card
+     height drops by ~40%. Collapses to single column under 760px. */
+  .pc-card--media{display:grid;grid-template-columns:200px 1fr 240px;column-gap:20px;row-gap:12px;align-items:start}
+  .pc-card--media .pc-card-tag{grid-column:1 / -1;margin-bottom:6px}
+  .pc-card--media .pc-video{grid-column:1;grid-row:2;align-self:stretch}
   .pc-card--media .pc-video-frame{height:100%}
-  .pc-card-body{display:flex;flex-direction:column;gap:12px}
-  @media (max-width:720px){
+  .pc-card--media .pc-card-body{grid-column:2;grid-row:2;align-self:start}
+  .pc-card--media .pc-founder-links{grid-column:3;grid-row:2;align-self:start;grid-template-columns:1fr;gap:8px;margin-top:0}
+  .pc-card-body{display:flex;flex-direction:column;gap:10px}
+  @media (max-width:960px){
+    .pc-card--media{grid-template-columns:180px 1fr 200px;column-gap:16px}
+  }
+  @media (max-width:760px){
     .pc-card--media{grid-template-columns:1fr}
+    .pc-card--media .pc-video,
+    .pc-card--media .pc-card-body,
+    .pc-card--media .pc-founder-links{grid-column:1;grid-row:auto}
+    .pc-card--media .pc-founder-links{grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
   }
   .pc-video{display:block;text-decoration:none;color:inherit}
-  .pc-video-frame{position:relative;aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(0,0,0,.4));border:1px solid rgba(239,68,68,.32);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:18px;transition:transform .15s,border-color .15s}
+  /* Shorter aspect (4:3) so the video frame stops driving row height
+     when the founder body next to it wraps to only 3 lines. */
+  .pc-video-frame{position:relative;aspect-ratio:4/3;border-radius:12px;background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(0,0,0,.4));border:1px solid rgba(239,68,68,.32);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:14px;transition:transform .15s,border-color .15s}
   .pc-video:hover .pc-video-frame{border-color:rgba(239,68,68,.6);transform:translateY(-2px)}
-  .pc-video-eyebrow{font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ef4444}
-  .pc-video-label{font-family:Fraunces,Georgia,serif;font-size:1.4rem;font-weight:700;color:var(--text,#fff)}
-  .pc-video-cta{font-size:.72rem;color:var(--text-dim,rgba(255,255,255,.66));margin-top:4px}
-  .pc-founder-note{font-size:.82rem;color:var(--text,rgba(255,255,255,.86));line-height:1.55;margin:0}
-  /* 2026-05-24: tiles now ride side-by-side at desktop since the
-     body column has horizontal room. Collapses under 720px. */
-  .pc-founder-links{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
-  @media (max-width:720px){.pc-founder-links{grid-template-columns:1fr}}
+  .pc-video-eyebrow{font-size:.56rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ef4444}
+  .pc-video-label{font-family:Fraunces,Georgia,serif;font-size:1.2rem;font-weight:700;color:var(--text,#fff)}
+  .pc-video-cta{font-size:.68rem;color:var(--text-dim,rgba(255,255,255,.66));margin-top:2px}
+  .pc-founder-note{font-size:.82rem;color:var(--text,rgba(255,255,255,.86));line-height:1.5;margin:0}
+  .pc-founder-links{display:grid}
   .pc-founder-link{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid rgba(239,68,68,.28);border-radius:10px;text-decoration:none;color:inherit;background:rgba(239,68,68,.04);transition:.15s}
   .pc-founder-link:hover{border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.08)}
   .pcfl-label{font-size:.82rem;font-weight:700;color:var(--text,#fff)}
@@ -5878,19 +5889,24 @@ section.ui-section .ui-lede{
             <span class="pc-video-cta">Read the note below ↓</span>
           </div>
         </a>
+        <!-- 2026-05-24 (rev2): pc-founder-links moved out of pc-card-body
+             to be a sibling grid cell. With pc-card--media now at
+             3 cols (video | body | links) the tiles sit on the right
+             vertically; under 760px they fall back into the body
+             stack via the media-query override. -->
         <div class="pc-card-body">
-          <p class="pc-founder-note">I'm a UChicago sophomore and an APDA Pro-Ams champion. I built this because the thing I wanted as a debater didn't exist: the Samantha from <em>Her</em>. Not to fall in love with. To challenge me. Something that argues format-accurately, writes a real judge ballot, and lets you drill without needing four other people in a room. I also want to grow an online community for debaters at every level, including people new to it.</p>
+          <p class="pc-founder-note">I'm a UChicago sophomore and an APDA Pro-Ams champion. I built this because the thing I wanted as a debater didn't exist: the Samantha from <em>Her</em>. Not to fall in love with. To challenge me. Something that argues format-accurately, writes a real judge ballot, and lets you drill without needing four other people in a room.</p>
           <p class="pc-founder-note">Free during beta. Weekly limits keep the API bill sane. The goal this year is users, not revenue.</p>
-          <div class="pc-founder-links">
-            <a class="pc-founder-link" href="/future">
-              <span class="pcfl-label">Philosophy &amp; future outlook</span>
-              <span class="pcfl-sub">My values, commitment, and strategy →</span>
-            </a>
-            <a class="pc-founder-link" href="#founder-video">
-              <span class="pcfl-label">Why this exists</span>
-              <span class="pcfl-sub">Full founder essay + the build plan →</span>
-            </a>
-          </div>
+        </div>
+        <div class="pc-founder-links">
+          <a class="pc-founder-link" href="/future">
+            <span class="pcfl-label">Philosophy &amp; future outlook</span>
+            <span class="pcfl-sub">My values, commitment, and strategy →</span>
+          </a>
+          <a class="pc-founder-link" href="#founder-video">
+            <span class="pcfl-label">Why this exists</span>
+            <span class="pcfl-sub">Full founder essay + the build plan →</span>
+          </a>
         </div>
       </article>
     </div>
