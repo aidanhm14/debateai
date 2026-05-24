@@ -400,6 +400,19 @@
     </div>
   </div>
 
+  <!-- Learning-loop freshness: nightly distill heartbeat.
+       Reads learning_distillations/{format} via /api/admin/distillations.
+       Stale-first ordering surfaces a missed run at the top. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Learning loop · nightly distill</span>
+        <span class="meta" id="dist-meta">Loading…</span>
+      </div>
+      <div id="dist-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Event breakdown + top features -->
   <div class="grid-2 section">
     <div class="card">
@@ -766,6 +779,7 @@ async function loadAll(force){
     loadSubscribers().catch(()=>{});
     loadFunnel(funnelDays).catch(()=>{});
     loadFounderVideo(fvDays).catch(()=>{});
+    loadDistillations().catch(()=>{});
 
     if (autoRefresh) startAuto();
   } catch (e) {
@@ -1441,6 +1455,68 @@ async function loadFounderVideo(days){
       '</div>';
   } catch (e) {
     body.innerHTML = '<div class="err-box">Founder-video load failed: ' + esc(e.message || e) + '</div>';
+  }
+}
+
+// ── Learning-loop distillation freshness ─────────────────────────
+// scheduled-distill.mjs fires nightly at 04:00 UTC. Each format gets
+// a learning_distillations/{slug} doc rewritten with that day's
+// PATTERNS-THAT-WORK block. Until this panel, the only way to tell
+// the cron actually ran was to dig through function logs. Now:
+// per-format age, example count, and a 200-char preview, sorted
+// stale-first so a missed run jumps to the top.
+async function loadDistillations(){
+  const meta = $('dist-meta');
+  const body = $('dist-body');
+  body.textContent = 'Loading…';
+  meta.textContent = 'Loading…';
+  try {
+    const d = await fetchJson('/api/admin/distillations');
+    const rows = d.rows || [];
+    const s = d.summary || {};
+    meta.textContent = (s.stale || 0) + ' stale · ' + (s.present || 0) + '/' + (s.total || 0) + ' present';
+    if (!rows.length){ body.innerHTML = '<div class="meta">No distillations yet. Nightly cron may not have run.</div>'; return; }
+    // ageMs → "3h ago" / "2d ago" / "—" (missing). Stale rows get a
+    // red pill so they survive a quick scan; fresh rows are quiet.
+    const fmtAge = (ms) => {
+      if (ms == null) return '—';
+      const s = Math.floor(ms / 1000);
+      if (s < 60) return s + 's ago';
+      const m = Math.floor(s / 60);
+      if (m < 60) return m + 'm ago';
+      const h = Math.floor(m / 60);
+      if (h < 48) return h + 'h ago';
+      const d = Math.floor(h / 24);
+      return d + 'd ago';
+    };
+    body.innerHTML = '<table style="width:100%;font-size:13px"><thead>' +
+      '<tr><th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">Format</th>' +
+      '<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">Age</th>' +
+      '<th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:600">Examples</th>' +
+      '<th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:600">Chars</th>' +
+      '<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">Preview</th></tr></thead><tbody>' +
+      rows.map(r => {
+        const ageCell = r.present
+          ? (r.stale
+              ? '<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(239,68,68,.12);color:#fca5a5;font-weight:600">' + fmtAge(r.ageMs) + '</span>'
+              : '<span style="color:var(--muted)">' + fmtAge(r.ageMs) + '</span>')
+          : '<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(239,68,68,.18);color:#fca5a5;font-weight:600">missing</span>';
+        const preview = r.preview
+          ? '<span style="color:var(--muted);font-size:12px">' + esc(r.preview).replace(/\n/g, ' / ') + (r.distillationChars > r.preview.length ? '…' : '') + '</span>'
+          : '<span style="color:var(--muted);opacity:.5">—</span>';
+        return '<tr style="border-top:1px solid var(--line)">' +
+          '<td style="padding:8px;font-weight:600">' + esc(r.name) + ' <span class="meta" style="margin-left:6px">' + esc(r.slug) + '</span></td>' +
+          '<td style="padding:8px">' + ageCell + '</td>' +
+          '<td class="num" style="padding:8px">' + (r.exampleCount || 0) + '</td>' +
+          '<td class="num" style="padding:8px">' + (r.distillationChars || 0) + '</td>' +
+          '<td style="padding:8px;max-width:340px">' + preview + '</td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table>' +
+      '<div class="meta" style="margin-top:10px">Stale = older than ' + Math.round(d.staleThresholdMs / 3600000) + 'h. Cron fires nightly at 04:00 UTC via scheduled-distill.mjs.</div>';
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Distillations load failed: ' + esc(e.message || e) + '</div>';
+    meta.textContent = '';
   }
 }
 
