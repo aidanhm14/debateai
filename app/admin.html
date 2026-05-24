@@ -458,6 +458,79 @@
     </div>
   </div>
 
+  <!-- Paid-feedback cohort tracker. Paste uids or emails, compute
+       active-time over the trailing window, see who qualifies for
+       which payout tier ($5 for showing up, $10 for >=30 min). -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Feedback cohort · payout tracker</span>
+        <span class="meta">$5 for activity · $10 for 30+ min</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:14px;line-height:1.5">
+        Paste team uids or emails (one per line, or comma-separated). Pulls generations + events over the window, stitches them into active-time, and tells you who earned the base vs full payout. Copy-as-CSV for paying out.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px" class="fc-cols">
+        <div>
+          <label style="display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:6px">Emails</label>
+          <textarea id="fc-emails" rows="6" placeholder="alice@uchicago.edu&#10;bob@uchicago.edu&#10;..." style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;outline:none;resize:vertical"></textarea>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:6px">UIDs <span style="color:var(--dim);text-transform:none;letter-spacing:0;font-weight:500">(optional, unioned with emails)</span></label>
+          <textarea id="fc-uids" rows="6" placeholder="abc123XYZ&#10;def456..." style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;outline:none;resize:vertical"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+          Window
+          <select id="fc-days" style="padding:6px 9px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none">
+            <option value="7">7 days</option>
+            <option value="14" selected>14 days</option>
+            <option value="30">30 days</option>
+          </select>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+          Threshold
+          <input id="fc-min" type="number" min="5" max="240" value="30" style="width:64px;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none;font-variant-numeric:tabular-nums"> min
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+          Base $
+          <input id="fc-base" type="number" min="0" max="100" value="5" style="width:54px;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none;font-variant-numeric:tabular-nums">
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+          Full $
+          <input id="fc-full" type="number" min="0" max="100" value="10" style="width:54px;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none;font-variant-numeric:tabular-nums">
+        </label>
+        <button id="fc-go" class="pill-btn primary">Compute payouts</button>
+        <button id="fc-csv" class="pill-btn" style="display:none">Copy CSV</button>
+      </div>
+      <div id="fc-status" style="font-size:12px;color:var(--muted);min-height:16px;margin-bottom:10px"></div>
+      <div id="fc-result"></div>
+    </div>
+  </div>
+
+  <style>
+    .fc-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px}
+    .fc-tot{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card-2)}
+    .fc-tot .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.10em;font-weight:700}
+    .fc-tot .val{font:700 18px/1.1 "SF Pro Display",system-ui,sans-serif;margin-top:4px;font-variant-numeric:tabular-nums}
+    .fc-tot.good .val{color:var(--good)}
+    .fc-tot.warn .val{color:var(--warn)}
+    .fc-tot.accent .val{color:var(--accent)}
+    .fc-table{width:100%;border-collapse:collapse;font-size:12.5px}
+    .fc-table th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:8px 8px;border-bottom:1px solid var(--line)}
+    .fc-table td{padding:8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+    .fc-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+    .fc-table tr:hover td{background:var(--card-2)}
+    .fc-pill{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+    .fc-pill.full{background:rgba(34,197,94,.14);color:var(--good)}
+    .fc-pill.base{background:rgba(59,130,246,.14);color:var(--info)}
+    .fc-pill.none{background:rgba(148,163,184,.12);color:var(--muted)}
+    .fc-payout{font:700 14px/1 "SF Pro Display",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+    .fc-notfound{margin-top:10px;padding:9px 11px;border-radius:8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);font-size:12px;color:var(--warn)}
+    @media (max-width:760px){.fc-cols{grid-template-columns:1fr !important}}
+  </style>
+
   <!-- Admin tools (collapsed under a single details element to declutter) -->
   <div class="section">
     <details>
@@ -1444,6 +1517,143 @@ $('grant-btn').addEventListener('click', async () => {
 });
 $('grant-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('grant-btn').click(); });
 $('grant-reason').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('grant-btn').click(); });
+
+// ── Feedback cohort tracker ─────────────────────────────────────────
+// Paste uids/emails → call /api/admin/feedback-cohort → render a payout
+// table + a Copy-as-CSV button so paying out is one paste into Venmo notes.
+let fcLastResult = null;
+function fcFmtMinutes(m){
+  if (m == null) return '—';
+  if (m < 1) return '<1m';
+  if (m < 60) return Math.round(m) + 'm';
+  const h = Math.floor(m / 60); const rem = Math.round(m - h * 60);
+  return rem ? `${h}h ${rem}m` : `${h}h`;
+}
+function fcFmtRelative(ms){
+  if (!ms) return 'never';
+  const age = Date.now() - ms;
+  if (age < 60_000) return 'just now';
+  if (age < 3_600_000) return Math.floor(age / 60_000) + 'm ago';
+  if (age < 86_400_000) return Math.floor(age / 3_600_000) + 'h ago';
+  return Math.floor(age / 86_400_000) + 'd ago';
+}
+function fcRender(data){
+  const wrap = $('fc-result');
+  const users = data.users || [];
+  if (users.length === 0 && (!data.notFound || data.notFound.length === 0)){
+    wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:18px 0">No users in cohort. Paste emails or uids above.</div>';
+    return;
+  }
+  const t = data.totals || {};
+  const notFoundHtml = (data.notFound && data.notFound.length)
+    ? `<div class="fc-notfound"><strong>${data.notFound.length} not found:</strong> ${data.notFound.map(n => esc(n.email)).join(', ')}</div>`
+    : '';
+  const totalsHtml = `<div class="fc-totals">
+    <div class="fc-tot"><div class="lbl">Cohort</div><div class="val">${t.count || 0}</div></div>
+    <div class="fc-tot good"><div class="lbl">Full ($${data.fullUsd})</div><div class="val">${t.fullQualifies || 0}</div></div>
+    <div class="fc-tot accent"><div class="lbl">Base ($${data.baseUsd})</div><div class="val">${t.baseQualifies || 0}</div></div>
+    <div class="fc-tot warn"><div class="lbl">No-show</div><div class="val">${t.none || 0}</div></div>
+    <div class="fc-tot"><div class="lbl">Avg active</div><div class="val">${fcFmtMinutes(t.activeMinutesAvg)}</div></div>
+    <div class="fc-tot good"><div class="lbl">Total payout</div><div class="val">$${t.payoutUsd || 0}</div></div>
+  </div>`;
+  const rowsHtml = users.map(u => {
+    const formats = (u.formatsTouched || []).slice(0, 4).join(', ');
+    const pillClass = u.qualifies === 'full' ? 'full' : u.qualifies === 'base' ? 'base' : 'none';
+    return `<tr>
+      <td><div style="font-weight:600">${esc(u.displayName || '—')}</div><div style="color:var(--dim);font-size:11px">${esc(u.email || u.uid.slice(0, 14))}</div></td>
+      <td class="num"><strong>${fcFmtMinutes(u.activeMinutes)}</strong><div style="color:var(--dim);font-size:10.5px">${u.windowCount} ${u.windowCount === 1 ? 'session' : 'sessions'}</div></td>
+      <td class="num">${u.generationCount}<div style="color:var(--dim);font-size:10.5px">${u.voiceRoundCount} voice</div></td>
+      <td style="color:var(--muted);font-size:11px">${esc(formats) || '<span style="color:var(--dim)">—</span>'}</td>
+      <td class="num" style="color:var(--dim);font-size:11px">${fcFmtRelative(u.lastActiveMs)}</td>
+      <td><span class="fc-pill ${pillClass}">${u.qualifies}</span></td>
+      <td class="num"><span class="fc-payout" style="color:${u.payoutUsd >= data.fullUsd ? 'var(--good)' : u.payoutUsd > 0 ? 'var(--info)' : 'var(--dim)'}">$${u.payoutUsd}</span></td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML = totalsHtml + notFoundHtml + `<table class="fc-table" style="margin-top:14px">
+    <thead><tr>
+      <th>User</th>
+      <th style="text-align:right">Active time</th>
+      <th style="text-align:right">Rounds</th>
+      <th>Formats</th>
+      <th style="text-align:right">Last seen</th>
+      <th>Status</th>
+      <th style="text-align:right">Payout</th>
+    </tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>`;
+}
+$('fc-go').addEventListener('click', async () => {
+  const emails = ($('fc-emails').value || '').trim();
+  const uids = ($('fc-uids').value || '').trim();
+  const days = parseInt($('fc-days').value, 10) || 14;
+  const minMinutes = parseInt($('fc-min').value, 10) || 30;
+  const baseUsd = parseInt($('fc-base').value, 10) || 5;
+  const fullUsd = parseInt($('fc-full').value, 10) || 10;
+  const statusEl = $('fc-status');
+  if (!emails && !uids){
+    statusEl.textContent = 'Paste emails or uids first.'; statusEl.style.color = 'var(--muted)';
+    return;
+  }
+  statusEl.textContent = 'Computing payouts…'; statusEl.style.color = 'var(--muted)';
+  $('fc-csv').style.display = 'none';
+  try {
+    const params = new URLSearchParams();
+    if (emails) params.set('emails', emails.split(/[,\s\n]+/).filter(Boolean).join(','));
+    if (uids) params.set('uids', uids.split(/[,\s\n]+/).filter(Boolean).join(','));
+    params.set('days', String(days));
+    params.set('minMinutes', String(minMinutes));
+    params.set('baseUsd', String(baseUsd));
+    params.set('fullUsd', String(fullUsd));
+    const data = await fetchJson('/api/admin/feedback-cohort?' + params.toString());
+    fcLastResult = data;
+    fcRender(data);
+    const t = data.totals || {};
+    statusEl.textContent = `✓ ${t.count} users · ${t.fullQualifies} full · ${t.baseQualifies} base · ${t.none} no-show · $${t.payoutUsd} total over ${data.windowDays}d`;
+    statusEl.style.color = 'var(--good)';
+    $('fc-csv').style.display = (data.users || []).length ? '' : 'none';
+  } catch (e){
+    statusEl.textContent = 'Failed: ' + (e.message || e); statusEl.style.color = 'var(--accent)';
+  }
+});
+$('fc-csv').addEventListener('click', async () => {
+  if (!fcLastResult || !fcLastResult.users) return;
+  // CSV columns chosen for one-paste-into-Venmo: name, email, payout
+  // up front, then the supporting numbers in case Aidan wants to
+  // audit later in a spreadsheet.
+  const header = ['name', 'email', 'uid', 'active_minutes', 'sessions', 'rounds', 'voice_rounds', 'formats', 'qualifies', 'payout_usd'];
+  const rows = fcLastResult.users.map(u => [
+    (u.displayName || '').replace(/[",\n]/g, ' '),
+    (u.email || '').replace(/[",\n]/g, ' '),
+    u.uid,
+    u.activeMinutes,
+    u.windowCount,
+    u.generationCount,
+    u.voiceRoundCount,
+    (u.formatsTouched || []).join('|'),
+    u.qualifies,
+    u.payoutUsd,
+  ]);
+  const csv = [header, ...rows].map(r => r.map(c => {
+    const s = String(c == null ? '' : c);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(',')).join('\n');
+  try {
+    await navigator.clipboard.writeText(csv);
+    const statusEl = $('fc-status');
+    const prev = statusEl.textContent;
+    statusEl.textContent = '✓ CSV copied (' + rows.length + ' rows)';
+    statusEl.style.color = 'var(--good)';
+    setTimeout(() => { statusEl.textContent = prev; }, 2200);
+  } catch {
+    // Clipboard API can fail on http or in some browsers; fall back to a
+    // selectable textarea so the user can manually copy.
+    const ta = document.createElement('textarea');
+    ta.value = csv; ta.style.position = 'fixed'; ta.style.top = '40px'; ta.style.left = '40px';
+    ta.style.width = '80vw'; ta.style.height = '60vh'; ta.style.zIndex = 9999;
+    document.body.appendChild(ta); ta.select();
+    setTimeout(() => ta.remove(), 6000);
+  }
+});
 
 $('exemplar-btn').addEventListener('click', async () => {
   const email = ($('exemplar-email').value || '').trim();
