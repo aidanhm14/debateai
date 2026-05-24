@@ -3858,19 +3858,19 @@ section.ui-section .ui-lede{
      real estate beside the editorial column. Active section is
      highlighted via IntersectionObserver scrollspy. -->
 <style>
+  /* ── Page TOC (2026-05-24 rev2) ────────────────────────────────────
+     Editorial-doc style left rail: numbered sections (01–06) in
+     tabular-nums, a real vertical track with a scroll-progress fill
+     that follows the reader through the page range, and a stronger
+     active state where the number itself recolors to the accent. */
   .page-toc{
     position:fixed;
-    left:24px;
+    left:32px;
     top:50%;
     transform:translateY(-50%);
     z-index:40;
-    width:172px;
-    padding:14px 0 14px 14px;
-    /* 2026-05-19: contrast fix — was hardcoded rgba(0,0,0,.10) which
-       reads as black on dark themes (grey / crimson / stone) and
-       made the rail nearly invisible. Switched all colors to theme
-       variables so the TOC adapts to whatever palette is active. */
-    border-left:1px solid var(--border);
+    width:196px;
+    padding:0 0 0 18px;
     font-family:'Inter', system-ui, -apple-system, sans-serif;
     /* No CSS transition on opacity: the browser was sometimes parking
        the implicit CSSTransition in an idle/time:null state on first
@@ -3884,13 +3884,33 @@ section.ui-section .ui-lede{
     opacity:1;
     pointer-events:auto;
   }
+  /* Vertical track + scroll-progress fill. Track is the always-visible
+     1px hairline; fill grows top-down as the reader moves through the
+     TOC range, fading at its leading edge so the progress line reads
+     as a gradient rather than a hard cap. */
+  .page-toc-track{
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:1px;
+    background:var(--border);
+  }
+  .page-toc-track-fill{
+    position:absolute;
+    left:0; top:0;
+    width:1px;
+    height:0;
+    background:linear-gradient(to bottom, var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
+    transition:height .35s cubic-bezier(.2,.7,.2,1);
+    box-shadow:0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
   .page-toc-eyebrow{
-    font-size:.58rem;
+    font-size:.56rem;
     font-weight:800;
-    letter-spacing:.18em;
+    letter-spacing:.22em;
     text-transform:uppercase;
     color:var(--text-dim);
-    margin:0 0 12px;
+    opacity:.7;
+    margin:0 0 16px;
   }
   .page-toc-list{
     list-style:none;
@@ -3898,28 +3918,46 @@ section.ui-section .ui-lede{
     padding:0;
     display:flex;
     flex-direction:column;
-    gap:6px;
+    gap:2px;
   }
   .page-toc-list a{
-    display:block;
-    font-size:.78rem;
-    line-height:1.35;
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    font-size:.82rem;
+    line-height:1.4;
     color:var(--text-dim);
     text-decoration:none;
-    padding:4px 0 4px 10px;
-    margin-left:-15px;
+    padding:7px 0 7px 14px;
+    margin-left:-19px;
     border-left:2px solid transparent;
-    transition:color .2s, border-color .2s, padding-left .2s;
+    opacity:.62;
+    transition:color .22s, border-color .22s, opacity .22s, transform .22s;
+  }
+  .page-toc-list a .num{
+    font-size:.62rem;
+    font-weight:600;
+    letter-spacing:.04em;
+    color:var(--text-dim);
+    font-variant-numeric:tabular-nums;
+    min-width:18px;
+    flex-shrink:0;
+    transition:color .22s;
   }
   .page-toc-list a:hover{
     color:var(--text);
-    border-left-color:var(--accent);
-    padding-left:14px;
+    opacity:1;
+    transform:translateX(2px);
   }
   .page-toc-list a.is-active{
     color:var(--text);
     font-weight:600;
+    opacity:1;
     border-left-color:var(--accent);
+  }
+  .page-toc-list a.is-active .num{
+    color:var(--accent);
+    font-weight:700;
   }
   /* Hidden under 1280px — at narrower viewports the FAQ grid can't
      sit fully right of the fixed rail without overflow, so the rail
@@ -3929,18 +3967,25 @@ section.ui-section .ui-lede{
   }
 </style>
 <nav class="page-toc" aria-label="Page sections">
+  <!-- Vertical track + scroll-progress fill. The fill height is
+       updated from JS as the reader scrolls past each section. -->
+  <span class="page-toc-track" aria-hidden="true">
+    <span class="page-toc-track-fill"></span>
+  </span>
   <p class="page-toc-eyebrow">On this page</p>
   <!-- TOC mirrors the actual section order on the page, top to bottom:
        #story (inside #founder-video) → #overview → #live-proof → #tools
        → #philosophy → #faq. Excludes the retired display:none'd
-       #debate-ai. Keep this list in sync with real section y-positions. -->
+       #debate-ai. Keep this list in sync with real section y-positions.
+       Section numbers (01–06) are inline <span class="num"> so they
+       can recolor independently of the label on active state. -->
   <ul class="page-toc-list">
-    <li><a href="#story">Why this exists</a></li>
-    <li><a href="#overview">Overview</a></li>
-    <li><a href="#live-proof">Live</a></li>
-    <li><a href="#tools">Tools</a></li>
-    <li><a href="#philosophy">Philosophy</a></li>
-    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#story"><span class="num">01</span><span class="lab">Why this exists</span></a></li>
+    <li><a href="#overview"><span class="num">02</span><span class="lab">Overview</span></a></li>
+    <li><a href="#live-proof"><span class="num">03</span><span class="lab">Live</span></a></li>
+    <li><a href="#tools"><span class="num">04</span><span class="lab">Tools</span></a></li>
+    <li><a href="#philosophy"><span class="num">05</span><span class="lab">Philosophy</span></a></li>
+    <li><a href="#faq"><span class="num">06</span><span class="lab">FAQ</span></a></li>
   </ul>
 </nav>
 <script>
@@ -4033,6 +4078,40 @@ section.ui-section .ui-lede{
         });
       }, { rootMargin: '-35% 0px -55% 0px', threshold: 0 });
       sections.forEach(function(s){ spy.observe(s); });
+    }
+
+    // 2026-05-24: scroll-progress fill on the TOC track. Grows top-down
+    // as the reader moves from the first to the last TOC section. Uses
+    // the section list's y-range as the progress window; pinned to 0
+    // above and 100% below. Throttled via rAF so it stays smooth.
+    var trackFill = toc.querySelector('.page-toc-track-fill');
+    if (trackFill && sections.length) {
+      var rafPending = false;
+      function computeFill(){
+        rafPending = false;
+        var first = sections[0];
+        var last = sections[sections.length - 1];
+        if (!first || !last) return;
+        var startY = first.getBoundingClientRect().top + window.scrollY;
+        var endRect = last.getBoundingClientRect();
+        var endY = endRect.top + window.scrollY + endRect.height;
+        var midY = (window.scrollY || window.pageYOffset) + window.innerHeight * 0.5;
+        var ratio = (midY - startY) / Math.max(1, (endY - startY));
+        if (ratio < 0) ratio = 0;
+        if (ratio > 1) ratio = 1;
+        // The track is positioned absolute inside .page-toc with
+        // top:0/bottom:0 so its full height === toc clientHeight.
+        var trackHeight = toc.clientHeight;
+        trackFill.style.height = Math.round(trackHeight * ratio) + 'px';
+      }
+      function queueFill(){
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(computeFill);
+      }
+      window.addEventListener('scroll', queueFill, { passive:true });
+      window.addEventListener('resize', queueFill, { passive:true });
+      queueFill();
     }
   }
   if (document.readyState === 'loading') {
