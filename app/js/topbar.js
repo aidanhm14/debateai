@@ -56,6 +56,20 @@
     document.head.appendChild(s);
   })();
 
+  // Site-wide Coach FAB — bottom-right floating button on every page
+  // that mounts the shared topbar. The FAB script itself is a
+  // self-rendering IIFE that hides on /coach (would be redundant)
+  // and inside the /tools/copy-edit iframe shell. Same auto-injection
+  // pattern as sfx.js above so individual page HTML never has to
+  // think about including it. Idempotent.
+  (function ensureCoachFabLoaded(){
+    if (document.querySelector('script[src*="/js/coach-fab.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/coach-fab.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+
   // Normalize a few synonyms so "/" and "/landing" both light up Home.
   function pathMatches(href){
     var h = href.replace(/\/$/,'') || '/';
