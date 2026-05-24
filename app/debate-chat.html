@@ -832,13 +832,42 @@ footer.foot a{color:var(--text-dim)}
     });
   }
 
-  // Auth listener: hide the gate + start watching the live queue count.
+  // ── Autoqueue (Next-opponent loop) ─────────────────────
+  // /casual-room.html → "Next opponent" sends users back to
+  // /debate-chat?autoqueue=1. When that flag is set AND the user is
+  // signed in (they were, since they just left a paired room), skip
+  // the prompt picker and auto-join the queue with a random prompt
+  // from the All pool. Idempotent: a state flag prevents repeat-firing
+  // if onAuthStateChanged settles twice.
+  var URL_AUTOQUEUE = (new URLSearchParams(location.search).get('autoqueue') === '1');
+  var autoqueueFired = false;
+  function maybeAutoqueue(){
+    if (!URL_AUTOQUEUE || autoqueueFired) return;
+    if (!state.user) return;
+    autoqueueFired = true;
+    // Random prompt from All. setCategory('all') already populated the
+    // shelf; pick the first card so the searching state has something
+    // to display, then fire joinQueue directly. Strip the ?autoqueue
+    // from the URL so a refresh doesn't re-queue the user.
+    try { history.replaceState(null, '', '/debate-chat'); } catch(e){}
+    setCategory('all');
+    state.selectedIdx = Math.floor(Math.random() * Math.max(1, state.shelf.length));
+    renderShelf();
+    var motion = selectedMotion();
+    if (!motion){ return; } // shelf was empty for some reason
+    try { gtag('event', 'debate_chat_autoqueue', {}); } catch(e){}
+    joinQueue(motion);
+  }
+
+  // Auth listener: hide the gate + start watching the live queue count
+  // + run autoqueue if requested by the Next-opponent loop.
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(u){
       state.user = u || null;
       if (u){
         hideGate();
         watchLiveQueue();
+        maybeAutoqueue();
       }
     });
   }
@@ -983,7 +1012,11 @@ footer.foot a{color:var(--text-dim)}
           room: d.room,
           source: 'debate-chat',
         });
-        setTimeout(function(){ location.href = '/live-round.html?' + params.toString(); }, 700);
+        // Land in the casual-room (lightweight Daily.co video, no
+        // timer, no judge, no ballot) instead of /live-round's
+        // format-aware UI. Source param distinguishes casual-chat
+        // pairs from spar pairs in analytics.
+        setTimeout(function(){ location.href = '/casual-room.html?' + params.toString(); }, 700);
       } else if (d.status === 'cancelled'){
         var systemCancel = (d.cancelReason === 'stale_peer_skip' || d.cancelReason === 'stale_reaper');
         if (systemCancel && !state.cancelled){

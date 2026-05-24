@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Casual debate room · DebateAI.com</title>
+<meta name="description" content="One-off video room for casual debate. Prompt at the top, video below. No timer, no judge, no ballot." />
+<!-- Transient pairing room. Robots noindex so the random Daily URLs
+     never accidentally surface in search. -->
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root,[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.18);--border-strong:rgba(255,255,255,.32);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --green:#22c55e;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.6);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.22);--border-strong:rgba(239,68,68,.45);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.55);
+  --green:#22c55e;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(239,68,68,.6);
+}
+[data-theme="light"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.18);--border-strong:rgba(255,255,255,.32);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --green:#22c55e;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.6);
+  /* The room stays dark even on the light site theme — Daily.co's UI
+     is dark and a bright surround clashes with it. */
+}
+html,body{height:100%}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+/* ─── Top room bar ─── */
+.room-bar{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;gap:18px;
+  padding:12px 20px;
+  background:linear-gradient(180deg,rgba(0,0,0,.85) 0%,rgba(0,0,0,.55) 100%);
+  border-bottom:1px solid var(--border);
+  z-index:5;
+}
+.leave-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 14px;border-radius:999px;
+  border:1px solid var(--border);color:var(--text-dim);
+  font-size:.78rem;font-weight:700;
+  transition:color .15s,border-color .15s;
+}
+.leave-btn:hover{color:var(--text);border-color:var(--border-strong)}
+
+.motion-block{min-width:0;text-align:center}
+.motion-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.58rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);
+}
+.motion-eyebrow .pip{
+  width:6px;height:6px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);animation:pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+.motion-text{
+  font-size:clamp(.92rem,1.6vw,1.12rem);font-weight:700;
+  letter-spacing:-.008em;line-height:1.3;color:var(--text);
+  margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.motion-text.expanded{white-space:normal}
+
+.room-actions{display:flex;align-items:center;gap:10px}
+.elapsed{
+  font-size:.78rem;font-weight:600;color:var(--text-ghost);
+  font-variant-numeric:tabular-nums;letter-spacing:.04em;
+  padding:6px 10px;border-radius:8px;
+  background:rgba(255,255,255,.04);
+}
+.next-btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:8px 16px;border-radius:999px;
+  background:var(--accent);color:#fff;
+  font-size:.8rem;font-weight:800;letter-spacing:.005em;
+  box-shadow:0 8px 22px var(--accent-glow);
+  transition:transform .15s,box-shadow .15s,filter .15s;
+}
+.next-btn:hover{transform:translateY(-1px);box-shadow:0 12px 28px var(--accent-glow);filter:brightness(1.05)}
+.next-btn:active{transform:translateY(0)}
+.next-btn[disabled]{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* ─── Stage (Daily iframe) ─── */
+.stage{
+  flex:1;position:relative;background:#000;min-height:0;
+}
+.stage iframe{
+  position:absolute;inset:0;width:100%;height:100%;
+  border:0;display:block;
+}
+
+/* ─── Stage status (pre-connect / errors) ─── */
+.stage-status{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#000;color:var(--text-dim);
+  padding:40px 22px;text-align:center;gap:12px;
+  z-index:2;
+}
+.stage-status .spinner{
+  width:36px;height:36px;border-radius:50%;
+  border:2px solid rgba(239,68,68,.18);
+  border-top-color:var(--accent);
+  animation:spin 1s linear infinite;
+  margin-bottom:6px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stage-status h2{font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:-.01em}
+.stage-status p{font-size:.88rem;color:var(--text-dim);max-width:380px;line-height:1.5}
+.stage-status .error-detail{
+  margin-top:6px;padding:9px 14px;border-radius:8px;
+  background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);
+  color:var(--accent);font-size:.78rem;font-weight:600;
+  max-width:520px;
+}
+.stage-status .row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center}
+.stage-status .row a, .stage-status .row button{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 16px;border-radius:999px;
+  font-size:.78rem;font-weight:700;
+  background:var(--accent);color:#fff;text-decoration:none;
+  border:0;cursor:pointer;
+}
+.stage-status .row a.ghost, .stage-status .row button.ghost{
+  background:transparent;border:1px solid var(--border);color:var(--text-dim);
+}
+.stage-status .row a.ghost:hover, .stage-status .row button.ghost:hover{
+  color:var(--text);border-color:var(--border-strong);
+}
+
+/* ─── Bottom foot ─── */
+.room-foot{
+  padding:8px 20px;
+  font-size:.66rem;color:var(--text-ghost);text-align:center;
+  letter-spacing:.04em;text-transform:uppercase;
+  background:rgba(0,0,0,.55);border-top:1px solid var(--border);
+}
+.room-foot strong{color:var(--text-dim);font-weight:600;text-transform:none;letter-spacing:0}
+
+/* ─── Mobile ─── */
+@media (max-width:680px){
+  .room-bar{grid-template-columns:auto 1fr;gap:10px;padding:10px 14px}
+  .motion-block{grid-column:1 / -1;order:3;text-align:left}
+  .room-actions{justify-content:flex-end}
+  .elapsed{display:none}
+  .next-btn{padding:7px 12px;font-size:.74rem}
+  .leave-btn{padding:7px 12px;font-size:.72rem}
+  .motion-text{font-size:.92rem;white-space:normal}
+}
+</style>
+</head>
+<body>
+
+<header class="room-bar">
+  <button class="leave-btn" id="leaveBtn" type="button">← Leave</button>
+  <div class="motion-block">
+    <div class="motion-eyebrow"><span class="pip"></span> Casual · Now debating</div>
+    <p class="motion-text" id="motionText" title="Click to expand">(loading)</p>
+  </div>
+  <div class="room-actions">
+    <span class="elapsed" id="elapsed" aria-label="Elapsed time">0:00</span>
+    <button class="next-btn" id="nextBtn" type="button" title="Leave this room and queue up for a new debater">Next opponent →</button>
+  </div>
+</header>
+
+<div class="stage" id="stage">
+  <div class="stage-status" id="stageStatus">
+    <div class="spinner"></div>
+    <h2>Setting up the room…</h2>
+    <p>Spinning up your video room. Other side will land here too. Camera + mic prompt comes from Daily.co.</p>
+  </div>
+</div>
+
+<footer class="room-foot">
+  Casual chat. No timer, no judge, no ballot. <strong>Be kind.</strong>
+</footer>
+
+<script>
+(function(){
+
+  // ── URL params ────────────────────────────────────────
+  var qs = new URLSearchParams(location.search);
+  var roomName = (qs.get('room') || '').trim();
+  var motion = (qs.get('motion') || '').trim();
+  var pro = (qs.get('pro') || '').trim();
+  var con = (qs.get('con') || '').trim();
+  var source = (qs.get('source') || 'casual').trim();
+
+  var $ = function(id){ return document.getElementById(id); };
+  var motionEl = $('motionText');
+  var leaveBtn = $('leaveBtn');
+  var nextBtn = $('nextBtn');
+  var stage = $('stage');
+  var statusBox = $('stageStatus');
+  var elapsedEl = $('elapsed');
+
+  function escHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  // Motion display: fall back to a placeholder if missing so the room
+  // never shows a blank banner.
+  motionEl.textContent = motion || 'Open chat. Pick anything to debate.';
+  motionEl.addEventListener('click', function(){ motionEl.classList.toggle('expanded'); });
+
+  // ── Status helpers ────────────────────────────────────
+  function setStatus(htmlBody){
+    if (!statusBox){
+      statusBox = document.createElement('div');
+      statusBox.className = 'stage-status';
+      statusBox.id = 'stageStatus';
+      stage.appendChild(statusBox);
+    }
+    statusBox.innerHTML = htmlBody;
+  }
+  function clearStatus(){
+    if (statusBox && statusBox.parentNode) statusBox.parentNode.removeChild(statusBox);
+    statusBox = null;
+  }
+
+  // ── Elapsed timer (no consequence, just orientation) ──
+  var startTs = Date.now();
+  function tickElapsed(){
+    var s = Math.floor((Date.now() - startTs) / 1000);
+    var m = Math.floor(s / 60);
+    var ss = s % 60;
+    elapsedEl.textContent = m + ':' + (ss < 10 ? '0' : '') + ss;
+  }
+  setInterval(tickElapsed, 1000);
+  tickElapsed();
+
+  // ── Daily.co mount ────────────────────────────────────
+  // Mirrors /live-round.html's mountDaily(). POSTs to
+  // /api/create-daily-room with {name}; the function idempotently
+  // creates or fetches the room and returns {url}. We iframe-embed
+  // the URL with camera + mic permission. Room name is whatever
+  // /debate-chat passed (deterministic on the UID pair via
+  // spar-pair.mjs so both sides converge on the same room).
+  function mountDaily(){
+    if (!roomName){
+      setStatus(
+        '<h2>No room in the URL.</h2>' +
+        '<p>This page is opened automatically after a match on <a href="/debate-chat" style="color:var(--accent);text-decoration:underline">/debate-chat</a>. Land here yourself? Go back and find a debater.</p>' +
+        '<div class="row"><a href="/debate-chat">← Back to debate chat</a></div>'
+      );
+      return;
+    }
+    fetch('/api/create-daily-room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: roomName }),
+    }).then(function(r){
+      return r.json().then(function(j){ return { ok: r.ok, status: r.status, body: j }; });
+    }).then(function(res){
+      if (!res.ok || !res.body || !res.body.url){
+        var hint = (res.body && res.body.hint) || '';
+        var detail = (res.body && (res.body.error || ('http_' + res.status))) || 'unknown error';
+        setStatus(
+          '<h2>Video room unavailable.</h2>' +
+          '<p>The Daily.co integration is offline or unconfigured.</p>' +
+          '<div class="error-detail">' + escHtml(detail) + (hint ? ' (' + escHtml(hint) + ')' : '') + '</div>' +
+          '<div class="row">' +
+            '<button onclick="location.reload()">Retry</button>' +
+            '<a class="ghost" href="/debate-chat">← Back to debate chat</a>' +
+          '</div>'
+        );
+        console.warn('[casual-room] daily room failed', res);
+        return;
+      }
+      var iframe = document.createElement('iframe');
+      iframe.src = res.body.url;
+      iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
+      iframe.title = 'Casual debate video room';
+      // Pre-clear status so the iframe doesn't appear behind a loading
+      // overlay. The Daily.co page itself shows a brief connecting state.
+      clearStatus();
+      stage.appendChild(iframe);
+      try { gtag('event', 'casual_room_daily_mount', { source: source }); } catch(e){}
+    }).catch(function(e){
+      setStatus(
+        '<h2>Network error reaching the room service.</h2>' +
+        '<p>Check your connection and try again.</p>' +
+        '<div class="error-detail">' + escHtml(e && e.message || 'fetch failed') + '</div>' +
+        '<div class="row">' +
+          '<button onclick="location.reload()">Retry</button>' +
+          '<a class="ghost" href="/debate-chat">← Back to debate chat</a>' +
+        '</div>'
+      );
+      console.warn('[casual-room] daily fetch failed', e);
+    });
+  }
+  mountDaily();
+
+  // ── Leave + Next opponent ─────────────────────────────
+  function destroyRoom(){
+    var f = stage.querySelector('iframe');
+    if (f) f.remove();
+  }
+  leaveBtn.addEventListener('click', function(){
+    destroyRoom();
+    try { gtag('event', 'casual_room_leave', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
+    location.href = '/debate-chat';
+  });
+
+  // Brief grace period before Next is allowed. Without this, an
+  // accidental click 2 seconds in re-queues users who haven't said
+  // hello yet. 20s feels long enough to be intentional, short enough
+  // to not feel jailed.
+  var NEXT_MIN_MS = 20 * 1000;
+  function updateNextEnabled(){
+    var elapsedMs = Date.now() - startTs;
+    if (elapsedMs < NEXT_MIN_MS){
+      nextBtn.disabled = true;
+      var left = Math.ceil((NEXT_MIN_MS - elapsedMs) / 1000);
+      nextBtn.textContent = 'Next in ' + left + 's';
+      setTimeout(updateNextEnabled, 1000);
+    } else {
+      nextBtn.disabled = false;
+      nextBtn.textContent = 'Next opponent →';
+    }
+  }
+  updateNextEnabled();
+
+  nextBtn.addEventListener('click', function(){
+    if (nextBtn.disabled) return;
+    destroyRoom();
+    try { gtag('event', 'casual_room_next', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
+    // ?autoqueue=1 tells /debate-chat to skip the prompt picker, pull
+    // a random prompt, and auto-fire Find. The other side stays in
+    // the room until they also click Next (or Leave / close the tab).
+    location.href = '/debate-chat?autoqueue=1';
+  });
+
+  // Belt-and-suspenders: also tear down the iframe on page hide so the
+  // Daily session releases mic/cam if the user navigates away another
+  // way (back button, tab close).
+  window.addEventListener('pagehide', destroyRoom);
+
+})();
+</script>
+</body>
+</html>
