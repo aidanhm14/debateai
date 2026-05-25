@@ -2215,6 +2215,17 @@ function funnelEvent(stage, meta) {
 // triple to Firestore via /api/log-generation. This is the dataset that feeds
 // back into prompt tuning / fine-tunes, separate from lean telemetry above.
 window.__lastGenerationId = null;
+
+// Opt-IN, off by default. The profile toggle writes to
+// users/{uid}.contributeToCorpus AND mirrors here so the captureTurn write
+// path reads the consent state synchronously without a Firestore round-trip
+// per turn. A later opt-out only affects FUTURE rounds — the server stamps
+// `contributable` at write time, so prior rows keep whatever consent was
+// in effect when they landed.
+function corpusContribute() {
+  try { return localStorage.getItem('debateos-corpus-contribute') === '1'; }
+  catch (e) { return false; }
+}
 async function logGeneration(payload) {
   try {
     if (!payload || !payload.output || payload.output.length < 40) return null;
@@ -2300,7 +2311,8 @@ function captureTurn(args) {
       userPrompt: userPromptStr,
       output: args.output,
       durationMs: typeof args.durationMs === 'number' ? args.durationMs : null,
-      context: lc
+      context: lc,
+      contributable: corpusContribute()
     });
   } catch (e) {console.warn('[captureTurn]', e.message);}
 }
