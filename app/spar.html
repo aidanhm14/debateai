@@ -101,22 +101,44 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .bar-back:hover{color:var(--text);border-color:var(--border-strong)}
 
 .wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 22px 80px}
-.shell{max-width:560px;width:100%;text-align:center}
+.shell{max-width:560px;width:100%;text-align:center;padding:0 clamp(16px,4vw,32px)}
 
+/* Eyebrow — smaller chip, no background fill, just a thin pip + caps
+   tracking. Reads as a label, not a button. Pull tighter to the H1. */
 .eyebrow{
-  display:inline-flex;align-items:center;gap:8px;
-  font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
-  padding:5px 12px;border-radius:999px;
-  background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.34);
-  color:var(--accent);margin-bottom:18px;
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:.58rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  padding:0;border-radius:0;background:transparent;border:0;
+  color:var(--accent);margin-bottom:14px;
 }
-.eyebrow .pip{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.6s ease-in-out infinite}
+.eyebrow .pip{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
 
-h1{font-size:clamp(2rem,5vw,2.8rem);font-weight:900;letter-spacing:-.025em;line-height:1.1;margin-bottom:12px;color:var(--text)}
+/* H1 — slightly smaller cap, tighter tracking, tighter relationship
+   to the radar below (margin-bottom shrunk so the visual sits closer
+   to the headline). text-wrap:balance so a 2-line headline doesn't
+   leave one word on the second line. */
+h1{
+  font-size:clamp(1.85rem,4.4vw,2.55rem);
+  font-weight:900;letter-spacing:-.028em;line-height:1.08;
+  margin:0 0 10px;color:var(--text);
+  text-wrap:balance;
+}
 h1 em{color:var(--accent);font-style:normal}
 
-.lede{font-size:1rem;color:var(--text-dim);line-height:1.55;max-width:480px;margin:0 auto 32px;font-weight:500}
+.lede{
+  font-size:.96rem;color:var(--text-dim);line-height:1.55;
+  max-width:460px;margin:0 auto 22px;font-weight:500;
+  text-wrap:pretty;
+}
+
+/* Format pill above the radar — smaller, calmer. Was reading too
+   loud beneath the lede; now sits as a quiet tag. */
+.format-pill{
+  font-size:.62rem;
+  padding:4px 10px;
+  margin-bottom:14px;
+}
 
 /* Radar — the centerpiece of the matchmaking screen. Rewritten
    2026-05-25: the prior glossy sphere read as "Web3 / NFT mint /
@@ -128,7 +150,7 @@ h1 em{color:var(--accent);font-style:normal}
    .globe-frame) so the renderSearching innerHTML and the matched/
    fallback fallthroughs don't have to change. */
 .globe-wrap{
-  position:relative;width:360px;max-width:78vw;margin:0 auto 22px;
+  position:relative;width:360px;max-width:78vw;margin:6px auto 18px;
   aspect-ratio:1 / 1;
 }
 
@@ -229,6 +251,15 @@ h1 em{color:var(--accent);font-style:normal}
   min-height:32px;
 }
 .status .dim{color:var(--text-dim);font-weight:500}
+.status #statusMain, .status #statusSub{
+  display:inline-block;
+  transition:opacity .26s ease, transform .26s ease;
+  will-change:opacity;
+}
+.status #statusSub{display:block}
+.status.is-fading #statusMain, .status.is-fading #statusSub{
+  opacity:0;transform:translateY(-2px);
+}
 .countdown{
   display:inline-flex;align-items:center;gap:8px;
   font-size:.78rem;font-weight:600;color:var(--text-ghost);letter-spacing:.06em;text-transform:uppercase;
@@ -936,20 +967,11 @@ h1 em{color:var(--accent);font-style:normal}
     { until: 60, text: 'Almost time to switch to AI',sub: 'If nobody pairs by zero, you get the AI sparring partner.' },
   ];
 
-  // Faux "recent pairings" ticker. Real handles drawn from the live.html
-  // seed pool + a few extras. Numbers are realistic spreads (8s-45s).
-  // Cycles every ~3 seconds, gives the wait social proof without
-  // requiring any backend call.
-  var RECENT_PAIRINGS = [
-    { a: 'flow_nerd',     b: 'kant_kid',       sec: 14 },
-    { a: 'pmr_collapse',  b: 'card_doctor',    sec: 22 },
-    { a: 'first_gen_voice', b: 'value_crit',   sec: 9  },
-    { a: 'wsdc_2nd',      b: 'nsda_qual',      sec: 31 },
-    { a: 'whip_speaker',  b: 'housing_wonk',   sec: 17 },
-    { a: 'redteam',       b: 'firstround',     sec: 28 },
-    { a: '1ar_collapse',  b: 'kritik_fan',     sec: 11 },
-    { a: 'national_champ',b: 'topicality_god', sec: 19 },
-  ];
+  // RECENT_PAIRINGS removed (2026-05-25). The 8 handles + pair-second
+  // spreads were fabricated social-proof theater — same "dead-internet
+  // dishonesty" the community.html sweep ruled out in May. The
+  // pairingTicker DOM element + startPairingTicker call below are now
+  // no-ops; honest signal lives in the meta-strip + status text.
 
   // ── Render: searching state ──────────────────────────
   function renderSearching(){
@@ -968,14 +990,16 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="globe-wrap"><div class="globe-frame">' +
           '<canvas id="sparRadar" aria-label="Live matchmaking radar"></canvas>' +
         '</div></div>' +
+      // Live ops strip. Wired to real Firestore via startMetaLive():
+      // queue cell = peers waiting in this format's matchmaking_queue
+      // (self excluded so the user doesn't see "1 waiting" when only
+      // they're in line). waitlist cell = open async posts in the last
+      // 24h on /waitlist_posts. Dot dims when both are 0 — the empty
+      // state is honest, not faked into looking active.
       '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
-        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaDebaters">14</strong> debaters online</span>' +
+        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> in ' + escHtml(formatLabel) + ' queue</span>' +
         '<span class="meta-sep">·</span>' +
-        '<span class="meta-cell"><strong id="metaCountries">6</strong> countries</span>' +
-        '<span class="meta-sep">·</span>' +
-        '<span class="meta-cell"><strong id="metaRooms">3</strong> rounds forming</span>' +
-        '<span class="meta-sep">·</span>' +
-        '<span class="meta-cell">' + escHtml(formatLabel) + ' queue <strong>active</strong></span>' +
+        '<span class="meta-cell"><strong id="metaWaitlist">0</strong> on the open waitlist</span>' +
       '</div>' +
       '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
@@ -995,10 +1019,9 @@ h1 em{color:var(--accent);font-style:normal}
         '<br><span style="font-size:.72rem">Want a humans-only round without the format gate? Try ' +
         '<a href="/debate-chat" style="color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.45)">casual debate chat →</a></span>' +
       '</div>' +
-      // Social-proof ticker. Cycles fake recent pairings every 3s.
-      // Real-feeling handles, realistic pair times. Helps the wait
-      // feel like an active marketplace rather than dead air.
-      '<div class="pairing-ticker" id="pairingTicker" aria-live="polite" style="margin-top:18px;font-size:.74rem;color:var(--text-ghost);text-align:center;min-height:18px;font-variant-numeric:tabular-nums;letter-spacing:.01em;opacity:.85;transition:opacity .35s ease"></div>' +
+      // pairingTicker removed (2026-05-25): the "Recent pairing · @x ↔ @y · paired in Ns"
+      // line cycled 8 fabricated handles every 3s. Same dead-internet dishonesty
+      // ruled out in community.html (May 2026). Status text below is the honest signal.
       '<div class="queue-stats" id="queueStats">' + renderWaitlist([], formatParam) + '</div>' +
       // Live diagnostic line. Always visible during the search (unlike
       // queueStats, which gets replaced by the broaden CTA at 45s).
@@ -1010,38 +1033,93 @@ h1 em{color:var(--accent);font-style:normal}
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
     startCountdown();
     startStatusCycle();
-    startPairingTicker();
-    startMetaDrift();
+    // startPairingTicker() removed — see RECENT_PAIRINGS comment above
+    startMetaLive();
     mountRadar('sparRadar');
   }
 
-  // Gently jitter the live-system numbers in the meta strip so it
-  // reads as a real ops console rather than a static label. No real
-  // backend — these are decorative but plausible spreads. The format
-  // queue cell stays "active" the whole time the user is queued.
-  var metaDriftInterval = null;
-  function startMetaDrift(){
-    if (metaDriftInterval) clearInterval(metaDriftInterval);
-    function tick(){
-      var d = document.getElementById('metaDebaters');
-      var c = document.getElementById('metaCountries');
-      var r = document.getElementById('metaRooms');
-      if (!d || !c || !r){ clearInterval(metaDriftInterval); metaDriftInterval = null; return; }
-      // Slow random walk within plausible ranges.
-      var base = 12 + Math.floor(Math.random() * 7);   // 12-18 debaters
-      var ctry = 4 + Math.floor(Math.random() * 4);    // 4-7 countries
-      var rooms = 2 + Math.floor(Math.random() * 3);   // 2-4 rooms forming
-      d.textContent = String(base);
-      c.textContent = String(ctry);
-      r.textContent = String(rooms);
+  // Live ops strip: real counts pulled from Firestore via onSnapshot.
+  // Replaces the prior `startMetaDrift` which faked 12-18 debaters /
+  // 4-7 countries / 2-4 rounds via Math.random(). Those numbers were a
+  // marketing tell, not a measurement. The real picture (DAU ~10 per
+  // soul.md §8) means honest counts are often 0; the dot dims to grey
+  // when they are so the strip doesn't pretend a quiet moment is busy.
+  var metaLiveUnsub = { queue: null, waitlist: null };
+  var metaLiveCounts = { queue: 0, waitlist: 0 };
+
+  function renderMetaLive(){
+    var qEl = document.getElementById('metaQueue');
+    var wEl = document.getElementById('metaWaitlist');
+    if (!qEl || !wEl){
+      // Strip torn down (user navigated to matched / fallback). Drop
+      // subscriptions so we don't leak listeners across views.
+      if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+      if (metaLiveUnsub.waitlist){ try { metaLiveUnsub.waitlist(); } catch(e){} metaLiveUnsub.waitlist = null; }
+      return;
     }
-    tick();
-    metaDriftInterval = setInterval(tick, 4200);
+    qEl.textContent = String(metaLiveCounts.queue);
+    wEl.textContent = String(metaLiveCounts.waitlist);
+    var dot = document.querySelector('#metaStrip .meta-dot');
+    var anyLive = metaLiveCounts.queue > 0 || metaLiveCounts.waitlist > 0;
+    if (dot){
+      dot.style.background = anyLive ? '#22c55e' : '#6b7280';
+      dot.style.boxShadow = anyLive ? '0 0 6px rgba(34,197,94,.6)' : 'none';
+      dot.style.opacity = anyLive ? '' : '.55';
+    }
+  }
+
+  function startMetaLive(){
+    if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+    if (metaLiveUnsub.waitlist){ try { metaLiveUnsub.waitlist(); } catch(e){} metaLiveUnsub.waitlist = null; }
+    metaLiveCounts = { queue: 0, waitlist: 0 };
+    renderMetaLive();
+    if (!firebaseDb) return;
+    // (a) Matchmaking queue for this format. Excludes self so the
+    // strip never reads "1 waiting" off the user's own presence.
+    try {
+      metaLiveUnsub.queue = firebaseDb.collection('matchmaking_queue')
+        .where('format', '==', formatParam)
+        .where('status', '==', 'waiting')
+        .onSnapshot(function(snap){
+          var selfUid = state.user && state.user.uid;
+          var n = 0;
+          snap.forEach(function(d){ if (!selfUid || d.id !== selfUid) n++; });
+          metaLiveCounts.queue = n;
+          renderMetaLive();
+        }, function(err){
+          // Missing composite index or rules denial: degrade to 0,
+          // don't crash. Same failure mode as queueWatchUnsub above.
+          console.warn('[meta] queue snapshot error:', err && err.message);
+        });
+    } catch(e){}
+    // (b) Async waitlist posts, last 24h. Approximates the same
+    // 24h client-side TTL the wl rail uses. Limit 100 caps the read.
+    try {
+      metaLiveUnsub.waitlist = firebaseDb.collection('waitlist_posts')
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .onSnapshot(function(snap){
+          var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+          var n = 0;
+          snap.forEach(function(d){
+            var v = d.data() || {};
+            var t = (v.createdAt && typeof v.createdAt.toMillis === 'function') ? v.createdAt.toMillis() : 0;
+            if (t >= cutoff) n++;
+          });
+          metaLiveCounts.waitlist = n;
+          renderMetaLive();
+        }, function(err){
+          console.warn('[meta] waitlist snapshot error:', err && err.message);
+        });
+    } catch(e){}
   }
 
   // Drive the status-phase rotation. Reads elapsed time from
   // state.joinedAtMs (same source the countdown uses) so the phase
   // is always in sync with how long the user has been waiting.
+  // When the phase actually changes (not every poll tick), fade the
+  // text out → swap → fade in. The .26s opacity transition lives in
+  // CSS via the .status.is-fading class.
   var statusCycleInterval = null;
   function startStatusCycle(){
     if (statusCycleInterval) clearInterval(statusCycleInterval);
@@ -1053,36 +1131,26 @@ h1 em{color:var(--accent);font-style:normal}
       }
       var main = document.getElementById('statusMain');
       var sub = document.getElementById('statusSub');
-      if (main && main.textContent !== phase.text) main.textContent = phase.text;
-      if (sub && sub.textContent !== phase.sub) sub.textContent = phase.sub;
+      var wrap = main ? main.parentElement : null;
+      if (!main || !sub) return;
+      var mainChanged = main.textContent !== phase.text;
+      var subChanged = sub.textContent !== phase.sub;
+      if (!mainChanged && !subChanged) return;
+      // Crossfade: dim → swap → un-dim.
+      if (wrap) wrap.classList.add('is-fading');
+      setTimeout(function(){
+        if (mainChanged) main.textContent = phase.text;
+        if (subChanged) sub.textContent = phase.sub;
+        if (wrap) wrap.classList.remove('is-fading');
+      }, 260);
     }
     tick();
     statusCycleInterval = setInterval(tick, 1500);
   }
 
-  // Cycle the fake recent-pairings ticker. Picks a random entry every
-  // 3 seconds with a brief opacity fade so the swap doesn't read as
-  // a layout shift. Stops cleanly when the host element disappears.
-  var pairingTickerInterval = null;
-  var lastPairingIdx = -1;
-  function startPairingTicker(){
-    if (pairingTickerInterval) clearInterval(pairingTickerInterval);
-    function tick(){
-      var host = document.getElementById('pairingTicker');
-      if (!host){ clearInterval(pairingTickerInterval); pairingTickerInterval = null; return; }
-      var nextIdx;
-      do { nextIdx = Math.floor(Math.random() * RECENT_PAIRINGS.length); } while (nextIdx === lastPairingIdx);
-      lastPairingIdx = nextIdx;
-      var p = RECENT_PAIRINGS[nextIdx];
-      host.style.opacity = '0';
-      setTimeout(function(){
-        host.textContent = 'Recent pairing · @' + p.a + ' ↔ @' + p.b + ' · paired in ' + p.sec + 's';
-        host.style.opacity = '.85';
-      }, 280);
-    }
-    tick();
-    pairingTickerInterval = setInterval(tick, 3000);
-  }
+  // startPairingTicker() removed 2026-05-25 — see RECENT_PAIRINGS
+  // comment for the why. The 'Recent pairing · @x ↔ @y · paired in Ns'
+  // line was fabricated social-proof theater.
 
   // Mount the matchmaking radar once /js/spar-radar.js has loaded.
   // Used by renderSearching — reads as "active matchmaking arena."
@@ -1137,15 +1205,53 @@ h1 em{color:var(--accent);font-style:normal}
 
   // ── Render: matched! ─────────────────────────────────
   function renderMatched(roomName, peerName){
-    var orb = document.getElementById('orbWrap');
-    if (orb) orb.classList.add('matched');
-    shell.innerHTML =
-      '<div class="eyebrow" style="background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:#4ade80"><span class="pip" style="background:#22c55e;box-shadow:0 0 8px #22c55e"></span>Match found</div>' +
-      '<h1>You\'re paired with <em>' + escHtml(peerName || 'a debater') + '</em>.</h1>' +
-      '<p class="lede">Joining the round room now. Camera + mic prompt in a sec; accept and you\'re live.</p>' +
-      '<div class="orb-wrap matched" id="orbWrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
-      '<div class="status">Loading round…</div>';
     try { gtag('event', 'spar_match_found', { format: formatParam }); } catch(e){}
+
+    // Cinematic two-step: trigger the radar convergence FIRST (nodes
+    // pull toward center, sweep fades, expanding ring pulses outward,
+    // center pulse brightens), wait ~700ms for the visual beat, THEN
+    // swap the eyebrow + headline so "Match found / paired with X"
+    // arrives synchronously with the converged radar instead of a
+    // hard cut. Falls through to immediate swap if the radar isn't
+    // mounted (shouldn't happen in normal flow but defensive).
+    var beatMs = 750;
+    if (radarHandle && radarHandle.lockOn){
+      try { radarHandle.lockOn(); } catch(e){ beatMs = 0; }
+    } else {
+      beatMs = 0;
+    }
+
+    // Soft-fade existing copy so the swap doesn't snap into the
+    // converged radar. We dim everything except the canvas, which
+    // keeps animating through the convergence.
+    var fadeNodes = shell.querySelectorAll('.eyebrow, h1, .lede, .meta-strip, .status, .countdown, .btn-row, .organized-pivot, .pairing-ticker, .queue-stats, .diag, .foot, .format-pill');
+    Array.prototype.forEach.call(fadeNodes, function(el){
+      el.style.transition = 'opacity .35s ease';
+      el.style.opacity = '0';
+    });
+
+    setTimeout(function(){
+      // Beat is done — stop the radar (we're about to navigate to the
+      // round room anyway) and swap to the matched markup. Cascading
+      // fade-in via transition-delay on each child.
+      if (radarHandle && radarHandle.stop){ try { radarHandle.stop(); } catch(e){} radarHandle = null; }
+
+      shell.innerHTML =
+        '<div class="eyebrow" style="background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:#4ade80;opacity:0;transition:opacity .4s ease"><span class="pip" style="background:#22c55e;box-shadow:0 0 8px #22c55e"></span>Match found</div>' +
+        '<h1 style="opacity:0;transition:opacity .4s ease .08s">You\'re paired with <em>' + escHtml(peerName || 'a debater') + '</em>.</h1>' +
+        '<p class="lede" style="opacity:0;transition:opacity .4s ease .16s">Joining the round room now. Camera + mic prompt in a sec; accept and you\'re live.</p>' +
+        '<div class="orb-wrap matched" id="orbWrap" style="opacity:0;transition:opacity .4s ease .24s"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
+        '<div class="status" style="opacity:0;transition:opacity .4s ease .32s">Loading round…</div>';
+
+      // Double-rAF so the opacity:0 → opacity:1 transition actually
+      // plays — setting both in the same paint tick is a no-op.
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          var nodes = shell.querySelectorAll('.eyebrow, h1, .lede, .orb-wrap, .status');
+          Array.prototype.forEach.call(nodes, function(el){ el.style.opacity = '1'; });
+        });
+      });
+    }, beatMs);
   }
 
   // ── Render: AI fallback fired ────────────────────────
@@ -1591,6 +1697,10 @@ h1 em{color:var(--accent);font-style:normal}
     if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
     if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} state.queueWatchUnsub = null; }
+    // Drop the live ops strip's Firestore listeners too — leaving
+    // them attached after the search view tears down would leak.
+    if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+    if (metaLiveUnsub.waitlist){ try { metaLiveUnsub.waitlist(); } catch(e){} metaLiveUnsub.waitlist = null; }
     state.matchTriggerPending = false;
     state.pairInFlight = false;
   }

@@ -184,11 +184,35 @@
     }
     scheduleNextMatch(performance.now() + 600); // gentle first beat
 
-    // Compute a node's current (x, y) in canvas coords.
+    // Lock-on state. When renderMatched fires, we call radarHandle.lockOn()
+    // to play the cinematic "we found someone" beat — all drifting nodes
+    // ease toward center, the sweep arm fades to zero, a single expanding
+    // ring pulses outward from center, and the "you" pulse brightens.
+    // Total duration ~1100ms. Caller waits ~700-800ms then swaps the
+    // page markup so the beat carries the transition.
+    var lockState = null; // { startedAt, durationMs }
+    function startLockOn() {
+      if (lockState) return; // idempotent — second call is a no-op
+      lockState = { startedAt: performance.now(), durationMs: 1100 };
+    }
+
+    // ease-out cubic — fast pull at the start, soft settle at the end.
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+    // Compute a node's current (x, y) in canvas coords. During a lockOn
+    // beat the position eases toward center based on lockState progress,
+    // so the same nodePos call is used by both paintNodes and paintMatchArc
+    // and they stay in sync.
     function nodePos(n, tSec) {
       var theta = n.phase + n.omega * tSec;
       var wobble = Math.sin(tSec * 2 * Math.PI * n.wobbleHz + n.wobblePhase) * n.wobbleAmp;
       var r = R * (n.radius + wobble);
+      if (lockState) {
+        var lt = Math.min(1, (performance.now() - lockState.startedAt) / lockState.durationMs);
+        // Pull from current radius down to ~12% of R as the lock progresses.
+        var pull = easeOutCubic(lt);
+        r = r * (1 - pull) + (R * 0.12) * pull;
+      }
       return { x: CX + Math.cos(theta) * r, y: CY + Math.sin(theta) * r };
     }
 
@@ -247,6 +271,14 @@
 
     function paintSweep(tSec) {
       if (reduceMotion) return;
+      // During a lockOn beat the sweep fades to zero so the convergence
+      // ring + nodes carry the visual.
+      var lockFade = 1;
+      if (lockState) {
+        var lt = Math.min(1, (performance.now() - lockState.startedAt) / lockState.durationMs);
+        lockFade = 1 - lt;
+      }
+      if (lockFade <= 0.02) return;
       // Single sweep arm. Drawn as a thin radial gradient wedge using a
       // sequence of line segments fanning from center, each progressively
       // dimmer. Gives the "radar sweep" look without needing canvas conic.
@@ -258,7 +290,7 @@
       for (var k = 0; k < segCount; k++) {
         var t = k / segCount;
         var a = sweepAngle - arc * t;
-        var alpha = (1 - t) * 0.28;
+        var alpha = (1 - t) * 0.28 * lockFade;
         ctx.strokeStyle = 'rgba(' + pal.sweepRgb + ',' + alpha.toFixed(3) + ')';
         ctx.lineWidth = 1.2;
         ctx.beginPath();
@@ -270,12 +302,42 @@
       var leadX = CX + Math.cos(sweepAngle) * R;
       var leadY = CY + Math.sin(sweepAngle) * R;
       var glow = ctx.createRadialGradient(leadX, leadY, 0, leadX, leadY, 14);
-      glow.addColorStop(0, pal.sweepLead);
+      // Fade the lead glow with the sweep itself.
+      var fadedLead = pal.sweepLead.replace(/[\d.]+\)$/, (0.85 * lockFade).toFixed(3) + ')');
+      glow.addColorStop(0, fadedLead);
       glow.addColorStop(1, pal.sweepLeadEnd);
       ctx.fillStyle = glow;
       ctx.beginPath();
       ctx.arc(leadX, leadY, 14, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+    }
+
+    // Convergence ring — fires once when lockOn starts, expands outward
+    // from center over the full lock duration, fades as it grows.
+    // Reads as the "match found" pulse spreading through the chamber.
+    function paintConvergeRing(nowMs) {
+      if (!lockState) return;
+      var lt = Math.min(1, (nowMs - lockState.startedAt) / lockState.durationMs);
+      var radius = R * (0.05 + easeOutCubic(lt) * 0.95);
+      var alpha = (1 - lt) * 0.65;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(' + pal.sweepRgb + ',' + alpha.toFixed(3) + ')';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(CX, CY, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      // Second, dimmer trailing ring for depth.
+      if (lt > 0.15) {
+        var lt2 = lt - 0.15;
+        var r2 = R * (0.05 + easeOutCubic(lt2) * 0.85);
+        var a2 = (1 - lt2 / 0.85) * 0.32;
+        ctx.strokeStyle = 'rgba(' + pal.sweepRgb + ',' + Math.max(0, a2).toFixed(3) + ')';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(CX, CY, r2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
@@ -359,9 +421,17 @@
 
     function paintCenter(tSec) {
       // "You" pulse at center. Slow breath, brighter than the orbiting
-      // nodes. Two concentric circles + halo.
+      // nodes. Two concentric circles + halo. During lockOn the halo
+      // swells and brightens — the user IS the center, the room
+      // converges on them.
       var breath = 0.5 + 0.5 * Math.sin(tSec * 2 * Math.PI * 0.35);
-      var haloR = 18 + breath * 5;
+      var lockBoost = 0;
+      if (lockState) {
+        var lt = Math.min(1, (performance.now() - lockState.startedAt) / lockState.durationMs);
+        lockBoost = easeOutCubic(lt);
+      }
+      breath = breath * (1 - lockBoost * 0.4) + lockBoost;
+      var haloR = (18 + breath * 5) * (1 + lockBoost * 0.6);
       var halo = ctx.createRadialGradient(CX, CY, 0, CX, CY, haloR);
       // Splice the breath alpha onto the center-halo color the same
       // way we did for arcStroke. pal.centerHaloIn ends in ".XX)".
@@ -397,7 +467,10 @@
       paintGrid();
       paintRings();
       paintSweep(tSec);
-      paintMatchArc(tSec, nowMs);
+      // Match-attempt arcs pause once lockOn fires (the room is no
+      // longer probing pairings; it's confirming one).
+      if (!lockState) paintMatchArc(tSec, nowMs);
+      paintConvergeRing(nowMs);
       paintNodes(tSec);
       paintCenter(tSec);
       raf = global.requestAnimationFrame(frame);
@@ -411,10 +484,10 @@
         if (ro) ro.disconnect();
         else global.removeEventListener('resize', resize);
       },
-      // Allow callers (renderMatched) to trigger a "lock-on" beat where
-      // every node pulls toward center and the rings tighten. Not wired
-      // yet — placeholder hook for the cinematic match-found transition.
-      lockOn: function () { /* future */ },
+      // Cinematic match-found beat — caller (renderMatched on spar.html)
+      // calls this FIRST, waits ~700-800ms, then swaps the page markup
+      // so the beat carries the transition.
+      lockOn: startLockOn,
     };
   }
 
