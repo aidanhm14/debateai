@@ -10,10 +10,11 @@
  * so this never leaks onto the app surface where AI voice/TTS
  * is the active audio.
  *
- * Tracks live under /audio/bg-{1..6}.mp3. They're free-to-use
- * Pixabay Music (CC0) instrumentals — see app/audio/README.md for
- * the source mapping. preload="none" so we don't burn bandwidth
- * for users who never toggle it on.
+ * Tracks live under /audio/bg-{1..6}.mp3. They're ambient
+ * instrumentals by Kevin MacLeod (incompetech.com), licensed
+ * CC BY 4.0 — see app/audio/README.md for the source mapping and
+ * the user-facing attribution in landing.html's footer. preload="none"
+ * so we don't burn bandwidth for users who never toggle it on.
  */
 (function () {
   'use strict';
