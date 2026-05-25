@@ -60,10 +60,10 @@ function buildHtml({ firstName, motion, side, format, rfdSnippet, nextMotion }) 
     Run this round →
   </a>
   <p style="font-size:.78rem;line-height:1.5;color:#6a6a74;margin:32px 0 0;border-top:1px solid #e8e8e0;padding-top:16px">
-    You're getting this because you completed your first round on Debate AI. We send one of these per signup, never repeat. Reply if you want to talk debate, the AI, or anything else.
+    You're getting this because you completed your first round on Debatable. We send one of these per signup, never repeat. Reply if you want to talk debate, the AI, or anything else.
   </p>
   <p style="font-size:.7rem;color:#8a8a94;margin:8px 0 0">
-    Debate AI · debateai.com · Built by a UChicago parliamentary debater.
+    Debatable · debateai.com · Built by a UChicago parliamentary debater.
   </p>
 </div>
 </body></html>`;

@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────────
-// Shared telemetry for Debate AI.
+// Shared telemetry for Debatable.
 // Drop <script src="/js/track.js" defer></script> on any page and it
 // auto-fires session_start, page_view, heartbeat (every 60s), and
 // session_end on pagehide. All events auth-required — anonymous

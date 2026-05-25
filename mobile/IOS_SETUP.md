@@ -1,4 +1,4 @@
-# DebateAI — iOS Build Setup
+# Debatable — iOS Build Setup
 
 This directory holds the **Capacitor** wrapper that turns
 [debateai.com](https://debateai.com) into a native iOS app.
@@ -107,10 +107,10 @@ Open `ios/App/App/Info.plist` and add:
 
 ```xml
 <key>NSMicrophoneUsageDescription</key>
-<string>DebateAI uses the microphone for live spoken debate rounds.</string>
+<string>Debatable uses the microphone for live spoken debate rounds.</string>
 
 <key>NSCameraUsageDescription</key>
-<string>DebateAI may capture video of your delivery for self-review.</string>
+<string>Debatable may capture video of your delivery for self-review.</string>
 
 <key>ITSAppUsesNonExemptEncryption</key>
 <false/>

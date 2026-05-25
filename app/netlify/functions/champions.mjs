@@ -140,10 +140,10 @@ function renderEmptyState() {
 function renderPage(champions) {
   const hasAny = champions && champions.length > 0;
   const title = hasAny
-    ? `Friday Night Finals · Champions of Debate AI`
+    ? `Friday Night Finals · Champions of Debatable`
     : `Friday Night Finals · The bracket starts ${NEXT_FINAL.date}`;
   const description = hasAny
-    ? `${champions.length} Friday Night Final winners on Debate AI. One impromptu round a week, judged live by the founder. Winners pin permanently.`
+    ? `${champions.length} Friday Night Final winners on Debatable. One impromptu round a week, judged live by the founder. Winners pin permanently.`
     : `Friday Night Finals begin ${NEXT_FINAL.date}. Two debaters, one motion, founder-judged live on Discord. Winners pin to a permanent champions page.`;
   const canonical = `${SITE_ORIGIN}/champions`;
 
@@ -155,7 +155,7 @@ function renderPage(champions) {
     url: canonical,
     publisher: {
       '@type': 'Organization',
-      name: 'Debate AI',
+      name: 'Debatable',
       url: SITE_ORIGIN,
       logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-192.png` },
     },
@@ -180,7 +180,7 @@ function renderPage(champions) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="website">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="Debatable">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -323,7 +323,7 @@ ${hasAny ? '' : `<div class="page-watermark" aria-hidden="true">
   </section>
 
   <footer>
-    <span>© 2026 Debate AI</span>
+    <span>© 2026 Debatable</span>
     <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/today">Today's motion</a> · <a href="${esc(NEXT_FINAL.discordUrl)}" target="_blank" rel="noopener">Discord</a></span>
   </footer>
 </main>

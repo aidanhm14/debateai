@@ -14,7 +14,7 @@ one has the click order + the demo asset + the week-1 promo playbook.
    - Go to https://chrome.google.com/webstore/devconsole/register
    - Sign in with a Google account you want associated with the publisher
      identity. Aidan's main is fine; the publisher name shows on the
-     listing as "DebateAI" (set in the developer profile).
+     listing as "Debatable" (set in the developer profile).
    - Pay the one-time $5 USD fee. Approval is instant.
 
 2. **Lock the extension key.**
@@ -159,7 +159,7 @@ posts, YouTube Shorts, X, embed on counter.html.
 | 0:12-22| User speaks: "Mitochondria release cytochrome c into the cytoplasm, which triggers caspase activation and starts the apoptotic cascade." | (your real voice)                                  |
 | 0:22-25| AI follow-up                                            | "And what's the trigger upstream of that release?"            |
 | 0:25-28| End drill. Brief RFD shown                              | (visual: "SPEAKER POINTS: 27.5")                              |
-| 0:28-30| Logo card                                               | "Counter, by DebateAI. Free on Chrome Web Store."             |
+| 0:28-30| Logo card                                               | "Counter, by Debatable. Free on Chrome Web Store."             |
 
 ### Hindi variant (same beats, different audio)
 
@@ -206,7 +206,7 @@ Order matters. Each step assumes the previous shipped.
 ### Day 0 (publish day)
 
 - [ ] Replace placeholder install link in repo (see section 1 post-publish wiring).
-- [ ] Post the install URL in pinned tweet on @DebateAI X account.
+- [ ] Post the install URL in pinned tweet on @Debatable X account.
 - [ ] Post once in your own circle (LinkedIn / Instagram story) — soft launch, not the public push.
 
 ### Day 1-2: debateai.com integration
@@ -243,12 +243,12 @@ After each post, watch for:
 ### Day 4-7: YouTube + X
 
 - [ ] **YouTube channel** — if you don't have one yet, create
-  `@DebateAI`. Upload the 30s demo as a YouTube Short. Title:
+  `@Debatable`. Upload the 30s demo as a YouTube Short. Title:
   "Get grilled before your viva does." Tags: `viva prep`, `cbse`,
   `jee neet`, `oral exam`, `study tool`.
 - [ ] **YouTube Short, Hindi variant** — same day. Different title:
   "Apne notes par viva practice kar — ekdam page se."
-- [ ] **X / Twitter** — pin the demo as a tweet on @DebateAI.
+- [ ] **X / Twitter** — pin the demo as a tweet on @Debatable.
   Quote-tweet from Aidan's personal handle with the founder angle
   ("built this because I lost a viva I had nailed in writing.").
 - [ ] **Producthunt** — schedule a Tuesday launch (Tue/Wed get the

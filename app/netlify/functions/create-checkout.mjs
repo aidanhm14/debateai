@@ -19,7 +19,7 @@ export default async (request) => {
   }
 
   // Team-first funnel: requiring a team before checkout is intentional.
-  // Teams are Debate AI's social/tracking layer — create one, invite peers,
+  // Teams are Debatable's social/tracking layer — create one, invite peers,
   // track your cases and analytics together. Returning 404 here is the
   // signal the client uses to route to the team-creation flow with
   // upgrade-intent preserved, rather than letting people pay in isolation.

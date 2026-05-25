@@ -1,14 +1,17 @@
 # AGENTS.md
 
-> Operational manual for AI coding agents working on DebateAI (Codex,
+> Operational manual for AI coding agents working on Debatable (Codex,
 > Claude Code, Cursor, etc.). Read this first, then read [soul.md](soul.md)
 > for product/voice/decision context. If a change would contradict either
 > file, fix the change or fix the doc — don't leave the contradiction.
 
 ## What this is
 
-DebateAI is a voice-first adversarial-argument trainer at
-**debateai.com**. ~7K monthly active users as of May 2026. Solo-built.
+Debatable (renamed from DebateAI 2026-05-25 after the user acquired
+debatable.com) is a voice-first adversarial-argument trainer at
+**debateai.com**. The production domain is still debateai.com until a
+separate DNS migration; the brand name in all user-facing copy is now
+Debatable. ~7K monthly active users as of May 2026. Solo-built.
 Ships to production many times per day.
 
 The full product/voice/decisions doc is [soul.md](soul.md). Read it.

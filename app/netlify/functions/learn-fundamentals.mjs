@@ -49,7 +49,7 @@ function notFoundResponse() {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fundamental not found · Debate AI</title>
+<title>Fundamental not found · Debatable</title>
 <meta name="robots" content="noindex">
 <style>
   body{background:#ffffff;color:#1a1a1a;font:17px/1.7 Georgia,'Iowan Old Style','Constantia','Times New Roman',serif;margin:0;padding:64px 24px;text-align:center;-webkit-font-smoothing:antialiased}
@@ -225,14 +225,14 @@ function commonStyles() {
 
 function topNav() {
   return `<nav class="top-nav">
-    <a href="/">← Debate AI</a>
+    <a href="/">← Debatable</a>
     <a href="/learn">Learn</a>
     <a href="/debate-ai">Practice →</a>
   </nav>`;
 }
 
 function renderFundamentalPage(item) {
-  const titleCore = `${item.question} · Debate AI`;
+  const titleCore = `${item.question} · Debatable`;
   const title = titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore;
   const description = item.hook;
   const canonical = `${SITE_ORIGIN}/learn/fundamentals/${item.slug}`;
@@ -256,7 +256,7 @@ function renderFundamentalPage(item) {
     inLanguage: 'en',
     publisher: {
       '@type': 'Organization',
-      name: 'Debate AI',
+      name: 'Debatable',
       url: SITE_ORIGIN,
     },
   };
@@ -265,7 +265,7 @@ function renderFundamentalPage(item) {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Debate AI', item: SITE_ORIGIN + '/' },
+      { '@type': 'ListItem', position: 1, name: 'Debatable', item: SITE_ORIGIN + '/' },
       { '@type': 'ListItem', position: 2, name: 'Learn', item: SITE_ORIGIN + '/learn' },
       { '@type': 'ListItem', position: 3, name: 'Fundamentals', item: SITE_ORIGIN + '/learn/fundamentals' },
       { '@type': 'ListItem', position: 4, name: item.question, item: canonical },
@@ -289,7 +289,7 @@ function renderFundamentalPage(item) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="Debatable">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titleCore)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -343,7 +343,7 @@ function renderFundamentalPage(item) {
   </section>` : ''}
 
   <footer class="guide-footer">
-    <span>© 2026 Debate AI</span>
+    <span>© 2026 Debatable</span>
     <span><a href="/learn">Learn</a> · <a href="/learn/fundamentals">Fundamentals</a> · <a href="/learn/guides">Guides</a> · <a href="/learn/glossary">Glossary</a></span>
   </footer>
 </main>
@@ -352,7 +352,7 @@ function renderFundamentalPage(item) {
 
 function renderHubPage() {
   const items = listFundamentals();
-  const title = 'Debate fundamentals · Six core concepts · Debate AI';
+  const title = 'Debate fundamentals · Six core concepts · Debatable';
   const description = "Six concepts that win every debate round, regardless of format. Claim/warrant/impact, weighing, rebuttal, signposting, cross-examination, and speaker register. Each one a deep guide.";
   const canonical = `${SITE_ORIGIN}/learn/fundamentals`;
 
@@ -382,7 +382,7 @@ function renderHubPage() {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="website">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="Debatable">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -397,7 +397,7 @@ function renderHubPage() {
 <main class="shell">
   ${topNav()}
 
-  <div class="crumb"><a href="/">Debate AI</a> · <a href="/learn">Learn</a> · Fundamentals</div>
+  <div class="crumb"><a href="/">Debatable</a> · <a href="/learn">Learn</a> · Fundamentals</div>
 
   <h1 class="hub-h1">Fundamentals.</h1>
 
@@ -412,7 +412,7 @@ function renderHubPage() {
   </ul>
 
   <footer class="guide-footer">
-    <span>© 2026 Debate AI</span>
+    <span>© 2026 Debatable</span>
     <span><a href="/learn">Learn</a> · <a href="/learn/guides">Guides</a> · <a href="/learn/glossary">Glossary</a></span>
   </footer>
 </main>

@@ -43,7 +43,7 @@ function notFoundResponse() {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Format not found · Debate AI</title>
+<title>Format not found · Debatable</title>
 <meta name="robots" content="noindex">
 <style>body{background:#000;color:#fff;font-family:system-ui,sans-serif;margin:0;padding:80px 24px;text-align:center}h1{font-size:2rem;margin-bottom:8px}p{color:rgba(255,255,255,.6);margin:0 0 20px}a{color:#ef4444;text-decoration:none;font-weight:700}</style>
 </head><body>
@@ -132,7 +132,7 @@ function renderPage(format) {
     description,
     provider: {
       '@type': 'Organization',
-      name: 'Debate AI',
+      name: 'Debatable',
       url: SITE_ORIGIN,
     },
     educationalLevel: 'High school / College',
@@ -155,7 +155,7 @@ function renderPage(format) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="Debatable">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titleCore)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -244,7 +244,7 @@ function renderPage(format) {
   </div>
 
   <footer>
-    <span>© 2026 Debate AI</span>
+    <span>© 2026 Debatable</span>
     <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/today">Today's motion</a></span>
   </footer>
 </main>

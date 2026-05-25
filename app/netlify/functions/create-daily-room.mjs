@@ -2,8 +2,8 @@
 // (which hit the 5-min embed cap + the moderator-required gate).
 //
 // Contract:
-//   POST /api/create-daily-room { name: "DebateAI-c123" }
-//   → { url: "https://<sub>.daily.co/DebateAI-c123", name }
+//   POST /api/create-daily-room { name: "Debatable-c123" }
+//   → { url: "https://<sub>.daily.co/Debatable-c123", name }
 //
 // The room is created idempotently — if it already exists with that
 // name, we fetch and return the URL instead of erroring.
@@ -83,7 +83,7 @@ export default async (req) => {
   }
 
   const room = await resp.json();
-  // room.url is the canonical URL (e.g., https://debateai.daily.co/DebateAI-c123).
+  // room.url is the canonical URL (e.g., https://debateai.daily.co/Debatable-c123).
   // We return both name + url so callers can either iframe-embed the
   // URL or reconstruct it from name + DAILY_DOMAIN if needed.
   return jsonResponse(200, {

@@ -1,4 +1,4 @@
-# Debate AI — Google Play TWA
+# Debatable — Google Play TWA
 
 This directory holds the [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) config that wraps the existing PWA at `https://debateai.com` into an Android Trusted Web Activity (TWA). The TWA is a thin native wrapper — Chrome renders the same HTML/JS as the website, so every web change ships to the Android app the moment it deploys to Netlify. No app rebuild on every edit.
 

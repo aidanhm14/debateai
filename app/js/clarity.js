@@ -3,7 +3,7 @@
 //
 // SETUP (one time, ~2 minutes):
 //   1. Go to https://clarity.microsoft.com and sign in with a Microsoft account
-//   2. Create a new project (name it "Debate AI")
+//   2. Create a new project (name it "Debatable")
 //   3. Copy the Project ID from Settings → Setup (looks like "abc123xyz")
 //   4. Paste it into CLARITY_PROJECT_ID below
 //   5. Deploy. Data starts flowing within minutes.

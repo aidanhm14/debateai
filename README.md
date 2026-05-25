@@ -1,4 +1,4 @@
-# DebateAI
+# Debatable
 
 A voice-first adversarial-argument trainer. You give a real speech against a clock, get pushback, take POIs, and get a judge ballot at the end. The AI is format-accurate across APDA, BP, Worlds, Asian Parli, Policy, LD, PF, Congress, and MUN.
 

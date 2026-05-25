@@ -10,8 +10,8 @@
 //
 // Env vars (set in Netlify):
 //   RESEND_API_KEY  — from resend.com (free tier: 100/day, 3k/mo)
-//   RESEND_FROM     — verified sender, e.g. "Debate AI <noreply@debateai.com>"
-//                     (defaults to "Debate AI <onboarding@resend.dev>" for dev)
+//   RESEND_FROM     — verified sender, e.g. "Debatable <noreply@debateai.com>"
+//                     (defaults to "Debatable <onboarding@resend.dev>" for dev)
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 
@@ -53,7 +53,7 @@ function template({ subject, headline, sub, motion, format, kickoff, roomUrl, op
 <html><body style="margin:0;padding:24px;background:#0a0a0c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e5e7eb">
   <table role="presentation" style="max-width:560px;margin:0 auto;background:#15151a;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden">
     <tr><td style="padding:24px 28px 16px">
-      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">Debate AI · Live</div>
+      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">Debatable · Live</div>
       <h1 style="margin:8px 0 6px;font-size:22px;font-weight:800;color:#fff;letter-spacing:-.01em">${safe(headline)}</h1>
       <p style="margin:0;font-size:14px;line-height:1.6;color:#9ca3af">${safe(sub)}</p>
     </td></tr>
@@ -96,7 +96,7 @@ export default async (req) => {
   if (req.method !== 'POST') return jsonResponse(405, { error: 'POST only' });
 
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || 'Debate AI <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM || 'Debatable <onboarding@resend.dev>';
   if (!apiKey) {
     return jsonResponse(503, {
       error: 'Email not configured',

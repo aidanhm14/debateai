@@ -982,7 +982,7 @@ function friendlyCounterError(rawError, assistantMessage) {
     return 'Counter took too long to respond. The AI may be slow right now — hit Counter again, or try a shorter paragraph.';
   }
   if (/could not establish connection|network|failed to fetch|err_network/.test(raw)) {
-    return 'Can\'t reach DebateAI. Check your connection, then hit Counter again.';
+    return 'Can\'t reach Debatable. Check your connection, then hit Counter again.';
   }
   if (/model returned|unexpected shape|incomplete counter|malformed|structured/.test(raw)) {
     return 'AI returned an unexpected response. Try a slightly different paragraph, or hit Counter again.' + tail;

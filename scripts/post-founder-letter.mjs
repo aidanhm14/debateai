@@ -33,11 +33,11 @@ async function api(method, p, body) {
 
   const part1 = `# Welcome. I'm Aidan.
 
-I founded Debate AI. Sophomore at UChicago, philosophy + business econ, national APDA champion. I built this product because I needed a sparring partner that actually knew the flow, pushed back like a real opponent, and graded me like a judge would. I built it for myself first, then realized other debaters wanted the same thing.
+I founded Debatable. Sophomore at UChicago, philosophy + business econ, national APDA champion. I built this product because I needed a sparring partner that actually knew the flow, pushed back like a real opponent, and graded me like a judge would. I built it for myself first, then realized other debaters wanted the same thing.
 
 This Discord is where that community lives now.
 
-## What Debate AI does
+## What Debatable does
 
 Voice-first sparring partner. Pick a format (Asian Parli, WSDC, BP, APDA, Policy, LD, PF, Worlds, Congress, MUN, Viva, Quick Clash) and a motion. Speak. The AI takes POIs, pushes back, writes a real judge ballot at the end with speaker points and weighing. Six brains under the hood: Claude, GPT, Gemini, Grok, DeepSeek, Open Lab. Each picks up different things in the round.
 
@@ -52,7 +52,7 @@ Try it: https://debateai.com`;
 
 ## Where this is going
 
-About 7,000 people use Debate AI every month. About 80% are in India, mostly Asian Parli, WSDC, BP. We're investing hard in the India circuit. Beyond debate, the same engine drills oral exams, thesis defense, and interview prep, that's what the Viva format and the Counter Chrome extension are for.
+About 7,000 people use Debatable every month. About 80% are in India, mostly Asian Parli, WSDC, BP. We're investing hard in the India circuit. Beyond debate, the same engine drills oral exams, thesis defense, and interview prep, that's what the Viva format and the Counter Chrome extension are for.
 
 Long-term goal: every debater in the world has a 24/7 sparring partner that doesn't agree with them. Every viva candidate has someone to grill them the night before. Every professional who argues out loud gets a coach who knows their format.
 

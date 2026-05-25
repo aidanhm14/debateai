@@ -150,9 +150,9 @@
       el('a', {
         href: '/',
         class: 'ui-topbar-logo',
-        'aria-label': 'Debate AI, home',
+        'aria-label': 'Debatable, home',
         title: 'Back to home',
-        html: '<span>Debate</span> AI.<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>',
+        html: '<span>Debatable</span><sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>',
       }),
       // 2026-05-18: the "Beta · Updating daily" chip used to sit next to
       // the wordmark on every page. It read as crowded chrome that
@@ -252,9 +252,9 @@
     // Primary CTA is Voice AI everywhere — voice is the moat
     // against ChatGPT (real-time, sub-200ms, full interruption) and
     // the user-flagged most-important surface. Brand red (same as
-    // the Debate AI pill on /voice-debate) keeps the topbar visually
+    // the Debatable pill on /voice-debate) keeps the topbar visually
     // calm; the prior gold-amber gradient read as braggy and
-    // out-of-brand. Falls back to "Debate AI" when already on
+    // out-of-brand. Falls back to "Debatable" when already on
     // /voice-debate so the bar still has a working CTA on every page.
     var onVoiceDebate = /\/voice-debate(\b|\/)/.test(here);
     var cta;
@@ -263,7 +263,7 @@
         href: '/debate-ai',
         class: 'ui-btn ui-btn-primary ui-btn-sm',
         style: { padding: '8px 18px' },
-      }, 'Debate AI');
+      }, 'Debatable');
     } else {
       cta = el('a', {
         href: '/voice-debate',

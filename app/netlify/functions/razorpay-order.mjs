@@ -111,7 +111,7 @@ export default async (request) => {
     planLabel: priceInfo.label,
     cadence: priceInfo.cadence,
     recurring: priceInfo.recurring,
-    teamName: team.name || 'DebateAI',
+    teamName: team.name || 'Debatable',
     prefill: {
       email: decoded.email || '',
       name: decoded.name || team.name || '',

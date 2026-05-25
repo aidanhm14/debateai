@@ -43,7 +43,7 @@ const URLS = [
   // /debate-an-ai and /debate-online are direct phrase-match doorways
   // from Google for the "debate an ai" / "debate online" intents the
   // existing /debate-ai app surface can't claim because its slug is
-  // taken by the typed-mode product page. /compare positions DebateAI
+  // taken by the typed-mode product page. /compare positions Debatable
   // next to general AI assistants without villain framing — anchor
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92' },
