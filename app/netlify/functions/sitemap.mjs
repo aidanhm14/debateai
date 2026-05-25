@@ -39,6 +39,19 @@ const URLS = [
   // and the individual round corpus is sitemap-rounds.xml.
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   { path: '/exhibition',      changefreq: 'weekly',  priority: '0.75' },
+  // High-intent SEO landing pages targeting specific query clusters.
+  // /debate-an-ai and /debate-online are direct phrase-match doorways
+  // from Google for the "debate an ai" / "debate online" intents the
+  // existing /debate-ai app surface can't claim because its slug is
+  // taken by the typed-mode product page. /compare positions DebateAI
+  // next to general AI assistants without villain framing — anchor
+  // pages targeting comparison-query SERPs.
+  { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92' },
+  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90' },
+  { path: '/compare',                                 changefreq: 'monthly', priority: '0.86' },
+  { path: '/compare/debateai-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
+  { path: '/compare/debateai-vs-claude',              changefreq: 'monthly', priority: '0.84' },
+  { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86' },
   { path: '/learn/formats/apda',     changefreq: 'monthly', priority: '0.78' },
   { path: '/learn/formats/bp',       changefreq: 'monthly', priority: '0.78' },
   { path: '/learn/formats/worlds',   changefreq: 'monthly', priority: '0.78' },
