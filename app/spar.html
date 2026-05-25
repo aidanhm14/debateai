@@ -118,67 +118,77 @@ h1 em{color:var(--accent);font-style:normal}
 
 .lede{font-size:1rem;color:var(--text-dim);line-height:1.55;max-width:480px;margin:0 auto 32px;font-weight:500}
 
-/* Globe — the centerpiece of this page. Simplified 2026-05-24: the
-   prior layered visual (dashed + dotted outer orbits, conic radar
-   sweep, three rotating satellite dots, double ring pulses) read as
-   visually overwhelmed — too many things spinning at once around a
-   small disc. Stripped down to just:
-     • sphere gradient on .globe-frame (specular + shadow + atmosphere)
-     • a single slow breathing halo (box-shadow on .globe-frame)
-     • one quiet expanding ring pulse for "scanning the network"
-     • <canvas id="sparGlobe"> on top via world-globe.js
-   Also bumped 220 → 320px so the disc actually owns its real estate
-   instead of looking tucked in the corner of its own column. */
+/* Radar — the centerpiece of the matchmaking screen. Rewritten
+   2026-05-25: the prior glossy sphere read as "Web3 / NFT mint /
+   generic AI viz." Replaced with a flat radar-disc aesthetic, the
+   real visual now lives inside /js/spar-radar.js (debater nodes,
+   sweep arm, match-attempt arcs, "you" pulse). The .globe-frame
+   wrapper provides just the disc backdrop + a quiet outer halo;
+   the radar canvas owns the rest. Class name kept (.globe-wrap /
+   .globe-frame) so the renderSearching innerHTML and the matched/
+   fallback fallthroughs don't have to change. */
 .globe-wrap{
-  position:relative;width:320px;max-width:78vw;margin:0 auto 22px;
+  position:relative;width:360px;max-width:78vw;margin:0 auto 22px;
   aspect-ratio:1 / 1;
 }
 
 .globe-frame{
   position:relative;width:100%;height:100%;border-radius:50%;
+  /* Dark instrument-glass disc. Almost-black graphite tinted with a
+     hint of deep crimson at the center, vignette at the edge. No more
+     salmon atmosphere or specular sphere highlight — the disc reads
+     as a flat radar plane, not a 3D ball. */
   background:
-    /* Specular highlight top-left for sphere depth */
-    radial-gradient(circle at 32% 28%,
-      rgba(255,210,210,.22) 0%,
-      rgba(255,170,170,.06) 22%,
-      transparent 46%),
-    /* Bottom-right shadow gives the orb 3D shape */
-    radial-gradient(circle at 70% 78%,
-      rgba(0,0,0,.5) 0%,
-      transparent 50%),
-    /* Red atmosphere — center bright, fades to halo */
     radial-gradient(circle at 50% 50%,
-      rgba(239,68,68,.30) 0%,
-      rgba(239,68,68,.14) 38%,
-      rgba(239,68,68,.04) 64%,
-      transparent 80%);
+      rgba(45,10,12,.85) 0%,
+      rgba(20,6,8,.92) 55%,
+      rgba(10,3,4,.96) 88%,
+      rgba(0,0,0,.98) 100%);
+  /* Outer halo + thin rim instead of the prior heavy inset shadows. */
   box-shadow:
-    inset 0 0 80px rgba(239,68,68,.18),
-    inset 0 -16px 44px rgba(0,0,0,.45),
-    0 0 130px rgba(239,68,68,.26);
-  animation:globe-breathe 6.5s ease-in-out infinite;
+    inset 0 0 0 1px rgba(239,68,68,.22),
+    0 0 90px rgba(139,26,26,.32);
+  animation:radar-breathe 7s ease-in-out infinite;
   overflow:hidden;
 }
-/* One quiet pulse — single ring expanding from center, low opacity
-   so it reads as a "scan ping" not a strobe. */
-.globe-frame::before{
-  content:''; position:absolute; inset:18%;
-  border-radius:50%;
-  border:1px solid rgba(239,68,68,.45);
-  pointer-events:none; opacity:0;
-  animation:globe-ring-pulse 5.2s cubic-bezier(.35,0,.25,1) infinite;
-  z-index:1;
+[data-theme="light"] .globe-frame{
+  background:
+    radial-gradient(circle at 50% 50%,
+      #f4ede4 0%,
+      #efe6d9 55%,
+      #e8ddcc 88%,
+      #ddcfbb 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(125,95,45,.22),
+    0 0 90px rgba(125,95,45,.20);
 }
-@keyframes globe-ring-pulse{
-  0%{ transform:scale(.5); opacity:.55 }
-  70%{ opacity:.10 }
-  100%{ transform:scale(1.4); opacity:0 }
+@keyframes radar-breathe{
+  0%,100%{box-shadow:inset 0 0 0 1px rgba(239,68,68,.22), 0 0 90px rgba(139,26,26,.32)}
+  50%    {box-shadow:inset 0 0 0 1px rgba(239,68,68,.32), 0 0 120px rgba(139,26,26,.46)}
 }
-@keyframes globe-breathe{
-  0%,100%{box-shadow:inset 0 0 80px rgba(239,68,68,.18), inset 0 -16px 44px rgba(0,0,0,.45), 0 0 130px rgba(239,68,68,.26)}
-  50%    {box-shadow:inset 0 0 105px rgba(239,68,68,.26), inset 0 -16px 44px rgba(0,0,0,.45), 0 0 170px rgba(239,68,68,.34)}
-}
+/* The canvas sits on top of the disc background, fills it edge-to-edge. */
 .globe-frame canvas{display:block;width:100%;height:100%;position:relative;z-index:3}
+
+/* Live-system metadata strip below the radar — "X debaters online ·
+   Y countries · Z rounds forming · APDA queue active." Reads like a
+   live ops console line. Tabular, calm, doesn't fight the radar. */
+.meta-strip{
+  display:flex;flex-wrap:wrap;justify-content:center;align-items:center;
+  gap:4px 10px;
+  margin:14px auto 22px;max-width:520px;
+  font-family:ui-monospace,SFMono-Regular,monospace;
+  font-size:.7rem;font-weight:500;
+  color:var(--text-ghost);letter-spacing:.04em;
+  font-variant-numeric:tabular-nums;
+}
+.meta-strip .meta-cell strong{color:var(--text);font-weight:600}
+.meta-strip .meta-sep{opacity:.45}
+.meta-strip .meta-dot{
+  display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6);
+  margin-right:5px;animation:meta-dot-pulse 2.1s ease-in-out infinite;
+}
+@keyframes meta-dot-pulse{0%,100%{opacity:.55}50%{opacity:1}}
 
 /* Legacy orb — still used by renderMatched() and renderFallback() as
    brief transition states. Kept for those two short-lived screens. */
@@ -744,6 +754,10 @@ h1 em{color:var(--accent);font-style:normal}
      until DebateGlobe is on window. -->
 <script defer src="/js/world-data.js?v=1"></script>
 <script defer src="/js/world-globe.js?v=1"></script>
+<!-- Matchmaking radar — self-contained Canvas 2D scene that replaces
+     the world-globe on the searching state. Reads as "debate radar /
+     arena" rather than "geographic visualization." -->
+<script defer src="/js/spar-radar.js?v=1"></script>
 
 <div class="wrap" style="padding-top:90px">
   <div class="shell" id="shell">
@@ -915,11 +929,11 @@ h1 em{color:var(--accent);font-style:normal}
   // phase suggests the queue is actively working a different angle.
   // updateStatusPhase() picks the right one based on elapsed seconds.
   var STATUS_PHASES = [
-    { until:  8, text: 'Scanning the queue', sub: 'Looking across active debaters in your format.' },
-    { until: 18, text: 'Pinging recent sparrers', sub: 'Reaching out to debaters who matched in the last hour.' },
-    { until: 30, text: 'Searching adjacent formats', sub: 'Long-form formats sometimes pair faster across the bench.' },
-    { until: 45, text: 'Still looking. Hold tight.', sub: 'Most matches land between 20 and 50 seconds.' },
-    { until: 60, text: 'Almost time to switch to AI', sub: 'If nobody pairs by zero, you get the AI sparring partner.' },
+    { until:  8, text: 'Matching argument styles',   sub: 'Comparing speed, format, and recent rounds across the live queue.' },
+    { until: 18, text: 'Pinging recent sparrers',    sub: 'Reaching out to debaters who matched in the last hour.' },
+    { until: 30, text: 'Searching active circuits',  sub: 'Looking at adjacent formats and rooms that pair fast.' },
+    { until: 45, text: 'Finding your clash',         sub: 'Most matches land between twenty and fifty seconds. Hold.' },
+    { until: 60, text: 'Almost time to switch to AI',sub: 'If nobody pairs by zero, you get the AI sparring partner.' },
   ];
 
   // Faux "recent pairings" ticker. Real handles drawn from the live.html
@@ -945,14 +959,25 @@ h1 em{color:var(--accent);font-style:normal}
       '<h1>Finding you a <em>debater.</em></h1>' +
       '<p class="lede">We\'ll match you with another human running the same format. AI fallback if nobody pairs in 60 seconds.</p>' +
       '<span class="format-pill" title="Format you\'re queueing for">' + escHtml(formatLabel) + '</span>' +
-      // Rotating globe — replaces the static red orb. The visual makes
-      // the wait feel like joining a real network instead of staring at
-      // a loading spinner. Mounts via /js/world-globe.js after this
-      // innerHTML lands.
+      // Matchmaking radar — replaces the prior world-globe. Reads as
+      // "live debate chamber / radar arena" instead of "geographic
+      // visualization." Self-contained renderer in /js/spar-radar.js
+      // mounts after this innerHTML lands. The .globe-frame disc
+      // backdrop and meta-strip below stay in CSS so they don't depend
+      // on JS to render the surface.
       '<div class="globe-wrap"><div class="globe-frame">' +
-          '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
+          '<canvas id="sparRadar" aria-label="Live matchmaking radar"></canvas>' +
         '</div></div>' +
-      '<div class="status" id="statusText"><span id="statusMain">Scanning the queue</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Looking across active debaters in your format.</span></div>' +
+      '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
+        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaDebaters">14</strong> debaters online</span>' +
+        '<span class="meta-sep">·</span>' +
+        '<span class="meta-cell"><strong id="metaCountries">6</strong> countries</span>' +
+        '<span class="meta-sep">·</span>' +
+        '<span class="meta-cell"><strong id="metaRooms">3</strong> rounds forming</span>' +
+        '<span class="meta-sep">·</span>' +
+        '<span class="meta-cell">' + escHtml(formatLabel) + ' queue <strong>active</strong></span>' +
+      '</div>' +
+      '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" id="cancelBtn">Cancel & go home</button>' +
@@ -986,7 +1011,32 @@ h1 em{color:var(--accent);font-style:normal}
     startCountdown();
     startStatusCycle();
     startPairingTicker();
-    mountGlobe('sparGlobe');
+    startMetaDrift();
+    mountRadar('sparRadar');
+  }
+
+  // Gently jitter the live-system numbers in the meta strip so it
+  // reads as a real ops console rather than a static label. No real
+  // backend — these are decorative but plausible spreads. The format
+  // queue cell stays "active" the whole time the user is queued.
+  var metaDriftInterval = null;
+  function startMetaDrift(){
+    if (metaDriftInterval) clearInterval(metaDriftInterval);
+    function tick(){
+      var d = document.getElementById('metaDebaters');
+      var c = document.getElementById('metaCountries');
+      var r = document.getElementById('metaRooms');
+      if (!d || !c || !r){ clearInterval(metaDriftInterval); metaDriftInterval = null; return; }
+      // Slow random walk within plausible ranges.
+      var base = 12 + Math.floor(Math.random() * 7);   // 12-18 debaters
+      var ctry = 4 + Math.floor(Math.random() * 4);    // 4-7 countries
+      var rooms = 2 + Math.floor(Math.random() * 3);   // 2-4 rooms forming
+      d.textContent = String(base);
+      c.textContent = String(ctry);
+      r.textContent = String(rooms);
+    }
+    tick();
+    metaDriftInterval = setInterval(tick, 4200);
   }
 
   // Drive the status-phase rotation. Reads elapsed time from
@@ -1034,8 +1084,35 @@ h1 em{color:var(--accent);font-style:normal}
     pairingTickerInterval = setInterval(tick, 3000);
   }
 
-  // Mount the globe once world-globe.js has loaded. Keeps a handle
-  // so we can stop it on re-render to avoid orphan rAF loops.
+  // Mount the matchmaking radar once /js/spar-radar.js has loaded.
+  // Used by renderSearching — reads as "active matchmaking arena."
+  // Keeps a handle so we can stop the rAF loop on re-render.
+  var radarHandle = null;
+  function mountRadar(canvasId){
+    if (radarHandle && radarHandle.stop) { try { radarHandle.stop(); } catch(e){} }
+    radarHandle = null;
+    function tryMount(retries){
+      if (!window.SparRadar) {
+        if (retries > 0) return setTimeout(function(){ tryMount(retries - 1); }, 60);
+        return;
+      }
+      var c = document.getElementById(canvasId);
+      if (!c) return;
+      radarHandle = window.SparRadar.mount(c, {
+        accent:        '#ef4444',
+        accentDim:     'rgba(239,68,68,.30)',
+        nodeCount:     8,
+        sweepSec:      6.5,
+        matchEverySec: 2.4,
+      });
+    }
+    tryMount(40);
+  }
+
+  // Legacy world-globe mount, kept for the SIGN-IN GATE only. That
+  // surface is pre-auth social proof — showing the geographic spread
+  // of debaters is the right read there. The active matchmaking
+  // (renderSearching) uses mountRadar instead.
   var globeHandle = null;
   function mountGlobe(canvasId){
     if (globeHandle && globeHandle.stop) { try { globeHandle.stop(); } catch(e){} }
@@ -1052,10 +1129,6 @@ h1 em{color:var(--accent);font-style:normal}
         rotateDegPerSec: 5,
         showArcs: true,
         showScanSweep: true,
-        // Skip the opaque dark sphere body. The disc becomes a soft
-        // red glow defined by .globe-frame's radial-gradient + box-shadow
-        // + the canvas rim glow + pins. Reads sexy on light AND dark
-        // themes; the old black disc looked demonic on /light/.
         transparent: true,
       });
     }
