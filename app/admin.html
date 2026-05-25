@@ -256,6 +256,7 @@
       <button id="refresh" class="pill-btn">↻ Refresh</button>
       <span id="last-updated" class="ts"></span>
       <a class="pill-btn" href="/admin-rate">★ Rate outputs</a>
+      <button id="corpus-export" class="pill-btn" title="Download an anonymized JSONL sample of contributable rounds — paste into a cold email to a lab">↓ Corpus sample</button>
       <button id="signout" class="pill-btn">Sign out</button>
       <a class="pill-btn" href="/">← home</a>
     </div>
@@ -686,6 +687,46 @@ $('signin-btn').addEventListener('click', async () => {
 
 $('signout').addEventListener('click', () => auth.signOut());
 $('refresh').addEventListener('click', () => loadAll(true));
+
+// Download an anonymized JSONL sample of contributable rounds. Used to
+// share a row pack with a lab during licensing diligence. Auth token is
+// the same admin Firebase ID token the rest of /admin uses. First call
+// pulls up to 500 rows; X-Has-More:1 means there's another page.
+$('corpus-export').addEventListener('click', async () => {
+  const btn = $('corpus-export');
+  const original = btn.textContent;
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Exporting…';
+    if (!auth.currentUser) throw new Error('Not signed in');
+    const token = await auth.currentUser.getIdToken();
+    const res = await fetch('/api/admin/corpus-export?limit=500', {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error('Export failed (' + res.status + '): ' + errBody.slice(0, 200));
+    }
+    const rowCount = res.headers.get('X-Row-Count') || '?';
+    const hasMore = res.headers.get('X-Has-More') === '1';
+    const body = await res.text();
+    const blob = new Blob([body], { type: 'application/x-jsonlines' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'debatable-corpus-sample-' + new Date().toISOString().slice(0,10) + '.jsonl';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    btn.textContent = '✓ ' + rowCount + ' rows' + (hasMore ? ' (more avail.)' : '');
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 4000);
+  } catch (e) {
+    console.warn('[corpus-export]', e.message);
+    btn.textContent = '✗ ' + (e.message || 'failed').slice(0, 32);
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 5000);
+  }
+});
 $('auto-toggle').addEventListener('click', () => {
   autoRefresh = !autoRefresh;
   $('auto-toggle').textContent = 'Auto-refresh ' + (autoRefresh ? 'on' : 'off');
