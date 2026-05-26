@@ -3088,6 +3088,30 @@ body.signed-in .hero-founding-cta{display:none !important}
   background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.48);color:#1a1a1f;
 }
 
+/* 2026-05-26 (rev6): messianic creed line under the Sign-in CTA.
+   Restored from the pre-2026-05-24 sweep per user direction. Italic
+   Fraunces, quiet, sits as a thesis-statement, not a button. Hidden
+   for signed-in users (they've already crossed the door). */
+.hero-creed{
+  flex-basis:100%;
+  margin:-4px 0 16px;
+  font-family:'Fraunces',Georgia,serif;
+  font-style:italic;
+  font-size:.95rem;
+  font-weight:400;
+  line-height:1.45;
+  color:rgba(0,0,0,.55);
+  letter-spacing:.005em;
+  max-width:460px;
+}
+[data-theme="grey"] .hero-creed,
+[data-theme="crimson"] .hero-creed,
+[data-theme="stone"] .hero-creed{color:rgba(255,255,255,.6)}
+body.signed-in .hero-creed{display:none !important}
+@media (max-width:1099px){
+  .hero-creed{text-align:center;margin-left:auto;margin-right:auto}
+}
+
 /* ─── Signed-in hero tightening ───────────────────────────────────
    When the user is signed in (body.signed-in set by the Firebase
    onAuthStateChanged handler), the hidden Google sign-up button +
@@ -3647,15 +3671,76 @@ body.signed-in .hero-ctas{gap:8px}
   left:7%;
   --deb-accent:rgba(220,140,140,.88);
   --deb-glow:rgba(190,80,80,.40);
-  transform:rotate(3deg);
   transform-origin:50% 95%;
+  /* 2026-05-26 (rev7): gentle wiggle so the figures read as alive
+     between speeches, not as static cutouts. Two slightly-different
+     keyframes per side (different period + slight offset) so the two
+     never sway in sync — that's what reads as mechanical. Amplitude
+     held under 2.5° + ~1px vertical drift; anything bigger looks like
+     they're being shaken. Reduced-motion guard below pins to static
+     for users who opted out. The arm + head get their own micro-
+     animations layered on top inside the SVG nodes (.deb-arm,
+     .deb-head). */
+  animation:debaterWiggleLeft 5.6s ease-in-out infinite;
 }
 .standby-figures .sf-right{
   right:7%;
   --deb-accent:rgba(251,113,113,.92);
   --deb-glow:rgba(239,68,68,.42);
-  transform:scaleX(-1) rotate(3deg);
   transform-origin:50% 95%;
+  animation:debaterWiggleRight 6.4s ease-in-out infinite;
+  animation-delay:-1.2s;
+}
+/* Body sway. Keyframes bake the existing inward tilt (3°) +
+   scaleX(-1) on the right side so the rotation continues to
+   read as "leaning toward the orb" while the figure breathes. */
+@keyframes debaterWiggleLeft{
+  0%,100%{transform:rotate(2.2deg)            translateY(0)}
+  25%    {transform:rotate(4.0deg)            translateY(-1px)}
+  50%    {transform:rotate(3.0deg)            translateY(0.4px)}
+  75%    {transform:rotate(1.6deg)            translateY(-0.6px)}
+}
+@keyframes debaterWiggleRight{
+  0%,100%{transform:scaleX(-1) rotate(2.6deg) translateY(0)}
+  25%    {transform:scaleX(-1) rotate(4.2deg) translateY(-0.8px)}
+  50%    {transform:scaleX(-1) rotate(2.0deg) translateY(0.5px)}
+  75%    {transform:scaleX(-1) rotate(3.6deg) translateY(-1px)}
+}
+/* Head bob — slower than the body sway so the figure doesn't look
+   spasmic. Origin at neck base (cx=100, y=110 ish in the 460-unit
+   SVG) so the head tilts naturally on the body. */
+.standby-figures .stage-debater .deb-head{
+  transform-origin:50% 24%;
+  animation:debaterHeadBob 7.2s ease-in-out infinite;
+}
+.standby-figures .sf-right .deb-head{animation-duration:8s;animation-delay:-2s}
+@keyframes debaterHeadBob{
+  0%,100%{transform:rotate(0deg)   translateY(0)}
+  33%    {transform:rotate(1.4deg) translateY(-0.4px)}
+  66%    {transform:rotate(-1.2deg) translateY(0.3px)}
+}
+/* Free-hand gesture — the .deb-arm group on each silhouette is the
+   raised hand. Slow gesticulation, different period per side so the
+   two don't wave together. */
+.standby-figures .stage-debater .deb-arm{
+  transform-origin:30% 30%;
+  animation:debaterArmWave 5.2s ease-in-out infinite;
+}
+.standby-figures .sf-right .deb-arm{animation-duration:6.1s;animation-delay:-1.7s}
+@keyframes debaterArmWave{
+  0%,100%{transform:rotate(0deg)}
+  40%    {transform:rotate(3.5deg)}
+  70%    {transform:rotate(-2deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .standby-figures .sf-left,
+  .standby-figures .sf-right,
+  .standby-figures .stage-debater .deb-head,
+  .standby-figures .stage-debater .deb-arm{
+    animation:none !important;
+  }
+  .standby-figures .sf-left{transform:rotate(3deg)}
+  .standby-figures .sf-right{transform:scaleX(-1) rotate(3deg)}
 }
 /* 2026-05-24 (rev3): light/stone contrast pass. User flagged the
    figures as "too pale/ghostly" against the cream page bg. Base
@@ -5832,10 +5917,12 @@ section.ui-section .ui-lede{
            hero_headline_view GA event so the variants stay segmentable
            (which tagline a converting session saw). Per-load random, NOT
            sticky per-visitor: the ask is rotation on every load. -->
-      <!-- 2026-05-26 (rev10): explainer eyebrow above the mantra so
-           the product surface is legible in 4 words before the chant
-           lands. -->
-      <p class="hero-explainer-eyebrow">Voice-first AI debate practice.</p>
+      <!-- 2026-05-26 (rev11): explainer eyebrow removed per user. The
+           headline + mantra carry the surface; the four-word eyebrow
+           was a redundant SEO restatement that the hero doesn't need.
+           CSS rules for .hero-explainer-eyebrow left in the stylesheet
+           as dead weight that the next sweep can prune. -->
+      <!-- <p class="hero-explainer-eyebrow">Voice-first AI debate practice.</p> -->
       <!-- 2026-05-26 (rev5): collapsed the triple-chant mantra to a
            single "Debate it." Reason: the repetition read as accidental
            duplication, not intentional rhythm — the rest of the page
@@ -5981,11 +6068,20 @@ section.ui-section .ui-lede{
            its real handler; signInWithPopup → redirect fallback).
            Falls back to /app#chat if the button isn't on the page. -->
       <button type="button" id="heroFoundingCohortCta" class="hero-founding-cta" data-gtag="hero_founding_cohort">
-        <span>Sign in. <span class="hfc-em">50 free rounds a month.</span> No card.</span>
+        <span>Sign in. <span class="hfc-em">50 free rounds a month.</span></span>
         <svg class="hfc-arrow" viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">
           <path d="M2 7 L11 7 M7 3 L11 7 L7 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
+      <!-- 2026-05-26 (rev6): "No card." dropped from the CTA; the
+           original messianic creed restored beneath it as a thesis-
+           line. This is the same creed the 2026-05-23 soul.md note
+           said was kept "by design" — it slipped out of the hero in
+           the 2026-05-24 sweep (see comment block above); user
+           explicitly asked to frame the sign-in with it instead of
+           the meter-y "No card." microcopy. Italic Fraunces, quiet
+           dim-text color, sits as a quote, not a CTA. -->
+      <p class="hero-creed">AI as antagonist and tool. Not the Messiah, nor an arbitrary enemy.</p>
       <script>
         (function(){
           var btn = document.getElementById('heroFoundingCohortCta');
