@@ -10790,6 +10790,32 @@ section.ui-section .ui-lede{
     text-decoration-color:rgba(239,68,68,.4);
   }
   .faq-feedback-tail .ffft-link:hover{text-decoration-color:var(--accent,#ef4444)}
+
+  /* ── Perf: skip render/layout/paint for off-screen sections.
+     content-visibility: auto tells the browser to defer the rendering
+     work for these elements until they scroll near the viewport. On
+     a ~530KB page with thousands of off-screen DOM nodes this cuts
+     initial paint cost AND keeps off-screen sections out of the
+     layout/style-recalc loop. Anchor-link scrolls (e.g. "Watch a
+     sample ballot" → #live-proof, jumpnav → #faq) still work —
+     Chromium auto-renders the target section before scrolling.
+     Gated behind @supports so older browsers just see normal layout. */
+  @supports (content-visibility: auto) {
+    #overview,
+    #live-proof,
+    #tools,
+    #debate-ai,
+    .topics-edu-pair,
+    .landing-guides-block,
+    .landing-compare-block,
+    #philosophy,
+    #proPanel,
+    #faq,
+    #more {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 800px;
+    }
+  }
 </style>
 
 <!-- Story + Help build this. 2026-05-15: paired side-by-side. Both
