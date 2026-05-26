@@ -61,7 +61,7 @@ function notFoundResponse() {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Motion not found · Debatable</title>
+<title>Motion not found · Debate AI</title>
 <meta name="robots" content="noindex">
 <style>
   body{background:#080C14;color:#e8edf6;font:17px/1.7 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;margin:0;padding:64px 24px;text-align:center}
@@ -323,7 +323,7 @@ function commonStyles() {
 
 function topNav() {
   return `<nav class="topnav">
-    <a class="nav-home" href="/"><span class="ar">←</span> Debatable</a>
+    <a class="nav-home" href="/"><span class="ar">←</span> Debate AI</a>
     <span class="nav-group">
       <a href="/debate">All motions</a>
       <a class="nav-cta" href="/debate-ai">Practice <span class="ar">→</span></a>
@@ -351,8 +351,8 @@ function argCard(side, a) {
 }
 
 function renderMotionPage(m) {
-  const titleCore = `${m.title} Both Sides, Argued · Debatable`;
-  const title = `${m.title} · Debatable`;
+  const titleCore = `${m.title} Both Sides, Argued · Debate AI`;
+  const title = `${m.title} · Debate AI`;
   const canonical = `${SITE_ORIGIN}/debate/${m.slug}`;
   const proHref = trainerHref(m, 'pro');
   const conHref = trainerHref(m, 'con');
@@ -367,14 +367,14 @@ function renderMotionPage(m) {
         description: m.description,
         about: m.category,
         keywords: m.keywords.join(', '),
-        author: { '@type': 'Organization', name: 'Debatable', url: SITE_ORIGIN },
-        publisher: { '@type': 'Organization', name: 'Debatable', logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` } },
+        author: { '@type': 'Organization', name: 'Debate AI', url: SITE_ORIGIN },
+        publisher: { '@type': 'Organization', name: 'Debate AI', logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` } },
         url: canonical, mainEntityOfPage: canonical, inLanguage: 'en', image: OG_IMAGE,
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Debatable', item: `${SITE_ORIGIN}/` },
+          { '@type': 'ListItem', position: 1, name: 'Debate AI', item: `${SITE_ORIGIN}/` },
           { '@type': 'ListItem', position: 2, name: 'Debate', item: `${SITE_ORIGIN}/debate` },
           { '@type': 'ListItem', position: 3, name: m.title, item: canonical },
         ],
@@ -397,7 +397,7 @@ function renderMotionPage(m) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debatable">
+<meta property="og:site_name" content="Debate AI">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titleCore)}">
 <meta name="twitter:description" content="${esc(m.description)}">
@@ -523,7 +523,7 @@ ${rail(m)}
   </section>
 
   <footer class="dfoot">
-    <span>© 2026 Debatable</span>
+    <span>© 2026 Debate AI</span>
     <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/learn">Learn</a> · <a href="/debate-ai">Practice</a></span>
   </footer>
 </main>
@@ -558,7 +558,7 @@ ${rail(m)}
 
 function renderHubPage() {
   const motions = listMotions();
-  const title = 'Debate Both Sides of the Big Questions · Debatable';
+  const title = 'Debate Both Sides of the Big Questions · Debate AI';
   const description = "Argument dossiers on the questions people actually search: AI regulation, AI and jobs, AI in school, AI art, TikTok, social media for minors, UBI, nuclear. Both sides, a sample round, a judge ballot. Then argue it yourself.";
   const canonical = `${SITE_ORIGIN}/debate`;
 
@@ -569,13 +569,13 @@ function renderHubPage() {
         '@type': 'CollectionPage',
         name: "Debate Both Sides of the Big Questions",
         description, url: canonical, inLanguage: 'en',
-        isPartOf: { '@type': 'WebSite', name: 'Debatable', url: `${SITE_ORIGIN}/` },
+        isPartOf: { '@type': 'WebSite', name: 'Debate AI', url: `${SITE_ORIGIN}/` },
         hasPart: motions.map(m => ({ '@type': 'Article', name: m.title, url: `${SITE_ORIGIN}/debate/${m.slug}`, description: m.description })),
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Debatable', item: `${SITE_ORIGIN}/` },
+          { '@type': 'ListItem', position: 1, name: 'Debate AI', item: `${SITE_ORIGIN}/` },
           { '@type': 'ListItem', position: 2, name: 'Debate', item: canonical },
         ],
       },
@@ -605,7 +605,7 @@ function renderHubPage() {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="website">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debatable">
+<meta property="og:site_name" content="Debate AI">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -630,7 +630,7 @@ function renderHubPage() {
   <div class="hub-grid">${econ.map(card).join('')}</div>
 
   <footer class="dfoot">
-    <span>© 2026 Debatable</span>
+    <span>© 2026 Debate AI</span>
     <span><a href="/topics">Format guides</a> · <a href="/learn">Learn</a> · <a href="/debate-ai">Practice</a> · <a href="/">Home</a></span>
   </footer>
 </main>

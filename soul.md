@@ -1,4 +1,4 @@
-# soul.md. Debatable
+# soul.md. Debate AI · "Debatable" personality · "Debate it" CTA
 
 **A living document of what this product is, who it's for, how it sounds, and why the decisions were made the way they were. When a new contributor (or a new Claude session) loads this repo, read this file first. If a change would contradict something here, either the change or this file is wrong. don't ship the change without reconciling.**
 
@@ -6,7 +6,9 @@
 
 ## 1. What this is (one sentence)
 
-Debatable (formerly DebateAI) is a **voice-first adversarial-argument trainer** built for competitive debaters, extending to any professional whose job is arguing out loud. The brand renamed from "Debate AI" → "Debatable" on 2026-05-25 after the user acquired debatable.com; visible copy, titles, and JSON-LD now read Debatable, while the production domain remains debateai.com until a separate DNS migration.
+Debate AI is a **voice-first adversarial-argument trainer** built for competitive debaters, extending to any professional whose job is arguing out loud. Lives at **debateai.com**.
+
+**Three-word brand system (2026-05-26):** the product name is **"Debate AI"** (matches the domain we actually own). The personality word in body copy is **"Debatable"** — used as occasional flavor ("Everything is debatable", "Everything here is debatable") and as the SEO-anchor entity at `/debatable`. The CTA verb across the site is **"Debate it"** — primary buttons read "Debate it", "Debate it now", "Debate it out." See decision log 2026-05-26 for the full rationale (short version: the 2026-05-25 wholesale rename to "Debatable" was reversed within 24 hours after the user discovered they hadn't actually acquired debatable.com — the domain has been owned since 1999 by a privacy-shielded registrant with all four transfer locks set, so the rename was claiming a brand-domain match that didn't exist. The personality + CTA roles preserve the energy of the rename without claiming a domain we don't own).
 
 Not a chatbot. Not a writing assistant. Not a research tool. A **live sparring partner** that gives you real speeches against a clock, then grades you like a judge would.
 
@@ -182,4 +184,8 @@ Target conversion tier: **Individual at $5/year**. Everything else exists to fun
 
 ---
 
-*Last updated: 2026-05-25 (brand rename pass) · Maintained as part of the repo, not as a wiki page. When something here becomes false, fix the code or fix this file. don't leave the contradiction.*
+- **Brand rename reversed; three-word brand system adopted** (2026-05-26, the day after the rename). The 2026-05-25 wholesale rename to "Debatable" was rolled back when the user discovered the domain `debatable.com` was not actually acquired — `whois debatable.com` showed the domain has been owned since **1999** by a privacy-shielded registrant (Domains By Proxy, Tempe AZ) with all four transfer locks set (`clientDeleteProhibited`, `clientRenewProhibited`, `clientTransferProhibited`, `clientUpdateProhibited`), pointed at an AWS load balancer returning HTTP 405. Owner is actively protecting it; not casually parked. What the user actually bought at GoDaddy was `debatetable.com` — a typo-variant the registrar offered as an "available alternative" when the search box showed debatable.com unavailable. They paid ~$10–15 thinking they had the brand domain. Counter-move: pursue debatable.com via GoDaddy's Domain Broker Service ($69.99 service fee + 20% commission, realistic price range $15K-$100K, ~50% chance owner ignores), refund debatetable.com if inside the registrar's window, and on the code side flip to a **three-word brand system**: product name is **"Debate AI"** (matches the domain), personality word is **"Debatable"** (used in body copy and as the `/debatable` SEO entity page), CTA verb is **"Debate it"** (sweep landing across primary buttons). This preserves the brand-entity SEO investment from the typo-cleanup + alternateName work shipped 2026-05-25 (commit `98c50a5`) while honestly representing what we own. Net code change: visible `Debatable` → `Debate AI` via perl with negative-lookahead for ` AI` / ` app` / `.com` brand-variants and `alternateName` JSON-LD context (~118 files, ~600 visible mentions reverted); topbar wordmark restored to "**Debate** AI." two-tone; JSON-LD `alternateName` arrays cleaned (removed `Debatable.com` / `debatable.com` since we don't own them, added bare `Debatable` for the personality word, deduplicated `Debate AI` doubles); footer + hero gained one personality mention each ("Everything is debatable", "Everything here is debatable" italic sublabel); `/debatable` entity page kept intact (it's the SEO-anchor for the personality word and reads as a Wikipedia-style brand definition). Open follow-ups: (i) GoDaddy Domain Broker outreach for the real debatable.com; (ii) refund attempt on debatetable.com via registrar; (iii) the CTA verb sweep ("Start arguing"/"Begin"/etc → "Debate it") to be shipped as a second commit (Batch B).
+
+---
+
+*Last updated: 2026-05-26 (brand rename reversed; three-word brand system adopted) · Maintained as part of the repo, not as a wiki page. When something here becomes false, fix the code or fix this file. don't leave the contradiction.*

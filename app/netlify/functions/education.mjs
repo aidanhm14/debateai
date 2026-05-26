@@ -45,7 +45,7 @@ function notFoundResponse() {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Topic not found · Education · Debatable</title>
+<title>Topic not found · Education · Debate AI</title>
 <meta name="robots" content="noindex">
 <style>body{background:#000;color:#fff;font-family:system-ui,sans-serif;margin:0;padding:80px 24px;text-align:center}h1{font-size:2rem;margin-bottom:8px}p{color:rgba(255,255,255,.6);margin:0 0 20px}a{color:#a78bfa;text-decoration:none;font-weight:700}</style>
 </head><body>
@@ -71,7 +71,7 @@ function renderHead(title, description, canonical, jsonLdBlocks) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debatable">
+<meta property="og:site_name" content="Debate AI">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -181,7 +181,7 @@ ${jsonLdBlocks.map(b => `<script type="application/ld+json">${jsonLd(b)}</script
 // ───────── /education (hub) ─────────
 
 function renderIndex() {
-  const title = 'Education · Know the world before you argue it · Debatable';
+  const title = 'Education · Know the world before you argue it · Debate AI';
   const description = 'Subject primers and self-check quizzes on finance, feminist theory, international relations, and climate policy. Substantive world knowledge for debaters — the domain layer that wins motions.';
   const canonical = `${SITE_ORIGIN}/learn/education`;
 
@@ -194,7 +194,7 @@ function renderIndex() {
     isPartOf: { '@type': 'WebPage', url: `${SITE_ORIGIN}/learn`, name: 'Learn to Argue' },
     publisher: {
       '@type': 'Organization',
-      name: 'Debatable',
+      name: 'Debate AI',
       url: SITE_ORIGIN,
       logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` },
     },
@@ -220,7 +220,7 @@ function renderIndex() {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Debatable', item: SITE_ORIGIN + '/' },
+      { '@type': 'ListItem', position: 1, name: 'Debate AI', item: SITE_ORIGIN + '/' },
       { '@type': 'ListItem', position: 2, name: 'Learn to Argue', item: `${SITE_ORIGIN}/learn` },
       { '@type': 'ListItem', position: 3, name: 'Education', item: canonical },
     ],
@@ -239,7 +239,7 @@ function renderIndex() {
 
   return `${renderHead(title, description, canonical, [ldCollection, ldBreadcrumbs])}
 <main class="shell">
-  <nav class="crumbs"><a href="/">Debatable</a> / <a href="/learn">Learn to Argue</a> / Education</nav>
+  <nav class="crumbs"><a href="/">Debate AI</a> / <a href="/learn">Learn to Argue</a> / Education</nav>
   <span class="eyebrow"><span class="eyebrow-dot"></span>Education · Know the world</span>
   <h1>Subject primers for debaters.</h1>
   <p class="lede">Most motions are won or lost on whether you can do the actual subject out loud. This is the domain knowledge: finance, feminist theory, international relations, climate policy, and the concepts that come up in rounds. Read the primer, take the quiz, then argue a motion against the AI on the same topic.</p>
@@ -249,7 +249,7 @@ function renderIndex() {
   </section>
 
   <footer>
-    <span>© 2026 Debatable</span>
+    <span>© 2026 Debate AI</span>
     <span><a href="/">Home</a> · <a href="/learn">Learn to Argue</a> · <a href="/topics">Topics hub</a> · <a href="/today">Today's motion</a></span>
   </footer>
 </main>
@@ -274,10 +274,10 @@ function renderPrimer(slug) {
     '@type': 'Article',
     headline: `${t.name} for debaters`,
     description,
-    author: { '@type': 'Organization', name: 'Debatable', url: SITE_ORIGIN + '/' },
+    author: { '@type': 'Organization', name: 'Debate AI', url: SITE_ORIGIN + '/' },
     publisher: {
       '@type': 'Organization',
-      name: 'Debatable',
+      name: 'Debate AI',
       url: SITE_ORIGIN,
       logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` },
     },
@@ -298,7 +298,7 @@ function renderPrimer(slug) {
     educationalLevel: 'High school / College',
     teaches: t.concepts.map(c => c.term).join(', '),
     inLanguage: 'en',
-    provider: { '@type': 'Organization', name: 'Debatable', url: SITE_ORIGIN + '/' },
+    provider: { '@type': 'Organization', name: 'Debate AI', url: SITE_ORIGIN + '/' },
     isPartOf: { '@type': 'WebPage', url: `${SITE_ORIGIN}/learn/education`, name: 'Education' },
   };
 
@@ -330,7 +330,7 @@ function renderPrimer(slug) {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Debatable', item: SITE_ORIGIN + '/' },
+      { '@type': 'ListItem', position: 1, name: 'Debate AI', item: SITE_ORIGIN + '/' },
       { '@type': 'ListItem', position: 2, name: 'Learn to Argue', item: `${SITE_ORIGIN}/learn` },
       { '@type': 'ListItem', position: 3, name: 'Education', item: `${SITE_ORIGIN}/learn/education` },
       { '@type': 'ListItem', position: 4, name: t.name, item: canonical },
@@ -395,7 +395,7 @@ function renderPrimer(slug) {
 
   return `${renderHead(title, description, canonical, headBlocks)}
 <main class="shell">
-  <nav class="crumbs"><a href="/">Debatable</a> / <a href="/learn">Learn to Argue</a> / <a href="/learn/education">Education</a> / ${esc(t.name)}</nav>
+  <nav class="crumbs"><a href="/">Debate AI</a> / <a href="/learn">Learn to Argue</a> / <a href="/learn/education">Education</a> / ${esc(t.name)}</nav>
   <span class="eyebrow"><span class="eyebrow-dot"></span>${esc(t.eyebrow)}</span>
   <h1>${esc(t.name)}.</h1>
   <p class="lede">${esc(t.pitch)}</p>
@@ -427,7 +427,7 @@ ${quizBox}
   </section>
 
   <footer>
-    <span>© 2026 Debatable</span>
+    <span>© 2026 Debate AI</span>
     <span><a href="/">Home</a> · <a href="/learn/education">All primers</a> · <a href="/learn">Learn to Argue</a> · <a href="/today">Today's motion</a></span>
   </footer>
 </main>

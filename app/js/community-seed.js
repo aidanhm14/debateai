@@ -50,7 +50,7 @@
     'Anonymous','coach','?','vivek','x_x','newkid',
   ];
 
-  // Format mix tuned to where Debatable traffic actually competes.
+  // Format mix tuned to where Debate AI traffic actually competes.
   // Asian Parli + BP up top because the India-heavy circuit runs those.
   const FORMAT_BANK = [
     { slug:'asian',   name:'Asian Parli',     w:24 },

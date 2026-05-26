@@ -55,7 +55,7 @@ same indent level as `"name"`:
 ```json
 {
   "manifest_version": 3,
-  "name": "Counter: Oral Exam Trainer (by Debatable)",
+  "name": "Counter: Oral Exam Trainer (by Debate AI)",
   "key": "MIIBIjANBg...AQAB",
   ...
 }
