@@ -82,8 +82,22 @@
     return { bg: '#ef444428', border: '#ef444488', text: '#ef4444', label: 'cap reached' };
   }
 
+  // Auto-dismiss timer for the "cap reached" banner only. The lower-
+  // severity banners (50/75/90%) stay put — they're useful nudges that
+  // a user can act on. The "cap reached" banner is a one-time signal:
+  // user already hit zero, no further action is possible from the bar
+  // itself, so leaving it there permanently just clutters the top of
+  // every page. Fade it out ~5s after render so the message lands once.
+  let capDismissTimer = null;
+  let capFadeTimer = null;
+  function clearCapDismissTimers() {
+    if (capDismissTimer) { clearTimeout(capDismissTimer); capDismissTimer = null; }
+    if (capFadeTimer)    { clearTimeout(capFadeTimer);    capFadeTimer    = null; }
+  }
+
   function render(usage) {
     const root = ensureRoot();
+    clearCapDismissTimers(); // a fresh render cancels any pending fade
     if (!usage) { root.innerHTML = ''; return; }
 
     const used = usage.usageThisPeriod || 0;
@@ -154,6 +168,25 @@
     pill.appendChild(cta);
 
     root.appendChild(pill);
+
+    // Auto-dismiss when at cap. 4.5s read window, then 600ms fade,
+    // then remove from DOM. Honors prefers-reduced-motion by skipping
+    // the opacity transition.
+    if (remaining === 0) {
+      const reduceMotion =
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      pill.style.transition = reduceMotion ? 'none' : 'opacity .6s ease, transform .6s ease';
+      capDismissTimer = setTimeout(() => {
+        if (!pill.isConnected) return;
+        pill.style.opacity = '0';
+        pill.style.transform = 'translateY(-8px)';
+        capFadeTimer = setTimeout(() => {
+          // Re-check root in case render() fired again between schedule and fire.
+          if (root.contains(pill)) root.innerHTML = '';
+        }, reduceMotion ? 0 : 620);
+      }, 4500);
+    }
   }
 
   async function fetchUsage() {
