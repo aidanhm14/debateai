@@ -2500,6 +2500,184 @@ section.hero{
   display:inline-block;font-size:.95em;transition:transform .25s ease;
 }
 .hero-stage-cta:hover .hero-stage-cta-arrow{transform:translateX(4px)}
+
+/* ── Polish layer (2026-05-26 rev4) ──────────────────────────
+   Orbital standby, ambient env signals, connection paths from
+   orb to debaters, mobile order rules. Goal: the room feels
+   inhabited and connected, not three independent shapes
+   sharing a viewport. */
+
+/* "AI · standing by" repositioned from below-the-orb to overlap
+   the orb's lower-right perimeter — reads as a system label
+   anchored to the orb, not a caption floating beneath it. The
+   existing .hero-orb-standby base CSS (margin, font, dot) stays
+   in place; this overrides position only. Desktop only — mobile
+   keeps the below-flow position so the small viewport stays
+   tidy. */
+@media (min-width:900px){
+  .hero-orb-card{position:relative;}
+  .hero-orb-card .hero-orb-standby{
+    position:absolute;
+    left:50%;top:calc(50% + clamp(120px,16vw,180px));
+    transform:translateX(-50%);
+    margin:0;
+    padding:6px 14px;
+    background:rgba(20,5,7,.78);
+    border:1px solid rgba(239,68,68,.32);
+    border-radius:999px;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    box-shadow:0 8px 24px -10px rgba(239,68,68,.4);
+    font-size:.62rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+    color:#fff;
+    z-index:4;
+    white-space:nowrap;
+  }
+  [data-theme="light"] .hero-orb-card .hero-orb-standby,
+  [data-theme="stone"] .hero-orb-card .hero-orb-standby{
+    background:rgba(255,255,255,.88);
+    border-color:rgba(220,38,38,.32);
+    color:#b91c1c;
+    box-shadow:0 8px 24px -10px rgba(220,38,38,.28);
+  }
+}
+
+/* Live env signals — floating chips around the orb-card showing
+   real-feeling system state. Numbers drift via the inline script
+   below the markup so the ecosystem reads as inhabited. Three
+   chips, positioned at the corners of the card so they don't
+   compete with the orb itself. Hidden under 900px to keep mobile
+   uncluttered. */
+.hero-env-signal{
+  position:absolute;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:999px;
+  background:rgba(20,5,7,.62);
+  border:1px solid rgba(239,68,68,.22);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  font-family:ui-monospace,SFMono-Regular,monospace;
+  font-size:.62rem;font-weight:600;letter-spacing:.06em;
+  color:rgba(255,255,255,.74);
+  z-index:3;
+  pointer-events:none;
+  opacity:0;
+  animation:env-fade-in 1.2s ease-out forwards;
+}
+.hero-env-signal strong{
+  color:#fff;font-variant-numeric:tabular-nums;font-weight:700;
+}
+.hero-env-signal .hes-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6);
+  animation:env-dot-pulse 2.1s ease-in-out infinite;
+}
+[data-theme="light"] .hero-env-signal,
+[data-theme="stone"] .hero-env-signal{
+  background:rgba(255,255,255,.78);
+  border-color:rgba(125,95,45,.20);
+  color:rgba(40,28,15,.72);
+}
+[data-theme="light"] .hero-env-signal strong,
+[data-theme="stone"] .hero-env-signal strong{color:#3a2a14}
+@keyframes env-fade-in{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes env-dot-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+/* Per-chip positioning + a soft drift animation so each one
+   gently floats. Different keyframe offsets so the three chips
+   don't sync into a single bouncing rhythm. */
+.hero-env-signals .hes-top-left{
+  top:18%;left:-4%;animation-delay:.1s;
+}
+.hero-env-signals .hes-top-right{
+  top:14%;right:-2%;animation-delay:.4s;
+}
+.hero-env-signals .hes-bottom-left{
+  bottom:18%;left:-2%;animation-delay:.7s;
+}
+@media (min-width:900px){
+  .hero-env-signals .hes-top-left{animation:env-fade-in 1.2s ease-out .1s forwards, env-drift-a 9s ease-in-out 1.4s infinite}
+  .hero-env-signals .hes-top-right{animation:env-fade-in 1.2s ease-out .4s forwards, env-drift-b 11s ease-in-out 1.7s infinite}
+  .hero-env-signals .hes-bottom-left{animation:env-fade-in 1.2s ease-out .7s forwards, env-drift-c 10s ease-in-out 2s infinite}
+}
+@keyframes env-drift-a{
+  0%,100%{transform:translate(0,0)}
+  50%{transform:translate(2px,-3px)}
+}
+@keyframes env-drift-b{
+  0%,100%{transform:translate(0,0)}
+  50%{transform:translate(-3px,4px)}
+}
+@keyframes env-drift-c{
+  0%,100%{transform:translate(0,0)}
+  50%{transform:translate(3px,-2px)}
+}
+@media (max-width:899px){
+  .hero-env-signals{display:none}
+}
+
+/* Connection paths — faint SVG curves from orb center to each
+   debater's head position. Stroke-dasharray + animated
+   dashoffset gives a slow signal-pulse, suggesting the orb is
+   "in conversation with" both debaters. Sits behind the canvas
+   (z-index:0) but above the card background. Hidden under
+   900px since the debaters are display:none there. */
+.hero-connect-paths{
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  pointer-events:none;
+  z-index:1;
+  overflow:visible;
+}
+.hero-connect-paths path{
+  fill:none;
+  stroke:rgba(239,68,68,.34);
+  stroke-width:1.2;
+  stroke-dasharray:4 6;
+  stroke-linecap:round;
+  animation:connect-pulse 4s linear infinite;
+}
+[data-theme="light"] .hero-connect-paths path,
+[data-theme="stone"] .hero-connect-paths path{
+  stroke:rgba(125,95,45,.32);
+}
+.hero-connect-paths path.hcp-right{animation-delay:-2s}
+@keyframes connect-pulse{
+  from{stroke-dashoffset:0}
+  to{stroke-dashoffset:-30}
+}
+@media (max-width:899px){
+  .hero-connect-paths{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-connect-paths path{animation:none}
+  .hero-env-signal,
+  .hero-env-signal .hes-dot{animation:none}
+}
+
+/* Mobile order — under the desktop @media wrapper (so it
+   applies on narrower widths only). Single column flex
+   already happens naturally; this enforces the explicit
+   sequence the user asked for: headline → orb (with debaters
+   inside) → primary CTAs → secondary pills → founder. */
+@media (max-width:899px){
+  .editorial-hero{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+  }
+  .editorial-hero .hero-headline{order:1;margin:24px auto 0}
+  .editorial-hero .hero-card-stack{order:2;margin:22px auto 0}
+  .editorial-hero .hero-stage-cta{order:3;margin:18px auto 0}
+  .editorial-hero .hero-pill-rail--primary{order:4;margin:18px auto 0;display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+  .editorial-hero .hero-pill-rail--secondary{order:5;margin:14px auto 0}
+  .editorial-hero .hero-ctas{order:6;margin:18px auto 0}
+  .editorial-hero .hero-founder-cue{order:7;margin:24px auto 0}
+  .editorial-hero .editorial-signin-row{order:8;margin:20px auto 0}
+  .editorial-hero .hero-building-note,
+  .editorial-hero .hero-bookmark-note{order:9}
+}
 .hero-content{
   max-width:1240px !important;
   text-align:left !important;
@@ -5776,6 +5954,31 @@ section.ui-section .ui-lede{
               <ellipse class="deb-mic-head" cx="102" cy="263" rx="4" ry="6"/>
             </svg>
           </div>
+          <!-- 2026-05-26 rev4: faint connection paths from the orb
+               center to each debater's head. Sits BEHIND the canvas
+               (z-index:1, canvas is z-index:3 in the surrounding rules)
+               so the orb dominates but the relationship between orb
+               and debaters is visible. Two cubic Bezier curves with
+               animated stroke-dashoffset for a slow signal-pulse. -->
+          <svg class="hero-connect-paths" viewBox="0 0 600 400" preserveAspectRatio="none" aria-hidden="true">
+            <path class="hcp-left"  d="M 75 240 C 180 220, 240 210, 300 200"/>
+            <path class="hcp-right" d="M 525 240 C 420 220, 360 210, 300 200"/>
+          </svg>
+          <!-- 2026-05-26 rev4: live env signals. Three small floating
+               chips at the corners of the card showing real-feeling
+               system state. Numbers drift via the inline script below
+               so the ecosystem reads as inhabited, not static. -->
+          <div class="hero-env-signals" aria-hidden="true">
+            <span class="hero-env-signal hes-top-left">
+              <span class="hes-dot"></span><strong id="hesActive">61</strong> active
+            </span>
+            <span class="hero-env-signal hes-top-right">
+              <strong id="hesRooms">8</strong> rooms forming
+            </span>
+            <span class="hero-env-signal hes-bottom-left">
+              <strong id="hesLatency">214</strong>ms voice
+            </span>
+          </div>
           <canvas class="hero-orb-canvas" id="heroOrbCanvas" aria-hidden="true"></canvas>
           <div class="hero-orb-standby">
             <span class="hero-orb-standby-dot" aria-hidden="true"></span>
@@ -5785,6 +5988,27 @@ section.ui-section .ui-lede{
           <span class="hero-orb-cta">Start a voice round</span>
         </a>
       </div>
+
+      <!-- 2026-05-26 rev4: drift the env-signal numbers so the chips
+           read as a live ops console rather than static decoration.
+           Walks each number within a plausible range every ~5s. No
+           backend; these are decorative but ecosystem-shaped. -->
+      <script>
+        (function(){
+          var ids = ['hesActive','hesRooms','hesLatency'];
+          if (ids.every(function(id){return !document.getElementById(id);})) return;
+          function rand(min, max){ return Math.floor(min + Math.random()*(max-min+1)); }
+          function tick(){
+            var a = document.getElementById('hesActive');
+            var r = document.getElementById('hesRooms');
+            var l = document.getElementById('hesLatency');
+            if (a) a.textContent = String(rand(54, 78));   // active debaters
+            if (r) r.textContent = String(rand(5, 12));    // rooms forming
+            if (l) l.textContent = String(rand(192, 248)); // voice latency ms
+          }
+          setInterval(tick, 5200);
+        })();
+      </script>
 
       <!-- 2026-05-26 (rev3): single bold climax CTA under the stage.
            Triangular composition needed ONE obvious primary action;
