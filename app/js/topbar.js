@@ -146,17 +146,82 @@
     if (!mount) return;
 
     var nav = el('nav', { class: 'ui-topbar', 'aria-label': 'Site navigation' });
+
+    // ── Rotating wordmark (2026-05-26) ────────────────────────────────
+    // Three-word brand system: product name = "Debate AI" (matches the
+    // domain), personality = "Debatable", CTA verb = "Debate it".
+    // Wordmark picks one of the three on every page load so the brand
+    // surface feels alive without confusing visitors — same accent-red
+    // styling on the lead word, same TM mark, same size. Picks are
+    // weighted so the canonical "Debate AI" lands ~50% of the time and
+    // the two personality words split the rest, keeping product-name
+    // recognition stable while still surfacing "Debatable" / "Debate it"
+    // as known brand variants. Fixed for the lifetime of a single page
+    // view via sessionStorage so navigating between pages doesn't
+    // flicker between forms (only a hard reload re-rolls).
+    //
+    // SEO note: Googlebot executes JS but takes one snapshot per crawl,
+    // so the rotation only surfaces ONE variant per indexing pass.
+    // The static "Also known as" line below + the alternateName JSON-LD
+    // on landing/pricing/debate-ai/debatable are what actually teach
+    // Google that all three are the same brand entity.
+    var BRAND_VARIANTS = [
+      { key: 'debate_ai',  lead: 'Debate', tail: ' AI.',  weight: 5, aria: 'Debate AI, home' },
+      { key: 'debatable',  lead: 'Debatable', tail: '.',  weight: 3, aria: 'Debatable, home' },
+      { key: 'debate_it',  lead: 'Debate', tail: ' it.',  weight: 2, aria: 'Debate it, home' }
+    ];
+    function pickWordmark(){
+      // sessionStorage so a page navigation within the same tab keeps
+      // the same wordmark — only a hard reload (or new tab) re-rolls.
+      // This avoids the brand-name flickering as the user clicks around.
+      try {
+        var cached = sessionStorage.getItem('da-wordmark-variant');
+        if (cached) {
+          for (var i = 0; i < BRAND_VARIANTS.length; i++) {
+            if (BRAND_VARIANTS[i].key === cached) return BRAND_VARIANTS[i];
+          }
+        }
+      } catch (e) {}
+      var total = 0;
+      for (var j = 0; j < BRAND_VARIANTS.length; j++) total += BRAND_VARIANTS[j].weight;
+      var r = Math.random() * total;
+      var acc = 0;
+      var picked = BRAND_VARIANTS[0];
+      for (var k = 0; k < BRAND_VARIANTS.length; k++) {
+        acc += BRAND_VARIANTS[k].weight;
+        if (r < acc) { picked = BRAND_VARIANTS[k]; break; }
+      }
+      try { sessionStorage.setItem('da-wordmark-variant', picked.key); } catch (e) {}
+      // GA event so we can see which name gets the most click-through
+      // over time. Tells us which brand name to lean into.
+      try {
+        if (window.gtag) window.gtag('event', 'wordmark_render', {
+          event_category: 'brand', event_label: picked.key
+        });
+        if (window.dosTrack) window.dosTrack('wordmark_render', { variant: picked.key });
+      } catch (e) {}
+      return picked;
+    }
+    var WM = pickWordmark();
+
     var left = el('div', { class: 'ui-topbar-left' }, [
       el('a', {
         href: '/',
         class: 'ui-topbar-logo',
-        'aria-label': 'Debate AI, home',
+        'aria-label': WM.aria,
         title: 'Back to home',
-        // Three-word brand system (2026-05-26): product name is
-        // "Debate AI" (matches the domain). "Debatable" is the
-        // personality word in body copy. "Debate it" is the CTA verb.
-        // Two-tone wordmark: accent-red on "Debate", plain on " AI."
-        html: '<span>Debate</span> AI.<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>',
+        // First word in accent-red (.ui-topbar-logo span color is var(--accent)),
+        // remainder in default text color. Trailing period + TM are common
+        // across all three variants for visual consistency.
+        // Also: a screen-reader-only "Also known as" line so crawlers + AT
+        // users get all three brand names regardless of which variant the
+        // JS picked. The .sr-only span is in every render so SEO indexing
+        // doesn't depend on the rotation snapshot Google happens to take.
+        html: '<span>' + WM.lead + '</span>' + WM.tail
+            + '<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>'
+            + '<span class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">'
+            + ' Debate AI · also known as Debatable · also known as Debate it.'
+            + '</span>',
       }),
       // 2026-05-18: the "Beta · Updating daily" chip used to sit next to
       // the wordmark on every page. It read as crowded chrome that
