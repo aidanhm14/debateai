@@ -1,7 +1,6 @@
 // Bumped to v10 — see app/sw.js for detail.
 
 <<<<<<< HEAD
-const CACHE_NAME = 'debateos-v769';
 =======
 const CACHE_NAME = 'debateos-v770';
 >>>>>>> 87a867a (free-tier: sweep the rest of the 5/10 → 5/50 copy)
