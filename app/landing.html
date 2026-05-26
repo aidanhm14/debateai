@@ -2359,29 +2359,57 @@ section.hero{
      stage; secondary pills + founder cue tail off below. */
   .editorial-hero{
     display:grid;
-    grid-template-columns:minmax(0,1fr);
-    /* 2026-05-26 (rev11): conflict resolution. Parallel d73b91e
-       "tighten left-column spacing — one cohesive stack" reverted
-       the 2-col layout back to a centered single-column stack. Took
-       theirs (cohesive single-stack reads cleaner than the 2-col
-       compromise was) + added "eyebrow" as a new top row so the
-       explainer line still has a home. The building-note,
-       bookmark-note, and founding-cta auto-place into the implicit
-       grid as before since they're not in the explicit areas. */
+    /* 2026-05-26 (rev12): 2-COL layout RESTORED per Aidan "IT NEEDS
+       TO BE WIDER ON THE X AXIS." The rev11 conflict resolution took
+       the parallel single-col reversion, but Aidan's screenshot
+       confirmed the narrow centered stack wastes ~40% of viewport
+       width on each side. Returning to left=typography+actions,
+       right=orb stage. Falls back to single-col under 1100px in
+       the @media block below. */
+    grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);
     grid-template-areas:
-      "eyebrow"
-      "headline"
-      "primary-pills"
-      "card"
-      "stage-cta"
-      "ctas"
-      "secondary-pills"
-      "founder"
-      "signin";
+      "eyebrow        card"
+      "headline       card"
+      "subhead        card"
+      "primary-pills  card"
+      "ctas           card"
+      "stage-cta      card"
+      "secondary-pills card"
+      "founder        card"
+      "signin         card";
+    column-gap:48px;
     row-gap:0;
-    justify-items:center;
-    text-align:center;
+    justify-items:start;
+    align-items:start;
+    text-align:left;
     position:relative;
+    max-width:1240px;
+    margin-inline:auto;
+  }
+  /* Right-column card centers vertically against the full left span. */
+  .editorial-hero .hero-card-stack{align-self:center;justify-self:end;max-width:520px}
+  /* Mobile fallback: under 1100px collapse to centered single-col. */
+  @media (max-width:1099px){
+    .editorial-hero{
+      grid-template-columns:minmax(0,1fr);
+      grid-template-areas:
+        "eyebrow"
+        "headline"
+        "subhead"
+        "primary-pills"
+        "card"
+        "stage-cta"
+        "ctas"
+        "secondary-pills"
+        "founder"
+        "signin";
+      justify-items:center;
+      align-items:start;
+      text-align:center;
+      column-gap:0;
+      max-width:none;
+    }
+    .editorial-hero .hero-card-stack{align-self:start;justify-self:center}
   }
   /* 2026-05-26 (rev10): radical first-impression simplification per
      Aidan "I WANT THE LANDING PAGE TO LOOK EASY TO UNDERSTAND/ENTER."
@@ -2399,6 +2427,14 @@ section.hero{
   .editorial-hero .hero-pill-rail--primary{display:none !important}
   .editorial-hero .hero-building-note{display:none !important}
   .editorial-hero .hero-bookmark-note{display:none !important}
+  /* 2026-05-26 (rev12): RE-KILLED the env-signal chips after parallel
+     commits re-added them ("1 online now / 1 signed in / 214ms voice").
+     The "ms voice" stat is still fake (no real latency endpoint wired);
+     the "online" count is a Firestore-presence read floored at 1 per
+     a parallel commit. Either way, the 3-chip cluster reads as
+     fake-startup-traction-theater. Real online count is surfaced
+     below the fold via the "1 online in the last 5 minutes" row. */
+  .editorial-hero .hero-env-signals{display:none !important}
   /* Explainer eyebrow above the mantra. Tiny all-caps brand-red
      line that tells a stranger what the product IS in 4 words
      before they decode the rhythmic mantra below. */
@@ -2413,6 +2449,30 @@ section.hero{
     line-height:1;
   }
   [data-theme="light"] .editorial-hero .hero-explainer-eyebrow{color:#b91c1c}
+  /* 2026-05-26 (rev12): RE-ADDED .hero-subhead styling. Parallel
+     commits dropped both the markup AND the CSS. Substantive Fraunces
+     serif sub-line below the mantra; left-aligned in 2-col, centered
+     in mobile fallback. */
+  .editorial-hero .hero-subhead{
+    grid-area:subhead;
+    justify-self:start;
+    max-width:520px;
+    margin:18px 0 4px;
+    font-family:'Fraunces',Georgia,serif;
+    font-size:clamp(1.05rem,1.25vw,1.22rem);
+    font-weight:400;
+    line-height:1.45;
+    color:rgba(0,0,0,.62);
+    letter-spacing:.005em;
+  }
+  [data-theme="grey"] .editorial-hero .hero-subhead,
+  [data-theme="crimson"] .editorial-hero .hero-subhead,
+  [data-theme="stone"] .editorial-hero .hero-subhead{color:rgba(255,255,255,.7)}
+  @media (max-width:1099px){
+    .editorial-hero .hero-subhead{
+      justify-self:center;text-align:center;margin-left:auto;margin-right:auto;
+    }
+  }
   /* Ambient radial behind the stage — gives the lower hero band a
      contained atmosphere so the debaters + orb don't float in pure
      white. Sits behind everything (z-index:0). The hero-orb-card
@@ -5761,6 +5821,14 @@ section.ui-section .ui-lede{
       <h1 class="hero-headline" id="heroHeadline">
         Debate it. <span class="hh-accent">Debate it. Debate it.</span>
       </h1>
+      <!-- 2026-05-26 (rev12): RE-ADDED hero-subhead — parallel commits
+           removed the <p class="hero-subhead"> sibling that explained
+           the product under the mantra. Without it, the chant has no
+           context (rhythm without meaning). Per Aidan's prior
+           direction "edit the description to sound more like Aidan"
+           the line is: three short clauses, parallel rhythm, debater-
+           register, no buzzwords. -->
+      <p class="hero-subhead">An AI that pushes back. Humans who actually show up. Real speeches against a real clock.</p>
       <script>
         (function(){
           // 2026-05-26 (rev4): mantra variant added + weighted 3x so the
@@ -5881,7 +5949,7 @@ section.ui-section .ui-lede{
            its real handler; signInWithPopup → redirect fallback).
            Falls back to /app#chat if the button isn't on the page. -->
       <button type="button" id="heroFoundingCohortCta" class="hero-founding-cta" data-gtag="hero_founding_cohort">
-        <span>Be one of the first <span class="hfc-em">thousand</span>. Sign in to claim your spot</span>
+        <span>Sign in. <span class="hfc-em">50 free rounds a month.</span> No card.</span>
         <svg class="hfc-arrow" viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">
           <path d="M2 7 L11 7 M7 3 L11 7 L7 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -5911,7 +5979,7 @@ section.ui-section .ui-lede{
              the canonical human-matchmaking spawning page (queue +
              waitlist marketplace). /debate-chat still exists as its
              own page; reachable via footer. -->
-        <a href="/spar" class="hero-pill hero-pill--primary" data-cta="hero-debate-omegle">Debate Omegle</a>
+        <a href="/spar" class="hero-pill hero-pill--primary" data-cta="hero-online-video-debates">Online video debates</a>
       </div>
       <div class="hero-pill-rail hero-pill-rail--secondary" role="navigation" aria-label="Other ways to debate">
         <a href="/app#case" class="hero-pill hero-pill--secondary">Prep</a>
@@ -6071,8 +6139,11 @@ section.ui-section .ui-lede{
             <span class="hero-orb-standby-dot" aria-hidden="true"></span>
             <span>AI · Standing by</span>
           </div>
-          <div class="hero-orb-sub">Ready when you are. Pick the format, name the motion, hit Start.</div>
-          <span class="hero-orb-cta">Start a voice round</span>
+          <!-- 2026-05-26 (rev12): RE-REMOVED the duplicate "Ready when
+               you are..." sub + inline "Start a voice round" pill that
+               parallel commits brought back. Subhead at top of hero
+               already explains; .hero-stage-cta "Debate it" below is
+               the climax CTA pointing at the same /voice-debate. -->
         </a>
       </div>
 
