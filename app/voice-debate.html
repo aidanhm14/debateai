@@ -2927,6 +2927,15 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
     var isUser = !!isUserSpeakingRef.current;
     var live = Math.max(ai, user);
     smoothLevel += (live - smoothLevel) * 0.18;
+    // 2026-05-26 (rev18): idle breath. When there's no audio (standby
+    // screen, between turns), smoothLevel sits at 0 and the orb
+    // renders thin — visible in Aidan's screenshot as just an outer
+    // ring + center dot. Floor the effective level at a slow sine
+    // breath (0.08 ± 0.05) so the orb is always visibly alive even
+    // without audio amplitude. Real audio (which exceeds 0.13 the
+    // moment anyone speaks) immediately overrides the breath.
+    var idleBreath = 0.08 + 0.05 * Math.sin(performance.now() * 0.0011);
+    smoothLevel = Math.max(smoothLevel, idleBreath);
 
     ctx.clearRect(0, 0, W, H);
 
