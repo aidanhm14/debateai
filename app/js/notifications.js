@@ -142,6 +142,7 @@
       '.da-bell-toast__main{display:flex;flex-direction:column;gap:1px;min-width:0}' +
       '.da-bell-toast__name{font-size:.8rem;font-weight:800;color:var(--text,#fff)}' +
       '.da-bell-toast__preview{font-size:.74rem;color:var(--text-dim,#9aa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}' +
+      '@keyframes daBellLivePulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
       '@media(max-width:480px){#da-bell-toasts{left:12px;right:12px;max-width:none}.ui-bell-panel{width:300px}}' +
       '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast{animation:none;transition:none}}';
     var style = document.createElement('style');
@@ -222,6 +223,11 @@
     // is alive" perception → sign-in conversions).
     var activity = [], activitySeen = 0, activitySeenSnapshot = 0;
     try { activitySeen = parseInt(localStorage.getItem('da-activity-seen') || '0', 10) || 0; } catch (_) {}
+    // presence — real "N online in the last 5 min" from /api/online-count.
+    // Pinned at the top of the activity section. Honest number per the
+    // landing-page presence pipeline (admin SDK reads presence/{uid|pid}
+    // docs with lastPing ≥ now-5min, 30s server cache).
+    var onlineCount = null;
 
     // DM state
     var myUid = null, dmRows = [], dmUnread = 0;
@@ -268,13 +274,15 @@
     }
 
     // ── activity feed (no auth required) ─────────────────────────────
-    // Pulls /api/recent-activity (30s server cache). Refreshes every
-    // 90s while the tab is visible so the bell badge stays warm
-    // without hammering the function — that's only ~960 fetches/day
-    // per active tab even at one-tab-per-minute usage.
+    // Pulls /api/recent-activity (30s server cache) + /api/online-count
+    // (real Firestore presence, 30s server cache). Refreshes every 90s
+    // while the tab is visible so the bell badge stays warm without
+    // hammering the functions — that's ~960 fetches/day per active tab
+    // even at one-tab-per-minute usage, well within Netlify free tier.
     loadActivity();
+    loadOnlineCount();
     var activityIv = setInterval(function () {
-      if (!document.hidden) loadActivity();
+      if (!document.hidden) { loadActivity(); loadOnlineCount(); }
     }, 90 * 1000);
     function loadActivity() {
       fetch('/api/recent-activity', { cache: 'no-cache' })
@@ -286,6 +294,16 @@
           renderBadge();
         })
         .catch(function () { /* function down — section stays quiet */ });
+    }
+    function loadOnlineCount() {
+      fetch('/api/online-count', { cache: 'no-cache' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j || typeof j.online !== 'number') return;
+          onlineCount = Math.max(0, j.online | 0);
+          if (panel) paintPanel();
+        })
+        .catch(function () { /* function down — presence row stays hidden */ });
     }
     function activityUnreadCount() {
       var n = 0;
@@ -366,6 +384,7 @@
       seenSnapshot = updatesSeen;   // snapshot before marking, so the new ones still get a dot
       activitySeenSnapshot = activitySeen;  // same trick for activity rows
       loadActivity();               // refresh the activity feed when user opens the bell
+      loadOnlineCount();            // refresh the live-presence row too
       panel = document.createElement('div');
       panel.className = 'ui-bell-panel';
       panel.addEventListener('click', function (e) { e.stopPropagation(); });
@@ -478,8 +497,25 @@
       }
       // Site activity — visible to anon visitors too. Shows recent
       // posted challenges + waitlist invites so the page reads as
-      // inhabited the moment someone lands on it.
+      // inhabited the moment someone lands on it. The presence row
+      // at the top is the strongest "alive right now" signal —
+      // honest number from /api/online-count (Firestore presence
+      // docs with lastPing within the last 5 min).
       html += '<div class="ui-bell-head ui-bell-head--mid">Site activity</div>';
+      if (onlineCount !== null && onlineCount > 0) {
+        html += '<div class="ui-bell-list">' +
+          '<a class="ui-bell-row" href="/live">' +
+            '<span class="ui-bell-av ui-bell-av--blank" style="position:relative">' +
+              '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.55);animation:daBellLivePulse 1.7s ease-out infinite"></span>' +
+            '</span>' +
+            '<span class="ui-bell-row__main">' +
+              '<span class="ui-bell-row__name">' + onlineCount + ' online right now</span>' +
+              '<span class="ui-bell-row__preview">Active in the last 5 minutes</span>' +
+            '</span>' +
+            '<span class="ui-bell-row__time">live</span>' +
+          '</a>' +
+        '</div>';
+      }
       if (!activity.length) {
         html += '<div class="ui-bell-empty">Quiet right now.<br>' +
                 '<a href="/live" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">Post a challenge</a>' +

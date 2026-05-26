@@ -45,10 +45,14 @@ const CACHE_TTL = 30 * 1000;        // 30s
 const PER_SOURCE_LIMIT = 12;
 const MAX_ITEMS        = 12;
 
-// Items older than this are dropped on the way out. waitlist_posts
-// already 24h-TTL client-side; we mirror that here so a quiet day
-// shows fewer rows instead of stale 5-day-old "open invites".
-const MAX_AGE_MS = 48 * 60 * 60 * 1000;
+// Items older than this are dropped on the way out. The original 48h
+// cutoff went empty most days at the current ~50-rounds/30d engagement
+// level (per soul.md §8) — the bell would show "Quiet right now" to
+// every visitor and the social-proof play didn't fire. 14 days surfaces
+// a healthy window of real signal without dragging in genuinely stale
+// challenges. waitlist_posts still 24h-TTL'd client-side on /spar, so
+// stale invites only appear in the bell, not in the marketplace UI.
+const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
 const FORMAT_LABELS = {
   any:      'open',
