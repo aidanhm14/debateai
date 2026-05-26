@@ -3466,6 +3466,143 @@ body.signed-in .hero-ctas{gap:8px}
    synthetic breath-level loop instead of real audio so it loops
    ambiently on the landing. Canvas sits in a transparent square; all
    the glow happens inside the pixel buffer. */
+/* ── Rotating hero stage (2026-05-26 rev6) ─────────────────────────
+   Three visual variants of the stage area: orb (default), single
+   debater silhouette, real live-debate screenshot. Picker JS at the
+   bottom of the page sets data-stage on .hero-card-stack to one of
+   "orb" | "solo" | "live"; the rules below show only the matched
+   variant. Default in markup is data-stage="orb" so the page renders
+   the orb on first paint without JS, and any of the three are valid
+   if the picker fails. */
+/* Hide all variants by default; the data-stage rule below picks one.
+   !important needed because each per-variant block sets its own
+   display:flex for internal layout (which would otherwise win the
+   specificity battle against the un-attributed base rule). */
+.hero-stage-variant{display:none !important}
+.hero-card-stack[data-stage="orb"]  .hero-stage-variant--orb,
+.hero-card-stack[data-stage="solo"] .hero-stage-variant--solo,
+.hero-card-stack[data-stage="live"] .hero-stage-variant--live{
+  display:flex !important;
+}
+/* When the orb isn't the active variant, the orb-card uses the same
+   display:none above; we don't need a special override. Same for solo
+   and live. The unified positioning + sizing of each variant lives
+   in their own per-class blocks below. */
+
+/* Solo variant: a single big debater silhouette + caption. Sized to
+   match the orb's visual footprint so swapping variants doesn't
+   collapse the hero. Uses the dusty-crimson palette inherited from
+   the existing .stage-debater scaffolding. */
+.hero-stage-solo{
+  position:relative;
+  text-decoration:none;color:inherit;
+  cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  width:100%;
+  max-width:720px;margin:0 auto;
+  padding:16px 32px 12px;
+  min-height:clamp(320px,30vw,360px);
+  transition:transform .25s ease;
+}
+.hero-stage-solo:hover{transform:translateY(-3px)}
+.hero-stage-solo-svg{
+  /* 2026-05-26 (rev6 fix): was clamp(180,18vw,240) — at 1440px that
+     rendered a 240×552 figure, taller than the entire orb stage.
+     Shrunk to clamp(120,11vw,160) so the solo silhouette matches
+     the orb's footprint (~340×340) instead of dwarfing it. */
+  width:clamp(120px,11vw,160px);
+  height:auto;
+  opacity:.78;
+  --deb-ink:rgba(230,219,195,.92);
+  --deb-ink-soft:rgba(230,219,195,.6);
+  --deb-fill:rgba(230,219,195,.1);
+  --deb-accent:rgba(251,113,113,.92);
+  --deb-glow:rgba(239,68,68,.42);
+}
+[data-theme="light"] .hero-stage-solo-svg,
+[data-theme="stone"] .hero-stage-solo-svg{
+  opacity:.86;
+  --deb-ink:rgba(26,26,31,.92);
+  --deb-ink-soft:rgba(26,26,31,.68);
+  --deb-fill:rgba(26,26,31,.08);
+}
+.hero-stage-solo-svg .deb-stroke{
+  stroke:var(--deb-ink);stroke-width:1.3;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+.hero-stage-solo-svg .deb-stroke-soft{stroke:var(--deb-ink-soft);stroke-width:1}
+[data-theme="light"] .hero-stage-solo-svg .deb-stroke,
+[data-theme="stone"] .hero-stage-solo-svg .deb-stroke{stroke-width:1.7}
+[data-theme="light"] .hero-stage-solo-svg .deb-stroke-soft,
+[data-theme="stone"] .hero-stage-solo-svg .deb-stroke-soft{stroke-width:1.3}
+.hero-stage-solo-svg .deb-head{fill:var(--deb-accent);opacity:.78}
+.hero-stage-solo-svg .deb-tie{fill:var(--deb-accent);opacity:.55}
+.hero-stage-solo-svg .deb-hand{fill:var(--deb-ink);opacity:.6}
+.hero-stage-solo-svg .deb-lectern{
+  fill:var(--deb-fill);stroke:var(--deb-ink);stroke-width:1.3;stroke-linejoin:round;
+}
+.hero-stage-solo-svg .deb-lectern-top{
+  fill:var(--deb-fill);stroke:var(--deb-ink-soft);stroke-width:1;
+}
+.hero-stage-solo-svg .deb-mic-head{fill:var(--deb-ink);opacity:.7}
+.hero-stage-solo-svg .deb-floor{fill:var(--deb-glow);opacity:.18}
+.hero-stage-solo-caption{
+  margin-top:14px;
+  font-family:'Fraunces',Georgia,serif;
+  font-size:clamp(.95rem,1.15vw,1.08rem);
+  font-style:italic;
+  color:rgba(255,255,255,.62);
+  letter-spacing:.005em;
+}
+[data-theme="light"] .hero-stage-solo-caption,
+[data-theme="stone"] .hero-stage-solo-caption{color:rgba(0,0,0,.58)}
+
+/* Live variant: real /live-round screenshot, framed with a quiet
+   hairline border + soft elevation. Aspect-ratio reserved so the
+   layout doesn't reflow once the lazy-loaded image arrives. */
+.hero-stage-live{
+  position:relative;
+  text-decoration:none;color:inherit;
+  cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;
+  width:100%;
+  max-width:720px;margin:0 auto;
+  padding:8px 16px 12px;
+  transition:transform .25s ease;
+}
+.hero-stage-live:hover{transform:translateY(-3px)}
+.hero-stage-live:hover .hero-stage-live-img{
+  box-shadow:0 18px 50px rgba(0,0,0,.40),0 0 0 1px rgba(239,68,68,.35);
+}
+.hero-stage-live-img{
+  width:100%;
+  max-width:640px;
+  height:auto;
+  aspect-ratio:8/5;
+  object-fit:cover;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 14px 40px rgba(0,0,0,.30);
+  transition:box-shadow .25s ease;
+  background:rgba(0,0,0,.18);
+}
+[data-theme="light"] .hero-stage-live-img,
+[data-theme="stone"] .hero-stage-live-img{
+  border-color:rgba(0,0,0,.10);
+  box-shadow:0 14px 40px rgba(0,0,0,.16);
+  background:rgba(0,0,0,.04);
+}
+.hero-stage-live-caption{
+  margin-top:14px;
+  font-family:'Fraunces',Georgia,serif;
+  font-size:clamp(.92rem,1.1vw,1.04rem);
+  font-style:italic;
+  color:rgba(255,255,255,.55);
+}
+[data-theme="light"] .hero-stage-live-caption,
+[data-theme="stone"] .hero-stage-live-caption{color:rgba(0,0,0,.55)}
+
 .hero-orb-canvas{
   /* 2026-05-24: trimmed again per user "make the orb a bit smaller."
      Sizing history: 338 → 460 → 400 → 340 desktop. Mobile 260 → 340
@@ -5842,6 +5979,25 @@ section.ui-section .ui-lede{
           }catch(e){}
         })();
       </script>
+
+      <!-- 2026-05-26 (rev6): rotating hero STAGE picker. Same pattern as
+           the headline picker above. Picks orb/solo/live on each load
+           with the orb weighted 3x (it's the brand anchor; most loads
+           should still show it). Fires a hero_stage_view GA event so
+           the variants are segmentable by which converted. -->
+      <script>
+        (function(){
+          var STAGES = ['orb','orb','orb','solo','live'];
+          var stack = document.querySelector('.hero-card-stack');
+          if (!stack) return;
+          var pick = STAGES[Math.floor(Math.random()*STAGES.length)];
+          stack.setAttribute('data-stage', pick);
+          try {
+            window.__heroStage = pick;
+            if (window.dosTrack) window.dosTrack('hero_stage_view',{variant:pick});
+          } catch(_){}
+        })();
+      </script>
       <!-- 2026-05-24: removed leftover messianic creed paragraph
            ("AI as antagonist and tool. Not the Messiah, nor an arbitrary enemy.")
            that survived the 2026-05-19 hero rewrite. The rewrite swapped
@@ -5983,7 +6139,24 @@ section.ui-section .ui-lede{
            places it correctly via the grid template. -->
 
       <!-- Right column of the editorial hero: voice orb card. -->
-      <div class="hero-card-stack">
+      <!-- 2026-05-26 (rev6): rotating hero stage. Same pattern as the
+           rotating mantra headline above — each page load picks one of
+           three stage visuals so the landing reads as living/evolving,
+           not as a static brochure. The three variants:
+             1. orb (default, weighted 3x) — the animated red orb +
+                 flanking debater figures + connection paths. Brand
+                 anchor; most loads should show this.
+             2. solo — a single big debater silhouette at podium,
+                 reading as "one mind making a case." Quieter,
+                 individual-scale framing.
+             3. live — real screenshot of /live-round (an actual video
+                 debate in progress), reading as "this is a place
+                 where humans really do this."
+           JS picks one on load, sets data-stage on .hero-card-stack;
+           CSS hides the other two. All three are <a> wrappers around
+           the same /voice-debate.html destination so the action stays
+           consistent regardless of visual variant. -->
+      <div class="hero-card-stack" data-stage="orb">
         <!-- 2026-05-24: orb card converted from <div> to <a> pointing
              at /voice-debate.html so clicking the orb starts a voice
              round. Per user: put more weight on Voice AI. A "LIVE
@@ -5991,7 +6164,7 @@ section.ui-section .ui-lede{
              "Start a voice round" pill sits under the caption, both
              reinforcing the interaction without competing with the
              headline. -->
-        <a class="hero-orb-card" href="/voice-debate.html" aria-label="Start a voice round with the AI" data-gtag="hero_orb_voice">
+        <a class="hero-orb-card hero-stage-variant hero-stage-variant--orb" href="/voice-debate.html" aria-label="Start a voice round with the AI" data-gtag="hero_orb_voice">
           <span class="hero-orb-live" aria-hidden="true">Live voice</span>
           <!-- 2026-05-24: silhouette debaters flank the orb so the landing
                scene matches the voice-debate setup screen — left = you
@@ -6108,6 +6281,64 @@ section.ui-section .ui-lede{
                Saves ~90px of vertical so the climax CTA + secondary
                text-link row both make it above the fold on a 1440x900
                laptop. -->
+        </a>
+
+        <!-- ── Stage variant 2: solo debater ─────────────────────────
+             A single big debater silhouette + podium, centered. Reads
+             as "one mind making a case" — quieter, more individual-
+             scale than the orb scene. Same /voice-debate destination.
+             SVG is the existing .stage-debater markup, scaled up,
+             without the flanking partner. Uses the dusty-crimson palette
+             so it lives in the brand family. -->
+        <a class="hero-stage-variant hero-stage-variant--solo hero-stage-solo" href="/voice-debate.html" aria-label="Start a voice round with the AI" data-gtag="hero_solo_voice">
+          <svg class="stage-debater hero-stage-solo-svg" viewBox="0 0 200 460" role="presentation" focusable="false">
+            <g class="deb-head">
+              <ellipse cx="100" cy="80" rx="20" ry="26"/>
+              <ellipse class="deb-stroke" cx="100" cy="80" rx="20" ry="26" fill="none"/>
+              <path class="deb-stroke" d="M82 70 Q86 50 100 50 Q116 50 118 76"/>
+            </g>
+            <path class="deb-stroke" d="M94 108 L92 124 M106 108 L108 124"/>
+            <path class="deb-stroke" d="M54 144 Q76 129 100 127 Q124 129 146 144"/>
+            <path class="deb-stroke" d="M54 144 Q49 198 56 262 L60 308"/>
+            <path class="deb-stroke" d="M146 144 Q151 198 144 262 L140 308"/>
+            <path class="deb-stroke" d="M78 144 L100 186 L122 144"/>
+            <path class="deb-stroke deb-stroke-soft" d="M86 140 L100 160 L114 140"/>
+            <path class="deb-tie" d="M100 186 L96 198 L100 250 L104 198 Z"/>
+            <path class="deb-stroke" d="M144 154 Q160 196 153 246"/>
+            <path class="deb-stroke" d="M153 246 Q150 284 142 308"/>
+            <path class="deb-hand" d="M130 304 Q142 300 152 306 Q156 313 147 317 Q137 318 129 311 Z"/>
+            <g class="deb-arm">
+              <path class="deb-stroke" d="M58 152 Q50 184 47 214"/>
+              <path class="deb-stroke" d="M47 214 Q49 188 60 168"/>
+              <path class="deb-hand" d="M54 165 Q64 159 75 165 Q79 173 70 177 Q60 178 54 172 Z"/>
+            </g>
+            <ellipse class="deb-floor" cx="100" cy="434" rx="82" ry="9"/>
+            <path class="deb-lectern" d="M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z"/>
+            <path class="deb-lectern-top" d="M30 314 Q100 308 170 314 L168 326 L32 326 Z"/>
+            <path class="deb-stroke deb-stroke-soft" d="M32 326 Q100 320 168 326"/>
+            <path class="deb-stroke deb-stroke-soft" d="M118 310 Q114 288 106 281 Q100 277 102 269"/>
+            <ellipse class="deb-mic-head" cx="102" cy="263" rx="4" ry="6"/>
+          </svg>
+          <span class="hero-stage-solo-caption">One mind. One motion. Three minutes.</span>
+        </a>
+
+        <!-- ── Stage variant 3: live debate photo ────────────────────
+             Real screenshot of /live-round (an actual video debate in
+             progress). Reads as "this is a place where humans really do
+             this." Reuses the existing /landing-shot-live-room.jpg
+             asset; lazy-loaded so it doesn't cost a network request
+             for the ~67% of loads that get the orb instead. -->
+        <a class="hero-stage-variant hero-stage-variant--live hero-stage-live" href="/voice-debate.html" aria-label="See live debate rounds" data-gtag="hero_live_voice">
+          <img
+            class="hero-stage-live-img"
+            src="/landing-shot-live-room.jpg"
+            alt="A live debate round in progress — two debaters at podiums on a video call with a judge."
+            loading="lazy"
+            decoding="async"
+            width="800"
+            height="500"
+          />
+          <span class="hero-stage-live-caption">From a recent round on /live-round.</span>
         </a>
       </div>
 
