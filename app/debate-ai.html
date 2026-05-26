@@ -34,7 +34,7 @@
         "16 TTS personas across ElevenLabs, Inworld, Cartesia, OpenAI"
       ],
       "offers": [
-        { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 anonymous requests plus 5 more on sign-in." },
+        { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 anonymous requests plus 45 more on sign-in (50 per month total)." },
         { "@type": "Offer", "name": "BYOK", "price": "1", "priceCurrency": "USD", "description": "Unlimited Claude with your own Anthropic key." },
         { "@type": "Offer", "name": "Individual", "price": "5", "priceCurrency": "USD", "description": "$5/year for 250 requests per month, six brains, HD voice." },
         { "@type": "Offer", "name": "Lifetime", "price": "14.99", "priceCurrency": "USD", "description": "250 requests per month forever, one-time charge." },
@@ -2856,14 +2856,21 @@ function stripPlainMd(s) {
    ═══════════════════════════════════════════════════ */
 
 // Generation gate. Anonymous users get 5 free requests lifetime; signing
-// in with Google bumps the cap to 10 (5 base + 5 bonus). Pro tier bypasses
+// in with Google bumps the cap to 50 (5 base + 45 bonus). Pro tier bypasses
 // this entirely. The counter lives in localStorage so it survives reloads;
-// signing in doesn't reset usage, just raises the ceiling. Reverted to the
-// pre-2026-05-14 strict caps on 2026-05-18 on a credit-burn audit — the
-// 15/30 bump made the product feel like a real free tier but the legit-user
-// drain plus bot abuse made it untenable while still in beta.
+// signing in doesn't reset usage, just raises the ceiling.
+//
+// 2026-05-26 (rev9): SIGNED_IN_LIMIT bumped 10 -> 50 per Aidan's
+// "advertise sign up get 50 usages per month free" direction. This is
+// a 5x bump that contradicts the 2026-05-18 credit-burn-driven revert
+// (15/30 -> 5/10); the trade is explicit — distribution-first per the
+// 2026-05-20 HQ steer, accepting the higher Anthropic/OpenAI spend as
+// the cost of an actually-compelling free tier. soul.md §4 updated
+// to match (was a hard rule). Anon cap stays at 5 — bot abuse on the
+// no-auth lever is what drove the original revert and that hasn't
+// changed; only signed-in (Google-gated, harder to farm) is bumped.
 var ANON_LIMIT = 5;
-var SIGNED_IN_LIMIT = 10;
+var SIGNED_IN_LIMIT = 50;
 function getUsage() {try {return parseInt(localStorage.getItem('debateos-anon-usage') || '0', 10);} catch {return 0;}}
 function incUsage() {try {localStorage.setItem('debateos-anon-usage', String(getUsage() + 1));} catch {}}
 function getEffectiveLimit() {
