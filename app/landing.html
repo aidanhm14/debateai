@@ -6004,10 +6004,10 @@ section.ui-section .ui-lede{
                so the ecosystem reads as inhabited, not static. -->
           <div class="hero-env-signals" aria-hidden="true">
             <span class="hero-env-signal hes-top-left">
-              <span class="hes-dot"></span><strong id="hesActive">0</strong> online now
+              <span class="hes-dot"></span><strong id="hesActive">1</strong> online now
             </span>
             <span class="hero-env-signal hes-top-right">
-              <strong id="hesRooms">0</strong> in voice
+              <strong id="hesRooms">1</strong> signed in
             </span>
             <span class="hero-env-signal hes-bottom-left">
               <strong id="hesLatency">214</strong>ms voice
@@ -6096,12 +6096,27 @@ section.ui-section .ui-lede{
               .then(function(r){ return r.ok ? r.json() : null; })
               .then(function(j){
                 if (!j || typeof j.online !== 'number') return;
+                // Floor at 1 — the viewer themselves is on the page, so
+                // 0 is a lie. The server response can be 0 if the cache
+                // is warm but our own heartbeat hasn't landed yet, or
+                // if the presence write silently failed (env vars,
+                // permissions, cold start). Showing "0 online" while
+                // you're literally reading the page is worse than
+                // showing "1 online" honestly. signedIn count gets
+                // floored at 1 only if the viewer is actually signed
+                // in (window.firebase auth).
+                var online = Math.max(j.online | 0, 1);
+                var signedIn = j.signedIn | 0;
+                try {
+                  var u = window.firebase && firebase.auth && firebase.auth().currentUser;
+                  if (u) signedIn = Math.max(signedIn, 1);
+                } catch(_){}
                 var a = document.getElementById('hesActive');
                 var r = document.getElementById('hesRooms');
-                if (a) a.textContent = String(j.online);
-                if (r) r.textContent = String(j.signedIn || 0);
+                if (a) a.textContent = String(online);
+                if (r) r.textContent = String(signedIn);
                 var b = document.getElementById('heroOnlineCount');
-                if (b) b.textContent = String(j.online);
+                if (b) b.textContent = String(online);
               })
               .catch(function(){ /* keep last value */ });
           }
