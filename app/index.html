@@ -4121,14 +4121,15 @@ var ANON_BASE_LIMIT = 5;
 // Giving feedback unlocks UNLIMITED. matches the "unlock unlimited" copy in the beta strip
 function hasGivenFeedback() {try {return localStorage.getItem('debateos-feedback-given') === '1';} catch {return false;}}
 function markFeedbackGiven() {try {localStorage.setItem('debateos-feedback-given', '1');} catch {}}
-// FREE TIER: 5 total requests across the app before a paid plan is required.
-// Reverted from 15 → 5 on 2026-05-18 on a credit-burn audit (briefly bumped
-// to 15 on 2026-05-14 for casual-user conversion; the drain plus bot abuse
-// made it untenable while still in beta). This counter is localStorage-based
-// and therefore bypassable by a motivated user. the server-side per-account
-// cap in `canUseProFeature` is the hard limit. This client counter exists to
-// show the user an honest "X left" pill and trigger the paywall at the
-// expected boundary.
+// FREE TIER: 5 anonymous requests, lifted to 50/month on sign-in (the bump
+// to 50 lives in debate-ai.html SIGNED_IN_LIMIT — this client only enforces
+// the 5-anon ceiling, the server enforces the 50 monthly cap once a Google
+// account is present). Anon stays at 5 deliberately: bot abuse on the
+// no-auth lever drove the 2026-05-18 revert of the 15-anon experiment, and
+// only Google-gating bounds the drain. This localStorage counter is
+// bypassable by a motivated user; the server-side per-account cap in
+// `canUseProFeature` is the hard limit. The counter exists to show an
+// honest "X left" pill and trigger the paywall at the expected boundary.
 function getAnonLimit() {return 5;}
 // Back-compat alias. existing code references ANON_LIMIT.
 // Must be `configurable: true` because Babel re-evaluates this script and
