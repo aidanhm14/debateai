@@ -2,6 +2,7 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { checkMotionBody } from './lib/content-guard.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
 import { applyDistillations } from './lib/distillations.mjs';
 import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
@@ -117,6 +118,16 @@ export default async (request, context) => {
       return new Response(
         JSON.stringify({ error: 'Request too large.' }),
         { status: 413, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
+
+    // Content guard on the explicit motion field. See claude.mjs for the
+    // full rationale — fast regex floor before any expensive work.
+    const motionGuard = checkMotionBody(body);
+    if (!motionGuard.ok) {
+      return new Response(
+        JSON.stringify({ error: motionGuard.reason, category: motionGuard.category }),
+        { status: 422, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
 

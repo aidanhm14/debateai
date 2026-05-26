@@ -2,6 +2,7 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { tierForScore, MIN_CERT_SCORE, MAX_CERT_SCORE } from './lib/cert-tiers.mjs';
+import { checkContent } from './lib/content-guard.mjs';
 
 // Server-side certificate issuance. Client (voice-debate.html) posts the
 // parsed RFD score + round metadata after the judge ballot lands. We
@@ -86,6 +87,15 @@ function sanitizeDisplayName(name) {
 const MAX_LIPSYNC_SAMPLES = 1800;
 const LIPSYNC_R_MIN_PASS  = 0.6;
 const MIN_USABLE_SAMPLES  = 60;  // need at least 15s at 4Hz
+
+// Round-content floors. The legitimacy of a credential turns on the
+// underlying round being real, not just the score being high enough.
+// These gates are deliberately conservative — a real varsity round on
+// any format clears them comfortably; a "score-farming" empty round
+// where someone connects + lets the AI talk to itself does not.
+const MIN_ROUND_DURATION_MS = 3 * 60 * 1000; // 3min — shorter than even Quick Clash
+const MIN_USER_SPEAK_MS     = 60 * 1000;     // 60s of mic-on user audio
+const MIN_AI_SPEAK_MS       = 30 * 1000;     // 30s of AI response — round was actually adversarial
 
 function pearsonR(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b)) return null;
@@ -182,6 +192,8 @@ export default async (request) => {
     won,
     displayName,
     verification, // v1 anti-cheat payload; null on v0 / opt-out rounds
+    userSpeakMs,  // client-computed mic-on user time (voice-debate.html)
+    aiSpeakMs,    // client-computed AI speaking time (voice-debate.html)
   } = body;
 
   // Re-validate the score band server-side. The client tier preview is
@@ -209,6 +221,75 @@ export default async (request) => {
   if (rfdText.length < 200) {
     return jsonResponse(
       { ok: false, reason: 'insufficient_round' },
+      200,
+      request
+    );
+  }
+
+  // Content-guard the motion. The cert page renders the motion publicly
+  // at /verify/{id} — a slur or sexual motion would mint a slur into a
+  // permanent public URL. The brain endpoints already screen `_motion`,
+  // but this is a separate write path (voice-debate.html → create-cert),
+  // so we re-check here.
+  const motionStr = typeof motion === 'string' ? motion : '';
+  if (motionStr.trim()) {
+    const mg = checkContent({ text: motionStr, kind: 'motion' });
+    if (!mg.ok) {
+      return jsonResponse(
+        { ok: false, reason: 'motion_blocked', detail: mg.reason, category: mg.category },
+        200,
+        request
+      );
+    }
+  }
+
+  // Round-content floors. A "real" round has live mic capture, runs at
+  // least 3min, has both sides actually speaking, and the user contributed
+  // at least 60s of their own speech. These gates make a "connect, let
+  // it score, mint" attack impossible without faking the timing data
+  // (which would still need to clear lip-sync phase B once it lands).
+  const lipSync = verification && typeof verification === 'object' ? verification.lipSync : null;
+  const durationMs = lipSync && Number.isFinite(Number(lipSync.durationMs))
+    ? Number(lipSync.durationMs)
+    : 0;
+  const userMs = Number.isFinite(Number(userSpeakMs)) ? Number(userSpeakMs) : 0;
+  const aiMs   = Number.isFinite(Number(aiSpeakMs))   ? Number(aiSpeakMs)   : 0;
+
+  // Require the v1 verification block. Until this gate landed, the cert
+  // doc could be minted from a payload with no verification at all (and
+  // the verify page would render the "v0 protocol" disclaimer). Now,
+  // any new issuance has to come from a client that captured live audio
+  // — voice-debate.html mounts lipsync-capture.js for every voice round,
+  // so legitimate users always have this; a hand-crafted POST without
+  // verification gets rejected here.
+  if (!lipSync) {
+    return jsonResponse(
+      { ok: false, reason: 'verification_required',
+        detail: 'Live audio capture is required for issuance. Run the round through voice-debate.html.' },
+      200,
+      request
+    );
+  }
+  if (durationMs && durationMs < MIN_ROUND_DURATION_MS) {
+    return jsonResponse(
+      { ok: false, reason: 'round_too_short',
+        detail: `Round was ${Math.round(durationMs/1000)}s; certificates need a round of at least ${MIN_ROUND_DURATION_MS/1000}s.` },
+      200,
+      request
+    );
+  }
+  if (userMs && userMs < MIN_USER_SPEAK_MS) {
+    return jsonResponse(
+      { ok: false, reason: 'user_speech_too_short',
+        detail: `You spoke ${Math.round(userMs/1000)}s; certificates require at least ${MIN_USER_SPEAK_MS/1000}s of your own speech.` },
+      200,
+      request
+    );
+  }
+  if (aiMs && aiMs < MIN_AI_SPEAK_MS) {
+    return jsonResponse(
+      { ok: false, reason: 'ai_speech_too_short',
+        detail: 'Round was not adversarial enough (AI barely spoke). Take more interruptions and POIs next round.' },
       200,
       request
     );
@@ -243,6 +324,12 @@ export default async (request) => {
       rfdExcerpt: clamp(rfdText, 4000),
       issuedAt: FieldValue.serverTimestamp(),
       issuedAtMs,
+      // Round telemetry that anchors the credential to a real round.
+      // Surfaced on the verify page so a resume-reader can see the
+      // round actually happened (not "user clicked Mint at second 0").
+      roundDurationMs: durationMs || null,
+      userSpeakMs: userMs || null,
+      aiSpeakMs: aiMs || null,
       // Phase A: present + audio-only if the client opted into v1 capture,
       // absent otherwise. Verify page reads this to render the verification
       // block; absence triggers the "issued under v0 protocol" banner.

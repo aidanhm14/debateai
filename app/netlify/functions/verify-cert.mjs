@@ -56,6 +56,24 @@ export default async (request) => {
       won: data.won === true,
       rfdExcerpt: (data.rfdExcerpt || '').slice(0, 600),
       issuedAtMs,
+      // Round telemetry — surfaced on the verify page as proof the round
+      // was real and adversarial (not a 12-second "connect and mint"
+      // attack). Each is nullable for backward-compat with pre-gate
+      // certs minted before these fields were captured.
+      roundDurationMs: typeof data.roundDurationMs === 'number' ? data.roundDurationMs : null,
+      userSpeakMs:     typeof data.userSpeakMs     === 'number' ? data.userSpeakMs     : null,
+      aiSpeakMs:       typeof data.aiSpeakMs       === 'number' ? data.aiSpeakMs       : null,
+      verification: data.verification && typeof data.verification === 'object'
+        ? {
+            method: data.verification.method || null,
+            sampleHz: typeof data.verification.sampleHz === 'number' ? data.verification.sampleHz : null,
+            durationMs: typeof data.verification.durationMs === 'number' ? data.verification.durationMs : null,
+            audioSamples: typeof data.verification.audioSamples === 'number' ? data.verification.audioSamples : null,
+            lipSyncR: typeof data.verification.lipSyncR === 'number' ? data.verification.lipSyncR : null,
+            lipSyncPassed: data.verification.lipSyncPassed === true,
+            hasMouthSignal: data.verification.hasMouthSignal === true,
+          }
+        : null,
     };
 
     return jsonResponse({ ok: true, cert }, 200, request);

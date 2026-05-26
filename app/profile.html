@@ -20,6 +20,7 @@
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/sfx.js"></script>
+<script defer src="/js/content-guard.js"></script>
 
 <link rel="stylesheet" href="/css/ui.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -1347,6 +1348,17 @@ function wireSettings(user, rows){
         const name = (document.getElementById('setName')?.value || '').trim().slice(0, 40);
         const lbOn = document.getElementById('setLb')?.checked;
         const sfxOn = document.getElementById('setSfx')?.checked;
+        // Content guard — block "BigDick420" / slur handles before the
+        // override hits Firestore. Leaderboard + roster surfaces read
+        // this name, so it has to clear the floor.
+        if (window.contentGuard && name) {
+          const gr = window.contentGuard.check({ text: name, kind: 'name' });
+          if (!gr.ok) {
+            setStatus(gr.reason, 'err');
+            saveBtn.disabled = false;
+            return;
+          }
+        }
         try { localStorage.setItem('da-sfx-muted', sfxOn ? '0' : '1'); } catch(_){}
         await db.collection('user_profiles').doc(user.uid).set({
           displayNameOverride: name || null,

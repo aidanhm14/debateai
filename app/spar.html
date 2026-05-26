@@ -3,6 +3,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!-- Embed mode: when this page is loaded inside the /live hub as an
+     iframe (via ?embed=1), strip the shared topbar + footer + coach FAB
+     so the parent /live page provides the navigation chrome and the
+     iframe content shows as a clean module. Set BEFORE any other
+     scripts so the topbar.js mount-skip + CSS hide both apply on
+     first paint, no flash of the topbar before it disappears. -->
+<script>(function(){try{if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.setAttribute('data-embed','1');}catch(e){}})();</script>
+<style>
+html[data-embed="1"] body{padding-top:0!important}
+html[data-embed="1"] #daTopbar,
+html[data-embed="1"] .ui-topbar,
+html[data-embed="1"] .topbar,
+html[data-embed="1"] body > footer,
+html[data-embed="1"] .coach-fab{display:none!important}
+</style>
 <title>Spar · The global Debatable.com community of debaters</title>
 <meta name="description" content="Match into a live round with another human in 30 seconds, or post to the waitlist and DM another debater in the global Debatable community to organize a round. AI fallback if nobody pairs in 60s. Sub-200ms voice, AI-judged at the end." />
 <meta name="robots" content="noindex">
@@ -31,6 +46,7 @@
 
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
+<script defer src="/js/content-guard.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -936,20 +952,11 @@ h1 em{color:var(--accent);font-style:normal}
     { until: 60, text: 'Almost time to switch to AI',sub: 'If nobody pairs by zero, you get the AI sparring partner.' },
   ];
 
-  // Faux "recent pairings" ticker. Real handles drawn from the live.html
-  // seed pool + a few extras. Numbers are realistic spreads (8s-45s).
-  // Cycles every ~3 seconds, gives the wait social proof without
-  // requiring any backend call.
-  var RECENT_PAIRINGS = [
-    { a: 'flow_nerd',     b: 'kant_kid',       sec: 14 },
-    { a: 'pmr_collapse',  b: 'card_doctor',    sec: 22 },
-    { a: 'first_gen_voice', b: 'value_crit',   sec: 9  },
-    { a: 'wsdc_2nd',      b: 'nsda_qual',      sec: 31 },
-    { a: 'whip_speaker',  b: 'housing_wonk',   sec: 17 },
-    { a: 'redteam',       b: 'firstround',     sec: 28 },
-    { a: '1ar_collapse',  b: 'kritik_fan',     sec: 11 },
-    { a: 'national_champ',b: 'topicality_god', sec: 19 },
-  ];
+  // RECENT_PAIRINGS removed (2026-05-25). The 8 handles + pair-second
+  // spreads were fabricated social-proof theater — same "dead-internet
+  // dishonesty" the community.html sweep ruled out in May. The
+  // pairingTicker DOM element + startPairingTicker call below are now
+  // no-ops; honest signal lives in the meta-strip + status text.
 
   // ── Render: searching state ──────────────────────────
   function renderSearching(){
@@ -968,14 +975,16 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="globe-wrap"><div class="globe-frame">' +
           '<canvas id="sparRadar" aria-label="Live matchmaking radar"></canvas>' +
         '</div></div>' +
+      // Live ops strip. Wired to real Firestore via startMetaLive():
+      // queue cell = peers waiting in this format's matchmaking_queue
+      // (self excluded so the user doesn't see "1 waiting" when only
+      // they're in line). waitlist cell = open async posts in the last
+      // 24h on /waitlist_posts. Dot dims when both are 0 — the empty
+      // state is honest, not faked into looking active.
       '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
-        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaDebaters">14</strong> debaters online</span>' +
+        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> in ' + escHtml(formatLabel) + ' queue</span>' +
         '<span class="meta-sep">·</span>' +
-        '<span class="meta-cell"><strong id="metaCountries">6</strong> countries</span>' +
-        '<span class="meta-sep">·</span>' +
-        '<span class="meta-cell"><strong id="metaRooms">3</strong> rounds forming</span>' +
-        '<span class="meta-sep">·</span>' +
-        '<span class="meta-cell">' + escHtml(formatLabel) + ' queue <strong>active</strong></span>' +
+        '<span class="meta-cell"><strong id="metaWaitlist">0</strong> on the open waitlist</span>' +
       '</div>' +
       '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
@@ -995,10 +1004,9 @@ h1 em{color:var(--accent);font-style:normal}
         '<br><span style="font-size:.72rem">Want a humans-only round without the format gate? Try ' +
         '<a href="/debate-chat" style="color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.45)">casual debate chat →</a></span>' +
       '</div>' +
-      // Social-proof ticker. Cycles fake recent pairings every 3s.
-      // Real-feeling handles, realistic pair times. Helps the wait
-      // feel like an active marketplace rather than dead air.
-      '<div class="pairing-ticker" id="pairingTicker" aria-live="polite" style="margin-top:18px;font-size:.74rem;color:var(--text-ghost);text-align:center;min-height:18px;font-variant-numeric:tabular-nums;letter-spacing:.01em;opacity:.85;transition:opacity .35s ease"></div>' +
+      // pairingTicker removed (2026-05-25): the "Recent pairing · @x ↔ @y · paired in Ns"
+      // line cycled 8 fabricated handles every 3s. Same dead-internet dishonesty
+      // ruled out in community.html (May 2026). Status text below is the honest signal.
       '<div class="queue-stats" id="queueStats">' + renderWaitlist([], formatParam) + '</div>' +
       // Live diagnostic line. Always visible during the search (unlike
       // queueStats, which gets replaced by the broaden CTA at 45s).
@@ -1010,33 +1018,85 @@ h1 em{color:var(--accent);font-style:normal}
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
     startCountdown();
     startStatusCycle();
-    startPairingTicker();
-    startMetaDrift();
+    // startPairingTicker() removed — see RECENT_PAIRINGS comment above
+    startMetaLive();
     mountRadar('sparRadar');
   }
 
-  // Gently jitter the live-system numbers in the meta strip so it
-  // reads as a real ops console rather than a static label. No real
-  // backend — these are decorative but plausible spreads. The format
-  // queue cell stays "active" the whole time the user is queued.
-  var metaDriftInterval = null;
-  function startMetaDrift(){
-    if (metaDriftInterval) clearInterval(metaDriftInterval);
-    function tick(){
-      var d = document.getElementById('metaDebaters');
-      var c = document.getElementById('metaCountries');
-      var r = document.getElementById('metaRooms');
-      if (!d || !c || !r){ clearInterval(metaDriftInterval); metaDriftInterval = null; return; }
-      // Slow random walk within plausible ranges.
-      var base = 12 + Math.floor(Math.random() * 7);   // 12-18 debaters
-      var ctry = 4 + Math.floor(Math.random() * 4);    // 4-7 countries
-      var rooms = 2 + Math.floor(Math.random() * 3);   // 2-4 rooms forming
-      d.textContent = String(base);
-      c.textContent = String(ctry);
-      r.textContent = String(rooms);
+  // Live ops strip: real counts pulled from Firestore via onSnapshot.
+  // Replaces the prior `startMetaDrift` which faked 12-18 debaters /
+  // 4-7 countries / 2-4 rounds via Math.random(). Those numbers were a
+  // marketing tell, not a measurement. The real picture (DAU ~10 per
+  // soul.md §8) means honest counts are often 0; the dot dims to grey
+  // when they are so the strip doesn't pretend a quiet moment is busy.
+  var metaLiveUnsub = { queue: null, waitlist: null };
+  var metaLiveCounts = { queue: 0, waitlist: 0 };
+
+  function renderMetaLive(){
+    var qEl = document.getElementById('metaQueue');
+    var wEl = document.getElementById('metaWaitlist');
+    if (!qEl || !wEl){
+      // Strip torn down (user navigated to matched / fallback). Drop
+      // subscriptions so we don't leak listeners across views.
+      if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+      if (metaLiveUnsub.waitlist){ try { metaLiveUnsub.waitlist(); } catch(e){} metaLiveUnsub.waitlist = null; }
+      return;
     }
-    tick();
-    metaDriftInterval = setInterval(tick, 4200);
+    qEl.textContent = String(metaLiveCounts.queue);
+    wEl.textContent = String(metaLiveCounts.waitlist);
+    var dot = document.querySelector('#metaStrip .meta-dot');
+    var anyLive = metaLiveCounts.queue > 0 || metaLiveCounts.waitlist > 0;
+    if (dot){
+      dot.style.background = anyLive ? '#22c55e' : '#6b7280';
+      dot.style.boxShadow = anyLive ? '0 0 6px rgba(34,197,94,.6)' : 'none';
+      dot.style.opacity = anyLive ? '' : '.55';
+    }
+  }
+
+  function startMetaLive(){
+    if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+    if (metaLiveUnsub.waitlist){ try { metaLiveUnsub.waitlist(); } catch(e){} metaLiveUnsub.waitlist = null; }
+    metaLiveCounts = { queue: 0, waitlist: 0 };
+    renderMetaLive();
+    if (!firebaseDb) return;
+    // (a) Matchmaking queue for this format. Excludes self so the
+    // strip never reads "1 waiting" off the user's own presence.
+    try {
+      metaLiveUnsub.queue = firebaseDb.collection('matchmaking_queue')
+        .where('format', '==', formatParam)
+        .where('status', '==', 'waiting')
+        .onSnapshot(function(snap){
+          var selfUid = state.user && state.user.uid;
+          var n = 0;
+          snap.forEach(function(d){ if (!selfUid || d.id !== selfUid) n++; });
+          metaLiveCounts.queue = n;
+          renderMetaLive();
+        }, function(err){
+          // Missing composite index or rules denial: degrade to 0,
+          // don't crash. Same failure mode as queueWatchUnsub above.
+          console.warn('[meta] queue snapshot error:', err && err.message);
+        });
+    } catch(e){}
+    // (b) Async waitlist posts, last 24h. Approximates the same
+    // 24h client-side TTL the wl rail uses. Limit 100 caps the read.
+    try {
+      metaLiveUnsub.waitlist = firebaseDb.collection('waitlist_posts')
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .onSnapshot(function(snap){
+          var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+          var n = 0;
+          snap.forEach(function(d){
+            var v = d.data() || {};
+            var t = (v.createdAt && typeof v.createdAt.toMillis === 'function') ? v.createdAt.toMillis() : 0;
+            if (t >= cutoff) n++;
+          });
+          metaLiveCounts.waitlist = n;
+          renderMetaLive();
+        }, function(err){
+          console.warn('[meta] waitlist snapshot error:', err && err.message);
+        });
+    } catch(e){}
   }
 
   // Drive the status-phase rotation. Reads elapsed time from
@@ -1061,28 +1121,9 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   // Cycle the fake recent-pairings ticker. Picks a random entry every
-  // 3 seconds with a brief opacity fade so the swap doesn't read as
-  // a layout shift. Stops cleanly when the host element disappears.
-  var pairingTickerInterval = null;
-  var lastPairingIdx = -1;
-  function startPairingTicker(){
-    if (pairingTickerInterval) clearInterval(pairingTickerInterval);
-    function tick(){
-      var host = document.getElementById('pairingTicker');
-      if (!host){ clearInterval(pairingTickerInterval); pairingTickerInterval = null; return; }
-      var nextIdx;
-      do { nextIdx = Math.floor(Math.random() * RECENT_PAIRINGS.length); } while (nextIdx === lastPairingIdx);
-      lastPairingIdx = nextIdx;
-      var p = RECENT_PAIRINGS[nextIdx];
-      host.style.opacity = '0';
-      setTimeout(function(){
-        host.textContent = 'Recent pairing · @' + p.a + ' ↔ @' + p.b + ' · paired in ' + p.sec + 's';
-        host.style.opacity = '.85';
-      }, 280);
-    }
-    tick();
-    pairingTickerInterval = setInterval(tick, 3000);
-  }
+  // startPairingTicker() removed 2026-05-25 — see RECENT_PAIRINGS
+  // comment for the why. The 'Recent pairing · @x ↔ @y · paired in Ns'
+  // line was fabricated social-proof theater.
 
   // Mount the matchmaking radar once /js/spar-radar.js has loaded.
   // Used by renderSearching — reads as "active matchmaking arena."
@@ -1591,6 +1632,10 @@ h1 em{color:var(--accent);font-style:normal}
     if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
     if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} state.queueWatchUnsub = null; }
+    // Drop the live ops strip's Firestore listeners too — leaving
+    // them attached after the search view tears down would leak.
+    if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+    if (metaLiveUnsub.waitlist){ try { metaLiveUnsub.waitlist(); } catch(e){} metaLiveUnsub.waitlist = null; }
     state.matchTriggerPending = false;
     state.pairInFlight = false;
   }
@@ -1919,6 +1964,13 @@ h1 em{color:var(--accent);font-style:normal}
     // <=240 chars, and '' satisfies that.
     var note = ((noteEl && noteEl.value) || '').trim();
     if (note.length > WL_NOTE_MAX){ if (errEl) errEl.textContent = 'Note too long (' + note.length + '/' + WL_NOTE_MAX + ').'; return; }
+    // Content guard — block slurs / sexual / harassment before the post
+    // hits Firestore. Other debaters see this note, so the floor exists
+    // to protect the roster as a public surface.
+    if (window.contentGuard && note) {
+      var gr = window.contentGuard.check({ text: note, kind: 'note' });
+      if (!gr.ok) { if (errEl) errEl.textContent = gr.reason; return; }
+    }
     if (btn) btn.disabled = true;
     if (errEl) errEl.textContent = '';
     firebaseDb.collection('waitlist_posts').add({
@@ -2085,6 +2137,19 @@ h1 em{color:var(--accent);font-style:normal}
     var text = (input.value || '').trim();
     if (!text) return;
     if (text.length > WL_MSG_MAX) text = text.slice(0, WL_MSG_MAX);
+    // Content guard — block slurs / sexual / harassment before the
+    // message lands in the thread. DM recipients can't unsee a
+    // message Firestore wrote.
+    if (window.contentGuard) {
+      var gr = window.contentGuard.check({ text: text, kind: 'message' });
+      if (!gr.ok) {
+        input.setAttribute('data-guard-reason', gr.reason);
+        input.style.borderColor = '#ef4444';
+        try { input.title = gr.reason; } catch(_){}
+        setTimeout(function(){ input.style.borderColor = ''; input.removeAttribute('data-guard-reason'); }, 3200);
+        return;
+      }
+    }
     if (sendBtn) sendBtn.disabled = true;
     var me = state.user.uid;
     var threadRef = firebaseDb.collection('dm_threads').doc(at.id);

@@ -99,9 +99,65 @@
 # Credential program landing — the marketing surface for the cert
 # system. SEO target for "debate certificate" + "english speaking
 # credential" queries. Pretty URL stays /credentials.
+# Public credential registry — rolling list of recently issued
+# credentials, each linking to its own /verify/{id} page. Accreditation-
+# shell surface: prove the program is active + every record is
+# independently verifiable. No-auth, server-paginated.
+[[redirects]]
+  from = "/registry"
+  to = "/registry.html"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/credentials"
   to = "/credentials.html"
+  status = 200
+  force = true
+
+# Live debates hub. /live is the canonical surface; /live/{mode} resolves
+# to the underlying page for that mode. Phase 1 (2026-05-26): /live is the
+# new hub HTML; the tournament-rooms content previously at /live moved to
+# /live-scheduled.html (reachable via /live/scheduled). Phase 2 + 3 fold
+# /spar's matchmaker UI and /debate-chat's random pairing into /live as
+# iframed modes (with ?embed=1 chrome-strip). Phase 4 (2026-05-26 PM):
+# /spar and /debate-chat now 301 to the canonical /live URL with the
+# right mode param. The .html paths stay reachable directly so /live's
+# iframes can still load them — only the bare pretty URLs redirect.
+#
+# IMPORTANT redirect ordering: /spar and /debate-chat 301s come BEFORE
+# the /live/{mode} 200-rewrites below, so a request to /spar takes the
+# 301 path instead of being shadowed by any future rule. force=true on
+# the 301s overrides Netlify's pretty-URL static-file serving (without
+# it, /spar would still serve /spar.html via the default file lookup
+# and the redirect would never fire).
+[[redirects]]
+  from = "/spar"
+  to = "/live?mode=matchmaker"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/debate-chat"
+  to = "/live?mode=random"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/live/scheduled"
+  to = "/live-scheduled.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live/matchmaker"
+  to = "/spar.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live/random"
+  to = "/debate-chat.html"
   status = 200
   force = true
 

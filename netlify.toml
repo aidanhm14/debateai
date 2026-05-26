@@ -355,11 +355,66 @@
   status = 200
   force = true
 
-# Live debates (human vs human)
+# Public credential registry — rolling list of recently issued
+# credentials, links each row to its own /verify/{id} page. Mirror
+# of app/netlify.toml. Same accreditation-shell purpose: prove the
+# program is active, every record is independently verifiable.
+[[redirects]]
+  from = "/registry"
+  to = "/registry.html"
+  status = 200
+  force = true
+
+# Live debates hub. /live is the canonical surface; /live/{mode}
+# resolves to the underlying page for that mode. Mirror of
+# app/netlify.toml. Phase 1 (2026-05-26): /live is the new hub HTML;
+# tournament-rooms content previously at /live moved to
+# /live-scheduled.html (reachable via /live/scheduled). Phase 2 + 3
+# folded /spar's matchmaker and /debate-chat's random pairing into
+# /live as iframed modes (?embed=1 chrome-strip). Phase 4 (2026-05-26 PM):
+# /spar and /debate-chat now 301 to the canonical /live URL with the
+# right mode param. The .html paths stay reachable directly so /live's
+# iframes can still load them — only the bare pretty URLs redirect.
+#
+# Redirect ordering: 301s on /spar + /debate-chat come BEFORE the
+# /live/{mode} 200-rewrites so a /spar request hits the 301 path.
+# force=true overrides Netlify's pretty-URL static-file serving;
+# without it /spar would still serve /spar.html via default lookup
+# and the redirect would never fire.
+[[redirects]]
+  from = "/spar"
+  to = "/live?mode=matchmaker"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/debate-chat"
+  to = "/live?mode=random"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "/live"
   to = "/live.html"
   status = 200
+
+[[redirects]]
+  from = "/live/scheduled"
+  to = "/live-scheduled.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live/matchmaker"
+  to = "/spar.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live/random"
+  to = "/debate-chat.html"
+  status = 200
+  force = true
 
 # Cross-format leaderboard (public, AI-judged)
 [[redirects]]

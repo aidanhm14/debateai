@@ -227,7 +227,7 @@
           "name": "Can I debate other humans on Debatable?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. The Live Debates page at debateai.com/live is a forum for human-vs-human rounds. Post a motion or accept a challenge, then run a timed round in your chosen format with another debater. AI judging is provided at the end and the cross-format leaderboard tracks results."
+            "text": "Yes. DebateIt at debateai.com/live is the hub for human-vs-human rounds. Three modes: match with a partner now, get paired with a random stranger, or schedule a tournament round. Run a timed round in your chosen format with another debater. AI judging at the end; the cross-format leaderboard tracks results."
           }
         },
         {
@@ -387,11 +387,13 @@
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
-<!-- Persona seed pool. Backfills the "Top this week" preview below the
-     hero so a brand-new visitor never sees a one-row board with a
-     test entry. Real Firestore entries always merge in on top.
-     Defer is fine: the preview loader runs on window.load. -->
-<script defer src="/js/community-seed.js"></script>
+<!-- community-seed.js removed 2026-05-25: the "Top this week" preview it
+     backfilled was deleted with the "Four ways in" section sweep on
+     2026-05-18, so the include was loading 296 lines of unused fake-user
+     code on every landing page hit. The script + handle pool still ship
+     for leaderboard.html's seeded preview (which has its own "AI-generated
+     preview" disclosure). -->
+
 <!-- Voice-AI availability flag. Pulls /api/voice-status (env-driven).
      The hero voice CTAs swap to typed-mode siblings when this returns
      enabled:false (set VOICE_AI_ENABLED=false in Netlify dashboard for
@@ -4290,7 +4292,7 @@ section.ui-section .ui-lede{
 <nav class="landing-jumpnav" aria-label="Jump to section">
   <a href="#debate-ai">Debatable</a>
   <a href="#voice-ai" style="display:inline-flex;align-items:center;gap:6px">Voice AI</a>
-  <a href="/live" style="display:inline-flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;display:inline-block"></span>Live Debates</a>
+  <a href="/live" style="display:inline-flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;display:inline-block"></span>DebateIt</a>
   <a href="/community">Community</a>
   <a href="/leaderboard">Leaderboard</a>
   <a href="#tools">Tools</a>
@@ -5061,7 +5063,7 @@ section.ui-section .ui-lede{
             // gap above two short words. As one flowing string it wraps
             // naturally instead.
             {key:'filling',  lead:'Filling the gap.',      accent:''},
-            {key:'omegle',   lead:'The Omegle of',         accent:'debate. Scroll down.'},
+            {key:'debateit',    lead:'DebateIt.',            accent:'Live human debate. Scroll down.'},
             {key:'trust_ai', lead:'Trust AI over',         accent:'human judgment?'}
           ];
           try{
@@ -5138,22 +5140,22 @@ section.ui-section .ui-lede{
           Voice at capacity
         </a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
-        <a href="/live" class="hero-pill hero-pill-live"><span class="hero-pill-live-dot" aria-hidden="true"></span>Scheduled debates</a>
+        <a href="/live/scheduled" class="hero-pill hero-pill-live"><span class="hero-pill-live-dot" aria-hidden="true"></span>Scheduled debates</a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
-        <!-- 2026-05-25: collapsed the prior two pills ("Find an online
-             partner or opponent" + "Debate Omegle") into one. Both were
-             "find a human to debate" entry points, fragmented across two
-             destinations: /spar (live human matchmaker + waitlist) and
-             /debate-chat (Omegle-style random chat). One pill, one
-             destination — /spar is the canonical human-matchmaking
-             spawning page (queue + waitlist marketplace per the
-             2026-05-20 decision log). The "Debate Omegle" label is
-             retained because it's the high-intent search query and it
-             captures the "match me with a stranger" mental model that
-             /spar actually delivers on. /debate-chat still exists as
-             its own page (own title, own SEO) and is reachable via the
-             CTA rail below + the footer. -->
-        <a href="/spar" class="hero-pill" data-cta="hero-debate-omegle">Debate Omegle</a>
+        <!-- 2026-05-26: pill destination flipped /spar → /live. The Phase 1
+             /live restructure makes /live the canonical "live debates" hub
+             with three modes (matchmaker / random / scheduled). Old /spar
+             URL still works via the 200-rewrite at /live/matchmaker, and
+             /spar.html itself is still served directly until Phase 2
+             folds the matchmaker UI into /live and adds the 301.
+             Earlier history kept for context:
+             • 2026-05-25 PM: pill renamed "Debate Omegle" → "Live Online"
+               to align with /debate-chat's brand sweep (Omegle scaffolding
+               retired across visible UI + SEO meta).
+             • 2026-05-25: collapsed the prior two pills ("Find an online
+               partner or opponent" + "Debate Omegle") into one shared
+               human-matchmaking entry point. -->
+        <a href="/live" class="hero-pill" data-cta="hero-debateit">DebateIt</a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
         <a href="/credentials" class="hero-pill" data-cta="hero-credentials">Earn a credential</a>
         <!-- 2026-05-24: rail trimmed 8 → 6 per "too many" feedback.
@@ -5330,9 +5332,9 @@ section.ui-section .ui-lede{
           Start a debate <span class="hero-cta-arrow">→</span>
         </a>
         <div class="hero-cta-rail" role="navigation" aria-label="Other ways to debate">
-          <a href="/spar" class="hero-cta-rail-link">Find an online partner or opponent</a>
+          <a href="/live/matchmaker" class="hero-cta-rail-link">Find an online partner or opponent</a>
           <span class="hero-cta-rail-sep" aria-hidden="true">·</span>
-          <a href="/debate-chat" class="hero-cta-rail-link">Casual chat with a human</a>
+          <a href="/live/random" class="hero-cta-rail-link">Casual chat with a human</a>
           <span class="hero-cta-rail-sep" aria-hidden="true">·</span>
           <a href="/voice-debate" class="hero-cta-rail-link hero-cta-rail-new" data-voice-cta-on>
             Voice <span class="hero-cta-rail-tag">New</span>
@@ -6645,7 +6647,7 @@ section.ui-section .ui-lede{
 
         <div class="fl-cta">
           <a class="fl-cta-primary" href="/voice-debate">Take a voice round →</a>
-          <a class="fl-cta-secondary" href="/spar">Find a human partner</a>
+          <a class="fl-cta-secondary" href="/live?mode=matchmaker">Find a human partner</a>
           <a class="fl-cta-secondary" href="/future">Read the full philosophy</a>
         </div>
       </article>
@@ -7797,10 +7799,10 @@ section.ui-section .ui-lede{
   [data-theme="light"] .live-proof-video:hover{
     box-shadow:0 24px 56px rgba(0,0,0,.14);
   }
-  /* "Open Live Debates →" hint that fades up over the screenshot on hover.
+  /* "Open DebateIt →" hint that fades up over the screenshot on hover.
      Tells visitors the screenshot is the entry point, not just decoration. */
   .live-proof-video::after{
-    content:"Open Live Debates →";
+    content:"Open DebateIt →";
     position:absolute;left:50%;bottom:14px;transform:translateX(-50%) translateY(8px);
     background:#ef4444;color:#fff;
     padding:8px 14px;border-radius:999px;
@@ -8669,7 +8671,7 @@ section.ui-section .ui-lede{
     </div>
 
     <div class="live-proof-frame">
-      <a class="live-proof-video" href="/live" aria-label="Open Live Debates and post or accept a challenge">
+      <a class="live-proof-video" href="/live" aria-label="Open DebateIt and post or accept a challenge">
         <span class="live-proof-badge">Live · 2 debaters</span>
         <!-- Real /live-round screenshot, cropped to the video panel.
              585x571 source; covers the panel and hides the CSS mockup
@@ -10373,7 +10375,7 @@ section.ui-section .ui-lede{
             </span>
           </a></li>
           <li><a href="/debate-ai">Debatable<span class="more-meta">typed</span></a></li>
-          <li><a href="/spar">Sparring partner</a></li>
+          <li><a href="/live?mode=matchmaker">Sparring partner</a></li>
           <li><a href="/live">Live human debates</a></li>
           <li><a href="/leaderboard">Leaderboard</a></li>
         </ul>

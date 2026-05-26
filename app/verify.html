@@ -13,7 +13,12 @@
 <meta property="og:url" content="https://debateai.com/verify">
 <meta property="og:title" content="Verify Certificate · Debatable">
 <meta property="og:description" content="Verified credential — proof of spoken-English argumentation under live pressure. Usable on college apps + resumes.">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=orb4">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Debatable verified credential">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://debateai.com/og-image.png?v=orb4">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
@@ -37,6 +42,11 @@
      on a download click, but the CDN URL is here so the first click
      doesn't lag while we resolve the script tag. -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+
+<!-- QR generator for the credential strip + the PDF download.
+     ~10KB, no deps, pure JS that outputs SVG. Loaded on every cert
+     view so it's always ready when renderCert runs. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -301,6 +311,40 @@ body{
   font-size:1.1rem;color:var(--accent);
 }
 
+/* Credential ID strip — the "this is a real institutional credential"
+   visual cue. Reads as a monospaced serial number with a QR code on
+   the right, like a college transcript or certificate registry record. */
+.cred-id{
+  display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;
+  margin-top:32px;padding:18px 22px;
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;
+}
+.cred-id-left{min-width:0}
+.cred-id-label{
+  font-size:.62rem;font-weight:700;letter-spacing:.18em;
+  color:var(--text-ghost);text-transform:uppercase;margin-bottom:6px;
+}
+.cred-id-value{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:1.04rem;font-weight:700;color:var(--text);letter-spacing:.04em;
+  word-break:break-all;
+}
+.cred-id-sub{
+  font-size:.78rem;color:var(--text-dim);margin-top:6px;line-height:1.5;
+}
+.cred-id-sub a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent);}
+.cred-id-sub a:hover{opacity:.8}
+.cred-id-qr{
+  width:96px;height:96px;flex:none;
+  background:#fff;border-radius:10px;padding:6px;
+  display:flex;align-items:center;justify-content:center;
+}
+.cred-id-qr svg{width:100%;height:100%;display:block}
+@media (max-width:560px){
+  .cred-id{grid-template-columns:1fr;text-align:center}
+  .cred-id-qr{justify-self:center}
+}
+
 /* Actions */
 .actions{
   display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
@@ -537,6 +581,22 @@ body{
       </div>
     </article>
 
+    <!-- Credential ID strip: monospace serial + QR + methodology link.
+         Reads as a real institutional credential record (transcript /
+         registry style) rather than a marketing page. The QR renders
+         to the verify URL so a printed PDF / paper copy can be scanned
+         back to this same page. -->
+    <div class="cred-id">
+      <div class="cred-id-left">
+        <div class="cred-id-label">Credential ID</div>
+        <div class="cred-id-value" id="cCredId">—</div>
+        <div class="cred-id-sub">
+          Issued by Debatable. Every credential is publicly verifiable at <a href="/credentials#methodology" id="cMethodologyLink">debateai.com/credentials</a>.
+        </div>
+      </div>
+      <div class="cred-id-qr" id="cQrSlot" aria-label="QR code linking to this verify page"></div>
+    </div>
+
     <div class="actions">
       <button class="btn btn-primary" id="dlPdf">↓ Download PDF</button>
       <button class="btn btn-ghost" id="shareLi">Share on LinkedIn</button>
@@ -655,7 +715,12 @@ body{
   // B adds the lip-sync r line; later phases add face-lock, liveness
   // challenges, and audio watermark rows. The block is honest by
   // omission: a check that didn't happen doesn't get a green ✓.
-  function renderVerificationBlock(v){
+  //
+  // `cert` is the full cert object so the block can also surface the
+  // round-telemetry floors (duration, user speak, AI speak) that the
+  // issuance flow now gates on — those reinforce "real round happened"
+  // for a resume-reader more than lip-sync ever will.
+  function renderVerificationBlock(v, cert){
     if (!v || typeof v !== 'object') return;
     var method = v.method || 'lipsync-v1';
     var phaseB = method.indexOf('phaseB') >= 0;
@@ -679,6 +744,39 @@ body{
       body.appendChild(s);
       li.appendChild(body);
       list.appendChild(li);
+    }
+    function fmtMs(ms){
+      if (!ms || ms < 1000) return '<1s';
+      var s = Math.round(ms / 1000);
+      if (s < 90) return s + 's';
+      var m = Math.floor(s / 60); var r = s % 60;
+      return m + 'm' + (r ? ' ' + r + 's' : '');
+    }
+    // Round-content floors. These three rows reinforce that a real round
+    // happened — not a "connect, mint, disconnect" attack. Server-side
+    // issuance now rejects below these thresholds, so a cert that
+    // renders them passed those gates.
+    var c = cert || {};
+    var durMs = (typeof c.roundDurationMs === 'number') ? c.roundDurationMs
+              : (v.durationMs || 0);
+    if (durMs >= 3 * 60 * 1000) {
+      row(true, 'Round duration',
+          'ran for ' + fmtMs(durMs) + ' (issuance floor: 3min).');
+    } else if (durMs > 0) {
+      row(false, 'Round duration',
+          fmtMs(durMs) + ' captured.');
+    }
+    if (typeof c.userSpeakMs === 'number' && c.userSpeakMs > 0) {
+      var userPassed = c.userSpeakMs >= 60 * 1000;
+      row(userPassed, 'Your speech time',
+          fmtMs(c.userSpeakMs) + ' of mic-on speech' +
+          (userPassed ? ' (issuance floor: 60s).' : '.'));
+    }
+    if (typeof c.aiSpeakMs === 'number' && c.aiSpeakMs > 0) {
+      var aiPassed = c.aiSpeakMs >= 30 * 1000;
+      row(aiPassed, 'Adversarial AI response',
+          fmtMs(c.aiSpeakMs) + ' of AI counter-argument' +
+          (aiPassed ? ' (issuance floor: 30s).' : '.'));
     }
     // Live audio captured — passes if we received any audio samples at all
     if ((v.audioSamples || 0) > 0) {
@@ -723,7 +821,7 @@ body{
       var vb = document.getElementById('verificationBlock');
       if (vb) {
         if (hasV1) {
-          renderVerificationBlock(c.verification);
+          renderVerificationBlock(c.verification, c);
           vb.style.display = 'block';
         } else {
           vb.style.display = 'none';
@@ -768,6 +866,13 @@ body{
     } else {
       var rb = document.getElementById('rfdBlock'); if (rb) rb.style.display = 'none';
     }
+
+    // Credential strip — monospace serial + QR.
+    try {
+      var credIdEl = document.getElementById('cCredId');
+      if (credIdEl) credIdEl.textContent = c.certId;
+      renderQr('https://debateai.com/verify/' + c.certId);
+    } catch(e) { console.warn('[verify] cred-id render failed', e); }
 
     // Action buttons
     var verifyUrl = 'https://debateai.com/verify/' + c.certId;
@@ -821,6 +926,26 @@ body{
       s.textContent = JSON.stringify(ld);
       document.head.appendChild(s);
     } catch(e){ console.warn('[verify] JSON-LD injection failed', e); }
+  }
+
+  // Renders the credential QR into #cQrSlot. The qrcode-generator
+  // script tag is deferred, so on first paint it may not yet be on
+  // window — back-off and retry a couple of times before silently
+  // dropping. The QR is decorative-functional: nice to have for the
+  // print case, not load-bearing for verification itself.
+  function renderQr(url, attempt){
+    attempt = attempt || 0;
+    if (typeof window.qrcode !== 'function') {
+      if (attempt > 8) return;
+      return setTimeout(function(){ renderQr(url, attempt + 1); }, 200);
+    }
+    try {
+      var qr = window.qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      var slot = document.getElementById('cQrSlot');
+      if (slot) slot.innerHTML = qr.createSvgTag({ scalable: true, margin: 0 });
+    } catch(e){ console.warn('[verify] qr render failed', e); }
   }
 
   function downloadPdf(c, verifyUrl){
