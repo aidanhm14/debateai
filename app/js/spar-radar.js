@@ -460,8 +460,14 @@
     var startMs = performance.now();
     var raf = 0;
     var stopped = false;
+    // Pause the rAF loop while the tab is hidden. Modern browsers throttle
+    // rAF to ~1Hz on hidden tabs anyway, but the canvas paint, gradient
+    // re-evaluation, and per-frame allocations still happen on each tick.
+    // Fully parking the loop frees both CPU and the per-frame heap churn.
+    var paused = false;
+    var hiddenStartMs = 0;
     function frame(nowMs) {
-      if (stopped) return;
+      if (stopped || paused) { raf = 0; return; }
       var tSec = (nowMs - startMs) / 1000;
       ctx.clearRect(0, 0, W, H);
       paintGrid();
@@ -475,6 +481,26 @@
       paintCenter(tSec);
       raf = global.requestAnimationFrame(frame);
     }
+    function onVisChange() {
+      var hidden = !!(global.document && global.document.hidden);
+      if (hidden && !paused) {
+        paused = true;
+        hiddenStartMs = performance.now();
+        if (raf) { global.cancelAnimationFrame(raf); raf = 0; }
+      } else if (!hidden && paused) {
+        paused = false;
+        // Shift startMs forward by the hidden duration so tSec resumes
+        // where it left off — otherwise animations would jump forward
+        // by the full hidden-duration of motion on the first frame back.
+        startMs += (performance.now() - hiddenStartMs);
+        if (!stopped && !raf) {
+          raf = global.requestAnimationFrame(frame);
+        }
+      }
+    }
+    if (global.document && global.document.addEventListener) {
+      global.document.addEventListener('visibilitychange', onVisChange);
+    }
     raf = global.requestAnimationFrame(frame);
 
     return {
@@ -483,6 +509,9 @@
         if (raf) global.cancelAnimationFrame(raf);
         if (ro) ro.disconnect();
         else global.removeEventListener('resize', resize);
+        if (global.document && global.document.removeEventListener) {
+          global.document.removeEventListener('visibilitychange', onVisChange);
+        }
       },
       // Cinematic match-found beat — caller (renderMatched on spar.html)
       // calls this FIRST, waits ~700-800ms, then swaps the page markup
