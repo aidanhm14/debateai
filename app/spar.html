@@ -1984,8 +1984,17 @@ h1 em{color:var(--accent);font-style:normal}
         paintWaitlist();
       }, function(err){
         console.warn('[waitlist] feed snapshot error', err);
+        // 2026-05-26: previous error copy was "Couldn't load the waitlist.
+        // Refresh to retry." That read as a broken-product signal to anon
+        // visitors, when in reality the most common cause is a permission
+        // error before the user has signed in. Mirror the empty-state copy
+        // (the "no one on the waitlist right now" line paintWaitlist uses)
+        // so the failure path teaches the user the right next step instead
+        // of asking them to refresh into the same wall.
         var list = document.getElementById('wlList');
-        if (list) list.innerHTML = '<div class="waitlist-rail__empty">Couldn\'t load the waitlist. Refresh to retry.</div>';
+        if (list) list.innerHTML = '<div class="waitlist-rail__empty">No one on the waitlist right now.' +
+          (state.user ? ' Be the first — join above.' : ' Sign in to join.') +
+        '</div>';
       });
   }
 
@@ -2615,11 +2624,36 @@ h1 em{color:var(--accent);font-style:normal}
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        renderGate();
+        // 2026-05-26: drop the hard sign-in gate. Anon visitors hitting
+        // /spar (e.g. from "Debate Omegle" on the landing) used to bounce
+        // into renderGate() with a wall of Google sign-in copy + no way
+        // to try the matchmaking. Per user feedback ("viewers shouldn't
+        // have to sign in for this to work"), anon users now go straight
+        // into the searching UI. They can't actually pair with a human
+        // (matchmaking_queue requires auth at the Firestore-rules level),
+        // but the radar + status phases + countdown play and at 60s the
+        // existing triggerAIFallback path ferries them to /debate-ai.
+        // joinQueueAnon below is renderSearching wrapped with the
+        // state.joinedAtMs init that joinQueue normally sets. The Firestore
+        // writes inside renderSearching's wired functions (cancelQueue,
+        // triggerAIFallback) are guarded with `if (state.queueDocRef)`
+        // checks that no-op when state.queueDocRef stays null for anon.
+        joinQueueAnon();
       }
     });
   } else {
-    renderGate();
+    joinQueueAnon();
+  }
+
+  function joinQueueAnon(){
+    state.cancelled = false;
+    state.joinedAtMs = Date.now();
+    // state.queueDocRef stays null — all the Firestore-write paths
+    // (cancelQueue / triggerAIFallback / startMatchPolling's tryMatch)
+    // already guard with `if (state.queueDocRef)`, so they no-op
+    // gracefully without state.user.
+    renderSearching();
+    try { gtag('event', 'spar_anon_join', { format: formatParam }); } catch(e){}
   }
 })();
 </script>
