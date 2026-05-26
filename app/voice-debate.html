@@ -381,6 +381,17 @@ input[type=text]:focus,select:focus,textarea:focus{
   background:#ef4444;border-color:#ef4444;color:#fff;
 }
 .stage .speech-ctrl button.primary:hover{background:#dc2626;border-color:#dc2626}
+/* Disabled .primary — used when the upcoming speech belongs to the AI,
+   so the user can't accidentally start a speech that isn't theirs.
+   Grey palette + not-allowed cursor + suppressed hover so the affordance
+   reads as "wait, not your turn." */
+.stage .speech-ctrl button.primary:disabled,
+.stage .speech-ctrl button.primary:disabled:hover{
+  background:rgba(255,255,255,.05);
+  border-color:rgba(255,255,255,.10);
+  color:rgba(230,230,238,.45);
+  cursor:not-allowed;
+}
 .stage .speech-ctrl button.ghost{
   background:transparent;color:#a3a3b3;border-color:rgba(255,255,255,.10);
 }
@@ -6256,11 +6267,25 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           : ' / ' + (phase === 'prep' ? fmtTime(GRACE_SEC) : (sp ? fmtTime(sp.durSec) : '')))
       ),
       el('div', { className: 'speech-ctrl', key: 'ctrl' },
-        phase === 'prep' && sp && el('button', {
-          className: 'primary',
-          onClick: startCurrentSpeech,
-          title: 'Start the ' + sp.name + ' timer now'
-        }, '▶  Start ' + sp.name),
+        // Phase=prep button gating: only enabled when the upcoming speech
+        // is the USER's. If it's the AI's speech (PMC when user is Opp,
+        // LOC when user is Gov, etc.), grey-disable the button so the
+        // user can't kick off a speech that isn't theirs. The auto-tick
+        // still advances the round; this is purely a "don't show me a
+        // hot CTA for a speech I don't own" guard. (2026-05-26 per user
+        // "shouldn't be able to start PMC if I'm not the Gov; this should
+        // be grey. Have better rules on this feature.")
+        phase === 'prep' && sp && (isUserSpeech(sp)
+          ? el('button', {
+              className: 'primary',
+              onClick: startCurrentSpeech,
+              title: 'Start the ' + sp.name + ' timer now'
+            }, '▶  Start ' + sp.name)
+          : el('button', {
+              className: 'primary',
+              disabled: true,
+              title: persona.name.split(' ')[0] + " is up — they'll start when ready"
+            }, '▶  ' + persona.name.split(' ')[0] + " starts " + sp.name)),
         phase === 'speaking' && sp && el('button', {
           className: 'ghost',
           onClick: endCurrentSpeech,

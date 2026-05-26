@@ -4,7 +4,12 @@
 // Without this bump, users on v9 kept seeing the old dropdown with only
 // 8 items and the old 3-card pricing panel.
 
-const CACHE_NAME = 'debateos-v767';
+
+
+const CACHE_NAME = 'debateos-v769';
+
+
+
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
 // cached HTML of '/'. Removed; the app shell now caches only explicit paths.
@@ -19,6 +24,7 @@ const APP_SHELL = [
   'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js',
 ];
+
 // Install: cache app shell (don't fail install if any asset fails to cache)
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -34,24 +40,36 @@ self.addEventListener('install', (event) => {
   );
   self.skipWaiting();
 });
+
 // Activate: clean old caches and take control
 self.addEventListener('activate', (event) => {
+  event.waitUntil(
     caches.keys().then((keys) =>
+      Promise.all(
         keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+      )
+    )
+  );
   self.clients.claim();
+});
+
 // Only cache successful, basic/cors responses. Never cache 4xx/5xx.
 function shouldCache(response) {
   return response && response.ok && (response.type === 'basic' || response.type === 'cors');
 }
+
 // Cache only http(s) requests. Defense-in-depth so a future caller path
 // can't bypass the protocol guard at the top of the fetch handler.
 function isCacheableRequest(request) {
   if (!request || !request.url) return false;
   return request.url.indexOf('http:') === 0 || request.url.indexOf('https:') === 0;
+}
+
 // Fetch handler
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
   // ── HARD GUARD: only ever intercept http(s) ─────────────────────
   // Browser extensions (Grammarly, password managers, ad blockers,
   // ChatGPT helpers, Apollo, ChromePolyfill, etc.) inject content
@@ -68,11 +86,18 @@ self.addEventListener('fetch', (event) => {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return;
   }
+
   // Never intercept API calls — let them go straight to the network.
   // API 404s were being cached and replayed, which broke /api/claude etc.
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.netlify/')) {
+    return;
+  }
+
   // Never intercept POST/PUT/DELETE — SW caching of mutations is a footgun
   if (request.method !== 'GET') {
+    return;
+  }
+
   // Network-first for navigation requests (HTML pages). Fall back to cache,
   // and ONLY show offline.html if the user is verifiably offline.
   if (request.mode === 'navigate') {
@@ -98,9 +123,14 @@ self.addEventListener('fetch', (event) => {
           // browser where fetch fails for unrelated reasons).
           if (!self.navigator || self.navigator.onLine === false) {
             return caches.match('/offline.html');
+          }
           // Genuinely uncertain — surface the real error to the browser
           throw new Error('SW navigation fetch failed and user appears online');
+        })
     );
+    return;
+  }
+
   // Cache-first for CDN libraries, fonts, and static assets
   if (
     url.hostname.includes('cdnjs.cloudflare.com') ||
@@ -111,6 +141,7 @@ self.addEventListener('fetch', (event) => {
     request.destination === 'style' ||
     request.destination === 'image'
   ) {
+    event.respondWith(
       caches.match(request).then(
         (cached) =>
           cached ||
@@ -120,6 +151,12 @@ self.addEventListener('fetch', (event) => {
               caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(()=>{});
             }
             return response;
+          })
+      )
+    );
+    return;
+  }
+
   // Default: network-first with cache fallback — but only cache successful responses
   event.respondWith(
     fetch(request)
@@ -131,3 +168,5 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => caches.match(request))
+  );
+});
