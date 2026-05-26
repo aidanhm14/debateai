@@ -2570,7 +2570,10 @@ section.hero{
   .editorial-hero .hero-stage-cta{
     grid-area:stage-cta;
     justify-self:center;
-    margin:6px auto 0;
+    /* 2026-05-26 rev5: negative top-margin pulls the CTA up into
+       the bottom edge of the orb card so the orb → action read is
+       one continuous gesture, not "orb, white space, button." */
+    margin:-10px auto 0;
   }
   .editorial-hero .editorial-signin-row{grid-area:signin;margin-top:24px}
   .editorial-hero .hero-founder-cue{
@@ -2614,113 +2617,63 @@ section.hero{
    inhabited and connected, not three independent shapes
    sharing a viewport. */
 
-/* "AI · standing by" repositioned from below-the-orb to overlap
-   the orb's lower-right perimeter — reads as a system label
-   anchored to the orb, not a caption floating beneath it. The
-   existing .hero-orb-standby base CSS (margin, font, dot) stays
-   in place; this overrides position only. Desktop only — mobile
-   keeps the below-flow position so the small viewport stays
-   tidy. */
+/* 2026-05-26 rev5: previous desktop override positioned the
+   "AI · standing by" pill absolutely at top:calc(50% + 180px)
+   to overlap the orb's lower-right perimeter. After the orb-card
+   padding-bottom was tightened and the inner Start-a-voice-round
+   pill was removed, that absolute y now lands on top of the
+   sub-text "Ready when you are..." instead of the canvas bottom.
+   Override removed — standby pill returns to the normal in-flow
+   block position between canvas and sub-text (base CSS at
+   .hero-orb-standby below). Less polish, but it actually reads
+   in the right order instead of fighting the layout. */
 @media (min-width:900px){
   .hero-orb-card{position:relative;}
-  .hero-orb-card .hero-orb-standby{
-    position:absolute;
-    left:50%;top:calc(50% + clamp(120px,16vw,180px));
-    transform:translateX(-50%);
-    margin:0;
-    padding:6px 14px;
-    background:rgba(20,5,7,.78);
-    border:1px solid rgba(239,68,68,.32);
-    border-radius:999px;
-    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-    box-shadow:0 8px 24px -10px rgba(239,68,68,.4);
-    font-size:.62rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
-    color:#fff;
-    z-index:4;
-    white-space:nowrap;
-  }
-  [data-theme="light"] .hero-orb-card .hero-orb-standby,
-  [data-theme="stone"] .hero-orb-card .hero-orb-standby{
-    background:rgba(255,255,255,.88);
-    border-color:rgba(220,38,38,.32);
-    color:#b91c1c;
-    box-shadow:0 8px 24px -10px rgba(220,38,38,.28);
-  }
 }
 
-/* Live env signals — floating chips around the orb-card showing
-   real-feeling system state. Numbers drift via the inline script
-   below the markup so the ecosystem reads as inhabited. Three
-   chips, positioned at the corners of the card so they don't
-   compete with the orb itself. Hidden under 900px to keep mobile
-   uncluttered. */
-.hero-env-signal{
-  position:absolute;
-  display:inline-flex;align-items:center;gap:6px;
-  padding:5px 10px;border-radius:999px;
-  background:rgba(20,5,7,.62);
-  border:1px solid rgba(239,68,68,.22);
-  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+/* 2026-05-26 rev5: env-signal floating chips replaced with a single
+   horizontal status row beneath the climax CTA. Critique was that
+   the three corner chips (online now / signed in / 214 ms voice)
+   read as "randomly attached" — three independent objects with no
+   anchor. One inline row reads as one composition element,
+   grounded by sitting under the action it follows. */
+.hero-status-row{
+  display:inline-flex;align-items:center;gap:10px;
+  margin:16px auto 0;
+  padding:6px 14px;border-radius:999px;
   font-family:ui-monospace,SFMono-Regular,monospace;
-  font-size:.62rem;font-weight:600;letter-spacing:.06em;
-  color:rgba(255,255,255,.74);
-  z-index:3;
-  pointer-events:none;
+  font-size:.68rem;font-weight:500;letter-spacing:.04em;
+  color:var(--text-dim);
+  background:transparent;
+  border:1px solid var(--border);
   opacity:0;
-  animation:env-fade-in 1.2s ease-out forwards;
+  animation:status-row-fade-in 1.1s ease-out .4s forwards;
 }
-.hero-env-signal strong{
-  color:#fff;font-variant-numeric:tabular-nums;font-weight:700;
+.hero-status-row strong{
+  color:var(--text);
+  font-variant-numeric:tabular-nums;font-weight:700;
 }
-.hero-env-signal .hes-dot{
-  width:5px;height:5px;border-radius:50%;
+.hero-status-row .hsr-item{display:inline-flex;align-items:center;gap:5px}
+.hero-status-row .hsr-sep{opacity:.45}
+.hero-status-row .hsr-dot-live{
+  width:6px;height:6px;border-radius:50%;
   background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6);
   animation:env-dot-pulse 2.1s ease-in-out infinite;
 }
-[data-theme="light"] .hero-env-signal,
-[data-theme="stone"] .hero-env-signal{
-  background:rgba(255,255,255,.78);
-  border-color:rgba(125,95,45,.20);
-  color:rgba(40,28,15,.72);
+[data-theme="light"] .hero-status-row,
+[data-theme="stone"] .hero-status-row{
+  border-color:rgba(125,95,45,.22);
+  color:rgba(40,28,15,.62);
 }
-[data-theme="light"] .hero-env-signal strong,
-[data-theme="stone"] .hero-env-signal strong{color:#3a2a14}
-@keyframes env-fade-in{
-  from{opacity:0;transform:translateY(6px)}
+[data-theme="light"] .hero-status-row strong,
+[data-theme="stone"] .hero-status-row strong{color:#3a2a14}
+@keyframes env-dot-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes status-row-fade-in{
+  from{opacity:0;transform:translateY(4px)}
   to{opacity:1;transform:translateY(0)}
 }
-@keyframes env-dot-pulse{0%,100%{opacity:.55}50%{opacity:1}}
-/* Per-chip positioning + a soft drift animation so each one
-   gently floats. Different keyframe offsets so the three chips
-   don't sync into a single bouncing rhythm. */
-.hero-env-signals .hes-top-left{
-  top:18%;left:-4%;animation-delay:.1s;
-}
-.hero-env-signals .hes-top-right{
-  top:14%;right:-2%;animation-delay:.4s;
-}
-.hero-env-signals .hes-bottom-left{
-  bottom:18%;left:-2%;animation-delay:.7s;
-}
-@media (min-width:900px){
-  .hero-env-signals .hes-top-left{animation:env-fade-in 1.2s ease-out .1s forwards, env-drift-a 9s ease-in-out 1.4s infinite}
-  .hero-env-signals .hes-top-right{animation:env-fade-in 1.2s ease-out .4s forwards, env-drift-b 11s ease-in-out 1.7s infinite}
-  .hero-env-signals .hes-bottom-left{animation:env-fade-in 1.2s ease-out .7s forwards, env-drift-c 10s ease-in-out 2s infinite}
-}
-@keyframes env-drift-a{
-  0%,100%{transform:translate(0,0)}
-  50%{transform:translate(2px,-3px)}
-}
-@keyframes env-drift-b{
-  0%,100%{transform:translate(0,0)}
-  50%{transform:translate(-3px,4px)}
-}
-@keyframes env-drift-c{
-  0%,100%{transform:translate(0,0)}
-  50%{transform:translate(3px,-2px)}
-}
-@media (max-width:899px){
-  .hero-env-signals{display:none}
+@media (max-width:560px){
+  .hero-status-row{font-size:.62rem;gap:6px;padding:5px 10px}
 }
 
 /* Connection paths — faint SVG curves from orb center to each
@@ -2758,8 +2711,8 @@ section.hero{
 }
 @media (prefers-reduced-motion:reduce){
   .hero-connect-paths path{animation:none}
-  .hero-env-signal,
-  .hero-env-signal .hes-dot{animation:none}
+  .hero-status-row,
+  .hero-status-row .hsr-dot-live{animation:none}
 }
 
 /* Mobile order — under the desktop @media wrapper (so it
@@ -3170,31 +3123,38 @@ body.signed-in .hero-ctas{gap:8px}
    in a lighter, smaller, monochrome treatment. They're paths people
    can take if they're not ready to enter a live round yet. */
 .hero-pill-rail--primary{
+  /* 2026-05-26 rev5: tightened from flank-the-stage giants to a
+     compact segmented feature row. Critique was that the pills
+     read as "massive floating buttons" detached from the rest of
+     the composition. Now: smaller padding, no glow halo, baseline
+     aligned with the orb card, gap reduced. Reads as feature
+     selectors, not climax CTAs. */
   display:flex;flex-wrap:wrap;justify-content:center;align-items:center;
-  gap:12px;margin:0 auto 24px;
+  gap:8px;margin:0 auto 16px;
 }
 .hero-pill--primary{
-  padding:14px 26px;
-  background:rgba(239,68,68,.14);
-  border:1px solid rgba(239,68,68,.50);
-  color:#fff;font-weight:800;
-  letter-spacing:-.005em;font-size:1rem;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 6px 20px rgba(239,68,68,.18);
+  padding:8px 16px;
+  background:transparent;
+  border:1px solid rgba(239,68,68,.32);
+  color:rgba(255,255,255,.86);
+  font-weight:600;
+  letter-spacing:-.005em;font-size:.88rem;
+  box-shadow:none;
 }
 .hero-pill--primary:hover{
-  background:rgba(239,68,68,.24);
-  border-color:rgba(239,68,68,.78);
+  background:rgba(239,68,68,.10);
+  border-color:rgba(239,68,68,.55);
   color:#fff;
 }
 [data-theme="light"] .hero-pill--primary{
-  background:rgba(220,38,38,.10);
-  border-color:rgba(220,38,38,.45);
+  background:transparent;
+  border-color:rgba(220,38,38,.34);
   color:#7f1d1d;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.9), 0 8px 22px rgba(220,38,38,.18);
+  box-shadow:none;
 }
 [data-theme="light"] .hero-pill--primary:hover{
-  background:rgba(220,38,38,.16);
-  border-color:rgba(220,38,38,.68);
+  background:rgba(220,38,38,.06);
+  border-color:rgba(220,38,38,.52);
   color:#7f1d1d;
 }
 .hero-pill-rail--secondary{
@@ -3383,7 +3343,12 @@ body.signed-in .hero-ctas{gap:8px}
   background:transparent;
   border:none;
   border-radius:0;
-  padding:48px 32px 36px;
+  /* 2026-05-26 rev5: padding-bottom trimmed 36 → 14 since the
+     inner "Start a voice round" pill was removed (the climax CTA
+     below the card carries the action now). Tightens the gap
+     between orb canvas → climax CTA so the eye flows in one
+     continuous motion instead of falling into empty space. */
+  padding:48px 32px 14px;
   width:100%;
   /* 2026-05-26 (rev2): bumped 520 → 720 so flanking debater
      silhouettes have room to stand around the orb instead of clipping
@@ -3536,10 +3501,22 @@ body.signed-in .hero-ctas{gap:8px}
    sitting awkwardly below it. Subtle dark backdrop blur so it stays
    legible across the orb glow. */
 .hero-orb-standby{
-  display:inline-flex;align-items:center;gap:8px;justify-content:center;
+  /* 2026-05-26 rev5: inline-flex + auto-margins + negative
+     top-margin combo wasn't centering on its own line — it ended
+     up rendering inline with the sub-text below. Switched to
+     block-level + auto-center via a wrapping <span> approach:
+     the standby pill stays inline-flex (for icon + label
+     alignment) but sits inside its own line. Use a flex
+     parent or text-align:center on a block container. Here we
+     keep it simple — make the standby pill itself a block-level
+     element with width:max-content + margin auto so auto-margins
+     actually center, and let it sit cleanly between canvas and
+     sub-text without negative-margin overlap. */
+  display:flex;align-items:center;gap:8px;justify-content:center;
+  width:max-content;
   font-size:.74rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
   color:#fff;
-  margin:-26px auto 10px;
+  margin:4px auto 8px;
   padding:6px 12px;
   background:rgba(15,5,8,.62);
   border:1px solid rgba(239,68,68,.32);
@@ -3578,17 +3555,22 @@ body.signed-in .hero-ctas{gap:8px}
    mobile. */
 .hero-orb-card{isolation:isolate}
 .hero-orb-card .standby-figures{
-  position:absolute;left:50%;top:50%;
-  transform:translate(-50%,-44%);
+  /* 2026-05-26 rev5: pinned to the canvas vertical band instead of
+     translateY(-44%). Previous positioning let the lecterns extend
+     down past the canvas and overlap the "Ready when you are..."
+     sub-text + "AI · STANDING BY" pill. Now the figures' container
+     sits inside the canvas y-range so the lecterns land at the
+     canvas floor, not below it. top:60px (clears the live-voice
+     pill); height:340px (matches canvas height). */
+  position:absolute;left:50%;top:60px;
+  transform:translateX(-50%);
   /* 2026-05-24 (rev3): widened modestly per user direction —
-     "move these a bit farther apart." Original was min(560px,
-     calc(100% + 80px)) → 40px bonus per side. New min(620px,
-     calc(100% + 140px)) → 70px bonus per side. Stays tight enough
-     at 2-col hero widths (≥760px) that the left figure doesn't
-     bleed into the headline column and the right doesn't clip off
-     the viewport. On wide viewports a min-width breakpoint below
+     "move these a bit farther apart." Stays tight enough at 2-col
+     hero widths (≥760px) that the left figure doesn't bleed into
+     the headline column and the right doesn't clip off the
+     viewport. On wide viewports a min-width breakpoint below
      pushes a touch further for extra breathing room. */
-  width:min(620px,calc(100% + 140px));height:300px;
+  width:min(620px,calc(100% + 140px));height:340px;
   pointer-events:none;z-index:-1;
 }
 @media (min-width:1200px){
@@ -5807,19 +5789,20 @@ section.ui-section .ui-lede{
            hero_headline_view GA event so the variants stay segmentable
            (which tagline a converting session saw). Per-load random, NOT
            sticky per-visitor: the ask is rotation on every load. -->
-      <!-- 2026-05-26 (rev10): explainer eyebrow added above the mantra
-           per Aidan "I WANT THE LANDING PAGE TO LOOK EASY TO
-           UNDERSTAND/ENTER." Mantra is rhythmic-brand but cryptic on
-           first impression; this eyebrow tells a stranger what the
-           product IS in 4 words before they decode the chant. -->
+      <!-- 2026-05-26 (rev10): explainer eyebrow above the mantra so
+           the product surface is legible in 4 words before the chant
+           lands. -->
       <p class="hero-explainer-eyebrow">Voice-first AI debate practice.</p>
-      <!-- 2026-05-26 (rev4): static fallback headline IS the "Debate it"
-           chant. Per Aidan: "branding to be more like DEBATEIT DEBATEIT
-           DEBATEIT so I can pitch it to debaters better." The mantra is
-           weighted 3x in the rotation below so it dominates random picks;
-           other variants stay in the pool so the page still rotates. -->
+      <!-- 2026-05-26 (rev5): collapsed the triple-chant mantra to a
+           single "Debate it." Reason: the repetition read as accidental
+           duplication, not intentional rhythm — the rest of the page
+           was already pulling toward editorial restraint, and the triple
+           was the loudest violation of that direction. The brand verb
+           still dominates (mantra slot left in the rotation with the
+           single word so it remains the weighted variant); other
+           variants stay in the pool so the page still rotates. -->
       <h1 class="hero-headline" id="heroHeadline">
-        Debate it. <span class="hh-accent">Debate it. Debate it.</span>
+        Debate it.
       </h1>
       <!-- 2026-05-26 (rev12): RE-ADDED hero-subhead — parallel commits
            removed the <p class="hero-subhead"> sibling that explained
@@ -5831,13 +5814,14 @@ section.ui-section .ui-lede{
       <p class="hero-subhead">An AI that pushes back. Humans who actually show up. Real speeches against a real clock.</p>
       <script>
         (function(){
-          // 2026-05-26 (rev4): mantra variant added + weighted 3x so the
-          // "Debate it" chant dominates the rotation. The brand verb is the
-          // modal first-paint headline.
+          // 2026-05-26 (rev5): mantra variant weighted 3x so the "Debate
+          // it." word is the modal first-paint headline, but the accent
+          // span is now empty so the headline lands as a single,
+          // confident verb instead of a chant.
           var VARIANTS=[
-            {key:'debateit_mantra', lead:'Debate it.', accent:'Debate it. Debate it.'},
-            {key:'debateit_mantra', lead:'Debate it.', accent:'Debate it. Debate it.'},
-            {key:'debateit_mantra', lead:'Debate it.', accent:'Debate it. Debate it.'},
+            {key:'debateit_mantra', lead:'Debate it.', accent:''},
+            {key:'debateit_mantra', lead:'Debate it.', accent:''},
+            {key:'debateit_mantra', lead:'Debate it.', accent:''},
             {key:'out_loud', lead:'Debate an AI opponent', accent:'out loud.'},
             {key:'rethink',  lead:'Rethink',               accent:'argumentation.'},
             // 'filling' carries no accent: .hh-accent is display:block, which
@@ -6119,31 +6103,33 @@ section.ui-section .ui-lede{
             <path class="hcp-left"  d="M 75 240 C 180 220, 240 210, 300 200"/>
             <path class="hcp-right" d="M 525 240 C 420 220, 360 210, 300 200"/>
           </svg>
-          <!-- 2026-05-26 rev4: live env signals. Three small floating
-               chips at the corners of the card showing real-feeling
-               system state. Numbers drift via the inline script below
-               so the ecosystem reads as inhabited, not static. -->
-          <div class="hero-env-signals" aria-hidden="true">
-            <span class="hero-env-signal hes-top-left">
-              <span class="hes-dot"></span><strong id="hesActive">1</strong> online now
-            </span>
-            <span class="hero-env-signal hes-top-right">
-              <strong id="hesRooms">1</strong> signed in
-            </span>
-            <span class="hero-env-signal hes-bottom-left">
-              <strong id="hesLatency">214</strong>ms voice
-            </span>
-          </div>
+          <!-- 2026-05-26 rev5: env-signal chips removed. They were
+               three absolutely-positioned chips floating around the
+               orb (top-left "online now," top-right "signed in,"
+               bottom-left "214 ms voice"). Critique: "still feel
+               randomly attached." Replaced with one compact status
+               row sitting beneath the climax CTA, below — a single
+               horizontal strip is one composition element, not three
+               floaters with no anchor. -->
+          <!-- hero-env-signals removed; hesActive / hesRooms IDs now
+               live on the hero-status-row span elements below so the
+               heartbeat script continues to update them. -->
+          <!-- hesLatency intentionally dropped from the new status row
+               — the number had no real source (it was decoration) and
+               three chips read busier than two grounded metrics. -->
+          <span hidden aria-hidden="true"><span id="hesLatency">214</span></span>
           <canvas class="hero-orb-canvas" id="heroOrbCanvas" aria-hidden="true"></canvas>
           <div class="hero-orb-standby">
             <span class="hero-orb-standby-dot" aria-hidden="true"></span>
             <span>AI · Standing by</span>
           </div>
-          <!-- 2026-05-26 (rev12): RE-REMOVED the duplicate "Ready when
-               you are..." sub + inline "Start a voice round" pill that
-               parallel commits brought back. Subhead at top of hero
-               already explains; .hero-stage-cta "Debate it" below is
-               the climax CTA pointing at the same /voice-debate. -->
+          <!-- 2026-05-26 (rev12): "Ready when you are..." sub + inner
+               "Start a voice round" pill both removed. The
+               .hero-explainer-eyebrow at the top of the hero already
+               explains what the product is, and the .hero-stage-cta
+               "Debate it" below the orb is the climax CTA pointing at
+               the same /voice-debate destination — no duplicate copy
+               or stacked CTAs inside the orb card. -->
         </a>
       </div>
 
@@ -6280,6 +6266,22 @@ section.ui-section .ui-lede{
         Debate it
         <span class="hero-stage-cta-arrow" aria-hidden="true">→</span>
       </a>
+
+      <!-- 2026-05-26 rev5: consolidated status row. Replaced the three
+           floating env-signal chips that used to circle the orb. The
+           row sits directly under the climax CTA so the eye lands on
+           it as the proof-line after the action, not as decoration
+           around the visual. IDs hesActive + hesRooms preserved so
+           the heartbeat script in the orb-card block continues to
+           update them. Single line, light dot dividers, no chips. -->
+      <div class="hero-status-row" role="status" aria-live="polite">
+        <span class="hsr-dot hsr-dot-live" aria-hidden="true"></span>
+        <span class="hsr-item">Live beta</span>
+        <span class="hsr-sep" aria-hidden="true">·</span>
+        <span class="hsr-item"><strong id="hesActive">1</strong> online now</span>
+        <span class="hsr-sep" aria-hidden="true">·</span>
+        <span class="hsr-item"><strong id="hesRooms">1</strong> signed in</span>
+      </div>
 
       <!-- Legacy #editorialSignInLink kept off-canvas as a screenreader +
            DOMContentLoaded-wiring fallback. The hero CTA row above is the

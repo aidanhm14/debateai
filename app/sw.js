@@ -5,7 +5,7 @@
 // 8 items and the old 3-card pricing panel.
 
 <<<<<<< HEAD
-const CACHE_NAME = 'debateos-v765';
+const CACHE_NAME = 'debateos-v766';
 =======
 >>>>>>> 87a867a (free-tier: sweep the rest of the 5/10 → 5/50 copy)
 >>>>>>> d42a0e7 (landing(hero): radical first-impression simplification — easy to understand/enter)
