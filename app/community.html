@@ -1130,6 +1130,11 @@ body::before{
   function openCase(id){
     var c = allCases.find(function(x){ return x.id === id; });
     if (!c) return;
+    // Update the URL so the open modal has a sharable deep-link
+    // (/community#case=<id>). Uses replaceState rather than pushState
+    // to avoid creating a back-stack entry per case-open (which would
+    // make the back button cycle through every modal a user opened).
+    try { history.replaceState(null, '', '#case=' + encodeURIComponent(c.id)); } catch(e){}
     var host = $('modalHost');
     host.innerHTML =
       '<div class="modal" id="modalRoot">' +
@@ -1147,13 +1152,20 @@ body::before{
           '</div>' +
           '<div class="modal-body">' + escHtml(c.output || '(empty)') + '</div>' +
           '<div class="modal-foot">' +
+            '<button class="btn" id="modalShareBtn" title="Copy link">Share</button>' +
+            '<button class="btn" id="modalShareXBtn" title="Share on X">Share on X</button>' +
             '<button class="btn" id="modalImportBtn">Import to my cases</button>' +
             '<button class="btn primary" data-href="/debate-ai" id="modalDebateBtn">Debate this motion →</button>' +
           '</div>' +
         '</div>' +
       '</div>';
     var root = $('modalRoot');
-    function close(){ host.innerHTML = ''; }
+    function close(){
+      host.innerHTML = '';
+      // Strip the #case=... fragment so reload + share-from-here lands
+      // on the case list view, not a stale modal.
+      try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
+    }
     root.addEventListener('click', function(e){ if (e.target === root) close(); });
     $('modalClose').addEventListener('click', close);
     $('modalImportBtn').addEventListener('click', function(){ importCase(c); close(); });
@@ -1161,6 +1173,41 @@ body::before{
       try { gtag('event','disclosure_debate_motion'); } catch(e){}
       var url = '/debate-ai?motion=' + encodeURIComponent(c.motion || '');
       location.href = url;
+    });
+    // Build the canonical shareable URL once + reuse for both share
+    // buttons. Uses location.origin so it works on debateai.com,
+    // debatable.com, and any future canonical host without code change.
+    var shareUrl = location.origin + '/community#case=' + encodeURIComponent(c.id);
+    var shareText = 'A debate case on: "' + (c.motion || 'this motion') + '"';
+    $('modalShareBtn').addEventListener('click', function(){
+      try { gtag('event','disclosure_share_copy', { format: normalizeFormat(c.format) }); } catch(e){}
+      var btn = $('modalShareBtn');
+      var orig = btn.textContent;
+      // Prefer the native share sheet on mobile / capable browsers; fall
+      // back to clipboard with a quick "Copied" affordance on the button.
+      function flashCopied(){
+        btn.textContent = 'Link copied';
+        setTimeout(function(){ btn.textContent = orig; }, 1600);
+      }
+      if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        navigator.share({ title: 'DebateAI case', text: shareText, url: shareUrl })
+          .catch(function(){ /* user dismissed */ });
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).then(flashCopied, function(){
+          // Older browser fallback: prompt with the URL pre-selected.
+          window.prompt('Copy this link:', shareUrl);
+        });
+      } else {
+        window.prompt('Copy this link:', shareUrl);
+      }
+    });
+    $('modalShareXBtn').addEventListener('click', function(){
+      try { gtag('event','disclosure_share_x', { format: normalizeFormat(c.format) }); } catch(e){}
+      var intent = 'https://twitter.com/intent/tweet?text=' +
+        encodeURIComponent(shareText) + '&url=' + encodeURIComponent(shareUrl);
+      window.open(intent, '_blank', 'noopener,noreferrer');
     });
     try { gtag('event','disclosure_open',{ format: normalizeFormat(c.format), side: normalizeSide(c.side) }); } catch(e){}
   }
@@ -1574,6 +1621,25 @@ body::before{
   else if (hash === '#live')   tabSwitch('live');
   else if (hash === '#people') tabSwitch('people');
   else if (hash === '#personas') tabSwitch('personas');
+  // Deep-link to a specific case: /community#case=<id>. The case list
+  // rendering races with this hash read (real cases are fetched async),
+  // so wait up to 4s for the case to appear in allCases before giving
+  // up. The seed cases are synchronous so #case=<seedId> works
+  // immediately; real cases just need a beat for Firestore to land.
+  else {
+    var caseMatch = (location.hash || '').match(/^#case=([^&]+)/);
+    if (caseMatch) {
+      var caseId = decodeURIComponent(caseMatch[1]);
+      var caseTries = 0;
+      (function pollCase(){
+        var found = (allCases || []).some(function(x){ return x.id === caseId; });
+        if (found) { openCase(caseId); return; }
+        if (++caseTries < 20) setTimeout(pollCase, 200);
+        // After 4s give up silently — user lands on the case list and
+        // the URL hash sticks so they can refresh once the data lands.
+      })();
+    }
+  }
 
   // Published rounds loader. Idempotent — first call fetches, every
   // subsequent call no-ops via the _loaded flag so re-clicking the
