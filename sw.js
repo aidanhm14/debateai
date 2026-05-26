@@ -1,11 +1,6 @@
 // Bumped to v10 — see app/sw.js for detail.
 
-<<<<<<< HEAD
-const CACHE_NAME = 'debateos-v766';
-=======
->>>>>>> 87a867a (free-tier: sweep the rest of the 5/10 → 5/50 copy)
->>>>>>> d42a0e7 (landing(hero): radical first-impression simplification — easy to understand/enter)
->>>>>>> 4943661 (landing(hero): restore 2-col layout + re-kill 4 regressions)
+const CACHE_NAME = 'debateos-v767';
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
 // cached HTML of '/'. Removed; the app shell now caches only explicit paths.

@@ -7817,29 +7817,20 @@ section.ui-section .ui-lede{
       </aside>
     </div>
 
-    <!-- Variant B: globe lands here under the essay at a smaller size.
-         Empty slot in the DOM; the inline script below moves
-         #storyGlobeBlock into this slot when data-landing-variant="B".
-         Hidden under variant A so the slot doesn't reserve space. -->
-    <div class="lab-only-b story-globe-below-slot" id="storyGlobeBelowSlot" aria-hidden="false"></div>
+    <!-- 2026-05-26: variant-B globe-relocation retired per user
+         ("put the globe back on the left of the text here"). The
+         globe-below-the-essay treatment read as visually orphaned
+         with a 1px divider between the essay and a smaller globe;
+         left-column placement next to the founder copy is the
+         visually-tighter arrangement and it's what variant A has
+         always done. Globe now stays in .story-row's left column
+         for both A and B; the rest of variant B's distinctness
+         (right-podium fade, compact pricing) stays in place so the
+         A/B framework still measures the other dimensions.
+         Empty slot div + the relocation script were removed; the
+         orphan CSS for .story-globe-below-slot / .story-globe--secondary
+         is left in the stylesheet (small, harmless, retired-for-later). -->
 
-    <script>
-      // Variant B globe relocation. Runs synchronously at parse so the
-      // globe canvas is in its final position before the canvas init IIFE
-      // (further down the page) does its getElementById('heroGlobeCanvas').
-      // No DOM-ready wait needed; we're past the elements we touch.
-      (function(){
-        try{
-          var v = document.documentElement.getAttribute('data-landing-variant');
-          if (v !== 'B') return;
-          var globe = document.getElementById('storyGlobeBlock');
-          var slot  = document.getElementById('storyGlobeBelowSlot');
-          if (!globe || !slot) return;
-          slot.appendChild(globe);
-          globe.classList.add('story-globe--secondary');
-        }catch(e){}
-      })();
-    </script>
 
     <!-- "Demo videos" row: three feature preview cards. 2026-05-19:
          lifted out of the left grid column to span the full width below
@@ -8159,13 +8150,22 @@ section.ui-section .ui-lede{
 
   /* ── Figure-slot (variant B, replaces .story-globe in .story-row) ──
      .figure-slot-inner reserves the figure footprint so the essay column
-     keeps its layout while the travel figure is mid-flight. */
+     keeps its layout while the travel figure is mid-flight.
+     2026-05-26: with the globe now back in .story-row's col-1 under both
+     A and B, the figure-slot has no place to land — leaving it visible
+     under B would wrap the aside to row 2. Hard-hide under B too; the
+     sf-travel-layer that animates into it is hidden the same way below
+     so the orphan scroll animation doesn't run against an invisible
+     target. The A/B framework still measures variant B's other
+     dimensions (right-podium fade, compact pricing). */
   .figure-slot{
     display:flex;align-items:flex-end;justify-content:center;
     width:100%;
     min-height:340px;
     position:relative;
   }
+  html[data-landing-variant="B"] .figure-slot{display:none !important}
+  html[data-landing-variant="B"] .sf-travel-layer{display:none !important}
   .figure-slot-inner{
     position:relative;
     width:200px;
