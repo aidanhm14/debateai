@@ -26,6 +26,13 @@
   let lastUsage = null;
   let pollTimer = null;
   let rootEl = null;
+  let dismissTimer = null;
+  // The pill is informational, not modal — sitting in the topbar
+  // forever feels naggy, especially at cap-reached where the user has
+  // already seen it. Auto-fade after AUTO_DISMISS_MS so it surfaces,
+  // registers, and gets out of the way.
+  const AUTO_DISMISS_MS = 5000;
+  const FADE_MS = 400;
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -153,7 +160,23 @@
     ].join(';');
     pill.appendChild(cta);
 
+    // Smooth fade for the auto-dismiss + any hover cancel.
+    pill.style.transition = 'opacity ' + FADE_MS + 'ms ease';
+
     root.appendChild(pill);
+
+    // Auto-dismiss: surface the pill, hold for AUTO_DISMISS_MS, fade
+    // out, then yank it from the DOM so the topbar gets its space back.
+    // Re-renders (poll refresh, auth flip) reset the timer.
+    if (dismissTimer) clearTimeout(dismissTimer);
+    dismissTimer = setTimeout(function () {
+      // Guard: pill may already be gone if a re-render cleared root.
+      if (!pill.isConnected) return;
+      pill.style.opacity = '0';
+      setTimeout(function () {
+        if (pill.isConnected && root.contains(pill)) pill.remove();
+      }, FADE_MS);
+    }, AUTO_DISMISS_MS);
   }
 
   async function fetchUsage() {
