@@ -2329,47 +2329,60 @@ section.hero{
    Below 900px everything stacks vertically in document order (text →
    card stack), no override needed. */
 @media (min-width:900px){
+  /* 2026-05-26 (rev2): hero re-composed from the prior text-left /
+     orb-right two-column grid to a centered debate-stage stack. User
+     feedback was that the old layout read as "left = information,
+     right = decoration" — the headline lived alone on the left, the
+     orb floated stranded on the right, and the page exited the eye
+     out the right edge with no gravitational pull. New composition:
+     everything orbits the orb. Headline floats above the chamber,
+     stage (orb + flanking debaters) is the visual anchor at center,
+     primary + secondary CTAs sit below as a clear hierarchy, founder
+     cue terminates the vertical flow. Reads as "you are about to
+     enter a live verbal clash," not "feature browser." */
   .editorial-hero{
     display:grid;
-    grid-template-columns:minmax(0,1fr) minmax(360px,470px);
-    /* 2026-05-24: bumped min column-gap 48 → 88px. At narrower
-       desktop widths the orb card's absolutely-positioned LIVE VOICE
-       pulse pill (top:18px, centered on the card) was visually
-       overlapping with the "FOUNDING STORY ↓" founder cue on the
-       left column's bottom row. 88px guarantees clear separation
-       between the cue's right edge + the LIVE pill's left edge at
-       all viewport widths above the mobile breakpoint. */
-    column-gap:clamp(88px,6vw,96px);
-    row-gap:0;
+    grid-template-columns:minmax(0,1fr);
     grid-template-areas:
-      "eyebrow  card"
-      "headline card"
-      "ctas     card"
-      "pills    card"
-      "founder  card"
-      "signin   card";
-    align-items:center;
+      "headline"
+      "primary-pills"
+      "card"
+      "secondary-pills"
+      "ctas"
+      "founder"
+      "signin";
+    row-gap:0;
+    justify-items:center;
+    text-align:center;
   }
-  /* Pin the pill-style elements to start so they hug their content
-     like inline-flex should. */
-  /* 2026-05-17: left column was reading top-heavy against the orb card
-     on the right (the card has internal padding that centers its orb +
-     copy around the middle of its box, while the eyebrow + headline
-     started hard at the top). margin-top here pushes the whole left
-     stack down so the two columns balance visually. Desktop-only —
-     the @media (min-width:900px) wrapper keeps mobile flow untouched. */
-  .editorial-hero .editorial-eyebrow{grid-area:eyebrow;margin-top:32px;margin-bottom:0;justify-self:start}
-  .editorial-hero .hero-headline{grid-area:headline;max-width:none;margin-top:18px}
-  .editorial-hero .hero-sub{grid-area:sub;max-width:none;margin-bottom:14px}
-  .editorial-hero .hero-creed{grid-area:creed;max-width:none;margin:6px 0 42px}
-  .editorial-hero .hero-ctas{grid-area:ctas;margin-bottom:0;justify-self:start}
-  .editorial-hero .hero-pill-rail{grid-area:pills;margin:48px 0 0;justify-self:start}
+  .editorial-hero .editorial-eyebrow{
+    grid-area:eyebrow;display:none; /* eyebrow already removed 2026-05-18; no slot in the centered layout */
+  }
+  .editorial-hero .hero-headline{
+    grid-area:headline;
+    max-width:760px;margin:32px auto 0;
+    text-align:center;text-wrap:balance;
+  }
+  .editorial-hero .hero-sub{
+    grid-area:sub;max-width:560px;margin:14px auto 0;text-align:center;
+  }
+  .editorial-hero .hero-ctas{
+    grid-area:ctas;margin:32px auto 0;justify-self:center;
+  }
+  .editorial-hero .hero-pill-rail--primary{
+    grid-area:primary-pills;margin:30px auto 0;justify-self:center;
+  }
+  .editorial-hero .hero-pill-rail--secondary{
+    grid-area:secondary-pills;margin:24px auto 0;justify-self:center;
+  }
   .editorial-hero .hero-card-stack{
     grid-area:card;
-    align-self:center;
+    align-self:center;justify-self:center;
     width:100%;
-    max-width:520px;
-    margin:0 auto;
+    /* Wider than the prior 520px max so the flanking debater
+       silhouettes have room to actually flank without crowding. */
+    max-width:780px;
+    margin:28px auto 0;
     display:flex;flex-direction:column;gap:18px;
     min-width:0;
   }
@@ -2380,7 +2393,14 @@ section.hero{
     min-width:0;
   }
   .editorial-hero .editorial-signin-row{grid-area:signin;margin-top:32px}
-  .editorial-hero .hero-founder-cue{grid-area:founder;justify-self:start;margin:28px 0 0}
+  .editorial-hero .hero-founder-cue{
+    grid-area:founder;justify-self:center;margin:28px auto 0;
+  }
+  /* Notes ride centered too. */
+  .editorial-hero .hero-building-note,
+  .editorial-hero .hero-bookmark-note{
+    text-align:center;margin-left:auto;margin-right:auto;
+  }
 }
 .hero-content{
   max-width:1240px !important;
@@ -2734,6 +2754,72 @@ body.signed-in .hero-ctas{gap:8px}
    small .hero-pill-tag badge below carries the accent. The pill was
    previously red-highlighted (hero-pill-new) to flag Voice as new, but
    that made it shout louder than its peer pills. */
+/* 2026-05-26 (rev2): primary + secondary pill tiers.
+   PRIMARY pills (Adaptive voice + Debate Omegle) sit ABOVE the stage,
+   bigger / fuller / brand-red filled. They're the "enter the room"
+   actions and should feel like the dominant CTA pair on the page.
+   SECONDARY pills (Prep / Scheduled / Credential) sit BELOW the stage
+   in a lighter, smaller, monochrome treatment. They're paths people
+   can take if they're not ready to enter a live round yet. */
+.hero-pill-rail--primary{
+  display:flex;flex-wrap:wrap;justify-content:center;align-items:center;
+  gap:12px;margin:0 auto 24px;
+}
+.hero-pill--primary{
+  padding:14px 26px;
+  background:rgba(239,68,68,.14);
+  border:1px solid rgba(239,68,68,.50);
+  color:#fff;font-weight:800;
+  letter-spacing:-.005em;font-size:1rem;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 6px 20px rgba(239,68,68,.18);
+}
+.hero-pill--primary:hover{
+  background:rgba(239,68,68,.24);
+  border-color:rgba(239,68,68,.78);
+  color:#fff;
+}
+[data-theme="light"] .hero-pill--primary{
+  background:rgba(220,38,38,.10);
+  border-color:rgba(220,38,38,.45);
+  color:#7f1d1d;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9), 0 8px 22px rgba(220,38,38,.18);
+}
+[data-theme="light"] .hero-pill--primary:hover{
+  background:rgba(220,38,38,.16);
+  border-color:rgba(220,38,38,.68);
+  color:#7f1d1d;
+}
+.hero-pill-rail--secondary{
+  display:flex;flex-wrap:wrap;justify-content:center;align-items:center;
+  gap:6px 14px;margin:18px auto 0;
+  font-size:.86rem;
+}
+.hero-pill--secondary{
+  padding:8px 14px;
+  background:transparent;
+  border:1px solid rgba(255,255,255,.16);
+  color:rgba(255,255,255,.74);
+  font-weight:500;letter-spacing:.005em;font-size:.86rem;
+  box-shadow:none;
+}
+.hero-pill--secondary:hover{
+  background:rgba(255,255,255,.04);
+  border-color:rgba(255,255,255,.32);
+  color:#fff;
+}
+[data-theme="light"] .hero-pill--secondary{
+  background:transparent;
+  border-color:rgba(0,0,0,.12);
+  color:rgba(0,0,0,.6);
+  box-shadow:none;
+}
+[data-theme="light"] .hero-pill--secondary:hover{
+  background:rgba(0,0,0,.03);
+  border-color:rgba(0,0,0,.22);
+  color:#1a1a1f;
+}
+.hero-pill-rail--secondary .hero-pill-sep{display:inline}
+
 .hero-pill-tag{
   font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
   padding:3px 8px;border-radius:999px;
@@ -2891,7 +2977,11 @@ body.signed-in .hero-ctas{gap:8px}
   border-radius:0;
   padding:48px 32px 36px;
   width:100%;
-  max-width:520px;
+  /* 2026-05-26 (rev2): bumped 520 → 720 so flanking debater
+     silhouettes have room to stand around the orb instead of clipping
+     against the card edges. Mobile breakpoint below still drops the
+     debaters under 760px. */
+  max-width:720px;
   margin:0 auto;
   box-shadow:none;
   text-align:center;
@@ -2906,6 +2996,31 @@ body.signed-in .hero-ctas{gap:8px}
   cursor:pointer;
   transition:transform .25s ease;
   -webkit-tap-highlight-color:transparent;
+}
+/* Floor ellipse beneath the stage. Grounds the debaters + orb so the
+   scene reads as "a room with a floor," not "figures floating in space."
+   Sits at the bottom of the orb card, low opacity, blurred to feel like
+   a soft shadow rather than a hard ring. */
+.hero-orb-card::after{
+  content:'';
+  position:absolute;
+  left:50%;bottom:18px;
+  width:78%;height:30px;
+  transform:translateX(-50%);
+  background:radial-gradient(ellipse at center,
+    rgba(239,68,68,.16) 0%,
+    rgba(239,68,68,.05) 40%,
+    transparent 75%);
+  filter:blur(6px);
+  pointer-events:none;
+  z-index:0;
+}
+[data-theme="light"] .hero-orb-card::after,
+[data-theme="stone"] .hero-orb-card::after{
+  background:radial-gradient(ellipse at center,
+    rgba(220,38,38,.10) 0%,
+    rgba(220,38,38,.03) 40%,
+    transparent 75%);
 }
 .hero-orb-card:hover{transform:translateY(-3px)}
 .hero-orb-card:hover .hero-orb-canvas{filter:drop-shadow(0 0 58px rgba(239,68,68,.42))}
@@ -3006,17 +3121,35 @@ body.signed-in .hero-ctas{gap:8px}
 /* 2026-05-24: "AI · STANDING BY" label + helper sub-line. Lifts the
    voice-debate setup scene onto the landing so a first-time visitor
    sees the same "room is set, both sides waiting to begin" frame
-   they'll meet when they click into Voice. */
+   they'll meet when they click into Voice.
+   2026-05-26 (rev2): pulled up with a negative margin so the chip
+   visually overlaps the lower edge of the orb canvas. Reads as a
+   tiny editorial label floating in front of the system rather than
+   sitting awkwardly below it. Subtle dark backdrop blur so it stays
+   legible across the orb glow. */
 .hero-orb-standby{
   display:inline-flex;align-items:center;gap:8px;justify-content:center;
   font-size:.74rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
-  color:#dc2626;
-  margin:6px auto 10px;
+  color:#fff;
+  margin:-26px auto 10px;
+  padding:6px 12px;
+  background:rgba(15,5,8,.62);
+  border:1px solid rgba(239,68,68,.32);
+  border-radius:999px;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  position:relative;z-index:4;
+}
+[data-theme="light"] .hero-orb-standby,
+[data-theme="stone"] .hero-orb-standby{
+  color:#7f1d1d;
+  background:rgba(255,255,255,.78);
+  border-color:rgba(220,38,38,.32);
 }
 .hero-orb-standby-dot{
   width:9px;height:9px;border-radius:50%;
-  background:#dc2626;
-  box-shadow:0 0 10px rgba(220,38,38,.55);
+  background:#ef4444;
+  box-shadow:0 0 10px rgba(239,68,68,.65);
+  animation:heroOrbPulse 1.8s ease-in-out infinite;
 }
 .hero-orb-sub{
   font-size:1rem;font-weight:500;color:var(--text-dim);
@@ -3066,10 +3199,15 @@ body.signed-in .hero-ctas{gap:8px}
   --deb-ink-soft:rgba(230,219,195,.6);
   --deb-fill:rgba(230,219,195,.1);
 }
+/* 2026-05-26 (revisited): sf-left restored. Original removal reason
+   was the green head reading as "foreign in a red brand world." Fix:
+   give sf-left a cooler, dusty crimson palette (rose-red) so the two
+   debaters are tonally distinct but both inside the red brand family.
+   Reads as "two people, two voices, same room." */
 .standby-figures .sf-left{
   left:-10px;
-  --deb-accent:rgba(74,222,128,.88);
-  --deb-glow:rgba(34,197,94,.42);
+  --deb-accent:rgba(220,140,140,.88);
+  --deb-glow:rgba(190,80,80,.40);
 }
 .standby-figures .sf-right{
   right:-10px;transform:scaleX(-1);
@@ -5335,7 +5473,14 @@ section.ui-section .ui-lede{
            Adaptive voice pill to flag it as the recently-shipped
            feature, since users testing the page weren't noticing it
            as different from the typed product. -->
-      <div class="hero-pill-rail" role="navigation" aria-label="Other ways to debate">
+      <!-- 2026-05-26 (rev2): pill rail split into primary + secondary
+           tiers. Old single rail was flat — five pills at equal weight
+           reading as "feature soup" with no clear hero action. New
+           split: PRIMARY row (Adaptive voice + Debate Omegle, both =
+           the two live-spawning entry points) sits prominent. SECONDARY
+           row (Prep / Scheduled / Credential, the supporting paths)
+           sits below in a quieter treatment. Reads as a hierarchy, not
+           a menu. -->
       <p class="hero-building-note">still building. updating website every day.</p>
       <p class="hero-bookmark-note">
         <span class="hero-bookmark-count" id="heroBookmarkCount">76</span> debaters signed in with Google so far. Goal is many thousands. Bookmark this page (<kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>) and come back as the room fills in.
@@ -5366,37 +5511,28 @@ section.ui-section .ui-lede{
           });
         })();
       </script>
-        <a href="/app#case" class="hero-pill">Prep</a>
-        <span class="hero-pill-sep" aria-hidden="true">·</span>
-        <a href="/voice-debate" class="hero-pill" data-voice-cta-on>Adaptive voice <span class="hero-pill-tag">New</span></a>
-        <a href="/debate-ai" class="hero-pill" data-voice-cta-off hidden style="display:none">
+      <div class="hero-pill-rail hero-pill-rail--primary" role="navigation" aria-label="Primary actions">
+        <a href="/voice-debate" class="hero-pill hero-pill--primary" data-voice-cta-on>Adaptive voice <span class="hero-pill-tag">New</span></a>
+        <a href="/debate-ai" class="hero-pill hero-pill--primary" data-voice-cta-off hidden style="display:none">
           Voice at capacity
         </a>
-        <span class="hero-pill-sep" aria-hidden="true">·</span>
-        <a href="/live" class="hero-pill hero-pill-live"><span class="hero-pill-live-dot" aria-hidden="true"></span>Scheduled debates</a>
-        <span class="hero-pill-sep" aria-hidden="true">·</span>
         <!-- 2026-05-25: collapsed the prior two pills ("Find an online
-             partner or opponent" + "Debate Omegle") into one. Both were
-             "find a human to debate" entry points, fragmented across two
-             destinations: /spar (live human matchmaker + waitlist) and
-             /debate-chat (Omegle-style random chat). One pill, one
-             destination — /spar is the canonical human-matchmaking
-             spawning page (queue + waitlist marketplace per the
-             2026-05-20 decision log). The "Debate Omegle" label is
-             retained because it's the high-intent search query and it
-             captures the "match me with a stranger" mental model that
-             /spar actually delivers on. /debate-chat still exists as
-             its own page (own title, own SEO) and is reachable via the
-             CTA rail below + the footer. -->
-        <a href="/spar" class="hero-pill" data-cta="hero-debate-omegle">Debate Omegle</a>
+             partner or opponent" + "Debate Omegle") into one. /spar is
+             the canonical human-matchmaking spawning page (queue +
+             waitlist marketplace). /debate-chat still exists as its
+             own page; reachable via footer. -->
+        <a href="/spar" class="hero-pill hero-pill--primary" data-cta="hero-debate-omegle">Debate Omegle</a>
+      </div>
+      <div class="hero-pill-rail hero-pill-rail--secondary" role="navigation" aria-label="Other ways to debate">
+        <a href="/app#case" class="hero-pill hero-pill--secondary">Prep</a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
-        <a href="/credentials" class="hero-pill" data-cta="hero-credentials">Earn a credential</a>
+        <a href="/live" class="hero-pill hero-pill--secondary hero-pill-live"><span class="hero-pill-live-dot" aria-hidden="true"></span>Scheduled debates</a>
+        <span class="hero-pill-sep" aria-hidden="true">·</span>
+        <a href="/credentials" class="hero-pill hero-pill--secondary" data-cta="hero-credentials">Earn a credential</a>
         <!-- 2026-05-24: rail trimmed 8 → 6 per "too many" feedback.
              Cut: Debate online + Debate an AI (SEO hub pages, still
              reachable via the #more sitemap and footer; they bloat
              the hero without being primary user paths). -->
-
-
       </div>
       <script>
         // Live Google sign-in count for #heroBookmarkCount. Pulls
@@ -5448,12 +5584,43 @@ section.ui-section .ui-lede{
                (green head), right = AI (red head). Behind the canvas at
                z-index -1; hidden under 760px. -->
           <div class="standby-figures" aria-hidden="true">
-            <!-- 2026-05-26: .sf-left (green-headed "you" debater that
-                 flanked the orb on the left) removed per user feedback —
-                 the green head read as a foreign element in a red brand
-                 world. Right-side AI debater (red) stays. The CSS rules
-                 for .sf-left in the style block are kept as harmless
-                 orphans in case we ever want to restore. -->
+            <!-- 2026-05-26 (rev2): sf-left restored. Per user feedback
+                 the hero composition needed both debaters flanking the
+                 orb to read as a live room rather than a one-sided
+                 scene. The original removal was because the green head
+                 clashed with the red brand world; now sf-left uses a
+                 dusty crimson palette (see CSS) so both figures live
+                 inside the brand color family while staying visually
+                 distinct as two different speakers. -->
+            <svg class="stage-debater sf-left" viewBox="0 0 200 460" role="presentation" focusable="false">
+              <circle class="deb-halo" cx="100" cy="80" r="48" stroke-dasharray="2 7"/>
+              <g class="deb-head">
+                <ellipse cx="100" cy="80" rx="20" ry="26"/>
+                <ellipse class="deb-stroke" cx="100" cy="80" rx="20" ry="26" fill="none"/>
+                <path class="deb-stroke" d="M82 70 Q86 50 100 50 Q116 50 118 76"/>
+              </g>
+              <path class="deb-stroke" d="M94 108 L92 124 M106 108 L108 124"/>
+              <path class="deb-stroke" d="M54 144 Q76 129 100 127 Q124 129 146 144"/>
+              <path class="deb-stroke" d="M54 144 Q49 198 56 262 L60 308"/>
+              <path class="deb-stroke" d="M146 144 Q151 198 144 262 L140 308"/>
+              <path class="deb-stroke" d="M78 144 L100 186 L122 144"/>
+              <path class="deb-stroke deb-stroke-soft" d="M86 140 L100 160 L114 140"/>
+              <path class="deb-tie" d="M100 186 L96 198 L100 250 L104 198 Z"/>
+              <path class="deb-stroke" d="M144 154 Q160 196 153 246"/>
+              <path class="deb-stroke" d="M153 246 Q150 284 142 308"/>
+              <path class="deb-hand" d="M130 304 Q142 300 152 306 Q156 313 147 317 Q137 318 129 311 Z"/>
+              <g class="deb-arm">
+                <path class="deb-stroke" d="M58 152 Q50 184 47 214"/>
+                <path class="deb-stroke" d="M47 214 Q49 188 60 168"/>
+                <path class="deb-hand" d="M54 165 Q64 159 75 165 Q79 173 70 177 Q60 178 54 172 Z"/>
+              </g>
+              <ellipse class="deb-floor" cx="100" cy="434" rx="82" ry="9"/>
+              <path class="deb-lectern" d="M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z"/>
+              <path class="deb-lectern-top" d="M30 314 Q100 308 170 314 L168 326 L32 326 Z"/>
+              <path class="deb-stroke deb-stroke-soft" d="M32 326 Q100 320 168 326"/>
+              <path class="deb-stroke deb-stroke-soft" d="M118 310 Q114 288 106 281 Q100 277 102 269"/>
+              <ellipse class="deb-mic-head" cx="102" cy="263" rx="4" ry="6"/>
+            </svg>
             <svg class="stage-debater sf-right" viewBox="0 0 200 460" role="presentation" focusable="false">
               <circle class="deb-halo" cx="100" cy="80" r="48" stroke-dasharray="2 7"/>
               <g class="deb-head">
