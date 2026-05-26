@@ -216,6 +216,13 @@
     var updates = [], updatesSeen = 0;
     try { updatesSeen = parseInt(localStorage.getItem('da-updates-seen') || '0', 10) || 0; } catch (_) {}
 
+    // activity feed state — public, auth-free. /api/recent-activity
+    // returns recent live_challenges + waitlist_posts so the bell
+    // shows site activity to anon visitors too (drives "this place
+    // is alive" perception → sign-in conversions).
+    var activity = [], activitySeen = 0, activitySeenSnapshot = 0;
+    try { activitySeen = parseInt(localStorage.getItem('da-activity-seen') || '0', 10) || 0; } catch (_) {}
+
     // DM state
     var myUid = null, dmRows = [], dmUnread = 0;
     var threadsUnsub = null, prevUnread = {}, firstSnap = true;
@@ -260,10 +267,44 @@
       }
     }
 
-    // ── combined unread badge (DMs + new updates) ────────────────────
+    // ── activity feed (no auth required) ─────────────────────────────
+    // Pulls /api/recent-activity (30s server cache). Refreshes every
+    // 90s while the tab is visible so the bell badge stays warm
+    // without hammering the function — that's only ~960 fetches/day
+    // per active tab even at one-tab-per-minute usage.
+    loadActivity();
+    var activityIv = setInterval(function () {
+      if (!document.hidden) loadActivity();
+    }, 90 * 1000);
+    function loadActivity() {
+      fetch('/api/recent-activity', { cache: 'no-cache' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j || !Array.isArray(j.items)) return;
+          activity = j.items.slice();
+          if (panel) { markActivitySeen(); paintPanel(); }
+          renderBadge();
+        })
+        .catch(function () { /* function down — section stays quiet */ });
+    }
+    function activityUnreadCount() {
+      var n = 0;
+      for (var i = 0; i < activity.length; i++) if ((activity[i].when || 0) > activitySeen) n++;
+      return n;
+    }
+    function markActivitySeen() {
+      var max = activitySeen;
+      for (var i = 0; i < activity.length; i++) max = Math.max(max, activity[i].when || 0);
+      if (max > activitySeen) {
+        activitySeen = max;
+        try { localStorage.setItem('da-activity-seen', String(max)); } catch (_) {}
+      }
+    }
+
+    // ── combined unread badge (DMs + new updates + new activity) ─────
     function renderBadge() {
       if (!badge) return;
-      var n = dmUnread + updatesUnreadCount();
+      var n = dmUnread + updatesUnreadCount() + activityUnreadCount();
       if (n > 0) { badge.hidden = false; badge.textContent = n > 9 ? '9+' : String(n); bell.classList.add('has-unread'); }
       else { badge.hidden = true; bell.classList.remove('has-unread'); }
     }
@@ -323,6 +364,8 @@
     function togglePanel() { panel ? closePanel() : openPanel(); }
     function openPanel() {
       seenSnapshot = updatesSeen;   // snapshot before marking, so the new ones still get a dot
+      activitySeenSnapshot = activitySeen;  // same trick for activity rows
+      loadActivity();               // refresh the activity feed when user opens the bell
       panel = document.createElement('div');
       panel.className = 'ui-bell-panel';
       panel.addEventListener('click', function (e) { e.stopPropagation(); });
@@ -352,6 +395,7 @@
       }
       bell.setAttribute('aria-expanded', 'true');
       markUpdatesSeen();            // opening the panel clears the updates side of the badge
+      markActivitySeen();           // and the activity side
       renderBadge();
       paintPanel();
     }
@@ -376,6 +420,32 @@
       return u.href
         ? '<a class="' + cls + '" href="' + escHtml(u.href) + '">' + inner + '</a>'
         : '<div class="' + cls + '" style="cursor:default">' + inner + '</div>';
+    }
+
+    // Activity row — recent live_challenges + waitlist_posts from
+    // /api/recent-activity. Public, no auth. The icon swaps based
+    // on kind so users can tell a "challenge" (sword) from a
+    // "waitlist invite" (door). Each row deep-links to /live or
+    // /spar so a click on activity converts into an actual visit.
+    function activityRowHtml(a) {
+      var isNew = (a.when || 0) > activitySeenSnapshot;
+      var when = a.when ? relTime(a.when) : '';
+      var iconSvg = a.kind === 'waitlist'
+        // door-open glyph: "open to a round, come in"
+        ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 4v16M3 21h18M13 4l-7 2v14M9 12h.01"/></svg>'
+        // crossed-swords glyph: "open debate challenge"
+        : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 21 11l-2.5-2.5L12 15"/><path d="M9.5 6.5 3 13l2.5 2.5L12 9"/><path d="m21 3-5 1-1 5M3 21l5-1 1-5"/></svg>';
+      var preview = escHtml(a.label || '');
+      if (a.motion) preview += ' <span style="color:var(--text-ghost,#888)">· ' + escHtml(a.motion) + '</span>';
+      var cls = 'ui-bell-row' + (isNew ? ' is-unread' : '');
+      return '<a class="' + cls + '" href="' + escHtml(a.href || '/live') + '">' +
+        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--accent,#ef4444)">' + iconSvg + '</span>' +
+        '<span class="ui-bell-row__main">' +
+          '<span class="ui-bell-row__name">' + escHtml(a.name || 'A debater') + (isNew ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
+          '<span class="ui-bell-row__preview">' + preview + '</span>' +
+        '</span>' +
+        '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
+      '</a>';
     }
 
     function dmRowHtml(t) {
@@ -405,6 +475,18 @@
         html += '<div class="ui-bell-empty">No updates yet.</div>';
       } else {
         html += '<div class="ui-bell-list">' + updates.slice(0, 6).map(updateRowHtml).join('') + '</div>';
+      }
+      // Site activity — visible to anon visitors too. Shows recent
+      // posted challenges + waitlist invites so the page reads as
+      // inhabited the moment someone lands on it.
+      html += '<div class="ui-bell-head ui-bell-head--mid">Site activity</div>';
+      if (!activity.length) {
+        html += '<div class="ui-bell-empty">Quiet right now.<br>' +
+                '<a href="/live" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">Post a challenge</a>' +
+                ' or <a href="/spar" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">join the waitlist</a> to start one.</div>';
+      } else {
+        html += '<div class="ui-bell-list">' + activity.slice(0, 8).map(activityRowHtml).join('') + '</div>';
+        html += '<a class="ui-bell-foot" href="/live">See the live board</a>';
       }
       if (myUid) {
         html += '<div class="ui-bell-head ui-bell-head--mid">Messages</div>';
