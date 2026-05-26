@@ -5077,6 +5077,33 @@ function App() {
   var generateRFD = useCallback(async () => {
     setRfdLoading(true);
     setRfd('');
+    // 2026-05-26: hard-stop AI audio the moment the user requests
+    // the RFD. The Claude Haiku call + cert race takes ~2-3s, and
+    // until now the WebRTC remote stream kept playing AI speech
+    // through that window — user reported "the audio is still
+    // going on after I pressed RFD." Two layers:
+    //   1. response.cancel over the data channel — tells OpenAI
+    //      Realtime to abort the in-progress response so no further
+    //      audio frames are generated.
+    //   2. Detach the audio element's srcObject + pause — kills any
+    //      already-buffered frames so the room goes silent in the
+    //      same tick as the click.
+    // Full peer-connection teardown (pc.close, track.stop, mic
+    // release) still runs through cleanup() on stop() / pagehide /
+    // the auto-fire branch below, so this stays minimal.
+    try {
+      var dcRfd = dcRef.current;
+      if (dcRfd && dcRfd.readyState === 'open') {
+        dcRfd.send(JSON.stringify({ type: 'response.cancel' }));
+      }
+    } catch (_) {}
+    try {
+      var audioRfd = audioElRef.current;
+      if (audioRfd) {
+        audioRfd.pause();
+        audioRfd.srcObject = null;
+      }
+    } catch (_) {}
     // Show the deliberation overlay immediately (covers the whole API
     // wait), unless the user opted out of the /voice-rfd handoff.
     var willHandoff = false;

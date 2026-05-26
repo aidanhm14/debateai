@@ -6,7 +6,7 @@
 
 <<<<<<< HEAD
 =======
-const CACHE_NAME = 'debateos-v770';
+const CACHE_NAME = 'debateos-v771';
 >>>>>>> 87a867a (free-tier: sweep the rest of the 5/10 → 5/50 copy)
 >>>>>>> d42a0e7 (landing(hero): radical first-impression simplification — easy to understand/enter)
 >>>>>>> 4943661 (landing(hero): restore 2-col layout + re-kill 4 regressions)
