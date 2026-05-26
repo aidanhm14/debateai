@@ -2972,8 +2972,30 @@ button{font-family:inherit}
       if (s && s.expired){ expiredCount++; return showExpired; }
       return true;
     });
-    // Apply the active filter chip (All / Live / Soon / Needs-D / etc).
-    if (activeFilter && activeFilter !== 'all'){
+    // Auto-fallback to the archive when the live board is empty.
+    // The default hide-expired filter makes sense when fresh challenges
+    // exist (don't drown them in stale ones), but at "0 waiting" it
+    // leaves a first-visit user staring at an empty board even though
+    // 10+ past debates have ballots they could read. So on this branch
+    // we silently surface the expired ones and flag autoShowingExpired
+    // so the count + empty-state copy can explain it. The user toggle
+    // still wins on next render. (2026-05-26 per user "on first load
+    // it doesn't load the archive of debates. it should.")
+    var autoShowingExpired = false;
+    if (list.length === 0 && expiredCount > 0 && !showExpired){
+      list = fullList.filter(function(c){
+        // Reapply the active filter so e.g. "Live now" doesn't blow
+        // up into "everything ever". For 'all' / no filter the inner
+        // condition is just true, which gives us the full archive.
+        if (activeFilter && activeFilter !== 'all'){
+          var info = classifyChallenge(c);
+          return matchesFilter(c, info, activeFilter);
+        }
+        return true;
+      });
+      autoShowingExpired = true;
+    } else if (activeFilter && activeFilter !== 'all'){
+      // Normal path: apply the active filter chip to the visible list.
       list = list.filter(function(c){
         var info = classifyChallenge(c);
         return matchesFilter(c, info, activeFilter);
@@ -3000,7 +3022,14 @@ button{font-family:inherit}
     empty.style.display = 'none';
     var fr1 = document.getElementById('filterRow');
     if (fr1) fr1.hidden = false;
-    count.textContent = list.length + (list.length === 1 ? ' waiting' : ' waiting');
+    // Count label honors the auto-fallback. "0 waiting · showing N past
+    // rounds" tells the user up-front that what they see is the archive,
+    // not the live queue, so they don't try to join a stale challenge.
+    if (autoShowingExpired){
+      count.textContent = '0 waiting · showing ' + list.length + ' past round' + (list.length === 1 ? '' : 's');
+    } else {
+      count.textContent = list.length + (list.length === 1 ? ' waiting' : ' waiting');
+    }
     list.forEach(function(c){
       var f = FORMATS[c.format] || FORMATS.quick;
       var theirSideLabel = f.sideLabel[c.side];
