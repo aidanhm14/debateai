@@ -37,9 +37,12 @@
 
 <script defer src="/js/track.js"></script>
 
-<!-- Community seed pool. Must be live before loadView so the merge runs
-     synchronously after the Firestore promise resolves. Not deferred. -->
-<script src="/js/community-seed.js"></script>
+<!-- community-seed.js removed 2026-05-25. The leaderboard used to merge
+     ~30 fabricated debater handles into the standings to avoid a one-
+     row board for new visitors. That contradicted the community.html
+     "dead-internet dishonesty" rule, so the merge is gone and the
+     empty-state below makes the honest pitch + offers a newsletter
+     signup instead. -->
 
 <script defer src="/js/sfx.js"></script>
 
@@ -302,6 +305,28 @@ button{font-family:inherit}
 .seed-note[hidden]{display:none}
 .seed-note-tag{flex-shrink:0;font-size:.58rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text-ghost);background:transparent;border:none;padding:0}
 .seed-note-text{font-size:.76rem;color:var(--text-dim);line-height:1.45;font-style:italic}
+/* Empty-state with the honest "we need users + newsletter" pitch.
+   Renders when there are no real ranked rows for the active view. */
+.state-empty-real .state-honest{max-width:440px;margin:10px auto 18px;font-size:.92rem;line-height:1.55;color:var(--text-dim)}
+.state-empty-real .state-cta-row{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:0 0 18px}
+.state-empty-real .state-cta-or{font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-ghost);font-weight:600}
+.state-empty-real .state-cta-secondary{font-size:.84rem;color:var(--text-dim);font-weight:500}
+.state-empty-real .lb-email-form{display:flex;justify-content:center;gap:8px;max-width:420px;margin:0 auto;flex-wrap:wrap}
+.state-empty-real .lb-email-form input{
+  flex:1 1 220px;min-width:0;padding:11px 14px;border-radius:10px;
+  background:var(--card-bg,rgba(255,255,255,.04));
+  border:1px solid var(--border);color:var(--text);
+  font-size:.88rem;font-family:inherit;outline:none;
+}
+.state-empty-real .lb-email-form input:focus{border-color:rgba(239,68,68,.55);box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+.state-empty-real .lb-email-form button{
+  padding:11px 20px;border-radius:10px;border:none;background:#ef4444;color:#fff;
+  font-weight:700;font-size:.85rem;letter-spacing:.01em;cursor:pointer;
+  font-family:inherit;white-space:nowrap;transition:background .15s ease;
+}
+.state-empty-real .lb-email-form button:hover{background:#dc2626}
+.state-empty-real .lb-email-form button:disabled{background:rgba(34,197,94,.85);cursor:default}
+.state-empty-real .lb-email-foot{font-size:.66rem;color:var(--text-ghost);margin:10px auto 0;max-width:360px;line-height:1.5;letter-spacing:.01em}
 .your-rank-card{
   display:flex;align-items:center;gap:16px;
   padding:12px 18px;
@@ -838,15 +863,11 @@ button{font-family:inherit}
 
   <main class="main-grid">
     <section class="board-col">
-      <!-- Honest preview label. The board blends real voice-round ranks
-           with an AI-generated community pool so early visitors see a
-           full, competitive-looking board instead of a near-empty one.
-           Said plainly so it inspires without misleading: real ranked
-           rounds rise through the sample names over time. -->
-      <div id="seedNote" class="seed-note" hidden>
-        <span class="seed-note-tag">AI-generated preview</span>
-        <span class="seed-note-text">Some names below are sample debaters showing what a full board looks like. Real voice-round ranks climb through them as the community plays.</span>
-      </div>
+      <!-- seedNote disclosure removed 2026-05-25 alongside the seed
+           merge. The renderTable empty-state below is the new honesty
+           surface: when the real-only board is empty, the empty-state
+           says so and offers a newsletter signup. -->
+
       <div id="yourRank" class="your-rank" hidden></div>
       <div id="podium" class="podium" hidden></div>
       <div id="board" class="board">
@@ -1222,20 +1243,82 @@ function renderTable(rows){
   if(!rows.length){
     const liveTab=state.view==='live';
     const filterClause=state.format?` for ${escapeHtml(state.format)}`:'';
+    const tabNoun=liveTab?'live rounds':'solo voice rounds';
+    const ctaHref=liveTab?'/live':'/voice-debate';
+    const ctaLabel=liveTab?'Open the live board →':'Start a voice round →';
+    // Honest empty-state. We are not seeding fake debaters into this
+    // board anymore (community-seed merge removed 2026-05-25); when it
+    // sits empty, the empty state itself does the work — names the
+    // real reason (early product, ~10 DAU per soul.md §8), invites the
+    // visitor to BE one of the first ranked names, and offers a
+    // newsletter signup so people who aren't ready to debate today
+    // can still be tracked for the launch.
     board.innerHTML=`
-      <div class="state">
+      <div class="state state-empty-real">
         <svg class="state-silhouette" viewBox="0 0 120 60" fill="none" aria-hidden="true">
           <circle cx="38" cy="20" r="8" stroke="currentColor" stroke-width="1.4"/>
           <circle cx="82" cy="20" r="8" stroke="currentColor" stroke-width="1.4"/>
           <path d="M22 50c4-8 10-12 16-12s12 4 16 12M66 50c4-8 10-12 16-12s12 4 16 12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
           <path d="M60 12v36" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3"/>
         </svg>
-        <h3>${liveTab?'No live rounds yet':'No solo rounds yet'}${filterClause}</h3>
-        <p>${liveTab
-          ? 'Be the first to land a human-vs-human voice round. The AI ballot scores both boards.'
-          : 'Speak through a voice round and let the judge score you on the RFD. Typed rounds don’t rank.'}</p>
-        <a class="cta" href="${liveTab?'/live':'/voice-debate'}">${liveTab?'Open the live board →':'Start a voice round →'}</a>
+        <h3>No ${tabNoun} on the board yet${filterClause}.</h3>
+        <p class="state-honest">
+          The product is in beta with about ten people playing on a given day. The leaderboard fills
+          with real names only, no padding. You can be one of the first.
+        </p>
+        <div class="state-cta-row">
+          <a class="cta" href="${ctaHref}">${ctaLabel}</a>
+          <span class="state-cta-or">or</span>
+          <span class="state-cta-secondary">get a note when the board starts filling out</span>
+        </div>
+        <form id="leaderboardEmailForm" class="lb-email-form" novalidate>
+          <input type="email" name="email" required autocomplete="email"
+                 placeholder="your@email.com" aria-label="Email for launch updates" />
+          <button type="submit">Notify me</button>
+        </form>
+        <p class="lb-email-foot">One monthly note when something real ships. No spam.</p>
       </div>`;
+    // Wire the form. Mirrors the email_signups pattern used by
+    // index.html so this lands in the same Firestore collection the
+    // /admin/subscribers endpoint already reads. Swallows errors so a
+    // Firebase outage doesn't tell the user their signup "failed"
+    // when the doc actually wrote.
+    try {
+      const form = document.getElementById('leaderboardEmailForm');
+      if (form) {
+        form.addEventListener('submit', function(e){
+          e.preventDefault();
+          const input = form.elements.email;
+          const email = (input && input.value || '').trim();
+          if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
+          if (db) {
+            try {
+              db.collection('email_signups').add({
+                email: email,
+                source: 'leaderboard-empty-state',
+                view: state.view || '',
+                format: state.format || '',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              }).catch(function(){});
+            } catch(_){}
+          }
+          if (input) input.value = '';
+          const btn = form.querySelector('button');
+          if (btn) {
+            btn.textContent = 'You\'re on the list';
+            btn.disabled = true;
+            setTimeout(function(){
+              try { btn.textContent = 'Notify me'; btn.disabled = false; } catch(_){}
+            }, 4500);
+          }
+          try {
+            if (typeof gtag === 'function') {
+              gtag('event', 'leaderboard_email_signup', { view: state.view || '' });
+            }
+          } catch(_){}
+        });
+      }
+    } catch(_){}
     return;
   }
   // Top 3 are in the podium; table picks up from rank 4.
@@ -1295,13 +1378,9 @@ function renderBoard(allRowsRaw){
   // first paint of a session is stable.
   saveSnapshot(rows);
   updateHeroStats(allRowsRaw, rows);
-  // Surface the "AI-generated preview" note whenever the board includes
-  // sample debaters from the community seed pool, so the standings read
-  // as honest aspiration rather than fabricated activity.
-  try {
-    const note = document.getElementById('seedNote');
-    if (note) note.hidden = !(Array.isArray(allRowsRaw) && allRowsRaw.some(r => r && r.seed));
-  } catch(e){}
+  // (Seed-note disclosure removed 2026-05-25 alongside the seed merge.
+  // With no seeded rows ever showing up, the note had nothing to
+  // disclose. The empty-state pitch below is the new honesty surface.)
 }
 
 function updateHeroStats(allRows, filtered){
@@ -1567,17 +1646,16 @@ async function loadWithFallback(primary, fallback){
 
 async function loadView(view){
   if(!db){
-    if(window.DEBATEAI_SEED&&typeof window.DEBATEAI_SEED.merge==='function'){
-      const seeded=window.DEBATEAI_SEED.merge([],view,{limit:100});
-      state.cache[view]=seeded;
-      renderFormatPills(seeded);
-      renderBoard(seeded);
-      renderHotFormats(seeded);
-      updateTabCounts();
-      signinStrip.hidden=false;
-    }else{
-      board.innerHTML=`<div class="state"><h3>Couldn't load</h3><p>The leaderboard needs a network connection. Refresh once you're back online.</p></div>`;
-    }
+    // No Firestore (offline / Firebase blocked). Show the same honest
+    // empty-state renderTable surfaces below — it's the right answer
+    // whether the board is empty because nobody's played yet or because
+    // we can't reach the network.
+    state.cache[view]=[];
+    renderFormatPills([]);
+    renderBoard([]);
+    renderHotFormats([]);
+    updateTabCounts();
+    signinStrip.hidden=false;
     return;
   }
   if(state.cache[view]){
@@ -1613,9 +1691,10 @@ async function loadView(view){
       );
       rows=rows.filter(r=>r.kind==='voice').slice(0,100);
     }
-    if(window.DEBATEAI_SEED&&typeof window.DEBATEAI_SEED.merge==='function'){
-      rows=window.DEBATEAI_SEED.merge(rows,view,{limit:100});
-    }
+    // Seed merge removed 2026-05-25: the board now shows ONLY real
+    // entries. If that means an empty state, the empty state itself
+    // makes the honest pitch (early product, ~10 DAU, sign up to be
+    // among the first 100 ranked). See renderTable below.
     state.cache[view]=rows;
     renderFormatPills(rows);
     renderBoard(rows);
@@ -1625,14 +1704,12 @@ async function loadView(view){
     signinStrip.hidden=!!state.user;
   }catch(e){
     console.warn('[leaderboard] load failed:',e);
-    let fallback=[];
-    if(window.DEBATEAI_SEED&&typeof window.DEBATEAI_SEED.merge==='function'){
-      fallback=window.DEBATEAI_SEED.merge([],view,{limit:100});
-    }
-    state.cache[view]=fallback;
-    renderFormatPills(fallback);
-    renderBoard(fallback);
-    renderHotFormats(fallback);
+    // Same honesty: a load failure shows the empty-state pitch, not a
+    // fake-pool fallback that pretends activity exists.
+    state.cache[view]=[];
+    renderFormatPills([]);
+    renderBoard([]);
+    renderHotFormats([]);
     renderYourRank();
     updateTabCounts();
     signinStrip.hidden=!!state.user;
