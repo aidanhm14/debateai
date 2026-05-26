@@ -2633,6 +2633,49 @@ section.hero{
   border-color:rgba(0,0,0,.18);background:rgba(0,0,0,.04);color:rgba(0,0,0,.74);
 }
 
+/* Founding-cohort progress strip. Makes the "X debaters signed in,
+   goal is many thousands" line concrete with a moving milestone bar.
+   Sits right under the bookmark-note; same flex-basis trick to take
+   its own row inside .hero-pill-rail. Visible to signed-in users too
+   — community momentum is a signal worth keeping on screen. */
+.hero-cohort-progress{
+  flex-basis:100%;display:flex;flex-direction:column;gap:7px;
+  margin:-4px 0 16px;max-width:520px;
+}
+.hero-cohort-progress .hcp-track{
+  position:relative;height:6px;border-radius:999px;
+  background:rgba(255,255,255,.08);
+  overflow:hidden;
+}
+.hero-cohort-progress .hcp-fill{
+  position:absolute;top:0;left:0;height:100%;
+  background:linear-gradient(90deg,#ef4444,#dc2626);
+  border-radius:999px;
+  transition:width 1.1s cubic-bezier(.2,.65,.3,.9);
+  box-shadow:0 0 14px rgba(239,68,68,.45);
+  width:0;
+}
+.hero-cohort-progress .hcp-meta{
+  display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+  font-size:.78rem;color:rgba(255,255,255,.62);
+  letter-spacing:.005em;line-height:1.4;
+}
+.hero-cohort-progress .hcp-count strong{
+  color:rgba(255,255,255,.92);font-weight:700;
+}
+.hero-cohort-progress .hcp-count em{
+  color:#ef4444;font-style:normal;font-weight:800;
+}
+.hero-cohort-progress .hcp-next{
+  font-size:.72rem;color:rgba(255,255,255,.45);
+  font-variant-numeric:tabular-nums;
+}
+[data-theme="light"] .hero-cohort-progress .hcp-track{background:rgba(0,0,0,.08)}
+[data-theme="light"] .hero-cohort-progress .hcp-meta{color:rgba(0,0,0,.6)}
+[data-theme="light"] .hero-cohort-progress .hcp-count strong{color:rgba(0,0,0,.88)}
+[data-theme="light"] .hero-cohort-progress .hcp-count em{color:#dc2626}
+[data-theme="light"] .hero-cohort-progress .hcp-next{color:rgba(0,0,0,.45)}
+
 /* ─── Signed-in hero tightening ───────────────────────────────────
    When the user is signed in (body.signed-in set by the Firebase
    onAuthStateChanged handler), the hidden Google sign-up button +
@@ -5298,6 +5341,24 @@ section.ui-section .ui-lede{
       <p class="hero-bookmark-note">
         <span class="hero-bookmark-count" id="heroBookmarkCount">76</span> debaters signed in with Google so far. Goal is many thousands. Bookmark this page (<kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>) and come back as the room fills in.
       </p>
+      <!-- Founding-cohort progress. Makes the abstract "goal is many
+           thousands" line concrete with a moving milestone (100 → 250
+           → 500 → 1,000 → 2,500 → 5,000 → 10,000). The fill width and
+           label both update from the same /api/public-join-history
+           fetch the bookmark count already pulls — single source of
+           truth, no extra request. -->
+      <div class="hero-cohort-progress" aria-label="Founding cohort progress">
+        <div class="hcp-track">
+          <!-- Fallback width matches paint(76) → 76 of the next-milestone
+               100 = 76% fill. Real value gets swapped in by the fetch
+               handler below. -->
+          <div class="hcp-fill" id="hcpFill" style="width:76%"></div>
+        </div>
+        <div class="hcp-meta">
+          <span class="hcp-count"><em id="hcpCount">76</em> of the first <strong id="hcpMilestone">100</strong></span>
+          <span class="hcp-next" id="hcpNext">24 to go</span>
+        </div>
+      </div>
         <a href="/app#case" class="hero-pill">Prep</a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
         <a href="/voice-debate" class="hero-pill" data-voice-cta-on>Adaptive voice <span class="hero-pill-tag">New</span></a>
@@ -5340,13 +5401,47 @@ section.ui-section .ui-lede{
         (function(){
           var el = document.getElementById('heroBookmarkCount');
           if (!el) return;
+          // Milestone ladder. Bar fills relative to whichever rung is
+          // next, so the bar always feels alive at any growth stage —
+          // the bar at 76 of 100 looks meaningful; the bar at 76 of
+          // 10,000 looks dead. Each rung promotes once we cross it.
+          var MILESTONES = [100, 250, 500, 1000, 2500, 5000, 10000];
+          function nextMilestone(n){
+            for (var i = 0; i < MILESTONES.length; i++) {
+              if (n < MILESTONES[i]) return MILESTONES[i];
+            }
+            return MILESTONES[MILESTONES.length - 1];
+          }
+          function paint(n){
+            el.textContent = n.toLocaleString();
+            var hcpCount = document.getElementById('hcpCount');
+            var hcpMilestone = document.getElementById('hcpMilestone');
+            var hcpFill = document.getElementById('hcpFill');
+            var hcpNext = document.getElementById('hcpNext');
+            if (!hcpFill || !hcpMilestone) return;
+            var ms = nextMilestone(n);
+            var pct = Math.max(0, Math.min(100, (n / ms) * 100));
+            if (hcpCount) hcpCount.textContent = n.toLocaleString();
+            hcpMilestone.textContent = ms.toLocaleString();
+            // Defer the width set one tick so the 1.1s CSS transition
+            // animates from the inline initial width on first load.
+            requestAnimationFrame(function(){
+              hcpFill.style.width = pct.toFixed(1) + '%';
+            });
+            if (hcpNext) {
+              var remaining = Math.max(0, ms - n);
+              hcpNext.textContent = remaining === 0
+                ? 'Milestone hit. Next: ' + (nextMilestone(ms) || ms).toLocaleString()
+                : remaining.toLocaleString() + ' to go';
+            }
+          }
           fetch('/api/public-join-history', { credentials: 'omit' })
             .then(function(r){ return r.ok ? r.json() : null; })
             .then(function(j){
               if (!j || !j.totals) return;
               var n = Math.max(0, parseInt(j.totals.google, 10) || 0);
               if (!n) return; // keep fallback if zero
-              el.textContent = n.toLocaleString();
+              paint(n);
             })
             .catch(function(){ /* keep fallback */ });
         })();
