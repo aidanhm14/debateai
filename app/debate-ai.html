@@ -34,7 +34,7 @@
         "16 TTS personas across ElevenLabs, Inworld, Cartesia, OpenAI"
       ],
       "offers": [
-        { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 anonymous requests plus 45 more on sign-in (50 per month total)." },
+        { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 anonymous requests plus 5 more on sign-in." },
         { "@type": "Offer", "name": "BYOK", "price": "1", "priceCurrency": "USD", "description": "Unlimited Claude with your own Anthropic key." },
         { "@type": "Offer", "name": "Individual", "price": "5", "priceCurrency": "USD", "description": "$5/year for 250 requests per month, six brains, HD voice." },
         { "@type": "Offer", "name": "Lifetime", "price": "14.99", "priceCurrency": "USD", "description": "250 requests per month forever, one-time charge." },
@@ -2860,17 +2860,14 @@ function stripPlainMd(s) {
 // this entirely. The counter lives in localStorage so it survives reloads;
 // signing in doesn't reset usage, just raises the ceiling.
 //
-// 2026-05-26 (rev9): SIGNED_IN_LIMIT bumped 10 -> 50 per Aidan's
-// "advertise sign up get 50 usages per month free" direction. This is
-// a 5x bump that contradicts the 2026-05-18 credit-burn-driven revert
-// (15/30 -> 5/10); the trade is explicit — distribution-first per the
-// 2026-05-20 HQ steer, accepting the higher Anthropic/OpenAI spend as
-// the cost of an actually-compelling free tier. soul.md §4 updated
-// to match (was a hard rule). Anon cap stays at 5 — bot abuse on the
-// no-auth lever is what drove the original revert and that hasn't
-// changed; only signed-in (Google-gated, harder to farm) is bumped.
+// 2026-05-26 (rev15): SIGNED_IN_LIMIT reverted 50 -> 10 per Aidan
+// "10 free rounds not 50 correct that." The 10->50 bump (rev9) was
+// shipped to make sign-in feel rewarding; reverted same-day before
+// real credit drain materialized. Anon stays at 5 anonymous + 5
+// bonus on sign-in = 10 total, matching the long-standing soul.md
+// §4 hard rule.
 var ANON_LIMIT = 5;
-var SIGNED_IN_LIMIT = 50;
+var SIGNED_IN_LIMIT = 10;
 function getUsage() {try {return parseInt(localStorage.getItem('debateos-anon-usage') || '0', 10);} catch {return 0;}}
 function incUsage() {try {localStorage.setItem('debateos-anon-usage', String(getUsage() + 1));} catch {}}
 function getEffectiveLimit() {

@@ -103,8 +103,14 @@
   // 2026-05-22: /today removed from the topbar nav. The daily-motion
   // pages stay live + crawlable for SEO, but the weekly motion in /app
   // (the "Debate of the week" card) is the front-and-center surface now.
+  // 2026-05-26: Spar added per Aidan "have the button for this somewhere
+  // early on the nav." /spar is the live-human matchmaker + DM waitlist
+  // marketplace ("Finding you a debater" page). Positioned right after
+  // Voice so the two real-time-entry actions sit adjacent at the front
+  // of the bar — Voice = match against AI, Spar = match against a human.
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
+    { href: '/spar',          label: 'Spar'         },
     { href: '/app#case',      label: 'Prep'         },
     { href: '/learn',         label: 'Learn'        },
     // 2026-05-18: /rounds standalone listing retired — the published-
