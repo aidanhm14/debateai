@@ -340,11 +340,27 @@
       }
 
       // ── Outer atmospheric glow ring ──
+      // 2026-05-26 (rev16): shadowBlur 28 -> 52 + double-pass with
+      // wider outer halo per Aidan "make this a higher quality globe."
+      // Single 28px glow read as a faint edge fade; the two-layer halo
+      // makes the sphere feel atmosphere-wrapped, not pasted on. Wider
+      // outer halo is brand-tinted at low alpha so it bleeds into the
+      // page background as ambient light rather than a hard ring.
       ctx.save();
+      // Wide ambient halo (outer atmosphere bleed)
+      var halo = ctx.createRadialGradient(cx, cy, R * 0.96, cx, cy, R * 1.18);
+      halo.addColorStop(0, palette.sphereRim);
+      halo.addColorStop(0.55, palette.sphereRimBlur);
+      halo.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 1.18, 0, Math.PI * 2);
+      ctx.fill();
+      // Crisp rim line with glow shadow (the inner atmosphere edge)
       ctx.shadowColor = palette.sphereRimBlur;
-      ctx.shadowBlur  = 28;
+      ctx.shadowBlur  = 52;
       ctx.strokeStyle = palette.sphereRim;
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.arc(cx, cy, R + 1, 0, Math.PI * 2);
       ctx.stroke();
@@ -361,11 +377,16 @@
       // In transparent mode we tint with the brand color at low alpha so
       // dots stay visible on both light and dark page backgrounds (white
       // land dots vanish on a light theme).
-      var landR = Math.max(0.9, R * 0.0050);
+      // 2026-05-26 (rev16): land dot radius bumped R*0.0050 -> R*0.0095
+      // (almost 2x) + alpha scale .32->.46 per Aidan "higher quality
+      // globe." Original tiny dots read as pointillist with visible
+      // gaps between cells; the bigger overlapping dots fill in to
+      // read as continuous landmass at the 10° mask resolution.
+      var landR = Math.max(1.4, R * 0.0095);
       var landFill = transparent
         ? 'rgba(' + palette.pin + ',0.55)'
         : 'rgba(' + palette.land + ',0.55)';
-      var landAlphaScale = transparent ? 0.42 : 0.32;
+      var landAlphaScale = transparent ? 0.55 : 0.46;
       for (var i = 0; i < data.land.length; i++) {
         var lp = data.land[i];
         var pp = project(lp.lng, lp.lat, lngOffset);
@@ -389,7 +410,9 @@
           var arc = data.arcs[ai];
           var a = byName[arc.a], b = byName[arc.b];
           if (!a || !b) continue;
-          var pts = arcPoints(a, b, lngOffset, 36);
+          // 2026-05-26 (rev16): arc tessellation bumped 36 -> 64 steps
+          // for visibly smoother great-circle curves at sphere scale.
+          var pts = arcPoints(a, b, lngOffset, 64);
           ctx.lineWidth = arc.major ? 1.8 : 1.2;
           var col = arc.major ? palette.arcMajor : palette.arc;
           var path = false;
