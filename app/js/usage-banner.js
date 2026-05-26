@@ -54,12 +54,20 @@
     if (rootEl) return rootEl;
     rootEl = document.createElement('div');
     rootEl.id = 'da-usage-banner';
+    // 2026-05-26: banner moved from top:0 -> top:60px to clear the
+    // topbar nav. At top:0 + left:50% center, the "cap reached /
+    // UPGRADE" pill was sitting on top of the topbar's center nav
+    // links (Voice / Prep / Learn / Live...) and clipping them.
+    // 60px is the standard topbar height; banner now floats just
+    // below the bar so both surfaces are readable. Also dropped
+    // z-index 99999 -> 9000 so the cap-reached pill no longer
+    // outranks every legitimate modal on the site.
     rootEl.style.cssText = [
       'position:fixed',
-      'top:0',
+      'top:60px',
       'left:50%',
       'transform:translateX(-50%)',
-      'z-index:99999',
+      'z-index:9000',
       'padding:0',
       'pointer-events:none',
       'max-width:100%',
