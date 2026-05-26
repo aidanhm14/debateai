@@ -2633,6 +2633,42 @@ section.hero{
   border-color:rgba(0,0,0,.18);background:rgba(0,0,0,.04);color:rgba(0,0,0,.74);
 }
 
+/* Founding-cohort sign-in nudge. Sits below the "N debaters signed in"
+   count and pulls signed-OUT visitors into the community by anchoring
+   the ask to a real, finite goal ("the first thousand"). Hidden for
+   signed-in visitors via body.signed-in, since they're already in. */
+.hero-founding-cta{
+  flex-basis:100%;display:inline-flex;align-items:center;gap:8px;
+  margin:-4px 0 16px;padding:9px 16px;
+  background:rgba(239,68,68,.10);
+  border:1px solid rgba(239,68,68,.32);
+  border-radius:999px;
+  color:#fca5a5;
+  font-size:.86rem;font-weight:600;letter-spacing:.005em;
+  text-decoration:none;
+  transition:background .15s,border-color .15s,color .15s,transform .15s;
+  align-self:flex-start;
+  cursor:pointer;
+  font-family:inherit;
+}
+.hero-founding-cta:hover{
+  background:rgba(239,68,68,.16);
+  border-color:rgba(239,68,68,.52);
+  color:#fff;transform:translateY(-1px);text-decoration:none;
+}
+.hero-founding-cta .hfc-arrow{
+  display:inline-block;transition:transform .15s ease;
+}
+.hero-founding-cta:hover .hfc-arrow{transform:translateX(3px)}
+.hero-founding-cta .hfc-em{color:inherit;font-weight:800}
+body.signed-in .hero-founding-cta{display:none !important}
+[data-theme="light"] .hero-founding-cta{
+  background:rgba(220,38,38,.07);border-color:rgba(220,38,38,.30);color:#b91c1c;
+}
+[data-theme="light"] .hero-founding-cta:hover{
+  background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.48);color:#1a1a1f;
+}
+
 /* ─── Signed-in hero tightening ───────────────────────────────────
    When the user is signed in (body.signed-in set by the Firebase
    onAuthStateChanged handler), the hidden Google sign-up button +
@@ -5329,6 +5365,32 @@ section.ui-section .ui-lede{
       <p class="hero-bookmark-note">
         <span class="hero-bookmark-count" id="heroBookmarkCount">76</span> debaters signed in with Google so far. Goal is many thousands. Bookmark this page (<kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>) and come back as the room fills in.
       </p>
+      <!-- Founding-cohort CTA. Reveals to signed-out visitors only;
+           body.signed-in hides it via CSS. Click delegates to the
+           hidden #googleSignupBtn (the existing Firebase IIFE wires
+           its real handler; signInWithPopup → redirect fallback).
+           Falls back to /app#chat if the button isn't on the page. -->
+      <button type="button" id="heroFoundingCohortCta" class="hero-founding-cta" data-gtag="hero_founding_cohort">
+        <span>Be one of the first <span class="hfc-em">thousand</span>. Sign in to claim your spot</span>
+        <svg class="hfc-arrow" viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">
+          <path d="M2 7 L11 7 M7 3 L11 7 L7 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <script>
+        (function(){
+          var btn = document.getElementById('heroFoundingCohortCta');
+          if (!btn) return;
+          btn.addEventListener('click', function(e){
+            e.preventDefault();
+            try {
+              if (window.gtag) window.gtag('event', 'hero_founding_cohort_click');
+            } catch(_){}
+            var realBtn = document.getElementById('googleSignupBtn');
+            if (realBtn) { realBtn.click(); return; }
+            window.location.href = '/app#chat';
+          });
+        })();
+      </script>
         <a href="/app#case" class="hero-pill">Prep</a>
         <span class="hero-pill-sep" aria-hidden="true">·</span>
         <a href="/voice-debate" class="hero-pill" data-voice-cta-on>Adaptive voice <span class="hero-pill-tag">New</span></a>
