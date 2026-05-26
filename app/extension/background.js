@@ -1,4 +1,4 @@
-// Debatable extension service worker.
+// Debate AI extension service worker.
 // Owns: context-menu setup, command shortcuts, side-panel opening, and
 // queueing actions for the side panel to drain on load. Also owns the
 // Google Docs API auth + read path (Stage 1 of the Counter agent).

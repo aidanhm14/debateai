@@ -10,7 +10,7 @@ it as the source-of-truth when you update the listing.
 
 **Name** (≤45 chars, 34 used)
 ```
-Counter — Debatable for Google Docs
+Counter — Debate AI for Google Docs
 ```
 
 **Short description** (≤132 chars, 128 used)
@@ -109,7 +109,7 @@ Pricing
 • Bring-your-own-key (Anthropic Claude only) at $1/month for unlimited
 • Team at $20/year for school clubs and prep groups (1,500 drills/month, 50 seats)
 
-Counter is part of Debatable. Same engine that powers debateai.com's
+Counter is part of Debate AI. Same engine that powers debateai.com's
 voice round and six-brain panel; the chrome extension is a focused
 entry point for the writing-defense audience — students, essayists,
 case-builders, and anyone whose draft has to survive a sharp reader.
@@ -258,7 +258,7 @@ Run this list before clicking "Submit for review":
 - [ ] Single-purpose statement matches the manifest description
 - [ ] Each requested permission has a justification pasted in
 - [ ] "Sells data" / "uses for unrelated purposes" / "creditworthiness" boxes all UNCHECKED
-- [ ] Tested unpacked install on a fresh Chrome profile (no existing Debatable session) and confirmed the side panel loads, the Docs pill works, and at least one voice round completes
+- [ ] Tested unpacked install on a fresh Chrome profile (no existing Debate AI session) and confirmed the side panel loads, the Docs pill works, and at least one voice round completes
 - [ ] If OAuth (Google Docs API agent) is in scope: extension ID is locked via the manifest `key` field, OAuth client ID is registered, and the consent screen is configured
 
 ---

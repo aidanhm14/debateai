@@ -229,10 +229,10 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
     '@type': 'Article',
     headline: motion.motion,
     description,
-    author: { '@type': 'Organization', name: 'Debatable' },
+    author: { '@type': 'Organization', name: 'Debate AI' },
     publisher: {
       '@type': 'Organization',
-      name: 'Debatable',
+      name: 'Debate AI',
       url: SITE_ORIGIN,
       logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-192.png` },
     },
@@ -254,7 +254,7 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debatable">
+<meta property="og:site_name" content="Debate AI">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titleCore)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -417,7 +417,7 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   ${renderRecentRoundsPanel(recentRounds)}
 
   <footer>
-    <span>© 2026 Debatable</span>
+    <span>© 2026 Debate AI</span>
     <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/champions">Champions</a> · <a href="/learn">Learn</a></span>
   </footer>
 </main>
@@ -451,7 +451,7 @@ ${isToday ? `<script>
     shareBtn.addEventListener('click',async function(){
       var n=s.streak||0;
       var line=n>0?'Day '+n+'. Today\\'s motion taken.':'Day 1. First motion taken.';
-      var text='Debatable · '+TODAY+'\\n"'+MOTION+'"\\n'+line+'\\nhttps://debateai.com/today';
+      var text='Debate AI · '+TODAY+'\\n"'+MOTION+'"\\n'+line+'\\nhttps://debateai.com/today';
       try{
         if(navigator.share){
           await navigator.share({text:text});

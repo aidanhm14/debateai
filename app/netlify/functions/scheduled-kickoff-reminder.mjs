@@ -39,7 +39,7 @@ function reminderTemplate({ motion, format, kickoff, roomUrl, opponent, opponent
 <html><body style="margin:0;padding:24px;background:#0a0a0c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e5e7eb">
   <table role="presentation" style="max-width:560px;margin:0 auto;background:#15151a;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden">
     <tr><td style="padding:24px 28px 16px">
-      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">Debatable · Kickoff Reminder</div>
+      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">Debate AI · Kickoff Reminder</div>
       <h1 style="margin:8px 0 6px;font-size:22px;font-weight:800;color:#fff;letter-spacing:-.01em">Kickoff in ~${safe(minutesAway)} min</h1>
       <p style="margin:0;font-size:14px;line-height:1.6;color:#9ca3af">Your live debate starts at ${safe(kickoff)}. Hop into the round room when you're ready.</p>
     </td></tr>
@@ -77,7 +77,7 @@ function fmtName(o){ return (o && (o.name || o.handle)) || 'Anonymous'; }
 
 function buildRoundUrl(challenge){
   const id = challenge.id;
-  const roomName = 'Debatable-' + String(id).replace(/[^a-zA-Z0-9]/g,'');
+  const roomName = 'Debate AI-' + String(id).replace(/[^a-zA-Z0-9]/g,'');
   const yourSide = challenge.side === 'pro' ? 'con' : 'pro';
   const params = new URLSearchParams({
     motion: challenge.motion || challenge.topicLine || challenge.themeLine || '',
@@ -92,7 +92,7 @@ function buildRoundUrl(challenge){
 
 export default async (req) => {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || 'Debatable <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM || 'Debate AI <onboarding@resend.dev>';
   if (!apiKey) {
     console.warn('[scheduled-kickoff] RESEND_API_KEY missing, skipping run');
     return new Response('skipped (no api key)', { status: 200 });
