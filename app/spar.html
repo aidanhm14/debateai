@@ -1000,6 +1000,12 @@ h1 em{color:var(--accent);font-style:normal}
         '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> in ' + escHtml(formatLabel) + ' queue</span>' +
         '<span class="meta-sep">·</span>' +
         '<span class="meta-cell"><strong id="metaWaitlist">0</strong> on the open waitlist</span>' +
+        // "Missed this week" — appears only when the public counter
+        // reads >=3 (avoids "1 missed this week" looking sadder than
+        // not showing it). Pulled from /api/log-missed-match on mount
+        // via fetchMissedMatchCount().
+        '<span class="meta-sep meta-missed-sep" id="metaMissedSep" style="display:none">·</span>' +
+        '<span class="meta-cell meta-missed-cell" id="metaMissedCell" style="display:none"><strong id="metaMissed">0</strong> missed each other this week</span>' +
       '</div>' +
       '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
@@ -1035,7 +1041,29 @@ h1 em{color:var(--accent);font-style:normal}
     startStatusCycle();
     // startPairingTicker() removed — see RECENT_PAIRINGS comment above
     startMetaLive();
+    fetchMissedMatchCount();
     mountRadar('sparRadar');
+  }
+
+  // Pulls the public "missed each other this week" count from
+  // /api/log-missed-match (GET). Shown in the meta strip only when
+  // the count is meaningful — under 3 the stat looks sadder than
+  // hiding it, so we keep it tucked until the number earns its spot.
+  function fetchMissedMatchCount(){
+    fetch('/api/log-missed-match', { method: 'GET' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j) return;
+        var n = (typeof j.week_count === 'number') ? j.week_count : 0;
+        if (n < 3) return; // stays hidden
+        var sep = document.getElementById('metaMissedSep');
+        var cell = document.getElementById('metaMissedCell');
+        var num = document.getElementById('metaMissed');
+        if (sep) sep.style.display = '';
+        if (cell) cell.style.display = '';
+        if (num) num.textContent = String(n);
+      })
+      .catch(function(){});
   }
 
   // Live ops strip: real counts pulled from Firestore via onSnapshot.
@@ -1255,6 +1283,27 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   // ── Render: AI fallback fired ────────────────────────
+  // Fire-and-forget POST to /api/log-missed-match. Increments the
+  // public missed-match counter that's displayed on /spar's meta strip
+  // and /live's callout. Dedupes via sessionStorage so a tab refresh
+  // mid-queue doesn't double-count: same (format, joinedAtMs, reason)
+  // tuple only fires once per browser session.
+  function logMissedMatch(reason){
+    try {
+      var key = 'da-missed-' + formatParam + '-' + state.joinedAtMs + '-' + reason;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch (e) { /* private mode — proceed without dedupe */ }
+    try {
+      fetch('/api/log-missed-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format: formatParam, reason: reason }),
+        keepalive: true, // survive navigation in renderFallback
+      }).catch(function(){});
+    } catch (e) { /* never block the flow on a logging failure */ }
+  }
+
   function renderFallback(){
     shell.innerHTML =
       '<div class="eyebrow" style="background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.4);color:#fbbf24"><span class="pip" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b"></span>AI Fallback</div>' +
@@ -1263,6 +1312,8 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="orb-wrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
       '<div class="status">Loading AI round…</div>';
     try { gtag('event', 'spar_ai_fallback', { format: formatParam }); } catch(e){}
+    // 60s timeout = a real "missed match" — they tried, nobody showed.
+    logMissedMatch('fallback');
     setTimeout(function(){ location.href = '/debate-ai'; }, 1200);
   }
 
@@ -1681,6 +1732,11 @@ h1 em{color:var(--accent);font-style:normal}
 
   function cancelQueue(){
     state.cancelled = true;
+    // Only count as a "miss" if the user spent real time in the queue
+    // (>=15s). A quick click-through isn't a missed match, it's a user
+    // who never really tried.
+    var elapsed = state.joinedAtMs ? Math.floor((Date.now() - state.joinedAtMs) / 1000) : 0;
+    if (elapsed >= 15) logMissedMatch('cancel');
     teardownQueue();
     if (state.queueDocRef){
       state.queueDocRef.update({
@@ -1688,7 +1744,7 @@ h1 em{color:var(--accent);font-style:normal}
         cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
       }).catch(function(){});
     }
-    try { gtag('event', 'spar_cancel', { format: formatParam }); } catch(e){}
+    try { gtag('event', 'spar_cancel', { format: formatParam, elapsed_sec: elapsed }); } catch(e){}
     location.href = '/';
   }
 

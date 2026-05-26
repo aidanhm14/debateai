@@ -254,6 +254,25 @@ button{font-family:inherit}
 }
 .hero-how:hover{color:var(--text);border-color:var(--text)}
 
+/* Missed-match callout under the hero CTA row. Honest data pulled
+   from /api/log-missed-match — hidden by default, revealed only when
+   the count earns it. Quiet card, not a banner. */
+.hero-missed{
+  margin-top:14px;
+  display:inline-block;
+  font-size:.86rem;line-height:1.5;
+  color:var(--text-dim);
+  padding:10px 16px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:10px;
+  max-width:560px;text-align:left;
+}
+.hero-missed strong{color:var(--text);font-variant-numeric:tabular-nums;font-weight:700}
+.hero-missed a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(239,68,68,.32);padding-bottom:1px;font-weight:600;margin-left:2px}
+.hero-missed a:hover{border-bottom-color:var(--accent)}
+.hero-missed[hidden]{display:none}
+
 /* ─── Layout ───────────────────────────────────────── */
 .wrap{max-width:1100px;margin:0 auto;padding:0 24px 80px}
 .layout{
@@ -1301,6 +1320,13 @@ button{font-family:inherit}
     <a href="#postForm" id="organizeBtn" class="bar-cta"><svg width="11" height="11" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><path d="M1.3.5a.5.5 0 0 0-.8.42v8.16a.5.5 0 0 0 .8.42l6.1-4.08a.5.5 0 0 0 0-.84z"/></svg>Post a debate</a>
     <a href="/debate-chat" class="hero-how">Debate Omegle → random partner in seconds</a>
     <a href="#how" class="hero-how">How it works ↓</a>
+  </div>
+  <!-- Missed-match callout. Hidden by default; revealed by the
+       fetchMissedMatchCount() IIFE below when the public counter on
+       /api/log-missed-match reads >=3. Pitches the schedule as the
+       fix for the timing-roulette problem the random matchmaker has. -->
+  <div class="hero-missed" id="heroMissed" hidden>
+    <strong id="heroMissedNum">0</strong> debaters missed a partner on the random matchmaker this week. Scheduling beats luck. <a href="#postForm">Post a debate →</a>
   </div>
 </section>
 
@@ -5066,5 +5092,30 @@ button{font-family:inherit}
 </aside>
 <script defer src="/js/signup-nudge.js"></script>
 <script defer src="/js/notifications.js"></script>
+<script>
+/* Missed-match callout — fetches the public counter, reveals the
+ * hero-missed card only when N>=3 so a tiny number doesn't undermine
+ * the pitch. Same threshold as /spar's meta strip cell.
+ */
+(function(){
+  function show(){
+    fetch('/api/log-missed-match', { method: 'GET' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j) return;
+        var n = (typeof j.week_count === 'number') ? j.week_count : 0;
+        if (n < 3) return;
+        var host = document.getElementById('heroMissed');
+        var num  = document.getElementById('heroMissedNum');
+        if (num) num.textContent = String(n);
+        if (host) host.hidden = false;
+      })
+      .catch(function(){});
+  }
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', show);
+  } else { show(); }
+})();
+</script>
 </body>
 </html>
