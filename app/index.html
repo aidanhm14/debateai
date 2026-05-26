@@ -8792,17 +8792,72 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
         result = text;
       }, { thinkBudget: 10000, maxTokens: 16000, expectedWords: 1500, onProgress: (p) => setJProgress(p), feature: 'feedback' });
 
-      // Parse JSON from response - try object format first, fall back to array
-      var jsonObjMatch = result.match(/\{[\s\S]*\}/);
-      if (!jsonObjMatch) throw new Error('Invalid response format');
-      var parsed;
-      try {
-        parsed = JSON.parse(jsonObjMatch[0]);
-      } catch (e2) {
-        var jsonArrMatch = result.match(/\[[\s\S]*\]/);
-        if (!jsonArrMatch) throw new Error('Invalid response format');
-        parsed = { comments: JSON.parse(jsonArrMatch[0]), overall: null };
+      // Parse JSON from response. The previous version used a greedy
+      // regex `/\{[\s\S]*\}/` which fails on any case where the model
+      // wraps the JSON in a ```json``` fence or includes braces inside
+      // string values (very common in feedback that quotes the case
+      // back). Both cases produced the "Error analyzing case: JSON
+      // Parse error: Unable to parse JSON string" the user hit on a
+      // 2691-word case. Hardened pipeline below.
+      //
+      // 1. Strip markdown code fences if Claude wraps the JSON.
+      // 2. Use a brace-balanced extractor that respects string state
+      //    (so braces inside "feedback" strings don't throw off the
+      //    boundary).
+      // 3. Try JSON.parse directly. On failure, run common cleanups
+      //    (trailing commas, smart quotes) and retry.
+      // 4. Fall back to the array shape (just a comments array) if
+      //    the object shape can't be coerced.
+      function extractBalanced(text, open, close) {
+        var start = text.indexOf(open);
+        if (start === -1) return null;
+        var depth = 0, inString = false, escape = false;
+        for (var i = start; i < text.length; i++) {
+          var c = text[i];
+          if (escape) { escape = false; continue; }
+          if (inString) {
+            if (c === '\\') { escape = true; continue; }
+            if (c === '"') inString = false;
+            continue;
+          }
+          if (c === '"') { inString = true; continue; }
+          if (c === open) depth++;
+          else if (c === close) {
+            depth--;
+            if (depth === 0) return text.substring(start, i + 1);
+          }
+        }
+        return null;
       }
+      function cleanupJSON(s) {
+        return s
+          // strip trailing commas before } or ]
+          .replace(/,(\s*[}\]])/g, '$1')
+          // smart double-quote pairs Claude sometimes emits OUTSIDE
+          // string values (when they show up INSIDE a quoted value
+          // they're already escaped); a global swap is safe here
+          // because real JSON uses straight quotes exclusively.
+          .replace(/[“”]/g, '"')
+          .replace(/[‘’]/g, "'");
+      }
+      function tryParse(s) {
+        try { return JSON.parse(s); } catch (_) {}
+        try { return JSON.parse(cleanupJSON(s)); } catch (_) {}
+        return null;
+      }
+      // Strip ```json ... ``` or ``` ... ``` wrappers if present.
+      var resultClean = result.replace(/```(?:json)?\s*([\s\S]*?)```/, '$1').trim();
+      var parsed = null;
+      var objStr = extractBalanced(resultClean, '{', '}');
+      if (objStr) parsed = tryParse(objStr);
+      if (!parsed) {
+        var arrStr = extractBalanced(resultClean, '[', ']');
+        if (arrStr) {
+          var arr = tryParse(arrStr);
+          if (Array.isArray(arr)) parsed = { comments: arr, overall: null };
+        }
+      }
+      if (!parsed) throw new Error('Could not parse model response as JSON');
       var commentsArr = parsed.comments || parsed;
       if (parsed.overall) setOverview(parsed.overall);
 

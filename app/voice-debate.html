@@ -3770,25 +3770,22 @@ function App() {
   // voice into a wait). The window.__audioLock surface went with it
   // since there's no overlapping audio left on this page to coordinate.
 
-  // Push playback rate to the live audio element whenever the user
-  // adjusts the slider during a session. Best-effort: browsers don't
-  // guarantee playbackRate on a MediaStream-backed audio element. The
-  // AI-side pacing nudge below is the layer that actually changes the
-  // perceived speed.
-  //
-  // 2026-05-19: preservesPitch / mozPreservesPitch / webkitPreservesPitch
-  // pinned to true so 1.5x and 1.95x stop sounding chipmunk-pitched
-  // (the user heard this as a "buzz in the background"). Without
-  // this flag, raising playbackRate ALSO raises pitch by the same
-  // ratio; with it, the engine time-stretches and pitch holds.
+  // 2026-05-26: playbackRate on the MediaStream-backed audio element
+  // is OFF. Both 2026-05-19 attempts (preservesPitch + mozPreservesPitch
+  // + webkitPreservesPitch) failed in practice — Chrome and Safari
+  // ignore the pitch-preservation flag on a MediaStreamTrack source,
+  // so raising playbackRate to 1.5/1.95 chipmunk-pitched the voice and
+  // user reported it as squeaky. There is no reliable browser-native
+  // way to time-stretch a live WebRTC stream without pitch artifacts.
+  // The AI-side pacing nudge below (sends a wpm target over the data
+  // channel) is the ONLY speed control now — the model genuinely
+  // speaks slower/faster, which preserves the natural voice pitch
+  // because it's the original generation, not a post-process. Pin
+  // the audio element to 1.0× and never touch it again. */
   useEffect(() => {
     if (audioElRef.current) {
       try {
-        var a = audioElRef.current;
-        a.preservesPitch = true;
-        a.mozPreservesPitch = true;
-        a.webkitPreservesPitch = true;
-        a.playbackRate = playbackRate;
+        audioElRef.current.playbackRate = 1.0;
       } catch (e) {}
     }
   }, [playbackRate]);
