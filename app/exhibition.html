@@ -12,8 +12,33 @@
 <meta property="og:url" content="https://debateai.com/exhibition">
 <meta property="og:title" content="Exhibition Round · Debatable">
 <meta property="og:description" content="Watch two AI brains debate a motion in proper format. Five brains: Claude, GPT, Grok, DeepSeek, Gemini.">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<!-- 2026-05-26 perf: React 18.2.0 (~182KB min / ~55KB gz) swapped for
+     Preact 10 + compat (~16KB min / ~6KB gz). The inline app uses
+     React.createElement (via the `el` alias) + standard hooks +
+     ReactDOM.createRoot — all covered by preact/compat. Phase A of
+     the migration; smallest inline-React page (~22KB JS) used as
+     the proof-of-viability before rolling to the bigger surfaces. -->
+<script src="https://unpkg.com/preact@10/dist/preact.umd.js"></script>
+<script src="https://unpkg.com/preact@10/hooks/dist/hooks.umd.js"></script>
+<script src="https://unpkg.com/preact@10/compat/dist/compat.umd.js"></script>
+<script>
+  // Alias preact/compat as the React and ReactDOM globals the inline
+  // app expects. preactCompat's UMD bundle provides createElement,
+  // Component, Fragment, createContext, all hooks, and render() —
+  // but NOT createRoot(), which only ships in preact/compat/client
+  // (not in the UMD). Inline app calls
+  //   ReactDOM.createRoot(container).render(element)
+  // so we polyfill createRoot here by wrapping preact's render().
+  window.React = window.preactCompat;
+  window.ReactDOM = Object.assign({}, window.preactCompat, {
+    createRoot: function (container) {
+      return {
+        render: function (element) { window.preactCompat.render(element, container); },
+        unmount: function () { window.preactCompat.render(null, container); }
+      };
+    }
+  });
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/ui.css">
