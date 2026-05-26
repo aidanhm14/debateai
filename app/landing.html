@@ -2352,7 +2352,16 @@ section.hero{
   .editorial-hero{
     display:grid;
     grid-template-columns:minmax(0,1fr);
+    /* 2026-05-26 (rev11): conflict resolution. Parallel d73b91e
+       "tighten left-column spacing — one cohesive stack" reverted
+       the 2-col layout back to a centered single-column stack. Took
+       theirs (cohesive single-stack reads cleaner than the 2-col
+       compromise was) + added "eyebrow" as a new top row so the
+       explainer line still has a home. The building-note,
+       bookmark-note, and founding-cta auto-place into the implicit
+       grid as before since they're not in the explicit areas. */
     grid-template-areas:
+      "eyebrow"
       "headline"
       "primary-pills"
       "card"
@@ -2366,6 +2375,36 @@ section.hero{
     text-align:center;
     position:relative;
   }
+  /* 2026-05-26 (rev10): radical first-impression simplification per
+     Aidan "I WANT THE LANDING PAGE TO LOOK EASY TO UNDERSTAND/ENTER."
+     Above-the-fold visible left column is reduced from 10 items to 5:
+     eyebrow → mantra → subhead → primary CTA → "50/mo on sign-in"
+     secondary → tertiary text-link row → founder cue. Hiding the
+     primary pill rail (Adaptive voice + Online video debates) on
+     desktop — those entry points are noise on first impression;
+     users access them via the tertiary text-link rail. The "still
+     building" and "76 debaters bookmark" paragraphs are honest but
+     read as decoration to a stranger; hidden above the fold. */
+  /* !important needed: later .editorial-hero .hero-pill-rail--primary
+     rule in the same media query sets display:flex with equal
+     specificity and wins by source order. */
+  .editorial-hero .hero-pill-rail--primary{display:none !important}
+  .editorial-hero .hero-building-note{display:none !important}
+  .editorial-hero .hero-bookmark-note{display:none !important}
+  /* Explainer eyebrow above the mantra. Tiny all-caps brand-red
+     line that tells a stranger what the product IS in 4 words
+     before they decode the rhythmic mantra below. */
+  .editorial-hero .hero-explainer-eyebrow{
+    grid-area:eyebrow;
+    justify-self:start;
+    margin:0 0 12px;
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:.78rem;font-weight:700;
+    letter-spacing:.16em;text-transform:uppercase;
+    color:#dc2626;
+    line-height:1;
+  }
+  [data-theme="light"] .editorial-hero .hero-explainer-eyebrow{color:#b91c1c}
   /* Ambient radial behind the stage — gives the lower hero band a
      contained atmosphere so the debaters + orb don't float in pure
      white. Sits behind everything (z-index:0). The hero-orb-card
@@ -5700,6 +5739,12 @@ section.ui-section .ui-lede{
            hero_headline_view GA event so the variants stay segmentable
            (which tagline a converting session saw). Per-load random, NOT
            sticky per-visitor: the ask is rotation on every load. -->
+      <!-- 2026-05-26 (rev10): explainer eyebrow added above the mantra
+           per Aidan "I WANT THE LANDING PAGE TO LOOK EASY TO
+           UNDERSTAND/ENTER." Mantra is rhythmic-brand but cryptic on
+           first impression; this eyebrow tells a stranger what the
+           product IS in 4 words before they decode the chant. -->
+      <p class="hero-explainer-eyebrow">Voice-first AI debate practice.</p>
       <!-- 2026-05-26 (rev4): static fallback headline IS the "Debate it"
            chant. Per Aidan: "branding to be more like DEBATEIT DEBATEIT
            DEBATEIT so I can pitch it to debaters better." The mantra is
