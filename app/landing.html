@@ -4957,7 +4957,13 @@ section.hero .hero-illustrated h1.hi-headline{
   backdrop-filter:blur(2px);
   -webkit-backdrop-filter:blur(2px);
   animation:hiDrift 9s ease-in-out infinite;
+  /* Smooth text-swap when the JS rotation loop below cycles each chip
+     through language ↔ debate-format labels. The drift animation
+     transform stays on its own track so it doesn't fight the opacity
+     transition during a swap. */
+  transition:opacity .6s ease;
 }
+.hero-illustrated .hi-chip.hi-chip-swapping{opacity:0}
 .hero-illustrated .hi-chip::before{
   content:'';
   display:inline-block;width:6px;height:6px;border-radius:50%;
@@ -6389,6 +6395,85 @@ section.hero .hero-illustrated h1.hi-headline{
         <span class="hi-bubble hi-bubble-2">Define your framework.</span>
         <span class="hi-bubble hi-bubble-3">Agreed.</span>
       </div>
+
+      <!-- 2026-05-26: chip rotation loop. Each chip fades through a
+           shuffled mix of language names and debate-format names so
+           the scene reads as a multilingual, multi-format platform
+           rather than a static "we support 6 languages" claim. Honors
+           prefers-reduced-motion. JS is intentionally light — no
+           framework, no observer; one setInterval staggered per chip. -->
+      <script>
+        (function(){
+          if (typeof window === 'undefined') return;
+          if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+          var chips = document.querySelectorAll('.hero-illustrated .hi-chip');
+          if (!chips.length) return;
+          // Pool entries: [label, lang_attr_or_null, dir_attr_or_null].
+          // Languages keep their native script + correct lang/dir so
+          // screen readers + browsers shape the glyphs right. Format
+          // entries are English by convention (APDA, BP, etc. aren't
+          // translated brand names on the circuit). Pool is deliberately
+          // larger than 6 so individual chips never read the same label
+          // twice in a row across cycles.
+          var POOL = [
+            // Languages
+            ['English',    null,  null],
+            ['Español',    'es',  null],
+            ['Français',   'fr',  null],
+            ['中文',        'zh',  null],
+            ['العربية',     'ar',  'rtl'],
+            ['हिंदी',         'hi',  null],
+            ['Português',  'pt',  null],
+            ['Deutsch',    'de',  null],
+            ['Bahasa',     'id',  null],
+            ['日本語',      'ja',  null],
+            ['Русский',    'ru',  null],
+            ['Türkçe',     'tr',  null],
+            // Debate formats
+            ['APDA',         null, null],
+            ['British Parli', null, null],
+            ['WSDC',         null, null],
+            ['Policy',       null, null],
+            ['LD',           null, null],
+            ['PF',           null, null],
+            ['Asian Parli',  null, null],
+            ['Congress',     null, null],
+            ['MUN',          null, null],
+            ['World Schools',null, null],
+            ['Quick Clash',  null, null],
+            ['Viva',         null, null]
+          ];
+          function pickDifferent(currentText){
+            // Reject the current label so a chip never re-rolls to itself.
+            for (var tries = 0; tries < 6; tries++) {
+              var pick = POOL[Math.floor(Math.random() * POOL.length)];
+              if (pick[0] !== currentText) return pick;
+            }
+            return POOL[Math.floor(Math.random() * POOL.length)];
+          }
+          function swap(chip){
+            var next = pickDifferent(chip.textContent.trim());
+            chip.classList.add('hi-chip-swapping');
+            setTimeout(function(){
+              chip.textContent = next[0];
+              if (next[1]) chip.setAttribute('lang', next[1]); else chip.removeAttribute('lang');
+              if (next[2]) chip.setAttribute('dir', next[2]); else chip.removeAttribute('dir');
+              chip.classList.remove('hi-chip-swapping');
+            }, 620); /* matches the .6s CSS opacity transition + a tick */
+          }
+          // Stagger initial fires so they don't all swap together.
+          // Cycle period ~4.5s per chip with a ~0.7s phase offset between
+          // chips → at most one chip is mid-swap at any moment.
+          var BASE_INTERVAL = 4500;
+          var STAGGER = 700;
+          chips.forEach(function(chip, i){
+            setTimeout(function(){
+              swap(chip);
+              setInterval(function(){ swap(chip); }, BASE_INTERVAL);
+            }, 1800 + i * STAGGER);
+          });
+        })();
+      </script>
 
       <!-- Primary CTA + three secondary destinations. The pill rail in
            the editorial arm scattered eight pills; the brief explicitly
