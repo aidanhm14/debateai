@@ -145,9 +145,24 @@ body.light-theme .ui-neural-canvas{opacity:.35}
   background:color-mix(in srgb,var(--bg) 88%,transparent);
   border-bottom:1px solid var(--border);
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  /* Transform is not transitioned on purpose. The banner offset
+     uses transform so it snaps to position on first paint instead
+     of sliding in from y=0. The other listed properties retain
+     their existing transitions. */
   transition:top .2s ease,background .4s,border-color .4s;
 }
 body:not(.has-beta-strip) .ui-topbar{top:0}
+/* Push the fixed topbar down by the founding-cohort banner height
+   so the banner is actually visible (cohort-banner.js inserts an
+   <aside> at the top of <body> in normal flow; the topbar is fixed
+   at top:0 and was covering it). Using transform instead of `top`
+   because something on this page suppresses inline/!important
+   `top` overrides on .ui-topbar (verified in-browser: `top:47px
+   !important` computed to 0px; `transform: translateY(47px)` moved
+   the bar correctly). cohort-banner.js publishes --cohort-banner-h
+   on :root with the banner's offsetHeight; collapses to 0px on
+   dismiss, so the topbar slides back up. */
+.ui-topbar{transform:translateY(var(--cohort-banner-h,0px))}
 .ui-topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0}
 /* 2026-05-18: .ui-topbar-beta chip CSS removed alongside the element. */
 .ui-topbar-logo{

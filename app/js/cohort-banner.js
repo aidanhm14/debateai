@@ -66,6 +66,9 @@
       aside.classList.add('is-dismissed');
       try { sessionStorage.setItem('da-cohort-banner-dismissed', '1'); } catch (e) {}
       try { if (window.gtag) gtag('event', 'cohort_banner_dismiss', { surface: window.location.pathname }); } catch (e) {}
+      // Pages that read --cohort-banner-h (topbar offset, hero padding)
+      // need to retighten when the user dismisses. 0px collapses it.
+      document.documentElement.style.setProperty('--cohort-banner-h', '0px');
     });
 
     // Stamp at the very top of <body>, above any sticky topbar.
@@ -73,6 +76,20 @@
       document.body.insertBefore(aside, document.body.firstChild);
     } else {
       document.body.appendChild(aside);
+    }
+
+    // Publish the banner's actual rendered height as a CSS custom
+    // property on :root. The fixed topbar reads this to push itself
+    // down (otherwise it sits at top:0 on top of the banner and the
+    // banner is invisible to the user). Recompute on resize because
+    // the banner wraps to two lines on narrow mobile widths.
+    function publishHeight(){
+      var h = aside.classList.contains('is-dismissed') ? 0 : aside.offsetHeight;
+      document.documentElement.style.setProperty('--cohort-banner-h', h + 'px');
+    }
+    publishHeight();
+    try { new ResizeObserver(publishHeight).observe(aside); } catch (e) {
+      window.addEventListener('resize', publishHeight);
     }
 
     try { if (window.gtag) gtag('event', 'cohort_banner_view', { surface: window.location.pathname }); } catch (e) {}
