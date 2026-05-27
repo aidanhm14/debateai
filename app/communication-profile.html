@@ -247,6 +247,29 @@ body{
   text-align:center;font-size:.78rem;color:var(--text-ghost);
 }
 .foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px dashed var(--border)}
+
+/* ── Product footer (shared with /credentials + /verify) ──
+   Sublink pages get found via shared certificate URLs and search; this
+   funnels newcomers back to the main product surface with varied
+   anchor text so the internal-link pattern reads editorial, not
+   keyword-stuffed. */
+.product-footer{margin-top:clamp(56px,7vw,88px);padding-top:32px;border-top:1px solid var(--border)}
+.pf-wrap{display:grid;grid-template-columns:1.5fr 1fr;gap:40px;margin-bottom:24px}
+@media (max-width:780px){.pf-wrap{grid-template-columns:1fr;gap:28px}}
+.pf-eyebrow{font-family:'Inter',sans-serif;font-size:.62rem;font-weight:600;letter-spacing:.18em;color:var(--text-ghost);text-transform:uppercase;margin-bottom:12px}
+.pf-h{font-family:var(--serif);font-weight:600;font-size:1.5rem;line-height:1.18;letter-spacing:-.015em;color:var(--text);margin-bottom:12px}
+.pf-pitch p{font-size:.94rem;color:var(--text-dim);line-height:1.6;margin-bottom:18px;max-width:560px}
+.pf-pitch p a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--border-strong);padding-bottom:1px;font-weight:500}
+.pf-pitch p a:hover{border-color:var(--accent);color:var(--accent)}
+.pf-cta{display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:.92rem;font-weight:600;color:var(--accent);text-decoration:none;padding:10px 16px;border:1px solid var(--accent);border-radius:6px;transition:background .15s,color .15s}
+.pf-cta:hover{background:var(--accent);color:#fff}
+.pf-explore ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
+.pf-explore a{font-family:'Inter',sans-serif;font-size:.84rem;color:var(--text-dim);text-decoration:none;padding:6px 0;display:block;border-bottom:1px solid transparent;transition:color .15s,border-color .15s}
+.pf-explore a:hover{color:var(--text);border-color:var(--border-strong)}
+.pf-foot{padding-top:20px;border-top:1px solid var(--border);font-size:.74rem;color:var(--text-ghost);line-height:1.6;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:baseline}
+.pf-foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px dashed var(--border);padding-bottom:1px}
+.pf-foot a:hover{color:var(--text);border-color:var(--text-dim)}
+.pf-foot-links{display:inline-flex;gap:18px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -501,9 +524,11 @@ function renderSignedOut(){
     el('div', null, [
       el('button', { class:'btn btn-primary', onclick:signIn }, 'Sign in with Google'),
       el('a', { class:'btn btn-ghost', href:'/credentials' }, 'About the certificate'),
+      el('a', { class:'btn btn-ghost', href:'/' }, 'See the main product'),
     ]),
   ]);
   root.appendChild(state);
+  root.appendChild(buildProductFooter('Sign in to populate your private dashboard.'));
 }
 
 function renderError(msg){
@@ -513,7 +538,9 @@ function renderError(msg){
     el('h2', null, 'Something went wrong'),
     el('p', null, msg),
     el('a', { class:'btn btn-ghost', href:'/credentials' }, 'Back to certificate info'),
+    el('a', { class:'btn btn-ghost', href:'/' }, 'Home'),
   ]));
+  root.appendChild(buildProductFooter('Refresh and try again, or head back to the main product.'));
 }
 
 /* ───────── Render: empty (signed in, no certs) ───────── */
@@ -530,6 +557,7 @@ function renderEmpty(user){
     el('p', { style:'margin-top:18px;font-size:.74rem;color:var(--text-ghost)' }, 'Signed in as ' + (user.displayName || user.email || 'you')),
   ]);
   root.appendChild(card);
+  root.appendChild(buildProductFooter('Your profile populates after your first assessment.'));
 }
 
 /* ───────── Render: dashboard ───────── */
@@ -644,11 +672,66 @@ function renderDashboard({ user, summary, certs }){
     }));
   }
 
-  // ─ Footer ─
-  root.appendChild(el('div', { class:'foot' }, [
-    'Debate AI · ', el('a', { href:'/' }, 'debateai.com'),
-    ' · Your communication profile updates automatically as you take assessments.',
-  ]));
+  // ─ Footer (shared "product footer" pattern for SEO link-back) ─
+  root.appendChild(buildProductFooter('Your communication profile updates automatically as you take assessments.'));
+}
+
+/* Renders the rich product footer used on /credentials, /verify, and
+ * here. Funnels newcomers landing on a sublink page back to / with
+ * varied anchor text. Returns a detached <footer> node. */
+function buildProductFooter(metaLine){
+  const exploreLinks = [
+    ['/',                       'Home'],
+    ['/voice-debate',           'Live voice round'],
+    ['/spar',                   'Spar with humans'],
+    ['/credentials',            'The certificate'],
+    ['/communication-profile',  'Your profile'],
+    ['/pricing',                'Pricing'],
+    ['/schools',                'For schools'],
+    ['/changelog',              "What's new"],
+  ];
+
+  const exploreList = el('ul', null,
+    exploreLinks.map(([href, label]) =>
+      el('li', null, el('a', { href }, label))
+    )
+  );
+
+  const pitchPara = el('p', null, [
+    el('a', { href:'/' }, 'Debate It'),
+    document.createTextNode(' is a live voice trainer for argument under pressure. Pick a motion, pick a side, debate an AI opponent or a real human across 14 languages and a dozen formats — APDA, BP, WSDC, Policy, LD, PF, Asian Parli, MUN, and more. Your communication profile here is one feature of the broader product — '),
+    el('a', { href:'/' }, 'open the home page'),
+    document.createTextNode(' to see the rest.'),
+  ]);
+
+  const pfFoot = el('div', { class:'pf-foot' }, [
+    el('span', { class:'pf-foot-meta' }, [
+      'Debate It™ · ',
+      el('a', { href:'/' }, 'debateai.com'),
+      ' · ' + (metaLine || ''),
+    ]),
+    el('span', { class:'pf-foot-links' }, [
+      el('a', { href:'/terms' }, 'Terms'),
+      el('a', { href:'/privacy' }, 'Privacy'),
+      el('a', { href:'/changelog' }, 'Changelog'),
+    ]),
+  ]);
+
+  return el('footer', { class:'product-footer' }, [
+    el('div', { class:'pf-wrap' }, [
+      el('div', { class:'pf-pitch' }, [
+        el('div', { class:'pf-eyebrow' }, 'Debate It™ · also known as Debate AI / Debatable'),
+        el('h2', { class:'pf-h' }, 'Argue better, out loud.'),
+        pitchPara,
+        el('a', { class:'pf-cta', href:'/' }, 'Open the main product →'),
+      ]),
+      el('div', { class:'pf-explore' }, [
+        el('div', { class:'pf-eyebrow' }, 'Explore'),
+        exploreList,
+      ]),
+    ]),
+    pfFoot,
+  ]);
 }
 
 function coachList(items, hint){
