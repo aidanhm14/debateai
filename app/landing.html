@@ -390,15 +390,13 @@
   })();
 </script>
 
-<!-- Landing hero variant A/B (2026-05-26). Coin-flip between the
-     editorial hero (current funnel surface) and the illustrated
-     "global debate" hero (new). Sticky in localStorage so a returning
-     visitor stays in the same arm. ?heroV=illustrated|editorial forces
-     an arm for local testing. Fires hero_variant_view (and sets the
-     hero_ab user-property) so CTR + downstream conversion stay
-     segmentable in GA. Runs synchronously before paint so the unused
-     variant never flashes; CSS in the main inline <style> hides
-     whichever arm wasn't picked. -->
+<!-- Landing hero variant (2026-05-26). The 50/50 coin-flip A/B was
+     flipped to 100% illustrated immediately after launch — the editorial
+     control arm was visibly worse and shouldn't ship to anyone.
+     Editorial markup stays in the DOM (hidden by CSS) so we can
+     revert in one line by changing the forced value below.
+     ?heroV=editorial still forces the old arm for side-by-side compare
+     in QA. hero_variant_view still fires so we keep telemetry parity. -->
 <script>
   (function(){
     var v = '';
@@ -409,12 +407,13 @@
     } catch(e){}
     var assigned = false;
     if (v !== 'illustrated' && v !== 'editorial') {
-      try { v = localStorage.getItem('da-hero-ab') || ''; } catch(e){}
-      if (v !== 'illustrated' && v !== 'editorial') {
-        v = (Math.random() < 0.50) ? 'illustrated' : 'editorial';
-        assigned = true;
-        try { localStorage.setItem('da-hero-ab', v); } catch(e){}
-      }
+      // 100% rollout: every visitor lands on the illustrated hero. Any
+      // sticky localStorage from the brief A/B window gets overwritten
+      // so visitors previously pinned to 'editorial' don't stay stranded
+      // on the deprecated arm.
+      v = 'illustrated';
+      assigned = true;
+      try { localStorage.setItem('da-hero-ab', v); } catch(e){}
     }
     document.documentElement.setAttribute('data-hero-ab', v);
     window.__heroAb = v;
