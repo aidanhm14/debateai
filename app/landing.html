@@ -4917,6 +4917,13 @@ section.hero .hero-illustrated h1.hi-headline{
   font-style:italic;
   font-variation-settings:"opsz" 144, "SOFT" 100, "WONK" 1;
 }
+/* Smooth fade for the headline + CTA rotators below. Only opacity
+   transitions — keeps layout stable while the text swaps. */
+.hero-illustrated .hi-headline,
+.hero-illustrated .hi-cta-primary .hi-cta-primary-label{
+  transition:opacity .55s ease;
+}
+.hero-illustrated [data-hi-rotates].hi-rotating{opacity:0}
 .hero-illustrated .hi-subhead{
   font-family:'Inter',-apple-system,system-ui,sans-serif;
   font-size:clamp(.95rem, 1.2vw, 1.05rem);
@@ -4929,11 +4936,13 @@ section.hero .hero-illustrated h1.hi-headline{
 
 /* Stage — illustrated SVG fills it; chips overlay in absolute pos.
    Aspect tightened 2026-05-26 (was 1100/580) so the whole hero —
-   headline + scene + CTAs — fits in a single 13" laptop viewport. */
+   headline + scene + CTAs — fits in a single 13" laptop viewport.
+   Width bumped 2026-05-26 (980 → 1120) so the scene sits proud at
+   desktop widths instead of letterboxing into ~75% of the column. */
 .hero-illustrated .hi-stage{
   position:relative;
   width:100%;
-  max-width:980px;
+  max-width:1120px;
   aspect-ratio:1100 / 460;
   margin:0 auto;
   pointer-events:none;
@@ -6270,8 +6279,9 @@ section.hero .hero-illustrated h1.hi-headline{
          arm and for any returning visitor still pinned to it. -->
     <div class="hero-illustrated" data-hero-variant="illustrated">
       <div class="hi-head">
-        <h1 class="hi-headline">
-          Everything is <span class="hi-headline-accent">debatable.</span>
+        <h1 class="hi-headline" data-hi-rotates="headline">
+          <span class="hi-headline-lead">Everything is</span>
+          <span class="hi-headline-accent">debatable.</span>
         </h1>
         <p class="hi-subhead">
           Debate with AI or real people across formats, languages, and time zones.
@@ -6486,12 +6496,107 @@ section.hero .hero-illustrated h1.hi-headline{
         })();
       </script>
 
+      <!-- 2026-05-26: headline + primary-CTA rotators. The H1 cycles
+           through four short taglines so the hero reads as a moving
+           statement rather than a single locked claim; the primary
+           button rotates across the four strongest "do something now"
+           destinations (voice solo, human spar, AI exhibition, public
+           room) so the surface advertises the whole product, not one
+           entry. Honors prefers-reduced-motion; no-JS visitors keep
+           the static first slot (canonical SEO copy). NOTE: this script
+           tag sits ABOVE the .hi-cta-primary anchor in the document, so
+           the init must defer to DOMContentLoaded — otherwise the
+           querySelector for the CTA fires before the anchor is parsed
+           and returns null, while the headline (which IS above this
+           script) is found just fine. Found the asymmetry the hard way. -->
+      <script>
+        (function(){
+          if (typeof window === 'undefined') return;
+          if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+          // Headline pool. Each entry = [lead text, italic-red accent].
+          // First entry MUST match the static markup so the initial
+          // paint is stable; rotation starts from index 1.
+          var HEADLINES = [
+            ['Everything is', 'debatable.'],
+            ['Argue with',    'anyone.'],
+            ['Sharpen every', 'argument.'],
+            ['Debate, ',      'out loud.'],
+            ['Find a ',       'round.']
+          ];
+
+          // CTA pool. label + href + GA cta tag. First entry MUST match
+          // the static <a> so SSR + no-JS clicks still land somewhere
+          // sensible. Rotation starts from index 1.
+          var CTAS = [
+            ['Start a live debate',  '/voice-debate', 'hero-illustrated-primary'],
+            ['Spar with a human',    '/spar',         'hero-illustrated-spar'],
+            ['Watch AI debate AI',   '/exhibition',   'hero-illustrated-exhibition'],
+            ['Join the next round',  '/live',         'hero-illustrated-live']
+          ];
+
+          function init(){
+            var headline = document.querySelector('.hero-illustrated .hi-headline[data-hi-rotates="headline"]');
+            var cta      = document.querySelector('.hero-illustrated .hi-cta-primary[data-hi-rotates="cta"]');
+            var ctaLabel = cta && cta.querySelector('.hi-cta-primary-label');
+            if (!headline && !cta) return;
+
+            var headlineIdx = 0;
+            var ctaIdx = 0;
+
+            function swapHeadline(){
+              if (!headline) return;
+              headlineIdx = (headlineIdx + 1) % HEADLINES.length;
+              var next = HEADLINES[headlineIdx];
+              headline.classList.add('hi-rotating');
+              setTimeout(function(){
+                var lead = headline.querySelector('.hi-headline-lead');
+                var accent = headline.querySelector('.hi-headline-accent');
+                if (lead)   lead.textContent   = next[0] + ' ';
+                if (accent) accent.textContent = next[1];
+                headline.classList.remove('hi-rotating');
+              }, 580); /* matches .55s CSS transition + a tick */
+            }
+
+            function swapCta(){
+              if (!cta || !ctaLabel) return;
+              ctaIdx = (ctaIdx + 1) % CTAS.length;
+              var next = CTAS[ctaIdx];
+              cta.classList.add('hi-rotating');
+              setTimeout(function(){
+                ctaLabel.textContent = next[0];
+                cta.setAttribute('href', next[1]);
+                cta.setAttribute('data-cta', next[2]);
+                cta.classList.remove('hi-rotating');
+              }, 580);
+            }
+
+            // Headline cycles every 5.4s; CTA every 6.8s — different
+            // periods so they rarely swap on the same tick.
+            setInterval(swapHeadline, 5400);
+            setInterval(swapCta,      6800);
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+          } else {
+            init();
+          }
+        })();
+      </script>
+
       <!-- Primary CTA + three secondary destinations. The pill rail in
            the editorial arm scattered eight pills; the brief explicitly
-           asks for one primary + a tight secondary row. -->
+           asks for one primary + a tight secondary row.
+           2026-05-26: the primary CTA itself rotates across the four
+           strongest "do something now" destinations — voice round, human
+           sparring, AI exhibition, public room — so the button reflects
+           the full surface area of the product rather than locking on a
+           single entry. Rotation pool + interval live in the script
+           further down; the static markup is the first slot. -->
       <div class="hi-cta-row">
-        <a href="/voice-debate" class="hi-cta-primary" data-cta="hero-illustrated-primary">
-          Start a live debate
+        <a href="/voice-debate" class="hi-cta-primary" data-cta="hero-illustrated-primary" data-hi-rotates="cta">
+          <span class="hi-cta-primary-label">Start a live debate</span>
           <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7 L11 7 M7 3 L11 7 L7 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
         <div class="hi-cta-secondary-row" role="navigation" aria-label="Other ways to debate">
