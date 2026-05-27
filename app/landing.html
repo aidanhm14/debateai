@@ -913,7 +913,12 @@ button{font-family:inherit;cursor:pointer}
   display:flex;
   justify-content:center;
   align-items:flex-start;
-  padding:88px clamp(40px,7vw,120px) 72px;
+  /* 2026-05-27 — top padding adds --cohort-banner-h (published by
+     /js/cohort-banner.js at the actual rendered banner height, or 0
+     when the banner is dismissed). Keeps the hero content clear of
+     the founding-cohort red strip without hard-coding a banner
+     height that breaks on mobile when the banner wraps to 2 lines. */
+  padding:calc(88px + var(--cohort-banner-h, 0px)) clamp(40px,7vw,120px) 72px;
   overflow:hidden;
 }
 /* Wide viewports: the fixed .landing-jumpnav (left rail, ~210px wide,
@@ -4878,13 +4883,21 @@ section.ui-section .ui-lede{
    Section padding cut down 2026-05-26 from the legacy clamp(112,13vh,160)
    top — that rule kept the OLD hero clear of the topbar, but for the
    illustrated arm it ate the room the CTAs needed. The illustrated arm
-   only needs ~72px to clear the topbar (60px topbar + 12px breathing). */
+   only needs ~72px to clear the topbar (60px topbar + 12px breathing).
+   2026-05-27 — add `--cohort-banner-h` (published by /js/cohort-banner.js
+   at the actual rendered banner height, or 0 when dismissed) so the
+   hero floats DOWN past the founding-cohort red strip instead of
+   getting visually clipped by it. The recurring "labels overlap the
+   banner" pattern was rooted in this padding being derived from
+   topbar height only — the cohort banner stacks ABOVE the topbar in
+   document flow and needs its own clearance. Falls back to 0px when
+   the banner script never loads or the user dismisses. */
 :root[data-hero-ab="illustrated"] section.hero{
   background:
     radial-gradient(ellipse 1100px 720px at 50% 38%, var(--hero-grad, #fafaf7) 0%, transparent 60%),
     radial-gradient(ellipse 1100px 720px at 50% 38%, #f6f1e6 0%, #f6f1e6 36%, transparent 78%),
     var(--hero-grad);
-  padding-top:clamp(64px, 7vh, 88px) !important;
+  padding-top:calc(clamp(64px, 7vh, 88px) + var(--cohort-banner-h, 0px)) !important;
   padding-bottom:clamp(16px, 2.4vh, 32px) !important;
   min-height:auto !important;
 }

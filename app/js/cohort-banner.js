@@ -66,6 +66,10 @@
       aside.classList.add('is-dismissed');
       try { sessionStorage.setItem('da-cohort-banner-dismissed', '1'); } catch (e) {}
       try { if (window.gtag) gtag('event', 'cohort_banner_dismiss', { surface: window.location.pathname }); } catch (e) {}
+      // Pages that pad their hero by --cohort-banner-h should re-tighten
+      // when the user dismisses the banner. Setting 0px collapses the
+      // padding to the legacy "no banner" amount.
+      document.documentElement.style.setProperty('--cohort-banner-h', '0px');
     });
 
     // Stamp at the very top of <body>, above any sticky topbar.
@@ -74,6 +78,20 @@
     } else {
       document.body.appendChild(aside);
     }
+
+    // 2026-05-27 — expose the banner's rendered height as a CSS custom
+    // property on :root so hero sections (especially the illustrated
+    // landing hero) can pad themselves by exactly the banner's height
+    // and never get visually clipped by it. Updates on resize so the
+    // mobile two-line wrap also gets accurate padding.
+    function publishHeight(){
+      var h = aside.classList.contains('is-dismissed') ? 0 : aside.offsetHeight || 0;
+      document.documentElement.style.setProperty('--cohort-banner-h', h + 'px');
+    }
+    publishHeight();
+    // requestAnimationFrame to catch the first layout pass after insert.
+    requestAnimationFrame(publishHeight);
+    window.addEventListener('resize', publishHeight, { passive: true });
 
     try { if (window.gtag) gtag('event', 'cohort_banner_view', { surface: window.location.pathname }); } catch (e) {}
   }
