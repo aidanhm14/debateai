@@ -4930,6 +4930,28 @@ section.hero .hero-illustrated h1.hi-headline{
   font-style:italic;
   font-variation-settings:"opsz" 144, "SOFT" 100, "WONK" 1;
 }
+/* Animated slide-up swap for the headline + CTA rotators below.
+   CSS @keyframes (not transitions) so the timing is owned by the
+   browser's animation engine — survives backgrounded-tab rAF
+   throttling that earlier class-toggle approaches got bitten by.
+   Out: text fades up and out of view. In: next text rises from
+   below back into place. Label is inline-block so transform takes
+   effect on inline content; H1 is already block-level. */
+.hero-illustrated .hi-cta-primary .hi-cta-primary-label{display:inline-block}
+@keyframes hiRotateOut{
+  from{opacity:1;transform:translateY(0)}
+  to{opacity:0;transform:translateY(-10px)}
+}
+@keyframes hiRotateIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.hero-illustrated .hi-rotating-out{
+  animation:hiRotateOut .36s cubic-bezier(.4,0,.2,1) forwards;
+}
+.hero-illustrated .hi-rotating-in{
+  animation:hiRotateIn .36s cubic-bezier(.4,0,.2,1) forwards;
+}
 .hero-illustrated .hi-subhead{
   font-family:'Inter',-apple-system,system-ui,sans-serif;
   font-size:clamp(.95rem, 1.2vw, 1.05rem);
@@ -4942,11 +4964,13 @@ section.hero .hero-illustrated h1.hi-headline{
 
 /* Stage — illustrated SVG fills it; chips overlay in absolute pos.
    Aspect tightened 2026-05-26 (was 1100/580) so the whole hero —
-   headline + scene + CTAs — fits in a single 13" laptop viewport. */
+   headline + scene + CTAs — fits in a single 13" laptop viewport.
+   Width bumped 2026-05-26 (980 → 1120) so the scene sits proud at
+   desktop widths instead of letterboxing into ~75% of the column. */
 .hero-illustrated .hi-stage{
   position:relative;
   width:100%;
-  max-width:980px;
+  max-width:1120px;
   aspect-ratio:1100 / 460;
   margin:0 auto;
   pointer-events:none;
@@ -5110,14 +5134,58 @@ section.hero .hero-illustrated h1.hi-headline{
   50%{box-shadow:0 0 0 6px rgba(200,50,50,0)}
 }
 
-/* Dark themes get the same ivory wash so the illustration reads. */
+/* Dark themes: flip the local design tokens so the illustration
+   reads as cream-ink on warm-dark paper instead of dark-ink on a
+   half-rendered ivory wash that loses to the page background. The
+   bg gets a deeper warm radial so the scene sits on a candlelit
+   table rather than on flat black, the podium fills darken, and
+   the head silhouettes get a charcoal fill so they don't read as
+   white masks floating on black. */
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated{
+  --hi-ink:        #f4ecd9;
+  --hi-ink-soft:   #c8bca6;
+  --hi-ink-faint:  rgba(244,236,217,.36);
+  --hi-line:       rgba(244,236,217,.62);
+  --hi-line-soft:  rgba(244,236,217,.28);
+  --hi-tan:        #d4a76a;
+  --hi-tan-soft:   rgba(212,167,106,.38);
+  --hi-red:        #e85a5a;
+  --hi-red-soft:   rgba(232,90,90,.18);
+  --hi-paper:      #1c1612;
+  --hi-paper-edge: #281f17;
+  --hi-chip-bg:    rgba(40,32,26,.78);
+  --hi-chip-ink:   #f4ecd9;
+}
 :root[data-theme="grey"][data-hero-ab="illustrated"] section.hero,
 :root[data-theme="crimson"][data-hero-ab="illustrated"] section.hero,
-:root[data-theme="stone"][data-hero-ab="illustrated"] section.hero{
+:root[data-theme="stone"][data-hero-ab="illustrated"] section.hero,
+:root[data-theme="dark"][data-hero-ab="illustrated"] section.hero{
   background:
-    radial-gradient(ellipse 1100px 720px at 50% 38%, #f6f1e6 0%, #f6f1e6 40%, transparent 78%),
-    var(--hero-grad);
+    radial-gradient(ellipse 1100px 720px at 50% 38%, rgba(58,30,20,.55) 0%, rgba(40,22,16,.32) 32%, transparent 78%),
+    var(--hero-grad, #0b0907) !important;
 }
+/* Element-level dark adjustments — podium fills, head silhouettes,
+   chip pill outline, mic pulse glow. These are hardcoded colors in
+   the SVG markup so they don't pick up the token flip above. */
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated .hi-podium,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated .hi-podium,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated .hi-podium,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated .hi-podium{fill:#2a201a}
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated .hi-podium-top,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated .hi-podium-top,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated .hi-podium-top,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated .hi-podium-top{fill:#3a2e23}
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated .hi-head-fill,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated .hi-head-fill,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated .hi-head-fill,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated .hi-head-fill{fill:#221b15}
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated .hi-floor,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated .hi-floor,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated .hi-floor,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated .hi-floor{fill:rgba(0,0,0,.45)}
 
 /* Responsive */
 @media(max-width:900px){
@@ -6288,8 +6356,9 @@ section.hero .hero-illustrated h1.hi-headline{
          arm and for any returning visitor still pinned to it. -->
     <div class="hero-illustrated" data-hero-variant="illustrated">
       <div class="hi-head">
-        <h1 class="hi-headline">
-          Everything is <span class="hi-headline-accent">debatable.</span>
+        <h1 class="hi-headline" data-hi-rotates="headline">
+          <span class="hi-headline-lead">Everything is</span>
+          <span class="hi-headline-accent">debatable.</span>
         </h1>
         <p class="hi-subhead">
           Debate with AI or real people across formats, languages, and time zones.
@@ -6508,12 +6577,125 @@ section.hero .hero-illustrated h1.hi-headline{
         })();
       </script>
 
+      <!-- 2026-05-26: headline + primary-CTA rotators. The H1 cycles
+           through four short taglines so the hero reads as a moving
+           statement rather than a single locked claim; the primary
+           button rotates across the four strongest "do something now"
+           destinations (voice solo, human spar, AI exhibition, public
+           room) so the surface advertises the whole product, not one
+           entry. Honors prefers-reduced-motion; no-JS visitors keep
+           the static first slot (canonical SEO copy). NOTE: this script
+           tag sits ABOVE the .hi-cta-primary anchor in the document, so
+           the init must defer to DOMContentLoaded — otherwise the
+           querySelector for the CTA fires before the anchor is parsed
+           and returns null, while the headline (which IS above this
+           script) is found just fine. Found the asymmetry the hard way. -->
+      <script>
+        (function(){
+          if (typeof window === 'undefined') return;
+          if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+          // Headline pool. Each entry = [lead text, italic-red accent].
+          // First entry MUST match the static markup so the initial
+          // paint is stable; rotation starts from index 1.
+          var HEADLINES = [
+            ['Everything is', 'debatable.'],
+            ['Argue with',    'anyone.'],
+            ['Sharpen every', 'argument.'],
+            ['Debate, ',      'out loud.'],
+            ['Find a ',       'round.']
+          ];
+
+          // CTA pool. label + href + GA cta tag. First entry MUST match
+          // the static <a> so SSR + no-JS clicks still land somewhere
+          // sensible. Rotation starts from index 1.
+          var CTAS = [
+            ['Start a live debate',  '/voice-debate', 'hero-illustrated-primary'],
+            ['Spar with a human',    '/spar',         'hero-illustrated-spar'],
+            ['Watch AI debate AI',   '/exhibition',   'hero-illustrated-exhibition'],
+            ['Join the next round',  '/live',         'hero-illustrated-live']
+          ];
+
+          function init(){
+            var headline = document.querySelector('.hero-illustrated .hi-headline[data-hi-rotates="headline"]');
+            var cta      = document.querySelector('.hero-illustrated .hi-cta-primary[data-hi-rotates="cta"]');
+            var ctaLabel = cta && cta.querySelector('.hi-cta-primary-label');
+            if (!headline && !cta) return;
+
+            var headlineIdx = 0;
+            var ctaIdx = 0;
+
+            // Two-phase slide-up swap. CSS @keyframes own the timing;
+            // JS just toggles classes and waits for the keyframe
+            // duration (.36s + a tick) before swapping content and
+            // starting the entry animation. forwards fill on both
+            // keyframes means we can keep the class on through the
+            // hold phase without flicker.
+            function animSwap(target, apply){
+              target.classList.add('hi-rotating-out');
+              setTimeout(function(){
+                apply();
+                target.classList.remove('hi-rotating-out');
+                target.classList.add('hi-rotating-in');
+                setTimeout(function(){
+                  target.classList.remove('hi-rotating-in');
+                }, 380);
+              }, 380);
+            }
+
+            function swapHeadline(){
+              if (!headline) return;
+              headlineIdx = (headlineIdx + 1) % HEADLINES.length;
+              var next = HEADLINES[headlineIdx];
+              animSwap(headline, function(){
+                var lead = headline.querySelector('.hi-headline-lead');
+                var accent = headline.querySelector('.hi-headline-accent');
+                if (lead)   lead.textContent   = next[0] + ' ';
+                if (accent) accent.textContent = next[1];
+              });
+            }
+
+            function swapCta(){
+              if (!cta || !ctaLabel) return;
+              ctaIdx = (ctaIdx + 1) % CTAS.length;
+              var next = CTAS[ctaIdx];
+              /* Animate the label span (transform on inline-block);
+                 href + data-cta attrs swap on the parent anchor in the
+                 same frame so the click target reflects the visible
+                 label at all times. */
+              animSwap(ctaLabel, function(){
+                ctaLabel.textContent = next[0];
+                cta.setAttribute('href', next[1]);
+                cta.setAttribute('data-cta', next[2]);
+              });
+            }
+
+            // Headline cycles every 5.4s; CTA every 6.8s — different
+            // periods so they rarely swap on the same tick.
+            setInterval(swapHeadline, 5400);
+            setInterval(swapCta,      6800);
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+          } else {
+            init();
+          }
+        })();
+      </script>
+
       <!-- Primary CTA + three secondary destinations. The pill rail in
            the editorial arm scattered eight pills; the brief explicitly
-           asks for one primary + a tight secondary row. -->
+           asks for one primary + a tight secondary row.
+           2026-05-26: the primary CTA itself rotates across the four
+           strongest "do something now" destinations — voice round, human
+           sparring, AI exhibition, public room — so the button reflects
+           the full surface area of the product rather than locking on a
+           single entry. Rotation pool + interval live in the script
+           further down; the static markup is the first slot. -->
       <div class="hi-cta-row">
-        <a href="/voice-debate" class="hi-cta-primary" data-cta="hero-illustrated-primary">
-          Start a live debate
+        <a href="/voice-debate" class="hi-cta-primary" data-cta="hero-illustrated-primary" data-hi-rotates="cta">
+          <span class="hi-cta-primary-label">Start a live debate</span>
           <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7 L11 7 M7 3 L11 7 L7 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
         <div class="hi-cta-secondary-row" role="navigation" aria-label="Other ways to debate">
