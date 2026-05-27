@@ -414,6 +414,19 @@
     </div>
   </div>
 
+  <!-- Brand-name poll readout. Engaged-user vote on the rename direction:
+       debateit / debatenow / debatable / debateai. Backed by /api/poll
+       (public GET). Drives the DNS-flip decision soul.md §10 parked. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Brand poll · what title reads best</span>
+        <span class="meta" id="poll-meta">Loading…</span>
+      </div>
+      <div id="poll-body" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Event breakdown + top features -->
   <div class="grid-2 section">
     <div class="card">
@@ -821,6 +834,7 @@ async function loadAll(force){
     loadFunnel(funnelDays).catch(()=>{});
     loadFounderVideo(fvDays).catch(()=>{});
     loadDistillations().catch(()=>{});
+    loadBrandPoll().catch(()=>{});
 
     if (autoRefresh) startAuto();
   } catch (e) {
@@ -1558,6 +1572,58 @@ async function loadDistillations(){
   } catch (e) {
     body.innerHTML = '<div class="err-box">Distillations load failed: ' + esc(e.message || e) + '</div>';
     meta.textContent = '';
+  }
+}
+
+// ── Brand poll readout ────────────────────────────────────────────
+// One-shot read of /api/poll. Public endpoint, no auth needed — just
+// shows the running tally so we can decide on the rename direction
+// without leaving the dashboard.
+async function loadBrandPoll(){
+  const meta = $('poll-meta');
+  const body = $('poll-body');
+  if (!body || !meta) return;
+  body.textContent = 'Loading…';
+  meta.textContent = '';
+  const LABELS = {
+    debateit:  'debateit',
+    debatenow: 'debatenow',
+    debatable: 'debatable',
+    debateai:  'debateai',
+  };
+  try {
+    const res = await fetch('/api/poll', { method: 'GET' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const tally = data.tally || {};
+    const total = tally.total || 0;
+    meta.textContent = total + ' total vote' + (total === 1 ? '' : 's');
+    if (!total) {
+      body.innerHTML = '<div class="meta">No votes yet. Poll fires in /app after a generation completes.</div>';
+      return;
+    }
+    // Sort highest first so the current leader is immediately legible.
+    const rows = Object.keys(LABELS)
+      .map(k => ({ key: k, label: LABELS[k], count: tally[k] || 0 }))
+      .sort((a, b) => b.count - a.count);
+    const maxCount = rows[0].count || 1;
+    body.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;padding:4px 2px">' +
+      rows.map((r, idx) => {
+        const pct = total ? Math.round((r.count / total) * 1000) / 10 : 0;
+        const barPct = Math.max(2, Math.round((r.count / maxCount) * 100));
+        const leader = idx === 0 && r.count > 0;
+        return '<div style="display:grid;grid-template-columns:120px 1fr 90px;align-items:center;gap:12px">' +
+          '<div style="font-weight:' + (leader ? '700' : '600') + ';color:' + (leader ? 'var(--fg)' : 'var(--muted)') + '">' + esc(r.label) + '</div>' +
+          '<div style="height:14px;background:var(--line);border-radius:8px;overflow:hidden">' +
+            '<div style="height:100%;width:' + barPct + '%;background:' + (leader ? '#ef4444' : 'rgba(239,68,68,.45)') + ';transition:width .3s"></div>' +
+          '</div>' +
+          '<div class="num" style="text-align:right;color:var(--muted);font-size:12px">' + r.count + ' · ' + pct + '%</div>' +
+          '</div>';
+      }).join('') +
+    '</div>' +
+    '<div class="meta" style="margin-top:12px">Voting surface: /app modal (one-time per signed-in user, after first generation). Public GET → /api/poll.</div>';
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Poll load failed: ' + esc(e.message || e) + '</div>';
   }
 }
 
