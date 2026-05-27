@@ -145,9 +145,24 @@ body.light-theme .ui-neural-canvas{opacity:.35}
   background:color-mix(in srgb,var(--bg) 88%,transparent);
   border-bottom:1px solid var(--border);
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  /* Transform is not transitioned on purpose. The banner offset
+     uses transform so it snaps to position on first paint instead
+     of sliding in from y=0. The other listed properties retain
+     their existing transitions. */
   transition:top .2s ease,background .4s,border-color .4s;
 }
 body:not(.has-beta-strip) .ui-topbar{top:0}
+/* Push the fixed topbar down by the founding-cohort banner height
+   so the banner is actually visible (cohort-banner.js inserts an
+   <aside> at the top of <body> in normal flow; the topbar is fixed
+   at top:0 and was covering it). Using transform instead of `top`
+   because something on this page suppresses inline/!important
+   `top` overrides on .ui-topbar (verified in-browser: `top:47px
+   !important` computed to 0px; `transform: translateY(47px)` moved
+   the bar correctly). cohort-banner.js publishes --cohort-banner-h
+   on :root with the banner's offsetHeight; collapses to 0px on
+   dismiss, so the topbar slides back up. */
+.ui-topbar{transform:translateY(var(--cohort-banner-h,0px))}
 .ui-topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0}
 /* 2026-05-18: .ui-topbar-beta chip CSS removed alongside the element. */
 .ui-topbar-logo{
@@ -525,6 +540,22 @@ body.light-theme .ui-btn-voice{
   display:flex;gap:20px;justify-content:center;flex-wrap:wrap;
   margin-bottom:12px;
 }
+
+/* ── Topbar utility-toggle hide (sitewide) ─────────────────
+   2026-05-26: per Aidan, the SFX mute toggle (.sfx-toggle) and the
+   sun/moon theme toggle (.theme-toggle) are gone from the topbar
+   everywhere — not just mobile. They were tertiary controls that
+   added visual noise next to the bell, lang flag, and primary CTA
+   without anyone using them. Promoted from the prior @media
+   (max-width:560px)-only hide to an unconditional hide that wins
+   over every other display:inline-flex declaration earlier in this
+   file (including the base .ui-topbar .sfx-toggle{display:inline-flex}
+   and .ui-topbar .theme-toggle{display:inline-flex} rules). If we
+   ever want either control back, drop this block and the cascade
+   restores the originals. The mobile-only hide rule inside the
+   @media block is now redundant but harmless. */
+.ui-topbar .sfx-toggle,
+.ui-topbar .theme-toggle{display:none !important}
 
 /* ── Reduced motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion:reduce){

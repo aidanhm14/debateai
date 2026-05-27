@@ -38,23 +38,31 @@
     sweepStaleTheming();
   }
 
-  // Ensure /js/sfx.js is loaded. The SFX mute toggle (rendered + wired
-  // below) calls window.SFX.toggleMute() and isMuted(), so the module
-  // needs to be present on every page that mounts the shared topbar.
-  // landing/learn/voice-debate/community/pricing/spar don't include
-  // sfx.js explicitly; without this auto-inject the toggle button
-  // rendered fine but its click handler short-circuited because
-  // window.SFX was undefined and the user got "this button doesn't
-  // work." Idempotent: skips if SFX already on window or a script tag
-  // is already in the head. Defer so it doesn't block topbar render.
-  (function ensureSfxLoaded(){
-    if (window.SFX) return;
-    if (document.querySelector('script[src*="/js/sfx.js"]')) return;
-    var s = document.createElement('script');
-    s.src = '/js/sfx.js';
-    s.defer = true;
-    document.head.appendChild(s);
-  })();
+  // /js/sfx.js is lazy-loaded on first interaction with the mute
+  // toggle (see wireSfxToggle below) — the vast majority of sessions
+  // never touch the button, so eagerly parsing the module + spinning
+  // up its Web Audio context on every page was wasted work. The
+  // muted-state visual is read directly from localStorage so the
+  // button's initial icon is accurate without the script.
+  //   Prior to 2026-05-27 this was an eager appendChild auto-inject.
+  // The original concern ("user clicks and nothing happens") is
+  // handled by the click-time load in wireSfxToggle: the click
+  // handler awaits the import, then runs toggle + confirm tone.
+  function ensureSfxLoadedOnDemand(){
+    if (window.SFX) return Promise.resolve();
+    if (ensureSfxLoadedOnDemand._inFlight) return ensureSfxLoadedOnDemand._inFlight;
+    ensureSfxLoadedOnDemand._inFlight = new Promise(function(resolve){
+      var existing = document.querySelector('script[src*="/js/sfx.js"]');
+      if (existing){ existing.addEventListener('load', function(){ resolve(); }, { once: true }); return; }
+      var s = document.createElement('script');
+      s.src = '/js/sfx.js';
+      s.async = true;
+      s.addEventListener('load', function(){ resolve(); }, { once: true });
+      s.addEventListener('error', function(){ resolve(); }, { once: true });
+      document.head.appendChild(s);
+    });
+    return ensureSfxLoadedOnDemand._inFlight;
+  }
 
   // Site-wide Coach FAB — bottom-right floating button on every page
   // that mounts the shared topbar. The FAB script itself is a
@@ -286,21 +294,14 @@
     // SVG appears via CSS when [aria-pressed=true]. State is read
     // from window.SFX.isMuted() (localStorage da-sfx-muted) so it
     // picks up whatever the user set on a previous page.
-    var sfxBtn = el('button', {
-      class: 'sfx-toggle',
-      type: 'button',
-      'aria-pressed': 'false',
-      'aria-label': 'Toggle sound effects',
-      title: 'Mute sounds',
-    });
-    sfxBtn.innerHTML =
-      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-        '<path d="M11 5 6 9H2v6h4l5 4z"/>' +
-        '<path class="sfx-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>' +
-        '<path class="sfx-wave" d="M19 5a9 9 0 0 1 0 14"/>' +
-        '<line class="sfx-strike" x1="3" y1="3" x2="21" y2="21"/>' +
-      '</svg>';
-    right.appendChild(sfxBtn);
+    // 2026-05-26: SFX mute toggle retired from the topbar everywhere
+    // per Aidan. JS button construction skipped so the DOM node never
+    // exists, ui.css display:none guards as a second layer in case a
+    // future commit revives this block without removing the CSS rule.
+    // window.SFX still loads + reads localStorage so existing per-page
+    // sound state (mute / unmute set in an earlier session) is honored;
+    // only the topbar control surface is gone.
+    var sfxBtn = null;
 
     // Theme toggle. Single sun/moon button (not the old 3-dot tray)
     // so the topbar stays uncluttered while users can still flip to
@@ -312,23 +313,14 @@
     // `da-theme=grey` is honored on load and treated as dark-family
     // for cycle purposes (click → light). CSS lives in /css/ui.css
     // under .theme-toggle.
-    var themeBtn = el('button', {
-      class: 'theme-toggle',
-      type: 'button',
-      'aria-label': 'Toggle theme',
-      title: 'Switch theme',
-    });
-    themeBtn.innerHTML =
-      // Sun (shown when in dark theme → click goes light)
-      '<svg class="ti-sun" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-        '<circle cx="12" cy="12" r="4"/>' +
-        '<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>' +
-      '</svg>' +
-      // Moon (shown when in light theme → click goes dark)
-      '<svg class="ti-moon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-        '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>' +
-      '</svg>';
-    right.appendChild(themeBtn);
+    // 2026-05-26: theme toggle retired from the topbar everywhere
+    // per Aidan. JS button construction skipped so the DOM node never
+    // exists. wireThemeToggle() below still runs (data-theme + lighting
+    // attributes still get set from localStorage) so any in-page rule
+    // keyed on data-theme keeps working; only the topbar's sun/moon
+    // surface is gone. If we ever want it back, restore this block
+    // AND drop the display:none rule in ui.css.
+    var themeBtn = null;
 
     // DM notification bell is mounted by /js/notifications.js (a
     // standalone module included site-wide, including on pages without
@@ -382,24 +374,32 @@
   function wireSfxToggle(){
     var btn = document.querySelector('.ui-topbar .sfx-toggle');
     if (!btn) return;
+    function readMutedFromStorage(){
+      // Mirror SFX.isMuted's storage key so we can paint the right
+      // initial state before /js/sfx.js has been lazy-loaded.
+      try { return localStorage.getItem('da-sfx-muted') === '1'; } catch(_){ return false; }
+    }
     function syncBtn(){
-      var muted = !!(window.SFX && window.SFX.isMuted && window.SFX.isMuted());
+      var muted = window.SFX && window.SFX.isMuted ? !!window.SFX.isMuted() : readMutedFromStorage();
       btn.setAttribute('aria-pressed', muted ? 'true' : 'false');
       btn.title = muted ? 'Sounds muted — click to unmute' : 'Mute sounds';
     }
     syncBtn();
-    // Re-sync once the page is fully loaded in case sfx.js was deferred.
-    window.addEventListener('load', syncBtn, { once: true });
     btn.addEventListener('click', function(){
-      if (!window.SFX || typeof window.SFX.toggleMute !== 'function') return;
-      var nowMuted = window.SFX.toggleMute();
-      syncBtn();
-      // Acoustic confirmation when sound comes BACK on. Going-to-muted
-      // is silent by construction (SFX.confirm() would no-op after the
-      // toggle). Without this, the user hits unmute and gets no signal
-      // that anything happened — they have to interact with something
-      // else to verify sound returned. confirm() is short + warm.
-      if (!nowMuted) { try { window.SFX.confirm && window.SFX.confirm(); } catch(_){} }
+      // Lazy-load /js/sfx.js on FIRST click. Subsequent clicks find
+      // window.SFX already present and skip the import. The promise
+      // resolves immediately on the second click since the script
+      // is already in cache.
+      ensureSfxLoadedOnDemand().then(function(){
+        if (!window.SFX || typeof window.SFX.toggleMute !== 'function') return;
+        var nowMuted = window.SFX.toggleMute();
+        syncBtn();
+        // Acoustic confirmation when sound comes BACK on. Going-to-
+        // muted is silent by construction (SFX.confirm() would no-op
+        // after the toggle). Without this, the user hits unmute and
+        // gets no signal that anything happened.
+        if (!nowMuted) { try { window.SFX.confirm && window.SFX.confirm(); } catch(_){} }
+      });
     });
   }
 

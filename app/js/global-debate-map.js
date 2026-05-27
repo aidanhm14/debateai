@@ -810,9 +810,45 @@
       }
     });
 
+    // ── Visibility gates ──────────────────────────────────────────
+    // 2026-05-27 perf pass: pause the rAF loop entirely when the host
+    // scrolls offscreen or the tab goes hidden. The SVG-heavy redraw
+    // (grid + continents + arc paths recomputed per frame) is not
+    // cheap; running it for an offscreen disc burns CPU for no payoff.
+    var offscreenPaused = false;
+    var rafId = 0;
+    if ('IntersectionObserver' in global) {
+      try {
+        var io = new IntersectionObserver(function (entries) {
+          for (var i = 0; i < entries.length; i++) {
+            var hit = entries[i].isIntersecting;
+            if (hit) {
+              offscreenPaused = false;
+              if (!rafId && !stopped && !global.document.hidden) {
+                lastFrame = performance.now();
+                rafId = requestAnimationFrame(frame);
+              }
+            } else {
+              offscreenPaused = true;
+              if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+            }
+          }
+        }, { rootMargin: '120px', threshold: 0.01 });
+        io.observe(container);
+      } catch (e) {}
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      } else if (!offscreenPaused && !stopped && !rafId) {
+        lastFrame = performance.now();
+        rafId = requestAnimationFrame(frame);
+      }
+    });
+
     // ── Frame loop ───────────────────────────────────────────────
     function frame(now) {
-      if (stopped) return;
+      if (stopped || offscreenPaused || document.hidden) { rafId = 0; return; }
       var dt = (now - lastFrame) / 1000;
       lastFrame = now;
 
@@ -868,12 +904,13 @@
       for (var i = 0; i < seedCount; i++) {
         setTimeout(spawnDot, i * 350);
       }
-      requestAnimationFrame(frame);
+      rafId = requestAnimationFrame(frame);
     }
 
     return {
       stop: function () {
         stopped = true;
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
         arcs.forEach(function (a) {
           if (a.el && a.el.parentNode) a.el.parentNode.removeChild(a.el);
           if (a.card && a.card.parentNode) a.card.parentNode.removeChild(a.card);
