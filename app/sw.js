@@ -15,13 +15,19 @@ const CACHE_NAME = 'debateos-v778';
 // cached HTML of '/'. Removed; the app shell now caches only explicit paths.
 // /splash is the new root entry (2026-05-10) so we precache it for fast
 // first paint on repeat visits; /landing stays in the shell for the click-through.
+// 2026-05-27 perf pass: removed babel-standalone (~600KB cached for
+// nothing). Inline React-via-CDN blocks across the six big pages used
+// to be runtime-transpiled by babel-standalone; that cost ~1GB heap
+// per tab and was retired ~2026-05-19 in favor of the
+// scripts/precompile-inline-babel.mjs commit-time precompiler. The
+// browser no longer loads or executes babel at all, but the SW kept
+// dragging the file down on every first visit. Removed.
 const APP_SHELL = [
   '/splash',
   '/landing',
   '/offline.html',
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js',
 ];
 

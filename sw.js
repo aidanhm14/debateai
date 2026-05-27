@@ -10,13 +10,16 @@ const CACHE_NAME = 'debateos-v778';
 // root URL never appeared for existing users — the SW kept serving the old
 // cached HTML of '/'. Removed; the app shell now caches only explicit paths.
 // /splash is the new root entry (2026-05-10).
+// 2026-05-27 perf pass: removed babel-standalone (~600KB cached for
+// nothing) — runtime babel was retired in favor of the commit-time
+// scripts/precompile-inline-babel.mjs precompiler. Mirror of the
+// app/sw.js change per AGENTS.md mirrors rule.
 const APP_SHELL = [
   '/splash',
   '/landing',
   '/offline.html',
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js',
 ];
 

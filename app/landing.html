@@ -254,9 +254,34 @@
 }
 </script>
 
-<!-- Google Analytics 4 -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<!-- Google Analytics 4
+     2026-05-27 perf pass: deferred load. The `gtag/js` bundle is ~80KB
+     gzipped that contends for first-paint bandwidth on the highest-
+     traffic page on the site. We keep the dataLayer + gtag() shim
+     synchronous (~100 bytes) so every `gtag('event', ...)` call below
+     queues normally; the real script downloads on first interaction
+     (scroll / click / keydown / pointermove / touchstart) or after a
+     4-second idle fallback, whichever comes first. Queued events
+     flush as soon as gtag.js arrives. The dosTrackOnce / setTimeout
+     fired engagement events still land — they just wait in the
+     dataLayer for a few hundred ms longer. -->
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');
+(function(){
+  var loaded=false;
+  function loadGtag(){
+    if (loaded) return; loaded=true;
+    var s=document.createElement('script');
+    s.async=true;
+    s.src='https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT';
+    document.head.appendChild(s);
+  }
+  ['scroll','click','keydown','pointermove','touchstart'].forEach(function(ev){
+    window.addEventListener(ev, loadGtag, { once: true, passive: true });
+  });
+  // Idle fallback so bouncers who leave without scrolling/clicking still
+  // get their engagement event tracked.
+  setTimeout(loadGtag, 4000);
+})();
 /* ── Debate AI funnel instrumentation ──────────────────────────
    Fires gtag events on primary CTAs + scroll depth + engagement.
    One-shot events use sessionStorage so we don't double-count. */
