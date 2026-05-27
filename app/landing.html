@@ -6862,8 +6862,19 @@ section.hero .hero-illustrated h1.hi-headline{
      2026-05-26; this element survives so the auth IIFE's
      getElementById('googleSignupBtn') / 'googleSignupBtnText' calls
      still resolve. Every visible sign-in CTA on the page click()s this
-     button to trigger the Firebase popup. Never rendered; pure DOM. -->
-<button id="googleSignupBtn" type="button" hidden aria-hidden="true" tabindex="-1" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">
+     button to trigger the Firebase popup.
+
+     2026-05-26 (rev2 — auth-safety hardening per Aidan: "make sure
+     firebase sign in works effectively"): dropped the `hidden`
+     attribute. `hidden` applies display:none, and while
+     element.click() programmatically fires addEventListener-based
+     handlers on display:none elements in modern Chrome/Safari, some
+     browsers (older Firefox, headless test runners, certain a11y
+     overlays) suppress the synthetic event on display:none. Pure
+     CSS-clip + offscreen-position is the safer visual-hide that
+     keeps the element layout-rendered but invisible, so .click()
+     reliably reaches the Firebase IIFE on every browser. -->
+<button id="googleSignupBtn" type="button" aria-hidden="true" tabindex="-1" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);pointer-events:none">
   <span id="googleSignupBtnText">Sign up with Google. The AI learns your debate style</span>
 </button>
 </div>
