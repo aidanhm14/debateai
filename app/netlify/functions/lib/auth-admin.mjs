@@ -148,6 +148,41 @@ async function getAccessToken() {
  *
  * Pagination cap of 50 pages × 1000 = 50K users — past that we throw.
  */
+
+/**
+ * Look up a single Firebase Auth user by UID. Returns shape compatible
+ * with listAllAuthUsers entries plus `email` and `displayName`.
+ * Returns null if the UID doesn't exist.
+ *
+ * Used by /api/notify-dm-accept to resolve the recipient's email
+ * server-side (the client never sees other users' emails through
+ * Firestore rules). One Identity Toolkit accounts:lookup call.
+ */
+export async function getAuthUserByUid(uid) {
+  if (!uid || typeof uid !== 'string') throw new Error('uid required');
+  const { projectId } = resolveCreds();
+  const token = await getAccessToken();
+  const url = `${IDENTITY_TOOLKIT_BASE}/projects/${projectId}/accounts:lookup`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ localId: [uid] }),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`accounts:lookup ${res.status}: ${errText.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const u = (data.users || [])[0];
+  if (!u) return null;
+  return {
+    uid: u.localId,
+    email: u.email || null,
+    displayName: u.displayName || null,
+    providerData: (u.providerUserInfo || []).map(p => ({ providerId: p.providerId })),
+  };
+}
+
 export async function listAllAuthUsers({ pageSize = 1000, maxPages = 50 } = {}) {
   const { projectId } = resolveCreds();
   const token = await getAccessToken();
