@@ -121,6 +121,12 @@
     { href: '/spar',          label: 'Spar'         },
     { href: '/app#case',      label: 'Prep'         },
     { href: '/learn',         label: 'Learn'        },
+    // 2026-05-26: /credentials surfaced into the topbar per user ask.
+    // It's a recently-shipped feature ("earn a verifiable DebateAI
+    // credential"), still acquiring distribution. Sits after Learn
+    // because cert is the outcome of a learning loop — natural pairing
+    // on the bar. Short "Cert" label matches the one-word convention.
+    { href: '/credentials',   label: 'Cert'         },
     // 2026-05-18: /rounds standalone listing retired — the published-
     // rounds tab now lives inside /community. The topbar already links
     // to Community below, so a separate Rounds entry would just point
