@@ -5093,6 +5093,33 @@ section.hero .hero-illustrated h1.hi-headline{
 .hero-illustrated .hi-arc-2{animation-delay:-4s;opacity:.28;stroke-dasharray:180 1200}
 @keyframes hiArcFlow{from{stroke-dashoffset:0}to{stroke-dashoffset:-1420}}
 
+/* Creed line.
+   Sits between the illustrated stage and the CTA row. Voice-of-the-
+   builder, not product copy. The canonical first entry is the
+   "antagonist and tool, not the Messiah, not an arbitrary enemy"
+   stance kept by design (see decision-log 2026-05-19 / 2026-05-23
+   reaffirmation). Other entries in the pool share the same shape:
+   short, "what this is vs what it isn't", honoring the craft rather
+   than gamifying it. Italic Fraunces, centered, muted color so it
+   reads as a quote anchor — not a tagline competing with the
+   headline. */
+.hero-illustrated .hi-creed{
+  font-family:'Fraunces',Georgia,"Times New Roman",serif;
+  font-style:italic;font-weight:400;
+  font-size:clamp(.95rem, 1.15vw, 1.08rem);
+  line-height:1.45;letter-spacing:.005em;
+  color:var(--hi-ink-soft);
+  text-align:center;max-width:640px;
+  margin:4px auto 2px;
+  opacity:.86;
+  /* Two-phase fade matches the headline/CTA rotators (which use
+     a slide-up animation). The creed swap is gentler — pure opacity
+     fade — because it sits as a quiet anchor, not a marquee. */
+  transition:opacity .42s ease;
+}
+.hero-illustrated .hi-creed.is-fading{opacity:0}
+.hero-illustrated .hi-creed b{font-weight:500;font-style:normal;color:var(--hi-ink)}
+
 /* CTA row.
    2026-05-27: was column-stacked (one big red primary on top, three
    tiny text-link secondaries below with dot separators). On a wide
@@ -6722,6 +6749,45 @@ section.hero .hero-illustrated h1.hi-headline{
             // periods so they rarely swap on the same tick.
             setInterval(swapHeadline, 5400);
             setInterval(swapCta,      6800);
+
+            // Creed rotator. Voice-of-the-builder anchor sitting
+            // between the stage and the CTA row. Canonical first
+            // entry is the "antagonist and tool, not the Messiah"
+            // stance per decision-log 2026-05-19 / 2026-05-23 — it
+            // stays index 0 so the static markup matches and the
+            // first paint is stable. The rest of the pool shares
+            // the same shape (short, "what this is vs what it isn't",
+            // honors the craft) but each lands a different facet of
+            // the same stance: training signal, objective function,
+            // medium, the inversion.
+            //
+            // <b> wrap is the emphasis hook the CSS upgrades from
+            // italic-faded to upright-ink. Used sparingly.
+            var CREEDS = [
+              'AI as antagonist and tool. <b>Not the Messiah</b>, nor an arbitrary enemy.',
+              'Built to <b>challenge you.</b> Not to flatter you.',
+              'An assistant smooths it over. <b>An opponent finds the weakest joint.</b>',
+              'Helpful is one objective function. <b>Adversarial is another.</b>',
+              'We’re building the <b>opposite of the yes-machine.</b>',
+              'Voice is not a UI layer. <b>It’s the medium.</b>'
+            ];
+            var creed = document.querySelector('.hero-illustrated .hi-creed');
+            if (creed) {
+              var creedIdx = 0;
+              function swapCreed(){
+                creedIdx = (creedIdx + 1) % CREEDS.length;
+                creed.classList.add('is-fading');
+                setTimeout(function(){
+                  creed.innerHTML = CREEDS[creedIdx];
+                  creed.classList.remove('is-fading');
+                }, 440);
+              }
+              // 9.4s cadence — slower than headline/CTA so the
+              // creed reads as an anchor, not a marquee. Different
+              // period from both other rotators so triple-tick
+              // swaps are rare.
+              setInterval(swapCreed, 9400);
+            }
           }
 
           if (document.readyState === 'loading') {
@@ -6731,6 +6797,13 @@ section.hero .hero-illustrated h1.hi-headline{
           }
         })();
       </script>
+
+      <!-- Creed line (rotating). Voice-of-the-builder, not product
+           copy. Canonical first entry is the "antagonist and tool,
+           not the Messiah" stance from soul.md decision-log; pool
+           lives in the rotator script above. Static value here
+           matches CREEDS[0] so the first paint is stable. -->
+      <p class="hi-creed" aria-live="off">AI as antagonist and tool. <b>Not the Messiah</b>, nor an arbitrary enemy.</p>
 
       <!-- Primary CTA + three secondary destinations. The pill rail in
            the editorial arm scattered eight pills; the brief explicitly
