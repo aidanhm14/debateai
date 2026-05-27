@@ -5093,10 +5093,19 @@ section.hero .hero-illustrated h1.hi-headline{
 .hero-illustrated .hi-arc-2{animation-delay:-4s;opacity:.28;stroke-dasharray:180 1200}
 @keyframes hiArcFlow{from{stroke-dashoffset:0}to{stroke-dashoffset:-1420}}
 
-/* CTA row */
+/* CTA row.
+   2026-05-27: was column-stacked (one big red primary on top, three
+   tiny text-link secondaries below with dot separators). On a wide
+   viewport that left the page reading as one lonely button with a
+   row of subtle text below it. New layout puts primary + three
+   secondaries in a single horizontal button bar. Secondaries get
+   real pill borders + more padding so they read as actionable CTAs,
+   not annotations. Wraps to two lines under ~720px, then stacks
+   under 560px on mobile per the @media block further down. */
 .hero-illustrated .hi-cta-row{
-  display:flex;flex-direction:column;align-items:center;gap:18px;
-  margin-top:8px;
+  display:flex;flex-direction:row;align-items:center;justify-content:center;
+  flex-wrap:wrap;gap:14px;
+  margin-top:8px;max-width:1080px;width:100%;
 }
 .hero-illustrated .hi-cta-primary{
   display:inline-flex;align-items:center;gap:10px;
@@ -5111,20 +5120,29 @@ section.hero .hero-illustrated h1.hi-headline{
   box-shadow:0 12px 28px rgba(200,50,50,.42);
 }
 .hero-illustrated .hi-cta-primary svg{width:14px;height:14px}
-.hero-illustrated .hi-cta-secondary-row{
-  display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;
-}
+/* display:contents lets the three secondary anchors participate in
+   .hi-cta-row's flex layout as direct siblings of the primary, so
+   the four buttons get even spacing. The wrapper itself still holds
+   the ARIA role/label and is queryable for analytics hooks. */
+.hero-illustrated .hi-cta-secondary-row{display:contents}
 .hero-illustrated .hi-cta-secondary{
+  display:inline-flex;align-items:center;
   font-family:'Inter',-apple-system,system-ui,sans-serif;
-  font-size:.86rem;color:var(--hi-ink-soft);text-decoration:none;
-  padding:8px 14px;border-radius:999px;border:1px solid transparent;
-  transition:border-color .2s ease, color .2s ease, background .2s ease;
+  font-weight:500;font-size:.9rem;color:var(--hi-ink);text-decoration:none;
+  padding:13px 22px;border-radius:999px;
+  background:rgba(255,253,247,.55);
+  border:1px solid var(--hi-tan-soft);
+  transition:border-color .2s ease, color .2s ease, background .2s ease, transform .2s ease;
 }
 .hero-illustrated .hi-cta-secondary:hover{
-  color:var(--hi-ink);border-color:var(--hi-tan-soft);
-  background:rgba(255,253,247,.6);
+  color:var(--hi-red);border-color:var(--hi-red);
+  background:#fff;transform:translateY(-1px);
 }
-.hero-illustrated .hi-cta-sep{color:var(--hi-tan);opacity:.5;font-size:.85rem;user-select:none}
+/* Dot separators are no longer needed now that the secondaries are
+   real pill buttons sitting in the same row as the primary. The DOM
+   still has them so older variants can fall back; hide them in this
+   layout. */
+.hero-illustrated .hi-cta-sep{display:none}
 
 /* Status row */
 .hero-illustrated .hi-status{
@@ -5219,7 +5237,10 @@ section.hero .hero-illustrated h1.hi-headline{
      chips already carry the multilingual cue; drop the bubbles. */
   .hero-illustrated .hi-bubble{display:none}
   .hero-illustrated .hi-cta-primary{padding:13px 24px;font-size:.95rem}
-  .hero-illustrated .hi-cta-secondary{font-size:.82rem}
+  /* Secondaries tighten on mobile: smaller padding/font so all four
+     pills can still fit in 1–2 rows under 640px before stacking. */
+  .hero-illustrated .hi-cta-secondary{font-size:.82rem;padding:10px 16px}
+  .hero-illustrated .hi-cta-row{gap:10px}
   .hero-illustrated .hi-status{font-size:.72rem;gap:12px}
 }
 @media(max-width:420px){
