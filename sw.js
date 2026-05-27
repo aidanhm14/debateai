@@ -20,7 +20,11 @@ const APP_SHELL = [
   '/offline.html',
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js',
+  // 2026-05-26: babel-standalone removed from precache. Per AGENTS.md
+  // the inline React scripts have been precompiled at commit time
+  // (scripts/precompile-inline-babel.mjs) since 2026-05-19, so no
+  // page loads babel at runtime anymore. Precaching it was wasting
+  // ~600 KB raw / ~150 KB gzipped per SW install.
   'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js',
 ];
 
