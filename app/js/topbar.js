@@ -257,6 +257,26 @@
     ]);
 
     var right = el('div', { class: 'ui-topbar-right' });
+    // 2026-05-26: mobile-only hamburger. Topbar links display:none at
+    // ≤560px (see ui.css), leaving mobile users with no in-bar nav.
+    // This button toggles a slide-down sheet that mirrors LINKS so
+    // /voice, /spar, /prep, /learn, /live, /community, /leaderboard,
+    // /cert, /faq are all reachable on mobile. Hidden on desktop via
+    // CSS (display:none above 560px).
+    var burger = el('button', {
+      class: 'ui-topbar-burger',
+      type: 'button',
+      'aria-label': 'Menu',
+      'aria-expanded': 'false',
+      title: 'Menu',
+    });
+    burger.innerHTML =
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">' +
+        '<line x1="4" y1="7"  x2="20" y2="7"/>' +
+        '<line x1="4" y1="12" x2="20" y2="12"/>' +
+        '<line x1="4" y1="17" x2="20" y2="17"/>' +
+      '</svg>';
+    right.appendChild(burger);
     LINKS.forEach(function(L){
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
@@ -359,7 +379,87 @@
 
     nav.appendChild(left);
     nav.appendChild(right);
-    mount.replaceChildren(nav);
+
+    // ── Mobile sheet (slide-down panel triggered by the hamburger) ──
+    // Built once per page mount. Holds a stacked list of LINKS + the
+    // CTA so mobile users get the same nav surface desktop has. Sheet
+    // sits as a sibling of <nav> inside the mount so it's positioned
+    // relative to the topbar, not the page.
+    var sheet = el('div', {
+      class: 'ui-topbar-sheet',
+      role: 'menu',
+      'aria-label': 'Mobile navigation',
+      hidden: 'hidden',
+    });
+    LINKS.forEach(function(L){
+      var sheetLink = el('a', {
+        href: L.href,
+        class: 'ui-topbar-sheet-link' + (pathMatches(L.href) ? ' is-active' : ''),
+        role: 'menuitem',
+      });
+      if (L.live){
+        var sdot = el('span', { class: 'ui-topbar-sheet-dot' });
+        sheetLink.appendChild(sdot);
+      }
+      sheetLink.appendChild(document.createTextNode(L.label));
+      sheet.appendChild(sheetLink);
+    });
+    var sheetCta = el('a', {
+      href: onVoiceDebate ? '/debate-ai' : '/voice-debate',
+      class: 'ui-topbar-sheet-cta',
+      role: 'menuitem',
+    }, onVoiceDebate ? 'Debate it →' : 'Voice AI →');
+    sheet.appendChild(sheetCta);
+
+    var sheetBackdrop = el('div', {
+      class: 'ui-topbar-sheet-backdrop',
+      hidden: 'hidden',
+      'aria-hidden': 'true',
+    });
+
+    mount.replaceChildren(nav, sheetBackdrop, sheet);
+
+    // Hamburger wiring. Open/close toggles aria-expanded + .is-open
+    // on the burger, and hidden + .is-open on the sheet/backdrop.
+    // Closes on: outside tap (backdrop), ESC, or link click (navigation
+    // implicitly closes since the page reloads, but we explicitly close
+    // anyway so a same-page hash link doesn't leave the sheet open).
+    function openSheet(){
+      burger.setAttribute('aria-expanded', 'true');
+      burger.classList.add('is-open');
+      sheet.removeAttribute('hidden');
+      sheetBackdrop.removeAttribute('hidden');
+      // Defer the class flip one frame so the transition catches.
+      requestAnimationFrame(function(){
+        sheet.classList.add('is-open');
+        sheetBackdrop.classList.add('is-open');
+      });
+      document.body.style.overflow = 'hidden';
+    }
+    function closeSheet(){
+      burger.setAttribute('aria-expanded', 'false');
+      burger.classList.remove('is-open');
+      sheet.classList.remove('is-open');
+      sheetBackdrop.classList.remove('is-open');
+      document.body.style.overflow = '';
+      // Hide after transition so it doesn't steal taps mid-fade.
+      setTimeout(function(){
+        if (!sheet.classList.contains('is-open')) {
+          sheet.setAttribute('hidden', 'hidden');
+          sheetBackdrop.setAttribute('hidden', 'hidden');
+        }
+      }, 220);
+    }
+    burger.addEventListener('click', function(){
+      if (burger.classList.contains('is-open')) closeSheet(); else openSheet();
+    });
+    sheetBackdrop.addEventListener('click', closeSheet);
+    sheet.addEventListener('click', function(e){
+      if (e.target && e.target.tagName === 'A') closeSheet();
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && burger.classList.contains('is-open')) closeSheet();
+    });
 
     wireThemeToggle();
     wireSfxToggle();
