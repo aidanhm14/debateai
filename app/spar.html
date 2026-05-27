@@ -2383,6 +2383,12 @@ h1 em{color:var(--accent);font-style:normal}
     var threadRef = firebaseDb.collection('dm_threads').doc(at.id);
     var msgsRef = threadRef.collection('messages');
     var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
+    // Capture pre-send state: if lastMessage was empty on the active
+    // thread object, this is the FIRST message in the thread — i.e.
+    // the recipient just got their challenge accepted. Fire the
+    // notification email after the send lands. 1:1 threads only;
+    // group threads skip per server-side guard.
+    var isFirstMessage = !at.lastMessage && !at.isGroup;
     // Make sure my own info is current in participantInfo.
     var participantInfo = Object.assign({}, at.participantInfo);
     participantInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
@@ -2411,6 +2417,27 @@ h1 em{color:var(--accent);font-style:normal}
       if (sendBtn) sendBtn.disabled = false;
       input.focus();
       try { gtag('event', at.isGroup ? 'group_send' : 'dm_send', {}); } catch(e){}
+      // Fire-and-forget: notify recipient by email on the first DM
+      // in a 1:1 thread. Endpoint is idempotent (server stamps
+      // acceptEmailSentAt) so a race where two clients call it
+      // simultaneously still results in one email. Failures are
+      // silent — the chat is the source of truth, email is a nudge.
+      // Local mirror so future sends in the same session don't re-fire
+      // before the server-side stamp propagates.
+      if (isFirstMessage) {
+        at.lastMessage = preview;
+        try { gtag('event', 'dm_first_accept', {}); } catch(e){}
+        state.user.getIdToken().then(function(idToken){
+          return fetch('/api/notify-dm-accept', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+            body: JSON.stringify({ threadId: at.id }),
+          });
+        }).catch(function(e){
+          // Silent: email is a nudge, not load-bearing for the round.
+          console.warn('[dm] notify-dm-accept failed', e && e.message);
+        });
+      }
     }).catch(function(e){
       if (sendBtn) sendBtn.disabled = false;
       console.warn('[dm] send failed', e);
