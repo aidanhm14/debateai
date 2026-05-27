@@ -78,19 +78,41 @@
       document.body.appendChild(aside);
     }
 
-    // Publish the banner's actual rendered height as a CSS custom
-    // property on :root. The fixed topbar reads this to push itself
-    // down (otherwise it sits at top:0 on top of the banner and the
-    // banner is invisible to the user). Recompute on resize because
-    // the banner wraps to two lines on narrow mobile widths.
-    function publishHeight(){
-      var h = aside.classList.contains('is-dismissed') ? 0 : aside.offsetHeight;
-      document.documentElement.style.setProperty('--cohort-banner-h', h + 'px');
+    // Publish the EFFECTIVE banner offset as --cohort-banner-h on :root.
+    // The fixed topbar reads this to push itself down so the banner is
+    // visible. The naive "always publish the full banner height" version
+    // left a 47px gap at the top of the viewport once the banner had
+    // scrolled out of view — the topbar was still translated down, but
+    // there was no banner above it any more.
+    //
+    // Fix: the published value is max(0, bannerHeight - scrollY), so the
+    // topbar tracks the banner as it scrolls up off the page and then
+    // locks to the top once the banner is gone. Recomputed on scroll
+    // (passive listener, rAF-throttled) and on resize. Reads the real
+    // bannerHeight off offsetHeight each tick so wrapping into two lines
+    // on a narrow viewport is handled for free.
+    var rafToken = 0;
+    function effectiveOffset(){
+      if (aside.classList.contains('is-dismissed')) return 0;
+      var h = aside.offsetHeight;
+      var sy = window.scrollY || document.documentElement.scrollTop || 0;
+      var v = h - sy;
+      if (v < 0) v = 0;
+      if (v > h) v = h;
+      return v;
     }
-    publishHeight();
-    try { new ResizeObserver(publishHeight).observe(aside); } catch (e) {
-      window.addEventListener('resize', publishHeight);
+    function publishOffset(){
+      rafToken = 0;
+      document.documentElement.style.setProperty('--cohort-banner-h', effectiveOffset() + 'px');
     }
+    function schedulePublish(){
+      if (rafToken) return;
+      rafToken = requestAnimationFrame(publishOffset);
+    }
+    publishOffset();
+    window.addEventListener('scroll', schedulePublish, { passive: true });
+    window.addEventListener('resize', schedulePublish);
+    try { new ResizeObserver(schedulePublish).observe(aside); } catch (e) {}
 
     try { if (window.gtag) gtag('event', 'cohort_banner_view', { surface: window.location.pathname }); } catch (e) {}
   }
