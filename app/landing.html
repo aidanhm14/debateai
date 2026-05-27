@@ -390,6 +390,43 @@
   })();
 </script>
 
+<!-- Landing hero variant A/B (2026-05-26). Coin-flip between the
+     editorial hero (current funnel surface) and the illustrated
+     "global debate" hero (new). Sticky in localStorage so a returning
+     visitor stays in the same arm. ?heroV=illustrated|editorial forces
+     an arm for local testing. Fires hero_variant_view (and sets the
+     hero_ab user-property) so CTR + downstream conversion stay
+     segmentable in GA. Runs synchronously before paint so the unused
+     variant never flashes; CSS in the main inline <style> hides
+     whichever arm wasn't picked. -->
+<script>
+  (function(){
+    var v = '';
+    try {
+      var qp = (location.search || '').toLowerCase();
+      if (/[?&]herov=illustrated(?:&|$)/.test(qp)) v = 'illustrated';
+      else if (/[?&]herov=editorial(?:&|$)/.test(qp)) v = 'editorial';
+    } catch(e){}
+    var assigned = false;
+    if (v !== 'illustrated' && v !== 'editorial') {
+      try { v = localStorage.getItem('da-hero-ab') || ''; } catch(e){}
+      if (v !== 'illustrated' && v !== 'editorial') {
+        v = (Math.random() < 0.50) ? 'illustrated' : 'editorial';
+        assigned = true;
+        try { localStorage.setItem('da-hero-ab', v); } catch(e){}
+      }
+    }
+    document.documentElement.setAttribute('data-hero-ab', v);
+    window.__heroAb = v;
+    try {
+      if (window.gtag) {
+        gtag('set', 'user_properties', { hero_ab: v });
+        gtag('event', 'hero_variant_view', { variant: v, assigned: assigned });
+      }
+    } catch(e){}
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -4786,6 +4823,298 @@ section.ui-section .ui-lede{
   .hero-ctas{flex-direction:column;align-items:stretch}
   .btn-editorial{width:100%;justify-content:center}
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   HERO A/B VARIANT — illustrated "global debate" scene (2026-05-26)
+   ────────────────────────────────────────────────────────────────────
+   Sibling of .editorial-hero. The html[data-hero-ab] attribute is set
+   by the early-paint script in <head>; this CSS toggles which arm
+   renders so the unused variant never flashes.
+
+   Composition:
+   - centered headline + subhead
+   - illustrated stage (inline SVG) — two podium debaters + central
+     "debate intelligence globe" with conversation arcs and floating
+     multilingual chips
+   - primary CTA + three secondary destinations
+   - three-dot status row (no fake counts)
+
+   The stage applies its own warm ivory wash so the illustration reads
+   premium regardless of the underlying theme arm.
+   ──────────────────────────────────────────────────────────────────── */
+.hero-illustrated{display:none}
+:root[data-hero-ab="illustrated"] .editorial-hero{display:none !important}
+:root[data-hero-ab="illustrated"] .legacy-hero-subtree{display:none !important}
+:root[data-hero-ab="illustrated"] .hero-illustrated{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:clamp(20px, 3vh, 32px);
+  width:100%;
+  max-width:1240px;
+  margin:0 auto;
+  padding:clamp(20px, 4vh, 48px) clamp(16px, 4vw, 48px) clamp(24px, 4vh, 56px);
+  position:relative;
+  z-index:2;
+  /* Local design tokens — retoned in one place if the palette shifts. */
+  --hi-ink:        #1d1915;
+  --hi-ink-soft:   #4a423a;
+  --hi-ink-faint:  rgba(29,25,21,.34);
+  --hi-line:       rgba(29,25,21,.55);
+  --hi-line-soft:  rgba(29,25,21,.22);
+  --hi-tan:        #b88a4e;
+  --hi-tan-soft:   rgba(184,138,78,.42);
+  --hi-red:        #c83232;
+  --hi-red-soft:   rgba(200,50,50,.16);
+  --hi-paper:      #f6f1e6;
+  --hi-paper-edge: #ebe3d3;
+  --hi-chip-bg:    rgba(255,253,247,.86);
+  --hi-chip-ink:   #2a241d;
+}
+/* Warm ivory wash behind the illustration. Layered on top of whatever
+   theme bg the user has so the rest of the page keeps its mood. */
+:root[data-hero-ab="illustrated"] section.hero{
+  background:
+    radial-gradient(ellipse 1100px 720px at 50% 38%, var(--hero-grad, #fafaf7) 0%, transparent 60%),
+    radial-gradient(ellipse 1100px 720px at 50% 38%, #f6f1e6 0%, #f6f1e6 36%, transparent 78%),
+    var(--hero-grad);
+}
+:root[data-hero-ab="illustrated"] .hero-bg::before,
+:root[data-hero-ab="illustrated"] .hero-bg::after{display:none !important}
+:root[data-hero-ab="illustrated"] .hero-grain{opacity:.04 !important}
+
+/* Headline + subhead */
+.hero-illustrated .hi-head{text-align:center;max-width:820px;margin:0 auto}
+.hero-illustrated .hi-headline,
+.hero section.hero .hero-illustrated .hi-headline,
+section.hero .hero-illustrated h1.hi-headline{
+  /* !important needed to override the legacy `.hero h1{text-transform:
+     uppercase}` rule higher up in this stylesheet — the illustrated
+     headline reads as Title-case prose, not all-caps banner. */
+  font-family:'Fraunces',Georgia,"Times New Roman",serif !important;
+  font-weight:700 !important;
+  font-size:clamp(2.4rem, 5.4vw, 4rem) !important;
+  line-height:1.02 !important;
+  letter-spacing:-.015em !important;
+  color:var(--hi-ink) !important;
+  margin:0 0 14px !important;
+  text-transform:none !important;
+  font-variation-settings:"opsz" 144, "SOFT" 70, "WONK" 1 !important;
+}
+.hero-illustrated .hi-headline-accent{
+  color:var(--hi-red);
+  font-style:italic;
+  font-variation-settings:"opsz" 144, "SOFT" 100, "WONK" 1;
+}
+.hero-illustrated .hi-subhead{
+  font-family:'Inter',-apple-system,system-ui,sans-serif;
+  font-size:clamp(1rem, 1.4vw, 1.15rem);
+  line-height:1.5;
+  color:var(--hi-ink-soft);
+  margin:0 auto;
+  max-width:600px;
+  font-weight:400;
+}
+
+/* Stage — illustrated SVG fills it; chips overlay in absolute pos */
+.hero-illustrated .hi-stage{
+  position:relative;
+  width:100%;
+  max-width:1100px;
+  aspect-ratio:1100 / 580;
+  margin:0 auto;
+  pointer-events:none;
+}
+.hero-illustrated .hi-stage-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+
+/* Floating language chips — soft warm pills, subtle drift */
+.hero-illustrated .hi-chip{
+  position:absolute;
+  font-family:'Inter',-apple-system,system-ui,sans-serif;
+  font-size:.74rem;
+  font-weight:500;
+  letter-spacing:.01em;
+  color:var(--hi-chip-ink);
+  background:var(--hi-chip-bg);
+  border:1px solid var(--hi-tan-soft);
+  border-radius:999px;
+  padding:5px 12px;
+  white-space:nowrap;
+  box-shadow:0 1px 3px rgba(29,25,21,.07);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+  animation:hiDrift 9s ease-in-out infinite;
+}
+.hero-illustrated .hi-chip::before{
+  content:'';
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--hi-red);margin-right:7px;vertical-align:1px;opacity:.72;
+}
+@keyframes hiDrift{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.hero-illustrated .hi-chip-en{top:8%;left:3%}
+.hero-illustrated .hi-chip-es{top:48%;left:1%;animation-delay:-2s}
+.hero-illustrated .hi-chip-fr{top:88%;left:18%;animation-delay:-4s}
+.hero-illustrated .hi-chip-zh{top:8%;right:5%;animation-delay:-1s}
+.hero-illustrated .hi-chip-ar{top:48%;right:1%;animation-delay:-3s}
+.hero-illustrated .hi-chip-hi{top:88%;right:20%;animation-delay:-5s}
+
+/* Speech-snippet bubbles — italic serif, no dot, sit farther from
+   the globe so they read as "spoken into the air" rather than UI. */
+.hero-illustrated .hi-bubble{
+  position:absolute;
+  font-family:'Fraunces',Georgia,"Times New Roman",serif;
+  font-style:italic;
+  font-size:.85rem;
+  color:var(--hi-ink-soft);
+  background:transparent;border:0;padding:0;
+  animation:hiDriftSlow 12s ease-in-out infinite;
+  pointer-events:none;
+  opacity:.78;
+}
+@keyframes hiDriftSlow{0%,100%{transform:translateY(0);opacity:.6}50%{transform:translateY(-7px);opacity:.92}}
+.hero-illustrated .hi-bubble-1{top:24%;left:25%;animation-delay:-2s}
+.hero-illustrated .hi-bubble-2{top:21%;right:18%;animation-delay:-4s}
+.hero-illustrated .hi-bubble-3{bottom:10%;left:46%;animation-delay:-6s}
+
+/* SVG line + fill conventions */
+.hero-illustrated .hi-stroke{fill:none;stroke:var(--hi-line);stroke-width:1.25;stroke-linecap:round;stroke-linejoin:round}
+.hero-illustrated .hi-stroke-soft{stroke:var(--hi-line-soft);stroke-width:1}
+.hero-illustrated .hi-stroke-tan{stroke:var(--hi-tan);stroke-width:1}
+.hero-illustrated .hi-podium{fill:#f0e7d4;stroke:var(--hi-line);stroke-width:1.25;stroke-linejoin:round}
+.hero-illustrated .hi-podium-top{fill:#e3d5b6;stroke:none}
+.hero-illustrated .hi-floor{fill:rgba(29,25,21,.07)}
+.hero-illustrated .hi-head-fill{fill:#fbf6ec}
+.hero-illustrated .hi-tie{fill:var(--hi-red);opacity:.85}
+
+/* Mic + speaking pulse */
+.hero-illustrated .hi-mic{fill:var(--hi-ink)}
+.hero-illustrated .hi-mic-pulse{
+  fill:var(--hi-red);opacity:0;transform-origin:center;
+  animation:hiMicPulse 4.6s ease-in-out infinite;
+}
+.hero-illustrated .hi-mic-pulse-right{animation-delay:-2.3s}
+@keyframes hiMicPulse{
+  0%,40%,100%{opacity:0;transform:scale(.85)}
+  10%,30%{opacity:.5;transform:scale(1.1)}
+  20%{opacity:.7;transform:scale(1.3)}
+}
+
+/* Globe — semi-transparent layered sphere */
+.hero-illustrated .hi-globe-halo{fill:url(#hiGloboGlow);opacity:.85}
+.hero-illustrated .hi-globe-shell{fill:url(#hiGloboFill);stroke:var(--hi-tan);stroke-width:1.25}
+.hero-illustrated .hi-globe-grid{fill:none;stroke:var(--hi-tan-soft);stroke-width:.8}
+.hero-illustrated .hi-globe-wave{fill:none;stroke:var(--hi-red);stroke-width:1.25;opacity:.55}
+.hero-illustrated .hi-globe-node{fill:var(--hi-red);opacity:.72}
+.hero-illustrated .hi-globe-net{fill:none;stroke:var(--hi-red-soft);stroke-width:.6}
+/* Slow inner-content rotation — shell + grid stay fixed (no spinning
+   sphere illusion); only the waveform + network drift. */
+.hero-illustrated .hi-globe-rotor{transform-origin:550px 290px;animation:hiGlobeSpin 36s linear infinite}
+@keyframes hiGlobeSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+/* Conversation arcs — voice flowing between debaters through globe */
+.hero-illustrated .hi-arc{
+  fill:none;stroke:var(--hi-red);stroke-width:1.4;stroke-linecap:round;
+  stroke-dasharray:220 1200;stroke-dashoffset:0;opacity:.42;
+  animation:hiArcFlow 8s linear infinite;
+}
+.hero-illustrated .hi-arc-2{animation-delay:-4s;opacity:.28;stroke-dasharray:180 1200}
+@keyframes hiArcFlow{from{stroke-dashoffset:0}to{stroke-dashoffset:-1420}}
+
+/* CTA row */
+.hero-illustrated .hi-cta-row{
+  display:flex;flex-direction:column;align-items:center;gap:18px;
+  margin-top:8px;
+}
+.hero-illustrated .hi-cta-primary{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:'Inter',-apple-system,system-ui,sans-serif;
+  font-weight:600;font-size:1rem;color:#fff;background:var(--hi-red);
+  padding:15px 30px;border-radius:999px;text-decoration:none;border:0;
+  box-shadow:0 8px 24px rgba(200,50,50,.32);
+  transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.hero-illustrated .hi-cta-primary:hover{
+  transform:translateY(-2px);background:#b62828;
+  box-shadow:0 12px 28px rgba(200,50,50,.42);
+}
+.hero-illustrated .hi-cta-primary svg{width:14px;height:14px}
+.hero-illustrated .hi-cta-secondary-row{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;
+}
+.hero-illustrated .hi-cta-secondary{
+  font-family:'Inter',-apple-system,system-ui,sans-serif;
+  font-size:.86rem;color:var(--hi-ink-soft);text-decoration:none;
+  padding:8px 14px;border-radius:999px;border:1px solid transparent;
+  transition:border-color .2s ease, color .2s ease, background .2s ease;
+}
+.hero-illustrated .hi-cta-secondary:hover{
+  color:var(--hi-ink);border-color:var(--hi-tan-soft);
+  background:rgba(255,253,247,.6);
+}
+.hero-illustrated .hi-cta-sep{color:var(--hi-tan);opacity:.5;font-size:.85rem;user-select:none}
+
+/* Status row */
+.hero-illustrated .hi-status{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center;
+  font-family:'Inter',-apple-system,system-ui,sans-serif;
+  font-size:.78rem;color:var(--hi-ink-soft);letter-spacing:.01em;
+  margin-top:4px;opacity:.88;
+}
+.hero-illustrated .hi-status-item{display:inline-flex;align-items:center;gap:8px}
+.hero-illustrated .hi-status-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--hi-red);
+  box-shadow:0 0 0 0 rgba(200,50,50,.55);
+  animation:hiStatusPulse 2.6s ease-in-out infinite;
+}
+.hero-illustrated .hi-status-item:nth-child(2) .hi-status-dot{animation-delay:-.9s}
+.hero-illustrated .hi-status-item:nth-child(3) .hi-status-dot{animation-delay:-1.8s}
+@keyframes hiStatusPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(200,50,50,.55)}
+  50%{box-shadow:0 0 0 6px rgba(200,50,50,0)}
+}
+
+/* Dark themes get the same ivory wash so the illustration reads. */
+:root[data-theme="grey"][data-hero-ab="illustrated"] section.hero,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] section.hero,
+:root[data-theme="stone"][data-hero-ab="illustrated"] section.hero{
+  background:
+    radial-gradient(ellipse 1100px 720px at 50% 38%, #f6f1e6 0%, #f6f1e6 40%, transparent 78%),
+    var(--hero-grad);
+}
+
+/* Responsive */
+@media(max-width:900px){
+  :root[data-hero-ab="illustrated"] .hero-illustrated{padding-top:24px}
+  .hero-illustrated .hi-stage{aspect-ratio:1100 / 720}
+  .hero-illustrated .hi-chip{font-size:.68rem;padding:4px 10px}
+  .hero-illustrated .hi-bubble{font-size:.78rem}
+}
+@media(max-width:640px){
+  .hero-illustrated .hi-headline{font-size:clamp(2rem, 9vw, 2.6rem) !important}
+  .hero-illustrated .hi-subhead{font-size:.95rem}
+  .hero-illustrated .hi-stage{aspect-ratio:1 / 1;max-width:520px}
+  .hero-illustrated .hi-chip-fr,
+  .hero-illustrated .hi-chip-hi{display:none}
+  /* Speech bubbles overlap on the tight 1:1 mobile stage. The language
+     chips already carry the multilingual cue; drop the bubbles. */
+  .hero-illustrated .hi-bubble{display:none}
+  .hero-illustrated .hi-cta-primary{padding:13px 24px;font-size:.95rem}
+  .hero-illustrated .hi-cta-secondary{font-size:.82rem}
+  .hero-illustrated .hi-status{font-size:.72rem;gap:12px}
+}
+@media(max-width:420px){
+  .hero-illustrated .hi-cta-secondary-row{gap:2px}
+  .hero-illustrated .hi-cta-sep{display:none}
+  .hero-illustrated .hi-cta-secondary{padding:7px 10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-illustrated .hi-chip,
+  .hero-illustrated .hi-bubble,
+  .hero-illustrated .hi-globe-rotor,
+  .hero-illustrated .hi-arc,
+  .hero-illustrated .hi-mic-pulse,
+  .hero-illustrated .hi-status-dot{animation:none !important}
+}
 </style>
 </head>
 <body>
@@ -5894,6 +6223,182 @@ section.ui-section .ui-lede{
   <div class="hero-grain"></div>
 
   <div class="hero-content">
+
+    <!-- ════════════════════════════════════════════════════════════════
+         HERO A/B VARIANT — illustrated "global debate" scene (2026-05-26)
+         ════════════════════════════════════════════════════════════════
+         Sibling of .editorial-hero. The early-paint script in <head>
+         sets html[data-hero-ab="illustrated"|"editorial"]; CSS toggles
+         which arm renders. This block is the new arm — two podium
+         debaters flanking a central "debate intelligence globe" with
+         conversation arcs, floating multilingual chips, and a status
+         row. No fake metrics; primary CTA points at /voice-debate.
+         The editorial-hero block below stays intact for the control
+         arm and for any returning visitor still pinned to it. -->
+    <div class="hero-illustrated" data-hero-variant="illustrated">
+      <div class="hi-head">
+        <h1 class="hi-headline">
+          Everything is <span class="hi-headline-accent">debatable.</span>
+        </h1>
+        <p class="hi-subhead">
+          Debate with AI or real people across formats, languages, and time zones.
+        </p>
+      </div>
+
+      <!-- Illustrated stage. SVG carries the scene; HTML chips overlay
+           on top so multilingual text stays crisp at any zoom. -->
+      <div class="hi-stage">
+        <svg class="hi-stage-svg" viewBox="0 0 1100 580" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+          <defs>
+            <radialGradient id="hiGloboGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%"   stop-color="#f4b4b4" stop-opacity=".55"/>
+              <stop offset="55%"  stop-color="#f4b4b4" stop-opacity=".15"/>
+              <stop offset="100%" stop-color="#f4b4b4" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="hiGloboFill" cx="48%" cy="44%" r="55%">
+              <stop offset="0%"   stop-color="#fffbf2" stop-opacity=".92"/>
+              <stop offset="65%"  stop-color="#f4ecd9" stop-opacity=".58"/>
+              <stop offset="100%" stop-color="#e8dcbf" stop-opacity=".42"/>
+            </radialGradient>
+          </defs>
+
+          <!-- Outer halo behind globe -->
+          <ellipse class="hi-globe-halo" cx="550" cy="290" rx="300" ry="210"/>
+
+          <!-- Conversation arcs — voice arcing between debaters via globe -->
+          <path class="hi-arc"   d="M 244 360 C 320 200, 420 130, 550 142 C 680 130, 780 200, 856 360"/>
+          <path class="hi-arc hi-arc-2" d="M 250 388 C 330 470, 430 470, 550 438 C 670 470, 770 470, 850 388"/>
+
+          <!-- Faint floor shadow under both podiums -->
+          <ellipse class="hi-floor" cx="550" cy="528" rx="440" ry="14"/>
+
+          <!-- ── LEFT debater ── -->
+          <g class="hi-debater hi-debater-left">
+            <circle cx="180" cy="240" r="42" class="hi-stroke-tan" stroke-dasharray="2 5" opacity=".5" fill="none"/>
+            <ellipse cx="180" cy="240" rx="18" ry="24" class="hi-head-fill"/>
+            <ellipse cx="180" cy="240" rx="18" ry="24" class="hi-stroke"/>
+            <path class="hi-stroke" d="M163 232 Q 168 218 180 215 Q 196 215 198 234"/>
+            <path class="hi-stroke" d="M173 264 L 172 278 M187 264 L 188 278"/>
+            <path class="hi-stroke" d="M132 300 Q 156 286 180 284 Q 204 286 228 300"/>
+            <path class="hi-stroke" d="M132 300 Q 128 360 134 412"/>
+            <path class="hi-stroke" d="M228 300 Q 232 360 226 412"/>
+            <path class="hi-stroke" d="M156 300 L 180 334 L 204 300"/>
+            <path class="hi-stroke-soft" d="M164 298 L 180 318 L 196 298"/>
+            <path class="hi-tie" d="M180 334 L 174 348 L 180 392 L 186 348 Z"/>
+            <path class="hi-stroke" d="M226 308 Q 254 320 268 350 Q 274 368 262 380"/>
+            <ellipse cx="258" cy="380" rx="10" ry="7" class="hi-head-fill"/>
+            <ellipse cx="258" cy="380" rx="10" ry="7" class="hi-stroke"/>
+            <path class="hi-podium" d="M 80 412 Q 180 404 280 412 L 268 430 L 260 510 Q 180 514 100 510 L 92 430 Z"/>
+            <path class="hi-podium-top" d="M 88 416 Q 180 408 272 416 L 268 430 L 92 430 Z"/>
+            <path class="hi-stroke-soft" d="M 92 430 Q 180 422 268 430"/>
+            <path class="hi-stroke" d="M 200 412 Q 198 392 220 384 Q 232 380 234 372"/>
+            <circle class="hi-mic-pulse" cx="236" cy="368" r="10"/>
+            <circle class="hi-mic" cx="236" cy="368" r="5"/>
+          </g>
+
+          <!-- ── RIGHT debater (mirrored, mid-length hair) ── -->
+          <g class="hi-debater hi-debater-right">
+            <circle cx="920" cy="240" r="42" class="hi-stroke-tan" stroke-dasharray="2 5" opacity=".5" fill="none"/>
+            <ellipse cx="920" cy="240" rx="18" ry="24" class="hi-head-fill"/>
+            <ellipse cx="920" cy="240" rx="18" ry="24" class="hi-stroke"/>
+            <path class="hi-stroke" d="M902 234 Q 906 214 920 213 Q 936 215 938 240 Q 938 254 932 260"/>
+            <path class="hi-stroke" d="M908 256 Q 904 268 902 270"/>
+            <path class="hi-stroke" d="M913 264 L 912 278 M927 264 L 928 278"/>
+            <path class="hi-stroke" d="M872 300 Q 896 286 920 284 Q 944 286 968 300"/>
+            <path class="hi-stroke" d="M872 300 Q 868 360 874 412"/>
+            <path class="hi-stroke" d="M968 300 Q 972 360 966 412"/>
+            <path class="hi-stroke" d="M896 300 L 920 334 L 944 300"/>
+            <path class="hi-stroke-soft" d="M904 298 L 920 318 L 936 298"/>
+            <path class="hi-tie" d="M920 334 L 914 348 L 920 392 L 926 348 Z"/>
+            <path class="hi-stroke" d="M874 308 Q 846 320 832 350 Q 826 368 838 380"/>
+            <ellipse cx="842" cy="380" rx="10" ry="7" class="hi-head-fill"/>
+            <ellipse cx="842" cy="380" rx="10" ry="7" class="hi-stroke"/>
+            <path class="hi-podium" d="M 820 412 Q 920 404 1020 412 L 1008 430 L 1000 510 Q 920 514 840 510 L 832 430 Z"/>
+            <path class="hi-podium-top" d="M 828 416 Q 920 408 1012 416 L 1008 430 L 832 430 Z"/>
+            <path class="hi-stroke-soft" d="M 832 430 Q 920 422 1008 430"/>
+            <path class="hi-stroke" d="M 900 412 Q 902 392 880 384 Q 868 380 866 372"/>
+            <circle class="hi-mic-pulse hi-mic-pulse-right" cx="864" cy="368" r="10"/>
+            <circle class="hi-mic" cx="864" cy="368" r="5"/>
+          </g>
+
+          <!-- ── CENTER globe ── -->
+          <circle class="hi-globe-shell" cx="550" cy="290" r="148"/>
+          <g class="hi-globe-grid">
+            <path d="M 420 290 Q 550 268 680 290"/>
+            <path d="M 410 250 Q 550 224 690 250"/>
+            <path d="M 410 330 Q 550 354 690 330"/>
+            <path d="M 432 215 Q 550 196 668 215"/>
+            <path d="M 432 365 Q 550 384 668 365"/>
+            <path d="M 462 188 Q 550 174 638 188"/>
+            <path d="M 462 392 Q 550 406 638 392"/>
+            <path d="M 550 142 Q 530 290 550 438"/>
+            <path d="M 550 142 Q 590 290 550 438"/>
+            <path d="M 550 142 Q 500 290 550 438"/>
+            <path d="M 550 142 Q 620 290 550 438"/>
+          </g>
+
+          <!-- Inner waveforms + network — slowly rotates -->
+          <g class="hi-globe-rotor">
+            <path class="hi-globe-wave"  d="M 450 290 Q 480 264 510 290 T 570 290 T 630 290 T 670 290"/>
+            <path class="hi-globe-wave" opacity=".35" d="M 460 305 Q 490 320 520 305 T 580 305 T 640 305"/>
+            <path class="hi-globe-wave" opacity=".25" d="M 470 275 Q 500 260 530 275 T 590 275 T 650 275"/>
+            <path class="hi-globe-net"
+                  d="M 498 252 L 586 248 L 612 320 L 540 338 L 480 320 Z M 556 220 L 498 252 M 556 220 L 586 248"/>
+            <circle class="hi-globe-node" cx="498" cy="252" r="2.5"/>
+            <circle class="hi-globe-node" cx="586" cy="248" r="2"/>
+            <circle class="hi-globe-node" cx="540" cy="338" r="2.5"/>
+            <circle class="hi-globe-node" cx="612" cy="320" r="2"/>
+            <circle class="hi-globe-node" cx="480" cy="320" r="2"/>
+            <circle class="hi-globe-node" cx="556" cy="220" r="2"/>
+          </g>
+
+          <!-- Outer fixed rings -->
+          <circle cx="550" cy="290" r="148" class="hi-stroke-tan" fill="none" stroke-width="1"/>
+          <circle cx="550" cy="290" r="156" class="hi-stroke-tan" fill="none" stroke-width=".6" opacity=".5"/>
+        </svg>
+
+        <!-- Floating multilingual chips. Kept subtle and sparse so the
+             scene doesn't read as cluttered; native lang attrs let
+             screen readers + browsers pick the right shaping for
+             Arabic / Devanagari / CJK. -->
+        <span class="hi-chip hi-chip-en">English</span>
+        <span class="hi-chip hi-chip-es">Español</span>
+        <span class="hi-chip hi-chip-fr">Français</span>
+        <span class="hi-chip hi-chip-zh" lang="zh">中文</span>
+        <span class="hi-chip hi-chip-ar" lang="ar" dir="rtl">العربية</span>
+        <span class="hi-chip hi-chip-hi" lang="hi">हिंदी</span>
+
+        <!-- Faint italic speech snippets, drifting -->
+        <span class="hi-bubble hi-bubble-1">Counterpoint.</span>
+        <span class="hi-bubble hi-bubble-2">Define your framework.</span>
+        <span class="hi-bubble hi-bubble-3">Agreed.</span>
+      </div>
+
+      <!-- Primary CTA + three secondary destinations. The pill rail in
+           the editorial arm scattered eight pills; the brief explicitly
+           asks for one primary + a tight secondary row. -->
+      <div class="hi-cta-row">
+        <a href="/voice-debate" class="hi-cta-primary" data-cta="hero-illustrated-primary">
+          Start a live debate
+          <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7 L11 7 M7 3 L11 7 L7 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="hi-cta-secondary-row" role="navigation" aria-label="Other ways to debate">
+          <a href="/debate-ai" class="hi-cta-secondary" data-cta="hero-illustrated-practice">Practice with AI</a>
+          <span class="hi-cta-sep" aria-hidden="true">·</span>
+          <a href="/live" class="hi-cta-secondary" data-cta="hero-illustrated-public">Join a public room</a>
+          <span class="hi-cta-sep" aria-hidden="true">·</span>
+          <a href="/learn" class="hi-cta-secondary" data-cta="hero-illustrated-formats">Explore formats</a>
+        </div>
+      </div>
+
+      <!-- Status row. Three real signals. No fake counts. -->
+      <div class="hi-status" aria-label="Service status">
+        <span class="hi-status-item"><span class="hi-status-dot" aria-hidden="true"></span>Live beta</span>
+        <span class="hi-status-item"><span class="hi-status-dot" aria-hidden="true"></span>AI standing by</span>
+        <span class="hi-status-item"><span class="hi-status-dot" aria-hidden="true"></span>Global rooms opening</span>
+      </div>
+    </div>
+
     <!-- ── 2026-05-11 editorial redesign ──
          New centerpiece: editorial headline, two CTAs, large user / AI /
          judge rebuttal card. The OLD orb + chat-split layout still
