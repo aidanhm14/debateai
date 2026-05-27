@@ -4917,13 +4917,28 @@ section.hero .hero-illustrated h1.hi-headline{
   font-style:italic;
   font-variation-settings:"opsz" 144, "SOFT" 100, "WONK" 1;
 }
-/* Smooth fade for the headline + CTA rotators below. Only opacity
-   transitions — keeps layout stable while the text swaps. */
-.hero-illustrated .hi-headline,
-.hero-illustrated .hi-cta-primary .hi-cta-primary-label{
-  transition:opacity .55s ease;
+/* Animated slide-up swap for the headline + CTA rotators below.
+   CSS @keyframes (not transitions) so the timing is owned by the
+   browser's animation engine — survives backgrounded-tab rAF
+   throttling that earlier class-toggle approaches got bitten by.
+   Out: text fades up and out of view. In: next text rises from
+   below back into place. Label is inline-block so transform takes
+   effect on inline content; H1 is already block-level. */
+.hero-illustrated .hi-cta-primary .hi-cta-primary-label{display:inline-block}
+@keyframes hiRotateOut{
+  from{opacity:1;transform:translateY(0)}
+  to{opacity:0;transform:translateY(-10px)}
 }
-.hero-illustrated [data-hi-rotates].hi-rotating{opacity:0}
+@keyframes hiRotateIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.hero-illustrated .hi-rotating-out{
+  animation:hiRotateOut .36s cubic-bezier(.4,0,.2,1) forwards;
+}
+.hero-illustrated .hi-rotating-in{
+  animation:hiRotateIn .36s cubic-bezier(.4,0,.2,1) forwards;
+}
 .hero-illustrated .hi-subhead{
   font-family:'Inter',-apple-system,system-ui,sans-serif;
   font-size:clamp(.95rem, 1.2vw, 1.05rem);
@@ -6544,31 +6559,49 @@ section.hero .hero-illustrated h1.hi-headline{
             var headlineIdx = 0;
             var ctaIdx = 0;
 
+            // Two-phase slide-up swap. CSS @keyframes own the timing;
+            // JS just toggles classes and waits for the keyframe
+            // duration (.36s + a tick) before swapping content and
+            // starting the entry animation. forwards fill on both
+            // keyframes means we can keep the class on through the
+            // hold phase without flicker.
+            function animSwap(target, apply){
+              target.classList.add('hi-rotating-out');
+              setTimeout(function(){
+                apply();
+                target.classList.remove('hi-rotating-out');
+                target.classList.add('hi-rotating-in');
+                setTimeout(function(){
+                  target.classList.remove('hi-rotating-in');
+                }, 380);
+              }, 380);
+            }
+
             function swapHeadline(){
               if (!headline) return;
               headlineIdx = (headlineIdx + 1) % HEADLINES.length;
               var next = HEADLINES[headlineIdx];
-              headline.classList.add('hi-rotating');
-              setTimeout(function(){
+              animSwap(headline, function(){
                 var lead = headline.querySelector('.hi-headline-lead');
                 var accent = headline.querySelector('.hi-headline-accent');
                 if (lead)   lead.textContent   = next[0] + ' ';
                 if (accent) accent.textContent = next[1];
-                headline.classList.remove('hi-rotating');
-              }, 580); /* matches .55s CSS transition + a tick */
+              });
             }
 
             function swapCta(){
               if (!cta || !ctaLabel) return;
               ctaIdx = (ctaIdx + 1) % CTAS.length;
               var next = CTAS[ctaIdx];
-              cta.classList.add('hi-rotating');
-              setTimeout(function(){
+              /* Animate the label span (transform on inline-block);
+                 href + data-cta attrs swap on the parent anchor in the
+                 same frame so the click target reflects the visible
+                 label at all times. */
+              animSwap(ctaLabel, function(){
                 ctaLabel.textContent = next[0];
                 cta.setAttribute('href', next[1]);
                 cta.setAttribute('data-cta', next[2]);
-                cta.classList.remove('hi-rotating');
-              }, 580);
+              });
             }
 
             // Headline cycles every 5.4s; CTA every 6.8s — different
