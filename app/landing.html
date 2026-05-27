@@ -3839,48 +3839,79 @@ body.signed-in .hero-ctas{gap:8px}
 [data-theme="stone"] .standby-figures .stage-debater .deb-stroke{stroke-width:1.7}
 [data-theme="light"] .standby-figures .stage-debater .deb-stroke-soft,
 [data-theme="stone"] .standby-figures .stage-debater .deb-stroke-soft{stroke-width:1.3}
-/* 2026-05-27 redesign:
-   - head is contour-only (no filled accent blob); the group still
-     exists as a transform-origin pivot for the slow head-bob.
-   - tie becomes a thin vertical stroke, not a filled diamond.
-   - floor becomes a soft underexposed shadow, not a red glow.
-   - new .deb-speak-pulse + .deb-mic-pulse give a subtle breathing
-     accent at throat and mic head. */
+/* 2026-05-27 redesign + polish pass:
+   - head is contour-only with a faint blurred halation behind it
+     (museum-exhibit spotlit-thinker register).
+   - layered second-pass contour at low opacity gives the hand-drawn
+     doubled-line feel without an feTurbulence filter (cheaper).
+   - tie becomes a slim tapered shape (knot at top → point at bottom).
+   - architectural floor line extends past each podium so the two
+     figures share a ground plane.
+   - pulse amplitudes calmed; breathing reads as restraint. */
 .standby-figures .stage-debater .deb-head{fill:none}
 .standby-figures .stage-debater .deb-hand{fill:var(--deb-ink);opacity:.62}
 .standby-figures .stage-debater .deb-shadow{
-  fill:var(--deb-ink);opacity:.10;
+  fill:var(--deb-ink);opacity:.09;
 }
-.standby-figures .stage-debater .deb-tie-line{
-  stroke:var(--deb-accent);stroke-width:1.6;stroke-linecap:round;
-  opacity:.78;fill:none;vector-effect:non-scaling-stroke;
+/* Faint halation behind the head — gaussian-blurred fill that reads
+   as a soft museum spotlight. Filter applied in the SVG via filter=
+   so the rest of the figure stays crisp. */
+.standby-figures .stage-debater .deb-halation{
+  fill:var(--deb-ink);opacity:.07;
 }
-[data-theme="light"] .standby-figures .stage-debater .deb-tie-line,
-[data-theme="stone"] .standby-figures .stage-debater .deb-tie-line{
-  stroke-width:1.9;opacity:.85;
+[data-theme="light"] .standby-figures .stage-debater .deb-halation,
+[data-theme="stone"] .standby-figures .stage-debater .deb-halation{
+  opacity:.09;
+}
+/* Hand-drawn doubled contour: low-opacity offset companion stroke
+   layered behind the primary head outline. No filter needed. */
+.standby-figures .stage-debater .deb-stroke-ghost{
+  stroke:var(--deb-ink-soft);stroke-width:1.0;fill:none;opacity:.35;
+  stroke-linecap:round;stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-stroke-ghost,
+[data-theme="stone"] .standby-figures .stage-debater .deb-stroke-ghost{
+  stroke-width:1.3;opacity:.30;
+}
+/* Tapered tie path (knot-to-point shape). Slim and refined. */
+.standby-figures .stage-debater .deb-tie{
+  fill:var(--deb-accent);opacity:.72;stroke:none;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-tie,
+[data-theme="stone"] .standby-figures .stage-debater .deb-tie{opacity:.82}
+/* Architectural ground line — thin stroke past the podium width. */
+.standby-figures .stage-debater .deb-ground{
+  stroke:var(--deb-ink-soft);stroke-width:.7;fill:none;opacity:.5;
+  stroke-linecap:round;vector-effect:non-scaling-stroke;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-ground,
+[data-theme="stone"] .standby-figures .stage-debater .deb-ground{
+  stroke-width:.9;opacity:.55;
 }
 .standby-figures .stage-debater .deb-mic-head{
   fill:var(--deb-ink);opacity:.78;
 }
 .standby-figures .stage-debater .deb-speak-pulse{
-  fill:var(--deb-accent);opacity:.22;
+  fill:var(--deb-accent);opacity:.18;
   transform-box:fill-box;transform-origin:50% 50%;
-  animation:debaterSpeakPulse 3.4s ease-in-out infinite;
+  animation:debaterSpeakPulse 4.2s ease-in-out infinite;
 }
 .standby-figures .stage-debater .deb-mic-pulse{
   fill:var(--deb-glow);opacity:.10;
   transform-box:fill-box;transform-origin:50% 50%;
-  animation:debaterMicPulse 2.6s ease-in-out infinite;
+  animation:debaterMicPulse 3.4s ease-in-out infinite;
 }
-.standby-figures .sf-right .deb-speak-pulse{animation-delay:-1.7s;animation-duration:3.9s}
-.standby-figures .sf-right .deb-mic-pulse{animation-delay:-1.1s;animation-duration:2.9s}
+.standby-figures .sf-right .deb-speak-pulse{animation-delay:-2.1s;animation-duration:4.8s}
+.standby-figures .sf-right .deb-mic-pulse{animation-delay:-1.4s;animation-duration:3.8s}
+/* Calmer amplitudes — figures breathe, not flash. */
 @keyframes debaterSpeakPulse{
-  0%,100%{transform:scale(0.85);opacity:.18}
-  50%    {transform:scale(1.30);opacity:.36}
+  0%,100%{transform:scale(0.92);opacity:.14}
+  50%    {transform:scale(1.16);opacity:.28}
 }
 @keyframes debaterMicPulse{
-  0%,100%{transform:scale(0.90);opacity:.08}
-  50%    {transform:scale(1.45);opacity:.24}
+  0%,100%{transform:scale(0.94);opacity:.07}
+  50%    {transform:scale(1.22);opacity:.18}
 }
 @media (max-width:760px){
   .hero-orb-card .standby-figures{display:none}
@@ -7166,8 +7197,18 @@ section.hero .hero-illustrated h1.hi-headline{
                  trapezoids; tie is a thin red sliver; throat + mic
                  carry slow speaking-pulses. -->
             <svg class="stage-debater sf-left" viewBox="0 0 200 460" role="presentation" focusable="false">
+              <defs>
+                <!-- soft head halation: gaussian-blurred so the circle reads
+                     as ambient spotlight, not a hard shape. -->
+                <filter id="halL" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="5"/>
+                </filter>
+              </defs>
+              <!-- architectural ground line shared with .sf-right's twin so
+                   the two figures stand on the same plane. -->
+              <path class="deb-ground" d="M-30 418 L230 418"/>
               <!-- soft floor shadow (grounds the figure, no red glow) -->
-              <ellipse class="deb-shadow" cx="100" cy="436" rx="66" ry="3.4"/>
+              <ellipse class="deb-shadow" cx="100" cy="436" rx="66" ry="3.2"/>
               <!-- architectural podium: tall slender rectangle with subtle perspective -->
               <path class="deb-stroke" d="M46 408 L56 308 L144 308 L154 408 Z"/>
               <!-- top plate edge: thin shadow line beneath top to imply depth -->
@@ -7187,8 +7228,8 @@ section.hero .hero-illustrated h1.hi-headline{
               <path class="deb-stroke" d="M114 152 L100 198"/>
               <!-- collar inner notch — soft second pass -->
               <path class="deb-stroke-soft" d="M94 148 L100 170 L108 148"/>
-              <!-- tie: thin red sliver -->
-              <line class="deb-tie-line" x1="100" y1="172" x2="100" y2="240"/>
+              <!-- tie: tapered fashion-sketch shape (knot at top, point at bottom) -->
+              <path class="deb-tie" d="M96.4 170 L103.6 170 L101.2 226 L100 244 L98.8 226 Z"/>
               <!-- right arm: at side, hand resting near podium top -->
               <path class="deb-stroke" d="M139 158 Q150 200 144 252 Q140 282 132 304"/>
               <ellipse class="deb-hand" cx="132" cy="306" rx="5.6" ry="3.6"/>
@@ -7200,8 +7241,12 @@ section.hero .hero-illustrated h1.hi-headline{
               <!-- neck: two slim parallel lines -->
               <path class="deb-stroke" d="M92 116 L92 134"/>
               <path class="deb-stroke" d="M108 116 L108 134"/>
-              <!-- head: tall sculpted ovoid, contour only -->
+              <!-- soft halation behind the head (under the contour) -->
+              <circle class="deb-halation" cx="100" cy="76" r="30" filter="url(#halL)"/>
+              <!-- head: tall sculpted ovoid, contour only, with a doubled ghost
+                   pass behind the primary stroke for hand-drawn doubled-line feel -->
               <g class="deb-head">
+                <path class="deb-stroke-ghost" d="M82.4 70.5 Q81.4 48.5 100 46.4 Q118.4 48.5 117.4 70.5 Q117.4 92 111.4 105 Q105.4 112.4 100 112.4 Q94.6 112.4 88.6 105 Q82.4 92 82.4 70.5 Z"/>
                 <path class="deb-stroke" d="M83 70 Q82 48 100 46 Q118 48 117 70 Q117 92 111 105 Q105 112 100 112 Q95 112 89 105 Q83 92 83 70 Z"/>
                 <!-- minimal jaw indication -->
                 <path class="deb-stroke-soft" d="M89 102 Q100 110 111 102"/>
@@ -7214,7 +7259,13 @@ section.hero .hero-illustrated h1.hi-headline{
               <circle class="deb-speak-pulse" cx="100" cy="128" r="4"/>
             </svg>
             <svg class="stage-debater sf-right" viewBox="0 0 200 460" role="presentation" focusable="false">
-              <ellipse class="deb-shadow" cx="100" cy="436" rx="66" ry="3.4"/>
+              <defs>
+                <filter id="halR" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="5"/>
+                </filter>
+              </defs>
+              <path class="deb-ground" d="M-30 418 L230 418"/>
+              <ellipse class="deb-shadow" cx="100" cy="436" rx="66" ry="3.2"/>
               <!-- podium (same architecture; seam mirrored for asymmetry) -->
               <path class="deb-stroke" d="M46 408 L56 308 L144 308 L154 408 Z"/>
               <path class="deb-stroke deb-stroke-soft" d="M58 316 L142 316"/>
@@ -7232,7 +7283,8 @@ section.hero .hero-illustrated h1.hi-headline{
               <path class="deb-stroke" d="M88 150 L100 196"/>
               <path class="deb-stroke" d="M114 150 L100 196"/>
               <path class="deb-stroke-soft" d="M94 146 L100 168 L108 146"/>
-              <line class="deb-tie-line" x1="100" y1="170" x2="100" y2="238"/>
+              <!-- tapered tie (knot to point) -->
+              <path class="deb-tie" d="M96.4 168 L103.6 168 L101.2 222 L100 240 L98.8 222 Z"/>
               <!-- both hands resting at podium edge (calm/reflective posture) -->
               <path class="deb-stroke" d="M60 156 Q48 200 56 252 Q60 286 70 306"/>
               <ellipse class="deb-hand" cx="70" cy="307" rx="5.4" ry="3.4"/>
@@ -7241,8 +7293,12 @@ section.hero .hero-illustrated h1.hi-headline{
               <!-- neck slightly offset to imply a small head turn -->
               <path class="deb-stroke" d="M93 116 L93 134"/>
               <path class="deb-stroke" d="M109 116 L109 134"/>
-              <!-- head: subtly different ovoid so it doesn't read as mirror -->
+              <!-- soft halation behind the head -->
+              <circle class="deb-halation" cx="100" cy="74" r="30" filter="url(#halR)"/>
+              <!-- head: subtly different ovoid so it doesn't read as mirror,
+                   with doubled ghost contour pass behind the primary stroke -->
               <g class="deb-head">
+                <path class="deb-stroke-ghost" d="M83.4 68.5 Q83.4 46.5 100 44.4 Q118.4 46.5 118.4 70.5 Q118.4 92 112.4 104 Q106.4 112.4 101 112.4 Q95.6 112.4 89.6 104 Q83.4 92 83.4 68.5 Z"/>
                 <path class="deb-stroke" d="M84 68 Q84 46 100 44 Q118 46 118 70 Q118 92 112 104 Q106 112 101 112 Q96 112 90 104 Q84 92 84 68 Z"/>
                 <path class="deb-stroke-soft" d="M90 100 Q101 109 112 100"/>
                 <path class="deb-stroke-soft" d="M89 53 Q101 48 113 53"/>
