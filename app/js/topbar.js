@@ -294,21 +294,14 @@
     // SVG appears via CSS when [aria-pressed=true]. State is read
     // from window.SFX.isMuted() (localStorage da-sfx-muted) so it
     // picks up whatever the user set on a previous page.
-    var sfxBtn = el('button', {
-      class: 'sfx-toggle',
-      type: 'button',
-      'aria-pressed': 'false',
-      'aria-label': 'Toggle sound effects',
-      title: 'Mute sounds',
-    });
-    sfxBtn.innerHTML =
-      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-        '<path d="M11 5 6 9H2v6h4l5 4z"/>' +
-        '<path class="sfx-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>' +
-        '<path class="sfx-wave" d="M19 5a9 9 0 0 1 0 14"/>' +
-        '<line class="sfx-strike" x1="3" y1="3" x2="21" y2="21"/>' +
-      '</svg>';
-    right.appendChild(sfxBtn);
+    // 2026-05-26: SFX mute toggle retired from the topbar everywhere
+    // per Aidan. JS button construction skipped so the DOM node never
+    // exists, ui.css display:none guards as a second layer in case a
+    // future commit revives this block without removing the CSS rule.
+    // window.SFX still loads + reads localStorage so existing per-page
+    // sound state (mute / unmute set in an earlier session) is honored;
+    // only the topbar control surface is gone.
+    var sfxBtn = null;
 
     // Theme toggle. Single sun/moon button (not the old 3-dot tray)
     // so the topbar stays uncluttered while users can still flip to
@@ -320,23 +313,14 @@
     // `da-theme=grey` is honored on load and treated as dark-family
     // for cycle purposes (click → light). CSS lives in /css/ui.css
     // under .theme-toggle.
-    var themeBtn = el('button', {
-      class: 'theme-toggle',
-      type: 'button',
-      'aria-label': 'Toggle theme',
-      title: 'Switch theme',
-    });
-    themeBtn.innerHTML =
-      // Sun (shown when in dark theme → click goes light)
-      '<svg class="ti-sun" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-        '<circle cx="12" cy="12" r="4"/>' +
-        '<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>' +
-      '</svg>' +
-      // Moon (shown when in light theme → click goes dark)
-      '<svg class="ti-moon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-        '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>' +
-      '</svg>';
-    right.appendChild(themeBtn);
+    // 2026-05-26: theme toggle retired from the topbar everywhere
+    // per Aidan. JS button construction skipped so the DOM node never
+    // exists. wireThemeToggle() below still runs (data-theme + lighting
+    // attributes still get set from localStorage) so any in-page rule
+    // keyed on data-theme keeps working; only the topbar's sun/moon
+    // surface is gone. If we ever want it back, restore this block
+    // AND drop the display:none rule in ui.css.
+    var themeBtn = null;
 
     // DM notification bell is mounted by /js/notifications.js (a
     // standalone module included site-wide, including on pages without
