@@ -140,56 +140,97 @@ h1 em{color:var(--accent);font-style:normal}
   margin-bottom:14px;
 }
 
-/* Radar — the centerpiece of the matchmaking screen. Rewritten
-   2026-05-25: the prior glossy sphere read as "Web3 / NFT mint /
-   generic AI viz." Replaced with a flat radar-disc aesthetic, the
-   real visual now lives inside /js/spar-radar.js (debater nodes,
-   sweep arm, match-attempt arcs, "you" pulse). The .globe-frame
-   wrapper provides just the disc backdrop + a quiet outer halo;
-   the radar canvas owns the rest. Class name kept (.globe-wrap /
-   .globe-frame) so the renderSearching innerHTML and the matched/
-   fallback fallthroughs don't have to change. */
+/* Globe of debate rooms opening worldwide — the centerpiece of the
+   matchmaking screen. Replaces the prior dark-glass radar disc + sweep
+   arm (read as "surveillance / NFT mint / radar of targets"). The new
+   metaphor: rooms lighting up across time zones, not signals acquired.
+   The SVG inside /js/global-debate-map.js owns the disc gradient, grid,
+   continents, dots, arcs, and floating room cards; this CSS layer just
+   provides the host sizing + a soft floor shadow + the card/tooltip
+   styling that the module's HTML overlay uses. Class names .globe-wrap /
+   .globe-frame are preserved so the matched/fallback states don't have
+   to change. */
 .globe-wrap{
-  position:relative;width:360px;max-width:78vw;margin:6px auto 18px;
+  position:relative;width:380px;max-width:82vw;margin:10px auto 22px;
   aspect-ratio:1 / 1;
 }
-
 .globe-frame{
   position:relative;width:100%;height:100%;border-radius:50%;
-  /* Dark instrument-glass disc. Almost-black graphite tinted with a
-     hint of deep crimson at the center, vignette at the edge. No more
-     salmon atmosphere or specular sphere highlight — the disc reads
-     as a flat radar plane, not a 3D ball. */
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(45,10,12,.85) 0%,
-      rgba(20,6,8,.92) 55%,
-      rgba(10,3,4,.96) 88%,
-      rgba(0,0,0,.98) 100%);
-  /* Outer halo + thin rim instead of the prior heavy inset shadows. */
-  box-shadow:
-    inset 0 0 0 1px rgba(239,68,68,.22),
-    0 0 90px rgba(139,26,26,.32);
-  animation:radar-breathe 7s ease-in-out infinite;
-  overflow:hidden;
+  background:transparent;
+  overflow:visible;
+  /* A real, calm floor shadow under the ivory disc — sits the globe on
+     a surface instead of next to a puddle. */
+  filter:drop-shadow(0 18px 28px rgba(40, 25, 10, 0.22));
 }
 [data-theme="light"] .globe-frame{
-  background:
-    radial-gradient(circle at 50% 50%,
-      #f4ede4 0%,
-      #efe6d9 55%,
-      #e8ddcc 88%,
-      #ddcfbb 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(125,95,45,.22),
-    0 0 90px rgba(125,95,45,.20);
+  filter:drop-shadow(0 18px 28px rgba(40, 25, 10, 0.18));
 }
-@keyframes radar-breathe{
-  0%,100%{box-shadow:inset 0 0 0 1px rgba(239,68,68,.22), 0 0 90px rgba(139,26,26,.32)}
-  50%    {box-shadow:inset 0 0 0 1px rgba(239,68,68,.32), 0 0 120px rgba(139,26,26,.46)}
+.globe-frame > .gdmap-host-inner,
+.globe-frame > div{width:100%;height:100%}
+.globe-frame svg.gdmap-svg{display:block;width:100%;height:100%}
+
+/* Floating "Room forming · CityA ↔ CityB" pill — sits at the midpoint
+   of each animated arc. Soft ivory body, thin warm border, gentle shadow.
+   Reads as a printed inset, not a notification toast. */
+.gdmap-card{
+  position:absolute;
+  transform:translate(-50%, -50%);
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 11px;
+  border-radius:999px;
+  background:rgba(252, 248, 240, 0.96);
+  color:#2a1d10;
+  border:1px solid rgba(96, 70, 40, 0.22);
+  box-shadow:0 6px 14px rgba(40, 25, 10, 0.18);
+  font-family:'EB Garamond', Georgia, ui-serif, serif;
+  font-size:.74rem;font-weight:600;letter-spacing:.005em;
+  white-space:nowrap;
+  opacity:0;
+  transition:opacity .35s ease;
+  backdrop-filter:saturate(110%);
 }
-/* The canvas sits on top of the disc background, fills it edge-to-edge. */
-.globe-frame canvas{display:block;width:100%;height:100%;position:relative;z-index:3}
+.gdmap-card .gdmap-card-dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#dc2a2a;
+  box-shadow:0 0 8px rgba(220, 42, 42, .5);
+}
+.gdmap-card .gdmap-card-main{font-weight:700}
+.gdmap-card .gdmap-card-arrow{color:rgba(96, 70, 40, .6);font-weight:400;margin:0 2px}
+.gdmap-card .gdmap-card-sub{
+  color:rgba(70, 50, 30, 0.7);
+  font-family:'Inter','SF Pro Text',system-ui,sans-serif;
+  font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+}
+[data-theme="midnight"] .gdmap-card,
+[data-lighting="dark"] .gdmap-card{
+  background:rgba(28, 18, 18, 0.94);
+  color:#f3e9e3;
+  border-color:rgba(239, 68, 68, 0.32);
+}
+[data-theme="midnight"] .gdmap-card .gdmap-card-arrow,
+[data-lighting="dark"] .gdmap-card .gdmap-card-arrow{color:rgba(243, 233, 227, .55)}
+[data-theme="midnight"] .gdmap-card .gdmap-card-sub,
+[data-lighting="dark"] .gdmap-card .gdmap-card-sub{color:rgba(243, 233, 227, .65)}
+
+/* Tooltip on idle dot hover — "London · BP practice", "Delhi · WSDC prep". */
+.gdmap-tooltip{
+  font-family:'Inter','SF Pro Text',system-ui,sans-serif;
+  font-size:.66rem;font-weight:600;letter-spacing:.04em;
+  padding:4px 9px;border-radius:999px;
+  background:rgba(252, 248, 240, 0.96);
+  color:#2a1d10;
+  border:1px solid rgba(96, 70, 40, 0.22);
+  box-shadow:0 4px 10px rgba(40, 25, 10, 0.14);
+  white-space:nowrap;
+}
+.gdmap-tooltip .gdmap-tip-city{font-weight:700}
+.gdmap-tooltip .gdmap-tip-fmt{color:rgba(70, 50, 30, 0.7);text-transform:uppercase;letter-spacing:.08em;font-size:.6rem}
+[data-theme="midnight"] .gdmap-tooltip,
+[data-lighting="dark"] .gdmap-tooltip{
+  background:rgba(28, 18, 18, 0.94);
+  color:#f3e9e3;
+  border-color:rgba(239, 68, 68, 0.32);
+}
 
 /* Live-system metadata strip below the radar — "X debaters online ·
    Y countries · Z rounds forming · APDA queue active." Reads like a
@@ -785,10 +826,11 @@ h1 em{color:var(--accent);font-style:normal}
      until DebateGlobe is on window. -->
 <script defer src="/js/world-data.js?v=1"></script>
 <script defer src="/js/world-globe.js?v=1"></script>
-<!-- Matchmaking radar — self-contained Canvas 2D scene that replaces
-     the world-globe on the searching state. Reads as "debate radar /
-     arena" rather than "geographic visualization." -->
-<script defer src="/js/spar-radar.js?v=1"></script>
+<!-- Rooms-opening-worldwide globe — replaces the prior surveillance-coded
+     radar (sweep arm + fabricated @handles). Ambient SVG visual: ivory
+     disc, faint grid + continents, red dots spawning at city points,
+     curved arcs and "Room forming · A ↔ B" pills at arc midpoints. -->
+<script defer src="/js/global-debate-map.js?v=1"></script>
 
 <div class="wrap" style="padding-top:90px">
   <div class="shell" id="shell">
@@ -980,18 +1022,16 @@ h1 em{color:var(--accent);font-style:normal}
   function renderSearching(){
     var formatLabel = formatParam.toUpperCase();
     shell.innerHTML =
-      '<div class="eyebrow"><span class="pip"></span>Looking for a partner</div>' +
-      '<h1>Finding you a <em>debater.</em></h1>' +
+      '<div class="eyebrow"><span class="pip"></span>Rooms opening worldwide</div>' +
+      '<h1>Finding someone to <em>argue with.</em></h1>' +
       '<p class="lede">We\'ll match you with another human running the same format. AI fallback if nobody pairs in 60 seconds.</p>' +
-      '<span class="format-pill" title="Format you\'re queueing for">' + escHtml(formatLabel) + '</span>' +
-      // Matchmaking radar — replaces the prior world-globe. Reads as
-      // "live debate chamber / radar arena" instead of "geographic
-      // visualization." Self-contained renderer in /js/spar-radar.js
-      // mounts after this innerHTML lands. The .globe-frame disc
-      // backdrop and meta-strip below stay in CSS so they don't depend
-      // on JS to render the surface.
+      // Globe of rooms opening worldwide — replaces the prior radar
+      // sweep + fabricated-handles disc. Reads as "minds lighting up
+      // across time zones," not "tracking targets." Self-contained
+      // module in /js/global-debate-map.js mounts after this innerHTML
+      // lands and owns the SVG inside the .globe-frame host.
       '<div class="globe-wrap"><div class="globe-frame">' +
-          '<canvas id="sparRadar" aria-label="Live matchmaking radar"></canvas>' +
+          '<div id="globalDebateMap" role="img" aria-label="Globe with debate rooms opening between cities"></div>' +
         '</div></div>' +
       // Live ops strip. Wired to real Firestore via startMetaLive():
       // queue cell = peers waiting in this format's matchmaking_queue
@@ -1046,7 +1086,7 @@ h1 em{color:var(--accent);font-style:normal}
     // startPairingTicker() removed — see RECENT_PAIRINGS comment above
     startMetaLive();
     fetchMissedMatchCount();
-    mountRadar('sparRadar');
+    mountGlobalMap('globalDebateMap');
   }
 
   // Pulls the public "missed each other this week" count from
@@ -1184,26 +1224,29 @@ h1 em{color:var(--accent);font-style:normal}
   // comment for the why. The 'Recent pairing · @x ↔ @y · paired in Ns'
   // line was fabricated social-proof theater.
 
-  // Mount the matchmaking radar once /js/spar-radar.js has loaded.
-  // Used by renderSearching — reads as "active matchmaking arena."
-  // Keeps a handle so we can stop the rAF loop on re-render.
-  var radarHandle = null;
-  function mountRadar(canvasId){
-    if (radarHandle && radarHandle.stop) { try { radarHandle.stop(); } catch(e){} }
-    radarHandle = null;
+  // Mount the rooms-opening-worldwide globe once
+  // /js/global-debate-map.js has loaded. Replaces the prior radar
+  // mount (sweep arm + fabricated @handles). Honest ambient visual —
+  // dots spawn, arcs draw, room-forming pills float in. Keeps a
+  // handle so we can stop the rAF loop on re-render.
+  var globalMapHandle = null;
+  function mountGlobalMap(containerId){
+    if (globalMapHandle && globalMapHandle.stop) { try { globalMapHandle.stop(); } catch(e){} }
+    globalMapHandle = null;
     function tryMount(retries){
-      if (!window.SparRadar) {
+      if (!window.GlobalDebateMap) {
         if (retries > 0) return setTimeout(function(){ tryMount(retries - 1); }, 60);
         return;
       }
-      var c = document.getElementById(canvasId);
+      var c = document.getElementById(containerId);
       if (!c) return;
-      radarHandle = window.SparRadar.mount(c, {
-        accent:        '#ef4444',
-        accentDim:     'rgba(239,68,68,.30)',
-        nodeCount:     8,
-        sweepSec:      6.5,
-        matchEverySec: 2.4,
+      globalMapHandle = window.GlobalDebateMap.mount(c, {
+        maxActiveDots: 7,
+        maxActiveArcs: 2,
+        spawnEveryMs:  1700,
+        roomEveryMs:   4200,
+        rotateSec:     240,
+        palette:       'auto',
       });
     }
     tryMount(40);
