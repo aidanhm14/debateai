@@ -969,6 +969,11 @@ button{font-family:inherit;cursor:pointer}
 .hero-grain{
   position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.04;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* 2026-05-26: mirror .hero-bg's mask so the noise overlay also fades
+     into the next section instead of cutting off as a hard band at the
+     bottom of the hero. Same 78% start point keeps both layers aligned. */
+  -webkit-mask-image:linear-gradient(180deg,black 0%, black 78%, transparent 100%);
+  mask-image:linear-gradient(180deg,black 0%, black 78%, transparent 100%);
 }
 
 /* Hero content. 2026-04-20 redesign: split layout.
@@ -8251,7 +8256,15 @@ section.hero .hero-illustrated h1.hi-headline{
      we are debate end to end. Numbers do the punch, no villain lines.
      The beta-free state is named so the comparison reads honest. -->
 <style>
-  .price-compare{padding:48px 16px 56px;background:transparent}
+  .price-compare{
+    padding:48px 16px 56px;background:transparent;
+    /* 2026-05-26: pulls the section up under the fading tail of the hero
+       so the two sections visually overlap instead of butting against a
+       hard seam. Negative margin lets the price-compare's first ~80px
+       sit inside the hero's mask-out zone; padding-top adjusts so the
+       eyebrow doesn't land in that overlap zone. */
+    margin-top:-80px;padding-top:128px;position:relative;z-index:2;
+  }
   /* 2026-05-24: section width bumped 1240 → 1400 per user "open wider"
      feedback. The pricing comparison + founder letter beat carries the
      full weight of the page narrative; cramping it to 1240 left the
