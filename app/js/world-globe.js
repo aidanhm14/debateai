@@ -277,9 +277,44 @@
     document.addEventListener('visibilitychange', function(){
       // Reset lastFrameTs so we don't get a giant delta jump on resume.
       lastFrameTs = 0;
+      if (document.hidden) {
+        if (rafId) { global.cancelAnimationFrame(rafId); rafId = 0; }
+      } else if (offscreenPaused !== true) {
+        // Re-arm only if we weren't ALSO paused by IO (offscreenPaused).
+        if (!rafId) rafId = global.requestAnimationFrame(frame);
+      }
     });
 
+    // 2026-05-27 perf pass: pause the rAF chain entirely when the canvas
+    // scrolls offscreen. Browsers throttle hidden TABS but not offscreen
+    // canvases mid-page — a 840×840 sphere with multiple radialGradient
+    // recreations per frame is meaningful CPU. Resume on intersection-in,
+    // cancel on intersection-out. Big landing-page win when the user
+    // scrolls past the founder essay's globe to read the rest of the page.
+    var offscreenPaused = false;
+    if ('IntersectionObserver' in global) {
+      try {
+        var io = new IntersectionObserver(function (entries) {
+          for (var i = 0; i < entries.length; i++) {
+            var hit = entries[i].isIntersecting;
+            if (hit) {
+              offscreenPaused = false;
+              if (!rafId && !document.hidden) {
+                lastFrameTs = 0; // avoid frame-delta jump after pause
+                rafId = global.requestAnimationFrame(frame);
+              }
+            } else {
+              offscreenPaused = true;
+              if (rafId) { global.cancelAnimationFrame(rafId); rafId = 0; }
+            }
+          }
+        }, { rootMargin: '120px', threshold: 0.01 });
+        io.observe(canvas);
+      } catch (e) {}
+    }
+
     function frame(ts) {
+      if (offscreenPaused || document.hidden) { rafId = 0; return; }
       rafId = global.requestAnimationFrame(frame);
       // When the tab is hidden, browsers throttle rAF to ~1Hz on their
       // own. We still paint each tick (so the canvas isn't blank if the
