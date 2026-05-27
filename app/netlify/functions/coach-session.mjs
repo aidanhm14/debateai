@@ -251,7 +251,14 @@ export default async (request) => {
     gender,
   });
 
-  // ── Mint try-matrix: GA /client_secrets first, then legacy /sessions
+  // ── Mint try-matrix: GA /client_secrets only.
+  // 2026-05-26: dropped the legacy /v1/realtime/sessions fallback.
+  // OpenAI rewired the legacy endpoint to require the GA body shape;
+  // when called with the old flat body (no session: wrapper) it now
+  // returns "Missing required parameter: 'session.type'" — which then
+  // bubbled up to /coach users as the visible session-init error even
+  // though the GA call itself succeeded earlier in the matrix. With
+  // legacy removed, if GA fails we surface the GA error directly.
   const gaBody = (m) => JSON.stringify({
     session: {
       type: 'realtime',
@@ -260,17 +267,10 @@ export default async (request) => {
       instructions,
     },
   });
-  const legacyBody = (m) => JSON.stringify({
-    model: m, voice, instructions, modalities: ['audio', 'text'],
-    input_audio_transcription: { model: 'gpt-4o-mini-transcribe' },
-    turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 500, create_response: true },
-  });
 
   const endpoints = [
     { label: 'GA /client_secrets', url: 'https://api.openai.com/v1/realtime/client_secrets',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: gaBody },
-    { label: 'beta /sessions', url: 'https://api.openai.com/v1/realtime/sessions',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'realtime=v1' }, body: legacyBody },
   ];
 
   let upstream = null, lastErr = '', lastLabel = '', model = MODEL_FALLBACKS[0];

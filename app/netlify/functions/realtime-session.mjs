@@ -924,19 +924,13 @@ export default async (request, context) => {
         instructions,
       },
     });
-    // Legacy fallback for accounts still on the beta API. Keeps the
-    // older preview model usable.
-    const legacyBody = (m) => ({
-      model: m,
-      voice,
-      instructions,
-      modalities: ['audio', 'text'],
-      input_audio_transcription: { model: transcribeModel },
-      turn_detection: {
-        type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300,
-        silence_duration_ms: 500, create_response: true,
-      },
-    });
+    // 2026-05-26: dropped the legacy /v1/realtime/sessions fallback.
+    // OpenAI rewired the legacy endpoint to validate against the GA
+    // schema; when called with the old flat body it now errors with
+    // "Missing required parameter: 'session.type'" — which bubbled up
+    // to /voice-debate + /coach users as the visible mint error even
+    // when the GA call earlier in the matrix had its own (different)
+    // failure. With legacy removed, GA errors surface directly.
 
     const endpoints = [
       {
@@ -944,12 +938,6 @@ export default async (request, context) => {
         url: 'https://api.openai.com/v1/realtime/client_secrets',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: (m) => JSON.stringify(gaBody(m)),
-      },
-      {
-        label: 'beta /sessions',
-        url: 'https://api.openai.com/v1/realtime/sessions',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'realtime=v1' },
-        body: (m) => JSON.stringify(legacyBody(m)),
       },
     ];
 
