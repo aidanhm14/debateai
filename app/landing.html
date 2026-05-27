@@ -4848,11 +4848,14 @@ section.ui-section .ui-lede{
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:clamp(20px, 3vh, 32px);
+  /* Tightened 2026-05-26: was gap clamp(20,3vh,32) + padding clamp(20,4vh,48)
+     top — pushed the CTAs below the fold on most laptops. Pulled vertical
+     rhythm in so headline → scene → CTAs all fit in a single viewport. */
+  gap:clamp(6px, 1.2vh, 16px);
   width:100%;
   max-width:1240px;
   margin:0 auto;
-  padding:clamp(20px, 4vh, 48px) clamp(16px, 4vw, 48px) clamp(24px, 4vh, 56px);
+  padding:clamp(4px, 1vh, 16px) clamp(16px, 4vw, 48px) clamp(8px, 1.6vh, 22px);
   position:relative;
   z-index:2;
   /* Local design tokens — retoned in one place if the palette shifts. */
@@ -4871,12 +4874,19 @@ section.ui-section .ui-lede{
   --hi-chip-ink:   #2a241d;
 }
 /* Warm ivory wash behind the illustration. Layered on top of whatever
-   theme bg the user has so the rest of the page keeps its mood. */
+   theme bg the user has so the rest of the page keeps its mood.
+   Section padding cut down 2026-05-26 from the legacy clamp(112,13vh,160)
+   top — that rule kept the OLD hero clear of the topbar, but for the
+   illustrated arm it ate the room the CTAs needed. The illustrated arm
+   only needs ~72px to clear the topbar (60px topbar + 12px breathing). */
 :root[data-hero-ab="illustrated"] section.hero{
   background:
     radial-gradient(ellipse 1100px 720px at 50% 38%, var(--hero-grad, #fafaf7) 0%, transparent 60%),
     radial-gradient(ellipse 1100px 720px at 50% 38%, #f6f1e6 0%, #f6f1e6 36%, transparent 78%),
     var(--hero-grad);
+  padding-top:clamp(64px, 7vh, 88px) !important;
+  padding-bottom:clamp(16px, 2.4vh, 32px) !important;
+  min-height:auto !important;
 }
 :root[data-hero-ab="illustrated"] .hero-bg::before,
 :root[data-hero-ab="illustrated"] .hero-bg::after{display:none !important}
@@ -4889,14 +4899,16 @@ section.ui-section .ui-lede{
 section.hero .hero-illustrated h1.hi-headline{
   /* !important needed to override the legacy `.hero h1{text-transform:
      uppercase}` rule higher up in this stylesheet — the illustrated
-     headline reads as Title-case prose, not all-caps banner. */
+     headline reads as Title-case prose, not all-caps banner.
+     Size dropped 2026-05-26 from clamp(2.4,5.4vw,4rem) so the scene +
+     CTAs fit in one viewport on a 13" laptop. */
   font-family:'Fraunces',Georgia,"Times New Roman",serif !important;
   font-weight:700 !important;
-  font-size:clamp(2.4rem, 5.4vw, 4rem) !important;
-  line-height:1.02 !important;
+  font-size:clamp(2rem, 4.2vw, 3.1rem) !important;
+  line-height:1.04 !important;
   letter-spacing:-.015em !important;
   color:var(--hi-ink) !important;
-  margin:0 0 14px !important;
+  margin:0 0 8px !important;
   text-transform:none !important;
   font-variation-settings:"opsz" 144, "SOFT" 70, "WONK" 1 !important;
 }
@@ -4907,20 +4919,22 @@ section.hero .hero-illustrated h1.hi-headline{
 }
 .hero-illustrated .hi-subhead{
   font-family:'Inter',-apple-system,system-ui,sans-serif;
-  font-size:clamp(1rem, 1.4vw, 1.15rem);
-  line-height:1.5;
+  font-size:clamp(.95rem, 1.2vw, 1.05rem);
+  line-height:1.45;
   color:var(--hi-ink-soft);
   margin:0 auto;
-  max-width:600px;
+  max-width:540px;
   font-weight:400;
 }
 
-/* Stage — illustrated SVG fills it; chips overlay in absolute pos */
+/* Stage — illustrated SVG fills it; chips overlay in absolute pos.
+   Aspect tightened 2026-05-26 (was 1100/580) so the whole hero —
+   headline + scene + CTAs — fits in a single 13" laptop viewport. */
 .hero-illustrated .hi-stage{
   position:relative;
   width:100%;
-  max-width:1100px;
-  aspect-ratio:1100 / 580;
+  max-width:980px;
+  aspect-ratio:1100 / 460;
   margin:0 auto;
   pointer-events:none;
 }
@@ -5091,7 +5105,10 @@ section.hero .hero-illustrated h1.hi-headline{
 @media(max-width:640px){
   .hero-illustrated .hi-headline{font-size:clamp(2rem, 9vw, 2.6rem) !important}
   .hero-illustrated .hi-subhead{font-size:.95rem}
-  .hero-illustrated .hi-stage{aspect-ratio:1 / 1;max-width:520px}
+  /* Stage aspect bumped from 1/1 → 1100/720 (~1.5:1) so the SVG
+     content fills more of the container instead of letterboxing
+     ~90px of empty space above and below the scene. */
+  .hero-illustrated .hi-stage{aspect-ratio:1100 / 720;max-width:520px}
   .hero-illustrated .hi-chip-fr,
   .hero-illustrated .hi-chip-hi{display:none}
   /* Speech bubbles overlap on the tight 1:1 mobile stage. The language
