@@ -172,9 +172,15 @@
     // on landing/pricing/debate-ai/debatable are what actually teach
     // Google that all three are the same brand entity.
     var BRAND_VARIANTS = [
-      { key: 'debate_ai',  lead: 'Debate', tail: ' AI.',  weight: 5, aria: 'Debate AI, home' },
-      { key: 'debatable',  lead: 'Debatable', tail: '.',  weight: 3, aria: 'Debatable, home' },
-      { key: 'debate_it',  lead: 'Debate', tail: ' it.',  weight: 2, aria: 'Debate it, home' }
+      // 2026-05-26: weights flipped to pin the wordmark to "Debate it."
+      // Per the broader DebateIt brand pivot (commit aafbe94 made /live
+      // the canonical hub under the DebateIt brand). Weights are kept on
+      // the other two so a future un-pin is a one-number edit, not a
+      // structural revert. Aria + JSON-LD alternateName still teach
+      // Google the three names are the same entity.
+      { key: 'debate_ai',  lead: 'Debate', tail: ' AI.',  weight: 0, aria: 'Debate AI, home' },
+      { key: 'debatable',  lead: 'Debatable', tail: '.',  weight: 0, aria: 'Debatable, home' },
+      { key: 'debate_it',  lead: 'Debate', tail: ' it.',  weight: 10, aria: 'Debate it, home' }
     ];
     function pickWordmark(){
       // sessionStorage so a page navigation within the same tab keeps
@@ -184,7 +190,13 @@
         var cached = sessionStorage.getItem('da-wordmark-variant');
         if (cached) {
           for (var i = 0; i < BRAND_VARIANTS.length; i++) {
-            if (BRAND_VARIANTS[i].key === cached) return BRAND_VARIANTS[i];
+            // Only honor the cached pick if its weight is still > 0.
+            // Otherwise the rotation has been re-weighted since the user's
+            // last visit (e.g. a variant retired); re-roll so they see a
+            // currently-active brand instead of a stale one.
+            if (BRAND_VARIANTS[i].key === cached && BRAND_VARIANTS[i].weight > 0) {
+              return BRAND_VARIANTS[i];
+            }
           }
         }
       } catch (e) {}
