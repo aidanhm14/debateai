@@ -354,14 +354,41 @@
     // `da-theme=grey` is honored on load and treated as dark-family
     // for cycle purposes (click → light). CSS lives in /css/ui.css
     // under .theme-toggle.
-    // 2026-05-26: theme toggle retired from the topbar everywhere
-    // per Aidan. JS button construction skipped so the DOM node never
-    // exists. wireThemeToggle() below still runs (data-theme + lighting
-    // attributes still get set from localStorage) so any in-page rule
-    // keyed on data-theme keeps working; only the topbar's sun/moon
-    // surface is gone. If we ever want it back, restore this block
-    // AND drop the display:none rule in ui.css.
-    var themeBtn = null;
+    // 2026-05-27 plane session: theme toggle REVIVED per Aidan's
+    // request ("have the option to change lighting here"). Single
+    // sun/moon button — sun shows when current theme is dark-family,
+    // moon shows when current is light. The sun↔moon swap is a pure
+    // CSS opacity flip keyed on [data-theme] (see ui.css .theme-toggle
+    // .ti-sun / .ti-moon rules). The click handler lives in
+    // wireThemeToggle() below and reloads the page so the token
+    // cascade settles from a clean slate.
+    //
+    // Positioning: this button is appended to ui-topbar-right BEFORE
+    // the bell and lang-picker mount (those run async on
+    // DOMContentLoaded and both insertBefore(..., CTA)). The
+    // lang-picker IIFE in landing.html does a final reorder so the
+    // visual sequence reads as: bell | theme-toggle | lang-picker |
+    // Voice AI CTA. On pages without a lang-picker the toggle just
+    // sits between the bell and the CTA.
+    var themeBtn = el('button', {
+      type: 'button',
+      class: 'theme-toggle',
+      'aria-label': 'Toggle lighting',
+      title: 'Toggle lighting',
+    });
+    // Sun + moon SVGs share the same 16x16 viewbox. CSS positions
+    // them absolute-stacked so the opacity flip swaps them in place.
+    // currentColor inherits from .theme-toggle so the hover/focus
+    // state recolors both icons together.
+    themeBtn.innerHTML =
+      '<svg class="ti-sun" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<circle cx="8" cy="8" r="2.6"/>' +
+        '<path d="M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.34 3.34l1.13 1.13M11.53 11.53l1.13 1.13M3.34 12.66l1.13-1.13M11.53 4.47l1.13-1.13"/>' +
+      '</svg>' +
+      '<svg class="ti-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/>' +
+      '</svg>';
+    right.appendChild(themeBtn);
 
     // DM notification bell is mounted by /js/notifications.js (a
     // standalone module included site-wide, including on pages without
