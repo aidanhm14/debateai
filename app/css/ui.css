@@ -142,9 +142,15 @@ body.light-theme .ui-neural-canvas{opacity:.35}
   position:fixed;top:32px;left:0;right:0;z-index:1000;
   padding:0 32px;height:52px;
   display:flex;align-items:center;justify-content:space-between;
-  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  background:color-mix(in srgb,var(--bg) 92%,transparent);
   border-bottom:1px solid var(--border);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  /* 2026-05-27 perf: backdrop-filter dropped 16px -> 10px and the
+     bg color-mix bumped 88% -> 92% so the slight visual loss from
+     the smaller blur is compensated by a more opaque background.
+     Chrome's gaussian-blur cost scales roughly with radius squared
+     and the topbar's backdrop is re-rasterized every scroll frame.
+     Visually indistinguishable on retina; meaningfully cheaper. */
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   /* Transform is not transitioned on purpose. The banner offset
      uses transform so it snaps to position on first paint instead
      of sliding in from y=0. The other listed properties retain
