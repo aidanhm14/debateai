@@ -5523,6 +5523,53 @@ function App() {
     window.addEventListener('debateos-quota-hit', handler);
     return () => window.removeEventListener('debateos-quota-hit', handler);
   }, []);
+
+  // Brand-name poll (debateit / debatenow / debatable / debateai).
+  // Soul.md §10 (2026-05-25) committed to "Debatable" and parked the DNS
+  // migration; this poll lets engaged signed-in users weigh in before
+  // pulling the DNS trigger. Fires once per user, six seconds after
+  // sign-in (so it doesn't slap them on load). localStorage gate
+  // prevents repeat surfacing across sessions.
+  var [brandPollOpen, setBrandPollOpen] = useState(false);
+  var [brandPollChoice, setBrandPollChoice] = useState(null); // local "you voted X" state
+  var [brandPollTally, setBrandPollTally] = useState(null);
+  var [brandPollSubmitting, setBrandPollSubmitting] = useState(false);
+  useEffect(() => {
+    if (!user) return; // signed-in only
+    try {
+      if (localStorage.getItem('debateos-brand-poll-v1') === 'done') return;
+    } catch {}
+    var id = setTimeout(() => setBrandPollOpen(true), 6000);
+    return () => clearTimeout(id);
+  }, [user]);
+  function dismissBrandPoll() {
+    setBrandPollOpen(false);
+    try { localStorage.setItem('debateos-brand-poll-v1', 'done'); } catch {}
+  }
+  async function submitBrandPollVote(choice) {
+    if (!user || brandPollSubmitting) return;
+    setBrandPollSubmitting(true);
+    try {
+      var token = await user.getIdToken();
+      var res = await fetch('/api/poll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ choice: choice })
+      });
+      if (!res.ok) throw new Error('vote failed');
+      var data = await res.json();
+      setBrandPollChoice(data.yourChoice || choice);
+      setBrandPollTally(data.tally || null);
+      try { localStorage.setItem('debateos-brand-poll-v1', 'done'); } catch {}
+      try {
+        if (typeof gtag === 'function') gtag('event', 'brand_poll_vote', { choice: choice });
+      } catch {}
+    } catch (e) {
+      console.warn('brand poll vote failed', e);
+    } finally {
+      setBrandPollSubmitting(false);
+    }
+  }
   // Force-rerender when usage changes so "X left" badges stay fresh.
   var [, forceUsageTick] = useState(0);
   useEffect(() => {
@@ -7517,6 +7564,85 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   )
   );
 
+  // Brand-name poll overlay. Renders only when brandPollOpen is true.
+  // Two states: vote (radio-style choices + submit) and results (bar
+  // chart of current tally with "you picked X" highlight). Same visual
+  // language as the quota modal so it feels native.
+  var brandPollLabels = {
+    debateit:  'debateit',
+    debatenow: 'debatenow',
+    debatable: 'debatable',
+    debateai:  'debateai'
+  };
+  var brandPollVoted = !!brandPollChoice;
+  var brandPollKeys = ['debateit', 'debatenow', 'debatable', 'debateai'];
+  var brandPollTallyTotal = (brandPollTally && brandPollTally.total) || 0;
+  var brandPollOverlay = brandPollOpen && el('div', {
+    onClick: dismissBrandPoll,
+    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+    role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Brand-name poll'
+  },
+  el('div', {
+    onClick: (e) => e.stopPropagation(),
+    style: { maxWidth: 480, width: '100%', padding: '28px 28px 24px', background: 'var(--c-surface)', border: '1px solid rgba(239,68,68,.35)', borderRadius: 18, boxShadow: '0 20px 80px rgba(0,0,0,.6)' }
+  },
+    el('div', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.18em', textTransform: 'uppercase', color: '#fca5a5', marginBottom: 10, textAlign: 'center' } }, 'One quick ask'),
+    el('div', { style: { fontSize: '1.25rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.25, marginBottom: 8, textAlign: 'center' } },
+      brandPollVoted ? "Thanks. Here's where the vote stands." : 'Which name reads best?'
+    ),
+    el('div', { style: { fontSize: '.84rem', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 18, textAlign: 'center' } },
+      brandPollVoted ?
+        'You picked ' + brandPollLabels[brandPollChoice] + '. Live tally below.' :
+        "I'm picking the name this product ships under. You're an actual user. Vote once."
+    ),
+    // Choices: vote buttons (pre-vote) or results bars (post-vote).
+    brandPollVoted ?
+      el('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 } },
+        brandPollKeys.map((k) => {
+          var n = (brandPollTally && brandPollTally[k]) || 0;
+          var pct = brandPollTallyTotal ? Math.round((n / brandPollTallyTotal) * 100) : 0;
+          var picked = brandPollChoice === k;
+          return el('div', { key: k, style: { display: 'grid', gridTemplateColumns: '110px 1fr 64px', gap: 10, alignItems: 'center', fontSize: '.82rem' } },
+            el('div', { style: { fontWeight: picked ? 800 : 600, color: picked ? '#ef4444' : 'var(--c-text)' } }, brandPollLabels[k]),
+            el('div', { style: { height: 12, background: 'rgba(255,255,255,.08)', borderRadius: 8, overflow: 'hidden' } },
+              el('div', { style: { height: '100%', width: Math.max(2, pct) + '%', background: picked ? '#ef4444' : 'rgba(239,68,68,.45)', transition: 'width .3s' } })
+            ),
+            el('div', { style: { textAlign: 'right', color: 'var(--c-muted)', fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '.74rem' } }, n + ' · ' + pct + '%')
+          );
+        })
+      ) :
+      el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 } },
+        brandPollKeys.map((k) => {
+          return el('button', {
+            key: k,
+            disabled: brandPollSubmitting,
+            onClick: () => submitBrandPollVote(k),
+            style: {
+              padding: '14px 12px',
+              background: 'rgba(239,68,68,.10)',
+              color: 'var(--c-bright)',
+              border: '1px solid rgba(239,68,68,.45)',
+              borderRadius: 12,
+              fontSize: '.95rem',
+              fontWeight: 800,
+              fontFamily: 'inherit',
+              cursor: brandPollSubmitting ? 'wait' : 'pointer',
+              transition: 'background .15s'
+            },
+            onMouseOver: (e) => { if (!brandPollSubmitting) e.currentTarget.style.background = 'rgba(239,68,68,.22)'; },
+            onMouseOut:  (e) => { e.currentTarget.style.background = 'rgba(239,68,68,.10)'; }
+          }, brandPollLabels[k]);
+        })
+      ),
+    el('div', { style: { display: 'flex', justifyContent: 'center', gap: 10 } },
+      el('button', {
+        onClick: dismissBrandPoll,
+        style: { padding: '10px 22px', background: 'transparent', color: 'var(--c-muted)', border: '1px solid var(--c-border2)', borderRadius: 999, fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
+      }, brandPollVoted ? 'Close' : "Don't ask again")
+    )
+  )
+  );
+
   // Keyboard shortcuts overlay, position:fixed so rendering it inside
   // any phase's tree lands it at the viewport root. Defined once here
   // and included in each phase return below.
@@ -7770,6 +7896,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // SAVED VIEW, saved cases + past rounds + "how I think as a debater"
   if (phase === 'setup' && setupTab === 'saved') return el('div', { className: 'page' },
   shortcutsOverlay,
+  brandPollOverlay,
   accountOverlay,
   quotaCtaOverlay,
   helpFloatingButton,
@@ -8124,6 +8251,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
   if (phase === 'setup') return el('div', { className: 'page' },
   shortcutsOverlay,
+  brandPollOverlay,
   accountOverlay,
   quotaCtaOverlay,
   helpFloatingButton,
@@ -9550,6 +9678,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     var seatLayout = SEAT_LAYOUTS[format] || null;
     return el('div', { className: 'page' },
     shortcutsOverlay,
+    brandPollOverlay,
     accountOverlay,
     quotaCtaOverlay,
     helpFloatingButton,
@@ -9621,6 +9750,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     var activeSeatCode = _seatLayout && cur ? activeSeatCodeFor(cur.code, _seatLayout) : null;
     return el('div', { className: 'page' },
     shortcutsOverlay,
+    brandPollOverlay,
     accountOverlay,
     helpFloatingButton,
     el('div', { className: 'ambient' }), bar,
@@ -10065,6 +10195,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     var wr = getWinRate();
     return el('div', { className: 'page' },
     shortcutsOverlay,
+    brandPollOverlay,
     accountOverlay,
     helpFloatingButton,
     el('div', { className: 'ambient' }), bar,
