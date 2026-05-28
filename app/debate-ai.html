@@ -91,6 +91,7 @@
 <script defer src="/js/disclosure-guard.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
+<script defer src="/js/prospect-capture.js"></script>
 <script src="/js/type-stream.js"></script>
 <!-- voice-input.js: floating speech-to-text mic on any focused textarea
      or qualifying text input. The button lives at document.body level
@@ -7558,8 +7559,31 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
   quotaCTA === 'signin' ?
   el('button', { onClick: () => {setQuotaCTA(null);try {signIn();} catch (e) {}}, style: { padding: '12px 24px', background: '#fff', color: '#1f1f1f', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(0,0,0,.35)' } }, 'Continue with Google →') :
-  el('a', { href: 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', target: '_blank', rel: 'noopener', style: { padding: '12px 24px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block', boxShadow: '0 4px 16px rgba(239,68,68,.35)' } }, 'Send pricing feedback →'),
-  el('button', { onClick: () => setQuotaCTA(null), style: { padding: '12px 22px', background: 'transparent', color: 'var(--c-text)', border: '1px solid var(--c-border2)', borderRadius: 999, fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' } }, 'Maybe later')
+  el('a', { href: 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', target: '_blank', rel: 'noopener', style: { padding: '12px 24px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block', boxShadow: '0 4px 16px rgba(239,68,68,.35)' } }, 'Send pricing feedback →')
+  ),
+  // 2026-05-27 — soft alt: email capture so anon users hitting the cap
+  // leave a trace even when they refuse the Google round-trip. Only on
+  // the 'signin' (anon) branch — 'upgrade' (signed-in cap) already has
+  // their contact.
+  quotaCTA === 'signin' && el(React.Fragment, null,
+    el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, margin: '18px 0 12px', fontSize: '.6rem', fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--c-muted,#94a3b8)', opacity: .65 } },
+      el('div', { style: { flex: 1, height: 1, background: 'var(--c-border2,rgba(255,255,255,.12))' } }),
+      el('span', null, 'or'),
+      el('div', { style: { flex: 1, height: 1, background: 'var(--c-border2,rgba(255,255,255,.12))' } })
+    ),
+    el('div', {
+      ref: (node) => {
+        if (!node || node.dataset.mounted || !window.ProspectCapture) return;
+        window.ProspectCapture.mount(node, {
+          source: 'debate-ai-paywall',
+          onSuccess: () => { setTimeout(() => setQuotaCTA(null), 1800); }
+        });
+        node.dataset.mounted = '1';
+      }
+    })
+  ),
+  el('div', { style: { display: 'flex', justifyContent: 'center', marginTop: 14 } },
+    el('button', { onClick: () => setQuotaCTA(null), style: { padding: '8px 18px', background: 'transparent', color: 'var(--c-muted)', border: 'none', fontSize: '.72rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3, opacity: .55 } }, 'no thanks, just browsing')
   )
   )
   );

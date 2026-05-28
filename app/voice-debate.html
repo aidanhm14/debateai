@@ -73,6 +73,7 @@
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
+<script defer src="/js/prospect-capture.js"></script>
 <!-- Credential v1.0 lipsync capture. Module is inert (zero CPU, zero
      network) unless voice-debate.html flips CERT_V1_ENABLED on, which is
      gated by a feature flag default off in phase A. See module header. -->
@@ -6270,7 +6271,21 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     type: 'button', className: 'cta vg-cta',
     onClick: triggerGoogleSignIn
   }, 'Continue with Google'),
-  el('a', { href: '/app#casual', className: 'vg-fallback' }, 'or try casual typed chat (unmetered) →')
+  // 2026-05-27 — soft alt: email capture so anon visitors who refuse
+  // Google still leave a trackable lead.
+  el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 10px', fontSize: '.6rem', fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--text-dim,#94a3b8)', opacity: .65 } },
+    el('div', { style: { flex: 1, height: 1, background: 'var(--border,rgba(255,255,255,.12))' } }),
+    el('span', null, 'or'),
+    el('div', { style: { flex: 1, height: 1, background: 'var(--border,rgba(255,255,255,.12))' } })
+  ),
+  el('div', {
+    ref: (node) => {
+      if (!node || node.dataset.mounted || !window.ProspectCapture) return;
+      window.ProspectCapture.mount(node, { source: 'voice-debate-gate' });
+      node.dataset.mounted = '1';
+    }
+  }),
+  el('a', { href: '/app#casual', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 10 } }, 'no thanks, try typed chat instead →')
   ) :
   voiceGate.state === 'upgrade' ? el('div', { className: 'voice-gate' },
   el('div', { className: 'vg-eyebrow' }, 'Free voice rounds used'),

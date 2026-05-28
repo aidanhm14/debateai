@@ -500,6 +500,7 @@
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
+<script defer src="/js/prospect-capture.js"></script>
 <!-- Persona seed pool. Backfills the "Top this week" preview below the
      hero so a brand-new visitor never sees a one-row board with a
      test entry. Real Firestore entries always merge in on top.
@@ -6046,14 +6047,27 @@ section.hero .hero-illustrated h1.hi-headline{
   .intro-guest{
     background:transparent;border:none;
     font-family:inherit;
-    font-size:.72rem;color:var(--text-ghost,rgba(0,0,0,.42));
+    font-size:.7rem;color:var(--text-ghost,rgba(0,0,0,.42));
     text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;
     cursor:pointer;padding:6px;
-    opacity:.72;
+    opacity:.55;
     transition:opacity .15s, color .15s;
   }
-  .intro-guest:hover{opacity:1;color:var(--text-dim)}
+  .intro-guest:hover{opacity:.85;color:var(--text-dim)}
   .intro-guest .ig-cost{font-style:italic;opacity:.85;margin-left:4px}
+  /* 2026-05-27 — email/phone capture path. Lightweight tracking-signal
+     collection for visitors who refuse the Google round-trip. Mounts a
+     `prospect-capture.js` form into #introCapture below. */
+  .intro-divider{
+    display:flex;align-items:center;gap:8px;
+    font-size:.62rem;font-weight:700;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--text-dim);opacity:.65;
+    margin:14px 0 2px;
+  }
+  .intro-divider::before,.intro-divider::after{
+    content:'';flex:1;height:1px;background:var(--border);
+  }
+  .intro-capture{margin-top:2px}
 </style>
 <div id="introModal" class="intro-modal" hidden aria-hidden="true" role="dialog" aria-modal="false" aria-labelledby="introTitle">
   <div class="intro-backdrop" id="introBackdrop"></div>
@@ -6071,7 +6085,9 @@ section.hero .hero-illustrated h1.hi-headline{
         <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
         Sign up with Google
       </button>
-      <button type="button" class="intro-guest" id="introGuest">Skip <span class="ig-cost">(5 rounds, nothing saved)</span></button>
+      <div class="intro-divider">or</div>
+      <div class="intro-capture" id="introCapture"></div>
+      <button type="button" class="intro-guest" id="introGuest">no thanks, just browsing <span class="ig-cost">(5 rounds, nothing saved)</span></button>
     </div>
   </div>
 </div>
@@ -6091,6 +6107,17 @@ section.hero .hero-illustrated h1.hi-headline{
       modal.setAttribute('aria-hidden','false');
       // Next frame so the transition runs
       requestAnimationFrame(function(){ modal.classList.add('is-open'); });
+      // Lazy-mount the prospect-capture form so the inputs exist + theme
+      // vars have resolved before paint. Defer-loaded script may not be
+      // ready at first call; the surface re-mounts no-op on retry.
+      var capture = document.getElementById('introCapture');
+      if (capture && !capture.dataset.mounted && window.ProspectCapture) {
+        window.ProspectCapture.mount(capture, {
+          source: 'landing-intro',
+          onSuccess: function(){ setTimeout(dismiss, 1800); }
+        });
+        capture.dataset.mounted = '1';
+      }
     }
     function dismiss(){
       modal.classList.remove('is-open');

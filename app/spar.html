@@ -31,6 +31,7 @@
 
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
+<script defer src="/js/prospect-capture.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -413,12 +414,20 @@ h1 em{color:var(--accent);font-style:normal}
 .gate-google svg{width:18px;height:18px;flex-shrink:0}
 .gate-disclaimer{font-size:.74rem;color:var(--text-ghost);margin-top:12px;line-height:1.55}
 .gate .ai-alt{
-  display:block;margin-top:14px;padding:10px 14px;
-  font-size:.78rem;color:var(--accent);font-weight:700;
-  border:1px dashed rgba(239,68,68,.42);border-radius:10px;
-  text-decoration:none;transition:background .15s;
+  display:block;margin-top:10px;padding:6px 8px;
+  font-size:.72rem;color:var(--text-ghost);font-weight:500;
+  border:none;border-radius:0;
+  text-decoration:underline;text-underline-offset:3px;
+  opacity:.6;transition:opacity .15s,color .15s;
 }
-.gate .ai-alt:hover{background:rgba(239,68,68,.08)}
+.gate .ai-alt:hover{color:var(--text-dim);opacity:.85;background:transparent}
+/* 2026-05-27 — divider above the prospect-capture slot in the gate */
+.gate-divider{
+  display:flex;align-items:center;gap:8px;margin:14px 0 10px;
+  font-size:.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--text-dim);opacity:.65;
+}
+.gate-divider::before,.gate-divider::after{content:'';flex:1;height:1px;background:var(--border)}
 
 .error{
   padding:12px 16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.32);
@@ -962,21 +971,38 @@ h1 em{color:var(--accent);font-style:normal}
           '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
         '</div></div>' +
         '<h2>Sign in to spar with another debater.</h2>' +
-        '<p>Live human-vs-human is signed-in only. Keeps the queue free of bots and gives you a profile your opponent can see. AI sparring stays anonymous if you\'d rather skip the sign-in.</p>' +
+        '<p>Live human-vs-human is signed-in only. Keeps the queue free of bots and gives you a profile your opponent can see.</p>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
           'Continue with Google' +
         '</button>' +
-        '<a class="ai-alt" href="/debate-ai">Or spar with the AI now, anonymous round →</a>' +
-        /* 2026-05-26: dropped the "/debate-chat" alt link — /spar is
-           now the canonical live-spawning page, /debate-chat redirects
-           here, so showing a sibling link to its old URL from the
-           /spar gate read as self-referential. */
+        '<div class="gate-divider">or</div>' +
+        '<div id="sparCapture"></div>' +
         '<div class="gate-disclaimer">We use your Google name + photo to label you to your opponent. Sign out anytime.</div>' +
+        '<a class="ai-alt" href="/debate-ai">no thanks — just spar with the AI →</a>' +
         '<div id="gateError"></div>' +
       '</div>';
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     mountGlobe('sparGlobe');
+    // 2026-05-27 — mount prospect-capture once the JS module is loaded.
+    // Defer-loaded script may not be ready on first call; retry until
+    // window.load to cover the slowest path.
+    var captureSlot = document.getElementById('sparCapture');
+    function mountCapture(){
+      if (!captureSlot || captureSlot.dataset.mounted) return;
+      if (!window.ProspectCapture) return false;
+      window.ProspectCapture.mount(captureSlot, { source: 'spar-gate' });
+      captureSlot.dataset.mounted = '1';
+      return true;
+    }
+    if (!mountCapture()) {
+      setTimeout(mountCapture, 0);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', mountCapture, { once: true });
+      } else {
+        window.addEventListener('load', mountCapture, { once: true });
+      }
+    }
     try { gtag('event', 'spar_gate_view', {}); } catch(e){}
   }
 
