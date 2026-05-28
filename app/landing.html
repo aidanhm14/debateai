@@ -3710,12 +3710,16 @@ body.signed-in .hero-ctas{gap:8px}
 }
 .standby-figures .stage-debater{
   position:absolute;bottom:0;top:auto;
-  width:clamp(110px,13vw,150px);height:auto;
-  opacity:.46;
+  /* 2026-05-27 redesign: slimmer/taller silhouettes, contour-only heads,
+     architectural podiums. Width nudged down so the elongated proportions
+     don't make them feel bulky. Opacity bumped from .46 → .58 so the
+     linework reads as composed presence, not faint ghosts. */
+  width:clamp(104px,12.2vw,138px);height:auto;
+  opacity:.58;
   transition:opacity .35s ease;
-  --deb-ink:rgba(230,219,195,.92);
-  --deb-ink-soft:rgba(230,219,195,.6);
-  --deb-fill:rgba(230,219,195,.1);
+  --deb-ink:rgba(232,224,206,.94);
+  --deb-ink-soft:rgba(232,224,206,.62);
+  --deb-fill:rgba(232,224,206,.07);
 }
 /* 2026-05-26 (revisited): sf-left restored. Original removal reason
    was the green head reading as "foreign in a red brand world." Fix:
@@ -3752,20 +3756,21 @@ body.signed-in .hero-ctas{gap:8px}
   animation:debaterWiggleRight 6.4s ease-in-out infinite;
   animation-delay:-1.2s;
 }
-/* Body sway. Keyframes bake the existing inward tilt (3°) +
-   scaleX(-1) on the right side so the rotation continues to
-   read as "leaning toward the orb" while the figure breathes. */
+/* Body sway. Both figures now have their own non-mirrored SVG geometry
+   (2026-05-27 redesign), so the right side no longer carries scaleX(-1)
+   — it leans inward via a negative rotation instead. Amplitudes held
+   tiny so the figures read as breathing, not swaying. */
 @keyframes debaterWiggleLeft{
-  0%,100%{transform:rotate(2.2deg)            translateY(0)}
-  25%    {transform:rotate(4.0deg)            translateY(-1px)}
-  50%    {transform:rotate(3.0deg)            translateY(0.4px)}
-  75%    {transform:rotate(1.6deg)            translateY(-0.6px)}
+  0%,100%{transform:rotate(1.6deg)  translateY(0)}
+  25%    {transform:rotate(2.8deg)  translateY(-0.6px)}
+  50%    {transform:rotate(2.0deg)  translateY(0.3px)}
+  75%    {transform:rotate(1.0deg)  translateY(-0.4px)}
 }
 @keyframes debaterWiggleRight{
-  0%,100%{transform:scaleX(-1) rotate(2.6deg) translateY(0)}
-  25%    {transform:scaleX(-1) rotate(4.2deg) translateY(-0.8px)}
-  50%    {transform:scaleX(-1) rotate(2.0deg) translateY(0.5px)}
-  75%    {transform:scaleX(-1) rotate(3.6deg) translateY(-1px)}
+  0%,100%{transform:rotate(-1.6deg) translateY(0)}
+  25%    {transform:rotate(-2.8deg) translateY(-0.6px)}
+  50%    {transform:rotate(-1.0deg) translateY(0.4px)}
+  75%    {transform:rotate(-2.2deg) translateY(-0.5px)}
 }
 /* Head bob — slower than the body sway so the figure doesn't look
    spasmic. Origin at neck base (cx=100, y=110 ish in the 460-unit
@@ -3797,11 +3802,13 @@ body.signed-in .hero-ctas{gap:8px}
   .standby-figures .sf-left,
   .standby-figures .sf-right,
   .standby-figures .stage-debater .deb-head,
-  .standby-figures .stage-debater .deb-arm{
+  .standby-figures .stage-debater .deb-arm,
+  .standby-figures .stage-debater .deb-speak-pulse,
+  .standby-figures .stage-debater .deb-mic-pulse{
     animation:none !important;
   }
-  .standby-figures .sf-left{transform:rotate(3deg)}
-  .standby-figures .sf-right{transform:scaleX(-1) rotate(3deg)}
+  .standby-figures .sf-left{transform:rotate(2deg)}
+  .standby-figures .sf-right{transform:rotate(-2deg)}
 }
 /* 2026-05-24 (rev3): light/stone contrast pass. User flagged the
    figures as "too pale/ghostly" against the cream page bg. Base
@@ -3832,25 +3839,79 @@ body.signed-in .hero-ctas{gap:8px}
 [data-theme="stone"] .standby-figures .stage-debater .deb-stroke{stroke-width:1.7}
 [data-theme="light"] .standby-figures .stage-debater .deb-stroke-soft,
 [data-theme="stone"] .standby-figures .stage-debater .deb-stroke-soft{stroke-width:1.3}
-.standby-figures .stage-debater .deb-head{
-  fill:var(--deb-accent);opacity:.78;
+/* 2026-05-27 redesign + polish pass:
+   - head is contour-only with a faint blurred halation behind it
+     (museum-exhibit spotlit-thinker register).
+   - layered second-pass contour at low opacity gives the hand-drawn
+     doubled-line feel without an feTurbulence filter (cheaper).
+   - tie becomes a slim tapered shape (knot at top → point at bottom).
+   - architectural floor line extends past each podium so the two
+     figures share a ground plane.
+   - pulse amplitudes calmed; breathing reads as restraint. */
+.standby-figures .stage-debater .deb-head{fill:none}
+.standby-figures .stage-debater .deb-hand{fill:var(--deb-ink);opacity:.62}
+.standby-figures .stage-debater .deb-shadow{
+  fill:var(--deb-ink);opacity:.09;
 }
-.standby-figures .stage-debater .deb-halo{
-  stroke:var(--deb-accent);stroke-width:1;fill:none;opacity:.22;
+/* Faint halation behind the head — gaussian-blurred fill that reads
+   as a soft museum spotlight. Filter applied in the SVG via filter=
+   so the rest of the figure stays crisp. */
+.standby-figures .stage-debater .deb-halation{
+  fill:var(--deb-ink);opacity:.07;
 }
-.standby-figures .stage-debater .deb-tie{fill:var(--deb-accent);opacity:.55}
-.standby-figures .stage-debater .deb-hand{fill:var(--deb-ink);opacity:.6}
-.standby-figures .stage-debater .deb-lectern{
-  fill:var(--deb-fill);stroke:var(--deb-ink);stroke-width:1.3;stroke-linejoin:round;
+[data-theme="light"] .standby-figures .stage-debater .deb-halation,
+[data-theme="stone"] .standby-figures .stage-debater .deb-halation{
+  opacity:.09;
 }
-.standby-figures .stage-debater .deb-lectern-top{
-  fill:var(--deb-fill);stroke:var(--deb-ink-soft);stroke-width:1;
+/* Hand-drawn doubled contour: low-opacity offset companion stroke
+   layered behind the primary head outline. No filter needed. */
+.standby-figures .stage-debater .deb-stroke-ghost{
+  stroke:var(--deb-ink-soft);stroke-width:1.0;fill:none;opacity:.35;
+  stroke-linecap:round;stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-stroke-ghost,
+[data-theme="stone"] .standby-figures .stage-debater .deb-stroke-ghost{
+  stroke-width:1.3;opacity:.30;
+}
+/* Tapered tie path (knot-to-point shape). Slim and refined. */
+.standby-figures .stage-debater .deb-tie{
+  fill:var(--deb-accent);opacity:.72;stroke:none;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-tie,
+[data-theme="stone"] .standby-figures .stage-debater .deb-tie{opacity:.82}
+/* Architectural ground line — thin stroke past the podium width. */
+.standby-figures .stage-debater .deb-ground{
+  stroke:var(--deb-ink-soft);stroke-width:.7;fill:none;opacity:.5;
+  stroke-linecap:round;vector-effect:non-scaling-stroke;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-ground,
+[data-theme="stone"] .standby-figures .stage-debater .deb-ground{
+  stroke-width:.9;opacity:.55;
 }
 .standby-figures .stage-debater .deb-mic-head{
-  fill:var(--deb-ink);opacity:.7;
+  fill:var(--deb-ink);opacity:.78;
 }
-.standby-figures .stage-debater .deb-floor{
-  fill:var(--deb-glow);opacity:.18;
+.standby-figures .stage-debater .deb-speak-pulse{
+  fill:var(--deb-accent);opacity:.18;
+  transform-box:fill-box;transform-origin:50% 50%;
+  animation:debaterSpeakPulse 4.2s ease-in-out infinite;
+}
+.standby-figures .stage-debater .deb-mic-pulse{
+  fill:var(--deb-glow);opacity:.10;
+  transform-box:fill-box;transform-origin:50% 50%;
+  animation:debaterMicPulse 3.4s ease-in-out infinite;
+}
+.standby-figures .sf-right .deb-speak-pulse{animation-delay:-2.1s;animation-duration:4.8s}
+.standby-figures .sf-right .deb-mic-pulse{animation-delay:-1.4s;animation-duration:3.8s}
+/* Calmer amplitudes — figures breathe, not flash. */
+@keyframes debaterSpeakPulse{
+  0%,100%{transform:scale(0.92);opacity:.14}
+  50%    {transform:scale(1.16);opacity:.28}
+}
+@keyframes debaterMicPulse{
+  0%,100%{transform:scale(0.94);opacity:.07}
+  50%    {transform:scale(1.22);opacity:.18}
 }
 @media (max-width:760px){
   .hero-orb-card .standby-figures{display:none}
@@ -5047,7 +5108,6 @@ section.hero .hero-illustrated h1.hi-headline{
 @keyframes hiDriftSlow{0%,100%{transform:translateY(0);opacity:.6}50%{transform:translateY(-7px);opacity:.92}}
 .hero-illustrated .hi-bubble-1{top:24%;left:25%;animation-delay:-2s}
 .hero-illustrated .hi-bubble-2{top:21%;right:18%;animation-delay:-4s}
-.hero-illustrated .hi-bubble-3{bottom:10%;left:46%;animation-delay:-6s}
 
 /* SVG line + fill conventions */
 .hero-illustrated .hi-stroke{fill:none;stroke:var(--hi-line);stroke-width:1.25;stroke-linecap:round;stroke-linejoin:round}
@@ -6552,10 +6612,12 @@ section.hero .hero-illustrated h1.hi-headline{
         <span class="hi-chip hi-chip-ar" lang="ar" dir="rtl">العربية</span>
         <span class="hi-chip hi-chip-hi" lang="hi">हिंदी</span>
 
-        <!-- Faint italic speech snippets, drifting -->
+        <!-- Faint italic speech snippets, drifting. "Agreed." removed
+             2026-05-27 — drifting agreement-bubble contradicts the
+             "AI that pushes back" wedge (yes-man framing). The two
+             remaining bubbles both read as productive clash. -->
         <span class="hi-bubble hi-bubble-1">Counterpoint.</span>
         <span class="hi-bubble hi-bubble-2">Define your framework.</span>
-        <span class="hi-bubble hi-bubble-3">Agreed.</span>
       </div>
 
       <!-- 2026-05-26: chip rotation loop. Each chip fades through a
@@ -7127,63 +7189,124 @@ section.hero .hero-illustrated h1.hi-headline{
                  dusty crimson palette (see CSS) so both figures live
                  inside the brand color family while staying visually
                  distinct as two different speakers. -->
+            <!-- 2026-05-27 redesign: editorial line-drawing debaters.
+                 Both figures now carry their own non-mirrored geometry —
+                 LEFT leans subtly forward with a raised gesture arm at
+                 chest; RIGHT is more upright with both hands resting at
+                 the podium. Heads are contour-only (no filled accent);
+                 podiums are architectural rectangles, not cartoon
+                 trapezoids; tie is a thin red sliver; throat + mic
+                 carry slow speaking-pulses. -->
             <svg class="stage-debater sf-left" viewBox="0 0 200 460" role="presentation" focusable="false">
-              <circle class="deb-halo" cx="100" cy="80" r="48" stroke-dasharray="2 7"/>
-              <g class="deb-head">
-                <ellipse cx="100" cy="80" rx="20" ry="26"/>
-                <ellipse class="deb-stroke" cx="100" cy="80" rx="20" ry="26" fill="none"/>
-                <path class="deb-stroke" d="M82 70 Q86 50 100 50 Q116 50 118 76"/>
-              </g>
-              <path class="deb-stroke" d="M94 108 L92 124 M106 108 L108 124"/>
-              <path class="deb-stroke" d="M54 144 Q76 129 100 127 Q124 129 146 144"/>
-              <path class="deb-stroke" d="M54 144 Q49 198 56 262 L60 308"/>
-              <path class="deb-stroke" d="M146 144 Q151 198 144 262 L140 308"/>
-              <path class="deb-stroke" d="M78 144 L100 186 L122 144"/>
-              <path class="deb-stroke deb-stroke-soft" d="M86 140 L100 160 L114 140"/>
-              <path class="deb-tie" d="M100 186 L96 198 L100 250 L104 198 Z"/>
-              <path class="deb-stroke" d="M144 154 Q160 196 153 246"/>
-              <path class="deb-stroke" d="M153 246 Q150 284 142 308"/>
-              <path class="deb-hand" d="M130 304 Q142 300 152 306 Q156 313 147 317 Q137 318 129 311 Z"/>
+              <defs>
+                <!-- soft head halation: gaussian-blurred so the circle reads
+                     as ambient spotlight, not a hard shape. -->
+                <filter id="halL" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="5"/>
+                </filter>
+              </defs>
+              <!-- architectural ground line shared with .sf-right's twin so
+                   the two figures stand on the same plane. -->
+              <path class="deb-ground" d="M-30 418 L230 418"/>
+              <!-- soft floor shadow (grounds the figure, no red glow) -->
+              <ellipse class="deb-shadow" cx="100" cy="436" rx="66" ry="3.2"/>
+              <!-- architectural podium: tall slender rectangle with subtle perspective -->
+              <path class="deb-stroke" d="M46 408 L56 308 L144 308 L154 408 Z"/>
+              <!-- top plate edge: thin shadow line beneath top to imply depth -->
+              <path class="deb-stroke deb-stroke-soft" d="M58 316 L142 316"/>
+              <!-- subtle vertical seam, off-center for organic asymmetry -->
+              <path class="deb-stroke deb-stroke-soft" d="M91 322 L91 402"/>
+              <!-- mic: slim curved stem rising from podium top, with pulse glow + head -->
+              <path class="deb-stroke" d="M126 312 Q116 290 104 274"/>
+              <circle class="deb-mic-pulse" cx="104" cy="270" r="9"/>
+              <circle class="deb-mic-head" cx="104" cy="270" r="3.4"/>
+              <!-- body: elongated silhouette, slim suit -->
+              <path class="deb-stroke" d="M62 154 Q82 138 100 134 Q120 138 140 154"/>
+              <path class="deb-stroke" d="M62 154 Q56 218 64 274 Q70 296 78 308"/>
+              <path class="deb-stroke" d="M140 154 Q146 218 138 274 Q132 296 124 308"/>
+              <!-- single diagonal lapel left + right, meeting at sternum (no V) -->
+              <path class="deb-stroke" d="M88 152 L100 198"/>
+              <path class="deb-stroke" d="M114 152 L100 198"/>
+              <!-- collar inner notch — soft second pass -->
+              <path class="deb-stroke-soft" d="M94 148 L100 170 L108 148"/>
+              <!-- tie: tapered fashion-sketch shape (knot at top, point at bottom) -->
+              <path class="deb-tie" d="M96.4 170 L103.6 170 L101.2 226 L100 244 L98.8 226 Z"/>
+              <!-- right arm: at side, hand resting near podium top -->
+              <path class="deb-stroke" d="M139 158 Q150 200 144 252 Q140 282 132 304"/>
+              <ellipse class="deb-hand" cx="132" cy="306" rx="5.6" ry="3.6"/>
+              <!-- left arm: subtle forward gesture, hand near chest -->
               <g class="deb-arm">
-                <path class="deb-stroke" d="M58 152 Q50 184 47 214"/>
-                <path class="deb-stroke" d="M47 214 Q49 188 60 168"/>
-                <path class="deb-hand" d="M54 165 Q64 159 75 165 Q79 173 70 177 Q60 178 54 172 Z"/>
+                <path class="deb-stroke" d="M62 158 Q50 200 58 232 Q66 256 84 246"/>
+                <ellipse class="deb-hand" cx="84" cy="248" rx="5.2" ry="3.4"/>
               </g>
-              <ellipse class="deb-floor" cx="100" cy="434" rx="82" ry="9"/>
-              <path class="deb-lectern" d="M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z"/>
-              <path class="deb-lectern-top" d="M30 314 Q100 308 170 314 L168 326 L32 326 Z"/>
-              <path class="deb-stroke deb-stroke-soft" d="M32 326 Q100 320 168 326"/>
-              <path class="deb-stroke deb-stroke-soft" d="M118 310 Q114 288 106 281 Q100 277 102 269"/>
-              <ellipse class="deb-mic-head" cx="102" cy="263" rx="4" ry="6"/>
+              <!-- neck: two slim parallel lines -->
+              <path class="deb-stroke" d="M92 116 L92 134"/>
+              <path class="deb-stroke" d="M108 116 L108 134"/>
+              <!-- soft halation behind the head (under the contour) -->
+              <circle class="deb-halation" cx="100" cy="76" r="30" filter="url(#halL)"/>
+              <!-- head: tall sculpted ovoid, contour only, with a doubled ghost
+                   pass behind the primary stroke for hand-drawn doubled-line feel -->
+              <g class="deb-head">
+                <path class="deb-stroke-ghost" d="M82.4 70.5 Q81.4 48.5 100 46.4 Q118.4 48.5 117.4 70.5 Q117.4 92 111.4 105 Q105.4 112.4 100 112.4 Q94.6 112.4 88.6 105 Q82.4 92 82.4 70.5 Z"/>
+                <path class="deb-stroke" d="M83 70 Q82 48 100 46 Q118 48 117 70 Q117 92 111 105 Q105 112 100 112 Q95 112 89 105 Q83 92 83 70 Z"/>
+                <!-- minimal jaw indication -->
+                <path class="deb-stroke-soft" d="M89 102 Q100 110 111 102"/>
+                <!-- subtle hair contour at crown -->
+                <path class="deb-stroke-soft" d="M88 55 Q100 50 112 55"/>
+                <!-- faint ear arc on figure-left side -->
+                <path class="deb-stroke-soft" d="M83 80 Q79 86 84 92"/>
+              </g>
+              <!-- speaking pulse at throat (slow breathing red glow) -->
+              <circle class="deb-speak-pulse" cx="100" cy="128" r="4"/>
             </svg>
             <svg class="stage-debater sf-right" viewBox="0 0 200 460" role="presentation" focusable="false">
-              <circle class="deb-halo" cx="100" cy="80" r="48" stroke-dasharray="2 7"/>
+              <defs>
+                <filter id="halR" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="5"/>
+                </filter>
+              </defs>
+              <path class="deb-ground" d="M-30 418 L230 418"/>
+              <ellipse class="deb-shadow" cx="100" cy="436" rx="66" ry="3.2"/>
+              <!-- podium (same architecture; seam mirrored for asymmetry) -->
+              <path class="deb-stroke" d="M46 408 L56 308 L144 308 L154 408 Z"/>
+              <path class="deb-stroke deb-stroke-soft" d="M58 316 L142 316"/>
+              <path class="deb-stroke deb-stroke-soft" d="M109 322 L109 402"/>
+              <!-- mic on the opposite side (LEFT-of-figure stem) so the
+                   two debaters read as facing each other across the orb -->
+              <path class="deb-stroke" d="M74 312 Q84 290 96 274"/>
+              <circle class="deb-mic-pulse" cx="96" cy="270" r="9"/>
+              <circle class="deb-mic-head" cx="96" cy="270" r="3.4"/>
+              <!-- body: slightly more upright posture — squarer shoulder line,
+                   less torso taper -->
+              <path class="deb-stroke" d="M60 152 Q80 137 100 133 Q120 137 140 152"/>
+              <path class="deb-stroke" d="M60 152 Q54 218 62 274 Q68 296 76 308"/>
+              <path class="deb-stroke" d="M140 152 Q146 218 138 274 Q132 296 124 308"/>
+              <path class="deb-stroke" d="M88 150 L100 196"/>
+              <path class="deb-stroke" d="M114 150 L100 196"/>
+              <path class="deb-stroke-soft" d="M94 146 L100 168 L108 146"/>
+              <!-- tapered tie (knot to point) -->
+              <path class="deb-tie" d="M96.4 168 L103.6 168 L101.2 222 L100 240 L98.8 222 Z"/>
+              <!-- both hands resting at podium edge (calm/reflective posture) -->
+              <path class="deb-stroke" d="M60 156 Q48 200 56 252 Q60 286 70 306"/>
+              <ellipse class="deb-hand" cx="70" cy="307" rx="5.4" ry="3.4"/>
+              <path class="deb-stroke" d="M140 156 Q152 200 144 252 Q140 286 130 306"/>
+              <ellipse class="deb-hand" cx="130" cy="307" rx="5.4" ry="3.4"/>
+              <!-- neck slightly offset to imply a small head turn -->
+              <path class="deb-stroke" d="M93 116 L93 134"/>
+              <path class="deb-stroke" d="M109 116 L109 134"/>
+              <!-- soft halation behind the head -->
+              <circle class="deb-halation" cx="100" cy="74" r="30" filter="url(#halR)"/>
+              <!-- head: subtly different ovoid so it doesn't read as mirror,
+                   with doubled ghost contour pass behind the primary stroke -->
               <g class="deb-head">
-                <ellipse cx="100" cy="80" rx="20" ry="26"/>
-                <ellipse class="deb-stroke" cx="100" cy="80" rx="20" ry="26" fill="none"/>
-                <path class="deb-stroke" d="M82 70 Q86 50 100 50 Q116 50 118 76"/>
+                <path class="deb-stroke-ghost" d="M83.4 68.5 Q83.4 46.5 100 44.4 Q118.4 46.5 118.4 70.5 Q118.4 92 112.4 104 Q106.4 112.4 101 112.4 Q95.6 112.4 89.6 104 Q83.4 92 83.4 68.5 Z"/>
+                <path class="deb-stroke" d="M84 68 Q84 46 100 44 Q118 46 118 70 Q118 92 112 104 Q106 112 101 112 Q96 112 90 104 Q84 92 84 68 Z"/>
+                <path class="deb-stroke-soft" d="M90 100 Q101 109 112 100"/>
+                <path class="deb-stroke-soft" d="M89 53 Q101 48 113 53"/>
+                <!-- ear arc on the opposite (right) side -->
+                <path class="deb-stroke-soft" d="M118 80 Q122 86 117 92"/>
               </g>
-              <path class="deb-stroke" d="M94 108 L92 124 M106 108 L108 124"/>
-              <path class="deb-stroke" d="M54 144 Q76 129 100 127 Q124 129 146 144"/>
-              <path class="deb-stroke" d="M54 144 Q49 198 56 262 L60 308"/>
-              <path class="deb-stroke" d="M146 144 Q151 198 144 262 L140 308"/>
-              <path class="deb-stroke" d="M78 144 L100 186 L122 144"/>
-              <path class="deb-stroke deb-stroke-soft" d="M86 140 L100 160 L114 140"/>
-              <path class="deb-tie" d="M100 186 L96 198 L100 250 L104 198 Z"/>
-              <path class="deb-stroke" d="M144 154 Q160 196 153 246"/>
-              <path class="deb-stroke" d="M153 246 Q150 284 142 308"/>
-              <path class="deb-hand" d="M130 304 Q142 300 152 306 Q156 313 147 317 Q137 318 129 311 Z"/>
-              <g class="deb-arm">
-                <path class="deb-stroke" d="M58 152 Q50 184 47 214"/>
-                <path class="deb-stroke" d="M47 214 Q49 188 60 168"/>
-                <path class="deb-hand" d="M54 165 Q64 159 75 165 Q79 173 70 177 Q60 178 54 172 Z"/>
-              </g>
-              <ellipse class="deb-floor" cx="100" cy="434" rx="82" ry="9"/>
-              <path class="deb-lectern" d="M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z"/>
-              <path class="deb-lectern-top" d="M30 314 Q100 308 170 314 L168 326 L32 326 Z"/>
-              <path class="deb-stroke deb-stroke-soft" d="M32 326 Q100 320 168 326"/>
-              <path class="deb-stroke deb-stroke-soft" d="M118 310 Q114 288 106 281 Q100 277 102 269"/>
-              <ellipse class="deb-mic-head" cx="102" cy="263" rx="4" ry="6"/>
+              <circle class="deb-speak-pulse" cx="100" cy="128" r="4"/>
             </svg>
           </div>
           <!-- 2026-05-26 rev4: faint connection paths from the orb
@@ -8737,12 +8860,12 @@ section.hero .hero-illustrated h1.hi-headline{
 
         <div class="fl-module">
           <h4 class="fl-mod-h"><span class="fl-mod-num">02</span> What general AI gets wrong</h4>
-          <p>Ask a chat tool to "debate" you and it hedges, agrees, and reaches for Wikipedia. It doesn't know that Policy spreads tagged cards, that APDA bans them, or what a whip speech is supposed to do. It performs reasonableness instead of running the format.</p>
+          <p>General AI hedges, agrees, and reaches for Wikipedia. It doesn't know Policy spreads tagged cards, APDA bans them, or what a whip speech is for. It performs reasonableness instead of running the format.</p>
         </div>
 
         <div class="fl-module">
           <h4 class="fl-mod-h"><span class="fl-mod-num">03</span> Why debate matters</h4>
-          <p>Arguing out loud, against a clock, against someone who wants to win. That's where thinking actually sharpens. Not just for debaters: lawyers prep crosses, founders rehearse Q&amp;A, anyone who has to be coherent under pressure benefits from a partner who pushes back instead of nodding.</p>
+          <p>Arguing out loud, against a clock, against someone who wants to win. That's where thinking sharpens. Not just debaters. Lawyers, founders, anyone who has to stay coherent under pressure.</p>
         </div>
 
         <div class="fl-module">
@@ -8752,7 +8875,7 @@ section.hero .hero-illustrated h1.hi-headline{
 
         <div class="fl-module">
           <h4 class="fl-mod-h"><span class="fl-mod-num">05</span> Where this is going</h4>
-          <p>An online community for debaters at every level, from first-time tab-shoppers to circuit champions. AI rounds when no one's around; human rounds through the spar board when they are; tournaments hosted on-platform; a public RFD library so the best ballots become teaching material instead of dying in a Google Doc.</p>
+          <p>AI rounds when no one's around. Human rounds through the spar board when they are. Tournaments on-platform. A public RFD library so the best ballots teach instead of dying in Google Docs.</p>
         </div>
 
         <div class="fl-cta">
@@ -8842,33 +8965,6 @@ section.hero .hero-illustrated h1.hi-headline{
         <span class="fpl-sub">Live rooms, real opponents, instant ballots</span>
       </a>
     </nav>
-
-    <!-- ── Variant B only ── "Note from the founder" eyebrow + compact
-         pricing comparison module. The CSS rule
-         html:not([data-landing-variant="B"]) .lab-only-b{display:none}
-         hides both blocks under variant A so the existing layout is
-         unchanged for the control arm. -->
-    <div class="lab-only-b founder-eyebrow-row">
-      <span class="founder-eyebrow-mark" aria-hidden="true"></span>
-      <span class="founder-eyebrow-label">Note from the founder</span>
-    </div>
-
-    <div class="lab-only-b pricing-pulse" aria-label="Pricing at a glance">
-      <div class="pp-cards">
-        <div class="pp-card pp-card--generic">
-          <div class="pp-card-label">Generic AI Pro</div>
-          <div class="pp-card-price">$9.99<span class="pp-card-cadence">/mo</span></div>
-        </div>
-        <div class="pp-versus" aria-hidden="true">vs</div>
-        <div class="pp-card pp-card--us">
-          <div class="pp-card-label">DebateAI</div>
-          <div class="pp-card-price pp-card-price--free">Free<span class="pp-card-cadence"> during beta</span></div>
-        </div>
-      </div>
-      <p class="pp-line">
-        General AI gives you a chatbot. DebateAI gives you opponents, judges, formats, and rounds.
-      </p>
-    </div>
 
     <div class="story-row">
       <!-- .story-globe is moved out of .story-row in variant B by the
@@ -9143,102 +9239,6 @@ section.hero .hero-illustrated h1.hi-headline{
   html[data-landing-variant="B"] .standby-figures .sf-left{
     opacity:var(--sfl-opacity, 1);
     transition:opacity .2s ease;
-  }
-
-  /* ── "Note from the founder" eyebrow (variant B) ── */
-  .founder-eyebrow-row{
-    display:flex;align-items:center;gap:12px;
-    margin:clamp(24px,3vw,40px) auto 14px;
-    max-width:1120px;
-  }
-  .founder-eyebrow-mark{
-    display:inline-block;width:28px;height:2px;background:var(--accent,#ef4444);
-    flex:0 0 auto;
-  }
-  .founder-eyebrow-label{
-    font-size:.62rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
-    color:var(--text);
-  }
-  [data-theme="light"] .founder-eyebrow-label{color:#1a1a1f}
-
-  /* ── Compact pricing comparison module ──
-     Two side-by-side cards (Generic AI Pro · $9.99/mo vs DebateAI · Free
-     during beta) with a sharp tagline below. Reads as a strategic point,
-     not a plan-grid. Red/green accents kept minimal: only the price
-     colors carry semantic meaning. */
-  .pricing-pulse{
-    margin:18px auto clamp(32px,4vw,56px);
-    max-width:920px;
-    padding:18px clamp(16px,2vw,24px);
-    border:1px solid var(--border);
-    border-radius:14px;
-    background:linear-gradient(180deg, rgba(255,255,255,.025) 0%, rgba(255,255,255,.01) 100%);
-  }
-  [data-theme="light"] .pricing-pulse{
-    background:#fff;
-    border-color:rgba(0,0,0,.08);
-    box-shadow:0 4px 18px rgba(0,0,0,.04);
-  }
-  .pp-cards{
-    display:grid;
-    grid-template-columns:1fr auto 1fr;
-    align-items:stretch;
-    gap:clamp(14px,2vw,22px);
-  }
-  .pp-card{
-    display:flex;flex-direction:column;align-items:flex-start;gap:6px;
-    padding:14px 16px;border-radius:10px;
-    border:1px solid transparent;
-    background:rgba(255,255,255,.02);
-  }
-  [data-theme="light"] .pp-card{background:rgba(0,0,0,.025)}
-  .pp-card-label{
-    font-size:.58rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--text-dim);
-  }
-  .pp-card-price{
-    font-family:'Fraunces',Georgia,"Times New Roman",serif;
-    font-size:clamp(1.65rem,3vw,2.1rem);
-    font-weight:600;letter-spacing:-.015em;line-height:1;
-    color:var(--text);
-  }
-  .pp-card-cadence{
-    font-family:'Inter',system-ui,sans-serif;
-    font-size:.78rem;font-weight:500;color:var(--text-dim);letter-spacing:0;
-    margin-left:4px;
-  }
-  /* Generic card reads neutral — minor grey-out so the DebateAI card
-     visually wins the side-by-side without sneering at the comp. */
-  .pp-card--generic{opacity:.78}
-  .pp-card--generic .pp-card-price{color:var(--text-dim)}
-  .pp-card--us{
-    border-color:rgba(220,38,38,.32);
-    background:rgba(220,38,38,.05);
-  }
-  [data-theme="light"] .pp-card--us{
-    background:rgba(220,38,38,.04);
-    border-color:rgba(220,38,38,.22);
-  }
-  .pp-card-price--free{color:#34d399}
-  [data-theme="light"] .pp-card-price--free{color:#15803d}
-  .pp-versus{
-    display:flex;align-items:center;justify-content:center;
-    font-size:.66rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
-    color:var(--text-dim);
-    padding:0 4px;
-  }
-  .pp-line{
-    margin:14px 0 0;
-    font-family:'Fraunces',Georgia,"Times New Roman",serif;
-    font-size:clamp(1.02rem,1.55vw,1.18rem);
-    font-weight:500;letter-spacing:-.005em;line-height:1.45;
-    color:var(--text);text-align:center;
-  }
-  [data-theme="light"] .pp-line{color:#1a1a1f}
-  @media (max-width:640px){
-    .pp-cards{grid-template-columns:1fr;gap:10px}
-    .pp-versus{padding:2px 0}
-    .pp-line{font-size:.98rem}
   }
 
   /* ── Figure-slot (variant B, replaces .story-globe in .story-row) ──
@@ -12040,7 +12040,7 @@ section.hero .hero-illustrated h1.hi-headline{
   <div class="wrap" style="max-width:none;padding:0">
     <div class="sec-label" style="color:var(--text-dim)">Philosophy at depth</div>
     <h2 class="sec-title">Frameworks <em class="hh-accent" style="color:var(--text);background:none;-webkit-text-fill-color:currentColor">that hold up.</em></h2>
-    <p class="sec-sub">Most chatbots name-drop Rawls and stop there. This one knows the difference between <em>A Theory of Justice</em> and <em>Political Liberalism</em>, which Kant formulation actually maps to the motion, and when to reach for Foucault's middle period vs. his late work on governmentality. Real warrants. And it tells you when philosophy is the wrong tool for the round.</p>
+    <p class="sec-sub">Most chatbots name-drop Rawls and stop. This one knows <em>A Theory of Justice</em> vs. <em>Political Liberalism</em>, which Kant formulation maps to the motion, and when philosophy is the wrong tool for the round.</p>
 
     <div class="tools-grid" style="margin-top:24px">
       <div class="tool-card" style="cursor:default">
@@ -12416,7 +12416,7 @@ section.hero .hero-illustrated h1.hi-headline{
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Is it actually free?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
         <div class="faq-stack-a">
-          <p>Free in beta, with a daily cap so we don't burn through API credits. You get 5 rounds without an account and 10 once you sign in with Google. No card asked. Hit the cap and you wait for the reset. Nothing's for sale yet, so there's no "pay now to keep going."</p>
+          <p>Free in beta. 5 rounds without an account, 10 signed in with Google. No card asked. Hit the cap, wait for the reset. Nothing's for sale yet.</p>
           <p>The numbers on <a href="/pricing">/pricing</a> are the post-beta plan, sitting there in public so you know what's coming. Got a take on what they should actually be? <a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform" target="_blank" rel="noopener">Tell us in the feedback form.</a> We read everything.</p>
         </div>
       </details>
@@ -12427,7 +12427,7 @@ section.hero .hero-illustrated h1.hi-headline{
           <p>Hopefully not. That's exactly the line I'm trying to police.</p>
           <p>It's built to argue back, not fabricate a universe. It presses soft claims, asks for warrants, finds the missing link, and tells you when your logic collapses. What it will never do is invent fake studies, fake cards, or fake tournament lore and pass them off as real.</p>
           <span class="faq-note faq-note--warn">No fake evidence. No fake citations.</span>
-          <p>The harder problem is the opposite: AI can sound too complete. Sometimes the pushback is warranted enough to feel unfair but still misses the texture of a real round, the timing, the strategic restraint, the sense of what actually moves a judge. I can't fully close that gap yet. More rounds, more ballots, and more votes on what people genuinely found persuasive are how the system learns the difference between generic cleverness and a case that feels fair, human, and beatable.</p>
+          <p>The harder problem is the opposite. AI can sound too complete: warranted enough to feel unfair, but missing the texture of a real round. More rounds, more ballots, more votes on what actually persuaded close that gap.</p>
           <span class="faq-note">Still improving: human persuasion, strategic restraint, judge realism.</span>
         </div>
       </details>
@@ -12435,17 +12435,16 @@ section.hero .hero-illustrated h1.hi-headline{
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Isn't this just another AI debate tool?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
         <div class="faq-stack-a">
-          <p>You'll feel the gap in the first thirty seconds. Most of them hand you a wall of generic text that reads like it was generated, because it was. No clock, no format, no judge. It sounds like a debate the way a stock photo looks like a person.</p>
-          <p>This runs a live round instead. A motion, a side, a clock that doesn't pause. The AI takes POIs in WSDC, spreads tagged cards in Policy, stays impromptu in APDA, then writes you a real judge ballot at the end. Six brains, six ways of arguing, built by a UChicago parliamentary debater who has actually argued in these formats. That's the part nobody else bothered to build.</p>
-          <p>None of this makes it perfect. It's not, and maybe never will be. It still says wrong things and drops threads, and the round is better for it: you get sharper by catching the mistake, not by trusting the machine. We ship fixes most weeks. It keeps getting closer.</p>
+          <p>You'll feel the gap in thirty seconds. Most hand you a wall of generic text. No clock, no format, no judge. Sounds like a debate the way a stock photo looks like a person.</p>
+          <p>This runs a live round. A motion, a side, a clock that doesn't pause. The AI takes POIs in WSDC, spreads tagged cards in Policy, stays impromptu in APDA, then writes a real judge ballot. Built by a UChicago parliamentary debater who has actually argued in these formats.</p>
+          <p>None of this is perfect. It still says wrong things and drops threads. The round is better for it: you sharpen by catching the mistake. We ship fixes most weeks.</p>
         </div>
       </details>
 
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Can I debate in another language?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
         <div class="faq-stack-a">
-          <p>Yes, fourteen of them. English, Spanish, French, Portuguese, Mandarin, Arabic, Hindi, and more. Switch from the language pill in the topbar; the AI argues, takes POIs, and writes the judge ballot in whichever you pick.</p>
-          <p>Same engine across all fourteen. Useful if you want to drill a round in your first language, then run it back in English once the arguments hold.</p>
+          <p>Yes, fourteen. English, Spanish, French, Portuguese, Mandarin, Arabic, Hindi, and more. Switch from the language pill; the AI argues, takes POIs, and writes the ballot in whichever you pick. Same engine across all fourteen, so you can drill in your first language and run it back in English once the arguments hold.</p>
         </div>
       </details>
 
