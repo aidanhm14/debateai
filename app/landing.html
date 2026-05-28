@@ -5166,19 +5166,25 @@ section.hero .hero-illustrated h1.hi-headline{
 .hero-illustrated .hi-creed{
   font-family:'Fraunces',Georgia,"Times New Roman",serif;
   font-style:italic;font-weight:400;
-  font-size:clamp(.95rem, 1.15vw, 1.08rem);
-  line-height:1.45;letter-spacing:.005em;
-  color:var(--hi-ink-soft);
-  text-align:center;max-width:640px;
-  margin:4px auto 2px;
-  opacity:.86;
+  /* 2026-05-27 plane session: bumped type. The creed is now the
+     canonical thesis-line ("Built to challenge you. Not to flatter
+     you.") and needs to read with authority, not as a footnote.
+     Was clamp(.95rem, 1.15vw, 1.08rem); ~+25% across breakpoints. */
+  font-size:clamp(1.18rem, 1.55vw, 1.42rem);
+  line-height:1.32;letter-spacing:-.005em;
+  color:var(--hi-ink);
+  text-align:center;max-width:720px;
+  margin:10px auto 6px;
+  opacity:.94;
   /* Two-phase fade matches the headline/CTA rotators (which use
      a slide-up animation). The creed swap is gentler — pure opacity
      fade — because it sits as a quiet anchor, not a marquee. */
   transition:opacity .42s ease;
 }
 .hero-illustrated .hi-creed.is-fading{opacity:0}
-.hero-illustrated .hi-creed b{font-weight:500;font-style:normal;color:var(--hi-ink)}
+/* Emphasis hook: italic-on-italic doesn't pop, so we upgrade <b>
+   to upright + ink-weighted. Subtle, not shouty. */
+.hero-illustrated .hi-creed b{font-weight:600;font-style:normal;color:var(--hi-ink)}
 
 /* CTA row.
    2026-05-27: was column-stacked (one big red primary on top, three
@@ -5217,13 +5223,21 @@ section.hero .hero-illustrated h1.hi-headline{
   font-family:'Inter',-apple-system,system-ui,sans-serif;
   font-weight:500;font-size:.9rem;color:var(--hi-ink);text-decoration:none;
   padding:13px 22px;border-radius:999px;
-  background:rgba(255,253,247,.55);
-  border:1px solid var(--hi-tan-soft);
+  /* 2026-05-27 plane session: bg was hardcoded rgba(255,253,247,.55)
+     which read as an invisible grey blob on dark theme. Switched to
+     the theme-aware --hi-chip-bg token so the secondary CTAs stay
+     readable on light cream AND dark ink backgrounds. Border bumped
+     +alpha to give the pill real edge on dark. */
+  background:var(--hi-chip-bg);
+  border:1px solid var(--hi-line-soft);
   transition:border-color .2s ease, color .2s ease, background .2s ease, transform .2s ease;
 }
 .hero-illustrated .hi-cta-secondary:hover{
   color:var(--hi-red);border-color:var(--hi-red);
-  background:#fff;transform:translateY(-1px);
+  /* Was hardcoded #fff which inverts wrong on dark. --hi-paper is
+     the theme-aware "lift to the top of the canvas" tone — cream
+     on light, warm near-black-with-tint on dark. */
+  background:var(--hi-paper);transform:translateY(-1px);
 }
 /* Dot separators are no longer needed now that the secondaries are
    real pill buttons sitting in the same row as the primary. The DOM
@@ -5435,6 +5449,18 @@ section.hero .hero-illustrated h1.hi-headline{
       pickerWrap.classList.add('in-nav');
       if (debateBtn) navRight.insertBefore(pickerWrap, debateBtn);
       else navRight.appendChild(pickerWrap);
+    }
+    // 2026-05-27 plane session: ensure the topbar reads as
+    // bell | theme-toggle | lang-picker | Voice AI CTA. Both the
+    // bell (notifications.js) and the lang-picker insertBefore the
+    // CTA on DOMContentLoaded, which leaves the theme-toggle (built
+    // by topbar.js synchronously, appended to the right slot)
+    // marooned at the top of the slot. Reorder here so it lands
+    // immediately before the lang-picker — i.e. just after the
+    // bell, which is exactly where Aidan's annotation pointed.
+    var themeToggle = navRight && navRight.querySelector('.theme-toggle');
+    if (themeToggle && pickerWrap && pickerWrap.parentNode === navRight) {
+      navRight.insertBefore(themeToggle, pickerWrap);
     }
     // Only load the Google widget if a non-English locale is active. Saves
     // ~70KB of script + a network round-trip for the default English read.
@@ -6825,9 +6851,17 @@ section.hero .hero-illustrated h1.hi-headline{
             //
             // <b> wrap is the emphasis hook the CSS upgrades from
             // italic-faded to upright-ink. Used sparingly.
+            // 2026-05-27 (plane session): "Built to challenge you. Not
+            // to flatter you." promoted to slot [0] as the canonical
+            // first-paint thesis line. Replaces the dropped "Agreed."
+            // anchor — that line was passive/yes-man-coded and
+            // contradicted the wedge. The "antagonist and tool"
+            // founder-stance creed stays in the pool per the
+            // 2026-05-23 decision-log preservation rule; it just no
+            // longer leads.
             var CREEDS = [
+              'Built to <b>challenge you.</b> Not to <b>flatter you.</b>',
               'AI as antagonist and tool. <b>Not the Messiah</b>, nor an arbitrary enemy.',
-              'Built to <b>challenge you.</b> Not to flatter you.',
               'An assistant smooths it over. <b>An opponent finds the weakest joint.</b>',
               'Helpful is one objective function. <b>Adversarial is another.</b>',
               'We’re building the <b>opposite of the yes-machine.</b>',
@@ -6865,7 +6899,7 @@ section.hero .hero-illustrated h1.hi-headline{
            not the Messiah" stance from soul.md decision-log; pool
            lives in the rotator script above. Static value here
            matches CREEDS[0] so the first paint is stable. -->
-      <p class="hi-creed" aria-live="off">AI as antagonist and tool. <b>Not the Messiah</b>, nor an arbitrary enemy.</p>
+      <p class="hi-creed" aria-live="off">Built to <b>challenge you.</b> Not to <b>flatter you.</b></p>
 
       <!-- Primary CTA + three secondary destinations. The pill rail in
            the editorial arm scattered eight pills; the brief explicitly
