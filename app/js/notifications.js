@@ -625,11 +625,16 @@
     var SCAN_MS = 60 * 1000;                  // look for a peer to pair with
     var STALE_MS = 3 * 60 * 1000;             // ignore peers older than this
     var COUNTDOWN_S = 20;                     // accept window
-    var VALID = ['apda','bp','wsdc','policy','ld','pf','congress','mun','worlds','quickclash','casual'];
+    var VALID = ['quick','apda','bp','worlds','asian','ld','pf','policy','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
     // Don't run the matcher ON an active round (notifications.js loads on
     // /live-round + /voice-debate too) — you're already debating; being
     // re-queued as "waiting" there would pop a match mid-round.
     var ON_ROUND = /\/(live-round|voice-debate|exhibition|casual-room)/.test(location.pathname);
+    // /spar runs its OWN foreground matchmaker against the same queue doc.
+    // Suppress the background matcher there so the two don't fight over the
+    // doc; /spar instead sets the availability flag + sends the user to
+    // prep, and the matcher activates on the next page.
+    var ON_SPAR = /\/spar(?:[/?#]|$)/.test(location.pathname);
 
     var available = false;
     try { available = localStorage.getItem(LSKEY) === '1'; } catch (e) {}
@@ -676,7 +681,7 @@
     }
     function paintPill() {
       if (!pill) return;
-      pill.style.display = (myUid && !ON_ROUND) ? 'inline-flex' : 'none';
+      pill.style.display = (myUid && !ON_ROUND && !ON_SPAR) ? 'inline-flex' : 'none';
       var lab = pill.querySelector('.da-spar-pill__lab');
       if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. We'll ping you when a rival is found, anywhere on the site."; }
       else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; }
@@ -688,11 +693,11 @@
       try { localStorage.setItem(LSKEY, available ? '1' : '0'); } catch (e) {}
       try { if (window.gtag) gtag('event', on ? 'spar_bg_on' : 'spar_bg_off'); } catch (e) {}
       paintPill();
-      if (available && myUid && !ON_ROUND) goAvailable();
+      if (available && myUid && !ON_ROUND && !ON_SPAR) goAvailable();
       else goOffline();
     }
     function goAvailable() {
-      if (!myUid || ON_ROUND) return;
+      if (!myUid || ON_ROUND || ON_SPAR) return;
       ensureFirestore(function () {
         try { db = window.firebase.firestore(); } catch (e) { return; }
         myRef = db.collection('matchmaking_queue').doc(myUid);
@@ -736,10 +741,17 @@
       ownUnsub = myRef.onSnapshot(function (doc) {
         if (!doc.exists || !available) return;
         var d = doc.data() || {};
-        if (d.status === 'matched' && d.room && d.matchedWith) {
+        var matched = d.status === 'matched' && d.room && d.matchedWith;
+        if (matched) {
           if (handledRoom === d.room || navigating || overlay) return;
           handledRoom = d.room;
           showMatch(d);
+        } else if (overlay && !navigating) {
+          // My open match got revoked (peer declined / server released it).
+          closeOverlay();
+          handledRoom = null;
+          sparNote('Opponent passed. Still looking.');
+          if (available && !ON_ROUND && !ON_SPAR) { startTimers(); scan(); }
         }
       }, function (err) { console.warn('[spar-live] own-doc listen failed', err && err.message); });
     }
@@ -834,6 +846,18 @@
         overlay = null;
       }
     }
+    // Small standalone toast (reuses the bell-toast styles) for matcher
+    // status notes like "opponent passed" that aren't DM/activity rows.
+    function sparNote(msg) {
+      var host = document.getElementById('da-bell-toasts');
+      if (!host) { host = document.createElement('div'); host.id = 'da-bell-toasts'; document.body.appendChild(host); }
+      var t = document.createElement('div');
+      t.className = 'da-bell-toast'; t.style.cursor = 'default';
+      t.innerHTML = '<span class="da-bell-toast__blank">○</span><span class="da-bell-toast__main"><span class="da-bell-toast__name">' + escHtml(msg) + '</span></span>';
+      host.appendChild(t);
+      requestAnimationFrame(function () { t.classList.add('in'); });
+      setTimeout(function () { t.classList.remove('in'); setTimeout(function () { if (t.parentNode) t.remove(); }, 320); }, 4000);
+    }
     function accept(d) {
       if (navigating) return;
       navigating = true;
@@ -857,16 +881,23 @@
       declinedAt = Date.now();
       handledRoom = null;
       try { if (window.gtag) gtag('event', 'spar_bg_decline'); } catch (e) {}
-      // Re-queue with a fresh stamp so I stay available. (The peer's doc
-      // stays matched; if they accept they land in the room and the
-      // round's own empty-room timeout handles the no-show. A server
-      // unmatch endpoint is the clean v2 fix.)
-      if (myRef && available && !ON_ROUND) {
-        myRef.set({
+      if (!available || ON_ROUND || ON_SPAR) return;
+      // Server releases BOTH docs back to waiting (admin SDK bypasses the
+      // rule that blocks writing a peer's doc), so the peer's own-doc
+      // listener closes its card too instead of landing in an empty room.
+      // Then I resume scanning. Local re-queue is the network-fail fallback.
+      window.firebase.auth().currentUser.getIdToken().then(function (tok) {
+        return fetch('/.netlify/functions/spar-unmatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+          body: '{}'
+        });
+      }).then(function () { if (available) startTimers(); }).catch(function () {
+        if (myRef && available) myRef.set({
           uid: myUid, displayName: shortNm(myUser), photoURL: (myUser && myUser.photoURL) || '',
           format: fmt(), status: 'waiting', broaden: true, background: true, joinedAt: ts()
         }).then(function () { startTimers(); }).catch(function () {});
-      }
+      });
     }
 
     // ── boot ──
@@ -877,13 +908,14 @@
         myUid = u ? u.uid : null;
         myUser = u || null;
         paintPill();
-        if (u && available && !ON_ROUND) goAvailable();
+        if (u && available && !ON_ROUND && !ON_SPAR) goAvailable();
         else {
           stopTimers();
           if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
           // On a round page, proactively clear any lingering waiting doc so
           // an in-round user isn't matchable; keep the flag so availability
-          // resumes when they navigate back to a normal page.
+          // resumes when they navigate back to a normal page. On /spar we
+          // leave the doc to the page's own foreground flow.
           if (u && ON_ROUND && available) {
             ensureFirestore(function () {
               try { window.firebase.firestore().collection('matchmaking_queue').doc(u.uid).delete().catch(function () {}); } catch (e) {}

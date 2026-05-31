@@ -1081,6 +1081,7 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="btn-row">' +
         '<button class="btn ghost" id="cancelBtn">Cancel & go home</button>' +
         '<a class="btn" href="/debate-ai">Skip to AI now</a>' +
+        '<button class="btn ghost" id="bgAvailBtn" title="We keep matching you in the background and ping you the moment a human is found, even while you prep." style="border-color:rgba(34,197,94,.5);color:#22c55e">Prep while you wait &rarr;</button>' +
       '</div>' +
       // 2026-05-18: while the user is waiting on the random matchmaker,
       // give them a clear pivot to /live (the schedule board with
@@ -1107,6 +1108,21 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="diag" id="diagLine" aria-live="polite" style="margin-top:10px;font-size:.66rem;color:var(--text-ghost);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:.04em;text-transform:uppercase;opacity:.7"></div>' +
       '<div class="foot">Your camera + mic stay off until you accept the match. Match found = you both jump into a video room.</div>';
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
+    (function(){
+      // "Prep while you wait" — flip on BACKGROUND availability (the flag
+      // js/notifications.js sparLive reads) and send the user to prep.
+      // They keep matchmaking in the background and get a "Match found"
+      // card the moment a human is found, anywhere on the site, instead of
+      // staring at this page. This is the discoverable on-/spar entry to
+      // the background matcher (the bell pill is suppressed on /spar).
+      var bgBtn = document.getElementById('bgAvailBtn');
+      if (!bgBtn) return;
+      bgBtn.addEventListener('click', function(){
+        try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
+        try { if (window.gtag) gtag('event', 'spar_bg_on', { from: 'spar_searching' }); } catch(e){}
+        location.href = '/debate-ai';
+      });
+    })();
     startCountdown();
     startStatusCycle();
     // startPairingTicker() removed — see RECENT_PAIRINGS comment above
