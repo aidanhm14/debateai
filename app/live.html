@@ -2631,6 +2631,46 @@ button{font-family:inherit}
     showModal(node);
   }
 
+  // ── Ballot modal. Renders a completed round's inline ballot (winner,
+  // margin, speaker points, full RFD) in place. The My/Watch/Archive
+  // simple cards carry the ballot on the challenge doc itself (real
+  // rounds get it synced back from /live-round after judging; the
+  // seeded archive samples ship it inline), so there's nothing to fetch
+  // and no video room to mount, just show the decision.
+  function showBallotModal(c){
+    if (!c || !c.ballot){ toast('No ballot on this round yet.'); return; }
+    var b = c.ballot;
+    var f = classifyChallenge(c).f;
+    var motion = c.motion || c.topicLine || c.themeLine || '(no motion)';
+    var wSide = String(b.winnerSide || b.winner || '').toLowerCase();
+    var wLabel = wSide === 'pro' ? 'Proposition' : wSide === 'con' ? 'Opposition' : 'Decision';
+    var wName = b.winnerName ? ' · @' + b.winnerName : '';
+    var sp = b.speakerPoints || {};
+    var hasSpeaks = sp.pro != null || sp.con != null;
+    var node = document.createElement('div');
+    node.innerHTML =
+      '<div class="modal-head"><div class="modal-title">Ballot</div><button class="modal-close" type="button" aria-label="Close">×</button></div>' +
+      '<div class="modal-body">' +
+        '<div class="card-motion" style="margin-bottom:12px">' + escHtml(motion) + '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px">' +
+          '<span class="tag tag-format">' + escHtml(f ? f.name : (c.format || '')) + '</span>' +
+          '<span class="status-pill status-ballot">✓ ' + escHtml(wLabel) + ' wins' + escHtml(wName) + '</span>' +
+          (b.margin ? '<span class="tag tag-time">' + escHtml(b.margin) + '</span>' : '') +
+        '</div>' +
+        (hasSpeaks ? '<div style="margin-bottom:14px;font-size:.9rem;color:var(--text-dim,#9ca3af)"><strong>Speaker points</strong> · Pro ' + escHtml(String(sp.pro != null ? sp.pro : '—')) + ' · Con ' + escHtml(String(sp.con != null ? sp.con : '—')) + '</div>' : '') +
+        '<div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;opacity:.55;margin-bottom:6px">Reason for decision</div>' +
+        '<div class="modal-explain" style="white-space:pre-wrap;line-height:1.65">' + escHtml(b.rfd || 'No written RFD on this round.') + '</div>' +
+        '<div style="margin-top:12px;font-size:.78rem;opacity:.55">Judged by ' + escHtml(b.judgedBy || 'AI judge') + (c.seed ? ' · sample round' : '') + '</div>' +
+      '</div>' +
+      '<div class="modal-foot">' +
+        '<button class="btn" type="button" data-close-ballot>Close</button>' +
+      '</div>';
+    node.querySelector('.modal-close').addEventListener('click', closeModal);
+    node.querySelector('[data-close-ballot]').addEventListener('click', closeModal);
+    try { gtag('event', 'live_view_ballot', { format: c.format, seed: !!c.seed }); } catch(e){}
+    showModal(node);
+  }
+
   // ── Schedule helpers
   // fmtSchedule: returns "Live now", "in 23m", "in 2h 15m", "Tue 4:30pm" etc.
   // The schedule label is the most load-bearing UI on the board now , 
@@ -3992,6 +4032,18 @@ button{font-family:inherit}
         var sep = raw.indexOf(':');
         if (sep < 0) return;
         handleJoinSlot(raw.slice(0, sep), raw.slice(sep + 1));
+      });
+    });
+    // "View ballot" surfaces the round's inline ballot/RFD in a modal.
+    card.querySelectorAll('[data-view-ballot]').forEach(function(btn){
+      btn.addEventListener('click', function(){ showBallotModal(c); });
+    });
+    // "Open archive" jumps to the Archive tab (the full results list).
+    card.querySelectorAll('[data-open-archive]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        setTab('archive');
+        try { gtag('event', 'live_open_archive', { format: c.format }); } catch(e){}
+        try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0, 0); }
       });
     });
     return card;
