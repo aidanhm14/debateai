@@ -451,6 +451,42 @@
   })();
 </script>
 
+<!-- Hero MESSAGE A/B (2026-05-31). Tests the hero LEAD message, not the
+     illustration. 'default' keeps the "AI that pushes back / humans show
+     up / real clock" subhead. 'flow' leads with the flow + drill-feedback
+     loop, per user feedback (Vibhav Singh) that serious debaters value
+     flowing and closing the drill feedback loop far above mock rounds vs
+     AI. 50/50 sticky in localStorage; ?heroMsg=flow|default forces an arm
+     for QA. Fires hero_msg_view so converting sessions stay segmentable by
+     arm. CSS toggles the two .hero-subhead siblings off html[data-hero-msg]. -->
+<script>
+  (function(){
+    var v='';
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]heromsg=flow(?:&|$)/.test(qp)) v='flow';
+      else if(/[?&]heromsg=default(?:&|$)/.test(qp)) v='default';
+    }catch(e){}
+    var assigned=false;
+    if(v!=='flow'&&v!=='default'){
+      try{ v=localStorage.getItem('da-hero-msg')||''; }catch(e){}
+      if(v!=='flow'&&v!=='default'){
+        v=(Math.random()<0.50)?'flow':'default';
+        assigned=true;
+        try{ localStorage.setItem('da-hero-msg',v); }catch(e){}
+      }
+    }
+    document.documentElement.setAttribute('data-hero-msg',v);
+    window.__heroMsg=v;
+    try{
+      if(window.gtag){
+        gtag('set','user_properties',{hero_msg:v});
+        gtag('event','hero_msg_view',{variant:v,assigned:assigned});
+      }
+    }catch(e){}
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -2534,6 +2570,16 @@ section.hero{
     color:rgba(0,0,0,.62);
     letter-spacing:.005em;
   }
+  /* Hero MESSAGE A/B (2026-05-31): two subhead siblings on the live
+     (illustrated) hero, one per arm. 'flow' is hidden by default and for
+     no-JS; shown only when the early-paint IIFE sets
+     html[data-hero-msg="flow"]. Default arm + no-JS keep the original
+     subhead. Only one is ever display:block so they never both occupy the
+     .hi-head column. (The .editorial-hero arm is deprecated/hidden, so the
+     swap lives on .hi-subhead, the subhead everyone actually sees.) */
+  .hero-illustrated .hi-subhead--flow{display:none}
+  html[data-hero-msg="flow"] .hero-illustrated .hi-subhead--default{display:none}
+  html[data-hero-msg="flow"] .hero-illustrated .hi-subhead--flow{display:block}
   [data-theme="grey"] .editorial-hero .hero-subhead,
   [data-theme="crimson"] .editorial-hero .hero-subhead,
   [data-theme="stone"] .editorial-hero .hero-subhead{color:rgba(255,255,255,.7)}
@@ -6511,8 +6557,11 @@ section.hero .hero-illustrated h1.hi-headline{
           <span class="hi-headline-lead">Everything is</span>
           <span class="hi-headline-accent">debatable.</span>
         </h1>
-        <p class="hi-subhead">
+        <p class="hi-subhead hi-subhead--default">
           Debate with AI or real people across formats, languages, and time zones.
+        </p>
+        <p class="hi-subhead hi-subhead--flow">
+          Flow your rounds, drill your weak spots, and get a real ballot back. The feedback loop you can't close alone.
         </p>
       </div>
 
@@ -11399,12 +11448,43 @@ section.hero .hero-illustrated h1.hi-headline{
      the live-proof (AI judges) section per user ask. Was previously
      two sections lower (after the depth-layer disclosure); now this
      section is the first surface after the AI judges proof. -->
+<!-- 2026-05-31: "The daily loop" — flow + drills + feedback. Added per
+     user feedback (Vibhav Singh): serious debaters value flowing and
+     closing the drill feedback loop far above mock rounds vs AI. All three
+     capabilities already ship (genFlowSheet / Flow tab in debate-ai.html,
+     Rebuttal + Speed + AI drill plan), but none were anywhere on the
+     landing. Placed above #tools and #debate-ai so the trusted daily-use
+     loop leads the brain/opponent showcase. Reuses .sec / .tool styling so
+     no new CSS. Copy describes shipped behaviour only (flow is generated
+     from a finished round; there is no standalone paste-a-speech tool yet
+     — that is the roadmap ask, kept off the landing as a promise). -->
+<style>
+  /* 3-up on desktop for the daily-loop pillars (flow / drill / ballot).
+     The shared .tools grid is 2-col, which would orphan the third card.
+     Collapses to 1-col on mobile like every other .tools block. */
+  #daily-loop .tools{grid-template-columns:repeat(3,1fr)}
+  @media (max-width:760px){ #daily-loop .tools{grid-template-columns:1fr} }
+</style>
+<section class="sec" id="daily-loop">
+  <div class="wrap" style="text-align:center">
+    <div class="sec-label">The daily loop</div>
+    <h2 class="sec-title" style="margin-bottom:14px">Flow a round. Close the loop.</h2>
+    <p style="color:var(--text-dim);font-size:.88rem;line-height:1.65;max-width:600px;margin:0 auto 28px">Drills get boring alone because nothing comes back. Here every rep does. You run it, the AI flows it, and you see what landed and what got dropped. The part you can't do for yourself.</p>
+    <div class="tools" style="margin-bottom:24px">
+      <div class="tool"><h3>The AI flows your round</h3><p>Finish a round and get a clean flow back: each point, each response, what extended, what got dropped. Not a transcript. The structured sheet the back of the room keeps, built in seconds, so you can read your own round the way a judge does.</p></div>
+      <div class="tool"><h3>Drills that answer back</h3><p>Rebuttal reps, speed reps, and a drill plan the AI builds from your weak spots. Every one comes back scored with specific notes, not a number. The feedback loop you can't close doing reps alone.</p></div>
+      <div class="tool"><h3>A real ballot, not a vibe</h3><p>The flow feeds the ballot. Winner, the central clash, where the round actually turned, speaker points, and one drill to run next. Tuned to the paradigm for whichever format you ran.</p></div>
+    </div>
+    <a href="/debate-ai" style="display:inline-block;padding:14px 36px;background:var(--accent);color:#fff;border-radius:100px;font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;transition:transform .2s;text-decoration:none">Run a round &rarr;</a>
+  </div>
+</section>
+
 <section id="tools" class="tools-section tools-bento-wrap" aria-label="What's inside">
   <div class="tools-wrap">
     <div class="tools-list-head">
       <div>
         <div class="aud-eyebrow" style="margin-bottom:10px">What's inside</div>
-        <h2 class="tools-list-headline">Six tools. <em>Six brains.</em></h2>
+        <h2 class="tools-list-headline">Six tools. <em>One loop.</em></h2>
       </div>
       <!-- Brand row preserved from the prior list version. -->
       <div class="tools-brand-row tools-brand-row--logos" aria-label="Powered by Claude, GPT, Gemini, Grok, DeepSeek, Open Lab">
