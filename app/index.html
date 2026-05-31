@@ -78,6 +78,7 @@
      submit, AI reply, and ballot-ready respectively. -->
 <script defer src="/js/sfx.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
+<script defer src="/js/prospect-capture.js"></script>
 <!-- Opt-in research-corpus nudge after the user's 3rd rated round.
      Bumped by logGenerationSignal rate path on this page + postRate on
      voice-debate.html. -->
@@ -11014,6 +11015,21 @@ function AuthModal({ onSignIn, onClose }) {
 
 function SignUpNudgeModal({ onSignIn, onDismiss }) {
   var el = React.createElement;
+  var captureRef = useRef(null);
+  // 2026-05-27 — lightweight email/phone capture as a soft alternative to
+  // the Google round-trip. Lets us track leads who refuse sign-in so they
+  // don't drop into the anonymous void. Mounts once; module is loaded
+  // via /js/prospect-capture.js at the top of the page.
+  useEffect(() => {
+    if (!captureRef.current) return;
+    if (!window.ProspectCapture) return;
+    if (captureRef.current.dataset.mounted) return;
+    window.ProspectCapture.mount(captureRef.current, {
+      source: 'app-nudge-modal',
+      onSuccess: () => { setTimeout(() => { try { onDismiss && onDismiss(); } catch (_) {} }, 1800); }
+    });
+    captureRef.current.dataset.mounted = '1';
+  }, []);
   var bullet = (txt) => el('li', { style: { display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10, fontSize: '.9rem', lineHeight: 1.5, color: 'var(--text,#e4e8f0)' } },
   el('span', { style: { color: '#ef4444', fontWeight: 800, flexShrink: 0 } }, '→'),
   el('span', null, txt)
@@ -11040,9 +11056,16 @@ function SignUpNudgeModal({ onSignIn, onDismiss }) {
   'Continue with Google'
   ),
   el('p', { style: { fontSize: '.7rem', color: 'var(--text-dim,#94a3b8)', textAlign: 'center', marginBottom: 10, lineHeight: 1.5 } }, "Used only to log you in. I never email you."),
+  // Soft alt: email capture so the lead doesn't vanish on dismiss.
+  el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 10px', fontSize: '.6rem', fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--text-dim,#94a3b8)', opacity: .65 } },
+  el('div', { style: { flex: 1, height: 1, background: 'var(--border,rgba(255,255,255,.12))' } }),
+  el('span', null, 'or'),
+  el('div', { style: { flex: 1, height: 1, background: 'var(--border,rgba(255,255,255,.12))' } })
+  ),
+  el('div', { ref: captureRef, style: { marginBottom: 14 } }),
   el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center' } },
-  el('button', { className: 'auth-skip', onClick: onDismiss, style: { flex: 1 } }, 'Maybe later'),
-  el('button', { className: 'auth-skip', onClick: neverAgain, style: { flex: 1, opacity: .55, fontSize: '.72rem' } }, "Don't ask again")
+  el('button', { className: 'auth-skip', onClick: onDismiss, style: { flex: 1, opacity: .55, fontSize: '.72rem' } }, 'Maybe later'),
+  el('button', { className: 'auth-skip', onClick: neverAgain, style: { flex: 1, opacity: .4, fontSize: '.68rem' } }, "Don't ask again")
   )
   )
   );

@@ -509,6 +509,47 @@ service cloud.firestore {
       }
     }
 
+    // ── prospects ────────────────────────────────────────────────────
+    // Lightweight email/phone capture for visitors who won't sign in
+    // with Google. Anyone — signed-in OR anonymous — can create a doc;
+    // nobody can read, list, update, or delete from the client. Admin
+    // SDK in Netlify functions (log-prospect.mjs, admin-subscribers.mjs)
+    // bypasses these rules for reads.
+    //
+    // Schema (enforced inline):
+    //   { email: string ≤254, phone: string ≤18, source: string ≤80,
+    //     ua: string ≤240, locale: string ≤16, page: string ≤240,
+    //     ref: string ≤240, createdAt: serverTimestamp,
+    //     clientCreatedAt: number? }
+    //
+    // No auth required because the whole point of this collection is to
+    // capture leads from users who refused the Google sign-in step.
+    match /prospects/{docId} {
+      allow read, list, update, delete: if false;
+      allow create: if request.resource.data.email is string
+                    && request.resource.data.email.size() > 0
+                    && request.resource.data.email.size() <= 254
+                    && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$')
+                    && (!('phone' in request.resource.data)
+                        || (request.resource.data.phone is string
+                            && request.resource.data.phone.size() <= 18))
+                    && (!('source' in request.resource.data)
+                        || (request.resource.data.source is string
+                            && request.resource.data.source.size() <= 80))
+                    && (!('ua' in request.resource.data)
+                        || (request.resource.data.ua is string
+                            && request.resource.data.ua.size() <= 240))
+                    && (!('locale' in request.resource.data)
+                        || (request.resource.data.locale is string
+                            && request.resource.data.locale.size() <= 16))
+                    && (!('page' in request.resource.data)
+                        || (request.resource.data.page is string
+                            && request.resource.data.page.size() <= 240))
+                    && (!('ref' in request.resource.data)
+                        || (request.resource.data.ref is string
+                            && request.resource.data.ref.size() <= 240));
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }
