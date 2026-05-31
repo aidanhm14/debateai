@@ -144,7 +144,31 @@
       '.da-bell-toast__preview{font-size:.74rem;color:var(--text-dim,#9aa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}' +
       '@keyframes daBellLivePulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
       '@media(max-width:480px){#da-bell-toasts{left:12px;right:12px;max-width:none}.ui-bell-panel{width:300px}}' +
-      '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast{animation:none;transition:none}}';
+      '.da-spar-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:999px;background:transparent;border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;letter-spacing:.01em;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}' +
+      '.da-spar-pill:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.24))}' +
+      '.da-spar-pill__dot{width:8px;height:8px;border-radius:50%;background:var(--text-ghost,#888);transition:background .2s}' +
+      '.da-spar-pill.is-on{color:#22c55e;border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}' +
+      '.da-spar-pill.is-on .da-spar-pill__dot{background:#22c55e;animation:daSparPulse 1.7s ease-out infinite}' +
+      '@keyframes daSparPulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
+      '.da-match-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);animation:daMatchFade .2s ease-out}' +
+      '@keyframes daMatchFade{from{opacity:0}to{opacity:1}}' +
+      '.da-match-card{width:340px;max-width:88vw;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#0a0a0c);border:1px solid rgba(34,197,94,.4);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.6);padding:24px 22px;text-align:center;animation:daMatchPop .24s cubic-bezier(.2,.8,.2,1)}' +
+      '@keyframes daMatchPop{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}' +
+      '.da-match-eyebrow{font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#22c55e;margin-bottom:12px}' +
+      '.da-match-ring{position:relative;width:72px;height:72px;margin:0 auto 14px}' +
+      '.da-match-ring svg{transform:rotate(-90deg);width:72px;height:72px}' +
+      '.da-match-ring__track{fill:none;stroke:rgba(255,255,255,.12);stroke-width:5}' +
+      '.da-match-ring__bar{fill:none;stroke:#22c55e;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 1s linear}' +
+      '.da-match-ring__num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;color:var(--text,#fff);font-variant-numeric:tabular-nums}' +
+      '.da-match-name{font-size:1.05rem;font-weight:800;color:var(--text,#fff);margin-bottom:3px}' +
+      '.da-match-sub{font-size:.8rem;color:var(--text-dim,#9aa);margin-bottom:18px}' +
+      '.da-match-btns{display:flex;gap:10px}' +
+      '.da-match-btn{flex:1;height:44px;border-radius:11px;font-family:inherit;font-size:.86rem;font-weight:800;cursor:pointer;border:1px solid transparent;transition:filter .15s,background .15s,border-color .15s}' +
+      '.da-match-btn--accept{background:#22c55e;color:#06210f}' +
+      '.da-match-btn--accept:hover{filter:brightness(1.08)}' +
+      '.da-match-btn--decline{background:transparent;border-color:var(--border,rgba(255,255,255,.16));color:var(--text-dim,#9aa)}' +
+      '.da-match-btn--decline:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.28))}' +
+      '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast,.da-match-overlay,.da-match-card,.da-spar-pill.is-on .da-spar-pill__dot{animation:none;transition:none}}';
     var style = document.createElement('style');
     style.id = 'da-bell-styles';
     style.textContent = css;
@@ -573,15 +597,314 @@
     }
   }
 
+  // ── background spar matchmaking ──────────────────────────────────
+  // Decouples /spar matchmaking from the /spar page. A signed-in user
+  // flips "Available" (a pill next to the bell) and keeps using Prep or
+  // any page; their queue doc sits waiting in the background with
+  // broaden:true. When another available debater is found, the EXISTING
+  // server pair function (/.netlify/functions/spar-pair, admin SDK)
+  // matches both docs, and a "Match found · Accept/Decline" card pops
+  // anywhere on the site. Accept → /live-round; decline/timeout → stay
+  // available. Reuses the live infra wholesale: same matchmaking_queue
+  // doc shape as /spar, same spar-pair function, same /live-round spawn
+  // params. No new security rule (client only reads the queue + writes
+  // its OWN doc; the cross-write is spar-pair's). One new composite
+  // index (broaden,status,joinedAt) for the scan, in firestore.indexes.
+  //
+  // Cost guard (project is on the Firestore free tier and blew quota in
+  // May): only opted-in users run anything; the own-doc listener is 1
+  // doc; the peer scan + heartbeat run on slow intervals and pause while
+  // the tab is hidden; stale docs self-reap via spar-pair's reaper.
+  function sparLive() {
+    if (window.__daSparLiveLoaded) return;
+    window.__daSparLiveLoaded = true;
+
+    var LSKEY = 'da-spar-bg';                 // '1' when available
+    var FMT_KEY = 'debateos-spar-format';     // preferred format (shared w/ /spar)
+    var HEARTBEAT_MS = 90 * 1000;             // re-stamp joinedAt so the 3-min reaper doesn't cull us
+    var SCAN_MS = 60 * 1000;                  // look for a peer to pair with
+    var STALE_MS = 3 * 60 * 1000;             // ignore peers older than this
+    var COUNTDOWN_S = 20;                     // accept window
+    var VALID = ['apda','bp','wsdc','policy','ld','pf','congress','mun','worlds','quickclash','casual'];
+    // Don't run the matcher ON an active round (notifications.js loads on
+    // /live-round + /voice-debate too) — you're already debating; being
+    // re-queued as "waiting" there would pop a match mid-round.
+    var ON_ROUND = /\/(live-round|voice-debate|exhibition|casual-room)/.test(location.pathname);
+
+    var available = false;
+    try { available = localStorage.getItem(LSKEY) === '1'; } catch (e) {}
+    var myUid = null, myUser = null, db = null, myRef = null;
+    var ownUnsub = null, hbTimer = null, scanTimer = null;
+    var pill = null, overlay = null, handledRoom = null, navigating = false;
+    var declinedPeer = null, declinedAt = 0, scanning = false, pairing = false;
+
+    function fmt() {
+      var f = 'apda';
+      try { f = (localStorage.getItem(FMT_KEY) || 'apda').toLowerCase(); } catch (e) {}
+      return VALID.indexOf(f) >= 0 ? f : 'apda';
+    }
+    function shortNm(u) {
+      if (!u) return 'You';
+      var full = (u.displayName || '').trim();
+      var p = full.split(/\s+/).filter(Boolean);
+      return p.length >= 2 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.'
+           : (p[0] || (u.email ? u.email.split('@')[0] : 'You'));
+    }
+    function ts() { return window.firebase.firestore.FieldValue.serverTimestamp(); }
+
+    // ── pill ──
+    function makePill() {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'da-spar-pill';
+      b.setAttribute('aria-label', 'Background sparring');
+      b.style.display = 'none';
+      b.innerHTML = '<span class="da-spar-pill__dot" aria-hidden="true"></span><span class="da-spar-pill__lab">Spar live</span>';
+      b.addEventListener('click', function (e) { e.stopPropagation(); setAvailable(!available); });
+      return b;
+    }
+    function placePill(p) {
+      function attempt() {
+        var tb = document.querySelector('.ui-topbar-right');
+        if (tb) { var bell = tb.querySelector('.ui-bell'); tb.insertBefore(p, bell || tb.firstChild); return true; }
+        var bl = document.querySelector('.bar-links');
+        if (bl) { bl.insertBefore(p, bl.firstChild); return true; }
+        return false;
+      }
+      if (attempt()) return;
+      var n = 0, iv = setInterval(function () { n++; if (attempt() || n > 20) clearInterval(iv); }, 100);
+    }
+    function paintPill() {
+      if (!pill) return;
+      pill.style.display = (myUid && !ON_ROUND) ? 'inline-flex' : 'none';
+      var lab = pill.querySelector('.da-spar-pill__lab');
+      if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. We'll ping you when a rival is found, anywhere on the site."; }
+      else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; }
+    }
+
+    // ── availability ──
+    function setAvailable(on) {
+      available = !!on;
+      try { localStorage.setItem(LSKEY, available ? '1' : '0'); } catch (e) {}
+      try { if (window.gtag) gtag('event', on ? 'spar_bg_on' : 'spar_bg_off'); } catch (e) {}
+      paintPill();
+      if (available && myUid && !ON_ROUND) goAvailable();
+      else goOffline();
+    }
+    function goAvailable() {
+      if (!myUid || ON_ROUND) return;
+      ensureFirestore(function () {
+        try { db = window.firebase.firestore(); } catch (e) { return; }
+        myRef = db.collection('matchmaking_queue').doc(myUid);
+        myRef.set({
+          uid: myUid,
+          displayName: shortNm(myUser),
+          photoURL: (myUser && myUser.photoURL) || '',
+          format: fmt(),
+          status: 'waiting',
+          broaden: true,
+          background: true,
+          joinedAt: ts()
+        }).then(function () { watchOwnDoc(); startTimers(); scan(); })
+          .catch(function (err) { console.warn('[spar-live] join failed', err && err.message); });
+      });
+    }
+    function goOffline() {
+      stopTimers();
+      if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
+      closeOverlay();
+      handledRoom = null;
+      if (myRef) { myRef.delete().catch(function () {}); }
+    }
+    function startTimers() {
+      stopTimers();
+      hbTimer = setInterval(function () {
+        if (document.hidden || !available || !myRef) return;
+        myRef.update({ joinedAt: ts() }).catch(function () {});
+      }, HEARTBEAT_MS);
+      scanTimer = setInterval(function () { if (!document.hidden) scan(); }, SCAN_MS);
+    }
+    function stopTimers() {
+      if (hbTimer) { clearInterval(hbTimer); hbTimer = null; }
+      if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
+    }
+
+    // ── own-doc listener: drives the match card ──
+    function watchOwnDoc() {
+      if (!myRef) return;
+      if (ownUnsub) { try { ownUnsub(); } catch (e) {} }
+      ownUnsub = myRef.onSnapshot(function (doc) {
+        if (!doc.exists || !available) return;
+        var d = doc.data() || {};
+        if (d.status === 'matched' && d.room && d.matchedWith) {
+          if (handledRoom === d.room || navigating || overlay) return;
+          handledRoom = d.room;
+          showMatch(d);
+        }
+      }, function (err) { console.warn('[spar-live] own-doc listen failed', err && err.message); });
+    }
+
+    // ── peer scan → server pair ──
+    function scan() {
+      if (!available || !db || !myUid || navigating || overlay || scanning) return;
+      scanning = true;
+      db.collection('matchmaking_queue')
+        .where('broaden', '==', true)
+        .where('status', '==', 'waiting')
+        .orderBy('joinedAt')
+        .limit(8).get()
+        .then(function (snap) {
+          scanning = false;
+          var peer = null, now = Date.now();
+          snap.forEach(function (s) {
+            if (peer || s.id === myUid) return;
+            if (s.id === declinedPeer && (now - declinedAt) < 60000) return;
+            var dt = s.data() || {};
+            var ms = (dt.joinedAt && dt.joinedAt.toMillis) ? dt.joinedAt.toMillis() : 0;
+            if (ms && (now - ms) > STALE_MS) return;
+            peer = s.id;
+          });
+          if (peer) callPair(peer);
+        })
+        .catch(function (err) {
+          scanning = false;
+          console.warn('[spar-live] scan failed (needs broaden,status,joinedAt index)', err && err.message);
+        });
+    }
+    function callPair(peerUid) {
+      if (pairing || navigating) return;
+      pairing = true;
+      window.firebase.auth().currentUser.getIdToken().then(function (tok) {
+        return fetch('/.netlify/functions/spar-pair', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+          body: JSON.stringify({ peerUid: peerUid, format: fmt(), broaden: true })
+        });
+      }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+        .then(function () { pairing = false; /* success drives via own-doc listener; soft-fails retry next scan */ })
+        .catch(function () { pairing = false; });
+    }
+
+    // ── match-found card ──
+    function showMatch(d) {
+      stopTimers();
+      closeOverlay();
+      try { window.SFX && (window.SFX.notify ? window.SFX.notify() : (window.SFX.success && window.SFX.success())); } catch (e) {}
+      try {
+        if (window.Notification && Notification.permission === 'granted' && document.hidden) {
+          var nn = new Notification('Match found', { body: 'vs ' + (d.matchedWithName || 'a debater') + '. Tap to accept.', icon: '/favicon.svg', tag: 'da-spar-match' });
+          nn.onclick = function () { window.focus(); accept(d); nn.close(); };
+        }
+      } catch (e) {}
+      var C = 2 * Math.PI * 32;
+      overlay = document.createElement('div');
+      overlay.className = 'da-match-overlay';
+      overlay.innerHTML =
+        '<div class="da-match-card" role="alertdialog" aria-label="Match found">' +
+          '<div class="da-match-eyebrow">Match found</div>' +
+          '<div class="da-match-ring">' +
+            '<svg viewBox="0 0 72 72"><circle class="da-match-ring__track" cx="36" cy="36" r="32"/>' +
+            '<circle class="da-match-ring__bar" cx="36" cy="36" r="32" stroke-dasharray="' + C + '" stroke-dashoffset="0"/></svg>' +
+            '<span class="da-match-ring__num">' + COUNTDOWN_S + '</span>' +
+          '</div>' +
+          '<div class="da-match-name">vs ' + escHtml(d.matchedWithName || 'a debater') + '</div>' +
+          '<div class="da-match-sub">Live round · ' + escHtml(fmt().toUpperCase()) + '</div>' +
+          '<div class="da-match-btns">' +
+            '<button type="button" class="da-match-btn da-match-btn--decline">Decline</button>' +
+            '<button type="button" class="da-match-btn da-match-btn--accept">Accept</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      var bar = overlay.querySelector('.da-match-ring__bar');
+      var num = overlay.querySelector('.da-match-ring__num');
+      overlay.querySelector('.da-match-btn--accept').addEventListener('click', function () { accept(d); });
+      overlay.querySelector('.da-match-btn--decline').addEventListener('click', function () { decline(d); });
+      var left = COUNTDOWN_S;
+      overlay.__tick = setInterval(function () {
+        left--;
+        if (num) num.textContent = left > 0 ? left : 0;
+        if (bar) bar.style.strokeDashoffset = (C * (COUNTDOWN_S - left) / COUNTDOWN_S);
+        if (left <= 0) { decline(d); }
+      }, 1000);
+    }
+    function closeOverlay() {
+      if (overlay) {
+        if (overlay.__tick) clearInterval(overlay.__tick);
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        overlay = null;
+      }
+    }
+    function accept(d) {
+      if (navigating) return;
+      navigating = true;
+      closeOverlay();
+      try { if (window.gtag) gtag('event', 'spar_bg_accept'); } catch (e) {}
+      var params = new URLSearchParams({
+        motion: d.pairedMotion || '',
+        format: fmt(),
+        pro: d.proName || shortNm(myUser),
+        con: d.conName || (d.matchedWithName || 'Opponent'),
+        proUid: d.proUid || myUid,
+        conUid: d.conUid || d.matchedWith,
+        room: d.room,
+        source: 'spar-bg'
+      });
+      location.href = '/live-round.html?' + params.toString();
+    }
+    function decline(d) {
+      closeOverlay();
+      declinedPeer = (d && d.matchedWith) || null;
+      declinedAt = Date.now();
+      handledRoom = null;
+      try { if (window.gtag) gtag('event', 'spar_bg_decline'); } catch (e) {}
+      // Re-queue with a fresh stamp so I stay available. (The peer's doc
+      // stays matched; if they accept they land in the room and the
+      // round's own empty-room timeout handles the no-show. A server
+      // unmatch endpoint is the clean v2 fix.)
+      if (myRef && available && !ON_ROUND) {
+        myRef.set({
+          uid: myUid, displayName: shortNm(myUser), photoURL: (myUser && myUser.photoURL) || '',
+          format: fmt(), status: 'waiting', broaden: true, background: true, joinedAt: ts()
+        }).then(function () { startTimers(); }).catch(function () {});
+      }
+    }
+
+    // ── boot ──
+    pill = makePill();
+    placePill(pill);
+    whenFirebaseReady(function () {
+      window.firebase.auth().onAuthStateChanged(function (u) {
+        myUid = u ? u.uid : null;
+        myUser = u || null;
+        paintPill();
+        if (u && available && !ON_ROUND) goAvailable();
+        else {
+          stopTimers();
+          if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
+          // On a round page, proactively clear any lingering waiting doc so
+          // an in-round user isn't matchable; keep the flag so availability
+          // resumes when they navigate back to a normal page.
+          if (u && ON_ROUND && available) {
+            ensureFirestore(function () {
+              try { window.firebase.firestore().collection('matchmaking_queue').doc(u.uid).delete().catch(function () {}); } catch (e) {}
+            });
+          }
+        }
+      });
+    });
+  }
+
   // ── boot ─────────────────────────────────────────────────────────
   function init() {
-    // Idempotency: never produce a second bell (e.g. if a stale topbar
-    // build still ships its own, or the module is double-included).
-    if (document.querySelector('.ui-bell')) return;
     injectStyles();
+    // Idempotency: never produce a second bell (e.g. if a stale topbar
+    // build still ships its own, or the module is double-included). The
+    // background matcher still boots either way.
+    if (document.querySelector('.ui-bell')) { sparLive(); return; }
     var bell = createBell();
     placeBell(bell);
     controller(bell);
+    sparLive();
   }
 
   if (document.readyState === 'loading') {
