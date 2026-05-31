@@ -38,7 +38,11 @@ const URLS = [
   // /community already carries the priority weight for that surface,
   // and the individual round corpus is sitemap-rounds.xml.
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
-  { path: '/exhibition',      changefreq: 'weekly',  priority: '0.75' },
+  // 2026-05-27 plane session: exhibition bumped 0.75 → 0.85 per
+  // Aidan's brief ("promote exhibition debate via SEO improvements
+  // strategy"). The page now ships HowTo + SoftwareApplication
+  // JSON-LD targeting "ai vs ai debate" + "watch ai debate" intents.
+  { path: '/exhibition',      changefreq: 'weekly',  priority: '0.85' },
   // High-intent SEO landing pages targeting specific query clusters.
   // /debate-an-ai and /debate-online are direct phrase-match doorways
   // from Google for the "debate an ai" / "debate online" intents the
@@ -48,6 +52,12 @@ const URLS = [
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92' },
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90' },
+  // 2026-05-27 plane session: dedicated SEO doorway for "ai vs ai
+  // debate" — the exact-match phrase the /exhibition product page
+  // can't claim with its single-word slug. Static HTML, rich JSON-LD
+  // (HowTo + SoftwareApplication + FAQPage + BreadcrumbList), strong
+  // CTA into /exhibition. Same playbook as /debate-an-ai → /voice-debate.
+  { path: '/ai-vs-ai-debate',                         changefreq: 'weekly',  priority: '0.88' },
   { path: '/compare',                                 changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debateai-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debateai-vs-claude',              changefreq: 'monthly', priority: '0.84' },
