@@ -52,6 +52,12 @@ const URLS = [
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92' },
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90' },
+  // 2026-05-27 plane session: dedicated SEO doorway for "ai vs ai
+  // debate" — the exact-match phrase the /exhibition product page
+  // can't claim with its single-word slug. Static HTML, rich JSON-LD
+  // (HowTo + SoftwareApplication + FAQPage + BreadcrumbList), strong
+  // CTA into /exhibition. Same playbook as /debate-an-ai → /voice-debate.
+  { path: '/ai-vs-ai-debate',                         changefreq: 'weekly',  priority: '0.88' },
   { path: '/compare',                                 changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debateai-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debateai-vs-claude',              changefreq: 'monthly', priority: '0.84' },
