@@ -55,7 +55,7 @@
     aside.setAttribute('aria-label', 'Founding cohort signup');
     aside.innerHTML =
       '<span class="cohort-banner-dot" aria-hidden="true"></span>' +
-      '<span class="cohort-banner-msg"><b>Help us run the first DebateIt online debates.</b><span class="cb-long"> Founding cohort opens. First invites go to early signups.</span></span>' +
+      '<span class="cohort-banner-msg"><b>Help us run the first DebateIt online debates.</b><span class="cb-long"> One sign-up, no account needed. First invites go to early signups.</span></span>' +
       '<a class="cohort-banner-cta" href="/early">Join the cohort →</a>' +
       '<button type="button" class="cohort-banner-close" aria-label="Dismiss founding cohort banner">×</button>';
 
