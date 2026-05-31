@@ -5090,6 +5090,29 @@ section.hero .hero-illustrated h1.hi-headline{
    layout. */
 .hero-illustrated .hi-cta-sep{display:none}
 
+/* Prominent Google sign-in (2026-05-31, per user: "very obviously").
+   Re-adds an in-hero sign-in button, reversing the 2026-05-19 removal.
+   White + the colored G logo so it pops on the cream hero; sits above the
+   debate CTAs so it reads as the primary action. Hidden once signed in
+   (body.signed-in, set by the Firebase IIFE). Click delegates to the
+   existing hidden #googleSignupBtn → triggerGoogleSignIn(). */
+.hero-illustrated .hi-google-wrap{display:flex;flex-direction:column;align-items:center;gap:7px;margin:0 auto 18px}
+.hero-illustrated .hi-google-cta{
+  display:inline-flex;align-items:center;justify-content:center;gap:11px;
+  padding:15px 30px;border-radius:999px;
+  background:#fff;color:#1f1f24;border:1px solid rgba(0,0,0,.10);
+  font-family:'Inter',-apple-system,system-ui,sans-serif;
+  font-size:1.02rem;font-weight:700;letter-spacing:-.01em;cursor:pointer;text-decoration:none;
+  box-shadow:0 12px 30px rgba(0,0,0,.16),0 2px 7px rgba(0,0,0,.08);
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+}
+.hero-illustrated .hi-google-cta:hover{transform:translateY(-2px);background:#fafafa;box-shadow:0 18px 42px rgba(0,0,0,.22),0 3px 9px rgba(0,0,0,.10)}
+.hero-illustrated .hi-google-cta:active{transform:translateY(0)}
+.hero-illustrated .hi-google-cta svg{width:21px;height:21px;flex-shrink:0}
+.hero-illustrated .hi-google-sub{font-size:.8rem;color:var(--hi-ink-soft,#6f6a63);font-family:'Inter',-apple-system,system-ui,sans-serif}
+body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
+@media(max-width:560px){.hero-illustrated .hi-google-cta{font-size:.96rem;padding:13px 24px}}
+
 /* Status row */
 .hero-illustrated .hi-status{
   display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center;
@@ -6456,17 +6479,22 @@ section.hero .hero-illustrated h1.hi-headline{
           <!-- ── CENTER globe ── -->
           <circle class="hi-globe-shell" cx="550" cy="290" r="148"/>
           <g class="hi-globe-grid">
-            <path d="M 420 290 Q 550 268 680 290"/>
-            <path d="M 410 250 Q 550 224 690 250"/>
-            <path d="M 410 330 Q 550 354 690 330"/>
-            <path d="M 432 215 Q 550 196 668 215"/>
-            <path d="M 432 365 Q 550 384 668 365"/>
-            <path d="M 462 188 Q 550 174 638 188"/>
-            <path d="M 462 392 Q 550 406 638 392"/>
-            <path d="M 550 142 Q 530 290 550 438"/>
-            <path d="M 550 142 Q 590 290 550 438"/>
-            <path d="M 550 142 Q 500 290 550 438"/>
-            <path d="M 550 142 Q 620 290 550 438"/>
+            <!-- Parallels (latitude): full ellipses, width = sphere's
+                 width at that height (rx = sqrt(r^2 - dy^2)), shallow ry so
+                 they read as latitude circles seen on a tilted globe. -->
+            <ellipse cx="550" cy="290" rx="148" ry="26"/>
+            <ellipse cx="550" cy="246" rx="142" ry="24"/>
+            <ellipse cx="550" cy="334" rx="142" ry="24"/>
+            <ellipse cx="550" cy="200" rx="118" ry="20"/>
+            <ellipse cx="550" cy="380" rx="118" ry="20"/>
+            <!-- Meridians (longitude): vertical ellipses sharing the poles
+                 (ry = r) at cos-spaced widths, plus the edge-on centre
+                 line. With the shell circle as the outline this reads as a
+                 proper globe wireframe. -->
+            <line x1="550" y1="142" x2="550" y2="438"/>
+            <ellipse cx="550" cy="290" rx="51"  ry="148"/>
+            <ellipse cx="550" cy="290" rx="97"  ry="148"/>
+            <ellipse cx="550" cy="290" rx="128" ry="148"/>
           </g>
 
           <!-- Inner waveforms + network — slowly rotates -->
@@ -6804,6 +6832,30 @@ section.hero .hero-illustrated h1.hi-headline{
            the full surface area of the product rather than locking on a
            single entry. Rotation pool + interval live in the script
            further down; the static markup is the first slot. -->
+      <!-- Prominent Google sign-in (per user, 2026-05-31). Delegates to the
+           existing hidden #googleSignupBtn (Firebase popup + redirect
+           fallback, GA-tracked, lands on /app#chat). Hidden once signed in
+           via body.signed-in. Sits above the debate CTAs to read as primary. -->
+      <div class="hi-google-wrap" id="heroIllusGoogleWrap">
+        <button type="button" id="heroIllusGoogle" class="hi-google-cta" data-cta="hero-illustrated-google">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+          Continue with Google
+        </button>
+        <span class="hi-google-sub">Free. Save your rounds, ballots, and the AI that learns your style.</span>
+      </div>
+      <script>
+        (function(){
+          var b = document.getElementById('heroIllusGoogle');
+          if (!b) return;
+          b.addEventListener('click', function(){
+            try { if (window.gtag) gtag('event', 'hero_illus_google_click'); } catch(e){}
+            var real = document.getElementById('googleSignupBtn');
+            if (real) { real.click(); return; }
+            // Firebase hooks not parsed/ready yet: the app is where sign-in lives.
+            location.href = '/app#chat';
+          });
+        })();
+      </script>
       <div class="hi-cta-row">
         <a href="/voice-debate" class="hi-cta-primary" data-cta="hero-illustrated-primary" data-hi-rotates="cta">
           <span class="hi-cta-primary-label">Start a live round</span>
