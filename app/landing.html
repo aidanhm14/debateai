@@ -4964,7 +4964,9 @@ section.hero .hero-illustrated h1.hi-headline{
   pointer-events:none;
   opacity:.78;
 }
-@keyframes hiDriftSlow{0%,100%{transform:translateY(0);opacity:.6}50%{transform:translateY(-7px);opacity:.92}}
+/* Opacity floor 0.6 → 0.82 (2026-06-01 contrast pass) so bubbles hold
+   the dark crimson page bg without ghosting at the breathing low. */
+@keyframes hiDriftSlow{0%,100%{transform:translateY(0);opacity:.82}50%{transform:translateY(-7px);opacity:1}}
 .hero-illustrated .hi-bubble-1{top:24%;left:25%;animation-delay:-2s}
 .hero-illustrated .hi-bubble-2{top:21%;right:18%;animation-delay:-4s}
 
@@ -5144,19 +5146,59 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 :root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated,
 :root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated,
 :root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated{
-  --hi-ink:        #f4ecd9;
-  --hi-ink-soft:   #c8bca6;
-  --hi-ink-faint:  rgba(244,236,217,.36);
-  --hi-line:       rgba(244,236,217,.62);
-  --hi-line-soft:  rgba(244,236,217,.28);
-  --hi-tan:        #d4a76a;
-  --hi-tan-soft:   rgba(212,167,106,.38);
-  --hi-red:        #e85a5a;
-  --hi-red-soft:   rgba(232,90,90,.18);
-  --hi-paper:      #1c1612;
-  --hi-paper-edge: #281f17;
-  --hi-chip-bg:    rgba(40,32,26,.78);
-  --hi-chip-ink:   #f4ecd9;
+  /* 2026-06-01 contrast pass — earlier tokens were calibrated for the
+     "muted illustration" aesthetic. On the real dark-crimson page bg,
+     pills + line art were too dim to read as proper product chrome
+     (looked unfinished, like loading-state placeholders). Bumps every
+     opacity + warms the tan accent so edges define, strokes hold,
+     chips sit ABOVE the page rather than dissolving INTO it.
+     Light-theme tokens above unchanged — contrast was already strong. */
+  --hi-ink:        #faf2dc;
+  --hi-ink-soft:   #d8c9aa;
+  --hi-ink-faint:  rgba(250,242,220,.5);
+  --hi-line:       rgba(250,242,220,.86);   /* was .62 — podium strokes hold */
+  --hi-line-soft:  rgba(250,242,220,.5);    /* was .28 — secondary strokes visible */
+  --hi-tan:        #e8b878;                  /* was #d4a76a — warmer + brighter */
+  --hi-tan-soft:   rgba(232,184,120,.78);   /* was .38 — pill borders define */
+  --hi-red:        #ef5a5a;
+  --hi-red-soft:   rgba(239,90,90,.22);
+  --hi-paper:      #221a14;
+  --hi-paper-edge: #2e231a;
+  --hi-chip-bg:    rgba(52,40,30,.95);      /* was .78 — pill body sits on page */
+  --hi-chip-ink:   #faf2dc;
+}
+/* Dark-theme pill chrome bump — defined border + real elevation shadow
+   so chips read as buttons sitting in front of the scene, not patches
+   dissolving into the page. Backdrop blur sharpened too. */
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated .hi-chip,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated .hi-chip,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated .hi-chip,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated .hi-chip{
+  border-width:1.5px;
+  font-weight:600;
+  box-shadow:0 4px 12px rgba(0,0,0,.42),0 1px 2px rgba(0,0,0,.5);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+/* Live-dot inside each chip — bright + soft glow on dark so the pulse
+   anchors the eye to each pill. */
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated .hi-chip::before,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated .hi-chip::before,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated .hi-chip::before,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated .hi-chip::before{
+  opacity:1;
+  box-shadow:0 0 6px rgba(239,90,90,.7);
+}
+/* Speech-snippet bubbles ("Counterpoint." / "Define your framework.")
+   were sitting at .6–.92 opacity over the previous ink token. Lifted
+   so the serif italic actually projects rather than ghosting in. */
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated .hi-bubble,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated .hi-bubble,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated .hi-bubble,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated .hi-bubble{
+  color:#f0e3c4;
+  text-shadow:0 1px 4px rgba(0,0,0,.55);
+  opacity:.95;
 }
 :root[data-theme="grey"][data-hero-ab="illustrated"] section.hero,
 :root[data-theme="crimson"][data-hero-ab="illustrated"] section.hero,
