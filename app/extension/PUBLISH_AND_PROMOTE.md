@@ -6,6 +6,49 @@ one has the click order + the demo asset + the week-1 promo playbook.
 
 ---
 
+## Ship sequence (do these in order)
+
+Zero to live. Each step assumes the one before it is done. Detail for
+each lives in the numbered sections below; this is the spine.
+
+1. **Pay the $5 Web Store developer fee.** One-time, instant approval.
+   https://chrome.google.com/webstore/devconsole/register
+2. **Lock the extension key.** Run `./app/extension/scripts/gen-extension-key.sh`,
+   paste the printed `"key"` into `manifest.json`, commit. This freezes the
+   extension ID so the dev install and the Web Store install match. The
+   OAuth client you set up next is tied to this ID, so it has to come first.
+3. **Do the Google Cloud OAuth setup.** Follow `GOOGLE_CLOUD_SETUP.md`, ~10
+   minutes. It produces one OAuth client ID; paste it into `manifest.json`
+   `oauth2.client_id`, replacing the `PASTE_YOUR_...` placeholder. Commit.
+   This is the only step Claude cannot do for you (it is clicks under your
+   Google account). Until it is done, "Connect Google Docs" does nothing.
+4. **Build the artifact.** Run `./app/extension/build.sh` to produce
+   `app/extension/dist/counter-v<version>.zip`. The script validates the
+   manifest and confirms it sits at the zip root.
+5. **Dogfood the build.** Load it unpacked on a fresh Chrome profile (no
+   existing DebateAI session). Confirm: side panel opens, "Connect"
+   succeeds, "Read active doc" pulls a real doc, a paste-passage counter
+   returns rebuttals, and one voice round completes end to end.
+6. **Confirm the privacy URL is live.** Open
+   https://debateai.com/privacy-extension (already deployed and routed).
+   The listing rejects without it.
+7. **Submit.** Web Store dev console, New item, upload the zip, paste every
+   field from `STORE_LISTING.md` (description, single-purpose, permission
+   justifications, privacy disclosures), set Public / all regions / Free,
+   Submit for review (1-3 days). Full click order in section 1.
+8. **After it goes live.** Replace the placeholder install URL across the
+   repo (section 1 post-publish wiring), then run the week-1 promo playbook
+   (section 3).
+
+> This sequence ships to the **Chrome Web Store** (the fast path). The
+> **Workspace Marketplace** listing (the domain-install distribution thesis
+> from the scoping doc, where one school-org admin can push Counter to every
+> student in a district) is a separate, heavier process: Google OAuth app
+> verification, brand review, and app review. Do it as a follow-on once the
+> Web Store version is live and dogfooded, not as the first ship.
+
+---
+
 ## 1. Publish to the Chrome Web Store (one-time)
 
 ### Pre-flight (do once, before any submission)
@@ -39,38 +82,39 @@ one has the click order + the demo asset + the week-1 promo playbook.
 ./app/extension/build.sh
 ```
 
-Output: `app/extension/dist/counter-v0.11.0.zip` (version follows
-`manifest.json`). Open the zip to confirm `manifest.json` sits at the
-root, not inside an `extension/` folder.
+Output: `app/extension/dist/counter-v0.15.3.zip` (the name follows the
+`version` in `manifest.json`). Open the zip to confirm `manifest.json`
+sits at the root, not inside an `extension/` folder.
 
-### Pre-submission gotcha — OAuth client_id
+### Pre-submission gotcha: OAuth client_id (do not skip)
 
 `manifest.json` ships with `oauth2.client_id` set to the placeholder
-`PASTE_YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com`.
-The v0.11 Counter-your-draft feature works without OAuth (paste-passage
-→ /api/counter-doc, no Google identity involved), but the Chrome Web
-Store reviewer WILL flag the placeholder. Two choices before submit:
+`PASTE_YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com`. A
+Web Store reviewer will flag the placeholder, and more to the point, the
+"Connect Google Docs" → read-active-doc → Reader-companion flow that is
+the entire reason this extension targets Google Docs does not work until
+the client ID is real.
 
-1. **Recommended for first ship**: strip the `oauth2` block + the
-   `identity` permission + the `docs.googleapis.com` / `www.googleapis.com`
-   host_permissions from `manifest.json`. The lib/docs-api.js +
-   background.js Stage-2 Docs-edit code goes dormant (no UI reaches it
-   anyway in v0.11). Re-add when you wire a Read-Active-Doc UI in the
-   side panel.
+The fix is steps 2-3 of the ship sequence above: lock the extension
+`key` first, then run `GOOGLE_CLOUD_SETUP.md` (~10 minutes in
+console.cloud.google.com) to get one OAuth client ID that replaces the
+placeholder. Key first, so the extension ID stays stable and the OAuth
+client stays tied to it across the dev install and the Web Store install.
 
-2. **If you want OAuth from day one**: run through
-   `GOOGLE_CLOUD_SETUP.md` end-to-end. ~10 minutes in console.cloud.google.com
-   per the doc; the real OAuth client ID replaces the placeholder.
-   You'll also want to lock the extension `key` field first so the
-   client ID and extension ID stay tied across dev / store installs.
+Earlier versions of this doc suggested stripping the `oauth2` block to
+ship a paste-passage-only build with no Google identity. That no longer
+applies: since v0.13 the side panel wires a live Docs-read companion
+(Doc-context strip, "Read active doc", Reader dial), so stripping OAuth
+now deletes shipped UI, not dormant code, and guts the Google Docs wedge
+that is the whole point of the extension. Ship with OAuth.
 
 ### Submit (the actual click order)
 
 1. Open https://chrome.google.com/webstore/devconsole/.
 2. Click **New item** (top right).
-3. **Upload** the `counter-v0.9.x.zip`. Wait for the analyzer; if it
-   flags anything, fix in the source repo (don't edit the zip
-   directly) and rebuild.
+3. **Upload** the `counter-v0.15.3.zip` you just built. Wait for the
+   analyzer; if it flags anything, fix in the source repo (don't edit the
+   zip directly) and rebuild.
 4. **Store listing tab** — paste from `STORE_LISTING.md`:
    - **Description** → "Detailed description" section (≤16k chars)
    - **Category** → Productivity (primary), Education (secondary)
