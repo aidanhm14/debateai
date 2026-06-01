@@ -1128,6 +1128,7 @@ h1 em{color:var(--accent);font-style:normal}
     // startPairingTicker() removed — see RECENT_PAIRINGS comment above
     startMetaLive();
     fetchMissedMatchCount();
+    logSparAttempt();
     mountGlobalMap('globalDebateMap');
   }
 
@@ -1140,14 +1141,20 @@ h1 em{color:var(--accent);font-style:normal}
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
         if (!j) return;
-        var n = (typeof j.week_count === 'number') ? j.week_count : 0;
-        if (n < 3) return; // stays hidden
+        var attempts = (j.attempts && typeof j.attempts.week_count === 'number') ? j.attempts.week_count : 0;
+        var misses = (typeof j.week_count === 'number') ? j.week_count : 0;
+        // Prefer the broader, honest "looked for a live round" attempts
+        // count; fall back to the misses count. Hide under 3 either way so
+        // a tiny number doesn't read sadder than showing nothing.
+        var n, label;
+        if (attempts >= 3) { n = attempts; label = 'looked for a live round this week'; }
+        else if (misses >= 3) { n = misses; label = 'missed each other this week'; }
+        else return;
         var sep = document.getElementById('metaMissedSep');
         var cell = document.getElementById('metaMissedCell');
-        var num = document.getElementById('metaMissed');
         if (sep) sep.style.display = '';
         if (cell) cell.style.display = '';
-        if (num) num.textContent = String(n);
+        if (cell) cell.innerHTML = '<strong id="metaMissed">' + String(n) + '</strong> ' + label;
       })
       .catch(function(){});
   }
@@ -1389,6 +1396,28 @@ h1 em{color:var(--accent);font-style:normal}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ format: formatParam, reason: reason }),
         keepalive: true, // survive navigation in renderFallback
+      }).catch(function(){});
+    } catch (e) { /* never block the flow on a logging failure */ }
+  }
+
+  // Spar intent. Fired once per tab session the moment a search starts,
+  // whether it ends in a pairing, a fast AI fallback, or a cancel. This
+  // is the honest "how many people looked for a live round this week"
+  // signal — a superset of misses (every miss had an attempt, but plenty
+  // of attempts never reach the >=15s "miss" bar). Deduped per format per
+  // tab session so broaden re-queues don't inflate it.
+  function logSparAttempt(){
+    try {
+      var k = 'da-spar-attempt-' + formatParam;
+      if (sessionStorage.getItem(k)) return;
+      sessionStorage.setItem(k, '1');
+    } catch (e) { /* private mode — proceed without dedupe */ }
+    try {
+      fetch('/api/log-missed-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format: formatParam, reason: 'attempt' }),
+        keepalive: true,
       }).catch(function(){});
     } catch (e) { /* never block the flow on a logging failure */ }
   }
