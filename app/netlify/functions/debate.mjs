@@ -261,6 +261,23 @@ function commonStyles() {
   .drill-item .dl{font-size:14px;font-weight:600;line-height:1.35}
   .drill-item .dx{color:var(--ghost);font-size:18px}
 
+  /* ---------- OTHER WAYS TO ARGUE (cross-surface CTA cards) ---------- */
+  /* Three equal cards linking to /live, /exhibition, /spar. Internal
+     linking from every /debate/{slug} → these surfaces is the SEO play
+     (30+ motion pages × 3 links = 90 new internal anchors). Visual
+     hierarchy: same .sec rhythm as Related motions / Drills so it
+     reads as another shelf, not a marketing banner. */
+  .sec-otherways{margin-top:80px}
+  .otherways-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  @media (max-width:760px){.otherways-grid{grid-template-columns:1fr}}
+  .otherway-card{display:flex;flex-direction:column;gap:8px;padding:20px 22px;border:1px solid var(--line);background:var(--card);border-radius:14px;color:var(--ink);transition:border-color .14s,background .14s,transform .14s}
+  .otherway-card:hover{text-decoration:none;border-color:var(--red);background:rgba(255,255,255,.05);transform:translateY(-1px)}
+  .otherway-card .otherway-eye{font:800 10.5px/1 system-ui;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:2px}
+  .otherway-card .otherway-title{font:700 16px/1.3 "SF Pro Display",system-ui;color:var(--ink)}
+  .otherway-card .otherway-body{font:400 13.5px/1.55 system-ui;color:var(--dim);margin-bottom:4px}
+  .otherway-card .otherway-arr{font:800 14px/1 system-ui;color:var(--ghost);align-self:flex-end}
+  .otherway-card:hover .otherway-arr{color:var(--red)}
+
   footer.dfoot{margin-top:80px;padding-top:24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--ghost)}
   footer.dfoot a{color:var(--ghost)} footer.dfoot a:hover{color:var(--ink);text-decoration:none}
 
@@ -522,9 +539,33 @@ ${rail(m)}
     </div>
   </section>
 
+  <section class="sec sec-otherways">
+    <div class="sec-eye" style="margin-top:0">Other ways to argue this motion</div>
+    <div class="otherways-grid">
+      <a class="otherway-card" href="/live">
+        <span class="otherway-eye">Live · with humans</span>
+        <span class="otherway-title">Post this motion live</span>
+        <span class="otherway-body">Drop the motion on the live board. Another debater accepts, you both join a video room, AI judges the round at the end.</span>
+        <span class="otherway-arr">→</span>
+      </a>
+      <a class="otherway-card" href="/exhibition">
+        <span class="otherway-eye">Exhibition · two AI brains</span>
+        <span class="otherway-title">Watch two AI brains debate it</span>
+        <span class="otherway-body">Pick two of six brains (Claude, GPT, Grok, Gemini, DeepSeek, Open Lab) and watch the round before you face one yourself.</span>
+        <span class="otherway-arr">→</span>
+      </a>
+      <a class="otherway-card" href="/spar">
+        <span class="otherway-eye">Spar · instant human</span>
+        <span class="otherway-title">Queue for an instant scrim</span>
+        <span class="otherway-body">No scheduling. The matchmaker pairs you with another debater in seconds, AI fallback if none available.</span>
+        <span class="otherway-arr">→</span>
+      </a>
+    </div>
+  </section>
+
   <footer class="dfoot">
     <span>© 2026 Debate AI</span>
-    <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/learn">Learn</a> · <a href="/debate-ai">Practice</a></span>
+    <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/live">Live rounds</a> · <a href="/exhibition">Exhibition</a> · <a href="/learn">Learn</a> · <a href="/debate-ai">Practice</a></span>
   </footer>
 </main>
 
