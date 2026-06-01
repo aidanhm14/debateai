@@ -7881,6 +7881,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 </div>
 </section>
 
+<!-- 2026-06-01: three-mode choice band. Outside the hero so it renders in
+     every hero variant, right below it. Debate now = instant AI round;
+     Compete live = the live-human matchmaker (opens the "mark me available"
+     modal #liveModal near </body>); Prep = build a case first. All real
+     <a href> so they work with JS off (Live falls back to /spar). -->
+<section class="two-modes-band" aria-label="Choose how to debate">
+  <div class="tmb-inner">
+    <a href="/debate-ai" class="tmb-btn tmb-btn-now" data-cta="band_now">
+      <span class="tmb-btn-label">Debate now</span>
+      <span class="tmb-btn-sub">Jump straight into a round against the AI.</span>
+    </a>
+    <a href="/spar" id="heroLiveBtn" class="tmb-btn tmb-btn-live" data-cta="band_live">
+      <span class="tmb-btn-label">Compete live online</span>
+      <span class="tmb-btn-sub">Match a real debater, or post that you're available.</span>
+    </a>
+    <a href="/app#case" class="tmb-btn tmb-btn-prep" data-cta="band_prep">
+      <span class="tmb-btn-label">Prep with AI</span>
+      <span class="tmb-btn-sub">Build and stress-test your case first.</span>
+    </a>
+  </div>
+</section>
+<style>
+  .two-modes-band{padding:6px 20px 44px;max-width:1000px;margin:0 auto}
+  .two-modes-band .tmb-inner{display:flex;gap:14px;flex-wrap:wrap}
+  .two-modes-band .tmb-btn{flex:1 1 0;min-width:220px;display:flex;flex-direction:column;gap:6px;padding:20px 22px;border-radius:16px;text-decoration:none;border:1.5px solid var(--border,rgba(255,255,255,.16));cursor:pointer;transition:transform .15s,border-color .15s,background .15s}
+  .two-modes-band .tmb-btn:hover{transform:translateY(-2px)}
+  .two-modes-band .tmb-btn-label{font-size:1.25rem;font-weight:900;letter-spacing:-.01em}
+  .two-modes-band .tmb-btn-sub{font-size:.84rem;opacity:.72;line-height:1.4}
+  .two-modes-band .tmb-btn-now{background:var(--accent,#ef4444);border-color:var(--accent,#ef4444);color:#fff}
+  .two-modes-band .tmb-btn-now:hover{background:#dc2626;border-color:#dc2626}
+  .two-modes-band .tmb-btn-now .tmb-btn-sub{opacity:.88}
+  .two-modes-band .tmb-btn-live,.two-modes-band .tmb-btn-prep{background:transparent;color:inherit}
+  .two-modes-band .tmb-btn-live:hover,.two-modes-band .tmb-btn-prep:hover{border-color:var(--accent,#ef4444);background:rgba(239,68,68,.07)}
+  @media(max-width:760px){.two-modes-band .tmb-inner{flex-direction:column}.two-modes-band .tmb-btn{min-width:0}}
+</style>
+
 <!-- 2026-05-24: #proPanel ("Where pros use it") moved out of this
      slot (right after the hero) and down to just before the FAQ.
      The audience-tab toggle JS was removed along with the .aud-tabs
@@ -13216,6 +13252,137 @@ window.addEventListener('load', function(){
   } else {
     init();
   }
+})();
+</script>
+
+<!-- ── "Compete live online" availability modal (2026-06-01) ──────────
+     Opened by #heroLiveBtn in the three-mode band. One tap marks the
+     visitor available: writes a waitlist_posts doc (same shape /spar uses)
+     so they appear in the /spar waitlist + queue feed AND sets da-spar-bg
+     so the shared background matcher (notifications.js sparLive) picks them
+     up. CONFIRM BEFORE SPAWN: that matcher never auto-drops anyone into a
+     round — it pops an Accept/Decline card (20s window) first; Accept →
+     /live-round, decline/timeout → stay available. Firestore is lazy-loaded
+     on demand; sign-in reuses the hidden #googleSignupBtn flow; every
+     failure path falls back to /spar. -->
+<style>
+  .lcm-overlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.66);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  .lcm-overlay[hidden]{display:none}
+  .lcm-card{position:relative;width:100%;max-width:440px;background:#14090b;color:#fff;border:1px solid rgba(239,68,68,.4);border-radius:18px;padding:30px 26px 24px;box-shadow:0 30px 80px rgba(0,0,0,.5);font-family:'Inter',system-ui,-apple-system,sans-serif}
+  .lcm-close{position:absolute;top:12px;right:14px;background:transparent;border:none;color:rgba(255,255,255,.5);font-size:1.5rem;line-height:1;cursor:pointer;padding:4px 8px}
+  .lcm-close:hover{color:#fff}
+  .lcm-eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:.64rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#fca5a5;margin-bottom:12px}
+  .lcm-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;animation:lcmPulse 1.8s ease-out infinite}
+  @keyframes lcmPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}50%{box-shadow:0 0 0 5px rgba(239,68,68,0)}}
+  @media(prefers-reduced-motion:reduce){.lcm-eyebrow::before{animation:none}}
+  .lcm-title{font-size:1.5rem;font-weight:900;letter-spacing:-.02em;line-height:1.15;margin:0 0 10px;color:#fff}
+  .lcm-body{font-size:.95rem;color:rgba(255,255,255,.78);line-height:1.55;margin:0 0 20px}
+  .lcm-actions{display:flex;flex-direction:column;gap:10px}
+  .lcm-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 18px;border-radius:12px;font-size:.95rem;font-weight:800;cursor:pointer;text-decoration:none;border:1px solid transparent;font-family:inherit;transition:transform .15s,background .15s}
+  .lcm-btn-primary{background:#ef4444;color:#fff;border-color:#ef4444}
+  .lcm-btn-primary:hover{background:#dc2626;transform:translateY(-1px)}
+  .lcm-btn-primary[disabled]{opacity:.6;cursor:default;transform:none}
+  .lcm-btn-ghost{background:transparent;color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.22)}
+  .lcm-btn-ghost:hover{border-color:rgba(255,255,255,.45);color:#fff}
+  .lcm-status{margin-top:14px;font-size:.86rem;line-height:1.5;color:#fca5a5}
+  .lcm-status.ok{color:#4ade80}
+  .lcm-fine{margin:16px 0 0;font-size:.72rem;color:rgba(255,255,255,.45);line-height:1.5}
+</style>
+<div id="liveModal" class="lcm-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="lcmTitle">
+  <div class="lcm-card">
+    <button type="button" class="lcm-close" id="lcmClose" aria-label="Close">&times;</button>
+    <div class="lcm-eyebrow">Live &middot; humans</div>
+    <h2 id="lcmTitle" class="lcm-title">Compete live, against real debaters.</h2>
+    <p class="lcm-body">Mark yourself available and other debaters can DM you to set up a round. You also match into a live voice round when someone else is on. You get an Accept prompt before any round starts, and an AI opponent as backup if nobody pairs.</p>
+    <div class="lcm-actions" id="lcmActions">
+      <button type="button" class="lcm-btn lcm-btn-primary" id="lcmAvailable">I'm available for live debates</button>
+      <a class="lcm-btn lcm-btn-ghost" href="/spar">Jump into the live matchmaker &rarr;</a>
+    </div>
+    <div class="lcm-status" id="lcmStatus" aria-live="polite"></div>
+    <p class="lcm-fine">Marking yourself available signs you in with Google so debaters can reach you. You control your spot and can remove it anytime from Spar.</p>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay = document.getElementById('liveModal');
+  var liveBtn = document.getElementById('heroLiveBtn');
+  if (!overlay || !liveBtn) return;
+  var closeBtn = document.getElementById('lcmClose');
+  var availBtn = document.getElementById('lcmAvailable');
+  var statusEl = document.getElementById('lcmStatus');
+  var titleEl  = document.getElementById('lcmTitle');
+  var bodyEl   = overlay.querySelector('.lcm-body');
+  var actionsEl= document.getElementById('lcmActions');
+  var pending = false, authWatched = false;
+  var FS_SDK = 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js';
+
+  function setStatus(msg, ok){ if (statusEl){ statusEl.textContent = msg || ''; statusEl.className = 'lcm-status' + (ok ? ' ok' : ''); } }
+  function open(){ overlay.hidden = false; document.body.style.overflow = 'hidden'; try{ if (window.gtag) gtag('event','live_modal_open',{from:'landing_band'}); }catch(e){} }
+  function close(){ overlay.hidden = true; document.body.style.overflow = ''; }
+
+  liveBtn.addEventListener('click', function(e){ e.preventDefault(); open(); });
+  if (closeBtn) closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !overlay.hidden) close(); });
+
+  function shortName(u){
+    var f = ((u && u.displayName) || '').trim();
+    var p = f.split(/\s+/).filter(Boolean);
+    return p.length >= 2 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.' : (p[0] || 'A debater');
+  }
+  function ensureFirestore(cb){
+    try { if (typeof firebase !== 'undefined' && firebase.firestore){ firebase.firestore(); return cb(null); } } catch(e){}
+    var s = document.createElement('script');
+    s.src = FS_SDK;
+    s.onload = function(){ cb(null); };
+    s.onerror = function(){ cb(new Error('load')); };
+    document.head.appendChild(s);
+  }
+  function showConfirm(){
+    // Enroll in the shared background matcher. It pops an Accept/Decline
+    // card (notifications.js sparLive) before sending anyone to /live-round
+    // — so being "available" never auto-spawns a round; the user confirms.
+    try { localStorage.setItem('da-spar-bg','1'); } catch(e){}
+    if (titleEl) titleEl.textContent = "You're on the board.";
+    if (bodyEl)  bodyEl.textContent  = "Debaters can DM you to set up a round. And when a live match is ready, you'll get an Accept prompt first, never dropped into a round unannounced.";
+    if (actionsEl) actionsEl.innerHTML = '<a class="lcm-btn lcm-btn-primary" href="/spar">Open Spar &rarr;</a>';
+    setStatus('', true);
+    try { if (window.gtag) gtag('event','waitlist_join',{format:'any',source:'landing_popup'}); } catch(e){}
+  }
+  function doWrite(user){
+    if (availBtn) availBtn.disabled = true;
+    setStatus('Marking you available…');
+    ensureFirestore(function(err){
+      if (err){ if (availBtn) availBtn.disabled = false; setStatus('Could not load live mode here. Open the matchmaker at /spar to go live.'); return; }
+      var db; try { db = firebase.firestore(); } catch(e){ if (availBtn) availBtn.disabled = false; setStatus('Could not reach live mode. Try /spar.'); return; }
+      db.collection('waitlist_posts').add({
+        uid: user.uid,
+        displayName: shortName(user),
+        photoURL: user.photoURL || '',
+        format: 'any',
+        note: '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(showConfirm).catch(function(e){
+        if (availBtn) availBtn.disabled = false;
+        setStatus('Could not save: ' + (e.message || e.code || 'error') + '. Try the matchmaker at /spar.');
+      });
+    });
+  }
+  function watchAuth(){
+    if (authWatched) return; authWatched = true;
+    try { firebase.auth().onAuthStateChanged(function(u){ if (u && pending){ pending = false; doWrite(u); } }); } catch(e){}
+  }
+  if (availBtn) availBtn.addEventListener('click', function(){
+    if (typeof firebase === 'undefined' || !firebase.auth){ setStatus('Sign-in is unavailable here. Open /spar to go live.'); return; }
+    var user = null; try { user = firebase.auth().currentUser; } catch(e){}
+    if (user){ doWrite(user); return; }
+    pending = true; watchAuth();
+    setStatus('Signing you in with Google…');
+    var gbtn = document.getElementById('googleSignupBtn');
+    if (gbtn) gbtn.click();
+    else if (typeof window.triggerGoogleSignIn === 'function'){ try { window.triggerGoogleSignIn('landing_live_available'); } catch(e){} }
+    else setStatus('Sign-in unavailable. Open /spar to go live.');
+  });
 })();
 </script>
 </body>
