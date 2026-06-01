@@ -1,24 +1,35 @@
 /* log-missed-match.mjs
  *
- * "Missed match" counter for /spar.
+ * Spar activity counters for /spar. Two separate counter docs:
+ *
+ *   metrics/missed_matches  — true misses (tried, nobody showed).
+ *   metrics/spar_attempts   — spar intent (pressed Spar / started a
+ *                             search). A superset of misses: every miss
+ *                             had an attempt, but plenty of attempts end
+ *                             in a fast AI fallback that never counted as
+ *                             a "miss." This is the honest "how many
+ *                             people looked for a live round" number.
  *
  * Two methods:
- *   POST /api/log-missed-match  → atomic +1 on the counter; returns new totals.
- *   GET  /api/log-missed-match  → read-only fetch of current totals.
+ *   POST /api/log-missed-match  → atomic +1 on one counter; returns totals.
+ *   GET  /api/log-missed-match  → read-only fetch of both counters.
  *
- * The "miss" is fired by app/spar.html in two places:
- *   1. renderFallback() — user sat in the queue 60s without pairing.
- *   2. cancelQueue() — user gave up after staying in the queue >=15s
- *      (gives up earlier than that and it's not really a "miss," they
- *      probably just clicked through accidentally).
+ * Fired by app/spar.html via reason:
+ *   'attempt'  — search started (logSparAttempt, once per tab session).
+ *   'fallback' — sat in the queue 60s without pairing (renderFallback).
+ *   'cancel'   — gave up after staying in the queue >=15s (cancelQueue).
+ * 'fallback'/'cancel' tick missed_matches; 'attempt' ticks spar_attempts.
  *
- * Storage shape:
- *   metrics/missed_matches
- *     total: number (all-time)
- *     week_count: number (resets at the start of each ISO week)
- *     week_key: string (YYYY-WW)
- *     by_format: { apda: N, bp: N, ... }
- *     updatedAt: server timestamp
+ * Storage shape (identical for both docs):
+ *   total: number (all-time)
+ *   week_count: number (resets at the start of each ISO week)
+ *   week_key: string (YYYY-WW)
+ *   by_format: { apda: N, bp: N, ... }
+ *   updatedAt: server timestamp
+ *
+ * GET returns the misses counts at top level (backward-compat: /live's
+ * callout + the original /spar strip read week_count) with the attempts
+ * counts nested under `attempts`.
  *
  * Per-IP rate limiting prevents trivial abuse: an IP can only fire
  * MAX_TICKS_PER_HOUR misses (defaults to 6, since the spar surface
@@ -32,6 +43,7 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 const COUNTER_DOC = 'metrics/missed_matches';
+const ATTEMPTS_DOC = 'metrics/spar_attempts';
 
 // Per-IP tick budget. The spar matchmaker queues you for ~60s before
 // AI fallback fires, so a real user is unlikely to legitimately
@@ -102,6 +114,45 @@ async function readCounts(docRef){
   };
 }
 
+// Increment one counter doc (misses or attempts). Same shape for both:
+// total (all-time), week_count (current ISO week), week_key, by_format.
+// Each doc self-manages its own weekly roll, so the two counters never
+// fight over a shared week_key.
+async function tickCounter(docRef, format, reason){
+  const currentWeek = isoWeekKey(new Date());
+  const snap = await docRef.get();
+
+  if (!snap.exists){
+    await docRef.set({
+      total: 1,
+      week_count: 1,
+      week_key: currentWeek,
+      by_format: { [format]: 1 },
+      last_reason: reason,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { total: 1, week_count: 1, week_key: currentWeek, by_format: { [format]: 1 } };
+  }
+
+  const stored = snap.data() || {};
+  const sameWeek = stored.week_key === currentWeek;
+  const update = {
+    total: FieldValue.increment(1),
+    [`by_format.${format}`]: FieldValue.increment(1),
+    last_reason: reason,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  if (sameWeek){
+    update.week_count = FieldValue.increment(1);
+  } else {
+    // Roll the week counter. Set to 1 (this tick starts the new week).
+    update.week_count = 1;
+    update.week_key = currentWeek;
+  }
+  await docRef.update(update);
+  return await readCounts(docRef);
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET' && request.method !== 'POST'){
@@ -112,20 +163,25 @@ export default async (request) => {
   try {
     db = getDb();
   } catch (err) {
-    return jsonResponse(defaultCounts(), 200, request);
+    return jsonResponse({ ...defaultCounts(), attempts: defaultCounts() }, 200, request);
   }
-  const docRef = db.doc(COUNTER_DOC);
+  const missesRef = db.doc(COUNTER_DOC);
+  const attemptsRef = db.doc(ATTEMPTS_DOC);
 
   if (request.method === 'GET'){
     try {
-      const counts = await readCounts(docRef);
-      // If the stored week_key is stale, the *displayed* week_count is
-      // still the old week's. That's fine for read; we don't reset on
-      // GET to avoid a write per anonymous read.
-      return jsonResponse(counts, 200, request);
+      // Read both counters in parallel. Misses stay top-level for
+      // backward-compat; attempts ride alongside under `attempts`.
+      // Stale week_key on read is fine — we don't reset on GET (avoids a
+      // write per anonymous read).
+      const [misses, attempts] = await Promise.all([
+        readCounts(missesRef),
+        readCounts(attemptsRef),
+      ]);
+      return jsonResponse({ ...misses, attempts }, 200, request);
     } catch (err) {
       console.error('log-missed-match GET failed:', err.message);
-      return jsonResponse(defaultCounts(), 200, request);
+      return jsonResponse({ ...defaultCounts(), attempts: defaultCounts() }, 200, request);
     }
   }
 
@@ -135,15 +191,6 @@ export default async (request) => {
     request.headers.get('x-forwarded-for') ||
     'unknown';
 
-  if (isRateLimited(ip)){
-    try {
-      const counts = await readCounts(docRef);
-      return jsonResponse({ ...counts, ticked: false, reason: 'rate-limit' }, 200, request);
-    } catch (err) {
-      return jsonResponse({ ...defaultCounts(), ticked: false, reason: 'rate-limit' }, 200, request);
-    }
-  }
-
   let format = 'other';
   let reason = 'fallback';
   try {
@@ -152,51 +199,32 @@ export default async (request) => {
       if (body){
         format = normFormat(body.format);
         if (typeof body.reason === 'string'){
-          // 'fallback' (60s AI fallback fired) | 'cancel' (user gave up)
-          reason = body.reason === 'cancel' ? 'cancel' : 'fallback';
+          // 'attempt' (started a search — spar intent) | 'fallback' (60s
+          // AI fallback fired) | 'cancel' (user gave up). Anything else
+          // collapses to 'fallback'.
+          if (body.reason === 'attempt') reason = 'attempt';
+          else if (body.reason === 'cancel') reason = 'cancel';
+          else reason = 'fallback';
         }
       }
     }
   } catch {}
 
+  const isAttempt = reason === 'attempt';
+  const targetRef = isAttempt ? attemptsRef : missesRef;
+
+  if (isRateLimited(ip)){
+    try {
+      const counts = await readCounts(targetRef);
+      return jsonResponse({ ...counts, ticked: false, reason: 'rate-limit' }, 200, request);
+    } catch (err) {
+      return jsonResponse({ ...defaultCounts(), ticked: false, reason: 'rate-limit' }, 200, request);
+    }
+  }
+
   try {
-    const currentWeek = isoWeekKey(new Date());
-    const snap = await docRef.get();
-
-    if (!snap.exists){
-      // Seed.
-      await docRef.set({
-        total: 1,
-        week_count: 1,
-        week_key: currentWeek,
-        by_format: { [format]: 1 },
-        last_reason: reason,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      return jsonResponse({
-        total: 1, week_count: 1, week_key: currentWeek,
-        by_format: { [format]: 1 }, ticked: true, seeded: true,
-      }, 200, request);
-    }
-
-    const stored = snap.data() || {};
-    const sameWeek = stored.week_key === currentWeek;
-    const update = {
-      total: FieldValue.increment(1),
-      [`by_format.${format}`]: FieldValue.increment(1),
-      last_reason: reason,
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-    if (sameWeek){
-      update.week_count = FieldValue.increment(1);
-    } else {
-      // Roll the week counter. Set to 1 (this miss starts the new week).
-      update.week_count = 1;
-      update.week_key = currentWeek;
-    }
-    await docRef.update(update);
-    const counts = await readCounts(docRef);
-    return jsonResponse({ ...counts, ticked: true }, 200, request);
+    const counts = await tickCounter(targetRef, format, reason);
+    return jsonResponse({ ...counts, ticked: true, kind: isAttempt ? 'attempt' : 'miss' }, 200, request);
   } catch (err) {
     console.error('log-missed-match POST failed:', err.message);
     return jsonResponse({ ...defaultCounts(), ticked: false, error: 'write-failed' }, 200, request);
