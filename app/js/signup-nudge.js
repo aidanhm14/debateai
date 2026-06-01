@@ -42,12 +42,14 @@
   // built, not a generic "keep your rounds" pitch. Founder-voice
   // first-person where it fits.
   var pageConfig = [
-    { match: /^\/(landing|index)?($|\?)/,
-      delay: 18,
-      msg: 'Sign in and the AI starts learning how you argue.' },
+    { match: /^\/(landing|index)?(\.html)?($|\?)/,
+      delay: 8,
+      variant: 'community',
+      msg: '<strong>95% of people here never sign in.</strong> No accounts, no community, no one to spar. Sign in and help build it.' },
     { match: /^\/debate-ai/,
-      delay: 60,
-      msg: 'The AI is recognizing your patterns. Sign in to keep them.' },
+      delay: 8,
+      variant: 'community',
+      msg: '<strong>95% of people here never sign in.</strong> No accounts, no community, no one to spar. Sign in and help build it.' },
     { match: /^\/voice-debate/,
       delay: 60,
       msg: 'Sign in and the voice round becomes part of your style profile.' },

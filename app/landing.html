@@ -13548,13 +13548,41 @@ window.addEventListener('load', function(){
     });
   }
 
-  // Sign-up nudge intentionally NOT mounted on /landing (removed
-  // 2026-05-20 per user request — the sticky bottom banner was cut from
-  // the marketing front door). The shared /js/signup-nudge.js module is
-  // still used on /debate-ai, /voice-debate, /learn, etc.; it's just not
-  // loaded here.
+  // Sign-up nudge on /landing is now A/B-gated (2026-06-01). It was
+  // unconditionally cut 2026-05-20, but we're testing whether a
+  // community-framed nudge converts first-time visitors who'd otherwise
+  // bounce anonymous. The coin-flip + conditional module load lives in
+  // its own script block below (search "landing_nudge"); only the 'on'
+  // arm loads /js/signup-nudge.js. This IIFE no longer decides mounting.
 })();
 });
+</script>
+
+<!-- ── A/B: community sign-in nudge on /landing (2026-06-01) ──
+     Landing was nudge-free since 2026-05-20. Testing whether a community-
+     framed sign-in nudge converts first-time visitors who'd otherwise leave
+     anonymous (the "95% never sign in" problem) or whether it scares them
+     off. Sticky per-visitor coin-flip in localStorage; BOTH arms fire a
+     GA4 experiment_impression so the sign_up_start rate is comparable.
+     Only the 'on' arm loads the shared module, which picks up the
+     landing config entry (8s, community copy). -->
+<script>
+(function(){
+  var KEY = 'debateos-exp-landing-nudge';
+  var arm = null;
+  try { arm = localStorage.getItem(KEY); } catch(e){}
+  if (arm !== 'on' && arm !== 'off') {
+    arm = (Math.random() < 0.5) ? 'on' : 'off';
+    try { localStorage.setItem(KEY, arm); } catch(e){}
+  }
+  try { if (window.gtag) gtag('event', 'experiment_impression', { exp: 'landing_nudge', arm: arm }); } catch(e){}
+  if (arm === 'on') {
+    var s = document.createElement('script');
+    s.defer = true;
+    s.src = '/js/signup-nudge.js';
+    document.head.appendChild(s);
+  }
+})();
 </script>
 
 <!-- Post-Stripe-Checkout success state. Stripe redirects back to / with
