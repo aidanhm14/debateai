@@ -118,7 +118,7 @@
   // of the bar — Voice = match against AI, Spar = match against a human.
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
-    { href: '/spar',          label: 'Spar'         },
+    { href: '/spar',          label: 'Spar', pulse: true },
     { href: '/app#case',      label: 'Prep'         },
     { href: '/learn',         label: 'Learn'        },
     // 2026-05-18: /rounds standalone listing retired — the published-
@@ -282,6 +282,21 @@
         var dot = el('span');
         dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;display:inline-block';
         a.appendChild(dot);
+      }
+      // Spar: a pulsing dot (vs Live's static one) so the live-human
+      // matchmaker reads as "jump in, real-time" without a fake "N online"
+      // claim. Animation injected once; honors prefers-reduced-motion.
+      if (L.pulse){
+        a.style.display = 'inline-flex';
+        a.style.alignItems = 'center';
+        a.style.gap = '6px';
+        if (!document.getElementById('daSparPulseStyle')){
+          var ps = document.createElement('style');
+          ps.id = 'daSparPulseStyle';
+          ps.textContent = '@keyframes daSparPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}50%{box-shadow:0 0 0 5px rgba(239,68,68,0)}}.ui-topbar-spar-dot{width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block;animation:daSparPulse 1.8s ease-out infinite}@media (prefers-reduced-motion:reduce){.ui-topbar-spar-dot{animation:none}}';
+          document.head.appendChild(ps);
+        }
+        a.appendChild(el('span', { class: 'ui-topbar-spar-dot', 'aria-hidden': 'true' }));
       }
       a.appendChild(document.createTextNode(L.label));
       right.appendChild(a);
