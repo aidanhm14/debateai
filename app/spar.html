@@ -1333,6 +1333,17 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   // ── Render: matched! ─────────────────────────────────
+  // radarHandle: the searching view now renders the globe
+  // (global-debate-map.js), not the old radar, so this stays null and
+  // renderMatched's `if (radarHandle && ...)` guards fall through to
+  // the immediate swap. It MUST be declared: leaving it implicit made
+  // line "if (radarHandle && radarHandle.lockOn)" throw
+  // ReferenceError, which aborted renderMatched before subscribeMyDoc
+  // could navigate, stranding BOTH matched users on the search screen
+  // until the 60s AI fallback. That was the "live spawn never works
+  // for two humans" bug — the server paired them fine; the client
+  // crashed rendering the match.
+  var radarHandle = null;
   function renderMatched(roomName, peerName){
     try { gtag('event', 'spar_match_found', { format: formatParam }); } catch(e){}
 
@@ -1577,7 +1588,12 @@ h1 em{color:var(--accent);font-style:normal}
       var d = doc.data();
       if (d.status === 'matched' && d.room && d.matchedWith){
         teardownQueue();
-        renderMatched(d.room, d.matchedWithName || 'a debater');
+        // The matched-state render is cosmetic; navigation into the
+        // round is the load-bearing step. Never let a render error
+        // (e.g. a future undefined ref) swallow the navigation and
+        // strand a successfully-paired user on the search screen.
+        try { renderMatched(d.room, d.matchedWithName || 'a debater'); }
+        catch (e) { console.warn('[spar] renderMatched failed, navigating anyway', e); }
         // Build the live-round URL — we don't know which side we got;
         // the round-room infra will reconcile via posterUid/accepterUid
         // semantics. Pass both UIDs and the format.
