@@ -74,6 +74,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/usage-banner.js"></script>
+<!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
+     top of <body>, above the fixed .app-topbar. The .app-topbar reads
+     --cohort-banner-h (wired in the CSS above) and translates down by the
+     banner height so it doesn't cover the strip; .app already flows below
+     the in-flow <aside>, so its padding-top keeps the same clearance. -->
+<script defer src="/js/cohort-banner.js"></script>
 <!-- Global UI sound effects. ChatBot fires send/receive/success on
      submit, AI reply, and ballot-ready respectively. -->
 <script defer src="/js/sfx.js"></script>
@@ -250,6 +256,14 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
   background:var(--bg,#161318);
   border-bottom:1px solid var(--border,rgba(255,255,255,.07));
   transition:top .2s ease, background .4s, border-color .4s;
+  /* Founding-cohort banner offset: cohort-banner.js inserts an <aside>
+     at the top of <body> and publishes its height as --cohort-banner-h.
+     This fixed bar (top:0) would otherwise cover it, so translate the bar
+     down by the banner height to keep it visible; collapses to 0px on
+     dismiss. transform (not top) so it snaps on first paint instead of
+     sliding down from y=0, and so the mobile @media top:0 rule below
+     doesn't need its own override. */
+  transform:translateY(var(--cohort-banner-h,0px));
 }
 /* Per-theme topbar fills — opaque, no color-mix, no blur. Locks the
    bar to the page palette so a stale data-theme value can't leave it
@@ -385,7 +399,7 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-f
    feature is visible at a glance (no dropdowns hiding things). Fixed to
    left edge under the 52px topbar; scrolls independently if the full tab
    list overflows the viewport height. */
-.nav{display:flex;flex-direction:column;gap:6px;margin:0;padding:14px 12px 28px;flex-wrap:nowrap;align-items:stretch;background:rgba(17,17,17,.55)!important;background:color-mix(in srgb, var(--bg,#111) 78%, transparent)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important;border:none!important;border-right:1px solid var(--border,rgba(255,255,255,.07))!important;box-shadow:none!important;width:200px;position:fixed;top:52px;bottom:0;left:0;z-index:999;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.nav{display:flex;flex-direction:column;gap:6px;margin:0;padding:14px 12px 28px;flex-wrap:nowrap;align-items:stretch;background:rgba(17,17,17,.55)!important;background:color-mix(in srgb, var(--bg,#111) 78%, transparent)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important;border:none!important;border-right:1px solid var(--border,rgba(255,255,255,.07))!important;box-shadow:none!important;width:200px;position:fixed;top:calc(52px + var(--cohort-banner-h,0px));bottom:0;left:0;z-index:999;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
 .nav::-webkit-scrollbar{width:6px}
 .nav::-webkit-scrollbar-track{background:transparent}
 .nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
