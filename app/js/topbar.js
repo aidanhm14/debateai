@@ -590,7 +590,19 @@
     } catch(e){}
     var saved = '';
     try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
-    if (!saved) saved = document.documentElement.getAttribute('data-theme') || 'crimson';
+    if (!saved) {
+      // No explicit pick yet (and not arrived via the landing, which sets
+      // da-theme itself). Bucket ~70% light / ~30% crimson per Aidan
+      // 2026-06-01 ("default to white 70%+ sitewide"), and persist to
+      // da-theme — same key the landing uses — so the default is stable
+      // across pages and consistent whichever surface the visitor hits
+      // first. An explicit topbar toggle still overrides it.
+      saved = (Math.random() < 0.70) ? 'light' : 'crimson';
+      try {
+        localStorage.setItem('da-theme', saved);
+        if (!localStorage.getItem('da-theme-ab')) localStorage.setItem('da-theme-ab', saved);
+      } catch(e){}
+    }
     document.documentElement.setAttribute('data-theme', saved);
     // Auto-sync data-lighting from data-theme on every page load. Fixes
     // the legacy out-of-sync state where /debate-ai set data-lighting
