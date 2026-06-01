@@ -61,8 +61,9 @@
       delay: 25,
       msg: 'Sign in and your rounds become rated. The rank is real, not anonymous.' },
     { match: /^\/spar|\/live|\/community|\/rounds/,
-      delay: 25,
-      msg: 'Sign in to join the side that argues back. Post motions, accept matches, get on the board.' },
+      delay: 5,
+      variant: 'community',
+      msg: '<strong>95% of people here never sign in.</strong> No accounts, no community, no one to spar. Sign in and help build it.' },
     { match: /^\/pricing/,
       delay: 25,
       msg: "Beta is free for everyone. Sign in to keep your rounds when pricing turns on." },
@@ -179,7 +180,7 @@
       unmount();
     });
     try {
-      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname });
+      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname, variant: cfg.variant || 'standard', delay: cfg.delay });
     } catch (e) {}
   }
 
