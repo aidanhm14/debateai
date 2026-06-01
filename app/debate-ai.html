@@ -8286,20 +8286,69 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   helpFloatingButton,
   el('div', { className: 'ambient' }), bar,
   el('div', { className: stageClass },
-  // Hero — reframed for the Counter chrome-extension audience:
-  // "Counter · Viva" instead of "Debate AI", and a viva-context
-  // sub instead of "Choose your format, opponent, and go." The
-  // ext bridge has already locked the format to viva, so the
-  // copy here just confirms what's about to happen.
-  isCounterExt ?
-  el('h1', { className: 't-hero' }, el('em', null, 'Counter'), ' · Viva') :
-  el('h1', { className: 't-hero' }, el('em', null, 'Debate'), ' AI'),
-  // Simple mode supplies its own headline + subheadline below, so the
-  // generic t-sub is suppressed there to avoid a double-tagline.
-  !(setupMode === 'simple' && !isCounterExt) && el('p', { className: 't-sub' },
-  isCounterExt ?
-  'Type your thesis or paste a passage. The examiner will probe it.' :
-  'Choose your format, opponent, and go.'),
+  // Hero. Three variants:
+  //   1. Counter chrome-extension audience: "Counter · Viva" lockup
+  //      with a viva-context sub. The ext bridge has already locked
+  //      the format to viva, so the copy here just confirms what's
+  //      about to happen.
+  //   2. God mode (2026-05-27 — Aidan "improve the app on god mode —
+  //      I want the first page to be different"): if every strength
+  //      is on AND zero weaknesses are picked, the user has armed
+  //      the world-champion preset. Swap to a dedicated red hero
+  //      that names the preset, sells what's about to happen, and
+  //      drops the generic "Debate AI" wordmark — the page should
+  //      look different the moment they tick the last strength.
+  //      Detection mirrors buildTraitPrompt's isGodMode check
+  //      exactly (Object.keys(STRENGTHS).every selected + zero
+  //      weaknesses) so the hero state always matches the prompt
+  //      state.
+  //   3. Default: "Debate AI" lockup + generic sub.
+  (function(){
+    var allStrengthKeys = Object.keys(STRENGTHS || {});
+    var isGodMode = !isCounterExt && allStrengthKeys.length > 0 &&
+      allStrengthKeys.every(function(k){ return (oppStrengths || []).includes(k); }) &&
+      (oppWeaknesses || []).length === 0;
+    if (isCounterExt) {
+      return el(React.Fragment, null,
+        el('h1', { className: 't-hero' }, el('em', null, 'Counter'), ' · Viva'),
+        !(setupMode === 'simple' && !isCounterExt) && el('p', { className: 't-sub' },
+          'Type your thesis or paste a passage. The examiner will probe it.')
+      );
+    }
+    if (isGodMode) {
+      return el(React.Fragment, null,
+        el('div', {
+          style: {
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '6px 14px', marginBottom: 14, borderRadius: 999,
+            background: 'rgba(239,68,68,.10)', border: '1px solid rgba(239,68,68,.46)',
+            color: '#ef4444', fontSize: '.66rem', fontWeight: 800,
+            letterSpacing: '.18em', textTransform: 'uppercase',
+            boxShadow: '0 0 24px rgba(239,68,68,.18)',
+          },
+        },
+          el('span', {
+            style: {
+              width: 7, height: 7, borderRadius: '50%',
+              background: '#ef4444', boxShadow: '0 0 10px #ef4444',
+              animation: 'pulse 1.6s ease-in-out infinite',
+            },
+            'aria-hidden': true,
+          }),
+          'God mode · World champion',
+        ),
+        el('h1', { className: 't-hero', style: { color: 'var(--c-text)', letterSpacing: '-.03em' } },
+          'Face the ', el('em', { style: { color: '#ef4444', fontStyle: 'normal' } }, 'unbeatable.')),
+        !(setupMode === 'simple') && el('p', { className: 't-sub', style: { maxWidth: 540, color: 'var(--c-dim)' } },
+          'Every strength on, zero weaknesses. The hardest opponent the app can produce. No strategic imperfection, no honest attack surface, framework supremacy, every impact pre-weighted. Are you ready?')
+      );
+    }
+    return el(React.Fragment, null,
+      el('h1', { className: 't-hero' }, el('em', null, 'Debate'), ' AI'),
+      !(setupMode === 'simple') && el('p', { className: 't-sub' },
+        'Choose your format, opponent, and go.')
+    );
+  })(),
   // Setup / Saved tabs are debate-flavored (round history, win-rate
   // card, "how I think as a debater" analysis). Counter mode has
   // no equivalent yet, so the tab strip is dead chrome here.
