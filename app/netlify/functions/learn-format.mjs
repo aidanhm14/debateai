@@ -198,6 +198,9 @@ function renderPage(format) {
   .related-link:hover{border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.04)}
   .related-label{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#fca5a5;margin-bottom:3px}
   .related-name{font-size:.86rem;color:rgba(255,255,255,.85);line-height:1.4}
+  .deep-dive{font-size:.95rem;color:rgba(255,255,255,.72);margin:22px 0 0;line-height:1.6}
+  .deep-dive a{color:#fca5a5;border-bottom:1px solid rgba(239,68,68,.35);transition:.15s}
+  .deep-dive a:hover{color:#fff;border-bottom-color:#fff}
   footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
   footer a:hover{color:#fff}
 </style>
@@ -229,6 +232,8 @@ function renderPage(format) {
 
   <h2>Sample motions</h2>
   <ul class="motion-list">${format.sampleMotions.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
+
+  ${topicsSlug ? `<p class="deep-dive">Want the full ${esc(format.alias)} motion archive, strategy notes, and FAQ? Read the <a href="/topics/${topicsSlug}">${esc(format.name)} topic guide</a>.</p>` : ''}
 
   ${renderFormatGuides(format.slug)}
 
