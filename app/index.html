@@ -67,7 +67,10 @@
 <!-- Analytics via GoatCounter (configured below) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<!-- d3 (~270KB) was eager + render-blocking here but is only used by the
+     MindMapView force-graph, which mounts rarely (and currently not at all).
+     Lazy-loaded on demand via loadD3() the first time that view renders, so
+     every other app session no longer pays the download/parse/heap. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -6625,6 +6628,15 @@ function MindMapView({ caseResult, motion }) {
   var containerRef = useRef(null);
   var [tooltip, setTooltip] = useState(null);
   var [dimensions, setDimensions] = useState({ w: 900, h: 640 });
+  // d3 is lazy-loaded (see loadD3) so it is no longer in the eager <head>.
+  // Pull it the first time this view actually mounts, then re-run the draw.
+  var [d3Ready, setD3Ready] = useState(typeof d3 !== 'undefined');
+  useEffect(function () {
+    if (d3Ready || !caseResult) return;
+    var alive = true;
+    loadD3().then(function () {if (alive) setD3Ready(true);}).catch(function () {});
+    return function () {alive = false;};
+  }, [d3Ready, caseResult]);
 
   var TYPE_COLORS = {
     root: '#e0e0e6', mechanism: '#818cf8', vision: '#a78bfa',
@@ -6945,7 +6957,7 @@ function MindMapView({ caseResult, motion }) {
 
     draw();
     return function () {cancelAnimationFrame(animId);sim.stop();};
-  }, [caseResult, motion, dimensions]);
+  }, [caseResult, motion, dimensions, d3Ready]);
 
   var legendItems = [
   { type: 'mechanism', label: 'Mechanism' },
@@ -8000,6 +8012,20 @@ function loadHtml2Canvas() {
     document.head.appendChild(s);
   });
   return _html2canvasPromise;
+}
+
+var _d3Promise = null;
+function loadD3() {
+  if (typeof d3 !== 'undefined') return Promise.resolve(d3);
+  if (_d3Promise) return _d3Promise;
+  _d3Promise = new Promise((resolve, reject) => {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js';
+    s.onload = () => resolve(typeof d3 !== 'undefined' ? d3 : null);
+    s.onerror = () => reject(new Error('Failed to load d3'));
+    document.head.appendChild(s);
+  });
+  return _d3Promise;
 }
 
 function parseVerdict(text) {
