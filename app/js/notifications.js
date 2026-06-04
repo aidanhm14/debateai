@@ -635,6 +635,15 @@
     // doc; /spar instead sets the availability flag + sends the user to
     // prep, and the matcher activates on the next page.
     var ON_SPAR = /\/spar(?:[/?#]|$)/.test(location.pathname);
+    // Don't run the background matcher on public marketing / landing surfaces
+    // (the homepage especially). A first-time visitor, or a returning signed-in
+    // user who once flipped "Available", should never be yanked off a marketing
+    // page into a live round. The availability flag persists; matching resumes
+    // when they are back in the app (Prep). This was redirecting plain homepage
+    // visitors into /live-round?source=spar-bg ~1s after load. Fixed 2026-06.
+    var ON_PUBLIC = location.pathname === '/' ||
+      /^\/(index|landing|pricing|schools|india|us|pro|story|credentials|debatable|counter|learn|leaderboard|report|privacy|terms)(?:\.html)?(?:[/?#]|$)/.test(location.pathname) ||
+      /^\/(topics|debate)(?:[/?#]|$|\/)/.test(location.pathname);
 
     var available = false;
     try { available = localStorage.getItem(LSKEY) === '1'; } catch (e) {}
@@ -681,7 +690,7 @@
     }
     function paintPill() {
       if (!pill) return;
-      pill.style.display = (myUid && !ON_ROUND && !ON_SPAR) ? 'inline-flex' : 'none';
+      pill.style.display = (myUid && !ON_ROUND && !ON_SPAR && !ON_PUBLIC) ? 'inline-flex' : 'none';
       var lab = pill.querySelector('.da-spar-pill__lab');
       if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. We'll ping you when a rival is found, anywhere on the site."; }
       else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; }
@@ -697,7 +706,7 @@
       else goOffline();
     }
     function goAvailable() {
-      if (!myUid || ON_ROUND || ON_SPAR) return;
+      if (!myUid || ON_ROUND || ON_SPAR || ON_PUBLIC) return;
       ensureFirestore(function () {
         try { db = window.firebase.firestore(); } catch (e) { return; }
         myRef = db.collection('matchmaking_queue').doc(myUid);
@@ -908,7 +917,7 @@
         myUid = u ? u.uid : null;
         myUser = u || null;
         paintPill();
-        if (u && available && !ON_ROUND && !ON_SPAR) goAvailable();
+        if (u && available && !ON_ROUND && !ON_SPAR && !ON_PUBLIC) goAvailable();
         else {
           stopTimers();
           if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }

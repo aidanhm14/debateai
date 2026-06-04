@@ -12372,21 +12372,16 @@ window.addEventListener('load', function(){
     if (ob) ob.addEventListener('click', function(){ try { auth.signOut(); } catch(e){} });
   }
 
-  // If already signed in, hide the hero CTA. The landing page IS "/",
-  // so a "Continue as ..." button just navigates to the same place, it
-  // reads as a dead-end loop. Signed-in users land here from a bookmark or
-  // a back-nav and want the page out of their way, not another CTA.
+  // If already signed in, hide the hero sign-in CTA so it doesn't read as a
+  // dead-end loop back to "/". That is done below via #heroGoogleSignup + the
+  // topbar user chip. We deliberately do NOT touch btn.parentElement here:
+  // #googleSignupBtn is an off-screen, visually-hidden delegate button that
+  // now lives directly inside .hero-content, so btn.parentElement IS the whole
+  // hero. The old code hid it for signed-in users, which collapsed the entire
+  // hero ~1s after auth resolved (the "hero renders for a second then
+  // vanishes" bug). Fixed 2026-06.
   auth.onAuthStateChanged(function(user){
     renderUserChip(user);
-    if (user) {
-      var wrap = btn.parentElement;
-      if (wrap) wrap.style.display = 'none';
-      else btn.style.display = 'none';
-    } else {
-      var wrap2 = btn.parentElement;
-      if (wrap2) wrap2.style.display = '';
-      else btn.style.display = '';
-    }
     // Same rule for the hero "Sign in with Google" button: signed-in
     // visitors don't need a sign-in CTA in the hero (it'd just loop them
     // back to /app#chat), so hide it and let the topbar user chip stand.
