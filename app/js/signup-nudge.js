@@ -11,7 +11,7 @@
         in, never mounts. If Firebase isn't loaded on this page,
         skips silently — this isn't a hard requirement.
      3. Checks a single localStorage flag so a dismissal on /
-        carries to /debate-ai and back.
+        carries to /debate-it and back.
      4. Picks copy based on URL path: landing, debate-ai, voice,
         learn, etc. each get a contextual line about WHAT the
         user is being asked to save.
@@ -46,7 +46,7 @@
       delay: 8,
       variant: 'community',
       msg: '<strong>95% of people here never sign in.</strong> No accounts, no community, no one to spar. Sign in and help build it.' },
-    { match: /^\/debate-ai/,
+    { match: /^\/debate-it/,
       delay: 8,
       variant: 'community',
       msg: '<strong>95% of people here never sign in.</strong> No accounts, no community, no one to spar. Sign in and help build it.' },

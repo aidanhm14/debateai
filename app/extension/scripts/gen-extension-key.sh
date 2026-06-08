@@ -63,7 +63,7 @@ Next:
   2. Add the "key" field at the top, e.g.:
        {
          "manifest_version": 3,
-         "name": "Counter: Oral Exam Trainer (by Debate AI)",
+         "name": "Counter: Oral Exam Trainer (by DebateIt)",
          "key": "<paste here>",
          ...
        }

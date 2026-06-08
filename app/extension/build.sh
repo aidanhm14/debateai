@@ -104,7 +104,7 @@ cat <<EOF
 Next:
   1. Upload "${ARCHIVE_NAME}" at chrome.google.com/webstore/devconsole
   2. Paste the listing copy from app/extension/STORE_LISTING.md
-  3. Confirm https://debateai.com/privacy-extension is live
+  3. Confirm https://debateit.com/privacy-extension is live
   4. Submit for review
 
 EOF

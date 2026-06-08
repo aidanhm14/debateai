@@ -176,6 +176,8 @@ const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
+  'https://debateit.com',
+  'https://www.debateit.com',
   'https://debateai.com',
   'https://www.debateai.com',
 ];
@@ -721,7 +723,7 @@ export default async (request, context) => {
       .replaceAll('{side}', side === 'gov' || side === 'pm' || side === 'mg' ? 'Government' : 'Opposition')
       .replaceAll('{format}', format);
 
-    // Prepend the same voice bank that powers the main /debate-ai brains
+    // Prepend the same voice bank that powers the main /debate-it brains
     // (claude.mjs, openai-chat.mjs, etc.). 'bot' = CORE + STRATEGY +
     // CHARACTER + LANGUAGE_CONSTRUCTION — the right blocks for a live
     // opponent. Plus the format block when we have one. This is what

@@ -1,6 +1,6 @@
 // /api/poll  →  Brand-name poll (debateit / debatenow / debatable / debateai).
 //
-// Why this exists: soul.md §10 (2026-05-25) committed to "Debatable" as the
+// Why this exists: soul.md §10 (2026-05-25) committed to "DebateIt" as the
 // new visible brand and parked a DNS migration on debatable.com. The user
 // wants engaged users to weigh in on the name choice before pulling the
 // DNS trigger. This endpoint backs that poll.

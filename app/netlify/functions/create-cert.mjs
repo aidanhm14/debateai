@@ -12,7 +12,7 @@ import { tierForScore, MIN_CERT_SCORE, MAX_CERT_SCORE } from './lib/cert-tiers.m
 // Why server-side instead of writing from the client:
 // - The verify URL has to be trustworthy. If a user could write to
 //   `certificates/{id}` directly, they could mint a Champion at will.
-// - We want the issuer ("debateai.com") to be the authority on the
+// - We want the issuer ("debateit.com") to be the authority on the
 //   doc, not the recipient.
 // - One audited place to bump anti-gaming logic later (cooldowns,
 //   max-per-day, sufficient transcript length, etc.).
@@ -296,7 +296,7 @@ export default async (request) => {
       tierName: tier.name,
       tierBlurb: tier.blurb,
       score: certDoc.score,
-      verifyUrl: `https://debateai.com/verify/${certId}`,
+      verifyUrl: `https://debateit.com/verify/${certId}`,
     }, 200, request);
   } catch (err) {
     console.error('create-cert error:', err.message, err.code || '');

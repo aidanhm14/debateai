@@ -1,4 +1,4 @@
-/* Shared topbar — single source of truth for /landing, /debate-ai,
+/* Shared topbar — single source of truth for /landing, /debate-it,
    /learn, /high-school, /leaderboard, /live, /pricing.
    Each page gets the SAME markup, the SAME link order, the SAME theme
    dots, and the SAME auth slot, so navigation no longer feels jumpy
@@ -26,7 +26,7 @@
   // topbar (rendered below) does NOT include theme dots, so removing
   // any `.theme-dots` host that exists in the DOM is always correct.
   // Same for `.lighting-toggle` (the dark/dim/light pill) which was
-  // dropped from /debate-ai but still rendered by some old caches.
+  // dropped from /debate-it but still rendered by some old caches.
   function sweepStaleTheming(){
     document.querySelectorAll('.theme-dots, .lighting-toggle').forEach(function(el){
       try { el.remove(); } catch(e){}
@@ -83,7 +83,7 @@
     var h = href.replace(/\/$/,'') || '/';
     if (h === here) return true;
     if (h === '/' && (here === '' || here === '/landing')) return true;
-    if (h === '/debate-ai' && /\/debate-ai/.test(here)) return true;
+    if (h === '/debate-it' && /\/debate-it/.test(here)) return true;
     return false;
   }
 
@@ -122,7 +122,7 @@
     { href: '/app#case',      label: 'Prep'         },
     { href: '/learn',         label: 'Learn'        },
     // 2026-05-26: /credentials surfaced into the topbar per user ask.
-    // It's a recently-shipped feature ("earn a verifiable DebateAI
+    // It's a recently-shipped feature ("earn a verifiable DebateIt
     // credential"), still acquiring distribution. Sits after Learn
     // because cert is the outcome of a learning loop — natural pairing
     // on the bar. Short "Cert" label matches the one-word convention.
@@ -168,14 +168,14 @@
     var nav = el('nav', { class: 'ui-topbar', 'aria-label': 'Site navigation' });
 
     // ── Rotating wordmark (2026-05-26) ────────────────────────────────
-    // Three-word brand system: product name = "Debate AI" (matches the
-    // domain), personality = "Debatable", CTA verb = "Debate it".
+    // Three-word brand system: product name = "DebateIt" (matches the
+    // domain), personality = "DebateIt", CTA verb = "Debate it".
     // Wordmark picks one of the three on every page load so the brand
     // surface feels alive without confusing visitors — same accent-red
     // styling on the lead word, same TM mark, same size. Picks are
-    // weighted so the canonical "Debate AI" lands ~50% of the time and
+    // weighted so the canonical "DebateIt" lands ~50% of the time and
     // the two personality words split the rest, keeping product-name
-    // recognition stable while still surfacing "Debatable" / "Debate it"
+    // recognition stable while still surfacing "DebateIt" / "Debate it"
     // as known brand variants. Fixed for the lifetime of a single page
     // view via sessionStorage so navigating between pages doesn't
     // flicker between forms (only a hard reload re-rolls).
@@ -183,7 +183,7 @@
     // SEO note: Googlebot executes JS but takes one snapshot per crawl,
     // so the rotation only surfaces ONE variant per indexing pass.
     // The static "Also known as" line below + the alternateName JSON-LD
-    // on landing/pricing/debate-ai/debatable are what actually teach
+    // on landing/pricing/debate-it/debatable are what actually teach
     // Google that all three are the same brand entity.
     var BRAND_VARIANTS = [
       // 2026-05-26: weights flipped to pin the wordmark to "Debate it."
@@ -192,8 +192,8 @@
       // the other two so a future un-pin is a one-number edit, not a
       // structural revert. Aria + JSON-LD alternateName still teach
       // Google the three names are the same entity.
-      { key: 'debate_ai',  lead: 'Debate', tail: ' AI.',  weight: 0, aria: 'Debate AI, home' },
-      { key: 'debatable',  lead: 'Debatable', tail: '.',  weight: 0, aria: 'Debatable, home' },
+      { key: 'debate_ai',  lead: 'Debate', tail: ' AI.',  weight: 0, aria: 'DebateIt, home' },
+      { key: 'debatable',  lead: 'DebateIt', tail: '.',  weight: 0, aria: 'DebateIt, home' },
       { key: 'debate_it',  lead: 'Debate', tail: ' it.',  weight: 10, aria: 'Debate it, home' }
     ];
     function pickWordmark(){
@@ -252,7 +252,7 @@
         html: '<span>' + WM.lead + '</span>' + WM.tail
             + '<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>'
             + '<span class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">'
-            + ' Debate AI · also known as Debatable · also known as Debate it.'
+            + ' DebateIt · also known as Debate AI · also known as Debate it.'
             + '</span>',
       }),
       // 2026-05-18: the "Beta · Updating daily" chip used to sit next to
@@ -407,7 +407,7 @@
     var cta;
     if (onVoiceDebate) {
       cta = el('a', {
-        href: '/debate-ai',
+        href: '/debate-it',
         class: 'ui-btn ui-btn-primary ui-btn-sm',
         style: { padding: '8px 18px' },
       }, 'Debate it');
@@ -453,7 +453,7 @@
       sheet.appendChild(sheetLink);
     });
     var sheetCta = el('a', {
-      href: onVoiceDebate ? '/debate-ai' : '/voice-debate',
+      href: onVoiceDebate ? '/debate-it' : '/voice-debate',
       class: 'ui-topbar-sheet-cta',
       role: 'menuitem',
     }, onVoiceDebate ? 'Debate it →' : 'Voice AI →');
@@ -605,7 +605,7 @@
     }
     document.documentElement.setAttribute('data-theme', saved);
     // Auto-sync data-lighting from data-theme on every page load. Fixes
-    // the legacy out-of-sync state where /debate-ai set data-lighting
+    // the legacy out-of-sync state where /debate-it set data-lighting
     // independently of data-theme and a user-toggled `da-theme=light`
     // wasn't reflected as `debateos-lighting=light`. Without this, the
     // topbar text picked up the [data-theme="light"] dark-text rule
@@ -660,9 +660,9 @@
   //
   // Extension hook: if the page sets `window.daTopbarUserSlot = function(slot, user){...}`
   // BEFORE this script loads, we hand off rendering after auth state
-  // is known. /debate-ai uses this to add an "Account" button that
+  // is known. /debate-it uses this to add an "Account" button that
   // opens its in-app modal — without that hook we'd lose access to
-  // BYOK / API key / plan settings on /debate-ai.
+  // BYOK / API key / plan settings on /debate-it.
   function hydrateUser(slot){
     if (typeof window.firebase === 'undefined' || !window.firebase.auth) return;
     // Track the first auth event so we can distinguish "page loaded

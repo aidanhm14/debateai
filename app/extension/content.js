@@ -1,4 +1,4 @@
-// Debate AI content script.
+// DebateIt content script.
 // Two jobs:
 //   1. Answer chrome.runtime selection queries from the SW (used when the
 //      keyboard shortcut fires — the SW has no DOM, so it asks us).
@@ -91,7 +91,7 @@
     wrap.id = 'debateai-ext-pill';
     wrap.className = 'debateai-ext-pill debateai-ext-pill--hidden';
     // 2026-05-19: Counter-this is the primary action on Docs. The whole
-    // extension is now positioned as "Debate AI for Google Docs" — the
+    // extension is now positioned as "DebateIt for Google Docs" — the
     // floating pill should default to the same call to action as the
     // right-click menu's top entry ("Counter this argument").
     wrap.innerHTML = `

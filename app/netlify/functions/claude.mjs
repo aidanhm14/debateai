@@ -18,7 +18,7 @@ const ALLOWED_MODELS = [
 
 // Hard cap on max_tokens — competition cases need up to 32k (authenticated users)
 const MAX_TOKENS_CAP = 32000;
-// Tighter cap for anonymous requests: enough for most learn/debate-ai flows
+// Tighter cap for anonymous requests: enough for most learn/debate-it flows
 // but small enough that abuse can't drain the account in a handful of calls.
 const MAX_TOKENS_CAP_ANON = 8000;
 
@@ -271,7 +271,7 @@ export default async (request, context) => {
       );
     }
   } else {
-    // Anonymous path — allow limited unauthenticated access for HS/debate-ai/learn pages.
+    // Anonymous path — allow limited unauthenticated access for HS/debate-it/learn pages.
     // App Check first (blocks scripted abuse from non-browser callers), then
     // layered rate limits (minute/hour/day) per client IP.
     const appCheckResult = await checkAppCheck(request);

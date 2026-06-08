@@ -11,7 +11,7 @@
 // inline two tiny tones: a tick on highlight-captured and a warm
 // confirm on drill-ended. Mute state is stored under the same
 // localStorage key as the host app (da-sfx-muted) so toggling sound
-// off on debateai.com silences the panel too. Lazy AudioContext +
+// off on debateit.com silences the panel too. Lazy AudioContext +
 // no-op on suspend (extension service-worker context can't resume
 // without a user gesture, and we get one when the user highlights /
 // clicks End-drill, so it's a fine default).
@@ -57,7 +57,7 @@ const SFX = (() => {
   };
 })();
 
-const APP_ORIGIN = 'https://debateai.com';
+const APP_ORIGIN = 'https://debateit.com';
 const FRAME_URL = APP_ORIGIN + '/voice-debate.html?ext=1&mode=counter';
 
 const STORAGE_KEYS = {
@@ -868,7 +868,7 @@ function formatCounterAsDocComment(data) {
   if (data.examinersQuestion) {
     lines.push('', 'The question to be ready for:', data.examinersQuestion);
   }
-  lines.push('', '— via Counter for Google Docs (debateai.com/counter)');
+  lines.push('', '— via Counter for Google Docs (debateit.com/counter)');
   return lines.join('\n');
 }
 // Timeout for the whole runCounter round-trip. Caps how long the spinner
@@ -970,7 +970,7 @@ function friendlyCounterError(rawError, assistantMessage) {
     return 'Browser security check failed. Hit ↻ at the top of Counter to reload, then try again.';
   }
   if (/anthropic 401|auth|sign[- ]?in|unauthor/.test(raw)) {
-    return 'Sign in at debateai.com first, then come back and hit Counter again.';
+    return 'Sign in at debateit.com first, then come back and hit Counter again.';
   }
   if (/anthropic 429|rate.?limit|too many/.test(raw)) {
     return 'Slow down — Counter is rate-limited. Wait a minute and hit it again.';
@@ -982,13 +982,13 @@ function friendlyCounterError(rawError, assistantMessage) {
     return 'Counter took too long to respond. The AI may be slow right now — hit Counter again, or try a shorter paragraph.';
   }
   if (/could not establish connection|network|failed to fetch|err_network/.test(raw)) {
-    return 'Can\'t reach Debate AI. Check your connection, then hit Counter again.';
+    return 'Can\'t reach DebateIt. Check your connection, then hit Counter again.';
   }
   if (/model returned|unexpected shape|incomplete counter|malformed|structured/.test(raw)) {
     return 'AI returned an unexpected response. Try a slightly different paragraph, or hit Counter again.' + tail;
   }
   if (/missing anthropic_api_key/i.test(rawError)) {
-    return 'Server is missing the AI key — this is on us, not you. Try again later or ping feedback@debateai.com.';
+    return 'Server is missing the AI key — this is on us, not you. Try again later or ping feedback@debateit.com.';
   }
   // Fall through: surface the raw error with a calm framing so it doesn't
   // look like the extension crashed.

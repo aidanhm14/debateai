@@ -1,4 +1,4 @@
-// Debate AI voice guidelines — SERVER-ONLY.
+// DebateIt voice guidelines — SERVER-ONLY.
 //
 // Moved here from /js/voice-guidelines.js so the voice bank doesn't ship
 // to every visitor via view-source. The client now sends `_voiceFeature`
@@ -67,7 +67,7 @@
 // ─────────────────────────────────────────────────────────────────────
 //   Write path  (every brain call):
 //     captureTurn → generations/{id}      // app/index.html
-//     saveRound  → debate_rounds/{id}     // app/debate-ai.html (post-round)
+//     saveRound  → debate_rounds/{id}     // app/debate-it.html (post-round)
 //
 //   Rate path  (admin):
 //     POST /api/admin/rate-generation     // admin-rate.html
@@ -392,7 +392,7 @@ NEVER write any of these. They are fingerprints of GPT-style writing and debate 
 - "Catastrophic harm," "devastating consequences," "untold suffering" — inflated with no specifics attached.
 - Triads-of-three that all start with the same word: "We will protect. We will defend. We will uphold." This is political-speech LARPing.
 - "Buckle up." / "Strap in." / "Here's the thing."
-- The product name itself: NEVER say "Debate AI" or "Debate AI" or "debateai.com" mid-round. You are a debater in a round, not a marketer for the platform that hosts you. A real human debater never says the name of the tournament software while debating; you don't either. If you absolutely must refer to the tool (e.g., user asks meta-question), say "this trainer" or "this tool" — not the brand name.
+- The product name itself: NEVER say "DebateIt" or "DebateIt" or "debateit.com" mid-round. You are a debater in a round, not a marketer for the platform that hosts you. A real human debater never says the name of the tournament software while debating; you don't either. If you absolutely must refer to the tool (e.g., user asks meta-question), say "this trainer" or "this tool" — not the brand name.
 
 ────────────────────────────────────────────────────────
 1b. THE NO-PREFACE RULE — state arguments, never announce them
@@ -848,7 +848,7 @@ The reasoning is invisible. The speech is the artifact.
 // this block is the meta-skill a varsity APDA debater does in the first
 // 90 seconds of prep room: assess balance, scope, definition, status quo
 // — BEFORE drafting contentions. Aligned with the in-round tight-call
-// definition in debate-ai.html (~line 3034) so pre-prep triage and
+// definition in debate-it.html (~line 3034) so pre-prep triage and
 // in-round tight calls speak the same language. Hard ≠ tight.
 const MOTION_TRIAGE = `
 
@@ -2729,7 +2729,7 @@ ASIAN PARLIAMENTARY VOICE (3v3, UADC-style, common across SG/MY/PH/IN/HK/JP/KR c
 `,
 
   india_school: `
-INDIA SCHOOL CIRCUIT VOICE (the dominant Debate AI user context — CBSE / ICSE / IB schools running Asian Parli, WSDC, and Frank Anthony formats. ~80% of platform traffic is Indian; default examples should reflect this, not US-circuit defaults).
+INDIA SCHOOL CIRCUIT VOICE (the dominant DebateIt user context — CBSE / ICSE / IB schools running Asian Parli, WSDC, and Frank Anthony formats. ~80% of platform traffic is Indian; default examples should reflect this, not US-circuit defaults).
 
 ═══ CONTEXT ═══
 - Dominant formats: Asian Parliamentary (India Today Cup, Outspoken APD elims, all school invitationals), WSDC (ISDC, Team India selection, international travel teams), Frank Anthony Memorial 4-min-speech format. Lay-style "Conventional" and "Turncoat" formats also appear in school invitationals.

@@ -16,7 +16,7 @@
 // most, so even uncached this would be a rounding-error workload —
 // the cache is purely for cost hygiene.
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://debateit.com';
 
 // Honest split: which entries genuinely move day-to-day vs which sit on
 // a stable last-edit date. Don't lie about static pages being "updated
@@ -30,7 +30,7 @@ const DYNAMIC = new Set([
 
 const URLS = [
   { path: '/',                changefreq: 'daily',   priority: '1.0' },
-  { path: '/debate-ai',       changefreq: 'weekly',  priority: '0.95' },
+  { path: '/debate-it',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
   { path: '/today',           changefreq: 'daily',   priority: '0.85' },
   // /rounds retired 2026-05-18 — the published-rounds listing now
@@ -46,8 +46,8 @@ const URLS = [
   // High-intent SEO landing pages targeting specific query clusters.
   // /debate-an-ai and /debate-online are direct phrase-match doorways
   // from Google for the "debate an ai" / "debate online" intents the
-  // existing /debate-ai app surface can't claim because its slug is
-  // taken by the typed-mode product page. /compare positions Debate AI
+  // existing /debate-it app surface can't claim because its slug is
+  // taken by the typed-mode product page. /compare positions DebateIt
   // next to general AI assistants without villain framing — anchor
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92' },
@@ -59,8 +59,8 @@ const URLS = [
   // CTA into /exhibition. Same playbook as /debate-an-ai → /voice-debate.
   { path: '/ai-vs-ai-debate',                         changefreq: 'weekly',  priority: '0.88' },
   { path: '/compare',                                 changefreq: 'monthly', priority: '0.86' },
-  { path: '/compare/debateai-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
-  { path: '/compare/debateai-vs-claude',              changefreq: 'monthly', priority: '0.84' },
+  { path: '/compare/debateit-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
+  { path: '/compare/debateit-vs-claude',              changefreq: 'monthly', priority: '0.84' },
   { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86' },
   { path: '/learn/formats/apda',     changefreq: 'monthly', priority: '0.78' },
   { path: '/learn/formats/bp',       changefreq: 'monthly', priority: '0.78' },
@@ -133,7 +133,7 @@ const URLS = [
   // Issue-debate pages (/debate/{slug}). Two-sided sample AI debates on
   // high-search-volume questions at the debate × AI/tech intersection.
   // Each is an indexable, off-nav SEO landing whose only job is to rank
-  // for the question and funnel the reader into /debate-ai. Kept out of
+  // for the question and funnel the reader into /debate-it. Kept out of
   // the topbar nav on purpose; discoverability is sitemap + the /debate
   // hub's internal cross-links. Add new slugs here as the cluster grows.
   { path: '/debate',                                          changefreq: 'weekly',  priority: '0.86' },

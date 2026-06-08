@@ -1,8 +1,8 @@
-# Debate AI
+# DebateIt
 
 A voice-first adversarial-argument trainer. You give a real speech against a clock, get pushback, take POIs, and get a judge ballot at the end. The AI is format-accurate across APDA, BP, Worlds, Asian Parli, Policy, LD, PF, Congress, and MUN.
 
-Live at **[debateai.com](https://debateai.com)**.
+Live at **[debateit.com](https://debateit.com)**.
 
 ---
 
@@ -26,7 +26,7 @@ Live at **[debateai.com](https://debateai.com)**.
 | Active formats | 9 |
 | AI brains | 6 |
 | Voice personas | 16 |
-| Lines in `app/debate-ai.html` | 5,500+ |
+| Lines in `app/debate-it.html` | 5,500+ |
 
 ## Stack
 
@@ -42,7 +42,7 @@ Live at **[debateai.com](https://debateai.com)**.
 
 ## What's interesting in the code
 
-- **5,500-line single-file React-via-CDN** in [app/debate-ai.html](app/debate-ai.html). No JSX, no bundler, no shadow DOM. Edits are surgical. Hot-reload is the browser refresh button.
+- **5,500-line single-file React-via-CDN** in [app/debate-it.html](app/debate-it.html). No JSX, no bundler, no shadow DOM. Edits are surgical. Hot-reload is the browser refresh button.
 - **Format-specific voice bank** in [app/netlify/functions/lib/voice-guidelines.mjs](app/netlify/functions/lib/voice-guidelines.mjs). Server-side so view-source can't scrape it. Each format gets its own block: evidence rules, structure, register, banned phrases.
 - **Exemplars + distillations** ([exemplars.mjs](app/netlify/functions/lib/exemplars.mjs), [scheduled-distill.mjs](app/netlify/functions/scheduled-distill.mjs)). Admin-weighted past rounds get prepended to system prompts at runtime. Nightly distillation extracts patterns from the top-rated outputs per format.
 - **TTS humanizer** ([tts-humanize.mjs](app/netlify/functions/lib/tts-humanize.mjs)) strips stage directions, picks intensity, normalizes pauses across four TTS providers.
@@ -57,7 +57,7 @@ The product north star and operating manual live in two files. Read them in orde
 
 ## Status
 
-In beta. Every tier is $0 today. Future pricing (Free, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year) is published for reference at [/pricing](https://debateai.com/pricing).
+In beta. Every tier is $0 today. Future pricing (Free, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year) is published for reference at [/pricing](https://debateit.com/pricing).
 
 ## Credits
 

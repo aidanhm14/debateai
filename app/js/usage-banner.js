@@ -20,7 +20,7 @@
   };
   const SDK_VERSION = '10.7.1';
   const POLL_MS = 45_000; // Re-fetch usage every 45s so the banner stays live.
-  const MANAGE_URL = 'https://debateai.com/app#team';
+  const MANAGE_URL = 'https://debateit.com/app#team';
 
   let currentUser = null;
   let lastUsage = null;
@@ -235,7 +235,7 @@
         // so they know the system uses teams + sees the settings entry.
         if (r.status === 404) {
           // No team yet — pre-cap free user. Stay hidden (the in-app
-          // counter inside debate-ai.html already shows their quota; the
+          // counter inside debate-it.html already shows their quota; the
           // global floating banner here would just double up the paid
           // signal).
         }

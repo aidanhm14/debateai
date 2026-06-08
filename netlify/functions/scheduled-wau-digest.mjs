@@ -30,9 +30,9 @@
 import { getDb, FieldValue } from './lib/firestore.mjs';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL     = process.env.WAU_DIGEST_FROM || 'Aidan @ Debate AI <hello@debateai.com>';
+const FROM_EMAIL     = process.env.WAU_DIGEST_FROM || 'Aidan @ DebateIt <hello@debateit.com>';
 const REPLY_TO       = process.env.WAU_DIGEST_REPLY_TO || 'aidandavidhollinger@gmail.com';
-const SITE_URL       = process.env.SITE_URL || 'https://debateai.com';
+const SITE_URL       = process.env.SITE_URL || 'https://debateit.com';
 const MAX_EMAILS     = parseInt(process.env.WAU_DIGEST_MAX || '200', 10);
 const MIN_GAP_MS     = 6 * 24 * 60 * 60 * 1000; // 6 days — prevents double-send
 
@@ -71,7 +71,7 @@ function buildHtml({ firstName, roundsThisWeek, roundsLastWeek, avgScore, topCas
         ${topCase.verdict ? `Judge's read: "${esc(topCase.verdict.slice(0, 120))}"` : ''}
        </p>`
     : '';
-  const nextHref = `${SITE_URL}/debate-ai?motion=${encodeURIComponent(nextMotion)}`;
+  const nextHref = `${SITE_URL}/debate-it?motion=${encodeURIComponent(nextMotion)}`;
 
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:540px;margin:0 auto;padding:32px 24px">
@@ -96,7 +96,7 @@ function buildHtml({ firstName, roundsThisWeek, roundsLastWeek, avgScore, topCas
   </a>
   <p style="margin-top:28px;font-size:.76rem;color:#9b9ba8;line-height:1.5">
     You're getting this because you've been active on
-    <a href="${SITE_URL}" style="color:#dc2626;text-decoration:none">debateai.com</a>.
+    <a href="${SITE_URL}" style="color:#dc2626;text-decoration:none">debateit.com</a>.
     Reply to opt out.
   </p>
 </div>

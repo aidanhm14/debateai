@@ -126,7 +126,7 @@ def draw_orb(img, cx, cy, R, accent=RED):
 
 
 def main():
-    # Minimal, iconic card: a single centered orb above the "Debate AI"
+    # Minimal, iconic card: a single centered orb above the "DebateIt"
     # wordmark. Nothing else — no headline, sub-copy, chips, or URL. The
     # orb is the brand surface; the wordmark identifies it.
     img = vertical_gradient().convert("RGBA")
@@ -138,7 +138,7 @@ def main():
 
     draw = ImageDraw.Draw(img, "RGBA")
 
-    # ── "Debate AI" wordmark, centered under the orb ──────────────
+    # ── "DebateIt" wordmark, centered under the orb ──────────────
     brand = font(92, "black")
     debate_w = draw.textbbox((0, 0), "Debate ", font=brand)[2]
     ai_w = draw.textbbox((0, 0), "AI", font=brand)[2]

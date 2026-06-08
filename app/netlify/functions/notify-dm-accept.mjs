@@ -54,7 +54,7 @@ function template({ senderName, preview, threadUrl }) {
 <html><body style="margin:0;padding:24px;background:#0a0a0c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e5e7eb">
   <table role="presentation" style="max-width:560px;margin:0 auto;background:#15151a;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden">
     <tr><td style="padding:24px 28px 12px">
-      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">Debatable &middot; Spar</div>
+      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">DebateIt &middot; Spar</div>
       <h1 style="margin:8px 0 6px;font-size:22px;font-weight:800;color:#fff;letter-spacing:-.01em">Someone accepted your debate challenge</h1>
       <p style="margin:0;font-size:14px;line-height:1.6;color:#9ca3af"><strong style="color:#e5e7eb">${safe(senderName)}</strong> reached out about a round. Reply to coordinate, or jump straight into a live voice debate when you're both ready.</p>
       ${previewBlock}
@@ -64,7 +64,7 @@ function template({ senderName, preview, threadUrl }) {
       <p style="margin:18px 0 0;font-size:12px;line-height:1.55;color:#6b7280">You'll only get this email the first time someone DMs you on a waitlist post. Future messages on the same thread are silent.</p>
     </td></tr>
     <tr><td style="padding:14px 28px 22px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:#52525b">
-      You're receiving this because you posted to the /spar waitlist on debateai.com. Bail from the live board if something came up.
+      You're receiving this because you posted to the /spar waitlist on debateit.com. Bail from the live board if something came up.
     </td></tr>
   </table>
 </body></html>`;
@@ -87,7 +87,7 @@ export default async (req) => {
   if (req.method !== 'POST') return jsonResponse(405, { error: 'POST only' });
 
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || 'Debatable <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM || 'DebateIt <onboarding@resend.dev>';
   if (!apiKey) {
     return jsonResponse(503, {
       error: 'Email not configured',
@@ -167,7 +167,7 @@ export default async (req) => {
   // Direct link to the inbox so they land on the conversation. Spar's
   // inbox UI auto-opens the most recent thread.
   const origin = (req.headers && req.headers.get) ? (req.headers.get('origin') || '') : '';
-  const host = origin || 'https://debateai.com';
+  const host = origin || 'https://debateit.com';
   const threadUrl = host.replace(/\/$/, '') + '/spar#inbox';
 
   const html = template({ senderName, preview, threadUrl });
