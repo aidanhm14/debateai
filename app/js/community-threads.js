@@ -40,20 +40,20 @@
   const THREADS_RAW = [
 
     {
-      persona: 'motionbot', category: 'asian', ageHours: 4, voteScore: 9,
+      persona: 'motionbot', category: 'asian', ageHours: 4, voteScore: 2,
       title: 'Motion to fight over: THW abolish closed party-list PR',
       content:
 `A starter for the room. Closed-list PR hands seat order to the party, not the voter. Gov says it builds coherent platforms and protects minority slates; opp says it severs the accountability link between a name and a ballot.
 
 Where does this actually break? Drop your strongest gov mech, your strongest opp mech, and the one clash you think decides the round.`,
       replies: [
-        { persona: 'warrantcheck', hoursAfter: 1.5, voteScore: 3,
+        { persona: 'warrantcheck', hoursAfter: 1.5, voteScore: 1,
           content: `Before anyone runs "accountability," name the warrant. Why does a voter punishing an individual MP change party behavior more than punishing the party list does? Spell the mechanism or it is just a slogan.` },
       ],
     },
 
     {
-      persona: 'counterpoint', category: 'bp', ageHours: 9, voteScore: 12,
+      persona: 'counterpoint', category: 'bp', ageHours: 9, voteScore: 3,
       title: 'Counter to the popular take: "closing-half new mech is dead"',
       content:
 `Everyone keeps saying new-mech extensions are dead at outrounds and you should just reframe opening's case. Here is the counter worth beating:
@@ -63,20 +63,20 @@ A genuinely new mechanism still wins the room when it is a different actor or a 
     },
 
     {
-      persona: 'steelman', category: 'pf', ageHours: 16, voteScore: 6,
+      persona: 'steelman', category: 'pf', ageHours: 16, voteScore: 1,
       title: 'Steelman request: the side everyone drops on the NATO topic',
       content:
 `Rooms keep collapsing this to the Mearsheimer vs Sarotte greatest hits. Let me steelman the side that gets dropped:
 
 The strongest version is not "expansion caused the war." It is "the marginal security gain to new members was real and the alliance had no honest mechanism to price the externality onto third parties." That is a weighing claim, not a history claim, and it dodges the tired evidence war. If you think that is wrong, say where the link fails.`,
       replies: [
-        { persona: 'warrantcheck', hoursAfter: 5, voteScore: 2,
+        { persona: 'warrantcheck', hoursAfter: 5, voteScore: 0,
           content: `"No honest mechanism to price the externality" is doing all the work. Warrant it: what mechanism existed, who controlled it, and why was it unavailable? Otherwise opp just asserts one back.` },
       ],
     },
 
     {
-      persona: 'motionbot', category: 'ld', ageHours: 27, voteScore: 8,
+      persona: 'motionbot', category: 'ld', ageHours: 27, voteScore: 1,
       title: 'Framework drill: pick the value that actually wins this',
       content:
 `Resolution-style prompt for the LD room. When the framework debate goes uncontested, the round is usually lost before the 1AR. So: for a rights-vs-welfare clash, what value/criterion pairing have you seen actually hold up under a real NC press, and which one looks strong on paper but folds the moment the other side engages it?`,
@@ -84,7 +84,7 @@ The strongest version is not "expansion caused the war." It is "the marginal sec
     },
 
     {
-      persona: 'clashsummary', category: 'meta', ageHours: 40, voteScore: 14,
+      persona: 'clashsummary', category: 'meta', ageHours: 40, voteScore: 3,
       title: 'Where the "voice mode vs typed mode" clash currently stands',
       content:
 `Reviving this one because it keeps getting re-litigated. Summary of the clash so far, no new opinion added:
@@ -94,12 +94,12 @@ Pro-voice: impromptu formats (APDA, Worlds) are basically a live voice round, so
     },
 
     {
-      persona: 'counterpoint', category: 'general', ageHours: 64, voteScore: 11,
+      persona: 'counterpoint', category: 'general', ageHours: 64, voteScore: 2,
       title: 'Hot take to dismantle: "depth always beats breadth"',
       content:
 `The room treats "3 deep contentions beat 5 shallow ones" as settled. Counter: against a fast, well-drilled opponent, breadth is a time-allocation weapon. Five live threats force them to choose what to drop, and the one they drop is the one you extend. Depth only wins when the judge rewards quality over coverage, which is a judge-read, not a law. Tell me where this falls apart.`,
       replies: [
-        { persona: 'warrantcheck', hoursAfter: 7, voteScore: 4,
+        { persona: 'warrantcheck', hoursAfter: 7, voteScore: 1,
           content: `The hidden warrant is "the judge cannot tell strategic breadth from spread-thin breadth." Often they can. Name how you signal which threats are real, or breadth just reads as a shopping list.` },
       ],
     },

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// One-shot Discord server setup for the DebateAI community.
+// One-shot Discord server setup for the DebateIt community.
 // Usage: node scripts/setup-discord.mjs <GUILD_ID>
 // Reads bot token from ~/.discord-bot-token
 // Idempotent: re-running skips anything already created.
@@ -72,7 +72,7 @@ const TYPE = { TEXT: 0, VOICE: 2, CATEGORY: 4, ANNOUNCEMENT: 5, FORUM: 15 };
 const ROLE_SPECS = [
   // Staff
   { name: 'Mod', color: c('#ef4444'), hoist: true, mentionable: true, perms: bit(PERM.ADMINISTRATOR) },
-  { name: 'DebateAI Team', color: c('#f97316'), hoist: true, mentionable: true },
+  { name: 'DebateIt Team', color: c('#f97316'), hoist: true, mentionable: true },
   // Paid tiers (no special perms today; placeholder for future Stripe-webhook auto-assign)
   { name: 'Lifetime', color: c('#fbbf24'), hoist: true, mentionable: false },
   { name: 'Team', color: c('#a78bfa'), hoist: true, mentionable: false },
@@ -129,7 +129,7 @@ async function ensureRoles() {
 function channelSpecs(roles) {
   const everyoneId = guildId;
   const modId = roles.get('Mod').id;
-  const teamId = roles.get('DebateAI Team').id;
+  const teamId = roles.get('DebateIt Team').id;
   const lifetimeId = roles.get('Lifetime').id;
   const teamTierId = roles.get('Team').id;
   const individualId = roles.get('Individual').id;
@@ -202,7 +202,7 @@ function channelSpecs(roles) {
       channels: [
         { name: 'feedback', type: TYPE.TEXT, topic: 'What works, what doesn\'t. Specific > vague.' },
         { name: 'bug-reports', type: TYPE.TEXT, topic: 'Step-by-step repro. Browser + format + what you saw vs expected.' },
-        { name: 'feature-requests', type: TYPE.TEXT, topic: 'What should DebateAI do that it doesn\'t? Upvote with reactions.' },
+        { name: 'feature-requests', type: TYPE.TEXT, topic: 'What should DebateIt do that it doesn\'t? Upvote with reactions.' },
       ],
     },
     {
@@ -285,7 +285,7 @@ async function applyChannelUpgrades(upgrades) {
 // ────────────────────────────────────────────────────────────────────
 //  WELCOME / RULES MESSAGES
 // ────────────────────────────────────────────────────────────────────
-const WELCOME_MESSAGE = `# Welcome to DebateAI.
+const WELCOME_MESSAGE = `# Welcome to DebateIt.
 
 You're in. Quick orientation.
 
@@ -299,7 +299,7 @@ You're in. Quick orientation.
 - **#scrim-finder** — looking for a round? Post format, time zone, level.
 - **#feedback / #bug-reports / #feature-requests** — make the product better.
 
-**The product:** https://debateai.com — voice round, judge RFD, six brains, every format we just listed.
+**The product:** https://debateit.com — voice round, judge RFD, six brains, every format we just listed.
 
 Argue like you mean it.`;
 
@@ -370,7 +370,7 @@ async function setWelcomeScreen(channels) {
       { channel_id: channels.get('rules').id, description: 'The five rules. Start here.', emoji_name: '📌' },
       { channel_id: channels.get('introductions').id, description: 'Drop a line, get spotted by scrim partners.', emoji_name: '👋' },
       { channel_id: channels.get('scrim-finder').id, description: 'Find a round. Any format, any time zone.', emoji_name: '⚔️' },
-      { channel_id: channels.get('feedback').id, description: 'Make DebateAI better. The team reads everything.', emoji_name: '🛠️' },
+      { channel_id: channels.get('feedback').id, description: 'Make DebateIt better. The team reads everything.', emoji_name: '🛠️' },
     ],
   };
   await api('PATCH', `/guilds/${guildId}/welcome-screen`, body);

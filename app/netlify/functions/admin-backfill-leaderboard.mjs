@@ -14,7 +14,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 
-// Match the runtime hook in app/debate-ai.html so backfilled and live
+// Match the runtime hook in app/debate-it.html so backfilled and live
 // entries display identically: first name + last-initial, e.g. "Alex H."
 function shortenName(fullName) {
   const fn = (fullName || '').trim();

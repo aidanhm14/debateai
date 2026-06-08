@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Judge RFD · Debate AI</title>
+<title>Judge RFD · DebateIt</title>
 <meta name="description" content="The judge's verdict on your voice round — speaker points, best moment, costliest moment, two fixes for next round." />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="canonical" href="https://debateai.com/voice-rfd">
+<link rel="canonical" href="https://debateit.com/voice-rfd">
 
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://debateai.com/voice-rfd">
-<meta property="og:title" content="Judge RFD · Debate AI">
+<meta property="og:url" content="https://debateit.com/voice-rfd">
+<meta property="og:title" content="Judge RFD · DebateIt">
 <meta property="og:description" content="The judge's verdict on your voice round.">
 <meta name="twitter:card" content="summary_large_image">
 
@@ -327,6 +327,24 @@ body{
 .cta-btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
 .cta-btn.ghost:hover{border-color:var(--border-strong);transform:translateY(-1px)}
 
+/* ── Next-step row ─────────────────
+   Quieter secondary row below .cta-row. Surfaces /live + /spar so the
+   user who just ran a voice round can opt up to a human surface while
+   the prep is still fresh. Visual: small + muted, never competes with
+   the primary "Run another" CTA above. */
+.next-step-row{
+  margin-top:14px;padding:14px 18px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;
+  font-size:.84rem;color:var(--text-dim);
+}
+.next-step-row .next-step-label{font-weight:600}
+.next-step-row .next-step-link{
+  color:var(--text);font-weight:700;text-decoration:none;
+  border-bottom:1px dotted var(--border-strong);padding-bottom:1px;
+  transition:color .14s,border-color .14s;
+}
+.next-step-row .next-step-link:hover{color:var(--accent);border-color:var(--accent)}
+
 /* ── Empty / loading states ─────────── */
 .empty{
   margin-top:32px;padding:54px 24px;text-align:center;
@@ -445,7 +463,7 @@ body{
 </head>
 <body>
 <header class="topbar">
-  <a href="/" class="brand"><span class="b-mark"></span>Debate AI</a>
+  <a href="/" class="brand"><span class="b-mark"></span>DebateIt</a>
   <div class="spacer"></div>
   <a href="/voice-debate" class="bar-ghost">← Back to round</a>
   <a href="/voice-debate" class="bar-cta">Run another</a>
@@ -615,7 +633,7 @@ body{
           + '<div class="section-head"><div class="icon">★</div><h2>Credential earned</h2><div class="sub">Verified · spoken-English proof</div></div>'
           + '<div class="cert-banner">'
             + '<div class="cert-banner-text">'
-              + '<div class="cert-banner-tier">DebateAI <span class="gold">' + tierName + '</span></div>'
+              + '<div class="cert-banner-tier">DebateIt <span class="gold">' + tierName + '</span></div>'
               + '<div class="cert-banner-blurb">' + tierBlurb + ' A verified credential for spoken-English argumentation under live pressure. Usable on college applications, ESL portfolios, and resumes.</div>'
             + '</div>'
             + '<div class="cert-banner-actions">'
@@ -685,6 +703,15 @@ body{
         + '</section>';
     }
 
+    // Post-round spar push (2026-06-01). Highest-intent moment: they just
+    // finished a voice round and got a ballot. Pitch a human opponent, with
+    // the waitlist as the honest fallback for a thin live queue + AI backup.
+    html +=
+      '<section class="spar-prompt" style="margin:20px 0;padding:18px 20px;border-radius:14px;border:1px solid var(--accent);background:linear-gradient(135deg,rgba(239,68,68,.10),rgba(239,68,68,.03));display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between">'
+        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Now argue a human.</strong> You\'re warmed up. Match into a live round on a fresh motion, or post to the waitlist and get DMed when a debater is around. AI backup if nobody pairs.</div>'
+        + '<a href="/spar" class="cta-btn primary" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'spar_cta_click\',{from:\'voice_rfd\'})}catch(e){}">Find a human &rarr;</a>'
+      + '</section>';
+
     html +=
       '<div class="cta-row">'
         + '<div class="cta-text">Ballot saved. <strong>Run it back</strong> — the second round is always the better one.</div>'
@@ -692,7 +719,18 @@ body{
         + '<button class="cta-btn ghost" id="copyBallot" type="button">Copy ballot</button>'
         + '<button class="cta-btn ghost" id="shareBallot" type="button">Share link</button>'
       + '</div>'
-      + '<div class="foot">All ballots are written by Claude Haiku per Debate AI\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/leaderboard">Leaderboard</a></div>';
+      // ── Next-step row: surface /live + /spar after the user has just
+      // finished a voice round and is at peak engagement. The primary
+      // "Run another" above is the obvious second-tap; this gives the
+      // more-engaged user a path to face a real human while the prep
+      // is still fresh in their head. Quiet visual register so it
+      // doesn't compete with the primary CTA above.
+      + '<div class="next-step-row">'
+        + '<span class="next-step-label">Or try a different surface:</span>'
+        + '<a href="/live" class="next-step-link">Post this motion live →</a>'
+        + '<a href="/spar" class="next-step-link">Spar with a human →</a>'
+      + '</div>'
+      + '<div class="foot">All ballots are written by Claude Haiku per DebateIt\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
 
     root.innerHTML = html;
 

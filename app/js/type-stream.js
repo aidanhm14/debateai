@@ -6,7 +6,7 @@
 // debate speech, case-gen tools (Case Generator / Round Vision /
 // Philosophy), case prep on /, judge verdict, prep coach.
 //
-// The streaming pipeline (callAI / callClaude in debate-ai.html and the
+// The streaming pipeline (callAI / callClaude in debate-it.html and the
 // case-gen page) calls onChunk(fullTextSoFar) repeatedly as SSE
 // chunks arrive. Most callers pass that straight to setState / textContent,
 // which paints text instantly the moment a chunk lands. That's wrong for

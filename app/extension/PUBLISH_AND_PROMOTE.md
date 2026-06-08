@@ -6,6 +6,49 @@ one has the click order + the demo asset + the week-1 promo playbook.
 
 ---
 
+## Ship sequence (do these in order)
+
+Zero to live. Each step assumes the one before it is done. Detail for
+each lives in the numbered sections below; this is the spine.
+
+1. **Pay the $5 Web Store developer fee.** One-time, instant approval.
+   https://chrome.google.com/webstore/devconsole/register
+2. **Lock the extension key.** Run `./app/extension/scripts/gen-extension-key.sh`,
+   paste the printed `"key"` into `manifest.json`, commit. This freezes the
+   extension ID so the dev install and the Web Store install match. The
+   OAuth client you set up next is tied to this ID, so it has to come first.
+3. **Do the Google Cloud OAuth setup.** Follow `GOOGLE_CLOUD_SETUP.md`, ~10
+   minutes. It produces one OAuth client ID; paste it into `manifest.json`
+   `oauth2.client_id`, replacing the `PASTE_YOUR_...` placeholder. Commit.
+   This is the only step Claude cannot do for you (it is clicks under your
+   Google account). Until it is done, "Connect Google Docs" does nothing.
+4. **Build the artifact.** Run `./app/extension/build.sh` to produce
+   `app/extension/dist/counter-v<version>.zip`. The script validates the
+   manifest and confirms it sits at the zip root.
+5. **Dogfood the build.** Load it unpacked on a fresh Chrome profile (no
+   existing DebateAI session). Confirm: side panel opens, "Connect"
+   succeeds, "Read active doc" pulls a real doc, a paste-passage counter
+   returns rebuttals, and one voice round completes end to end.
+6. **Confirm the privacy URL is live.** Open
+   https://debateai.com/privacy-extension (already deployed and routed).
+   The listing rejects without it.
+7. **Submit.** Web Store dev console, New item, upload the zip, paste every
+   field from `STORE_LISTING.md` (description, single-purpose, permission
+   justifications, privacy disclosures), set Public / all regions / Free,
+   Submit for review (1-3 days). Full click order in section 1.
+8. **After it goes live.** Replace the placeholder install URL across the
+   repo (section 1 post-publish wiring), then run the week-1 promo playbook
+   (section 3).
+
+> This sequence ships to the **Chrome Web Store** (the fast path). The
+> **Workspace Marketplace** listing (the domain-install distribution thesis
+> from the scoping doc, where one school-org admin can push Counter to every
+> student in a district) is a separate, heavier process: Google OAuth app
+> verification, brand review, and app review. Do it as a follow-on once the
+> Web Store version is live and dogfooded, not as the first ship.
+
+---
+
 ## 1. Publish to the Chrome Web Store (one-time)
 
 ### Pre-flight (do once, before any submission)
@@ -14,7 +57,7 @@ one has the click order + the demo asset + the week-1 promo playbook.
    - Go to https://chrome.google.com/webstore/devconsole/register
    - Sign in with a Google account you want associated with the publisher
      identity. Aidan's main is fine; the publisher name shows on the
-     listing as "DebateAI" (set in the developer profile).
+     listing as "DebateIt" (set in the developer profile).
    - Pay the one-time $5 USD fee. Approval is instant.
 
 2. **Lock the extension key.**
@@ -28,9 +71,9 @@ one has the click order + the demo asset + the week-1 promo playbook.
      level, commit. From this point on, the extension ID is stable.
 
 3. **Confirm the privacy policy is live.**
-   - Open https://debateai.com/privacy-extension in a fresh tab. It
+   - Open https://debateit.com/privacy-extension in a fresh tab. It
      should render the dark-themed privacy page. If 404, redeploy
-     debateai.com first — the listing will reject without a working
+     debateit.com first — the listing will reject without a working
      privacy URL.
 
 ### Build the artifact
@@ -39,38 +82,39 @@ one has the click order + the demo asset + the week-1 promo playbook.
 ./app/extension/build.sh
 ```
 
-Output: `app/extension/dist/counter-v0.11.0.zip` (version follows
-`manifest.json`). Open the zip to confirm `manifest.json` sits at the
-root, not inside an `extension/` folder.
+Output: `app/extension/dist/counter-v0.15.3.zip` (the name follows the
+`version` in `manifest.json`). Open the zip to confirm `manifest.json`
+sits at the root, not inside an `extension/` folder.
 
-### Pre-submission gotcha — OAuth client_id
+### Pre-submission gotcha: OAuth client_id (do not skip)
 
 `manifest.json` ships with `oauth2.client_id` set to the placeholder
-`PASTE_YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com`.
-The v0.11 Counter-your-draft feature works without OAuth (paste-passage
-→ /api/counter-doc, no Google identity involved), but the Chrome Web
-Store reviewer WILL flag the placeholder. Two choices before submit:
+`PASTE_YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com`. A
+Web Store reviewer will flag the placeholder, and more to the point, the
+"Connect Google Docs" → read-active-doc → Reader-companion flow that is
+the entire reason this extension targets Google Docs does not work until
+the client ID is real.
 
-1. **Recommended for first ship**: strip the `oauth2` block + the
-   `identity` permission + the `docs.googleapis.com` / `www.googleapis.com`
-   host_permissions from `manifest.json`. The lib/docs-api.js +
-   background.js Stage-2 Docs-edit code goes dormant (no UI reaches it
-   anyway in v0.11). Re-add when you wire a Read-Active-Doc UI in the
-   side panel.
+The fix is steps 2-3 of the ship sequence above: lock the extension
+`key` first, then run `GOOGLE_CLOUD_SETUP.md` (~10 minutes in
+console.cloud.google.com) to get one OAuth client ID that replaces the
+placeholder. Key first, so the extension ID stays stable and the OAuth
+client stays tied to it across the dev install and the Web Store install.
 
-2. **If you want OAuth from day one**: run through
-   `GOOGLE_CLOUD_SETUP.md` end-to-end. ~10 minutes in console.cloud.google.com
-   per the doc; the real OAuth client ID replaces the placeholder.
-   You'll also want to lock the extension `key` field first so the
-   client ID and extension ID stay tied across dev / store installs.
+Earlier versions of this doc suggested stripping the `oauth2` block to
+ship a paste-passage-only build with no Google identity. That no longer
+applies: since v0.13 the side panel wires a live Docs-read companion
+(Doc-context strip, "Read active doc", Reader dial), so stripping OAuth
+now deletes shipped UI, not dormant code, and guts the Google Docs wedge
+that is the whole point of the extension. Ship with OAuth.
 
 ### Submit (the actual click order)
 
 1. Open https://chrome.google.com/webstore/devconsole/.
 2. Click **New item** (top right).
-3. **Upload** the `counter-v0.9.x.zip`. Wait for the analyzer; if it
-   flags anything, fix in the source repo (don't edit the zip
-   directly) and rebuild.
+3. **Upload** the `counter-v0.15.3.zip` you just built. Wait for the
+   analyzer; if it flags anything, fix in the source repo (don't edit the
+   zip directly) and rebuild.
 4. **Store listing tab** — paste from `STORE_LISTING.md`:
    - **Description** → "Detailed description" section (≤16k chars)
    - **Category** → Productivity (primary), Education (secondary)
@@ -88,7 +132,7 @@ Store reviewer WILL flag the placeholder. Two choices before submit:
      (the user's Google name appears on the leaderboard) and "User
      activity" (drill history). LEAVE UNCHECKED: sells data, uses for
      credit/lending, uses for unrelated purposes.
-   - **Privacy policy URL** → `https://debateai.com/privacy-extension`
+   - **Privacy policy URL** → `https://debateit.com/privacy-extension`
 6. **Distribution tab**:
    - **Visibility** → **Public**.
    - **Regions** → All regions. (India is 80% of traffic; don't
@@ -118,7 +162,7 @@ Files that reference the placeholder today (verify with `git grep`):
 `app/counter.html`, `app/landing.html` (if Counter card is there),
 `app/extension/STORE_LISTING.md` references.
 
-Commit + push. Topbar pill on debateai.com now points to a real
+Commit + push. Topbar pill on debateit.com now points to a real
 install page.
 
 ---
@@ -159,7 +203,7 @@ posts, YouTube Shorts, X, embed on counter.html.
 | 0:12-22| User speaks: "Mitochondria release cytochrome c into the cytoplasm, which triggers caspase activation and starts the apoptotic cascade." | (your real voice)                                  |
 | 0:22-25| AI follow-up                                            | "And what's the trigger upstream of that release?"            |
 | 0:25-28| End drill. Brief RFD shown                              | (visual: "SPEAKER POINTS: 27.5")                              |
-| 0:28-30| Logo card                                               | "Counter, by DebateAI. Free on Chrome Web Store."             |
+| 0:28-30| Logo card                                               | "Counter, by DebateIt. Free on Chrome Web Store."             |
 
 ### Hindi variant (same beats, different audio)
 
@@ -188,7 +232,7 @@ shadow. Place at bottom-center, not bottom-edge.
 
 From the same source recording, export:
 
-- **Full 30s** — YouTube, counter.html embed, debateai.com landing.
+- **Full 30s** — YouTube, counter.html embed, debateit.com landing.
 - **15s** (0:00-0:09 + 0:25-0:30) — YouTube Shorts, X, Reels.
 - **Five 1280×800 stills** for Chrome Web Store screenshots:
   1. Wikipedia + the Quiz me chip visible
@@ -206,12 +250,12 @@ Order matters. Each step assumes the previous shipped.
 ### Day 0 (publish day)
 
 - [ ] Replace placeholder install link in repo (see section 1 post-publish wiring).
-- [ ] Post the install URL in pinned tweet on @DebateAI X account.
+- [ ] Post the install URL in pinned tweet on @DebateIt X account.
 - [ ] Post once in your own circle (LinkedIn / Instagram story) — soft launch, not the public push.
 
-### Day 1-2: debateai.com integration
+### Day 1-2: debateit.com integration
 
-- [ ] Add a Counter install banner to the debateai.com topbar (right
+- [ ] Add a Counter install banner to the debateit.com topbar (right
   side, dismissible, fires `gtag('event', 'counter_install_click')`).
 - [ ] On `/voice-debate.html` end-of-session screen, add a small "Drill
   from any page → install Counter" link.
@@ -243,12 +287,12 @@ After each post, watch for:
 ### Day 4-7: YouTube + X
 
 - [ ] **YouTube channel** — if you don't have one yet, create
-  `@DebateAI`. Upload the 30s demo as a YouTube Short. Title:
+  `@DebateIt`. Upload the 30s demo as a YouTube Short. Title:
   "Get grilled before your viva does." Tags: `viva prep`, `cbse`,
   `jee neet`, `oral exam`, `study tool`.
 - [ ] **YouTube Short, Hindi variant** — same day. Different title:
   "Apne notes par viva practice kar — ekdam page se."
-- [ ] **X / Twitter** — pin the demo as a tweet on @DebateAI.
+- [ ] **X / Twitter** — pin the demo as a tweet on @DebateIt.
   Quote-tweet from Aidan's personal handle with the founder angle
   ("built this because I lost a viva I had nailed in writing.").
 - [ ] **Producthunt** — schedule a Tuesday launch (Tue/Wed get the
@@ -283,7 +327,7 @@ gtag('event', 'counter_install_click', {
 
 // In background.js, on first install (chrome.runtime.onInstalled)
 if (details.reason === 'install') {
-  fetch('https://debateai.com/api/log-counter-install', {
+  fetch('https://debateit.com/api/log-counter-install', {
     method: 'POST',
     body: JSON.stringify({
       version: chrome.runtime.getManifest().version,
@@ -295,7 +339,7 @@ if (details.reason === 'install') {
 // On first 'drill-started' in background.js
 // (already tracked for streak — also fire a one-time activation event)
 if (totalDrills === 0) {
-  fetch('https://debateai.com/api/log-counter-activation', {...});
+  fetch('https://debateit.com/api/log-counter-activation', {...});
 }
 ```
 

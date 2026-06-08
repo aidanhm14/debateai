@@ -2,6 +2,7 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { checkMotionBody } from './lib/content-guard.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
 import { applyDistillations } from './lib/distillations.mjs';
 import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
@@ -122,6 +123,17 @@ export default async (request, context) => {
 
     // Resolve server-side prompt library + voice guidelines before
     // translating. body.system holds the final text after these calls.
+    // Content guard on the explicit motion field. Fast regex-only check;
+    // rejects slurs, sexual-explicit, and CP before any Firestore read,
+    // exemplar lookup, or provider call. See claude.mjs for the rationale.
+    const motionGuard = checkMotionBody(body);
+    if (!motionGuard.ok) {
+      return new Response(
+        JSON.stringify({ error: motionGuard.reason, category: motionGuard.category }),
+        { status: 422, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
+
     applyPromptLibrary(body);
     // Exemplar injection (learning-loop runtime): prepends 1–3 admin-weighted
     // reference rounds matching motion+format. Must run before

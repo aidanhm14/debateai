@@ -55,7 +55,7 @@ same indent level as `"name"`:
 ```json
 {
   "manifest_version": 3,
-  "name": "Counter: Oral Exam Trainer (by DebateAI)",
+  "name": "Counter: Oral Exam Trainer (by DebateIt)",
   "key": "MIIBIjANBg...AQAB",
   ...
 }
@@ -103,10 +103,10 @@ re-sign offline `.crx` builds with the same identity.
    - **App name**: `Counter`
    - **User support email**: your email
    - **App logo**: optional, skip for now
-   - **Application home page**: `https://debateai.com`
-   - **Application privacy policy link**: `https://debateai.com/privacy-extension`
+   - **Application home page**: `https://debateit.com`
+   - **Application privacy policy link**: `https://debateit.com/privacy-extension`
    - **Application terms of service**: optional, skip
-   - **Authorized domains**: add `debateai.com`
+   - **Authorized domains**: add `debateit.com`
    - **Developer contact**: your email
 4. **Save and Continue**
 5. **Scopes** screen → **Add or Remove Scopes** → search for and

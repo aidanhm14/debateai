@@ -22,7 +22,7 @@ import {
   formatDailyDate,
 } from './lib/daily-motion-bank.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://debateit.com';
 const ARCHIVE_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
