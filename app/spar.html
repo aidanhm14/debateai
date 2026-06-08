@@ -1080,6 +1080,8 @@ h1 em{color:var(--accent);font-style:normal}
         // via fetchMissedMatchCount().
         '<span class="meta-sep meta-missed-sep" id="metaMissedSep" style="display:none">·</span>' +
         '<span class="meta-cell meta-missed-cell" id="metaMissedCell" style="display:none"><strong id="metaMissed">0</strong> missed each other this week</span>' +
+        '<span class="meta-sep meta-month-sep" id="metaMonthSep" style="display:none">·</span>' +
+        '<span class="meta-cell meta-month-cell" id="metaMonthCell" style="display:none"><strong id="metaMonth">0</strong> this month</span>' +
       '</div>' +
       '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
@@ -1137,10 +1139,11 @@ h1 em{color:var(--accent);font-style:normal}
     mountGlobalMap('globalDebateMap');
   }
 
-  // Pulls the public "missed each other this week" count from
-  // /api/log-missed-match (GET). Shown in the meta strip only when
-  // the count is meaningful — under 3 the stat looks sadder than
-  // hiding it, so we keep it tucked until the number earns its spot.
+  // Pulls the public "missed each other this week / this month" counts
+  // from /api/log-missed-match (GET). Each pill renders independently;
+  // both hide under a count of 3 so a tiny number doesn't read sadder
+  // than showing nothing. Week prefers the broader "attempts" count;
+  // falls back to "misses." Month mirrors that.
   function fetchMissedMatchCount(){
     fetch('/api/log-missed-match', { method: 'GET' })
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -1148,18 +1151,30 @@ h1 em{color:var(--accent);font-style:normal}
         if (!j) return;
         var attempts = (j.attempts && typeof j.attempts.week_count === 'number') ? j.attempts.week_count : 0;
         var misses = (typeof j.week_count === 'number') ? j.week_count : 0;
-        // Prefer the broader, honest "looked for a live round" attempts
-        // count; fall back to the misses count. Hide under 3 either way so
-        // a tiny number doesn't read sadder than showing nothing.
+        var attemptsM = (j.attempts && typeof j.attempts.month_count === 'number') ? j.attempts.month_count : 0;
+        var missesM = (typeof j.month_count === 'number') ? j.month_count : 0;
+        // Weekly pill
         var n, label;
         if (attempts >= 3) { n = attempts; label = 'looked for a live round this week'; }
         else if (misses >= 3) { n = misses; label = 'missed each other this week'; }
-        else return;
-        var sep = document.getElementById('metaMissedSep');
-        var cell = document.getElementById('metaMissedCell');
-        if (sep) sep.style.display = '';
-        if (cell) cell.style.display = '';
-        if (cell) cell.innerHTML = '<strong id="metaMissed">' + String(n) + '</strong> ' + label;
+        if (n){
+          var sep = document.getElementById('metaMissedSep');
+          var cell = document.getElementById('metaMissedCell');
+          if (sep) sep.style.display = '';
+          if (cell) cell.style.display = '';
+          if (cell) cell.innerHTML = '<strong id="metaMissed">' + String(n) + '</strong> ' + label;
+        }
+        // Monthly pill — independent, also hides under 3.
+        var nM, labelM;
+        if (attemptsM >= 3) { nM = attemptsM; labelM = 'this month'; }
+        else if (missesM >= 3) { nM = missesM; labelM = 'this month'; }
+        if (nM){
+          var sepM = document.getElementById('metaMonthSep');
+          var cellM = document.getElementById('metaMonthCell');
+          if (sepM) sepM.style.display = '';
+          if (cellM) cellM.style.display = '';
+          if (cellM) cellM.innerHTML = '<strong id="metaMonth">' + String(nM) + '</strong> ' + labelM;
+        }
       })
       .catch(function(){});
   }
