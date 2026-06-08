@@ -167,6 +167,16 @@ Required to call chrome.identity.getAuthToken so the user can connect their Goog
 Required to read the URL of the user's active tab so the side panel can identify which Google Doc the user is currently viewing. Without this, the "Read active doc" button cannot resolve the document ID. The extension does not iterate other tabs, does not track tab-change events, and does not read tab content beyond what is required to extract the docId from the URL.
 ```
 
+**`alarms`**
+```
+Required to schedule two recurring background wake-ups: one every 30 minutes to refresh the toolbar streak badge (so it flips to an at-risk state the moment a streak day ends, even while the side panel is closed), and one every 4 hours to evaluate the at-most-once-per-day study reminder. Neither alarm fetches data or reads tabs; each one only updates the badge or decides whether a single daily reminder is due.
+```
+
+**`notifications`**
+```
+Required to show a single, at-most-once-per-day desktop reminder to drill: an exam-date countdown ("Exam in 3 days") when the user has set an exam date in Settings, or a streak-protection nudge when a three-plus-day streak is about to lapse. The reminder is rate-limited to once per calendar day, suppressed entirely once the user has drilled that day, and clicking it only opens the Counter side panel. No notification contains document content.
+```
+
 **Host permission `https://debateit.com/*`**
 ```
 The Counter side panel renders an iframe of debateit.com's voice round and typed flow so the extension shares one engine, one billing surface, and one auth session with the web app. host_permissions on these origins is required for the iframe to load and for postMessage bridging between the panel and the iframe to work without origin-blocking. No other origins are accessed by the extension's own code.
