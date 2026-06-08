@@ -7,12 +7,15 @@
 
 ## What this is
 
-Debatable (renamed from DebateAI 2026-05-25 after the user acquired
-debatable.com) is a voice-first adversarial-argument trainer at
-**debateai.com**. The production domain is still debateai.com until a
-separate DNS migration; the brand name in all user-facing copy is now
-Debatable. ~7K monthly active users as of May 2026. Solo-built.
-Ships to production many times per day.
+DebateIt (renamed from Debate AI on 2026-06-08 after the user acquired
+debateit.com) is a voice-first adversarial-argument trainer at
+**debateit.com**. The brand name in all user-facing copy is DebateIt;
+the deployed site, slugs, and canonical URLs were swept to debateit.com
+on 2026-06-08 (debateai.com 301s across during the DNS cutover). The
+earlier 2026-05-25 "Debatable" rename was reversed within 24h — the user
+never actually owned debatable.com; see soul.md decision log. ~7K monthly
+active users as of May 2026. Solo-built. Ships to production many times
+per day.
 
 The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 
