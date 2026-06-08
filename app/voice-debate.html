@@ -5799,6 +5799,47 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   )
   ),
 
+  // 2026-06-08: one-tap quick-start. The setup below is four steps
+  // (motion, side, drill, opponent) on a 2800px page — the actual
+  // Start button sits below the fold, so a first-timer who clicked
+  // "Voice AI" to just argue has to make four decisions and scroll
+  // before anything happens. This CTA collapses all of that into one
+  // tap: roll a concrete random motion (so the AI opens with substance
+  // instead of asking "what are we debating?" on the mic), pre-warm the
+  // mic grant inside the gesture, then fire start() a tick later (once
+  // setMotion has committed and startRef points at the fresh closure —
+  // same path the ext side-panel autoStart uses). The four-step form
+  // stays right below for anyone who'd rather set it up. Only shown
+  // when the voice gate is startable ('ok'); the sign-in / upgrade
+  // gates own the CTA in those states. gtag tags the path so the
+  // quick-start vs. manual round-start split is measurable.
+  voiceGate.state === 'ok' && extMode !== 'counter' && el('div', {
+    className: 'quickstart-wrap',
+    style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, margin: '2px auto 4px' }
+  },
+  el('button', {
+    type: 'button',
+    className: 'cta',
+    disabled: micPerm === 'denied' || voiceGate.loading,
+    style: { fontSize: '1.04rem', padding: '13px 32px', fontWeight: 700 },
+    onClick: () => {
+      try { if (window.gtag) gtag('event', 'voice_quickstart', { had_motion: !!String(motion || '').trim() }); } catch (e) {}
+      if (!String(motion || '').trim() && typeof SAMPLE_MOTIONS !== 'undefined' && SAMPLE_MOTIONS.length) {
+        try { setMotion(SAMPLE_MOTIONS[Math.floor(Math.random() * SAMPLE_MOTIONS.length)].text); } catch (e) {}
+      }
+      (async () => {
+        try { var s = await navigator.mediaDevices.getUserMedia({ audio: true }); s.getTracks().forEach((t) => { try { t.stop(); } catch (_) {} }); } catch (_) {}
+      })();
+      setTimeout(() => { try { startRef.current && startRef.current(); } catch (e) {} }, 220);
+    }
+  }, 'Start a round →'),
+  el('div', {
+    style: { fontSize: '.78rem', color: 'var(--text-dim, #9b9bab)', opacity: .85, textAlign: 'center', maxWidth: 360, lineHeight: 1.4 }
+  }, micPerm === 'denied' ?
+  'Mic access is blocked. Enable it in your browser to start a voice round.' :
+  "One tap. We pick a motion and a side; grant your mic and the AI opens. Or set it up below.")
+  ),
+
   // Group A — the setup steps (motion, side, drill). Wrapper div
   // owns the gap between steps; .setup-grid's own gap doesn't reach
   // through to these grandchildren, so .setup-steps adds it back.
