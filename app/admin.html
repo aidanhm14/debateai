@@ -485,6 +485,28 @@
     </div>
   </div>
 
+  <!-- Prospects: soft email/phone leads captured at sign-in / paywall
+       walls by prospect-capture.js (writes the `prospects` collection,
+       distinct from email_signups). Carries source + page attribution. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Prospects <span id="prospects-count" class="meta" style="margin-left:6px"></span></span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="prospects-search" type="search" placeholder="Filter by email / source…" style="padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none;min-width:180px">
+          <button id="prospects-export" class="pill-btn">Export CSV</button>
+        </div>
+      </div>
+      <div style="color:var(--muted);font-size:11px;margin:-4px 0 10px;line-height:1.5">Leads captured at a sign-in or paywall wall from visitors who skipped Google sign-in. Distinct from the explicit "notify me" subscribers above.</div>
+      <div id="prospects-status" class="empty" style="display:none">Loading…</div>
+      <table id="prospects-table" style="display:none">
+        <thead><tr><th>Email</th><th>Phone</th><th>Source</th><th style="text-align:right">Captured</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div id="prospects-empty" class="empty" style="display:none">No prospects yet.</div>
+    </div>
+  </div>
+
   <!-- Paid-feedback cohort tracker. Paste uids or emails, compute
        active-time over the trailing window, see who qualifies for
        which payout tier ($5 for showing up, $10 for >=30 min). -->
@@ -676,6 +698,7 @@ let autoRefresh = false;
 let autoTimer = null;
 let tailTimer = null;
 let allSubs = [];
+let allProspects = [];
 let allUsersList = []; // for search suggest
 const FALLBACK_NAME = 'anon';
 
@@ -831,6 +854,7 @@ async function loadAll(force){
 
     // Fire-and-forget pulls for legacy panels.
     loadSubscribers().catch(()=>{});
+    loadProspects().catch(()=>{});
     loadFunnel(funnelDays).catch(()=>{});
     loadFounderVideo(fvDays).catch(()=>{});
     loadDistillations().catch(()=>{});
@@ -1673,6 +1697,59 @@ $('subs-export').addEventListener('click', () => {
   const a = document.createElement('a');
   a.href = url;
   a.download = 'email_signups_' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+// ── Prospects (soft leads from sign-in / paywall walls) ───────────
+async function loadProspects(){
+  const statusEl = $('prospects-status');
+  const tableEl = $('prospects-table');
+  const emptyEl = $('prospects-empty');
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Loading…';
+  tableEl.style.display = 'none';
+  emptyEl.style.display = 'none';
+  try {
+    const data = await fetchJson('/api/admin/prospects');
+    allProspects = data.prospects || [];
+    $('prospects-count').textContent = allProspects.length ? '· ' + allProspects.length : '· 0';
+    statusEl.style.display = 'none';
+    if (!allProspects.length){ emptyEl.style.display = 'block'; return; }
+    renderProspects(allProspects);
+  } catch (e) {
+    statusEl.textContent = 'Failed to load prospects: ' + (e.message || e);
+  }
+}
+function renderProspects(list){
+  const tableEl = $('prospects-table');
+  const emptyEl = $('prospects-empty');
+  const tbody = tableEl.querySelector('tbody');
+  if (!list.length){ tableEl.style.display = 'none'; emptyEl.style.display = 'block'; emptyEl.textContent = allProspects.length ? 'No matches.' : 'No prospects yet.'; return; }
+  emptyEl.style.display = 'none';
+  tableEl.style.display = '';
+  tbody.innerHTML = list.map(p => {
+    const when = p.createdAt ? new Date(p.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+    return '<tr><td>' + esc(p.email) + '</td><td>' + esc(p.phone || '—') + '</td><td>' + esc(p.source || '—') + '</td><td class="num">' + esc(when) + '</td></tr>';
+  }).join('');
+}
+$('prospects-search').addEventListener('input', (e) => {
+  const q = (e.target.value || '').trim().toLowerCase();
+  if (!q) return renderProspects(allProspects);
+  renderProspects(allProspects.filter(p =>
+    (p.email || '').toLowerCase().includes(q) ||
+    (p.source || '').toLowerCase().includes(q)));
+});
+$('prospects-export').addEventListener('click', () => {
+  if (!allProspects.length) return;
+  const rows = [['email', 'phone', 'source', 'page', 'locale', 'created_at'],
+    ...allProspects.map(p => [p.email || '', p.phone || '', p.source || '', p.page || '', p.locale || '', p.createdAt || ''])];
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'prospects_' + new Date().toISOString().slice(0, 10) + '.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
