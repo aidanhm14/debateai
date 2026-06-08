@@ -12,7 +12,7 @@ import { tierForScore, MIN_CERT_SCORE, MAX_CERT_SCORE } from './lib/cert-tiers.m
 // Why server-side instead of writing from the client:
 // - The verify URL has to be trustworthy. If a user could write to
 //   `certificates/{id}` directly, they could mint a Champion at will.
-// - We want the issuer ("debateai.com") to be the authority on the
+// - We want the issuer ("debateit.com") to be the authority on the
 //   doc, not the recipient.
 // - One audited place to bump anti-gaming logic later (cooldowns,
 //   max-per-day, sufficient transcript length, etc.).
@@ -68,6 +68,82 @@ function sanitizeDisplayName(name) {
   return trimmed || 'Anonymous';
 }
 
+// ── Credential v1 verification ──────────────────────────────────────
+//
+// Phase A: client (LipSyncCapture) sends raw audio-envelope + mouth-
+// aperture arrays. Server computes Pearson r between them and stores
+// the result on the cert doc. Threshold gating is INFORMATIONAL ONLY
+// in phase A — the mouth array is a stub (all zeros) until FaceMesh
+// ships in phase B, so r will always be ~0 regardless of who's actually
+// in front of the camera. Gating-on-r switches on the day the mouth
+// array carries real samples.
+//
+// Wire-format guard: we accept a structured `verification.lipSync`
+// object, validate the arrays are short (<= ~7.5min worth at 4Hz), and
+// clip everything to reasonable bounds so a hostile client can't poison
+// the data with strings, huge values, or NaN.
+
+const MAX_LIPSYNC_SAMPLES = 1800;
+const LIPSYNC_R_MIN_PASS  = 0.6;
+const MIN_USABLE_SAMPLES  = 60;  // need at least 15s at 4Hz
+
+function pearsonR(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return null;
+  const n = Math.min(a.length, b.length);
+  if (n < MIN_USABLE_SAMPLES) return null;
+  let sumA = 0, sumB = 0;
+  for (let i = 0; i < n; i++) { sumA += a[i]; sumB += b[i]; }
+  const mA = sumA / n, mB = sumB / n;
+  let num = 0, dA = 0, dB = 0;
+  for (let i = 0; i < n; i++) {
+    const xa = a[i] - mA, xb = b[i] - mB;
+    num += xa * xb;
+    dA += xa * xa;
+    dB += xb * xb;
+  }
+  const denom = Math.sqrt(dA * dB);
+  if (!denom || !Number.isFinite(denom)) return null;
+  const r = num / denom;
+  return Number.isFinite(r) ? Math.max(-1, Math.min(1, r)) : null;
+}
+
+function validateVerification(input) {
+  if (!input || typeof input !== 'object') return null;
+  const ls = input.lipSync;
+  if (!ls || typeof ls !== 'object') return null;
+  if (ls.protocol !== 'lipsync-v1') {
+    return { method: 'lipsync-unknown', unparseable: true };
+  }
+  const audio = Array.isArray(ls.audioEnvelope) ? ls.audioEnvelope.slice(0, MAX_LIPSYNC_SAMPLES) : [];
+  const mouth = Array.isArray(ls.mouthAperture) ? ls.mouthAperture.slice(0, MAX_LIPSYNC_SAMPLES) : [];
+  const cleanAudio = audio.map(v => {
+    const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0;
+  });
+  const cleanMouth = mouth.map(v => {
+    const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0;
+  });
+  const phase = ls.phase === 'B' ? 'B' : 'A';
+  const r = pearsonR(cleanAudio, cleanMouth);
+  const mouthMaxAbs = cleanMouth.length ? Math.max.apply(null, cleanMouth.map(Math.abs)) : 0;
+  const hasMouthSignal = mouthMaxAbs > 0.001;
+  const passed = phase === 'B' && r !== null && r >= LIPSYNC_R_MIN_PASS;
+  return {
+    method: `lipsync-v1-phase${phase}`,
+    sampleHz: Math.max(1, Math.min(10, Number(ls.sampleHz) || 4)),
+    durationMs: Math.max(0, Math.min(3 * 60 * 60 * 1000, Number(ls.durationMs) || 0)),
+    audioSamples: cleanAudio.length,
+    mouthSamples: cleanMouth.length,
+    hasMouthSignal,
+    lipSyncR: r,
+    lipSyncPassed: passed,
+    // Raw arrays NOT stored on the cert doc — would blow up doc size and
+    // there's no view that needs them post-mint. Phase B may persist
+    // them to a sub-collection for audit purposes if useful.
+    audioEnvelopeStored: false,
+    mouthApertureStored: false,
+  };
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
@@ -105,6 +181,7 @@ export default async (request) => {
     roundId,
     won,
     displayName,
+    verification, // v1 anti-cheat payload; null on v0 / opt-out rounds
   } = body;
 
   // Re-validate the score band server-side. The client tier preview is
@@ -144,6 +221,8 @@ export default async (request) => {
     const certId = mintCertId();
     const issuedAtMs = Date.now();
 
+    const verificationBlock = validateVerification(verification);
+
     const certDoc = {
       certId,
       uid,
@@ -164,6 +243,10 @@ export default async (request) => {
       rfdExcerpt: clamp(rfdText, 4000),
       issuedAt: FieldValue.serverTimestamp(),
       issuedAtMs,
+      // Phase A: present + audio-only if the client opted into v1 capture,
+      // absent otherwise. Verify page reads this to render the verification
+      // block; absence triggers the "issued under v0 protocol" banner.
+      ...(verificationBlock ? { verification: verificationBlock } : {}),
     };
 
     await db.collection('certificates').doc(certId).set(certDoc);
@@ -213,7 +296,7 @@ export default async (request) => {
       tierName: tier.name,
       tierBlurb: tier.blurb,
       score: certDoc.score,
-      verifyUrl: `https://debateai.com/verify/${certId}`,
+      verifyUrl: `https://debateit.com/verify/${certId}`,
     }, 200, request);
   } catch (err) {
     console.error('create-cert error:', err.message, err.code || '');

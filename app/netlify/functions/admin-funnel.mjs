@@ -2,7 +2,7 @@
 //
 // Reads the `events` collection. Two event sources for the round funnel:
 //   • event == 'battle_started'       (server-logged round start, from
-//                                      /api/log-event when /debate-ai
+//                                      /api/log-event when /debate-it
 //                                      enters phase=speech)
 //   • event == 'app_event' AND
 //     metadata.name == 'round_start'  (gtag → track.js bridge mirror of
@@ -11,12 +11,12 @@
 //                                      sanity-check on the server log)
 //   • event == 'app_event' AND
 //     metadata.name == 'round_complete'  (gtag completion event from
-//                                         /debate-ai endSpeech +
+//                                         /debate-it endSpeech +
 //                                         /index simulator end-of-round)
 //
 // Also surfaces Funnel Fix #3 (stuck-speech escape hatch) telemetry:
 //   stuck_speech_shown / stuck_speech_skipped — fired by the 60s
-//   amber-banner useEffect in debate-ai.html. Shown / skipped ratio
+//   amber-banner useEffect in debate-it.html. Shown / skipped ratio
 //   tells us whether the banner is meaningfully catching stuck rounds
 //   (vs. firing spuriously) before we ship more funnel work.
 //

@@ -16,7 +16,12 @@
   // that the constellation isn't the FPS bottleneck, and the lower
   // density made the field feel sparse at desktop widths. Zero-cost
   // wins (frame cap, offscreen pause, single-stroke batching) stay in.
-  var W,H,dpr=Math.min(window.devicePixelRatio||1,2);
+  // 2026-05-27 perf pass: cap the neural-net background at DPR=1.
+  // It's a decorative gradient of ~32 nodes + faint edges; nobody can
+  // tell it's at half resolution, and a 2560×1440 backing buffer (full
+  // DPR on retina) is ~14MB of texture memory for a background canvas
+  // that's rarely the user's focus. 1× DPR drops it to ~3.7MB.
+  var W,H,dpr=1;
   var isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
   var reduced=false;
   try{reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
@@ -35,17 +40,26 @@
   // (rAF already throttles hidden tabs, but on a long landing page
   // the constellation runs continuously even after the user scrolls
   // 6 sections down).
+  // 2026-05-27 perf pass: previous code kept the rAF chain alive when
+  // offscreen and just skip-painted (60 wasted rAF schedules/sec on a
+  // long landing page). Now we fully cancel rAF on intersection-out
+  // and restart on intersection-in — zero idle cost when the user has
+  // scrolled past the hero. start() / stop() handle the rAF lifecycle.
   var inView = true;
+  var running=true,rafId=0;
   if ('IntersectionObserver' in window){
     try{
       new IntersectionObserver(function(entries){
         for (var i=0;i<entries.length;i++){
-          inView = entries[i].isIntersecting;
+          var hit = entries[i].isIntersecting;
+          var wasInView = inView;
+          inView = hit;
+          if (!hit && rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+          else if (hit && !wasInView && running) start();
         }
       }, { threshold: 0.01 }).observe(c);
     }catch(e){}
   }
-  var running=true,rafId=0;
 
   // Pre-formatted color strings, refreshed on theme flip via a MutationObserver
   // on body.class (cheap; fires only when theme actually changes).

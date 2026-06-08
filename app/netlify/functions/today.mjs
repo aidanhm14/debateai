@@ -24,8 +24,8 @@ import {
 } from './lib/daily-motion-bank.mjs';
 import { getDb } from './lib/firestore.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
-const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
+const SITE_ORIGIN = 'https://debateit.com';
+const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=debateit1`;
 
 // In-memory cache for the "recent public rounds" panel. Same content
 // for every /today render in any given minute, so caching keeps the
@@ -221,18 +221,18 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   // CTA appends ?dm=<date> so the debate-ai save flow can credit the
   // streak when the round completes. Off-today archive links don't.
   const ctaHref = isToday
-    ? `/debate-ai?motion=${motionEncoded}&dm=${dateStr}`
-    : `/debate-ai?motion=${motionEncoded}`;
+    ? `/debate-it?motion=${motionEncoded}&dm=${dateStr}`
+    : `/debate-it?motion=${motionEncoded}`;
 
   const ldArticle = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: motion.motion,
     description,
-    author: { '@type': 'Organization', name: 'Debate AI' },
+    author: { '@type': 'Organization', name: 'DebateIt' },
     publisher: {
       '@type': 'Organization',
-      name: 'Debate AI',
+      name: 'DebateIt',
       url: SITE_ORIGIN,
       logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-192.png` },
     },
@@ -254,7 +254,7 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="DebateIt">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titleCore)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -417,14 +417,14 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   ${renderRecentRoundsPanel(recentRounds)}
 
   <footer>
-    <span>© 2026 Debate AI</span>
-    <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/champions">Champions</a> · <a href="/learn">Learn</a></span>
+    <span>© 2026 DebateIt</span>
+    <span><a href="/">Home</a> · <a href="/debate-it">New round</a> · <a href="/champions">Champions</a> · <a href="/learn">Learn</a></span>
   </footer>
 </main>
 ${isToday ? `<script>
 (function(){
   // Wordle-shape streak hydration. Reads localStorage written by
-  // debate-ai.html's saveRound after the user completes today's motion,
+  // debate-it.html's saveRound after the user completes today's motion,
   // then re-skins the pill + reveals the share button. SSR shell stays
   // crawlable as a static "Day 1" pill if JS never runs.
   var bar=document.querySelector('.streak-bar');
@@ -451,7 +451,7 @@ ${isToday ? `<script>
     shareBtn.addEventListener('click',async function(){
       var n=s.streak||0;
       var line=n>0?'Day '+n+'. Today\\'s motion taken.':'Day 1. First motion taken.';
-      var text='Debate AI · '+TODAY+'\\n"'+MOTION+'"\\n'+line+'\\nhttps://debateai.com/today';
+      var text='DebateIt · '+TODAY+'\\n"'+MOTION+'"\\n'+line+'\\nhttps://debateit.com/today';
       try{
         if(navigator.share){
           await navigator.share({text:text});

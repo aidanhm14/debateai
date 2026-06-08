@@ -11,7 +11,7 @@
         in, never mounts. If Firebase isn't loaded on this page,
         skips silently — this isn't a hard requirement.
      3. Checks a single localStorage flag so a dismissal on /
-        carries to /debate-ai and back.
+        carries to /debate-it and back.
      4. Picks copy based on URL path: landing, debate-ai, voice,
         learn, etc. each get a contextual line about WHAT the
         user is being asked to save.
@@ -42,12 +42,14 @@
   // built, not a generic "keep your rounds" pitch. Founder-voice
   // first-person where it fits.
   var pageConfig = [
-    { match: /^\/(landing|index)?($|\?)/,
-      delay: 18,
-      msg: 'Sign in and the AI starts learning how you argue.' },
-    { match: /^\/debate-ai/,
-      delay: 60,
-      msg: 'The AI is recognizing your patterns. Sign in to keep them.' },
+    { match: /^\/(landing|index)?(\.html)?($|\?)/,
+      delay: 8,
+      variant: 'community',
+      msg: '<strong>95% of people here never sign in.</strong> No accounts, no community, no one to spar. Sign in and help build it.' },
+    { match: /^\/debate-it/,
+      delay: 8,
+      variant: 'community',
+      msg: '<strong>95% of people here never sign in.</strong> No accounts, no community, no one to spar. Sign in and help build it.' },
     { match: /^\/voice-debate/,
       delay: 60,
       msg: 'Sign in and the voice round becomes part of your style profile.' },
@@ -61,8 +63,9 @@
       delay: 25,
       msg: 'Sign in and your rounds become rated. The rank is real, not anonymous.' },
     { match: /^\/spar|\/live|\/community|\/rounds/,
-      delay: 25,
-      msg: 'Sign in to join the side that argues back. Post motions, accept matches, get on the board.' },
+      delay: 5,
+      variant: 'community',
+      msg: '<strong>95% of people here never sign in.</strong> No accounts, no community, no one to spar. Sign in and help build it.' },
     { match: /^\/pricing/,
       delay: 25,
       msg: "Beta is free for everyone. Sign in to keep your rounds when pricing turns on." },
@@ -179,7 +182,7 @@
       unmount();
     });
     try {
-      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname });
+      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname, variant: cfg.variant || 'standard', delay: cfg.delay });
     } catch (e) {}
   }
 

@@ -1,4 +1,4 @@
-"""Debate AI — Adversarial Geometry logo generator.
+"""DebateIt — Adversarial Geometry logo generator.
 
 Renders a square app icon and a horizontal wordmark variant. Uses Pillow with
 4x supersampling for crisp edges. Outputs PNGs at multiple sizes.
@@ -221,7 +221,7 @@ def find_font(path_options: list[str], size: int) -> ImageFont.FreeTypeFont:
 
 
 def build_wordmark(height: int = 600, padding_ratio: float = 0.18) -> Image.Image:
-    """Mark on the left, 'Debate AI.' wordmark to the right.
+    """Mark on the left, 'DebateIt.' wordmark to the right.
     Canvas width is fit to content with generous padding — no dead space.
     """
     scale = 3
@@ -235,7 +235,7 @@ def build_wordmark(height: int = 600, padding_ratio: float = 0.18) -> Image.Imag
         "GeistMono-Bold.ttf",
     ], font_size)
 
-    # measure text first to compute canvas width — DebateAI as one word.
+    # measure text first to compute canvas width — DebateIt as one word.
     # Tight TED-style tracking: render each glyph individually, kerning down ~6%.
     debate = "Debate"
     ai = "AI"

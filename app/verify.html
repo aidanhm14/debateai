@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Verify Certificate · Debate AI</title>
-<meta name="description" content="A DebateAI credential — proof of spoken-English argumentation earned by debating an AI opponent live, scored on the academic 25-30 speaker-points scale. Verifiable here; usable on college applications, ESL portfolios, and resumes." />
+<title>Verify Certificate · DebateIt</title>
+<meta name="description" content="A DebateIt credential — proof of spoken-English argumentation earned by debating an AI opponent live, scored on the academic 25-30 speaker-points scale. Verifiable here; usable on college applications, ESL portfolios, and resumes." />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="canonical" href="https://debateai.com/verify">
+<link rel="canonical" href="https://debateit.com/verify">
 
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://debateai.com/verify">
-<meta property="og:title" content="Verify Certificate · Debate AI">
+<meta property="og:url" content="https://debateit.com/verify">
+<meta property="og:title" content="Verify Certificate · DebateIt">
 <meta property="og:description" content="Verified credential — proof of spoken-English argumentation under live pressure. Usable on college apps + resumes.">
 <meta name="twitter:card" content="summary_large_image">
 
@@ -37,6 +37,10 @@
      on a download click, but the CDN URL is here so the first click
      doesn't lag while we resolve the script tag. -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+
+<!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
+     top of <body>, dismissible per session, skips /early itself. -->
+<script src="/js/cohort-banner.js" defer></script>
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -125,6 +129,73 @@ body{
   width:16px;height:16px;flex:none;border-radius:50%;
   background:#22c55e;display:inline-flex;align-items:center;justify-content:center;
   color:#000;font-weight:900;font-size:.7rem;
+}
+
+/* Pre-v1 protocol disclosure. Renders only when the cert doc has no
+   verification block. Honest framing that the credential is real, the
+   round happened, the score is server-validated, but live-video liveness
+   checks were not yet part of the issuance protocol. */
+.protocol-banner{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:14px 16px;margin-bottom:24px;
+  background:var(--gold-tint, rgba(212,175,55,.08));
+  border:1px solid var(--gold-soft, rgba(212,175,55,.32));
+  border-radius:12px;font-size:.86rem;line-height:1.5;color:var(--text-dim);
+}
+.protocol-banner .pb-mark{
+  width:18px;height:18px;flex:none;border-radius:50%;
+  background:var(--gold,#d4af37);
+  display:inline-flex;align-items:center;justify-content:center;
+  color:#000;font-weight:900;font-size:.72rem;line-height:1;margin-top:1px;
+}
+.protocol-banner b{color:var(--text);font-weight:700}
+.protocol-banner a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent);}
+.protocol-banner a:hover{opacity:.8}
+
+/* v1 verification block. Gold-tinted callout listing the anti-cheat
+   checks the round passed. Each .vb-check is one ✓+label+detail row.
+   Layout mirrors the credential PDF mockup so the verify URL feels
+   like the canonical version of the credential. */
+.verification-block{
+  margin:24px 0;padding:18px 20px;
+  background:var(--gold-tint, rgba(212,175,55,.08));
+  border:1px solid var(--gold-soft, rgba(212,175,55,.32));
+  border-radius:14px;
+}
+.verification-block .vb-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:12px;margin-bottom:6px;
+}
+.verification-block .vb-eyebrow{
+  font-size:.7rem;letter-spacing:.18em;font-weight:700;
+  color:var(--gold,#d4af37);
+}
+.verification-block .vb-method{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:.7rem;color:var(--text-dim);letter-spacing:.04em;
+}
+.verification-block .vb-sub{
+  font-size:.84rem;color:var(--text-dim);font-style:italic;margin-bottom:12px;
+}
+.verification-block .vb-list{
+  list-style:none;padding:0;margin:0 0 12px 0;
+  display:flex;flex-direction:column;gap:8px;
+}
+.verification-block .vb-check{
+  display:flex;align-items:flex-start;gap:10px;font-size:.92rem;line-height:1.5;
+}
+.verification-block .vb-check .vb-mark{
+  width:16px;height:16px;flex:none;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:.66rem;margin-top:2px;
+}
+.verification-block .vb-check.vb-pass .vb-mark{ background:var(--gold,#d4af37);color:#000; }
+.verification-block .vb-check.vb-info .vb-mark{ background:transparent;border:1px solid var(--text-dim);color:var(--text-dim); }
+.verification-block .vb-check b{color:var(--text);font-weight:700;margin-right:4px;}
+.verification-block .vb-check span{color:var(--text-dim);}
+.verification-block .vb-foot{
+  font-size:.78rem;color:var(--text-dim);font-style:italic;
+  padding-top:10px;border-top:1px solid var(--gold-soft, rgba(212,175,55,.22));
 }
 
 /* The certificate card itself */
@@ -330,6 +401,29 @@ body{
 .foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px dashed var(--border)}
 .foot a:hover{color:var(--text);border-color:var(--text-dim)}
 
+/* ── Product footer (shared pattern with /credentials + /communication-profile) ──
+   Every verify URL is shared on a resume, in an email, or pasted into
+   admissions reads — the visitor has almost certainly never seen the
+   main product before. Heavy internal linking back to / with varied
+   anchor text funnels them in. */
+.product-footer{margin-top:clamp(56px,7vw,88px);padding-top:32px;border-top:1px solid var(--border)}
+.pf-wrap{display:grid;grid-template-columns:1.5fr 1fr;gap:40px;margin-bottom:24px}
+@media (max-width:780px){.pf-wrap{grid-template-columns:1fr;gap:28px}}
+.pf-eyebrow{font-family:'Inter',sans-serif;font-size:.62rem;font-weight:600;letter-spacing:.18em;color:var(--text-ghost);text-transform:uppercase;margin-bottom:12px}
+.pf-h{font-family:var(--serif);font-weight:600;font-size:1.5rem;line-height:1.18;letter-spacing:-.015em;color:var(--text);margin-bottom:12px}
+.pf-pitch p{font-size:.94rem;color:var(--text-dim);line-height:1.6;margin-bottom:18px;max-width:560px}
+.pf-pitch p a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--border-strong);padding-bottom:1px;font-weight:500}
+.pf-pitch p a:hover{border-color:var(--accent);color:var(--accent)}
+.pf-cta{display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:.92rem;font-weight:600;color:var(--accent);text-decoration:none;padding:10px 16px;border:1px solid var(--accent);border-radius:6px;transition:background .15s,color .15s}
+.pf-cta:hover{background:var(--accent);color:#fff}
+.pf-explore ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
+.pf-explore a{font-family:'Inter',sans-serif;font-size:.84rem;color:var(--text-dim);text-decoration:none;padding:6px 0;display:block;border-bottom:1px solid transparent;transition:color .15s,border-color .15s}
+.pf-explore a:hover{color:var(--text);border-color:var(--border-strong)}
+.pf-foot{padding-top:20px;border-top:1px solid var(--border);font-size:.74rem;color:var(--text-ghost);line-height:1.6;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:baseline}
+.pf-foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px dashed var(--border);padding-bottom:1px}
+.pf-foot a:hover{color:var(--text);border-color:var(--text-dim)}
+.pf-foot-links{display:inline-flex;gap:18px;flex-wrap:wrap}
+
 /* Loading / error states */
 .state-box{
   background:var(--bg-card);border:1px solid var(--border);
@@ -361,10 +455,10 @@ body{
 <body>
 
 <header class="topbar">
-  <a href="/" class="brand"><span class="b-mark"></span>Debate AI</a>
+  <a href="/" class="brand"><span class="b-mark"></span>DebateIt</a>
   <div class="spacer"></div>
   <a href="/voice-debate" class="bar-ghost">Voice round</a>
-  <a href="/debate-ai" class="bar-cta">Start arguing</a>
+  <a href="/debate-it" class="bar-cta">Debate it</a>
 </header>
 
 <main class="wrap" id="main">
@@ -385,11 +479,41 @@ body{
   <div id="content" style="display:none">
     <div class="verify-banner">
       <span class="check">✓</span>
-      <span>Verified credential · Issued by DebateAI · This page is the proof of authenticity.</span>
+      <span>Verified credential · Issued by DebateIt · This page is the proof of authenticity.</span>
+    </div>
+
+    <!-- Pre-v1 protocol disclosure. Renders only when the cert doc lacks a
+         `verification` block (i.e., issued before the live-video liveness
+         layer landed). Honest disclosure of what the v0 protocol does and
+         does not verify. Hidden by default; renderCert() flips display:flex
+         when c.verification is absent. -->
+    <div class="protocol-banner" id="protocolBanner" style="display:none">
+      <span class="pb-mark">v0</span>
+      <div>
+        <b>Issued under v0 protocol.</b>
+        The round happened, the transcript is real, the score was re-validated server-side, and the verify URL is bound to a credential document on debateit.com that we control. Live-video liveness checks (camera required, lip-sync verification, face identity lock) were not yet part of the issuance protocol when this credential was minted. Credentials issued under the upcoming v1 protocol will surface those checks on this page. <a href="/credentials#faq">Read more about the protocol.</a>
+      </div>
+    </div>
+
+    <!-- v1 verification block. Renders when the cert doc carries a
+         `verification` object. Conditionally shows each check based on
+         the data available — audio sample count, lip-sync r, mouth signal,
+         etc. Phase A: only the "live audio captured" line and a phase-A
+         method footer; phase B fills in lip-sync r when the mouth array
+         is real. Each row is a span; checks rendered green if passed,
+         neutral if informational (phase A). -->
+    <div class="verification-block" id="verificationBlock" style="display:none">
+      <div class="vb-head">
+        <span class="vb-eyebrow">VERIFICATION</span>
+        <span class="vb-method" id="vbMethod">—</span>
+      </div>
+      <div class="vb-sub" id="vbSub"></div>
+      <ul class="vb-list" id="vbList"></ul>
+      <div class="vb-foot">Full sealed record available on request from the credential holder.</div>
     </div>
 
     <article class="cert" id="certCard">
-      <div class="cert-eyebrow">Debate AI · Certificate of Argumentation</div>
+      <div class="cert-eyebrow">DebateIt · Certificate of Argumentation</div>
 
       <div class="cert-tier-row">
         <div class="cert-tier-rule"></div>
@@ -430,12 +554,12 @@ body{
       <div class="cert-sig">
         <div class="cert-sig-block">
           <div class="cert-sig-label">Issued by</div>
-          <div class="cert-sig-mark">Debate AI</div>
-          <div class="cert-sig-value" style="color:var(--text-dim);font-weight:500">debateai.com</div>
+          <div class="cert-sig-mark">DebateIt</div>
+          <div class="cert-sig-value" style="color:var(--text-dim);font-weight:500">debateit.com</div>
         </div>
         <div class="cert-sig-block" style="text-align:right">
           <div class="cert-sig-label">Verify at</div>
-          <div class="cert-sig-value" id="cVerifyUrl">debateai.com/verify/—</div>
+          <div class="cert-sig-value" id="cVerifyUrl">debateit.com/verify/—</div>
         </div>
       </div>
     </article>
@@ -467,13 +591,13 @@ body{
         <div class="cred-compare-cell"><b>IELTS Speaking</b>9-band scale · monologue + interview · ~$215-260</div>
         <div class="cred-compare-cell"><b>TOEFL Speaking</b>0-30 scale · 4 tasks · ~$185-330</div>
         <div class="cred-compare-cell"><b>Cambridge B2/C1/C2</b>CEFR-mapped · classroom + interview · ~$165-280</div>
-        <div class="cred-compare-cell"><b>DebateAI</b>25-30 scale · live adversarial round · free, calibrated to academic-grade standards</div>
+        <div class="cred-compare-cell"><b>DebateIt</b>25-30 scale · live adversarial round · free, calibrated to academic-grade standards</div>
       </div>
     </div>
 
     <div class="educator-hook">
       <div class="educator-hook-text">
-        <b>For schools, programs, and employers:</b> every DebateAI credential is verifiable at its public URL — no contact required to confirm authenticity. If your program would like to formally recognize DebateAI credentials for co-curricular credit or English-proficiency portfolios, get in touch.
+        <b>For schools, programs, and employers:</b> every DebateIt credential is verifiable at its public URL — no contact required to confirm authenticity. If your program would like to formally recognize DebateIt credentials for co-curricular credit or English-proficiency portfolios, get in touch.
       </div>
       <a href="/schools">For educators →</a>
     </div>
@@ -486,9 +610,37 @@ body{
       <a href="/credentials" class="btn btn-ghost">How the program works</a>
     </div>
 
-    <div class="foot">
-      Issued by <a href="/">debateai.com</a> · Every credential is publicly verifiable. <a href="/credentials">About the program</a>
-    </div>
+    <footer class="product-footer">
+      <div class="pf-wrap">
+        <div class="pf-pitch">
+          <div class="pf-eyebrow">Debate It™ · also known as Debate AI / Debatable</div>
+          <h2 class="pf-h">What this credential is from.</h2>
+          <p>This credential was issued by <a href="/">Debate It</a> — a live voice trainer for argument under pressure. The holder earned it by debating an AI opponent on a real motion, scored on the academic 25-30 speaker-points scale used at university tournaments. Curious what the platform does? <a href="/">Open the home page</a> for the live voice round, format library, and community.</p>
+          <a class="pf-cta" href="/">Open the main product →</a>
+        </div>
+        <div class="pf-explore">
+          <div class="pf-eyebrow">Explore</div>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/voice-debate">Live voice round</a></li>
+            <li><a href="/spar">Spar with humans</a></li>
+            <li><a href="/credentials">About the certificate</a></li>
+            <li><a href="/communication-profile">Communication profile</a></li>
+            <li><a href="/pricing">Pricing</a></li>
+            <li><a href="/schools">For schools</a></li>
+            <li><a href="/changelog">What's new</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pf-foot">
+        <span class="pf-foot-meta">Issued by <a href="/">debateit.com</a> · every credential is publicly verifiable. <a href="/credentials">About the program.</a></span>
+        <span class="pf-foot-links">
+          <a href="/terms">Terms</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/changelog">Changelog</a>
+        </span>
+      </div>
+    </footer>
   </div>
 </main>
 
@@ -552,9 +704,87 @@ body{
     return map[(key||'').toLowerCase()] || (key ? key.toUpperCase() : '—');
   }
 
+  // Render the v1 anti-cheat checks. Only renders rows for checks we
+  // actually have data for — phase A typically just gives us "live audio
+  // captured" + an info row noting the lip-sync check is pending. Phase
+  // B adds the lip-sync r line; later phases add face-lock, liveness
+  // challenges, and audio watermark rows. The block is honest by
+  // omission: a check that didn't happen doesn't get a green ✓.
+  function renderVerificationBlock(v){
+    if (!v || typeof v !== 'object') return;
+    var method = v.method || 'lipsync-v1';
+    var phaseB = method.indexOf('phaseB') >= 0;
+    document.getElementById('vbMethod').textContent =
+      'METHOD ' + method.toUpperCase().replace('-', ' · ');
+    document.getElementById('vbSub').textContent = phaseB
+      ? 'Anti-cheat checks passed at round close.'
+      : 'Partial anti-cheat verification. Full lip-sync gating ships with v1.0 phase B.';
+    var list = document.getElementById('vbList');
+    list.innerHTML = '';
+    function row(passed, key, detail){
+      var li = document.createElement('li');
+      li.className = 'vb-check ' + (passed ? 'vb-pass' : 'vb-info');
+      var mark = document.createElement('span'); mark.className = 'vb-mark';
+      mark.textContent = passed ? '✓' : '–';
+      li.appendChild(mark);
+      var body = document.createElement('span');
+      var b = document.createElement('b'); b.textContent = key + '.';
+      body.appendChild(b);
+      var s = document.createElement('span'); s.textContent = ' ' + detail;
+      body.appendChild(s);
+      li.appendChild(body);
+      list.appendChild(li);
+    }
+    // Live audio captured — passes if we received any audio samples at all
+    if ((v.audioSamples || 0) > 0) {
+      var secs = Math.round(((v.durationMs || 0) / 1000));
+      row(true, 'Live audio captured',
+          'mic envelope sampled at ' + (v.sampleHz || 4) + 'Hz for ' + secs + 's of round.');
+    }
+    // Lip-sync verification — only real in phase B
+    if (phaseB && v.lipSyncR != null) {
+      var rStr = (v.lipSyncR >= 0 ? '+' : '') + v.lipSyncR.toFixed(2);
+      row(!!v.lipSyncPassed, 'Lip-sync verified',
+          'mouth motion matched audio envelope, r = ' + rStr +
+          (v.lipSyncPassed ? ' (threshold 0.60).' : ' (below 0.60 threshold).'));
+    } else {
+      row(false, 'Lip-sync verification',
+          'pending phase B (mouth-landmark tracking integration).');
+    }
+    // The remaining v1 layers — not shipping in phase A or B, listed as
+    // upcoming so the verify page sets the right expectation.
+    if (phaseB) {
+      // In phase B these stay marked as upcoming until the respective
+      // layers ship. The honest UI never claims a check ran when it didn't.
+    } else {
+      row(false, 'Face identity lock',     'pending v1.1.');
+      row(false, 'Liveness challenges',    'pending v1.2.');
+      row(false, 'Audio watermark integrity', 'pending v1.3.');
+    }
+  }
+
   function renderCert(c){
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
+
+    // Surface the v0 protocol disclosure if this cert was issued before the
+    // live-video liveness layer landed. The check is "no verification block"
+    // not "verification block says failed" — failed-verification certs
+    // shouldn't have been minted at all under v1.
+    try {
+      var hasV1 = c && c.verification && typeof c.verification === 'object';
+      var pb = document.getElementById('protocolBanner');
+      if (pb) pb.style.display = hasV1 ? 'none' : 'flex';
+      var vb = document.getElementById('verificationBlock');
+      if (vb) {
+        if (hasV1) {
+          renderVerificationBlock(c.verification);
+          vb.style.display = 'block';
+        } else {
+          vb.style.display = 'none';
+        }
+      }
+    } catch(e) { /* render forward */ }
 
     var tierName = c.tierName || (c.tier && c.tier.charAt(0).toUpperCase() + c.tier.slice(1)) || 'Novice';
     var tierBlurbs = {
@@ -574,12 +804,12 @@ body{
     document.getElementById('cSide').textContent = fmtSide(c.sideLabel, c.side);
     document.getElementById('cDate').textContent = fmtDate(c.issuedAtMs);
     document.getElementById('cBlurb').textContent = tierBlurbs[c.tier] || tierBlurbs.novice;
-    document.getElementById('cVerifyUrl').textContent = 'debateai.com/verify/' + c.certId;
+    document.getElementById('cVerifyUrl').textContent = 'debateit.com/verify/' + c.certId;
 
     // Page title gets the holder's name + tier so a shared link reads
     // well in the browser tab and on social-card scrapes.
     try {
-      document.title = c.displayName + ' · ' + tierName + ' · Debate AI Certified';
+      document.title = c.displayName + ' · ' + tierName + ' · DebateIt Certified';
     } catch(e){}
 
     // RFD excerpt
@@ -595,7 +825,7 @@ body{
     }
 
     // Action buttons
-    var verifyUrl = 'https://debateai.com/verify/' + c.certId;
+    var verifyUrl = 'https://debateit.com/verify/' + c.certId;
     document.getElementById('copyUrl').addEventListener('click', function(){
       navigator.clipboard.writeText(verifyUrl).then(function(){
         var b = document.getElementById('copyUrl');
@@ -622,7 +852,7 @@ body{
       var ld = {
         "@context": "https://schema.org",
         "@type": "EducationalOccupationalCredential",
-        "name": "DebateAI " + (c.tierName || 'Novice') + " Certificate",
+        "name": "DebateIt " + (c.tierName || 'Novice') + " Certificate",
         "description": "Verified credential for spoken-English argumentation. Earned in a judged live voice round against an AI opponent, scored " + (c.score != null ? c.score.toFixed(1) : '—') + " on the standard 25-30 academic speaker-points scale.",
         "credentialCategory": "Certificate",
         "competencyRequired": [
@@ -634,11 +864,11 @@ body{
         "educationalLevel": ({champion:"Mastery (C2 equivalent)", circuit:"Advanced (C1 equivalent)", varsity:"Advanced (C1 equivalent)", novice:"Upper-intermediate (B2 equivalent)"})[c.tier || 'novice'],
         "recognizedBy": {
           "@type": "Organization",
-          "name": "DebateAI",
-          "url": "https://debateai.com",
-          "sameAs": ["https://debateai.com/credentials", "https://debateai.com/schools"]
+          "name": "DebateIt",
+          "url": "https://debateit.com",
+          "sameAs": ["https://debateit.com/credentials", "https://debateit.com/schools"]
         },
-        "url": "https://debateai.com/verify/" + c.certId,
+        "url": "https://debateit.com/verify/" + c.certId,
         "dateCreated": c.issuedAtMs ? new Date(c.issuedAtMs).toISOString() : undefined,
       };
       var s = document.createElement('script');
@@ -745,11 +975,11 @@ body{
     doc.setFont('times', 'bolditalic');
     doc.setFontSize(16);
     doc.setTextColor(180, 30, 30);
-    doc.text('Debate AI', margin + 20, sigY + 22);
+    doc.text('DebateIt', margin + 20, sigY + 22);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(80, 80, 80);
-    doc.text('debateai.com', margin + 20, sigY + 36);
+    doc.text('debateit.com', margin + 20, sigY + 36);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
@@ -758,7 +988,7 @@ body{
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(20, 20, 20);
-    doc.text('debateai.com/verify/' + c.certId, W - margin - 20, sigY + 22, { align:'right' });
+    doc.text('debateit.com/verify/' + c.certId, W - margin - 20, sigY + 22, { align:'right' });
 
     doc.save('debateai-certified-' + (c.displayName || 'recipient').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-' + c.certId + '.pdf');
 

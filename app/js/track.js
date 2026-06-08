@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────────
-// Shared telemetry for Debate AI.
+// Shared telemetry for DebateIt.
 // Drop <script src="/js/track.js" defer></script> on any page and it
 // auto-fires session_start, page_view, heartbeat (every 60s), and
 // session_end on pagehide. All events auth-required — anonymous
@@ -79,7 +79,7 @@
   }
 
   async function ensureFirebase() {
-    // Page may have already loaded firebase (index.html, debate-ai.html, etc).
+    // Page may have already loaded firebase (index.html, debate-it.html, etc).
     // If so, just reuse it — initializeApp throws on duplicate without this check.
     if (!window.firebase || !window.firebase.initializeApp) {
       await loadScript('https://www.gstatic.com/firebasejs/' + SDK_VERSION + '/firebase-app-compat.js');

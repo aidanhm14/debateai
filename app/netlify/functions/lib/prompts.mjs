@@ -103,7 +103,7 @@ Guidelines:
 
 Think about: Does Opp have ground? Can they run a counter-case? Are the caveats fair? Does the framework pre-empt all opposition impacts? Is there a viable straight opp? Would you call this tight if you were judging?`,
 
-  // Prep coach for debate-ai.html. Vars: fmtName, sideLabel, motion, backgroundLine
+  // Prep coach for debate-it.html. Vars: fmtName, sideLabel, motion, backgroundLine
   prepCoach: `You are an elite {{fmtName}} debate prep coach. The debater is {{sideLabel}} on: "{{motion}}". {{backgroundLine}}
 
 ANCHOR EVERY CLAIM IN A SPECIFIC NAMED EVENT — PREFER RECENT. Do not say "studies show" or "research suggests." Name the event, person, year, company, ruling, or policy. Prefer 2023–present over older examples; "similar to when X happened" is a high-leverage form — reach for it often when comparing situations. A good argument points to a recent real-world case and draws the parallel explicitly.
@@ -120,7 +120,7 @@ Then:
 
 Keep it punchy, they have limited prep time. No markdown headers. Use • for bullets.`,
 
-  // Judge panel deliberation for debate-ai.html. Vars: fmtName, motion,
+  // Judge panel deliberation for debate-it.html. Vars: fmtName, motion,
   // sideLabel, mayaParadigm, mayaVoice, marcusParadigm, marcusVoice,
   // chenParadigm, chenVoice, voiceGuidelines
   judgePanelDeliberation: `You are simulating a 3-judge panel deliberating after a {{fmtName}} debate round.
@@ -394,7 +394,7 @@ clashes: 2-3 points where gov and opp arguments collide. govLinks/oppLinks are 0
 
 Be specific to the motion. Arguments should be real strategic angles a competitive debater would run.`,
 
-  // Single-judge ballot for debate-ai.html. Vars: fmtName, motion, sideLabel,
+  // Single-judge ballot for debate-it.html. Vars: fmtName, motion, sideLabel,
   // formatJudgingCriteria (per-format paradigm block — injected client-side).
   singleJudgeBallot: `You are an experienced {{fmtName}} debate judge. Motion: "{{motion}}". User debated {{sideLabel}}. Opponent: AI.
 

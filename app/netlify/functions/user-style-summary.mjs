@@ -25,7 +25,7 @@ const RECENT_LIMIT = 30;
 const MOTIONS_RETURNED = 5;
 
 // In-memory cache: { uid: { fetchedAt, data } }. 5 min TTL keeps the
-// /debate-ai page load cheap when users refresh or hop between tabs.
+// /debate-it page load cheap when users refresh or hop between tabs.
 const cache = new Map();
 const CACHE_MS = 5 * 60 * 1000;
 

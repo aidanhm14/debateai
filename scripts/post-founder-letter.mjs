@@ -33,15 +33,15 @@ async function api(method, p, body) {
 
   const part1 = `# Welcome. I'm Aidan.
 
-I founded Debate AI. Sophomore at UChicago, philosophy + business econ, national APDA champion. I built this product because I needed a sparring partner that actually knew the flow, pushed back like a real opponent, and graded me like a judge would. I built it for myself first, then realized other debaters wanted the same thing.
+I founded DebateIt. Sophomore at UChicago, philosophy + business econ, national APDA champion. I built this product because I needed a sparring partner that actually knew the flow, pushed back like a real opponent, and graded me like a judge would. I built it for myself first, then realized other debaters wanted the same thing.
 
 This Discord is where that community lives now.
 
-## What Debate AI does
+## What DebateIt does
 
 Voice-first sparring partner. Pick a format (Asian Parli, WSDC, BP, APDA, Policy, LD, PF, Worlds, Congress, MUN, Viva, Quick Clash) and a motion. Speak. The AI takes POIs, pushes back, writes a real judge ballot at the end with speaker points and weighing. Six brains under the hood: Claude, GPT, Gemini, Grok, DeepSeek, Open Lab. Each picks up different things in the round.
 
-Try it: https://debateai.com`;
+Try it: https://debateit.com`;
 
   const part2 = `## What I want this server to be
 
@@ -52,18 +52,18 @@ Try it: https://debateai.com`;
 
 ## Where this is going
 
-About 7,000 people use Debate AI every month. About 80% are in India, mostly Asian Parli, WSDC, BP. We're investing hard in the India circuit. Beyond debate, the same engine drills oral exams, thesis defense, and interview prep, that's what the Viva format and the Counter Chrome extension are for.
+About 7,000 people use DebateIt every month. About 80% are in India, mostly Asian Parli, WSDC, BP. We're investing hard in the India circuit. Beyond debate, the same engine drills oral exams, thesis defense, and interview prep, that's what the Viva format and the Counter Chrome extension are for.
 
 Long-term goal: every debater in the world has a 24/7 sparring partner that doesn't agree with them. Every viva candidate has someone to grill them the night before. Every professional who argues out loud gets a coach who knows their format.
 
 ## Find us elsewhere
 
-- Site: https://debateai.com
-- X / Twitter: https://twitter.com/debateai
-- Instagram: https://www.instagram.com/debateai
-- TikTok: https://www.tiktok.com/@debateai
-- YouTube: https://www.youtube.com/@debateai
-- LinkedIn: https://www.linkedin.com/company/debateai
+- Site: https://debateit.com
+- X / Twitter: https://twitter.com/debateit
+- Instagram: https://www.instagram.com/debateit
+- TikTok: https://www.tiktok.com/@debateit
+- YouTube: https://www.youtube.com/@debateit
+- LinkedIn: https://www.linkedin.com/company/debateit
 - My personal X: https://x.com/8idanhm
 
 Argue like you mean it.

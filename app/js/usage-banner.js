@@ -20,12 +20,19 @@
   };
   const SDK_VERSION = '10.7.1';
   const POLL_MS = 45_000; // Re-fetch usage every 45s so the banner stays live.
-  const MANAGE_URL = 'https://debateai.com/app#team';
+  const MANAGE_URL = 'https://debateit.com/app#team';
 
   let currentUser = null;
   let lastUsage = null;
   let pollTimer = null;
   let rootEl = null;
+  let dismissTimer = null;
+  // The pill is informational, not modal — sitting in the topbar
+  // forever feels naggy, especially at cap-reached where the user has
+  // already seen it. Auto-fade after AUTO_DISMISS_MS so it surfaces,
+  // registers, and gets out of the way.
+  const AUTO_DISMISS_MS = 5000;
+  const FADE_MS = 400;
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -54,15 +61,24 @@
     if (rootEl) return rootEl;
     rootEl = document.createElement('div');
     rootEl.id = 'da-usage-banner';
+    // 2026-05-26 (rev2): banner moved off center entirely. At top:60
+    // center the cap-reached pill was overlapping the hero headline
+    // ("Debate it. Debate it. Debate it.") in Aidan's screenshot —
+    // both were center-anchored, both at similar vertical positions
+    // on a 1440x900 viewport. Moved to top-right corner so it sits
+    // contextually near the user-avatar / "Aidan OUT" cluster in the
+    // topbar (which is where "your usage" mentally belongs) and out
+    // of the hero headline column entirely.
     rootEl.style.cssText = [
       'position:fixed',
-      'top:0',
-      'left:50%',
-      'transform:translateX(-50%)',
-      'z-index:99999',
+      'top:14px',
+      'right:14px',
+      'left:auto',
+      'transform:none',
+      'z-index:9000',
       'padding:0',
       'pointer-events:none',
-      'max-width:100%',
+      'max-width:min(380px, calc(100vw - 28px))',
       'font-family:Inter,system-ui,-apple-system,sans-serif',
     ].join(';');
     if (document.body) document.body.appendChild(rootEl);
@@ -82,8 +98,22 @@
     return { bg: '#ef444428', border: '#ef444488', text: '#ef4444', label: 'cap reached' };
   }
 
+  // Auto-dismiss timer for the "cap reached" banner only. The lower-
+  // severity banners (50/75/90%) stay put — they're useful nudges that
+  // a user can act on. The "cap reached" banner is a one-time signal:
+  // user already hit zero, no further action is possible from the bar
+  // itself, so leaving it there permanently just clutters the top of
+  // every page. Fade it out ~5s after render so the message lands once.
+  let capDismissTimer = null;
+  let capFadeTimer = null;
+  function clearCapDismissTimers() {
+    if (capDismissTimer) { clearTimeout(capDismissTimer); capDismissTimer = null; }
+    if (capFadeTimer)    { clearTimeout(capFadeTimer);    capFadeTimer    = null; }
+  }
+
   function render(usage) {
     const root = ensureRoot();
+    clearCapDismissTimers(); // a fresh render cancels any pending fade
     if (!usage) { root.innerHTML = ''; return; }
 
     const used = usage.usageThisPeriod || 0;
@@ -153,7 +183,40 @@
     ].join(';');
     pill.appendChild(cta);
 
+    // Smooth fade for the auto-dismiss + any hover cancel.
+    pill.style.transition = 'opacity ' + FADE_MS + 'ms ease';
+
     root.appendChild(pill);
+
+    // Auto-dismiss when at cap. 4.5s read window, then 600ms fade,
+    // then remove from DOM. Honors prefers-reduced-motion by skipping
+    // the opacity transition.
+    if (remaining === 0) {
+      const reduceMotion =
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      pill.style.transition = reduceMotion ? 'none' : 'opacity .6s ease, transform .6s ease';
+      capDismissTimer = setTimeout(() => {
+        if (!pill.isConnected) return;
+        pill.style.opacity = '0';
+        pill.style.transform = 'translateY(-8px)';
+        capFadeTimer = setTimeout(() => {
+          // Re-check root in case render() fired again between schedule and fire.
+          if (root.contains(pill)) root.innerHTML = '';
+        }, reduceMotion ? 0 : 620);
+      }, 4500);
+    }
+    // Also auto-dismiss the standard pill after AUTO_DISMISS_MS so it
+    // surfaces, then yanks itself to give the topbar its space back.
+    // Re-renders (poll refresh, auth flip) reset the timer.
+    if (dismissTimer) clearTimeout(dismissTimer);
+    dismissTimer = setTimeout(function () {
+      if (!pill.isConnected) return;
+      pill.style.opacity = '0';
+      setTimeout(function () {
+        if (pill.isConnected && root.contains(pill)) pill.remove();
+      }, FADE_MS);
+    }, AUTO_DISMISS_MS);
   }
 
   async function fetchUsage() {
@@ -172,7 +235,7 @@
         // so they know the system uses teams + sees the settings entry.
         if (r.status === 404) {
           // No team yet — pre-cap free user. Stay hidden (the in-app
-          // counter inside debate-ai.html already shows their quota; the
+          // counter inside debate-it.html already shows their quota; the
           // global floating banner here would just double up the paid
           // signal).
         }

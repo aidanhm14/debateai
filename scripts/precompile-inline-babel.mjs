@@ -2,7 +2,7 @@
 // ──────────────────────────────────────────────────────────────────
 // Precompile <script data-precompile="es5"> blocks to var-hoisted JS.
 //
-// Why: index.html / debate-ai.html / etc. ship a 14k+ line inline
+// Why: index.html / debate-it.html / etc. ship a 14k+ line inline
 // <script type="text/babel"> and a babel-standalone CDN tag. At
 // runtime, Babel parses the whole thing into an AST, transforms it,
 // and the browser parses the output again. ~300-600MB of heap
@@ -38,7 +38,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const DEFAULT_FILES = [
   'app/index.html',
-  'app/debate-ai.html',
+  'app/debate-it.html',
   'app/voice-debate.html',
   'app/learn.html',
   'app/high-school.html',

@@ -34,7 +34,7 @@ const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
 // Format bank — same weighting as community-seed.js so the runner-produced
 // entries blend into the existing distribution. Keep slugs aligned with
-// debate-ai.html FORMATS so other parts of the pipeline (e.g. the Cases
+// debate-it.html FORMATS so other parts of the pipeline (e.g. the Cases
 // tab format filter) recognize them.
 const FORMATS = [
   { slug:'asian',   name:'Asian Parli',     w:24, sideLabels:{ gov:'Government', opp:'Opposition' } },
@@ -204,7 +204,7 @@ async function runOneRound(opts){
   const now = FieldValue.serverTimestamp();
 
   // Two leaderboard entries per round — one per side. Same shape as the
-  // entries debate-ai.html writes for live AI rounds, plus simulated:true
+  // entries debate-it.html writes for live AI rounds, plus simulated:true
   // so admin filters can identify them later.
   const baseEntry = {
     motion,

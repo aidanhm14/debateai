@@ -19,7 +19,7 @@ export default async (request) => {
   }
 
   // Team-first funnel: requiring a team before checkout is intentional.
-  // Teams are Debate AI's social/tracking layer — create one, invite peers,
+  // Teams are DebateIt's social/tracking layer — create one, invite peers,
   // track your cases and analytics together. Returning 404 here is the
   // signal the client uses to route to the team-creation flow with
   // upgrade-intent preserved, rather than letting people pay in isolation.
@@ -48,9 +48,9 @@ export default async (request) => {
   if (!priceId) return errorResponse('Invalid plan. Choose "byok", "individual", "team", or "lifetime".', 400, request);
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  // Default to debateai.com (the live brand) instead of the legacy
+  // Default to debateit.com (the live brand) instead of the legacy
   // debateos.com which now 404s. SITE_URL env var still wins if set.
-  const siteUrl = process.env.SITE_URL || 'https://debateai.com';
+  const siteUrl = process.env.SITE_URL || 'https://debateit.com';
 
   const isLifetime = planId === 'lifetime';
 
