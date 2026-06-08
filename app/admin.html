@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Admin · Debate AI</title>
+<title>Admin · DebateIt</title>
 <link rel="icon" href="/icons/icon-192.png">
 <style>
   :root {
@@ -256,6 +256,7 @@
       <button id="refresh" class="pill-btn">↻ Refresh</button>
       <span id="last-updated" class="ts"></span>
       <a class="pill-btn" href="/admin-rate">★ Rate outputs</a>
+      <button id="corpus-export" class="pill-btn" title="Download an anonymized JSONL sample of contributable rounds — paste into a cold email to a lab">↓ Corpus sample</button>
       <button id="signout" class="pill-btn">Sign out</button>
       <a class="pill-btn" href="/">← home</a>
     </div>
@@ -410,6 +411,19 @@
         <span class="meta" id="dist-meta">Loading…</span>
       </div>
       <div id="dist-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Brand-name poll readout. Engaged-user vote on the rename direction:
+       debateit / debatenow / debatable / debateai. Backed by /api/poll
+       (public GET). Drives the DNS-flip decision soul.md §10 parked. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Brand poll · what title reads best</span>
+        <span class="meta" id="poll-meta">Loading…</span>
+      </div>
+      <div id="poll-body" style="padding:6px 2px">Loading…</div>
     </div>
   </div>
 
@@ -572,7 +586,7 @@
             <span class="meta">few-shot rounds for AI</span>
           </div>
           <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
-            Marks past /debate-ai rounds as few-shot training. Weight 3 = admin (heaviest), 1 = light, 0 = revoke.
+            Marks past /debate-it rounds as few-shot training. Weight 3 = admin (heaviest), 1 = light, 0 = revoke.
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
             <input id="exemplar-email" type="email" placeholder="user@example.com" style="flex:2;min-width:200px;padding:7px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:13px;outline:none">
@@ -686,6 +700,46 @@ $('signin-btn').addEventListener('click', async () => {
 
 $('signout').addEventListener('click', () => auth.signOut());
 $('refresh').addEventListener('click', () => loadAll(true));
+
+// Download an anonymized JSONL sample of contributable rounds. Used to
+// share a row pack with a lab during licensing diligence. Auth token is
+// the same admin Firebase ID token the rest of /admin uses. First call
+// pulls up to 500 rows; X-Has-More:1 means there's another page.
+$('corpus-export').addEventListener('click', async () => {
+  const btn = $('corpus-export');
+  const original = btn.textContent;
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Exporting…';
+    if (!auth.currentUser) throw new Error('Not signed in');
+    const token = await auth.currentUser.getIdToken();
+    const res = await fetch('/api/admin/corpus-export?limit=500', {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error('Export failed (' + res.status + '): ' + errBody.slice(0, 200));
+    }
+    const rowCount = res.headers.get('X-Row-Count') || '?';
+    const hasMore = res.headers.get('X-Has-More') === '1';
+    const body = await res.text();
+    const blob = new Blob([body], { type: 'application/x-jsonlines' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'debatable-corpus-sample-' + new Date().toISOString().slice(0,10) + '.jsonl';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    btn.textContent = '✓ ' + rowCount + ' rows' + (hasMore ? ' (more avail.)' : '');
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 4000);
+  } catch (e) {
+    console.warn('[corpus-export]', e.message);
+    btn.textContent = '✗ ' + (e.message || 'failed').slice(0, 32);
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 5000);
+  }
+});
 $('auto-toggle').addEventListener('click', () => {
   autoRefresh = !autoRefresh;
   $('auto-toggle').textContent = 'Auto-refresh ' + (autoRefresh ? 'on' : 'off');
@@ -780,6 +834,7 @@ async function loadAll(force){
     loadFunnel(funnelDays).catch(()=>{});
     loadFounderVideo(fvDays).catch(()=>{});
     loadDistillations().catch(()=>{});
+    loadBrandPoll().catch(()=>{});
 
     if (autoRefresh) startAuto();
   } catch (e) {
@@ -1517,6 +1572,58 @@ async function loadDistillations(){
   } catch (e) {
     body.innerHTML = '<div class="err-box">Distillations load failed: ' + esc(e.message || e) + '</div>';
     meta.textContent = '';
+  }
+}
+
+// ── Brand poll readout ────────────────────────────────────────────
+// One-shot read of /api/poll. Public endpoint, no auth needed — just
+// shows the running tally so we can decide on the rename direction
+// without leaving the dashboard.
+async function loadBrandPoll(){
+  const meta = $('poll-meta');
+  const body = $('poll-body');
+  if (!body || !meta) return;
+  body.textContent = 'Loading…';
+  meta.textContent = '';
+  const LABELS = {
+    debateit:  'debateit',
+    debatenow: 'debatenow',
+    debatable: 'debatable',
+    debateai:  'debateai',
+  };
+  try {
+    const res = await fetch('/api/poll', { method: 'GET' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const tally = data.tally || {};
+    const total = tally.total || 0;
+    meta.textContent = total + ' total vote' + (total === 1 ? '' : 's');
+    if (!total) {
+      body.innerHTML = '<div class="meta">No votes yet. Poll fires in /app after a generation completes.</div>';
+      return;
+    }
+    // Sort highest first so the current leader is immediately legible.
+    const rows = Object.keys(LABELS)
+      .map(k => ({ key: k, label: LABELS[k], count: tally[k] || 0 }))
+      .sort((a, b) => b.count - a.count);
+    const maxCount = rows[0].count || 1;
+    body.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;padding:4px 2px">' +
+      rows.map((r, idx) => {
+        const pct = total ? Math.round((r.count / total) * 1000) / 10 : 0;
+        const barPct = Math.max(2, Math.round((r.count / maxCount) * 100));
+        const leader = idx === 0 && r.count > 0;
+        return '<div style="display:grid;grid-template-columns:120px 1fr 90px;align-items:center;gap:12px">' +
+          '<div style="font-weight:' + (leader ? '700' : '600') + ';color:' + (leader ? 'var(--fg)' : 'var(--muted)') + '">' + esc(r.label) + '</div>' +
+          '<div style="height:14px;background:var(--line);border-radius:8px;overflow:hidden">' +
+            '<div style="height:100%;width:' + barPct + '%;background:' + (leader ? '#ef4444' : 'rgba(239,68,68,.45)') + ';transition:width .3s"></div>' +
+          '</div>' +
+          '<div class="num" style="text-align:right;color:var(--muted);font-size:12px">' + r.count + ' · ' + pct + '%</div>' +
+          '</div>';
+      }).join('') +
+    '</div>' +
+    '<div class="meta" style="margin-top:12px">Voting surface: /app modal (one-time per signed-in user, after first generation). Public GET → /api/poll.</div>';
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Poll load failed: ' + esc(e.message || e) + '</div>';
   }
 }
 

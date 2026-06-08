@@ -19,8 +19,8 @@
 
 import { MOTION_BANK, getMotion, listMotions } from './lib/debate-bank.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
-const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
+const SITE_ORIGIN = 'https://debateit.com';
+const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=debateit1`;
 
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function esc(s) {
@@ -61,7 +61,7 @@ function notFoundResponse() {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Motion not found · Debate AI</title>
+<title>Motion not found · DebateIt</title>
 <meta name="robots" content="noindex">
 <style>
   body{background:#080C14;color:#e8edf6;font:17px/1.7 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;margin:0;padding:64px 24px;text-align:center}
@@ -261,6 +261,23 @@ function commonStyles() {
   .drill-item .dl{font-size:14px;font-weight:600;line-height:1.35}
   .drill-item .dx{color:var(--ghost);font-size:18px}
 
+  /* ---------- OTHER WAYS TO ARGUE (cross-surface CTA cards) ---------- */
+  /* Three equal cards linking to /live, /exhibition, /spar. Internal
+     linking from every /debate/{slug} → these surfaces is the SEO play
+     (30+ motion pages × 3 links = 90 new internal anchors). Visual
+     hierarchy: same .sec rhythm as Related motions / Drills so it
+     reads as another shelf, not a marketing banner. */
+  .sec-otherways{margin-top:80px}
+  .otherways-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  @media (max-width:760px){.otherways-grid{grid-template-columns:1fr}}
+  .otherway-card{display:flex;flex-direction:column;gap:8px;padding:20px 22px;border:1px solid var(--line);background:var(--card);border-radius:14px;color:var(--ink);transition:border-color .14s,background .14s,transform .14s}
+  .otherway-card:hover{text-decoration:none;border-color:var(--red);background:rgba(255,255,255,.05);transform:translateY(-1px)}
+  .otherway-card .otherway-eye{font:800 10.5px/1 system-ui;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:2px}
+  .otherway-card .otherway-title{font:700 16px/1.3 "SF Pro Display",system-ui;color:var(--ink)}
+  .otherway-card .otherway-body{font:400 13.5px/1.55 system-ui;color:var(--dim);margin-bottom:4px}
+  .otherway-card .otherway-arr{font:800 14px/1 system-ui;color:var(--ghost);align-self:flex-end}
+  .otherway-card:hover .otherway-arr{color:var(--red)}
+
   footer.dfoot{margin-top:80px;padding-top:24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--ghost)}
   footer.dfoot a{color:var(--ghost)} footer.dfoot a:hover{color:var(--ink);text-decoration:none}
 
@@ -323,10 +340,10 @@ function commonStyles() {
 
 function topNav() {
   return `<nav class="topnav">
-    <a class="nav-home" href="/"><span class="ar">←</span> Debate AI</a>
+    <a class="nav-home" href="/"><span class="ar">←</span> DebateIt</a>
     <span class="nav-group">
       <a href="/debate">All motions</a>
-      <a class="nav-cta" href="/debate-ai">Practice <span class="ar">→</span></a>
+      <a class="nav-cta" href="/debate-it">Practice <span class="ar">→</span></a>
     </span>
   </nav>`;
 }
@@ -351,8 +368,8 @@ function argCard(side, a) {
 }
 
 function renderMotionPage(m) {
-  const titleCore = `${m.title} Both Sides, Argued · Debate AI`;
-  const title = `${m.title} · Debate AI`;
+  const titleCore = `${m.title} Both Sides, Argued · DebateIt`;
+  const title = `${m.title} · DebateIt`;
   const canonical = `${SITE_ORIGIN}/debate/${m.slug}`;
   const proHref = trainerHref(m, 'pro');
   const conHref = trainerHref(m, 'con');
@@ -367,14 +384,14 @@ function renderMotionPage(m) {
         description: m.description,
         about: m.category,
         keywords: m.keywords.join(', '),
-        author: { '@type': 'Organization', name: 'Debate AI', url: SITE_ORIGIN },
-        publisher: { '@type': 'Organization', name: 'Debate AI', logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` } },
+        author: { '@type': 'Organization', name: 'DebateIt', url: SITE_ORIGIN },
+        publisher: { '@type': 'Organization', name: 'DebateIt', logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` } },
         url: canonical, mainEntityOfPage: canonical, inLanguage: 'en', image: OG_IMAGE,
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Debate AI', item: `${SITE_ORIGIN}/` },
+          { '@type': 'ListItem', position: 1, name: 'DebateIt', item: `${SITE_ORIGIN}/` },
           { '@type': 'ListItem', position: 2, name: 'Debate', item: `${SITE_ORIGIN}/debate` },
           { '@type': 'ListItem', position: 3, name: m.title, item: canonical },
         ],
@@ -397,7 +414,7 @@ function renderMotionPage(m) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="DebateIt">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titleCore)}">
 <meta name="twitter:description" content="${esc(m.description)}">
@@ -522,9 +539,33 @@ ${rail(m)}
     </div>
   </section>
 
+  <section class="sec sec-otherways">
+    <div class="sec-eye" style="margin-top:0">Other ways to argue this motion</div>
+    <div class="otherways-grid">
+      <a class="otherway-card" href="/live">
+        <span class="otherway-eye">Live · with humans</span>
+        <span class="otherway-title">Post this motion live</span>
+        <span class="otherway-body">Drop the motion on the live board. Another debater accepts, you both join a video room, AI judges the round at the end.</span>
+        <span class="otherway-arr">→</span>
+      </a>
+      <a class="otherway-card" href="/exhibition">
+        <span class="otherway-eye">Exhibition · two AI brains</span>
+        <span class="otherway-title">Watch two AI brains debate it</span>
+        <span class="otherway-body">Pick two of six brains (Claude, GPT, Grok, Gemini, DeepSeek, Open Lab) and watch the round before you face one yourself.</span>
+        <span class="otherway-arr">→</span>
+      </a>
+      <a class="otherway-card" href="/spar">
+        <span class="otherway-eye">Spar · instant human</span>
+        <span class="otherway-title">Queue for an instant scrim</span>
+        <span class="otherway-body">No scheduling. The matchmaker pairs you with another debater in seconds, AI fallback if none available.</span>
+        <span class="otherway-arr">→</span>
+      </a>
+    </div>
+  </section>
+
   <footer class="dfoot">
-    <span>© 2026 Debate AI</span>
-    <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/learn">Learn</a> · <a href="/debate-ai">Practice</a></span>
+    <span>© 2026 DebateIt</span>
+    <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/live">Live rounds</a> · <a href="/exhibition">Exhibition</a> · <a href="/learn">Learn</a> · <a href="/debate-it">Practice</a></span>
   </footer>
 </main>
 
@@ -558,7 +599,7 @@ ${rail(m)}
 
 function renderHubPage() {
   const motions = listMotions();
-  const title = 'Debate Both Sides of the Big Questions · Debate AI';
+  const title = 'Debate Both Sides of the Big Questions · DebateIt';
   const description = "Argument dossiers on the questions people actually search: AI regulation, AI and jobs, AI in school, AI art, TikTok, social media for minors, UBI, nuclear. Both sides, a sample round, a judge ballot. Then argue it yourself.";
   const canonical = `${SITE_ORIGIN}/debate`;
 
@@ -569,13 +610,13 @@ function renderHubPage() {
         '@type': 'CollectionPage',
         name: "Debate Both Sides of the Big Questions",
         description, url: canonical, inLanguage: 'en',
-        isPartOf: { '@type': 'WebSite', name: 'Debate AI', url: `${SITE_ORIGIN}/` },
+        isPartOf: { '@type': 'WebSite', name: 'DebateIt', url: `${SITE_ORIGIN}/` },
         hasPart: motions.map(m => ({ '@type': 'Article', name: m.title, url: `${SITE_ORIGIN}/debate/${m.slug}`, description: m.description })),
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Debate AI', item: `${SITE_ORIGIN}/` },
+          { '@type': 'ListItem', position: 1, name: 'DebateIt', item: `${SITE_ORIGIN}/` },
           { '@type': 'ListItem', position: 2, name: 'Debate', item: canonical },
         ],
       },
@@ -605,7 +646,7 @@ function renderHubPage() {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="website">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="DebateIt">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -630,8 +671,8 @@ function renderHubPage() {
   <div class="hub-grid">${econ.map(card).join('')}</div>
 
   <footer class="dfoot">
-    <span>© 2026 Debate AI</span>
-    <span><a href="/topics">Format guides</a> · <a href="/learn">Learn</a> · <a href="/debate-ai">Practice</a> · <a href="/">Home</a></span>
+    <span>© 2026 DebateIt</span>
+    <span><a href="/topics">Format guides</a> · <a href="/learn">Learn</a> · <a href="/debate-it">Practice</a> · <a href="/">Home</a></span>
   </footer>
 </main>
 </body></html>`;

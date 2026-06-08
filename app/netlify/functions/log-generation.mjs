@@ -138,6 +138,13 @@ export default async (request) => {
         return errorResponse('Missing output', 400, request);
       }
 
+      // Research-corpus consent at write time. The flag is stamped on the
+      // doc when it lands; a later opt-out cannot retroactively un-license
+      // a previously contributable round, and an opt-in does not reach back
+      // to pre-consent rounds. This is the only legally clean posture for
+      // any downstream licensing of the generations corpus.
+      const contributable = body.contributable === true;
+
       const doc = {
         uid,
         kind,
@@ -155,6 +162,7 @@ export default async (request) => {
         inputTokens: typeof inputTokens === 'number' ? inputTokens : null,
         outputTokens: typeof outputTokens === 'number' ? outputTokens : null,
         context: sanitizeContext(context),
+        contributable,
         createdAt: FieldValue.serverTimestamp(),
       };
 

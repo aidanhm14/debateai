@@ -3,7 +3,7 @@
  * GET /api/debate-of-week
  *
  * Returns the featured "debate of the week" motion pinned by the admin.
- * The UI in debate-ai.html renders this as a highlighted motion suggestion
+ * The UI in debate-it.html renders this as a highlighted motion suggestion
  * above the motion input — one click fills the field.
  *
  * Storage: config/debate_of_week

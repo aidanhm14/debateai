@@ -94,7 +94,7 @@ export const FUNDAMENTALS_BANK = {
       'argument fundamentals debate',
     ],
     ctaLabel: 'Practice building arguments',
-    ctaHref: '/debate-ai?format=apda&motion=This%20house%20would%20ban%20political%20donations%20from%20corporations.',
+    ctaHref: '/debate-it?format=apda&motion=This%20house%20would%20ban%20political%20donations%20from%20corporations.',
   },
 
   'weighing': {
@@ -175,7 +175,7 @@ export const FUNDAMENTALS_BANK = {
       'comparative impact debate',
     ],
     ctaLabel: 'Practice weighing in a round',
-    ctaHref: '/debate-ai?format=bp&motion=This%20house%20would%20fund%20universal%20healthcare%20by%20raising%20marginal%20income%20tax.',
+    ctaHref: '/debate-it?format=bp&motion=This%20house%20would%20fund%20universal%20healthcare%20by%20raising%20marginal%20income%20tax.',
   },
 
   'rebuttal': {
@@ -258,7 +258,7 @@ export const FUNDAMENTALS_BANK = {
       'how to attack debate arguments',
     ],
     ctaLabel: 'Practice rebuttals against an AI',
-    ctaHref: '/debate-ai?format=apda&side=opp&motion=This%20house%20would%20impose%20a%20carbon%20tax%20on%20heavy%20industry.',
+    ctaHref: '/debate-it?format=apda&side=opp&motion=This%20house%20would%20impose%20a%20carbon%20tax%20on%20heavy%20industry.',
   },
 
   'signposting': {
@@ -338,7 +338,7 @@ export const FUNDAMENTALS_BANK = {
       'debate speech organization',
     ],
     ctaLabel: 'Practice signposting in a round',
-    ctaHref: '/debate-ai?format=asian&motion=This%20house%20would%20mandate%20vaccination.',
+    ctaHref: '/debate-it?format=asian&motion=This%20house%20would%20mandate%20vaccination.',
   },
 
   'cross-examination': {

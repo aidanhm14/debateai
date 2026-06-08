@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Find a sparring partner · Debate AI</title>
-<meta name="description" content="Match into a live debate round with another human in 30 seconds. AI fallback if nobody pairs in 60s. Sub-200ms voice, AI-judged at the end." />
+<title>Spar · Debate it live with another debater · DebateIt</title>
+<meta name="description" content="Match into a live round with another human in 30 seconds, or post to the waitlist and DM another debater in the global DebateIt community to organize a round. AI fallback if nobody pairs in 60s. Sub-200ms voice, AI-judged at the end." />
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="canonical" href="https://debateai.com/spar">
+<link rel="canonical" href="https://debateit.com/spar">
 <!-- Share-preview metadata. /spar URLs get pasted into Discord, WhatsApp,
      and SMS (debate teams coordinate matches there); without these the
      preview is a bare URL. Mirrors community.html's pattern. -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://debateai.com/spar">
-<meta property="og:title" content="Spar live with another debater · Debate AI">
-<meta property="og:description" content="Match into a live voice debate in 30 seconds. AI judges at the end. Anonymous AI fallback if nobody pairs in 60s.">
-<meta property="og:image" content="https://debateai.com/og-image.png?v=orb4">
+<meta property="og:url" content="https://debateit.com/spar">
+<meta property="og:title" content="Spar · Debate it live with another debater · DebateIt">
+<meta property="og:description" content="Post on the waitlist, DM another debater, or matchmake into a live voice round in 30 seconds. The global DebateIt community of debaters. AI judges at the end.">
+<meta property="og:image" content="https://debateit.com/og-image.png?v=debateit1">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Spar live with another debater · Debate AI">
-<meta name="twitter:description" content="Live voice debate in 30 seconds. AI fallback if no human pairs.">
-<meta name="twitter:image" content="https://debateai.com/og-image.png?v=orb4">
+<meta name="twitter:title" content="Spar · Debate it live with another debater · DebateIt">
+<meta name="twitter:description" content="The global DebateIt community. Post, DM, or matchmake into a live voice round. AI judges at the end.">
+<meta name="twitter:image" content="https://debateit.com/og-image.png?v=debateit1">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
@@ -31,6 +31,7 @@
 
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
+<script defer src="/js/prospect-capture.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -101,84 +102,157 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .bar-back:hover{color:var(--text);border-color:var(--border-strong)}
 
 .wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 22px 80px}
-.shell{max-width:560px;width:100%;text-align:center}
+.shell{max-width:560px;width:100%;text-align:center;padding:0 clamp(16px,4vw,32px)}
 
+/* Eyebrow — smaller chip, no background fill, just a thin pip + caps
+   tracking. Reads as a label, not a button. Pull tighter to the H1. */
 .eyebrow{
-  display:inline-flex;align-items:center;gap:8px;
-  font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
-  padding:5px 12px;border-radius:999px;
-  background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.34);
-  color:var(--accent);margin-bottom:18px;
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:.58rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  padding:0;border-radius:0;background:transparent;border:0;
+  color:var(--accent);margin-bottom:14px;
 }
-.eyebrow .pip{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.6s ease-in-out infinite}
+.eyebrow .pip{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
 
-h1{font-size:clamp(2rem,5vw,2.8rem);font-weight:900;letter-spacing:-.025em;line-height:1.1;margin-bottom:12px;color:var(--text)}
+/* H1 — slightly smaller cap, tighter tracking, tighter relationship
+   to the radar below (margin-bottom shrunk so the visual sits closer
+   to the headline). text-wrap:balance so a 2-line headline doesn't
+   leave one word on the second line. */
+h1{
+  font-size:clamp(1.85rem,4.4vw,2.55rem);
+  font-weight:900;letter-spacing:-.028em;line-height:1.08;
+  margin:0 0 10px;color:var(--text);
+  text-wrap:balance;
+}
 h1 em{color:var(--accent);font-style:normal}
 
-.lede{font-size:1rem;color:var(--text-dim);line-height:1.55;max-width:480px;margin:0 auto 32px;font-weight:500}
+.lede{
+  font-size:.96rem;color:var(--text-dim);line-height:1.55;
+  max-width:460px;margin:0 auto 22px;font-weight:500;
+  text-wrap:pretty;
+}
 
-/* Globe — the centerpiece of this page. Simplified 2026-05-24: the
-   prior layered visual (dashed + dotted outer orbits, conic radar
-   sweep, three rotating satellite dots, double ring pulses) read as
-   visually overwhelmed — too many things spinning at once around a
-   small disc. Stripped down to just:
-     • sphere gradient on .globe-frame (specular + shadow + atmosphere)
-     • a single slow breathing halo (box-shadow on .globe-frame)
-     • one quiet expanding ring pulse for "scanning the network"
-     • <canvas id="sparGlobe"> on top via world-globe.js
-   Also bumped 220 → 320px so the disc actually owns its real estate
-   instead of looking tucked in the corner of its own column. */
+/* Format pill above the radar — smaller, calmer. Was reading too
+   loud beneath the lede; now sits as a quiet tag. */
+.format-pill{
+  font-size:.62rem;
+  padding:4px 10px;
+  margin-bottom:14px;
+}
+
+/* Globe of debate rooms opening worldwide — the centerpiece of the
+   matchmaking screen. Replaces the prior dark-glass radar disc + sweep
+   arm (read as "surveillance / NFT mint / radar of targets"). The new
+   metaphor: rooms lighting up across time zones, not signals acquired.
+   The SVG inside /js/global-debate-map.js owns the disc gradient, grid,
+   continents, dots, arcs, and floating room cards; this CSS layer just
+   provides the host sizing + a soft floor shadow + the card/tooltip
+   styling that the module's HTML overlay uses. Class names .globe-wrap /
+   .globe-frame are preserved so the matched/fallback states don't have
+   to change. */
 .globe-wrap{
-  position:relative;width:320px;max-width:78vw;margin:0 auto 22px;
+  position:relative;width:380px;max-width:82vw;margin:10px auto 22px;
   aspect-ratio:1 / 1;
 }
-
 .globe-frame{
   position:relative;width:100%;height:100%;border-radius:50%;
-  background:
-    /* Specular highlight top-left for sphere depth */
-    radial-gradient(circle at 32% 28%,
-      rgba(255,210,210,.22) 0%,
-      rgba(255,170,170,.06) 22%,
-      transparent 46%),
-    /* Bottom-right shadow gives the orb 3D shape */
-    radial-gradient(circle at 70% 78%,
-      rgba(0,0,0,.5) 0%,
-      transparent 50%),
-    /* Red atmosphere — center bright, fades to halo */
-    radial-gradient(circle at 50% 50%,
-      rgba(239,68,68,.30) 0%,
-      rgba(239,68,68,.14) 38%,
-      rgba(239,68,68,.04) 64%,
-      transparent 80%);
-  box-shadow:
-    inset 0 0 80px rgba(239,68,68,.18),
-    inset 0 -16px 44px rgba(0,0,0,.45),
-    0 0 130px rgba(239,68,68,.26);
-  animation:globe-breathe 6.5s ease-in-out infinite;
-  overflow:hidden;
+  background:transparent;
+  overflow:visible;
+  /* A real, calm floor shadow under the ivory disc — sits the globe on
+     a surface instead of next to a puddle. */
+  filter:drop-shadow(0 18px 28px rgba(40, 25, 10, 0.22));
 }
-/* One quiet pulse — single ring expanding from center, low opacity
-   so it reads as a "scan ping" not a strobe. */
-.globe-frame::before{
-  content:''; position:absolute; inset:18%;
-  border-radius:50%;
-  border:1px solid rgba(239,68,68,.45);
-  pointer-events:none; opacity:0;
-  animation:globe-ring-pulse 5.2s cubic-bezier(.35,0,.25,1) infinite;
-  z-index:1;
+[data-theme="light"] .globe-frame{
+  filter:drop-shadow(0 18px 28px rgba(40, 25, 10, 0.18));
 }
-@keyframes globe-ring-pulse{
-  0%{ transform:scale(.5); opacity:.55 }
-  70%{ opacity:.10 }
-  100%{ transform:scale(1.4); opacity:0 }
+.globe-frame > .gdmap-host-inner,
+.globe-frame > div{width:100%;height:100%}
+.globe-frame svg.gdmap-svg{display:block;width:100%;height:100%}
+
+/* Floating "Room forming · CityA ↔ CityB" pill — sits at the midpoint
+   of each animated arc. Soft ivory body, thin warm border, gentle shadow.
+   Reads as a printed inset, not a notification toast. */
+.gdmap-card{
+  position:absolute;
+  transform:translate(-50%, -50%);
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 11px;
+  border-radius:999px;
+  background:rgba(252, 248, 240, 0.96);
+  color:#2a1d10;
+  border:1px solid rgba(96, 70, 40, 0.22);
+  box-shadow:0 6px 14px rgba(40, 25, 10, 0.18);
+  font-family:'EB Garamond', Georgia, ui-serif, serif;
+  font-size:.74rem;font-weight:600;letter-spacing:.005em;
+  white-space:nowrap;
+  opacity:0;
+  transition:opacity .35s ease;
+  backdrop-filter:saturate(110%);
 }
-@keyframes globe-breathe{
-  0%,100%{box-shadow:inset 0 0 80px rgba(239,68,68,.18), inset 0 -16px 44px rgba(0,0,0,.45), 0 0 130px rgba(239,68,68,.26)}
-  50%    {box-shadow:inset 0 0 105px rgba(239,68,68,.26), inset 0 -16px 44px rgba(0,0,0,.45), 0 0 170px rgba(239,68,68,.34)}
+.gdmap-card .gdmap-card-dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#dc2a2a;
+  box-shadow:0 0 8px rgba(220, 42, 42, .5);
 }
-.globe-frame canvas{display:block;width:100%;height:100%;position:relative;z-index:3}
+.gdmap-card .gdmap-card-main{font-weight:700}
+.gdmap-card .gdmap-card-arrow{color:rgba(96, 70, 40, .6);font-weight:400;margin:0 2px}
+.gdmap-card .gdmap-card-sub{
+  color:rgba(70, 50, 30, 0.7);
+  font-family:'Inter','SF Pro Text',system-ui,sans-serif;
+  font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+}
+[data-theme="midnight"] .gdmap-card,
+[data-lighting="dark"] .gdmap-card{
+  background:rgba(28, 18, 18, 0.94);
+  color:#f3e9e3;
+  border-color:rgba(239, 68, 68, 0.32);
+}
+[data-theme="midnight"] .gdmap-card .gdmap-card-arrow,
+[data-lighting="dark"] .gdmap-card .gdmap-card-arrow{color:rgba(243, 233, 227, .55)}
+[data-theme="midnight"] .gdmap-card .gdmap-card-sub,
+[data-lighting="dark"] .gdmap-card .gdmap-card-sub{color:rgba(243, 233, 227, .65)}
+
+/* Tooltip on idle dot hover — "London · BP practice", "Delhi · WSDC prep". */
+.gdmap-tooltip{
+  font-family:'Inter','SF Pro Text',system-ui,sans-serif;
+  font-size:.66rem;font-weight:600;letter-spacing:.04em;
+  padding:4px 9px;border-radius:999px;
+  background:rgba(252, 248, 240, 0.96);
+  color:#2a1d10;
+  border:1px solid rgba(96, 70, 40, 0.22);
+  box-shadow:0 4px 10px rgba(40, 25, 10, 0.14);
+  white-space:nowrap;
+}
+.gdmap-tooltip .gdmap-tip-city{font-weight:700}
+.gdmap-tooltip .gdmap-tip-fmt{color:rgba(70, 50, 30, 0.7);text-transform:uppercase;letter-spacing:.08em;font-size:.6rem}
+[data-theme="midnight"] .gdmap-tooltip,
+[data-lighting="dark"] .gdmap-tooltip{
+  background:rgba(28, 18, 18, 0.94);
+  color:#f3e9e3;
+  border-color:rgba(239, 68, 68, 0.32);
+}
+
+/* Live-system metadata strip below the radar — "X debaters online ·
+   Y countries · Z rounds forming · APDA queue active." Reads like a
+   live ops console line. Tabular, calm, doesn't fight the radar. */
+.meta-strip{
+  display:flex;flex-wrap:wrap;justify-content:center;align-items:center;
+  gap:4px 10px;
+  margin:14px auto 22px;max-width:520px;
+  font-family:ui-monospace,SFMono-Regular,monospace;
+  font-size:.7rem;font-weight:500;
+  color:var(--text-ghost);letter-spacing:.04em;
+  font-variant-numeric:tabular-nums;
+}
+.meta-strip .meta-cell strong{color:var(--text);font-weight:600}
+.meta-strip .meta-sep{opacity:.45}
+.meta-strip .meta-dot{
+  display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6);
+  margin-right:5px;animation:meta-dot-pulse 2.1s ease-in-out infinite;
+}
+@keyframes meta-dot-pulse{0%,100%{opacity:.55}50%{opacity:1}}
 
 /* Legacy orb — still used by renderMatched() and renderFallback() as
    brief transition states. Kept for those two short-lived screens. */
@@ -219,6 +293,15 @@ h1 em{color:var(--accent);font-style:normal}
   min-height:32px;
 }
 .status .dim{color:var(--text-dim);font-weight:500}
+.status #statusMain, .status #statusSub{
+  display:inline-block;
+  transition:opacity .26s ease, transform .26s ease;
+  will-change:opacity;
+}
+.status #statusSub{display:block}
+.status.is-fading #statusMain, .status.is-fading #statusSub{
+  opacity:0;transform:translateY(-2px);
+}
 .countdown{
   display:inline-flex;align-items:center;gap:8px;
   font-size:.78rem;font-weight:600;color:var(--text-ghost);letter-spacing:.06em;text-transform:uppercase;
@@ -331,12 +414,20 @@ h1 em{color:var(--accent);font-style:normal}
 .gate-google svg{width:18px;height:18px;flex-shrink:0}
 .gate-disclaimer{font-size:.74rem;color:var(--text-ghost);margin-top:12px;line-height:1.55}
 .gate .ai-alt{
-  display:block;margin-top:14px;padding:10px 14px;
-  font-size:.78rem;color:var(--accent);font-weight:700;
-  border:1px dashed rgba(239,68,68,.42);border-radius:10px;
-  text-decoration:none;transition:background .15s;
+  display:block;margin-top:10px;padding:6px 8px;
+  font-size:.72rem;color:var(--text-ghost);font-weight:500;
+  border:none;border-radius:0;
+  text-decoration:underline;text-underline-offset:3px;
+  opacity:.6;transition:opacity .15s,color .15s;
 }
-.gate .ai-alt:hover{background:rgba(239,68,68,.08)}
+.gate .ai-alt:hover{color:var(--text-dim);opacity:.85;background:transparent}
+/* 2026-05-27 — divider above the prospect-capture slot in the gate */
+.gate-divider{
+  display:flex;align-items:center;gap:8px;margin:14px 0 10px;
+  font-size:.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--text-dim);opacity:.65;
+}
+.gate-divider::before,.gate-divider::after{content:'';flex:1;height:1px;background:var(--border)}
 
 .error{
   padding:12px 16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.32);
@@ -738,12 +829,22 @@ h1 em{color:var(--accent);font-style:normal}
      mid-spar can still reach Voice / Community / Pricing / etc. -->
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
+<!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
+     top of <body>, above the shared .ui-topbar. The fixed .ui-topbar
+     (css/ui.css) already reads --cohort-banner-h and translates down by
+     the banner height, so no per-page offset wiring is needed here. -->
+<script src="/js/cohort-banner.js" defer></script>
 
 <!-- Rotating-globe data + renderer for the searching state. Defer-loaded
      so they don't block firebase / topbar; renderSearching() retries
      until DebateGlobe is on window. -->
 <script defer src="/js/world-data.js?v=1"></script>
 <script defer src="/js/world-globe.js?v=1"></script>
+<!-- Rooms-opening-worldwide globe — replaces the prior surveillance-coded
+     radar (sweep arm + fabricated @handles). Ambient SVG visual: ivory
+     disc, faint grid + continents, red dots spawning at city points,
+     curved arcs and "Room forming · A ↔ B" pills at arc midpoints. -->
+<script defer src="/js/global-debate-map.js?v=1"></script>
 
 <div class="wrap" style="padding-top:90px">
   <div class="shell" id="shell">
@@ -800,7 +901,7 @@ h1 em{color:var(--accent);font-style:normal}
   };
 
   // 60-second timer until AI fallback. After this, we mark the user's
-  // queue doc as 'matched_ai' and bounce them to /debate-ai with the
+  // queue doc as 'matched_ai' and bounce them to /debate-it with the
   // motion preserved. This is the load-bearing decision: a debate
   // engine where AI is the FALLBACK, not the headline.
   var AI_FALLBACK_SEC = 60;
@@ -875,18 +976,38 @@ h1 em{color:var(--accent);font-style:normal}
           '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
         '</div></div>' +
         '<h2>Sign in to spar with another debater.</h2>' +
-        '<p>Live human-vs-human is signed-in only. Keeps the queue free of bots and gives you a profile your opponent can see. AI sparring stays anonymous if you\'d rather skip the sign-in.</p>' +
+        '<p>Live human-vs-human is signed-in only. Keeps the queue free of bots and gives you a profile your opponent can see.</p>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
           'Continue with Google' +
         '</button>' +
-        '<a class="ai-alt" href="/debate-ai">Or spar with the AI now, anonymous round →</a>' +
-        '<a class="ai-alt" href="/debate-chat" style="margin-top:6px">Or jump into <strong>casual debate chat</strong> — real humans, no format, no AI →</a>' +
+        '<div class="gate-divider">or</div>' +
+        '<div id="sparCapture"></div>' +
         '<div class="gate-disclaimer">We use your Google name + photo to label you to your opponent. Sign out anytime.</div>' +
+        '<a class="ai-alt" href="/debate-it">no thanks, just spar with the AI →</a>' +
         '<div id="gateError"></div>' +
       '</div>';
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     mountGlobe('sparGlobe');
+    // 2026-05-27 — mount prospect-capture once the JS module is loaded.
+    // Defer-loaded script may not be ready on first call; retry until
+    // window.load to cover the slowest path.
+    var captureSlot = document.getElementById('sparCapture');
+    function mountCapture(){
+      if (!captureSlot || captureSlot.dataset.mounted) return;
+      if (!window.ProspectCapture) return false;
+      window.ProspectCapture.mount(captureSlot, { source: 'spar-gate' });
+      captureSlot.dataset.mounted = '1';
+      return true;
+    }
+    if (!mountCapture()) {
+      setTimeout(mountCapture, 0);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', mountCapture, { once: true });
+      } else {
+        window.addEventListener('load', mountCapture, { once: true });
+      }
+    }
     try { gtag('event', 'spar_gate_view', {}); } catch(e){}
   }
 
@@ -915,48 +1036,59 @@ h1 em{color:var(--accent);font-style:normal}
   // phase suggests the queue is actively working a different angle.
   // updateStatusPhase() picks the right one based on elapsed seconds.
   var STATUS_PHASES = [
-    { until:  8, text: 'Scanning the queue', sub: 'Looking across active debaters in your format.' },
-    { until: 18, text: 'Pinging recent sparrers', sub: 'Reaching out to debaters who matched in the last hour.' },
-    { until: 30, text: 'Searching adjacent formats', sub: 'Long-form formats sometimes pair faster across the bench.' },
-    { until: 45, text: 'Still looking. Hold tight.', sub: 'Most matches land between 20 and 50 seconds.' },
-    { until: 60, text: 'Almost time to switch to AI', sub: 'If nobody pairs by zero, you get the AI sparring partner.' },
+    { until:  8, text: 'Matching argument styles',   sub: 'Comparing speed, format, and recent rounds across the live queue.' },
+    { until: 18, text: 'Pinging recent sparrers',    sub: 'Reaching out to debaters who matched in the last hour.' },
+    { until: 30, text: 'Searching active circuits',  sub: 'Looking at adjacent formats and rooms that pair fast.' },
+    { until: 45, text: 'Finding your clash',         sub: 'Most matches land between twenty and fifty seconds. Hold.' },
+    { until: 60, text: 'Almost time to switch to AI',sub: 'If nobody pairs by zero, you get the AI sparring partner.' },
   ];
 
-  // Faux "recent pairings" ticker. Real handles drawn from the live.html
-  // seed pool + a few extras. Numbers are realistic spreads (8s-45s).
-  // Cycles every ~3 seconds, gives the wait social proof without
-  // requiring any backend call.
-  var RECENT_PAIRINGS = [
-    { a: 'flow_nerd',     b: 'kant_kid',       sec: 14 },
-    { a: 'pmr_collapse',  b: 'card_doctor',    sec: 22 },
-    { a: 'first_gen_voice', b: 'value_crit',   sec: 9  },
-    { a: 'wsdc_2nd',      b: 'nsda_qual',      sec: 31 },
-    { a: 'whip_speaker',  b: 'housing_wonk',   sec: 17 },
-    { a: 'redteam',       b: 'firstround',     sec: 28 },
-    { a: '1ar_collapse',  b: 'kritik_fan',     sec: 11 },
-    { a: 'national_champ',b: 'topicality_god', sec: 19 },
-  ];
+  // RECENT_PAIRINGS removed (2026-05-25). The 8 handles + pair-second
+  // spreads were fabricated social-proof theater — same "dead-internet
+  // dishonesty" the community.html sweep ruled out in May. The
+  // pairingTicker DOM element + startPairingTicker call below are now
+  // no-ops; honest signal lives in the meta-strip + status text.
 
   // ── Render: searching state ──────────────────────────
   function renderSearching(){
     var formatLabel = formatParam.toUpperCase();
     shell.innerHTML =
-      '<div class="eyebrow"><span class="pip"></span>Looking for a partner</div>' +
-      '<h1>Finding you a <em>debater.</em></h1>' +
+      '<div class="eyebrow"><span class="pip"></span>Rooms opening worldwide</div>' +
+      '<h1>Finding someone to <em>argue with.</em></h1>' +
       '<p class="lede">We\'ll match you with another human running the same format. AI fallback if nobody pairs in 60 seconds.</p>' +
-      '<span class="format-pill" title="Format you\'re queueing for">' + escHtml(formatLabel) + '</span>' +
-      // Rotating globe — replaces the static red orb. The visual makes
-      // the wait feel like joining a real network instead of staring at
-      // a loading spinner. Mounts via /js/world-globe.js after this
-      // innerHTML lands.
+      // Globe of rooms opening worldwide — replaces the prior radar
+      // sweep + fabricated-handles disc. Reads as "minds lighting up
+      // across time zones," not "tracking targets." Self-contained
+      // module in /js/global-debate-map.js mounts after this innerHTML
+      // lands and owns the SVG inside the .globe-frame host.
       '<div class="globe-wrap"><div class="globe-frame">' +
-          '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
+          '<div id="globalDebateMap" role="img" aria-label="Globe with debate rooms opening between cities"></div>' +
         '</div></div>' +
-      '<div class="status" id="statusText"><span id="statusMain">Scanning the queue</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Looking across active debaters in your format.</span></div>' +
+      // Live ops strip. Wired to real Firestore via startMetaLive():
+      // queue cell = peers waiting in this format's matchmaking_queue
+      // (self excluded so the user doesn't see "1 waiting" when only
+      // they're in line). waitlist cell = open async posts in the last
+      // 24h on /waitlist_posts. Dot dims when both are 0 — the empty
+      // state is honest, not faked into looking active.
+      '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
+        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> in ' + escHtml(formatLabel) + ' queue</span>' +
+        '<span class="meta-sep">·</span>' +
+        '<span class="meta-cell"><strong id="metaWaitlist">0</strong> on the open waitlist</span>' +
+        // "Missed this week" — appears only when the public counter
+        // reads >=3 (avoids "1 missed this week" looking sadder than
+        // not showing it). Pulled from /api/log-missed-match on mount
+        // via fetchMissedMatchCount().
+        '<span class="meta-sep meta-missed-sep" id="metaMissedSep" style="display:none">·</span>' +
+        '<span class="meta-cell meta-missed-cell" id="metaMissedCell" style="display:none"><strong id="metaMissed">0</strong> missed each other this week</span>' +
+        '<span class="meta-sep meta-month-sep" id="metaMonthSep" style="display:none">·</span>' +
+        '<span class="meta-cell meta-month-cell" id="metaMonthCell" style="display:none"><strong id="metaMonth">0</strong> this month</span>' +
+      '</div>' +
+      '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" id="cancelBtn">Cancel & go home</button>' +
-        '<a class="btn" href="/debate-ai">Skip to AI now</a>' +
+        '<a class="btn" href="/debate-it">Skip to AI now</a>' +
+        '<button class="btn ghost" id="bgAvailBtn" title="We keep matching you in the background and ping you the moment a human is found, even while you prep." style="border-color:rgba(34,197,94,.5);color:#22c55e">Prep while you wait &rarr;</button>' +
       '</div>' +
       // 2026-05-18: while the user is waiting on the random matchmaker,
       // give them a clear pivot to /live (the schedule board with
@@ -967,13 +1099,13 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="organized-pivot" style="margin-top:14px;font-size:.78rem;color:var(--text-dim);text-align:center;line-height:1.55">' +
         'Or skip the random match — ' +
         '<a href="/live" style="color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.45)">browse scheduled debates on the live board →</a>' +
-        '<br><span style="font-size:.72rem">Want a humans-only round without the format gate? Try ' +
-        '<a href="/debate-chat" style="color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.45)">casual debate chat →</a></span>' +
+        /* 2026-05-26: dropped the "/debate-chat" follow-up link — that
+           page redirects here now, so suggesting it from /spar is a
+           loop. The /live board is the meaningful alternative. */
       '</div>' +
-      // Social-proof ticker. Cycles fake recent pairings every 3s.
-      // Real-feeling handles, realistic pair times. Helps the wait
-      // feel like an active marketplace rather than dead air.
-      '<div class="pairing-ticker" id="pairingTicker" aria-live="polite" style="margin-top:18px;font-size:.74rem;color:var(--text-ghost);text-align:center;min-height:18px;font-variant-numeric:tabular-nums;letter-spacing:.01em;opacity:.85;transition:opacity .35s ease"></div>' +
+      // pairingTicker removed (2026-05-25): the "Recent pairing · @x ↔ @y · paired in Ns"
+      // line cycled 8 fabricated handles every 3s. Same dead-internet dishonesty
+      // ruled out in community.html (May 2026). Status text below is the honest signal.
       '<div class="queue-stats" id="queueStats">' + renderWaitlist([], formatParam) + '</div>' +
       // Live diagnostic line. Always visible during the search (unlike
       // queueStats, which gets replaced by the broaden CTA at 45s).
@@ -983,15 +1115,152 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="diag" id="diagLine" aria-live="polite" style="margin-top:10px;font-size:.66rem;color:var(--text-ghost);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:.04em;text-transform:uppercase;opacity:.7"></div>' +
       '<div class="foot">Your camera + mic stay off until you accept the match. Match found = you both jump into a video room.</div>';
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
+    (function(){
+      // "Prep while you wait" — flip on BACKGROUND availability (the flag
+      // js/notifications.js sparLive reads) and send the user to prep.
+      // They keep matchmaking in the background and get a "Match found"
+      // card the moment a human is found, anywhere on the site, instead of
+      // staring at this page. This is the discoverable on-/spar entry to
+      // the background matcher (the bell pill is suppressed on /spar).
+      var bgBtn = document.getElementById('bgAvailBtn');
+      if (!bgBtn) return;
+      bgBtn.addEventListener('click', function(){
+        try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
+        try { if (window.gtag) gtag('event', 'spar_bg_on', { from: 'spar_searching' }); } catch(e){}
+        location.href = '/debate-it';
+      });
+    })();
     startCountdown();
     startStatusCycle();
-    startPairingTicker();
-    mountGlobe('sparGlobe');
+    // startPairingTicker() removed — see RECENT_PAIRINGS comment above
+    startMetaLive();
+    fetchMissedMatchCount();
+    logSparAttempt();
+    mountGlobalMap('globalDebateMap');
+  }
+
+  // Pulls the public "missed each other this week / this month" counts
+  // from /api/log-missed-match (GET). Each pill renders independently;
+  // both hide under a count of 3 so a tiny number doesn't read sadder
+  // than showing nothing. Week prefers the broader "attempts" count;
+  // falls back to "misses." Month mirrors that.
+  function fetchMissedMatchCount(){
+    fetch('/api/log-missed-match', { method: 'GET' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j) return;
+        var attempts = (j.attempts && typeof j.attempts.week_count === 'number') ? j.attempts.week_count : 0;
+        var misses = (typeof j.week_count === 'number') ? j.week_count : 0;
+        var attemptsM = (j.attempts && typeof j.attempts.month_count === 'number') ? j.attempts.month_count : 0;
+        var missesM = (typeof j.month_count === 'number') ? j.month_count : 0;
+        // Weekly pill
+        var n, label;
+        if (attempts >= 3) { n = attempts; label = 'looked for a live round this week'; }
+        else if (misses >= 3) { n = misses; label = 'missed each other this week'; }
+        if (n){
+          var sep = document.getElementById('metaMissedSep');
+          var cell = document.getElementById('metaMissedCell');
+          if (sep) sep.style.display = '';
+          if (cell) cell.style.display = '';
+          if (cell) cell.innerHTML = '<strong id="metaMissed">' + String(n) + '</strong> ' + label;
+        }
+        // Monthly pill — independent, also hides under 3.
+        var nM, labelM;
+        if (attemptsM >= 3) { nM = attemptsM; labelM = 'this month'; }
+        else if (missesM >= 3) { nM = missesM; labelM = 'this month'; }
+        if (nM){
+          var sepM = document.getElementById('metaMonthSep');
+          var cellM = document.getElementById('metaMonthCell');
+          if (sepM) sepM.style.display = '';
+          if (cellM) cellM.style.display = '';
+          if (cellM) cellM.innerHTML = '<strong id="metaMonth">' + String(nM) + '</strong> ' + labelM;
+        }
+      })
+      .catch(function(){});
+  }
+
+  // Live ops strip: real counts pulled from Firestore via onSnapshot.
+  // Replaces the prior `startMetaDrift` which faked 12-18 debaters /
+  // 4-7 countries / 2-4 rounds via Math.random(). Those numbers were a
+  // marketing tell, not a measurement. The real picture (DAU ~10 per
+  // soul.md §8) means honest counts are often 0; the dot dims to grey
+  // when they are so the strip doesn't pretend a quiet moment is busy.
+  var metaLiveUnsub = { queue: null, waitlist: null };
+  var metaLiveCounts = { queue: 0, waitlist: 0 };
+
+  function renderMetaLive(){
+    var qEl = document.getElementById('metaQueue');
+    var wEl = document.getElementById('metaWaitlist');
+    if (!qEl || !wEl){
+      // Strip torn down (user navigated to matched / fallback). Drop
+      // subscriptions so we don't leak listeners across views.
+      if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+      if (metaLiveUnsub.waitlist){ try { metaLiveUnsub.waitlist(); } catch(e){} metaLiveUnsub.waitlist = null; }
+      return;
+    }
+    qEl.textContent = String(metaLiveCounts.queue);
+    wEl.textContent = String(metaLiveCounts.waitlist);
+    var dot = document.querySelector('#metaStrip .meta-dot');
+    var anyLive = metaLiveCounts.queue > 0 || metaLiveCounts.waitlist > 0;
+    if (dot){
+      dot.style.background = anyLive ? '#22c55e' : '#6b7280';
+      dot.style.boxShadow = anyLive ? '0 0 6px rgba(34,197,94,.6)' : 'none';
+      dot.style.opacity = anyLive ? '' : '.55';
+    }
+  }
+
+  function startMetaLive(){
+    if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+    if (metaLiveUnsub.waitlist){ try { metaLiveUnsub.waitlist(); } catch(e){} metaLiveUnsub.waitlist = null; }
+    metaLiveCounts = { queue: 0, waitlist: 0 };
+    renderMetaLive();
+    if (!firebaseDb) return;
+    // (a) Matchmaking queue for this format. Excludes self so the
+    // strip never reads "1 waiting" off the user's own presence.
+    try {
+      metaLiveUnsub.queue = firebaseDb.collection('matchmaking_queue')
+        .where('format', '==', formatParam)
+        .where('status', '==', 'waiting')
+        .onSnapshot(function(snap){
+          var selfUid = state.user && state.user.uid;
+          var n = 0;
+          snap.forEach(function(d){ if (!selfUid || d.id !== selfUid) n++; });
+          metaLiveCounts.queue = n;
+          renderMetaLive();
+        }, function(err){
+          // Missing composite index or rules denial: degrade to 0,
+          // don't crash. Same failure mode as queueWatchUnsub above.
+          console.warn('[meta] queue snapshot error:', err && err.message);
+        });
+    } catch(e){}
+    // (b) Async waitlist posts, last 24h. Approximates the same
+    // 24h client-side TTL the wl rail uses. Limit 100 caps the read.
+    try {
+      metaLiveUnsub.waitlist = firebaseDb.collection('waitlist_posts')
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .onSnapshot(function(snap){
+          var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+          var n = 0;
+          snap.forEach(function(d){
+            var v = d.data() || {};
+            var t = (v.createdAt && typeof v.createdAt.toMillis === 'function') ? v.createdAt.toMillis() : 0;
+            if (t >= cutoff) n++;
+          });
+          metaLiveCounts.waitlist = n;
+          renderMetaLive();
+        }, function(err){
+          console.warn('[meta] waitlist snapshot error:', err && err.message);
+        });
+    } catch(e){}
   }
 
   // Drive the status-phase rotation. Reads elapsed time from
   // state.joinedAtMs (same source the countdown uses) so the phase
   // is always in sync with how long the user has been waiting.
+  // When the phase actually changes (not every poll tick), fade the
+  // text out → swap → fade in. The .26s opacity transition lives in
+  // CSS via the .status.is-fading class.
   var statusCycleInterval = null;
   function startStatusCycle(){
     if (statusCycleInterval) clearInterval(statusCycleInterval);
@@ -1003,39 +1272,59 @@ h1 em{color:var(--accent);font-style:normal}
       }
       var main = document.getElementById('statusMain');
       var sub = document.getElementById('statusSub');
-      if (main && main.textContent !== phase.text) main.textContent = phase.text;
-      if (sub && sub.textContent !== phase.sub) sub.textContent = phase.sub;
+      var wrap = main ? main.parentElement : null;
+      if (!main || !sub) return;
+      var mainChanged = main.textContent !== phase.text;
+      var subChanged = sub.textContent !== phase.sub;
+      if (!mainChanged && !subChanged) return;
+      // Crossfade: dim → swap → un-dim.
+      if (wrap) wrap.classList.add('is-fading');
+      setTimeout(function(){
+        if (mainChanged) main.textContent = phase.text;
+        if (subChanged) sub.textContent = phase.sub;
+        if (wrap) wrap.classList.remove('is-fading');
+      }, 260);
     }
     tick();
     statusCycleInterval = setInterval(tick, 1500);
   }
 
-  // Cycle the fake recent-pairings ticker. Picks a random entry every
-  // 3 seconds with a brief opacity fade so the swap doesn't read as
-  // a layout shift. Stops cleanly when the host element disappears.
-  var pairingTickerInterval = null;
-  var lastPairingIdx = -1;
-  function startPairingTicker(){
-    if (pairingTickerInterval) clearInterval(pairingTickerInterval);
-    function tick(){
-      var host = document.getElementById('pairingTicker');
-      if (!host){ clearInterval(pairingTickerInterval); pairingTickerInterval = null; return; }
-      var nextIdx;
-      do { nextIdx = Math.floor(Math.random() * RECENT_PAIRINGS.length); } while (nextIdx === lastPairingIdx);
-      lastPairingIdx = nextIdx;
-      var p = RECENT_PAIRINGS[nextIdx];
-      host.style.opacity = '0';
-      setTimeout(function(){
-        host.textContent = 'Recent pairing · @' + p.a + ' ↔ @' + p.b + ' · paired in ' + p.sec + 's';
-        host.style.opacity = '.85';
-      }, 280);
+  // startPairingTicker() removed 2026-05-25 — see RECENT_PAIRINGS
+  // comment for the why. The 'Recent pairing · @x ↔ @y · paired in Ns'
+  // line was fabricated social-proof theater.
+
+  // Mount the rooms-opening-worldwide globe once
+  // /js/global-debate-map.js has loaded. Replaces the prior radar
+  // mount (sweep arm + fabricated @handles). Honest ambient visual —
+  // dots spawn, arcs draw, room-forming pills float in. Keeps a
+  // handle so we can stop the rAF loop on re-render.
+  var globalMapHandle = null;
+  function mountGlobalMap(containerId){
+    if (globalMapHandle && globalMapHandle.stop) { try { globalMapHandle.stop(); } catch(e){} }
+    globalMapHandle = null;
+    function tryMount(retries){
+      if (!window.GlobalDebateMap) {
+        if (retries > 0) return setTimeout(function(){ tryMount(retries - 1); }, 60);
+        return;
+      }
+      var c = document.getElementById(containerId);
+      if (!c) return;
+      globalMapHandle = window.GlobalDebateMap.mount(c, {
+        maxActiveDots: 7,
+        maxActiveArcs: 2,
+        spawnEveryMs:  1700,
+        roomEveryMs:   4200,
+        rotateSec:     240,
+        palette:       'auto',
+      });
     }
-    tick();
-    pairingTickerInterval = setInterval(tick, 3000);
+    tryMount(40);
   }
 
-  // Mount the globe once world-globe.js has loaded. Keeps a handle
-  // so we can stop it on re-render to avoid orphan rAF loops.
+  // Legacy world-globe mount, kept for the SIGN-IN GATE only. That
+  // surface is pre-auth social proof — showing the geographic spread
+  // of debaters is the right read there. The active matchmaking
+  // (renderSearching) uses mountRadar instead.
   var globeHandle = null;
   function mountGlobe(canvasId){
     if (globeHandle && globeHandle.stop) { try { globeHandle.stop(); } catch(e){} }
@@ -1052,10 +1341,6 @@ h1 em{color:var(--accent);font-style:normal}
         rotateDegPerSec: 5,
         showArcs: true,
         showScanSweep: true,
-        // Skip the opaque dark sphere body. The disc becomes a soft
-        // red glow defined by .globe-frame's radial-gradient + box-shadow
-        // + the canvas rim glow + pins. Reads sexy on light AND dark
-        // themes; the old black disc looked demonic on /light/.
         transparent: true,
       });
     }
@@ -1063,19 +1348,111 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   // ── Render: matched! ─────────────────────────────────
+  // radarHandle: the searching view now renders the globe
+  // (global-debate-map.js), not the old radar, so this stays null and
+  // renderMatched's `if (radarHandle && ...)` guards fall through to
+  // the immediate swap. It MUST be declared: leaving it implicit made
+  // line "if (radarHandle && radarHandle.lockOn)" throw
+  // ReferenceError, which aborted renderMatched before subscribeMyDoc
+  // could navigate, stranding BOTH matched users on the search screen
+  // until the 60s AI fallback. That was the "live spawn never works
+  // for two humans" bug — the server paired them fine; the client
+  // crashed rendering the match.
+  var radarHandle = null;
   function renderMatched(roomName, peerName){
-    var orb = document.getElementById('orbWrap');
-    if (orb) orb.classList.add('matched');
-    shell.innerHTML =
-      '<div class="eyebrow" style="background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:#4ade80"><span class="pip" style="background:#22c55e;box-shadow:0 0 8px #22c55e"></span>Match found</div>' +
-      '<h1>You\'re paired with <em>' + escHtml(peerName || 'a debater') + '</em>.</h1>' +
-      '<p class="lede">Joining the round room now. Camera + mic prompt in a sec; accept and you\'re live.</p>' +
-      '<div class="orb-wrap matched" id="orbWrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
-      '<div class="status">Loading round…</div>';
     try { gtag('event', 'spar_match_found', { format: formatParam }); } catch(e){}
+
+    // Cinematic two-step: trigger the radar convergence FIRST (nodes
+    // pull toward center, sweep fades, expanding ring pulses outward,
+    // center pulse brightens), wait ~700ms for the visual beat, THEN
+    // swap the eyebrow + headline so "Match found / paired with X"
+    // arrives synchronously with the converged radar instead of a
+    // hard cut. Falls through to immediate swap if the radar isn't
+    // mounted (shouldn't happen in normal flow but defensive).
+    var beatMs = 750;
+    if (radarHandle && radarHandle.lockOn){
+      try { radarHandle.lockOn(); } catch(e){ beatMs = 0; }
+    } else {
+      beatMs = 0;
+    }
+
+    // Soft-fade existing copy so the swap doesn't snap into the
+    // converged radar. We dim everything except the canvas, which
+    // keeps animating through the convergence.
+    var fadeNodes = shell.querySelectorAll('.eyebrow, h1, .lede, .meta-strip, .status, .countdown, .btn-row, .organized-pivot, .pairing-ticker, .queue-stats, .diag, .foot, .format-pill');
+    Array.prototype.forEach.call(fadeNodes, function(el){
+      el.style.transition = 'opacity .35s ease';
+      el.style.opacity = '0';
+    });
+
+    setTimeout(function(){
+      // Beat is done — stop the radar (we're about to navigate to the
+      // round room anyway) and swap to the matched markup. Cascading
+      // fade-in via transition-delay on each child.
+      if (radarHandle && radarHandle.stop){ try { radarHandle.stop(); } catch(e){} radarHandle = null; }
+
+      shell.innerHTML =
+        '<div class="eyebrow" style="background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:#4ade80;opacity:0;transition:opacity .4s ease"><span class="pip" style="background:#22c55e;box-shadow:0 0 8px #22c55e"></span>Match found</div>' +
+        '<h1 style="opacity:0;transition:opacity .4s ease .08s">You\'re paired with <em>' + escHtml(peerName || 'a debater') + '</em>.</h1>' +
+        '<p class="lede" style="opacity:0;transition:opacity .4s ease .16s">Joining the round room now. Camera + mic prompt in a sec; accept and you\'re live.</p>' +
+        '<div class="orb-wrap matched" id="orbWrap" style="opacity:0;transition:opacity .4s ease .24s"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
+        '<div class="status" style="opacity:0;transition:opacity .4s ease .32s">Loading round…</div>';
+
+      // Double-rAF so the opacity:0 → opacity:1 transition actually
+      // plays — setting both in the same paint tick is a no-op.
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          var nodes = shell.querySelectorAll('.eyebrow, h1, .lede, .orb-wrap, .status');
+          Array.prototype.forEach.call(nodes, function(el){ el.style.opacity = '1'; });
+        });
+      });
+    }, beatMs);
   }
 
   // ── Render: AI fallback fired ────────────────────────
+  // Fire-and-forget POST to /api/log-missed-match. Increments the
+  // public missed-match counter that's displayed on /spar's meta strip
+  // and /live's callout. Dedupes via sessionStorage so a tab refresh
+  // mid-queue doesn't double-count: same (format, joinedAtMs, reason)
+  // tuple only fires once per browser session.
+  function logMissedMatch(reason){
+    try {
+      var key = 'da-missed-' + formatParam + '-' + state.joinedAtMs + '-' + reason;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch (e) { /* private mode — proceed without dedupe */ }
+    try {
+      fetch('/api/log-missed-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format: formatParam, reason: reason }),
+        keepalive: true, // survive navigation in renderFallback
+      }).catch(function(){});
+    } catch (e) { /* never block the flow on a logging failure */ }
+  }
+
+  // Spar intent. Fired once per tab session the moment a search starts,
+  // whether it ends in a pairing, a fast AI fallback, or a cancel. This
+  // is the honest "how many people looked for a live round this week"
+  // signal — a superset of misses (every miss had an attempt, but plenty
+  // of attempts never reach the >=15s "miss" bar). Deduped per format per
+  // tab session so broaden re-queues don't inflate it.
+  function logSparAttempt(){
+    try {
+      var k = 'da-spar-attempt-' + formatParam;
+      if (sessionStorage.getItem(k)) return;
+      sessionStorage.setItem(k, '1');
+    } catch (e) { /* private mode — proceed without dedupe */ }
+    try {
+      fetch('/api/log-missed-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format: formatParam, reason: 'attempt' }),
+        keepalive: true,
+      }).catch(function(){});
+    } catch (e) { /* never block the flow on a logging failure */ }
+  }
+
   function renderFallback(){
     shell.innerHTML =
       '<div class="eyebrow" style="background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.4);color:#fbbf24"><span class="pip" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b"></span>AI Fallback</div>' +
@@ -1084,7 +1461,9 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="orb-wrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
       '<div class="status">Loading AI round…</div>';
     try { gtag('event', 'spar_ai_fallback', { format: formatParam }); } catch(e){}
-    setTimeout(function(){ location.href = '/debate-ai'; }, 1200);
+    // 60s timeout = a real "missed match" — they tried, nobody showed.
+    logMissedMatch('fallback');
+    setTimeout(function(){ location.href = '/debate-it'; }, 1200);
   }
 
   // ── Countdown timer ──────────────────────────────────
@@ -1209,7 +1588,7 @@ h1 em{color:var(--accent);font-style:normal}
       } else {
         msg = "Couldn't join the queue: " + raw + ". Skip to AI or refresh.";
       }
-      shell.innerHTML += '<div class="error">' + escHtml(msg) + ' <a href="/debate-ai" style="color:inherit;text-decoration:underline">Skip to AI</a>.</div>';
+      shell.innerHTML += '<div class="error">' + escHtml(msg) + ' <a href="/debate-it" style="color:inherit;text-decoration:underline">Skip to AI</a>.</div>';
     });
     renderSearching();
   }
@@ -1224,7 +1603,12 @@ h1 em{color:var(--accent);font-style:normal}
       var d = doc.data();
       if (d.status === 'matched' && d.room && d.matchedWith){
         teardownQueue();
-        renderMatched(d.room, d.matchedWithName || 'a debater');
+        // The matched-state render is cosmetic; navigation into the
+        // round is the load-bearing step. Never let a render error
+        // (e.g. a future undefined ref) swallow the navigation and
+        // strand a successfully-paired user on the search screen.
+        try { renderMatched(d.room, d.matchedWithName || 'a debater'); }
+        catch (e) { console.warn('[spar] renderMatched failed, navigating anyway', e); }
         // Build the live-round URL — we don't know which side we got;
         // the round-room infra will reconcile via posterUid/accepterUid
         // semantics. Pass both UIDs and the format.
@@ -1502,6 +1886,11 @@ h1 em{color:var(--accent);font-style:normal}
 
   function cancelQueue(){
     state.cancelled = true;
+    // Only count as a "miss" if the user spent real time in the queue
+    // (>=15s). A quick click-through isn't a missed match, it's a user
+    // who never really tried.
+    var elapsed = state.joinedAtMs ? Math.floor((Date.now() - state.joinedAtMs) / 1000) : 0;
+    if (elapsed >= 15) logMissedMatch('cancel');
     teardownQueue();
     if (state.queueDocRef){
       state.queueDocRef.update({
@@ -1509,7 +1898,7 @@ h1 em{color:var(--accent);font-style:normal}
         cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
       }).catch(function(){});
     }
-    try { gtag('event', 'spar_cancel', { format: formatParam }); } catch(e){}
+    try { gtag('event', 'spar_cancel', { format: formatParam, elapsed_sec: elapsed }); } catch(e){}
     location.href = '/';
   }
 
@@ -1518,6 +1907,10 @@ h1 em{color:var(--accent);font-style:normal}
     if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
     if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} state.queueWatchUnsub = null; }
+    // Drop the live ops strip's Firestore listeners too — leaving
+    // them attached after the search view tears down would leak.
+    if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+    if (metaLiveUnsub.waitlist){ try { metaLiveUnsub.waitlist(); } catch(e){} metaLiveUnsub.waitlist = null; }
     state.matchTriggerPending = false;
     state.pairInFlight = false;
   }
@@ -1741,8 +2134,17 @@ h1 em{color:var(--accent);font-style:normal}
         paintWaitlist();
       }, function(err){
         console.warn('[waitlist] feed snapshot error', err);
+        // 2026-05-26: previous error copy was "Couldn't load the waitlist.
+        // Refresh to retry." That read as a broken-product signal to anon
+        // visitors, when in reality the most common cause is a permission
+        // error before the user has signed in. Mirror the empty-state copy
+        // (the "no one on the waitlist right now" line paintWaitlist uses)
+        // so the failure path teaches the user the right next step instead
+        // of asking them to refresh into the same wall.
         var list = document.getElementById('wlList');
-        if (list) list.innerHTML = '<div class="waitlist-rail__empty">Couldn\'t load the waitlist. Refresh to retry.</div>';
+        if (list) list.innerHTML = '<div class="waitlist-rail__empty">No one on the waitlist right now.' +
+          (state.user ? ' Be the first — join above.' : ' Sign in to join.') +
+        '</div>';
       });
   }
 
@@ -2017,6 +2419,12 @@ h1 em{color:var(--accent);font-style:normal}
     var threadRef = firebaseDb.collection('dm_threads').doc(at.id);
     var msgsRef = threadRef.collection('messages');
     var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
+    // Capture pre-send state: if lastMessage was empty on the active
+    // thread object, this is the FIRST message in the thread — i.e.
+    // the recipient just got their challenge accepted. Fire the
+    // notification email after the send lands. 1:1 threads only;
+    // group threads skip per server-side guard.
+    var isFirstMessage = !at.lastMessage && !at.isGroup;
     // Make sure my own info is current in participantInfo.
     var participantInfo = Object.assign({}, at.participantInfo);
     participantInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
@@ -2045,6 +2453,27 @@ h1 em{color:var(--accent);font-style:normal}
       if (sendBtn) sendBtn.disabled = false;
       input.focus();
       try { gtag('event', at.isGroup ? 'group_send' : 'dm_send', {}); } catch(e){}
+      // Fire-and-forget: notify recipient by email on the first DM
+      // in a 1:1 thread. Endpoint is idempotent (server stamps
+      // acceptEmailSentAt) so a race where two clients call it
+      // simultaneously still results in one email. Failures are
+      // silent — the chat is the source of truth, email is a nudge.
+      // Local mirror so future sends in the same session don't re-fire
+      // before the server-side stamp propagates.
+      if (isFirstMessage) {
+        at.lastMessage = preview;
+        try { gtag('event', 'dm_first_accept', {}); } catch(e){}
+        state.user.getIdToken().then(function(idToken){
+          return fetch('/api/notify-dm-accept', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+            body: JSON.stringify({ threadId: at.id }),
+          });
+        }).catch(function(e){
+          // Silent: email is a nudge, not load-bearing for the round.
+          console.warn('[dm] notify-dm-accept failed', e && e.message);
+        });
+      }
     }).catch(function(e){
       if (sendBtn) sendBtn.disabled = false;
       console.warn('[dm] send failed', e);
@@ -2372,11 +2801,36 @@ h1 em{color:var(--accent);font-style:normal}
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        renderGate();
+        // 2026-05-26: drop the hard sign-in gate. Anon visitors hitting
+        // /spar (e.g. from "Debate Omegle" on the landing) used to bounce
+        // into renderGate() with a wall of Google sign-in copy + no way
+        // to try the matchmaking. Per user feedback ("viewers shouldn't
+        // have to sign in for this to work"), anon users now go straight
+        // into the searching UI. They can't actually pair with a human
+        // (matchmaking_queue requires auth at the Firestore-rules level),
+        // but the radar + status phases + countdown play and at 60s the
+        // existing triggerAIFallback path ferries them to /debate-it.
+        // joinQueueAnon below is renderSearching wrapped with the
+        // state.joinedAtMs init that joinQueue normally sets. The Firestore
+        // writes inside renderSearching's wired functions (cancelQueue,
+        // triggerAIFallback) are guarded with `if (state.queueDocRef)`
+        // checks that no-op when state.queueDocRef stays null for anon.
+        joinQueueAnon();
       }
     });
   } else {
-    renderGate();
+    joinQueueAnon();
+  }
+
+  function joinQueueAnon(){
+    state.cancelled = false;
+    state.joinedAtMs = Date.now();
+    // state.queueDocRef stays null — all the Firestore-write paths
+    // (cancelQueue / triggerAIFallback / startMatchPolling's tryMatch)
+    // already guard with `if (state.queueDocRef)`, so they no-op
+    // gracefully without state.user.
+    renderSearching();
+    try { gtag('event', 'spar_anon_join', { format: formatParam }); } catch(e){}
   }
 })();
 </script>

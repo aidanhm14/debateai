@@ -29,7 +29,7 @@ const MAX_EXAMPLES_PER_FORMAT = 20;
 const LOOKBACK_DAYS = 30;
 const MAX_EXAMPLE_CHARS = 1200;  // per example, keep total prompt manageable
 
-// Formats we run distill over. Matches the slugs used in debate-ai.html
+// Formats we run distill over. Matches the slugs used in debate-it.html
 // FORMATS and seed-round.mjs FORMATS so downstream lookups align.
 const FORMATS = [
   { slug: 'apda',   name: 'APDA' },

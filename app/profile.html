@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Your dashboard · Debate AI</title>
-<meta name="description" content="Your Debate AI dashboard. Level, streak, format mastery, achievements, and recent rounds, judged on the same AI ballot the leaderboard uses." />
+<title>Your dashboard · DebateIt</title>
+<meta name="description" content="Your DebateIt dashboard. Level, streak, format mastery, achievements, and recent rounds, judged on the same AI ballot the leaderboard uses." />
 <meta name="robots" content="noindex,follow">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="canonical" href="https://debateai.com/profile">
+<link rel="canonical" href="https://debateit.com/profile">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
@@ -943,7 +943,7 @@ function pickNextMilestone(s, ach){
   const trainedToday = s.dailyCounts.has(todayKey);
   const trainedYesterday = s.dailyCounts.has(yKey);
 
-  let streakLine, ctaLabel = 'Start a round', ctaHref = '/voice-debate';
+  let streakLine, ctaLabel = 'Debate it', ctaHref = '/voice-debate';
   if(s.total === 0){
     streakLine = 'Run a voice round when you\'re ready. Dashboard fills in from there.';
   } else if(trainedToday){
@@ -993,7 +993,7 @@ function renderDailyQuest(rows){
       sub:'Run one round in any format today.',
       reward:25,
       done:(today) => today.length >= 1,
-      cta:{ label:'Start a round', href:'/debate-ai' },
+      cta:{ label:'Debate it', href:'/debate-it' },
     },
     {
       id:'high_scorer',
@@ -1001,7 +1001,7 @@ function renderDailyQuest(rows){
       sub:'Score 27.5 or higher on any round today.',
       reward:50,
       done:(today) => today.some(r => typeof r.score === 'number' && r.score >= 27.5),
-      cta:{ label:'Go for the ballot', href:'/debate-ai' },
+      cta:{ label:'Go for the ballot', href:'/debate-it' },
     },
     {
       id:'format_hopper',
@@ -1009,7 +1009,7 @@ function renderDailyQuest(rows){
       sub:'Run rounds in two different formats today.',
       reward:40,
       done:(today) => new Set(today.map(r => r.formatName || r.format || '')).size >= 2,
-      cta:{ label:'Pick a new format', href:'/debate-ai' },
+      cta:{ label:'Pick a new format', href:'/debate-it' },
     },
     {
       id:'voice_up',
@@ -1025,7 +1025,7 @@ function renderDailyQuest(rows){
       sub:'Beat the AI on any round today.',
       reward:60,
       done:(today) => today.some(r => r.won === true && r.kind !== 'live'),
-      cta:{ label:'Take a shot', href:'/debate-ai' },
+      cta:{ label:'Take a shot', href:'/debate-it' },
     },
   ];
 
@@ -1285,6 +1285,11 @@ function renderSettings(user, profileData){
   const d = profileData || {};
   const nameOverride = d.displayNameOverride || '';
   const optOut = d.leaderboardOptOut === true;
+  // Research-corpus consent: opt-IN, off by default. On read, mirror the
+  // Firestore value down to localStorage so the captureTurn write path on
+  // every page can check consent without a Firestore round-trip per turn.
+  const corpusOn = d.contributeToCorpus === true;
+  try { localStorage.setItem('debateos-corpus-contribute', corpusOn ? '1' : '0'); } catch(_){}
   let muted = false;
   try { muted = localStorage.getItem('da-sfx-muted') === '1'; } catch(_){}
   const ph = user.displayName || 'Your name';
@@ -1311,6 +1316,13 @@ function renderSettings(user, profileData){
           <div>
             <label class="set-toggle"><input id="setSfx" type="checkbox" ${muted?'':'checked'}/><span class="set-track"></span></label>
             <div class="hint">Sign-in chime, ballot reveal, streak transitions. Honored across the site.</div>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="key">Research &amp; training corpus</div>
+          <div>
+            <label class="set-toggle"><input id="setCorpus" type="checkbox" ${corpusOn?'checked':''}/><span class="set-track"></span></label>
+            <div class="hint">Off by default. When on, future rounds (typed and voice) can be included in an anonymized research corpus that may be licensed to AI labs studying argumentative dialogue. Anonymized means no name, no email, no uid attached. Only applies to rounds AFTER you turn this on — past rounds are never retroactively included. Toggle off any time. <a href="/privacy#corpus" style="color:var(--accent);text-decoration:underline">Details in the privacy policy.</a></div>
           </div>
         </div>
         <div class="set-row">
@@ -1347,10 +1359,17 @@ function wireSettings(user, rows){
         const name = (document.getElementById('setName')?.value || '').trim().slice(0, 40);
         const lbOn = document.getElementById('setLb')?.checked;
         const sfxOn = document.getElementById('setSfx')?.checked;
+        const corpusOn = document.getElementById('setCorpus')?.checked;
         try { localStorage.setItem('da-sfx-muted', sfxOn ? '0' : '1'); } catch(_){}
+        // Mirror corpus consent to localStorage so the captureTurn write
+        // path on /app and /voice-debate reads sync without a Firestore hit
+        // per turn. Firestore is still the source of truth across devices.
+        try { localStorage.setItem('debateos-corpus-contribute', corpusOn ? '1' : '0'); } catch(_){}
         await db.collection('user_profiles').doc(user.uid).set({
           displayNameOverride: name || null,
           leaderboardOptOut: !lbOn,
+          contributeToCorpus: !!corpusOn,
+          contributeToCorpusUpdatedAt: new Date(),
           settingsUpdatedAt: new Date(),
         }, { merge: true });
         setStatus('Saved. Future rounds will reflect these settings.', 'ok');
@@ -1424,7 +1443,7 @@ function renderSignedOut(){
   const btn = document.getElementById('signinBtn');
   if(btn) btn.addEventListener('click', () => {
     if(!auth || !firebase.auth.GoogleAuthProvider){
-      mount.innerHTML = `<div class="state"><h3>Couldn't load auth</h3><p>Your browser blocked the Firebase sign-in script. Try a different browser, or open this page outside an in-app browser like Instagram or TikTok.</p><a class="cta" href="/debate-ai">Open the app</a></div>`;
+      mount.innerHTML = `<div class="state"><h3>Couldn't load auth</h3><p>Your browser blocked the Firebase sign-in script. Try a different browser, or open this page outside an in-app browser like Instagram or TikTok.</p><a class="cta" href="/debate-it">Open the app</a></div>`;
       return;
     }
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -1444,7 +1463,7 @@ function renderError(msg){
     <div class="state">
       <h3>Couldn't load your dashboard</h3>
       <p>${escapeHtml(clean)} Refresh once. If it sticks, run a round and the dashboard fills in from there.</p>
-      <a class="cta" href="/debate-ai">Start a round</a>
+      <a class="cta" href="/debate-it">Debate it</a>
     </div>
   `;
 }
@@ -1471,7 +1490,7 @@ function renderEmpty(user, profileData){
     <div class="state">
       <h3>Run a round and the dashboard fills in</h3>
       <p>Every AI-judged round adds XP, level, format mastery, and achievements. One round is enough to start it moving.</p>
-      <a class="cta" href="/voice-debate">Start a round</a>
+      <a class="cta" href="/voice-debate">Debate it</a>
     </div>
 
     ${renderSettings(user, profileData)}
@@ -1542,7 +1561,7 @@ function renderDashboard(user, rows, profileData){
 
   // Recent rounds (8 most recent). Truncates the motion so it doesn't
   // wrap into a paragraph — full motion is still in the user's saved
-  // round inside /debate-ai history.
+  // round inside /debate-it history.
   const recent = rows.slice(0, 8).map(r => {
     const motion = (r.motion || '(no motion saved)').slice(0, 90);
     const fmt = r.formatName || r.format || '—';
@@ -1613,7 +1632,7 @@ function renderDashboard(user, rows, profileData){
         <span>Certifications</span>
         <span class="certs-eyebrow-tag">Loading</span>
       </div>
-      <div class="certs-empty">Checking your DebateAI credentials…</div>
+      <div class="certs-empty">Checking your DebateIt credentials…</div>
     </div>
 
     <!-- Style profile card. Hydrated post-mount by hydrateStyleProfile()
@@ -1647,7 +1666,7 @@ function renderDashboard(user, rows, profileData){
     </div>
 
     <div class="cta-strip">
-      <a href="/debate-ai"><span class="cl">Typed</span><span class="ct">Beat the AI</span><span class="cs">Full round, AI judge, ballot at the end.</span></a>
+      <a href="/debate-it"><span class="cl">Typed</span><span class="ct">Beat the AI</span><span class="cs">Full round, AI judge, ballot at the end.</span></a>
       <a href="/voice-debate"><span class="cl">Voice</span><span class="ct">Talk it out</span><span class="cs">Live speech, interruptions, a real timer.</span></a>
       <a href="/live"><span class="cl">Human vs human</span><span class="ct">Go live</span><span class="cs">Real opponents, same AI ballot.</span></a>
     </div>
@@ -1759,7 +1778,7 @@ async function hydrateCerts(user){
         <span class="certs-eyebrow-tag">${total} earned</span>
       </div>
       <div class="certs-hero">
-        <div class="certs-hero-tier">DebateAI <span class="gold">${highestTierName}</span></div>
+        <div class="certs-hero-tier">DebateIt <span class="gold">${highestTierName}</span></div>
         <div class="certs-hero-sub">
           ${highestScore ? `Highest score <b>${highestScore.toFixed(1)}</b>. ` : ''}Each credential is verified proof of spoken-English argumentation under live pressure — share the link or download the PDF for college apps + resumes.
         </div>

@@ -12,6 +12,7 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { checkMotionBody } from './lib/content-guard.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
 import { applyDistillations } from './lib/distillations.mjs';
 import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
@@ -147,6 +148,17 @@ export default async (request, context) => {
       );
     }
 
+    // Content guard on the explicit motion field. Fast regex-only check;
+    // rejects slurs, sexual-explicit, and CP before any Firestore read,
+    // exemplar lookup, or provider call. See claude.mjs for the rationale.
+    const motionGuard = checkMotionBody(body);
+    if (!motionGuard.ok) {
+      return new Response(
+        JSON.stringify({ error: motionGuard.reason, category: motionGuard.category }),
+        { status: 422, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
+
     applyPromptLibrary(body);
     await Promise.all([
       applyExemplars(body),
@@ -175,8 +187,8 @@ export default async (request, context) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://debateai.com',
-        'X-Title': 'DebateAI · Open Lab',
+        'HTTP-Referer': 'https://debateit.com',
+        'X-Title': 'DebateIt · Open Lab',
       },
       body: JSON.stringify({
         model,

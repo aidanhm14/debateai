@@ -24,8 +24,8 @@
 import { GUIDE_BANK, getGuide, listGuides } from './lib/guide-bank.mjs';
 import { FORMAT_BANK } from './lib/format-bank.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
-const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
+const SITE_ORIGIN = 'https://debateit.com';
+const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=debateit1`;
 
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function esc(s) {
@@ -54,7 +54,7 @@ function notFoundResponse() {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Guide not found · Debate AI</title>
+<title>Guide not found · DebateIt</title>
 <meta name="robots" content="noindex">
 <style>
   body{background:#ffffff;color:#1a1a1a;font:17px/1.7 Georgia,'Iowan Old Style','Constantia','Times New Roman',serif;margin:0;padding:64px 24px;text-align:center;-webkit-font-smoothing:antialiased}
@@ -297,14 +297,14 @@ function topNav() {
   // the editorial nav pattern of /topics/{slug} but adds a middle
   // link because /learn is the logical parent of /learn/guides.
   return `<nav class="top-nav">
-    <a href="/">← Debate AI</a>
+    <a href="/">← DebateIt</a>
     <a href="/learn">Learn</a>
-    <a href="/debate-ai">Practice →</a>
+    <a href="/debate-it">Practice →</a>
   </nav>`;
 }
 
 function renderGuidePage(guide) {
-  const titleCore = `${guide.question} · Debate AI`;
+  const titleCore = `${guide.question} · DebateIt`;
   const title = titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore;
   const description = guide.hook;
   const canonical = `${SITE_ORIGIN}/learn/guides/${guide.slug}`;
@@ -325,7 +325,7 @@ function renderGuidePage(guide) {
     inLanguage: 'en',
     publisher: {
       '@type': 'Organization',
-      name: 'Debate AI',
+      name: 'DebateIt',
       url: SITE_ORIGIN,
     },
   };
@@ -351,7 +351,7 @@ function renderGuidePage(guide) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="DebateIt">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titleCore)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -404,7 +404,7 @@ function renderGuidePage(guide) {
   </section>` : ''}
 
   <footer class="guide-footer">
-    <span>© 2026 Debate AI</span>
+    <span>© 2026 DebateIt</span>
     <span><a href="/learn">Learn</a> · <a href="/learn/fundamentals">Fundamentals</a> · <a href="/learn/guides">Guides</a> · <a href="/learn/glossary">Glossary</a></span>
   </footer>
 </main>
@@ -413,7 +413,7 @@ function renderGuidePage(guide) {
 
 function renderHubPage() {
   const guides = listGuides();
-  const title = 'Guides · Debate AI';
+  const title = 'Guides · DebateIt';
   const description = "Short, format-accurate write-ups on the moves that win specific debate speeches. Asian Parli PMC openings, WSDC reply structure, PF crossfire, BP POIs, viva oral exams.";
   const canonical = `${SITE_ORIGIN}/learn/guides`;
 
@@ -450,7 +450,7 @@ function renderHubPage() {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="website">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="DebateIt">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -465,7 +465,7 @@ function renderHubPage() {
 <main class="shell">
   ${topNav()}
 
-  <div class="crumb"><a href="/">Debate AI</a> · <a href="/learn">Learn</a> · Guides</div>
+  <div class="crumb"><a href="/">DebateIt</a> · <a href="/learn">Learn</a> · Guides</div>
 
   <h1 class="hub-h1">Guides.</h1>
 
@@ -490,7 +490,7 @@ function renderHubPage() {
   `).join('')}
 
   <footer class="guide-footer">
-    <span>© 2026 Debate AI</span>
+    <span>© 2026 DebateIt</span>
     <span><a href="/learn">Learn</a> · <a href="/learn/fundamentals">Fundamentals</a> · <a href="/learn/glossary">Glossary</a></span>
   </footer>
 </main>

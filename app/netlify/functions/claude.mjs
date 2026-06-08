@@ -4,6 +4,7 @@ import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { buildVoiceSegments, pickSpice } from './lib/voice-guidelines.mjs';
+import { checkMotionBody } from './lib/content-guard.mjs';
 import { getExemplarBlock } from './lib/exemplars.mjs';
 import { getDistillationBlock } from './lib/distillations.mjs';
 import { getFingerprintBlock } from './lib/user-fingerprints.mjs';
@@ -17,7 +18,7 @@ const ALLOWED_MODELS = [
 
 // Hard cap on max_tokens — competition cases need up to 32k (authenticated users)
 const MAX_TOKENS_CAP = 32000;
-// Tighter cap for anonymous requests: enough for most learn/debate-ai flows
+// Tighter cap for anonymous requests: enough for most learn/debate-it flows
 // but small enough that abuse can't drain the account in a handful of calls.
 const MAX_TOKENS_CAP_ANON = 8000;
 
@@ -270,7 +271,7 @@ export default async (request, context) => {
       );
     }
   } else {
-    // Anonymous path — allow limited unauthenticated access for HS/debate-ai/learn pages.
+    // Anonymous path — allow limited unauthenticated access for HS/debate-it/learn pages.
     // App Check first (blocks scripted abuse from non-browser callers), then
     // layered rate limits (minute/hour/day) per client IP.
     const appCheckResult = await checkAppCheck(request);
@@ -317,6 +318,18 @@ export default async (request, context) => {
       return new Response(
         JSON.stringify({ error: 'Request too large.' }),
         { status: 413, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
+
+    // Content guard on the explicit motion field. Fast regex-only check;
+    // rejects slurs, sexual-explicit, and CP before any Firestore read,
+    // exemplar lookup, or provider call. Older clients that don't send
+    // _motion fall through (the check returns ok for empty motion).
+    const motionGuard = checkMotionBody(body);
+    if (!motionGuard.ok) {
+      return new Response(
+        JSON.stringify({ error: motionGuard.reason, category: motionGuard.category }),
+        { status: 422, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
 
