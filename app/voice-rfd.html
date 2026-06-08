@@ -21,6 +21,26 @@
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+<!-- Firebase init. This page needs auth for the rating widget AND the
+     post-round save-hook below. Public web config (same as every other
+     page); idempotent guard so a re-init is a no-op. 2026-06-08: this
+     was missing entirely, so the rating widget's firebase.auth() threw
+     and the widget silently never appeared — this fixes that too. -->
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try {
+  if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+  }
+} catch (e) { console.warn('[voice-rfd] firebase init skipped:', e.message); }
+</script>
 
 <!-- Restore theme BEFORE first paint so the page never flashes the
      wrong palette when arriving from /voice-debate. Mirrors the theme
@@ -703,6 +723,24 @@ body{
         + '</section>';
     }
 
+    // Anon save-hook (2026-06-08). The ~95% who never sign in finish a
+    // round at peak satisfaction with zero reason or mechanism to come
+    // back — the round is ephemeral. This converts that moment: sign in
+    // (free, one tap) so future rounds save and the style-learning loop
+    // turns on. Honest — it does NOT claim to save THIS anon round (anon
+    // rounds aren't logged server-side); the value is forward-looking.
+    // Hidden by default; the wiring below reveals it only when auth
+    // settles to no-user, so a signed-in visitor never sees a flash.
+    // Quiet neutral register so it doesn't fight the red primaries below.
+    html +=
+      '<section class="save-hook" id="saveCard" style="margin:20px 0;padding:18px 20px;border-radius:14px;border:1px solid var(--border-strong,rgba(255,255,255,.18));background:var(--surface,rgba(255,255,255,.03));flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;display:none">'
+        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Keep your record.</strong> This round was anonymous, so it stops here. Sign in (free, one tap) and your next rounds save to your record, and the AI starts learning your style and adapting to how you argue.</div>'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+          + '<button class="cta-btn primary" id="saveSignIn" type="button" style="white-space:nowrap">Continue with Google</button>'
+          + '<button class="cta-btn ghost" id="saveDismiss" type="button">Maybe later</button>'
+        + '</div>'
+      + '</section>';
+
     // Post-round spar push (2026-06-01). Highest-intent moment: they just
     // finished a voice round and got a ballot. Pitch a human opponent, with
     // the waitlist as the honest fallback for a thin live queue + AI backup.
@@ -787,6 +825,49 @@ body{
     // requires a Firebase ID token). Firebase loads async, so we wait
     // up to ~2.5s for onAuthStateChanged to settle before giving up.
     if (payload.generationId) wireRatingWidget(payload);
+
+    // Post-round save-hook wiring. Reveal the card only for anon (no
+    // signed-in user once auth settles); sign-in saves future rounds +
+    // turns on the style loop, then reload so the signed-in state (and
+    // the rating widget) renders. onAuthStateChanged fires immediately
+    // with the current state on subscribe; the card starts hidden so a
+    // signed-in visitor never flashes it.
+    (function(){
+      var card = document.getElementById('saveCard');
+      if (!card) return;
+      try {
+        if (typeof firebase !== 'undefined' && firebase.auth) {
+          var settled = false;
+          var unsub = firebase.auth().onAuthStateChanged(function(user){
+            settled = true;
+            card.style.display = user ? 'none' : 'flex';
+            try { unsub && unsub(); } catch(e){}
+          });
+          setTimeout(function(){
+            if (!settled) { try { card.style.display = firebase.auth().currentUser ? 'none' : 'flex'; } catch(e){} }
+            try { unsub && unsub(); } catch(e){}
+          }, 2500);
+        }
+      } catch(e){}
+      var signInBtn = document.getElementById('saveSignIn');
+      if (signInBtn) signInBtn.addEventListener('click', function(){
+        try { if (window.gtag) gtag('event', 'voice_rfd_save_signin'); } catch(e){}
+        try {
+          var provider = new firebase.auth.GoogleAuthProvider();
+          firebase.auth().signInWithPopup(provider).then(function(){
+            try { if (window.gtag) gtag('event', 'sign_in_success', { surface: 'voice_rfd_save' }); } catch(e){}
+            location.reload();
+          }).catch(function(err){
+            try { if (window.gtag) gtag('event', 'sign_in_error', { surface: 'voice_rfd_save', code: (err && err.code) || 'unknown' }); } catch(_){}
+          });
+        } catch(e){}
+      });
+      var dismissBtn = document.getElementById('saveDismiss');
+      if (dismissBtn) dismissBtn.addEventListener('click', function(){
+        try { if (window.gtag) gtag('event', 'voice_rfd_save_dismiss'); } catch(e){}
+        card.style.display = 'none';
+      });
+    })();
   }
 
   function wireRatingWidget(payload){
