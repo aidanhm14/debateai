@@ -25,7 +25,7 @@ import {
 import { getDb } from './lib/firestore.mjs';
 
 const SITE_ORIGIN = 'https://debateit.com';
-const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
+const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=debateit1`;
 
 // In-memory cache for the "recent public rounds" panel. Same content
 // for every /today render in any given minute, so caching keeps the

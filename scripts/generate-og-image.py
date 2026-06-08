@@ -139,14 +139,16 @@ def main():
     draw = ImageDraw.Draw(img, "RGBA")
 
     # ── "DebateIt" wordmark, centered under the orb ──────────────
+    # White "Debate" + red "It", no space — mirrors the site wordmark
+    # treatment (the old "Debate"+red"AI" split, rebranded 2026-06-08).
     brand = font(92, "black")
-    debate_w = draw.textbbox((0, 0), "Debate ", font=brand)[2]
-    ai_w = draw.textbbox((0, 0), "AI", font=brand)[2]
-    total_w = debate_w + ai_w
+    debate_w = draw.textbbox((0, 0), "Debate", font=brand)[2]
+    it_w = draw.textbbox((0, 0), "It", font=brand)[2]
+    total_w = debate_w + it_w
     wx = (W - total_w) // 2
     wy = 470
-    draw.text((wx, wy), "Debate ", font=brand, fill=WHITE)
-    draw.text((wx + debate_w, wy), "AI", font=brand, fill=RED)
+    draw.text((wx, wy), "Debate", font=brand, fill=WHITE)
+    draw.text((wx + debate_w, wy), "It", font=brand, fill=RED)
 
     img.convert("RGB").save(OUT, "PNG", optimize=True)
     print(f"wrote {OUT} ({W}x{H})")

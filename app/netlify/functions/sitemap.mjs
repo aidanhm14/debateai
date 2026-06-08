@@ -22,7 +22,7 @@ const SITE_ORIGIN = 'https://debateit.com';
 // a stable last-edit date. Don't lie about static pages being "updated
 // today" — Google's lastmod heuristics catch that and discount the
 // whole sitemap's trustworthiness.
-const STABLE_DATE = '2026-05-18'; // bumped when meaningful content changes
+const STABLE_DATE = '2026-06-08'; // bumped when meaningful content changes (2026-06-08: sitewide DebateIt rebrand changed every page's brand, title, canonical)
 const DYNAMIC = new Set([
   '/', '/today', '/community', '/live',
   '/champions', '/leaderboard', '/exhibition',

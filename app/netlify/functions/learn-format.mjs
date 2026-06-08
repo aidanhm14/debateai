@@ -19,7 +19,7 @@ import { FORMAT_BANK, getFormat } from './lib/format-bank.mjs';
 import { listGuides } from './lib/guide-bank.mjs';
 
 const SITE_ORIGIN = 'https://debateit.com';
-const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
+const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=debateit1`;
 
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function esc(s) {
