@@ -3,7 +3,7 @@
 function App() {
   return (
     <div id="app">
-      <h1>Debate AI</h1>
+      <h1>DebateIt</h1>
       <p>Migration in progress...</p>
     </div>
   );

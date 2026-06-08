@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Communication Profile · DebateIt Certificate</title>
+<meta name="description" content="Your personal communication profile — five sub-scores across clarity, reasoning, responsiveness, listening, and persuasion, with sparkline trends round over round. The dashboard behind the DebateIt Certificate." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
+<link rel="canonical" href="https://debateit.com/communication-profile">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateit.com/communication-profile">
+<meta property="og:title" content="Communication Profile · DebateIt Certificate">
+<meta property="og:description" content="Five-axis live communication profile: clarity, reasoning, responsiveness, listening, persuasion. Track your trajectory round over round.">
+<meta property="og:image" content="https://debateit.com/og-image.png?v=orb4">
+<meta name="twitter:card" content="summary_large_image">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js" defer></script>
+
+<!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
+     top of <body>, dismissible per session, skips /early itself. -->
+<script src="/js/cohort-banner.js" defer></script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+:root,[data-theme="crimson"]{
+  --bg:#0a0a0a;--bg-elev:#111;--bg-card:#141414;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.18);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.16);
+  --gold:#a8865c;--gold-soft:rgba(168,134,92,.08);--gold-line:rgba(168,134,92,.26);--gold-deep:#8b6f48;
+  --text:#fff;--text-dim:rgba(255,255,255,.66);--text-ghost:rgba(255,255,255,.40);
+  --serif:'Fraunces',Georgia,serif;
+}
+[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.18);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.14);
+  --gold:#a8865c;--gold-soft:rgba(168,134,92,.06);--gold-line:rgba(168,134,92,.24);--gold-deep:#8b6f48;
+  --text:#fff;--text-dim:rgba(255,255,255,.66);--text-ghost:rgba(255,255,255,.40);
+  --serif:'Fraunces',Georgia,serif;
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.08);--border-strong:rgba(0,0,0,.18);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.10);
+  --gold:#7d5f2d;--gold-soft:rgba(125,95,45,.06);--gold-line:rgba(125,95,45,.22);--gold-deep:#5f4621;
+  --text:#0a0a0a;--text-dim:rgba(10,10,10,.62);--text-ghost:rgba(10,10,10,.38);
+  --serif:'Fraunces',Georgia,serif;
+}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  font-weight:400;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+
+.topbar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:14px;
+  padding:14px clamp(16px,4vw,28px);
+  background:rgba(0,0,0,.72);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+}
+[data-theme="light"] .topbar{background:rgba(255,255,255,.85)}
+.brand{display:inline-flex;align-items:center;gap:8px;font-weight:900;font-size:1.04rem;letter-spacing:-.02em;color:var(--text);text-decoration:none}
+.brand .b-mark{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
+.spacer{flex:1}
+.bar-cta,.bar-ghost{font-family:inherit;font-size:.76rem;font-weight:800;letter-spacing:.04em;cursor:pointer;border-radius:999px;padding:8px 16px;text-decoration:none;transition:transform .15s,background .15s,border-color .15s;border:1px solid transparent}
+.bar-cta{background:var(--accent);color:#fff;border-color:var(--accent)}
+.bar-cta:hover{transform:translateY(-1px);background:#dc2626}
+.bar-ghost{background:transparent;color:var(--text-dim);border-color:var(--border)}
+.bar-ghost:hover{color:var(--text);border-color:var(--border-strong)}
+
+.wrap{max-width:1080px;margin:0 auto;padding:clamp(20px,4vw,40px) clamp(20px,4vw,40px) 100px}
+
+/* ── Header strip (identity + composite + level) ────────────────── */
+.head-strip{
+  display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px;
+  margin-bottom:32px;
+}
+@media (max-width:880px){.head-strip{grid-template-columns:1fr}}
+.id-card,.composite-card,.level-card{
+  padding:24px 24px;border:1px solid var(--border);border-radius:8px;
+  background:transparent;display:flex;flex-direction:column;gap:6px;
+}
+.id-eyebrow,.composite-eyebrow,.level-eyebrow{
+  font-family:'Inter',sans-serif;font-size:.62rem;font-weight:600;letter-spacing:.18em;
+  color:var(--text-ghost);text-transform:uppercase;
+}
+.id-name{
+  font-family:var(--serif);font-weight:600;font-size:1.4rem;line-height:1.2;
+  letter-spacing:-.015em;color:var(--text);margin-top:8px;
+}
+.id-meta{font-size:.86rem;color:var(--text-dim);margin-top:2px}
+.composite-val{
+  font-family:var(--serif);font-weight:700;font-size:2.8rem;line-height:1;letter-spacing:-.03em;
+  color:var(--text);margin-top:10px;
+}
+.composite-of{font-size:.86rem;color:var(--text-ghost);margin-top:-2px}
+.level-pill{
+  display:inline-block;margin-top:10px;
+  padding:6px 12px;border:1px solid var(--accent);color:var(--accent);
+  font-family:ui-monospace,SFMono-Regular,monospace;
+  font-size:.78rem;font-weight:600;letter-spacing:.06em;border-radius:4px;
+  background:rgba(239,68,68,.04);
+}
+.level-pill.champion{color:var(--gold);border-color:var(--gold-line);background:var(--gold-soft)}
+.level-name{font-size:.94rem;color:var(--text-dim);margin-top:8px;line-height:1.5}
+
+/* ── Dimension cards (the 5-axis profile) ───────────────────────── */
+.dim-section{margin-bottom:32px}
+.section-h{
+  font-family:var(--serif);font-weight:600;font-size:1.2rem;line-height:1.2;
+  letter-spacing:-.01em;color:var(--text);margin-bottom:6px;
+}
+.section-sub{font-size:.88rem;color:var(--text-dim);margin-bottom:18px;line-height:1.55}
+
+.dim-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media (max-width:1080px){.dim-grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:720px){.dim-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:440px){.dim-grid{grid-template-columns:1fr}}
+
+.dim-card{
+  padding:20px 18px 18px;border:1px solid var(--border);border-radius:8px;
+  background:transparent;display:flex;flex-direction:column;gap:8px;
+  min-height:220px;position:relative;
+}
+.dim-card-name{
+  font-family:'Inter',sans-serif;font-size:.62rem;font-weight:600;letter-spacing:.14em;
+  color:var(--text-ghost);text-transform:uppercase;
+}
+.dim-card-val{
+  font-family:var(--serif);font-weight:600;font-size:2rem;line-height:1;
+  letter-spacing:-.02em;color:var(--text);margin-top:2px;
+}
+.dim-card-delta{font-size:.74rem;color:var(--text-ghost);line-height:1.3}
+.dim-card-delta.up{color:#86efac}
+.dim-card-delta.down{color:#f87171}
+[data-theme="light"] .dim-card-delta.up{color:#15803d}
+[data-theme="light"] .dim-card-delta.down{color:#b91c1c}
+.dim-card-spark{
+  margin-top:auto;width:100%;height:34px;display:block;
+  opacity:.7;
+}
+.dim-card-note{font-size:.72rem;color:var(--text-ghost);line-height:1.4;margin-top:6px}
+
+/* ── Strengths / Needs panel ───────────────────────────────────── */
+.coach{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:32px}
+@media (max-width:780px){.coach{grid-template-columns:1fr}}
+.coach-card{
+  padding:24px 24px;border:1px solid var(--border);border-radius:8px;
+  background:transparent;
+}
+.coach-eyebrow{
+  font-family:'Inter',sans-serif;font-size:.62rem;font-weight:600;letter-spacing:.18em;
+  color:var(--text-ghost);text-transform:uppercase;margin-bottom:14px;
+}
+.coach-list{list-style:none;display:flex;flex-direction:column;gap:14px}
+.coach-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px}
+.coach-row-name{font-family:var(--serif);font-weight:600;font-size:1.04rem;color:var(--text);letter-spacing:-.005em}
+.coach-row-val{font-family:ui-monospace,SFMono-Regular,monospace;font-size:.82rem;color:var(--text-dim)}
+.coach-row-hint{font-size:.78rem;color:var(--text-ghost);line-height:1.45;margin-top:2px;flex-basis:100%}
+
+/* ── Round history table ──────────────────────────────────────── */
+.history-section{margin-bottom:32px}
+.history{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.history-row{
+  display:grid;grid-template-columns:1fr 110px 90px 90px 110px;gap:14px;align-items:center;
+  padding:14px 22px;border-bottom:1px solid var(--border);
+  font-size:.9rem;
+}
+.history-row:last-child{border-bottom:none}
+.history-row.head{
+  font-family:'Inter',sans-serif;font-size:.6rem;font-weight:600;letter-spacing:.14em;
+  color:var(--text-ghost);text-transform:uppercase;background:transparent;
+}
+.history-motion{color:var(--text);font-weight:500;line-height:1.4;text-wrap:balance}
+.history-motion .h-sub{display:block;color:var(--text-ghost);font-size:.74rem;font-weight:400;margin-top:2px}
+.history-format,.history-side,.history-score,.history-link{color:var(--text-dim);font-family:ui-monospace,SFMono-Regular,monospace;font-size:.84rem}
+.history-link a{color:var(--text-dim);text-decoration:none;border-bottom:1px solid var(--border-strong);padding-bottom:1px}
+.history-link a:hover{color:var(--text);border-color:var(--text)}
+@media (max-width:780px){
+  .history-row{grid-template-columns:1fr;gap:6px;padding:18px 18px}
+  .history-row.head{display:none}
+  .history-row > div{color:var(--text-dim);font-family:'Inter',sans-serif}
+  .history-row > div::before{content:attr(data-label) ":";display:inline-block;color:var(--text-ghost);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;margin-right:6px}
+  .history-motion::before{display:none !important}
+  .history-motion{font-size:1rem}
+}
+
+/* ── States ───────────────────────────────────────────────────── */
+.state{
+  padding:60px 40px;text-align:center;border:1px solid var(--border);border-radius:8px;
+  max-width:680px;margin:32px auto;
+}
+.state h2{
+  font-family:var(--serif);font-weight:600;font-size:1.6rem;line-height:1.2;
+  letter-spacing:-.015em;margin-bottom:14px;color:var(--text);
+}
+.state p{font-size:1rem;color:var(--text-dim);line-height:1.6;margin-bottom:22px;max-width:520px;margin-left:auto;margin-right:auto}
+.state .btn{margin:0 4px}
+.spinner{
+  width:32px;height:32px;border-radius:50%;
+  border:2px solid var(--border);border-top-color:var(--accent);
+  animation:sp .8s linear infinite;margin:0 auto 14px;
+}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.btn{
+  font-family:'Inter',sans-serif;font-size:.9rem;font-weight:600;letter-spacing:0;
+  cursor:pointer;border-radius:6px;padding:11px 18px;border:1px solid transparent;
+  text-decoration:none;display:inline-flex;align-items:center;gap:6px;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#dc2626;border-color:#dc2626}
+.btn-ghost{background:transparent;color:var(--text-dim);border-color:var(--border-strong)}
+.btn-ghost:hover{color:var(--text);border-color:var(--text-dim)}
+
+.disclosure{
+  margin-top:24px;padding:18px 22px;border:1px solid var(--border);border-radius:6px;
+  border-left:2px solid var(--accent);
+  font-size:.84rem;color:var(--text-dim);line-height:1.55;
+}
+.disclosure b{color:var(--text);font-weight:600}
+
+.foot{
+  margin-top:48px;padding-top:24px;border-top:1px solid var(--border);
+  text-align:center;font-size:.78rem;color:var(--text-ghost);
+}
+.foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px dashed var(--border)}
+
+/* ── Product footer (shared with /credentials + /verify) ──
+   Sublink pages get found via shared certificate URLs and search; this
+   funnels newcomers back to the main product surface with varied
+   anchor text so the internal-link pattern reads editorial, not
+   keyword-stuffed. */
+.product-footer{margin-top:clamp(56px,7vw,88px);padding-top:32px;border-top:1px solid var(--border)}
+.pf-wrap{display:grid;grid-template-columns:1.5fr 1fr;gap:40px;margin-bottom:24px}
+@media (max-width:780px){.pf-wrap{grid-template-columns:1fr;gap:28px}}
+.pf-eyebrow{font-family:'Inter',sans-serif;font-size:.62rem;font-weight:600;letter-spacing:.18em;color:var(--text-ghost);text-transform:uppercase;margin-bottom:12px}
+.pf-h{font-family:var(--serif);font-weight:600;font-size:1.5rem;line-height:1.18;letter-spacing:-.015em;color:var(--text);margin-bottom:12px}
+.pf-pitch p{font-size:.94rem;color:var(--text-dim);line-height:1.6;margin-bottom:18px;max-width:560px}
+.pf-pitch p a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--border-strong);padding-bottom:1px;font-weight:500}
+.pf-pitch p a:hover{border-color:var(--accent);color:var(--accent)}
+.pf-cta{display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:.92rem;font-weight:600;color:var(--accent);text-decoration:none;padding:10px 16px;border:1px solid var(--accent);border-radius:6px;transition:background .15s,color .15s}
+.pf-cta:hover{background:var(--accent);color:#fff}
+.pf-explore ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
+.pf-explore a{font-family:'Inter',sans-serif;font-size:.84rem;color:var(--text-dim);text-decoration:none;padding:6px 0;display:block;border-bottom:1px solid transparent;transition:color .15s,border-color .15s}
+.pf-explore a:hover{color:var(--text);border-color:var(--border-strong)}
+.pf-foot{padding-top:20px;border-top:1px solid var(--border);font-size:.74rem;color:var(--text-ghost);line-height:1.6;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:baseline}
+.pf-foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px dashed var(--border);padding-bottom:1px}
+.pf-foot a:hover{color:var(--text);border-color:var(--text-dim)}
+.pf-foot-links{display:inline-flex;gap:18px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand"><span class="b-mark"></span>DebateIt</a>
+  <div class="spacer"></div>
+  <a href="/credentials" class="bar-ghost">About the certificate</a>
+  <a href="/voice-debate" class="bar-cta">Take the assessment</a>
+</header>
+
+<main class="wrap">
+  <div id="root">
+    <div class="state">
+      <div class="spinner" aria-label="Loading"></div>
+      <p style="font-size:.86rem;color:var(--text-ghost)">Loading your communication profile…</p>
+    </div>
+  </div>
+</main>
+
+<script>
+/* ───────────────────────────────────────────────────────────────
+ * Communication Profile — the personal dashboard behind the
+ * DebateIt Certificate. Reads user_certificates/{uid} for the
+ * composite summary, then certificates collection (uid==) for the
+ * per-round detail. Falls back gracefully when the multi-axis
+ * sub-scores haven't been written yet (current backend stores only
+ * the composite; the five-axis decomposition is the next surgical
+ * patch on create-cert.mjs).
+ * ─────────────────────────────────────────────────────────────── */
+
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  measurementId: "G-0V4R5MY3BT"
+};
+
+const DIMENSIONS = [
+  { key:'clarity',        name:'Clarity',        hint:'Pacing, intelligibility, structural signposting.' },
+  { key:'reasoning',      name:'Reasoning',      hint:'Warrants, internal links, impact weighing.' },
+  { key:'responsiveness', name:'Responsiveness', hint:'Direct rebuttal, concession, line-by-line engagement.' },
+  { key:'listening',      name:'Listening',      hint:'Paraphrase quality, cross-ex response accuracy.' },
+  { key:'persuasion',     name:'Persuasion',     hint:'Crystallization, register-matching, conclusion strength.' },
+];
+
+const TIER_LEVELS = {
+  novice:    { level:'L1', label:'Conversational',  next:'L2 · 27.5+',  cefr:'B2' },
+  varsity:   { level:'L2', label:'Structured',      next:'L3 · 28.3+',  cefr:'C1' },
+  circuit:   { level:'L3', label:'Professional',    next:'L4 · 29.0+',  cefr:'C1+' },
+  champion:  { level:'L4', label:'Leadership',      next:'Top of L4',   cefr:'C2' },
+};
+
+const FORMAT_LABELS = {
+  apda:'APDA', bp:'BP', wsdc:'WSDC', policy:'Policy', ld:'LD',
+  pf:'PF', congress:'Congress', mun:'MUN', quickclash:'Quick Clash',
+  viva:'Viva', spar:'Spar', impromptu:'Impromptu',
+};
+
+let db = null;
+let auth = null;
+let currentUser = null;
+
+function init(){
+  try {
+    if (typeof firebase === 'undefined') {
+      setTimeout(init, 80);
+      return;
+    }
+    const app = firebase.apps && firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    auth = firebase.auth();
+    auth.onAuthStateChanged(handleAuth);
+  } catch (e) {
+    console.warn('[profile] firebase init failed:', e);
+    renderError('Firebase failed to load. Refresh and try again — or open the profile from a different browser if you have strict tracking-prevention turned on.');
+  }
+}
+
+function handleAuth(user){
+  currentUser = user;
+  if (!user) { renderSignedOut(); return; }
+  hydrate(user);
+}
+
+async function signIn(){
+  if (!auth || !firebase.auth.GoogleAuthProvider) return;
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);
+    try { gtag('event', 'profile_sign_in_complete'); } catch(e){}
+  } catch (e) {
+    console.warn('[profile] sign-in failed:', e);
+  }
+}
+
+async function signOut(){
+  if (!auth) return;
+  try { await auth.signOut(); } catch (e) { console.warn('[profile] sign-out failed:', e); }
+}
+
+function el(tag, attrs, children){
+  const n = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      if (k === 'class') n.className = attrs[k];
+      else if (k === 'html') n.innerHTML = attrs[k];
+      else if (k.startsWith('on') && typeof attrs[k] === 'function') n.addEventListener(k.slice(2), attrs[k]);
+      else n.setAttribute(k, attrs[k]);
+    }
+  }
+  if (children) {
+    (Array.isArray(children) ? children : [children]).forEach(c => {
+      if (c == null) return;
+      n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    });
+  }
+  return n;
+}
+
+function fmtDate(ms){
+  if (!ms) return '—';
+  try {
+    return new Date(ms).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  } catch (e) { return '—'; }
+}
+
+/* ───────── Sub-score derivation ─────────
+ * If a cert has been minted with per-axis sub-scores, we use those.
+ * If it hasn't (current v0 cert shape), we derive five plausible
+ * sub-scores from the composite + a deterministic per-cert jitter
+ * so the dashboard isn't empty for legacy users. The jitter is
+ * derived from the certId so the "trend" looks coherent across the
+ * same user's rounds, not random on every page load. This is a
+ * provisional view only — clearly labeled in the disclosure block.
+ * Once create-cert.mjs starts writing real `dimensions:{}` payloads,
+ * this fallback becomes unreachable and gets removed.
+ */
+function hashStr(s){
+  s = String(s || '');
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return h;
+}
+function deriveDimensions(cert){
+  if (cert && cert.dimensions && typeof cert.dimensions === 'object') {
+    // Real per-axis scores stored on the doc.
+    const out = {};
+    DIMENSIONS.forEach(d => {
+      const v = Number(cert.dimensions[d.key]);
+      out[d.key] = Number.isFinite(v) ? v : Number(cert.score) || 27;
+    });
+    return { dimensions: out, derived: false };
+  }
+  // Fallback derivation: composite ± small deterministic jitter.
+  const base = Number(cert && cert.score) || 27;
+  const h = hashStr((cert && cert.certId) || (cert && cert.id) || '0');
+  const out = {};
+  DIMENSIONS.forEach((d, i) => {
+    const slice = (h >> (i * 4)) & 0xff;
+    const jitter = ((slice / 255) - 0.5) * 0.6; // ±0.3 around composite
+    const v = base + jitter;
+    out[d.key] = Math.max(25, Math.min(30, v));
+  });
+  return { dimensions: out, derived: true };
+}
+
+function averageDimensions(certs){
+  // Aggregate per-axis across the user's certificates → the dashboard headline numbers.
+  if (!certs || !certs.length) {
+    const o = {};
+    DIMENSIONS.forEach(d => o[d.key] = null);
+    return { dimensions: o, derived: true };
+  }
+  const totals = {};
+  DIMENSIONS.forEach(d => totals[d.key] = { sum:0, n:0 });
+  let anyDerived = false;
+  certs.forEach(c => {
+    const { dimensions, derived } = deriveDimensions(c);
+    if (derived) anyDerived = true;
+    DIMENSIONS.forEach(d => {
+      const v = Number(dimensions[d.key]);
+      if (Number.isFinite(v)) { totals[d.key].sum += v; totals[d.key].n += 1; }
+    });
+  });
+  const out = {};
+  DIMENSIONS.forEach(d => {
+    out[d.key] = totals[d.key].n ? (totals[d.key].sum / totals[d.key].n) : null;
+  });
+  return { dimensions: out, derived: anyDerived };
+}
+
+function trendForAxis(certs, axisKey){
+  // Returns the chronological series of per-axis scores oldest → newest.
+  if (!certs || !certs.length) return [];
+  const sorted = certs.slice().sort((a,b) => (a.issuedAtMs||0) - (b.issuedAtMs||0));
+  return sorted.map(c => Number(deriveDimensions(c).dimensions[axisKey])).filter(Number.isFinite);
+}
+
+function deltaSinceFirst(series){
+  if (!series || series.length < 2) return null;
+  return series[series.length - 1] - series[0];
+}
+
+/* ───────── Sparkline SVG ─────────
+ * A 200×34 viewBox polyline. Pure SVG so it scales without canvas
+ * dependencies and prints cleanly. Used on each dimension card to
+ * give the user a one-glance read on their trajectory per axis.
+ */
+function sparkline(series){
+  const w = 200, h = 34, pad = 2;
+  const svg = el('svg', { class:'dim-card-spark', viewBox:`0 0 ${w} ${h}`, preserveAspectRatio:'none', 'aria-hidden':'true' });
+  if (!series || series.length === 0) {
+    const line = el('line', { x1:0, y1:h-pad, x2:w, y2:h-pad, stroke:'currentColor', 'stroke-width':1, 'stroke-dasharray':'2 4', opacity:'.3' });
+    svg.appendChild(line);
+    return svg;
+  }
+  if (series.length === 1) {
+    const cy = h/2;
+    const c = el('circle', { cx:w/2, cy, r:2.5, fill:'currentColor' });
+    svg.appendChild(c);
+    return svg;
+  }
+  // Map y from speaker-points range (25..30) → svg
+  const minY = 25, maxY = 30;
+  const xs = series.map((_,i) => pad + (i/(series.length-1)) * (w - pad*2));
+  const ys = series.map(v => {
+    const norm = (Math.max(minY, Math.min(maxY, v)) - minY) / (maxY - minY);
+    return h - pad - norm * (h - pad*2);
+  });
+  const d = xs.map((x,i) => (i===0?'M':'L') + x.toFixed(1) + ' ' + ys[i].toFixed(1)).join(' ');
+  const path = el('path', { d, fill:'none', stroke:'currentColor', 'stroke-width':1.4, 'stroke-linecap':'round', 'stroke-linejoin':'round' });
+  svg.appendChild(path);
+  const last = el('circle', { cx:xs[xs.length-1], cy:ys[ys.length-1], r:2.2, fill:'currentColor' });
+  svg.appendChild(last);
+  return svg;
+}
+
+/* ───────── Render: signed-out ───────── */
+function renderSignedOut(){
+  const root = document.getElementById('root');
+  root.innerHTML = '';
+  const state = el('div', { class:'state' }, [
+    el('h2', null, 'Your communication profile is private.'),
+    el('p', null, 'Sign in to see your five-axis profile, your level on the L1–L4 progression, and your full round history. Public verify URLs stay public; this dashboard is only visible to you.'),
+    el('div', null, [
+      el('button', { class:'btn btn-primary', onclick:signIn }, 'Sign in with Google'),
+      el('a', { class:'btn btn-ghost', href:'/credentials' }, 'About the certificate'),
+      el('a', { class:'btn btn-ghost', href:'/' }, 'See the main product'),
+    ]),
+  ]);
+  root.appendChild(state);
+  root.appendChild(buildProductFooter('Sign in to populate your private dashboard.'));
+}
+
+function renderError(msg){
+  const root = document.getElementById('root');
+  root.innerHTML = '';
+  root.appendChild(el('div', { class:'state' }, [
+    el('h2', null, 'Something went wrong'),
+    el('p', null, msg),
+    el('a', { class:'btn btn-ghost', href:'/credentials' }, 'Back to certificate info'),
+    el('a', { class:'btn btn-ghost', href:'/' }, 'Home'),
+  ]));
+  root.appendChild(buildProductFooter('Refresh and try again, or head back to the main product.'));
+}
+
+/* ───────── Render: empty (signed in, no certs) ───────── */
+function renderEmpty(user){
+  const root = document.getElementById('root');
+  root.innerHTML = '';
+  const card = el('div', { class:'state' }, [
+    el('h2', null, 'No assessments yet.'),
+    el('p', null, 'Your communication profile builds itself as you take judged voice rounds. The first assessment seeds your five-axis baseline; each subsequent round refines it. Score 27.0+ on any round to mint your first credential.'),
+    el('div', null, [
+      el('a', { class:'btn btn-primary', href:'/voice-debate' }, 'Take your first assessment'),
+      el('a', { class:'btn btn-ghost', href:'/credentials' }, 'About the certificate'),
+    ]),
+    el('p', { style:'margin-top:18px;font-size:.74rem;color:var(--text-ghost)' }, 'Signed in as ' + (user.displayName || user.email || 'you')),
+  ]);
+  root.appendChild(card);
+  root.appendChild(buildProductFooter('Your profile populates after your first assessment.'));
+}
+
+/* ───────── Render: dashboard ───────── */
+function renderDashboard({ user, summary, certs }){
+  const root = document.getElementById('root');
+  root.innerHTML = '';
+
+  const composite = Number(summary && summary.highestScore);
+  const tier = (summary && summary.highestTier) || 'novice';
+  const levelInfo = TIER_LEVELS[tier] || TIER_LEVELS.novice;
+  const total = (summary && summary.totalCount) || certs.length || 0;
+
+  // ─ Head strip ─
+  const headStrip = el('div', { class:'head-strip' });
+
+  const idCard = el('div', { class:'id-card' }, [
+    el('div', { class:'id-eyebrow' }, 'Communication profile'),
+    el('div', { class:'id-name' }, user.displayName || user.email || 'Your profile'),
+    el('div', { class:'id-meta' }, total + ' assessment' + (total === 1 ? '' : 's') + ' on file'),
+    el('div', { style:'margin-top:auto;padding-top:14px;font-size:.74rem;color:var(--text-ghost)' }, [
+      el('a', { href:'#', onclick:(e) => { e.preventDefault(); signOut(); }, style:'color:var(--text-ghost);text-decoration:none;border-bottom:1px dashed var(--border)' }, 'Sign out'),
+    ]),
+  ]);
+
+  const compositeCard = el('div', { class:'composite-card' }, [
+    el('div', { class:'composite-eyebrow' }, 'Highest composite'),
+    el('div', { class:'composite-val' }, Number.isFinite(composite) ? composite.toFixed(1) : '—'),
+    el('div', { class:'composite-of' }, 'of 30 · academic scale'),
+    el('div', { style:'margin-top:auto;padding-top:10px;font-size:.78rem;color:var(--text-dim);line-height:1.5' },
+      'Tier: ' + (tier.charAt(0).toUpperCase() + tier.slice(1)) + ' · CEFR ' + levelInfo.cefr),
+  ]);
+
+  const levelCard = el('div', { class:'level-card' }, [
+    el('div', { class:'level-eyebrow' }, 'Current level'),
+    el('div', { class:'level-pill' + (tier === 'champion' ? ' champion' : '') }, levelInfo.level + ' · ' + levelInfo.label),
+    el('div', { class:'level-name' }, levelLabelLong(tier)),
+    el('div', { style:'margin-top:auto;padding-top:10px;font-size:.78rem;color:var(--text-ghost);line-height:1.5' }, 'Next: ' + levelInfo.next),
+  ]);
+
+  headStrip.appendChild(idCard);
+  headStrip.appendChild(compositeCard);
+  headStrip.appendChild(levelCard);
+  root.appendChild(headStrip);
+
+  // ─ Dimension cards ─
+  const dimSection = el('div', { class:'dim-section' });
+  dimSection.appendChild(el('h2', { class:'section-h' }, 'Five-axis profile'));
+  dimSection.appendChild(el('p', { class:'section-sub' }, 'Each axis is averaged across all your assessments. The sparkline below shows the trend round over round, oldest left, newest right.'));
+  const dimGrid = el('div', { class:'dim-grid' });
+
+  const agg = averageDimensions(certs);
+  const anyDerived = agg.derived;
+
+  DIMENSIONS.forEach(d => {
+    const val = agg.dimensions[d.key];
+    const series = trendForAxis(certs, d.key);
+    const delta = deltaSinceFirst(series);
+    const deltaText = (delta == null) ? (series.length === 1 ? 'First round — baseline set' : 'Trend will appear after round 2') :
+      (delta >= 0 ? '+' : '') + delta.toFixed(2) + ' since first round';
+    const deltaClass = (delta == null) ? '' : (delta >= 0 ? 'up' : 'down');
+
+    const card = el('div', { class:'dim-card' }, [
+      el('div', { class:'dim-card-name' }, d.name),
+      el('div', { class:'dim-card-val' }, Number.isFinite(val) ? val.toFixed(1) : '—'),
+      el('div', { class:'dim-card-delta' + (deltaClass ? ' ' + deltaClass : '') }, deltaText),
+      el('div', { class:'dim-card-note' }, d.hint),
+      sparkline(series),
+    ]);
+    dimGrid.appendChild(card);
+  });
+  dimSection.appendChild(dimGrid);
+  root.appendChild(dimSection);
+
+  // ─ Strengths / Needs ─
+  const ranked = DIMENSIONS
+    .map(d => ({ d, v: Number(agg.dimensions[d.key]) }))
+    .filter(x => Number.isFinite(x.v))
+    .sort((a,b) => b.v - a.v);
+
+  const strengths = ranked.slice(0, 2);
+  const weakest = ranked.slice(-2).reverse(); // lowest first
+
+  const coach = el('div', { class:'coach' });
+  coach.appendChild(el('div', { class:'coach-card' }, [
+    el('div', { class:'coach-eyebrow' }, 'Strengths'),
+    coachList(strengths, 'Drill this less'),
+  ]));
+  coach.appendChild(el('div', { class:'coach-card' }, [
+    el('div', { class:'coach-eyebrow' }, 'Needs improvement'),
+    coachList(weakest, 'Drill this next'),
+  ]));
+  root.appendChild(coach);
+
+  // ─ Round history ─
+  const histSection = el('div', { class:'history-section' });
+  histSection.appendChild(el('h2', { class:'section-h' }, 'Round history'));
+  histSection.appendChild(el('p', { class:'section-sub' }, 'Every assessment, linked to its public verify URL. Use these links on applications and resumes.'));
+
+  const history = el('div', { class:'history' });
+  history.appendChild(headerRow());
+  certs.slice(0, 24).forEach(c => history.appendChild(historyRow(c)));
+  if (certs.length === 0) {
+    history.appendChild(el('div', { class:'history-row', style:'color:var(--text-ghost);font-style:italic' }, 'No assessments yet. Take one to start building this list.'));
+  }
+  histSection.appendChild(history);
+  root.appendChild(histSection);
+
+  // ─ Disclosure ─
+  if (anyDerived) {
+    root.appendChild(el('div', { class:'disclosure', html:
+      '<b>Provisional five-axis decomposition.</b> Today\'s credentials store the composite speaker-points score; the per-axis scores you see above are derived from the composite as a placeholder. As we ship the multi-dimension scoring update on the assessment backend, future rounds will write real per-axis numbers and the values shown here will update accordingly. Composite scores, tier, and verify URLs are real and unchanged.'
+    }));
+  }
+
+  // ─ Footer (shared "product footer" pattern for SEO link-back) ─
+  root.appendChild(buildProductFooter('Your communication profile updates automatically as you take assessments.'));
+}
+
+/* Renders the rich product footer used on /credentials, /verify, and
+ * here. Funnels newcomers landing on a sublink page back to / with
+ * varied anchor text. Returns a detached <footer> node. */
+function buildProductFooter(metaLine){
+  const exploreLinks = [
+    ['/',                       'Home'],
+    ['/voice-debate',           'Live voice round'],
+    ['/spar',                   'Spar with humans'],
+    ['/credentials',            'The certificate'],
+    ['/communication-profile',  'Your profile'],
+    ['/pricing',                'Pricing'],
+    ['/schools',                'For schools'],
+    ['/changelog',              "What's new"],
+  ];
+
+  const exploreList = el('ul', null,
+    exploreLinks.map(([href, label]) =>
+      el('li', null, el('a', { href }, label))
+    )
+  );
+
+  const pitchPara = el('p', null, [
+    el('a', { href:'/' }, 'Debate It'),
+    document.createTextNode(' is a live voice trainer for argument under pressure. Pick a motion, pick a side, debate an AI opponent or a real human across 14 languages and a dozen formats — APDA, BP, WSDC, Policy, LD, PF, Asian Parli, MUN, and more. Your communication profile here is one feature of the broader product — '),
+    el('a', { href:'/' }, 'open the home page'),
+    document.createTextNode(' to see the rest.'),
+  ]);
+
+  const pfFoot = el('div', { class:'pf-foot' }, [
+    el('span', { class:'pf-foot-meta' }, [
+      'Debate It™ · ',
+      el('a', { href:'/' }, 'debateit.com'),
+      ' · ' + (metaLine || ''),
+    ]),
+    el('span', { class:'pf-foot-links' }, [
+      el('a', { href:'/terms' }, 'Terms'),
+      el('a', { href:'/privacy' }, 'Privacy'),
+      el('a', { href:'/changelog' }, 'Changelog'),
+    ]),
+  ]);
+
+  return el('footer', { class:'product-footer' }, [
+    el('div', { class:'pf-wrap' }, [
+      el('div', { class:'pf-pitch' }, [
+        el('div', { class:'pf-eyebrow' }, 'Debate It™ · also known as Debate AI / Debatable'),
+        el('h2', { class:'pf-h' }, 'Argue better, out loud.'),
+        pitchPara,
+        el('a', { class:'pf-cta', href:'/' }, 'Open the main product →'),
+      ]),
+      el('div', { class:'pf-explore' }, [
+        el('div', { class:'pf-eyebrow' }, 'Explore'),
+        exploreList,
+      ]),
+    ]),
+    pfFoot,
+  ]);
+}
+
+function coachList(items, hint){
+  const ul = el('ul', { class:'coach-list' });
+  if (!items.length) {
+    ul.appendChild(el('li', { class:'coach-row-hint' }, 'Run an assessment to populate this panel.'));
+    return ul;
+  }
+  items.forEach(it => {
+    ul.appendChild(el('li', null, [
+      el('div', { class:'coach-row' }, [
+        el('span', { class:'coach-row-name' }, it.d.name),
+        el('span', { class:'coach-row-val' }, it.v.toFixed(2) + ' / 30'),
+      ]),
+      el('div', { class:'coach-row-hint' }, it.d.hint),
+    ]));
+  });
+  return ul;
+}
+
+function headerRow(){
+  return el('div', { class:'history-row head' }, [
+    el('div', null, 'Motion'),
+    el('div', null, 'Format'),
+    el('div', null, 'Side'),
+    el('div', null, 'Score'),
+    el('div', null, 'Verify'),
+  ]);
+}
+
+function historyRow(c){
+  const motion = c.motion || c.topic || 'Untitled round';
+  const date = fmtDate(c.issuedAtMs);
+  const fmtKey = (c.format || '').toLowerCase();
+  const fmtLabel = FORMAT_LABELS[fmtKey] || (c.formatLabel || c.format || '—');
+  const side = c.sideLabel || (c.side ? (c.side.charAt(0).toUpperCase() + c.side.slice(1)) : '—');
+  const score = Number(c.score);
+  const verifyUrl = '/verify/' + (c.certId || c.id || '');
+
+  return el('div', { class:'history-row' }, [
+    el('div', { class:'history-motion', 'data-label':'Motion' }, [
+      document.createTextNode(motion.length > 110 ? motion.slice(0, 107) + '…' : motion),
+      el('span', { class:'h-sub' }, date + (c.tier ? ' · ' + (c.tier.charAt(0).toUpperCase() + c.tier.slice(1)) : '')),
+    ]),
+    el('div', { class:'history-format', 'data-label':'Format' }, fmtLabel),
+    el('div', { class:'history-side', 'data-label':'Side' }, side),
+    el('div', { class:'history-score', 'data-label':'Score' }, Number.isFinite(score) ? score.toFixed(1) : '—'),
+    el('div', { class:'history-link', 'data-label':'Verify' }, [
+      el('a', { href:verifyUrl, target:'_blank', rel:'noopener' }, 'Open ↗'),
+    ]),
+  ]);
+}
+
+function levelLabelLong(tier){
+  switch (tier) {
+    case 'champion': return 'Final-round caliber. Top of the room. Leadership-grade live communication.';
+    case 'circuit':  return 'Professional persuasion. Above the median speaker in any varsity room.';
+    case 'varsity':  return 'Structured argument and explanation. Holding up under correction.';
+    case 'novice':
+    default:         return 'Conversational communication. Real arguments under live pressure.';
+  }
+}
+
+/* ───────── Hydration ───────── */
+async function hydrate(user){
+  if (!db) { renderError('Database connection failed. Refresh and try again.'); return; }
+
+  let summary = null;
+  let certs = [];
+
+  try {
+    const summarySnap = await db.collection('user_certificates').doc(user.uid).get();
+    summary = summarySnap.exists ? summarySnap.data() : null;
+  } catch (e) {
+    console.warn('[profile] summary read failed:', e);
+  }
+
+  try {
+    const certSnap = await db.collection('certificates')
+      .where('uid', '==', user.uid)
+      .orderBy('issuedAtMs', 'desc')
+      .limit(50).get();
+    certs = certSnap.docs.map(d => Object.assign({ certId: d.id }, d.data()));
+  } catch (e) {
+    console.warn('[profile] indexed cert read failed, falling back:', e && e.message);
+    try {
+      const fb = await db.collection('certificates').where('uid', '==', user.uid).limit(50).get();
+      certs = fb.docs.map(d => Object.assign({ certId: d.id }, d.data()))
+                     .sort((a,b) => (b.issuedAtMs||0) - (a.issuedAtMs||0));
+    } catch (e2) {
+      console.warn('[profile] fallback cert read failed:', e2);
+    }
+  }
+
+  if (!summary && certs.length === 0) {
+    renderEmpty(user);
+    return;
+  }
+
+  // If we don't have a summary doc but do have certs, synthesize one from the cert list.
+  if (!summary && certs.length) {
+    const top = certs.reduce((m, c) => (Number(c.score) > Number(m.score || 0) ? c : m), { score: 0 });
+    summary = {
+      totalCount: certs.length,
+      highestTier: top.tier || 'novice',
+      highestScore: Number(top.score) || null,
+    };
+  }
+
+  renderDashboard({ user, summary, certs });
+  try { gtag('event', 'profile_view', { tier: summary.highestTier || 'novice', count: summary.totalCount || certs.length }); } catch(e){}
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+
+</body>
+</html>

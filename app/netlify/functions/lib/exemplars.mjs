@@ -278,6 +278,24 @@ export async function applyExemplars(body) {
   }
 }
 
+// Returns the formatted REFERENCE ROUNDS block (or '') for explicit args,
+// without mutating any body or stripping meta fields. The split-path caller
+// (claude.mjs) uses this so it can place the block in the UNCACHED tail —
+// reference rounds vary per motion, so they'd never get a cache hit and must
+// not sit in the cached prefix. Gate matches applyExemplars exactly.
+export async function getExemplarBlock({ feature, motion, format, side } = {}) {
+  if (!EXEMPLAR_FEATURES.has(feature)) return '';
+  if (!format || !motion) return '';
+  try {
+    const exemplars = await getExemplars({ motion, format, side });
+    if (!exemplars.length) return '';
+    return formatExemplarsBlock(exemplars);
+  } catch (err) {
+    console.warn('[getExemplarBlock]', err.message);
+    return '';
+  }
+}
+
 // Cleanup for tests / cold starts.
 export function _resetExemplarCache() {
   adminCache = { uids: null, weights: null, at: 0 };

@@ -12,6 +12,8 @@ const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
+  'https://debateit.com',
+  'https://www.debateit.com',
   'https://debateai.com',
   'https://www.debateai.com',
 ];
@@ -101,7 +103,7 @@ const ELEVENLABS_VOICES = {
 // ─────────────────────────────────────────────────────────────────────
 // PER-LANGUAGE VOICE RESOLUTION
 // ─────────────────────────────────────────────────────────────────────
-// The app supports 14 UI languages (see LANGUAGES in debate-ai.html:
+// The app supports 14 UI languages (see LANGUAGES in debate-it.html:
 // en, es, fr, de, it, pt, zh, ja, ko, hi, ar, ru, tr, nl). When the
 // user picks a non-English language, we want the persona to speak
 // with a native accent of that language, not just English-with-Hindi-

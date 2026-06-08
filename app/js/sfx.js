@@ -35,7 +35,7 @@
  *   SFX.mute() / unmute() / toggleMute() / isMuted()
  *
  * Compatible with the SFX object that already exists inline inside
- * debate-ai.html (different methods, no clash). debate-ai.html keeps
+ * debate-it.html (different methods, no clash). debate-it.html keeps
  * its richer ambience system; other pages use this module.
  */
 (function(){
@@ -265,7 +265,7 @@
   }
 
   // ── Round-clock sounds ─────────────────────────────────────────────
-  // The useTimer in debate-ai.html historically fired raw `beep()` calls
+  // The useTimer in debate-it.html historically fired raw `beep()` calls
   // against its own AudioContext, which (a) duplicated boilerplate and
   // (b) bypassed the global mute. Both now route through SFX so the
   // speaker toggle in the topbar actually silences the room. Pitches
@@ -306,12 +306,17 @@
   // Sustained two-oscillator drone that signals "model is working on
   // your reply." Returns a stop function so the caller can fade it out
   // when generation finishes. Mirrors the shape of the inline ambience
-  // in debate-ai.html so /voice-debate's "thinking" beat sounds like
+  // in debate-it.html so /voice-debate's "thinking" beat sounds like
   // the same product. Low carrier with a 2Hz LFO = heartbeat; mid pad
   // with a 0.6Hz LFO = warm shimmer. A short rising starter chime gives
   // the user an immediate "starting" cue (the bare ambience is so quiet
   // some users couldn't tell anything was happening).
   function thinking(){
+    // RESTORED 2026-05-24 per user request ("i miss the sound effect on
+    // the orb when it was loading for debate AI page"). Scoped revert
+    // of the 2026-05-21 blanket "no ambient audio" removal: the
+    // thinking ambience is contextual (gated to AI generation), unlike
+    // the uninvited landing-scroll ambient() swells which stay no-op'd.
     if (isMuted()) return function(){};
     var c = getCtx();
     if (!c) return function(){};
@@ -334,7 +339,7 @@
       cO.start(t0); cO.stop(t0 + 0.34);
     } catch(e){}
 
-    // Low carrier — 80Hz sine with 2Hz LFO modulation on gain.
+    // Low carrier — 80Hz sine with 2Hz LFO modulation on gain = heartbeat.
     try {
       var o = c.createOscillator();
       var g = c.createGain();
@@ -351,7 +356,7 @@
       nodes.push(o, lfo, g);
     } catch(e){}
 
-    // Mid pad — 240Hz sine with slower 0.6Hz LFO for a warm shimmer.
+    // Mid pad — 240Hz sine with slower 0.6Hz LFO = warm shimmer.
     try {
       var o2 = c.createOscillator();
       var g2 = c.createGain();
@@ -396,48 +401,9 @@
   // 'high') to vary the fundamental between section transitions so
   // consecutive triggers don't feel like the same note repeating.
   function ambient(opts){
-    opts = opts || {};
-    if (isMuted()) return;
-    var c = getCtx();
-    if (!c) return;
-    ensureRunning();
-    var t0 = c.currentTime;
-    var fund = opts.pitch === 'low' ? 88
-             : opts.pitch === 'high' ? 196
-             : 132;  // mid (C#3 territory)
-    var partial = fund * 2;  // octave above for shimmer
-    // Carrier: low sine. Attack 0.3s, sustain 0.4s, release 0.55s.
-    try {
-      var o = c.createOscillator();
-      var g = c.createGain();
-      o.connect(g); g.connect(c.destination);
-      o.type = 'sine';
-      o.frequency.value = fund;
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(0.07 * MASTER_GAIN, t0 + 0.30);
-      g.gain.setValueAtTime(0.07 * MASTER_GAIN, t0 + 0.70);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.25);
-      o.start(t0); o.stop(t0 + 1.30);
-    } catch(e){}
-    // Octave shimmer with slow LFO so it doesn't read as a second note.
-    try {
-      var o2 = c.createOscillator();
-      var g2 = c.createGain();
-      var lfo = c.createOscillator();
-      var lfoG = c.createGain();
-      o2.connect(g2); g2.connect(c.destination);
-      o2.type = 'sine';
-      o2.frequency.value = partial;
-      lfo.connect(lfoG); lfoG.connect(g2.gain);
-      lfo.frequency.value = 0.8; lfo.type = 'sine';
-      lfoG.gain.value = 0.008 * MASTER_GAIN;
-      g2.gain.setValueAtTime(0, t0);
-      g2.gain.linearRampToValueAtTime(0.022 * MASTER_GAIN, t0 + 0.45);
-      g2.gain.setValueAtTime(0.022 * MASTER_GAIN, t0 + 0.70);
-      g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.25);
-      o2.start(t0); lfo.start(t0);
-      o2.stop(t0 + 1.30); lfo.stop(t0 + 1.30);
-    } catch(e){}
+    // Brain-wave / focus ambience swell removed 2026-05-21 per user
+    // request (no ambient background audio anywhere in the app). No-op.
+    return;
   }
 
   // ── Public API ─────────────────────────────────────────────────────
@@ -451,14 +417,14 @@
   //                          NOT a celebration — it's a cut, not a win)
   //   end       → confirm  (session ended cleanly; warm closing chime)
   //
-  // MERGE, don't replace. debate-ai.html has an inline `const SFX = {...}`
+  // MERGE, don't replace. debate-it.html has an inline `const SFX = {...}`
   // with richer methods (startRound, thinking, ready, preparing, etc.)
   // that get hoisted to window.SFX after Babel transpiles the inline
   // text/babel script (const → var → window prop). topbar.js then
   // injects this file deferred, AFTER the inline scope has already
   // populated window.SFX. A bare `window.SFX = {...}` here would clobber
   // those page-specific methods, breaking Quick Clash + every other
-  // round-start path on debate-ai.html (the user got
+  // round-start path on debate-it.html (the user got
   // "SFX.startRound is not a function" the moment they clicked START
   // ROUND). Object.assign with the existing SFX as the LAST source
   // means page-specific methods win on conflicting keys, and pages

@@ -4,7 +4,10 @@
 <meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <meta name=robots content="noindex,nofollow">
-<title>Copy editor — DebateAI</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Copy editor · DebateIt</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
@@ -48,27 +51,46 @@
 </head>
 <body>
 <div class=topbar>
-  <h1>Copy editor <span class=dim>· DebateAI</span></h1>
+  <h1>Copy editor <span class=dim>· DebateIt</span></h1>
   <select id=page>
-    <option value=/landing.html>landing.html</option>
-    <option value=/debate-ai.html>debate-ai.html</option>
-    <option value=/story.html>story.html (about)</option>
-    <option value=/pricing.html>pricing.html</option>
-    <option value=/voice-debate.html>voice-debate.html</option>
-    <option value=/spar.html>spar.html</option>
-    <option value=/learn.html>learn.html</option>
-    <option value=/counter.html>counter.html</option>
-    <option value=/schools.html>schools.html</option>
-    <option value=/uwc.html>uwc.html</option>
-    <option value=/high-school.html>high-school.html</option>
-    <option value=/india.html>india.html</option>
-    <option value=/us.html>us.html</option>
-    <option value=/report.html>report.html</option>
-    <option value=/community.html>community.html</option>
-    <option value=/leaderboard.html>leaderboard.html</option>
-    <option value=/changelog.html>changelog.html</option>
-    <option value=/splash.html>splash.html</option>
-    <option value=/index.html>index.html</option>
+    <optgroup label="Main">
+      <option value=/landing.html>landing.html · Home</option>
+      <option value=/voice-debate.html>voice-debate.html · Voice</option>
+      <option value=/live.html>live.html · Live</option>
+      <option value=/index.html>index.html · App</option>
+    </optgroup>
+    <optgroup label="Audience / SEO">
+      <option value=/schools.html>schools.html</option>
+      <option value=/high-school.html>high-school.html</option>
+      <option value=/us.html>us.html</option>
+      <option value=/india.html>india.html</option>
+    </optgroup>
+    <optgroup label="Content / community">
+      <option value=/community.html>community.html</option>
+      <option value=/leaderboard.html>leaderboard.html</option>
+      <option value=/learn.html>learn.html</option>
+      <option value=/story.html>story.html · About</option>
+      <option value=/changelog.html>changelog.html</option>
+      <option value=/report.html>report.html</option>
+    </optgroup>
+    <optgroup label="Tools">
+      <option value=/spar.html>spar.html</option>
+      <option value=/counter.html>counter.html</option>
+      <option value=/debate-it.html>debate-it.html</option>
+      <option value=/debate-it-tools.html>debate-it-tools.html</option>
+      <option value=/debate-case-generator.html>debate-case-generator.html</option>
+      <option value=/debate-topic-generator.html>debate-topic-generator.html</option>
+      <option value=/ai-debate-practice.html>ai-debate-practice.html</option>
+      <option value=/prediction-market-debate.html>prediction-market-debate.html</option>
+    </optgroup>
+    <optgroup label="Legal / misc">
+      <option value=/pricing.html>pricing.html</option>
+      <option value=/privacy.html>privacy.html</option>
+      <option value=/privacy-extension.html>privacy-extension.html</option>
+      <option value=/terms.html>terms.html</option>
+      <option value=/splash.html>splash.html</option>
+      <option value=/404.html>404.html</option>
+    </optgroup>
   </select>
   <input type=text id=urlinput placeholder="or paste any path under app/ (e.g. /pro.html)" autocomplete=off spellcheck=false>
   <button id=load>Load</button>
@@ -85,9 +107,8 @@
     </div>
     <div class=changes id=changes></div>
     <div class=footer>
-      <div class=hint>Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (Shift+Enter for a line break). Toolbar at the bottom of the iframe controls font / size / weight / italic / align / color / width / move.</div>
-      <div style="margin-top:8px;color:#6b7290"><strong style="color:#c9cee1">Multi-select</strong> Shift+click to add/remove. Drag in empty space to marquee-select. Drag any selected block to move the whole group; orange guides snap within 4px. Arrow keys nudge (Shift+arrow = 10px). One block selected = 8 resize handles. <kbd>Esc</kbd> clears selection.</div>
-      <div style="margin-top:8px;color:#6b7290"><strong style="color:#c9cee1">Move</strong> toggles drag-to-reposition (applies <code>transform: translate(...)</code>). When you're done: <strong style="color:#c9cee1">Export</strong> &rarr; paste in chat.</div>
+      <div class=hint>Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (use Shift+Enter for a line break). A floating style toolbar appears at the bottom of the iframe when an element is active: font size, bold, alignment, color.</div>
+      <div style="margin-top:8px;color:#6b7290">When you're done: <strong style="color:#c9cee1">Export</strong> &rarr; paste the JSON into chat &rarr; I'll apply + push.</div>
     </div>
   </aside>
 </main>
@@ -216,47 +237,6 @@
   let activeOriginalStyleAttr = '';
   let activeDoc = null;
   let toolbarPickingColor = false;
-  let toolbarPickingFont = false;
-  let toolbarPickingWeight = false;
-  let moveMode = false;
-  let dragState = null;
-
-  // ─── multi-select / canva-like editing state ───
-  const selection = new Set();           // HTMLElements currently selected in iframe doc
-  let marqueeState = null;               // {startX,startY,pointerId,doc,didDrag,additive}
-  let groupDragState = null;             // see startGroupDrag
-  let resizeState = null;                // {el,handle,doc,startX,startY,startRect,origStyle,pointerId}
-  let suppressNextClick = false;         // a drag/marquee just resolved; eat the trailing click
-  const arrowBaseStyles = new Map();     // el -> style attr captured at start of an arrow-nudge burst
-  let arrowCommitTimer = null;
-  function setSuppressClick() {
-    suppressNextClick = true;
-    clearTimeout(setSuppressClick._t);
-    setSuppressClick._t = setTimeout(() => { suppressNextClick = false; }, 250);
-  }
-
-  const FONTS = [
-    { label: 'Default (page CSS)', value: '' },
-    { label: 'System', value: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
-    { label: 'Inter', value: 'Inter, ui-sans-serif, system-ui, sans-serif' },
-    { label: 'Fraunces (serif)', value: 'Fraunces, Georgia, "Times New Roman", serif' },
-    { label: 'Georgia (serif)', value: 'Georgia, "Times New Roman", serif' },
-    { label: 'Times (serif)', value: '"Times New Roman", Times, serif' },
-    { label: 'Caveat (handwritten)', value: 'Caveat, "Comic Sans MS", cursive' },
-    { label: 'Courier (mono)', value: '"Courier New", Courier, ui-monospace, monospace' },
-    { label: 'Menlo (mono)', value: 'Menlo, Monaco, ui-monospace, monospace' }
-  ];
-
-  const WEIGHTS = [
-    { label: 'Weight', value: '' },
-    { label: '300 Light', value: '300' },
-    { label: '400 Regular', value: '400' },
-    { label: '500 Medium', value: '500' },
-    { label: '600 Semibold', value: '600' },
-    { label: '700 Bold', value: '700' },
-    { label: '800 Extrabold', value: '800' },
-    { label: '900 Black', value: '900' }
-  ];
 
   function pageOf(doc) {
     try {
@@ -277,11 +257,6 @@
       path.push(s);
     }
     return path.reverse().join(' > ');
-  }
-  function parseTranslate(t) {
-    if (!t) return { x: 0, y: 0 };
-    const m = t.match(/translate\(\s*(-?\d+(?:\.\d+)?)px\s*,\s*(-?\d+(?:\.\d+)?)px\s*\)/);
-    return m ? { x: parseFloat(m[1]), y: parseFloat(m[2]) } : { x: 0, y: 0 };
   }
   const SKIP_TAGS = new Set(['SCRIPT','STYLE','SVG','PATH','IMG','VIDEO','IFRAME','INPUT','TEXTAREA','SELECT','OPTION','META','LINK','HTML','HEAD','BODY','BR','HR','CANVAS','PICTURE','SOURCE','OBJECT','EMBED','DEFS','USE','G','CIRCLE','RECT','LINE','POLYGON','POLYLINE','ELLIPSE','TEXT','TSPAN','NOSCRIPT','TEMPLATE','HEADER','FOOTER','MAIN','NAV','SECTION','ARTICLE','ASIDE','UL','OL','DL','TABLE','TBODY','THEAD','TFOOT','TR','FORM','FIELDSET','DETAILS','SUMMARY','DIALOG']);
   function isEditable(el) {
@@ -308,25 +283,23 @@
           '[data-copyedit] { transition: outline-color 0.1s, background-color 0.1s; }\n' +
           '[data-copyedit]:hover { outline: 2px dashed #e23847 !important; outline-offset: 1px !important; cursor: text !important; }\n' +
           '[data-copyedit][contenteditable=true] { outline: 2px solid #e23847 !important; outline-offset: 1px !important; background: rgba(226,56,71,0.08) !important; box-shadow: 0 0 0 4px rgba(226,56,71,0.12) !important; }\n' +
-          '[data-copyedit][data-copyedit-moving] { outline: 2px dashed #38bdf8 !important; box-shadow: 0 0 0 4px rgba(56,189,248,0.18) !important; }\n' +
-          '[data-copyedit][data-copyedit-selected] { outline: 2px dashed #38bdf8 !important; outline-offset: 3px !important; }\n' +
-          '#__copyedit_selection_overlay { position: fixed; inset: 0; pointer-events: none; z-index: 2147483646; }\n' +
-          '.__copyedit_resize_handle { position: fixed; width: 10px; height: 10px; background: #fff; border: 1.5px solid #e23847; border-radius: 2px; pointer-events: auto; z-index: 2147483646; box-shadow: 0 0 0 1px rgba(0,0,0,0.18); }\n' +
-          '.__copyedit_corner_dot { position: fixed; width: 8px; height: 8px; background: #38bdf8; border: 1.5px solid #fff; border-radius: 2px; pointer-events: none; z-index: 2147483646; }\n' +
-          '#__copyedit_marquee_box { position: fixed; border: 1px dashed #38bdf8; background: rgba(56,189,248,0.10); pointer-events: none; z-index: 2147483645; display: none; }\n' +
-          '#__copyedit_guide_v { position: fixed; width: 1px; background: #f59e0b; z-index: 2147483646; pointer-events: none; display: none; box-shadow: 0 0 0 1px rgba(0,0,0,0.04); }\n' +
-          '#__copyedit_guide_h { position: fixed; height: 1px; background: #f59e0b; z-index: 2147483646; pointer-events: none; display: none; box-shadow: 0 0 0 1px rgba(0,0,0,0.04); }\n' +
-          '#__copyedit_toolbar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: #0f1422; color: #e8eaf0; border: 1px solid #2a3050; border-radius: 10px; padding: 8px 10px; z-index: 2147483647; box-shadow: 0 12px 32px rgba(0,0,0,0.5); display: none; gap: 6px; align-items: center; font: 12px/1.2 ui-sans-serif, system-ui, sans-serif; user-select: none; max-width: calc(100vw - 32px); flex-wrap: wrap; }\n' +
+          '[data-copyedit-group] { outline: 2px solid #4f8df8 !important; outline-offset: 2px !important; box-shadow: 0 0 0 4px rgba(79,141,248,0.12) !important; }\n' +
+          '#__copyedit_toolbar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: #0f1422; color: #e8eaf0; border: 1px solid #2a3050; border-radius: 10px; padding: 8px 10px; z-index: 2147483647; box-shadow: 0 12px 32px rgba(0,0,0,0.5); display: none; flex-direction: column; gap: 6px; font: 12px/1.2 ui-sans-serif, system-ui, sans-serif; user-select: none; max-width: calc(100vw - 24px); }\n' +
           '#__copyedit_toolbar.on { display: flex; }\n' +
-          '#__copyedit_toolbar .label { color: #8a92ad; padding: 0 6px 0 4px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
+          '#__copyedit_toolbar .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }\n' +
+          '#__copyedit_toolbar .label { color: #8a92ad; padding: 0 6px 0 4px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
           '#__copyedit_toolbar .sep { width: 1px; height: 18px; background: #2a3050; }\n' +
-          '#__copyedit_toolbar button, #__copyedit_toolbar select { background: #1a1f33; color: #e8eaf0; border: 1px solid #2a3050; padding: 5px 9px; border-radius: 5px; font: inherit; cursor: pointer; min-width: 28px; }\n' +
-          '#__copyedit_toolbar button:hover, #__copyedit_toolbar select:hover { background: #232842; }\n' +
+          '#__copyedit_toolbar .mini { color: #8a92ad; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 0 2px 0 6px; }\n' +
+          '#__copyedit_toolbar button { background: #1a1f33; color: #e8eaf0; border: 1px solid #2a3050; padding: 5px 9px; border-radius: 5px; font: inherit; cursor: pointer; min-width: 28px; }\n' +
+          '#__copyedit_toolbar button:hover { background: #232842; }\n' +
           '#__copyedit_toolbar button.on { background: #e23847; border-color: #e23847; color: #fff; }\n' +
-          '#__copyedit_toolbar button[data-action=move].on { background: #38bdf8; border-color: #38bdf8; color: #0a0e16; }\n' +
           '#__copyedit_toolbar .val { color: #c9cee1; min-width: 36px; text-align: center; }\n' +
-          '#__copyedit_toolbar select { padding: 5px 6px; min-width: 0; max-width: 130px; }\n' +
-          '#__copyedit_toolbar input[type=color] { width: 28px; height: 28px; padding: 0; border: 1px solid #2a3050; background: transparent; border-radius: 5px; cursor: pointer; }\n';
+          '#__copyedit_toolbar input[type=color] { width: 28px; height: 28px; padding: 0; border: 1px solid #2a3050; background: transparent; border-radius: 5px; cursor: pointer; }\n' +
+          '#__copyedit_toolbar input[type=range] { width: 90px; accent-color: #e23847; }\n' +
+          '#__copyedit_toolbar select { background: #1a1f33; color: #e8eaf0; border: 1px solid #2a3050; padding: 4px 6px; border-radius: 5px; font: inherit; cursor: pointer; max-width: 130px; }\n' +
+          '#__copyedit_toolbar .crumb { display: flex; gap: 3px; align-items: center; }\n' +
+          '#__copyedit_toolbar .crumb-step { background: #1a1f33; color: #8a92ad; border: 1px solid #2a3050; padding: 3px 7px; border-radius: 4px; font-size: 10px; cursor: pointer; }\n' +
+          '#__copyedit_toolbar .crumb-step.on { background: #e23847; border-color: #e23847; color: #fff; }\n';
         doc.head.appendChild(s);
       }
       if (!doc.getElementById('__copyedit_toolbar')) injectToolbar(doc);
@@ -340,51 +313,111 @@
   function injectToolbar(doc) {
     const t = doc.createElement('div');
     t.id = '__copyedit_toolbar';
-    const fontOpts = FONTS.map(f => `<option value="${f.value.replace(/"/g, '&quot;')}">${f.label}</option>`).join('');
-    const weightOpts = WEIGHTS.map(w => `<option value="${w.value}">${w.label}</option>`).join('');
     t.innerHTML =
-      '<span class=label data-role=label>—</span>' +
-      '<span class=sep></span>' +
-      '<select data-action="font" data-role=font title="Font family">' + fontOpts + '</select>' +
-      '<span class=sep></span>' +
-      '<button data-action="size-down" title="Smaller">A−</button>' +
-      '<span class=val data-role=size>—</span>' +
-      '<button data-action="size-up" title="Larger">A+</button>' +
-      '<span class=sep></span>' +
-      '<button data-action="bold" title="Bold" data-role=bold style="font-weight:800">B</button>' +
-      '<button data-action="italic" title="Italic (toggle italic ↔ normal)" data-role=italic style="font-style:italic;font-family:Georgia,serif">I</button>' +
-      '<select data-action="weight" data-role=weight title="Font weight">' + weightOpts + '</select>' +
-      '<span class=sep></span>' +
-      '<button data-action="align-left" title="Left" data-role=al>L</button>' +
-      '<button data-action="align-center" title="Center" data-role=ac>C</button>' +
-      '<button data-action="align-right" title="Right" data-role=ar>R</button>' +
-      '<span class=sep></span>' +
-      '<button data-action="width-down" title="Narrower">W−</button>' +
-      '<span class=val data-role=width>—</span>' +
-      '<button data-action="width-up" title="Wider">W+</button>' +
-      '<span class=sep></span>' +
-      '<input type=color data-action="color" title="Text color">' +
-      '<span class=sep></span>' +
-      '<button data-action="parent" title="Select this element’s container (walk up the DOM). Auto-enters Move mode so you can drag the whole block.">↑ Parent</button>' +
-      '<span class=sep></span>' +
-      '<button data-action="move" data-role=move title="Toggle drag-to-reposition (uses transform: translate)">⇄ Move</button>' +
-      '<span class=sep></span>' +
-      '<button data-action="reset" title="Reset all inline styles on this element">Reset</button>';
+      // Row 1: text basics + breadcrumb of ancestors (smart group selection)
+      '<div class=row>' +
+        '<span class=label data-role=label>-</span>' +
+        '<span class=crumb data-role=crumb></span>' +
+        '<span class=sep></span>' +
+        '<button data-action="size-down" title="Smaller">A−</button>' +
+        '<span class=val data-role=size>-</span>' +
+        '<button data-action="size-up" title="Larger">A+</button>' +
+        '<span class=sep></span>' +
+        '<button data-action="bold" data-role=bold title="Bold" style="font-weight:800">B</button>' +
+        '<span class=sep></span>' +
+        '<button data-action="align-left" data-role=al title="Left">L</button>' +
+        '<button data-action="align-center" data-role=ac title="Center">C</button>' +
+        '<button data-action="align-right" data-role=ar title="Right">R</button>' +
+        '<span class=sep></span>' +
+        '<input type=color data-action="color" data-role=color title="Text color">' +
+        '<span class=sep></span>' +
+        '<button data-action="more" data-role=more title="More controls">More ▾</button>' +
+        '<button data-action="reset" title="Reset all inline styles on this element">Reset</button>' +
+      '</div>' +
+      // Row 2: composition — font family, padding, radius, opacity, rotate, BG
+      '<div class=row data-role=more-row style="display:none">' +
+        '<span class=mini>Font</span>' +
+        '<select data-action="font-family" data-role=font title="Font family">' +
+          '<option value="">Inherit</option>' +
+          '<option value="Inter, system-ui, -apple-system, sans-serif">Inter (sans)</option>' +
+          '<option value="Fraunces, Georgia, serif">Fraunces (serif)</option>' +
+          '<option value="Caveat, cursive">Caveat (handwritten)</option>' +
+          '<option value="Georgia, serif">Georgia</option>' +
+          '<option value="ui-monospace, SFMono-Regular, Menlo, monospace">Monospace</option>' +
+        '</select>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Tracking</span>' +
+        '<button data-action="ls-down" title="Tighter letter-spacing">−</button>' +
+        '<span class=val data-role=ls>0</span>' +
+        '<button data-action="ls-up" title="Looser letter-spacing">+</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Leading</span>' +
+        '<button data-action="lh-down" title="Tighter line-height">−</button>' +
+        '<span class=val data-role=lh>-</span>' +
+        '<button data-action="lh-up" title="Looser line-height">+</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Pad</span>' +
+        '<button data-action="pad-down" title="Less padding">−</button>' +
+        '<span class=val data-role=pad>-</span>' +
+        '<button data-action="pad-up" title="More padding">+</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Radius</span>' +
+        '<button data-action="radius-down" title="Less radius">−</button>' +
+        '<span class=val data-role=radius>-</span>' +
+        '<button data-action="radius-up" title="More radius">+</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Opacity</span>' +
+        '<input type=range min=10 max=100 step=5 data-action="opacity" data-role=opacity title="Opacity">' +
+        '<span class=sep></span>' +
+        '<span class=mini>Rotate</span>' +
+        '<input type=range min=-180 max=180 step=1 data-action="rotate" data-role=rotate title="Rotation (deg)">' +
+        '<span class=val data-role=rotate-val>0°</span>' +
+        '<button data-action="rotate-zero" title="Reset rotation">·</button>' +
+        '<span class=sep></span>' +
+        '<span class=mini>Scale</span>' +
+        '<input type=range min=50 max=200 step=5 data-action="scale" data-role=scale title="Scale">' +
+        '<span class=val data-role=scale-val>100%</span>' +
+        '<span class=sep></span>' +
+        '<span class=mini>BG</span>' +
+        '<input type=color data-action="bg-color" data-role=bg title="Background color">' +
+        '<button data-action="bg-clear" title="Clear background">×</button>' +
+      '</div>';
     doc.body.appendChild(t);
 
-    // Keep focus on the active element when most buttons are clicked.
-    // SELECT and INPUT need native focus behavior (dropdown open, color picker open).
+    // Keep focus on the active element when buttons are clicked
     t.addEventListener('mousedown', e => {
       const tag = e.target.tagName;
-      if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'OPTION') e.preventDefault();
+      if (tag !== 'INPUT' && tag !== 'SELECT') e.preventDefault();
     });
     t.addEventListener('click', e => {
-      const btn = e.target.closest('button[data-action]');
+      const btn = e.target.closest('[data-action]');
       if (!btn || !active) return;
-      handleAction(btn.dataset.action, btn);
+      const a = btn.dataset.action;
+      handleAction(a, btn);
     });
-
-    const colorInput = t.querySelector('input[type=color]');
+    // Range / select inputs need 'input' handlers to update live
+    t.addEventListener('input', e => {
+      const el = e.target.closest('[data-action]');
+      if (!el || !active) return;
+      const a = el.dataset.action;
+      if (a === 'opacity' || a === 'rotate' || a === 'scale' || a === 'font-family' || a === 'color' || a === 'bg-color') {
+        handleAction(a, el);
+      }
+    });
+    // Crumb (breadcrumb of ancestors) — click to climb up the tree
+    t.querySelector('[data-role=crumb]').addEventListener('click', e => {
+      const step = e.target.closest('.crumb-step');
+      if (!step || !active) return;
+      const levels = parseInt(step.dataset.level || '0', 10);
+      let target = active;
+      for (let i = 0; i < levels; i++) {
+        if (target.parentElement) target = target.parentElement;
+      }
+      if (target && target !== active && target !== activeDoc.body) {
+        selectParent(target);
+      }
+    });
+    const colorInput = t.querySelector('input[data-role=color]');
     colorInput.addEventListener('focus', () => { toolbarPickingColor = true; });
     colorInput.addEventListener('blur', () => {
       toolbarPickingColor = false;
@@ -395,32 +428,47 @@
       active.style.color = colorInput.value;
       syncToolbar(active);
     });
+    const bgInput = t.querySelector('input[data-role=bg]');
+    bgInput.addEventListener('focus', () => { toolbarPickingColor = true; });
+    bgInput.addEventListener('blur', () => {
+      toolbarPickingColor = false;
+      if (active) setTimeout(() => { try { active.focus(); } catch {} }, 0);
+    });
+  }
 
-    const fontSelect = t.querySelector('select[data-action=font]');
-    fontSelect.addEventListener('focus', () => { toolbarPickingFont = true; });
-    fontSelect.addEventListener('blur', () => {
-      toolbarPickingFont = false;
-      if (active && !moveMode) setTimeout(() => { try { active.focus(); } catch {} }, 0);
-    });
-    fontSelect.addEventListener('change', () => {
-      if (!active) return;
-      if (fontSelect.value) active.style.fontFamily = fontSelect.value;
-      else active.style.fontFamily = '';
-      syncToolbar(active);
-    });
+  // Promote the active element up the DOM to its parent — the "smart group"
+  // primitive. Lets the user act on the card/section that contains the text
+  // they clicked, not just the leaf text node. Triggered by the breadcrumb
+  // chips. Tags the new active with [data-copyedit-group] for the blue outline.
+  function selectParent(parentEl) {
+    if (!active || !activeDoc) return;
+    // Strip any prior group outlines
+    activeDoc.querySelectorAll('[data-copyedit-group]').forEach(n => n.removeAttribute('data-copyedit-group'));
+    // Move active up
+    try { active.removeAttribute('contenteditable'); } catch {}
+    active = parentEl;
+    activeOriginalStyleAttr = parentEl.getAttribute('style') || '';
+    activeOriginalText = parentEl.textContent;
+    parentEl.setAttribute('data-copyedit-group', 'true');
+    showToolbar(parentEl);
+  }
 
-    const weightSelect = t.querySelector('select[data-action=weight]');
-    weightSelect.addEventListener('focus', () => { toolbarPickingWeight = true; });
-    weightSelect.addEventListener('blur', () => {
-      toolbarPickingWeight = false;
-      if (active && !moveMode) setTimeout(() => { try { active.focus(); } catch {} }, 0);
-    });
-    weightSelect.addEventListener('change', () => {
-      if (!active) return;
-      if (weightSelect.value) active.style.fontWeight = weightSelect.value;
-      else active.style.fontWeight = '';
-      syncToolbar(active);
-    });
+  // Build the ancestor breadcrumb so the user can climb the DOM one level
+  // at a time to find the right "group" (card, section, whole hero).
+  function renderCrumb(el) {
+    if (!activeDoc) return '';
+    const out = [];
+    let n = el.parentElement;
+    let levels = 1;
+    while (n && n !== activeDoc.body && levels <= 5) {
+      const tag = n.tagName.toLowerCase();
+      const cls = (n.className && typeof n.className === 'string') ? n.className.split(/\s+/)[0] : '';
+      const label = cls ? '.' + cls.slice(0, 10) : tag;
+      out.push('<span class=crumb-step data-level="' + levels + '" title="Select ' + tag + (cls ? ' .' + cls : '') + '">↑ ' + label + '</span>');
+      n = n.parentElement;
+      levels++;
+    }
+    return out.join('');
   }
 
   function handleAction(a, btn) {
@@ -434,527 +482,66 @@
     } else if (a === 'bold') {
       const fw = parseInt(active.style.fontWeight || cs.fontWeight) || 400;
       active.style.fontWeight = fw >= 600 ? '400' : '700';
-    } else if (a === 'italic') {
-      const fs = active.style.fontStyle || cs.fontStyle || 'normal';
-      active.style.fontStyle = (fs === 'italic' || fs === 'oblique') ? 'normal' : 'italic';
     } else if (a === 'align-left') {
       active.style.textAlign = 'left';
     } else if (a === 'align-center') {
       active.style.textAlign = 'center';
     } else if (a === 'align-right') {
       active.style.textAlign = 'right';
-    } else if (a === 'width-up' || a === 'width-down') {
-      const parent = active.parentElement;
-      const parentWidth = parent ? parent.getBoundingClientRect().width : (activeDoc.defaultView.innerWidth || 800);
-      const curPx = active.getBoundingClientRect().width;
-      const curPct = (curPx / parentWidth) * 100;
-      const step = a === 'width-up' ? 5 : -5;
-      const newPct = Math.max(10, Math.min(200, Math.round(curPct + step)));
-      active.style.width = newPct + '%';
-    } else if (a === 'move') {
-      setMoveMode(!moveMode);
-    } else if (a === 'parent') {
-      // Walk active up to its parentElement so the user can grab a whole
-      // container/card/section and drag it. The default click-to-activate
-      // only picks text leaves (h1/p/span) per isEditable's "no element
-      // children" rule, so this is the escape hatch for moving whole blocks.
-      const par = active && active.parentElement;
-      if (!par) return;
-      if (par.tagName === 'BODY' || par.tagName === 'HTML') return;
-      // Exit move mode + commit any pending text edit on the current active
-      // so we don't carry contenteditable state up to the parent.
-      if (moveMode) setMoveMode(false);
-      active.removeAttribute('contenteditable');
-      // Promote parent to active. Mark it so styles apply and so setMoveMode
-      // knows not to re-enable contenteditable on a container.
-      active = par;
-      activeDoc = par.ownerDocument;
-      activeOriginalText = par.textContent;
-      activeOriginalStyleAttr = par.getAttribute('style') || '';
-      par.setAttribute('data-copyedit', '');
-      par.setAttribute('data-copyedit-container', '');
-      // Auto-enter Move mode — containers aren't meant for text editing,
-      // and moving is the whole point of walking up.
-      setMoveMode(true);
-      showToolbar(par);
     } else if (a === 'reset') {
-      if (moveMode) setMoveMode(false);
       active.removeAttribute('style');
+    } else if (a === 'more') {
+      const row = activeDoc.getElementById('__copyedit_toolbar').querySelector('[data-role=more-row]');
+      const open = row.style.display === 'flex';
+      row.style.display = open ? 'none' : 'flex';
+      btn.textContent = open ? 'More ▾' : 'Less ▴';
+    } else if (a === 'font-family') {
+      active.style.fontFamily = btn.value || '';
+    } else if (a === 'ls-up' || a === 'ls-down') {
+      const cur = parseFloat(active.style.letterSpacing || cs.letterSpacing) || 0;
+      const step = a === 'ls-up' ? 0.02 : -0.02;
+      const next = Math.round((cur + step) * 100) / 100;
+      active.style.letterSpacing = next + 'em';
+    } else if (a === 'lh-up' || a === 'lh-down') {
+      const cur = parseFloat(active.style.lineHeight || cs.lineHeight) / parseFloat(cs.fontSize) || 1.4;
+      const step = a === 'lh-up' ? 0.1 : -0.1;
+      const next = Math.max(0.8, Math.min(3, Math.round((cur + step) * 10) / 10));
+      active.style.lineHeight = String(next);
+    } else if (a === 'pad-up' || a === 'pad-down') {
+      const cur = parseFloat(active.style.padding || cs.paddingTop) || 0;
+      const step = a === 'pad-up' ? +4 : -4;
+      const next = Math.max(0, Math.min(120, cur + step));
+      active.style.padding = next + 'px';
+    } else if (a === 'radius-up' || a === 'radius-down') {
+      const cur = parseFloat(active.style.borderRadius || cs.borderTopLeftRadius) || 0;
+      const step = a === 'radius-up' ? +4 : -4;
+      const next = Math.max(0, Math.min(999, cur + step));
+      active.style.borderRadius = next + 'px';
+    } else if (a === 'opacity') {
+      active.style.opacity = (parseInt(btn.value, 10) / 100).toString();
+    } else if (a === 'rotate' || a === 'scale') {
+      const tb = activeDoc.getElementById('__copyedit_toolbar');
+      const rotDeg = parseInt(tb.querySelector('[data-role=rotate]').value || '0', 10);
+      const sclPct = parseInt(tb.querySelector('[data-role=scale]').value || '100', 10);
+      // Preserve any existing translate() from drag; replace rotate/scale.
+      const cur = active.style.transform || '';
+      const translateMatch = cur.match(/translate\([^)]+\)/);
+      const parts = [];
+      if (translateMatch) parts.push(translateMatch[0]);
+      if (rotDeg !== 0) parts.push('rotate(' + rotDeg + 'deg)');
+      if (sclPct !== 100) parts.push('scale(' + (sclPct / 100) + ')');
+      active.style.transform = parts.join(' ');
+      active.style.transformOrigin = '50% 50%';
+    } else if (a === 'rotate-zero') {
+      const tb = activeDoc.getElementById('__copyedit_toolbar');
+      tb.querySelector('[data-role=rotate]').value = '0';
+      handleAction('rotate', tb.querySelector('[data-role=rotate]'));
+    } else if (a === 'bg-color') {
+      active.style.background = btn.value;
+    } else if (a === 'bg-clear') {
+      active.style.background = '';
     }
     syncToolbar(active);
-  }
-
-  function setMoveMode(on) {
-    moveMode = !!on;
-    if (!active) return;
-    if (moveMode) {
-      active.removeAttribute('contenteditable');
-      active.setAttribute('data-copyedit-moving', '');
-      active.style.cursor = 'grab';
-      active.addEventListener('pointerdown', onDragDown);
-    } else {
-      active.removeEventListener('pointerdown', onDragDown);
-      active.removeAttribute('data-copyedit-moving');
-      active.style.cursor = '';
-      // Don't re-enable contenteditable on container blocks promoted via the
-      // ↑ Parent button — they have element children and would become an
-      // editing minefield (one keystroke could wipe a whole card).
-      if (!active.hasAttribute('data-copyedit-container')) {
-        active.setAttribute('contenteditable', 'true');
-        try { active.focus(); } catch {}
-      }
-    }
-  }
-
-  function onDragDown(e) {
-    if (!moveMode || !active || e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const cur = parseTranslate(active.style.transform);
-    dragState = { startX: e.clientX, startY: e.clientY, baseDx: cur.x, baseDy: cur.y, pointerId: e.pointerId };
-    try { active.setPointerCapture(e.pointerId); } catch {}
-    active.style.cursor = 'grabbing';
-    active.addEventListener('pointermove', onDragMove);
-    active.addEventListener('pointerup', onDragUp);
-    active.addEventListener('pointercancel', onDragUp);
-  }
-  function onDragMove(e) {
-    if (!dragState || !active) return;
-    const dx = Math.round(e.clientX - dragState.startX + dragState.baseDx);
-    const dy = Math.round(e.clientY - dragState.startY + dragState.baseDy);
-    active.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
-  }
-  function onDragUp(e) {
-    if (!dragState || !active) return;
-    try { active.releasePointerCapture(dragState.pointerId); } catch {}
-    active.removeEventListener('pointermove', onDragMove);
-    active.removeEventListener('pointerup', onDragUp);
-    active.removeEventListener('pointercancel', onDragUp);
-    active.style.cursor = moveMode ? 'grab' : '';
-    dragState = null;
-  }
-
-  // ─── multi-select / marquee / group drag / resize / nudge ─────────────
-
-  function addToSelection(el) {
-    selection.add(el);
-    el.setAttribute('data-copyedit-selected', '');
-  }
-  function removeFromSelection(el) {
-    selection.delete(el);
-    el.removeAttribute('data-copyedit-selected');
-  }
-  function toggleSelection(el) {
-    if (selection.has(el)) removeFromSelection(el);
-    else addToSelection(el);
-    updateSelectionOverlay(el.ownerDocument);
-  }
-  function clearSelection() {
-    for (const el of Array.from(selection)) el.removeAttribute('data-copyedit-selected');
-    selection.clear();
-    let doc = null;
-    try { doc = frame.contentDocument; } catch {}
-    if (doc) updateSelectionOverlay(doc);
-  }
-
-  function ensureOverlay(doc) {
-    let host = doc.getElementById('__copyedit_selection_overlay');
-    if (!host) {
-      host = doc.createElement('div');
-      host.id = '__copyedit_selection_overlay';
-      doc.body.appendChild(host);
-    }
-    return host;
-  }
-  function updateSelectionOverlay(doc) {
-    if (!doc || !doc.body) return;
-    const host = ensureOverlay(doc);
-    host.innerHTML = '';
-    // Prune stale (disconnected) elements
-    for (const el of Array.from(selection)) {
-      if (!el.isConnected) selection.delete(el);
-    }
-    if (!selection.size) return;
-    if (selection.size === 1 && !resizeState && !groupDragState) {
-      const el = Array.from(selection)[0];
-      addResizeHandles(host, el.getBoundingClientRect(), el, doc);
-    } else if (!groupDragState) {
-      for (const el of selection) addCornerDots(host, el.getBoundingClientRect(), doc);
-    }
-  }
-  function addCornerDots(host, r, doc) {
-    const pts = [[r.left, r.top], [r.right, r.top], [r.left, r.bottom], [r.right, r.bottom]];
-    for (const [x, y] of pts) {
-      const dot = doc.createElement('div');
-      dot.className = '__copyedit_corner_dot';
-      dot.style.left = (x - 4) + 'px';
-      dot.style.top = (y - 4) + 'px';
-      host.appendChild(dot);
-    }
-  }
-  function addResizeHandles(host, r, el, doc) {
-    const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
-    const hs = [
-      {k: 'nw', x: r.left,  y: r.top,    cur: 'nwse-resize'},
-      {k: 'n',  x: cx,      y: r.top,    cur: 'ns-resize'},
-      {k: 'ne', x: r.right, y: r.top,    cur: 'nesw-resize'},
-      {k: 'e',  x: r.right, y: cy,       cur: 'ew-resize'},
-      {k: 'se', x: r.right, y: r.bottom, cur: 'nwse-resize'},
-      {k: 's',  x: cx,      y: r.bottom, cur: 'ns-resize'},
-      {k: 'sw', x: r.left,  y: r.bottom, cur: 'nesw-resize'},
-      {k: 'w',  x: r.left,  y: cy,       cur: 'ew-resize'}
-    ];
-    for (const p of hs) {
-      const h = doc.createElement('div');
-      h.className = '__copyedit_resize_handle';
-      h.style.left = (p.x - 5) + 'px';
-      h.style.top = (p.y - 5) + 'px';
-      h.style.cursor = p.cur;
-      h.dataset.handle = p.k;
-      h.addEventListener('pointerdown', e => startResize(e, el, p.k, doc));
-      host.appendChild(h);
-    }
-  }
-
-  // Marquee
-  function ensureMarqueeBox(doc) {
-    let box = doc.getElementById('__copyedit_marquee_box');
-    if (!box) {
-      box = doc.createElement('div');
-      box.id = '__copyedit_marquee_box';
-      doc.body.appendChild(box);
-    }
-    return box;
-  }
-  function startMarquee(e, doc) {
-    marqueeState = {
-      startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
-      didDrag: false, doc, additive: e.shiftKey
-    };
-    doc.addEventListener('pointermove', onMarqueeMove);
-    doc.addEventListener('pointerup', onMarqueeUp);
-    doc.addEventListener('pointercancel', onMarqueeUp);
-  }
-  function onMarqueeMove(e) {
-    if (!marqueeState) return;
-    const x = Math.min(e.clientX, marqueeState.startX);
-    const y = Math.min(e.clientY, marqueeState.startY);
-    const w = Math.abs(e.clientX - marqueeState.startX);
-    const h = Math.abs(e.clientY - marqueeState.startY);
-    if (w > 3 || h > 3) marqueeState.didDrag = true;
-    const box = ensureMarqueeBox(marqueeState.doc);
-    box.style.display = 'block';
-    box.style.left = x + 'px';
-    box.style.top = y + 'px';
-    box.style.width = w + 'px';
-    box.style.height = h + 'px';
-  }
-  function onMarqueeUp(e) {
-    if (!marqueeState) return;
-    const doc = marqueeState.doc;
-    doc.removeEventListener('pointermove', onMarqueeMove);
-    doc.removeEventListener('pointerup', onMarqueeUp);
-    doc.removeEventListener('pointercancel', onMarqueeUp);
-    const box = doc.getElementById('__copyedit_marquee_box');
-    if (box) box.style.display = 'none';
-    const cancelled = e && e.type === 'pointercancel';
-    if (!cancelled && marqueeState.didDrag) {
-      const x1 = Math.min(e.clientX, marqueeState.startX);
-      const y1 = Math.min(e.clientY, marqueeState.startY);
-      const x2 = Math.max(e.clientX, marqueeState.startX);
-      const y2 = Math.max(e.clientY, marqueeState.startY);
-      selectInRect(doc, x1, y1, x2, y2, marqueeState.additive);
-      setSuppressClick();
-    } else if (!cancelled && !marqueeState.didDrag && !marqueeState.additive) {
-      // Plain click on empty area: drop selection (active edit is handled by its own blur)
-      if (selection.size) clearSelection();
-    }
-    marqueeState = null;
-  }
-  function selectInRect(doc, x1, y1, x2, y2, additive) {
-    if (!additive) {
-      for (const el of Array.from(selection)) el.removeAttribute('data-copyedit-selected');
-      selection.clear();
-    }
-    const all = doc.querySelectorAll('[data-copyedit]');
-    for (const el of all) {
-      const r = el.getBoundingClientRect();
-      if (r.right >= x1 && r.left <= x2 && r.bottom >= y1 && r.top <= y2 && r.width > 1 && r.height > 1) {
-        addToSelection(el);
-      }
-    }
-    updateSelectionOverlay(doc);
-    if (selection.size) {
-      showToast('Selected ' + selection.size + ' block' + (selection.size > 1 ? 's' : '') + ' · drag, arrows nudge (Shift+arrow = 10px)', 'ok', 1800);
-    }
-  }
-
-  // Group drag
-  function startGroupDrag(e, block, doc) {
-    if (active) commit();
-    groupDragState = {
-      startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
-      doc, didDrag: false,
-      base: new Map(), origStyle: new Map(), origRects: new Map()
-    };
-    for (const el of selection) {
-      groupDragState.base.set(el, parseTranslate(el.style.transform));
-      groupDragState.origStyle.set(el, el.getAttribute('style') || '');
-      groupDragState.origRects.set(el, el.getBoundingClientRect());
-    }
-    try { block.setPointerCapture(e.pointerId); } catch {}
-    doc.addEventListener('pointermove', onGroupDragMove);
-    doc.addEventListener('pointerup', onGroupDragUp);
-    doc.addEventListener('pointercancel', onGroupDragUp);
-  }
-  function onGroupDragMove(e) {
-    if (!groupDragState) return;
-    const rawDx = e.clientX - groupDragState.startX;
-    const rawDy = e.clientY - groupDragState.startY;
-    if (!groupDragState.didDrag && (Math.abs(rawDx) > 3 || Math.abs(rawDy) > 3)) {
-      groupDragState.didDrag = true;
-      setSuppressClick();
-      // Hide overlay during drag (corner dots are recomputed from origRects, not live rects)
-      const host = groupDragState.doc.getElementById('__copyedit_selection_overlay');
-      if (host) host.innerHTML = '';
-    }
-    if (!groupDragState.didDrag) return;
-    const snap = computeSnap(rawDx, rawDy, groupDragState.doc, groupDragState.origRects);
-    for (const el of selection) {
-      const b = groupDragState.base.get(el);
-      if (!b) continue;
-      el.style.transform = 'translate(' + Math.round(b.x + snap.dx) + 'px, ' + Math.round(b.y + snap.dy) + 'px)';
-    }
-    drawGuides(groupDragState.doc, snap.snapX, snap.snapY);
-  }
-  function onGroupDragUp(e) {
-    if (!groupDragState) return;
-    const doc = groupDragState.doc;
-    doc.removeEventListener('pointermove', onGroupDragMove);
-    doc.removeEventListener('pointerup', onGroupDragUp);
-    doc.removeEventListener('pointercancel', onGroupDragUp);
-    hideGuides(doc);
-    const cancelled = e && e.type === 'pointercancel';
-    if (cancelled) {
-      // Restore original styles
-      for (const el of selection) {
-        const oldS = groupDragState.origStyle.get(el);
-        if (oldS == null) continue;
-        if (oldS) el.setAttribute('style', oldS); else el.removeAttribute('style');
-      }
-    } else if (groupDragState.didDrag) {
-      let count = 0;
-      for (const el of selection) {
-        const oldS = groupDragState.origStyle.get(el) || '';
-        const newS = el.getAttribute('style') || '';
-        if (oldS !== newS) { recordStyleChange(el, oldS, newS); count++; }
-      }
-      if (count) { render(); showToast('Moved ' + count + ' block' + (count > 1 ? 's' : ''), 'ok', 1200); }
-    }
-    groupDragState = null;
-    updateSelectionOverlay(doc);
-  }
-
-  // Snap-to-edge + alignment guides. Returns adjusted {dx,dy} plus the snapped target lines (or null).
-  function computeSnap(rawDx, rawDy, doc, origRects) {
-    const SNAP = 4;
-    let snapDx = rawDx, snapDy = rawDy;
-    let snapX = null, snapY = null;
-    let bestX = SNAP + 1, bestY = SNAP + 1;
-    const all = doc.querySelectorAll('[data-copyedit]');
-    const otherRects = [];
-    for (const o of all) {
-      if (selection.has(o)) continue;
-      otherRects.push(o.getBoundingClientRect());
-    }
-    for (const el of selection) {
-      const orig = origRects.get(el);
-      if (!orig) continue;
-      const cxs = [orig.left + rawDx, orig.right + rawDx, (orig.left + orig.right) / 2 + rawDx];
-      const cys = [orig.top + rawDy, orig.bottom + rawDy, (orig.top + orig.bottom) / 2 + rawDy];
-      for (const or of otherRects) {
-        const tx = [or.left, or.right, (or.left + or.right) / 2];
-        const ty = [or.top, or.bottom, (or.top + or.bottom) / 2];
-        for (const v of cxs) for (const t of tx) {
-          const d = t - v;
-          if (Math.abs(d) < bestX) { bestX = Math.abs(d); snapDx = rawDx + d; snapX = t; }
-        }
-        for (const v of cys) for (const t of ty) {
-          const d = t - v;
-          if (Math.abs(d) < bestY) { bestY = Math.abs(d); snapDy = rawDy + d; snapY = t; }
-        }
-      }
-    }
-    return {
-      dx: snapDx,
-      dy: snapDy,
-      snapX: bestX <= SNAP ? snapX : null,
-      snapY: bestY <= SNAP ? snapY : null
-    };
-  }
-  function drawGuides(doc, snapX, snapY) {
-    let v = doc.getElementById('__copyedit_guide_v');
-    if (!v) { v = doc.createElement('div'); v.id = '__copyedit_guide_v'; doc.body.appendChild(v); }
-    let h = doc.getElementById('__copyedit_guide_h');
-    if (!h) { h = doc.createElement('div'); h.id = '__copyedit_guide_h'; doc.body.appendChild(h); }
-    const vh = doc.documentElement.clientHeight || 9999;
-    const vw = doc.documentElement.clientWidth || 9999;
-    if (snapX !== null) {
-      v.style.left = snapX + 'px'; v.style.top = '0';
-      v.style.height = vh + 'px'; v.style.display = 'block';
-    } else { v.style.display = 'none'; }
-    if (snapY !== null) {
-      h.style.top = snapY + 'px'; h.style.left = '0';
-      h.style.width = vw + 'px'; h.style.display = 'block';
-    } else { h.style.display = 'none'; }
-  }
-  function hideGuides(doc) {
-    const v = doc.getElementById('__copyedit_guide_v');
-    const h = doc.getElementById('__copyedit_guide_h');
-    if (v) v.style.display = 'none';
-    if (h) h.style.display = 'none';
-  }
-
-  // Resize (only when exactly one block is selected)
-  function startResize(e, el, handle, doc) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (active) commit();
-    resizeState = {
-      el, handle, doc,
-      startX: e.clientX, startY: e.clientY,
-      startRect: el.getBoundingClientRect(),
-      origStyle: el.getAttribute('style') || '',
-      pointerId: e.pointerId
-    };
-    try { e.target.setPointerCapture(e.pointerId); } catch {}
-    doc.addEventListener('pointermove', onResizeMove);
-    doc.addEventListener('pointerup', onResizeUp);
-    doc.addEventListener('pointercancel', onResizeUp);
-  }
-  function onResizeMove(e) {
-    if (!resizeState) return;
-    const dx = e.clientX - resizeState.startX;
-    const dy = e.clientY - resizeState.startY;
-    const r = resizeState.startRect;
-    const h = resizeState.handle;
-    let nw = r.width, nh = r.height;
-    if (h.includes('e')) nw = Math.max(20, r.width + dx);
-    if (h.includes('w')) nw = Math.max(20, r.width - dx);
-    if (h.includes('s')) nh = Math.max(20, r.height + dy);
-    if (h.includes('n')) nh = Math.max(20, r.height - dy);
-    resizeState.el.style.width = Math.round(nw) + 'px';
-    if (h.includes('n') || h.includes('s')) resizeState.el.style.height = Math.round(nh) + 'px';
-    updateSelectionOverlay(resizeState.doc);
-  }
-  function onResizeUp(e) {
-    if (!resizeState) return;
-    const doc = resizeState.doc;
-    doc.removeEventListener('pointermove', onResizeMove);
-    doc.removeEventListener('pointerup', onResizeUp);
-    doc.removeEventListener('pointercancel', onResizeUp);
-    const cancelled = e && e.type === 'pointercancel';
-    if (cancelled) {
-      const oldS = resizeState.origStyle;
-      if (oldS) resizeState.el.setAttribute('style', oldS); else resizeState.el.removeAttribute('style');
-    } else {
-      const oldS = resizeState.origStyle;
-      const newS = resizeState.el.getAttribute('style') || '';
-      if (oldS !== newS) {
-        recordStyleChange(resizeState.el, oldS, newS);
-        render();
-        showToast('Resized', 'ok', 1200);
-      }
-    }
-    resizeState = null;
-    setSuppressClick();
-    updateSelectionOverlay(doc);
-  }
-
-  function recordStyleChange(el, oldStyleAttr, newStyleAttr) {
-    const styles = styleDiff(oldStyleAttr, newStyleAttr);
-    if (!Object.keys(styles).length) return;
-    const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
-    changes.push({
-      page: pageOf(el.ownerDocument),
-      old: text,
-      new: text,
-      ctx: ctxOf(el),
-      styles,
-      outerHTML: el.outerHTML.slice(0, 400),
-      ts: Date.now()
-    });
-  }
-
-  // Arrow-key nudge with coalesced commit
-  function nudgeStart(el) {
-    if (!arrowBaseStyles.has(el)) arrowBaseStyles.set(el, el.getAttribute('style') || '');
-  }
-  function scheduleArrowCommit() {
-    if (arrowCommitTimer) clearTimeout(arrowCommitTimer);
-    arrowCommitTimer = setTimeout(() => {
-      let count = 0;
-      for (const [el, oldS] of arrowBaseStyles) {
-        const newS = el.getAttribute('style') || '';
-        if (oldS !== newS) { recordStyleChange(el, oldS, newS); count++; }
-      }
-      arrowBaseStyles.clear();
-      arrowCommitTimer = null;
-      if (count) { render(); showToast('Nudged ' + count + ' block' + (count > 1 ? 's' : ''), 'ok', 1200); }
-    }, 700);
-  }
-
-  // Doc-level pointerdown: triages between shift-marquee, group drag, plain marquee.
-  function onDocPointerDown(e) {
-    if (!editMode.checked) return;
-    if (e.button !== 0) return;
-    const tgt = e.target;
-    if (!tgt || !tgt.closest) return;
-    // Skip our own UI (toolbar, handles fire their own listeners)
-    if (tgt.closest('#__copyedit_toolbar')) return;
-    if (tgt.classList && tgt.classList.contains('__copyedit_resize_handle')) return;
-    const doc = tgt.ownerDocument;
-    const block = tgt.closest('[data-copyedit]');
-    if (e.shiftKey) {
-      // shift-click on editable: handled by wire(el) click toggle
-      // shift-drag on empty: additive marquee
-      if (!block) startMarquee(e, doc);
-      return;
-    }
-    if (block) {
-      if (selection.has(block)) {
-        // Initiate a potential group drag. If movement < 3px, the trailing
-        // click reaches wire(el) and enters edit (which clears selection).
-        startGroupDrag(e, block, doc);
-      }
-      // unselected block: let wire(el) click handle entry-to-edit
-      return;
-    }
-    // empty area: plain marquee (releases selection on no-drag click)
-    startMarquee(e, doc);
-  }
-
-  // Doc-level keydown: Escape clears, arrow keys nudge group.
-  function onDocKeyDown(e) {
-    if (!editMode.checked) return;
-    if (active) return;                // text edit owns the keyboard
-    if (!selection.size) return;
-    const k = e.key;
-    if (k === 'Escape') { e.preventDefault(); clearSelection(); return; }
-    if (k !== 'ArrowUp' && k !== 'ArrowDown' && k !== 'ArrowLeft' && k !== 'ArrowRight') return;
-    e.preventDefault();
-    const step = e.shiftKey ? 10 : 1;
-    const dx = k === 'ArrowLeft' ? -step : k === 'ArrowRight' ? step : 0;
-    const dy = k === 'ArrowUp' ? -step : k === 'ArrowDown' ? step : 0;
-    let doc = null;
-    for (const el of selection) {
-      nudgeStart(el);
-      const cur = parseTranslate(el.style.transform);
-      el.style.transform = 'translate(' + Math.round(cur.x + dx) + 'px, ' + Math.round(cur.y + dy) + 'px)';
-      doc = el.ownerDocument;
-    }
-    if (doc) updateSelectionOverlay(doc);
-    scheduleArrowCommit();
   }
 
   function syncToolbar(el) {
@@ -962,40 +549,58 @@
     const t = activeDoc.getElementById('__copyedit_toolbar');
     if (!t) return;
     const cs = activeDoc.defaultView.getComputedStyle(el);
-    const label = (el.tagName.toLowerCase()) + ' · "' + (el.textContent || '').trim().slice(0, 22).replace(/\s+/g, ' ') + '"';
+    const isGroup = el.hasAttribute('data-copyedit-group');
+    const tagPrefix = isGroup ? '⬚ ' : '';
+    const label = tagPrefix + (el.tagName.toLowerCase()) + ' · "' + (el.textContent || '').trim().slice(0, 26).replace(/\s+/g, ' ') + '"';
     t.querySelector('[data-role=label]').textContent = label;
+    t.querySelector('[data-role=crumb]').innerHTML = renderCrumb(el);
     t.querySelector('[data-role=size]').textContent = Math.round(parseFloat(cs.fontSize)) + 'px';
     const fw = parseInt(cs.fontWeight) || 400;
     t.querySelector('[data-role=bold]').classList.toggle('on', fw >= 600);
-    const fs = el.style.fontStyle || cs.fontStyle || 'normal';
-    t.querySelector('[data-role=italic]').classList.toggle('on', fs === 'italic' || fs === 'oblique');
-    const weightSel = t.querySelector('select[data-role=weight]');
-    weightSel.value = String(Math.round(fw / 100) * 100);
     const al = cs.textAlign;
     t.querySelector('[data-role=al]').classList.toggle('on', al === 'left' || al === 'start');
     t.querySelector('[data-role=ac]').classList.toggle('on', al === 'center');
     t.querySelector('[data-role=ar]').classList.toggle('on', al === 'right' || al === 'end');
-    t.querySelector('[data-role=move]').classList.toggle('on', moveMode);
-    // width as a percent of parent
-    try {
-      const parent = el.parentElement;
-      const pw = parent ? parent.getBoundingClientRect().width : (activeDoc.defaultView.innerWidth || 800);
-      const ow = el.getBoundingClientRect().width;
-      t.querySelector('[data-role=width]').textContent = Math.round((ow / pw) * 100) + '%';
-    } catch { t.querySelector('[data-role=width]').textContent = '—'; }
-    // font family: best-effort match against the known list
-    const fam = el.style.fontFamily || cs.fontFamily || '';
-    const fontSel = t.querySelector('select[data-role=font]');
-    let matched = '';
-    for (const f of FONTS) {
-      if (f.value && fam.includes(f.value.split(',')[0].replace(/['"]/g, '').trim())) { matched = f.value; break; }
-    }
-    fontSel.value = matched;
     try {
       const m = cs.color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
       if (m) {
         const hex = '#' + [m[1],m[2],m[3]].map(n => Number(n).toString(16).padStart(2,'0')).join('');
-        t.querySelector('input[type=color]').value = hex;
+        t.querySelector('input[data-role=color]').value = hex;
+      }
+    } catch {}
+    // ── Row 2 sync ──
+    const ls = parseFloat(cs.letterSpacing) || 0;
+    t.querySelector('[data-role=ls]').textContent = (Math.round(ls * 100) / 100) + 'em';
+    const lh = parseFloat(cs.lineHeight) / parseFloat(cs.fontSize) || 1.4;
+    t.querySelector('[data-role=lh]').textContent = (Math.round(lh * 10) / 10).toString();
+    t.querySelector('[data-role=pad]').textContent = Math.round(parseFloat(cs.paddingTop) || 0) + 'px';
+    t.querySelector('[data-role=radius]').textContent = Math.round(parseFloat(cs.borderTopLeftRadius) || 0) + 'px';
+    const op = Math.round((parseFloat(cs.opacity) || 1) * 100);
+    t.querySelector('[data-role=opacity]').value = String(op);
+    // Parse current transform for rotate + scale
+    const tf = el.style.transform || '';
+    const rotM = tf.match(/rotate\((-?\d+(?:\.\d+)?)deg\)/);
+    const sclM = tf.match(/scale\((-?\d+(?:\.\d+)?)\)/);
+    const rotDeg = rotM ? Math.round(parseFloat(rotM[1])) : 0;
+    const sclPct = sclM ? Math.round(parseFloat(sclM[1]) * 100) : 100;
+    t.querySelector('[data-role=rotate]').value = String(rotDeg);
+    t.querySelector('[data-role=rotate-val]').textContent = rotDeg + '°';
+    t.querySelector('[data-role=scale]').value = String(sclPct);
+    t.querySelector('[data-role=scale-val]').textContent = sclPct + '%';
+    // Font family — match against options or leave blank
+    const fontSel = t.querySelector('[data-role=font]');
+    const curFont = (el.style.fontFamily || '').trim();
+    let matched = false;
+    Array.from(fontSel.options).forEach(opt => {
+      if (opt.value === curFont) { fontSel.value = opt.value; matched = true; }
+    });
+    if (!matched) fontSel.value = '';
+    // BG color
+    try {
+      const bm = cs.backgroundColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (bm) {
+        const hex = '#' + [bm[1],bm[2],bm[3]].map(n => Number(n).toString(16).padStart(2,'0')).join('');
+        t.querySelector('input[data-role=bg]').value = hex;
       }
     } catch {}
   }
@@ -1028,22 +633,10 @@
     el.setAttribute('data-copyedit', '');
     el.addEventListener('click', e => {
       if (!editMode.checked) return;
-      if (suppressNextClick) { suppressNextClick = false; return; }
-      if (moveMode) return; // don't enter edit mid-drag-mode
-      // Shift-click toggles multi-selection without entering edit mode.
-      if (e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (active) commit();
-        toggleSelection(el);
-        return;
-      }
       if (active === el) return;
       e.preventDefault();
       e.stopPropagation();
       if (active) commit();
-      // Plain click anywhere on a block clears any multi-selection and enters single-edit.
-      if (selection.size) clearSelection();
       active = el;
       activeDoc = el.ownerDocument;
       activeOriginalText = el.textContent;
@@ -1060,7 +653,10 @@
       showToolbar(el);
     }, true);
     el.addEventListener('blur', () => {
-      if (toolbarPickingColor || toolbarPickingFont || toolbarPickingWeight || moveMode) return;
+      // Toolbar buttons use mousedown.preventDefault to keep focus, so a real
+      // blur here means the user clicked truly outside, or pressed Tab/Enter/Esc.
+      // Only the native color picker legitimately steals focus — guard that.
+      if (toolbarPickingColor) return;
       if (active === el) commit();
     });
     el.addEventListener('keydown', e => {
@@ -1070,7 +666,6 @@
         else el.removeAttribute('style');
         activeOriginalText = '';
         activeOriginalStyleAttr = '';
-        if (moveMode) setMoveMode(false);
         active = null;
         el.removeAttribute('contenteditable');
         hideToolbar();
@@ -1108,15 +703,11 @@
   function commit() {
     if (!active) return;
     const el = active;
-    if (moveMode) setMoveMode(false); // exit move mode cleanly before commit
     const oldText = activeOriginalText;
     const newText = el.textContent;
     const oldStyleAttr = activeOriginalStyleAttr;
     const newStyleAttr = el.getAttribute('style') || '';
     el.removeAttribute('contenteditable');
-    // Drop the container flag from ↑ Parent so subsequent clicks on this
-    // element behave like a normal text-leaf activation again.
-    el.removeAttribute('data-copyedit-container');
     const wasActive = active;
     active = null;
     activeOriginalText = '';
@@ -1161,18 +752,6 @@
       mo.observe(doc.body, { childList: true, subtree: true });
       doc.__copyeditMO = mo;
     }
-    if (!doc.__copyeditMS) {
-      doc.addEventListener('pointerdown', onDocPointerDown, true);
-      doc.addEventListener('keydown', onDocKeyDown, true);
-      const win = doc.defaultView;
-      const onScrollOrResize = () => { if (selection.size) updateSelectionOverlay(doc); };
-      doc.addEventListener('scroll', onScrollOrResize, { capture: true, passive: true });
-      if (win) {
-        win.addEventListener('scroll', onScrollOrResize, { passive: true });
-        win.addEventListener('resize', onScrollOrResize);
-      }
-      doc.__copyeditMS = true;
-    }
   }
 
   frame.addEventListener('load', () => {
@@ -1182,13 +761,6 @@
       showToast('Cross-origin iframe blocked. Use same-origin paths only.', 'warn', 4000);
       return;
     }
-    // Reset cross-load state (the old doc's elements are gone, our refs would be stale)
-    selection.clear();
-    marqueeState = null;
-    groupDragState = null;
-    resizeState = null;
-    if (arrowCommitTimer) { clearTimeout(arrowCommitTimer); arrowCommitTimer = null; }
-    arrowBaseStyles.clear();
     setTimeout(() => install(doc), 250);
     setTimeout(() => install(doc), 1200);
   });

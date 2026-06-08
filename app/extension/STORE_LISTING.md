@@ -10,7 +10,7 @@ it as the source-of-truth when you update the listing.
 
 **Name** (≤45 chars, 34 used)
 ```
-Counter — DebateAI for Google Docs
+Counter — DebateIt for Google Docs
 ```
 
 **Short description** (≤132 chars, 128 used)
@@ -103,18 +103,18 @@ How it differs from "AI assistant" extensions
 • No debate jargon in oral mode. "Warrant" and "magnitude / probability / timeframe" stay silent in the examiner's head; the student gets plain academic English.
 
 Pricing
-• Free: 5 anonymous + 5 more on sign-in (10 total drills)
+• Free: 5 anonymous + 45 more on sign-in (50 drills per month total)
 • Individual at $5/year: 250 drills/month, six AI brains (Claude / GPT / Gemini / Grok / DeepSeek / Open Lab), premium voice
 • Lifetime at $14.99 once: 250 drills/month forever, no recurring charge
 • Bring-your-own-key (Anthropic Claude only) at $1/month for unlimited
 • Team at $20/year for school clubs and prep groups (1,500 drills/month, 50 seats)
 
-Counter is part of DebateAI. Same engine that powers debateai.com's
+Counter is part of DebateIt. Same engine that powers debateit.com's
 voice round and six-brain panel; the chrome extension is a focused
 entry point for the writing-defense audience — students, essayists,
 case-builders, and anyone whose draft has to survive a sharp reader.
 
-Built by a national APDA debate champion. A sparring partner that
+Built by an APDA Pro-Ams debate champion. A sparring partner that
 asks the questions your reader will actually ask.
 ```
 
@@ -177,9 +177,9 @@ Required to schedule two recurring background wake-ups: one every 30 minutes to 
 Required to show a single, at-most-once-per-day desktop reminder to drill: an exam-date countdown ("Exam in 3 days") when the user has set an exam date in Settings, or a streak-protection nudge when a three-plus-day streak is about to lapse. The reminder is rate-limited to once per calendar day, suppressed entirely once the user has drilled that day, and clicking it only opens the Counter side panel. No notification contains document content.
 ```
 
-**Host permission `https://debateai.com/*`**
+**Host permission `https://debateit.com/*`**
 ```
-The Counter side panel renders an iframe of debateai.com's voice round and typed flow so the extension shares one engine, one billing surface, and one auth session with the web app. host_permissions on these origins is required for the iframe to load and for postMessage bridging between the panel and the iframe to work without origin-blocking. No other origins are accessed by the extension's own code.
+The Counter side panel renders an iframe of debateit.com's voice round and typed flow so the extension shares one engine, one billing surface, and one auth session with the web app. host_permissions on these origins is required for the iframe to load and for postMessage bridging between the panel and the iframe to work without origin-blocking. No other origins are accessed by the extension's own code.
 ```
 
 **Host permission `https://docs.googleapis.com/*` and `https://www.googleapis.com/*`**
@@ -203,7 +203,7 @@ Required exclusively to detect copy events in Google Docs and Microsoft Word Onl
 
 **Privacy policy URL**
 ```
-https://debateai.com/privacy-extension
+https://debateit.com/privacy-extension
 ```
 
 **Data collection disclosures** (the developer dashboard's checkbox grid)
@@ -212,12 +212,12 @@ https://debateai.com/privacy-extension
 |---|---|---|
 | Personally identifiable information | Yes (limited) | If the user connects Google Docs, the email address of the connected Google account is displayed in the side panel for confirmation. Not stored, not transmitted to any third party, never used for advertising. |
 | Health information | No | |
-| Financial / payment information | No | Billing happens at debateai.com via Stripe; the extension never sees payment information. |
-| Authentication information | No | If the user signs in inside the iframe, sign-in happens at debateai.com against Firebase. The extension itself does not store or transmit credentials. The Google OAuth token used for the Docs API is held only in chrome.identity's cache, which the user can clear by clicking "Disconnect". |
+| Financial / payment information | No | Billing happens at debateit.com via Stripe; the extension never sees payment information. |
+| Authentication information | No | If the user signs in inside the iframe, sign-in happens at debateit.com against Firebase. The extension itself does not store or transmit credentials. The Google OAuth token used for the Docs API is held only in chrome.identity's cache, which the user can clear by clicking "Disconnect". |
 | Personal communications | No | |
 | Location | No | |
 | Web history | No | The extension does not track browsing history. |
-| User activity | Yes | Selection text clicked through a Counter context-menu item is sent to debateai.com for AI processing. |
+| User activity | Yes | Selection text clicked through a Counter context-menu item is sent to debateit.com for AI processing. |
 | Website content | Yes | Same as above. Additionally, when the user clicks "Read active doc", the contents of the currently-open Google Doc are fetched via the official Google Docs API and shown in the side panel for the user's review. |
 
 **Required certification checkboxes**
@@ -263,19 +263,19 @@ Run this list before clicking "Submit for review":
 - [ ] `manifest.json` version is bumped from the live version
 - [ ] `npm run build:ext` (or `app/extension/build.sh`) produces `counter-v0.x.x.zip`
 - [ ] Zip opens cleanly and contains `manifest.json` at the root, not nested in a `extension/` folder
-- [ ] Privacy policy URL `https://debateai.com/privacy-extension` is live (deploy first)
+- [ ] Privacy policy URL `https://debateit.com/privacy-extension` is live (deploy first)
 - [ ] At least 1 screenshot at 1280×800 attached
 - [ ] Single-purpose statement matches the manifest description
 - [ ] Each requested permission has a justification pasted in
 - [ ] "Sells data" / "uses for unrelated purposes" / "creditworthiness" boxes all UNCHECKED
-- [ ] Tested unpacked install on a fresh Chrome profile (no existing DebateAI session) and confirmed the side panel loads, the Docs pill works, and at least one voice round completes
+- [ ] Tested unpacked install on a fresh Chrome profile (no existing DebateIt session) and confirmed the side panel loads, the Docs pill works, and at least one voice round completes
 - [ ] If OAuth (Google Docs API agent) is in scope: extension ID is locked via the manifest `key` field, OAuth client ID is registered, and the consent screen is configured
 
 ---
 
 ## Common review-rejection reasons (and how Counter avoids them)
 
-1. **Broad host permissions without justification.** Counter's `host_permissions` are limited to debateai.com. The `<all_urls>` content script is justified specifically by the Google Docs canvas-rendering case.
+1. **Broad host permissions without justification.** Counter's `host_permissions` are limited to debateit.com. The `<all_urls>` content script is justified specifically by the Google Docs canvas-rendering case.
 2. **Vague single-purpose statement.** Counter's is concrete: "let a user paste or highlight an argument and have an AI debater counter-point it — both as structured rebuttals in the side panel and as a live cross-examination voice round."
 3. **Misleading screenshots.** All screenshots are real captures, not mockups.
 4. **Privacy policy contradicts manifest.** This file (`STORE_LISTING.md`), the privacy policy at `/privacy-extension.html`, and the manifest are written from the same data flow. If you change one, change the others — search the repo for "privacy-extension" to find the bindings.
@@ -292,7 +292,7 @@ Run this list before clicking "Submit for review":
 | Detailed description | This file (`STORE_LISTING.md`, "Detailed description" section) |
 | Single-purpose statement | This file, "Single-purpose statement" section |
 | Permission justifications | This file, "Permission justifications" section |
-| Privacy policy | `app/privacy-extension.html` (rendered at debateai.com/privacy-extension) |
+| Privacy policy | `app/privacy-extension.html` (rendered at debateit.com/privacy-extension) |
 | Icons | `app/extension/icons/icon-{16,32,48,128}.png` |
 
 When the Web Store listing says one thing and a file in this repo says

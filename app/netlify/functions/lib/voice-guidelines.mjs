@@ -1,4 +1,4 @@
-// Debate AI voice guidelines — SERVER-ONLY.
+// DebateIt voice guidelines — SERVER-ONLY.
 //
 // Moved here from /js/voice-guidelines.js so the voice bank doesn't ship
 // to every visitor via view-source. The client now sends `_voiceFeature`
@@ -67,7 +67,7 @@
 // ─────────────────────────────────────────────────────────────────────
 //   Write path  (every brain call):
 //     captureTurn → generations/{id}      // app/index.html
-//     saveRound  → debate_rounds/{id}     // app/debate-ai.html (post-round)
+//     saveRound  → debate_rounds/{id}     // app/debate-it.html (post-round)
 //
 //   Rate path  (admin):
 //     POST /api/admin/rate-generation     // admin-rate.html
@@ -392,6 +392,7 @@ NEVER write any of these. They are fingerprints of GPT-style writing and debate 
 - "Catastrophic harm," "devastating consequences," "untold suffering" — inflated with no specifics attached.
 - Triads-of-three that all start with the same word: "We will protect. We will defend. We will uphold." This is political-speech LARPing.
 - "Buckle up." / "Strap in." / "Here's the thing."
+- The product name itself: NEVER say "DebateIt" or "DebateIt" or "debateit.com" mid-round. You are a debater in a round, not a marketer for the platform that hosts you. A real human debater never says the name of the tournament software while debating; you don't either. If you absolutely must refer to the tool (e.g., user asks meta-question), say "this trainer" or "this tool" — not the brand name.
 
 ────────────────────────────────────────────────────────
 1b. THE NO-PREFACE RULE — state arguments, never announce them
@@ -847,7 +848,7 @@ The reasoning is invisible. The speech is the artifact.
 // this block is the meta-skill a varsity APDA debater does in the first
 // 90 seconds of prep room: assess balance, scope, definition, status quo
 // — BEFORE drafting contentions. Aligned with the in-round tight-call
-// definition in debate-ai.html (~line 3034) so pre-prep triage and
+// definition in debate-it.html (~line 3034) so pre-prep triage and
 // in-round tight calls speak the same language. Hard ≠ tight.
 const MOTION_TRIAGE = `
 
@@ -2728,7 +2729,7 @@ ASIAN PARLIAMENTARY VOICE (3v3, UADC-style, common across SG/MY/PH/IN/HK/JP/KR c
 `,
 
   india_school: `
-INDIA SCHOOL CIRCUIT VOICE (the dominant DebateAI user context — CBSE / ICSE / IB schools running Asian Parli, WSDC, and Frank Anthony formats. ~80% of platform traffic is Indian; default examples should reflect this, not US-circuit defaults).
+INDIA SCHOOL CIRCUIT VOICE (the dominant DebateIt user context — CBSE / ICSE / IB schools running Asian Parli, WSDC, and Frank Anthony formats. ~80% of platform traffic is Indian; default examples should reflect this, not US-circuit defaults).
 
 ═══ CONTEXT ═══
 - Dominant formats: Asian Parliamentary (India Today Cup, Outspoken APD elims, all school invitationals), WSDC (ISDC, Team India selection, international travel teams), Frank Anthony Memorial 4-min-speech format. Lay-style "Conventional" and "Turncoat" formats also appear in school invitationals.
@@ -3314,6 +3315,62 @@ VOICE-INPUT TOLERANCE
 
 The user may dictate their turn instead of typing. When their input reads as a live speech transcript — no terminal punctuation, run-on syntax, an audible "um/uh/like", a homophone where typed text wouldn't have one, or a clearly misheard word — treat it as if they had typed it cleanly. Interpret intent, don't correct the form, don't comment on the transcription. The argument is the argument. Argue the substance, not the surface.
 `;
+
+// Split-segment builder for prompt-caching callers (claude.mjs). Returns
+// the voice block as two pieces so the big, SHARED, deterministic part can
+// be marked as a cacheable prefix while the volatile bits stay out of it:
+//
+//   { stable, reinforcement }
+//
+//   stable        — base feature bank + per-format block + topic primer +
+//                   voice-input footer. Identical for every user on the same
+//                   (feature, format, topic), so it's a perfect cache key.
+//                   Crucially does NOT include the random spice or the
+//                   reinforcement block, both of which would poison the cache.
+//   reinforcement — the VOICE CHECK block. Kept separate so the caller can
+//                   place it dead-last in the (uncached) tail, preserving the
+//                   "re-read this before you write" intent without baking a
+//                   non-cacheable suffix into the cached prefix.
+//
+// Returns null when there's no feature (caller skips voice entirely).
+// applyVoiceGuidelines (above-style, used by the other brains) is left
+// untouched — only claude.mjs uses this split path today.
+export function buildVoiceSegments(feature, format, topic) {
+  if (!feature) return null;
+  const key = FEATURE_MAP[feature] != null ? feature : 'unknown';
+  let stable = FEATURE_MAP[key] || FEATURE_MAP.unknown; // raw base, no reinforcement
+  // Per-format block — same guard as applyVoiceGuidelines (judge/feedback/
+  // adaptive evaluate across formats, so they get no format voice).
+  if (format && feature !== 'judge' && feature !== 'feedback' && feature !== 'adaptive') {
+    const fv = forFormat(format);
+    if (fv) stable = stable + '\n' + fv;
+  }
+  if (feature === 'motionTriage' && format) {
+    const overlay = motionTriageOverlay(format);
+    if (overlay) stable = stable + '\n' + overlay;
+  }
+  if (topic && feature !== 'judge' && feature !== 'feedback' && feature !== 'adaptive') {
+    const tp = forTopic(topic);
+    if (tp) stable = stable + '\n' + tp;
+  }
+  stable = stable + VOICE_INPUT_AWARENESS;
+  return { stable, reinforcement: VOICE_REINFORCEMENT };
+}
+
+// Random "spice" section for the split path. Mirrors the 20%-of-the-time
+// section injection inside forFeature, but returns it as a standalone
+// string so the caller can drop it into the UNCACHED tail instead of the
+// cached prefix. Returns '' when no spice fires (feedback/judge/adaptive/
+// motionTriage never spice; everything else spices ~20% of the time).
+export function pickSpice(feature) {
+  const key = feature && FEATURE_MAP[feature] != null ? feature : 'unknown';
+  if (key === 'feedback' || key === 'judge' || key === 'adaptive' || key === 'motionTriage') return '';
+  const spiceList = SPICE_MAP[key];
+  if (spiceList && spiceList.length && Math.random() < 0.20) {
+    return spiceList[Math.floor(Math.random() * spiceList.length)];
+  }
+  return '';
+}
 
 // Mutates `body` in place: strips `_voiceFeature` + `_voiceFormat` and
 // appends the resolved voice block to body.system. Called after

@@ -27,7 +27,7 @@
 //   ANTHROPIC_API_KEY       — required
 //   GOOGLE_SERVICE_ACCOUNT  — for admin Firestore
 //   RESEND_API_KEY          — optional; missing = skip first-fingerprint emails
-//   FINGERPRINT_FROM        — email "from" header (default Aidan <hello@debateai.com>)
+//   FINGERPRINT_FROM        — email "from" header (default Aidan <hello@debateit.com>)
 //   FINGERPRINT_MAX_USERS   — cap per nightly run (default 60)
 //   FINGERPRINT_MIN_ROUNDS  — min generations to fingerprint (default 3)
 //   FINGERPRINT_FRESH_DAYS  — re-run if fingerprint older than this (default 7)
@@ -74,9 +74,9 @@ function safeText(s) {
   return (s || '').replace(/\s+/g, ' ').trim().slice(0, MAX_SAMPLE_CHARS);
 }
 
-const FROM_EMAIL = process.env.FINGERPRINT_FROM || 'Aidan <hello@debateai.com>';
+const FROM_EMAIL = process.env.FINGERPRINT_FROM || 'Aidan <hello@debateit.com>';
 const REPLY_TO   = process.env.FINGERPRINT_REPLY_TO || 'aidandavidhollinger@gmail.com';
-const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
+const SITE_URL   = process.env.SITE_URL || 'https://debateit.com';
 
 function esc(s) {
   return String(s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
@@ -86,7 +86,7 @@ function buildFingerprintEmail({ firstName, fingerprint }) {
   // Strip the fingerprint into the most-shareable bullets. The cron's
   // strict output schema means we can splice deterministically.
   const lines = String(fingerprint).split(/\n+/).map(l => l.trim()).filter(Boolean);
-  const tryHref = `${SITE_URL}/debate-ai`;
+  const tryHref = `${SITE_URL}/debate-it`;
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:560px;margin:0 auto;padding:32px 24px">
   <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;margin-bottom:24px">
@@ -109,7 +109,7 @@ function buildFingerprintEmail({ firstName, fingerprint }) {
     You are getting this because the AI just produced its first read of your style. We send this exactly once per signup, never again. Reply if you want to talk debate, the AI, or anything else.
   </p>
   <p style="font-size:.7rem;color:#8a8a94;margin:8px 0 0">
-    Debate AI · debateai.com · Built by an APDA national champion.
+    DebateIt · debateit.com · Built by a UChicago parliamentary debater.
   </p>
 </div>
 </body></html>`;

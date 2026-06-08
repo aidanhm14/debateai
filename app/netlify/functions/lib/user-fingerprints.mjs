@@ -56,23 +56,17 @@ async function getFingerprint(uid) {
   }
 }
 
-// Caller passes the uid (resolved upstream from the Firebase token).
-// We expose this as a separate helper rather than re-verifying inside
-// because the brain functions already have the decoded uid in scope.
-export async function applyUserFingerprint(body, uid) {
-  if (!body || typeof body !== 'object') return;
-  if (!uid) return;
-  const feature = body._voiceFeature || body._feature || '';
-  if (!FINGERPRINT_FEATURES.has(feature)) return;
-
+// Returns the formatted USER STYLE block for a (uid, feature), or '' when
+// none applies. This block is PER-USER, so it must NEVER live in the cached
+// prefix — putting it there fragments the cache one-bucket-per-user and was
+// the dominant reason cache hit-rate was near zero. The split-path caller
+// (claude.mjs) drops this into the uncached tail.
+export async function getFingerprintBlock(uid, feature) {
+  if (!uid) return '';
+  if (!FINGERPRINT_FEATURES.has(feature)) return '';
   try {
     const fingerprint = await getFingerprint(uid);
-    if (!fingerprint) return;
-    // Block sits BEFORE base system (like exemplars) so the model reads
-    // "here's how THIS user argues" up front, then the format-specific
-    // rules can reinforce or override on the way down. Format rules
-    // still win conflicts because voice-guidelines.mjs appends last.
-    //
+    if (!fingerprint) return '';
     // Instruction varies by feature: opponents pressure-test the habits,
     // judges reference recurring patterns by name in the ballot.
     const isJudge = feature === 'judge';
@@ -87,17 +81,31 @@ export async function applyUserFingerprint(body, uid) {
           'Use this to pressure-test their habits — push back hardest where',
           'they\'re weakest, don\'t reward moves the fingerprint flags as crutches.',
         ].join('\n');
-    const block = [
+    return [
       '─── USER STYLE (this debater\'s patterns from prior rounds) ───',
       fingerprint,
       instruction,
       '─── END USER STYLE ───',
       '',
     ].join('\n');
-    body.system = block + (body.system || '');
   } catch (err) {
-    console.warn('[applyUserFingerprint]', err.message);
+    console.warn('[getFingerprintBlock]', err.message);
+    return '';
   }
+}
+
+// Caller passes the uid (resolved upstream from the Firebase token).
+// We expose this as a separate helper rather than re-verifying inside
+// because the brain functions already have the decoded uid in scope.
+export async function applyUserFingerprint(body, uid) {
+  if (!body || typeof body !== 'object') return;
+  const feature = body._voiceFeature || body._feature || '';
+  const block = await getFingerprintBlock(uid, feature);
+  if (!block) return;
+  // Block sits BEFORE base system (like exemplars) so the model reads
+  // "here's how THIS user argues" up front, then the format-specific
+  // rules can reinforce or override on the way down.
+  body.system = block + (body.system || '');
 }
 
 export function _resetFingerprintCache() {

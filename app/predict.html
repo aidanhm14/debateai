@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- HIDDEN PROTOTYPE — not linked from nav, not in sitemap. Internal v1 of
+     the stakes/prediction layer (see vault: DebateIt — Monetization Concepts
+     2026-05-22). Virtual-currency only, no real money. The point of v1 is to
+     demonstrate the PROVABLY-FAIR commit-reveal mechanic end to end:
+       1. seed is generated + a SHA-256 commit hash shown BEFORE you pick
+       2. your pick + stake lock (blind — you never see others' picks)
+       3. reveal: seed is shown, you verify SHA-256(seed) === commit live,
+          and the verdict is derived deterministically from the seed, so it
+          provably could not have been influenced by your pick.
+     TODO (tomorrow): wire to real rounds (human-vs-human / human-vs-AI),
+     server-sign the commit + lock timestamp, segregate the judge model,
+     enforce self-exclusion (can't predict your own round) server-side. -->
+<title>Predict (internal prototype) · debateit.com</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  :root{
+    --bg:#0f0f13;--panel:#16161c;--panel2:#1d1d25;--bd:rgba(255,255,255,.1);
+    --bd2:rgba(255,255,255,.18);--tx:rgba(255,255,255,.9);--dim:rgba(255,255,255,.55);
+    --faint:rgba(255,255,255,.32);--red:#ef4444;--red-dim:rgba(239,68,68,.14);
+    --green:#22c55e;--blue:#60a5fa;--radius:16px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--tx);font-family:Inter,system-ui,-apple-system,sans-serif;
+    line-height:1.5;-webkit-font-smoothing:antialiased;padding:24px 16px 80px}
+  .wrap{max-width:680px;margin:0 auto}
+  .topline{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+  .brand{font-weight:800;letter-spacing:-.02em}.brand em{color:var(--red);font-style:normal}
+  .proto-tag{font-size:.56rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    color:#fbbf24;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.32);
+    padding:3px 8px;border-radius:999px}
+  .bal{font-size:.8rem;color:var(--dim)}.bal b{color:var(--green);font-variant-numeric:tabular-nums}
+  h1{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin:18px 0 4px}
+  .sub{color:var(--dim);font-size:.9rem;margin-bottom:20px}
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--radius);
+    padding:18px;margin-bottom:14px}
+  .lbl{font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--faint);margin-bottom:8px}
+  .motion{font-size:1.1rem;font-weight:700;line-height:1.35}
+  .sides{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .side{background:var(--panel2);border:1px solid var(--bd);border-radius:12px;padding:14px;
+    cursor:pointer;transition:.15s;text-align:left;color:var(--tx);font-family:inherit}
+  .side:hover{border-color:var(--bd2)}
+  .side.on{border-color:var(--red);background:var(--red-dim)}
+  .side .who{font-weight:700;font-size:.95rem;margin-bottom:4px}
+  .side .arg{font-size:.78rem;color:var(--dim);line-height:1.45}
+  .commit{font-family:var(--mono);font-size:.72rem;color:var(--blue);word-break:break-all;
+    background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.22);padding:8px 10px;border-radius:8px}
+  .verify-ok{color:var(--green)}.verify-bad{color:var(--red)}
+  .stakeRow{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+  input[type=number]{background:var(--panel2);border:1px solid var(--bd);border-radius:8px;
+    color:var(--tx);font-family:inherit;font-size:.9rem;padding:8px 12px;width:120px}
+  .btn{background:var(--red);color:#fff;border:none;border-radius:999px;font-family:inherit;
+    font-weight:700;font-size:.88rem;padding:11px 24px;cursor:pointer;transition:.15s}
+  .btn:hover{filter:brightness(1.08)}.btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.ghost{background:transparent;border:1px solid var(--bd2);color:var(--tx)}
+  .chip{display:inline-block;font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    padding:3px 8px;border-radius:999px;margin-left:8px}
+  .chip.win{background:rgba(34,197,94,.16);color:var(--green)}
+  .chip.lose{background:var(--red-dim);color:var(--red)}
+  .note{font-size:.72rem;color:var(--faint);line-height:1.5;margin-top:10px}
+  .fair{margin-top:10px}.fair summary{cursor:pointer;font-size:.74rem;color:var(--dim);font-weight:600}
+  .fair p{font-size:.74rem;color:var(--faint);margin-top:8px;line-height:1.55}
+  .result{font-size:1.05rem;font-weight:700;margin-bottom:6px}
+  .hidden{display:none}
+  a{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topline">
+    <span class="brand"><em>DebateIt</em> · Predict <span class="proto-tag">Internal prototype</span></span>
+    <span class="bal">Balance: <b id="bal">0</b> pts</span>
+  </div>
+  <h1>Predict the verdict.</h1>
+  <p class="sub">Stake reputation points on who wins. No real money. The outcome is committed before you pick, so it provably can't react to your bet.</p>
+
+  <!-- STEP 1: the round + commit -->
+  <div class="card">
+    <div class="lbl">The round</div>
+    <div class="motion" id="motion">—</div>
+    <div class="sides" id="sides"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">Provably-fair commit · shown before you pick</div>
+    <div class="commit" id="commit">—</div>
+    <p class="note">This is SHA-256 of a hidden seed. The winner is derived from that seed, so it was fixed before you saw it. After the round you'll see the seed and can verify it yourself.</p>
+  </div>
+
+  <!-- STEP 2: stake -->
+  <div class="card" id="stakeCard">
+    <div class="lbl">Your prediction</div>
+    <p class="note" style="margin-top:0">Pick a side above, then stake. Picks are blind: you never see anyone else's until the round locks.</p>
+    <div class="stakeRow">
+      <input type="number" id="stake" value="50" min="1" step="10">
+      <button class="btn" id="lockBtn" disabled>Lock prediction</button>
+    </div>
+    <p class="note">You can't predict a round you're debating in (self-exclusion). This demo is spectator-side only.</p>
+  </div>
+
+  <!-- STEP 3: reveal -->
+  <div class="card hidden" id="revealCard">
+    <div class="lbl">Result</div>
+    <div class="result" id="result">—</div>
+    <details class="fair" open>
+      <summary>Verify this round was fair</summary>
+      <p>Revealed seed: <span class="commit" id="seedOut" style="display:inline-block;margin-top:6px"></span></p>
+      <p>SHA-256(seed) = <span id="recompute" class="commit" style="display:inline-block"></span></p>
+      <p id="verifyMsg"></p>
+      <p>The verdict was computed as <code>winner = byte(SHA-256(seed + motion)) is even ? Pro : Con</code>, fixed at commit time. Your pick could not have changed it.</p>
+    </details>
+    <div class="stakeRow">
+      <button class="btn" id="nextBtn">Next round</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ── Virtual currency (localStorage, non-redeemable) ───────────────
+  var BAL_KEY = 'predict-balance';
+  function getBal(){ var v = parseInt(localStorage.getItem(BAL_KEY)||'',10); return isNaN(v) ? 1000 : v; }
+  function setBal(n){ localStorage.setItem(BAL_KEY, String(n)); document.getElementById('bal').textContent = n; }
+
+  // ── Tiny motion bank with canned two-sided framing ────────────────
+  var ROUNDS = [
+    { m:'This house would ban targeted political advertising.',
+      pro:'Microtargeting fractures the shared public square and lets campaigns lie privately to narrow slices of voters.',
+      con:'A ban hands incumbents and big brands the advantage; small challengers rely on cheap targeted reach to be heard.' },
+    { m:'This house believes social media has done more harm than good.',
+      pro:'Engagement-maximizing feeds trade teen mental health and shared truth for time-on-app.',
+      con:'It collapsed the cost of organizing, learning, and reaching an audience for billions with no other platform.' },
+    { m:'This house would require AI systems to disclose their training data.',
+      pro:'Without provenance you cannot audit bias, theft, or safety; disclosure is the floor for accountability.',
+      con:'Forced disclosure leaks trade secrets and entrenches incumbents who can afford the compliance and litigation.' },
+    { m:'This house regrets the rise of the gig economy.',
+      pro:'It rebranded precarity as freedom and offloaded every employer risk onto the worker.',
+      con:'It gave flexible income to millions locked out of rigid 9-to-5 work and undercut exploitative local monopolies.' }
+  ];
+
+  var state = { round:null, seed:null, commit:null, pick:null, locked:false };
+
+  function bufToHex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+  async function sha256(str){
+    var enc = new TextEncoder().encode(str);
+    var hash = await crypto.subtle.digest('SHA-256', enc);
+    return bufToHex(hash);
+  }
+  function randSeed(){
+    var a = new Uint8Array(16); crypto.getRandomValues(a);
+    return bufToHex(a.buffer);
+  }
+  // Deterministic winner derived from committed seed + motion.
+  async function deriveWinner(seed, motion){
+    var h = await sha256(seed + '|' + motion);
+    return (parseInt(h.slice(0,2),16) % 2 === 0) ? 'pro' : 'con';
+  }
+
+  async function newRound(){
+    state.round = ROUNDS[Math.floor(Math.random()*ROUNDS.length)];
+    state.seed = randSeed();
+    state.commit = await sha256(state.seed);
+    state.pick = null; state.locked = false;
+
+    document.getElementById('motion').textContent = state.round.m;
+    document.getElementById('commit').textContent = state.commit;
+    document.getElementById('revealCard').classList.add('hidden');
+    document.getElementById('stakeCard').classList.remove('hidden');
+    document.getElementById('lockBtn').disabled = true;
+
+    var sides = document.getElementById('sides');
+    sides.innerHTML = '';
+    [['pro','Pro / Government'],['con','Con / Opposition']].forEach(function(s){
+      var b = document.createElement('button');
+      b.className = 'side'; b.dataset.side = s[0];
+      b.innerHTML = '<div class="who">'+s[1]+'</div><div class="arg">'+state.round[s[0]]+'</div>';
+      b.onclick = function(){
+        if(state.locked) return;
+        state.pick = s[0];
+        Array.from(sides.children).forEach(function(c){ c.classList.toggle('on', c.dataset.side===s[0]); });
+        document.getElementById('lockBtn').disabled = false;
+      };
+      sides.appendChild(b);
+    });
+  }
+
+  async function lock(){
+    if(!state.pick || state.locked) return;
+    var stake = Math.max(1, Math.min(getBal(), parseInt(document.getElementById('stake').value,10)||0));
+    if(stake < 1) return;
+    state.locked = true;
+    setBal(getBal() - stake); // stake escrowed
+
+    var winner = await deriveWinner(state.seed, state.round.m);
+    var won = winner === state.pick;
+    var payout = won ? stake*2 : 0;
+    setBal(getBal() + payout);
+
+    document.getElementById('stakeCard').classList.add('hidden');
+    var rc = document.getElementById('revealCard');
+    rc.classList.remove('hidden');
+    var wlabel = winner==='pro' ? 'Pro / Government' : 'Con / Opposition';
+    document.getElementById('result').innerHTML =
+      'Verdict: <b>'+wlabel+'</b>' +
+      (won ? '<span class="chip win">You won +'+stake+'</span>' : '<span class="chip lose">You lost '+stake+'</span>');
+
+    document.getElementById('seedOut').textContent = state.seed;
+    var recomputed = await sha256(state.seed);
+    document.getElementById('recompute').textContent = recomputed;
+    var ok = recomputed === state.commit;
+    var vm = document.getElementById('verifyMsg');
+    vm.className = ok ? 'verify-ok' : 'verify-bad';
+    vm.textContent = ok
+      ? '✓ Matches the commit shown before you picked. The round was not tampered with.'
+      : '✗ Mismatch — this round would be invalid.';
+  }
+
+  document.getElementById('lockBtn').onclick = lock;
+  document.getElementById('nextBtn').onclick = newRound;
+  setBal(getBal());
+  newRound();
+})();
+</script>
+</body>
+</html>

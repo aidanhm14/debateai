@@ -1,5 +1,5 @@
 /* =========================================================
-   Debate AI — shared UI primitives
+   DebateIt — shared UI primitives
    Source of truth for colors, typography, and component styles
    used across landing, high-school, debate-ai, learn.
    Mirrors the main app (app/index.html) aesthetic so every page
@@ -142,16 +142,37 @@ body.light-theme .ui-neural-canvas{opacity:.35}
   position:fixed;top:32px;left:0;right:0;z-index:1000;
   padding:0 32px;height:52px;
   display:flex;align-items:center;justify-content:space-between;
-  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  background:color-mix(in srgb,var(--bg) 92%,transparent);
   border-bottom:1px solid var(--border);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  /* 2026-05-27 perf: backdrop-filter dropped 16px -> 10px and the
+     bg color-mix bumped 88% -> 92% so the slight visual loss from
+     the smaller blur is compensated by a more opaque background.
+     Chrome's gaussian-blur cost scales roughly with radius squared
+     and the topbar's backdrop is re-rasterized every scroll frame.
+     Visually indistinguishable on retina; meaningfully cheaper. */
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  /* Transform is not transitioned on purpose. The banner offset
+     uses transform so it snaps to position on first paint instead
+     of sliding in from y=0. The other listed properties retain
+     their existing transitions. */
   transition:top .2s ease,background .4s,border-color .4s;
 }
 body:not(.has-beta-strip) .ui-topbar{top:0}
+/* Push the fixed topbar down by the founding-cohort banner height
+   so the banner is actually visible (cohort-banner.js inserts an
+   <aside> at the top of <body> in normal flow; the topbar is fixed
+   at top:0 and was covering it). Using transform instead of `top`
+   because something on this page suppresses inline/!important
+   `top` overrides on .ui-topbar (verified in-browser: `top:47px
+   !important` computed to 0px; `transform: translateY(47px)` moved
+   the bar correctly). cohort-banner.js publishes --cohort-banner-h
+   on :root with the banner's offsetHeight; collapses to 0px on
+   dismiss, so the topbar slides back up. */
+.ui-topbar{transform:translateY(var(--cohort-banner-h,0px))}
 .ui-topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0}
 /* 2026-05-18: .ui-topbar-beta chip CSS removed alongside the element. */
 .ui-topbar-logo{
-  font-size:1.15rem;font-weight:900;letter-spacing:-.02em;
+  font-size:1.4rem;font-weight:900;letter-spacing:-.02em;
   color:var(--text);cursor:pointer;white-space:nowrap;line-height:1;
   text-decoration:none;display:inline-block;
 }
@@ -167,15 +188,15 @@ body:not(.has-beta-strip) .ui-topbar{top:0}
 [data-theme="light"] .ui-topbar-link{color:rgba(0,0,0,.78)}
 html[data-lighting="light"] .ui-topbar-link{color:rgba(0,0,0,.78)}
 /* Safety net: if data-theme says light but data-lighting still says
-   dark (out-of-sync state from before the topbar↔/debate-ai sync
+   dark (out-of-sync state from before the topbar↔/debate-it sync
    landed), the body bg stays dark — so force the link text back to
    light-on-dark. data-lighting wins because it's what actually paints
-   the page background. !important here because debate-ai.html's
+   the page background. !important here because debate-it.html's
    inline <style> block re-declares the lighting overrides with their
    own specificity that fights pure-cascade resolution; the bang
    guarantees readability regardless of which inline block parses last.
    Without this, users who toggled light on /landing then visited
-   /debate-ai got dark text on dark bg. */
+   /debate-it got dark text on dark bg. */
 html[data-lighting="dark"][data-theme="light"] .ui-topbar-link{color:rgba(255,255,255,.86) !important}
 html[data-lighting="dark"][data-theme="light"] .ui-topbar-pill{color:rgba(255,255,255,.86) !important}
 .ui-topbar-link:hover{color:var(--text)}
@@ -194,7 +215,7 @@ html[data-lighting="light"] .ui-topbar-pill{color:rgba(0,0,0,.78)}
   /* Mobile density: 14px root so rem-based sizing scales ~87.5%, fitting more per screen */
   html{font-size:14px}
   .ui-topbar{padding:0 12px;height:46px;top:28px}
-  .ui-topbar-logo{font-size:.95rem}
+  .ui-topbar-logo{font-size:1.15rem}
   .ui-topbar-right{gap:10px}
   .ui-topbar-link{font-size:.65rem}
   /* Keep the theme picker visible on phones so light-mode users can flip
@@ -223,9 +244,20 @@ html[data-lighting="light"] .ui-topbar-pill{color:rgba(0,0,0,.78)}
   background:transparent;border:1px solid var(--border-strong, rgba(255,255,255,.18));
   color:var(--text-dim, rgba(255,255,255,.62));
   cursor:pointer;font-family:inherit;
-  transition:color .15s, background .15s, border-color .15s;
+  /* 2026-05-26: secondary controls (SFX mute + theme toggle, see
+     below) default to 0.55 opacity and reveal to 1.0 on individual
+     hover OR when any part of the topbar is hovered. Per Aidan's
+     design brief — "auxiliary, not central" + "hide until hover."
+     Keyboard focus also restores opacity so the control isn't
+     hidden from accessibility tooling. */
+  opacity:.55;
+  transition:color .15s, background .15s, border-color .15s, opacity .2s;
   margin-right:6px;
 }
+.ui-topbar:hover .sfx-toggle,
+.ui-topbar .sfx-toggle:hover,
+.ui-topbar .sfx-toggle:focus-visible,
+.ui-topbar .sfx-toggle[aria-pressed="true"]{opacity:1}
 .ui-topbar .sfx-toggle:hover{
   color:var(--text, #fff);
   border-color:var(--text, #fff);
@@ -262,9 +294,16 @@ html[data-lighting="light"] .ui-topbar-pill{color:rgba(0,0,0,.78)}
   background:transparent;border:1px solid var(--border-strong, rgba(255,255,255,.18));
   color:var(--text-dim, rgba(255,255,255,.62));
   cursor:pointer;font-family:inherit;
-  transition:color .15s, background .15s, border-color .15s;
+  /* 2026-05-26: see .sfx-toggle above — same dim-by-default + reveal-
+     on-topbar-hover treatment. Paired cluster reads as one quiet
+     settings group instead of two loud individual buttons. */
+  opacity:.55;
+  transition:color .15s, background .15s, border-color .15s, opacity .2s;
   position:relative;
 }
+.ui-topbar:hover .theme-toggle,
+.ui-topbar .theme-toggle:hover,
+.ui-topbar .theme-toggle:focus-visible{opacity:1}
 .ui-topbar .theme-toggle:hover{
   color:var(--text, #fff);
   border-color:var(--text, #fff);
@@ -292,7 +331,7 @@ html[data-lighting="light"] .ui-topbar-pill{color:rgba(0,0,0,.78)}
   /* Secondary category links (College / High School / Adults) drop off
      the topbar below 560px. Phone users land on content-first; the same
      routes are reachable from the footer and body sections. Keeps logo
-     + primary Debate AI CTA thumb-reachable without overflow.
+     + primary DebateIt CTA thumb-reachable without overflow.
      !important is load-bearing: the "Live" link gets an inline
      display:inline-flex from topbar.js (so its red dot sits inline),
      which would otherwise beat this rule and leave Live leaking onto
@@ -447,11 +486,15 @@ body:not(.has-beta-strip) .ui-shell{padding-top:64px}
   width:7px;height:7px;border-radius:50%;
   background:#dc2626;
   box-shadow:0 0 0 2px rgba(255,255,255,.7),0 0 8px rgba(220,38,38,.9);
-  animation:ui-btn-voice-pulse 1.4s ease-in-out infinite;
+  /* 2026-05-26: pulse slowed 1.4s -> 2.8s + amplitude softened
+     (scale 1.25 -> 1.12) per pulse-glow audit. The dot is the
+     primary CTA's "live" signal so it stays animated — just at
+     a calmer breathing pace instead of an urgent flash. */
+  animation:ui-btn-voice-pulse 2.8s ease-in-out infinite;
 }
 @keyframes ui-btn-voice-pulse{
   0%,100%{transform:scale(1);opacity:1}
-  50%{transform:scale(1.25);opacity:.75}
+  50%{transform:scale(1.12);opacity:.78}
 }
 [data-theme="light"] .ui-btn-voice,
 body.light-theme .ui-btn-voice{
@@ -502,6 +545,114 @@ body.light-theme .ui-btn-voice{
 .ui-footer-row{
   display:flex;gap:20px;justify-content:center;flex-wrap:wrap;
   margin-bottom:12px;
+}
+
+/* ── Mobile hamburger + slide-down sheet (≤560px only) ────
+   The topbar links go display:none below 560px (existing media query
+   above). Without this hamburger, mobile users had no way to
+   navigate from the bar at all. Hamburger lives in .ui-topbar-right
+   but shows ONLY on mobile; desktop uses the inline link rail. */
+.ui-topbar-burger{
+  display:none;
+  width:34px;height:34px;padding:0;
+  background:transparent;border:1px solid var(--border-strong, rgba(255,255,255,.18));
+  border-radius:999px;color:var(--text, #fff);
+  cursor:pointer;align-items:center;justify-content:center;
+  font-family:inherit;transition:background .15s, border-color .15s, color .15s;
+}
+.ui-topbar-burger:hover{background:rgba(255,255,255,.06);border-color:var(--text)}
+.ui-topbar-burger.is-open{background:var(--accent);border-color:var(--accent);color:#fff}
+[data-theme="light"] .ui-topbar-burger{border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.78)}
+[data-theme="light"] .ui-topbar-burger:hover{background:rgba(0,0,0,.04);color:#1a1a1f}
+@media(max-width:560px){
+  .ui-topbar-burger{display:inline-flex}
+}
+
+/* Backdrop dims the page while the sheet is open. Pointer-events:auto
+   only when .is-open so the dim layer never blocks clicks while invisible. */
+.ui-topbar-sheet-backdrop{
+  position:fixed;inset:0;z-index:998;
+  background:rgba(0,0,0,.45);
+  opacity:0;pointer-events:none;
+  transition:opacity .18s ease;
+}
+.ui-topbar-sheet-backdrop.is-open{opacity:1;pointer-events:auto}
+
+/* Sheet itself: full width, anchored just below the topbar, slides
+   down from the bar. Stacks LINKS as full-width tap targets +
+   primary CTA at the bottom. */
+.ui-topbar-sheet{
+  position:fixed;left:0;right:0;top:60px;z-index:999;
+  display:flex;flex-direction:column;gap:4px;
+  padding:14px 16px 22px;
+  background:var(--bg-elev, rgba(20,20,24,.96));
+  border-bottom:1px solid var(--border, rgba(255,255,255,.08));
+  box-shadow:0 18px 40px rgba(0,0,0,.4);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  transform:translateY(-12px);opacity:0;
+  transition:transform .2s ease, opacity .2s ease;
+}
+.ui-topbar-sheet.is-open{transform:translateY(0);opacity:1}
+body.has-beta-strip .ui-topbar-sheet{top:88px}
+.ui-topbar-sheet-link{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 14px;border-radius:10px;
+  font-size:1rem;font-weight:600;letter-spacing:-.005em;
+  color:var(--text, #fff);text-decoration:none;
+}
+.ui-topbar-sheet-link:hover,
+.ui-topbar-sheet-link:focus-visible{background:rgba(255,255,255,.04);outline:none}
+.ui-topbar-sheet-link.is-active{color:var(--accent)}
+.ui-topbar-sheet-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:#ef4444;box-shadow:0 0 10px #ef4444;flex-shrink:0;
+}
+.ui-topbar-sheet-cta{
+  display:inline-flex;align-items:center;justify-content:center;
+  margin:10px 0 0;padding:14px 18px;border-radius:999px;
+  background:var(--accent);color:#fff;text-decoration:none;
+  font-size:1rem;font-weight:800;letter-spacing:.01em;
+}
+.ui-topbar-sheet-cta:hover{background:#dc2626}
+[data-theme="light"] .ui-topbar-sheet{background:rgba(255,255,255,.97);border-bottom-color:rgba(0,0,0,.08)}
+[data-theme="light"] .ui-topbar-sheet-link{color:#1a1a1f}
+[data-theme="light"] .ui-topbar-sheet-link:hover{background:rgba(0,0,0,.04)}
+[data-theme="light"] .ui-topbar-sheet-link.is-active{color:#dc2626}
+/* Hide the sheet + backdrop entirely above the mobile breakpoint so a
+   misfired class toggle on desktop can never leave hidden-but-tappable
+   nodes intercepting clicks. */
+@media(min-width:561px){
+  .ui-topbar-sheet,
+  .ui-topbar-sheet-backdrop{display:none !important}
+}
+
+/* ── Topbar utility-toggle hide (sitewide) ─────────────────
+   2026-05-26: per Aidan, the SFX mute toggle (.sfx-toggle) and the
+   sun/moon theme toggle (.theme-toggle) are gone from the topbar
+   everywhere — not just mobile. They were tertiary controls that
+   added visual noise next to the bell, lang flag, and primary CTA
+   without anyone using them. Promoted from the prior @media
+   (max-width:560px)-only hide to an unconditional hide that wins
+   over every other display:inline-flex declaration earlier in this
+   file (including the base .ui-topbar .sfx-toggle{display:inline-flex}
+   and .ui-topbar .theme-toggle{display:inline-flex} rules). If we
+   ever want either control back, drop this block and the cascade
+   restores the originals. The mobile-only hide rule inside the
+   @media block is now redundant but harmless.
+   2026-05-27 plane session: theme-toggle revived (per user request,
+   "have the option to change lighting here"). SFX toggle stays
+   killed — that was a separate decision and didn't survive the
+   2026-05-19 amber-strip sweep. */
+.ui-topbar .sfx-toggle{display:none !important}
+
+/* 2026-05-26: on mobile, the auth chip's inline "Sign out" button
+   was getting truncated to "Sig..." at the right edge of the topbar
+   because the chip + bell + lang caret + Voice AI pill together
+   exceeded the 375px viewport. Hide the Sign-out button on ≤560px;
+   the avatar+name pill is still tappable and links to /profile
+   where the user can sign out from the profile actions. */
+@media(max-width:560px){
+  #barUser > button{display:none !important}
 }
 
 /* ── Reduced motion ──────────────────────────────────────── */

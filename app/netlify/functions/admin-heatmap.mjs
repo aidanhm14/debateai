@@ -22,6 +22,7 @@ import { requireAdmin } from './lib/admin-auth.mjs';
 import { parseUA, normalizePath } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 // 2026-05-19: MAX_DOCS cut 30K → 5K. The heatmap is a sample-based
 // visualization; 5K page_view events across 30 days still gives a
@@ -54,6 +55,9 @@ export default async (request) => {
       .limit(MAX_DOCS)
       .get();
 
+    // Drop the founder's own usage so the dashboard reflects real users.
+    const excludeUids = await getExcludedUids(db);
+
     // 7×24 grid, [dayOfWeek][hour] — Sunday = 0 (UTC).
     const heatmap = Array.from({ length: 7 }, () => new Array(24).fill(0));
 
@@ -75,6 +79,7 @@ export default async (request) => {
 
     for (const d of snap.docs) {
       const data = d.data();
+      if (data.uid && excludeUids.has(data.uid)) continue;
       const t = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : null;
       if (!t) continue;
       const ev = data.event;

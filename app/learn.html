@@ -3,29 +3,29 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Learn to Debate · Format Guides · DebateAI.com</title>
+<title>Learn AI Debate · APDA, BP, PF, LD Format Guides · DebateIt</title>
 <meta name="description" content="Learn competitive debate from scratch. Six core fundamentals (claim/warrant/impact, weighing, rebuttal, signposting, cross-ex, register) plus 10 format-specific guides for APDA, BP, WSDC, Asian Parli, PF, LD, Policy, and viva oral exams.">
 <meta name="keywords" content="learn debate, debate fundamentals, how to debate, argument structure claim warrant impact, debate weighing, rebuttal techniques, signposting debate, cross examination tips, debate POI, varsity debater register, debate practice online">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://debateai.com/learn">
+<meta property="og:url" content="https://debateit.com/learn">
 <meta property="og:title" content="Learn to Debate · Six Fundamentals + Format Guides">
 <meta property="og:description" content="Six core debate concepts plus 10 format-specific tactical guides. APDA, BP, WSDC, Asian Parli, PF, LD, Policy, viva.">
-<meta property="og:image" content="https://debateai.com/og-image.png?v=orb4">
+<meta property="og:image" content="https://debateit.com/og-image.png?v=orb4">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Learn to Debate · Six Fundamentals + Format Guides">
 <meta name="twitter:description" content="Six core debate concepts plus 10 format-specific tactical guides.">
-<meta name="twitter:image" content="https://debateai.com/og-image.png?v=orb4">
-<link rel="canonical" href="https://debateai.com/learn">
+<meta name="twitter:image" content="https://debateit.com/og-image.png?v=orb4">
+<link rel="canonical" href="https://debateit.com/learn">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "Debate AI", "item": "https://debateai.com/" },
-    { "@type": "ListItem", "position": 2, "name": "Learn", "item": "https://debateai.com/learn" }
+    { "@type": "ListItem", "position": 1, "name": "DebateIt", "item": "https://debateit.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Learn", "item": "https://debateit.com/learn" }
   ]
 }
 </script>
@@ -90,7 +90,7 @@
       "name": "How can I practice debate alone?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Use Debate AI's voice round. Pick a format (APDA, BP, WSDC, Asian Parliamentary, PF, LD, Policy, Congress, MUN, or viva oral exams), pick a motion, pick a side, and give a real timed speech. The AI plays the opposing bench in format, takes points of information, runs cross-examination, and writes a full judge ballot at the end. Free tier covers casual practice. Sign in for the full 250-request monthly quota and HD voice."
+        "text": "Use DebateIt's voice round. Pick a format (APDA, BP, WSDC, Asian Parliamentary, PF, LD, Policy, Congress, MUN, or viva oral exams), pick a motion, pick a side, and give a real timed speech. The AI plays the opposing bench in format, takes points of information, runs cross-examination, and writes a full judge ballot at the end. Free tier covers casual practice. Sign in for the full 250-request monthly quota and HD voice."
       }
     }
   ]
@@ -148,15 +148,15 @@
 {
   "@context": "https://schema.org",
   "@type": "Course",
-  "name": "Learn to Debate with Debate AI",
+  "name": "Learn to Debate with DebateIt",
   "description": "Free introduction to competitive debate fundamentals: argumentation, rebuttal, judging, and format-specific skills across APDA, BP, WSDC, Policy, LD, PF, Asian Parli, Congress, and MUN.",
   "provider": {
     "@type": "Organization",
-    "name": "Debate AI",
-    "url": "https://debateai.com/",
-    "sameAs": "https://debateai.com/"
+    "name": "DebateIt",
+    "url": "https://debateit.com/",
+    "sameAs": "https://debateit.com/"
   },
-  "url": "https://debateai.com/learn",
+  "url": "https://debateit.com/learn",
   "inLanguage": "en",
   "isAccessibleForFree": true,
   "educationalLevel": "Beginner to Advanced",
@@ -180,7 +180,7 @@
     "courseWorkload": "PT2H",
     "instructor": {
       "@type": "Organization",
-      "name": "Debate AI"
+      "name": "DebateIt"
     }
   },
   "offers": {
@@ -243,8 +243,25 @@
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<!-- 2026-05-26 perf: React 18 → Preact 10 + compat (Phase B of the
+     Preact migration; phase A was /exhibition, commit 9f101e4). Saves
+     ~166KB min / ~49KB gz transfer + ~5-15MB heap per page load. See
+     /exhibition shim for the same pattern; createRoot polyfilled
+     since preact/compat UMD ships render() but not createRoot. -->
+<script src="https://unpkg.com/preact@10/dist/preact.umd.js"></script>
+<script src="https://unpkg.com/preact@10/hooks/dist/hooks.umd.js"></script>
+<script src="https://unpkg.com/preact@10/compat/dist/compat.umd.js"></script>
+<script>
+  window.React = window.preactCompat;
+  window.ReactDOM = Object.assign({}, window.preactCompat, {
+    createRoot: function (container) {
+      return {
+        render: function (element) { window.preactCompat.render(element, container); },
+        unmount: function () { window.preactCompat.render(null, container); }
+      };
+    }
+  });
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow-x:hidden}
@@ -724,9 +741,14 @@ body{background:#fffaf7}
 <body>
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
 <script defer src="/js/ui-neural.js"></script>
-<!-- Shared topbar — same nav as /landing, /debate-ai, /high-school, etc. -->
+<!-- Shared topbar — same nav as /landing, /debate-it, /high-school, etc. -->
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
+<!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
+     top of <body>, above the shared .ui-topbar. The fixed .ui-topbar
+     (css/ui.css) already reads --cohort-banner-h and translates down by
+     the banner height, so no per-page offset wiring is needed here. -->
+<script src="/js/cohort-banner.js" defer></script>
 
 <!-- 2026-05-18: Fundamentals section. The /learn page used to be
      entirely a hub of links to subpages (format references, education
@@ -1029,6 +1051,36 @@ body{background:#fffaf7}
     <a href="/learn/guides" class="learn-guides-promo-cta">All guides →</a>
   </div>
 </aside>
+
+<!-- /learn/formats cross-link rail (added 2026-06-01). The 9 format
+     reference pages (/learn/formats/{slug}) were live and in the sitemap
+     but orphaned: zero internal links from anywhere on the site, so they
+     earned almost no internal authority despite being the format-accuracy
+     wedge content. This rail de-orphans them with descriptive anchor text.
+     Reuses the guides-promo styling for visual consistency. There is no
+     bare /learn/formats index (it 404s), so the CTA points at the product
+     instead of a non-existent hub. -->
+<aside class="learn-guides-promo" aria-label="Format references">
+  <div class="learn-guides-promo-inner">
+    <div class="learn-guides-promo-head">
+      <span class="learn-guides-promo-eyebrow">Formats</span>
+      <h2 class="learn-guides-promo-title">Every format, by the actual rules.</h2>
+      <p class="learn-guides-promo-sub">How each format really runs: speech order, times, evidence rules, and what judges reward. 9 reference pages across the formats debaters compete in worldwide.</p>
+    </div>
+    <ul class="learn-guides-promo-list">
+      <li><a href="/learn/formats/asian"><span class="learn-guides-promo-chip">Asian Parli</span><span class="learn-guides-promo-text">Asian Parliamentary: 3v3, POIs, reply speeches, definitional debate.</span></a></li>
+      <li><a href="/learn/formats/worlds"><span class="learn-guides-promo-chip">World Schools</span><span class="learn-guides-promo-text">WSDC: prepared and impromptu motions, reply speeches, the team line.</span></a></li>
+      <li><a href="/learn/formats/bp"><span class="learn-guides-promo-chip">BP</span><span class="learn-guides-promo-text">British Parliamentary: four teams, extensions, whip, no knifing.</span></a></li>
+      <li><a href="/learn/formats/apda"><span class="learn-guides-promo-chip">APDA</span><span class="learn-guides-promo-text">American Parliamentary: impromptu, case-driven, no published evidence.</span></a></li>
+      <li><a href="/learn/formats/pf"><span class="learn-guides-promo-chip">PF</span><span class="learn-guides-promo-text">Public Forum: partners, crossfire, summary, final focus.</span></a></li>
+      <li><a href="/learn/formats/ld"><span class="learn-guides-promo-chip">LD</span><span class="learn-guides-promo-text">Lincoln-Douglas: value and criterion, one-on-one, framework clash.</span></a></li>
+      <li><a href="/learn/formats/policy"><span class="learn-guides-promo-chip">Policy</span><span class="learn-guides-promo-text">Policy (CX): plans, tagged-card evidence, speed, the flow.</span></a></li>
+      <li><a href="/learn/formats/congress"><span class="learn-guides-promo-chip">Congress</span><span class="learn-guides-promo-text">Congressional Debate: bills and resolutions, the speech cycle, the PO.</span></a></li>
+      <li><a href="/learn/formats/mun"><span class="learn-guides-promo-chip">MUN</span><span class="learn-guides-promo-text">Model UN: committees, position papers, blocs, resolutions.</span></a></li>
+    </ul>
+    <a href="/debate-it" class="learn-guides-promo-cta">Practice any format →</a>
+  </div>
+</aside>
 <style>
   /* 2026-05-19 contrast fix: previous design used white text on
      rgba-tinted backgrounds, which assumed a dark page bg. The page
@@ -1287,7 +1339,7 @@ var MODES = [
 { id: 'news', label: 'Be Up to Date' },
 { id: 'builder', label: 'Arg Builder' },
 { id: 'fallacy', label: 'Fallacy Trainer' },
-{ id: 'AI', label: "Debate AI" },
+{ id: 'AI', label: "DebateIt" },
 { id: 'persuade', label: 'Persuasion Lab' },
 { id: 'rebuttal', label: 'Rebuttal Drill' },
 { id: 'weighing', label: 'Weighing Practice' },
@@ -1510,7 +1562,7 @@ function QuickDebate() {
   // guided mini-debate the intuitive next step is the real product, with
   // this topic prefilled. New Debate stays as a secondary reset.
   el('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 20 } },
-  el('a', { className: 'cta', href: '/debate-ai?motion=' + encodeURIComponent(topic), style: { textDecoration: 'none', marginTop: 0 } }, 'Take it to a full round →'),
+  el('a', { className: 'cta', href: '/debate-it?motion=' + encodeURIComponent(topic), style: { textDecoration: 'none', marginTop: 0 } }, 'Take it to a full round →'),
   el('button', { className: 'cta-ghost', style: { marginTop: 0 }, onClick: () => {setStage('pick');setTopic('');setMsgs([]);setFeedback('');} }, 'New debate')
   )
   );
@@ -1617,7 +1669,7 @@ function ArgBuilder() {
   // the next step is defending it live, with the claim prefilled. Build
   // Another stays as the secondary reset.
   el('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 20 } },
-  el('a', { className: 'cta', href: '/debate-ai?motion=' + encodeURIComponent(claim || (answers && answers[STEPS[0]]) || ''), style: { textDecoration: 'none', marginTop: 0 } }, 'Now defend it against an AI →'),
+  el('a', { className: 'cta', href: '/debate-it?motion=' + encodeURIComponent(claim || (answers && answers[STEPS[0]]) || ''), style: { textDecoration: 'none', marginTop: 0 } }, 'Now defend it against an AI →'),
   el('button', { className: 'cta-ghost', style: { marginTop: 0 }, onClick: () => {setStage('start');setClaim('');setStepIdx(0);setAnswers({});setSummary('');setAiHint('');} }, 'Build another')
   )
   );
@@ -2490,7 +2542,7 @@ function UsageBanner() {
   el('path', { fill: '#4CAF50', d: 'M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z' }),
   el('path', { fill: '#1976D2', d: 'M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z' })
   ),
-  'Sign in with Google → 5 more free'
+  'Continue with Google → AI starts learning you'
   )
   ),
 
@@ -2615,7 +2667,7 @@ function App() {
   el('div', { className: 'tier-label' }, el('span', { className: 'num' }, '3'), el('span', null, 'Advanced Drills')),
   el('div', { className: 'lesson-chips' },
   el('button', { className: 'lesson-chip', onClick: () => switchMode('AI') },
-  el('strong', null, "Debate AI"),
+  el('strong', null, "DebateIt"),
   el('span', null, 'Have your own beliefs challenged from every angle.')
   ),
   el('button', { className: 'lesson-chip', onClick: () => switchMode('persuade') },
@@ -2667,9 +2719,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(el(App));</script>
 <!-- Static crawler-visible navigation. /learn is a React SPA. -->
 <aside aria-label="Site navigation" style="max-width:780px;margin:48px auto 0;padding:32px 24px 64px;border-top:1px solid rgba(255,255,255,0.08);font:14px/1.6 system-ui,sans-serif;color:#94a3b8;text-align:center">
   <div style="font-size:13px;display:flex;flex-wrap:wrap;gap:0 16px;justify-content:center">
-    <a href="/" style="color:#94a3b8;text-decoration:none">Debate AI</a>
+    <a href="/" style="color:#94a3b8;text-decoration:none">DebateIt</a>
     <span aria-hidden="true">·</span>
-    <a href="/debate-ai" style="color:#94a3b8;text-decoration:none">Debate a round</a>
+    <a href="/debate-it" style="color:#94a3b8;text-decoration:none">Debate a round</a>
     <span aria-hidden="true">·</span>
     <a href="/voice-debate" style="color:#94a3b8;text-decoration:none">Voice round</a>
     <span aria-hidden="true">·</span>
@@ -2695,13 +2747,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(el(App));</script>
     <span aria-hidden="true">·</span>
     <a href="/schools" style="color:#94a3b8;text-decoration:none">For schools</a>
     <span aria-hidden="true">·</span>
-    <a href="/story" style="color:#94a3b8;text-decoration:none">Our story</a>
-    <span aria-hidden="true">·</span>
     <a href="/privacy" style="color:#94a3b8;text-decoration:none">Privacy</a>
     <span aria-hidden="true">·</span>
     <a href="/terms" style="color:#94a3b8;text-decoration:none">Terms</a>
     <span aria-hidden="true">·</span>
-    <a href="mailto:feedback@debateai.com" style="color:#94a3b8;text-decoration:none">Contact</a>
+    <a href="mailto:feedback@debateit.com" style="color:#94a3b8;text-decoration:none">Contact</a>
   </div>
 </aside>
 <script defer src="/js/signup-nudge.js"></script>

@@ -45,30 +45,39 @@ async function getDistillation(format) {
   }
 }
 
-export async function applyDistillations(body) {
-  if (!body || typeof body !== 'object') return;
-  const feature = body._voiceFeature || body._feature || '';
-  if (!DISTILL_FEATURES.has(feature)) return;
-  const format = body._voiceFormat || '';
-  if (!format) return;
-
+// Returns the formatted LEARNED PATTERNS block for a (format, feature), or
+// '' when none applies. Shared per format, changes nightly — a perfect
+// member of the cacheable prefix. Used by the split-path caller (claude.mjs)
+// that assembles body.system explicitly rather than via applyDistillations.
+export async function getDistillationBlock(format, feature) {
+  if (!DISTILL_FEATURES.has(feature)) return '';
+  if (!format) return '';
   try {
     const distillation = await getDistillation(format);
-    if (!distillation) return;
-    const block = [
+    if (!distillation) return '';
+    return [
       '',
       '─── LEARNED PATTERNS (from top-rated rounds on this format) ───',
       distillation,
       '─── END LEARNED PATTERNS ───',
       '',
     ].join('\n');
-    // Append AFTER exemplars (which prepended). Order: exemplars +
-    // base system + voice guidelines + distillation. Voice rules come
-    // before patterns because format-specific rules must win conflicts.
-    body.system = (body.system || '') + block;
   } catch (err) {
-    console.warn('[applyDistillations]', err.message);
+    console.warn('[getDistillationBlock]', err.message);
+    return '';
   }
+}
+
+export async function applyDistillations(body) {
+  if (!body || typeof body !== 'object') return;
+  const feature = body._voiceFeature || body._feature || '';
+  const format = body._voiceFormat || '';
+  const block = await getDistillationBlock(format, feature);
+  if (!block) return;
+  // Append AFTER exemplars (which prepended). Order: exemplars +
+  // base system + voice guidelines + distillation. Voice rules come
+  // before patterns because format-specific rules must win conflicts.
+  body.system = (body.system || '') + block;
 }
 
 export function _resetDistillationCache() {

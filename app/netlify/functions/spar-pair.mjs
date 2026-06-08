@@ -24,7 +24,7 @@ import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 // Body only supplies peerUid + format (for format-mismatch defense).
 
 const VALID_FORMATS = new Set([
-  'quick','apda','bp','worlds','asian','ld','pf','policy',
+  'quick','apda','bp','worlds','asian','ld','pf','policy','casual',
 ]);
 
 // Per-uid throttle so a misbehaving client can't fan out pair attempts.
@@ -221,6 +221,15 @@ export default async (request) => {
 
       const myShort = shortName(mine);
       const peerShort = shortName(theirs);
+      // Older joiner's motion wins (theirs is older because the
+      // poller sorted oldest-first). Both clients read pairedMotion
+      // from their now-matched queue doc so the casual-room banner
+      // shows the SAME motion on both sides. Falls back to the new
+      // joiner's motion if the older joiner didn't supply one, then
+      // empty string for non-casual pairings that don't pass a
+      // motion at all (/spar). Capped to 280 chars to match the
+      // client-side write cap.
+      const pairedMotion = String(theirs.motion || mine.motion || '').slice(0, 280);
       const common = {
         status: 'matched',
         room,
@@ -229,6 +238,7 @@ export default async (request) => {
         conUid,
         proName: proUid === myUid ? myShort : peerShort,
         conName: conUid === myUid ? myShort : peerShort,
+        pairedMotion,
       };
 
       tx.update(myRef, {

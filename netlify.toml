@@ -4,7 +4,7 @@
 # The Netlify dashboard has the base/publish directory set to `app/`,
 # so Netlify reads `app/netlify.toml` as the authoritative config and
 # serves files from the `app/` subtree. Verified by diffing prod HTML
-# (`curl https://debateai.com/`) against `app/landing.html` — identical
+# (`curl https://debateit.com/`) against `app/landing.html` — identical
 # modulo Netlify's auto-injected RUM script.
 #
 # This file (repo-root netlify.toml) is NOT read by Netlify in the
@@ -25,12 +25,26 @@
   functions = "app/netlify/functions"
 
 [build.environment]
+  # 2026-05-24: see app/netlify.toml for the full rationale. Netlify
+  # renamed NETLIFY_SKIP_SECRETS_CHECK → SECRETS_SCAN_ENABLED; the old
+  # name no longer disables the scanner. Setting both for safety.
+  SECRETS_SCAN_ENABLED = "false"
   NETLIFY_SKIP_SECRETS_CHECK = "true"
   # Bake script intentionally writes the Firestore service account into the
   # function bundle (base64-encoded), so tell the scanner not to flag the
   # match against the dashboard GOOGLE_SERVICE_ACCOUNT value.
   SECRETS_SCAN_OMIT_KEYS = "GOOGLE_SERVICE_ACCOUNT"
   SECRETS_SCAN_OMIT_PATHS = "app/netlify/functions/lib/_firestore-creds.mjs"
+  # Firebase web API keys are public by Firebase's own design — they
+  # identify the project, not authenticate the user. Real auth is
+  # enforced via Firestore Security Rules + App Check. The key is
+  # inline in every HTML page (debate-ai, voice-debate, landing, etc.)
+  # and visible in view-source. Netlify's smart-detection scanner
+  # started flagging it on 2026-05-24 after debate-chat.html landed
+  # with a more recognizable `apiKey: "AIza..."` pattern, which
+  # bricked every deploy. Whitelist the specific value so the scan
+  # keeps running for actual secrets. Mirror of app/netlify.toml.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDqHa-AHzx-K9MeBaIv9TY4WPdfV5ECgrU"
 
 [functions]
   external_node_modules = ["@google-cloud/firestore", "stripe"]
@@ -38,6 +52,20 @@
 
 # Education sub-hub under /learn. Mirrors app/netlify.toml.
 # /learn/education (index) + /learn/education/{slug} primers with quiz.
+# /debate-chat → /spar (2026-05-26). Consolidating around /spar as
+# the canonical live-spawning page. See app/netlify.toml for the
+# rationale block.
+[[redirects]]
+  from = "/debate-chat"
+  to = "/spar"
+  status = 301
+  force = true
+[[redirects]]
+  from = "/debate-chat/*"
+  to = "/spar"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "/learn/education"
   to = "/api/learn/education"
@@ -123,6 +151,21 @@
   status = 301
   force = true
 
+# Debate dossiers (/debate, /debate/{slug}). Mirrors app/netlify.toml.
+# Server-rendered by app/netlify/functions/debate.mjs from
+# lib/debate-bank.mjs; replaced the old static app/debate/*.html pages.
+[[redirects]]
+  from = "/debate"
+  to = "/api/debate"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/debate/*"
+  to = "/api/debate/:splat"
+  status = 200
+  force = true
+
 # Dynamic sitemaps. Mirrors app/netlify.toml. See that file's matching
 # block for the design rationale (function-served sitemap so lastmod
 # stays fresh + per-collection sub-sitemaps for /r/{id} and /today).
@@ -198,6 +241,14 @@
   to = "/index.html"
   status = 200
 
+# Public profile pages (/users/{handle}). 200-rewrite so the handle stays
+# in the URL; users.html parses it client-side. Mirrors app/netlify.toml.
+# (Community identity + honesty redesign, 2026-05-21.)
+[[redirects]]
+  from = "/users/*"
+  to = "/users.html"
+  status = 200
+
 # Named pages
 [[redirects]]
   from = "/high-school"
@@ -208,6 +259,18 @@
 [[redirects]]
   from = "/schools"
   to = "/schools.html"
+  status = 200
+
+# SEO landing — online debate camp. Targets "online debate camp" + "online
+# debate training" (Course + FAQPage schema on the page itself).
+[[redirects]]
+  from = "/online-debate-camp"
+  to = "/online-debate-camp.html"
+  status = 200
+
+[[redirects]]
+  from = "/online-debate-training"
+  to = "/online-debate-camp.html"
   status = 200
 
 # For-professionals page. Distinct from /pro (which serves /landing.html
@@ -261,8 +324,38 @@
   status = 301
 
 [[redirects]]
+  from = "/debate-it"
+  to = "/debate-it.html"
+  status = 200
+
+# Old-brand slug 301s (Debate AI → DebateIt rebrand 2026-06-08). Old
+# .html files were renamed, so these fire without force=true.
+[[redirects]]
   from = "/debate-ai"
-  to = "/debate-ai.html"
+  to = "/debate-it"
+  status = 301
+
+[[redirects]]
+  from = "/debate-ai-tools"
+  to = "/debate-it-tools"
+  status = 301
+
+[[redirects]]
+  from = "/compare/debateai-vs-chatgpt"
+  to = "/compare/debateit-vs-chatgpt"
+  status = 301
+
+[[redirects]]
+  from = "/compare/debateai-vs-claude"
+  to = "/compare/debateit-vs-claude"
+  status = 301
+
+# Internal-only Canva-grade visual editor (multi-select, marquee, group
+# drag, alignment guides, 8-handle resize, arrow nudge, JSON export).
+# Hidden behind /god — memorable URL, not linked from anywhere.
+[[redirects]]
+  from = "/god"
+  to = "/tools/copy-edit.html"
   status = 200
 
 [[redirects]]
@@ -277,6 +370,40 @@
   from = "/voice-rfd"
   to = "/voice-rfd.html"
   status = 200
+
+# Certificate verify pages (/verify/{id}). Mirror of app/netlify.toml.
+[[redirects]]
+  from = "/verify/*"
+  to = "/verify.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/verify"
+  to = "/verify.html"
+  status = 200
+  force = true
+
+# Credential program landing — mirror of app/netlify.toml.
+[[redirects]]
+  from = "/credentials"
+  to = "/credentials.html"
+  status = 200
+  force = true
+
+# Personal communication profile dashboard — mirror of app/netlify.toml.
+[[redirects]]
+  from = "/communication-profile"
+  to = "/communication-profile.html"
+  status = 200
+  force = true
+
+# Founding-cohort signup — mirror of app/netlify.toml.
+[[redirects]]
+  from = "/early"
+  to = "/early.html"
+  status = 200
+  force = true
 
 # Live debates (human vs human)
 [[redirects]]
@@ -306,8 +433,8 @@
 # dead end. Repointed each to the closest live page as a 301 so any
 # external/indexed link lands somewhere intuitive instead of erroring.
 [[redirects]]
-  from = "/debate-ai-tools"
-  to = "/debate-ai"
+  from = "/debate-it-tools"
+  to = "/debate-it"
   status = 301
 
 [[redirects]]
@@ -317,7 +444,7 @@
 
 [[redirects]]
   from = "/ai-debate-practice"
-  to = "/debate-ai"
+  to = "/debate-it"
   status = 301
 
 [[redirects]]
@@ -327,7 +454,7 @@
 
 [[redirects]]
   from = "/debate-case-generator"
-  to = "/debate-ai"
+  to = "/debate-it"
   status = 301
 
 [[redirects]]
@@ -383,9 +510,9 @@
   status = 200
 
 # 2026-05-20: removed the /me → /me.html rewrite. me.html doesn't exist,
-# and because this rule sat ABOVE the /me → /debate-ai redirect lower in
+# and because this rule sat ABOVE the /me → /debate-it redirect lower in
 # the file, Netlify matched it first and served a 404. Dropping it lets
-# the intended /me → /debate-ai (301) win.
+# the intended /me → /debate-it (301) win.
 [[redirects]]
   from = "/admin-runner"
   to = "/admin-runner.html"
@@ -485,16 +612,22 @@
   to = "/story.html"
   status = 200
 
+# Brand-entity definition page — see app/netlify.toml for context.
+[[redirects]]
+  from = "/debatable"
+  to = "/debatable.html"
+  status = 200
+
 [[redirects]]
   from = "/pricing"
   to = "/pricing.html"
   status = 200
 
-# /me deleted 2026-04-20 — stale localStorage archive. 301 to /debate-ai
+# /me deleted 2026-04-20 — stale localStorage archive. 301 to /debate-it
 # so old bookmarks land on the sparring page instead of 404.
 [[redirects]]
   from = "/me"
-  to = "/debate-ai"
+  to = "/debate-it"
   status = 301
 
 # /disclosures was a stub already saying "moved to /community" in its

@@ -18,7 +18,7 @@
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { esc, jsonLd } from './lib/public-round.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://debateit.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
 
 function notFoundResponse(request) {
@@ -28,14 +28,14 @@ function notFoundResponse(request) {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Round not found · Debate AI</title>
+<title>Round not found · DebateIt</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="/css/ui.css">
 <style>body{background:#000;color:#fff;font-family:Inter,system-ui,sans-serif;margin:0;padding:80px 24px;text-align:center}h1{font-size:2rem;margin-bottom:8px}p{color:rgba(255,255,255,.6);margin:0 0 20px}a{color:#ef4444;text-decoration:none;font-weight:700}</style>
 </head><body>
 <h1>That round isn't here</h1>
 <p>The round at <code>/r/${safeId}</code> was either removed or never existed.</p>
-<a href="/debate-ai">Start a new round →</a>
+<a href="/debate-it">Start a new round →</a>
 </body></html>`;
   return new Response(body, {
     status: 404,
@@ -82,7 +82,7 @@ function renderSpeechBlock(s, i) {
 function renderPage(id, doc) {
   const motion = doc.motion || '';
   const titleCore = motion.length > 60 ? motion.slice(0, 57) + '…' : motion;
-  const title = `${titleCore} · Debate AI`;
+  const title = `${titleCore} · DebateIt`;
   const description = describeDoc(doc);
   const canonical = `${SITE_ORIGIN}/r/${id}`;
   const byline = doc.displayName || 'Anonymous debater';
@@ -103,7 +103,7 @@ function renderPage(id, doc) {
     },
     publisher: {
       '@type': 'Organization',
-      name: 'Debate AI',
+      name: 'DebateIt',
       url: SITE_ORIGIN,
       logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-192.png` },
     },
@@ -136,14 +136,14 @@ function renderPage(id, doc) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${canonical}">
-<meta property="og:title" content="${esc(titleCore)} · Debate AI">
+<meta property="og:title" content="${esc(titleCore)} · DebateIt">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="DebateIt">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${esc(titleCore)} · Debate AI">
+<meta name="twitter:title" content="${esc(titleCore)} · DebateIt">
 <meta name="twitter:description" content="${esc(description)}">
 <meta name="twitter:image" content="${OG_IMAGE}">
 <link rel="icon" href="/icons/icon-192.png">
@@ -216,12 +216,12 @@ function renderPage(id, doc) {
   <div class="cta-card">
     <h3>Try this motion yourself.</h3>
     <p>Same motion. Pick your side. Three minutes per speech. The AI debates back. Judge tells you what landed.</p>
-    <a class="cta-button" href="/debate-ai?motion=${motionEncoded}">Argue this motion →</a>
+    <a class="cta-button" href="/debate-it?motion=${motionEncoded}">Argue this motion →</a>
   </div>
 
   <footer>
-    <span>© 2026 Debate AI</span>
-    <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/champions">Champions</a> · <a href="/community#rounds">Browse rounds</a></span>
+    <span>© 2026 DebateIt</span>
+    <span><a href="/">Home</a> · <a href="/debate-it">New round</a> · <a href="/champions">Champions</a> · <a href="/community#rounds">Browse rounds</a></span>
   </footer>
 </main>
 </body></html>`;

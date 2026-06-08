@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Judge RFD · Debate AI</title>
+<title>Judge RFD · DebateIt</title>
 <meta name="description" content="The judge's verdict on your voice round — speaker points, best moment, costliest moment, two fixes for next round." />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="canonical" href="https://debateai.com/voice-rfd">
+<link rel="canonical" href="https://debateit.com/voice-rfd">
 
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://debateai.com/voice-rfd">
-<meta property="og:title" content="Judge RFD · Debate AI">
+<meta property="og:url" content="https://debateit.com/voice-rfd">
+<meta property="og:title" content="Judge RFD · DebateIt">
 <meta property="og:description" content="The judge's verdict on your voice round.">
 <meta name="twitter:card" content="summary_large_image">
 
@@ -236,6 +236,38 @@ body{
 .section--transcript{border-color:var(--border)}
 .section--transcript .icon{background:rgba(255,255,255,.04);color:var(--text-dim);border:1px solid var(--border)}
 
+/* Cert award banner — sits between verdict + Best moment. Gold so it
+   reads as a credential, not another feedback section. */
+.section--cert{
+  border-color:rgba(212,175,55,.40);
+  background:linear-gradient(180deg, rgba(212,175,55,.08), rgba(212,175,55,.02));
+}
+.section--cert:hover{border-color:rgba(212,175,55,.56)}
+.section--cert .icon{background:rgba(212,175,55,.14);color:#d4af37;border:1px solid rgba(212,175,55,.40)}
+.cert-banner{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.cert-banner-text{flex:1;min-width:240px}
+.cert-banner-tier{
+  font-family:var(--serif);font-weight:800;font-style:italic;
+  font-size:clamp(1.6rem, 4vw, 2.2rem);line-height:1.05;color:var(--text);margin-bottom:6px;
+}
+.cert-banner-tier .gold{color:#d4af37}
+.cert-banner-blurb{font-size:.96rem;color:var(--text-dim);line-height:1.5}
+.cert-banner-actions{display:flex;gap:10px;flex-wrap:wrap}
+.cert-banner-actions a, .cert-banner-actions button{
+  font-family:inherit;font-size:.82rem;font-weight:700;
+  padding:10px 16px;border-radius:999px;cursor:pointer;
+  text-decoration:none;border:1px solid transparent;
+  transition:transform .15s,background .15s,border-color .15s;
+}
+.cert-banner-actions .cert-cta{
+  background:#d4af37;color:#0a0a0a;border-color:#d4af37;
+}
+.cert-banner-actions .cert-cta:hover{transform:translateY(-1px);background:#c79c2a}
+.cert-banner-actions .cert-ghost{
+  background:transparent;color:var(--text-dim);border-color:var(--border-strong);
+}
+.cert-banner-actions .cert-ghost:hover{color:var(--text);border-color:var(--text-dim)}
+
 .fixes-list{
   list-style:none;padding:0;margin:0;
   display:flex;flex-direction:column;gap:14px;
@@ -294,6 +326,24 @@ body{
 .cta-btn.primary:hover{background:#dc2626;transform:translateY(-1px)}
 .cta-btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
 .cta-btn.ghost:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+
+/* ── Next-step row ─────────────────
+   Quieter secondary row below .cta-row. Surfaces /live + /spar so the
+   user who just ran a voice round can opt up to a human surface while
+   the prep is still fresh. Visual: small + muted, never competes with
+   the primary "Run another" CTA above. */
+.next-step-row{
+  margin-top:14px;padding:14px 18px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;
+  font-size:.84rem;color:var(--text-dim);
+}
+.next-step-row .next-step-label{font-weight:600}
+.next-step-row .next-step-link{
+  color:var(--text);font-weight:700;text-decoration:none;
+  border-bottom:1px dotted var(--border-strong);padding-bottom:1px;
+  transition:color .14s,border-color .14s;
+}
+.next-step-row .next-step-link:hover{color:var(--accent);border-color:var(--accent)}
 
 /* ── Empty / loading states ─────────── */
 .empty{
@@ -363,11 +413,57 @@ body{
 }
 .foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px solid var(--border)}
 .foot a:hover{color:var(--text)}
+
+/* Rate-this-round widget. Only renders if the payload carries a
+   generationId (signed-in users whose voice-debate log-generation flush
+   succeeded). The 'rate' signal fired here is the strongest supervised
+   label the nightly distill (scheduled-distill.mjs) can use — the rest
+   of the loop is wired but starves without these stars getting clicked. */
+.rate-card{
+  margin-top:28px;padding:22px 24px;border-radius:14px;
+  background:rgba(255,255,255,.025);border:1px solid var(--border);
+  text-align:center;
+}
+.rate-eyebrow{
+  font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:14px;font-weight:600;
+}
+.rate-stars{display:inline-flex;gap:8px;margin-bottom:12px}
+.rate-star{
+  width:44px;height:44px;border-radius:9px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-ghost);font-size:1.5rem;line-height:1;
+  cursor:pointer;font-family:inherit;padding:0;
+  display:grid;place-items:center;
+  transition:background .14s,border-color .14s,color .14s,transform .14s;
+}
+.rate-star:hover{border-color:var(--border-strong);color:var(--text-dim);transform:translateY(-1px)}
+.rate-star.on{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.55);color:#fbbf24}
+.rate-boring{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 13px;border-radius:999px;margin-top:4px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-ghost);font-size:.74rem;font-weight:600;
+  letter-spacing:.04em;cursor:pointer;font-family:inherit;
+  transition:background .14s,border-color .14s,color .14s;
+}
+.rate-boring:hover{border-color:var(--border-strong);color:var(--text-dim)}
+.rate-boring.on{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.45);color:#fca5a5}
+.rate-notes{
+  margin-top:14px;width:100%;min-height:64px;
+  padding:9px 11px;border-radius:8px;
+  background:rgba(255,255,255,.025);border:1px solid var(--border);
+  color:var(--text);font-size:.82rem;font-family:inherit;line-height:1.5;
+  resize:vertical;outline:none;box-sizing:border-box;
+  transition:border-color .14s;
+}
+.rate-notes:focus{border-color:rgba(245,158,11,.45)}
+.rate-done{color:var(--text-dim)}
 </style>
 </head>
 <body>
 <header class="topbar">
-  <a href="/" class="brand"><span class="b-mark"></span>Debate AI</a>
+  <a href="/" class="brand"><span class="b-mark"></span>DebateIt</a>
   <div class="spacer"></div>
   <a href="/voice-debate" class="bar-ghost">← Back to round</a>
   <a href="/voice-debate" class="bar-cta">Run another</a>
@@ -523,6 +619,31 @@ body{
         + '</div>'
       + '</div></section>';
 
+    // Cert award banner — only when voice-debate.html attached a
+    // freshly-issued cert to the payload (signed-in user, score >= 27).
+    // Sits between the verdict and the best-moment section so the
+    // reward beat lands right after the user reads they won/lost.
+    if (payload.cert && payload.cert.certId){
+      var ct = payload.cert;
+      var tierName = escHtml(ct.tierName || 'Novice');
+      var tierBlurb = escHtml(ct.tierBlurb || 'You cleared the bar. Nice round.');
+      var verifyUrl = '/verify/' + escHtml(ct.certId);
+      html +=
+        '<section class="section section--cert">'
+          + '<div class="section-head"><div class="icon">★</div><h2>Credential earned</h2><div class="sub">Verified · spoken-English proof</div></div>'
+          + '<div class="cert-banner">'
+            + '<div class="cert-banner-text">'
+              + '<div class="cert-banner-tier">DebateIt <span class="gold">' + tierName + '</span></div>'
+              + '<div class="cert-banner-blurb">' + tierBlurb + ' A verified credential for spoken-English argumentation under live pressure. Usable on college applications, ESL portfolios, and resumes.</div>'
+            + '</div>'
+            + '<div class="cert-banner-actions">'
+              + '<a class="cert-cta" href="' + verifyUrl + '">View credential →</a>'
+              + '<button class="cert-ghost" id="certCopyLink">Copy verify link</button>'
+            + '</div>'
+          + '</div>'
+        + '</section>';
+    }
+
     if (sections.best) html +=
       '<section class="section section--best">'
         + '<div class="section-head"><div class="icon">✓</div><h2>Best moment</h2><div class="sub">What landed</div></div>'
@@ -562,6 +683,35 @@ body{
         + '</section>';
     }
 
+    // Rating widget shell. Hidden by default; the auth-check IIFE below
+    // (after innerHTML lands) shows it only when payload.generationId is
+    // set AND Firebase has a signed-in user. Stars / boring / notes all
+    // route to the same /api/log-generation 'rate' signal that the
+    // nightly distill in scheduled-distill.mjs reads to pick which
+    // rounds become PATTERNS-THAT-WORK reference material.
+    if (payload.generationId){
+      html +=
+        '<section class="rate-card" id="rateCard" style="display:none">'
+          + '<div class="rate-eyebrow" id="rateEyebrow">How was that round?</div>'
+          + '<div class="rate-stars" id="rateStars" role="radiogroup" aria-label="Rate this round 1 to 5">'
+            + [1,2,3,4,5].map(function(n){
+                return '<button class="rate-star" type="button" data-rate="' + n + '" aria-label="' + n + ' star' + (n>1?'s':'') + '">☆</button>';
+              }).join('')
+          + '</div>'
+          + '<div><button class="rate-boring" id="rateBoring" type="button"><span aria-hidden="true">○</span>Generic / boring</button></div>'
+          + '<textarea class="rate-notes" id="rateNotes" placeholder="What didn\'t land? (optional)" maxlength="600" style="display:none"></textarea>'
+        + '</section>';
+    }
+
+    // Post-round spar push (2026-06-01). Highest-intent moment: they just
+    // finished a voice round and got a ballot. Pitch a human opponent, with
+    // the waitlist as the honest fallback for a thin live queue + AI backup.
+    html +=
+      '<section class="spar-prompt" style="margin:20px 0;padding:18px 20px;border-radius:14px;border:1px solid var(--accent);background:linear-gradient(135deg,rgba(239,68,68,.10),rgba(239,68,68,.03));display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between">'
+        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Now argue a human.</strong> You\'re warmed up. Match into a live round on a fresh motion, or post to the waitlist and get DMed when a debater is around. AI backup if nobody pairs.</div>'
+        + '<a href="/spar" class="cta-btn primary" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'spar_cta_click\',{from:\'voice_rfd\'})}catch(e){}">Find a human &rarr;</a>'
+      + '</section>';
+
     html +=
       '<div class="cta-row">'
         + '<div class="cta-text">Ballot saved. <strong>Run it back</strong> — the second round is always the better one.</div>'
@@ -569,7 +719,18 @@ body{
         + '<button class="cta-btn ghost" id="copyBallot" type="button">Copy ballot</button>'
         + '<button class="cta-btn ghost" id="shareBallot" type="button">Share link</button>'
       + '</div>'
-      + '<div class="foot">All ballots are written by Claude Haiku per Debate AI\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/leaderboard">Leaderboard</a></div>';
+      // ── Next-step row: surface /live + /spar after the user has just
+      // finished a voice round and is at peak engagement. The primary
+      // "Run another" above is the obvious second-tap; this gives the
+      // more-engaged user a path to face a real human while the prep
+      // is still fresh in their head. Quiet visual register so it
+      // doesn't compete with the primary CTA above.
+      + '<div class="next-step-row">'
+        + '<span class="next-step-label">Or try a different surface:</span>'
+        + '<a href="/live" class="next-step-link">Post this motion live →</a>'
+        + '<a href="/spar" class="next-step-link">Spar with a human →</a>'
+      + '</div>'
+      + '<div class="foot">All ballots are written by Claude Haiku per DebateIt\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
 
     root.innerHTML = html;
 
@@ -592,6 +753,20 @@ body{
         try { gtag('event', 'voice_rfd_copy'); } catch(e){}
       } catch(e){ copyBtn.textContent = 'Couldn\'t copy'; }
     });
+    // Cert copy-link wiring (only present when payload.cert exists).
+    var certCopyBtn = document.getElementById('certCopyLink');
+    if (certCopyBtn && payload.cert && payload.cert.certId){
+      certCopyBtn.addEventListener('click', function(){
+        try {
+          var verifyAbs = (payload.cert.verifyUrl) || (window.location.origin + '/verify/' + payload.cert.certId);
+          navigator.clipboard.writeText(verifyAbs);
+          certCopyBtn.textContent = '✓ Copied';
+          setTimeout(function(){ certCopyBtn.textContent = 'Copy verify link'; }, 1800);
+          try { gtag('event', 'cert_link_copy', { tier: payload.cert.tier || 'unknown' }); } catch(e){}
+        } catch(e){ certCopyBtn.textContent = 'Couldn\'t copy'; }
+      });
+    }
+
     var shareBtn = document.getElementById('shareBallot');
     if (shareBtn) shareBtn.addEventListener('click', function(){
       try {
@@ -605,6 +780,118 @@ body{
         setTimeout(function(){ shareBtn.textContent = 'Share link'; }, 1800);
         try { gtag('event', 'voice_rfd_share'); } catch(e){}
       } catch(e){ shareBtn.textContent = 'Couldn\'t share'; }
+    });
+
+    // Rating widget wiring. Only fires when we have BOTH a generationId
+    // on the payload AND a signed-in Firebase user (the rate endpoint
+    // requires a Firebase ID token). Firebase loads async, so we wait
+    // up to ~2.5s for onAuthStateChanged to settle before giving up.
+    if (payload.generationId) wireRatingWidget(payload);
+  }
+
+  function wireRatingWidget(payload){
+    var card = document.getElementById('rateCard');
+    if (!card) return;
+    var eyebrow = document.getElementById('rateEyebrow');
+    var starsRow = document.getElementById('rateStars');
+    var boringBtn = document.getElementById('rateBoring');
+    var notesEl = document.getElementById('rateNotes');
+    var state = { rating: 0, boring: false, notes: '', notesTimer: null };
+
+    function showIfAuthed(){
+      try {
+        if (typeof firebase === 'undefined' || !firebase.auth) return;
+        // If a user is already attached (e.g. cached session), reveal
+        // immediately. Otherwise subscribe for one auth event.
+        var u = firebase.auth().currentUser;
+        if (u) { card.style.display = ''; return; }
+        var unsub = firebase.auth().onAuthStateChanged(function(user){
+          if (user) card.style.display = '';
+          try { unsub && unsub(); } catch(e){}
+        });
+        // Hard timeout — anon visitors never get this widget. Keep the
+        // page from holding the listener forever.
+        setTimeout(function(){ try { unsub && unsub(); } catch(e){} }, 2500);
+      } catch(e){ /* firebase load failed; just leave it hidden */ }
+    }
+    showIfAuthed();
+
+    function postRate(){
+      try {
+        var u = firebase.auth().currentUser;
+        if (!u) return;
+        u.getIdToken().then(function(tok){
+          if (!tok) return;
+          fetch('/api/log-generation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+            body: JSON.stringify({
+              action: 'signal',
+              generationId: payload.generationId,
+              signal: 'rate',
+              value: state.rating,
+              meta: { boring: !!state.boring, notes: (state.notes || '').slice(0, 600) },
+            }),
+          }).catch(function(){});
+          try { gtag('event', 'voice_rfd_rate', { value: state.rating, boring: !!state.boring, format: payload.format || '' }); } catch(e){}
+        }).catch(function(){});
+      } catch(e){ /* swallow — rating is best-effort */ }
+    }
+
+    function paintStars(){
+      Array.prototype.forEach.call(starsRow.querySelectorAll('.rate-star'), function(btn){
+        var n = parseInt(btn.getAttribute('data-rate'), 10) || 0;
+        if (state.rating && n <= state.rating) {
+          btn.classList.add('on');
+          btn.textContent = '★';
+        } else {
+          btn.classList.remove('on');
+          btn.textContent = '☆';
+        }
+      });
+      var showNotes = (state.rating > 0 && state.rating <= 2) || state.boring;
+      notesEl.style.display = showNotes ? '' : 'none';
+      if (showNotes) {
+        notesEl.placeholder = state.rating > 0 && state.rating <= 2
+          ? 'What didn\'t land? (optional)'
+          : 'What was generic about it? (optional)';
+      }
+      if (state.rating) {
+        eyebrow.textContent = 'Rated ' + state.rating + '/5'
+          + (state.boring ? ' · flagged generic' : '') + ' — thanks';
+        eyebrow.classList.add('rate-done');
+      }
+    }
+
+    Array.prototype.forEach.call(starsRow.querySelectorAll('.rate-star'), function(btn){
+      btn.addEventListener('click', function(){
+        state.rating = parseInt(btn.getAttribute('data-rate'), 10) || 0;
+        paintStars();
+        postRate();
+      });
+    });
+    boringBtn.addEventListener('click', function(){
+      state.boring = !state.boring;
+      if (state.boring) {
+        boringBtn.classList.add('on');
+        boringBtn.firstChild.textContent = '✓';
+      } else {
+        boringBtn.classList.remove('on');
+        boringBtn.firstChild.textContent = '○';
+      }
+      paintStars();
+      if (state.rating) postRate();
+    });
+    notesEl.addEventListener('input', function(e){
+      state.notes = e.target.value;
+      if (state.notesTimer) clearTimeout(state.notesTimer);
+      state.notesTimer = setTimeout(function(){
+        if (state.rating) postRate();
+      }, 1200);
+    });
+    notesEl.addEventListener('blur', function(e){
+      if (state.notesTimer) { clearTimeout(state.notesTimer); state.notesTimer = null; }
+      if (state.rating) postRate();
     });
   }
 

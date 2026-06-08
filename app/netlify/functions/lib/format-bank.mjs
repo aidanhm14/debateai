@@ -7,7 +7,7 @@
 // federation docs, and the author's circuit experience.
 //
 // Schema notes:
-//   slug             — URL fragment (matches FORMATS keys in debate-ai.html)
+//   slug             — URL fragment (matches FORMATS keys in debate-it.html)
 //   name             — display name
 //   alias            — short alternative if commonly abbreviated
 //   pitch            — one-line hook (used in meta description + H1 sub)

@@ -18,7 +18,7 @@
 import { FORMAT_BANK, getFormat } from './lib/format-bank.mjs';
 import { listGuides } from './lib/guide-bank.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://debateit.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
 
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -43,13 +43,13 @@ function notFoundResponse() {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Format not found · Debate AI</title>
+<title>Format not found · DebateIt</title>
 <meta name="robots" content="noindex">
 <style>body{background:#000;color:#fff;font-family:system-ui,sans-serif;margin:0;padding:80px 24px;text-align:center}h1{font-size:2rem;margin-bottom:8px}p{color:rgba(255,255,255,.6);margin:0 0 20px}a{color:#ef4444;text-decoration:none;font-weight:700}</style>
 </head><body>
 <h1>Unknown debate format</h1>
 <p>Try one of: ${Object.keys(FORMAT_BANK).map(s => `<a href="/learn/formats/${s}">${esc(FORMAT_BANK[s].name)}</a>`).join(' · ')}</p>
-<p><a href="/debate-ai">Or start a round →</a></p>
+<p><a href="/debate-it">Or start a round →</a></p>
 </body></html>`;
   return new Response(body, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
@@ -132,7 +132,7 @@ function renderPage(format) {
     description,
     provider: {
       '@type': 'Organization',
-      name: 'Debate AI',
+      name: 'DebateIt',
       url: SITE_ORIGIN,
     },
     educationalLevel: 'High school / College',
@@ -155,7 +155,7 @@ function renderPage(format) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="Debate AI">
+<meta property="og:site_name" content="DebateIt">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titleCore)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -198,6 +198,9 @@ function renderPage(format) {
   .related-link:hover{border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.04)}
   .related-label{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#fca5a5;margin-bottom:3px}
   .related-name{font-size:.86rem;color:rgba(255,255,255,.85);line-height:1.4}
+  .deep-dive{font-size:.95rem;color:rgba(255,255,255,.72);margin:22px 0 0;line-height:1.6}
+  .deep-dive a{color:#fca5a5;border-bottom:1px solid rgba(239,68,68,.35);transition:.15s}
+  .deep-dive a:hover{color:#fff;border-bottom-color:#fff}
   footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
   footer a:hover{color:#fff}
 </style>
@@ -230,12 +233,14 @@ function renderPage(format) {
   <h2>Sample motions</h2>
   <ul class="motion-list">${format.sampleMotions.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
 
+  ${topicsSlug ? `<p class="deep-dive">Want the full ${esc(format.alias)} motion archive, strategy notes, and FAQ? Read the <a href="/topics/${topicsSlug}">${esc(format.name)} topic guide</a>.</p>` : ''}
+
   ${renderFormatGuides(format.slug)}
 
   <div class="cta-card">
     <h3>Try a ${esc(format.alias)} round against the AI.</h3>
     <p>The AI knows the structure, the judging criteria, and the moves that win this format specifically. Pick a side, give a speech, get a judge ballot.</p>
-    <a class="cta-button" href="/debate-ai?format=${esc(format.slug)}&motion=${motionEncoded}">Start a ${esc(format.alias)} round →</a>
+    <a class="cta-button" href="/debate-it?format=${esc(format.slug)}&motion=${motionEncoded}">Start a ${esc(format.alias)} round →</a>
   </div>
 
   <h2>Other formats</h2>
@@ -244,8 +249,8 @@ function renderPage(format) {
   </div>
 
   <footer>
-    <span>© 2026 Debate AI</span>
-    <span><a href="/">Home</a> · <a href="/debate-ai">New round</a> · <a href="/today">Today's motion</a></span>
+    <span>© 2026 DebateIt</span>
+    <span><a href="/">Home</a> · <a href="/debate-it">New round</a> · <a href="/today">Today's motion</a></span>
   </footer>
 </main>
 </body></html>`;

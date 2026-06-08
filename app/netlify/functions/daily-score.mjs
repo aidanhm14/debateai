@@ -1,6 +1,6 @@
 // Daily-motion public leaderboard writer.
 //
-// Anyone who lands on /debate-ai from /today (the `?dm=YYYY-MM-DD` CTA)
+// Anyone who lands on /debate-it from /today (the `?dm=YYYY-MM-DD` CTA)
 // and finishes a round with speaker points posts their score here. The
 // /today page reads back from `daily_entries/{date}/entries` and renders
 // a public leaderboard panel below the motion. One reason to come back
@@ -32,6 +32,8 @@ const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
+  'https://debateit.com',
+  'https://www.debateit.com',
   'https://debateai.com',
   'https://www.debateai.com',
 ];

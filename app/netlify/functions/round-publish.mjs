@@ -102,7 +102,7 @@ export default async (request) => {
     ok: true,
     id,
     url: `/r/${id}`,
-    fullUrl: `https://debateai.com/r/${id}`,
+    fullUrl: `https://debateit.com/r/${id}`,
   }, 200, request);
 };
 

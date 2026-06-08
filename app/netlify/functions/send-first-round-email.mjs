@@ -4,16 +4,16 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 // Send a one-time "your first round is in the books" email to a user
 // who just completed round #1. Wired to the post-round flow on
-// /debate-ai. Idempotent via user_profiles.firstRoundEmailSentAt so
+// /debate-it. Idempotent via user_profiles.firstRoundEmailSentAt so
 // re-firing the same user's first-round endpoint never sends twice.
 //
 // Env: RESEND_API_KEY required for sending. If missing, return 200
 // with sent:false so the client doesn't error out — local-dev /
 // preview environments shouldn't break the round-completion flow.
 
-const FROM_EMAIL = process.env.FIRST_ROUND_FROM || 'Aidan <hello@debateai.com>';
+const FROM_EMAIL = process.env.FIRST_ROUND_FROM || 'Aidan <hello@debateit.com>';
 const REPLY_TO   = process.env.FIRST_ROUND_REPLY_TO || 'aidandavidhollinger@gmail.com';
-const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
+const SITE_URL   = process.env.SITE_URL || 'https://debateit.com';
 
 // "Try this next" motion suggestions, one per category. Picked so a
 // brand-new debater has an obvious 2nd-round hook regardless of what
@@ -34,7 +34,7 @@ function buildHtml({ firstName, motion, side, format, rfdSnippet, nextMotion }) 
   const motionEsc = (motion || 'your first motion').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
   const nextEsc = nextMotion.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
   const rfdEsc = (rfdSnippet || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])).slice(0, 600);
-  const tryHref = SITE_URL + '/debate-ai?motion=' + encodeURIComponent(nextMotion);
+  const tryHref = SITE_URL + '/debate-it?motion=' + encodeURIComponent(nextMotion);
 
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:560px;margin:0 auto;padding:32px 24px">
@@ -60,10 +60,10 @@ function buildHtml({ firstName, motion, side, format, rfdSnippet, nextMotion }) 
     Run this round →
   </a>
   <p style="font-size:.78rem;line-height:1.5;color:#6a6a74;margin:32px 0 0;border-top:1px solid #e8e8e0;padding-top:16px">
-    You're getting this because you completed your first round on Debate AI. We send one of these per signup, never repeat. Reply if you want to talk debate, the AI, or anything else.
+    You're getting this because you completed your first round on DebateIt. We send one of these per signup, never repeat. Reply if you want to talk debate, the AI, or anything else.
   </p>
   <p style="font-size:.7rem;color:#8a8a94;margin:8px 0 0">
-    Debate AI · debateai.com · Built by an APDA national champion.
+    DebateIt · debateit.com · Built by a UChicago parliamentary debater.
   </p>
 </div>
 </body></html>`;

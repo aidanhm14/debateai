@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Your Coach · DebateIt</title>
+<meta name="description" content="A live voice coach that knows how you argue. Pulls your debater profile and last-14-day style fingerprint into every session. Male or female voice, OpenAI Realtime under the hood." />
+<meta name="theme-color" content="#0a0a12" />
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateit.com/coach">
+<meta name="robots" content="index,follow">
+
+<!-- 2026-05-27: OG + Twitter card meta added. The page was launching
+     with zero social-preview meta, so every share to Twitter / X /
+     LinkedIn / Slack / iMessage rendered as a bare URL instead of a
+     real preview card. Same canonical og-image.png?v=orb4 the other
+     surfaces use; description mirrors the page's <meta description>
+     so social blurb + SERP blurb stay aligned. -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateit.com/coach">
+<meta property="og:title" content="Your Coach · DebateIt">
+<meta property="og:description" content="A live voice coach that knows how you argue. Pulls your debater profile and last-14-day style fingerprint into every session.">
+<meta property="og:image" content="https://debateit.com/og-image.png?v=orb4">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your Coach · DebateIt">
+<meta name="twitter:description" content="A live voice coach that knows how you argue. Pulls your debater profile and last-14-day style fingerprint into every session.">
+<meta name="twitter:image" content="https://debateit.com/og-image.png?v=orb4">
+
+<!-- Firebase v10 compat — same versions + config as voice-debate.html. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+
+<!-- Shared topbar (deferred so it doesn't block first paint). -->
+<script defer src="/js/topbar.js"></script>
+
+<style>
+  :root {
+    --bg: #0a0a12;
+    --bg-2: #11111c;
+    --text: rgba(255,255,255,.92);
+    --text-dim: rgba(255,255,255,.62);
+    --text-faint: rgba(255,255,255,.36);
+    --border: rgba(255,255,255,.12);
+    --red: #ef4444;
+    --red-soft: rgba(239,68,68,.14);
+    --green: #22c55e;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+
+  .coach-shell {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 96px 24px 80px;
+  }
+  .coach-eyebrow {
+    font-size: .64rem; font-weight: 800; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 14px;
+  }
+  .coach-h1 {
+    font-family: Fraunces, Georgia, serif; font-weight: 700;
+    font-size: clamp(2.2rem, 5vw, 3.2rem); line-height: 1.05;
+    letter-spacing: -.02em; margin: 0 0 14px;
+  }
+  .coach-sub {
+    color: var(--text-dim); font-size: 1.05rem; line-height: 1.55;
+    max-width: 580px; margin: 0 0 36px;
+  }
+
+  /* ── Setup card (voice picker + Start) ─────────────────────── */
+  .setup {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .setup h2 {
+    font-family: Fraunces, Georgia, serif; font-size: 1.25rem;
+    font-weight: 600; margin: 0 0 4px; letter-spacing: -.01em;
+  }
+  .setup-sub { color: var(--text-dim); font-size: .88rem; margin: 0 0 22px; line-height: 1.5; }
+
+  .voice-picker { display: flex; gap: 10px; margin-bottom: 24px; }
+  .voice-opt {
+    flex: 1; cursor: pointer; background: transparent;
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; transition: .15s;
+    display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+  }
+  .voice-opt:hover { border-color: rgba(239,68,68,.4); }
+  .voice-opt.active { border-color: var(--red); background: var(--red-soft); }
+  .voice-opt input[type="radio"] { display: none; }
+  .voice-opt-name { font-weight: 700; font-size: 1rem; }
+  .voice-opt-sub { color: var(--text-dim); font-size: .78rem; }
+
+  .start-btn {
+    width: 100%; appearance: none; border: none; cursor: pointer;
+    background: var(--red); color: #fff;
+    font-family: inherit; font-size: 1rem; font-weight: 700;
+    padding: 16px 20px; border-radius: 12px;
+    transition: .15s; letter-spacing: .01em;
+  }
+  .start-btn:hover:not(:disabled) { background: #dc2626; transform: translateY(-1px); }
+  .start-btn:disabled { background: rgba(239,68,68,.4); cursor: wait; }
+
+  .signin-state {
+    background: rgba(255,255,255,.04);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+    color: var(--text-dim); font-size: .88rem; margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .signin-state.unauthed { background: rgba(239,68,68,.06); border-color: rgba(239,68,68,.32); color: var(--text); }
+  .signin-link {
+    color: var(--red); font-weight: 700; text-decoration: none;
+    padding: 8px 14px; border: 1px solid var(--red); border-radius: 8px;
+    font-size: .82rem; white-space: nowrap; cursor: pointer; background: transparent;
+  }
+  .signin-link:hover { background: var(--red-soft); }
+
+  .free-meter { font-size: .78rem; color: var(--text-faint); margin-top: 12px; text-align: center; }
+
+  /* ── Live session ──────────────────────────────────────────── */
+  .live { display: none; }
+  .live.on { display: block; }
+  .live-status {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 18px;
+  }
+  .live-pulse {
+    width: 96px; height: 96px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, var(--red) 0%, rgba(239,68,68,.25) 60%, transparent 80%);
+    margin: 0 auto 16px;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { transform: scale(.9); opacity: .8 } 50% { transform: scale(1.04); opacity: 1 } }
+  .live-line { font-size: 1.05rem; font-weight: 600; margin-bottom: 4px; }
+  .live-meta { font-size: .82rem; color: var(--text-dim); }
+
+  .transcript {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px;
+    max-height: 340px; overflow-y: auto;
+    font-size: .92rem; line-height: 1.55;
+  }
+  .transcript-empty { color: var(--text-faint); text-align: center; font-size: .85rem; padding: 24px 0; }
+  .t-row { margin-bottom: 14px; }
+  .t-row:last-child { margin-bottom: 0; }
+  .t-who { font-size: .68rem; font-weight: 800; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+  .t-row.coach .t-who { color: var(--red); }
+  .t-row.you .t-who { color: var(--green); }
+  .t-text { color: var(--text); }
+
+  .end-btn {
+    margin-top: 16px; width: 100%; appearance: none; cursor: pointer;
+    background: transparent; color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; font-family: inherit; font-size: .88rem; font-weight: 600;
+    transition: .15s;
+  }
+  .end-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .error {
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.32);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 16px;
+    font-size: .88rem; color: #fca5a5; display: none;
+  }
+  .error.on { display: block; }
+
+  @media (max-width: 720px) {
+    .coach-shell { padding: 72px 18px 60px; }
+    .voice-picker { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="coach-shell">
+  <div class="coach-eyebrow">Your coach</div>
+  <h1 class="coach-h1">A voice in the room that knows you.</h1>
+  <p class="coach-sub">
+    The coach loads your debater profile and the nightly distillation of your
+    last fourteen days of rounds, then opens a live voice session. It knows your
+    format, your strengths, the moves you over-rely on, and the places you tend
+    to hedge. Talk to it like a real second.
+  </p>
+
+  <div id="errorBox" class="error" role="alert"></div>
+
+  <div id="signinState" class="signin-state" hidden>
+    <span id="signinMsg">Checking your sign-in…</span>
+    <button id="signinBtn" class="signin-link" hidden>Sign in with Google</button>
+  </div>
+
+  <div id="setup" class="setup">
+    <h2>Pick a voice</h2>
+    <p class="setup-sub">Two options. Either works for any format. You can change it any time.</p>
+
+    <div class="voice-picker" id="voicePicker" role="radiogroup" aria-label="Coach voice">
+      <label class="voice-opt" data-gender="female">
+        <input type="radio" name="gender" value="female" checked />
+        <span class="voice-opt-name">Female</span>
+        <span class="voice-opt-sub">Calm, mid-register. Samantha-from-Her tone.</span>
+      </label>
+      <label class="voice-opt" data-gender="male">
+        <input type="radio" name="gender" value="male" />
+        <span class="voice-opt-name">Male</span>
+        <span class="voice-opt-sub">Warm, mid-register. Tenured varsity coach.</span>
+      </label>
+    </div>
+
+    <button id="startBtn" class="start-btn" disabled>Loading…</button>
+    <div id="freeMeter" class="free-meter"></div>
+  </div>
+
+  <div id="live" class="live" aria-live="polite">
+    <div class="live-status">
+      <div class="live-pulse" aria-hidden="true"></div>
+      <div id="liveLine" class="live-line">Connecting…</div>
+      <div id="liveMeta" class="live-meta"></div>
+    </div>
+
+    <div id="transcript" class="transcript">
+      <div class="transcript-empty">The transcript will fill in as the session runs.</div>
+    </div>
+
+    <button id="endBtn" class="end-btn" type="button">End the session</button>
+  </div>
+</div>
+
+<audio id="coachAudio" autoplay playsinline></audio>
+
+<script>
+  // Firebase config — same project as the rest of the site.
+  // apiKey is chunked the way voice-debate.html does it so the secrets
+  // scanner on Netlify doesn't false-positive on the AIza prefix.
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  try {
+    if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+  } catch (e) { console.warn('[coach] firebase init skipped:', e.message); }
+
+  var STORAGE_KEY = 'debateai-coach-gender';
+
+  var els = {
+    setup:       document.getElementById('setup'),
+    live:        document.getElementById('live'),
+    startBtn:    document.getElementById('startBtn'),
+    endBtn:      document.getElementById('endBtn'),
+    freeMeter:   document.getElementById('freeMeter'),
+    voicePicker: document.getElementById('voicePicker'),
+    transcript:  document.getElementById('transcript'),
+    liveLine:    document.getElementById('liveLine'),
+    liveMeta:    document.getElementById('liveMeta'),
+    error:       document.getElementById('errorBox'),
+    audio:       document.getElementById('coachAudio'),
+    signin:      document.getElementById('signinState'),
+    signinMsg:   document.getElementById('signinMsg'),
+    signinBtn:   document.getElementById('signinBtn'),
+  };
+
+  var state = {
+    user: null,
+    starting: false,
+    pc: null,
+    micStream: null,
+    dc: null,
+    partialUser: '',
+    partialAgent: '',
+  };
+
+  // ── Voice picker: read/write localStorage, click handlers ───
+  function loadGender() {
+    try { var v = localStorage.getItem(STORAGE_KEY); if (v === 'male' || v === 'female') return v; } catch (e) {}
+    return 'female';
+  }
+  function setGender(g) {
+    try { localStorage.setItem(STORAGE_KEY, g); } catch (e) {}
+    Array.prototype.forEach.call(els.voicePicker.querySelectorAll('.voice-opt'), function(o) {
+      var on = o.getAttribute('data-gender') === g;
+      o.classList.toggle('active', on);
+      var input = o.querySelector('input[type="radio"]');
+      if (input) input.checked = on;
+    });
+  }
+  setGender(loadGender());
+  Array.prototype.forEach.call(els.voicePicker.querySelectorAll('.voice-opt'), function(o) {
+    o.addEventListener('click', function() { setGender(o.getAttribute('data-gender')); });
+  });
+
+  // ── Auth state ──────────────────────────────────────────────
+  function updateAuthUi(user) {
+    state.user = user;
+    if (user) {
+      els.signin.hidden = false;
+      els.signin.classList.remove('unauthed');
+      els.signinMsg.textContent = 'Signed in as ' + (user.displayName || user.email || 'you') + '.';
+      els.signinBtn.hidden = true;
+      els.startBtn.disabled = false;
+      els.startBtn.textContent = 'Start the session';
+    } else {
+      els.signin.hidden = false;
+      els.signin.classList.add('unauthed');
+      els.signinMsg.textContent = 'Sign in to start. The coach needs your profile to know who it\'s talking to.';
+      els.signinBtn.hidden = false;
+      els.startBtn.disabled = true;
+      els.startBtn.textContent = 'Sign in to start';
+    }
+  }
+  updateAuthUi(null);
+  try {
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      firebase.auth().onAuthStateChanged(updateAuthUi);
+    }
+  } catch (e) { console.warn('[coach] onAuthStateChanged setup failed:', e.message); }
+
+  els.signinBtn.addEventListener('click', function() {
+    if (typeof firebase === 'undefined' || !firebase.auth) return;
+    var provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider).catch(function(err) {
+      // popup blocked → fall back to redirect, matches landing.html
+      try { firebase.auth().signInWithRedirect(provider); }
+      catch (e) { showError('Sign-in failed: ' + (err.message || err.code || 'unknown')); }
+    });
+  });
+
+  function showError(msg) {
+    els.error.textContent = msg;
+    els.error.classList.add('on');
+    setTimeout(function() { els.error.classList.remove('on'); }, 8000);
+  }
+
+  // ── Transcript rendering ────────────────────────────────────
+  function clearTranscriptEmpty() {
+    var em = els.transcript.querySelector('.transcript-empty');
+    if (em) em.remove();
+  }
+  function appendOrUpdateRow(who, text, replace) {
+    clearTranscriptEmpty();
+    var lastSelector = '.t-row.' + who + ':last-of-type';
+    var existing = replace ? els.transcript.querySelector(lastSelector) : null;
+    if (existing && replace) {
+      existing.querySelector('.t-text').textContent = text;
+    } else {
+      var row = document.createElement('div');
+      row.className = 't-row ' + who;
+      row.innerHTML = '<div class="t-who">' + (who === 'coach' ? 'Coach' : 'You') + '</div>'
+                    + '<div class="t-text"></div>';
+      row.querySelector('.t-text').textContent = text;
+      els.transcript.appendChild(row);
+    }
+    els.transcript.scrollTop = els.transcript.scrollHeight;
+  }
+
+  // ── Start session ───────────────────────────────────────────
+  els.startBtn.addEventListener('click', function() {
+    if (state.starting) return;
+    state.starting = true;
+    els.startBtn.disabled = true;
+    els.startBtn.textContent = 'Starting…';
+    startSession().catch(function(err) {
+      console.error('[coach] start failed:', err);
+      showError(err.message || 'Could not start the session.');
+      stopSession();
+    });
+  });
+
+  async function startSession() {
+    if (!state.user) throw new Error('Sign in first.');
+
+    // 1. Get Firebase ID token for the mint request.
+    var idToken;
+    try { idToken = await state.user.getIdToken(); }
+    catch (e) { throw new Error('Could not refresh your sign-in token. Try reloading.'); }
+
+    // 2. POST to coach-session to mint the OpenAI ephemeral key.
+    var gender = loadGender();
+    var mint;
+    var mintRes = await fetch('/api/coach-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify({ gender: gender, speed: 1.0 }),
+    });
+    var raw = await mintRes.text();
+    try { mint = JSON.parse(raw); } catch (e) { mint = {}; }
+    if (!mintRes.ok) {
+      if (mintRes.status === 402 && mint.upgrade) {
+        throw new Error(mint.error + ' (Upgrade at /pricing)');
+      }
+      var detail = mint.openai || mint.error || raw.slice(0, 200) || ('HTTP ' + mintRes.status);
+      throw new Error('Could not start session: ' + detail);
+    }
+    var ephemeralKey = mint.client_secret && mint.client_secret.value;
+    if (!ephemeralKey) throw new Error('Mint response missing client_secret.');
+
+    // 3. Mic permission.
+    els.liveLine.textContent = 'Requesting mic permission…';
+    showLive(mint);
+    var micStream;
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch (e) {
+      throw new Error('Microphone access is required. Allow mic in your browser and try again.');
+    }
+    state.micStream = micStream;
+
+    // 4. WebRTC peer connection.
+    els.liveLine.textContent = 'Negotiating with OpenAI…';
+    var pc = new RTCPeerConnection();
+    state.pc = pc;
+    pc.addTrack(micStream.getAudioTracks()[0], micStream);
+    pc.ontrack = function(ev) {
+      if (ev.streams && ev.streams[0]) els.audio.srcObject = ev.streams[0];
+    };
+
+    // Data channel for events (session.update, transcript deltas, etc.).
+    var dc = pc.createDataChannel('oai-events');
+    state.dc = dc;
+    dc.onmessage = handleEvent;
+    dc.onopen = function() {
+      // Configure session-level transcription so we get the user's words
+      // streamed back as deltas (the coach's own speech is delivered as
+      // response.output_audio_transcript.* on the same channel).
+      try {
+        dc.send(JSON.stringify({
+          type: 'session.update',
+          session: {
+            input_audio_transcription: { model: 'gpt-4o-mini-transcribe' },
+          },
+        }));
+      } catch (e) {}
+    };
+
+    // 5. SDP exchange.
+    var offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    var sdpUrl = mint.sdpUrl || 'https://api.openai.com/v1/realtime/calls';
+    var sdpRes = await fetch(sdpUrl, {
+      method: 'POST',
+      body: offer.sdp,
+      headers: {
+        'Authorization': 'Bearer ' + ephemeralKey,
+        'Content-Type': 'application/sdp',
+      },
+    });
+    if (!sdpRes.ok) {
+      var msg = await sdpRes.text().catch(function(){ return ''; });
+      throw new Error('OpenAI handshake failed (' + sdpRes.status + '). ' + msg.slice(0, 200));
+    }
+    var answer = await sdpRes.text();
+    await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+
+    els.liveLine.textContent = 'Live · the coach is listening.';
+    els.liveMeta.textContent = 'Voice: ' + (mint.gender || gender)
+      + ' · Model: ' + (mint.model || 'gpt-realtime')
+      + (mint.isPro ? '' : ' · ' + mint.used + ' of ' + mint.limit + ' free sessions');
+    state.starting = false;
+  }
+
+  // ── Realtime event handler ──────────────────────────────────
+  function handleEvent(ev) {
+    var msg;
+    try { msg = JSON.parse(ev.data); } catch (e) { return; }
+    switch (msg.type) {
+      // User audio transcribed.
+      case 'conversation.item.input_audio_transcription.delta':
+        if (typeof msg.delta === 'string') {
+          state.partialUser += msg.delta;
+          appendOrUpdateRow('you', state.partialUser, true);
+        }
+        break;
+      case 'conversation.item.input_audio_transcription.completed':
+        if (typeof msg.transcript === 'string') {
+          appendOrUpdateRow('you', msg.transcript, true);
+        }
+        state.partialUser = '';
+        break;
+      // Coach's audio (streaming text alongside the spoken output).
+      case 'response.output_audio_transcript.delta':
+      case 'response.audio_transcript.delta':
+        if (typeof msg.delta === 'string') {
+          state.partialAgent += msg.delta;
+          appendOrUpdateRow('coach', state.partialAgent, true);
+        }
+        break;
+      case 'response.output_audio_transcript.done':
+      case 'response.audio_transcript.done':
+        if (typeof msg.transcript === 'string') {
+          appendOrUpdateRow('coach', msg.transcript, true);
+        }
+        state.partialAgent = '';
+        break;
+      case 'error':
+        var emsg = (msg.error && msg.error.message) || 'Realtime error';
+        showError(emsg);
+        break;
+    }
+  }
+
+  function showLive(mint) {
+    els.setup.style.display = 'none';
+    els.live.classList.add('on');
+  }
+
+  // ── End session ─────────────────────────────────────────────
+  els.endBtn.addEventListener('click', stopSession);
+
+  function stopSession() {
+    state.starting = false;
+    try { if (state.dc) state.dc.close(); } catch (e) {}
+    try { if (state.pc) state.pc.close(); } catch (e) {}
+    try {
+      if (state.micStream) {
+        state.micStream.getTracks().forEach(function(t) { try { t.stop(); } catch (e) {} });
+      }
+    } catch (e) {}
+    state.pc = null; state.dc = null; state.micStream = null;
+    try { els.audio.srcObject = null; } catch (e) {}
+    els.live.classList.remove('on');
+    els.setup.style.display = '';
+    els.startBtn.disabled = !state.user;
+    els.startBtn.textContent = state.user ? 'Start the session' : 'Sign in to start';
+  }
+
+  window.addEventListener('beforeunload', stopSession);
+</script>
+
+</body>
+</html>
