@@ -635,9 +635,12 @@ function renderDashboard({ user, summary, certs }){
   DIMENSIONS.forEach(d => {
     const val = agg.dimensions[d.key];
     const series = trendForAxis(certs, d.key);
-    const delta = deltaSinceFirst(series);
-    const deltaText = (delta == null) ? (series.length === 1 ? 'First round — baseline set' : 'Trend will appear after round 2') :
-      (delta >= 0 ? '+' : '') + delta.toFixed(2) + ' since first round';
+    // Delta on the same 0-100 scale the card value renders in. commScore is
+    // piecewise-linear, so convert the endpoints rather than the raw diff;
+    // a raw speaker-points delta ("+0.40") under a 0-100 value reads wrong.
+    const delta = (series.length < 2) ? null : commScore(series[series.length - 1]) - commScore(series[0]);
+    const deltaText = (delta == null) ? (series.length === 1 ? 'First round; baseline set' : 'Trend will appear after round 2') :
+      (delta >= 0 ? '+' : '') + delta + ' since first round';
     const deltaClass = (delta == null) ? '' : (delta >= 0 ? 'up' : 'down');
 
     const card = el('div', { class:'dim-card' }, [
