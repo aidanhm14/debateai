@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Communication Profile · DebateIt Certificate</title>
-<meta name="description" content="Your personal communication profile — five sub-scores across clarity, reasoning, responsiveness, listening, and persuasion, with sparkline trends round over round. The dashboard behind the DebateIt Certificate." />
+<meta name="description" content="Your personal communication profile. A Communication Score out of 100, a worldwide percentile, and five sub-scores across clarity, reasoning, responsiveness, listening, and persuasion, with sparkline trends round over round. The dashboard behind the DebateIt Communication Credential." />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
 <link rel="canonical" href="https://debateai.com/communication-profile">
@@ -324,11 +324,25 @@ const DIMENSIONS = [
 ];
 
 const TIER_LEVELS = {
-  novice:    { level:'L1', label:'Conversational',  next:'L2 · 27.5+',  cefr:'B2' },
-  varsity:   { level:'L2', label:'Structured',      next:'L3 · 28.3+',  cefr:'C1' },
-  circuit:   { level:'L3', label:'Professional',    next:'L4 · 29.0+',  cefr:'C1+' },
-  champion:  { level:'L4', label:'Leadership',      next:'Top of L4',   cefr:'C2' },
+  novice:    { level:'L1', label:'Conversational',  next:'Advanced · 82+',     cefr:'B2',  comm:'Effective Communicator',   pct:'Top 50%' },
+  varsity:   { level:'L2', label:'Structured',      next:'Elite · 88+',        cefr:'C1',  comm:'Advanced Communicator',    pct:'Top 20%' },
+  circuit:   { level:'L3', label:'Professional',    next:'Exceptional · 94+',  cefr:'C1+', comm:'Elite Communicator',       pct:'Top 5%'  },
+  champion:  { level:'L4', label:'Leadership',      next:'Top of the scale',   cefr:'C2',  comm:'Exceptional Communicator', pct:'Top 1%'  },
 };
+
+// Communication Score: 0-100 calibrated translation of the academic
+// 25-30 speaker-points scale. Mirrors lib/cert-tiers.mjs exactly, so the
+// number on this dashboard matches the verify page and the credential.
+const COMM_ANCHORS = [[25,50],[26,62],[27,75],[27.5,82],[28.3,88],[29,94],[30,100]];
+function commScore(speaks){
+  const n = Number(speaks); if (!isFinite(n)) return null;
+  if (n <= 25) return 50; if (n >= 30) return 100;
+  for (let i = 1; i < COMM_ANCHORS.length; i++){
+    const a = COMM_ANCHORS[i-1], b = COMM_ANCHORS[i];
+    if (n <= b[0]) { const t = (n - a[0]) / (b[0] - a[0]); return Math.round(a[1] + t * (b[1] - a[1])); }
+  }
+  return 100;
+}
 
 const FORMAT_LABELS = {
   apda:'APDA', bp:'BP', wsdc:'WSDC', policy:'Policy', ld:'LD',
@@ -586,17 +600,20 @@ function renderDashboard({ user, summary, certs }){
     ]),
   ]);
 
+  const comm = Number.isFinite(composite) ? commScore(composite) : null;
   const compositeCard = el('div', { class:'composite-card' }, [
-    el('div', { class:'composite-eyebrow' }, 'Highest composite'),
-    el('div', { class:'composite-val' }, Number.isFinite(composite) ? composite.toFixed(1) : '—'),
-    el('div', { class:'composite-of' }, 'of 30 · academic scale'),
+    el('div', { class:'composite-eyebrow' }, 'Communication Score'),
+    el('div', { class:'composite-val' }, comm != null ? String(comm) : '—'),
+    el('div', { class:'composite-of' }, comm != null ? ('of 100 · ' + levelInfo.pct + ' worldwide') : 'of 100'),
     el('div', { style:'margin-top:auto;padding-top:10px;font-size:.78rem;color:var(--text-dim);line-height:1.5' },
-      'Tier: ' + (tier.charAt(0).toUpperCase() + tier.slice(1)) + ' · CEFR ' + levelInfo.cefr),
+      Number.isFinite(composite)
+        ? ('Academic calibration: ' + composite.toFixed(1) + ' / 30 · CEFR ' + levelInfo.cefr)
+        : ('CEFR ' + levelInfo.cefr)),
   ]);
 
   const levelCard = el('div', { class:'level-card' }, [
-    el('div', { class:'level-eyebrow' }, 'Current level'),
-    el('div', { class:'level-pill' + (tier === 'champion' ? ' champion' : '') }, levelInfo.level + ' · ' + levelInfo.label),
+    el('div', { class:'level-eyebrow' }, 'Communicator level'),
+    el('div', { class:'level-pill' + (tier === 'champion' ? ' champion' : '') }, levelInfo.comm),
     el('div', { class:'level-name' }, levelLabelLong(tier)),
     el('div', { style:'margin-top:auto;padding-top:10px;font-size:.78rem;color:var(--text-ghost);line-height:1.5' }, 'Next: ' + levelInfo.next),
   ]);
@@ -625,7 +642,7 @@ function renderDashboard({ user, summary, certs }){
 
     const card = el('div', { class:'dim-card' }, [
       el('div', { class:'dim-card-name' }, d.name),
-      el('div', { class:'dim-card-val' }, Number.isFinite(val) ? val.toFixed(1) : '—'),
+      el('div', { class:'dim-card-val' }, Number.isFinite(val) ? String(commScore(val)) : '—'),
       el('div', { class:'dim-card-delta' + (deltaClass ? ' ' + deltaClass : '') }, deltaText),
       el('div', { class:'dim-card-note' }, d.hint),
       sparkline(series),
@@ -672,7 +689,7 @@ function renderDashboard({ user, summary, certs }){
   // ─ Disclosure ─
   if (anyDerived) {
     root.appendChild(el('div', { class:'disclosure', html:
-      '<b>Provisional five-axis decomposition.</b> Today\'s credentials store the composite speaker-points score; the per-axis scores you see above are derived from the composite as a placeholder. As we ship the multi-dimension scoring update on the assessment backend, future rounds will write real per-axis numbers and the values shown here will update accordingly. Composite scores, tier, and verify URLs are real and unchanged.'
+      '<b>How the numbers are built.</b> The Communication Score (0 to 100) and worldwide percentile are a calibrated translation of the judged academic 25-30 speaker-points score stored on each credential. The per-axis scores above are currently derived from that composite as a placeholder; as the multi-dimension scoring update ships on the assessment backend, future rounds will write real per-axis numbers and these values will update accordingly. The composite score, level, and verify URLs are real and unchanged.'
     }));
   }
 
@@ -748,7 +765,7 @@ function coachList(items, hint){
     ul.appendChild(el('li', null, [
       el('div', { class:'coach-row' }, [
         el('span', { class:'coach-row-name' }, it.d.name),
-        el('span', { class:'coach-row-val' }, it.v.toFixed(2) + ' / 30'),
+        el('span', { class:'coach-row-val' }, commScore(it.v) + ' / 100'),
       ]),
       el('div', { class:'coach-row-hint' }, it.d.hint),
     ]));
@@ -778,11 +795,11 @@ function historyRow(c){
   return el('div', { class:'history-row' }, [
     el('div', { class:'history-motion', 'data-label':'Motion' }, [
       document.createTextNode(motion.length > 110 ? motion.slice(0, 107) + '…' : motion),
-      el('span', { class:'h-sub' }, date + (c.tier ? ' · ' + (c.tier.charAt(0).toUpperCase() + c.tier.slice(1)) : '')),
+      el('span', { class:'h-sub' }, date + (c.tier && TIER_LEVELS[c.tier] ? ' · ' + TIER_LEVELS[c.tier].comm : '')),
     ]),
     el('div', { class:'history-format', 'data-label':'Format' }, fmtLabel),
     el('div', { class:'history-side', 'data-label':'Side' }, side),
-    el('div', { class:'history-score', 'data-label':'Score' }, Number.isFinite(score) ? score.toFixed(1) : '—'),
+    el('div', { class:'history-score', 'data-label':'Score' }, Number.isFinite(score) ? String(commScore(score)) : '—'),
     el('div', { class:'history-link', 'data-label':'Verify' }, [
       el('a', { href:verifyUrl, target:'_blank', rel:'noopener' }, 'Open ↗'),
     ]),

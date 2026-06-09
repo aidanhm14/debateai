@@ -645,16 +645,34 @@ body{
     // reward beat lands right after the user reads they won/lost.
     if (payload.cert && payload.cert.certId){
       var ct = payload.cert;
-      var tierName = escHtml(ct.tierName || 'Novice');
+      // Communication-score layer, derived from the stored speaker-points
+      // score. Mirrors lib/cert-tiers.mjs so the earning moment matches the
+      // verify page and the profile (no raw tier name / 25-30 here).
+      var CR_ANCHORS = [[25,50],[26,62],[27,75],[27.5,82],[28.3,88],[29,94],[30,100]];
+      var crComm = function(s){
+        var n = +s; if (!isFinite(n)) return null;
+        if (n <= 25) return 50; if (n >= 30) return 100;
+        for (var i = 1; i < CR_ANCHORS.length; i++){
+          var a = CR_ANCHORS[i-1], b = CR_ANCHORS[i];
+          if (n <= b[0]) { var t = (n - a[0]) / (b[0] - a[0]); return Math.round(a[1] + t * (b[1] - a[1])); }
+        }
+        return 100;
+      };
+      var CR_LEVELS = { novice:['Effective Communicator','Top 50%'], varsity:['Advanced Communicator','Top 20%'], circuit:['Elite Communicator','Top 5%'], champion:['Exceptional Communicator','Top 1%'] };
+      var crLv = CR_LEVELS[ct.tier] || CR_LEVELS.novice;
+      var level = escHtml(ct.level || crLv[0]);
+      var pct = escHtml(ct.pct || crLv[1]);
+      var commScoreVal = (ct.commScore != null) ? ct.commScore : (ct.score != null ? crComm(ct.score) : null);
+      var commStr = (commScoreVal != null) ? String(commScoreVal) : '—';
       var tierBlurb = escHtml(ct.tierBlurb || 'You cleared the bar. Nice round.');
       var verifyUrl = '/verify/' + escHtml(ct.certId);
       html +=
         '<section class="section section--cert">'
-          + '<div class="section-head"><div class="icon">★</div><h2>Credential earned</h2><div class="sub">Verified · spoken-English proof</div></div>'
+          + '<div class="section-head"><div class="icon">★</div><h2>Credential earned</h2><div class="sub">Verified · live communication</div></div>'
           + '<div class="cert-banner">'
             + '<div class="cert-banner-text">'
-              + '<div class="cert-banner-tier">DebateIt <span class="gold">' + tierName + '</span></div>'
-              + '<div class="cert-banner-blurb">' + tierBlurb + ' A verified credential for spoken-English argumentation under live pressure. Usable on college applications, ESL portfolios, and resumes.</div>'
+              + '<div class="cert-banner-tier"><span class="gold">' + commStr + ' / 100</span> · ' + level + '</div>'
+              + '<div class="cert-banner-blurb">' + pct + ' worldwide. ' + tierBlurb + ' A verified communication credential, usable on college applications, ESL portfolios, and resumes.</div>'
             + '</div>'
             + '<div class="cert-banner-actions">'
               + '<a class="cert-cta" href="' + verifyUrl + '">View credential →</a>'

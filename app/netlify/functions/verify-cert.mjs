@@ -1,5 +1,6 @@
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { commProfileForScore } from './lib/cert-tiers.mjs';
 
 // Public read of a certificate by id. No auth. Powers the /verify/{id}
 // landing page that anyone can open from a resume link.
@@ -40,12 +41,23 @@ export default async (request) => {
         ? data.issuedAt.toMillis()
         : null;
 
+    // Derived communication-score layer. The stored doc keeps the
+    // academic 25-30 speaker-points score as the judged truth; these
+    // are the 0-100 / percentile / communicator-level reading of that
+    // same number, computed at read time so existing credentials get
+    // the new framing with no data migration.
+    const comm = typeof data.score === 'number' ? commProfileForScore(data.score) : null;
+
     const cert = {
       certId: data.certId || id,
       displayName: data.displayName || 'Anonymous',
       tier: data.tier || 'novice',
       tierName: data.tierName || 'Novice',
       score: typeof data.score === 'number' ? data.score : null,
+      commScore: comm ? comm.commScore : null,
+      level: comm ? comm.level : null,
+      levelKey: comm ? comm.levelKey : null,
+      pct: comm ? comm.pct : null,
       motion: data.motion || '',
       side: data.side || '',
       sideLabel: data.sideLabel || '',
