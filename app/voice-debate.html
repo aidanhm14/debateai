@@ -4988,44 +4988,43 @@ function App() {
                     language: /^[a-z]{2}$/.test(window.__aiLanguage || '') ? window.__aiLanguage : 'en'
                   },
                   turn_detection: {
-                    // semantic_vad replaces the previous server_vad
-                    // (threshold 0.7, silence 800ms) which still felt
-                    // "punchy" — the fixed-silence detector fires turn-end
-                    // every time the user takes a breath, even mid-thought,
-                    // and the AI was barging in on extended speeches.
+                    // LESS-INTERRUPTING config (2026-06-09, per user: "be
+                    // less interrupting in this feature"). History: we ran
+                    // server_vad@800ms (punchy), then semantic_vad
+                    // eagerness:'low' (the most patient SEMANTIC setting).
+                    // semantic_vad:low STILL scored the natural 1-2s pauses
+                    // a debater takes mid-thought as turn-end, so the model
+                    // took the floor and talked over them. There is no more
+                    // patience to wring out of semantic_vad — 'low' is the
+                    // floor — so the deterministic fix is a long server_vad
+                    // silence.
                     //
-                    // semantic_vad uses a turn-detection model on top of
-                    // the audio VAD. When the user's audio trails off
-                    // with an "uhhm" or an incomplete clause, the model
-                    // scores a LOW probability of turn-end and waits
-                    // longer; when the user clearly finishes a sentence
-                    // ("...and that's why I urge a Gov ballot."), it
-                    // scores HIGH and fires the response promptly. The
-                    // dynamic timeout matches debate cadence (long
-                    // monologues with mid-thought pauses) much better
-                    // than the static silence_duration_ms approach.
+                    // server_vad only declares the user's turn over after
+                    // silence_duration_ms of CONTINUOUS silence. At 1700ms
+                    // (was 800), an ordinary mid-clause breath or "...and so"
+                    // pause never reads as "your turn"; the AI takes the floor
+                    // only on a clear, sustained stop. This can only REDUCE
+                    // barge-ins — a longer silence floor strictly lowers how
+                    // often the AI declares the user done. The trade is ~0.9s
+                    // more latency at genuine turn-ends, which the system
+                    // instructions already ask for ("let one beat of quiet
+                    // sit", "considered over fast comeback").
                     //
-                    // eagerness:'low' is the most patient setting —
-                    // optimized for long-form speech where the user
-                    // routinely talks for 30-60+ seconds with internal
-                    // pauses. 'medium' (the default 'auto') is tuned
-                    // for chat-style turn-taking and would still trip
-                    // mid-speech. 'high' is for transcription-style
-                    // apps where you want fast turn detection.
-                    //
-                    // Net effect: AI responses feel considered rather
-                    // than punchy. No barge-ins mid-sentence. Latency
-                    // adds ~100-200ms over the previous config but the
-                    // qualitative feel improvement is dramatic.
-                    type: 'semantic_vad',
-                    // prefix_padding_ms is a server_vad-only param;
-                    // semantic_vad rejects it with "Unknown parameter:
-                    // 'session.audio.input.turn_detection.prefix_padding_ms'"
-                    // and the error surfaces in the live transcript.
-                    // Stripped — semantic_vad's eagerness/interrupt_response
-                    // controls cover the padding intent semantically.
-                    eagerness: 'low',
-                    create_response: true
+                    // To dial responsiveness back up, lower silence_duration_ms
+                    // (1200-1400 is a middle ground). To restore the semantic
+                    // detector, set type:'semantic_vad' + eagerness:'low' and
+                    // drop threshold / prefix_padding_ms / silence_duration_ms.
+                    type: 'server_vad',
+                    threshold: 0.5,
+                    prefix_padding_ms: 300,
+                    silence_duration_ms: 1700,
+                    create_response: true,
+                    // The user can still cut the AI off by speaking —
+                    // server_vad cancels the in-progress AI response when it
+                    // detects the user's voice. That direction of interruption
+                    // is the headline feature; this config only tames the AI
+                    // interrupting THE USER.
+                    interrupt_response: true
                   }
                 },
                 output: {

@@ -945,7 +945,13 @@ export default async (request, context) => {
         type: 'server_vad',
         threshold: 0.5,
         prefix_padding_ms: 300,
-        silence_duration_ms: 500,
+        // 500 -> 1700 (2026-06-09, "be less interrupting"): the AI was
+        // taking the floor on the 1-2s pauses a debater takes mid-thought.
+        // A longer silence floor means only a clear, sustained stop reads
+        // as turn-end. The GA path's authoritative turn_detection is the
+        // client session.update in voice-debate.html (kept in sync at 1700);
+        // this legacy/fallback body matches so the behavior is consistent.
+        silence_duration_ms: 1700,
         create_response: true,
       },
       max_response_output_tokens: 4000,
@@ -979,7 +985,7 @@ export default async (request, context) => {
       input_audio_transcription: { model: transcribeModel },
       turn_detection: {
         type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300,
-        silence_duration_ms: 500, create_response: true,
+        silence_duration_ms: 1700, create_response: true, // less-interrupting floor; see buildBody note
       },
     });
 
