@@ -530,7 +530,7 @@
     function syncBtn(){
       var muted = window.SFX && window.SFX.isMuted ? !!window.SFX.isMuted() : readMutedFromStorage();
       btn.setAttribute('aria-pressed', muted ? 'true' : 'false');
-      btn.title = muted ? 'Sounds muted — click to unmute' : 'Mute sounds';
+      btn.title = muted ? 'Sounds muted. Click to unmute' : 'Mute sounds';
     }
     syncBtn();
     btn.addEventListener('click', function(){

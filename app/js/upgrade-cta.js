@@ -126,7 +126,7 @@
     const sub = document.createElement('div');
     sub.style.cssText = 'font-size:.72rem;opacity:.85;font-weight:500';
     sub.textContent = state === 'capped'
-      ? 'In beta — share what fair pricing looks like.'
+      ? 'In beta. Share what fair pricing looks like.'
       : 'Beta is free. Pricing proposals welcome.';
     body.appendChild(title);
     body.appendChild(sub);
