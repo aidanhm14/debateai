@@ -1085,6 +1085,7 @@ body::before{
     Promise.all([
       voteRef.set({
         vote: next,
+        uid: currentUser.uid,
         votedAt: firebase.firestore.FieldValue.serverTimestamp(),
       }),
       caseRef.update({
@@ -1107,9 +1108,12 @@ body::before{
   // page-refresh.
   function loadMyVotes(){
     if (!firebaseDb || !currentUser) return;
+    // where('uid','==',me): collection-group queries can't filter on a
+    // bare document ID (needs a full doc path), and the rules authorize
+    // the group read by the doc's own uid field (written at cast time).
+    // Votes cast before the uid field existed simply don't pre-light.
     firebaseDb.collectionGroup('votes')
-      .where(firebase.firestore.FieldPath.documentId(), '>=', currentUser.uid)
-      .where(firebase.firestore.FieldPath.documentId(), '<=', currentUser.uid + '')
+      .where('uid', '==', currentUser.uid)
       .limit(200)
       .get()
       .then(function(snap){
@@ -1831,8 +1835,7 @@ body::before{
     // votes still cast fine, just no pre-light on refresh.
     if (!firebaseDb || !currentUser) return;
     firebaseDb.collectionGroup('votes')
-      .where(firebase.firestore.FieldPath.documentId(), '>=', currentUser.uid)
-      .where(firebase.firestore.FieldPath.documentId(), '<=', currentUser.uid + '')
+      .where('uid', '==', currentUser.uid)
       .limit(400)
       .get()
       .then(function(snap){
@@ -1871,7 +1874,7 @@ body::before{
     var voteRef = threadRef.collection('votes').doc(currentUser.uid);
     var inc = firebase.firestore.FieldValue.increment;
     Promise.all([
-      voteRef.set({ vote: next, votedAt: firebase.firestore.FieldValue.serverTimestamp() }),
+      voteRef.set({ vote: next, uid: currentUser.uid, votedAt: firebase.firestore.FieldValue.serverTimestamp() }),
       threadRef.update({
         voteScore: inc(delta),
         voteCount: inc(prev === 0 && next !== 0 ? 1 : (prev !== 0 && next === 0 ? -1 : 0)),

@@ -3909,7 +3909,7 @@ button{font-family:inherit}
     if (isSpectator()) return; // spectators don't seed round state
     var ref = getRoundDocRef();
     if (!ref) return;
-    ref.set({
+    var payload = {
       motion: state.motion,
       format: state.formatKey,
       proName: state.proName,
@@ -3919,7 +3919,18 @@ button{font-family:inherit}
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       status: 'round',
       speechIdx: 0,
-    }, { merge: true }).catch(function(e){ console.warn('[Round sync] init failed', e); });
+    };
+    // Write the participant UIDs when we have BOTH, so the rules'
+    // participant gate engages and the round stops being writable by
+    // any signed-in user. Never write empty strings: the rule treats
+    // the mere presence of proUid/conUid as "gated round," so an
+    // empty-string uid would lock both sides out (legacy direct-link
+    // flows without UIDs keep the open-update path instead).
+    if (state.proUid && state.conUid){
+      payload.proUid = state.proUid;
+      payload.conUid = state.conUid;
+    }
+    ref.set(payload, { merge: true }).catch(function(e){ console.warn('[Round sync] init failed', e); });
   }
 
   function publishSpeech(entry){

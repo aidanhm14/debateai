@@ -4139,10 +4139,10 @@ var ANON_BASE_LIMIT = 5;
 // Giving feedback unlocks UNLIMITED. matches the "unlock unlimited" copy in the beta strip
 function hasGivenFeedback() {try {return localStorage.getItem('debateos-feedback-given') === '1';} catch {return false;}}
 function markFeedbackGiven() {try {localStorage.setItem('debateos-feedback-given', '1');} catch {}}
-// FREE TIER: 5 anonymous requests, lifted to 50/month on sign-in (the bump
-// to 50 lives in debate-it.html SIGNED_IN_LIMIT — this client only enforces
-// the 5-anon ceiling, the server enforces the 50 monthly cap once a Google
-// account is present). Anon stays at 5 deliberately: bot abuse on the
+// FREE TIER: 5 anonymous requests + 5 more on sign-in (10 total; the
+// signed-in cap lives in debate-it.html SIGNED_IN_LIMIT — this client only
+// enforces the 5-anon ceiling, the server enforces the signed-in cap once a
+// Google account is present). Anon stays at 5 deliberately: bot abuse on the
 // no-auth lever drove the 2026-05-18 revert of the 15-anon experiment, and
 // only Google-gating bounds the drain. This localStorage counter is
 // bypassable by a motivated user; the server-side per-account cap in
@@ -11254,6 +11254,7 @@ function Forum({ user, onSignIn }) {
     var post = {
       id: Date.now().toString(),
       author: user ? user.displayName || user.email : 'Anonymous',
+      authorUid: user ? user.uid : null,
       avatar: user ? (user.displayName || 'A').charAt(0).toUpperCase() : 'A',
       type: postType,
       body: newPost.trim(),
@@ -14677,6 +14678,7 @@ function LiveDebates({ user, team, onNavigateTab }) {
         date: dateTime.toISOString(),
         maxParticipants: Number(maxParticipants) || 4,
         hostId: user.uid,
+        creatorUid: user.uid,
         hostName: user.displayName || user.email || 'Anonymous',
         participants: [{ uid: user.uid, name: user.displayName || user.email || 'Anonymous', joinedAt: new Date().toISOString() }],
         videoLink: videoLink,

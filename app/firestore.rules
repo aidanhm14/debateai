@@ -67,7 +67,9 @@ service cloud.firestore {
                     && incomingIsAuthor()
                     && validVisibility()
                     && (!('content' in request.resource.data)
-                        || stringUnder('content', 51200));
+                        || stringUnder('content', 51200))
+                    && (!('output' in request.resource.data)
+                        || stringUnder('output', 51200));
       // Voting + vote-count maintenance: the parent doc's voteScore +
       // voteCount are atomically updated by the voting client. Allow
       // ANY signed-in user to update those two fields (plus the
@@ -83,7 +85,9 @@ service cloud.firestore {
                         && incomingIsAuthor()
                         && validVisibility()
                         && (!('content' in request.resource.data)
-                            || stringUnder('content', 51200)))
+                            || stringUnder('content', 51200))
+                        && (!('output' in request.resource.data)
+                            || stringUnder('output', 51200)))
                       || onlyVoteFieldsChanged()
                     );
       allow delete: if isAuthor();
@@ -170,7 +174,16 @@ service cloud.firestore {
       allow read:   if isSignedIn();
       allow create: if isSignedIn()
                     && request.resource.data.creatorUid == request.auth.uid;
-      allow update: if isSignedIn();
+      // Creator edits freely; everyone else can only touch the
+      // participants array (join/leave). Was `if isSignedIn()`, which
+      // made every debate world-writable.
+      allow update: if isSignedIn()
+                    && (
+                      (('creatorUid' in resource.data)
+                        && resource.data.creatorUid == request.auth.uid)
+                      || request.resource.data.diff(resource.data)
+                           .affectedKeys().hasOnly(['participants'])
+                    );
       allow delete: if isSignedIn()
                     && resource.data.creatorUid == request.auth.uid;
     }
@@ -235,31 +248,20 @@ service cloud.firestore {
     //  - read: any signed-in user (so the polling client can see who
     //    else is waiting in their format)
     //  - create: only your own doc; status must be 'waiting'
-    //  - update: your own doc OR the peer's doc as part of a match
-    //    transaction. The match transaction writes status:'matched'
-    //    + room + matchedWith on BOTH docs; we let any signed-in
-    //    user do that on a peer's doc as long as they're flipping
-    //    a 'waiting' → 'matched' transition (guards against random
-    //    writes mid-round).
+    //  - update: only your own doc. Pairing moved server-side to
+    //    spar-pair (admin SDK bypasses these rules) on 2026-05-18; the
+    //    old client-transaction "peer match transition" allowance let
+    //    any signed-in user flip any waiting peer to matched with an
+    //    arbitrary room (the victim's own-doc listener auto-navigates
+    //    there ~1s later), so it was removed as pure attack surface.
     //  - delete: only your own doc (pagehide cleanup, cancel).
-    function isMatchTransition() {
-      return resource.data.status == 'waiting'
-          && request.resource.data.status == 'matched'
-          && request.resource.data.matchedWith == request.auth.uid;
-    }
     match /matchmaking_queue/{queueUid} {
       allow read:   if isSignedIn();
       allow create: if isSignedIn()
                     && queueUid == request.auth.uid
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.status == 'waiting';
-      allow update: if isSignedIn()
-                    && (
-                      // self-update (status changes, cancel, fallback flip)
-                      queueUid == request.auth.uid
-                      // OR match transaction on a peer's doc
-                      || isMatchTransition()
-                    );
+      allow update: if isSignedIn() && queueUid == request.auth.uid;
       allow delete: if isSignedIn() && queueUid == request.auth.uid;
     }
 
@@ -278,7 +280,32 @@ service cloud.firestore {
       allow create: if isSignedIn()
                     && request.resource.data.posterUid == request.auth.uid
                     && stringUnder('motion', 1024);
-      allow update: if isSignedIn();
+      // Update paths: the poster can edit their own challenge freely.
+      // A non-poster can ONLY touch the accept slot, and only as
+      // themselves: claim it (accepterUid = own uid, slot empty or
+      // already theirs) or clear their own acceptance (field deletes).
+      // The old `allow update: if isSignedIn()` let anyone rewrite
+      // anyone's challenge, including posterUid, then pass the delete
+      // rule — a two-step takeover of the public board.
+      allow update: if isSignedIn()
+                    && (
+                      resource.data.posterUid == request.auth.uid
+                      || (
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['accepterUid', 'accepterName', 'acceptedAt'])
+                        && (
+                          // accept: claim the slot as yourself, no takeover
+                          (('accepterUid' in request.resource.data)
+                            && request.resource.data.accepterUid == request.auth.uid
+                            && (!('accepterUid' in resource.data)
+                                || resource.data.accepterUid == request.auth.uid))
+                          // un-accept: only the current accepter clears it
+                          || (!('accepterUid' in request.resource.data)
+                            && ('accepterUid' in resource.data)
+                            && resource.data.accepterUid == request.auth.uid)
+                        )
+                      )
+                    );
       allow delete: if isSignedIn()
                     && resource.data.posterUid == request.auth.uid;
     }
@@ -505,6 +532,8 @@ service cloud.firestore {
                        get(/databases/$(database)/documents/dm_threads/$(threadId)).data.participants;
         allow create: if isSignedIn()
                     && request.resource.data.fromUid == request.auth.uid
+                    && request.auth.uid in
+                       get(/databases/$(database)/documents/dm_threads/$(threadId)).data.participants
                     && stringUnder('text', 1000);
       }
     }
@@ -549,6 +578,73 @@ service cloud.firestore {
                     && (!('ref' in request.resource.data)
                         || (request.resource.data.ref is string
                             && request.resource.data.ref.size() <= 240));
+    }
+
+    // ── certificates / user_certificates ─────────────────────────────
+    // Public credential artifacts for /verify + /profile +
+    // /communication-profile. Writes only come from /api/create-cert
+    // (server-side admin SDK bypasses these rules), so the rule says
+    // "no client writes ever." These blocks previously lived ONLY in
+    // the console (hand-paste, documented in profile.html) — codified
+    // here so a rules deploy can't wipe them.
+    match /certificates/{id} {
+      allow read:  if true;
+      allow write: if false;
+    }
+    match /user_certificates/{uid} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    // ── users ────────────────────────────────────────────────────────
+    // Admin-set per-user flags (e.g. `verified` for the community
+    // badge). Written only via admin SDK; clients read their own doc.
+    match /users/{uid} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+
+    // ── email_signups ────────────────────────────────────────────────
+    // "Stay in the loop" capture on /app and the leaderboard empty
+    // state. Create-only, same posture as prospects: anyone can add a
+    // valid email, nobody reads from the client (admin-subscribers.mjs
+    // reads via admin SDK). Without this block every signup was
+    // silently dropped while the UI said "Subscribed!".
+    match /email_signups/{docId} {
+      allow read, update, delete: if false;
+      allow create: if request.resource.data.email is string
+                    && request.resource.data.email.size() > 0
+                    && request.resource.data.email.size() <= 254
+                    && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$')
+                    && (!('source' in request.resource.data)
+                        || (request.resource.data.source is string
+                            && request.resource.data.source.size() <= 80));
+    }
+
+    // ── feedback ─────────────────────────────────────────────────────
+    // In-app feedback modal + logFeedback quality signals. Create-only
+    // (admin SDK reads). Anonymous allowed — the modal writes
+    // uid:'anonymous' for signed-out users. Without this block the
+    // modal always threw "Error sending feedback."
+    match /feedback/{docId} {
+      allow read, update, delete: if false;
+      allow create: if (!('description' in request.resource.data)
+                        || (request.resource.data.description is string
+                            && request.resource.data.description.size() <= 8000))
+                    && (!('screenshots' in request.resource.data)
+                        || (request.resource.data.screenshots is list
+                            && request.resource.data.screenshots.size() <= 2));
+    }
+
+    // ── votes (collection group) ─────────────────────────────────────
+    // Authorizes the collectionGroup('votes') hydration on /community:
+    // path-scoped vote rules above never authorize group queries. The
+    // client queries where('uid','==', own uid), which provably
+    // matches this rule. Vote docs written before the `uid` field was
+    // added simply don't pre-light arrows; new votes do.
+    match /{path=**}/votes/{voterUid} {
+      allow read: if isSignedIn()
+                  && resource.data.uid == request.auth.uid;
     }
 
     // ── Default deny ─────────────────────────────────────────────────
