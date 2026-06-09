@@ -2496,7 +2496,7 @@ var el = React.createElement;
 // the AI's behavior toward whichever drill you picked.
 var MODES = [
 { key: 'quickclash', icon: '', title: 'Quick Clash', desc: '2-minute warm-up. AI picks a motion if you don\'t have one.' },
-{ key: 'apda', icon: '', title: 'Full Round', desc: 'Open + rebut + close. Both sides on a motion.' },
+{ key: 'apda', icon: '', title: 'Full Round', desc: 'All six APDA speeches on compressed clocks, then a ballot.' },
 { key: 'crossex', icon: '', title: 'Cross-Examination', desc: 'Rapid Q&A under pressure. Concede or counter.' },
 { key: 'rebuttal', icon: '', title: 'Rebuttal Sparring', desc: 'Short alternating clash. Respond, don\'t restart.' },
 { key: 'layjudge', icon: '', title: 'Persuasion Pitch', desc: 'Make your case to a smart non-expert. Plain English.' },
@@ -2995,11 +2995,12 @@ function fmtTime(sec) {
 // duration around this neighborhood, so 30 min is the practical ceiling.
 // A 60-sec soft warning fires before the cap so the user can wrap up
 // instead of getting clipped mid-sentence.
-// A full APDA round is 40:30 of speech + 5×45s grace windows ≈ 44:15,
-// but the OpenAI Realtime session itself terminates server-side around
+// The OpenAI Realtime session itself terminates server-side around
 // 30 min, so 30 min is the real ceiling. Cap here so we end cleanly
 // with the wrap-up nudge instead of dying on an opaque WebRTC drop, and
-// so a user who walks away mid-round still gets torn down.
+// so a user who walks away mid-round still gets torn down. Full Round
+// runs compressed APDA clocks (26:00 bounded, see APDA_SEQUENCE) so the
+// whole speech sequence plus the spoken ballot fits under this cap.
 var SESSION_HARD_CAP_SEC = 30 * 60;
 var SESSION_WARN_AT_SEC = 60; // remaining-time threshold to surface the wrap-up nudge
 
@@ -3732,23 +3733,35 @@ function App() {
 
   // ── Speech-phase state machine (APDA round) ─────────────────────
   // The voice round runs as a real APDA sequence with per-speech
-  // timers and a 45-second grace window between speeches. Pressing
-  // "Start speech" starts the speech timer; otherwise the grace
-  // window auto-elapses after 45s. The AI nudges the user once if
-  // they sit in prep too long without starting.
+  // timers and a grace window between speeches. Pressing "Start
+  // speech" starts the speech timer; otherwise the grace window
+  // auto-elapses. The AI nudges the user once if they sit in prep
+  // too long without starting.
   //
   // APDA sequence: PMC → LOC → MG → MO → LOR → PMR.
   // Side is resolved from the user's `side` state (gov/opp).
+  //
+  // COMPRESSED CLOCKS, deliberately. Tournament APDA is 7:30/8:30×3/
+  // 4:00/5:00 ≈ 40:30 of speech + grace ≈ 45 min, but the OpenAI
+  // Realtime session dies server-side around 30 min (see
+  // SESSION_HARD_CAP_SEC), so full-length clocks meant EVERY Full
+  // Round got killed around MO/LOR and nobody ever reached the PMR or
+  // the ballot. These times keep the tournament proportions at ~55%
+  // scale: 23:00 of speech + 6×30s grace = 26:00 bounded, which lands
+  // the whole PMC→PMR sequence plus the spoken RFD inside the cap.
+  // The mode picker copy says "compressed clocks" so the promise is
+  // honest. If the platform ceiling ever lifts, restore 450/480/480/
+  // 480/240/300 + GRACE_SEC 45.
   var APDA_SEQUENCE = [
-  { name: 'PMC', durSec: 450, side: 'gov' },
-  { name: 'LOC', durSec: 480, side: 'opp' },
-  { name: 'MG', durSec: 480, side: 'gov' },
-  { name: 'MO', durSec: 480, side: 'opp' },
-  { name: 'LOR', durSec: 240, side: 'opp' },
-  { name: 'PMR', durSec: 300, side: 'gov' }];
+  { name: 'PMC', durSec: 240, side: 'gov' },
+  { name: 'LOC', durSec: 270, side: 'opp' },
+  { name: 'MG', durSec: 270, side: 'gov' },
+  { name: 'MO', durSec: 270, side: 'opp' },
+  { name: 'LOR', durSec: 150, side: 'opp' },
+  { name: 'PMR', durSec: 180, side: 'gov' }];
 
-  var GRACE_SEC = 45;
-  var PREP_NUDGE_SEC = 28; // when to ask AI to remind the user
+  var GRACE_SEC = 30;
+  var PREP_NUDGE_SEC = 20; // when to ask AI to remind the user
   var [speechIdx, setSpeechIdx] = useState(0);
   var [phase, setPhase] = useState('prep'); // 'prep' | 'speaking' | 'done'
   var [phaseElapsed, setPhaseElapsed] = useState(0);
@@ -3776,7 +3789,7 @@ function App() {
   };
 
   // Transition: prep → speaking. Called by the Start Speech button OR
-  // by the tick when the 45s grace window auto-elapses. Tells the AI a
+  // by the tick when the grace window auto-elapses. Tells the AI a
   // new speech timer just started so it can listen / drive POIs.
   var startCurrentSpeech = () => {
     var sp = APDA_SEQUENCE[speechIdxRef.current];
