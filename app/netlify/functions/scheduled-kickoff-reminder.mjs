@@ -87,7 +87,7 @@ function buildRoundUrl(challenge){
     room: roomName,
     challengeId: id,
   });
-  return 'https://debateit.com/live-round.html?' + params.toString();
+  return 'https://debateai.com/live-round.html?' + params.toString();
 }
 
 export default async (req) => {

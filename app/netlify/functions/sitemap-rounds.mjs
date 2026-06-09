@@ -15,7 +15,7 @@
 
 import { getDb } from './lib/firestore.mjs';
 
-const SITE_ORIGIN = 'https://debateit.com';
+const SITE_ORIGIN = 'https://debateai.com';
 const LIMIT = 5000;
 const CACHE_TTL_MS = 60 * 60 * 1000;
 

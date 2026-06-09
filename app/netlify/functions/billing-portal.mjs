@@ -39,7 +39,7 @@ export default async (request) => {
     const origin = request.headers.get('origin') || request.headers.get('referer');
     if (origin) siteUrl = new URL(origin).origin;
   } catch (e) { /* fall through */ }
-  if (!siteUrl) siteUrl = process.env.SITE_URL || 'https://debateit.com';
+  if (!siteUrl) siteUrl = process.env.SITE_URL || 'https://debateai.com';
 
   try {
     const session = await stripe.billingPortal.sessions.create({

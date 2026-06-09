@@ -50,7 +50,7 @@ export default async (request) => {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   // Default to debateit.com (the live brand) instead of the legacy
   // debateos.com which now 404s. SITE_URL env var still wins if set.
-  const siteUrl = process.env.SITE_URL || 'https://debateit.com';
+  const siteUrl = process.env.SITE_URL || 'https://debateai.com';
 
   const isLifetime = planId === 'lifetime';
 

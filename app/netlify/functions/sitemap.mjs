@@ -16,7 +16,7 @@
 // most, so even uncached this would be a rounding-error workload —
 // the cache is purely for cost hygiene.
 
-const SITE_ORIGIN = 'https://debateit.com';
+const SITE_ORIGIN = 'https://debateai.com';
 
 // Honest split: which entries genuinely move day-to-day vs which sit on
 // a stable last-edit date. Don't lie about static pages being "updated

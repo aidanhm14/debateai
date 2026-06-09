@@ -76,7 +76,7 @@ function safeText(s) {
 
 const FROM_EMAIL = process.env.FINGERPRINT_FROM || 'Aidan <hello@debateit.com>';
 const REPLY_TO   = process.env.FINGERPRINT_REPLY_TO || 'aidandavidhollinger@gmail.com';
-const SITE_URL   = process.env.SITE_URL || 'https://debateit.com';
+const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
 
 function esc(s) {
   return String(s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));

@@ -13,7 +13,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
 const FROM_EMAIL = process.env.FIRST_ROUND_FROM || 'Aidan <hello@debateit.com>';
 const REPLY_TO   = process.env.FIRST_ROUND_REPLY_TO || 'aidandavidhollinger@gmail.com';
-const SITE_URL   = process.env.SITE_URL || 'https://debateit.com';
+const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
 
 // "Try this next" motion suggestions, one per category. Picked so a
 // brand-new debater has an obvious 2nd-round hook regardless of what

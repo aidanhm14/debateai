@@ -187,7 +187,7 @@ export default async (request, context) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://debateit.com',
+        'HTTP-Referer': 'https://debateai.com',
         'X-Title': 'DebateIt · Open Lab',
       },
       body: JSON.stringify({

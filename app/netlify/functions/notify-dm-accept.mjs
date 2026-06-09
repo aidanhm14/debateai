@@ -167,7 +167,7 @@ export default async (req) => {
   // Direct link to the inbox so they land on the conversation. Spar's
   // inbox UI auto-opens the most recent thread.
   const origin = (req.headers && req.headers.get) ? (req.headers.get('origin') || '') : '';
-  const host = origin || 'https://debateit.com';
+  const host = origin || 'https://debateai.com';
   const threadUrl = host.replace(/\/$/, '') + '/spar#inbox';
 
   const html = template({ senderName, preview, threadUrl });

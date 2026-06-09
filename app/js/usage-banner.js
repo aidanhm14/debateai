@@ -20,7 +20,7 @@
   };
   const SDK_VERSION = '10.7.1';
   const POLL_MS = 45_000; // Re-fetch usage every 45s so the banner stays live.
-  const MANAGE_URL = 'https://debateit.com/app#team';
+  const MANAGE_URL = 'https://debateai.com/app#team';
 
   let currentUser = null;
   let lastUsage = null;

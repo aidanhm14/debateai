@@ -15,7 +15,7 @@
 
 import { GLOSSARY_BANK, GLOSSARY_CATEGORIES, listTerms, groupedByCategory } from './lib/glossary-bank.mjs';
 
-const SITE_ORIGIN = 'https://debateit.com';
+const SITE_ORIGIN = 'https://debateai.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=debateit1`;
 
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };

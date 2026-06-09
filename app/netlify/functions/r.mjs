@@ -18,7 +18,7 @@
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { esc, jsonLd } from './lib/public-round.mjs';
 
-const SITE_ORIGIN = 'https://debateit.com';
+const SITE_ORIGIN = 'https://debateai.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=debateit1`;
 
 function notFoundResponse(request) {

@@ -19,10 +19,10 @@ import {
 // Where the agent sends its proposal request. The Netlify function at
 // /api/docs-agent calls Claude with one tool (propose_edit) and returns
 // {tool, input:{containsText, replaceText, reason}}.
-const DOCS_AGENT_URL = 'https://debateit.com/api/docs-agent';
+const DOCS_AGENT_URL = 'https://debateai.com/api/docs-agent';
 // Debater endpoint — given a doc passage, returns structured rebuttals
 // the user can defend against. See app/netlify/functions/counter-doc.mjs.
-const COUNTER_DOC_URL = 'https://debateit.com/api/counter-doc';
+const COUNTER_DOC_URL = 'https://debateai.com/api/counter-doc';
 
 // Open side panel when user clicks the toolbar icon. Without this, the
 // click does nothing on most Chrome versions.

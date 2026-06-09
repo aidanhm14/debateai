@@ -57,7 +57,7 @@ const SFX = (() => {
   };
 })();
 
-const APP_ORIGIN = 'https://debateit.com';
+const APP_ORIGIN = 'https://debateai.com';
 const FRAME_URL = APP_ORIGIN + '/voice-debate.html?ext=1&mode=counter';
 
 const STORAGE_KEYS = {

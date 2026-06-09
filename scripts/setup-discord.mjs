@@ -299,7 +299,7 @@ You're in. Quick orientation.
 - **#scrim-finder** — looking for a round? Post format, time zone, level.
 - **#feedback / #bug-reports / #feature-requests** — make the product better.
 
-**The product:** https://debateit.com — voice round, judge RFD, six brains, every format we just listed.
+**The product:** https://debateai.com — voice round, judge RFD, six brains, every format we just listed.
 
 Argue like you mean it.`;
 

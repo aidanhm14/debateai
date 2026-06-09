@@ -296,7 +296,7 @@ export default async (request) => {
       tierName: tier.name,
       tierBlurb: tier.blurb,
       score: certDoc.score,
-      verifyUrl: `https://debateit.com/verify/${certId}`,
+      verifyUrl: `https://debateai.com/verify/${certId}`,
     }, 200, request);
   } catch (err) {
     console.error('create-cert error:', err.message, err.code || '');
