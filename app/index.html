@@ -15442,7 +15442,34 @@ function App() {
   var t = useMemo(() => createT(localeStrings), [localeStrings]);
   var validTabs = useMemo(() => TABS.filter((t) => !t.divider).map((t) => t.id), []);
   var getTabFromHash = () => {var h = window.location.hash.replace('#', '');return validTabs.includes(h) ? h : 'feedback';};
-  var [tab, setTab] = useState(getTabFromHash);
+  // Home = Case Feedback. The hash auto-syncs to the active tab, so a
+  // returning user's URL accumulates a stale /app#<tab> that would survive
+  // reloads and reopens. getInitialTab keeps Case Feedback as the reliable
+  // home: it only honors a tab-hash on (a) browser back/forward, or (b) a
+  // real deep-link click from another page on this site (landing's
+  // "Generate a case" -> /app#case, voice -> /app#casual, the topbar, etc.,
+  // which arrive with a cross-page same-origin referrer). A reload, a
+  // bookmark, a typed URL, a session-restore, or an external link carrying
+  // a stale /app#<tab> all land on Case Feedback. In-session tab switching
+  // and back/forward keep working via getTabFromHash in the hashchange
+  // listener below; this only governs the very first paint.
+  var getInitialTab = () => {
+    var h = window.location.hash.replace('#', '');
+    if (!validTabs.includes(h)) return 'feedback';
+    try {
+      var entries = performance.getEntriesByType && performance.getEntriesByType('navigation');
+      var navType = entries && entries[0] ? entries[0].type :
+        performance.navigation ? ['navigate', 'reload', 'back_forward'][performance.navigation.type] : 'navigate';
+      if (navType === 'back_forward') return h; // honor history navigation
+      var ref = document.referrer;
+      if (ref) {
+        var r = new URL(ref);
+        if (r.origin === window.location.origin && r.pathname !== window.location.pathname) return h; // intentional deep-link click
+      }
+    } catch (e) {}
+    return 'feedback';
+  };
+  var [tab, setTab] = useState(getInitialTab);
   var [logoMode, setLogoMode] = useState('entrance');
   useEffect(() => {var t = setTimeout(function () {setLogoMode('idle');}, 2000);return function () {clearTimeout(t);};}, []);
   var triggerLogoGen = useCallback(function (active) {/* disabled. logo stays idle during gen */}, []);
