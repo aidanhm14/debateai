@@ -3930,6 +3930,11 @@ function App() {
   var aiSpeakingMsRef = useRef(0);
   var userSpeakingMsRef = useRef(0);
   var lastVoiceRoundIdRef = useRef(null);
+  // Resolves to the logged generation id (or null). stop() flushes the
+  // round to /api/log-generation asynchronously; generateRFD awaits this
+  // so the /voice-rfd handoff carries the real id instead of racing the
+  // 600ms auto-RFD timer and shipping null.
+  var voiceLogPromiseRef = useRef(null);
   // handleEvent is wired into dc.onmessage once inside start(), so its
   // closure freezes. Read `speaking` through a ref instead of the state
   // value (which would be stale 'idle' forever) so the speech_stopped /
@@ -4412,9 +4417,9 @@ function App() {
           var transcript = t.map((x) => (x.who === 'you' ? 'USER' : 'AI') + ': ' + (x.text || '').trim()).join('\n\n');
           var userTurnsText = t.filter((x) => x.who === 'you').map((x) => (x.text || '').trim()).join('\n\n');
           var aiTurnsText = t.filter((x) => x.who === 'ai').map((x) => (x.text || '').trim()).join('\n\n');
-          firebase.auth().currentUser.getIdToken().then((tok) => {
-            if (!tok) return;
-            fetch('/api/log-generation', {
+          voiceLogPromiseRef.current = firebase.auth().currentUser.getIdToken().then((tok) => {
+            if (!tok) return null;
+            return fetch('/api/log-generation', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
               body: JSON.stringify({
@@ -4440,12 +4445,15 @@ function App() {
                 contributable: function () {try {return localStorage.getItem('debateos-corpus-contribute') === '1';} catch (e) {return false;}}()
               })
             }).then((r) => r.ok ? r.json() : null).then((d) => {
-              // Stash the generation id so the rating widget below can
-              // attach a 'rate' signal to it. Without this we'd log the
-              // round but have no row to write the user's score onto.
-              if (d && d.id) setLastVoiceRoundId(d.id);
-            }).catch(() => {});
-          }).catch(() => {});
+              // Stash the generation id so the rating widget below AND
+              // generateRFD's handoff payload can attach a 'rate' signal
+              // to it. Resolve the promise to the id so generateRFD can
+              // await this flush instead of racing the 600ms auto-RFD.
+              var gid = d && d.id ? d.id : null;
+              if (gid) {setLastVoiceRoundId(gid);lastVoiceRoundIdRef.current = gid;}
+              return gid;
+            });
+          }).catch(() => null);
         }
       } catch (e) {console.warn('[voice-log]', e.message);}
 
@@ -4475,6 +4483,8 @@ function App() {
     setUserSpeakingMs(0);
     // Reset rating state — last round's id/score doesn't apply to a new session.
     setLastVoiceRoundId(null);
+    lastVoiceRoundIdRef.current = null;
+    voiceLogPromiseRef.current = null;
     setVoiceRoundRating(0);
     setVoiceRoundBoring(false);
     setVoiceRoundNotes('');
@@ -5523,6 +5533,18 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       try {
         var url = new URL(window.location.href);
         if (url.searchParams.get('nohandoff') !== '1' && text) {
+          // Make sure the log-generation flush from stop() has landed so
+          // generationId is real, not a victim of the 600ms auto-RFD
+          // race. Bounded so a slow/hanging POST never blocks the ballot.
+          var genId = lastVoiceRoundIdRef.current;
+          if (!genId && voiceLogPromiseRef.current) {
+            try {
+              genId = await Promise.race([
+              voiceLogPromiseRef.current,
+              new Promise((res) => setTimeout(() => res(null), 2500))]);
+
+            } catch (e) {genId = null;}
+          }
           var duration = elapsedRef.current >= 0 ? elapsedRef.current : null;
           var yourMs = userSpeakingMsRef.current || 0;
           var aiMs = aiSpeakingMsRef.current || 0;
@@ -5552,7 +5574,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             // /voice-rfd page reads this to attach a 'rate' signal to the
             // right Firestore doc; null for anon users or when logging
             // failed (rating widget hides itself in that case).
-            generationId: lastVoiceRoundIdRef.current || null,
+            generationId: genId || null,
             format: mode || '',
             ts: Date.now()
           };
