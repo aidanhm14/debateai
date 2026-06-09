@@ -2732,7 +2732,7 @@ function bondInfo(rounds, personaKey) {
   var ladder = personaKey === 'examiner' ? EXAMINER_BOND_LEVELS : BOND_LEVELS;
   var cur = ladder[0];
   for (var lvl of ladder) if (rounds >= lvl.min) cur = lvl;
-  var stars = Math.min(5, Math.floor(ladder.findIndex((l) => l === cur)));
+  var stars = Math.min(5, Math.max(0, ladder.indexOf(cur)));
   return { ...cur, stars };
 }
 function getBond(personaKey) {
@@ -2995,10 +2995,12 @@ function fmtTime(sec) {
 // duration around this neighborhood, so 30 min is the practical ceiling.
 // A 60-sec soft warning fires before the cap so the user can wrap up
 // instead of getting clipped mid-sentence.
-// Full APDA round is 40:30 of speech + 5×45s grace windows ≈ 44:15.
-// Cap at 60 min so a clean round never trips the safety net, but the
-// session still terminates if the user walks away mid-round.
-var SESSION_HARD_CAP_SEC = 60 * 60;
+// A full APDA round is 40:30 of speech + 5×45s grace windows ≈ 44:15,
+// but the OpenAI Realtime session itself terminates server-side around
+// 30 min, so 30 min is the real ceiling. Cap here so we end cleanly
+// with the wrap-up nudge instead of dying on an opaque WebRTC drop, and
+// so a user who walks away mid-round still gets torn down.
+var SESSION_HARD_CAP_SEC = 30 * 60;
 var SESSION_WARN_AT_SEC = 60; // remaining-time threshold to surface the wrap-up nudge
 
 /* ── Web Audio helpers ───────────────────────────── */
@@ -3917,7 +3919,46 @@ function App() {
   var setupOrbStopRef = useRef(null);
   var micPollRef = useRef(null);
 
+  // Stat mirrors for generateRFD. The RFD callback is memoized on
+  // [mode, motion, side] (stable for the whole round), so reading these
+  // useState values directly inside it captures their initial zeros.
+  // Mirror them into refs the same way turnsRef tracks turns, and read
+  // the refs inside generateRFD so the ballot ships the real duration,
+  // talk-split, interrupt count, and the generation id from stop().
+  var elapsedRef = useRef(0);
+  var interruptCountRef = useRef(0);
+  var aiSpeakingMsRef = useRef(0);
+  var userSpeakingMsRef = useRef(0);
+  var lastVoiceRoundIdRef = useRef(null);
+  // handleEvent is wired into dc.onmessage once inside start(), so its
+  // closure freezes. Read `speaking` through a ref instead of the state
+  // value (which would be stale 'idle' forever) so the speech_stopped /
+  // response.done branches can actually flip the orb back to idle.
+  var speakingRef = useRef('idle');
+  // Every per-round WebAudio node (mic/AI source taps, analysers, the
+  // recording mix destination) is collected here so cleanup() can
+  // .disconnect() them. The AudioContext is a page-lifetime singleton
+  // (getAudioCtx) we deliberately never close, so without this each
+  // round's nodes stay wired into it and accumulate across
+  // start → stop → start cycles in one page session.
+  var audioNodesRef = useRef([]);
+  // True between response.created and response.done. Lets time-driven
+  // sends (the prep nudge) avoid firing a second response.create while
+  // the AI is mid-utterance, which the server rejects ("conversation
+  // already has an active response") or which cuts off the speech.
+  var aiRespondingRef = useRef(false);
+  // Last lit-bar count pushed to the mic meter. Lets the 90ms poll skip
+  // setState (and the App re-render it triggers) when the bar count is
+  // unchanged — e.g. it stops re-rendering 11×/sec during silence.
+  var micLitRef = useRef(-1);
+
   useEffect(() => {turnsRef.current = turns;}, [turns]);
+  useEffect(() => {speakingRef.current = speaking;}, [speaking]);
+  useEffect(() => {elapsedRef.current = elapsed;}, [elapsed]);
+  useEffect(() => {interruptCountRef.current = interruptCount;}, [interruptCount]);
+  useEffect(() => {aiSpeakingMsRef.current = aiSpeakingMs;}, [aiSpeakingMs]);
+  useEffect(() => {userSpeakingMsRef.current = userSpeakingMs;}, [userSpeakingMs]);
+  useEffect(() => {lastVoiceRoundIdRef.current = lastVoiceRoundId;}, [lastVoiceRoundId]);
 
   /* ── Turn helpers ─────────────────────────────── */
 
@@ -3945,6 +3986,7 @@ function App() {
     // Drop auto-mute state on teardown so a session that ends while
     // the AI is mid-speech doesn't strand the flag for the next round.
     autoMutedRef.current = false;
+    aiRespondingRef.current = false;
     // Stop the recorder before tearing down audio sources so the
     // final chunk + onstop blob materialization happens cleanly.
     try {
@@ -3966,6 +4008,10 @@ function App() {
       try {audioElRef.current.remove();} catch (e) {}
       audioElRef.current = null;
     }
+    // Disconnect every WebAudio node this round wired into the singleton
+    // AudioContext so they can be GC'd instead of stacking up each round.
+    (audioNodesRef.current || []).forEach((n) => {try {n.disconnect();} catch (e) {}});
+    audioNodesRef.current = [];
     aiAnalyserRef.current = null;
     userAnalyserRef.current = null;
     setSpeaking('idle');
@@ -4170,7 +4216,7 @@ function App() {
           }
           lastSpeechTickRef.current = { ai: 0, user: 0, who: null };
           isUserSpeakingRef.current = false;
-          if (speaking === 'user') setSpeaking('idle');
+          if (speakingRef.current === 'user') setSpeaking('idle');
           // Start the thinking ambience the moment the user stops talking.
           // Realtime latency is sub-200ms typically, but the gap between
           // server-VAD-stop and first AI audio chunk is usually 300-800ms
@@ -4199,6 +4245,7 @@ function App() {
 
       case 'response.created':{
           var _id2 = 'ai-' + Date.now();
+          aiRespondingRef.current = true;
           // AI's first turn — confirms the round is actually producing
           // speech, not just a connected-but-silent socket. The gap
           // between `connected` and `first_ai_turn` isolates Realtime
@@ -4263,11 +4310,12 @@ function App() {
         }
 
       case 'response.done':{
+          aiRespondingRef.current = false;
           if (lastSpeechTickRef.current.who === 'ai' && lastSpeechTickRef.current.ai) {
             setAiSpeakingMs((ms) => ms + (Date.now() - lastSpeechTickRef.current.ai));
           }
           lastSpeechTickRef.current = { ai: 0, user: 0, who: null };
-          if (speaking === 'ai') setSpeaking('idle');
+          if (speakingRef.current === 'ai') setSpeaking('idle');
           // AI turn ended — release auto-mute so the user's mic comes back
           // on (unless they manually muted in the interim, in which case
           // manual still wins via applyTrackEnabledFromState).
@@ -4281,12 +4329,15 @@ function App() {
           // come. Fire another response.create immediately so it rolls
           // into the next beat. Tiny delay (220ms) leaves a natural
           // micro-pause between beats so it doesn't sound like one
-          // unbroken stream of speech.
-          if (mutedRef.current) {
+          // unbroken stream of speech. Skip once the round is over
+          // ('done'): endCurrentSpeech already fired a response.create to
+          // ask for the RFD, and a second one here would make the AI
+          // launch a fresh beat right after asking to wrap up.
+          if (mutedRef.current && phaseRef.current !== 'done') {
             setTimeout(() => {
               var dc = dcRef.current;
               if (!dc || dc.readyState !== 'open') return;
-              if (!mutedRef.current) return;
+              if (!mutedRef.current || phaseRef.current === 'done') return;
               try {
                 dc.send(JSON.stringify({
                   type: 'response.create',
@@ -4316,7 +4367,7 @@ function App() {
       default:
         break;
     }
-  }, [upsertTurn, addSystem, speaking]);
+  }, [upsertTurn, addSystem]);
 
   /* ── stop / start ─────────────────────────────── */
 
@@ -4442,14 +4493,13 @@ function App() {
     // motion baked in) stays live in OpenAI's session context. Result:
     // the AI's first speech announces the PRIOR round's motion
     // ("Motion: This House Would Abolish Zoos") even though the
-    // user-visible motion bar is the new one. Close everything first.
-    try {if (pcRef.current) {pcRef.current.close();}} catch (e) {}
-    pcRef.current = null;
-    try {if (dcRef.current) {dcRef.current.close && dcRef.current.close();}} catch (e) {}
-    dcRef.current = null;
-    try {if (localStreamRef.current) {localStreamRef.current.getTracks().forEach((t) => {try {t.stop();} catch (_) {}});}} catch (e) {}
-    localStreamRef.current = null;
-    try {if (recorderRef.current && recorderRef.current.state === 'recording') {recorderRef.current.stop();}} catch (e) {}
+    // user-visible motion bar is the new one. cleanup() does the full
+    // idempotent teardown — pc / dc / mic stream / recorder (and nulls
+    // recorderRef), the hidden <audio> sink, the WebAudio node graph,
+    // and the auto-mute / responding flags — so an errored prior session
+    // that never reached stop() can't leak a recorder or stack a second
+    // hidden <audio> element on this Start.
+    cleanup();
     setStatus('connecting');
     setConnectStep('Minting session…');
     // Fresh funnel for this round. Fire `start` — the denominator for
@@ -4617,6 +4667,7 @@ function App() {
               an.fftSize = 512;
               an.smoothingTimeConstant = 0.7;
               src.connect(an);
+              audioNodesRef.current.push(src, an);
               aiAnalyserRef.current = an;
               aiBufRef.current = new Uint8Array(an.frequencyBinCount);
               // Also feed the recording mix bus if it was set up.
@@ -4624,6 +4675,7 @@ function App() {
                 try {
                   var recSrc = ctx2.createMediaStreamSource(evt.streams[0]);
                   recSrc.connect(pc._mixDest);
+                  audioNodesRef.current.push(recSrc);
                 } catch (e) {console.warn('[rec] AI tap failed:', e);}
               }
             }
@@ -4706,6 +4758,7 @@ function App() {
           an.fftSize = 512;
           an.smoothingTimeConstant = 0.6;
           src.connect(an);
+          audioNodesRef.current.push(src, an);
           userAnalyserRef.current = an;
           userBufRef.current = new Uint8Array(an.frequencyBinCount);
         }
@@ -4742,6 +4795,7 @@ function App() {
           var mixDest = ctxR.createMediaStreamDestination();
           var userSrc = ctxR.createMediaStreamSource(stream);
           userSrc.connect(mixDest);
+          audioNodesRef.current.push(userSrc, mixDest);
           // Stash the destination on the PC so ontrack can connect the
           // AI source to the same mix bus.
           pc._mixDest = mixDest;
@@ -5028,7 +5082,11 @@ function App() {
       if (curSpeech && curPhase === 'prep') {
         // Auto-nudge: ask the AI to gently remind the user to press
         // Start when they're ready. Fires once per prep window.
-        if (!prepNudgedRef.current && pT >= PREP_NUDGE_SEC) {
+        // Hold the nudge until the AI isn't mid-response — otherwise the
+        // response.create below collides with the speech the AI just
+        // announced. prepNudgedRef is only set once we actually fire, so
+        // a later tick retries cleanly once the response finishes.
+        if (!prepNudgedRef.current && pT >= PREP_NUDGE_SEC && !aiRespondingRef.current) {
           prepNudgedRef.current = true;
           try {
             if (dcRef.current && dcRef.current.readyState === 'open') {
@@ -5073,6 +5131,7 @@ function App() {
     }, 250);
 
     // Mic level poll — drives the 5-bar meter under the orb.
+    micLitRef.current = -1;
     micPollRef.current = setInterval(() => {
       var an = userAnalyserRef.current,buf = userBufRef.current;
       if (!an || !buf) return;
@@ -5080,6 +5139,8 @@ function App() {
       var sum = 0;for (var i = 0; i < buf.length; i++) sum += buf[i];
       var avg = sum / buf.length / 255; // 0-1
       var lit = Math.max(0, Math.min(5, Math.round(avg * 8)));
+      if (lit === micLitRef.current) return; // bar count unchanged — skip the re-render
+      micLitRef.current = lit;
       setMicBars([0, 1, 2, 3, 4].map((i) => i < lit ? 1 : 0));
     }, 90);
 
@@ -5270,13 +5331,16 @@ function App() {
       // input back at us the way it does for audio, so push it
       // ourselves. typed:true lets a future renderer style it
       // differently (e.g., a small keyboard glyph).
-      var turn = { who: 'you', text: t, ts: Date.now(), typed: true };
-      turnsRef.current = [...turnsRef.current, turn];
-      setTurns(turnsRef.current.slice());
+      // Route through upsertTurn (functional setState, id-keyed) rather
+      // than hand-mutating turnsRef.current + a snapshot setTurns. The old
+      // way raced concurrent AI-delta writes (the snapshot could clobber
+      // an in-flight AI turn) and, with no id on the turn, rendered the
+      // typed line with key=undefined.
+      upsertTurn({ id: 'you-typed-' + Date.now(), who: 'you', text: t, ts: Date.now(), typed: true });
     } catch (e) {
       console.warn('[text-interject] send failed:', e);
     }
-  }, []);
+  }, [upsertTurn]);
 
   /* ── RFD generation ───────────────────────────── */
 
@@ -5459,9 +5523,9 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       try {
         var url = new URL(window.location.href);
         if (url.searchParams.get('nohandoff') !== '1' && text) {
-          var duration = typeof elapsed === 'number' && elapsed >= 0 ? elapsed : null;
-          var yourMs = typeof userSpeakingMs !== 'undefined' ? userSpeakingMs : 0;
-          var aiMs = typeof aiSpeakingMs !== 'undefined' ? aiSpeakingMs : 0;
+          var duration = elapsedRef.current >= 0 ? elapsedRef.current : null;
+          var yourMs = userSpeakingMsRef.current || 0;
+          var aiMs = aiSpeakingMsRef.current || 0;
           var totalMs = yourMs + aiMs;
           var youPct = totalMs > 0 ? Math.round(yourMs / totalMs * 100) : null;
           var personaObj = typeof PERSONALITIES !== 'undefined' ? PERSONALITIES.find(function (p) {return p.key === personaKey;}) : null;
@@ -5476,7 +5540,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             personaLabel: personaObj ? personaObj.name + (personaObj.title ? ' · ' + personaObj.title : '') : personaKey || '',
             stats: {
               duration: duration,
-              interrupts: typeof interruptCount === 'number' ? interruptCount : null,
+              interrupts: typeof interruptCountRef.current === 'number' ? interruptCountRef.current : null,
               yourTurns: (turnsRef.current || []).filter(function (t) {return t.who === 'you';}).length,
               aiTurns: (turnsRef.current || []).filter(function (t) {return t.who === 'ai';}).length,
               talkSplit: youPct != null ? { you: youPct, ai: 100 - youPct } : null
@@ -5488,7 +5552,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             // /voice-rfd page reads this to attach a 'rate' signal to the
             // right Firestore doc; null for anon users or when logging
             // failed (rating widget hides itself in that case).
-            generationId: lastVoiceRoundId || null,
+            generationId: lastVoiceRoundIdRef.current || null,
             format: mode || '',
             ts: Date.now()
           };
@@ -5714,7 +5778,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   el('div', { className: 'hero-status' },
   el('span', { className: 'pip' }),
   el('div', { className: 'meta' },
-  el('strong', null, 'Live'), ' · 8-min cap · 6 sessions/hr · ', el('strong', null, '~300ms'), ' latency'
+  el('strong', null, 'Live'), ' · 30-min cap · 6 sessions/hr · ', el('strong', null, '~300ms'), ' latency'
   )
   )
   ) :
@@ -5745,7 +5809,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   el('li', null, el('strong', null, 'Time runs out → RFD'), ' — the AI hands you a judge ballot, then you can rate the round.')
   ),
   el('div', { className: 'instructions-meta' },
-  el('span', { className: 'instructions-pip' }), ' Live · 8-min cap · 6 sessions/hour · ~300 ms latency · WebRTC via OpenAI Realtime'
+  el('span', { className: 'instructions-pip' }), ' Live · 30-min cap · 6 sessions/hour · ~300 ms latency · WebRTC via OpenAI Realtime'
   )
   )
   )),
@@ -6621,7 +6685,20 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     return el('button', {
       type: 'button',
       className: cls,
-      onClick: () => setMuted((m) => !m),
+      onClick: () => {
+        // While the AI is speaking the mic is auto-muted (autoMutedRef).
+        // The label/title invite the user to "force-unmute and cut the AI
+        // off" — so honor that: drop the auto-mute and open the mic so
+        // server-VAD catches them and interrupts. Toggling `muted` here
+        // would do the exact opposite (mute them harder), which is the
+        // bug this replaces. Outside an AI turn it's a plain mute toggle.
+        if (aiTalking) {
+          autoMutedRef.current = false;
+          applyTrackEnabledFromState();
+        } else {
+          setMuted((m) => !m);
+        }
+      },
       title: titleText,
       'aria-pressed': muted
     }, label);
