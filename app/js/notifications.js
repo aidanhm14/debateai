@@ -651,6 +651,7 @@
     var ownUnsub = null, hbTimer = null, scanTimer = null;
     var pill = null, overlay = null, handledRoom = null, navigating = false;
     var declinedPeer = null, declinedAt = 0, scanning = false, pairing = false;
+    var docGone = false; // own queue doc reaped/cancelled while we still think we're available
 
     function fmt() {
       var f = 'apda';
@@ -708,6 +709,7 @@
     function goAvailable() {
       if (!myUid || ON_ROUND || ON_SPAR || ON_PUBLIC) return;
       ensureFirestore(function () {
+        if (!available) return; // toggled off while the SDK was still loading
         try { db = window.firebase.firestore(); } catch (e) { return; }
         myRef = db.collection('matchmaking_queue').doc(myUid);
         myRef.set({
@@ -719,9 +721,23 @@
           broaden: true,
           background: true,
           joinedAt: ts()
-        }).then(function () { watchOwnDoc(); startTimers(); scan(); })
+        }).then(function () {
+          if (!available) { myRef.delete().catch(function () {}); return; } // toggled off mid-write
+          watchOwnDoc(); startTimers(); scan();
+        })
           .catch(function (err) { console.warn('[spar-live] join failed', err && err.message); });
       });
+    }
+    // Re-create the waiting doc after the server reaper cancelled it (or a
+    // stale_peer_skip), so a green "Available" pill can never sit on a doc
+    // peers can't see. Guards mirror goAvailable + the overlay/nav states.
+    function requeue() {
+      if (!myUid || !myRef || !available || ON_ROUND || ON_SPAR || ON_PUBLIC || overlay || navigating) return;
+      docGone = false;
+      myRef.set({
+        uid: myUid, displayName: shortNm(myUser), photoURL: (myUser && myUser.photoURL) || '',
+        format: fmt(), status: 'waiting', broaden: true, background: true, joinedAt: ts()
+      }).then(function () { startTimers(); scan(); }).catch(function () {});
     }
     function goOffline() {
       stopTimers();
@@ -748,7 +764,17 @@
       if (!myRef) return;
       if (ownUnsub) { try { ownUnsub(); } catch (e) {} }
       ownUnsub = myRef.onSnapshot(function (doc) {
-        if (!doc.exists || !available) return;
+        if (!available) return;
+        // Reaped (deleted) or cancelled server-side while the tab sat hidden
+        // past the reaper window: heartbeat alone can't fix the status, so
+        // re-queue. Hidden tabs defer to the visibilitychange handler (cost
+        // guard: no Firestore churn while nobody's looking).
+        if (!doc.exists || (doc.data() || {}).status === 'cancelled') {
+          docGone = true;
+          if (!document.hidden) requeue();
+          return;
+        }
+        docGone = false;
         var d = doc.data() || {};
         var matched = d.status === 'matched' && d.room && d.matchedWith;
         if (matched) {
@@ -829,7 +855,7 @@
             '<span class="da-match-ring__num">' + COUNTDOWN_S + '</span>' +
           '</div>' +
           '<div class="da-match-name">vs ' + escHtml(d.matchedWithName || 'a debater') + '</div>' +
-          '<div class="da-match-sub">Live round · ' + escHtml(fmt().toUpperCase()) + '</div>' +
+          '<div class="da-match-sub">Live round · ' + escHtml((d.pairedFormat || fmt()).toUpperCase()) + '</div>' +
           '<div class="da-match-btns">' +
             '<button type="button" class="da-match-btn da-match-btn--decline">Decline</button>' +
             '<button type="button" class="da-match-btn da-match-btn--accept">Accept</button>' +
@@ -874,7 +900,7 @@
       try { if (window.gtag) gtag('event', 'spar_bg_accept'); } catch (e) {}
       var params = new URLSearchParams({
         motion: d.pairedMotion || '',
-        format: fmt(),
+        format: d.pairedFormat || fmt(),
         pro: d.proName || shortNm(myUser),
         con: d.conName || (d.matchedWithName || 'Opponent'),
         proUid: d.proUid || myUid,
@@ -902,10 +928,7 @@
           body: '{}'
         });
       }).then(function () { if (available) startTimers(); }).catch(function () {
-        if (myRef && available) myRef.set({
-          uid: myUid, displayName: shortNm(myUser), photoURL: (myUser && myUser.photoURL) || '',
-          format: fmt(), status: 'waiting', broaden: true, background: true, joinedAt: ts()
-        }).then(function () { startTimers(); }).catch(function () {});
+        requeue();
       });
     }
 
@@ -921,17 +944,30 @@
         else {
           stopTimers();
           if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
-          // On a round page, proactively clear any lingering waiting doc so
-          // an in-round user isn't matchable; keep the flag so availability
-          // resumes when they navigate back to a normal page. On /spar we
-          // leave the doc to the page's own foreground flow.
-          if (u && ON_ROUND && available) {
+          // On a round page OR a public marketing page, proactively clear any
+          // lingering waiting doc: there's no own-doc listener here, so a
+          // peer could match it and accept into an empty room (ghost match).
+          // Keep the flag so availability resumes on the next eligible page.
+          // On /spar we leave the doc to the page's own foreground flow.
+          if (u && available && (ON_ROUND || ON_PUBLIC)) {
             ensureFirestore(function () {
               try { window.firebase.firestore().collection('matchmaking_queue').doc(u.uid).delete().catch(function () {}); } catch (e) {}
             });
           }
         }
       });
+    });
+    // Coming back to a tab whose queue doc was reaped while hidden: fix it now.
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && docGone) requeue();
+    });
+    // Best-effort: never strand a matchable 'waiting' doc behind a navigation
+    // or tab close (the next page may be public and never boot a listener).
+    // goAvailable() recreates it on the next eligible page. Skip while
+    // navigating into an accepted match (live-round needs the matched doc)
+    // and while the match card is open (decline/timeout owns that path).
+    window.addEventListener('pagehide', function () {
+      if (myRef && available && !navigating && !overlay) { try { myRef.delete(); } catch (e) {} }
     });
   }
 

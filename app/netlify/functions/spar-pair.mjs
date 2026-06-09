@@ -230,6 +230,12 @@ export default async (request) => {
       // motion at all (/spar). Capped to 280 chars to match the
       // client-side write cap.
       const pairedMotion = String(theirs.motion || mine.motion || '').slice(0, 280);
+      // Older joiner's format wins for cross-format broaden pairs (same
+      // rule as pairedMotion) so both clients spawn /live-round with the
+      // SAME speech structure + judge rules instead of each side using
+      // its own local format preference.
+      const theirFormat = String(theirs.format || '').toLowerCase();
+      const pairedFormat = VALID_FORMATS.has(theirFormat) ? theirFormat : format;
       const common = {
         status: 'matched',
         room,
@@ -239,6 +245,7 @@ export default async (request) => {
         proName: proUid === myUid ? myShort : peerShort,
         conName: conUid === myUid ? myShort : peerShort,
         pairedMotion,
+        pairedFormat,
       };
 
       tx.update(myRef, {
@@ -260,6 +267,7 @@ export default async (request) => {
         proName: common.proName,
         conName: common.conName,
         matchedWithName: peerShort,
+        pairedFormat,
       };
     });
 
