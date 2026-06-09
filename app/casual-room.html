@@ -177,7 +177,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 /* ─── Opponent banner (left / no-show) ─── */
 /* Overlays the Daily iframe when the OTHER user leaves, or when they
    never join within OPPONENT_TIMEOUT_MS. Two-button card: Find a new
-   opponent (→ /debate-chat?autoqueue=1) or Leave (→ /debate-chat). */
+   opponent (→ /spar?autoqueue=1) or Leave (→ /spar). */
 .opponent-banner{
   position:absolute;inset:0;z-index:10;
   display:flex;align-items:center;justify-content:center;
@@ -352,12 +352,12 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     document.getElementById('oppFindBtn').addEventListener('click', function(){
       destroyRoom();
       try { gtag('event', 'casual_room_banner_find', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
-      location.href = '/debate-chat?autoqueue=1';
+      location.href = '/spar?autoqueue=1';
     });
     document.getElementById('oppLeaveBtn').addEventListener('click', function(){
       destroyRoom();
       try { gtag('event', 'casual_room_banner_leave', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
-      location.href = '/debate-chat';
+      location.href = '/spar';
     });
   }
 
@@ -365,8 +365,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     if (!roomName){
       setStatus(
         '<h2>No room in the URL.</h2>' +
-        '<p>This page is opened automatically after a match on <a href="/debate-chat" style="color:var(--accent);text-decoration:underline">/debate-chat</a>. Land here yourself? Go back and find a debater.</p>' +
-        '<div class="row"><a href="/debate-chat">← Back to debate chat</a></div>'
+        '<p>This page is opened automatically after a match on <a href="/spar" style="color:var(--accent);text-decoration:underline">/spar</a>. Land here yourself? Go back and find a debater.</p>' +
+        '<div class="row"><a href="/spar">← Back to debate chat</a></div>'
       );
       return;
     }
@@ -386,7 +386,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           '<div class="error-detail">' + escHtml(detail) + (hint ? ' (' + escHtml(hint) + ')' : '') + '</div>' +
           '<div class="row">' +
             '<button onclick="location.reload()">Retry</button>' +
-            '<a class="ghost" href="/debate-chat">← Back to debate chat</a>' +
+            '<a class="ghost" href="/spar">← Back to debate chat</a>' +
           '</div>'
         );
         console.warn('[casual-room] daily room failed', res);
@@ -445,7 +445,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
               '<h2>Could not join the video room.</h2>' +
               '<p>The room exists but the connection failed.</p>' +
               '<div class="error-detail">' + escHtml(e && e.message || 'join failed') + '</div>' +
-              '<div class="row"><button onclick="location.reload()">Retry</button><a class="ghost" href="/debate-chat">← Back to debate chat</a></div>'
+              '<div class="row"><button onclick="location.reload()">Retry</button><a class="ghost" href="/spar">← Back to debate chat</a></div>'
             );
           });
           return;
@@ -472,7 +472,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         '<div class="error-detail">' + escHtml(e && e.message || 'fetch failed') + '</div>' +
         '<div class="row">' +
           '<button onclick="location.reload()">Retry</button>' +
-          '<a class="ghost" href="/debate-chat">← Back to debate chat</a>' +
+          '<a class="ghost" href="/spar">← Back to debate chat</a>' +
         '</div>'
       );
       console.warn('[casual-room] daily fetch failed', e);
@@ -499,7 +499,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   leaveBtn.addEventListener('click', function(){
     destroyRoom();
     try { gtag('event', 'casual_room_leave', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
-    location.href = '/debate-chat';
+    location.href = '/spar';
   });
 
   // Brief grace period before Next is allowed. Without this, an
@@ -525,10 +525,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     if (nextBtn.disabled) return;
     destroyRoom();
     try { gtag('event', 'casual_room_next', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
-    // ?autoqueue=1 tells /debate-chat to skip the prompt picker, pull
+    // ?autoqueue=1 tells /spar to skip the prompt picker, pull
     // a random prompt, and auto-fire Find. The other side stays in
     // the room until they also click Next (or Leave / close the tab).
-    location.href = '/debate-chat?autoqueue=1';
+    location.href = '/spar?autoqueue=1';
   });
 
   // Belt-and-suspenders: also tear down the iframe on page hide so the
