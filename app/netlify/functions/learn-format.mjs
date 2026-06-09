@@ -118,7 +118,9 @@ const TOPICS_CANONICAL = {
 
 function renderPage(format) {
   const titleCore = `${format.name} debate format · Structure, judging, sample motions`;
-  const title = titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore;
+  const title = titleCore.length > 65
+    ? titleCore.slice(0, 62).replace(/\s+\S*$/, '') + '…'
+    : titleCore;
   const description = `${format.name} (${format.alias}): ${format.pitch} Speech structure, judging criteria, sample motions, what wins and what fails.`;
   const topicsSlug = TOPICS_CANONICAL[format.slug];
   const canonical = topicsSlug

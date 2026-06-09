@@ -24,7 +24,7 @@ export const FORMAT_BANK = {
     slug: 'apda',
     name: 'APDA Parliamentary',
     alias: 'APDA',
-    pitch: 'American Parliamentary Debate Association. Impromptu. 15 minutes prep, no internet, no evidence — just structured argument.',
+    pitch: 'American Parliamentary Debate Association. Impromptu. 15 minutes prep, no internet, no evidence, just structured argument.',
     summary: [
       "APDA is the U.S. college parliamentary circuit. Two teams, two debaters per team. The Government (Gov) team proposes a case under a broad motion they pick from a slate; Opposition (Opp) takes it apart. Each side gives two speeches; the closing speeches are about weighing the round, not introducing new arguments.",
       "Every round is impromptu. You walk into the room, hear three motions, pick one, and have 15 minutes to build a case. No internet. No prepared evidence. The strongest APDA debaters carry a deep mental archive of analogies, frameworks, and historical cases that travel across topics.",
@@ -40,7 +40,7 @@ export const FORMAT_BANK = {
     ],
     judging: [
       'Argument quality and link analysis over rhetorical flourish.',
-      'Weighing — magnitude, probability, timeframe, reversibility — is load-bearing.',
+      'Weighing (magnitude, probability, timeframe, reversibility) is load-bearing.',
       'Dropped arguments are conceded. New arguments in rebuttals are stricken.',
       'Strategic collapsing in the rebuttal beats trying to extend everything.',
       'Humor lands when it carries an argument, not as standalone garnish.',
@@ -53,13 +53,13 @@ export const FORMAT_BANK = {
     ],
     thingsThatWin: [
       'Tight case framing: clear actor, clear mechanism, clear weighing.',
-      'POI handling — accepting substantive POIs, refusing trivial ones.',
+      'POI handling: accepting substantive POIs, refusing trivial ones.',
       'Clean signposting so the judge knows exactly which argument you are on.',
       'A memorable line per speech. One image, not five.',
     ],
     thingsToAvoid: [
       'Spreading. APDA judges flow but are not Policy-style flow judges.',
-      'Fabricated evidence. APDA is impromptu — no citations needed or expected.',
+      'Fabricated evidence. APDA is impromptu; no citations needed or expected.',
       'Reading philosophy verbatim. Frameworks should be your own.',
       'Treating rebuttals like constructives. The PMR is about the ballot story.',
     ],
@@ -73,8 +73,8 @@ export const FORMAT_BANK = {
     pitch: 'WUDC-style four-team format. Two teams per side, ranked 1 through 4. Whip speeches collapse the round.',
     summary: [
       "British Parliamentary is the format of the World Universities Debating Championship and most international circuits. Four teams of two debaters each take seats around the room. Opening Government and Opening Opposition take the first speeches; Closing Government and Closing Opposition follow.",
-      "The defining feature is that teams on the SAME side compete with each other. You are ranked 1st through 4th. To win, you have to beat your bench partners on the same side as well as the opposing bench. That forces extensions — Closing teams need to introduce a substantively new argument or analysis that the Opening team did not bring.",
-      "Whip speeches collapse the round into the single clash that wins. No new material — just weighing, comparing, and explaining why your bench beats every other bench.",
+      "The defining feature is that teams on the SAME side compete with each other. You are ranked 1st through 4th. To win, you have to beat your bench partners on the same side as well as the opposing bench. That forces extensions: Closing teams need to introduce a substantively new argument or analysis that the Opening team did not bring.",
+      "Whip speeches collapse the round into the single clash that wins. No new material; just weighing, comparing, and explaining why your bench beats every other bench.",
     ],
     structure: [
       { code: 'PM',  name: 'Prime Minister',           time: '7 min', side: 'OG' },
@@ -88,7 +88,7 @@ export const FORMAT_BANK = {
     ],
     judging: [
       'Teams are ranked 1-4 by quality of contribution to the round.',
-      'Closing teams must extend — introduce a new argument or layer.',
+      'Closing teams must extend: introduce a new argument or layer.',
       'POIs accepted between minute 1 and minute 6 of each speech.',
       'Weighing and comparative analysis decide tight rounds.',
       'Whip speeches are about strategic collapse, not summary.',
@@ -100,7 +100,7 @@ export const FORMAT_BANK = {
       'This House would treat addiction as a medical condition, not a moral failing.',
     ],
     thingsThatWin: [
-      'A genuinely new extension from Closing — not a re-skin of Opening.',
+      'A genuinely new extension from Closing, not a re-skin of Opening.',
       'POI handling that turns the opponent\'s question into your point.',
       'Whip speeches that explicitly compare bench-to-bench, not just side-to-side.',
       'Clear, repeated weighing on a small number of strong points.',
@@ -138,7 +138,7 @@ export const FORMAT_BANK = {
       'Four pillars: style (40%), content (40%), strategy (20%), POIs (cross-cutting).',
       'Team narrative trumps individual speech wins.',
       'POI offers and acceptances are tracked and judged.',
-      'Reply speeches are weighing only — no new material.',
+      'Reply speeches are weighing only; no new material.',
       'Manner matters more than in BP or APDA.',
     ],
     sampleMotions: [
@@ -151,7 +151,7 @@ export const FORMAT_BANK = {
       'Speaker 1 sets the framework, Speaker 2 carries the case, Speaker 3 weighs.',
       'POIs offered every 15 seconds, accepted 2-3 times per speech.',
       'Reply speeches that explicitly weigh on judge-stated criteria.',
-      'A team line every speaker references — coherence wins close rounds.',
+      'A team line every speaker references; coherence wins close rounds.',
     ],
     thingsToAvoid: [
       'Speed reading. WSDC is a measured-pace format.',
@@ -168,8 +168,8 @@ export const FORMAT_BANK = {
     alias: 'AP',
     pitch: 'Three-on-three regional format dominant across South and Southeast Asia. POIs throughout. Whip and reply speeches collapse.',
     summary: [
-      "Asian Parliamentary is the dominant format across India, Pakistan, Bangladesh, Sri Lanka, Singapore, and most of Southeast Asia. Three debaters per team, two teams (Government and Opposition). The format is structurally similar to WSDC but with regional inflections — slightly more aggressive POI culture, more frequent use of definitional debate, and reply-speech conventions that differ from WSDC.",
-      "Government opens by defining the motion and presenting the case. Opposition responds with rebuttal and counter-case. Each team's third speaker (whip) collapses to the strongest clash. The reply speech goes to either the first or second speaker and is purely weighing — no new material.",
+      "Asian Parliamentary is the dominant format across India, Pakistan, Bangladesh, Sri Lanka, Singapore, and most of Southeast Asia. Three debaters per team, two teams (Government and Opposition). The format is structurally similar to WSDC but with regional inflections: slightly more aggressive POI culture, more frequent use of definitional debate, and reply-speech conventions that differ from WSDC.",
+      "Government opens by defining the motion and presenting the case. Opposition responds with rebuttal and counter-case. Each team's third speaker (whip) collapses to the strongest clash. The reply speech goes to either the first or second speaker and is purely weighing; no new material.",
       "Indian and South Asian school circuits run hundreds of Asian Parli rounds every weekend. The format rewards clarity, speed of refutation, and POIs that the speaker actually answers (not just acknowledges).",
     ],
     structure: [
@@ -184,7 +184,7 @@ export const FORMAT_BANK = {
     ],
     judging: [
       'Argument quality + clash + style, weighted roughly equally.',
-      'POIs are expected — refusal across a full speech reads as evasion.',
+      'POIs are expected; refusal across a full speech reads as evasion.',
       'Definitional challenges are common but should not be the only response.',
       'Whip speeches synthesize, reply speeches weigh.',
       'Manner matters but speed does not disqualify if clarity holds.',
@@ -197,9 +197,9 @@ export const FORMAT_BANK = {
     ],
     thingsThatWin: [
       'Definition that is reasonable, predictable, and clearly within the motion.',
-      'Aggressive but answerable POIs — set traps with them.',
+      'Aggressive but answerable POIs; set traps with them.',
       'Whip that names the three best clashes and explicitly weighs them.',
-      'Reply speech that does NOT recap — it tells the judge what they already know in the order they should write it.',
+      'Reply speech that does NOT recap; it tells the judge what they already know in the order they should write it.',
     ],
     thingsToAvoid: [
       'Squirreling the definition (defining outside reasonable scope).',
@@ -217,8 +217,8 @@ export const FORMAT_BANK = {
     pitch: 'NSDA U.S. high school format. Resolution rotates monthly. Evidence-driven, two-on-two, four-minute speeches.',
     summary: [
       "Public Forum is the NSDA's flagship high-school format and the most widely competed event in U.S. high-school debate. The resolution rotates roughly monthly during the season; teams debate the same topic for a few weeks before it changes. Two teams of two debaters, four constructive speeches followed by crossfire, summary, and final-focus speeches.",
-      "PF is evidence-heavy. Cards (cited evidence from named sources) are mandatory in constructive speeches and across rebuttals. The format rewards clean evidence comparison — which study has a larger sample, which is more recent, which controls for confounds.",
-      "Crossfire periods between speeches are where strategy lives. The format is fast but not Policy-fast; clarity matters more than speed. Final focus is purely weighing — no new arguments, just a closing brief on why your impact outweighs.",
+      "PF is evidence-heavy. Cards (cited evidence from named sources) are mandatory in constructive speeches and across rebuttals. The format rewards clean evidence comparison: which study has a larger sample, which is more recent, which controls for confounds.",
+      "Crossfire periods between speeches are where strategy lives. The format is fast but not Policy-fast; clarity matters more than speed. Final focus is purely weighing; no new arguments, just a closing brief on why your impact outweighs.",
     ],
     structure: [
       { code: '1AC', name: 'First Pro Constructive',     time: '4 min', side: 'Pro' },
@@ -235,9 +235,9 @@ export const FORMAT_BANK = {
     ],
     judging: [
       'Evidence quality (recency, source, methodology) is decisive.',
-      'Crossfire performance is judged — not just speech delivery.',
+      'Crossfire performance is judged, not just speech delivery.',
       'Summary and final-focus speeches must weigh, not re-argue.',
-      'Lay judges are common — clarity beats jargon.',
+      'Lay judges are common; clarity beats jargon.',
       'Dropped arguments in summary are usually treated as conceded.',
     ],
     sampleMotions: [
@@ -253,7 +253,7 @@ export const FORMAT_BANK = {
       'Final focus that gives the judge a one-sentence ballot story.',
     ],
     thingsToAvoid: [
-      'Card spam without analysis — judges discount cards you do not explain.',
+      'Card spam without analysis; judges discount cards you do not explain.',
       'Aggressive crossfire (yelling, talking over). Penalized.',
       'New arguments in final focus.',
       'Reading evidence faster than the judge can flow.',
@@ -267,8 +267,8 @@ export const FORMAT_BANK = {
     alias: 'LD',
     pitch: 'One-on-one philosophical debate. Value and criterion. NSDA-standard but circuit LD has its own kritik-heavy register.',
     summary: [
-      "Lincoln-Douglas is one-on-one value debate. Each topic resolution turns on a normative claim — \"a just society ought…\", \"is morally permissible…\" — and the debate is framed by a value (the larger ethical concept being protected) and a criterion (the standard for weighing competing claims under that value).",
-      "Traditional LD is philosophical. Affirmative reads a case grounded in a moral framework — Rawls, Kant, Mill, sometimes contemporary ethicists — defends a value and criterion, and shows the resolution upholds that value. Negative either contests the framework or argues the resolution undermines the affirmative's own value.",
+      "Lincoln-Douglas is one-on-one value debate. Each topic resolution turns on a normative claim (\"a just society ought…\", \"is morally permissible…\") and the debate is framed by a value (the larger ethical concept being protected) and a criterion (the standard for weighing competing claims under that value).",
+      "Traditional LD is philosophical. Affirmative reads a case grounded in a moral framework (Rawls, Kant, Mill, sometimes contemporary ethicists), defends a value and criterion, and shows the resolution upholds that value. Negative either contests the framework or argues the resolution undermines the affirmative's own value.",
       "Circuit LD (the competitive national circuit) has evolved into a denser, faster format heavily influenced by Policy. Kritiks (philosophical objections to the resolution's assumptions), theory arguments, and tricks (paradoxes used to short-circuit the round) are all common. Some judges welcome this; many do not. Read paradigms.",
     ],
     structure: [
@@ -283,9 +283,9 @@ export const FORMAT_BANK = {
     judging: [
       'Value-criterion framework is the most common ballot anchor.',
       'Kritiks and theory are accepted on the national circuit, less so locally.',
-      'Cross-examination is evaluated — not flowed for arguments but for skill.',
+      'Cross-examination is evaluated, not flowed for arguments but for skill.',
       'Time-skewed 1AR is the structural challenge; collapse early.',
-      'Judges vary widely — read every paradigm.',
+      'Judges vary widely; read every paradigm.',
     ],
     sampleMotions: [
       'Resolved: A just society ought not use the death penalty.',
@@ -295,7 +295,7 @@ export const FORMAT_BANK = {
     ],
     thingsThatWin: [
       'A value-criterion pair that does actual work, not just opens the case.',
-      '1AR collapse — pick the strongest 2-3 arguments and weigh them.',
+      '1AR collapse: pick the strongest 2-3 arguments and weigh them.',
       'Kritik responses that engage the philosophy, not just the link.',
       'CX questions that set up a 1AR weighing argument three speeches later.',
     ],
@@ -315,8 +315,8 @@ export const FORMAT_BANK = {
     pitch: 'Two-on-two evidence-heavy format. Year-long topic. Spreading, tagged evidence, plan + counterplan + DA + kritik architecture.',
     summary: [
       "Policy (or Cross-Examination) debate is the deepest, most evidence-driven format in U.S. high school and college debate. One resolution runs for the entire season. Two teams of two; the affirmative proposes a specific plan; the negative attacks via disadvantages (DAs), counterplans (CPs), topicality (T), kritiks (K), and case-level critiques.",
-      "Policy is where speed (spreading) is most established — debaters read at 350+ words per minute, cite hundreds of cards per round, and flow on legal-pad-sized sheets. The argumentative architecture is highly structured: plan, advantages, disadvantages, links, internal links, impacts, weighing.",
-      "The negative block (2NC + 1NR back-to-back) is the structural pivot of the round. The affirmative's 1AR has to cover everything the block raised in less time than the block had to raise it. Affirmative strategy is heavily about 1AR-prep — pre-written blocks, organized evidence, clear collapse.",
+      "Policy is where speed (spreading) is most established; debaters read at 350+ words per minute, cite hundreds of cards per round, and flow on legal-pad-sized sheets. The argumentative architecture is highly structured: plan, advantages, disadvantages, links, internal links, impacts, weighing.",
+      "The negative block (2NC + 1NR back-to-back) is the structural pivot of the round. The affirmative's 1AR has to cover everything the block raised in less time than the block had to raise it. Affirmative strategy is heavily about 1AR-prep: pre-written blocks, organized evidence, clear collapse.",
     ],
     structure: [
       { code: '1AC', name: 'First Affirmative Constructive',  time: '8 min', side: 'Aff' },
@@ -333,7 +333,7 @@ export const FORMAT_BANK = {
       'Spreading is accepted on the national circuit, rejected locally.',
       'Disadvantage impact comparison is the most common ballot move.',
       'Kritiks vs. policy is the ongoing philosophical divide in the format.',
-      'Topicality is jurisdictional — Aff must be within the resolution.',
+      'Topicality is jurisdictional; Aff must be within the resolution.',
     ],
     sampleMotions: [
       'Resolved: The United States federal government should substantially increase its diplomatic engagement with the People\'s Republic of China.',
@@ -343,7 +343,7 @@ export const FORMAT_BANK = {
     thingsThatWin: [
       'A well-cut DA with strong impact + link evidence.',
       '2AC frontlines that anticipate the block.',
-      'A 2NR collapse on either the DA, CP, or K — not all three.',
+      'A 2NR collapse on either the DA, CP, or K, not all three.',
       'Impact calculus: magnitude, timeframe, probability.',
     ],
     thingsToAvoid: [
@@ -362,7 +362,7 @@ export const FORMAT_BANK = {
     pitch: 'Mock legislative debate. Bills and resolutions, parliamentary procedure, presiding officer, individual scoring.',
     summary: [
       "Student Congress is NSDA's mock-legislature format. A chamber of 15-25 students debates a series of bills and resolutions on the legislative docket. Each student delivers 3-minute speeches on each bill, alternating affirmative and negative, with questioning periods between speeches.",
-      "Unlike other formats, Congress is individual — every speaker is scored against every other speaker in the chamber, not as part of a team. Strategic considerations include cycle position (the first speakers on a bill set the frame; later speakers must extend, refute, or crystallize), parliamentary procedure use, and the presiding officer's influence on speaking order.",
+      "Unlike other formats, Congress is individual; every speaker is scored against every other speaker in the chamber, not as part of a team. Strategic considerations include cycle position (the first speakers on a bill set the frame; later speakers must extend, refute, or crystallize), parliamentary procedure use, and the presiding officer's influence on speaking order.",
       "Strong Congress speakers blend the analytical depth of policy debate with the rhetorical polish of original oratory. Citations are expected but not required; the format rewards plain-English persuasion grounded in specific evidence.",
     ],
     structure: [
@@ -375,7 +375,7 @@ export const FORMAT_BANK = {
     ],
     judging: [
       'Each speech is scored individually 1-8 by judges in the chamber.',
-      'Cycle position matters — late speakers must do more than recap.',
+      'Cycle position matters; late speakers must do more than recap.',
       'Questioning skill is judged separately from speech delivery.',
       'Presiding officer is scored on procedural fairness and clarity.',
       'Best three rounds typically count toward elimination ranking.',
@@ -387,7 +387,7 @@ export const FORMAT_BANK = {
       'A Bill to Require Algorithmic Transparency Reports from Social Media Platforms.',
     ],
     thingsThatWin: [
-      'First-cycle speeches set the chamber\'s framework — claim that real estate.',
+      'First-cycle speeches set the chamber\'s framework; claim that real estate.',
       'Mid-cycle refutation that names previous speakers by name.',
       'Crystallization speeches that summarize the chamber\'s clash before the vote.',
       'Questioning that pins down vague positions, not gotcha-asks.',
@@ -407,9 +407,9 @@ export const FORMAT_BANK = {
     alias: 'MUN',
     pitch: 'Diplomacy simulation. Represent a country, negotiate resolutions, navigate parliamentary procedure across committees.',
     summary: [
-      "Model UN is a diplomacy simulation, not a debate format per se — but the competitive overlap is substantial. Delegates represent assigned countries in simulated UN committees (General Assembly, Security Council, ECOSOC, specialized agencies), debate position papers on a docket of topics, and negotiate working papers that become draft resolutions.",
-      "Speaking time is short — most delegates get 60 to 90 seconds at a time on a speaker's list. The real work happens in unmoderated caucus, where delegates form blocs, draft language, and trade amendments. The best MUN delegates combine sharp public speaking with patient backroom negotiation.",
-      "Major conferences (THIMUN, HMUN, NHSMUN) host hundreds of schools across dozens of committees. Awards include Best Delegate, Outstanding, Honorable Mention, and Verbal Commendation — though competitive culture varies significantly by circuit.",
+      "Model UN is a diplomacy simulation, not a debate format per se, but the competitive overlap is substantial. Delegates represent assigned countries in simulated UN committees (General Assembly, Security Council, ECOSOC, specialized agencies), debate position papers on a docket of topics, and negotiate working papers that become draft resolutions.",
+      "Speaking time is short; most delegates get 60 to 90 seconds at a time on a speaker's list. The real work happens in unmoderated caucus, where delegates form blocs, draft language, and trade amendments. The best MUN delegates combine sharp public speaking with patient backroom negotiation.",
+      "Major conferences (THIMUN, HMUN, NHSMUN) host hundreds of schools across dozens of committees. Awards include Best Delegate, Outstanding, Honorable Mention, and Verbal Commendation, though competitive culture varies significantly by circuit.",
     ],
     structure: [
       { code: 'Speakers\' List', name: 'Formal speeches', time: '60-90 sec ea', side: 'Various' },
@@ -434,8 +434,8 @@ export const FORMAT_BANK = {
     ],
     thingsThatWin: [
       'A position paper your bloc actually wants to merge into.',
-      'Speaking-list visibility AND substance — frequency without depth backfires.',
-      'Amendment authorship — your name on the resolution as a sponsor matters more than your vote.',
+      'Speaking-list visibility AND substance; frequency without depth backfires.',
+      'Amendment authorship: your name on the resolution as a sponsor matters more than your vote.',
       'Crisis-committee adaptation when the simulation moves faster than your prep.',
     ],
     thingsToAvoid: [
