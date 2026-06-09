@@ -5575,7 +5575,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
       key: key,
       onClick: function () {
         if (isLocked) {
-          setMsg && setMsg('Upgrade to unlock ' + brain.name + '. $5/year unlocks all 6 AI brains plus the Sonnet/Pro tier of each.');
+          setError('Upgrade to unlock ' + brain.name + '. $5/year unlocks all 6 AI brains plus the Sonnet/Pro tier of each.');
           return;
         }
         setCaseBrain(key);
@@ -7294,7 +7294,7 @@ function RoundVision() {
         {throw new Error('Invalid structure');}
       } catch (e2) {
         // Map parse error attempt 2. show fallback
-        setMapData({ error: 'Map generation failed after 2 attempts. Try clicking Analyze again.', raw: (mapText || '').substring(0, 100) });
+        setMapData({ error: 'Map generation failed after 2 attempts. Try clicking Analyze again.', raw: (_mapText || '').substring(0, 100) });
       }
     }
     setMapProgress(null);
@@ -9919,6 +9919,7 @@ function Practice() {
   var [loading, setLoading] = useState(false);
   var [speaking, setSpeaking] = useState(false);
   var [mode, setMode] = useState('write'); // 'write' or 'review'
+  var [spProgress, setSpProgress] = useState(null);
 
   var SPEECHES = FORMAT_SPEECHES[practiceFormat] || FORMAT_SPEECHES.APDA;
   var selectedSpeech = SPEECHES.find((s) => s.code === speechType) || SPEECHES[0];
@@ -10076,6 +10077,8 @@ Write like a coach who genuinely wants this debater to get better. Be tough but 
     onClick: () => readAsSpeech(userSpeech)
   }, speaking ? t('practice.stopReading', 'Stop Reading') : t('practice.readLikeSpeech', 'Read Like Speech'))
   ),
+
+  loading && spProgress && el(LoadingBar, { label: spProgress.phase === 'thinking' ? 'Reading your speech...' : 'Writing coach review...', percent: spProgress.percent, phase: spProgress.phase }),
 
   // Feedback output
   feedback && el('div', { className: 'practice-feedback' },
@@ -12580,7 +12583,7 @@ function FeedbackModal({ onClose, currentTab }) {
    TEAM DASHBOARD. team management, billing, usage
    ═══════════════════════════════════════════════════ */
 
-function TeamDashboard({ user, team, teamLoading, onTeamCreated }) {
+function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, setUserApiKey }) {
   var { t } = React.useContext(I18nContext);
   var el = React.createElement;
   var isMobile = useIsMobile();
@@ -16146,7 +16149,7 @@ function App() {
   tabPane('terms', React.createElement(VocabQuiz)),
   tabPane('newbies', React.createElement(Newbies)),
   tabPane('shared', React.createElement(SharedCases, { user: user, team: team })),
-  tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam })),
+  tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: setTeam, userApiKey: userApiKey, setUserApiKey: setUserApiKey })),
   tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
   // 2026-05-18: tabPane('live', LiveDebates) removed. The in-app
   // Live Debates tab was dropped from TABS_OTHER on 2026-05-18 as
