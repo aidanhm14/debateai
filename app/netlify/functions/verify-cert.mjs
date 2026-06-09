@@ -54,6 +54,9 @@ export default async (request) => {
       personaLabel: data.personaLabel || '',
       aiLanguage: data.aiLanguage || 'en',
       won: data.won === true,
+      // Practice vs certified. Legacy certs predate the field; treat the
+      // absence as 'practice' since every round to date was solo-vs-AI.
+      certClass: data.certClass === 'certified' ? 'certified' : 'practice',
       rfdExcerpt: (data.rfdExcerpt || '').slice(0, 600),
       issuedAtMs,
     };

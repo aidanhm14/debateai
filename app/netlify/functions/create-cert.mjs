@@ -240,6 +240,14 @@ export default async (request) => {
       aiLanguage: clamp(aiLanguage, 8) || 'en',
       roundId: clamp(roundId, 80),
       won: won === true,
+      // Credential class. Every round issued today is a solo-vs-AI PRACTICE
+      // round, so it mints as 'practice'. The paid CERTIFIED sitting (live
+      // human opponent + AI pressure, camera-proctored) is a separate path
+      // that is not built yet; when it ships it will pass certClass:'certified'
+      // here after its own gates pass. verify.html, the PDF, the registry, and
+      // the profile all branch on this field so a practice credential can never
+      // visually pass as a certified one.
+      certClass: 'practice',
       rfdExcerpt: clamp(rfdText, 4000),
       issuedAt: FieldValue.serverTimestamp(),
       issuedAtMs,

@@ -223,7 +223,22 @@ body{
 .cert-eyebrow{
   text-align:center;font-size:.74rem;font-weight:800;
   letter-spacing:.34em;color:var(--gold);
-  text-transform:uppercase;margin-bottom:18px;
+  text-transform:uppercase;margin-bottom:10px;
+}
+/* Practice vs Certified class chip. Practice = muted (solo vs AI, the free
+   distribution-engine credential). Certified = gold (the paid, proctored,
+   human + AI sitting). A practice credential must never read as certified. */
+.cert-class-chip{display:flex;justify-content:center;margin:0 0 18px}
+.cert-class-chip span{
+  font-size:.62rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  padding:4px 12px;border-radius:999px;
+  border:1px solid var(--border-strong,rgba(255,255,255,.18));
+  color:var(--text-dim);
+}
+.cert-class-chip.is-certified span{
+  color:var(--gold,#d4af37);
+  border-color:var(--gold,#d4af37);
+  background:rgba(212,175,55,.07);
 }
 
 .cert-tier-row{
@@ -514,6 +529,7 @@ body{
 
     <article class="cert" id="certCard">
       <div class="cert-eyebrow">DebateIt · Certificate of Argumentation</div>
+      <div class="cert-class-chip" id="cClassChip" style="display:none"><span id="cClassChipText"></span></div>
 
       <div class="cert-tier-row">
         <div class="cert-tier-rule"></div>
@@ -804,12 +820,30 @@ body{
     document.getElementById('cSide').textContent = fmtSide(c.sideLabel, c.side);
     document.getElementById('cDate').textContent = fmtDate(c.issuedAtMs);
     document.getElementById('cBlurb').textContent = tierBlurbs[c.tier] || tierBlurbs.novice;
-    document.getElementById('cVerifyUrl').textContent = 'debateit.com/verify/' + c.certId;
+    document.getElementById('cVerifyUrl').textContent = 'debateai.com/verify/' + c.certId;
+
+    // Practice vs Certified. Every round issued to date is solo-vs-AI practice;
+    // the certified (human + AI, proctored) sitting is a separate path, so a
+    // missing certClass means practice. Honest labelling is load-bearing: a
+    // free practice credential must never look like the paid certified one.
+    var certClass = (c.certClass === 'certified') ? 'certified' : 'practice';
+    var classChip = document.getElementById('cClassChip');
+    var classChipText = document.getElementById('cClassChipText');
+    if (classChip && classChipText) {
+      if (certClass === 'certified') {
+        classChip.className = 'cert-class-chip is-certified';
+        classChipText.textContent = 'Certified · Proctored';
+      } else {
+        classChip.className = 'cert-class-chip';
+        classChipText.textContent = 'Practice round · solo vs AI';
+      }
+      classChip.style.display = 'flex';
+    }
 
     // Page title gets the holder's name + tier so a shared link reads
     // well in the browser tab and on social-card scrapes.
     try {
-      document.title = c.displayName + ' · ' + tierName + ' · DebateIt Certified';
+      document.title = c.displayName + ' · ' + tierName + ' · DebateIt ' + (certClass === 'certified' ? 'Certified' : 'Practice');
     } catch(e){}
 
     // RFD excerpt
@@ -904,7 +938,15 @@ body{
     doc.setTextColor(120, 90, 20);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('DEBATE AI · CERTIFICATE OF ARGUMENTATION', W/2, margin + 30, { align:'center' });
+    doc.text('DEBATEIT · CERTIFICATE OF ARGUMENTATION', W/2, margin + 30, { align:'center' });
+
+    // Class line — honest about practice (solo vs AI) vs certified (proctored).
+    var pdfCertified = (c.certClass === 'certified');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    if (pdfCertified) { doc.setTextColor(150, 120, 30); }
+    else { doc.setTextColor(150, 150, 150); }
+    doc.text(pdfCertified ? 'CERTIFIED · PROCTORED' : 'PRACTICE ROUND · SOLO VS AI', W/2, margin + 46, { align:'center' });
 
     // Tier
     doc.setTextColor(20, 20, 20);
@@ -988,7 +1030,7 @@ body{
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(20, 20, 20);
-    doc.text('debateit.com/verify/' + c.certId, W - margin - 20, sigY + 22, { align:'right' });
+    doc.text('debateai.com/verify/' + c.certId, W - margin - 20, sigY + 22, { align:'right' });
 
     doc.save('debateai-certified-' + (c.displayName || 'recipient').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-' + c.certId + '.pdf');
 
