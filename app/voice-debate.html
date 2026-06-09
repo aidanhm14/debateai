@@ -3551,12 +3551,17 @@ function App() {
 
   // ── Voice usage gate ─────────────────────────────────────────────
   // Tiered access:
-  //   • Anon visitors: 1 free voice session (localStorage counter)
-  //   • Signed-in free: 3 lifetime voice sessions (server-truth on
+  //   • Anon visitors: 3 free voice sessions (localStorage counter)
+  //   • Signed-in free: 8 lifetime voice sessions (server-truth on
   //     user_profiles/{uid}.voiceSessionsUsed, client read-only)
   //   • Pro: no client cap (server-side 6/hour/IP rate limit still applies)
   // Client-side gate is UX-only; the real enforcement lives in
   // realtime-session.mjs which checks Firestore on every mint.
+  // MISMATCH (flag): realtime-session.mjs still enforces 3 for signed-in
+  // free (FREE_VOICE_LIFETIME_LIMIT), not 8 — the 2026-05-14 bump never
+  // reached the server. The client now forces the upgrade gate on the
+  // server's 402 regardless, so there's no stuck loop, but "N of 8 left"
+  // overcounts until that server const is aligned to 8 (a cost decision).
   // 2026-05-14: bumped from 1 / 3 → 3 / 8. Re-framed Voice from a
   // "Pro feature" to a "New feature" — same engine, same OpenAI
   // Realtime cost basis, but the previous cap was too stingy for
@@ -3755,6 +3760,9 @@ function App() {
   // closure captures whatever was current when the interval was set
   // up, and auto-advance never fires.
   var speechIdxRef = useRef(0);
+  // Index we last advanced FROM, so the End-speech button and the tick's
+  // auto-advance can't both transition the same speech and double-announce.
+  var endingFromIdxRef = useRef(-1);
   var phaseRef = useRef('prep');
   useEffect(() => {speechIdxRef.current = speechIdx;}, [speechIdx]);
   useEffect(() => {phaseRef.current = phase;}, [phase]);
@@ -3800,7 +3808,14 @@ function App() {
   // Transition: speaking → next prep. Called by End Speech button OR
   // by the tick when the speech cap expires.
   var endCurrentSpeech = () => {
-    var nextIdx = speechIdxRef.current + 1;
+    var fromIdx = speechIdxRef.current;
+    // Dedupe a button-click that races the tick's auto-advance for the
+    // same speech (both would send [Next speech] + response.create and the
+    // AI announces twice). setSpeechIdx is idempotent, so no speech is
+    // skipped — this only stops the double announcement.
+    if (endingFromIdxRef.current === fromIdx) return;
+    endingFromIdxRef.current = fromIdx;
+    var nextIdx = fromIdx + 1;
     if (nextIdx >= APDA_SEQUENCE.length) {
       // Round is over. Hand off to the AI for the RFD.
       setPhase('done');
@@ -4009,6 +4024,7 @@ function App() {
     // the AI is mid-speech doesn't strand the flag for the next round.
     autoMutedRef.current = false;
     aiRespondingRef.current = false;
+    endingFromIdxRef.current = -1;
     // Stop the recorder before tearing down audio sources so the
     // final chunk + onstop blob materialization happens cleanly.
     try {
@@ -4017,6 +4033,13 @@ function App() {
       }
     } catch (e) {}
     recorderRef.current = null;
+    // Stop the cert-v1 lipsync sampler. Without this its 4Hz interval +
+    // growing sample arrays leak on any round that ends without issuing a
+    // cert (anon, sub-threshold score, or a plain End) — only generateRFD's
+    // cert branch stopped it before, which most rounds never reach.
+    try {
+      if (lipsyncCaptureRef.current) {lipsyncCaptureRef.current.stop();lipsyncCaptureRef.current = null;}
+    } catch (e) {}
     try {dcRef.current && dcRef.current.close();} catch (e) {}
     dcRef.current = null;
     try {if (pcRef.current) {pcRef.current.onconnectionstatechange = null;pcRef.current.close();}} catch (e) {}
@@ -4650,6 +4673,11 @@ function App() {
         // through to the error notice for v1).
         if (mintRes.status === 402 && body.upgrade) {
           try {await refreshVoiceGate();} catch (e) {}
+          // The server is authoritative on the cap. Force the upgrade gate
+          // even if the client's local FREE_VOICE_LIMIT disagrees (it can
+          // be higher than the server's), so the user never loops on a
+          // Start button that always 402s with no path forward.
+          setVoiceGate((g) => ({ ...g, state: 'upgrade', loading: false }));
           var e = new Error(body.error || 'Free voice rounds exhausted. Upgrade to Pro for unlimited voice.');
           e.kind = 'upgrade';
           throw e;
@@ -5465,6 +5493,7 @@ function App() {
     // Show the deliberation overlay immediately (covers the whole API
     // wait), unless the user opted out of the /voice-rfd handoff.
     var willHandoff = false;
+    var navScheduled = false;
     try {willHandoff = new URL(window.location.href).searchParams.get('nohandoff') !== '1';} catch (_) {}
     if (willHandoff) setHandingOff(true);
     try {
@@ -5689,6 +5718,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           // Small timeout so the rfd-card animation / SFX gets a beat
           // before we navigate away; if the user hammers Back the
           // inline render is still on the previous page.
+          navScheduled = true;
           setTimeout(function () {try {window.location.href = '/voice-rfd';} catch (e) {}}, 350);
         }
       } catch (handoffErr) {console.warn('[generateRFD] handoff failed', handoffErr);}
@@ -5780,6 +5810,10 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       try {window.SFX && SFX.error && SFX.error();} catch (sfxErr) {}
     } finally {
       setRfdLoading(false);
+      // If navigation to /voice-rfd was never scheduled (empty RFD text,
+      // handoff error, etc.) drop the deliberation overlay so the inline
+      // ballot fallback shows instead of a permanent full-screen veil.
+      if (!navScheduled) setHandingOff(false);
     }
   }, [mode, motion, side, personaKey]);
 
