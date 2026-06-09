@@ -988,7 +988,7 @@ function friendlyCounterError(rawError, assistantMessage) {
     return 'AI returned an unexpected response. Try a slightly different paragraph, or hit Counter again.' + tail;
   }
   if (/missing anthropic_api_key/i.test(rawError)) {
-    return 'Server is missing the AI key — this is on us, not you. Try again later or ping feedback@debateit.com.';
+    return 'Server is missing the AI key — this is on us, not you. Try again later or ping feedback@debateai.com.';
   }
   // Fall through: surface the raw error with a calm framing so it doesn't
   // look like the extension crashed.
