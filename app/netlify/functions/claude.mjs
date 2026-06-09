@@ -8,6 +8,7 @@ import { checkMotionBody } from './lib/content-guard.mjs';
 import { getExemplarBlock } from './lib/exemplars.mjs';
 import { getDistillationBlock } from './lib/distillations.mjs';
 import { getFingerprintBlock } from './lib/user-fingerprints.mjs';
+import { buildAdjudicationBlock, isJudgeFeature } from './lib/adjudication.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 const ALLOWED_MODELS = [
@@ -387,8 +388,16 @@ export default async (request, context) => {
     delete body._motion;
     delete body._side;
 
-    // CACHED prefix — shared per (feature, format, topic): voice bank + nightly distillation.
-    const cachedPrefix = [voiceSeg && voiceSeg.stable, distillBlock].filter(Boolean).join('\n');
+    // Adjudication core — for client-built JUDGING prompts (live rooms, voice
+    // RFD) that ship no server-side library text. Stable per judging feature,
+    // so it rides the cached prefix. The typed 3-judge panel does NOT route
+    // here for the core (it pulls ADJUDICATION_CORE in via prompts.mjs), so
+    // JUDGE_FEATURES is scoped to the two client-built surfaces to avoid a
+    // double-inject. See lib/adjudication.mjs.
+    const adjudicateBlock = isJudgeFeature(feature) ? buildAdjudicationBlock({ format: vFormat }) : '';
+
+    // CACHED prefix — shared per (feature, format, topic): adjudication core (judging only) + voice bank + nightly distillation.
+    const cachedPrefix = [adjudicateBlock, voiceSeg && voiceSeg.stable, distillBlock].filter(Boolean).join('\n');
     // UNCACHED tail — per-round base system, per-motion reference rounds,
     // per-user style, random spice, then the voice-check reinforcement LAST.
     const tail = [baseSystem, exemplarBlock, fingerprintBlock, spice, voiceSeg && voiceSeg.reinforcement]

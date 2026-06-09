@@ -4,6 +4,8 @@
 //
 // Resolver helper (shared by claude.mjs, gemini.mjs, grok.mjs). Returns
 // the resolved library text, or null if the id isn't known.
+import { ADJUDICATION_CORE } from './adjudication.mjs';
+
 export function resolvePrompt(promptId, promptVars) {
   if (!promptId || !PROMPT_LIBRARY[promptId]) return null;
   let libText = PROMPT_LIBRARY[promptId];
@@ -129,6 +131,10 @@ MOTION: "{{motion}}"
 USER DEBATED: {{sideLabel}}
 OPPONENT: AI
 
+${ADJUDICATION_CORE}
+
+All three judges reason by the adjudication method above. Their disagreement is about how the TESTS resolve (is this impact actually comparative? is the clash a true deadlock or does a default break it? did the extension add new terrain?), never about whether to apply them.
+
 THE THREE JUDGES (each must sound distinct):
 1. Maya — {{mayaParadigm}}
    VOICE: {{mayaVoice}}
@@ -146,6 +152,7 @@ Generate a realistic back-and-forth deliberation where these three judges talk t
 - Do genuine critical thinking. ONE judge should shift their initial lean based on something another judge says
 - Cross-apply each other's readings ("Marcus, that's exactly why Maya's drop matters")
 - Weigh impacts against each other explicitly
+- Converge on the DECIDING CLASH and resolve it: name it, demand the comparative, and if it is a real deadlock, break it with a stated default (comparative-actually-explained > capacity-if-symmetric > most-certain-impact). Do not just recap each side and announce a winner.
 - Reach a final vote. Could be 3-0 or 2-1 either direction. If the round was close, make it 2-1. If one side dominated, 3-0.
 
 CRITICAL FORMAT, each turn starts on its own line with the judge's name in brackets, like:
