@@ -5195,7 +5195,11 @@ function App() {
       var curIdx = speechIdxRef.current;
       var curPhase = phaseRef.current;
       var curSpeech = APDA_SEQUENCE[curIdx];
-      if (curSpeech && curPhase === 'prep') {
+      // The APDA speech sequence (prep/grace windows, per-speech caps, the
+      // [Speech start]/[Next speech] injections) is Full Round only. The
+      // other modes are free-form drills — their server prompts explicitly
+      // say "NOT APDA, no PMC/LOC terminology" — so they get no speech clock.
+      if (mode === 'apda' && curSpeech && curPhase === 'prep') {
         // Auto-nudge: ask the AI to gently remind the user to press
         // Start when they're ready. Fires once per prep window.
         // Hold the nudge until the AI isn't mid-response — otherwise the
@@ -5228,7 +5232,7 @@ function App() {
         if (pT >= GRACE_SEC) {
           startCurrentSpeech();
         }
-      } else if (curSpeech && curPhase === 'speaking') {
+      } else if (mode === 'apda' && curSpeech && curPhase === 'speaking') {
         if (pT >= curSpeech.durSec) {
           endCurrentSpeech();
         }
@@ -6749,7 +6753,10 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   // Pressing Start Speech ends prep early; End Speech advances to
   // the next speech. The cumulative session clock lives below as
   // muted secondary info.
-  (() => {
+  // Full Round only — the other modes are free-form drills with no speech
+  // sequence (their server prompts say "NOT APDA"). They keep the orb, the
+  // mic meter, the stats row, and the End button; just no PMC/LOC clock.
+  mode === 'apda' && (() => {
     var sp = APDA_SEQUENCE[speechIdx] || null;
     var phaseDur = phase === 'prep' ? GRACE_SEC : sp ? sp.durSec : 0;
     var remaining = Math.max(0, Math.round(phaseDur - phaseElapsed));
