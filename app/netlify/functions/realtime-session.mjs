@@ -23,9 +23,12 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 
 // Voice usage cap for free signed-in users. Pro/Team/Lifetime plans
 // and owner-allowlisted emails (see lib/auth.mjs) bypass. Anon users
-// are gated client-side (1 lifetime via localStorage) + by the existing
+// are gated client-side (3 lifetime via localStorage) + by the existing
 // 6/hour/IP rate limit at the bottom of this function.
-const FREE_VOICE_LIFETIME_LIMIT = 3;
+// Aligned to 8 on 2026-06-09 to match the client's FREE_VOICE_LIMIT (the
+// 2026-05-14 anon 1→3 / signed-in 3→8 bump had only landed client-side,
+// so signed-in users were told "8 left" but 402'd at 3).
+const FREE_VOICE_LIFETIME_LIMIT = 8;
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 
 /* ── AI COUNCIL ──────────────────────────────────────────────────
