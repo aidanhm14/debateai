@@ -252,6 +252,12 @@ body{
 .go-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 32px rgba(168,85,247,.35)}
 .go-btn:disabled{opacity:.5;cursor:not-allowed}
 .go-meta{font-size:.74rem;color:rgba(255,255,255,.55)}
+.exh-ballot-wrap{margin-top:18px;border:1px solid rgba(168,85,247,.32);border-radius:14px;background:linear-gradient(180deg,rgba(168,85,247,.06),rgba(168,85,247,.02));overflow:hidden}
+.exh-ballot-head{display:flex;align-items:center;gap:9px;padding:13px 18px;font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#d8b4fe;border-bottom:1px solid rgba(168,85,247,.18)}
+.exh-ballot-dot{width:7px;height:7px;border-radius:50%;background:#c084fc;box-shadow:0 0 0 4px rgba(192,132,252,.18);flex-shrink:0}
+.exh-ballot-body{padding:16px 18px;font-size:.92rem;line-height:1.7;color:rgba(255,255,255,.9);white-space:pre-wrap}
+.exh-ballot-loading{color:rgba(255,255,255,.55);font-style:italic;white-space:normal}
+.exh-ballot-err{color:#fca5a5;white-space:normal}
 .speech-card{
   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);
   border-radius:14px;padding:20px 22px;margin-bottom:14px;
@@ -494,6 +500,13 @@ function App() {
   var [teamBrains, setTeamBrains] = useState({ og: 'claude', oo: 'grok', cg: 'gpt', co: 'deepseek' });
   var [speeches, setSpeeches] = useState([]); // [{code, side, brainKey, text, status, error}]
   var [currentIdx, setCurrentIdx] = useState(-1);
+  // Exhibition ballot — the AI judge writes the RFD after the round (the
+  // payoff the page has always advertised but never built). Carries the
+  // adjudication core server-side via _promptId:'exhibitionBallot'. Claude
+  // Haiku judges (free-accessible, same as the voice RFD); plain-text out.
+  var [ballot, setBallot] = useState(null); // { judge, text }
+  var [ballotLoading, setBallotLoading] = useState(false);
+  var [ballotError, setBallotError] = useState('');
   var abortRef = useRef(false);
 
   var fmt = FORMATS[format];
@@ -514,6 +527,42 @@ function App() {
       return next;
     });
   }, [format]);
+
+  // The AI judge. Runs once the speeches are in, with the full transcript.
+  // Sends _promptId:'exhibitionBallot' so the adjudication core + ballot
+  // instructions are injected server-side; Claude Haiku writes plain text.
+  var generateBallot = async function (transcript) {
+    setBallotLoading(true); setBallotError(''); setBallot(null);
+    try {
+      var judge = BRAINS.claude;
+      var matchup = fourTeam ?
+        fmt.sides.map(function (s) { return (BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?') + ' as ' + fmt.sideLabels[s]; }).join(', ') :
+        BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find(function (x) { return x !== sideA; })] + ')';
+      var rankingInstruction = fourTeam ?
+        'Rank ALL FOUR teams 1-2-3-4 by the half-call, and put the full ranking in the WINNER line.' :
+        'Pick the winning side.';
+      var res = await fetch(judge.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          _promptId: 'exhibitionBallot',
+          _promptVars: { matchup: matchup, motion: motion, fmtName: fmt.name, rankingInstruction: rankingInstruction },
+          messages: [{ role: 'user', content: 'Full round transcript:\n\n' + transcript }],
+          model: judge.model,
+          max_tokens: 1100,
+          stream: false,
+          _feature: 'exhibition-judge'
+        })
+      });
+      if (!res.ok) { var m = 'request failed (' + res.status + ')'; try { var j = await res.json(); if (j && j.error) m = j.error; } catch (e) {} throw new Error(m); }
+      var text = extractText(await res.json());
+      if (!text) throw new Error('empty ballot');
+      setBallot({ judge: judge.name, text: text });
+    } catch (e) {
+      setBallotError(e.message || 'ballot failed');
+    }
+    setBallotLoading(false);
+  };
 
   var start = async () => {
     if (!motion.trim()) return;
@@ -565,9 +614,11 @@ function App() {
       var list = JSON.parse(localStorage.getItem('debateai-exhibition-rounds') || '[]');
       localStorage.setItem('debateai-exhibition-rounds', JSON.stringify([round, ...list].slice(0, 20)));
     } catch {}
+    // The verdict is the payoff. Generate it once the speeches are in.
+    if (transcript.trim()) generateBallot(transcript);
   };
 
-  var reset = () => {abortRef.current = true;setStage('setup');setSpeeches([]);setCurrentIdx(-1);};
+  var reset = () => {abortRef.current = true;setStage('setup');setSpeeches([]);setCurrentIdx(-1);setBallot(null);setBallotLoading(false);setBallotError('');};
 
   if (stage === 'setup') {
     return el('div', { className: 'exh-wrap' },
@@ -675,6 +726,12 @@ function App() {
   !sp.error && !sp.text && sp.status === 'running' && el('div', { className: 'empty-speech' }, BRAINS[sp.brainKey].name + ' is writing…')
   )),
   stage === 'done' && el('div', null,
+  el('div', { className: 'exh-ballot-wrap' },
+  el('div', { className: 'exh-ballot-head' }, el('span', { className: 'exh-ballot-dot' }), ballotLoading ? 'The judge is deliberating…' : ballot ? ('Ballot · judged by ' + ballot.judge) : ballotError ? 'Ballot unavailable' : 'Ballot'),
+  ballotLoading && el('div', { className: 'exh-ballot-body exh-ballot-loading' }, 'Reading all ' + speeches.length + ' speeches, weighing the round, writing the RFD.'),
+  ballot && el('div', { className: 'exh-ballot-body' }, ballot.text),
+  ballotError && el('div', { className: 'exh-ballot-body exh-ballot-err' }, ballotError + '. The round still ran; the verdict just failed to generate.')
+  ),
   el('div', { className: 'done-banner' }, 'All ' + speeches.length + ' speeches complete. Flow this round in your notebook, then run another with different brains to see how the matchup shifts.'),
   // 2026-05-20: forward CTAs so the finished round isn't a dead end.
   // Watching two AIs argue is the hook; the next intuitive step is to

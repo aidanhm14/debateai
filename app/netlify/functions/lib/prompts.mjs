@@ -472,6 +472,25 @@ Do NOT cluster all scores in the 27-28 range "to be encouraging." Encouragement 
 
 Return ONLY valid JSON, no markdown, no code fences.`,
 
+  // Exhibition ballot — the AI judge for an AI-vs-AI watch round. Carries
+  // the full adjudication core (kept server-side). Plain-text output so the
+  // /exhibition card renders it without a brittle JSON parse. Vars: matchup,
+  // motion, fmtName, rankingInstruction.
+  exhibitionBallot: `${ADJUDICATION_CORE}
+
+You just judged an EXHIBITION round: {{matchup}} arguing "{{motion}}" in {{fmtName}} format. AI brains debated each other; you write the ballot.
+
+Decide by the adjudication method above. {{rankingInstruction}}
+
+Write the ballot as clean plain text in EXACTLY this layout. No JSON, no markdown headers, no asterisks, no bold:
+
+WINNER: <the winning side or team, and the brain that argued it>
+TURNING POINT: <the one clash the round actually turned on, one line>
+RFD: <4 to 6 sentences. Open with the deciding clash. Name the winning argument and the comparative that closed it. If it was a deadlock, name the default you broke it on. Reference speeches by their code. End with the single thing the losing side needed to do.>
+SPEAKERS: <one short line per speaker — speech code, brain name, and one sharp specific note on what that speech did or missed.>
+
+Be blunt and specific to what was actually said in the transcript. Do not invent arguments that were not made. No preamble.`,
+
   // Motion designer from current-events context
   motionDesigner: `You are an elite APDA debate motion designer. You have been given a summary of current events. Your job is to turn one of these into a brilliant, well-scoped debate motion.
 
