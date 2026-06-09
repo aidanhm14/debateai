@@ -24,6 +24,8 @@
  *   total: number (all-time)
  *   week_count: number (resets at the start of each ISO week)
  *   week_key: string (YYYY-WW)
+ *   month_count: number (resets at the start of each UTC month)
+ *   month_key: string (YYYY-MM)
  *   by_format: { apda: N, bp: N, ... }
  *   updatedAt: server timestamp
  *
@@ -81,6 +83,15 @@ function isoWeekKey(date){
   return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 }
 
+// Month key — e.g., "2026-05". Same idea as week_key but coarser; the
+// stored month_count rolls back to 1 when the stored month_key no longer
+// matches the current UTC month.
+function monthKey(date){
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
 // Allow-list of format slugs we expect to see — anything else collapses
 // to 'other' so a bad client param can't pollute the by_format map.
 const ALLOWED_FORMATS = new Set([
@@ -98,6 +109,8 @@ function defaultCounts(){
     total: 0,
     week_count: 0,
     week_key: isoWeekKey(new Date()),
+    month_count: 0,
+    month_key: monthKey(new Date()),
     by_format: {},
   };
 }
@@ -110,6 +123,8 @@ async function readCounts(docRef){
     total: typeof d.total === 'number' ? d.total : 0,
     week_count: typeof d.week_count === 'number' ? d.week_count : 0,
     week_key: typeof d.week_key === 'string' ? d.week_key : isoWeekKey(new Date()),
+    month_count: typeof d.month_count === 'number' ? d.month_count : 0,
+    month_key: typeof d.month_key === 'string' ? d.month_key : monthKey(new Date()),
     by_format: d.by_format && typeof d.by_format === 'object' ? d.by_format : {},
   };
 }
@@ -119,7 +134,9 @@ async function readCounts(docRef){
 // Each doc self-manages its own weekly roll, so the two counters never
 // fight over a shared week_key.
 async function tickCounter(docRef, format, reason){
-  const currentWeek = isoWeekKey(new Date());
+  const now = new Date();
+  const currentWeek = isoWeekKey(now);
+  const currentMonth = monthKey(now);
   const snap = await docRef.get();
 
   if (!snap.exists){
@@ -127,15 +144,18 @@ async function tickCounter(docRef, format, reason){
       total: 1,
       week_count: 1,
       week_key: currentWeek,
+      month_count: 1,
+      month_key: currentMonth,
       by_format: { [format]: 1 },
       last_reason: reason,
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return { total: 1, week_count: 1, week_key: currentWeek, by_format: { [format]: 1 } };
+    return { total: 1, week_count: 1, week_key: currentWeek, month_count: 1, month_key: currentMonth, by_format: { [format]: 1 } };
   }
 
   const stored = snap.data() || {};
   const sameWeek = stored.week_key === currentWeek;
+  const sameMonth = stored.month_key === currentMonth;
   const update = {
     total: FieldValue.increment(1),
     [`by_format.${format}`]: FieldValue.increment(1),
@@ -148,6 +168,13 @@ async function tickCounter(docRef, format, reason){
     // Roll the week counter. Set to 1 (this tick starts the new week).
     update.week_count = 1;
     update.week_key = currentWeek;
+  }
+  if (sameMonth){
+    update.month_count = FieldValue.increment(1);
+  } else {
+    // Roll the month counter. Set to 1 (this tick starts the new month).
+    update.month_count = 1;
+    update.month_key = currentMonth;
   }
   await docRef.update(update);
   return await readCounts(docRef);

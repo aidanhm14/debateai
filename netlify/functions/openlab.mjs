@@ -12,6 +12,7 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyPromptLibrary } from './lib/prompts.mjs';
 import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
+import { checkMotionBody } from './lib/content-guard.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
 import { applyDistillations } from './lib/distillations.mjs';
 import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
@@ -21,6 +22,10 @@ const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
+  'https://debateai.com',
+  'https://www.debateai.com',
+  'https://debateit.com',
+  'https://www.debateit.com',
 ];
 const DEV_ORIGINS = [
   'http://localhost:8888',
@@ -132,7 +137,7 @@ export default async (request, context) => {
     // (Note: openlab also runs a paid-plan check above this block, so
     // free users prewarming this endpoint get a 402 instead of the
     // 200/warm response — that's fine, they wouldn't be able to
-    // generate via openlab anyway.)
+    // generate via openlab anyway, so warming it is wasted.)
     if (body && body.warm === true) {
       return new Response(JSON.stringify({ ok: true, warm: true }), {
         status: 200,
@@ -144,6 +149,17 @@ export default async (request, context) => {
       return new Response(
         JSON.stringify({ error: 'Request too large.' }),
         { status: 413, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
+
+    // Content guard on the explicit motion field. Fast regex-only check;
+    // rejects slurs, sexual-explicit, and CP before any Firestore read,
+    // exemplar lookup, or provider call. See claude.mjs for the rationale.
+    const motionGuard = checkMotionBody(body);
+    if (!motionGuard.ok) {
+      return new Response(
+        JSON.stringify({ error: motionGuard.reason, category: motionGuard.category }),
+        { status: 422, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
 
