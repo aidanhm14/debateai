@@ -407,6 +407,10 @@ Be specific to the motion. Arguments should be real strategic angles a competiti
 
 {{formatJudgingCriteria}}
 
+${ADJUDICATION_CORE}
+
+Decide the round by the method above. The JSON below is only the SHAPE of your output — your actual reasoning (the deciding clash, whether each key impact was comparative, the default that broke a deadlock) goes into the "keyClash", "decision", and "rfd" fields, written the way the method prescribes. The schema does not replace the method; it carries it.
+
 Return your ballot as valid JSON with this exact structure:
 {
   "winner": "user" or "ai",
