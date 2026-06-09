@@ -774,11 +774,14 @@ function historyRow(c){
   const side = c.sideLabel || (c.side ? (c.side.charAt(0).toUpperCase() + c.side.slice(1)) : '—');
   const score = Number(c.score);
   const verifyUrl = '/verify/' + (c.certId || c.id || '');
+  // Practice (solo vs AI) vs Certified (proctored, human + AI). Legacy certs
+  // predate the field; absence reads as practice. Mirrors the verify-page chip.
+  const classLabel = (c.certClass === 'certified') ? 'Certified' : 'Practice';
 
   return el('div', { class:'history-row' }, [
     el('div', { class:'history-motion', 'data-label':'Motion' }, [
       document.createTextNode(motion.length > 110 ? motion.slice(0, 107) + '…' : motion),
-      el('span', { class:'h-sub' }, date + (c.tier ? ' · ' + (c.tier.charAt(0).toUpperCase() + c.tier.slice(1)) : '')),
+      el('span', { class:'h-sub' }, date + (c.tier ? ' · ' + (c.tier.charAt(0).toUpperCase() + c.tier.slice(1)) : '') + ' · ' + classLabel),
     ]),
     el('div', { class:'history-format', 'data-label':'Format' }, fmtLabel),
     el('div', { class:'history-side', 'data-label':'Side' }, side),

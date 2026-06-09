@@ -172,7 +172,7 @@ of ~10 minutes of work, not big PRs.
 - **Bump `CACHE_NAME` in BOTH `sw.js` files** when HTML/bundle changes. The `scripts/hooks/pre-commit` hook (installed via `bash scripts/install-hooks.sh`) does this automatically on every commit that touches client-side files. Only relevant if you skipped the hook install — in which case bump manually.
 - **Never precache `/` in the service worker** — it broke root routing.
 - **Never skip git hooks** (`--no-verify`).
-- **Pricing is locked**: Free $0, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year. Currently in beta — every tier is $0 today; the table above is the post-beta plan and lives as JSON-LD/copy across pricing.html, debate-ai.html, landing.html. (Lifetime added to canonical 2026-05-10; Individual + Team flipped to annual 2026-05-14.)
+- **Pricing is locked**: Free $0, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year. Currently in beta — every tier is $0 today; the table above is the post-beta plan and lives as JSON-LD/copy across pricing.html, debate-ai.html, landing.html. (Lifetime added to canonical 2026-05-10; Individual + Team flipped to annual 2026-05-14.) A sixth line, the **DebateIt Certified exam**, was added 2026-06-09 as a one-time consumable (NOT a subscription tier; the five above are unchanged), beta-$0, future price TBD; practice credentials stay free. See soul.md §7 + decision log 2026-06-09 and `DEBATEIT_CERTIFICATE_REDESIGN.md`.
 
 ## Voice rules for AI debater outputs
 
@@ -232,7 +232,7 @@ These pairs duplicate intentionally; if you edit one, edit the other:
 
 ## Things to ask before doing
 
-- New pricing tier (locked: Free, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year — currently beta, all $0).
+- New pricing tier (locked: Free, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year — currently beta, all $0). The DebateIt Certified-exam one-time SKU is authorized as of 2026-06-09 (beta-$0, doesn't change the five tiers), but its Stripe wiring + `exam_passes` Firestore rules still require an explicit go per the Stripe/Firestore-rules line directly below.
 - Stripe webhook / Firestore rules / App Check token changes.
 - New AI provider integration (currently 6 brains: Claude, GPT, Gemini, Grok, DeepSeek, Open Lab — last two added 2026-05-15: DeepSeek direct, Open Lab OpenRouter-backed pool).
 - Mobile / TWA wrapping (path is Capacitor; deferred — see soul.md §9).
