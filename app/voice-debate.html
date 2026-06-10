@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Voice round · Debate it out loud · DebateIt</title>
-<meta name="description" content="Live voice debate with full interruption. Cut in mid-speech, take POIs, run cross-ex drills. Powered by OpenAI gpt-realtime-2." />
+<meta name="description" content="Live voice debate with full interruption. Cut the AI off mid-speech, field its interruptions, run question-and-answer drills. An AI judge writes the verdict at the end." />
 <meta name="theme-color" content="#0a0a12" />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -21,11 +21,11 @@
       "applicationSubCategory": "Voice Conversational AI",
       "operatingSystem": "Web",
       "url": "https://debateai.com/voice-debate",
-      "description": "Live voice debate with an AI opponent. Sub-200ms latency via OpenAI's Realtime API over WebRTC. Server-side VAD enables real mid-speech interruption. 16 TTS personas, format-aware judging.",
+      "description": "Live voice debate with an AI opponent. It listens, interrupts you mid-speech, and argues back in real time. 16 voice personas, judging matched to your format.",
       "publisher": { "@type": "Organization", "@id": "https://debateai.com/#org", "name": "DebateIt", "url": "https://debateai.com/", "logo": { "@type": "ImageObject", "url": "https://debateai.com/icons/icon-512.png?v=2" } },
       "featureList": [
-        "Sub-200ms voice latency via OpenAI Realtime + WebRTC",
-        "Server-side voice activity detection for true mid-speech interruption",
+        "Real-time voice, fast enough to interrupt and be interrupted",
+        "True mid-speech interruption in both directions",
         "16 distinct AI debater personas",
         "Format-aware system prompts across ten debate formats",
         "Five debate modes: full round, cross-ex drill, opening speech, rebuttal, viva"
@@ -44,11 +44,11 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://debateai.com/voice-debate">
 <meta property="og:title" content="Voice round · Debate it out loud · DebateIt">
-<meta property="og:description" content="Talk to a debater. Interrupt them. Get an RFD. Sub-200ms voice debate via OpenAI Realtime. 16 personas, format-aware judging.">
+<meta property="og:description" content="Talk to a debater. Interrupt them. Get the judge's verdict. Real-time voice, 16 personas, judging matched to your format.">
 <meta property="og:image" content="https://debateai.com/og-image.png?v=debateit1">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Voice round · Debate it out loud · DebateIt">
-<meta name="twitter:description" content="Talk to a debater. Interrupt them. Get an RFD. Sub-200ms voice debate via OpenAI Realtime.">
+<meta name="twitter:description" content="Talk to a debater. Interrupt them. Get the judge's verdict. Real-time voice debate.">
 <meta name="twitter:image" content="https://debateai.com/og-image.png?v=debateit1">
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -2429,11 +2429,11 @@ html[data-theme="light"] .live-speaker{color:#1a1a1f}
        users see the live voice interface. -->
   <main class="seo-fallback" style="max-width:880px;margin:0 auto;padding:80px 28px;color:#e5e5ea;font-family:'Inter',system-ui,sans-serif;position:relative;z-index:1">
     <h1 style="font-size:1.9rem;line-height:1.2;margin:0 0 18px;font-weight:800;color:#fff">Live voice debate against an AI opponent.</h1>
-    <p style="font-size:1.05rem;line-height:1.6;color:#c5c5cf;margin:0 0 16px">Speak your speech under the clock. The AI listens, interrupts, takes points of information, and gives you the next speech in real time. Sub-200ms voice latency via OpenAI's Realtime API; the model thinks in voice, not in transcripts, so the back-and-forth feels like a real round.</p>
+    <p style="font-size:1.05rem;line-height:1.6;color:#c5c5cf;margin:0 0 16px">Speak your speech under the clock. The AI listens, interrupts, takes points of information, and gives you the next speech in real time. The model thinks in voice, not in transcripts, so the back-and-forth feels like a real round.</p>
 
     <h2 style="font-size:1.1rem;margin:32px 0 12px;color:#fff;font-weight:700;letter-spacing:-.01em">Five modes for different prep needs</h2>
     <ul style="line-height:1.7;color:#c5c5cf;padding-left:20px;margin:0 0 16px">
-      <li><strong style="color:#fff">Full round</strong> · every speech on compressed clocks, POIs mid-speech, judge RFD when the round ends. The flagship.</li>
+      <li><strong style="color:#fff">Full round</strong> · every speech on compressed clocks, POIs mid-speech, a judge RFD (the written verdict) when the round ends. The flagship.</li>
       <li><strong style="color:#fff">Cross-examination drill</strong> · pure cross-ex Q&amp;A under timer; sharpen questions and concessions.</li>
       <li><strong style="color:#fff">Opening speech</strong> · drill your PMC/1AC/first prop with an AI judge listening but not arguing back.</li>
       <li><strong style="color:#fff">Rebuttal drill</strong> · the AI gives a speech; you respond. POIs not allowed; pure rebuttal craft.</li>
@@ -2498,8 +2498,8 @@ var el = React.createElement;
 // underlying engine — the prompt to the realtime model just leans
 // the AI's behavior toward whichever drill you picked.
 var MODES = [
-{ key: 'quickclash', icon: '', title: 'Quick Clash', desc: '2-minute warm-up. AI picks a motion if you don\'t have one.' },
-{ key: 'apda', icon: '', title: 'Full Round', desc: 'All six APDA speeches on compressed clocks, then a ballot.' },
+{ key: 'quickclash', icon: '', title: 'Quick Clash', desc: '2-minute warm-up. AI picks the topic if you don\'t have one.' },
+{ key: 'apda', icon: '', title: 'Full Round', desc: 'All six APDA speeches on compressed clocks, then a judge ballot.' },
 { key: 'crossex', icon: '', title: 'Cross-Examination', desc: 'Rapid Q&A under pressure. Concede or counter.' },
 { key: 'rebuttal', icon: '', title: 'Rebuttal Sparring', desc: 'Short alternating clash. Respond, don\'t restart.' },
 { key: 'layjudge', icon: '', title: 'Persuasion Pitch', desc: 'Make your case to a smart non-expert. Plain English.' },
