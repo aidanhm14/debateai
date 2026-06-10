@@ -486,12 +486,27 @@ async function callBrain(brainKey, sys, user) {
   return text;
 }
 
+// Deep links from /ai-vs-ai-debate (?prop=claude&opp=gpt) preselect the
+// two brains. Keys are validated against BRAINS; anything unknown (or a
+// missing param) falls back to the defaults below. Read once at boot.
+var DEEP_LINK_BRAINS = (function () {
+  var out = { prop: null, opp: null };
+  try {
+    var qs = new URLSearchParams(location.search);
+    var p = (qs.get('prop') || '').toLowerCase();
+    var o = (qs.get('opp') || '').toLowerCase();
+    if (BRAINS[p]) out.prop = p;
+    if (BRAINS[o]) out.opp = o;
+  } catch (e) {}
+  return out;
+})();
+
 function App() {
   var [stage, setStage] = useState('setup'); // setup | running | done
   var [motion, setMotion] = useState('This house would ban targeted political advertising.');
   var [format, setFormat] = useState('apda');
-  var [brainA, setBrainA] = useState('claude');
-  var [brainB, setBrainB] = useState('grok');
+  var [brainA, setBrainA] = useState(DEEP_LINK_BRAINS.prop || 'claude');
+  var [brainB, setBrainB] = useState(DEEP_LINK_BRAINS.opp || 'grok');
   var [sideA, setSideA] = useState('gov');
   // 4-team formats (BP) assign one brain per team (og/oo/cg/co). The
   // 2-side path keeps brainA/brainB; this object only matters when

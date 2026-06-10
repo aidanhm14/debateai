@@ -3422,10 +3422,20 @@ button{font-family:inherit}
       });
     });
     // Join live debate. Routes to /debate-it with the motion + side
-    // pre-loaded via URL hash, so the user lands directly in setup
-    // with everything pre-filled instead of typing it again. When real
-    // human-vs-human voice rooms ship, this becomes a websocket join
-    // call instead of an AI-mode hand-off.
+    // pre-loaded via URL query params (debate-it reads location.search,
+    // not the hash), so the user lands directly in setup with everything
+    // pre-filled instead of typing it again. When real human-vs-human
+    // voice rooms ship, this becomes a websocket join call instead of
+    // an AI-mode hand-off.
+    // debate-it.html FORMATS[k].sides, mirrored here so the canonical
+    // 'pro'/'con' stored on the challenge maps onto the side key the
+    // reader actually accepts. First entry = the pro/gov side, second
+    // = the con/opp side.
+    var DEBATE_IT_SIDES = {
+      quick: ['pro', 'con'], apda: ['gov', 'opp'], bp: ['og', 'oo'],
+      worlds: ['og', 'oo'], asian: ['gov', 'opp'], ld: ['aff', 'neg'],
+      pf: ['pro', 'con'], policy: ['aff', 'neg'], congress: ['pro', 'con']
+    };
     host.querySelectorAll('[data-join]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var id = btn.getAttribute('data-join');
@@ -3433,8 +3443,9 @@ button{font-family:inherit}
         if (!c) return;
         try { gtag('event', 'live_join', { format: c.format }); } catch(e){}
         var yourSide = c.side === 'pro' ? 'con' : 'pro';
-        var params = new URLSearchParams({ motion: c.motion, format: c.format, side: yourSide, live: '1' });
-        location.href = '/debate-it#' + params.toString();
+        var sidePair = DEBATE_IT_SIDES[c.format] || ['gov', 'opp'];
+        var params = new URLSearchParams({ motion: c.motion, format: c.format, side: yourSide === 'pro' ? sidePair[0] : sidePair[1] });
+        location.href = '/debate-it?' + params.toString();
       });
     });
     // Add to calendar. Generates an ICS download client-side so we
@@ -4945,6 +4956,14 @@ button{font-family:inherit}
       format: c.format || 'quick',
       pro: mySide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
       con: mySide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+      // Same identity params the matched-card writer passes — without
+      // them live-round runs with no spectator gating or side
+      // attribution. Last-resort currentUser fallback only applies when
+      // the viewer ISN'T the poster (here the poster can be the viewer,
+      // unlike the accepter-only matched-card path).
+      proUid: c.side === 'pro' ? (c.posterUid || '') : (c.accepterUid || (currentUser && currentUser.uid !== c.posterUid ? currentUser.uid : '') || ''),
+      conUid: c.side === 'con' ? (c.posterUid || '') : (c.accepterUid || (currentUser && currentUser.uid !== c.posterUid ? currentUser.uid : '') || ''),
+      mySide: mySide,
       room: roomName,
       challengeId: c.id,
     });
@@ -5073,6 +5092,11 @@ button{font-family:inherit}
           format: c.format || 'quick',
           pro: mySide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
           con: mySide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
+          // Same identity params the matched-card writer passes (see the
+          // dayof banner writer above for the poster-aware fallback note).
+          proUid: c.side === 'pro' ? (c.posterUid || '') : (c.accepterUid || (currentUser && currentUser.uid !== c.posterUid ? currentUser.uid : '') || ''),
+          conUid: c.side === 'con' ? (c.posterUid || '') : (c.accepterUid || (currentUser && currentUser.uid !== c.posterUid ? currentUser.uid : '') || ''),
+          mySide: mySide,
           room: roomName,
           challengeId: c.id,
         });

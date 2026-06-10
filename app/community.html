@@ -1223,6 +1223,22 @@ body::before{
     try {
       var raw = localStorage.getItem('debateos-saved-cases');
       var arr = raw ? JSON.parse(raw) : [];
+      // debate-it's saved-cases UI renders c.title / c.formatName /
+      // c.sideLabel / c.date / c.fullText (see saveCase there), so the
+      // import has to write that shape too or rows render
+      // "undefined · undefined · Invalid Date". Tiny name map mirrors
+      // debate-it's FORMATS[k].name for the formats the board carries.
+      var IMPORT_FORMAT_NAMES = {
+        quick: 'Quick Clash', apda: 'APDA Parliamentary',
+        bp: 'British Parliamentary', asian: 'Asian Parliamentary',
+        worlds: 'Worlds (WUDC)', ld: 'Lincoln-Douglas',
+        pf: 'Public Forum', policy: 'Policy (CX)'
+      };
+      var fmtKey = String(c.format || '').toLowerCase();
+      var formatName = IMPORT_FORMAT_NAMES[normalizeFormat(c.format)] ||
+        IMPORT_FORMAT_NAMES[fmtKey] ||
+        (fmtKey ? fmtKey.charAt(0).toUpperCase() + fmtKey.slice(1) : 'Debate');
+      var nowIso = new Date().toISOString();
       arr.unshift({
         id: 'disc_' + Date.now(),
         motion: c.motion || '',
@@ -1230,9 +1246,15 @@ body::before{
         format: c.format || '',
         depth: c.depth || '',
         output: c.output || '',
-        savedAt: new Date().toISOString(),
+        savedAt: nowIso,
         sharedFrom: c.sharedBy || 'Anonymous',
         importedFromDisclosure: true,
+        // Reader-shape fields (what /debate-it actually renders):
+        title: (c.motion || '').slice(0, 80) || 'Imported case',
+        formatName: formatName,
+        sideLabel: c.side || '',
+        date: nowIso,
+        fullText: c.output || '',
       });
       localStorage.setItem('debateos-saved-cases', JSON.stringify(arr.slice(0, 100)));
       toast('✓ Imported. Open /debate-it to use it.');

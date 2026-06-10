@@ -4912,8 +4912,14 @@ function App() {
       }
       // challenge=1: pre-select the specified side so the friend runs
       // the other side of the motion their challenger already argued.
+      // Accept any side that exists in the target format's sides array
+      // (og/oo, aff/neg, pro/con, ...); the legacy allow-list stays as
+      // a fallback for old links that predate format-native side keys.
       var wantSide = (qs.get('side') || '').trim();
-      if (wantSide === 'prop' || wantSide === 'opp' || wantSide === 'gov' || wantSide === 'neg') {
+      var targetFmt = wantFormat && typeof FORMATS !== 'undefined' && FORMATS[wantFormat] ? FORMATS[wantFormat] : null;
+      var sideOk = !!(targetFmt && targetFmt.sides && targetFmt.sides.indexOf(wantSide) !== -1);
+      if (!sideOk) sideOk = wantSide === 'prop' || wantSide === 'opp' || wantSide === 'gov' || wantSide === 'neg';
+      if (sideOk) {
         try {setSide(wantSide);} catch (_) {}
       }
       try {
@@ -11085,7 +11091,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       className: 'cta-ghost',
       title: 'Copy a link that pre-loads this motion so a friend can run the other side',
       onClick: function () {
-        var oppSide = side === 'prop' ? 'opp' : 'prop';
+        // Opposite side comes from the current format's own sides array
+        // ('prop' is not a side in any format — sides are pro/con,
+        // gov/opp, og/oo, aff/neg, ...), so the friend's link carries a
+        // side key the reader actually recognizes.
+        var fmtSides = (FORMATS[format] && FORMATS[format].sides) || ['gov', 'opp'];
+        var oppSide = fmtSides.filter(function (s) {return s !== side;})[0] || fmtSides[0];
         var url = (location.origin || 'https://debateai.com') + '/debate-it?motion=' + encodeURIComponent(motion || '') + '&format=' + encodeURIComponent(format || '') + '&side=' + oppSide + '&challenge=1';
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(url).then(function () {

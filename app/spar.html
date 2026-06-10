@@ -1125,6 +1125,11 @@ h1 em{color:var(--accent);font-style:normal}
       var bgBtn = document.getElementById('bgAvailBtn');
       if (!bgBtn) return;
       bgBtn.addEventListener('click', function(){
+        // Persist the chosen format BEFORE flipping the availability
+        // flag — js/notifications.js fmt() reads this key to decide
+        // which queue the background matcher joins (defaults to 'apda'
+        // when unset, silently overwriting the user's queue doc).
+        try { localStorage.setItem('debateos-spar-format', formatParam); } catch(e){}
         try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
         try { if (window.gtag) gtag('event', 'spar_bg_on', { from: 'spar_searching' }); } catch(e){}
         location.href = '/debate-it';
@@ -1553,6 +1558,10 @@ h1 em{color:var(--accent);font-style:normal}
     if (!state.user || !firebaseDb) return;
     state.cancelled = false;
     state.joinedAtMs = Date.now();
+    // Remember the chosen format for the background matcher —
+    // js/notifications.js fmt() reads 'debateos-spar-format' and falls
+    // back to 'apda' when it was never written.
+    try { localStorage.setItem('debateos-spar-format', formatParam); } catch(e){}
     var ref = firebaseDb.collection('matchmaking_queue').doc(state.user.uid);
     state.queueDocRef = ref;
     var fullName = (state.user.displayName || '').trim();
