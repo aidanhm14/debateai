@@ -4735,9 +4735,10 @@ section.hero .hero-illustrated h1.hi-headline{
 /* Opacity floor 0.6 → 0.82 (2026-06-01 contrast pass) so bubbles hold
    the dark crimson page bg without ghosting at the breathing low. */
 @keyframes hiDriftSlow{0%,100%{transform:translateY(0);opacity:.82}50%{transform:translateY(-7px);opacity:1}}
-/* One bubble per debater, floating above each figure's head. */
-.hero-illustrated .hi-bubble-1{top:23%;left:26%;animation-delay:-2s}
-.hero-illustrated .hi-bubble-2{top:21%;right:24%;animation-delay:-4s}
+/* Counterpoint. comes from the screen; Define your framework. from
+   the home debater in the foreground. */
+.hero-illustrated .hi-bubble-1{top:19%;left:50%;animation-delay:-2s}
+.hero-illustrated .hi-bubble-2{top:17%;left:16%;animation-delay:-4s}
 
 /* SVG line + fill conventions */
 .hero-illustrated .hi-stroke{fill:none;stroke:var(--hi-line);stroke-width:1.25;stroke-linecap:round;stroke-linejoin:round}
@@ -4778,6 +4779,38 @@ section.hero .hero-illustrated h1.hi-headline{
 .hero-illustrated .hi-cam-pulse{
   fill:var(--hi-red);opacity:0;transform-box:fill-box;transform-origin:center;
   animation:hiMicPulse 4.6s ease-in-out infinite;
+}
+/* Depth-scale stroke compensation: the home debater is drawn at
+   1.35x (foreground), the opponent at 1.12x (inside the screen) —
+   normalize so the ink weight stays uniform across planes. */
+.hero-illustrated .hi-debater-left .hi-stroke{stroke-width:.93}
+.hero-illustrated .hi-debater-left .hi-stroke-soft{stroke-width:.74}
+.hero-illustrated .hi-debater-left .hi-stroke-tan{stroke-width:.74}
+.hero-illustrated .hi-debater-left .hi-podium{stroke-width:.93}
+.hero-illustrated .hi-debater-right .hi-stroke{stroke-width:1.12}
+.hero-illustrated .hi-debater-right .hi-stroke-soft{stroke-width:.9}
+
+/* LIVE badge pinned to the screen — the real-opponent wedge, said
+   out loud on the illustration itself. */
+.hero-illustrated .hi-live-badge{
+  position:absolute;top:26.5%;right:16%;
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--hi-red);color:#fff;
+  font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 10px;border-radius:999px;
+  box-shadow:0 2px 12px rgba(239,68,68,.35);
+  pointer-events:none;
+}
+.hero-illustrated .hi-live-dot{
+  width:6px;height:6px;border-radius:50%;background:#fff;
+  animation:hiLiveDot 1.6s ease-in-out infinite;
+}
+@keyframes hiLiveDot{0%,100%{opacity:.45}50%{opacity:1}}
+
+/* The real-people phrase in the subhead, set in the brand red so
+   the live-humans wedge leads the line. */
+.hero-illustrated .hi-subhead .hi-live-em{
+  color:var(--hi-red);font-weight:650;
 }
 
 /* Clash arcs — the argument flowing debater → panel → debater */
@@ -5065,6 +5098,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .hero-illustrated .hi-chip-hi,
   .hero-illustrated .hi-chip-es,
   .hero-illustrated .hi-chip-ar{display:none}
+  /* Pin the LIVE badge to the monitor on the tight mobile stage. */
+  .hero-illustrated .hi-live-badge{
+    font-size:.5rem;padding:3px 8px;letter-spacing:.06em;
+    top:26%;right:4%;left:auto;
+  }
   /* Speech bubbles overlap on the tight 1:1 mobile stage. The language
      chips already carry the multilingual cue; drop the bubbles. */
   .hero-illustrated .hi-bubble{display:none}
@@ -5092,6 +5130,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .hero-illustrated .hi-arc,
   .hero-illustrated .hi-mic-pulse,
   .hero-illustrated .hi-cam-pulse,
+  .hero-illustrated .hi-live-dot,
   .hero-illustrated .hi-status-dot{animation:none !important}
 }
 </style>
@@ -6260,7 +6299,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              default/flow swap; one clear line now. The big "where to
              start" buttons below carry the navigation. -->
         <p class="hi-subhead">
-          Practice against the AI, or debate real people live. Pick where to start.
+          <strong class="hi-live-em">Debate real people live</strong>, or practice against the AI. Pick where to start.
         </p>
       </div>
 
@@ -6323,116 +6362,144 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               <stop offset="65%"  stop-color="#f4ecd9" stop-opacity=".58"/>
               <stop offset="100%" stop-color="#e8dcbf" stop-opacity=".42"/>
             </radialGradient>
+            <!-- The glass, in perspective: the opponent is clipped to
+                 this quad so they argue from INSIDE the screen. -->
+            <clipPath id="hiGlassClip">
+              <path d="M 626 148 L 988 182 L 988 410 L 626 436 Z"/>
+            </clipPath>
           </defs>
 
-          <!-- ── THE FACE-OFF — 2026-06-10, fifth pass: the proven
-               half-body podium debaters, truly recomposed. The whole
-               scene is scaled up to fill the stage, both torsos are
-               rotated into the clash (presenters → arguers), and the
-               AI panel FLOATS between them — the stand kept reading
-               as a music stand, so it's gone; the halo + the soft
-               ground shadow underneath carry the hover. No brackets,
-               no borders, no furniture. -->
-          <g class="hi-scene" transform="translate(-82.5 -45) scale(1.15)">
+          <!-- ── DEBATING THROUGH THE SCREEN, IN DEPTH — 2026-06-10,
+               sixth pass. Over-the-shoulder video-call clash: the
+               home debater stands large in the left FOREGROUND at
+               their desk; the monitor sits on its own desk further
+               back (higher in frame, smaller scale), drawn in
+               PERSPECTIVE — skewed bezel quad + a visible side-depth
+               face; the opponent argues back from INSIDE the glass,
+               clipped by it, arm reaching toward the pane. Depth
+               comes from the scale gradient (1.35x foreground vs
+               1.12x in-screen), the receding desk planes, and the
+               home debater's hand overlapping the bezel. Arms now
+               have elbows, double-line sleeves and open three-stroke
+               hands. The AI judge is a small orb on the monitor
+               desk. Clash arcs cross THROUGH the glass, one each
+               way. -->
 
           <!-- Ground shadows -->
-          <ellipse class="hi-floor" cx="335" cy="530" rx="175" ry="11"/>
-          <ellipse class="hi-floor" cx="765" cy="530" rx="175" ry="11"/>
-          <ellipse class="hi-floor" cx="550" cy="528" rx="46" ry="6"/>
+          <ellipse class="hi-floor" cx="270" cy="566" rx="190" ry="10"/>
+          <ellipse class="hi-floor" cx="800" cy="548" rx="235" ry="11"/>
 
-          <!-- ── THE PANEL — the AI, floating between them: tilted
-               glass, calm waveform, dashed listening ring. Judge and
-               medium, not the centerpiece. Reuses hi-screen-frame +
-               globe classes so every theme restyles it for free; on
-               dark themes the glass override makes it the scene's
-               quiet light source. -->
-          <g class="hi-panel" aria-hidden="true">
-            <ellipse class="hi-globe-halo" cx="550" cy="300" rx="86" ry="66"/>
-            <rect class="hi-screen-frame" x="500" y="246" width="100" height="98" rx="10" transform="rotate(-7 550 295)"/>
-            <circle class="hi-stroke-tan" cx="550" cy="295" r="26" stroke-dasharray="2 5" opacity=".55" fill="none"/>
-            <path class="hi-globe-wave" d="M 532 296 Q 541 286 550 296 T 568 296"/>
-            <circle class="hi-globe-node" cx="532" cy="296" r="1.6"/>
-            <circle class="hi-globe-node" cx="568" cy="296" r="1.6"/>
+          <!-- ── THE MONITOR DESK, receding -->
+          <path class="hi-podium-top" d="M 562 480 L 1014 468 L 1046 500 L 534 514 Z"/>
+          <path class="hi-podium" d="M 534 514 L 1046 500 L 1044 522 L 536 536 Z"/>
+
+          <!-- ── THE MONITOR, in perspective: side-depth face, skewed
+               bezel, stand. The cam dot breathes: a live feed. -->
+          <g class="hi-screens" aria-hidden="true">
+            <path class="hi-podium" d="M 596 140 L 610 132 L 610 452 L 596 446 Z"/>
+            <path class="hi-screen-frame" d="M 610 132 L 1004 170 L 1004 424 L 610 452 Z"/>
+            <path class="hi-podium" d="M 786 444 L 830 441 L 838 468 L 778 471 Z"/>
+            <path class="hi-podium" d="M 744 470 L 868 466 L 880 482 L 734 486 Z"/>
+            <circle class="hi-cam-pulse" cx="807" cy="158" r="5"/>
+            <circle class="hi-cam-dot" cx="807" cy="158" r="2.2"/>
           </g>
 
-          <!-- ── THE CLASH ARCS — the argument leaves one debater,
-               crests above the panel, lands on the other. One each
-               way, staggered. -->
-          <path class="hi-arc"          d="M 458 350 C 496 244, 528 216, 550 214 C 572 216, 604 244, 642 350"/>
-          <path class="hi-arc hi-arc-2" d="M 642 344 C 604 240, 572 212, 550 210 C 528 212, 496 240, 458 344"/>
+          <!-- ── THE OPPONENT, inside the glass — the proven mirrored
+               profile, clipped by the pane, gesture arm bent at the
+               elbow and reaching toward the glass. They argue back
+               THROUGH the screen. -->
+          <g class="hi-debater hi-debater-right" clip-path="url(#hiGlassClip)">
+            <g transform="translate(-177.3 -23) scale(1.12)">
+              <path class="hi-head-fill" d="M 906 216 Q 898 206 886 207 Q 874 210 872 224 Q 871 233 865 238 Q 863 241 867 243 Q 870 244 871 247 Q 872 253 880 256 Q 893 260 902 252 Q 910 243 909 229 Q 908 221 906 216 Z"/>
+              <path class="hi-stroke" d="M 906 216 Q 898 206 886 207 Q 874 210 872 224 Q 871 233 865 238 Q 863 241 867 243 Q 870 244 871 247 Q 872 253 880 256 Q 893 260 902 252 Q 910 243 909 229 Q 908 221 906 216 Z"/>
+              <path class="hi-stroke" d="M 907 220 Q 902 209 888 208 Q 878 209 874 218"/>
+              <!-- mid-length hair -->
+              <path class="hi-stroke" d="M 908 224 Q 916 240 910 256"/>
+              <path class="hi-stroke" d="M 904 206 Q 916 212 918 230 M 910 208 Q 920 218 919 238" opacity=".7"/>
+              <!-- brow + eye, locked on the home debater -->
+              <path class="hi-stroke" d="M 881 224 Q 877 222 873 224 M 880 229 L 874 229"/>
+              <!-- neck -->
+              <path class="hi-stroke" d="M 895 258 L 897 272 M 884 257 L 883 272"/>
+              <!-- shoulders, cropped by the glass bottom -->
+              <path class="hi-stroke" d="M 934 298 Q 912 280 888 277 Q 862 280 844 294"/>
+              <path class="hi-stroke" d="M 934 298 Q 942 354 936 412"/>
+              <path class="hi-stroke" d="M 844 294 Q 834 348 840 404"/>
+              <!-- collar + tie -->
+              <path class="hi-stroke" d="M 906 284 L 886 312 L 868 286"/>
+              <path class="hi-stroke-soft" d="M 900 282 L 886 300 L 874 283"/>
+              <path class="hi-tie" d="M 886 312 L 893 325 L 885 364 L 878 324 Z"/>
+              <!-- back arm -->
+              <path class="hi-stroke" d="M 930 306 Q 948 336 942 372 Q 938 396 924 408"/>
+              <!-- gesture arm: shoulder → elbow → open hand at the
+                   glass; double line gives the sleeve volume -->
+              <path class="hi-stroke" d="M 846 296 Q 806 294 775 302 Q 745 314 730 330"/>
+              <path class="hi-stroke hi-stroke-soft" d="M 850 308 Q 810 306 780 314 Q 756 325 742 338"/>
+              <path class="hi-stroke" d="M 730 330 q -11 0 -17 -5 m 17 5 q -11 3 -18 1 m 18 -1 q -7 7 -12 11"/>
+            </g>
+          </g>
 
-          <!-- ── LEFT debater — profile, leaning over the podium into
-               the clash, front arm extended at the opponent. The
-               battle-tested figure from the twin-screen scene,
-               verbatim, just closer to center. -->
-          <g class="hi-debater hi-debater-left" transform="translate(110 0)">
-            <!-- torso + head lean 6° into the clash; pivot at the
-                 waist so the podium stays planted -->
-            <g transform="rotate(6 214 414)">
+          <!-- Glass line over the feed -->
+          <path class="hi-stroke hi-stroke-soft" d="M 626 148 L 988 182 L 988 410 L 626 436 Z"/>
+
+          <!-- ── THE JUDGE — small listening orb on the monitor desk,
+               third presence in the call, quiet by design -->
+          <g class="hi-judge" aria-hidden="true">
+            <ellipse class="hi-globe-halo" cx="652" cy="462" rx="48" ry="36"/>
+            <circle class="hi-stroke-tan" cx="652" cy="462" r="17" stroke-dasharray="2 5" opacity=".55" fill="none"/>
+            <circle class="hi-globe-shell" cx="652" cy="462" r="12"/>
+            <path class="hi-globe-wave" d="M 643 462 Q 648 456 652 462 T 661 462"/>
+            <circle class="hi-globe-node" cx="643" cy="462" r="1.4"/>
+            <circle class="hi-globe-node" cx="661" cy="462" r="1.4"/>
+          </g>
+
+          <!-- ── THE CLASH ARCS — the argument crosses THROUGH the
+               glass, one each way -->
+          <path class="hi-arc"          d="M 602 282 C 660 252, 724 270, 786 322"/>
+          <path class="hi-arc hi-arc-2" d="M 642 326 C 580 296, 510 282, 442 292"/>
+
+          <!-- ── THE HOME DEBATER — large in the foreground at their
+               desk, proven profile figure at 1.35x, gesture arm
+               rebuilt with an elbow, sleeve and open hand that
+               reaches across and overlaps the monitor bezel: the
+               occlusion is the depth cue. -->
+          <g class="hi-debater hi-debater-left" transform="translate(11.1 -123.2) scale(1.35)">
             <circle cx="210" cy="234" r="42" class="hi-stroke-tan" stroke-dasharray="2 5" opacity=".5" fill="none"/>
             <!-- profile head: crown → forehead → nose → chin → jaw -->
             <path class="hi-head-fill" d="M 194 216 Q 202 206 214 207 Q 226 210 228 224 Q 229 233 235 238 Q 237 241 233 243 Q 230 244 229 247 Q 228 253 220 256 Q 207 260 198 252 Q 190 243 191 229 Q 192 221 194 216 Z"/>
             <path class="hi-stroke" d="M 194 216 Q 202 206 214 207 Q 226 210 228 224 Q 229 233 235 238 Q 237 241 233 243 Q 230 244 229 247 Q 228 253 220 256 Q 207 260 198 252 Q 190 243 191 229 Q 192 221 194 216 Z"/>
             <path class="hi-stroke" d="M 193 220 Q 198 209 212 208 Q 222 209 226 218"/>
-            <!-- brow + eye, locked on the opponent -->
+            <!-- flat hair scribble -->
+            <path class="hi-stroke" d="M 197 212 Q 205 203 216 206 M 202 207 Q 210 200 219 208" opacity=".8"/>
+            <!-- brow + eye, on the screen -->
             <path class="hi-stroke" d="M 219 224 Q 223 222 227 224 M 220 229 L 226 229"/>
             <!-- neck -->
             <path class="hi-stroke" d="M 205 258 L 203 272 M 216 257 L 217 272"/>
-            <!-- shoulders leaning into the clash -->
+            <!-- shoulders + suit sides, waist taper -->
             <path class="hi-stroke" d="M 166 298 Q 188 280 212 277 Q 238 280 256 294"/>
             <path class="hi-stroke" d="M 166 298 Q 158 354 164 412"/>
             <path class="hi-stroke" d="M 256 294 Q 266 348 260 404"/>
-            <!-- collar + tie, angled forward with the lean -->
+            <!-- back seam, soft -->
+            <path class="hi-stroke hi-stroke-soft" d="M 178 304 Q 172 354 176 406"/>
+            <!-- collar + tie -->
             <path class="hi-stroke" d="M 194 284 L 214 312 L 232 286"/>
             <path class="hi-stroke-soft" d="M 200 282 L 214 300 L 226 283"/>
             <path class="hi-tie" d="M 214 312 L 207 325 L 215 364 L 222 324 Z"/>
-            <!-- back arm rests on the flow pad -->
+            <!-- back arm resting toward the flow pad -->
             <path class="hi-stroke" d="M 170 306 Q 152 336 158 372 Q 162 396 176 408"/>
-            <!-- front arm extended toward the opponent -->
-            <path class="hi-stroke" d="M 252 300 Q 292 306 322 326 Q 336 336 342 348"/>
-            <path class="hi-stroke" d="M 342 348 l 12 4 m -12 -4 l 11 -7"/>
-            </g>
-            <!-- podium, front edge angled into the chamber -->
+            <!-- gesture arm: shoulder → elbow → forearm → open hand,
+                 double-line sleeve; the hand lands on the monitor
+                 bezel in global space -->
+            <path class="hi-stroke" d="M 252 296 Q 300 290 344 286 Q 352 285 358 286 Q 400 290 436 302"/>
+            <path class="hi-stroke hi-stroke-soft" d="M 256 308 Q 304 300 348 297 Q 396 301 430 312"/>
+            <path class="hi-stroke" d="M 436 302 q 12 0 18 -5 m -18 5 q 12 4 20 3 m -20 -3 q 8 8 13 12"/>
+            <!-- their desk corner, perspective: top + front faces -->
             <path class="hi-podium" d="M 92 414 Q 190 405 286 412 L 296 430 L 288 510 Q 196 516 104 510 L 96 432 Z"/>
             <path class="hi-podium-top" d="M 100 418 Q 192 409 280 416 L 296 430 L 96 432 Z"/>
             <path class="hi-stroke-soft" d="M 96 432 Q 196 424 296 430"/>
+            <!-- flow pad + pen on the desk -->
+            <path class="hi-stroke hi-stroke-soft" d="M 196 419 L 248 416 L 254 426 L 202 429 Z M 206 421 L 240 419 M 208 424 L 242 422"/>
+            <path class="hi-stroke" d="M 260 427 l 14 -3"/>
           </g>
-
-          <!-- ── RIGHT debater — mirrored profile, mid-length hair,
-               same battle-tested figure, facing the clash. -->
-          <g class="hi-debater hi-debater-right" transform="translate(-110 0)">
-            <!-- torso + head lean 6° into the clash, mirrored -->
-            <g transform="rotate(-6 886 414)">
-            <circle cx="890" cy="234" r="42" class="hi-stroke-tan" stroke-dasharray="2 5" opacity=".5" fill="none"/>
-            <path class="hi-head-fill" d="M 906 216 Q 898 206 886 207 Q 874 210 872 224 Q 871 233 865 238 Q 863 241 867 243 Q 870 244 871 247 Q 872 253 880 256 Q 893 260 902 252 Q 910 243 909 229 Q 908 221 906 216 Z"/>
-            <path class="hi-stroke" d="M 906 216 Q 898 206 886 207 Q 874 210 872 224 Q 871 233 865 238 Q 863 241 867 243 Q 870 244 871 247 Q 872 253 880 256 Q 893 260 902 252 Q 910 243 909 229 Q 908 221 906 216 Z"/>
-            <path class="hi-stroke" d="M 907 220 Q 902 209 888 208 Q 878 209 874 218"/>
-            <!-- mid-length hair falling at the back of the head -->
-            <path class="hi-stroke" d="M 908 224 Q 916 240 910 256"/>
-            <!-- brow + eye, locked on the opponent -->
-            <path class="hi-stroke" d="M 881 224 Q 877 222 873 224 M 880 229 L 874 229"/>
-            <!-- neck -->
-            <path class="hi-stroke" d="M 895 258 L 897 272 M 884 257 L 883 272"/>
-            <!-- shoulders leaning into the clash -->
-            <path class="hi-stroke" d="M 934 298 Q 912 280 888 277 Q 862 280 844 294"/>
-            <path class="hi-stroke" d="M 934 298 Q 942 354 936 412"/>
-            <path class="hi-stroke" d="M 844 294 Q 834 348 840 404"/>
-            <!-- collar + tie, angled forward with the lean -->
-            <path class="hi-stroke" d="M 906 284 L 886 312 L 868 286"/>
-            <path class="hi-stroke-soft" d="M 900 282 L 886 300 L 874 283"/>
-            <path class="hi-tie" d="M 886 312 L 893 325 L 885 364 L 878 324 Z"/>
-            <!-- back arm rests on the flow pad -->
-            <path class="hi-stroke" d="M 930 306 Q 948 336 942 372 Q 938 396 924 408"/>
-            <!-- front arm extended toward the opponent -->
-            <path class="hi-stroke" d="M 848 300 Q 808 306 778 326 Q 764 336 758 348"/>
-            <path class="hi-stroke" d="M 758 348 l -12 4 m 12 -4 l -11 -7"/>
-            </g>
-            <!-- podium, front edge angled into the chamber -->
-            <path class="hi-podium" d="M 1008 414 Q 910 405 814 412 L 804 430 L 812 510 Q 904 516 996 510 L 1004 432 Z"/>
-            <path class="hi-podium-top" d="M 1000 418 Q 908 409 820 416 L 804 430 L 1004 432 Z"/>
-            <path class="hi-stroke-soft" d="M 1004 432 Q 904 424 804 430"/>
-          </g>
-          </g><!-- /hi-scene scale wrapper -->
 
         </svg>
 
@@ -6453,6 +6520,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              remaining bubbles both read as productive clash. -->
         <span class="hi-bubble hi-bubble-1">Counterpoint.</span>
         <span class="hi-bubble hi-bubble-2">Define your framework.</span>
+
+        <!-- The real-opponent wedge, pinned to the screen itself -->
+        <span class="hi-live-badge" aria-hidden="true"><span class="hi-live-dot"></span>Live · Real opponent</span>
       </div>
 
       <!-- 2026-05-26: chip rotation loop. Each chip fades through a
