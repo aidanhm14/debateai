@@ -5002,19 +5002,35 @@ section.hero .hero-illustrated h1.hi-headline{
   20%{opacity:.7;transform:scale(1.3)}
 }
 
-/* Globe — semi-transparent layered sphere */
+/* Adjudicator orb + ambient glow (reuses the old globe gradients) */
 .hero-illustrated .hi-globe-halo{fill:url(#hiGloboGlow);opacity:.85}
 .hero-illustrated .hi-globe-shell{fill:url(#hiGloboFill);stroke:var(--hi-tan);stroke-width:1.25}
-.hero-illustrated .hi-globe-grid{fill:none;stroke:var(--hi-tan-soft);stroke-width:.8}
 .hero-illustrated .hi-globe-wave{fill:none;stroke:var(--hi-red);stroke-width:1.25;opacity:.55}
 .hero-illustrated .hi-globe-node{fill:var(--hi-red);opacity:.72}
-.hero-illustrated .hi-globe-net{fill:none;stroke:var(--hi-red-soft);stroke-width:.6}
-/* Slow inner-content rotation — shell + grid stay fixed (no spinning
-   sphere illusion); only the waveform + network drift. */
-.hero-illustrated .hi-globe-rotor{transform-origin:550px 290px;animation:hiGlobeSpin 36s linear infinite}
-@keyframes hiGlobeSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
-/* Conversation arcs — voice flowing between debaters through globe */
+/* The zoom tunnel — four copies of one viewport rect, each scaling out
+   from the vanishing point on a staggered loop so the scene reads as a
+   continuous dive through the screen into the round. transform-box:
+   view-box anchors the origin in viewBox units. Opacity ramps in/out at
+   the ends of each cycle so the loop seam is invisible. */
+.hero-illustrated .hi-zoom-frame{
+  fill:none;stroke:var(--hi-tan);stroke-width:1.1;opacity:0;
+  transform-box:view-box;transform-origin:550px 295px;
+  animation:hiZoomThrough 12s linear infinite;
+}
+.hero-illustrated .hi-zoom-f1{animation-delay:0s}
+.hero-illustrated .hi-zoom-f2{animation-delay:-3s}
+.hero-illustrated .hi-zoom-f3{animation-delay:-6s}
+.hero-illustrated .hi-zoom-f4{animation-delay:-9s}
+@keyframes hiZoomThrough{
+  0%{transform:scale(.42);opacity:0}
+  16%{opacity:.55}
+  78%{opacity:.5}
+  100%{transform:scale(1.28);opacity:0}
+}
+.hero-illustrated .hi-zoom-line{stroke:var(--hi-tan-soft);stroke-width:.7;opacity:.45}
+
+/* Clash arc — the argument flowing debater → adjudicator → debater */
 .hero-illustrated .hi-arc{
   fill:none;stroke:var(--hi-red);stroke-width:1.4;stroke-linecap:round;
   stroke-dasharray:220 1200;stroke-dashoffset:0;opacity:.42;
@@ -5313,10 +5329,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 @media(prefers-reduced-motion:reduce){
   .hero-illustrated .hi-chip,
   .hero-illustrated .hi-bubble,
-  .hero-illustrated .hi-globe-rotor,
   .hero-illustrated .hi-arc,
   .hero-illustrated .hi-mic-pulse,
+  .hero-illustrated .hi-zoom-frame,
   .hero-illustrated .hi-status-dot{animation:none !important}
+  /* Frozen tunnel: park the four frames at nested depths so the
+     static composition still reads as one-point perspective. */
+  .hero-illustrated .hi-zoom-f1{transform:scale(.5);opacity:.5}
+  .hero-illustrated .hi-zoom-f2{transform:scale(.75);opacity:.5}
+  .hero-illustrated .hi-zoom-f3{transform:scale(1);opacity:.5}
+  .hero-illustrated .hi-zoom-f4{transform:scale(1.22);opacity:.45}
 }
 </style>
 <!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
@@ -6551,108 +6573,125 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             </radialGradient>
           </defs>
 
-          <!-- Outer halo behind globe -->
-          <ellipse class="hi-globe-halo" cx="550" cy="290" rx="300" ry="210"/>
+          <!-- ── THE TUNNEL — zooming through the screen into the round.
+               Four copies of one rounded "viewport" rect, each animating
+               scale .42 → 1.28 from the vanishing point (550,295) on a
+               staggered loop, so frames continuously emerge at the
+               adjudicator's bench and drift out toward the viewer: you
+               are being pulled through your own screen into a round
+               already in progress. Static corner rails sell the one-
+               point perspective; prefers-reduced-motion freezes the
+               frames at four nested depths instead (CSS). 2026-06-09:
+               replaces the wireframe globe — the old scene read as two
+               strangers presenting outward at a planet; this one reads
+               as a clash with a judge presiding. -->
+          <g class="hi-zoom" aria-hidden="true">
+            <line class="hi-zoom-line" x1="256" y1="89"  x2="456" y2="229"/>
+            <line class="hi-zoom-line" x1="844" y1="89"  x2="644" y2="229"/>
+            <line class="hi-zoom-line" x1="256" y1="501" x2="456" y2="361"/>
+            <line class="hi-zoom-line" x1="844" y1="501" x2="644" y2="361"/>
+            <rect class="hi-zoom-frame hi-zoom-f1" x="315" y="130" width="470" height="330" rx="18"/>
+            <rect class="hi-zoom-frame hi-zoom-f2" x="315" y="130" width="470" height="330" rx="18"/>
+            <rect class="hi-zoom-frame hi-zoom-f3" x="315" y="130" width="470" height="330" rx="18"/>
+            <rect class="hi-zoom-frame hi-zoom-f4" x="315" y="130" width="470" height="330" rx="18"/>
+          </g>
 
-          <!-- Conversation arc — voice arcing between debaters via globe.
-               2026-05-27: the second arc (bottom-loop, dipping below
-               the figures into podium territory) read as a stray red
-               curve floating around the right debater. Removed; the
-               single top arc carries the "voice flowing through the
-               globe" metaphor cleanly without the noise. -->
-          <path class="hi-arc"   d="M 244 360 C 320 200, 420 130, 550 142 C 680 130, 780 200, 856 360"/>
+          <!-- Clash arc — the argument travels debater → adjudicator →
+               debater. Same dash-flow animation as the old voice arc,
+               now routed over the judge's orb instead of a globe. -->
+          <path class="hi-arc"   d="M 286 372 C 380 252, 470 230, 550 236 C 630 230, 720 252, 814 372"/>
 
           <!-- Faint floor shadow under both podiums -->
           <ellipse class="hi-floor" cx="550" cy="528" rx="440" ry="14"/>
 
-          <!-- ── LEFT debater ── -->
+          <!-- ── LEFT debater — drawn in PROFILE, facing the chamber.
+               2026-06-09: both figures used to face the viewer (front-on,
+               symmetric), which read as two podium presenters, not a
+               clash. Profile heads + a forward lean + an extended front
+               arm point them at EACH OTHER across the adjudicator. -->
           <g class="hi-debater hi-debater-left">
-            <circle cx="180" cy="240" r="42" class="hi-stroke-tan" stroke-dasharray="2 5" opacity=".5" fill="none"/>
-            <ellipse cx="180" cy="240" rx="18" ry="24" class="hi-head-fill"/>
-            <ellipse cx="180" cy="240" rx="18" ry="24" class="hi-stroke"/>
-            <path class="hi-stroke" d="M163 232 Q 168 218 180 215 Q 196 215 198 234"/>
-            <path class="hi-stroke" d="M173 264 L 172 278 M187 264 L 188 278"/>
-            <path class="hi-stroke" d="M132 300 Q 156 286 180 284 Q 204 286 228 300"/>
-            <path class="hi-stroke" d="M132 300 Q 128 360 134 412"/>
-            <path class="hi-stroke" d="M228 300 Q 232 360 226 412"/>
-            <path class="hi-stroke" d="M156 300 L 180 334 L 204 300"/>
-            <path class="hi-stroke-soft" d="M164 298 L 180 318 L 196 298"/>
-            <path class="hi-tie" d="M180 334 L 174 348 L 180 392 L 186 348 Z"/>
-            <!-- Right arm sweeps down behind the podium edge — terminates
-                 cleanly at the podium lip, no floating hand ellipse.
-                 2026-05-27: the prior `<ellipse rx=10 ry=7 hi-head-fill>`
-                 at (258,380) was reading as a small second head floating
-                 next to the figure. The mic-pulse + mic dots in the same
-                 region were also visually noisy ("glitch dot" effect).
-                 Removed both; the arm stroke alone communicates the
-                 speaker pose without the cream-oval clutter. -->
-            <path class="hi-stroke" d="M226 308 Q 254 320 268 350 Q 270 388 256 410"/>
-            <path class="hi-podium" d="M 80 412 Q 180 404 280 412 L 268 430 L 260 510 Q 180 514 100 510 L 92 430 Z"/>
-            <path class="hi-podium-top" d="M 88 416 Q 180 408 272 416 L 268 430 L 92 430 Z"/>
-            <path class="hi-stroke-soft" d="M 92 430 Q 180 422 268 430"/>
+            <circle cx="210" cy="234" r="42" class="hi-stroke-tan" stroke-dasharray="2 5" opacity=".5" fill="none"/>
+            <!-- profile head: crown → forehead → nose → chin → jaw -->
+            <path class="hi-head-fill" d="M 194 216 Q 202 206 214 207 Q 226 210 228 224 Q 229 233 235 238 Q 237 241 233 243 Q 230 244 229 247 Q 228 253 220 256 Q 207 260 198 252 Q 190 243 191 229 Q 192 221 194 216 Z"/>
+            <path class="hi-stroke" d="M 194 216 Q 202 206 214 207 Q 226 210 228 224 Q 229 233 235 238 Q 237 241 233 243 Q 230 244 229 247 Q 228 253 220 256 Q 207 260 198 252 Q 190 243 191 229 Q 192 221 194 216 Z"/>
+            <path class="hi-stroke" d="M 193 220 Q 198 209 212 208 Q 222 209 226 218"/>
+            <!-- brow + eye, locked on the opponent -->
+            <path class="hi-stroke" d="M 219 224 Q 223 222 227 224 M 220 229 L 226 229"/>
+            <!-- neck -->
+            <path class="hi-stroke" d="M 205 258 L 203 272 M 216 257 L 217 272"/>
+            <!-- shoulders leaning into the clash -->
+            <path class="hi-stroke" d="M 166 298 Q 188 280 212 277 Q 238 280 256 294"/>
+            <path class="hi-stroke" d="M 166 298 Q 158 354 164 412"/>
+            <path class="hi-stroke" d="M 256 294 Q 266 348 260 404"/>
+            <!-- collar + tie, angled forward with the lean -->
+            <path class="hi-stroke" d="M 194 284 L 214 312 L 232 286"/>
+            <path class="hi-stroke-soft" d="M 200 282 L 214 300 L 226 283"/>
+            <path class="hi-tie" d="M 214 312 L 207 325 L 215 364 L 222 324 Z"/>
+            <!-- back arm rests on the flow pad -->
+            <path class="hi-stroke" d="M 170 306 Q 152 336 158 372 Q 162 396 176 408"/>
+            <!-- front arm extended toward the opponent; hand is two tiny
+                 strokes on a continuous arm line (no floating ellipse —
+                 see 2026-05-27 glitch-dot note). -->
+            <path class="hi-stroke" d="M 252 300 Q 292 306 322 326 Q 336 336 342 348"/>
+            <path class="hi-stroke" d="M 342 348 l 12 4 m -12 -4 l 11 -7"/>
+            <!-- podium, front edge angled into the chamber -->
+            <path class="hi-podium" d="M 92 414 Q 190 405 286 412 L 296 430 L 288 510 Q 196 516 104 510 L 96 432 Z"/>
+            <path class="hi-podium-top" d="M 100 418 Q 192 409 280 416 L 296 430 L 96 432 Z"/>
+            <path class="hi-stroke-soft" d="M 96 432 Q 196 424 296 430"/>
           </g>
 
-          <!-- ── RIGHT debater (mirrored, mid-length hair) ── -->
+          <!-- ── RIGHT debater — mirrored profile, mid-length hair,
+               facing the chamber from the other side. -->
           <g class="hi-debater hi-debater-right">
-            <circle cx="920" cy="240" r="42" class="hi-stroke-tan" stroke-dasharray="2 5" opacity=".5" fill="none"/>
-            <ellipse cx="920" cy="240" rx="18" ry="24" class="hi-head-fill"/>
-            <ellipse cx="920" cy="240" rx="18" ry="24" class="hi-stroke"/>
-            <path class="hi-stroke" d="M902 234 Q 906 214 920 213 Q 936 215 938 240 Q 938 254 932 260"/>
-            <path class="hi-stroke" d="M908 256 Q 904 268 902 270"/>
-            <path class="hi-stroke" d="M913 264 L 912 278 M927 264 L 928 278"/>
-            <path class="hi-stroke" d="M872 300 Q 896 286 920 284 Q 944 286 968 300"/>
-            <path class="hi-stroke" d="M872 300 Q 868 360 874 412"/>
-            <path class="hi-stroke" d="M968 300 Q 972 360 966 412"/>
-            <path class="hi-stroke" d="M896 300 L 920 334 L 944 300"/>
-            <path class="hi-stroke-soft" d="M904 298 L 920 318 L 936 298"/>
-            <path class="hi-tie" d="M920 334 L 914 348 L 920 392 L 926 348 Z"/>
-            <!-- Mirror of the left side: clean arm sweep to the podium
-                 edge, no hand ellipse, no mic-pulse dot. -->
-            <path class="hi-stroke" d="M874 308 Q 846 320 832 350 Q 830 388 844 410"/>
-            <path class="hi-podium" d="M 820 412 Q 920 404 1020 412 L 1008 430 L 1000 510 Q 920 514 840 510 L 832 430 Z"/>
-            <path class="hi-podium-top" d="M 828 416 Q 920 408 1012 416 L 1008 430 L 832 430 Z"/>
-            <path class="hi-stroke-soft" d="M 832 430 Q 920 422 1008 430"/>
+            <circle cx="890" cy="234" r="42" class="hi-stroke-tan" stroke-dasharray="2 5" opacity=".5" fill="none"/>
+            <path class="hi-head-fill" d="M 906 216 Q 898 206 886 207 Q 874 210 872 224 Q 871 233 865 238 Q 863 241 867 243 Q 870 244 871 247 Q 872 253 880 256 Q 893 260 902 252 Q 910 243 909 229 Q 908 221 906 216 Z"/>
+            <path class="hi-stroke" d="M 906 216 Q 898 206 886 207 Q 874 210 872 224 Q 871 233 865 238 Q 863 241 867 243 Q 870 244 871 247 Q 872 253 880 256 Q 893 260 902 252 Q 910 243 909 229 Q 908 221 906 216 Z"/>
+            <path class="hi-stroke" d="M 907 220 Q 902 209 888 208 Q 878 209 874 218"/>
+            <!-- mid-length hair falling at the back of the head -->
+            <path class="hi-stroke" d="M 908 224 Q 916 240 910 256"/>
+            <!-- brow + eye, locked on the opponent -->
+            <path class="hi-stroke" d="M 881 224 Q 877 222 873 224 M 880 229 L 874 229"/>
+            <!-- neck -->
+            <path class="hi-stroke" d="M 895 258 L 897 272 M 884 257 L 883 272"/>
+            <!-- shoulders leaning into the clash -->
+            <path class="hi-stroke" d="M 934 298 Q 912 280 888 277 Q 862 280 844 294"/>
+            <path class="hi-stroke" d="M 934 298 Q 942 354 936 412"/>
+            <path class="hi-stroke" d="M 844 294 Q 834 348 840 404"/>
+            <!-- collar + tie, angled forward with the lean -->
+            <path class="hi-stroke" d="M 906 284 L 886 312 L 868 286"/>
+            <path class="hi-stroke-soft" d="M 900 282 L 886 300 L 874 283"/>
+            <path class="hi-tie" d="M 886 312 L 893 325 L 885 364 L 878 324 Z"/>
+            <!-- back arm rests on the flow pad -->
+            <path class="hi-stroke" d="M 930 306 Q 948 336 942 372 Q 938 396 924 408"/>
+            <!-- front arm extended toward the opponent -->
+            <path class="hi-stroke" d="M 848 300 Q 808 306 778 326 Q 764 336 758 348"/>
+            <path class="hi-stroke" d="M 758 348 l -12 4 m 12 -4 l -11 -7"/>
+            <!-- podium, front edge angled into the chamber -->
+            <path class="hi-podium" d="M 1008 414 Q 910 405 814 412 L 804 430 L 812 510 Q 904 516 996 510 L 1004 432 Z"/>
+            <path class="hi-podium-top" d="M 1000 418 Q 908 409 820 416 L 804 430 L 1004 432 Z"/>
+            <path class="hi-stroke-soft" d="M 1004 432 Q 904 424 804 430"/>
           </g>
 
-          <!-- ── CENTER globe ── -->
-          <circle class="hi-globe-shell" cx="550" cy="290" r="148"/>
-          <g class="hi-globe-grid">
-            <!-- Parallels (latitude): full ellipses, width = sphere's
-                 width at that height (rx = sqrt(r^2 - dy^2)), shallow ry so
-                 they read as latitude circles seen on a tilted globe. -->
-            <ellipse cx="550" cy="290" rx="148" ry="26"/>
-            <ellipse cx="550" cy="246" rx="142" ry="24"/>
-            <ellipse cx="550" cy="334" rx="142" ry="24"/>
-            <ellipse cx="550" cy="200" rx="118" ry="20"/>
-            <ellipse cx="550" cy="380" rx="118" ry="20"/>
-            <!-- Meridians (longitude): vertical ellipses sharing the poles
-                 (ry = r) at cos-spaced widths, plus the edge-on centre
-                 line. With the shell circle as the outline this reads as a
-                 proper globe wireframe. -->
-            <line x1="550" y1="142" x2="550" y2="438"/>
-            <ellipse cx="550" cy="290" rx="51"  ry="148"/>
-            <ellipse cx="550" cy="290" rx="97"  ry="148"/>
-            <ellipse cx="550" cy="290" rx="128" ry="148"/>
+          <!-- ── THE ADJUDICATOR — AI judge presiding at the vanishing
+               point. Deliberately quiet: an elevated bench, abstract
+               ballot lines, and a small listening orb with one calm
+               waveform. Antagonist and tool, not the Messiah — it
+               presides, it doesn't glow like a deity. Reuses the podium
+               fills + glow/shell gradients so every theme override
+               (dark/crimson/stone) styles the bench for free. -->
+          <ellipse class="hi-globe-halo" cx="550" cy="284" rx="120" ry="92"/>
+          <g class="hi-bench">
+            <path class="hi-podium" d="M 462 330 Q 550 322 638 330 L 630 346 L 470 346 Z"/>
+            <path class="hi-podium" d="M 470 346 L 630 346 L 624 392 Q 550 398 476 392 Z"/>
+            <!-- the ballot, abstract: three flow lines on the bench front -->
+            <path class="hi-stroke-soft" d="M 522 360 L 578 360 M 514 370 L 586 370 M 530 380 L 570 380"/>
           </g>
-
-          <!-- Inner waveforms + network — slowly rotates -->
-          <g class="hi-globe-rotor">
-            <path class="hi-globe-wave"  d="M 450 290 Q 480 264 510 290 T 570 290 T 630 290 T 670 290"/>
-            <path class="hi-globe-wave" opacity=".35" d="M 460 305 Q 490 320 520 305 T 580 305 T 640 305"/>
-            <path class="hi-globe-wave" opacity=".25" d="M 470 275 Q 500 260 530 275 T 590 275 T 650 275"/>
-            <path class="hi-globe-net"
-                  d="M 498 252 L 586 248 L 612 320 L 540 338 L 480 320 Z M 556 220 L 498 252 M 556 220 L 586 248"/>
-            <circle class="hi-globe-node" cx="498" cy="252" r="2.5"/>
-            <circle class="hi-globe-node" cx="586" cy="248" r="2"/>
-            <circle class="hi-globe-node" cx="540" cy="338" r="2.5"/>
-            <circle class="hi-globe-node" cx="612" cy="320" r="2"/>
-            <circle class="hi-globe-node" cx="480" cy="320" r="2"/>
-            <circle class="hi-globe-node" cx="556" cy="220" r="2"/>
-          </g>
-
-          <!-- Outer fixed rings -->
-          <circle cx="550" cy="290" r="148" class="hi-stroke-tan" fill="none" stroke-width="1"/>
-          <circle cx="550" cy="290" r="156" class="hi-stroke-tan" fill="none" stroke-width=".6" opacity=".5"/>
+          <!-- listening orb above the bench -->
+          <circle class="hi-stroke-tan" cx="550" cy="292" r="30" stroke-dasharray="2 5" opacity=".6" fill="none"/>
+          <circle class="hi-globe-shell" cx="550" cy="292" r="20"/>
+          <path class="hi-globe-wave" d="M 536 292 Q 543 284 550 292 T 564 292"/>
+          <circle class="hi-globe-node" cx="536" cy="292" r="1.6"/>
+          <circle class="hi-globe-node" cx="564" cy="292" r="1.6"/>
         </svg>
 
         <!-- Floating multilingual chips. Kept subtle and sparse so the
