@@ -11069,7 +11069,7 @@ function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
   var planPrices = { byok: '$1/mo', individual: '$5/year', lifetime: '$14.99 once', team: '$20/year' };
   var name = planNames[plan] || plan;
   var price = planPrices[plan] || '';
-  var showTeamCta = needsTeam || plan === 'team';
+  var showTeamCta = (needsTeam || plan === 'team') && typeof onCreateTeam === 'function';
   var openFeedback = () => {
     try {window.open('https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', '_blank', 'noopener');} catch (e) {}
     try {if (window.gtag) gtag('event', 'checkout_resume_feedback', { plan: plan });} catch (e) {}
@@ -12635,6 +12635,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   var [msg, setMsg] = useState('');
   var [actionLoading, setActionLoading] = useState(false);
   var [checkoutPlan, setCheckoutPlan] = useState(null);
+  var [betaPlanModal, setBetaPlanModal] = useState(null);
   var [copied, setCopied] = useState(false);
   var [friendEmail, setFriendEmail] = useState('');
   var [editingTeam, setEditingTeam] = useState(false);
@@ -12790,6 +12791,17 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   };
 
   var openCheckout = async (plan) => {
+    // Beta no-charge gate. same policy as pricing.html's startCheckout:
+    // while CHECKOUT_BETA_NO_CHARGE is on nobody can be charged, so plan
+    // picks here route to the beta feedback framing (CheckoutResumeModal)
+    // instead of Stripe. Flip the module flag together with pricing.html's
+    // BETA_NO_CHARGE and the live checkout below comes back untouched.
+    if (CHECKOUT_BETA_NO_CHARGE) {
+      try {if (window.gtag) gtag('event', 'checkout_beta_gate', { plan: plan, surface: 'team_dashboard' });} catch (e) {}
+      try {logBetaEvent('checkout_beta_gate', { plan: plan, surface: 'team_dashboard' });} catch (e) {}
+      setBetaPlanModal(plan);
+      return;
+    }
     setActionLoading(true);
     setCheckoutPlan(plan);
     try {
@@ -12921,6 +12933,14 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   var planColor = planColors[team.plan] || '#94a3b8';
 
   return el('div', { className: 'panel' },
+  // Beta no-charge framing for plan picks. the user already has a team
+  // here, so no "Set up your team" CTA (onCreateTeam stays null).
+  betaPlanModal && el(CheckoutResumeModal, {
+    plan: betaPlanModal,
+    needsTeam: false,
+    onClose: () => setBetaPlanModal(null),
+    onCreateTeam: null
+  }),
   el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
   el('div', null,
   editingTeam ?
