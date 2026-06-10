@@ -9476,14 +9476,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     align-items:start;
   }
   .live-proof-video{
-    position:relative;display:block;
+    position:relative;
+    display:flex;flex-direction:column;
     border-radius:14px;overflow:hidden;
     background:#0c0c10;
     box-shadow:0 30px 70px rgba(0,0,0,.45);
-    line-height:0;
-    /* matches the cropped screenshot at app/landing-shot-live.jpg
-       (585x571 ~= 1:1) so the image fills the panel without
-       awkward top/bottom cropping that would clip the controls. */
+    line-height:1.3;
+    /* height-locked to the ballot panel beside it, which carries
+       the same aspect-ratio so both columns end at one baseline.
+       Change both or neither. */
     aspect-ratio: 585 / 571;
     cursor:pointer;text-decoration:none;color:inherit;
     transition:transform .18s ease, box-shadow .18s ease;
@@ -9519,15 +9520,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .live-proof-video{
     box-shadow:0 20px 50px rgba(0,0,0,.12);
   }
-  .live-proof-video img{
-    width:100%;height:100%;object-fit:cover;object-position:center;
-    display:block;
-    position:relative;z-index:2;
-  }
-
-  /* Floating recording badge anchored to the screenshot's top-left. */
+  /* Floating recording badge anchored to the top-left of the tile
+     row, just below the CSS topbar so it never covers the brand. */
   .live-proof-badge{
-    position:absolute;top:12px;left:12px;
+    position:absolute;top:66px;left:14px;z-index:4;
     display:inline-flex;align-items:center;gap:7px;
     background:rgba(0,0,0,.66);
     color:#fff;font-size:.6rem;font-weight:800;
@@ -10352,12 +10348,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      in one place instead of duplicating across a dedicated section. -->
 
 
-<!-- ── Live-round proof (2026-05-18). Split panel: left is the real
-     /live-round screenshot (cropped to just the video portion at
-     app/landing-shot-live.jpg, 585x571); right is the AI judge's
-     ballot, with a substantive RFD around a real motion. A CSS
-     mockup sits under the img as a fallback if the asset ever
-     disappears, so the proof never breaks. -->
+<!-- ── Live-round proof (2026-05-18, rebuilt 2026-06-10 as a
+     face-off split screen). Left panel: two real webcam crops
+     (landing-shot-live-left/right.jpg), one debater per tile,
+     eyelines meeting at the center seam; topbar, nameplates and
+     controls are CSS chrome so branding stays current. Right is
+     the AI judge's ballot with a substantive RFD. Per-tile
+     initials-avatars sit under the imgs as a fallback if an asset
+     ever disappears, so the proof never breaks. -->
 <div class="divider"></div>
 <section id="live-proof" class="live-proof" aria-label="Live round with an AI judge">
   <div class="live-proof-wrap">
@@ -10370,29 +10368,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <div class="live-proof-frame">
       <a class="live-proof-video" href="/live" aria-label="Open Live Debates and post or accept a challenge">
         <span class="live-proof-badge">Live · 2 debaters</span>
-        <!-- Real /live-round screenshot, cropped to the video panel.
-             585x571 source; covers the panel and hides the CSS mockup
-             behind it. If the asset ever 404s the onerror handler
-             hides the img and the mockup shows through. -->
-        <img src="/landing-shot-live.jpg" alt="Two debaters on a Debate it Live Round video call" loading="lazy" decoding="async" onerror="this.style.display='none'">
-        <div class="lpv-mock" aria-hidden="true">
-          <div class="lpv-topbar">
-            <span class="lpv-brand">Debate it <span>· Live Round</span></span>
-            <span class="lpv-ballotin">Ballot in <span class="d1"></span><span class="d2"></span><span class="d3"></span></span>
+        <!-- Face-off split: two real webcam crops, one debater per
+             tile, gazes meeting at the center seam. If a jpg ever
+             404s its onerror hides it and the initials-avatar tile
+             underneath shows through; the CSS chrome survives. -->
+        <div class="lpv-topbar">
+          <span class="lpv-brand">Debate it <span>· Live Round</span></span>
+          <span class="lpv-ballotin">Ballot in <span class="d1"></span><span class="d2"></span><span class="d3"></span></span>
+        </div>
+        <div class="lpv-tiles">
+          <div class="lpv-tile lpv-tile-l lpv-tile-speaking">
+            <div class="lpv-avatar" aria-hidden="true">AH</div>
+            <img src="/landing-shot-live-left.jpg" alt="Debater arguing the Pro side on a live video round" loading="lazy" decoding="async" onerror="this.style.display='none'">
+            <span class="lpv-name">You · Pro</span>
           </div>
-          <div class="lpv-pip">
-            <div class="lpv-pip-avatar">AH</div>
-            <div class="lpv-pip-name">You · Pro</div>
+          <div class="lpv-tile lpv-tile-r">
+            <div class="lpv-avatar" aria-hidden="true">TC</div>
+            <img src="/landing-shot-live-right.jpg" alt="Debater flowing the speech on the Con side" loading="lazy" decoding="async" onerror="this.style.display='none'">
+            <span class="lpv-name lpv-name-right">Guest · Con</span>
           </div>
-          <div class="lpv-main">
-            <div class="lpv-main-avatar">TC</div>
-            <div class="lpv-main-name">Guest · Con</div>
-          </div>
-          <div class="lpv-controls">
-            <span class="lpv-ctl">Mute</span>
-            <span class="lpv-ctl">Cam</span>
-            <span class="lpv-ctl lpv-ctl-leave">Leave</span>
-          </div>
+          <span class="lpv-clock" aria-hidden="true">PM · 3:42</span>
+        </div>
+        <div class="lpv-controls">
+          <span class="lpv-ctl">Mute</span>
+          <span class="lpv-ctl">Cam</span>
+          <span class="lpv-ctl lpv-ctl-leave">Leave</span>
         </div>
       </a>
 
@@ -10467,19 +10467,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 <style>
-  /* CSS-only mockup of the /live video room. Lives under the
-     optional <img>; the img sits above with object-fit:cover, so
-     when a real screenshot is dropped at /landing-shot-live.png it
-     takes over without disturbing the rest. */
-  .live-proof-video .lpv-mock{
-    position:absolute;inset:0;
-    background:linear-gradient(180deg,#fafaf7 0%,#fafaf7 64px,#0c0c10 64px,#0c0c10 100%);
-    display:flex;flex-direction:column;
-  }
+  /* Face-off chrome for the /live video panel: CSS topbar, two
+     webcam tiles split by a center seam, CSS controls row. Each
+     tile's <img> sits above an initials-avatar fallback. */
   .live-proof-video .lpv-topbar{
-    height:64px;flex-shrink:0;
+    height:56px;flex-shrink:0;
+    background:#fafaf7;
     display:flex;align-items:center;justify-content:space-between;
-    padding:0 22px;
+    padding:0 18px;
     border-bottom:1px solid rgba(0,0,0,.06);
   }
   .live-proof-video .lpv-brand{
@@ -10496,48 +10491,55 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .live-proof-video .lpv-ballotin .d1{background:#ef4444}
   .live-proof-video .lpv-ballotin .d2{background:#1a1a1f}
   .live-proof-video .lpv-ballotin .d3{background:transparent;border:1.5px solid #1a1a1f}
-  .live-proof-video .lpv-main{
-    position:absolute;left:18px;right:18px;bottom:80px;top:90px;
-    background:linear-gradient(180deg,#26262e 0%,#171720 100%);
-    border-radius:10px;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
-    color:#fff;
+  .live-proof-video .lpv-tiles{
+    flex:1;min-height:0;position:relative;
+    display:grid;grid-template-columns:1fr 1fr;gap:2px;
+    padding:2px;
+    background:#0c0c10;
   }
-  .live-proof-video .lpv-main-avatar{
-    width:96px;height:96px;border-radius:50%;
+  .live-proof-video .lpv-tile{
+    position:relative;overflow:hidden;border-radius:8px;
+    background:linear-gradient(180deg,#26262e 0%,#171720 100%);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .live-proof-video .lpv-tile img{
+    position:absolute;inset:0;width:100%;height:100%;
+    object-fit:cover;display:block;z-index:2;
+  }
+  /* bias each crop so the faces sit toward the center seam */
+  .live-proof-video .lpv-tile-l img{object-position:58% 50%}
+  .live-proof-video .lpv-tile-r img{object-position:42% 50%}
+  /* who's-talking ring, the universal live-call affordance */
+  .live-proof-video .lpv-tile-speaking::after{
+    content:"";position:absolute;inset:0;z-index:3;pointer-events:none;
+    border:1.5px solid rgba(239,68,68,.55);border-radius:8px;
+  }
+  .live-proof-video .lpv-avatar{
+    width:84px;height:84px;border-radius:50%;
     background:linear-gradient(135deg,#4a4a55 0%,#2a2a30 100%);
     border:2px solid rgba(255,255,255,.18);
     display:flex;align-items:center;justify-content:center;
-    font-size:1.6rem;font-weight:700;letter-spacing:.02em;
+    font-size:1.4rem;font-weight:700;color:#fff;letter-spacing:.02em;
     box-shadow:0 12px 36px rgba(0,0,0,.4);
   }
-  .live-proof-video .lpv-main-name{
-    font-size:.85rem;font-weight:600;color:rgba(255,255,255,.85);
-    background:rgba(0,0,0,.5);padding:5px 12px;border-radius:6px;
+  .live-proof-video .lpv-name{
+    position:absolute;left:10px;bottom:10px;z-index:3;
+    font-size:.66rem;font-weight:700;color:#fff;line-height:1;
+    background:rgba(0,0,0,.55);padding:5px 9px;border-radius:6px;
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
   }
-  .live-proof-video .lpv-pip{
-    position:absolute;top:80px;right:24px;
-    width:140px;height:96px;
-    background:linear-gradient(180deg,#3a3a45 0%,#22222a 100%);
-    border-radius:8px;
-    border:2px solid rgba(239,68,68,.5);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
-    color:#fff;
-    box-shadow:0 8px 22px rgba(0,0,0,.4);
-  }
-  .live-proof-video .lpv-pip-avatar{
-    width:38px;height:38px;border-radius:50%;
-    background:linear-gradient(135deg,#dc2626 0%,#7c1414 100%);
-    display:flex;align-items:center;justify-content:center;
-    font-size:.78rem;font-weight:700;
-  }
-  .live-proof-video .lpv-pip-name{
-    font-size:.62rem;font-weight:700;color:#fff;
-    background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px;
+  .live-proof-video .lpv-name-right{left:auto;right:10px}
+  /* quiet speech clock pinned to the seam */
+  .live-proof-video .lpv-clock{
+    position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:4;
+    font-size:.6rem;font-weight:800;letter-spacing:.08em;color:#fff;line-height:1;
+    background:rgba(0,0,0,.6);padding:5px 10px;border-radius:999px;
+    border:1px solid rgba(255,255,255,.14);
   }
   .live-proof-video .lpv-controls{
-    position:absolute;left:0;right:0;bottom:18px;
-    display:flex;justify-content:center;gap:18px;
+    flex-shrink:0;height:54px;
+    display:flex;align-items:center;justify-content:center;gap:14px;
+    background:#0c0c10;
   }
   .live-proof-video .lpv-ctl{
     font-size:.68rem;font-weight:700;color:rgba(255,255,255,.6);
