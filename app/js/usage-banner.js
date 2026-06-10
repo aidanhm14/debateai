@@ -71,7 +71,11 @@
     // of the hero headline column entirely.
     rootEl.style.cssText = [
       'position:fixed',
-      'top:14px',
+      // Ride below the founding-cohort strip when it's present —
+      // cohort-banner.js publishes its height as --cohort-banner-h
+      // (the topbar shifts by the same var). Without this the pill
+      // sat ON the red strip, red-on-red.
+      'top:calc(14px + var(--cohort-banner-h, 0px))',
       'right:14px',
       'left:auto',
       'transform:none',
@@ -120,6 +124,12 @@
     const limit = usage.usageLimit || 0;
     const plan = usage.plan || 'trial';
     const isPaid = plan && plan !== 'trial';
+
+    // used > limit means the cap is not actually being enforced (beta:
+    // every tier is $0 and requests keep working past the plan number).
+    // Showing "15 / 3 · cap reached · UPGRADE" is false scarcity wired
+    // to a dead upgrade path — hide instead of lying.
+    if (limit > 0 && used > limit) { root.innerHTML = ''; return; }
 
     const sev = severityFor(used, limit);
     // Hide entirely when comfortable. Paid users see it past 50% (budget
