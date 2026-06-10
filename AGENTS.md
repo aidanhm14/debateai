@@ -183,7 +183,8 @@ edit voice from the client.
 
 When editing format-specific voice (Policy spreads, PF citations, LD
 framework, BP whip, APDA impromptu, Worlds POIs, Asian Parli, Congress,
-MUN), **read the relevant format block first.** Don't generalize across
+MUN, Karl Popper, plus the Career trio: courtroom, negotiation, pitch
+defense), **read the relevant format block first.** Don't generalize across
 formats — formats genuinely differ on evidence rules, structure, and
 register.
 
